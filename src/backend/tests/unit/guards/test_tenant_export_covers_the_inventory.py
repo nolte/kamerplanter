@@ -37,7 +37,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
-from app.domain.engines.tenant_export_engine import TenantExportEngine
+from app.domain.engines.tenant_export_engine import TenantExportEngine, TenantReference
 from app.domain.models.ha_publish_setting import HaPublishSetting
 from tests.support.execution_guards import find_project_root
 from tests.unit.guards.test_tenant_scoped_reads_are_derived import build_inventory
@@ -259,3 +259,46 @@ class TestEveryEdgeCollectionIsDecided:
 
     def test_an_access_grant_is_never_imported(self) -> None:
         assert "tenant_has_access" in TenantExportEngine.EXCLUDED_EDGES
+
+
+class TestTheProvenanceContract:
+    """#2528 (REQ-056 §8.4 step 1): a *provenance* reference is cleared and counted instead of refusing the archive.
+
+    That relaxation is only sound for a copy's origin in a hybrid catalogue: an ``internal`` reference whose row may
+    be a global catalogue row of the target. The set of provenance paths is pinned here - adding one is a reviewed
+    decision (a field the import may silently clear), not a side effect of a new declaration.
+    """
+
+    def test_the_provenance_paths_are_exactly_the_reviewed_ones(self) -> None:
+        paths = {
+            f"{collection}.{path}"
+            for collection, refs in (
+                ("*", TenantExportEngine.FIELD_REFERENCES),
+                *TenantExportEngine.COLLECTION_REFERENCES.items(),
+            )
+            for path, ref in refs.items()
+            if ref.provenance
+        }
+        assert paths == {"locations.template_key", "locations.soil_profile.substrate_key"}
+
+    def test_a_provenance_reference_outside_a_hybrid_catalogue_fails_validation(self, monkeypatch) -> None:
+        refs = {**TenantExportEngine.COLLECTION_REFERENCES}
+        refs["locations"] = {
+            **refs["locations"],
+            "site_key": TenantReference(kind="internal", targets=("sites",), provenance=True),
+        }
+        monkeypatch.setattr(TenantExportEngine, "COLLECTION_REFERENCES", refs)
+
+        with pytest.raises(ValueError, match=r"locations\.site_key: provenance .*'sites'"):
+            TenantExportEngine.validate()
+
+    def test_a_provenance_reference_must_be_internal(self, monkeypatch) -> None:
+        refs = {**TenantExportEngine.COLLECTION_REFERENCES}
+        refs["locations"] = {
+            **refs["locations"],
+            "template_key": TenantReference(kind="global", targets=("bed_templates",), provenance=True),
+        }
+        monkeypatch.setattr(TenantExportEngine, "COLLECTION_REFERENCES", refs)
+
+        with pytest.raises(ValueError, match=r"locations\.template_key: provenance .*internal"):
+            TenantExportEngine.validate()

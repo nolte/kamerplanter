@@ -402,6 +402,36 @@ class TestPatchWritesOnlyWhatItChanged:
         document = db.collection(col.LOCATIONS).get("bed")
         assert "notes" not in document and document["soil_profile"] == {"soil_texture": "clay"}
 
+    def test_the_rotation_switch_is_stored_and_null_returns_it_to_the_type_default(self, db, service) -> None:
+        """GP-FR-137 (#2544): ``rotation_enabled`` round trip through ArangoDB; ``null`` removes the attribute."""
+
+        def patch(body: dict) -> None:
+            service.patch_location(
+                "bed", tenant_key=A, user_key=USER, role=TenantRole.GROWER, patch=LocationPatch.model_validate(body)
+            )
+
+        patch({"rotation_enabled": True})
+        assert db.collection(col.LOCATIONS).get("bed")["rotation_enabled"] is True
+        assert service._owned_location("bed", tenant_key=A).rotation_enabled is True
+
+        patch({"rotation_enabled": None})
+        assert "rotation_enabled" not in db.collection(col.LOCATIONS).get("bed")
+        assert service._owned_location("bed", tenant_key=A).rotation_enabled is None
+
+    def test_a_permanent_crop_is_not_switched_on_and_nothing_is_written(self, db, service) -> None:
+        service.patch_location(
+            "bed", tenant_key=A, user_key=USER, role=TenantRole.GROWER, patch=LocationPatch(rotation_exempt=True)
+        )
+
+        with pytest.raises(PlanError) as caught:
+            service.patch_location(
+                "bed", tenant_key=A, user_key=USER, role=TenantRole.GROWER, patch=LocationPatch(rotation_enabled=True)
+            )
+
+        assert caught.value.error_code == "patch.rotation_exempt_and_enabled"
+        document = db.collection(col.LOCATIONS).get("bed")
+        assert document["rotation_exempt"] is True and "rotation_enabled" not in document
+
     def test_a_deleted_location_is_a_404(self, repo) -> None:
         with pytest.raises(NotFoundError):
             repo.update_location_fields("gone", {"notes": "x"})

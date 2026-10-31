@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -52,7 +52,11 @@
     "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)",
     "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)",
     "site_fit": "input.sun_exposure (full_sun | partial_shade | shade | deep_shade | unknown), input.light_requirement (full_sun | partial_shade | shade | null), input.shade_tolerance (full_sun | partial_shade | shade | deep_shade | null) -> expected {fit: ok | marginal | poor | unknown, reason: match | too_sunny | too_shady | tolerated | tolerance_unknown | bed_unknown | requirement_unknown} - site_fit_calculator.assess / model/siteFit.ts assessSiteFit (GP-FR-160, GP-ACC-053)",
-    "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)"
+    "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)",
+    "phase_color": "input.name (growth-phase name as stored, growth_phases.name) -> expected \"#RRGGBB\": a name that is a known phase after lower-casing and dropping every character outside a-z takes its fixed colour; any other name takes FALLBACK_PALETTE[abs(h) % 10] with h = int32(h * 31 + c) over the UTF-16 code units c of the unnormalised name (phase_colors.phase_color / planting/phaseColors.ts phaseColor, REQ-053 GP-FR-067, GP-UX-005)",
+    "place_geometry": "input.geometry (bed template default_geometry in the bed frame: rect | circle | polygon), input.origin [x, y], input.rotation_deg -> expected the plan-frame geometry: the anchor (rect origin, circle centre, first polygon vertex) at origin, rotation_deg = (own + requested) folded into [0, 360) and rounded to 0.001; a circle carries no rotation (template_placement_calculator.place_geometry / templates/placeGeometry.ts placeGeometry, REQ-053 GP-FR-044, #2536)",
+    "label_anchor": "input.geometry (rect | circle | polygon | polyline | point, plan frame) -> expected {point: [x, y], width_m}: the centre of the object's horizontal label and the widest label centred there that stays inside the shape - rect/circle: centre (room = horizontal chord / diameter); polygon: pole of inaccessibility (polylabel quadtree to 0.01 m in the local frame, seeded with the area centroid, cells in the total order potential desc, x asc, y asc, insertion; start cell size max(shorter box side, longer box side / 64, 0.01), a cell is refined only while min(potential, shorter box side / 2) - best distance > 0.01; a non-finite vertex yields the first vertex), room = 2 x min(reach left, reach right) along the chord y = point_y (edges half-open in y); polyline: point at half its length, room = bbox width incl. stroke; point: the point, room 0. Rounded to 0.001 (label_anchor_calculator.label_anchor / model/labelAnchor.ts labelAnchor, REQ-053 GP-UX-047, GP-FR-003, #2490) - the PDF writer and the editor place names on this point",
+    "label_truncate": "input.text (an object name), input.max_chars (integer >= 1) -> expected string: whitespace runs collapse to one space; a name longer than max_chars is cut to max(1, max_chars - 1) characters, trailing spaces dropped, and \"\u2026\" appended. Characters are Unicode code points (Python len), never UTF-16 code units: a character outside the BMP counts once and is never split (plan_svg_engine._truncate / model/labelAnchor.ts truncateLabel, REQ-053 GP-UX-047, GP-FR-003, #2490 SCR-004)"
   },
   "cases": [
     {
@@ -4370,6 +4374,396 @@
         "due": "2026-10-19T00:00:00Z"
       },
       "expected": false
+    },
+    {
+      "id": "phase-color-germination",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "germination"
+      },
+      "expected": "#81C784"
+    },
+    {
+      "id": "phase-color-seedling",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "seedling"
+      },
+      "expected": "#66BB6A"
+    },
+    {
+      "id": "phase-color-vegetative",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "vegetative"
+      },
+      "expected": "#43A047"
+    },
+    {
+      "id": "phase-color-flowering",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "flowering"
+      },
+      "expected": "#AB47BC"
+    },
+    {
+      "id": "phase-color-harvest",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "harvest"
+      },
+      "expected": "#EF5350"
+    },
+    {
+      "id": "phase-color-drying",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "drying"
+      },
+      "expected": "#FF7043"
+    },
+    {
+      "id": "phase-color-curing",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "curing"
+      },
+      "expected": "#FFA726"
+    },
+    {
+      "id": "phase-color-flushing",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "flushing"
+      },
+      "expected": "#42A5F5"
+    },
+    {
+      "id": "phase-color-ripening",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "ripening"
+      },
+      "expected": "#FF8A65"
+    },
+    {
+      "id": "phase-color-cloning",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "cloning"
+      },
+      "expected": "#26A69A"
+    },
+    {
+      "id": "phase-color-upper-case",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: case does not matter for a named phase",
+      "input": {
+        "name": "FLOWERING"
+      },
+      "expected": "#AB47BC"
+    },
+    {
+      "id": "phase-color-title-case",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: case does not matter for a named phase",
+      "input": {
+        "name": "Vegetative"
+      },
+      "expected": "#43A047"
+    },
+    {
+      "id": "phase-color-whitespace",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: surrounding whitespace is dropped for a named phase",
+      "input": {
+        "name": "  Flowering \n"
+      },
+      "expected": "#AB47BC"
+    },
+    {
+      "id": "phase-color-inner-separators",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: every character outside a-z is dropped before the lookup",
+      "input": {
+        "name": "Ger-mi nation"
+      },
+      "expected": "#81C784"
+    },
+    {
+      "id": "phase-color-unknown-dormancy",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: unknown name falls back by hash (h = 1283420777)",
+      "input": {
+        "name": "dormancy"
+      },
+      "expected": "#FFA726"
+    },
+    {
+      "id": "phase-color-unknown-case-sensitive",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: the fallback hashes the unnormalised name, so case changes it (h = 1348064905)",
+      "input": {
+        "name": "Dormancy"
+      },
+      "expected": "#D4E157"
+    },
+    {
+      "id": "phase-color-unknown-negative-hash",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: a negative hash takes its absolute value (h = -7053138)",
+      "input": {
+        "name": "juvenile"
+      },
+      "expected": "#EC407A"
+    },
+    {
+      "id": "phase-color-unknown-underscore",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: an enum-like name that is no named phase falls back (h = -1497361049)",
+      "input": {
+        "name": "pre_bloom"
+      },
+      "expected": "#78909C"
+    },
+    {
+      "id": "phase-color-unknown-non-ascii",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: a non-ASCII name hashes its UTF-16 code units (h = 2136557366)",
+      "input": {
+        "name": "Überwinterung"
+      },
+      "expected": "#FFCA28"
+    },
+    {
+      "id": "phase-color-unknown-astral",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: an astral character counts as two UTF-16 code units (h = -314100348)",
+      "input": {
+        "name": "🌱 sprout"
+      },
+      "expected": "#EC407A"
+    },
+    {
+      "id": "phase-color-unknown-wraps",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: the hash wraps at 32 bits (h = 1053425175)",
+      "input": {
+        "name": "a very long phase name that overflows the hash many times"
+      },
+      "expected": "#D4E157"
+    },
+    {
+      "id": "phase-color-empty",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: the empty name hashes to 0, the first fallback colour",
+      "input": {
+        "name": ""
+      },
+      "expected": "#7E57C2"
+    },
+    {
+      "id": "place-geometry-rect-turned",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: the anchor lands on the origin and the requested turn adds to the own rotation",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 0.0},
+        "origin": [4.0, 15.0],
+        "rotation_deg": 90.0
+      },
+      "expected": {"kind": "rect", "origin": [4.0, 15.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 90.0}
+    },
+    {
+      "id": "place-geometry-rect-full-turn-folds",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: own 270 + requested 90 is a full turn and folds to 0",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 1.2, "length_m": 2.4, "rotation_deg": 270.0},
+        "origin": [2.5, 3.5],
+        "rotation_deg": 90.0
+      },
+      "expected": {"kind": "rect", "origin": [2.5, 3.5], "width_m": 1.2, "length_m": 2.4, "rotation_deg": 0.0}
+    },
+    {
+      "id": "place-geometry-rect-wraps-past-360",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: own 350 + requested 30 wraps to 20",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 3.0, "length_m": 1.0, "rotation_deg": 350.0},
+        "origin": [10.0, 10.0],
+        "rotation_deg": 30.0
+      },
+      "expected": {"kind": "rect", "origin": [10.0, 10.0], "width_m": 3.0, "length_m": 1.0, "rotation_deg": 20.0}
+    },
+    {
+      "id": "place-geometry-circle-ignores-turn",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: a circle's centre is its anchor and it has no rotation",
+      "input": {
+        "geometry": {"kind": "circle", "origin": [0.0, 0.0], "radius_m": 0.6},
+        "origin": [7.0, 8.0],
+        "rotation_deg": 90.0
+      },
+      "expected": {"kind": "circle", "origin": [7.0, 8.0], "radius_m": 0.6}
+    },
+    {
+      "id": "place-geometry-polygon-first-vertex",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: a polygon is shifted so that its first vertex lands on the origin; the turn is a field",
+      "input": {
+        "geometry": {"kind": "polygon", "points": [[1.0, 0.5], [3.0, 0.5], [2.0, 2.0]], "rotation_deg": 10.0},
+        "origin": [5.0, 5.0],
+        "rotation_deg": 45.0
+      },
+      "expected": {"kind": "polygon", "points": [[5.0, 5.0], [7.0, 5.0], [6.0, 6.5]], "rotation_deg": 55.0}
+    },
+    {
+      "id": "place-geometry-rect-negative-sum-wraps",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: own 10 + requested -30 is -20 and folds into [0, 360) as 340, never a negative angle",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 10.0},
+        "origin": [6.0, 6.0],
+        "rotation_deg": -30.0
+      },
+      "expected": {"kind": "rect", "origin": [6.0, 6.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 340.0}
+    },
+    {
+      "id": "label-anchor-rect-centre",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: a rectangle's label sits at its centre; the room is its full width",
+      "input": {"geometry": {"kind": "rect", "origin": [2.0, 1.0], "width_m": 4.0, "length_m": 1.2, "rotation_deg": 0.0}},
+      "expected": {"point": [4.0, 1.6], "width_m": 4.0}
+    },
+    {
+      "id": "label-anchor-rect-rotated-30",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: a rotated rectangle keeps its centre; the room is the horizontal chord through it (3 x 1 m at 30 deg: 2 m)",
+      "input": {"geometry": {"kind": "rect", "origin": [5.0, 5.0], "width_m": 3.0, "length_m": 1.0, "rotation_deg": 30.0}},
+      "expected": {"point": [6.049, 6.183], "width_m": 2.0}
+    },
+    {
+      "id": "label-anchor-circle-centre",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: a circle's label sits at its centre; the room is its diameter",
+      "input": {"geometry": {"kind": "circle", "origin": [8.25, 1.0], "radius_m": 0.4}},
+      "expected": {"point": [8.25, 1.0], "width_m": 0.8}
+    },
+    {
+      "id": "label-anchor-polygon-l-shape-pole-not-centroid",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: an L-shaped bed (concave, as in V-05 / layout-018) takes the pole of inaccessibility in its corner square; its area centroid (4.236, 3.236) lies in the notch, outside the bed. Analytic pole: (2 + t, 2 + t), t = 1.2 sqrt2 / (1 + sqrt2) = 0.703; room 2 x 0.703",
+      "input": {"geometry": {"kind": "polygon", "points": [[2.0, 2.0], [8.0, 2.0], [8.0, 3.2], [3.2, 3.2], [3.2, 6.0], [2.0, 6.0]]}},
+      "expected": {"point": [2.703, 2.703], "width_m": 1.406}
+    },
+    {
+      "id": "label-anchor-polygon-l-shape-rotated-90",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: the pole is searched in the local frame and turned with the polygon about its first vertex (2, 2); the room is measured horizontally on the plan",
+      "input": {"geometry": {"kind": "polygon", "points": [[2.0, 2.0], [8.0, 2.0], [8.0, 3.2], [3.2, 3.2], [3.2, 6.0], [2.0, 6.0]], "rotation_deg": 90.0}},
+      "expected": {"point": [1.297, 2.703], "width_m": 1.406}
+    },
+    {
+      "id": "label-anchor-polygon-u-shape-tie-resolves-left",
+      "operation": "label_anchor",
+      "spec": "GP-FR-003 determinism: a U-shaped bed has two equal poles in its lower corners; the search takes cells in a total order (potential, then x, then y), so both ports pick the left one",
+      "input": {"geometry": {"kind": "polygon", "points": [[10.0, 10.0], [16.0, 10.0], [16.0, 14.0], [15.0, 14.0], [15.0, 11.0], [11.0, 11.0], [11.0, 14.0], [10.0, 14.0]]}},
+      "expected": {"point": [10.586, 10.586], "width_m": 1.172}
+    },
+    {
+      "id": "label-anchor-polygon-kidney",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: a kidney-shaped bed (concave on its upper side): the pole sits in the wide left lobe, the room is the symmetric part of the chord through it",
+      "input": {"geometry": {"kind": "polygon", "points": [[1.0, 1.0], [6.0, 1.0], [7.0, 2.5], [6.0, 4.0], [4.5, 3.2], [3.0, 4.0], [1.0, 3.5]]}},
+      "expected": {"point": [2.811, 2.459], "width_m": 3.621}
+    },
+    {
+      "id": "label-anchor-polygon-convex-pentagon",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: the spec's pentagon (centroid-polygon-002): the pole (2.031, 1.219) differs from the area centroid (2.091, 1.05)",
+      "input": {"geometry": {"kind": "polygon", "points": [[0.0, 0.0], [4.2, 0.0], [4.2, 1.5], [2.0, 2.6], [0.0, 1.5]]}},
+      "expected": {"point": [2.031, 1.219], "width_m": 4.063}
+    },
+    {
+      "id": "label-anchor-polygon-narrow-strip-keeps-centre",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: a 10 x 0.3 m strip has a whole segment of equal poles; the centroid seed is kept, never a point that only ties it",
+      "input": {"geometry": {"kind": "polygon", "points": [[0.0, 0.0], [10.0, 0.0], [10.0, 0.3], [0.0, 0.3]]}},
+      "expected": {"point": [5.0, 0.15], "width_m": 10.0}
+    },
+    {
+      "id": "label-anchor-polygon-sliver-rect-bounded-search",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047, SCR-001: a 1000 x 0.002 m sliver (aspect 500 000:1) - the start grid is capped at 64 cells along the long side and refinement stops at the inradius ceiling (half the short side), so the search ends at once on the centroid seed instead of starting with half a million cells",
+      "input": {"geometry": {"kind": "polygon", "points": [[0.0, 0.0], [1000.0, 0.0], [1000.0, 0.002], [0.0, 0.002]]}},
+      "expected": {"point": [500.0, 0.001], "width_m": 1000.0}
+    },
+    {
+      "id": "label-anchor-polygon-sliver-triangle-bounded-search",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047, SCR-001: a 1000 x 0.003 m sliver triangle - no point beats the centroid seed (333.333, 0.001) by more than the 0.01 m precision (the incircle radius is 0.0015 m), so it stays; the chord y = 0.001 runs 0..666.667, centred room 666.667",
+      "input": {"geometry": {"kind": "polygon", "points": [[0.0, 0.0], [1000.0, 0.0], [0.0, 0.003]]}},
+      "expected": {"point": [333.333, 0.001], "width_m": 666.667}
+    },
+    {
+      "id": "label-anchor-polyline-half-length",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: a bent path's label sits at half its length, on the stroke (the vertex mean (3.667, 2.0) is off it); the room is the box width with the stroke",
+      "input": {"geometry": {"kind": "polyline", "points": [[1.0, 1.0], [5.0, 1.0], [5.0, 4.0]], "width_m": 0.6}},
+      "expected": {"point": [4.5, 1.0], "width_m": 4.6}
+    },
+    {
+      "id": "label-anchor-point-itself",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047: a point object's label anchor is the point; it has no room",
+      "input": {"geometry": {"kind": "point", "origin": [3.0, 4.0]}},
+      "expected": {"point": [3.0, 4.0], "width_m": 0.0}
+    },
+    {
+      "id": "label-truncate-fits-unchanged",
+      "operation": "label_truncate",
+      "spec": "GP-UX-047: a name that fits is kept, its whitespace runs collapsed",
+      "input": {"text": "  Beet \n  Nord  ", "max_chars": 20},
+      "expected": "Beet Nord"
+    },
+    {
+      "id": "label-truncate-cut-drops-space-before-ellipsis",
+      "operation": "label_truncate",
+      "spec": "GP-UX-047: the cut drops the space before the ellipsis",
+      "input": {"text": "Beet am Zaun", "max_chars": 6},
+      "expected": "Beet…"
+    },
+    {
+      "id": "label-truncate-non-bmp-fits-by-code-points",
+      "operation": "label_truncate",
+      "spec": "SCR-004: six code points outside the BMP (twelve UTF-16 units) fit six characters - counting UTF-16 units would shorten it",
+      "input": {"text": "𝔅𝔢𝔢𝔱 𝟏", "max_chars": 6},
+      "expected": "𝔅𝔢𝔢𝔱 𝟏"
+    },
+    {
+      "id": "label-truncate-non-bmp-cut-keeps-whole-characters",
+      "operation": "label_truncate",
+      "spec": "SCR-004: a cut among emoji keeps whole characters (never a lone surrogate) and drops the space before the ellipsis",
+      "input": {"text": "🌱🌱🌱🌱 Beet", "max_chars": 6},
+      "expected": "🌱🌱🌱🌱…"
+    },
+    {
+      "id": "label-truncate-non-bmp-only",
+      "operation": "label_truncate",
+      "spec": "SCR-004: a name of emoji only, cut to three characters and the ellipsis",
+      "input": {"text": "🍅🍅🍅🍅🍅🍅", "max_chars": 4},
+      "expected": "🍅🍅🍅…"
     }
   ]
 }

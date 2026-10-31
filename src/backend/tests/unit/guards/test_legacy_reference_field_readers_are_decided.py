@@ -154,6 +154,13 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
         "hands the body's slot list of the reservation route on; no watering log is read, and the service resolves "
         "every key under the run's tenant (GP-NFR-058)",
     ),
+    # REQ-053 #2513: the site delete refuses while a plant stands on one of the site's own slots. The bind
+    # variable carries the removed slots' keys collected inside the delete transaction; no watering log is
+    # read and no slot is loaded from a key stored on another row.
+    (_SLOTS, "app/data_access/arango/site_repository.py:ArangoSiteRepository._refuse_active_plants"): (
+        _ECHO,
+        "compares plant_instances.slot_key with the site's own removed slots; no watering log is read",
+    ),
     # -- feeds_from: no mirrored field, only the edge ---------------------------------------
     (_FEEDS, f"{_TK}:ArangoTankRepository.delete"): (_ECHO, "removes the edges with the tank"),
     (_FEEDS, f"{_TK}:ArangoTankRepository.link_feeds_from"): (

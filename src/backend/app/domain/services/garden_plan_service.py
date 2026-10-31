@@ -34,7 +34,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import ErrorDetails
 
-from app.common.enums import TenantRole
+from app.common.enums import SunProfileSource, TenantRole
 from app.common.exceptions import (
     ForbiddenError,
     PlanError,
@@ -60,6 +60,7 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.site_conditions_merge import merge_site_conditions
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
@@ -86,6 +87,7 @@ from app.domain.models.garden_plan import (
     PlanBatchWrite,
     PlanOperation,
     PlanOperationAdapter,
+    PlanSiteConditionsPatch,
     PlanSlotView,
     SetBoundaryOp,
     SetLockedOp,
@@ -95,14 +97,17 @@ from app.domain.models.garden_plan import (
     UpdateGeometryOp,
 )
 from app.domain.models.geometry import (
+    GEOMETRY_INVALID,
+    POINT_INDEX_KEY,
     CircleGeometry,
     Geometry,
     PointGeometry,
     PolygonGeometry,
     PolylineGeometry,
+    point_index_of,
     round_length,
 )
-from app.domain.models.site import Location, Site, SitePlan, Slot
+from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.site_service import place_in_tree
 
@@ -118,7 +123,8 @@ _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width
 
 #: What a batch may write on a location / garden object. Everything else a document holds belongs to other
 #: paths (status, soil, irrigation zone, tank, pitch …) that run outside the plan revision (GP-NFR-007), and a
-#: batch must not write it back with the value it read earlier.
+#: batch must not write it back with the value it read earlier. ``site_conditions`` is therefore no column here:
+#: the batch changes only its sun profile (#2538) and writes that sub-path alone (``location_sun_profiles``).
 _LOCATION_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "area_m2", "name", "path", "depth", "description", "notes", "sun_exposure", "height_m"}
     | {"locked", "z_order"}
@@ -183,6 +189,26 @@ def _changed_fields(working: BaseModel, stored: BaseModel, columns: frozenset[st
     return {column: now.get(column) for column in sorted(columns) if now.get(column) != before.get(column)}
 
 
+def _merged_sun_profile(location: Location, sent: PlanSiteConditionsPatch) -> SiteConditions:
+    """The stored site conditions with the sent sun-profile keys laid over them, by the PATCH rule (#2538).
+
+    Called only when *sent* carries at least one sun-profile key. The microclimate is the stored one, so the
+    frost risk - and with it the legacy ``frost_exposed`` mirror of ``PATCH /locations`` - cannot change
+    through the plan batch. A sun profile edited in the editor is a manual value (``source = manual``),
+    whatever it was before.
+    """
+    merged = merge_site_conditions(location.site_conditions, sent)
+    merged.sun_profile.source = SunProfileSource.MANUAL
+    return merged
+
+
+def _sun_profile_of(location: Location) -> dict[str, Any] | None:
+    """The location's sun profile, JSON-shaped, or ``None`` when it has no site conditions at all."""
+    if location.site_conditions is None:
+        return None
+    return _dump(location.site_conditions.sun_profile, mode="json")
+
+
 def _mapping(raw: object) -> dict[str, Any]:
     """*raw* when it is a mapping, else an empty one: an operation is untrusted until Pydantic has read it."""
     return raw if isinstance(raw, dict) else {}
@@ -206,23 +232,36 @@ def _json_tail(error: ErrorDetails, *, tagged: bool) -> str:
 def _finding_code(error: ErrorDetails) -> str:
     """V-01 (``geometry.invalid``) for a geometry defect, the generic code for anything else."""
     parts = {str(part) for part in error["loc"]}
-    return "geometry.invalid" if parts & _GEOMETRY_FIELDS else "validation.invalid"
+    return GEOMETRY_INVALID if parts & _GEOMETRY_FIELDS else "validation.invalid"
+
+
+def _finding_extra(error: ErrorDetails) -> dict[str, Any]:
+    """The offending vertex of a coordinate-range violation (GP-ACC-056), else nothing."""
+    point_index = point_index_of(error)
+    return {} if point_index is None else {POINT_INDEX_KEY: point_index}
 
 
 def _findings_of(error: PydanticValidationError, op_index: int | None, *, tagged: bool = False) -> list[_Finding]:
-    return [(op_index, _json_tail(e, tagged=tagged), _finding_code(e), {}) for e in _errors(error)]
+    return [(op_index, _json_tail(e, tagged=tagged), _finding_code(e), _finding_extra(e)) for e in _errors(error)]
 
 
 def _count_points(raw: Any) -> int:
-    """Σ of polygon and polyline points in a raw operation (GP-NFR-013), without parsing it."""
-    mapping = _mapping(raw)
-    if mapping:
-        points = mapping.get("points")
-        own = len(points) if isinstance(points, list) else 0
-        return own + sum(_count_points(value) for value in mapping.values())
-    if isinstance(raw, list):
-        return sum(_count_points(value) for value in raw)
-    return 0
+    """Σ of polygon and polyline points in a raw operation (GP-NFR-013), without parsing it.
+
+    Walks with an explicit stack: the operation is untrusted JSON, and a recursive walk ended in a
+    ``RecursionError`` (500) for a value nested a few hundred levels deep (#2542 S-1).
+    """
+    total = 0
+    pending: list[Any] = [raw]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, dict):
+            points = value.get("points")
+            total += len(points) if isinstance(points, list) else 0
+            pending.extend(value.values())
+        elif isinstance(value, list):
+            pending.extend(value)
+    return total
 
 
 def _summary(text: str | None, fallback: str) -> str:
@@ -439,13 +478,14 @@ class GardenPlanService:
         self._resolve_references(operations, locations, objects)  # (2) reference resolution, V-18
         self._check_roles(role, operations)  # (3) role per operation, SR-001
         parsed = self._parse(operations)  # (4) Pydantic
-        if sum(_count_points(raw) for raw in operations) > MAX_BATCH_POINTS:
+        points = _count_points(operations)
+        if points > MAX_BATCH_POINTS:
             raise PlanError(
                 "batch.too_complex",
                 f"A batch holds at most {MAX_BATCH_POINTS} polygon and polyline points.",
                 status_code=422,
                 limit=MAX_BATCH_POINTS,
-                current=sum(_count_points(raw) for raw in operations),
+                current=points,
             )
         return self._apply(
             site,
@@ -860,8 +900,13 @@ class GardenPlanService:
             return
         try:
             if op.entity == _ENTITY_LOCATION:
-                patch = _dump(LocationFieldsPatch(**op.fields), exclude_unset=True)
+                fields = LocationFieldsPatch(**op.fields)
+                patch = _dump(fields, exclude_unset=True)
                 current = work.locations[op.key]
+                # An empty sun-profile patch changes nothing: no default ``SiteConditions``, no ``manual`` stamp.
+                patch.pop("site_conditions", None)
+                if fields.site_conditions is not None and fields.site_conditions.sun_profile.model_fields_set:
+                    patch["site_conditions"] = _merged_sun_profile(current, fields.site_conditions)
                 updated = Location(**{**_dump(current, by_alias=True), **patch})
                 if "name" in patch:
                     parent = work.locations.get(updated.parent_location_key) if updated.parent_location_key else None
@@ -1133,6 +1178,13 @@ class GardenPlanService:
             if key in work.stored_locations
             and (changed := _changed_fields(location, work.stored_locations[key], _LOCATION_COLUMNS))
         ]
+        sun_profiles = [
+            (key, sun_profile)
+            for key, location in work.locations.items()
+            if key in work.stored_locations
+            and (sun_profile := _sun_profile_of(location)) is not None
+            and sun_profile != _sun_profile_of(work.stored_locations[key])
+        ]
         object_updates = [
             (key, changed)
             for key, garden_object in work.objects.items()
@@ -1169,6 +1221,7 @@ class GardenPlanService:
             basis_revision=basis_revision,
             location_inserts=[(key, work.locations[key]) for key in inserts],
             location_updates=location_updates,
+            location_sun_profiles=sun_profiles,
             location_deletes=sorted(work.deleted_locations),
             object_inserts=[(key, work.objects[key]) for key in work.temp_objects],
             object_updates=object_updates,
@@ -1197,7 +1250,9 @@ class GardenPlanService:
         return PlanBatchResult(
             plan_revision=revision,
             key_map=key_map,
-            updated=sorted(key for key, _ in [*write.location_updates, *write.object_updates]),
+            updated=sorted(
+                {key for key, _ in [*write.location_updates, *write.location_sun_profiles, *write.object_updates]}
+            ),
             deleted=sorted([*write.location_deletes, *write.object_deletes]),
             derived=derived,
         )

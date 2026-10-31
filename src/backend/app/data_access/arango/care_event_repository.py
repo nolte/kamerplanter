@@ -63,6 +63,25 @@ LET e = DOCUMENT(CONCAT(@events, @key))
 FILTER e != null AND e.tenant_key == @tenant_key
 """
 
+#: The readable names of ``e.plant_keys`` (bind ``@plants`` = ``"plant_instances/"``), one primary-key lookup per
+#: plant: ``plant_name``, else ``instance_id``; a plant that is gone or another tenant's is left out (#2514). Shared
+#: with the bed history (``bed_history_repository``) so both lists name a plant alike.
+PLANT_NAMES_AQL = """
+LET plant_names = (
+    FOR plant_key IN (e.plant_keys == null ? [] : e.plant_keys)
+        LET p = DOCUMENT(CONCAT(@plants, plant_key))
+        FILTER p != null AND p.tenant_key == e.tenant_key
+        RETURN p.plant_name != null ? p.plant_name : p.instance_id
+)
+"""
+
+
+def plant_names_of(value: Any) -> tuple[str, ...]:
+    """The ``plant_names`` of an AQL row as a tuple of strings; a plant without either name is skipped."""
+    if not isinstance(value, list):
+        return ()
+    return tuple(str(name) for name in value if name)
+
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
@@ -160,11 +179,16 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
             {_EVENT_BY_KEY}
             LET by = e.performed_by_user_key == null ? null : DOCUMENT(CONCAT(@users, e.performed_by_user_key))
             LET for_user = e.performed_for_user_key == null ? null : DOCUMENT(CONCAT(@users, e.performed_for_user_key))
-            RETURN {{event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name}}
+            {PLANT_NAMES_AQL}
+            RETURN {{
+                event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name,
+                plant_names: plant_names
+            }}
             """,
                 bind_vars={
                     "events": f"{col.CARE_EVENTS}/",
                     "users": f"{col.USERS}/",
+                    "plants": f"{col.PLANT_INSTANCES}/",
                     "key": key,
                     "tenant_key": tenant_key,
                 },
@@ -178,6 +202,7 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
             event=self._wrapped(row["event"]),
             performed_by_name=row.get("performed_by_name"),
             performed_for_name=row.get("performed_for_name"),
+            plant_names=plant_names_of(row.get("plant_names")),
         )
 
     def chain(self, key: str, *, tenant_key: str) -> list[CareEvent]:
@@ -221,6 +246,7 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         binds: dict[str, Any] = {
             "@events": col.CARE_EVENTS,
             "users": f"{col.USERS}/",
+            "plants": f"{col.PLANT_INSTANCES}/",
             "tenant_key": tenant_key,
             "offset": offset,
             "limit": limit,
@@ -257,7 +283,11 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
                 LET by = e.performed_by_user_key == null ? null : DOCUMENT(CONCAT(@users, e.performed_by_user_key))
                 LET for_user = e.performed_for_user_key == null
                     ? null : DOCUMENT(CONCAT(@users, e.performed_for_user_key))
-                RETURN {{event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name}}
+                {PLANT_NAMES_AQL}
+                RETURN {{
+                    event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name,
+                    plant_names: plant_names
+                }}
             """,
                 bind_vars=binds,
             ),

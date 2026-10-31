@@ -33,6 +33,10 @@ describe('useRendererLabels', () => {
     expect(labels.size({ kind: 'point', origin: [0, 0] }, 12.345)).toBe('12.35 m²');
     expect(labels.plant({ id: 'TOM-1' })).toBe('Plant TOM-1');
     expect(labels.cluster({ count: 3 })).toBe('3 plants');
+    // each count picks its own plural: "4 plants · 1 needs attention", never "1 need attention"
+    expect(labels.clusterSummary?.({ count: 4, attention: 1 })).toBe('4 plants · 1 needs attention');
+    expect(labels.clusterSummary?.({ count: 1, attention: 1 })).toBe('1 plant · 1 needs attention');
+    expect(labels.clusterSummary?.({ count: 4, attention: 2 })).toBe('4 plants · 2 need attention');
   });
 
   it('is referentially stable between renders of one language', () => {

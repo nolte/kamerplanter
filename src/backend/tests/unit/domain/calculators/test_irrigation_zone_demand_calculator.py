@@ -1,4 +1,8 @@
-"""REQ-053 WP 7.5 (#2471) - the zone demand calculator: net litres, gross only with a sourced efficiency (E-10)."""
+"""REQ-053 WP 7.5 (#2471) - the zone demand calculator: net litres, gross only with a sourced efficiency (E-10).
+
+Rows: GP-FR-113 (demand of a zone), GP-FR-119 (hint when zone type and bed irrigation system differ), GP-FR-111
+(the days a water source with ``capacity_liters`` lasts).
+"""
 
 from __future__ import annotations
 

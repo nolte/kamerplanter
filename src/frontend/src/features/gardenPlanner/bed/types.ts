@@ -2,7 +2,16 @@
  * Bed read model (REQ-053 WP 3.5): the bed list row (GP-API-011), the summary that heads the bed view
  * (GP-API-012) and the soil profile (GP-FR-120/121). Derived from `app/api/v1/locations/schemas.py`.
  */
-import type { BedStatus, Geometry, SunExposure, SunWindow } from '../model/types';
+import type {
+  BedStatus,
+  Geometry,
+  PlanSunProfile,
+  PlanSunProfilePatch,
+  SoilDrainage,
+  SunExposure,
+} from '../model/types';
+
+export type { SoilDrainage };
 
 export type GrowingMediumKind =
   | 'native_soil'
@@ -19,7 +28,6 @@ export type SoilTexture =
   | 'clay_loam'
   | 'clay'
   | 'unknown';
-export type SoilDrainage = 'poor' | 'moderate' | 'good' | 'unknown';
 export type SiteWaterRegime = 'dry' | 'fresh' | 'moist' | 'wet' | 'unknown';
 export type SoilCondition = 'compacted' | 'depleted' | 'waterlogged' | 'crusting' | 'stony';
 export type PhMethod = 'cacl2' | 'h2o' | 'probe_unknown';
@@ -77,15 +85,12 @@ export interface SoilProfile {
  * The sun profile of a bed (GP-FR-158/159, `Location.site_conditions.sun_profile`). Nothing here is
  * computed (§29): the values are what a person entered. `source` is read-only for this UI.
  */
-export interface SunProfile {
-  sun_window?: SunWindow;
-  direct_sun_hours_summer?: number | null;
-  foliage_shade_in_summer?: boolean;
+export interface SunProfile extends PlanSunProfile {
   source?: 'manual' | 'computed';
 }
 
 /** What the sun profile editors send: only the keys that changed (the server merges them per key). */
-export type SunProfilePatch = Pick<SunProfile, 'sun_window' | 'direct_sun_hours_summer' | 'foliage_shade_in_summer'>;
+export type SunProfilePatch = PlanSunProfilePatch;
 
 /** The slice of `Location.site_conditions` this UI reads; the other parts are carried untouched. */
 export interface SiteConditionsSlice {

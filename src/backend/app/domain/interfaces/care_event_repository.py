@@ -19,6 +19,9 @@ class CareEventRow:
     #: Display name of ``performed_by_user_key``; ``None`` when the account is gone or erased.
     performed_by_name: str | None = None
     performed_for_name: str | None = None
+    #: Readable names of ``plant_keys`` in their order (``plant_name``, else ``instance_id``); a plant that is gone
+    #: or belongs to another tenant is left out. The history line names the plant, not its slot (#2514).
+    plant_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

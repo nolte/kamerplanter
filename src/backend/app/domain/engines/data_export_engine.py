@@ -592,11 +592,15 @@ class DataExportEngine:
                 "template_key",
                 "soil_profile",
                 "site_conditions",
+                # #2512: the legacy frost override is part of the plan backup, so it is disclosed here too.
+                "frost_exposed",
                 "notes",
                 "locked",
                 "z_order",
                 "pitch_m",
                 "rotation_exempt",
+                # #2544: the per-bed rotation switch, part of the plan backup like ``rotation_exempt``.
+                "rotation_enabled",
                 "created_at",
             ],
         ),

@@ -62,7 +62,10 @@ describe('CareHistoryPage', () => {
 
   it('hides superseded entries until "Show corrections", and lists position corrections like any entry', async () => {
     const backend = useHistoryBackend({
-      careEvents: [careLine('w1', { summary: 'Watered' }), careLine('p1', { category: 'position_corrected', summary: 'Moved a plant' })],
+      careEvents: [
+        careLine('w1', { summary: 'Watered' }),
+        careLine('p1', { category: 'position_corrected', summary: 'Position corrected (BED_001)', plant_keys: ['pl_1'], plant_names: ['TOM-1'] }),
+      ],
     });
     const user = userEvent.setup();
     renderPage();
@@ -70,7 +73,9 @@ describe('CareHistoryPage', () => {
     expect(await screen.findByTestId('care-history-item-care:w1')).toBeInTheDocument();
     // The log lists what the server sends; a full page is never cut down on the client (the page would end up
     // short or empty while the server still has more).
-    expect(screen.getByTestId('care-history-item-care:p1')).toBeInTheDocument();
+    // The tenant-wide log names the plant from the line itself (#2514), not the slot of the stored summary.
+    expect(screen.getByTestId('care-history-item-care:p1')).toHaveTextContent('Position corrected: TOM-1');
+    expect(screen.getByTestId('care-history-item-care:p1')).not.toHaveTextContent('BED_001');
     expect(backend.seen[0].params.include_superseded).toBeUndefined();
 
     await user.click(screen.getByRole('switch', { name: 'Show corrections' }));

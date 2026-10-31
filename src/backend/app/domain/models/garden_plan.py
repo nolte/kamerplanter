@@ -17,9 +17,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, field_validator, model_validator
 
-from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SlotRole, SunExposure
+from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SlotRole, SunExposure, SunWindow
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
@@ -110,6 +110,29 @@ class CreateGardenObjectData(_Strict):
     notes: str | None = Field(default=None, max_length=4000)
 
 
+class PlanSunProfilePatch(_Strict):
+    """The sun profile keys the plan batch may change (GP-FR-158/159, #2538); the keys sent are merged.
+
+    ``source`` is not among them: an edit in the editor is a manual value by definition, and the service
+    stamps it. The bounds repeat :class:`~app.domain.models.site.SunProfile`'s; the merged value is validated
+    against that model again, so the stored bound wins should the two ever differ.
+    """
+
+    sun_window: SunWindow = SunWindow.UNKNOWN
+    direct_sun_hours_summer: float | None = Field(default=None, ge=0.0, le=24.0)
+    foliage_shade_in_summer: bool = False
+
+
+class PlanSiteConditionsPatch(_Strict):
+    """``site_conditions`` of ``update_fields`` (REQ-053 v1.6 addendum WP 3.9 (d), #2538): the sun profile only.
+
+    The microclimate, wind, slope, access sides and flags stay on ``PATCH /locations/{key}``: a changed frost
+    risk moves the legacy ``frost_exposed`` with it, and that sync rule is not part of the plan path.
+    """
+
+    sun_profile: PlanSunProfilePatch = Field(default_factory=PlanSunProfilePatch)
+
+
 class LocationFieldsPatch(_Strict):
     """What ``update_fields`` may change on a location (structure and geometry have their own operations)."""
 
@@ -118,6 +141,16 @@ class LocationFieldsPatch(_Strict):
     notes: str | None = Field(default=None, max_length=4000)
     sun_exposure: SunExposure | None = None
     height_m: float | None = None
+    #: The keys sent are merged into the stored value, like ``PATCH /locations/{key}`` does (#2538).
+    site_conditions: PlanSiteConditionsPatch | None = None
+
+    @field_validator("site_conditions")
+    @classmethod
+    def _site_conditions_not_null(cls, value: PlanSiteConditionsPatch | None) -> PlanSiteConditionsPatch:
+        """An explicit ``null`` would clear the frost risk too, which the plan path does not write."""
+        if value is None:
+            raise ValueError("site_conditions cannot be null.")
+        return value
 
 
 class GardenObjectFieldsPatch(_Strict):
@@ -246,6 +279,10 @@ class PlanBatchWrite:
     location_inserts: list[tuple[str, Location]] = field(default_factory=list)
     #: ``(key, changed fields)`` — only what the batch changed, JSON-shaped; ``None`` removes a stored value.
     location_updates: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    #: ``(key, sun profile)``, JSON-shaped — written to the sub-path ``site_conditions.sun_profile`` only (#2538).
+    #: ``PATCH /locations`` writes the rest of ``site_conditions`` outside the plan revision; a whole-column write
+    #: of the value the batch read would revert a frost risk set in between.
+    location_sun_profiles: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
     #: Keys to delete, descendants and the slots below them included by the repository.
     location_deletes: list[str] = field(default_factory=list)
     object_inserts: list[tuple[str, GardenObject]] = field(default_factory=list)
@@ -352,7 +389,8 @@ class SiteConditionsPatch(SiteConditions):
     """The ``site_conditions`` of ``PATCH /locations/{key}``: the keys present are changed, the others kept (WP 3.9).
 
     A misspelt key is a 422 instead of a silently dropped value. ``model_fields_set`` of the value and of its two
-    nested parts say what was sent; :func:`GardenResourceService._merged_site_conditions` merges exactly that.
+    nested parts say what was sent; :func:`~app.domain.engines.site_conditions_merge.merge_site_conditions` merges
+    exactly that.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -363,7 +401,7 @@ class SiteConditionsPatch(SiteConditions):
 
 class LocationPatch(_Strict):
     """``PATCH /locations/{key}`` (GP-API-010): only the fields present are changed; an explicit ``null`` clears
-    the ones that can be cleared (description, notes, height, irrigation zone, soil profile)."""
+    the ones that can be cleared (description, notes, height, irrigation zone, soil profile, rotation switch)."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=1000)
@@ -381,10 +419,15 @@ class LocationPatch(_Strict):
     #: A transition (V-10); ``retired`` needs ``status_reason`` and the lead role.
     bed_status: BedStatus | None = None
     status_reason: str | None = Field(default=None, min_length=1, max_length=1000)
+    #: Permanent crop, off for the crop-rotation check (GP-FR-137); cannot be ``null``.
+    rotation_exempt: bool | None = None
+    #: Per-bed crop-rotation switch (GP-FR-137, #2544): ``true`` on, ``false`` off, ``null`` back to the type default.
+    #: Together with ``rotation_exempt = true`` (sent or stored) it is 422 ``patch.rotation_exempt_and_enabled``.
+    rotation_enabled: bool | None = None
 
     @model_validator(mode="after")
     def _only_clearable_fields_take_null(self) -> Self:
-        _no_null_for(self, ("name", "sun_exposure", "geometry", "locked", "z_order", "bed_status"))
+        _no_null_for(self, ("name", "sun_exposure", "geometry", "locked", "z_order", "bed_status", "rotation_exempt"))
         if not self.model_fields_set:
             raise ValueError("A PATCH needs at least one field.")
         return self

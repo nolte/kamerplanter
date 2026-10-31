@@ -3,13 +3,16 @@
 ``locations`` and ``slots`` carry no ``tenant_key`` (E-01, #2107): the service resolves the bed through the
 ownership anchor first, and **every** query below still filters the *plants* and everything joined to them
 (tasks, care events, detections, harvest batches) on ``@tenant_key`` — a document of another tenant that
-happens to name this bed's or a plant's key is never part of the answer. The slot of a plant is read only when
-it belongs to the requested bed.
+happens to name this bed's or a plant's key is never part of the answer. A plant's bed is its ``location_key``,
+or — when that is ``null`` — the bed of its slot (the plan's rule, #2489): a plant placed only through a slot is
+part of its slot's bed. The slot is reported only when it lies in that bed.
 
-Five statements for a window of plants, whatever its size: the plants (with species, cultivar, slot and phase
-joined in), their open tasks, the watering/feeding care events, the open findings, the harvest batches. A phase is
-looked up in the phase-sequence key space first and in the legacy growth-phase key space second, the order of
-``PhaseKeyResolver`` (#579): a plant on a sequence-driven species carries an entry key.
+Five statements for a window of plants, whatever its size and however many beds it spans (``list_bed_plants`` is
+the one-bed case of ``list_plants_in_beds``; beyond :data:`BED_KEYS_PER_STATEMENT` beds the plant statement runs
+once per chunk). A window holds at most :data:`MAX_STATE_WINDOW` plants. The statements: the plants (with species,
+cultivar, slot and phase joined in), their open tasks, the watering/feeding care events, the open findings, the
+harvest batches. A phase is looked up in the phase-sequence key space first and in the legacy growth-phase key
+space second, the order of ``PhaseKeyResolver`` (#579): a plant on a sequence-driven species carries an entry key.
 """
 
 from __future__ import annotations
@@ -39,6 +42,11 @@ FINDING_OPEN_DAYS = 30
 _ACTIONABLE_FINDING_CATEGORIES = ("pest", "symptom")
 #: Harvest types that keep the plant standing (§11.3 "in Ernte").
 _STANDING_HARVEST_TYPES = ("partial", "continuous")
+#: The largest window a read answers — the API's pagination ceiling (``get_pagination``, ``le=200``). A larger
+#: ``limit`` is refused, not clamped: a clamped window comes back short and a pager reads that as the end.
+MAX_STATE_WINDOW = 200
+#: Bed keys bound into one plant statement; a longer list is read in chunks and merged in plant-key order.
+BED_KEYS_PER_STATEMENT = 500
 
 
 def _date(value: Any) -> date | None:
@@ -66,12 +74,22 @@ def _datetime(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _latest(care: dict[tuple[str | None, str], datetime], plant_key: str, category: str) -> datetime | None:
-    """The newer of the plant's own event and the bed-wide one (no plants named) of ``category``."""
-    own: datetime | None = care.get((plant_key, category))
-    wide: datetime | None = care.get((None, category))
+#: ``(bed key, plant key or None for a bed-wide event, category) → newest moment``.
+_CareIndex = dict[tuple[str, str | None, str], datetime]
+
+
+def _latest(care: _CareIndex, bed_key: str, plant_key: str, category: str) -> datetime | None:
+    """The newer of the plant's own event and its bed's bed-wide one (no plants named) of ``category``."""
+    own: datetime | None = care.get((bed_key, plant_key, category))
+    wide: datetime | None = care.get((bed_key, None, category))
     moments = [moment for moment in (own, wide) if moment is not None]
     return max(moments) if moments else None
+
+
+def _check_window(offset: int, limit: int) -> None:
+    """Defence in depth below the API's pagination: 1..:data:`MAX_STATE_WINDOW` plants from ``offset >= 0``."""
+    if offset < 0 or not 1 <= limit <= MAX_STATE_WINDOW:
+        raise ValueError(f"A plant-state window is offset >= 0 and 1 <= limit <= {MAX_STATE_WINDOW}.")
 
 
 class ArangoPlantStateRepository(IPlantStateRepository):
@@ -83,20 +101,48 @@ class ArangoPlantStateRepository(IPlantStateRepository):
     ) -> list[PlantStateSource]:
         if not tenant_key:
             raise ValueError("list_bed_plants needs a tenant_key (an empty tenant is no tenant, #2107).")
-        plants = self._plants(location_key, tenant_key, offset, limit)
+        _check_window(offset, limit)
+        return self._read([location_key], tenant_key, now, offset, limit)
+
+    def list_plants_in_beds(
+        self, bed_keys: list[str], *, tenant_key: str, now: datetime, offset: int, limit: int
+    ) -> list[PlantStateSource]:
+        if not tenant_key:
+            raise ValueError("list_plants_in_beds needs a tenant_key (an empty tenant is no tenant, #2107).")
+        _check_window(offset, limit)
+        if not bed_keys:
+            return []
+        return self._read(sorted(set(bed_keys)), tenant_key, now, offset, limit)
+
+    def _read(
+        self, bed_keys: list[str], tenant_key: str, now: datetime, offset: int, limit: int
+    ) -> list[PlantStateSource]:
+        plants = self._window(bed_keys, tenant_key, offset, limit)
         if not plants:
             return []
         plant_keys = [row["plant_key"] for row in plants]
         run_keys = sorted({row["run_key"] for row in plants if row["run_key"]})
         tasks = self._tasks(plant_keys, run_keys, tenant_key)
-        care = self._care(location_key, plant_keys, tenant_key, now)
+        care = self._care(sorted({row["location_key"] for row in plants}), plant_keys, tenant_key, now)
         findings = self._findings(plant_keys, tenant_key, now)
         harvests = self._harvests(plant_keys, tenant_key)
         return [self._source(row, tasks, care, findings, harvests) for row in plants]
 
+    def _window(self, bed_keys: list[str], tenant_key: str, offset: int, limit: int) -> list[dict[str, Any]]:
+        """The plants of the window, in plant-key order. Up to :data:`BED_KEYS_PER_STATEMENT` beds in one statement;
+        beyond that each chunk reads its first ``offset + limit`` plants and the merged list is cut to the window —
+        a plant stands in one bed, so the chunks are disjoint and the window is the one a single statement gives."""
+        if len(bed_keys) <= BED_KEYS_PER_STATEMENT:
+            return self._plants(bed_keys, tenant_key, offset, limit)
+        merged: list[dict[str, Any]] = []
+        for start in range(0, len(bed_keys), BED_KEYS_PER_STATEMENT):
+            merged.extend(self._plants(bed_keys[start : start + BED_KEYS_PER_STATEMENT], tenant_key, 0, offset + limit))
+        merged.sort(key=lambda row: str(row["plant_key"]))
+        return merged[offset : offset + limit]
+
     # ── Statements ────────────────────────────────────────────────────
 
-    def _plants(self, location_key: str, tenant_key: str, offset: int, limit: int) -> list[dict[str, Any]]:
+    def _plants(self, bed_keys: list[str], tenant_key: str, offset: int, limit: int) -> list[dict[str, Any]]:
         bind_vars: dict[str, Any] = {
             "@plants": col.PLANT_INSTANCES,
             "@run_contains": col.RUN_CONTAINS,
@@ -107,7 +153,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             "entries": col.PHASE_SEQUENCE_ENTRIES,
             "definitions": col.PHASE_DEFINITIONS,
             "tenant_key": tenant_key,
-            "location_key": location_key,
+            "beds": bed_keys,
             "offset": offset,
             "limit": limit,
         }
@@ -116,12 +162,15 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             self._db.aql.execute(
                 """
             FOR p IN @@plants
-                FILTER p.tenant_key == @tenant_key AND p.location_key == @location_key AND p.removed_on == null
+                FILTER p.tenant_key == @tenant_key AND p.removed_on == null
+                    AND (p.location_key IN @beds OR (p.location_key == null AND p.slot_key != null))
+                LET slot = p.slot_key == null ? null : DOCUMENT(@slots, p.slot_key)
+                LET bed = p.location_key != null ? p.location_key : (slot == null ? null : slot.location_key)
+                FILTER bed IN @beds
                 SORT p._key ASC
                 LIMIT @offset, @limit
                 LET species = DOCUMENT(@species, p.species_key)
                 LET cultivar = p.cultivar_key == null ? null : DOCUMENT(@cultivars, p.cultivar_key)
-                LET slot = p.slot_key == null ? null : DOCUMENT(@slots, p.slot_key)
                 LET entry = p.current_phase_key == null ? null : DOCUMENT(@entries, p.current_phase_key)
                 LET definition = entry == null ? null : DOCUMENT(@definitions, entry.phase_definition_key)
                 LET legacy = (p.current_phase_key == null OR entry != null)
@@ -136,12 +185,13 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 )
                 RETURN {
                     plant_key: p._key,
+                    location_key: bed,
                     instance_id: p.instance_id,
                     species_key: p.species_key,
                     cultivar_key: p.cultivar_key,
                     planted_on: p.planted_on,
-                    slot_key: slot != null AND slot.location_key == @location_key ? slot._key : null,
-                    slot_id: slot != null AND slot.location_key == @location_key ? slot.slot_id : null,
+                    slot_key: slot != null AND slot.location_key == bed ? slot._key : null,
+                    slot_id: slot != null AND slot.location_key == bed ? slot.slot_id : null,
                     species_name: species == null ? null : FIRST(species.common_names),
                     scientific_name: species == null ? null : species.scientific_name,
                     cultivar_name: cultivar == null ? null : cultivar.name,
@@ -204,17 +254,15 @@ class ArangoPlantStateRepository(IPlantStateRepository):
         )
         return list(cursor)
 
-    def _care(
-        self, location_key: str, plant_keys: list[str], tenant_key: str, now: datetime
-    ) -> dict[tuple[str | None, str], datetime]:
-        """The newest watering / feeding per plant; the key ``None`` holds the bed-wide events (no plants named)."""
+    def _care(self, bed_keys: list[str], plant_keys: list[str], tenant_key: str, now: datetime) -> _CareIndex:
+        """The newest watering / feeding per bed and plant; the plant ``None`` holds a bed's bed-wide events."""
         since: datetime = now - timedelta(days=CARE_LOOKBACK_DAYS)
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
                 """
             FOR e IN @@events
-                FILTER e.tenant_key == @tenant_key AND e.location_key == @location_key
+                FILTER e.tenant_key == @tenant_key AND e.location_key IN @beds
                     AND e.voided_at == null
                     AND e.superseded_by_key == null
                     AND e.category IN @categories
@@ -222,24 +270,25 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 LET targets = LENGTH(e.plant_keys) == 0 ? [null] : e.plant_keys
                 FOR plant IN targets
                     FILTER plant == null OR plant IN @plant_keys
-                    COLLECT who = plant, category = e.category AGGREGATE last = MAX(e.performed_at)
-                    RETURN {plant: who, category, last}
+                    COLLECT bed = e.location_key, who = plant, category = e.category
+                        AGGREGATE last = MAX(e.performed_at)
+                    RETURN {bed, plant: who, category, last}
             """,
                 bind_vars={
                     "@events": col.CARE_EVENTS,
                     "tenant_key": tenant_key,
-                    "location_key": location_key,
+                    "beds": bed_keys,
                     "categories": [WATERING_CATEGORY, FEEDING_CATEGORY],
                     "since": since.isoformat(),
                     "plant_keys": plant_keys,
                 },
             ),
         )
-        found: dict[tuple[str | None, str], datetime] = {}
+        found: _CareIndex = {}
         for row in cursor:
             moment = _datetime(row["last"])
             if moment is not None:
-                found[(row["plant"], row["category"])] = moment
+                found[(row["bed"], row["plant"], row["category"])] = moment
         return found
 
     def _findings(self, plant_keys: list[str], tenant_key: str, now: datetime) -> dict[str, tuple[int, str | None]]:
@@ -313,7 +362,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
     def _source(
         row: dict[str, Any],
         tasks: list[dict[str, Any]],
-        care: dict[tuple[str | None, str], datetime],
+        care: _CareIndex,
         findings: dict[str, tuple[int, str | None]],
         harvests: dict[str, tuple[int, float | None]],
     ) -> PlantStateSource:
@@ -364,8 +413,8 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             phase_is_terminal=bool(row["phase_is_terminal"]),
             open_tasks=open_tasks,
             next_task=next_task,
-            last_watering_at=_latest(care, plant_key, WATERING_CATEGORY),
-            last_feeding_at=_latest(care, plant_key, FEEDING_CATEGORY),
+            last_watering_at=_latest(care, row["location_key"], plant_key, WATERING_CATEGORY),
+            last_feeding_at=_latest(care, row["location_key"], plant_key, FEEDING_CATEGORY),
             open_finding_count=finding_count,
             finding_label=finding_label,
             harvest_batch_count=batches,

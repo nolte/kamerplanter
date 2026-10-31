@@ -1,5 +1,5 @@
 from datetime import UTC
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -54,7 +54,13 @@ from app.common.dependencies import (
 )
 from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.common.exceptions import NotFoundError
-from app.common.openapi_responses import CONFLICT_RESPONSE, FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
+from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    VALIDATION_RESPONSE,
+    ErrorResponse,
+)
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -142,11 +148,27 @@ def _mixed_draft(body: MixedCultureCreate, item: MixedCultureRunCreate, tenant_k
     )
 
 
+#: The 422s of ``POST /mixed-culture`` by ``error_code`` (SCR-006), so a generated client sees the overlap code.
+_MIXED_CULTURE_VALIDATION_RESPONSE: dict[int | str, dict[str, Any]] = {
+    422: {
+        "model": ErrorResponse,
+        "description": (
+            "`layout.row_assignment_overlap`: two entries with a row layout (`grid`, `rows`, `triangular`) claim "
+            "the same row; `details[0].conflicts` lists at most 20 pairs as `{runs: [i, j], rows, rows_total}` "
+            "(at most 50 rows each), `details[0].pairs_total` and `details[0].truncated` say what was cut. "
+            "`layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded`: an entry's layout "
+            "cannot be computed or breaks a limit. `VALIDATION_ERROR`: the body is invalid, or a species or "
+            "cultivar is unknown or another tenant's (`reference.not_found`)."
+        ),
+    },
+}
+
+
 @router.post(
     "/mixed-culture",
     response_model=MixedCultureResponse,
     status_code=201,
-    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+    responses={**FORBIDDEN_RESPONSE, **NOT_FOUND_RESPONSE, **CONFLICT_RESPONSE, **_MIXED_CULTURE_VALIDATION_RESPONSE},
 )
 def create_mixed_culture(
     body: MixedCultureCreate,
@@ -158,6 +180,11 @@ def create_mixed_culture(
     Either every run (with its entry, layout slots and reservations) is created or none is: a refusal leaves
     nothing behind, so the caller needs no rollback (and no lead role to take one back). The bed's layout is
     computed for all entries together. Runs are `planned`, `monoculture`, one entry each.
+
+    Every row belongs to one entry (GP-FR-070): two entries with a row layout whose `row_assignment` sets
+    overlap answer `422 layout.row_assignment_overlap` before anything is computed or written. The row index
+    (0-based) refers to the entry's own row grid; entries with different row spacing, direction or margins can
+    still place plants close together although their index sets are disjoint.
     """
     drafts = [_mixed_draft(body, item, ctx.tenant_key) for item in body.runs]
     created = service.create_mixed_culture(body.location_key, drafts, tenant_key=ctx.tenant_key, role=ctx.role)

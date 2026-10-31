@@ -1,4 +1,4 @@
-"""REQ-053 WP 7.16 (#2482) - ``POST /sites/{key}/plan/new-season`` on the wire.
+"""REQ-053 WP 7.16 (#2482) - ``POST /sites/{key}/plan/new-season`` on the wire (GP-API-057).
 
 ``app.main`` with the real season service, the real tenant gate and the real rate limiter (only the auth provider
 and the repository are doubles): the lead-only gate, the 404 of a foreign site, the validation of ``year``, the

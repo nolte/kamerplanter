@@ -464,9 +464,15 @@ def get_garden_plan_service() -> GardenPlanService:
 
 
 def get_garden_plan_export_service() -> GardenPlanExportService:
-    """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan."""
+    """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan (with plant states, #2489)."""
     return GardenPlanExportService(
-        get_site_repo(), get_garden_plan_repo(), get_garden_plan_service(), attachment_service=get_attachment_service()
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_garden_plan_service(),
+        attachment_service=get_attachment_service(),
+        # #2489 — plant states and phase names for the printed markers and legend.
+        plant_state_repo=ArangoPlantStateRepository(get_db()),
+        phase_repo=get_lifecycle_repo(),
     )
 
 
@@ -635,7 +641,10 @@ def get_propagation_service() -> PropagationService:
 
 
 def get_plant_instance_service() -> PlantInstanceService:
-    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
+    # site_repo: the slot check reads the bed's rotation switch first (GP-FR-137, #2544).
+    rotation_validator = CropRotationValidator(
+        get_plant_repo(), get_species_repo(), get_graph_repo(), site_repo=get_site_repo()
+    )
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantInstanceService(
         get_plant_repo(),
@@ -874,7 +883,10 @@ def get_planting_reservation_service() -> PlantingReservationService:
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
-    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
+    # site_repo: the slot check reads the bed's rotation switch first (GP-FR-137, #2544).
+    rotation_validator = CropRotationValidator(
+        get_plant_repo(), get_species_repo(), get_graph_repo(), site_repo=get_site_repo()
+    )
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantingRunService(
         get_planting_run_repo(),

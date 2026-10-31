@@ -659,7 +659,10 @@
       "hardening_off": "Abhärtung",
       "budding": "Knospenbildung",
       "corm_ripening": "Knollenreife",
-      "tuber_formation": "Knollenbildung"
+      "tuber_formation": "Knollenbildung",
+      "drying": "Trocknung",
+      "curing": "Aushärtung",
+      "cloning": "Klonen"
     },
     "waterSource": {
       "tank": "Tank",
@@ -1204,6 +1207,20 @@
       "measured": "Gemessen",
       "by_area": "Nach Fläche verteilt",
       "equal": "Zu gleichen Teilen verteilt"
+    },
+    "sunWindow": {
+      "morning": "Morgens",
+      "midday": "Mittags",
+      "afternoon": "Nachmittags",
+      "all_day": "Ganztägig",
+      "mixed": "Wechselnd",
+      "unknown": "Unbekannt"
+    },
+    "frostRisk": {
+      "low": "Gering",
+      "normal": "Normal",
+      "high": "Hoch",
+      "unknown": "Unbekannt"
     }
   }
 }

@@ -163,6 +163,7 @@ def view_of_row(row: CareEventRow, viewer_user_key: str, chain_keys: list[str] |
         ),
         created_by_me=event.created_by is not None and event.created_by == viewer_user_key,
         chain_keys=chain_keys or [],
+        plant_names=list(row.plant_names),
     )
 
 

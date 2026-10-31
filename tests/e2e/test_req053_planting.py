@@ -65,6 +65,8 @@ CABBAGE = "Brassica oleracea var. capitata"
 
 #: How long the bubble survives the pointer leaving the marker (`usePlantInfoHover`).
 LEAVE_GRACE_MS = 150
+#: One press of the position stepper on the desktop (``STEP_CM``, §18.1 step 9, #2514).
+DESKTOP_STEP_CM = 10
 
 
 @pytest.fixture
@@ -98,9 +100,9 @@ def test_tc_053_015_plant_in_rows_with_preview_creates_a_planned_run(
 ) -> None:
     """TC-053-015 — "Bepflanzen" tomato x 6 in rows 60/80 cm: preview, then 6 planned positions (GP-ACC-019).
 
-    Precondition (API): a 3,0 x 1,6 m bed with geometry, no slots - not the 3,0 x 1,2 m
-    of the case's example: with the default edge margin (half the spacing, 40 cm
-    across) a 1,2 m bed holds a single row of five, so six cannot fit. The preview is
+    Precondition (API): a 3,0 x 1,6 m bed with geometry, no slots - the case's example
+    (#2514): with the default edge margin (half the spacing, 40 cm across) a 1,2 m bed
+    holds a single row of five, so six cannot fit. The preview is
     read from the drawn markers once the server confirmed it; what the run then
     stores must be exactly those six positions. Breaks if the preview is not
     server-confirmed, shows another count, puts a position outside the bed or
@@ -330,14 +332,12 @@ def test_tc_053_019_correct_a_position_by_drag_is_saved_at_once_and_logged(
     the dialog does not start at the plant's position, the drag does not land
     on (0,60 | 0,90) to the centimetre, the stepper does not move the plant,
     what is stored differs from what the fields showed, the zone plant is
-    movable, or the history has no "Position korrigiert" entry for the plant.
+    movable, or the history has no "Position korrigiert: <plant>" entry naming the plant.
 
     Not covered: the smartphone part of the case - long-press drag in field mode,
     "pan without long press" (WP 5.x); this run is the desktop path the issue
-    names. Spec deviations, not asserted: the stepper moves 1 cm (5 cm with the
-    big buttons), not 10 cm; the history line is the server's summary
-    "Position corrected (<slot>)" and names the slot, not the plant - the plant
-    is asserted on the stored event instead.
+    names. The stepper moves 10 cm per press (§18.1 step 9, #2514); the 5 cm / 1 cm
+    fine steps are covered by the component tests.
     """
     tomato = species(base_url, e2e_seed_data, TOMATO)
     _garden, bed = _one_bed(base_url, e2e_seed_data, "tc019", 2.0, 1.2)
@@ -365,7 +365,7 @@ def test_tc_053_019_correct_a_position_by_drag_is_saved_at_once_and_logged(
     dialog.wait_for_fields((60.0, 90.0), "TC-053-019: dragged to (0,60 | 0,90)", tolerance=1.0)
     dragged = dialog.fields_cm()
     dialog.step("right")
-    assert dialog.fields_cm() == (dragged[0] + 1, dragged[1]), (
+    assert dialog.fields_cm() == (dragged[0] + DESKTOP_STEP_CM, dragged[1]), (
         f"TC-053-019: the stepper must move the plant one step right: {dragged} -> "
         f"{dialog.fields_cm()}"
     )
@@ -387,10 +387,15 @@ def test_tc_053_019_correct_a_position_by_drag_is_saved_at_once_and_logged(
     screenshot("053_019_03_zone_note", "Pflanze in einer Zone: Hinweis statt Verschieben")
     zone.close_with_escape()
 
+    names = {
+        row["plant_key"]: row.get("plant_name") or row["instance_id"]
+        for row in plantings(base_url, e2e_seed_data, bed, "active")
+    }
     bed_view.open(bed, "history")
     bed_view.show_corrections()
     entry = bed_view.wait_for_history_entry(
-        "Position korrigiert", "TC-053-019: the history after the correction"
+        f"Position korrigiert: {names[plant]}",
+        "TC-053-019: the history names the corrected plant (#2514)",
     )
     screenshot("053_019_04_history", "Historie mit Eintrag 'Position korrigiert'")
     history = tenant_get(

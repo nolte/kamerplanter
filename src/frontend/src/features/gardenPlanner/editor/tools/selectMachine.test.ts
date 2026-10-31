@@ -6,6 +6,7 @@ import type { Effect, PointerSample, Step, ToolEnv } from './machineTypes';
 import {
   dragPreview,
   INITIAL_SELECT_STATE,
+  moveSnapMark,
   selectCancel,
   selectDown,
   selectMove,
@@ -236,6 +237,37 @@ describe('moving (GP-FR-021, GP-FR-151, GP-FR-155)', () => {
     const freeGeometry = (commits(free.effects)[0] as Extract<Effect, { type: 'commit' }>)
       .ops[0] as { geometry: { origin: number[] } };
     expect(freeGeometry.geometry.origin[0]).toBeCloseTo(3.23, 3);
+  });
+
+  it('snaps by every vertex of the moved object and reports where the snapped one lands (GP-FR-154)', () => {
+    const calls: { sources: readonly number[][]; reference: number[] }[] = [];
+    const snapMove: ToolEnv['snapMove'] = (sources, reference) => {
+      calls.push({ sources, reference });
+      // pretend the upper-right corner (5, 5) of b1 met a corner at (6.5, 5)
+      return { delta: [1.5, 0], kind: 'corner', point: [6.5, 5] };
+    };
+    const env = makeEnv(testPlan(), { snapMove, selection: [{ entity: 'location', key: 'b1' }] });
+    const down = selectDown(INITIAL_SELECT_STATE, at(env, [4, 4]), env);
+    const moved = selectMove(down.state, at(env, [5.4, 4]), env);
+    // b1 is 3..5 x 3..5 with its anchor at a corner: four sources, the anchor is the grid reference
+    expect(calls[0].sources).toEqual([
+      [3, 3],
+      [5, 3],
+      [5, 5],
+      [3, 5],
+    ]);
+    expect(calls[0].reference).toEqual([3, 3]);
+    expect(moveSnapMark(moved.state)).toEqual({ point: [6.5, 5], kind: 'corner' });
+    const up = selectUp(moved.state, at(env, [5.4, 4]), env);
+    const op = commits(up.effects)[0] as Extract<Effect, { type: 'commit' }>;
+    expect((op.ops[0] as { geometry: { origin: number[] } }).geometry.origin).toEqual([4.5, 3]);
+    expect(moveSnapMark(up.state)).toBeNull();
+  });
+
+  it('has no move marker when the move did not snap', () => {
+    const env = makeEnv(testPlan(), { selection: [{ entity: 'location', key: 'b1' }] });
+    const down = selectDown(INITIAL_SELECT_STATE, at(env, [4, 4]), env);
+    expect(moveSnapMark(selectMove(down.state, at(env, [5.4, 4]), env).state)).toBeNull();
   });
 
   it('refuses to move a locked object: no commit, and it says why', () => {

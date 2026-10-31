@@ -2,7 +2,8 @@
 
 Every object class has exactly one props model, selected by ``object_type``;
 the geometry kind is restricted per class (§9.5); ``bbox`` is derived; and the
-model carries no ``tenant_key`` (E-01).
+model carries no ``tenant_key`` (E-01). The water source carries ``water_source_kind``, ``capacity_liters`` and
+``last_refilled_at`` (GP-FR-111, model half).
 """
 
 from __future__ import annotations

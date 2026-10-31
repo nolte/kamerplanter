@@ -1,7 +1,8 @@
 /**
  * Dimension text on the canvas (REQ-053 GP-FR-014): width, length (radius) and area next to the
  * selected object and next to every outline a gesture is drawing or scaling. SVG in canvas pixels,
- * part of the editor overlay (decorative; the plan's own accessible names carry the sizes).
+ * part of the editor overlay (decorative; the plan's own accessible names carry the sizes). The text
+ * stands outside, above the edge, and moves past any handle in its way (GP-UX-047).
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +10,8 @@ import { useTheme } from '@mui/material/styles';
 import type { Shape } from '../model/geometry';
 import type { Point } from '../model/types';
 import { formatArea, formatLength, type LengthUnit } from '../model/units';
-import { dimensionsOfShape, labelAnchor, type Dimensions } from './dimensions';
+import { dimensionsOfShape, labelAnchor, labelAnchorBelow, placeDimensionLabel, type Dimensions } from './dimensions';
+import { HANDLE_VISIBLE_PX } from './tools/handles';
 
 export interface DimensionItem {
   key: string;
@@ -20,9 +22,15 @@ interface DimensionLabelsProps {
   items: readonly DimensionItem[];
   toScreen: (pointM: Point) => Point;
   unit: LengthUnit;
+  /** Screen centres of the handles drawn on the selection: the text keeps clear of them. */
+  handlesPx?: readonly Point[];
+  /** Canvas height in pixels: a text without room above the shape goes below it. */
+  heightPx: number;
 }
 
 const MAX_LABELS = 5;
+const FONT_PX = 12;
+const NO_HANDLES: readonly Point[] = [];
 
 export function dimensionText(
   dimensions: Dimensions,
@@ -50,7 +58,7 @@ export function dimensionText(
   }
 }
 
-export function DimensionLabels({ items, toScreen, unit }: DimensionLabelsProps) {
+export function DimensionLabels({ items, toScreen, unit, handlesPx = NO_HANDLES, heightPx }: DimensionLabelsProps) {
   const { t, i18n } = useTranslation();
   const { palette } = useTheme();
   const labels = useMemo(
@@ -58,10 +66,19 @@ export function DimensionLabels({ items, toScreen, unit }: DimensionLabelsProps)
       items.slice(0, MAX_LABELS).flatMap((item) => {
         const dimensions = dimensionsOfShape(item.shape);
         if (dimensions === null) return [];
-        const [x, y] = toScreen(labelAnchor(item.shape));
-        return [{ key: item.key, x, y, text: dimensionText(dimensions, unit, i18n.language, t) }];
+        const text = dimensionText(dimensions, unit, i18n.language, t);
+        const [x, y] = placeDimensionLabel({
+          topPx: toScreen(labelAnchor(item.shape)),
+          bottomPx: toScreen(labelAnchorBelow(item.shape)),
+          text,
+          fontPx: FONT_PX,
+          handlesPx,
+          handleSizePx: HANDLE_VISIBLE_PX,
+          heightPx,
+        });
+        return [{ key: item.key, x, y, text }];
       }),
-    [items, toScreen, unit, i18n.language, t],
+    [items, toScreen, unit, i18n.language, t, handlesPx, heightPx],
   );
   return (
     <>
@@ -70,9 +87,9 @@ export function DimensionLabels({ items, toScreen, unit }: DimensionLabelsProps)
           key={label.key}
           data-testid="garden-plan-dimension"
           x={label.x}
-          y={Math.max(14, label.y - 6)}
+          y={label.y}
           textAnchor="middle"
-          fontSize={12}
+          fontSize={FONT_PX}
           fontWeight={600}
           fill={palette.text.primary}
           stroke={palette.background.paper}

@@ -659,7 +659,10 @@
       "hardening_off": "Hardening Off",
       "budding": "Budding",
       "corm_ripening": "Corm Ripening",
-      "tuber_formation": "Tuber Formation"
+      "tuber_formation": "Tuber Formation",
+      "drying": "Drying",
+      "curing": "Curing",
+      "cloning": "Cloning"
     },
     "waterSource": {
       "tank": "Tank",
@@ -1204,6 +1207,20 @@
       "measured": "Measured",
       "by_area": "Divided by area",
       "equal": "Divided in equal parts"
+    },
+    "sunWindow": {
+      "morning": "Morning",
+      "midday": "Midday",
+      "afternoon": "Afternoon",
+      "all_day": "All day",
+      "mixed": "Changing",
+      "unknown": "Unknown"
+    },
+    "frostRisk": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "unknown": "Unknown"
     }
   }
 }

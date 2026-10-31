@@ -48,6 +48,7 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.site_conditions_merge import merge_site_conditions
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -62,7 +63,6 @@ from app.domain.models.garden_plan import (
     GardenObjectPatch,
     LocationPatch,
     PlanBatchWrite,
-    SiteConditionsPatch,
     SlotBatchItem,
     SlotBatchRequest,
     SlotBatchResult,
@@ -70,7 +70,7 @@ from app.domain.models.garden_plan import (
     SlotPatch,
 )
 from app.domain.models.geometry import Geometry
-from app.domain.models.site import Location, Site, SiteConditions, Slot
+from app.domain.models.site import Location, Site, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import (
@@ -103,20 +103,13 @@ _PATCH_COLUMNS: tuple[str, ...] = (
     "site_conditions",
     "irrigation_zone_key",
     "frost_exposed",
+    "rotation_exempt",
+    "rotation_enabled",
 )
 
 
 #: What ``PATCH /slots/{key}`` writes (GP-API-014).
 _SLOT_PATCH_COLUMNS: tuple[str, ...] = ("slot_role", "geometry", "capacity_plants", "geometry_source")
-
-
-#: The two parts of ``SiteConditions`` that are objects of their own (merged key by key on a PATCH).
-_NESTED_SITE_PARTS: frozenset[str] = frozenset({"sun_profile", "microclimate"})
-
-
-def _sent_fields(model: Any) -> dict[str, Any]:
-    """The fields a request body set explicitly (``model_fields_set``), by name."""
-    return {name: getattr(model, name) for name in model.model_fields_set}
 
 
 def _dump(model: Any, **options: Any) -> dict[str, Any]:
@@ -236,6 +229,7 @@ class GardenResourceService:
         self._require_editor(role)
         target_status = self._status_target(location, patch, role)
         self._resolve_references(location, patch, tenant_key=tenant_key)
+        self._check_rotation_switch(location, patch)
 
         fields = self._field_changes(location, patch)
         operations = self._structure_operations(location, patch)
@@ -267,6 +261,30 @@ class GardenResourceService:
         stored = self._owned_location(key, tenant_key=tenant_key)
         site = self._owned_site(stored.site_key, tenant_key=tenant_key)
         return stored, self._revision_of(site)
+
+    @staticmethod
+    def _check_rotation_switch(location: Location, patch: LocationPatch) -> None:
+        """GP-FR-137 (#2544): a permanent crop cannot be switched on - refused before anything is written.
+
+        Only a PATCH that sends ``rotation_exempt`` or ``rotation_enabled`` is judged, so a pair stored before
+        this guard (or by an older import) never blocks an unrelated change. The state after the PATCH counts
+        (sent value, else the stored one): ``rotation_exempt`` would win anyway, so storing both would keep a
+        switch that does nothing. Exempting a switched-on bed sends ``rotation_enabled: null`` (or ``false``) in
+        the same body.
+        """
+        provided = patch.model_fields_set
+        if "rotation_exempt" not in provided and "rotation_enabled" not in provided:
+            # A PATCH that does not touch the flags never fails on a pair stored before the guard (SCR-002).
+            return
+        exempt = patch.rotation_exempt if "rotation_exempt" in provided else location.rotation_exempt
+        enabled = patch.rotation_enabled if "rotation_enabled" in provided else location.rotation_enabled
+        if exempt is True and enabled is True:
+            raise PlanError(
+                "patch.rotation_exempt_and_enabled",
+                "A bed exempt from crop rotation cannot have the rotation check switched on.",
+                status_code=422,
+                field="rotation_enabled",
+            )
 
     @staticmethod
     def _structure_operations(location: Location, patch: LocationPatch) -> list[dict[str, Any]]:
@@ -329,39 +347,26 @@ class GardenResourceService:
             raise _not_found("soil_profile.substrate_key")
 
     @staticmethod
-    def _merged_site_conditions(stored: SiteConditions | None, sent: SiteConditionsPatch) -> SiteConditions:
-        """The stored value with exactly the keys of ``sent`` laid over it (WP 3.9).
-
-        A PATCH that sends ``{"wind_exposure": "exposed"}`` changes the wind and nothing else: a replace
-        would reset the sun window, the risk and the slope to their defaults. The two nested parts are
-        merged by their own sent keys; a list (``access_sides``, ``flags``) is replaced whole.
-        """
-        merged = _dump(stored if stored is not None else SiteConditions())
-        for name in sent.model_fields_set:
-            value = getattr(sent, name)
-            if name in _NESTED_SITE_PARTS:
-                merged[name] = {**merged[name], **_sent_fields(value)}
-            else:
-                merged[name] = value
-        return SiteConditions(**merged)
-
-    @staticmethod
     def _mirror_frost_risk(location: Location, provided: dict[str, Any]) -> None:
-        """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9).
+        """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9, #2512).
 
         Only a *change* counts: a patch that sends other site conditions with an untouched risk must not
         reset an override somebody set on the old field. Clearing the whole value (``site_conditions:
-        null``) is a change to ``unknown`` when a risk was stored. ``normal`` and ``unknown`` mean "no
-        override" and therefore also clear the boolean: the new field is the one that was edited, and the
-        site type decides again.
+        null``) is a change to ``unknown`` when a risk was stored. On a change, ``high`` sets ``True``,
+        ``low`` sets ``False`` and ``unknown`` ("no information") clears the boolean. ``normal`` clears only
+        a stored ``True`` - the exposure the risk no longer claims - and leaves a forced ``False`` (v0098
+        maps it to ``normal``, #2464) and ``None`` untouched (operator decision 2026-10-19, #2512).
         """
         if "site_conditions" not in provided:
             return
         sent = provided["site_conditions"]
         sent_risk = sent.microclimate.frost_risk if sent is not None else FrostRisk.UNKNOWN
         stored = location.site_conditions.microclimate.frost_risk if location.site_conditions else FrostRisk.UNKNOWN
-        if sent_risk is not stored:
-            provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
+        if sent_risk is stored:
+            return
+        if sent_risk is FrostRisk.NORMAL and location.frost_exposed is not True:
+            return
+        provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
 
     def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
         """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""
@@ -369,7 +374,7 @@ class GardenResourceService:
         if not provided:
             return {}
         if patch.site_conditions is not None:
-            provided["site_conditions"] = self._merged_site_conditions(location.site_conditions, patch.site_conditions)
+            provided["site_conditions"] = merge_site_conditions(location.site_conditions, patch.site_conditions)
         self._mirror_frost_risk(location, provided)
         try:
             updated = Location.model_validate({**_dump(location, by_alias=True), **provided})

@@ -89,7 +89,7 @@ An import **always creates a new garden**. It never merges into an existing one,
 
 - **Map the members:** the archive knows the members only by their old internal id (`user_key` in `members.jsonl`). For every member who should be part of the new garden, you name the e-mail address of an **existing** account in the target installation (it must be **active** — the import refuses a deactivated account) **and the role and permissions** that person gets. The roles recorded in the archive are only a hint; the import takes yours. Unmapped members are dropped; entries they wrote then carry the pseudonym `_anonymized`.
 - **Owner:** the new garden belongs to the longest-serving mapped member you gave lead and management — with exactly the permissions you give them (give only `management` and they do not also get `technical`). If there is none, it belongs to you with both permissions until you hand it over; this way every imported garden has someone who can manage it. In both cases the security log names you as the one who created every membership.
-- **Catalogue:** the target installation needs every global catalogue entry the archive points at (species, families, pests …). If one is missing, the import refuses with the list and writes nothing.
+- **Catalogue:** the target installation needs every global catalogue entry the archive points at (species, families, pests …). If one is missing, the import refuses with the list and writes nothing. Exception: a bed's template or substrate that is in neither the archive nor the catalogue does not make the import fail — the import clears that reference on the bed and imports the bed without a template or substrate.
 
 ### Steps
 
@@ -103,7 +103,7 @@ curl -X POST https://<your-instance>/api/v1/admin/platform/tenant-imports \
 
 Optionally `-F "plan_key=<plan>"` picks the new garden's plan; otherwise it gets the default plan. Your confirmation is bound to this file: if you confirm with a fresh sign-in token instead of the password, request it for the target `archive:<the first 32 hex digits of the file's SHA-256>` (`sha256sum garden.zip | cut -c1-32`). The answer is `202` with the import's key and `verified` (see [Signature](#signature)).
 
-While the import writes, the new garden has the state **importing**: nobody can open it yet, and the memberships only become active at the end. Read its state and, at the end, the report (counts per kind of record, no contents) like this:
+While the import writes, the new garden has the state **importing**: nobody can open it yet, and the memberships only become active at the end. Read its state and, at the end, the report (counts per kind of record, no contents; above zero also `nulled_references`, the number of references the import had to clear) like this:
 
 ```bash
 curl https://<your-instance>/api/v1/admin/platform/tenant-imports/<import-key> \
@@ -121,7 +121,7 @@ Like the import itself, you read its state only signed in as a person, not with 
 | `422 IMPORT_FORMAT_UNSUPPORTED` | no ZIP file, an unknown format, too many or too large files, an archive that would unpack too large (a file compressed more than 100-fold, more than 250,000 records in one file or 1,000,000 in all, more than 128 MiB of records or 1 GiB in all, a line above 1 MiB or more than 5,000,000 JSON values in all), a record that does not belong to the archived garden, a file of a type this installation does not accept (SVG for example), or the archive comes from a newer installation | use an archive Kamerplanter wrote; update the target installation |
 | `422 IMPORT_CHECKSUM_MISMATCH` | a file in the archive does not match the checksum in `manifest.json` or is missing — the archive is damaged | use an undamaged copy |
 | `422 IMPORT_UNDECLARED_REFERENCE` | the archive holds a reference field this installation does not know | bring both installations to the same version |
-| `422 IMPORT_MISSING_CATALOG_ENTRIES` | catalogue entries are missing; `details` lists them | complete the target's catalogue (check the seed level) |
+| `422 IMPORT_MISSING_CATALOG_ENTRIES` | catalogue entries are missing (other than a bed's template and substrate, whose reference the import clears); `details` lists them | complete the target's catalogue (check the seed level) |
 | `422 IMPORT_MEMBER_NOT_FOUND` | a mapping names no member of the archive or no existing, active account | correct the mapping |
 | `422 MEMBER_LIMIT_REACHED` | the target plan admits fewer members than the new garden would have — every mapped account and the owner count (if you confirm no member as lead with management, that is you) | map fewer members or choose a plan with more members (`plan_key`) |
 | `409 STORAGE_QUOTA_EXCEEDED` | the archive's files are larger than the target plan's storage quota (counted as in a running garden: each file once) | choose a plan with more storage |

@@ -1,14 +1,15 @@
 import { memo, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { alpha, styled, useTheme, type Theme } from '@mui/material/styles';
-import { centroid } from '../model/geometry';
 import type { PlanModel } from '../model/planModel';
 import type { BedStatus, GardenObject, PlanLocation, Point } from '../model/types';
 import { BasePlanRenderer } from './BasePlanRenderer';
 import { OBJECT_ICON_PATHS } from './icons';
 import { ICON_SIZE_PX, MARKER_RADIUS_PX, labelFontPx } from './lod';
+import { ICON_LINE_GAP_EM, labelAnchorOf } from './labelLayout';
 import { PlantBadge, PlantMarkerBody } from './PlantMarker';
 import { UnderlayLayer } from '../underlay/UnderlayLayer';
 import { WateredLayer, ZoneLayer } from './ZoneOverlays';
+import { ConditionLayer, FROST_CONDITION, MOISTURE_CONDITION, SUN_CONDITION } from './ConditionOverlays';
 import { DETAIL_PX_PER_M, PLANT_INFO_ID, STATE_MARKER_RADIUS_PX } from './plantMarkerStyle';
 import type { MarkerEntry, ShapeEntry } from './planIndex';
 import {
@@ -120,15 +121,28 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
     onActivateKey,
     phaseColors,
     plantStates,
+    plantStateLayer,
     describedPlantKey,
     invalidKeys,
     zoneLayer,
     wateredLayer,
+    sunLayer,
+    moistureLayer,
+    frostLayer,
     underlayLayer,
+    dimensionsOnOverlay,
   } = options;
   const scene = useMemo(
-    () => buildScene(model, viewport, selection, { enteredLocationKey, plantStates, invalidKeys }),
-    [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys],
+    () =>
+      buildScene(model, viewport, selection, {
+        enteredLocationKey,
+        plantStates,
+        invalidKeys,
+        plantStateLayer,
+        fieldMode,
+        dimensionsOnOverlay,
+      }),
+    [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys, plantStateLayer, fieldMode, dimensionsOnOverlay],
   );
   const palette = useMemo(() => planPalette(theme), [theme]);
   const { pxPerM } = viewport;
@@ -167,6 +181,13 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
       {wateredLayer ? (
         <WateredLayer shapes={scene.shapes} layer={wateredLayer} pxPerM={pxPerM} fontPx={fontPx} theme={theme} />
       ) : null}
+      {sunLayer ? <ConditionLayer spec={SUN_CONDITION} shapes={scene.shapes} pxPerM={pxPerM} theme={theme} /> : null}
+      {moistureLayer ? (
+        <ConditionLayer spec={MOISTURE_CONDITION} shapes={scene.shapes} pxPerM={pxPerM} theme={theme} />
+      ) : null}
+      {frostLayer ? (
+        <ConditionLayer spec={FROST_CONDITION} shapes={scene.shapes} pxPerM={pxPerM} theme={theme} />
+      ) : null}
       {scene.clusters.map((cluster) => (
         <ClusterNode
           key={cluster.locationKey}
@@ -194,7 +215,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
           labels={labels}
           palette={palette}
           phaseColors={phaseColors}
-          state={plantStates?.[marker.entry.key]}
+          state={marker.layerState ?? plantStates?.[marker.entry.key]}
           described={describedPlantKey === marker.entry.key}
           onFocusKey={onFocusKey}
           onActivateKey={onActivateKey}
@@ -347,26 +368,24 @@ const ShapeNode = memo(function ShapeNode({
   const { entry, selected } = item;
   const style = shapeStyle(entry, selected, item.invalid, palette);
   const d = useMemo(() => pathData(entry), [entry]);
-  const centre = useMemo(() => centroid(entry.geometry), [entry]);
+  // The name and the type icon sit at the shared label anchor - a polygon's pole of inaccessibility (GP-UX-047).
+  const centre = labelAnchorOf(entry.geometry).point;
   const fontSize = fontPx / pxPerM;
   const widthPx = (entry.bbox[2] - entry.bbox[0]) * pxPerM;
 
   const size = labels.size(entry.geometry, entry.areaM2 || entry.bboxAreaM2);
   let ariaLabel: string;
-  let name = '';
   let iconPath: string | null = null;
   if (entry.kind === 'location') {
     const location = entry.source as PlanLocation;
-    name = location.name;
     ariaLabel = labels.bed({
-      name,
+      name: location.name,
       size,
       plants: item.plantCount,
       openTasks: location.open_task_count,
     });
   } else if (entry.kind === 'gardenObject') {
     const object = entry.source as GardenObject;
-    name = object.label;
     ariaLabel = labels.object({
       label: object.label,
       typeLabel: labels.objectType(object.object_type),
@@ -377,13 +396,12 @@ const ShapeNode = memo(function ShapeNode({
     ariaLabel = labels.boundary;
   }
 
-  const maxChars = Math.max(3, Math.floor(widthPx / (fontPx * 0.6)));
-  const shown = name.length > maxChars ? `${name.slice(0, maxChars - 1)}…` : name;
+  const { label } = item;
   const cx = centre[0];
   const cy = -centre[1];
-  const lineGap = (fontPx * 0.9) / pxPerM;
+  const lineGap = (fontPx * ICON_LINE_GAP_EM) / pxPerM;
   const iconScale = ICON_SIZE_PX / 24 / pxPerM;
-  const iconShift = item.showLabel ? lineGap : 0;
+  const iconShift = label ? lineGap : 0;
 
   return (
     <g
@@ -441,22 +459,24 @@ const ShapeNode = memo(function ShapeNode({
           aria-hidden="true"
         />
       ) : null}
-      {item.showLabel && shown ? (
+      {label ? (
         <text
-          x={num(cx)}
-          y={num(cy + (item.showIcon ? lineGap : fontSize / 3))}
+          data-testid={`garden-plan-label-${entry.key}`}
+          x={num(label.x)}
+          y={num(-label.y + (item.showIcon ? lineGap : fontSize / 3))}
           fontSize={fontSize.toPrecision(4)}
           textAnchor="middle"
           fill={palette.text}
           pointerEvents="none"
           aria-hidden="true"
         >
-          {shown}
+          {label.text}
         </text>
       ) : null}
       {item.showDimensions ? (
+        // Outside, centred above the top edge (GP-UX-047).
         <text
-          x={num(cx)}
+          x={num((entry.bbox[0] + entry.bbox[2]) / 2)}
           y={num(-entry.bbox[3] - fontSize * 0.5)}
           fontSize={fontSize.toPrecision(4)}
           textAnchor="middle"
@@ -590,10 +610,11 @@ const MarkerNode = memo(function MarkerNode({
   onFocusKey,
   onActivateKey,
 }: MarkerNodeProps) {
-  const { entry, selected, interactive, tabStop } = marker;
+  const { entry, selected, interactive, tabStop, layerState } = marker;
   const theme = useTheme();
   const plant = entry.kind === 'plant';
-  const stated = plant && interactive && state !== undefined;
+  // Inside the entered bed every known state is drawn; elsewhere the plant-state layer decides (GP-UX-061).
+  const stated = plant && state !== undefined && (interactive || layerState !== undefined);
   const baseRadiusPx = stated ? STATE_MARKER_RADIUS_PX : MARKER_RADIUS_PX;
   const radius = (selected ? baseRadiusPx * 1.5 : baseRadiusPx) / pxPerM;
   const fill = markerFill(entry.phaseKey, palette, phaseColors);
@@ -628,7 +649,15 @@ const MarkerNode = memo(function MarkerNode({
       aria-hidden={interactive ? undefined : 'true'}
     />
   );
-  if (!interactive) return circle;
+  if (!interactive) {
+    if (!stated) return circle;
+    // A layer marker is decorative, like a batch: the bed's label carries the count, the bed view the details.
+    return (
+      <g data-plan-key={entry.key} data-plan-kind={entry.kind} data-plan-state-layer="true" aria-hidden="true" pointerEvents="none">
+        {circle}
+      </g>
+    );
+  }
   return (
     <g
       className="gp-obj"
@@ -752,7 +781,7 @@ const ClusterNode = memo(function ClusterNode({
         fill="#fff"
         aria-hidden="true"
       >
-        {cluster.count}
+        {cluster.shownCount}
       </text>
       {cluster.attention && cluster.topBadge ? (
         <PlantBadge code={cluster.topBadge} x={cluster.x + radius * 0.85} y={-cluster.y - radius * 0.85} radius={radius * 0.55} />

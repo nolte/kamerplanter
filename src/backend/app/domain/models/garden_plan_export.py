@@ -21,7 +21,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from app.common.enums import (
     BedStatus,
@@ -33,7 +33,7 @@ from app.common.enums import (
     SunExposure,
 )
 from app.domain.models.garden_object import GardenObjectProps
-from app.domain.models.garden_plan import MAX_PLAN_ZONES
+from app.domain.models.garden_plan import MAX_PLAN_OBJECTS_PER_SITE, MAX_PLAN_ZONES, MAX_SLOTS_PER_SITE
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.irrigation_zone import COLOR_PATTERN, DEFAULT_ZONE_COLOR
 from app.domain.models.site import SiteConditions, SoilProfile
@@ -81,6 +81,11 @@ class ExportLocation(_ExportModel):
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     soil_profile: SoilProfile | None = None
     site_conditions: SiteConditions | None = None
+    #: The legacy frost override the winter readers still read (WP 3.9), additive inside ``schema_version "1"``
+    #: (#2512): ``site_conditions.microclimate.frost_risk`` cannot carry it, because ``normal`` stands for both a
+    #: forced ``False`` and "inherit". A file written before #2512 lacks the key; the import then derives it from
+    #: the risk. An explicit ``null`` means "inherit from the site type".
+    frost_exposed: bool | None = None
     irrigation_zone_key: str | None = None
     #: Provenance (WP 7.9): the bed template this bed was placed from. Additive inside ``schema_version "1"``.
     #: The import resolves it against the system templates and the target tenant's own, else drops it and reports
@@ -89,6 +94,12 @@ class ExportLocation(_ExportModel):
     locked: bool = False
     z_order: int = 0
     pitch_m: float | None = None
+    #: The crop-rotation flags of the bed (GP-FR-137, #2544), additive inside ``schema_version "1"``. A file written
+    #: before #2544 lacks both keys; the restored bed then is not exempt and follows its type (``null``). Strict,
+    #: unlike the older flags: no file ever carried them as ``"yes"`` / ``1``, so a JSON boolean is all that is read.
+    #: Both ``true`` is refused by the import (``import.rotation_exempt_and_enabled``), as the PATCH refuses it.
+    rotation_exempt: StrictBool = False
+    rotation_enabled: StrictBool | None = None
 
 
 class ExportSlot(_ExportModel):
@@ -174,3 +185,18 @@ class GardenPlanExport(BaseModel):
     garden_objects: list[ExportGardenObject] = Field(default_factory=list)
     #: Additive inside ``schema_version "1"``: a file written before WP 7.2 has no ``zones`` and reads as ``[]``.
     zones: list[ExportZone] = Field(default_factory=list, max_length=MAX_PLAN_ZONES)
+
+
+class GardenPlanImportDocument(GardenPlanExport):
+    """A backup **as the import reads it** (#2542 W-1): the lists of an untrusted file are capped before any lookup.
+
+    A file may not hold more locations, garden objects or slots than one site may (GP-NFR-017); without the caps
+    an oversized file was read whole and every one of its beds resolved its zone and substrate before
+    ``_check_quotas`` refused it. The caps sit here and not on :class:`GardenPlanExport`, because that model is
+    also what the export *writes*: the location quota is enforced by the plan batch and the import, but a location
+    created through the site API is not counted against it, so a site above the quota must still be exportable.
+    """
+
+    locations: list[ExportLocation] = Field(default_factory=list, max_length=MAX_PLAN_OBJECTS_PER_SITE)
+    slots: list[ExportSlot] = Field(default_factory=list, max_length=MAX_SLOTS_PER_SITE)
+    garden_objects: list[ExportGardenObject] = Field(default_factory=list, max_length=MAX_PLAN_OBJECTS_PER_SITE)

@@ -10,6 +10,8 @@ events out. Needs a real ArangoDB (see ``tests/integration/conftest.py``).
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from arango import ArangoClient
@@ -269,6 +271,88 @@ class TestTheFilters:
             "care:new",
             "care:old",
         ]
+
+
+class TestPlantNames:
+    def test_a_care_event_names_its_plants_in_order_and_skips_gone_and_foreign_ones(self, db, repo, bed) -> None:
+        """#2514: the history line names the plant from the same read - ``plant_name``, else ``instance_id``."""
+        _plant(db, "named", plant_name="Tomato 'Black Krim' #3")
+        _plant(db, "plain")
+        _plant(db, "theirs", tenant=OTHER)
+        _event(
+            db,
+            "moved",
+            performed="2025-06-01T08:00:00Z",
+            category="position_corrected",
+            plant_keys=["plain", "gone", "theirs", "named"],
+        )
+        _event(db, "watered", performed="2025-06-02T08:00:00Z")
+
+        # A position correction is a correction: shown on request only (GP-FR-102).
+        page = _page(repo, BedHistoryFilter(include_corrections=True))
+        rows = {r.care.event.key: r.care for r in page if r.care is not None}
+
+        assert rows["moved"].plant_names == ("id-plain", "Tomato 'Black Krim' #3")
+        assert rows["watered"].plant_names == ()
+
+    def test_a_later_page_names_its_own_plants_and_performers(self, db, repo, bed) -> None:
+        """The names are resolved after ``LIMIT``: page 2 must still carry the names of *its* lines, not page 1's."""
+        _plant(db, "p_old", plant_name="Old bean")
+        _plant(db, "p_new", plant_name="New bean")
+        _event(db, "w_old", performed="2025-06-01T08:00:00Z", plant_keys=["p_old"], performed_for_user_key="u_sabine")
+        _event(db, "w_new", performed="2025-06-02T08:00:00Z", plant_keys=["p_new"], performed_by_user_key="u_gone")
+
+        first = _page(repo, offset=0, limit=1)
+        second = _page(repo, offset=1, limit=1)
+
+        assert _ids(first) == ["care:w_new"] and _ids(second) == ["care:w_old"]
+        assert first[0].care is not None and second[0].care is not None
+        assert first[0].care.plant_names == ("New bean",) and first[0].care.performed_by_name is None
+        assert second[0].care.plant_names == ("Old bean",)
+        assert second[0].care.performed_by_name == "Sabine" and second[0].care.performed_for_name == "Sabine"
+
+    def test_the_name_lookups_are_bounded_by_the_page_not_by_the_history(self, db, bed) -> None:
+        """SEC-001 (#2514): one page must not resolve the names of every care event of the bed.
+
+        The production statement runs unchanged with ``profile=2``; the server counts the rows every calculation node
+        evaluated. Summed over the nodes that call ``DOCUMENT`` (performer, recipient, plant names) a page of 2 lines
+        over 40 events naming 10 plants each stays near ``2 x (10 + 2)``; resolved before the ``LIMIT`` it is ~520.
+        """
+        plants, events, limit = 10, 40, 2
+        keys = [f"p{i}" for i in range(plants)]
+        for key in keys:
+            _plant(db, key)
+        for i in range(events):
+            _event(
+                db,
+                f"e{i:02d}",
+                performed=f"2025-06-01T{i // 60:02d}:{i % 60:02d}:00Z",
+                plant_keys=keys,
+                performed_for_user_key="u_sabine",
+            )
+        cursors: list[Any] = []
+
+        def profiled(query: str, bind_vars: dict[str, Any] | None = None, **options: Any) -> Any:
+            cursor = db.aql.execute(query, bind_vars=bind_vars, profile=2, **options)
+            cursors.append(cursor)
+            return cursor
+
+        spy = SimpleNamespace(aql=SimpleNamespace(execute=profiled))
+        rows = ArangoBedHistoryRepository(spy).list_history(  # type: ignore[arg-type]
+            "bed", BedHistoryFilter(), tenant_key=TENANT, offset=0, limit=limit
+        )
+
+        assert len(rows) == limit and all(r.care is not None and len(r.care.plant_names) == plants for r in rows)
+        (cursor,) = cursors
+        plan, stats = cursor.plan(), cursor.statistics()
+        lookups = {
+            node["id"]
+            for node in plan["nodes"]
+            if node["type"] == "CalculationNode" and "DOCUMENT" in str(node.get("expression"))
+        }
+        evaluated = sum(node["items"] for node in stats["nodes"] if node["id"] in lookups)
+        assert lookups, "the plan resolves no name with DOCUMENT - the probe no longer sees the lookups"
+        assert evaluated <= 2 * limit * (plants + 2), evaluated
 
 
 class TestTheTenant:

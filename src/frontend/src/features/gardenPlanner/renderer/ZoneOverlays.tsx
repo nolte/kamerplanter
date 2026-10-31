@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Theme } from '@mui/material/styles';
-import { centroid } from '../model/geometry';
+import { labelAnchorOf } from './labelLayout';
 import type { SceneShape } from './scene';
 import type { ShapeEntry } from './planIndex';
 import type { RenderOptions, WateredLayerEntry, ZoneLayerEntry } from './types';
@@ -101,6 +101,7 @@ export function ZoneLayer({ shapes, zones, pxPerM, theme }: ZoneLayerProps) {
             <pattern
               key={zone.key}
               id={`${zonePatternId(zone.variant)}-${zone.key}`}
+              data-pattern-family={`hatch-${variant.angle}`}
               patternUnits="userSpaceOnUse"
               width={num(tile)}
               height={num(tile)}
@@ -145,10 +146,12 @@ export function ZoneLayer({ shapes, zones, pxPerM, theme }: ZoneLayerProps) {
 }
 
 /** One pattern per class; the order is the order of the legend. Colour follows the patterns, never replaces them. */
-export const WATERED_PATTERNS: Record<WateredLayerEntry['wateredClass'], 'dots' | 'cross' | 'diagonal' | 'sparse'> = {
+export const WATERED_PATTERNS: Record<WateredLayerEntry['wateredClass'], 'dots' | 'cross' | 'zigzag' | 'sparse'> = {
   d0_1: 'dots',
   d2_3: 'cross',
-  d4_7: 'diagonal',
+  // Not a straight diagonal: that is the hatching of the first zone (45 degrees), and the plan's patterns stay
+  // distinct across all layers (WCAG 1.4.1).
+  d4_7: 'zigzag',
   d8plus: 'sparse',
 };
 
@@ -176,9 +179,14 @@ export function WateredPatternTile({
           fill="none"
         />
       );
-    case 'diagonal':
+    case 'zigzag':
       return (
-        <path d={`M0 ${num(tile)}L${num(tile)} 0`} stroke={color} strokeWidth={num(line)} fill="none" />
+        <path
+          d={`M0 ${num(tile * 0.75)}L${num(tile / 2)} ${num(tile * 0.25)}L${num(tile)} ${num(tile * 0.75)}`}
+          stroke={color}
+          strokeWidth={num(line)}
+          fill="none"
+        />
       );
     case 'sparse':
       return <path d={`M0 ${num(tile / 2)}H${num(tile / 3)}`} stroke={color} strokeWidth={num(line)} fill="none" />;
@@ -208,6 +216,7 @@ export function WateredLayer({ shapes, layer, pxPerM, fontPx, theme }: WateredLa
           <pattern
             key={wateredClass}
             id={wateredPatternId(wateredClass)}
+            data-pattern-family={WATERED_PATTERNS[wateredClass]}
             patternUnits="userSpaceOnUse"
             width={num(tile)}
             height={num(tile)}
@@ -219,7 +228,8 @@ export function WateredLayer({ shapes, layer, pxPerM, fontPx, theme }: WateredLa
       {shapes.map((shape) => {
         const watered = layer.byBed[shape.entry.key];
         if (!watered || shape.entry.kind !== 'location') return null;
-        const [cx, cy] = centroid(shape.entry.geometry);
+        // Under the bed's name, which sits at the label anchor (GP-UX-047).
+        const [cx, cy] = labelAnchorOf(shape.entry.geometry).point;
         return (
           <g key={shape.entry.key} data-watered-bed={shape.entry.key} data-watered-class={watered.wateredClass}>
             <Outline entry={shape.entry} fill={`url(#${wateredPatternId(watered.wateredClass)})`} stroke="none" />

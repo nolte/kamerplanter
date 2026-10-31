@@ -4,7 +4,8 @@
 system templates (``tenant_key`` absent / ``null``, written by migration v0101 under a fixed ``_key``). Every read
 filters on the tenant **inside** the query and admits exactly those two arms; every write names the row's owner
 and matches on it, so a tenant's write can never land on a system row (or the reverse) and another tenant's row
-answers like an absent one.
+answers like an absent one. Deleting a template also unsets ``locations.template_key`` on the beds placed from it,
+in the same stream transaction (#2528).
 
 The index ``(tenant_key, name)`` (v0101) leads with ``tenant_key`` like every tenant-bearing index
 (``test_tenant_unique_indexes_are_scoped``); it is not unique - two templates may share a name.
@@ -15,6 +16,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import structlog
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
@@ -22,8 +24,11 @@ from app.common.exceptions import NotFoundError
 from app.common.types import BedTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.models.bed_template import BedTemplate
+
+logger = structlog.get_logger()
 
 #: A row the tenant may read: its own or a system one (``tenant_key`` is ``null`` or absent).
 _VISIBLE = "(t.tenant_key == @tenant_key OR t.tenant_key == null)"
@@ -145,23 +150,74 @@ class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplat
         return self._wrapped(doc)
 
     def delete_template(self, key: BedTemplateKey, *, owner_tenant_key: str | None) -> bool:
+        """Remove the template of that owner and unset ``template_key`` on the beds placed from it, atomically.
+
+        ``template_key`` is provenance (REQ-053 §20.12, #2528): once the template is gone it names nothing, and a
+        dangling key would make a tenant-archive re-import refuse the archive. A tenant template releases only the
+        beds whose **site** belongs to that tenant (``locations`` carry no ``tenant_key``; the site is the anchor,
+        MT-010) - another tenant's row carrying the same key is not this delete's business. A system template (only
+        a platform admin deletes one) releases the beds of every tenant. A refused delete (not the owner's row)
+        touches no bed.
+        """
+        with stream_transaction(
+            self._db,
+            write=(col.BED_TEMPLATES, col.LOCATIONS),
+            read=(col.SITES, col.CONTAINS),
+            entity="bed_template",
+        ) as txn:
+            if not self._remove_owned_template(txn, key, owner_tenant_key=owner_tenant_key):
+                return False
+            released = self._unset_template_key(txn, key, owner_tenant_key=owner_tenant_key)
+        # After the commit: the service logs ``bed_template.deleted``; the released-bed count is only known here.
+        logger.info("bed_template.beds_released", template_key=key, released_beds=released)
+        return True
+
+    @staticmethod
+    def _remove_owned_template(txn: StreamTransaction, key: BedTemplateKey, *, owner_tenant_key: str | None) -> bool:
         owner = "t.tenant_key == @owner" if owner_tenant_key is not None else "t.tenant_key == null"
         bind_vars: dict[str, Any] = {"@templates": col.BED_TEMPLATES, "key": key}
         if owner_tenant_key is not None:
             bind_vars["owner"] = owner_tenant_key
-        cursor = cast(
-            "Cursor",
-            self._db.aql.execute(
-                f"""
+        cursor = txn.aql.execute(
+            f"""
             FOR t IN @@templates
                 FILTER t._key == @key AND {owner}
                 REMOVE t IN @@templates
                 RETURN 1
             """,
-                bind_vars=bind_vars,
-            ),
+            bind_vars=bind_vars,
         )
-        return next(cursor, None) is not None
+        return next(iter(cursor), None) is not None
+
+    @staticmethod
+    def _unset_template_key(txn: StreamTransaction, key: BedTemplateKey, *, owner_tenant_key: str | None) -> int:
+        """Unset ``template_key == key`` on the owner's beds (every tenant's for a system template); the count."""
+        bind_vars: dict[str, Any] = {"@locations": col.LOCATIONS, "key": key}
+        site_clause = ""
+        if owner_tenant_key is not None:
+            # A nested legacy bed may carry no ``site_key`` (#2513): its site is then the first site above it on the
+            # ``contains`` graph (site -> location, parent location -> child, so the walk goes INBOUND).
+            site_clause = """
+                LET site = DOCUMENT(@@sites, l.site_key) || FIRST(
+                    FOR v IN 1..20 INBOUND l @@contains
+                        FILTER IS_SAME_COLLECTION(@@sites, v)
+                        LIMIT 1
+                        RETURN v
+                )
+                FILTER site.tenant_key == @owner"""
+            bind_vars["@sites"] = col.SITES
+            bind_vars["@contains"] = col.CONTAINS
+            bind_vars["owner"] = owner_tenant_key
+        cursor = txn.aql.execute(
+            f"""
+            FOR l IN @@locations
+                FILTER l.template_key == @key {site_clause}
+                UPDATE l WITH {{ template_key: null }} IN @@locations OPTIONS {{ keepNull: false }}
+                RETURN OLD._key
+            """,
+            bind_vars=bind_vars,
+        )
+        return len(list(cursor))
 
     # ── References of a template ──────────────────────────────────────────
 

@@ -22,6 +22,9 @@ MAX_IMPORT_NESTING = 10
 IMPORT_TIME_BUDGET_SECONDS = 30.0
 #: How many findings and dropped references one answer lists; the counts stay exact.
 MAX_REPORTED = 50
+#: GP-NFR-055 (#2542 W-2): at most this many ``import_snapshot`` rows per site; each ``replace`` import or restore
+#: that writes a new one removes the oldest beyond it in the same transaction (a snapshot holds a whole plan).
+MAX_SNAPSHOTS_PER_SITE = 20
 
 #: ``GardenPlanExport`` fields the import knows. A top-level key outside this set belongs to a *newer* file.
 SUPPORTED_SCHEMA_VERSIONS: tuple[str, ...] = ("1",)

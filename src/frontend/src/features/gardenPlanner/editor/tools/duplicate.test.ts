@@ -212,6 +212,23 @@ describe('multiDuplicate (GP-FR-025 SHOULD, GP-NFR-017)', () => {
     if (!out.ok) expect(out.failedCopy).toBeGreaterThan(1);
   });
 
+  it('names the failed copy as the plan would, counted from the start number (#2536)', () => {
+    const plain = multiDuplicate(community(), [{ entity: 'location', key: 'plot' }], {
+      ...options,
+      count: 100,
+    });
+    const from12 = multiDuplicate(community(), [{ entity: 'location', key: 'plot' }], {
+      ...options,
+      count: 100,
+      startNumber: 12,
+    });
+    if (plain.ok || from12.ok) throw new Error('expected a refusal');
+    // the same copy fails; its bed would have been "Parzelle <start + round - 1>", not "Kopie <round>"
+    expect(from12.failedCopy).toBe(plain.failedCopy);
+    expect(plain.failedName).toBe(`Parzelle ${plain.failedCopy}`);
+    expect(from12.failedName).toBe(`Parzelle ${plain.failedCopy! + 11}`);
+  });
+
   it('counts the operations already waiting for the save against the batch limit', () => {
     const sel = [{ entity: 'location' as const, key: 'plot' }];
     expect(multiDuplicate(community(), sel, { ...options, count: 30, pendingCount: 471 })).toEqual({

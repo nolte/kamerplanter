@@ -1,15 +1,22 @@
 /**
  * The layer registry of the plan (REQ-053 GP-FR-031): one entry per switchable layer. The grid has had its
- * own switch since the MVP; further layers (the irrigation zones, "last watered" and the underlay today; later
- * sun / moisture / frost and the plant state) are added HERE and appear in the view bar, in the stored per-user
- * choice and in the legend without another edit of the bar. The underlay (GP-FR-033) is shown or hidden per
- * user; the editor lists its switch only while the site has a picture.
+ * own switch since the MVP; further layers (the irrigation zones, "last watered", the underlay, the sun /
+ * moisture / frost layers and the plant state) are added HERE and appear in the view bar, in the stored
+ * per-user choice and in the legend without another edit of the bar. The underlay (GP-FR-033) is shown or hidden
+ * per user; the editor lists its switch only while the site has a picture.
  */
 export const LAYERS = [
   { id: 'grid', defaultVisible: true, bar: 'grid' },
   { id: 'zones', defaultVisible: false, bar: 'toggle' },
   { id: 'lastWatered', defaultVisible: false, bar: 'toggle' },
   { id: 'underlay', defaultVisible: true, bar: 'toggle' },
+  // The site-condition layers (GP-FR-169): read from the plan's own site conditions (#2538), off until switched on.
+  { id: 'sun', defaultVisible: false, bar: 'toggle' },
+  { id: 'moisture', defaultVisible: false, bar: 'toggle' },
+  { id: 'frost', defaultVisible: false, bar: 'toggle' },
+  // The plant state (GP-UX-061, #2488): ring and badge of every plant on the overview; its states are read per bed
+  // at marker LOD only while the layer is on, so it starts off.
+  { id: 'plantState', defaultVisible: false, bar: 'toggle' },
 ] as const;
 
 export type LayerId = (typeof LAYERS)[number]['id'];

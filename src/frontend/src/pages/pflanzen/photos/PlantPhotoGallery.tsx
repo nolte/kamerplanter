@@ -34,7 +34,7 @@ import {
   deletePlantPhoto,
   type PlantPhoto,
 } from '@/api/endpoints/plantPhotos';
-import PlantPhotoUploadDialog from './PlantPhotoUploadDialog';
+import PlantPhotoUploadDialog from '@/components/photos/PlantPhotoUploadDialog';
 import PlantPhotoLightbox from './PlantPhotoLightbox';
 import PlantPhotoEditDialog from './PlantPhotoEditDialog';
 import PlantPhotoAssessDialog from './PlantPhotoAssessDialog';

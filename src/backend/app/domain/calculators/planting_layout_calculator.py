@@ -52,6 +52,7 @@ rounding of :func:`app.domain.models.geometry.round_length`, so the TypeScript p
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.common.enums import LayoutStrategy, RowDirection, SlotRole
@@ -88,6 +89,8 @@ CODE_TOO_MANY_POSITIONS = "layout.too_many_positions"
 CODE_BED_NOT_AN_AREA = "layout.bed_not_an_area"
 CODE_ROW_SPACING_REQUIRED = "layout.row_spacing_required"
 CODE_SPACING_OUT_OF_RANGE = "layout.spacing_out_of_range"
+#: GP-FR-070: two entries laid out together claim the same row.
+CODE_ROW_ASSIGNMENT_OVERLAP = "layout.row_assignment_overlap"
 WARNING_SPACING_BELOW_MATURE_WIDTH = "layout.spacing_below_mature_width"
 WARNING_NO_POSITION_FITS = "layout.no_position_fits"
 #: V-07: two planned positions are closer than ``spacing_cm`` — a hint, never an error.
@@ -344,6 +347,66 @@ def compute_layout(bed: Geometry, entry: EntryLayout, max_count: int | None = No
     if estimated > MAX_LAYOUT_POSITIONS and entry.row_assignment is None:
         raise _too_many(estimated)
     return _point_layout(shape, entry, max_count, warnings)
+
+
+#: The strategies that lay an entry out on a row grid; only they occupy the rows a ``row_assignment`` names.
+#: ``zone`` / ``free`` (and no strategy) place no rows, so their ``row_assignment`` is not read (GP-FR-070).
+ROW_LAYOUT_STRATEGIES: frozenset[LayoutStrategy] = frozenset(
+    {LayoutStrategy.GRID, LayoutStrategy.ROWS, LayoutStrategy.TRIANGULAR}
+)
+#: SEC-001: the ``conflicts`` of a 422 name at most this many pairs, each with at most this many rows; the
+#: counters ``pairs_total`` / ``rows_total`` / ``truncated`` say what was cut (12 entries x 2 000 rows would
+#: otherwise answer with 66 pairs x 2 000 rows).
+MAX_REPORTED_ROW_CONFLICT_PAIRS = 20
+MAX_REPORTED_ROWS_PER_CONFLICT = 50
+
+
+def check_disjoint_row_assignments(
+    assignments: Sequence[tuple[LayoutStrategy | None, Sequence[int] | None]], *, field_template: str
+) -> None:
+    """GP-FR-070 / GP-ACC-054: the row sets of entries laid out together are pairwise disjoint.
+
+    ``assignments`` holds ``(layout_strategy, row_assignment)`` of each entry in body order. Only an entry with a
+    row strategy (:data:`ROW_LAYOUT_STRATEGIES`) and a ``row_assignment`` takes rows; a ``zone`` / ``free`` entry,
+    an entry without a strategy and one without a ``row_assignment`` occupy none and are not part of the check.
+    An overlap is 422 ``layout.row_assignment_overlap``. ``conflicts`` names the overlapping pairs by the positions
+    of the entries and the rows they share, in body order and ascending rows, capped at
+    :data:`MAX_REPORTED_ROW_CONFLICT_PAIRS` pairs and :data:`MAX_REPORTED_ROWS_PER_CONFLICT` rows per pair; each
+    pair carries ``rows_total``, the detail ``pairs_total`` and ``truncated`` (``True`` when anything was cut).
+    ``field_template`` (with ``{index}``) points at the later entry of the first pair.
+
+    The index is a row of the entry's own row grid (its ``row_spacing_cm``, ``row_direction`` and edge margins).
+    Disjoint indices do not prove disjoint positions when two entries use different grids; the planting dialog
+    lays all entries out on one shared grid.
+    """
+    rows = [
+        (index, set(value))
+        for index, (strategy, value) in enumerate(assignments)
+        if value is not None and strategy in ROW_LAYOUT_STRATEGIES
+    ]
+    pairs = [
+        (first, second, sorted(first_rows & second_rows))
+        for position, (first, first_rows) in enumerate(rows)
+        for second, second_rows in rows[position + 1 :]
+        if first_rows & second_rows
+    ]
+    if not pairs:
+        return
+    shown = pairs[:MAX_REPORTED_ROW_CONFLICT_PAIRS]
+    conflicts = [
+        {"runs": [first, second], "rows": shared[:MAX_REPORTED_ROWS_PER_CONFLICT], "rows_total": len(shared)}
+        for first, second, shared in shown
+    ]
+    truncated = len(pairs) > len(shown) or any(len(shared) > MAX_REPORTED_ROWS_PER_CONFLICT for *_, shared in shown)
+    raise PlanError(
+        CODE_ROW_ASSIGNMENT_OVERLAP,
+        "Two entries of one mixed culture claim the same row; every row belongs to one entry.",
+        status_code=422,
+        field=field_template.format(index=pairs[0][1]),
+        conflicts=conflicts,
+        pairs_total=len(pairs),
+        truncated=truncated,
+    )
 
 
 def _point_layout(

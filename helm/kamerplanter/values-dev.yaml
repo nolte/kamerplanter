@@ -363,7 +363,7 @@ controllers:
       data-dir-owner:
         image:
           repository: timescale/timescaledb
-          tag: "2.30.2-pg16"
+          tag: "2.31.0-pg16"
           pullPolicy: IfNotPresent
         command: ["sh", "-c"]
         args:
@@ -387,7 +387,7 @@ controllers:
       main:
         image:
           repository: timescale/timescaledb
-          tag: "2.30.2-pg16"
+          tag: "2.31.0-pg16"
           pullPolicy: IfNotPresent
         env:
           POSTGRES_DB: kamerplanter_sensors

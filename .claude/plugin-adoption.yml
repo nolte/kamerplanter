@@ -104,6 +104,7 @@ inventory:
   nolte-shared:
     skills:
     - audience-identify
+    - backlog-delivery-orchestrate
     - backstage-catalog-generate
     - blog-author
     - blog-author-trigger
@@ -126,6 +127,7 @@ inventory:
     - project-structure-apply
     - pull-request-create
     - pull-request-merge
+    - pull-request-runner-sweep
     - readme-structure-apply
     - release-notes-curate
     - release-publish-trigger

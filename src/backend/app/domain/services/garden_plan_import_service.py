@@ -66,6 +66,7 @@ from app.domain.models.garden_plan_export import (
     ExportSlot,
     ExportZone,
     GardenPlanExport,
+    GardenPlanImportDocument,
 )
 from app.domain.models.garden_plan_import import (
     ALWAYS_DROPPED_FIELDS,
@@ -84,7 +85,7 @@ from app.domain.models.garden_plan_import import (
 )
 from app.domain.models.geometry import Geometry, parse_geometry
 from app.domain.models.irrigation_zone import IrrigationZone
-from app.domain.models.site import Location, SitePlan, Slot
+from app.domain.models.site import Location, SiteConditions, SitePlan, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -98,6 +99,9 @@ ERROR_DUPLICATE_KEY = "import.duplicate_key"
 ERROR_PARENT_CYCLE = "import.parent_cycle"
 ERROR_TOO_DEEP = "import.too_deep"
 ERROR_DUPLICATE_SLOT_ID = "import.duplicate_slot_id"
+#: GP-FR-137 (#2544): a bed of the file is both a permanent crop and switched on - the pair the PATCH refuses
+#: (``patch.rotation_exempt_and_enabled``). Reported, not normalised: the user decides which flag the file meant.
+ERROR_ROTATION_EXEMPT_AND_ENABLED = "import.rotation_exempt_and_enabled"
 ERROR_QUOTA = "plan.quota_exceeded"
 _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width_m", "length_m", "radius_m"})
 #: How much of a file's own key an error may echo back.
@@ -164,6 +168,21 @@ def _missing_reason(prepared: _Prepared) -> DropReason:
     """Why a reference to something that is not in the file is dropped: for a file that comes from elsewhere
     (``other_site`` / ``other_tenant``) it never resolves against the target, whatever the target holds."""
     return "outside_file" if prepared.file_only else "not_found"
+
+
+def _imported_frost_exposed(item: ExportLocation, site_conditions: SiteConditions | None) -> bool | None:
+    """The legacy ``frost_exposed`` a restored bed gets (#2512): the file's value when the item carries the key.
+
+    The winter readers still read the boolean (WP 3.9), and the risk cannot stand in for it: ``normal`` is both a
+    forced ``False`` (v0098) and "inherit". So a file written since #2512 is taken at its word, an explicit
+    ``null`` included ("inherit from the site type"). A file written before has no key (``model_fields_set`` tells
+    an absent key from a sent ``null``); its boolean is derived from the risk, as it was before #2512.
+    """
+    if "frost_exposed" in item.model_fields_set:
+        return item.frost_exposed
+    if site_conditions is None:
+        return None
+    return frost_exposed_from_risk(site_conditions.microclimate.frost_risk)
 
 
 def _copied[TModel: BaseModel](model: TModel) -> TModel:
@@ -414,7 +433,8 @@ class GardenPlanImportService:
                 keys=[name[:_KEY_ECHO] for name in unknown[:10]],
             )
         try:
-            return GardenPlanExport.model_validate(document)
+            # The capped reading (#2542 W-1): an oversized list is refused here, before ``_prepare`` looks anything up.
+            return GardenPlanImportDocument.model_validate(document)
         except PydanticValidationError as exc:
             findings = [_finding_of(error, document) for error in _errors_of(exc)]
             raise PlanValidationError(
@@ -640,6 +660,14 @@ class GardenPlanImportService:
         visible_templates: set[str],
     ) -> None:
         temp = f"imp_loc_{position}"
+        if item.rotation_exempt and item.rotation_enabled is True:
+            prepared.add_finding(
+                ImportFinding(
+                    field=f"locations[{position}].rotation_enabled",
+                    code=ERROR_ROTATION_EXEMPT_AND_ENABLED,
+                    key=_echo(item.key),
+                )
+            )
         parent_key = self._resolve_parent(prepared, item, index_of)
         parent = prepared.locations.get(parent_key) if parent_key else None
 
@@ -700,14 +728,13 @@ class GardenPlanImportService:
             "sun_exposure": item.sun_exposure,
             "soil_profile": soil,
             "site_conditions": site_conditions,
-            # The file carries no ``frost_exposed``; the winter readers still read it (WP 3.9), so it follows the risk.
-            "frost_exposed": frost_exposed_from_risk(site_conditions.microclimate.frost_risk)
-            if site_conditions is not None
-            else None,
+            "frost_exposed": _imported_frost_exposed(item, site_conditions),
             "irrigation_zone_key": zone_key,
             "template_key": template_key,
             "locked": item.locked,
             "z_order": item.z_order,
+            "rotation_exempt": item.rotation_exempt,
+            "rotation_enabled": item.rotation_enabled,
         }
         if item.pitch_m is not None:
             fields["pitch_m"] = item.pitch_m
@@ -1140,6 +1167,10 @@ def _code_of(error: Any) -> str:
     return "geometry.invalid" if parts & _GEOMETRY_FIELDS else "validation.invalid"
 
 
+#: The top-level lists whose length cap is the site quota (#2542 W-1): too many of them is the quota, not a bad value.
+_QUOTA_LISTS = frozenset({"locations", "garden_objects", "slots"})
+
+
 def _finding_of(error: Any, document: dict[str, Any]) -> ImportFinding:
     loc = tuple(error["loc"])
     key: str | None = None
@@ -1147,6 +1178,11 @@ def _finding_of(error: Any, document: dict[str, Any]) -> ImportFinding:
         items = document.get(loc[0])
         if isinstance(items, list) and loc[1] < len(items) and isinstance(items[loc[1]], dict):
             key = _echo(items[loc[1]].get("key"))
+    if error["type"] == "too_long" and len(loc) == 1 and loc[0] in _QUOTA_LISTS:
+        return ImportFinding(field=_path(loc), code=ERROR_QUOTA)
+    if error["type"] == "too_long" and loc == ("zones",):
+        # One case, one code (#2542): the schema cap reports an over-full zone list as _check_quotas does.
+        return ImportFinding(field=_path(loc), code=ERROR_ZONE_QUOTA)
     return ImportFinding(field=_path(loc), code=_code_of(error), key=key)
 
 

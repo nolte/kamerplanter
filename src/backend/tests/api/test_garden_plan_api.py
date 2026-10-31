@@ -73,9 +73,9 @@ def client(repo: FakePlanRepo) -> Iterator[Callable[..., TestClient]]:
 
     service = GardenPlanService(repo._sites, repo)
 
-    def build(role: TenantRole = TenantRole.GROWER) -> TestClient:
+    def build(role: TenantRole = TenantRole.GROWER, *, raise_server_exceptions: bool = True) -> TestClient:
         _Tenants.role = role
-        return TestClient(app)
+        return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
     app.dependency_overrides[get_current_user] = lambda: User(
         _key="u_sabine", email="s@example.org", display_name="Sabine"
@@ -170,8 +170,12 @@ class TestTheBoundary:
         too_far = {"kind": "polygon", "points": [[0, 0], [1000.5, 0], [1000.5, 10], [0, 10]]}
         refused = client().put(f"{_PLAN}/boundary", json={"boundary": too_far, "north_angle_deg": 0})
         assert refused.status_code == 422, refused.text
-        # Measured 2026-10-20: the answer is the generic VALIDATION_ERROR (field body.boundary.polygon.points), not the
-        # spec's `geometry.invalid` with a point index - the status and the unchanged plan are what is pinned here.
+        body = refused.json()
+        assert body["error_code"] == "VALIDATION_ERROR"
+        offending = [detail for detail in body["details"] if detail["code"] == "geometry.invalid"]
+        assert offending, body
+        assert offending[0]["point_index"] == 1  # the first vertex past 1 000 m, not the first vertex
+        assert offending[0]["field"] == "body.boundary.polygon.points"
         assert repo._sites.sites[SITE].plan is None
 
         at_limit = {"kind": "polygon", "points": [[0, 0], [1000.0, 0], [1000.0, 10], [0, 10]]}
@@ -244,6 +248,30 @@ class TestTheBatchOnTheWire:
         ops = [{"op": "set_z_order", "entity": "location", "key": "bed", "z_order": 1}] * 501
         response = client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": ops})
         assert response.status_code == 422 and response.json()["error_code"] == "batch.too_many_operations"
+
+    def test_props_nested_5000_deep_are_a_422_never_a_500(self, client, repo) -> None:
+        """#2542 S-1: the point count walked a raw operation recursively; deep ``props`` ended in a RecursionError."""
+        nested: dict = {}
+        for _ in range(5000):
+            nested = {"inner": nested}
+        operation = {
+            "op": "create_garden_object",
+            "temp_key": "p1",
+            "data": {"object_type": "path", "geometry": rect(4, 4), "props": nested},
+        }
+
+        response = client(raise_server_exceptions=False).post(
+            f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [operation]}
+        )
+
+        assert response.status_code == 422, response.text
+        body = response.json()
+        # Measured: the unknown ``inner`` key of the props is the finding; the walk itself no longer fails.
+        assert body["error_code"] == "VALIDATION_ERROR"
+        assert [(d["field"], d["code"], d["op_index"]) for d in body["details"]] == [
+            ("props.path.inner", "validation.invalid", 0)
+        ]
+        assert repo.applied == []
 
     def test_an_empty_operation_list_is_a_422(self, client) -> None:
         assert client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": []}).status_code == 422
@@ -358,6 +386,104 @@ class TestTheAuditRoute:
         assert "user_key" not in response.text
 
 
+class TestSiteConditionsOnThePlan:
+    """#2538 (D-1/D-2/D-3): the plan carries the lean site conditions and the batch edits the sun profile."""
+
+    @staticmethod
+    def _seed(repo: FakePlanRepo) -> None:
+        from app.domain.models.site import SiteConditions, SoilProfile
+
+        repo.locations["bed"] = make_location(
+            "bed",
+            geometry=rect(1, 1, 2, 1),
+            site_conditions=SiteConditions(
+                sun_profile={"sun_window": "morning", "direct_sun_hours_summer": 5.5},
+                microclimate={"frost_risk": "high", "cold_air_pocket": True},
+                wind_exposure="exposed",
+            ),
+            soil_profile=SoilProfile(drainage="poor", soil_texture="clay", ph=6.4),
+        )
+
+    def test_the_plan_carries_the_sun_profile_the_frost_risk_and_the_drainage(self, client, repo) -> None:
+        self._seed(repo)
+
+        (bed,) = client(TenantRole.VIEWER).get(_PLAN).json()["locations"]
+
+        assert bed["site_conditions"] == {
+            "sun_profile": {"sun_window": "morning", "direct_sun_hours_summer": 5.5},
+            "microclimate": {"frost_risk": "high"},
+        }
+        assert bed["soil_profile"] == {"drainage": "poor"}  # lean: no texture, no pH, no wind, no cold-air pocket
+
+    def test_unknown_values_are_left_out_down_to_the_whole_object(self, client, repo) -> None:
+        from app.domain.models.site import SiteConditions, SoilProfile
+
+        repo.locations["bed"] = make_location(
+            "bed", geometry=rect(1, 1, 2, 1), site_conditions=SiteConditions(), soil_profile=SoilProfile()
+        )
+        repo.locations["half"] = make_location(
+            "half",
+            geometry=rect(5, 5, 1, 1),
+            site_conditions=SiteConditions(sun_profile={"foliage_shade_in_summer": True}),
+        )
+
+        body = client(TenantRole.VIEWER).get(_PLAN).json()
+        located = {loc["key"]: loc for loc in body["locations"]}
+
+        assert "site_conditions" not in located["bed"] and "soil_profile" not in located["bed"]
+        assert located["half"]["site_conditions"] == {"sun_profile": {"foliage_shade_in_summer": True}}
+
+    def test_update_fields_merges_the_sun_profile_bumps_the_revision_and_the_plan_shows_it(self, client, repo) -> None:
+        self._seed(repo)
+        op = {
+            "op": "update_fields",
+            "entity": "location",
+            "key": "bed",
+            "fields": {"site_conditions": {"sun_profile": {"foliage_shade_in_summer": True}}},
+        }
+
+        response = client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [op]})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["plan_revision"] == 6 and response.json()["updated"] == ["bed"]
+        stored = repo.locations["bed"].site_conditions
+        assert stored is not None and stored.sun_profile.source == "manual"
+        assert (stored.microclimate.cold_air_pocket, stored.wind_exposure) == (True, "exposed")  # not sent, kept
+        plan = client().get(_PLAN).json()
+        assert plan["plan_revision"] == 6
+        assert plan["locations"][0]["site_conditions"]["sun_profile"] == {
+            "sun_window": "morning",
+            "direct_sun_hours_summer": 5.5,
+            "foliage_shade_in_summer": True,
+        }
+
+    @pytest.mark.parametrize(
+        ("site_conditions", "pointer"),
+        [
+            ({"microclimate": {"frost_risk": "low"}}, "fields.site_conditions.microclimate"),
+            ({"wind_exposure": "sheltered"}, "fields.site_conditions.wind_exposure"),
+            ({"sun_profile": {"source": "computed"}}, "fields.site_conditions.sun_profile.source"),
+            (
+                {"sun_profile": {"direct_sun_hours_summer": 25}},
+                "fields.site_conditions.sun_profile.direct_sun_hours_summer",
+            ),
+            (None, "fields.site_conditions"),
+        ],
+    )
+    def test_anything_but_the_sun_profile_is_a_422_with_the_pointer(
+        self, client, repo, site_conditions, pointer
+    ) -> None:
+        self._seed(repo)
+        op = {"op": "update_fields", "entity": "location", "key": "bed", "fields": {"site_conditions": site_conditions}}
+
+        response = client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [op]})
+
+        assert response.status_code == 422, response.text
+        detail = response.json()["details"][0]
+        assert (detail["field"], detail["code"], detail["op_index"]) == (pointer, "validation.invalid", 0)
+        assert repo.applied == [] and repo.locations["bed"].site_conditions.microclimate.frost_risk == "high"
+
+
 class TestTheContract:
     def test_the_four_operations_are_published_with_their_error_responses(self) -> None:
         from app.main import app
@@ -367,3 +493,31 @@ class TestTheContract:
         assert set(paths[base]) == {"get"} and set(paths[f"{base}/boundary"]) == {"put"}
         assert set(paths[f"{base}/batch"]) == {"post"} and set(paths[f"{base}/audit"]) == {"get"}
         assert {"403", "409", "422"} <= set(paths[f"{base}/batch"]["post"]["responses"])
+
+
+class TestNonFiniteGeometryOnTheWire:
+    @pytest.mark.parametrize("number", ["Infinity", "-Infinity", "NaN", "1e999"])
+    @pytest.mark.parametrize("field", ["origin", "width_m"])
+    @pytest.mark.parametrize("route", ["boundary", "batch"])
+    def test_raw_non_finite_numbers_are_a_422_and_write_nothing(
+        self, client: Callable[..., TestClient], repo: FakePlanRepo, number: str, field: str, route: str
+    ) -> None:
+        origin = f"[{number},0]" if field == "origin" else "[0,0]"
+        width = number if field == "width_m" else "1"
+        geometry = f'{{"kind":"rect","origin":{origin},"width_m":{width},"length_m":1}}'
+        c = client(raise_server_exceptions=False)
+        if route == "boundary":
+            response = c.put(
+                f"{_PLAN}/boundary",
+                content='{"boundary":' + geometry + "}",
+                headers={"Content-Type": "application/json"},
+            )
+        else:
+            payload = (
+                '{"expected_revision":5,"operations":[{"op":"create_location","temp_key":"nonfinite",'
+                '"data":{"name":"Invalid bed","location_type_key":"bed","geometry":' + geometry + "}}]}"
+            )
+            response = c.post(f"{_PLAN}/batch", content=payload, headers={"Content-Type": "application/json"})
+
+        assert response.status_code == 422, response.text
+        assert repo.applied == [] and repo._sites.sites[SITE].plan.plan_revision == 5

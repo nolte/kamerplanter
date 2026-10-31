@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
+from pydantic_core import ErrorDetails
 
 from app.common.enums import GeometryKind
+from app.domain.models.garden_plan import SlotPatch
 from app.domain.models.geometry import (
     AREA_KINDS,
+    GEOMETRY_INVALID,
     MAX_POINTS,
+    POINT_INDEX_KEY,
     CircleGeometry,
     GeometryFrame,
     PointGeometry,
@@ -22,6 +26,7 @@ from app.domain.models.geometry import (
     PolylineGeometry,
     RectGeometry,
     parse_geometry,
+    point_index_of,
     round_length,
 )
 
@@ -88,6 +93,52 @@ class TestFrames:
             PointGeometry(origin=(-0.1, 0.2))
 
 
+class TestRangeErrorCarriesThePointIndex:
+    """GP-ACC-056: a coordinate-range violation is ``geometry.invalid`` with the offending vertex in ``ctx``."""
+
+    @staticmethod
+    def _only_error(data: dict[str, object], frame: GeometryFrame) -> ErrorDetails:
+        with pytest.raises(ValidationError) as refused:
+            parse_geometry(data, frame=frame)
+        errors = refused.value.errors()
+        assert len(errors) == 1
+        return errors[0]
+
+    def test_plan_frame_names_the_vertex(self) -> None:
+        error = self._only_error({"kind": "polygon", "points": [[0, 0], [1, 0], [1000.5, 1]]}, GeometryFrame.PLAN)
+        assert error["type"] == GEOMETRY_INVALID
+        assert error["loc"] == ("polygon", "points")
+        assert error.get("ctx") == {POINT_INDEX_KEY: 2}
+
+    def test_bed_frame_keeps_its_range_and_names_the_vertex(self) -> None:
+        inside = {"kind": "polyline", "points": [[-500, 0], [0, 0]], "width_m": 0.5}
+        line = parse_geometry(inside, frame=GeometryFrame.BED)
+        assert isinstance(line, PolylineGeometry)
+        assert line.points[0] == (-500.0, 0.0)
+        outside = {"kind": "polyline", "points": [[0, 0], [-500, 0], [-1000.5, 0]], "width_m": 0.5}
+        error = self._only_error(outside, GeometryFrame.BED)
+        assert error["type"] == GEOMETRY_INVALID
+        assert error.get("ctx") == {POINT_INDEX_KEY: 2}
+
+    def test_an_origin_is_geometry_invalid_without_an_index(self) -> None:
+        error = self._only_error({"kind": "point", "origin": [-0.1, 0]}, GeometryFrame.PLAN)
+        assert error["type"] == GEOMETRY_INVALID
+        assert "ctx" not in error
+
+    def test_the_index_survives_the_bed_frame_validator_of_a_model_field(self) -> None:
+        """The bed-frame wrap validator on a model field re-raises the vertex error unchanged."""
+        bed_polygon = {"kind": "polygon", "points": [[0, 0], [-1000.5, 0], [0, 1]]}
+        with pytest.raises(ValidationError) as refused:
+            SlotPatch.model_validate({"geometry": bed_polygon})
+        errors = refused.value.errors()
+        assert len(errors) == 1
+        error = errors[0]
+        assert error["type"] == GEOMETRY_INVALID
+        assert error.get("ctx") == {POINT_INDEX_KEY: 1}
+        assert error["loc"] == ("geometry", "polygon", "points")
+        assert point_index_of(error) == 1
+
+
 class TestImmutability:
     def test_models_are_frozen(self) -> None:
         rect = RectGeometry(origin=(0, 0), width_m=1, length_m=1)
@@ -128,6 +179,44 @@ class TestStrictNumbers:
         rect = parse_geometry({"kind": "rect", "origin": [1, 2], "width_m": 3, "length_m": 4})
         assert isinstance(rect, RectGeometry)
         assert rect.width_m == 3.0
+
+
+class TestFiniteNumbers:
+    @pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+    @pytest.mark.parametrize(
+        ("kind", "field"),
+        [
+            ("rect", "origin"),
+            ("rect", "width_m"),
+            ("rect", "length_m"),
+            ("rect", "rotation_deg"),
+            ("circle", "origin"),
+            ("circle", "radius_m"),
+            ("polygon", "points"),
+            ("polygon", "rotation_deg"),
+            ("polyline", "points"),
+            ("polyline", "width_m"),
+            ("point", "origin"),
+        ],
+    )
+    def test_every_shape_rejects_non_finite_geometry(self, kind: str, field: str, value: float) -> None:
+        geometries = {
+            "rect": {"kind": "rect", "origin": [0, 0], "width_m": 1, "length_m": 1},
+            "circle": {"kind": "circle", "origin": [0, 0], "radius_m": 1},
+            "polygon": {"kind": "polygon", "points": [[0, 0], [1, 0], [0, 1]]},
+            "polyline": {"kind": "polyline", "points": [[0, 0], [1, 0]], "width_m": 0.5},
+            "point": {"kind": "point", "origin": [0, 0]},
+        }
+        geometry = geometries[kind]
+        if field == "origin":
+            geometry[field] = [value, 0]
+        elif field == "points":
+            geometry[field][0] = [value, 0]
+        else:
+            geometry[field] = value
+
+        with pytest.raises(ValidationError):
+            parse_geometry(geometry)
 
 
 class TestRounding:

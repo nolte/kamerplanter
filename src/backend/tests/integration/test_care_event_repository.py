@@ -180,6 +180,25 @@ class TestList:
         ]
 
 
+class TestPlantNames:
+    def test_list_and_single_reads_name_the_plants_and_skip_foreign_ones(self, db, repo) -> None:
+        """#2514: ``plant_name``, else ``instance_id``, in ``plant_keys`` order; a foreign or gone plant is left out."""
+        plants = db.collection(col.PLANT_INSTANCES)
+        plants.update({"_key": "pi_1", "instance_id": "TOM-1"})
+        plants.update({"_key": "pi_2", "instance_id": "TOM-2", "plant_name": "Black Krim"})
+        plants.update({"_key": "pi_b", "instance_id": "THEIRS"})
+        moved = repo.insert(
+            event(category="position_corrected", plant_keys=["pi_2", "pi_b", "pi_gone", "pi_1"]), tenant_key=A
+        )
+        bare = repo.insert(event(performed_at=NOW - timedelta(days=2)), tenant_key=A)
+
+        rows = {r.event.key: r for r in repo.list_events(CareEventFilter(), tenant_key=A, offset=0, limit=50)}
+        assert rows[moved.key].plant_names == ("Black Krim", "TOM-1")
+        assert rows[bare.key].plant_names == ()
+        row = repo.get_row(moved.key, tenant_key=A)
+        assert row is not None and row.plant_names == ("Black Krim", "TOM-1")
+
+
 class TestSupersede:
     def test_the_successor_and_the_pointer_are_written_atomically(self, db, repo) -> None:
         first = repo.insert(event(plant_keys=["pi_1"]), tenant_key=A)

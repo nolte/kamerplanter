@@ -5325,8 +5325,10 @@
           "furniture": "Möbel",
           "lamp": "Lampe"
         },
-        "clusterSummary_one": "{{count}} Pflanze · {{attention}} mit Handlungsbedarf",
-        "clusterSummary_other": "{{count}} Pflanzen · {{attention}} mit Handlungsbedarf"
+        "clusterSummary_one": "{{count}} Pflanze · {{attention}}",
+        "clusterSummary_other": "{{count}} Pflanzen · {{attention}}",
+        "clusterAttention_one": "{{count}} mit Handlungsbedarf",
+        "clusterAttention_other": "{{count}} mit Handlungsbedarf"
       },
       "editor": {
         "toolbar": {
@@ -5395,6 +5397,7 @@
         },
         "newBedName": "Beet {{n}}",
         "tooSmall": "Dieses Objekt ist auf dem Bildschirm zu klein für Griffe. Verschieben geht trotzdem; zum Ändern der Größe wähle es und gib die Maße im Eigenschaftenfeld ein.",
+        "zoomToEdit": "Zum Bearbeiten heranzoomen",
         "actions": {
           "move": "Verschieben",
           "rotate": "Drehen",
@@ -5454,6 +5457,10 @@
           "multi": {
             "invalid": "Prüfe Anzahl, Abstand und Startnummer: Die Anzahl liegt zwischen 1 und 100, der Abstand ist nicht negativ.",
             "too_many": "Das sind zu viele Änderungen auf einmal. Wähle weniger Kopien."
+          },
+          "distribute": {
+            "overlap": "Mit gleichen Abständen würden die gewählten Objekte aufeinander liegen. Schaffe zuerst Platz zwischen ihnen. Der Plan bleibt unverändert.",
+            "locked_covered": "Beim Verteilen würde ein Objekt auf einem gesperrten Objekt landen. Entsperre es oder nimm es aus der Auswahl. Der Plan bleibt unverändert."
           }
         },
         "deleteDialog": {
@@ -5922,7 +5929,9 @@
           "slotsNote": "Pflanzplätze, Pflanzen und Aufgaben werden nicht kopiert. Ein Pflanzraster legst du danach für jedes Beet im Bereich „Eigenschaften“ an.",
           "submit": "Duplizieren",
           "invalid": "Bitte eine gültige Zahl eingeben.",
-          "noNames": "Gewählt sind nur Gartenobjekte: Die Kopien behalten ihren Namen, das Schema kommt nicht zum Einsatz."
+          "noNames": "Gewählt sind nur Gartenobjekte: Die Kopien behalten ihren Namen, das Schema kommt nicht zum Einsatz.",
+          "failedCopy": "Kopie {{n}} ist die erste, die nicht passt.",
+          "failedCopyNamed": "„{{name}}“ ist die erste Kopie, die nicht passt."
         },
         "templates": {
           "placed": "Das Beet wurde aus der Vorlage angelegt und ist gespeichert. Zum Zurücknehmen lösche das Beet.",
@@ -5940,6 +5949,7 @@
             "placeCenter": "In die Bildmitte setzen",
             "hintPick": "Wähle eine Vorlage. Danach setzt ein Klick auf den Plan das Beet dorthin.",
             "hintPlace": "Klicke auf den Plan, um das Beet zu setzen. Alt hält den Rasterfang an, Esc beendet.",
+            "hintInvalid": "Das Beet passt hier nicht ganz in den Garten. Klicke weiter innen, um es zu setzen.",
             "placing": "Das Beet wird angelegt …",
             "failed": "Die Vorlagen konnten nicht geladen werden."
           },
@@ -6036,7 +6046,18 @@
             "lastWatered": "Zuletzt gegossen anzeigen",
             "lastWateredHint": "Tage seit dem letzten Gießen je Beet als Schraffur ein- oder ausblenden.",
             "underlay": "Unterlage anzeigen",
-            "underlayHint": "Die Unterlage zum Abzeichnen unter dem Plan ein- oder ausblenden (nur für dich)."
+            "underlayHint": "Die Unterlage zum Abzeichnen unter dem Plan ein- oder ausblenden (nur für dich).",
+            "sun": "Sonnenfenster anzeigen",
+            "sunHint": "Wann die direkte Sonne ein Beet erreicht, als Muster mit Symbol ein- oder ausblenden.",
+            "moisture": "Drainage anzeigen",
+            "moistureHint": "Wie gut ein Beet Wasser ableitet, als Muster mit Symbol ein- oder ausblenden.",
+            "frost": "Frostrisiko anzeigen",
+            "frostHint": "Das Frostrisiko je Beet als Muster mit Symbol ein- oder ausblenden.",
+            "plantState": "Pflanzenzustand anzeigen",
+            "plantStateHint": "Zeigt an jeder Pflanze Wachstumsphase, Ring und das dringendste Zeichen (z. B. Gießen fällig). Die Zustände laden für die Beete, an die du nah genug heranzoomst; weiter weg zeigt ein Beet, dessen Zustände schon geladen sind, im Kreis, wie viele Pflanzen Handlungsbedarf haben.",
+            "attentionFilter": "Nur Pflanzen mit Handlungsbedarf zeigen",
+            "attentionFilterHint": "Blendet alle Pflanzen ohne Zeichen aus, damit du siehst, wo heute etwas zu tun ist.",
+            "attentionFilterDisabledHint": "Schalte zuerst die Ebene „Pflanzenzustand“ ein, dann kannst du nach Handlungsbedarf filtern."
           },
           "legend": {
             "title": "Legende der Ebenen",
@@ -6051,7 +6072,15 @@
               "d8plus": "Mehr als 7 Tage seit"
             },
             "wateredNone": "Ohne Schraffur: kein Gießen erfasst.",
-            "wateredNote": "Das ist der Abstand zum letzten erfassten Gießen. Ob ein Beet Wasser braucht, sagt der Plan nicht."
+            "wateredNote": "Das ist der Abstand zum letzten erfassten Gießen. Ob ein Beet Wasser braucht, sagt der Plan nicht.",
+            "sunTitle": "Sonnenfenster",
+            "moistureTitle": "Drainage",
+            "frostTitle": "Frostrisiko",
+            "conditionNone": "Ohne Muster: nicht erfasst.",
+            "plantStateTitle": "Pflanzenzustand",
+            "plantStateIntro": "Die Farbe der Scheibe zeigt die Wachstumsphase, der Buchstabe die Art. Ring und Zeichen bleiben auch ohne Farbe unterscheidbar.",
+            "phasesTitle": "Farben der Wachstumsphasen auf diesem Plan",
+            "phasesNone": "Auf dem Plan steht noch keine Pflanze mit bekannter Phase."
           },
           "wateredDays_one": "{{count}} Tag seit",
           "wateredDays_other": "{{count}} Tage seit",
@@ -6068,7 +6097,9 @@
             "bedCount_one": "{{count}} Beet",
             "bedCount_other": "{{count}} Beete",
             "newTitle": "Neue Zone",
-            "editTitle": "Zone {{name}}"
+            "editTitle": "Zone {{name}}",
+            "chunkFailedTitle": "Der Zonen-Bereich konnte nicht geladen werden",
+            "chunkFailedHint": "Das passiert meist direkt nach einer Aktualisierung der App. Speichere deinen Plan und lade dann die Seite neu; der Plan selbst bleibt nutzbar."
           },
           "form": {
             "name": "Name der Zone",
@@ -6097,12 +6128,18 @@
             "deleted": "Zone {{name}} gelöscht.",
             "moved": "Aus anderer Zone übernommen: {{beds}}.",
             "unsavedHint": "Beete und Wasserquellen, die noch nicht gespeichert sind, stehen hier erst nach dem Speichern des Plans zur Auswahl.",
-            "bedsSelectionUnsaved": "Das ausgewählte Beet ist noch nicht gespeichert. Speichere zuerst den Plan."
+            "bedsSelectionUnsaved": "Das ausgewählte Beet ist noch nicht gespeichert. Speichere zuerst den Plan.",
+            "bedsSelectionSkipped_one": "{{count}} ausgewähltes Beet ist noch nicht gespeichert und wurde nicht übernommen. Speichere den Plan und übernimm die Auswahl dann noch einmal.",
+            "bedsSelectionSkipped_other": "{{count}} ausgewählte Beete sind noch nicht gespeichert und wurden nicht übernommen. Speichere den Plan und übernimm die Auswahl dann noch einmal.",
+            "createdBedsFailed": "Die Zone {{name}} wurde angelegt, ihre Beete sind aber noch nicht zugeordnet. {{reason}} Die gewählten Beete bleiben angehakt: Speichere die Zone noch einmal, um sie zuzuordnen.",
+            "createdBedsFailedRetry": "Die Zone {{name}} wurde angelegt, ihre Beete konnten aber nicht zugeordnet werden. Die gewählten Beete bleiben angehakt: Speichere die Zone noch einmal, um sie zuzuordnen.",
+            "createdBedsForbidden": "Die Zone {{name}} wurde angelegt, ihre Beete konnten aber nicht zugeordnet werden. {{reason}}"
           },
           "errors": {
             "forbidden": "Dafür fehlt dir die Berechtigung.",
             "quota": "Diese Anlage hat die höchste Zahl an Zonen erreicht.",
             "notFound": "Die Zone gibt es nicht mehr. Die Liste wird neu geladen.",
+            "siteNotFound": "Die Anlage gibt es nicht mehr, die Zone wurde deshalb nicht angelegt. Lade die Seite neu.",
             "invalid": "Die Eingaben wurden abgelehnt. Prüfe Name, Farbe und Durchfluss.",
             "generic": "Das hat nicht geklappt. Versuche es noch einmal.",
             "rateLimited": "Zu viele Anfragen in kurzer Zeit. Warte einen Moment und versuche es erneut.",
@@ -6185,7 +6222,7 @@
             "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}."
           },
           "bed": {
-            "zone": "Bewässerungszone: {{name}}",
+            "zone": "Bewässerungszone: {{number}}. {{name}}",
             "wateredNone": "Kein Gießen erfasst.",
             "watered": "Zuletzt gegossen: {{days}}"
           }
@@ -6312,6 +6349,7 @@
             "import_parent_cycle": "Zwei Standorte sind ineinander verschachtelt.",
             "import_too_deep": "Die Verschachtelung ist tiefer als 10 Ebenen.",
             "import_duplicate_slot_id": "Zwei Pflanzplätze eines Beets haben dieselbe ID.",
+            "import_rotation_exempt_and_enabled": "Ein Beet ist als Dauerkultur markiert und hat die Fruchtfolge-Prüfung zugleich eingeschaltet.",
             "plan_quota_exceeded": "Die Grenze für Standorte, Gartenobjekte oder Pflanzplätze wäre überschritten.",
             "geometry_invalid": "Eine Form ist ungültig.",
             "geometry_self_intersecting": "Eine Fläche überschneidet sich selbst.",
@@ -6384,7 +6422,7 @@
         },
         "snapshots": {
           "title": "Frühere Stände",
-          "help": "Beim Ersetzen wird der bisherige Plan als Stand gespeichert (ein Jahr lang). Wähle einen Stand, prüfe, was sich ändern würde, und stelle ihn wieder her.",
+          "help": "Beim Ersetzen wird der bisherige Plan als Stand gespeichert (ein Jahr lang; ein Standort behält seine 20 neuesten Stände). Wähle einen Stand, prüfe, was sich ändern würde, und stelle ihn wieder her.",
           "empty": "Es gibt noch keinen früheren Stand. Er entsteht, wenn du einen Plan ersetzt.",
           "counts": "{{locations}} Standorte, {{objects}} Gartenobjekte, {{slots}} Pflanzplätze",
           "notice": "Der jetzige Plan wird vorher selbst als Stand gespeichert, die Wiederherstellung lässt sich also zurücknehmen. Beete mit aktiven Pflanzen werden nie gelöscht. Bewässerungszonen, die der Stand nicht nennt, werden entfernt, und technische Zonen-Kopplungen (Aktor, Home-Assistant-Durchfluss) werden nicht wiederhergestellt: richte sie danach neu ein.",
@@ -6911,7 +6949,9 @@
           "plantRemovedHow": "{{name}} entfernt ({{how}})",
           "runStarted": "Durchlauf „{{name}}“ gestartet",
           "runCompleted": "Durchlauf „{{name}}“ abgeschlossen",
-          "runCancelled": "Durchlauf „{{name}}“ abgebrochen"
+          "runCancelled": "Durchlauf „{{name}}“ abgebrochen",
+          "positionCorrected": "Position korrigiert: {{name}}",
+          "positionCorrectedNoName": "Position einer Pflanze korrigiert"
         },
         "termination": {
           "harvested": "geerntet",
@@ -6976,6 +7016,7 @@
           "notApplicable": {
             "container": "Die Fruchtfolge-Prüfung ist für Töpfe, Zelte und Regale aus. Die Historie bleibt trotzdem erhalten.",
             "rotation_exempt": "Dieses Beet ist von der Fruchtfolge-Prüfung ausgenommen. Die Historie bleibt trotzdem erhalten.",
+            "disabled": "Die Fruchtfolge-Prüfung ist für dieses Beet ausgeschaltet. Die Historie bleibt trotzdem erhalten.",
             "unknown": "Die Fruchtfolge-Prüfung ist für dieses Beet aus."
           }
         },
@@ -7146,7 +7187,7 @@
           "title": "Fruchtfolge, Nachbarn und Standort",
           "checking": "Prüfe {{name}} …",
           "unavailable": "{{name}}: Die Fruchtfolge konnte nicht geprüft werden ({{message}}). Das ist kein grünes Licht.",
-          "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal oder Dauerkultur).",
+          "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal, Dauerkultur oder für dieses Beet ausgeschaltet).",
           "allClear": "{{name}}: Kein Hinweis zu Fruchtfolge oder Nachbarn.",
           "forSpecies": "{{name}}: Hinweis {{strength}}",
           "pauseNotElapsed": "Die Familie {{family}} stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",
@@ -7172,7 +7213,7 @@
         },
         "position": {
           "title": "Position korrigieren: {{plant}}",
-          "help": "Ziehe die Pflanze im Beet oder verschiebe sie mit den Pfeilen. Jeder Schritt ist 1 cm.",
+          "help": "Ziehe die Pflanze im Beet oder verschiebe sie mit den Pfeilen. Jeder Schritt ist {{cm}} cm.",
           "zone": "Diese Pflanze steht in einer Fläche und hat keine einzelne Position, deshalb lässt sie sich nicht verschieben.",
           "failed": "Die Position konnte nicht geladen werden.",
           "canvasLabel": "Position der Pflanze im Beet {{bed}}",
@@ -7181,8 +7222,8 @@
           "down": "Nach unten",
           "left": "Nach links",
           "right": "Nach rechts",
-          "bigLeft": "{{cm}} cm nach links",
-          "bigRight": "{{cm}} cm nach rechts",
+          "stepSize": "Schrittweite",
+          "stepSizeOption": "{{cm}} cm pro Schritt",
           "x": "Position längs (x)",
           "y": "Position quer (y)",
           "save": "Position speichern",

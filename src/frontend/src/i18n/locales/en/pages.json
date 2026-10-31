@@ -5324,8 +5324,10 @@
           "furniture": "Furniture",
           "lamp": "Lamp"
         },
-        "clusterSummary_one": "{{count}} plant · {{attention}} need attention",
-        "clusterSummary_other": "{{count}} plants · {{attention}} need attention"
+        "clusterSummary_one": "{{count}} plant · {{attention}}",
+        "clusterSummary_other": "{{count}} plants · {{attention}}",
+        "clusterAttention_one": "{{count}} needs attention",
+        "clusterAttention_other": "{{count}} need attention"
       },
       "editor": {
         "toolbar": {
@@ -5394,6 +5396,7 @@
         },
         "newBedName": "Bed {{n}}",
         "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties panel.",
+        "zoomToEdit": "Zoom in to edit",
         "actions": {
           "move": "Move",
           "rotate": "Rotate",
@@ -5453,6 +5456,10 @@
           "multi": {
             "invalid": "Check the count, the spacing and the start number: the count is between 1 and 100, the spacing is not negative.",
             "too_many": "That is too many changes at once. Choose fewer copies."
+          },
+          "distribute": {
+            "overlap": "With equal gaps the selected objects would lie on top of each other. Make room between them first. The plan stays as it was.",
+            "locked_covered": "Distributing would put an object on top of a locked one. Unlock it or remove it from the selection. The plan stays as it was."
           }
         },
         "deleteDialog": {
@@ -5921,7 +5928,9 @@
           "slotsNote": "Planting positions, plants and tasks are not copied. Lay out a planting grid for each bed afterwards in the Properties panel.",
           "submit": "Duplicate",
           "invalid": "Please enter a valid number.",
-          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own."
+          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own.",
+          "failedCopy": "Copy {{n}} is the first one that does not fit.",
+          "failedCopyNamed": "“{{name}}” is the first copy that does not fit."
         },
         "templates": {
           "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",
@@ -5939,6 +5948,7 @@
             "placeCenter": "Place at view centre",
             "hintPick": "Choose a template. Then a click on the plan puts the bed there.",
             "hintPlace": "Click the plan to place the bed. Alt switches the grid snap off, Esc ends.",
+            "hintInvalid": "The bed does not fit here completely inside the garden. Click further inside to place it.",
             "placing": "Creating the bed …",
             "failed": "The templates could not be loaded."
           },
@@ -6035,7 +6045,18 @@
             "lastWatered": "Show last watered",
             "lastWateredHint": "Show or hide the days since the last watering of each bed as hatching.",
             "underlay": "Show underlay",
-            "underlayHint": "Show or hide the underlay below the plan (for you only)."
+            "underlayHint": "Show or hide the underlay below the plan (for you only).",
+            "sun": "Show sun window",
+            "sunHint": "Show or hide when direct sun reaches each bed, as a pattern with a symbol.",
+            "moisture": "Show drainage",
+            "moistureHint": "Show or hide how well each bed drains, as a pattern with a symbol.",
+            "frost": "Show frost risk",
+            "frostHint": "Show or hide the frost risk of each bed as a pattern with a symbol.",
+            "plantState": "Show plant state",
+            "plantStateHint": "Shows the growth phase, the ring and the most urgent sign (for example \"water due\") on every plant. The states load for the beds you zoom close enough to; further out, a bed whose states are already loaded shows in its circle how many plants need attention.",
+            "attentionFilter": "Only show plants that need attention",
+            "attentionFilterHint": "Hides every plant without a sign, so you see where something needs doing today.",
+            "attentionFilterDisabledHint": "Switch on the \"Plant state\" layer first, then you can filter by what needs attention."
           },
           "legend": {
             "title": "Layer legend",
@@ -6050,7 +6071,15 @@
               "d8plus": "More than 7 days since"
             },
             "wateredNone": "No hatching: no watering recorded.",
-            "wateredNote": "This is the time since the last recorded watering. The plan does not say whether a bed needs water."
+            "wateredNote": "This is the time since the last recorded watering. The plan does not say whether a bed needs water.",
+            "sunTitle": "Sun window",
+            "moistureTitle": "Drainage",
+            "frostTitle": "Frost risk",
+            "conditionNone": "No pattern: not recorded.",
+            "plantStateTitle": "Plant state",
+            "plantStateIntro": "The colour of the disc shows the growth phase, the letter the species. Ring and sign stay distinguishable without colour.",
+            "phasesTitle": "Growth phase colours on this plan",
+            "phasesNone": "No plant with a known phase is on the plan yet."
           },
           "wateredDays_one": "{{count}} day since",
           "wateredDays_other": "{{count}} days since",
@@ -6067,7 +6096,9 @@
             "bedCount_one": "{{count}} bed",
             "bedCount_other": "{{count}} beds",
             "newTitle": "New zone",
-            "editTitle": "Zone {{name}}"
+            "editTitle": "Zone {{name}}",
+            "chunkFailedTitle": "The zones area could not be loaded",
+            "chunkFailedHint": "This usually happens right after the app was updated. Save your plan, then reload the page; the plan itself stays usable."
           },
           "form": {
             "name": "Zone name",
@@ -6096,12 +6127,18 @@
             "deleted": "Zone {{name}} deleted.",
             "moved": "Taken over from another zone: {{beds}}.",
             "unsavedHint": "Beds and water sources that are not saved yet can be chosen here only after the plan is saved.",
-            "bedsSelectionUnsaved": "The selected bed is not saved yet. Save the plan first."
+            "bedsSelectionUnsaved": "The selected bed is not saved yet. Save the plan first.",
+            "bedsSelectionSkipped_one": "{{count}} selected bed is not saved yet and was not taken over. Save the plan, then take over the selection again.",
+            "bedsSelectionSkipped_other": "{{count}} selected beds are not saved yet and were not taken over. Save the plan, then take over the selection again.",
+            "createdBedsFailed": "Zone {{name}} was created, but its beds are not assigned yet. {{reason}} The beds you chose stay ticked: save the zone again to assign them.",
+            "createdBedsFailedRetry": "Zone {{name}} was created, but its beds could not be assigned. The beds you chose stay ticked: save the zone again to assign them.",
+            "createdBedsForbidden": "Zone {{name}} was created, but its beds could not be assigned. {{reason}}"
           },
           "errors": {
             "forbidden": "You do not have permission for this.",
             "quota": "This site has reached the maximum number of zones.",
             "notFound": "The zone no longer exists. The list is reloaded.",
+            "siteNotFound": "The site no longer exists, so the zone was not created. Reload the page.",
             "invalid": "The input was rejected. Check name, colour and flow rate.",
             "generic": "That did not work. Please try again.",
             "rateLimited": "Too many requests in a short time. Wait a moment and try again.",
@@ -6184,7 +6221,7 @@
             "skipped": "Left out because they have no area: {{beds}}."
           },
           "bed": {
-            "zone": "Irrigation zone: {{name}}",
+            "zone": "Irrigation zone: {{number}}. {{name}}",
             "wateredNone": "No watering recorded.",
             "watered": "Last watered: {{days}}"
           }
@@ -6311,6 +6348,7 @@
             "import_parent_cycle": "Two locations are nested in each other.",
             "import_too_deep": "Nesting goes deeper than 10 levels.",
             "import_duplicate_slot_id": "Two plant places of one bed have the same ID.",
+            "import_rotation_exempt_and_enabled": "A bed is marked as a permanent crop and has the crop rotation check switched on at the same time.",
             "plan_quota_exceeded": "The limit for locations, garden objects or plant places would be exceeded.",
             "geometry_invalid": "A shape is invalid.",
             "geometry_self_intersecting": "An area crosses itself.",
@@ -6383,7 +6421,7 @@
         },
         "snapshots": {
           "title": "Earlier states",
-          "help": "Replacing a plan saves the plan it overwrites as a state (for one year). Pick a state, check what would change and restore it.",
+          "help": "Replacing a plan saves the plan it overwrites as a state (for one year; a site keeps its 20 newest states). Pick a state, check what would change and restore it.",
           "empty": "There is no earlier state yet. One is made when you replace a plan.",
           "counts": "{{locations}} locations, {{objects}} garden objects, {{slots}} planting slots",
           "notice": "The current plan is saved as a state of its own first, so the restore can be undone. Beds with active plants are never deleted. Irrigation zones that the state does not name are removed, and technical zone bindings (actuator, Home Assistant flow) are not restored: set them up again afterwards.",
@@ -6910,7 +6948,9 @@
           "plantRemovedHow": "{{name}} removed ({{how}})",
           "runStarted": "Run \"{{name}}\" started",
           "runCompleted": "Run \"{{name}}\" completed",
-          "runCancelled": "Run \"{{name}}\" cancelled"
+          "runCancelled": "Run \"{{name}}\" cancelled",
+          "positionCorrected": "Position corrected: {{name}}",
+          "positionCorrectedNoName": "Position of a plant corrected"
         },
         "termination": {
           "harvested": "harvested",
@@ -6975,6 +7015,7 @@
           "notApplicable": {
             "container": "The crop rotation check is off for pots, tents and shelves. The history is still kept.",
             "rotation_exempt": "This bed is exempt from the crop rotation check. The history is still kept.",
+            "disabled": "The crop rotation check is switched off for this bed. The history is still kept.",
             "unknown": "The crop rotation check is off for this bed."
           }
         },
@@ -7145,7 +7186,7 @@
           "title": "Crop rotation, neighbours and site",
           "checking": "Checking {{name}} …",
           "unavailable": "{{name}}: Crop rotation could not be checked ({{message}}). That is not an all-clear.",
-          "notApplicable": "{{name}}: No crop rotation check applies to this bed (pot, tent, shelf or perennial crop).",
+          "notApplicable": "{{name}}: No crop rotation check applies to this bed (pot, tent, shelf, perennial crop or switched off for this bed).",
           "allClear": "{{name}}: No hint on crop rotation or neighbours.",
           "forSpecies": "{{name}}: {{strength}} hint",
           "pauseNotElapsed": "The family {{family}} stood in this bed {{years}} year(s) ago. The rotation pause is {{pause}} years ({{source}}).",
@@ -7171,7 +7212,7 @@
         },
         "position": {
           "title": "Correct position: {{plant}}",
-          "help": "Drag the plant on the bed or move it with the arrows. Each step is 1 cm.",
+          "help": "Drag the plant on the bed or move it with the arrows. Each step is {{cm}} cm.",
           "zone": "This plant stands in an area and has no single position. It cannot be moved.",
           "failed": "The position could not be loaded.",
           "canvasLabel": "Position of the plant in bed {{bed}}",
@@ -7180,8 +7221,8 @@
           "down": "Down",
           "left": "Left",
           "right": "Right",
-          "bigLeft": "{{cm}} cm to the left",
-          "bigRight": "{{cm}} cm to the right",
+          "stepSize": "Step size",
+          "stepSizeOption": "{{cm}} cm per step",
           "x": "Position along (x)",
           "y": "Position across (y)",
           "save": "Save position",

@@ -15,8 +15,10 @@ from freezegun import freeze_time
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
 from app.domain.engines.crop_rotation_validator import (
     NOT_APPLICABLE_CONTAINER,
+    NOT_APPLICABLE_DISABLED,
     NOT_APPLICABLE_EXEMPT,
     CropRotationValidator,
+    not_applicable_reason,
     pause_severity,
 )
 from app.domain.models.site import SoilProfile
@@ -289,6 +291,86 @@ class TestBedsThatAreOff:
     def test_a_species_without_a_family_cannot_be_evaluated(self, world) -> None:
         validator, *_ = world
         assert check(validator, "nofamily").findings[0].code == "rotation.no_family"
+
+
+class TestPerBedSwitch:
+    """GP-ACC-055 / GP-FR-137: off by default for planter/tent/shelf, switchable per bed; ``rotation_exempt`` wins."""
+
+    CONTAINERS = ("planter", "tent", "shelf")
+
+    @pytest.mark.parametrize(
+        ("location_type", "exempt", "enabled", "reason"),
+        [
+            # ``None`` keeps today's behaviour for every existing bed: the type decides.
+            ("bed", False, None, None),
+            ("planter", False, None, NOT_APPLICABLE_CONTAINER),
+            ("tent", False, None, NOT_APPLICABLE_CONTAINER),
+            ("shelf", False, None, NOT_APPLICABLE_CONTAINER),
+            ("bed", True, None, NOT_APPLICABLE_EXEMPT),
+            # switched on: the type default no longer counts
+            ("planter", False, True, None),
+            ("tent", False, True, None),
+            ("shelf", False, True, None),
+            ("bed", False, True, None),
+            # switched off: off for every type
+            ("bed", False, False, NOT_APPLICABLE_DISABLED),
+            ("planter", False, False, NOT_APPLICABLE_DISABLED),
+            # a permanent crop is off whatever the switch says
+            ("planter", True, True, NOT_APPLICABLE_EXEMPT),
+            ("bed", True, True, NOT_APPLICABLE_EXEMPT),
+            ("bed", True, False, NOT_APPLICABLE_EXEMPT),
+        ],
+    )
+    def test_the_precedence_is_exempt_then_switch_then_type(self, location_type, exempt, enabled, reason) -> None:
+        location = make_location("x", location_type_key=location_type, rotation_exempt=exempt, rotation_enabled=enabled)
+
+        assert not_applicable_reason(location) == reason
+
+    def test_gp_acc_055_only_the_container_switched_on_returns_the_rotation_hint(self, world) -> None:
+        """GP-ACC-055: planter, tent and shelf with Solanaceae 2025; tomato 2026 - one hint, after one switch."""
+        validator, plan, history, *_ = world
+        for kind in self.CONTAINERS:
+            plan.locations[kind] = make_location(kind, location_type_key=kind)
+            history.add_plant(kind, "tomato", date(2025, 4, 1), removed_on=date(2025, 9, 1))
+
+        before = {kind: check(validator, "tomato", location=kind) for kind in self.CONTAINERS}
+        assert {kind: (r.applicable, r.findings) for kind, r in before.items()} == {
+            kind: (False, []) for kind in self.CONTAINERS
+        }
+
+        plan.locations["tent"] = plan.locations["tent"].model_copy(update={"rotation_enabled": True})
+        after = {kind: check(validator, "tomato", location=kind) for kind in self.CONTAINERS}
+
+        assert [f.code for f in after["tent"].findings] == ["rotation.pause_not_elapsed"]
+        assert after["tent"].applicable is True and after["tent"].findings[0].family_key == "solanum"
+        for kind in ("planter", "shelf"):
+            assert (after[kind].applicable, after[kind].not_applicable_reason, after[kind].findings) == (
+                False,
+                NOT_APPLICABLE_CONTAINER,
+                [],
+            )
+
+    def test_an_exempt_container_stays_off_when_switched_on(self, world) -> None:
+        validator, plan, history, *_ = world
+        plan.locations["tent"] = make_location(
+            "tent", location_type_key="tent", rotation_exempt=True, rotation_enabled=True
+        )
+        history.add_plant("tent", "tomato", date(2025, 4, 1), removed_on=date(2025, 9, 1))
+
+        result = check(validator, "tomato", location="tent")
+
+        assert (result.applicable, result.not_applicable_reason, result.findings) == (False, NOT_APPLICABLE_EXEMPT, [])
+
+    def test_the_timeline_follows_the_switch(self, world) -> None:
+        validator, plan, *_ = world
+        plan.locations["tent"] = make_location("tent", location_type_key="tent", rotation_enabled=True)
+        plan.locations["shelf"] = make_location("shelf", location_type_key="shelf")
+
+        on = validator.rotation_timeline("tent", tenant_key=TENANT)
+        off = validator.rotation_timeline("shelf", tenant_key=TENANT)
+
+        assert (on.applicable, on.not_applicable_reason) == (True, None)
+        assert (off.applicable, off.not_applicable_reason) == (False, NOT_APPLICABLE_CONTAINER)
 
 
 class TestTenantIsolation:

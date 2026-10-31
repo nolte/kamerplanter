@@ -20,7 +20,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.site import Location
 from app.domain.models.species import Species
-from app.domain.services.location_ownership import resolve_owned_location
+from app.domain.services.location_ownership import find_owned_location, resolve_owned_location
 from app.domain.services.species_visibility import readable_species
 
 Severity = Literal["OK", "INFO", "WARNING", "CRITICAL"]
@@ -43,6 +43,8 @@ ROTATION_OFF_LOCATION_TYPES: frozenset[str] = frozenset({"planter", "tent", "she
 
 NOT_APPLICABLE_CONTAINER = "rotation.not_applicable.container"
 NOT_APPLICABLE_EXEMPT = "rotation.not_applicable.rotation_exempt"
+#: The bed's own switch (``Location.rotation_enabled = False``, #2544) turned the check off.
+NOT_APPLICABLE_DISABLED = "rotation.not_applicable.disabled"
 
 PauseSource = Literal["species", "family", "default"]
 HistorySource = Literal["plant", "backfill"]
@@ -141,9 +143,18 @@ def resolve_pause_years(
 
 
 def not_applicable_reason(location: Location) -> str | None:
-    """Why the bed-level rotation check is off for this location, or ``None`` when it applies (GP-FR-137)."""
+    """Why the bed-level rotation check is off for this location, or ``None`` when it applies (GP-FR-137).
+
+    Precedence: a permanent crop (``rotation_exempt``) is off whatever else is set; then the bed's own switch
+    ``rotation_enabled`` (``True`` on, ``False`` off, #2544); then the type default - off for ``planter`` /
+    ``tent`` / ``shelf``, on for every other type. ``rotation_enabled = None`` is today's behaviour.
+    """
     if location.rotation_exempt:
         return NOT_APPLICABLE_EXEMPT
+    if location.rotation_enabled is True:
+        return None
+    if location.rotation_enabled is False:
+        return NOT_APPLICABLE_DISABLED
     if location.location_type_key in ROTATION_OFF_LOCATION_TYPES:
         return NOT_APPLICABLE_CONTAINER
     return None
@@ -268,7 +279,21 @@ class CropRotationValidator:
         ``tenant_key`` is required and keyword-only (#927): the slot history this
         reads is a tenant-scoped repository query, and the results name the
         botanical families previously grown in that bed.
+
+        The bed's switch decides first (GP-FR-137, D-09, #2544): when the slot's bed is off
+        (:func:`not_applicable_reason` - ``rotation_exempt``, ``rotation_enabled = False`` or a
+        ``planter`` / ``tent`` / ``shelf`` not switched on) the answer is one ``INFO`` and nothing is
+        read, so neither a planting nor a run's ``create_plants`` is refused on that bed. Needs
+        ``site_repo``; without it (a construction that predates the switch) every slot is checked.
         """
+        off_reason = self._slot_not_applicable_reason(slot_key, tenant_key)
+        if off_reason is not None:
+            return [
+                RotationValidationResult(
+                    severity="INFO", message=f"Crop rotation does not apply to this bed ({off_reason})"
+                )
+            ]
+
         results: list[RotationValidationResult] = []
 
         species = self._species_repo.get_by_key(species_key)
@@ -371,6 +396,20 @@ class CropRotationValidator:
         results.sort(key=lambda r: SEVERITY_ORDER.get(r.severity, 99))
 
         return results
+
+    def _slot_not_applicable_reason(self, slot_key: str, tenant_key: str) -> str | None:
+        """Why the rotation check is off for the bed of ``slot_key``, or ``None`` when it applies.
+
+        ``None`` too when the bed cannot be read: no ``site_repo``, an unknown slot, or a bed of another tenant -
+        those keep the slot check they had (a foreign slot's history is empty under the tenant anyway).
+        """
+        if self._sites is None or not slot_key:
+            return None
+        slot = self._sites.get_slot_by_key(slot_key)
+        if slot is None or not slot.location_key:
+            return None
+        location = find_owned_location(self._sites, slot.location_key, tenant_key)
+        return not_applicable_reason(location) if location is not None else None
 
     def validate_or_raise(
         self,
@@ -487,7 +526,8 @@ class CropRotationValidator:
         same family stood there, against the pause of the species (override), the family, or
         ``rotation_window_years`` (at most 8). A green manure counts with its family. The answer is a list of
         findings with a severity and a reason — never an error for a violation (D-09: the grower decides).
-        Off for ``planter`` / ``tent`` / ``shelf`` and ``rotation_exempt`` beds (GP-FR-137).
+        Off for ``rotation_exempt`` beds and, unless the bed is switched on (``rotation_enabled``), for ``planter`` /
+        ``tent`` / ``shelf``; a bed switched off is off whatever its type (GP-FR-137, :func:`not_applicable_reason`).
 
         ``tenant_key`` is required and keyword-only (#2107): the bed is resolved through its site, the species must
         be visible to the tenant, and the history is read under the tenant.

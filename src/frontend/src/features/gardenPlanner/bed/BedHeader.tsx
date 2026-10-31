@@ -1,7 +1,7 @@
 /**
  * The head of the bed view (REQ-053 GP-FR-047, GP-FR-077): area, type, status, soil, sun, active
- * plants, open tasks, last care, next due date, assignment and the previous year. It reads the
- * summary only and owns no state.
+ * plants, open tasks, last care, next due date, assignment and the previous year; the drainage only while it
+ * is known. It reads the summary only and owns no state.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -118,6 +118,11 @@ export default function BedHeader({
           <Fact label={t('pages.bed.header.soil')} testId="bed-header-soil">
             {soil && soil.soil_texture !== 'unknown' ? t(`enums.soilTexture.${soil.soil_texture}`) : notSet}
           </Fact>
+          {soil && soil.drainage !== 'unknown' && (
+            <Fact label={t('pages.bed.soil.drainage')} testId="bed-header-drainage">
+              {t(`enums.soilDrainage.${soil.drainage}`)}
+            </Fact>
+          )}
           <Fact label={t('pages.bed.header.sun')} testId="bed-header-sun">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
               {summary.sun_exposure !== 'unknown' ? t(`enums.sunExposure.${summary.sun_exposure}`) : notSet}

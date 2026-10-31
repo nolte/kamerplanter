@@ -423,8 +423,9 @@ class Location(BaseModel):
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
     #: The bed template this bed was placed from (REQ-053 §21.7, WP 7.9, #2475): **provenance only** - a copy of
-    #: the template's fields was taken, so later edits to or the deletion of the template change nothing here.
-    #: A system (global) key or one of the tenant's own; the export carries it, the import resolves or drops it.
+    #: the template's fields was taken, so later edits to the template change nothing here; deleting the template
+    #: unsets it (#2528). A system (global) key or one of the tenant's own; the export carries it, the import
+    #: resolves it or clears it as provenance (never a refusal).
     template_key: str | None = None
     soil_profile: SoilProfile | None = None
     #: Sun profile, microclimate, wind, slope … of the bed (§10.2, WP 3.9); ``None`` = nothing entered.
@@ -436,8 +437,12 @@ class Location(BaseModel):
     z_order: int = 0
     #: Grid pitch assumed for legacy slots of this location (§9.2a, migration v0093).
     pitch_m: float = Field(default=DEFAULT_PITCH_M, ge=MIN_DIMENSION_M, le=MAX_DIMENSION_M)
-    #: Permanent crop (asparagus, berry shrubs): excluded from crop rotation (GP-FR-137, W-013).
+    #: Permanent crop (asparagus, berry shrubs): excluded from crop rotation (GP-FR-137, W-013). Wins over
+    #: ``rotation_enabled``.
     rotation_exempt: bool = False
+    #: Per-bed crop-rotation switch (GP-FR-137 "je Beet einschaltbar", #2544), additive: ``None`` = the type default
+    #: (off for ``planter``/``tent``/``shelf``, on for every other type), ``True`` = on, ``False`` = off.
+    rotation_enabled: bool | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -6,6 +6,8 @@ What no double can decide, measured here:
 * a write names the row's owner: a tenant's key never reaches a system row and ``None`` never reaches a tenant's,
   and a row that is not the owner's raises ``NotFoundError`` instead of writing;
 * ``keepNull: false`` removes a cleared value instead of storing ``null``, and a nested object is replaced whole;
+* a delete unsets ``locations.template_key`` in the same transaction - a tenant template on the beds of that
+  tenant's sites only, a system template on every tenant's beds; a refused delete touches no bed (#2528);
 * the bootstrap builds the ``(tenant_key, name)`` index; migration v0101 builds the same on an older volume,
   inserts the system templates under their fixed keys, never overwrites an edited one, and a second run changes
   nothing; every system template is a valid ``BedTemplate`` that can be placed.
@@ -17,6 +19,7 @@ from typing import Any
 
 import pytest
 from arango import ArangoClient
+from structlog.testing import capture_logs
 
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
@@ -57,7 +60,7 @@ def database():
 
 @pytest.fixture
 def db(database):
-    for name in (col.BED_TEMPLATES, col.LOCATION_TYPES, col.TASK_TEMPLATES):
+    for name in (col.BED_TEMPLATES, col.LOCATION_TYPES, col.TASK_TEMPLATES, col.SITES, col.LOCATIONS, col.CONTAINS):
         database.collection(name).truncate()
     database.collection(col.LOCATION_TYPES).insert_many(
         [{"_key": "bed", "name": "Bed", "is_bed": True}, {"_key": "greenhouse", "name": "House", "is_bed": False}]
@@ -169,6 +172,110 @@ class TestWrites:
         assert repo.delete_template(own.key or "", owner_tenant_key=B) is False
         assert repo.delete_template(own.key or "", owner_tenant_key=A) is True
         assert repo.delete_template(sys_row.key or "", owner_tenant_key=None) is True
+
+
+def _seed_beds(db, template_key: str) -> dict[str, str]:
+    """Site ``s_a`` of A and ``s_b`` of B, one bed on each naming ``template_key`` (B's seeded directly), plus an
+    unrelated bed on A's site. Returns ``{bed key: _rev}``."""
+    db.collection(col.SITES).insert_many(
+        [{"_key": "s_a", "name": "A", "tenant_key": A}, {"_key": "s_b", "name": "B", "tenant_key": B}]
+    )
+    beds = [
+        {"_key": "bed_a", "name": "a", "site_key": "s_a", "template_key": template_key},
+        {"_key": "bed_b", "name": "b", "site_key": "s_b", "template_key": template_key},
+        {"_key": "bed_other", "name": "o", "site_key": "s_a", "template_key": "another_template"},
+    ]
+    db.collection(col.LOCATIONS).insert_many(beds)
+    return {doc["_key"]: doc["_rev"] for doc in db.collection(col.LOCATIONS).all()}
+
+
+class TestDeleteReleasesThePlacedBeds:
+    """#2528: ``template_key`` is provenance - a delete unsets it instead of leaving a dangling pointer."""
+
+    def test_deleting_a_template_unsets_it_on_the_tenants_beds_only(self, repo, db) -> None:
+        own = repo.create_template(_template("Own", A))
+        revs = _seed_beds(db, own.key or "")
+
+        with capture_logs() as logs:
+            assert repo.delete_template(own.key or "", owner_tenant_key=A) is True
+
+        assert [e["released_beds"] for e in logs if e["event"] == "bed_template.beds_released"] == [1]
+        locations = db.collection(col.LOCATIONS)
+        assert "template_key" not in locations.get("bed_a")
+        assert locations.get("bed_b")["_rev"] == revs["bed_b"]
+        assert locations.get("bed_b")["template_key"] == own.key
+        assert locations.get("bed_other")["_rev"] == revs["bed_other"]
+
+    def test_deleting_a_system_template_unsets_it_on_every_tenants_beds(self, repo, db) -> None:
+        sys_row = repo.create_template(_template("System", None))
+        revs = _seed_beds(db, sys_row.key or "")
+
+        assert repo.delete_template(sys_row.key or "", owner_tenant_key=None) is True
+
+        locations = db.collection(col.LOCATIONS)
+        assert "template_key" not in locations.get("bed_a")
+        assert "template_key" not in locations.get("bed_b")
+        assert locations.get("bed_other")["_rev"] == revs["bed_other"]
+
+    def test_a_nested_bed_without_a_site_key_is_released_through_the_containment_graph(self, repo, db) -> None:
+        """A nested legacy bed carries no ``site_key`` (#2513) - its site is reached through ``contains``."""
+        own = repo.create_template(_template("Own", A))
+        _seed_beds(db, own.key or "")
+        db.collection(col.LOCATIONS).insert_many(
+            [
+                {"_key": "nested_a", "name": "na", "site_key": "", "template_key": own.key},
+                {"_key": "nested_b", "name": "nb", "site_key": "", "template_key": own.key},
+            ]
+        )
+        db.collection(col.CONTAINS).insert_many(
+            [
+                {"_from": f"{col.SITES}/s_a", "_to": f"{col.LOCATIONS}/bed_a"},
+                {"_from": f"{col.LOCATIONS}/bed_a", "_to": f"{col.LOCATIONS}/nested_a"},
+                {"_from": f"{col.SITES}/s_b", "_to": f"{col.LOCATIONS}/bed_b"},
+                {"_from": f"{col.LOCATIONS}/bed_b", "_to": f"{col.LOCATIONS}/nested_b"},
+            ]
+        )
+        rev_b = db.collection(col.LOCATIONS).get("nested_b")["_rev"]
+
+        assert repo.delete_template(own.key or "", owner_tenant_key=A) is True
+
+        locations = db.collection(col.LOCATIONS)
+        assert "template_key" not in locations.get("nested_a")
+        assert locations.get("nested_b")["_rev"] == rev_b
+        assert locations.get("nested_b")["template_key"] == own.key
+
+    def test_a_refused_delete_touches_no_bed(self, repo, db) -> None:
+        sys_row = repo.create_template(_template("System", None))
+        own = repo.create_template(_template("Own", A))
+        revs = _seed_beds(db, own.key or "")
+        db.collection(col.LOCATIONS).insert(
+            {"_key": "bed_sys", "name": "s", "site_key": "s_a", "template_key": sys_row.key}
+        )
+        revs["bed_sys"] = db.collection(col.LOCATIONS).get("bed_sys")["_rev"]
+
+        assert repo.delete_template(own.key or "", owner_tenant_key=B) is False
+        assert repo.delete_template(sys_row.key or "", owner_tenant_key=A) is False
+
+        assert {doc["_key"]: doc["_rev"] for doc in db.collection(col.LOCATIONS).all()} == revs
+        assert db.collection(col.BED_TEMPLATES).count() == 2
+
+    def test_a_failure_after_the_removal_keeps_the_template_and_the_references(self, repo, db, monkeypatch) -> None:
+        own = repo.create_template(_template("Own", A))
+        revs = _seed_beds(db, own.key or "")
+        real = ArangoBedTemplateRepository._unset_template_key
+
+        def fail(txn, key, *, owner_tenant_key):
+            assert real(txn, key, owner_tenant_key=owner_tenant_key) == 1
+            raise RuntimeError("injected after the writes")
+
+        monkeypatch.setattr(ArangoBedTemplateRepository, "_unset_template_key", staticmethod(fail))
+
+        with pytest.raises(RuntimeError, match="injected"):
+            repo.delete_template(own.key or "", owner_tenant_key=A)
+
+        assert db.collection(col.BED_TEMPLATES).has(own.key or "")
+        assert {doc["_key"]: doc["_rev"] for doc in db.collection(col.LOCATIONS).all()} == revs
+        assert db.collection(col.LOCATIONS).get("bed_a")["template_key"] == own.key
 
 
 def _index_fields(db) -> list[list[str]]:

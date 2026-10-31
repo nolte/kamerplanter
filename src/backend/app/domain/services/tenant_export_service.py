@@ -897,24 +897,44 @@ class TenantExportService:
                 entries=refused,
             )
 
-    def _catalogue_rows(self, engine: TenantImportEngine) -> tuple[set[str], list[str]]:
-        """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced."""
+    def _catalogue_rows(
+        self,
+        needs: tuple[dict[str, set[str]], dict[str, set[str]]],
+        *,
+        resolve_optional: bool = True,
+    ) -> tuple[set[str], list[str]]:
+        """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced.
+
+        *needs* is :meth:`TenantImportEngine.catalogue_needs` - ``(refusing, optional)`` from one pass over the
+        archive (D7). Provenance references (#2528, the optional half) are resolved too - an existing system row
+        must land in ``existing`` or the rewrite would clear a valid key - but a missing one is not a refusal: the
+        rewrite clears and counts it. A caller that only wants ``missing`` passes ``resolve_optional=False`` and
+        skips the lookups whose answer it would discard.
+        """
         existing: set[str] = set()
         missing: list[str] = []
         catalogues = TenantExportEngine.global_catalogues()
-        for targets, keys in engine.catalogue_requirements().items():
-            found: set[str] = set()
-            for collection in targets.split("|"):
-                # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
-                # (v0004, kept on operator-created harvest indicators by v0070) is not ownership.
-                hits = self._store.existing_global_keys(collection, sorted(keys), any_row=collection in catalogues)
-                existing.update(f"{collection}/{key}" for key in hits)
-                found |= hits
-            missing.extend(f"{targets.split('|')[0]}/{key}" for key in sorted(keys - found))
+        refusing_needs, optional_needs = needs
+        requirements: list[tuple[dict[str, set[str]], bool]] = [(refusing_needs, True)]
+        if resolve_optional:
+            requirements.append((optional_needs, False))
+        needed: dict[str, set[str]]
+        targets: str
+        for needed, refusing in requirements:
+            for targets, keys in needed.items():
+                found: set[str] = set()
+                for collection in targets.split("|"):
+                    # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
+                    # (v0004, kept on operator-created harvest indicators by v0070) is not ownership.
+                    hits = self._store.existing_global_keys(collection, sorted(keys), any_row=collection in catalogues)
+                    existing.update(f"{collection}/{key}" for key in hits)
+                    found |= hits
+                if refusing:
+                    missing.extend(f"{targets.split('|')[0]}/{key}" for key in sorted(keys - found))
         return existing, sorted(missing)
 
     def _missing_catalogue_entries(self, engine: TenantImportEngine) -> list[str]:
-        return self._catalogue_rows(engine)[1]
+        return self._catalogue_rows(engine.catalogue_needs(), resolve_optional=False)[1]
 
     def _resolve_member_mapping(
         self, archive: TenantArchive, member_mapping: dict[str, dict[str, Any]]
@@ -1151,7 +1171,7 @@ class TenantExportService:
                 founder_scopes=list(owner_grant.admin_scopes) if owner_grant is not None else None,
                 tenant_key=tenant_key,
             )
-            existing_global, missing = self._catalogue_rows(engine)
+            existing_global, missing = self._catalogue_rows(engine.catalogue_needs())
             if missing:
                 raise TenantImportRefusedError(
                     "IMPORT_MISSING_CATALOG_ENTRIES", "catalogue entries vanished during the import", missing
@@ -1196,6 +1216,9 @@ class TenantExportService:
                     beat()
                 report["objects"] = len(objects_written)
             report["members"] = len({m.user_key for m in members} | {owner})
+            if engine.nulled_references:
+                # REQ-056 §8.4 / §13.5 (#2528): how many references the import had to clear - a count, no keys.
+                report["nulled_references"] = engine.nulled_references
             for part, stated_rows in sorted(archive.ignored_parts.items()):
                 # Format 1's reader does not import optional parts (readings, #2138): said, not hidden.
                 report[f"not_imported:{part}"] = stated_rows

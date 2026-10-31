@@ -44,7 +44,11 @@ class IBedTemplateRepository(ABC):
 
     @abstractmethod
     def delete_template(self, key: BedTemplateKey, *, owner_tenant_key: str | None) -> bool:
-        """Delete the template of that owner; ``False`` when there is none."""
+        """Delete the template of that owner and, atomically, unset ``template_key`` on the beds placed from it.
+
+        A tenant template releases the beds of that tenant's sites only, a system template (``owner_tenant_key``
+        ``None``) the beds of every tenant (#2528). ``False`` when the owner has no such template - nothing written.
+        """
 
     @abstractmethod
     def bed_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:

@@ -200,16 +200,16 @@ jobs:
       # GHCR manifest list, not guessed — so this commit changes which manager
       # reads the pin and nothing about which image runs.
       # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy
-      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20261016-stable@sha256:5ccfff9a411743ab2615136a2edd7416bec9ce41572fa94e935df38c14adb2b6
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20261026-stable@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238
       # Same class, found by the class sweep of #1563 rather than by the
       # issue: a tag AND a digest look managed, but the marker is what the
       # regex manager matches on, so `grep -c curlimages <log>` was 0 too.
       # renovate: datasource=docker depName=curlimages/curl
-      CURL_IMAGE: curlimages/curl:8.23.0@sha256:a134550be58ab783810e613ae96fd253c38f7bdd16d9bf9be350700c7a29ac06
+      CURL_IMAGE: curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
     steps:
       - name: Log in to Docker Hub
         if: github.event.pull_request.head.repo.fork != true
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}

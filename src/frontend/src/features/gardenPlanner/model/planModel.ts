@@ -131,9 +131,12 @@ export function newTempKey(): string {
   return `tmp${tempKeySequence.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/** The shape {@link newTempKey} produces: `tmp`, then base-36 digits only (sequence and random part). */
+const TEMP_KEY = /^tmp[0-9a-z]+$/;
+
 /** True for a key made by {@link newTempKey}: the object is not saved yet, the server does not know it. */
 export function isTempKey(key: string): boolean {
-  return key.startsWith('tmp');
+  return TEMP_KEY.test(key);
 }
 
 /**
@@ -163,14 +166,22 @@ export function applyKeyMap(plan: PlanModel, keyMap: Readonly<Record<string, str
   return { ...plan, locations, gardenObjects };
 }
 
-/** Take over the values the server derived for created or moved objects (`derived`, GP-FR-006/007). */
+const NO_KEYS: ReadonlySet<string> = new Set();
+
+/**
+ * Take over the values the server derived for created or moved objects (`derived`, GP-FR-006/007). Keys in
+ * `stillPending` keep their local derivation: an operation on them waits for the next save, so the server's value
+ * describes a geometry the model has already left (#2536).
+ */
 export function applyDerived(
   plan: PlanModel,
   derived: Readonly<Record<string, DerivedGeometry>>,
+  stillPending: ReadonlySet<string> = NO_KEYS,
 ): PlanModel {
   let locations = plan.locations;
   let gardenObjects = plan.gardenObjects;
   for (const [key, values] of Object.entries(derived)) {
+    if (stillPending.has(key)) continue;
     const location = locations[key];
     if (location) {
       locations = {

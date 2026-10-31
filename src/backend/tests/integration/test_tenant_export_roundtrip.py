@@ -71,6 +71,7 @@ from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_export_engine import TenantArchiveWriter, read_tenant_archive
+from app.domain.engines.tenant_import_engine import TenantImportEngine
 from app.domain.models.tenant_export import TenantImportMemberGrant, TenantImportRequest
 from app.domain.models.user import User
 from app.domain.services.entitlement_service import EntitlementService
@@ -590,6 +591,77 @@ def test_a_missing_catalogue_entry_refuses_and_writes_nothing(source, target, tm
     assert [d["reason"] for d in refused.value.details] == ["pests/pest-1"]
     assert target.collection("tenants").count() == tenants_before
     assert target.collection("tenant_import_requests").count() == 0
+
+
+def test_a_bed_whose_template_and_substrate_are_gone_imports_with_the_references_cleared(
+    source, target, tmp_path, monkeypatch
+) -> None:
+    """#2528 (REQ-056 §8.4 step 1): a bed's template and substrate are provenance. Gone from both the archive and
+    the target's catalogue, they are cleared and counted - not a refusal. A bed naming a system template the target
+    has keeps it (the positive control: provenance keys are still resolved against the catalogue).
+
+    The dangling state is seeded by removing the rows directly - the repository delete would release the bed
+    (WP-A) and the archive would carry no dangling key at all."""
+    seeded = _seed_tenant(source, A)
+    system_template = {"_key": "sys_bed_2x1", "name": "System bed", "location_type_key": "bed"}
+    source.collection("bed_templates").insert(system_template)
+    target.collection("bed_templates").insert(system_template)
+    source.collection("bed_templates").insert({"_key": "tpl-own", "tenant_key": A, "name": "Own"})
+    source.collection("substrates").insert({"_key": "sub-own", "tenant_key": A, "name": "Own mix"})
+    source.collection("locations").update(
+        {"_key": seeded["loc"], "template_key": "tpl-own", "soil_profile": {"substrate_key": "sub-own"}}
+    )
+    source.collection("locations").insert(
+        {"_key": "loc-sys", "site_key": seeded["site"], "name": "Bed 2", "template_key": "sys_bed_2x1"}
+    )
+    source.collection("bed_templates").delete("tpl-own")
+    source.collection("substrates").delete("sub-own")
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    target.collection("users").insert(
+        {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "New lead", "account_type": "human"}
+    )
+    dst = _service(target, tmp_path / "dst")
+    passes = {"needs": 0, "rows": 0}
+    real_needs, real_rows = TenantImportEngine._catalogue_needs, TenantExportService._catalogue_rows
+
+    def counted_needs(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        passes["needs"] += 1
+        return real_needs(self, *args, **kwargs)
+
+    def counted_rows(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        passes["rows"] += 1
+        return real_rows(self, *args, **kwargs)
+
+    monkeypatch.setattr(TenantImportEngine, "_catalogue_needs", counted_needs)
+    monkeypatch.setattr(TenantExportService, "_catalogue_rows", counted_rows)
+
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping={f"{A}-{LEAD}": _grant("new-lead@example.com")},
+        plan_key=None,
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    finished = run_async(dst.run_import(accepted.key or ""))
+
+    assert finished is not None and finished.status == "completed", finished
+    # D7: one archive pass per catalogue check. ``_verified_archive`` runs at the request and again when the run
+    # re-reads the upload, then the run resolves the rows it writes against: three checks, three passes.
+    assert passes == {"needs": 3, "rows": 3}
+    beds = {
+        doc["name"]: doc
+        for doc in target.aql.execute(
+            "FOR s IN sites FILTER s.tenant_key == @t FOR l IN locations FILTER l.site_key == s._key RETURN l",
+            bind_vars={"t": finished.target_tenant_key},
+        )
+    }
+    assert beds["Bed 1"].get("template_key") is None
+    assert (beds["Bed 1"].get("soil_profile") or {}).get("substrate_key") is None
+    assert beds["Bed 2"]["template_key"] == "sys_bed_2x1"
+    assert finished.report["nulled_references"] >= 2
 
 
 def test_a_failure_mid_import_leaves_no_tenant_behind(source, target, tmp_path) -> None:

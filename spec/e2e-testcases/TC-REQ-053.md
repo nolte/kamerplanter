@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 44
+test_count: 59
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -17,8 +17,11 @@ coverage_areas:
   - v1.3 — Stapelauswahl, Touch-Zeichnen, Eltern-Kind, Maßeingabe, Zoom/LOD, Tastaturfokus
   - v1.3 — Pflanzeninfo beim Überfahren, grafische Pflanzenzustände, Standortmerkmale, Eignungs-Ampel
   - v1.3 — Wiederherstellung per Import, Saison-Kopie, Indoor-Grundriss (SHOULD)
+  - Welle 7 — Bewässerungszonen, Gießrunde, Ebene „zuletzt gegossen“, Beetvorlagen und Standardgrößen
+  - Welle 7 — Objekt-Snap, Ausrichten/Verteilen, Mehrfach duplizieren, Auto-Save, Mini-Map
+  - Welle 7 — Pflanzenzustand-Filter, Teilexport/Import-Ziel, frühere Stände, Sonnenfenster im Feldmodus
 generated: "2026-10-11"
-version: "1.4"
+version: "1.7"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -52,7 +55,7 @@ selbst (Feldwerte, Fehlercodes, Edges) wird in Integrationstests geprüft.
 Zusätzlich sind drei Testfälle aus Use Cases abgeleitet, die kein Akzeptanzkriterium trifft:
 TC-053-007 (Speichern-Status und Verlassen-Dialog, abgeleitet aus UC-02 / GP-UX-003),
 TC-053-029 (Plan drucken, abgeleitet aus UC-11) und TC-053-030 (Plan als JSON sichern,
-abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet).
+abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet). Die Fälle TC-053-045 bis TC-053-055 sind aus den SHOULD-Zeilen der Welle 7 abgeleitet (Abschnitt 7). Die Fälle TC-053-056 bis TC-053-059 sind aus den SHOULD-Zeilen der Welle 7, Teil B abgeleitet (Abschnitt 8).
 
 **Nicht** abgedeckt sind die Kriterien GP-ACC-003, 004, 009, 010, 013, 014, 017, 018, 023,
 033, 034, 037, 038, 041, 042, 043, 045, 046, 049, 050 sowie 053, 054, 055, 056 und 057 — siehe
@@ -80,6 +83,23 @@ für die Tests ändert:**
   „Meine Änderungen als Kopie behalten (JSON herunterladen)" (GP-UX-017, GP-ACC-011, UI-NFR-022).
 - `test_count` bleibt 44; die Abdeckungs-Matrix und die Tabelle der nicht abgedeckten Kriterien
   sind um GP-ACC-053…057 ergänzt.
+
+**Version 1.5 (2026-10-31, WP 7.25 / #2491)** — elf neue Fälle TC-053-045 bis TC-053-055 aus
+GP-FR-110, GP-FR-117, GP-UX-031, GP-FR-044, GP-FR-045, GP-FR-012, GP-FR-029, GP-FR-025, GP-UX-004 und
+GP-UX-014 (Abschnitt 7); `test_count` 44 → 55, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen
+ergänzt. TC-053-047 („Regen — übersprungen“) beschreibt das geforderte Verhalten; die Oberfläche bietet
+die Aktion noch nicht an (Platzhalter-Bündel #2466).
+
+**Version 1.6 (2026-10-31, WP 7.26 / #2492)** — vier neue Fälle TC-053-056 bis TC-053-059 aus GP-UX-061,
+GP-FR-169, GP-FR-172, GP-FR-148/170 und GP-FR-158/159 mit GP-UX-057 (Abschnitt 8); `test_count` 55 → 59, die
+Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt. TC-053-042 und TC-053-044 bleiben unverändert.
+
+**Version 1.7 (2026-10-31, WP 7.27 / #2493)** — keine neuen Fälle (`test_count` bleibt 59). Die Zuordnung der
+Welle-7-Zeilen GP-FR/GP-API/GP-UX (SHOULD) zu Tests steht in der generierten Matrix
+`spec/e2e-testcases/GP-REQ-wave7-matrix.md` (`scripts/gp_acc_matrix.py`). Zwei Fälle bleiben bewusst ohne
+Automatisierung, weil die Oberfläche fehlt: TC-053-047 („Regen — übersprungen“ — keine Aktion im Gießrunden-Dialog,
+keine Route) und TC-053-027 („Beet räumen“ — kein Knopf ruft die Route auf). GP-ACC-033 ist in der Tabelle der
+nicht abgedeckten Kriterien um die Benchmark-Tests ergänzt; die E2E-Datei des Feldmodus zählt nicht mehr dafür.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -521,7 +541,8 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 **Priority**: Critical
 **Category**: Happy Path
 **Preconditions**:
-- Beet mit Geometrie (z. B. 3,0 × 1,2 m); Spezies Tomate mit Steckbrief vorhanden
+- Beet mit Geometrie (z. B. 3,0 × 1,6 m — mit dem Standard-Randabstand passen in 1,2 m Tiefe nur
+  eine Reihe und damit keine 6 Tomaten); Spezies Tomate mit Steckbrief vorhanden
 
 **Testschritte**:
 1. Nutzer wählt das Beet und „Bepflanzen" (Kontextmenü oder Beetansicht)
@@ -1386,6 +1407,437 @@ Die folgenden Testfälle decken die Erweiterungen aus Version 1.3 ab. TC-053-037
 
 ---
 
+## 7. Neu in Welle 7 (Bewässerung, Vorlagen, Editor-Werkzeuge)
+
+Die Fälle TC-053-045 bis TC-053-055 sind aus den Anforderungen GP-FR-110, GP-FR-117, GP-UX-031,
+GP-FR-044, GP-FR-045, GP-FR-012, GP-FR-029, GP-FR-025, GP-UX-004 und GP-UX-014 abgeleitet (WP 7.25).
+Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die Matrix führt sie als „abgeleitet“.
+
+### TC-053-045: Bewässerungszone anlegen — Beete aus der Mehrfachauswahl, Ebene „Zonen“
+
+**Requirement**: REQ-053 §14 GP-FR-110 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Bewässerung
+**Preconditions**:
+- Plan mit drei Beeten „Beet A“, „Beet B“, „Beet C“ nebeneinander, noch keine Zone; Rolle Gärtner oder Leitung
+
+**Testschritte**:
+1. Nutzer wählt mit `Strg+A` alle Beete auf dem Plan aus
+2. Nutzer öffnet „Bewässerungszonen verwalten“ und wählt „Neue Zone“
+3. Nutzer gibt einen Namen ein und wählt „Auswahl vom Plan übernehmen“
+4. Nutzer entfernt den Haken bei „Beet C“ und wählt „Zone speichern“
+5. Nutzer schaltet die Ebene „Bewässerungszonen anzeigen“ ein
+6. Nutzer wählt „Beet A“, dann „Beet C“ und liest die Beet-Info im Eigenschaftenpanel
+
+**Erwartete Ergebnisse**:
+- „Auswahl vom Plan übernehmen“ hakt alle drei ausgewählten Beete an
+- Nach dem Speichern zeigt der Bereich den Stand der gespeicherten Zone; gespeichert sind genau „Beet A“ und „Beet B“
+- Die Ebene schraffiert und umrandet genau „Beet A“ und „Beet B“, „Beet C“ bleibt ohne Schraffur
+- Die Beet-Info von „Beet A“ lautet „Bewässerungszone: 1. <Name>“; die von „Beet C“ nennt keine Zone
+
+**Nachbedingungen**:
+- Eine Zone mit zwei Beeten ist gespeichert
+
+**Tags**: [req-053, bewaesserung, zone, mehrfachauswahl, ebene, desktop, gp-fr-110]
+
+---
+
+### TC-053-046: Gießrunde einer Zone — Menge nach Beetfläche verteilt und als verteilt gekennzeichnet
+
+**Requirement**: REQ-053 §14 GP-FR-117 (SHOULD, abgeleitet); Gießdienst ZG-004
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Bewässerung
+**Preconditions**:
+- Zone mit „Beet A“ (2 m²) und „Beet B“ (3 m²), noch kein Gießen erfasst (Zustand per API hergestellt)
+
+**Testschritte**:
+1. Nutzer öffnet „Bewässerungszonen verwalten“ und die Zone
+2. Nutzer wählt „Gießrunde protokollieren“
+3. Nutzer gibt 10 Liter ein, lässt „Nach Beetfläche“ gewählt und schreibt eine Übergabenotiz
+4. Nutzer wählt „Gießrunde speichern“ und schließt das Ergebnis
+
+**Erwartete Ergebnisse**:
+- Vor der Runde zeigt der Stand der Zone „Noch kein Gießen erfasst.“
+- Der Dialog erklärt: „Die Menge wird auf die Beete verteilt und nicht gemessen. Das Protokoll kennzeichnet das so.“
+- Das Ergebnis nennt „Beet A: 4 Liter“ und „Beet B: 6 Liter“ und den Hinweis „Nach Fläche verteilt: Diese Mengen sind verteilt, nicht gemessen.“
+- Jedes Beet hat genau einen Gieß-Eintrag mit seinem Anteil, gekennzeichnet als „nach Fläche verteilt“ (nicht gemessen), mit der Übergabenotiz
+- Der Stand der Zone kennzeichnet das letzte Gießen als „Nach Fläche verteilt“
+
+**Nachbedingungen**:
+- Zwei Gieß-Einträge (verteilt) gespeichert
+
+**Tags**: [req-053, bewaesserung, giessrunde, verteilt, desktop, gp-fr-117]
+
+---
+
+### TC-053-047: Gießrunde „Regen — übersprungen“
+
+**Requirement**: REQ-053 §14 GP-FR-117 (SHOULD, abgeleitet); F-05
+**Gerät**: Desktop
+**Priority**: Low
+**Category**: Bewässerung
+**Preconditions**:
+- Zone mit zwei Beeten; Gießdienst an einem Regentag
+
+**Testschritte**:
+1. Nutzer öffnet die Gießrunde der Zone
+2. Nutzer wählt „Regen — übersprungen“ und bestätigt
+
+**Erwartete Ergebnisse**:
+- Die Runde ist als übersprungen protokolliert, ohne Gießmenge und ohne dass ein Beet als gegossen gilt
+- Der Stand der Zone und die Ebene „zuletzt gegossen“ bleiben unverändert
+
+**Nachbedingungen**:
+- Übersprungene Runde protokolliert
+
+**Tags**: [req-053, bewaesserung, giessrunde, regen, desktop, gp-fr-117]
+
+---
+
+### TC-053-048: Ebene „zuletzt gegossen“ — Tage seit dem letzten Gießen je Beet
+
+**Requirement**: REQ-053 §18 GP-UX-031 (SHOULD, abgeleitet); Klassen nach Entscheidung in #2466
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Bewässerung
+**Preconditions**:
+- Plan mit drei Beeten; „Beet A“ heute gegossen, „Beet B“ vor fünf Tagen, „Beet C“ nie (Zustand per API hergestellt)
+
+**Testschritte**:
+1. Nutzer öffnet den Plan bei 100 % und schaltet die Ebene „Zuletzt gegossen anzeigen“ ein
+2. Nutzer liest die Legende
+3. Nutzer wählt „Beet B“, dann „Beet C“ und liest die Beet-Info
+
+**Erwartete Ergebnisse**:
+- Die Ebene ist zu Beginn ausgeschaltet
+- „Beet A“ trägt das Muster „0 bis 1 Tag seit“ und die Beschriftung „0 Tage seit“ (bzw. „1 Tag seit“ kurz nach Mitternacht UTC), „Beet B“ das Muster „4 bis 7 Tage seit“ mit „5 Tage seit“
+- „Beet C“ bleibt ohne Schraffur
+- Die Legende nennt die Klassen, „Ohne Schraffur: kein Gießen erfasst.“ und „Ob ein Beet Wasser braucht, sagt der Plan nicht.“
+- Die Beet-Info von „Beet B“ lautet „Zuletzt gegossen: 5 Tage seit“, die von „Beet C“ „Kein Gießen erfasst.“
+
+**Nachbedingungen**:
+- Keine Änderung am Plan
+
+**Tags**: [req-053, bewaesserung, ebene, zuletzt-gegossen, desktop, gp-ux-031]
+
+---
+
+### TC-053-049: Beet aus Vorlage platzieren — gedreht, sofort gespeichert
+
+**Requirement**: REQ-053 §10.1 GP-FR-044 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Vorlagen
+**Preconditions**:
+- Plan mit Gartengrenze, ohne Beet; System-Vorlage „Beet 2 × 1 m“ vorhanden
+
+**Testschritte**:
+1. Nutzer wählt in der Werkzeugleiste „Aus Vorlage“ und in der Liste „Beet 2 × 1 m“
+2. Nutzer wählt einmal „Drehen“
+3. Nutzer wählt „In die Bildmitte setzen“
+
+**Erwartete Ergebnisse**:
+- Nach der Wahl lautet der Hinweis „Klicke auf den Plan, um das Beet zu setzen. Alt hält den Rasterfang an, Esc beendet.“
+- Die Schaltfläche zeigt „Drehen (aktuell 90°)“
+- Die Meldung „Das Beet wurde aus der Vorlage angelegt und ist gespeichert. Zum Zurücknehmen lösche das Beet.“ erscheint; es bleibt keine Änderung offen
+- Das gespeicherte Beet ist eine Kopie der Vorlage: Beettyp, 2,0 × 1,0 m, um 90° gedreht, Verweis auf die Vorlage, Ursprung auf dem 10-cm-Raster; es ist auf dem Plan ausgewählt
+
+**Nachbedingungen**:
+- Ein Beet aus der Vorlage gespeichert
+
+**Tags**: [req-053, vorlagen, platzieren, desktop, gp-fr-044]
+
+---
+
+### TC-053-050: Standardgröße im Dialog „Hinzufügen mit Maßen“
+
+**Requirement**: REQ-053 §10.1 GP-FR-045 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Vorlagen
+**Preconditions**:
+- Plan mit Gartengrenze
+
+**Testschritte**:
+1. Nutzer öffnet „Hinzufügen mit Maßen“
+2. Nutzer wählt die Standardgröße „Hochbeet 2 × 1 × 0,8 m“
+3. Nutzer gibt den Namen „Hochbeet Standard“ und die Position x 3 / y 6 ein, bestätigt und speichert
+
+**Erwartete Ergebnisse**:
+- Die Schnellwahl füllt Breite 2, Länge 1, Höhe 0,8 und den Beettyp Hochbeet
+- Nach dem Bestätigen ist das Beet eine ungespeicherte Änderung; nach dem Speichern steht es mit 2,0 × 1,0 m, Höhe 0,8 m und Beettyp Hochbeet an (3,0 | 6,0)
+
+**Nachbedingungen**:
+- Hochbeet gespeichert
+
+**Tags**: [req-053, vorlagen, standardgroesse, hinzufuegen-mit-massen, desktop, gp-fr-045]
+
+---
+
+### TC-053-051: Objekt-Snap an der Ecke eines Nachbarbeets, `Alt` schaltet ab
+
+**Requirement**: REQ-053 §9.4 GP-FR-012 (Objekt-Snap SHOULD, abgeleitet); GP-FR-154
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Editor
+**Preconditions**:
+- „Beet A“ mit rechter Kante bei x = 3,53 m (bewusst neben dem Raster), „Beet B“ bei x = 5,5 m auf gleicher Höhe; Zoom 100 %
+
+**Testschritte**:
+1. Nutzer zieht „Beet B“ um 1,95 m nach links, bis es fast an „Beet A“ stößt
+2. Nutzer macht den Schritt rückgängig und zieht dieselbe Strecke mit gehaltener `Alt`-Taste
+3. Nutzer macht den Schritt rückgängig, zieht ohne `Alt` und speichert
+
+**Erwartete Ergebnisse**:
+- Während des Ziehens zeigt eine Markierung das Einrasten an einer Ecke
+- „Beet B“ rastet an der Ecke von „Beet A“ ein (x = 3,53 m) — eine Position, die das Raster allein nicht ergibt
+- Mit `Alt` rastet nichts ein (x = 3,55 m)
+- Gespeichert ist die eingerastete Position
+
+**Nachbedingungen**:
+- „Beet B“ liegt an „Beet A“ an
+
+**Tags**: [req-053, snap, objekt-snap, alt, desktop, gp-fr-012]
+
+---
+
+### TC-053-052: Ausrichten und gleichmäßig verteilen
+
+**Requirement**: REQ-053 §9.4 GP-FR-029 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Editor
+**Preconditions**:
+- Drei versetzte Beete: A (1,0 | 2,0, 2 m breit), B (4,5 | 3,0, 2 m breit), C (7,0 | 2,5, 1 m breit)
+
+**Testschritte**:
+1. Nutzer wählt mit `Strg+A` alle Beete aus
+2. Nutzer wählt „Ausrichten“ → „Unten ausrichten“
+3. Nutzer wählt „Ausrichten“ → „Horizontal gleichmäßig verteilen“ und speichert
+
+**Erwartete Ergebnisse**:
+- Nach dem Ausrichten liegen alle Unterkanten auf y = 2,0 m; „Beet A“ bewegt sich nicht
+- Beim Verteilen bleiben die äußeren Beete stehen, „Beet B“ rückt auf x = 4,0 m (Abstände je 1,0 m)
+- Jede Aktion ist ein Schritt; gespeichert sind die neuen Positionen
+
+**Nachbedingungen**:
+- Drei Beete ausgerichtet und verteilt
+
+**Tags**: [req-053, ausrichten, verteilen, mehrfachauswahl, desktop, gp-fr-029]
+
+---
+
+### TC-053-053: Mehrfach duplizieren mit Namensschema
+
+**Requirement**: REQ-053 §9.4 GP-FR-025 (Mehrfach duplizieren SHOULD, abgeleitet); F-10
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Editor
+**Preconditions**:
+- „Beet 1“ (1,0 × 1,0 m) bei (1,0 | 4,5)
+
+**Testschritte**:
+1. Nutzer wählt „Beet 1“ und im Menü „Mehr“ den Eintrag „Mehrfach duplizieren“
+2. Nutzer gibt Anzahl 3, Namensschema „Parzelle {n}“ und Abstand 0,5 ein und wählt „Duplizieren“
+3. Nutzer drückt `Strg+Z`, danach `Strg+Umschalt+Z`, und speichert
+
+**Erwartete Ergebnisse**:
+- Der Dialog nennt vorab „Die Kopien heißen: Parzelle 1 … Parzelle 3“
+- Drei Kopien erscheinen rechts neben „Beet 1“; ein einziges `Strg+Z` nimmt alle drei zurück, `Strg+Umschalt+Z` bringt alle drei wieder
+- Gespeichert sind „Parzelle 1“ bis „Parzelle 3“ mit 1,0 × 1,0 m bei x = 2,5 / 4,0 / 5,5 m
+
+**Nachbedingungen**:
+- Vier Beete gespeichert
+
+**Tags**: [req-053, duplizieren, mehrfach, namensschema, undo, desktop, gp-fr-025]
+
+---
+
+### TC-053-054: Automatisch speichern — pausiert bei Konflikt
+
+**Requirement**: REQ-053 §17 GP-UX-004 (SHOULD, abgeleitet); GP-ACC-011 (Konflikt-Dialog)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Speichern
+**Preconditions**:
+- Plan mit „Beet A“ und „Beet B“; während des Tests speichert eine zweite Sitzung eine Änderung an „Beet B“ (per API hergestellt)
+
+**Testschritte**:
+1. Nutzer schaltet „Automatisch speichern“ ein
+2. Nutzer verschiebt „Beet A“ per Pfeiltaste und wartet, ohne zu speichern
+3. Eine zweite Sitzung speichert „Beet B“ an neuer Position
+4. Nutzer verschiebt „Beet A“ erneut
+5. Nutzer wählt im Konflikt-Dialog „Neu laden“ und verschiebt „Beet A“ noch einmal
+
+**Erwartete Ergebnisse**:
+- Die erste Verschiebung wird ohne Klick gespeichert
+- Bei der zweiten öffnet sich der Konflikt-Dialog; die Statuszeile lautet „Konflikt – Plan wurde zwischenzeitlich geändert“ und darunter steht „Automatisches Speichern pausiert, solange der Konflikt offen ist.“
+- Die Änderung der zweiten Sitzung bleibt erhalten; die abgelehnte Verschiebung wird nicht gespeichert
+- Nach „Neu laden“ ist der Hinweis weg, die Einstellung bleibt an, und die nächste Verschiebung wird wieder automatisch gespeichert
+
+**Nachbedingungen**:
+- Plan gespeichert, keine offene Änderung
+
+**Tags**: [req-053, auto-save, konflikt, speichern, desktop, gp-ux-004]
+
+---
+
+### TC-053-055: Mini-Map — nur beim Hineinzoomen, folgt der Ansicht, Klick springt
+
+**Requirement**: REQ-053 §17 GP-UX-014 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Low
+**Category**: Navigation
+**Preconditions**:
+- Plan 10 × 10 m mit zwei Beeten in gegenüberliegenden Ecken
+
+**Testschritte**:
+1. Nutzer öffnet den Plan (eingepasst, ganzer Garten sichtbar)
+2. Nutzer zoomt auf 400 %
+3. Nutzer verschiebt die Ansicht dreimal mit `Umschalt+Pfeil rechts`
+4. Nutzer klickt in die Mitte der Mini-Map
+
+**Erwartete Ergebnisse**:
+- Solange der ganze Garten sichtbar ist, gibt es keine Mini-Map
+- Bei 400 % erscheint rechts unten die Mini-Map (120 × 120 px) mit dem Rechteck des sichtbaren Ausschnitts
+- Das Rechteck wandert mit der Ansicht nach rechts
+- Der Klick zentriert die Ansicht auf die angeklickte Stelle
+
+**Nachbedingungen**:
+- Keine Änderung am Plan
+
+**Tags**: [req-053, mini-map, navigation, zoom, desktop, gp-ux-014]
+
+---
+
+## 8. Neu in Welle 7, Teil B (Pflanzenzustand, Teilexport, frühere Stände, Sonnenfenster im Feld)
+
+Die Fälle TC-053-056 bis TC-053-059 sind aus den Anforderungen GP-UX-061, GP-FR-169, GP-FR-172,
+GP-FR-148/170 und GP-FR-158/159 mit GP-UX-057 abgeleitet (WP 7.26). Die neue Saison (GP-FR-171) und die
+Unterlage mit Eichung (GP-FR-033) sind bereits als TC-053-042 und TC-053-044 beschrieben; sie bekommen
+keinen neuen Fall. Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die Matrix führt sie als
+„abgeleitet“.
+
+### TC-053-056: Ebenen „Pflanzenzustand“ und „Sonnenfenster“, Filter „Nur Pflanzen mit Handlungsbedarf“
+
+**Requirement**: REQ-053 §8 GP-UX-061, GP-FR-031, GP-FR-169 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Ebenen
+**Preconditions**:
+- Plan mit einem Beet „Beet 1“ (2 × 1 m) und drei Tomaten; eine davon hat eine überfällige Aufgabe
+- Für „Beet 1“ ist als Sonnenfenster „Morgens“ erfasst; Ebenen im Ausgangszustand (alle aus außer Raster)
+
+**Testschritte**:
+1. Nutzer öffnet den Plan und betrachtet die Schaltfläche „Nur Pflanzen mit Handlungsbedarf zeigen“
+2. Nutzer schaltet die Ebene „Pflanzenzustand anzeigen“ ein
+3. Nutzer schaltet „Nur Pflanzen mit Handlungsbedarf zeigen“ ein
+4. Nutzer schaltet die Ebene „Pflanzenzustand anzeigen“ wieder aus
+5. Nutzer schaltet die Ebene „Sonnenfenster anzeigen“ ein
+
+**Erwartete Ergebnisse**:
+- Solange die Ebene „Pflanzenzustand“ aus ist, ist der Filter nicht bedienbar und sagt, warum
+- Mit der Ebene trägt jede Tomate ihren Ring, genau die Pflanze mit der überfälligen Aufgabe ein Zeichen; die Legende erklärt den Pflanzenzustand
+- Mit dem Filter bleibt nur die Pflanze mit dem Zeichen sichtbar, die beiden anderen verschwinden
+- Ohne die Ebene sind wieder alle drei Pflanzen als einfache Marker zu sehen; der Filter ist wieder nicht bedienbar
+- Die Ebene „Sonnenfenster“ legt über „Beet 1“ das Muster für „Morgens“
+
+**Nachbedingungen**:
+- Keine Änderung am Plan; die Ebenen-Wahl gilt nur für diesen Browser
+
+**Tags**: [req-053, ebenen, pflanzenzustand, filter, sonnenfenster, desktop, gp-ux-061, gp-fr-169]
+
+---
+
+### TC-053-057: Nur die Auswahl sichern und in einen anderen Standort einspielen
+
+**Requirement**: REQ-053 §23.1 GP-FR-172 (SHOULD, abgeleitet), GP-UX-050, GP-UX-051
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Export/Import
+**Preconditions**:
+- Standort A mit „Beet A“ (zwei Pflanzplätze), „Beet B“ und „Beet C“ nebeneinander; Standort B mit Gartengrenze, ohne Beete; Leitung
+
+**Testschritte**:
+1. Nutzer zieht im Plan von Standort A einen Auswahlrahmen um „Beet A“ und „Beet B“
+2. Nutzer öffnet „Export & Import“ → „Plan exportieren …“, wählt „JSON-Sicherung“ und „Nur die Auswahl“ und lädt herunter
+3. Nutzer öffnet den Plan von Standort B, dann „Sicherung einspielen …“ und wählt die Datei
+4. Nutzer liest den Prüfbericht und geht weiter
+5. Nutzer wählt „Hinzufügen“ und als Ziel „Aus einem anderen Standort“, prüft erneut und spielt ein
+
+**Erwartete Ergebnisse**:
+- Der Auswahlrahmen wählt genau „Beet A“ und „Beet B“
+- Die Vorschau nennt 2 Standorte, 0 Gartenobjekte und 2 Pflanzplätze; der Hinweis nennt die 2 ausgewählten Beete
+- Der Prüfbericht nennt 2 Standorte und 2 Pflanzplätze, die angelegt werden, und keine Probleme
+- Nach dem Einspielen meldet der Dialog die angelegten 2 Standorte und 2 Pflanzplätze
+- Standort B zeigt „Beet A“ und „Beet B“ (mit den zwei Pflanzplätzen) als eigene, neue Beete; Standort A ist unverändert
+
+**Nachbedingungen**:
+- Standort B enthält zwei Beete
+
+**Tags**: [req-053, export, import, teilexport, ziel, desktop, gp-fr-172]
+
+---
+
+### TC-053-058: Früheren Stand wiederherstellen
+
+**Requirement**: REQ-053 §23.1 GP-FR-148, GP-FR-170 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Import
+**Preconditions**:
+- Plan mit „Beet A“, „Beet B“, „Beet C“; danach kam „Beet D“ hinzu, und eine Sicherung des Stands ohne „Beet D“ wurde per „Ersetzen“ eingespielt — es gibt genau einen früheren Stand (mit vier Beeten); Leitung
+
+**Testschritte**:
+1. Nutzer öffnet „Export & Import“ → „Sicherung einspielen …“ → „Früheren Stand wiederherstellen …“
+2. Nutzer wählt den Stand mit vier Standorten
+3. Nutzer liest den Bericht und tippt zur Bestätigung den Namen des Standorts
+4. Nutzer wählt „Diesen Stand wiederherstellen“
+
+**Erwartete Ergebnisse**:
+- Die Liste nennt den Stand mit seinen Zählern (4 Standorte)
+- Vor dem Schreiben zeigt der Bericht, was angelegt (4) und gelöscht (3) würde, und der Hinweis sagt, dass der jetzige Plan vorher selbst als Stand gespeichert wird
+- „Diesen Stand wiederherstellen“ ist erst mit dem richtigen Namen bedienbar
+- Danach meldet der Dialog den Erfolg samt gespeichertem Vorstand; der Plan zeigt wieder „Beet A“ bis „Beet D“
+- Es gibt nun zwei frühere Stände
+
+**Nachbedingungen**:
+- Plan wiederhergestellt; der überschriebene Stand liegt als neuer früherer Stand vor
+
+**Tags**: [req-053, snapshot, wiederherstellung, import, desktop, gp-fr-148, gp-fr-170]
+
+---
+
+### TC-053-059: Sonnenfenster im Feldmodus mit Chips erfassen
+
+**Requirement**: REQ-053 §19 GP-FR-158, GP-FR-159, GP-UX-057 (SHOULD, abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: Medium
+**Category**: Standortmerkmale
+**Preconditions**:
+- Plan mit einem Beet „Beet 1“, für das noch kein Sonnenfenster erfasst ist; Rolle Gärtner oder Leitung
+
+**Testschritte**:
+1. Nutzer öffnet den Feldmodus und tippt auf „Beet 1“
+2. Nutzer tippt im Abschnitt „Sonne am Beet“ auf den Chip „Nachmittags“
+3. Nutzer gibt „6,5“ als Sonnenstunden im Sommer ein und bestätigt mit der Eingabetaste
+4. Nutzer öffnet den Feldmodus neu und tippt wieder auf „Beet 1“
+
+**Erwartete Ergebnisse**:
+- Vorher ist „Nicht bekannt“ gewählt; jeder Chip ist mindestens 64 × 64 px groß
+- Ein Tipp genügt: „Nachmittags“ ist gewählt und ohne Speichern-Schaltfläche gespeichert
+- Die Stunden werden als 6,5 gespeichert
+- Nach dem Neuladen sind „Nachmittags“ und „6,5“ wieder zu sehen
+
+**Nachbedingungen**:
+- Sonnenprofil von „Beet 1“: Nachmittags, 6,5 Stunden
+
+**Tags**: [req-053, feldmodus, sonnenfenster, chips, smartphone, gp-fr-158, gp-ux-057]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -1435,6 +1887,19 @@ Die folgenden Testfälle decken die Erweiterungen aus Version 1.3 ab. TC-053-037
 | (abgeleitet aus UC-02) | Speichern-Status, Verlassen-Dialog | TC-053-007 |
 | (abgeleitet aus UC-11) | Plan drucken | TC-053-029 |
 | (abgeleitet aus UC-12) | Plan sichern (Export) | TC-053-030 |
+| (abgeleitet aus GP-FR-110) | Zone anlegen, Beete aus der Mehrfachauswahl, Ebene „Zonen“ | TC-053-045 |
+| (abgeleitet aus GP-FR-117) | Gießrunde nach Fläche verteilt, als verteilt gekennzeichnet; „Regen — übersprungen“ | TC-053-046, TC-053-047 |
+| (abgeleitet aus GP-UX-031) | Ebene „zuletzt gegossen“ | TC-053-048 |
+| (abgeleitet aus GP-FR-044/045) | Beet aus Vorlage, Standardgrößen | TC-053-049, TC-053-050 |
+| (abgeleitet aus GP-FR-012) | Objekt-Snap, `Alt` schaltet ab | TC-053-051 |
+| (abgeleitet aus GP-FR-029) | Ausrichten und verteilen | TC-053-052 |
+| (abgeleitet aus GP-FR-025) | Mehrfach duplizieren mit Namensschema | TC-053-053 |
+| (abgeleitet aus GP-UX-004) | Auto-Save, Pause bei Konflikt | TC-053-054 |
+| (abgeleitet aus GP-UX-014) | Mini-Map | TC-053-055 |
+| (abgeleitet aus GP-UX-061, GP-FR-169) | Ebenen „Pflanzenzustand“ und „Sonnenfenster“, Filter „Nur Pflanzen mit Handlungsbedarf“ | TC-053-056 |
+| (abgeleitet aus GP-FR-172) | Teilexport der Auswahl, Import in einen anderen Standort | TC-053-057 |
+| (abgeleitet aus GP-FR-148/170) | Früheren Stand wiederherstellen | TC-053-058 |
+| (abgeleitet aus GP-FR-158/159, GP-UX-057) | Sonnenfenster im Feldmodus | TC-053-059 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
@@ -1452,7 +1917,7 @@ Testebenen:
 | GP-ACC-017 | Layout-Berechnung 3 Reihen × 10 Positionen, Parität Backend/Frontend | Unit-Test mit Testvektoren |
 | GP-ACC-018 | Layout im Dreieckbeet innerhalb des Polygons | Unit-Test |
 | GP-ACC-023 | Nachbarschaftskanten zwischen Slots | Graph-Datenvertrag, nicht sichtbar |
-| GP-ACC-033 | Benchmark Verschieben, Culling | Performance-Benchmark |
+| GP-ACC-033 | Benchmark Verschieben, Culling | Performance-Benchmark: `applyOperation.benchmark.test.ts` (Median ≤ 1 ms, Benchmark-Lauf), `SvgPlanRenderer.test.tsx` (DOM-Budget auf dem Plan „groß“, immer an), `test_plan_calculators_benchmark.py`; nach der Label-Platzierung (#2490) erneut grün |
 | GP-ACC-034 | Benchmark Plan-Abfrage p95 | Performance-Benchmark |
 | GP-ACC-037 | Migration Zehrerstufen | Migrationstest |
 | GP-ACC-038 | Migration Wiederholungsregeln | Migrationstest |

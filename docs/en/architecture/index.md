@@ -43,3 +43,4 @@ flowchart TB
 - [Frontend](frontend.md) — React, Redux, MUI
 - [Database](database.md) — ArangoDB collections and graph schema
 - [Infrastructure](infrastructure.md) — Kubernetes, Helm, networking
+- [Garden Plan](garden-plan.md) — geometry model, batch interface and backup format
