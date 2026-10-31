@@ -2,7 +2,8 @@
 
 Pinned here: the order of the checks (tenant 404 -> role 403 -> body), the all-or-nothing round, the shares that
 add up to the total, the `allocation` on every event, the beds without an area, and that the status reads only the
-beds of the zone it was asked about.
+beds of the zone it was asked about. The status also carries the demand (GP-FR-113) and the hints on the water
+source and on beds equipped otherwise (GP-FR-119).
 """
 
 from __future__ import annotations
