@@ -21,7 +21,7 @@ coverage_areas:
   - Welle 7 — Objekt-Snap, Ausrichten/Verteilen, Mehrfach duplizieren, Auto-Save, Mini-Map
   - Welle 7 — Pflanzenzustand-Filter, Teilexport/Import-Ziel, frühere Stände, Sonnenfenster im Feldmodus
 generated: "2026-10-11"
-version: "1.6"
+version: "1.7"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -93,6 +93,13 @@ die Aktion noch nicht an (Platzhalter-Bündel #2466).
 **Version 1.6 (2026-10-31, WP 7.26 / #2492)** — vier neue Fälle TC-053-056 bis TC-053-059 aus GP-UX-061,
 GP-FR-169, GP-FR-172, GP-FR-148/170 und GP-FR-158/159 mit GP-UX-057 (Abschnitt 8); `test_count` 55 → 59, die
 Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt. TC-053-042 und TC-053-044 bleiben unverändert.
+
+**Version 1.7 (2026-10-31, WP 7.27 / #2493)** — keine neuen Fälle (`test_count` bleibt 59). Die Zuordnung der
+Welle-7-Zeilen GP-FR/GP-API/GP-UX (SHOULD) zu Tests steht in der generierten Matrix
+`spec/e2e-testcases/GP-REQ-wave7-matrix.md` (`scripts/gp_acc_matrix.py`). Zwei Fälle bleiben bewusst ohne
+Automatisierung, weil die Oberfläche fehlt: TC-053-047 („Regen — übersprungen“ — keine Aktion im Gießrunden-Dialog,
+keine Route) und TC-053-027 („Beet räumen“ — kein Knopf ruft die Route auf). GP-ACC-033 ist in der Tabelle der
+nicht abgedeckten Kriterien um die Benchmark-Tests ergänzt; die E2E-Datei des Feldmodus zählt nicht mehr dafür.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -1910,7 +1917,7 @@ Testebenen:
 | GP-ACC-017 | Layout-Berechnung 3 Reihen × 10 Positionen, Parität Backend/Frontend | Unit-Test mit Testvektoren |
 | GP-ACC-018 | Layout im Dreieckbeet innerhalb des Polygons | Unit-Test |
 | GP-ACC-023 | Nachbarschaftskanten zwischen Slots | Graph-Datenvertrag, nicht sichtbar |
-| GP-ACC-033 | Benchmark Verschieben, Culling | Performance-Benchmark |
+| GP-ACC-033 | Benchmark Verschieben, Culling | Performance-Benchmark: `applyOperation.benchmark.test.ts` (Median ≤ 1 ms, Benchmark-Lauf), `SvgPlanRenderer.test.tsx` (DOM-Budget auf dem Plan „groß“, immer an), `test_plan_calculators_benchmark.py`; nach der Label-Platzierung (#2490) erneut grün |
 | GP-ACC-034 | Benchmark Plan-Abfrage p95 | Performance-Benchmark |
 | GP-ACC-037 | Migration Zehrerstufen | Migrationstest |
 | GP-ACC-038 | Migration Wiederholungsregeln | Migrationstest |
