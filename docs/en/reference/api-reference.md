@@ -183,7 +183,9 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 | `rotation_enabled` | `true`, `false`, `null` | `true` switches the check on for this bed, also for pots (`planter`), tents (`tent`) and shelves (`shelf`), where it is otherwise off. `false` switches it off. `null` (default) follows the location type |
 | `rotation_exempt` | `true`, `false` | Permanent crop (asparagus, berry shrubs): the check is off whatever `rotation_enabled` says. `null` is not allowed |
 
-When the check is off, both routes answer `rotation_applicable: false` with the reason in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (switched off for the bed) or `rotation.not_applicable.container` (pot, tent, shelf without a switch). Both fields are also part of the garden plan's JSON backup; an older file without them gives a bed that is not exempt and follows its location type.
+When the check is off, both routes answer `rotation_applicable: false` with the reason in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (switched off for the bed) or `rotation.not_applicable.container` (pot, tent, shelf without a switch). Both fields are also part of the garden plan's JSON backup; an older file without them gives a bed that is not exempt and follows its location type. In the file both must be JSON booleans (`"yes"` or `1` gives `validation.invalid`), and the import refuses a bed with both set to `true` with `import.rotation_exempt_and_enabled`.
+
+The switch also governs the check per plant place: when the check is off for a bed, `POST …/plant-instances` with a `slot_key` and `POST …/planting-runs/{key}/create-plants` no longer refuse a planting in that bed with `ROTATION_VIOLATION`, and `POST …/plant-instances/slots/{slot_key}/validate-planting` reports it as valid.
 
 **Error codes:**
 
@@ -283,6 +285,7 @@ The frost exposure of a bed (`frost_exposed` in `locations[]`) is part of the fi
 | `422` | `import.site_name_mismatch` | `replace` without the exact site name |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` is not finite or beyond ±1000 m / belongs to `merge` only |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | The file breaks a limit or a geometry rule |
+| `422` | `import.rotation_exempt_and_enabled` | A bed of the file is a permanent crop (`rotation_exempt: true`) and has `rotation_enabled: true` as well; `details[].field` names `locations[i].rotation_enabled` |
 | `429` | | Import budget of the tenant used up; `Retry-After` names the wait |
 
 ---

@@ -21,7 +21,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from app.common.enums import (
     BedStatus,
@@ -95,9 +95,11 @@ class ExportLocation(_ExportModel):
     z_order: int = 0
     pitch_m: float | None = None
     #: The crop-rotation flags of the bed (GP-FR-137, #2544), additive inside ``schema_version "1"``. A file written
-    #: before #2544 lacks both keys; the restored bed then is not exempt and follows its type (``null``).
-    rotation_exempt: bool = False
-    rotation_enabled: bool | None = None
+    #: before #2544 lacks both keys; the restored bed then is not exempt and follows its type (``null``). Strict,
+    #: unlike the older flags: no file ever carried them as ``"yes"`` / ``1``, so a JSON boolean is all that is read.
+    #: Both ``true`` is refused by the import (``import.rotation_exempt_and_enabled``), as the PATCH refuses it.
+    rotation_exempt: StrictBool = False
+    rotation_enabled: StrictBool | None = None
 
 
 class ExportSlot(_ExportModel):

@@ -20,7 +20,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.site import Location
 from app.domain.models.species import Species
-from app.domain.services.location_ownership import resolve_owned_location
+from app.domain.services.location_ownership import find_owned_location, resolve_owned_location
 from app.domain.services.species_visibility import readable_species
 
 Severity = Literal["OK", "INFO", "WARNING", "CRITICAL"]
@@ -279,7 +279,21 @@ class CropRotationValidator:
         ``tenant_key`` is required and keyword-only (#927): the slot history this
         reads is a tenant-scoped repository query, and the results name the
         botanical families previously grown in that bed.
+
+        The bed's switch decides first (GP-FR-137, D-09, #2544): when the slot's bed is off
+        (:func:`not_applicable_reason` - ``rotation_exempt``, ``rotation_enabled = False`` or a
+        ``planter`` / ``tent`` / ``shelf`` not switched on) the answer is one ``INFO`` and nothing is
+        read, so neither a planting nor a run's ``create_plants`` is refused on that bed. Needs
+        ``site_repo``; without it (a construction that predates the switch) every slot is checked.
         """
+        off_reason = self._slot_not_applicable_reason(slot_key, tenant_key)
+        if off_reason is not None:
+            return [
+                RotationValidationResult(
+                    severity="INFO", message=f"Crop rotation does not apply to this bed ({off_reason})"
+                )
+            ]
+
         results: list[RotationValidationResult] = []
 
         species = self._species_repo.get_by_key(species_key)
@@ -382,6 +396,20 @@ class CropRotationValidator:
         results.sort(key=lambda r: SEVERITY_ORDER.get(r.severity, 99))
 
         return results
+
+    def _slot_not_applicable_reason(self, slot_key: str, tenant_key: str) -> str | None:
+        """Why the rotation check is off for the bed of ``slot_key``, or ``None`` when it applies.
+
+        ``None`` too when the bed cannot be read: no ``site_repo``, an unknown slot, or a bed of another tenant -
+        those keep the slot check they had (a foreign slot's history is empty under the tenant anyway).
+        """
+        if self._sites is None or not slot_key:
+            return None
+        slot = self._sites.get_slot_by_key(slot_key)
+        if slot is None or not slot.location_key:
+            return None
+        location = find_owned_location(self._sites, slot.location_key, tenant_key)
+        return not_applicable_reason(location) if location is not None else None
 
     def validate_or_raise(
         self,

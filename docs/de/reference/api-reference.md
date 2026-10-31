@@ -183,7 +183,9 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 | `rotation_enabled` | `true`, `false`, `null` | `true` schaltet die Prüfung für dieses Beet ein, auch für Töpfe (`planter`), Zelte (`tent`) und Regale (`shelf`), bei denen sie sonst aus ist. `false` schaltet sie aus. `null` (Standard) folgt dem Standorttyp |
 | `rotation_exempt` | `true`, `false` | Dauerkultur (Spargel, Beerensträucher): die Prüfung ist aus, was immer `rotation_enabled` sagt. `null` ist nicht erlaubt |
 
-Ist die Prüfung aus, antworten beide Routen mit `rotation_applicable: false` und dem Grund in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (vom Beet ausgeschaltet) oder `rotation.not_applicable.container` (Topf, Zelt, Regal ohne Schalter). Beide Felder stehen auch in der JSON-Sicherung des Gartenplans; eine ältere Datei ohne sie ergibt ein Beet, das nicht ausgenommen ist und dem Standorttyp folgt.
+Ist die Prüfung aus, antworten beide Routen mit `rotation_applicable: false` und dem Grund in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (vom Beet ausgeschaltet) oder `rotation.not_applicable.container` (Topf, Zelt, Regal ohne Schalter). Beide Felder stehen auch in der JSON-Sicherung des Gartenplans; eine ältere Datei ohne sie ergibt ein Beet, das nicht ausgenommen ist und dem Standorttyp folgt. Beide müssen in der Datei JSON-Booleans sein (`"yes"` oder `1` ergibt `validation.invalid`), und ein Beet mit beiden auf `true` weist der Import mit `import.rotation_exempt_and_enabled` zurück.
+
+Der Schalter gilt auch für die Prüfung je Pflanzplatz: Ist die Prüfung für ein Beet aus, lehnen `POST …/plant-instances` mit `slot_key` und `POST …/planting-runs/{key}/create-plants` eine Pflanzung in diesem Beet nicht mehr mit `ROTATION_VIOLATION` ab, und `POST …/plant-instances/slots/{slot_key}/validate-planting` meldet sie als zulässig.
 
 **Fehlercodes:**
 
@@ -283,6 +285,7 @@ Die Frostexposition eines Beets (`frost_exposed` in `locations[]`) steht in der 
 | `422` | `import.site_name_mismatch` | `replace` ohne den genauen Site-Namen |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` ist nicht endlich oder außerhalb von ±1000 m / gehört nur zu `merge` |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | Die Datei verletzt eine Grenze oder Geometrieregel |
+| `422` | `import.rotation_exempt_and_enabled` | Ein Beet der Datei ist Dauerkultur (`rotation_exempt: true`) und hat zugleich `rotation_enabled: true`; `details[].field` nennt `locations[i].rotation_enabled` |
 | `429` | | Importbudget des Mandanten aufgebraucht; `Retry-After` nennt die Wartezeit |
 
 ---

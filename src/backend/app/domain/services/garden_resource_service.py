@@ -266,11 +266,16 @@ class GardenResourceService:
     def _check_rotation_switch(location: Location, patch: LocationPatch) -> None:
         """GP-FR-137 (#2544): a permanent crop cannot be switched on - refused before anything is written.
 
-        The state after the PATCH counts (sent value, else the stored one): ``rotation_exempt`` would win anyway,
-        so storing both would keep a switch that does nothing. Exempting a switched-on bed sends
-        ``rotation_enabled: null`` (or ``false``) in the same body.
+        Only a PATCH that sends ``rotation_exempt`` or ``rotation_enabled`` is judged, so a pair stored before
+        this guard (or by an older import) never blocks an unrelated change. The state after the PATCH counts
+        (sent value, else the stored one): ``rotation_exempt`` would win anyway, so storing both would keep a
+        switch that does nothing. Exempting a switched-on bed sends ``rotation_enabled: null`` (or ``false``) in
+        the same body.
         """
         provided = patch.model_fields_set
+        if "rotation_exempt" not in provided and "rotation_enabled" not in provided:
+            # A PATCH that does not touch the flags never fails on a pair stored before the guard (SCR-002).
+            return
         exempt = patch.rotation_exempt if "rotation_exempt" in provided else location.rotation_exempt
         enabled = patch.rotation_enabled if "rotation_enabled" in provided else location.rotation_enabled
         if exempt is True and enabled is True:

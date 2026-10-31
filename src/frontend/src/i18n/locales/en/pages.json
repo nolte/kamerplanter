@@ -6347,6 +6347,7 @@
             "import_parent_cycle": "Two locations are nested in each other.",
             "import_too_deep": "Nesting goes deeper than 10 levels.",
             "import_duplicate_slot_id": "Two plant places of one bed have the same ID.",
+            "import_rotation_exempt_and_enabled": "A bed is marked as a permanent crop and has the crop rotation check switched on at the same time.",
             "plan_quota_exceeded": "The limit for locations, garden objects or plant places would be exceeded.",
             "geometry_invalid": "A shape is invalid.",
             "geometry_self_intersecting": "An area crosses itself.",

@@ -275,10 +275,33 @@ class TestPerBedSwitchGpAcc055:
         assert response.status_code == 200, response.text
         assert (response.json()["rotation_exempt"], response.json()["rotation_enabled"]) == (True, None)
 
+    @pytest.mark.parametrize(
+        "sent", [{"name": "Renamed"}, {"rotation_exempt": False}], ids=["rotation untouched", "exempt cleared"]
+    )
+    def test_a_stored_conflicting_pair_does_not_block_a_patch_that_does_not_switch_on(
+        self, client, world, sent
+    ) -> None:
+        """SCR-002: a row written before the guard (or by an import) may hold both; only a PATCH that touches the
+        rotation flags is judged by the pair it leaves behind."""
+        world.plan.locations["tent"] = make_location(
+            "tent", location_type_key="tent", rotation_exempt=True, rotation_enabled=True
+        )
+
+        response = client().patch(f"{_BASE}/locations/tent", json=sent)
+
+        assert response.status_code == 200, response.text
+
     def test_rotation_exempt_cannot_be_null(self, client, world) -> None:
         response = client().patch(f"{_BASE}/locations/bed", json={"rotation_exempt": None})
 
         assert response.status_code == 422
+        assert response.json()["error_code"] == "VALIDATION_ERROR", response.text
+        # The null guard is a body-level validator shared by every non-clearable field: it reports ``body`` and
+        # names the field in the reason.
+        details = response.json()["details"]
+        assert [(d["field"], d["code"]) for d in details] == [("body", "value_error")], response.text
+        assert "rotation_exempt cannot be null" in details[0]["reason"]
+        assert world.plan.locations["bed"].rotation_exempt is False
 
     def test_a_viewer_cannot_switch(self, client, world, containers) -> None:
         response = client(TenantRole.VIEWER).patch(f"{_BASE}/locations/tent", json={"rotation_enabled": True})
