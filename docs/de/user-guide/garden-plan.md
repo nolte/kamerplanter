@@ -71,7 +71,7 @@ Die Maße des gewählten Objekts stehen außerhalb über seiner Oberkante und we
 
 - Klicken wählt, Ziehen verschiebt, ein Rahmen über freier Fläche wählt alles, was ganz im Rahmen liegt (gesperrte Objekte nicht).
 - Mit **Strg** (am Mac **Cmd**) und dem Mausrad zoomst du stufenlos um den Zeiger; liegt der Fokus auf dem Plan, genügt das Mausrad. Ein einfaches Mausrad blättert die Seite.
-- Ein Rechtsklick auf ein Objekt (auf dem Touchscreen die Schaltfläche **⋯** im Eigenschaften-Feld) öffnet die Aktionen des Objekts: Bearbeiten, Duplizieren, In den Vordergrund, In den Hintergrund, Sperren.
+- Ein Rechtsklick auf ein Objekt (auf dem Touchscreen die Schaltfläche **⋯** im Eigenschaften-Feld) öffnet die Aktionen des Objekts: Bearbeiten, Duplizieren, In den Vordergrund, In den Hintergrund, Sperren. Für das Duplizieren gibt es keine Tastenkombination; die Kopie eines Beets hat keine Pflanzplätze.
 - Mit gehaltener **Alt**-Taste schaltest du das Einrasten kurz aus.
 
 ### Auf dem Touchscreen
@@ -223,6 +223,12 @@ Klicke auf **Bewässerungszonen verwalten**, um den Zonen-Bereich zu öffnen.
 
 **Gießrunde protokollieren.** Wenn du eine ganze Zone gegossen hast, öffnet **Gießrunde protokollieren** einen Dialog: Du gibst die **Gesamtmenge in Litern** an (größer als 0, höchstens 100 000) und wählst die **Verteilung**: **Nach Beetfläche** (jedes Beet bekommt einen Anteil nach seiner Fläche; Beete ohne Fläche bleiben außen vor) oder **Zu gleichen Teilen**. Kamerplanter schreibt für jedes Beet einen Gießeintrag ins Pflegeprotokoll. Die Menge ist verteilt, nicht gemessen; das Protokoll kennzeichnet das so.
 
+!!! note "Teilweise verfügbar: Gießrunde"
+    Die Gießrunde verteilt die Menge nach Beetfläche oder zu gleichen Teilen. Eine Verteilung nach dem Wasserbedarf der Beete und die Aktion „Regen — übersprungen" wird die Gießrunde erst später anbieten. Einen Regentag hältst du bis dahin je Beet mit **Pflege protokollieren** und der Art **Niederschlag** fest. <!-- REQ-053 GP-FR-117 -->
+
+!!! info "Nur über API: Angaben der Wasserquelle"
+    Wie lange die Wasserquelle reicht, zeigt der Stand der Zone nur, wenn die Wasserquelle ein Fassungsvermögen in Litern hat. Art, Fassungsvermögen und letztes Auffüllen einer Wasserquelle trägst du nicht im Editor ein, sondern über die API (Eigenschaften des Gartenobjekts). <!-- REQ-053 GP-FR-111 -->
+
 !!! info "Nur über API: Technische Kopplung"
     Die Kopplung einer Zone an einen Aktor oder an eine Home-Assistant-Entität für den Durchfluss pflegen nur Mitglieder mit dem Verwaltungsbereich `technical`, und zwar über die API. Beim Zurückspielen einer Sicherung werden diese Verknüpfungen nie übernommen. Siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster).
 
@@ -268,6 +274,8 @@ Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bewässerungszon
 3. **Modus:** *Hinzufügen* legt die Sicherung zusätzlich zum bestehenden Plan an. *Ersetzen* tauscht den Plan dieses Standorts aus. Dafür tippst du den Namen des Standorts ein. Vorher speichert Kamerplanter den bisherigen Plan als Snapshot im Änderungsprotokoll. Lade dir zur Sicherheit trotzdem vorher eine aktuelle Sicherung herunter.
 
 Im Modus *Hinzufügen* kannst du alle Formen der Datei um einen Abstand verschieben (nach rechts und nach oben, in Metern), etwa um ein Beet an eine andere Stelle zu setzen. Mit **Wohin geht die Datei?** sagst du, ob die Datei aus diesem Standort, aus einem anderen Standort oder aus einem anderen Garten-Konto stammt. Für die beiden letzten gilt: Verweise, die nicht in der Datei stehen, werden nie gegen diesen Standort aufgelöst, sondern entfallen und stehen im Prüfbericht. Aus einem anderen Konto wird nichts gelesen, die Datei ist der Transportweg; du brauchst die Leitungsrolle in dem Konto, in das du einspielst.
+
+Spielst du dieselbe Datei mehrmals mit *Hinzufügen* ein, legt jede Runde ihre Bewässerungszonen neu an; die Zonen der Datei erkennt Kamerplanter nicht wieder. Ein Standort hat höchstens 500 Zonen, darüber weist der Prüfbericht die Datei ab.
 
 **Früheren Stand wiederherstellen:** Im ersten Schritt des Imports öffnet dieser Knopf die Liste der Pläne, die ein *Ersetzen* überschrieben hat (ein Jahr lang aufbewahrt, höchstens die 20 neuesten je Standort, nur für die Leitung). Du wählst einen Stand, siehst den Prüfbericht und tippst den Namen des Standorts. Vorher speichert Kamerplanter den jetzigen Plan selbst als Stand, die Wiederherstellung lässt sich also zurücknehmen. Bewässerungszonen, die der Stand nicht nennt, werden dabei entfernt, und technische Zonen-Kopplungen (Aktor, Home-Assistant-Durchfluss) werden nicht wiederhergestellt; die richtest du danach neu ein. Das *Hinzufügen* legt keinen Stand an.
 

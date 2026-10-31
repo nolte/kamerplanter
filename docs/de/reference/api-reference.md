@@ -312,6 +312,58 @@ Die Liste nennt je Snapshot `audit_key`, `revision`, `at`, `summary`, `changed_b
 
 ---
 
+### Bewässerungszonen, Gießrunde und Zonen-Quote (REQ-053)
+
+Bewässerungszonen gehören zu einem Standort. Lesen darf jedes Mitglied, anlegen, ändern und Beete zuordnen ab „grower", löschen nur die Leitung. Eine Zone oder ein Standort eines anderen Mandanten antwortet wie eine nicht vorhandene mit `404`.
+
+```
+GET|POST         /api/v1/t/{slug}/sites/{key}/irrigation-zones         # Liste seitenweise (limit/offset) | anlegen
+GET|PATCH|DELETE /api/v1/t/{slug}/irrigation-zones/{key}
+PUT              /api/v1/t/{slug}/irrigation-zones/{key}/locations     # { "location_keys": [...] } ersetzt die Beete
+GET              /api/v1/t/{slug}/irrigation-zones/{key}/status        # letzter Vorgang, nächster, Bedarf, Verbrauch, Hinweise
+POST             /api/v1/t/{slug}/irrigation-zones/{key}/log-watering  # Gießrunde
+```
+
+**Beete zuordnen:** Ein Beet gehört zu höchstens einer Zone. Liegt es schon in einer anderen Zone desselben Standorts, verschiebt `PUT …/locations` es ohne Rückfrage; die Antwort nennt das in `moved_from`. Ein Beet außerhalb des Standorts ist `422` `reference.not_found` mit seiner Position.
+
+**Gießrunde:** Body `{ "volume_liters": 60, "allocation": "by_area", "performed_at": null, "summary": "Morgenrunde" }`. `volume_liters` größer als 0 und höchstens 100 000; `allocation` ist `by_area` (nach `area_m2` der Beete) oder `equal`; `summary` höchstens 500 Zeichen. Die Antwort (`201`) nennt `event_keys`, `shares` (Liter je Beet), `allocation`, `performed_at` und `skipped_location_keys` (bei `by_area` die Beete ohne Fläche). Jedes Beet bekommt einen Gießeintrag, alle in einer Transaktion, jeder mit `allocation` gekennzeichnet: Die Menge ist verteilt, nicht gemessen. Je Konto gelten `RATE_LIMIT_ZONE_LOG_WATERING` Runden (Standard 20 pro Minute). Eine Verteilung `by_demand` und eine Runde „Regen — übersprungen" gibt es nicht.
+
+**Zonen-Quote:** Ein Standort hält höchstens 500 Zonen. Wer eine 501. anlegt, bekommt `422` `irrigation_zone.quota_exceeded`; ebenso ein `merge`- oder `replace`-Import, nach dem der Standort mehr als 500 Zonen hätte. Eine Zone der Datei hat keine feste Identität: Spielst du dieselbe Datei zweimal mit `merge` ein, entstehen ihre Zonen zweimal. Hat ein Standort trotzdem mehr als 500 Zonen, antworten `GET /sites/{key}/plan` (mit Zonen), der Export und ein `replace`-Import mit `422` `irrigation_zone.quota_exceeded`, statt die Liste stillschweigend zu kürzen.
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle zu niedrig (Betrachter schreibt, Gärtner löscht) oder technische Kopplung ohne Verwaltungsbereich `technical` |
+| `404` | `ENTITY_NOT_FOUND` | Zone oder Standort nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `irrigation_zone.no_beds`, `irrigation_zone.no_bed_area` | Die Gießrunde hat nichts zu verteilen (keine Beete; bei `by_area` kein Beet mit Fläche) |
+| `422` | `irrigation_zone.quota_exceeded` | Mehr als 500 Zonen am Standort |
+| `422` | `reference.not_found` | Beet, Wasserquelle oder Aktor gehört nicht zum Standort oder Mandanten |
+
+---
+
+### Beetvorlagen und Beet aus Vorlage (REQ-053)
+
+```
+GET|POST     /api/v1/t/{slug}/bed-templates                    # System-Vorlagen und eigene, nach Name, seitenweise
+PATCH|DELETE /api/v1/t/{slug}/bed-templates/{key}
+POST         /api/v1/t/{slug}/sites/{key}/plan/place-template  # { "template_key", "origin": [x, y], "rotation_deg": 0, "expected_revision" }
+```
+
+Vorlagen anlegen und ändern ab „grower", löschen nur die Leitung; System-Vorlagen ändern und löschen nur Plattform-Admins. Ein Mandant hat höchstens 200 eigene Vorlagen (`422` `bed_template.quota_exceeded`). Löschen entfernt den Herkunftsverweis `template_key` an den daraus platzierten Beeten.
+
+`place-template` legt ein Beet über denselben Weg wie ein Stapel mit `create_location` an (eine Transaktion, eine Revision) und antwortet wie der Stapel; `key_map.template_bed` nennt das neue Beet. `origin` ist der Ankerpunkt der Vorlage im Plan (Rechteck: linke untere Ecke, Kreis: Mittelpunkt, Polygon: erster Punkt), `rotation_deg` (0 bis unter 360) wird zur Drehung der Vorlage addiert. Prüfreihenfolge: Vorlage (`422` `reference.not_found`, eine fremde wie eine fehlende), Geometrie (`422` `geometry.invalid`), Lage (`422` `geometry.outside_parent`, `bed.overlap`), zuletzt die Revision (`409` `plan.revision_conflict`). Wiederkehrende Aufgaben einer Vorlage werden nicht angelegt.
+
+---
+
+### Neue Saison aus dem Vorjahr (REQ-053)
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/new-season    # { "year": 2027, "dry_run": true, "expected_revision": null }
+```
+
+**Nur die Leitung.** Je Beet ohne aktive Pflanze legt die Route die Plätze der Anbaudurchläufe, die im Jahr `year − 1` endeten, als freie Pflanzplätze an. Übersprungen und im Bericht genannt werden Beete mit aktiver Pflanze, stillgelegte Beete und Beete, die über 2 000 Plätze kämen. Zonen, Pflanzen, Durchläufe und Historie bleiben unverändert. `dry_run` ist der Standard und schreibt nichts; ohne `dry_run` läuft alles in einer Transaktion mit Eintrag im Änderungsprotokoll. `year` ist eine ganze Zahl und höchstens das nächste Jahr (`422` `season.invalid_year`); ein Plan, der sich seit `expected_revision` geändert hat, ist `409` `plan.revision_conflict`. Es gilt das Importbudget des Mandanten (`RATE_LIMIT_PLAN_IMPORT`). Die Antwort nennt `year`, `source_year`, `dry_run`, `applied`, `plan_revision`, `beds_copied`, `beds_skipped`, `slots_to_create` und je Beet `status` (`copied`, `skipped_active_plants`, `skipped_retired`, `skipped_slot_quota`, `nothing_to_copy`) mit der Zahl der Plätze.
+
+---
+
 ### Verfügbare Templates auflisten
 
 Gibt eine Liste aller registrierten Print-Templates zurück.
