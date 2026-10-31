@@ -253,10 +253,10 @@ Bei einem `v*`-Tag oder manuellem Auslösen wird das Filtern übersprungen — e
 
 ### Backend-Image
 
-Das Backend-Image basiert auf `python:3.14-slim` und nutzt ein Multi-Stage-Dockerfile mit einer gemeinsamen `base`-Stage sowie getrennten `dev`- und `prod`-Zielen (`docker build .` ohne `--target` baut standardmäßig `prod`, da es die letzte Stage ist). Die `dev`-Stage läuft als root für Skaffold-Hot-Reload; die `prod`-Stage läuft als nicht-root Nutzer (UID 1000):
+Das Backend-Image basiert auf `python:3.15-slim` und nutzt ein Multi-Stage-Dockerfile mit einer gemeinsamen `base`-Stage sowie getrennten `dev`- und `prod`-Zielen (`docker build .` ohne `--target` baut standardmäßig `prod`, da es die letzte Stage ist). Die `dev`-Stage läuft als root für Skaffold-Hot-Reload; die `prod`-Stage läuft als nicht-root Nutzer (UID 1000):
 
 ```dockerfile title="src/backend/Dockerfile (vereinfacht, prod-Stage)"
-FROM python:3.14-slim AS base
+FROM python:3.15-slim AS base
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.12.12 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/opt/venv PATH="/opt/venv/bin:$PATH"
@@ -930,7 +930,7 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
 ## Häufige Fragen {#haeufige-fragen}
 
 ??? question "Warum schlägt der Backend-CI fehl, obwohl die Tests lokal laufen?"
-    Stelle sicher, dass du Python 3.14 verwendest (`python --version`). Die CI verwendet explizit `python-version: '3.14'` mit `allow-prereleases: true`. Abweichende Python-Versionen können zu unterschiedlichem Verhalten führen. Prüfe auch, ob alle Abhängigkeiten mit `uv sync --locked --extra dev` installiert wurden.
+    Prüfe, welche Python-Version du verwendest (`python --version`). Die CI testet das Backend mit `python-version: '3.14'` (die Untergrenze aus `requires-python`) und zusätzlich mit `'3.15'`, der Version des Backend-Images; der 3.15-Lauf ist vorerst nur beratend und blockiert keinen Merge. Abweichende Python-Versionen können zu unterschiedlichem Verhalten führen. Prüfe auch, ob alle Abhängigkeiten mit `uv sync --locked --extra dev` installiert wurden.
 
 ??? question "Warum wird kein neues Image gebaut, obwohl ich auf develop gepusht habe?"
     Das Pfad-Filtern in `docker-publish.yml` stellt sicher, dass nur tatsächlich betroffene Komponenten gebaut werden. Wenn du z. B. nur eine Spec-Datei geändert hast, wird kein Image gebaut. Bei `v*`-Tags wird das Filtern umgangen.

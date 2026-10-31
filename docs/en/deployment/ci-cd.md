@@ -253,10 +253,10 @@ On a `v*` tag or manual trigger, the filtering is skipped — all components are
 
 ### Backend image
 
-The backend image is based on `python:3.14-slim` and uses a multi-stage Dockerfile with a shared `base` stage plus separate `dev` and `prod` targets (`docker build .` without `--target` builds `prod` by default, since it is the last stage). The `dev` stage runs as root for Skaffold hot-reload; the `prod` stage runs as a non-root user (UID 1000):
+The backend image is based on `python:3.15-slim` and uses a multi-stage Dockerfile with a shared `base` stage plus separate `dev` and `prod` targets (`docker build .` without `--target` builds `prod` by default, since it is the last stage). The `dev` stage runs as root for Skaffold hot-reload; the `prod` stage runs as a non-root user (UID 1000):
 
 ```dockerfile title="src/backend/Dockerfile (simplified, prod stage)"
-FROM python:3.14-slim AS base
+FROM python:3.15-slim AS base
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.12.12 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/opt/venv PATH="/opt/venv/bin:$PATH"
@@ -918,7 +918,7 @@ All images are publicly readable. For local testing:
 ## Frequently Asked Questions
 
 ??? question "Why does the backend CI fail even though tests pass locally?"
-    Make sure you are using Python 3.14 (`python --version`). The CI explicitly uses `python-version: '3.14'` with `allow-prereleases: true`. Differing Python versions can lead to different behavior. Also check that all dependencies are installed with `uv sync --locked --extra dev`.
+    Check which Python version you are using (`python --version`). The CI tests the backend with `python-version: '3.14'` (the floor from `requires-python`) and additionally with `'3.15'`, the version the backend image runs; the 3.15 run is advisory for now and does not block a merge. Differing Python versions can lead to different behavior. Also check that all dependencies are installed with `uv sync --locked --extra dev`.
 
 ??? question "Why is no new image built even though I pushed to develop?"
     Path filtering in `docker-publish.yml` ensures that only actually affected components are built. If you only changed a spec file, for example, no image will be built. On `v*` tags, filtering is bypassed.

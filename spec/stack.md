@@ -176,11 +176,13 @@ class PlantRepository(Repository[Plant]):
 #   Note: gdd_accumulated is of type int (line 42)
 ```
 
-#### Dockerfile für Python 3.14
+#### Dockerfile für Python 3.15
+
+Das Backend-Image läuft auf Python 3.15; `requires-python` bleibt `>=3.14`, und die CI testet beide Versionen (3.14 als Untergrenze, 3.15 vorerst beratend).
 
 ```dockerfile
 # backend/Dockerfile
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /build
 
@@ -197,7 +199,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project
 
 # Runtime Stage
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 # Non-root User
 RUN useradd -m -u 1000 -s /bin/bash appuser
