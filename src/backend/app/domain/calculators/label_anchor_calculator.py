@@ -51,6 +51,13 @@ from app.domain.models.geometry import (
 POLE_PRECISION_M = 0.01
 #: Below this a polygon has no area to search: its first vertex stands in for the pole.
 _DEGENERATE_M = 1e-9
+#: The start grid has at most this many cells along the longer side of the bounding box (SCR-001). The textbook grid
+#: of squares as wide as the shorter side grows with the aspect ratio - a 1000 x 0.001 m sliver would start with a
+#: million cells. Up to an aspect ratio of 64:1 (a 0.3 m edging strip of 19 m; every shape of the shared vectors) the
+#: grid stays the textbook one; only beyond it do cells start coarser than the short side, and the search refines
+#: them where it matters. A cell is never narrower than the short side, so the start grid holds at most about 64
+#: cells for any polygon.
+MAX_START_CELLS_PER_AXIS = 64
 
 
 @dataclass(frozen=True)
@@ -132,14 +139,26 @@ def pole_of_inaccessibility(vertices: tuple[Point2D, ...], precision_m: float = 
 
     Unrounded, in the frame of *vertices*. Cells leave the queue in a total order - highest potential first, then
     lowest x, then lowest y, then the order of insertion - so equal candidates resolve the same way in every port.
+
+    The work is bounded for any aspect ratio (SCR-001): the start grid has at most
+    :data:`MAX_START_CELLS_PER_AXIS` cells along the longer side, and a cell is refined only while it could beat the
+    best point by more than *precision_m* - its potential capped at half the shorter box side, which no inner point
+    can exceed (a disc inside the polygon fits inside its bounding box). Without the cap a sliver is refined to
+    centimetre cells along its whole length. A vertex that is not finite (NaN, infinity) leaves no box to search:
+    the first vertex stands in, as for a polygon without area, rather than a search over NaN distances whose
+    comparisons are all false (the geometry models reject such values; this guards the pure function itself).
     """
     xs = [vertex[0] for vertex in vertices]
     ys = [vertex[1] for vertex in vertices]
+    if not all(math.isfinite(value) for value in (*xs, *ys)):
+        return vertices[0]
     min_x, min_y, max_x, max_y = min(xs), min(ys), max(xs), max(ys)
     width, height = max_x - min_x, max_y - min_y
-    cell_size = min(width, height)
-    if cell_size <= _DEGENERATE_M:
+    if min(width, height) <= _DEGENERATE_M:
         return vertices[0]
+    cell_size = max(min(width, height), max(width, height) / MAX_START_CELLS_PER_AXIS, precision_m)
+    # No inner point lies farther than this from the boundary: the cap on a cell's potential when deciding to refine.
+    ceiling = min(width, height) / 2.0
     half = cell_size / 2.0
     queue: list[tuple[float, float, float, int, _Cell]] = []
     pushed = 0
@@ -167,7 +186,7 @@ def pole_of_inaccessibility(vertices: tuple[Point2D, ...], precision_m: float = 
         cell = heapq.heappop(queue)[4]
         if cell.distance > best.distance:
             best = cell
-        if cell.potential - best.distance <= precision_m:
+        if min(cell.potential, ceiling) - best.distance <= precision_m:
             continue
         half = cell.half / 2.0
         push(_cell(cell.x - half, cell.y - half, half, vertices))

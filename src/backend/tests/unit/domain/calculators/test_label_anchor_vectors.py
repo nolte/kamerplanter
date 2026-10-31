@@ -1,4 +1,5 @@
-"""The Python reference of ``label_anchor`` runs against the shared vectors (REQ-053 GP-UX-047, GP-FR-003, #2490).
+"""The Python reference of ``label_anchor`` and the PDF's ``_truncate`` run against the shared vectors (REQ-053
+GP-UX-047, GP-FR-003, #2490).
 
 ``spec/e2e-testcases/fixtures/garden-plan-vectors.json`` is read by this module and by
 ``features/gardenPlanner/model/labelAnchor.vectors.test.ts``, the TypeScript port the editor draws its names with; a
@@ -16,6 +17,7 @@ import pytest
 
 from app.domain.calculators.geometry_calculator import centroid
 from app.domain.calculators.label_anchor_calculator import label_anchor
+from app.domain.engines.plan_svg_engine import _truncate
 from app.domain.models.geometry import parse_geometry
 from tests.support.repo_scripts import find_repo_root
 
@@ -28,6 +30,7 @@ VECTORS: dict[str, Any] = json.loads(
 )
 DEFAULT_TOLERANCE: float = VECTORS["default_tolerance"]
 CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] == "label_anchor"]
+TRUNCATE_CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] == "label_truncate"]
 
 
 @pytest.mark.parametrize("case", [pytest.param(c, id=c["id"]) for c in CASES])
@@ -55,3 +58,15 @@ def test_the_vectors_hold_a_concave_bed_whose_centroid_is_outside_it() -> None:
         and tuple(case["expected"]["point"]) != centroid(parse_geometry(case["input"]["geometry"]))
     ]
     assert any("l-shape" in case["id"] for case in differing)
+
+
+@pytest.mark.parametrize("case", [pytest.param(c, id=c["id"]) for c in TRUNCATE_CASES])
+def test_the_pdf_shortens_a_name_as_the_shared_vector(case: dict[str, Any]) -> None:
+    """SCR-004: the PDF writer's cut counts code points; the editor's ``truncateLabel`` runs the same cases."""
+    assert _truncate(case["input"]["text"], case["input"]["max_chars"]) == case["expected"]
+
+
+def test_the_truncate_vectors_hold_a_name_outside_the_bmp() -> None:
+    """Without one, a port counting UTF-16 code units would pass every case."""
+    assert "label_truncate" in VECTORS["operations"]
+    assert any(any(ord(char) > 0xFFFF for char in case["input"]["text"]) for case in TRUNCATE_CASES)

@@ -22,6 +22,12 @@ import type { Geometry, Point } from './types';
 /** The pole search stops once no cell can beat the best point by more than this (1 cm). */
 export const POLE_PRECISION_M = 0.01;
 const DEGENERATE_M = 1e-9;
+/**
+ * The start grid has at most this many cells along the longer side of the bounding box (SCR-001) - the reference's
+ * `MAX_START_CELLS_PER_AXIS`. Up to an aspect ratio of 64:1 the grid is the textbook one (squares as wide as the
+ * shorter side); a sliver starts coarser instead of with a million cells.
+ */
+export const MAX_START_CELLS_PER_AXIS = 64;
 
 export interface LabelAnchor {
   /** The label centre, plan frame, metres. */
@@ -145,13 +151,21 @@ function areaCentroid(vertices: readonly Point[]): Point {
   return [cx / (3 * doubled), cy / (3 * doubled)];
 }
 
-/** The inner point of the simple polygon farthest from its boundary, to within `precisionM`; unrounded. */
+/**
+ * The inner point of the simple polygon farthest from its boundary, to within `precisionM`; unrounded.
+ *
+ * Bounded for any aspect ratio (SCR-001), as in the reference: at most {@link MAX_START_CELLS_PER_AXIS} start cells
+ * along the longer side, and a cell is refined only while its potential - capped at half the shorter box side, which
+ * no inner point exceeds - could beat the best point by more than `precisionM`. A non-finite vertex (NaN, Infinity)
+ * returns the first vertex, as a polygon without area does.
+ */
 export function poleOfInaccessibility(vertices: readonly Point[], precisionM = POLE_PRECISION_M): Point {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
   for (const [x, y] of vertices) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return vertices[0];
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
     maxX = Math.max(maxX, x);
@@ -159,8 +173,10 @@ export function poleOfInaccessibility(vertices: readonly Point[], precisionM = P
   }
   const width = maxX - minX;
   const height = maxY - minY;
-  const cellSize = Math.min(width, height);
-  if (cellSize <= DEGENERATE_M) return vertices[0];
+  if (Math.min(width, height) <= DEGENERATE_M) return vertices[0];
+  const cellSize = Math.max(Math.min(width, height), Math.max(width, height) / MAX_START_CELLS_PER_AXIS, precisionM);
+  // No inner point lies farther than this from the boundary: the cap on a cell's potential when deciding to refine.
+  const ceiling = Math.min(width, height) / 2;
   const queue = new CellQueue();
   let pushed = 0;
   const cell = (x: number, y: number, half: number): Cell => {
@@ -185,7 +201,7 @@ export function poleOfInaccessibility(vertices: readonly Point[], precisionM = P
   while (queue.size > 0) {
     const current = queue.pop();
     if (current.distance > best.distance) best = current;
-    if (current.potential - best.distance <= precisionM) continue;
+    if (Math.min(current.potential, ceiling) - best.distance <= precisionM) continue;
     const h = current.half / 2;
     push(cell(current.x - h, current.y - h, h));
     push(cell(current.x + h, current.y - h, h));
@@ -275,11 +291,22 @@ export function labelAnchor(geometry: Geometry): LabelAnchor {
 }
 
 /**
+ * The length of `text` in characters as the PDF writer counts them: Unicode code points (a Python `len`), not UTF-16
+ * code units - an emoji or another character outside the BMP is one character, never two (SCR-004).
+ */
+export function labelLength(text: string): number {
+  return Array.from(text).length;
+}
+
+/**
  * Shorten `text` to `maxChars` with an ellipsis (GP-UX-047): whitespace runs collapse to one space, and the cut
- * drops trailing spaces before the "…" - the rule of the PDF writer (`plan_svg_engine._truncate`).
+ * drops trailing spaces before the "…" - the rule of the PDF writer (`plan_svg_engine._truncate`). Characters are
+ * code points, as in Python, so a cut never splits a surrogate pair and a name outside the BMP is shortened at the
+ * same place in the editor and in the PDF (shared `label_truncate` vectors).
  */
 export function truncateLabel(text: string, maxChars: number): string {
   const cleaned = text.split(/\s+/).filter(Boolean).join(' ');
-  if (cleaned.length <= maxChars) return cleaned;
-  return `${cleaned.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
+  const characters = Array.from(cleaned);
+  if (characters.length <= maxChars) return cleaned;
+  return `${characters.slice(0, Math.max(1, maxChars - 1)).join('').trimEnd()}…`;
 }

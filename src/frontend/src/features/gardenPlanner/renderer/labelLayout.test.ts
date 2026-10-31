@@ -34,6 +34,16 @@ describe('resolveLabelCollisions (GP-UX-047)', () => {
     expect([...resolveLabelCollisions([lower, { ...upper, withIcon: true }], 100, 12)]).toEqual(['upper']);
   });
 
+  it('measures a name outside the BMP by code points, as it was shortened (SCR-004)', () => {
+    // four emoji: 4 x 7.2 = 28.8 px (UTF-16 would count 8 units, 57.6 px, and overlap labels 30 px apart)
+    const kept = resolveLabelCollisions(
+      [candidate('a', 1, 1, 2, 0, '🌱🌱🌱🌱'), candidate('b', 1.3, 1, 1, 1, '🌱🌱🌱🌱')],
+      100,
+      12,
+    );
+    expect(kept.size).toBe(2);
+  });
+
   it('separates labels that only touch', () => {
     // exactly one label width (28.8 px) apart
     const kept = resolveLabelCollisions([candidate('a', 1, 1, 2, 0), candidate('b', 1.288, 1, 1, 1)], 100, 12);
@@ -68,5 +78,17 @@ describe('fitLabel', () => {
 
   it('caches the anchor per geometry object', () => {
     expect(labelAnchorOf(lShape)).toBe(labelAnchorOf(lShape));
+  });
+
+  it('computes a new anchor for a new geometry object, never the cached one of the old (SCR-009)', () => {
+    const before = labelAnchorOf(lShape);
+    // An edit replaces the geometry object (structural sharing): moved by 1 m, turned by 90 degrees.
+    const moved: Geometry = { ...lShape, points: lShape.points.map(([x, y]) => [x + 1, y] as const) };
+    const turned: Geometry = { ...lShape, rotation_deg: 90 };
+
+    expect(labelAnchorOf(moved)).not.toBe(before);
+    expect(labelAnchorOf(moved).point).toEqual([before.point[0] + 1, before.point[1]]);
+    expect(labelAnchorOf(turned).point).not.toEqual(before.point);
+    expect(labelAnchorOf(lShape)).toBe(before);
   });
 });

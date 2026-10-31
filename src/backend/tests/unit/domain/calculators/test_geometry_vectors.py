@@ -31,7 +31,7 @@ VECTORS: dict[str, Any] = json.loads(VECTORS_PATH.read_text(encoding="utf-8"))
 DEFAULT_TOLERANCE: float = VECTORS["default_tolerance"]
 #: The planting-layout and adjacency operations live in the same file but run in their own test modules
 #: (``phase_color``: ``tests/unit/domain/engines/test_phase_colors.py``; ``place_geometry``:
-#: ``test_template_placement_vectors.py``; ``label_anchor``: ``test_label_anchor_vectors.py``).
+#: ``test_template_placement_vectors.py``; ``label_anchor`` and ``label_truncate``: ``test_label_anchor_vectors.py``).
 LAYOUT_OPERATIONS = frozenset(
     {
         "layout",
@@ -43,6 +43,7 @@ LAYOUT_OPERATIONS = frozenset(
         "phase_color",
         "place_geometry",
         "label_anchor",
+        "label_truncate",
     }
 )
 CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] not in LAYOUT_OPERATIONS]

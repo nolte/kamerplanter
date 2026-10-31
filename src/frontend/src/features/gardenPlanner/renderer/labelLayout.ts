@@ -10,7 +10,7 @@
  *   order, so the same data and viewport always give the same picture (GP-FR-003).
  */
 import { areaM2 } from '../model/geometry';
-import { labelAnchor, truncateLabel, type LabelAnchor } from '../model/labelAnchor';
+import { labelAnchor, labelLength, truncateLabel, type LabelAnchor } from '../model/labelAnchor';
 import type { Geometry } from '../model/types';
 import { ICON_SIZE_PX } from './lod';
 import type { ShapeEntry } from './planIndex';
@@ -71,7 +71,8 @@ type ScreenBox = readonly [number, number, number, number];
 function screenBox(candidate: LabelCandidate, pxPerM: number, fontPx: number): ScreenBox {
   const cx = candidate.x * pxPerM;
   const cy = -candidate.y * pxPerM;
-  const textWidth = candidate.text.length * fontPx * GLYPH_WIDTH_EM;
+  // Code points, as the name was shortened (an emoji is one glyph, not two UTF-16 units).
+  const textWidth = labelLength(candidate.text) * fontPx * GLYPH_WIDTH_EM;
   if (!candidate.withIcon) {
     const half = HALF_LINE_EM * fontPx;
     return [cx - textWidth / 2, cy - half, cx + textWidth / 2, cy + half];

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { centroid, pointInPolygon } from './geometry';
-import { centredRoom, labelAnchor, poleOfInaccessibility, truncateLabel } from './labelAnchor';
+import {
+  centredRoom,
+  labelAnchor,
+  labelLength,
+  MAX_START_CELLS_PER_AXIS,
+  poleOfInaccessibility,
+  truncateLabel,
+} from './labelAnchor';
 import type { Point } from './types';
 
 /** Edge cases of the port the shared vectors (`labelAnchor.vectors.test.ts`) do not need to carry. */
@@ -32,6 +39,67 @@ describe('poleOfInaccessibility', () => {
         [3, 1],
       ]),
     ).toEqual([1, 1]);
+  });
+});
+
+describe('poleOfInaccessibility - bounded work (SCR-001)', () => {
+  const slivers: [string, Point[]][] = [
+    [
+      'rect 1000 x 0.001 m',
+      [
+        [0, 0],
+        [1000, 0],
+        [1000, 0.001],
+        [0, 0.001],
+      ],
+    ],
+    [
+      'triangle 1000 x 0.002 m',
+      [
+        [0, 0],
+        [1000, 0],
+        [0, 0.002],
+      ],
+    ],
+    [
+      'upright 0.001 x 1000 m',
+      [
+        [0, 0],
+        [0.001, 0],
+        [0.001, 1000],
+        [0, 1000],
+      ],
+    ],
+  ];
+
+  it.each(slivers)('searches a %s sliver within the time budget, inside the shape', (_name, vertices) => {
+    // the textbook start grid held a million cells for the first one
+    const started = performance.now();
+    const pole = poleOfInaccessibility(vertices);
+    expect(performance.now() - started).toBeLessThan(250);
+    expect(pointInPolygon(pole, vertices)).toBe(true);
+  });
+
+  it('keeps the textbook start grid up to the cap: a 64:1 strip finds its mid-line', () => {
+    const length = MAX_START_CELLS_PER_AXIS * 0.3;
+    const pole = poleOfInaccessibility([
+      [0, 0],
+      [length, 0],
+      [length, 0.3],
+      [0, 0.3],
+    ]);
+    expect(Math.abs(pole[1] - 0.15)).toBeLessThanOrEqual(0.01);
+  });
+
+  it.each([NaN, Infinity, -Infinity])('falls back to the first vertex for a vertex coordinate %s', (bad) => {
+    expect(
+      poleOfInaccessibility([
+        [1, 2],
+        [4, 2],
+        [bad, 4],
+        [1, 4],
+      ]),
+    ).toEqual([1, 2]);
   });
 });
 
@@ -71,6 +139,13 @@ describe('truncateLabel', () => {
   it('cuts with an ellipsis and drops the space before it', () => {
     expect(truncateLabel('Beet am Zaun', 6)).toBe('Beet…');
     expect(truncateLabel('Kräuterspirale', 6)).toBe('Kräut…');
+  });
+
+  it('counts code points, never splitting a character outside the BMP (SCR-004)', () => {
+    expect(labelLength('🌱🌱🌱🌱 Beet')).toBe(9);
+    expect(truncateLabel('🌱🌱🌱🌱 Beet', 6)).toBe('🌱🌱🌱🌱…');
+    expect(truncateLabel('𝔅𝔢𝔢𝔱 𝟏', 6)).toBe('𝔅𝔢𝔢𝔱 𝟏');
+    expect(truncateLabel('🍅🍅🍅🍅🍅🍅', 4)).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
   });
 
   it('collapses runs of whitespace like the PDF writer', () => {

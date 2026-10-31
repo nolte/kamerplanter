@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import math
+import time
+
 import pytest
 
 from app.domain.calculators.geometry_calculator import point_in_polygon, signed_distance_to_polygon
 from app.domain.calculators.label_anchor_calculator import (
+    MAX_START_CELLS_PER_AXIS,
+    POLE_PRECISION_M,
     centred_room,
     label_anchor,
     pole_of_inaccessibility,
@@ -26,6 +31,41 @@ class TestPoleOfInaccessibility:
 
     def test_a_polygon_without_area_falls_back_to_its_first_vertex(self) -> None:
         assert pole_of_inaccessibility(((1.0, 1.0), (2.0, 1.0), (3.0, 1.0))) == (1.0, 1.0)
+
+    @pytest.mark.parametrize(
+        "vertices",
+        [
+            pytest.param(((0.0, 0.0), (1000.0, 0.0), (1000.0, 0.001), (0.0, 0.001)), id="sliver-rect-1000x0.001"),
+            pytest.param(((0.0, 0.0), (1000.0, 0.0), (0.0, 0.002)), id="sliver-triangle-1000x0.002"),
+            pytest.param(((0.0, 0.0), (0.001, 0.0), (0.001, 1000.0), (0.0, 1000.0)), id="sliver-upright-0.001x1000"),
+        ],
+    )
+    def test_a_sliver_is_searched_within_the_time_budget(self, vertices: tuple[tuple[float, float], ...]) -> None:
+        """SCR-001: the textbook start grid (squares as wide as the short side) holds a million cells for a
+        1000 x 0.001 m sliver and took about 4-5 s; capped grid plus inradius ceiling keep it far below a frame."""
+        started = time.perf_counter()
+        pole = pole_of_inaccessibility(vertices)
+        elapsed = time.perf_counter() - started
+
+        assert elapsed < 0.25
+        assert point_in_polygon(pole, vertices)
+
+    def test_the_start_grid_is_the_textbook_one_up_to_the_cap(self) -> None:
+        """A 64:1 strip still starts on squares as wide as its short side: the cap only touches slivers, so the
+        search - and every shared vector - is unchanged for beds of ordinary proportions."""
+        strip = ((0.0, 0.0), (MAX_START_CELLS_PER_AXIS * 0.3, 0.0), (MAX_START_CELLS_PER_AXIS * 0.3, 0.3), (0.0, 0.3))
+
+        pole = pole_of_inaccessibility(strip)
+
+        assert pole[1] == pytest.approx(0.15, abs=POLE_PRECISION_M)
+        assert signed_distance_to_polygon(pole, strip) == pytest.approx(0.15, abs=POLE_PRECISION_M)
+
+    @pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+    def test_a_vertex_that_is_not_finite_falls_back_to_the_first_vertex(self, bad: float) -> None:
+        """The models reject NaN and infinity; the pure function still answers instead of searching NaN distances."""
+        vertices = ((1.0, 2.0), (4.0, 2.0), (bad, 4.0), (1.0, 4.0))
+
+        assert pole_of_inaccessibility(vertices) == (1.0, 2.0)
 
     def test_a_coarser_precision_still_ends_inside(self) -> None:
         pole = pole_of_inaccessibility(_L_SHAPE, precision_m=0.5)

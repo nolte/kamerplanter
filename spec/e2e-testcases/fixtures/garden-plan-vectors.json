@@ -55,7 +55,8 @@
     "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)",
     "phase_color": "input.name (growth-phase name as stored, growth_phases.name) -> expected \"#RRGGBB\": a name that is a known phase after lower-casing and dropping every character outside a-z takes its fixed colour; any other name takes FALLBACK_PALETTE[abs(h) % 10] with h = int32(h * 31 + c) over the UTF-16 code units c of the unnormalised name (phase_colors.phase_color / planting/phaseColors.ts phaseColor, REQ-053 GP-FR-067, GP-UX-005)",
     "place_geometry": "input.geometry (bed template default_geometry in the bed frame: rect | circle | polygon), input.origin [x, y], input.rotation_deg -> expected the plan-frame geometry: the anchor (rect origin, circle centre, first polygon vertex) at origin, rotation_deg = (own + requested) folded into [0, 360) and rounded to 0.001; a circle carries no rotation (template_placement_calculator.place_geometry / templates/placeGeometry.ts placeGeometry, REQ-053 GP-FR-044, #2536)",
-    "label_anchor": "input.geometry (rect | circle | polygon | polyline | point, plan frame) -> expected {point: [x, y], width_m}: the centre of the object's horizontal label and the widest label centred there that stays inside the shape - rect/circle: centre (room = horizontal chord / diameter); polygon: pole of inaccessibility (polylabel quadtree to 0.01 m in the local frame, seeded with the area centroid, cells in the total order potential desc, x asc, y asc, insertion), room = 2 x min(reach left, reach right) along the chord y = point_y (edges half-open in y); polyline: point at half its length, room = bbox width incl. stroke; point: the point, room 0. Rounded to 0.001 (label_anchor_calculator.label_anchor / model/labelAnchor.ts labelAnchor, REQ-053 GP-UX-047, GP-FR-003, #2490) - the PDF writer and the editor place names on this point"
+    "label_anchor": "input.geometry (rect | circle | polygon | polyline | point, plan frame) -> expected {point: [x, y], width_m}: the centre of the object's horizontal label and the widest label centred there that stays inside the shape - rect/circle: centre (room = horizontal chord / diameter); polygon: pole of inaccessibility (polylabel quadtree to 0.01 m in the local frame, seeded with the area centroid, cells in the total order potential desc, x asc, y asc, insertion; start cell size max(shorter box side, longer box side / 64, 0.01), a cell is refined only while min(potential, shorter box side / 2) - best distance > 0.01; a non-finite vertex yields the first vertex), room = 2 x min(reach left, reach right) along the chord y = point_y (edges half-open in y); polyline: point at half its length, room = bbox width incl. stroke; point: the point, room 0. Rounded to 0.001 (label_anchor_calculator.label_anchor / model/labelAnchor.ts labelAnchor, REQ-053 GP-UX-047, GP-FR-003, #2490) - the PDF writer and the editor place names on this point",
+    "label_truncate": "input.text (an object name), input.max_chars (integer >= 1) -> expected string: whitespace runs collapse to one space; a name longer than max_chars is cut to max(1, max_chars - 1) characters, trailing spaces dropped, and \"\u2026\" appended. Characters are Unicode code points (Python len), never UTF-16 code units: a character outside the BMP counts once and is never split (plan_svg_engine._truncate / model/labelAnchor.ts truncateLabel, REQ-053 GP-UX-047, GP-FR-003, #2490 SCR-004)"
   },
   "cases": [
     {
@@ -4702,6 +4703,20 @@
       "expected": {"point": [5.0, 0.15], "width_m": 10.0}
     },
     {
+      "id": "label-anchor-polygon-sliver-rect-bounded-search",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047, SCR-001: a 1000 x 0.002 m sliver (aspect 500 000:1) - the start grid is capped at 64 cells along the long side and refinement stops at the inradius ceiling (half the short side), so the search ends at once on the centroid seed instead of starting with half a million cells",
+      "input": {"geometry": {"kind": "polygon", "points": [[0.0, 0.0], [1000.0, 0.0], [1000.0, 0.002], [0.0, 0.002]]}},
+      "expected": {"point": [500.0, 0.001], "width_m": 1000.0}
+    },
+    {
+      "id": "label-anchor-polygon-sliver-triangle-bounded-search",
+      "operation": "label_anchor",
+      "spec": "GP-UX-047, SCR-001: a 1000 x 0.003 m sliver triangle - no point beats the centroid seed (333.333, 0.001) by more than the 0.01 m precision (the incircle radius is 0.0015 m), so it stays; the chord y = 0.001 runs 0..666.667, centred room 666.667",
+      "input": {"geometry": {"kind": "polygon", "points": [[0.0, 0.0], [1000.0, 0.0], [0.0, 0.003]]}},
+      "expected": {"point": [333.333, 0.001], "width_m": 666.667}
+    },
+    {
       "id": "label-anchor-polyline-half-length",
       "operation": "label_anchor",
       "spec": "GP-UX-047: a bent path's label sits at half its length, on the stroke (the vertex mean (3.667, 2.0) is off it); the room is the box width with the stroke",
@@ -4714,6 +4729,41 @@
       "spec": "GP-UX-047: a point object's label anchor is the point; it has no room",
       "input": {"geometry": {"kind": "point", "origin": [3.0, 4.0]}},
       "expected": {"point": [3.0, 4.0], "width_m": 0.0}
+    },
+    {
+      "id": "label-truncate-fits-unchanged",
+      "operation": "label_truncate",
+      "spec": "GP-UX-047: a name that fits is kept, its whitespace runs collapsed",
+      "input": {"text": "  Beet \n  Nord  ", "max_chars": 20},
+      "expected": "Beet Nord"
+    },
+    {
+      "id": "label-truncate-cut-drops-space-before-ellipsis",
+      "operation": "label_truncate",
+      "spec": "GP-UX-047: the cut drops the space before the ellipsis",
+      "input": {"text": "Beet am Zaun", "max_chars": 6},
+      "expected": "Beet…"
+    },
+    {
+      "id": "label-truncate-non-bmp-fits-by-code-points",
+      "operation": "label_truncate",
+      "spec": "SCR-004: six code points outside the BMP (twelve UTF-16 units) fit six characters - counting UTF-16 units would shorten it",
+      "input": {"text": "𝔅𝔢𝔢𝔱 𝟏", "max_chars": 6},
+      "expected": "𝔅𝔢𝔢𝔱 𝟏"
+    },
+    {
+      "id": "label-truncate-non-bmp-cut-keeps-whole-characters",
+      "operation": "label_truncate",
+      "spec": "SCR-004: a cut among emoji keeps whole characters (never a lone surrogate) and drops the space before the ellipsis",
+      "input": {"text": "🌱🌱🌱🌱 Beet", "max_chars": 6},
+      "expected": "🌱🌱🌱🌱…"
+    },
+    {
+      "id": "label-truncate-non-bmp-only",
+      "operation": "label_truncate",
+      "spec": "SCR-004: a name of emoji only, cut to three characters and the ellipsis",
+      "input": {"text": "🍅🍅🍅🍅🍅🍅", "max_chars": 4},
+      "expected": "🍅🍅🍅…"
     }
   ]
 }
