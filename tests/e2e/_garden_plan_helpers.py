@@ -695,3 +695,102 @@ def task_state(base_url: str, seed: dict, task_key: str) -> dict:
     if not isinstance(body, dict):
         raise AssertionError(f"task {task_key!r} is not an object: {body!r}")
     return body
+
+
+# ── Wave 7: irrigation zones and the concurrent writer (WP 7.25) ────────────
+#
+# The zone tests arrange zones through the routes the zone panel itself calls
+# (GP-API-050/051): ``POST /sites/{key}/irrigation-zones`` creates the zone,
+# ``PUT /irrigation-zones/{key}/locations`` assigns its beds. The "someone else
+# saved meanwhile" precondition of the auto-save case is one ``plan/batch`` with
+# the revision the editor holds - exactly what a second editor's save sends.
+
+
+def create_zone(
+    base_url: str,
+    seed: dict,
+    *,
+    site_key: str,
+    name: str,
+    bed_keys: tuple[str, ...],
+    irrigation_type: str = "manual",
+    color: str = "#1565C0",
+) -> dict:
+    """A zone on *site_key* covering *bed_keys* (GP-API-050 + 051); the zone as the server answers it."""
+    zone = _tenant_post(
+        base_url,
+        seed,
+        f"/sites/{site_key}/irrigation-zones",
+        {"name": name, "irrigation_type": irrigation_type, "color": color},
+        expected=(201,),
+    )
+    status, body = tenant_request(
+        base_url,
+        seed,
+        "PUT",
+        f"/irrigation-zones/{zone['key']}/locations",
+        {"location_keys": list(bed_keys)},
+    )
+    _require(status, body, (200,), f"PUT /irrigation-zones/{zone['key']}/locations")
+    if not isinstance(body, dict) or sorted(body.get("location_keys") or []) != sorted(bed_keys):
+        raise AssertionError(
+            f"Self-provisioning failed: zone {zone['key']!r} should cover {sorted(bed_keys)}, "
+            f"the server answered {body!r}"
+        )
+    return body
+
+
+def zones_of_site(base_url: str, seed: dict, site_key: str) -> list[dict]:
+    """``GET /sites/{key}/irrigation-zones`` (GP-API-050): the stored zones of the site."""
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/irrigation-zones")
+    if not isinstance(body, list):
+        raise AssertionError(f"zones of site {site_key!r} is not a list: {body!r}")
+    return body
+
+
+def move_location_via_api(
+    base_url: str,
+    seed: dict,
+    *,
+    site_key: str,
+    expected_revision: int,
+    location_key: str,
+    geometry: dict,
+) -> int:
+    """Save a new geometry for *location_key* as a second editor would (GP-API-003); the new revision."""
+    api, token = _api(base_url, seed)
+    status, body = _api_request(
+        f"{api}/sites/{site_key}/plan/batch",
+        "POST",
+        token,
+        {
+            "expected_revision": expected_revision,
+            "operations": [
+                {
+                    "op": "update_geometry",
+                    "entity": "location",
+                    "key": location_key,
+                    "geometry": geometry,
+                }
+            ],
+        },
+    )
+    _require(status, body, (200,), f"POST /sites/{site_key}/plan/batch (concurrent writer)")
+    return int(body["plan_revision"])
+
+
+def stored_location(plan: dict, name: str) -> dict:
+    """The stored location named *name*; fails loudly when there is none or more than one."""
+    found = [loc for loc in plan.get("locations") or [] if loc.get("name") == name]
+    if len(found) != 1:
+        names = [loc.get("name") for loc in plan.get("locations") or []]
+        raise AssertionError(
+            f"expected exactly one stored location {name!r}, found {len(found)}: {names}"
+        )
+    return found[0]
+
+
+def days_since_utc(instant: str) -> int:
+    """Whole UTC calendar days from *instant* (ISO 8601) to today - the day rule of the last-watered layer."""
+    moment = datetime.fromisoformat(instant.replace("Z", "+00:00")).astimezone(UTC)
+    return (utc_today() - moment.date()).days
