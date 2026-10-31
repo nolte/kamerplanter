@@ -181,6 +181,44 @@ class TestStrictNumbers:
         assert rect.width_m == 3.0
 
 
+class TestFiniteNumbers:
+    @pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+    @pytest.mark.parametrize(
+        ("kind", "field"),
+        [
+            ("rect", "origin"),
+            ("rect", "width_m"),
+            ("rect", "length_m"),
+            ("rect", "rotation_deg"),
+            ("circle", "origin"),
+            ("circle", "radius_m"),
+            ("polygon", "points"),
+            ("polygon", "rotation_deg"),
+            ("polyline", "points"),
+            ("polyline", "width_m"),
+            ("point", "origin"),
+        ],
+    )
+    def test_every_shape_rejects_non_finite_geometry(self, kind: str, field: str, value: float) -> None:
+        geometries = {
+            "rect": {"kind": "rect", "origin": [0, 0], "width_m": 1, "length_m": 1},
+            "circle": {"kind": "circle", "origin": [0, 0], "radius_m": 1},
+            "polygon": {"kind": "polygon", "points": [[0, 0], [1, 0], [0, 1]]},
+            "polyline": {"kind": "polyline", "points": [[0, 0], [1, 0]], "width_m": 0.5},
+            "point": {"kind": "point", "origin": [0, 0]},
+        }
+        geometry = geometries[kind]
+        if field == "origin":
+            geometry[field] = [value, 0]
+        elif field == "points":
+            geometry[field][0] = [value, 0]
+        else:
+            geometry[field] = value
+
+        with pytest.raises(ValidationError):
+            parse_geometry(geometry)
+
+
 class TestRounding:
     def test_round_length_is_millimetres(self) -> None:
         assert round_length(1.23456) == 1.235
