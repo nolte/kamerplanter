@@ -218,8 +218,23 @@ jobs:
           context: src/backend
           file: src/backend/Dockerfile
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # ONE CACHE SCOPE PER IMAGE, NOT THE DEFAULT ONE (#2409). Without `scope=`
+          # every build here wrote the gha scope `buildkit`, so the six unscoped
+          # jobs overwrote one another's cache index — measured 2026-10-31: the
+          # `index-buildkit-*` entries of one pull-request ref alternate between
+          # four different index sizes, i.e. four images taking turns, the race
+          # `build-embedding-service` already documents for its legs (#1764).
+          #
+          # Backend and frontend use the SAME scope as the e2e stack
+          # (docker-compose.e2e.ci.yml): same context, same Dockerfile, no build
+          # args, no target — the identical build definition. The e2e workflows
+          # also write that scope on `develop` (e2e-smoke on push, e2e-nightly),
+          # which a pull request may read; this workflow runs on pull requests
+          # only, so a cache it wrote alone was never readable by the next pull
+          # request. src/backend/tests/unit/guards/test_docker_build_cache_scopes.py
+          # holds both properties.
+          cache-from: type=gha,scope=e2e-backend
+          cache-to: type=gha,mode=max,scope=e2e-backend
 
   build-frontend:
     needs: changes
@@ -244,8 +259,9 @@ jobs:
           context: src/frontend
           file: src/frontend/Dockerfile
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Aligned with the e2e stack's scope for the same build — see `build-backend`.
+          cache-from: type=gha,scope=e2e-frontend
+          cache-to: type=gha,mode=max,scope=e2e-frontend
 
   build-vectordb:
     needs: changes
@@ -270,8 +286,9 @@ jobs:
           context: docker/vectordb
           file: docker/vectordb/Dockerfile
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Own scope per image, never the shared default (#2409) — see `build-backend`.
+          cache-from: type=gha,scope=vectordb
+          cache-to: type=gha,mode=max,scope=vectordb
 
   build-knowledge:
     needs: changes
@@ -296,8 +313,9 @@ jobs:
           context: .
           file: docker/knowledge/Dockerfile
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Own scope per image, never the shared default (#2409) — see `build-backend`.
+          cache-from: type=gha,scope=knowledge
+          cache-to: type=gha,mode=max,scope=knowledge
 
   build-embedding-service:
     needs: changes
@@ -461,8 +479,9 @@ jobs:
           context: src/knowledge-service
           file: src/knowledge-service/Dockerfile
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Own scope per image, never the shared default (#2409) — see `build-backend`.
+          cache-from: type=gha,scope=knowledge-service
+          cache-to: type=gha,mode=max,scope=knowledge-service
 
   # Same context and file as the publishing build in `docker-publish.yml`
   # (`context: src/inference-service`, `file: src/inference-service/Dockerfile`),
@@ -494,8 +513,9 @@ jobs:
           push: false
           load: true
           tags: kp-inference-service:pr
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Own scope per image, never the shared default (#2409) — see `build-backend`.
+          cache-from: type=gha,scope=inference-service
+          cache-to: type=gha,mode=max,scope=inference-service
 
       # A build is not a start (#1609) — see the note in `build-reranker-service`.
       # `load: true` above is what lets this step `docker run` what was built.
