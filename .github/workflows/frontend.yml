@@ -38,6 +38,9 @@ on:
       - '.gitignore'
       - 'scripts/security/npm_audit_gate.py'
       - 'tests/security/npm-audit-allowlist.yaml'
+      # Read by the vitest run through src/frontend/src/test/gardenPlanVectors.ts
+      # (measured, lane-inputs run 41237292582).
+      - 'spec/e2e-testcases/fixtures/garden-plan-vectors.json'
   pull_request:
     branches: [develop]
   schedule:
@@ -108,6 +111,11 @@ jobs:
               - '.gitignore'
               - 'scripts/security/npm_audit_gate.py'
               - 'tests/security/npm-audit-allowlist.yaml'
+              # The garden-planner vectors (REQ-053) are shared with the backend calculators and
+              # imported by src/frontend/src/test/gardenPlanVectors.ts, so the vitest runs of
+              # lint-test-build and coverage read them (measured, lane-inputs run 41237292582).
+              # Without this a vector-only change skipped the required lint-test-build context.
+              - 'spec/e2e-testcases/fixtures/garden-plan-vectors.json'
 
   # REQUIRED check. The job itself always runs; only its *steps* are conditional.
   #
