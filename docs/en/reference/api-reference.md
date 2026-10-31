@@ -312,6 +312,58 @@ The list names, per snapshot, `audit_key`, `revision`, `at`, `summary`, `changed
 
 ---
 
+### Irrigation zones, watering round and zone quota (REQ-053)
+
+Irrigation zones belong to a site. Every member may read; creating, changing and assigning beds needs "grower" or above; only the lead may delete. A zone or site of another tenant answers like a missing one with `404`.
+
+```
+GET|POST         /api/v1/t/{slug}/sites/{key}/irrigation-zones         # list, paged (limit/offset) | create
+GET|PATCH|DELETE /api/v1/t/{slug}/irrigation-zones/{key}
+PUT              /api/v1/t/{slug}/irrigation-zones/{key}/locations     # { "location_keys": [...] } replaces the beds
+GET              /api/v1/t/{slug}/irrigation-zones/{key}/status        # last watering, next, demand, consumption, hints
+POST             /api/v1/t/{slug}/irrigation-zones/{key}/log-watering  # watering round
+```
+
+**Assigning beds:** A bed belongs to at most one zone. If it already lies in another zone of the same site, `PUT …/locations` moves it without asking; the response says so in `moved_from`. A bed outside the site is `422` `reference.not_found` with its position.
+
+**Watering round:** body `{ "volume_liters": 60, "allocation": "by_area", "performed_at": null, "summary": "Morning round" }`. `volume_liters` more than 0 and at most 100,000; `allocation` is `by_area` (by the beds' `area_m2`) or `equal`; `summary` at most 500 characters. The response (`201`) names `event_keys`, `shares` (litres per bed), `allocation`, `performed_at` and `skipped_location_keys` (with `by_area`, the beds without an area). Every bed gets one watering entry, all in one transaction, each marked with its `allocation`: the amount is divided, not measured. Each account may log `RATE_LIMIT_ZONE_LOG_WATERING` rounds (default 20 per minute). There is no `by_demand` distribution and no "rain - skipped" round.
+
+**Zone quota:** A site holds at most 500 zones. Creating a 501st answers `422` `irrigation_zone.quota_exceeded`; so does a `merge` or `replace` import after which the site would hold more than 500 zones. A zone in the file has no stable identity: importing the same file twice with `merge` creates its zones twice. If a site holds more than 500 zones anyway, `GET /sites/{key}/plan` (with zones), the export and a `replace` import answer `422` `irrigation_zone.quota_exceeded` instead of silently cutting the list.
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role too low (viewer writes, grower deletes) or technical coupling without the `technical` admin scope |
+| `404` | `ENTITY_NOT_FOUND` | Zone or site not found (or not in this tenant) |
+| `422` | `irrigation_zone.no_beds`, `irrigation_zone.no_bed_area` | The round has nothing to divide (no beds; with `by_area`, no bed with an area) |
+| `422` | `irrigation_zone.quota_exceeded` | More than 500 zones on the site |
+| `422` | `reference.not_found` | Bed, water source or actuator does not belong to the site or tenant |
+
+---
+
+### Bed templates and a bed from a template (REQ-053)
+
+```
+GET|POST     /api/v1/t/{slug}/bed-templates                    # system templates and your own, by name, paged
+PATCH|DELETE /api/v1/t/{slug}/bed-templates/{key}
+POST         /api/v1/t/{slug}/sites/{key}/plan/place-template  # { "template_key", "origin": [x, y], "rotation_deg": 0, "expected_revision" }
+```
+
+Creating and changing templates needs "grower" or above, deleting needs the lead; only platform admins change and delete system templates. A tenant owns at most 200 templates (`422` `bed_template.quota_exceeded`). Deleting removes the provenance key `template_key` from the beds placed from it.
+
+`place-template` creates one bed through the same path as a batch `create_location` (one transaction, one revision) and answers like the batch; `key_map.template_bed` names the new bed. `origin` is where the template's anchor lands in the plan (rectangle: lower-left corner, circle: centre, polygon: first vertex); `rotation_deg` (0 to below 360) is added to the template's own rotation. Order of checks: template (`422` `reference.not_found`, a foreign one like a missing one), geometry (`422` `geometry.invalid`), placement (`422` `geometry.outside_parent`, `bed.overlap`), last the revision (`409` `plan.revision_conflict`). Recurring tasks of a template are not created.
+
+---
+
+### New season from the previous year (REQ-053)
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/new-season    # { "year": 2027, "dry_run": true, "expected_revision": null }
+```
+
+**Lead only.** For each bed without an active plant the route re-creates the places of the planting runs that ended in `year − 1` as free planting positions. Beds with an active plant, retired beds and beds that would exceed 2,000 positions are skipped and named in the report. Zones, plants, runs and history stay unchanged. `dry_run` is the default and writes nothing; without it everything runs in one transaction with a change-log entry. `year` is a whole number and at most next year (`422` `season.invalid_year`); a plan changed since `expected_revision` is `409` `plan.revision_conflict`. The tenant's import budget applies (`RATE_LIMIT_PLAN_IMPORT`). The response names `year`, `source_year`, `dry_run`, `applied`, `plan_revision`, `beds_copied`, `beds_skipped`, `slots_to_create` and per bed a `status` (`copied`, `skipped_active_plants`, `skipped_retired`, `skipped_slot_quota`, `nothing_to_copy`) with the number of positions.
+
+---
+
 ### List Available Templates
 
 Returns a list of all registered print templates.

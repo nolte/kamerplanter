@@ -1,5 +1,7 @@
 """REQ-053 WP 7.8 / 7.9 (#2474, #2475) - the bed-template routes and ``place-template`` through the deployed app.
 
+Rows: GP-API-061 (template catalogue), GP-API-062 (place a bed from a template).
+
 ``app.main`` with the real ``BedTemplateService`` / ``GardenPlanService``, the real tenant gate and the in-memory
 doubles of ``tests/support``. The unit tier shows what the services decide; this tier shows how it reads on the wire
 and that every route sits behind the gate of §21.8 "Beetvorlage" - one negative per row and role (SR-010): a viewer

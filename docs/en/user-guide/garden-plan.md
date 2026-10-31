@@ -71,7 +71,7 @@ The dimensions of the selected object stand outside, above its top edge, and kee
 
 - Clicking selects, dragging moves, a frame over free space selects everything that lies completely inside the frame (locked objects excluded).
 - With **Ctrl** (**Cmd** on a Mac) and the mouse wheel you zoom smoothly around the pointer; when the plan has the focus, the wheel alone is enough. A plain mouse wheel scrolls the page.
-- A right-click on an object (on a touchscreen the **⋯** button in the properties panel) opens the actions of the object: Edit, Duplicate, Bring to front, Send to back, Lock.
+- A right-click on an object (on a touchscreen the **⋯** button in the properties panel) opens the actions of the object: Edit, Duplicate, Bring to front, Send to back, Lock. Duplicate has no keyboard shortcut; the copy of a bed has no planting positions.
 - Hold the **Alt** key to switch snapping off briefly.
 
 ### On a touchscreen
@@ -223,6 +223,12 @@ Click **Manage irrigation zones** to open the zone area.
 
 **Log a watering round.** When you have watered a whole zone, **Log watering round** opens a dialog: you enter the **total amount in litres** (more than 0, at most 100,000) and choose the **distribution**: **By bed area** (each bed gets a share by its area; beds without an area are left out) or **Equal parts**. Kamerplanter writes one watering entry per bed into the care log. The amount is divided, not measured; the log marks it that way.
 
+!!! note "Partially available: watering round"
+    The watering round divides the amount by bed area or into equal parts. A distribution by the beds' water demand and the action "Rain - skipped" will come later. Until then, record a rainy day per bed with **Log care** and the type **Rainfall**. <!-- REQ-053 GP-FR-117 -->
+
+!!! info "API only: water source details"
+    The zone state shows how long the water source lasts only when the water source has a capacity in litres. You do not enter the kind, capacity and last refill of a water source in the editor but through the API (properties of the garden object). <!-- REQ-053 GP-FR-111 -->
+
 !!! info "API only: technical coupling"
     Only members with the `technical` admin scope maintain the coupling of a zone to an actuator or to a Home Assistant entity for the flow, and only through the API. Restoring a backup never takes these links over. See [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 
@@ -268,6 +274,8 @@ The **backup** holds beds, garden objects, plant places, irrigation zones, soil 
 3. **Mode:** *Add* creates the backup in addition to the existing plan. *Replace* swaps the plan of this site. For that you type the name of the site. Before that, Kamerplanter saves the previous plan as a snapshot in the change log. Download a current backup first anyway, to be safe.
 
 In *Add* mode you can move every shape of the file by a distance (to the right and up, in metres), for example to put a bed somewhere else. **Where is the file going?** tells Kamerplanter whether the file comes from this site, another site or another garden account. For the last two, references that are not in the file are never resolved against this site: they are dropped and listed in the check report. Nothing is read from another account, the file is the transport; you need the lead role in the account you import into.
+
+If you import the same file several times with *Add*, each round creates its irrigation zones again; Kamerplanter does not recognise the zones of the file. A site can have at most 500 zones; beyond that the check report rejects the file.
 
 **Restore an earlier state:** In the first import step this button opens the list of plans that a *Replace* overwrote (kept for one year, at most the 20 newest per site, lead only). You pick a state, read the check report and type the name of the site. Kamerplanter first saves the current plan as a state of its own, so the restore can be undone. Irrigation zones that the state does not name are removed, and technical zone bindings (actuator, Home Assistant flow) are not restored; set them up again afterwards. *Add* does not create a state.
 

@@ -81,7 +81,7 @@ def _days_label(days: int) -> str:
 def test_tc_053_045_zone_from_plan_selection_and_zone_layer(
     plan: GardenPlanPage, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
-    """TC-053-045 - a zone takes its beds from the plan's multi-selection; the layer hatches them (GP-FR-110).
+    """TC-053-045 - a zone takes its beds from the plan's multi-selection; the layer hatches them (GP-FR-110, GP-FR-031).
 
     Three beds; Ctrl+A selects all three, "Auswahl vom Plan übernehmen" ticks them, Beet C is unticked again.
     Breaks if the selection is not taken over, the zone is not stored with exactly Beet A and Beet B, the
@@ -230,7 +230,7 @@ def test_tc_053_046_watering_round_divides_by_area_and_is_marked_allocated(
 def test_tc_053_048_last_watered_layer_days_since_per_bed(
     plan: GardenPlanPage, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
-    """TC-053-048 - the "last watered" layer: today, five days ago, never (GP-UX-031).
+    """TC-053-048 - the "last watered" layer: today, five days ago, never (GP-UX-031, GP-FR-031).
 
     Precondition (API): a watering logged on Beet A now and on Beet B five days ago, none on Beet C. The
     expected day counts are taken from the stored instants by the same UTC calendar-day rule the layer uses,
