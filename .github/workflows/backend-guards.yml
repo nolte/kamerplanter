@@ -356,7 +356,7 @@ jobs:
         # comment here: that belongs to the custom regex manager for image
         # strings in workflow `env:` values, and adding one would claim a
         # mechanism that is not the one doing the work.
-        image: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
+        image: arangodb:3.12@sha256:ae1ce5af4783e008d359daaa963559aa4e32a5bd9ea54e2304f5b3adbc88c4aa
         env:
           # A throwaway root password for a container that lives for one job and
           # is reachable from nothing else. It matches the tier's default so the
