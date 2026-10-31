@@ -1,4 +1,4 @@
-"""REQ-053 WP 7.4 (#2470) - flow rate choice (O-13) and actuator runtime, as pure functions."""
+"""REQ-053 WP 7.4 (#2470) - flow rate choice (O-13) and actuator runtime, as pure functions (GP-FR-114)."""
 
 from __future__ import annotations
 

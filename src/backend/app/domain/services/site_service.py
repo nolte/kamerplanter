@@ -26,6 +26,7 @@ LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "locked",
     "notes",
     "pitch_m",
+    "rotation_enabled",
     "rotation_exempt",
     "site_conditions",
     "soil_profile",

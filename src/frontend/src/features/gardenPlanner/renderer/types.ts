@@ -110,6 +110,11 @@ export interface RenderOptions {
   frostLayer?: boolean;
   /** Field mode raises the on-screen label size from 12 to 16 px (GP-NFR-067). */
   fieldMode?: boolean;
+  /**
+   * The caller prints the selection's dimensions itself (the editor's overlay, which keeps them clear of the handles,
+   * GP-UX-047); the renderer then draws none, so two size texts never sit on top of each other.
+   */
+  dimensionsOnOverlay?: boolean;
   /** The bed whose plants are the current focus level (GP-NFR-068: Enter enters a bed). */
   enteredLocationKey?: string | null;
   /**
@@ -122,6 +127,17 @@ export interface RenderOptions {
    * plain marker; a bed whose states are known shows "{n} Pflanzen · {m} mit Handlungsbedarf" as a cluster.
    */
   plantStates?: Readonly<Record<string, PlantMarkerState>>;
+  /**
+   * The plant-state layer of the overview plan (GP-UX-061, #2488); absent = hidden. With it, every bed at marker LOD
+   * draws its plants with their state channels (decorative: the bed's own label carries the count), and a bed below
+   * that LOD counts the plants that need attention in its cluster. `attentionOnly` hides the plants whose state is
+   * known and carries no badge; a plant without an entry is unknown, not calm, and keeps the plain marker. A cluster
+   * hides only when all its plants are known and none has a badge; its accessible name always names the total.
+   */
+  plantStateLayer?: {
+    states: Readonly<Record<string, PlantMarkerState>>;
+    attentionOnly: boolean;
+  };
   /**
    * Keys of objects a refused save named (GP-UX-017): drawn with a red outline, and the panel explains why.
    * Never colour alone - the outline is also heavier.

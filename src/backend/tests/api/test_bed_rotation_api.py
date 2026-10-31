@@ -19,13 +19,15 @@ from fastapi.testclient import TestClient
 from freezegun import freeze_time
 
 from app.common.auth import get_current_user
-from app.common.dependencies import get_bed_rotation_service, get_tenant_service
+from app.common.dependencies import get_bed_rotation_service, get_garden_resource_service, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.models.user import User
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.care_event_service import CareEventService
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_resource_service import GardenResourceService
 from tests.support.care_event_fakes import (
     FakeAttachmentRepo,
     FakeAttachmentService,
@@ -36,6 +38,7 @@ from tests.support.care_event_fakes import (
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     TENANT,
+    FakeObjects,
     FakePlanRepo,
     FakeSites,
     make_location,
@@ -100,7 +103,7 @@ def world() -> SimpleNamespace:
     graph = FakeRotationGraph()
     validator = CropRotationValidator(None, species, graph, site_repo=sites, family_repo=families, history_repo=history)
     service = BedRotationService(sites, plan, graph, species, families, care, validator)
-    return SimpleNamespace(service=service, history=history, care_repo=care_repo, plan=plan)
+    return SimpleNamespace(service=service, history=history, care_repo=care_repo, plan=plan, sites=sites)
 
 
 @pytest.fixture
@@ -116,6 +119,9 @@ def client(world: SimpleNamespace) -> Iterator[Callable[..., TestClient]]:
     )
     app.dependency_overrides[get_tenant_service] = _Tenants
     app.dependency_overrides[get_bed_rotation_service] = lambda: world.service
+    app.dependency_overrides[get_garden_resource_service] = lambda: GardenResourceService(
+        world.sites, world.plan, FakeObjects(world.plan), GardenPlanService(world.sites, world.plan)
+    )
     try:
         yield build
     finally:
@@ -185,6 +191,123 @@ class TestValidatePlanting:
         unknown = client().post(url, json={"species_key": "tomato", "slot_key": "nope"})
         assert foreign.status_code == unknown.status_code == 422
         assert foreign.json()["details"] == unknown.json()["details"]
+
+
+class TestPerBedSwitchGpAcc055:
+    """GP-ACC-055 / GP-FR-137: the rotation check is off for planter/tent/shelf until one bed is switched on."""
+
+    CONTAINERS = ("planter", "tent", "shelf")
+
+    @pytest.fixture
+    def containers(self, world) -> None:
+        for kind in self.CONTAINERS:
+            world.plan.locations[kind] = make_location(kind, location_type_key=kind)
+            world.history.add_plant(kind, "tomato", date(2025, 4, 1), removed_on=date(2025, 9, 1))
+
+    @staticmethod
+    def hints(client, kind: str) -> dict:
+        response = client().post(f"{_BASE}/locations/{kind}/validate-planting", json={"species_key": "tomato"})
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def test_switching_one_container_on_gives_only_that_one_the_hint(self, client, world, containers) -> None:
+        assert [self.hints(client, kind)["rotation"] for kind in self.CONTAINERS] == [[], [], []]
+
+        patched = client().patch(f"{_BASE}/locations/shelf", json={"rotation_enabled": True})
+
+        assert patched.status_code == 200, patched.text
+        assert patched.json()["rotation_enabled"] is True
+        shelf = self.hints(client, "shelf")
+        assert shelf["rotation_applicable"] is True
+        assert [f["code"] for f in shelf["rotation"]] == ["rotation.pause_not_elapsed"]
+        for kind in ("planter", "tent"):
+            body = self.hints(client, kind)
+            assert (body["rotation_applicable"], body["not_applicable_reason"], body["rotation"]) == (
+                False,
+                "rotation.not_applicable.container",
+                [],
+            )
+
+    def test_null_returns_the_bed_to_its_type_default(self, client, world, containers) -> None:
+        client().patch(f"{_BASE}/locations/tent", json={"rotation_enabled": True})
+
+        cleared = client().patch(f"{_BASE}/locations/tent", json={"rotation_enabled": None})
+
+        assert cleared.status_code == 200, cleared.text
+        assert cleared.json()["rotation_enabled"] is None
+        assert self.hints(client, "tent")["rotation_applicable"] is False
+
+    def test_an_open_bed_can_be_switched_off(self, client, world) -> None:
+        world.history.add_plant("bed", "tomato", date(2025, 4, 1), removed_on=date(2025, 9, 1))
+
+        client().patch(f"{_BASE}/locations/bed", json={"rotation_enabled": False})
+
+        body = self.hints(client, "bed")
+        assert (body["rotation_applicable"], body["not_applicable_reason"]) == (
+            False,
+            "rotation.not_applicable.disabled",
+        )
+
+    @pytest.mark.parametrize(
+        ("stored", "sent"),
+        [
+            ({}, {"rotation_exempt": True, "rotation_enabled": True}),
+            ({"rotation_exempt": True}, {"rotation_enabled": True}),
+            ({"rotation_enabled": True}, {"rotation_exempt": True}),
+        ],
+        ids=["both in one body", "switch on an exempt bed", "exempt a switched-on bed"],
+    )
+    def test_exempt_and_switched_on_together_is_422_and_writes_nothing(self, client, world, stored, sent) -> None:
+        world.plan.locations["tent"] = make_location("tent", location_type_key="tent", **stored)
+        before = world.plan.locations["tent"]
+
+        response = client().patch(f"{_BASE}/locations/tent", json=sent)
+
+        assert response.status_code == 422, response.text
+        assert response.json()["error_code"] == "patch.rotation_exempt_and_enabled"
+        assert world.plan.locations["tent"] == before
+
+    def test_exempting_a_switched_on_bed_works_when_the_switch_is_cleared_in_the_same_body(self, client, world) -> None:
+        world.plan.locations["tent"] = make_location("tent", location_type_key="tent", rotation_enabled=True)
+
+        response = client().patch(f"{_BASE}/locations/tent", json={"rotation_exempt": True, "rotation_enabled": None})
+
+        assert response.status_code == 200, response.text
+        assert (response.json()["rotation_exempt"], response.json()["rotation_enabled"]) == (True, None)
+
+    @pytest.mark.parametrize(
+        "sent", [{"name": "Renamed"}, {"rotation_exempt": False}], ids=["rotation untouched", "exempt cleared"]
+    )
+    def test_a_stored_conflicting_pair_does_not_block_a_patch_that_does_not_switch_on(
+        self, client, world, sent
+    ) -> None:
+        """SCR-002: a row written before the guard (or by an import) may hold both; only a PATCH that touches the
+        rotation flags is judged by the pair it leaves behind."""
+        world.plan.locations["tent"] = make_location(
+            "tent", location_type_key="tent", rotation_exempt=True, rotation_enabled=True
+        )
+
+        response = client().patch(f"{_BASE}/locations/tent", json=sent)
+
+        assert response.status_code == 200, response.text
+
+    def test_rotation_exempt_cannot_be_null(self, client, world) -> None:
+        response = client().patch(f"{_BASE}/locations/bed", json={"rotation_exempt": None})
+
+        assert response.status_code == 422
+        assert response.json()["error_code"] == "VALIDATION_ERROR", response.text
+        # The null guard is a body-level validator shared by every non-clearable field: it reports ``body`` and
+        # names the field in the reason.
+        details = response.json()["details"]
+        assert [(d["field"], d["code"]) for d in details] == [("body", "value_error")], response.text
+        assert "rotation_exempt cannot be null" in details[0]["reason"]
+        assert world.plan.locations["bed"].rotation_exempt is False
+
+    def test_a_viewer_cannot_switch(self, client, world, containers) -> None:
+        response = client(TenantRole.VIEWER).patch(f"{_BASE}/locations/tent", json={"rotation_enabled": True})
+
+        assert response.status_code == 403
+        assert world.plan.locations["tent"].rotation_enabled is None
 
 
 class TestRotationTimeline:

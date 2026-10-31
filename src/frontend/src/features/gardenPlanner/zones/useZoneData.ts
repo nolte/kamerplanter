@@ -28,21 +28,31 @@ export function useIrrigationZones(
   const [answer, setAnswer] = useState<{ siteKey: string; items: IrrigationZone[] } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // The last `attempt` whose read finished (answered or failed).
+  const [settledAttempt, setSettledAttempt] = useState(0);
+  // A reload asked for after a write is finished even when the panel closes meanwhile: the hatch, the legend and
+  // the bed info read this list too, and would otherwise keep the old assignment until the panel opens again.
+  // Only a change of site or the unmount aborts it.
+  const pendingReload = attempt > settledAttempt;
+  const wanted = fetchEnabled || pendingReload;
 
   useEffect(() => {
-    if (!fetchEnabled) return undefined;
+    if (!wanted) return undefined;
     const abort = new AbortController();
     listZones(siteKey, abort.signal)
       .then((items) => {
         if (abort.signal.aborted) return;
         setAnswer({ siteKey, items });
         setFailed(false);
+        setSettledAttempt(attempt);
       })
       .catch(() => {
-        if (!abort.signal.aborted) setFailed(true);
+        if (abort.signal.aborted) return;
+        setFailed(true);
+        setSettledAttempt(attempt);
       });
     return () => abort.abort();
-  }, [siteKey, fetchEnabled, attempt]);
+  }, [siteKey, wanted, attempt]);
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
   const records = useMemo(() => (answer?.siteKey === siteKey ? answer.items : []), [answer, siteKey]);

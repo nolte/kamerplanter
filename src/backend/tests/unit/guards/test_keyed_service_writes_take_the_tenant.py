@@ -452,7 +452,8 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "GardenResourceService": 12,
     "CareEventService": 7,
     "PlantingReservationService": 6,
-    "GardenPlanExportService": 5,
+    # #2489: measured 9 — the private helpers count too (``_tenant_taking_methods`` walks every method).
+    "GardenPlanExportService": 9,
     "AdjacencyService": 3,
     "GardenPlanImportService": 5,
     "GardenPlanSeasonService": 2,

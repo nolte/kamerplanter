@@ -356,6 +356,8 @@ class TestTargetAndOffsetWp718:
 
 
 class TestSnapshotsWp719:
+    """GP-API-058 (list) and GP-API-059 (restore) on the wire."""
+
     def _replace(self, client) -> None:
         response = client().post(_IMPORT, json=body(a_file(client), dry_run=False, confirm_site_name="Garten"))
         assert response.status_code == 200, response.text

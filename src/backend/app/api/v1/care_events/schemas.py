@@ -80,7 +80,11 @@ class CareEventResponse(BaseModel):
     site_key: str
     location_key: str
     plant_keys: list[str] = Field(default_factory=list)
+    #: Readable names of `plant_keys` in their order (`plant_name`, else `instance_id`); a plant that is gone is
+    #: left out. Lets a history line name the plant without a request per row (#2514).
+    plant_names: list[str] = Field(default_factory=list)
     category: str
+    #: Stored as written (audit, export); the UI words some categories itself, e.g. `position_corrected`.
     summary: str
     performed_at: datetime
     #: Display name, the third party's label, or `anonymisiert`; never an account key.
@@ -124,6 +128,7 @@ def care_event_to_response(view: CareEventView) -> CareEventResponse:
         site_key=event.site_key,
         location_key=event.location_key,
         plant_keys=event.plant_keys,
+        plant_names=view.plant_names,
         category=event.category,
         summary=event.summary,
         performed_at=event.performed_at,

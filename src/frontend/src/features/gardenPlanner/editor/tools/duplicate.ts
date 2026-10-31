@@ -234,7 +234,17 @@ export type MultiDuplicateOutcome =
         | 'geometry.invalid';
       /** Number of the first copy that breaks a rule (1-based), when the code is a geometry one. */
       failedCopy?: number;
+      /** The name that copy's first bed would have carried ("Parzelle 13"); absent when it holds no bed. */
+      failedName?: string;
     };
+
+/** A refusal as the dialog shows it: the code of a `notice.*` text and, for a geometry rule, the first copy that breaks it. */
+export interface MultiRefusal {
+  code: string;
+  failedCopy?: number;
+  /** The name of the first bed of that copy, so the dialog names it as the plan would ("Parzelle 13"). */
+  failedName?: string;
+}
 
 /** The name of a copied bed: the scheme with `{n}` replaced (a scheme without `{n}` gets the number appended). */
 export function multiCopyName(scheme: string, n: number): string {
@@ -299,9 +309,12 @@ export function multiDuplicate(
   let number = options.startNumber;
   for (let k = 1; k <= count; k += 1) {
     const shift = roundLength(sign * k * pitch);
-    const copy = copyAt(plan, source, horizontal ? [shift, 0] : [0, shift], (name) =>
-      options.scheme.trim() === '' ? name : multiCopyName(options.scheme, number++),
-    );
+    let firstName: string | undefined;
+    const copy = copyAt(plan, source, horizontal ? [shift, 0] : [0, shift], (name) => {
+      const given = options.scheme.trim() === '' ? name : multiCopyName(options.scheme, number++);
+      firstName ??= given;
+      return given;
+    });
     if (copy.violation !== null) {
       return {
         ok: false,
@@ -310,6 +323,7 @@ export function multiDuplicate(
             ? 'geometry.outside_parent'
             : 'geometry.invalid',
         failedCopy: k,
+        ...(firstName === undefined ? {} : { failedName: firstName }),
       };
     }
     ops.push(...copy.ops);

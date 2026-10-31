@@ -17,6 +17,17 @@ fetching (GP-NFR-052 (a), (f)).
 (``underlay=True`` on the PDF route; the JSON export and the SVG never carry it), read from the tenant's *own*
 ``garden_plan_underlay`` attachment, re-encoded and shrunk, and laid under the plan figure as a ``data:`` URI.
 The fetcher still sees nothing but ``data:``.
+
+**Plant states and phase colours (GP-UX-005/059/060, #2489).** Below
+:data:`~app.domain.engines.plan_svg_engine.PLANT_COUNTER_THRESHOLD` plants the SVG and the PDF draw each plant with
+its phase colour, lifecycle ring and most urgent badge. The states come from the plant-state repository in one read
+across the beds of the already owned site, in bounded pages, and are assembled by
+:func:`~app.domain.calculators.plant_state_inputs.visual_state_of` — the same function behind
+``GET /locations/{key}/plant-states``, so paper and screen agree. The names of all distinct phase keys come from the
+growth-phase repository in one batched read; a key that is no growth phase (a phase-sequence entry) takes the name the
+plant-state read joined in — the bed view's rule, so a plant has the same colour on screen and on paper. A failing
+read degrades like the underlay: logged, and the plants print as plain circles instead of the export failing. From the
+threshold on nothing is read: each bed prints its counter (GP-NFR-038).
 """
 
 from __future__ import annotations
@@ -24,7 +35,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from time import perf_counter
@@ -36,12 +47,16 @@ from pydantic import BaseModel
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import SiteKey
+from app.domain.calculators.plant_state_calculator import PlantVisualState
+from app.domain.calculators.plant_state_inputs import visual_state_of
 from app.domain.engines.plan_svg_engine import (
     PDF_HEADER_MM,
+    PLANT_COUNTER_THRESHOLD,
     PlanPaper,
     PlanSvg,
     PlanSvgLayer,
     PlanSvgOptions,
+    PlantStateMarks,
     page_size_mm,
     render_plan_svg,
 )
@@ -54,6 +69,8 @@ from app.domain.engines.plan_underlay_engine import (
 )
 from app.domain.engines.print_engine import PrintEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import GardenPlanView
@@ -73,11 +90,15 @@ from app.domain.models.site import Location, Site
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
+from app.domain.services.plant_state_inputs import frost_risk_of
 
 logger = structlog.get_logger(__name__)
 
 _TEMPLATE = "garden_plan.html"
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9_-]")
+#: Plants per plant-state read; a site needs at most ``PLANT_COUNTER_THRESHOLD / page`` reads (+1 to see the end).
+STATE_PAGE_SIZE = 200
+_MAX_STATE_PAGES = PLANT_COUNTER_THRESHOLD // STATE_PAGE_SIZE + 1
 
 
 def _export_error(code: str, message: str) -> PlanError:
@@ -161,6 +182,8 @@ class GardenPlanExportService:
         plan_service: GardenPlanService,
         print_engine: PrintEngine | None = None,
         attachment_service: AttachmentService | None = None,
+        plant_state_repo: IPlantStateRepository | None = None,
+        phase_repo: IPhaseRepository | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
@@ -168,6 +191,9 @@ class GardenPlanExportService:
         self._print = print_engine or PrintEngine()
         #: ``None`` = a caller that never prints the underlay.
         self._attachments = attachment_service
+        #: ``None`` = plants are printed as the uniform symbol (no states, no phase colours).
+        self._plant_states = plant_state_repo
+        self._phases = phase_repo
 
     def _owned_site(self, site_key: SiteKey, *, tenant_key: str) -> Site:
         return require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
@@ -228,9 +254,12 @@ class GardenPlanExportService:
 
     # ── GP-API-006: the SVG ───────────────────────────────────────────────────
 
-    def render_svg(self, site_key: SiteKey, *, tenant_key: str, options: PlanSvgOptions) -> PlanSvg:
+    def render_svg(
+        self, site_key: SiteKey, *, tenant_key: str, options: PlanSvgOptions, now: datetime | None = None
+    ) -> PlanSvg:
         view = self._view(site_key, tenant_key=tenant_key, options=options)
-        return render_plan_svg(view, options)
+        marks = self._plant_marks(view, tenant_key=tenant_key, options=options, now=now)
+        return render_plan_svg(view, options, marks)
 
     # ── GP-API-007: the PDF ───────────────────────────────────────────────────
 
@@ -262,12 +291,14 @@ class GardenPlanExportService:
         options: PlanSvgOptions,
         bed_list: bool = False,
         underlay: UnderlayImage | None = None,
+        now: datetime | None = None,
     ) -> PlanPdf:
         """A scaled plan on one page (plus the bed list when asked). 422 ``plan.does_not_fit`` when it cannot."""
         started = perf_counter()
         pdf_options = replace(options, header_mm=PDF_HEADER_MM)
         view = self._view(site_key, tenant_key=tenant_key, options=pdf_options)
-        rendered = render_plan_svg(view, pdf_options)
+        marks = self._plant_marks(view, tenant_key=tenant_key, options=pdf_options, now=now)
+        rendered = render_plan_svg(view, pdf_options, marks)
         if not rendered.fits:
             raise PlanError(
                 "plan.does_not_fit",
@@ -305,6 +336,7 @@ class GardenPlanExportService:
             paper=pdf_options.paper.value,
             beds=len(view.locations),
             plants=len(view.plants),
+            stated_plants=len(marks.states) if marks is not None else 0,
             seconds=round(perf_counter() - started, 3),
         )
         return PlanPdf(
@@ -314,6 +346,103 @@ class GardenPlanExportService:
             suggest_a3=rendered.suggest_a3,
             filename=f"garden-plan-{safe_filename_part(site_key)}.pdf",
         )
+
+    # ── Plant states for the print (#2489) ────────────────────────────────────
+
+    def _plant_marks(
+        self, view: GardenPlanView, *, tenant_key: str, options: PlanSvgOptions, now: datetime | None = None
+    ) -> PlantStateMarks | None:
+        """The visual state of every plant of ``view`` and the names of their phases, for the SVG writer.
+
+        ``view`` is the read model of a site this service has already resolved through the tenant anchor; its beds
+        are therefore the tenant's, and every plant-state read still filters on ``tenant_key``. ``None`` when the
+        plants layer is off, when there is no plant-state source, or from the counter threshold on (nothing is read).
+        """
+        if (
+            self._plant_states is None
+            or PlanSvgLayer.PLANTS not in options.layers
+            or not view.plants
+            or len(view.plants) >= PLANT_COUNTER_THRESHOLD
+        ):
+            return None
+        moment = now if now is not None else datetime.now(UTC)
+        wanted = {plant.key for plant in view.plants}
+        slot_beds = {slot.key: slot.location_key for slot in view.slots}
+        bed_keys = {plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
+        beds = {loc.key: loc for loc in view.locations if loc.key and loc.key in bed_keys}
+        frost_risk = {key: frost_risk_of(bed) for key, bed in beds.items()}
+        plant_beds = {plant.key: plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
+        states: dict[str, PlantVisualState] = {}
+        row_names: dict[str, str] = {}
+        try:
+            standing = self._standing_plants(sorted(beds), tenant_key=tenant_key, now=moment, site_key=view.site_key)
+            for row in standing:
+                if row.plant_key not in wanted:
+                    continue
+                bed_frost = frost_risk.get(plant_beds.get(row.plant_key) or "", False)
+                states[row.plant_key] = visual_state_of(row, frost_risk=bed_frost, now=moment)
+                if row.phase_key and row.phase_name and row.phase_name.strip():
+                    row_names.setdefault(row.phase_key, row.phase_name)
+            phase_names = self._phase_names(
+                {state.phase_key for state in states.values() if state.phase_key}, fallback=row_names
+            )
+        except Exception as exc:  # noqa: BLE001 — the states are an overlay: a failed read prints plain circles
+            # Like the underlay: the plan is printed without the overlay rather than refused (no 500). Only the
+            # site and the error class are logged — no plant, bed or tenant data, no message that could carry them.
+            logger.warning("garden_plan.plant_states_unavailable", site_key=view.site_key, error=type(exc).__name__)
+            return None
+        logger.info(
+            "garden_plan.plant_states_resolved",
+            site_key=view.site_key,
+            beds=len(beds),
+            plants=len(states),
+            phases=len(phase_names),
+        )
+        return PlantStateMarks(states=states, phase_names=phase_names)
+
+    def _standing_plants(
+        self, bed_keys: list[str], *, tenant_key: str, now: datetime, site_key: str
+    ) -> list[PlantStateSource]:
+        """Every standing plant of the site's beds in one site-wide read, paged by :data:`STATE_PAGE_SIZE` and at most
+        :data:`_MAX_STATE_PAGES` pages — a fixed number of statements per page, not per bed (#2489).
+
+        A plant beyond the last page gets no state and prints as the plain circle; hitting the cap is logged. The
+        caller reads only below :data:`PLANT_COUNTER_THRESHOLD` plants, so the cap holds a whole page more than the
+        site can have — reaching it means the plan's plant count and the plant-state read disagree."""
+        if self._plant_states is None or not bed_keys:
+            return []
+        rows: list[PlantStateSource] = []
+        for page in range(_MAX_STATE_PAGES):
+            window = self._plant_states.list_plants_in_beds(
+                bed_keys, tenant_key=tenant_key, now=now, offset=page * STATE_PAGE_SIZE, limit=STATE_PAGE_SIZE
+            )
+            rows += window
+            if len(window) < STATE_PAGE_SIZE:
+                return rows
+        logger.warning(
+            "garden_plan.plant_state_page_cap_reached",
+            site_key=site_key,
+            pages=_MAX_STATE_PAGES,
+            rows=len(rows),
+            note="unreachable below the plant counter threshold; plants beyond the cap print without a state",
+        )
+        return rows
+
+    def _phase_names(self, phase_keys: set[str], *, fallback: Mapping[str, str]) -> dict[str, str]:
+        """``phase key → name``: the growth-phase name where the key is a growth phase (one batched read for all
+        distinct keys, not one per key), else the name the plant-state read joined in (``fallback``) — a
+        phase-sequence entry key is no growth phase.
+
+        The rule of the bed view (``BedPlanTab``): the plant-states answer names the phase, the fetched growth-phase
+        name wins where there is one. So a plant prints in the colour it has on screen."""
+        found = self._phases.get_phase_names(phase_keys) if self._phases is not None and phase_keys else {}
+        names: dict[str, str] = {}
+        for key in sorted(phase_keys):
+            if found.get(key):
+                names[key] = found[key]
+            elif key in fallback:
+                names[key] = fallback[key]
+        return names
 
     # ── helpers ───────────────────────────────────────────────────────────────
 

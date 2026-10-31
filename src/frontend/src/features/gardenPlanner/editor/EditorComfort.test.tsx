@@ -6,6 +6,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api/errors';
+import i18n from '@/i18n/i18n';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { planResponse } from '@/test/gardenPlanFixtures';
 import * as api from '../api/gardenPlan';
@@ -25,6 +26,7 @@ vi.mock('../api/gardenPlan', async (importOriginal) => ({
 const listLocationTypes = vi.hoisted(() => vi.fn());
 vi.mock('@/api/endpoints/sites', () => ({ listLocationTypes }));
 
+const ORIGINAL_LANGUAGE = i18n.language;
 const getGardenPlan = vi.mocked(api.getGardenPlan);
 const applyPlanBatch = vi.mocked(api.applyPlanBatch);
 const listBedTemplates = vi.mocked(api.listBedTemplates);
@@ -87,17 +89,95 @@ describe('object snap (GP-FR-012, GP-FR-154)', () => {
     expect(originOf(t, 'solo')).toEqual([8, 5]);
   });
 
-  it('shows the edge as a guide while the pointer is on it', () => {
+  it('snaps the left edge of the moved bed to the right edge of another and marks the snapped corner', () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    // solo (14..16 x 2..4) dragged by (-5.9, 0.5): its left edge is 0.1 m (4 px) right of b2's right edge x = 8.
+    // It ends at 8..10 x 2.5..4.5 beside b2 - free, as two overlapping beds could not be saved (V-05).
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(14, 3.5)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(9.1, 3.5)));
+    });
+    const marker = screen.getByTestId('garden-plan-snap-marker');
+    expect(marker).toHaveAttribute('data-kind', 'edge');
+    const ring = marker.querySelector('circle')!;
+    // the marker sits on the snapped source - solo's upper-left corner at (8, 4.5) - not on the pointer
+    expect(Number(ring.getAttribute('cx'))).toBeCloseTo(8 * 40, 3);
+    expect(Number(ring.getAttribute('cy'))).toBeCloseTo((20 - 4.5) * 40, 3);
+    const guide = screen.getByTestId('garden-plan-snap-guide');
+    expect([guide.getAttribute('x1'), guide.getAttribute('x2')]).toEqual(['320', '320']);
+    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(9.1, 3.5))));
+    expect(originOf(t, 'solo')).toEqual([8, 2.5]);
+  });
+
+  it('leaves no marker behind after a drag of a single pointer move (#2536)', () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    // the one move turns the press into a move AND is the last move before the release
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(9.1, 3.5)));
+      fireEvent.pointerUp(t.canvas(), pointer(px(9.1, 3.5)));
+    });
+    expect(originOf(t, 'solo')).toEqual([8, 2.5]);
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+  });
+
+  it('shows no pointer marker while a select press stays below the drag threshold', () => {
     const t = setupEditor();
     select(t, 'solo');
     t.after(() => {
       fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
-      // 0.1 m (4 px) beside the bottom edge of b2 (y = 3, x 6..8), away from its corners
-      fireEvent.pointerMove(t.canvas(), pointer(px(7, 3.1)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(15.02, 3)));
+    });
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(15.02, 3))));
+    expect(originOf(t, 'solo')).toEqual([14, 2]);
+  });
+
+  it('still shows the pointer marker while a handle is dragged, and clears it on release', () => {
+    const t = setupEditor();
+    select(t, 'area');
+    // the area's east handle (12, 7) is dragged towards the locked bed's corner (14, 8): the dragged point is the
+    // pointer's, so the marker is the pointer's snap
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(12, 7)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13, 7.5)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13.95, 8.05)));
     });
     const marker = screen.getByTestId('garden-plan-snap-marker');
-    expect(marker).toHaveAttribute('data-kind', 'edge');
-    expect(screen.getByTestId('garden-plan-snap-guide')).toBeInTheDocument();
+    expect(marker).toHaveAttribute('data-kind', 'corner');
+    expect(Number(marker.querySelector('circle')!.getAttribute('cx'))).toBeCloseTo(14 * 40, 3);
+    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(13.95, 8.05))));
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+    // a resize, not a move: the anchor stays, the east edge sits on x = 14
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 2], width_m: 12 });
+  });
+
+  it('clears the marker when the pointer is cancelled mid-drag', () => {
+    const t = setupEditor();
+    select(t, 'area');
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(12, 7)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13, 7.5)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13.95, 8.05)));
+    });
+    expect(screen.getByTestId('garden-plan-snap-marker')).toBeInTheDocument();
+    t.after(() => fireEvent.pointerCancel(t.canvas(), pointer(px(13.95, 8.05))));
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 2], width_m: 10 });
+  });
+
+  it('hides the marker while Alt moves freely', () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(14, 3.5)));
+      fireEvent.pointerMove(t.canvas(), pointer({ ...px(4.9, 3.5), altKey: true }));
+    });
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
   });
 
   it('Alt keeps the exact value', () => {
@@ -137,6 +217,37 @@ describe('align and distribute (GP-FR-029, GP-FR-155)', () => {
     select(t, 'solo', 'lock');
     expect(screen.getByTestId('garden-plan-align-button')).toBeDisabled();
     expect(originOf(t, 'lock')).toEqual([14, 8]);
+  });
+
+  it('distributes beds that overlap along the axis but stand apart side by side, in ONE undo step (#2536)', () => {
+    const t = setupEditor();
+    // b1 and b2 (y 3..5) and solo (y 2..4): 6 m of beds in a 3 m span need a negative gap of -1.5 m - but the three
+    // stand apart in x (3..5, 6..8, 14..16), so nothing gets covered: b2 moves down to y 2.5..4.5
+    select(t, 'b1', 'b2', 'solo');
+    const pastBefore = t.state().past.length;
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-distribute-vertical')));
+    expect(screen.queryByTestId('garden-plan-notice')).toBeNull();
+    expect(originOf(t, 'b2')).toEqual([6, 2.5]);
+    expect(originOf(t, 'b1')).toEqual([3, 3]);
+    expect(originOf(t, 'solo')).toEqual([14, 2]);
+    expect(t.state().past).toHaveLength(pastBefore + 1);
+  });
+
+  it('says why it does not distribute beds stacked on each other, and changes nothing (#2536)', () => {
+    const t = setupEditor();
+    // align b1, b2 and solo on the left first (x 3..5 each): then a vertical distribution would stack them
+    select(t, 'b1', 'b2', 'solo');
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-left')));
+    const pastBefore = t.state().past.length;
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-distribute-vertical')));
+    expect(screen.getByTestId('garden-plan-notice')).toHaveTextContent(
+      /aufeinander|on top of each other/,
+    );
+    expect(t.state().past).toHaveLength(pastBefore);
+    expect(originOf(t, 'b2')).toEqual([3, 3]);
   });
 
   it('is disabled for a single selection and distribute needs three', () => {
@@ -368,7 +479,81 @@ describe('multi-duplicate (GP-FR-025, GP-NFR-017)', () => {
     expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(
       /ragt aus ihrem Bereich|sticks out of its area/,
     );
+    // solo (x 14..16) to the right, 0.5 m apart: copy 1 at 16.5..18.5 fits, copy 2 at 19..21 leaves the garden;
+    // the dialog names it as the plan would have: the second number of the scheme
+    expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(
+      /„Parzelle 2“ ist die erste Kopie|“Plot 2” is the first copy/,
+    );
     expect(t.state().past).toHaveLength(0);
+  });
+
+  it('names the failed copy by its number from the start number, not by the round (#2536)', async () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    openDialog(t);
+    await screen.findByTestId('garden-plan-multi-dialog');
+    set('garden-plan-multi-count', '30');
+    set('garden-plan-multi-scheme', 'Plot {n}');
+    set('garden-plan-multi-start', '12');
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-multi-submit')));
+    expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(/[„“]Plot 13[“”]/);
+    expect(screen.getByTestId('garden-plan-multi-error')).not.toHaveTextContent(/Kopie 2\b|Copy 2\b/);
+  });
+
+  it.each([
+    ['de', '0,5'],
+    ['en', '0.5'],
+  ])('prefills the spacing in the number format of the language (%s) and takes it back unchanged', async (language, shown) => {
+    await act(() => i18n.changeLanguage(language));
+    try {
+      const t = setupEditor();
+      select(t, 'b1');
+      openDialog(t);
+      await screen.findByTestId('garden-plan-multi-dialog');
+      expect((screen.getByTestId('garden-plan-multi-spacing') as HTMLInputElement).value).toBe(shown);
+      set('garden-plan-multi-count', '1');
+      set('garden-plan-multi-direction', 'up');
+      set('garden-plan-multi-scheme', 'Plot {n}');
+      t.after(() => fireEvent.click(screen.getByTestId('garden-plan-multi-submit')));
+      const copy = Object.values(t.state().plan!.locations).find((l) => l.name === 'Plot 1');
+      // b1 is 3..5 in y: the default 0.5 m above it the copy starts at y = 5.5
+      expect((copy?.geometry as { origin: Point }).origin).toEqual([3, 5.5]);
+    } finally {
+      await act(() => i18n.changeLanguage(ORIGINAL_LANGUAGE));
+    }
+  });
+
+  it('prefills a centimetre spacing without a separator in German (#2536)', async () => {
+    window.localStorage.setItem('kp_garden_plan_length_unit', 'cm');
+    await act(() => i18n.changeLanguage('de'));
+    try {
+      const t = setupEditor();
+      select(t, 'b1');
+      openDialog(t);
+      await screen.findByTestId('garden-plan-multi-dialog');
+      expect((screen.getByTestId('garden-plan-multi-spacing') as HTMLInputElement).value).toBe('50');
+    } finally {
+      await act(() => i18n.changeLanguage(ORIGINAL_LANGUAGE));
+    }
+  });
+
+  it('shows and takes the spacing in the length unit the user chose, and stores metres (#2536)', async () => {
+    window.localStorage.setItem('kp_garden_plan_length_unit', 'cm');
+    const t = setupEditor();
+    select(t, 'b1');
+    openDialog(t);
+    await screen.findByTestId('garden-plan-multi-dialog');
+    const spacing = screen.getByTestId('garden-plan-multi-spacing') as HTMLInputElement;
+    expect(spacing.value).toBe('50');
+    expect(spacing.closest('.MuiInputBase-root')).toHaveTextContent('cm');
+    set('garden-plan-multi-count', '1');
+    set('garden-plan-multi-direction', 'up');
+    set('garden-plan-multi-spacing', '100');
+    set('garden-plan-multi-scheme', 'Plot {n}');
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-multi-submit')));
+    const copy = Object.values(t.state().plan!.locations).find((l) => l.name === 'Plot 1');
+    // b1 is 3..5 in y: one metre above it the copy starts at y = 6
+    expect((copy?.geometry as { origin: Point }).origin).toEqual([3, 6]);
   });
 
   it('previews the numbers over all selected beds, and says so when only objects are selected', async () => {
@@ -446,6 +631,44 @@ describe('bed templates (GP-FR-043/044/045)', () => {
     await waitFor(() => expect(getGardenPlan).toHaveBeenCalled());
     // a pointer press with the tool on selects nothing
     expect(t.state().pending).toHaveLength(0);
+  });
+
+  it('"Place at centre" puts the middle of the turned template, not its anchor, in the middle of the view (#2536)', async () => {
+    placeBedTemplate.mockResolvedValue({
+      plan_revision: 8,
+      key_map: { template_bed: 'loc_new' },
+      updated: [],
+      deleted: [],
+      derived: {},
+    });
+    getGardenPlan.mockResolvedValue(planResponse());
+    const t = setupEditor();
+    await openTool(t);
+    await pick('My herb bed');
+    fireEvent.click(screen.getByTestId('garden-plan-template-rotate'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('garden-plan-template-place-center'));
+    });
+    await waitFor(() => expect(placeBedTemplate).toHaveBeenCalledTimes(1));
+    // view middle (10, 10); the 2 x 1 m rect turned by 90 degrees spans x -1..0, y 0..2 about its anchor,
+    // so its middle (-0.5, 1) lands on (10, 10) with the anchor at (10.5, 9)
+    expect(placeBedTemplate.mock.calls[0][1]).toMatchObject({ origin: [10.5, 9], rotation_deg: 90 });
+  });
+
+  it('draws the ghost red and says so where the template would leave the garden (#2536)', async () => {
+    const t = setupEditor();
+    await openTool(t);
+    await pick('My herb bed');
+    fireEvent.pointerMove(t.canvas(), pointer(px(19, 10)));
+    expect(screen.getByTestId('garden-plan-template-ghost')).toHaveAttribute('data-invalid', 'true');
+    expect(screen.getByTestId('garden-plan-template-hint')).toHaveTextContent(
+      /passt hier nicht|does not fit here/,
+    );
+    fireEvent.pointerMove(t.canvas(), pointer(px(10, 10)));
+    expect(screen.getByTestId('garden-plan-template-ghost')).toHaveAttribute('data-invalid', 'false');
+    expect(screen.getByTestId('garden-plan-template-hint')).not.toHaveTextContent(
+      /passt hier nicht|does not fit here/,
+    );
   });
 
   it('saves unsaved edits first, and places nothing when that fails', async () => {

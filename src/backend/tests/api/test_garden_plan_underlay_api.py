@@ -1,5 +1,7 @@
 """REQ-053 WP 7.14 (#2480) - the underlay on the wire: PUT/DELETE ``/plan/underlay``, the read model, the PDF option.
 
+Row: GP-API-060.
+
 ``app.main`` with the real tenant gate; the repository and the attachments are doubles. What is measured is what a
 client receives: the role gate, the 422 of a non-finite number (``Infinity`` once answered 500 on a sibling route),
 the 422 ``reference.not_found`` of an attachment that is not the caller's own, the plan read model carrying the

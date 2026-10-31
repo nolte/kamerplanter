@@ -43,10 +43,8 @@ import { useBedSheet } from './useBedSheet';
 const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
 const PlantingDialog = lazy(() => import('../planting/PlantingDialog'));
 const PositionCorrectionDialog = lazy(() => import('../planting/PositionCorrectionDialog'));
-const PlantPhotoUploadDialog = lazy(() => import('@/pages/pflanzen/photos/PlantPhotoUploadDialog'));
+const PlantPhotoUploadDialog = lazy(() => import('@/components/photos/PlantPhotoUploadDialog'));
 
-/** Field mode moves a plant by 10 cm per step (§18.1 step 9, F-16). */
-export const FIELD_STEP_CM = 10;
 /** Long press before a marker can be dragged (GP-UX-023). */
 export const FIELD_LONG_PRESS_MS = 500;
 
@@ -307,8 +305,9 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             bedKey={bed.key}
             slotKey={overlay.plant.slot_key}
             plantLabel={overlay.plant.instance_id}
-            stepCm={FIELD_STEP_CM}
-            showBigSteps={false}
+            // No stepCm: field mode moves by the dialog's own STEP_CM (10 cm, §18.1 step 9, F-16), one constant for
+            // both modes; the fine steps are the desktop's choice and stay off here.
+            showFineSteps={false}
             touchTarget={KIOSK_TOUCH_TARGET}
             dragHoldMs={FIELD_LONG_PRESS_MS}
             onClose={closeOverlay}

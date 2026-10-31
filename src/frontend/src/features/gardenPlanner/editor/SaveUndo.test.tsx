@@ -529,6 +529,7 @@ describe('layer switch (GP-FR-031)', () => {
       sun: false,
       moisture: false,
       frost: false,
+      plantState: false,
     });
     cleanup();
     setupEditor({ plan: plan() });

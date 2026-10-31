@@ -659,7 +659,10 @@
       "hardening_off": "Abhärtung",
       "budding": "Knospenbildung",
       "corm_ripening": "Knollenreife",
-      "tuber_formation": "Knollenbildung"
+      "tuber_formation": "Knollenbildung",
+      "drying": "Trocknung",
+      "curing": "Aushärtung",
+      "cloning": "Klonen"
     },
     "waterSource": {
       "tank": "Tank",

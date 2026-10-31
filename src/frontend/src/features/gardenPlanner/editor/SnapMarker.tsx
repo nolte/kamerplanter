@@ -5,14 +5,9 @@
  */
 import { useTheme } from '@mui/material/styles';
 import type { Point } from '../model/types';
-import type { SnapKind } from './tools/snap';
+import type { SnapMark } from './tools/snap';
 
-export interface SnapMark {
-  point: Point;
-  kind: Exclude<SnapKind, 'none'>;
-  /** The object edge the point sits on (`kind = 'edge'`), drawn as a solid guide along that edge. */
-  guide?: readonly [Point, Point];
-}
+export type { SnapMark };
 
 interface SnapMarkerProps {
   mark: SnapMark;

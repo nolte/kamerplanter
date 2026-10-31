@@ -81,6 +81,7 @@ describe('BedHistoryTab - the list (GP-ACC-027)', () => {
         careItem('w1', { summary: 'Watered the tomatoes', quantity: 2, unit: 'l', performed_by: 'Sabine' }),
         plantedItem('pl_1', 'TOM-1'),
         { ...plantedItem('pl_1', 'TOM-1', '2026-09-30T00:00:00Z'), id: 'plant_removed:pl_1', kind: 'plant_removed', category: 'removal', termination_type: 'harvested' },
+        careItem('p1', { category: 'position_corrected', summary: 'Position corrected (BED_001)', plant_keys: ['pl_1'], plant_names: ['TOM-1'] }),
       ],
       timeline: timeline(FIVE_YEARS),
     });
@@ -92,6 +93,9 @@ describe('BedHistoryTab - the list (GP-ACC-027)', () => {
     expect(care).toHaveTextContent('by Sabine');
     expect(screen.getByTestId('history-item-plant_planted:pl_1')).toHaveTextContent('TOM-1 planted');
     expect(screen.getByTestId('history-item-plant_removed:pl_1')).toHaveTextContent('TOM-1 removed (harvested)');
+    // #2514: a position correction names the plant, not the slot of the stored summary.
+    expect(screen.getByTestId('history-item-care:p1')).toHaveTextContent('Position corrected: TOM-1');
+    expect(screen.getByTestId('history-item-care:p1')).not.toHaveTextContent('BED_001');
   });
 
   it('marks corrected and cancelled entries', async () => {
@@ -340,6 +344,21 @@ describe('BedHistoryTab - the planting timeline (GP-FR-103, GP-ACC-028)', () => 
 
     expect(await screen.findByTestId('timeline-not-applicable')).toHaveTextContent(
       'The crop rotation check is off for pots, tents and shelves.',
+    );
+  });
+
+  it('says the check is switched off for a bed whose own switch is off (GP-FR-137)', async () => {
+    useHistoryBackend({
+      items: [],
+      timeline: timeline(FIVE_YEARS, {
+        rotation_applicable: false,
+        not_applicable_reason: 'rotation.not_applicable.disabled',
+      }),
+    });
+    renderTab();
+
+    expect(await screen.findByTestId('timeline-not-applicable')).toHaveTextContent(
+      'The crop rotation check is switched off for this bed.',
     );
   });
 

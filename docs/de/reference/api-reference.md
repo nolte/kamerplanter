@@ -139,7 +139,7 @@ DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # Nachtrag
 GET    /api/v1/t/{slug}/care-events                                   # Pflegeprotokoll des ganzen Mandanten
 ```
 
-**`GET …/history`** liefert die gespeicherten Pflegeeinträge des Beets und die aus Pflanzen und Durchläufen **abgeleiteten** Pflanzungsereignisse in einer Liste, neueste zuerst. Jeder Eintrag trägt `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` und `category` (bei Pflanzungsereignissen `planting` oder `removal`). Bei `care_event` steht der ganze Eintrag in `care_event`.
+**`GET …/history`** liefert die gespeicherten Pflegeeinträge des Beets und die aus Pflanzen und Durchläufen **abgeleiteten** Pflanzungsereignisse in einer Liste, neueste zuerst. Jeder Eintrag trägt `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` und `category` (bei Pflanzungsereignissen `planting` oder `removal`). Bei `care_event` steht der ganze Eintrag in `care_event`. Ein Pflegeeintrag nennt hier wie in `GET /care-events` in `plant_names` die lesbaren Namen seiner Pflanzen (`plant_name`, sonst `instance_id`, in der Reihenfolge von `plant_keys`; eine gelöschte Pflanze fehlt), damit die Liste keine Anfrage je Zeile braucht. `summary` bleibt der gespeicherte Text; die App formuliert eine Positionskorrektur selbst mit dem Pflanzennamen.
 
 | Parameter | Standard | Beschreibung |
 |-----------|----------|--------------|
@@ -155,6 +155,49 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 **`POST …/history/backfill`** nimmt `{year, season?, species_key?, family_key?, plan_role}`. `year` liegt zwischen dem laufenden Jahr minus 10 und minus 1 (`422 backfill.year_out_of_range`). Eine Art bestimmt ihre Familie; eine abweichende `family_key` ergibt `422 backfill.family_mismatch`. Nur eine Brache (`plan_role: fallow`) braucht keine Familie. Der Server schreibt den Pflegeeintrag selbst; den `trigger` kann der Client nicht setzen.
 
 **`GET /care-events`** ist das Pflegeprotokoll des ganzen Mandanten mit denselben Filtern plus `location_key` und `include_superseded`. Ohne Zeitraum, Beet- und Pflanzenfilter zeigt es die letzten 90 Tage.
+
+---
+
+### Mischkultur in einem Schritt anlegen (REQ-053)
+
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` legt für jede Art einer Mischkultur einen eigenen Durchlauf auf demselben Beet an, alle in einem Schritt (ab Rolle `grower`). Jeder Eintrag in `runs[]` trägt in `entry.row_assignment` die Reihen (ab 0 gezählt), die seine Art belegt. Jede Reihe gehört genau einer Art: Überschneiden sich die Reihen zweier Einträge, antwortet die API mit `422`, bevor etwas gespeichert wird. Es zählen nur Einträge mit einer Reihen-Anordnung (`grid`, `rows`, `triangular`) und einem `row_assignment`; Fläche (`zone`), freie Positionen (`free`) und Einträge ohne Anordnung belegen keine Reihen. Der Fehler nennt in `details[0].conflicts` die Paare als `{"runs": [i, j], "rows": [...], "rows_total": n}` (Positionen in `runs[]`, die gemeinsamen Reihen aufsteigend und ihre Zahl), höchstens 20 Paare mit je höchstens 50 Reihen; `details[0].pairs_total` nennt die Zahl aller Paare, `details[0].truncated` ist `true`, wenn etwas gekürzt wurde. `details[0].field` zeigt auf den späteren Eintrag des ersten Paars.
+
+!!! note "Grenze der Prüfung"
+    Der Reihenindex bezieht sich auf das Reihenraster des jeweiligen Eintrags (`row_spacing_cm`, `row_direction`, Randabstände). Haben zwei Einträge verschiedene Raster, können ihre Pflanzen trotz disjunkter Indizes an derselben Stelle stehen. Der Pflanzdialog legt alle Arten auf ein gemeinsames Raster; wer die API direkt nutzt, sendet für alle Einträge dieselben Reiheneinstellungen.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `layout.row_assignment_overlap` | Zwei Einträge mit Reihen-Anordnung beanspruchen denselben Reihenindex (gleiches Raster vorausgesetzt, siehe oben) |
+| `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | Die Anordnung einer Art lässt sich nicht berechnen oder sprengt eine Grenze |
+| `422` | `VALIDATION_ERROR` mit `reference.not_found` | Eine Art oder Sorte gibt es nicht oder sie gehört einem anderen Mandanten |
+
+---
+
+### Fruchtfolge-Prüfung je Beet schalten (REQ-053)
+
+`PATCH /api/v1/t/{slug}/locations/{key}` (ab Rolle `grower`) nimmt zwei Felder für die Fruchtfolge-Prüfung, die `POST …/locations/{key}/validate-planting` und `GET …/locations/{key}/rotation` auswerten:
+
+| Feld | Werte | Bedeutung |
+|------|-------|-----------|
+| `rotation_enabled` | `true`, `false`, `null` | `true` schaltet die Prüfung für dieses Beet ein, auch für Töpfe (`planter`), Zelte (`tent`) und Regale (`shelf`), bei denen sie sonst aus ist. `false` schaltet sie aus. `null` (Standard) folgt dem Standorttyp |
+| `rotation_exempt` | `true`, `false` | Dauerkultur (Spargel, Beerensträucher): die Prüfung ist aus, was immer `rotation_enabled` sagt. `null` ist nicht erlaubt |
+
+Ist die Prüfung aus, antworten beide Routen mit `rotation_applicable: false` und dem Grund in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (vom Beet ausgeschaltet) oder `rotation.not_applicable.container` (Topf, Zelt, Regal ohne Schalter). Beide Felder stehen auch in der JSON-Sicherung des Gartenplans; eine ältere Datei ohne sie ergibt ein Beet, das nicht ausgenommen ist und dem Standorttyp folgt. Beide müssen in der Datei JSON-Booleans sein (`"yes"` oder `1` ergibt `validation.invalid`), und ein Beet mit beiden auf `true` weist der Import mit `import.rotation_exempt_and_enabled` zurück.
+
+Der Schalter gilt auch für die Prüfung je Pflanzplatz: Ist die Prüfung für ein Beet aus, lehnen `POST …/plant-instances` mit `slot_key` und `POST …/planting-runs/{key}/create-plants` eine Pflanzung in diesem Beet nicht mehr mit `ROTATION_VIOLATION` ab, und `POST …/plant-instances/slots/{slot_key}/validate-planting` meldet sie als zulässig.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `patch.rotation_exempt_and_enabled` | Nach der Änderung wären `rotation_exempt` und `rotation_enabled` beide `true`; zum Ausnehmen eines eingeschalteten Beets `rotation_enabled: null` mitsenden |
+| `422` | `VALIDATION_ERROR` | `rotation_exempt: null` oder ein Wert, der kein Boolean ist |
 
 ---
 
@@ -184,7 +227,7 @@ GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON-Sicherung
 
 Die Antwort trägt `X-Plan-Scale` (zum Beispiel `1:50`). `X-Plan-Suggested-Paper: a3` erscheint, wenn A4 einen gröberen Maßstab als 1:200 bräuchte.
 
-Das PDF enthält keine Mitgliedsnamen, Zuweisungen, Notizen oder Koordinaten. Das SVG nutzt Millimeter im `viewBox` (1 m = 1 000 Einheiten) und kommt als Anhang mit `X-Content-Type-Options: nosniff` und `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. Die JSON-Sicherung trägt `schema_version: "1"` mit Planeinstellungen, Standorten, Pflanzplätzen und Gartenobjekten, aber ohne Pflanzen, Aufgaben, Ereignisse oder Kontoverweise.
+Das PDF enthält keine Mitgliedsnamen, Zuweisungen, Notizen oder Koordinaten. Das SVG nutzt Millimeter im `viewBox` (1 m = 1 000 Einheiten) und kommt als Anhang mit `X-Content-Type-Options: nosniff` und `Content-Security-Policy: default-src 'none'` (das SVG trägt kein `style`-Element und kein `style`-Attribut). Die JSON-Sicherung trägt `schema_version: "1"` mit Planeinstellungen, Standorten, Pflanzplätzen und Gartenobjekten, aber ohne Pflanzen, Aufgaben, Ereignisse oder Kontoverweise.
 
 **Fehlercodes:**
 
@@ -229,6 +272,8 @@ Die Antwort ist für Dry-Run und ausgeführten Import derselbe Bericht: `would_c
 
 Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt und jeder Pflanzplatz bekommt einen neuen Schlüssel. Ein Verweis, der die Datei verlässt, wird nur gegen die Ziel-Site aufgelöst, sonst geleert und in `dropped_references[]` gemeldet. Verknüpfungen zu Home-Assistant-Entitäten und Aktoren werden nie importiert.
 
+Die Frostexposition eines Beets (`frost_exposed` in `locations[]`) steht in der Datei und wird so übernommen, wie sie dort steht; `null` heißt „vom Standorttyp erben“. Fehlt das Feld (eine Datei aus einer älteren Version), leitet der Import es aus `site_conditions.microclimate.frost_risk` ab: `high` wird `true`, `low` wird `false`, alles andere erbt.
+
 **Fehlercodes:**
 
 | HTTP-Status | Code | Bedeutung |
@@ -243,13 +288,20 @@ Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt 
 | `422` | `import.site_name_mismatch` | `replace` ohne den genauen Site-Namen |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` ist nicht endlich oder außerhalb von ±1000 m / gehört nur zu `merge` |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | Die Datei verletzt eine Grenze oder Geometrieregel |
+| `422` | `import.rotation_exempt_and_enabled` | Ein Beet der Datei ist Dauerkultur (`rotation_exempt: true`) und hat zugleich `rotation_enabled: true`; `details[].field` nennt `locations[i].rotation_enabled` |
 | `429` | | Importbudget des Mandanten aufgebraucht; `Retry-After` nennt die Wartezeit |
+
+---
+
+### Gartenplan speichern: Geometriefehler
+
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (die Grenze) und `POST …/plan/batch` (ein Stapel von Operationen) lehnen eine Form, die eine Geometrieregel verletzt, mit `422` `VALIDATION_ERROR` ab (REQ-053). Auf der Grenz-Route trägt ein Eckpunkt oder Ursprung außerhalb des Koordinatenbereichs des Plans (0 bis 1000 m) `code: "geometry.invalid"`; bei einem Eckpunkt eines Polygons oder einer Polylinie trägt der Eintrag zusätzlich `point_index`, die Position des ersten solchen Eckpunkts in `points` (ab 0 gezählt). Die übrigen Formregeln dort (Maße, Anzahl der Eckpunkte, Drehung) antworten mit dem allgemeinen `code: "value_error"`. Im Stapel trägt jeder Geometriefehler `code: "geometry.invalid"`, dazu `op_index` für die Operation und bei einem Eckpunkt `point_index`. Stellplätze und Beetvorlagen speicherst du über eigene Endpunkte im Rahmen des Beets (−1000 bis 1000 m); einen Eckpunkt außerhalb dieses Bereichs melden sie genauso.
 
 ---
 
 ### Frühere Stände des Plans (Snapshots)
 
-Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.
+Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr; ein Standort behält höchstens seine 20 neuesten Snapshots, ein `replace` oder eine Wiederherstellung, die einen 21. schreibt, entfernt den ältesten). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.
 
 ```
 GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # Liste, neueste zuerst, seitenweise (limit/offset)
@@ -257,6 +309,58 @@ POST /api/v1/t/{slug}/sites/{key}/plan/snapshots/{audit_key}/restore    # { "dry
 ```
 
 Die Liste nennt je Snapshot `audit_key`, `revision`, `at`, `summary`, `changed_by_name` und die Zahl der Standorte, Gartenobjekte, Pflanzplätze und Zonen, nie den Plan selbst. Die Wiederherstellung ist ein `replace` mit dem gespeicherten Plan (gleiche Prüfungen, gleicher Bericht wie der Import, `confirm_site_name` ist Pflicht, wenn nicht `dry_run`); der Plan, den sie überschreibt, wird vorher als eigener Snapshot gespeichert. Zonen des Standorts, die der Snapshot nicht nennt, entfallen. `409` `import.not_empty` bei Beeten mit aktiven Pflanzen (`force` hebt das auf). Ein `merge`-Import legt keinen Snapshot an.
+
+---
+
+### Bewässerungszonen, Gießrunde und Zonen-Quote (REQ-053)
+
+Bewässerungszonen gehören zu einem Standort. Lesen darf jedes Mitglied, anlegen, ändern und Beete zuordnen ab „grower", löschen nur die Leitung. Eine Zone oder ein Standort eines anderen Mandanten antwortet wie eine nicht vorhandene mit `404`.
+
+```
+GET|POST         /api/v1/t/{slug}/sites/{key}/irrigation-zones         # Liste seitenweise (limit/offset) | anlegen
+GET|PATCH|DELETE /api/v1/t/{slug}/irrigation-zones/{key}
+PUT              /api/v1/t/{slug}/irrigation-zones/{key}/locations     # { "location_keys": [...] } ersetzt die Beete
+GET              /api/v1/t/{slug}/irrigation-zones/{key}/status        # letzter Vorgang, nächster, Bedarf, Verbrauch, Hinweise
+POST             /api/v1/t/{slug}/irrigation-zones/{key}/log-watering  # Gießrunde
+```
+
+**Beete zuordnen:** Ein Beet gehört zu höchstens einer Zone. Liegt es schon in einer anderen Zone desselben Standorts, verschiebt `PUT …/locations` es ohne Rückfrage; die Antwort nennt das in `moved_from`. Ein Beet außerhalb des Standorts ist `422` `reference.not_found` mit seiner Position.
+
+**Gießrunde:** Body `{ "volume_liters": 60, "allocation": "by_area", "performed_at": null, "summary": "Morgenrunde" }`. `volume_liters` größer als 0 und höchstens 100 000; `allocation` ist `by_area` (nach `area_m2` der Beete) oder `equal`; `summary` höchstens 500 Zeichen. Die Antwort (`201`) nennt `event_keys`, `shares` (Liter je Beet), `allocation`, `performed_at` und `skipped_location_keys` (bei `by_area` die Beete ohne Fläche). Jedes Beet bekommt einen Gießeintrag, alle in einer Transaktion, jeder mit `allocation` gekennzeichnet: Die Menge ist verteilt, nicht gemessen. Je Konto gelten `RATE_LIMIT_ZONE_LOG_WATERING` Runden (Standard 20 pro Minute). Eine Verteilung `by_demand` und eine Runde „Regen — übersprungen" gibt es nicht.
+
+**Zonen-Quote:** Ein Standort hält höchstens 500 Zonen. Wer eine 501. anlegt, bekommt `422` `irrigation_zone.quota_exceeded`; ebenso ein `merge`- oder `replace`-Import, nach dem der Standort mehr als 500 Zonen hätte. Eine Zone der Datei hat keine feste Identität: Spielst du dieselbe Datei zweimal mit `merge` ein, entstehen ihre Zonen zweimal. Hat ein Standort trotzdem mehr als 500 Zonen, antworten `GET /sites/{key}/plan` (mit Zonen), der Export und ein `replace`-Import mit `422` `irrigation_zone.quota_exceeded`, statt die Liste stillschweigend zu kürzen.
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle zu niedrig (Betrachter schreibt, Gärtner löscht) oder technische Kopplung ohne Verwaltungsbereich `technical` |
+| `404` | `ENTITY_NOT_FOUND` | Zone oder Standort nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `irrigation_zone.no_beds`, `irrigation_zone.no_bed_area` | Die Gießrunde hat nichts zu verteilen (keine Beete; bei `by_area` kein Beet mit Fläche) |
+| `422` | `irrigation_zone.quota_exceeded` | Mehr als 500 Zonen am Standort |
+| `422` | `reference.not_found` | Beet, Wasserquelle oder Aktor gehört nicht zum Standort oder Mandanten |
+
+---
+
+### Beetvorlagen und Beet aus Vorlage (REQ-053)
+
+```
+GET|POST     /api/v1/t/{slug}/bed-templates                    # System-Vorlagen und eigene, nach Name, seitenweise
+PATCH|DELETE /api/v1/t/{slug}/bed-templates/{key}
+POST         /api/v1/t/{slug}/sites/{key}/plan/place-template  # { "template_key", "origin": [x, y], "rotation_deg": 0, "expected_revision" }
+```
+
+Vorlagen anlegen und ändern ab „grower", löschen nur die Leitung; System-Vorlagen ändern und löschen nur Plattform-Admins. Ein Mandant hat höchstens 200 eigene Vorlagen (`422` `bed_template.quota_exceeded`). Löschen entfernt den Herkunftsverweis `template_key` an den daraus platzierten Beeten.
+
+`place-template` legt ein Beet über denselben Weg wie ein Stapel mit `create_location` an (eine Transaktion, eine Revision) und antwortet wie der Stapel; `key_map.template_bed` nennt das neue Beet. `origin` ist der Ankerpunkt der Vorlage im Plan (Rechteck: linke untere Ecke, Kreis: Mittelpunkt, Polygon: erster Punkt), `rotation_deg` (0 bis unter 360) wird zur Drehung der Vorlage addiert. Prüfreihenfolge: Vorlage (`422` `reference.not_found`, eine fremde wie eine fehlende), Geometrie (`422` `geometry.invalid`), Lage (`422` `geometry.outside_parent`, `bed.overlap`), zuletzt die Revision (`409` `plan.revision_conflict`). Wiederkehrende Aufgaben einer Vorlage werden nicht angelegt.
+
+---
+
+### Neue Saison aus dem Vorjahr (REQ-053)
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/new-season    # { "year": 2027, "dry_run": true, "expected_revision": null }
+```
+
+**Nur die Leitung.** Je Beet ohne aktive Pflanze legt die Route die Plätze der Anbaudurchläufe, die im Jahr `year − 1` endeten, als freie Pflanzplätze an. Übersprungen und im Bericht genannt werden Beete mit aktiver Pflanze, stillgelegte Beete und Beete, die über 2 000 Plätze kämen. Zonen, Pflanzen, Durchläufe und Historie bleiben unverändert. `dry_run` ist der Standard und schreibt nichts; ohne `dry_run` läuft alles in einer Transaktion mit Eintrag im Änderungsprotokoll. `year` ist eine ganze Zahl und höchstens das nächste Jahr (`422` `season.invalid_year`); ein Plan, der sich seit `expected_revision` geändert hat, ist `409` `plan.revision_conflict`. Es gilt das Importbudget des Mandanten (`RATE_LIMIT_PLAN_IMPORT`). Die Antwort nennt `year`, `source_year`, `dry_run`, `applied`, `plan_revision`, `beds_copied`, `beds_skipped`, `slots_to_create` und je Beet `status` (`copied`, `skipped_active_plants`, `skipped_retired`, `skipped_slot_quota`, `nothing_to_copy`) mit der Zahl der Plätze.
 
 ---
 

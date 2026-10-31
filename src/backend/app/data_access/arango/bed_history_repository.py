@@ -14,6 +14,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.care_event_repository import PLANT_NAMES_AQL, plant_names_of
 from app.domain.interfaces.bed_history_repository import (
     BedHistoryFilter,
     BedHistoryRow,
@@ -25,6 +26,9 @@ from app.domain.interfaces.care_event_repository import CareEventRow
 from app.domain.models.care_event import CareEvent
 
 #: The AQL of one page. ``@want_planting`` / ``@want_removal`` say which derived categories the filters leave in.
+#: The ``care`` subquery projects only what the sort needs; the performer names and the plant names are resolved in
+#: the outer loop *after* ``LIMIT``, so a page costs the lookups of its own lines, not of the bed's whole history
+#: (#2514). A derived line has no ``x.care``: ``e`` is ``null`` there and every lookup short-circuits to nothing.
 _HISTORY_AQL = """
 LET bed_slots = (FOR s IN @@slots FILTER s.location_key == @location_key RETURN s._key)
 LET plants = (
@@ -37,14 +41,7 @@ LET care = (
     FOR e IN @@events
         FILTER e.tenant_key == @tenant_key AND e.location_key == @location_key
         {care_filters}
-        LET by = e.performed_by_user_key == null ? null : DOCUMENT(CONCAT(@users, e.performed_by_user_key))
-        LET for_user = e.performed_for_user_key == null
-            ? null : DOCUMENT(CONCAT(@users, e.performed_for_user_key))
-        RETURN {{
-            id: CONCAT("care:", e._key),
-            ts: DATE_TIMESTAMP(e.performed_at),
-            care: {{event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name}}
-        }}
+        RETURN {{id: CONCAT("care:", e._key), ts: DATE_TIMESTAMP(e.performed_at), care: {{event: e}}}}
 )
 LET planted = @want_planting ? (
     FOR p IN plants
@@ -114,7 +111,16 @@ LET completed = @want_removal ? (
 FOR x IN UNION(care, planted, removed, started, completed)
     SORT x.ts DESC, x.id DESC
     LIMIT @offset, @limit
-    RETURN x
+    LET e = x.care.event
+    LET by = e.performed_by_user_key == null ? null : DOCUMENT(CONCAT(@users, e.performed_by_user_key))
+    LET for_user = e.performed_for_user_key == null ? null : DOCUMENT(CONCAT(@users, e.performed_for_user_key))
+    {plant_names}
+    RETURN x.care == null ? x : MERGE(x, {{
+        care: {{
+            event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name,
+            plant_names: plant_names
+        }}
+    }})
 """
 
 
@@ -171,6 +177,7 @@ class ArangoBedHistoryRepository(IBedHistoryRepository):
             "@runs": col.PLANTING_RUNS,
             "@run_contains": col.RUN_CONTAINS,
             "users": f"{col.USERS}/",
+            "plants": f"{col.PLANT_INSTANCES}/",
             "location_key": location_key,
             "tenant_key": tenant_key,
             "plant_key": criteria.plant_key,
@@ -191,6 +198,7 @@ class ArangoBedHistoryRepository(IBedHistoryRepository):
             removed_window=_window("p.removed_on", date_only=True),
             started_window=_window("r.started_at"),
             completed_window=_window("r.completed_at"),
+            plant_names=PLANT_NAMES_AQL,
         )
         cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=binds))
         return [self._row(row) for row in cursor]
@@ -208,6 +216,7 @@ class ArangoBedHistoryRepository(IBedHistoryRepository):
                     event=event,
                     performed_by_name=care.get("performed_by_name"),
                     performed_for_name=care.get("performed_for_name"),
+                    plant_names=plant_names_of(care.get("plant_names")),
                 ),
             )
         data = row["planting"]

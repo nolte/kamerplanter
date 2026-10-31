@@ -19,13 +19,15 @@ interface Props {
  */
 export function BedZoneInfo({ bedKey, zones, lastWateredAt, nowMs }: Props) {
   const { t } = useTranslation();
-  const zone = zones.find((candidate) => candidate.location_keys.includes(bedKey));
+  // The number is the zone's place in the list, as in the legend and the hatching variant on the plan.
+  const index = zones.findIndex((candidate) => candidate.location_keys.includes(bedKey));
+  const zone = index >= 0 ? zones[index] : undefined;
   const days = lastWateredAt ? daysSince(lastWateredAt, nowMs) : null;
   return (
     <div data-testid="garden-plan-panel-water-info">
       {zone && (
         <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-zone">
-          {t(`${PREFIX}.bed.zone`, { name: zone.name })}
+          {t(`${PREFIX}.bed.zone`, { number: index + 1, name: zone.name })}
         </Typography>
       )}
       <Typography

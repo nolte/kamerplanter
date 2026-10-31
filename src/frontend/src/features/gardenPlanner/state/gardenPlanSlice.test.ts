@@ -36,6 +36,9 @@ function makeStore() {
   return configureStore({ reducer: { gardenPlan: gardenPlanReducer } });
 }
 type Store = ReturnType<typeof makeStore>;
+function makeStoreWith(gardenPlan: ReturnType<Store['getState']>['gardenPlan']) {
+  return configureStore({ reducer: { gardenPlan: gardenPlanReducer }, preloadedState: { gardenPlan } });
+}
 
 const rect = (x: number, y: number): Geometry => ({
   kind: 'rect',
@@ -295,6 +298,41 @@ describe('save', () => {
     expect(plan.locations.loc_n2.parent_location_key).toBe('loc_n1');
     expect(plan.locations.loc_n1.bbox).toEqual([9, 9, 10.2, 11]);
     expect(store.getState().gardenPlan.selection).toEqual([{ entity: 'location', key: 'loc_n1' }]);
+  });
+
+  it('keeps the local bbox and area of a key that still has an operation pending (#2536)', async () => {
+    // Today an edit during a save is refused, so nothing is pending past the sent batch; the state is built
+    // directly to pin the rule for the queue that will allow it (issue #2536, item 4).
+    const store = await loaded();
+    store.dispatch(applyAction([move('loc_a', 5, 5)]));
+    store.dispatch(applyAction([move('loc_b', 8, 8)]));
+    const queued = makeStoreWith({
+      ...store.getState().gardenPlan,
+      inFlight: 1,
+      saveStatus: 'saving',
+    });
+    queued.dispatch(
+      saveGardenPlan.fulfilled(
+        {
+          response: ok({
+            derived: {
+              // what the server derived for the sent move of loc_a, and a stale value for loc_b
+              loc_a: { area_m2: 2.4, bbox: [5, 5, 6.2, 7] },
+              loc_b: { area_m2: 99, bbox: [0, 0, 1, 1] },
+            },
+          }),
+        },
+        'save-1',
+      ),
+    );
+    const plan = queued.getState().gardenPlan.plan!;
+    expect(plan.locations.loc_a.bbox).toEqual([5, 5, 6.2, 7]);
+    // loc_b still waits for its own save: the local derivation of its pending move stays
+    expect(plan.locations.loc_b.bbox).toEqual([8, 8, 9.2, 10]);
+    expect(plan.locations.loc_b.area_m2).toBeCloseTo(2.4, 6);
+    expect(queued.getState().gardenPlan.pending.map((item) => item.op)).toEqual([
+      move('loc_b', 8, 8),
+    ]);
   });
 
   it('after a save, undo queues the counter-operation and makes the plan dirty again (GP-FR-155)', async () => {

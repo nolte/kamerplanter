@@ -112,6 +112,24 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
     def get_phase_by_key(self, key: PhaseKey) -> GrowthPhase | None:
         return self._phases.get_by_key(key)
 
+    def get_phase_names(self, keys: Collection[PhaseKey]) -> dict[PhaseKey, str]:
+        """The names of the growth phases among ``keys`` in one statement (#2489), by primary index.
+
+        ``DOCUMENT`` answers ``null`` for an absent key and for a string that is no valid document key, so an entry
+        key of a phase sequence simply drops out.
+        """
+        wanted = sorted({key for key in keys if key})
+        if not wanted:
+            return {}
+        query = """
+        FOR k IN @keys
+          LET phase = DOCUMENT(@phases, k)
+          FILTER phase != null AND IS_STRING(phase.name) AND phase.name != ""
+          RETURN {key: k, name: phase.name}
+        """
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={"phases": col.GROWTH_PHASES, "keys": wanted}))
+        return {row["key"]: row["name"] for row in cursor}
+
     def get_phase_or_raise(self, key: PhaseKey) -> GrowthPhase:
         return self._phases.get_or_raise(key)
 

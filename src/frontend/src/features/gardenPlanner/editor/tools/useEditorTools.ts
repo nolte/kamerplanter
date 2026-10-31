@@ -38,6 +38,7 @@ import { insertVertex, removeVertex } from './geometryEdit';
 import { computeHandles, type HandleSet } from './handles';
 import { isPlanEntity } from './hierarchy';
 import {
+  anchorSnapMove,
   EMPTY_OVERLAY,
   type ActionLabel,
   type Effect,
@@ -51,6 +52,7 @@ import {
   dragPreview,
   INITIAL_SELECT_STATE,
   isGestureActive,
+  moveSnapMark,
   selectCancel,
   selectDown,
   selectMove,
@@ -60,6 +62,7 @@ import {
   type VertexSelection,
 } from './selectMachine';
 import { selectAll } from './selection';
+import type { SnapMark } from './snap';
 import { firstViolation } from './validation';
 
 export interface EditorToolsOptions {
@@ -83,6 +86,8 @@ export interface EditorToolsOptions {
   onRequestDelete: () => void;
   /** Grid and snap hook (WP 2.5); defaults to rounding to the storage precision. */
   snapPoint?: ToolEnv['snapPoint'];
+  /** Snap of a moved object by all its corners (GP-FR-154); defaults to the anchor through `snapPoint`. */
+  snapMove?: ToolEnv['snapMove'];
   /** Every click adds to the selection, like Shift (the touch "multi-select" toggle, GP-UX-037). */
   additive?: boolean;
   /** The type choice for the next drawn bed / garden object (WP 2.6). */
@@ -104,8 +109,15 @@ export interface EditorTools {
   vertex: VertexSelection | null;
   /** Points placed so far by a polygon/polyline being drawn. */
   draftPoints: number;
-  /** The select gesture or a draw is under way. */
-  busy: boolean;
+  /**
+   * A handle of the selected object is being dragged past the threshold: the dragged point is the pointer's
+   * snapped point, so the pointer's snap marker is right (GP-FR-154). A press, a marquee or a move is not.
+   */
+  handleDragging: boolean;
+  /** A move of the selection is under way: its snap marker is `moveSnap`, not the pointer's. */
+  moving: boolean;
+  /** Where the snapped source of the moved object lands (GP-FR-154); `null` without a snap. */
+  moveSnap: SnapMark | null;
   cancel: () => void;
   finishDraw: () => void;
   /** Touch: set a polygon/line point or a rectangle/circle corner at a canvas pixel. */
@@ -142,9 +154,11 @@ function sampleOf(event: ReactPointerEvent<HTMLElement>, additive = false): Poin
 type EnvSource = Pick<
   EditorToolsOptions,
   'plan' | 'viewport' | 'selection' | 'stack' | 'renderer' | 'angleStepDeg' | 'snapPoint'
->;
+> &
+  Partial<Pick<EditorToolsOptions, 'snapMove'>>;
 
 function envOf(o: EnvSource): ToolEnv {
+  const snapPoint = o.snapPoint ?? defaultSnap;
   return {
     plan: o.plan,
     selection: o.selection,
@@ -153,7 +167,8 @@ function envOf(o: EnvSource): ToolEnv {
     hitTestAll: (pointPx: Point) => o.renderer.hitTestAll(pointPx),
     toModel: (pointPx: Point) => o.renderer.toModel(pointPx),
     toScreen: (pointM: Point) => o.renderer.toScreen(pointM),
-    snapPoint: o.snapPoint ?? defaultSnap,
+    snapPoint,
+    snapMove: o.snapMove ?? anchorSnapMove(snapPoint),
     angleStepDeg: o.angleStepDeg,
   };
 }
@@ -548,7 +563,13 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       ? selectState.vertex
       : null;
   const draftPoints = pointCount(drawState);
-  const busy = isGestureActive(selectState) || drawState.kind !== 'idle';
+  const handleDragging =
+    kind === 'select' && selectState.gesture.kind === 'handle' && selectState.gesture.dragged;
+  const moving = kind === 'select' && selectState.gesture.kind === 'move';
+  const moveSnap = useMemo(
+    () => (kind === 'select' ? moveSnapMark(selectState) : null),
+    [kind, selectState],
+  );
 
   return useMemo(
     () => ({
@@ -557,7 +578,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       handles,
       vertex,
       draftPoints,
-      busy,
+      handleDragging,
+      moving,
+      moveSnap,
       cancel,
       finishDraw,
       placePointAt,
@@ -575,7 +598,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       handles,
       vertex,
       draftPoints,
-      busy,
+      handleDragging,
+      moving,
+      moveSnap,
       cancel,
       finishDraw,
       placePointAt,

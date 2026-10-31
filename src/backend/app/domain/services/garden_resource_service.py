@@ -103,6 +103,8 @@ _PATCH_COLUMNS: tuple[str, ...] = (
     "site_conditions",
     "irrigation_zone_key",
     "frost_exposed",
+    "rotation_exempt",
+    "rotation_enabled",
 )
 
 
@@ -227,6 +229,7 @@ class GardenResourceService:
         self._require_editor(role)
         target_status = self._status_target(location, patch, role)
         self._resolve_references(location, patch, tenant_key=tenant_key)
+        self._check_rotation_switch(location, patch)
 
         fields = self._field_changes(location, patch)
         operations = self._structure_operations(location, patch)
@@ -258,6 +261,30 @@ class GardenResourceService:
         stored = self._owned_location(key, tenant_key=tenant_key)
         site = self._owned_site(stored.site_key, tenant_key=tenant_key)
         return stored, self._revision_of(site)
+
+    @staticmethod
+    def _check_rotation_switch(location: Location, patch: LocationPatch) -> None:
+        """GP-FR-137 (#2544): a permanent crop cannot be switched on - refused before anything is written.
+
+        Only a PATCH that sends ``rotation_exempt`` or ``rotation_enabled`` is judged, so a pair stored before
+        this guard (or by an older import) never blocks an unrelated change. The state after the PATCH counts
+        (sent value, else the stored one): ``rotation_exempt`` would win anyway, so storing both would keep a
+        switch that does nothing. Exempting a switched-on bed sends ``rotation_enabled: null`` (or ``false``) in
+        the same body.
+        """
+        provided = patch.model_fields_set
+        if "rotation_exempt" not in provided and "rotation_enabled" not in provided:
+            # A PATCH that does not touch the flags never fails on a pair stored before the guard (SCR-002).
+            return
+        exempt = patch.rotation_exempt if "rotation_exempt" in provided else location.rotation_exempt
+        enabled = patch.rotation_enabled if "rotation_enabled" in provided else location.rotation_enabled
+        if exempt is True and enabled is True:
+            raise PlanError(
+                "patch.rotation_exempt_and_enabled",
+                "A bed exempt from crop rotation cannot have the rotation check switched on.",
+                status_code=422,
+                field="rotation_enabled",
+            )
 
     @staticmethod
     def _structure_operations(location: Location, patch: LocationPatch) -> list[dict[str, Any]]:
@@ -321,21 +348,25 @@ class GardenResourceService:
 
     @staticmethod
     def _mirror_frost_risk(location: Location, provided: dict[str, Any]) -> None:
-        """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9).
+        """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9, #2512).
 
         Only a *change* counts: a patch that sends other site conditions with an untouched risk must not
         reset an override somebody set on the old field. Clearing the whole value (``site_conditions:
-        null``) is a change to ``unknown`` when a risk was stored. ``normal`` and ``unknown`` mean "no
-        override" and therefore also clear the boolean: the new field is the one that was edited, and the
-        site type decides again.
+        null``) is a change to ``unknown`` when a risk was stored. On a change, ``high`` sets ``True``,
+        ``low`` sets ``False`` and ``unknown`` ("no information") clears the boolean. ``normal`` clears only
+        a stored ``True`` - the exposure the risk no longer claims - and leaves a forced ``False`` (v0098
+        maps it to ``normal``, #2464) and ``None`` untouched (operator decision 2026-10-19, #2512).
         """
         if "site_conditions" not in provided:
             return
         sent = provided["site_conditions"]
         sent_risk = sent.microclimate.frost_risk if sent is not None else FrostRisk.UNKNOWN
         stored = location.site_conditions.microclimate.frost_risk if location.site_conditions else FrostRisk.UNKNOWN
-        if sent_risk is not stored:
-            provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
+        if sent_risk is stored:
+            return
+        if sent_risk is FrostRisk.NORMAL and location.frost_exposed is not True:
+            return
+        provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
 
     def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
         """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""

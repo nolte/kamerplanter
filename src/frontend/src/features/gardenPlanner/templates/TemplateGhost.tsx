@@ -1,6 +1,7 @@
 /**
  * The ghost of a bed template under the pointer (REQ-053 GP-FR-044): the outline of the shape where the click
- * would put it, turned by the chosen angle. Pure drawing; the server places the bed.
+ * would put it, turned by the chosen angle - red where the placement would leave the garden (GP-UX-053, #2536; the
+ * panel's status line says it in words). Pure drawing; the server places the bed.
  */
 import { useTheme } from '@mui/material/styles';
 import { toShape } from '../model/geometry';
@@ -13,6 +14,8 @@ interface TemplateGhostProps {
   rotationDeg: number;
   toScreen: (pointM: Point) => Point;
   pxPerM: number;
+  /** The placement breaks a rule the client can check: drawn in the error colour. */
+  invalid?: boolean;
 }
 
 export function TemplateGhost({
@@ -21,20 +24,22 @@ export function TemplateGhost({
   rotationDeg,
   toScreen,
   pxPerM,
+  invalid = false,
 }: TemplateGhostProps) {
   const { palette } = useTheme();
   const placed = placeGeometry(template.default_geometry, originM, rotationDeg);
   if (!placed) return null;
   const shape = toShape(placed);
+  const color = invalid ? palette.error.main : palette.primary.main;
   const common = {
-    fill: palette.primary.main,
+    fill: color,
     fillOpacity: 0.18,
-    stroke: palette.primary.main,
+    stroke: color,
     strokeWidth: 2,
     strokeDasharray: '6 4',
   };
   return (
-    <g data-testid="garden-plan-template-ghost" pointerEvents="none">
+    <g data-testid="garden-plan-template-ghost" data-invalid={invalid} pointerEvents="none">
       {shape.kind === 'circle' ? (
         <circle
           cx={toScreen(shape.center)[0]}

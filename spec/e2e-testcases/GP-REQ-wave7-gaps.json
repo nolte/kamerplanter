@@ -1,0 +1,17 @@
+{
+  "GP-FR-025": {
+    "partial": true,
+    "reason": "Multi-duplicate (the SHOULD part) is tested. The MUST part of the same row is not met: `Ctrl/Cmd+D` has no key handler (`useEditorShortcuts.ts` handles only Ctrl+S/Z/Y, `useEditorTools.ts` only Ctrl+A), and a duplicated bed starts without slots because the closed batch operation list has no `create_slot` (`duplicate.ts`; #2466 item 8 decided: no `create_slot`). Follow-up issue still to be opened",
+    "issue": 2493
+  },
+  "GP-FR-111": {
+    "partial": true,
+    "reason": "The water-source model carries `water_source_kind`, `capacity_liters` and `last_refilled_at`, and the zone status turns the capacity into a days-of-supply hint (tested). The editor offers no field for any of the three (a new water source is always `tap`); they are written only through the API (batch `create_garden_object` / `update_fields` props, GP-API-013). Follow-up issue still to be opened",
+    "issue": 2493
+  },
+  "GP-FR-117": {
+    "partial": true,
+    "reason": "The round divided `by_area` or `equal`, marked as allocated, is tested (unit, API, integration, E2E TC-053-046). Not implemented: `allocation = by_demand` (the decision of #2466 item 1 ties it to the zone demand of WP 7.5, which is merged; `CareEventAllocation` has no such value) and \"Regen - übersprungen\" (#2466 item 2: one `care_event(rainfall)` per bed; no route, no dialog action - TC-053-047 is therefore not automatable)",
+    "issue": 2466
+  }
+}

@@ -139,7 +139,7 @@ DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # take a b
 GET    /api/v1/t/{slug}/care-events                                   # care log of the whole tenant
 ```
 
-**`GET …/history`** returns the stored care entries of the bed and the planting events **derived** from plants and runs in one list, newest first. Every item carries `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` and `category` (`planting` or `removal` for planting events). For `care_event` the whole entry is in `care_event`.
+**`GET …/history`** returns the stored care entries of the bed and the planting events **derived** from plants and runs in one list, newest first. Every item carries `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` and `category` (`planting` or `removal` for planting events). For `care_event` the whole entry is in `care_event`. Here as in `GET /care-events`, a care entry lists the readable names of its plants in `plant_names` (`plant_name`, else `instance_id`, in the order of `plant_keys`; a deleted plant is missing), so the list needs no request per row. `summary` stays the stored text; the app words a position correction itself, with the plant's name.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -155,6 +155,49 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 **`POST …/history/backfill`** takes `{year, season?, species_key?, family_key?, plan_role}`. `year` lies between the current year minus 10 and minus 1 (`422 backfill.year_out_of_range`). A species names its family; a differing `family_key` is `422 backfill.family_mismatch`. Only a fallow year (`plan_role: fallow`) needs no family. The server writes the care entry itself; a client cannot set the `trigger`.
 
 **`GET /care-events`** is the care log of the whole tenant with the same filters plus `location_key` and `include_superseded`. Without a period, bed or plant filter it shows the last 90 days.
+
+---
+
+### Create a mixed culture in one step (REQ-053)
+
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Only items with a row layout (`grid`, `rows`, `triangular`) and a `row_assignment` take part; an area (`zone`), free positions (`free`) and items without a layout take no rows. The error names the pairs in `details[0].conflicts` as `{"runs": [i, j], "rows": [...], "rows_total": n}` (positions in `runs[]`, the shared rows in ascending order and their count), at most 20 pairs with at most 50 rows each; `details[0].pairs_total` gives the number of all pairs, and `details[0].truncated` is `true` when anything was cut. `details[0].field` points at the later item of the first pair.
+
+!!! note "Limit of the check"
+    The row index refers to the row grid of its own item (`row_spacing_cm`, `row_direction`, edge margins). When two items use different grids, their plants can stand at the same spot although the index sets are disjoint. The planting dialog lays all species out on one shared grid; when you call the API directly, send the same row settings for every item.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `layout.row_assignment_overlap` | Two items with a row layout claim the same row index (assuming the same grid, see above) |
+| `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | The layout of one species cannot be computed or exceeds a limit |
+| `422` | `VALIDATION_ERROR` with `reference.not_found` | A species or cultivar does not exist or belongs to another tenant |
+
+---
+
+### Switch the crop rotation check per bed (REQ-053)
+
+`PATCH /api/v1/t/{slug}/locations/{key}` (role `grower` or higher) takes two fields for the crop rotation check that `POST …/locations/{key}/validate-planting` and `GET …/locations/{key}/rotation` evaluate:
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| `rotation_enabled` | `true`, `false`, `null` | `true` switches the check on for this bed, also for pots (`planter`), tents (`tent`) and shelves (`shelf`), where it is otherwise off. `false` switches it off. `null` (default) follows the location type |
+| `rotation_exempt` | `true`, `false` | Permanent crop (asparagus, berry shrubs): the check is off whatever `rotation_enabled` says. `null` is not allowed |
+
+When the check is off, both routes answer `rotation_applicable: false` with the reason in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (switched off for the bed) or `rotation.not_applicable.container` (pot, tent, shelf without a switch). Both fields are also part of the garden plan's JSON backup; an older file without them gives a bed that is not exempt and follows its location type. In the file both must be JSON booleans (`"yes"` or `1` gives `validation.invalid`), and the import refuses a bed with both set to `true` with `import.rotation_exempt_and_enabled`.
+
+The switch also governs the check per plant place: when the check is off for a bed, `POST …/plant-instances` with a `slot_key` and `POST …/planting-runs/{key}/create-plants` no longer refuse a planting in that bed with `ROTATION_VIOLATION`, and `POST …/plant-instances/slots/{slot_key}/validate-planting` reports it as valid.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `patch.rotation_exempt_and_enabled` | After the change both `rotation_exempt` and `rotation_enabled` would be `true`; to exempt a switched-on bed, send `rotation_enabled: null` with it |
+| `422` | `VALIDATION_ERROR` | `rotation_exempt: null` or a value that is not a boolean |
 
 ---
 
@@ -184,7 +227,7 @@ GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON backup
 
 The response carries `X-Plan-Scale` (for example `1:50`). `X-Plan-Suggested-Paper: a3` appears when A4 would need a scale coarser than 1:200.
 
-The PDF contains no member names, assignments, notes or coordinates. The SVG uses millimetres in its `viewBox` (1 m = 1,000 units) and is delivered as an attachment with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. The JSON backup carries `schema_version: "1"` with the plan settings, locations, slots and garden objects, but no plants, tasks, events or account references.
+The PDF contains no member names, assignments, notes or coordinates. The SVG uses millimetres in its `viewBox` (1 m = 1,000 units) and is delivered as an attachment with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'` (the SVG carries no `style` element or attribute). The JSON backup carries `schema_version: "1"` with the plan settings, locations, slots and garden objects, but no plants, tasks, events or account references.
 
 **Error codes:**
 
@@ -229,6 +272,8 @@ The answer is the same report for a dry run and an applied import: `would_create
 
 Keys of the file are never kept: every location, garden object and slot gets a new key. A reference that leaves the file is resolved against the target site only, otherwise it is set to empty and reported in `dropped_references[]`. Links to Home Assistant entities and actuators are never imported.
 
+The frost exposure of a bed (`frost_exposed` in `locations[]`) is part of the file and is taken over as it stands there; `null` means "inherit from the site type". If the field is missing (a file from an older version), the import derives it from `site_conditions.microclimate.frost_risk`: `high` becomes `true`, `low` becomes `false`, everything else inherits.
+
 **Error codes:**
 
 | HTTP status | Code | Meaning |
@@ -243,13 +288,20 @@ Keys of the file are never kept: every location, garden object and slot gets a n
 | `422` | `import.site_name_mismatch` | `replace` without the exact site name |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` is not finite or beyond ±1000 m / belongs to `merge` only |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | The file breaks a limit or a geometry rule |
+| `422` | `import.rotation_exempt_and_enabled` | A bed of the file is a permanent crop (`rotation_exempt: true`) and has `rotation_enabled: true` as well; `details[].field` names `locations[i].rotation_enabled` |
 | `429` | | Import budget of the tenant used up; `Retry-After` names the wait |
+
+---
+
+### Garden Plan save: geometry errors
+
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (the boundary) and `POST …/plan/batch` (a batch of operations) refuse a shape that breaks a geometry rule with `422` `VALIDATION_ERROR` (REQ-053). On the boundary route, a vertex or origin outside the plan's coordinate range (0 to 1000 m) carries `code: "geometry.invalid"`; for a polygon or polyline vertex the entry also carries `point_index`, the position of the first such vertex in `points` (counted from 0). The other shape rules there (dimensions, vertex count, rotation) answer with the generic `code: "value_error"`. In a batch, every geometry defect carries `code: "geometry.invalid"` with `op_index` naming the operation and, for a vertex, `point_index`. Slots and bed templates are saved on their own endpoints in the bed's frame (−1000 to 1000 m) and report an out-of-range vertex the same way.
 
 ---
 
 ### Earlier states of the plan (snapshots)
 
-A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
+A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year; a site keeps at most its 20 newest snapshots, and a `replace` or restore that writes a 21st removes the oldest). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
 
 ```
 GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # list, newest first, paged (limit/offset)
@@ -257,6 +309,58 @@ POST /api/v1/t/{slug}/sites/{key}/plan/snapshots/{audit_key}/restore    # { "dry
 ```
 
 The list names, per snapshot, `audit_key`, `revision`, `at`, `summary`, `changed_by_name` and the number of locations, garden objects, slots and zones, never the plan itself. The restore is a `replace` with the stored plan (same checks and same report as the import; `confirm_site_name` is required unless `dry_run`); the plan it overwrites is saved as a snapshot of its own first. Zones of the site that the snapshot does not name are retired. `409` `import.not_empty` while a bed holds an active plant (`force` lifts that). A `merge` import creates no snapshot.
+
+---
+
+### Irrigation zones, watering round and zone quota (REQ-053)
+
+Irrigation zones belong to a site. Every member may read; creating, changing and assigning beds needs "grower" or above; only the lead may delete. A zone or site of another tenant answers like a missing one with `404`.
+
+```
+GET|POST         /api/v1/t/{slug}/sites/{key}/irrigation-zones         # list, paged (limit/offset) | create
+GET|PATCH|DELETE /api/v1/t/{slug}/irrigation-zones/{key}
+PUT              /api/v1/t/{slug}/irrigation-zones/{key}/locations     # { "location_keys": [...] } replaces the beds
+GET              /api/v1/t/{slug}/irrigation-zones/{key}/status        # last watering, next, demand, consumption, hints
+POST             /api/v1/t/{slug}/irrigation-zones/{key}/log-watering  # watering round
+```
+
+**Assigning beds:** A bed belongs to at most one zone. If it already lies in another zone of the same site, `PUT …/locations` moves it without asking; the response says so in `moved_from`. A bed outside the site is `422` `reference.not_found` with its position.
+
+**Watering round:** body `{ "volume_liters": 60, "allocation": "by_area", "performed_at": null, "summary": "Morning round" }`. `volume_liters` more than 0 and at most 100,000; `allocation` is `by_area` (by the beds' `area_m2`) or `equal`; `summary` at most 500 characters. The response (`201`) names `event_keys`, `shares` (litres per bed), `allocation`, `performed_at` and `skipped_location_keys` (with `by_area`, the beds without an area). Every bed gets one watering entry, all in one transaction, each marked with its `allocation`: the amount is divided, not measured. Each account may log `RATE_LIMIT_ZONE_LOG_WATERING` rounds (default 20 per minute). There is no `by_demand` distribution and no "rain - skipped" round.
+
+**Zone quota:** A site holds at most 500 zones. Creating a 501st answers `422` `irrigation_zone.quota_exceeded`; so does a `merge` or `replace` import after which the site would hold more than 500 zones. A zone in the file has no stable identity: importing the same file twice with `merge` creates its zones twice. If a site holds more than 500 zones anyway, `GET /sites/{key}/plan` (with zones), the export and a `replace` import answer `422` `irrigation_zone.quota_exceeded` instead of silently cutting the list.
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role too low (viewer writes, grower deletes) or technical coupling without the `technical` admin scope |
+| `404` | `ENTITY_NOT_FOUND` | Zone or site not found (or not in this tenant) |
+| `422` | `irrigation_zone.no_beds`, `irrigation_zone.no_bed_area` | The round has nothing to divide (no beds; with `by_area`, no bed with an area) |
+| `422` | `irrigation_zone.quota_exceeded` | More than 500 zones on the site |
+| `422` | `reference.not_found` | Bed, water source or actuator does not belong to the site or tenant |
+
+---
+
+### Bed templates and a bed from a template (REQ-053)
+
+```
+GET|POST     /api/v1/t/{slug}/bed-templates                    # system templates and your own, by name, paged
+PATCH|DELETE /api/v1/t/{slug}/bed-templates/{key}
+POST         /api/v1/t/{slug}/sites/{key}/plan/place-template  # { "template_key", "origin": [x, y], "rotation_deg": 0, "expected_revision" }
+```
+
+Creating and changing templates needs "grower" or above, deleting needs the lead; only platform admins change and delete system templates. A tenant owns at most 200 templates (`422` `bed_template.quota_exceeded`). Deleting removes the provenance key `template_key` from the beds placed from it.
+
+`place-template` creates one bed through the same path as a batch `create_location` (one transaction, one revision) and answers like the batch; `key_map.template_bed` names the new bed. `origin` is where the template's anchor lands in the plan (rectangle: lower-left corner, circle: centre, polygon: first vertex); `rotation_deg` (0 to below 360) is added to the template's own rotation. Order of checks: template (`422` `reference.not_found`, a foreign one like a missing one), geometry (`422` `geometry.invalid`), placement (`422` `geometry.outside_parent`, `bed.overlap`), last the revision (`409` `plan.revision_conflict`). Recurring tasks of a template are not created.
+
+---
+
+### New season from the previous year (REQ-053)
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/new-season    # { "year": 2027, "dry_run": true, "expected_revision": null }
+```
+
+**Lead only.** For each bed without an active plant the route re-creates the places of the planting runs that ended in `year − 1` as free planting positions. Beds with an active plant, retired beds and beds that would exceed 2,000 positions are skipped and named in the report. Zones, plants, runs and history stay unchanged. `dry_run` is the default and writes nothing; without it everything runs in one transaction with a change-log entry. `year` is a whole number and at most next year (`422` `season.invalid_year`); a plan changed since `expected_revision` is `409` `plan.revision_conflict`. The tenant's import budget applies (`RATE_LIMIT_PLAN_IMPORT`). The response names `year`, `source_year`, `dry_run`, `applied`, `plan_revision`, `beds_copied`, `beds_skipped`, `slots_to_create` and per bed a `status` (`copied`, `skipped_active_plants`, `skipped_retired`, `skipped_slot_quota`, `nothing_to_copy`) with the number of positions.
 
 ---
 

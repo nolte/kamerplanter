@@ -3,7 +3,8 @@
 Acceptance (negative tests): a grower without the ``technical`` scope -> 403; a flow entity that is not granted ->
 422 ``HA_ENTITY_NOT_GRANTED``; a foreign actuator -> 422 ``reference.not_found``. Beside them: the entity must be a
 flow sensor, Home Assistant down means "not bound", a lead with the scope may bind, the entity id is neither logged
-nor returned, and the consumption carries the provenance of its rate.
+nor returned, and the consumption carries the provenance of its rate (GP-FR-114: logged litres plus actuator
+runtime x flow rate).
 """
 
 from __future__ import annotations

@@ -40,7 +40,9 @@ export function useRendererLabels(): RendererLabels {
       plant: ({ id }) => t(`${prefix}.plant`, { id }),
       slot: ({ id }) => t(`${prefix}.slot`, { id }),
       cluster: ({ count }) => t(`${prefix}.plantCount`, { count }),
-      clusterSummary: ({ count, attention }) => t(`${prefix}.clusterSummary`, { count, attention }),
+      // Two plurals: the plant count and the attention count each pick their own form ("4 plants · 1 needs attention").
+      clusterSummary: ({ count, attention }) =>
+        t(`${prefix}.clusterSummary`, { count, attention: t(`${prefix}.clusterAttention`, { count: attention }) }),
       objectType: (type) => t(`${prefix}.objectType.${type}`),
       size,
     };

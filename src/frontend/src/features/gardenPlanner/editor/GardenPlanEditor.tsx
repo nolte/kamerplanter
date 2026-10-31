@@ -35,6 +35,8 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import WavesIcon from '@mui/icons-material/Waves';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
+import LocalFloristOutlinedIcon from '@mui/icons-material/LocalFloristOutlined';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -50,14 +52,19 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import YardIcon from '@mui/icons-material/Yard';
 import { isApiError } from '@/api/errors';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
-import { nearestGridStep, stepZoom } from '../model/units';
+import { MAX_PX_PER_M, nearestGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { snapCandidates } from '../renderer/planIndex';
+import { toScreen as projectToScreen } from '../renderer/viewport';
+import { markerLodBedKeys } from '../renderer/scene';
+import { colorsOf, usePhaseNames } from '../planting/phaseColors';
+import { usePlanPlantStates } from '../planting/usePlanPlantStates';
 import { planContentBounds } from '../routes/fitViewport';
 import {
   applyAction,
@@ -92,7 +99,7 @@ import { SaveBar } from './SaveBar';
 import { ScaleBar } from './ScaleBar';
 import { SkipLinks } from './SkipLinks';
 import { SnapMarker, type SnapMark } from './SnapMarker';
-import { bedFrameGeometry } from '../templates/placeGeometry';
+import { bedFrameGeometry, originForCentre, placeGeometry } from '../templates/placeGeometry';
 import { TemplateGhost } from '../templates/TemplateGhost';
 import { useBedTemplates } from '../templates/useBedTemplates';
 import { TouchBar } from './TouchBar';
@@ -101,6 +108,7 @@ import { ViewBar, type LayerToggle } from './ViewBar';
 import { BedZoneInfo } from '../zones/BedZoneInfo';
 import { useUnderlay } from '../underlay/useUnderlay';
 import { useIrrigationZones, useLastWatered } from '../zones/useZoneData';
+import { useWateringNow } from '../zones/useWateringNow';
 import { useZoneLayers } from '../zones/useZoneLayers';
 import { ZoneLegend } from '../zones/ZoneLegend';
 import { useAnnouncement } from './useAnnouncement';
@@ -109,6 +117,7 @@ import { useEditorKeyboard } from './useEditorKeyboard';
 import { useEditorShortcuts } from './useEditorShortcuts';
 import { TOGGLE_LAYERS, type LayerId } from './layers';
 import { useLayerPrefs } from './useLayerPrefs';
+import { useAttentionFilter } from './useAttentionFilter';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
@@ -119,13 +128,20 @@ import {
   type AlignMode,
   type DistributeAxis,
 } from './tools/align';
-import { duplicateSelection, multiDuplicate, type MultiDuplicateOptions } from './tools/duplicate';
+import {
+  duplicateSelection,
+  multiDuplicate,
+  type MultiDuplicateOptions,
+  type MultiRefusal,
+} from './tools/duplicate';
 import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImpact } from './tools/hierarchy';
+import { zoomToEditPxPerM } from './tools/handles';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
-import { resolveSnap, type SnapPointerType } from './tools/snap';
+import { resolveMoveSnap, resolveSnap, type SnapPointerType } from './tools/snap';
 import { useEditorTools } from './tools/useEditorTools';
+import { violationOfNew } from './tools/validation';
 import { useVisibleHeight } from './tools/useVisibleHeight';
 import { useTouchInput } from './tools/useTouchInput';
 import { zOrderOps, type ZMove } from './tools/zOrder';
@@ -179,6 +195,7 @@ const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
   sun: <WbSunnyOutlinedIcon />,
   moisture: <WavesIcon />,
   frost: <AcUnitIcon />,
+  plantState: <LocalFloristOutlinedIcon />,
 };
 
 // The template picker, the "save as template" dialog and the multi-duplicate dialog are their own chunks:
@@ -188,6 +205,8 @@ const SaveAsTemplateDialog = lazy(() => import('../templates/SaveAsTemplateDialo
 const MultiDuplicateDialog = lazy(() => import('./MultiDuplicateDialog'));
 
 const NO_KEYS: ReadonlySet<string> = new Set();
+const NO_BED_KEYS: readonly string[] = [];
+const NO_PHASE_KEYS: readonly (string | null | undefined)[] = [];
 
 /** The turn a click on "Rotate" adds to the template being placed (GP-FR-044). */
 const TEMPLATE_TURN_DEG = 90;
@@ -280,7 +299,7 @@ export function GardenPlanEditor({
     if (!zonesOpen && zonesWereOpen.current) zonesButtonRef.current?.focus();
     zonesWereOpen.current = zonesOpen;
   }, [zonesOpen]);
-  const [nowMs] = useState(() => Date.now());
+  const nowMs = useWateringNow();
   const zoneData = useIrrigationZones(plan.siteKey, plan.zones, zonesOpen);
   const lastWateredAt = useLastWatered(plan.siteKey, plan.locations, layerRefresh);
   const zoneLayers = useZoneLayers({
@@ -299,6 +318,70 @@ export function GardenPlanEditor({
     underlayWasOpen.current = underlayOpen;
   }, [underlayOpen]);
   const underlayState = useUnderlay(plan, layerPrefs.underlay);
+  // The plant-state layer (GP-UX-061, #2488): the beds at marker LOD read their states while the layer is on; the
+  // filter "only plants that need attention" depends on it. Phase colours are read for the plants whose states are loaded.
+  const plantStateOn = layerPrefs.plantState;
+  const [attentionOnly, setAttentionOnly] = useAttentionFilter();
+  const stateBedKeys = useMemo(
+    () => (plantStateOn ? markerLodBedKeys(plan, viewport) : NO_BED_KEYS),
+    [plantStateOn, plan, viewport],
+  );
+  const planStates = usePlanPlantStates(plan.siteKey, stateBedKeys, plantStateOn);
+  const refreshPlanStates = planStates.refresh;
+  // A saved or reloaded plan, or a care action, may change what the plants need: the loaded states are read again.
+  const seenRevision = useRef(plan.revision);
+  useEffect(() => {
+    if (seenRevision.current === plan.revision) return;
+    seenRevision.current = plan.revision;
+    refreshPlanStates();
+  }, [plan.revision, refreshPlanStates]);
+  // A zone write changes no bed's last watering (it is read from the care and watering events of the bed), so the
+  // plan is not read again for it; the zone list reloads through `zoneData`. A watering round does change it.
+  const onZonesChanged = refreshPlanStates;
+  const onWatered = useCallback(() => {
+    setLayerRefresh((value) => value + 1);
+    refreshPlanStates();
+  }, [refreshPlanStates]);
+  // Phase names are read only for the plants whose states are loaded (beds at marker LOD), never for the whole plan.
+  const planPhaseKeys = useMemo(() => {
+    const plantKeys = Object.keys(planStates.states);
+    return plantStateOn && plantKeys.length > 0
+      ? plantKeys.map((plantKey) => plan.plants[plantKey]?.phase_key)
+      : NO_PHASE_KEYS;
+  }, [plantStateOn, planStates.states, plan.plants]);
+  const fetchedPhaseNames = usePhaseNames(planPhaseKeys);
+  // A phase-sequence entry key is unknown to `/growth-phases/{key}`; the state answer names it. The fetched name wins.
+  const phaseNames = useMemo(
+    () => ({ ...planStates.phaseNames, ...fetchedPhaseNames }),
+    [planStates.phaseNames, fetchedPhaseNames],
+  );
+  const phaseColors = useMemo(() => colorsOf(phaseNames), [phaseNames]);
+  const plantStateLayer = useMemo(
+    () => (plantStateOn ? { states: planStates.states, attentionOnly } : undefined),
+    [plantStateOn, planStates.states, attentionOnly],
+  );
+  // The legend sorts the translated names itself, in the active language.
+  const legendPhases = useMemo(() => {
+    if (!plantStateOn) return [];
+    const present = new Set(planPhaseKeys.filter((key): key is string => Boolean(key)));
+    const names = new Set<string>();
+    for (const key of present) {
+      const name = phaseNames[key];
+      if (name) names.add(name);
+    }
+    return [...names];
+  }, [plantStateOn, planPhaseKeys, phaseNames]);
+  const attentionFilter = useMemo(
+    () => ({
+      active: attentionOnly,
+      enabled: plantStateOn,
+      label: t(`${ZONES}.layers.attentionFilter`),
+      hint: t(`${ZONES}.layers.${plantStateOn ? 'attentionFilterHint' : 'attentionFilterDisabledHint'}`),
+      icon: <PriorityHighIcon />,
+      onChange: setAttentionOnly,
+    }),
+    [attentionOnly, plantStateOn, t, setAttentionOnly],
+  );
   const hasUnderlay = underlayState.underlay !== null;
   const layerToggles = useMemo<LayerToggle[]>(
     () =>
@@ -430,6 +513,25 @@ export function GardenPlanEditor({
       }).point,
     [candidates, gridStepM, snapEnabled, pxPerM],
   );
+  // A moved object snaps with every vertex of its shape (GP-FR-154): its right edge can meet another's left edge.
+  const snapMove = useCallback(
+    (
+      sources: readonly Point[],
+      reference: Point,
+      rawDelta: Point,
+      bypass: boolean,
+      pointerType: SnapPointerType = 'mouse',
+    ) =>
+      resolveMoveSnap(sources, reference, rawDelta, {
+        gridM: gridStepM,
+        gridEnabled: snapEnabled,
+        bypass,
+        pxPerM,
+        pointerType,
+        candidates,
+      }),
+    [candidates, gridStepM, snapEnabled, pxPerM],
+  );
 
   const tools = useEditorTools({
     tool,
@@ -452,6 +554,7 @@ export function GardenPlanEditor({
     bedTypeKey,
     objectType,
     snapPoint,
+    snapMove,
   });
 
   const zoomCenter = useMemo<Point>(
@@ -545,12 +648,18 @@ export function GardenPlanEditor({
     ],
   );
 
-  // The snap marker follows the pointer of the draw tools, of the template tool and of a move under way
-  // (where the next point will land); on an object edge it draws that edge as a guide (GP-FR-154).
+  // The snap marker follows the pointer of the draw tools, of the template tool and of a dragged handle (where
+  // the next point will land); on an object edge it draws that edge as a guide (GP-FR-154). A select press, a
+  // marquee or a move never shows the pointer's marker: a move shows where the moved object snapped
+  // (`tools.moveSnap`), and the first pointer move of a drag still sees the press here.
   const drawTool = tool === 'bed' || tool === 'garden_object';
   const templateTool = templateMode !== null;
-  const { onPointerMove: toolPointerMove, onPointerUp: toolPointerUp } = tools.containerProps;
-  const toolBusy = tools.busy;
+  const {
+    onPointerMove: toolPointerMove,
+    onPointerUp: toolPointerUp,
+    onPointerCancel: toolPointerCancel,
+  } = tools.containerProps;
+  const toolHandleDragging = tools.handleDragging;
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerMove(event);
@@ -566,7 +675,7 @@ export function GardenPlanEditor({
           previous && previous[0] === landing[0] && previous[1] === landing[1] ? previous : landing,
         );
       }
-      if (!(drawTool || templateTool || toolBusy) || !snapEnabled || event.altKey) {
+      if (!(drawTool || templateTool || toolHandleDragging) || !snapEnabled || event.altKey) {
         setSnapMark((previous) => (previous === null ? previous : null));
         return;
       }
@@ -599,7 +708,7 @@ export function GardenPlanEditor({
       snapEnabled,
       snapPoint,
       templateTool,
-      toolBusy,
+      toolHandleDragging,
       toolPointerMove,
     ],
   );
@@ -607,12 +716,20 @@ export function GardenPlanEditor({
     setSnapMark(null);
     setGhostPoint(null);
   }, []);
+  // A release or a cancel ends the gesture the marker belonged to; the next hover move draws it again.
   const onPointerUp = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerUp(event);
-      if (event.pointerType === 'touch') setSnapMark(null); // there is no hover to follow
+      setSnapMark(null);
     },
     [toolPointerUp],
+  );
+  const onPointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      toolPointerCancel(event);
+      setSnapMark(null);
+    },
+    [toolPointerCancel],
   );
   const onPlantsNearby = useCallback(
     (keys: string[], pointPx: Point) => {
@@ -624,8 +741,8 @@ export function GardenPlanEditor({
   );
   // The touch layer wraps the handlers above (keys, snap marker), so both layers work together.
   const touchBase = useMemo(
-    () => ({ ...tools.containerProps, onKeyDown, onPointerMove, onPointerUp }),
-    [onKeyDown, onPointerMove, onPointerUp, tools.containerProps],
+    () => ({ ...tools.containerProps, onKeyDown, onPointerMove, onPointerUp, onPointerCancel }),
+    [onKeyDown, onPointerMove, onPointerUp, onPointerCancel, tools.containerProps],
   );
   // Pinch: the factor of one step is applied to the current zoom; the route clamps it like the buttons.
   const onPinch = useMemo(
@@ -729,9 +846,11 @@ export function GardenPlanEditor({
 
   /** Duplicate several times (GP-FR-025): one undo step; the dialog shows a refusal. */
   const runMultiDuplicate = useCallback(
-    (options: MultiDuplicateOptions): string | null => {
+    (options: MultiDuplicateOptions): MultiRefusal | null => {
       const outcome = multiDuplicate(plan, selection, { ...options, pendingCount: pending.length });
-      if (!outcome.ok) return outcome.code;
+      if (!outcome.ok) {
+        return { code: outcome.code, failedCopy: outcome.failedCopy, failedName: outcome.failedName };
+      }
       onCommit(outcome.value.ops, 'multiDuplicate');
       dispatch(setSelection(outcome.value.selection));
       dispatch(setStack(null));
@@ -1045,6 +1164,8 @@ export function GardenPlanEditor({
   const rendered = useMemo(
     () => renderer.render(plan, viewport, selectedKeys, {
         labels,
+        // The overlay prints the selection's dimensions, clear of the handles (GP-UX-047).
+        dimensionsOnOverlay: true,
         onActivateKey,
         invalidKeys,
         underlayLayer: underlayState.entry,
@@ -1052,6 +1173,7 @@ export function GardenPlanEditor({
         sunLayer: layerPrefs.sun,
         moistureLayer: layerPrefs.moisture,
         frostLayer: layerPrefs.frost,
+        ...(plantStateLayer ? { plantStateLayer, phaseColors } : {}),
       }),
     [
       renderer,
@@ -1066,6 +1188,8 @@ export function GardenPlanEditor({
       layerPrefs.sun,
       layerPrefs.moisture,
       layerPrefs.frost,
+      plantStateLayer,
+      phaseColors,
     ],
   );
 
@@ -1111,7 +1235,36 @@ export function GardenPlanEditor({
     ? t(`${PREFIX}.notice.${code}`, { defaultValue: t(`${PREFIX}.notice.generic`) })
     : null;
   const handles = tools.handles;
+  // One projection per viewport (SCR-006): the function changes when the plan moves and stays the same otherwise, so
+  // the overlay's memos (dimension text placement) hold across renders that do not move it. It is the projection
+  // every renderer uses (`BasePlanRenderer.toScreen` reads the viewport the frame was drawn with, this one).
+  const toScreen = useCallback((pointM: Point): Point => projectToScreen(viewport, pointM), [viewport]);
+  const handlesPx = useMemo(
+    () => handles?.handles.map((handle) => toScreen(handle.pointM)),
+    [handles, toScreen],
+  );
   const singleTooSmall = handles !== null && handles.density === 'none';
+  // GP-UX-048: an object too small for handles offers "zoom in to edit" - the zoom at which it gets its full set of
+  // handles (capped at the highest zoom), around its centre, so it stays where it is on screen. Absent when even the
+  // highest zoom would leave it without handles (SCR-003): the button would change nothing the hint speaks of.
+  // The button disappears with the hint once the handles are there, so focus moves to the object (else to the plan
+  // region) instead of dropping to the page (SCR-002, WCAG 2.4.3).
+  const zoomToEdit = useMemo(() => {
+    if (!singleTooSmall || !onZoom || selection.length !== 1) return null;
+    const ref = selection[0];
+    if (!isPlanEntity(ref)) return null;
+    const source = ref.entity === 'location' ? plan.locations[ref.key] : plan.gardenObjects[ref.key];
+    const pxPerMTarget = source?.geometry ? zoomToEditPxPerM(source.geometry, MAX_PX_PER_M) : null;
+    const bbox = source?.bbox;
+    if (pxPerMTarget === null || pxPerMTarget <= pxPerM || !bbox) return null;
+    const centreM: Point = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+    return { key: ref.key, pxPerM: pxPerMTarget, centreM };
+  }, [singleTooSmall, onZoom, pxPerM, selection, plan]);
+  const onZoomToEdit = useCallback(() => {
+    if (!zoomToEdit || !onZoom) return;
+    pendingFocus.current = { key: zoomToEdit.key };
+    onZoom(zoomToEdit.pxPerM, toScreen(zoomToEdit.centreM));
+  }, [zoomToEdit, onZoom, toScreen]);
 
   const drawing = tool === 'bed' || tool === 'garden_object';
   // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
@@ -1210,6 +1363,7 @@ export function GardenPlanEditor({
     <ViewBar
       layerToggles={layerToggles}
       onLayer={setLayerById}
+      attentionFilter={attentionFilter}
       gridStepM={gridStepM}
       onGridStep={setGridStepM}
       gridVisible={gridVisible}
@@ -1267,10 +1421,33 @@ export function GardenPlanEditor({
     () => templateCatalogue.templates.find((item) => item.key === templateMode?.templateKey) ?? null,
     [templateCatalogue.templates, templateMode?.templateKey],
   );
+  // "Place at centre": the middle of the turned template's box lands on the (snapped) middle of the view (#2536).
+  const viewCentreX = viewport.widthPx / 2;
+  const viewCentreY = viewport.heightPx / 2;
+  const placeAtCentre = useCallback(() => {
+    if (!selectedTemplate || !templateMode) return;
+    const target = snapPoint(renderer.toModel([viewCentreX, viewCentreY]), false);
+    const origin = originForCentre(
+      selectedTemplate.default_geometry,
+      templateMode.rotationDeg,
+      target,
+    );
+    if (origin) void placeTemplate(origin);
+  }, [placeTemplate, renderer, selectedTemplate, snapPoint, templateMode, viewCentreX, viewCentreY]);
+  // The ghost turns red where the template would break a rule the client can check (V-01..V-03 against the garden
+  // boundary - the server places it without a parent); a bed overlap stays the server's (#2536).
+  const ghostInvalid = useMemo(() => {
+    if (!selectedTemplate || !templateMode || !ghostPoint) return false;
+    const placed = placeGeometry(selectedTemplate.default_geometry, ghostPoint, templateMode.rotationDeg);
+    return placed !== null && violationOfNew(plan, placed, null) !== null;
+  }, [ghostPoint, plan, selectedTemplate, templateMode]);
   const closeTemplateTool = useCallback(() => {
     setTemplateMode(null);
     setGhostPoint(null);
   }, []);
+
+  // During a move the marker is the moved object's snapped corner or edge point (GP-FR-154), else the pointer's.
+  const shownSnapMark = tools.moving ? tools.moveSnap : snapMark;
 
   // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6).
   const extent = useMemo(() => planContentBounds(plan), [plan]);
@@ -1323,29 +1500,32 @@ export function GardenPlanEditor({
         overlay={tools.overlay}
         handles={handles}
         vertex={tools.vertex}
-        toScreen={renderer.toScreen.bind(renderer)}
+        toScreen={toScreen}
         pxPerM={viewport.pxPerM}
         widthPx={viewport.widthPx}
         heightPx={viewport.heightPx}
       >
         <DimensionLabels
           items={dimensionItems}
-          toScreen={renderer.toScreen.bind(renderer)}
+          toScreen={toScreen}
           unit={unit}
+          handlesPx={handlesPx}
+          heightPx={viewport.heightPx}
         />
         {selectedTemplate && ghostPoint && templateMode && (
           <TemplateGhost
             template={selectedTemplate}
+            invalid={ghostInvalid}
             originM={ghostPoint}
             rotationDeg={templateMode.rotationDeg}
-            toScreen={renderer.toScreen.bind(renderer)}
+            toScreen={toScreen}
             pxPerM={pxPerM}
           />
         )}
-        {snapMark && (
+        {shownSnapMark && (
           <SnapMarker
-            mark={snapMark}
-            toScreen={renderer.toScreen.bind(renderer)}
+            mark={shownSnapMark}
+            toScreen={toScreen}
             widthPx={viewport.widthPx}
             heightPx={viewport.heightPx}
           />
@@ -1446,6 +1626,8 @@ export function GardenPlanEditor({
           showSun={layerPrefs.sun}
           showMoisture={layerPrefs.moisture}
           showFrost={layerPrefs.frost}
+          showPlantState={plantStateOn}
+          phases={legendPhases}
         />
       )}
       {!listShown && !toolbarBelow && toolbar}
@@ -1478,7 +1660,8 @@ export function GardenPlanEditor({
               )
             }
             busy={placing}
-            onPlaceCenter={() => void placeTemplate(snapPoint(renderer.toModel(centerPx), false))}
+            onPlaceCenter={placeAtCentre}
+            ghostInvalid={ghostInvalid}
             onClose={closeTemplateTool}
           />
         </Suspense>
@@ -1517,7 +1700,18 @@ export function GardenPlanEditor({
         </Alert>
       )}
       {!listShown && singleTooSmall && (
-        <Alert severity="info" role="status" data-testid="garden-plan-too-small">
+        <Alert
+          severity="info"
+          role="status"
+          data-testid="garden-plan-too-small"
+          action={
+            zoomToEdit ? (
+              <Button color="inherit" size="small" onClick={onZoomToEdit} data-testid="garden-plan-zoom-to-edit">
+                {t(`${PREFIX}.zoomToEdit`)}
+              </Button>
+            ) : undefined
+          }
+        >
           {t(`${PREFIX}.tooSmall`)}
         </Alert>
       )}
@@ -1556,15 +1750,26 @@ export function GardenPlanEditor({
       )}
       <Box id="garden-plan-zone-panel-region">
         {zonesOpen && (
-          <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
-            <ZonePanel
-              plan={plan}
-              zoneData={zoneData}
-              selectedBedKeys={selectedBedKeys}
-              onChanged={() => setLayerRefresh((value) => value + 1)}
-              onClose={() => setZonesOpen(false)}
-            />
-          </Suspense>
+          // A chunk that cannot load (typically gone after a deploy) stays rejected for the life of the page:
+          // the fallback offers the reload, not a retry that would fail the same way.
+          <ErrorBoundary
+            title={t(`${ZONES}.panel.chunkFailedTitle`)}
+            hint={t(`${ZONES}.panel.chunkFailedHint`)}
+            reloadLabel={t('common.appError.reloadPage')}
+            testId="garden-plan-zone-panel-error"
+            boundaryName="garden-plan-zone-panel"
+          >
+            <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
+              <ZonePanel
+                plan={plan}
+                zoneData={zoneData}
+                selectedBedKeys={selectedBedKeys}
+                onChanged={onZonesChanged}
+                onWatered={onWatered}
+                onClose={() => setZonesOpen(false)}
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
       </Box>
       {toolbarBelow && (!listShown || sheetOpen) && (
@@ -1631,6 +1836,7 @@ export function GardenPlanEditor({
           <MultiDuplicateDialog
             open
             rootBeds={multiRoots}
+            unit={unit}
             onRun={runMultiDuplicate}
             onClose={() => setMultiOpen(false)}
           />

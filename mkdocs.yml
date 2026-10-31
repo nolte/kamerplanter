@@ -102,6 +102,8 @@ plugins:
             Benutzerhandbuch: User Guide
             Stammdaten: Plant Master Data
             Standorte & Substrate: Locations & Substrates
+            Gartenplan: Garden Plan
+            Gartenplan (Geometrie & Schnittstellen): Garden Plan (Geometry & Interfaces)
             Wachstumsphasen: Growth Phases
             Dünge-Logik: Fertilization Logic
             Sensorik: Sensors
@@ -301,6 +303,7 @@ nav:
       - Stammdaten: de/user-guide/plant-management.md
       - Stammdaten-Import: de/user-guide/import.md
       - Standorte & Substrate: de/user-guide/locations-substrates.md
+      - Gartenplan: de/user-guide/garden-plan.md
       - Wachstumsphasen: de/user-guide/growth-phases.md
       - Vermehrung: de/user-guide/propagation.md
       - Dünge-Logik: de/user-guide/fertilization.md
@@ -355,6 +358,7 @@ nav:
       - Datenbank: de/architecture/database.md
       - Infrastruktur: de/architecture/infrastructure.md
       - KI-Architektur: de/architecture/ai-architecture.md
+      - Gartenplan (Geometrie & Schnittstellen): de/architecture/garden-plan.md
   - Entwicklung:
       - de/development/index.md
       - Lokales Setup: de/development/local-setup.md

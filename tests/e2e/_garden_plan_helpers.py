@@ -695,3 +695,226 @@ def task_state(base_url: str, seed: dict, task_key: str) -> dict:
     if not isinstance(body, dict):
         raise AssertionError(f"task {task_key!r} is not an object: {body!r}")
     return body
+
+
+# ── Wave 7: irrigation zones and the concurrent writer (WP 7.25) ────────────
+#
+# The zone tests arrange zones through the routes the zone panel itself calls
+# (GP-API-050/051): ``POST /sites/{key}/irrigation-zones`` creates the zone,
+# ``PUT /irrigation-zones/{key}/locations`` assigns its beds. The "someone else
+# saved meanwhile" precondition of the auto-save case is one ``plan/batch`` with
+# the revision the editor holds - exactly what a second editor's save sends.
+
+
+def create_zone(
+    base_url: str,
+    seed: dict,
+    *,
+    site_key: str,
+    name: str,
+    bed_keys: tuple[str, ...],
+    irrigation_type: str = "manual",
+    color: str = "#1565C0",
+) -> dict:
+    """A zone on *site_key* covering *bed_keys* (GP-API-050 + 051); the zone as the server answers it."""
+    zone = _tenant_post(
+        base_url,
+        seed,
+        f"/sites/{site_key}/irrigation-zones",
+        {"name": name, "irrigation_type": irrigation_type, "color": color},
+        expected=(201,),
+    )
+    status, body = tenant_request(
+        base_url,
+        seed,
+        "PUT",
+        f"/irrigation-zones/{zone['key']}/locations",
+        {"location_keys": list(bed_keys)},
+    )
+    _require(status, body, (200,), f"PUT /irrigation-zones/{zone['key']}/locations")
+    if not isinstance(body, dict) or sorted(body.get("location_keys") or []) != sorted(bed_keys):
+        raise AssertionError(
+            f"Self-provisioning failed: zone {zone['key']!r} should cover {sorted(bed_keys)}, "
+            f"the server answered {body!r}"
+        )
+    return body
+
+
+def zones_of_site(base_url: str, seed: dict, site_key: str) -> list[dict]:
+    """``GET /sites/{key}/irrigation-zones`` (GP-API-050): the stored zones of the site."""
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/irrigation-zones")
+    if not isinstance(body, list):
+        raise AssertionError(f"zones of site {site_key!r} is not a list: {body!r}")
+    return body
+
+
+def move_location_via_api(
+    base_url: str,
+    seed: dict,
+    *,
+    site_key: str,
+    expected_revision: int,
+    location_key: str,
+    geometry: dict,
+) -> int:
+    """Save a new geometry for *location_key* as a second editor would (GP-API-003); the new revision."""
+    api, token = _api(base_url, seed)
+    status, body = _api_request(
+        f"{api}/sites/{site_key}/plan/batch",
+        "POST",
+        token,
+        {
+            "expected_revision": expected_revision,
+            "operations": [
+                {
+                    "op": "update_geometry",
+                    "entity": "location",
+                    "key": location_key,
+                    "geometry": geometry,
+                }
+            ],
+        },
+    )
+    _require(status, body, (200,), f"POST /sites/{site_key}/plan/batch (concurrent writer)")
+    return int(body["plan_revision"])
+
+
+def stored_location(plan: dict, name: str) -> dict:
+    """The stored location named *name*; fails loudly when there is none or more than one."""
+    found = [loc for loc in plan.get("locations") or [] if loc.get("name") == name]
+    if len(found) != 1:
+        names = [loc.get("name") for loc in plan.get("locations") or []]
+        raise AssertionError(
+            f"expected exactly one stored location {name!r}, found {len(found)}: {names}"
+        )
+    return found[0]
+
+
+def days_since_utc(instant: str) -> int:
+    """Whole UTC calendar days from *instant* (ISO 8601) to today - the day rule of the last-watered layer."""
+    moment = datetime.fromisoformat(instant.replace("Z", "+00:00")).astimezone(UTC)
+    return (utc_today() - moment.date()).days
+
+
+# ── Wave 7 part B: season, partial export, snapshots, sun profile (WP 7.26) ──
+#
+# The arrangements go through the routes the product itself calls:
+#
+# * ``POST /locations/{key}/clear`` (GP-API-019) is the only path that ends a run's slots (``archived_at``),
+#   which is what "new season from the previous year" copies from - the "Beet räumen" action has no browser
+#   surface yet, so the API is the arrangement, not a shortcut past a UI;
+# * ``GET /sites/{key}/plan/export`` (GP-API-004) is exactly the request the export dialog downloads, with the
+#   same ``scope`` / ``keys`` query (``exportParams``);
+# * ``POST /sites/{key}/plan/import`` (GP-API-005) with ``mode = replace`` writes the snapshot a restore needs;
+# * ``PATCH /locations/{key}`` with ``site_conditions.sun_profile`` is what the bed dialog and the field-mode
+#   sun chips send (``patchSun``).
+
+
+def clear_bed(base_url: str, seed: dict, bed_key: str, termination_type: str = "harvested") -> dict:
+    """End every plant and run of *bed_key* (GP-API-019); its slots become history (``archived_at`` = now)."""
+    body = _tenant_post(
+        base_url, seed, f"/locations/{bed_key}/clear", {"termination_type": termination_type}
+    )
+    if int(body.get("slots_archived") or 0) == 0:
+        raise AssertionError(
+            f"Self-provisioning failed: clearing {bed_key!r} archived no slot: {body!r}"
+        )
+    return body
+
+
+def export_plan_json(
+    base_url: str, seed: dict, site_key: str, *, scope: str = "site", keys: tuple[str, ...] = ()
+) -> dict:
+    """The JSON backup exactly as the export dialog requests it (GP-API-004, ``exportParams``)."""
+    query = "" if scope == "site" else f"?scope={scope}&keys={','.join(keys)}"
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/plan/export{query}")
+    if not isinstance(body, dict) or "schema_version" not in body:
+        raise AssertionError(f"the plan export of {site_key!r} is not a backup: {body!r}")
+    return body
+
+
+def replace_plan_with(
+    base_url: str, seed: dict, *, site_key: str, site_name: str, document: dict
+) -> dict:
+    """Write *document* over the site's plan (``mode = replace``, GP-API-005); the server keeps a snapshot."""
+    report = _tenant_post(
+        base_url,
+        seed,
+        f"/sites/{site_key}/plan/import",
+        {
+            "mode": "replace",
+            "dry_run": False,
+            "force": False,
+            "confirm_site_name": site_name,
+            "target": "same_site",
+            "document": document,
+        },
+    )
+    if not report.get("applied") or not report.get("snapshot_written"):
+        raise AssertionError(
+            f"Self-provisioning failed: the replace import of {site_key!r} was not applied with a "
+            f"snapshot: {report!r}"
+        )
+    return report
+
+
+def plan_snapshots(base_url: str, seed: dict, site_key: str) -> list[dict]:
+    """``GET /sites/{key}/plan/snapshots`` (GP-FR-148): the earlier states of the plan, newest first."""
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/plan/snapshots")
+    if not isinstance(body, list):
+        raise AssertionError(f"snapshots of {site_key!r} is not a list: {body!r}")
+    return body
+
+
+def add_bed_via_batch(
+    base_url: str, seed: dict, *, site_key: str, name: str, geometry: dict
+) -> str:
+    """One more bed through the editor's own save (GP-API-003, ``create_location``); its new key."""
+    revision = int(read_plan(base_url, seed, site_key)["plan_revision"])
+    api, token = _api(base_url, seed)
+    status, body = _api_request(
+        f"{api}/sites/{site_key}/plan/batch",
+        "POST",
+        token,
+        {
+            "expected_revision": revision,
+            "operations": [
+                {
+                    "op": "create_location",
+                    "temp_key": "extra",
+                    "data": {"name": name, "location_type_key": "raised_bed", "geometry": geometry},
+                }
+            ],
+        },
+    )
+    _require(status, body, (200,), f"POST /sites/{site_key}/plan/batch (add {name!r})")
+    return _mapped(body.get("key_map") or {}, "extra", name)
+
+
+def set_sun_window(base_url: str, seed: dict, bed_key: str, window: str) -> dict:
+    """Store the bed's sun window as the bed dialog does (``PATCH /locations/{key}``, merged per key)."""
+    status, body = tenant_request(
+        base_url,
+        seed,
+        "PATCH",
+        f"/locations/{bed_key}",
+        {"site_conditions": {"sun_profile": {"sun_window": window}}},
+    )
+    _require(status, body, (200,), f"PATCH /locations/{bed_key} (sun window)")
+    return body
+
+
+def sun_profile(base_url: str, seed: dict, bed_key: str) -> dict:
+    """The stored ``site_conditions.sun_profile`` of a bed (``{}`` when none is stored)."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}")
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"GET /locations/{bed_key} answered no location: {body!r}")
+    return dict((body.get("site_conditions") or {}).get("sun_profile") or {})
+
+
+def rotation_years(base_url: str, seed: dict, bed_key: str) -> dict[int, list[dict]]:
+    """``GET /locations/{key}/rotation`` (GP-API-039): the plantings of the bed per calendar year."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/rotation")
+    if not isinstance(body, dict) or not isinstance(body.get("timeline"), list):
+        raise AssertionError(f"the rotation timeline of {bed_key!r} has no timeline: {body!r}")
+    return {int(entry["year"]): list(entry.get("plantings") or []) for entry in body["timeline"]}

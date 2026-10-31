@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Theme } from '@mui/material/styles';
-import { centroid } from '../model/geometry';
+import { labelAnchorOf } from './labelLayout';
 import type { SceneShape } from './scene';
 import type { ShapeEntry } from './planIndex';
 import type { RenderOptions, WateredLayerEntry, ZoneLayerEntry } from './types';
@@ -228,7 +228,8 @@ export function WateredLayer({ shapes, layer, pxPerM, fontPx, theme }: WateredLa
       {shapes.map((shape) => {
         const watered = layer.byBed[shape.entry.key];
         if (!watered || shape.entry.kind !== 'location') return null;
-        const [cx, cy] = centroid(shape.entry.geometry);
+        // Under the bed's name, which sits at the label anchor (GP-UX-047).
+        const [cx, cy] = labelAnchorOf(shape.entry.geometry).point;
         return (
           <g key={shape.entry.key} data-watered-bed={shape.entry.key} data-watered-class={watered.wateredClass}>
             <Outline entry={shape.entry} fill={`url(#${wateredPatternId(watered.wateredClass)})`} stroke="none" />

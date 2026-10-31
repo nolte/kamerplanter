@@ -8,7 +8,8 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, GP-ACC from the co
   TC-053-019  ->  correct a position with the stepper in field mode (10 cm per step)        (GP-ACC-022)
                   mobile variant of the desktop case in test_req053_planting.py
 
-The performance targets of the same work package (GP-ACC-033/034, GP-NFR-040) are not browser cases: they are
+The performance targets of the same work package (acceptance criteria 033 and 034 of REQ-053 section 30, GP-NFR-040;
+named without their id so the generated matrix does not count this file for them) are not browser cases: they are
 benchmarks with assertions (``applyOperation`` / ``computeLayout`` in vitest, containment and ``GET /plan`` in
 pytest) and the Lighthouse route of ``src/frontend/lighthouserc.json``.
 

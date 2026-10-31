@@ -297,7 +297,7 @@ On the **Planting** tab, **Plant** opens the planting dialog. It is available fr
 5. **Look at the preview.** The bed shows at once where the plants would stand, and below it you see how many there are and how many fit at most. The server confirms the number a moment later. If its answer differs, its answer counts.
 6. **Plan or record.** **Plan planting** creates a planned run and reserves the places from the planting date. If you have planted already, switch on **I have planted already**. The plants are then created at once on the calculated positions.
 
-**Several species (mixed culture).** **Add another species** adds up to four species to the same planting. If all are laid out in rows, Kamerplanter spreads the rows **alternately** over the species, say carrot in every second row with onion in between. The row and edge settings of species 1 then apply to all; only the spacing within the row stays per species. If Kamerplanter rates a combination as incompatible, a hint appears.
+**Several species (mixed culture).** **Add another species** adds up to four species to the same planting. If all are laid out in rows, Kamerplanter spreads the rows **alternately** over the species, say carrot in every second row with onion in between. The row and edge settings of species 1 then apply to all; only the spacing within the row stays per species. Every row belongs to exactly one species: if two species claim the same row, Kamerplanter does not create the planting. If Kamerplanter rates a combination as incompatible, a hint appears. <!-- REQ-053 GP-FR-070 -->
 
 **Free positions.** With **Free positions** you tap the planting places onto the bed. Dragging moves a place, a number below the preview deletes it. If two places are closer together than the minimum spacing, both get a **yellow ring**. That is a hint; you can still plant.
 
@@ -305,7 +305,7 @@ On the **Planting** tab, **Plant** opens the planting dialog. It is available fr
 
 **Pot volume.** For species with a recommended pot volume you can enter the volume of your pot under **More options**. If it is smaller than recommended, Kamerplanter warns you.
 
-**Correct position.** For a standing plant (on the **Planting** tab or after a tap on the plan), **Correct position** moves its place: by dragging, with the arrow buttons in steps of 1 cm, or by typing the coordinates. The care log records the correction together with the plant. Plants in a zone have no single place and cannot be moved.
+**Correct position.** For a standing plant (on the **Planting** tab or after a tap on the plan), **Correct position** moves its place: by dragging, with the arrow buttons in steps of 10 cm, or by typing the coordinates. For fine work, switch **Step size** to 5 cm or 1 cm. The care log records the correction together with the plant. Plants in a zone have no single place and cannot be moved.
 
 **Transplant to …** You do not move a plant to another bed by dragging. **Transplant to …** creates the "Transplant" task for the plant, with the target bed in its text. You complete it once you have moved the plant.
 
@@ -325,7 +325,9 @@ Ring and sign differ without colour too, so you can tell them apart in greyscale
 **Plant info.** Rest the mouse on a plant for 0.3 seconds and an info bubble shows species, cultivar, phase and progress, age, position, last care, next task and the reasons it needs attention. The bubble stays while the pointer is on the plant or the bubble and closes with **Esc**. With the keyboard you get the same info through focus on the marker. On a touch screen, tap the plant to open a sheet at the bottom with the cover photo and a **Details** button. Hovering sends no request: Kamerplanter loads the states of all plants of a bed once, after every action on the bed and when you come back to the tab.
 
 !!! warning "Not implemented yet"
-    **Frost risk** is not shown yet; it arrives with the bed's site features. **Watering due** currently comes only from a watering task that is due today, not from the irrigation demand. The "plant state" layer with the filter "only plants that need attention" on the garden plan follows later, and planned places are still drawn without species and date. <!-- REQ-053 GP-FR-190, GP-UX-061 -->
+    **Frost risk** is not shown yet; it arrives with the bed's site features. **Watering due** currently comes only from a watering task that is due today, not from the irrigation demand. Planned places are still drawn without species and date. <!-- REQ-053 GP-FR-190, GP-UX-061 -->
+
+You see the same discs, rings and signs in the garden plan for the whole site when you switch on the **Show plant state** layer there; it is described on the [Garden Plan](garden-plan.md#plant-state-and-filter) page.
 
 ### Care on the bed {#care-on-the-bed}
 
@@ -387,15 +389,20 @@ In the garden plan, the properties panel of a selected bed shows the same fields
 **Site hint when planting.** In the planting dialog Kamerplanter compares the sun of the bed with the **light requirement** of the species (full sun, partial shade or shade) and shows a traffic light with plain text, for example "Bed: Shade — Tomato needs full sun". Green means well suited, yellow only partly suited, red poorly suited. Yellow also appears when the bed is one step shadier than the requirement and the species profile says the species takes that much shade; if that value is missing, the text says "Tolerance unknown". If the sun of the bed or the light requirement of the species is not recorded, no hint appears. The hint blocks nothing and asks for no reason.
 
 !!! note "Frost risk"
-    The frost risk of a bed (low, normal, high) will be maintained next to the sun. Kamerplanter copies existing **frost exposure** settings over automatically (yes becomes high, no becomes low); until then, the frost exposure setting stays the one that counts. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+    The frost risk of a bed (low, normal, high) will be maintained next to the sun. Kamerplanter copies existing **frost exposure** settings over automatically (yes becomes high, no becomes normal); until then, the frost exposure setting stays the one that counts. The JSON backup of your garden plan contains the frost exposure, so a restored bed keeps it. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
 
-**Sun window, drainage and frost risk layers in the garden plan.** In the layer group of the view bar you can show three more layers: **Show sun window** (when direct sun reaches the bed), **Show drainage** (poor, moderate, good) and **Show frost risk** (low, normal, high). Every value has its own pattern, so you can tell them apart without colour. The pattern is always shown; once you zoom in far enough for the bed names to appear, a small symbol for the value joins it at the bottom edge of the bed, where the bed has room for it; the legend below the view bar explains every layer that is on. A bed without a recorded value stays without a pattern. All three layers start switched off, and your browser remembers your choice for you. The frost layer shows the stored frost risk; for overwintering, the frost exposure stays the setting that counts. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
+**Layers in the garden plan.** Sun window, drainage and frost risk can be shown as layers in the garden plan; they are described under [Layers and site conditions](garden-plan.md#layers-and-site-conditions).
+
+**Plant state in the garden plan.** You see the same marks as a layer on the plan of the whole site, with a filter for plants that need attention; see [Plant state and filter](garden-plan.md#plant-state-and-filter).
 
 ### History of the bed {#history-of-the-bed}
 
 The **History** tab has two parts: the **timeline** on top and the **list** below it.
 
-**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off; the history is still kept.
+**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off by default; the history is still kept. The check can be switched on or off per bed; for permanent crops it always stays off. <!-- REQ-053 GP-FR-137 -->
+
+!!! info "API only: per-bed crop rotation switch"
+    So far you set the switch through the API only; the bed view does not show it yet. The [API reference](../reference/api-reference.md) explains how. <!-- REQ-053 GP-FR-137 -->
 
 **What stood here?** To fill in a year from before you used the app, tap **Fill in {year}** at the year or **What stood here?** at the top. You choose the year, the plant family (or a species, which brings its family), the role (main crop, green manure or fallow) and optionally the season. The last ten years up to last year are allowed. A message with **Undo** follows. You take a filled-in entry back later with the **x** on the entry, as its author or in the "lead" role. It then stays in the care log as cancelled. Viewers see the timeline read-only.
 
@@ -421,80 +428,9 @@ In the **Soil** tab you record: filling, soil type (with a finger test as help i
 
 ---
 
-## Bed List on the Garden Plan {#bed-list-on-the-garden-plan}
+## Garden Plan, Field Mode and Export {#garden-plan-pointer}
 
-Below the plan on the garden plan page, a table lists your beds: name (a link to the bed view), type, area, status, responsible person, plants, open tasks (including overdue ones) and next due date. Retired beds are hidden by default. The **My beds** switch filters to your own beds and requires that beds are assigned to you.
-
-If you click a row or press Enter, the bed is selected on the plan and the view zooms to it. The number in the "Open tasks" column is a link to the bed's Care tab. From the "grower" role on, the button **Complete tasks on several beds** sits above the table (see [Care on the bed](#care-on-the-bed)).
-
----
-
-## Field mode in the garden {#field-mode-in-the-garden}
-
-Field mode is made for the phone at the bed: large buttons (at least 64 pixels), strong contrast for sunlight and only what you need outside. On a narrow screen (below 600 pixels wide) the garden plan page opens in field mode right away. On any device you switch with **Field mode** or **Planning mode** at the top of the page; the address then carries `?mode=field` or `?mode=plan`.
-
-**My beds · due today.** Field mode starts with the list of your beds. Beds assigned to you come first (marked **Mine**), then beds with overdue tasks or tasks due today, then the rest by their next due date. A task is overdue when its due day lies before today; a task due today does not count as overdue yet. Retired beds are left out. The **Map** tab shows the plan without tools, grid or handles. **Zoom in**, **Zoom out** and **Whole plan** change the view. If you tap a bed, or just next to it, the map zooms to the bed and opens it.
-
-**The bed sheet.** A tap on a bed opens a sheet at the bottom with the bed's name, the quick log, the tasks and the plants. Tasks come in the order **Overdue**, **Due today**, **Later**. Plants are grouped by species, count and phase; the phase colour always has a black outline and the phase name next to it.
-
-- **Done** opens the short dialog with the optional fields (quantity, note). **Finish** saves. That is two taps after choosing the bed. A double tap counts once, and the buttons stay locked until the answer has arrived.
-- **Quick log:** **Watered**, **Sown** and **Weeded/Mulched** save a care entry with one tap. **Harvested** and **Note** open the short form (quantity or text; for the note you can use your keyboard's voice input). **Planted** opens the planting dialog with **I have planted already** switched on; the plants are created at once. This needs a bed that is drawn on the plan.
-- After **Done** and after every quick log entry you see **Undo** for eight seconds. It takes the entry back.
-- **Show plants** lists the single plants of a group. **Correct position** moves a plant with the arrows in 10 cm steps; you can drag the marker only after holding it for half a second. **Photo** takes a picture for the plant's gallery.
-
-Deleting, clearing a bed, export and import are not available in field mode; switch to planning mode for them. With the "viewer" role you see tasks and plants read-only. Your browser, not your account, remembers the tenant, site, tab and map view; if someone else signs in on the device, field mode starts fresh for them. If a remembered map view would show hardly any of the plan on the current screen – after turning the phone, for example – the map opens on the whole plan.
-
-!!! warning "Not implemented yet"
-    Without a connection field mode shows a notice and locks **Done** and the quick log; entries are not yet stored on the device and sent later. Photos are attached to a plant for now, not to the bed. **Planted** has no **Undo**. GPS help, the QR code on the bed and the "last watered" layer follow later. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
-
----
-
-## Working faster in the garden plan {#plan-comfort}
-
-This section describes the aids that save you manual work in planning mode.
-
-**A bed from a template.** In the tool bar, **From template** puts a bed on the plan with one click. You pick a template, turn it in 90-degree steps with **Rotate** if needed, and click where the bed should go (the lower-left corner of a rectangle, the centre of a circle). A dashed preview shows where it lands. Without a mouse, **Place at view centre** puts the bed in the middle of the view. The bed gets the template's name, type, shape and height and is saved at once; Kamerplanter saves your unsaved changes first. This step cannot be taken back with **Undo**. If you do not want the bed, delete it. **Esc** or another tool ends the template choice.
-
-**Standard sizes.** In the **Add with dimensions** dialog, a standard size fills shape, size, bed type and height in one go, for example the raised bed 1.2 × 2.4 m, the raised bed 2 × 1 × 0.8 m or a planter. You can still change every value afterwards. The height is optional.
-
-**Save as template.** With exactly one bed selected, **Save as template** stores its shape, type and height as a template of your garden. Plants, tasks and notes are not part of it, and the template only carries planting distances or soil values if you enter them yourself. Growers and leads create templates.
-
-**Snapping to other objects.** When you move or draw, the plan snaps to corners and edges of other objects before it snaps to the grid. A green line shows the edge you are on. The Alt key or the **Snap** switch turns snapping off. With a pen or a finger the catch zone is larger.
-
-**Align and distribute.** With at least two beds or objects selected, **Align** lines them up on the left, right, top or bottom edge or on the centre. From three objects on, **Distribute evenly** spreads them with equal gaps. Locked objects stay where they are and do not count. Each of these actions is a single step for **Undo**.
-
-**Overview map.** When the garden is much larger than the visible section (more than four times), a small map appears at the bottom right of the plan with the section as a rectangle. A click on it jumps the view there. With the keyboard you keep moving the plan with the arrow keys.
-
-**Auto-save.** The **Auto-save** switch next to **Save** saves your changes two seconds after the last change. It is off by default and applies only to you in this browser. On a conflict or a refused save it pauses and tells you so. Field mode does not have it: every action is sent at once there.
-
-**Duplicate several times.** From the **⋯** menu or the context menu, **Duplicate several times** makes several copies of the selected beds in a row: count, direction, spacing and a naming scheme such as "Plot {n}" (up to 100 copies). That is handy for the plots of a community garden. Kamerplanter first checks that the copies fit completely into the garden and that the limit of 500 beds and objects is enough; if not, nothing is created. One **Undo** takes all copies back. Planting positions, plants and tasks are not copied; you lay out a planting grid for each bed afterwards. <!-- REQ-053 GP-FR-025, GP-FR-029, GP-FR-043, GP-FR-044, GP-FR-045, GP-FR-154, GP-UX-004, GP-UX-014 -->
-
----
-
-## Export the plan and restore a backup {#plan-export-import}
-
-On the garden plan page, **Export & import** opens two dialogs.
-
-**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers; a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
-
-The **backup** holds beds, garden objects, plant places, soil profiles, site features and the garden boundary, but no plants and no tasks. If you have selected beds or garden objects on the plan, you can limit the backup to **Selection only** or **Selection with everything below**. Such a partial backup has no garden boundary, and references to things that are not in the file are dropped. Every role may read it.
-
-**Restore a backup** leads through the import in three steps. Only a lead can do this.
-
-1. **Choose file:** The file may be at most 5 MB. Kamerplanter checks it right away without writing anything.
-2. **Check report:** You see how much would be created and deleted, which references are not carried over (for example an irrigation zone that does not exist here) and which problems the file has, such as overlapping beds. With problems you cannot continue.
-3. **Mode:** *Add* creates the backup in addition to the existing plan. *Replace* swaps the plan of this site. For that you type the name of the site. Before that, Kamerplanter saves the previous plan as a snapshot in the change log. Download a current backup first anyway, to be safe.
-
-In *Add* mode you can move every shape of the file by a distance (to the right and up, in metres), for example to put a bed somewhere else. **Where is the file going?** tells Kamerplanter whether the file comes from this site, another site or another garden account. For the last two, references that are not in the file are never resolved against this site: they are dropped and listed in the check report. Nothing is read from another account, the file is the transport; you need the lead role in the account you import into.
-
-**Restore an earlier state:** In the first import step this button opens the list of plans that a *Replace* overwrote (kept for one year, lead only). You pick a state, read the check report and type the name of the site. Kamerplanter first saves the current plan as a state of its own, so the restore can be undone. Irrigation zones that the state does not name are removed, and technical zone bindings (actuator, Home Assistant flow) are not restored; set them up again afterwards. *Add* does not create a state.
-
-!!! warning "Beds with active plants"
-    A bed with a plant in it is never deleted. While such beds exist, *Replace* rejects the file. If you choose the option to keep those beds, they stay together with the locations above them, and the rest is replaced.
-
-**New season from last year:** In the **Export & import** menu, **New season from last year …** re-creates last year's places as free slots for every bed without active plants (lead only, within the same site). You enter the year of the new season; the places come from what was finished in the year before. Kamerplanter checks first and shows what happens per bed: beds with active plants and retired beds are skipped and listed in the report, and so is a bed that would pass 2,000 slots with the new places. Places that already stand as a free slot are not created twice. Zones, plants, planting runs and history stay as they are; crop rotation and companion planting hints keep using last year's occupancy. **Show "Here stood …"** adds the plant family of last year to each bed, for orientation only. Only **Create free slots** writes, in one step with an entry in the change log; if the plan changed since the check, you check again. <!-- REQ-053 GP-FR-171 -->
-
-All keys are newly assigned on import. Links to Home Assistant and to actuators are never carried over; set them up again afterwards. If you have unsaved changes to the plan, save or discard them first. In field mode, export and import are hidden.
+Everything that concerns the whole site as a plan has its own page: drawing and gestures, the bed list below the plan, field mode for the phone, layers, irrigation zones, templates, export, backup and import. You find it under [Garden Plan](garden-plan.md). This page covers the bed view of a single bed.
 
 ---
 
@@ -534,6 +470,7 @@ All keys are newly assigned on import. Links to Home Assistant and to actuators 
 
 ## See Also
 
+- [Garden Plan](garden-plan.md) — drawing the plan, field mode, layers, irrigation zones, export and import
 - [Tank Management](tanks.md)
 - [Planting Runs](planting-runs.md)
 - [Fertilization](fertilization.md)

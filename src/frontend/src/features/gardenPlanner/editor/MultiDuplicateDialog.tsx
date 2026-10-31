@@ -24,36 +24,58 @@ import {
   multiCopyName,
   type MultiDirection,
   type MultiDuplicateOptions,
+  type MultiRefusal,
 } from './tools/duplicate';
+import { roundLength } from '../model/geometry';
+import type { LengthUnit } from '../model/units';
 import { parseDecimal } from './tools/panelFields';
 
 const PREFIX = 'pages.gardenPlan.editor.multiDuplicate';
 const DIRECTIONS: readonly MultiDirection[] = ['right', 'left', 'up', 'down'];
+/** The spacing the dialog opens with, in metres. */
+const DEFAULT_SPACING_M = 0.5;
+/** Metres per unit of the spacing field (GP-FR-004: shown in the chosen unit, stored in metres). */
+const METRES_PER: Record<LengthUnit, number> = { m: 1, cm: 0.01 };
 
 interface MultiDuplicateDialogProps {
   open: boolean;
   /** How many selected beds (roots) get a name from the scheme; 0 = only garden objects, which keep theirs. */
   rootBeds: number;
-  /** Runs the duplication; resolves with the code of a refusal or `null` when it was done. */
-  onRun: (options: MultiDuplicateOptions) => string | null;
+  /** The length unit the user chose for the editor (`useLengthUnit`); the spacing field shows and takes it. */
+  unit: LengthUnit;
+  /** Runs the duplication; resolves with the refusal or `null` when it was done. */
+  onRun: (options: MultiDuplicateOptions) => MultiRefusal | null;
   onClose: () => void;
 }
 
-function Form({ rootBeds, onRun, onClose }: Omit<MultiDuplicateDialogProps, 'open'>) {
-  const { t } = useTranslation();
+/**
+ * A length for a text field in the user's language: the decimal comma in German ("0,5"), no thousands separator -
+ * `parseDecimal` reads both separators back, so the prefilled value round-trips unchanged.
+ */
+function formatLength(value: number, language: string): string {
+  return new Intl.NumberFormat(language, { useGrouping: false, maximumFractionDigits: 3 }).format(
+    roundLength(value),
+  );
+}
+
+function Form({ rootBeds, unit, onRun, onClose }: Omit<MultiDuplicateDialogProps, 'open'>) {
+  const { t, i18n } = useTranslation();
   const [count, setCount] = useState('5');
   const [direction, setDirection] = useState<MultiDirection>('right');
-  const [spacing, setSpacing] = useState('0.5');
+  const [spacing, setSpacing] = useState(() =>
+    formatLength(DEFAULT_SPACING_M / METRES_PER[unit], i18n.language),
+  );
   const [scheme, setScheme] = useState(() => t(`${PREFIX}.defaultScheme`));
   const [start, setStart] = useState('1');
-  const [refusal, setRefusal] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<MultiRefusal | null>(null);
 
   const countN = parseDecimal(count);
   const spacingN = parseDecimal(spacing);
+  const spacingM = spacingN === null ? null : roundLength(spacingN * METRES_PER[unit]);
   const startN = parseDecimal(start);
   const countOk =
     countN !== null && Number.isInteger(countN) && countN >= 1 && countN <= MAX_MULTI_COPIES;
-  const spacingOk = spacingN !== null && spacingN >= 0;
+  const spacingOk = spacingM !== null && spacingM >= 0;
   const startOk = startN !== null && Number.isInteger(startN);
   const valid = countOk && spacingOk && startOk;
 
@@ -76,9 +98,7 @@ function Form({ rootBeds, onRun, onClose }: Omit<MultiDuplicateDialogProps, 'ope
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!valid) return;
-    setRefusal(
-      onRun({ count: countN, direction, spacingM: spacingN, scheme, startNumber: startN }),
-    );
+    setRefusal(onRun({ count: countN, direction, spacingM, scheme, startNumber: startN }));
   };
 
   const field = (
@@ -143,7 +163,7 @@ function Form({ rootBeds, onRun, onClose }: Omit<MultiDuplicateDialogProps, 'ope
             edit(setSpacing),
             spacingOk,
             t(`${PREFIX}.spacingHelper`),
-            'm',
+            unit,
           )}
           <TextField
             size="small"
@@ -177,9 +197,13 @@ function Form({ rootBeds, onRun, onClose }: Omit<MultiDuplicateDialogProps, 'ope
           </Typography>
           {refusal && (
             <Alert severity="error" role="alert" data-testid="garden-plan-multi-error">
-              {t(`pages.gardenPlan.editor.notice.${refusal}`, {
+              {t(`pages.gardenPlan.editor.notice.${refusal.code}`, {
                 defaultValue: t('pages.gardenPlan.editor.notice.generic'),
               })}
+              {refusal.failedName !== undefined
+                ? ` ${t(`${PREFIX}.failedCopyNamed`, { name: refusal.failedName })}`
+                : refusal.failedCopy !== undefined &&
+                  ` ${t(`${PREFIX}.failedCopy`, { n: refusal.failedCopy })}`}
             </Alert>
           )}
         </Stack>

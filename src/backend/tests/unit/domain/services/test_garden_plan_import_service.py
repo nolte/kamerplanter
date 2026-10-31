@@ -14,7 +14,7 @@ import pytest
 
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
-from app.domain.models.site import SitePlan, Slot
+from app.domain.models.site import SiteConditions, SitePlan, Slot
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -211,6 +211,7 @@ class TestReferencesAndFields:
             "wind_exposure": "exposed",
             "access_sides": ["N", "S"],
         }
+        del document["locations"][0]["frost_exposed"]  # a file written before #2512
 
         report = rig.run(document)
 
@@ -220,7 +221,7 @@ class TestReferencesAndFields:
         assert stored.sun_profile.sun_window == "afternoon" and stored.sun_profile.foliage_shade_in_summer is True
         assert (stored.microclimate.frost_risk, stored.microclimate.cold_air_pocket) == ("high", True)
         assert (stored.wind_exposure, [side.value for side in stored.access_sides]) == ("exposed", ["N", "S"])
-        # The winter readers still read ``frost_exposed``; the file has none, so it follows the risk.
+        # The winter readers still read ``frost_exposed``; this file has none, so it follows the risk.
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 1"].frost_exposed is True
         # A bed without the key stays without it - the import invents nothing.
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].site_conditions is None
@@ -269,22 +270,168 @@ class TestReferencesAndFields:
         assert restored.site_conditions is not None
         assert restored.site_conditions.sun_profile.model_dump(mode="json") == exported
 
-    def test_a_normal_risk_imports_without_an_override(self, rig, repo) -> None:
-        """#2464 (4): the file carries no ``frost_exposed`` and ``normal`` forces none (#2454 item 2).
+    @staticmethod
+    def _set_frost(repo: FakePlanRepo, frost_exposed: bool | None, risk: str | None) -> None:
+        conditions = SiteConditions.model_validate({"microclimate": {"frost_risk": risk}}) if risk else None
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"frost_exposed": frost_exposed, "site_conditions": conditions}
+        )
 
-        A bed v0098 moved from ``frost_exposed = false`` to ``normal`` therefore comes back from its own
-        backup inheriting from the site type — the protection is not part of the export.
-        """
+    @staticmethod
+    def _restored_beet_1(repo: FakePlanRepo):
+        restored = {loc.name: loc for loc in repo.locations.values()}["Beet 1"]
+        assert "b1" not in repo.locations  # a new key: the import really recreated the bed
+        return restored
+
+    @pytest.mark.parametrize(
+        ("frost_exposed", "risk"),
+        [
+            (False, "normal"),  # #2503 edge 2: what v0098 leaves for a protected bed (#2464)
+            (True, "high"),
+            (None, "unknown"),
+            (None, None),
+        ],
+    )
+    def test_the_frost_override_survives_a_restore_from_its_own_backup(self, rig, repo, frost_exposed, risk) -> None:
+        """#2512: the backup carries ``frost_exposed``, so a migrated ``False``/``normal`` bed stays protected."""
+        self._set_frost(repo, frost_exposed, risk)
         document = rig.file()
-        document["locations"][0]["site_conditions"] = {"microclimate": {"frost_risk": "normal"}}
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]
+        assert "frost_exposed" in exported and exported["frost_exposed"] is frost_exposed
 
         report = rig.run(document)
 
         assert report.applied
-        restored = {loc.name: loc for loc in repo.locations.values()}["Beet 1"]
+        restored = self._restored_beet_1(repo)
+        assert restored.frost_exposed is frost_exposed
+        stored_risk = restored.site_conditions.microclimate.frost_risk if restored.site_conditions else None
+        assert stored_risk == risk
+
+    @pytest.mark.parametrize(
+        ("exempt", "enabled"),
+        [(False, None), (False, True), (False, False), (True, None)],
+    )
+    def test_the_rotation_switches_survive_a_restore_from_their_own_backup(self, rig, repo, exempt, enabled) -> None:
+        """GP-FR-137 (#2544): ``rotation_exempt`` and ``rotation_enabled`` are in the file and come back from it."""
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"rotation_exempt": exempt, "rotation_enabled": enabled}
+        )
+        document = rig.file()
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]
+        assert (exported["rotation_exempt"], exported["rotation_enabled"]) == (exempt, enabled)
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
+        assert (restored.rotation_exempt, restored.rotation_enabled) == (exempt, enabled)
+
+    @pytest.mark.parametrize(("exempt", "enabled"), [(True, None), (False, True)])
+    def test_a_file_without_the_rotation_switches_keeps_the_type_default(self, rig, repo, exempt, enabled) -> None:
+        """A file written before #2544 lacks both keys: the restored bed is not exempt and follows its type.
+
+        The source bed holds other values, so ``(False, None)`` can only come from the file's defaults - not from
+        the standing row the replace overwrites.
+        """
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"rotation_exempt": exempt, "rotation_enabled": enabled}
+        )
+        document = rig.file()
+        for item in document["locations"]:
+            item.pop("rotation_exempt", None)
+            item.pop("rotation_enabled", None)
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
+        assert (restored.rotation_exempt, restored.rotation_enabled) == (False, None)
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_a_bed_exempt_and_switched_on_in_the_file_is_reported_and_not_written(self, rig, repo, dry_run) -> None:
+        """SEC-002: the import must not store the pair the PATCH refuses; it names the bed and the field."""
+        document = rig.file()
+        position = next(i for i, loc in enumerate(document["locations"]) if loc["name"] == "Beet 1")
+        document["locations"][position] |= {"rotation_exempt": True, "rotation_enabled": True}
+        expected = [(f"locations[{position}].rotation_enabled", "import.rotation_exempt_and_enabled", "b1")]
+
+        if dry_run:
+            report = rig.run(document, dry_run=True)
+            assert [(e.field, e.code, e.key) for e in report.errors] == expected
+        else:
+            with pytest.raises(PlanValidationError) as refused:
+                rig.run(document)
+            assert [(d["field"], d["code"], d["key"]) for d in refused.value.details] == expected
+        assert repo.applied == []
+
+    @pytest.mark.parametrize(
+        ("name", "value"), [("rotation_exempt", "yes"), ("rotation_enabled", "true"), ("rotation_enabled", 1)]
+    )
+    def test_a_rotation_flag_that_is_not_a_json_boolean_is_refused(self, rig, repo, name, value) -> None:
+        """Strict: ``"yes"`` / ``"true"`` / ``1`` are not coerced into a switch the user never set."""
+        document = rig.file()
+        document["locations"][0][name] = value
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [
+            (f"locations[0].{name}", "validation.invalid")
+        ]
+        assert repo.applied == []
+
+    def test_an_explicit_null_inherits_even_where_the_risk_would_force_a_value(self, rig, repo) -> None:
+        """``null`` sent is "inherit from the site type", not "derive from the risk" (#2512)."""
+        document = rig.file()
+        document["locations"][0]["site_conditions"] = {"microclimate": {"frost_risk": "high"}}
+        document["locations"][0]["frost_exposed"] = None
+
+        rig.run(document)
+
+        assert self._restored_beet_1(repo).frost_exposed is None
+
+    @pytest.mark.parametrize(("risk", "derived"), [("high", True), ("low", False), ("normal", None), ("unknown", None)])
+    def test_a_file_written_before_the_key_derives_the_override_from_the_risk(self, rig, repo, risk, derived) -> None:
+        """A backup from before #2512 has no ``frost_exposed``: the boolean follows the risk, as it did then.
+
+        ``normal`` forces none (#2454 item 2), so a migrated ``False``/``normal`` bed in such an old file still comes
+        back inheriting from the site type - the old file simply does not hold the protection.
+        """
+        self._set_frost(repo, True, None)  # what the target held must not leak into the restore
+        document = rig.file()
+        del document["locations"][0]["frost_exposed"]
+        document["locations"][0]["site_conditions"] = {"microclimate": {"frost_risk": risk}}
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
         assert restored.site_conditions is not None
-        assert restored.site_conditions.microclimate.frost_risk == "normal"
-        assert restored.frost_exposed is None
+        assert restored.site_conditions.microclimate.frost_risk == risk
+        assert restored.frost_exposed is derived
+
+    def test_an_old_file_without_site_conditions_restores_no_override(self, rig, repo) -> None:
+        document = rig.file()
+        del document["locations"][0]["frost_exposed"]
+        document["locations"][0]["site_conditions"] = None
+
+        rig.run(document)
+
+        assert self._restored_beet_1(repo).frost_exposed is None
+
+    def test_a_shifted_merge_keeps_the_override_of_the_file(self, rig, repo) -> None:
+        """The offset path copies the parsed file; the copy must still know which keys the file sent."""
+        self._set_frost(repo, False, "normal")
+        document = rig.file()
+        document["locations"] = [loc for loc in document["locations"] if loc["name"] == "Beet 1"]
+        document["locations"][0]["name"] = "Beet 1 copy"
+        document["slots"] = []
+
+        report = rig.run(document, mode="merge", offset_m=(0.0, 5.0), confirm_site_name=None)
+
+        assert report.applied
+        (copy_of_bed,) = [loc for loc in repo.locations.values() if loc.name == "Beet 1 copy"]
+        assert copy_of_bed.frost_exposed is False
 
     def test_an_invalid_site_condition_is_a_finding_not_a_crash(self, rig, repo) -> None:
         document = rig.file()
@@ -349,6 +496,104 @@ class TestTheFileIsUntrusted:
         (detail, *_) = refused.value.details
         assert detail["field"].startswith("locations[1].geometry") and detail["code"] == "geometry.invalid"
         assert detail["key"] == document["locations"][1]["key"]
+
+
+class TestOversizedListsAreRefusedBeforeAnyLookup2542:
+    """#2542 W-1: a file with more entries than a site may hold is refused whole, before ``_prepare`` looks up."""
+
+    @staticmethod
+    def _counted(rig, repo, monkeypatch) -> dict[str, int]:
+        calls = {"load_structure": 0, "irrigation_zone_site_key": 0, "substrate_visible": 0, "check_quotas": 0}
+        for name in ("load_structure", "irrigation_zone_site_key", "substrate_visible"):
+            original = getattr(repo, name)
+
+            def counted(*args: Any, _name: str = name, _original: Any = original, **kwargs: Any) -> Any:
+                calls[_name] += 1
+                return _original(*args, **kwargs)
+
+            monkeypatch.setattr(repo, name, counted)
+        check_quotas = rig.service._check_quotas
+
+        def counted_quotas(*args: Any, **kwargs: Any) -> None:
+            calls["check_quotas"] += 1
+            check_quotas(*args, **kwargs)
+
+        monkeypatch.setattr(rig.service, "_check_quotas", counted_quotas)
+        return calls
+
+    @staticmethod
+    def _with_locations(rig, count: int) -> dict[str, Any]:
+        document = rig.file()
+        template = document["locations"][0]
+        document["locations"] = [
+            {
+                **template,
+                "key": f"bed_{n}",
+                "irrigation_zone_key": f"zone_{n}",
+                "soil_profile": {**(template.get("soil_profile") or {}), "substrate_key": f"sub_{n}"},
+            }
+            for n in range(count)
+        ]
+        document["slots"] = []
+        return document
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_501_locations_are_the_quota_and_nothing_is_looked_up(self, rig, repo, monkeypatch, dry_run) -> None:
+        document = self._with_locations(rig, 501)  # read before counting: the export reads the site, too
+        calls = self._counted(rig, repo, monkeypatch)
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=dry_run)
+
+        assert refused.value.status_code == 422
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [("locations", "plan.quota_exceeded")]
+        assert calls == {"load_structure": 0, "irrigation_zone_site_key": 0, "substrate_visible": 0, "check_quotas": 0}
+        assert repo.applied == []
+
+    def test_500_locations_still_reach_the_lookups_and_the_quota_check(self, rig, repo, monkeypatch) -> None:
+        document = self._with_locations(rig, 500)
+        calls = self._counted(rig, repo, monkeypatch)
+
+        report = rig.run(document, dry_run=True)
+
+        assert report.dry_run and report.would_create.locations == 500
+        assert calls["load_structure"] == 1 and calls["check_quotas"] == 1
+        assert calls["irrigation_zone_site_key"] == 500 and calls["substrate_visible"] == 500
+
+    @pytest.mark.parametrize(("field", "count"), [("garden_objects", 501), ("slots", 8001)])
+    def test_the_other_capped_lists_are_the_quota_too(self, rig, repo, monkeypatch, field, count) -> None:
+        document = rig.file()
+        calls = self._counted(rig, repo, monkeypatch)
+        an_object = {"key": "o", "object_type": "path", "geometry": rect(1, 1), "props": {}}
+        item = document["slots"][0] if field == "slots" else an_object
+        document[field] = [{**item, "key": f"x{n}"} for n in range(count)]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [(field, "plan.quota_exceeded")]
+        assert calls["load_structure"] == 0
+
+    def test_501_zones_are_the_zone_quota_like_the_quota_check_says(self, rig, repo, monkeypatch) -> None:
+        # One case, one code (#2542): the schema cap reports what ``_check_quotas`` reports for the same excess.
+        from app.domain.models.garden_plan import MAX_PLAN_ZONES
+
+        document = rig.file()
+        calls = self._counted(rig, repo, monkeypatch)
+        document["zones"] = [{"key": f"z{n}", "name": f"Zone {n}"} for n in range(MAX_PLAN_ZONES + 1)]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [("zones", "irrigation_zone.quota_exceeded")]
+        assert calls["load_structure"] == 0
+
+    def test_the_export_of_a_site_above_the_quota_is_still_written(self, rig, repo) -> None:
+        # A location made through the site API is not counted against GP-NFR-017; the export must not refuse it.
+        for n in range(501):
+            repo.locations[f"extra_{n}"] = make_location(f"extra_{n}", f"Beet {n}", geometry=rect(1, 5))
+
+        assert len(rig.file()["locations"]) == 503
 
 
 class TestOffsetAndTargetWp718:
@@ -474,6 +719,32 @@ class TestSnapshotsWp719:
                 force=False,
                 confirm_site_name=None,
             )
+
+    def test_the_listing_is_newest_first_and_only_the_callers_site_over_the_fakes_cap(self, rig, repo) -> None:
+        """The service lists a site's snapshots newest first, scoped to the caller's tenant and site.
+
+        The cap of :data:`MAX_SNAPSHOTS_PER_SITE` is applied here by ``FakePlanRepo.apply_plan_batch``, which
+        re-implements the pruning contract; this test therefore pins the service's listing over that contract and
+        proves nothing about the production ``_prune_snapshots``. The W-2 proof (#2542) against ArangoDB is
+        ``test_a_site_keeps_its_newest_twenty_snapshots_and_every_other_row`` in
+        ``tests/integration/test_garden_plan_import.py``.
+        """
+        from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
+
+        repo.snapshot_rows.append((OTHER_TENANT, SITE, "foreign_tenant", {}))  # another tenant, same site key
+        repo.snapshot_rows.append((TENANT, "site_other", "other_site", {}))
+        listed: list[str] = []
+        for _ in range(MAX_SNAPSHOTS_PER_SITE + 1):
+            rig.run(rig.file())
+            newest, *_ = rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=50)
+            listed.append(newest.audit_key)
+
+        kept = rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=50)
+
+        assert MAX_SNAPSHOTS_PER_SITE == 20 and len(repo.applied) == 21
+        assert [entry.audit_key for entry in kept] == listed[:0:-1]  # newest first, the first one is gone
+        assert listed[0] not in {entry.audit_key for entry in kept}
+        assert {row[2] for row in repo.snapshot_rows} >= {"foreign_tenant", "other_site"}
 
     def test_a_page_is_capped_below_the_shared_pagination(self, rig, repo) -> None:
         from app.domain.services.garden_plan_import_service import MAX_SNAPSHOT_PAGE

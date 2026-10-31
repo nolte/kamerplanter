@@ -141,6 +141,19 @@ tasks:
     cmds:
       - python3 scripts/reach/stack.py seed-tenant --tenant {{.REACH_PERSONAL_TENANT}} --control {{.REACH_PERSONAL_CONTROL_TENANT}} --personal-of {{.REACH_SUBJECT}}
 
+  reach:seed:garden-plan:
+    desc: |
+      Build one small garden plan in the running reach stack through the API,
+      the way a gardener's client writes it (#2448): register a fresh account
+      (its personal tenant is the plan's tenant), create an outdoor site, set
+      its boundary, add a bed and a compost heap in one plan batch, quick-plant
+      three plants of a seeded global species with their slots, bind one open
+      task to the bed and put the bed into an irrigation zone. Writes the
+      account and the site to .reach/subjects/garden-plan.json. Says nothing
+      about the plan read model; observe_garden_plan.py reads it.
+    cmds:
+      - python3 scripts/reach/seed_garden_plan.py
+
   reach:erasure:admin-delete-tenant:
     desc: |
       Register a platform admin over the API, promote it, and send
