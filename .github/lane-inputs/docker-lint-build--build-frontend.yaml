@@ -11,7 +11,7 @@ gate:
   filter: frontend
 status: derived
 measured_on: '2026-10-31'
-measured_at_commit: 271f0fa801c667589972e816f5a13c1a5c37e826
+measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
 replay_seconds: 1
 job_spec_sha256: 2c4a620a08b1a154e228f28771a79ab2b6807528cf784bd1967b0584fdaf55a4
 invocations:
@@ -34,7 +34,7 @@ invocations:
   - nginx.conf
   - nginx-security-headers.inc
   - docker-entrypoint.d/
-  context_files_after_dockerignore: 1573
+  context_files_after_dockerignore: 1581
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -404,6 +404,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/Handles.tsx
 - src/frontend/src/features/gardenPlanner/editor/KeyboardHelp.tsx
 - src/frontend/src/features/gardenPlanner/editor/LabelInName.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/LabelPlacement.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/LiveRegion.tsx
 - src/frontend/src/features/gardenPlanner/editor/MiniMap.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/MiniMap.tsx
@@ -424,6 +425,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/ViewBar.tsx
 - src/frontend/src/features/gardenPlanner/editor/anchors.ts
 - src/frontend/src/features/gardenPlanner/editor/announce.ts
+- src/frontend/src/features/gardenPlanner/editor/dimensions.test.ts
 - src/frontend/src/features/gardenPlanner/editor/dimensions.ts
 - src/frontend/src/features/gardenPlanner/editor/downloadChanges.ts
 - src/frontend/src/features/gardenPlanner/editor/editorI18n.test.ts
@@ -544,6 +546,9 @@ reads:
 - src/frontend/src/features/gardenPlanner/model/geometry.test.ts
 - src/frontend/src/features/gardenPlanner/model/geometry.ts
 - src/frontend/src/features/gardenPlanner/model/geometry.vectors.test.ts
+- src/frontend/src/features/gardenPlanner/model/labelAnchor.test.ts
+- src/frontend/src/features/gardenPlanner/model/labelAnchor.ts
+- src/frontend/src/features/gardenPlanner/model/labelAnchor.vectors.test.ts
 - src/frontend/src/features/gardenPlanner/model/layout.benchmark.test.ts
 - src/frontend/src/features/gardenPlanner/model/layout.ts
 - src/frontend/src/features/gardenPlanner/model/layout.vectors.test.ts
@@ -608,6 +613,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/renderer/HeadlessPlanRenderer.test.ts
 - src/frontend/src/features/gardenPlanner/renderer/HeadlessPlanRenderer.ts
 - src/frontend/src/features/gardenPlanner/renderer/PlantMarker.tsx
+- src/frontend/src/features/gardenPlanner/renderer/SvgPlanRenderer.labels.test.tsx
 - src/frontend/src/features/gardenPlanner/renderer/SvgPlanRenderer.plantState.test.tsx
 - src/frontend/src/features/gardenPlanner/renderer/SvgPlanRenderer.test.tsx
 - src/frontend/src/features/gardenPlanner/renderer/SvgPlanRenderer.tsx
@@ -619,6 +625,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/renderer/icons.ts
 - src/frontend/src/features/gardenPlanner/renderer/index.test.ts
 - src/frontend/src/features/gardenPlanner/renderer/index.ts
+- src/frontend/src/features/gardenPlanner/renderer/labelLayout.test.ts
+- src/frontend/src/features/gardenPlanner/renderer/labelLayout.ts
 - src/frontend/src/features/gardenPlanner/renderer/lod.ts
 - src/frontend/src/features/gardenPlanner/renderer/planContrast.test.ts
 - src/frontend/src/features/gardenPlanner/renderer/planIndex.slotFollow.test.ts

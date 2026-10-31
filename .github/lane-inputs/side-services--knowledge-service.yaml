@@ -9,9 +9,9 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-19'
-measured_at_commit: 9707e38f25ac49ca63a853b106af67915341f4da
-replay_seconds: 9
+measured_on: '2026-10-31'
+measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
+replay_seconds: 13
 job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
 invocations:
 - command: task deps:sync:knowledge-service
@@ -19,13 +19,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 209
+  untracked_reads_dropped: 197
 - command: task test:knowledge-service
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2115
+  untracked_reads_dropped: 2119
 subprocesses:
 - ld-linux-x86-64.so.2
 - python

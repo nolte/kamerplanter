@@ -11,8 +11,8 @@ gate:
   filter: vectordb
 status: derived
 measured_on: '2026-10-31'
-measured_at_commit: 271f0fa801c667589972e816f5a13c1a5c37e826
-replay_seconds: 2
+measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
+replay_seconds: 1
 job_spec_sha256: c12c13bf9275ae37fa4fa3c97e365dc70c5702dacf9cc78aaeb892f116e5cbb8
 invocations:
 - command: derive-docker --context docker/vectordb --dockerfile docker/vectordb/Dockerfile
