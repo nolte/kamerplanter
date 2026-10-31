@@ -24,7 +24,7 @@ import { loadVectors, type VectorCase } from '@/test/gardenPlanVectors';
  * cases inline would certify nothing.
  */
 const ALL_VECTORS = loadVectors();
-/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3); `plant_state` runs in `plantState.vectors.test.ts`; `site_fit` runs in `siteFit.vectors.test.ts`; `overdue` runs in `overdue.vectors.test.ts`; `phase_color` runs in `planting/phaseColors.vectors.test.ts`; `place_geometry` runs in `templates/placeGeometry.vectors.test.ts`. */
+/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3); `plant_state` runs in `plantState.vectors.test.ts`; `site_fit` runs in `siteFit.vectors.test.ts`; `overdue` runs in `overdue.vectors.test.ts`; `phase_color` runs in `planting/phaseColors.vectors.test.ts`; `place_geometry` runs in `templates/placeGeometry.vectors.test.ts`; `label_anchor` and `label_truncate` run in `labelAnchor.vectors.test.ts`. */
 const LAYOUT_OPERATIONS = new Set([
   'layout',
   'layout_error',
@@ -34,6 +34,8 @@ const LAYOUT_OPERATIONS = new Set([
   'overdue',
   'phase_color',
   'place_geometry',
+  'label_anchor',
+  'label_truncate',
 ]);
 const VECTORS = {
   ...ALL_VECTORS,

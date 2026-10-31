@@ -1,11 +1,11 @@
 import { memo, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { alpha, styled, useTheme, type Theme } from '@mui/material/styles';
-import { centroid } from '../model/geometry';
 import type { PlanModel } from '../model/planModel';
 import type { BedStatus, GardenObject, PlanLocation, Point } from '../model/types';
 import { BasePlanRenderer } from './BasePlanRenderer';
 import { OBJECT_ICON_PATHS } from './icons';
 import { ICON_SIZE_PX, MARKER_RADIUS_PX, labelFontPx } from './lod';
+import { ICON_LINE_GAP_EM, labelAnchorOf } from './labelLayout';
 import { PlantBadge, PlantMarkerBody } from './PlantMarker';
 import { UnderlayLayer } from '../underlay/UnderlayLayer';
 import { WateredLayer, ZoneLayer } from './ZoneOverlays';
@@ -130,10 +130,19 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
     moistureLayer,
     frostLayer,
     underlayLayer,
+    dimensionsOnOverlay,
   } = options;
   const scene = useMemo(
-    () => buildScene(model, viewport, selection, { enteredLocationKey, plantStates, invalidKeys, plantStateLayer }),
-    [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys, plantStateLayer],
+    () =>
+      buildScene(model, viewport, selection, {
+        enteredLocationKey,
+        plantStates,
+        invalidKeys,
+        plantStateLayer,
+        fieldMode,
+        dimensionsOnOverlay,
+      }),
+    [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys, plantStateLayer, fieldMode, dimensionsOnOverlay],
   );
   const palette = useMemo(() => planPalette(theme), [theme]);
   const { pxPerM } = viewport;
@@ -359,26 +368,24 @@ const ShapeNode = memo(function ShapeNode({
   const { entry, selected } = item;
   const style = shapeStyle(entry, selected, item.invalid, palette);
   const d = useMemo(() => pathData(entry), [entry]);
-  const centre = useMemo(() => centroid(entry.geometry), [entry]);
+  // The name and the type icon sit at the shared label anchor - a polygon's pole of inaccessibility (GP-UX-047).
+  const centre = labelAnchorOf(entry.geometry).point;
   const fontSize = fontPx / pxPerM;
   const widthPx = (entry.bbox[2] - entry.bbox[0]) * pxPerM;
 
   const size = labels.size(entry.geometry, entry.areaM2 || entry.bboxAreaM2);
   let ariaLabel: string;
-  let name = '';
   let iconPath: string | null = null;
   if (entry.kind === 'location') {
     const location = entry.source as PlanLocation;
-    name = location.name;
     ariaLabel = labels.bed({
-      name,
+      name: location.name,
       size,
       plants: item.plantCount,
       openTasks: location.open_task_count,
     });
   } else if (entry.kind === 'gardenObject') {
     const object = entry.source as GardenObject;
-    name = object.label;
     ariaLabel = labels.object({
       label: object.label,
       typeLabel: labels.objectType(object.object_type),
@@ -389,13 +396,12 @@ const ShapeNode = memo(function ShapeNode({
     ariaLabel = labels.boundary;
   }
 
-  const maxChars = Math.max(3, Math.floor(widthPx / (fontPx * 0.6)));
-  const shown = name.length > maxChars ? `${name.slice(0, maxChars - 1)}…` : name;
+  const { label } = item;
   const cx = centre[0];
   const cy = -centre[1];
-  const lineGap = (fontPx * 0.9) / pxPerM;
+  const lineGap = (fontPx * ICON_LINE_GAP_EM) / pxPerM;
   const iconScale = ICON_SIZE_PX / 24 / pxPerM;
-  const iconShift = item.showLabel ? lineGap : 0;
+  const iconShift = label ? lineGap : 0;
 
   return (
     <g
@@ -453,22 +459,24 @@ const ShapeNode = memo(function ShapeNode({
           aria-hidden="true"
         />
       ) : null}
-      {item.showLabel && shown ? (
+      {label ? (
         <text
-          x={num(cx)}
-          y={num(cy + (item.showIcon ? lineGap : fontSize / 3))}
+          data-testid={`garden-plan-label-${entry.key}`}
+          x={num(label.x)}
+          y={num(-label.y + (item.showIcon ? lineGap : fontSize / 3))}
           fontSize={fontSize.toPrecision(4)}
           textAnchor="middle"
           fill={palette.text}
           pointerEvents="none"
           aria-hidden="true"
         >
-          {shown}
+          {label.text}
         </text>
       ) : null}
       {item.showDimensions ? (
+        // Outside, centred above the top edge (GP-UX-047).
         <text
-          x={num(cx)}
+          x={num((entry.bbox[0] + entry.bbox[2]) / 2)}
           y={num(-entry.bbox[3] - fontSize * 0.5)}
           fontSize={fontSize.toPrecision(4)}
           textAnchor="middle"

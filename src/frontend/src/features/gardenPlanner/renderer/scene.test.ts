@@ -324,3 +324,115 @@ describe('buildScene - plant-state layer (GP-UX-061, #2488)', () => {
     expect(nearMarkers.every((m) => m.interactive && m.layerState === undefined)).toBe(true);
   });
 });
+
+describe('buildScene - label placement (GP-UX-047, #2490)', () => {
+  // An L-shaped bed (concave): its area centroid (4.236, 3.236) lies in the notch, outside the bed.
+  const lShape = bed('l', 2, 2, {
+    name: 'Winkelbeet',
+    geometry: {
+      kind: 'polygon',
+      points: [
+        [2, 2],
+        [8, 2],
+        [8, 3.2],
+        [3.2, 3.2],
+        [3.2, 6],
+        [2, 6],
+      ],
+      rotation_deg: 0,
+    },
+    bbox: [2, 2, 8, 6],
+    area_m2: 10.56,
+  });
+  const labelOf = (scene: ReturnType<typeof buildScene>, key: string) =>
+    scene.shapes.find((shape) => shape.entry.key === key)?.label ?? null;
+
+  it('puts the name of an L-shaped bed at its pole of inaccessibility, not at the centroid', () => {
+    const scene = buildScene(plan({ locations: [lShape], garden_objects: [] }), viewportAt(0, 10, 100), NO_SELECTION, {});
+    expect(labelOf(scene, 'l')).toEqual({ text: 'Winkelbeet', x: 2.703, y: 2.703 });
+  });
+
+  it('shortens a name with an ellipsis to the room at the anchor', () => {
+    // room 1.406 m at 50 px/m = 70 px: 9 characters of 7.2 px (the 6 m box would hold 41)
+    const named = { ...lShape, name: 'Staudenbeet am Gartenzaun' };
+    const scene = buildScene(plan({ locations: [named], garden_objects: [] }), viewportAt(0, 10, 50), NO_SELECTION, {});
+    expect(labelOf(scene, 'l')?.text).toBe('Staudenb…');
+  });
+
+  it('shortens with the field-mode font to fewer characters (16 px)', () => {
+    const named = { ...lShape, name: 'Staudenbeet am Gartenzaun' };
+    const scene = buildScene(plan({ locations: [named], garden_objects: [] }), viewportAt(0, 10, 50), NO_SELECTION, {
+      fieldMode: true,
+    });
+    // 70 px / 9.6 px = 7 characters
+    expect(labelOf(scene, 'l')?.text).toBe('Staude…');
+  });
+
+  it('gives an overlapping name to the larger object; the smaller keeps its LOD gate for the overlays', () => {
+    // A 1.2 x 2 m bed whose centre sits 6 cm from the centre of a 4 x 4 m area around it.
+    const area = bed('area', 0, 0, {
+      name: 'Gemüsegarten',
+      geometry: { kind: 'rect', origin: [0, 0], width_m: 4, length_m: 4, rotation_deg: 0 },
+      bbox: [0, 0, 4, 4],
+      area_m2: 16,
+      location_type_key: 'area',
+    });
+    const inner = bed('inner', 1.4, 1.06, { name: 'Beet' });
+    const scene = buildScene(plan({ locations: [inner, area], garden_objects: [] }), viewportAt(-1, 6, 100), NO_SELECTION, {});
+    expect(labelOf(scene, 'area')?.text).toBe('Gemüsegarten');
+    expect(labelOf(scene, 'inner')).toBeNull();
+    expect(scene.shapes.find((shape) => shape.entry.key === 'inner')?.showLabel).toBe(true);
+  });
+
+  it('keeps both names when they do not meet', () => {
+    const scene = buildScene(
+      plan({ locations: [bed('a', 1, 1), bed('b', 4, 1)], garden_objects: [] }),
+      viewportAt(0, 10, 100),
+      NO_SELECTION,
+      {},
+    );
+    expect(labelOf(scene, 'a')?.text).toBe('Bed a');
+    expect(labelOf(scene, 'b')?.text).toBe('Bed b');
+  });
+
+  it('draws no name below 60 px of on-screen width (GP-NFR-067)', () => {
+    const scene = buildScene(plan({ locations: [bed('b', 1, 1)], garden_objects: [] }), viewportAt(0, 10, 49), NO_SELECTION, {});
+    expect(labelOf(scene, 'b')).toBeNull();
+  });
+
+  it('places the plant cluster a line above the name, never on it', () => {
+    const { slots, plants } = plantedBed('b', 1, 1, 6, 0.1);
+    const model = plan({ locations: [bed('b', 1, 1)], garden_objects: [], slots, plants });
+    const scene = buildScene(model, viewportAt(0, 10, 99), NO_SELECTION, {});
+    const label = labelOf(scene, 'b');
+    const cluster = scene.clusters[0];
+    expect(label).not.toBeNull();
+    expect(cluster.x).toBe(label?.x);
+    expect((cluster.y - (label?.y ?? 0)) * 99).toBeCloseTo(18, 5); // 1.5 x 12 px
+  });
+
+  it('centres the cluster on the label anchor when the name is not drawn', () => {
+    const { slots, plants } = plantedBed('b', 1, 1, 6, 0.1);
+    const model = plan({ locations: [bed('b', 1, 1)], garden_objects: [], slots, plants });
+    const scene = buildScene(model, viewportAt(0, 10, 45), NO_SELECTION, {});
+    expect(labelOf(scene, 'b')).toBeNull();
+    expect([scene.clusters[0].x, scene.clusters[0].y]).toEqual([1.6, 2]);
+  });
+
+  it('leaves the dimensions of the selection to the overlay when the caller draws them', () => {
+    const model = plan({ locations: [bed('b', 1, 1)], garden_objects: [] });
+    const selection = { selectedKeys: new Set(['b']) };
+    expect(buildScene(model, viewportAt(0, 10, 60), selection, {}).shapes[0].showDimensions).toBe(true);
+    expect(
+      buildScene(model, viewportAt(0, 10, 60), selection, { dimensionsOnOverlay: true }).shapes[0].showDimensions,
+    ).toBe(false);
+  });
+
+  it('is deterministic for the same data and viewport (GP-FR-003)', () => {
+    const model = plan({ locations: [lShape, bed('a', 1, 7), bed('b', 4, 7)], garden_objects: [gardenObject('t', 6, 8)] });
+    const view = viewportAt(0, 10, 80);
+    const first = buildScene(model, view, NO_SELECTION, {}).shapes.map((shape) => shape.label);
+    const second = buildScene(model, view, NO_SELECTION, {}).shapes.map((shape) => shape.label);
+    expect(second).toEqual(first);
+  });
+});

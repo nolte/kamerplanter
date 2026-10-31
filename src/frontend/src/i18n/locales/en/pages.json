@@ -5396,6 +5396,7 @@
         },
         "newBedName": "Bed {{n}}",
         "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties panel.",
+        "zoomToEdit": "Zoom in to edit",
         "actions": {
           "move": "Move",
           "rotate": "Rotate",

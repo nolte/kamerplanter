@@ -61,7 +61,11 @@ As **shape** you choose rectangle, circle, polygon or line. You drag out the rec
 
 For every object the plan shows width, length (diameter for a circle) and area. **Add with dimensions** creates a bed or object from typed-in dimensions, without drawing.
 
+The name of a bed or object sits in its middle; on a polygon it sits where it has the most room to every edge, so it stays inside an L-shaped bed. A name that is too long is shortened with "…". When two names overlap, the larger object keeps its name. The PDF and the SVG put the name in the same place. <!-- REQ-053 GP-UX-047 -->
+
 A selected object has handles: the corners change the size, the rotation handle turns the object. The **rotation step** snaps the rotation every 15, 45 or 90 degrees; hold the Alt key to rotate freely. On a polygon you add a point with **Insert point** and remove one with **Delete point**.
+
+The dimensions of the selected object stand outside, above its top edge, and keep clear of the handles. When an object is too small on screen for handles, a hint offers **Zoom in to edit**: the plan zooms in around the object until all handles appear. <!-- REQ-053 GP-UX-047, GP-UX-048 -->
 
 ### With the mouse
 

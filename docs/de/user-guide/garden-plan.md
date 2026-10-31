@@ -61,7 +61,11 @@ Als **Form** wählst du Rechteck, Kreis, Vieleck oder Linie. Das Rechteck ziehst
 
 Zu jedem Objekt zeigt der Plan Breite, Länge (beim Kreis den Durchmesser) und Fläche. **Mit Maßen hinzufügen** legt ein Beet oder Objekt mit eingetippten Maßen an, auch ohne Zeichnen.
 
+Der Name eines Beets oder Objekts steht in seiner Mitte, bei einem Vieleck an der Stelle mit dem meisten Platz zu allen Rändern, damit er auch in einem Winkelbeet im Beet bleibt. Ist der Name zu lang, kürzt der Plan ihn mit „…“. Überdecken sich zwei Namen, bleibt der des größeren Objekts stehen. Im PDF und in der SVG steht der Name an derselben Stelle. <!-- REQ-053 GP-UX-047 -->
+
 Ein gewähltes Objekt hat Griffe: Die Ecken ändern die Größe, der Drehgriff dreht das Objekt. Das **Drehraster** rastet beim Drehen alle 15, 45 oder 90 Grad ein; mit gehaltener Alt-Taste drehst du frei. Bei einem Vieleck fügst du über **Punkt einfügen** einen Punkt hinzu und entfernst einen mit **Punkt löschen**.
+
+Die Maße des gewählten Objekts stehen außerhalb über seiner Oberkante und weichen den Griffen aus. Ist ein Objekt auf dem Bildschirm zu klein für Griffe, erscheint ein Hinweis mit **Zum Bearbeiten heranzoomen**: Der Plan zoomt um das Objekt herum so weit hinein, dass alle Griffe erscheinen. <!-- REQ-053 GP-UX-047, GP-UX-048 -->
 
 ### Mit der Maus
 

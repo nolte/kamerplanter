@@ -41,6 +41,38 @@ function densityOf(sizePx: number): HandleDensity {
   return 'full';
 }
 
+/** The side whose on-screen size decides the handle density of a rect or circle; `null` for other shapes. */
+function handleSizeM(geometry: Geometry): number | null {
+  if (geometry.kind === 'rect') return Math.min(geometry.width_m, geometry.length_m);
+  if (geometry.kind === 'circle') return geometry.radius_m * 2;
+  return null;
+}
+
+/**
+ * The zoom (px/m) at which `geometry` gets its full set of handles (GP-UX-048: 3 x 48 px on its smaller side).
+ * `null` for shapes whose handles never depend on the zoom (polygon, polyline, point). The small margin keeps float
+ * noise from landing just below the threshold.
+ */
+export function zoomForFullHandles(geometry: Geometry): number | null {
+  const sizeM = handleSizeM(geometry);
+  if (sizeM === null || sizeM <= 0) return null;
+  return ((3 * HANDLE_TARGET_PX) / sizeM) * 1.02;
+}
+
+/**
+ * The zoom "zoom in to edit" goes to (GP-UX-048): the zoom of the full set of handles, capped at `maxPxPerM`. `null`
+ * when even `maxPxPerM` leaves the object without handles (density `none`, smaller than 2 x 48 px on its smaller
+ * side) - the button would zoom and leave the hint standing, so none is offered (SCR-003). Between the two the object
+ * gets its corner handles at the cap.
+ */
+export function zoomToEditPxPerM(geometry: Geometry, maxPxPerM: number): number | null {
+  const wanted = zoomForFullHandles(geometry);
+  const sizeM = handleSizeM(geometry);
+  if (wanted === null || sizeM === null) return null;
+  const target = Math.min(wanted, maxPxPerM);
+  return densityOf(sizeM * target) === 'none' ? null : target;
+}
+
 export function computeHandles(geometry: Geometry, pxPerM: number): HandleSet {
   const offsetM = ROTATE_OFFSET_PX / pxPerM;
   if (geometry.kind === 'rect') {

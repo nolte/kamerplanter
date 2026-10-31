@@ -58,9 +58,10 @@ import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
-import { nearestGridStep, stepZoom } from '../model/units';
+import { MAX_PX_PER_M, nearestGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { snapCandidates } from '../renderer/planIndex';
+import { toScreen as projectToScreen } from '../renderer/viewport';
 import { markerLodBedKeys } from '../renderer/scene';
 import { colorsOf, usePhaseNames } from '../planting/phaseColors';
 import { usePlanPlantStates } from '../planting/usePlanPlantStates';
@@ -134,6 +135,7 @@ import {
   type MultiRefusal,
 } from './tools/duplicate';
 import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImpact } from './tools/hierarchy';
+import { zoomToEditPxPerM } from './tools/handles';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
@@ -1162,6 +1164,8 @@ export function GardenPlanEditor({
   const rendered = useMemo(
     () => renderer.render(plan, viewport, selectedKeys, {
         labels,
+        // The overlay prints the selection's dimensions, clear of the handles (GP-UX-047).
+        dimensionsOnOverlay: true,
         onActivateKey,
         invalidKeys,
         underlayLayer: underlayState.entry,
@@ -1231,7 +1235,36 @@ export function GardenPlanEditor({
     ? t(`${PREFIX}.notice.${code}`, { defaultValue: t(`${PREFIX}.notice.generic`) })
     : null;
   const handles = tools.handles;
+  // One projection per viewport (SCR-006): the function changes when the plan moves and stays the same otherwise, so
+  // the overlay's memos (dimension text placement) hold across renders that do not move it. It is the projection
+  // every renderer uses (`BasePlanRenderer.toScreen` reads the viewport the frame was drawn with, this one).
+  const toScreen = useCallback((pointM: Point): Point => projectToScreen(viewport, pointM), [viewport]);
+  const handlesPx = useMemo(
+    () => handles?.handles.map((handle) => toScreen(handle.pointM)),
+    [handles, toScreen],
+  );
   const singleTooSmall = handles !== null && handles.density === 'none';
+  // GP-UX-048: an object too small for handles offers "zoom in to edit" - the zoom at which it gets its full set of
+  // handles (capped at the highest zoom), around its centre, so it stays where it is on screen. Absent when even the
+  // highest zoom would leave it without handles (SCR-003): the button would change nothing the hint speaks of.
+  // The button disappears with the hint once the handles are there, so focus moves to the object (else to the plan
+  // region) instead of dropping to the page (SCR-002, WCAG 2.4.3).
+  const zoomToEdit = useMemo(() => {
+    if (!singleTooSmall || !onZoom || selection.length !== 1) return null;
+    const ref = selection[0];
+    if (!isPlanEntity(ref)) return null;
+    const source = ref.entity === 'location' ? plan.locations[ref.key] : plan.gardenObjects[ref.key];
+    const pxPerMTarget = source?.geometry ? zoomToEditPxPerM(source.geometry, MAX_PX_PER_M) : null;
+    const bbox = source?.bbox;
+    if (pxPerMTarget === null || pxPerMTarget <= pxPerM || !bbox) return null;
+    const centreM: Point = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+    return { key: ref.key, pxPerM: pxPerMTarget, centreM };
+  }, [singleTooSmall, onZoom, pxPerM, selection, plan]);
+  const onZoomToEdit = useCallback(() => {
+    if (!zoomToEdit || !onZoom) return;
+    pendingFocus.current = { key: zoomToEdit.key };
+    onZoom(zoomToEdit.pxPerM, toScreen(zoomToEdit.centreM));
+  }, [zoomToEdit, onZoom, toScreen]);
 
   const drawing = tool === 'bed' || tool === 'garden_object';
   // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
@@ -1467,15 +1500,17 @@ export function GardenPlanEditor({
         overlay={tools.overlay}
         handles={handles}
         vertex={tools.vertex}
-        toScreen={renderer.toScreen.bind(renderer)}
+        toScreen={toScreen}
         pxPerM={viewport.pxPerM}
         widthPx={viewport.widthPx}
         heightPx={viewport.heightPx}
       >
         <DimensionLabels
           items={dimensionItems}
-          toScreen={renderer.toScreen.bind(renderer)}
+          toScreen={toScreen}
           unit={unit}
+          handlesPx={handlesPx}
+          heightPx={viewport.heightPx}
         />
         {selectedTemplate && ghostPoint && templateMode && (
           <TemplateGhost
@@ -1483,14 +1518,14 @@ export function GardenPlanEditor({
             invalid={ghostInvalid}
             originM={ghostPoint}
             rotationDeg={templateMode.rotationDeg}
-            toScreen={renderer.toScreen.bind(renderer)}
+            toScreen={toScreen}
             pxPerM={pxPerM}
           />
         )}
         {shownSnapMark && (
           <SnapMarker
             mark={shownSnapMark}
-            toScreen={renderer.toScreen.bind(renderer)}
+            toScreen={toScreen}
             widthPx={viewport.widthPx}
             heightPx={viewport.heightPx}
           />
@@ -1665,7 +1700,18 @@ export function GardenPlanEditor({
         </Alert>
       )}
       {!listShown && singleTooSmall && (
-        <Alert severity="info" role="status" data-testid="garden-plan-too-small">
+        <Alert
+          severity="info"
+          role="status"
+          data-testid="garden-plan-too-small"
+          action={
+            zoomToEdit ? (
+              <Button color="inherit" size="small" onClick={onZoomToEdit} data-testid="garden-plan-zoom-to-edit">
+                {t(`${PREFIX}.zoomToEdit`)}
+              </Button>
+            ) : undefined
+          }
+        >
           {t(`${PREFIX}.tooSmall`)}
         </Alert>
       )}

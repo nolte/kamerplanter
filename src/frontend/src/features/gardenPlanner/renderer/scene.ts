@@ -3,10 +3,12 @@
  * level of detail. `SvgPlanRenderer` turns a {@link Scene} into DOM, `HeadlessPlanRenderer` hands
  * it to tests, so culling, LOD and ordering are asserted once, without a DOM.
  */
-import { ICON_MIN_PX, LABEL_MIN_PX, markersVisible } from './lod';
+import { ICON_MIN_PX, LABEL_MIN_PX, labelFontPx, markersVisible } from './lod';
+import { fitLabel, labelAnchorOf, labelWeight, resolveLabelCollisions, type LabelCandidate } from './labelLayout';
 import { markerIndex, shapeEntries, type MarkerEntry, type ShapeEntry } from './planIndex';
 import { ATTENTION_PRIORITY, type AttentionCode } from '../model/plantState';
 import type { PlanModel } from '../model/planModel';
+import type { GardenObject, PlanLocation } from '../model/types';
 import type { PlantMarkerState, RenderOptions, RenderSelection, Viewport } from './types';
 import { cullBoundsM, intersects } from './viewport';
 
@@ -17,12 +19,28 @@ export interface SceneShape {
   invalid: boolean;
   /** Roving tabindex 0 (GP-NFR-068); every other object is -1. */
   tabStop: boolean;
+  /**
+   * The object is wide enough on screen for its name (GP-NFR-067: 60 px). The overlays that sit beside the name
+   * (zone number, condition glyphs, watering days) follow this gate.
+   */
   showLabel: boolean;
+  /**
+   * The name as drawn, at its anchor (GP-UX-047): shortened with "…", `null` when the object has no name, is below
+   * the LOD gate or gave way to the label of a larger object.
+   */
+  label: SceneLabel | null;
   /** Garden objects only. */
   showIcon: boolean;
   /** Dimensions are printed for the selection only (GP-NFR-067). */
   showDimensions: boolean;
   plantCount: number;
+}
+
+/** A name on the plan: the (shortened) text and its centre in metres, plan frame. */
+export interface SceneLabel {
+  text: string;
+  x: number;
+  y: number;
 }
 
 /** An individually drawn marker: every marker of the entered bed, and a selected one anywhere. */
@@ -59,7 +77,7 @@ export interface SceneCluster {
    * (those with a badge plus those whose state is not known yet).
    */
   shownCount: number;
-  /** The centre of the bed, in metres. */
+  /** Where the circle sits, in metres: at the bed's label anchor, a line above its name when that is drawn. */
   x: number;
   y: number;
   /** Plants of the bed that need attention, when their states are known (GP-FR-190); else `null`. */
@@ -90,6 +108,50 @@ export function compareDomOrder(a: ShapeEntry, b: ShapeEntry): number {
 
 function screenSize(entry: ShapeEntry, pxPerM: number): [number, number] {
   return [(entry.bbox[2] - entry.bbox[0]) * pxPerM, (entry.bbox[3] - entry.bbox[1]) * pxPerM];
+}
+
+/** GP-NFR-067: a name from 60 px of on-screen width; the boundary has none. */
+function labelGate(entry: ShapeEntry, pxPerM: number): boolean {
+  return entry.kind !== 'boundary' && screenSize(entry, pxPerM)[0] >= LABEL_MIN_PX;
+}
+
+/** GP-NFR-067: a garden object's type icon from 24 px. */
+function showIcon(entry: ShapeEntry, pxPerM: number): boolean {
+  const [widthPx, heightPx] = screenSize(entry, pxPerM);
+  return entry.kind === 'gardenObject' && Math.max(widthPx, heightPx) >= ICON_MIN_PX;
+}
+
+/**
+ * A cluster beside a drawn name sits this many font sizes above the label anchor: below it the "last watered" layer
+ * writes its days, the condition glyphs take the bottom band.
+ */
+const CLUSTER_ABOVE_LABEL_EM = 1.5;
+
+function nameOf(entry: ShapeEntry): string {
+  if (entry.kind === 'location') return (entry.source as PlanLocation).name;
+  if (entry.kind === 'gardenObject') return (entry.source as GardenObject).label;
+  return '';
+}
+
+/**
+ * The names drawn this frame (GP-UX-047): every object past the LOD gate with a name, at its label anchor, shortened
+ * to the room there; where two labels overlap, the larger object keeps its name.
+ */
+function sceneLabels(kept: readonly ShapeEntry[], pxPerM: number, fontPx: number): Map<string, SceneLabel> {
+  const candidates: LabelCandidate[] = [];
+  kept.forEach((entry, order) => {
+    if (!labelGate(entry, pxPerM)) return;
+    const text = fitLabel(nameOf(entry), entry.geometry, pxPerM, fontPx);
+    if (!text) return;
+    const [x, y] = labelAnchorOf(entry.geometry).point;
+    candidates.push({ key: entry.key, text, x, y, withIcon: showIcon(entry, pxPerM), weight: labelWeight(entry), order });
+  });
+  const shown = resolveLabelCollisions(candidates, pxPerM, fontPx);
+  const labels = new Map<string, SceneLabel>();
+  for (const { key, text, x, y } of candidates) {
+    if (shown.has(key)) labels.set(key, { text, x, y });
+  }
+  return labels;
 }
 
 interface AttentionSummary extends Pick<SceneCluster, 'attention' | 'topBadge'> {
@@ -139,7 +201,10 @@ export function buildScene(
   model: PlanModel,
   viewport: Viewport,
   selection: RenderSelection,
-  options: Pick<RenderOptions, 'enteredLocationKey' | 'plantStates' | 'invalidKeys' | 'plantStateLayer'>,
+  options: Pick<
+    RenderOptions,
+    'enteredLocationKey' | 'plantStates' | 'invalidKeys' | 'plantStateLayer' | 'fieldMode' | 'dimensionsOnOverlay'
+  >,
 ): Scene {
   const cull = cullBoundsM(viewport);
   const { pxPerM } = viewport;
@@ -156,6 +221,8 @@ export function buildScene(
       entry.key === selection.focusKey || selected.has(entry.key) || intersects(entry.bbox, cull),
   );
   kept.sort(compareDomOrder);
+  const labels = sceneLabels(kept, pxPerM, labelFontPx(options.fieldMode));
+  const clusterLift = (CLUSTER_ABOVE_LABEL_EM * labelFontPx(options.fieldMode)) / pxPerM;
 
   const sceneMarkers: SceneMarker[] = [];
   const markerBatches: SceneMarkerBatch[] = [];
@@ -203,28 +270,30 @@ export function buildScene(
       // always names the total.
       const keptByFilter = (summary.attention ?? 0) + unknown;
       if (attentionOnly && keptByFilter === 0) continue;
+      const [ax, ay] = labelAnchorOf(entry.geometry).point;
       clusters.push({
         locationKey: bed.locationKey,
         count: bed.plantCount,
         shownCount: attentionOnly ? keptByFilter : bed.plantCount,
-        x: (entry.bbox[0] + entry.bbox[2]) / 2,
-        y: (entry.bbox[1] + entry.bbox[3]) / 2,
+        x: ax,
+        // Never on top of the name: a circle with a count over the bed's label would hide it (GP-UX-047).
+        y: labels.has(entry.key) ? ay + clusterLift : ay,
         ...summary,
       });
     }
   }
 
   const shapes: SceneShape[] = kept.map((entry) => {
-    const [widthPx, heightPx] = screenSize(entry, pxPerM);
-    const isObject = entry.kind === 'gardenObject';
     return {
       entry,
       selected: selected.has(entry.key),
       invalid: options.invalidKeys?.has(entry.key) ?? false,
       tabStop: false,
-      showLabel: entry.kind !== 'boundary' && widthPx >= LABEL_MIN_PX,
-      showIcon: isObject && Math.max(widthPx, heightPx) >= ICON_MIN_PX,
-      showDimensions: entry.kind !== 'boundary' && selected.has(entry.key),
+      showLabel: labelGate(entry, pxPerM),
+      label: labels.get(entry.key) ?? null,
+      showIcon: showIcon(entry, pxPerM),
+      // The editor prints the selection's dimensions on its overlay, clear of the handles (GP-UX-047).
+      showDimensions: entry.kind !== 'boundary' && selected.has(entry.key) && !options.dimensionsOnOverlay,
       plantCount: markers.get(entry.key)?.plantCount ?? 0,
     };
   });
