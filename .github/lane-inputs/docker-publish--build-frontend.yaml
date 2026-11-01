@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: derived
-measured_on: '2026-10-31'
-measured_at_commit: 00ef6fe4107207910555e7f5f51bb9af240650bf
-replay_seconds: 2
+measured_on: '2026-11-01'
+measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
+replay_seconds: 1
 job_spec_sha256: 8ce42a07e85165cf79183e65a01fd6fe059dcecf6001e80de8dd0c433138539d
 invocations:
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile

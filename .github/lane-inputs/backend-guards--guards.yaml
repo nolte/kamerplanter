@@ -9,9 +9,9 @@ job: guards
 gate:
   kind: unfiltered
 status: measured
-measured_on: '2026-10-31'
-measured_at_commit: 00ef6fe4107207910555e7f5f51bb9af240650bf
-replay_seconds: 1916
+measured_on: '2026-11-01'
+measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
+replay_seconds: 1908
 job_spec_sha256: 097283c4466514018f6ecd3a2aa74f5d809b54e3570a57a5ea6aed08149dbd02
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints
@@ -215,6 +215,7 @@ reads:
 - .github/lane-inputs/api-docs--openapi-export-lint.yaml
 - .github/lane-inputs/backend--dependency-gates.yaml
 - .github/lane-inputs/backend--lint-test.yaml
+- .github/lane-inputs/backend-guards--guards.yaml
 - .github/lane-inputs/backend-guards--integration.yaml
 - .github/lane-inputs/docker-lint-build--build-backend.yaml
 - .github/lane-inputs/docker-lint-build--build-embedding-service.yaml

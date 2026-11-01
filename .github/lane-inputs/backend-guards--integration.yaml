@@ -10,10 +10,10 @@ gate:
   kind: paths-filter
   filter: integration
 status: measured
-measured_on: '2026-10-31'
-measured_at_commit: 00ef6fe4107207910555e7f5f51bb9af240650bf
-replay_seconds: 2664
-job_spec_sha256: 42a50b47061a78708f4f1eb2793cdba5e0108fbd801337415959a8b919262fb3
+measured_on: '2026-11-01'
+measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
+replay_seconds: 1935
+job_spec_sha256: 49d491de93512fbc7d9b1793df1e199cd8ddd52a07be92d56c9bb695042ddc1d
 invocations:
 - command: task test:backend:integration
   cwd: src/backend

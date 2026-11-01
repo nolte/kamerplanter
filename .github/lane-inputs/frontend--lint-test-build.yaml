@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-10-31'
-measured_at_commit: 00ef6fe4107207910555e7f5f51bb9af240650bf
-replay_seconds: 1378
+measured_on: '2026-11-01'
+measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
+replay_seconds: 1656
 job_spec_sha256: d9b096ddf194fe6af93018161f8a6aef6d2e16cf9bba375f54c1e6a8e1a33334
 invocations:
 - command: task typecheck
