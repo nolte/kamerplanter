@@ -169,7 +169,7 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
                     component={RouterLink}
                     to={speciesDetailPath(item.species_key)}
                     sx={ROW_LINK_SX}
-                    data-testid={`planting-planned-link-${item.slot_key}`}
+                    data-testid={`plant-link-planned-${item.slot_key}`}
                   >
                     {nameOf(item.species_key)}
                   </Link>
@@ -204,7 +204,7 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
                         component={RouterLink}
                         to={plantDetailPath(item.plant_key)}
                         sx={ROW_LINK_SX}
-                        data-testid={`planting-active-link-${item.plant_key}`}
+                        data-testid={`plant-link-active-${item.plant_key}`}
                       >
                         {label} · {nameOf(item.species_key)}
                         {item.planted_on ? ` · ${dateText(item.planted_on)}` : ''}
