@@ -2092,7 +2092,7 @@ new_species:
       min_ph: 6.0
       max_ph: 7.0
     row_spacing_cm: "20"
-    light_requirement: full_sun
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
     nutrient_demand: medium_feeder
     nutrient_demand_source: "LK NRW 2020 (Mittelstarkzehrer: Spinat), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH (Mittelzehrer: Moehren, Spinat, Radies), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; WIDERSPRUCH: Suedtiroler Bauernbund 2022 Tab. 2 (Schwachzehrer: Spinat), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland (Schwachzehrer-Beet: Spinat), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
     nutrient_demand_confidence: low
