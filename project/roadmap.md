@@ -129,3 +129,25 @@ Squash `f473cc19`, 2026-06-20) — Backend und Frontend-Galerie vollständig.
 Feature: Die DINOv2-Infrastruktur existiert bereits (REQ-029-A), und der optionale
 Referenz-Rückfluss ist in REQ-034 §4 spezifiziert. Konsistenzprüfung 2026-06-20,
 resolution: merge-into REQ-034. -->
+
+### R-16 — REQ-053 Welle 8 — Standortmerkmale, Backfill & EC-Skalierung im Gartenplan
+
+```yaml
+id: R-16
+title: REQ-053 Welle 8 — Standortmerkmale, Backfill & EC-Skalierung im Gartenplan
+detail: coarse
+outcomes: [O-4]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Welle 8 des grafischen Gartenplans (REQ-053 §34): M4-Backfill und Konsistenz-Job
+(E-11), EC-Skalierung mit Agrobiologie-Review (E-17) und GP-FR-161–168
+(Mikroklima/Frostrisiko je Beet, Wind, Hang, Erreichbarkeit). Offene Issues der
+Welle: #2515, #2516, #2569 (GitHub-Milestone „REQ-053 Welle 8").
+
+<!-- Herkunft: Issue #2494 (WP 7.28, issue-backlog-partition 2026-11-01 → roadmap-plan).
+Anforderungs-Gate: Operator-Override 2026-11-01 — Grundlage ist die Spec REQ-053 v1.9
+(kein project/requirements-Artefakt). Outcome O-4 gewählt, weil keines der Outcomes den
+Gartenplan exakt trifft. -->
