@@ -219,7 +219,7 @@
     },
     "anbaupause": {
       "short": "Anbaupause — so viele Jahre soll eine Familie aussetzen",
-      "long": "Die Anbaupause ist die Zahl der Jahre, die zwischen zwei Anbauten derselben Pflanzenfamilie im selben Beet liegen soll. Sie stammt aus den Angaben zur Art, zur Familie oder aus einem Standardwert. Ist sie noch nicht verstrichen, zeigt die App einen Fruchtfolge-Hinweis.",
+      "long": "Die Anbaupause ist die Zahl der Jahre, die zwischen zwei Anbauten derselben Pflanzenfamilie im selben Beet liegen soll. Der Wert kommt aus den Angaben zur Art, zur Familie oder aus einem Standardwert. Ist die Pause noch nicht verstrichen, zeigt die App einen Fruchtfolge-Hinweis.",
       "beginnerTip": "Bei Kohl sind das oft drei bis vier Jahre. Pflanzt du früher wieder, steigt das Risiko für Bodenkrankheiten."
     },
     "mischkultur": {
@@ -239,7 +239,7 @@
     },
     "gruenduengung": {
       "short": "Gründüngung — Pflanzen, die den Boden verbessern statt geerntet zu werden",
-      "long": "Bei der Gründüngung säst du Pflanzen wie Phacelia, Senf oder Klee, die den Boden bedecken, lockern und mit Humus versorgen. Sie werden nicht geerntet, sondern eingearbeitet oder als Mulch liegen gelassen. In der Fruchtfolge zählt sie als eigenes Glied und unterbricht Krankheitszyklen.",
+      "long": "Bei der Gründüngung säst du Pflanzen wie Phacelia, Senf oder Klee, die den Boden bedecken, lockern und mit Humus versorgen. Geerntet wird dabei nicht: Die Pflanzen werden eingearbeitet oder als Mulch liegen gelassen. In der Fruchtfolge zählt sie als eigenes Glied und unterbricht Krankheitszyklen.",
       "beginnerTip": "Säe nach der Ernte eine Gründüngung ein, dann liegt der Boden über den Winter nicht nackt."
     },
     "pflanzabstand": {
