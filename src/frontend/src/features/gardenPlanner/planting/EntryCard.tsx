@@ -37,6 +37,7 @@ import {
   type EntryFormState,
   type Prefill,
 } from './plantingLogic';
+import { PlannerTermField } from '../glossary/PlannerGlossary';
 import { useCultivars } from './useCultivars';
 import type { EntryPreview } from './useEntryPreviews';
 
@@ -238,19 +239,21 @@ export default function EntryCard({
         </TextField>
 
         {form.layout !== 'free' ? (
-          <TextField
-            label={t('pages.bed.planting.entry.spacing')}
-            value={form.spacing}
-            onChange={(event) => onChange({ spacing: event.target.value })}
-            required
-            error={Boolean(errors.spacing)}
-            helperText={spacingHelp}
-            slotProps={{
-              input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
-              htmlInput: { inputMode: 'decimal', 'data-testid': `${testPrefix}-spacing` },
-            }}
-            sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
-          />
+          <PlannerTermField term="pflanzabstand">
+            <TextField
+              label={t('pages.bed.planting.entry.spacing')}
+              value={form.spacing}
+              onChange={(event) => onChange({ spacing: event.target.value })}
+              required
+              error={Boolean(errors.spacing)}
+              helperText={spacingHelp}
+              slotProps={{
+                input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
+                htmlInput: { inputMode: 'decimal', 'data-testid': `${testPrefix}-spacing` },
+              }}
+              sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
+            />
+          </PlannerTermField>
         ) : (
           <TextField
             label={t('pages.bed.planting.entry.minSpacing')}
@@ -267,25 +270,27 @@ export default function EntryCard({
         )}
 
         {form.layout === 'rows' && !sharedRows ? (
-          <TextField
-            label={t('pages.bed.planting.entry.rowSpacing')}
-            value={form.rowSpacing}
-            onChange={(event) => onChange({ rowSpacing: event.target.value })}
-            required
-            error={Boolean(errors.rowSpacing)}
-            helperText={
-              errors.rowSpacing
-                ? errorText(errors.rowSpacing)
-                : form.rowSpacing && prefill?.rowSpacingSource && prefill.rowSpacingSource !== 'none'
-                  ? t(`pages.bed.planting.entry.${sourceNote(prefill.rowSpacingSource)}`)
-                  : undefined
-            }
-            slotProps={{
-              input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
-              htmlInput: { inputMode: 'decimal', 'data-testid': `${testPrefix}-row-spacing` },
-            }}
-            sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
-          />
+          <PlannerTermField term="reihenabstand">
+            <TextField
+              label={t('pages.bed.planting.entry.rowSpacing')}
+              value={form.rowSpacing}
+              onChange={(event) => onChange({ rowSpacing: event.target.value })}
+              required
+              error={Boolean(errors.rowSpacing)}
+              helperText={
+                errors.rowSpacing
+                  ? errorText(errors.rowSpacing)
+                  : form.rowSpacing && prefill?.rowSpacingSource && prefill.rowSpacingSource !== 'none'
+                    ? t(`pages.bed.planting.entry.${sourceNote(prefill.rowSpacingSource)}`)
+                    : undefined
+              }
+              slotProps={{
+                input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
+                htmlInput: { inputMode: 'decimal', 'data-testid': `${testPrefix}-row-spacing` },
+              }}
+              sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
+            />
+          </PlannerTermField>
         ) : null}
         {form.layout === 'triangular' ? (
           <Typography variant="body2" color="text.secondary" data-testid={`${testPrefix}-derived-row`}>
@@ -326,30 +331,32 @@ export default function EntryCard({
                 </TextField>
               ) : null}
               {form.layout !== 'free' && !sharedRows ? (
-                <>
-                  <TextField
-                    label={t('pages.bed.planting.entry.edgeAlong')}
-                    value={form.edgeAlong}
-                    onChange={(event) => onChange({ edgeAlong: event.target.value })}
-                    error={Boolean(errors.edgeAlong)}
-                    helperText={errorText(errors.edgeAlong) ?? t('pages.bed.planting.entry.edgeHelp')}
-                    slotProps={{
-                      input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
-                      htmlInput: { inputMode: 'decimal' },
-                    }}
-                  />
-                  <TextField
-                    label={t('pages.bed.planting.entry.edgeAcross')}
-                    value={form.edgeAcross}
-                    onChange={(event) => onChange({ edgeAcross: event.target.value })}
-                    error={Boolean(errors.edgeAcross)}
-                    helperText={errorText(errors.edgeAcross) ?? t('pages.bed.planting.entry.edgeHelp')}
-                    slotProps={{
-                      input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
-                      htmlInput: { inputMode: 'decimal' },
-                    }}
-                  />
-                </>
+                <PlannerTermField term="randabstand">
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                      label={t('pages.bed.planting.entry.edgeAlong')}
+                      value={form.edgeAlong}
+                      onChange={(event) => onChange({ edgeAlong: event.target.value })}
+                      error={Boolean(errors.edgeAlong)}
+                      helperText={errorText(errors.edgeAlong) ?? t('pages.bed.planting.entry.edgeHelp')}
+                      slotProps={{
+                        input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
+                        htmlInput: { inputMode: 'decimal' },
+                      }}
+                    />
+                    <TextField
+                      label={t('pages.bed.planting.entry.edgeAcross')}
+                      value={form.edgeAcross}
+                      onChange={(event) => onChange({ edgeAcross: event.target.value })}
+                      error={Boolean(errors.edgeAcross)}
+                      helperText={errorText(errors.edgeAcross) ?? t('pages.bed.planting.entry.edgeHelp')}
+                      slotProps={{
+                        input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
+                        htmlInput: { inputMode: 'decimal' },
+                      }}
+                    />
+                  </Box>
+                </PlannerTermField>
               ) : null}
               {container.recommendedL !== null ? (
                 <TextField

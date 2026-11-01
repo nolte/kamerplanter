@@ -6673,6 +6673,20 @@
           "photo": "Photo",
           "photoFor": "Take a photo of {{plant}}"
         }
+      },
+      "glossary": {
+        "title": "Terms explained",
+        "terms": {
+          "fruchtfolge": "Crop rotation",
+          "anbaupause": "Rotation pause",
+          "mischkultur": "Companion planting (neighbours)",
+          "dauerkultur": "Perennial crop",
+          "zehrerklassen": "Heavy, medium, light feeders",
+          "gruenduengung": "Green manure",
+          "pflanzabstand": "Plant spacing",
+          "reihenabstand": "Row spacing",
+          "randabstand": "Edge margin"
+        }
       }
     },
     "bed": {

@@ -71,6 +71,22 @@ describe('BedPlantingTab', () => {
     expect(screen.getByTestId('bed-planting-finished')).toHaveTextContent('1 plant is harvested or removed');
   });
 
+  it('links a standing plant to its detail page and a planned species to its species page (#2515)', async () => {
+    useTabBackend();
+    renderTab('viewer');
+
+    const active = await screen.findByTestId('bed-planting-active');
+    const plant = await within(active).findByRole('link', { name: /^TOM-1 · Tomato/ });
+    expect(plant).toHaveAttribute('href', '/pflanzen/plant-instances/pl_1');
+    expect(within(active).getByRole('link', { name: /^TOM-2 · Tomato/ })).toHaveAttribute('href', '/pflanzen/plant-instances/pl_2');
+
+    const planned = screen.getByTestId('bed-planting-planned');
+    const basil = await within(planned).findByRole('link', { name: 'Basil' });
+    expect(basil).toHaveAttribute('href', '/stammdaten/species/sp_basil');
+    // The finished plants are a count, not a list: nothing to link there.
+    expect(within(screen.getByTestId('bed-planting-finished')).queryByRole('link')).toBeNull();
+  });
+
   it('says so when nothing is planted', async () => {
     useTabBackend([]);
     renderTab();

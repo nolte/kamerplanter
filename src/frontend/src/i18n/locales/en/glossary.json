@@ -211,6 +211,51 @@
       "long": "Not every ripeness indicator is equally telling: reliability shows how dependable this indicator type is in practice (e.g. trichomes are more reliable than leaf colour). The contribution is the indicator's score multiplied by its reliability, showing how much it shaped the overall score.",
       "beginnerTip": "A high contribution means this indicator strongly determined the overall score.",
       "category": "lebenszyklus"
+    },
+    "fruchtfolge": {
+      "short": "Crop rotation — a different plant family in the bed each year",
+      "long": "With crop rotation you change from year to year which plant family grows in a bed. Species of the same family draw similar nutrients and share diseases and pests that survive in the soil. When you plant, the app checks when the same family last stood in this bed.",
+      "beginnerTip": "Do not put tomatoes, cabbage or onions into the same bed every year. A crop rotation hint is advice, not a ban."
+    },
+    "anbaupause": {
+      "short": "Rotation pause — how many years a family should skip",
+      "long": "The rotation pause is the number of years that should lie between two plantings of the same plant family in the same bed. It comes from the species, the family or a default value. If it has not passed yet, the app shows a crop rotation hint.",
+      "beginnerTip": "For cabbage this is often three to four years. Planting again sooner raises the risk of soil-borne diseases."
+    },
+    "mischkultur": {
+      "short": "Companion planting — which neighbours get along in the bed",
+      "long": "Companion planting means placing different species next to each other on purpose. Good neighbours help each other, for example by confusing pests or using the soil differently. Unfavourable neighbours hold each other back. When you plant, the app shows good and unfavourable neighbours in the bed.",
+      "beginnerTip": "An unfavourable neighbour is not a mistake you must avoid at all costs. With a little more distance it often still works."
+    },
+    "dauerkultur": {
+      "short": "Perennial crop — plants that stay in the same spot for many years",
+      "long": "Perennial crops such as rhubarb, asparagus, strawberries or berry bushes stand in the same bed for several years. No crop rotation applies to such a bed, so the app does not check a rotation pause there.",
+      "beginnerTip": "Mark a bed as a perennial crop when the same plants are meant to stay there year after year."
+    },
+    "zehrerklassen": {
+      "short": "Heavy, medium and light feeders — how many nutrients a plant needs",
+      "long": "Heavy feeders such as cabbage, tomatoes or squash need plenty of nutrients, medium feeders such as carrots, onions or lettuce a moderate supply, light feeders such as herbs little. Nitrogen fixers such as peas and beans bind nitrogen from the air and leave the soil richer. In a crop rotation the classes usually follow each other in this order.",
+      "beginnerTip": "Give heavy feeders the bed you just enriched with compost, and move medium or light feeders there the year after."
+    },
+    "gruenduengung": {
+      "short": "Green manure — plants that improve the soil instead of being harvested",
+      "long": "For green manure you sow plants such as phacelia, mustard or clover that cover the soil, loosen it and add humus. They are not harvested but dug in or left as mulch. In a crop rotation green manure counts as a step of its own and breaks disease cycles.",
+      "beginnerTip": "Sow a green manure after the harvest so the soil is not left bare over winter."
+    },
+    "pflanzabstand": {
+      "short": "Plant spacing — distance from plant to plant within a row",
+      "long": "Plant spacing is the distance between two neighbouring plants in centimetres. It follows the width a plant reaches when fully grown. If it is too small, the plants compete for light, water and nutrients and dry off poorly.",
+      "beginnerTip": "You usually find the spacing on the seed packet. The app suggests a value from the species data."
+    },
+    "reihenabstand": {
+      "short": "Row spacing — distance between two planting rows",
+      "long": "Row spacing is the distance between two planting rows in centimetres. It is often larger than the plant spacing so you can hoe, water and harvest between the rows. In a grid it equals the plant spacing, in a staggered pattern it follows from it.",
+      "beginnerTip": "Leave enough room between the rows to get through comfortably by hand or with a hoe."
+    },
+    "randabstand": {
+      "short": "Edge margin — distance of the outer plants from the bed edge",
+      "long": "The edge margin sets how far the outer plants stand from the edge of the bed, separately along and across the row. That way the plants do not grow over the edge into the path or the neighbouring bed.",
+      "beginnerTip": "About half the plant spacing is a good starting value for the edge."
     }
   }
 }

@@ -16,9 +16,13 @@ import CloseIcon from '@mui/icons-material/Close';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useEffect, useMemo, useRef } from 'react';
+import PlannerGlossary, { type PlannerGlossaryTerm } from '../glossary/PlannerGlossary';
 import { familyColors } from './familyColor';
 import type { RotationPlanting, RotationYear } from './historyTypes';
 import type { TimelineState } from './useRotationTimeline';
+
+/** The terms the timeline shows (GP-UX-011): rotation, the feeder classes on the chips and green manure. */
+const TIMELINE_TERMS: readonly PlannerGlossaryTerm[] = ['fruchtfolge', 'zehrerklassen', 'gruenduengung'];
 
 interface PlantingTimelineProps {
   state: TimelineState;
@@ -231,6 +235,9 @@ export default function PlantingTimeline({ state, canEdit, onBackfill, onCancel,
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {t('pages.bed.history.timeline.hint')}
       </Typography>
+      <Box sx={{ mb: 1 }}>
+        <PlannerGlossary id="timeline" terms={TIMELINE_TERMS} />
+      </Box>
       {state.status === 'loading' && (
         <Box role="status" aria-busy="true" aria-label={t('pages.bed.history.timeline.loading')}>
           <LoadingSkeleton variant="card" />

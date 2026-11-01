@@ -159,9 +159,9 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS: „Choose a sowing site in sun or partial shade"; „sunny or lightly shaded planting site") — Sonne und Halbschatten gleichrangig, keine einzelne belegte Standortstufe (E-10, #2516) --> | `species.light_requirement` |
 | Schattentoleranz | partial_shade | `species.shade_tolerance` |
-| Quelle Lichtbedarf | RHS, „Spinach: Grow your own“ („Choose a sowing site in sun or partial shade“; „sunny or lightly shaded planting site“; bei Wärme leichter Schatten gegen Schossen) — Quelle nennt Sonne UND Halbschatten gleichrangig, Einstufung full_sun mit Toleranz partial_shade ist eine Auslegung, https://www.rhs.org.uk/vegetables/spinach/grow-your-own | — |
+| Quelle Lichtbedarf | — (RHS, „Spinach: Grow your own", https://www.rhs.org.uk/vegetables/spinach/grow-your-own, gelesen; nur Spanne „sun or partial shade", bei Wärme leichter Schatten gegen Schossen, ohne bevorzugte Stufe, daher kein Wert) | — |
 
 ---
 

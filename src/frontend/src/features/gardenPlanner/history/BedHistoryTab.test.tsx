@@ -313,6 +313,11 @@ describe('BedHistoryTab - the planting timeline (GP-FR-103, GP-ACC-028)', () => 
     expect(within(rows[0]).getByText(/Heavy Feeder/)).toBeInTheDocument();
     expect(within(rows[1]).getByText(/Fabaceae/)).toBeInTheDocument();
     expect(within(rows[2]).getByText('Nothing recorded')).toBeInTheDocument();
+    // The feeder class on the chip and the rotation it serves are explained (GP-UX-011).
+    const glossary = within(screen.getByTestId('bed-timeline')).getByRole('group', { name: 'Terms explained' });
+    for (const name of [/^Crop rotation — /, /^Heavy, medium and light feeders — /, /^Green manure — /]) {
+      expect(within(glossary).getByRole('button', { name })).toBeInTheDocument();
+    }
   });
 
   it('names a fallow year and a green manure', async () => {
