@@ -31,6 +31,7 @@ from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.models.bed_template import (
+    ERROR_NOT_A_BED_TYPE,
     MAX_TEMPLATES_PER_TENANT,
     BedTemplate,
     BedTemplateInput,
@@ -42,8 +43,6 @@ logger = structlog.get_logger()
 
 #: 422 when a tenant already owns the most templates it may.
 ERROR_QUOTA = "bed_template.quota_exceeded"
-#: 422 when ``location_type_key`` names a type that is no bed type.
-ERROR_NOT_A_BED_TYPE = "bed_template.not_a_bed_type"
 
 #: The fields a PATCH writes on the document.
 _PATCH_COLUMNS: tuple[str, ...] = (
@@ -66,6 +65,17 @@ def _not_found(field: str, index: int | None = None) -> PlanValidationError:
     """422 ``reference.not_found`` - one text for a missing and for another tenant's key (GP-NFR-058)."""
     path = field if index is None else f"{field}[{index}]"
     return PlanValidationError([(None, path, ERROR_REFERENCE_NOT_FOUND, {})])
+
+
+def _quota_exceeded(current: int) -> PlanError:
+    """422 ``bed_template.quota_exceeded`` (GP-NFR-017, GP-API-061)."""
+    return PlanError(
+        ERROR_QUOTA,
+        f"A tenant owns at most {MAX_TEMPLATES_PER_TENANT} bed templates.",
+        status_code=422,
+        limit=MAX_TEMPLATES_PER_TENANT,
+        current=current,
+    )
 
 
 class BedTemplateService:
@@ -106,13 +116,7 @@ class BedTemplateService:
         self._require_editor(role)
         owned = self._templates.count_owned(tenant_key=tenant_key)
         if owned >= MAX_TEMPLATES_PER_TENANT:
-            raise PlanError(
-                ERROR_QUOTA,
-                f"A tenant owns at most {MAX_TEMPLATES_PER_TENANT} bed templates.",
-                status_code=422,
-                limit=MAX_TEMPLATES_PER_TENANT,
-                current=owned,
-            )
+            raise _quota_exceeded(owned)
         template = BedTemplate(
             tenant_key=tenant_key,
             created_by=user_key,
@@ -126,8 +130,25 @@ class BedTemplateService:
         )
         self._resolve_references(template, tenant_key=tenant_key, only=None)
         created = self._templates.create_template(template)
+        self._settle_create_against_quota(created, tenant_key=tenant_key)
         logger.info("bed_template.created", template_key=created.key, kind=created.default_geometry.kind.value)
         return created
+
+    def _settle_create_against_quota(self, created: BedTemplate, *, tenant_key: str) -> None:
+        """Take a create back that a concurrent create pushed over :data:`MAX_TEMPLATES_PER_TENANT` (#2529).
+
+        The count before the insert and the insert are two statements, so two creates can both see one free place.
+        Re-counted once the row exists, an overshoot is undone and refused - both racing creates may be refused
+        then, never both kept. The same settle-after-insert the member limit uses (#2133); ``bed_templates`` has
+        no per-tenant document a transaction could serialise on.
+        """
+        owned = self._templates.count_owned(tenant_key=tenant_key)
+        if owned <= MAX_TEMPLATES_PER_TENANT:
+            return
+        if created.key:
+            self._templates.delete_template(created.key, owner_tenant_key=tenant_key)
+        logger.info("bed_template.create_taken_back", template_key=created.key, limit=MAX_TEMPLATES_PER_TENANT)
+        raise _quota_exceeded(owned)
 
     def patch_template(
         self,
@@ -181,7 +202,11 @@ class BedTemplateService:
 
     def _resolve_references(self, template: BedTemplate, *, tenant_key: str, only: frozenset[str] | None) -> None:
         """References of a body, resolved (GP-NFR-058): the location type must be a bed type, every
-        ``recurring_task_templates`` key a task template the tenant can see. Nothing is written."""
+        ``recurring_task_templates`` key a task template the tenant can see. Nothing is written.
+
+        A *system* template is read by every tenant, so its task templates must be global ones: resolving them
+        under the editing platform admin's own tenant would let a key only that tenant owns be parked on a row
+        every tenant reads (#2529)."""
         if only is None or "location_type_key" in only:
             flags = self._templates.bed_type_flags([template.location_type_key])
             if template.location_type_key not in flags:
@@ -194,8 +219,12 @@ class BedTemplateService:
                     field="location_type_key",
                 )
         if template.recurring_task_templates and (only is None or "recurring_task_templates" in only):
-            visible = self._templates.visible_task_template_keys(
-                template.recurring_task_templates, tenant_key=tenant_key
+            visible = (
+                self._templates.global_task_template_keys(template.recurring_task_templates)
+                if template.is_system
+                else self._templates.visible_task_template_keys(
+                    template.recurring_task_templates, tenant_key=tenant_key
+                )
             )
             findings: list[tuple[int | None, str, str, dict[str, Any]]] = [
                 (None, f"recurring_task_templates[{index}]", ERROR_REFERENCE_NOT_FOUND, {})

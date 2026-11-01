@@ -17,6 +17,7 @@ from app.common.enums import GrowingMediumKind, SoilDrainage, TenantRole
 from app.common.exceptions import (
     ForbiddenError,
     NotFoundError,
+    PlanError,
     PlanRevisionConflictError,
     PlanValidationError,
 )
@@ -226,6 +227,16 @@ class TestRefusals:
             world.place()
 
         assert refused.value.codes == ["reference.not_found"]
+
+    def test_a_template_whose_location_type_stopped_being_a_bed_type_is_refused_up_front(self, world: World) -> None:
+        # #2529: the batch path would create the location as a non-bed (outside the overlap rule); refused first.
+        world.repo.bed_types["raised_bed"] = False
+
+        with pytest.raises(PlanError) as refused:
+            world.place()
+
+        assert (refused.value.error_code, refused.value.status_code) == ("bed_template.not_a_bed_type", 422)
+        assert world.repo.applied == [] and world.repo.locations == {}
 
 
 class TestTheBatchRouteIgnoresTheTemplateFields:

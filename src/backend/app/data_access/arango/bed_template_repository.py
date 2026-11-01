@@ -249,3 +249,19 @@ class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplat
             ),
         )
         return {str(key) for key in cursor}
+
+    def global_task_template_keys(self, keys: list[str]) -> set[str]:
+        if not keys:
+            return set()
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR t IN @@templates
+                FILTER t._key IN @keys AND (t.tenant_key == "" OR t.tenant_key == null)
+                RETURN t._key
+            """,
+                bind_vars={"@templates": col.TASK_TEMPLATES, "keys": sorted(set(keys))},
+            ),
+        )
+        return {str(key) for key in cursor}
