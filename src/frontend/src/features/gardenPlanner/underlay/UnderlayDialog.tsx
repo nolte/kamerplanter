@@ -5,7 +5,9 @@
  *
  * This module is its own `lazy()` chunk (UI-NFR-003): the route chunk carries only the switch that mounts it.
  * Marking points is a click on the picture; the same four numbers are fields, so the whole calibration works
- * without a pointer too (WCAG 2.1.1, 2.5.1).
+ * without a pointer too (WCAG 2.1.1, 2.5.1). With the picture focused, the arrow keys place and move the point the
+ * toggle names (one displayed pixel per press, Shift: ten - the editor's step and coarse step) and a status line
+ * reads its pixel position out, so a keyboard user can work on the picture itself and not only in the fields.
  */
 import {
   memo,
@@ -14,6 +16,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type KeyboardEvent,
   type MouseEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -47,6 +50,16 @@ import { deleteUnderlay, fetchUnderlayBlob, putUnderlay, uploadUnderlayImage } f
 const PREFIX = 'pages.gardenPlan.editor.underlay';
 const MARK_PX = 8;
 const TARGET_PX = 44;
+/** Shift multiplies the arrow step by this, as in the plan editor (`useEditorKeyboard`). */
+const COARSE = 10;
+
+/** Arrow keys in picture pixels: the picture's y runs downwards, as on screen. */
+const KEY_DIRECTIONS: Record<string, Point> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
 
 export interface UnderlayDialogProps {
   open: boolean;
@@ -118,6 +131,11 @@ const NumberField = memo(function NumberField({
 });
 
 const text = (value: number): string => (Number.isFinite(value) ? String(value) : '');
+
+/** One decimal, as a click marks it (`toImagePoint`). */
+const tenth = (value: number): number => Math.round(value * 10) / 10;
+const clamp = (value: number, max: number): number => Math.min(Math.max(value, 0), max);
+const isSet = (point: Point): boolean => Number.isFinite(point[0]) && Number.isFinite(point[1]);
 
 export default function UnderlayDialog({
   open,
@@ -218,6 +236,17 @@ export default function UnderlayDialog({
     setMarking('p1');
   };
 
+  const activePoint = marking === 'p1' ? calibration.p1 : calibration.p2;
+  const setActive = (point: Point) => {
+    if (marking === 'p1') {
+      setP1x(String(point[0]));
+      setP1y(String(point[1]));
+    } else {
+      setP2x(String(point[0]));
+      setP2y(String(point[1]));
+    }
+  };
+
   const mark = (event: MouseEvent<HTMLDivElement>) => {
     if (!canEdit || natural === null || imageRef.current === null) return;
     const point = toImagePoint(
@@ -226,14 +255,30 @@ export default function UnderlayDialog({
       natural,
     );
     if (point === null) return;
-    if (marking === 'p1') {
-      setP1x(String(point[0]));
-      setP1y(String(point[1]));
-      setMarking('p2');
-    } else {
-      setP2x(String(point[0]));
-      setP2y(String(point[1]));
+    setActive(point);
+    if (marking === 'p1') setMarking('p2');
+  };
+
+  /**
+   * Arrow keys on the focused picture: the first press puts an unset point in the middle of the picture, every
+   * further one moves it by one displayed pixel (Shift: ten), never off the picture. The point stays the active
+   * one - unlike a click, a key press does not hand over to point 2, as moving is what the keys are for.
+   */
+  const nudge = (event: KeyboardEvent<HTMLDivElement>) => {
+    const direction = KEY_DIRECTIONS[event.key];
+    if (direction === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (fieldsOff || natural === null) return;
+    event.preventDefault();
+    if (!isSet(activePoint)) {
+      setActive([tenth(natural.width / 2), tenth(natural.height / 2)]);
+      return;
     }
+    const shown = imageRef.current?.getBoundingClientRect().width ?? 0;
+    const step = (shown > 0 ? Math.max(1, natural.width / shown) : 1) * (event.shiftKey ? COARSE : 1);
+    setActive([
+      tenth(clamp(activePoint[0] + direction[0] * step, natural.width)),
+      tenth(clamp(activePoint[1] + direction[1] * step, natural.height)),
+    ]);
   };
 
   const save = async () => {
@@ -357,14 +402,35 @@ export default function UnderlayDialog({
                   </ToggleButton>
                 </ToggleButtonGroup>
               )}
+              {canEdit && (
+                <Typography
+                  id="underlay-keyboard-hint"
+                  variant="caption"
+                  color="text.secondary"
+                >
+                  {t(`${PREFIX}.keyboard.hint`)}
+                </Typography>
+              )}
               <Box
                 onClick={mark}
                 data-testid="underlay-picture"
+                // Focusable only where the keys do something: an editor with a decoded picture (WCAG 2.1.1).
+                {...(canEdit && natural !== null
+                  ? {
+                      // `application`: a screen reader hands the arrow keys to the picture instead of reading on.
+                      role: 'application',
+                      tabIndex: 0,
+                      'aria-label': t(`${PREFIX}.keyboard.surface`),
+                      'aria-describedby': 'underlay-keyboard-hint underlay-point-position',
+                      onKeyDown: nudge,
+                    }
+                  : {})}
                 sx={{
                   position: 'relative',
                   maxHeight: 420,
                   overflow: 'auto',
                   cursor: canEdit ? 'crosshair' : 'default',
+                  '&:focus-visible': { outline: 3, outlineColor: 'primary.main', outlineOffset: 2 },
                 }}
               >
                 <img
@@ -407,6 +473,22 @@ export default function UnderlayDialog({
                   </svg>
                 )}
               </Box>
+              {canEdit && (
+                <Typography
+                  id="underlay-point-position"
+                  variant="body2"
+                  role="status"
+                  data-testid="underlay-point-position"
+                >
+                  {isSet(activePoint)
+                    ? t(`${PREFIX}.keyboard.position`, {
+                        point: t(`${PREFIX}.keyboard.${marking}`),
+                        x: activePoint[0],
+                        y: activePoint[1],
+                      })
+                    : t(`${PREFIX}.keyboard.unset`, { point: t(`${PREFIX}.keyboard.${marking}`) })}
+                </Typography>
+              )}
             </>
           )}
           <Box

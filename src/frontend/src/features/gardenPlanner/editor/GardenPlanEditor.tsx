@@ -1734,19 +1734,29 @@ export function GardenPlanEditor({
         {!toolbarBelow && panel('sidebar')}
       </Box>
       {underlayOpen && (
-        <Suspense fallback={null}>
-          <UnderlayDialog
-            open
-            siteKey={plan.siteKey}
-            underlay={underlayState.underlay}
-            onSaved={(next) => {
-              underlayState.set(next);
-              // A user who hid the layer earlier sees what they just saved.
-              if (next !== null) setLayer('underlay', true);
-            }}
-            onClose={() => setUnderlayOpen(false)}
-          />
-        </Suspense>
+        // A dialog chunk that cannot load (or a dialog that fails to render) says so in place; the plan stays
+        // usable. As for the zone panel, the fallback offers the reload, not a retry that would fail the same way.
+        <ErrorBoundary
+          title={t(`${UNDERLAY}.chunkFailedTitle`)}
+          hint={t(`${UNDERLAY}.chunkFailedHint`)}
+          reloadLabel={t('common.appError.reloadPage')}
+          testId="garden-plan-underlay-error"
+          boundaryName="garden-plan-underlay-dialog"
+        >
+          <Suspense fallback={null}>
+            <UnderlayDialog
+              open
+              siteKey={plan.siteKey}
+              underlay={underlayState.underlay}
+              onSaved={(next) => {
+                underlayState.set(next);
+                // A user who hid the layer earlier sees what they just saved.
+                if (next !== null) setLayer('underlay', true);
+              }}
+              onClose={() => setUnderlayOpen(false)}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
       <Box id="garden-plan-zone-panel-region">
         {zonesOpen && (

@@ -5999,6 +5999,14 @@
             "p1": "Set point 1",
             "p2": "Set point 2"
           },
+          "keyboard": {
+            "surface": "Picture for placing the calibration points",
+            "hint": "With the keyboard: choose the point above, tab to the picture and place or move it with the arrow keys, holding Shift for larger steps.",
+            "p1": "Point 1",
+            "p2": "Point 2",
+            "position": "{{point}}: x {{x}} px, y {{y}} px",
+            "unset": "{{point}} is not placed yet."
+          },
           "calibration": {
             "title": "Calibration: two points and their distance",
             "p1x": "Point 1, x",
@@ -6016,6 +6024,8 @@
             "originY": "Top-left corner, y",
             "rotation": "Counter-clockwise rotation"
           },
+          "chunkFailedTitle": "The underlay dialog could not be opened",
+          "chunkFailedHint": "This usually happens right after the app was updated. Save your plan, then reload the page; the plan itself stays usable.",
           "opacity": "Opacity",
           "save": "Save",
           "close": "Close",
