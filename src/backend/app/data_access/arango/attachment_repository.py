@@ -10,6 +10,7 @@ from app.common.enums import AttachmentCategory
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
 from app.domain.models.attachment import Attachment, QualityAssessment
 
@@ -96,6 +97,11 @@ TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
         col.CARE_EVENTS,  # CareEvent.tenant_key is required (REQ-053 §20.13)
         col.SITES,  # Site.tenant_key (the underlay of a site plan, REQ-053 GP-FR-033)
     }
+)
+
+#: The carriers :meth:`ArangoAttachmentRepository.remove_if_unreferenced` reads inside its transaction.
+_REFERENCE_READ: tuple[str, ...] = tuple(
+    dict.fromkeys((*PHOTO_REF_COLLECTIONS, *(collection for collection, _field in ATTACHMENT_REF_FIELDS)))
 )
 
 
@@ -704,6 +710,57 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         if row is None:
             return "missing", None
         return str(row["state"]), row.get("created_by")
+
+    def remove_if_unreferenced(self, attachment_id: str, tenant_key: str) -> Attachment | None:
+        """Remove the record when no carrier names it: the reference scan and the remove are one transaction (#2545).
+
+        Asked as two calls (scan, then delete) a carrier written between them was not seen: a site setting this
+        picture as its underlay while another site let go of it lost the picture and pointed at nothing. Inside one
+        stream transaction the scan reads the snapshot the remove writes on, and a writer that names the record
+        **touches** it in its own transaction (``set_site_underlay``): whichever commits second meets the other's
+        write and fails with ``1200`` (:class:`~app.common.exceptions.WriteConflictError`), nothing half-done.
+
+        Returns the removed record (its stored object is the caller's next step), or ``None`` when it is absent,
+        another tenant's or still referenced. The scan is the tenant-scoped one of :meth:`task_photo_delete_state`.
+        """
+        with stream_transaction(
+            self._db, write=(self._collection_name,), read=_REFERENCE_READ, entity=self._collection_name
+        ) as txn:
+            if not self._unreferenced_in(txn, attachment_id, tenant_key):
+                return None
+            removed = list(
+                txn.aql.execute(
+                    """
+                FOR att IN @@collection
+                  FILTER att._key == @attachment_id AND att.tenant_key == @tenant_key
+                  REMOVE att IN @@collection
+                  RETURN OLD
+                """,
+                    bind_vars={
+                        "@collection": self._collection_name,
+                        "attachment_id": attachment_id,
+                        "tenant_key": tenant_key,
+                    },
+                )
+            )
+        return Attachment(**self._from_doc(removed[0])) if removed else None
+
+    def _unreferenced_in(self, txn: StreamTransaction, attachment_id: str, tenant_key: str) -> bool:
+        """Whether the tenant's record *attachment_id* exists and no carrier names it, read inside *txn*."""
+        query = f"""
+{self._aql_referenced_prelude(tenant_scoped=True)}
+        FOR att IN @@collection
+          FILTER att._key == @attachment_id AND att.tenant_key == @tenant_key
+          RETURN {self._aql_unreferenced("referenced", "att")}
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "attachment_id": attachment_id,
+            "tenant_key": tenant_key,
+            "ref_tenant_key": tenant_key,
+            **self._reference_bind_vars(),
+        }
+        return next(iter(txn.aql.execute(query, bind_vars=bind_vars)), False) is True
 
     def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
         """Task-category attachments older than *older_than* that nothing references.

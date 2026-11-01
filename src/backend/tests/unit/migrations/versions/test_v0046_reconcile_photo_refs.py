@@ -28,6 +28,7 @@ import pytest
 from app.data_access.arango import collections as col
 from app.migrations.framework.report import IrreversibleMigrationError
 from app.migrations.versions.v0046_reconcile_photo_refs import (
+    REFERENCE_FIELDS,
     AttachmentIdentity,
     build_identity_index,
     migration,
@@ -198,10 +199,20 @@ class TestAStemMayOnlyAnswerForAStorageKey:
 # ── the migration against a fake ArangoDB ─────────────────────────────────────
 
 #: The carrier scan, as it has to be spelled: filtered and projected in the database.
+#: The attribute may be a dotted path (``plan.underlay.attachment_key``), which the scan reads through.
 _CARRIER_RE = re.compile(
-    r"^FOR d IN (\w+)\s+FILTER d\.(\w+) != null\s+"
-    r"RETURN \{_key: d\._key, tenant_key: d\.tenant_key, value: d\.(\w+)\}$"
+    r"^FOR d IN (\w+)\s+FILTER d\.([\w.]+) != null\s+"
+    r"RETURN \{_key: d\._key, tenant_key: d\.tenant_key, value: d\.([\w.]+)\}$"
 )
+
+
+def _read_path(document: dict[str, Any], path: str) -> Any:
+    """``d.a.b`` as AQL reads it: ``null`` as soon as one step is missing or no object."""
+    value: Any = document
+    for step in path.split("."):
+        value = value.get(step) if isinstance(value, dict) else None
+    return value
+
 
 #: Reads the reduction out of the query rather than knowing it.
 _STEM_RE = re.compile(r'FIRST\(SPLIT\(LAST\(SPLIT\(\s*([^,]+?)\s*,\s*"([^"]*)"\s*\)\)\s*,\s*"([^"]*)"\s*\)\)')
@@ -268,9 +279,9 @@ class _FakeAql:
         collection, filtered_field, projected_field = match.groups()
         assert filtered_field == projected_field, "the filter and the projection must name one field"
         return (
-            {"_key": doc["_key"], "tenant_key": doc.get("tenant_key"), "value": doc[projected_field]}
+            {"_key": doc["_key"], "tenant_key": doc.get("tenant_key"), "value": _read_path(doc, projected_field)}
             for doc in self._collections.get(collection, [])
-            if doc.get(projected_field) is not None
+            if _read_path(doc, projected_field) is not None
         )
 
 
@@ -562,3 +573,35 @@ class TestUp:
     def test_down_refuses(self) -> None:
         with pytest.raises(IrreversibleMigrationError):
             migration.down(_FakeDb({}))
+
+
+class TestADottedCarrierPathIsNeverRepaired:
+    """#2545 item 3 — the repair writes ``UPDATE {_key: @key, <field>: @value}``, valid only for a plain attribute.
+
+    ``ATTACHMENT_REF_FIELDS`` gained the dotted ``plan.underlay.attachment_key`` (REQ-053 WP 7.14) after v0046
+    shipped; interpolated into that object literal it is not AQL. The class is frozen (its checksum is pinned), so the
+    dotted path is kept out of the module-level ``REFERENCE_FIELDS`` the class iterates.
+    """
+
+    _UPDATE_OF_A_DOTTED_FIELD = re.compile(r"UPDATE \{_key: @key, [\w]+\.[\w.]+:")
+
+    def test_no_field_the_repair_iterates_is_a_dotted_path(self) -> None:
+        assert [field for _collection, field in REFERENCE_FIELDS if "." in field] == []
+        assert (col.PLANT_INSTANCES, "cover_photo_ref") in REFERENCE_FIELDS  # positive control: scalars stay
+
+    def test_a_site_underlay_in_a_repairable_spelling_emits_no_update(self) -> None:
+        db = _FakeDb(
+            {
+                col.ATTACHMENTS: [_attachment()],
+                col.SITES: [{"_key": "site-1", "tenant_key": TENANT, "plan": {"underlay": {"attachment_key": ULID}}}],
+                # positive control: the same reference in a plain carrier is still repaired in the same run
+                col.PLANT_INSTANCES: [{"_key": "plant-1", "tenant_key": TENANT, "cover_photo_ref": ULID}],
+            }
+        )
+
+        report = migration.up(db)
+
+        assert not [query for query in db.aql.queries if self._UPDATE_OF_A_DOTTED_FIELD.search(query)]
+        assert db.collections[col.SITES][0]["plan"]["underlay"]["attachment_key"] == ULID
+        assert col.SITES not in report.details["per_collection"]
+        assert db.collections[col.PLANT_INSTANCES][0]["cover_photo_ref"] == ATTACHMENT_KEY

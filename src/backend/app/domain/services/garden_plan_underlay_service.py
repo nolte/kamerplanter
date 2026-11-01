@@ -85,7 +85,7 @@ class GardenPlanUnderlayService:
         written, previous = self._plan.set_site_underlay(site_key, tenant_key=tenant_key, underlay=underlay)
         if not written:
             raise PlanError(ERROR_PLAN_REQUIRED, "The site has no garden plan yet.", status_code=422, field="plan")
-        await self._discard(previous, keep=underlay.attachment_key, tenant_key=tenant_key)
+        await self.discard(previous, keep=underlay.attachment_key, tenant_key=tenant_key)
         return underlay
 
     async def remove_underlay(self, site_key: SiteKey, *, tenant_key: str, role: TenantRole) -> bool:
@@ -97,16 +97,17 @@ class GardenPlanUnderlayService:
             return False
         written, previous = self._plan.set_site_underlay(site_key, tenant_key=tenant_key, underlay=None)
         if written:
-            await self._discard(previous, keep=None, tenant_key=tenant_key)
+            await self.discard(previous, keep=None, tenant_key=tenant_key)
         return written
 
-    async def _discard(self, attachment_key: str | None, *, keep: str | None, tenant_key: str) -> None:
+    async def discard(self, attachment_key: str | None, *, keep: str | None, tenant_key: str) -> None:
         """Delete a superseded picture unless something else still names it.
 
         The upload dedupes per sha256, so two sites of one tenant can hold the same attachment: the picture goes
         only when no carrier references it any more (another site's underlay, a gallery, a task - the reference
         scan of :meth:`AttachmentService.delete_if_unreferenced`, which runs after this site's own reference is
-        gone) and then through the delete that asks the other record holders first.
+        gone, in the transaction of the record's removal) and then through the delete that asks the other record
+        holders first. Also the site delete's step for the picture of the deleted plan (``SiteService``, #2545).
         """
         if attachment_key is None or attachment_key == keep:
             return

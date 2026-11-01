@@ -578,9 +578,11 @@ class TenantExportEngine:
         # REQ-053 §20.11 (WP 7.1, #2467): a zone's water source is a garden object of the same site.
         "irrigation_zones": {"water_source_key": _internal("garden_objects")},
         # REQ-053 GP-FR-033 (WP 7.14): the site plan's underlay names one of the tenant's own attachments, which
-        # the import maps to the restored attachment. The second path is the plan model read on its own.
+        # the import maps to the restored attachment.
         "sites": {
             "plan.underlay.attachment_key": _ATTACHMENT_REF,
+            # No stored site has a top-level ``underlay``: declared only because the export-coverage guard binds
+            # ``SitePlan`` to ``sites`` and reads its key paths unprefixed (test_tenant_export_covers_the_inventory).
             "underlay.attachment_key": _ATTACHMENT_REF,
         },
         # REQ-053 §20.12 (WP 7.8, #2474): a template names the task templates it would bring (stored only).

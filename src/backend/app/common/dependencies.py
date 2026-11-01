@@ -441,7 +441,8 @@ def get_companion_edge_service() -> CompanionEdgeService:
 
 
 def get_site_service() -> SiteService:
-    return SiteService(get_site_repo(), tank_repo=get_tank_repo())
+    # #2545: a site delete discards its plan's underlay picture through the underlay service's rule.
+    return SiteService(get_site_repo(), tank_repo=get_tank_repo(), underlay=get_garden_plan_underlay_service)
 
 
 def get_garden_plan_repo() -> ArangoGardenPlanRepository:

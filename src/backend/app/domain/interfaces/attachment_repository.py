@@ -192,6 +192,14 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def remove_if_unreferenced(self, attachment_id: str, tenant_key: str) -> Attachment | None:
+        """Remove the tenant's record *attachment_id* unless a carrier still names it; the removed record, or ``None``.
+
+        The reference check and the remove MUST be one transaction (#2545): a carrier written between a separate
+        scan and delete would be left pointing at nothing. The stored object is not touched here.
+        """
+
+    @abstractmethod
     def task_photo_delete_state(self, attachment_id: str, tenant_key: str, *, task_key: str) -> tuple[str, str | None]:
         """``(state, created_by)`` for the task-photo delete route (#1393).
 

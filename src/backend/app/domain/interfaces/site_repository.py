@@ -1,7 +1,20 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.domain.models.site import Location, Site, Slot
+
+
+@dataclass(frozen=True)
+class SiteDeletion:
+    """What a committed site delete leaves for its caller (#2545).
+
+    ``underlay_attachment_key`` is the underlay picture the deleted plan named, read inside the delete's
+    transaction: the attachment outlives the site document and is discarded by the service afterwards (when no
+    other carrier names it).
+    """
+
+    underlay_attachment_key: str | None = None
 
 
 class ISiteRepository(ABC):
@@ -40,7 +53,7 @@ class ISiteRepository(ABC):
     def update_site(self, key: SiteKey, site: Site) -> Site: ...
 
     @abstractmethod
-    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> bool: ...
+    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> SiteDeletion: ...
 
     @abstractmethod
     def get_locations_by_site(self, site_key: SiteKey) -> list[Location]: ...

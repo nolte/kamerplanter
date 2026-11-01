@@ -28,6 +28,7 @@ from app.common.exceptions import NotFoundError, PlanError
 from app.data_access.arango import collections as col
 from app.data_access.arango.graph_edges import edges_touching
 from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.domain.interfaces.site_repository import SiteDeletion
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = pytest.mark.usefixtures("arango_db")
@@ -203,7 +204,7 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
         gone = set(seeded["site_a"]["gone"])
         assert gone <= set(documents)  # the seed holds what the assertions below claim is removed
 
-        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") is True
+        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") == SiteDeletion()
 
         after = _documents(db)
         new_rows = [doc_id for doc_id in after if doc_id not in documents]
@@ -370,7 +371,7 @@ class TestASiteWithActivePlantsIsNotDeleted:
             }
         )
 
-        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") is True
+        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") == SiteDeletion()
 
         assert db.collection(col.SITES).get("site_a") is None
         assert db.collection(col.PLANT_INSTANCES).get("p_gone") is not None  # the plant's history stays
@@ -380,7 +381,7 @@ class TestASiteWithActivePlantsIsNotDeleted:
         _plant(db, "p_b_loc", B, location_key="child_site_b")
         _plant(db, "p_b_slot", B, slot_key="slot_site_b")
 
-        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") is True
+        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") == SiteDeletion()
 
         assert db.collection(col.SITES).get("site_a") is None
         assert db.collection(col.SITES).get("site_b") is not None
@@ -451,3 +452,15 @@ class TestTheDeleteTakesOnlyWhatIsTheSitesOwn:
 
         assert db.collection(col.IRRIGATION_ZONES).get("zone_unstamped") is None
         assert db.collection(col.IRRIGATION_ZONES).get("zone_foreign") is not None
+
+
+class TestTheDeleteReportsTheUnderlayPicture:
+    """#2545 item 1: the delete names the underlay its transaction read, for the service to discard after the commit."""
+
+    def test_the_underlay_key_read_in_the_transaction_is_returned(self, db, seeded) -> None:
+        db.collection(col.SITES).update({"_key": "site_a", "plan": {"underlay": {"attachment_key": "att_photo"}}})
+
+        deletion = ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
+
+        assert deletion == SiteDeletion(underlay_attachment_key="att_photo")
+        assert db.collection(col.SITES).get("site_a") is None

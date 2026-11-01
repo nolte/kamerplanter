@@ -7,6 +7,7 @@ same ``details`` — and the service writes nothing after it.
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -34,7 +35,7 @@ def test_the_repository_refusal_reaches_the_caller_unchanged_and_nothing_further
     repo.delete_site.side_effect = refusal
 
     with pytest.raises(PlanError) as raised:
-        SiteService(repo).delete_site("site-own", tenant_key=TENANT, user_key="u-own")
+        asyncio.run(SiteService(repo).delete_site("site-own", tenant_key=TENANT, user_key="u-own"))
 
     assert raised.value is refusal
     assert raised.value.status_code == 409

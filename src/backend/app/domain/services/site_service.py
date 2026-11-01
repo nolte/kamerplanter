@@ -1,4 +1,7 @@
+from collections.abc import Callable
 from typing import Protocol
+
+import structlog
 
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
@@ -10,6 +13,8 @@ from app.domain.models.site import Location, Site, SiteConditions, SiteWaterConf
 from app.domain.models.tank import Tank
 from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.location_ownership import require_owned_site, resolve_owned_slot
+
+logger = structlog.get_logger(__name__)
 
 #: ``Location`` fields the ``PUT /locations/{key}`` body (``LocationCreate``) does not carry and
 #: that are written by the garden-plan paths (REQ-053 WP 1.7 — editor, batch, PATCH in WP 1.9).
@@ -84,12 +89,28 @@ class _TankSource(Protocol):
     def get_by_key(self, key: str) -> Tank | None: ...
 
 
+class _UnderlayDiscard(Protocol):
+    """``GardenPlanUnderlayService.discard``: delete a picture of the tenant unless a carrier still names it."""
+
+    async def discard(self, attachment_key: str | None, *, keep: str | None, tenant_key: str) -> None: ...
+
+
 class SiteService:
-    def __init__(self, site_repo: ISiteRepository, *, tank_repo: _TankSource | None = None) -> None:
+    def __init__(
+        self,
+        site_repo: ISiteRepository,
+        *,
+        tank_repo: _TankSource | None = None,
+        underlay: Callable[[], _UnderlayDiscard] | None = None,
+    ) -> None:
         self._repo = site_repo
         self._water_validator = WaterSourceValidator()
         # #1872 C4: the tank a location names, resolved under the tenant.
         self._tank_repo = tank_repo
+        # #2545: the underlay picture of a deleted site plan goes with it (B3: unless another carrier names it).
+        # A provider, built only by a delete that has a picture to discard: every other site route stays free of
+        # the attachment service (object storage, quota, rendition claims).
+        self._underlay = underlay
 
     def _require_owned_tank(self, tank_key: str, tenant_key: str) -> None:
         """404 unless *tank_key* is a tank of *tenant_key* — fail closed without a repository (#1872 C4)."""
@@ -139,15 +160,26 @@ class SiteService:
             site.total_area_m2 = existing.total_area_m2
         return self._repo.update_site(key, site)
 
-    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> bool:
+    async def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> bool:
         """Delete the tenant's site with its structure; the care and change history stays (#2513).
 
         ``user_key`` is the deleting account, recorded on the plan audit row the repository writes in the same
         transaction (REQ-053 §20.13 SR-011). The repository reads the site under ``tenant_key`` once more inside
         that transaction (MT-010, #2107), so the ownership predicate does not rest on this read alone.
+
+        The underlay picture of the deleted plan (an aerial photo can reveal where someone lives, GP-FR-033 §26)
+        is discarded after the commit, through the underlay's own rule: deleted unless another site or carrier
+        still names it (#2545). The picture the transaction read is the one discarded, not this method's
+        earlier read.
         """
         self.get_site(key, tenant_key=tenant_key)
-        return self._repo.delete_site(key, tenant_key=tenant_key, user_key=user_key)
+        deletion = self._repo.delete_site(key, tenant_key=tenant_key, user_key=user_key)
+        if deletion.underlay_attachment_key is not None:
+            if self._underlay is None:
+                logger.warning("site.underlay_not_discarded", site_key=key)
+            else:
+                await self._underlay().discard(deletion.underlay_attachment_key, keep=None, tenant_key=tenant_key)
+        return True
 
     def get_water_config(self, key: SiteKey, *, tenant_key: str) -> SiteWaterConfig | None:
         site = self.get_site(key, tenant_key=tenant_key)

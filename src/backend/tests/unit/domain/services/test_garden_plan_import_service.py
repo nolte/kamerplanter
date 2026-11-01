@@ -486,6 +486,19 @@ class TestTheFileIsUntrusted:
                 rig.run(broken)
             assert refused.value.error_code == code
 
+    def test_an_underlay_in_the_plan_settings_is_refused_like_an_unknown_top_level_key(self, rig, repo) -> None:
+        """#2545 item 6: the underlay is never part of the file (GP-FR-033/140); one in ``plan`` is not ignored."""
+        document = rig.file()
+        document["plan"] = {**document["plan"], "underlay": {"attachment_key": "att_elsewhere"}}
+
+        with pytest.raises(PlanError) as refused:
+            rig.run(document)
+
+        assert refused.value.error_code == "import.unknown_keys" and refused.value.status_code == 422
+        assert refused.value.details[0]["keys"] == ["plan.underlay"]
+        assert repo.applied == []
+        assert rig.run(rig.file()) is not None  # positive control: the exported plan settings themselves pass
+
     def test_findings_name_a_path_and_the_files_own_key_never_a_value(self, rig) -> None:
         document = rig.file()
         document["locations"][1]["geometry"] = {"kind": "rect", "origin": [0, 0], "width_m": -1, "length_m": 1}

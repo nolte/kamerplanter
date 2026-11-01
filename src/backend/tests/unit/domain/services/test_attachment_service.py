@@ -22,6 +22,7 @@ from app.common.exceptions import (
     InvalidFileTypeError,
     StorageQuotaExceededError,
     VirusScanRejectedError,
+    WriteConflictError,
 )
 from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
@@ -100,6 +101,18 @@ class _FakeAttachmentRepo:
         if stored is None:
             return "missing", None
         return self.states.get(attachment_id, "staged"), stored.created_by
+
+    #: Raised by ``remove_if_unreferenced`` instead of answering: a carrier names the record concurrently.
+    conflict: Exception | None = None
+
+    def remove_if_unreferenced(self, attachment_id, tenant_key):  # type: ignore[no-untyped-def]
+        # One call standing for the repository's one transaction: the scan's answer and the remove.
+        if self.conflict is not None:
+            raise self.conflict
+        state, _created_by = self.task_photo_delete_state(attachment_id, tenant_key, task_key="")
+        if state != "staged":
+            return None
+        return self._store.pop(attachment_id)
 
     def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):  # type: ignore[no-untyped-def]
         return {
@@ -707,6 +720,32 @@ class TestDeleteIfUnreferenced:
         assert await service.delete_if_unreferenced("does-not-exist", "t-1") is False
         assert await service.delete_if_unreferenced(attachment.key, "t-other") is False
         assert repo.get(attachment.key, "t-1") is not None
+
+    async def test_the_stored_object_goes_with_the_record(self, service, repo, adapter):
+        attachment = await self._stored(service)
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
+
+        assert not await service._object_exists(attachment.storage_key)
+
+    async def test_an_object_another_record_holds_stays(self, service, repo, adapter):
+        attachment = await self._stored(service)
+        twin = repo.create(attachment.model_copy(update={"key": None, "created_by": "u-2"}))
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
+
+        assert repo.get(twin.key, "t-1") is not None
+        assert await service._object_exists(attachment.storage_key)
+
+    async def test_a_carrier_naming_it_concurrently_keeps_record_and_object(self, service, repo, adapter):
+        """#2545: the remove conflicts with a writer that names the record right now - nothing is deleted."""
+        attachment = await self._stored(service)
+        repo.conflict = WriteConflictError("attachments")
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is False
+
+        assert repo.get(attachment.key, "t-1") is not None
+        assert await service._object_exists(attachment.storage_key)
 
 
 class TestARecordNeverReachesAnotherTenantsObject:

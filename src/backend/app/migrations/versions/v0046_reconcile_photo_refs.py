@@ -102,8 +102,14 @@ PHOTO_REFS_FIELD = "photo_refs"
 #: a copy: ``test_photo_ref_carriers.py`` asserts them against the models that declare
 #: the fields, so this migration widens with the carriers instead of drifting behind
 #: them. Scalar and list fields are both here; the scan normalises the two shapes.
+#:
+#: **Plain attributes only** (#2545): the repair writes ``UPDATE {_key: @key, <field>: @value}``, which is no AQL
+#: for a dotted path such as ``plan.underlay.attachment_key`` (REQ-053 WP 7.14, added after this migration
+#: shipped; its writer only ever stores a document key). The filter sits here and not in the class, because the
+#: class source is checksummed and frozen (``test_applied_migration_sources_are_frozen.py``).
 REFERENCE_FIELDS: tuple[tuple[str, str], ...] = tuple(
-    [(collection, PHOTO_REFS_FIELD) for collection in PHOTO_REF_COLLECTIONS] + list(ATTACHMENT_REF_FIELDS)
+    [(collection, PHOTO_REFS_FIELD) for collection in PHOTO_REF_COLLECTIONS]
+    + [(collection, field) for collection, field in ATTACHMENT_REF_FIELDS if "." not in field]
 )
 
 #: How many references are reduced to their stem in one AQL round trip.

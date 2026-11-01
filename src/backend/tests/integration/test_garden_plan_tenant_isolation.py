@@ -172,11 +172,9 @@ class _RecordDeleter:
         return self._repo.delete(attachment_id, tenant_key)
 
     async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
-        """The real service's rule: the record goes only when no carrier (another site's underlay included) names it."""
-        state, _created_by = self._repo.task_photo_delete_state(attachment_id, tenant_key, task_key="")
-        if state != "staged":
-            return False
-        return await self.delete(attachment_id, tenant_key)
+        """The real service's rule: the record goes only when no carrier (another site's underlay included) names it,
+        checked in the transaction of the remove (#2545)."""
+        return self._repo.remove_if_unreferenced(attachment_id, tenant_key) is not None
 
 
 #: Every collection a route of these four routers can write — the plan batch's and the slot batch's write sets
@@ -1522,8 +1520,17 @@ class TestTheReferenceChecksCanFail:
                 raise PlanValidationError([(None, "attachment_key", ERROR_REFERENCE_NOT_FOUND, {})])
             return Attachment(**document)
 
+        def bind_any_attachment(txn, attachment_key, *, tenant_key, now):
+            # #2545: the underlay write touches its attachment in its own transaction under the tenant too - the
+            # second layer, switched off with the first (either alone still refuses).
+            txn.aql.execute(
+                "FOR a IN @@att FILTER a._key == @key UPDATE a WITH { updated_at: @now } IN @@att",
+                bind_vars={"@att": col.ATTACHMENTS, "key": attachment_key, "now": now},
+            )
+
         monkeypatch.setattr(GardenPlanService, "_visible_template", every_template)
         monkeypatch.setattr(GardenPlanUnderlayService, "_underlay_attachment", every_attachment)
+        monkeypatch.setattr(ArangoGardenPlanRepository, "_bind_underlay_attachment", staticmethod(bind_any_attachment))
         monkeypatch.setattr(IrrigationZoneService, "_resolve_locations", no_resolution)
         monkeypatch.setattr(IrrigationZoneService, "_resolve_water_source", no_resolution)
         monkeypatch.setattr(ArangoIrrigationZoneRepository, "_take_water_source", staticmethod(no_resolution))
