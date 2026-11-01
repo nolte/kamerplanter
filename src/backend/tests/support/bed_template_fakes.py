@@ -78,3 +78,6 @@ class FakeTemplates(IBedTemplateRepository):
 
     def visible_task_template_keys(self, keys, *, tenant_key):
         return {key for key in keys if self.task_templates.get(key) in ("", tenant_key)}
+
+    def global_task_template_keys(self, keys):
+        return {key for key in keys if self.task_templates.get(key) == ""}

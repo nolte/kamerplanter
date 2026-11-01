@@ -65,7 +65,7 @@ from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.models.bed_template import BedTemplate
+from app.domain.models.bed_template import ERROR_NOT_A_BED_TYPE, BedTemplate
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BATCH_TIME_BUDGET_SECONDS,
@@ -515,10 +515,11 @@ class GardenPlanService:
         """Create one bed from a template, through the same path as a batch ``create_location`` (WP 7.9, #2475).
 
         Order (SR-013): tenant anchor (404) -> role (403) -> the template, which must be a system template or the
-        tenant's own (422 ``reference.not_found`` for an absent *and* a foreign key alike) -> its location type
-        -> the geometry placed at ``origin`` and turned by ``rotation_deg`` (422 ``geometry.invalid``) -> the
-        plan rules of any batch: containment (422 ``geometry.outside_parent``), overlap, quota and, inside the
-        transaction, the revision (409 ``plan.revision_conflict``).
+        tenant's own (422 ``reference.not_found`` for an absent *and* a foreign key alike) -> its location type,
+        which must still exist (422 ``reference.not_found``) and still be a bed type (422
+        ``bed_template.not_a_bed_type``) -> the geometry placed at ``origin`` and turned by ``rotation_deg`` (422
+        ``geometry.invalid``) -> the plan rules of any batch: containment (422 ``geometry.outside_parent``),
+        overlap, quota and, inside the transaction, the revision (409 ``plan.revision_conflict``).
 
         The bed receives a **copy** of the template's fields (name, location type, geometry, height, soil axes);
         ``Location.template_key`` records where it came from and nothing else follows the template afterwards.
@@ -528,8 +529,19 @@ class GardenPlanService:
         if not MembershipEngine.can_edit_resource(role):
             raise ForbiddenError("Requires at least grower role.")
         template = self._visible_template(template_key, tenant_key=tenant_key)
-        if template.location_type_key not in self._plan.bed_type_flags([template.location_type_key]):
+        flags = self._plan.bed_type_flags([template.location_type_key])
+        if template.location_type_key not in flags:
             raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
+        if not flags[template.location_type_key]:
+            # The type was a bed type when the template was written; it may have stopped being one since (a
+            # ``PUT /location-types`` changes ``is_bed``). The batch path would create the location all the same -
+            # as a non-bed, outside the overlap rule - so it is refused here, with the template write's code (#2529).
+            raise PlanError(
+                ERROR_NOT_A_BED_TYPE,
+                "The template's location type is no bed type any more.",
+                status_code=422,
+                field="template_key",
+            )
         try:
             data = TemplateLocationData.model_validate(
                 {

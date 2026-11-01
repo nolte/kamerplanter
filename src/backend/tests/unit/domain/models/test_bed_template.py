@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.common.enums import GrowingMediumKind, SoilDrainage
+from app.domain.calculators.template_placement_calculator import place_geometry
 from app.domain.models.bed_template import (
     BedTemplate,
     BedTemplateInput,
@@ -116,3 +117,32 @@ class TestThePatch:
         for required in ("name", "location_type_key", "default_geometry", "default_layout", "recurring_task_templates"):
             with pytest.raises(ValidationError):
                 BedTemplatePatch(**{required: None})
+
+
+class TestTheAnchor:
+    """#2529 note 4: the module docstring says the anchor is *conventionally* at the origin and not enforced -
+    an anchor stored elsewhere is accepted and placing the template is the same as with the anchor at the origin."""
+
+    @pytest.mark.parametrize(
+        ("at_origin", "shifted"),
+        [
+            (_RECT, {**_RECT, "origin": [3, 4]}),
+            (
+                {"kind": "circle", "origin": [0, 0], "radius_m": 0.5},
+                {"kind": "circle", "origin": [3, 4], "radius_m": 0.5},
+            ),
+            (
+                {"kind": "polygon", "points": [[0, 0], [2, 0], [2, 1]], "rotation_deg": 15},
+                {"kind": "polygon", "points": [[3, 4], [5, 4], [5, 5]], "rotation_deg": 15},
+            ),
+        ],
+    )
+    def test_an_anchor_off_the_origin_is_accepted_and_places_like_one_at_the_origin(
+        self, at_origin: dict, shifted: dict
+    ) -> None:
+        stored = _template(default_geometry=shifted)
+        reference = _template(default_geometry=at_origin)
+
+        assert place_geometry(stored.default_geometry, origin=(5.0, 6.0), rotation_deg=30.0) == place_geometry(
+            reference.default_geometry, origin=(5.0, 6.0), rotation_deg=30.0
+        )

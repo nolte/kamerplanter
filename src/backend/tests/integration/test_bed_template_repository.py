@@ -130,6 +130,24 @@ class TestReads:
             "tt_a",
         }
 
+    def test_the_global_task_template_keys_admit_no_tenants_own(self, repo, db) -> None:
+        # #2529: a system bed template resolves its task templates here, never under the editor's tenant.
+        db.collection(col.TASK_TEMPLATES).insert_many(
+            [
+                {"_key": "tt_empty", "tenant_key": "", "name": "g"},
+                {"_key": "tt_null", "tenant_key": None, "name": "n"},
+                {"_key": "tt_absent", "name": "x"},
+                {"_key": "tt_a", "tenant_key": A, "name": "a"},
+            ]
+        )
+
+        assert repo.global_task_template_keys(["tt_empty", "tt_null", "tt_absent", "tt_a", "nope"]) == {
+            "tt_empty",
+            "tt_null",
+            "tt_absent",
+        }
+        assert repo.global_task_template_keys([]) == set()
+
     def test_the_bed_type_flags_name_only_the_types_that_exist(self, repo) -> None:
         assert repo.bed_type_flags(["bed", "greenhouse", "nope"]) == {"bed": True, "greenhouse": False}
 

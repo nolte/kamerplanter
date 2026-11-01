@@ -57,3 +57,11 @@ class IBedTemplateRepository(ABC):
     @abstractmethod
     def visible_task_template_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
         """Which of ``keys`` are task templates of the tenant or global ones (empty ``tenant_key``)."""
+
+    @abstractmethod
+    def global_task_template_keys(self, keys: list[str]) -> set[str]:
+        """Which of ``keys`` are **global** task templates (``tenant_key`` empty or absent) - no tenant's own.
+
+        The reference check of a *system* bed template: every tenant reads it, so a key one tenant owns must not
+        be parked on it, whichever tenant the platform admin who edits it belongs to (#2529).
+        """
