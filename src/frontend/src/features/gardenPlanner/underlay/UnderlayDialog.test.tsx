@@ -142,6 +142,76 @@ describe('calibration', () => {
   });
 });
 
+describe('calibration by keyboard', () => {
+  /** A 800 x 400 picture shown at 400 x 200: one displayed pixel is two picture pixels. */
+  async function pictureShownAtHalfSize() {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    const image = loadPicture(800, 400);
+    vi.spyOn(image, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 200,
+      right: 400,
+      bottom: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    return user;
+  }
+
+  it('lets the keyboard reach the picture and says which point it moves and where it is', async () => {
+    const user = await pictureShownAtHalfSize();
+    const surface = screen.getByRole('application', { name: /Eichpunkte|calibration points/ });
+    expect(surface).toBe(screen.getByTestId('underlay-picture'));
+    expect(screen.getByTestId('underlay-point-position')).toHaveTextContent(/Punkt 1|Point 1/);
+
+    surface.focus();
+    // the first press puts the unset point in the middle of the picture
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('underlay-p1x')).toHaveValue('400');
+    expect(screen.getByTestId('underlay-p1y')).toHaveValue('200');
+    expect(screen.getByTestId('underlay-point-position')).toHaveTextContent('x 400 px, y 200 px');
+    expect(screen.getByTestId('underlay-point-position')).toHaveAttribute('role', 'status');
+  });
+
+  it('moves the point the toggle names by one displayed pixel, with Shift by ten, and keeps it on the picture', async () => {
+    const user = await pictureShownAtHalfSize();
+    fillCalibration({ p1x: '100', p1y: '50', p2x: '500', p2y: '50' });
+    await user.click(screen.getByTestId('underlay-mark-p2'));
+    screen.getByTestId('underlay-picture').focus();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByTestId('underlay-p2x')).toHaveValue('498');
+    await user.keyboard('{Shift>}{ArrowDown}{/Shift}');
+    expect(screen.getByTestId('underlay-p2y')).toHaveValue('70');
+    expect(screen.getByTestId('underlay-point-position')).toHaveTextContent(
+      /(Punkt 2|Point 2): x 498 px, y 70 px/,
+    );
+    // point 1 is untouched, and a key press does not hand over to the other point
+    expect(screen.getByTestId('underlay-p1x')).toHaveValue('100');
+    expect(screen.getByTestId('underlay-mark-p2')).toHaveAttribute('aria-pressed', 'true');
+
+    for (let press = 0; press < 4; press += 1) await user.keyboard('{Shift>}{ArrowUp}{/Shift}');
+    expect(screen.getByTestId('underlay-p2y')).toHaveValue('0');
+  });
+
+  it('offers no keyboard surface to a viewer', () => {
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+    );
+    renderDialog(STORED, 'viewer');
+    expect(screen.queryByRole('application')).toBeNull();
+    expect(screen.queryByTestId('underlay-point-position')).toBeNull();
+  });
+});
+
 describe('save and remove', () => {
   it('uploads the picture as an underlay attachment, then stores the calibration with the returned key', async () => {
     const user = userEvent.setup();
@@ -308,6 +378,15 @@ describe('accessibility', () => {
     );
     renderDialog(STORED);
     await waitFor(() => expect(screen.getByTestId('underlay-picture')).toBeInTheDocument());
+    await expectNoA11yViolations(document.body);
+  });
+
+  it('has no axe violations with the keyboard surface of a decoded picture', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    loadPicture(800, 400);
+    expect(screen.getByRole('application')).toBeInTheDocument();
     await expectNoA11yViolations(document.body);
   });
 });

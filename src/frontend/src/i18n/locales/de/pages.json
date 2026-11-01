@@ -6000,6 +6000,14 @@
             "p1": "Punkt 1 setzen",
             "p2": "Punkt 2 setzen"
           },
+          "keyboard": {
+            "surface": "Bild zum Setzen der Eichpunkte",
+            "hint": "Mit der Tastatur: Wähle oben den Punkt, gehe mit der Tabulatortaste auf das Bild und setze oder verschiebe ihn mit den Pfeiltasten, mit gedrückter Umschalttaste in größeren Schritten.",
+            "p1": "Punkt 1",
+            "p2": "Punkt 2",
+            "position": "{{point}}: x {{x}} px, y {{y}} px",
+            "unset": "{{point}} ist noch nicht gesetzt."
+          },
           "calibration": {
             "title": "Eichung: zwei Punkte und ihr Abstand",
             "p1x": "Punkt 1, x",
@@ -6017,6 +6025,8 @@
             "originY": "Obere linke Ecke, y",
             "rotation": "Drehung gegen den Uhrzeigersinn"
           },
+          "chunkFailedTitle": "Der Dialog für die Unterlage konnte nicht geöffnet werden",
+          "chunkFailedHint": "Das passiert meist direkt nach einer Aktualisierung der App. Speichere deinen Plan und lade dann die Seite neu; der Plan selbst bleibt nutzbar.",
           "opacity": "Deckkraft",
           "save": "Speichern",
           "close": "Schließen",
