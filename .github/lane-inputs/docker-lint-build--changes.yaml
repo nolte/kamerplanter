@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-11-01'
-measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
+measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
 replay_seconds: 2
 job_spec_sha256: 8601892c2f41d278f6aea87c7d8d6eae1a2f69a8510bce5d3f9ec84c8583960f
 invocations:
