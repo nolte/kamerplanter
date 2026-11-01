@@ -290,9 +290,24 @@ defaults:
 jobs:
   lint-test:
     runs-on: ubuntu-latest
+    # 3.14 is the floor `requires-python` declares; 3.15 is the interpreter the
+    # backend image runs (src/backend/Dockerfile). The 3.15 leg is ADVISORY for
+    # now: `continue-on-error` keeps a 3.15-only failure from failing the
+    # workflow run, and `fail-fast: false` keeps it from cancelling the 3.14
+    # leg. The leg's own check run still concludes `failure`, so it stays
+    # visible — and Renovate, which reads every check run before it automerges,
+    # still holds a dependency bump that breaks 3.15. Neither
+    # leg's check name (`lint-test (3.14)`, `lint-test (3.15)`) is a required
+    # context on `develop` — those are `static / Static CI Tests`,
+    # `lint-test-build (22)`, `Write-route and tree guards` and
+    # `Integration tests (ArangoDB)`, plus the ruleset's two — so adding the leg
+    # changes no required name. Promote it by dropping the `continue-on-error`
+    # expression once 3.15 has a green history.
+    continue-on-error: ${{ matrix.python-version == '3.15' }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ['3.14']
+        python-version: ['3.14', '3.15']
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -355,6 +370,18 @@ jobs:
         run: |
           task deps:sync
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Assert the environment runs Python ${{ matrix.python-version }}
+        # `task deps:sync` lets uv discover the interpreter; setup-python puts
+        # the matrix version first on PATH, but the runner image ships Pythons
+        # of its own, and a leg whose venv resolved one of those would report
+        # the matrix name over results it did not produce. A job-level
+        # UV_PYTHON would pin it, but the lane-inputs record legs replay this
+        # job's env (#1683) and have no stand-in for a matrix value — so the
+        # interpreter is measured here instead of pinned.
+        env:
+          EXPECTED: ${{ matrix.python-version }}
+        run: .venv/bin/python -c "import os, sys; v = f'{sys.version_info[0]}.{sys.version_info[1]}'; sys.exit(0 if v == os.environ['EXPECTED'] else f'venv runs Python {v}, matrix says ' + os.environ['EXPECTED'])"
 
       # Invoked through the Taskfile so the pipeline and a contributor run the
       # identical thing (continuous-integration §E). Before this, `ruff format

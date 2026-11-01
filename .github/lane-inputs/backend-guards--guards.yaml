@@ -10,8 +10,8 @@ gate:
   kind: unfiltered
 status: measured
 measured_on: '2026-11-01'
-measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
-replay_seconds: 1908
+measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
+replay_seconds: 1528
 job_spec_sha256: 097283c4466514018f6ecd3a2aa74f5d809b54e3570a57a5ea6aed08149dbd02
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints

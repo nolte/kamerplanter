@@ -768,20 +768,37 @@
         'busybox',
       ],
     },
-    // Hold the python base image at 3.14 until the dependency tree builds on
-    // 3.15. Renovate treats 3.14 -> 3.15 as a MINOR, so the rule above folded
-    // it into the routine `third-party images` branch (#2598) and it merged on
-    // green required checks that all run on 3.14 (`setup-python`, backend.yml
-    // matrix). On 3.15 `uv sync --locked` falls back to sdists (httptools has
-    // cp314 wheels only) and the `build-constraint-dependencies` setuptools pin
-    // contradicts httptools' `setuptools<=82.0.1`: every `build-backend` run of
-    // docker-publish.yml failed. Lift this together with the CI python version.
+    // Hold the python base image at 3.14 for every image EXCEPT the backend
+    // until each dependency tree is shown to build on 3.15. Renovate treats
+    // 3.14 -> 3.15 as a MINOR, so the rule above folded it into the routine
+    // `third-party images` branch (#2598) and it merged on green required
+    // checks that all ran on 3.14. On 3.15 the backend's `uv sync --locked`
+    // fell back to sdists (httptools had cp314 wheels only) and the
+    // `build-constraint-dependencies` setuptools pin contradicted httptools'
+    // `setuptools<=82.0.1`: every `build-backend` run of docker-publish.yml
+    // failed.
+    //
+    // src/backend/Dockerfile is no longer held: its lock moved to releases
+    // with cp315 wheels, PyYAML (no cp315 wheel) builds as pure Python, and
+    // backend.yml runs the suite on 3.15 as well. The list below is therefore
+    // the side services and the E2E image, enumerated rather than written as
+    // "everything but the backend", because Renovate has no negated file match
+    // that reads as plainly. Remove an entry when ITS tree is proven on 3.15
+    // the same way; the `python` setup-python references are the github-actions
+    // datasource and never matched this docker-only rule.
     {
       matchDatasources: [
         'docker',
       ],
       matchPackageNames: [
         'python',
+      ],
+      matchFileNames: [
+        'src/inference-service/Dockerfile',
+        'src/knowledge-service/Dockerfile',
+        'docker/embedding-service/Dockerfile',
+        'docker/reranker-service/Dockerfile',
+        'tests/e2e/Dockerfile',
       ],
       allowedVersions: '<3.15',
     },

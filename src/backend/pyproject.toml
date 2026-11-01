@@ -156,7 +156,21 @@ required-version = "==0.13.6"
 # #1296/#1303 removed with `--no-build-isolation` under pip-tools. Constraining
 # the build backend keeps that reproducibility under uv without disabling
 # isolation. Aged by the `python build backend` regex rule in renovate.json5.
-build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0"]
+#
+# On Python 3.15, the interpreter of the backend image, a third one joins
+# them: PyYAML 6.0.3 publishes no cp315 wheel, so it is built from its
+# sdist, whose `[build-system]` requires `Cython>=3.0` — pinned here for the same
+# reason as setuptools. On 3.14 PyYAML installs from its wheel and the Cython pin
+# is never consulted.
+build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0", "cython==3.3.0"]
+# Build PyYAML WITHOUT its optional libyaml C extension, so the 3.15 sdist build
+# needs no compiler and no libyaml headers in the image. Nothing is lost: the
+# backend only ever calls `yaml.safe_load`, which is the pure-Python SafeLoader
+# whether or not the extension exists (the C path is `CSafeLoader`, used
+# nowhere in app/). `PYYAML_FORCE_LIBYAML=0` makes PyYAML's build_ext skip the
+# extension outright instead of probing for a compiler and falling back, so the
+# result does not depend on whether the build host happens to have gcc.
+extra-build-variables = { pyyaml = { PYYAML_FORCE_LIBYAML = "0" } }
 
 [build-system]
 requires = ["setuptools>=75.0"]
