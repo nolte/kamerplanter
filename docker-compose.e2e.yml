@@ -36,7 +36,7 @@
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
+    image: arangodb:3.12@sha256:ef66017c84c3100f83bccc6bcba542573ec17ecb0034592fcdda57ec808f7c76
     environment:
       ARANGO_ROOT_PASSWORD: e2e-test-password
     healthcheck:
