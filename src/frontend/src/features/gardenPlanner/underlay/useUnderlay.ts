@@ -46,8 +46,21 @@ export function useUnderlay(plan: PlanModel, visible: boolean) {
       .then(async (blob) => {
         // Nothing is created for a request that was already given up: no URL, nothing to revoke.
         if (abort.signal.aborted) return;
-        href = URL.createObjectURL(blob);
-        const size = await measure(href);
+        const created = URL.createObjectURL(blob);
+        href = created;
+        let size: { width: number; height: number };
+        try {
+          size = await measure(created);
+        } catch (failure) {
+          // A picture that cannot be decoded is never drawn: give its URL back now, not at the next cleanup
+          // (which comes only when the layer is hidden or the picture changes). After an abort the cleanup
+          // has revoked it already.
+          if (!abort.signal.aborted) {
+            URL.revokeObjectURL(created);
+            href = null;
+          }
+          throw failure;
+        }
         if (abort.signal.aborted) return;
         setLoaded({ attachmentKey, href, widthPx: size.width, heightPx: size.height });
       })

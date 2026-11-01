@@ -94,6 +94,47 @@ describe('useUnderlay', () => {
     expect(created.length).toBe(revoked.length);
   });
 
+  it('gives the URL of a picture that cannot be decoded back at once, while the layer stays on', async () => {
+    vi.stubGlobal(
+      'Image',
+      class {
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        set src(_value: string) {
+          queueMicrotask(() => this.onerror?.());
+        }
+      },
+    );
+    const plan = planWith(UNDERLAY);
+    const { result } = renderHook(() => useUnderlay(plan, true));
+
+    // No hide, no other picture: the effect cleanup does not run, so only the failure path can revoke it.
+    await waitFor(() => expect(created).toEqual(['blob:test/0']));
+    await waitFor(() => expect(revoked).toEqual(['blob:test/0']));
+    expect(result.current.entry).toBeUndefined();
+  });
+
+  it('revokes a failed picture once, also when the layer is hidden afterwards', async () => {
+    vi.stubGlobal(
+      'Image',
+      class {
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        set src(_value: string) {
+          queueMicrotask(() => this.onerror?.());
+        }
+      },
+    );
+    const plan = planWith(UNDERLAY);
+    const { rerender } = renderHook(({ visible }) => useUnderlay(plan, visible), {
+      initialProps: { visible: true },
+    });
+    await waitFor(() => expect(revoked).toEqual(['blob:test/0']));
+    rerender({ visible: false });
+
+    expect(revoked).toEqual(['blob:test/0']);
+  });
+
   it('takes a saved or removed underlay over the stored one until the plan reloads', () => {
     const { result } = renderHook(() => useUnderlay(planWith(UNDERLAY), false));
     act(() => result.current.set(null));
