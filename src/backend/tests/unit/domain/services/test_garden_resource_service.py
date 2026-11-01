@@ -307,17 +307,29 @@ class TestPatchingALocation:
         assert repo.locations["bed"].soil_profile.ph == 6.5
         assert repo.field_updates[0][1]["soil_profile"]["soil_texture"] == "loam"
 
-    def test_site_conditions_are_stored_whole_and_null_clears_them(self, world) -> None:
+    def test_site_conditions_write_only_the_sent_parts_and_null_clears_them(self, world) -> None:
+        """#2569: the write holds the sent parts, merged by the repository - never the whole value read."""
         service, repo, _ = world
         patch_location(service, site_conditions={"sun_profile": {"sun_window": "morning"}, "wind_exposure": "exposed"})
 
         stored = repo.locations["bed"].site_conditions
         assert stored is not None and stored.sun_profile.sun_window == "morning"
-        assert repo.field_updates[0][1]["site_conditions"]["wind_exposure"] == "exposed"
+        assert repo.field_updates[0][1]["site_conditions"] == {
+            "sun_profile": {"sun_window": "morning"},
+            "wind_exposure": "exposed",
+        }
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "high"}})
+        assert repo.field_updates[-1][1] == {
+            "site_conditions": {"microclimate": {"frost_risk": "high"}},
+            "frost_exposed": True,
+        }
+        assert repo.locations["bed"].site_conditions.sun_profile.sun_window == "morning"
 
         patch_location(service, site_conditions=None)
         assert repo.locations["bed"].site_conditions is None
-        assert repo.field_updates[-1] == ("bed", {"site_conditions": None})
+        # the whole value goes (and with the stored ``high`` its boolean, #2512)
+        assert repo.field_updates[-1] == ("bed", {"site_conditions": None, "frost_exposed": None})
 
     @pytest.mark.parametrize(
         "bad",

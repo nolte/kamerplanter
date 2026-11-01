@@ -42,3 +42,22 @@ def merge_site_conditions(stored: SiteConditions | None, sent: BaseModel) -> Sit
         else:
             merged[name] = value
     return SiteConditions(**merged)
+
+
+def sent_site_parts(merged: dict[str, Any], sent: BaseModel) -> dict[str, Any]:
+    """The keys of *sent*, valued from the JSON-shaped *merged* result - what ``PATCH /locations`` writes (#2569).
+
+    The repository merges this into the stored ``site_conditions`` (``merge=True``, ``keep_none=False``) instead
+    of writing the whole value the service read: a part another writer changed after the read (the plan batch's
+    sun profile, #2538) is not in the write and stays. A nested part carries only its sent keys; a ``None``
+    removes the stored key, which reads back as the model default. The values come from *merged* so they are
+    the validated, serialised ones.
+    """
+    parts: dict[str, Any] = {}
+    for name in sent.model_fields_set:
+        value = getattr(sent, name)
+        if name in NESTED_SITE_PARTS and isinstance(value, BaseModel):
+            parts[name] = {key: merged[name][key] for key in value.model_fields_set}
+        else:
+            parts[name] = merged[name]
+    return parts

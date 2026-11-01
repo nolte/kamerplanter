@@ -451,6 +451,116 @@ class TestPatchWritesOnlyWhatItChanged:
         assert stored.area_m2 == 6.0
 
 
+#: The two write paths of ``update_location_fields``: the plain column write and the one that moves the zone edge.
+_PATHS = pytest.mark.parametrize("extra", [{}, {"irrigation_zone_key": "zone_a"}], ids=["plain", "with_zone"])
+
+
+def _patch(service: GardenResourceService, body: dict) -> None:
+    service.patch_location(
+        "bed", tenant_key=A, user_key=USER, role=TenantRole.GROWER, patch=LocationPatch.model_validate(body)
+    )
+
+
+class TestPatchWritesOnlyTheSentSiteConditionParts:
+    """#2569: ``PATCH /locations`` merges the sent ``site_conditions`` parts into the stored value.
+
+    It used to write the whole value it read: a sun profile the plan batch wrote between the PATCH's read and
+    its write (#2538) was reverted without a 409.
+    """
+
+    @_PATHS
+    def test_a_sun_profile_the_batch_writes_after_the_read_survives_a_microclimate_patch(
+        self, db, repo, service, monkeypatch, extra
+    ) -> None:
+        db.collection(col.LOCATIONS).update(
+            {"_key": "bed", "site_conditions": {"sun_profile": {"sun_window": "morning"}, "wind_exposure": "exposed"}}
+        )
+        column_write = repo.update_location_fields
+
+        def batch_then_write(location_key, fields):
+            # The plan batch lands after the PATCH read the bed (the service holds the stale "morning").
+            service._plan_service.apply_batch(
+                "site_a",
+                tenant_key=A,
+                user_key=USER,
+                role=TenantRole.GROWER,
+                expected_revision=None,
+                operations=[
+                    {
+                        "op": "update_fields",
+                        "entity": "location",
+                        "key": "bed",
+                        "fields": {"site_conditions": {"sun_profile": {"sun_window": "afternoon"}}},
+                    }
+                ],
+                body_bytes=0,
+            )
+            assert db.collection(col.LOCATIONS).get("bed")["site_conditions"]["sun_profile"]["sun_window"] == (
+                "afternoon"
+            )  # the race really happened before the column write
+            column_write(location_key, fields)
+
+        monkeypatch.setattr(repo, "update_location_fields", batch_then_write)
+
+        _patch(service, {"site_conditions": {"microclimate": {"frost_risk": "high"}}, **extra})
+
+        document = db.collection(col.LOCATIONS).get("bed")
+        conditions = document["site_conditions"]
+        assert conditions["sun_profile"]["sun_window"] == "afternoon"  # the batch's value, not the stale read
+        assert conditions["microclimate"]["frost_risk"] == "high" and conditions["wind_exposure"] == "exposed"
+        assert document["frost_exposed"] is True  # the #2512 mirror still rides along
+        if extra:
+            assert document["irrigation_zone_key"] == "zone_a"
+
+    @_PATHS
+    def test_a_key_the_patch_clears_is_removed_nested_and_top_level(self, db, service, extra) -> None:
+        _patch(
+            service,
+            {
+                "site_conditions": {
+                    "sun_profile": {"sun_window": "morning", "direct_sun_hours_summer": 5.5},
+                    "microclimate": {"cold_air_pocket": True},
+                    "slope_deg": 12.5,
+                }
+            },
+        )
+
+        _patch(
+            service, {"site_conditions": {"sun_profile": {"direct_sun_hours_summer": None}, "slope_deg": None}, **extra}
+        )
+
+        conditions = db.collection(col.LOCATIONS).get("bed")["site_conditions"]
+        assert "direct_sun_hours_summer" not in conditions["sun_profile"] and "slope_deg" not in conditions
+        assert conditions["sun_profile"]["sun_window"] == "morning"  # a sibling key of the cleared one stays
+        assert conditions["microclimate"]["cold_air_pocket"] is True
+        stored = service._owned_location("bed", tenant_key=A).site_conditions
+        assert stored is not None
+        assert stored.sun_profile.direct_sun_hours_summer is None and stored.slope_deg is None
+
+    @_PATHS
+    def test_a_first_part_on_a_bed_without_conditions_reads_back_with_the_defaults(self, db, service, extra) -> None:
+        assert "site_conditions" not in db.collection(col.LOCATIONS).get("bed")
+
+        _patch(service, {"site_conditions": {"microclimate": {"frost_risk": "low"}}, **extra})
+
+        assert db.collection(col.LOCATIONS).get("bed")["site_conditions"] == {"microclimate": {"frost_risk": "low"}}
+        stored = service._owned_location("bed", tenant_key=A).site_conditions
+        assert stored is not None and stored.microclimate.frost_risk == "low"
+        assert stored.sun_profile.sun_window == "unknown" and stored.access_sides == []
+
+    @_PATHS
+    def test_null_still_clears_the_whole_value(self, db, service, extra) -> None:
+        _patch(service, {"site_conditions": {"wind_exposure": "exposed"}})
+
+        _patch(service, {"site_conditions": None, **extra})
+
+        assert "site_conditions" not in db.collection(col.LOCATIONS).get("bed")
+
+    def test_a_merged_write_on_a_deleted_location_is_a_404(self, repo) -> None:
+        with pytest.raises(NotFoundError):
+            repo.update_location_fields("gone", {"site_conditions": {"wind_exposure": "exposed"}})
+
+
 class TestTheSlotBatchIsAllOrNothing:
     def test_replace_unoccupied_keeps_occupied_reserved_and_archived_slots(self, db, service) -> None:
         add_slot(db, "free", "BED_FREE")

@@ -77,6 +77,10 @@ _OWNED_BY_LOCATION_SITE = """
 
 _OPEN_TASK_STATUSES = ("pending", "in_progress")
 
+#: Location columns ``PATCH /locations`` writes as a sub-path merge, not whole (#2569): the plan batch writes
+#: ``site_conditions.sun_profile`` of the same value outside the PATCH's read (#2538).
+_MERGED_LOCATION_COLUMNS: frozenset[str] = frozenset({"site_conditions"})
+
 
 _LOCATION_EDGES = edges_touching(col.LOCATIONS)
 _SLOT_EDGES = edges_touching(col.SLOTS)
@@ -1263,10 +1267,30 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         if "irrigation_zone_key" in fields:
             self._update_location_fields_with_zone(location_key, fields)
             return
+        with stream_transaction(self._db, write=(col.LOCATIONS,), entity="location") as txn:
+            self._write_location_columns(txn.collection(col.LOCATIONS), location_key, fields, _now())
+
+    @staticmethod
+    def _write_location_columns(
+        collection: TransactionCollection, location_key: str, fields: dict[str, Any], now: str
+    ) -> None:
+        """The column write of ``PATCH /locations`` - both paths of :meth:`update_location_fields` (#2569).
+
+        A column of ``_MERGED_LOCATION_COLUMNS`` carries only the parts the PATCH sent and is merged into the
+        stored object (``merge=True``: a stored ``null`` becomes the object; ``keep_none=False``: a ``None``
+        removes the stored key, nested too). Every other column is replaced whole (``merge=False``: a soil
+        profile must not keep keys the new one dropped) and a ``None`` removes it - so does ``None`` for a
+        merged column, which clears the whole value. Two updates, because ArangoDB takes one merge mode per
+        update; the caller runs them in one transaction.
+        """
+        merged = {
+            name: value for name, value in fields.items() if name in _MERGED_LOCATION_COLUMNS and value is not None
+        }
+        replaced = {name: value for name, value in fields.items() if name not in merged}
         try:
-            self._db.collection(col.LOCATIONS).update(
-                {"_key": location_key, **fields, "updated_at": _now()}, merge=False, keep_none=False
-            )
+            collection.update({"_key": location_key, **replaced, "updated_at": now}, merge=False, keep_none=False)
+            if merged:
+                collection.update({"_key": location_key, **merged}, merge=True, keep_none=False)
         except DocumentUpdateError as exc:
             if exc.error_code == 1202:  # document not found: removed after the service read it
                 raise NotFoundError("Location", location_key) from exc
@@ -1347,14 +1371,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 )
                 if not taken:
                     raise PlanValidationError([(None, "irrigation_zone_key", ERROR_REFERENCE_NOT_FOUND, {})])
-            try:
-                txn.collection(col.LOCATIONS).update(
-                    {"_key": location_key, **fields, "updated_at": now}, merge=False, keep_none=False
-                )
-            except DocumentUpdateError as exc:
-                if exc.error_code == 1202:  # document not found: removed after the service read it
-                    raise NotFoundError("Location", location_key) from exc
-                raise
+            self._write_location_columns(txn.collection(col.LOCATIONS), location_key, fields, now)
             remove_edges(txn, col.ZONE_COVERS, "_to", [location_id])
             if zone_key:
                 txn.collection(col.ZONE_COVERS).insert(

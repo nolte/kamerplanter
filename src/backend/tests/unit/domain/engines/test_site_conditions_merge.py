@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_fields
+from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_fields, sent_site_parts
 from app.domain.models.garden_plan import PlanSiteConditionsPatch, SiteConditionsPatch
 from app.domain.models.site import SiteConditions
 
@@ -75,3 +75,32 @@ def test_sent_fields_lists_only_what_the_body_set() -> None:
     body = PlanSiteConditionsPatch(sun_profile={"sun_window": "mixed"})
     assert set(sent_fields(body)) == {"sun_profile"}
     assert sent_fields(body.sun_profile) == {"sun_window": "mixed"}
+
+
+# ── #2569: what PATCH /locations writes - the sent parts, not the whole merged value ─────────────────────────
+
+
+def _written(sent: SiteConditionsPatch) -> dict:
+    return sent_site_parts(merge_site_conditions(_STORED, sent).model_dump(mode="json"), sent)
+
+
+def test_the_write_carries_only_the_sent_nested_keys() -> None:
+    written = _written(SiteConditionsPatch(microclimate={"frost_risk": "low"}))
+
+    assert written == {"microclimate": {"frost_risk": "low"}}  # no sun profile a concurrent batch could lose
+
+
+def test_a_cleared_key_is_written_as_none_so_the_store_removes_it() -> None:
+    written = _written(SiteConditionsPatch(sun_profile={"direct_sun_hours_summer": None}, slope_deg=None))
+
+    assert written == {"sun_profile": {"direct_sun_hours_summer": None}, "slope_deg": None}
+
+
+def test_flat_parts_and_lists_are_written_json_shaped_from_the_merged_value() -> None:
+    written = _written(SiteConditionsPatch(wind_exposure="sheltered", access_sides=["E"]))
+
+    assert written == {"wind_exposure": "sheltered", "access_sides": ["E"]}
+
+
+def test_an_empty_nested_part_writes_an_empty_object() -> None:
+    assert _written(SiteConditionsPatch.model_validate({"sun_profile": {}})) == {"sun_profile": {}}
