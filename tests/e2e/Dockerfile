@@ -4,12 +4,12 @@
 # a vendored axe.min.js would not give. The E2E image builds from ./tests/e2e and
 # therefore cannot reach src/frontend/node_modules, which is why the dependency
 # is declared here rather than borrowed from the frontend tree.
-FROM node:26-slim@sha256:0d1e33586362bb9e608c4e751e7a9e7edb55c9ac11461ed5666af696cc461dd4 AS axe
+FROM node:26-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS axe
 WORKDIR /axe
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
-FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
+FROM python:3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8
 
 LABEL org.opencontainers.image.title="kamerplanter-e2e-tests" \
       org.opencontainers.image.description="Kamerplanter Selenium E2E test runner" \

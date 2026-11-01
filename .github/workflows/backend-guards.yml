@@ -273,6 +273,14 @@ jobs:
         # longer starts. Such a break surfaces on the next backend pull request or
         # the Monday backend.yml schedule. Holding the reader, not only the path,
         # is #1749.
+        #
+        # tests/unit/test_reach_garden_plan_helpers.py (#2448) reads the reach probe
+        # project/reach-probes/endpoint-sites-plan-read-model-answers.yml, a path
+        # backend.yml's filter leaves to this lane (`project/**`, covered_by in
+        # .github/lane-inputs/backend--lint-test.yaml). #1749 holds the READER, so
+        # the module runs here (twelve tests, about a second) rather than the path
+        # moving into backend.yml's filter, which would start only the advisory
+        # full suite and no required check (lane-inputs run 41237292582).
         run: >-
           pytest tests/unit/api tests/unit/guards
           tests/unit/test_seed_catalogue_page_size_check.py
@@ -283,6 +291,7 @@ jobs:
           tests/unit/test_e2e_seed_log_redaction.py
           tests/unit/test_e2e_tc_id_scope.py
           tests/unit/test_gherkin_line_classification.py
+          tests/unit/test_reach_garden_plan_helpers.py
           tests/contracts/test_plant_property_enum_sync.py
           tests/contracts/test_dashboard_widgets_contract.py
           tests/contracts/test_notification_channels_contract.py
