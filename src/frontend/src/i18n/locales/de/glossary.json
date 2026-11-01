@@ -211,6 +211,51 @@
       "long": "Nicht jeder Reife-Indikator ist gleich aussagekräftig: Die Zuverlässigkeit gibt an, wie verlässlich dieser Indikator-Typ erfahrungsgemäß ist (z. B. sind Trichome zuverlässiger als die Blattfarbe). Der Beitrag ist die Bewertung des Indikators multipliziert mit seiner Zuverlässigkeit und zeigt, wie stark er in die Gesamtbewertung eingeflossen ist.",
       "beginnerTip": "Ein hoher Beitrag bedeutet: Dieser Indikator hat die Gesamtbewertung stark mitbestimmt.",
       "category": "lebenszyklus"
+    },
+    "fruchtfolge": {
+      "short": "Fruchtfolge — jedes Jahr eine andere Pflanzenfamilie im Beet",
+      "long": "Bei der Fruchtfolge wechselst du von Jahr zu Jahr, welche Pflanzenfamilie in einem Beet wächst. Arten derselben Familie ziehen ähnliche Nährstoffe und teilen Krankheiten und Schädlinge, die im Boden überdauern. Die App prüft beim Pflanzen, wann dieselbe Familie zuletzt in diesem Beet stand.",
+      "beginnerTip": "Pflanz Tomaten, Kohl oder Zwiebeln nicht jedes Jahr ins selbe Beet. Ein Hinweis zur Fruchtfolge ist eine Empfehlung, kein Verbot."
+    },
+    "anbaupause": {
+      "short": "Anbaupause — so viele Jahre soll eine Familie aussetzen",
+      "long": "Die Anbaupause ist die Zahl der Jahre, die zwischen zwei Anbauten derselben Pflanzenfamilie im selben Beet liegen soll. Der Wert kommt aus den Angaben zur Art, zur Familie oder aus einem Standardwert. Ist die Pause noch nicht verstrichen, zeigt die App einen Fruchtfolge-Hinweis.",
+      "beginnerTip": "Bei Kohl sind das oft drei bis vier Jahre. Pflanzt du früher wieder, steigt das Risiko für Bodenkrankheiten."
+    },
+    "mischkultur": {
+      "short": "Mischkultur — welche Nachbarn sich im Beet vertragen",
+      "long": "Mischkultur heißt, verschiedene Arten bewusst nebeneinander zu pflanzen. Gute Nachbarn fördern sich, etwa indem sie Schädlinge verwirren oder den Boden unterschiedlich nutzen. Ungünstige Nachbarn hemmen sich gegenseitig. Die App zeigt dir beim Pflanzen gute und ungünstige Nachbarn im Beet.",
+      "beginnerTip": "Ein ungünstiger Nachbar ist kein Fehler, den du nicht machen darfst. Mit etwas mehr Abstand klappt es oft trotzdem."
+    },
+    "dauerkultur": {
+      "short": "Dauerkultur — Pflanzen, die viele Jahre am selben Platz bleiben",
+      "long": "Dauerkulturen wie Rhabarber, Spargel, Erdbeeren oder Beerensträucher stehen mehrere Jahre im selben Beet. Für so ein Beet gilt keine Fruchtfolge, deshalb prüft die App dort keine Anbaupause.",
+      "beginnerTip": "Markiere ein Beet als Dauerkultur, wenn dort Jahr für Jahr dieselben Pflanzen stehen sollen."
+    },
+    "zehrerklassen": {
+      "short": "Stark-, Mittel- und Schwachzehrer — wie viele Nährstoffe eine Pflanze braucht",
+      "long": "Starkzehrer wie Kohl, Tomaten oder Kürbis brauchen viele Nährstoffe, Mittelzehrer wie Möhren, Zwiebeln oder Salat einen mittleren Vorrat, Schwachzehrer wie Kräuter wenig. Stickstoffsammler wie Erbsen und Bohnen binden Stickstoff aus der Luft und hinterlassen den Boden reicher. In der Fruchtfolge folgen die Klassen meist in dieser Reihe aufeinander.",
+      "beginnerTip": "Gib Starkzehrern das frisch mit Kompost versorgte Beet und setz im Jahr danach Mittel- oder Schwachzehrer dorthin."
+    },
+    "gruenduengung": {
+      "short": "Gründüngung — Pflanzen, die den Boden verbessern statt geerntet zu werden",
+      "long": "Bei der Gründüngung säst du Pflanzen wie Phacelia, Senf oder Klee, die den Boden bedecken, lockern und mit Humus versorgen. Geerntet wird dabei nicht: Die Pflanzen werden eingearbeitet oder als Mulch liegen gelassen. In der Fruchtfolge zählt sie als eigenes Glied und unterbricht Krankheitszyklen.",
+      "beginnerTip": "Säe nach der Ernte eine Gründüngung ein, dann liegt der Boden über den Winter nicht nackt."
+    },
+    "pflanzabstand": {
+      "short": "Pflanzabstand — Abstand von Pflanze zu Pflanze innerhalb einer Reihe",
+      "long": "Der Pflanzabstand ist die Entfernung zwischen zwei benachbarten Pflanzen in Zentimetern. Er richtet sich nach der Breite, die eine Pflanze ausgewachsen erreicht. Ist er zu klein, konkurrieren die Pflanzen um Licht, Wasser und Nährstoffe und trocknen schlechter ab.",
+      "beginnerTip": "Den Abstand findest du meist auf der Samentüte. Die App schlägt dir einen Wert aus den Angaben zur Art vor."
+    },
+    "reihenabstand": {
+      "short": "Reihenabstand — Abstand zwischen zwei Pflanzreihen",
+      "long": "Der Reihenabstand ist die Entfernung zwischen zwei Pflanzreihen in Zentimetern. Er ist oft größer als der Pflanzabstand, damit du zwischen den Reihen hacken, gießen und ernten kannst. Beim Raster entspricht er dem Pflanzabstand, beim versetzten Muster ergibt er sich daraus.",
+      "beginnerTip": "Plane so viel Platz zwischen den Reihen ein, dass du mit der Hand oder der Hacke gut hindurchkommst."
+    },
+    "randabstand": {
+      "short": "Randabstand — Abstand der äußeren Pflanzen zum Beetrand",
+      "long": "Der Randabstand legt fest, wie weit die äußeren Pflanzen vom Beetrand entfernt stehen, getrennt nach der Richtung längs und quer zur Reihe. So wachsen die Pflanzen nicht über die Kante in den Weg oder ins Nachbarbeet.",
+      "beginnerTip": "Etwa der halbe Pflanzabstand ist ein guter Startwert für den Rand."
     }
   }
 }

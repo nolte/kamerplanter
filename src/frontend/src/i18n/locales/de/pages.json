@@ -6674,6 +6674,20 @@
           "photo": "Foto",
           "photoFor": "Foto von {{plant}} aufnehmen"
         }
+      },
+      "glossary": {
+        "title": "Begriffe kurz erklärt",
+        "terms": {
+          "fruchtfolge": "Fruchtfolge",
+          "anbaupause": "Anbaupause",
+          "mischkultur": "Mischkultur (Nachbarn)",
+          "dauerkultur": "Dauerkultur",
+          "zehrerklassen": "Stark-, Mittel-, Schwachzehrer",
+          "gruenduengung": "Gründüngung",
+          "pflanzabstand": "Pflanzabstand",
+          "reihenabstand": "Reihenabstand",
+          "randabstand": "Randabstand"
+        }
       }
     },
     "bed": {

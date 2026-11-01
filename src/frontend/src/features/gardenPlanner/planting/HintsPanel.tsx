@@ -18,6 +18,7 @@ import type { SpeciesSiteFit } from './siteFitOf';
 import type { SunExposure } from '../model/types';
 import { needsOverrideReason } from './plantingLogic';
 import type { NeighbourHint, RotationFinding, RotationSeverity } from './plantingTypes';
+import PlannerGlossary, { type PlannerGlossaryTerm } from '../glossary/PlannerGlossary';
 
 const ALERT_SEVERITY: Record<RotationSeverity, 'success' | 'info' | 'warning' | 'error'> = {
   OK: 'success',
@@ -27,6 +28,9 @@ const ALERT_SEVERITY: Record<RotationSeverity, 'success' | 'info' | 'warning' | 
 };
 
 export const MAX_OVERRIDE_REASON = 500;
+
+/** The terms the hints use (GP-UX-011): rotation, its pause, the neighbours and the perennial-crop exemption. */
+const HINT_TERMS: readonly PlannerGlossaryTerm[] = ['fruchtfolge', 'anbaupause', 'mischkultur', 'dauerkultur'];
 
 interface HintsPanelProps {
   /** Entries in the dialog's order: the species, its display name and the state of its request. */
@@ -189,6 +193,7 @@ export default function HintsPanel({
       <Typography variant="subtitle1" component="h3">
         {t('pages.bed.planting.hints.title')}
       </Typography>
+      <PlannerGlossary id="planting-hints" terms={HINT_TERMS} />
       {species.map(({ key, name, state, siteFit }) => (
         <Fragment key={key}>
           {rotationBlock(key, name, state)}
