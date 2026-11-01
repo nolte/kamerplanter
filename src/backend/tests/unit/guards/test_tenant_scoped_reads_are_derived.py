@@ -840,6 +840,12 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "filter is the scope, measured in tests/integration/test_ai_provider_system_default_reach.py; no "
         "route writes ai_provider_configs at all, so no tenant can place a row there (#2110)",
     ),
+    ("ArangoBedTemplateRepository", "global_task_template_keys"): Exclusion(
+        "catalogue",
+        "admits only the GLOBAL task templates (FILTER tenant_key == '' OR null), never a tenant's - the filter "
+        "is the scope, measured in tests/integration/test_bed_template_repository.py; it resolves the references "
+        "of a system bed template, which only a platform admin writes (#2529), and returns keys the caller sent",
+    ),
     # The three ArangoActivityRepository reads left this list with #2119 (MT-023): each now
     # takes tenant_key keyword-only and carries the hybrid-union predicate.
     # The ones below became subjects in #2102, when a traversal's vertex collection began to

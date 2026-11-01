@@ -148,6 +148,27 @@ class TestCreating:
 
         assert (refused.value.error_code, refused.value.status_code) == ("bed_template.quota_exceeded", 422)
 
+    def test_a_create_a_concurrent_create_pushed_over_the_ceiling_is_taken_back(self, world) -> None:
+        # #2529: both creates counted 199 before either inserted; the later re-count sees 201 and undoes its own row.
+        service, repo = world
+        for index in range(MAX_TEMPLATES_PER_TENANT - 2):  # with "own": one free place
+            repo.add(_template(f"bulk_{index}", TENANT))
+        insert = repo.create_template
+
+        def insert_while_another_create_lands(template: BedTemplate) -> BedTemplate:
+            repo.add(_template("concurrent", TENANT))
+            return insert(template)
+
+        repo.create_template = insert_while_another_create_lands  # type: ignore[method-assign]
+
+        with pytest.raises(PlanError) as refused:
+            service.create_template(tenant_key=TENANT, user_key=USER, role=TenantRole.GROWER, data=_input())
+
+        assert (refused.value.error_code, refused.value.status_code) == ("bed_template.quota_exceeded", 422)
+        assert repo.count_owned(tenant_key=TENANT) == MAX_TEMPLATES_PER_TENANT
+        assert "concurrent" in repo.templates
+        assert repo.writes == ["create:bt_1", "delete:bt_1"]
+
     def test_the_log_carries_no_template_name(self, world) -> None:
         service, _ = world
 
@@ -231,6 +252,35 @@ class TestChanging:
 
         assert (updated.name, updated.tenant_key) == ("Curated", None)
         assert repo.writes == ["update:sys_bed"]
+
+    def test_a_platform_admin_cannot_park_their_own_tenants_task_template_on_a_system_template(self, world) -> None:
+        # #2529: every tenant reads a system template; a key only the admin's tenant owns must not land on it.
+        service, repo = world
+
+        with pytest.raises(PlanValidationError) as refused:
+            service.patch_template(
+                "sys_bed",
+                tenant_key=TENANT,
+                role=TenantRole.LEAD,
+                patch=BedTemplatePatch(recurring_task_templates=["tt_global", "tt_own"]),
+                is_platform_admin=True,
+            )
+
+        assert [d["field"] for d in refused.value.details] == ["recurring_task_templates[1]"]
+        assert repo.writes == [] and repo.templates["sys_bed"].recurring_task_templates == []
+
+    def test_a_platform_admin_attaches_a_global_task_template_to_a_system_template(self, world) -> None:
+        service, _ = world
+
+        updated = service.patch_template(
+            "sys_bed",
+            tenant_key=TENANT,
+            role=TenantRole.LEAD,
+            patch=BedTemplatePatch(recurring_task_templates=["tt_global"]),
+            is_platform_admin=True,
+        )
+
+        assert (updated.recurring_task_templates, updated.tenant_key) == (["tt_global"], None)
 
     def test_a_changed_location_type_is_resolved_again(self, world) -> None:
         service, repo = world

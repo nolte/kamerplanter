@@ -6,10 +6,13 @@ A template is **master data with two owners**: a tenant's own template carries t
 which §20.13 names as the leak of #706/#1397). A tenant can neither write nor delete a global template; only a
 platform admin can (§21.8 "Beetvorlage").
 
-``default_geometry`` is expressed in the **bed frame** (§9.2, V-01): the anchor of the shape - the centre of a
-circle, the first vertex of a polygon, the lower-left corner of a rectangle - sits at the origin, and the shape
-is turned by its own ``rotation_deg``. Placing a template (WP 7.9) puts that anchor at the clicked point and turns
-the shape by the requested angle on top.
+``default_geometry`` is expressed in the **bed frame** (§9.2, V-01) and turned by its own ``rotation_deg``. Its
+anchor - the centre of a circle, the first vertex of a polygon, the lower-left corner of a rectangle - is
+*conventionally* at the origin (the system templates of v0101 and the editor's "save as template" write it there),
+but nothing here requires it: an anchor stored elsewhere is accepted and has no effect, because placing a template
+(WP 7.9, ``template_placement_calculator.place_geometry``) puts the anchor at the clicked point - a rectangle's or
+circle's stored ``origin`` is replaced, a polygon is shifted by its first vertex - and turns the shape by the
+requested angle on top.
 
 **Agronomic values (E-10).** ``default_layout`` and ``soil_profile_defaults`` are stored exactly as the author
 sent them; the system templates carry ``null`` for both - no spacing or soil value is invented for them.
@@ -21,7 +24,8 @@ account that created a tenant template; it is erased with the account (GP-NFR-05
 
 ``recurring_task_templates`` is a list of ``task_templates`` keys, **stored only**: placing a template copies
 nothing from it (operator decision of 2026-10-19, #2466 item 9). The service resolves every key under the tenant
-(GP-NFR-058) so a foreign key cannot be parked here.
+(GP-NFR-058) so a foreign key cannot be parked here; a system template, which every tenant reads, admits global
+task templates only (#2529).
 """
 
 from __future__ import annotations
@@ -46,6 +50,8 @@ MAX_SPACING_CM = 1500.0
 MAX_RECURRING_TASK_TEMPLATES = 20
 #: A tenant's catalogue is bounded like every other list (GP-NFR-017 style): the list route pages inside this.
 MAX_TEMPLATES_PER_TENANT = 200
+#: 422 when ``location_type_key`` names a type that is no bed type - on a template write and when placing one.
+ERROR_NOT_A_BED_TYPE = "bed_template.not_a_bed_type"
 
 #: A stored key of another document: a short non-empty string (the database decides what exists).
 TaskTemplateKey = Annotated[str, StringConstraints(min_length=1, max_length=200)]
