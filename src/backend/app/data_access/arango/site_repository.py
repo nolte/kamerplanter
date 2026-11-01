@@ -13,7 +13,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.graph_edges import EdgeEndpoint, edges_touching, remove_edges
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
-from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.site_repository import ISiteRepository, SiteDeletion
 from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.site import Location, Site, Slot
 
@@ -66,7 +66,12 @@ _SITE_DELETE_READ: tuple[str, ...] = (col.PLANT_INSTANCES,)
 _SITE_FOR_DELETE = """
 FOR s IN @@sites
     FILTER s._key == @site_key AND s.tenant_key == @tenant_key
-    RETURN {tenant_key: s.tenant_key, name: s.name, revision: s.plan.plan_revision || 0}
+    RETURN {
+        tenant_key: s.tenant_key,
+        name: s.name,
+        revision: s.plan.plan_revision || 0,
+        underlay_attachment_key: s.plan.underlay.attachment_key
+    }
 """
 
 #: A dependent row of the site (irrigation zones included). A row stamped with another tenant is never taken,
@@ -96,6 +101,8 @@ class _SiteDeleteScope:
     slot_ids: list[str]
     object_ids: list[str]
     dependent_ids: dict[str, list[str]]
+    #: The underlay picture of the site plan (REQ-053 GP-FR-033): not removed here, reported to the caller (#2545).
+    underlay_attachment_key: str | None = None
 
 
 def _key_of(doc_id: str) -> str:
@@ -213,7 +220,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def update_site(self, key: SiteKey, site: Site) -> Site:
         return super().update(key, site)
 
-    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> bool:
+    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> SiteDeletion:
         """Remove the site and everything that exists only for it, in one stream transaction (#2513).
 
         Goes: the locations below the site (every location naming the site **and** the unsited ones of the
@@ -232,7 +239,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             user_key: The account that deletes; stored on the audit row (pseudonymised on account erasure).
 
         Returns:
-            ``True`` — the site was removed.
+            The site was removed; :class:`SiteDeletion` names the underlay picture its plan held (read inside the
+            transaction), which the caller discards after the commit (#2545). The attachment itself is not touched
+            here.
 
         Raises:
             ValueError: ``tenant_key`` is empty.
@@ -250,7 +259,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             txn.check_budget()
             self._write_site_delete_audit(txn, key, scope, user_key)
             txn.collection(col.SITES).delete(key)
-        return True
+        return SiteDeletion(underlay_attachment_key=scope.underlay_attachment_key)
 
     def _collect_site_delete_scope(self, txn: StreamTransaction, key: SiteKey, tenant_key: str) -> _SiteDeleteScope:
         rows = list(
@@ -279,6 +288,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             slot_ids=self._slot_ids_of_locations(txn, location_ids),
             object_ids=self._object_ids_of_site(txn, key),
             dependent_ids=dependent_ids,
+            underlay_attachment_key=rows[0].get("underlay_attachment_key"),
         )
 
     @staticmethod

@@ -18,6 +18,7 @@ from app.common.dependencies import get_site_service
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, PlanError
+from app.domain.interfaces.site_repository import SiteDeletion
 from app.domain.models.site import Site
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.site_service import SiteService
@@ -64,7 +65,7 @@ def test_a_site_with_an_active_plant_answers_409_with_the_published_code() -> No
 
 def test_a_site_without_active_plants_is_deleted_with_204() -> None:
     repo = _repo()
-    repo.delete_site.return_value = True
+    repo.delete_site.return_value = SiteDeletion()
 
     resp = _client(repo).delete(f"/api/v1/t/{TENANT_SLUG}/sites/site-1")
 

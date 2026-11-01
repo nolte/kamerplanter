@@ -63,6 +63,7 @@ from app.domain.models.garden_plan import (
 from app.domain.models.garden_plan_export import (
     ExportGardenObject,
     ExportLocation,
+    ExportPlanSettings,
     ExportSlot,
     ExportZone,
     GardenPlanExport,
@@ -422,6 +423,11 @@ class GardenPlanImportService:
                 got=str(version)[:16],
             )
         unknown = sorted(set(document) - set(GardenPlanExport.model_fields))
+        plan = document.get("plan")
+        if isinstance(plan, dict):
+            # #2545: the plan settings the same way - an ``underlay`` there (GP-FR-033) is never part of a backup
+            # (GP-FR-140) and was dropped without a word by ``ExportPlanSettings`` (``extra="ignore"``).
+            unknown += sorted(f"plan.{name}" for name in set(plan) - set(ExportPlanSettings.model_fields))
         if unknown:
             # A newer file within schema_version "1" may carry parts this version cannot place (template
             # references, WP 7.x). Silently skipping them would restore a plan that quietly lacks half of itself.

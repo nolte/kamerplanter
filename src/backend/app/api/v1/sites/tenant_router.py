@@ -148,7 +148,7 @@ def update_site(
 
 
 @router.delete("/{key}", status_code=204, responses={**CONFLICT_RESPONSE})
-def delete_site(
+async def delete_site(
     key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.DELETE)),
     service: SiteService = Depends(get_site_service),
@@ -157,7 +157,7 @@ def delete_site(
 
     409 ``site.has_active_plants`` while a plant not yet removed stands on the site; nothing is deleted then.
     """
-    service.delete_site(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key)
+    await service.delete_site(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key)
 
 
 @router.get("/{key}/hardiness", response_model=SiteHardinessResponse)

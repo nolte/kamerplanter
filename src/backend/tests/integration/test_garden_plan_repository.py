@@ -19,9 +19,16 @@ import time
 import pytest
 from arango import ArangoClient
 
-from app.common.enums import TenantRole
-from app.common.exceptions import NotFoundError, PlanError, PlanRevisionConflictError, WriteConflictError
+from app.common.enums import AttachmentCategory, TenantRole
+from app.common.exceptions import (
+    NotFoundError,
+    PlanError,
+    PlanRevisionConflictError,
+    PlanValidationError,
+    WriteConflictError,
+)
 from app.data_access.arango import collections as col
+from app.data_access.arango.attachment_repository import _REFERENCE_READ, ArangoAttachmentRepository
 from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGardenPlanRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import PlanBatchWrite
@@ -50,6 +57,9 @@ _DOCUMENTS = (
     col.TASKS,
     # the plan read model asks when a bed was last watered (REQ-053 WP 7.3)
     col.WATERING_EVENTS,
+    # the underlay names an attachment, and its removal scans every carrier in one transaction (#2545)
+    col.ATTACHMENTS,
+    *_REFERENCE_READ,
 )
 #: Every edge collection the batch transaction declares — derived, so a relation added to the graph later is
 #: created here and the cascade tests below see it.
@@ -76,7 +86,7 @@ def database():
         system.delete_database(TEST_DATABASE)
     system.create_database(TEST_DATABASE)
     db = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
-    for name in _DOCUMENTS:
+    for name in dict.fromkeys(_DOCUMENTS):
         db.create_collection(name)
     for name in dict.fromkeys(_EDGES):
         db.create_collection(name, edge=True)
@@ -965,6 +975,20 @@ class TestTwoWritersAtOneRevisionGpAcc010:
         assert db.collection(col.SITES).get("site_a")["plan"]["plan_revision"] == 2
 
 
+def _underlay_record(key: str, *, tenant: str = A, category: str = AttachmentCategory.GARDEN_PLAN_UNDERLAY.value):
+    return {
+        "_key": key,
+        "tenant_key": tenant,
+        "mime_type": "image/png",
+        "byte_size": 10,
+        "sha256": key.ljust(64, "0"),
+        "original_filename": "plan.png",
+        "created_by": USER,
+        "category": category,
+        "storage_key": f"t/{tenant}/{category}/2026/10/{key}.png",
+    }
+
+
 class TestTheUnderlayIsWrittenOutsideTheRevision:
     """REQ-053 WP 7.14 (#2480): ``set_site_underlay`` merges one field, keeps the rest of the plan, obeys the tenant."""
 
@@ -981,6 +1005,9 @@ class TestTheUnderlayIsWrittenOutsideTheRevision:
         )
 
     def _plan(self, db, site_key: str = "site_a") -> dict:
+        for key in ("att_1", "att_2"):
+            if not db.collection(col.ATTACHMENTS).has(key):
+                db.collection(col.ATTACHMENTS).insert(_underlay_record(key))
         db.collection(col.SITES).update(
             {
                 "_key": site_key,
@@ -1050,3 +1077,176 @@ class TestTheUnderlayIsWrittenOutsideTheRevision:
 
         plan = db.collection(col.SITES).get("site_a")["plan"]
         assert plan["plan_revision"] == 8 and plan["underlay"]["attachment_key"] == "att_1"
+
+    def test_the_named_attachment_is_touched_and_a_missing_foreign_or_other_record_is_refused(self, db) -> None:
+        self._plan(db)
+        db.collection(col.ATTACHMENTS).insert(_underlay_record("att_b", tenant=B))
+        db.collection(col.ATTACHMENTS).insert(_underlay_record("att_plant", category=AttachmentCategory.PLANT.value))
+        repo = ArangoGardenPlanRepository(db)
+
+        for key in ("att_missing", "att_b", "att_plant"):
+            with pytest.raises(PlanValidationError):
+                repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay(key))
+        assert "underlay" not in db.collection(col.SITES).get("site_a")["plan"]
+
+        repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay("att_1"))
+        assert db.collection(col.ATTACHMENTS).get("att_1").get("updated_at")  # positive control: the bind writes
+
+
+_UNDERLAY = TestTheUnderlayIsWrittenOutsideTheRevision._underlay
+
+
+class _RemovalOvertaken(ArangoAttachmentRepository):
+    """A removal whose reference scan has run when a rival commits, before its own remove."""
+
+    def __init__(self, db, rival) -> None:
+        super().__init__(db)
+        self._rival = rival
+
+    def _unreferenced_in(self, txn, attachment_id, tenant_key) -> bool:
+        answer = super()._unreferenced_in(txn, attachment_id, tenant_key)
+        self._rival()
+        return answer
+
+
+class _BindOvertaken(ArangoGardenPlanRepository):
+    """An underlay write that has read the site when a rival commits, before it binds the attachment."""
+
+    def __init__(self, db, rival) -> None:
+        super().__init__(db)
+        self._rival = rival
+
+    def _bind_underlay_attachment(self, txn, attachment_key, *, tenant_key, now) -> None:
+        self._rival()
+        super()._bind_underlay_attachment(txn, attachment_key, tenant_key=tenant_key, now=now)
+
+
+class TestTheReferenceCheckAndTheRemoveCannotBeSplit2545:
+    """#2545 item 2: site B sets picture X while site A lets go of it - X is never deleted under B's reference.
+
+    Before, the scan and the delete were two calls and the underlay write only read X: B's write landing between
+    them left B naming a deleted picture. Now the scan and the remove are one transaction and the write touches X
+    in its own, so the second of the two to commit conflicts. Both interleavings are driven here.
+    """
+
+    def _sites(self, db) -> None:
+        db.collection(col.ATTACHMENTS).insert(_underlay_record("att_x"))
+        db.collection(col.SITES).update({"_key": "site_a", "plan": {"plan_revision": 1}})
+        db.collection(col.SITES).insert(
+            {"_key": "site_c", "tenant_key": A, "name": "Garten C", "type": "outdoor", "plan": {"plan_revision": 1}}
+        )
+
+    def _names_x(self, db) -> bool:
+        return (db.collection(col.SITES).get("site_c")["plan"].get("underlay") or {}).get("attachment_key") == "att_x"
+
+    def test_a_bind_committed_after_the_scan_makes_the_remove_conflict_and_x_stays(self, db) -> None:
+        self._sites(db)
+
+        def rival() -> None:  # site C takes X after A's scan saw no reference
+            ArangoGardenPlanRepository(db).set_site_underlay("site_c", tenant_key=A, underlay=_UNDERLAY("att_x"))
+
+        with pytest.raises(WriteConflictError):
+            _RemovalOvertaken(db, rival).remove_if_unreferenced("att_x", A)
+
+        assert self._names_x(db)  # the race really happened
+        assert db.collection(col.ATTACHMENTS).get("att_x") is not None
+        # positive control: with C's reference visible, a later removal refuses without a conflict
+        assert ArangoAttachmentRepository(db).remove_if_unreferenced("att_x", A) is None
+
+    def test_a_remove_committed_after_the_bind_read_the_site_refuses_the_bind(self, db) -> None:
+        self._sites(db)
+
+        def rival() -> None:  # A removes X (nothing names it yet) while C's write is between its read and its bind
+            assert ArangoAttachmentRepository(db).remove_if_unreferenced("att_x", A) is not None
+
+        with pytest.raises(WriteConflictError):  # measured: the touch of a record removed meanwhile is 1200
+            _BindOvertaken(db, rival).set_site_underlay("site_c", tenant_key=A, underlay=_UNDERLAY("att_x"))
+
+        assert db.collection(col.ATTACHMENTS).get("att_x") is None  # the race really happened
+        assert not self._names_x(db)
+
+    def test_without_a_race_an_unreferenced_record_is_removed_and_a_referenced_one_stays(self, db) -> None:
+        self._sites(db)
+        db.collection(col.ATTACHMENTS).insert(_underlay_record("att_y"))
+        ArangoGardenPlanRepository(db).set_site_underlay("site_c", tenant_key=A, underlay=_UNDERLAY("att_x"))
+        repo = ArangoAttachmentRepository(db)
+
+        removed = repo.remove_if_unreferenced("att_y", A)
+
+        assert removed is not None and removed.key == "att_y"
+        assert db.collection(col.ATTACHMENTS).get("att_y") is None
+        assert repo.remove_if_unreferenced("att_x", A) is None and db.collection(col.ATTACHMENTS).get("att_x")
+        assert repo.remove_if_unreferenced("att_y", A) is None  # idempotent
+        assert repo.remove_if_unreferenced("att_x", B) is None  # another tenant's key removes nothing
+
+
+class _UnderlayInsideTheBatch(ArangoGardenPlanRepository):
+    """A plan batch at whose given step an underlay write of another request runs."""
+
+    def __init__(self, db, rival, *, at: str) -> None:
+        super().__init__(db)
+        self._rival = rival
+        self._at = at
+        self.rival_error: Exception | None = None
+
+    def _run_rival(self) -> None:
+        try:
+            self._rival()
+        except Exception as exc:  # noqa: BLE001 - the rival's outcome is what the test inspects
+            self.rival_error = exc
+
+    def _take_revision(self, txn, write, revision) -> None:
+        if self._at == "before_the_first_write":
+            self._run_rival()
+        super()._take_revision(txn, write, revision)
+
+    def _write_site(self, txn, write, stored_plan, new_revision, now) -> None:
+        if self._at == "while_the_batch_holds_the_site":
+            self._run_rival()
+        super()._write_site(txn, write, stored_plan, new_revision, now)
+
+
+class TestTheBatchCannotOverwriteAParallelUnderlay2545:
+    """#2545 item 5: ``_write_site`` writes the plan it read inside its transaction (``merge=False``).
+
+    Measured, not assumed: an underlay committed after that read makes the batch's first write conflict (409, the
+    underlay survives), and an underlay write while the batch holds the site conflicts itself (409 - it used to
+    leak the driver's 1200 as a 500); the batch then keeps the underlay that was stored. No interleaving loses a
+    write silently.
+    """
+
+    def _setup(self, db) -> GardenPlanService:
+        TestTheUnderlayIsWrittenOutsideTheRevision()._plan(db)
+        ArangoGardenPlanRepository(db).set_site_underlay("site_a", tenant_key=A, underlay=_UNDERLAY("att_1"))
+        return GardenPlanService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db))
+
+    def _rival(self, db):
+        def write() -> None:
+            ArangoGardenPlanRepository(db).set_site_underlay("site_a", tenant_key=A, underlay=_UNDERLAY("att_2"))
+
+        return write
+
+    def test_an_underlay_committed_after_the_batch_read_survives_and_the_batch_is_told_to_reload(self, db) -> None:
+        self._setup(db)
+        repo = _UnderlayInsideTheBatch(db, self._rival(db), at="before_the_first_write")
+        service = GardenPlanService(ArangoSiteRepository(db), repo)
+
+        with pytest.raises(PlanRevisionConflictError):
+            batch(service, [create("x", rect(1, 1))], revision=7)
+
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert repo.rival_error is None  # the rival committed inside the batch's window
+        assert plan["underlay"]["attachment_key"] == "att_2" and plan["plan_revision"] == 7
+        assert db.collection(col.LOCATIONS).count() == 0
+
+    def test_an_underlay_write_while_the_batch_holds_the_site_is_a_conflict_not_a_500(self, db) -> None:
+        self._setup(db)
+        repo = _UnderlayInsideTheBatch(db, self._rival(db), at="while_the_batch_holds_the_site")
+        service = GardenPlanService(ArangoSiteRepository(db), repo)
+
+        batch(service, [create("x", rect(1, 1))], revision=7)
+
+        assert isinstance(repo.rival_error, WriteConflictError), repo.rival_error
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert plan["plan_revision"] == 8 and plan["underlay"]["attachment_key"] == "att_1"
+        assert db.collection(col.ATTACHMENTS).get("att_2").get("updated_at") is None  # the refused bind left nothing

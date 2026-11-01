@@ -155,6 +155,11 @@ class IGardenPlanRepository(ABC):
         The picture is presentation, not structure (GP-NFR-007 counts structure), so neither the revision nor the
         audit log moves. Returns ``(written, previous_attachment_key)``: ``written`` is false when the site is
         another tenant's, absent or has no plan; ``previous_attachment_key`` is the picture the write replaced.
+
+        A new underlay's attachment record (the tenant's, category ``garden_plan_underlay``) is written in the same
+        transaction (#2545), so a concurrent ``IAttachmentRepository.remove_if_unreferenced`` of it conflicts instead
+        of leaving the plan naming a deleted picture; a record already gone raises 422 ``reference.not_found``
+        (``PlanValidationError``), a concurrent writer ``WriteConflictError``.
         """
 
     @abstractmethod

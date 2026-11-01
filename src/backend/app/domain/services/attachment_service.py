@@ -30,6 +30,7 @@ written, so a rejected upload never leaves orphan objects:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import AsyncIterator
@@ -45,6 +46,7 @@ from app.common.exceptions import (
     InvalidFileTypeError,
     ValidationError,
     VirusScanRejectedError,
+    WriteConflictError,
 )
 from app.common.image_bounds import image_dimensions
 from app.common.log_privacy import log_subject, log_tenant
@@ -595,16 +597,58 @@ class AttachmentService:
     async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
         """Delete the attachment unless a carrier still references it (a redacted care event let go of it, #2400).
 
-        The reference scan is the one the task-photo route and the orphan sweep share
-        (:meth:`IAttachmentRepository.task_photo_delete_state`, here asked with no task to discount): a photo
-        another task, plant gallery, diary entry or care event still lists stays — sha256 deduplication gives one
-        stored object to several carriers, and deleting it would strand their references. Idempotent: an unknown
-        id returns ``False``.
+        The reference scan is the one the task-photo route and the orphan sweep share (the tenant-scoped scan of
+        :meth:`IAttachmentRepository.task_photo_delete_state`): a photo another task, plant gallery, diary entry,
+        care event or site underlay still names stays — sha256 deduplication gives one stored object to several
+        carriers, and deleting it would strand their references. Idempotent: an unknown id returns ``False``.
+
+        **The record goes first, in the transaction of the scan** (:meth:`IAttachmentRepository.remove_if_unreferenced`,
+        #2545): a separate scan and delete let a carrier written between them point at nothing. A carrier naming the
+        record at this moment makes the remove conflict (``WriteConflictError``) — the picture then stays, the safe
+        direction. The stored object follows unless another record holds it; a storage call failing after the
+        commit leaves an object no record holds — never a reference to a missing picture. The reconciliation
+        sweep (#1834) only *reports* such an object by default: it deletes it only when the operator sets
+        ``STORAGE_RECONCILE_DELETE_ENABLED`` (default ``False``); until then the object stays in the store.
+
+        The repository calls are synchronous (python-arango) and run in a worker thread, off the event loop.
         """
-        state, _created_by = self._repo.task_photo_delete_state(attachment_id, tenant_key, task_key="")
-        if state != "staged":
+        try:
+            removed = await asyncio.to_thread(self._repo.remove_if_unreferenced, attachment_id, tenant_key)
+        except WriteConflictError:
+            logger.info("attachment_delete_skipped_concurrent_write", tenant=log_tenant(tenant_key))
             return False
-        return await self.delete(attachment_id, tenant_key)
+        if removed is None:
+            return False
+        shared = await self._release_object(removed, tenant_key)
+        logger.info(
+            "attachment_deleted",
+            tenant=log_tenant(tenant_key),
+            attachment_id=attachment_id,
+            category=removed.category.value,
+            shared_object_retained=shared,
+        )
+        return True
+
+    async def _release_object(self, attachment: Attachment, tenant_key: str) -> bool:
+        """Delete the stored object and renditions of an already removed record; ``True`` when they were kept.
+
+        Kept while another record holds the object (#1770), asked after this record is gone so the last of two
+        concurrent deletes sees no holder; never deleted outside the record's own namespace (#2138 SEC-004).
+        """
+        if not self.in_own_namespace(attachment):
+            logger.warning("attachment_outside_namespace", tenant=log_tenant(tenant_key))
+            return True
+        held = await asyncio.to_thread(
+            self._repo.storage_keys_held_elsewhere,
+            tenant_key=tenant_key,
+            storage_keys=[attachment.storage_key],
+            excluding=[],
+        )
+        if attachment.storage_key in held:
+            return True
+        for key in self._object_keys(attachment):
+            await self._storage.delete_object(key)
+        return False
 
     def _object_keys(self, attachment: Attachment) -> list[str]:
         """The stored object of *attachment* and its renditions."""

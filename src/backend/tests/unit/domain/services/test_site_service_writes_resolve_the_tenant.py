@@ -10,6 +10,7 @@ own key writes.
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -66,7 +67,7 @@ def _slot(location: str = "loc-own") -> Slot:
 #: (service call, repository write it must not reach for a foreign key)
 WRITES = [
     (lambda s, k: s.update_site(k, _site(), tenant_key=OWN), "update_site", "site"),
-    (lambda s, k: s.delete_site(k, tenant_key=OWN, user_key="u-own"), "delete_site", "site"),
+    (lambda s, k: asyncio.run(s.delete_site(k, tenant_key=OWN, user_key="u-own")), "delete_site", "site"),
     (lambda s, k: s.delete_location(k, tenant_key=OWN), "delete_location", "loc"),
     (lambda s, k: s.create_slot(_slot(k), tenant_key=OWN), "create_slot", "loc"),
     (lambda s, k: s.update_slot(k, _slot(), tenant_key=OWN), "update_slot", "slot"),

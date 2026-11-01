@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import pytest
+from structlog.testing import capture_logs
 
 from app.common.enums import AttachmentCategory, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
@@ -158,6 +159,46 @@ class TestOnePerSite:
     async def test_a_viewer_may_not_remove_it(self, service) -> None:
         with pytest.raises(ForbiddenError):
             await service.remove_underlay(SITE, tenant_key=TENANT, role=TenantRole.VIEWER)
+
+
+async def _failing_discard(attachment_id: str, tenant_key: str) -> bool:
+    raise TimeoutError("storage unreachable")
+
+
+class TestAFailingDiscardKeepsTheCommittedWrite:
+    """#2545: the plan already names the new picture when the old one is discarded; a failure there is no 500."""
+
+    async def test_replacing_succeeds_and_logs_when_the_superseded_picture_cannot_be_discarded(
+        self, service, attachments, repo, monkeypatch
+    ) -> None:
+        await service.set_underlay(SITE, tenant_key=TENANT, role=TenantRole.GROWER, underlay=_underlay("att_1"))
+        monkeypatch.setattr(attachments, "delete_if_unreferenced", _failing_discard)
+
+        with capture_logs() as logs:
+            stored = await service.set_underlay(
+                SITE, tenant_key=TENANT, role=TenantRole.GROWER, underlay=_underlay("att_2")
+            )
+
+        assert stored.attachment_key == "att_2"
+        assert repo._sites.sites[SITE].plan.underlay.attachment_key == "att_2"
+        [warning] = [entry for entry in logs if entry["event"] == "garden_plan.underlay_discard_failed"]
+        assert warning["log_level"] == "warning"
+        assert warning["site_key"] == SITE and warning["attachment_id"] == "att_1"
+        assert warning["error_type"] == "TimeoutError"
+        assert TENANT not in warning.values()
+
+    async def test_removing_succeeds_and_logs_when_the_picture_cannot_be_discarded(
+        self, service, attachments, repo, monkeypatch
+    ) -> None:
+        await service.set_underlay(SITE, tenant_key=TENANT, role=TenantRole.GROWER, underlay=_underlay("att_1"))
+        monkeypatch.setattr(attachments, "delete_if_unreferenced", _failing_discard)
+
+        with capture_logs() as logs:
+            assert await service.remove_underlay(SITE, tenant_key=TENANT, role=TenantRole.GROWER) is True
+
+        assert repo._sites.sites[SITE].plan.underlay is None
+        [warning] = [entry for entry in logs if entry["event"] == "garden_plan.underlay_discard_failed"]
+        assert warning["attachment_id"] == "att_1"
 
 
 class TestNeverInTheJsonExport:

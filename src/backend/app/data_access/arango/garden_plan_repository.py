@@ -24,6 +24,7 @@ from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
 from pydantic import BaseModel
 
+from app.common.enums import AttachmentCategory
 from app.common.exceptions import (
     NotFoundError,
     PlanError,
@@ -1299,33 +1300,73 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
     def set_site_underlay(
         self, site_key: SiteKey, *, tenant_key: str, underlay: SiteUnderlay | None
     ) -> tuple[bool, str | None]:
+        """Write the underlay into the plan, and **touch the attachment it names in the same transaction** (#2545).
+
+        The touch (``updated_at``) is what makes a concurrent :meth:`ArangoAttachmentRepository.remove_if_unreferenced`
+        of that picture safe: both write the attachment record, so whichever commits second conflicts (``1200`` ->
+        ``WriteConflictError``) instead of one site naming a picture another request just deleted. A record already
+        gone is 422 ``reference.not_found``. A plan batch holding the site document makes this write conflict the
+        same way (409), never a 500; the batch writes the plan it read inside its own transaction, so neither
+        writer's value is lost silently.
+        """
         if not tenant_key:
             raise ValueError("set_site_underlay needs a tenant_key (an empty tenant is no tenant, #2107).")
-        cursor = cast(
-            "Cursor",
-            self._db.aql.execute(
+        now = _now()
+        with stream_transaction(self._db, write=(col.SITES, col.ATTACHMENTS), entity="site") as txn:
+            sites = list(
+                txn.aql.execute(
+                    """
+                FOR s IN @@sites
+                    FILTER s._key == @site_key AND s.tenant_key == @tenant_key AND s.plan != null
+                    RETURN {previous: s.plan.underlay.attachment_key}
+                """,
+                    bind_vars={"@sites": col.SITES, "site_key": site_key, "tenant_key": tenant_key},
+                )
+            )
+            if not sites:
+                return False, None
+            if underlay is not None:
+                self._bind_underlay_attachment(txn, underlay.attachment_key, tenant_key=tenant_key, now=now)
+            txn.aql.execute(
                 """
-            LET site = DOCUMENT(CONCAT(@sites, @site_key))
-            FILTER site != null AND site.tenant_key == @tenant_key AND site.plan != null
-            LET previous = site.plan.underlay.attachment_key
-            UPDATE site WITH { plan: { underlay: @underlay }, updated_at: @now } IN @@site_collection
-                OPTIONS { mergeObjects: true, keepNull: false }
-            RETURN { previous: previous }
+                UPDATE {_key: @site_key} WITH { plan: { underlay: @underlay }, updated_at: @now } IN @@sites
+                    OPTIONS { mergeObjects: true, keepNull: false }
+                """,
+                bind_vars={
+                    "@sites": col.SITES,
+                    "site_key": site_key,
+                    "underlay": _dump(underlay, mode="json") if underlay is not None else None,
+                    "now": now,
+                },
+            )
+        return True, sites[0]["previous"]
+
+    @staticmethod
+    def _bind_underlay_attachment(txn: StreamTransaction, attachment_key: str, *, tenant_key: str, now: str) -> None:
+        """Touch the tenant's ``garden_plan_underlay`` record inside *txn*; 422 ``reference.not_found`` without one.
+
+        A record removed after this transaction's snapshot is still read here, and its update then conflicts
+        (``1200``, measured against ArangoDB 3.12): the caller gets ``WriteConflictError`` from the transaction.
+        """
+        touched = list(
+            txn.aql.execute(
+                """
+            FOR a IN @@attachments
+                FILTER a._key == @key AND a.tenant_key == @tenant_key AND a.category == @category
+                UPDATE a WITH { updated_at: @now } IN @@attachments
+                RETURN 1
             """,
                 bind_vars={
-                    "sites": f"{col.SITES}/",
-                    "@site_collection": col.SITES,
-                    "site_key": site_key,
+                    "@attachments": col.ATTACHMENTS,
+                    "key": attachment_key,
                     "tenant_key": tenant_key,
-                    "underlay": _dump(underlay, mode="json") if underlay is not None else None,
-                    "now": _now(),
+                    "category": AttachmentCategory.GARDEN_PLAN_UNDERLAY.value,
+                    "now": now,
                 },
-            ),
+            )
         )
-        row = next(cursor, None)
-        if row is None:
-            return False, None
-        return True, row["previous"]
+        if not touched:
+            raise PlanValidationError([(None, "attachment_key", ERROR_REFERENCE_NOT_FOUND, {})])
 
     def _update_location_fields_with_zone(self, location_key: str, fields: dict[str, Any]) -> None:
         """The column write of a PATCH that changes the bed's zone, with its ``zone_covers`` edge (WP 7.1).
