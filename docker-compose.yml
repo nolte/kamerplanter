@@ -26,7 +26,7 @@ version: "3.8"
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
+    image: arangodb:3.12@sha256:ef66017c84c3100f83bccc6bcba542573ec17ecb0034592fcdda57ec808f7c76
     environment:
       ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
     # Loopback only (#1750): tools on this machine reach it, other hosts do not.
