@@ -5,11 +5,13 @@
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import EmptyState from '@/components/common/EmptyState';
@@ -21,6 +23,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedSummary } from '../bed/types';
 import PlantActionHost, { type PlantActionTarget } from './PlantActionHost';
+import { plantDetailPath } from './PlantInfoPopover';
 import { listPlantings } from './plantingApi';
 import type { PlantingItem } from './plantingTypes';
 import type { PlantedResult } from './PlantingDialog';
@@ -32,6 +35,14 @@ interface BedPlantingTabProps {
   /** The bed's own data changed (plant counters, runs); the page reloads its summary. */
   onChanged: () => void;
 }
+
+/** Route of the species detail page (global master data, readable for every member). */
+function speciesDetailPath(speciesKey: string): string {
+  return `/stammdaten/species/${encodeURIComponent(speciesKey)}`;
+}
+
+/** A row link is a full touch target (>= 44 px, UI-NFR-001) without growing the text line itself. */
+const ROW_LINK_SX = { display: 'inline-flex', alignItems: 'center', minHeight: 44 } as const;
 
 type ListState =
   | { status: 'loading' }
@@ -154,7 +165,16 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {planned.map((item) => (
                 <li key={`${item.slot_key}-${item.run_key}`} data-testid={`planting-planned-${item.slot_key}`}>
-                  {nameOf(item.species_key)} · {item.slot_id}
+                  <Link
+                    component={RouterLink}
+                    to={speciesDetailPath(item.species_key)}
+                    sx={ROW_LINK_SX}
+                    data-testid={`planting-planned-link-${item.slot_key}`}
+                  >
+                    {nameOf(item.species_key)}
+                  </Link>
+                  {' · '}
+                  {item.slot_id}
                   {item.planned_from ? ` · ${t('pages.bed.planting.tab.from', { date: dateText(item.planned_from) })}` : ''}
                 </li>
               ))}
@@ -179,10 +199,22 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
                     data-testid={`planting-active-${item.plant_key}`}
                     sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
                   >
-                    <span>
-                      {label} · {nameOf(item.species_key)}
-                      {item.planted_on ? ` · ${dateText(item.planted_on)}` : ''}
-                    </span>
+                    {item.plant_key ? (
+                      <Link
+                        component={RouterLink}
+                        to={plantDetailPath(item.plant_key)}
+                        sx={ROW_LINK_SX}
+                        data-testid={`planting-active-link-${item.plant_key}`}
+                      >
+                        {label} · {nameOf(item.species_key)}
+                        {item.planted_on ? ` · ${dateText(item.planted_on)}` : ''}
+                      </Link>
+                    ) : (
+                      <span>
+                        {label} · {nameOf(item.species_key)}
+                        {item.planted_on ? ` · ${dateText(item.planted_on)}` : ''}
+                      </span>
+                    )}
                     {canEdit && item.plant_key ? (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {item.slot_key && placed ? (

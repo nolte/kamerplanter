@@ -188,6 +188,23 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     expect(panel.compareDocumentPosition(layout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('explains the terms of the hints and of the spacing fields (GP-UX-011)', async () => {
+    usePlantingBackend({ species: [TOMATO], hints: { sp_tomato: critical } });
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Tomato');
+
+    const hints = await screen.findByTestId('planting-hints');
+    const glossary = within(hints).getByRole('group', { name: 'Terms explained' });
+    for (const name of [/^Crop rotation — /, /^Rotation pause — /, /^Companion planting — /, /^Perennial crop — /]) {
+      expect(within(glossary).getByRole('button', { name })).toBeInTheDocument();
+    }
+    const entry = screen.getByTestId('planting-entry-0');
+    expect(within(entry).getByRole('button', { name: /^Plant spacing — / })).toBeInTheDocument();
+    await user.click(within(entry).getByTestId('planting-entry-0-more'));
+    expect(await within(entry).findByRole('button', { name: /^Edge margin — / })).toBeInTheDocument();
+  });
+
   const findingOf = (code: string, family: { family_key: string; family_name?: string | null }) =>
     hint({
       species_key: 'sp_cauli',
