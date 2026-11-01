@@ -11,7 +11,7 @@ gate:
   filter: backend
 status: derived
 measured_on: '2026-10-31'
-measured_at_commit: 271f0fa801c667589972e816f5a13c1a5c37e826
+measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
 replay_seconds: 2
 job_spec_sha256: 2ed572914233fe95db3b8982896b0d086e1c0388d7cadafe3af20c5d82c3d586
 invocations:
@@ -24,7 +24,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 4327
+  context_files_after_dockerignore: 2928
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -547,6 +547,7 @@ reads:
 - src/backend/app/domain/calculators/image_tiler.py
 - src/backend/app/domain/calculators/irrigation_zone_consumption_calculator.py
 - src/backend/app/domain/calculators/irrigation_zone_demand_calculator.py
+- src/backend/app/domain/calculators/label_anchor_calculator.py
 - src/backend/app/domain/calculators/overdue_calculator.py
 - src/backend/app/domain/calculators/photoperiod_calculator.py
 - src/backend/app/domain/calculators/plant_state_calculator.py
@@ -2023,6 +2024,8 @@ reads:
 - src/backend/tests/unit/domain/calculators/test_image_tiler.py
 - src/backend/tests/unit/domain/calculators/test_irrigation_zone_consumption_calculator.py
 - src/backend/tests/unit/domain/calculators/test_irrigation_zone_demand_calculator.py
+- src/backend/tests/unit/domain/calculators/test_label_anchor_calculator.py
+- src/backend/tests/unit/domain/calculators/test_label_anchor_vectors.py
 - src/backend/tests/unit/domain/calculators/test_overdue_vectors.py
 - src/backend/tests/unit/domain/calculators/test_photoperiod_calculator.py
 - src/backend/tests/unit/domain/calculators/test_plan_calculators_benchmark.py
@@ -2121,6 +2124,7 @@ reads:
 - src/backend/tests/unit/domain/engines/test_phase_sequence_resolver_identity.py
 - src/backend/tests/unit/domain/engines/test_phase_transition_engine.py
 - src/backend/tests/unit/domain/engines/test_plan_svg_engine.py
+- src/backend/tests/unit/domain/engines/test_plan_svg_engine_label_placement.py
 - src/backend/tests/unit/domain/engines/test_planting_run_engine.py
 - src/backend/tests/unit/domain/engines/test_print_engine.py
 - src/backend/tests/unit/domain/engines/test_print_engine_url_fetcher.py

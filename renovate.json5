@@ -642,6 +642,19 @@
       ],
       allowedVersions: '<7.0.0',
     },
+    // Hold python-dateutil below 3.0. Every botocore release (1.43.123 is the
+    // newest at the time of writing) declares `python-dateutil<3.0.0`, and
+    // boto3/moto pull botocore in, so 3.0.0 cannot resolve: the major PR #2575
+    // rewrote pyproject.toml to `>=3,<3.1` and `renovate/artifacts` failed on
+    // the lock, which took the whole backend CI red. The cap applies to every
+    // manager (pyproject.toml and docs/requirements.txt). Remove it once
+    // botocore lifts the upper bound.
+    {
+      matchPackageNames: [
+        'python-dateutil',
+      ],
+      allowedVersions: '<3.0.0',
+    },
     // ── Third-party images: ONE pull request, whatever the image, whatever
     //    the file (#1359/#1369, widened by #1550) ──────────────────────────────
     // The same image is referenced from docker-compose*.yml (docker-compose

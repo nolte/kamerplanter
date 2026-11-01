@@ -10,8 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-10-20'
-measured_at_commit: c1e5eaf0bc41b47f1e08c319f8b5a62e7ada3d1d
+measured_on: '2026-10-31'
+measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
+replay_seconds: 8
 job_spec_sha256: 3652e4110049a9c58bad376d157de885a9fa45f3eac23fc4ba13cf570734b9cf
 invocations:
 - command: task test:frontend:bench
@@ -19,10 +20,8 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1966
+  untracked_reads_dropped: 2018
 subprocesses:
-- asdf
-- bash
 - node
 - npx
 - sh
@@ -43,7 +42,6 @@ reads:
 - .taskfiles/reach.yaml
 - Taskfile.yaml
 - src/frontend/
-- src/frontend/.tool-versions
 - src/frontend/docker-entrypoint.d/
 - src/frontend/package.json
 - src/frontend/public/
@@ -80,6 +78,7 @@ reads:
 - src/frontend/src/components/kiosk/
 - src/frontend/src/components/layout/
 - src/frontend/src/components/pests/
+- src/frontend/src/components/photos/
 - src/frontend/src/components/print/
 - src/frontend/src/components/privacy/
 - src/frontend/src/components/sensors/
@@ -99,6 +98,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/care/
 - src/frontend/src/features/gardenPlanner/editor/
 - src/frontend/src/features/gardenPlanner/editor/tools/
+- src/frontend/src/features/gardenPlanner/editor/tools/snap.benchmark.test.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/snap.ts
 - src/frontend/src/features/gardenPlanner/field/
 - src/frontend/src/features/gardenPlanner/history/
 - src/frontend/src/features/gardenPlanner/io/
@@ -106,16 +107,19 @@ reads:
 - src/frontend/src/features/gardenPlanner/model/applyOperation.benchmark.test.ts
 - src/frontend/src/features/gardenPlanner/model/applyOperation.ts
 - src/frontend/src/features/gardenPlanner/model/geometry.ts
+- src/frontend/src/features/gardenPlanner/model/labelAnchor.ts
 - src/frontend/src/features/gardenPlanner/model/layout.benchmark.test.ts
 - src/frontend/src/features/gardenPlanner/model/layout.ts
 - src/frontend/src/features/gardenPlanner/model/planModel.ts
 - src/frontend/src/features/gardenPlanner/model/plantState.ts
 - src/frontend/src/features/gardenPlanner/model/types.ts
 - src/frontend/src/features/gardenPlanner/model/undoPatch.ts
+- src/frontend/src/features/gardenPlanner/model/units.ts
 - src/frontend/src/features/gardenPlanner/planting/
 - src/frontend/src/features/gardenPlanner/renderer/
 - src/frontend/src/features/gardenPlanner/renderer/__snapshots__/
 - src/frontend/src/features/gardenPlanner/renderer/hitTest.ts
+- src/frontend/src/features/gardenPlanner/renderer/labelLayout.ts
 - src/frontend/src/features/gardenPlanner/renderer/lod.ts
 - src/frontend/src/features/gardenPlanner/renderer/planIndex.slotFollow.test.ts
 - src/frontend/src/features/gardenPlanner/renderer/planIndex.ts
@@ -124,7 +128,11 @@ reads:
 - src/frontend/src/features/gardenPlanner/renderer/scene.ts
 - src/frontend/src/features/gardenPlanner/renderer/viewport.ts
 - src/frontend/src/features/gardenPlanner/routes/
+- src/frontend/src/features/gardenPlanner/season/
 - src/frontend/src/features/gardenPlanner/state/
+- src/frontend/src/features/gardenPlanner/templates/
+- src/frontend/src/features/gardenPlanner/underlay/
+- src/frontend/src/features/gardenPlanner/zones/
 - src/frontend/src/hooks/
 - src/frontend/src/i18n/
 - src/frontend/src/i18n/i18n.ts
@@ -229,6 +237,7 @@ reads:
 - src/frontend/src/utils/
 - src/frontend/src/validation/
 - src/frontend/src/validation/zodErrorMap.ts
+- src/frontend/tsconfig.json
 - src/frontend/vitest.config.ts
 test_modules: []
 readers: {}
