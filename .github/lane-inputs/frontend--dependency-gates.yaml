@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-10-31'
-measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
-replay_seconds: 10
+measured_on: '2026-11-01'
+measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
+replay_seconds: 9
 job_spec_sha256: c78cb2d0f8ae939a876c5830d521629a0e17e86de0f343b2b60db09a549c733e
 invocations:
 - command: python3 ../../scripts/security/npm_audit_gate.py --omit-dev

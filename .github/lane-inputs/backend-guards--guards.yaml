@@ -9,22 +9,23 @@ job: guards
 gate:
   kind: unfiltered
 status: measured
-measured_on: '2026-10-31'
-measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
-replay_seconds: 1909
-job_spec_sha256: 079b62f95bb1a2e26010d80a1d3095ada5fb15d7704f5a19b87d80aaea6b2733
+measured_on: '2026-11-01'
+measured_at_commit: 4f612d652e1f7b8911644f586a2be23d73604686
+replay_seconds: 1908
+job_spec_sha256: 097283c4466514018f6ecd3a2aa74f5d809b54e3570a57a5ea6aed08149dbd02
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints
     tests/unit/test_route_role_guards_check.py tests/unit/domain/services/test_oauth_auto_link_claim.py tests/unit/test_e2e_a11y_helpers.py
     tests/unit/test_e2e_seed_log_redaction.py tests/unit/test_e2e_tc_id_scope.py tests/unit/test_gherkin_line_classification.py
-    tests/contracts/test_plant_property_enum_sync.py tests/contracts/test_dashboard_widgets_contract.py tests/contracts/test_notification_channels_contract.py
-    tests/api/test_notification_act_role_gate.py -q --max-skipped 0 -m 'not advisory'
+    tests/unit/test_reach_garden_plan_helpers.py tests/contracts/test_plant_property_enum_sync.py tests/contracts/test_dashboard_widgets_contract.py
+    tests/contracts/test_notification_channels_contract.py tests/api/test_notification_act_role_gate.py -q --max-skipped 0
+    -m 'not advisory'
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 7319
+  untracked_reads_dropped: 7323
 subprocesses:
 - awk
 - bash
@@ -7077,6 +7078,7 @@ test_modules:
 - src/backend/tests/unit/test_e2e_seed_log_redaction.py
 - src/backend/tests/unit/test_e2e_tc_id_scope.py
 - src/backend/tests/unit/test_gherkin_line_classification.py
+- src/backend/tests/unit/test_reach_garden_plan_helpers.py
 - src/backend/tests/unit/test_route_role_guards_check.py
 - src/backend/tests/unit/test_seed_catalogue_page_size_check.py
 readers: {}

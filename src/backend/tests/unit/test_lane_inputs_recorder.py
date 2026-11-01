@@ -508,6 +508,8 @@ class TestBootstrap:
                     " tests/unit/domain/services/test_oauth_auto_link_claim.py"
                     " tests/unit/test_e2e_a11y_helpers.py tests/unit/test_e2e_seed_log_redaction.py"
                     " tests/unit/test_e2e_tc_id_scope.py tests/unit/test_gherkin_line_classification.py"
+                    # The reach-probe reader backend.yml delegates to this lane (#2448).
+                    " tests/unit/test_reach_garden_plan_helpers.py"
                     " tests/contracts/test_plant_property_enum_sync.py"
                     " tests/contracts/test_dashboard_widgets_contract.py"
                     " tests/contracts/test_notification_channels_contract.py"
