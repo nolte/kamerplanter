@@ -139,6 +139,11 @@ class IGardenPlanRepository(ABC):
         does not know the tenant (a location carries none, E-01). A change of ``irrigation_zone_key`` moves the
         bed's ``zone_covers`` edge in the same transaction (REQ-053 WP 7.1); the caller has resolved the zone
         to one of the bed's site.
+
+        ``site_conditions`` is the exception to "a column is replaced whole" (#2569): its value holds only the
+        parts the PATCH sent (a nested part only its sent keys) and is merged into the stored value, a ``None``
+        inside it removing that key; ``site_conditions: None`` clears the whole value. A part the plan batch
+        wrote after the caller's read (``sun_profile``, #2538) is therefore kept.
         """
 
     @abstractmethod

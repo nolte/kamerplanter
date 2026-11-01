@@ -48,7 +48,7 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
-from app.domain.engines.site_conditions_merge import merge_site_conditions
+from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_site_parts
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -392,7 +392,12 @@ class GardenResourceService:
             place_in_tree(updated, parent)
         now = _dump(updated, by_alias=True, mode="json")
         before = _dump(location, by_alias=True, mode="json")
-        return {column: now.get(column) for column in _PATCH_COLUMNS if now.get(column) != before.get(column)}
+        changes = {column: now.get(column) for column in _PATCH_COLUMNS if now.get(column) != before.get(column)}
+        if "site_conditions" in changes and patch.site_conditions is not None:
+            # Only the sent parts, merged into the stored value by the repository (#2569): the whole value read
+            # above would revert a sun profile the plan batch wrote after this read.
+            changes["site_conditions"] = sent_site_parts(now["site_conditions"], patch.site_conditions)
+        return changes
 
     # ── GP-API-018: the status transition ─────────────────────────────────────
 

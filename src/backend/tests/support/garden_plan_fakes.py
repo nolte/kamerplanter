@@ -43,6 +43,19 @@ def rect(x: float, y: float, w: float = 2, h: float = 1, rotation: float = 0) ->
     return {"kind": "rect", "origin": [x, y], "width_m": w, "length_m": h, "rotation_deg": rotation}
 
 
+def _merge_dropping_none(stored: dict, sent: dict) -> dict:
+    """ArangoDB's ``merge=True, keep_none=False`` on plain dicts: objects merge key by key, ``None`` removes."""
+    result = dict(stored)
+    for key, value in sent.items():
+        if value is None:
+            result.pop(key, None)
+        elif isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _merge_dropping_none(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 class FakeSites:
     """The site reads the services need (``location_ownership``, location and slot lists), over a repo's documents.
 
@@ -322,7 +335,11 @@ class FakePlanRepo(IGardenPlanRepository):
 
     def update_location_fields(self, location_key, fields):
         self.field_updates.append((location_key, dict(fields)))
-        merged = {**self.locations[location_key].model_dump(by_alias=True), **fields}
+        location = self.locations[location_key]
+        merged = {**location.model_dump(by_alias=True), **fields}
+        if fields.get("site_conditions") is not None:  # the sent parts merged into the stored value (#2569)
+            stored = location.site_conditions.model_dump(mode="json") if location.site_conditions else {}
+            merged["site_conditions"] = _merge_dropping_none(stored, fields["site_conditions"])
         self.locations[location_key] = Location(**{k: v for k, v in merged.items() if v is not None})
 
     def set_site_underlay(self, site_key, *, tenant_key, underlay):
