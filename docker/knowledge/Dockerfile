@@ -1,4 +1,4 @@
-FROM busybox:1.38.0@sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e
+FROM busybox:1.38.0@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
 
 LABEL org.opencontainers.image.title="kamerplanter-knowledge" \
       org.opencontainers.image.description="Init container that seeds Kamerplanter's RAG knowledge-base YAML files into a shared volume for the vector store" \
