@@ -8,9 +8,11 @@ or task names it); the predicate is that service's, not a copy.
 
 from __future__ import annotations
 
+import threading
 from unittest.mock import MagicMock
 
 import pytest
+from structlog.testing import capture_logs
 
 from app.common import dependencies
 from app.common.enums import AttachmentCategory
@@ -50,12 +52,17 @@ class _Rig:
         )
         self.service = SiteService(self.repo, underlay=lambda: underlay)
 
+        #: The thread each synchronous repository call ran on (#2545 review LOW-1).
+        self.threads: dict[str, int] = {}
+
     def _get(self, key: str) -> Site:
+        self.threads["get_site_or_raise"] = threading.get_ident()
         if key not in self.sites:
             raise NotFoundError("Site", key)
         return self.sites[key]
 
     def _delete(self, key: str, *, tenant_key: str, user_key: str) -> SiteDeletion:
+        self.threads["delete_site"] = threading.get_ident()
         removed = self.sites.pop(key)
         underlay = removed.plan.underlay if removed.plan is not None else None
         return SiteDeletion(underlay_attachment_key=underlay.attachment_key if underlay else None)
@@ -115,6 +122,50 @@ class TestTheUnderlayGoesWithTheSite:
 
         rig.repo.delete_site.assert_not_called()
         assert rig.attachments.deleted == []
+
+
+class TestTheCommittedDeleteStaysSuccessful:
+    """#2545 review MEDIUM-3: the site is gone once the transaction commits; the picture's discard cannot 500 it."""
+
+    async def test_a_failing_discard_is_logged_and_the_delete_still_succeeds(self, monkeypatch) -> None:
+        rig = _Rig(_site("site-a", underlay="att_1"))
+        rig.attachments.add("att_1", tenant_key=TENANT)
+
+        async def failing(attachment_id: str, tenant_key: str) -> bool:
+            raise TimeoutError("storage unreachable")
+
+        monkeypatch.setattr(rig.attachments, "delete_if_unreferenced", failing)
+
+        with capture_logs() as logs:
+            assert await rig.service.delete_site("site-a", tenant_key=TENANT, user_key="u-own") is True
+
+        assert "site-a" not in rig.sites
+        [warning] = [entry for entry in logs if entry["event"] == "site.underlay_discard_failed"]
+        assert warning["log_level"] == "warning"
+        assert warning["site_key"] == "site-a" and warning["attachment_id"] == "att_1"
+        assert warning["error_type"] == "TimeoutError"
+        assert TENANT not in warning.values() and "u-own" not in warning.values()
+
+
+class TestTheDeleteDoesNotBlockTheEventLoop:
+    """#2545 review LOW-1: the route is ``async``; the synchronous Arango calls run in a worker thread."""
+
+    async def test_the_repository_calls_run_off_the_event_loop_thread(self) -> None:
+        rig = _Rig(_site("site-a", underlay="att_1"))
+        rig.attachments.add("att_1", tenant_key=TENANT)
+        attachment_get = rig.attachments.get
+
+        def recording_get(key: str, tenant_key: str):  # type: ignore[no-untyped-def]
+            rig.threads["attachment_get"] = threading.get_ident()
+            return attachment_get(key, tenant_key)
+
+        rig.attachments.get = recording_get  # type: ignore[method-assign]
+        loop_thread = threading.get_ident()
+
+        await rig.service.delete_site("site-a", tenant_key=TENANT, user_key="u-own")
+
+        assert set(rig.threads) == {"get_site_or_raise", "delete_site", "attachment_get"}
+        assert loop_thread not in rig.threads.values()
 
 
 def test_the_request_wiring_hands_the_site_service_the_underlay_service(monkeypatch) -> None:

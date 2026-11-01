@@ -9,6 +9,7 @@ is patched so no broker is required.
 from __future__ import annotations
 
 import io
+import threading
 from unittest.mock import patch
 
 import httpx
@@ -705,6 +706,25 @@ class TestDeleteIfUnreferenced:
         assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
 
         assert repo.get(attachment.key, "t-1") is None
+
+    async def test_the_repository_calls_run_off_the_event_loop_thread(self, service, repo, monkeypatch):
+        """#2545 review LOW-1: the reference-scan transaction and the holder query are synchronous Arango calls."""
+        attachment = await self._stored(service)
+        threads: dict[str, int] = {}
+        for name in ("remove_if_unreferenced", "storage_keys_held_elsewhere"):
+            original = getattr(repo, name)
+
+            def recording(*args, _name=name, _original=original, **kwargs):  # type: ignore[no-untyped-def]
+                threads[_name] = threading.get_ident()
+                return _original(*args, **kwargs)
+
+            monkeypatch.setattr(repo, name, recording)
+        loop_thread = threading.get_ident()
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
+
+        assert set(threads) == {"remove_if_unreferenced", "storage_keys_held_elsewhere"}
+        assert loop_thread not in threads.values()
 
     async def test_a_photo_another_carrier_still_references_stays(self, service, repo):
         attachment = await self._stored(service)

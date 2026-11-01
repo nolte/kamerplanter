@@ -1,9 +1,11 @@
+import asyncio
 from collections.abc import Callable
 from typing import Protocol
 
 import structlog
 
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, SiteKey, SlotKey
 from app.domain.engines.frost_exposure_resolver import frost_risk_from_exposed
@@ -170,16 +172,34 @@ class SiteService:
         The underlay picture of the deleted plan (an aerial photo can reveal where someone lives, GP-FR-033 §26)
         is discarded after the commit, through the underlay's own rule: deleted unless another site or carrier
         still names it (#2545). The picture the transaction read is the one discarded, not this method's
-        earlier read.
+        earlier read. **The site is gone once the transaction commits**, so a failing discard (storage, the
+        reference scan's time budget, the database) is logged and the delete still succeeds: a 500 there made
+        the client retry into a 404 that never reaches the picture again.
+
+        The repository calls are synchronous (python-arango); they run in a worker thread so the async route
+        does not block the event loop with the cascade transaction.
         """
-        self.get_site(key, tenant_key=tenant_key)
-        deletion = self._repo.delete_site(key, tenant_key=tenant_key, user_key=user_key)
+        await asyncio.to_thread(self.get_site, key, tenant_key=tenant_key)
+        deletion = await asyncio.to_thread(self._repo.delete_site, key, tenant_key=tenant_key, user_key=user_key)
         if deletion.underlay_attachment_key is not None:
-            if self._underlay is None:
-                logger.warning("site.underlay_not_discarded", site_key=key)
-            else:
-                await self._underlay().discard(deletion.underlay_attachment_key, keep=None, tenant_key=tenant_key)
+            await self._discard_underlay(key, deletion.underlay_attachment_key, tenant_key=tenant_key)
         return True
+
+    async def _discard_underlay(self, site_key: SiteKey, attachment_key: str, *, tenant_key: str) -> None:
+        """Discard the deleted plan's picture after the commit; a failure is logged, never raised (#2545)."""
+        if self._underlay is None:
+            logger.warning("site.underlay_not_discarded", site_key=site_key)
+            return
+        try:
+            await self._underlay().discard(attachment_key, keep=None, tenant_key=tenant_key)
+        except Exception as exc:  # noqa: BLE001 — the site delete has committed; its response must not turn into a 500
+            logger.warning(
+                "site.underlay_discard_failed",
+                tenant=log_tenant(tenant_key),
+                site_key=site_key,
+                attachment_id=attachment_key,
+                error_type=type(exc).__name__,
+            )
 
     def get_water_config(self, key: SiteKey, *, tenant_key: str) -> SiteWaterConfig | None:
         site = self.get_site(key, tenant_key=tenant_key)

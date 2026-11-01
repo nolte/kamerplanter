@@ -17,10 +17,13 @@ names it) and then the delete that asks whether another record holds the stored 
 
 from __future__ import annotations
 
+import asyncio
+
 import structlog
 
 from app.common.enums import AttachmentCategory, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
+from app.common.log_privacy import log_tenant
 from app.common.types import SiteKey
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
@@ -85,7 +88,7 @@ class GardenPlanUnderlayService:
         written, previous = self._plan.set_site_underlay(site_key, tenant_key=tenant_key, underlay=underlay)
         if not written:
             raise PlanError(ERROR_PLAN_REQUIRED, "The site has no garden plan yet.", status_code=422, field="plan")
-        await self.discard(previous, keep=underlay.attachment_key, tenant_key=tenant_key)
+        await self._discard_superseded(site_key, previous, keep=underlay.attachment_key, tenant_key=tenant_key)
         return underlay
 
     async def remove_underlay(self, site_key: SiteKey, *, tenant_key: str, role: TenantRole) -> bool:
@@ -97,8 +100,28 @@ class GardenPlanUnderlayService:
             return False
         written, previous = self._plan.set_site_underlay(site_key, tenant_key=tenant_key, underlay=None)
         if written:
-            await self.discard(previous, keep=None, tenant_key=tenant_key)
+            await self._discard_superseded(site_key, previous, keep=None, tenant_key=tenant_key)
         return written
+
+    async def _discard_superseded(
+        self, site_key: SiteKey, attachment_key: str | None, *, keep: str | None, tenant_key: str
+    ) -> None:
+        """Discard the picture a committed set/remove superseded; a failure is logged, never raised (#2545).
+
+        The plan already names the new picture (or none) when this runs. A 500 here made the client retry a write
+        that had succeeded, and the retry no longer sees the superseded picture, so it would never be discarded
+        by this path; the record stays, counted against the quota, until the tenant erasure.
+        """
+        try:
+            await self.discard(attachment_key, keep=keep, tenant_key=tenant_key)
+        except Exception as exc:  # noqa: BLE001 — the underlay write has committed; its response must not turn into a 500
+            logger.warning(
+                "garden_plan.underlay_discard_failed",
+                tenant=log_tenant(tenant_key),
+                site_key=site_key,
+                attachment_id=attachment_key,
+                error_type=type(exc).__name__,
+            )
 
     async def discard(self, attachment_key: str | None, *, keep: str | None, tenant_key: str) -> None:
         """Delete a superseded picture unless something else still names it.
@@ -111,7 +134,7 @@ class GardenPlanUnderlayService:
         """
         if attachment_key is None or attachment_key == keep:
             return
-        attachment = self._attachment_repo.get(attachment_key, tenant_key)
+        attachment = await asyncio.to_thread(self._attachment_repo.get, attachment_key, tenant_key)
         if attachment is None or attachment.category != AttachmentCategory.GARDEN_PLAN_UNDERLAY:
             return
         if await self._attachments.delete_if_unreferenced(attachment_key, tenant_key):

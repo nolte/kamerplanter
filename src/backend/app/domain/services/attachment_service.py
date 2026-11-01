@@ -30,6 +30,7 @@ written, so a rejected upload never leaves orphan objects:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import AsyncIterator
@@ -605,11 +606,14 @@ class AttachmentService:
         #2545): a separate scan and delete let a carrier written between them point at nothing. A carrier naming the
         record at this moment makes the remove conflict (``WriteConflictError``) — the picture then stays, the safe
         direction. The stored object follows unless another record holds it; a storage call failing after the
-        commit leaves an object no record holds, which the reconciliation sweep (#1834) collects — never a
-        reference to a missing picture.
+        commit leaves an object no record holds — never a reference to a missing picture. The reconciliation
+        sweep (#1834) only *reports* such an object by default: it deletes it only when the operator sets
+        ``STORAGE_RECONCILE_DELETE_ENABLED`` (default ``False``); until then the object stays in the store.
+
+        The repository calls are synchronous (python-arango) and run in a worker thread, off the event loop.
         """
         try:
-            removed = self._repo.remove_if_unreferenced(attachment_id, tenant_key)
+            removed = await asyncio.to_thread(self._repo.remove_if_unreferenced, attachment_id, tenant_key)
         except WriteConflictError:
             logger.info("attachment_delete_skipped_concurrent_write", tenant=log_tenant(tenant_key))
             return False
@@ -634,9 +638,13 @@ class AttachmentService:
         if not self.in_own_namespace(attachment):
             logger.warning("attachment_outside_namespace", tenant=log_tenant(tenant_key))
             return True
-        if attachment.storage_key in self._repo.storage_keys_held_elsewhere(
-            tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[]
-        ):
+        held = await asyncio.to_thread(
+            self._repo.storage_keys_held_elsewhere,
+            tenant_key=tenant_key,
+            storage_keys=[attachment.storage_key],
+            excluding=[],
+        )
+        if attachment.storage_key in held:
             return True
         for key in self._object_keys(attachment):
             await self._storage.delete_object(key)
