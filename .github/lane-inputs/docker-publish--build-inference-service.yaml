@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: inference-service
 status: derived
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
 replay_seconds: 1
 job_spec_sha256: daa6983cac8520d71842b99711e0a0a8ae8be5e5e9807811f39dc675ed64c9ac
 invocations:

@@ -9,9 +9,9 @@ job: coverage
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
-replay_seconds: 1745
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+replay_seconds: 1771
 job_spec_sha256: c4ff8b7c1c02409e3af94c01b88012bf3563395d78eb889c916587debdb52c84
 invocations:
 - command: npm run test:coverage
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 15085
+  untracked_reads_dropped: 15101
 subprocesses:
 - node
 - npm
@@ -526,6 +526,9 @@ reads:
 - src/frontend/src/features/gardenPlanner/field/useBedSheet.ts
 - src/frontend/src/features/gardenPlanner/field/useFieldBeds.ts
 - src/frontend/src/features/gardenPlanner/field/useOnlineStatus.ts
+- src/frontend/src/features/gardenPlanner/glossary/
+- src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.test.tsx
+- src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.tsx
 - src/frontend/src/features/gardenPlanner/history/
 - src/frontend/src/features/gardenPlanner/history/BackfillDialog.tsx
 - src/frontend/src/features/gardenPlanner/history/BedHistoryTab.test.tsx
@@ -1495,6 +1498,7 @@ reads:
 - src/frontend/src/test/pages/GardenPlanConditionLayers.test.tsx
 - src/frontend/src/test/pages/GardenPlanPlantStateLayer.test.tsx
 - src/frontend/src/test/pages/GardenPlanRoute.test.tsx
+- src/frontend/src/test/pages/GardenPlanUnderlayFailure.test.tsx
 - src/frontend/src/test/pages/GardenPlanZones.test.tsx
 - src/frontend/src/test/pages/GardenPlanZonesLifecycle.test.tsx
 - src/frontend/src/test/pages/GlossaryPage.test.tsx

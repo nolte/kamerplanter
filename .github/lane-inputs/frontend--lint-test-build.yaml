@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
-replay_seconds: 1668
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+replay_seconds: 1691
 job_spec_sha256: d9b096ddf194fe6af93018161f8a6aef6d2e16cf9bba375f54c1e6a8e1a33334
 invocations:
 - command: task typecheck
@@ -32,13 +32,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 13355
+  untracked_reads_dropped: 13367
 - command: task build:frontend
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 5965
+  untracked_reads_dropped: 5966
 subprocesses:
 - eslint
 - node
@@ -566,6 +566,9 @@ reads:
 - src/frontend/src/features/gardenPlanner/field/useBedSheet.ts
 - src/frontend/src/features/gardenPlanner/field/useFieldBeds.ts
 - src/frontend/src/features/gardenPlanner/field/useOnlineStatus.ts
+- src/frontend/src/features/gardenPlanner/glossary/
+- src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.test.tsx
+- src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.tsx
 - src/frontend/src/features/gardenPlanner/history/
 - src/frontend/src/features/gardenPlanner/history/BackfillDialog.tsx
 - src/frontend/src/features/gardenPlanner/history/BedHistoryTab.test.tsx
@@ -1536,6 +1539,7 @@ reads:
 - src/frontend/src/test/pages/GardenPlanConditionLayers.test.tsx
 - src/frontend/src/test/pages/GardenPlanPlantStateLayer.test.tsx
 - src/frontend/src/test/pages/GardenPlanRoute.test.tsx
+- src/frontend/src/test/pages/GardenPlanUnderlayFailure.test.tsx
 - src/frontend/src/test/pages/GardenPlanZones.test.tsx
 - src/frontend/src/test/pages/GardenPlanZonesLifecycle.test.tsx
 - src/frontend/src/test/pages/GlossaryPage.test.tsx
