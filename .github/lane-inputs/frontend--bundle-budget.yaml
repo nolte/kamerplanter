@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
-replay_seconds: 31
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+replay_seconds: 46
 job_spec_sha256: a7543034721e7bd0eb2bd948f96b43211cce8533cfa47559633649ac9d0244d2
 invocations:
 - command: npm run build
@@ -20,7 +20,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 5965
+  untracked_reads_dropped: 5966
 - command: npm run bundle:check
   cwd: src/frontend
   recorder: strace -ff -y -z
@@ -477,6 +477,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/field/useBedSheet.ts
 - src/frontend/src/features/gardenPlanner/field/useFieldBeds.ts
 - src/frontend/src/features/gardenPlanner/field/useOnlineStatus.ts
+- src/frontend/src/features/gardenPlanner/glossary/
+- src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.tsx
 - src/frontend/src/features/gardenPlanner/history/
 - src/frontend/src/features/gardenPlanner/history/BackfillDialog.tsx
 - src/frontend/src/features/gardenPlanner/history/BedHistoryTab.tsx

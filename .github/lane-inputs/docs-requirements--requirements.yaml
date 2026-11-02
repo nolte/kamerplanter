@@ -9,9 +9,9 @@ job: requirements
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
-replay_seconds: 32
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+replay_seconds: 42
 job_spec_sha256: 069485b9a5b2e59c9e38dc728738b2aaf5978deef56ca75b97546259e1ff536f
 invocations:
 - command: task docs:venv

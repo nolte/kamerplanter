@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
-replay_seconds: 10
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+replay_seconds: 7
 job_spec_sha256: 3652e4110049a9c58bad376d157de885a9fa45f3eac23fc4ba13cf570734b9cf
 invocations:
 - command: task test:frontend:bench
@@ -101,6 +101,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/tools/snap.benchmark.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/snap.ts
 - src/frontend/src/features/gardenPlanner/field/
+- src/frontend/src/features/gardenPlanner/glossary/
 - src/frontend/src/features/gardenPlanner/history/
 - src/frontend/src/features/gardenPlanner/io/
 - src/frontend/src/features/gardenPlanner/model/
