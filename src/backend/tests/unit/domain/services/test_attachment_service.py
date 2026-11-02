@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import io
 import threading
+from collections.abc import Callable
 from unittest.mock import patch
 
 import httpx
 import pytest
 from PIL import Image
+from structlog.testing import capture_logs
 
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import (
@@ -48,6 +50,9 @@ class _FakeAttachmentRepo:
         self._store: dict[str, Attachment] = {}
         self._seq = 0
         self.create_calls = 0
+        #: How often ``remove_if_unreferenced`` ran - each call is one transaction.
+        self.remove_calls = 0
+        self._rivals: list[Callable[[], None]] = []
 
     def create(self, attachment: Attachment) -> Attachment:
         self.create_calls += 1
@@ -103,17 +108,32 @@ class _FakeAttachmentRepo:
             return "missing", None
         return self.states.get(attachment_id, "staged"), stored.created_by
 
-    #: Raised by ``remove_if_unreferenced`` instead of answering: a carrier names the record concurrently.
-    conflict: Exception | None = None
+    def overtake_next_removals(self, *rivals: Callable[[], None]) -> None:
+        """Queue writers that commit inside the next ``remove_if_unreferenced`` transactions, one per call.
+
+        As in ArangoDB (``ArangoAttachmentRepository.remove_if_unreferenced``, #2545): the rival commits a write on
+        the record after this transaction's scan, so the remove meets it and the transaction fails with ``1200``.
+        A call with no rival queued is a transaction nobody overtakes and decides on the state it reads.
+        """
+        self._rivals.extend(rivals)
 
     def remove_if_unreferenced(self, attachment_id, tenant_key):  # type: ignore[no-untyped-def]
         # One call standing for the repository's one transaction: the scan's answer and the remove.
-        if self.conflict is not None:
-            raise self.conflict
+        self.remove_calls += 1
         state, _created_by = self.task_photo_delete_state(attachment_id, tenant_key, task_key="")
+        if self._rivals:
+            self._rivals.pop(0)()  # a write on the record commits between this scan and this remove
+            raise WriteConflictError("attachments")
         if state != "staged":
             return None
         return self._store.pop(attachment_id)
+
+    def mark_renditions_failed(self, tenant_key: str, storage_key: str) -> int:
+        """Updates every record holding the object, names none of them (#2108) - a writer that is not a carrier."""
+        held = [a for a in self._store.values() if a.tenant_key == tenant_key and a.storage_key == storage_key]
+        for att in held:
+            self._store[att.key] = att.model_copy(update={"renditions_failed": True})
+        return len(held)
 
     def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):  # type: ignore[no-untyped-def]
         return {
@@ -758,12 +778,48 @@ class TestDeleteIfUnreferenced:
         assert await service._object_exists(attachment.storage_key)
 
     async def test_a_carrier_naming_it_concurrently_keeps_record_and_object(self, service, repo, adapter):
-        """#2545: the remove conflicts with a writer that names the record right now - nothing is deleted."""
+        """#2545/#2630: the remove conflicts with a carrier binding the record; the retry's scan sees it - it stays."""
         attachment = await self._stored(service)
-        repo.conflict = WriteConflictError("attachments")
+
+        def carrier_binds_it() -> None:  # e.g. another site sets this picture as its underlay
+            repo.states = {attachment.key: "shared"}
+
+        repo.overtake_next_removals(carrier_binds_it)
 
         assert await service.delete_if_unreferenced(attachment.key, "t-1") is False
 
+        assert repo.remove_calls == 2  # the conflict was retried, and the retry's scan found the holder
+        assert repo.get(attachment.key, "t-1") is not None
+        assert await service._object_exists(attachment.storage_key)
+
+    async def test_a_conflict_with_a_writer_that_names_nothing_still_deletes(self, service, repo, adapter):
+        """#2630: a renditions-failed update conflicts with the remove but holds nothing - the photo does not stay."""
+        attachment = await self._stored(service)
+        repo.overtake_next_removals(lambda: repo.mark_renditions_failed("t-1", attachment.storage_key))
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
+
+        assert repo.remove_calls == 2
+        assert repo.get(attachment.key, "t-1") is None
+        assert not await service._object_exists(attachment.storage_key)
+
+    async def test_a_conflict_on_both_attempts_keeps_the_photo_and_stops_after_two(self, service, repo, adapter):
+        """#2630: one retry, no loop - a writer that keeps conflicting leaves record and object in place."""
+        attachment = await self._stored(service)
+        touched: list[int] = []
+
+        def writer() -> None:
+            touched.append(repo.mark_renditions_failed("t-1", attachment.storage_key))
+
+        repo.overtake_next_removals(writer, writer, writer)
+
+        with capture_logs() as logs:
+            assert await service.delete_if_unreferenced(attachment.key, "t-1") is False
+
+        assert repo.remove_calls == 2 and len(touched) == 2  # the third queued writer never got a transaction
+        assert [e["event"] for e in logs if e["event"] == "attachment_delete_skipped_concurrent_write"] == [
+            "attachment_delete_skipped_concurrent_write"
+        ]
         assert repo.get(attachment.key, "t-1") is not None
         assert await service._object_exists(attachment.storage_key)
 
