@@ -10,10 +10,10 @@ gate:
   kind: paths-filter
   filter: integration
 status: measured
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
-replay_seconds: 2968
-job_spec_sha256: 49d491de93512fbc7d9b1793df1e199cd8ddd52a07be92d56c9bb695042ddc1d
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+replay_seconds: 2996
+job_spec_sha256: 68f8d195b501eeb0075a1f18bfedab5aaa5d3a159a09a8f482ec835253b83056
 invocations:
 - command: task test:backend:integration
   cwd: src/backend
@@ -28,7 +28,7 @@ invocations:
   - TIMESCALEDB_PASSWORD=changeme
   - TIMESCALEDB_PORT=5432
   - TIMESCALEDB_USERNAME=postgres
-  untracked_reads_dropped: 4997
+  untracked_reads_dropped: 4998
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -1413,6 +1413,7 @@ reads:
 - src/backend/app/migrations/versions/v0100_backfill_plant_location_site.py
 - src/backend/app/migrations/versions/v0101_bed_template_index_and_system_templates.py
 - src/backend/app/migrations/versions/v0102_purge_site_orphans.py
+- src/backend/app/migrations/versions/v0103_clear_spinach_light_requirement.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py

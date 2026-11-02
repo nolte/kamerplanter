@@ -9,9 +9,9 @@ job: guards
 gate:
   kind: unfiltered
 status: measured
-measured_on: '2026-11-01'
-measured_at_commit: 03ddfa2aee1579f9cb1711ddf73f97648d287e74
-replay_seconds: 1528
+measured_on: '2026-11-02'
+measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+replay_seconds: 1513
 job_spec_sha256: 097283c4466514018f6ecd3a2aa74f5d809b54e3570a57a5ea6aed08149dbd02
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints
@@ -25,7 +25,7 @@ invocations:
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 7323
+  untracked_reads_dropped: 7325
 subprocesses:
 - awk
 - bash
@@ -3003,6 +3003,7 @@ reads:
 - src/backend/app/migrations/versions/v0100_backfill_plant_location_site.py
 - src/backend/app/migrations/versions/v0101_bed_template_index_and_system_templates.py
 - src/backend/app/migrations/versions/v0102_purge_site_orphans.py
+- src/backend/app/migrations/versions/v0103_clear_spinach_light_requirement.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -3600,6 +3601,7 @@ reads:
 - src/backend/tests/unit/api/test_tenant_role_escalation.py
 - src/backend/tests/unit/api/test_tenant_role_membership_step_up.py
 - src/backend/tests/unit/api/test_write_call_graph_bindings.py
+- src/backend/tests/unit/api/test_write_call_graph_to_thread.py
 - src/backend/tests/unit/api/test_write_route_gates.py
 - src/backend/tests/unit/common/
 - src/backend/tests/unit/common/__init__.py
@@ -4196,6 +4198,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_sensor_reading_ingestion_scope.py
 - src/backend/tests/unit/domain/services/test_sensor_service.py
 - src/backend/tests/unit/domain/services/test_service_accounts.py
+- src/backend/tests/unit/domain/services/test_site_delete_discards_underlay.py
 - src/backend/tests/unit/domain/services/test_site_service_keeps_plan_fields.py
 - src/backend/tests/unit/domain/services/test_site_service_location_tenant.py
 - src/backend/tests/unit/domain/services/test_site_service_refuses_active_plants.py
@@ -4585,6 +4588,7 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0100_backfill_plant_location_site.py
 - src/backend/tests/unit/migrations/versions/test_v0101_bed_template_index_and_system_templates.py
 - src/backend/tests/unit/migrations/versions/test_v0102_purge_site_orphans.py
+- src/backend/tests/unit/migrations/versions/test_v0103_clear_spinach_light_requirement.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -5263,6 +5267,9 @@ reads:
 - src/frontend/src/features/gardenPlanner/field/useBedSheet.ts
 - src/frontend/src/features/gardenPlanner/field/useFieldBeds.ts
 - src/frontend/src/features/gardenPlanner/field/useOnlineStatus.ts
+- src/frontend/src/features/gardenPlanner/glossary/
+- src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.test.tsx
+- src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.tsx
 - src/frontend/src/features/gardenPlanner/history/
 - src/frontend/src/features/gardenPlanner/history/BackfillDialog.tsx
 - src/frontend/src/features/gardenPlanner/history/BedHistoryTab.test.tsx
@@ -6233,6 +6240,7 @@ reads:
 - src/frontend/src/test/pages/GardenPlanConditionLayers.test.tsx
 - src/frontend/src/test/pages/GardenPlanPlantStateLayer.test.tsx
 - src/frontend/src/test/pages/GardenPlanRoute.test.tsx
+- src/frontend/src/test/pages/GardenPlanUnderlayFailure.test.tsx
 - src/frontend/src/test/pages/GardenPlanZones.test.tsx
 - src/frontend/src/test/pages/GardenPlanZonesLifecycle.test.tsx
 - src/frontend/src/test/pages/GlossaryPage.test.tsx
@@ -6919,6 +6927,7 @@ test_modules:
 - src/backend/tests/unit/api/test_tenant_role_escalation.py
 - src/backend/tests/unit/api/test_tenant_role_membership_step_up.py
 - src/backend/tests/unit/api/test_write_call_graph_bindings.py
+- src/backend/tests/unit/api/test_write_call_graph_to_thread.py
 - src/backend/tests/unit/api/test_write_route_gates.py
 - src/backend/tests/unit/domain/services/test_oauth_auto_link_claim.py
 - src/backend/tests/unit/entrypoints/test_error_tracking_csp_script.py
