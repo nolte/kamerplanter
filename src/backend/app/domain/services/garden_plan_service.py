@@ -25,6 +25,7 @@ codes — never a name, a label, a note or a payload.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import monotonic
 from typing import Any
@@ -44,8 +45,8 @@ from app.common.exceptions import (
 from app.common.types import SiteKey
 from app.domain.calculators.geometry_calculator import (
     area_m2,
+    bed_to_plan_transform,
     to_local_shape,
-    transform_bed_to_plan,
     validate_geometry,
 )
 from app.domain.calculators.template_placement_calculator import place_geometry
@@ -101,6 +102,7 @@ from app.domain.models.geometry import (
     POINT_INDEX_KEY,
     CircleGeometry,
     Geometry,
+    Point2D,
     PointGeometry,
     PolygonGeometry,
     PolylineGeometry,
@@ -304,7 +306,9 @@ class GardenPlanService:
             site_key, tenant_key=tenant_key, include_plants="plants" in include, include_tasks="tasks" in include
         )
         by_key = {loc.key: loc for loc in data.locations if loc.key}
-        slots = [view for slot in data.slots if (view := self._slot_view(slot, by_key.get(slot.location_key)))]
+        # One transform per bed, not per slot: 3 000 slots share 150 beds in the large class (#2526).
+        to_plan = {key: bed_to_plan_transform(loc.geometry) for key, loc in by_key.items() if loc.geometry is not None}
+        slots = [view for slot in data.slots if (view := self._slot_view(slot, to_plan.get(slot.location_key)))]
         occupied = {plant.location_key for plant in data.plants if plant.location_key}
         # Derived, never set (§7.4). ``green_manure``, ``fallow`` and ``winter_covered`` need the run's
         # ``plan_role``, the crop-rotation plan and the care events (WP 3.x/4.x); until they exist a bed
@@ -312,7 +316,12 @@ class GardenPlanService:
         season_states = (
             {key: "planted" if key in occupied else "empty" for key in by_key} if "plants" in include else {}
         )
-        return GardenPlanView(
+        # Constructed, not validated: every part is a validated domain model or a typed value already, and a
+        # validated construction would run each Location's and GardenObject's ``mode="after"`` validator a
+        # second time (pydantic re-runs those on instances) - geometry, area and bbox derived again for every
+        # bed and object, the same values, ~15 ms on the large class (#2526). The unit test
+        # ``test_the_view_is_the_one_a_validated_construction_gives`` pins the equality.
+        return GardenPlanView.model_construct(
             site_key=site_key,
             site_name=site.name,
             plan_revision=self._revision_of(site),
@@ -376,12 +385,13 @@ class GardenPlanService:
         ]
 
     @staticmethod
-    def _slot_view(slot: Slot, bed: Location | None) -> PlanSlotView | None:
+    def _slot_view(slot: Slot, to_plan: Callable[[Point2D], Point2D] | None) -> PlanSlotView | None:
+        """*to_plan* is the bed-to-plan transform of the slot's bed; ``None`` = no bed or a bed without geometry."""
         if not slot.key:
             return None
         plan_geometry: dict[str, Any] | None = None
-        if slot.geometry is not None and bed is not None and bed.geometry is not None:
-            plan_geometry = _slot_in_plan_frame(slot.geometry, bed.geometry)
+        if slot.geometry is not None and to_plan is not None:
+            plan_geometry = _slot_in_plan_frame(slot.geometry, to_plan)
         return PlanSlotView(
             key=slot.key,
             slot_id=slot.slot_id,
@@ -1270,7 +1280,7 @@ class GardenPlanService:
         )
 
 
-def _slot_in_plan_frame(geometry: Geometry, bed: Geometry) -> dict[str, Any]:
+def _slot_in_plan_frame(geometry: Geometry, to_plan: Callable[[Point2D], Point2D]) -> dict[str, Any]:
     """A slot's geometry in the plan frame: ``p_plan = anchor + R(rotation) · p_bed`` (§9.2).
 
     Compact on purpose (2 000 plants in one response, GP-NFR-002): a point is ``{kind, origin}``,
@@ -1278,7 +1288,7 @@ def _slot_in_plan_frame(geometry: Geometry, bed: Geometry) -> dict[str, Any]:
     """
 
     def plan_point(point: tuple[float, float]) -> list[float]:
-        x, y = transform_bed_to_plan(point, bed)
+        x, y = to_plan(point)
         return [round_length(x), round_length(y)]
 
     if isinstance(geometry, PointGeometry):

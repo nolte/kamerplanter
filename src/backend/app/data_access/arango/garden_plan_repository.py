@@ -82,6 +82,10 @@ _OPEN_TASK_STATUSES = ("pending", "in_progress")
 #: ``site_conditions.sun_profile`` of the same value outside the PATCH's read (#2538).
 _MERGED_LOCATION_COLUMNS: frozenset[str] = frozenset({"site_conditions"})
 
+#: Cursor batch of the read model's row-heavy queries (slots, plants): the "large" class of §25.1 (3 000 slots,
+#: 2 000 plants) in one round trip each instead of one per 1 000 rows (python-arango's default), #2526.
+_READ_MODEL_BATCH_SIZE = 5_000
+
 
 _LOCATION_EDGES = edges_touching(col.LOCATIONS)
 _SLOT_EDGES = edges_touching(col.SLOTS)
@@ -199,21 +203,14 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         location_keys = [loc.key for loc in locations if loc.key]
         data = PlanReadData(locations=locations, garden_objects=objects)
         data.plan_updated_by_name = self._editor_name(site_key, tenant_key)
+        slot_to_bed: dict[str, str] = {}
         if location_keys:
             # The keys come from the owned locations above, so the slot query needs no tenant of its own.
-            slots_cursor = cast(
-                "Cursor",
-                self._db.aql.execute(
-                    """
-                FOR s IN @@col
-                    FILTER s.location_key IN @location_keys AND s.archived_at == null
-                    SORT s.location_key ASC, s.sequence ASC, s._key ASC
-                    RETURN s
-                """,
-                    bind_vars={"@col": col.SLOTS, "location_keys": location_keys},
-                ),
-            )
-            data.slots = [Slot(**doc) for doc in slots_cursor]
+            rows = self._slot_rows(location_keys)
+            # Every slot of the beds, archived ones too: the "last watered" lookup below maps a watering event's
+            # slots to their bed over all of them, and reads that map from here instead of querying it again.
+            slot_to_bed = {row["_key"]: row["location_key"] for row in rows}
+            data.slots = [Slot(**row) for row in rows if row.get("archived_at") is None]
         if include_plants and location_keys:
             data.plants = self._plants(location_keys, tenant_key)
         if include_tasks and location_keys:
@@ -221,13 +218,37 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             data.last_watered = {
                 key: found.at
                 for key, found in last_waterings(
-                    self._db, location_keys, tenant_key=tenant_key, now=datetime.now(UTC)
+                    self._db, location_keys, tenant_key=tenant_key, now=datetime.now(UTC), slot_to_bed=slot_to_bed
                 ).items()
             }
         object_keys = [obj.key for obj in objects if obj.key]
         if include_tasks and object_keys:
             data.object_task_counters = self._object_task_counters(object_keys, tenant_key)
         return data
+
+    def _slot_rows(self, location_keys: list[str]) -> list[dict[str, Any]]:
+        """Every slot of the beds, ordered by bed and sequence: a live slot whole, an archived one as a stub.
+
+        A live slot (``archived_at == null``) without ``_id``/``_rev``, which no model reads; an archived one as
+        ``{_key, location_key, archived_at}`` - the history only counts for the slot-to-bed map, and its document
+        does not travel. One batch for the large class (3 000 slots) rather than one round trip per 1 000 rows.
+        """
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR s IN @@col
+                FILTER s.location_key IN @location_keys
+                SORT s.location_key ASC, s.sequence ASC, s._key ASC
+                RETURN s.archived_at == null
+                    ? UNSET(s, "_id", "_rev")
+                    : {_key: s._key, location_key: s.location_key, archived_at: s.archived_at}
+            """,
+                bind_vars={"@col": col.SLOTS, "location_keys": location_keys},
+                batch_size=_READ_MODEL_BATCH_SIZE,
+            ),
+        )
+        return list(cursor)
 
     def _editor_name(self, site_key: SiteKey, tenant_key: str) -> str | None:
         cursor = cast(
@@ -267,6 +288,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 }
             """,
                 bind_vars={"@col": col.PLANT_INSTANCES, "tenant_key": tenant_key, "location_keys": location_keys},
+                batch_size=_READ_MODEL_BATCH_SIZE,
             ),
         )
         return [PlantShortInfo(**row) for row in cursor]

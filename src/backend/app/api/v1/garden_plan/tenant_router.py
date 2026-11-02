@@ -40,8 +40,6 @@ from app.api.v1.garden_plan.schemas import (
     PlanSeasonResponse,
     PlanSettingsResponse,
     PlanSiteConditionsResponse,
-    PlanSlotGeometry,
-    PlanSlotResponse,
     PlanSnapshotResponse,
     PlanSnapshotRestoreRequest,
     PlanSoilProfileResponse,
@@ -180,40 +178,57 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
             )
             for obj in view.garden_objects
         ],
-        slots=[_slot_response(slot) for slot in view.slots],
-        plants=[_plant_response(plant) for plant in view.plants],
+        # Slots and plants go in as plain mappings: the response model validates the thousands of rows of
+        # the large class in one pass instead of one model call per row (#2526) - same models, same rules.
+        slots=[_slot_fields(slot) for slot in view.slots],
+        plants=[_plant_fields(plant) for plant in view.plants],
         zones=[PlanZoneResponse(**zone) for zone in view.zones],
     )
 
 
-def _slot_response(slot: PlanSlotView) -> PlanSlotResponse:
+def _slot_fields(slot: PlanSlotView) -> dict[str, Any]:
     """A slot with the fields at their common value left out (``None`` is not sent): GP-NFR-031.
 
     Left out are ``slot_role`` = position, ``capacity_plants`` = 1, ``currently_occupied`` = false and the
     ``kind`` of a point geometry. Only these, and only here: a blanket "omit defaults" would also drop the
     ``kind`` discriminator of every geometry, and a geometry without its kind cannot be read.
+
+    The fields of a :class:`PlanSlotResponse` (with a :class:`PlanSlotGeometry`); validated as such by
+    :class:`GardenPlanResponse`.
     """
     geometry = slot.plan_geometry
     plan_geometry = None
     if geometry is not None:
         kind = geometry["kind"]
-        plan_geometry = PlanSlotGeometry(**{**geometry, "kind": None if kind == "point" else kind})
-    return PlanSlotResponse(
-        key=slot.key,
-        slot_id=slot.slot_id,
-        location_key=slot.location_key,
-        slot_role=None if slot.slot_role == SlotRole.POSITION else slot.slot_role,
-        capacity_plants=None if slot.capacity_plants == 1 else slot.capacity_plants,
-        currently_occupied=True if slot.currently_occupied else None,
-        row_index=slot.row_index,
-        sequence=slot.sequence,
-        plan_geometry=plan_geometry,
-    )
+        plan_geometry = {**geometry, "kind": None if kind == "point" else kind}
+    return {
+        "key": slot.key,
+        "slot_id": slot.slot_id,
+        "location_key": slot.location_key,
+        "slot_role": None if slot.slot_role == SlotRole.POSITION else slot.slot_role,
+        "capacity_plants": None if slot.capacity_plants == 1 else slot.capacity_plants,
+        "currently_occupied": True if slot.currently_occupied else None,
+        "row_index": slot.row_index,
+        "sequence": slot.sequence,
+        "plan_geometry": plan_geometry,
+    }
 
 
-def _plant_response(plant: PlantShortInfo) -> PlanPlantResponse:
-    """The short info of §21.1; ``location_key`` only for a plant without a slot (the slot already names it)."""
-    return to_response(plant, PlanPlantResponse, location_key=None if plant.slot_key else plant.location_key)
+#: The fields a plant row carries on the wire; resolved once (``model_fields`` is a class property, and reading it
+#: per field of 2 000 plants costs ~4 ms of the large class, #2526).
+_PLANT_RESPONSE_FIELDS: frozenset[str] = frozenset(PlanPlantResponse.model_fields)
+
+
+def _plant_fields(plant: PlantShortInfo) -> dict[str, Any]:
+    """The short info of §21.1; ``location_key`` only for a plant without a slot (the slot already names it).
+
+    The fields of a :class:`PlanPlantResponse`, mapped as :func:`app.api.mapping.to_response` maps them (``key``
+    coalesced to ``""``, only the response's own fields); validated as such by :class:`GardenPlanResponse`.
+    """
+    data = plant.model_dump()
+    data["key"] = data.get("key") or ""
+    data["location_key"] = None if plant.slot_key else plant.location_key
+    return {name: value for name, value in data.items() if name in _PLANT_RESPONSE_FIELDS}
 
 
 def _batch_response(result: PlanBatchResult) -> PlanBatchResponse:

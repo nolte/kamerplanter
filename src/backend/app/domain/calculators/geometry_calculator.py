@@ -29,6 +29,7 @@ Conventions (REQ-053 §9.2, §20.1):
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.domain.models.geometry import (
@@ -149,14 +150,30 @@ def rotation_deg(geometry: Geometry) -> float:
     return 0.0
 
 
+def bed_to_plan_transform(bed: Geometry) -> Callable[[Point2D], Point2D]:
+    """:func:`transform_bed_to_plan` bound to one bed: anchor, angle, cosine and sine resolved once.
+
+    For a read that maps thousands of slot points through the same few hundred beds (#2526). The
+    arithmetic is :func:`rotate_point` about ``(0, 0)`` term for term, so the result is the same
+    float, not merely a close one; :func:`transform_bed_to_plan` is defined through this function.
+    """
+    ax, ay = anchor(bed)
+    radians = math.radians(rotation_deg(bed))
+    cos_a, sin_a = math.cos(radians), math.sin(radians)
+
+    def transform(point: Point2D) -> Point2D:
+        dx, dy = point[0] - 0.0, point[1] - 0.0
+        return (ax + (0.0 + dx * cos_a - dy * sin_a), ay + (0.0 + dx * sin_a + dy * cos_a))
+
+    return transform
+
+
 def transform_bed_to_plan(point: Point2D, bed: Geometry) -> Point2D:
     """Map a point from the bed frame of *bed* into the frame *bed* is expressed in.
 
     ``p_plan = anchor + R(rotation_deg) · p_bed`` (REQ-053 §9.2).
     """
-    ax, ay = anchor(bed)
-    rx, ry = rotate_point(point, rotation_deg(bed))
-    return (ax + rx, ay + ry)
+    return bed_to_plan_transform(bed)(point)
 
 
 def transform_plan_to_bed(point: Point2D, bed: Geometry) -> Point2D:

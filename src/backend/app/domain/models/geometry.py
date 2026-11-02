@@ -66,6 +66,11 @@ MAX_POINTS = 200
 #: Storage precision: millimetres (GP-FR-004).
 LENGTH_DECIMALS = 3
 _QUANTUM = Decimal(1).scaleb(-LENGTH_DECIMALS)
+#: A float is an exact tie at ``LENGTH_DECIMALS`` iff its exact value is ``odd / 2**(LENGTH_DECIMALS + 1)``:
+#: only then is ``value * 2 * 10**LENGTH_DECIMALS`` an odd integer (``10**n = 2**n * 5**n``).
+_TIE_DENOMINATOR = 2 ** (LENGTH_DECIMALS + 1)
+#: Below this magnitude the decimal quantisation stays far inside ``Decimal``'s 28-digit context precision.
+_FAST_ROUND_LIMIT = 1e15
 
 #: Pydantic error type of a coordinate-range violation (V-01, REQ-053 §22.2); the
 #: request handler and the batch findings report it as ``details[].code``.
@@ -107,14 +112,29 @@ def round_length(value: float) -> float:
     """Round a length, coordinate or angle to the storage precision (0.001).
 
     Ties round away from zero on the exact binary value; ``-0.0`` becomes ``0.0``.
+
+    The definition is the ``Decimal`` quantisation. A finite float that is not an exact tie takes
+    the built-in ``round`` instead, which is the same function there and cheaper (the plan read rounds
+    ~18 000 coordinates per request: 16 ms -> 10 ms measured, #2526): CPython's ``round(x, 3)`` rounds
+    the exact binary value correctly to the nearest decimal and reads it back correctly, so it
+    differs from ``ROUND_HALF_UP`` only where the exact value lies on a half - and exactly those
+    values (denominator ``2**4``), the non-finite ones, very large ones and every non-float keep the
+    ``Decimal`` path.
     """
+    if (
+        type(value) is float
+        and -_FAST_ROUND_LIMIT < value < _FAST_ROUND_LIMIT
+        and value.as_integer_ratio()[1] != _TIE_DENOMINATOR
+    ):
+        return round(value, LENGTH_DECIMALS) + 0.0
     return float(Decimal(value).quantize(_QUANTUM, rounding=ROUND_HALF_UP)) + 0.0
 
 
 def _frame_from(info: ValidationInfo) -> GeometryFrame:
     context = info.context or {}
     frame = context.get(FRAME_CONTEXT_KEY, GeometryFrame.PLAN)
-    return GeometryFrame(frame)
+    # The members themselves skip the enum lookup (every stored slot point passes here, #2526).
+    return frame if frame is GeometryFrame.BED or frame is GeometryFrame.PLAN else GeometryFrame(frame)
 
 
 def _validate_point(
@@ -280,6 +300,11 @@ Geometry = Annotated[
 #: Parses a raw mapping (request body, stored document) into the matching shape.
 GeometryAdapter: TypeAdapter[Geometry] = TypeAdapter(Geometry)
 
+#: The five shapes as one ``isinstance`` target, built once rather than as a union per call.
+_GEOMETRY_CLASSES = (RectGeometry, CircleGeometry, PolygonGeometry, PolylineGeometry, PointGeometry)
+#: The validation context of the bed frame, shared by every stored slot (never mutated).
+_BED_FRAME_CONTEXT: dict[str, GeometryFrame] = {FRAME_CONTEXT_KEY: GeometryFrame.BED}
+
 #: Shapes that enclose an area and therefore carry ``area_m2`` (GP-FR-006).
 AREA_KINDS: frozenset[GeometryKind] = frozenset({GeometryKind.RECT, GeometryKind.CIRCLE, GeometryKind.POLYGON})
 
@@ -295,7 +320,8 @@ def parse_geometry(data: object, *, frame: GeometryFrame = GeometryFrame.PLAN) -
     Raises:
         pydantic.ValidationError: when the payload violates V-01.
     """
-    return GeometryAdapter.validate_python(data, context={FRAME_CONTEXT_KEY: frame})
+    context = _BED_FRAME_CONTEXT if frame is GeometryFrame.BED else {FRAME_CONTEXT_KEY: frame}
+    return GeometryAdapter.validate_python(data, context=context)
 
 
 def _validate_in_bed_frame(value: object, handler: ValidatorFunctionWrapHandler) -> Geometry:
@@ -308,7 +334,7 @@ def _validate_in_bed_frame(value: object, handler: ValidatorFunctionWrapHandler)
     have drifted); ``handler`` is unused because the frame can only be selected
     through the validation context.
     """
-    if isinstance(value, RectGeometry | CircleGeometry | PolygonGeometry | PolylineGeometry | PointGeometry):
+    if isinstance(value, _GEOMETRY_CLASSES):
         return value
     return parse_geometry(value, frame=GeometryFrame.BED)
 
