@@ -15,11 +15,16 @@
 ## selection lives in the `changes` job below. The `push` trigger keeps its paths
 ## filter: branch protection does not read it.
 ##
-## `Coverage / Node.js Coverage` deliberately stays advisory. Measured over the
-## same 30 develop runs it failed 3 times against `lint-test-build`'s 1, which
-## matches its documented history as a wandering flake — and a flaky required
-## check blocks every pull request in the repository, a worse failure mode than
-## the gap being closed here.
+## Vitest runs ONCE per pull request, with coverage, inside `lint-test-build (22)`
+## (#2409). There used to be a second, advisory `Coverage / Node.js Coverage` job
+## that ran the same suite again for 12-21 runner minutes. The coverage
+## thresholds (statements, functions, lines 80, branches 75) live in
+## `vitest.config.ts`, so a drop below them now fails the required check itself.
+## The price, stated here: coverage instrumentation roughly doubles the wall
+## clock of the test step (the test timeouts in `vitest.config.ts` were sized for
+## it), and the old advisory job failed 3 times in 30 develop runs against this
+## job's 1. If the required check turns flaky, the fix is the timeouts or the
+## test, not a second suite run.
 ##
 name: Frontend CI
 
@@ -62,26 +67,6 @@ defaults:
     working-directory: src/frontend
 
 jobs:
-  # The single Node version of the project is `src/frontend/.tool-versions`
-  # (asdf, local development). Every `setup-node` step below reads that file;
-  # only the reusable coverage workflow takes a version string, so this job
-  # resolves it once. It always runs so the output exists on push and schedule too.
-  node-version:
-    name: Resolve Node version
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
-    outputs:
-      version: ${{ steps.read.outputs.version }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: read
-        run: echo "version=$(awk '$1=="nodejs"{print $2}' src/frontend/.tool-versions)" >> "$GITHUB_OUTPUT"
-
-  # Which pull requests actually need the frontend lane. Skipping here (rather
-  # than at the trigger) keeps the required check reporting on every pull
-  # request, including those that touch no frontend file.
   changes:
     name: Detect frontend changes
     if: github.event_name == 'pull_request'
@@ -112,8 +97,8 @@ jobs:
               - 'scripts/security/npm_audit_gate.py'
               - 'tests/security/npm-audit-allowlist.yaml'
               # The garden-planner vectors (REQ-053) are shared with the backend calculators and
-              # imported by src/frontend/src/test/gardenPlanVectors.ts, so the vitest runs of
-              # lint-test-build and coverage read them (measured, lane-inputs run 41237292582).
+              # imported by src/frontend/src/test/gardenPlanVectors.ts, so the vitest run of
+              # lint-test-build reads them (measured, lane-inputs run 41237292582).
               # Without this a vector-only change skipped the required lint-test-build context.
               - 'spec/e2e-testcases/fixtures/garden-plan-vectors.json'
 
@@ -198,9 +183,23 @@ jobs:
         if: env.RUN_FRONTEND == 'true'
         run: task lint:frontend
 
-      - name: Test
+      - name: Test (with coverage)
         if: env.RUN_FRONTEND == 'true'
-        run: task test:frontend
+        run: task coverage:frontend
+
+      - name: Render coverage into the job summary
+        if: env.RUN_FRONTEND == 'true' && !cancelled()
+        run: |
+          node <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require('fs');
+          const path = 'coverage/coverage-summary.json';
+          if (!fs.existsSync(path)) process.exit(0);
+          const total = JSON.parse(fs.readFileSync(path, 'utf8')).total;
+          const rows = ['lines', 'statements', 'functions', 'branches']
+            .map((k) => `| ${k} | ${total[k].pct}% | ${total[k].covered}/${total[k].total} |`)
+            .join('\n');
+          process.stdout.write(`## Test coverage\n\n| Metric | % | Covered / Total |\n| --- | --- | --- |\n${rows}\n`);
+          NODE
 
       - name: Build
         if: env.RUN_FRONTEND == 'true'
@@ -216,39 +215,11 @@ jobs:
           path: src/frontend/dist/
           retention-days: 7
 
-  coverage:
-    name: Coverage
-    needs: [changes, node-version]
-    # `needs.changes.result` is load-bearing, for the same reason it is in the
-    # `lint-test-build` job above and in e2e-smoke.yml. A failed or cancelled
-    # `changes` leaves `outputs.frontend` an empty string; both remaining
-    # clauses would then be false, the job would be skipped, and a job whose
-    # steps are all skipped reports Success. Coverage would go green without
-    # measuring anything.
-    #
-    # Lower stakes than `lint-test-build (22)`, which is a required context —
-    # this one is advisory. It is guarded anyway because it is the same defect
-    # two dozen lines from the fix for it, and the next reader copying either
-    # job should copy the guarded form.
-    if: >-
-      always()
-      && needs.node-version.result == 'success'
-      && (github.event_name != 'pull_request'
-          || needs.changes.result != 'success'
-          || needs.changes.outputs.frontend == 'true')
-    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@80cb5ebb91a3b49126729de31b1037f11c34b5cd # v2.2.0
-    with:
-      node-version: ${{ needs.node-version.outputs.version }}
-      working-directory: src/frontend
-      install-command: npm ci
-      test-command: npm run test:coverage
-      fail-under: 80
-
   # UI-NFR-003 R-013/R-014/R-015/R-028 — hard gate on the initial payload size.
   # Standalone job (does not touch the required `static` check) so a budget
   # breach fails visibly without deadlocking automerge.
   #
-  # Gated on the `frontend` change detection like `coverage` and `lighthouse`
+  # Gated on the `frontend` change detection like `lighthouse`
   # (#1741). Until then it was the one job here without it, so every pull
   # request — backend-only ones included — paid `npm ci` plus a production
   # build for a budget no change of theirs could move: 1m0s on #1726, 1m5s on
@@ -309,7 +280,7 @@ jobs:
     name: Lighthouse CI
     needs: changes
     # `needs.changes.result` is load-bearing here for the same reason it is in
-    # `lint-test-build` and `coverage` above, and it was missing: with
+    # `lint-test-build` above, and it was missing: with
     # `always()` the job runs even when `changes` failed, `outputs.frontend` is
     # then the empty string, both remaining clauses are false on a pull
     # request, every step is skipped — and a job whose steps are all skipped
