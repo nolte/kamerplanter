@@ -357,13 +357,7 @@ Delivery-Workflow außerhalb des PR-Pfads ist. Seine Manifeste
 
 ## 8. Offene Punkte
 
-- **Vorher/Nachher-Vergleich: nicht gemessen.** Es gibt noch keinen Lauf mit der
-  Änderung. Messen lässt es sich nach dem Merge mit
-  `gh api repos/nolte/kamerplanter/actions/runs/<id>/jobs` für `build-*` auf zwei bis drei
-  PRs. Vergleichsbasis sind die Werte in §4. Zusätzlich sollten
-  `index-e2e-backend-*`/`index-e2e-frontend-*`-Einträge unter PR-Refs von
-  `docker-lint-build` auftauchen und die `index-buildkit-*`-Einträge unter PR-Refs
-  verschwinden.
+- **Vorher/Nachher-Vergleich:** nachgemessen am 2026-11-02, siehe §9.
 - **Lane-Inputs-Drift, schon vor dieser Änderung auf `develop` vorhanden** (gemessen mit
   `pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py
   tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift`):
@@ -380,3 +374,45 @@ Delivery-Workflow außerhalb des PR-Pfads ist. Seine Manifeste
   als Abschnitt in `docs/de/deployment/ci-cd.md` und `docs/en/deployment/ci-cd.md`.
   Außerdem sagt `ci-cd.md` (Zeile 451): „Alle Image-Builds nutzen den GitHub Actions Cache
   (`type=gha`)“. Das sollte um die Scope-Regel ergänzt werden.
+
+---
+
+## 9. Nachmessung der Cache-Scope-Änderung (2026-11-02)
+
+**Quelle und Methode.** `gh run list --workflow docker-lint-build.yml --event pull_request`,
+alle 46 erfolgreichen Läufe ab 2026-10-31 08:38Z (Merge von #2597 um 08:37Z). Je Lauf
+`gh api …/actions/runs/<id>/jobs`, Joblaufzeit = `completed_at − started_at`, nur Jobs mit
+`conclusion: success`. Cache-Einträge: `gh api …/actions/caches?key=index-`.
+
+| Job | Vorher (§4, n = 3–4) | Nachher (n) | Nachher min / Median / max |
+|---|---|---|---|
+| `build-backend` | 1,1–1,4 min | 36 | 0,28 / **0,50** / 1,57 min |
+| `build-frontend` | 1,7 min | 16 | 0,33 / **1,78** / 3,43 min |
+| `build-inference-service` | nicht erhoben | 17 | 0,43 / 2,18 / 3,25 min |
+| `build-knowledge-service` | nicht erhoben | 17 | 0,25 / 0,48 / 0,70 min |
+| `build-knowledge` | nicht erhoben | 4 | 0,23 / 0,38 / 0,48 min |
+
+**Cache-Einträge (Gegenprobe zu §5).** Unter den PR-Refs `refs/pull/2629`, `2631` und
+`2632` liegen nur noch `index-e2e-backend-*`, `index-e2e-frontend-*` und `index-e2e-tests-*`.
+Ein `index-buildkit-*` steht unter keinem dieser PR-Refs. Auf `refs/heads/develop` steht
+genau ein `index-buildkit-1`; den schreibt `docker-publish.yml` (§7.6).
+
+**Was das belegt.**
+
+- Das Überschreiben des Index ist beendet: Die PR-Refs tragen die benannten Scopes statt
+  des gemeinsamen Default-Scopes.
+- `build-backend` ist im Median von 1,1–1,4 auf 0,5 min gefallen. Das ist der Effekt, den
+  §5 erwartet hat.
+
+**Was das nicht belegt.**
+
+- `build-frontend` ist unverändert (Median 1,78 min gegen 1,7 min). Der Grund ist nicht
+  untersucht. Ein naheliegender Kandidat: Das Frontend-Image baut `npm run build` im Image,
+  und der Schritt wird bei jeder Quelländerung ohnehin neu ausgeführt, ein Cache-Treffer
+  ändert daran nichts.
+- Die Vorher-Basis hat nur drei bis vier Läufe. Zwischen Vorher und Nachher liegen weitere
+  Änderungen, die dieselben Jobs berühren (zum Beispiel der Wechsel des Python-Basisimages
+  auf 3.15). Die Zahlen sind ein Indiz für den Gewinn beim Backend, kein Beweis.
+- Die Wartezeit bis zum Jobstart (`started_at − created_at`) streut in der Stichprobe von
+  0,02 bis 11,9 min. Sie hängt von der Runner-Auslastung ab und ist kein Effekt der
+  Änderung. Eine belastbare Queue-Zeit-Aussage bleibt offen (siehe §4).
