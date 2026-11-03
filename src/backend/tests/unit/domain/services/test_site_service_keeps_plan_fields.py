@@ -4,7 +4,10 @@
 ``slot_role`` …; the rebuilt model holds their defaults, and the location view
 replaces the whole document (#714). Without the service keeping them, every
 rename of a bed would unplace it. The assertion is on the model the repository
-receives — the same object the write serialises.
+receives — the same object the write serialises — and, for ``PUT /locations``,
+on the columns the service tells the repository not to write (#2623): the kept
+copy may be stale, so the location write leaves those columns as stored and the
+``frost_exposed`` mirror travels as the one ``frost_risk`` sub-path.
 """
 
 from __future__ import annotations
@@ -54,6 +57,9 @@ class _Repo:
             planned_spacing_cm=30,
         )
         self.written: list[object] = []
+        #: The keyword arguments of the last location write (#2623).
+        self.location_write: dict[str, object] = {}
+        self.stored_after_write: Location | None = None
 
     def get_site_by_key(self, key):
         return self.site if key == "site_1" else None
@@ -73,9 +79,12 @@ class _Repo:
     def get_slot_or_raise(self, key):
         return self.slot
 
-    def update_location(self, key, location):
+    def update_location(self, key, location, *, untouched, frost_risk=None):
         self.written.append(location)
-        return location
+        self.location_write = {"untouched": tuple(untouched), "frost_risk": frost_risk}
+        # What the real repository answers: the location as stored after the write, not the model handed in.
+        self.stored_after_write = self.location.model_copy(update={"name": location.name})
+        return self.stored_after_write
 
     def update_slot(self, key, slot):
         self.written.append(slot)
@@ -91,9 +100,10 @@ class TestUpdateLocation:
         repo = _Repo()
         body = Location(name="Hochbeet 3 (neu)", site_key="site_1", area_m2=99.0)  # what LocationCreate rebuilds
 
-        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
 
-        assert written is repo.written[0]
+        written = repo.written[0]
+        assert isinstance(written, Location)
         assert written.name == "Hochbeet 3 (neu)"
         for field in LOCATION_FIELDS_KEPT_ON_EDIT:
             assert getattr(written, field) == getattr(repo.location, field), field
@@ -101,14 +111,34 @@ class TestUpdateLocation:
         assert written.area_m2 == 2.0
         assert written.bbox == (1.0, 1.0, 3.0, 2.0)
 
+    def test_the_plan_fields_and_a_placed_area_are_not_written_2623(self) -> None:
+        """The kept copy is as old as the read: written back, it reverts a plan batch that landed since."""
+        repo = _Repo()
+        body = Location(name="Hochbeet 3 (neu)", site_key="site_1", area_m2=99.0)
+
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+
+        assert repo.location_write == {"untouched": (*LOCATION_FIELDS_KEPT_ON_EDIT, "area_m2"), "frost_risk": None}
+
+    def test_the_response_is_the_stored_location_not_the_model_handed_in(self) -> None:
+        repo = _Repo()
+        body = Location(name="Hochbeet 3 (neu)", site_key="site_1", area_m2=99.0)
+
+        returned = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+
+        assert returned is repo.stored_after_write and returned is not repo.written[0]
+
     def test_without_a_stored_geometry_the_body_s_area_stands(self) -> None:
         repo = _Repo()
         repo.location = repo.location.model_copy(update={"geometry": None, "bbox": None})
         body = Location(name="Beet", site_key="site_1", area_m2=4.5)
 
-        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
 
+        written = repo.written[0]
+        assert isinstance(written, Location)
         assert (written.geometry, written.bbox, written.area_m2) == (None, None, 4.5)
+        assert repo.location_write["untouched"] == LOCATION_FIELDS_KEPT_ON_EDIT  # area_m2 is the body's: written
 
     def test_the_kept_tuple_names_every_plan_field_the_body_lacks(self) -> None:
         from app.api.v1.locations.schemas import LocationCreate
@@ -119,18 +149,24 @@ class TestUpdateLocation:
 
 
 class TestFrostExposedMirror:
-    """WP 3.9: the legacy boolean and ``microclimate.frost_risk`` move together on ``PUT /locations``."""
+    """WP 3.9: the legacy boolean and ``microclimate.frost_risk`` move together on ``PUT /locations``.
+
+    Since #2623 the update hands the repository the mirrored risk alone (``frost_risk``), which it merges
+    into the stored ``site_conditions``; the kept ``site_conditions`` of the model is not written.
+    """
 
     def test_a_changed_boolean_sets_the_risk_and_keeps_the_other_site_conditions(self) -> None:
         repo = _Repo()
         body = Location(name="Hochbeet 3", site_key="site_1", area_m2=0.0, frost_exposed=True)
 
-        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
 
-        assert written.site_conditions is not None
-        assert written.site_conditions.microclimate.frost_risk is FrostRisk.HIGH
+        assert repo.location_write["frost_risk"] is FrostRisk.HIGH
+        assert "site_conditions" in repo.location_write["untouched"]  # the sun profile is not written over
+        written = repo.written[0]
+        assert isinstance(written, Location) and written.site_conditions is not None
         assert written.site_conditions.sun_profile.sun_window is SunWindow.AFTERNOON
-        # the stored row is not touched: the mirror works on a copy
+        # the stored row is not touched
         assert repo.location.site_conditions.microclimate.frost_risk is FrostRisk.UNKNOWN  # type: ignore[union-attr]
 
     def test_an_unchanged_boolean_leaves_an_entered_risk_alone(self) -> None:
@@ -144,9 +180,9 @@ class TestFrostExposedMirror:
         repo.location = Location.model_validate(repo.location.model_dump(by_alias=True))
         body = Location(name="Hochbeet 3", site_key="site_1", area_m2=0.0, frost_exposed=True)
 
-        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
 
-        assert written.site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # type: ignore[union-attr]
+        assert repo.location_write["frost_risk"] is None
 
     def test_a_migrated_protected_bed_keeps_both_fields_on_the_next_save(self) -> None:
         """#2464 (4): the location form sends the stored ``False`` back; v0098's ``normal`` stays, so does ``False``."""
@@ -160,19 +196,20 @@ class TestFrostExposedMirror:
         )
         body = Location(name="Hochbeet 3 (renamed)", site_key="site_1", area_m2=0.0, frost_exposed=False)
 
-        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
 
-        assert written.frost_exposed is False
-        assert written.site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # type: ignore[union-attr]
+        written = repo.written[0]
+        assert isinstance(written, Location) and written.frost_exposed is False
+        assert repo.location_write["frost_risk"] is None  # the stored ``normal`` is not touched
 
     def test_clearing_the_boolean_resets_the_risk_to_unknown(self) -> None:
         repo = _Repo()
         repo.location = Location.model_validate({**repo.location.model_dump(by_alias=True), "frost_exposed": False})
         body = Location(name="Hochbeet 3", site_key="site_1", area_m2=0.0, frost_exposed=None)
 
-        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
 
-        assert written.site_conditions.microclimate.frost_risk is FrostRisk.UNKNOWN  # type: ignore[union-attr]
+        assert repo.location_write["frost_risk"] is FrostRisk.UNKNOWN
 
     def test_create_with_a_boolean_writes_the_risk(self) -> None:
         repo = _Repo()
