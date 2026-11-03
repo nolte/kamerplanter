@@ -8,13 +8,17 @@ reaches the read, and the facts become the calculator's state. The AQL itself is
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
+from app.common.enums import FrostRisk
 from app.common.exceptions import NotFoundError
 from app.domain.calculators.plant_state_calculator import OpenTask
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, NextTask, PlantStateSource
+from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
+from app.domain.models.site import Microclimate, SiteConditions
+from app.domain.models.weather import WeatherForecast
 from app.domain.services.plant_state_service import PlantStateService
 from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT, FakePlanRepo, FakeSites, make_location, make_site
 
@@ -116,7 +120,86 @@ class TestState:
         assert entry.state.lifecycle == "harvesting"
         assert entry.state.harvest_ready is True
 
-    def test_the_frost_reason_is_absent_until_wp_3_9_supplies_a_source(self, world) -> None:
+    def test_the_frost_reason_is_absent_without_a_forecast_source(self, world) -> None:
         service, _ = world
         [entry] = service.list_plant_states("bed", tenant_key=TENANT, now=NOW)
         assert all(item.reason != "frost" for item in entry.state.attention)
+        assert entry.frost_risk is False
+
+
+class FakeForecasts(IWeatherForecastRepository):
+    def __init__(self, forecasts: list[WeatherForecast]) -> None:
+        self.forecasts = forecasts
+        self.calls: list[tuple[str, str]] = []
+
+    def upsert_daily(self, forecast: WeatherForecast) -> WeatherForecast:
+        raise AssertionError("read only")
+
+    def find_by_site(self, site_key: str, tenant_key: str) -> list[WeatherForecast]:
+        self.calls.append((site_key, tenant_key))
+        return self.forecasts
+
+
+def _frost_night(temp_min: float | None = -2.0, *, days_ahead: int = 0) -> WeatherForecast:
+    return WeatherForecast(
+        site_key="site1",
+        tenant_key=TENANT,
+        forecast_date=NOW.date() + timedelta(days=days_ahead),
+        temp_min_c=temp_min,
+        source="open-meteo",
+        fetched_at=NOW,
+        data_kind="forecast",
+    )
+
+
+def _frost_world(risk: FrostRisk | None, forecasts: list[WeatherForecast] | None):
+    sites = FakeSites(make_site())
+    plan = FakePlanRepo(sites)
+    plan.locations["bed"] = make_location(
+        "bed", site_conditions=SiteConditions(microclimate=Microclimate(frost_risk=risk)) if risk else None
+    )
+    source = None if forecasts is None else FakeForecasts(forecasts)
+    return PlantStateService(sites, RecordingRepo([row()]), source), source
+
+
+class TestFrostReason:
+    """WP 8.20 / GP-FR-162: a ``high`` bed with a frost predicted for its site carries the frost reason."""
+
+    def test_a_high_bed_with_a_predicted_frost_carries_the_reason(self) -> None:
+        service, source = _frost_world(FrostRisk.HIGH, [_frost_night()])
+        [entry] = service.list_plant_states("bed", tenant_key=TENANT, now=NOW)
+        assert entry.frost_risk is True
+        assert any(item.reason == "frost" for item in entry.state.attention)
+        assert source is not None and source.calls == [(make_location("bed").site_key, TENANT)]
+
+    @pytest.mark.parametrize(
+        "forecasts", [[], [_frost_night(5.0)], [_frost_night(None)], [_frost_night(-3.0, days_ahead=9)]]
+    )
+    def test_without_a_predicted_frost_there_is_no_reason(self, forecasts) -> None:
+        service, _ = _frost_world(FrostRisk.HIGH, forecasts)
+        [entry] = service.list_plant_states("bed", tenant_key=TENANT, now=NOW)
+        assert entry.frost_risk is False
+        assert all(item.reason != "frost" for item in entry.state.attention)
+
+    @pytest.mark.parametrize("risk", [FrostRisk.LOW, FrostRisk.NORMAL, FrostRisk.UNKNOWN, None])
+    def test_a_bed_that_is_not_high_never_carries_the_reason_even_with_a_frost(self, risk) -> None:
+        service, _ = _frost_world(risk, [_frost_night()])
+        [entry] = service.list_plant_states("bed", tenant_key=TENANT, now=NOW)
+        assert entry.frost_risk is False
+        assert all(item.reason != "frost" for item in entry.state.attention)
+
+    def test_an_unreadable_forecast_drops_the_reason_not_the_state(self) -> None:
+        service, source = _frost_world(FrostRisk.HIGH, [_frost_night()])
+
+        def down(*_a, **_k):
+            raise RuntimeError("store down")
+
+        source.find_by_site = down  # type: ignore[union-attr,method-assign]
+        [entry] = service.list_plant_states("bed", tenant_key=TENANT, now=NOW)
+        assert entry.frost_risk is False
+
+    def test_an_empty_window_reads_no_forecast(self) -> None:
+        service, source = _frost_world(FrostRisk.HIGH, [_frost_night()])
+        service._repo.rows = []  # type: ignore[attr-defined]
+        assert service.list_plant_states("bed", tenant_key=TENANT, now=NOW) == []
+        assert source is not None and source.calls == []
