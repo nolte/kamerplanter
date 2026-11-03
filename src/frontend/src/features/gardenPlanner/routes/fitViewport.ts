@@ -11,6 +11,12 @@ const MAX_PX_PER_M = 200;
 const MIN_PX_PER_M = 0.5;
 
 /**
+ * The area the editor shows for a plan that has nothing to draw yet (#2617, GP-UX-049): a 10 m x 10 m
+ * square from the site's origin, so the first bed starts at a sensible scale in the middle of the view.
+ */
+export const EMPTY_PLAN_BOUNDS: BoundingBox = [0, 0, 10, 10];
+
+/**
  * The model-space box (metres, `[minX, minY, maxX, maxY]`) around everything the plan draws: the
  * garden boundary, every placed bed and every garden object. `null` = nothing to draw. Beds without
  * a geometry (stock data, REQ-053 GP-ACC-035) are not placed and do not count.
