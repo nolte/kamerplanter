@@ -22,6 +22,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
+import { useBedSiteFeatures } from '../planting/useBedSiteFeatures';
 import type { BedListItem } from '../bed/types';
 import { completeBedTask, logCareEvent, reopenWithUndo, voidCareEvent } from '../care/careApi';
 import type { CareContext } from '../care/careCategories';
@@ -69,6 +70,7 @@ type Overlay =
 export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanChanged }: FieldBedSheetProps) {
   const { t, i18n } = useTranslation();
   const { canEdit } = useTenantPermissions();
+  const bedSite = useBedSiteFeatures(bed);
   const { handleError } = useApiError();
   const notification = useNotification();
   const { offerUndo } = useUndoSnackbar();
@@ -288,6 +290,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             bedName={bed.name}
             geometry={bed.geometry}
             sunExposure={bed.sun_exposure}
+            bedSite={bedSite}
             initialAlreadyPlanted
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}

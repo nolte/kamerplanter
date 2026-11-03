@@ -7268,6 +7268,11 @@
           "done": "Task created: transplant {{plant}} to {{bed}}."
         },
         "siteFit": {
+          "axis": {
+            "frost_mismatch": "{{name}} is frost sensitive, and the frost risk at this bed is high.",
+            "wind_support_needed": "{{name}} needs support, and this bed is exposed to wind.",
+            "waterlogging_risk": "{{name}} tolerates waterlogging poorly, and this bed drains poorly."
+          },
           "fit": {
             "ok": "well suited",
             "marginal": "only partly suited",

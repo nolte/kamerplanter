@@ -39,6 +39,7 @@ LAYOUT_OPERATIONS = frozenset(
         "adjacency",
         "plant_state",
         "site_fit",
+        "site_fit_axes",
         "overdue",
         "phase_color",
         "place_geometry",

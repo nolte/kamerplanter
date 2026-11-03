@@ -13,8 +13,10 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { HintState, MixPair } from './useBedHints';
+import SiteAxisHints from './SiteAxisHints';
 import SiteFitHint from './SiteFitHint';
 import type { SpeciesSiteFit } from './siteFitOf';
+import type { SiteAxisHint } from '../model/siteFit';
 import type { SunExposure } from '../model/types';
 import { needsOverrideReason } from './plantingLogic';
 import type { NeighbourHint, RotationFinding, RotationSeverity } from './plantingTypes';
@@ -40,6 +42,8 @@ interface HintsPanelProps {
     state: HintState | undefined;
     /** The site-fit hint of the species on this bed; `null` = nothing to say (GP-FR-160). */
     siteFit?: SpeciesSiteFit | null;
+    /** The frost, wind and waterlogging hints of the species on this bed (GP-FR-161); empty = none. */
+    axisHints?: readonly SiteAxisHint[];
   }[];
   /** The sun class of the bed, named in the site-fit line. */
   bedSun?: SunExposure;
@@ -194,7 +198,7 @@ export default function HintsPanel({
         {t('pages.bed.planting.hints.title')}
       </Typography>
       <PlannerGlossary id="planting-hints" terms={HINT_TERMS} />
-      {species.map(({ key, name, state, siteFit }) => (
+      {species.map(({ key, name, state, siteFit, axisHints }) => (
         <Fragment key={key}>
           {rotationBlock(key, name, state)}
           {siteFit ? (
@@ -206,6 +210,9 @@ export default function HintsPanel({
               shadeTolerance={siteFit.shadeTolerance}
               result={siteFit.result}
             />
+          ) : null}
+          {axisHints && axisHints.length > 0 ? (
+            <SiteAxisHints speciesKey={key} speciesName={name} hints={axisHints} />
           ) : null}
         </Fragment>
       ))}

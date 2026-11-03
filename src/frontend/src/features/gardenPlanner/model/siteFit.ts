@@ -70,3 +70,31 @@ export function assessSiteFit(
   if (tolerance <= bed) return { fit: 'marginal', reason: 'tolerated', steps };
   return { fit: 'poor', reason: 'too_shady', steps };
 }
+
+// ── Site axes (GP-FR-161, WP 8.21) ────────────────────────────────────────────
+
+/** The hints beyond the light ladder; the UI maps each to a sentence (`siteFit.axis.*`). */
+export type SiteAxisHint = 'frost_mismatch' | 'wind_support_needed' | 'waterlogging_risk';
+
+/**
+ * The axis hints of one bed and one species, in the fixed order frost, wind, waterlogging
+ * (port of `site_fit_calculator.assess_axes`, run against the `site_fit_axes` vectors).
+ *
+ * Three cells speak: `high` frost risk x `sensitive`, `exposed` wind x `support_required`, `poor`
+ * drainage x `sensitive` waterlogging tolerance. Every other cell has no source and stays off (E-10),
+ * and so does an unknown or missing value on either side; a missing species value is never "tolerant".
+ */
+export function assessSiteAxes(
+  frostRisk: string | null | undefined,
+  frostSensitivity: string | null | undefined,
+  windExposure: string | null | undefined,
+  supportRequired: boolean | null | undefined,
+  drainage: string | null | undefined,
+  waterloggingTolerance: string | null | undefined,
+): SiteAxisHint[] {
+  const hints: SiteAxisHint[] = [];
+  if (frostRisk === 'high' && frostSensitivity === 'sensitive') hints.push('frost_mismatch');
+  if (windExposure === 'exposed' && supportRequired === true) hints.push('wind_support_needed');
+  if (drainage === 'poor' && waterloggingTolerance === 'sensitive') hints.push('waterlogging_risk');
+  return hints;
+}
