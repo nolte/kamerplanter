@@ -19,15 +19,22 @@ from fastapi.testclient import TestClient
 from freezegun import freeze_time
 
 from app.common.auth import get_current_user
-from app.common.dependencies import get_bed_rotation_service, get_garden_resource_service, get_tenant_service
+from app.common.dependencies import (
+    get_bed_rotation_service,
+    get_garden_resource_service,
+    get_rotation_matrix_service,
+    get_tenant_service,
+)
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.models.user import User
+from app.domain.services import rotation_matrix_service
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
 from tests.support.care_event_fakes import (
     FakeAttachmentRepo,
     FakeAttachmentService,
@@ -103,7 +110,9 @@ def world() -> SimpleNamespace:
     graph = FakeRotationGraph()
     validator = CropRotationValidator(None, species, graph, site_repo=sites, family_repo=families, history_repo=history)
     service = BedRotationService(sites, plan, graph, species, families, care, validator)
-    return SimpleNamespace(service=service, history=history, care_repo=care_repo, plan=plan, sites=sites)
+    return SimpleNamespace(
+        service=service, history=history, care_repo=care_repo, plan=plan, sites=sites, validator=validator
+    )
 
 
 @pytest.fixture
@@ -119,6 +128,9 @@ def client(world: SimpleNamespace) -> Iterator[Callable[..., TestClient]]:
     )
     app.dependency_overrides[get_tenant_service] = _Tenants
     app.dependency_overrides[get_bed_rotation_service] = lambda: world.service
+    app.dependency_overrides[get_rotation_matrix_service] = lambda: RotationMatrixService(
+        world.sites, world.plan, world.validator
+    )
     app.dependency_overrides[get_garden_resource_service] = lambda: GardenResourceService(
         world.sites, world.plan, FakeObjects(world.plan), GardenPlanService(world.sites, world.plan)
     )
@@ -423,3 +435,113 @@ class TestBackfill:
         )
         assert client(TenantRole.VIEWER).delete(f"{_BASE}/locations/bed/history/backfill/{key}").status_code == 403
         assert world.care_repo.events[key].voided_at is None
+
+
+class TestRotationMatrix:
+    """GP-FR-135 / WP 8.12 (#2655): ``GET /sites/{key}/rotation-matrix`` - a cell is a ``/rotation`` row."""
+
+    URL = f"{_BASE}/sites/site_1/rotation-matrix"
+
+    @staticmethod
+    def _fill(client, world) -> None:
+        world.history.add_plant("bed", "tomato", date(2024, 5, 1), removed_on=date(2024, 9, 1))
+        world.history.add_plant("bed", "bean", date(2025, 5, 1), removed_on=date(2025, 9, 1))
+        recorded = client().post(
+            f"{_BASE}/locations/bed/history/backfill",
+            json={"year": 2023, "season": "spring", "family_key": "brassica", "plan_role": "main_crop"},
+        )
+        assert recorded.status_code == 201, recorded.text
+
+    def test_a_cell_is_the_rotation_row_of_the_same_bed_and_year(self, client, world) -> None:
+        self._fill(client, world)
+
+        matrix = client(TenantRole.VIEWER).get(self.URL).json()
+        (row,) = matrix["beds"]
+        timeline = client().get(f"{_BASE}/locations/{row['location_key']}/rotation", params={"years": matrix["years"]})
+        rotation = {year["year"]: year["plantings"] for year in timeline.json()["timeline"]}
+        cells = {cell["year"]: cell["plantings"] for cell in row["cells"]}
+
+        # bean (family pause 6) widens the default look-back to six years
+        assert list(cells) == matrix["columns"] == [2021, 2022, 2023, 2024, 2025, 2026]
+        assert cells == rotation  # the same expression: every year, every field, in the same order
+        # not vacuous: three years carry a crop, and the season and the backfill key made it into the cell
+        assert [year for year, plantings in cells.items() if plantings] == [2023, 2024, 2025]
+        assert (cells[2023][0]["season"], cells[2023][0]["source"]) == ("spring", "backfill")
+        assert cells[2023][0]["care_event_key"] is not None
+        assert (cells[2024][0]["family_key"], cells[2024][0]["nutrient_demand"]) == ("solanum", "medium_feeder")
+
+    def test_an_exempt_bed_and_a_bed_switched_off_are_listed_and_marked(self, client, world) -> None:
+        world.plan.locations["perennial"] = make_location("perennial", "Hedge", rotation_exempt=True)
+        world.plan.locations["off"] = make_location("off", "Off", rotation_enabled=False)
+        world.history.add_plant("bed", "tomato", date(2025, 5, 1), removed_on=date(2025, 9, 1))
+        world.history.add_plant("off", "tomato", date(2025, 5, 1), removed_on=date(2025, 9, 1))
+
+        rows = {row["location_key"]: row for row in client().get(self.URL).json()["beds"]}
+
+        assert (rows["perennial"]["rotation_applicable"], rows["perennial"]["not_applicable_reason"]) == (
+            False,
+            "rotation.not_applicable.rotation_exempt",
+        )
+        assert (rows["off"]["rotation_applicable"], rows["off"]["not_applicable_reason"]) == (
+            False,
+            "rotation.not_applicable.disabled",
+        )
+        # the control: an ordinary bed of the same site is not marked, and a marked bed still shows what stood there
+        assert (rows["bed"]["rotation_applicable"], rows["bed"]["not_applicable_reason"]) == (True, None)
+        assert rows["off"]["cells"][-2]["plantings"][0]["family_key"] == "solanum"
+
+    def test_a_planter_is_no_bed_and_stays_out_of_the_matrix(self, client) -> None:
+        assert [row["location_key"] for row in client().get(self.URL).json()["beds"]] == ["bed"]
+
+    def test_every_role_may_read(self, client) -> None:
+        for role in TenantRole:
+            assert client(role).get(self.URL).status_code == 200, role
+
+    def test_a_foreign_site_an_unknown_site_and_the_other_tenants_url_are_404(self, client) -> None:
+        foreign = client().get(f"{_BASE}/sites/site_foreign/rotation-matrix")
+        unknown = client().get(f"{_BASE}/sites/site_nope/rotation-matrix")
+        assert (foreign.status_code, unknown.status_code) == (404, 404)
+        # the same body but for the key the caller named: a foreign site is no more visible than an absent one
+        assert foreign.text.replace("site_foreign", "K") == unknown.text.replace("site_nope", "K").replace(
+            unknown.json().get("error_id", ""), foreign.json().get("error_id", "")
+        )
+        assert client().get("/api/v1/t/other/sites/site_1/rotation-matrix").status_code == 404
+
+    def test_years_is_bounded_and_defines_the_columns(self, client) -> None:
+        assert client().get(self.URL, params={"years": 11}).status_code == 422
+        assert client().get(self.URL, params={"years": 0}).status_code == 422
+        ten = client().get(self.URL, params={"years": 10}).json()
+        assert (ten["years"], len(ten["columns"]), ten["columns"][-1]) == (10, 10, 2026)
+
+    def test_the_default_look_back_follows_the_longest_pause_of_the_beds_shown(self, client, world) -> None:
+        assert client().get(self.URL).json()["years"] == 5
+        world.history.add_plant("bed", "bean", date(2022, 5, 1), removed_on=date(2022, 8, 1))  # fabace: pause 6
+        assert client().get(self.URL).json()["years"] == 6
+
+    def test_the_list_is_paged_in_name_order_and_says_how_many_exist(self, client, world) -> None:
+        for key, name in (("b1", "Charlie"), ("b2", "Alpha"), ("b3", "Bravo")):
+            world.plan.locations[key] = make_location(key, name)
+
+        pages = [client().get(self.URL, params={"limit": 2, "offset": offset}).json() for offset in (0, 2, 4)]
+
+        # name order across the pages, disjoint and complete: Alpha, Bed, Bravo, Charlie
+        assert [[row["name"] for row in page["beds"]] for page in pages] == [["Alpha", "Bed"], ["Bravo", "Charlie"], []]
+        assert [(page["total"], page["truncated"], page["offset"]) for page in pages] == [
+            (4, False, 0),
+            (4, False, 2),
+            (4, False, 4),
+        ]
+        assert client().get(self.URL, params={"limit": 201}).status_code == 422
+
+    def test_a_site_beyond_the_ceiling_is_cut_and_says_so(self, client, world, monkeypatch) -> None:
+        monkeypatch.setattr(rotation_matrix_service, "MAX_ROTATION_MATRIX_BEDS", 2)
+        for key, name in (("b1", "Charlie"), ("b2", "Alpha"), ("b3", "Bravo")):
+            world.plan.locations[key] = make_location(key, name)
+
+        body = client().get(self.URL, params={"limit": 50}).json()
+
+        assert (body["total"], body["truncated"], len(body["beds"])) == (2, True, 2)
+        # the control: with the ceiling back at 500 the same site is whole
+        monkeypatch.undo()
+        whole = client().get(self.URL, params={"limit": 50}).json()
+        assert (whole["total"], whole["truncated"]) == (4, False)

@@ -11,12 +11,13 @@ name (§22.1).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.garden_objects.schemas import GardenObjectResponse
+from app.api.v1.locations.schemas import RotationYearResponse
 from app.common.enums import (
     BedStatus,
     FlowRateSource,
@@ -27,6 +28,7 @@ from app.common.enums import (
     SunExposure,
     SunWindow,
 )
+from app.config.constants import MAX_ROTATION_MATRIX_BEDS
 from app.domain.models.garden_plan import MAX_OPERATIONS
 from app.domain.models.garden_plan_import import MAX_OFFSET_M, PlanImportReport
 from app.domain.models.geometry import Geometry
@@ -733,3 +735,77 @@ class PlanSeasonResponse(BaseModel):
     beds_skipped: int = 0
     slots_to_create: int = 0
     beds: list[PlanSeasonBedResponse] = Field(default_factory=list, max_length=500)
+
+
+class RotationMatrixBedResponse(BaseModel):
+    """One row of the matrix: a bed and one cell per column (GP-FR-135)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "4711",
+                    "name": "Bed 1",
+                    "rotation_applicable": True,
+                    "not_applicable_reason": None,
+                    "rotation_reset_at": None,
+                    "cells": [
+                        {
+                            "year": 2025,
+                            "plantings": [
+                                {
+                                    "family_key": "Solanaceae",
+                                    "nutrient_demand": "heavy_feeder",
+                                    "plan_role": "main_crop",
+                                    "source": "plant",
+                                }
+                            ],
+                        },
+                        {"year": 2026, "plantings": []},
+                    ],
+                }
+            ]
+        }
+    )
+
+    location_key: str
+    name: str
+    rotation_applicable: bool = Field(
+        description="`false` for a `rotation_exempt` bed and a bed whose own switch is off (`rotation_enabled: false`)."
+    )
+    not_applicable_reason: str | None = None
+    rotation_reset_at: date | None = None
+    cells: list[RotationYearResponse] = Field(
+        max_length=10,
+        description="One cell per `columns` entry, same order; an empty `plantings` is a year nobody recorded.",
+    )
+
+
+class RotationMatrixResponse(BaseModel):
+    """`GET /sites/{key}/rotation-matrix` (GP-FR-135): beds x years, a cell is the `/locations/{key}/rotation` year."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "site_key": "4700",
+                    "years": 5,
+                    "columns": [2022, 2023, 2024, 2025, 2026],
+                    "total": 1,
+                    "truncated": False,
+                    "offset": 0,
+                    "limit": 50,
+                    "beds": [],
+                }
+            ]
+        }
+    )
+
+    site_key: str
+    years: int
+    columns: list[int] = Field(max_length=10, description="The years, oldest first; the current year is the last.")
+    total: int = Field(description="Beds of the site the matrix reads (at most 500), for paging.")
+    truncated: bool = Field(description="`true` when the site holds more than 500 beds; the surplus is not listed.")
+    offset: int
+    limit: int
+    beds: list[RotationMatrixBedResponse] = Field(max_length=MAX_ROTATION_MATRIX_BEDS)

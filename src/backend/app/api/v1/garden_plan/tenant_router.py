@@ -47,7 +47,10 @@ from app.api.v1.garden_plan.schemas import (
     PlanUnderlayRequest,
     PlanUnderlayResponse,
     PlanZoneResponse,
+    RotationMatrixBedResponse,
+    RotationMatrixResponse,
 )
+from app.api.v1.locations.schemas import rotation_year_responses
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
 from app.common.body_limit import read_bounded_body
 from app.common.dependencies import (
@@ -56,6 +59,7 @@ from app.common.dependencies import (
     get_garden_plan_season_service,
     get_garden_plan_service,
     get_garden_plan_underlay_service,
+    get_rotation_matrix_service,
 )
 from app.common.enums import FrostRisk, SlotRole, SoilDrainage, SunWindow
 from app.common.exceptions import PlanRevisionConflictError, ValidationError
@@ -66,6 +70,7 @@ from app.common.openapi_responses import (
     VALIDATION_RESPONSE,
 )
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.calculators.geometry_calculator import area_m2
@@ -80,6 +85,7 @@ from app.domain.services.garden_plan_import_service import GardenPlanImportServi
 from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
 from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
 from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
 
 router = APIRouter(prefix="/sites", tags=["garden-plan"], responses=NOT_FOUND_RESPONSE)
@@ -464,6 +470,65 @@ def list_plan_audit(
     """Newest first; the editor is named by display name (GP-API-008, SR-011)."""
     entries = service.list_audit(key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
     return [to_response(entry, PlanAuditEntryResponse) for entry in entries]
+
+
+@router.get(
+    "/{key}/rotation-matrix",
+    response_model=RotationMatrixResponse,
+    responses={**VALIDATION_RESPONSE},
+    summary="Crop-rotation matrix of the site (beds x years)",
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+def get_rotation_matrix(
+    request: Request,
+    key: _SITE_KEY,
+    years: Annotated[
+        int | None,
+        Query(
+            ge=1,
+            le=MAX_ROTATION_TIMELINE_YEARS,
+            description="Look-back in years; default `max(pause of the families involved, 5)`, at most 10.",
+        ),
+    ] = None,
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: RotationMatrixService = Depends(get_rotation_matrix_service),
+) -> RotationMatrixResponse:
+    """Beds x years of a site (GP-FR-135), all roles: what stood in each bed per year (family, `nutrient_demand`,
+    `plan_role`, season) - the very rows `GET /locations/{key}/rotation` answers for the same bed and year.
+
+    Beds are listed in name order, at most 500 of them, paged by `offset`/`limit`; `total` and `truncated` say how
+    many exist. A bed the rotation check is off for (`rotation_exempt` or switched off)
+    is listed with `rotation_applicable: false` and its reason. History before a bed's `rotation_reset_at` is left
+    out. There is no future column yet: the planned rotation (`CropRotationPlan`) has no store. The default `years`
+    is read from the beds of the page - pass the `years` of the first answer when paging.
+    """
+    matrix = service.rotation_matrix(
+        key, tenant_key=ctx.tenant_key, years=years, offset=pagination.offset, limit=pagination.limit
+    )
+    columns = list(range(matrix.from_year, matrix.to_year + 1))
+    beds: list[RotationMatrixBedResponse] = []
+    for bed in matrix.beds:
+        beds.append(
+            RotationMatrixBedResponse(
+                location_key=bed.location_key,
+                name=bed.name,
+                rotation_applicable=bed.applicable,
+                not_applicable_reason=bed.not_applicable_reason,
+                rotation_reset_at=bed.rotation_reset_at,
+                cells=rotation_year_responses(bed.entries, columns),
+            )
+        )
+    return RotationMatrixResponse(
+        site_key=matrix.site_key,
+        years=matrix.years,
+        columns=columns,
+        total=matrix.total,
+        truncated=matrix.truncated,
+        offset=matrix.offset,
+        limit=matrix.limit,
+        beds=beds,
+    )
 
 
 #: Headers of a downloadable SVG (GP-NFR-052 (e)): never rendered inline by the browser, never sniffed into

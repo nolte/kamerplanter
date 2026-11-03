@@ -241,6 +241,31 @@ def _pest_finding(
     )
 
 
+class TimelineResolver:
+    """Cached lookups of the family catalogue and the tenant-visible species for one timeline or matrix read."""
+
+    def __init__(self, families: FamilySource, species_repo: ISpeciesRepository, tenant_key: str) -> None:
+        self._families = families
+        self._species_repo = species_repo
+        self._tenant_key = tenant_key
+        self._family_cache: dict[str, BotanicalFamily | None] = {}
+        self._species_cache: dict[str, Species | None] = {}
+
+    def family(self, key: str | None) -> BotanicalFamily | None:
+        if key is None:
+            return None
+        if key not in self._family_cache:
+            self._family_cache[key] = self._families.get_by_key(key)
+        return self._family_cache[key]
+
+    def species(self, key: str | None) -> Species | None:
+        if key is None:
+            return None
+        if key not in self._species_cache:
+            self._species_cache[key] = readable_species(self._species_repo, key, self._tenant_key)
+        return self._species_cache[key]
+
+
 class CropRotationValidator:
     """Validates crop rotation rules for a slot — and, since REQ-053 WP 3.4, for a whole bed.
 
@@ -455,11 +480,6 @@ class CropRotationValidator:
                 limit=MAX_ROTATION_WINDOW_YEARS,
             )
 
-    def _family_cached(self, key: str, cache: dict[str, BotanicalFamily | None]) -> BotanicalFamily | None:
-        if key not in cache:
-            cache[key] = self._family_source().get_by_key(key)
-        return cache[key]
-
     def _family_source(self) -> FamilySource:
         return self._bed_collaborators()[1]
 
@@ -644,13 +664,23 @@ class CropRotationValidator:
             entry.event_key,
         )
 
-    def rotation_timeline(self, location_key: str, *, tenant_key: str, years: int | None = None) -> RotationTimeline:
-        """Family, nutrient demand and plan role per year for a bed (GP-API-039, GP-FR-103, GP-ACC-028).
+    def timeline_resolver(self, tenant_key: str) -> TimelineResolver:
+        """The cached family and species lookups one timeline read (or one matrix page) shares."""
+        return TimelineResolver(self._family_source(), self._species_repo, tenant_key)
 
-        ``years`` defaults to ``max(rotation_pause_years of the families involved, 5)`` and is at most 10.
+    def bed_rotation_entries(self, location: Location, *, tenant_key: str) -> tuple[list[HistoryEntry], date | None]:
+        """Every family-year of the bed within the longest look-back a timeline offers (GP-FR-103).
+
+        The one history read behind ``GET /locations/{key}/rotation`` and the site rotation matrix: both call it,
+        then :meth:`timeline_years` and :meth:`timeline_rows`, so a matrix cell is the timeline row by construction.
         """
-        sites: ISiteRepository = self._bed_collaborators()[0]
-        location = resolve_owned_location(sites, location_key, tenant_key)
+        return self._bed_history(
+            location, from_year=today_utc().year - MAX_ROTATION_TIMELINE_YEARS + 1, tenant_key=tenant_key
+        )
+
+    @staticmethod
+    def check_timeline_years(years: int | None) -> None:
+        """422 ``rotation.years_out_of_range`` for a ``years`` outside ``1..MAX_ROTATION_TIMELINE_YEARS``."""
         if years is not None and not 1 <= years <= MAX_ROTATION_TIMELINE_YEARS:
             raise PlanError(
                 "rotation.years_out_of_range",
@@ -659,48 +689,46 @@ class CropRotationValidator:
                 field="years",
                 limit=MAX_ROTATION_TIMELINE_YEARS,
             )
-        today_year = today_utc().year
-        entries, reset_at = self._bed_history(
-            location, from_year=today_year - MAX_ROTATION_TIMELINE_YEARS + 1, tenant_key=tenant_key
-        )
-        family_cache: dict[str, BotanicalFamily | None] = {}
 
-        def family(key: str | None) -> BotanicalFamily | None:
-            return self._family_cached(key, family_cache) if key is not None else None
+    @staticmethod
+    def timeline_years(entries: list[HistoryEntry], years: int | None, resolver: TimelineResolver) -> int:
+        """``years`` as asked, else ``max(longest pause a species or family of ``entries`` names, 5)``, at most 10.
 
-        species_cache: dict[str, Species | None] = {}
+        An unsourced family adds nothing: the look-back must reach as far as the validator does.
+        """
+        if years is not None:
+            return years
+        pauses = [
+            named
+            for e in entries
+            for named in (_pause_of(resolver.species(e.species_key)), _pause_of(resolver.family(e.family_key)))
+            if named is not None
+        ]
+        return min(max([*pauses, MIN_ROTATION_TIMELINE_YEARS]), MAX_ROTATION_TIMELINE_YEARS)
 
-        def species_of(key: str | None) -> Species | None:
-            if key is None:
-                return None
-            if key not in species_cache:
-                species_cache[key] = readable_species(self._species_repo, key, tenant_key)
-            return species_cache[key]
-
-        if years is None:
-            # The longest pause a family or a species override names (an unsourced family adds nothing): the
-            # look-back must reach as far as the validator does.
-            pauses = [
-                named
-                for e in entries
-                for named in (_pause_of(species_of(e.species_key)), _pause_of(family(e.family_key)))
-                if named is not None
-            ]
-            years = min(max([*pauses, MIN_ROTATION_TIMELINE_YEARS]), MAX_ROTATION_TIMELINE_YEARS)
-        from_year = today_year - years + 1
-
-        rows = [
-            self._timeline_row(entry, family(entry.family_key), species_of(entry.species_key))
+    def timeline_rows(
+        self, entries: list[HistoryEntry], *, from_year: int, resolver: TimelineResolver
+    ) -> list[TimelineEntry]:
+        """The rows of the years ``from_year`` and later - the single expression every rotation view reads."""
+        return [
+            self._timeline_row(entry, resolver.family(entry.family_key), resolver.species(entry.species_key))
             for entry in entries
             if entry.year >= from_year
         ]
-        return RotationTimeline(
-            location_key,
-            years,
-            from_year,
-            today_year,
-            not_applicable_reason(location) is None,
-            not_applicable_reason(location),
-            reset_at,
-            rows,
-        )
+
+    def rotation_timeline(self, location_key: str, *, tenant_key: str, years: int | None = None) -> RotationTimeline:
+        """Family, nutrient demand and plan role per year for a bed (GP-API-039, GP-FR-103, GP-ACC-028).
+
+        ``years`` defaults to ``max(rotation_pause_years of the families involved, 5)`` and is at most 10.
+        """
+        sites: ISiteRepository = self._bed_collaborators()[0]
+        location = resolve_owned_location(sites, location_key, tenant_key)
+        self.check_timeline_years(years)
+        today_year = today_utc().year
+        entries, reset_at = self.bed_rotation_entries(location, tenant_key=tenant_key)
+        resolver = self.timeline_resolver(tenant_key)
+        years = self.timeline_years(entries, years, resolver)
+        from_year = today_year - years + 1
+        rows = self.timeline_rows(entries, from_year=from_year, resolver=resolver)
+        reason = not_applicable_reason(location)
+        return RotationTimeline(location_key, years, from_year, today_year, reason is None, reason, reset_at, rows)

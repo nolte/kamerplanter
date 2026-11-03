@@ -28,11 +28,10 @@ from app.api.v1.locations.schemas import (
     QuickPlantingRequest,
     QuickPlantingResponse,
     RotationFindingResponse,
-    RotationPlantingResponse,
     RotationTimelineResponse,
-    RotationYearResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
+    rotation_year_responses,
 )
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
@@ -559,29 +558,13 @@ def get_rotation_timeline(
     is a year nobody recorded. A `years` above 10 is a 422.
     """
     timeline = service.rotation_timeline(key, tenant_key=ctx.tenant_key, years=years)
-    by_year: dict[int, list[RotationPlantingResponse]] = {
-        y: [] for y in range(timeline.to_year, timeline.from_year - 1, -1)
-    }
-    for entry in timeline.entries:
-        by_year.setdefault(entry.year, []).append(
-            RotationPlantingResponse(
-                season=entry.season,
-                family_key=entry.family_key,
-                family_name=entry.family_name,
-                species_key=entry.species_key,
-                nutrient_demand=entry.nutrient_demand,
-                plan_role=entry.plan_role,
-                source=entry.source,
-                care_event_key=entry.event_key,
-            )
-        )
     return RotationTimelineResponse(
         location_key=timeline.location_key,
         years=timeline.years,
         rotation_applicable=timeline.applicable,
         not_applicable_reason=timeline.not_applicable_reason,
         rotation_reset_at=timeline.rotation_reset_at,
-        timeline=[RotationYearResponse(year=year, plantings=rows) for year, rows in by_year.items()],
+        timeline=rotation_year_responses(timeline.entries, range(timeline.to_year, timeline.from_year - 1, -1)),
     )
 
 

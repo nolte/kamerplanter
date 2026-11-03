@@ -94,6 +94,13 @@ class FakeSites:
     def get_locations_by_site(self, site_key):
         return [loc for loc in (self.repo.locations.values() if self.repo else []) if loc.site_key == site_key]
 
+    def get_location_tree(self, site_key, *, tenant_key):
+        """The whole hierarchy of a site the tenant owns; a foreign site has no tree (the real read anchors on it)."""
+        site = self.sites.get(site_key)
+        if site is None or site.tenant_key != tenant_key:
+            return []
+        return self.get_locations_by_site(site_key)
+
     def get_slots_by_location(self, location_key):
         return [slot for slot in (self.repo.slots if self.repo else []) if slot.location_key == location_key]
 

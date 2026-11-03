@@ -96,9 +96,10 @@ _READERS: dict[str, tuple[str, str]] = {
         _LISTED,
         _NEIGHBOUR_NAME_REASON,
     ),
-    # REQ-053 WP 3.4 (#2394): the bed-level rotation check and the timeline resolve every species under the tenant.
+    # REQ-053 WP 3.4 (#2394): the bed-level rotation check resolves every species under the tenant. The timeline's own
+    # lookups moved into ``TimelineResolver.species`` (WP 8.12, #2655), which calls ``readable_species`` with the
+    # tenant it was built for; it takes a bare ``key``, so this selector no longer sees the timeline reader.
     "app/domain/engines/crop_rotation_validator.py:CropRotationValidator.visible_species": (_RESOLVES, ""),
-    "app/domain/engines/crop_rotation_validator.py:CropRotationValidator.rotation_timeline": (_RESOLVES, ""),
     "app/domain/engines/crop_rotation_validator.py:CropRotationValidator.validate_planting": (
         _LISTED,
         _ROTATION_REASON,
