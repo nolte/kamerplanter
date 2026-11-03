@@ -82,6 +82,30 @@ export interface RotationTimeline {
   timeline: RotationYear[];
 }
 
+/** One row of `GET /sites/{key}/rotation-matrix` (GP-FR-135): a bed and one cell per column, oldest year first. */
+export interface RotationMatrixBed {
+  location_key: string;
+  name: string;
+  rotation_applicable: boolean;
+  not_applicable_reason: string | null;
+  rotation_reset_at: string | null;
+  cells: RotationYear[];
+}
+
+/** `GET /sites/{key}/rotation-matrix` (GP-FR-135): beds x years; a cell is the year of `/locations/{key}/rotation`. */
+export interface RotationMatrix {
+  site_key: string;
+  years: number;
+  /** The years, oldest first; the current year is the last. */
+  columns: number[];
+  /** Beds the matrix reads (at most 500). */
+  total: number;
+  truncated: boolean;
+  offset: number;
+  limit: number;
+  beds: RotationMatrixBed[];
+}
+
 /** `POST /locations/{key}/history/backfill` (GP-API-042). */
 export interface BackfillBody {
   year: number;

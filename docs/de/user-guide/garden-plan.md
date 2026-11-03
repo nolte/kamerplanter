@@ -251,6 +251,20 @@ Mit einer **Unterlage** legst du ein Foto, eine Skizze oder ein Luftbild unter d
 
 Ein Standort hat höchstens eine Unterlage, und alle Mitglieder sehen dieselbe. Ob du sie anzeigst, entscheidest du für dich mit der Ebene **Unterlage anzeigen**. Setzen und entfernen dürfen Gärtner und die Leitung. Die Unterlage liegt unter allen Objekten, steht nicht in der JSON-Sicherung und kommt nur dann in den PDF-Druck, wenn die API-Abfrage es ausdrücklich verlangt (der Export-Dialog bietet das nicht an). Luftbilder können verraten, wo du wohnst: Gib einen Plan mit Unterlage nur weiter, wenn du das willst.
 
+## Fruchtfolge-Matrix {#fruchtfolge-matrix}
+
+Die Matrix zeigt für alle Beete eines Standorts auf einen Blick, was in den letzten Jahren dort stand. Du öffnest sie auf der Standortseite mit **Fruchtfolge-Matrix** (Adresse `/standorte/sites/<key>/rotation-matrix`). Jede Zeile ist ein Beet, jede Spalte ein Jahr, das aktuelle Jahr steht ganz rechts. Wie weit die Matrix zurückreicht, richtet sich nach den längsten Anbaupausen der Familien in den gezeigten Beeten, mindestens fünf, höchstens zehn Jahre.
+
+In einer Zelle steht je Eintrag die Pflanzenfamilie als Kürzel mit Farbe und Muster, darunter die Zehrerklasse als Text und, wenn bekannt, die Saison. Farbe allein trägt die Familie nie: Kürzel und Muster unterscheiden sie auch im Graustufendruck. Die Legende unter der Tabelle nennt zu jedem Kürzel den vollen Namen. Gründüngung und Brache sind gekennzeichnet. Ein leeres Jahr zeigt einen Strich: Es ist nichts erfasst.
+
+- **Nachtragen.** Mit der Rolle „grower" oder „lead" tippst du auf ein vergangenes Jahr und trägst im bekannten Dialog **Was stand hier?** nach, was dort wuchs (siehe [Historie des Beets](locations-substrates.md#historie-des-beets)). Das laufende Jahr nimmt die Matrix nicht entgegen; dort gilt, was im Beet gepflanzt ist. Beobachter („viewer") lesen die Matrix nur.
+- **Zum Beet.** Der Name des Beets führt zur Beetansicht.
+- **Beete ohne Prüfung.** Ein Beet, das von der Fruchtfolge-Prüfung ausgenommen oder ausgeschaltet ist, steht trotzdem in der Matrix, mit dem Hinweis am Namen. Seine Historie bleibt sichtbar.
+- **Viele Beete.** Die Matrix lädt 50 Beete je Seite; **Weitere Beete laden** holt die nächsten, mit denselben Jahren. Sie liest höchstens 500 Beete nach Name; hat ein Standort mehr, steht ein Hinweis darunter.
+- **Zukünftige Jahre.** Geplante Folgekulturen zeigt die Matrix noch nicht; sie endet im laufenden Jahr.
+
+Die Matrix liest dieselben Daten wie der Zeitstrahl am Beet und rechnet nichts neu: Ein Feld der Matrix ist genau der Eintrag des Zeitstrahls für dasselbe Beet und Jahr. <!-- REQ-053 GP-FR-135 -->
+
 ## Änderungsprotokoll {#anderungsprotokoll}
 
 Kamerplanter schreibt zu jedem Plan ein Änderungsprotokoll: Löschungen und Änderungen der Gartengrenze mit Zeitpunkt und Namen des Bearbeiters, außerdem die Stände, die ein Ersetzen beim Import überschrieben hat (siehe [Plan exportieren und Sicherung einspielen](#plan-export-import)). Einträge werden ein Jahr lang aufbewahrt. Das Protokoll hat in der Oberfläche keine eigene Seite; es ist über die API lesbar (siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster)).

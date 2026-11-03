@@ -251,6 +251,20 @@ With an **underlay** you place a photo, a sketch or an aerial view under the pla
 
 A site has at most one underlay, and all members see the same one. Whether you display it is your own choice with the **Show underlay** layer. Growers and the lead may set and remove it. The underlay lies below all objects, is not part of the JSON backup and goes into the PDF print only if the API request asks for it explicitly (the export dialog does not offer this). Aerial views can reveal where you live: pass on a plan with an underlay only if you mean to.
 
+## Rotation matrix {#rotation-matrix}
+
+The matrix shows at a glance what stood in all beds of a site in the last years. Open it on the site page with **Rotation matrix** (address `/standorte/sites/<key>/rotation-matrix`). Each row is a bed, each column a year, the current year is on the right. How far back the matrix reaches follows the longest rotation pauses of the families in the beds shown, at least five and at most ten years.
+
+A cell lists one entry per planting: the plant family as a short code with colour and pattern, below it the feeder class as text and, when known, the season. Colour never carries the family alone: code and pattern tell them apart in greyscale print too. The legend under the table names the full family for each code. Green manure and fallow are marked. An empty year shows a dash: nothing is recorded.
+
+- **Fill in.** With the role "grower" or "lead" you tap a past year and fill in what grew there in the familiar **What stood here?** dialog (see [History of the bed](locations-substrates.md#history-of-the-bed)). The matrix does not take the current year; there, what is planted in the bed counts. Observers ("viewer") only read the matrix.
+- **To the bed.** The name of the bed leads to the bed view.
+- **Beds without the check.** A bed that is exempt from the rotation check or switched off is still in the matrix, with a note at its name. Its history stays visible.
+- **Many beds.** The matrix loads 50 beds per page; **Load more beds** fetches the next ones, with the same years. It reads at most 500 beds by name; a site with more shows a note below.
+- **Future years.** The matrix does not show planned follow-up crops yet; it ends in the current year.
+
+The matrix reads the same data as the timeline of the bed and recalculates nothing: a field of the matrix is exactly the timeline entry for the same bed and year. <!-- REQ-053 GP-FR-135 -->
+
 ## Change log {#change-log}
 
 Kamerplanter keeps a change log for every plan: deletions and changes of the garden boundary with the time and the name of the editor, plus the states a replace import overwrote (see [Export the plan and restore a backup](#plan-export-import)). Entries are kept for one year. The log has no page of its own in the interface; you can read it through the API (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
