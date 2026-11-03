@@ -96,6 +96,16 @@ class ICareEventRepository(ABC):
         """
 
     @abstractmethod
+    def insert_backfilled(self, events: list[CareEvent], *, tenant_key: str) -> tuple[int, int]:
+        """Store the events of the M4 backfill (WP 8.1, ``trigger = backfill``) that no event logs yet.
+
+        Every event carries a ``source_ref``; the unique-sparse index on ``(tenant_key, source_ref.collection,
+        source_ref.key)`` is the one authority on "already logged", so a document another writer logged meanwhile
+        is skipped, never duplicated and never an error. Returns ``(written, already_present)``; the two always add
+        up to ``len(events)``.
+        """
+
+    @abstractmethod
     def supersede(self, predecessor_key: str, event: CareEvent, *, tenant_key: str) -> CareEvent:
         """In one transaction: store ``event`` and set ``superseded_by_key`` on its predecessor (V-13).
 

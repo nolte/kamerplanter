@@ -24,7 +24,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
 
-from app.common.exceptions import NotFoundError, PlanError
+from app.common.exceptions import DuplicateError, NotFoundError, PlanError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.transactions import StreamTransaction, TransactionAql, stream_transaction
@@ -336,6 +336,35 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         with stream_transaction(self._db, write=CARE_EVENT_WRITE_COLLECTIONS, entity="care_event") as txn:
             stored = [write_care_event(txn, event, now) for event in events]
         return [self._wrapped(doc) for doc in stored]
+
+    def insert_backfilled(self, events: list[CareEvent], *, tenant_key: str) -> tuple[int, int]:
+        self._require_tenant_key(tenant_key, "insert_backfilled")
+        if any(event.tenant_key != tenant_key for event in events):
+            raise ValueError("insert_backfilled: an event belongs to another tenant than the one it is written under.")
+        if any(event.trigger != "backfill" or not event.source_ref for event in events):
+            raise ValueError("insert_backfilled: every event is a backfill and names its source (source_ref).")
+        if not events:
+            return 0, 0
+        try:
+            self.insert_many(events, tenant_key=tenant_key)
+        except DuplicateError, WriteConflictError:
+            # A concurrent writer logged one of these documents since the caller looked: the batch was aborted as a
+            # whole (all or none), so write the events one by one and let the unique index say which are present.
+            written = 0
+            for event in events:
+                for attempt in range(3):
+                    try:
+                        self.insert(event, tenant_key=tenant_key)
+                    except DuplicateError:
+                        break
+                    except WriteConflictError:  # a live writer touched the same bed: retry, then give up loudly
+                        if attempt == 2:
+                            raise
+                        continue
+                    written += 1
+                    break
+            return written, len(events) - written
+        return len(events), 0
 
     def _load_in(self, txn: StreamTransaction, key: str, tenant_key: str) -> dict[str, Any]:
         doc = next(
