@@ -298,11 +298,15 @@ class TestVersionSmoke:
                 with pytest.raises(IrreversibleMigrationError):
                     migration.down(_NoopDb())
 
-    def test_baseline_is_the_only_reversible(self):
+    #: Versions that are honestly reversible besides the baseline: v0104 (REQ-053 M4) marks every line it writes
+    #: (``trigger = backfill`` + ``source_ref``) and ``down`` deletes exactly those (M-6).
+    _REVERSIBLE_BESIDES_BASELINE = frozenset({"0104"})
+
+    def test_baseline_and_the_declared_marker_migrations_are_the_only_reversible(self):
         migrations = _migrations()
         assert migrations[0].name == "baseline"
         assert migrations[0].reversible is True
-        assert all(not m.reversible for m in migrations[1:])
+        assert {m.version for m in migrations[1:] if m.reversible} == self._REVERSIBLE_BESIDES_BASELINE
 
     def test_retire_harvest_runs_before_seeds(self):
         # AC-6 relies on the harvest reclassification running before any plan seed
