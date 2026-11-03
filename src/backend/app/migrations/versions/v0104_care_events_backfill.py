@@ -49,6 +49,7 @@ from arango.database import StandardDatabase
 
 from app.config.settings import settings
 from app.data_access.arango import collections as col
+from app.data_access.arango.care_event_backfill_scan import scan_candidates
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.transactions import stream_transaction
 from app.domain.engines.care_event_backfill_mapper import (
@@ -85,57 +86,6 @@ FOR d IN @@source
   LET ts = DATE_TIMESTAMP(d[@time_field])
   COLLECT bucket = (ts == null ? "no_timestamp" : (ts < @cutoff_ms ? "outside_r25" : "in_window")) WITH COUNT INTO n
   RETURN { bucket, n }
-"""
-
-#: The documents inside the window with everything the mapper needs: every reference resolved to its location, every
-#: location to its site and the site's tenant, and whether a line for the document exists already. The references of
-#: the four shapes: ``plant_key`` (feeding, treatment, harvest), ``plant_keys`` (feeding, watering alias) and
-#: ``slot_keys`` (watering). A key is a plant when a plant has it, otherwise a slot.
-_SCAN = """
-FOR d IN @@source
-  LET ts = DATE_TIMESTAMP(d[@time_field])
-  FILTER ts != null AND ts >= @cutoff_ms
-  SORT d._key
-  LET refs = (
-    FOR r IN UNIQUE(FLATTEN([[d.plant_key], d.plant_keys || [], d.slot_keys || []]))
-      FILTER r != null AND r != ""
-      LET p = DOCUMENT(@plants, r)
-      LET s = p == null ? DOCUMENT(@slots, r) : null
-      LET plant_slot = p != null AND p.location_key == null AND p.slot_key != null ? DOCUMENT(@slots, p.slot_key) : null
-      LET location_key = p != null
-        ? (p.location_key != null ? p.location_key : (plant_slot == null ? null : plant_slot.location_key))
-        : (s == null ? null : s.location_key)
-      RETURN {
-        ref: r,
-        kind: p != null ? "plant" : (s != null ? "slot" : null),
-        location_key: location_key == "" ? null : location_key,
-        plant_tenant: p == null ? null : p.tenant_key
-      }
-  )
-  LET own_location_key = d.location_key == null OR d.location_key == "" ? null : d.location_key
-  LET location_keys = UNIQUE(APPEND(
-    (FOR r IN refs FILTER r.location_key != null RETURN r.location_key),
-    own_location_key == null ? [] : [own_location_key]
-  ))
-  LET locations = (
-    FOR lk IN location_keys
-      LET l = DOCUMENT(@locations, lk)
-      LET site = l == null OR l.site_key == null OR l.site_key == "" ? null : DOCUMENT(@sites, l.site_key)
-      RETURN {
-        key: lk,
-        found: l != null,
-        site_key: l == null ? null : l.site_key,
-        site_found: site != null,
-        site_tenant: site == null ? null : site.tenant_key
-      }
-  )
-  LET present = FIRST(
-    FOR e IN @@events
-      FILTER e.tenant_key == d.tenant_key AND e.source_ref.collection == @source AND e.source_ref.key == d._key
-      LIMIT 1
-      RETURN 1
-  ) != null
-  RETURN { doc: d, refs, own_location_key, locations, present }
 """
 
 #: Lines of a backfill that no person touched since; ``kept_edited`` counts the others.
@@ -187,23 +137,7 @@ def _count_window(db: StandardDatabase, source: str, cutoff_ms: int) -> dict[str
 
 
 def _scan(db: StandardDatabase, source: str, cutoff_ms: int) -> Cursor:
-    bind_vars: dict[str, Any] = {
-        "@source": source,
-        "@events": col.CARE_EVENTS,
-        "source": source,
-        "time_field": TIME_FIELDS[source],
-        "cutoff_ms": cutoff_ms,
-        "plants": col.PLANT_INSTANCES,
-        "slots": col.SLOTS,
-        "locations": col.LOCATIONS,
-        "sites": col.SITES,
-    }
-    return cast(
-        Cursor,
-        db.aql.execute(
-            _SCAN, bind_vars=bind_vars, batch_size=_BATCH_SIZE, ttl=cast(Any, _CURSOR_TTL_SECONDS), stream=False
-        ),
-    )
+    return scan_candidates(db, source, cutoff_ms, batch_size=_BATCH_SIZE, ttl_seconds=_CURSOR_TTL_SECONDS)
 
 
 def _flush(

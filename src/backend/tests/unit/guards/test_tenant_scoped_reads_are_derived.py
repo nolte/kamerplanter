@@ -973,6 +973,13 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         check="get_workflow_template",
     ),
     # ── system ─────────────────────────────────────────────────────────────
+    ("ArangoCareEventGapReader", "candidates"): Exclusion(
+        "system",
+        "the daily care_events.consistency job (REQ-053 WP 8.2) walks the installation on purpose; it never writes "
+        "from the row's own tenant stamp: the mapper takes tenant and site from the bed's site (a document stamped "
+        "with another tenant is counted, not written) and the Celery task asks ActiveTenants before every write — "
+        "measured in tests/integration/test_care_events_consistency.py",
+    ),
     ("ArangoAttachmentRepository", "find_orphaned_task_photos"): Exclusion(
         "system", "the orphaned task-photo sweep of the storage Celery task (#1393)"
     ),

@@ -11,6 +11,7 @@ from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRe
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
 from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+from app.data_access.arango.care_event_gap_repository import ArangoCareEventGapReader
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.connection import ArangoConnection
@@ -597,6 +598,11 @@ def get_irrigation_zone_service() -> IrrigationZoneService:
 def get_care_event_repo() -> ArangoCareEventRepository:
     """REQ-053 WP 4.1 — the care log (``care_events``)."""
     return ArangoCareEventRepository(get_db())
+
+
+def get_care_event_gap_reader() -> ArangoCareEventGapReader:
+    """REQ-053 WP 8.2 — the domain events that lack a care event (the daily consistency job)."""
+    return ArangoCareEventGapReader(get_db())
 
 
 def get_care_event_service() -> CareEventService:
