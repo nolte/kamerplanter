@@ -13,6 +13,11 @@ import type {
   WindExposure,
 } from '../model/types';
 
+/** Stored heat of a wall or building at a bed (`HeatRetention` of the backend, GP-FR-162). */
+export type HeatRetention = 'none' | 'wall' | 'building' | 'unknown';
+/** The side of a bed it is tended from (`AccessSide`, GP-FR-168). */
+export type AccessSide = 'N' | 'E' | 'S' | 'W';
+
 export type { SoilDrainage };
 
 export type GrowingMediumKind =
@@ -98,8 +103,24 @@ export type SunProfilePatch = PlanSunProfilePatch;
 export interface SiteConditionsSlice {
   sun_profile?: SunProfile;
   /** The frost risk and the wind load the planting dialog's site hints read (GP-FR-161). */
-  microclimate?: { frost_risk?: FrostRisk };
+  microclimate?: { frost_risk?: FrostRisk; cold_air_pocket?: boolean; heat_retention?: HeatRetention };
   wind_exposure?: WindExposure;
+  slope_deg?: number | null;
+  aspect_deg?: number | null;
+  access_sides?: AccessSide[];
+}
+
+/**
+ * What the site-conditions editors send: only the keys that changed, per part (`PATCH /locations/{key}` merges
+ * them into the stored value; an unknown key is a 422). A frost-risk change moves the legacy `frost_exposed`
+ * with it on the server (#2512), so the client never sends that field.
+ */
+export interface SiteConditionsPatch {
+  microclimate?: { frost_risk?: FrostRisk; cold_air_pocket?: boolean; heat_retention?: HeatRetention };
+  wind_exposure?: WindExposure;
+  slope_deg?: number | null;
+  aspect_deg?: number | null;
+  access_sides?: AccessSide[];
 }
 
 /** One row of `GET /locations?site_key=&is_bed=true` (counters are `null` on a plain listing). */
@@ -116,7 +137,7 @@ export interface BedListItem {
   sun_exposure: SunExposure;
   site_conditions?: SiteConditionsSlice | null;
   /** Carried by the location document; only the drainage is read on a listing (GP-FR-161). */
-  soil_profile?: Pick<SoilProfile, 'drainage'> | null;
+  soil_profile?: SoilProfile | null;
   active_plant_count?: number | null;
   open_task_count?: number | null;
   overdue_task_count?: number | null;

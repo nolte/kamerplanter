@@ -35,6 +35,7 @@ import type { PlantStateWire } from '../planting/plantStateApi';
 import { fieldTaskSections, todayUtc } from './fieldDue';
 import { groupPlants } from './fieldPlants';
 import FieldPlantSection from './FieldPlantSection';
+import FieldSiteSection from './FieldSiteSection';
 import FieldSunSection from './FieldSunSection';
 import FieldTaskSection from './FieldTaskSection';
 import QuickProtocolChips from './QuickProtocolChips';
@@ -257,6 +258,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
         )}
 
         <FieldSunSection bed={bed} canEdit={canEdit} online={online} onChanged={onChanged} />
+        <FieldSiteSection bed={bed} canEdit={canEdit} online={online} onChanged={onChanged} />
       </Box>
 
       {overlay?.kind === 'complete' && (

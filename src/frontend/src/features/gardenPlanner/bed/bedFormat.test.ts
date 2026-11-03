@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import i18next from 'i18next';
-import { isOverdue, sunProfileLine } from './bedFormat';
+import { isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
 
 /** The boundary cases live in the shared vectors (`model/overdue.vectors.test.ts`); this pins the re-export. */
 describe('isOverdue (bed list column)', () => {
@@ -43,6 +43,41 @@ describe('sunProfileLine', () => {
     );
     expect(sunProfileLine(await translator('en'), profile)).toBe(
       'Sun: Morning · about 6.5 h of direct sun · Leaf shade in summer',
+    );
+  });
+});
+
+describe('siteConditionsLine (GP-FR-162/163/168)', () => {
+  const t = ((key: string, options?: Record<string, unknown>) =>
+    options?.value !== undefined ? `${key}:${String(options.value)}` : key) as never;
+
+  it('is null when nothing is recorded, also for unknown values', () => {
+    expect(siteConditionsLine(t, undefined)).toBeNull();
+    expect(siteConditionsLine(t, {})).toBeNull();
+    expect(
+      siteConditionsLine(t, {
+        microclimate: { frost_risk: 'unknown', heat_retention: 'unknown', cold_air_pocket: false },
+        wind_exposure: 'unknown',
+        access_sides: [],
+      }),
+    ).toBeNull();
+  });
+
+  it('names what was entered in a fixed order, a slope of 0 included', () => {
+    const line = siteConditionsLine(t, {
+      microclimate: { frost_risk: 'high', cold_air_pocket: true },
+      wind_exposure: 'exposed',
+      slope_deg: 0,
+      access_sides: ['N', 'S'],
+    });
+    expect(line).toBe(
+      [
+        'pages.gardenPlan.siteConditions.summary.frost:enums.frostRisk.high',
+        'pages.gardenPlan.siteConditions.coldAirPocket.label',
+        'pages.gardenPlan.siteConditions.summary.wind:enums.windExposure.exposed',
+        'pages.gardenPlan.siteConditions.summary.slope:0',
+        'pages.gardenPlan.siteConditions.summary.access:enums.accessSide.N, enums.accessSide.S',
+      ].join(' · '),
     );
   });
 });

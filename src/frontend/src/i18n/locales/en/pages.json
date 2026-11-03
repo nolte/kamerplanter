@@ -6699,6 +6699,66 @@
           "reihenabstand": "Row spacing",
           "randabstand": "Edge margin"
         }
+      },
+      "siteConditions": {
+        "hint": "Record what you observe at the bed. Kamerplanter computes nothing from it; the values feed the planting hints and the frost early warning.",
+        "frost": {
+          "title": "Frost risk",
+          "hint": "Is the bed in a hollow or a cold spot? The frost early warning always names \"High\" and never \"Low\"."
+        },
+        "coldAirPocket": {
+          "label": "Cold-air pocket",
+          "help": "Cold air collects here at night, for example in a hollow. A note only."
+        },
+        "heat": {
+          "title": "Stored heat",
+          "hint": "A wall or a building gives heat back at night."
+        },
+        "wind": {
+          "title": "Wind",
+          "hint": "How hard does the wind hit the bed? For \"Exposed\" the planting dialog points out species that need support."
+        },
+        "slope": {
+          "label": "Slope (degrees)",
+          "help": "0 to 90, optional.",
+          "invalid": "Enter a number from 0 to 90."
+        },
+        "aspect": {
+          "label": "Aspect (degrees)",
+          "help": "Compass direction the bed slopes towards: 0 = north, 90 = east, 180 = south, 270 = west. Optional.",
+          "invalid": "Enter a number from 0 to under 360."
+        },
+        "access": {
+          "title": "Access sides",
+          "hint": "From which sides do you tend the bed?"
+        },
+        "summary": {
+          "frost": "Frost risk: {{value}}",
+          "heat": "Stored heat: {{value}}",
+          "wind": "Wind: {{value}}",
+          "slope": "Slope {{value, number}}°",
+          "aspect": "Aspect {{value, number}}°",
+          "access": "Access: {{value}}"
+        },
+        "dialog": {
+          "title": "Site conditions: {{bed}}",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saved": "Site conditions saved.",
+          "invalid": "Check the degrees marked in red before you save."
+        },
+        "field": {
+          "title": "Moisture and wind",
+          "moisture": "Moisture at the bed",
+          "wind": "Wind",
+          "windy": "Windy",
+          "saved": "Saved.",
+          "regime": {
+            "moist": "Moist",
+            "fresh": "Normal",
+            "dry": "Dry"
+          }
+        }
       }
     },
     "bed": {
@@ -6740,7 +6800,9 @@
         "previousYear": "Previous year ({{year}}): this bed's growing history appears here once it has been recorded.",
         "rotationHint": "Crop rotation hint",
         "rotationReason": "Planted anyway: {{reason}}",
-        "changeSun": "Change sun"
+        "changeSun": "Change sun",
+        "site": "Site conditions",
+        "changeSite": "Change conditions"
       },
       "status": {
         "title": "Change bed status",
