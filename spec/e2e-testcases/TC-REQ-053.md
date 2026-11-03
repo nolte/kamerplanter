@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 59
+test_count: 60
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -21,7 +21,7 @@ coverage_areas:
   - Welle 7 — Objekt-Snap, Ausrichten/Verteilen, Mehrfach duplizieren, Auto-Save, Mini-Map
   - Welle 7 — Pflanzenzustand-Filter, Teilexport/Import-Ziel, frühere Stände, Sonnenfenster im Feldmodus
 generated: "2026-10-11"
-version: "1.7"
+version: "1.8"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -55,7 +55,7 @@ selbst (Feldwerte, Fehlercodes, Edges) wird in Integrationstests geprüft.
 Zusätzlich sind drei Testfälle aus Use Cases abgeleitet, die kein Akzeptanzkriterium trifft:
 TC-053-007 (Speichern-Status und Verlassen-Dialog, abgeleitet aus UC-02 / GP-UX-003),
 TC-053-029 (Plan drucken, abgeleitet aus UC-11) und TC-053-030 (Plan als JSON sichern,
-abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet). Die Fälle TC-053-045 bis TC-053-055 sind aus den SHOULD-Zeilen der Welle 7 abgeleitet (Abschnitt 7). Die Fälle TC-053-056 bis TC-053-059 sind aus den SHOULD-Zeilen der Welle 7, Teil B abgeleitet (Abschnitt 8).
+abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet). Die Fälle TC-053-045 bis TC-053-055 sind aus den SHOULD-Zeilen der Welle 7 abgeleitet (Abschnitt 7). Die Fälle TC-053-056 bis TC-053-059 sind aus den SHOULD-Zeilen der Welle 7, Teil B abgeleitet (Abschnitt 8); TC-053-060 aus GP-NFR-071.
 
 **Nicht** abgedeckt sind die Kriterien GP-ACC-003, 004, 009, 010, 013, 014, 017, 018, 023,
 033, 034, 037, 038, 041, 042, 043, 045, 046, 049, 050 sowie 053, 054, 055, 056 und 057 — siehe
@@ -93,6 +93,9 @@ die Aktion noch nicht an (Platzhalter-Bündel #2466).
 **Version 1.6 (2026-10-31, WP 7.26 / #2492)** — vier neue Fälle TC-053-056 bis TC-053-059 aus GP-UX-061,
 GP-FR-169, GP-FR-172, GP-FR-148/170 und GP-FR-158/159 mit GP-UX-057 (Abschnitt 8); `test_count` 55 → 59, die
 Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt. TC-053-042 und TC-053-044 bleiben unverändert.
+
+**Version 1.8 (2026-11-03, WP 8.29 / #2672)** — ein neuer Fall TC-053-060 (Messprofil Interaktion, GP-NFR-071, Abschnitt 8);
+`test_count` 59 → 60, die Abdeckungs-Matrix ist um die abgeleitete Zeile ergänzt. Die Grenzwerte sind beratend.
 
 **Version 1.7 (2026-10-31, WP 7.27 / #2493)** — keine neuen Fälle (`test_count` bleibt 59). Die Zuordnung der
 Welle-7-Zeilen GP-FR/GP-API/GP-UX (SHOULD) zu Tests steht in der generierten Matrix
@@ -1838,6 +1841,32 @@ keinen neuen Fall. Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die M
 
 ---
 
+### TC-053-060: Messprofil Interaktion — INP für Auswahl, Drag-Start und Zoom, Pinch-Frametime, Feldmodus bei 4-facher CPU-Drosselung
+
+**Requirement**: REQ-053 §9.7 GP-NFR-071 (SHOULD, abgeleitet)
+**Gerät**: Desktop und Smartphone 390 × 844
+**Priority**: Low
+**Category**: Performance
+**Preconditions**:
+- Plan mit einem Beet „Beet 1“; Chrome mit Event-Timing-Schnittstelle; für das Low-End-Profil eine Sitzung, die die CDP-Drosselung zulässt
+
+**Testschritte**:
+1. Nutzer wählt das Beet mit einem Klick, beginnt einen Drag und zoomt per Schaltfläche und mit Strg + Mausrad; die Messung liest je Szenario die längste Interaktion
+2. Nutzer öffnet den Plan auf dem Smartphone im Planungsmodus und spreizt zwei Finger
+3. Nutzer öffnet den Feldmodus mit auf das Vierfache gedrosselter CPU und tippt auf das Beet
+
+**Erwartete Ergebnisse**:
+- Je Szenario liegt ein Messwert vor (INP in ms oder „unter 16“); eine fehlende Messung ist ein Fehler
+- Beratend (kein Gate): INP ≤ 200 ms, Pinch-Frametime (95. Perzentil) ≤ 33 ms; eine Überschreitung wird als Warnung berichtet
+- Ist die Drosselung in der Sitzung nicht verfügbar, steht das als benannte Lücke im Bericht, die Messung läuft ungedrosselt
+
+**Nachbedingungen**:
+- Keine; der Bericht liegt als Tabelle in der Testausgabe und als JSON bei den Screenshots
+
+**Tags**: [req-053, performance, inp, pinch, feldmodus, desktop, smartphone, gp-nfr-071]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -1900,6 +1929,7 @@ keinen neuen Fall. Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die M
 | (abgeleitet aus GP-FR-172) | Teilexport der Auswahl, Import in einen anderen Standort | TC-053-057 |
 | (abgeleitet aus GP-FR-148/170) | Früheren Stand wiederherstellen | TC-053-058 |
 | (abgeleitet aus GP-FR-158/159, GP-UX-057) | Sonnenfenster im Feldmodus | TC-053-059 |
+| (abgeleitet aus GP-NFR-071) | Messprofil Interaktion: INP, Pinch-Frametime, Feldmodus bei 4× CPU (beratend) | TC-053-060 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
