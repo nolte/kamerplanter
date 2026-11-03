@@ -151,7 +151,7 @@ def resolve_anchor(row: dict[str, Any]) -> BedAnchor | SkipReason:
     own_location = row.get("own_location_key")
     if not refs and not own_location:
         return SkipReason.NO_REFERENCE
-    unresolved = [ref for ref in refs if not ref.get("kind") or not ref.get("location_key")]
+    unresolved = [ref for ref in refs if not ref["kind"] or not ref["location_key"]]
     if unresolved:
         return SkipReason.PARTLY_UNRESOLVED if len(unresolved) < len(refs) or own_location else SkipReason.UNRESOLVED
     locations: list[dict[str, Any]] = list(row.get("locations") or [])
@@ -169,7 +169,7 @@ def resolve_anchor(row: dict[str, Any]) -> BedAnchor | SkipReason:
     if document_tenant != site_tenant:
         return SkipReason.TENANT_MISMATCH
     plants = [ref for ref in refs if ref["kind"] == "plant"]
-    if any(ref.get("plant_tenant") != site_tenant for ref in plants):
+    if any(ref["plant_tenant"] != site_tenant for ref in plants):
         return SkipReason.TENANT_MISMATCH
     return BedAnchor(
         tenant_key=str(site_tenant),

@@ -221,7 +221,7 @@ def _flush(
         _, already = repo.insert_backfilled(events, tenant_key=tenant_key)
         stats[source]["will_write"] -= already
         stats[source]["already_present"] += already
-    pending.clear()
+    del pending[:]
 
 
 def _process_source(
@@ -272,7 +272,7 @@ def _process_source(
         # Dry run maps too: a document the mapper or the model refuses must fail the dry run, not only the real run.
         event = map_document(source, document, anchor, performed_at)
         if apply:
-            pending.append((source, event))
+            pending += [(source, event)]
             if len(pending) >= _BATCH_SIZE:
                 _flush(repo, pending, stats)
 
