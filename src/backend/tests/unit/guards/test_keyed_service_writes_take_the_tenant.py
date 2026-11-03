@@ -442,6 +442,9 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # REQ-053 WP 7.8 (#2474): the bed-template catalogue. A template is a system (global) row or the tenant's own;
     # every read admits exactly those two arms and every write names the row's owner, resolved inside the service.
     "BedTemplateService": "bed_template_service.py",
+    # REQ-053 WP 8.12 (#2655): the rotation matrix of a site. Read-only; it resolves the site through
+    # ``require_owned_site`` and reads every bed's history under the tenant.
+    "RotationMatrixService": "rotation_matrix_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -462,6 +465,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "BedHistoryService": 1,
     "IrrigationZoneService": 11,
     "BedTemplateService": 5,
+    "RotationMatrixService": 1,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -572,6 +576,9 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # REQ-053 WP 3.7 (#2397): ``list_plant_states`` resolves the bed through ``resolve_owned_location``; the class
     # has no writer, so it adds nothing to the expected set below, but its one public method takes the tenant strictly.
     "PlantStateService": "plant_state_service.py",
+    # REQ-053 WP 8.12 (#2655): ``rotation_matrix`` anchors on ``require_owned_site``; read-only, so it adds nothing to
+    # the expected writers, but its one public method takes the tenant strictly.
+    "RotationMatrixService": "rotation_matrix_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {

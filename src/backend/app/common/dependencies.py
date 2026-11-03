@@ -123,6 +123,7 @@ from app.domain.services.planting_reservation_service import PlantingReservation
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.post_harvest_service import PostHarvestService
 from app.domain.services.propagation_service import PropagationService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
@@ -529,9 +530,9 @@ def get_adjacency_service() -> AdjacencyService:
     return AdjacencyService(get_site_repo(), get_garden_plan_repo(), get_graph_repo())
 
 
-def get_bed_rotation_service() -> BedRotationService:
-    """REQ-053 WP 3.4 — bed-level crop rotation, companion hints and the history backfill."""
-    validator = CropRotationValidator(
+def _bed_rotation_validator() -> CropRotationValidator:
+    """The crop-rotation validator wired for the bed level (site, family and history repositories)."""
+    return CropRotationValidator(
         get_plant_repo(),
         get_species_repo(),
         get_graph_repo(),
@@ -539,6 +540,10 @@ def get_bed_rotation_service() -> BedRotationService:
         family_repo=get_family_repo(),
         history_repo=ArangoRotationHistoryRepository(get_db()),
     )
+
+
+def get_bed_rotation_service() -> BedRotationService:
+    """REQ-053 WP 3.4 — bed-level crop rotation, companion hints and the history backfill."""
     return BedRotationService(
         get_site_repo(),
         get_garden_plan_repo(),
@@ -546,8 +551,13 @@ def get_bed_rotation_service() -> BedRotationService:
         get_species_repo(),
         get_family_repo(),
         get_care_event_service(),
-        validator,
+        _bed_rotation_validator(),
     )
+
+
+def get_rotation_matrix_service() -> RotationMatrixService:
+    """REQ-053 WP 8.12 — the rotation matrix of a site (beds x years x season), read through the bed validator."""
+    return RotationMatrixService(get_site_repo(), get_garden_plan_repo(), _bed_rotation_validator())
 
 
 def get_plant_state_service() -> PlantStateService:

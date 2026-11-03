@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date, datetime
 from typing import Any, Literal
 
@@ -32,6 +33,7 @@ from app.domain.calculators.planting_layout_calculator import (
     EntryLayout,
     LayoutResult,
 )
+from app.domain.engines.crop_rotation_validator import TimelineEntry
 from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
@@ -744,6 +746,22 @@ class RotationPlantingResponse(BaseModel):
         default=None, description="The backfill event; cancel it with `DELETE …/history/backfill/{key}`."
     )
 
+    @classmethod
+    def from_entry(cls, entry: TimelineEntry) -> RotationPlantingResponse:
+        """The one mapping from a timeline row to its response - the bed timeline and the site matrix both use it."""
+        return cls.model_validate(
+            {
+                "season": entry.season,
+                "family_key": entry.family_key,
+                "family_name": entry.family_name,
+                "species_key": entry.species_key,
+                "nutrient_demand": entry.nutrient_demand,
+                "plan_role": entry.plan_role,
+                "source": entry.source,
+                "care_event_key": entry.event_key,
+            }
+        )
+
 
 class RotationYearResponse(BaseModel):
     model_config = ConfigDict(
@@ -766,6 +784,19 @@ class RotationYearResponse(BaseModel):
 
     year: int
     plantings: list[RotationPlantingResponse]
+
+
+def rotation_year_responses(entries: Iterable[TimelineEntry], years: Iterable[int]) -> list[RotationYearResponse]:
+    """One :class:`RotationYearResponse` per year of ``years``, in that order, holding the rows of that year.
+
+    The single grouping behind ``GET /locations/{key}/rotation`` (newest year first) and the site rotation matrix
+    (oldest first): a year nobody recorded is an empty list, a row outside ``years`` is not shown.
+    """
+    by_year: dict[int, list[RotationPlantingResponse]] = {year: [] for year in years}
+    for entry in entries:
+        if entry.year in by_year:
+            by_year[entry.year].append(RotationPlantingResponse.from_entry(entry))
+    return [RotationYearResponse(year=year, plantings=rows) for year, rows in by_year.items()]
 
 
 class RotationTimelineResponse(BaseModel):
