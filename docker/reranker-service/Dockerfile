@@ -19,7 +19,7 @@
 # project environment lives in /opt/venv, built by the `venv` stage below and
 # copied into a runtime stage that has no uv at all (#1725).
 FROM python:3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8 AS uv-base
-COPY --from=ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1 \
