@@ -474,6 +474,7 @@ def get_garden_plan_export_service() -> GardenPlanExportService:
         # #2489 — plant states and phase names for the printed markers and legend.
         plant_state_repo=ArangoPlantStateRepository(get_db()),
         phase_repo=get_lifecycle_repo(),
+        forecast_repo=get_weather_forecast_repo(),
     )
 
 
@@ -551,7 +552,7 @@ def get_bed_rotation_service() -> BedRotationService:
 
 def get_plant_state_service() -> PlantStateService:
     """REQ-053 WP 3.7 — the visual state and the info-bubble facts of the plants of a bed."""
-    return PlantStateService(get_site_repo(), ArangoPlantStateRepository(get_db()))
+    return PlantStateService(get_site_repo(), ArangoPlantStateRepository(get_db()), get_weather_forecast_repo())
 
 
 def get_bed_history_service() -> BedHistoryService:

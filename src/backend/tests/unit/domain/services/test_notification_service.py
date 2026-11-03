@@ -650,6 +650,78 @@ class TestSendFrostForecastNotifications:
         mock_notification_repo.find_notified_user_keys.assert_called_once_with(group_key, tenant_key="t1")
 
     @pytest.mark.asyncio
+    async def test_names_the_beds_at_frost_risk_without_changing_the_group_key(
+        self, service, mock_engine, mock_notification_repo
+    ):
+        mock_notification_repo.find_notified_user_keys.return_value = set()
+        mock_engine.notify.return_value = self._delivered()
+
+        await service.send_frost_forecast_notifications(
+            "t1",
+            ["u1"],
+            site_key="site1",
+            site_name="Balcony",
+            expected_date=self._DATE,
+            min_temp=-2.0,
+            source="open-meteo",
+            frost_beds=[("b2", "Beet 2"), ("b1", "Beet 1")],
+        )
+
+        _user, _tenant, notification = mock_engine.notify.await_args.args
+        assert "Beds at frost risk: Beet 2, Beet 1." in notification.body
+        assert notification.data["frost_bed_keys"] == ["b2", "b1"]
+        assert notification.group_key == f"frost-forecast:site1:{self._DATE.isoformat()}"
+
+    @pytest.mark.asyncio
+    async def test_a_long_bed_list_is_cut_in_the_text(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.find_notified_user_keys.return_value = set()
+        mock_engine.notify.return_value = self._delivered()
+
+        await service.send_frost_forecast_notifications(
+            "t1",
+            ["u1"],
+            site_key="site1",
+            site_name="Balcony",
+            expected_date=self._DATE,
+            min_temp=-2.0,
+            source=None,
+            frost_beds=[(f"b{i}", f"Bed {i}") for i in range(8)],
+        )
+
+        _user, _tenant, notification = mock_engine.notify.await_args.args
+        assert "Bed 4 and 3 more." in notification.body and "Bed 5" not in notification.body
+
+    @pytest.mark.asyncio
+    async def test_a_bed_name_is_cleaned_and_cut_in_the_text(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.find_notified_user_keys.return_value = set()
+        mock_engine.notify.return_value = self._delivered()
+
+        await service.send_frost_forecast_notifications(
+            "t1",
+            ["u1"],
+            site_key="site1",
+            site_name="Balcony",
+            expected_date=self._DATE,
+            min_temp=-2.0,
+            source=None,
+            frost_beds=[("b1", "Line\nbreak" + "x" * 200)],
+        )
+
+        _user, _tenant, notification = mock_engine.notify.await_args.args
+        assert "\n" not in notification.body
+        assert "Line break" in notification.body and "x" * 61 not in notification.body
+
+    @pytest.mark.asyncio
+    async def test_no_beds_leaves_the_text_as_before(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.find_notified_user_keys.return_value = set()
+        mock_engine.notify.return_value = self._delivered()
+
+        await self._send(service, ["u1"])
+
+        _user, _tenant, notification = mock_engine.notify.await_args.args
+        assert "Beds at frost risk" not in notification.body
+
+    @pytest.mark.asyncio
     async def test_counts_only_delivered_sends(self, service, mock_engine, mock_notification_repo):
         # F5: only genuinely delivered results increment users_notified.
         mock_notification_repo.find_notified_user_keys.return_value = set()

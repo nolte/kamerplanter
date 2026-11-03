@@ -25,7 +25,7 @@ from urllib.request import OpenerDirector, Request, url2pathname
 import pytest
 from structlog.testing import capture_logs
 
-from app.common.enums import BedStatus, GardenObjectType, SunExposure
+from app.common.enums import BedStatus, FrostRisk, GardenObjectType, SunExposure
 from app.common.exceptions import NotFoundError, PlanError
 from app.domain.calculators.plant_state_calculator import OpenTask
 from app.domain.engines.plan_svg_engine import (
@@ -39,7 +39,8 @@ from app.domain.engines.print_engine import TEMPLATES_DIR, PrintEngine
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlantShortInfo
-from app.domain.models.site import SitePlan, Slot
+from app.domain.models.site import Microclimate, SiteConditions, SitePlan, Slot
+from app.domain.models.weather import WeatherForecast
 from app.domain.services.garden_plan_export_service import (
     _MAX_STATE_PAGES,
     STATE_PAGE_SIZE,
@@ -531,7 +532,7 @@ def _source(plant_key: str, phase_key: str | None = "ph-flower", **overrides) ->
     return PlantStateSource(**fields)
 
 
-def _stated_world(repo: FakePlanRepo, per_bed: dict[str, list[PlantStateSource]]):
+def _stated_world(repo: FakePlanRepo, per_bed: dict[str, list[PlantStateSource]], forecast_repo=None):
     repo.plants = [
         PlantShortInfo(
             key=row.plant_key,
@@ -552,6 +553,7 @@ def _stated_world(repo: FakePlanRepo, per_bed: dict[str, list[PlantStateSource]]
         _CapturingEngine(),
         plant_state_repo=states,
         phase_repo=phases,  # type: ignore[arg-type]
+        forecast_repo=forecast_repo,
     )
     return service, states, phases
 
@@ -840,3 +842,58 @@ class TestStatedPdfBudget:
         (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
         assert len(layer.findall(f"{SVG}circle")) == PLANT_COUNTER_THRESHOLD - 1
         assert len(layer.findall(f"{SVG}g")) > 0
+
+
+class _Forecasts:
+    def __init__(self, forecasts: list[WeatherForecast]) -> None:
+        self.forecasts = forecasts
+
+    def find_by_site(self, site_key: str, tenant_key: str) -> list[WeatherForecast]:
+        return self.forecasts
+
+
+class TestFrostReasonOnPaper:
+    """WP 8.20: the printed state carries the frost reason by the rule of the screen (same bed, same verdict)."""
+
+    @staticmethod
+    def _world(repo, bed_risk: FrostRisk, temp_min: float):
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"site_conditions": SiteConditions(microclimate=Microclimate(frost_risk=bed_risk))}
+        )
+        night = WeatherForecast(
+            site_key=SITE,
+            tenant_key=TENANT,
+            forecast_date=STATE_NOW.date(),
+            temp_min_c=temp_min,
+            source="open-meteo",
+            fetched_at=STATE_NOW,
+            data_kind="forecast",
+        )
+        service, states, _ = _stated_world(repo, {"b1": [_source("p1")]}, _Forecasts([night]))
+        marks = service._plant_marks(
+            service._view(SITE, tenant_key=TENANT, options=_options()),
+            tenant_key=TENANT,
+            options=_options(),
+            now=STATE_NOW,
+        )
+        screen = PlantStateService(repo._sites, states, _Forecasts([night])).list_plant_states(
+            "b1", tenant_key=TENANT, now=STATE_NOW
+        )
+        return marks, screen
+
+    def test_a_high_bed_and_a_predicted_frost_print_the_reason_like_the_screen(self, repo) -> None:
+        marks, screen = self._world(repo, FrostRisk.HIGH, -2.0)
+        assert marks is not None
+        assert any(item.reason == "frost" for item in marks.states["p1"].attention)
+        assert marks.states["p1"] == screen[0].state
+
+    def test_a_low_bed_prints_no_reason_even_with_a_frost(self, repo) -> None:
+        marks, screen = self._world(repo, FrostRisk.LOW, -2.0)
+        assert marks is not None
+        assert all(item.reason != "frost" for item in marks.states["p1"].attention)
+        assert marks.states["p1"] == screen[0].state
+
+    def test_a_high_bed_without_a_predicted_frost_prints_no_reason(self, repo) -> None:
+        marks, _screen = self._world(repo, FrostRisk.HIGH, 9.0)
+        assert marks is not None
+        assert all(item.reason != "frost" for item in marks.states["p1"].attention)
