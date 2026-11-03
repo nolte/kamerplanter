@@ -13,6 +13,8 @@ role check answers 422 where the spec says 403.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from structlog.testing import capture_logs
 
@@ -941,6 +943,54 @@ class TestThePlanReadModel:
         sites = FakeSites(site)
         view = GardenPlanService(sites, FakePlanRepo(sites)).get_plan(SITE, tenant_key=TENANT)
         assert view.plan is None and view.plan_revision == 0
+
+    def test_the_view_is_the_one_a_validated_construction_gives(self, world):
+        """#2526: ``get_plan`` constructs the view without validating it again; nothing may differ from that.
+
+        Every part carries a derivation a second validation would redo: a rotated bed (area, bbox), a tree
+        drawn as a circle (crown radius from the geometry), a point object (bbox with its radius), slots,
+        plants and counters. Breaks if the constructed view lacks a field, holds a raw value where the model
+        holds a typed one, or carries a value the model's validators would have derived differently.
+        """
+        service, repo, _ = world
+        repo.locations["bed"] = make_location("bed", geometry=rect(1, 1.5, 2, 1, 30))
+        repo.objects["tree"] = GardenObject(
+            _key="tree",
+            site_key=SITE,
+            object_type=GardenObjectType.TREE,
+            geometry={"kind": "circle", "origin": [6, 6], "radius_m": 1.25},
+            props={"crown_radius_m": 1.0},
+        )
+        repo.objects["barrel"] = GardenObject(
+            _key="barrel",
+            site_key=SITE,
+            object_type=GardenObjectType.WATER_SOURCE,
+            geometry={"kind": "point", "origin": [9.7, 0.4]},
+            props={"water_source_kind": "rain_barrel"},
+        )
+        repo.slots = [
+            Slot(_key="s0", slot_id="BED_P0", location_key="bed", geometry={"kind": "point", "origin": [0.3, 0.2]}),
+            Slot(_key="s1", slot_id="BED_P1", location_key="bed"),
+        ]
+        repo.plants = [PlantShortInfo(key="p", instance_id="T-1", species_key="sp", location_key="bed", slot_key="s0")]
+        repo.task_counters = {"bed": TaskCounter(open_task_count=2, overdue_task_count=1)}
+        repo.object_task_counters = {"barrel": TaskCounter(open_task_count=1)}
+        repo.last_watered = {"bed": datetime(2026, 10, 1, 6, 30, tzinfo=UTC)}
+
+        view = service.get_plan(SITE, tenant_key=TENANT)
+        validated = type(view)(**{name: getattr(view, name) for name in type(view).model_fields})
+
+        # Model equality is type-sensitive all the way down: a raw dict where a PlanSlotView belongs, or a string
+        # where a datetime belongs, dumps to the same JSON but is not equal.
+        assert view == validated
+        assert view.model_dump() == validated.model_dump()
+        assert view.model_dump_json() == validated.model_dump_json()
+        assert view.model_fields_set == set(type(view).model_fields)
+        objects = {obj.key: obj for obj in view.garden_objects}
+        assert objects["tree"].props.crown_radius_m == 1.25  # derived from the circle, not the 1.0 handed in
+        assert all(isinstance(plant, PlantShortInfo) for plant in view.plants)
+        assert len(view.locations) == 1 and len(objects) == 2
+        assert len(view.slots) == 2 and len(view.plants) == 1 and view.season_states == {"bed": "planted"}
 
 
 class TestNoUserTextInLogs:

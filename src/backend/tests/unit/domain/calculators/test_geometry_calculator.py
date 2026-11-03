@@ -162,6 +162,19 @@ class TestTransformProperties:
             # Any point of the bed frame rectangle lands inside the rotated rect in the plan.
             assert calc.contains(calc.to_shape(rect), calc.VertexShape((plan_point,), closed=False))
 
+    @properties
+    @given(rect=rects(), rng=_rngs)
+    def test_the_bound_transform_is_anchor_plus_rotate_point_bit_for_bit(
+        self, rect: RectGeometry, rng: random.Random
+    ) -> None:
+        """#2526: ``bed_to_plan_transform`` resolves the bed once; its result is §9.2's formula, the same float."""
+        to_plan = calc.bed_to_plan_transform(rect)
+        ax, ay = calc.anchor(rect)
+        for _ in range(5):
+            point = (rng.uniform(-rect.width_m, rect.width_m), rng.uniform(-rect.length_m, rect.length_m))
+            rx, ry = calc.rotate_point(point, calc.rotation_deg(rect))
+            assert to_plan(point) == (ax + rx, ay + ry)
+
     def test_rotate_point_by_zero_is_identity(self) -> None:
         assert calc.rotate_point((3.0, 4.0), 0.0, (1.0, 1.0)) == (3.0, 4.0)
 

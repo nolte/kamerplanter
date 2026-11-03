@@ -14,6 +14,7 @@ which cannot import each other.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
@@ -110,9 +111,18 @@ def _since(now: datetime, days: int) -> str:
 
 
 def last_waterings(
-    db: StandardDatabase, location_keys: list[str], *, tenant_key: str, now: datetime
+    db: StandardDatabase,
+    location_keys: list[str],
+    *,
+    tenant_key: str,
+    now: datetime,
+    slot_to_bed: Mapping[str, str] | None = None,
 ) -> dict[str, LastWatering]:
-    """The newest watering per bed, from both sources; a bed without one is absent."""
+    """The newest watering per bed, from both sources; a bed without one is absent.
+
+    ``slot_to_bed`` is the map of **every** slot of the beds (archived ones included) to its bed, for a caller
+    that has read the slots already (the plan read model, #2526); ``None`` queries it.
+    """
     if not location_keys:
         return {}
     since = _since(now, LOOKBACK_DAYS)
@@ -135,7 +145,8 @@ def last_waterings(
             found[row["location"]] = LastWatering(
                 at=moment, source="care_event", location_key=row["location"], allocation=row["allocation"]
             )
-    slot_to_bed = _slots_of(db, location_keys)
+    if slot_to_bed is None:
+        slot_to_bed = _slots_of(db, location_keys)
     if slot_to_bed:
         slot_rows = cast(
             "Cursor",
