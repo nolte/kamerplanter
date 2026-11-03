@@ -85,7 +85,7 @@ def _repo() -> MagicMock:
     repo.get_location_or_raise.side_effect = location_or_raise
     repo.get_location_by_key.side_effect = locations.get
     repo.create_location.side_effect = lambda loc: loc.model_copy(update={"key": "loc-new"})
-    repo.update_location.side_effect = lambda key, loc: loc.model_copy(update={"key": key})
+    repo.update_location.side_effect = lambda key, loc, **_kwargs: loc.model_copy(update={"key": key})
     return repo
 
 
