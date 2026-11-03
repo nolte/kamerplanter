@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 
 from app.common.enums import SiteFit, SunExposure
-from app.domain.calculators.site_fit_calculator import assess, compute
+from app.domain.calculators.site_fit_calculator import assess, assess_axes, compute
 from tests.support.repo_scripts import find_repo_root
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
@@ -26,6 +26,8 @@ VECTORS: dict[str, Any] = json.loads(
     (_REPO_ROOT / "spec" / "e2e-testcases" / "fixtures" / "garden-plan-vectors.json").read_text(encoding="utf-8")
 )
 CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] == "site_fit"]
+
+AXIS_CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] == "site_fit_axes"]
 
 #: GP-ACC-053 names these; the file must keep them.
 GP_ACC_053_CASES = {
@@ -93,3 +95,55 @@ class TestRules:
     def test_steps_are_negative_when_the_bed_is_shadier(self) -> None:
         assert assess("shade", "partial_shade", "shade").steps == -1
         assert assess("full_sun", "shade", None).steps == 2
+
+
+@pytest.mark.parametrize("case", [pytest.param(c, id=c["id"]) for c in AXIS_CASES])
+def test_axes_reference_matches_the_shared_vector(case: dict[str, Any]) -> None:
+    assert assess_axes(**case["input"]) == case["expected"], case["spec"]
+
+
+class TestAxes:
+    """GP-FR-161: three cells speak, every other cell and every unknown side is off (E-10)."""
+
+    def test_the_operation_is_documented_and_every_axis_cell_is_covered(self) -> None:
+        assert "site_fit_axes" in VECTORS["operations"]
+        frost = {(c["input"]["frost_risk"], c["input"]["frost_sensitivity"]) for c in AXIS_CASES}
+        for bed in ("low", "normal", "high", "unknown"):
+            for species in ("sensitive", "moderate", "hardy", "very_hardy", None):
+                assert (bed, species) in frost
+        wind = {(c["input"]["wind_exposure"], c["input"]["support_required"]) for c in AXIS_CASES}
+        for bed in ("sheltered", "normal", "exposed", "unknown"):
+            for flag in (True, False, None):
+                assert (bed, flag) in wind
+        drainage = {(c["input"]["drainage"], c["input"]["waterlogging_tolerance"]) for c in AXIS_CASES}
+        for bed in ("poor", "moderate", "good", "unknown"):
+            for species in ("sensitive", "moderate", "tolerant", None):
+                assert (bed, species) in drainage
+
+    def test_exactly_the_three_confirmed_cells_speak(self) -> None:
+        speaking = {c["id"] for c in AXIS_CASES if c["expected"] and len(c["expected"]) == 1}
+        assert speaking == {
+            "site-fit-axes-frost-high-sensitive",
+            "site-fit-axes-wind-exposed-true",
+            "site-fit-axes-drainage-poor-sensitive",
+        }
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ("high", "moderate", None, None, None, None),  # a cell without a source stays off
+            ("normal", "sensitive", None, None, None, None),
+            (None, None, "exposed", False, None, None),
+            (None, None, None, None, "poor", "moderate"),
+        ],
+    )
+    def test_a_mapping_cell_without_a_source_gives_no_hint(self, args) -> None:
+        assert assess_axes(*args) == []
+
+    def test_enums_are_accepted_and_a_missing_species_value_is_never_tolerant(self) -> None:
+        from app.common.enums import FrostRisk, SoilDrainage, WindExposure
+
+        assert assess_axes(FrostRisk.HIGH, "sensitive", WindExposure.EXPOSED, True, SoilDrainage.POOR, None) == [
+            "frost_mismatch",
+            "wind_support_needed",
+        ]

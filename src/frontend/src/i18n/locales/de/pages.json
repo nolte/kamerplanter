@@ -7269,6 +7269,11 @@
           "done": "Aufgabe angelegt: {{plant}} nach {{bed}} umpflanzen."
         },
         "siteFit": {
+          "axis": {
+            "frost_mismatch": "{{name}} ist frostempfindlich, und die Frostgefahr an diesem Beet ist erhöht.",
+            "wind_support_needed": "{{name}} braucht eine Stütze, und dieses Beet ist dem Wind ausgesetzt.",
+            "waterlogging_risk": "{{name}} verträgt Staunässe schlecht, und dieses Beet ist schlecht drainiert."
+          },
           "fit": {
             "ok": "gut geeignet",
             "marginal": "bedingt geeignet",

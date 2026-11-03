@@ -4,11 +4,13 @@
  */
 import type {
   BedStatus,
+  FrostRisk,
   Geometry,
   PlanSunProfile,
   PlanSunProfilePatch,
   SoilDrainage,
   SunExposure,
+  WindExposure,
 } from '../model/types';
 
 export type { SoilDrainage };
@@ -95,6 +97,9 @@ export type SunProfilePatch = PlanSunProfilePatch;
 /** The slice of `Location.site_conditions` this UI reads; the other parts are carried untouched. */
 export interface SiteConditionsSlice {
   sun_profile?: SunProfile;
+  /** The frost risk and the wind load the planting dialog's site hints read (GP-FR-161). */
+  microclimate?: { frost_risk?: FrostRisk };
+  wind_exposure?: WindExposure;
 }
 
 /** One row of `GET /locations?site_key=&is_bed=true` (counters are `null` on a plain listing). */
@@ -110,6 +115,8 @@ export interface BedListItem {
   bed_status: BedStatus;
   sun_exposure: SunExposure;
   site_conditions?: SiteConditionsSlice | null;
+  /** Carried by the location document; only the drainage is read on a listing (GP-FR-161). */
+  soil_profile?: Pick<SoilProfile, 'drainage'> | null;
   active_plant_count?: number | null;
   open_task_count?: number | null;
   overdue_task_count?: number | null;
