@@ -163,6 +163,8 @@ export interface GardenPlanEditorProps {
   onOpenLocation?: (locationKey: string) => void;
   /** Opens the care tab of a bed: the task badge on the plan and the panel button (GP-FR-089). */
   onOpenCare?: (locationKey: string) => void;
+  /** Open "add with dimensions" when the editor mounts: the empty plan's "add the first bed" (#2617). */
+  initialAddOpen?: boolean;
 }
 
 /** The wheel zooms stepless: `exp(-deltaY * this)` per event (the buttons and + / - use the fixed levels). */
@@ -264,6 +266,7 @@ export function GardenPlanEditor({
   minPxPerM = 0,
   onOpenLocation,
   onOpenCare,
+  initialAddOpen = false,
 }: GardenPlanEditorProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -405,7 +408,7 @@ export function GardenPlanEditor({
   const [bedTypeChoice, setBedTypeChoice] = useState<string | null>(null);
   const [objectType, setObjectType] = useState<GardenObjectType>('other');
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(initialAddOpen);
   const [templateMode, setTemplateMode] = useState<TemplateMode | null>(null);
   const [placing, setPlacing] = useState(false);
   const [ghostPoint, setGhostPoint] = useState<Point | null>(null);
@@ -442,6 +445,13 @@ export function GardenPlanEditor({
   const onStack = useCallback((next: typeof stack) => void dispatch(setStack(next)), [dispatch]);
   const onTool = useCallback((next: PlanTool) => void dispatch(setTool(next)), [dispatch]);
   const focusPlan = useCallback(() => canvasRef.current?.focus(), []);
+  // The empty plan's "add the first bed" button is gone once the editor mounts, so closing the dialog it
+  // opened would drop the focus to the page; it goes to the plan instead (WCAG 2.4.3, #2617).
+  const addWasOpen = useRef(initialAddOpen);
+  useEffect(() => {
+    if (!addOpen && addWasOpen.current && initialAddOpen) focusPlan();
+    addWasOpen.current = addOpen;
+  }, [addOpen, initialAddOpen, focusPlan]);
   const focusSurface = useCallback(() => {
     pendingFocus.current = view === 'plan' ? 'plan' : 'list';
   }, [view]);
