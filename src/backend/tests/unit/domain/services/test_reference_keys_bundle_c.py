@@ -189,7 +189,7 @@ class _Sites:
     def get_slot_by_key(self, key: str):
         return None
 
-    def update_location(self, key: str, location: Location) -> Location:
+    def update_location(self, key: str, location: Location, *, untouched, frost_risk=None) -> Location:
         self.writes.append(key)
         return location
 

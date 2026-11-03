@@ -781,15 +781,38 @@ class BaseArangoRepository[TModel: BaseModel]:
             raise
         return self._from_doc(result["new"])
 
-    def _update_doc(self, key: str, model: BaseModel) -> dict[str, Any]:
+    def _update_doc(
+        self,
+        key: str,
+        model: BaseModel,
+        *,
+        untouched: Collection[str] = (),
+        merged: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Rewrite a document from a full model dump (:meth:`_to_doc` validates it).
 
         Null handling follows :attr:`_update_is_full_replace`; ``created_at`` is
         stripped in full-replace mode so a model without one cannot erase the
         stored timestamp.
+
+        ``untouched`` names model fields that are validated with the model but
+        left out of the write, so the stored attributes stay as they are at write
+        time (ArangoDB's update leaves an attribute the document does not name
+        alone): a caller holding a stale copy of them cannot revert a newer value
+        (#2623). ``merged`` is added to the written document afterwards; an object
+        value there is merged into the stored object (ArangoDB's default
+        ``mergeObjects``), so it can set one sub-key of an untouched column.
         """
         full_replace = self._update_is_full_replace
         data = self._to_doc(model, exclude_none=not full_replace)
+        fields = type(model).model_fields
+        for name in untouched:
+            if name not in fields:
+                # A misspelt name must not turn into a column that is quietly written after all.
+                raise AttributeError(f"{type(model).__name__} has no field {name!r} to leave untouched")
+            data.pop(fields[name].alias or name, None)
+        if merged:
+            data.update(merged)
         if full_replace:
             data.pop("created_at", None)
         data["updated_at"] = self._now()

@@ -13,7 +13,7 @@ import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import type { GardenPlanResponse } from '@/features/gardenPlanner/model/types';
 import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
-import { createStoreWithModuleOverrides, renderWithProviders } from '@/test/helpers';
+import { createStoreWithModuleOverrides, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import { bedListItem } from '@/features/gardenPlanner/bed/bedTestKit';
 
@@ -24,8 +24,8 @@ function usePlan(body: GardenPlanResponse = planResponse({ locations: [bed('loc_
 }
 
 /** A store with the real root reducer, so the lazily injected slice is exercised for real. */
-function renderRoute(route = '/standorte/sites/site_1/plan') {
-  const store = configureStore({ reducer: rootReducer });
+function renderRoute(route = '/standorte/sites/site_1/plan', preloadedState?: Record<string, unknown>) {
+  const store = configureStore({ reducer: rootReducer, preloadedState: preloadedState as never });
   const router = createMemoryRouter(
     [
       { path: 'standorte/sites/:key/plan', element: <GardenPlanRoute /> },
@@ -192,6 +192,60 @@ describe('GardenPlanRoute', () => {
     expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
   });
 
+  describe('empty plan: the first bed (GP-UX-049, #2617)', () => {
+    const emptyPlan = () => planResponse({ plan: null, locations: [], garden_objects: [], slots: [], plants: [] });
+    const set = (id: string, value: string) => fireEvent.change(screen.getByTestId(id), { target: { value } });
+
+    it('offers a grower the one next step, and it opens the editor with "add with dimensions"', async () => {
+      usePlan(emptyPlan());
+      renderRoute(undefined, tenantState('grower'));
+      await screen.findByTestId('garden-plan-empty');
+      // The description names the next step; the action is a named, touch-sized button.
+      expect(screen.getByText(/As the next step, add the first bed with its dimensions/)).toBeInTheDocument();
+      const action = screen.getByRole('button', { name: 'Add the first bed' });
+      expect(action).toHaveAttribute('data-testid', 'garden-plan-empty-add-bed');
+      expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
+
+      fireEvent.click(action);
+      expect(await screen.findByTestId('garden-plan-canvas')).toBeInTheDocument();
+      expect(screen.getByTestId('garden-plan-editor')).toBeInTheDocument();
+      expect(await screen.findByRole('dialog', { name: 'Add with dimensions' })).toBeInTheDocument();
+      expect(screen.queryByTestId('garden-plan-empty')).toBeNull();
+    });
+
+    it('keeps the editor once the first bed is created through the dialog', async () => {
+      usePlan(emptyPlan());
+      const { store, container } = renderRoute(undefined, tenantState('lead'));
+      fireEvent.click(await screen.findByTestId('garden-plan-empty-add-bed'));
+      await screen.findByTestId('garden-plan-add-dialog');
+      set('garden-plan-add-name', 'First bed');
+      set('garden-plan-add-x', '4');
+      set('garden-plan-add-y', '4');
+      set('garden-plan-add-width', '1,2');
+      set('garden-plan-add-length', '2');
+      fireEvent.click(screen.getByTestId('garden-plan-add-submit'));
+      await waitFor(() => expect(screen.queryByTestId('garden-plan-add-dialog')).toBeNull());
+
+      const locations = Object.values(store.getState().gardenPlan!.plan!.locations);
+      expect(locations).toHaveLength(1);
+      expect(locations[0]).toMatchObject({ name: 'First bed', geometry: { kind: 'rect', origin: [4, 4] } });
+      // The plan is no longer empty and the editor stays: the new bed is drawn, the empty state does not return.
+      expect(screen.getByTestId('garden-plan-canvas')).toBeInTheDocument();
+      expect(container.querySelector(`[data-plan-key="${locations[0].key}"]`)).not.toBeNull();
+      expect(screen.queryByTestId('garden-plan-empty')).toBeNull();
+    });
+
+    it('shows a viewer the empty state without the action', async () => {
+      usePlan(emptyPlan());
+      renderRoute(undefined, tenantState('viewer'));
+      await screen.findByTestId('garden-plan-empty');
+      expect(screen.getByText(/Members with the grower or lead role create the beds/)).toBeInTheDocument();
+      expect(screen.queryByTestId('garden-plan-empty-add-bed')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Add the first bed' })).toBeNull();
+      expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
+    });
+  });
+
   it('shows the existing error display for a site of another tenant (404) and retries', async () => {
     server.use(
       http.get(PLAN_URL, () =>
@@ -283,6 +337,12 @@ describe('GardenPlanRoute', () => {
     const empty = renderRoute();
     await screen.findByTestId('garden-plan-empty');
     await expectNoA11yViolations(empty.container);
+    empty.unmount();
+
+    // The empty state with its action (a grower, #2617).
+    const emptyWithAction = renderRoute(undefined, tenantState('grower'));
+    await screen.findByTestId('garden-plan-empty-add-bed');
+    await expectNoA11yViolations(emptyWithAction.container);
   });
 });
 

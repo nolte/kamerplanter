@@ -81,7 +81,7 @@ class TestLocationUpdateNullReset:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         # Verify the update call was made
         coll.update.assert_called_once()
@@ -129,7 +129,7 @@ class TestLocationUpdateNullReset:
             }
         }
 
-        result = repo.update_location("loc-2", location)
+        result = repo.update_location("loc-2", location, untouched=())
 
         # Payload must include frost_exposed: None
         call_args = coll.update.call_args
@@ -172,7 +172,7 @@ class TestLocationUpdateTrueFalseToggle:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -209,7 +209,7 @@ class TestLocationUpdateTrueFalseToggle:
             }
         }
 
-        result = repo.update_location("loc-2", location)
+        result = repo.update_location("loc-2", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -250,7 +250,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -287,7 +287,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -324,7 +324,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -361,7 +361,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -407,7 +407,7 @@ class TestLocationUpdateNonNullFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         # Non-null fields are in the payload
         call_args = coll.update.call_args
@@ -460,7 +460,7 @@ class TestLocationUpdateComputedFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         # Computed fields are in the payload (for consistency)
         call_args = coll.update.call_args
@@ -501,7 +501,7 @@ class TestLocationUpdateNotFound:
         coll.update.side_effect = self._make_document_update_error(1202)
 
         with pytest.raises(NotFoundError) as exc_info:
-            repo.update_location("nonexistent-key", location)
+            repo.update_location("nonexistent-key", location, untouched=())
 
         assert exc_info.value.error_code == "ENTITY_NOT_FOUND"
         assert "nonexistent-key" in str(exc_info.value)
@@ -517,7 +517,7 @@ class TestLocationUpdateNotFound:
         coll.update.side_effect = self._make_document_update_error(400)
 
         with pytest.raises(DocumentUpdateError) as exc_info:
-            repo.update_location("loc-1", location)
+            repo.update_location("loc-1", location, untouched=())
 
         # Verify it's not NotFoundError (which would have been raised for 1202)
         assert not isinstance(exc_info.value, NotFoundError)
@@ -561,7 +561,7 @@ class TestLocationUpdateExcludeNoneAndKeepNoneFlags:
             }
         }
 
-        repo.update_location("loc-1", location)
+        repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -603,7 +603,7 @@ class TestLocationUpdateExcludeNoneAndKeepNoneFlags:
             }
         }
 
-        repo.update_location("loc-1", location)
+        repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         assert call_args.kwargs.get("keep_none") is False

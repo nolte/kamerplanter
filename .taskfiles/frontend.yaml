@@ -38,7 +38,7 @@ tasks:
       - npx tsc --noEmit
 
   test:frontend:
-    desc: Run the frontend vitest suite — the CI gate's exact invocation
+    desc: Run the frontend vitest suite without coverage (fast local loop; CI runs `coverage:frontend`)
     dir: src/frontend
     cmds:
       - npx vitest run {{.CLI_ARGS}}
@@ -70,10 +70,9 @@ tasks:
 
   coverage:frontend:
     desc: |
-      Frontend coverage run with enforced thresholds — what the advisory CI
-      Coverage job executes (frontend.yml → gh-plumbing reusable, fail-under
-      80). The thresholds themselves live in vite.config.ts, so this local run
-      fails on the same numbers CI fails on.
+      Frontend test run WITH coverage — the single vitest run of the required
+      CI check `lint-test-build (22)` (frontend.yml). The thresholds live in
+      vitest.config.ts, so this local run fails on the same numbers CI fails on.
     dir: src/frontend
     cmds:
       - npm run test:coverage

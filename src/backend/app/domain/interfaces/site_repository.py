@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from collections.abc import Collection
 from dataclasses import dataclass
 
+from app.common.enums import FrostRisk
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.domain.models.site import Location, Site, Slot
 
@@ -73,7 +75,22 @@ class ISiteRepository(ABC):
     def create_location(self, location: Location) -> Location: ...
 
     @abstractmethod
-    def update_location(self, key: LocationKey, location: Location) -> Location: ...
+    def update_location(
+        self,
+        key: LocationKey,
+        location: Location,
+        *,
+        untouched: Collection[str],
+        frost_risk: FrostRisk | None = None,
+    ) -> Location:
+        """Rewrite a location from *location* without writing the ``untouched`` columns (#2623).
+
+        The ``untouched`` columns keep the values stored at write time, not the ones the caller read: a column
+        another path (the plan batch, ``PATCH /locations``) wrote after the caller's read is not reverted.
+        ``frost_risk``, when given, is merged into the stored ``site_conditions`` as the one sub-path
+        ``microclimate.frost_risk`` (the legacy ``frost_exposed`` mirror, WP 3.9); every sibling part stays.
+        Returns the location as stored after the write.
+        """
 
     @abstractmethod
     def delete_location(self, key: LocationKey) -> bool: ...

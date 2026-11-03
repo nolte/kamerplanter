@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -7,6 +7,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
 
+from app.common.enums import FrostRisk
 from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
@@ -137,6 +138,19 @@ class _LocationRepository(BaseArangoRepository[Location]):
 
     _model_cls = Location
     _update_is_full_replace = True
+
+    def update_leaving(
+        self,
+        key: str,
+        location: Location,
+        *,
+        untouched: Collection[str],
+        merged: dict[str, Any] | None,
+    ) -> Location:
+        """:meth:`update` without writing the ``untouched`` columns; ``merged`` is merged in (#2623)."""
+        if self._verify_references_on_update:
+            self._verify_changed_owned_references(key, location)
+        return cast("Location", self._wrap(self._update_doc(key, location, untouched=untouched, merged=merged)))
 
 
 class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
@@ -538,8 +552,29 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             self.create_edge(col.CONTAINS, site_id, location_id)
         return created
 
-    def update_location(self, key: LocationKey, location: Location) -> Location:
-        return self._locations.update(key, location)
+    def update_location(
+        self,
+        key: LocationKey,
+        location: Location,
+        *,
+        untouched: Collection[str],
+        frost_risk: FrostRisk | None = None,
+    ) -> Location:
+        """Rewrite a location from *location*, leaving the ``untouched`` columns as they are stored (#2623).
+
+        The ``untouched`` columns are validated with the model but not written, so a plan batch or a ``PATCH``
+        that wrote them after the caller's read is not reverted. ``frost_risk`` is written as the one sub-path
+        ``site_conditions.microclimate.frost_risk``, merged into the stored ``site_conditions`` (every sibling
+        part stays; a location without ``site_conditions`` gets a value holding only that part). Every other
+        column follows the full-replace mode of the location view (#714): a ``None`` removes the attribute.
+
+        Returns:
+            The location as stored after the write — the untouched columns at their current values.
+        """
+        merged = (
+            {"site_conditions": {"microclimate": {"frost_risk": frost_risk.value}}} if frost_risk is not None else None
+        )
+        return self._locations.update_leaving(key, location, untouched=untouched, merged=merged)
 
     def delete_location(self, key: LocationKey) -> bool:
         """Remove the location, every location below it, their slots and every graph edge on any of them (#2513).

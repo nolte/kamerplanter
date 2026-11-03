@@ -4,6 +4,7 @@ from typing import Protocol
 
 import structlog
 
+from app.common.enums import FrostRisk
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
@@ -21,8 +22,13 @@ logger = structlog.get_logger(__name__)
 #: ``Location`` fields the ``PUT /locations/{key}`` body (``LocationCreate``) does not carry and
 #: that are written by the garden-plan paths (REQ-053 WP 1.7 — editor, batch, PATCH in WP 1.9).
 #: The location view is a *full-replace* repository (#714), so a rebuilt model would erase every
-#: one of them on an ordinary edit; they are taken from the stored row instead.
-#: ``area_m2`` and ``bbox`` are re-derived from the kept ``geometry`` afterwards (GP-ACC-035).
+#: one of them on an ordinary edit. ``PUT /locations`` therefore does **not write** them (#2623):
+#: the repository leaves them out of the update, so they keep the value stored at write time —
+#: a plan batch or ``PATCH`` that wrote them after the PUT's read is not reverted. The model
+#: still takes them from the stored row (``keep_stored_fields``) so it validates as the stored
+#: location does. ``bbox`` follows the stored ``geometry``; so does ``area_m2`` on a placed
+#: location (GP-ACC-035), which is left unwritten then too. The one ``site_conditions`` write is
+#: the ``frost_exposed`` mirror, a merge of ``microclimate.frost_risk`` alone.
 LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "bbox",
     "bed_status",
@@ -58,17 +64,25 @@ SLOT_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
 )
 
 
-def mirror_frost_exposed(location: Location, stored: Location | None) -> None:
-    """Carry a changed legacy ``frost_exposed`` into ``site_conditions.microclimate.frost_risk`` (WP 3.9).
+def frost_risk_to_mirror(location: Location, stored: Location | None) -> FrostRisk | None:
+    """The ``microclimate.frost_risk`` a changed legacy ``frost_exposed`` stands for, ``None`` if unchanged (WP 3.9).
 
     ``stored`` is the location as it was (``None`` on create). Only a change counts, so an edit that sends
     the unchanged boolean never overwrites a risk somebody entered on the new field.
     """
     before = stored.frost_exposed if stored is not None else None
     if location.frost_exposed == before:
+        return None
+    return frost_risk_from_exposed(location.frost_exposed)
+
+
+def mirror_frost_exposed(location: Location, stored: Location | None) -> None:
+    """Carry a changed legacy ``frost_exposed`` into ``location.site_conditions.microclimate.frost_risk`` (WP 3.9)."""
+    frost_risk = frost_risk_to_mirror(location, stored)
+    if frost_risk is None:
         return
     current = location.site_conditions or SiteConditions()
-    location.site_conditions = current.with_frost_risk(frost_risk_from_exposed(location.frost_exposed))
+    location.site_conditions = current.with_frost_risk(frost_risk)
 
 
 def place_in_tree(location: Location, parent: Location | None) -> None:
@@ -271,15 +285,27 @@ class SiteService:
         path when a location is renamed or moved.
 
         The garden-plan fields (REQ-053, :data:`LOCATION_FIELDS_KEPT_ON_EDIT`) are
-        taken from the stored location: the edit body does not carry them and the
-        repository replaces the whole document, so a routine rename would otherwise
-        unplace the bed and drop its soil profile. ``area_m2`` follows the kept
-        geometry (GP-ACC-035), which is why the model is re-validated afterwards.
+        not written (#2623): the edit body does not carry them, and the copy read here
+        may be older than a plan batch or a ``PATCH`` that wrote them since — writing
+        it back reverted that write without a 409. The repository leaves them out of
+        the update, so they keep the values stored at write time, and returns the
+        location as stored, which is what the response shows. On a placed location
+        ``area_m2`` derives from the stored geometry (GP-ACC-035) and is not written
+        either; on an unplaced one the body's ``area_m2`` stands. The model still
+        takes the fields from the stored row and is re-validated, so the write is
+        checked against the location as it was read.
+
+        A changed ``frost_exposed`` is mirrored into ``site_conditions`` as the one
+        sub-path ``microclimate.frost_risk`` (WP 3.9), merged into the stored value:
+        the sun profile and every other part stay as stored.
         """
         existing = self.get_location(key, tenant_key=tenant_key)
         keep_stored_fields(location, existing, LOCATION_FIELDS_KEPT_ON_EDIT)
-        mirror_frost_exposed(location, existing)
+        frost_risk = frost_risk_to_mirror(location, existing)
         location = Location.model_validate(location.model_dump(by_alias=True))
+        untouched = LOCATION_FIELDS_KEPT_ON_EDIT
+        if existing.geometry is not None:
+            untouched = (*untouched, "area_m2")
         parent: Location | None = None
         # The body's site too (#2107): the router used to check it before this call.
         self.get_site(location.site_key, tenant_key=tenant_key)
@@ -294,7 +320,7 @@ class SiteService:
         self._place_in_tree(location, parent)
         if location.tank_key:
             self._require_owned_tank(location.tank_key, tenant_key)
-        return self._repo.update_location(key, location)
+        return self._repo.update_location(key, location, untouched=untouched, frost_risk=frost_risk)
 
     def _refuse_parent_cycle(self, key: LocationKey, parent: Location) -> None:
         """422 when *parent* is *key* itself or lies below it — the walk up from the parent reaches *key*."""
