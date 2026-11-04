@@ -55,3 +55,52 @@ describe('BedHeader drainage (GP-FR-047)', () => {
     expect(screen.queryByTestId('bed-header-drainage')).toBeNull();
   });
 });
+
+describe('BedHeader reach hint (GP-FR-166)', () => {
+  const rect = (width: number) => ({
+    kind: 'rect' as const,
+    origin: [1, 1] as [number, number],
+    width_m: width,
+    length_m: 4,
+    rotation_deg: 0,
+  });
+
+  it('shows the badge for a 1.3 m bed without access sides, with the strict one-side value', async () => {
+    const view = renderHeader({ ...bedSummary(), geometry: rect(1.3), site_conditions: { access_sides: [] } });
+    const reach = await screen.findByTestId('bed-header-reach');
+    expect(within(reach).getByTestId('bed-reach-badge')).toHaveTextContent('Bed too wide');
+    expect(within(reach).getByTestId('bed-reach-detail')).toHaveTextContent(
+      '1.3 m wide – the access sides are not recorded, so the one-side value applies (0.6 m).',
+    );
+    await expectNoA11yViolations(view.container);
+  });
+
+  it('shows no badge for a bed within reach from two opposite sides', async () => {
+    renderHeader({ ...bedSummary(), geometry: rect(1.2), site_conditions: { access_sides: ['N', 'S'] } });
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-reach')).toBeNull();
+  });
+
+  it('names the two-side value when a bed with an opposite pair is still too wide', async () => {
+    renderHeader({ ...bedSummary(), geometry: rect(1.3), site_conditions: { access_sides: ['E', 'W'] } });
+    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
+      'from two opposite sides you reach up to 1.2 m',
+    );
+  });
+
+  it('keeps the millimetre that makes a bed too wide visible', async () => {
+    renderHeader({ ...bedSummary(), geometry: rect(0.601), site_conditions: { access_sides: ['S'] } });
+    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent('0.601 m wide');
+  });
+
+  it('reads two adjacent sides as one-side access', async () => {
+    renderHeader({ ...bedSummary(), geometry: rect(1.0), site_conditions: { access_sides: ['N', 'E'] } });
+    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent('from one side you reach up to 0.6 m');
+  });
+
+  it('stays silent and renders the head when the bed has no geometry', async () => {
+    renderHeader({ ...bedSummary(), geometry: null, site_conditions: null });
+    expect(await screen.findByTestId('bed-header-area')).toBeInTheDocument();
+    expect(screen.queryByTestId('bed-header-reach')).toBeNull();
+  });
+});

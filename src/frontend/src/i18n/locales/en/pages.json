@@ -6802,7 +6802,12 @@
         "rotationReason": "Planted anyway: {{reason}}",
         "changeSun": "Change sun",
         "site": "Site conditions",
-        "changeSite": "Change conditions"
+        "changeSite": "Change conditions",
+        "reach": "Reach",
+        "reachHint": "Bed too wide",
+        "reachDetail_both": "{{width}} m wide – from two opposite sides you reach up to {{threshold}} m. You can only reach the middle of the bed by stepping into it.",
+        "reachDetail_one": "{{width}} m wide – from one side you reach up to {{threshold}} m. You can only reach the far half by stepping into the bed.",
+        "reachDetail_unknown": "{{width}} m wide – the access sides are not recorded, so the one-side value applies ({{threshold}} m). Use “Change conditions” to record the sides you can reach the bed from."
       },
       "status": {
         "title": "Change bed status",
