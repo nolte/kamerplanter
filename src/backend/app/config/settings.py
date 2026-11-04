@@ -1261,6 +1261,10 @@ class Settings(BaseSettings):
         default=365, ge=1, le=RETENTION_CEILINGS["retention_garden_plan_audit_retention_days"]
     )
 
+    #: REQ-053 GP-FR-105 / WP 8.2 — the daily ``care_events.consistency`` job closes the gaps of the last this many
+    #: days (a technical window, not an agronomic value). A gap older than the window is not repaired by the job.
+    care_events_consistency_window_days: int = Field(default=7, ge=1, le=365)
+
     # REQ-030 Notifications
     vapid_private_key: str = ""
     vapid_public_key: str = ""
