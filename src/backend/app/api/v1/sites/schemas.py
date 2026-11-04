@@ -66,6 +66,18 @@ class SitePlanSchema(BaseModel):
 # ── Site schemas ──────────────────────────────────────────────────────
 
 
+class SunClassThresholdsIn(SunClassThresholds):
+    """The request form: a misspelt key is a 422 instead of a silently dropped value that resets the stored one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ReachThresholdsIn(ReachThresholds):
+    """The request form: a misspelt key is a 422 instead of a silently dropped value that resets the stored one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class SiteCreate(BaseModel):
     name: str
     type: SiteType = SiteType.INDOOR
@@ -83,8 +95,8 @@ class SiteCreate(BaseModel):
     # REQ-053 GP-FR-164/166 (WP 8.24) — the domain models themselves, so the request refuses (422) exactly what
     # the model refuses: a bound <= 0, sun-class bounds that are not strictly descending, a one-side reach above
     # the two-side one. Omitted (``null``) = keep the stored value on an edit, the defaults on create.
-    sun_class_thresholds: SunClassThresholds | None = None
-    reach_thresholds: ReachThresholds | None = None
+    sun_class_thresholds: SunClassThresholdsIn | None = None
+    reach_thresholds: ReachThresholdsIn | None = None
 
 
 class SiteResponse(BaseModel):

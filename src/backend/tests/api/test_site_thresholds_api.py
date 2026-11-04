@@ -127,6 +127,9 @@ class TestWritingThem:
 
 
 _REFUSED = [
+    # A misspelt key must not be dropped silently (the stored value would fall back to the default).
+    pytest.param({"reach_thresholds": {"both_sides_m": 1.5, "one_sides_m": 0.8}}, id="reach-misspelt-key"),
+    pytest.param({"sun_class_thresholds": {"full_sun_min_hours": 6, "shade_min_hour": 2}}, id="sun-misspelt-key"),
     # These two reach the ``> 0`` rule alone: every ordering rule holds for them (counter-probed, #2667).
     pytest.param({"reach_thresholds": {"both_sides_m": 1.2, "one_side_m": 0}}, id="reach-one-zero-only-positivity"),
     pytest.param({"sun_class_thresholds": {"shade_min_hours": 0}}, id="sun-shade-zero-only-positivity"),
