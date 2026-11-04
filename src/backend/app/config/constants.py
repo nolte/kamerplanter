@@ -19,6 +19,9 @@ MAX_ROTATION_WINDOW_YEARS: int = 8
 MIN_ROTATION_TIMELINE_YEARS: int = 5
 MAX_ROTATION_TIMELINE_YEARS: int = 10
 
+# The site rotation matrix (GP-FR-135) reads at most this many beds of a site; the page window slices them.
+MAX_ROTATION_MATRIX_BEDS: int = 500
+
 # NFR-011 §4: the erasure tombstone salt (ERASURE_TOMBSTONE_SALT) must be a
 # high-entropy secret; a value shorter than this is treated as unset/insecure.
 # Read by the API start-up gate (app.main) and the worker start-up gate (app.tasks).

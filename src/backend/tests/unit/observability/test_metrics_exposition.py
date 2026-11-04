@@ -118,6 +118,9 @@ def test_no_series_is_labelled_by_tenant_person_or_request(api: TestClient, scra
         "version",
         # REQ-053 care_events_created_total{category}: a closed enum of care kinds, never a person or a tenant.
         "category",
+        # REQ-053 care_events_consistency_backfilled_total{source}: one of the four domain-event collection names
+        # (a closed, code-defined set, pinned below) - never a person, a tenant or a request.
+        "source",
     }
     for forbidden in ("tenant", "user", "subject", "actor", "request_id", "ip"):
         assert forbidden not in label_names
@@ -138,3 +141,20 @@ def test_a_port_of_zero_in_the_settings_starts_nothing(monkeypatch: pytest.Monke
     monkeypatch.setattr(settings, "metrics_port", 0)
 
     assert start_configured_metrics_server() is None
+
+
+def test_the_consistency_counter_is_labelled_by_the_closed_set_of_source_collections(
+    api: TestClient, scrape: str
+) -> None:
+    from app.domain.engines.care_event_backfill_mapper import SOURCE_COLLECTIONS
+    from app.observability.garden_plan_metrics import record_care_event_backfilled
+
+    for source in SOURCE_COLLECTIONS:
+        record_care_event_backfilled(source, 1)
+
+    families = {f.name: f for f in text_string_to_metric_families(_body(scrape))}
+    sources = {
+        s.labels["source"] for s in families["care_events_consistency_backfilled"].samples if "source" in s.labels
+    }
+
+    assert sources == set(SOURCE_COLLECTIONS)

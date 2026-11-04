@@ -72,6 +72,7 @@ from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import GardenPlanView
 from app.domain.models.garden_plan_export import (
@@ -88,6 +89,7 @@ from app.domain.models.garden_plan_export import (
 )
 from app.domain.models.site import Location, Site
 from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.frost_forecast import read_site_frost_verdict
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.plant_state_inputs import frost_risk_of
@@ -184,6 +186,7 @@ class GardenPlanExportService:
         attachment_service: AttachmentService | None = None,
         plant_state_repo: IPlantStateRepository | None = None,
         phase_repo: IPhaseRepository | None = None,
+        forecast_repo: IWeatherForecastRepository | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
@@ -194,6 +197,8 @@ class GardenPlanExportService:
         #: ``None`` = plants are printed as the uniform symbol (no states, no phase colours).
         self._plant_states = plant_state_repo
         self._phases = phase_repo
+        #: ``None`` = no forecast source: the printed states carry no frost reason (WP 8.20).
+        self._forecasts = forecast_repo
 
     def _owned_site(self, site_key: SiteKey, *, tenant_key: str) -> Site:
         return require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
@@ -370,7 +375,10 @@ class GardenPlanExportService:
         slot_beds = {slot.key: slot.location_key for slot in view.slots}
         bed_keys = {plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
         beds = {loc.key: loc for loc in view.locations if loc.key and loc.key in bed_keys}
-        frost_risk = {key: frost_risk_of(bed) for key, bed in beds.items()}
+        verdict = (
+            read_site_frost_verdict(self._forecasts, view.site_key, tenant_key=tenant_key, now=moment) if beds else None
+        )
+        frost_risk = {key: frost_risk_of(bed, verdict) for key, bed in beds.items()}
         plant_beds = {plant.key: plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
         states: dict[str, PlantVisualState] = {}
         row_names: dict[str, str] = {}

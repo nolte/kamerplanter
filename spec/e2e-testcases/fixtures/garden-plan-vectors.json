@@ -52,6 +52,7 @@
     "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)",
     "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)",
     "site_fit": "input.sun_exposure (full_sun | partial_shade | shade | deep_shade | unknown), input.light_requirement (full_sun | partial_shade | shade | null), input.shade_tolerance (full_sun | partial_shade | shade | deep_shade | null) -> expected {fit: ok | marginal | poor | unknown, reason: match | too_sunny | too_shady | tolerated | tolerance_unknown | bed_unknown | requirement_unknown} - site_fit_calculator.assess / model/siteFit.ts assessSiteFit (GP-FR-160, GP-ACC-053)",
+    "site_fit_axes": "input.frost_risk (low | normal | high | unknown | null), input.frost_sensitivity (sensitive | moderate | hardy | very_hardy | null), input.wind_exposure (sheltered | normal | exposed | unknown | null), input.support_required (true | false | null), input.drainage (poor | moderate | good | unknown | null), input.waterlogging_tolerance (sensitive | moderate | tolerant | null) -> expected list of hint codes in the order frost_mismatch, wind_support_needed, waterlogging_risk (empty = no hint); only the cells high x sensitive, exposed x true and poor x sensitive speak, every other cell and every unknown or missing side is off - site_fit_calculator.assess_axes / model/siteFit.ts assessSiteAxes (GP-FR-161, WP 8.21)",
     "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)",
     "phase_color": "input.name (growth-phase name as stored, growth_phases.name) -> expected \"#RRGGBB\": a name that is a known phase after lower-casing and dropping every character outside a-z takes its fixed colour; any other name takes FALLBACK_PALETTE[abs(h) % 10] with h = int32(h * 31 + c) over the UTF-16 code units c of the unnormalised name (phase_colors.phase_color / planting/phaseColors.ts phaseColor, REQ-053 GP-FR-067, GP-UX-005)",
     "place_geometry": "input.geometry (bed template default_geometry in the bed frame: rect | circle | polygon), input.origin [x, y], input.rotation_deg -> expected the plan-frame geometry: the anchor (rect origin, circle centre, first polygon vertex) at origin, rotation_deg = (own + requested) folded into [0, 360) and rounded to 0.001; a circle carries no rotation (template_placement_calculator.place_geometry / templates/placeGeometry.ts placeGeometry, REQ-053 GP-FR-044, #2536)",
@@ -4764,6 +4765,356 @@
       "spec": "SCR-004: a name of emoji only, cut to three characters and the ellipsis",
       "input": {"text": "🍅🍅🍅🍅🍅🍅", "max_chars": 4},
       "expected": "🍅🍅🍅…"
+    },
+    {
+      "id": "site-fit-axes-frost-low-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: low bed x sensitive species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "low", "frost_sensitivity": "sensitive", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-low-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: low bed x moderate species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "low", "frost_sensitivity": "moderate", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-low-hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: low bed x hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "low", "frost_sensitivity": "hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-low-very_hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: low bed x very_hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "low", "frost_sensitivity": "very_hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-low-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: low bed x unrecorded species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "low", "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-normal-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: normal bed x sensitive species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "normal", "frost_sensitivity": "sensitive", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-normal-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: normal bed x moderate species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "normal", "frost_sensitivity": "moderate", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-normal-hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: normal bed x hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "normal", "frost_sensitivity": "hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-normal-very_hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: normal bed x very_hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "normal", "frost_sensitivity": "very_hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-normal-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: normal bed x unrecorded species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "normal", "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-high-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: only a high-frost-risk bed with a sensitive species hints frost_mismatch",
+      "input": {"frost_risk": "high", "frost_sensitivity": "sensitive", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": ["frost_mismatch"]
+    },
+    {
+      "id": "site-fit-axes-frost-high-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: high bed x moderate species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "high", "frost_sensitivity": "moderate", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-high-hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: high bed x hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "high", "frost_sensitivity": "hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-high-very_hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: high bed x very_hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "high", "frost_sensitivity": "very_hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-high-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: high bed x unrecorded species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "high", "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-unknown-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: unknown bed x sensitive species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "unknown", "frost_sensitivity": "sensitive", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-unknown-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: unknown bed x moderate species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "unknown", "frost_sensitivity": "moderate", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-unknown-hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: unknown bed x hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "unknown", "frost_sensitivity": "hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-unknown-very_hardy",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: unknown bed x very_hardy species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "unknown", "frost_sensitivity": "very_hardy", "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-frost-unknown-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 frost: unknown bed x unrecorded species gives no hint (no source / unknown)",
+      "input": {"frost_risk": "unknown", "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-sheltered-true",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: sheltered bed x support_required=True gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "sheltered", "support_required": true, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-sheltered-false",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: sheltered bed x support_required=False gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "sheltered", "support_required": false, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-sheltered-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: sheltered bed x support_required=None gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "sheltered", "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-normal-true",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: normal bed x support_required=True gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "normal", "support_required": true, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-normal-false",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: normal bed x support_required=False gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "normal", "support_required": false, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-normal-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: normal bed x support_required=None gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "normal", "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-exposed-true",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: only an exposed bed with a support-requiring species hints wind_support_needed",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "exposed", "support_required": true, "drainage": null, "waterlogging_tolerance": null},
+      "expected": ["wind_support_needed"]
+    },
+    {
+      "id": "site-fit-axes-wind-exposed-false",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: exposed bed x support_required=False gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "exposed", "support_required": false, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-exposed-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: exposed bed x support_required=None gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "exposed", "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-unknown-true",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: unknown bed x support_required=True gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "unknown", "support_required": true, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-unknown-false",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: unknown bed x support_required=False gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "unknown", "support_required": false, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-wind-unknown-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 wind: unknown bed x support_required=None gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": "unknown", "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-poor-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: only a poorly drained bed with a waterlogging-sensitive species hints waterlogging_risk",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "poor", "waterlogging_tolerance": "sensitive"},
+      "expected": ["waterlogging_risk"]
+    },
+    {
+      "id": "site-fit-axes-drainage-poor-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: poor bed x moderate species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "poor", "waterlogging_tolerance": "moderate"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-poor-tolerant",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: poor bed x tolerant species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "poor", "waterlogging_tolerance": "tolerant"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-poor-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: poor bed x unrecorded species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "poor", "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-moderate-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: moderate bed x sensitive species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "moderate", "waterlogging_tolerance": "sensitive"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-moderate-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: moderate bed x moderate species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "moderate", "waterlogging_tolerance": "moderate"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-moderate-tolerant",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: moderate bed x tolerant species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "moderate", "waterlogging_tolerance": "tolerant"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-moderate-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: moderate bed x unrecorded species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "moderate", "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-good-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: good bed x sensitive species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "good", "waterlogging_tolerance": "sensitive"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-good-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: good bed x moderate species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "good", "waterlogging_tolerance": "moderate"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-good-tolerant",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: good bed x tolerant species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "good", "waterlogging_tolerance": "tolerant"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-good-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: good bed x unrecorded species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "good", "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-unknown-sensitive",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: unknown bed x sensitive species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "unknown", "waterlogging_tolerance": "sensitive"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-unknown-moderate",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: unknown bed x moderate species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "unknown", "waterlogging_tolerance": "moderate"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-unknown-tolerant",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: unknown bed x tolerant species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "unknown", "waterlogging_tolerance": "tolerant"},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-drainage-unknown-none",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161 drainage: unknown bed x unrecorded species gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": "unknown", "waterlogging_tolerance": null},
+      "expected": []
+    },
+    {
+      "id": "site-fit-axes-all-three",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161: all three hints at once, in the fixed order frost, wind, waterlogging",
+      "input": {"frost_risk": "high", "frost_sensitivity": "sensitive", "wind_exposure": "exposed", "support_required": true, "drainage": "poor", "waterlogging_tolerance": "sensitive"},
+      "expected": ["frost_mismatch", "wind_support_needed", "waterlogging_risk"]
+    },
+    {
+      "id": "site-fit-axes-nothing-known",
+      "operation": "site_fit_axes",
+      "spec": "GP-FR-161: nothing known on either side gives no hint",
+      "input": {"frost_risk": null, "frost_sensitivity": null, "wind_exposure": null, "support_required": null, "drainage": null, "waterlogging_tolerance": null},
+      "expected": []
     }
   ]
 }

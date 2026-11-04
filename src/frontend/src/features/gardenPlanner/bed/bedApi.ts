@@ -1,6 +1,13 @@
 import { tenantClient } from '@/api/client';
 import type { BedStatus, SunExposure } from '../model/types';
-import type { BedListItem, BedPatchResult, BedSummary, SoilProfile, SunProfilePatch } from './types';
+import type {
+  BedListItem,
+  BedPatchResult,
+  BedSummary,
+  SiteConditionsPatch,
+  SoilProfile,
+  SunProfilePatch,
+} from './types';
 
 /**
  * REST access to beds (REQ-053 GP-API-010/011/012/018) through the tenant-scoped client. A bed is a
@@ -51,6 +58,16 @@ export async function patchSun(
   return data;
 }
 
+/**
+ * GP-API-010: write the site conditions beyond the sun - microclimate, wind, slope, aspect, access sides
+ * (GP-FR-162/163/168) - in ONE request. The server merges the keys sent into the stored `site_conditions`
+ * (and moves `frost_exposed` with a changed frost risk, #2512), so only the changed keys go out.
+ */
+export async function patchSiteConditions(key: string, patch: SiteConditionsPatch): Promise<BedPatchResult> {
+  const { data } = await tenantClient.patch<BedPatchResult>(`${LOCATIONS}/${key}`, { site_conditions: patch });
+  return data;
+}
+
 /** GP-API-018: move the bed through its lifecycle; `retired` needs a `reason` (GP-FR-046). */
 export async function changeBedStatus(
   key: string,
@@ -60,6 +77,22 @@ export async function changeBedStatus(
   const { data } = await tenantClient.post<BedPatchResult>(`${LOCATIONS}/${key}/status`, {
     bed_status: bedStatus,
     ...(reason ? { reason } : {}),
+  });
+  return data;
+}
+
+/**
+ * GP-FR-137: switch the crop-rotation check of one bed - `rotation_enabled` (`null` = default of the bed type) and/or
+ * `rotation_exempt` (permanent crop). Only the keys sent are changed. Both `true` is a 422
+ * `patch.rotation_exempt_and_enabled`; the caller shows it.
+ */
+export async function patchRotationSwitch(
+  key: string,
+  change: { rotationEnabled?: boolean | null; rotationExempt?: boolean },
+): Promise<BedPatchResult> {
+  const { data } = await tenantClient.patch<BedPatchResult>(`${LOCATIONS}/${key}`, {
+    ...(change.rotationEnabled !== undefined ? { rotation_enabled: change.rotationEnabled } : {}),
+    ...(change.rotationExempt !== undefined ? { rotation_exempt: change.rotationExempt } : {}),
   });
   return data;
 }

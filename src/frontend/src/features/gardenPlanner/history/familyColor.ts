@@ -11,7 +11,7 @@
 const GOLDEN_ANGLE = 137.508;
 
 /** A saturated mid-tone, chosen to stay visible on a light and on a dark surface. */
-function colorAt(index: number): string {
+export function colorAt(index: number): string {
   return `hsl(${Math.round((index * GOLDEN_ANGLE) % 360)} 55% 42%)`;
 }
 

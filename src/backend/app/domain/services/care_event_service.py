@@ -72,6 +72,9 @@ logger = structlog.get_logger()
 #: GP-FR-107: the tenant-wide history shows the last 90 days unless the caller says otherwise.
 DEFAULT_HISTORY_DAYS = 90
 
+#: GP-FR-104: a CSV download has at most this many rows.
+MAX_EXPORT_ROWS = 50_000
+ERROR_TOO_MANY_ROWS = "export.too_many_rows"
 ERROR_REFERENCE_NOT_FOUND = "reference.not_found"
 #: ``void_reason`` of a backfilled year taken back (GP-API-042).
 BACKFILL_ERROR_REASON = "backfill_error"
@@ -342,6 +345,68 @@ class CareEventService:
         chain = [event.key or "" for event in self._repo.chain(key, tenant_key=tenant_key)]
         return self._view(row, user_key, chain)
 
+    def _effective_criteria(
+        self,
+        criteria: CareEventFilter,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        admin_scopes: Sequence[AdminScope],
+    ) -> CareEventFilter:
+        """The filter a read really runs: the person-filter rule (SR-020), the bed's ownership, the default window.
+
+        One function for the JSON list and the CSV download, so a download can never see more than the screen.
+        """
+        check_performed_by_filter(criteria.performed_by, user_key=user_key, role=role, admin_scopes=admin_scopes)
+        if criteria.location_key:
+            resolve_owned_location(self._sites, criteria.location_key, tenant_key)
+        # The tenant-wide history shows 90 days by default (GP-FR-107); the history of one bed or one plant is the
+        # whole look-back (GP-FR-102/103: up to five years), so a bed or plant filter carries no default window.
+        if (
+            criteria.performed_from is None
+            and criteria.performed_to is None
+            and not criteria.location_key
+            and not criteria.plant_key
+        ):
+            return CareEventFilter(
+                location_key=criteria.location_key,
+                plant_key=criteria.plant_key,
+                category=criteria.category,
+                performed_from=datetime.now(UTC) - timedelta(days=DEFAULT_HISTORY_DAYS),
+                performed_to=None,
+                performed_by=criteria.performed_by,
+                include_superseded=criteria.include_superseded,
+            )
+        return criteria
+
+    def export_window(
+        self,
+        criteria: CareEventFilter,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        admin_scopes: Sequence[AdminScope] = (),
+    ) -> list[CareEventView]:
+        """Every event the same filter lists, for the CSV download (GP-API-034 ``format=csv``, GP-FR-104).
+
+        The role rules, the bed ownership and the default window are those of :meth:`list_window`. More than
+        :data:`MAX_EXPORT_ROWS` rows is refused as a whole, 422 ``export.too_many_rows`` - never a silently cut file.
+        """
+        effective = self._effective_criteria(
+            criteria, tenant_key=tenant_key, user_key=user_key, role=role, admin_scopes=admin_scopes
+        )
+        rows = self._repo.list_events(effective, tenant_key=tenant_key, offset=0, limit=MAX_EXPORT_ROWS + 1)
+        if len(rows) > MAX_EXPORT_ROWS:
+            raise PlanError(
+                ERROR_TOO_MANY_ROWS,
+                f"The export would have more than {MAX_EXPORT_ROWS} rows; narrow it by bed, plant, category or period.",
+                status_code=422,
+                limit=MAX_EXPORT_ROWS,
+            )
+        return [self._view(row, user_key) for row in rows]
+
     def list_window(
         self,
         criteria: CareEventFilter,
@@ -359,26 +424,9 @@ class CareEventService:
         own account for a viewer or grower; only a lead or a member with the ``management`` scope may filter by
         another member (403 otherwise; #2411 item 1, SR-020).
         """
-        check_performed_by_filter(criteria.performed_by, user_key=user_key, role=role, admin_scopes=admin_scopes)
-        if criteria.location_key:
-            resolve_owned_location(self._sites, criteria.location_key, tenant_key)
-        # The tenant-wide history shows 90 days by default (GP-FR-107); the history of one bed or one plant is the
-        # whole look-back (GP-FR-102/103: up to five years), so a bed or plant filter carries no default window.
-        if (
-            criteria.performed_from is None
-            and criteria.performed_to is None
-            and not criteria.location_key
-            and not criteria.plant_key
-        ):
-            criteria = CareEventFilter(
-                location_key=criteria.location_key,
-                plant_key=criteria.plant_key,
-                category=criteria.category,
-                performed_from=datetime.now(UTC) - timedelta(days=DEFAULT_HISTORY_DAYS),
-                performed_to=None,
-                performed_by=criteria.performed_by,
-                include_superseded=criteria.include_superseded,
-            )
+        criteria = self._effective_criteria(
+            criteria, tenant_key=tenant_key, user_key=user_key, role=role, admin_scopes=admin_scopes
+        )
         rows = self._repo.list_events(criteria, tenant_key=tenant_key, offset=offset, limit=limit)
         return [self._view(row, user_key) for row in rows]
 

@@ -22,6 +22,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
+import { useBedSiteFeatures } from '../planting/useBedSiteFeatures';
 import type { BedListItem } from '../bed/types';
 import { completeBedTask, logCareEvent, reopenWithUndo, voidCareEvent } from '../care/careApi';
 import type { CareContext } from '../care/careCategories';
@@ -34,6 +35,7 @@ import type { PlantStateWire } from '../planting/plantStateApi';
 import { fieldTaskSections, todayUtc } from './fieldDue';
 import { groupPlants } from './fieldPlants';
 import FieldPlantSection from './FieldPlantSection';
+import FieldSiteSection from './FieldSiteSection';
 import FieldSunSection from './FieldSunSection';
 import FieldTaskSection from './FieldTaskSection';
 import QuickProtocolChips from './QuickProtocolChips';
@@ -69,6 +71,7 @@ type Overlay =
 export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanChanged }: FieldBedSheetProps) {
   const { t, i18n } = useTranslation();
   const { canEdit } = useTenantPermissions();
+  const bedSite = useBedSiteFeatures(bed);
   const { handleError } = useApiError();
   const notification = useNotification();
   const { offerUndo } = useUndoSnackbar();
@@ -255,6 +258,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
         )}
 
         <FieldSunSection bed={bed} canEdit={canEdit} online={online} onChanged={onChanged} />
+        <FieldSiteSection bed={bed} canEdit={canEdit} online={online} onChanged={onChanged} />
       </Box>
 
       {overlay?.kind === 'complete' && (
@@ -288,6 +292,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             bedName={bed.name}
             geometry={bed.geometry}
             sunExposure={bed.sun_exposure}
+            bedSite={bedSite}
             initialAlreadyPlanted
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}

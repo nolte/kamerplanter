@@ -64,6 +64,14 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "WP 7.3); the zone panel that calls it is WP 7.6/7.7. One round per grower and minute at most is "
         "human-scale, so raising it here would test nothing the suite uses."
     ),
+    "rate_limit_care_events_export": (
+        "No E2E test downloads the care-log CSV (grep over tests/e2e finds no call to "
+        "GET /care-events?format=csv and no click on the history export button, REQ-053 WP 8.4); the "
+        "export is one deliberate click per file, never on a bootstrap or navigation path, and the "
+        "JSON list of the same route is not counted against this budget (exempt_when), so the suite's "
+        "history reads cannot exhaust it. If a journey ever downloads the file repeatedly, this entry "
+        "is wrong and the limit needs raising."
+    ),
     "rate_limit_email_change": (
         "A couple of change requests per run; the flow is not on any journey path."
     ),

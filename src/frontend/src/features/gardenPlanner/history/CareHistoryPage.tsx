@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import PageTitle from '@/components/layout/PageTitle';
 import { getCareEvents, listAllBedOptions, listBedPlantOptions } from './historyApi';
 import HistoryFilterBar from './HistoryFilterBar';
+import HistoryExportButton from './HistoryExportButton';
 import HistoryList from './HistoryList';
 import { careLineToItem } from './historyFormat';
 import { activeFilterCount, emptyFilters, isRangeInverted, toQuery, type HistoryFilters } from './historyFilters';
@@ -90,6 +91,9 @@ export default function CareHistoryPage() {
         people={people}
         testIdPrefix="care-history"
       />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <HistoryExportButton query={query} disabled={inverted} testIdPrefix="care-history" />
+      </Box>
       <HistoryList
         pages={pages}
         bedName={bedName}

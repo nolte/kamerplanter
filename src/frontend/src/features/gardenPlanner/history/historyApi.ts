@@ -1,4 +1,5 @@
 import { tenantClient } from '@/api/client';
+import { rethrowBlobError } from '@/api/blobError';
 import { listSites } from '@/api/endpoints/sites';
 import { listBeds } from '../bed/bedApi';
 import type { HistoryQuery } from './historyFilters';
@@ -8,7 +9,9 @@ import type {
   CareEventLine,
   FilterOption,
   HistoryItem,
+  RotationMatrix,
   RotationTimeline,
+  SuccessionRecommendation,
 } from './historyTypes';
 
 /**
@@ -36,11 +39,51 @@ export async function getCareEvents(query: HistoryQuery, offset: number): Promis
   return data;
 }
 
+/** `semicolon` is the Excel variant of locales with a decimal comma. */
+export type CsvDelimiter = 'comma' | 'semicolon';
+
+/**
+ * GP-FR-104 / GP-API-034 `format=csv`: every entry the filter lists (at most 50 000) as one file, under the
+ * same role rules as the list. A refusal (`export.too_many_rows`, 429) is read back from the blob body.
+ */
+export async function downloadCareEventsCsv(query: HistoryQuery, delimiter: CsvDelimiter): Promise<Blob> {
+  const { include_corrections: corrections, ...rest } = query;
+  try {
+    const { data } = await tenantClient.get<Blob>('/care-events', {
+      params: { ...rest, ...(corrections ? { include_superseded: true } : {}), format: 'csv', delimiter },
+      responseType: 'blob',
+    });
+    return data;
+  } catch (error) {
+    return rethrowBlobError(error);
+  }
+}
+
 /** GP-API-039: family, demand and role per year; the server picks `max(pause, 5)` years without `years`. */
 export async function getRotationTimeline(bedKey: string, years?: number): Promise<RotationTimeline> {
   const { data } = await tenantClient.get<RotationTimeline>(`/locations/${bedKey}/rotation`, {
     params: years === undefined ? {} : { years },
   });
+  return data;
+}
+
+/** Beds per page of the rotation matrix (the server pages by bed, at most 500 beds). */
+export const ROTATION_MATRIX_PAGE_SIZE = 50;
+
+/**
+ * GP-FR-135: beds x years of a site. Without `years` the server derives the look-back from the beds of the page, so
+ * a client that pages passes the `years` of the first answer to keep the columns the same.
+ */
+export async function getRotationMatrix(siteKey: string, offset: number, years?: number): Promise<RotationMatrix> {
+  const { data } = await tenantClient.get<RotationMatrix>(`/sites/${siteKey}/rotation-matrix`, {
+    params: { offset, limit: ROTATION_MATRIX_PAGE_SIZE, ...(years === undefined ? {} : { years }) },
+  });
+  return data;
+}
+
+/** GP-FR-133: the families and species for the next year of a bed, by the feeder cycle (order only). */
+export async function getSuccessionRecommendation(bedKey: string): Promise<SuccessionRecommendation> {
+  const { data } = await tenantClient.get<SuccessionRecommendation>(`/locations/${bedKey}/succession-recommendation`);
   return data;
 }
 

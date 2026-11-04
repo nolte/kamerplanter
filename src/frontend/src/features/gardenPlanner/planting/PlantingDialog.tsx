@@ -30,7 +30,7 @@ import { computeLayout } from '../model/layout';
 import type { Geometry, Point, SunExposure } from '../model/types';
 import EntryCard from './EntryCard';
 import HintsPanel from './HintsPanel';
-import { siteFitOf } from './siteFitOf';
+import { siteAxesOf, siteFitOf, type BedSiteFeatures } from './siteFitOf';
 import LayoutCanvas, { MARKER_SHAPES, type CanvasLayer } from './LayoutCanvas';
 import { listBedSlots } from './plantingApi';
 import {
@@ -71,6 +71,8 @@ interface PlantingDialogProps {
   geometry: Geometry;
   /** The sun class of the bed (GP-FR-157); with the species' light requirement it gives the `site_fit` hint. */
   sunExposure?: SunExposure;
+  /** Frost risk, wind and drainage of the bed; with the species' values they give the axis hints (GP-FR-161). */
+  bedSite?: BedSiteFeatures;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
   /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
@@ -120,6 +122,7 @@ export default function PlantingDialog({
   bedName,
   geometry,
   sunExposure = 'unknown',
+  bedSite,
   onClose,
   onPlanted,
   initialAlreadyPlanted = false,
@@ -251,8 +254,9 @@ export default function PlantingDialog({
         name: speciesNames.get(key) ?? key,
         state: hintStates[key],
         siteFit: siteFitOf(speciesByKey.get(key), sunExposure),
+        axisHints: siteAxesOf(speciesByKey.get(key), bedSite),
       })),
-    [speciesKeys, speciesNames, hintStates, speciesByKey, sunExposure],
+    [speciesKeys, speciesNames, hintStates, speciesByKey, sunExposure, bedSite],
   );
 
   const layers = useMemo<CanvasLayer[]>(

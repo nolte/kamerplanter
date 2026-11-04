@@ -10,8 +10,9 @@ renders hover, focus and tap from this one answer — no request per plant (GP-F
 an absent bed answer identically (404).
 
 **The state is assembled in** :mod:`app.domain.calculators.plant_state_inputs` — the same function the plan's SVG/PDF
-export uses, so a plant has the same ring and badge on the screen and on paper (#2489). Frost has no source yet
-(:func:`~app.domain.services.plant_state_inputs.frost_risk_of`, WP 3.9).
+export uses, so a plant has the same ring and badge on the screen and on paper (#2489). Frost is a live reason
+(:func:`~app.domain.services.plant_state_inputs.frost_risk_of`, WP 8.20): a ``high`` bed and a frost predicted for
+its site; without a forecast source there is no frost reason.
 
 **Logs carry no user text** (GP-NFR-060): keys and counts only.
 """
@@ -27,6 +28,8 @@ from app.domain.calculators.plant_state_calculator import PlantVisualState
 from app.domain.calculators.plant_state_inputs import visual_state_of
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
+from app.domain.services.frost_forecast import read_site_frost_verdict
 from app.domain.services.location_ownership import resolve_owned_location
 from app.domain.services.plant_state_inputs import frost_risk_of
 
@@ -44,9 +47,13 @@ class PlantStateEntry:
 
 
 class PlantStateService:
-    def __init__(self, sites: ISiteRepository, repo: IPlantStateRepository) -> None:
+    def __init__(
+        self, sites: ISiteRepository, repo: IPlantStateRepository, forecasts: IWeatherForecastRepository | None = None
+    ) -> None:
         self._sites = sites
         self._repo = repo
+        #: ``None`` = no forecast source: no frost reason.
+        self._forecasts = forecasts
 
     def list_plant_states(
         self,
@@ -61,7 +68,13 @@ class PlantStateService:
         location = resolve_owned_location(self._sites, location_key, tenant_key)
         moment = now if now is not None else datetime.now(UTC)
         rows = self._repo.list_bed_plants(location_key, tenant_key=tenant_key, now=moment, offset=offset, limit=limit)
-        frost_risk = frost_risk_of(location)
+        # The forecast is read only for a window that holds plants (no extra statement for an empty page).
+        verdict = (
+            read_site_frost_verdict(self._forecasts, location.site_key, tenant_key=tenant_key, now=moment)
+            if rows
+            else None
+        )
+        frost_risk = frost_risk_of(location, verdict)
         entries = [
             PlantStateEntry(row, visual_state_of(row, frost_risk=frost_risk, now=moment), frost_risk) for row in rows
         ]

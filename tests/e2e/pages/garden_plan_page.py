@@ -181,6 +181,13 @@ class GardenPlanPage(BasePage):
         self.wait_for_element(self.SVG)
         return self
 
+    def open_in_planning_mode(self, site_key: str) -> GardenPlanPage:
+        """Open the plan with ``?mode=plan``: the editor also on a phone viewport (default there: field mode)."""
+        self.navigate(f"{self.PATH.format(key=site_key)}?mode=plan")
+        self.wait_for_content(self.EDITOR, f"garden plan editor (planning mode) of site {site_key}")
+        self.wait_for_element(self.SVG)
+        return self
+
     def reload(self, site_key: str) -> GardenPlanPage:
         """A full page load of the same plan — the read-back of what was stored."""
         if self.pending_count() != 0:

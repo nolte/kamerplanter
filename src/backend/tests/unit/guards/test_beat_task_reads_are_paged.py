@@ -69,6 +69,10 @@ _MCP_CAP = "MCP tool scan cap: the tool reports `truncated` to the agent when th
 #: window (bounded by construction), why only the newest rows are wanted, or why only
 #: the ``total`` is read.
 ALLOWED: dict[tuple[str, str], str] = {
+    ("domain/services/care_event_service.py", "export_window"): (
+        "the CSV download reads up to MAX_EXPORT_ROWS + 1 rows in ONE query on purpose and refuses (422 "
+        "export.too_many_rows) when the extra row arrives: a window that cannot silently cut the file (GP-FR-104)"
+    ),
     ("domain/services/starter_kit_service.py", "list_kits"): (
         "starter kits come only from starter_kits.yaml (11 rows); no API or service caller writes the collection"
     ),

@@ -6699,6 +6699,66 @@
           "reihenabstand": "Row spacing",
           "randabstand": "Edge margin"
         }
+      },
+      "siteConditions": {
+        "hint": "Record what you observe at the bed. Kamerplanter computes nothing from it; the values feed the planting hints and the frost early warning.",
+        "frost": {
+          "title": "Frost risk",
+          "hint": "Is the bed in a hollow or a cold spot? The frost early warning always names \"High\" and never \"Low\"."
+        },
+        "coldAirPocket": {
+          "label": "Cold-air pocket",
+          "help": "Cold air collects here at night, for example in a hollow. A note only."
+        },
+        "heat": {
+          "title": "Stored heat",
+          "hint": "A wall or a building gives heat back at night."
+        },
+        "wind": {
+          "title": "Wind",
+          "hint": "How hard does the wind hit the bed? For \"Exposed\" the planting dialog points out species that need support."
+        },
+        "slope": {
+          "label": "Slope (degrees)",
+          "help": "0 to 90, optional.",
+          "invalid": "Enter a number from 0 to 90."
+        },
+        "aspect": {
+          "label": "Aspect (degrees)",
+          "help": "Compass direction the bed slopes towards: 0 = north, 90 = east, 180 = south, 270 = west. Optional.",
+          "invalid": "Enter a number from 0 to under 360."
+        },
+        "access": {
+          "title": "Access sides",
+          "hint": "From which sides do you tend the bed?"
+        },
+        "summary": {
+          "frost": "Frost risk: {{value}}",
+          "heat": "Stored heat: {{value}}",
+          "wind": "Wind: {{value}}",
+          "slope": "Slope {{value, number}}°",
+          "aspect": "Aspect {{value, number}}°",
+          "access": "Access: {{value}}"
+        },
+        "dialog": {
+          "title": "Site conditions: {{bed}}",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saved": "Site conditions saved.",
+          "invalid": "Check the degrees marked in red before you save."
+        },
+        "field": {
+          "title": "Moisture and wind",
+          "moisture": "Moisture at the bed",
+          "wind": "Wind",
+          "windy": "Windy",
+          "saved": "Saved.",
+          "regime": {
+            "moist": "Moist",
+            "fresh": "Normal",
+            "dry": "Dry"
+          }
+        }
       }
     },
     "bed": {
@@ -6740,7 +6800,9 @@
         "previousYear": "Previous year ({{year}}): this bed's growing history appears here once it has been recorded.",
         "rotationHint": "Crop rotation hint",
         "rotationReason": "Planted anyway: {{reason}}",
-        "changeSun": "Change sun"
+        "changeSun": "Change sun",
+        "site": "Site conditions",
+        "changeSite": "Change conditions"
       },
       "status": {
         "title": "Change bed status",
@@ -6789,7 +6851,24 @@
         "humus": "Humus content",
         "humusHelper": "Share of organic matter in percent.",
         "notes": "Notes",
-        "saved": "Soil profile saved."
+        "saved": "Soil profile saved.",
+        "rotation": {
+          "title": "Crop rotation for this bed",
+          "intro": "Decide whether Kamerplanter checks crop rotation for this bed. Without your own setting the default of the bed type applies: the check is off for planters, tents and shelves, on otherwise.",
+          "introReadOnly": "This is how the rotation check is set for this bed. You can look at it but not change it.",
+          "checkLabel": "Rotation check",
+          "check": {
+            "default": "Default of the bed type",
+            "on": "Switched on",
+            "off": "Switched off"
+          },
+          "checkHelper": "The change applies at once to the hints when planting and to the follow-up crop recommendation.",
+          "exemptLabel": "Permanent crop (exempt from rotation)",
+          "exemptHelper": "For fruit trees, berry bushes, asparagus and other permanent crops. The check then stays off.",
+          "saving": "Saving …",
+          "saved": "Saved.",
+          "bothRefused": "A permanent crop cannot have the rotation check switched on. Set the check to \"Default of the bed type\" or \"Switched off\" first. Nothing was changed."
+        }
       },
       "plan": {
         "openGarden": "Open in garden plan",
@@ -6952,6 +7031,19 @@
         "loadMore": "Load more",
         "retryMore": "Try again",
         "allBeds": "History of all beds",
+        "export": {
+          "button": "Export CSV",
+          "comma": "CSV (comma)",
+          "semicolon": "CSV for Excel (semicolon)",
+          "done": "The history was downloaded as a CSV file.",
+          "hint": "Includes the stored care entries matching the current filters. Planting events derived from plants and runs are not included.",
+          "disabledRange": "The period is invalid: \"From\" is after \"To\". Fix the period to export.",
+          "commaHelp": "Standard table file, columns separated by commas, decimal point. For scripts and most programs.",
+          "semicolonHelp": "Columns separated by semicolons, decimal comma. Opens as a table directly in German-language Excel.",
+          "preparing": "Preparing the CSV file ...",
+          "tooManyRows": "The history has more than 50,000 entries. Narrow it by bed, plant, category or period and export again.",
+          "rateLimited": "You started several exports a moment ago. Wait a little and try again."
+        },
         "by": "by {{name}}",
         "category": {
           "note": "Note",
@@ -7077,6 +7169,38 @@
         "page": {
           "title": "Care history",
           "description": "What was done in all beds of this garden, newest first. The last 90 days are shown unless you choose another period."
+        },
+        "succession": {
+          "title": "Follow-up crop recommendation",
+          "hint": "Which step of the feeder cycle fits next: heavy feeder, medium feeder, light feeder, then green manure or fallow. This is an order, not a fertiliser recommendation - Kamerplanter names no amounts here.",
+          "basis": "After {{year}} ({{previous}}) the next step is: {{next}}.",
+          "stepRestoring": "green manure or fallow",
+          "target": {
+            "heavy_feeder": "heavy feeder",
+            "medium_feeder": "medium feeder",
+            "light_feeder": "light feeder",
+            "restoring": "green manure or fallow"
+          },
+          "listLabel": "Fitting families and species",
+          "reasons": {
+            "nitrogen_fixation": "nitrogen fixation of the previous crop",
+            "soil_structure": "improves the soil structure",
+            "biofumigation": "biofumigation",
+            "pest_break": "breaks pest cycles"
+          },
+          "pauseUnknown": "No rotation pause is stored for this family.",
+          "nitrogenFixing": "fixes nitrogen",
+          "fallowOption": "Or leave the bed fallow for a year.",
+          "heldBack": "Still in their rotation pause, so not suggested:",
+          "heldBackLine": "{{family}} (last {{year}}, pause {{pause}} years)",
+          "loadFailed": "The recommendation could not be loaded. The timeline is not affected.",
+          "status": {
+            "not_applicable": "The rotation check is off for this bed.",
+            "no_history": "No year is recorded yet. Fill in a year and Kamerplanter can work out the next step.",
+            "demand_unknown": "No feeder class is stored for the last crop, so Kamerplanter makes no recommendation.",
+            "no_successor_data": "No follow-up families are stored for the families of the last year.",
+            "no_matching_species": "The fitting follow-up families have no species with a stored feeder class for this step, or the families are still keeping their rotation pause."
+          }
         }
       },
       "planting": {
@@ -7268,6 +7392,11 @@
           "done": "Task created: transplant {{plant}} to {{bed}}."
         },
         "siteFit": {
+          "axis": {
+            "frost_mismatch": "{{name}} is frost sensitive, and the frost risk at this bed is high.",
+            "wind_support_needed": "{{name}} needs support, and this bed is exposed to wind.",
+            "waterlogging_risk": "{{name}} tolerates waterlogging poorly, and this bed drains poorly."
+          },
           "fit": {
             "ok": "well suited",
             "marginal": "only partly suited",
@@ -7289,6 +7418,32 @@
           "summary": "{{name}}: site {{fit}}"
         }
       }
+    },
+    "rotationMatrix": {
+      "title": "Crop rotation matrix",
+      "backToSite": "Back to the site",
+      "description": "What stood in each bed, year by year. You recognise a plant family by colour, short code and pattern; the feeder class stands below it. The matrix shows the data of the bed history, nothing is recalculated.",
+      "editHint": "Tap a past year to fill in what stood there.",
+      "regionLabel": "Crop rotation matrix, scrolls horizontally",
+      "caption": "Crop rotation of the beds of this site, per year",
+      "bedColumn": "Bed",
+      "cellEmpty": "nothing recorded",
+      "cellAction": "{{bed}}, {{year}}: {{content}}. What stood here? Open to fill in.",
+      "legend": "Plant families",
+      "empty": "This site has no beds with rotation data yet.",
+      "count": "{{shown}} of {{total}} beds",
+      "truncated": "The matrix shows at most 500 beds; this site has more. The first {{count}} by name are listed.",
+      "more": "Load more beds",
+      "moreFailed": "More beds could not be loaded. Try again.",
+      "off": {
+        "rotation_exempt": "Exempt from the rotation check",
+        "disabled": "Rotation check off",
+        "container": "Rotation check off",
+        "unknown": "Rotation check off"
+      },
+      "open": "Rotation matrix",
+      "openHint": "Which plant family stood in which bed and year",
+      "refreshFailed": "The matrix could not be refreshed. What is shown may be out of date."
     }
   }
 }

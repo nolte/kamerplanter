@@ -77,6 +77,8 @@ export type SunExposure = 'full_sun' | 'partial_shade' | 'shade' | 'deep_shade' 
 export type SunWindow = 'morning' | 'midday' | 'afternoon' | 'all_day' | 'mixed' | 'unknown';
 /** Frost risk of one bed (GP-FR-162, `FrostRisk` of the backend). */
 export type FrostRisk = 'low' | 'normal' | 'high' | 'unknown';
+/** Wind load on a bed (GP-FR-163, `WindExposure` of the backend). */
+export type WindExposure = 'sheltered' | 'normal' | 'exposed' | 'unknown';
 /** How well a bed drains (§15.1, `SoilDrainage` of the backend). */
 export type SoilDrainage = 'poor' | 'moderate' | 'good' | 'unknown';
 export type SlotRole = 'position' | 'row' | 'zone';

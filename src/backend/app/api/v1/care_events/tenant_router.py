@@ -7,10 +7,11 @@ correct their own entry, the author may undo within ten minutes, only the lead c
 the service's.
 """
 
-from datetime import datetime
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.responses import Response
 
 from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.care_events.schemas import (
@@ -22,6 +23,7 @@ from app.api.v1.care_events.schemas import (
     care_event_to_response,
 )
 from app.common.auth import get_current_tenant, require_permission
+from app.common.csv_export import encode_csv
 from app.common.datetimes import utc_range
 from app.common.dependencies import get_care_event_service
 from app.common.exceptions import ValidationError
@@ -29,6 +31,7 @@ from app.common.openapi_responses import FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE,
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
+from app.domain.engines.care_event_csv_engine import CARE_EVENT_CSV_COLUMNS, care_event_csv_rows
 from app.domain.interfaces.care_event_repository import CareEventFilter
 from app.domain.models.care_event import CARE_EVENT_CATEGORIES
 from app.domain.models.tenant_context import TenantContext
@@ -39,13 +42,29 @@ router = APIRouter(prefix="/care-events", tags=["care-events"], responses=NOT_FO
 _EVENT_KEY = Annotated[str, Path(description="Document key of the care event.")]
 
 
+#: The download headers of the CSV: an attachment, never sniffed, never cached (a personal activity log).
+_CSV_HEADERS = {"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"}
+_DELIMITERS = {"comma": ",", "semicolon": ";"}
+
+
+def _csv_only(request: Request) -> bool:
+    """``exempt_when`` of the export budget: only ``format=csv`` is counted against it."""
+    return request.query_params.get("format") != "csv"
+
+
 @router.get(
     "",
     response_model=list[CareEventResponse],
-    summary="List the care log",
-    responses=FORBIDDEN_RESPONSE,
+    summary="List the care log (JSON, or a CSV download with format=csv)",
+    responses={
+        **FORBIDDEN_RESPONSE,
+        200: {"content": {"text/csv": {}}, "description": "`format=csv`: the same entries as a UTF-8 CSV with BOM."},
+        422: {"description": "`export.too_many_rows`: a CSV of more than 50 000 rows is refused as a whole."},
+    },
 )
+@limiter.limit(settings.rate_limit_care_events_export, key_func=user_rate_limit_key, exempt_when=_csv_only)
 def list_care_events(
+    request: Request,
     location_key: str | None = Query(None, description="Only the events of this bed."),
     plant_key: str | None = Query(None, description="Only the events that name this plant."),
     category: str | None = Query(None, description="Only this category."),
@@ -59,11 +78,26 @@ def list_care_events(
         ),
     ),
     include_superseded: bool = Query(False, description="Also the entries a correction replaced."),
+    export_format: Literal["json", "csv"] = Query(
+        "json",
+        alias="format",
+        description="`csv` downloads every entry the filter lists (at most 50 000) instead of one page of JSON.",
+    ),
+    delimiter: Literal["comma", "semicolon"] = Query(
+        "comma",
+        description=(
+            "`format=csv` only: `semicolon` is the Excel variant (semicolon as delimiter, decimal comma in numbers)."
+        ),
+    ),
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: CareEventService = Depends(get_care_event_service),
-) -> list[CareEventResponse]:
+) -> list[CareEventResponse] | Response:
     """The tenant's care log, newest first (GP-API-034, GP-FR-107); the last 90 days when no range is given.
+
+    `format=csv` (GP-FR-104) answers the same filters and the same role rules as a CSV download of up to 50 000 rows
+    (`offset`/`limit` do not apply): UTF-8 with BOM, RFC 4180 quoting, cells that look like a formula prefixed with
+    `'` (SR-016). More rows are 422 `export.too_many_rows`. Rate-limited per account.
 
     `performed_by` is shown as a display name or `anonymisiert`, never as an account key. Filtering by another
     member needs the lead role or the management scope (a per-person activity timeline, SR-020).
@@ -82,6 +116,21 @@ def list_care_events(
         performed_by=performed_by,
         include_superseded=include_superseded,
     )
+    if export_format == "csv":
+        exported = service.export_window(
+            criteria, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, admin_scopes=ctx.admin_scopes
+        )
+        body = encode_csv(
+            CARE_EVENT_CSV_COLUMNS,
+            care_event_csv_rows(exported, decimal_comma=delimiter == "semicolon"),
+            delimiter=_DELIMITERS[delimiter],
+        )
+        stamp = datetime.now(UTC).strftime("%Y%m%d")
+        return Response(
+            content=body,
+            media_type="text/csv; charset=utf-8",
+            headers={**_CSV_HEADERS, "Content-Disposition": f'attachment; filename="care-events-{stamp}.csv"'},
+        )
     views = service.list_window(
         criteria,
         tenant_key=ctx.tenant_key,

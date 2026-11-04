@@ -140,6 +140,7 @@ DEFAULT_TASKS: Final = frozenset(
         "app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha",
         "app.tasks.watering_tasks.generate_watering_tasks",
         "app.tasks.weather_tasks.fetch_weather_forecasts",
+        "care_events.consistency",
         "check_auto_transitions",
         "check_dormancy_triggers",
         "update_vernalization_progress",

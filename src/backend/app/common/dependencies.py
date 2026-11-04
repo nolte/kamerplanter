@@ -11,6 +11,7 @@ from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRe
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
 from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+from app.data_access.arango.care_event_gap_repository import ArangoCareEventGapReader
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.connection import ArangoConnection
@@ -123,6 +124,7 @@ from app.domain.services.planting_reservation_service import PlantingReservation
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.post_harvest_service import PostHarvestService
 from app.domain.services.propagation_service import PropagationService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
@@ -474,6 +476,7 @@ def get_garden_plan_export_service() -> GardenPlanExportService:
         # #2489 — plant states and phase names for the printed markers and legend.
         plant_state_repo=ArangoPlantStateRepository(get_db()),
         phase_repo=get_lifecycle_repo(),
+        forecast_repo=get_weather_forecast_repo(),
     )
 
 
@@ -528,9 +531,9 @@ def get_adjacency_service() -> AdjacencyService:
     return AdjacencyService(get_site_repo(), get_garden_plan_repo(), get_graph_repo())
 
 
-def get_bed_rotation_service() -> BedRotationService:
-    """REQ-053 WP 3.4 — bed-level crop rotation, companion hints and the history backfill."""
-    validator = CropRotationValidator(
+def _bed_rotation_validator() -> CropRotationValidator:
+    """The crop-rotation validator wired for the bed level (site, family and history repositories)."""
+    return CropRotationValidator(
         get_plant_repo(),
         get_species_repo(),
         get_graph_repo(),
@@ -538,6 +541,10 @@ def get_bed_rotation_service() -> BedRotationService:
         family_repo=get_family_repo(),
         history_repo=ArangoRotationHistoryRepository(get_db()),
     )
+
+
+def get_bed_rotation_service() -> BedRotationService:
+    """REQ-053 WP 3.4 — bed-level crop rotation, companion hints and the history backfill."""
     return BedRotationService(
         get_site_repo(),
         get_garden_plan_repo(),
@@ -545,13 +552,18 @@ def get_bed_rotation_service() -> BedRotationService:
         get_species_repo(),
         get_family_repo(),
         get_care_event_service(),
-        validator,
+        _bed_rotation_validator(),
     )
+
+
+def get_rotation_matrix_service() -> RotationMatrixService:
+    """REQ-053 WP 8.12 — the rotation matrix of a site (beds x years x season), read through the bed validator."""
+    return RotationMatrixService(get_site_repo(), get_garden_plan_repo(), _bed_rotation_validator())
 
 
 def get_plant_state_service() -> PlantStateService:
     """REQ-053 WP 3.7 — the visual state and the info-bubble facts of the plants of a bed."""
-    return PlantStateService(get_site_repo(), ArangoPlantStateRepository(get_db()))
+    return PlantStateService(get_site_repo(), ArangoPlantStateRepository(get_db()), get_weather_forecast_repo())
 
 
 def get_bed_history_service() -> BedHistoryService:
@@ -586,6 +598,11 @@ def get_irrigation_zone_service() -> IrrigationZoneService:
 def get_care_event_repo() -> ArangoCareEventRepository:
     """REQ-053 WP 4.1 — the care log (``care_events``)."""
     return ArangoCareEventRepository(get_db())
+
+
+def get_care_event_gap_reader() -> ArangoCareEventGapReader:
+    """REQ-053 WP 8.2 — the domain events that lack a care event (the daily consistency job)."""
+    return ArangoCareEventGapReader(get_db())
 
 
 def get_care_event_service() -> CareEventService:
@@ -1856,6 +1873,7 @@ def get_care_reminder_service() -> CareReminderService:
         notification_propagation=get_notification_propagation_service(),
         family_name_resolver=get_family_name_resolver(),
         fertilizer_repo=get_fertilizer_repo(),
+        site_repo=get_site_repo(),
     )
 
 

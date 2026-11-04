@@ -14,9 +14,10 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import TerrainOutlinedIcon from '@mui/icons-material/TerrainOutlined';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import type { BedAssignee, BedSummary } from './types';
-import { BED_STATUS_COLOR, formatBedDate, isOverdue, sunProfileLine } from './bedFormat';
+import { BED_STATUS_COLOR, formatBedDate, isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
 
 interface BedHeaderProps {
   summary: BedSummary;
@@ -31,6 +32,8 @@ interface BedHeaderProps {
   onChangeStatus: (() => void) | null;
   /** `null` hides the control (a viewer cannot change the sun class, GP-FR-157). */
   onChangeSun?: (() => void) | null;
+  /** `null` hides the control (a viewer cannot change the site conditions, GP-FR-162/163/168). */
+  onChangeSite?: (() => void) | null;
   /** Reasons given when a planting went ahead despite a crop-rotation hint (GP-FR-132); empty = no badge. */
   rotationReasons?: readonly string[];
 }
@@ -57,6 +60,7 @@ export default function BedHeader({
   onYearChange,
   onChangeStatus,
   onChangeSun = null,
+  onChangeSite = null,
   rotationReasons = [],
 }: BedHeaderProps) {
   const { t, i18n } = useTranslation();
@@ -71,6 +75,7 @@ export default function BedHeader({
   const overdue = isOverdue(summary.next_due_at);
   const notSet = t('pages.bed.header.unknown');
   const sunLine = sunProfileLine(t, summary.site_conditions?.sun_profile);
+  const siteLine = siteConditionsLine(t, summary.site_conditions);
 
   return (
     <Card variant="outlined" data-testid="bed-header" component="section" aria-label={t('pages.bed.header.title')}>
@@ -144,6 +149,24 @@ export default function BedHeader({
               </Typography>
             )}
           </Fact>
+          {(siteLine || onChangeSite) && (
+            <Fact label={t('pages.bed.header.site')} testId="bed-header-site">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                {siteLine ?? notSet}
+                {onChangeSite && (
+                  <Button
+                    size="small"
+                    startIcon={<TerrainOutlinedIcon />}
+                    onClick={onChangeSite}
+                    data-testid="bed-site-change-button"
+                    sx={{ minHeight: 44 }}
+                  >
+                    {t('pages.bed.header.changeSite')}
+                  </Button>
+                )}
+              </Box>
+            </Fact>
+          )}
           <Fact label={t('pages.bed.header.plants')} testId="bed-header-plants">
             {t('pages.bed.header.plantCount', { count: summary.active_plant_count })}
             {summary.species_keys.length > 0 && (

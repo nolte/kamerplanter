@@ -21,6 +21,7 @@ import { parseApiError } from '@/api/errors';
 import { getSpecies } from '@/api/endpoints/species';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { useBedSiteFeatures } from './useBedSiteFeatures';
 import type { BedSummary } from '../bed/types';
 import PlantActionHost, { type PlantActionTarget } from './PlantActionHost';
 import { plantDetailPath } from './PlantInfoPopover';
@@ -78,6 +79,7 @@ function useSpeciesNames(keys: readonly string[]): ReadonlyMap<string, string> {
 export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) {
   const { t, i18n } = useTranslation();
   const { canEdit } = useTenantPermissions();
+  const bedSite = useBedSiteFeatures(bed);
   const notification = useNotification();
   const [state, setState] = useState<ListState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -262,6 +264,7 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             bedName={bed.name}
             geometry={bed.geometry}
             sunExposure={bed.sun_exposure}
+            bedSite={bedSite}
             onClose={() => setPlanting(false)}
             onPlanted={onPlanted}
           />

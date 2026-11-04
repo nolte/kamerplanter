@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessSiteFit } from './siteFit';
+import { assessSiteAxes, assessSiteFit } from './siteFit';
 import { loadVectors } from '@/test/gardenPlanVectors';
 
 /**
@@ -78,5 +78,54 @@ describe('site_fit rules stated apart from the file', () => {
   it('reports the steps, negative when the bed is shadier', () => {
     expect(assessSiteFit('shade', 'partial_shade', 'shade').steps).toBe(-1);
     expect(assessSiteFit('full_sun', 'shade', null).steps).toBe(2);
+  });
+});
+
+const AXIS_CASES = VECTORS.cases.filter((vector) => vector.operation === 'site_fit_axes');
+
+describe('site_fit_axes vectors (shared with the Python reference, GP-FR-161)', () => {
+  it('the operation is documented and has cases', () => {
+    expect(VECTORS.operations).toHaveProperty('site_fit_axes');
+    expect(AXIS_CASES.length).toBeGreaterThan(0);
+  });
+
+  it.each(AXIS_CASES.map((vector) => [vector.id, vector] as const))('%s', (_id, vector) => {
+    const i = vector.input as {
+      frost_risk: string | null;
+      frost_sensitivity: string | null;
+      wind_exposure: string | null;
+      support_required: boolean | null;
+      drainage: string | null;
+      waterlogging_tolerance: string | null;
+    };
+    expect(
+      assessSiteAxes(
+        i.frost_risk,
+        i.frost_sensitivity,
+        i.wind_exposure,
+        i.support_required,
+        i.drainage,
+        i.waterlogging_tolerance,
+      ),
+    ).toStrictEqual(vector.expected);
+  });
+
+  it('only the three confirmed cells speak alone', () => {
+    const speaking = AXIS_CASES.filter((vector) => (vector.expected as string[]).length === 1).map(
+      (vector) => vector.id,
+    );
+    expect(new Set(speaking)).toStrictEqual(
+      new Set([
+        'site-fit-axes-frost-high-sensitive',
+        'site-fit-axes-wind-exposed-true',
+        'site-fit-axes-drainage-poor-sensitive',
+      ]),
+    );
+  });
+
+  it('a mapping cell without a source gives no hint', () => {
+    expect(assessSiteAxes('high', 'moderate', null, null, null, null)).toStrictEqual([]);
+    expect(assessSiteAxes(null, null, 'exposed', false, null, null)).toStrictEqual([]);
+    expect(assessSiteAxes(null, null, null, null, 'poor', 'moderate')).toStrictEqual([]);
   });
 });

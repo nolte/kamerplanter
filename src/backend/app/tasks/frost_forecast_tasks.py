@@ -38,8 +38,9 @@ def evaluate_forecast_frost_warnings(self) -> dict:  # noqa: ANN001 — Celery b
         get_weather_source_config_repo,
     )
     from app.data_access.arango.collections import WEATHER_SOURCE_CONFIGS
-    from app.domain.engines.frost_warning_engine import evaluate_forecast_frost_warning
+    from app.domain.engines.bed_frost_engine import named_frost_beds
     from app.domain.models.weather import WeatherSourceConfig
+    from app.domain.services.frost_forecast import site_frost_verdict
     from app.tasks.tenant_gate import ActiveTenants
 
     config_repo = get_weather_source_config_repo()
@@ -84,15 +85,18 @@ def evaluate_forecast_frost_warnings(self) -> dict:  # noqa: ANN001 — Celery b
                 continue
 
             forecasts = forecast_repo.find_by_site(config.site_key, site.tenant_key)
-            result = evaluate_forecast_frost_warning(
-                forecasts,
-                threshold_celsius=settings.frost_forecast_threshold_celsius,
-                horizon_days=settings.frost_forecast_horizon_days,
-                today=today,
-            )
+            # WP 8.20 — the same verdict a plant's frost reason reads (``site_frost_verdict``).
+            result = site_frost_verdict(forecasts, today)
             if result["predicted"] is not True:
                 skipped += 1
                 continue
+
+            # WP 8.20 — name the beds at frost risk: every ``high`` bed, never a ``low`` one (REQ-053 GP-FR-162).
+            frost_beds = [
+                (bed.key, bed.name)
+                for bed in named_frost_beds(site_repo.get_locations_by_site(config.site_key))
+                if bed.key
+            ]
 
             # Recipients: the tenant's active members (preferences are honoured by
             # the underlying send path, so no channel logic is duplicated here).
@@ -108,6 +112,7 @@ def evaluate_forecast_frost_warnings(self) -> dict:  # noqa: ANN001 — Celery b
                     expected_date=result["expected_date"],
                     min_temp=result["min_temp"],
                     source=result["source"],
+                    frost_beds=frost_beds,
                 )
             )
             if emit.get("status") == "complete":

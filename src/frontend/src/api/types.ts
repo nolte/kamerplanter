@@ -367,6 +367,8 @@ export interface Species {
   balcony_suitable: Suitability | null;
   greenhouse_recommended: boolean;
   support_required: boolean;
+  /** Root-zone waterlogging tolerance; with the bed's drainage it gives the `waterlogging_risk` hint (GP-FR-161). */
+  waterlogging_tolerance?: 'sensitive' | 'moderate' | 'tolerant' | null;
   watering_guide: WateringGuide | null;
   default_nutrient_plan_key: string | null;
   /**

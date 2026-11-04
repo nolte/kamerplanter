@@ -1221,6 +1221,24 @@
       "normal": "Normal",
       "high": "Hoch",
       "unknown": "Unbekannt"
+    },
+    "heatRetention": {
+      "none": "Keine",
+      "wall": "Wand",
+      "building": "Gebäude",
+      "unknown": "Unbekannt"
+    },
+    "windExposure": {
+      "sheltered": "Geschützt",
+      "normal": "Normal",
+      "exposed": "Windausgesetzt",
+      "unknown": "Unbekannt"
+    },
+    "accessSide": {
+      "N": "Nord",
+      "E": "Ost",
+      "S": "Süd",
+      "W": "West"
     }
   }
 }

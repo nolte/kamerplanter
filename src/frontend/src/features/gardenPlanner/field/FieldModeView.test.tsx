@@ -20,7 +20,7 @@ import { server } from '@/test/mocks/server';
 import { ThemeContextProvider } from '@/theme';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { bedListItem } from '../bed/bedTestKit';
-import type { BedListItem } from '../bed/types';
+import type { BedListItem, SoilProfile } from '../bed/types';
 import { BASE, careTask, useCareBackend } from '../care/careTestKit';
 import type { CareTask } from '../care/careTypes';
 import { normalizePlan } from '../model/planModel';
@@ -748,5 +748,108 @@ describe('sun window in the bed sheet (REQ-053 GP-FR-158/159, GP-UX-057, WP 7.20
     await within(sheet).findByRole('radio', { name: 'Morning' });
 
     await expectNoA11yViolations(sheet);
+  });
+});
+
+describe('moisture and wind in the bed sheet (REQ-053 GP-FR-162/163, GP-UX-057, WP 8.22)', () => {
+  const SOIL: SoilProfile = { soil_texture: 'loam', drainage: 'good', site_water_regime: 'fresh', conditions: [] };
+
+  function usePatches() {
+    const bodies: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ key: 'loc_a', bed_status: 'active', plan_revision: 5 });
+      }),
+    );
+    return bodies;
+  }
+
+  it('shows the stored regime and keeps the chips at 64 px', async () => {
+    useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1', soil_profile: SOIL })] });
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const section = await within(sheet).findByTestId('field-mode-site-section');
+
+    expect(within(section).getByRole('radio', { name: 'Normal' })).toBeChecked();
+    for (const option of ['moist', 'fresh', 'dry']) {
+      expect(within(section).getByTestId(`field-mode-site-moisture-${option}`)).toHaveStyle({
+        minHeight: `${KIOSK_TOUCH_TARGET}px`,
+      });
+    }
+    expect(within(section).getByTestId('field-mode-site-wind-windy')).toHaveStyle({
+      minHeight: `${KIOSK_TOUCH_TARGET}px`,
+    });
+  });
+
+  it('stores a tapped regime with the whole stored soil profile and only the one key changed', async () => {
+    useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1', soil_profile: SOIL })] });
+    const bodies = usePatches();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+
+    await user.click(await within(sheet).findByRole('radio', { name: 'Dry' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ soil_profile: { ...SOIL, site_water_regime: 'dry' } });
+  });
+
+  it('creates a profile with unknown defaults for a bed that has none', async () => {
+    useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1' })] });
+    const bodies = usePatches();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+
+    await user.click(await within(sheet).findByRole('radio', { name: 'Moist' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      soil_profile: { soil_texture: 'unknown', drainage: 'unknown', conditions: [], site_water_regime: 'moist' },
+    });
+  });
+
+  it('sets the wind to exposed on "Windy" and back to the stored (unknown) value when it is tapped again', async () => {
+    useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1' })] });
+    const bodies = usePatches();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+
+    const windy = await within(sheet).findByRole('checkbox', { name: 'Windy' });
+    await user.click(windy);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ site_conditions: { wind_exposure: 'exposed' } });
+    await waitFor(() => expect(within(sheet).getByRole('checkbox', { name: 'Windy' })).toBeEnabled());
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Windy' }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toEqual({ site_conditions: { wind_exposure: 'unknown' } });
+  });
+
+  it('restores a stored "sheltered" when "Windy" is switched off again', async () => {
+    useFieldBackend({
+      beds: [bedListItem('loc_a', { name: 'Raised bed 1', site_conditions: { wind_exposure: 'sheltered' } })],
+    });
+    const bodies = usePatches();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+
+    await user.click(await within(sheet).findByRole('checkbox', { name: 'Windy' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ site_conditions: { wind_exposure: 'exposed' } });
+    await waitFor(() => expect(within(sheet).getByRole('checkbox', { name: 'Windy' })).toBeEnabled());
+    await user.click(within(sheet).getByRole('checkbox', { name: 'Windy' }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toEqual({ site_conditions: { wind_exposure: 'sheltered' } });
+  });
+
+  it('locks the chips for a viewer and while offline', async () => {
+    useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1', soil_profile: SOIL })] });
+    renderField('viewer');
+    const sheet = await openBed('Raised bed 1');
+    expect(await within(sheet).findByRole('radio', { name: 'Dry' })).toBeDisabled();
+    expect(within(sheet).getByRole('checkbox', { name: 'Windy' })).toBeDisabled();
   });
 });
