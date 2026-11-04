@@ -36,6 +36,8 @@ class CareEventFilter:
     #: An account key the caller took from the member list; matches ``performed_by_user_key``.
     performed_by: str | None = None
     include_superseded: bool = False
+    #: Leave out the entries that were taken back (``voided_at`` set); the log itself lists them.
+    exclude_voided: bool = False
 
 
 @dataclass(frozen=True)

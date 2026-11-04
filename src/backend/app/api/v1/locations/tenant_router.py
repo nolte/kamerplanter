@@ -1,6 +1,6 @@
 from dataclasses import asdict
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 
@@ -29,6 +29,10 @@ from app.api.v1.locations.schemas import (
     QuickPlantingResponse,
     RotationFindingResponse,
     RotationTimelineResponse,
+    SoilAnalysesResponse,
+    SoilAnalysisPointResponse,
+    SoilAnalysisSeriesItemResponse,
+    SoilMethodChangeResponse,
     SuccessionBasisResponse,
     SuccessionFamilyResponse,
     SuccessionHeldBackResponse,
@@ -51,6 +55,7 @@ from app.common.dependencies import (
     get_planting_run_service,
     get_sensor_service,
     get_site_service,
+    get_soil_analysis_service,
 )
 from app.common.enums import BedStatus
 from app.common.exceptions import ValidationError
@@ -77,6 +82,7 @@ from app.domain.services.planting_reservation_service import PlantingReservation
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
+from app.domain.services.soil_analysis_service import DEFAULT_ANALYSES, MAX_ANALYSES, SoilAnalysisService
 
 router = APIRouter(prefix="/locations", tags=["locations"], responses=NOT_FOUND_RESPONSE)
 
@@ -689,6 +695,75 @@ def cancel_backfill(
 
 
 # ── Sensors ──────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/{key}/soil-analyses",
+    response_model=SoilAnalysesResponse,
+    summary="The soil analyses of a bed as series per method",
+    responses={**VALIDATION_RESPONSE},
+)
+def get_soil_analyses(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    parameter: Literal["ph", "ec", "n_min", "p", "k", "mg", "humus", "caco3", "moisture"] | None = Query(
+        None, description="Only this parameter."
+    ),
+    performed_from: datetime | None = Query(None, alias="from", description="`performed_at` from (inclusive)."),
+    performed_to: datetime | None = Query(None, alias="to", description="`performed_at` until (inclusive)."),
+    limit: int = Query(
+        DEFAULT_ANALYSES,
+        ge=1,
+        le=MAX_ANALYSES,
+        description="At most this many analyses, newest first; `truncated` says older ones were left out.",
+    ),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: SoilAnalysisService = Depends(get_soil_analysis_service),
+) -> SoilAnalysesResponse:
+    """Series of the bed's `soil_analysis` measurements per parameter **and method** (GP-FR-122, U-002/U-003).
+
+    A conductivity is read per `ec_method`, a pH per `ph_method`, the rest per `extraction_method`; `unknown` is its
+    own method. Where the method of a parameter changes between two analyses the change is listed in
+    `method_changes`. Values of different methods are never merged, compared or converted. Readable by every role.
+    """
+    performed_from, performed_to = utc_range(performed_from, performed_to)
+    result = service.series(
+        key,
+        tenant_key=ctx.tenant_key,
+        parameter=parameter,
+        performed_from=performed_from,
+        performed_to=performed_to,
+        limit=limit,
+    )
+    return SoilAnalysesResponse(
+        location_key=key,
+        series=[
+            SoilAnalysisSeriesItemResponse(
+                parameter=item.parameter,
+                method=item.method,
+                points=[
+                    SoilAnalysisPointResponse(
+                        performed_at=point.performed_at,
+                        value=point.value,
+                        unit=point.unit,
+                        source=point.source,
+                        sample_depth_cm=point.sample_depth_cm,
+                        content_class=point.content_class,
+                        event_key=point.event_key,
+                    )
+                    for point in item.points
+                ],
+            )
+            for item in result.series
+        ],
+        method_changes=[
+            SoilMethodChangeResponse(
+                parameter=change.parameter, at=change.at, from_method=change.from_method, to_method=change.to_method
+            )
+            for change in result.method_changes
+        ],
+        analyses=result.analyses,
+        truncated=result.truncated,
+    )
 
 
 @router.get("/{key}/sensors", response_model=list[SensorResponse])

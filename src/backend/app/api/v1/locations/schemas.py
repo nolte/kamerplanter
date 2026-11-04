@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.api.v1.care_events.schemas import CareEventResponse, care_event_to_response
 from app.common.enums import (
     BedStatus,
+    EcMethod,
     GrowingMediumKind,
     IrrigationSystem,
     LayoutStrategy,
@@ -22,6 +23,7 @@ from app.common.enums import (
     SoilConditionFlag,
     SoilDrainage,
     SoilTexture,
+    StoneContentClass,
     SunExposure,
     TerminationType,
 )
@@ -79,10 +81,25 @@ class SoilProfileSchema(BaseModel):
     ph: float | None = Field(default=None, ge=0.0, le=14.0)
     ph_method: PhMethod | None = None
     ec_ms_cm: float | None = Field(default=None, ge=0.0)
+    #: Required with `ec_ms_cm` (U-002): a conductivity is only readable with its extraction method.
+    ec_method: EcMethod | None = None
     humus_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    caco3_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    #: Stored as stated; never derived (E-10).
+    stone_content_class: StoneContentClass = StoneContentClass.UNKNOWN
+    target_ph: float | None = Field(default=None, ge=0.0, le=14.0)
+    established_on: date | None = None
+    #: Set by the server when a soil analysis updates the profile (WP 8.7); a client sends back what it received.
+    last_analysis_at: datetime | None = None
     #: Substrate change: the crop-rotation history starts on this day (GP-FR-131).
     rotation_reset_at: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
+
+    @model_validator(mode="after")
+    def _ec_needs_its_method(self) -> Self:
+        if self.ec_ms_cm is not None and self.ec_method is None:
+            raise ValueError("ec_ms_cm needs ec_method: a conductivity is only readable with its extraction method.")
+        return self
 
 
 class LocationResponse(BaseModel):
@@ -1340,3 +1357,124 @@ class SuccessionRecommendationResponse(BaseModel):
         max_length=20, description="Follow-up families left out because their pause in this bed is not over."
     )
     fallow_option: bool = Field(description="A fallow year is an option of the restoring step (no species needed).")
+
+
+class SoilAnalysisPointResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "performed_at": "2026-03-01T09:00:00Z",
+                    "value": 6.4,
+                    "unit": "pH",
+                    "source": "lab",
+                    "sample_depth_cm": 20.0,
+                    "content_class": None,
+                    "event_key": "ce_8812",
+                }
+            ]
+        }
+    )
+
+    performed_at: datetime
+    value: float
+    unit: str
+    source: str
+    sample_depth_cm: float | None = None
+    #: A CAL content class (A-E), only when the lab stated it; never computed.
+    content_class: str | None = None
+    event_key: str
+
+
+class SoilAnalysisSeriesItemResponse(BaseModel):
+    """The points of one parameter measured by one method, oldest first (never merged with another method)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "parameter": "ph",
+                    "method": "cacl2",
+                    "points": [
+                        {
+                            "performed_at": "2026-03-01T09:00:00Z",
+                            "value": 6.4,
+                            "unit": "pH",
+                            "source": "lab",
+                            "sample_depth_cm": None,
+                            "content_class": None,
+                            "event_key": "ce_8812",
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    parameter: str
+    #: `ec_method` of a conductivity, `ph_method` of a pH, else the `extraction_method`; `unknown` is its own method.
+    method: str
+    points: list[SoilAnalysisPointResponse]
+
+
+class SoilMethodChangeResponse(BaseModel):
+    """The method of `parameter` changed at `at`: the values before and after are not comparable."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "parameter": "ec",
+                    "at": "2026-06-01T09:00:00Z",
+                    "from_method": "ratio_1_5",
+                    "to_method": "saturated_paste",
+                }
+            ]
+        }
+    )
+
+    parameter: str
+    at: datetime
+    from_method: str
+    to_method: str
+
+
+class SoilAnalysesResponse(BaseModel):
+    """`GET /locations/{key}/soil-analyses` (GP-FR-122): a series per parameter and method, changes marked."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "8801",
+                    "series": [
+                        {
+                            "parameter": "ph",
+                            "method": "cacl2",
+                            "points": [
+                                {
+                                    "performed_at": "2026-03-01T09:00:00Z",
+                                    "value": 6.4,
+                                    "unit": "pH",
+                                    "source": "lab",
+                                    "sample_depth_cm": None,
+                                    "content_class": None,
+                                    "event_key": "ce_8812",
+                                }
+                            ],
+                        }
+                    ],
+                    "method_changes": [],
+                    "analyses": 1,
+                    "truncated": False,
+                }
+            ]
+        }
+    )
+
+    location_key: str
+    series: list[SoilAnalysisSeriesItemResponse]
+    method_changes: list[SoilMethodChangeResponse]
+    analyses: int
+    #: `true` when older analyses than the ones listed exist (the read is bounded; narrow it with `from` / `to`).
+    truncated: bool

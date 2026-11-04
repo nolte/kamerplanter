@@ -1149,6 +1149,19 @@
       "crusting": "Crusting",
       "stony": "Stony"
     },
+    "ecMethod": {
+      "saturated_paste": "Saturated paste (ECe)",
+      "ratio_1_2": "1:2 extract",
+      "ratio_1_5": "1:5 extract",
+      "sensor": "Probe",
+      "unknown": "Method unknown"
+    },
+    "stoneContentClass": {
+      "none": "None",
+      "few": "Few",
+      "many": "Many",
+      "unknown": "Unknown"
+    },
     "phMethod": {
       "cacl2": "CaCl2 solution",
       "h2o": "Water",

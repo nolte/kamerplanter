@@ -1,0 +1,150 @@
+"""WP 8.7 (#2650) — ``GET /locations/{key}/soil-analyses`` through the deployed app.
+
+``app.main`` with the real ``SoilAnalysisService``, the real tenant gate and the in-memory doubles of the care-event
+tier: the status codes, that every role may read, that another tenant's bed is a 404 that names nothing, that the
+list is bounded and that series of different methods are never merged on the wire.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.common.auth import get_current_user
+from app.common.dependencies import get_soil_analysis_service, get_tenant_service
+from app.common.enums import TenantRole
+from app.common.exceptions import NotFoundError
+from app.domain.models.care_event import CareEvent
+from app.domain.models.user import User
+from app.domain.services.soil_analysis_service import SoilAnalysisService
+from tests.support.care_event_fakes import FakeCareEventRepo
+from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT, FakePlanRepo, FakeSites, make_location, make_site
+
+_OWN = "/api/v1/t/own/locations/bed/soil-analyses"
+_OTHER = "/api/v1/t/other/locations/bed/soil-analyses"
+NOW = datetime.now(UTC)
+
+
+class _Tenants:
+    role = TenantRole.VIEWER
+
+    def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
+        keys = {"own": TENANT, "other": OTHER_TENANT}
+        if slug not in keys:
+            raise NotFoundError("Tenant", slug)
+        return SimpleNamespace(key=keys[slug], slug=slug, is_active=True)
+
+    def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace:
+        return SimpleNamespace(role=type(self).role, admin_scopes=[], is_active=True)
+
+    def get_personal_tenant(self, user_key: str) -> None:
+        return None
+
+
+def _measure(parameter: str, value: float, unit: str, **extra) -> dict:  # type: ignore[no-untyped-def]
+    return {"parameter": parameter, "value": value, "unit": unit, "source": "lab", **extra}
+
+
+@pytest.fixture
+def world() -> SimpleNamespace:
+    sites = FakeSites(make_site())
+    plan = FakePlanRepo(sites)
+    plan.locations["bed"] = make_location("bed", name="Bed")
+    repo = FakeCareEventRepo()
+    return SimpleNamespace(repo=repo, service=SoilAnalysisService(sites, repo))  # type: ignore[arg-type]
+
+
+def _store(world, days_ago: int, measurements: list[dict], **extra) -> None:  # type: ignore[no-untyped-def]
+    world.repo._store(
+        CareEvent(
+            tenant_key=TENANT,
+            site_key="site_1",
+            location_key="bed",
+            category="soil_analysis",
+            summary="Soil analysis",
+            performed_at=NOW - timedelta(days=days_ago),
+            measurements=measurements,
+            **extra,
+        )
+    )
+
+
+@pytest.fixture
+def client(world) -> Iterator[Callable[..., TestClient]]:
+    from app.main import app
+
+    def build(role: TenantRole = TenantRole.VIEWER) -> TestClient:
+        _Tenants.role = role
+        return TestClient(app)
+
+    app.dependency_overrides[get_current_user] = lambda: User(_key="u_sabine", email="s@example.org", display_name="S")
+    app.dependency_overrides[get_tenant_service] = _Tenants
+    app.dependency_overrides[get_soil_analysis_service] = lambda: world.service
+    try:
+        yield build
+    finally:
+        _Tenants.role = TenantRole.VIEWER
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("role", [TenantRole.VIEWER, TenantRole.GROWER, TenantRole.LEAD])
+def test_every_role_may_read_the_series(client, world, role) -> None:  # type: ignore[no-untyped-def]
+    _store(world, 5, [_measure("ph", 6.4, "pH", ph_method="cacl2")])
+
+    response = client(role).get(_OWN)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["location_key"] == "bed" and body["analyses"] == 1 and body["truncated"] is False
+    assert body["series"][0]["parameter"] == "ph" and body["series"][0]["method"] == "cacl2"
+
+
+def test_two_methods_are_two_series_with_the_change_marked(client, world) -> None:  # type: ignore[no-untyped-def]
+    _store(world, 120, [_measure("ec", 0.8, "mS/cm", ec_method="ratio_1_5")])
+    _store(world, 60, [_measure("ec", 2.4, "mS/cm", ec_method="saturated_paste")])
+
+    body = client().get(_OWN, params={"parameter": "ec"}).json()
+
+    assert [(s["method"], [p["value"] for p in s["points"]]) for s in body["series"]] == [
+        ("ratio_1_5", [0.8]),
+        ("saturated_paste", [2.4]),
+    ]
+    assert [(c["from_method"], c["to_method"]) for c in body["method_changes"]] == [("ratio_1_5", "saturated_paste")]
+
+
+def test_a_content_class_is_only_what_the_lab_stated(client, world) -> None:  # type: ignore[no-untyped-def]
+    _store(world, 5, [_measure("p", 12, "mg_per_100g", extraction_method="cal", content_class="C")])
+    _store(world, 4, [_measure("k", 9, "mg_per_100g", source="test_kit")])
+
+    points = {s["parameter"]: s["points"][0] for s in client().get(_OWN).json()["series"]}
+
+    assert points["p"]["content_class"] == "C" and points["k"]["content_class"] is None
+
+
+def test_another_tenants_bed_is_a_404_that_names_nothing(client, world) -> None:  # type: ignore[no-untyped-def]
+    _store(world, 5, [_measure("ph", 6.4, "pH")])
+
+    response = client(TenantRole.LEAD).get(_OTHER)
+
+    assert response.status_code == 404
+    assert TENANT not in response.text and "site_1" not in response.text  # neither the owner nor the site behind it
+
+
+def test_the_list_is_bounded_and_says_when_it_was_cut(client, world) -> None:  # type: ignore[no-untyped-def]
+    for day in range(1, 8):
+        _store(world, day, [_measure("humus", float(day), "%")])
+
+    cut = client().get(_OWN, params={"limit": 3}).json()
+
+    assert cut["analyses"] == 3 and cut["truncated"] is True
+    assert client().get(_OWN, params={"limit": 501}).status_code == 422
+    assert client().get(_OWN, params={"limit": 0}).status_code == 422
+
+
+def test_an_unknown_parameter_and_an_inverted_range_are_422(client) -> None:  # type: ignore[no-untyped-def]
+    assert client().get(_OWN, params={"parameter": "gold"}).status_code == 422
+    assert client().get(_OWN, params={"from": "2026-06-02T00:00:00", "to": "2026-06-01T00:00:00Z"}).status_code == 422
