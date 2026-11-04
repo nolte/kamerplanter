@@ -414,7 +414,9 @@ You find the switch for the check per bed in the **Soil** tab (see [Setting crop
 !!! info "Who may filter by person"
     The person filter is an activity profile and therefore restricted. With the "viewer" and "grower" roles you filter only by yourself. The "lead" role and members with the `management` admin scope can filter by any member. Members who left show as "anonymised" and cannot be filtered.
 
-**History of all beds.** **History of all beds** opens the care history of the whole tenant at `/standorte/historie`. It shows the last 90 days unless you choose another period and offers the same filters plus **Bed**. The plant filter is available once a bed is chosen.
+**Export as CSV.** **Export CSV** on the **History** tab and on the **History of all beds** page downloads the care entries the current filter shows (up to 50,000). You can choose **CSV (comma)** or **CSV for Excel (semicolon)**. The file holds display names instead of accounts, and text that looks like a formula is neutralised. The export follows the same role rules as the list. With more than 50,000 entries, narrow it by bed, plant, category or period first.
+
+ **History of all beds** opens the care history of the whole tenant at `/standorte/historie`. It shows the last 90 days unless you choose another period and offers the same filters plus **Bed**. The plant filter is available once a bed is chosen.
 
 ### Setting crop rotation for a bed {#setting-crop-rotation-for-a-bed}
 

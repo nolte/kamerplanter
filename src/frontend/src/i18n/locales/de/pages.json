@@ -7032,6 +7032,14 @@
         "loadMore": "Mehr laden",
         "retryMore": "Erneut versuchen",
         "allBeds": "Historie aller Beete",
+        "export": {
+          "button": "CSV exportieren",
+          "comma": "CSV (Komma)",
+          "semicolon": "CSV für Excel (Semikolon)",
+          "done": "Die Historie wurde als CSV-Datei heruntergeladen.",
+          "tooManyRows": "Die Historie hat mehr als 50 000 Einträge. Grenze sie nach Beet, Pflanze, Kategorie oder Zeitraum ein und exportiere erneut.",
+          "rateLimited": "Du hast gerade mehrere Exporte gestartet. Warte kurz und versuche es dann noch einmal."
+        },
         "by": "von {{name}}",
         "category": {
           "note": "Notiz",

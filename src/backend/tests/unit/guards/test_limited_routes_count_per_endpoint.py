@@ -85,6 +85,11 @@ def _variants(path: str) -> tuple[str, str]:
     return path, path + "/"
 
 
+#: Routes whose limit counts only some requests (``exempt_when``): the query that makes a request count. Without it
+#: the measurement would find the request exempt and no bucket at all (WP 8.4: the CSV form of the care-log list).
+_COUNTED_QUERY: dict[str, bytes] = {"list_care_events": b"format=csv"}
+
+
 def _bucket(limiter: Limiter, route: APIRoute, path: str) -> tuple[str, ...]:
     """The key arguments slowapi hit the storage with for one request to *path*."""
     method = sorted(route.methods or {"GET"})[0]
@@ -94,7 +99,7 @@ def _bucket(limiter: Limiter, route: APIRoute, path: str) -> tuple[str, ...]:
             "method": method,
             "path": path,
             "raw_path": path.encode(),
-            "query_string": b"",
+            "query_string": _COUNTED_QUERY.get(_name(route).rsplit(".", 1)[-1], b""),
             "headers": [],
             "client": ("203.0.113.9", 40000),
             "server": ("testserver", 80),

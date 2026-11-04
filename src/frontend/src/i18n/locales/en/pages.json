@@ -7031,6 +7031,14 @@
         "loadMore": "Load more",
         "retryMore": "Try again",
         "allBeds": "History of all beds",
+        "export": {
+          "button": "Export CSV",
+          "comma": "CSV (comma)",
+          "semicolon": "CSV for Excel (semicolon)",
+          "done": "The history was downloaded as a CSV file.",
+          "tooManyRows": "The history has more than 50,000 entries. Narrow it by bed, plant, category or period and export again.",
+          "rateLimited": "You started several exports a moment ago. Wait a little and try again."
+        },
         "by": "by {{name}}",
         "category": {
           "note": "Note",

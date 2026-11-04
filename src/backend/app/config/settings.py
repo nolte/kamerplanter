@@ -949,6 +949,10 @@ class Settings(BaseSettings):
     #: per account. A care log entry is one small document; 60 a minute covers a round of quick-log chips in
     #: the field with room for a retry, and bounds a runaway client.
     rate_limit_care_events: str = "60/minute"
+    #: ``GET /t/{slug}/care-events?format=csv`` (REQ-053 GP-FR-104, WP 8.4), per account; the JSON list is not
+    #: limited by it. A download reads up to 50 000 rows and resolves every name, so it is the expensive form of the
+    #: list: ten a minute covers a person who tries a few filters and retries.
+    rate_limit_care_events_export: str = "10/minute"
     #: ``POST /t/{slug}/tasks/{key}/complete``, ``POST …/tasks/batch/status`` and ``POST …/tasks/{key}/reopen``
     #: (REQ-053 GP-FR-083/088/149, WP 4.3), per account. Each call is one Arango transaction over the task, its
     #: care-log line and its specialist document; a batch carries up to 200 tasks. 120 a minute covers a round of
