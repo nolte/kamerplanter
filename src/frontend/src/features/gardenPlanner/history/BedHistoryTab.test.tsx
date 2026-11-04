@@ -560,8 +560,9 @@ describe('BedHistoryTab - the follow-up crop recommendation (GP-FR-133)', () => 
     renderTab();
 
     const panel = await screen.findByTestId('succession-panel');
-    expect(within(panel).getByTestId('succession-family-fam_api')).toHaveTextContent('Carrot (Daucus carota)');
-    const timelineEl = screen.getByRole('list', { name: 'Planting timeline by year' });
+    // the panel (heading, hint) renders at once, its content once the request is answered
+    expect(await within(panel).findByTestId('succession-family-fam_api')).toHaveTextContent('Carrot (Daucus carota)');
+    const timelineEl = await screen.findByRole('list', { name: 'Planting timeline by year' });
     // under the timeline, above the list
     expect(timelineEl.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const asked = () => backend.seen.filter((request) => request.path.endsWith('/succession-recommendation')).length;
