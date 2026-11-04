@@ -15,6 +15,7 @@ tenant answers exactly like an absent one.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -55,9 +56,24 @@ CARE_EVENT_WRITE_COLLECTIONS: tuple[str, ...] = (
     col.CARE_EVENT_AT,
     col.CARE_EVENT_FOR,
     col.TASK_LOGGED_AS,
-    # A soil analysis writes its newest values into the bed's profile in the same transaction (WP 8.7).
-    col.LOCATIONS,
 )
+
+#: The transaction of a ``soil_analysis`` writes the bed's profile as well (WP 8.7): only this one declares
+#: ``locations``, so no other care-event writer declares a collection it never writes.
+SOIL_ANALYSIS_WRITE_COLLECTIONS: tuple[str, ...] = (*CARE_EVENT_WRITE_COLLECTIONS, col.LOCATIONS)
+
+
+def writes_the_soil_profile(event: CareEvent) -> bool:
+    """Whether storing ``event`` also updates the bed's ``soil_profile`` (a soil analysis with measurements)."""
+    return event.category == "soil_analysis" and bool(event.measurements)
+
+
+def write_collections_for(events: Sequence[CareEvent]) -> tuple[str, ...]:
+    """The collections a transaction storing ``events`` declares for writing."""
+    if any(writes_the_soil_profile(event) for event in events):
+        return SOIL_ANALYSIS_WRITE_COLLECTIONS
+    return CARE_EVENT_WRITE_COLLECTIONS
+
 
 #: A supersede chain longer than this is not a chain a person made; the walk stops (and the redaction with it).
 _MAX_CHAIN = 100
@@ -96,11 +112,20 @@ def _dump(model: BaseModel, **options: Any) -> dict[str, Any]:
     return model.model_dump(**options)
 
 
-def write_care_event(txn: StreamTransaction, event: CareEvent, now: str, *, link_task: bool = True) -> dict[str, Any]:
+def write_care_event(
+    txn: StreamTransaction,
+    event: CareEvent,
+    now: str,
+    *,
+    link_task: bool = True,
+    apply_soil_profile: bool = False,
+) -> dict[str, Any]:
     """Insert ``event`` and its edges inside the caller's transaction; returns the stored document.
 
     The caller declares :data:`CARE_EVENT_WRITE_COLLECTIONS` for writing. ``created_at`` is stamped here, the
     ``_key`` is the database's. A ``None`` field is not stored (an absent attribute reads as ``null`` in AQL).
+    ``apply_soil_profile=True`` (only for a caller that declared :data:`SOIL_ANALYSIS_WRITE_COLLECTIONS`) also writes a
+    soil analysis's newest values into the bed's profile, in this transaction.
     ``link_task=False`` leaves the ``task_logged_as`` edge out: a correction carries its predecessor's ``task_key``
     for display, but the task is logged *as* the first entry (one edge per completion, WP 4.3).
     """
@@ -120,7 +145,7 @@ def write_care_event(txn: StreamTransaction, event: CareEvent, now: str, *, link
         txn.collection(col.TASK_LOGGED_AS).insert(
             {"_from": f"{col.TASKS}/{event.task_key}", "_to": event_id, "created_at": now}
         )
-    if event.category == "soil_analysis" and event.measurements:
+    if apply_soil_profile and writes_the_soil_profile(event):
         _apply_soil_analysis(txn, event)
     return cast("dict[str, Any]", stored)
 
@@ -371,8 +396,8 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         self._require_tenant_key(tenant_key, "insert")
         if event.tenant_key != tenant_key:
             raise ValueError("insert: the event belongs to another tenant than the one it is written under.")
-        with stream_transaction(self._db, write=CARE_EVENT_WRITE_COLLECTIONS, entity="care_event") as txn:
-            stored = write_care_event(txn, event, _now())
+        with stream_transaction(self._db, write=write_collections_for([event]), entity="care_event") as txn:
+            stored = write_care_event(txn, event, _now(), apply_soil_profile=True)
         return self._wrapped(stored)
 
     def insert_many(self, events: list[CareEvent], *, tenant_key: str) -> list[CareEvent]:
@@ -444,7 +469,7 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         self._require_tenant_key(tenant_key, "supersede")
         if event.tenant_key != tenant_key:
             raise ValueError("supersede: the event belongs to another tenant than the one it is written under.")
-        with stream_transaction(self._db, write=CARE_EVENT_WRITE_COLLECTIONS, entity="care_event") as txn:
+        with stream_transaction(self._db, write=write_collections_for([event]), entity="care_event") as txn:
             predecessor = self._load_in(txn, predecessor_key, tenant_key)
             self._refuse_if_closed(predecessor)
             if predecessor.get("location_key") != event.location_key or event.supersedes_key != predecessor_key:
@@ -454,7 +479,7 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
                     status_code=422,
                     field="supersedes_key",
                 )
-            stored = write_care_event(txn, event, _now(), link_task=False)
+            stored = write_care_event(txn, event, _now(), link_task=False, apply_soil_profile=True)
             txn.collection(col.CARE_EVENTS).update({"_key": predecessor_key, "superseded_by_key": stored["_key"]})
         return self._wrapped(stored)
 

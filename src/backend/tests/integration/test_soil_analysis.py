@@ -237,3 +237,44 @@ class TestMigrationEcMethodUnknown:
         assert locations.get("legacy")["soil_profile"] == {"ec_ms_cm": 1.4, "drainage": "poor", "ec_method": "unknown"}
         assert locations.get("ready")["soil_profile"]["ec_method"] == "sensor"
         assert "ec_method" not in locations.get("noec")["soil_profile"]
+
+
+def test_only_the_soil_analysis_transaction_declares_the_locations_collection() -> None:
+    """A care event that is no soil analysis writes no bed, so its transaction must not need the collection."""
+    from arango.exceptions import TransactionInitError
+
+    client = ArangoClient(hosts=ARANGO_URL)
+    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+    name = run_database_name("soil_analysis_no_locations")
+    if system.has_database(name):
+        system.delete_database(name)
+    system.create_database(name)
+    try:
+        bare = client.db(name, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+        for collection in (col.CARE_EVENTS, col.USERS, col.PLANT_INSTANCES):
+            bare.create_collection(collection)
+        for edge in (col.CARE_EVENT_AT, col.CARE_EVENT_FOR, col.TASK_LOGGED_AS):
+            bare.create_collection(edge, edge=True)
+        repo = ArangoCareEventRepository(bare)
+
+        plain = repo.insert(
+            CareEvent(
+                tenant_key="t1", site_key="S1", location_key="L1", category="watering", summary="x", performed_at=NOW
+            ),
+            tenant_key="t1",
+        )
+        many = repo.insert_many(
+            [
+                CareEvent(
+                    tenant_key="t1", site_key="S1", location_key="L1", category="note", summary="y", performed_at=NOW
+                )
+            ],
+            tenant_key="t1",
+        )
+
+        assert plain.key and len(many) == 1
+        # counter-case: a soil analysis does declare it (the bed profile is written there)
+        with pytest.raises(TransactionInitError):
+            repo.insert(_analysis(NOW, [_measure("ph", 6.4, "pH")]), tenant_key="t1")
+    finally:
+        system.delete_database(name)
