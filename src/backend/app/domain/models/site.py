@@ -1,13 +1,14 @@
 import math
 import re
 from datetime import date, datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import AllowInfNan, BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import (
     AccessSide,
     BedStatus,
+    EcMethod,
     FrostRisk,
     GeometryKind,
     GeometrySource,
@@ -24,6 +25,7 @@ from app.common.enums import (
     SoilConditionFlag,
     SoilDrainage,
     SoilTexture,
+    StoneContentClass,
     SunExposure,
     SunProfileSource,
     SunWindow,
@@ -201,6 +203,23 @@ class SitePlan(BaseModel):
         return value
 
 
+def with_legacy_ec_method(profile: object) -> object:
+    """A stored or archived soil profile that holds ``ec_ms_cm`` and no ``ec_method`` reads as ``ec_method = unknown``.
+
+    The rule of the migration (v0105, U-002) for the places the migration cannot reach: a tenant archive written
+    before ``ec_method`` existed and a garden-plan backup or import snapshot of the same age. ``unknown`` is comparable
+    with nothing, so nothing is guessed; the alternative - refusing the document - would leave a stored bed unreadable
+    or a replace-import snapshot unrestorable. A *request* is stricter (the API schema and ``SoilProfile`` itself refuse
+    the pair).
+    """
+    if not isinstance(profile, dict):
+        return profile
+    data: dict[str, Any] = profile
+    if data.get("ec_ms_cm") is not None and data.get("ec_method") is None:
+        return {**data, "ec_method": EcMethod.UNKNOWN.value}
+    return profile
+
+
 class SoilProfile(BaseModel):
     """The v1 soil profile of a bed location (REQ-053 §15.1, GP-FR-120/121).
 
@@ -222,7 +241,18 @@ class SoilProfile(BaseModel):
     ph: float | None = Field(default=None, ge=0.0, le=14.0)
     ph_method: PhMethod | None = None
     ec_ms_cm: float | None = Field(default=None, ge=0.0)
+    #: How ``ec_ms_cm`` was measured (U-002): required as soon as ``ec_ms_cm`` is set, and a value is only comparable
+    #: within one method - the system never converts between methods.
+    ec_method: EcMethod | None = None
     humus_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    caco3_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    #: v2 fields (WP 8.7): stored as stated, never derived. ``target_ph`` stays a field only: its derivation from
+    #: ``soil_texture`` is on the "stays null" list until research item R-008 (E-10).
+    stone_content_class: StoneContentClass = StoneContentClass.UNKNOWN
+    target_ph: float | None = Field(default=None, ge=0.0, le=14.0)
+    established_on: date | None = None
+    #: The ``performed_at`` of the newest soil analysis whose values the profile holds (WP 8.7).
+    last_analysis_at: datetime | None = None
     #: A substrate change resets the crop-rotation history: plantings before this day do not count (GP-FR-131).
     rotation_reset_at: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
@@ -233,6 +263,12 @@ class SoilProfile(BaseModel):
         if len(set(value)) != len(value):
             raise ValueError("conditions must not repeat a flag")
         return value
+
+    @model_validator(mode="after")
+    def _ec_needs_its_method(self) -> Self:
+        if self.ec_ms_cm is not None and self.ec_method is None:
+            raise ValueError("ec_ms_cm needs ec_method: a conductivity is only readable with its extraction method.")
+        return self
 
 
 class SunProfile(BaseModel):
@@ -447,6 +483,11 @@ class Location(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("soil_profile", mode="before")
+    @classmethod
+    def _stored_profile_without_ec_method(cls, value: object) -> object:
+        return with_legacy_ec_method(value)
 
     @field_validator("lights_on", "lights_off")
     @classmethod

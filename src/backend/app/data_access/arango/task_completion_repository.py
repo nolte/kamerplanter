@@ -18,7 +18,11 @@ from arango.database import StandardDatabase
 
 from app.common.exceptions import NotFoundError, PlanError, ValidationError
 from app.data_access.arango import collections as col
-from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
+from app.data_access.arango.care_event_repository import (
+    CARE_EVENT_WRITE_COLLECTIONS,
+    write_care_event,
+    write_collections_for,
+)
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.models.care_event import CareEvent
@@ -180,7 +184,12 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
     def complete(self, writes: Sequence[CompletionWrite], *, tenant_key: str) -> list[CompletedTask]:
         self._require_tenant(tenant_key, "complete")
         completed: list[CompletedTask] = []
-        with stream_transaction(self._db, write=_COMPLETION_WRITE, read=_UNDO_READ, entity="task_completion") as txn:
+        # A completed soil-analysis task writes the bed's profile too (WP 8.7): only then ``locations`` is declared.
+        declared = (
+            *_COMPLETION_WRITE,
+            *(c for c in write_collections_for([w.event for w in writes if w.event]) if c not in _COMPLETION_WRITE),
+        )
+        with stream_transaction(self._db, write=declared, read=_UNDO_READ, entity="task_completion") as txn:
             now = _now()
             for write in writes:
                 txn.check_budget()
@@ -210,7 +219,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                     if write.event.tenant_key != tenant_key:
                         raise ValueError("complete: the event belongs to another tenant than the one it writes under.")
                     event = write.event.model_copy(update={"source_ref": reference}) if reference else write.event
-                    event_key = str(write_care_event(txn, event, now)["_key"])
+                    event_key = str(write_care_event(txn, event, now, apply_soil_profile=True)["_key"])
                 txn.collection(col.TASKS).update({"_key": write.task_key, **write.task_patch, "updated_at": now})
                 completed.append(CompletedTask(write.task_key, event_key, reference))
         logger.info(

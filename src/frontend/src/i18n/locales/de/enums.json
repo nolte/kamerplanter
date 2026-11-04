@@ -1149,6 +1149,19 @@
       "crusting": "Verschlämmt",
       "stony": "Steinig"
     },
+    "ecMethod": {
+      "saturated_paste": "Sättigungsextrakt (ECe)",
+      "ratio_1_2": "Extrakt 1:2",
+      "ratio_1_5": "Extrakt 1:5",
+      "sensor": "Sonde",
+      "unknown": "Methode unbekannt"
+    },
+    "stoneContentClass": {
+      "none": "Keine",
+      "few": "Wenige",
+      "many": "Viele",
+      "unknown": "Unbekannt"
+    },
     "phMethod": {
       "cacl2": "CaCl₂-Lösung",
       "h2o": "Wasser",

@@ -126,6 +126,7 @@ from app.domain.services.post_harvest_service import PostHarvestService
 from app.domain.services.propagation_service import PropagationService
 from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.domain.services.site_service import SiteService
+from app.domain.services.soil_analysis_service import SoilAnalysisService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
 from app.domain.services.succession_plan_service import SuccessionPlanService
@@ -569,6 +570,11 @@ def get_plant_state_service() -> PlantStateService:
 def get_bed_history_service() -> BedHistoryService:
     """REQ-053 WP 4.5 — the combined history of a bed: care events and derived planting events."""
     return BedHistoryService(get_site_repo(), ArangoBedHistoryRepository(get_db()))
+
+
+def get_soil_analysis_service() -> SoilAnalysisService:
+    """REQ-053 WP 8.7 — the soil analyses of a bed as series per method."""
+    return SoilAnalysisService(get_site_repo(), get_care_event_repo())
 
 
 def get_garden_resource_service() -> GardenResourceService:

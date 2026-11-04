@@ -134,6 +134,7 @@ Lesende Endpunkte der Beet-Historie. Alle brauchen ein gültiges JWT und stehen 
 ```
 GET    /api/v1/t/{slug}/locations/{key}/history                       # Pflegeeinträge + Pflanzungsereignisse
 GET    /api/v1/t/{slug}/locations/{key}/rotation                      # Zeitstrahl je Jahr (Familie, Nährstoffbedarf, Rolle)
+GET    /api/v1/t/{slug}/locations/{key}/soil-analyses                 # Bodenanalysen als Serien je Methode
 POST   /api/v1/t/{slug}/locations/{key}/history/backfill              # Vorjahr nachtragen (ab Rolle grower)
 DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # Nachtrag zurücknehmen
 GET    /api/v1/t/{slug}/care-events                                   # Pflegeprotokoll des ganzen Mandanten
@@ -149,6 +150,8 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 | `performed_by` | – | Konto-Schlüssel eines Mitglieds. Rolle `viewer`/`grower`: nur das eigene Konto (`403` sonst); `lead` und der Bereich `management`: jedes Mitglied. Der Marker `_anonymized` ist nicht filterbar (`422`). Pflanzungsereignisse haben keine ausführende Person und entfallen |
 | `include_corrections` | `false` | Auch ersetzte Einträge und `position_corrected` |
 | `offset`, `limit` | `0`, `50` | Seite; `limit` höchstens 200 |
+
+**`GET …/soil-analyses`** liefert die Messwerte der `soil_analysis`-Pflegeeinträge des Beetes als **Serien je Parameter und Methode** (`ec` nach `ec_method`, `ph` nach `ph_method`, sonst nach `extraction_method`; `unknown` ist eine eigene Methode). Ein Methodenwechsel steht in `method_changes`. Werte verschiedener Methoden werden nie zusammengeführt, verglichen oder umgerechnet. Filter: `parameter`, `from`, `to`; `limit` (1 bis 500, Standard 200) begrenzt die Zahl der Analysen, `truncated` sagt, ob ältere ausgelassen wurden. Eine Gehaltsklasse (`content_class`, A bis E) erscheint nur, wenn sie ein Labor nach der CAL-Methode angegeben hat; sie wird nie berechnet. Beim Anlegen einer `soil_analysis` schreibt der Server die neuesten Werte (`ph`, `ec_ms_cm`, `humus_percent`, `caco3_percent`, jeweils mit Methode, und `last_analysis_at`) in derselben Transaktion ins Bodenprofil, aber nur, wenn die Analyse neuer ist als `last_analysis_at`; Werte in einer anderen als der Profileinheit (`pH`, `mS/cm` = `dS/m`, `%`) werden nicht übernommen und nie umgerechnet. Ein Leitfähigkeitswert verlangt seine `ec_method` (`422` ohne). <!-- REQ-053 GP-FR-122 -->
 
 **`GET …/rotation`** liefert je Jahr die Familien, die im Beet standen (`family_key`, `family_name`, `nutrient_demand`, `plan_role`, `source` = `plant` oder `backfill`). `years` ist standardmäßig `max(Anbaupause der beteiligten Familien, 5)`, höchstens 10 (`422` darüber).
 

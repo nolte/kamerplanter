@@ -91,6 +91,8 @@ class FakeCareEventRepo(ICareEventRepository):
                 continue
             if criteria.performed_by and event.performed_by_user_key != criteria.performed_by:
                 continue
+            if criteria.exclude_voided and event.voided_at:
+                continue
             if not criteria.include_superseded and event.superseded_by_key:
                 continue
             if criteria.performed_from and event.performed_at < criteria.performed_from:
