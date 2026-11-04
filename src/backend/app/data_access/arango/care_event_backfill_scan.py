@@ -15,7 +15,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
-from app.domain.engines.care_event_backfill_mapper import TIME_FIELDS
+from app.domain.engines.care_event_backfill_mapper import TIME_FIELDS, action_filter
 
 #: The documents inside the window with everything the mapper needs: every reference resolved to its location, every
 #: location to its site and the site's tenant, and whether a line for the document exists already. The references of
@@ -23,6 +23,7 @@ from app.domain.engines.care_event_backfill_mapper import TIME_FIELDS
 #: ``slot_keys`` (watering). A key is a plant when a plant has it, otherwise a slot.
 SCAN_AQL = """
 FOR d IN @@source
+  FILTER @action == null OR d.action == @action
   LET ts = DATE_TIMESTAMP(d[@time_field])
   FILTER ts != null AND ts >= @cutoff_ms
   SORT d._key
@@ -59,9 +60,12 @@ FOR d IN @@source
         site_tenant: site == null ? null : site.tenant_key
       }
   )
+  LET document_tenant = d.tenant_key != null
+    ? d.tenant_key
+    : FIRST(FOR r IN refs FILTER r.plant_tenant != null RETURN r.plant_tenant)
   LET present = FIRST(
     FOR e IN @@events
-      FILTER e.tenant_key == d.tenant_key AND e.source_ref.collection == @source AND e.source_ref.key == d._key
+      FILTER e.tenant_key == document_tenant AND e.source_ref.collection == @source AND e.source_ref.key == d._key
       LIMIT 1
       RETURN 1
   ) != null
@@ -82,6 +86,7 @@ def scan_candidates(
         "@events": col.CARE_EVENTS,
         "source": source,
         "time_field": TIME_FIELDS[source],
+        "action": action_filter(source),
         "cutoff_ms": cutoff_ms,
         "plants": col.PLANT_INSTANCES,
         "slots": col.SLOTS,

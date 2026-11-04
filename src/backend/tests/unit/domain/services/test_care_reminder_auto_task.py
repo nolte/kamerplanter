@@ -395,7 +395,7 @@ def test_confirm_triggers_next_task_creation(
 ) -> None:
     profile = _profile()
     mock_care_repo.get_profile_by_plant_key.return_value = profile
-    mock_care_repo.create_confirmation.return_value = CareConfirmation(
+    mock_care_repo.create_confirmation_logged.return_value = CareConfirmation(
         key="conf-1",
         plant_key="plant-1",
         care_profile_key="cp-1",
@@ -456,7 +456,9 @@ def test_confirm_with_open_task_completes_it_and_schedules_follow_up(
 
     profile = _profile()
     mock_care_repo.get_profile_by_plant_key.return_value = profile
-    mock_care_repo.create_confirmation.side_effect = lambda c: CareConfirmation(**{**c.model_dump(), "_key": "conf-1"})
+    mock_care_repo.create_confirmation_logged.side_effect = lambda c, **_kw: CareConfirmation(
+        **{**c.model_dump(), "_key": "conf-1"}
+    )
     mock_care_repo.get_last_confirmation.return_value = None
     mock_care_repo.get_confirmations_by_plant.return_value = []
 
@@ -479,7 +481,7 @@ def test_confirm_non_watering_does_not_trigger_task(
 ) -> None:
     profile = _profile()
     mock_care_repo.get_profile_by_plant_key.return_value = profile
-    mock_care_repo.create_confirmation.return_value = CareConfirmation(
+    mock_care_repo.create_confirmation_logged.return_value = CareConfirmation(
         key="conf-1",
         plant_key="plant-1",
         care_profile_key="cp-1",

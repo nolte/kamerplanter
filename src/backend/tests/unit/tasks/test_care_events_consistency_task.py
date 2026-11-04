@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from celery.schedules import crontab
 
 from app.common.enums import TenantStatus, TenantType
+from app.domain.engines.care_event_backfill_mapper import SOURCE_COLLECTIONS
 from app.domain.models.tenant import Tenant
 from app.tasks import celery_app
 
@@ -58,6 +59,7 @@ def test_the_task_asks_the_tenant_gate_and_uses_the_window_setting(monkeypatch) 
                     "present": False,
                 }
 
+    _Gaps.asked = []
     written: list = []
 
     class _Events:
@@ -74,4 +76,4 @@ def test_the_task_asks_the_tenant_gate_and_uses_the_window_setting(monkeypatch) 
 
     assert written == ["a"]  # the suspended tenant's gap is not written
     assert result["hits"] == 1 and result["skipped_inactive_tenant"] == 1
-    assert len(_Gaps.asked) == 4
+    assert len(_Gaps.asked) == len(SOURCE_COLLECTIONS)  # one scan per source, all asked for the same window

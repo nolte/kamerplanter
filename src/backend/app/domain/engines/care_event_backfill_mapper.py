@@ -37,9 +37,25 @@ WATERING_EVENTS = "watering_events"
 FEEDING_EVENTS = "feeding_events"
 TREATMENT_APPLICATIONS = "treatment_applications"
 HARVEST_BATCHES = "harvest_batches"
+#: A confirmed care reminder of a plant (REQ-053 GP-FR-106, WP 8.3). It carries no ``tenant_key`` of its own.
+CARE_CONFIRMATIONS = "care_confirmations"
 
-#: The four domain-event collections a care event can log (GP-FR-105), in the order the report lists them.
-SOURCE_COLLECTIONS: tuple[str, ...] = (WATERING_EVENTS, FEEDING_EVENTS, TREATMENT_APPLICATIONS, HARVEST_BATCHES)
+#: The domain-event collections a care event can log (GP-FR-105, GP-FR-106), in the order the report lists them.
+SOURCE_COLLECTIONS: tuple[str, ...] = (
+    WATERING_EVENTS,
+    FEEDING_EVENTS,
+    TREATMENT_APPLICATIONS,
+    HARVEST_BATCHES,
+    CARE_CONFIRMATIONS,
+)
+
+#: Sources whose documents carry no ``tenant_key``: the plant's tenant (which must equal the bed's site's) is the
+#: document's tenant. Every other source is stamped, and a stamp that disagrees with the bed's site is never written.
+UNSTAMPED_SOURCES: frozenset[str] = frozenset({CARE_CONFIRMATIONS})
+
+#: Sources of which only some documents are a performed care: a skipped or snoozed reminder is not (the scan
+#: filters ``action`` and the dry run counts only the performed ones).
+ACTION_FILTERS: dict[str, str] = {CARE_CONFIRMATIONS: "confirmed"}
 
 #: The attribute that carries the instant of each source (``performed_at`` of the event).
 TIME_FIELDS: dict[str, str] = {
@@ -47,6 +63,7 @@ TIME_FIELDS: dict[str, str] = {
     FEEDING_EVENTS: "timestamp",
     TREATMENT_APPLICATIONS: "applied_at",
     HARVEST_BATCHES: "harvest_date",
+    CARE_CONFIRMATIONS: "confirmed_at",
 }
 
 #: The attribute that holds an *account reference* (a user key); sources without one never name a performer.
@@ -55,6 +72,7 @@ ACCOUNT_FIELDS: dict[str, str | None] = {
     FEEDING_EVENTS: None,
     TREATMENT_APPLICATIONS: "applied_by_key",
     HARVEST_BATCHES: "harvested_by_key",
+    CARE_CONFIRMATIONS: None,  # a confirmation names no account; the live path stamps the caller (GP-NFR-054)
 }
 
 #: ``category`` of the event per source (§20.10): a treatment keeps the PflSchG category (``pest_control``).
@@ -65,14 +83,36 @@ CATEGORIES: dict[str, str] = {
     HARVEST_BATCHES: "harvest",
 }
 
+#: ``ReminderType`` -> care-event ``category`` (GP-FR-106), closed: a new reminder type has no category until it is
+#: added here (``tests/unit/domain/engines/test_care_event_backfill_mapper.py`` pins that every one has an entry).
+#: Checks and inspections are ``monitoring``; none of them is ``pest_control`` / ``ipm`` (the PflSchG treatment
+#: categories keep the longer retention, and a check is not a treatment).
+REMINDER_CATEGORIES: dict[str, str] = {
+    "watering": "watering",
+    "fertilizing": "feeding",
+    "repotting": "transplant",
+    "pest_check": "monitoring",
+    "location_check": "monitoring",
+    "humidity_check": "monitoring",
+    "deadheading": "pruning",
+    "tuber_dig": "maintenance",
+    "storage_check": "monitoring",
+    "spring_uncover": "uncovering",
+    "winter_protection": "covering",
+    "dormancy_health_check": "monitoring",
+    "quarter_climate_check": "monitoring",
+}
+
 SUMMARIES: dict[str, str] = {
     WATERING_EVENTS: "Watering (backfilled)",
     FEEDING_EVENTS: "Feeding (backfilled)",
     TREATMENT_APPLICATIONS: "Plant protection treatment (backfilled)",
     HARVEST_BATCHES: "Harvest (backfilled)",
+    CARE_CONFIRMATIONS: "Care reminder confirmed",
 }
 
 TRIGGER_BACKFILL = "backfill"
+TRIGGER_REMINDER = "reminder"
 
 
 class SkipReason(StrEnum):
@@ -90,6 +130,8 @@ class SkipReason(StrEnum):
     SITE_WITHOUT_TENANT = "site_without_tenant"
     #: The document, one of its plants or the bed's site belong to different tenants (or the document has none).
     TENANT_MISMATCH = "tenant_mismatch"
+    #: A reminder type no category is mapped for (a confirmation of a type added after this mapping).
+    UNMAPPED_CATEGORY = "unmapped_category"
 
 
 @dataclass(frozen=True)
@@ -101,6 +143,12 @@ class BedAnchor:
     location_key: str
     #: Plants of the document that stand in the bed (a slot reference names no plant); sorted, unique.
     plant_keys: tuple[str, ...] = ()
+
+
+def action_filter(collection: str) -> str | None:
+    """The ``action`` value a performed document of ``collection`` has, or ``None`` when every document is one."""
+    # Not ``.get``: the write-route detector counts a ``.get`` on a module constant as an untyped receiver.
+    return ACTION_FILTERS[collection] if collection in ACTION_FILTERS else None  # noqa: SIM401
 
 
 def window_start(now: datetime, years: int) -> datetime:
@@ -135,7 +183,7 @@ def account_of(document: dict[str, Any], collection: str) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
 
 
-def resolve_anchor(row: dict[str, Any]) -> BedAnchor | SkipReason:
+def resolve_anchor(row: dict[str, Any], collection: str | None = None) -> BedAnchor | SkipReason:
     """Resolve the bed of a scanned source row, or say why there is none.
 
     ``row`` is what the migration's scan returns per document::
@@ -165,10 +213,16 @@ def resolve_anchor(row: dict[str, Any]) -> BedAnchor | SkipReason:
     site_tenant = bed.get("site_tenant")
     if not site_tenant:
         return SkipReason.SITE_WITHOUT_TENANT
-    document_tenant = (row.get("doc") or {}).get("tenant_key")
-    if document_tenant != site_tenant:
-        return SkipReason.TENANT_MISMATCH
+    document = row.get("doc") or {}
+    if collection == CARE_CONFIRMATIONS and document.get("reminder_type") not in REMINDER_CATEGORIES:
+        return SkipReason.UNMAPPED_CATEGORY
     plants = [ref for ref in refs if ref["kind"] == "plant"]
+    if collection in UNSTAMPED_SOURCES:
+        # No stamp to compare: the plant's tenant is the document's, and it must be the bed's site's.
+        if not plants:
+            return SkipReason.TENANT_MISMATCH
+    elif document.get("tenant_key") != site_tenant:
+        return SkipReason.TENANT_MISMATCH
     if any(ref["plant_tenant"] != site_tenant for ref in plants):
         return SkipReason.TENANT_MISMATCH
     return BedAnchor(
@@ -204,21 +258,48 @@ def _quantity(collection: str, document: dict[str, Any]) -> dict[str, Any]:
     return fields
 
 
-def map_document(collection: str, document: dict[str, Any], anchor: BedAnchor, performed_at: datetime) -> CareEvent:
-    """The care event that logs ``document`` in ``anchor``'s bed; never reads anything but its two arguments."""
+def map_document(
+    collection: str,
+    document: dict[str, Any],
+    anchor: BedAnchor,
+    performed_at: datetime,
+    *,
+    trigger: str = TRIGGER_BACKFILL,
+    performed_by_user_key: str | None = None,
+    quantity: float | None = None,
+    unit: str | None = None,
+) -> CareEvent:
+    """The care event that logs ``document`` in ``anchor``'s bed; reads nothing but its arguments.
+
+    The backfill and the consistency job call it with the defaults. The live write of a care confirmation
+    (WP 8.3) calls the same function with ``trigger = reminder`` and the caller as ``performed_by_user_key`` (and a
+    volume the caller typed): one mapping per source, whoever asks.
+    """
     key = document.get("_key") or document.get("key")
     if not key:
         raise ValueError(f"A {collection} document without a key cannot be referenced by source_ref.")
+    quantity_fields = _quantity(collection, document)
+    if quantity is not None and unit in CARE_EVENT_UNITS:
+        quantity_fields = {"quantity": float(quantity), "unit": unit}
     return CareEvent(
         tenant_key=anchor.tenant_key,
         site_key=anchor.site_key,
         location_key=anchor.location_key,
         plant_keys=list(anchor.plant_keys),
-        category=CATEGORIES[collection],
+        category=_category(collection, document),
         summary=SUMMARIES[collection],
         performed_at=performed_at,
-        performed_by_user_key=account_of(document, collection),
-        trigger=TRIGGER_BACKFILL,
+        performed_by_user_key=performed_by_user_key or account_of(document, collection),
+        trigger=trigger,
         source_ref={"collection": collection, "key": str(key)},
-        **_quantity(collection, document),
+        **quantity_fields,
     )
+
+
+def _category(collection: str, document: dict[str, Any]) -> str:
+    if collection == CARE_CONFIRMATIONS:
+        reminder_type = document.get("reminder_type")
+        if reminder_type not in REMINDER_CATEGORIES:
+            raise ValueError(f"No care-event category is mapped for the reminder type '{reminder_type}'.")
+        return REMINDER_CATEGORIES[str(reminder_type)]
+    return CATEGORIES[collection]

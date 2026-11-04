@@ -90,6 +90,13 @@ class _RecordingCareRepo:
     def create_confirmation_edges(self, confirmation_key: str, profile_key: str, plant_key: str) -> None:
         self.edges.append((confirmation_key, profile_key, plant_key))
 
+    def create_confirmation_logged(self, confirmation: Any, *, profile_key: str, plant_key: str, event_for: Any) -> Any:
+        """The confirmation, its edges and its care event in one write (WP 8.3): recorded the way the parts were."""
+        created = self.create_confirmation(confirmation)
+        self.create_confirmation_edges(created.key, profile_key, plant_key)
+        event_for(created.key)
+        return created
+
     def update_profile(self, key: str, profile: Any) -> Any:
         self.updated_profiles.append((key, profile))
         return profile
