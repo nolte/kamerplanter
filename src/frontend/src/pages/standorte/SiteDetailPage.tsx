@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { useForm, useWatch } from 'react-hook-form';
@@ -236,6 +237,19 @@ export default function SiteDetailPage() {
                   title={t('pages.gardenPlan.openHint')}
                 >
                   {t('pages.gardenPlan.open')}
+                </Button>
+              )}
+              {showGardenPlan && key && (
+                <Button
+                  component={RouterLink}
+                  to={`/standorte/sites/${key}/rotation-matrix`}
+                  variant="outlined"
+                  startIcon={<GridViewOutlinedIcon />}
+                  data-testid="rotation-matrix-open-link"
+                  sx={{ minHeight: 44 }}
+                  title={t('pages.rotationMatrix.openHint')}
+                >
+                  {t('pages.rotationMatrix.open')}
                 </Button>
               )}
               {canDelete && (

@@ -7294,6 +7294,32 @@
           "summary": "{{name}}: site {{fit}}"
         }
       }
+    },
+    "rotationMatrix": {
+      "title": "Crop rotation matrix",
+      "backToSite": "Back to the site",
+      "description": "What stood in each bed, year by year. You recognise a plant family by colour, short code and pattern; the feeder class stands below it. The matrix shows the data of the bed history, nothing is recalculated.",
+      "editHint": "Tap a past year to fill in what stood there.",
+      "regionLabel": "Crop rotation matrix, scrolls horizontally",
+      "caption": "Crop rotation of the beds of this site, per year",
+      "bedColumn": "Bed",
+      "cellEmpty": "nothing recorded",
+      "cellAction": "{{bed}}, {{year}}: {{content}}. What stood here? Open to fill in.",
+      "legend": "Plant families",
+      "empty": "This site has no beds with rotation data yet.",
+      "count": "{{shown}} of {{total}} beds",
+      "truncated": "The matrix shows at most 500 beds; this site has more. The first {{count}} by name are listed.",
+      "more": "Load more beds",
+      "moreFailed": "More beds could not be loaded. Try again.",
+      "off": {
+        "rotation_exempt": "Exempt from the rotation check",
+        "disabled": "Rotation check off",
+        "container": "Rotation check off",
+        "unknown": "Rotation check off"
+      },
+      "open": "Rotation matrix",
+      "openHint": "Which plant family stood in which bed and year",
+      "refreshFailed": "The matrix could not be refreshed. What is shown may be out of date."
     }
   }
 }

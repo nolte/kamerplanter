@@ -8,6 +8,7 @@ import type {
   CareEventLine,
   FilterOption,
   HistoryItem,
+  RotationMatrix,
   RotationTimeline,
 } from './historyTypes';
 
@@ -40,6 +41,20 @@ export async function getCareEvents(query: HistoryQuery, offset: number): Promis
 export async function getRotationTimeline(bedKey: string, years?: number): Promise<RotationTimeline> {
   const { data } = await tenantClient.get<RotationTimeline>(`/locations/${bedKey}/rotation`, {
     params: years === undefined ? {} : { years },
+  });
+  return data;
+}
+
+/** Beds per page of the rotation matrix (the server pages by bed, at most 500 beds). */
+export const ROTATION_MATRIX_PAGE_SIZE = 50;
+
+/**
+ * GP-FR-135: beds x years of a site. Without `years` the server derives the look-back from the beds of the page, so
+ * a client that pages passes the `years` of the first answer to keep the columns the same.
+ */
+export async function getRotationMatrix(siteKey: string, offset: number, years?: number): Promise<RotationMatrix> {
+  const { data } = await tenantClient.get<RotationMatrix>(`/sites/${siteKey}/rotation-matrix`, {
+    params: { offset, limit: ROTATION_MATRIX_PAGE_SIZE, ...(years === undefined ? {} : { years }) },
   });
   return data;
 }

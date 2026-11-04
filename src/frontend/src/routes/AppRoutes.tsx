@@ -62,6 +62,7 @@ const SubstrateListPage = lazy(() => import('@/pages/standorte/SubstrateListPage
 const SubstrateDetailPage = lazy(() => import('@/pages/standorte/SubstrateDetailPage'));
 const BatchDetailPage = lazy(() => import('@/pages/standorte/BatchDetailPage'));
 const GardenPlanRoute = lazy(() => import('@/features/gardenPlanner/routes/GardenPlanRoute'));
+const RotationMatrixPage = lazy(() => import('@/features/gardenPlanner/history/RotationMatrixPage'));
 const CareHistoryPage = lazy(() => import('@/features/gardenPlanner/history/CareHistoryPage'));
 const SlotDetailPage = lazy(() => import('@/pages/standorte/SlotDetailPage'));
 const PlantInstanceListPage = lazy(() => import('@/pages/pflanzen/PlantInstanceListPage'));
@@ -556,6 +557,18 @@ export const router = createBrowserRouter(
               <ModuleGuard moduleKey="garden_planner">
                 <Suspense fallback={<LoadingSkeleton variant="card" />}>
                   <GardenPlanRoute />
+                </Suspense>
+              </ModuleGuard>
+            }
+          />
+          {/* REQ-053 WP 8.13 — Fruchtfolge-Matrix der Site (GP-FR-135): Lesen steht jedem Mitglied offen, das Nachtragen
+              eines Jahres ist ab Gärtner (Schreibrecht des Backfill). Modul-Key explizit wie beim Plan. */}
+          <Route
+            path="standorte/sites/:key/rotation-matrix"
+            element={
+              <ModuleGuard moduleKey="garden_planner">
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <RotationMatrixPage />
                 </Suspense>
               </ModuleGuard>
             }

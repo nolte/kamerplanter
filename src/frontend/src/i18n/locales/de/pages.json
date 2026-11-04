@@ -7295,6 +7295,32 @@
           "summary": "{{name}}: Standort {{fit}}"
         }
       }
+    },
+    "rotationMatrix": {
+      "title": "Fruchtfolge-Matrix",
+      "backToSite": "Zurück zum Standort",
+      "description": "Je Beet und Jahr, was dort stand. Die Pflanzenfamilie erkennst du an Farbe, Kürzel und Muster; darunter steht die Zehrerklasse. Die Matrix zeigt die Daten der Beet-Historie, nichts wird neu berechnet.",
+      "editHint": "Tippe auf ein vergangenes Jahr, um nachzutragen, was dort stand.",
+      "regionLabel": "Fruchtfolge-Matrix, seitlich scrollbar",
+      "caption": "Fruchtfolge der Beete dieses Standorts, je Jahr",
+      "bedColumn": "Beet",
+      "cellEmpty": "nichts erfasst",
+      "cellAction": "{{bed}}, {{year}}: {{content}}. Was stand hier? Zum Nachtragen öffnen.",
+      "legend": "Pflanzenfamilien",
+      "empty": "Dieser Standort hat noch keine Beete mit Fruchtfolge-Daten.",
+      "count": "{{shown}} von {{total}} Beeten",
+      "truncated": "Die Matrix zeigt höchstens 500 Beete; dieser Standort hat mehr. Es werden die ersten {{count}} nach Name gelistet.",
+      "more": "Weitere Beete laden",
+      "moreFailed": "Weitere Beete konnten nicht geladen werden. Versuche es erneut.",
+      "off": {
+        "rotation_exempt": "Von der Fruchtfolge-Prüfung ausgenommen",
+        "disabled": "Fruchtfolge-Prüfung aus",
+        "container": "Fruchtfolge-Prüfung aus",
+        "unknown": "Fruchtfolge-Prüfung aus"
+      },
+      "open": "Fruchtfolge-Matrix",
+      "openHint": "Welche Pflanzenfamilie in welchem Beet und Jahr stand",
+      "refreshFailed": "Die Matrix konnte nicht aktualisiert werden. Der angezeigte Stand ist möglicherweise veraltet."
     }
   }
 }
