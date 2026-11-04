@@ -275,3 +275,62 @@ class TestMapDocument:
     def test_a_document_without_a_key_cannot_be_referenced(self) -> None:
         with pytest.raises(ValueError, match="source_ref"):
             map_document(WATERING_EVENTS, {"volume_liters": 1.0}, self.ANCHOR, WHEN)
+
+
+class TestCareConfirmations:
+    """WP 8.3 (GP-FR-106): the fifth source - a confirmed care reminder, which carries no ``tenant_key``."""
+
+    @staticmethod
+    def _confirmation_row(**doc) -> dict:  # type: ignore[no-untyped-def]
+        row = _row(doc={"reminder_type": "watering", "confirmed_at": "2025-06-01T08:30:00+00:00"} | doc)
+        row["doc"].pop("tenant_key")  # a confirmation has no tenant stamp
+        return row
+
+    def test_the_plants_tenant_is_the_documents_when_it_has_no_stamp(self) -> None:
+        anchor = resolve_anchor(self._confirmation_row(), "care_confirmations")
+
+        assert isinstance(anchor, BedAnchor) and anchor.tenant_key == T1
+        # counter-case: a stamped source without a stamp is a mismatch - the exemption is the source's, not general
+        assert resolve_anchor(self._confirmation_row(), "watering_events") is SkipReason.TENANT_MISMATCH
+
+    def test_the_plant_of_another_tenant_than_the_beds_site_is_never_written(self) -> None:
+        row = self._confirmation_row()
+        row["refs"] = [_ref("p1", plant_tenant=T2)]
+
+        assert resolve_anchor(row, "care_confirmations") is SkipReason.TENANT_MISMATCH
+
+    def test_a_confirmation_without_a_plant_has_no_tenant_to_take(self) -> None:
+        row = self._confirmation_row()
+        row["refs"] = []
+        row["own_location_key"] = "L1"
+
+        assert resolve_anchor(row, "care_confirmations") is SkipReason.TENANT_MISMATCH
+
+    def test_a_reminder_type_without_a_category_is_counted_not_mapped(self) -> None:
+        assert resolve_anchor(self._confirmation_row(reminder_type="new_type"), "care_confirmations") is (
+            SkipReason.UNMAPPED_CATEGORY
+        )
+
+    def test_the_category_comes_from_the_reminder_type_and_the_trigger_can_be_the_callers(self) -> None:
+        anchor = BedAnchor(tenant_key=T1, site_key="S1", location_key="L1", plant_keys=("p1",))
+
+        backfill = map_document("care_confirmations", {"_key": "c1", "reminder_type": "fertilizing"}, anchor, WHEN)
+        live = map_document(
+            "care_confirmations",
+            {"_key": "c1", "reminder_type": "fertilizing"},
+            anchor,
+            WHEN,
+            trigger="reminder",
+            performed_by_user_key="u1",
+        )
+
+        assert (backfill.category, backfill.trigger, backfill.performed_by_user_key) == ("feeding", "backfill", None)
+        assert (live.category, live.trigger, live.performed_by_user_key) == ("feeding", "reminder", "u1")
+        assert backfill.source_ref == live.source_ref == {"collection": "care_confirmations", "key": "c1"}
+
+    def test_only_a_confirmed_reminder_is_a_performed_care(self) -> None:
+        from app.domain.engines.care_event_backfill_mapper import action_filter
+
+        assert action_filter("care_confirmations") == "confirmed"
+        assert action_filter("watering_events") is None
+        assert "care_confirmations" in SOURCE_COLLECTIONS

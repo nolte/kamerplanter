@@ -1873,6 +1873,7 @@ def get_care_reminder_service() -> CareReminderService:
         notification_propagation=get_notification_propagation_service(),
         family_name_resolver=get_family_name_resolver(),
         fertilizer_repo=get_fertilizer_repo(),
+        site_repo=get_site_repo(),
     )
 
 

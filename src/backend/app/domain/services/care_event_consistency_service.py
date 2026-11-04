@@ -115,7 +115,7 @@ class CareEventConsistencyService:
             if performed_at is None:
                 report.no_timestamp += 1
                 continue
-            anchor = resolve_anchor(row)
+            anchor = resolve_anchor(row, source)
             if isinstance(anchor, SkipReason):
                 report.without_bed[source] += 1
                 continue

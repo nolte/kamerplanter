@@ -57,6 +57,7 @@ from app.domain.engines.care_event_backfill_mapper import (
     TIME_FIELDS,
     TREATMENT_APPLICATIONS,
     SkipReason,
+    action_filter,
     map_document,
     performed_at_of,
     resolve_anchor,
@@ -83,6 +84,7 @@ _CURSOR_TTL_SECONDS = 600
 #: Counts the sources by where their instant lies; one cheap pass, no lookups.
 _COUNT_BY_WINDOW = """
 FOR d IN @@source
+  FILTER @action == null OR d.action == @action
   LET ts = DATE_TIMESTAMP(d[@time_field])
   COLLECT bucket = (ts == null ? "no_timestamp" : (ts < @cutoff_ms ? "outside_r25" : "in_window")) WITH COUNT INTO n
   RETURN { bucket, n }
@@ -131,7 +133,12 @@ def _empty_source() -> dict[str, Any]:
 
 
 def _count_window(db: StandardDatabase, source: str, cutoff_ms: int) -> dict[str, int]:
-    bind_vars: dict[str, Any] = {"@source": source, "time_field": TIME_FIELDS[source], "cutoff_ms": cutoff_ms}
+    bind_vars: dict[str, Any] = {
+        "@source": source,
+        "time_field": TIME_FIELDS[source],
+        "action": action_filter(source),
+        "cutoff_ms": cutoff_ms,
+    }
     cursor = cast(Cursor, db.aql.execute(_COUNT_BY_WINDOW, bind_vars=bind_vars))
     return {str(row["bucket"]): int(row["n"]) for row in cursor}
 
@@ -189,7 +196,7 @@ def _process_source(
         if performed_at is None:  # the server read a date the mapper cannot: still never written
             own["no_timestamp"] += 1
             continue
-        anchor = resolve_anchor(row)
+        anchor = resolve_anchor(row, source)
         if isinstance(anchor, SkipReason):
             own["without_bed"] += 1
             reasons: dict[str, dict[str, Any]] = own["without_bed_reasons"]
