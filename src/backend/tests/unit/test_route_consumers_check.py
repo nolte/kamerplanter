@@ -315,7 +315,7 @@ class TestTheRouteOperand:
         consumer, the analysis history in the soil tab, is the next package of the lane (WP 8.8, #2651).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 892
+        assert len(checker.collect_operations(app)) == 893
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
