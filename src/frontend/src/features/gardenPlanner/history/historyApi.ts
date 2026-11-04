@@ -10,6 +10,7 @@ import type {
   HistoryItem,
   RotationMatrix,
   RotationTimeline,
+  SuccessionRecommendation,
 } from './historyTypes';
 
 /**
@@ -56,6 +57,12 @@ export async function getRotationMatrix(siteKey: string, offset: number, years?:
   const { data } = await tenantClient.get<RotationMatrix>(`/sites/${siteKey}/rotation-matrix`, {
     params: { offset, limit: ROTATION_MATRIX_PAGE_SIZE, ...(years === undefined ? {} : { years }) },
   });
+  return data;
+}
+
+/** GP-FR-133: the families and species for the next year of a bed, by the feeder cycle (order only). */
+export async function getSuccessionRecommendation(bedKey: string): Promise<SuccessionRecommendation> {
+  const { data } = await tenantClient.get<SuccessionRecommendation>(`/locations/${bedKey}/succession-recommendation`);
   return data;
 }
 

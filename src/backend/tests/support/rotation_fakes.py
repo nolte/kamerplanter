@@ -41,6 +41,17 @@ class FakeSpecies:
     def is_granted_to(self, species_key, tenant_key):
         return (species_key, tenant_key) in self.grants
 
+    def search(self, name=None, family_key=None, *, tenant_key=None):
+        """The hybrid-catalogue union of the real read: global rows, the tenant's own and granted ones."""
+        return [
+            species
+            for species in self.by_key.values()
+            if (family_key is None or species.family_key == family_key)
+            and (
+                tenant_key is None or species.tenant_key in ("", tenant_key) or (species.key, tenant_key) in self.grants
+            )
+        ]
+
 
 class FakeFamilies:
     def __init__(self, *families: BotanicalFamily) -> None:
@@ -103,12 +114,20 @@ class FakeRotationGraph:
 
     def __init__(self) -> None:
         self.pest_risks: dict[str, list[dict]] = {}
+        #: family key -> [(successor family key, benefit_score, benefit_reason)], the ``rotation_after`` edges
+        self.successors: dict[str, list[tuple[str, float, str]]] = {}
         self.adjacent: dict[str, list[str]] = {}
         self.incompatible: dict[str, list[str]] = {}
         self.compatible: dict[str, dict[str, float]] = {}
 
     def get_pest_risks(self, family_key):
         return self.pest_risks.get(family_key, [])
+
+    def get_rotation_successors(self, family_key):
+        return [
+            {"family": {"_key": key}, "wait_years": 1, "benefit_score": score, "benefit_reason": reason}
+            for key, score, reason in self.successors.get(family_key, [])
+        ]
 
     def get_adjacent_slots(self, slot_key):
         return [{"slot": {"_key": key}} for key in self.adjacent.get(slot_key, [])]

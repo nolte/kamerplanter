@@ -6790,7 +6790,24 @@
         "humus": "Humusgehalt",
         "humusHelper": "Anteil organischer Substanz in Prozent.",
         "notes": "Notizen",
-        "saved": "Bodenprofil gespeichert."
+        "saved": "Bodenprofil gespeichert.",
+        "rotation": {
+          "title": "Fruchtfolge für dieses Beet",
+          "intro": "Lege fest, ob Kamerplanter die Fruchtfolge für dieses Beet prüft. Ohne eigene Angabe gilt der Standard des Beettyps: Für Töpfe, Zelte und Regale ist die Prüfung aus, sonst an.",
+          "introReadOnly": "So ist die Fruchtfolge-Prüfung für dieses Beet eingestellt. Du kannst sie ansehen, aber nicht ändern.",
+          "checkLabel": "Fruchtfolge-Prüfung",
+          "check": {
+            "default": "Standard des Beettyps",
+            "on": "Eingeschaltet",
+            "off": "Ausgeschaltet"
+          },
+          "checkHelper": "Die Änderung gilt sofort für Hinweise beim Bepflanzen und für die Folgekultur-Empfehlung.",
+          "exemptLabel": "Dauerkultur (von der Fruchtfolge ausgenommen)",
+          "exemptHelper": "Für Obstbäume, Beerensträucher, Spargel und andere Dauerkulturen. Die Prüfung bleibt dann immer aus.",
+          "saving": "Wird gespeichert …",
+          "saved": "Gespeichert.",
+          "bothRefused": "Eine Dauerkultur kann die Fruchtfolge-Prüfung nicht eingeschaltet haben. Stelle die Prüfung zuerst auf „Standard des Beettyps“ oder „Ausgeschaltet“. Es wurde nichts geändert."
+        }
       },
       "plan": {
         "openGarden": "Im Gartenplan öffnen",
@@ -7078,6 +7095,38 @@
         "page": {
           "title": "Pflegehistorie",
           "description": "Was in allen Beeten dieses Gartens gemacht wurde, die neuesten zuerst. Es werden die letzten 90 Tage gezeigt, solange du keinen anderen Zeitraum wählst."
+        },
+        "succession": {
+          "title": "Folgekultur-Empfehlung",
+          "hint": "Welche Stufe der Zehrer-Folge als Nächstes passt: Starkzehrer, Mittelzehrer, Schwachzehrer, dann Gründüngung oder Brache. Das ist eine Reihenfolge, keine Düngeempfehlung – Mengen nennt Kamerplanter hier nicht.",
+          "basis": "Nach {{year}} ({{previous}}) passt als Nächstes: {{next}}.",
+          "stepRestoring": "Gründüngung oder Brache",
+          "target": {
+            "heavy_feeder": "Starkzehrer",
+            "medium_feeder": "Mittelzehrer",
+            "light_feeder": "Schwachzehrer",
+            "restoring": "Gründüngung oder Brache"
+          },
+          "listLabel": "Passende Familien und Arten",
+          "reasons": {
+            "nitrogen_fixation": "Stickstoff-Bindung der Vorkultur",
+            "soil_structure": "verbessert die Bodenstruktur",
+            "biofumigation": "Biofumigation",
+            "pest_break": "unterbricht Schädlingsketten"
+          },
+          "pauseUnknown": "Für diese Familie ist keine Anbaupause hinterlegt.",
+          "nitrogenFixing": "bindet Stickstoff",
+          "fallowOption": "Oder lass das Beet ein Jahr brach liegen.",
+          "heldBack": "Noch in der Anbaupause, deshalb nicht vorgeschlagen:",
+          "heldBackLine": "{{family}} (zuletzt {{year}}, Pause {{pause}} Jahre)",
+          "loadFailed": "Die Empfehlung konnte nicht geladen werden. Der Zeitstrahl ist davon nicht betroffen.",
+          "status": {
+            "not_applicable": "Für dieses Beet ist die Fruchtfolge-Prüfung aus.",
+            "no_history": "Es ist noch kein Jahr erfasst. Trage ein Jahr nach, dann kann Kamerplanter die nächste Stufe bestimmen.",
+            "demand_unknown": "Für die letzte Kultur ist keine Zehrerklasse hinterlegt, deshalb gibt Kamerplanter keine Empfehlung ab.",
+            "no_successor_data": "Für die Familien des letzten Jahres sind keine Folgefamilien hinterlegt.",
+            "no_matching_species": "In den passenden Folgefamilien gibt es keine Art mit hinterlegter Zehrerklasse für diese Stufe, oder die Familien halten ihre Anbaupause noch ein."
+          }
         }
       },
       "planting": {

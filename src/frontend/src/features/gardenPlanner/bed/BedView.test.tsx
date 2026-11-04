@@ -219,6 +219,29 @@ describe('BedView', () => {
       await waitFor(() => expect(reloaded).toBe(1));
     });
 
+    it('carries the rotation switch of the bed above the soil form, writing only its own key (GP-FR-137)', async () => {
+      const bodies: unknown[] = [];
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(bedSummary({ rotation_enabled: false }), '/standorte/locations/loc_b03#soil', 'grower', () => {
+        reloaded += 1;
+      });
+
+      const switchBox = await screen.findByTestId('rotation-switch');
+      expect(within(switchBox).getByRole('radio', { name: 'Switched off' })).toBeChecked();
+      await user.click(within(switchBox).getByRole('radio', { name: 'Switched on' }));
+
+      await waitFor(() => expect(bodies).toEqual([{ rotation_enabled: true }]));
+      await waitFor(() => expect(reloaded).toBe(1));
+      expect(screen.getByTestId('bed-soil-tab')).toBeInTheDocument();
+    });
+
     it('explains the finger test', async () => {
       useBackend();
       const user = userEvent.setup();

@@ -5,6 +5,8 @@
   :class:`~app.domain.engines.crop_rotation_validator.CropRotationValidator` plus the companion-planting hints of
   the neighbours. **Hints only, never an error for a violation** (D-09).
 * :meth:`BedRotationService.rotation_timeline` — ``GET /locations/{key}/rotation`` (GP-API-039, GP-FR-103).
+* :meth:`BedRotationService.succession_recommendation` - ``GET /locations/{key}/succession-recommendation``
+  (GP-FR-133): the families and species that fit the next step of the feeder cycle. Order only, no amounts.
 * :meth:`BedRotationService.backfill` / :meth:`~BedRotationService.cancel_backfill` — ``POST`` / ``DELETE``
   ``/locations/{key}/history/backfill`` (GP-API-042): a ``care_event(planting, trigger = backfill)`` the **server**
   stamps through the care-event service of WP 4.1 (the V-11 exception; a client body never carries the trigger, SR-009).
@@ -33,9 +35,21 @@ from app.domain.engines.crop_rotation_validator import (
     FamilySource,
     RotationTimeline,
     Severity,
+    _name_or_none,
     get_field,
+    not_applicable_reason,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.succession_recommendation_engine import (
+    PreviousYear,
+    SuccessionTarget,
+    basis_family_keys,
+    pause_held_back,
+    planting_year,
+    previous_year,
+    species_fits,
+    target_after,
+)
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -63,6 +77,21 @@ _SEASON_MIDDLE: dict[str | None, tuple[int, int]] = {
     "autumn": (9, 15),
 }
 
+#: At most this many families, and this many species per family, are listed (the response is bounded).
+MAX_SUCCESSION_FAMILIES = 20
+MAX_SUCCESSION_SPECIES_PER_FAMILY = 10
+#: Candidate families evaluated per request (one species query each).
+MAX_SUCCESSION_CANDIDATES = 40
+
+SuccessionStatus = Literal[
+    "ok",
+    "not_applicable",
+    "no_history",
+    "demand_unknown",
+    "no_successor_data",
+    "no_matching_species",
+]
+
 ERROR_YEAR_RANGE = "backfill.year_out_of_range"
 ERROR_FAMILY_MISMATCH = "backfill.family_mismatch"
 
@@ -89,6 +118,50 @@ class BedPlantingValidation:
     neighbour_scope: NeighbourScope
     #: The strongest severity of the rotation finding and the neighbour hints.
     severity: Severity
+
+
+@dataclass(frozen=True)
+class SuccessionSpecies:
+    species_key: str
+    scientific_name: str
+    common_name: str | None
+    nutrient_demand: str | None
+    nitrogen_fixing: bool | None
+
+
+@dataclass(frozen=True)
+class SuccessionFamily:
+    family_key: str
+    family_name: str | None
+    benefit_score: float | None
+    benefit_reason: str | None
+    #: The pause the family keeps in a bed; ``None`` when no source names one (nothing is assumed).
+    pause_years: int | None
+    species: list[SuccessionSpecies]
+
+
+@dataclass(frozen=True)
+class HeldBackFamily:
+    """A follow-up family left out because its pause in this bed is not over."""
+
+    family_key: str
+    family_name: str | None
+    last_year: int
+    pause_years: int
+
+
+@dataclass(frozen=True)
+class SuccessionRecommendation:
+    location_key: str
+    applicable: bool
+    not_applicable_reason: str | None
+    status: SuccessionStatus
+    previous: PreviousYear | None
+    target: SuccessionTarget | None
+    families: list[SuccessionFamily]
+    held_back: list[HeldBackFamily]
+    #: A fallow year is an option of the restoring step (it needs no species).
+    fallow_option: bool
 
 
 @dataclass(frozen=True)
@@ -224,6 +297,116 @@ class BedRotationService:
     def rotation_timeline(self, location_key: str, *, tenant_key: str, years: int | None = None) -> RotationTimeline:
         """Family, nutrient demand and plan role per year (GP-API-039, GP-ACC-028)."""
         return self._validator.rotation_timeline(location_key, tenant_key=tenant_key, years=years)
+
+    def succession_recommendation(self, location_key: str, *, tenant_key: str) -> SuccessionRecommendation:
+        """The families and species for the next year of a bed, by the feeder cycle and ``rotation_after`` (GP-FR-133).
+
+        The previous year is the latest year of the bed's rotation timeline that has an entry; the step after it
+        follows heavy -> medium -> light feeder -> green manure / fallow -> heavy. Candidate families are the
+        ``rotation_after`` successors of the crop families (:func:`basis_family_keys`); a species whose pause in this
+        bed - its own override, else its family's - is not over in the year of planting is left out, and a family with
+        no species left is reported as held back. Species qualify only by their own stored ``nutrient_demand`` (or
+        ``green_manure_suitable`` for the restoring step) and only if the tenant may read them. **Hints only:** no
+        amount, and no recommendation is made for a step that cannot be derived (the ``status`` says why).
+        """
+        location = resolve_owned_location(self._sites, location_key, tenant_key)
+        reason = not_applicable_reason(location)
+        if reason is not None:
+            return SuccessionRecommendation(location_key, False, reason, "not_applicable", None, None, [], [], False)
+
+        resolver = self._validator.timeline_resolver(tenant_key)
+        entries, _reset_at = self._validator.bed_rotation_entries(location, tenant_key=tenant_key)
+        today_year = today_utc().year
+        rows = self._validator.timeline_rows(entries, from_year=today_year - 9, resolver=resolver)
+        previous = previous_year(rows)
+        if previous is None:
+            return SuccessionRecommendation(location_key, True, None, "no_history", None, None, [], [], False)
+        target = target_after(previous)
+        if target is None:
+            return SuccessionRecommendation(location_key, True, None, "demand_unknown", previous, None, [], [], False)
+        # A fallow year is an option of the restoring step whatever the edge data says: it needs no species.
+        fallow = target == "restoring"
+
+        # Candidate families: the successors of the crop families, strongest edge first.
+        basis = basis_family_keys(rows, previous)
+        candidates: dict[str, tuple[float | None, str | None]] = {}
+        for family_key in basis:
+            for row in self._graph.get_rotation_successors(family_key):
+                successor = get_field(row["family"], "_key", "")
+                if not successor or successor in basis:
+                    continue
+                score = get_field(row, "benefit_score")
+                if successor not in candidates or (score or 0.0) > (candidates[successor][0] or 0.0):
+                    candidates[successor] = (score, get_field(row, "benefit_reason") or None)
+        if not candidates:
+            return SuccessionRecommendation(
+                location_key, True, None, "no_successor_data", previous, target, [], [], fallow
+            )
+
+        last_stood: dict[str, int] = {
+            key: max(row.year for row in rows if row.family_key == key and row.plan_role != PlanRole.FALLOW.value)
+            for key in {row.family_key for row in rows if row.family_key and row.plan_role != PlanRole.FALLOW.value}
+        }
+
+        year = planting_year(previous, today_year)
+        families: list[SuccessionFamily] = []
+        held_back: list[HeldBackFamily] = []
+        ordered = sorted(candidates, key=lambda key: (-(candidates[key][0] or 0.0), key))
+        for family_key in ordered[:MAX_SUCCESSION_CANDIDATES]:
+            score, benefit_reason = candidates[family_key]
+            family = resolver.family(family_key)
+            family_pause = family.rotation_pause_years if family is not None else None
+            fitting = [
+                species
+                for species in self._species.search(family_key=family_key, tenant_key=tenant_key)
+                if species_fits(species, target)
+            ]
+            if not fitting:
+                continue
+            # The pause is the species' own override, else the family's (as the planting hint reads it).
+            last = last_stood[family_key] if family_key in last_stood else None  # noqa: SIM401 - call-graph ceiling
+            open_species = [
+                species
+                for species in fitting
+                if not pause_held_back(
+                    last,
+                    species.rotation_pause_years if species.rotation_pause_years is not None else family_pause,
+                    year,
+                )
+            ]
+            name = _name_or_none(family.name if family is not None else None)
+            if not open_species:
+                longest = max(
+                    species.rotation_pause_years if species.rotation_pause_years is not None else family_pause or 0
+                    for species in fitting
+                )
+                if len(held_back) < MAX_SUCCESSION_FAMILIES and last is not None:
+                    held_back += [HeldBackFamily(family_key, name, last, longest)]
+                continue
+            if len(families) >= MAX_SUCCESSION_FAMILIES:
+                continue
+            open_species = sorted(open_species, key=lambda species: species.scientific_name)
+            families += [
+                SuccessionFamily(
+                    family_key,
+                    name,
+                    score,
+                    benefit_reason,
+                    family_pause,
+                    [
+                        SuccessionSpecies(
+                            species.key or "",
+                            species.scientific_name,
+                            species.common_names[0] if species.common_names else None,
+                            species.nutrient_demand.value if species.nutrient_demand is not None else None,
+                            species.nitrogen_fixing,
+                        )
+                        for species in open_species[:MAX_SUCCESSION_SPECIES_PER_FAMILY]
+                    ],
+                )
+            ]
+        status: SuccessionStatus = "ok" if families or fallow else "no_matching_species"
+        return SuccessionRecommendation(location_key, True, None, status, previous, target, families, held_back, fallow)
 
     # ── Backfill (GP-API-042) ────────────────────────────────────────────────
 

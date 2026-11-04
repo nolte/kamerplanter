@@ -17,6 +17,7 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import BedHeader from './BedHeader';
 import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
+import RotationSwitch from './RotationSwitch';
 import SoilProfileForm from './SoilProfileForm';
 import { allowedBedTransitions } from './bedStatus';
 import type { BedSummary } from './types';
@@ -104,12 +105,21 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
         );
       case 'soil':
         return (
-          <SoilProfileForm
-            bedKey={summary.key}
-            profile={summary.soil_profile}
-            canEdit={canEdit}
-            onSaved={() => void onReload()}
-          />
+          <>
+            <RotationSwitch
+              bedKey={summary.key}
+              rotationEnabled={summary.rotation_enabled}
+              rotationExempt={summary.rotation_exempt}
+              canEdit={canEdit}
+              onSaved={onReload}
+            />
+            <SoilProfileForm
+              bedKey={summary.key}
+              profile={summary.soil_profile}
+              canEdit={canEdit}
+              onSaved={() => void onReload()}
+            />
+          </>
         );
       default:
         return details;

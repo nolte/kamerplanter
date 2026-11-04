@@ -6789,7 +6789,24 @@
         "humus": "Humus content",
         "humusHelper": "Share of organic matter in percent.",
         "notes": "Notes",
-        "saved": "Soil profile saved."
+        "saved": "Soil profile saved.",
+        "rotation": {
+          "title": "Crop rotation for this bed",
+          "intro": "Decide whether Kamerplanter checks crop rotation for this bed. Without your own setting the default of the bed type applies: the check is off for planters, tents and shelves, on otherwise.",
+          "introReadOnly": "This is how the rotation check is set for this bed. You can look at it but not change it.",
+          "checkLabel": "Rotation check",
+          "check": {
+            "default": "Default of the bed type",
+            "on": "Switched on",
+            "off": "Switched off"
+          },
+          "checkHelper": "The change applies at once to the hints when planting and to the follow-up crop recommendation.",
+          "exemptLabel": "Permanent crop (exempt from rotation)",
+          "exemptHelper": "For fruit trees, berry bushes, asparagus and other permanent crops. The check then stays off.",
+          "saving": "Saving …",
+          "saved": "Saved.",
+          "bothRefused": "A permanent crop cannot have the rotation check switched on. Set the check to \"Default of the bed type\" or \"Switched off\" first. Nothing was changed."
+        }
       },
       "plan": {
         "openGarden": "Open in garden plan",
@@ -7077,6 +7094,38 @@
         "page": {
           "title": "Care history",
           "description": "What was done in all beds of this garden, newest first. The last 90 days are shown unless you choose another period."
+        },
+        "succession": {
+          "title": "Follow-up crop recommendation",
+          "hint": "Which step of the feeder cycle fits next: heavy feeder, medium feeder, light feeder, then green manure or fallow. This is an order, not a fertiliser recommendation - Kamerplanter names no amounts here.",
+          "basis": "After {{year}} ({{previous}}) the next step is: {{next}}.",
+          "stepRestoring": "green manure or fallow",
+          "target": {
+            "heavy_feeder": "heavy feeder",
+            "medium_feeder": "medium feeder",
+            "light_feeder": "light feeder",
+            "restoring": "green manure or fallow"
+          },
+          "listLabel": "Fitting families and species",
+          "reasons": {
+            "nitrogen_fixation": "nitrogen fixation of the previous crop",
+            "soil_structure": "improves the soil structure",
+            "biofumigation": "biofumigation",
+            "pest_break": "breaks pest cycles"
+          },
+          "pauseUnknown": "No rotation pause is stored for this family.",
+          "nitrogenFixing": "fixes nitrogen",
+          "fallowOption": "Or leave the bed fallow for a year.",
+          "heldBack": "Still in their rotation pause, so not suggested:",
+          "heldBackLine": "{{family}} (last {{year}}, pause {{pause}} years)",
+          "loadFailed": "The recommendation could not be loaded. The timeline is not affected.",
+          "status": {
+            "not_applicable": "The rotation check is off for this bed.",
+            "no_history": "No year is recorded yet. Fill in a year and Kamerplanter can work out the next step.",
+            "demand_unknown": "No feeder class is stored for the last crop, so Kamerplanter makes no recommendation.",
+            "no_successor_data": "No follow-up families are stored for the families of the last year.",
+            "no_matching_species": "The fitting follow-up families have no species with a stored feeder class for this step, or the families are still keeping their rotation pause."
+          }
         }
       },
       "planting": {

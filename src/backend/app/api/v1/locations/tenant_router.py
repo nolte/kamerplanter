@@ -29,6 +29,11 @@ from app.api.v1.locations.schemas import (
     QuickPlantingResponse,
     RotationFindingResponse,
     RotationTimelineResponse,
+    SuccessionBasisResponse,
+    SuccessionFamilyResponse,
+    SuccessionHeldBackResponse,
+    SuccessionRecommendationResponse,
+    SuccessionSpeciesResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
     rotation_year_responses,
@@ -565,6 +570,58 @@ def get_rotation_timeline(
         not_applicable_reason=timeline.not_applicable_reason,
         rotation_reset_at=timeline.rotation_reset_at,
         timeline=rotation_year_responses(timeline.entries, range(timeline.to_year, timeline.from_year - 1, -1)),
+    )
+
+
+@router.get(
+    "/{key}/succession-recommendation",
+    response_model=SuccessionRecommendationResponse,
+    responses={**VALIDATION_RESPONSE},
+)
+def get_succession_recommendation(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: BedRotationService = Depends(get_bed_rotation_service),
+) -> SuccessionRecommendationResponse:
+    """Families and species for the next year of the bed (GP-FR-133), all roles - **order only, no amounts**.
+
+    The step after the latest recorded year follows heavy -> medium -> light feeder -> green manure / fallow ->
+    heavy (`nutrient_demand` and `plan_role`); candidates are the `rotation_after` successors of that year's
+    families, minus those whose pause in this bed is not over (`held_back`). A species appears only with a stored
+    `nutrient_demand` (or `green_manure_suitable` for the restoring step) - nothing is defaulted. `status` explains
+    an empty list (`no_history`, `demand_unknown`, `no_successor_data`, `no_matching_species`, `not_applicable`).
+    """
+    result = service.succession_recommendation(key, tenant_key=ctx.tenant_key)
+    previous = result.previous
+    return SuccessionRecommendationResponse(
+        location_key=result.location_key,
+        rotation_applicable=result.applicable,
+        not_applicable_reason=result.not_applicable_reason,
+        status=result.status,
+        previous=(
+            SuccessionBasisResponse(
+                year=previous.year,
+                step=previous.step,
+                nutrient_demand=previous.nutrient_demand,
+                family_keys=list(previous.family_keys),
+            )
+            if previous is not None
+            else None
+        ),
+        target=result.target,
+        families=[
+            SuccessionFamilyResponse(
+                family_key=family.family_key,
+                family_name=family.family_name,
+                benefit_score=family.benefit_score,
+                benefit_reason=family.benefit_reason,
+                pause_years=family.pause_years,
+                species=[SuccessionSpeciesResponse(**asdict(species)) for species in family.species],
+            )
+            for family in result.families
+        ],
+        held_back=[SuccessionHeldBackResponse(**asdict(held)) for held in result.held_back],
+        fallow_option=result.fallow_option,
     )
 
 

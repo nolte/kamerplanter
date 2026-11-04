@@ -848,6 +848,8 @@ CASES: tuple[Case, ...] = (
     # REQ-053 WP 3.4, GP-API-025 / 039 / 042: rotation hints, the timeline and the history backfill of a bed.
     Case("validate_planting", "POST", "/locations/bed_b/validate-planting", {"species_key": "sp"}),
     Case("get_rotation", "GET", "/locations/bed_b/rotation"),
+    # REQ-053 WP 8.14, GP-FR-133: the follow-up crop recommendation names the families a bed grew.
+    Case("get_succession_recommendation", "GET", "/locations/bed_b/succession-recommendation"),
     # REQ-053 WP 8.12, GP-FR-135: the rotation matrix of a site reads every bed's history under the tenant.
     Case("get_rotation_matrix", "GET", "/sites/site_b/rotation-matrix"),
     # REQ-053 WP 4.5, GP-API-038: the combined history of a bed (care events + derived planting events).

@@ -21,6 +21,7 @@ import { firstEmptyYear } from './backfillForm';
 import HistoryFilterBar from './HistoryFilterBar';
 import HistoryList from './HistoryList';
 import PlantingTimeline from './PlantingTimeline';
+import SuccessionRecommendationPanel from './SuccessionRecommendationPanel';
 import { cancelBackfill, getBedHistory, listBedPlantOptions } from './historyApi';
 import { activeFilterCount, emptyFilters, toQuery, isRangeInverted, type HistoryFilters } from './historyFilters';
 import type { BackfillResult, FilterOption } from './historyTypes';
@@ -29,6 +30,7 @@ import { useHistoryPages } from './useHistoryPages';
 const historyItemId = (item: { id: string }) => item.id;
 import { usePersonOptions } from './usePersonOptions';
 import { useRotationTimeline } from './useRotationTimeline';
+import { useSuccessionRecommendation } from './useSuccessionRecommendation';
 
 /** A bed's history has no default window: every year the retention keeps. */
 const DEFAULTS: HistoryFilters = emptyFilters('all');
@@ -51,6 +53,9 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
   const [focusYear, setFocusYear] = useState<number | null>(null);
   const clearFocusYear = useCallback(() => setFocusYear(null), []);
   const timeline = useRotationTimeline(bed.key);
+  // A year filled in or taken back changes what the recommendation starts from.
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const succession = useSuccessionRecommendation(bed.key, historyVersion);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +85,7 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
   const changed = useCallback(() => {
     reloadHistory();
     reloadTimeline();
+    setHistoryVersion((value) => value + 1);
   }, [reloadHistory, reloadTimeline]);
 
   const onSaved = (result: BackfillResult) => {
@@ -122,6 +128,8 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
         focusYear={focusYear}
         onFocusHandled={clearFocusYear}
       />
+
+      <SuccessionRecommendationPanel state={succession.state} onRetry={succession.retry} />
 
       <Box component="section" aria-labelledby="bed-history-title" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between', alignItems: 'baseline' }}>
