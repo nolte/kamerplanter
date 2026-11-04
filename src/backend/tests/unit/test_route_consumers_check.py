@@ -310,6 +310,9 @@ class TestTheRouteOperand:
 
         +1: the follow-up crop recommendation (REQ-053 WP 8.14, #2657): ``GET /t/{slug}/locations/{key}/
         succession-recommendation``. The history tab consumes it in the same change.
+
+        +1: the soil analyses of a bed (REQ-053 WP 8.7, #2650): ``GET /t/{slug}/locations/{key}/soil-analyses``. Its
+        consumer, the analysis history in the soil tab, is the next package of the lane (WP 8.8, #2651).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
         assert len(checker.collect_operations(app)) == 892

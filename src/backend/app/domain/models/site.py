@@ -8,6 +8,7 @@ from pydantic import AllowInfNan, BaseModel, Field, field_validator, model_valid
 from app.common.enums import (
     AccessSide,
     BedStatus,
+    EcMethod,
     FrostRisk,
     GeometryKind,
     GeometrySource,
@@ -24,6 +25,7 @@ from app.common.enums import (
     SoilConditionFlag,
     SoilDrainage,
     SoilTexture,
+    StoneContentClass,
     SunExposure,
     SunProfileSource,
     SunWindow,
@@ -222,7 +224,18 @@ class SoilProfile(BaseModel):
     ph: float | None = Field(default=None, ge=0.0, le=14.0)
     ph_method: PhMethod | None = None
     ec_ms_cm: float | None = Field(default=None, ge=0.0)
+    #: How ``ec_ms_cm`` was measured (U-002): required as soon as ``ec_ms_cm`` is set, and a value is only comparable
+    #: within one method - the system never converts between methods.
+    ec_method: EcMethod | None = None
     humus_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    caco3_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    #: v2 fields (WP 8.7): stored as stated, never derived. ``target_ph`` stays a field only: its derivation from
+    #: ``soil_texture`` is on the "stays null" list until research item R-008 (E-10).
+    stone_content_class: StoneContentClass = StoneContentClass.UNKNOWN
+    target_ph: float | None = Field(default=None, ge=0.0, le=14.0)
+    established_on: date | None = None
+    #: The ``performed_at`` of the newest soil analysis whose values the profile holds (WP 8.7).
+    last_analysis_at: datetime | None = None
     #: A substrate change resets the crop-rotation history: plantings before this day do not count (GP-FR-131).
     rotation_reset_at: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
@@ -233,6 +246,12 @@ class SoilProfile(BaseModel):
         if len(set(value)) != len(value):
             raise ValueError("conditions must not repeat a flag")
         return value
+
+    @model_validator(mode="after")
+    def _ec_needs_its_method(self) -> Self:
+        if self.ec_ms_cm is not None and self.ec_method is None:
+            raise ValueError("ec_ms_cm needs ec_method: a conductivity is only readable with its extraction method.")
+        return self
 
 
 class SunProfile(BaseModel):

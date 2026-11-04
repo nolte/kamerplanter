@@ -134,6 +134,7 @@ Read endpoints of the bed history. All need a valid JWT and are open to every me
 ```
 GET    /api/v1/t/{slug}/locations/{key}/history                       # care entries + planting events
 GET    /api/v1/t/{slug}/locations/{key}/rotation                      # timeline per year (family, nutrient demand, role)
+GET    /api/v1/t/{slug}/locations/{key}/soil-analyses                 # soil analyses as series per method
 POST   /api/v1/t/{slug}/locations/{key}/history/backfill              # fill in an earlier year (grower and above)
 DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # take a backfilled year back
 GET    /api/v1/t/{slug}/care-events                                   # care log of the whole tenant
@@ -149,6 +150,8 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 | `performed_by` | – | Account key of a member. Role `viewer`/`grower`: only your own account (`403` otherwise); `lead` and the `management` scope: any member. The `_anonymized` marker cannot be filtered (`422`). Planting events have no performer and drop out |
 | `include_corrections` | `false` | Also replaced entries and `position_corrected` |
 | `offset`, `limit` | `0`, `50` | Page; `limit` at most 200 |
+
+**`GET …/soil-analyses`** returns the measurements of the bed's `soil_analysis` care entries as **series per parameter and method** (`ec` by `ec_method`, `ph` by `ph_method`, the rest by `extraction_method`; `unknown` is its own method). A change of method is listed in `method_changes`. Values of different methods are never merged, compared or converted. Filters: `parameter`, `from`, `to`; `limit` (1 to 500, default 200) bounds the number of analyses, `truncated` says whether older ones were left out. A content class (`content_class`, A to E) appears only when a lab stated it by the CAL method; it is never computed. When a `soil_analysis` is created, the server writes the newest values (`ph`, `ec_ms_cm`, `humus_percent`, `caco3_percent`, each with its method, and `last_analysis_at`) into the soil profile in the same transaction, but only if the analysis is newer than `last_analysis_at`; values in a unit other than the profile's own (`pH`, `mS/cm` = `dS/m`, `%`) are not taken over and never converted. A conductivity needs its `ec_method` (`422` without). <!-- REQ-053 GP-FR-122 -->
 
 **`GET …/rotation`** returns for each year the families that stood in the bed (`family_key`, `family_name`, `nutrient_demand`, `plan_role`, `source` = `plant` or `backfill`). `years` defaults to `max(rotation pause of the families involved, 5)`, at most 10 (`422` above).
 

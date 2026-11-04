@@ -2191,6 +2191,30 @@ class PhMethod(StrEnum):
     PROBE_UNKNOWN = "probe_unknown"
 
 
+class EcMethod(StrEnum):
+    """How a stored soil electrical conductivity was measured (REQ-053 §15.1, U-002).
+
+    A conductivity is only readable with its extraction method: salt thresholds hold for the saturated paste (ECe),
+    hobby values are mostly 1:2, 1:5 or a probe, and no lossless conversion exists. ``unknown`` is comparable with
+    nothing, not even with itself across measurements.
+    """
+
+    SATURATED_PASTE = "saturated_paste"
+    RATIO_1_2 = "ratio_1_2"
+    RATIO_1_5 = "ratio_1_5"
+    SENSOR = "sensor"
+    UNKNOWN = "unknown"
+
+
+class StoneContentClass(StrEnum):
+    """How stony a bed is (REQ-053 §15.1 v2 field; stored as stated, never derived)."""
+
+    NONE = "none"
+    FEW = "few"
+    MANY = "many"
+    UNKNOWN = "unknown"
+
+
 class GardenObjectType(StrEnum):
     """Class of a non-plantable plan object (REQ-053 §20.4, §9.5, §9.8).
 

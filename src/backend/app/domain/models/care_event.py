@@ -23,7 +23,7 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.common.enums import CareEventAllocation, PlanRole, TaskCategory
+from app.common.enums import CareEventAllocation, EcMethod, PhMethod, PlanRole, TaskCategory
 
 #: The erasure marker of an account key (mirrors ``ErasureEngine``; the model layer may not import an engine).
 ANONYMIZED_MARKER = "_anonymized"
@@ -197,17 +197,58 @@ class ProductRef(BaseModel):
     key: str = Field(min_length=1, max_length=200)
 
 
+#: The classes of a lab result by the CAL method (A very low ... E very high), taken over exactly as stated.
+CONTENT_CLASSES: tuple[str, ...] = ("A", "B", "C", "D", "E")
+#: Parameters a CAL content class exists for (REQ-053 §15.1: P, K, Mg in mg per 100 g).
+CONTENT_CLASS_PARAMETERS: frozenset[str] = frozenset({"p", "k", "mg"})
+#: The physical range of the parameters that land in the soil profile; a value outside is a typing error.
+_PROFILE_RANGES: dict[str, tuple[float, float]] = {
+    "ph": (0.0, 14.0),
+    "ec": (0.0, float("inf")),
+    "humus": (0.0, 100.0),
+    "caco3": (0.0, 100.0),
+}
+
+
 class Measurement(BaseModel):
-    """One soil or EC measurement (§15.1, §20.10)."""
+    """One soil or EC measurement (§15.1, §20.10).
+
+    **Method rules (U-002/U-003, WP 8.7).** A conductivity of a ``soil_analysis`` needs its ``ec_method`` (checked on
+    the event: a nutrient-solution ``ec_check`` has no soil extraction method; no salt assessment without it); a
+    ``content_class`` (A-E) is only *taken over* from a lab result by the CAL method for P, K or Mg - a test kit or a
+    sensor has none, and the system never computes one. ``ph_method`` is the method of a pH value.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     parameter: Literal["ph", "ec", "n_min", "p", "k", "mg", "humus", "caco3", "moisture"]
-    value: float
+    value: float = Field(allow_inf_nan=False)
     unit: str = Field(min_length=1, max_length=20)
     extraction_method: str | None = Field(default=None, max_length=60)
     sample_depth_cm: float | None = Field(default=None, ge=0, le=1000)
     source: str = Field(default="manual", max_length=40)
+    ec_method: EcMethod | None = None
+    ph_method: PhMethod | None = None
+    content_class: Literal["A", "B", "C", "D", "E"] | None = None
+
+    @model_validator(mode="after")
+    def _method_rules(self) -> Self:
+        if self.ec_method is not None and self.parameter != "ec":
+            raise ValueError("ec_method belongs to a conductivity.")
+        if self.ph_method is not None and self.parameter != "ph":
+            raise ValueError("ph_method belongs to a pH value.")
+        if self.content_class is not None and not (
+            self.source == "lab" and self.extraction_method == "cal" and self.parameter in CONTENT_CLASS_PARAMETERS
+        ):
+            raise ValueError(
+                "A content class is taken over only from a lab result by the CAL method for P, K or Mg; "
+                "it is never computed."
+            )
+        if self.parameter in _PROFILE_RANGES:
+            low, high = _PROFILE_RANGES[self.parameter]
+            if not low <= self.value <= high:
+                raise ValueError(f"The value of '{self.parameter}' is outside its possible range.")
+        return self
 
 
 class _CareEventFields(BaseModel):
@@ -277,6 +318,10 @@ class _CareEventFields(BaseModel):
     def _consistent(self) -> Self:
         if self.measurements is not None and self.category not in MEASUREMENT_CATEGORIES:
             raise ValueError("measurements are allowed on soil_analysis and ec_check events only.")
+        if self.category == "soil_analysis" and any(
+            m.parameter == "ec" and m.ec_method is None for m in self.measurements or ()
+        ):
+            raise ValueError("A conductivity of a soil analysis needs its ec_method.")
         if self.quantity is not None and self.unit is None:
             raise ValueError("A quantity needs a unit.")
         if len(set(self.plant_keys)) != len(self.plant_keys):

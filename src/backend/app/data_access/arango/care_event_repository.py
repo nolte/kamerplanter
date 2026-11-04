@@ -28,6 +28,7 @@ from app.common.exceptions import DuplicateError, NotFoundError, PlanError, Writ
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.transactions import StreamTransaction, TransactionAql, stream_transaction
+from app.domain.engines.soil_analysis_engine import is_newer, profile_patch
 from app.domain.interfaces.care_event_repository import (
     AnonymizedBatch,
     CareEventFilter,
@@ -44,6 +45,7 @@ from app.domain.models.care_event import (
     CareEvent,
 )
 from app.domain.models.garden_plan import PlanAuditRecord
+from app.domain.models.site import SoilProfile
 
 logger = structlog.get_logger()
 
@@ -53,6 +55,8 @@ CARE_EVENT_WRITE_COLLECTIONS: tuple[str, ...] = (
     col.CARE_EVENT_AT,
     col.CARE_EVENT_FOR,
     col.TASK_LOGGED_AS,
+    # A soil analysis writes its newest values into the bed's profile in the same transaction (WP 8.7).
+    col.LOCATIONS,
 )
 
 #: A supersede chain longer than this is not a chain a person made; the walk stops (and the redaction with it).
@@ -116,7 +120,50 @@ def write_care_event(txn: StreamTransaction, event: CareEvent, now: str, *, link
         txn.collection(col.TASK_LOGGED_AS).insert(
             {"_from": f"{col.TASKS}/{event.task_key}", "_to": event_id, "created_at": now}
         )
+    if event.category == "soil_analysis" and event.measurements:
+        _apply_soil_analysis(txn, event)
     return cast("dict[str, Any]", stored)
+
+
+def _json_value(value: Any) -> Any:
+    """A value of a soil patch as the database stores it: an instant as ISO text, everything else as it is."""
+    return datetime.isoformat(value) if isinstance(value, datetime) else value
+
+
+def _apply_soil_analysis(txn: StreamTransaction, event: CareEvent) -> None:
+    """Write the latest values of a ``soil_analysis`` event into the bed's ``soil_profile`` (GP-FR-122, WP 8.7).
+
+    In the caller's transaction, so the profile and the event stand or fall together. Only when the event is **newer**
+    than the profile's ``last_analysis_at`` (an older analysis, entered late, never overwrites a newer state), only
+    the parameters the profile has a field for, and only as measured - see :func:`profile_patch`. A bed that is gone,
+    or a merged profile the model refuses, leaves the profile as it was (the event is still the record).
+    """
+    patch = profile_patch(event.measurements, event.performed_at)
+    if patch is None:
+        return
+    found = list(
+        cast(
+            "Cursor",
+            txn.aql.execute("RETURN DOCUMENT(@id)", bind_vars={"id": f"{col.LOCATIONS}/{event.location_key}"}),
+        )
+    )
+    location = cast("dict[str, Any] | None", found[0] if found else None)
+    if location is None:
+        return
+    current: dict[str, Any] = location["soil_profile"] if isinstance(location.get("soil_profile"), dict) else {}
+    last = current.get("last_analysis_at")
+    last_at = datetime.fromisoformat(last) if isinstance(last, str) else None
+    if last_at is not None and last_at.tzinfo is None:
+        last_at = last_at.replace(tzinfo=UTC)
+    if not is_newer(event.performed_at, last_at):
+        return
+    merged = {**current, **{key: _json_value(value) for key, value in patch.fields.items()}}
+    try:
+        SoilProfile(**merged)
+    except ValueError:
+        logger.warning("soil_analysis.profile_update_refused", location_key=event.location_key)
+        return
+    txn.collection(col.LOCATIONS).update({"_key": event.location_key, "soil_profile": merged}, merge=False)
 
 
 def retention_patch(doc: dict[str, Any], now: str) -> dict[str, Any]:
@@ -265,6 +312,8 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
             binds["performed_by"] = criteria.performed_by
         if not criteria.include_superseded:
             filters.append("e.superseded_by_key == null")
+        if criteria.exclude_voided:
+            filters.append("e.voided_at == null")
         if criteria.performed_from is not None:
             filters.append("DATE_TIMESTAMP(e.performed_at) >= DATE_TIMESTAMP(@performed_from)")
             binds["performed_from"] = criteria.performed_from.astimezone(UTC).isoformat()
