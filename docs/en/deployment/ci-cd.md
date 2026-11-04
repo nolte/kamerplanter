@@ -48,6 +48,45 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 
 ---
 
+## Ownership per Required Check {#zustaendigkeit-pflicht-checks}
+
+Every pull request must pass four checks before it can be merged into `develop`. This table shows which workflow and job delivers each one and how it reports on *every* pull request – a required check that never reports stays "Pending" and blocks the merge.
+
+| Required check | Workflow / job | Trigger | Reporting on every pull request |
+|----------------|----------------|---------|---------------------------------|
+| `static / Static CI Tests` | `build-static-tests.yaml` / `static` (reusable pre-commit run) | `push` on all branches, no `paths:` | always runs |
+| `lint-test-build (22)` | `frontend.yml` / `lint-test-build` | `pull_request` without `paths:` | The job always runs; its steps are gated by a relevance filter (`RUN_FRONTEND`) |
+| `Write-route and tree guards` | `backend-guards.yml` / `guards` | `push` on all branches, no `paths:` | always runs, no relevance filter |
+| `Integration tests (ArangoDB)` | `backend-guards.yml` / `integration` | `push` on all branches, no `paths:` | The job always runs; its steps are gated by `RUN_INTEGRATION` |
+
+!!! note "Why the filters live in the steps"
+    A required check must not be filtered with a workflow-level `paths:`: if the workflow is skipped, the check never reports and stays "Pending", so the pull request cannot be merged. The job therefore runs on every pull request (or push) and only skips its expensive steps when the change does not touch them. The result is green without anything having run.
+
+You can read the list of required checks from the branch protection of `develop`:
+
+```bash
+gh api repos/nolte/kamerplanter/branches/develop/protection \
+  --jq '.required_status_checks.contexts'
+```
+
+Other workflows (for example `backend.yml` with lint and unit tests, coverage, `bundle-budget`, `lighthouse`, or the security scans) are path-filtered and advisory; they do not block the merge.
+
+---
+
+## Deliberately Retained Duplication and Why {#bewusste-duplikation}
+
+Some checks run in more than one place. That is intentional, not an oversight; the table below records why you should not "clean them up".
+
+| Duplication | Why it stays |
+|-------------|--------------|
+| `static` runs ruff and the plant-profile consistency check although `backend.yml` also checks them | `static` is the unfiltered required run. `backend.yml` is path-filtered and advisory; without the copy, ruff would go unchecked for every change outside its paths. The copy costs seconds. Expensive checks (frontend ESLint/tsc, mypy ratchet) are skipped by `static` with an announcement that points to the owning run. |
+| `bundle-budget` and `lighthouse` build the frontend separately from `lint-test-build (22)` | A broken budget should turn visibly red without changing the required check and thereby blocking automerge. If they reused its build, they would also have to wait behind the long required job. |
+| The guard tests run in `backend-guards.yml` and in `backend.yml` | `backend-guards.yml` delivers two required checks and therefore runs on every push. `backend.yml` is path-filtered, but it measures coverage over the code these tests exercise and is the only place where the tests marked `advisory` in those folders run. Merging coverage across two workflows with different events is not trivial. |
+| `deadcode` (knip) is a separate job next to the CVE and licence gates | A permanently red advisory run would otherwise carry its red into the CVE and licence gates. |
+| `npm ci` and `uv sync` run in several jobs | Each installation sits in a job that stays separate for one of the reasons above. All use the package cache; merging the installs would mean merging the jobs. |
+
+---
+
 ## Backend CI (`backend.yml`)
 
 The backend CI workflow runs on every push to `develop` and on pull requests whenever files under `src/backend/` are changed.
@@ -444,6 +483,10 @@ helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 1.2.0
 ### Layer caching
 
 All image builds use the GitHub Actions cache (`type=gha`) for Docker layers. This significantly speeds up subsequent builds when only a few layers change.
+
+Every image build definition in `docker-lint-build.yml` gets its **own BuildKit cache scope** (`scope=<name>`, identical for reading and writing). A build with the same definition as an E2E service (same context, same Dockerfile, no `target:`) uses that service's scope: `e2e-backend` for the backend, `e2e-frontend` for the frontend. The guard `test_docker_build_cache_scopes.py` enforces this in the required check `Write-route and tree guards`.
+
+The reason: without `scope=`, all jobs write to the gha default scope `buildkit`, and every export replaces the previous index – the jobs overwrite each other's cache. In addition, caches from pull requests are readable only by their own ref. The E2E stack also writes its scopes on `develop`; a build that shares the scope benefits from those entries. A wrong scope costs at most a cache miss, never a wrong image.
 
 ---
 

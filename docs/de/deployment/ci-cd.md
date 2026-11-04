@@ -48,6 +48,45 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 
 ---
 
+## Zuständigkeit je Pflicht-Check {#zustaendigkeit-pflicht-checks}
+
+Vier Checks muss jede Pull Request bestehen, bevor sie nach `develop` gemergt wird. Diese Tabelle zeigt, welcher Workflow und Job sie liefert und wie sie bei *jeder* Pull Request melden – ein Pflicht-Check, der nie meldet, bleibt auf „Pending“ und blockiert den Merge.
+
+| Pflicht-Check | Workflow / Job | Auslöser | Meldung bei jeder Pull Request |
+|---------------|----------------|----------|-------------------------------|
+| `static / Static CI Tests` | `build-static-tests.yaml` / `static` (wiederverwendbarer pre-commit-Lauf) | `push` auf alle Branches, kein `paths:` | läuft immer |
+| `lint-test-build (22)` | `frontend.yml` / `lint-test-build` | `pull_request` ohne `paths:` | Der Job läuft immer; die Schritte sind über einen Relevanz-Filter (`RUN_FRONTEND`) geschaltet |
+| `Write-route and tree guards` | `backend-guards.yml` / `guards` | `push` auf alle Branches, kein `paths:` | läuft immer, ohne Relevanz-Filter |
+| `Integration tests (ArangoDB)` | `backend-guards.yml` / `integration` | `push` auf alle Branches, kein `paths:` | Der Job läuft immer; die Schritte sind über `RUN_INTEGRATION` geschaltet |
+
+!!! note "Warum die Filter in den Schritten sitzen"
+    Ein Pflicht-Check darf nicht über `paths:` auf Workflow-Ebene gefiltert werden: Wird der Workflow übersprungen, meldet der Check nie und bleibt auf „Pending“, sodass die Pull Request nicht mergebar wird. Deshalb läuft der Job selbst bei jeder Pull Request (bzw. jedem Push) und überspringt nur seine teuren Schritte, wenn die Änderung sie nicht berührt. Das Ergebnis ist dann grün, ohne dass etwas gelaufen wäre.
+
+Die Liste der Pflicht-Checks liest du an der Branch-Protection von `develop` ab:
+
+```bash
+gh api repos/nolte/kamerplanter/branches/develop/protection \
+  --jq '.required_status_checks.contexts'
+```
+
+Weitere Workflows (zum Beispiel `backend.yml` mit Lint und Unit-Tests, Coverage, `bundle-budget`, `lighthouse` oder die Security-Scans) laufen pfadgefiltert und sind beratend; sie blockieren den Merge nicht.
+
+---
+
+## Bewusst belassene Duplikation und warum {#bewusste-duplikation}
+
+Manche Prüfungen laufen an mehr als einer Stelle. Das ist Absicht und kein Versehen; die folgende Tabelle hält fest, warum du sie nicht „aufräumen“ solltest.
+
+| Duplikation | Warum sie bleibt |
+|-------------|------------------|
+| `static` führt ruff und die Steckbrief-Konsistenz aus, obwohl `backend.yml` sie ebenfalls prüft | `static` ist der ungefilterte Pflicht-Lauf. `backend.yml` ist pfadgefiltert und beratend; ohne die Kopie wäre ruff für jede Änderung außerhalb seiner Pfade ungeprüft. Die Kopie kostet Sekunden. Teure Prüfungen (Frontend-ESLint/tsc, mypy-Ratchet) überspringt `static` angekündigt und verweist auf den zuständigen Lauf. |
+| `bundle-budget` und `lighthouse` bauen das Frontend getrennt von `lint-test-build (22)` | Ein gebrochenes Budget soll sichtbar rot werden, ohne den Pflicht-Check zu verändern und damit Automerge zu blockieren. Würden sie den Build übernehmen, müssten sie zudem hinter dem langen Pflicht-Job warten. |
+| Die Guard-Tests laufen in `backend-guards.yml` und in `backend.yml` | `backend-guards.yml` liefert zwei Pflicht-Checks und läuft deshalb auf jedem Push. `backend.yml` ist pfadgefiltert, misst aber die Coverage über den Code, den diese Tests abdecken, und ist der einzige Ort, an dem die als `advisory` markierten Tests dieser Ordner laufen. Eine Coverage-Zusammenführung über zwei Workflows mit verschiedenen Ereignissen ist nicht trivial. |
+| `deadcode` (knip) ist ein eigener Job neben den CVE- und Lizenz-Gates | Ein dauerhaft roter beratender Lauf würde sein Rot sonst in die CVE- und Lizenz-Gates tragen. |
+| `npm ci` und `uv sync` laufen in mehreren Jobs | Jede Installation sitzt in einem Job, der aus einem der obigen Gründe getrennt bleibt. Alle nutzen den Paket-Cache; Zusammenlegen hieße Jobs zusammenlegen. |
+
+---
+
 ## Backend-CI (`backend.yml`)
 
 Der Backend-CI-Workflow läuft bei jedem Push auf `develop` und bei Pull Requests, sofern Dateien unter `src/backend/` geändert wurden.
@@ -449,6 +488,10 @@ helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 1.2.0
 ### Layer-Caching
 
 Alle Image-Builds nutzen den GitHub Actions Cache (`type=gha`) für Docker-Layer. Das beschleunigt Folge-Builds erheblich, wenn sich nur wenige Schichten ändern.
+
+Jede Image-Build-Definition in `docker-lint-build.yml` bekommt einen **eigenen BuildKit-Cache-Scope** (`scope=<name>`, lesend wie schreibend gleich). Ein Build mit derselben Definition wie ein E2E-Service (gleicher Kontext, gleiches Dockerfile, kein `target:`) nutzt dessen Scope: `e2e-backend` für das Backend, `e2e-frontend` für das Frontend. Der Guard `test_docker_build_cache_scopes.py` erzwingt das im Pflicht-Check `Write-route and tree guards`.
+
+Der Grund: Ohne `scope=` schreiben alle Jobs in den gha-Standard-Scope `buildkit`, und jeder Export ersetzt den Index des vorigen – die Jobs überschreiben sich gegenseitig den Cache. Zusätzlich sind Caches von Pull Requests nur für den eigenen Ref lesbar. Der E2E-Stack schreibt seine Scopes auch auf `develop`; teilt ein Build den Scope, profitiert er von diesen Einträgen. Ein falscher Scope kostet höchstens einen Cache-Miss, nie ein falsches Image.
 
 ---
 
