@@ -1,7 +1,7 @@
 import math
 import re
 from datetime import date, datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import AllowInfNan, BaseModel, Field, field_validator, model_validator
 
@@ -201,6 +201,23 @@ class SitePlan(BaseModel):
         if value is not None and value.kind not in BOUNDARY_KINDS:
             raise ValueError(f"A site boundary must be a rect or polygon, got {value.kind}.")
         return value
+
+
+def with_legacy_ec_method(profile: object) -> object:
+    """A stored or archived soil profile that holds ``ec_ms_cm`` and no ``ec_method`` reads as ``ec_method = unknown``.
+
+    The rule of the migration (v0105, U-002) for the places the migration cannot reach: a tenant archive written
+    before ``ec_method`` existed and a garden-plan backup or import snapshot of the same age. ``unknown`` is comparable
+    with nothing, so nothing is guessed; the alternative - refusing the document - would leave a stored bed unreadable
+    or a replace-import snapshot unrestorable. A *request* is stricter (the API schema and ``SoilProfile`` itself refuse
+    the pair).
+    """
+    if not isinstance(profile, dict):
+        return profile
+    data: dict[str, Any] = profile
+    if data.get("ec_ms_cm") is not None and data.get("ec_method") is None:
+        return {**data, "ec_method": EcMethod.UNKNOWN.value}
+    return profile
 
 
 class SoilProfile(BaseModel):
@@ -466,6 +483,11 @@ class Location(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("soil_profile", mode="before")
+    @classmethod
+    def _stored_profile_without_ec_method(cls, value: object) -> object:
+        return with_legacy_ec_method(value)
 
     @field_validator("lights_on", "lights_off")
     @classmethod

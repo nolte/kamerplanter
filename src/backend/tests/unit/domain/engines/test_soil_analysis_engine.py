@@ -207,3 +207,44 @@ def test_two_methods_inside_one_analysis_are_no_method_change() -> None:
 
     assert {s.method for s in series} == {"cacl2", "h2o"}
     assert changes == []
+
+
+class TestOldDocumentsStayReadable:
+    """Data-loss guard (WP 8.7): a document older than ``ec_method`` neither fails to load nor is refused."""
+
+    def test_a_stored_bed_with_a_conductivity_and_no_method_still_loads_as_unknown(self) -> None:
+        from app.domain.models.site import Location
+
+        location = Location(
+            _key="L1", site_key="S1", name="Bed", area_m2=1.0, soil_profile={"ec_ms_cm": 1.4, "drainage": "poor"}
+        )
+
+        assert location.soil_profile is not None
+        assert (location.soil_profile.ec_ms_cm, location.soil_profile.ec_method) == (1.4, "unknown")
+        # counter-case: a method that is stated stays what it is
+        stated = Location(
+            _key="L2", site_key="S1", name="Bed", area_m2=1.0, soil_profile={"ec_ms_cm": 1.4, "ec_method": "sensor"}
+        )
+        assert stated.soil_profile is not None and stated.soil_profile.ec_method == "sensor"
+
+    def test_a_request_is_still_refused(self) -> None:
+        with pytest.raises(ValidationError, match="ec_method"):
+            SoilProfile(ec_ms_cm=1.4)
+
+    def test_an_old_backup_or_import_snapshot_is_read_not_refused(self) -> None:
+        from app.domain.services.garden_plan_import_service import GardenPlanImportService
+
+        document = {
+            "schema_version": "1",
+            "exported_at": "2026-03-01T09:00:00Z",
+            "site": {"name": "Garden", "type": "outdoor"},
+            "locations": [
+                {"key": "bed_1", "name": "Bed", "location_type_key": "bed", "soil_profile": {"ec_ms_cm": 1.4}}
+            ],
+        }
+
+        parsed = GardenPlanImportService._read_document(document)
+
+        profile = parsed.locations[0].soil_profile
+        assert profile is not None and profile.ec_method == "unknown"
+        assert "ec_method" not in document["locations"][0]["soil_profile"]  # the caller's document is not changed

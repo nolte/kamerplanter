@@ -86,7 +86,7 @@ from app.domain.models.garden_plan_import import (
 )
 from app.domain.models.geometry import Geometry, parse_geometry
 from app.domain.models.irrigation_zone import IrrigationZone
-from app.domain.models.site import Location, SiteConditions, SitePlan, Slot
+from app.domain.models.site import Location, SiteConditions, SitePlan, Slot, with_legacy_ec_method
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -215,6 +215,24 @@ def _path(loc: tuple[int | str, ...]) -> str:
     for part in loc:
         out += f"[{part}]" if isinstance(part, int) else (f".{part}" if out else str(part))
     return out or "document"
+
+
+def _with_legacy_soil_profiles(document: dict[str, Any]) -> dict[str, Any]:
+    """A backup or snapshot written before ``ec_method`` existed reads its conductivity as ``ec_method = unknown``.
+
+    Refusing it would make every replace-import snapshot of such a bed unrestorable (WP 8.7, U-002); ``unknown`` is
+    the honest state of an old value. The caller's document is not changed.
+    """
+    locations = document.get("locations")
+    if not isinstance(locations, list):
+        return document
+    patched = [
+        {**item, "soil_profile": with_legacy_ec_method(item["soil_profile"])}
+        if isinstance(item, dict) and "soil_profile" in item
+        else item
+        for item in locations
+    ]
+    return {**document, "locations": patched}
 
 
 class GardenPlanImportService:
@@ -440,7 +458,7 @@ class GardenPlanImportService:
             )
         try:
             # The capped reading (#2542 W-1): an oversized list is refused here, before ``_prepare`` looks anything up.
-            return GardenPlanImportDocument.model_validate(document)
+            return GardenPlanImportDocument.model_validate(_with_legacy_soil_profiles(document))
         except PydanticValidationError as exc:
             findings = [_finding_of(error, document) for error in _errors_of(exc)]
             raise PlanValidationError(
