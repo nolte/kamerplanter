@@ -19,8 +19,6 @@ import type { Geometry, Point } from './types';
 export const REACH_BOTH_SIDES_M = 1.2;
 /** Reach threshold with access from one side, metres (confirmed, O-17); also taken when access is unknown. */
 export const REACH_ONE_SIDE_M = 0.6;
-/** The hint code (GP-FR-166). */
-export const HINT_REACH_TOO_WIDE = 'bed.reach_too_wide';
 
 export type ReachAccess = 'both' | 'one' | 'unknown';
 export type ReachReason = 'too_wide' | 'within_reach' | 'width_unknown';

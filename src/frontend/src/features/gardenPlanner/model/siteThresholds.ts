@@ -28,11 +28,6 @@ export interface SiteThresholds {
   reach: Readonly<ReachThresholds>;
 }
 
-export const DEFAULT_SITE_THRESHOLDS: SiteThresholds = Object.freeze({
-  sun: DEFAULT_SUN_CLASS_THRESHOLDS,
-  reach: DEFAULT_REACH_THRESHOLDS,
-});
-
 /** The site's thresholds, each part falling back to its defaults when the site has none. */
 export function siteThresholds(site: Pick<Site, 'sun_class_thresholds' | 'reach_thresholds'> | null | undefined): SiteThresholds {
   return {
