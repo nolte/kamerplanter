@@ -582,13 +582,7 @@ class TestRoleLiteralScanSelfTest:
 
 #: (model, field) pairs typed with an enum where spec and code are known to disagree.
 #: Empty since #2183 aligned the spec; an entry that agrees again goes red, so it only shrinks.
-_KNOWN_DIVERGENT_ENUM_FIELDS: dict[tuple[str, str], str] = {
-    ("Location", "orientation"): (
-        "#2667 (REQ-053 WP 8.24) widened Orientation additively from 4 to 8 compass values by operator "
-        "decision of 2026-11-04 (orientation derived from aspect_deg, GP-FR-168); REQ-002 lines 148/793 still "
-        "name the four cardinal values and need the spec follow-up - remove this entry with it."
-    ),
-}
+_KNOWN_DIVERGENT_ENUM_FIELDS: dict[tuple[str, str], str] = {}
 
 #: Joined enum-typed (model, field) pairs: 95 on 2026-10-10 (the ``XDefinition`` alias
 #: adds declarations to pairs already joined, not new pairs). The floor sits below that
