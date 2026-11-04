@@ -401,8 +401,9 @@ The **History** tab has two parts: the **timeline** on top and the **list** belo
 
 **Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off by default; the history is still kept. The check can be switched on or off per bed; for permanent crops it always stays off. <!-- REQ-053 GP-FR-137 -->
 
-!!! info "API only: per-bed crop rotation switch"
-    So far you set the switch through the API only; the bed view does not show it yet. The [API reference](../reference/api-reference.md) explains how. <!-- REQ-053 GP-FR-137 -->
+You find the switch for the check per bed in the **Soil** tab (see [Setting crop rotation for a bed](#setting-crop-rotation-for-a-bed)). <!-- REQ-053 GP-FR-137 -->
+
+**Follow-up crop recommendation.** Below the timeline Kamerplanter names which step of the feeder cycle fits after the last recorded year: heavy feeder, then medium feeder, then light feeder, then green manure or fallow, then heavy feeder again. It also lists families and species of the catalogue that, by the crop rotation master data (`rotation_after`), can follow the families of the last year and whose feeder class fits that step. This is an **order, not a fertiliser recommendation**: Kamerplanter names no amounts. Families that are still keeping their rotation pause in the bed are listed apart as "still in their rotation pause" and are not suggested. A species without a stored feeder class never appears; where no feeder class is known for the last crop or no species fits, the reason stands in place of the list. The recommendation appears only when the rotation check is on for the bed. <!-- REQ-053 GP-FR-133 -->
 
 **What stood here?** To fill in a year from before you used the app, tap **Fill in {year}** at the year or **What stood here?** at the top. You choose the year, the plant family (or a species, which brings its family), the role (main crop, green manure or fallow) and optionally the season. The last ten years up to last year are allowed. A message with **Undo** follows. You take a filled-in entry back later with the **x** on the entry, as its author or in the "lead" role. It then stays in the care log as cancelled. Viewers see the timeline read-only.
 
@@ -412,6 +413,12 @@ The **History** tab has two parts: the **timeline** on top and the **list** belo
     The person filter is an activity profile and therefore restricted. With the "viewer" and "grower" roles you filter only by yourself. The "lead" role and members with the `management` admin scope can filter by any member. Members who left show as "anonymised" and cannot be filtered.
 
 **History of all beds.** **History of all beds** opens the care history of the whole tenant at `/standorte/historie`. It shows the last 90 days unless you choose another period and offers the same filters plus **Bed**. The plant filter is available once a bed is chosen.
+
+### Setting crop rotation for a bed {#setting-crop-rotation-for-a-bed}
+
+At the top of the **Soil** tab is the section **Crop rotation for this bed**. With **Rotation check** you choose whether Kamerplanter checks crop rotation for this bed: **Default of the bed type** (off for planters, tents and shelves, on otherwise), **Switched on** or **Switched off**. The **Permanent crop** switch takes the bed out of crop rotation entirely, for example for fruit trees or asparagus. Every change applies at once to the hints when planting and to the follow-up crop recommendation. You can change both settings with the role "grower" or above; observers only see the state.
+
+A permanent crop cannot have the check switched on. If you try, Kamerplanter refuses the change and explains it in a note; nothing is saved. Set the check to **Default of the bed type** or **Switched off** first. <!-- REQ-053 GP-FR-137 -->
 
 ### Maintaining the soil profile
 

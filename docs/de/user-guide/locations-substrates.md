@@ -409,8 +409,9 @@ Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Lis
 
 **Zeitstrahl.** Er zeigt für jedes Jahr, welche Pflanzenfamilien im Beet standen, mindestens die letzten fünf Jahre, bei langen Anbaupausen bis zu zehn. Jede Familie hat eine eigene Farbe und steht immer auch mit ihrem Namen auf dem Eintrag. Gründüngung und Brache sind gekennzeichnet. Der Zeitstrahl ist die Grundlage der Fruchtfolge-Prüfung. Für Töpfe, Zelte und Regale ist diese Prüfung standardmäßig aus; die Historie bleibt trotzdem erhalten. Je Beet lässt sich die Prüfung ein- oder ausschalten, für Dauerkulturen bleibt sie immer aus. <!-- REQ-053 GP-FR-137 -->
 
-!!! info "Nur über API: Fruchtfolge-Schalter je Beet"
-    Den Schalter stellst du bisher nur über die API ein; die Beetansicht zeigt ihn noch nicht. Wie das geht, steht in der [API-Referenz](../reference/api-reference.md). <!-- REQ-053 GP-FR-137 -->
+Den Schalter für die Prüfung findest du je Beet im Tab **Boden** (siehe [Fruchtfolge für ein Beet einstellen](#fruchtfolge-fur-ein-beet-einstellen)). <!-- REQ-053 GP-FR-137 -->
+
+**Folgekultur-Empfehlung.** Unter dem Zeitstrahl nennt Kamerplanter, welche Stufe der Zehrer-Folge nach dem letzten erfassten Jahr passt: Starkzehrer, dann Mittelzehrer, dann Schwachzehrer, dann Gründüngung oder Brache, danach wieder Starkzehrer. Dazu listet sie Familien und Arten aus dem Katalog, die laut Fruchtfolge-Stammdaten (`rotation_after`) auf die Familien des letzten Jahres folgen können und deren Zehrerklasse zu dieser Stufe passt. Das ist eine **Reihenfolge, keine Düngeempfehlung**: Kamerplanter nennt keine Mengen. Familien, die ihre Anbaupause im Beet noch einhalten, stehen getrennt als „noch in der Anbaupause" und werden nicht vorgeschlagen. Eine Art ohne hinterlegte Zehrerklasse erscheint nie; wo für die letzte Kultur keine Zehrerklasse bekannt ist oder keine Art passt, steht der Grund an der Stelle der Liste. Die Empfehlung erscheint nur, wenn die Fruchtfolge-Prüfung für das Beet an ist. <!-- REQ-053 GP-FR-133 -->
 
 **Was stand hier?** Wenn du ein Jahr nachtragen willst, in dem du die App noch nicht genutzt hast, tippe bei dem Jahr auf **{Jahr} nachtragen** oder oben auf **Was stand hier?**. Du wählst Jahr, Pflanzenfamilie (oder eine Art, die ihre Familie mitbringt), die Rolle (Hauptkultur, Gründüngung oder Brache) und optional die Saison. Erlaubt sind die letzten zehn Jahre bis zum Vorjahr. Danach erscheint die Meldung mit **Rückgängig**. Einen nachgetragenen Eintrag nimmst du später mit dem **x** am Eintrag zurück, als Autor oder in der Rolle „lead". Er bleibt dann als storniert im Pflegeprotokoll stehen. Beobachter (Rolle „viewer") sehen den Zeitstrahl nur lesend.
 
@@ -420,6 +421,12 @@ Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Lis
     Der Personenfilter ist ein Aktivitätsprofil und deshalb eingeschränkt. In den Rollen „viewer" und „grower" filterst du nur nach dir selbst. Die Rolle „lead" und Mitglieder mit dem Verwaltungsbereich `management` können nach jedem Mitglied filtern. Ausgeschiedene Mitglieder erscheinen als „anonymisiert" und sind nicht filterbar.
 
 **Historie aller Beete.** Über **Historie aller Beete** öffnest du die Pflegehistorie des ganzen Mandanten unter `/standorte/historie`. Sie zeigt die letzten 90 Tage, solange du keinen anderen Zeitraum wählst, und kennt dieselben Filter plus **Beet**. Die Pflanze lässt sich wählen, sobald ein Beet gewählt ist.
+
+### Fruchtfolge für ein Beet einstellen {#fruchtfolge-fur-ein-beet-einstellen}
+
+Im Tab **Boden** steht oben der Abschnitt **Fruchtfolge für dieses Beet**. Mit **Fruchtfolge-Prüfung** wählst du, ob Kamerplanter die Fruchtfolge für dieses Beet prüft: **Standard des Beettyps** (für Töpfe, Zelte und Regale aus, sonst an), **Eingeschaltet** oder **Ausgeschaltet**. Der Schalter **Dauerkultur** nimmt das Beet ganz aus der Fruchtfolge aus, etwa für Obstbäume oder Spargel. Jede Änderung gilt sofort für die Hinweise beim Bepflanzen und für die Folgekultur-Empfehlung. Beide Angaben ändern darfst du ab der Rolle „grower"; Beobachter sehen den Stand nur.
+
+Eine Dauerkultur kann die Prüfung nicht eingeschaltet haben. Versuchst du es, lehnt Kamerplanter die Änderung ab und erklärt es mit einem Hinweis; gespeichert wird nichts. Stelle die Prüfung dann zuerst auf **Standard des Beettyps** oder **Ausgeschaltet**. <!-- REQ-053 GP-FR-137 -->
 
 ### Bodenprofil pflegen
 

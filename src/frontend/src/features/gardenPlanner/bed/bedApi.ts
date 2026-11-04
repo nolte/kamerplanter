@@ -63,3 +63,19 @@ export async function changeBedStatus(
   });
   return data;
 }
+
+/**
+ * GP-FR-137: switch the crop-rotation check of one bed - `rotation_enabled` (`null` = default of the bed type) and/or
+ * `rotation_exempt` (permanent crop). Only the keys sent are changed. Both `true` is a 422
+ * `patch.rotation_exempt_and_enabled`; the caller shows it.
+ */
+export async function patchRotationSwitch(
+  key: string,
+  change: { rotationEnabled?: boolean | null; rotationExempt?: boolean },
+): Promise<BedPatchResult> {
+  const { data } = await tenantClient.patch<BedPatchResult>(`${LOCATIONS}/${key}`, {
+    ...(change.rotationEnabled !== undefined ? { rotation_enabled: change.rotationEnabled } : {}),
+    ...(change.rotationExempt !== undefined ? { rotation_exempt: change.rotationExempt } : {}),
+  });
+  return data;
+}

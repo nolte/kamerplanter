@@ -134,6 +134,10 @@ export interface BedSummary extends BedListItem {
   next_due_at: string | null;
   last_care_at: string | null;
   soil_profile?: SoilProfile | null;
+  /** Permanent crop: the rotation check is off whatever `rotation_enabled` says (GP-FR-137). */
+  rotation_exempt?: boolean;
+  /** The bed's own switch: `null` = default of the bed type, `true` on, `false` off (#2544). */
+  rotation_enabled?: boolean | null;
   notes?: string | null;
   description?: string | null;
 }

@@ -106,6 +106,58 @@ export interface RotationMatrix {
   beds: RotationMatrixBed[];
 }
 
+export type SuccessionStatus =
+  | 'ok'
+  | 'not_applicable'
+  | 'no_history'
+  | 'demand_unknown'
+  | 'no_successor_data'
+  | 'no_matching_species';
+
+export type SuccessionTarget = 'heavy_feeder' | 'medium_feeder' | 'light_feeder' | 'restoring';
+
+export interface SuccessionSpecies {
+  species_key: string;
+  scientific_name: string;
+  common_name: string | null;
+  nutrient_demand: string | null;
+  nitrogen_fixing: boolean | null;
+}
+
+export interface SuccessionFamily {
+  family_key: string;
+  family_name: string | null;
+  benefit_score: number | null;
+  benefit_reason: string | null;
+  pause_years: number | null;
+  species: SuccessionSpecies[];
+}
+
+export interface SuccessionHeldBack {
+  family_key: string;
+  family_name: string | null;
+  last_year: number;
+  pause_years: number;
+}
+
+/** `GET /locations/{key}/succession-recommendation` (GP-FR-133): the next step of the feeder cycle. Order only, no amounts. */
+export interface SuccessionRecommendation {
+  location_key: string;
+  rotation_applicable: boolean;
+  not_applicable_reason: string | null;
+  status: SuccessionStatus;
+  previous: {
+    year: number;
+    step: 'main_crop' | 'restoring';
+    nutrient_demand: string | null;
+    family_keys: string[];
+  } | null;
+  target: SuccessionTarget | null;
+  families: SuccessionFamily[];
+  held_back: SuccessionHeldBack[];
+  fallow_option: boolean;
+}
+
 /** `POST /locations/{key}/history/backfill` (GP-API-042). */
 export interface BackfillBody {
   year: number;

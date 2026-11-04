@@ -13,7 +13,17 @@ import { authState, createTestStore, renderWithProviders, tenantState } from '@/
 import { server } from '@/test/mocks/server';
 import { bedSummary } from '../bed/bedTestKit';
 import BedHistoryTab from './BedHistoryTab';
-import { BASE, careItem, FABACEAE, plantedItem, SOLANACEAE, timeline, useHistoryBackend, year } from './historyTestKit';
+import {
+  BASE,
+  careItem,
+  FABACEAE,
+  noHistoryRecommendation,
+  plantedItem,
+  SOLANACEAE,
+  timeline,
+  useHistoryBackend,
+  year,
+} from './historyTestKit';
 import type { HistoryItem } from './historyTypes';
 
 const THIS_YEAR = new Date().getFullYear();
@@ -520,5 +530,49 @@ describe('BedHistoryTab - filters on a phone', () => {
     } finally {
       window.matchMedia = original;
     }
+  });
+});
+
+describe('BedHistoryTab - the follow-up crop recommendation (GP-FR-133)', () => {
+  it('shows the recommendation under the timeline and asks again after a year was filled in', async () => {
+    const backend = useHistoryBackend({
+      items: [],
+      timeline: timeline(FIVE_YEARS),
+      succession: noHistoryRecommendation({
+        status: 'ok',
+        previous: { year: THIS_YEAR - 1, step: 'main_crop', nutrient_demand: 'heavy_feeder', family_keys: ['fam_sol'] },
+        target: 'medium_feeder',
+        families: [
+          {
+            family_key: 'fam_api',
+            family_name: 'Apiaceae',
+            benefit_score: 0.7,
+            benefit_reason: null,
+            pause_years: 3,
+            species: [
+              { species_key: 'sp_carrot', scientific_name: 'Daucus carota', common_name: 'Carrot', nutrient_demand: 'medium_feeder', nitrogen_fixing: false },
+            ],
+          },
+        ],
+      }),
+    });
+    const user = userEvent.setup();
+    renderTab();
+
+    const panel = await screen.findByTestId('succession-panel');
+    expect(within(panel).getByTestId('succession-family-fam_api')).toHaveTextContent('Carrot (Daucus carota)');
+    const timelineEl = screen.getByRole('list', { name: 'Planting timeline by year' });
+    // under the timeline, above the list
+    expect(timelineEl.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const asked = () => backend.seen.filter((request) => request.path.endsWith('/succession-recommendation')).length;
+    expect(asked()).toBe(1);
+
+    await user.click(await screen.findByTestId(`timeline-add-${THIS_YEAR - 1}`));
+    const dialog = await screen.findByTestId('backfill-dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: /Plant family/ }));
+    await user.click(await screen.findByRole('option', { name: 'Solanaceae' }));
+    await user.click(within(dialog).getByTestId('backfill-submit'));
+
+    await waitFor(() => expect(asked()).toBe(2));
   });
 });
