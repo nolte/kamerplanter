@@ -58,6 +58,7 @@ from typing import IO, Any, Literal
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
 
+from app.common.csv_export import csv_number, csv_text
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.observation import ArchivedReading
@@ -98,9 +99,6 @@ READINGS_COLUMNS: tuple[str, ...] = (
     "max_value",
     "sample_count",
 )
-
-#: The first characters a spreadsheet reads as the start of a formula (CSV injection).
-_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 #: The storage category the archives are kept under (``t/<tenant>/tenant_export/<export_key>.zip``).
 ARCHIVE_STORAGE_CATEGORY = "tenant_export"
@@ -814,16 +812,6 @@ def _without(node: Any, segments: list[str]) -> Any:
     return copy
 
 
-def _csv_text(value: str | None) -> str:
-    if not value:
-        return ""
-    return f"'{value}" if value.startswith(_FORMULA_PREFIXES) else value
-
-
-def _csv_number(value: float | None) -> str:
-    return "" if value is None else repr(value)
-
-
 def readings_csv_rows(readings: Iterable[ArchivedReading]) -> list[list[str]]:
     """The cells of ``timeseries/readings.csv`` for *readings*, in :data:`READINGS_COLUMNS` order."""
     rows: list[list[str]] = []
@@ -837,17 +825,17 @@ def readings_csv_rows(readings: Iterable[ArchivedReading]) -> list[list[str]]:
             [
                 reading.series,
                 reading.time.isoformat(),
-                _csv_text(reading.sensor_key),
-                _csv_text(reading.sensor_type),
-                _csv_number(reading.value),
-                _csv_text(reading.unit),
-                _csv_text(reading.source),
-                _csv_number(reading.quality_score),
-                _csv_number(reading.raw_value),
-                _csv_text(metadata),
-                _csv_number(reading.avg_value),
-                _csv_number(reading.min_value),
-                _csv_number(reading.max_value),
+                csv_text(reading.sensor_key),
+                csv_text(reading.sensor_type),
+                csv_number(reading.value),
+                csv_text(reading.unit),
+                csv_text(reading.source),
+                csv_number(reading.quality_score),
+                csv_number(reading.raw_value),
+                csv_text(metadata),
+                csv_number(reading.avg_value),
+                csv_number(reading.min_value),
+                csv_number(reading.max_value),
                 "" if reading.sample_count is None else str(reading.sample_count),
             ]
         )

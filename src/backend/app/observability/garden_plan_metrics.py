@@ -45,6 +45,20 @@ CARE_EVENTS_CREATED = Counter(
 )
 
 
+CARE_EVENTS_CONSISTENCY_BACKFILLED = Counter(
+    "care_events_consistency_backfilled_total",
+    "Care events the daily consistency job wrote for a domain event that had none, by source collection "
+    "(REQ-053 GP-NFR-016, WP 8.2).",
+    ("source",),
+    registry=REGISTRY,
+)
+
+
+def record_care_event_backfilled(source: str, count: int) -> None:
+    """Count ``count`` events written by the consistency job. ``source`` is one of the four collection names."""
+    CARE_EVENTS_CONSISTENCY_BACKFILLED.labels(source=source).inc(count)
+
+
 def record_care_event_created(category: str) -> None:
     """Count one care event written. ``category`` is a validated enum value (closed set), never user text."""
     CARE_EVENTS_CREATED.labels(category=category).inc()

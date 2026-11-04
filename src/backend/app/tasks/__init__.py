@@ -354,6 +354,7 @@ celery_app.conf.update(
         "app.tasks.adjacency",
         "app.tasks.ai_tasks",
         "app.tasks.auth_tasks",
+        "app.tasks.care_events_consistency",
         "app.tasks.care_tasks",
         "app.tasks.climate_tasks",
         "app.tasks.dormancy_checks",
@@ -579,6 +580,12 @@ celery_app.conf.update(
         "retention-purge-garden-plan-audit-daily": {
             "task": "retention.purge_expired_garden_plan_audit",
             "schedule": crontab(hour=5, minute=0),  # 05:00 UTC daily
+        },
+        # REQ-053 GP-FR-105 (WP 8.2): domain events of the last days without a care event are logged
+        # (trigger=backfill). Own task, no master task; a clock time, so a beat restart does not move it.
+        "care-events-consistency-daily": {
+            "task": "care_events.consistency",
+            "schedule": crontab(hour=5, minute=10),  # 05:10 UTC daily, after the retention sweeps
         },
     },
 )

@@ -19,6 +19,7 @@ from app.common.enums import (
 from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
 from app.common.log_privacy import log_tenant
 from app.data_access.arango.base_repository import get_all_pages
+from app.domain.engines.care_event_backfill_mapper import CARE_CONFIRMATIONS, TRIGGER_REMINDER, BedAnchor, map_document
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
@@ -34,6 +35,7 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
+from app.domain.models.care_event import CareEvent
 from app.domain.models.care_reminder import (
     SEASON_STATE_FIELDS,
     CareConfirmation,
@@ -47,6 +49,7 @@ from app.domain.models.species import Cultivar, Species, WateringGuide
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.location_ownership import SiteAnchorSource, find_owned_location
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 from app.domain.services.species_visibility import readable_species
 
@@ -361,6 +364,11 @@ _RACE_REREAD_ATTEMPTS = 6
 _RACE_REREAD_INTERVAL_SECONDS = 0.05
 
 
+def _NO_EVENT(_confirmation_key: str) -> CareEvent | None:  # noqa: N802 - a constant function, named like one
+    """The ``event_for`` of a confirmation that has nothing to log in a bed."""
+    return None
+
+
 class CareReminderService:
     def __init__(
         self,
@@ -379,8 +387,12 @@ class CareReminderService:
         notification_propagation: NotificationPropagationService | None = None,
         family_name_resolver: Callable[[str], str | None] | None = None,
         fertilizer_repo: IFertilizerRepository | None = None,
+        site_repo: SiteAnchorSource | None = None,
     ) -> None:
         self._repo = care_repo
+        #: REQ-053 GP-FR-106 (WP 8.3): resolves the bed (location -> site -> tenant) a confirmation is logged in.
+        #: Without it no care event is written - the optional-collaborator rule of this service.
+        self._site_repo = site_repo
         self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._recurrence = recurrence or RecurrenceEngine()
@@ -890,6 +902,68 @@ class CareReminderService:
             return plant_key
         return plant.plant_name or plant.instance_id or plant_key
 
+    def _bed_event_for(
+        self,
+        plant: PlantInstance | None,
+        reminder_type: ReminderType,
+        *,
+        tenant_key: str,
+        performed_at: datetime,
+        user_key: str = "",
+        volume_liters: float | None = None,
+    ) -> Callable[[str], CareEvent | None]:
+        """The care event of a confirmation (REQ-053 GP-FR-106, WP 8.3), as a function of the stored confirmation's key.
+
+        A plant that stands in no bed - a house plant without a location, a location whose site is not the tenant's
+        - has nothing to log: the function answers ``None`` and the confirmation is stored alone, with no error.
+        Otherwise the bed is the plant's location, tenant and site are the **site's**, and the event is made by
+        the mapper of the M4 backfill (``trigger = reminder``): one mapping per source, whoever writes it.
+        ``volume_liters`` is the volume the caller typed; none is invented.
+        """
+        if plant is None or self._site_repo is None:
+            return _NO_EVENT
+        # The bed is the plant's location; a plant placed in a slot only (written before v0100) stands in the
+        # slot's location - the same walk the backfill scan makes, so live and backfilled lines agree.
+        location_key = plant.location_key
+        if not location_key and plant.slot_key:
+            slot = self._site_repo.get_slot_by_key(plant.slot_key)
+            location_key = slot.location_key if slot is not None else None
+        if not location_key:
+            return _NO_EVENT
+        location = find_owned_location(self._site_repo, location_key, tenant_key)
+        site = self._site_repo.get_site_by_key(location.site_key) if location is not None else None
+        if location is None or site is None or not site.tenant_key or site.tenant_key != tenant_key:
+            return _NO_EVENT
+        plant_key = plant.key or ""
+        anchor = BedAnchor(
+            tenant_key=site.tenant_key,
+            site_key=location.site_key,
+            location_key=location.key or location_key,
+            plant_keys=(plant_key,) if plant_key else (),
+        )
+
+        def build(confirmation_key: str) -> CareEvent | None:
+            try:
+                return map_document(
+                    CARE_CONFIRMATIONS,
+                    {"_key": confirmation_key, "reminder_type": reminder_type.value},
+                    anchor,
+                    performed_at,
+                    trigger=TRIGGER_REMINDER,
+                    performed_by_user_key=user_key or None,
+                    quantity=volume_liters,
+                    unit="l" if volume_liters else None,
+                )
+            except ValueError as exc:  # pydantic's ValidationError is one
+                # The care log is a mirror of the confirmation: a line the model refuses must not block the user's
+                # confirmation. The consistency job (WP 8.2) closes the gap with the same mapper.
+                logger.error(
+                    "care_confirmation.event_refused", reminder_type=reminder_type.value, error_type=type(exc).__name__
+                )
+                return None
+
+        return build
+
     def confirm_reminder(
         self,
         plant_key: str,
@@ -911,7 +985,7 @@ class CareReminderService:
         existence is not disclosed across the boundary. Until #2107 the check ran
         only ``if tenant_key`` — an opt-in the REST route did not opt into for months.
         """
-        self._require_owned_plant(plant_key, tenant_key)
+        plant = self._require_owned_plant(plant_key, tenant_key)
 
         # #1713: the fertilizer lines are request values and end up on the
         # WateringLog below. Checked against the tenant the log will carry, and
@@ -972,9 +1046,19 @@ class CareReminderService:
             notes=notes,
             interval_at_time=self._get_current_interval(profile, reminder_type),
         )
-        created = self._repo.create_confirmation(confirmation)
-        if created.key and profile.key:
-            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        created = self._repo.create_confirmation_logged(
+            confirmation,
+            profile_key=profile.key or "",
+            plant_key=plant_key,
+            event_for=self._bed_event_for(
+                plant,
+                reminder_type,
+                tenant_key=tenant_key,
+                performed_at=now,
+                user_key=user_key,
+                volume_liters=volume_liters if is_feeding_type else None,
+            ),
+        )
 
         # Apply adaptive learning
         if profile.adaptive_learning_enabled:
@@ -1231,9 +1315,17 @@ class CareReminderService:
             notes=task.completion_notes,
             interval_at_time=self._engine._get_interval_days(profile, reminder_type),
         )
-        created = self._repo.create_confirmation(confirmation)
-        if created.key and profile.key:
-            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        self._repo.create_confirmation_logged(
+            confirmation,
+            profile_key=profile.key or "",
+            plant_key=plant_key,
+            event_for=self._bed_event_for(
+                self._owned_plant(plant_key, tenant_key),
+                reminder_type,
+                tenant_key=tenant_key,
+                performed_at=confirmation.confirmed_at,
+            ),
+        )
         self.complete_care_task_with_log(task.key or "", plant_key, reminder_type, tenant_key=tenant_key)
 
         if reminder_type != ReminderType.WATERING:

@@ -19,8 +19,10 @@ import { useUndoSnackbar } from '../care/useUndoSnackbar';
 import BackfillDialog from './BackfillDialog';
 import { firstEmptyYear } from './backfillForm';
 import HistoryFilterBar from './HistoryFilterBar';
+import HistoryExportButton from './HistoryExportButton';
 import HistoryList from './HistoryList';
 import PlantingTimeline from './PlantingTimeline';
+import SuccessionRecommendationPanel from './SuccessionRecommendationPanel';
 import { cancelBackfill, getBedHistory, listBedPlantOptions } from './historyApi';
 import { activeFilterCount, emptyFilters, toQuery, isRangeInverted, type HistoryFilters } from './historyFilters';
 import type { BackfillResult, FilterOption } from './historyTypes';
@@ -29,6 +31,7 @@ import { useHistoryPages } from './useHistoryPages';
 const historyItemId = (item: { id: string }) => item.id;
 import { usePersonOptions } from './usePersonOptions';
 import { useRotationTimeline } from './useRotationTimeline';
+import { useSuccessionRecommendation } from './useSuccessionRecommendation';
 
 /** A bed's history has no default window: every year the retention keeps. */
 const DEFAULTS: HistoryFilters = emptyFilters('all');
@@ -51,6 +54,9 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
   const [focusYear, setFocusYear] = useState<number | null>(null);
   const clearFocusYear = useCallback(() => setFocusYear(null), []);
   const timeline = useRotationTimeline(bed.key);
+  // A year filled in or taken back changes what the recommendation starts from.
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const succession = useSuccessionRecommendation(bed.key, historyVersion);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +75,7 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
   // move with the clock and refetch forever.
   const query = useMemo(() => toQuery(filters, new Date(), 'bed'), [filters]);
   const resetKey = JSON.stringify(query);
+  const exportQuery = useMemo(() => ({ ...query, location_key: bed.key }), [query, bed.key]);
   const fetchPage = useCallback(
     (offset: number) => (inverted ? Promise.resolve([]) : getBedHistory(bed.key, query, offset)),
     [bed.key, query, inverted],
@@ -80,6 +87,7 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
   const changed = useCallback(() => {
     reloadHistory();
     reloadTimeline();
+    setHistoryVersion((value) => value + 1);
   }, [reloadHistory, reloadTimeline]);
 
   const onSaved = (result: BackfillResult) => {
@@ -123,14 +131,19 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
         onFocusHandled={clearFocusYear}
       />
 
+      <SuccessionRecommendationPanel state={succession.state} onRetry={succession.retry} />
+
       <Box component="section" aria-labelledby="bed-history-title" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'space-between', alignItems: 'baseline' }}>
           <Typography id="bed-history-title" variant="h6" component="h2">
             {t('pages.bed.history.title')}
           </Typography>
-          <Link component={RouterLink} to="/standorte/historie" sx={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="history-all-beds">
-            {t('pages.bed.history.allBeds')}
-          </Link>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+            <HistoryExportButton query={exportQuery} disabled={inverted} testIdPrefix="history" />
+            <Link component={RouterLink} to="/standorte/historie" sx={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="history-all-beds">
+              {t('pages.bed.history.allBeds')}
+            </Link>
+          </Box>
         </Box>
         <HistoryFilterBar
           filters={filters}

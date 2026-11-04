@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
-import type { CareEventLine, HistoryItem, RotationTimeline, RotationYear } from './historyTypes';
+import type { CareEventLine, HistoryItem, RotationTimeline, RotationYear, SuccessionRecommendation } from './historyTypes';
 
 /** Fixtures and the mock backend of the history tests (REQ-053 WP 4.5). */
 
@@ -100,6 +100,22 @@ export const FABACEAE = {
   nutrient_demand: 'light_feeder',
 } as const;
 
+/** The recommendation of a bed without any recorded year: the default answer of the mock backend. */
+export function noHistoryRecommendation(overrides: Partial<SuccessionRecommendation> = {}): SuccessionRecommendation {
+  return {
+    location_key: 'loc_b03',
+    rotation_applicable: true,
+    not_applicable_reason: null,
+    status: 'no_history',
+    previous: null,
+    target: null,
+    families: [],
+    held_back: [],
+    fallow_option: false,
+    ...overrides,
+  };
+}
+
 /** A request as the server saw it. */
 export interface Seen {
   method: string;
@@ -112,6 +128,7 @@ interface BackendOptions {
   /** The merged history of the bed; sliced by `offset` / `limit` like the server does. */
   items?: HistoryItem[];
   timeline?: RotationTimeline;
+  succession?: SuccessionRecommendation;
   plants?: { plant_key: string; instance_id: string }[];
   members?: { key: string; user_key: string; display_name: string }[];
   /** The tenant-wide care log. */
@@ -151,6 +168,10 @@ export function useHistoryBackend(options: BackendOptions = {}) {
     http.get(`${BASE}/locations/:key/rotation`, async ({ request }) => {
       await record(request);
       return HttpResponse.json(current);
+    }),
+    http.get(`${BASE}/locations/:key/succession-recommendation`, async ({ request }) => {
+      await record(request);
+      return HttpResponse.json(options.succession ?? noHistoryRecommendation());
     }),
     http.get(`${BASE}/locations/:key/plantings`, async ({ request }) => {
       await record(request);

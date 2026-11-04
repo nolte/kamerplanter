@@ -66,7 +66,13 @@ _WRITES: dict[str, Callable[[CareReminderService, str], object]] = {
 
 
 def _care_writes(care_repo: MagicMock) -> list[str]:
-    names = ("create_confirmation", "create_confirmation_edges", "update_profile", "create_linked_profile")
+    names = (
+        "create_confirmation",
+        "create_confirmation_logged",
+        "create_confirmation_edges",
+        "update_profile",
+        "create_linked_profile",
+    )
     return [name for name in names if getattr(care_repo, name).called]
 
 
@@ -110,4 +116,4 @@ def test_a_service_without_a_plant_repository_owns_nothing() -> None:
 
     with pytest.raises(NotFoundError):
         service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=_OWN)
-    care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()

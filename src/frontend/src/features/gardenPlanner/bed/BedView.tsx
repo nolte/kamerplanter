@@ -17,6 +17,7 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import BedHeader from './BedHeader';
 import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
+import RotationSwitch from './RotationSwitch';
 import SoilProfileForm from './SoilProfileForm';
 import { allowedBedTransitions } from './bedStatus';
 import type { BedSummary } from './types';
@@ -34,6 +35,8 @@ const BedHistoryTab = lazy(() => import('../history/BedHistoryTab'));
 const BedPlantingTab = lazy(() => import('../planting/BedPlantingTab'));
 // The sun tiles load when the dialog opens (GP-FR-157).
 const SunDialog = lazy(() => import('./SunDialog'));
+// The site conditions (frost, wind, slope, access) load when their dialog opens (GP-FR-162/163/168).
+const SiteConditionsDialog = lazy(() => import('./SiteConditionsDialog'));
 
 const ID_PREFIX = 'bed';
 const TABS_WITH_PLAN = ['plan', 'planting', 'care', 'soil', 'history', 'details'] as const;
@@ -61,6 +64,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
   const { year, years, setYear } = useYearParam();
   const [statusOpen, setStatusOpen] = useState(false);
   const [sunOpen, setSunOpen] = useState(false);
+  const [siteOpen, setSiteOpen] = useState(false);
   const [plantingVersion, setPlantingVersion] = useState(0);
   const rotationBadge = useRotationBadge(summary.key, plantingVersion);
 
@@ -104,12 +108,21 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
         );
       case 'soil':
         return (
-          <SoilProfileForm
-            bedKey={summary.key}
-            profile={summary.soil_profile}
-            canEdit={canEdit}
-            onSaved={() => void onReload()}
-          />
+          <>
+            <RotationSwitch
+              bedKey={summary.key}
+              rotationEnabled={summary.rotation_enabled}
+              rotationExempt={summary.rotation_exempt}
+              canEdit={canEdit}
+              onSaved={onReload}
+            />
+            <SoilProfileForm
+              bedKey={summary.key}
+              profile={summary.soil_profile}
+              canEdit={canEdit}
+              onSaved={() => void onReload()}
+            />
+          </>
         );
       default:
         return details;
@@ -127,6 +140,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
         onYearChange={setYear}
         onChangeStatus={targets.length > 0 ? () => setStatusOpen(true) : null}
         onChangeSun={canEdit ? () => setSunOpen(true) : null}
+        onChangeSite={canEdit ? () => setSiteOpen(true) : null}
         rotationReasons={rotationBadge?.reasons}
       />
 
@@ -166,6 +180,21 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
             onClose={() => setSunOpen(false)}
             onChanged={() => {
               setSunOpen(false);
+              void onReload();
+            }}
+          />
+        </Suspense>
+      )}
+
+      {siteOpen && (
+        <Suspense fallback={null}>
+          <SiteConditionsDialog
+            bedKey={summary.key}
+            bedName={summary.name}
+            current={summary.site_conditions}
+            onClose={() => setSiteOpen(false)}
+            onChanged={() => {
+              setSiteOpen(false);
               void onReload();
             }}
           />

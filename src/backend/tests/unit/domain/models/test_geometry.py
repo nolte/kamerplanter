@@ -8,6 +8,10 @@ cap at 200, immutability and hashing, the frame context, the adapter and the
 
 from __future__ import annotations
 
+import math
+import random
+from decimal import ROUND_HALF_UP, Decimal
+
 import pytest
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -232,6 +236,26 @@ class TestRounding:
 
     def test_negative_zero_is_normalised(self) -> None:
         assert str(round_length(-0.0004)) == "0.0"
+
+    def test_the_fast_path_is_the_decimal_definition(self) -> None:
+        """#2526: the built-in ``round`` shortcut gives the ``Decimal`` quantisation's float, bit for bit.
+
+        Random coordinates, every exact tie ``k/16`` (the values the shortcut must leave to ``Decimal``),
+        their neighbours one ulp away, values near zero (the ``-0.0`` normalisation) and large ones.
+        """
+        quantum = Decimal(1).scaleb(-3)
+
+        def by_definition(value: float) -> float:
+            return float(Decimal(value).quantize(quantum, rounding=ROUND_HALF_UP)) + 0.0
+
+        rng = random.Random(2526)
+        values = [rng.uniform(-1000.0, 1000.0) for _ in range(20_000)]
+        ties = [k / 16 for k in range(-16_000, 16_001)]
+        values += ties + [math.nextafter(t, math.inf) for t in ties] + [math.nextafter(t, -math.inf) for t in ties]
+        values += [rng.uniform(-0.002, 0.002) for _ in range(2_000)] + [1e14 + 0.0625, -1e16 + 2.0, 5e15 + 0.5]
+        for value in values:
+            got, expected = round_length(value), by_definition(value)
+            assert (got, math.copysign(1.0, got)) == (expected, math.copysign(1.0, expected)), value
 
     def test_points_are_rounded_before_the_range_check(self) -> None:
         """1000.0004 rounds to 1000.0 and is therefore inside the frame."""

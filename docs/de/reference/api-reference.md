@@ -156,6 +156,8 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 
 **`GET /care-events`** ist das Pflegeprotokoll des ganzen Mandanten mit denselben Filtern plus `location_key` und `include_superseded`. Ohne Zeitraum, Beet- und Pflanzenfilter zeigt es die letzten 90 Tage.
 
+**`GET /care-events?format=csv`** liefert dieselben Einträge (mit denselben Filtern und denselben Rollenregeln) als Datei statt als eine Seite JSON: UTF-8 mit BOM, RFC-4180-Quoting, ein Anzeigename statt eines Konto-Schlüssels. Zellen, die mit `=`, `+`, `-`, `@`, Tab oder CR beginnen, bekommen ein vorangestelltes `'`, damit eine Tabellenkalkulation sie nicht als Formel ausführt. `delimiter=semicolon` ist die Excel-Variante für Sprachen mit Dezimalkomma. `offset` und `limit` gelten nicht; mehr als 50 000 Zeilen sind `422 export.too_many_rows` (grenze nach Beet, Pflanze, Kategorie oder Zeitraum ein). Das Budget ist `RATE_LIMIT_CARE_EVENTS_EXPORT` je Konto; die JSON-Liste zählt nicht dagegen. <!-- REQ-053 GP-FR-104 -->
+
 ---
 
 ### Mischkultur in einem Schritt anlegen (REQ-053)

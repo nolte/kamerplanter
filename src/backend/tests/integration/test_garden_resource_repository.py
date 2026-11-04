@@ -25,8 +25,10 @@ from app.data_access.arango.garden_plan_repository import (
 )
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import GardenObjectPatch, LocationPatch, SlotBatchRequest, SlotPatch
+from app.domain.models.site import Location
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.site_service import SiteService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = pytest.mark.usefixtures("arango_db")
@@ -559,6 +561,133 @@ class TestPatchWritesOnlyTheSentSiteConditionParts:
     def test_a_merged_write_on_a_deleted_location_is_a_404(self, repo) -> None:
         with pytest.raises(NotFoundError):
             repo.update_location_fields("gone", {"site_conditions": {"wind_exposure": "exposed"}})
+
+
+class TestPutLeavesThePlanColumnsAsStored:
+    """#2623: ``PUT /locations`` does not write the columns its body (``LocationCreate``) does not carry.
+
+    It wrote the copy of ``site_conditions``, ``geometry``, ``locked`` … it had read, so a plan batch or a
+    ``PATCH`` that wrote them between the PUT's read and its write was reverted without a 409. The race is
+    forced by running the other write inside the repository call, after the service's read.
+    """
+
+    @pytest.fixture
+    def sites(self, db) -> SiteService:
+        return SiteService(ArangoSiteRepository(db))
+
+    @staticmethod
+    def _body(**overrides) -> Location:
+        """What the router rebuilds from a ``LocationCreate`` body."""
+        return Location(**{"name": "Bed (renamed)", "site_key": "site_a", "area_m2": 99.0, **overrides})
+
+    @staticmethod
+    def _race(sites: SiteService, monkeypatch, other_write) -> None:
+        """Run ``other_write`` after ``sites`` read the bed and before it writes."""
+        write = sites._repo.update_location
+
+        def other_then_put(key, location, **options):
+            other_write()
+            return write(key, location, **options)
+
+        monkeypatch.setattr(sites._repo, "update_location", other_then_put)
+
+    def _batch(self, service: GardenResourceService, operation: dict) -> None:
+        service._plan_service.apply_batch(
+            "site_a",
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.GROWER,
+            expected_revision=None,
+            operations=[{"entity": "location", "key": "bed", **operation}],
+            body_bytes=0,
+        )
+
+    def test_a_sun_profile_the_batch_writes_after_the_read_survives_the_put(
+        self, db, service, sites, monkeypatch
+    ) -> None:
+        db.collection(col.LOCATIONS).update(
+            {"_key": "bed", "site_conditions": {"sun_profile": {"sun_window": "morning"}, "wind_exposure": "exposed"}}
+        )
+        self._race(
+            sites,
+            monkeypatch,
+            lambda: self._batch(
+                service,
+                {"op": "update_fields", "fields": {"site_conditions": {"sun_profile": {"sun_window": "afternoon"}}}},
+            ),
+        )
+
+        returned = sites.update_location("bed", self._body(), tenant_key=A)
+
+        document = db.collection(col.LOCATIONS).get("bed")
+        assert document["site_conditions"]["sun_profile"]["sun_window"] == "afternoon"  # the batch's, not the read
+        assert document["site_conditions"]["wind_exposure"] == "exposed" and document["name"] == "Bed (renamed)"
+        assert returned.site_conditions is not None and returned.site_conditions.sun_profile.sun_window == "afternoon"
+
+    def test_a_site_conditions_part_a_patch_writes_after_the_read_survives_the_put(
+        self, db, service, sites, monkeypatch
+    ) -> None:
+        self._race(
+            sites,
+            monkeypatch,
+            lambda: _patch(service, {"site_conditions": {"microclimate": {"cold_air_pocket": True}}}),
+        )
+
+        sites.update_location("bed", self._body(), tenant_key=A)
+
+        assert db.collection(col.LOCATIONS).get("bed")["site_conditions"]["microclimate"]["cold_air_pocket"] is True
+
+    def test_a_geometry_the_batch_moves_after_the_read_survives_with_its_area_and_bbox(
+        self, db, service, sites, monkeypatch
+    ) -> None:
+        moved = {"kind": "rect", "origin": [4, 4], "width_m": 3, "length_m": 2, "rotation_deg": 0}
+        self._race(sites, monkeypatch, lambda: self._batch(service, {"op": "update_geometry", "geometry": moved}))
+
+        returned = sites.update_location("bed", self._body(), tenant_key=A)
+
+        document = db.collection(col.LOCATIONS).get("bed")
+        assert document["geometry"]["origin"] == [4, 4]
+        assert document["area_m2"] == 6.0 and document["bbox"] == [4.0, 4.0, 7.0, 6.0]  # not the body's 99, not 2.0
+        assert returned.area_m2 == 6.0 and returned.geometry is not None and returned.geometry.origin == (4.0, 4.0)
+
+    def test_the_frost_mirror_sets_the_risk_and_leaves_the_sun_profile(self, db, sites) -> None:
+        db.collection(col.LOCATIONS).update(
+            {"_key": "bed", "site_conditions": {"sun_profile": {"sun_window": "afternoon"}, "slope_deg": 12.5}}
+        )
+
+        returned = sites.update_location("bed", self._body(frost_exposed=True), tenant_key=A)
+
+        document = db.collection(col.LOCATIONS).get("bed")
+        assert document["frost_exposed"] is True
+        assert document["site_conditions"] == {
+            "sun_profile": {"sun_window": "afternoon"},
+            "slope_deg": 12.5,
+            "microclimate": {"frost_risk": "high"},
+        }
+        assert returned.site_conditions is not None and returned.site_conditions.microclimate.frost_risk == "high"
+
+    def test_the_frost_mirror_on_a_bed_without_conditions_writes_only_the_risk(self, db, sites) -> None:
+        sites.update_location("bed", self._body(frost_exposed=False), tenant_key=A)
+
+        assert db.collection(col.LOCATIONS).get("bed")["site_conditions"] == {"microclimate": {"frost_risk": "normal"}}
+
+    def test_the_body_columns_are_written_and_null_still_resets(self, db, sites) -> None:
+        db.collection(col.LOCATIONS).update({"_key": "bed", "frost_exposed": True, "tank_key": "old", "locked": True})
+
+        sites.update_location("bed", self._body(light_type="led"), tenant_key=A)
+
+        document = db.collection(col.LOCATIONS).get("bed")
+        assert (document["name"], document["light_type"]) == ("Bed (renamed)", "led")
+        assert "frost_exposed" not in document and "tank_key" not in document  # the full-replace null reset (#714)
+        assert document["locked"] is True and document["bed_status"] == "active"  # not carried, not written
+        assert document["area_m2"] == 2.0  # a placed bed: the body's 99 is not its area
+
+    def test_an_unplaced_location_takes_the_body_s_area(self, db, sites) -> None:
+        db.collection(col.LOCATIONS).update({"_key": "bed", "geometry": None}, keep_none=False)
+
+        returned = sites.update_location("bed", self._body(area_m2=4.5), tenant_key=A)
+
+        assert db.collection(col.LOCATIONS).get("bed")["area_m2"] == 4.5 and returned.area_m2 == 4.5
 
 
 class TestTheSlotBatchIsAllOrNothing:

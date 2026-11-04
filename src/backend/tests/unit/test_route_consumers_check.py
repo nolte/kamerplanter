@@ -303,9 +303,16 @@ class TestTheRouteOperand:
 
         +1: the new season (REQ-053 WP 7.16/7.17, #2482, #2483): ``POST /t/{slug}/sites/{key}/plan/new-season``. The
         season dialog (``features/gardenPlanner/season/``) consumes it in the same change.
+
+        +1: the rotation matrix of a site (REQ-053 WP 8.12, #2655): ``GET /t/{slug}/sites/{key}/rotation-matrix``. Its
+        consumer, the matrix view, is the next package of the lane (WP 8.13, #2656); until it lands the route is
+        reachable through the API and the OpenAPI document only.
+
+        +1: the follow-up crop recommendation (REQ-053 WP 8.14, #2657): ``GET /t/{slug}/locations/{key}/
+        succession-recommendation``. The history tab consumes it in the same change.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 890
+        assert len(checker.collect_operations(app)) == 892
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

@@ -6,7 +6,9 @@
  * the renderer, the plan model nor the slice are part of the initial bundle (UI-NFR-003).
  *
  * The page loads the plan, explains the empty and error states and mounts the editor (WP 2.4:
- * select, pan, draw, handles). It owns the viewport - fitted to the plan, then panned and zoomed
+ * select, pan, draw, handles). An empty plan offers its one next step to the roles that may edit
+ * (GP-UX-049, #2617): "add the first bed" mounts the editor on a default area with "add with
+ * dimensions" open. It owns the viewport - fitted to the plan, then panned and zoomed
  * (WP 2.5: zoom levels, wheel, "fit to area").
  *
  * Field mode (WP 5.1, GP-UX-020) is the default on xs and `?mode=field` everywhere; `?mode=plan` forces
@@ -21,6 +23,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import EmptyState from '@/components/common/EmptyState';
@@ -53,7 +56,7 @@ import { PlanIoMenu } from '../io/PlanIoMenu';
 import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
-import { fitViewport, focusViewport, planContentBounds } from './fitViewport';
+import { EMPTY_PLAN_BOUNDS, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
 
@@ -105,7 +108,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   const theme = useTheme();
   const navigate = useNavigate();
   const notification = useNotification();
-  const { canDelete } = useTenantPermissions();
+  const { canDelete, canEdit } = useTenantPermissions();
   // From md up the properties panel sits beside the plan and takes its width from the drawing.
   const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
@@ -162,7 +165,12 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   if (plan !== null && loadStatus === 'ready' && fit?.requestId !== loadRequestId) {
     setFit({ requestId: loadRequestId, bounds: planContentBounds(plan) });
   }
-  const bounds = fit?.bounds ?? null;
+  const contentBounds = fit?.bounds ?? null;
+  // "Add the first bed" (#2617): the site it was chosen for keeps the editor on the default area of an
+  // empty plan, also once that bed exists - the fit follows the content only on the next load.
+  const [firstBedSite, setFirstBedSite] = useState<string | null>(null);
+  const startingFirstBed = key !== undefined && firstBedSite === key;
+  const bounds = contentBounds ?? (startingFirstBed ? EMPTY_PLAN_BOUNDS : null);
   const fitted = useMemo(() => {
     if (bounds === null) return null;
     const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
@@ -280,13 +288,27 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     content = <ErrorDisplay error={loadError} onRetry={load} />;
   } else if (plan === null || loadStatus !== 'ready') {
     content = <LoadingSkeleton variant="card" />;
-  } else if (bounds === null || viewport === null) {
+  } else if (viewport === null) {
+    // GP-UX-049: a describing text and exactly one action - for the roles that may create beds.
     content = (
       <Box data-testid="garden-plan-empty">
         <EmptyState
           message={t('pages.gardenPlan.empty.title')}
-          description={t('pages.gardenPlan.empty.description')}
+          description={t(canEdit ? 'pages.gardenPlan.empty.descriptionCanEdit' : 'pages.gardenPlan.empty.description')}
         />
+        {canEdit && key && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setFirstBedSite(key)}
+              data-testid="garden-plan-empty-add-bed"
+              sx={{ minHeight: 48 }}
+            >
+              {t('pages.gardenPlan.empty.addFirstBed')}
+            </Button>
+          </Box>
+        )}
       </Box>
     );
   } else {
@@ -302,6 +324,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
         onZoom={onZoom}
         onFit={onFit}
         minPxPerM={minPxPerM}
+        initialAddOpen={startingFirstBed && contentBounds === null}
       />
     );
   }

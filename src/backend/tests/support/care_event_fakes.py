@@ -119,6 +119,25 @@ class FakeCareEventRepo(ICareEventRepository):
             raise RuntimeError("the transaction aborted")
         return [self.insert(event, tenant_key=tenant_key) for event in events]
 
+    def insert_backfilled(self, events, *, tenant_key):
+        if not tenant_key or any(e.tenant_key != tenant_key for e in events):
+            raise ValueError("insert_backfilled: tenant mismatch")
+        if any(e.trigger != "backfill" or not e.source_ref for e in events):
+            raise ValueError("insert_backfilled: backfill with source_ref only")
+        present = {
+            (e.tenant_key, (e.source_ref or {}).get("collection"), (e.source_ref or {}).get("key"))
+            for e in self.events.values()
+        }
+        written = 0
+        for event in events:
+            ref = event.source_ref or {}
+            if (event.tenant_key, ref.get("collection"), ref.get("key")) in present:
+                continue
+            self.insert(event, tenant_key=tenant_key)
+            present.add((event.tenant_key, ref.get("collection"), ref.get("key")))
+            written += 1
+        return written, len(events) - written
+
     @staticmethod
     def _refuse_if_closed(event: CareEvent) -> None:
         if event.superseded_by_key or event.voided_at:

@@ -55,7 +55,7 @@ class _Repo(_ReferencesRepo):
         self.written["site"] = site
         return site.model_copy(update={"key": key})
 
-    def update_location(self, key, location):
+    def update_location(self, key, location, **_write_options):
         self.written["location"] = location
         return location.model_copy(update={"key": key})
 

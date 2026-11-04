@@ -1707,7 +1707,7 @@ class TestTheLegStartsTheMeasuredJobsServices:
             recorder.service_containers(workflow, "j")
 
     def test_a_job_without_services_starts_nothing(self, capsys: pytest.CaptureFixture[str]) -> None:
-        assert recorder.main(["services", ".github/lane-inputs/frontend--coverage.yaml"]) == recorder.EXIT_OK
+        assert recorder.main(["services", ".github/lane-inputs/frontend--lint-test-build.yaml"]) == recorder.EXIT_OK
         assert "declares no services" in capsys.readouterr().err
 
 

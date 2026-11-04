@@ -40,8 +40,6 @@ from app.api.v1.garden_plan.schemas import (
     PlanSeasonResponse,
     PlanSettingsResponse,
     PlanSiteConditionsResponse,
-    PlanSlotGeometry,
-    PlanSlotResponse,
     PlanSnapshotResponse,
     PlanSnapshotRestoreRequest,
     PlanSoilProfileResponse,
@@ -49,7 +47,10 @@ from app.api.v1.garden_plan.schemas import (
     PlanUnderlayRequest,
     PlanUnderlayResponse,
     PlanZoneResponse,
+    RotationMatrixBedResponse,
+    RotationMatrixResponse,
 )
+from app.api.v1.locations.schemas import rotation_year_responses
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
 from app.common.body_limit import read_bounded_body
 from app.common.dependencies import (
@@ -58,6 +59,7 @@ from app.common.dependencies import (
     get_garden_plan_season_service,
     get_garden_plan_service,
     get_garden_plan_underlay_service,
+    get_rotation_matrix_service,
 )
 from app.common.enums import FrostRisk, SlotRole, SoilDrainage, SunWindow
 from app.common.exceptions import PlanRevisionConflictError, ValidationError
@@ -68,6 +70,7 @@ from app.common.openapi_responses import (
     VALIDATION_RESPONSE,
 )
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.calculators.geometry_calculator import area_m2
@@ -82,6 +85,7 @@ from app.domain.services.garden_plan_import_service import GardenPlanImportServi
 from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
 from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
 from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
 
 router = APIRouter(prefix="/sites", tags=["garden-plan"], responses=NOT_FOUND_RESPONSE)
@@ -180,40 +184,57 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
             )
             for obj in view.garden_objects
         ],
-        slots=[_slot_response(slot) for slot in view.slots],
-        plants=[_plant_response(plant) for plant in view.plants],
+        # Slots and plants go in as plain mappings: the response model validates the thousands of rows of
+        # the large class in one pass instead of one model call per row (#2526) - same models, same rules.
+        slots=[_slot_fields(slot) for slot in view.slots],
+        plants=[_plant_fields(plant) for plant in view.plants],
         zones=[PlanZoneResponse(**zone) for zone in view.zones],
     )
 
 
-def _slot_response(slot: PlanSlotView) -> PlanSlotResponse:
+def _slot_fields(slot: PlanSlotView) -> dict[str, Any]:
     """A slot with the fields at their common value left out (``None`` is not sent): GP-NFR-031.
 
     Left out are ``slot_role`` = position, ``capacity_plants`` = 1, ``currently_occupied`` = false and the
     ``kind`` of a point geometry. Only these, and only here: a blanket "omit defaults" would also drop the
     ``kind`` discriminator of every geometry, and a geometry without its kind cannot be read.
+
+    The fields of a :class:`PlanSlotResponse` (with a :class:`PlanSlotGeometry`); validated as such by
+    :class:`GardenPlanResponse`.
     """
     geometry = slot.plan_geometry
     plan_geometry = None
     if geometry is not None:
         kind = geometry["kind"]
-        plan_geometry = PlanSlotGeometry(**{**geometry, "kind": None if kind == "point" else kind})
-    return PlanSlotResponse(
-        key=slot.key,
-        slot_id=slot.slot_id,
-        location_key=slot.location_key,
-        slot_role=None if slot.slot_role == SlotRole.POSITION else slot.slot_role,
-        capacity_plants=None if slot.capacity_plants == 1 else slot.capacity_plants,
-        currently_occupied=True if slot.currently_occupied else None,
-        row_index=slot.row_index,
-        sequence=slot.sequence,
-        plan_geometry=plan_geometry,
-    )
+        plan_geometry = {**geometry, "kind": None if kind == "point" else kind}
+    return {
+        "key": slot.key,
+        "slot_id": slot.slot_id,
+        "location_key": slot.location_key,
+        "slot_role": None if slot.slot_role == SlotRole.POSITION else slot.slot_role,
+        "capacity_plants": None if slot.capacity_plants == 1 else slot.capacity_plants,
+        "currently_occupied": True if slot.currently_occupied else None,
+        "row_index": slot.row_index,
+        "sequence": slot.sequence,
+        "plan_geometry": plan_geometry,
+    }
 
 
-def _plant_response(plant: PlantShortInfo) -> PlanPlantResponse:
-    """The short info of §21.1; ``location_key`` only for a plant without a slot (the slot already names it)."""
-    return to_response(plant, PlanPlantResponse, location_key=None if plant.slot_key else plant.location_key)
+#: The fields a plant row carries on the wire; resolved once (``model_fields`` is a class property, and reading it
+#: per field of 2 000 plants costs ~4 ms of the large class, #2526).
+_PLANT_RESPONSE_FIELDS: frozenset[str] = frozenset(PlanPlantResponse.model_fields)
+
+
+def _plant_fields(plant: PlantShortInfo) -> dict[str, Any]:
+    """The short info of §21.1; ``location_key`` only for a plant without a slot (the slot already names it).
+
+    The fields of a :class:`PlanPlantResponse`, mapped as :func:`app.api.mapping.to_response` maps them (``key``
+    coalesced to ``""``, only the response's own fields); validated as such by :class:`GardenPlanResponse`.
+    """
+    data = plant.model_dump()
+    data["key"] = data.get("key") or ""
+    data["location_key"] = None if plant.slot_key else plant.location_key
+    return {name: value for name, value in data.items() if name in _PLANT_RESPONSE_FIELDS}
 
 
 def _batch_response(result: PlanBatchResult) -> PlanBatchResponse:
@@ -449,6 +470,65 @@ def list_plan_audit(
     """Newest first; the editor is named by display name (GP-API-008, SR-011)."""
     entries = service.list_audit(key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
     return [to_response(entry, PlanAuditEntryResponse) for entry in entries]
+
+
+@router.get(
+    "/{key}/rotation-matrix",
+    response_model=RotationMatrixResponse,
+    responses={**VALIDATION_RESPONSE},
+    summary="Crop-rotation matrix of the site (beds x years)",
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+def get_rotation_matrix(
+    request: Request,
+    key: _SITE_KEY,
+    years: Annotated[
+        int | None,
+        Query(
+            ge=1,
+            le=MAX_ROTATION_TIMELINE_YEARS,
+            description="Look-back in years; default `max(pause of the families involved, 5)`, at most 10.",
+        ),
+    ] = None,
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: RotationMatrixService = Depends(get_rotation_matrix_service),
+) -> RotationMatrixResponse:
+    """Beds x years of a site (GP-FR-135), all roles: what stood in each bed per year (family, `nutrient_demand`,
+    `plan_role`, season) - the very rows `GET /locations/{key}/rotation` answers for the same bed and year.
+
+    Beds are listed in name order, at most 500 of them, paged by `offset`/`limit`; `total` and `truncated` say how
+    many exist. A bed the rotation check is off for (`rotation_exempt` or switched off)
+    is listed with `rotation_applicable: false` and its reason. History before a bed's `rotation_reset_at` is left
+    out. There is no future column yet: the planned rotation (`CropRotationPlan`) has no store. The default `years`
+    is read from the beds of the page - pass the `years` of the first answer when paging.
+    """
+    matrix = service.rotation_matrix(
+        key, tenant_key=ctx.tenant_key, years=years, offset=pagination.offset, limit=pagination.limit
+    )
+    columns = list(range(matrix.from_year, matrix.to_year + 1))
+    beds: list[RotationMatrixBedResponse] = []
+    for bed in matrix.beds:
+        beds.append(
+            RotationMatrixBedResponse(
+                location_key=bed.location_key,
+                name=bed.name,
+                rotation_applicable=bed.applicable,
+                not_applicable_reason=bed.not_applicable_reason,
+                rotation_reset_at=bed.rotation_reset_at,
+                cells=rotation_year_responses(bed.entries, columns),
+            )
+        )
+    return RotationMatrixResponse(
+        site_key=matrix.site_key,
+        years=matrix.years,
+        columns=columns,
+        total=matrix.total,
+        truncated=matrix.truncated,
+        offset=matrix.offset,
+        limit=matrix.limit,
+        beds=beds,
+    )
 
 
 #: Headers of a downloadable SVG (GP-NFR-052 (e)): never rendered inline by the browser, never sniffed into

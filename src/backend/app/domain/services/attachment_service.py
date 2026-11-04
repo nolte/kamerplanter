@@ -603,9 +603,16 @@ class AttachmentService:
         carriers, and deleting it would strand their references. Idempotent: an unknown id returns ``False``.
 
         **The record goes first, in the transaction of the scan** (:meth:`IAttachmentRepository.remove_if_unreferenced`,
-        #2545): a separate scan and delete let a carrier written between them point at nothing. A carrier naming the
-        record at this moment makes the remove conflict (``WriteConflictError``) — the picture then stays, the safe
-        direction. The stored object follows unless another record holds it; a storage call failing after the
+        #2545): a separate scan and delete let a carrier written between them point at nothing. A write committed on
+        the record while the remove is open makes it conflict (``WriteConflictError``), and the conflict does not say
+        whether that writer names the record: a carrier binding it does (``set_site_underlay``), a writer that only
+        updates it does not (``mark_renditions_failed``, #2630). **The remove is therefore tried once more**, in a
+        fresh transaction whose scan sees the committed write: a carrier now naming the record keeps it (the scan
+        answers ``None``), a writer that does not lets it go. Exactly two attempts, no loop; a second conflict (a
+        writer still open, or a new one) keeps the picture — the safe direction — and logs
+        ``attachment_delete_skipped_concurrent_write``.
+
+        The stored object follows unless another record holds it; a storage call failing after the
         commit leaves an object no record holds — never a reference to a missing picture. The reconciliation
         sweep (#1834) only *reports* such an object by default: it deletes it only when the operator sets
         ``STORAGE_RECONCILE_DELETE_ENABLED`` (default ``False``); until then the object stays in the store.
@@ -615,8 +622,14 @@ class AttachmentService:
         try:
             removed = await asyncio.to_thread(self._repo.remove_if_unreferenced, attachment_id, tenant_key)
         except WriteConflictError:
-            logger.info("attachment_delete_skipped_concurrent_write", tenant=log_tenant(tenant_key))
-            return False
+            # A committed rival write is read by the second transaction's scan, which decides (#2630); a rival
+            # still open conflicts again and the picture stays.
+            logger.info("attachment_delete_retried_after_conflict", tenant=log_tenant(tenant_key))
+            try:
+                removed = await asyncio.to_thread(self._repo.remove_if_unreferenced, attachment_id, tenant_key)
+            except WriteConflictError:
+                logger.info("attachment_delete_skipped_concurrent_write", tenant=log_tenant(tenant_key))
+                return False
         if removed is None:
             return False
         shared = await self._release_object(removed, tenant_key)

@@ -5291,7 +5291,9 @@
       "openHint": "Beete und Gartenobjekte dieses Standorts als Plan ansehen.",
       "empty": {
         "title": "Noch kein Gartenplan",
-        "description": "Für diesen Standort ist noch kein Plan angelegt. Sobald es einen gibt, siehst du hier deine Beete und Gartenobjekte von oben."
+        "description": "Für diesen Standort ist noch kein Plan angelegt. Beete legen Mitglieder mit der Rolle Gärtner oder Leitung an; sobald es das erste gibt, siehst du hier deine Beete und Gartenobjekte von oben.",
+        "descriptionCanEdit": "Für diesen Standort ist noch kein Plan angelegt. Lege als Nächstes das erste Beet mit seinen Maßen an - danach kannst du weitere Beete und Gartenobjekte direkt auf dem Plan zeichnen.",
+        "addFirstBed": "Erstes Beet anlegen"
       },
       "renderer": {
         "canvas": "Gartenplan",
@@ -6698,6 +6700,66 @@
           "reihenabstand": "Reihenabstand",
           "randabstand": "Randabstand"
         }
+      },
+      "siteConditions": {
+        "hint": "Halte fest, was du am Beet beobachtest. Kamerplanter rechnet nichts daraus aus; die Angaben fließen in Hinweise beim Bepflanzen und in die Frost-Frühwarnung ein.",
+        "frost": {
+          "title": "Frostrisiko",
+          "hint": "Liegt das Beet in einer Senke oder an einer kalten Stelle? „Hoch“ nennt die Frost-Frühwarnung immer, „Gering“ nie."
+        },
+        "coldAirPocket": {
+          "label": "Kaltluftsee",
+          "help": "Kalte Luft sammelt sich hier nachts, etwa in einer Senke. Nur ein Vermerk."
+        },
+        "heat": {
+          "title": "Gespeicherte Wärme",
+          "hint": "Eine Wand oder ein Gebäude gibt nachts Wärme zurück."
+        },
+        "wind": {
+          "title": "Wind",
+          "hint": "Wie stark trifft der Wind das Beet? Bei „Windausgesetzt“ weist der Pflanzdialog auf Arten hin, die eine Stütze brauchen."
+        },
+        "slope": {
+          "label": "Hang (Grad)",
+          "help": "0 bis 90, freiwillig.",
+          "invalid": "Gib eine Zahl von 0 bis 90 ein."
+        },
+        "aspect": {
+          "label": "Ausrichtung (Grad)",
+          "help": "Himmelsrichtung, in die das Beet abfällt: 0 = Nord, 90 = Ost, 180 = Süd, 270 = West. Freiwillig.",
+          "invalid": "Gib eine Zahl von 0 bis unter 360 ein."
+        },
+        "access": {
+          "title": "Zugangsseiten",
+          "hint": "Von welchen Seiten pflegst du das Beet?"
+        },
+        "summary": {
+          "frost": "Frostrisiko: {{value}}",
+          "heat": "Wärmespeicher: {{value}}",
+          "wind": "Wind: {{value}}",
+          "slope": "Hang {{value, number}}°",
+          "aspect": "Ausrichtung {{value, number}}°",
+          "access": "Zugang: {{value}}"
+        },
+        "dialog": {
+          "title": "Standortmerkmale: {{bed}}",
+          "cancel": "Abbrechen",
+          "save": "Speichern",
+          "saved": "Standortmerkmale gespeichert.",
+          "invalid": "Prüfe die rot markierten Gradangaben, bevor du speicherst."
+        },
+        "field": {
+          "title": "Feuchte und Wind",
+          "moisture": "Feuchte am Beet",
+          "wind": "Wind",
+          "windy": "Windig",
+          "saved": "Gespeichert.",
+          "regime": {
+            "moist": "Feucht",
+            "fresh": "Normal",
+            "dry": "Trocken"
+          }
+        }
       }
     },
     "bed": {
@@ -6739,7 +6801,9 @@
         "previousYear": "Vorjahr ({{year}}): Die Anbauhistorie dieses Beets steht hier, sobald sie erfasst wird.",
         "rotationHint": "Fruchtfolge-Hinweis",
         "rotationReason": "Trotzdem gepflanzt: {{reason}}",
-        "changeSun": "Sonne ändern"
+        "changeSun": "Sonne ändern",
+        "site": "Standortmerkmale",
+        "changeSite": "Merkmale ändern"
       },
       "status": {
         "title": "Status des Beets ändern",
@@ -6788,7 +6852,24 @@
         "humus": "Humusgehalt",
         "humusHelper": "Anteil organischer Substanz in Prozent.",
         "notes": "Notizen",
-        "saved": "Bodenprofil gespeichert."
+        "saved": "Bodenprofil gespeichert.",
+        "rotation": {
+          "title": "Fruchtfolge für dieses Beet",
+          "intro": "Lege fest, ob Kamerplanter die Fruchtfolge für dieses Beet prüft. Ohne eigene Angabe gilt der Standard des Beettyps: Für Töpfe, Zelte und Regale ist die Prüfung aus, sonst an.",
+          "introReadOnly": "So ist die Fruchtfolge-Prüfung für dieses Beet eingestellt. Du kannst sie ansehen, aber nicht ändern.",
+          "checkLabel": "Fruchtfolge-Prüfung",
+          "check": {
+            "default": "Standard des Beettyps",
+            "on": "Eingeschaltet",
+            "off": "Ausgeschaltet"
+          },
+          "checkHelper": "Die Änderung gilt sofort für Hinweise beim Bepflanzen und für die Folgekultur-Empfehlung.",
+          "exemptLabel": "Dauerkultur (von der Fruchtfolge ausgenommen)",
+          "exemptHelper": "Für Obstbäume, Beerensträucher, Spargel und andere Dauerkulturen. Die Prüfung bleibt dann immer aus.",
+          "saving": "Wird gespeichert …",
+          "saved": "Gespeichert.",
+          "bothRefused": "Eine Dauerkultur kann die Fruchtfolge-Prüfung nicht eingeschaltet haben. Stelle die Prüfung zuerst auf „Standard des Beettyps“ oder „Ausgeschaltet“. Es wurde nichts geändert."
+        }
       },
       "plan": {
         "openGarden": "Im Gartenplan öffnen",
@@ -6951,6 +7032,19 @@
         "loadMore": "Mehr laden",
         "retryMore": "Erneut versuchen",
         "allBeds": "Historie aller Beete",
+        "export": {
+          "button": "CSV exportieren",
+          "comma": "CSV (Komma)",
+          "semicolon": "CSV für Excel (Semikolon)",
+          "done": "Die Historie wurde als CSV-Datei heruntergeladen.",
+          "hint": "Enthalten sind die gespeicherten Pflegeeinträge nach den aktuellen Filtern. Aus Pflanzen und Durchläufen abgeleitete Pflanzungsereignisse sind nicht dabei.",
+          "disabledRange": "Der Zeitraum ist ungültig: „Von“ liegt nach „Bis“. Korrigiere den Zeitraum, dann kannst du exportieren.",
+          "commaHelp": "Standard-Tabellendatei, Spalten mit Komma getrennt, Dezimalpunkt. Für Skripte und die meisten Programme.",
+          "semicolonHelp": "Spalten mit Semikolon getrennt, Dezimalkomma. Öffnet sich in deutschsprachigem Excel direkt als Tabelle.",
+          "preparing": "Die CSV-Datei wird erstellt ...",
+          "tooManyRows": "Die Historie hat mehr als 50 000 Einträge. Grenze sie nach Beet, Pflanze, Kategorie oder Zeitraum ein und exportiere erneut.",
+          "rateLimited": "Du hast gerade mehrere Exporte gestartet. Warte kurz und versuche es dann noch einmal."
+        },
         "by": "von {{name}}",
         "category": {
           "note": "Notiz",
@@ -7076,6 +7170,38 @@
         "page": {
           "title": "Pflegehistorie",
           "description": "Was in allen Beeten dieses Gartens gemacht wurde, die neuesten zuerst. Es werden die letzten 90 Tage gezeigt, solange du keinen anderen Zeitraum wählst."
+        },
+        "succession": {
+          "title": "Folgekultur-Empfehlung",
+          "hint": "Welche Stufe der Zehrer-Folge als Nächstes passt: Starkzehrer, Mittelzehrer, Schwachzehrer, dann Gründüngung oder Brache. Das ist eine Reihenfolge, keine Düngeempfehlung – Mengen nennt Kamerplanter hier nicht.",
+          "basis": "Nach {{year}} ({{previous}}) passt als Nächstes: {{next}}.",
+          "stepRestoring": "Gründüngung oder Brache",
+          "target": {
+            "heavy_feeder": "Starkzehrer",
+            "medium_feeder": "Mittelzehrer",
+            "light_feeder": "Schwachzehrer",
+            "restoring": "Gründüngung oder Brache"
+          },
+          "listLabel": "Passende Familien und Arten",
+          "reasons": {
+            "nitrogen_fixation": "Stickstoff-Bindung der Vorkultur",
+            "soil_structure": "verbessert die Bodenstruktur",
+            "biofumigation": "Biofumigation",
+            "pest_break": "unterbricht Schädlingsketten"
+          },
+          "pauseUnknown": "Für diese Familie ist keine Anbaupause hinterlegt.",
+          "nitrogenFixing": "bindet Stickstoff",
+          "fallowOption": "Oder lass das Beet ein Jahr brach liegen.",
+          "heldBack": "Noch in der Anbaupause, deshalb nicht vorgeschlagen:",
+          "heldBackLine": "{{family}} (zuletzt {{year}}, Pause {{pause}} Jahre)",
+          "loadFailed": "Die Empfehlung konnte nicht geladen werden. Der Zeitstrahl ist davon nicht betroffen.",
+          "status": {
+            "not_applicable": "Für dieses Beet ist die Fruchtfolge-Prüfung aus.",
+            "no_history": "Es ist noch kein Jahr erfasst. Trage ein Jahr nach, dann kann Kamerplanter die nächste Stufe bestimmen.",
+            "demand_unknown": "Für die letzte Kultur ist keine Zehrerklasse hinterlegt, deshalb gibt Kamerplanter keine Empfehlung ab.",
+            "no_successor_data": "Für die Familien des letzten Jahres sind keine Folgefamilien hinterlegt.",
+            "no_matching_species": "In den passenden Folgefamilien gibt es keine Art mit hinterlegter Zehrerklasse für diese Stufe, oder die Familien halten ihre Anbaupause noch ein."
+          }
         }
       },
       "planting": {
@@ -7267,6 +7393,11 @@
           "done": "Aufgabe angelegt: {{plant}} nach {{bed}} umpflanzen."
         },
         "siteFit": {
+          "axis": {
+            "frost_mismatch": "{{name}} ist frostempfindlich, und die Frostgefahr an diesem Beet ist erhöht.",
+            "wind_support_needed": "{{name}} braucht eine Stütze, und dieses Beet ist dem Wind ausgesetzt.",
+            "waterlogging_risk": "{{name}} verträgt Staunässe schlecht, und dieses Beet ist schlecht drainiert."
+          },
           "fit": {
             "ok": "gut geeignet",
             "marginal": "bedingt geeignet",
@@ -7288,6 +7419,32 @@
           "summary": "{{name}}: Standort {{fit}}"
         }
       }
+    },
+    "rotationMatrix": {
+      "title": "Fruchtfolge-Matrix",
+      "backToSite": "Zurück zum Standort",
+      "description": "Je Beet und Jahr, was dort stand. Die Pflanzenfamilie erkennst du an Farbe, Kürzel und Muster; darunter steht die Zehrerklasse. Die Matrix zeigt die Daten der Beet-Historie, nichts wird neu berechnet.",
+      "editHint": "Tippe auf ein vergangenes Jahr, um nachzutragen, was dort stand.",
+      "regionLabel": "Fruchtfolge-Matrix, seitlich scrollbar",
+      "caption": "Fruchtfolge der Beete dieses Standorts, je Jahr",
+      "bedColumn": "Beet",
+      "cellEmpty": "nichts erfasst",
+      "cellAction": "{{bed}}, {{year}}: {{content}}. Was stand hier? Zum Nachtragen öffnen.",
+      "legend": "Pflanzenfamilien",
+      "empty": "Dieser Standort hat noch keine Beete mit Fruchtfolge-Daten.",
+      "count": "{{shown}} von {{total}} Beeten",
+      "truncated": "Die Matrix zeigt höchstens 500 Beete; dieser Standort hat mehr. Es werden die ersten {{count}} nach Name gelistet.",
+      "more": "Weitere Beete laden",
+      "moreFailed": "Weitere Beete konnten nicht geladen werden. Versuche es erneut.",
+      "off": {
+        "rotation_exempt": "Von der Fruchtfolge-Prüfung ausgenommen",
+        "disabled": "Fruchtfolge-Prüfung aus",
+        "container": "Fruchtfolge-Prüfung aus",
+        "unknown": "Fruchtfolge-Prüfung aus"
+      },
+      "open": "Fruchtfolge-Matrix",
+      "openHint": "Welche Pflanzenfamilie in welchem Beet und Jahr stand",
+      "refreshFailed": "Die Matrix konnte nicht aktualisiert werden. Der angezeigte Stand ist möglicherweise veraltet."
     }
   }
 }

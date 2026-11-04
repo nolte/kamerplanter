@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 import statistics
 import time
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from arango import ArangoClient
@@ -732,6 +733,31 @@ class TestTheReadModel:
         )
         assert [s.slot_id for s in service.get_plan("site_a", tenant_key=A).slots] == ["BED_P1"]
 
+    def test_a_watering_on_an_archived_slot_still_dates_its_bed(self, db, service) -> None:
+        """#2526: the read model maps watered slots to beds from its own slot read, archived slots included.
+
+        Before #2526 ``last_waterings`` queried the slot-to-bed map itself over every slot of the beds; the read
+        model now hands in the map it built from the one slot query. The archived slot's watering must still date
+        the bed (a slot archived after the run closed was watered while it stood), and another tenant's watering
+        on the same slot must not.
+        """
+        first_save(service)
+        bed = batch(service, [create("bed", rect(1, 1, 2, 1))], revision=1).key_map["bed"]
+        live = db.collection(col.SLOTS).insert({"slot_id": "BED_P1", "location_key": bed})["_key"]
+        archived = db.collection(col.SLOTS).insert(
+            {"slot_id": "BED_P2", "location_key": bed, "archived_at": "2026-01-01T00:00:00+00:00"}
+        )["_key"]
+        recent = datetime.now(UTC) - timedelta(days=3)
+        events = db.collection(col.WATERING_EVENTS)
+        events.insert({"tenant_key": A, "watered_at": recent.isoformat(), "slot_keys": [archived]})
+        events.insert({"tenant_key": B, "watered_at": datetime.now(UTC).isoformat(), "slot_keys": [archived, live]})
+
+        view = service.get_plan("site_a", tenant_key=A)
+
+        assert [s.key for s in view.slots] == [live]  # positive control: the archived slot is history, not a slot
+        assert view.last_watered == {bed: recent.replace(microsecond=recent.microsecond // 1000 * 1000)}
+        assert service.get_plan("site_a", tenant_key=A, include=frozenset({"plants"})).last_watered == {}
+
     def test_the_audit_list_is_newest_first_and_names_the_editor(self, db, service) -> None:
         first_save(service)
         bed = batch(service, [create("bed", rect(1, 1, 2, 1))], revision=1).key_map["bed"]
@@ -841,9 +867,12 @@ class TestGetPlanBenchmark:
     @pytest.mark.xfail(
         strict=True,
         reason=(
-            "GP-NFR-030 / GP-ACC-034 target p95 <= 300 ms is not met: measured 2026-10-20 p95 0.82 s, median "
-            "0.54 s (AQL ~0.2 s, domain views of 8 452 pydantic objects ~0.25 s, response model 0.10 s, JSON 0.02 s). "
-            "Strict: it turns red the day the read is fast enough, and the marker goes."
+            "GP-NFR-030 / GP-ACC-034 target p95 <= 300 ms is not certified on the CI runner (#2526): after #2526 a "
+            "developer machine measures median 0.17 s, p95 0.28 s (before: 0.20 s / 0.32 s; repo read 0.10 s, "
+            "service views 0.02 s, response model 0.03 s, JSON 0.01 s), and the shared runner runs this benchmark "
+            "about 1.5x slower. The p95 is median plus one ~0.1 s full garbage collection over the process heap, "
+            "which every fourth request triggers. Strict: it turns red wherever the read is fast enough, and the "
+            "marker goes."
         ),
     )
     def test_get_plan_on_the_large_class_meets_the_spec_p95_of_300_ms(self, db, service) -> None:

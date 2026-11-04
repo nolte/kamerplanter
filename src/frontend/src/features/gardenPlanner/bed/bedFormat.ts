@@ -1,7 +1,7 @@
 import type { ChipProps } from '@mui/material/Chip';
 import type { TFunction } from 'i18next';
 import type { BedStatus } from '../model/types';
-import type { SunProfile } from './types';
+import type { SiteConditionsSlice, SunProfile } from './types';
 
 /** Chip colour of a bed status: planned = neutral, active = positive, retired = muted. */
 export const BED_STATUS_COLOR: Record<BedStatus, ChipProps['color']> = {
@@ -34,5 +34,42 @@ export function sunProfileLine(t: TFunction, profile: SunProfile | null | undefi
     parts.push(t('pages.gardenPlan.sun.hours.summary', { hours: profile.direct_sun_hours_summer }));
   }
   if (profile.foliage_shade_in_summer) parts.push(t('pages.gardenPlan.sun.foliage.label'));
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+/**
+ * One line with the site conditions that were recorded (GP-FR-162/163/168): frost risk, cold-air pocket, stored
+ * heat, wind, slope, aspect and access sides. Only what was entered appears (`unknown` and absent are left out);
+ * `null` when nothing was.
+ */
+export function siteConditionsLine(t: TFunction, conditions: SiteConditionsSlice | null | undefined): string | null {
+  if (!conditions) return null;
+  const parts: string[] = [];
+  const risk = conditions.microclimate?.frost_risk;
+  if (risk && risk !== 'unknown') {
+    parts.push(t('pages.gardenPlan.siteConditions.summary.frost', { value: t(`enums.frostRisk.${risk}`) }));
+  }
+  if (conditions.microclimate?.cold_air_pocket) parts.push(t('pages.gardenPlan.siteConditions.coldAirPocket.label'));
+  const heat = conditions.microclimate?.heat_retention;
+  if (heat && heat !== 'unknown') {
+    parts.push(t('pages.gardenPlan.siteConditions.summary.heat', { value: t(`enums.heatRetention.${heat}`) }));
+  }
+  const wind = conditions.wind_exposure;
+  if (wind && wind !== 'unknown') {
+    parts.push(t('pages.gardenPlan.siteConditions.summary.wind', { value: t(`enums.windExposure.${wind}`) }));
+  }
+  if (conditions.slope_deg !== null && conditions.slope_deg !== undefined) {
+    parts.push(t('pages.gardenPlan.siteConditions.summary.slope', { value: conditions.slope_deg }));
+  }
+  if (conditions.aspect_deg !== null && conditions.aspect_deg !== undefined) {
+    parts.push(t('pages.gardenPlan.siteConditions.summary.aspect', { value: conditions.aspect_deg }));
+  }
+  if (conditions.access_sides && conditions.access_sides.length > 0) {
+    parts.push(
+      t('pages.gardenPlan.siteConditions.summary.access', {
+        value: conditions.access_sides.map((side) => t(`enums.accessSide.${side}`)).join(', '),
+      }),
+    );
+  }
   return parts.length > 0 ? parts.join(' · ') : null;
 }

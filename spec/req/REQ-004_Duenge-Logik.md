@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Nutzpflanze (Indoor/Hydro)
 Technologie: Python, ArangoDB, Regelbasierte Logik
 Status: Entwurf
-Version: 3.8 (Enum-Werte `application_method`/`phase_name` an das Modell angeglichen — `ApplicationMethod` inkl. `any`, `PhaseName` mit `ripening` statt `harvest`, Fertigation-Verbot des Plan-Gießplans am `NutrientPlan` verortet, #2183); 3.7 (NutrientPlan.species_keys — Art↔Plan-Relation, #1618)
+Version: 3.9 (Freiland-Düngetabelle auf `nutrient_demand` + `nitrogen_fixing` umgestellt, `nitrogen_fixer` entfällt als Zehrerstufe, Mengen als „Beispiel, unverifiziert“ gekennzeichnet — REQ-053 K-001/§16.3, WP 8.6, #2649); 3.8 (Enum-Werte `application_method`/`phase_name` an das Modell angeglichen — `ApplicationMethod` inkl. `any`, `PhaseName` mit `ripening` statt `harvest`, Fertigation-Verbot des Plan-Gießplans am `NutrientPlan` verortet, #2183); 3.7 (NutrientPlan.species_keys — Art↔Plan-Relation, #1618)
 ```
 
 ## 1. Business Case
@@ -84,14 +84,18 @@ Für organische Feststoff-Dünger und Bodenhilfsstoffe wird die Dosierung **pro 
 - `nutrient_release_speed: Literal['immediate', 'weeks', 'months', 'season_long']` — Freisetzungsgeschwindigkeit
 
 **Nährstoffbedarfs-Empfehlung nach Pflanzenkategorie:**
-Statt EC-Zielwerte empfiehlt das System für Freilandpflanzen eine vereinfachte Düngestrategie basierend auf dem `nutrient_demand_level` (REQ-001):
+Statt EC-Zielwerte empfiehlt das System für Freilandpflanzen eine vereinfachte Düngestrategie basierend auf `nutrient_demand` (Zehrerstufe: `heavy_feeder` | `medium_feeder` | `light_feeder`) und dem getrennten Merkmal `nitrogen_fixing` (bool) (REQ-001, REQ-053 §16.3). `nitrogen_fixer` ist **keine** Zehrerstufe: Eine Leguminose hat eine Zehrerstufe und zusätzlich `nitrogen_fixing = true`.
 
-| Nährstoffbedarf | Typische Pflanzen | Empfehlung |
+!!! warning "Mengenangaben unverifiziert"
+    Die Mengen in der Spalte „Beispiel“ sind Beispiele ohne Quelle (Drei-Quellen-Regel nicht erfüllt; ein Wert ohne Quelle bleibt `null`, REQ-053 E-10). Die Tabelle ist nicht normativ: sie ist keine Quelle für Seed-Daten oder UI-Texte und keine Empfehlung. Sie wurden nicht gegen eine Gesamt-N-Bilanz geprüft: Für `heavy_feeder` liegt die Summe aus Kompost, Hornspänen und Jauche nach grober Rechnung nahe an oder über der organischen N-Grenze (`spec/analysis/agrobiology-req-053-wave8-ec.md`, F-002). Bis die Recherchepunkte R-003 (Hornspäne-N-Gehalt), R-004 (organische N-Grenze, Geltung für Hausgärten) und R-005 (Kompost-Gabe, Schüttdichte, N-Gehalt) belegt sind (WP 8.5), gilt ein Wert ohne Quelle als `null`, und die Anwendung zeigt keine Menge als Empfehlung.
+
+| Nährstoffbedarf (`nutrient_demand`) | Typische Pflanzen | Beispiel, unverifiziert |
 |----------------|-------------------|------------|
 | `heavy_feeder` (Starkzehrer) | Tomate, Kürbis, Kohl, Zucchini, Mais | Kompost (3-4 L/m²) + Hornspäne (80 g/m²) + Jauche alle 2 Wo |
 | `medium_feeder` (Mittelzehrer) | Möhre, Fenchel, Salat, Zwiebel, Kohlrabi | Kompost (2-3 L/m²) + Hornspäne (40 g/m²), Jauche optional |
-| `light_feeder` (Schwachzehrer) | Bohne, Erbse, Radieschen, Kräuter (mediterran) | Kompost (1-2 L/m²), kein weiterer Dünger nötig |
-| `nitrogen_fixer` (N-Fixierer) | Bohne, Erbse, Lupine, Klee | Kein N-Dünger! Nur Kalium/Phosphor bei Bedarf |
+| `light_feeder` (Schwachzehrer) | Radieschen, Kräuter (mediterran) | Kompost (1-2 L/m²), kein weiterer Dünger nötig |
+
+**Stickstofffixierung (`nitrogen_fixing = true`):** Bohne, Erbse, Lupine, Klee u. a. Leguminosen behalten ihre Zehrerstufe aus `nutrient_demand` (Bohne und Erbse etwa `light_feeder`). Zusätzlich gilt: kein mineralischer N-Dünger als Standardempfehlung, nur Kalium/Phosphor bei Bedarf. Die Fixierung wirkt außerdem als N-Gutschrift für die Folgekultur (REQ-053 GP-FR-125, `nitrogen_fixing`-Gutschrift; Höhe der Gutschrift ohne Quelle `null`).
 
 **Bodenanalyse als Ausgangspunkt:**
 Für Freilandgärten empfiehlt das System eine optionale Bodenanalyse als Startpunkt:

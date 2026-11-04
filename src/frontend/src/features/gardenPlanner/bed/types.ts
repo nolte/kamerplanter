@@ -4,12 +4,19 @@
  */
 import type {
   BedStatus,
+  FrostRisk,
   Geometry,
   PlanSunProfile,
   PlanSunProfilePatch,
   SoilDrainage,
   SunExposure,
+  WindExposure,
 } from '../model/types';
+
+/** Stored heat of a wall or building at a bed (`HeatRetention` of the backend, GP-FR-162). */
+export type HeatRetention = 'none' | 'wall' | 'building' | 'unknown';
+/** The side of a bed it is tended from (`AccessSide`, GP-FR-168). */
+export type AccessSide = 'N' | 'E' | 'S' | 'W';
 
 export type { SoilDrainage };
 
@@ -95,6 +102,25 @@ export type SunProfilePatch = PlanSunProfilePatch;
 /** The slice of `Location.site_conditions` this UI reads; the other parts are carried untouched. */
 export interface SiteConditionsSlice {
   sun_profile?: SunProfile;
+  /** The frost risk and the wind load the planting dialog's site hints read (GP-FR-161). */
+  microclimate?: { frost_risk?: FrostRisk; cold_air_pocket?: boolean; heat_retention?: HeatRetention };
+  wind_exposure?: WindExposure;
+  slope_deg?: number | null;
+  aspect_deg?: number | null;
+  access_sides?: AccessSide[];
+}
+
+/**
+ * What the site-conditions editors send: only the keys that changed, per part (`PATCH /locations/{key}` merges
+ * them into the stored value; an unknown key is a 422). A frost-risk change moves the legacy `frost_exposed`
+ * with it on the server (#2512), so the client never sends that field.
+ */
+export interface SiteConditionsPatch {
+  microclimate?: { frost_risk?: FrostRisk; cold_air_pocket?: boolean; heat_retention?: HeatRetention };
+  wind_exposure?: WindExposure;
+  slope_deg?: number | null;
+  aspect_deg?: number | null;
+  access_sides?: AccessSide[];
 }
 
 /** One row of `GET /locations?site_key=&is_bed=true` (counters are `null` on a plain listing). */
@@ -110,6 +136,8 @@ export interface BedListItem {
   bed_status: BedStatus;
   sun_exposure: SunExposure;
   site_conditions?: SiteConditionsSlice | null;
+  /** Carried by the location document; only the drainage is read on a listing (GP-FR-161). */
+  soil_profile?: SoilProfile | null;
   active_plant_count?: number | null;
   open_task_count?: number | null;
   overdue_task_count?: number | null;
@@ -127,6 +155,10 @@ export interface BedSummary extends BedListItem {
   next_due_at: string | null;
   last_care_at: string | null;
   soil_profile?: SoilProfile | null;
+  /** Permanent crop: the rotation check is off whatever `rotation_enabled` says (GP-FR-137). */
+  rotation_exempt?: boolean;
+  /** The bed's own switch: `null` = default of the bed type, `true` on, `false` off (#2544). */
+  rotation_enabled?: boolean | null;
   notes?: string | null;
   description?: string | null;
 }

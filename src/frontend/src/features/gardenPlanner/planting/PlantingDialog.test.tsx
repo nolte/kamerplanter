@@ -21,6 +21,7 @@ import {
   usePlantingBackend,
   type PlantingBackend,
 } from './plantingTestKit';
+import type { BedSiteFeatures } from './siteFitOf';
 
 const TOMATO = species('sp_tomato', 'Tomato', { spacing_cm: '60', row_spacing_cm: '80', mature_width_cm: '50' });
 const CARROT = species('sp_carrot', 'Carrot', { spacing_cm: '5', row_spacing_cm: '80' });
@@ -30,6 +31,7 @@ function renderDialog(
   onPlanted = vi.fn(),
   onClose = vi.fn(),
   sunExposure: SunExposure = 'unknown',
+  bedSite?: BedSiteFeatures,
 ) {
   const view = renderWithProviders(
     <PlantingDialog
@@ -37,6 +39,7 @@ function renderDialog(
       bedName="Raised bed 3"
       geometry={BED_GEOMETRY}
       sunExposure={sunExposure}
+      bedSite={bedSite}
       onClose={onClose}
       onPlanted={onPlanted}
     />,
@@ -480,6 +483,61 @@ describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
     await choose(user, 0, 'Tomato');
 
     expect(await screen.findByTestId('planting-site-fit-sp_tomato')).toHaveTextContent('site well suited');
+  });
+});
+
+describe('site axes: frost, wind, waterlogging (GP-FR-161)', () => {
+  const FRAIL = species('sp_basil', 'Basil', {
+    spacing_cm: '20',
+    frost_sensitivity: 'sensitive',
+    support_required: true,
+    waterlogging_tolerance: 'sensitive',
+  });
+
+  it('names the three hints in words for a sensitive species on a frosty, windy, wet bed, without a light requirement', async () => {
+    const backend = usePlantingBackend({ species: [FRAIL] });
+    const user = userEvent.setup();
+    const { onPlanted } = renderDialog(vi.fn(), vi.fn(), 'unknown', {
+      frostRisk: 'high',
+      windExposure: 'exposed',
+      drainage: 'poor',
+    });
+    await choose(user, 0, 'Basil');
+
+    expect(await screen.findByTestId('planting-site-axis-frost_mismatch-sp_basil')).toHaveTextContent(
+      'is frost sensitive, and the frost risk at this bed is high.',
+    );
+    expect(screen.getByTestId('planting-site-axis-wind_support_needed-sp_basil')).toHaveTextContent('needs support');
+    expect(screen.getByTestId('planting-site-axis-waterlogging_risk-sp_basil')).toHaveTextContent('drains poorly');
+
+    // Advice only: nothing is asked for and nothing is refused.
+    await hintsDone();
+    await user.click(screen.getByTestId('planting-submit'));
+    await waitFor(() => expect(onPlanted).toHaveBeenCalled());
+    expect(runPosts(backend)[0].body).not.toHaveProperty('rotation_override_reason');
+  });
+
+  it('shows nothing for a low-risk bed, an unknown bed or a cell without a source', async () => {
+    usePlantingBackend({ species: [FRAIL] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), 'unknown', { frostRisk: 'normal', windExposure: 'normal', drainage: 'moderate' });
+    await choose(user, 0, 'Basil');
+    await screen.findByTestId('planting-hint-sp_basil');
+
+    expect(screen.queryByTestId('planting-site-axis-frost_mismatch-sp_basil')).toBeNull();
+    expect(screen.queryByTestId('planting-site-axis-wind_support_needed-sp_basil')).toBeNull();
+    expect(screen.queryByTestId('planting-site-axis-waterlogging_risk-sp_basil')).toBeNull();
+  });
+
+  it('shows nothing for a species whose values are not recorded', async () => {
+    usePlantingBackend({ species: [species('sp_bare', 'Rhubarb', { spacing_cm: '60' })] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), 'unknown', { frostRisk: 'high', windExposure: 'exposed', drainage: 'poor' });
+    await choose(user, 0, 'Rhub');
+    await screen.findByTestId('planting-hint-sp_bare');
+
+    expect(screen.queryByTestId('planting-site-axis-frost_mismatch-sp_bare')).toBeNull();
+    expect(screen.queryByTestId('planting-site-axis-waterlogging_risk-sp_bare')).toBeNull();
   });
 });
 

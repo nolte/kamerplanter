@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import date
 from typing import Any, cast
 
@@ -8,8 +9,10 @@ from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.common.types import CareProfileKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository, get_all_pages
+from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.transactions import stream_transaction
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from app.domain.models.care_event import CareEvent
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
 logger = structlog.get_logger()
@@ -174,6 +177,45 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
 
     def create_confirmation(self, confirmation: CareConfirmation) -> CareConfirmation:
         return self._confirmations.create(confirmation)
+
+    def create_confirmation_logged(
+        self,
+        confirmation: CareConfirmation,
+        *,
+        profile_key: str,
+        plant_key: str,
+        event_for: Callable[[str], CareEvent | None],
+    ) -> CareConfirmation:
+        """The confirmation, its two edges and its care event in ONE stream transaction (REQ-053 GP-FR-106, WP 8.3).
+
+        The confirmation document is inserted first (the database assigns its key), ``event_for`` builds the care
+        event from that key, and :func:`write_care_event` stores it with its edges inside the same transaction. Any
+        failure aborts all of it. The event carries ``source_ref = care_confirmations/<key>``, the marker the
+        unique-sparse index holds, so the backfill and the consistency job see it as already logged.
+        """
+        data = self._confirmations.insert_payload(confirmation)
+        with stream_transaction(
+            self._db,
+            write=[col.CARE_CONFIRMATIONS, col.CONFIRMS_CARE, *CARE_EVENT_WRITE_COLLECTIONS],
+            entity=col.CARE_CONFIRMATIONS,
+        ) as transaction:
+            written = transaction.collection(col.CARE_CONFIRMATIONS).insert(data, return_new=True)
+            inserted = cast(dict[str, Any], written)["new"]
+            key = str(inserted["_key"])
+            now = self._now()
+            if profile_key:
+                confirmation_id = f"{col.CARE_CONFIRMATIONS}/{key}"
+                transaction.collection(col.CONFIRMS_CARE).insert(
+                    {"_from": confirmation_id, "_to": f"{col.CARE_PROFILES}/{profile_key}", "created_at": now}
+                )
+                transaction.collection(col.CARE_EVENT_FOR).insert(
+                    {"_from": confirmation_id, "_to": f"{col.PLANT_INSTANCES}/{plant_key}", "created_at": now}
+                )
+            event = event_for(key)
+            if event is not None:
+                write_care_event(transaction, event, now)
+        stored: CareConfirmation = self._confirmations._wrap(self._confirmations._from_doc(inserted))  # noqa: SLF001
+        return stored
 
     def get_confirmations_by_plant(
         self,

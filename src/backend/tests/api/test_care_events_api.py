@@ -388,3 +388,122 @@ class TestAnotherTenantSeesNothing:
 
         assert response.status_code == 404
         assert world.repo.events[mine["key"]].superseded_by_key is None
+
+
+class TestCsvDownload:
+    """WP 8.4 (#2647, GP-FR-104): ``GET /care-events?format=csv`` - the list, as a file, under the list's rules."""
+
+    @staticmethod
+    def _text(response) -> str:  # type: ignore[no-untyped-def]
+        return response.content.decode("utf-8-sig")
+
+    def test_it_downloads_the_entries_as_utf8_csv_with_bom(self, client) -> None:
+        logged(client, summary="Äpfel gegossen", quantity=2.5, unit="l")
+
+        response = client().get(_OWN, params={"format": "csv"})
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        assert response.content.startswith(b"\xef\xbb\xbf")
+        assert response.headers["content-disposition"].startswith('attachment; filename="care-events-')
+        assert (
+            response.headers["x-content-type-options"] == "nosniff" and response.headers["cache-control"] == "no-store"
+        )
+        header, row = self._text(response).splitlines()[:2]
+        assert header.startswith("performed_at,category,summary,")
+        assert "Äpfel gegossen" in row and "2.5" in row
+
+    def test_a_formula_in_an_entry_is_neutralised_on_the_wire(self, client) -> None:
+        logged(client, summary='=HYPERLINK("http://evil")')
+
+        text = self._text(client().get(_OWN, params={"format": "csv"}))
+
+        assert "'=HYPERLINK" in text and ",=HYPERLINK" not in text
+
+    def test_the_semicolon_variant_uses_the_semicolon(self, client) -> None:
+        logged(client)
+
+        header = self._text(client().get(_OWN, params={"format": "csv", "delimiter": "semicolon"})).splitlines()[0]
+
+        assert header.startswith("performed_at;category;")
+
+    def test_the_excel_variant_has_a_semicolon_and_a_decimal_comma(self, client) -> None:
+        logged(client, quantity=2.5, unit="l")
+
+        row = self._text(client().get(_OWN, params={"format": "csv", "delimiter": "semicolon"})).splitlines()[1]
+
+        assert ";2,5;l;" in row
+        assert ",2.5,l," in self._text(client().get(_OWN, params={"format": "csv"})).splitlines()[1]
+
+    def test_it_answers_the_same_filters_as_the_json(self, client) -> None:
+        logged(client, category="watering", summary="water")
+        logged(client, category="feeding", summary="feed")
+
+        csv_rows = self._text(client().get(_OWN, params={"format": "csv", "category": "feeding"})).splitlines()
+        json_rows = client().get(_OWN, params={"category": "feeding"}).json()
+
+        assert len(csv_rows) - 1 == len(json_rows) == 1 and "feed" in csv_rows[1]
+
+    def test_no_account_key_is_in_the_file(self, client) -> None:
+        logged(client)
+
+        text = self._text(client().get(_OWN, params={"format": "csv"}))
+
+        assert "u_sabine" not in text and "Sabine" in text  # the display name, never the key
+
+    @pytest.mark.parametrize("role", [TenantRole.VIEWER, TenantRole.GROWER])
+    def test_a_viewer_or_grower_filtering_by_a_colleague_is_403_for_csv_too(self, client, role) -> None:
+        logged(client)
+
+        response = client(role).get(_OWN, params={"format": "csv", "performed_by": "u_tom"})
+
+        assert response.status_code == 403
+        # counter-case: on themselves it is allowed, so the 403 above is the role rule
+        assert client(role).get(_OWN, params={"format": "csv", "performed_by": "u_sabine"}).status_code == 200
+
+    def test_a_lead_may_filter_the_csv_by_a_colleague(self, client) -> None:
+        logged(client)
+
+        assert (
+            client(TenantRole.LEAD).get(_OWN, params={"format": "csv", "performed_by": "u_sabine"}).status_code == 200
+        )
+
+    def test_another_tenants_log_is_not_in_the_file_and_its_bed_is_a_404(self, client) -> None:
+        logged(client)
+
+        other = client(TenantRole.LEAD).get(_OTHER, params={"format": "csv"})
+        foreign_bed = client(TenantRole.LEAD).get(_OTHER, params={"format": "csv", "location_key": "bed"})
+
+        assert other.status_code == 200 and len(self._text(other).splitlines()) == 1  # the header only
+        assert foreign_bed.status_code == 404
+
+    def test_a_tenant_with_nothing_logged_gets_the_header_only(self, client) -> None:
+        text = self._text(client().get(_OWN, params={"format": "csv"}))
+
+        assert len(text.splitlines()) == 1
+
+    def test_more_than_50000_rows_is_422_and_exactly_50000_is_a_file(self, client, world) -> None:
+        template = logged(client)
+        stored = world.repo.events[template["key"]]
+        for index in range(49_999):  # the one above plus 49 999 = 50 000
+            world.repo.events[f"bulk{index}"] = stored.model_copy(update={"key": f"bulk{index}"})
+        exactly = client().get(_OWN, params={"format": "csv"})
+        world.repo.events["one_more"] = stored.model_copy(update={"key": "one_more"})
+
+        refused = client().get(_OWN, params={"format": "csv"})
+
+        assert exactly.status_code == 200 and len(self._text(exactly).splitlines()) == 50_001
+        assert refused.status_code == 422
+        assert refused.json()["details"][0]["code"] == "export.too_many_rows"
+
+    def test_the_json_list_is_not_counted_against_the_csv_budget(self, client) -> None:
+        from app.config.settings import settings
+
+        budget = int(settings.rate_limit_care_events_export.split("/")[0])
+        logged(client)
+
+        json_statuses = {client().get(_OWN).status_code for _ in range(budget + 5)}
+        csv_statuses = [client().get(_OWN, params={"format": "csv"}).status_code for _ in range(budget + 2)]
+
+        assert json_statuses == {200}
+        assert csv_statuses[:budget] == [200] * budget and csv_statuses[budget:] == [429, 429]

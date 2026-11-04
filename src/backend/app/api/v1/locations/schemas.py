@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date, datetime
 from typing import Any, Literal
 
@@ -32,6 +33,7 @@ from app.domain.calculators.planting_layout_calculator import (
     EntryLayout,
     LayoutResult,
 )
+from app.domain.engines.crop_rotation_validator import TimelineEntry
 from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
@@ -744,6 +746,22 @@ class RotationPlantingResponse(BaseModel):
         default=None, description="The backfill event; cancel it with `DELETE …/history/backfill/{key}`."
     )
 
+    @classmethod
+    def from_entry(cls, entry: TimelineEntry) -> RotationPlantingResponse:
+        """The one mapping from a timeline row to its response - the bed timeline and the site matrix both use it."""
+        return cls.model_validate(
+            {
+                "season": entry.season,
+                "family_key": entry.family_key,
+                "family_name": entry.family_name,
+                "species_key": entry.species_key,
+                "nutrient_demand": entry.nutrient_demand,
+                "plan_role": entry.plan_role,
+                "source": entry.source,
+                "care_event_key": entry.event_key,
+            }
+        )
+
 
 class RotationYearResponse(BaseModel):
     model_config = ConfigDict(
@@ -766,6 +784,19 @@ class RotationYearResponse(BaseModel):
 
     year: int
     plantings: list[RotationPlantingResponse]
+
+
+def rotation_year_responses(entries: Iterable[TimelineEntry], years: Iterable[int]) -> list[RotationYearResponse]:
+    """One :class:`RotationYearResponse` per year of ``years``, in that order, holding the rows of that year.
+
+    The single grouping behind ``GET /locations/{key}/rotation`` (newest year first) and the site rotation matrix
+    (oldest first): a year nobody recorded is an empty list, a row outside ``years`` is not shown.
+    """
+    by_year: dict[int, list[RotationPlantingResponse]] = {year: [] for year in years}
+    for entry in entries:
+        if entry.year in by_year:
+            by_year[entry.year].append(RotationPlantingResponse.from_entry(entry))
+    return [RotationYearResponse(year=year, plantings=rows) for year, rows in by_year.items()]
 
 
 class RotationTimelineResponse(BaseModel):
@@ -1161,3 +1192,151 @@ class PlantStateResponse(BaseModel):
                 ),
             ),
         )
+
+
+class SuccessionSpeciesResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "species_key": "5120",
+                    "scientific_name": "Daucus carota",
+                    "common_name": "Carrot",
+                    "nutrient_demand": "medium_feeder",
+                    "nitrogen_fixing": False,
+                }
+            ]
+        }
+    )
+
+    species_key: str
+    scientific_name: str
+    common_name: str | None = None
+    nutrient_demand: str | None = None
+    nitrogen_fixing: bool | None = Field(default=None, description="Informational; no nitrogen amount is derived.")
+
+
+class SuccessionFamilyResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "family_key": "Apiaceae",
+                    "family_name": "Apiaceae",
+                    "benefit_score": 0.7,
+                    "benefit_reason": "soil_structure",
+                    "pause_years": 3,
+                    "species": [
+                        {
+                            "species_key": "5120",
+                            "scientific_name": "Daucus carota",
+                            "common_name": "Carrot",
+                            "nutrient_demand": "medium_feeder",
+                            "nitrogen_fixing": False,
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    family_key: str
+    family_name: str | None = None
+    benefit_score: float | None = Field(default=None, description="Strength of the `rotation_after` edge (REQ-001).")
+    benefit_reason: str | None = None
+    pause_years: int | None = Field(
+        default=None, description="The pause the family keeps; `null` when no source names one."
+    )
+    species: list[SuccessionSpeciesResponse] = Field(max_length=10)
+
+
+class SuccessionHeldBackResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"family_key": "Brassicaceae", "family_name": "Brassicaceae", "last_year": 2024, "pause_years": 4}
+            ]
+        }
+    )
+
+    family_key: str
+    family_name: str | None = None
+    last_year: int
+    pause_years: int
+
+
+class SuccessionBasisResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"year": 2025, "step": "main_crop", "nutrient_demand": "heavy_feeder", "family_keys": ["Solanaceae"]}
+            ]
+        }
+    )
+
+    year: int
+    step: Literal["main_crop", "restoring"]
+    nutrient_demand: str | None = None
+    family_keys: list[str] = Field(max_length=50)
+
+
+class SuccessionRecommendationResponse(BaseModel):
+    """`GET /locations/{key}/succession-recommendation` (GP-FR-133): the next step of the feeder cycle for the bed.
+
+    Order only - heavy -> medium -> light feeder -> green manure / fallow -> heavy; no nitrogen amount and no
+    fertiliser dose. `status` says why a list is empty; a species without a stored `nutrient_demand` never appears.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "8801",
+                    "rotation_applicable": True,
+                    "not_applicable_reason": None,
+                    "status": "ok",
+                    "previous": {
+                        "year": 2025,
+                        "step": "main_crop",
+                        "nutrient_demand": "heavy_feeder",
+                        "family_keys": ["Solanaceae"],
+                    },
+                    "target": "medium_feeder",
+                    "families": [
+                        {
+                            "family_key": "Apiaceae",
+                            "family_name": "Apiaceae",
+                            "benefit_score": 0.7,
+                            "benefit_reason": "soil_structure",
+                            "pause_years": 3,
+                            "species": [
+                                {
+                                    "species_key": "5120",
+                                    "scientific_name": "Daucus carota",
+                                    "common_name": "Carrot",
+                                    "nutrient_demand": "medium_feeder",
+                                    "nitrogen_fixing": False,
+                                }
+                            ],
+                        }
+                    ],
+                    "held_back": [],
+                    "fallow_option": False,
+                }
+            ]
+        }
+    )
+
+    location_key: str
+    rotation_applicable: bool
+    not_applicable_reason: str | None = None
+    status: Literal["ok", "not_applicable", "no_history", "demand_unknown", "no_successor_data", "no_matching_species"]
+    previous: SuccessionBasisResponse | None = None
+    target: Literal["heavy_feeder", "medium_feeder", "light_feeder", "restoring"] | None = Field(
+        default=None, description="`restoring` = green manure or a fallow year."
+    )
+    families: list[SuccessionFamilyResponse] = Field(max_length=20)
+    held_back: list[SuccessionHeldBackResponse] = Field(
+        max_length=20, description="Follow-up families left out because their pause in this bed is not over."
+    )
+    fallow_option: bool = Field(description="A fallow year is an option of the restoring step (no species needed).")

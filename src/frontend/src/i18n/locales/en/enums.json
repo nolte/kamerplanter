@@ -1221,6 +1221,24 @@
       "normal": "Normal",
       "high": "High",
       "unknown": "Unknown"
+    },
+    "heatRetention": {
+      "none": "None",
+      "wall": "Wall",
+      "building": "Building",
+      "unknown": "Unknown"
+    },
+    "windExposure": {
+      "sheltered": "Sheltered",
+      "normal": "Normal",
+      "exposed": "Exposed",
+      "unknown": "Unknown"
+    },
+    "accessSide": {
+      "N": "North",
+      "E": "East",
+      "S": "South",
+      "W": "West"
     }
   }
 }
