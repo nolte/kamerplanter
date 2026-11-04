@@ -36,17 +36,41 @@ describe('SunTileSelector', () => {
     expect(screen.getByRole('radio', { name: 'Unknown' })).toBeChecked();
   });
 
-  it('shows the definition of every class as help text (GP-FR-157)', () => {
+  it('shows the definition of every class as help text, the RHS defaults without a site (GP-FR-157)', () => {
     renderWithProviders(<Harness initial={null} />);
 
-    expect(screen.getByText('More than 6 hours of direct sunlight on a summer day')).toBeVisible();
+    expect(screen.getByText('More than 6 hours of direct sunlight on June 21')).toBeVisible();
     expect(screen.getByText('3–6 hours of direct sunlight')).toBeVisible();
     expect(screen.getByText('2–3 hours of direct sunlight')).toBeVisible();
     expect(screen.getByText('Less than 2 hours of direct sunlight')).toBeVisible();
     expect(screen.getByText('Not recorded yet')).toBeVisible();
     expect(screen.getByRole('radio', { name: 'Full sun' })).toHaveAccessibleDescription(
-      'More than 6 hours of direct sunlight on a summer day',
+      'More than 6 hours of direct sunlight on June 21',
     );
+  });
+
+  it('shows the configured bounds and reference day of the site (GP-FR-164, WP 8.24)', () => {
+    renderWithProviders(
+      <SunTileSelector
+        value={null}
+        onChange={vi.fn()}
+        thresholds={{
+          full_sun_min_hours: 7.5,
+          partial_shade_min_hours: 4,
+          shade_min_hours: 1.5,
+          reference_month: 7,
+          reference_day: 1,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('More than 7.5 hours of direct sunlight on July 1')).toBeVisible();
+    expect(screen.getByText('4–7.5 hours of direct sunlight')).toBeVisible();
+    expect(screen.getByText('1.5–4 hours of direct sunlight')).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Deep shade' })).toHaveAccessibleDescription(
+      'Less than 1.5 hours of direct sunlight',
+    );
+    expect(screen.queryByText(/More than 6 hours/)).not.toBeInTheDocument();
   });
 
   it('shows no selection for a null value and reports the chosen class', async () => {

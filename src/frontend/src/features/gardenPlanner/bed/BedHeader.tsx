@@ -18,6 +18,8 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import TerrainOutlinedIcon from '@mui/icons-material/TerrainOutlined';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import { assessReach, type ReachAccess } from '../model/reach';
+import { DEFAULT_REACH_THRESHOLDS, reachOptions } from '../model/siteThresholds';
+import type { ReachThresholds } from '@/api/types';
 import type { BedAssignee, BedSummary } from './types';
 import { BED_STATUS_COLOR, formatBedDate, isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
 
@@ -38,6 +40,8 @@ interface BedHeaderProps {
   onChangeSite?: (() => void) | null;
   /** Reasons given when a planting went ahead despite a crop-rotation hint (GP-FR-132); empty = no badge. */
   rotationReasons?: readonly string[];
+  /** The site's reach thresholds (GP-FR-166, WP 8.24); absent = 1.2 / 0.6 m. */
+  reachThresholds?: Readonly<ReachThresholds>;
 }
 
 /** One literal key per access class, so the i18n key checks see every key that is used. */
@@ -71,6 +75,7 @@ export default function BedHeader({
   onChangeSun = null,
   onChangeSite = null,
   rotationReasons = [],
+  reachThresholds = DEFAULT_REACH_THRESHOLDS,
 }: BedHeaderProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
@@ -86,7 +91,10 @@ export default function BedHeader({
   const sunLine = sunProfileLine(t, summary.site_conditions?.sun_profile);
   const siteLine = siteConditionsLine(t, summary.site_conditions);
   const accessSides = summary.site_conditions?.access_sides;
-  const reach = useMemo(() => assessReach(summary.geometry, accessSides), [summary.geometry, accessSides]);
+  const reach = useMemo(
+    () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
+    [summary.geometry, accessSides, reachThresholds],
+  );
   const reachNumbers = useMemo(() => {
     // Three digits: a bed of 0.601 m is wider than 0.6 m and must not read as "0.6 m".
     const format = new Intl.NumberFormat(language, { maximumFractionDigits: 3 });

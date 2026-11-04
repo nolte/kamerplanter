@@ -51,7 +51,17 @@ import { fetchSite, clearCurrent } from '@/store/slices/sitesSlice';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
 import type { Sensor, SiteWaterConfig } from '@/api/types';
-import { buildSiteResolver, gpsToFields, gpsToPayload, isWeatherRelevantSiteType, siteTypeOptions, type SiteFormData } from './siteForm';
+import {
+  buildSiteResolver,
+  gpsToFields,
+  gpsToPayload,
+  isWeatherRelevantSiteType,
+  siteTypeOptions,
+  thresholdsToFields,
+  thresholdsToPayload,
+  type SiteFormData,
+} from './siteForm';
+import SiteThresholdsSection from './SiteThresholdsSection';
 
 const DEFAULT_VALUES: SiteFormData = {
   name: '',
@@ -61,6 +71,7 @@ const DEFAULT_VALUES: SiteFormData = {
   climate_zone: '',
   total_area_m2: 0,
   timezone: 'UTC',
+  ...thresholdsToFields(null),
 };
 
 export default function SiteDetailPage() {
@@ -135,6 +146,7 @@ export default function SiteDetailPage() {
         climate_zone: current.climate_zone,
         total_area_m2: current.total_area_m2,
         timezone: current.timezone ?? 'UTC',
+        ...thresholdsToFields(current),
       });
       const wc = current.water_config;
       setWaterConfig({
@@ -170,6 +182,8 @@ export default function SiteDetailPage() {
         total_area_m2: data.total_area_m2,
         timezone: data.timezone,
         water_config: waterConfig,
+        // REQ-053 WP 8.24: only a changed part goes out; `null` keeps what is stored.
+        ...thresholdsToPayload(data, current),
       });
       notification.success(t('common.save'));
       dispatch(fetchSite(key));
@@ -324,6 +338,8 @@ export default function SiteDetailPage() {
             <FormTimezoneField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} required />
           </CardContent>
         </Card>
+
+        {showGardenPlan && <SiteThresholdsSection control={control} />}
 
         <Card variant="outlined">
           <CardContent>

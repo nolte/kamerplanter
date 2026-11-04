@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import SiteType
 from app.domain.models.geometry import Geometry
-from app.domain.models.site import HardinessZoneSource
+from app.domain.models.site import HardinessZoneSource, ReachThresholds, SunClassThresholds
 
 # ── Water config schemas ──────────────────────────────────────────────
 
@@ -80,6 +80,11 @@ class SiteCreate(BaseModel):
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
     eisheilige_date: date | None = None
+    # REQ-053 GP-FR-164/166 (WP 8.24) — the domain models themselves, so the request refuses (422) exactly what
+    # the model refuses: a bound <= 0, sun-class bounds that are not strictly descending, a one-side reach above
+    # the two-side one. Omitted (``null``) = keep the stored value on an edit, the defaults on create.
+    sun_class_thresholds: SunClassThresholds | None = None
+    reach_thresholds: ReachThresholds | None = None
 
 
 class SiteResponse(BaseModel):
@@ -102,5 +107,8 @@ class SiteResponse(BaseModel):
     eisheilige_date: date | None = None
     #: ``None`` is a site without a garden plan (REQ-053 §20.2).
     plan: SitePlanSchema | None = None
+    #: The effective values: what is stored, the defaults where nothing is (GP-FR-164/166).
+    sun_class_thresholds: SunClassThresholds = Field(default_factory=SunClassThresholds)
+    reach_thresholds: ReachThresholds = Field(default_factory=ReachThresholds)
     created_at: datetime | None = None
     updated_at: datetime | None = None

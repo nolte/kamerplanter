@@ -23,6 +23,7 @@ import { allowedBedTransitions } from './bedStatus';
 import type { BedSummary } from './types';
 import { useBedAssignments } from './useBedAssignments';
 import { useLocationTypeNames } from './useLocationTypeNames';
+import { useSiteThresholds } from './useSiteThresholds';
 import { useYearParam } from './useYearParam';
 
 // The renderer is the heavy part; it loads when the Plan tab opens.
@@ -67,6 +68,8 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
   const [siteOpen, setSiteOpen] = useState(false);
   const [plantingVersion, setPlantingVersion] = useState(0);
   const rotationBadge = useRotationBadge(summary.key, plantingVersion);
+  // The site's sun-class and reach thresholds (GP-FR-164/166, WP 8.24); the defaults until it is read.
+  const thresholds = useSiteThresholds(summary.site_key);
 
   const targets = useMemo(
     () => (canEdit ? allowedBedTransitions(summary.bed_status, canDelete) : []),
@@ -142,6 +145,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
         onChangeSun={canEdit ? () => setSunOpen(true) : null}
         onChangeSite={canEdit ? () => setSiteOpen(true) : null}
         rotationReasons={rotationBadge?.reasons}
+        reachThresholds={thresholds.reach}
       />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -177,6 +181,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
             bedName={summary.name}
             current={summary.sun_exposure}
             currentProfile={summary.site_conditions?.sun_profile}
+            thresholds={thresholds.sun}
             onClose={() => setSunOpen(false)}
             onChanged={() => {
               setSunOpen(false);

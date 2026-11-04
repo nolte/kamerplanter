@@ -91,6 +91,8 @@ _ENTITY_OBJECT = "garden_object"
 #: What ``PATCH /locations`` writes without the plan revision (GP-NFR-007): the document's own columns.
 #: ``geometry``, ``locked`` and ``z_order`` are structure — they go through the plan batch and raise the revision,
 #: as ``set_locked`` / ``set_z_order`` do there, so a client holding the plan sees the change as one.
+#: ``orientation`` is no body field: the model derives it from ``site_conditions.aspect_deg`` (GP-FR-168, WP 8.24),
+#: and listing it here writes the derived value when an aspect change moves the bed into another sector.
 _PATCH_COLUMNS: tuple[str, ...] = (
     "name",
     "path",
@@ -101,6 +103,7 @@ _PATCH_COLUMNS: tuple[str, ...] = (
     "sun_exposure",
     "soil_profile",
     "site_conditions",
+    "orientation",
     "irrigation_zone_key",
     "frost_exposed",
     "rotation_exempt",

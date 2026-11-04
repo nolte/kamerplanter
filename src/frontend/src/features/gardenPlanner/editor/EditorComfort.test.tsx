@@ -24,7 +24,11 @@ vi.mock('../api/gardenPlan', async (importOriginal) => ({
   placeBedTemplate: vi.fn(),
 }));
 const listLocationTypes = vi.hoisted(() => vi.fn());
-vi.mock('@/api/endpoints/sites', () => ({ listLocationTypes }));
+// `getSite` feeds the sun-tile thresholds of the properties panel (WP 8.24); unread here, so the defaults apply.
+vi.mock('@/api/endpoints/sites', () => ({
+  listLocationTypes,
+  getSite: () => Promise.reject(new Error('the site is not read in this test')),
+}));
 
 const ORIGINAL_LANGUAGE = i18n.language;
 const getGardenPlan = vi.mocked(api.getGardenPlan);

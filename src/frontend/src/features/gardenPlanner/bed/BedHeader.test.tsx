@@ -9,13 +9,15 @@ import { renderWithProviders } from '@/test/helpers';
 import BedHeader from './BedHeader';
 import { bedSummary } from './bedTestKit';
 import type { BedSummary } from './types';
+import type { ReachThresholds } from '@/api/types';
 
 afterEach(() => cleanup());
 
-function renderHeader(summary: BedSummary) {
+function renderHeader(summary: BedSummary, reachThresholds?: ReachThresholds) {
   return renderWithProviders(
     <BedHeader
       summary={summary}
+      reachThresholds={reachThresholds}
       typeName="Raised bed"
       assignees={[]}
       year={2026}
@@ -102,5 +104,44 @@ describe('BedHeader reach hint (GP-FR-166)', () => {
     renderHeader({ ...bedSummary(), geometry: null, site_conditions: null });
     expect(await screen.findByTestId('bed-header-area')).toBeInTheDocument();
     expect(screen.queryByTestId('bed-header-reach')).toBeNull();
+  });
+});
+
+describe('BedHeader reach hint with the site thresholds (GP-FR-166, WP 8.24)', () => {
+  const rect = (width: number) => ({
+    kind: 'rect' as const,
+    origin: [1, 1] as [number, number],
+    width_m: width,
+    length_m: 4,
+    rotation_deg: 0,
+  });
+
+  it('takes the site two-side value instead of 1.2 m: a 1.3 m bed is within 1.5 m', async () => {
+    renderHeader(
+      { ...bedSummary(), geometry: rect(1.3), site_conditions: { access_sides: ['N', 'S'] } },
+      { both_sides_m: 1.5, one_side_m: 0.6 },
+    );
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-reach')).toBeNull();
+  });
+
+  it('names the site one-side value in the detail', async () => {
+    renderHeader(
+      { ...bedSummary(), geometry: rect(0.9), site_conditions: { access_sides: [] } },
+      { both_sides_m: 1.2, one_side_m: 0.8 },
+    );
+    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
+      '0.9 m wide – the access sides are not recorded, so the one-side value applies (0.8 m).',
+    );
+  });
+
+  it('a stricter site value raises the hint where the default would not', async () => {
+    renderHeader(
+      { ...bedSummary(), geometry: rect(1.0), site_conditions: { access_sides: ['E', 'W'] } },
+      { both_sides_m: 0.9, one_side_m: 0.5 },
+    );
+    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
+      'from two opposite sides you reach up to 0.9 m',
+    );
   });
 });
