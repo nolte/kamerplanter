@@ -334,6 +334,21 @@ describe('SiteDetailPage', () => {
       expect(bodies).toHaveLength(0);
     });
 
+    it('puts the default thresholds back with the reset button', async () => {
+      useSite();
+      useSiteSensors();
+      const user = userEvent.setup();
+      renderPage();
+
+      await screen.findByTestId('site-thresholds-section');
+      await waitFor(() => expect(input('reach_thresholds.both_sides_m').value).toBe('1.2'));
+      await user.clear(input('reach_thresholds.one_side_m'));
+      await user.type(input('reach_thresholds.one_side_m'), '0.9');
+      await user.click(screen.getByTestId('site-thresholds-reset'));
+
+      await waitFor(() => expect(input('reach_thresholds.one_side_m').value).toBe('0.6'));
+    });
+
     it('is not offered while the garden planner module is switched off', async () => {
       renderWithProviders(<SiteDetailPage />, {
         store: createStoreWithModuleOverrides('expert', { garden_planner: 'disabled' }),

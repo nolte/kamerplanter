@@ -6,6 +6,7 @@
 import { useTranslation } from 'react-i18next';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import type { Control } from 'react-hook-form';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -16,9 +17,11 @@ const PREFIX = 'pages.sites.thresholds';
 
 interface SiteThresholdsSectionProps {
   control: Control<SiteFormData>;
+  /** Puts the default thresholds back into the form (not saved until the form is). */
+  onResetDefaults?: () => void;
 }
 
-export default function SiteThresholdsSection({ control }: SiteThresholdsSectionProps) {
+export default function SiteThresholdsSection({ control, onResetDefaults }: SiteThresholdsSectionProps) {
   const { t } = useTranslation();
   const hours = t(`${PREFIX}.hoursUnit`);
   return (
@@ -90,6 +93,7 @@ export default function SiteThresholdsSection({ control }: SiteThresholdsSection
             name="sun_class_thresholds.reference_month"
             control={control}
             label={t(`${PREFIX}.referenceMonth`)}
+            helperText={t(`${PREFIX}.referenceMonthHelper`)}
             min={1}
             max={12}
             inputMode="numeric"
@@ -108,6 +112,7 @@ export default function SiteThresholdsSection({ control }: SiteThresholdsSection
             name="reach_thresholds.both_sides_m"
             control={control}
             label={t(`${PREFIX}.bothSides`)}
+            helperText={t(`${PREFIX}.bothSidesHelper`)}
             min={0}
             step="any"
             inputMode="decimal"
@@ -126,6 +131,16 @@ export default function SiteThresholdsSection({ control }: SiteThresholdsSection
             required
           />
         </FormRow>
+        {onResetDefaults && (
+          <Button
+            variant="text"
+            onClick={onResetDefaults}
+            sx={{ mt: 1, minHeight: 44 }}
+            data-testid="site-thresholds-reset"
+          >
+            {t(`${PREFIX}.resetDefaults`)}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

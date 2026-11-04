@@ -339,7 +339,16 @@ export default function SiteDetailPage() {
           </CardContent>
         </Card>
 
-        {showGardenPlan && <SiteThresholdsSection control={control} />}
+        {showGardenPlan && (
+          <SiteThresholdsSection
+            control={control}
+            onResetDefaults={() => {
+              const defaults = thresholdsToFields(null);
+              setValue('sun_class_thresholds', defaults.sun_class_thresholds, { shouldDirty: true, shouldValidate: true });
+              setValue('reach_thresholds', defaults.reach_thresholds, { shouldDirty: true, shouldValidate: true });
+            }}
+          />
+        )}
 
         <Card variant="outlined">
           <CardContent>
