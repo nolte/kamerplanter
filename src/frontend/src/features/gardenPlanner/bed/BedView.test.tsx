@@ -260,6 +260,80 @@ describe('BedView', () => {
     });
   });
 
+  describe('site conditions (GP-FR-162/163/168, WP 8.22)', () => {
+    it('shows what was recorded in the head and hides the control from a viewer', async () => {
+      useBackend();
+      renderBed(
+        bedSummary({ site_conditions: { microclimate: { frost_risk: 'high' }, wind_exposure: 'exposed' } }),
+        '/standorte/locations/loc_b03#soil',
+        'viewer',
+      );
+      const fact = await screen.findByTestId('bed-header-site');
+      expect(fact).toHaveTextContent('Frost risk: High · Wind: Exposed');
+      expect(screen.queryByTestId('bed-site-change-button')).toBeNull();
+    });
+
+    it('stores only the changed keys through ONE PATCH, never frost_exposed, and reloads the summary', async () => {
+      let body: unknown = null;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(
+        bedSummary({ site_conditions: { microclimate: { frost_risk: 'low' }, wind_exposure: 'normal' } }),
+        '/standorte/locations/loc_b03#soil',
+        'grower',
+        () => {
+          reloaded += 1;
+        },
+      );
+
+      await user.click(await screen.findByTestId('bed-site-change-button'));
+      const dialog = await screen.findByTestId('bed-site-dialog');
+      expect(await within(dialog).findByRole('radio', { name: 'Low' })).toBeChecked();
+      await user.click(within(dialog).getByRole('radio', { name: 'High' }));
+      await user.click(within(dialog).getByRole('checkbox', { name: 'West' }));
+      await user.click(within(dialog).getByRole('radio', { name: 'Normal', checked: true })); // already stored: no key
+      await user.click(within(dialog).getByTestId('bed-site-submit'));
+
+      await waitFor(() =>
+        expect(body).toEqual({ site_conditions: { microclimate: { frost_risk: 'high' }, access_sides: ['W'] } }),
+      );
+      expect(JSON.stringify(body)).not.toContain('frost_exposed');
+      await waitFor(() => expect(reloaded).toBe(1));
+      await waitFor(() => expect(screen.queryByTestId('bed-site-dialog')).toBeNull());
+    });
+
+    it('sends nothing when the dialog is saved unchanged, and nothing while a degrees entry is unreadable', async () => {
+      let patched = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          patched += 1;
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-site-change-button'));
+      const dialog = await screen.findByTestId('bed-site-dialog');
+      await user.type(within(dialog).getByRole('textbox', { name: 'Slope (degrees)' }), 'steep{Enter}');
+      await user.click(within(dialog).getByTestId('bed-site-submit'));
+      expect(patched).toBe(0);
+      expect(await screen.findByTestId('bed-site-dialog')).toBeInTheDocument();
+
+      await user.clear(within(dialog).getByRole('textbox', { name: 'Slope (degrees)' }));
+      await user.keyboard('{Enter}');
+      await user.click(within(dialog).getByTestId('bed-site-submit'));
+      await waitFor(() => expect(screen.queryByTestId('bed-site-dialog')).toBeNull());
+      expect(patched).toBe(0);
+    });
+  });
+
   describe('sun and shade (GP-FR-157)', () => {
     it('changes the class from the head through PATCH and reloads the summary', async () => {
       let body: unknown = null;

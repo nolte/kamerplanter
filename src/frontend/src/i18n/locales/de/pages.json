@@ -6700,6 +6700,66 @@
           "reihenabstand": "Reihenabstand",
           "randabstand": "Randabstand"
         }
+      },
+      "siteConditions": {
+        "hint": "Halte fest, was du am Beet beobachtest. Kamerplanter rechnet nichts daraus aus; die Angaben fließen in Hinweise beim Bepflanzen und in die Frost-Frühwarnung ein.",
+        "frost": {
+          "title": "Frostrisiko",
+          "hint": "Liegt das Beet in einer Senke oder an einer kalten Stelle? „Hoch“ nennt die Frost-Frühwarnung immer, „Gering“ nie."
+        },
+        "coldAirPocket": {
+          "label": "Kaltluftsee",
+          "help": "Kalte Luft sammelt sich hier nachts, etwa in einer Senke. Nur ein Vermerk."
+        },
+        "heat": {
+          "title": "Gespeicherte Wärme",
+          "hint": "Eine Wand oder ein Gebäude gibt nachts Wärme zurück."
+        },
+        "wind": {
+          "title": "Wind",
+          "hint": "Wie stark trifft der Wind das Beet? Bei „Windausgesetzt“ weist der Pflanzdialog auf Arten hin, die eine Stütze brauchen."
+        },
+        "slope": {
+          "label": "Hang (Grad)",
+          "help": "0 bis 90, freiwillig.",
+          "invalid": "Gib eine Zahl von 0 bis 90 ein."
+        },
+        "aspect": {
+          "label": "Ausrichtung (Grad)",
+          "help": "Himmelsrichtung, in die das Beet abfällt: 0 = Nord, 90 = Ost, 180 = Süd, 270 = West. Freiwillig.",
+          "invalid": "Gib eine Zahl von 0 bis unter 360 ein."
+        },
+        "access": {
+          "title": "Zugangsseiten",
+          "hint": "Von welchen Seiten pflegst du das Beet?"
+        },
+        "summary": {
+          "frost": "Frostrisiko: {{value}}",
+          "heat": "Wärmespeicher: {{value}}",
+          "wind": "Wind: {{value}}",
+          "slope": "Hang {{value, number}}°",
+          "aspect": "Ausrichtung {{value, number}}°",
+          "access": "Zugang: {{value}}"
+        },
+        "dialog": {
+          "title": "Standortmerkmale: {{bed}}",
+          "cancel": "Abbrechen",
+          "save": "Speichern",
+          "saved": "Standortmerkmale gespeichert.",
+          "invalid": "Prüfe die rot markierten Gradangaben, bevor du speicherst."
+        },
+        "field": {
+          "title": "Feuchte und Wind",
+          "moisture": "Feuchte am Beet",
+          "wind": "Wind",
+          "windy": "Windig",
+          "saved": "Gespeichert.",
+          "regime": {
+            "moist": "Feucht",
+            "fresh": "Normal",
+            "dry": "Trocken"
+          }
+        }
       }
     },
     "bed": {
@@ -6741,7 +6801,9 @@
         "previousYear": "Vorjahr ({{year}}): Die Anbauhistorie dieses Beets steht hier, sobald sie erfasst wird.",
         "rotationHint": "Fruchtfolge-Hinweis",
         "rotationReason": "Trotzdem gepflanzt: {{reason}}",
-        "changeSun": "Sonne ändern"
+        "changeSun": "Sonne ändern",
+        "site": "Standortmerkmale",
+        "changeSite": "Merkmale ändern"
       },
       "status": {
         "title": "Status des Beets ändern",
