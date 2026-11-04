@@ -13,7 +13,7 @@ repository surfaces must each change?
 computed from its geometry and access sides against site-configurable reach thresholds, and the
 same site settings also make the sun-class thresholds and the aspect-derived orientation configurable.
 
-**Out of scope:** #2653 (shares `bed/BedHeader.tsx`, runs after this group); any value without a source
+**Out of scope:** access derived from adjacent `path` garden objects (needs a bed/object edge-distance rule and geometry in `BedSummary`; deferred to a follow-up together with GP-FR-130 cross-bed adjacency — operator decision A, 2026-11-04); #2653 (shares `bed/BedHeader.tsx`, runs after this group); any value without a source
 (E-10 — thresholds 1.2/0.6 m and RHS sun classes are both `confirmed` in
 `spec/analysis/agrobiology-thresholds-req-053.md:37-38`); inheritance from a site slope (decision
 bundle question 4); `bed.path_too_narrow` (optional SHOULD in the spec addendum, not in either issue).
@@ -113,4 +113,8 @@ Filled during implementation. Each entry records the dispatched specialist and t
 
 | Member | Kind | What changed |
 |---|---|---|
-| — | — | none yet |
+| #2666 | structural regression | Plan assumption "access from adjacent `path` objects derived like `adjacent_to`" is not implementable: `adjacency_engine._reach_cm` compares slot centres by planting spacing (`DEFAULT_SPACING_CM` 30 -> 45 cm radius), has no bed/object edge-distance rule (GP-FR-130 cross-bed edges <= 50 cm is only SHOULD, not implemented), and `BedSummary` carries neither geometry nor garden objects. Measured 2026-11-04; implementation aborted before any code; worktree unchanged at 190d38b13. Plan returns to operation 3 for re-approval. |
+
+## Re-approval after regression
+
+Operator chose option A on 2026-11-04: #2666 uses `access_sides` only, the `path` branch is deferred. Plan re-approved; `authorised_by: 2026-11-04-reach-thresholds/plan-approval` renewed for #2666 and #2667. Interpretation to confirm at review: unknown access is treated as one-sided (0.6 m).
