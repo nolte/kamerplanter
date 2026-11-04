@@ -1,4 +1,5 @@
 import { tenantClient } from '@/api/client';
+import { rethrowBlobError } from '@/api/blobError';
 import { listSites } from '@/api/endpoints/sites';
 import { listBeds } from '../bed/bedApi';
 import type { HistoryQuery } from './historyFilters';
@@ -36,6 +37,26 @@ export async function getCareEvents(query: HistoryQuery, offset: number): Promis
     params: { ...rest, ...(corrections ? { include_superseded: true } : {}), offset, limit: HISTORY_PAGE_SIZE },
   });
   return data;
+}
+
+/** `semicolon` is the Excel variant of locales with a decimal comma. */
+export type CsvDelimiter = 'comma' | 'semicolon';
+
+/**
+ * GP-FR-104 / GP-API-034 `format=csv`: every entry the filter lists (at most 50 000) as one file, under the
+ * same role rules as the list. A refusal (`export.too_many_rows`, 429) is read back from the blob body.
+ */
+export async function downloadCareEventsCsv(query: HistoryQuery, delimiter: CsvDelimiter): Promise<Blob> {
+  const { include_corrections: corrections, ...rest } = query;
+  try {
+    const { data } = await tenantClient.get<Blob>('/care-events', {
+      params: { ...rest, ...(corrections ? { include_superseded: true } : {}), format: 'csv', delimiter },
+      responseType: 'blob',
+    });
+    return data;
+  } catch (error) {
+    return rethrowBlobError(error);
+  }
 }
 
 /** GP-API-039: family, demand and role per year; the server picks `max(pause, 5)` years without `years`. */

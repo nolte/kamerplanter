@@ -19,6 +19,7 @@ import { useUndoSnackbar } from '../care/useUndoSnackbar';
 import BackfillDialog from './BackfillDialog';
 import { firstEmptyYear } from './backfillForm';
 import HistoryFilterBar from './HistoryFilterBar';
+import HistoryExportButton from './HistoryExportButton';
 import HistoryList from './HistoryList';
 import PlantingTimeline from './PlantingTimeline';
 import SuccessionRecommendationPanel from './SuccessionRecommendationPanel';
@@ -74,6 +75,7 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
   // move with the clock and refetch forever.
   const query = useMemo(() => toQuery(filters, new Date(), 'bed'), [filters]);
   const resetKey = JSON.stringify(query);
+  const exportQuery = useMemo(() => ({ ...query, location_key: bed.key }), [query, bed.key]);
   const fetchPage = useCallback(
     (offset: number) => (inverted ? Promise.resolve([]) : getBedHistory(bed.key, query, offset)),
     [bed.key, query, inverted],
@@ -136,9 +138,12 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
           <Typography id="bed-history-title" variant="h6" component="h2">
             {t('pages.bed.history.title')}
           </Typography>
-          <Link component={RouterLink} to="/standorte/historie" sx={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="history-all-beds">
-            {t('pages.bed.history.allBeds')}
-          </Link>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+            <HistoryExportButton query={exportQuery} disabled={inverted} testIdPrefix="history" />
+            <Link component={RouterLink} to="/standorte/historie" sx={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="history-all-beds">
+              {t('pages.bed.history.allBeds')}
+            </Link>
+          </Box>
         </Box>
         <HistoryFilterBar
           filters={filters}

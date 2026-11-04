@@ -156,6 +156,8 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 
 **`GET /care-events`** is the care log of the whole tenant with the same filters plus `location_key` and `include_superseded`. Without a period, bed or plant filter it shows the last 90 days.
 
+**`GET /care-events?format=csv`** returns the same entries (same filters, same role rules) as a file instead of one page of JSON: UTF-8 with BOM, RFC 4180 quoting, a display name instead of an account key. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'` so a spreadsheet does not run them as a formula. `delimiter=semicolon` is the Excel variant for locales with a decimal comma. `offset` and `limit` do not apply; more than 50,000 rows is `422 export.too_many_rows` (narrow it by bed, plant, category or period). The budget is `RATE_LIMIT_CARE_EVENTS_EXPORT` per account; the JSON list does not count against it. <!-- REQ-053 GP-FR-104 -->
+
 ---
 
 ### Create a mixed culture in one step (REQ-053)

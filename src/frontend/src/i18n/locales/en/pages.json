@@ -7031,6 +7031,19 @@
         "loadMore": "Load more",
         "retryMore": "Try again",
         "allBeds": "History of all beds",
+        "export": {
+          "button": "Export CSV",
+          "comma": "CSV (comma)",
+          "semicolon": "CSV for Excel (semicolon)",
+          "done": "The history was downloaded as a CSV file.",
+          "hint": "Includes the stored care entries matching the current filters. Planting events derived from plants and runs are not included.",
+          "disabledRange": "The period is invalid: \"From\" is after \"To\". Fix the period to export.",
+          "commaHelp": "Standard table file, columns separated by commas, decimal point. For scripts and most programs.",
+          "semicolonHelp": "Columns separated by semicolons, decimal comma. Opens as a table directly in German-language Excel.",
+          "preparing": "Preparing the CSV file ...",
+          "tooManyRows": "The history has more than 50,000 entries. Narrow it by bed, plant, category or period and export again.",
+          "rateLimited": "You started several exports a moment ago. Wait a little and try again."
+        },
         "by": "by {{name}}",
         "category": {
           "note": "Note",

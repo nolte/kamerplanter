@@ -422,7 +422,9 @@ Den Schalter für die Prüfung findest du je Beet im Tab **Boden** (siehe [Fruch
 !!! info "Wer nach Personen filtern darf"
     Der Personenfilter ist ein Aktivitätsprofil und deshalb eingeschränkt. In den Rollen „viewer" und „grower" filterst du nur nach dir selbst. Die Rolle „lead" und Mitglieder mit dem Verwaltungsbereich `management` können nach jedem Mitglied filtern. Ausgeschiedene Mitglieder erscheinen als „anonymisiert" und sind nicht filterbar.
 
-**Historie aller Beete.** Über **Historie aller Beete** öffnest du die Pflegehistorie des ganzen Mandanten unter `/standorte/historie`. Sie zeigt die letzten 90 Tage, solange du keinen anderen Zeitraum wählst, und kennt dieselben Filter plus **Beet**. Die Pflanze lässt sich wählen, sobald ein Beet gewählt ist.
+**Als CSV exportieren.** Über **CSV exportieren** am Tab **Historie** und auf der Seite **Historie aller Beete** lädst du die Pflegeeinträge herunter, die der aktuelle Filter zeigt (bis zu 50 000). Zur Wahl stehen **CSV (Komma)** und **CSV für Excel (Semikolon)**. Die Datei enthält Anzeigenamen statt Konten, und Texte, die wie eine Formel aussehen, sind entschärft. Für den Export gelten dieselben Rollenregeln wie für die Liste. Bei mehr als 50 000 Einträgen grenzt du erst nach Beet, Pflanze, Kategorie oder Zeitraum ein.
+
+ Über **Historie aller Beete** öffnest du die Pflegehistorie des ganzen Mandanten unter `/standorte/historie`. Sie zeigt die letzten 90 Tage, solange du keinen anderen Zeitraum wählst, und kennt dieselben Filter plus **Beet**. Die Pflanze lässt sich wählen, sobald ein Beet gewählt ist.
 
 ### Fruchtfolge für ein Beet einstellen {#fruchtfolge-fur-ein-beet-einstellen}
 

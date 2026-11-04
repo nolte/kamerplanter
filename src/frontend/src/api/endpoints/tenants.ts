@@ -1,9 +1,7 @@
-import axios from 'axios';
 import client from '../client';
-import { ApiError } from '../errors';
+import { rethrowBlobError } from '../blobError';
 import { fetchAllPages } from '../paginate';
 import type {
-  ApiErrorResponse,
   CredentialStepUp,
   Invitation,
   InvitationCreate,
@@ -112,28 +110,6 @@ export async function listTenantExports(slug: string): Promise<TenantExport[]> {
     params: { offset: 0, limit: TENANT_EXPORT_LIST_LIMIT },
   });
   return res.data;
-}
-
-/**
- * Read a blob-typed error body back as the API's error envelope.
- *
- * With `responseType: 'blob'` the error body arrives as a `Blob`, so the client's interceptor
- * cannot recognise the envelope and rethrows the raw Axios error; without this the card would
- * show "Request failed with status code 404" for an expired archive.
- */
-async function rethrowBlobError(error: unknown): Promise<never> {
-  if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
-    let parsed: Partial<ApiErrorResponse> | null;
-    try {
-      parsed = JSON.parse(await error.response.data.text()) as Partial<ApiErrorResponse>;
-    } catch {
-      parsed = null;
-    }
-    if (parsed?.error_id && parsed.error_code) {
-      throw new ApiError(parsed as ApiErrorResponse, error.response.status);
-    }
-  }
-  throw error;
 }
 
 /**

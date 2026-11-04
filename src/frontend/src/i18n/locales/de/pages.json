@@ -7032,6 +7032,19 @@
         "loadMore": "Mehr laden",
         "retryMore": "Erneut versuchen",
         "allBeds": "Historie aller Beete",
+        "export": {
+          "button": "CSV exportieren",
+          "comma": "CSV (Komma)",
+          "semicolon": "CSV für Excel (Semikolon)",
+          "done": "Die Historie wurde als CSV-Datei heruntergeladen.",
+          "hint": "Enthalten sind die gespeicherten Pflegeeinträge nach den aktuellen Filtern. Aus Pflanzen und Durchläufen abgeleitete Pflanzungsereignisse sind nicht dabei.",
+          "disabledRange": "Der Zeitraum ist ungültig: „Von“ liegt nach „Bis“. Korrigiere den Zeitraum, dann kannst du exportieren.",
+          "commaHelp": "Standard-Tabellendatei, Spalten mit Komma getrennt, Dezimalpunkt. Für Skripte und die meisten Programme.",
+          "semicolonHelp": "Spalten mit Semikolon getrennt, Dezimalkomma. Öffnet sich in deutschsprachigem Excel direkt als Tabelle.",
+          "preparing": "Die CSV-Datei wird erstellt ...",
+          "tooManyRows": "Die Historie hat mehr als 50 000 Einträge. Grenze sie nach Beet, Pflanze, Kategorie oder Zeitraum ein und exportiere erneut.",
+          "rateLimited": "Du hast gerade mehrere Exporte gestartet. Warte kurz und versuche es dann noch einmal."
+        },
         "by": "von {{name}}",
         "category": {
           "note": "Notiz",
