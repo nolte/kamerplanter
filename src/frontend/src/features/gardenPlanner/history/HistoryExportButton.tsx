@@ -4,13 +4,16 @@
  * events derived from plants and runs; those are not care entries and are not in the file. The Excel variant uses
  * a semicolon and a decimal comma. The file is built by the server; this button only asks and saves.
  */
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import DownloadIcon from '@mui/icons-material/Download';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Tooltip from '@mui/material/Tooltip';
+import { visuallyHidden } from '@mui/utils';
 import axios from 'axios';
 import { isApiError } from '@/api/errors';
 import { useApiError } from '@/hooks/useApiError';
@@ -50,6 +53,8 @@ export default function HistoryExportButton({ query, disabled = false, testIdPre
   const notification = useNotification();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [busy, setBusy] = useState(false);
+  const menuId = useId();
+  const hintId = useId();
 
   const download = async (delimiter: CsvDelimiter) => {
     setAnchor(null);
@@ -70,28 +75,53 @@ export default function HistoryExportButton({ query, disabled = false, testIdPre
     }
   };
 
+  const hint = disabled ? t('pages.bed.history.export.disabledRange') : t('pages.bed.history.export.hint');
+  const items: { delimiter: CsvDelimiter; label: string; description: string }[] = [
+    { delimiter: 'comma', label: t('pages.bed.history.export.comma'), description: t('pages.bed.history.export.commaHelp') },
+    { delimiter: 'semicolon', label: t('pages.bed.history.export.semicolon'), description: t('pages.bed.history.export.semicolonHelp') },
+  ];
+
   return (
     <>
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
-        onClick={(event) => setAnchor(event.currentTarget)}
-        disabled={disabled || busy}
-        aria-haspopup="menu"
-        aria-expanded={anchor !== null}
-        sx={{ minHeight: 44 }}
-        data-testid={`${testIdPrefix}-export`}
-      >
-        {t('pages.bed.history.export.button')}
-      </Button>
-      <Menu anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
-        <MenuItem onClick={() => void download('comma')} data-testid={`${testIdPrefix}-export-comma`}>
-          {t('pages.bed.history.export.comma')}
-        </MenuItem>
-        <MenuItem onClick={() => void download('semicolon')} data-testid={`${testIdPrefix}-export-semicolon`}>
-          {t('pages.bed.history.export.semicolon')}
-        </MenuItem>
+      <Tooltip title={hint}>
+        {/* The span keeps the tooltip reachable by keyboard and touch while the button is disabled. */}
+        <span tabIndex={disabled ? 0 : undefined} aria-describedby={hintId} data-testid={`${testIdPrefix}-export-wrap`}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+            onClick={(event) => {
+              if (!busy) setAnchor(event.currentTarget);
+            }}
+            disabled={disabled}
+            aria-haspopup="menu"
+            aria-controls={anchor !== null ? menuId : undefined}
+            aria-expanded={anchor !== null}
+            aria-busy={busy}
+            sx={{ minHeight: 44 }}
+            data-testid={`${testIdPrefix}-export`}
+          >
+            {t('pages.bed.history.export.button')}
+          </Button>
+        </span>
+      </Tooltip>
+      <span id={hintId} style={visuallyHidden}>
+        {hint}
+      </span>
+      <span role="status" style={visuallyHidden}>
+        {busy ? t('pages.bed.history.export.preparing') : ''}
+      </span>
+      <Menu id={menuId} anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
+        {items.map((item) => (
+          <MenuItem
+            key={item.delimiter}
+            onClick={() => void download(item.delimiter)}
+            sx={{ minHeight: 44, whiteSpace: 'normal', maxWidth: 320 }}
+            data-testid={`${testIdPrefix}-export-${item.delimiter}`}
+          >
+            <ListItemText primary={item.label} secondary={item.description} />
+          </MenuItem>
+        ))}
       </Menu>
     </>
   );

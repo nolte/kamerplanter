@@ -13,6 +13,7 @@ import { server } from '@/test/mocks/server';
 import { bedSummary } from '../bed/bedTestKit';
 import BedHistoryTab from './BedHistoryTab';
 import CareHistoryPage from './CareHistoryPage';
+import HistoryExportButton from './HistoryExportButton';
 import { BASE, careItem, timeline, useHistoryBackend, year } from './historyTestKit';
 
 const CSV = '﻿performed_at,category\r\n2026-06-01T08:00:00+00:00,watering\r\n';
@@ -177,5 +178,55 @@ describe('CareHistoryPage - export', () => {
     expect(seen[0].params.location_key).toBeUndefined();
     expect(seen[0].params.from).toBeDefined(); // the 90-day window the page shows
     expect(seen[0].params.format).toBe('csv');
+  });
+});
+
+describe('HistoryExportButton - guidance', () => {
+  const query = { from: '2026-01-01' } as never;
+
+  it('explains each format in the menu and what the file holds, with menu semantics on the button', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<HistoryExportButton query={query} testIdPrefix="x" />);
+    const button = screen.getByTestId('x-export');
+
+    expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByText(/not included/)).toBeInTheDocument(); // description for assistive tech
+
+    await user.click(button);
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText(/Opens as a table directly in German-language Excel/)).toBeInTheDocument();
+    expect(screen.getByText(/decimal point/)).toBeInTheDocument();
+  });
+
+  it('returns the focus to the button when the menu is closed with Escape', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<HistoryExportButton query={query} testIdPrefix="x" />);
+    await user.click(screen.getByTestId('x-export'));
+    await screen.findByTestId('x-export-comma');
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.getByTestId('x-export')).toHaveFocus());
+  });
+
+  it('names the reason when the period is invalid and offers no menu', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<HistoryExportButton query={query} disabled testIdPrefix="x" />);
+
+    expect(screen.getByTestId('x-export')).toBeDisabled();
+    expect(screen.getByText(/"From" is after "To"/)).toBeInTheDocument();
+    expect(screen.getByTestId('x-export-wrap')).toHaveAttribute('tabindex', '0');
+    await user.click(screen.getByTestId('x-export-wrap'));
+    expect(screen.queryByTestId('x-export-comma')).not.toBeInTheDocument();
+  });
+
+  it('does not make the wrapper focusable while the button is enabled', () => {
+    renderWithProviders(<HistoryExportButton query={query} testIdPrefix="x" />);
+
+    expect(screen.getByTestId('x-export-wrap')).not.toHaveAttribute('tabindex');
+    expect(screen.queryByText(/"From" is after "To"/)).not.toBeInTheDocument();
   });
 });
