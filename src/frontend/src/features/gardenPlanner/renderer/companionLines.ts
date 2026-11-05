@@ -22,6 +22,9 @@ export interface CompanionLine {
 /** GP-FR-134: at most this many lines per viewport. */
 export const COMPANION_LINE_CAP = 500;
 
+/** The server judges at most this many species per slot (`species_truncated` says when it cut). */
+export const COMPANION_SPECIES_CAP = 8;
+
 /** Draw and legend order; the cap keeps the strongest statements: an incompatibility is never cut for an unknown. */
 export const COMPANION_STATUSES: readonly CompanionLineStatus[] = ['incompatible', 'compatible', 'unknown'];
 

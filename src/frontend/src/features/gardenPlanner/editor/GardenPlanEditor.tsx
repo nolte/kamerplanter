@@ -64,6 +64,7 @@ import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '..
 import { snapCandidates } from '../renderer/planIndex';
 import { toScreen as projectToScreen } from '../renderer/viewport';
 import { markerLodBedKeys } from '../renderer/scene';
+import type { CompanionPairItem } from '../api/companionEdges';
 import { cullCompanionLines } from '../renderer/companionLines';
 import { colorsOf, usePhaseNames } from '../planting/phaseColors';
 import { usePlanPlantStates } from '../planting/usePlanPlantStates';
@@ -420,6 +421,15 @@ export function GardenPlanEditor({
   const companionLayer = useMemo(
     () => (companionCulled ? { lines: companionCulled.lines } : undefined),
     [companionCulled],
+  );
+  // The text twin of the lines for keyboard and screen reader users: the pairs in view, incompatible first.
+  const companionPairs = useMemo<CompanionPairItem[]>(
+    () =>
+      (companionCulled?.lines ?? []).flatMap((line) => {
+        const edge = companion.edges[line.id];
+        return edge ? [{ id: line.id, edge }] : [];
+      }),
+    [companionCulled, companion.edges],
   );
   const companionCapped = (companionCulled?.capped ?? false) || companion.truncated;
   // Hover shows a line's card while the pointer is on it; a tap pins it until it is closed (touch has no hover).
@@ -810,7 +820,15 @@ export function GardenPlanEditor({
         : undefined,
     [onZoom],
   );
+  // A finger that lands on a companion line must not lose the pan or the pinch (a dense bed is mostly line): the hook
+  // pans on a drag and pins the card on a tap that did not move, and the press selects nothing (GP-FR-134).
+  const passiveTarget = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => (companionOn ? companionEdgeOf(event) : null),
+    [companionOn],
+  );
   const touch = useTouchInput({
+    passiveTarget,
+    onPassiveTap: setCompanionPinned,
     tool,
     multiSelect,
     plan,
@@ -1453,8 +1471,17 @@ export function GardenPlanEditor({
     (event: ReactPointerEvent<HTMLElement>) => {
       if (templateTool && event.button === 0) return;
       if (onOpenCare && tool === 'select' && event.button === 0 && badgeKeyOf(event) !== null) return;
-      // A press on a companion line opens its card on the click that follows, like the task badge: no gesture starts.
-      if (companionOn && tool === 'select' && event.button === 0 && companionEdgeOf(event) !== null) return;
+      // A mouse press on a companion line opens its card on the click that follows, like the task badge: no gesture
+      // starts. A finger is not skipped: the touch layer lets it pan and pinch and pins the card on a plain tap.
+      if (
+        companionOn &&
+        tool === 'select' &&
+        event.button === 0 &&
+        event.pointerType !== 'touch' &&
+        companionEdgeOf(event) !== null
+      ) {
+        return;
+      }
       touchPointerDown(event);
     },
     [companionOn, onOpenCare, templateTool, tool, touchPointerDown],
@@ -1474,7 +1501,9 @@ export function GardenPlanEditor({
       }
       if (companionOn && tool === 'select') {
         const edge = companionEdgeOf(event);
-        setCompanionPinned(edge);
+        // A finger's tap on a line pinned the card on pointer-up; the click that follows a drag must not pin it.
+        const fromTouch = 'pointerType' in event.nativeEvent && event.nativeEvent.pointerType === 'touch';
+        if (!(edge && fromTouch)) setCompanionPinned(edge);
         if (edge) return;
       }
       const key = badgeKeyOf(event);
@@ -1721,6 +1750,7 @@ export function GardenPlanEditor({
           phases={legendPhases}
           showCompanion={companionOn}
           companionCapped={companionCapped}
+          companionPairs={companionPairs}
         />
       )}
       {!listShown && !toolbarBelow && toolbar}

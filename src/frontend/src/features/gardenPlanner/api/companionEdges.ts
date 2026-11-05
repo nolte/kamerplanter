@@ -13,7 +13,10 @@ export interface CompanionEndpointWire {
   /** The slot's anchor in plan metres; `null` when the slot or its bed has no geometry (no line can be drawn). */
   position: { x: number; y: number } | null;
   species_keys: string[];
+  /** `true` when the slot holds more than 8 species and only the first ones were judged. */
+  species_truncated?: boolean;
 }
+
 
 export interface CompanionEdgeWire {
   slot_a: CompanionEndpointWire;
@@ -44,4 +47,10 @@ export interface CompanionEdgesWire {
 export async function getCompanionEdges(bedKey: string, signal?: AbortSignal): Promise<CompanionEdgesWire> {
   const { data } = await tenantClient.get<CompanionEdgesWire>(`/locations/${bedKey}/companion-edges`, { signal });
   return data;
+}
+
+/** One pair as the text list of the legend shows it. */
+export interface CompanionPairItem {
+  id: string;
+  edge: CompanionEdgeWire;
 }

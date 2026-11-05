@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import type { CompanionEdgeWire } from '../api/companionEdges';
-import { COMPANION_LINE_STYLES, companionInk } from '../renderer/companionLines';
+import { COMPANION_LINE_STYLES, COMPANION_SPECIES_CAP, companionInk } from '../renderer/companionLines';
 
 /**
  * The info card of one companion line (REQ-053 GP-FR-134): status in words, the two species that decided it, the
@@ -16,7 +16,7 @@ import { COMPANION_LINE_STYLES, companionInk } from '../renderer/companionLines'
  */
 const PREFIX = 'pages.gardenPlan.editor.companion';
 const CARD_WIDTH_PX = 280;
-const CARD_HEIGHT_PX = 170;
+const CARD_HEIGHT_PX = 190;
 const GAP_PX = 12;
 
 interface Props {
@@ -119,6 +119,11 @@ export default function CompanionEdgeInfo({ edge, x, y, canvasWidthPx, canvasHei
       {edge.distance_cm !== null ? (
         <Typography variant="body2" color="text.secondary">
           {t(`${PREFIX}.distance`, { distance: format.format(edge.distance_cm) })}
+        </Typography>
+      ) : null}
+      {edge.slot_a.species_truncated || edge.slot_b.species_truncated ? (
+        <Typography variant="caption" color="text.secondary" component="p" data-testid="garden-plan-companion-info-truncated">
+          {t(`${PREFIX}.speciesTruncated`, { count: COMPANION_SPECIES_CAP })}
         </Typography>
       ) : null}
     </Paper>

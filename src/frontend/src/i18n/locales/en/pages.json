@@ -6128,7 +6128,16 @@
               "incompatible": "Dashed: bad neighbours (they hinder each other)",
               "unknown": "Dotted: nothing known about this pair"
             },
-            "companionNote": "Point at a line or tap it to see the reason and the score. The lines come from the companion relations stored for the species, not from a measurement in the bed.",
+            "companionNote": "Point at a line or tap it to see the reason and the score. With a keyboard or screen reader, open the list of neighbouring pairs instead. The lines come from the companion relations stored for the species, not from a measurement in the bed.",
+            "companionList": {
+              "show_one": "Show neighbouring pair as list ({{count}})",
+              "show_other": "Show neighbouring pairs as list ({{count}})",
+              "hide_one": "Hide neighbouring pair list ({{count}})",
+              "hide_other": "Hide neighbouring pairs list ({{count}})",
+              "label_one": "{{count}} neighbouring pair in view, incompatible first",
+              "label_other": "{{count}} neighbouring pairs in view, incompatible first",
+              "empty": "No neighbouring pair with a line is in view. Zoom in on a planted bed."
+            },
             "companionCapped": "There are more neighbouring pairs in view than the plan shows (at most {{count}} lines, incompatible ones first). Zoom in to see all of them."
           },
           "wateredDays_one": "{{count}} day since",
@@ -6292,6 +6301,8 @@
           "score": "Score: {{score}} of 1",
           "distance": "Distance: {{distance}} cm",
           "close": "Close companion planting info",
+          "listItem": "{{status}}: {{pair}}. {{detail}}",
+          "speciesTruncated": "A slot holds more than {{count}} species; the verdict covers only the first {{count}}.",
           "unnamedSpecies": "Unnamed species"
         }
       },

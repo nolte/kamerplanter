@@ -11,6 +11,7 @@
  * | press an object for 500 ms, then drag | move it (progress ring, vibration where available)       |
  * | drag on empty ground                 | pan - or a marquee in multi-select mode                   |
  * | drag on a handle                     | edit the handle at once (the handle itself is the target) |
+ * | tap/drag from a companion line    | pin its card / pan the plan (no selection)                |
  * | two fingers                          | pan with the midpoint, zoom with the spread               |
  *
  * A second finger within 50 ms of the first and a palm-sized contact patch are ignored (wet
@@ -53,6 +54,13 @@ export interface TouchInputOptions {
   onZoom?: (factor: number, centerPx: Point) => void;
   /** A tap on two or more plant markers: the keys under the finger. */
   onPlantsNearby: (keys: string[], pointPx: Point) => void;
+  /**
+   * A press on a "passive" target (the companion line, GP-FR-134): returns its token, else `null`. The press selects
+   * nothing and moves nothing, but the finger still pans (and a second finger still pinches); only a tap that did
+   * not move ends in {@link TouchInputOptions.onPassiveTap}.
+   */
+  passiveTarget?: (event: ReactPointerEvent<HTMLElement>) => string | null;
+  onPassiveTap?: (token: string) => void;
 }
 
 /** The long-press progress ring (GP-UX-040). */
@@ -71,7 +79,7 @@ export interface TouchInput {
   lastPointerType: () => PointerKind;
 }
 
-type Mode = 'forward' | 'undecided' | 'armed' | 'pan' | 'plants';
+type Mode = 'forward' | 'undecided' | 'armed' | 'pan' | 'plants' | 'passive';
 
 interface Single {
   id: number;
@@ -79,6 +87,8 @@ interface Single {
   downPx: Point;
   lastPx: Point;
   plantKeys: string[];
+  /** The token of the passive target the press began on. */
+  passiveToken: string | null;
 }
 
 function pixelOf(event: ReactPointerEvent<HTMLElement>): Point {
@@ -171,6 +181,7 @@ export function useTouchInput(options: TouchInputOptions): TouchInput {
         downPx: point,
         lastPx: point,
         plantKeys: [],
+        passiveToken: null,
       };
       single.current = next;
       if (o.tool !== 'select') {
@@ -182,6 +193,12 @@ export function useTouchInput(options: TouchInputOptions): TouchInput {
         handleAt(o.handles.handles, (p: Point) => o.renderer.toScreen(p), point) !== null;
       if (onHandle) {
         o.base.onPointerDown(event); // a handle is its own 48 px target: no long-press
+        return;
+      }
+      const passiveToken = o.passiveTarget?.(event) ?? null;
+      if (passiveToken !== null) {
+        next.mode = 'passive';
+        next.passiveToken = passiveToken;
         return;
       }
       const hits = o.renderer.hitTestAll(point);
@@ -241,7 +258,7 @@ export function useTouchInput(options: TouchInputOptions): TouchInput {
       o.base.onPointerMove(event);
       return;
     }
-    if (current.mode === 'undecided' || current.mode === 'plants') {
+    if (current.mode === 'undecided' || current.mode === 'plants' || current.mode === 'passive') {
       const travelled = Math.hypot(point[0] - current.downPx[0], point[1] - current.downPx[1]);
       if (travelled < TOUCH_PAN_THRESHOLD_PX) return;
       // Moved before the hold time was over: the finger pans (GP-UX-040).
@@ -283,6 +300,8 @@ export function useTouchInput(options: TouchInputOptions): TouchInput {
         o.base.onPointerCancel(event);
       } else if (mode === 'plants') {
         o.onPlantsNearby(current.plantKeys, current.downPx);
+      } else if (mode === 'passive') {
+        if (current.passiveToken !== null) o.onPassiveTap?.(current.passiveToken);
       } else if (mode !== 'pan') {
         o.base.onPointerUp(event);
       }

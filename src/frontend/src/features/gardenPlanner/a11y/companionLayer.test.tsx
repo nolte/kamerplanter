@@ -134,6 +134,56 @@ describe('companion layer in the editor', () => {
     await waitFor(() => expect(screen.queryByTestId('garden-plan-companion-info')).toBeNull());
   });
 
+  it('lets a finger that starts on a line pan the plan, and pins the card only on a tap that did not move', async () => {
+    const { canvas, state, onPan } = await setupOn();
+    const target = lineOf('b1:s1|s2') as SVGLineElement;
+    const touch = { pointerType: 'touch', isPrimary: true, pointerId: 7 };
+    fireEvent.pointerDown(target, pointer({ ...px(4, 4), ...touch }));
+    fireEvent.pointerMove(canvas(), pointer({ ...px(4, 4), clientX: px(4, 4).clientX + 60, ...touch }));
+    fireEvent.pointerUp(canvas(), pointer({ ...px(4, 4), clientX: px(4, 4).clientX + 60, ...touch }));
+    expect(onPan).toHaveBeenCalled();
+    expect(state().selection).toEqual([]);
+    expect(screen.queryByTestId('garden-plan-companion-info')).toBeNull();
+    // a tap pins the card on pointer-up, without waiting for the click
+    onPan.mockClear();
+    fireEvent.pointerDown(target, pointer({ ...px(4, 4), ...touch }));
+    fireEvent.pointerUp(target, pointer({ ...px(4, 4), ...touch }));
+    expect(await screen.findByTestId('garden-plan-companion-info-close')).toBeTruthy();
+    expect(onPan).not.toHaveBeenCalled();
+    expect(state().selection).toEqual([]);
+  });
+
+  it('lists the pairs in view as text, incompatible first, behind a disclosure button', async () => {
+    await setupOn();
+    const toggle = await screen.findByTestId('garden-plan-legend-companion-list-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('garden-plan-legend-companion-list')).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    const list = await screen.findByTestId('garden-plan-legend-companion-list');
+    const items = [...list.querySelectorAll('li')];
+    expect(items.map((item) => item.getAttribute('data-legend-companion-pair'))).toEqual(['incompatible', 'compatible']);
+    expect(items[0].textContent).toBe(
+      'Bad neighbours: Tomate and Fenchel. Reason: Fennel inhibits the growth of most neighbours.',
+    );
+    expect(items[1].textContent).toContain('Good neighbours: Unnamed species and Basilikum.');
+    expect(items[1].textContent).toContain('Score: 0.85 of 1');
+    await expectNoA11yViolations(screen.getByTestId('garden-plan-legend-companion'), { minImpact: 'serious' });
+  });
+
+  it('says on the card that a slot held more species than were judged', async () => {
+    getCompanionEdges.mockImplementation((bedKey: string) =>
+      Promise.resolve({
+        ...answer(bedKey),
+        edges: bedKey === 'b1' ? [{ ...INCOMPATIBLE, slot_a: { ...INCOMPATIBLE.slot_a, species_truncated: true } }] : [],
+      }),
+    );
+    await setupOn();
+    fireEvent.pointerMove(lineOf('b1:s1|s2') as SVGLineElement, pointer({ ...px(4, 4), buttons: 0 }));
+    const note = await screen.findByTestId('garden-plan-companion-info-truncated');
+    expect(note.textContent).toBe('A slot holds more than 8 species; the verdict covers only the first 8.');
+  });
+
   it('reads nothing below the marker LOD', async () => {
     window.localStorage.setItem(LAYERS_KEY, JSON.stringify({ companion: true }));
     // 5 px/m: the two slots of b1 are 7 px apart, below the 10 px marker spacing

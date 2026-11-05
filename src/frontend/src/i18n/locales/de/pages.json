@@ -6129,7 +6129,16 @@
               "incompatible": "Gestrichelt: schlechte Nachbarn (hemmen sich)",
               "unknown": "Gepunktet: keine Angabe zu diesem Paar"
             },
-            "companionNote": "Zeig auf eine Linie oder tippe sie an, um Grund und Bewertung zu sehen. Die Linien beruhen auf den hinterlegten Mischkultur-Beziehungen der Arten, nicht auf einer Messung im Beet.",
+            "companionNote": "Zeig auf eine Linie oder tippe sie an, um Grund und Bewertung zu sehen. Mit Tastatur oder Screenreader öffnest du stattdessen die Liste der Nachbarpaare. Die Linien beruhen auf den hinterlegten Mischkultur-Beziehungen der Arten, nicht auf einer Messung im Beet.",
+            "companionList": {
+              "show_one": "Nachbarpaar als Liste anzeigen ({{count}})",
+              "show_other": "Nachbarpaare als Liste anzeigen ({{count}})",
+              "hide_one": "Nachbarpaar-Liste ausblenden ({{count}})",
+              "hide_other": "Nachbarpaare-Liste ausblenden ({{count}})",
+              "label_one": "{{count}} Nachbarpaar im Bild, Unverträgliches zuerst",
+              "label_other": "{{count}} Nachbarpaare im Bild, Unverträgliches zuerst",
+              "empty": "Im Bild sind keine Nachbarpaare mit Linie. Zoome näher an ein bepflanztes Beet heran."
+            },
             "companionCapped": "Es sind mehr Nachbarpaare im Bild, als der Plan zeigt (höchstens {{count}} Linien, Unverträgliches zuerst). Zoome näher heran, um alle zu sehen."
           },
           "wateredDays_one": "{{count}} Tag seit",
@@ -6293,6 +6302,8 @@
           "score": "Bewertung: {{score}} von 1",
           "distance": "Abstand: {{distance}} cm",
           "close": "Info zur Mischkultur schließen",
+          "listItem": "{{status}}: {{pair}}. {{detail}}",
+          "speciesTruncated": "Ein Platz trägt mehr als {{count}} Arten; das Urteil gilt nur für die ersten {{count}}.",
           "unnamedSpecies": "Art ohne Namen"
         }
       },

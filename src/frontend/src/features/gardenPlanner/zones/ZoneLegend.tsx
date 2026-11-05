@@ -13,6 +13,7 @@ import {
   type ConditionLayerId,
   type ConditionSpec,
 } from '../renderer/ConditionOverlays';
+import type { CompanionPairItem } from '../api/companionEdges';
 import type { PlanZone } from './zoneTypes';
 
 const PREFIX = 'pages.gardenPlan.editor.zones';
@@ -22,6 +23,7 @@ const PlantStateLegendSection = lazy(() => import('./PlantStateLegendSection'));
 // The companion lines likewise (GP-FR-134).
 const CompanionLegendSection = lazy(() => import('./CompanionLegendSection'));
 const NO_PHASES: readonly string[] = [];
+const NO_PAIRS: readonly CompanionPairItem[] = [];
 const SWATCH_W = 32;
 const SWATCH_H = 20;
 const CONDITION_SWATCH_W = 48;
@@ -51,6 +53,8 @@ interface Props {
   showCompanion?: boolean;
   /** The plan draws fewer companion lines than are in view (500-line cap or a cut bed answer). */
   companionCapped?: boolean;
+  /** The pairs of the lines in view, incompatible first: the text list for keyboard and screen reader users. */
+  companionPairs?: readonly CompanionPairItem[];
 }
 
 /** One section of a site-condition layer: per value the pattern, the glyph and the words. */
@@ -120,6 +124,7 @@ export function ZoneLegend({
   phases = NO_PHASES,
   showCompanion = false,
   companionCapped = false,
+  companionPairs = NO_PAIRS,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -231,7 +236,7 @@ export function ZoneLegend({
             {t(`${PREFIX}.legend.companionTitle`)}
           </Typography>
           <Suspense fallback={<Box sx={{ minHeight: 84 }} aria-busy="true" />}>
-            <CompanionLegendSection capped={companionCapped} />
+            <CompanionLegendSection capped={companionCapped} pairs={companionPairs} />
           </Suspense>
         </Box>
       )}
