@@ -13,10 +13,13 @@ class SiteDeletion:
 
     ``underlay_attachment_key`` is the underlay picture the deleted plan named, read inside the delete's
     transaction: the attachment outlives the site document and is discarded by the service afterwards (when no
-    other carrier names it).
+    other carrier names it). ``location_photo_refs`` are the bed photos of the deleted locations, the same way.
     """
 
     underlay_attachment_key: str | None = None
+    #: The photos the deleted locations held (REQ-053 GP-FR-051, WP 8.18), read inside the transaction; the
+    #: service discards them after the commit unless another carrier names them.
+    location_photo_refs: tuple[str, ...] = ()
 
 
 class ISiteRepository(ABC):

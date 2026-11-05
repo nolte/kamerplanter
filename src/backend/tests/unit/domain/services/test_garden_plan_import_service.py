@@ -8,6 +8,7 @@ and what reaches the repository (new keys only, the snapshot, the adjacency disp
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any
 
 import pytest
@@ -498,6 +499,32 @@ class TestTheFileIsUntrusted:
         assert refused.value.details[0]["keys"] == ["plan.underlay"]
         assert repo.applied == []
         assert rig.run(rig.file()) is not None  # positive control: the exported plan settings themselves pass
+
+    def test_the_export_of_a_bed_with_photos_carries_no_photo(self, rig, repo) -> None:
+        """WP 8.18 (#2643 item 7): the stored bed has photos and a cover; the file has neither, at any depth."""
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"photo_refs": ["att_photo_1", "att_photo_2"], "cover_photo_ref": "att_photo_1"}
+        )
+
+        document = rig.file()
+
+        (bed,) = [loc for loc in document["locations"] if loc["key"] == "b1"]
+        assert "photo_refs" not in bed and "cover_photo_ref" not in bed
+        assert "att_photo" not in json.dumps(document)
+
+    @pytest.mark.parametrize("field", ["photo_refs", "cover_photo_ref"])
+    def test_a_file_whose_bed_names_photos_is_refused_and_nothing_is_written(self, rig, repo, field) -> None:
+        """WP 8.18: a backup never holds photos; one that does was not written by the export and is not ignored."""
+        document = rig.file()
+        document["locations"][0][field] = ["att_elsewhere"] if field == "photo_refs" else "att_elsewhere"
+
+        with pytest.raises(PlanError) as refused:
+            rig.run(document)
+
+        assert refused.value.error_code == "import.unknown_keys" and refused.value.status_code == 422
+        assert refused.value.details[0]["keys"] == [f"locations.{field}"]
+        assert repo.applied == []
+        assert rig.run(rig.file()) is not None  # positive control: the same file without the field imports
 
     def test_findings_name_a_path_and_the_files_own_key_never_a_value(self, rig) -> None:
         document = rig.file()

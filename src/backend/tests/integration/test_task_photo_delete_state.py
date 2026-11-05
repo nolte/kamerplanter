@@ -60,6 +60,7 @@ _COLLECTIONS = [
     col.PEST_IMAGE_CONTRIBUTIONS,
     col.PESTS,
     col.SITES,  # the plan underlay (REQ-053 GP-FR-033)
+    col.LOCATIONS,  # the bed photos (REQ-053 GP-FR-051)
 ]
 
 
@@ -151,6 +152,9 @@ def test_both_the_named_task_and_another_carrier_reports_shared(db, repo):
         (col.PEST_IMAGE_CONTRIBUTIONS, {"tenant_key": TENANT, "attachment_id": "att-1"}),
         (col.PESTS, {"reference_image_refs": ["att-1"]}),
         (col.SITES, {"tenant_key": TENANT, "plan": {"underlay": {"attachment_key": "att-1"}}}),
+        # REQ-053 WP 8.18: a bed's photos and its cover. No tenant_key on a location, so the scan is unfiltered.
+        (col.LOCATIONS, {"site_key": "site-1", "photo_refs": ["att-1"]}),
+        (col.LOCATIONS, {"site_key": "site-1", "cover_photo_ref": "att-1"}),
     ],
     ids=lambda value: value if isinstance(value, str) else "doc",
 )

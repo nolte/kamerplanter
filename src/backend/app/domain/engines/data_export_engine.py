@@ -601,6 +601,10 @@ class DataExportEngine:
                 "rotation_exempt",
                 # #2544: the per-bed rotation switch, part of the plan backup like ``rotation_exempt``.
                 "rotation_enabled",
+                # REQ-053 GP-FR-051 (WP 8.18): which photos show the bed. Not in the plan backup (never), but part
+                # of the disclosure; the photos' own metadata is in the ``attachments`` sources.
+                "photo_refs",
+                "cover_photo_ref",
                 "created_at",
             ],
         ),

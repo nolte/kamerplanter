@@ -16,6 +16,7 @@ from app.domain.models.site import Location, Site, SiteConditions, SiteWaterConf
 from app.domain.models.tank import Tank
 from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.location_ownership import require_owned_site, resolve_owned_slot
+from app.domain.services.location_photo_service import LocationPhotoDiscard, release_location_photos
 
 logger = structlog.get_logger(__name__)
 
@@ -32,12 +33,15 @@ logger = structlog.get_logger(__name__)
 LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "bbox",
     "bed_status",
+    # REQ-053 WP 8.18: the bed's photos are written by ``LocationPhotoService`` only; an edit never resets them.
+    "cover_photo_ref",
     "description",
     "geometry",
     "height_m",
     "irrigation_zone_key",
     "locked",
     "notes",
+    "photo_refs",
     "pitch_m",
     "rotation_enabled",
     "rotation_exempt",
@@ -118,6 +122,7 @@ class SiteService:
         *,
         tank_repo: _TankSource | None = None,
         underlay: Callable[[], _UnderlayDiscard] | None = None,
+        photos: Callable[[], LocationPhotoDiscard] | None = None,
     ) -> None:
         self._repo = site_repo
         self._water_validator = WaterSourceValidator()
@@ -127,6 +132,8 @@ class SiteService:
         # A provider, built only by a delete that has a picture to discard: every other site route stays free of
         # the attachment service (object storage, quota, rendition claims).
         self._underlay = underlay
+        # WP 8.18: the bed photos of the deleted locations, the same way (unless another carrier names them).
+        self._photos = photos
 
     def _require_owned_tank(self, tank_key: str, tenant_key: str) -> None:
         """404 unless *tank_key* is a tank of *tenant_key* — fail closed without a repository (#1872 C4)."""
@@ -205,6 +212,7 @@ class SiteService:
         deletion = await asyncio.to_thread(self._repo.delete_site, key, tenant_key=tenant_key, user_key=user_key)
         if deletion.underlay_attachment_key is not None:
             await self._discard_underlay(key, deletion.underlay_attachment_key, tenant_key=tenant_key)
+        await release_location_photos(self._photos, deletion.location_photo_refs, tenant_key=tenant_key)
         return True
 
     async def _discard_underlay(self, site_key: SiteKey, attachment_key: str, *, tenant_key: str) -> None:

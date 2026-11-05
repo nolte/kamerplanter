@@ -44,12 +44,44 @@ class TestScopeToCategories:
             AttachmentCategory.PLANT,
             # REQ-053 GP-FR-033: the plan underlay is a tenant-record photo (an aerial view can reveal a home).
             AttachmentCategory.GARDEN_PLAN_UNDERLAY,
+            # REQ-053 GP-FR-051: the photos of a bed are tenant-record photos (a garden photo can show a home).
+            AttachmentCategory.LOCATION,
         }
+
+    def test_bed_photos_are_anonymised_not_hard_deleted(self):
+        # WP 8.18: an erased member's bed photo stays with the garden for the other members, uploader replaced.
+        assert AttachmentCategory.LOCATION in _scope_to_categories("user_diary_attachments")
+        assert AttachmentCategory.LOCATION not in (_scope_to_categories("user_personal") or [])
+        assert AttachmentCategory.LOCATION not in _scope_to_categories("user_pest_reference_images")
 
     def test_plant_gallery_is_anonymise_scope_not_hard_delete(self):
         # REQ-034 §5: gallery photos belong to the plant record → anonymise.
         assert AttachmentCategory.PLANT in _scope_to_categories("user_diary_attachments")
         assert AttachmentCategory.PLANT not in (_scope_to_categories("user_personal") or [])
+
+    def test_every_category_has_an_erasure_rule_or_a_named_reason(self):
+        """The class, not the instance: a new category is decided here before an erasure can skip it.
+
+        ``location`` (WP 8.18) and ``garden_plan_underlay`` (WP 7.14) were each added by hand to the mapping;
+        this makes the next one fail until it is mapped or named with the reason it needs no storage scope.
+        """
+        mapped = {
+            category
+            for scope in ("user_personal", "user_diary_attachments", "user_pest_reference_images")
+            for category in (_scope_to_categories(scope) or [])
+        }
+        no_storage_scope = {
+            # files the system writes for the tenant, not documentation of a person (NFR-013 §6.2); their record's
+            # uploader is anonymised by the ``attachments`` rule of the ArangoDB pass like every other attachment
+            AttachmentCategory.IMPORT,
+            AttachmentCategory.EXPORT,
+            AttachmentCategory.TENANT_EXPORT,
+            # a transient recognition input (REQ-034 §4), anonymised by the same ArangoDB rule
+            AttachmentCategory.ID_RECOGNITION,
+        }
+
+        assert set(AttachmentCategory) - mapped - no_storage_scope == set()
+        assert mapped & no_storage_scope == set()
 
     def test_legacy_csv_category_list_still_supported(self):
         result = _scope_to_categories("diary,harvest")

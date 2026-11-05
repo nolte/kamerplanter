@@ -303,8 +303,11 @@ class FakePlanRepo(IGardenPlanRepository):
             )
             self.locations[key] = stored.model_copy(update={"site_conditions": conditions})
         self.care_events.extend(write.care_events)
+        released: list[str] = []
         for key in write.location_deletes:
-            self.locations.pop(key, None)
+            gone = self.locations.pop(key, None)
+            # WP 8.18: the repository reads the deleted beds' photos inside the transaction and reports them.
+            released.extend(gone.photo_refs if gone is not None else [])
             self.slots = [slot for slot in self.slots if slot.location_key != key]
         for temp, slot in write.slot_inserts:
             self._next += 1
@@ -332,7 +335,7 @@ class FakePlanRepo(IGardenPlanRepository):
         if write.boundary is not None:
             plan.boundary = write.boundary
         site.plan = plan
-        return PlanBatchOutcome(plan_revision=revision + 1, key_map=key_map)
+        return PlanBatchOutcome(plan_revision=revision + 1, key_map=key_map, released_photo_refs=tuple(released))
 
     # single resources (WP 1.9) -------------------------------------------
     def load_bed_counters(self, location_keys, *, tenant_key):

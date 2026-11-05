@@ -166,6 +166,30 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 
 ---
 
+### Beetfotos (REQ-053)
+
+Fotos eines Beetes mit einem Titelbild. Ein Foto ist eine Datei der Kategorie `location`, die du vorher mit `POST /api/v1/t/{slug}/attachments` (`category=location`) hochlädst; beim Hochladen werden EXIF- und GPS-Daten entfernt. Ein Beet oder Foto eines anderen Mandanten antwortet wie ein nicht vorhandenes mit `404`.
+
+```
+GET    /api/v1/t/{slug}/locations/{key}/photos                   # Fotos des Beetes, neueste zuerst (jedes Mitglied)
+POST   /api/v1/t/{slug}/locations/{key}/photos                   # Foto verknüpfen (ab Rolle grower)
+PUT    /api/v1/t/{slug}/locations/{key}/photos/cover             # Titelbild wählen oder mit null entfernen (ab grower)
+DELETE /api/v1/t/{slug}/locations/{key}/photos/{attachment_id}   # Foto entfernen (eigenes ab grower, fremdes nur lead)
+```
+
+Alle vier antworten mit `{location_key, cover_photo_ref, photos[], max_photos}`. Ein Eintrag in `photos` trägt `attachment_id`, `uri`, `thumbnail_uris`, `mime_type`, `byte_size`, `caption`, `taken_on`, `created_at`, `is_cover` und `can_remove` (ob du dieses Foto entfernen darfst). Ein Beet hat höchstens 50 Fotos (`max_photos`).
+
+| Fehler | Bedeutung |
+|--------|-----------|
+| `422 reference.not_found` | `attachment_id` ist kein Beetfoto deines Gartens (fremder Mandant, andere Kategorie oder nicht vorhanden) |
+| `422 location.photo_limit_reached` | Das Beet hat schon 50 Fotos |
+| `422 location.cover_not_a_photo` | Das Titelbild ist keins der Fotos dieses Beetes |
+| `403` | Rolle zu niedrig, oder das Foto eines anderen Mitglieds ohne Rolle `lead` |
+
+Das erste Foto wird automatisch Titelbild; entfernst du das Titelbild, ist danach keins gesetzt. `GET /locations/{key}` und die Beetliste nennen das Titelbild in `cover_photo_ref`. Ein entferntes Foto wird gelöscht, sofern kein anderes Beet, keine Galerie und keine Aufgabe es noch zeigt. Löschst du ein Beet oder einen Standort, gehen seine Fotos auf dieselbe Weise mit. Fotos sind nie Teil der JSON-Sicherung des Gartenplans; eine Datei, deren Beete `photo_refs` oder `cover_photo_ref` enthalten, lehnt der Import mit `422 import.unknown_keys` ab. <!-- REQ-053 GP-FR-051 -->
+
+---
+
 ### Mischkultur in einem Schritt anlegen (REQ-053)
 
 `POST /api/v1/t/{slug}/planting-runs/mixed-culture` legt für jede Art einer Mischkultur einen eigenen Durchlauf auf demselben Beet an, alle in einem Schritt (ab Rolle `grower`). Jeder Eintrag in `runs[]` trägt in `entry.row_assignment` die Reihen (ab 0 gezählt), die seine Art belegt. Jede Reihe gehört genau einer Art: Überschneiden sich die Reihen zweier Einträge, antwortet die API mit `422`, bevor etwas gespeichert wird. Es zählen nur Einträge mit einer Reihen-Anordnung (`grid`, `rows`, `triangular`) und einem `row_assignment`; Fläche (`zone`), freie Positionen (`free`) und Einträge ohne Anordnung belegen keine Reihen. Der Fehler nennt in `details[0].conflicts` die Paare als `{"runs": [i, j], "rows": [...], "rows_total": n}` (Positionen in `runs[]`, die gemeinsamen Reihen aufsteigend und ihre Zahl), höchstens 20 Paare mit je höchstens 50 Reihen; `details[0].pairs_total` nennt die Zahl aller Paare, `details[0].truncated` ist `true`, wenn etwas gekürzt wurde. `details[0].field` zeigt auf den späteren Eintrag des ersten Paars.

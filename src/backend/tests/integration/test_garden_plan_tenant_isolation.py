@@ -58,6 +58,7 @@ from app.common.dependencies import (
     get_garden_plan_underlay_service,
     get_garden_resource_service,
     get_irrigation_zone_service,
+    get_location_photo_service,
     get_plant_state_service,
     get_planting_reservation_service,
     get_planting_run_service,
@@ -69,6 +70,7 @@ from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError, PlanValidationError
 from app.data_access.arango import collections as col
+from app.data_access.arango import location_photo_repository
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
 from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
@@ -87,6 +89,7 @@ from app.data_access.arango.irrigation_zone_repository import (
     ZONE_WRITE,
     ArangoIrrigationZoneRepository,
 )
+from app.data_access.arango.location_photo_repository import ArangoLocationPhotoRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
 from app.data_access.arango.planting_reservation_repository import (
@@ -121,6 +124,7 @@ from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayS
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.irrigation_zone_service import IrrigationZoneService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
+from app.domain.services.location_photo_service import LocationPhotoService
 from app.domain.services.plant_state_service import PlantStateService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
@@ -369,6 +373,25 @@ def db(database):
                 "storage_key": f"t/{tenant}/garden_plan_underlay/2026/10/att_{suffix}.png",
             }
         )
+    # WP 8.18: per tenant one photo the bed shows (and its cover) and one uploaded but not linked yet.
+    for suffix, tenant in (("a", A), ("b", B)):
+        for photo in (f"bedpic_{suffix}", f"newpic_{suffix}"):
+            database.collection(col.ATTACHMENTS).insert(
+                {
+                    "_key": photo,
+                    "tenant_key": tenant,
+                    "mime_type": "image/jpeg",
+                    "byte_size": 10,
+                    "sha256": photo.ljust(64, "0"),
+                    "original_filename": "beet.jpg",
+                    "created_by": USER,
+                    "category": "location",
+                    "storage_key": f"t/{tenant}/location/2026/11/{photo}.jpg",
+                }
+            )
+        database.collection(col.LOCATIONS).update(
+            {"_key": f"bed_{suffix}", "photo_refs": [f"bedpic_{suffix}"], "cover_photo_ref": f"bedpic_{suffix}"}
+        )
     # WP 7.19: a snapshot a replace import of tenant B left behind (the plan it overwrote).
     database.collection(col.GARDEN_PLAN_AUDIT).insert(
         {
@@ -434,13 +457,25 @@ def db(database):
 # ── The application under test: real routes, real services, real repositories ──────────────────────
 
 
+def _photo_service(db) -> LocationPhotoService:
+    """REQ-053 WP 8.18: the bed photos over the real repositories; the record deleter stands in for the storage."""
+    attachment_repo = ArangoAttachmentRepository(db)
+    return LocationPhotoService(
+        ArangoSiteRepository(db),
+        ArangoLocationPhotoRepository(db),
+        attachment_repo,
+        lambda: _RecordDeleter(attachment_repo),
+    )
+
+
 def _services(
     db,
 ) -> tuple[GardenPlanService, GardenResourceService, SiteService, PlantingReservationService, PlantingRunService]:
     sites = ArangoSiteRepository(db)
     plan_repo = ArangoGardenPlanRepository(db)
-    plan = GardenPlanService(sites, plan_repo, template_repo=ArangoBedTemplateRepository(db))
-    resources = GardenResourceService(sites, plan_repo, ArangoGardenObjectRepository(db), plan)
+    photos = _photo_service(db)
+    plan = GardenPlanService(sites, plan_repo, template_repo=ArangoBedTemplateRepository(db), photos=lambda: photos)
+    resources = GardenResourceService(sites, plan_repo, ArangoGardenObjectRepository(db), plan, photos=lambda: photos)
     run_repo = ArangoPlantingRunRepository(db)
     reservation_repo = ArangoPlantingReservationRepository(db)
     care = CareEventService(
@@ -562,7 +597,9 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         attachment_repo,
         _RecordDeleter(attachment_repo),  # type: ignore[arg-type]
     )
+    bed_photos: Any = _photo_service(db)
     if unscoped:
+        bed_photos = _Unscoped(bed_photos)
         underlay = _Unscoped(underlay)
         templates = _Unscoped(templates)
         zones = _Unscoped(zones)
@@ -607,6 +644,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_irrigation_zone_service] = lambda: zones
     app.dependency_overrides[get_bed_template_service] = lambda: templates
     app.dependency_overrides[get_garden_plan_underlay_service] = lambda: underlay
+    app.dependency_overrides[get_location_photo_service] = lambda: bed_photos
     app.dependency_overrides[get_is_platform_admin] = lambda: False
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
@@ -869,6 +907,25 @@ CASES: tuple[Case, ...] = (
     Case("get_soil_analyses", "GET", "/locations/bed_b/soil-analyses"),
     # REQ-053 WP 8.15, GP-FR-134: the companion layer of a bed names the species standing in its slots.
     Case("get_companion_edges", "GET", "/locations/bed_b/companion-edges"),
+    # REQ-053 WP 8.18, GP-FR-051: the photos of a bed - read, linked, the cover chosen, one removed - through the
+    # bed's site. The owner links its own unlinked photo, clears the cover and removes the photo the bed shows.
+    Case("list_location_photos", "GET", "/locations/bed_b/photos"),
+    Case(
+        "add_location_photo",
+        "POST",
+        "/locations/bed_b/photos",
+        {"attachment_id": "newpic_b"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case(
+        "set_location_cover_photo",
+        "PUT",
+        "/locations/bed_b/photos/cover",
+        {"attachment_id": None},
+        writes=True,
+    ),
+    Case("remove_location_photo", "DELETE", "/locations/bed_b/photos/bedpic_b", writes=True),
     # REQ-053 WP 8.12, GP-FR-135: the rotation matrix of a site reads every bed's history under the tenant.
     Case("get_rotation_matrix", "GET", "/sites/site_b/rotation-matrix"),
     # REQ-053 WP 4.5, GP-API-038: the combined history of a bed (care events + derived planting events).
@@ -1445,6 +1502,17 @@ REFERENCE_CASES: tuple[ReferenceCase, ...] = (
         "tpl_a",
         "tpl_gone",
     ),
+    # REQ-053 WP 8.18, GP-NFR-058: a bed photo is a ``location`` attachment of the caller's own tenant.
+    ReferenceCase(
+        "location_photo.attachment_id",
+        "POST",
+        "/locations/bed_a/photos",
+        "attachment_id",
+        lambda key: {"attachment_id": key},
+        "newpic_b",
+        "newpic_a",
+        "newpic_gone",
+    ),
     # REQ-053 WP 7.14, GP-NFR-058: the picture is an attachment of the caller's own tenant.
     ReferenceCase(
         "underlay.attachment_key",
@@ -1569,6 +1637,22 @@ class TestTheReferenceChecksCanFail:
                 bind_vars={"@att": col.ATTACHMENTS, "key": attachment_key, "now": now},
             )
 
+        def every_bed_photo(self, attachment_id, *, tenant_key):
+            # WP 8.18: a bed-photo link that resolves the attachment without the tenant predicate ...
+            document = db.collection(col.ATTACHMENTS).get(attachment_id)
+            if document is None:
+                raise PlanValidationError([(None, "attachment_id", ERROR_REFERENCE_NOT_FOUND, {})])
+            return Attachment(**document)
+
+        # ... and whose transaction touches it without one either (the second layer, switched off with the first).
+        monkeypatch.setattr(LocationPhotoService, "_bed_photo", every_bed_photo)
+        monkeypatch.setattr(
+            location_photo_repository,
+            "_TOUCH_ATTACHMENT",
+            location_photo_repository._TOUCH_ATTACHMENT.replace("AND a.tenant_key == @tenant_key ", "").replace(
+                "FILTER a._key == @attachment_key", "FILTER a._key == @attachment_key AND @tenant_key != null"
+            ),
+        )
         monkeypatch.setattr(GardenPlanService, "_visible_template", every_template)
         monkeypatch.setattr(GardenPlanUnderlayService, "_underlay_attachment", every_attachment)
         monkeypatch.setattr(ArangoGardenPlanRepository, "_bind_underlay_attachment", staticmethod(bind_any_attachment))

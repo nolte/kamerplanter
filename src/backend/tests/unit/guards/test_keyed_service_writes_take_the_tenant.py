@@ -448,6 +448,9 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # REQ-053 WP 8.15 (#2658): the companion layer of a bed. Read-only; it resolves the bed through
     # ``resolve_owned_location`` - no ``get…_by_key`` - and names the species standing in the bed's slots.
     "CompanionOverlayService": "companion_overlay_service.py",
+    # REQ-053 WP 8.18 (#2661): the photos of a bed, resolved through ``resolve_owned_location``; the attachment is read
+    # under the same tenant. A ``tenant_key`` transposed with the bed or attachment key would link another tenant's.
+    "LocationPhotoService": "location_photo_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -471,6 +474,8 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "RotationMatrixService": 1,
     # #2658: measured 2 - ``companion_edges`` and the private ``_positions``.
     "CompanionOverlayService": 2,
+    # REQ-053 WP 8.18 (#2661): measured 9 (five public methods, four private helpers).
+    "LocationPhotoService": 9,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -587,6 +592,10 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # REQ-053 WP 8.15 (#2658): ``companion_edges`` anchors on ``resolve_owned_location``; read-only, so it adds
     # nothing to the expected writers, but its one public method takes the tenant strictly.
     "CompanionOverlayService": "companion_overlay_service.py",
+    # REQ-053 WP 8.18 (#2661): the photos of a bed. Every method resolves the bed through ``resolve_owned_location``
+    # and the repository re-reads it under the site's tenant in its transaction; the photo writes go through
+    # ``ILocationPhotoRepository`` (no ``get…_by_key``), so the keyed-write selector is blind to them.
+    "LocationPhotoService": "location_photo_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
@@ -622,6 +631,13 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "GardenPlanSeasonService.new_season",
         "BedRotationService.backfill",
         "BedRotationService.cancel_backfill",
+        # REQ-053 WP 8.18 (#2661): the async forms of the bed delete and the batch, which discard the released
+        # photos after the commit; they take the tenant like the synchronous writers they wrap.
+        "GardenPlanService.apply_batch_async",
+        "GardenResourceService.delete_bed",
+        # The call graph reaches the photo repository's write through ``add_photo``; ``set_cover`` and
+        # ``remove_photo`` write through the same interface and take the tenant the same way (whole-class rule).
+        "LocationPhotoService.add_photo",
     }
 )
 
@@ -692,7 +708,11 @@ def test_the_anchored_rule_finds_a_planted_missing_tenant(tmp_path: Path) -> Non
     planted = original.replace(signature, head + tail)
     assert planted != original, "the planted replacement did not apply"
     target.write_text(planted, encoding="utf-8")
-    assert _anchored_without_the_tenant(services) == ["GardenPlanService.apply_batch"]
+    # The async form (WP 8.18) shares the signature text, so the planted replacement reaches it too.
+    assert _anchored_without_the_tenant(services) == [
+        "GardenPlanService.apply_batch",
+        "GardenPlanService.apply_batch_async",
+    ]
 
 
 class TestTheRuleSeesTheShapes:

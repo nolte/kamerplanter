@@ -23,7 +23,20 @@ from app.domain.models.garden_plan_export import (
 )
 
 #: Parts of a garden that are not the plan's structure (GP-FR-140): nothing like these may ever be a field.
-_FORBIDDEN = {"plants", "plant", "tasks", "task", "events", "care_events", "photos", "attachments", "tenant_key"}
+_FORBIDDEN = {
+    "plants",
+    "plant",
+    "tasks",
+    "task",
+    "events",
+    "care_events",
+    "photos",
+    "attachments",
+    "tenant_key",
+    # REQ-053 WP 8.18 (#2643 item 7): the photos of a bed never go into the plan file.
+    "photo_refs",
+    "cover_photo_ref",
+}
 
 
 def _property_names(schema: dict[str, Any], defs: dict[str, Any] | None = None) -> set[str]:

@@ -6,6 +6,7 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.api.v1.attachments.schemas import ThumbnailUris
 from app.api.v1.care_events.schemas import CareEventResponse, care_event_to_response
 from app.common.enums import (
     BedStatus,
@@ -40,7 +41,7 @@ from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
-from app.domain.models.site import SiteConditions
+from app.domain.models.site import MAX_PHOTO_REF_LENGTH, MAX_PHOTOS_PER_LOCATION, SiteConditions
 from app.domain.services.bed_history_service import BedHistoryItem
 from app.domain.services.plant_state_service import PlantStateEntry
 
@@ -142,8 +143,99 @@ class LocationResponse(BaseModel):
     rotation_exempt: bool = False
     #: Per-bed rotation switch (#2544): ``null`` = type default (off for planter/tent/shelf), ``true`` on, ``false`` off
     rotation_enabled: bool | None = None
+    #: The bed's cover photo (REQ-053 GP-FR-051, WP 8.18): an attachment id, served by ``GET /attachments/{id}``
+    #: and its thumbnails. ``null`` without one; the gallery itself is ``GET /locations/{key}/photos``.
+    cover_photo_ref: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+# ── Bed photos (REQ-053 GP-FR-051, WP 8.18) ──────────────────────────────────────
+
+
+_PHOTO_URI = "/api/v1/t/mein-garten/attachments/8812345"
+_PHOTO_EXAMPLE: dict[str, Any] = {
+    "attachment_id": "8812345",
+    "uri": _PHOTO_URI,
+    "thumbnail_uris": {
+        "small": f"{_PHOTO_URI}/thumbnails/128",
+        "medium": f"{_PHOTO_URI}/thumbnails/512",
+        "large": f"{_PHOTO_URI}/thumbnails/1280",
+    },
+    "mime_type": "image/jpeg",
+    "byte_size": 482113,
+    "caption": None,
+    "taken_on": None,
+    "created_at": "2026-05-14T07:42:10Z",
+    "is_cover": True,
+    "can_remove": True,
+}
+
+
+class LocationPhotoRequest(BaseModel):
+    """Link an uploaded photo to the bed: an attachment of category ``location`` of the caller's own garden."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"attachment_id": "8812345"}]})
+
+    attachment_id: str = Field(
+        min_length=1,
+        max_length=MAX_PHOTO_REF_LENGTH,
+        description=(
+            "A `location` attachment uploaded beforehand through `POST /attachments`; any other key (another "
+            "garden's, another category, absent) is 422 `reference.not_found`."
+        ),
+    )
+
+
+class LocationCoverRequest(BaseModel):
+    """Choose the bed's cover photo; ``null`` clears it."""
+
+    model_config = ConfigDict(
+        extra="forbid", json_schema_extra={"examples": [{"attachment_id": "8812345"}, {"attachment_id": None}]}
+    )
+
+    attachment_id: str | None = Field(
+        min_length=1,
+        max_length=MAX_PHOTO_REF_LENGTH,
+        description="One of the bed's photos (else 422 `location.cover_not_a_photo`), or `null` for no cover.",
+    )
+
+
+class LocationPhotoResponse(BaseModel):
+    """One photo of a bed. URIs are the tenant's attachment routes; no storage detail, no uploader key."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [_PHOTO_EXAMPLE]})
+
+    attachment_id: str
+    uri: str = Field(description="Download URI of the original (EXIF/GPS stripped on upload).")
+    thumbnail_uris: ThumbnailUris | None = Field(default=None, description="Present for image types.")
+    mime_type: str
+    byte_size: int
+    caption: str | None = None
+    taken_on: date | None = None
+    created_at: datetime | None = None
+    is_cover: bool = False
+    can_remove: bool = Field(
+        default=False,
+        description="Whether the caller may remove it: own upload from `grower` up, another member's as `lead`.",
+    )
+
+
+class LocationPhotosResponse(BaseModel):
+    """The bed's photos, newest first (``GET|POST /locations/{key}/photos`` and the cover/remove routes)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"location_key": "beet-3", "cover_photo_ref": "8812345", "photos": [_PHOTO_EXAMPLE], "max_photos": 50}
+            ]
+        }
+    )
+
+    location_key: str
+    cover_photo_ref: str | None = None
+    photos: list[LocationPhotoResponse] = Field(default_factory=list, max_length=MAX_PHOTOS_PER_LOCATION)
+    max_photos: int = MAX_PHOTOS_PER_LOCATION
 
 
 class BedListItemResponse(LocationResponse):

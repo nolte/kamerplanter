@@ -382,7 +382,7 @@ async def delete_underlay(
     responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
 )
 @limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
-def apply_batch(
+async def apply_batch(
     request: Request,
     key: _SITE_KEY,
     body: PlanBatchRequest,
@@ -395,11 +395,12 @@ def apply_batch(
     and a batch holding one the caller may not run is refused whole with 403
     ``batch.operation_forbidden {op_index}``. Then, in order: references (422
     ``reference.not_found``), Pydantic, domain rules (422 ``geometry.outside_parent``,
-    ``bed.overlap`` …), and last the revision (409 ``plan.revision_conflict``).
+    ``bed.overlap`` …), and last the revision (409 ``plan.revision_conflict``). The photos of a deleted bed are
+    deleted afterwards unless something else still names them (WP 8.18).
     """
     started = perf_counter()
     try:
-        result = service.apply_batch(
+        result = await service.apply_batch_async(
             key,
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,

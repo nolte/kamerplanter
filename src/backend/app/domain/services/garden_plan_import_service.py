@@ -93,6 +93,9 @@ from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.site_service import place_in_tree
 
+#: Fields of a stored bed a backup never holds (REQ-053 GP-FR-051, WP 8.18): a file naming one is refused.
+_PHOTO_FIELDS: frozenset[str] = frozenset({"photo_refs", "cover_photo_ref"})
+
 logger = structlog.get_logger()
 
 ERROR_NOT_EMPTY = "import.not_empty"
@@ -446,6 +449,18 @@ class GardenPlanImportService:
             # #2545: the plan settings the same way - an ``underlay`` there (GP-FR-033) is never part of a backup
             # (GP-FR-140) and was dropped without a word by ``ExportPlanSettings`` (``extra="ignore"``).
             unknown += sorted(f"plan.{name}" for name in set(plan) - set(ExportPlanSettings.model_fields))
+        locations = document.get("locations")
+        if isinstance(locations, list):
+            # WP 8.18 (#2643 item 7): the photos of a bed are never part of a backup either; a file that names some
+            # was not written by the export, and a restored bed must not point at another garden's attachments.
+            unknown += sorted(
+                {
+                    f"locations.{name}"
+                    for location in locations
+                    if isinstance(location, dict)
+                    for name in _PHOTO_FIELDS & set(location)
+                }
+            )
         if unknown:
             # A newer file within schema_version "1" may carry parts this version cannot place (template
             # references, WP 7.x). Silently skipping them would restore a plan that quietly lacks half of itself.

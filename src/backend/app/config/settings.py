@@ -1389,6 +1389,7 @@ class Settings(BaseSettings):
     storage_allowed_mime_types_plant: str = ""
     storage_allowed_mime_types_pest_reference: str = ""
     storage_allowed_mime_types_garden_plan_underlay: str = ""
+    storage_allowed_mime_types_location: str = ""
     storage_allowed_mime_types_id_recognition: str = ""
     storage_allowed_mime_types_task: str = ""
     storage_allowed_mime_types_import: str = "text/csv,application/zip"
@@ -1497,6 +1498,7 @@ _PHOTO_CATEGORIES: frozenset[str] = frozenset(
         "id_recognition",
         "task",
         "garden_plan_underlay",
+        "location",
     }
 )
 # #2139 — only the types the EXIF strip can re-encode (``exif_stripper``).

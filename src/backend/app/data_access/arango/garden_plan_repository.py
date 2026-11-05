@@ -626,13 +626,14 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 now = _now()
                 new_revision = revision + 1
                 key_map: dict[str, str] = {}
+                released_photo_refs: list[str] = []
 
                 # A bed that is retired holds no plant either (V-09); re-checked here for the same reason as below.
                 self._refuse_changed_status(txn, write.status_from)
                 self._refuse_active_plants(
                     txn, [key for key, fields in write.location_updates if fields.get("bed_status") == "retired"]
                 )
-                self._delete_locations(txn, write)
+                released_photo_refs = self._delete_locations(txn, write)
                 txn.check_budget()
                 self._delete_objects(txn, write)
                 self._delete_zones(txn, write)
@@ -650,7 +651,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         except _LostTheRace:
             # The transaction is aborted; the winner's revision is what the loser is told about.
             raise self._conflict_after_race(write) from None
-        return PlanBatchOutcome(plan_revision=new_revision, key_map=key_map)
+        return PlanBatchOutcome(
+            plan_revision=new_revision, key_map=key_map, released_photo_refs=tuple(released_photo_refs)
+        )
 
     def _conflict_after_race(self, write: PlanBatchWrite) -> PlanRevisionConflictError:
         """The 409 for a writer that lost the race for the site document (V-14), read after its abort."""
@@ -725,10 +728,11 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         if not taken:
             raise _LostTheRace
 
-    def _delete_locations(self, txn: StreamTransaction, write: PlanBatchWrite) -> None:
+    def _delete_locations(self, txn: StreamTransaction, write: PlanBatchWrite) -> list[str]:
+        """Remove the beds with their slots and edges; returns the photo ids they held (WP 8.18, read here)."""
         keys = write.location_deletes
         if not keys:
-            return
+            return []
         self._refuse_active_plants(txn, keys)
         # A child created through a path outside the plan revision after the service read the tree would be
         # orphaned by the edge cascade below: refuse, the client reloads and deletes again.
@@ -756,10 +760,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             )
         for edge, field in _LOCATION_EDGES:
             remove_edges(txn, edge, field, location_ids)
-        txn.aql.execute(
-            "FOR l IN @@col FILTER l._key IN @keys REMOVE l IN @@col",
-            bind_vars={"@col": col.LOCATIONS, "keys": keys},
+        removed: list[list[str] | None] = list(
+            txn.aql.execute(
+                "FOR l IN @@col FILTER l._key IN @keys REMOVE l IN @@col RETURN OLD.photo_refs",
+                bind_vars={"@col": col.LOCATIONS, "keys": keys},
+            )
         )
+        return [str(ref) for refs in removed for ref in (refs or [])]
 
     @staticmethod
     def _refuse_changed_status(txn: StreamTransaction, status_from: dict[str, str]) -> None:

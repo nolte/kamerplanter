@@ -42,6 +42,9 @@ PHOTO_REF_COLLECTIONS: tuple[str, ...] = (
     # REQ-053 §20.10 (WP 1.9): a care event can carry photos (GP-FR-091); the bed-status change writes none, the
     # care-event API of WP 4.1 does — and a destructive sweep must know the carrier before the first one is written.
     col.CARE_EVENTS,
+    # REQ-053 GP-FR-051 (WP 8.18): the photos of a bed. A photo another bed (or a gallery, a task …) still names
+    # stays when one bed lets go of it or is deleted - the scan below is what ``LocationPhotoService`` asks.
+    col.LOCATIONS,
 )
 
 #: Every other field anywhere that holds an attachment id, with the collection it
@@ -63,6 +66,9 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
     # upload dedupes per sha256), so the picture of a replaced or removed underlay is deleted only when no site
     # still names it - the sweep and ``delete_if_unreferenced`` see it through this entry. A dotted path.
     (col.SITES, "plan.underlay.attachment_key"),
+    # REQ-053 GP-FR-051 (WP 8.18): the bed's cover photo. Always one of its ``photo_refs`` (the model refuses
+    # anything else), listed anyway: a destructive query does not rest on that invariant holding.
+    (col.LOCATIONS, "cover_photo_ref"),
 )
 
 #: Which of the collections above are tenant-scoped, and may therefore have their
@@ -84,8 +90,9 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
 #: ``test_tenant_scoped_ref_collections_match_the_models`` reads the field off the
 #: models, so that mistake fails the lane instead of deleting a photo.
 #:
-#: ``harvest_observations``, ``storage_observations`` and ``pests`` are absent
-#: because they genuinely have no ``tenant_key`` — they stay unfiltered and keep
+#: ``harvest_observations``, ``storage_observations``, ``pests`` and ``locations``
+#: (a bed's tenant is its site's, #2107) are absent because they genuinely have no
+#: ``tenant_key`` — they stay unfiltered and keep
 #: protecting across the whole installation, which is the safe direction.
 TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
     {

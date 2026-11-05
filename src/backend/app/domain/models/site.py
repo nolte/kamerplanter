@@ -476,6 +476,13 @@ class Slot(BaseModel):
         return self
 
 
+#: Photos one bed may carry (REQ-053 GP-FR-051, WP 8.18). The closest precedent is the plant gallery's default
+#: limit, ``STORAGE_MAX_PHOTOS_PER_INSTANCE = 50`` (REQ-034 §3): a bed is photographed about as often as a plant.
+MAX_PHOTOS_PER_LOCATION = 50
+#: Longest attachment id a photo reference may hold (attachment keys are ArangoDB ``_key`` values).
+MAX_PHOTO_REF_LENGTH = 64
+
+
 class Location(BaseModel):
     """A place within a site (room, tent, bed …).
 
@@ -550,10 +557,27 @@ class Location(BaseModel):
     #: Per-bed crop-rotation switch (GP-FR-137 "je Beet einschaltbar", #2544), additive: ``None`` = the type default
     #: (off for ``planter``/``tent``/``shelf``, on for every other type), ``True`` = on, ``False`` = off.
     rotation_enabled: bool | None = None
+    #: The bed's photos (REQ-053 GP-FR-051, WP 8.18): ids of ``location`` attachments of the site's tenant, newest
+    #: first, without repeats. Written only by ``LocationPhotoService`` (never by an edit body, a plan batch or the
+    #: plan's JSON file); presentation, so not part of the plan revision and never in the plan export.
+    photo_refs: list[Annotated[str, Field(min_length=1, max_length=MAX_PHOTO_REF_LENGTH)]] = Field(
+        default_factory=list, max_length=MAX_PHOTOS_PER_LOCATION
+    )
+    #: The photo shown for the bed; one of ``photo_refs`` or ``None`` (cleared when that photo is removed).
+    cover_photo_ref: str | None = Field(default=None, min_length=1, max_length=MAX_PHOTO_REF_LENGTH)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def validate_photos(self) -> Self:
+        """No photo twice, and the cover is one of the bed's photos (WP 8.18)."""
+        if len(set(self.photo_refs)) != len(self.photo_refs):
+            raise ValueError("photo_refs must not repeat a reference.")
+        if self.cover_photo_ref is not None and self.cover_photo_ref not in self.photo_refs:
+            raise ValueError("cover_photo_ref must be one of photo_refs.")
+        return self
 
     @field_validator("soil_profile", mode="before")
     @classmethod
