@@ -58,6 +58,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
 import type { PlantInstance } from '@/api/types';
@@ -999,7 +1000,7 @@ export default function TaskDetailPage() {
                   {task.photo_refs.map((ref, i) => (
                     <AuthImage
                       key={ref}
-                      uri={taskApi.taskPhotoUri(ref)}
+                      uri={attachmentUri(ref)}
                       alt={t('pages.tasks.photoAlt', { index: i + 1 })}
                       width={120}
                       height={120}

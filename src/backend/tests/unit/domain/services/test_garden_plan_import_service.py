@@ -8,6 +8,7 @@ and what reaches the repository (new keys only, the snapshot, the adjacency disp
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any
 
 import pytest
@@ -499,6 +500,32 @@ class TestTheFileIsUntrusted:
         assert repo.applied == []
         assert rig.run(rig.file()) is not None  # positive control: the exported plan settings themselves pass
 
+    def test_the_export_of_a_bed_with_photos_carries_no_photo(self, rig, repo) -> None:
+        """WP 8.18 (#2643 item 7): the stored bed has photos and a cover; the file has neither, at any depth."""
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"photo_refs": ["att_photo_1", "att_photo_2"], "cover_photo_ref": "att_photo_1"}
+        )
+
+        document = rig.file()
+
+        (bed,) = [loc for loc in document["locations"] if loc["key"] == "b1"]
+        assert "photo_refs" not in bed and "cover_photo_ref" not in bed
+        assert "att_photo" not in json.dumps(document)
+
+    @pytest.mark.parametrize("field", ["photo_refs", "cover_photo_ref"])
+    def test_a_file_whose_bed_names_photos_is_refused_and_nothing_is_written(self, rig, repo, field) -> None:
+        """WP 8.18: a backup never holds photos; one that does was not written by the export and is not ignored."""
+        document = rig.file()
+        document["locations"][0][field] = ["att_elsewhere"] if field == "photo_refs" else "att_elsewhere"
+
+        with pytest.raises(PlanError) as refused:
+            rig.run(document)
+
+        assert refused.value.error_code == "import.unknown_keys" and refused.value.status_code == 422
+        assert refused.value.details[0]["keys"] == [f"locations.{field}"]
+        assert repo.applied == []
+        assert rig.run(rig.file()) is not None  # positive control: the same file without the field imports
+
     def test_findings_name_a_path_and_the_files_own_key_never_a_value(self, rig) -> None:
         document = rig.file()
         document["locations"][1]["geometry"] = {"kind": "rect", "origin": [0, 0], "width_m": -1, "length_m": 1}
@@ -778,3 +805,75 @@ def test_a_dropped_reference_echoes_at_most_64_characters_of_the_files_key() -> 
 
     assert len(long.key) == 64
     assert DroppedReference(entity="slot", key="slot_1", field="location_key", reason="not_found").key == "slot_1"
+
+
+class _Discard:
+    """The after-commit photo step (``LocationPhotoService.discard_released``), recording what it was handed."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[list[str], str]] = []
+
+    async def discard_released(self, attachment_ids, *, tenant_key: str) -> int:  # type: ignore[no-untyped-def]
+        self.calls.append((list(attachment_ids), tenant_key))
+        return len(self.calls[-1][0])
+
+
+class TestTheReplacedBedsReleaseTheirPhotosWp818:
+    """#2661 follow-up: a ``replace`` import and a snapshot restore delete beds like any other bed delete, so the
+    photos those beds held go through the same after-commit discard (``delete_if_unreferenced``)."""
+
+    @pytest.fixture
+    def discard(self) -> _Discard:
+        return _Discard()
+
+    @pytest.fixture
+    def photo_rig(self, repo: FakePlanRepo, discard: _Discard) -> Rig:
+        rig = Rig(repo)
+        plans = GardenPlanService(repo._sites, repo)
+        rig.service = GardenPlanImportService(
+            repo._sites, repo, plans, rig.export, dispatch_adjacency=rig.dispatched.append, photos=lambda: discard
+        )
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"photo_refs": ["p2", "p1"], "cover_photo_ref": "p1"}
+        )
+        repo.locations["b2"] = repo.locations["b2"].model_copy(update={"photo_refs": ["p3"]})
+        return rig
+
+    async def test_a_replace_hands_the_photos_of_the_beds_it_deleted_to_the_discard(self, photo_rig, discard) -> None:
+        report = photo_rig.run(photo_rig.file())
+        await photo_rig.service.release_photos(report, tenant_key=TENANT)
+
+        assert report.applied and sorted(report.released_photo_refs) == ["p1", "p2", "p3"]
+        assert [(sorted(ids), tenant) for ids, tenant in discard.calls] == [(["p1", "p2", "p3"], TENANT)]
+        assert "released_photo_refs" not in report.model_dump()  # never in the response
+
+    async def test_a_snapshot_restore_hands_them_over_too(self, photo_rig, repo, discard) -> None:
+        photo_rig.run(photo_rig.file())  # the replace that leaves the snapshot; its beds carry no photo
+        (entry,) = photo_rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=10)
+        bed = next(iter(repo.locations))
+        repo.locations[bed] = repo.locations[bed].model_copy(update={"photo_refs": ["p_new"]})
+
+        report = photo_rig.service.restore_snapshot(
+            SITE,
+            entry.audit_key,
+            tenant_key=TENANT,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            dry_run=False,
+            force=False,
+            confirm_site_name="Garten",
+        )
+        await photo_rig.service.release_photos(report, tenant_key=TENANT)
+
+        assert report.released_photo_refs == ["p_new"]
+        assert discard.calls == [(["p_new"], TENANT)]
+
+    async def test_a_dry_run_and_a_merge_release_nothing(self, photo_rig, discard) -> None:
+        dry = photo_rig.run(photo_rig.file(), dry_run=True)
+        merged = photo_rig.run(photo_rig.file(), mode="merge", confirm_site_name=None, offset_m=(5.0, 0.0))
+        for report in (dry, merged):
+            await photo_rig.service.release_photos(report, tenant_key=TENANT)
+
+        assert merged.applied and not dry.applied  # the merge really wrote
+        assert dry.released_photo_refs == [] and merged.released_photo_refs == []
+        assert discard.calls == []  # no photo released, so the discard is not even built

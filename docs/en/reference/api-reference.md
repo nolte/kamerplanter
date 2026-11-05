@@ -166,6 +166,30 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 
 ---
 
+### Bed photos (REQ-053)
+
+Photos of a bed with a cover photo. A photo is a file of category `location` that you upload beforehand with `POST /api/v1/t/{slug}/attachments` (`category=location`); EXIF and GPS data are removed on upload. A bed or photo of another tenant answers like an absent one with `404`.
+
+```
+GET    /api/v1/t/{slug}/locations/{key}/photos                   # the bed's photos, newest first (every member)
+POST   /api/v1/t/{slug}/locations/{key}/photos                   # link a photo (role grower and up)
+PUT    /api/v1/t/{slug}/locations/{key}/photos/cover             # choose the cover, or clear it with null (grower and up)
+DELETE /api/v1/t/{slug}/locations/{key}/photos/{attachment_id}   # remove a photo (own from grower, another member's lead only)
+```
+
+All four answer with `{location_key, cover_photo_ref, photos[], max_photos}`. An entry in `photos` carries `attachment_id`, `uri`, `thumbnail_uris`, `mime_type`, `byte_size`, `caption`, `taken_on`, `created_at`, `is_cover` and `can_remove` (whether you may remove this photo). A bed holds at most 50 photos (`max_photos`).
+
+| Error | Meaning |
+|-------|---------|
+| `422 reference.not_found` | `attachment_id` is not a bed photo of your garden (another tenant, another category or absent) |
+| `422 location.photo_limit_reached` | The bed already has 50 photos |
+| `422 location.cover_not_a_photo` | The cover is not one of this bed's photos |
+| `403` | Role too low, or another member's photo without the `lead` role |
+
+The first photo becomes the cover automatically; if you remove the cover, none is set afterwards. `GET /locations/{key}` and the bed list name the cover in `cover_photo_ref`. A removed photo is deleted unless another bed, a gallery or a task still shows it. When you delete a bed or a site, its photos go the same way. Photos are never part of the garden plan's JSON backup; the import refuses a file whose beds contain `photo_refs` or `cover_photo_ref` with `422 import.unknown_keys`. <!-- REQ-053 GP-FR-051 -->
+
+---
+
 ### Create a mixed culture in one step (REQ-053)
 
 `POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Only items with a row layout (`grid`, `rows`, `triangular`) and a `row_assignment` take part; an area (`zone`), free positions (`free`) and items without a layout take no rows. The error names the pairs in `details[0].conflicts` as `{"runs": [i, j], "rows": [...], "rows_total": n}` (positions in `runs[]`, the shared rows in ascending order and their count), at most 20 pairs with at most 50 rows each; `details[0].pairs_total` gives the number of all pairs, and `details[0].truncated` is `true` when anything was cut. `details[0].field` points at the later item of the first pair.

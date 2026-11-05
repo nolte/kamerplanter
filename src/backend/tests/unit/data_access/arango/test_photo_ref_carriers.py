@@ -46,6 +46,8 @@ _MODEL_TO_COLLECTION: dict[str, str] = {
     # The request base of ``POST /care-events`` and its supersede (WP 4.1, #2400): the same carrier as it is
     # sent, before it is stored as ``CareEvent``. Mapped (not excused) so a collection change moves both.
     "_CareEventFields": col.CARE_EVENTS,
+    # REQ-053 GP-FR-051 (WP 8.18): the photos of a bed.
+    "Location": col.LOCATIONS,
 }
 
 
@@ -166,6 +168,13 @@ _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
     "DiaryAnalysis.analyzed_photo_ids": (
         "validated to be a subset of the entry's photo_refs, which is already scanned"
     ),
+    # REQ-053 WP 8.18 (#2661): transient, never stored. The ids a committed bed delete read from the deleted beds'
+    # ``photo_refs`` in its transaction, handed to the discard - which asks the reference scan before anything goes.
+    "PlanBatchOutcome.released_photo_refs": "the deleted beds' photo_refs, read in the transaction; never stored",
+    "PlanBatchResult.released_photo_refs": "the same ids carried to the caller (excluded from the response)",
+    "PlanImportReport.released_photo_refs": "the same ids of a replace import or restore (excluded from the response)",
+    # The answer of ``GET /locations/{key}/photos``: a copy of ``Location.cover_photo_ref``, which is scanned.
+    "LocationPhotoGallery.cover_photo_ref": "a response projection of Location.cover_photo_ref; never stored",
 }
 
 #: Fields the sweep resolves through ``ATTACHMENT_REF_FIELDS`` rather than through
@@ -175,6 +184,7 @@ _RESOLVED_BY_FIELD_TUPLE = {
     "PestImageContribution.attachment_id",
     "Pest.reference_image_refs",
     "SiteUnderlay.attachment_key",
+    "Location.cover_photo_ref",
 }
 
 #: Where a field sits on its collection's document when that is not the field name itself: the underlay is

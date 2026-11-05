@@ -334,7 +334,8 @@ class ErasureEngine:
         AnonymizationRule(
             # Runs after the storage phase and after the ``pest_reference``
             # delete step: what is left are documentation photos of the tenant
-            # (diary, ipm, harvest, task, plant — already anonymised by the
+            # (diary, ipm, harvest, task, plant, garden_plan_underlay, location —
+            # the bed photos of REQ-053 GP-FR-051 — already anonymised by the
             # storage phase, a no-op here) plus the categories no storage scope
             # names (import, export, id_recognition, tenant_export). Same marker
             # as the storage phase (REQ-025 AK-OS-02).
@@ -473,7 +474,9 @@ class ErasureEngine:
             scope="user_diary_attachments",
             description=(
                 "Anonymise metadata for attachments where created_by == user_key "
-                "AND category in {'diary', 'inspection', 'treatment', 'harvest'}. "
+                "AND category in the documentation scope of "
+                "local_fs_adapter._erasure_scope_categories (diary, ipm, harvest, "
+                "post_harvest, task, plant, garden_plan_underlay, location). "
                 "Files stay attached to the tenant record (potential retention via "
                 "NFR-011 R-16/R-17/R-18). The created_by metadata becomes "
                 "'_anonymized'. If STORAGE_KEEP_EXIF_<category>=true, EXIF data is "

@@ -684,11 +684,28 @@ hold across restarts.
 
 Where an age filter cannot judge a record because its timestamp is missing or unreadable,
 it does not delete it but counts it and reports the counter as `held_undated` in the run
-event: in the account cleanup task (R-02), the call logs, the orphaned task photos, the
+event: in the account cleanup task (R-02), the call logs, the orphaned task and bed photos, the
 consent records (R-04, `purge_expired_consent_records`), the confirmed e-mail changes
 (R-07b, `expire_email_change_requests`) and the glossary cache (`glossary_cleanup_cache`).
 
 There is no single event line that summarizes every rule.
+
+### Never-linked bed photos
+
+A bed photo lives as long as the bed it belongs to, and so at most as long as the site and
+the tenant. It is uploaded in two steps: first the file, then the link to the bed. If the
+link never happens (the bed already holds 50 photos, was deleted in between, or the
+connection dropped), a file is left that no bed shows. The same happens when deleting the
+file fails after a photo was removed or a bed was deleted.
+
+The Celery task `app.tasks.storage_tasks.cleanup_orphaned_location_photos` (daily at
+03:50 UTC) removes these files: every bed photo (category `location`) older than
+`STORAGE_LOCATION_PHOTO_ORPHAN_HOURS` hours (default **48**, `0` disables the task) that
+nothing names any more is deleted together with its file and preview images. "Nothing names
+it" means no bed, no plant gallery, no task and no other record that carries photos. A
+freshly uploaded photo is inside the 48 hours and stays. The run writes the line
+`cleanup_orphaned_location_photos_audit` with `found`, `deleted`, `failed`, `skipped`,
+`freed_bytes` and `held_undated`.
 
 ### Metrics
 
@@ -760,6 +777,7 @@ flowchart TD
 | Harvest data, quality assessments, treatments, inspections | Anonymize (tombstone hash `anon_…`, name fields emptied), do not delete (Art. 17(3)) |
 | Tasks, task comments, diary entries, files, import jobs, settings and overrides in a (possibly shared) garden | Replace the account reference with `_anonymized`, content remains |
 | The garden plan's underlay (photo, sketch or aerial view, category `garden_plan_underlay`) in a (possibly shared) garden | Like the garden's other files: **anonymise, do not delete** — the account reference is replaced, the picture and its calibration stay for the other members. An aerial view can reveal where someone lives; whoever does not want it kept removes the underlay in the plan editor (the file is deleted with it), or it goes with the garden |
+| Bed photos (category `location`) in a (possibly shared) garden | Like the garden's other files: **replace the account reference, do not delete** — the photo stays on the bed for the other members. A garden photo can show people or a house; the upload already removes EXIF and GPS data. Whoever does not want a photo kept removes it from the bed (the file is deleted unless another bed shows it). A bed's photos also go with the bed or the site; if deleting the file fails afterwards, the nightly cleanup task catches up on it (see [Never-linked bed photos](#never-linked-bed-photos)) |
 | Your personal garden, also with other members | Fully delete (tenant-erasure inventory); harvest/treatment/inspection records pseudonymized as above; the other members are notified at the request |
 | Community garden or other garden you created (not a personal one) | Replace the owner reference; for a personal garden a late joiner keeps, also its name and short name |
 | Erasure audit | Replace the account reference with the tombstone hash, keep for 1 year |

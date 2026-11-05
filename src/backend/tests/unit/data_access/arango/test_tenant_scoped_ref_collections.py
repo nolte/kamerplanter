@@ -50,6 +50,7 @@ _MODEL_FOR_COLLECTION: dict[str, str] = {
     "pest_image_contributions": "PestImageContribution",
     "pests": "Pest",
     "sites": "Site",  # the plan underlay (REQ-053 GP-FR-033)
+    "locations": "Location",  # the bed photos (REQ-053 GP-FR-051); no tenant_key, so scanned unfiltered
 }
 
 

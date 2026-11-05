@@ -6753,6 +6753,13 @@
           "correctFor": "Correct the position of {{plant}}",
           "photo": "Photo",
           "photoFor": "Take a photo of {{plant}}"
+        },
+        "bedPhoto": {
+          "title": "Photo",
+          "hint": "Take a photo of the whole bed - or of a single plant under \"Plants\".",
+          "action": "Photo of the bed",
+          "actionFor": "Take a photo of the bed {{bed}}",
+          "saved": "Photo saved to {{bed}}."
         }
       },
       "glossary": {
@@ -6838,6 +6845,7 @@
         "care": "Care",
         "soil": "Soil",
         "history": "History",
+        "photos": "Photos",
         "details": "Details"
       },
       "header": {
@@ -7491,6 +7499,37 @@
           },
           "summary": "{{name}}: site {{fit}}"
         }
+      },
+      "photos": {
+        "title": "Photos of the bed",
+        "intro": "Keep track of how your bed develops over the season. The cover photo appears in the bed header and in field mode.",
+        "add": "Add photo",
+        "addFirst": "Add the first photo",
+        "uploadTitle": "Add a photo to {{bed}}",
+        "added": "Photo added to the bed.",
+        "emptyTitle": "No photos of the bed yet",
+        "emptyDescriptionWrite": "Take a photo of your bed to record how it develops. The first photo becomes the cover automatically.",
+        "emptyDescriptionRead": "As soon as someone in your garden adds a photo of the bed, you will see it here.",
+        "loadError": "The photos of the bed could not be loaded. Check your connection and try again.",
+        "listLabel": "Photos of {{bed}}",
+        "count_one": "{{count}} of at most {{max}} photos",
+        "count_other": "{{count}} of at most {{max}} photos",
+        "limitReached": "This bed has reached the maximum of {{max}} photos. Remove a photo before you add a new one.",
+        "quotaExceeded": "Your garden's photo storage is full. Remove old photos to make room for new ones.",
+        "uploadForbidden": "You may not add photos to this bed. You need at least the Grower role.",
+        "open": "Open the photo of {{date}} in full size",
+        "fullAlt": "Photo of {{bed}} in full size",
+        "cover": "Cover",
+        "coverAlt": "Cover photo of {{bed}}",
+        "setCover": "Use as cover photo",
+        "clearCover": "Stop using as cover photo",
+        "coverToggle": "Cover photo",
+        "coverSet": "Cover photo set.",
+        "coverCleared": "The bed has no cover photo any more.",
+        "remove": "Remove photo",
+        "removeTitle": "Remove the photo from the bed?",
+        "removeMessage": "The photo disappears from the bed's gallery. If nothing else uses it, it is deleted for good - this cannot be undone.",
+        "removed": "Photo removed."
       }
     },
     "rotationMatrix": {

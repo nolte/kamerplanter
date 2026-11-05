@@ -6754,6 +6754,13 @@
           "correctFor": "Position von {{plant}} korrigieren",
           "photo": "Foto",
           "photoFor": "Foto von {{plant}} aufnehmen"
+        },
+        "bedPhoto": {
+          "title": "Foto",
+          "hint": "Fotografiere das ganze Beet – oder eine einzelne Pflanze unter „Pflanzen“.",
+          "action": "Foto vom Beet",
+          "actionFor": "Foto vom Beet {{bed}} aufnehmen",
+          "saved": "Foto bei {{bed}} gespeichert."
         }
       },
       "glossary": {
@@ -6839,6 +6846,7 @@
         "care": "Pflege",
         "soil": "Boden",
         "history": "Historie",
+        "photos": "Fotos",
         "details": "Stammdaten"
       },
       "header": {
@@ -7492,6 +7500,37 @@
           },
           "summary": "{{name}}: Standort {{fit}}"
         }
+      },
+      "photos": {
+        "title": "Fotos des Beets",
+        "intro": "Halte fest, wie sich dein Beet über die Saison entwickelt. Das Titelfoto erscheint im Kopf des Beets und im Feldmodus.",
+        "add": "Foto hinzufügen",
+        "addFirst": "Erstes Foto hinzufügen",
+        "uploadTitle": "Foto zu {{bed}} hinzufügen",
+        "added": "Foto zum Beet hinzugefügt.",
+        "emptyTitle": "Noch keine Fotos vom Beet",
+        "emptyDescriptionWrite": "Fotografiere dein Beet, um seine Entwicklung festzuhalten. Das erste Foto wird automatisch zum Titelfoto.",
+        "emptyDescriptionRead": "Sobald jemand aus deinem Garten ein Foto vom Beet hinzufügt, siehst du es hier.",
+        "loadError": "Die Fotos des Beets konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
+        "listLabel": "Fotos von {{bed}}",
+        "count_one": "{{count}} von höchstens {{max}} Fotos",
+        "count_other": "{{count}} von höchstens {{max}} Fotos",
+        "limitReached": "Dieses Beet hat die Höchstzahl von {{max}} Fotos erreicht. Entferne zuerst ein Foto, bevor du ein neues hinzufügst.",
+        "quotaExceeded": "Der Fotospeicher deines Gartens ist voll. Entferne alte Fotos, um Platz für neue zu schaffen.",
+        "uploadForbidden": "Du darfst diesem Beet keine Fotos hinzufügen. Dafür brauchst du mindestens die Rolle Gärtner.",
+        "open": "Foto vom {{date}} in voller Größe öffnen",
+        "fullAlt": "Foto von {{bed}} in voller Größe",
+        "cover": "Titelfoto",
+        "coverAlt": "Titelfoto von {{bed}}",
+        "setCover": "Als Titelfoto verwenden",
+        "clearCover": "Nicht mehr als Titelfoto verwenden",
+        "coverToggle": "Titelfoto",
+        "coverSet": "Titelfoto gesetzt.",
+        "coverCleared": "Das Beet hat jetzt kein Titelfoto mehr.",
+        "remove": "Foto entfernen",
+        "removeTitle": "Foto vom Beet entfernen?",
+        "removeMessage": "Das Foto verschwindet aus der Galerie des Beets. Wird es nirgends sonst verwendet, wird es endgültig gelöscht – das lässt sich nicht rückgängig machen.",
+        "removed": "Foto entfernt."
       }
     },
     "rotationMatrix": {

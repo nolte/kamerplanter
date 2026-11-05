@@ -15,9 +15,6 @@ vi.mock('@/api/client', () => ({
   __esModule: true,
   default: mocks.client,
   tenantClient: mocks.client,
-  // `taskPhotoUri` reads the active slug to rebuild an attachment URI from a
-  // stored id, so the double has to answer it (#1339 review).
-  getActiveTenantSlug: () => 'mein-garten',
 }));
 
 import * as tasks from '@/api/endpoints/tasks';
@@ -269,14 +266,6 @@ describe('tasks endpoints — tasks CRUD', () => {
     expect((body as FormData).get('file')).toBe(file);
     expect(opts).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } });
     expect(result.attachment_id).toBe('att-1');
-  });
-
-  it('taskPhotoUri builds the attachment URI from the id and the active slug', () => {
-    // `photo_refs` stores bare ids (NFR-013 §2.2 / AC-09); the URI is rebuilt at
-    // render time, which is what survives a tenant rename.
-    expect(tasks.taskPhotoUri('att-1')).toMatch(/\/attachments\/att-1$/);
-    expect(tasks.taskPhotoUri('att-1', 512)).toMatch(/\/attachments\/att-1\/thumbnails\/512$/);
-    expect(tasks.taskPhotoUri('att-1')).toBe('/api/v1/t/mein-garten/attachments/att-1');
   });
 
   it('startTask posts to start endpoint', async () => {

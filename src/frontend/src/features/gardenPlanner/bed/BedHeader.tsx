@@ -2,7 +2,8 @@
  * The head of the bed view (REQ-053 GP-FR-047, GP-FR-077): area, type, status, soil, sun, active
  * plants, open tasks, last care, next due date, assignment and the previous year; the drainage only while it
  * is known. It reads the summary only and owns no state. A bed wider than its access reaches gets the
- * `bed.reach_too_wide` hint (GP-FR-166): a badge, never an error, shown only while it applies.
+ * `bed.reach_too_wide` hint (GP-FR-166): a badge, never an error, shown only while it applies. The cover photo
+ * (GP-FR-051) leads the head while the bed has one: full width on a phone, beside the facts from `sm`.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,7 @@ import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import { assessReach, type ReachAccess } from '../model/reach';
 import { DEFAULT_REACH_THRESHOLDS, reachOptions } from '../model/siteThresholds';
 import type { ReachThresholds } from '@/api/types';
+import BedCoverPhoto from './BedCoverPhoto';
 import type { BedAssignee, BedSummary } from './types';
 import { BED_STATUS_COLOR, formatBedDate, isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
 
@@ -104,146 +106,157 @@ export default function BedHeader({
   return (
     <Card variant="outlined" data-testid="bed-header" component="section" aria-label={t('pages.bed.header.title')}>
       <CardContent>
-        <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-            gap: 2,
-            alignItems: 'start',
-          }}>
-          <Fact label={t('pages.bed.header.area')} testId="bed-header-area">
-            {area} m²
-          </Fact>
-          <Fact label={t('pages.bed.header.type')} testId="bed-header-type">
-            {typeName || notSet}
-          </Fact>
-          <Fact label={t('pages.bed.header.status')} testId="bed-header-status">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Chip
-                size="small"
-                color={BED_STATUS_COLOR[summary.bed_status]}
-                label={t(`enums.bedStatus.${summary.bed_status}`)}
-              />
-              {onChangeStatus && (
-                <Button
-                  size="small"
-                  startIcon={<SwapHorizIcon />}
-                  onClick={onChangeStatus}
-                  data-testid="bed-status-change-button"
-                  sx={{ minHeight: 44 }}
-                >
-                  {t('pages.bed.header.changeStatus')}
-                </Button>
-              )}
-            </Box>
-            {rotationReasons.length > 0 && (
-              <Box sx={{ mt: 0.5 }} data-testid="bed-rotation-badge">
-                <Chip size="small" color="warning" label={t('pages.bed.header.rotationHint')} />
-                <Typography variant="caption" color="text.secondary" component="div">
-                  {t('pages.bed.header.rotationReason', { reason: rotationReasons[0] })}
-                </Typography>
-              </Box>
-            )}
-          </Fact>
-          <Fact label={t('pages.bed.header.soil')} testId="bed-header-soil">
-            {soil && soil.soil_texture !== 'unknown' ? t(`enums.soilTexture.${soil.soil_texture}`) : notSet}
-          </Fact>
-          {soil && soil.drainage !== 'unknown' && (
-            <Fact label={t('pages.bed.soil.drainage')} testId="bed-header-drainage">
-              {t(`enums.soilDrainage.${soil.drainage}`)}
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, alignItems: 'flex-start' }}>
+          <BedCoverPhoto
+            coverPhotoRef={summary.cover_photo_ref}
+            bedName={summary.name}
+            sx={{ width: { xs: '100%', sm: 200 }, height: { xs: 180, sm: 150 } }}
+            testId="bed-header-cover"
+          />
+          <Box sx={{
+              flex: 1,
+              minWidth: 0,
+              width: '100%',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gap: 2,
+              alignItems: 'start',
+            }}>
+            <Fact label={t('pages.bed.header.area')} testId="bed-header-area">
+              {area} m²
             </Fact>
-          )}
-          <Fact label={t('pages.bed.header.sun')} testId="bed-header-sun">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              {summary.sun_exposure !== 'unknown' ? t(`enums.sunExposure.${summary.sun_exposure}`) : notSet}
-              {onChangeSun && (
-                <Button
-                  size="small"
-                  startIcon={<WbSunnyOutlinedIcon />}
-                  onClick={onChangeSun}
-                  data-testid="bed-sun-change-button"
-                  sx={{ minHeight: 44 }}
-                >
-                  {t('pages.bed.header.changeSun')}
-                </Button>
-              )}
-            </Box>
-            {sunLine && (
-              <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-header-sun-profile">
-                {sunLine}
-              </Typography>
-            )}
-          </Fact>
-          {(siteLine || onChangeSite) && (
-            <Fact label={t('pages.bed.header.site')} testId="bed-header-site">
+            <Fact label={t('pages.bed.header.type')} testId="bed-header-type">
+              {typeName || notSet}
+            </Fact>
+            <Fact label={t('pages.bed.header.status')} testId="bed-header-status">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                {siteLine ?? notSet}
-                {onChangeSite && (
+                <Chip
+                  size="small"
+                  color={BED_STATUS_COLOR[summary.bed_status]}
+                  label={t(`enums.bedStatus.${summary.bed_status}`)}
+                />
+                {onChangeStatus && (
                   <Button
                     size="small"
-                    startIcon={<TerrainOutlinedIcon />}
-                    onClick={onChangeSite}
-                    data-testid="bed-site-change-button"
+                    startIcon={<SwapHorizIcon />}
+                    onClick={onChangeStatus}
+                    data-testid="bed-status-change-button"
                     sx={{ minHeight: 44 }}
                   >
-                    {t('pages.bed.header.changeSite')}
+                    {t('pages.bed.header.changeStatus')}
                   </Button>
                 )}
               </Box>
+              {rotationReasons.length > 0 && (
+                <Box sx={{ mt: 0.5 }} data-testid="bed-rotation-badge">
+                  <Chip size="small" color="warning" label={t('pages.bed.header.rotationHint')} />
+                  <Typography variant="caption" color="text.secondary" component="div">
+                    {t('pages.bed.header.rotationReason', { reason: rotationReasons[0] })}
+                  </Typography>
+                </Box>
+              )}
             </Fact>
-          )}
-          {reach.hint && (
-            <Fact label={t('pages.bed.header.reach')} testId="bed-header-reach">
-              <Chip
-                size="small"
-                color="warning"
-                variant="outlined"
-                label={t('pages.bed.header.reachHint')}
-                data-testid="bed-reach-badge"
-              />
-              <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-reach-detail">
-                {t(REACH_DETAIL_KEY[reach.access], reachNumbers)}
-              </Typography>
+            <Fact label={t('pages.bed.header.soil')} testId="bed-header-soil">
+              {soil && soil.soil_texture !== 'unknown' ? t(`enums.soilTexture.${soil.soil_texture}`) : notSet}
             </Fact>
-          )}
-          <Fact label={t('pages.bed.header.plants')} testId="bed-header-plants">
-            {t('pages.bed.header.plantCount', { count: summary.active_plant_count })}
-            {summary.species_keys.length > 0 && (
-              <Typography variant="caption" color="text.secondary" component="div">
-                {t('pages.bed.header.speciesCount', { count: summary.species_keys.length })}
-              </Typography>
+            {soil && soil.drainage !== 'unknown' && (
+              <Fact label={t('pages.bed.soil.drainage')} testId="bed-header-drainage">
+                {t(`enums.soilDrainage.${soil.drainage}`)}
+              </Fact>
             )}
-          </Fact>
-          <Fact label={t('pages.bed.header.openTasks')} testId="bed-header-tasks">
-            {t('pages.bed.header.taskCount', { count: summary.open_task_count })}
-            {summary.overdue_task_count > 0 && (
-              <Typography variant="caption" color="error" component="div">
-                {t('pages.bed.header.overdueCount', { count: summary.overdue_task_count })}
-              </Typography>
-            )}
-          </Fact>
-          <Fact label={t('pages.bed.header.lastCare')} testId="bed-header-last-care">
-            {lastCare ?? t('pages.bed.header.never')}
-          </Fact>
-          <Fact label={t('pages.bed.header.nextDue')} testId="bed-header-next-due">
-            {nextDue ? (
-              <Typography component="span" color={overdue ? 'error' : 'inherit'}>
-                {nextDue}
-              </Typography>
-            ) : (
-              t('pages.bed.header.none')
-            )}
-          </Fact>
-          <Fact label={t('pages.bed.header.assigned')} testId="bed-header-assigned">
-            {assignees.length > 0 ? (
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                {assignees.map((person) => (
-                  <Chip key={person.membershipKey} size="small" variant="outlined" label={person.displayName} />
-                ))}
+            <Fact label={t('pages.bed.header.sun')} testId="bed-header-sun">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                {summary.sun_exposure !== 'unknown' ? t(`enums.sunExposure.${summary.sun_exposure}`) : notSet}
+                {onChangeSun && (
+                  <Button
+                    size="small"
+                    startIcon={<WbSunnyOutlinedIcon />}
+                    onClick={onChangeSun}
+                    data-testid="bed-sun-change-button"
+                    sx={{ minHeight: 44 }}
+                  >
+                    {t('pages.bed.header.changeSun')}
+                  </Button>
+                )}
               </Box>
-            ) : (
-              t('pages.bed.header.nobody')
+              {sunLine && (
+                <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-header-sun-profile">
+                  {sunLine}
+                </Typography>
+              )}
+            </Fact>
+            {(siteLine || onChangeSite) && (
+              <Fact label={t('pages.bed.header.site')} testId="bed-header-site">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  {siteLine ?? notSet}
+                  {onChangeSite && (
+                    <Button
+                      size="small"
+                      startIcon={<TerrainOutlinedIcon />}
+                      onClick={onChangeSite}
+                      data-testid="bed-site-change-button"
+                      sx={{ minHeight: 44 }}
+                    >
+                      {t('pages.bed.header.changeSite')}
+                    </Button>
+                  )}
+                </Box>
+              </Fact>
             )}
-          </Fact>
+            {reach.hint && (
+              <Fact label={t('pages.bed.header.reach')} testId="bed-header-reach">
+                <Chip
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  label={t('pages.bed.header.reachHint')}
+                  data-testid="bed-reach-badge"
+                />
+                <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-reach-detail">
+                  {t(REACH_DETAIL_KEY[reach.access], reachNumbers)}
+                </Typography>
+              </Fact>
+            )}
+            <Fact label={t('pages.bed.header.plants')} testId="bed-header-plants">
+              {t('pages.bed.header.plantCount', { count: summary.active_plant_count })}
+              {summary.species_keys.length > 0 && (
+                <Typography variant="caption" color="text.secondary" component="div">
+                  {t('pages.bed.header.speciesCount', { count: summary.species_keys.length })}
+                </Typography>
+              )}
+            </Fact>
+            <Fact label={t('pages.bed.header.openTasks')} testId="bed-header-tasks">
+              {t('pages.bed.header.taskCount', { count: summary.open_task_count })}
+              {summary.overdue_task_count > 0 && (
+                <Typography variant="caption" color="error" component="div">
+                  {t('pages.bed.header.overdueCount', { count: summary.overdue_task_count })}
+                </Typography>
+              )}
+            </Fact>
+            <Fact label={t('pages.bed.header.lastCare')} testId="bed-header-last-care">
+              {lastCare ?? t('pages.bed.header.never')}
+            </Fact>
+            <Fact label={t('pages.bed.header.nextDue')} testId="bed-header-next-due">
+              {nextDue ? (
+                <Typography component="span" color={overdue ? 'error' : 'inherit'}>
+                  {nextDue}
+                </Typography>
+              ) : (
+                t('pages.bed.header.none')
+              )}
+            </Fact>
+            <Fact label={t('pages.bed.header.assigned')} testId="bed-header-assigned">
+              {assignees.length > 0 ? (
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {assignees.map((person) => (
+                    <Chip key={person.membershipKey} size="small" variant="outlined" label={person.displayName} />
+                  ))}
+                </Box>
+              ) : (
+                t('pages.bed.header.nobody')
+              )}
+            </Fact>
+          </Box>
         </Box>
 
         <Box

@@ -10,7 +10,7 @@ import { http, HttpResponse } from 'msw';
 import { Provider } from 'react-redux';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import GardenPlanRoute from '@/features/gardenPlanner/routes/GardenPlanRoute';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
@@ -27,6 +27,19 @@ import { normalizePlan } from '../model/planModel';
 import type { PlantStateWire } from '../planting/plantStateApi';
 import { fitViewport, planContentBounds } from '../routes/fitViewport';
 import { FIELD_PREFS_KEY, readFieldPrefs } from './fieldPrefs';
+
+// The capture panel relies on canvas/getUserMedia (not in jsdom): a button that hands a file to the dialog.
+vi.mock('@/components/identification/ImageCapturePanel', () => ({
+  default: ({ onImageReady }: { onImageReady: (file: File, url: string) => void }) => (
+    <button
+      type="button"
+      data-testid="mock-pick-image"
+      onClick={() => onImageReady(new File([new Uint8Array([1, 2, 3])], 'bed.jpg', { type: 'image/jpeg' }), 'blob:preview')}
+    >
+      pick
+    </button>
+  ),
+}));
 
 const PAST = '2020-01-01T00:00:00Z';
 const FUTURE = '2099-01-01T00:00:00Z';
@@ -358,6 +371,58 @@ describe('bed sheet', () => {
     expect(within(dialog).getByTestId('plant-photo-upload-close')).toHaveStyle({ width: `${KIOSK_TOUCH_TARGET}px` });
   });
 
+  it('takes a photo of the bed: 64 px action, kiosk dialog, upload as location and link to the bed (GP-FR-051)', async () => {
+    useFieldBackend();
+    const writes: { path: string; body: unknown }[] = [];
+    server.use(
+      http.post(`${BASE}/attachments`, async ({ request }) => {
+        writes.push({ path: 'attachments', body: /name="category"\r?\n\r?\nlocation/.test(await request.text()) });
+        return HttpResponse.json({ attachment_id: 'p_new' }, { status: 201 });
+      }),
+      http.post(`${BASE}/locations/:key/photos`, async ({ params, request }) => {
+        writes.push({ path: `locations/${String(params.key)}/photos`, body: await request.json() });
+        return HttpResponse.json(
+          { location_key: params.key, cover_photo_ref: 'p_new', photos: [], max_photos: 50 },
+          { status: 201 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const action = within(sheet).getByTestId('field-bed-photo');
+    expect(action).toHaveAccessibleName('Take a photo of the bed Raised bed 1');
+    expect(action).toHaveStyle({ minHeight: `${KIOSK_TOUCH_TARGET}px`, minWidth: `${KIOSK_TOUCH_TARGET}px` });
+    await user.click(action);
+    const dialog = await screen.findByTestId('plant-photo-upload-dialog');
+    expect(within(dialog).getByText('Add a photo to Raised bed 1')).toBeInTheDocument();
+    for (const id of ['plant-photo-upload-cancel', 'plant-photo-upload-confirm']) {
+      expect(within(dialog).getByTestId(id)).toHaveStyle({ minHeight: `${KIOSK_TOUCH_TARGET}px` });
+    }
+    expect(within(dialog).getByTestId('plant-photo-upload-close')).toHaveStyle({ width: `${KIOSK_TOUCH_TARGET}px` });
+    await user.click(within(dialog).getByTestId('mock-pick-image'));
+    await user.click(within(dialog).getByTestId('plant-photo-upload-confirm'));
+    expect(await screen.findByText('Photo saved to Raised bed 1.')).toBeInTheDocument();
+    expect(writes).toEqual([
+      { path: 'attachments', body: true },
+      { path: 'locations/loc_a/photos', body: { attachment_id: 'p_new' } },
+    ]);
+  });
+
+  it('shows the cover photo beside the bed name and locks the bed photo while offline', async () => {
+    useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1', cover_photo_ref: 'p_cover' })] });
+    server.use(
+      http.get(`${BASE}/attachments/:id/thumbnails/:px`, () =>
+        HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, { headers: { 'Content-Type': 'image/jpeg' } }),
+      ),
+    );
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    expect(await within(sheet).findByTestId('field-sheet-cover-image')).toHaveAttribute('alt', 'Cover photo of Raised bed 1');
+    setOnline(false);
+    await waitFor(() => expect(within(sheet).getByTestId('field-bed-photo')).toBeDisabled());
+  });
+
   it('shows plants by species, count and phase and moves a plant by 10 cm with the stepper', async () => {
     const { backend } = useFieldBackend();
     let patched: unknown = null;
@@ -426,6 +491,7 @@ describe('bed sheet', () => {
     expect(await within(sheet).findByTestId('field-task-t_water')).toBeInTheDocument();
     expect(within(sheet).queryByTestId('field-done-t_water')).toBeNull();
     expect(within(sheet).queryByTestId('field-quick-protocol')).toBeNull();
+    expect(within(sheet).queryByTestId('field-bed-photo')).toBeNull();
   });
 
   it('closes with its 64 px close button', async () => {

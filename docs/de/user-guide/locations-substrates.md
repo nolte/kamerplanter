@@ -296,7 +296,7 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 
 ### Übersicht oberhalb der Tabs
 
-Über den Tabs siehst du auf einen Blick: Fläche, Typ, Status, Bodentyp, Sonnenexposition, aktive Pflanzen, offene Aufgaben, letzte Pflege, nächste Fälligkeit und wer für das Beet zuständig ist. Mit der **Saison-Auswahl** wechselst du das Jahr; es steht in der Adresse als `?year=`.
+Über den Tabs siehst du auf einen Blick: Fläche, Typ, Status, Bodentyp, Sonnenexposition, aktive Pflanzen, offene Aufgaben, letzte Pflege, nächste Fälligkeit und wer für das Beet zuständig ist. Hat das Beet ein Titelfoto, steht es vorne in der Übersicht (siehe [Fotos des Beets](#fotos-des-beets)). Mit der **Saison-Auswahl** wechselst du das Jahr; es steht in der Adresse als `?year=`.
 
 !!! warning "Noch nicht implementiert"
     Die Anzeige der Vorjahreskultur in der Übersicht ist noch nicht umgesetzt. Bis dahin zeigt Kamerplanter dort eine Platzhalterzeile. Auch **Beet räumen** wird erst in einer späteren Version verfügbar sein.
@@ -312,6 +312,7 @@ Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Link
 | Pflanzung | Geplante und stehende Pflanzen des Beets, die Schaltfläche **Bepflanzen** und die Aktionen an einer Pflanze (siehe [Beet bepflanzen](#beet-bepflanzen)). |
 | Historie | Zeitstrahl, was in den Jahren zuvor im Beet stand, und die Liste aller Pflegeeinträge und Pflanzungen (siehe [Historie des Beets](#historie-des-beets)). |
 | Boden | Bodenprofil des Beets (siehe unten). |
+| Fotos | Die Fotos des Beets mit Titelfoto (siehe [Fotos des Beets](#fotos-des-beets)). |
 | Stammdaten | Die bisherige Standortseite, unverändert. |
 
 ### Beet bepflanzen {#beet-bepflanzen}
@@ -465,6 +466,17 @@ Den Schalter für die Prüfung findest du je Beet im Tab **Boden** (siehe [Fruch
 **Als CSV exportieren.** Über **CSV exportieren** am Tab **Historie** und auf der Seite **Historie aller Beete** lädst du die Pflegeeinträge herunter, die der aktuelle Filter zeigt (bis zu 50 000). Zur Wahl stehen **CSV (Komma)** und **CSV für Excel (Semikolon)**. Die Datei enthält Anzeigenamen statt Konten, und Texte, die wie eine Formel aussehen, sind entschärft. Für den Export gelten dieselben Rollenregeln wie für die Liste. Bei mehr als 50 000 Einträgen grenzt du erst nach Beet, Pflanze, Kategorie oder Zeitraum ein.
 
  Über **Historie aller Beete** öffnest du die Pflegehistorie des ganzen Mandanten unter `/standorte/historie`. Sie zeigt die letzten 90 Tage, solange du keinen anderen Zeitraum wählst, und kennt dieselben Filter plus **Beet**. Die Pflanze lässt sich wählen, sobald ein Beet gewählt ist.
+
+### Fotos des Beets {#fotos-des-beets}
+
+Im Tab **Fotos** hältst du fest, wie sich dein Beet über die Saison entwickelt. Die Fotos stehen mit dem neuesten zuerst, jedes mit seinem Datum. Ein Tipp auf ein Foto öffnet es groß; mit den Pfeilen blätterst du weiter.
+
+- **Foto hinzufügen:** Ab der Rolle „grower" nimmst du mit **Foto hinzufügen** ein Bild mit der Kamera auf oder wählst eine Bilddatei. Du siehst eine Vorschau und speicherst mit **Foto speichern**. Kamerplanter entfernt beim Hochladen Standort- und Kameradaten (EXIF) aus dem Bild.
+- **Titelfoto:** Das erste Foto eines Beets wird automatisch sein Titelfoto. Es erscheint in der Übersicht der Beetansicht und im Beet-Blatt des Feldmodus. Mit dem Stern wählst du ein anderes Foto als Titelfoto; ein Tipp auf den Stern des Titelfotos nimmt es wieder zurück, dann hat das Beet kein Titelfoto.
+- **Foto entfernen:** Den Papierkorb siehst du an deinen eigenen Fotos; die Leitung kann jedes Foto entfernen. Nach einer Rückfrage verschwindet das Foto aus der Galerie. Wird es nirgends sonst verwendet, löscht Kamerplanter es endgültig. War es das Titelfoto, wird das neueste verbliebene Foto zum Titelfoto; war es das letzte Foto, hat das Beet keines mehr.
+- **Höchstens 50 Fotos:** Ein Beet hält bis zu 50 Fotos. Ist die Grenze erreicht, ist **Foto hinzufügen** gesperrt, und ein Hinweis bittet dich, zuerst ein Foto zu entfernen.
+
+Mit der Rolle „viewer" siehst du die Fotos nur. Fotos eines Beets gehören zu deinem Garten: Sie stehen im Export des Gartens und werden mit ihm gelöscht, landen aber nie in der JSON-Sicherung des Gartenplans. Auch im Feldmodus kannst du ein Foto direkt dem Beet geben, siehe [Feldmodus im Garten](garden-plan.md#feldmodus-im-garten).
 
 ### Fruchtfolge für ein Beet einstellen {#fruchtfolge-fur-ein-beet-einstellen}
 

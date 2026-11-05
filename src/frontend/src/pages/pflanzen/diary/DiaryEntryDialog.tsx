@@ -35,10 +35,10 @@ import {
   DIARY_ENTRY_TYPES,
   DIARY_MAX_PHOTOS,
   createPlantDiaryEntry,
-  diaryPhotoUri,
   getPlantEnvironmentPreview,
   updatePlantDiaryEntry,
 } from '@/api/endpoints/diary';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import type { DiaryEntryType, PlantDiaryEntry, PlantEnvironmentPreview } from '@/api/types';
 import DiaryPhotoUploadDialog from './DiaryPhotoUploadDialog';
 
@@ -443,7 +443,7 @@ export default function DiaryEntryDialog({
               {photoRefs.map((attachmentId) => (
                 <Card key={attachmentId} variant="outlined" sx={{ position: 'relative' }}>
                   <AuthImage
-                    uri={diaryPhotoUri(attachmentId, 512)}
+                    uri={attachmentUri(attachmentId, 512)}
                     alt={t('pages.plantDiary.photos.thumbAlt')}
                     sx={{ width: '100%', aspectRatio: '1 / 1', bgcolor: 'action.hover' }}
                     data-testid="diary-entry-photo-preview"

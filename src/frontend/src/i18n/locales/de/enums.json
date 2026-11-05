@@ -26,6 +26,21 @@
       "mqtt": "MQTT",
       "manual": "Manuell"
     },
+    "attachmentCategory": {
+      "diary": "Tagebuch",
+      "ipm": "Pflanzenschutz",
+      "harvest": "Ernte",
+      "post_harvest": "Nachernte",
+      "task": "Aufgabe",
+      "import": "Import",
+      "export": "Export",
+      "id_recognition": "Pflanzenerkennung",
+      "tenant_export": "Garten-Export",
+      "plant": "Pflanzenfoto",
+      "pest_reference": "Schädlings-Referenzbild",
+      "garden_plan_underlay": "Unterlage des Gartenplans",
+      "location": "Beetfoto"
+    },
     "equipmentType": {
       "tool": "Werkzeug",
       "consumable": "Verbrauchsmaterial",

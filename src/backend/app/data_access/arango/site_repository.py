@@ -104,6 +104,8 @@ class _SiteDeleteScope:
     dependent_ids: dict[str, list[str]]
     #: The underlay picture of the site plan (REQ-053 GP-FR-033): not removed here, reported to the caller (#2545).
     underlay_attachment_key: str | None = None
+    #: The photos of the locations (REQ-053 GP-FR-051, WP 8.18): not removed here, reported to the caller.
+    location_photo_refs: tuple[str, ...] = ()
 
 
 def _key_of(doc_id: str) -> str:
@@ -273,7 +275,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             txn.check_budget()
             self._write_site_delete_audit(txn, key, scope, user_key)
             txn.collection(col.SITES).delete(key)
-        return SiteDeletion(underlay_attachment_key=scope.underlay_attachment_key)
+        return SiteDeletion(
+            underlay_attachment_key=scope.underlay_attachment_key, location_photo_refs=scope.location_photo_refs
+        )
 
     def _collect_site_delete_scope(self, txn: StreamTransaction, key: SiteKey, tenant_key: str) -> _SiteDeleteScope:
         rows = list(
@@ -284,6 +288,12 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         if not rows:
             raise NotFoundError("Site", key)
         location_ids = self._location_ids_of_site(txn, key)
+        photo_refs: list[list[str] | None] = list(
+            txn.aql.execute(
+                "FOR l IN @@locations FILTER l._id IN @ids RETURN l.photo_refs",
+                bind_vars={"@locations": col.LOCATIONS, "ids": location_ids},
+            )
+        )
         dependent_ids = {
             name: [
                 str(doc_id)
@@ -303,6 +313,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             object_ids=self._object_ids_of_site(txn, key),
             dependent_ids=dependent_ids,
             underlay_attachment_key=rows[0].get("underlay_attachment_key"),
+            location_photo_refs=tuple({str(ref): None for refs in photo_refs for ref in (refs or [])}),
         )
 
     @staticmethod

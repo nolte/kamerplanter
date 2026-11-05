@@ -12,7 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import AuthImage from '@/components/common/AuthImage';
-import { diaryPhotoUri } from '@/api/endpoints/diary';
+import { attachmentUri } from '@/api/endpoints/attachments';
 
 interface DiaryPhotoLightboxProps {
   /** All attachment ids of the entry, so the viewer can page through them. */
@@ -21,6 +21,8 @@ interface DiaryPhotoLightboxProps {
   index: number | null;
   onClose: () => void;
   onNavigate: (index: number) => void;
+  /** Alternative text of the shown photo; defaults to the diary wording. The garden plan's bed gallery names the bed. */
+  alt?: string;
 }
 
 /**
@@ -43,6 +45,7 @@ export default function DiaryPhotoLightbox({
   index,
   onClose,
   onNavigate,
+  alt,
 }: DiaryPhotoLightboxProps) {
   const { t } = useTranslation();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -98,8 +101,8 @@ export default function DiaryPhotoLightbox({
           </IconButton>
           {attachmentId && (
             <AuthImage
-              uri={diaryPhotoUri(attachmentId, 1280)}
-              alt={t('pages.plantDiary.photos.fullAlt')}
+              uri={attachmentUri(attachmentId, 1280)}
+              alt={alt ?? t('pages.plantDiary.photos.fullAlt')}
               objectFit="contain"
               height="auto"
               sx={{ flex: 1, maxHeight: { xs: '60vh', sm: '70vh' }, minWidth: 0 }}

@@ -26,6 +26,21 @@
       "mqtt": "MQTT",
       "manual": "Manual"
     },
+    "attachmentCategory": {
+      "diary": "Diary",
+      "ipm": "Plant protection",
+      "harvest": "Harvest",
+      "post_harvest": "Post-harvest",
+      "task": "Task",
+      "import": "Import",
+      "export": "Export",
+      "id_recognition": "Plant identification",
+      "tenant_export": "Garden export",
+      "plant": "Plant photo",
+      "pest_reference": "Pest reference image",
+      "garden_plan_underlay": "Garden plan underlay",
+      "location": "Bed photo"
+    },
     "equipmentType": {
       "tool": "Tool",
       "consumable": "Consumable",

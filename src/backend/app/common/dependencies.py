@@ -31,6 +31,7 @@ from app.data_access.arango.ipm_repository import ArangoIpmRepository
 from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
+from app.data_access.arango.location_photo_repository import ArangoLocationPhotoRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
@@ -115,6 +116,7 @@ from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
 from app.domain.services.irrigation_zone_service import IrrigationZoneService
+from app.domain.services.location_photo_service import LocationPhotoService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
@@ -446,7 +448,13 @@ def get_companion_edge_service() -> CompanionEdgeService:
 
 def get_site_service() -> SiteService:
     # #2545: a site delete discards its plan's underlay picture through the underlay service's rule.
-    return SiteService(get_site_repo(), tank_repo=get_tank_repo(), underlay=get_garden_plan_underlay_service)
+    return SiteService(
+        get_site_repo(),
+        tank_repo=get_tank_repo(),
+        underlay=get_garden_plan_underlay_service,
+        # REQ-053 WP 8.18: the bed photos of a deleted site go with it (unless another carrier names them).
+        photos=get_location_photo_service,
+    )
 
 
 def get_garden_plan_repo() -> ArangoGardenPlanRepository:
@@ -465,6 +473,7 @@ def get_garden_plan_service() -> GardenPlanService:
         get_garden_plan_repo(),
         ArangoIrrigationZoneRepository(get_db()),
         ArangoBedTemplateRepository(get_db()),
+        photos=get_location_photo_service,
     )
 
 
@@ -486,6 +495,19 @@ def get_garden_plan_underlay_service() -> GardenPlanUnderlayService:
     """REQ-053 WP 7.14 — the background picture of a site's plan (set, replace, remove)."""
     return GardenPlanUnderlayService(
         get_site_repo(), get_garden_plan_repo(), get_attachment_repo(), get_attachment_service()
+    )
+
+
+def get_location_photo_service() -> LocationPhotoService:
+    """REQ-053 WP 8.18 — the photos of a bed (list, add, remove, cover; discarded with a deleted bed or site).
+
+    The attachment service is handed over as a provider: only a removal that has a photo to delete builds it.
+    """
+    return LocationPhotoService(
+        get_site_repo(),
+        ArangoLocationPhotoRepository(get_db()),
+        get_attachment_repo(),
+        get_attachment_service,
     )
 
 
@@ -513,6 +535,7 @@ def get_garden_plan_import_service() -> GardenPlanImportService:
         get_garden_plan_service(),
         get_garden_plan_export_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
+        photos=get_location_photo_service,
     )
 
 
@@ -591,6 +614,7 @@ def get_garden_resource_service() -> GardenResourceService:
         ArangoGardenObjectRepository(get_db()),
         get_garden_plan_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
+        photos=get_location_photo_service,
     )
 
 

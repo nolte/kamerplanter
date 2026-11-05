@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.api.mapping import to_response
+from app.api.v1.attachments.schemas import ThumbnailUris
 from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.locations.schemas import (
     BackfillRequest,
@@ -19,9 +20,13 @@ from app.api.v1.locations.schemas import (
     CompanionEdgesResponse,
     CompanionEndpointResponse,
     FrostWarningResponse,
+    LocationCoverRequest,
     LocationCreate,
     LocationPatch,
     LocationPatchResponse,
+    LocationPhotoRequest,
+    LocationPhotoResponse,
+    LocationPhotosResponse,
     LocationResponse,
     LocationStatusRequest,
     NeighbourHintResponse,
@@ -56,6 +61,7 @@ from app.common.dependencies import (
     get_bed_rotation_service,
     get_companion_overlay_service,
     get_garden_resource_service,
+    get_location_photo_service,
     get_plant_state_service,
     get_planting_reservation_service,
     get_planting_run_service,
@@ -75,15 +81,18 @@ from app.common.pagination import PaginationParams, get_pagination
 from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
+from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.interfaces.bed_history_repository import BedHistoryFilter
 from app.domain.models.care_event import CARE_EVENT_CATEGORIES
+from app.domain.models.location_photo import LocationPhoto, LocationPhotoGallery
 from app.domain.models.sensor import Sensor
-from app.domain.models.site import Location
+from app.domain.models.site import MAX_PHOTO_REF_LENGTH, Location
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.companion_overlay_service import CompanionEndpoint, CompanionOverlayService
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.location_photo_service import LocationPhotoService
 from app.domain.services.plant_state_service import PlantStateService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
@@ -275,7 +284,7 @@ def change_location_status(
 
 
 @router.delete("/{key}", status_code=204, responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE})
-def delete_location(
+async def delete_location(
     key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
     service: GardenResourceService = Depends(get_garden_resource_service),
@@ -283,9 +292,133 @@ def delete_location(
     """Delete a location with its slots and everything below it (lead only).
 
     409 ``location.has_active_plants`` with ``details[0].active_plant_count`` while a plant stands in it
-    (V-09, GP-ACC-012); the deletion is audited and raises the site's ``plan_revision``.
+    (V-09, GP-ACC-012); the deletion is audited and raises the site's ``plan_revision``. The bed's photo
+    references go with it; each photo is deleted unless something else still names it (WP 8.18).
     """
-    service.delete_location(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    await service.delete_bed(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+
+
+# ── Bed photos (REQ-053 GP-FR-051, WP 8.18) ─────────────────────────────────────
+
+
+def _photo_response(photo: LocationPhoto, tenant_slug: str) -> LocationPhotoResponse:
+    attachment = photo.attachment
+    attachment_id = attachment.key or ""
+    uri = f"/api/v1/t/{tenant_slug}/attachments/{attachment_id}"
+    thumbnail_uris: ThumbnailUris | None = None
+    if can_render(attachment.mime_type):
+        small, medium, large = THUMBNAIL_SIZES
+        thumbnail_uris = ThumbnailUris(
+            small=f"{uri}/thumbnails/{small}",
+            medium=f"{uri}/thumbnails/{medium}",
+            large=f"{uri}/thumbnails/{large}",
+        )
+    return LocationPhotoResponse(
+        attachment_id=attachment_id,
+        uri=uri,
+        thumbnail_uris=thumbnail_uris,
+        mime_type=attachment.mime_type,
+        byte_size=attachment.byte_size,
+        caption=attachment.caption,
+        taken_on=attachment.taken_on,
+        created_at=attachment.created_at,
+        is_cover=photo.is_cover,
+        can_remove=photo.can_remove,
+    )
+
+
+#: An ArangoDB document key is at most 254 bytes; the photo routes refuse a longer ``key`` before any lookup (SEC-003).
+_MAX_DOCUMENT_KEY_LENGTH = 254
+
+#: The ``key`` path parameter of the bed photo routes.
+BedKeyPath = Annotated[str, Path(description="Document key of the bed.", max_length=_MAX_DOCUMENT_KEY_LENGTH)]
+
+
+def _photos_response(view: LocationPhotoGallery, tenant_slug: str) -> LocationPhotosResponse:
+    return LocationPhotosResponse(
+        location_key=view.location_key,
+        cover_photo_ref=view.cover_photo_ref,
+        photos=[_photo_response(photo, tenant_slug) for photo in view.photos],
+        max_photos=view.max_photos,
+    )
+
+
+@router.get("/{key}/photos", response_model=LocationPhotosResponse)
+def list_location_photos(
+    key: BedKeyPath,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: LocationPhotoService = Depends(get_location_photo_service),
+) -> LocationPhotosResponse:
+    """The bed's photos, newest first, with the cover marked and `can_remove` for the caller (every member reads).
+
+    At most `max_photos` (50) photos; a reference whose attachment is gone is skipped.
+    """
+    view = service.list_photos(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    return _photos_response(view, ctx.tenant_slug)
+
+
+@router.post(
+    "/{key}/photos",
+    response_model=LocationPhotosResponse,
+    status_code=201,
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+def add_location_photo(
+    key: BedKeyPath,
+    body: LocationPhotoRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: LocationPhotoService = Depends(get_location_photo_service),
+) -> LocationPhotosResponse:
+    """Link an uploaded `location` photo to the bed, newest first (from `grower`); the first one becomes the cover.
+
+    Upload the file first through `POST /attachments` with `category=location` (EXIF/GPS is stripped there).
+    422 `reference.not_found` for an attachment that is not the caller's own bed photo; 422
+    `location.photo_limit_reached` at 50 photos. Linking a photo the bed already shows changes nothing.
+    """
+    view = service.add_photo(key, body.attachment_id, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    return _photos_response(view, ctx.tenant_slug)
+
+
+@router.put(
+    "/{key}/photos/cover",
+    response_model=LocationPhotosResponse,
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+def set_location_cover_photo(
+    key: BedKeyPath,
+    body: LocationCoverRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: LocationPhotoService = Depends(get_location_photo_service),
+) -> LocationPhotosResponse:
+    """Choose the bed's cover photo from its photos, or clear it with `null` (from `grower`).
+
+    422 `location.cover_not_a_photo` for an id that is not one of the bed's photos.
+    """
+    view = service.set_cover(key, body.attachment_id, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    return _photos_response(view, ctx.tenant_slug)
+
+
+@router.delete(
+    "/{key}/photos/{attachment_id}",
+    response_model=LocationPhotosResponse,
+    responses={**FORBIDDEN_RESPONSE},
+)
+async def remove_location_photo(
+    key: BedKeyPath,
+    attachment_id: Annotated[str, Path(description="The photo's attachment id.", max_length=MAX_PHOTO_REF_LENGTH)],
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: LocationPhotoService = Depends(get_location_photo_service),
+) -> LocationPhotosResponse:
+    """Remove a photo from the bed (own upload from `grower`, another member's as `lead`); 404 if the bed lacks it.
+
+    When it was the cover, the newest remaining photo becomes the cover (none when it was the last). The attachment
+    is deleted unless another bed, gallery, task or care event still names it, and its stored object only when no
+    other record holds it.
+    """
+    view = await service.remove_photo(
+        key, attachment_id, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role
+    )
+    return _photos_response(view, ctx.tenant_slug)
 
 
 @router.post(

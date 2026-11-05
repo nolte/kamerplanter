@@ -983,6 +983,12 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ("ArangoAttachmentRepository", "find_orphaned_task_photos"): Exclusion(
         "system", "the orphaned task-photo sweep of the storage Celery task (#1393)"
     ),
+    ("ArangoAttachmentRepository", "find_orphaned_photos"): Exclusion(
+        "system",
+        "the installation-wide orphan sweeps of the storage Celery tasks, by category: task (#1393) and location "
+        "(never-linked bed photos, #2661); each row is deleted through the tenant-scoped AttachmentService "
+        "under its own tenant_key",
+    ),
     ("ArangoAttachmentRepository", "held_storage_keys"): Exclusion(
         "system",
         "the installation-wide object reconciliation (#1834) asks whether ANY record holds a key; "
@@ -990,6 +996,9 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ),
     ("ArangoAttachmentRepository", "count_undated_orphaned_task_photos"): Exclusion(
         "system", "held-count of the same installation-wide orphan sweep (#1806 GDPR-003)"
+    ),
+    ("ArangoAttachmentRepository", "count_undated_orphaned_photos"): Exclusion(
+        "system", "held-count of the same installation-wide orphan sweeps, by category (#1806 GDPR-003, #2661)"
     ),
     ("ArangoAiAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide ai_audit_log retention task (#1806 GDPR-003)"

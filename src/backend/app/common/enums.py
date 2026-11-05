@@ -1528,6 +1528,10 @@ class AttachmentCategory(StrEnum):
     # One per site; never part of the plan's JSON export. An aerial view can reveal where someone lives,
     # so the EXIF strip applies and the erasure treats it like the other tenant-record photos.
     GARDEN_PLAN_UNDERLAY = "garden_plan_underlay"
+    # REQ-053 GP-FR-051 (WP 8.18) - the photos of a bed (``Location.photo_refs``, ``cover_photo_ref``). A garden photo
+    # can show people or a home, so the EXIF strip applies and the erasure treats it like the other tenant-record
+    # photos; never part of the plan's JSON export.
+    LOCATION = "location"
 
 
 class PestImageStatus(StrEnum):

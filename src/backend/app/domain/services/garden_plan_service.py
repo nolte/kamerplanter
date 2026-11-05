@@ -25,6 +25,7 @@ codes — never a name, a label, a note or a payload.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from time import monotonic
@@ -111,6 +112,7 @@ from app.domain.models.geometry import (
 )
 from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot
 from app.domain.services.location_ownership import require_owned_site
+from app.domain.services.location_photo_service import LocationPhotoDiscard, release_location_photos
 from app.domain.services.site_service import place_in_tree
 
 logger = structlog.get_logger()
@@ -277,9 +279,13 @@ class GardenPlanService:
         plan_repo: IGardenPlanRepository,
         zone_repo: IIrrigationZoneRepository | None = None,
         template_repo: IBedTemplateRepository | None = None,
+        *,
+        photos: Callable[[], LocationPhotoDiscard] | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
+        #: WP 8.18: the photos of beds a batch deletes are discarded after the commit (:meth:`apply_batch_async`).
+        self._photos = photos
         #: ``None`` = a caller that never asks for ``include=zones`` (the read model then carries no zones).
         self._zones = zone_repo
         #: ``None`` = a caller that never places a template; no template key is then visible (WP 7.9).
@@ -507,6 +513,35 @@ class GardenPlanService:
             started=started,
             structure=(locations, objects),
         )
+
+    async def apply_batch_async(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        expected_revision: int | None,
+        operations: list[Any],
+        body_bytes: int,
+    ) -> PlanBatchResult:
+        """:meth:`apply_batch` off the event loop, then the photos of the beds it deleted are discarded (WP 8.18).
+
+        A photo goes only when nothing else names it (another bed, a gallery, a task …) and its stored object only
+        when no other record holds it; a failure there is logged, the committed batch still answers.
+        """
+        result = await asyncio.to_thread(
+            self.apply_batch,
+            site_key,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            expected_revision=expected_revision,
+            operations=operations,
+            body_bytes=body_bytes,
+        )
+        await release_location_photos(self._photos, result.released_photo_refs, tenant_key=tenant_key)
+        return result
 
     # ── §21.7: place a bed template ──────────────────────────────────────────
 
@@ -748,6 +783,7 @@ class GardenPlanService:
             logger.warning("garden_plan.revision_conflict", site_key=site_key)
             raise
         result = self._result(work, write, outcome.plan_revision, outcome.key_map)
+        result.released_photo_refs = list(outcome.released_photo_refs)
         logger.info(
             "garden_plan.batch_applied",
             site_key=site_key,

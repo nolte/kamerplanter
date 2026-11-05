@@ -20,13 +20,15 @@ missing rendition queued a full decode; the guard
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 from PIL import UnidentifiedImageError
 
 from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.common.enums import AttachmentCategory
 from app.common.exceptions import ImagePixelLimitError
 from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
@@ -279,12 +281,41 @@ def migrate_photo_refs(self, *, dry_run: bool = True) -> dict:  # type: ignore[n
 
 
 async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> dict:
-    from app.common.dependencies import get_attachment_repo, get_attachment_service
-    from app.common.held_count import held_undated_count
+    from app.common.dependencies import get_attachment_repo
 
     cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
     attachment_repo = get_attachment_repo()
-    orphans = attachment_repo.find_orphaned_task_photos(older_than=cutoff, limit=limit)
+    return await _delete_orphans(
+        attachment_repo.find_orphaned_task_photos(older_than=cutoff, limit=limit),
+        attachment_repo.count_undated_orphaned_task_photos,
+        cutoff=cutoff,
+        task="cleanup_orphaned_task_photos",
+    )
+
+
+async def _cleanup_orphaned_location_photos(older_than_hours: int, limit: int) -> dict[str, Any]:
+    from app.common.dependencies import get_attachment_repo
+
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    attachment_repo = get_attachment_repo()
+    return await _delete_orphans(
+        attachment_repo.find_orphaned_photos(AttachmentCategory.LOCATION, older_than=cutoff, limit=limit),
+        lambda: attachment_repo.count_undated_orphaned_photos(AttachmentCategory.LOCATION),
+        cutoff=cutoff,
+        task="cleanup_orphaned_location_photos",
+    )
+
+
+async def _delete_orphans(
+    orphans: list[Attachment], count_undated: Callable[[], int], *, cutoff: datetime, task: str
+) -> dict[str, Any]:
+    """Delete the selected orphans one by one through ``AttachmentService``; the audit dict of both sweeps.
+
+    ``AttachmentService.delete`` is tenant-scoped and takes the row's own ``tenant_key``, so the installation-wide
+    selection never deletes across a tenant boundary.
+    """
+    from app.common.dependencies import get_attachment_service
+    from app.common.held_count import held_undated_count
 
     service = get_attachment_service()
     deleted = 0
@@ -329,9 +360,7 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
         "skipped": skipped,
         "freed_bytes": freed_bytes,
         # #1806 GDPR-003: orphans the age floor cannot judge (no readable ``created_at``).
-        "held_undated": held_undated_count(
-            attachment_repo.count_undated_orphaned_task_photos, task="cleanup_orphaned_task_photos"
-        ),
+        "held_undated": held_undated_count(count_undated, task=task),
         "cutoff": cutoff.isoformat(),
     }
 
@@ -376,6 +405,37 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
         raise self.retry(exc=exc) from exc
 
     logger.info("cleanup_orphaned_task_photos_audit", **result)
+    return result
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[untyped-decorator]
+def cleanup_orphaned_location_photos(self, *, limit: int = 500) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    """Collect bed photos (category ``location``) that nothing references (REQ-053 GP-FR-051).
+
+    A bed photo is uploaded first (``POST /attachments``) and linked in a second request
+    (``POST /locations/{key}/photos``). Two paths leave the upload unreferenced: a link that never happens (the
+    bed is full, was deleted meanwhile, the connection dropped) and a discard that failed after a photo removal or
+    a bed delete had committed (``LocationPhotoService`` logs it and carries on). This sweep is what keeps "the
+    photos go with the bed" true in both.
+
+    **On by default** (``STORAGE_LOCATION_PHOTO_ORPHAN_HOURS=48``), unlike the task-photo sweep: the link follows
+    the upload within one client flow, so 48 h is a wide margin, and a bed photo's only carriers are the bed's
+    ``photo_refs`` / ``cover_photo_ref`` - written by one service with one spelling (the attachment id), not a
+    reference history spanning client versions. The reference check still covers every carrier
+    (``PHOTO_REF_COLLECTIONS`` and ``ATTACHMENT_REF_FIELDS``). ``0`` disables it.
+    """
+    hours = settings.storage_location_photo_orphan_hours
+    if hours <= 0:
+        logger.info("cleanup_orphaned_location_photos_disabled")
+        return {"found": 0, "deleted": 0, "failed": 0, "skipped": 0, "freed_bytes": 0, "disabled": True}
+
+    try:
+        result = asyncio.run(_cleanup_orphaned_location_photos(hours, limit))
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("cleanup_orphaned_location_photos_failed", error=loggable_error(exc))
+        raise self.retry(exc=exc) from exc
+
+    logger.info("cleanup_orphaned_location_photos_audit", **result)
     return result
 
 

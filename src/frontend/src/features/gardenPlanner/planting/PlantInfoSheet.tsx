@@ -10,7 +10,7 @@ import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
 import AuthImage from '@/components/common/AuthImage';
-import { diaryPhotoUri } from '@/api/endpoints/diary';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import { plantDetailPath, PlantInfoContent } from './PlantInfoPopover';
 import { usePlantStateText } from './usePlantStateText';
 import type { PlantStateView } from './usePlantStates';
@@ -50,7 +50,7 @@ export default function PlantInfoSheet({ view, onClose }: PlantInfoSheetProps) {
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             {view.cover_photo_ref ? (
               <AuthImage
-                uri={diaryPhotoUri(view.cover_photo_ref, 128)}
+                uri={attachmentUri(view.cover_photo_ref, 128)}
                 alt={t('pages.gardenPlan.plantState.info.photo', { name })}
                 width={96}
                 height={96}

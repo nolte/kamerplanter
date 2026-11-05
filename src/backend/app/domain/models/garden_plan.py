@@ -252,6 +252,9 @@ class PlanBatchResult(BaseModel):
     updated: list[str] = Field(default_factory=list)
     deleted: list[str] = Field(default_factory=list)
     derived: dict[str, DerivedGeometry] = Field(default_factory=dict)
+    #: The photos the deleted beds held (REQ-053 GP-FR-051, WP 8.18), read inside the transaction: the caller
+    #: discards them after the commit unless something else names them. Never part of the response.
+    released_photo_refs: list[str] = Field(default_factory=list, exclude=True)
 
 
 # ── Write set handed to the repository ────────────────────────────────────────
@@ -357,6 +360,8 @@ class PlanBatchOutcome:
 
     plan_revision: int
     key_map: dict[str, str]
+    #: ``photo_refs`` of the locations the batch deleted, read in the transaction (WP 8.18).
+    released_photo_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

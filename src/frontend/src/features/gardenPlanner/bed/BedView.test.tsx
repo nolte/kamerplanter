@@ -161,6 +161,37 @@ describe('BedView', () => {
     await waitFor(() => expect(reloads).toBeGreaterThan(0));
   });
 
+  it('opens the photos tab from the hash and reloads the head after the cover was chosen (GP-FR-051)', async () => {
+    const photo = (isCover: boolean) => ({
+      attachment_id: 'p1',
+      uri: '/api/v1/t/test-tenant/attachments/p1',
+      thumbnail_uris: null,
+      is_cover: isCover,
+      can_remove: true,
+    });
+    useBackend([
+      http.get(`${BASE}/locations/:key/photos`, () =>
+        HttpResponse.json({ location_key: 'loc_b03', cover_photo_ref: null, photos: [photo(false)], max_photos: 50 }),
+      ),
+      http.put(`${BASE}/locations/:key/photos/cover`, () =>
+        HttpResponse.json({ location_key: 'loc_b03', cover_photo_ref: 'p1', photos: [photo(true)], max_photos: 50 }),
+      ),
+      http.get(`${BASE}/attachments/:id`, () =>
+        HttpResponse.arrayBuffer(new Uint8Array([1]).buffer, { headers: { 'Content-Type': 'image/jpeg' } }),
+      ),
+    ]);
+    const user = userEvent.setup();
+    let reloads = 0;
+    renderBed(bedSummary({ cover_photo_ref: null }), '/standorte/locations/loc_b03#photos', 'grower', () => {
+      reloads += 1;
+    });
+    expect(await screen.findByTestId('bed-photos')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Photos' })).toHaveAttribute('aria-selected', 'true');
+    expect(reloads).toBe(0);
+    await user.click(await screen.findByTestId('bed-photo-toggle-cover-p1'));
+    await waitFor(() => expect(reloads).toBe(1));
+  });
+
   it('hides the plan tab when the garden planner module is switched off', async () => {
     useBackend();
     const off = createTestStore({

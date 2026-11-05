@@ -410,6 +410,13 @@ celery_app.conf.update(
             "task": "app.tasks.storage_tasks.cleanup_orphaned_task_photos",
             "schedule": crontab(hour=3, minute=40),
         },
+        # REQ-053 GP-FR-051 — collect bed photos (category ``location``) that were uploaded but never linked to a
+        # bed, or whose discard failed after the bed write committed. 03:50, after the task-photo sweep and before
+        # the object reconciliation, so the objects these records held are seen there the same night.
+        "storage-cleanup-orphaned-location-photos-daily": {
+            "task": "app.tasks.storage_tasks.cleanup_orphaned_location_photos",
+            "schedule": crontab(hour=3, minute=50),
+        },
         # #1834 — reconcile the object store against the attachment catalogue.
         # 04:10, after the task-photo sweep; report-only until the operator sets
         # STORAGE_RECONCILE_DELETE_ENABLED, bounded per run and resumable.

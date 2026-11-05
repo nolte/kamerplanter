@@ -142,6 +142,8 @@ export interface BedListItem {
   open_task_count?: number | null;
   overdue_task_count?: number | null;
   next_due_at?: string | null;
+  /** The bed's cover photo, an attachment id (GP-FR-051); `null` without one. The gallery is `GET .../photos`. */
+  cover_photo_ref?: string | null;
 }
 
 /** `GET /locations/{key}/summary`: the location document plus its derived head data. */

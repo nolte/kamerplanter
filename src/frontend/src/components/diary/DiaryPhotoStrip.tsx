@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import AuthImage from '@/components/common/AuthImage';
-import { diaryPhotoUri } from '@/api/endpoints/diary';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import DiaryPhotoLightbox from './DiaryPhotoLightbox';
 
 interface DiaryPhotoStripProps {
@@ -55,7 +55,7 @@ export default function DiaryPhotoStrip({ photoRefs }: DiaryPhotoStripProps) {
               data-testid="diary-photo-thumb"
             >
               <AuthImage
-                uri={diaryPhotoUri(attachmentId, 512)}
+                uri={attachmentUri(attachmentId, 512)}
                 /* The action area already carries the label; an identical alt
                    text would make screen readers announce it twice. */
                 alt=""
