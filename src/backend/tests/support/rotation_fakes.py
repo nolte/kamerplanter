@@ -127,6 +127,9 @@ class FakeRotationGraph:
         self.hidden: set[str] = set()
         #: the batched reads, in call order (no read per edge)
         self.calls: list[str] = []
+        #: the ``limit`` of every adjacency read, and the species keys of every companion read
+        self.adjacency_limits: list[int] = []
+        self.relation_species: list[list[str]] = []
 
     def get_pest_risks(self, family_key):
         return self.pest_risks.get(family_key, [])
@@ -153,11 +156,13 @@ class FakeRotationGraph:
     # Over the SAME dictionaries as the per-species reads above, so one arranged world answers the engine, the
     # planting dialog and the overlay alike - the equality test compares the paths, not two fixtures.
 
-    def get_slot_adjacency(self, location_key, slot_keys, *, tenant_key):
-        from app.domain.interfaces.graph_repository import SlotAdjacency
+    def get_slot_adjacency(self, location_key, slot_keys, *, tenant_key, limit):
+        """Like the AQL: fold, sort by slot keys, cut at *limit*; ``total`` counts every pair."""
+        from app.domain.interfaces.graph_repository import SlotAdjacency, SlotAdjacencyWindow
 
         assert tenant_key and location_key, "the overlay reads the adjacency anchored on a tenant's bed (#706)"
         self.calls.append("get_slot_adjacency")
+        self.adjacency_limits.append(limit)
         keys = set(slot_keys)
         pairs = {
             tuple(sorted((a, b)))
@@ -165,13 +170,17 @@ class FakeRotationGraph:
             for b in neighbours
             if a in keys and b in keys and a != b
         }
-        return [SlotAdjacency(a, b, self.distances.get((a, b))) for a, b in sorted(pairs)]
+        ordered = sorted(pairs)
+        return SlotAdjacencyWindow(
+            [SlotAdjacency(a, b, self.distances.get((a, b))) for a, b in ordered[:limit]], total=len(ordered)
+        )
 
-    def load_companion_relations(self, species_keys, *, tenant_key):
+    def load_companion_relations(self, species_keys, *, tenant_key, limit):
         from app.domain.interfaces.graph_repository import CompanionRelation, CompanionRelations
 
         assert tenant_key, "the overlay reads companion edges under a tenant (#927)"
         self.calls.append("load_companion_relations")
+        self.relation_species.append(sorted(species_keys))
         keys = set(species_keys) - self.hidden
         relations = [
             CompanionRelation(a, b, incompatible=True, reason=self.reasons.get((a, b)))
@@ -184,4 +193,10 @@ class FakeRotationGraph:
             for b, score in others.items()
             if a in keys and b in keys
         ]
-        return CompanionRelations(relations, {key: f"Test {key}" for key in sorted(keys)})
+        incompatible = [r for r in relations if r.incompatible]
+        compatible = [r for r in relations if not r.incompatible]
+        return CompanionRelations(
+            incompatible[:limit] + compatible[:limit],
+            {key: f"Test {key}" for key in sorted(keys)},
+            complete=len(incompatible) <= limit and len(compatible) <= limit,
+        )

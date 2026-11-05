@@ -124,8 +124,18 @@ def test_every_role_may_read_the_layer(client, world, role) -> None:  # type: ig
     assert (body["location_key"], body["total"], body["truncated"]) == ("bed", 1, False)
     (edge,) = body["edges"]
     assert edge == {
-        "slot_a": {"slot_key": "s1", "position": {"x": 1.5, "y": 2.5}, "species_keys": ["tomato"]},
-        "slot_b": {"slot_key": "s2", "position": {"x": 2.0, "y": 2.5}, "species_keys": ["basil"]},
+        "slot_a": {
+            "slot_key": "s1",
+            "position": {"x": 1.5, "y": 2.5},
+            "species_keys": ["tomato"],
+            "species_truncated": False,
+        },
+        "slot_b": {
+            "slot_key": "s2",
+            "position": {"x": 2.0, "y": 2.5},
+            "species_keys": ["basil"],
+            "species_truncated": False,
+        },
         "status": "compatible",
         "reason_code": "companion.compatible",
         "reason": None,

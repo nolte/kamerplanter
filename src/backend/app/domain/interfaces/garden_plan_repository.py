@@ -58,11 +58,18 @@ class IGardenPlanRepository(ABC):
 
     @abstractmethod
     def load_active_slots(
-        self, site_key: SiteKey, location_keys: list[str], *, tenant_key: str, include_archived: bool = False
+        self,
+        site_key: SiteKey,
+        location_keys: list[str],
+        *,
+        tenant_key: str,
+        include_archived: bool = False,
+        slot_keys: list[str] | None = None,
     ) -> list[Slot]:
         """Slots (``archived_at`` null, or all with ``include_archived``) of the named locations (V-04, V-06, V-20).
 
-        The locations must belong to the tenant's site; a key of another site or tenant yields nothing.
+        The locations must belong to the tenant's site; a key of another site or tenant yields nothing. With
+        *slot_keys* only those slots among them are read (the companion overlay reads just the slots in pairs).
         """
 
     @abstractmethod

@@ -173,6 +173,8 @@ class FakePlanRepo(IGardenPlanRepository):
         self.slot_writes: list[SlotBatchWrite] = []
         self.slot_field_updates: list[tuple[str, dict]] = []
         self.species_hints: list[SlotSpeciesHint] = []
+        #: the ``slot_keys`` of every ``load_active_slots`` read (``None`` = the whole bed)
+        self.active_slot_reads: list[list[str] | None] = []
         self._next = 100
         self._next_snapshot = 0
         sites.repo = self
@@ -197,14 +199,17 @@ class FakePlanRepo(IGardenPlanRepository):
             plan_updated_by_name=self.editor_name,
         )
 
-    def load_active_slots(self, site_key, location_keys, *, tenant_key, include_archived=False):
+    def load_active_slots(self, site_key, location_keys, *, tenant_key, include_archived=False, slot_keys=None):
         site = self._sites.get_site_by_key(site_key)
         if site is None or site.tenant_key != tenant_key:
             return []
+        self.active_slot_reads.append(None if slot_keys is None else sorted(slot_keys))
         return [
             slot
             for slot in self.slots
-            if slot.location_key in location_keys and (include_archived or slot.archived_at is None)
+            if slot.location_key in location_keys
+            and (include_archived or slot.archived_at is None)
+            and (slot_keys is None or slot.key in slot_keys)
         ]
 
     def load_slot_species_hints(self, location_key, *, tenant_key):

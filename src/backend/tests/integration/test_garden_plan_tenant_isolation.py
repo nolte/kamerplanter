@@ -194,6 +194,9 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.GARDEN_OBJECTS,
             col.GARDEN_PLAN_AUDIT,
             col.ADJACENT_TO,
+            # REQ-053 WP 8.15: the companion edges the overlay case seeds per test.
+            col.COMPATIBLE_WITH,
+            col.INCOMPATIBLE_WITH,
             col.CARE_EVENTS,
             col.IRRIGATION_ZONES,
             col.BED_TEMPLATES,
@@ -1765,3 +1768,120 @@ class TestTwoSitesShareOneUnderlayPicture:
         )
 
         assert response.status_code == 200 and self._held(db)
+
+
+# ── REQ-053 WP 8.15 (#2658, SEC-002): the companion layer reads nothing of the other tenant ─────────────────────
+
+
+class TestTheCompanionLayerReadsNothingOfTheOtherTenant:
+    """Against the real AQL: a cross-tenant ``adjacent_to`` edge, B's plant and B's private species stay invisible.
+
+    The route case above proves only the bed anchor (another tenant's bed is a 404). Here tenant A asks for its own
+    bed while the data around it names tenant B: an edge from A's slot to B's slot, B's plant in B's slot holding B's
+    private species, and an ``incompatible_with`` edge with a reason between that species and the global one A grows.
+    """
+
+    _SECRET_SPECIES = "sp_bob_secret"
+    _SECRET_NAME = "Bobs Geheimkraut"
+    _SECRET_REASON = "Bobs geheimer Unvertraeglichkeitsgrund"
+
+    @staticmethod
+    def _plant(db, key: str, tenant: str, slot: str, species: str) -> None:
+        db.collection(col.PLANT_INSTANCES).insert(
+            {
+                "_key": key,
+                "instance_id": key.upper(),
+                "tenant_key": tenant,
+                "slot_key": slot,
+                "species_key": species,
+                "removed_on": None,
+            }
+        )
+
+    def _seed(self, db) -> None:
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": "sp_basil",
+                "scientific_name": "Ocimum basilicum",
+                "genus": "Ocimum",
+                "tenant_key": "",
+                "scientific_name_normalized": "ocimum basilicum",
+            }
+        )
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": self._SECRET_SPECIES,
+                "scientific_name": self._SECRET_NAME,
+                "genus": "Secretum",
+                "tenant_key": B,
+                "scientific_name_normalized": "bobs geheimkraut",
+            }
+        )
+        self._plant(db, "pl_a1", A, "slot_a", "sp")
+        self._plant(db, "pl_a2", A, "slot2_a", "sp_basil")
+        self._plant(db, "pl_b1", B, "slot_b", self._SECRET_SPECIES)
+        for first, second in (("slot_a", "slot_b"), ("slot_a", "slot2_a")):  # one cross-tenant, one inside A's bed
+            for a, b in ((first, second), (second, first)):
+                db.collection(col.ADJACENT_TO).insert(
+                    {"_from": f"{col.SLOTS}/{a}", "_to": f"{col.SLOTS}/{b}", "source": "manual"}
+                )
+        for a, b in (("sp", self._SECRET_SPECIES), (self._SECRET_SPECIES, "sp")):
+            db.collection(col.INCOMPATIBLE_WITH).insert(
+                {"_from": f"{col.SPECIES}/{a}", "_to": f"{col.SPECIES}/{b}", "reason": self._SECRET_REASON}
+            )
+        for a, b in (("sp", "sp_basil"), ("sp_basil", "sp")):
+            db.collection(col.COMPATIBLE_WITH).insert(
+                {"_from": f"{col.SPECIES}/{a}", "_to": f"{col.SPECIES}/{b}", "score": 0.8}
+            )
+
+    def _get(self, db):  # type: ignore[no-untyped-def]
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/locations/bed_a/companion-edges"
+        )
+        assert response.status_code == 200, response.text
+        return response
+
+    def test_a_cross_tenant_edge_names_neither_the_slot_the_species_nor_the_reason(self, db) -> None:
+        self._seed(db)
+
+        response = self._get(db)
+
+        # ``slot_b`` is also a field name of the answer, so B's slot is looked for as a value.
+        assert '"slot_b"' not in response.text.replace('"slot_b":{', "")
+        for secret in ("bed_b", self._SECRET_SPECIES, self._SECRET_NAME, self._SECRET_REASON, B):
+            assert secret not in response.text, secret
+        # The positive control: the pair inside A's bed is judged by the real AQL, compatible with its score.
+        body = response.json()
+        (edge,) = body["edges"]
+        assert {edge["slot_a"]["slot_key"], edge["slot_b"]["slot_key"]} == {"slot_a", "slot2_a"}
+        assert (edge["status"], edge["score"], body["total"], body["truncated"]) == ("compatible", 0.8, 1, False)
+        assert edge["deciding"]["species_a_name"] == "Solanum lycopersicum"
+        assert edge["deciding"]["species_b_name"] == "Ocimum basilicum"
+
+    def test_a_private_species_of_the_other_tenant_in_the_own_slot_is_neither_named_nor_related(self, db) -> None:
+        """A stored species key is no proof of access (#1963): A's own plant naming B's species stays ``unknown``."""
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).update({"_key": "pl_a2", "species_key": self._SECRET_SPECIES})
+
+        response = self._get(db)
+
+        (edge,) = response.json()["edges"]
+        assert (edge["status"], edge["deciding"], edge["reason"]) == ("unknown", None, None)
+        assert self._SECRET_NAME not in response.text and self._SECRET_REASON not in response.text
+
+    def test_a_planned_species_of_the_other_tenants_run_does_not_count(self, db) -> None:
+        """SEC-004: a ``run_planned_at`` edge into A's slot from B's live run is not A's planning."""
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).delete("pl_a2")
+        db.collection(col.PLANTING_RUNS).insert({"_key": "run_b_live", "tenant_key": B, "status": "active"})
+        db.collection(col.RUN_PLANNED_AT).insert(
+            {
+                "_from": f"{col.PLANTING_RUNS}/run_b_live",
+                "_to": f"{col.SLOTS}/slot2_a",
+                "planned_species_key": "sp_basil",
+            }
+        )
+
+        body = self._get(db).json()
+
+        assert (body["edges"], body["total"]) == ([], 0)  # slot2_a holds nothing of A's, so no pair is drawn

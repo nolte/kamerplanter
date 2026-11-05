@@ -394,7 +394,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             LET from_runs = (
                 FOR e IN @@planned
                     FILTER e._to IN slot_ids AND e.planned_species_key != null
-                        AND DOCUMENT(e._from).status IN @live_statuses
+                    LET run = DOCUMENT(e._from)
+                    // SEC-004: the run itself must be the tenant's, not only live (defence in depth: the bed is).
+                    FILTER run.status IN @live_statuses AND run.tenant_key == @tenant_key
                     RETURN {slot_key: PARSE_IDENTIFIER(e._to).key, species_key: e.planned_species_key}
             )
             FOR r IN APPEND(from_plants, from_runs)
@@ -426,7 +428,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         return [SlotSpeciesHint(**row) for row in cursor]
 
     def load_active_slots(
-        self, site_key: SiteKey, location_keys: list[str], *, tenant_key: str, include_archived: bool = False
+        self,
+        site_key: SiteKey,
+        location_keys: list[str],
+        *,
+        tenant_key: str,
+        include_archived: bool = False,
+        slot_keys: list[str] | None = None,
     ) -> list[Slot]:
         if not tenant_key:
             raise ValueError("load_active_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
@@ -442,6 +450,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 {_OWNED_BY_LOCATION_SITE}
                 FOR s IN @@slots
                     FILTER s.location_key == l._key AND (@include_archived OR s.archived_at == null)
+                        AND (@slot_keys == null OR s._key IN @slot_keys)
                     RETURN s
             """,
                 bind_vars={
@@ -452,6 +461,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     "sites": f"{col.SITES}/",
                     "tenant_key": tenant_key,
                     "include_archived": include_archived,
+                    "slot_keys": sorted(set(slot_keys)) if slot_keys is not None else None,
                 },
             ),
         )

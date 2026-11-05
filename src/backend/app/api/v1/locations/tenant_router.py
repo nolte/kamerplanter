@@ -504,6 +504,7 @@ def _endpoint_response(endpoint: CompanionEndpoint) -> CompanionEndpointResponse
         slot_key=endpoint.slot_key,
         position=PlanPointResponse(x=position[0], y=position[1]) if position is not None else None,
         species_keys=endpoint.species_keys,
+        species_truncated=endpoint.species_truncated,
     )
 
 
@@ -523,8 +524,10 @@ def get_companion_edges(
     set the planting dialog reads. Each pair is `compatible`, `incompatible` or `unknown` by the same rule as
     `POST …/validate-planting`: an incompatible edge wins, else a compatible edge with its score, else unknown. Several
     species per slot and both edge directions are folded with that precedence. Positions are the slot anchors in plan
-    coordinates. At most 500 pairs, `incompatible` first, then `compatible`, then `unknown`, each by slot keys;
-    `truncated` says the rest were cut. Readable by every role; another tenant's bed is a 404.
+    coordinates. The work is bounded: at most 2000 pairs (the first by slot keys) and 8 species per slot are judged;
+    of those at most 500 are answered, `incompatible` first, then `compatible`, then `unknown`, each by slot keys.
+    `total` counts every pair exactly; `truncated` says pairs were left out. Readable by every role; another tenant's
+    bed is a 404.
     """
     result = service.companion_edges(key, tenant_key=ctx.tenant_key)
     return CompanionEdgesResponse(

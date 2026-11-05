@@ -1497,6 +1497,8 @@ class CompanionEndpointResponse(BaseModel):
     position: PlanPointResponse | None
     #: The species standing (`removed_on = null`) or planned (live planting run) in the slot, sorted.
     species_keys: list[str] = Field(examples=[["5120"]])
+    #: `true` when the slot holds more than 8 species and only the first 8 (by key) were judged and listed.
+    species_truncated: bool = Field(default=False, examples=[False])
 
 
 class CompanionDecidingPairResponse(BaseModel):
@@ -1559,7 +1561,8 @@ class CompanionEdgesResponse(BaseModel):
     location_key: str
     #: Strongest status first (`incompatible`, `compatible`, `unknown`), then by slot keys; at most 500.
     edges: list[CompanionEdgeResponse]
-    #: Pairs with species on both sides before the cap.
+    #: Every pair with species on both sides, counted exactly in the database.
     total: int
-    #: `true` when more than 500 pairs exist and the weakest were cut.
+    #: `true` when `total` exceeds the pairs answered. At most 2000 pairs (the first by slot keys) are judged; within
+    #: them the 500 strongest are answered.
     truncated: bool

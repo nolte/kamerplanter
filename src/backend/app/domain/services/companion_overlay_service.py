@@ -14,10 +14,24 @@ one slot is judged against every species of the other, **in both directions**, a
 score, else unknown) - the same answer the dialog gives as its strongest hint when either species is planted next to
 the other.
 
-**Reads, not per edge.** One bed resolution, one slot read, one species-hint read, one adjacency read and one companion
-read whatever the number of pairs; species names come with the companion read and only for species the tenant may
-read (#927, MT-054). At most :data:`MAX_COMPANION_EDGES` pairs are answered, strongest status first, then by slot
-keys; ``truncated`` says the rest were cut.
+**Reads, not per edge.** One bed resolution, one species-hint read, one adjacency read, one companion read and one
+slot read whatever the number of pairs; species names come with the companion read and only for species the tenant
+may read (#927, MT-054).
+
+**The work is bounded, not only the answer (SEC-001).**
+
+* The adjacency read folds, sorts by ``(slot_a_key, slot_b_key)`` and cuts the pairs **in the database** at
+  :data:`MAX_JUDGED_PAIRS`; ``total`` is counted there separately and is exact.
+* At most :data:`MAX_SPECIES_PER_SLOT` species per slot (by key) enter the cross product, so one pair costs at most
+  ``2 * 8 * 8 = 128`` rule calls; an endpoint with more says so in ``species_truncated``.
+* The companion read stops at :data:`MAX_COMPANION_RELATIONS` edges per collection; the slot read names only the
+  slots of the judged pairs.
+
+**What the order guarantees.** The judgement is the shared Python rule, so the status order cannot be pushed into the
+database without a second rule. Within the judged window the answer is exact: the
+:data:`MAX_COMPANION_EDGES` strongest pairs, ``incompatible`` before ``compatible`` before ``unknown``, then by slot
+keys. When a bed has more than :data:`MAX_JUDGED_PAIRS` occupied pairs (``total`` above it), the pairs beyond the
+window - the last by slot keys - are not judged and not answered, whatever their status; ``truncated`` is ``true``.
 
 Every public method takes ``*, tenant_key: str`` without a default; the bed is resolved through
 :mod:`~app.domain.services.location_ownership` (a bed carries no ``tenant_key`` of its own, #2107), so another
@@ -55,6 +69,13 @@ logger = structlog.get_logger()
 
 #: At most this many pairs per response (GP-FR-134: the renderer culls to 500 lines per viewport).
 MAX_COMPANION_EDGES = 500
+#: At most this many pairs are read and judged per request (four times the answer, cut in the database).
+MAX_JUDGED_PAIRS = 2000
+#: At most this many species per slot enter the cross product (sorted by key). A slot holds one plant, or a few
+#: species of a mixed planting; eight is above any mixed slot the plan editor creates.
+MAX_SPECIES_PER_SLOT = 8
+#: At most this many edges per companion edge collection are read among the judged species.
+MAX_COMPANION_RELATIONS = 10_000
 
 #: The reason codes of a judged pair; the frontend translates them (``companion.*``).
 REASON_CODES: dict[CompanionStatus, str] = {
@@ -75,6 +96,8 @@ class CompanionEndpoint:
     #: ``None`` when the slot or its bed has no geometry - the line cannot be drawn.
     position: Point2D | None
     species_keys: list[str]
+    #: ``True`` when the slot holds more than :data:`MAX_SPECIES_PER_SLOT` species and only the first were judged.
+    species_truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -107,7 +130,7 @@ class CompanionEdge:
 class CompanionEdges:
     location_key: str
     edges: list[CompanionEdge]
-    #: Pairs with species on both sides before the cap.
+    #: Every pair with species on both sides, counted in the database (exact, not bounded by the window).
     total: int
     truncated: bool
 
@@ -138,41 +161,49 @@ class CompanionOverlayService:
         if not species_by_slot:
             return CompanionEdges(location_key=bed_key, edges=[], total=0, truncated=False)
 
+        window = self._graph.get_slot_adjacency(
+            bed_key, sorted(species_by_slot), tenant_key=tenant_key, limit=MAX_JUDGED_PAIRS
+        )
         pairs = [
             pair
-            for pair in self._graph.get_slot_adjacency(bed_key, sorted(species_by_slot), tenant_key=tenant_key)
+            for pair in window.pairs[:MAX_JUDGED_PAIRS]
             if pair.slot_a_key in species_by_slot and pair.slot_b_key in species_by_slot
         ]
         if not pairs:
-            return CompanionEdges(location_key=bed_key, edges=[], total=0, truncated=False)
+            return CompanionEdges(location_key=bed_key, edges=[], total=window.total, truncated=window.total > 0)
 
         in_pairs = sorted({key for pair in pairs for key in (pair.slot_a_key, pair.slot_b_key)})
+        judged_species = {key: sorted(species_by_slot[key])[:MAX_SPECIES_PER_SLOT] for key in in_pairs}
         relations = self._graph.load_companion_relations(
-            sorted({species for slot in in_pairs for species in species_by_slot[slot]}), tenant_key=tenant_key
+            sorted({species for keys in judged_species.values() for species in keys}),
+            tenant_key=tenant_key,
+            limit=MAX_COMPANION_RELATIONS,
         )
+        if not relations.complete:
+            logger.warning("companion_overlay.relations_truncated", location_key=bed_key, limit=MAX_COMPANION_RELATIONS)
         rules = _Rules(relations)
-        positions = self._positions(location.site_key, bed_key, location.geometry, set(in_pairs), tenant_key=tenant_key)
+        positions = self._positions(location.site_key, bed_key, location.geometry, in_pairs, tenant_key=tenant_key)
+
+        def endpoint(slot_key: str) -> CompanionEndpoint:
+            return CompanionEndpoint(
+                slot_key,
+                positions[slot_key] if slot_key in positions else None,  # noqa: SIM401 - call-graph ceiling
+                judged_species[slot_key],
+                species_truncated=len(species_by_slot[slot_key]) > MAX_SPECIES_PER_SLOT,
+            )
 
         edges = [
-            self._edge(
-                rules,
-                relations,
-                CompanionEndpoint(
-                    pair.slot_a_key, positions.get(pair.slot_a_key), sorted(species_by_slot[pair.slot_a_key])
-                ),
-                CompanionEndpoint(
-                    pair.slot_b_key, positions.get(pair.slot_b_key), sorted(species_by_slot[pair.slot_b_key])
-                ),
-                pair.distance_cm,
-            )
+            self._edge(rules, relations, endpoint(pair.slot_a_key), endpoint(pair.slot_b_key), pair.distance_cm)
             for pair in pairs
         ]
         edges.sort(key=lambda edge: (COMPANION_STATUS_RANK[edge.status], edge.slot_a.slot_key, edge.slot_b.slot_key))
-        truncated = len(edges) > MAX_COMPANION_EDGES
-        logger.debug("companion_overlay.read", location_key=bed_key, pairs=len(edges), truncated=truncated)
-        return CompanionEdges(
-            location_key=bed_key, edges=edges[:MAX_COMPANION_EDGES], total=len(edges), truncated=truncated
+        answered = edges[:MAX_COMPANION_EDGES]
+        total = max(window.total, len(edges))
+        truncated = total > len(answered)
+        logger.debug(
+            "companion_overlay.read", location_key=bed_key, judged=len(edges), total=total, truncated=truncated
         )
+        return CompanionEdges(location_key=bed_key, edges=answered, total=total, truncated=truncated)
 
     @staticmethod
     def _edge(
@@ -217,18 +248,19 @@ class CompanionOverlayService:
         site_key: str,
         bed_key: str,
         bed_geometry: Geometry | None,
-        slot_keys: set[str],
+        slot_keys: list[str],
         *,
         tenant_key: str,
     ) -> dict[str, Point2D]:
-        """The plan-frame anchor of each slot in *slot_keys* (one slot read, one bed transform)."""
-        if bed_geometry is None:
+        """The plan-frame anchor of each slot in *slot_keys* (one read of just those slots, one bed transform)."""
+        if bed_geometry is None or not slot_keys:
             return {}
         to_plan = bed_to_plan_transform(bed_geometry)
+        wanted = set(slot_keys)
         return {
             slot.key: point
-            for slot in self._plan.load_active_slots(site_key, [bed_key], tenant_key=tenant_key)
-            if slot.key in slot_keys and (point := _slot_anchor(slot.geometry, to_plan)) is not None
+            for slot in self._plan.load_active_slots(site_key, [bed_key], tenant_key=tenant_key, slot_keys=slot_keys)
+            if slot.key in wanted and (point := _slot_anchor(slot.geometry, to_plan)) is not None
         }
 
 

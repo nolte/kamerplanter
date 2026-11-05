@@ -17,9 +17,16 @@ from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.models.garden_plan import SlotSpeciesHint
 from app.domain.models.site import Slot
+from app.domain.services import companion_overlay_service as overlay_module
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.care_event_service import CareEventService
-from app.domain.services.companion_overlay_service import MAX_COMPANION_EDGES, CompanionOverlayService
+from app.domain.services.companion_overlay_service import (
+    MAX_COMPANION_EDGES,
+    MAX_COMPANION_RELATIONS,
+    MAX_JUDGED_PAIRS,
+    MAX_SPECIES_PER_SLOT,
+    CompanionOverlayService,
+)
 from tests.support.care_event_fakes import (
     FakeAttachmentRepo,
     FakeAttachmentService,
@@ -265,6 +272,93 @@ class TestTheCapAndTheOrder:
             ("s1", "s2", "compatible"),
             ("s1", "s3", "unknown"),
         ]
+
+
+class TestTheWorkIsBounded:
+    """SEC-001: more pairs than the cap are not all read, judged and sorted; the bound is the window, not the answer."""
+
+    @staticmethod
+    def _chain(world, count: int, species=lambda i: "carrot") -> None:  # type: ignore[no-untyped-def]
+        world.plan.slots = [slot(f"s{i:05d}", 0.0001 * i, 0.5) for i in range(count)]
+        stand(world, **{f"s{i:05d}": species(i) for i in range(count)})
+        world.graph.adjacent = {f"s{i:05d}": [f"s{i + 1:05d}"] for i in range(count - 1)}
+
+    def test_more_pairs_than_the_window_are_judged_only_up_to_the_window(self, world, monkeypatch) -> None:
+        count = MAX_JUDGED_PAIRS + 101  # 2100 pairs
+        self._chain(world, count)
+        judged: list[str] = []
+        real = overlay_module.judge_neighbour
+
+        def counting(other, incompatible, compatible):  # type: ignore[no-untyped-def]
+            judged.append(other)
+            return real(other, incompatible, compatible)
+
+        monkeypatch.setattr(overlay_module, "judge_neighbour", counting)
+
+        result = world.overlay.companion_edges("bed", tenant_key=TENANT)
+
+        assert world.graph.adjacency_limits == [MAX_JUDGED_PAIRS]  # the cut is asked of the database
+        assert (len(result.edges), result.total, result.truncated) == (MAX_COMPANION_EDGES, count - 1, True)
+        # One species per side, both directions: two rule calls per judged pair, and only the window is judged.
+        assert len(judged) == 2 * MAX_JUDGED_PAIRS
+
+    def test_only_the_slots_of_the_judged_pairs_are_read(self, world) -> None:
+        count = MAX_JUDGED_PAIRS + 101
+        self._chain(world, count)
+        world.plan.locations["bed"] = make_location("bed", geometry=rect(2.0, 1.0, w=4, h=2))
+
+        world.overlay.companion_edges("bed", tenant_key=TENANT)
+
+        (read,) = world.plan.active_slot_reads
+        assert read is not None and len(read) == MAX_JUDGED_PAIRS + 1  # 2000 pairs of a chain touch 2001 slots
+
+    def test_within_the_window_the_strongest_survive_the_cap(self, world) -> None:
+        count = MAX_JUDGED_PAIRS + 101
+        # fennel at 1500 (inside the window) and at 2050 (outside it): the guaranteed order holds for the window only
+        self._chain(world, count, species=lambda i: "fennel" if i in (1500, 2050) else "carrot")
+        world.graph.incompatible = {"carrot": ["fennel"]}
+
+        result = world.overlay.companion_edges("bed", tenant_key=TENANT)
+
+        statuses = [edge.status for edge in result.edges]
+        assert statuses[:2] == ["incompatible", "incompatible"] and set(statuses[2:]) == {"unknown"}
+        assert {(e.slot_a.slot_key, e.slot_b.slot_key) for e in result.edges[:2]} == {
+            ("s01499", "s01500"),
+            ("s01500", "s01501"),
+        }
+        # The pairs around slot 2050 lie beyond the judged window: not answered, whatever their status.
+        assert not any("s02050" in (e.slot_a.slot_key, e.slot_b.slot_key) for e in result.edges)
+
+    def test_the_species_of_a_slot_are_capped_before_the_cross_product(self, world, monkeypatch) -> None:
+        many = [f"sp{i:02d}" for i in range(MAX_SPECIES_PER_SLOT + 4)]
+        stand(world, s1=many, s2=many)
+        world.graph.adjacent = {"s1": ["s2"]}
+        calls: list[str] = []
+        real = overlay_module.judge_neighbour
+        monkeypatch.setattr(overlay_module, "judge_neighbour", lambda o, i, c: calls.append(o) or real(o, i, c))
+
+        (edge,) = world.overlay.companion_edges("bed", tenant_key=TENANT).edges
+
+        assert len(calls) == 2 * MAX_SPECIES_PER_SLOT * MAX_SPECIES_PER_SLOT
+        assert edge.slot_a.species_keys == many[:MAX_SPECIES_PER_SLOT] and edge.slot_a.species_truncated is True
+        (species_read,) = world.graph.relation_species
+        assert species_read == many[:MAX_SPECIES_PER_SLOT]  # the companion read sees only the judged species
+
+    def test_the_companion_read_is_limited(self, world) -> None:
+        stand(world, s1="tomato", s2="basil")
+        world.graph.adjacent = {"s1": ["s2"]}
+        limits: list[int] = []
+        real = world.graph.load_companion_relations
+
+        def spy(keys, *, tenant_key, limit):  # type: ignore[no-untyped-def]
+            limits.append(limit)
+            return real(keys, tenant_key=tenant_key, limit=limit)
+
+        world.graph.load_companion_relations = spy
+
+        world.overlay.companion_edges("bed", tenant_key=TENANT)
+
+        assert limits == [MAX_COMPANION_RELATIONS]
 
 
 class TestTheBedIsTheTenants:
