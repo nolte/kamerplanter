@@ -65,11 +65,11 @@ Re-check: both OPEN, author `nolte` (trusted), bounded, no asserted cause. Kind 
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
-| #2661 | pending | pending | pending |
-| #2662 | pending | pending | pending |
+| #2661 | fullstack-developer | gate + code-security-reviewer + gdpr-data-protection-reviewer | routes, service, discard paths, orphan sweep `cleanup_orphaned_location_photos` (48 h default), MIME + key-length hardening; tests/api, unit+guards, targeted integration green |
+| #2662 | fullstack-developer + frontend-usability-optimizer | vitest + axe, tsc, eslint, knip, bundle budget | gallery tab (lazy), cover in header + field sheet, field-mode bed photo (64 px); 7083 FE tests green, gardenPlanner chunk 60.6/120 KB |
 
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
-| — | — | none yet |
+| #2661 | scope addition | review finding SEC-001/GDPR-001: never-linked `location` uploads had no sweep — dedicated beat task added; underlay gap + low items to #2715, legal questions to #2643 |
