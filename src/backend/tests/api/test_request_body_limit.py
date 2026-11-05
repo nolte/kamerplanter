@@ -204,7 +204,6 @@ class TestMultipartClassification:
             (b" multipart/form-data; boundary=x", True),
             (b"application/json", False),
             (b"application/x-www-form-urlencoded", False),
-            (b"Multipart/Form-Data; boundary=x", False),
             (b"", False),
         ],
     )
@@ -216,6 +215,15 @@ class TestMultipartClassification:
         headers = Headers(raw=[(b"content-type", content_type)])
         assert is_multipart(headers) is multipart
         assert (parse_options_header(content_type)[0] == b"multipart/form-data") is multipart
+
+    def test_a_mixed_case_type_is_classified_as_the_installed_parser_does(self):
+        # python-multipart >= 0.0.33 lowercases a content type that carries parameters, older versions did not.
+        # The invariant is agreement with the parser Starlette uses, not a fixed answer for this spelling.
+        from python_multipart.multipart import parse_options_header
+
+        content_type = b"Multipart/Form-Data; boundary=x"
+        headers = Headers(raw=[(b"content-type", content_type)])
+        assert is_multipart(headers) is (parse_options_header(content_type)[0] == b"multipart/form-data")
 
     def test_a_nbsp_prefixed_multipart_upload_is_counted_and_bounded(self, tmp_path):
         # Regression for SEC-001: ``startswith`` saw no multipart here, Starlette
