@@ -7,10 +7,11 @@
  * least 64 px high. `value = null` shows no selection - the bulk assignment of the plan editor has none
  * to show, and choosing a tile then sets it on every selected bed.
  *
- * The thresholds in the help texts are the RHS midsummer classes checked in
- * `spec/analysis/agrobiology-thresholds-req-053.md` (O-17); making them configurable is GP-FR-164.
+ * The hours and the reference day in the help texts are the site's configuration (GP-FR-164, WP 8.24), handed in
+ * as `thresholds`; without them the RHS midsummer classes checked in
+ * `spec/analysis/agrobiology-thresholds-req-053.md` (O-17) apply: > 6 h, 3-6 h, 2-3 h, < 2 h on 21 June.
  */
-import { useId, type ReactNode } from 'react';
+import { useId, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -19,6 +20,8 @@ import CloudIcon from '@mui/icons-material/Cloud';
 import FilterDramaIcon from '@mui/icons-material/FilterDrama';
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import type { SunClassThresholds } from '@/api/types';
+import { DEFAULT_SUN_CLASS_THRESHOLDS } from '../model/siteThresholds';
 import type { SunExposure } from '../model/types';
 
 /** The classes in the order of the ladder, sunniest first; `unknown` (the default) last. */
@@ -38,6 +41,27 @@ const ICONS: Record<SunExposure, ReactNode> = {
   unknown: <HelpOutlinedIcon aria-hidden fontSize="medium" />,
 };
 
+/** The reference day as the language writes it ("21. Juni", "June 21"); a year is not part of it. */
+function referenceDay(thresholds: Readonly<SunClassThresholds>, language: string): string {
+  const day = new Date(Date.UTC(2000, thresholds.reference_month - 1, thresholds.reference_day));
+  return new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(day);
+}
+
+/** The interpolation values of each class's help text: its range in hours, and the day for the sunniest one. */
+function helpValues(
+  thresholds: Readonly<SunClassThresholds>,
+  language: string,
+): Record<SunExposure, Record<string, number | string>> {
+  return {
+    // `count` picks the plural ("1 hour", "1.5 hours") of the two texts that name a single bound.
+    full_sun: { count: thresholds.full_sun_min_hours, date: referenceDay(thresholds, language) },
+    partial_shade: { from: thresholds.partial_shade_min_hours, to: thresholds.full_sun_min_hours },
+    shade: { from: thresholds.shade_min_hours, to: thresholds.partial_shade_min_hours },
+    deep_shade: { count: thresholds.shade_min_hours },
+    unknown: {},
+  };
+}
+
 export interface SunTileSelectorProps {
   /** The chosen class; `null` = none shown (bulk assignment). */
   value: SunExposure | null;
@@ -45,6 +69,8 @@ export interface SunTileSelectorProps {
   disabled?: boolean;
   /** Accessible name of the group; defaults to "Sun and shade of the bed". */
   label?: string;
+  /** The site's sun-class bounds and reference day (GP-FR-164); absent = the RHS defaults. */
+  thresholds?: Readonly<SunClassThresholds>;
   testId?: string;
 }
 
@@ -53,11 +79,14 @@ export default function SunTileSelector({
   onChange,
   disabled = false,
   label,
+  thresholds = DEFAULT_SUN_CLASS_THRESHOLDS,
   testId = 'sun-tile-selector',
 }: SunTileSelectorProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const name = useId();
   const groupLabel = label ?? t('pages.gardenPlan.sun.group');
+  const language = i18n.language;
+  const help = useMemo(() => helpValues(thresholds, language), [thresholds, language]);
 
   return (
     <Box
@@ -129,7 +158,7 @@ export default function SunTileSelector({
               </Typography>
             </Box>
             <Typography id={helpId} variant="caption" color="text.secondary" component="span">
-              {t(`pages.gardenPlan.sun.options.${option}.help`)}
+              {t(`pages.gardenPlan.sun.options.${option}.help`, help[option])}
             </Typography>
           </Box>
         );

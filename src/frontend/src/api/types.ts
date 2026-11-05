@@ -98,7 +98,16 @@ export type Suitability = 'yes' | 'limited' | 'no';
 export type PollinationType = 'insect' | 'wind' | 'self';
 export type WaterRetention = 'low' | 'medium' | 'high';
 export type BufferCapacity = 'low' | 'medium' | 'high';
-export type Orientation = 'north' | 'south' | 'east' | 'west';
+/** Compass orientation of a location; the intercardinal values are additive (REQ-053 GP-FR-168). */
+export type Orientation =
+  | 'north'
+  | 'south'
+  | 'east'
+  | 'west'
+  | 'northeast'
+  | 'southeast'
+  | 'southwest'
+  | 'northwest';
 export type PlantTrait =
   | 'disease_resistant'
   | 'pest_resistant'
@@ -552,6 +561,24 @@ export interface WaterSourceWarning {
 
 export type HardinessZoneSource = 'manual' | 'derived_gps' | 'derived_postal' | 'frostline_us';
 
+/**
+ * Where the sun classes of a site begin (REQ-053 GP-FR-164): the lower bound of each class in hours of direct
+ * sun on the reference day; `deep_shade` is everything below `shade_min_hours`. Strictly descending, all > 0.
+ */
+export interface SunClassThresholds {
+  full_sun_min_hours: number;
+  partial_shade_min_hours: number;
+  shade_min_hours: number;
+  reference_month: number;
+  reference_day: number;
+}
+
+/** How wide a bed may be before it is out of reach, metres (REQ-053 GP-FR-166); one side never above both. */
+export interface ReachThresholds {
+  both_sides_m: number;
+  one_side_m: number;
+}
+
 export interface Site {
   key: string;
   name: string;
@@ -569,6 +596,9 @@ export interface Site {
   hardiness_zone_source?: HardinessZoneSource;
   hardiness_zone_resolved_at?: string | null;
   mean_annual_minimum_c?: number | null;
+  /** The effective values: stored ones, else the defaults (WP 8.24). Absent from an older backend. */
+  sun_class_thresholds?: SunClassThresholds;
+  reach_thresholds?: ReachThresholds;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -611,6 +641,9 @@ export interface SiteCreate {
   last_frost_date_avg?: string | null;
   first_frost_date_avg?: string | null;
   eisheilige_date?: string | null;
+  /** Omitted or `null` keeps the stored values on an edit (WP 8.24). */
+  sun_class_thresholds?: SunClassThresholds | null;
+  reach_thresholds?: ReachThresholds | null;
 }
 
 // Locations

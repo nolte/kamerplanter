@@ -493,7 +493,11 @@
       "north": "North",
       "south": "South",
       "east": "East",
-      "west": "West"
+      "west": "West",
+      "northeast": "Northeast",
+      "southeast": "Southeast",
+      "southwest": "Southwest",
+      "northwest": "Northwest"
     },
     "plantTrait": {
       "disease_resistant": "Disease Resistant",

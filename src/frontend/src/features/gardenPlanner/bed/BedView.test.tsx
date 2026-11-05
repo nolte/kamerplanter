@@ -334,6 +334,60 @@ describe('BedView', () => {
     });
   });
 
+  describe('site thresholds (GP-FR-164/166, WP 8.24)', () => {
+    const siteWith = () =>
+      http.get(`${BASE}/sites/:key`, ({ params }) =>
+        HttpResponse.json({
+          key: params.key,
+          name: 'Garten',
+          type: 'outdoor',
+          sun_class_thresholds: {
+            full_sun_min_hours: 8,
+            partial_shade_min_hours: 4,
+            shade_min_hours: 1,
+            reference_month: 7,
+            reference_day: 1,
+          },
+          reach_thresholds: { both_sides_m: 1.2, one_side_m: 0.8 },
+        }),
+      );
+    const narrowBed = () =>
+      bedSummary({
+        geometry: { kind: 'rect', origin: [1, 1], width_m: 0.9, length_m: 2, rotation_deg: 0 },
+        site_conditions: { access_sides: [] },
+      });
+
+    it('reads the site of the bed: the reach hint names the configured one-side value', async () => {
+      useBackend([siteWith()]);
+      renderBed(narrowBed(), '/standorte/locations/loc_b03#soil');
+
+      await waitFor(() =>
+        expect(screen.getByTestId('bed-reach-detail')).toHaveTextContent('one-side value applies (0.8 m)'),
+      );
+    });
+
+    it('the sun dialog shows the configured hours and reference day', async () => {
+      useBackend([siteWith()]);
+      const user = userEvent.setup();
+      renderBed(narrowBed(), '/standorte/locations/loc_b03#soil', 'grower');
+      // The site has arrived once the hint carries its value.
+      await waitFor(() => expect(screen.getByTestId('bed-reach-detail')).toHaveTextContent('(0.8 m)'));
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+
+      expect(within(dialog).getByText('More than 8 hours of direct sunlight on July 1')).toBeInTheDocument();
+      expect(within(dialog).getByText('Less than 1 hour of direct sunlight')).toBeInTheDocument();
+    });
+
+    it('keeps the defaults when the site cannot be read', async () => {
+      useBackend([http.get(`${BASE}/sites/:key`, () => HttpResponse.json({}, { status: 500 }))]);
+      renderBed(narrowBed(), '/standorte/locations/loc_b03#soil');
+
+      expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent('one-side value applies (0.6 m)');
+    });
+  });
+
   describe('sun and shade (GP-FR-157)', () => {
     it('changes the class from the head through PATCH and reloads the summary', async () => {
       let body: unknown = null;

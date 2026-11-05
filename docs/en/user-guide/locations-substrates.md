@@ -123,6 +123,26 @@ Click **Save**. The site appears in the overview.
 !!! tip "GPS coordinates unlock weather sources"
     For sites of type Outdoor, Greenhouse, or Balcony, a stored GPS position also unlocks the **Weather Source** section on the site detail page — there you select and prioritize public weather services or a Home Assistant source, see [Weather Sources per Location](weather-sources.md).
 
+### Sun and reach for garden planning {#setting-sun-and-reach}
+
+When the garden planner module is switched on, the detail page of a site has the section **Garden planning: sun and reach**. The values apply to every bed of the site.
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| Full sun: more than | 6 h | help text of the **Full sun** tile |
+| Partial shade: from | 3 h | help text of the **Partial shade** tile (up to the full-sun value) |
+| Shade: from | 2 h | help text of the **Shade** tile; below it is **Deep shade** |
+| Reference date (day, month) | 21 June | the day the hours of direct sun refer to |
+| Access from two sides | 1.2 m | guide value of the **Bed too wide** hint with two opposite access sides |
+| Access from one side | 0.6 m | guide value with one access side, and when no access sides are recorded |
+
+The sun defaults follow the Royal Horticultural Society, the reach defaults arm length (Oregon State and Iowa State University Extension, the environment ministry of Rhineland-Palatinate). Every value must be greater than 0. The sun hours must decrease from top to bottom (full sun above partial shade above shade), and the one-side value may not be greater than the two-side value. Otherwise the form names the error at the field and saves nothing.
+
+Kamerplanter computes nothing else from these values: you still choose the sun class of a bed yourself, the values only decide what the tiles show as the definition. If you do not change them, the defaults stay in force. <!-- REQ-053 GP-FR-164, GP-FR-166 -->
+
+!!! info "For technical users"
+    In the API the fields are `sun_class_thresholds` (`full_sun_min_hours`, `partial_shade_min_hours`, `shade_min_hours`, `reference_month`, `reference_day`) and `reach_thresholds` (`both_sides_m`, `one_side_m`) on `PUT /api/v1/t/{tenant_slug}/sites/{key}`. A field missing from the request, or `null`, keeps the stored value; invalid values are answered with 422. The response always carries the effective values, that is the defaults while nothing is stored.
+
 ---
 
 ## Adding Locations and Slots
@@ -371,20 +391,40 @@ You record how much direct sunlight a bed gets with five **tiles**. Each tile sh
 
 | Tile | Meaning |
 |------|---------|
-| Full sun | more than 6 hours of direct sunlight on a summer day |
+| Full sun | more than 6 hours of direct sunlight on 21 June |
 | Partial shade | 3–6 hours |
 | Shade | 2–3 hours |
 | Deep shade | less than 2 hours |
 | Unknown | not recorded yet (default) |
 
-The hours follow the Royal Horticultural Society definition, measured at midsummer.
+The hours follow the Royal Horticultural Society definition, measured at midsummer. You set the bounds and the reference date per site, see [Sun and reach for garden planning](#setting-sun-and-reach); the tiles then show your values. <!-- REQ-053 GP-FR-164 -->
 
 - **In the bed view:** next to the sun exposure in the overview, **Change sun** opens the tiles. This needs the "grower" role.
 - **In the garden plan:** when you select a bed, the properties panel shows the tiles. When you select several beds (frame selection or the Shift key), **Set the sun for all selected beds** sets the value at once. Locked beds stay as they are. You can take the step back with **Undo**, and it only counts once you save the plan.
 
 **Sun window and leaf shade.** On top of the tile you record **when** the sun reaches the bed: morning, midday, afternoon, all day or changing. The hours of direct sun in summer are optional, a rough guess is enough. The **Leaf shade in summer** switch notes that the bed is sunny in spring and later shaded by the leaves of trees. You find the fields in the **Change sun** dialog of the bed view and, in field mode, in the bed sheet (with large buttons, every change is saved at once). The entries appear on one line under the sun exposure in the bed overview. Kamerplanter calculates nothing from them, and leaf shade is a note only: it does not change the site hint when planting. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
 
-**Site conditions: frost, heat, wind, slope, access.** In the bed view, **Change conditions** opens a dialog for the **frost risk** (Low, Normal, High), the **cold-air pocket**, the **stored heat** (wall or building), the **wind** (Sheltered, Normal, Exposed), **slope** and **aspect** in degrees and the **access sides**. Everything is optional and entered by hand; Kamerplanter computes nothing from it. A bed with frost risk **High** is always named by the frost early warning, **Low** never. In field mode the bed sheet has the large chips **Moist / Normal / Dry** for the site moisture and **Windy**; every tap is stored at once. <!-- REQ-053 GP-FR-162, GP-FR-163, GP-FR-168, GP-UX-057 -->
+**Site conditions: frost, heat, wind, slope, access.** In the bed view, **Change conditions** opens a dialog for the **frost risk** (Low, Normal, High), the **cold-air pocket**, the **stored heat** (wall or building), the **wind** (Sheltered, Normal, Exposed), **slope** and **aspect** in degrees and the **access sides**. Everything is optional and entered by hand; Kamerplanter computes nothing from it except the bed-width hint from the access sides (see below). A bed with frost risk **High** is always named by the frost early warning, **Low** never. In field mode the bed sheet has the large chips **Moist / Normal / Dry** for the site moisture and **Windy**; every tap is stored at once. <!-- REQ-053 GP-FR-162, GP-FR-163, GP-FR-168, GP-UX-057 -->
+
+**Compass direction from the aspect.** When you enter the aspect in degrees, Kamerplanter derives the compass direction of the bed in eight steps: north, northeast, east, southeast, south, southwest, west and northwest. Each direction covers 45° around its centre; a boundary belongs to the direction that begins there, clockwise:
+
+| Compass direction | Aspect |
+|-------------------|--------|
+| North | from 337.5° and below 22.5° |
+| Northeast | 22.5° to below 67.5° |
+| East | 67.5° to below 112.5° |
+| Southeast | 112.5° to below 157.5° |
+| South | 157.5° to below 202.5° |
+| Southwest | 202.5° to below 247.5° |
+| West | 247.5° to below 292.5° |
+| Northwest | 292.5° to below 337.5° |
+
+As long as no aspect in degrees is entered, a compass direction you set by hand elsewhere stays as it is. <!-- REQ-053 GP-FR-017, GP-FR-168 -->
+
+!!! info "For technical users"
+    The derived compass direction is stored in the location field `orientation` (API and MCP); the interface keeps showing the degrees. The four existing values `north`, `south`, `east`, `west` stay valid; `northeast`, `southeast`, `southwest` and `northwest` are new. When `site_conditions.aspect_deg` is set, the derived direction overrides a value sent with `PUT /locations/{key}`.
+
+**The hint Bed too wide.** When a bed is wider than you can reach from its edge, the overview of the bed view shows the badge **Bed too wide** under **Reach**, with a line giving the width and the guide value. What counts is the narrowest extent of the bed: the shorter side of a rectangle, the diameter of a circle. The guide values follow arm reach: **1.2 m** when you reach the bed from two opposite sides (north and south, or east and west), **0.6 m** from one side. You set both per site, see [Sun and reach for garden planning](#setting-sun-and-reach). Two neighbouring sides (say north and east) count as one side. If you have not recorded any access sides, the stricter one-side value applies; record them under **Change conditions** and Kamerplanter uses your access. A bed exactly as wide as the guide value counts as within reach. Irregular (non-convex) beds get no hint. The hint blocks nothing and is not an error; Kamerplanter does not yet take paths next to the bed into account. <!-- REQ-053 GP-FR-166 -->
 
 In the garden plan, the properties panel of a selected bed shows the same fields under the tiles; a change there becomes part of the plan save, and you can take it back with **Undo**.
 

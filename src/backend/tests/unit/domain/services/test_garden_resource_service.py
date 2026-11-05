@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.common.enums import BedStatus, FrostRisk, TenantRole
+from app.common.enums import BedStatus, FrostRisk, Orientation, TenantRole
 from app.common.exceptions import (
     DuplicateError,
     ForbiddenError,
@@ -445,6 +445,35 @@ class TestPatchingALocation:
         patch_location(service, site_conditions={"access_sides": []})
 
         assert repo.locations["bed"].site_conditions.access_sides == []
+
+    def test_an_aspect_writes_the_orientation_it_derives(self, world) -> None:
+        """GP-FR-168 (WP 8.24): the derived orientation is a written column, not only a value on read."""
+        service, repo, _ = world
+        patch_location(service, site_conditions={"aspect_deg": 140.0})
+
+        key, fields = repo.field_updates[-1]
+        assert key == "bed" and fields["orientation"] == "southeast"
+        assert repo.locations["bed"].orientation == "southeast"
+
+    def test_an_aspect_change_within_the_sector_writes_no_orientation(self, world) -> None:
+        service, repo, _ = world
+        patch_location(service, site_conditions={"aspect_deg": 170.0})
+        patch_location(service, site_conditions={"aspect_deg": 190.0})
+
+        assert repo.field_updates[-1][1].keys() == {"site_conditions"}
+        assert repo.locations["bed"].orientation == "south"
+
+    def test_a_patch_without_an_aspect_leaves_a_manual_orientation_alone(self, world) -> None:
+        service, repo, _ = world
+        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"orientation": Orientation.WEST})
+        patch_location(service, site_conditions={"slope_deg": 8.0}, notes="Hang")
+
+        assert "orientation" not in repo.field_updates[-1][1]
+        assert repo.locations["bed"].orientation == "west"
+
+    def test_orientation_is_no_field_of_the_patch_body(self) -> None:
+        with pytest.raises(ValueError, match="orientation"):
+            LocationPatch.model_validate({"orientation": "north"})
 
     @pytest.mark.parametrize(
         "bad",

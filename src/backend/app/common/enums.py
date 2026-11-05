@@ -485,10 +485,16 @@ class BufferCapacity(StrEnum):
 
 
 class Orientation(StrEnum):
+    """Compass orientation of a location; the four intercardinal values are additive (REQ-053 GP-FR-168, #2667)."""
+
     NORTH = "north"
     SOUTH = "south"
     EAST = "east"
     WEST = "west"
+    NORTHEAST = "northeast"
+    SOUTHEAST = "southeast"
+    SOUTHWEST = "southwest"
+    NORTHWEST = "northwest"
 
 
 class SyncStatus(StrEnum):
