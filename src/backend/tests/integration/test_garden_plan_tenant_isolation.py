@@ -50,6 +50,7 @@ from app.common.dependencies import (
     get_bed_history_service,
     get_bed_rotation_service,
     get_bed_template_service,
+    get_companion_overlay_service,
     get_garden_plan_export_service,
     get_garden_plan_import_service,
     get_garden_plan_season_service,
@@ -111,6 +112,7 @@ from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.care_event_service import CareEventService
+from app.domain.services.companion_overlay_service import CompanionOverlayService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
@@ -531,6 +533,9 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     history: Any = _history_service(db)
     matrix: Any = _rotation_matrix_service(db)
     soil: Any = SoilAnalysisService(ArangoSiteRepository(db), ArangoCareEventRepository(db))
+    companions: Any = CompanionOverlayService(
+        ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
+    )
     adjacency: Any = AdjacencyService(
         ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
     )
@@ -563,6 +568,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         rotation = _Unscoped(rotation)
         matrix = _Unscoped(matrix)
         soil = _Unscoped(soil)
+        companions = _Unscoped(companions)
         history = _Unscoped(history)
         export = _Unscoped(export)
         importer = _Unscoped(importer)
@@ -589,6 +595,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_bed_rotation_service] = lambda: rotation
     app.dependency_overrides[get_rotation_matrix_service] = lambda: matrix
     app.dependency_overrides[get_soil_analysis_service] = lambda: soil
+    app.dependency_overrides[get_companion_overlay_service] = lambda: companions
     app.dependency_overrides[get_plant_state_service] = lambda: plant_states
     app.dependency_overrides[get_bed_history_service] = lambda: history
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
@@ -857,6 +864,8 @@ CASES: tuple[Case, ...] = (
     Case("get_succession_recommendation", "GET", "/locations/bed_b/succession-recommendation"),
     # REQ-053 WP 8.7, GP-FR-122: the soil analyses of a bed, read through the bed's site.
     Case("get_soil_analyses", "GET", "/locations/bed_b/soil-analyses"),
+    # REQ-053 WP 8.15, GP-FR-134: the companion layer of a bed names the species standing in its slots.
+    Case("get_companion_edges", "GET", "/locations/bed_b/companion-edges"),
     # REQ-053 WP 8.12, GP-FR-135: the rotation matrix of a site reads every bed's history under the tenant.
     Case("get_rotation_matrix", "GET", "/sites/site_b/rotation-matrix"),
     # REQ-053 WP 4.5, GP-API-038: the combined history of a bed (care events + derived planting events).

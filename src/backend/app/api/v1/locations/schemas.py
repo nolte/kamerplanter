@@ -1478,3 +1478,88 @@ class SoilAnalysesResponse(BaseModel):
     analyses: int
     #: `true` when older analyses than the ones listed exist (the read is bounded; narrow it with `from` / `to`).
     truncated: bool
+
+
+# ── Companion overlay (REQ-053 WP 8.15, GP-FR-134) ───────────────────────────────────────────────────────────
+
+
+class PlanPointResponse(BaseModel):
+    """A point in plan coordinates (metres, the site's plan frame, rounded to millimetres)."""
+
+    x: float = Field(examples=[2.15])
+    y: float = Field(examples=[1.3])
+
+
+class CompanionEndpointResponse(BaseModel):
+    slot_key: str = Field(examples=["8841"])
+    #: The slot's anchor in plan coordinates: a point's origin, a row's or zone's vertex mean.
+    #: `null` when the slot or its bed has no geometry (the line cannot be drawn).
+    position: PlanPointResponse | None
+    #: The species standing (`removed_on = null`) or planned (live planting run) in the slot, sorted.
+    species_keys: list[str] = Field(examples=[["5120"]])
+
+
+class CompanionDecidingPairResponse(BaseModel):
+    """The two species whose relation decided the pair; a name only where the tenant may read the species."""
+
+    species_a_key: str = Field(examples=["5120"])
+    species_a_name: str | None = Field(examples=["Solanum lycopersicum"])
+    species_b_key: str = Field(examples=["5188"])
+    species_b_name: str | None = Field(examples=["Foeniculum vulgare"])
+
+
+class CompanionEdgeResponse(BaseModel):
+    slot_a: CompanionEndpointResponse
+    slot_b: CompanionEndpointResponse
+    status: Literal["compatible", "incompatible", "unknown"] = Field(examples=["incompatible"])
+    #: `companion.incompatible` | `companion.compatible` | `companion.unknown` (the frontend translates it).
+    reason_code: str = Field(examples=["companion.incompatible"])
+    #: The curated reason of the deciding `incompatible_with` edge, if it names one.
+    reason: str | None = Field(examples=["Fennel inhibits the growth of most neighbours."])
+    #: The `compatible_with` score of the deciding pair; `null` for any other status.
+    score: float | None = Field(examples=[None, 0.9])
+    #: `null` for `unknown`: no companion edge relates any species of the two slots.
+    deciding: CompanionDecidingPairResponse | None
+    #: `adjacent_to.distance_cm` as stored; `null` for an edge without one (manual or legacy).
+    distance_cm: float | None = Field(examples=[30.0])
+
+
+class CompanionEdgesResponse(BaseModel):
+    """`GET /locations/{key}/companion-edges` (GP-FR-134): one judged line per neighbouring pair of occupied slots."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "8801",
+                    "edges": [
+                        {
+                            "slot_a": {"slot_key": "8841", "position": {"x": 2.15, "y": 1.3}, "species_keys": ["5120"]},
+                            "slot_b": {"slot_key": "8842", "position": {"x": 2.45, "y": 1.3}, "species_keys": ["5188"]},
+                            "status": "incompatible",
+                            "reason_code": "companion.incompatible",
+                            "reason": "Fennel inhibits the growth of most neighbours.",
+                            "score": None,
+                            "deciding": {
+                                "species_a_key": "5120",
+                                "species_a_name": "Solanum lycopersicum",
+                                "species_b_key": "5188",
+                                "species_b_name": "Foeniculum vulgare",
+                            },
+                            "distance_cm": 30.0,
+                        }
+                    ],
+                    "total": 1,
+                    "truncated": False,
+                }
+            ]
+        }
+    )
+
+    location_key: str
+    #: Strongest status first (`incompatible`, `compatible`, `unknown`), then by slot keys; at most 500.
+    edges: list[CompanionEdgeResponse]
+    #: Pairs with species on both sides before the cap.
+    total: int
+    #: `true` when more than 500 pairs exist and the weakest were cut.
+    truncated: bool

@@ -14,6 +14,10 @@ from app.api.v1.locations.schemas import (
     BedSummaryResponse,
     ClearBedRequest,
     ClearBedResponse,
+    CompanionDecidingPairResponse,
+    CompanionEdgeResponse,
+    CompanionEdgesResponse,
+    CompanionEndpointResponse,
     FrostWarningResponse,
     LocationCreate,
     LocationPatch,
@@ -21,6 +25,7 @@ from app.api.v1.locations.schemas import (
     LocationResponse,
     LocationStatusRequest,
     NeighbourHintResponse,
+    PlanPointResponse,
     PlantingItemResponse,
     PlantingLayoutPreviewRequest,
     PlantingLayoutPreviewResponse,
@@ -49,6 +54,7 @@ from app.common.datetimes import utc_range
 from app.common.dependencies import (
     get_bed_history_service,
     get_bed_rotation_service,
+    get_companion_overlay_service,
     get_garden_resource_service,
     get_plant_state_service,
     get_planting_reservation_service,
@@ -76,6 +82,7 @@ from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.companion_overlay_service import CompanionEndpoint, CompanionOverlayService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.plant_state_service import PlantStateService
 from app.domain.services.planting_reservation_service import PlantingReservationService
@@ -488,6 +495,55 @@ def validate_planting(
         rotation=[RotationFindingResponse(**asdict(f)) for f in result.rotation.findings],
         neighbour_scope=result.neighbour_scope,
         neighbours=[NeighbourHintResponse(**asdict(h)) for h in result.neighbours],
+    )
+
+
+def _endpoint_response(endpoint: CompanionEndpoint) -> CompanionEndpointResponse:
+    position = endpoint.position
+    return CompanionEndpointResponse(
+        slot_key=endpoint.slot_key,
+        position=PlanPointResponse(x=position[0], y=position[1]) if position is not None else None,
+        species_keys=endpoint.species_keys,
+    )
+
+
+@router.get(
+    "/{key}/companion-edges",
+    response_model=CompanionEdgesResponse,
+    summary="The companion-planting layer of a bed: one judged line per neighbouring pair",
+)
+def get_companion_edges(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: CompanionOverlayService = Depends(get_companion_overlay_service),
+) -> CompanionEdgesResponse:
+    """Every `adjacent_to` pair of the bed's slots in which both slots hold a species (GP-FR-134, REQ-028 §7.3).
+
+    A species counts when a plant stands in the slot (`removed_on = null`) or a live planting run plans it there - the
+    set the planting dialog reads. Each pair is `compatible`, `incompatible` or `unknown` by the same rule as
+    `POST …/validate-planting`: an incompatible edge wins, else a compatible edge with its score, else unknown. Several
+    species per slot and both edge directions are folded with that precedence. Positions are the slot anchors in plan
+    coordinates. At most 500 pairs, `incompatible` first, then `compatible`, then `unknown`, each by slot keys;
+    `truncated` says the rest were cut. Readable by every role; another tenant's bed is a 404.
+    """
+    result = service.companion_edges(key, tenant_key=ctx.tenant_key)
+    return CompanionEdgesResponse(
+        location_key=result.location_key,
+        edges=[
+            CompanionEdgeResponse(
+                slot_a=_endpoint_response(edge.slot_a),
+                slot_b=_endpoint_response(edge.slot_b),
+                status=edge.status,
+                reason_code=edge.reason_code,
+                reason=edge.reason,
+                score=edge.score,
+                deciding=CompanionDecidingPairResponse(**asdict(edge.deciding)) if edge.deciding is not None else None,
+                distance_cm=edge.distance_cm,
+            )
+            for edge in result.edges
+        ],
+        total=result.total,
+        truncated=result.truncated,
     )
 
 

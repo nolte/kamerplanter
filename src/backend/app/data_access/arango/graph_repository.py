@@ -11,7 +11,10 @@ from app.domain.interfaces.graph_repository import (
     ADJACENCY_SOURCE_DERIVED,
     ADJACENCY_SOURCE_MANUAL,
     AdjacencySync,
+    CompanionRelation,
+    CompanionRelations,
     IGraphRepository,
+    SlotAdjacency,
 )
 
 
@@ -80,6 +83,57 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             }
             for r in cursor
         ]
+
+    def load_companion_relations(self, species_keys: list[str], *, tenant_key: str) -> CompanionRelations:
+        # One round trip for the whole bed (REQ-053 GP-FR-134): the readable species among the keys, then the edges
+        # of both collections whose two ends are among those. The far end is filtered exactly like the anchor - a
+        # species the tenant may not read contributes neither an edge nor a name (MT-054, #927). Edges are matched
+        # through the edge index on ``_from``; the key list is the bed's distinct species, bounded by its slots.
+        if not tenant_key:
+            raise ValueError("load_companion_relations needs a tenant_key (an empty tenant is no tenant, #2107).")
+        keys = sorted({key for key in species_keys if key})
+        if not keys:
+            return CompanionRelations(relations=[], names={})
+        predicate, binds = tenant_union_with_grants_predicate(tenant_key, doc_var="sp")
+        query = f"""
+        LET visible = (
+          FOR sp IN @@species_col
+            FILTER sp._key IN @keys AND {predicate}
+            RETURN {{key: sp._key, name: sp.scientific_name}}
+        )
+        LET ids = (FOR v IN visible RETURN CONCAT(@species_prefix, v.key))
+        LET compatible = (
+          FOR e IN @@compatible_col
+            FILTER e._from IN ids AND e._to IN ids
+            RETURN {{from: PARSE_IDENTIFIER(e._from).key, to: PARSE_IDENTIFIER(e._to).key, score: e.score}}
+        )
+        LET incompatible = (
+          FOR e IN @@incompatible_col
+            FILTER e._from IN ids AND e._to IN ids
+            RETURN {{from: PARSE_IDENTIFIER(e._from).key, to: PARSE_IDENTIFIER(e._to).key, reason: e.reason}}
+        )
+        RETURN {{visible: visible, compatible: compatible, incompatible: incompatible}}
+        """
+        bind_vars: dict[str, Any] = {
+            "@species_col": col.SPECIES,
+            "@compatible_col": col.COMPATIBLE_WITH,
+            "@incompatible_col": col.INCOMPATIBLE_WITH,
+            "species_prefix": f"{col.SPECIES}/",
+            "keys": keys,
+            **binds,
+        }
+        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
+        result: dict[str, Any] = next(iter(cursor), {"visible": [], "compatible": [], "incompatible": []})
+        # The AQL objects always carry every key (``null`` when the edge stores none), so the rows are subscripted.
+        relations = [
+            CompanionRelation(from_key=row["from"], to_key=row["to"], incompatible=False, score=row["score"])
+            for row in result.get("compatible", [])
+        ] + [
+            CompanionRelation(from_key=row["from"], to_key=row["to"], incompatible=True, reason=row["reason"] or None)
+            for row in result.get("incompatible", [])
+        ]
+        names = {row["key"]: row["name"] for row in result.get("visible", []) if row["name"]}
+        return CompanionRelations(relations=relations, names=names)
 
     def get_companion_counts(self, *, tenant_key: str | None) -> dict[str, dict[str, int]]:
         # Single batch aggregation over BOTH edge collections in one round trip —
@@ -241,6 +295,50 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [{"slot": self._from_doc(r["slot"])} for r in cursor]
+
+    def get_slot_adjacency(self, location_key: str, slot_keys: list[str], *, tenant_key: str) -> list[SlotAdjacency]:
+        # One read for all slots of a bed (GP-FR-134), not one traversal per slot. Anchored like
+        # ``load_slot_species_hints``: the bed's site must be the tenant's (a slot carries no ``tenant_key``,
+        # #706), and only slots of THIS bed among the keys count. Stored in both directions, so each pair is
+        # folded to ``a < b`` once here.
+        if not tenant_key:
+            raise ValueError("get_slot_adjacency needs a tenant_key (an empty tenant is no tenant, #2107).")
+        keys = sorted({key for key in slot_keys if key})
+        if not keys or not location_key:
+            return []
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET l = DOCUMENT(CONCAT(@locations, @location_key))
+            FILTER l != null
+            LET site = DOCUMENT(CONCAT(@sites, l.site_key))
+            FILTER site != null AND site.tenant_key == @tenant_key
+            LET ids = (FOR s IN @@slots FILTER s._key IN @keys AND s.location_key == @location_key RETURN s._id)
+            FOR e IN @@edges
+                FILTER e._from IN ids AND e._to IN ids
+                RETURN {a: PARSE_IDENTIFIER(e._from).key, b: PARSE_IDENTIFIER(e._to).key, distance_cm: e.distance_cm}
+            """,
+                bind_vars={
+                    "locations": f"{col.LOCATIONS}/",
+                    "sites": f"{col.SITES}/",
+                    "@slots": col.SLOTS,
+                    "@edges": col.ADJACENT_TO,
+                    "location_key": location_key,
+                    "tenant_key": tenant_key,
+                    "keys": keys,
+                },
+            ),
+        )
+        pairs: dict[tuple[str, str], float | None] = {}
+        for row in cursor:
+            first, second = sorted((row["a"], row["b"]))
+            if first == second:
+                continue
+            distance = row["distance_cm"]  # always present in the AQL object, ``null`` when unset
+            if (first, second) not in pairs or pairs[(first, second)] is None:
+                pairs[(first, second)] = distance
+        return [SlotAdjacency(slot_a_key=a, slot_b_key=b, distance_cm=pairs[(a, b)]) for a, b in sorted(pairs)]
 
     def set_adjacent_slots(
         self,

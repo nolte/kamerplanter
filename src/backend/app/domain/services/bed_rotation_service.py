@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Literal
 
 import structlog
 
@@ -28,6 +28,7 @@ from app.common.datetimes import today_utc
 from app.common.enums import PlanRole, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
 from app.config.constants import DEFAULT_ROTATION_WINDOW_YEARS
+from app.domain.engines.companion_planting_engine import CompanionVerdict, judge_neighbour
 from app.domain.engines.crop_rotation_validator import (
     SEVERITY_ORDER,
     BedRotationResult,
@@ -264,7 +265,11 @@ class BedRotationService:
         hints = [
             found
             for other, slots in sorted(present.items())
-            if (found := self._hint(other, slots, other in incompatible, compatible, warn, tenant_key=tenant_key))
+            if (
+                found := self._hint(
+                    other, slots, judge_neighbour(other, incompatible, compatible), warn, tenant_key=tenant_key
+                )
+            )
             is not None
         ]
         return sorted(hints, key=lambda h: (SEVERITY_ORDER[h.severity], h.species_key))
@@ -273,20 +278,20 @@ class BedRotationService:
         self,
         other: str,
         slots: list[str],
-        is_incompatible: bool,
-        compatible: dict[str, Any],
+        verdict: CompanionVerdict,
         warn: Severity,
         *,
         tenant_key: str,
     ) -> NeighbourHint | None:
-        if not is_incompatible and other not in compatible:
+        """The hint for one neighbour species; *verdict* is the shared per-pair rule (:func:`judge_neighbour`)."""
+        if verdict.status == "unknown":
             return None
         name = self._species_name(other, tenant_key=tenant_key)
         slot_keys = sorted(set(slots))
-        if is_incompatible:
+        if verdict.status == "incompatible":
             return NeighbourHint(warn, "companion.incompatible", f"Incompatible neighbour: {name}.", other, slot_keys)
         return NeighbourHint(
-            "OK", "companion.compatible", f"Compatible neighbour: {name}.", other, slot_keys, score=compatible[other]
+            "OK", "companion.compatible", f"Compatible neighbour: {name}.", other, slot_keys, score=verdict.score
         )
 
     def _species_name(self, species_key: str, *, tenant_key: str) -> str:
