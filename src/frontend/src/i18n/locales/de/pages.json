@@ -6095,6 +6095,8 @@
             "frostHint": "Das Frostrisiko je Beet als Muster mit Symbol ein- oder ausblenden.",
             "plantState": "Pflanzenzustand anzeigen",
             "plantStateHint": "Zeigt an jeder Pflanze Wachstumsphase, Ring und das dringendste Zeichen (z. B. Gießen fällig). Die Zustände laden für die Beete, an die du nah genug heranzoomst; weiter weg zeigt ein Beet, dessen Zustände schon geladen sind, im Kreis, wie viele Pflanzen Handlungsbedarf haben.",
+            "companion": "Mischkultur anzeigen",
+            "companionHint": "Zeigt zwischen benachbarten Pflanzen, ob sie sich vertragen: durchgezogen grün = gute Nachbarn, gestrichelt rot = schlechte Nachbarn, gepunktet grau = keine Angabe. Die Linien laden für die Beete, an die du nah genug heranzoomst; zeig auf eine Linie oder tippe sie an, um Grund und Bewertung zu sehen.",
             "attentionFilter": "Nur Pflanzen mit Handlungsbedarf zeigen",
             "attentionFilterHint": "Blendet alle Pflanzen ohne Zeichen aus, damit du siehst, wo heute etwas zu tun ist.",
             "attentionFilterDisabledHint": "Schalte zuerst die Ebene „Pflanzenzustand“ ein, dann kannst du nach Handlungsbedarf filtern."
@@ -6120,7 +6122,15 @@
             "plantStateTitle": "Pflanzenzustand",
             "plantStateIntro": "Die Farbe der Scheibe zeigt die Wachstumsphase, der Buchstabe die Art. Ring und Zeichen bleiben auch ohne Farbe unterscheidbar.",
             "phasesTitle": "Farben der Wachstumsphasen auf diesem Plan",
-            "phasesNone": "Auf dem Plan steht noch keine Pflanze mit bekannter Phase."
+            "phasesNone": "Auf dem Plan steht noch keine Pflanze mit bekannter Phase.",
+            "companionTitle": "Mischkultur",
+            "companion": {
+              "compatible": "Durchgezogen: gute Nachbarn (fördern sich)",
+              "incompatible": "Gestrichelt: schlechte Nachbarn (hemmen sich)",
+              "unknown": "Gepunktet: keine Angabe zu diesem Paar"
+            },
+            "companionNote": "Zeig auf eine Linie oder tippe sie an, um Grund und Bewertung zu sehen. Die Linien beruhen auf den hinterlegten Mischkultur-Beziehungen der Arten, nicht auf einer Messung im Beet.",
+            "companionCapped": "Es sind mehr Nachbarpaare im Bild, als der Plan zeigt (höchstens {{count}} Linien, Unverträgliches zuerst). Zoome näher heran, um alle zu sehen."
           },
           "wateredDays_one": "{{count}} Tag seit",
           "wateredDays_other": "{{count}} Tage seit",
@@ -6266,6 +6276,24 @@
             "wateredNone": "Kein Gießen erfasst.",
             "watered": "Zuletzt gegossen: {{days}}"
           }
+        },
+        "companion": {
+          "status": {
+            "compatible": "Gute Nachbarn",
+            "incompatible": "Schlechte Nachbarn",
+            "unknown": "Keine Angabe"
+          },
+          "pair": "{{a}} und {{b}}",
+          "reason": "Grund: {{reason}}",
+          "reasonCode": {
+            "compatible": "Diese Arten fördern sich als Nachbarn.",
+            "incompatible": "Diese Arten hemmen sich als Nachbarn.",
+            "unknown": "Für diese Nachbarn ist keine Mischkultur-Beziehung hinterlegt."
+          },
+          "score": "Bewertung: {{score}} von 1",
+          "distance": "Abstand: {{distance}} cm",
+          "close": "Info zur Mischkultur schließen",
+          "unnamedSpecies": "Art ohne Namen"
         }
       },
       "io": {

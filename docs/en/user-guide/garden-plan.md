@@ -189,6 +189,7 @@ You show and hide layers in the **Layers** group of the view bar. Your browser r
 | **Show drainage** | How well a bed drains | off |
 | **Show frost risk** | Low, normal or high per bed | off |
 | **Show plant state** | Phase, ring and sign of every plant | off |
+| **Show companion planting** | Lines between neighbouring plants: good, bad or unknown neighbours | off |
 
 The legend below the view bar explains every layer that is switched on. The hatching of zones and of the state layers differs in pattern, not only in colour.
 
@@ -208,6 +209,23 @@ What disc, ring and sign on a plant mean is described under [Plant state and pla
 
 !!! note "Partially available: plant state"
     **Frost danger** does not appear as a sign yet, even though the **Frost risk** layer shows the stored value. **Watering due** arises so far only from a watering task due today, not from the irrigation demand. <!-- REQ-053 GP-UX-060, GP-FR-190 -->
+
+### Companion planting on the plan {#companion-planting-on-the-plan}
+
+**Companion planting layer in the garden plan.** With **Show companion planting** in the layer group you see whether neighbouring plants get along. The plan draws a line between two neighbouring occupied places of a bed. A place can hold a standing plant or a species that a running planting plans there. The kind of line says what is known:
+
+| Line | Meaning |
+|------|---------|
+| Solid, green | Good neighbours: the species help each other. |
+| Dashed, red | Bad neighbours: the species hinder each other. |
+| Dotted, grey | Nothing known: no relation is stored for this pair. |
+
+The lines differ in their stroke, not only in their colour, so you can tell them apart in greyscale too. Point at a line with the mouse and a card appears. It names the two species that decide the verdict, the stored reason or a short explanation, for good neighbours the score from 0.1 to 1 and, if known, the distance. On a touchscreen you tap the line. The card then stays open until you close it or tap somewhere else on the plan. A tap on a line does not select the bed below it. The verdict is the same as in the planting dialog (**Plant it**): if any species pair of the two places is incompatible, the pair counts as bad neighbours.
+
+The lines appear only once you zoom close enough to a bed for the single plants to show. Kamerplanter loads them only while the layer is on, only for the beds you currently see that close, and at most four beds at a time. Each bed loads once and again when you save the plan or a newer version of it loads. The plan shows at most 500 lines at once, bad neighbours first; if more pairs are in view, the legend tells you. Then zoom in closer. The layer starts switched off; your browser remembers your choice. <!-- REQ-053 GP-FR-134 -->
+
+!!! note "Partly available: companion planting"
+    So far you reach the card with the mouse or by touch only, not with the keyboard. You also see the relations of the same species in the planting dialog (**Plant it**) and on the **Companion Planting** page of a species. <!-- REQ-053 GP-FR-134 -->
 
 ## Irrigation zones and the watering round {#irrigation-zones}
 

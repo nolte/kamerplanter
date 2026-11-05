@@ -36,6 +36,7 @@ import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import WavesIcon from '@mui/icons-material/Waves';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
 import LocalFloristOutlinedIcon from '@mui/icons-material/LocalFloristOutlined';
+import Diversity3OutlinedIcon from '@mui/icons-material/Diversity3Outlined';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -63,6 +64,7 @@ import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '..
 import { snapCandidates } from '../renderer/planIndex';
 import { toScreen as projectToScreen } from '../renderer/viewport';
 import { markerLodBedKeys } from '../renderer/scene';
+import { cullCompanionLines } from '../renderer/companionLines';
 import { colorsOf, usePhaseNames } from '../planting/phaseColors';
 import { usePlanPlantStates } from '../planting/usePlanPlantStates';
 import { planContentBounds } from '../routes/fitViewport';
@@ -118,6 +120,7 @@ import { useEditorShortcuts } from './useEditorShortcuts';
 import { TOGGLE_LAYERS, type LayerId } from './layers';
 import { useLayerPrefs } from './useLayerPrefs';
 import { useAttentionFilter } from './useAttentionFilter';
+import { companionBedKeys, useCompanionEdges } from './useCompanionEdges';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
@@ -170,6 +173,12 @@ export interface GardenPlanEditorProps {
 /** The wheel zooms stepless: `exp(-deltaY * this)` per event (the buttons and + / - use the fixed levels). */
 const WHEEL_ZOOM_PER_PX = 0.0015;
 
+/** The companion line the event hit (`data-companion-edge`, drawn by the renderer's companion layer), or `null`. */
+function companionEdgeOf(event: { target: EventTarget | null }): string | null {
+  const line = event.target instanceof Element ? event.target.closest('[data-companion-edge]') : null;
+  return line?.getAttribute('data-companion-edge') ?? null;
+}
+
 /** The bed whose task badge the event hit (`data-plan-badge`, drawn by the renderer), or `null`. */
 function badgeKeyOf(event: { target: EventTarget | null }): string | null {
   const badge = event.target instanceof Element ? event.target.closest('[data-plan-badge]') : null;
@@ -198,6 +207,7 @@ const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
   moisture: <WavesIcon />,
   frost: <AcUnitIcon />,
   plantState: <LocalFloristOutlinedIcon />,
+  companion: <Diversity3OutlinedIcon />,
 };
 
 // The template picker, the "save as template" dialog and the multi-duplicate dialog are their own chunks:
@@ -205,6 +215,8 @@ const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
 const TemplatePanel = lazy(() => import('../templates/TemplatePanel'));
 const SaveAsTemplateDialog = lazy(() => import('../templates/SaveAsTemplateDialog'));
 const MultiDuplicateDialog = lazy(() => import('./MultiDuplicateDialog'));
+// The info card of a companion line (GP-FR-134) loads with the first hover or tap.
+const CompanionEdgeInfo = lazy(() => import('./CompanionEdgeInfo'));
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const NO_BED_KEYS: readonly string[] = [];
@@ -385,6 +397,35 @@ export function GardenPlanEditor({
     }),
     [attentionOnly, plantStateOn, t, setAttentionOnly],
   );
+  // The companion-planting layer (GP-FR-134): the visible beds at marker LOD read their judged neighbour pairs while
+  // the layer is on; the lines are culled to the view and capped at 500 before the renderer sees them.
+  const companionOn = layerPrefs.companion;
+  const companionBeds = useMemo(
+    () => (companionOn ? companionBedKeys(plan, viewport) : NO_BED_KEYS),
+    [companionOn, plan, viewport],
+  );
+  const companion = useCompanionEdges(plan.siteKey, companionBeds, companionOn);
+  const refreshCompanion = companion.refresh;
+  // A saved or reloaded plan may have new neighbours or plantings: the loaded pairs are read again.
+  const companionRevision = useRef(plan.revision);
+  useEffect(() => {
+    if (companionRevision.current === plan.revision) return;
+    companionRevision.current = plan.revision;
+    refreshCompanion();
+  }, [plan.revision, refreshCompanion]);
+  const companionCulled = useMemo(
+    () => (companionOn ? cullCompanionLines(companion.lines, viewport) : null),
+    [companionOn, companion.lines, viewport],
+  );
+  const companionLayer = useMemo(
+    () => (companionCulled ? { lines: companionCulled.lines } : undefined),
+    [companionCulled],
+  );
+  const companionCapped = (companionCulled?.capped ?? false) || companion.truncated;
+  // Hover shows a line's card while the pointer is on it; a tap pins it until it is closed (touch has no hover).
+  const [companionHover, setCompanionHover] = useState<string | null>(null);
+  const [companionPinned, setCompanionPinned] = useState<string | null>(null);
+  const closeCompanionInfo = useCallback(() => setCompanionPinned(null), []);
   const hasUnderlay = underlayState.underlay !== null;
   const layerToggles = useMemo<LayerToggle[]>(
     () =>
@@ -673,6 +714,10 @@ export function GardenPlanEditor({
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerMove(event);
+      if (companionOn) {
+        const edge = event.buttons === 0 ? companionEdgeOf(event) : null;
+        setCompanionHover((previous) => (previous === edge ? previous : edge));
+      }
       const box = event.currentTarget.getBoundingClientRect();
       const pointM = renderer.toModel([
         event.clientX - box.left - event.currentTarget.clientLeft,
@@ -711,6 +756,7 @@ export function GardenPlanEditor({
     },
     [
       candidates,
+      companionOn,
       drawTool,
       gridStepM,
       pxPerM,
@@ -725,6 +771,7 @@ export function GardenPlanEditor({
   const onPointerLeave = useCallback(() => {
     setSnapMark(null);
     setGhostPoint(null);
+    setCompanionHover(null);
   }, []);
   // A release or a cancel ends the gesture the marker belonged to; the next hover move draws it again.
   const onPointerUp = useCallback(
@@ -1184,6 +1231,7 @@ export function GardenPlanEditor({
         moistureLayer: layerPrefs.moisture,
         frostLayer: layerPrefs.frost,
         ...(plantStateLayer ? { plantStateLayer, phaseColors } : {}),
+        ...(companionLayer ? { companionLayer } : {}),
       }),
     [
       renderer,
@@ -1200,6 +1248,7 @@ export function GardenPlanEditor({
       layerPrefs.frost,
       plantStateLayer,
       phaseColors,
+      companionLayer,
     ],
   );
 
@@ -1404,9 +1453,11 @@ export function GardenPlanEditor({
     (event: ReactPointerEvent<HTMLElement>) => {
       if (templateTool && event.button === 0) return;
       if (onOpenCare && tool === 'select' && event.button === 0 && badgeKeyOf(event) !== null) return;
+      // A press on a companion line opens its card on the click that follows, like the task badge: no gesture starts.
+      if (companionOn && tool === 'select' && event.button === 0 && companionEdgeOf(event) !== null) return;
       touchPointerDown(event);
     },
-    [onOpenCare, templateTool, tool, touchPointerDown],
+    [companionOn, onOpenCare, templateTool, tool, touchPointerDown],
   );
   const onCanvasClick = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
@@ -1421,10 +1472,15 @@ export function GardenPlanEditor({
         void placeTemplate(snapPoint(pointM, event.altKey, pointerKind(kind)));
         return;
       }
+      if (companionOn && tool === 'select') {
+        const edge = companionEdgeOf(event);
+        setCompanionPinned(edge);
+        if (edge) return;
+      }
       const key = badgeKeyOf(event);
       if (key && onOpenCare && tool === 'select') onOpenCare(key);
     },
-    [onOpenCare, placeTemplate, renderer, snapPoint, templateTool, tool],
+    [companionOn, onOpenCare, placeTemplate, renderer, snapPoint, templateTool, tool],
   );
 
   const selectedTemplate = useMemo(
@@ -1470,6 +1526,18 @@ export function GardenPlanEditor({
     [onPan, viewport],
   );
 
+  // The card of the pinned line, else of the hovered one; it sits at the line's midpoint and follows pan and zoom.
+  const companionInfo = useMemo(() => {
+    const id = companionOn ? (companionPinned ?? companionHover) : null;
+    const edge = id ? companion.edges[id] : undefined;
+    if (!id || !edge?.slot_a.position || !edge.slot_b.position) return null;
+    const [x, y] = projectToScreen(viewport, [
+      (edge.slot_a.position.x + edge.slot_b.position.x) / 2,
+      (edge.slot_a.position.y + edge.slot_b.position.y) / 2,
+    ]);
+    return { edge, x, y, pinned: id === companionPinned };
+  }, [companionOn, companionPinned, companionHover, companion.edges, viewport]);
+
   const listShown = view === 'list';
   const canvasSurface = (
     <Box
@@ -1506,6 +1574,19 @@ export function GardenPlanEditor({
     >
       {rendered}
       {gridVisible && <Grid viewport={viewport} stepM={gridStepM} />}
+      {companionInfo && (
+        <Suspense fallback={null}>
+          <CompanionEdgeInfo
+            edge={companionInfo.edge}
+            x={companionInfo.x}
+            y={companionInfo.y}
+            canvasWidthPx={viewport.widthPx}
+            canvasHeightPx={viewport.heightPx}
+            pinned={companionInfo.pinned}
+            onClose={closeCompanionInfo}
+          />
+        </Suspense>
+      )}
       <EditorOverlay
         overlay={tools.overlay}
         handles={handles}
@@ -1638,6 +1719,8 @@ export function GardenPlanEditor({
           showFrost={layerPrefs.frost}
           showPlantState={plantStateOn}
           phases={legendPhases}
+          showCompanion={companionOn}
+          companionCapped={companionCapped}
         />
       )}
       {!listShown && !toolbarBelow && toolbar}

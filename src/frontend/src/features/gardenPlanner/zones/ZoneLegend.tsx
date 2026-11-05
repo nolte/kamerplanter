@@ -19,6 +19,8 @@ const PREFIX = 'pages.gardenPlan.editor.zones';
 
 // The plant-state section draws markers and badges: its own chunk, loaded when the layer goes on (UI-NFR-003).
 const PlantStateLegendSection = lazy(() => import('./PlantStateLegendSection'));
+// The companion lines likewise (GP-FR-134).
+const CompanionLegendSection = lazy(() => import('./CompanionLegendSection'));
 const NO_PHASES: readonly string[] = [];
 const SWATCH_W = 32;
 const SWATCH_H = 20;
@@ -45,6 +47,10 @@ interface Props {
   showPlantState?: boolean;
   /** Names of the growth phases present on the plan. */
   phases?: readonly string[];
+  /** The companion-planting layer (GP-FR-134): line style and colour per status. */
+  showCompanion?: boolean;
+  /** The plan draws fewer companion lines than are in view (500-line cap or a cut bed answer). */
+  companionCapped?: boolean;
 }
 
 /** One section of a site-condition layer: per value the pattern, the glyph and the words. */
@@ -98,8 +104,8 @@ function ConditionSection({ spec }: { spec: ConditionSpec<string> }) {
 }
 
 /**
- * The legend of the plan's layers (GP-FR-031): zones, "last watered", the site-condition layers (GP-FR-169) and the
- * plant state (GP-UX-061).
+ * The legend of the plan's layers (GP-FR-031): zones, "last watered", the site-condition layers (GP-FR-169), the
+ * plant state (GP-UX-061) and the companion lines (GP-FR-134).
  * Every entry pairs a swatch with TEXT - the swatch shows the pattern (and, for the site conditions, the glyph) the
  * layer uses, the words say what it means, so the legend works without seeing colour (WCAG 1.4.1).
  */
@@ -112,12 +118,16 @@ export function ZoneLegend({
   showFrost = false,
   showPlantState = false,
   phases = NO_PHASES,
+  showCompanion = false,
+  companionCapped = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const shownConditions: Record<ConditionLayerId, boolean> = { sun: showSun, moisture: showMoisture, frost: showFrost };
   const conditions = CONDITION_SPECS.filter((spec) => shownConditions[spec.id]);
-  if (!showZones && !showLastWatered && conditions.length === 0 && !showPlantState) return null;
+  if (!showZones && !showLastWatered && conditions.length === 0 && !showPlantState && !showCompanion) {
+    return null;
+  }
   const ink = theme.palette.mode === 'dark' ? theme.palette.info.light : theme.palette.info.dark;
   return (
     <Box
@@ -212,6 +222,16 @@ export function ZoneLegend({
           </Typography>
           <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
             <PlantStateLegendSection phases={phases} />
+          </Suspense>
+        </Box>
+      )}
+      {showCompanion && (
+        <Box data-testid="garden-plan-legend-companion">
+          <Typography variant="subtitle2" component="h4">
+            {t(`${PREFIX}.legend.companionTitle`)}
+          </Typography>
+          <Suspense fallback={<Box sx={{ minHeight: 84 }} aria-busy="true" />}>
+            <CompanionLegendSection capped={companionCapped} />
           </Suspense>
         </Box>
       )}

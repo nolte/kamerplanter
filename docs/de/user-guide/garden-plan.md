@@ -189,6 +189,7 @@ Ebenen blendest du in der Gruppe **Ebenen** der Ansichtsleiste ein und aus. Dein
 | **Drainage anzeigen** | Wie gut ein Beet Wasser ableitet | aus |
 | **Frostrisiko anzeigen** | Gering, normal oder hoch je Beet | aus |
 | **Pflanzenzustand anzeigen** | Phase, Ring und Zeichen jeder Pflanze | aus |
+| **Mischkultur anzeigen** | Linien zwischen benachbarten Pflanzen: gute, schlechte oder unbekannte Nachbarschaft | aus |
 
 Die Legende unter der Ansichtsleiste erklärt jede eingeschaltete Ebene. Die Schraffur der Zonen und der Zustandsebenen unterscheidet sich im Muster, nicht nur in der Farbe.
 
@@ -208,6 +209,23 @@ Was Scheibe, Ring und Zeichen an einer Pflanze bedeuten, steht unter [Pflanzenzu
 
 !!! note "Teilweise verfügbar: Pflanzenzustand"
     **Frostgefahr** erscheint noch nicht als Zeichen, auch wenn die Ebene **Frostrisiko** den gespeicherten Wert zeigt. **Fälliges Gießen** entsteht bisher nur aus einer Gießaufgabe, die heute fällig ist, nicht aus dem Bewässerungsbedarf. <!-- REQ-053 GP-UX-060, GP-FR-190 -->
+
+### Mischkultur auf dem Plan {#mischkultur-auf-dem-plan}
+
+**Ebene Mischkultur im Gartenplan.** Mit **Mischkultur anzeigen** in der Ebenen-Gruppe siehst du, ob benachbarte Pflanzen sich vertragen. Zwischen zwei benachbarten belegten Plätzen eines Beets zieht der Plan eine Linie. Der Platz kann eine stehende Pflanze tragen oder eine Art, die eine laufende Pflanzung dort vorsieht. Die Art der Linie sagt, was bekannt ist:
+
+| Linie | Bedeutung |
+|-------|-----------|
+| Durchgezogen, grün | Gute Nachbarn: Die Arten fördern sich. |
+| Gestrichelt, rot | Schlechte Nachbarn: Die Arten hemmen sich. |
+| Gepunktet, grau | Keine Angabe: Für dieses Paar ist keine Beziehung hinterlegt. |
+
+Die Linien unterscheiden sich im Strich, nicht nur in der Farbe; du erkennst sie also auch in Graustufen. Zeigst du mit der Maus auf eine Linie, erscheint eine Karte. Sie nennt die beiden Arten, die das Urteil bestimmen, dazu den hinterlegten Grund oder eine kurze Erklärung, bei guten Nachbarn die Bewertung von 0,1 bis 1 und, falls bekannt, den Abstand. Auf dem Touchscreen tippst du die Linie an. Die Karte bleibt dann offen, bis du sie schließt oder woanders auf den Plan tippst. Ein Tipp auf eine Linie wählt das Beet darunter nicht aus. Die Bewertung ist dieselbe wie im Pflanzdialog (**Bepflanzen**): Ist irgendein Artenpaar der beiden Plätze unverträglich, gilt das Paar als schlechte Nachbarschaft.
+
+Die Linien erscheinen erst, wenn du so nah an ein Beet zoomst, dass die einzelnen Pflanzen sichtbar sind. Kamerplanter lädt sie nur, solange die Ebene an ist, und nur für die Beete, die du gerade so nah siehst, höchstens vier Beete gleichzeitig. Jedes Beet lädt einmal und neu, wenn du den Plan speicherst oder eine neuere Fassung lädt. Der Plan zeigt höchstens 500 Linien auf einmal, schlechte Nachbarn zuerst; sind mehr Paare im Bild, sagt dir das die Legende. Zoome dann näher heran. Die Ebene ist zu Beginn aus; deine Wahl merkt sich der Browser. <!-- REQ-053 GP-FR-134 -->
+
+!!! note "Teilweise verfügbar: Mischkultur"
+    Die Karte erreichst du bisher nur mit Maus oder Touch, nicht mit der Tastatur. Die Beziehungen derselben Arten siehst du aber auch im Pflanzdialog (**Bepflanzen**) und auf der Seite **Mischkultur** einer Art. <!-- REQ-053 GP-FR-134 -->
 
 ## Bewässerungszonen und Gießrunde {#bewasserungszonen}
 

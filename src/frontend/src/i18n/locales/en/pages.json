@@ -6094,6 +6094,8 @@
             "frostHint": "Show or hide the frost risk of each bed as a pattern with a symbol.",
             "plantState": "Show plant state",
             "plantStateHint": "Shows the growth phase, the ring and the most urgent sign (for example \"water due\") on every plant. The states load for the beds you zoom close enough to; further out, a bed whose states are already loaded shows in its circle how many plants need attention.",
+            "companion": "Show companion planting",
+            "companionHint": "Shows whether neighbouring plants get along: solid green = good neighbours, dashed red = bad neighbours, dotted grey = nothing known. The lines load for the beds you zoom close enough to; point at a line or tap it to see the reason and the score.",
             "attentionFilter": "Only show plants that need attention",
             "attentionFilterHint": "Hides every plant without a sign, so you see where something needs doing today.",
             "attentionFilterDisabledHint": "Switch on the \"Plant state\" layer first, then you can filter by what needs attention."
@@ -6119,7 +6121,15 @@
             "plantStateTitle": "Plant state",
             "plantStateIntro": "The colour of the disc shows the growth phase, the letter the species. Ring and sign stay distinguishable without colour.",
             "phasesTitle": "Growth phase colours on this plan",
-            "phasesNone": "No plant with a known phase is on the plan yet."
+            "phasesNone": "No plant with a known phase is on the plan yet.",
+            "companionTitle": "Companion planting",
+            "companion": {
+              "compatible": "Solid: good neighbours (they help each other)",
+              "incompatible": "Dashed: bad neighbours (they hinder each other)",
+              "unknown": "Dotted: nothing known about this pair"
+            },
+            "companionNote": "Point at a line or tap it to see the reason and the score. The lines come from the companion relations stored for the species, not from a measurement in the bed.",
+            "companionCapped": "There are more neighbouring pairs in view than the plan shows (at most {{count}} lines, incompatible ones first). Zoom in to see all of them."
           },
           "wateredDays_one": "{{count}} day since",
           "wateredDays_other": "{{count}} days since",
@@ -6265,6 +6275,24 @@
             "wateredNone": "No watering recorded.",
             "watered": "Last watered: {{days}}"
           }
+        },
+        "companion": {
+          "status": {
+            "compatible": "Good neighbours",
+            "incompatible": "Bad neighbours",
+            "unknown": "Nothing known"
+          },
+          "pair": "{{a}} and {{b}}",
+          "reason": "Reason: {{reason}}",
+          "reasonCode": {
+            "compatible": "These species help each other as neighbours.",
+            "incompatible": "These species hinder each other as neighbours.",
+            "unknown": "No companion relation is stored for these neighbours."
+          },
+          "score": "Score: {{score}} of 1",
+          "distance": "Distance: {{distance}} cm",
+          "close": "Close companion planting info",
+          "unnamedSpecies": "Unnamed species"
         }
       },
       "io": {

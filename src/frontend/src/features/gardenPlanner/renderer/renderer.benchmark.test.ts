@@ -13,6 +13,7 @@ import { buildScene } from './scene';
 import type { PlanPlant, PlanSlot } from '../model/types';
 import { ATTENTION_PRIORITY } from '../model/plantState';
 import type { PlantMarkerState } from './types';
+import { COMPANION_LINE_CAP, cullCompanionLines, type CompanionLine } from './companionLines';
 
 /**
  * GP-NFR-034 / GP-NFR-033 (benchmark half): a frame's scene and a hit test on the "large" plan
@@ -95,6 +96,30 @@ describe.runIf(process.env.GP_BENCHMARK === '1')('renderer frame cost on a large
       const start = performance.now();
       buildScene(stated, view, NO_SELECTION, i % 2 === 0 ? options : filtered);
       return performance.now() - start;
+    });
+    expect(median(times)).toBeLessThanOrEqual(BUDGET_MS);
+  });
+
+  it('culls 5 000 companion lines to the 500-line cap within one frame (median, GP-FR-134)', () => {
+    // 250 beds of 20 neighbouring pairs, the size of the plant-state worst case, all of them in one big view
+    const lines: CompanionLine[] = [];
+    const statuses = ['compatible', 'incompatible', 'unknown'] as const;
+    for (let b = 0; b < 250; b += 1) {
+      const x = (b % 25) * 2;
+      const y = Math.floor(b / 25) * 3;
+      for (let k = 0; k < 20; k += 1) {
+        const a: [number, number] = [x + 0.15 + (k % 4) * 0.3, y + 0.2 + Math.floor(k / 4) * 0.35];
+        lines.push({ id: `bed${b}:${k}`, a, b: [a[0] + 0.3, a[1]], status: statuses[(b + k) % 3] });
+      }
+    }
+    const view = viewportAt(-1, 31, 36, 2000, 1200);
+    expect(cullCompanionLines(lines, view).candidates).toBe(5000);
+    const times = Array.from({ length: RUNS }, (_, i) => {
+      const start = performance.now();
+      const culled = cullCompanionLines(lines, viewportAt(-1 + (i % 10) * 0.1, 31, 36, 2000, 1200));
+      const elapsed = performance.now() - start;
+      expect(culled.lines.length).toBeLessThanOrEqual(COMPANION_LINE_CAP);
+      return elapsed;
     });
     expect(median(times)).toBeLessThanOrEqual(BUDGET_MS);
   });

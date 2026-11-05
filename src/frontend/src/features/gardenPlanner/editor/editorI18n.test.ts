@@ -4,6 +4,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { deFull as de, enFull as en } from '@/test/i18nTestResources';
+import { COMPANION_STATUSES } from '../renderer/companionLines';
+import { TOGGLE_LAYERS } from './layers';
 
 const PLAN = ['pages', 'gardenPlan'];
 const NOTICE = [...PLAN, 'editor', 'notice'];
@@ -25,6 +27,21 @@ describe('garden plan editor texts', () => {
       expect(typeof at(en, [...NOTICE, ...code.split('.')])).toBe('string');
     },
   );
+
+  it.each(TOGGLE_LAYERS)('names a DE and an EN label and hint for the layer toggle %s', (layer) => {
+    for (const locale of [de, en]) {
+      expect(typeof at(locale, [...PLAN, 'editor', 'zones', 'layers', layer])).toBe('string');
+      expect(typeof at(locale, [...PLAN, 'editor', 'zones', 'layers', `${layer}Hint`])).toBe('string');
+    }
+  });
+
+  it.each(COMPANION_STATUSES)('words the companion status %s in the info card and the legend, DE and EN', (status) => {
+    for (const locale of [de, en]) {
+      expect(typeof at(locale, [...PLAN, 'editor', 'companion', 'status', status])).toBe('string');
+      expect(typeof at(locale, [...PLAN, 'editor', 'companion', 'reasonCode', status])).toBe('string');
+      expect(typeof at(locale, [...PLAN, 'editor', 'zones', 'legend', 'companion', status])).toBe('string');
+    }
+  });
 
   it('carries the same keys in DE and EN', () => {
     const deLeaves = leaves(at(de, PLAN));
