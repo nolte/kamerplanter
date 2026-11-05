@@ -32,6 +32,18 @@ from tests.support.care_reminder_store import CareReminderStore
 from tests.support.tenant_walk import TenantRows
 
 TODAY = datetime.now(UTC).isoformat()
+
+
+@pytest.fixture(autouse=True)
+def _production_clock_on_the_test_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The module fixes its day at import; the task reads the clock at call time.
+
+    A run that crosses UTC midnight between collection and this test would ask for
+    another day than the seeded one (CI red at 00:06 UTC, 2026-11-05).
+    """
+    monkeypatch.setattr("app.tasks.notification_tasks.today_utc", lambda: datetime.fromisoformat(TODAY).date())
+
+
 CLOSED_STATES = [TenantStatus.PENDING_DELETION, TenantStatus.SUSPENDED, TenantStatus.ORPHANED, TenantStatus.DELETED]
 
 
