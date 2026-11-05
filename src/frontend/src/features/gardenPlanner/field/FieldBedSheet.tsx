@@ -7,14 +7,19 @@
  * "Done" → short dialog → "Finish" is two taps after the bed was chosen (GP-ACC-029). A second tap within
  * 300 ms, or while the first is waiting for its answer, is the same tap; while offline "Done" is locked
  * instead of losing the entry (no offline buffer before wave 9, D-23). Every write offers "Undo" for 8 s.
+ *
+ * A photo goes to the bed or to a plant (§18.1 step 7, GP-FR-051): "Photo of the bed" stores it in the bed's
+ * gallery (the first one becomes the cover shown beside the name), "Photo" at a plant in that plant's gallery.
  */
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -23,6 +28,9 @@ import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { useBedSiteFeatures } from '../planting/useBedSiteFeatures';
+import BedCoverPhoto from '../bed/BedCoverPhoto';
+import { addBedPhoto } from '../bed/bedPhotoApi';
+import { bedPhotoUploadError } from '../bed/bedPhotoMessages';
 import type { BedListItem } from '../bed/types';
 import { completeBedTask, logCareEvent, reopenWithUndo, voidCareEvent } from '../care/careApi';
 import type { CareContext } from '../care/careCategories';
@@ -66,6 +74,7 @@ type Overlay =
   | { kind: 'planting' }
   | { kind: 'correct'; plant: PlantStateWire }
   | { kind: 'photo'; plant: PlantStateWire }
+  | { kind: 'bedPhoto' }
   | null;
 
 export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanChanged }: FieldBedSheetProps) {
@@ -182,6 +191,9 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     else if (chip.action === 'planting') setOverlay({ kind: 'planting' });
   };
 
+  const uploadBedPhoto = useCallback((file: File) => addBedPhoto(bed.key, file), [bed.key]);
+  const bedPhotoError = useCallback((error: unknown) => bedPhotoUploadError(t, error), [t]);
+
   const closeOverlay = () => setOverlay(null);
   const writesLocked = saving || !online;
 
@@ -202,6 +214,12 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     >
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3, fontSize: '1rem' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <BedCoverPhoto
+            coverPhotoRef={bed.cover_photo_ref}
+            bedName={bed.name}
+            sx={{ width: KIOSK_TOUCH_TARGET, height: KIOSK_TOUCH_TARGET }}
+            testId="field-sheet-cover"
+          />
           <Typography id={titleId} variant="h5" component="h2" sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}>
             {bed.name}
           </Typography>
@@ -234,6 +252,29 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             plantingAvailable={Boolean(bed.geometry)}
             onChip={onChip}
           />
+        )}
+
+        {canEdit && (
+          <Box component="section" aria-labelledby={`field-photo-title-${bed.key}`} data-testid="field-bed-photo-section">
+            <Typography id={`field-photo-title-${bed.key}`} variant="h6" component="h3" sx={{ mb: 0.5 }}>
+              {t('pages.gardenPlan.field.bedPhoto.title')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {t('pages.gardenPlan.field.bedPhoto.hint')}
+            </Typography>
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<AddAPhotoIcon aria-hidden="true" />}
+              onClick={() => setOverlay({ kind: 'bedPhoto' })}
+              disabled={!online}
+              sx={{ minHeight: KIOSK_TOUCH_TARGET, minWidth: KIOSK_TOUCH_TARGET, borderWidth: 2 }}
+              aria-label={t('pages.gardenPlan.field.bedPhoto.actionFor', { bed: bed.name })}
+              data-testid="field-bed-photo"
+            >
+              {t('pages.gardenPlan.field.bedPhoto.action')}
+            </Button>
+          </Box>
         )}
 
         {ready && (
@@ -332,6 +373,22 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             onUploaded={() => {
               notification.success(t('pages.gardenPlan.field.photoSaved', { plant: overlay.plant.instance_id }));
               setOverlay(null);
+            }}
+          />
+        )}
+        {overlay?.kind === 'bedPhoto' && (
+          <PlantPhotoUploadDialog
+            open
+            upload={uploadBedPhoto}
+            title={t('pages.bed.photos.uploadTitle', { bed: bed.name })}
+            errorMessage={bedPhotoError}
+            touchTarget={KIOSK_TOUCH_TARGET}
+            onClose={closeOverlay}
+            onUploaded={() => {
+              notification.success(t('pages.gardenPlan.field.bedPhoto.saved', { bed: bed.name }));
+              setOverlay(null);
+              // The first photo becomes the cover; the list carries it.
+              onChanged();
             }}
           />
         )}

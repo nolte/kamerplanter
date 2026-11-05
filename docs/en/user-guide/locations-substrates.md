@@ -288,7 +288,7 @@ If you open a location whose type is a bed (Bed, Raised Bed, Greenhouse Bed, Col
 
 ### Summary above the tabs
 
-Above the tabs you see at a glance: area, type, status, soil type, sun exposure, active plants, open tasks, last care, next due date and who is responsible for the bed. Use the **season selector** to switch the year; it appears in the address as `?year=`.
+Above the tabs you see at a glance: area, type, status, soil type, sun exposure, active plants, open tasks, last care, next due date and who is responsible for the bed. If the bed has a cover photo, it leads the summary (see [Photos of the bed](#photos-of-the-bed)). Use the **season selector** to switch the year; it appears in the address as `?year=`.
 
 !!! warning "Not yet implemented"
     Showing the previous year's crop in the summary is not implemented yet. Until then, Kamerplanter shows a placeholder line there. **Clear bed** will also only be available in a later version.
@@ -304,6 +304,7 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 | Planting | Planned and standing plants of the bed, the **Plant** button and the actions on a plant (see [Planting a bed](#planting-a-bed)). |
 | History | A timeline of what stood in the bed in earlier years, and the list of all care entries and plantings (see [History of the bed](#history-of-the-bed)). |
 | Soil | The bed's soil profile (see below). |
+| Photos | The bed's photos with its cover photo (see [Photos of the bed](#photos-of-the-bed)). |
 | Details | The previous location page, unchanged. |
 
 ### Planting a bed {#planting-a-bed}
@@ -457,6 +458,17 @@ You find the switch for the check per bed in the **Soil** tab (see [Setting crop
 **Export as CSV.** **Export CSV** on the **History** tab and on the **History of all beds** page downloads the care entries the current filter shows (up to 50,000). You can choose **CSV (comma)** or **CSV for Excel (semicolon)**. The file holds display names instead of accounts, and text that looks like a formula is neutralised. The export follows the same role rules as the list. With more than 50,000 entries, narrow it by bed, plant, category or period first.
 
  **History of all beds** opens the care history of the whole tenant at `/standorte/historie`. It shows the last 90 days unless you choose another period and offers the same filters plus **Bed**. The plant filter is available once a bed is chosen.
+
+### Photos of the bed {#photos-of-the-bed}
+
+On the **Photos** tab you keep track of how your bed develops over the season. The photos are listed newest first, each with its date. Tap a photo to open it in full size; the arrows page through the others.
+
+- **Add photo:** From the "grower" role, **Add photo** takes a picture with the camera or lets you choose an image file. You see a preview and save with **Save photo**. Kamerplanter removes location and camera data (EXIF) from the image on upload.
+- **Cover photo:** The first photo of a bed becomes its cover photo automatically. It appears in the summary of the bed view and in the bed sheet of field mode. The star makes another photo the cover; tapping the star of the cover photo takes it back, and the bed then has no cover photo.
+- **Remove photo:** You see the bin on your own photos; the lead can remove any photo. After a confirmation the photo disappears from the gallery. If nothing else uses it, Kamerplanter deletes it for good. If it was the cover photo, the bed has none afterwards.
+- **At most 50 photos:** A bed holds up to 50 photos. Once the limit is reached, **Add photo** is locked and a notice asks you to remove a photo first.
+
+With the "viewer" role you only see the photos. A bed's photos belong to your garden: they are part of the garden export and are deleted with it, but they never go into the JSON backup of the garden plan. In field mode, too, you can give a photo straight to the bed, see [Field mode in the garden](garden-plan.md#field-mode-in-the-garden).
 
 ### Setting crop rotation for a bed {#setting-crop-rotation-for-a-bed}
 

@@ -21,6 +21,8 @@ interface DiaryPhotoLightboxProps {
   index: number | null;
   onClose: () => void;
   onNavigate: (index: number) => void;
+  /** Alternative text of the shown photo; defaults to the diary wording. The garden plan's bed gallery names the bed. */
+  alt?: string;
 }
 
 /**
@@ -43,6 +45,7 @@ export default function DiaryPhotoLightbox({
   index,
   onClose,
   onNavigate,
+  alt,
 }: DiaryPhotoLightboxProps) {
   const { t } = useTranslation();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -99,7 +102,7 @@ export default function DiaryPhotoLightbox({
           {attachmentId && (
             <AuthImage
               uri={diaryPhotoUri(attachmentId, 1280)}
-              alt={t('pages.plantDiary.photos.fullAlt')}
+              alt={alt ?? t('pages.plantDiary.photos.fullAlt')}
               objectFit="contain"
               height="auto"
               sx={{ flex: 1, maxHeight: { xs: '60vh', sm: '70vh' }, minWidth: 0 }}

@@ -1,6 +1,6 @@
 /**
  * The bed view (REQ-053 GP-FR-041/047): the bed head from the summary and the tabs Plan, Planting,
- * Care, Soil, History and Details. The tab is part of the URL hash (`useTabUrl`), so every tab can
+ * Care, Soil, History, Photos (GP-FR-051) and Details. The tab is part of the URL hash (`useTabUrl`), so every tab can
  * be linked. "Details" is the location page as it always was (master data, tank, runs, slots,
  * watering, sensors), handed in by `LocationDetailPage`.
  */
@@ -34,14 +34,16 @@ const BedCareTab = lazy(() => import('../care/BedCareTab'));
 const BedHistoryTab = lazy(() => import('../history/BedHistoryTab'));
 // The planting tab brings the planting dialog and the plant actions; they load when the tab opens.
 const BedPlantingTab = lazy(() => import('../planting/BedPlantingTab'));
+// The photo gallery brings the upload dialog and the viewer; it loads when the tab opens (GP-FR-051).
+const BedPhotosTab = lazy(() => import('./BedPhotosTab'));
 // The sun tiles load when the dialog opens (GP-FR-157).
 const SunDialog = lazy(() => import('./SunDialog'));
 // The site conditions (frost, wind, slope, access) load when their dialog opens (GP-FR-162/163/168).
 const SiteConditionsDialog = lazy(() => import('./SiteConditionsDialog'));
 
 const ID_PREFIX = 'bed';
-const TABS_WITH_PLAN = ['plan', 'planting', 'care', 'soil', 'history', 'details'] as const;
-const TABS_WITHOUT_PLAN = ['planting', 'care', 'soil', 'history', 'details'] as const;
+const TABS_WITH_PLAN = ['plan', 'planting', 'care', 'soil', 'history', 'photos', 'details'] as const;
+const TABS_WITHOUT_PLAN = ['planting', 'care', 'soil', 'history', 'photos', 'details'] as const;
 
 type BedTab = (typeof TABS_WITH_PLAN)[number];
 
@@ -107,6 +109,19 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
         return (
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
             <BedHistoryTab key={summary.key} bed={summary} />
+          </Suspense>
+        );
+      case 'photos':
+        return (
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <BedPhotosTab
+              key={summary.key}
+              bedKey={summary.key}
+              bedName={summary.name}
+              coverPhotoRef={summary.cover_photo_ref ?? null}
+              canEdit={canEdit}
+              onCoverChange={() => void onReload()}
+            />
           </Suspense>
         );
       case 'soil':

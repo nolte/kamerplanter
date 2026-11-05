@@ -3,9 +3,11 @@
  * label, and left out while it is unknown.
  */
 import { cleanup, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { renderWithProviders } from '@/test/helpers';
+import { server } from '@/test/mocks/server';
 import BedHeader from './BedHeader';
 import { bedSummary } from './bedTestKit';
 import type { BedSummary } from './types';
@@ -143,5 +145,28 @@ describe('BedHeader reach hint with the site thresholds (GP-FR-166, WP 8.24)', (
     expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
       'from two opposite sides you reach up to 0.9 m',
     );
+  });
+});
+
+describe('BedHeader cover photo (GP-FR-051)', () => {
+  it('leads the head with the cover photo, fetched as the 512 px rendition of cover_photo_ref', async () => {
+    const seen: string[] = [];
+    server.use(
+      http.get('/api/v1/t/:tenant/attachments/:id/thumbnails/:px', ({ params }) => {
+        seen.push(`${String(params.id)}/${String(params.px)}`);
+        return HttpResponse.arrayBuffer(new Uint8Array([1, 2, 3]).buffer, { headers: { 'Content-Type': 'image/jpeg' } });
+      }),
+    );
+    const view = renderHeader(bedSummary({ cover_photo_ref: 'p_cover' }));
+    const image = await screen.findByTestId('bed-header-cover-image');
+    expect(image).toHaveAttribute('alt', 'Cover photo of Raised bed 3');
+    expect(seen).toEqual(['p_cover/512']);
+    await expectNoA11yViolations(view.container);
+  });
+
+  it('shows no photo frame while the bed has no cover', async () => {
+    renderHeader(bedSummary({ cover_photo_ref: null }));
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-cover')).toBeNull();
   });
 });

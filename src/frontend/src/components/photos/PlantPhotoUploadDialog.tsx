@@ -23,10 +23,22 @@ import { isApiError } from '@/api/errors';
 
 const GALLERY_NORMALIZE_OPTIONS = { maxEdge: GALLERY_MAX_EDGE, quality: GALLERY_JPEG_QUALITY };
 
-interface PlantPhotoUploadDialogProps {
+/**
+ * Where the photo goes: a plant's gallery (the default, `POST /plant-instances/{key}/photos`) or a caller's own
+ * upload - the garden plan stores a bed photo as a `location` attachment and links it to the bed (REQ-053
+ * GP-FR-051). An `upload` that throws shows the dialog's error; `errorMessage` may name a domain error first.
+ */
+type UploadTarget =
+  | { plantInstanceKey: string; upload?: never }
+  | { upload: (file: File) => Promise<unknown>; plantInstanceKey?: never };
+
+type PlantPhotoUploadDialogProps = UploadTarget & {
   open: boolean;
-  plantInstanceKey: string;
   onClose: () => void;
+  /** Dialog title; defaults to the plant-photo title. */
+  title?: string;
+  /** Maps a failed upload to a message before the generic ones (quota, size, forbidden); `null` falls through. */
+  errorMessage?: (error: unknown) => string | null;
   /** Called after a successful upload so the gallery can refresh. */
   onUploaded: () => void;
   /**
@@ -34,7 +46,7 @@ interface PlantPhotoUploadDialogProps {
    * mode passes the kiosk target (64 px, REQ-053 GP-UX-020). Unset keeps the regular sizes.
    */
   touchTarget?: number;
-}
+};
 
 /**
  * REQ-034 §2.2 — gallery photo upload. Reuses the recognition capture UX
@@ -52,9 +64,12 @@ interface PlantPhotoUploadDialogProps {
 export default function PlantPhotoUploadDialog({
   open,
   plantInstanceKey,
+  upload,
   onClose,
   onUploaded,
   touchTarget,
+  title,
+  errorMessage,
 }: PlantPhotoUploadDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -112,11 +127,15 @@ export default function PlantPhotoUploadDialog({
     setUploading(true);
     setError(null);
     try {
-      await uploadPlantPhoto(plantInstanceKey, file);
+      if (upload) await upload(file);
+      else if (plantInstanceKey) await uploadPlantPhoto(plantInstanceKey, file);
       onUploaded();
       onClose();
     } catch (err) {
-      if (isApiError(err) && (err.errorCode === 'PHOTO_QUOTA_EXCEEDED' || err.statusCode === 409)) {
+      const specific = errorMessage?.(err) ?? null;
+      if (specific) {
+        setError(specific);
+      } else if (isApiError(err) && (err.errorCode === 'PHOTO_QUOTA_EXCEEDED' || err.statusCode === 409)) {
         setError(t('pages.plantPhotos.quotaExceeded'));
       } else if (isApiError(err) && err.statusCode === 413) {
         setError(t('pages.plantPhotos.fileTooLarge'));
@@ -127,7 +146,7 @@ export default function PlantPhotoUploadDialog({
       }
       setUploading(false);
     }
-  }, [file, plantInstanceKey, onUploaded, onClose, t]);
+  }, [file, plantInstanceKey, upload, errorMessage, onUploaded, onClose, t]);
 
   return (
     <Dialog
@@ -140,7 +159,7 @@ export default function PlantPhotoUploadDialog({
       aria-labelledby="plant-photo-upload-title"
     >
       <DialogTitle id="plant-photo-upload-title" sx={{ pr: touchTarget ? 10 : 6 }}>
-        {t('pages.plantPhotos.uploadTitle')}
+        {title ?? t('pages.plantPhotos.uploadTitle')}
         <IconButton
           onClick={onClose}
           disabled={uploading}
