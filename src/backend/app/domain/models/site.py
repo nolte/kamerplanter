@@ -32,6 +32,8 @@ from app.common.enums import (
     WindExposure,
 )
 from app.domain.calculators.geometry_calculator import BoundingBox, area_m2, bounding_box
+from app.domain.calculators.orientation_calculator import orientation_from_aspect
+from app.domain.calculators.reach_calculator import REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
 from app.domain.models.geometry import (
     AREA_KINDS,
     FULL_TURN_DEG,
@@ -285,6 +287,75 @@ class SunProfile(BaseModel):
     source: SunProfileSource = SunProfileSource.MANUAL
 
 
+#: Sun-class defaults (REQ-053 GP-FR-164, confirmed O-17, RHS): direct sun on the reference day, in hours.
+#: ``full_sun`` > 6 h, ``partial_shade`` 3-6 h, ``shade`` 2-3 h, ``deep_shade`` < 2 h.
+DEFAULT_FULL_SUN_MIN_HOURS = 6.0
+DEFAULT_PARTIAL_SHADE_MIN_HOURS = 3.0
+DEFAULT_SHADE_MIN_HOURS = 2.0
+#: The reference day of the sun classes: midsummer, 21 June (O-17, ``agrobiology-thresholds-req-053.md``).
+DEFAULT_SUN_REFERENCE_MONTH = 6
+DEFAULT_SUN_REFERENCE_DAY = 21
+#: Upper bound of a reach threshold, metres: a bed frame is at most this wide (V-01).
+MAX_REACH_THRESHOLD_M = MAX_DIMENSION_M
+#: A leap year, so 29 February is a valid reference day.
+_REFERENCE_YEAR = 2000
+
+_PositiveHours = Annotated[float, AllowInfNan(False), Field(gt=0, le=24.0)]
+_PositiveMetres = Annotated[float, AllowInfNan(False), Field(gt=0, le=MAX_REACH_THRESHOLD_M)]
+
+
+class SunClassThresholds(BaseModel):
+    """Where the sun classes of a site begin, and the day they refer to (REQ-053 GP-FR-164, WP 8.24).
+
+    Each bound is the **lower** end of its class in hours of direct sun on the reference day: ``full_sun`` is
+    *more than* ``full_sun_min_hours``, ``partial_shade`` from ``partial_shade_min_hours`` up to it, ``shade`` from
+    ``shade_min_hours`` up to that, and ``deep_shade`` everything below ``shade_min_hours``. The bounds are
+    positive and strictly descending, so every class keeps a range. Kamerplanter computes nothing from them
+    yet (§29); they define the classes the help texts name.
+    """
+
+    full_sun_min_hours: _PositiveHours = DEFAULT_FULL_SUN_MIN_HOURS
+    partial_shade_min_hours: _PositiveHours = DEFAULT_PARTIAL_SHADE_MIN_HOURS
+    shade_min_hours: _PositiveHours = DEFAULT_SHADE_MIN_HOURS
+    reference_month: int = Field(default=DEFAULT_SUN_REFERENCE_MONTH, ge=1, le=12)
+    reference_day: int = Field(default=DEFAULT_SUN_REFERENCE_DAY, ge=1, le=31)
+
+    @model_validator(mode="after")
+    def validate_descending(self) -> Self:
+        if not self.full_sun_min_hours > self.partial_shade_min_hours > self.shade_min_hours:
+            raise ValueError(
+                "The sun-class bounds must be strictly descending: "
+                "full_sun_min_hours > partial_shade_min_hours > shade_min_hours."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_reference_day(self) -> Self:
+        try:
+            date(_REFERENCE_YEAR, self.reference_month, self.reference_day)
+        except ValueError as exc:
+            raise ValueError("reference_month and reference_day must name a day of the year.") from exc
+        return self
+
+
+class ReachThresholds(BaseModel):
+    """How wide a bed may be before it is out of reach (REQ-053 GP-FR-166, WP 8.24), in metres.
+
+    ``both_sides_m`` applies with access from two opposite sides, ``one_side_m`` with access from one side and
+    when the access is unknown (``app.domain.calculators.reach_calculator``). One side never reaches farther
+    than two, so ``one_side_m`` may not exceed ``both_sides_m``.
+    """
+
+    both_sides_m: _PositiveMetres = REACH_BOTH_SIDES_M
+    one_side_m: _PositiveMetres = REACH_ONE_SIDE_M
+
+    @model_validator(mode="after")
+    def validate_order(self) -> Self:
+        if self.one_side_m > self.both_sides_m:
+            raise ValueError("one_side_m must not exceed both_sides_m.")
+        return self
+
+
 class Microclimate(BaseModel):
     """Local climate of a bed (REQ-053 §10.2, GP-FR-162)."""
 
@@ -517,6 +588,19 @@ class Location(BaseModel):
             self.bbox = bounding_box(self.geometry)
         return self
 
+    @model_validator(mode="after")
+    def derive_orientation_from_aspect(self) -> Self:
+        """GP-FR-017/168: a set ``site_conditions.aspect_deg`` derives ``orientation`` (8 compass sectors).
+
+        Derived in the model, like ``area_m2`` from the geometry, so every write path - ``PATCH /locations``,
+        ``PUT /locations``, the plan batch, the import - stores the same value without a call site to forget.
+        Without an aspect the orientation is the manually maintained value and is never touched.
+        """
+        aspect = self.site_conditions.aspect_deg if self.site_conditions is not None else None
+        if aspect is not None:
+            self.orientation = orientation_from_aspect(aspect)
+        return self
+
 
 class Site(BaseModel):
     key: str | None = Field(default=None, alias="_key")
@@ -551,10 +635,24 @@ class Site(BaseModel):
     weather_source_priority: list[str] = Field(default_factory=list)
     # ── Garden plan (REQ-053 §20.2) — ``None`` is a site without a plan ──
     plan: SitePlan | None = None
+    # ── Garden-planning thresholds (REQ-053 GP-FR-164/166, WP 8.24) — ``None`` = the defaults ──
+    #: Stored only once somebody sets them; a site edit that does not send them keeps the stored value.
+    sun_class_thresholds: SunClassThresholds | None = None
+    reach_thresholds: ReachThresholds | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @property
+    def effective_sun_class_thresholds(self) -> SunClassThresholds:
+        """The site's sun-class bounds, the RHS defaults where none are stored."""
+        return self.sun_class_thresholds or SunClassThresholds()
+
+    @property
+    def effective_reach_thresholds(self) -> ReachThresholds:
+        """The site's reach thresholds, 1.2 / 0.6 m where none are stored."""
+        return self.reach_thresholds or ReachThresholds()
 
     @field_validator("gps_coordinates")
     @classmethod

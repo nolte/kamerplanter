@@ -15,6 +15,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import type { SunClassThresholds } from '@/api/types';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import type { SunExposure } from '../model/types';
@@ -32,9 +33,19 @@ interface SunDialogProps {
   onClose: () => void;
   /** The class was stored; the page reloads its summary. */
   onChanged: () => void;
+  /** The site's sun-class bounds for the tile help texts (GP-FR-164); absent = the RHS defaults. */
+  thresholds?: Readonly<SunClassThresholds>;
 }
 
-export default function SunDialog({ bedKey, bedName, current, currentProfile, onClose, onChanged }: SunDialogProps) {
+export default function SunDialog({
+  bedKey,
+  bedName,
+  current,
+  currentProfile,
+  onClose,
+  onChanged,
+  thresholds,
+}: SunDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -107,7 +118,7 @@ export default function SunDialog({ bedKey, bedName, current, currentProfile, on
         <Typography variant="body2" color="text.secondary">
           {t('pages.gardenPlan.sun.hint')}
         </Typography>
-        <SunTileSelector value={chosen} onChange={setChosen} disabled={saving} />
+        <SunTileSelector value={chosen} onChange={setChosen} disabled={saving} thresholds={thresholds} />
         <SunWindowFields
           value={shown}
           onChange={(patch) => setProfilePatch((previous) => ({ ...previous, ...patch }))}

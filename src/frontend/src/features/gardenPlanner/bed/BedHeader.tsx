@@ -1,7 +1,8 @@
 /**
  * The head of the bed view (REQ-053 GP-FR-047, GP-FR-077): area, type, status, soil, sun, active
  * plants, open tasks, last care, next due date, assignment and the previous year; the drainage only while it
- * is known. It reads the summary only and owns no state.
+ * is known. It reads the summary only and owns no state. A bed wider than its access reaches gets the
+ * `bed.reach_too_wide` hint (GP-FR-166): a badge, never an error, shown only while it applies.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +17,9 @@ import Typography from '@mui/material/Typography';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import TerrainOutlinedIcon from '@mui/icons-material/TerrainOutlined';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
+import { assessReach, type ReachAccess } from '../model/reach';
+import { DEFAULT_REACH_THRESHOLDS, reachOptions } from '../model/siteThresholds';
+import type { ReachThresholds } from '@/api/types';
 import type { BedAssignee, BedSummary } from './types';
 import { BED_STATUS_COLOR, formatBedDate, isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
 
@@ -36,7 +40,16 @@ interface BedHeaderProps {
   onChangeSite?: (() => void) | null;
   /** Reasons given when a planting went ahead despite a crop-rotation hint (GP-FR-132); empty = no badge. */
   rotationReasons?: readonly string[];
+  /** The site's reach thresholds (GP-FR-166, WP 8.24); absent = 1.2 / 0.6 m. */
+  reachThresholds?: Readonly<ReachThresholds>;
 }
+
+/** One literal key per access class, so the i18n key checks see every key that is used. */
+const REACH_DETAIL_KEY: Record<ReachAccess, string> = {
+  both: 'pages.bed.header.reachDetail_both',
+  one: 'pages.bed.header.reachDetail_one',
+  unknown: 'pages.bed.header.reachDetail_unknown',
+};
 
 function Fact({ label, children, testId }: { label: string; children: ReactNode; testId: string }) {
   return (
@@ -62,6 +75,7 @@ export default function BedHeader({
   onChangeSun = null,
   onChangeSite = null,
   rotationReasons = [],
+  reachThresholds = DEFAULT_REACH_THRESHOLDS,
 }: BedHeaderProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
@@ -76,6 +90,16 @@ export default function BedHeader({
   const notSet = t('pages.bed.header.unknown');
   const sunLine = sunProfileLine(t, summary.site_conditions?.sun_profile);
   const siteLine = siteConditionsLine(t, summary.site_conditions);
+  const accessSides = summary.site_conditions?.access_sides;
+  const reach = useMemo(
+    () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
+    [summary.geometry, accessSides, reachThresholds],
+  );
+  const reachNumbers = useMemo(() => {
+    // Three digits: a bed of 0.601 m is wider than 0.6 m and must not read as "0.6 m".
+    const format = new Intl.NumberFormat(language, { maximumFractionDigits: 3 });
+    return { width: format.format(reach.widthM ?? 0), threshold: format.format(reach.thresholdM) };
+  }, [language, reach.widthM, reach.thresholdM]);
 
   return (
     <Card variant="outlined" data-testid="bed-header" component="section" aria-label={t('pages.bed.header.title')}>
@@ -165,6 +189,20 @@ export default function BedHeader({
                   </Button>
                 )}
               </Box>
+            </Fact>
+          )}
+          {reach.hint && (
+            <Fact label={t('pages.bed.header.reach')} testId="bed-header-reach">
+              <Chip
+                size="small"
+                color="warning"
+                variant="outlined"
+                label={t('pages.bed.header.reachHint')}
+                data-testid="bed-reach-badge"
+              />
+              <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-reach-detail">
+                {t(REACH_DETAIL_KEY[reach.access], reachNumbers)}
+              </Typography>
             </Fact>
           )}
           <Fact label={t('pages.bed.header.plants')} testId="bed-header-plants">

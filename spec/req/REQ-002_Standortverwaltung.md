@@ -7,13 +7,14 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.6 (REQ-053 v1.4 Welle 0: `bed_*`-Felder superseded, Geometrie statt `dimensions`/`position`, `is_bed`/`supports_layout`, NutrientDemand/PlanRole, kein `tenant_key` auf Location/Slot)
+Version: 4.7 (`orientation` mit 8 Himmelsrichtungen, abgeleitet aus `aspect_deg`; vorher 4.6: REQ-053 v1.4 Welle 0: `bed_*`-Felder superseded, Geometrie statt `dimensions`/`position`, `is_bed`/`supports_layout`, NutrientDemand/PlanRole, kein `tenant_key` auf Location/Slot)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.7 | 2026-11-04 | **`Location.orientation` mit 8 Werten (#2667, REQ-053 WP 8.24):** additiv um `northeast`, `southeast`, `southwest`, `northwest` erweitert; bei gesetztem `site_conditions.aspect_deg` wird der Wert abgeleitet (8 Sektoren à 45°, eine Grenze gehört zum Sektor, der dort beginnt), sonst bleibt die manuelle Pflege. |
 | 4.6 | 2026-10-15 | **Angleichung an REQ-053 v1.4 (Grafische Garten-/Beetplanung, Welle 0 — Anhang A Issues 4/55):** (a) Die im Business Case (G-003) vorgesehenen Location-Felder `bed_width_cm`, `bed_length_cm`, `bed_orientation`, `bed_type`, `bed_rows`, `row_spacing_cm` sowie `Slot.dimensions_cm` sind **superseded durch REQ-053 §20.8** — sie werden **nicht eingeführt**: Maße liegen in `Location.geometry`/`Slot.geometry`, der Beettyp in `LocationType.is_bed`, Reihen und Reihenabstand am `PlantingRunEntry` (REQ-013). (b) `Location.dimensions` (3-Tupel) und `Slot.position` (row, col) werden in REQ-053 **Welle 1** per Migration M1 in `geometry` + `height_m` bzw. `geometry` + `row_index`/`sequence` überführt und danach **entfernt** (O-01/O-02, D-16). (c) `LocationType` erhält `is_bed` und `supports_layout`; neue System-Seeds `raised_bed`, `planter`, `greenhouse_bed`, `cold_frame` (GP-FR-040, W-016.1) — 14 statt 10 Seeds. (d) `CropRotationPlan.demand_level` wird durch `nutrient_demand` (`NutrientDemand`, 3 Werte) + `plan_role` (`PlanRole`) ersetzt (GP-FR-138/139, Migration M6); `CropRotationValidator.rotation_window_years` Obergrenze 8 (K-004). (e) Explizit festgehalten: `Location` und `Slot` tragen **kein `tenant_key`** — Eigentümer ist die Site, Prädikat `domain/services/location_ownership.py` (E-01, #2107/MT-010). (f) Neuer Abschnitt „Erweitert durch REQ-053" in §5. |
 | 4.5 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `Site.type` nennt alle Werte von `SiteType` (+`windowsill`, `balcony`, `grow_tent`). `Location.irrigation_system` nennt an allen drei Stellen (§Datenmodell, `LocationDefinition`, `IrrigationSystem`-Alias) die Werte von `IrrigationSystem` (`manual`, `drip`, `hydro`, `mist`, `nft`, `ebb_flow`); `sprinkler`, `sub_irrigation` und `aeroponics` entfallen. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
 | 4.4 | 2026-07-12 | **GPS-Erfassung per Browser (opt-in):** Standortkoordinaten können zusätzlich zur manuellen Eingabe per Browser-Geolocation-API (`navigator.geolocation`) übernommen werden — permission-gated, nur im sicheren Kontext, mit Graceful Degradation und ohne serverseitige Ortung. Business-Case-Subsektion + DoD-Kriterium ergänzt (Issue #572). |
@@ -145,7 +146,7 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
     - `depth: int` — Tiefe in der Hierarchie (0 = direkt unter Site), berechnet
     - `path: str` — Materialisierter Pfad für Baum-Abfragen (z.B. `"haus/arbeitszimmer/growzelt1"`)
     - `area_m2: float`
-    - `orientation: Optional[Literal['north', 'south', 'east', 'west']]` — Ausrichtung bei Outdoor-Beeten
+    - `orientation: Optional[Literal['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest']]` — Ausrichtung bei Outdoor-Beeten; bei gesetztem `site_conditions.aspect_deg` daraus abgeleitet (8 Sektoren à 45°, REQ-053 GP-FR-168)
     - `window_orientation: Optional[Literal['north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest']]` — Himmelsrichtung des Fensters bei Indoor-Locations. Relevant für Zimmerpflanzen-Lichtberechnung: Südfenster ≈ 4–6h direkte Sonne, Nordfenster ≈ nur diffuses Licht. Wird mit `glazing_transmission_factor` kombiniert für DLI-Schätzung (REQ-003).
     - `glazing_transmission_factor: Optional[float]` — Lichttransmission der Verglasung (0.0–1.0). Typisch: Einfachglas 0.85, Doppelverglasung 0.70, Dreifachverglasung 0.60, verschmutztes Fenster 0.50. Default: 0.70 (Standard-Isolierverglasung).
     - `light_type: Literal['natural', 'led', 'hps', 'cmh', 'mixed']`
@@ -790,7 +791,7 @@ class LocationDefinition(BaseModel):
         description="Materialisierter Pfad für Baum-Abfragen, z.B. 'haus/arbeitszimmer/growzelt1'"
     )
     area_m2: float = Field(gt=0, le=10000)
-    orientation: Optional[Literal['north', 'south', 'east', 'west']] = None
+    orientation: Optional[Literal['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest']] = None
     light_type: Optional[Literal['natural', 'led', 'hps', 'cmh', 'mixed']] = Field(
         None, description="Wenn nicht gesetzt, wird vom Eltern-Standort geerbt (Runtime)"
     )

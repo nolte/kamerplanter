@@ -1952,6 +1952,34 @@
         "measurementAgeWarning": "Wassermessung ist älter als 12 Monate",
         "roMembraneWarning": "RO-Membran möglicherweise verschlissen (EC zu hoch)",
         "noWaterConfig": "Keine Wasserquelle konfiguriert"
+      },
+      "thresholds": {
+        "title": "Gartenplanung: Sonne und Erreichbarkeit",
+        "intro": "Diese Werte gelten für alle Beete des Standorts. Die Sonnenklassen erscheinen als Hilfetext bei der Sonnenwahl, die Reichweite bestimmt den Hinweis „Beet zu breit“. Kamerplanter berechnet daraus nichts weiter. Alle Felder sind Pflichtfelder; „Standardwerte“ setzt sie zurück.",
+        "sunTitle": "Sonnenklassen",
+        "sunHint": "Stunden direkter Sonne am Stichtag, ab denen eine Klasse beginnt. Standard nach der Royal Horticultural Society: Volle Sonne über 6 h, Halbschatten ab 3 h, Schatten ab 2 h, darunter Tiefschatten, am 21. Juni.",
+        "hoursUnit": "h",
+        "fullSun": "Volle Sonne: mehr als",
+        "fullSunHelper": "Darüber gilt ein Beet als vollsonnig. Standard: 6 h.",
+        "partialShade": "Halbschatten: ab",
+        "partialShadeHelper": "Muss kleiner sein als der Wert für volle Sonne. Standard: 3 h.",
+        "shade": "Schatten: ab",
+        "shadeHelper": "Muss kleiner sein als der Wert für Halbschatten; darunter ist Tiefschatten. Standard: 2 h.",
+        "referenceDay": "Stichtag: Tag",
+        "referenceMonth": "Stichtag: Monat",
+        "referenceMonthHelper": "Als Zahl von 1 (Januar) bis 12 (Dezember). Standard: 6.",
+        "referenceHelper": "Der Tag, auf den sich die Stunden beziehen; Tag von 1 bis 31. Standard ist der 21. Juni (Hochsommer).",
+        "reachTitle": "Erreichbarkeit",
+        "reachHint": "So breit darf ein Beet höchstens sein, damit du die Mitte vom Rand aus erreichst. Standard: 1,2 m bei Zugang von zwei gegenüberliegenden Seiten, 0,6 m von einer Seite.",
+        "bothSides": "Zugang von zwei Seiten",
+        "bothSidesHelper": "Gegenüberliegende Seiten, in Metern. Standard: 1,2 m.",
+        "oneSide": "Zugang von einer Seite",
+        "oneSideHelper": "Gilt auch, wenn keine Zugangsseiten erfasst sind. Darf nicht größer sein als der Wert für zwei Seiten. Standard: 0,6 m.",
+        "resetDefaults": "Standardwerte",
+        "partialBelowFull": "Halbschatten muss unter dem Wert für volle Sonne liegen.",
+        "shadeBelowPartial": "Schatten muss unter dem Wert für Halbschatten liegen.",
+        "noSuchDay": "Diesen Tag gibt es nicht. Prüfe Tag und Monat.",
+        "oneAboveBoth": "Von einer Seite reichst du nicht weiter als von zwei Seiten."
       }
     },
     "locations": {
@@ -6554,19 +6582,21 @@
         "options": {
           "full_sun": {
             "label": "Volle Sonne",
-            "help": "Mehr als 6 Stunden direktes Sonnenlicht an einem Sommertag"
+            "help_one": "Mehr als {{count, number}} Stunde direktes Sonnenlicht am {{date}}",
+            "help_other": "Mehr als {{count, number}} Stunden direktes Sonnenlicht am {{date}}"
           },
           "partial_shade": {
             "label": "Halbschatten",
-            "help": "3–6 Stunden direktes Sonnenlicht"
+            "help": "{{from, number}}–{{to, number}} Stunden direktes Sonnenlicht"
           },
           "shade": {
             "label": "Schatten",
-            "help": "2–3 Stunden direktes Sonnenlicht"
+            "help": "{{from, number}}–{{to, number}} Stunden direktes Sonnenlicht"
           },
           "deep_shade": {
             "label": "Tiefschatten",
-            "help": "Weniger als 2 Stunden direktes Sonnenlicht"
+            "help_one": "Weniger als {{count, number}} Stunde direktes Sonnenlicht",
+            "help_other": "Weniger als {{count, number}} Stunden direktes Sonnenlicht"
           },
           "unknown": {
             "label": "Unbekannt",
@@ -6803,7 +6833,12 @@
         "rotationReason": "Trotzdem gepflanzt: {{reason}}",
         "changeSun": "Sonne ändern",
         "site": "Standortmerkmale",
-        "changeSite": "Merkmale ändern"
+        "changeSite": "Merkmale ändern",
+        "reach": "Erreichbarkeit",
+        "reachHint": "Beet zu breit",
+        "reachDetail_both": "{{width}} m breit – von zwei gegenüberliegenden Seiten erreichst du bis {{threshold}} m. Die Beetmitte erreichst du nur, wenn du ins Beet trittst.",
+        "reachDetail_one": "{{width}} m breit – von einer Seite erreichst du bis {{threshold}} m. Die hintere Hälfte erreichst du nur, wenn du ins Beet trittst.",
+        "reachDetail_unknown": "{{width}} m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang ({{threshold}} m). Trage unter „Merkmale ändern“ ein, von welchen Seiten du an das Beet kommst."
       },
       "status": {
         "title": "Status des Beets ändern",

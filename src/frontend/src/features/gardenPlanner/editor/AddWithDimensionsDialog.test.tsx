@@ -5,7 +5,11 @@ import type { LocationType } from '@/api/types';
 import { pointer, px, setupEditor } from './editorTestKit';
 
 const listLocationTypes = vi.hoisted(() => vi.fn());
-vi.mock('@/api/endpoints/sites', () => ({ listLocationTypes }));
+// `getSite` feeds the sun-tile thresholds of the properties panel (WP 8.24); unread here, so the defaults apply.
+vi.mock('@/api/endpoints/sites', () => ({
+  listLocationTypes,
+  getSite: () => Promise.reject(new Error('the site is not read in this test')),
+}));
 
 const type = (key: string, name: string, is_bed = true): LocationType => ({
   key,

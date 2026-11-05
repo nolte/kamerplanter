@@ -131,6 +131,26 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 !!! tip "GPS-Koordinaten ermöglichen Wetterquellen"
     Für Sites vom Typ Außenbereich, Gewächshaus oder Balkon schaltet eine hinterlegte GPS-Position zusätzlich den Abschnitt **Wetterquelle** auf der Standort-Detailseite frei — dort wählst und priorisierst du öffentliche Wetterdienste oder eine Home-Assistant-Quelle, siehe [Wetterquellen je Standort](weather-sources.md).
 
+### Sonne und Erreichbarkeit für die Gartenplanung {#sonne-und-erreichbarkeit-einstellen}
+
+Ist das Modul Gartenplaner eingeschaltet, enthält die Detailseite einer Site den Abschnitt **Gartenplanung: Sonne und Erreichbarkeit**. Die Werte gelten für alle Beete der Site.
+
+| Einstellung | Standard | Wirkung |
+|-------------|----------|---------|
+| Volle Sonne: mehr als | 6 h | Hilfetext der Kachel **Volle Sonne** |
+| Halbschatten: ab | 3 h | Hilfetext der Kachel **Halbschatten** (bis zum Wert für volle Sonne) |
+| Schatten: ab | 2 h | Hilfetext der Kachel **Schatten**; darunter ist **Tiefschatten** |
+| Stichtag (Tag, Monat) | 21. Juni | Tag, auf den sich die Stunden direkter Sonne beziehen |
+| Zugang von zwei Seiten | 1,2 m | Richtwert des Hinweises **Beet zu breit** bei zwei gegenüberliegenden Zugangsseiten |
+| Zugang von einer Seite | 0,6 m | Richtwert bei einer Zugangsseite und wenn keine Zugangsseiten erfasst sind |
+
+Die Standardwerte für die Sonne folgen der Royal Horticultural Society, die für die Reichweite der Armlänge (Beratungsstellen der Universitäten Oregon und Iowa, Umweltministerium Rheinland-Pfalz). Alle Werte müssen größer als 0 sein. Die Sonnenstunden müssen von oben nach unten abnehmen (volle Sonne über Halbschatten über Schatten), und der Wert für eine Seite darf nicht größer sein als der für zwei Seiten. Sonst nennt das Formular den Fehler am Feld und speichert nichts.
+
+Kamerplanter rechnet aus diesen Werten nichts weiter aus: Die Sonnenklasse eines Beets wählst du weiterhin selbst, die Werte bestimmen nur, was die Kacheln als Definition anzeigen. Änderst du die Werte nicht, bleiben die Standardwerte in Kraft. <!-- REQ-053 GP-FR-164, GP-FR-166 -->
+
+!!! info "Für technische Nutzer"
+    Über die API heißen die Felder `sun_class_thresholds` (`full_sun_min_hours`, `partial_shade_min_hours`, `shade_min_hours`, `reference_month`, `reference_day`) und `reach_thresholds` (`both_sides_m`, `one_side_m`) an `PUT /api/v1/t/{tenant_slug}/sites/{key}`. Fehlt ein Feld in der Anfrage oder ist es `null`, bleibt der gespeicherte Wert erhalten; ungültige Werte beantwortet die API mit 422. Die Antwort enthält immer die wirksamen Werte, also die Standardwerte, solange nichts gespeichert ist.
+
 ---
 
 ## Locations und Slots anlegen
@@ -379,20 +399,40 @@ Wie viel direktes Sonnenlicht ein Beet bekommt, hältst du mit fünf **Kacheln**
 
 | Kachel | Bedeutung |
 |--------|-----------|
-| Volle Sonne | mehr als 6 Stunden direktes Sonnenlicht an einem Sommertag |
+| Volle Sonne | mehr als 6 Stunden direktes Sonnenlicht am 21. Juni |
 | Halbschatten | 3–6 Stunden |
 | Schatten | 2–3 Stunden |
 | Tiefschatten | weniger als 2 Stunden |
 | Unbekannt | noch nicht erfasst (Standard) |
 
-Die Stundenwerte folgen der Definition der Royal Horticultural Society, bezogen auf den Hochsommer.
+Die Stundenwerte folgen der Definition der Royal Horticultural Society, bezogen auf den Hochsommer. Die Grenzen und den Stichtag stellst du je Site ein, siehe [Sonne und Erreichbarkeit für die Gartenplanung](#sonne-und-erreichbarkeit-einstellen); die Kacheln zeigen dann deine Werte. <!-- REQ-053 GP-FR-164 -->
 
 - **In der Beetansicht:** Neben der Sonnenexposition in der Übersicht öffnet **Sonne ändern** die Kacheln. Das geht ab der Rolle „grower".
 - **Im Gartenplan:** Wählst du ein Beet, zeigt das Eigenschaften-Feld die Kacheln. Wählst du mehrere Beete (Rahmenauswahl oder Umschalttaste), setzt **Sonne für alle gewählten Beete setzen** den Wert auf einmal. Gesperrte Beete bleiben unverändert. Der Schritt lässt sich mit **Rückgängig** zurücknehmen und gilt erst, wenn du den Plan speicherst.
 
 **Sonnenzeit und Laubschatten.** Zusätzlich zur Kachel hältst du fest, **wann** die Sonne das Beet erreicht: Morgens, Mittags, Nachmittags, Ganztägig oder Wechselnd. Die Stunden direkter Sonne im Sommer sind freiwillig, eine grobe Schätzung genügt. Der Schalter **Laubschatten im Sommer** vermerkt, dass das Beet im Frühjahr sonnig ist und später im Laub von Bäumen im Schatten liegt. Du findest die Felder im Dialog **Sonne ändern** der Beetansicht und im Feldmodus im Beet-Sheet (mit großen Schaltflächen, jede Änderung wird sofort gespeichert). Die Angaben erscheinen in einer Zeile unter der Sonnenexposition in der Beetübersicht. Kamerplanter rechnet nichts daraus aus, und der Laubschatten ist nur ein Vermerk: Er ändert den Standort-Hinweis beim Bepflanzen nicht. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
 
-**Standortmerkmale: Frost, Wärme, Wind, Hang, Zugang.** In der Beetansicht öffnest du über **Merkmale ändern** einen Dialog für das **Frostrisiko** (Gering, Normal, Hoch), den **Kaltluftsee**, die **gespeicherte Wärme** (Wand oder Gebäude), den **Wind** (Geschützt, Normal, Windausgesetzt), **Hang** und **Ausrichtung** in Grad sowie die **Zugangsseiten**. Alles ist freiwillig und von Hand; Kamerplanter rechnet nichts daraus aus. Ein Beet mit Frostrisiko **Hoch** nennt die Frost-Frühwarnung immer, **Gering** nie. Im Feldmodus gibt es im Beet-Sheet die großen Chips **Feucht / Normal / Trocken** für die Standortfeuchte und **Windig**; jeder Tipp wird sofort gespeichert. <!-- REQ-053 GP-FR-162, GP-FR-163, GP-FR-168, GP-UX-057 -->
+**Standortmerkmale: Frost, Wärme, Wind, Hang, Zugang.** In der Beetansicht öffnest du über **Merkmale ändern** einen Dialog für das **Frostrisiko** (Gering, Normal, Hoch), den **Kaltluftsee**, die **gespeicherte Wärme** (Wand oder Gebäude), den **Wind** (Geschützt, Normal, Windausgesetzt), **Hang** und **Ausrichtung** in Grad sowie die **Zugangsseiten**. Alles ist freiwillig und von Hand; Kamerplanter rechnet daraus nichts aus, außer dem Hinweis zur Beetbreite aus den Zugangsseiten (siehe unten). Ein Beet mit Frostrisiko **Hoch** nennt die Frost-Frühwarnung immer, **Gering** nie. Im Feldmodus gibt es im Beet-Sheet die großen Chips **Feucht / Normal / Trocken** für die Standortfeuchte und **Windig**; jeder Tipp wird sofort gespeichert. <!-- REQ-053 GP-FR-162, GP-FR-163, GP-FR-168, GP-UX-057 -->
+
+**Himmelsrichtung aus der Ausrichtung.** Trägst du die Ausrichtung in Grad ein, leitet Kamerplanter daraus die Himmelsrichtung des Beets in acht Stufen ab: Nord, Nordost, Ost, Südost, Süd, Südwest, West und Nordwest. Jede Richtung deckt 45° um ihre Mitte ab; eine Grenze gehört zur Richtung, die dort im Uhrzeigersinn beginnt:
+
+| Himmelsrichtung | Ausrichtung |
+|-----------------|-------------|
+| Nord | ab 337,5° und unter 22,5° |
+| Nordost | 22,5° bis unter 67,5° |
+| Ost | 67,5° bis unter 112,5° |
+| Südost | 112,5° bis unter 157,5° |
+| Süd | 157,5° bis unter 202,5° |
+| Südwest | 202,5° bis unter 247,5° |
+| West | 247,5° bis unter 292,5° |
+| Nordwest | 292,5° bis unter 337,5° |
+
+Solange keine Ausrichtung in Grad eingetragen ist, bleibt eine Himmelsrichtung, die du an anderer Stelle von Hand gesetzt hast, unverändert. <!-- REQ-053 GP-FR-017, GP-FR-168 -->
+
+!!! info "Für technische Nutzer"
+    Die abgeleitete Himmelsrichtung steht im Feld `orientation` der Location (API und MCP); die Oberfläche zeigt weiterhin die Gradzahl. Die vier bisherigen Werte `north`, `south`, `east`, `west` bleiben gültig, neu sind `northeast`, `southeast`, `southwest` und `northwest`. Ist `site_conditions.aspect_deg` gesetzt, überschreibt die abgeleitete Richtung einen in `PUT /locations/{key}` mitgeschickten Wert.
+
+**Hinweis „Beet zu breit“.** Ist ein Beet breiter, als du es vom Rand aus erreichst, zeigt die Übersicht der Beetansicht unter **Erreichbarkeit** das Kennzeichen **Beet zu breit** und eine Zeile mit Breite und Richtwert. Maßgeblich ist die schmalste Ausdehnung des Beets: beim Rechteck die kürzere Seite, beim Kreis der Durchmesser. Die Richtwerte folgen der Armreichweite: **1,2 m**, wenn du das Beet von zwei gegenüberliegenden Seiten erreichst (Nord und Süd oder Ost und West), **0,6 m** von einer Seite. Beide Werte stellst du je Site ein, siehe [Sonne und Erreichbarkeit für die Gartenplanung](#sonne-und-erreichbarkeit-einstellen). Zwei benachbarte Seiten (etwa Nord und Ost) zählen als eine Seite. Hast du keine Zugangsseiten eingetragen, gilt der strengere Wert für eine Seite; trag sie unter **Merkmale ändern** ein, dann rechnet Kamerplanter mit deinem Zugang. Ein Beet genau so breit wie der Richtwert gilt als erreichbar. Für unregelmäßig geformte (nicht konvexe) Beete gibt es keinen Hinweis. Der Hinweis sperrt nichts und ist kein Fehler; Wege neben dem Beet erkennt Kamerplanter dafür noch nicht. <!-- REQ-053 GP-FR-166 -->
 
 Im Gartenplan zeigt das Eigenschaften-Feld eines gewählten Beets dieselben Felder unter den Kacheln; eine Änderung dort wird mit dem Plan gespeichert, und du kannst sie mit **Rückgängig** zurücknehmen.
 

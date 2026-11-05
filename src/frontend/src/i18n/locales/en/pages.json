@@ -1952,6 +1952,34 @@
         "measurementAgeWarning": "Water measurement is older than 12 months",
         "roMembraneWarning": "RO membrane may need replacement (EC too high)",
         "noWaterConfig": "No water source configured"
+      },
+      "thresholds": {
+        "title": "Garden planning: sun and reach",
+        "intro": "These values apply to every bed of the site. The sun classes appear as help text when you pick the sun, and the reach decides the \"Bed too wide\" hint. Kamerplanter computes nothing more from them. All fields are required; \"Reset to defaults\" restores them.",
+        "sunTitle": "Sun classes",
+        "sunHint": "Hours of direct sun on the reference day at which a class begins. Default from the Royal Horticultural Society: full sun above 6 h, partial shade from 3 h, shade from 2 h, deep shade below, on 21 June.",
+        "hoursUnit": "h",
+        "fullSun": "Full sun: more than",
+        "fullSunHelper": "Above this a bed counts as full sun. Default: 6 h.",
+        "partialShade": "Partial shade: from",
+        "partialShadeHelper": "Must be less than the full-sun value. Default: 3 h.",
+        "shade": "Shade: from",
+        "shadeHelper": "Must be less than the partial-shade value; below it is deep shade. Default: 2 h.",
+        "referenceDay": "Reference date: day",
+        "referenceMonth": "Reference date: month",
+        "referenceMonthHelper": "As a number from 1 (January) to 12 (December). Default: 6.",
+        "referenceHelper": "The day the hours refer to; a day from 1 to 31. The default is 21 June (midsummer).",
+        "reachTitle": "Reach",
+        "reachHint": "The widest a bed may be so you reach its middle from the edge. Default: 1.2 m with access from two opposite sides, 0.6 m from one side.",
+        "bothSides": "Access from two sides",
+        "bothSidesHelper": "Opposite sides, in metres. Default: 1.2 m.",
+        "oneSide": "Access from one side",
+        "oneSideHelper": "Also applies when no access sides are recorded. May not be more than the two-side value. Default: 0.6 m.",
+        "resetDefaults": "Reset to defaults",
+        "partialBelowFull": "Partial shade must be below the full-sun value.",
+        "shadeBelowPartial": "Shade must be below the partial-shade value.",
+        "noSuchDay": "This day does not exist. Check day and month.",
+        "oneAboveBoth": "From one side you do not reach farther than from two sides."
       }
     },
     "locations": {
@@ -6553,19 +6581,21 @@
         "options": {
           "full_sun": {
             "label": "Full sun",
-            "help": "More than 6 hours of direct sunlight on a summer day"
+            "help_one": "More than {{count, number}} hour of direct sunlight on {{date}}",
+            "help_other": "More than {{count, number}} hours of direct sunlight on {{date}}"
           },
           "partial_shade": {
             "label": "Partial shade",
-            "help": "3–6 hours of direct sunlight"
+            "help": "{{from, number}}–{{to, number}} hours of direct sunlight"
           },
           "shade": {
             "label": "Shade",
-            "help": "2–3 hours of direct sunlight"
+            "help": "{{from, number}}–{{to, number}} hours of direct sunlight"
           },
           "deep_shade": {
             "label": "Deep shade",
-            "help": "Less than 2 hours of direct sunlight"
+            "help_one": "Less than {{count, number}} hour of direct sunlight",
+            "help_other": "Less than {{count, number}} hours of direct sunlight"
           },
           "unknown": {
             "label": "Unknown",
@@ -6802,7 +6832,12 @@
         "rotationReason": "Planted anyway: {{reason}}",
         "changeSun": "Change sun",
         "site": "Site conditions",
-        "changeSite": "Change conditions"
+        "changeSite": "Change conditions",
+        "reach": "Reach",
+        "reachHint": "Bed too wide",
+        "reachDetail_both": "{{width}} m wide – from two opposite sides you reach up to {{threshold}} m. You can only reach the middle of the bed by stepping into it.",
+        "reachDetail_one": "{{width}} m wide – from one side you reach up to {{threshold}} m. You can only reach the far half by stepping into the bed.",
+        "reachDetail_unknown": "{{width}} m wide – the access sides are not recorded, so the one-side value applies ({{threshold}} m). Use “Change conditions” to record the sides you can reach the bed from."
       },
       "status": {
         "title": "Change bed status",

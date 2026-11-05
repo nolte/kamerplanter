@@ -30,6 +30,8 @@ import FlipToBackIcon from '@mui/icons-material/FlipToBack';
 import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import LockIcon from '@mui/icons-material/Lock';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import type { SunClassThresholds } from '@/api/types';
+import { useSiteThresholds } from '../bed/useSiteThresholds';
 import type { PlanModel } from '../model/planModel';
 import type {
   Geometry,
@@ -144,10 +146,11 @@ function EntityForm({
   onDelete,
   onZOrder,
   bedInfo,
+  sunThresholds,
 }: Pick<
   PropertiesPanelProps,
   'plan' | 'labels' | 'onCommit' | 'onOpenLocation' | 'onOpenCare' | 'onDuplicate' | 'onDelete' | 'onZOrder' | 'bedInfo'
-> & { entity: PlanEntity; entityKey: string }) {
+> & { entity: PlanEntity; entityKey: string; sunThresholds: Readonly<SunClassThresholds> }) {
   const { t } = useTranslation();
   const source = sourceOf(plan, entity, entityKey);
   const geometry: Geometry | null = source?.geometry ?? null;
@@ -270,6 +273,7 @@ function EntityForm({
             <SunTileSelector
               value={plan.locations[entityKey]?.sun_exposure ?? 'unknown'}
               disabled={locked}
+              thresholds={sunThresholds}
               onChange={commitSun}
             />
           </Suspense>
@@ -513,7 +517,8 @@ function SunBulk({
   plan,
   selection,
   onCommit,
-}: Pick<PropertiesPanelProps, 'plan' | 'selection' | 'onCommit'>) {
+  sunThresholds,
+}: Pick<PropertiesPanelProps, 'plan' | 'selection' | 'onCommit'> & { sunThresholds: Readonly<SunClassThresholds> }) {
   const { t } = useTranslation();
   const [result, setResult] = useState<{ changed: number; sun: SunExposure } | null>(null);
   const beds = selection
@@ -555,6 +560,7 @@ function SunBulk({
           disabled={open.length === 0}
           label={t(`${SUN_PREFIX}.bulk.title`)}
           testId="sun-tile-selector-bulk"
+          thresholds={sunThresholds}
           onChange={apply}
         />
       </Suspense>
@@ -623,6 +629,8 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   const { t } = useTranslation();
   const entities = selection.filter(isPlanEntity);
   const single = selection.length === 1 ? selection[0] : null;
+  // The site's sun-class bounds for the tile help texts (GP-FR-164, WP 8.24); the defaults until it is read.
+  const sunThresholds = useSiteThresholds(plan.siteKey).sun;
 
   let body: ReactNode;
   let title = t(`${PREFIX}.panel.title`);
@@ -641,6 +649,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         onOpenLocation={props.onOpenLocation}
         onOpenCare={props.onOpenCare}
         bedInfo={props.bedInfo}
+        sunThresholds={sunThresholds}
         onDuplicate={props.onDuplicate}
         onDelete={props.onDelete}
         onZOrder={props.onZOrder}
@@ -664,7 +673,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         <Typography variant="body2" color="text.secondary">
           {t(`${PREFIX}.panel.multiHint`)}
         </Typography>
-        <SunBulk plan={plan} selection={selection} onCommit={props.onCommit} />
+        <SunBulk plan={plan} selection={selection} onCommit={props.onCommit} sunThresholds={sunThresholds} />
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
           <Button
             startIcon={<ContentCopyIcon />}

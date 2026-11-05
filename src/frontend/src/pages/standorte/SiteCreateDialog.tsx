@@ -29,8 +29,17 @@ import { siteFieldConfig } from '@/config/fieldConfigs';
 import * as api from '@/api/endpoints/sites';
 import type { SiteWaterConfig } from '@/api/types';
 import GpsDetectButton from './GpsDetectButton';
-import { buildSiteResolver, gpsToPayload, isWeatherRelevantSiteType, siteTypeOptions, type SiteFormData } from './siteForm';
+import {
+  buildSiteResolver,
+  gpsToPayload,
+  isWeatherRelevantSiteType,
+  siteTypeOptions,
+  thresholdsToFields,
+  type SiteFormData,
+} from './siteForm';
 
+// The garden-planning thresholds are not part of the create dialog: a new site starts with the defaults
+// (WP 8.24) and they are changed on the site page. They sit in the form values so the shared schema holds.
 const DEFAULT_VALUES: SiteFormData = {
   name: '',
   type: 'indoor',
@@ -39,6 +48,7 @@ const DEFAULT_VALUES: SiteFormData = {
   climate_zone: '',
   total_area_m2: 0,
   timezone: 'UTC',
+  ...thresholdsToFields(null),
 };
 
 interface Props {
