@@ -272,7 +272,7 @@ A site has at most one underlay, and all members see the same one. Whether you d
 
 The matrix shows at a glance what stood in all beds of a site in the last years. Open it on the site page with **Rotation matrix** (address `/standorte/sites/<key>/rotation-matrix`). Each row is a bed, each column a year, the current year is on the right. How far back the matrix reaches follows the longest rotation pauses of the families in the beds shown, at least five and at most ten years.
 
-A cell lists one entry per planting: the plant family as a short code with colour and pattern, below it the feeder class as text and, when known, the season. Colour never carries the family alone: code and pattern tell them apart in greyscale print too. The legend under the table names the full family for each code. Green manure and fallow are marked. An empty year shows a dash: nothing is recorded.
+A cell lists one entry per planting: the plant family as a short code with colour and pattern, below it the feeder class as text and, when known, the season. Colour never carries the family alone: code and pattern tell them apart in black and white print too. The legend under the table names the full family for each code. Green manure and fallow are marked. An empty year shows a dash: nothing is recorded.
 
 - **Fill in.** With the role "grower" or "lead" you tap a past year and fill in what grew there in the familiar **What stood here?** dialog (see [History of the bed](locations-substrates.md#history-of-the-bed)). The matrix does not take the current year; there, what is planted in the bed counts. Observers ("viewer") only read the matrix.
 - **To the bed.** The name of the bed leads to the bed view.
