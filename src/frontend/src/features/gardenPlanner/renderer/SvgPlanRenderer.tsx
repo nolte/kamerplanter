@@ -1,4 +1,4 @@
-import { memo, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react';
+import { lazy, memo, Suspense, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { alpha, styled, useTheme, type Theme } from '@mui/material/styles';
 import type { PlanModel } from '../model/planModel';
 import type { BedStatus, GardenObject, PlanLocation, Point } from '../model/types';
@@ -20,6 +20,9 @@ import {
   type SceneShape,
 } from './scene';
 import type { PlantMarkerState, RenderOptions, RenderSelection, RendererLabels, Viewport } from './types';
+
+// The companion-planting layer (GP-FR-134) is its own chunk (UI-NFR-003): nothing of it loads until it is switched on.
+const CompanionLayer = lazy(() => import('./CompanionOverlay'));
 
 /**
  * The MVP renderer (D-01): SVG in React behind the {@link PlanRenderer} boundary.
@@ -130,6 +133,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
     moistureLayer,
     frostLayer,
     underlayLayer,
+    companionLayer,
     dimensionsOnOverlay,
   } = options;
   const scene = useMemo(
@@ -198,6 +202,12 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
           palette={palette}
         />
       ))}
+      {/* Above the beds and clusters, below the plant markers: a marker stays pressable on top of its lines. */}
+      {companionLayer && companionLayer.lines.length > 0 ? (
+        <Suspense fallback={null}>
+          <CompanionLayer lines={companionLayer.lines} viewport={viewport} />
+        </Suspense>
+      ) : null}
       {scene.markerBatches.map((batch) => (
         <MarkerBatchNode
           key={batch.locationKey}

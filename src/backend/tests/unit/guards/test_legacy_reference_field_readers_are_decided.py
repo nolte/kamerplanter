@@ -137,6 +137,15 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
     # -- watering_logs.slot_keys ------------------------------------------------------------
     (_SLOTS, "app/api/v1/watering_logs/schemas.py:WateringLogCreate.check_domain_rules"): (_ECHO, "request validation"),
     (_SLOTS, "app/data_access/arango/collections.py:ensure_collections"): (_ECHO, "declares the index"),
+    # REQ-053 WP 8.15 (#2658, SEC-001): a bind variable of the same name, not the field. It narrows the slot read to
+    # slots of the tenant's bed by their own ``_key``; no watering log is read and no species is looked up.
+    (
+        "watering_logs.slot_keys",
+        "app/data_access/arango/garden_plan_repository.py:ArangoGardenPlanRepository.load_active_slots",
+    ): (
+        _ECHO,
+        "a slot_keys bind variable restricting the bed's own slots by _key; reads no watering log",
+    ),
     (_SLOTS, f"{_WR}:ArangoWateringLogRepository.create"): (_ECHO, "writes the edges of the verified slots"),
     (_SLOTS, f"{_WR}:ArangoWateringLogRepository.get_last_watering_date_for_run"): (
         _ECHO,

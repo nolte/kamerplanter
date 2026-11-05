@@ -445,6 +445,9 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # REQ-053 WP 8.12 (#2655): the rotation matrix of a site. Read-only; it resolves the site through
     # ``require_owned_site`` and reads every bed's history under the tenant.
     "RotationMatrixService": "rotation_matrix_service.py",
+    # REQ-053 WP 8.15 (#2658): the companion layer of a bed. Read-only; it resolves the bed through
+    # ``resolve_owned_location`` - no ``get…_by_key`` - and names the species standing in the bed's slots.
+    "CompanionOverlayService": "companion_overlay_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -466,6 +469,8 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "IrrigationZoneService": 11,
     "BedTemplateService": 5,
     "RotationMatrixService": 1,
+    # #2658: measured 2 - ``companion_edges`` and the private ``_positions``.
+    "CompanionOverlayService": 2,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -579,6 +584,9 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # REQ-053 WP 8.12 (#2655): ``rotation_matrix`` anchors on ``require_owned_site``; read-only, so it adds nothing to
     # the expected writers, but its one public method takes the tenant strictly.
     "RotationMatrixService": "rotation_matrix_service.py",
+    # REQ-053 WP 8.15 (#2658): ``companion_edges`` anchors on ``resolve_owned_location``; read-only, so it adds
+    # nothing to the expected writers, but its one public method takes the tenant strictly.
+    "CompanionOverlayService": "companion_overlay_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {

@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import type { PlanModel } from '../model/planModel';
 import type { AttentionCode, Lifecycle } from '../model/plantState';
 import type { Geometry, GardenObjectType, PlanUnderlay, Point } from '../model/types';
+import type { CompanionLine } from './companionLines';
 
 /**
  * What the screen shows. Screen space has its origin top-left with y pointing down; model space is
@@ -108,6 +109,11 @@ export interface RenderOptions {
   sunLayer?: boolean;
   moistureLayer?: boolean;
   frostLayer?: boolean;
+  /**
+   * The companion-planting layer (GP-FR-134); absent = hidden. One line per neighbouring pair of occupied slots of the
+   * beds at marker LOD; the renderer culls them to the viewport and draws at most 500, strongest status first.
+   */
+  companionLayer?: { lines: readonly CompanionLine[] };
   /** Field mode raises the on-screen label size from 12 to 16 px (GP-NFR-067). */
   fieldMode?: boolean;
   /**

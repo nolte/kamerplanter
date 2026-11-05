@@ -180,8 +180,13 @@ def test_species_hints_come_from_plants_and_live_reservations_of_the_tenants_bed
     db.collection(col.PLANT_INSTANCES).insert(
         {"_key": "pl2", "tenant_key": "t1", "slot_key": "p1", "species_key": "apple", "removed_on": "2026-05-01"}
     )
-    db.collection(col.PLANTING_RUNS).insert({"_key": "live", "status": "planned"})
-    db.collection(col.PLANTING_RUNS).insert({"_key": "done", "status": "completed"})
+    db.collection(col.PLANTING_RUNS).insert({"_key": "live", "tenant_key": "t1", "status": "planned"})
+    db.collection(col.PLANTING_RUNS).insert({"_key": "done", "tenant_key": "t1", "status": "completed"})
+    # SEC-004 (#2658): a live run of ANOTHER tenant pointing into this bed's slot is not this bed's planning.
+    db.collection(col.PLANTING_RUNS).insert({"_key": "foreign", "tenant_key": "t2", "status": "active"})
+    db.collection(col.RUN_PLANNED_AT).insert(
+        {"_from": f"{col.PLANTING_RUNS}/foreign", "_to": _slot("p2"), "planned_species_key": "tomato"}
+    )
     db.collection(col.RUN_PLANNED_AT).insert(
         {"_from": f"{col.PLANTING_RUNS}/live", "_to": _slot("p2"), "planned_species_key": "apple"}
     )

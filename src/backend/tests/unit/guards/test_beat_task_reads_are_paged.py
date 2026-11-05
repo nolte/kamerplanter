@@ -69,6 +69,12 @@ _MCP_CAP = "MCP tool scan cap: the tool reports `truncated` to the agent when th
 #: window (bounded by construction), why only the newest rows are wanted, or why only
 #: the ``total`` is read.
 ALLOWED: dict[tuple[str, str], str] = {
+    # REQ-053 WP 8.15 (#2658, SEC-001): the companion overlay bounds its work on purpose. The adjacency read is cut
+    # at MAX_JUDGED_PAIRS in the database and counts the full ``total`` separately; the companion read stops at
+    # MAX_COMPANION_RELATIONS per collection and says so (``complete``); the answer reports ``truncated``.
+    ("domain/services/companion_overlay_service.py", "companion_edges"): (
+        "a deliberate per-request work bound (SEC-001) whose cut is counted and reported as total/truncated"
+    ),
     ("domain/services/care_event_service.py", "export_window"): (
         "the CSV download reads up to MAX_EXPORT_ROWS + 1 rows in ONE query on purpose and refuses (422 "
         "export.too_many_rows) when the extra row arrives: a window that cannot silently cut the file (GP-FR-104)"

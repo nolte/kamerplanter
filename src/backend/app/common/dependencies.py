@@ -101,6 +101,7 @@ from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.companion_edge_service import CompanionEdgeService
+from app.domain.services.companion_overlay_service import CompanionOverlayService
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
@@ -555,6 +556,11 @@ def get_bed_rotation_service() -> BedRotationService:
         get_care_event_service(),
         _bed_rotation_validator(),
     )
+
+
+def get_companion_overlay_service() -> CompanionOverlayService:
+    """REQ-053 WP 8.15 — the companion-planting layer of a bed (judged ``adjacent_to`` pairs, GP-FR-134)."""
+    return CompanionOverlayService(get_site_repo(), get_garden_plan_repo(), get_graph_repo())
 
 
 def get_rotation_matrix_service() -> RotationMatrixService:

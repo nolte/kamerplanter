@@ -189,6 +189,7 @@ You show and hide layers in the **Layers** group of the view bar. Your browser r
 | **Show drainage** | How well a bed drains | off |
 | **Show frost risk** | Low, normal or high per bed | off |
 | **Show plant state** | Phase, ring and sign of every plant | off |
+| **Show companion planting** | Lines between neighbouring plants: good, bad or unknown neighbours | off |
 
 The legend below the view bar explains every layer that is switched on. The hatching of zones and of the state layers differs in pattern, not only in colour.
 
@@ -208,6 +209,22 @@ What disc, ring and sign on a plant mean is described under [Plant state and pla
 
 !!! note "Partially available: plant state"
     **Frost danger** does not appear as a sign yet, even though the **Frost risk** layer shows the stored value. **Watering due** arises so far only from a watering task due today, not from the irrigation demand. <!-- REQ-053 GP-UX-060, GP-FR-190 -->
+
+### Companion planting on the plan {#companion-planting-on-the-plan}
+
+**Companion planting layer in the garden plan.** With **Show companion planting** in the layer group you see whether neighbouring plants get along. The plan draws a line between two neighbouring occupied places of a bed. A place can hold a standing plant or a species that a running planting plans there. The kind of line says what is known:
+
+| Line | Meaning |
+|------|---------|
+| Solid, green | Good neighbours: the species help each other. |
+| Dashed, red | Bad neighbours: the species hinder each other. |
+| Dotted, grey | Nothing known: no relation is stored for this pair. |
+
+The lines differ in their stroke, not only in their colour, so you can tell them apart in greyscale too. Point at a line with the mouse and a card appears. It names the two species that decide the verdict, the stored reason or a short explanation, for good neighbours the score from 0.1 to 1 and, if known, the distance. On a touchscreen you tap the line. The card then stays open until you close it or tap somewhere else on the plan. A tap on a line does not select the bed below it, and a swipe that starts on a line still pans the plan. If a place holds more than eight species, the plan judges only the first eight; the card tells you so. The verdict is the same as in the planting dialog (**Plant it**): if any species pair of the two places is incompatible, the pair counts as bad neighbours.
+
+The lines appear only once you zoom close enough to a bed for the single plants to show. Kamerplanter loads them only while the layer is on, only for the beds you currently see that close, and at most four beds at a time. Each bed loads once and again when you save the plan or a newer version of it loads. The plan shows at most 500 lines at once, bad neighbours first; if more pairs are in view, the legend tells you. Then zoom in closer. The layer starts switched off; your browser remembers your choice. <!-- REQ-053 GP-FR-134 -->
+
+**Without mouse or touch.** The lines themselves are not reachable with the Tab key, so the plan does not get hundreds of tab stops. Open the **list of neighbouring pairs** in the layer's legend instead. For every pair in view it states the neighbourhood in words, the two species, the reason and the score, bad neighbours first. The list is a single tab stop; scroll in it with the arrow keys. <!-- REQ-053 GP-FR-134 -->
 
 ## Irrigation zones and the watering round {#irrigation-zones}
 
@@ -255,7 +272,7 @@ A site has at most one underlay, and all members see the same one. Whether you d
 
 The matrix shows at a glance what stood in all beds of a site in the last years. Open it on the site page with **Rotation matrix** (address `/standorte/sites/<key>/rotation-matrix`). Each row is a bed, each column a year, the current year is on the right. How far back the matrix reaches follows the longest rotation pauses of the families in the beds shown, at least five and at most ten years.
 
-A cell lists one entry per planting: the plant family as a short code with colour and pattern, below it the feeder class as text and, when known, the season. Colour never carries the family alone: code and pattern tell them apart in greyscale print too. The legend under the table names the full family for each code. Green manure and fallow are marked. An empty year shows a dash: nothing is recorded.
+A cell lists one entry per planting: the plant family as a short code with colour and pattern, below it the feeder class as text and, when known, the season. Colour never carries the family alone: code and pattern tell them apart in black and white print too. The legend under the table names the full family for each code. Green manure and fallow are marked. An empty year shows a dash: nothing is recorded.
 
 - **Fill in.** With the role "grower" or "lead" you tap a past year and fill in what grew there in the familiar **What stood here?** dialog (see [History of the bed](locations-substrates.md#history-of-the-bed)). The matrix does not take the current year; there, what is planted in the bed counts. Observers ("viewer") only read the matrix.
 - **To the bed.** The name of the bed leads to the bed view.

@@ -20,6 +20,47 @@ class AdjacencySync:
     kept: int = 0
 
 
+@dataclass(frozen=True)
+class SlotAdjacency:
+    """One undirected ``adjacent_to`` pair; ``slot_a_key < slot_b_key`` (REQ-053 GP-FR-134)."""
+
+    slot_a_key: str
+    slot_b_key: str
+    distance_cm: float | None = None
+
+
+@dataclass(frozen=True)
+class SlotAdjacencyWindow:
+    """A bounded window of a bed's undirected ``adjacent_to`` pairs and the exact number of all of them."""
+
+    #: At most ``limit`` pairs, sorted by ``(slot_a_key, slot_b_key)``.
+    pairs: list[SlotAdjacency]
+    #: Every distinct pair among the slots, counted in the database (not bounded by ``limit``).
+    total: int
+
+
+@dataclass(frozen=True)
+class CompanionRelation:
+    """One directed companion edge between two species (``compatible_with`` or ``incompatible_with``)."""
+
+    from_key: str
+    to_key: str
+    incompatible: bool
+    score: float | None = None
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class CompanionRelations:
+    """The companion edges among a set of species and the names of those the tenant may read, in one read."""
+
+    relations: list[CompanionRelation]
+    #: species key -> scientific name, only for species the tenant may read (own, global or granted).
+    names: dict[str, str]
+    #: ``False`` when an edge collection had more edges among the species than the read's ``limit``.
+    complete: bool = True
+
+
 class IGraphRepository(ABC):
     @abstractmethod
     def get_compatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict[str, Any]]: ...
@@ -59,7 +100,27 @@ class IGraphRepository(ABC):
     ) -> None: ...
 
     @abstractmethod
+    def load_companion_relations(self, species_keys: list[str], *, tenant_key: str, limit: int) -> CompanionRelations:
+        """The companion edges whose two ends are among *species_keys* and readable by the tenant, in one read.
+
+        Both edge collections, both directions as stored, at most *limit* edges per collection (``complete`` says
+        whether that cut anything). A species the tenant may not read (another tenant's private one, MT-054 /
+        #927) contributes neither an edge nor a name.
+        """
+
+    @abstractmethod
     def get_adjacent_slots(self, slot_key: str) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def get_slot_adjacency(
+        self, location_key: str, slot_keys: list[str], *, tenant_key: str, limit: int
+    ) -> SlotAdjacencyWindow:
+        """The undirected ``adjacent_to`` pairs whose two ends are slots of the bed among *slot_keys*, in one read.
+
+        Anchored on the bed: nothing when its site is not the tenant's (a slot has no ``tenant_key``, #706). Each
+        pair once (the edges are stored in both directions), sorted by ``(slot_a_key, slot_b_key)`` and cut to
+        *limit* in the database; ``total`` counts all pairs.
+        """
 
     @abstractmethod
     def set_adjacent_slots(

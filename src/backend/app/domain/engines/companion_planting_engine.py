@@ -1,7 +1,82 @@
+"""Companion-planting compatibility (REQ-028) and the one per-pair rule every reader of it shares.
+
+:func:`judge_neighbour` is **the** decision for one species next to another: an ``incompatible_with`` edge wins,
+else a ``compatible_with`` edge with its score, else the relation is unknown. The engine's
+:meth:`CompanionPlantingEngine.check_compatibility`, the planting dialog
+(:meth:`~app.domain.services.bed_rotation_service.BedRotationService.validate_planting`) and the plan's companion
+overlay (:mod:`~app.domain.services.companion_overlay_service`, GP-FR-134) all call it, so a neighbour cannot be
+"compatible" in one view and "incompatible" in another. :func:`strongest_verdict` folds several verdicts (several
+species in one slot, both directions of a pair) with the same precedence.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Collection, Iterable, Mapping
+from dataclasses import dataclass
+from typing import Any, Literal
+
 from app.common.exceptions import CompanionConflictError
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
+
+CompanionStatus = Literal["compatible", "incompatible", "unknown"]
+
+#: Precedence of the statuses: a lower rank wins when verdicts are folded, and orders a list strongest first.
+COMPANION_STATUS_RANK: dict[CompanionStatus, int] = {"incompatible": 0, "compatible": 1, "unknown": 2}
+
+
+@dataclass(frozen=True)
+class CompanionVerdict:
+    """The relation of one species to a neighbour; ``score`` only for ``compatible`` (as the edge stores it)."""
+
+    status: CompanionStatus
+    score: Any = None
+
+
+UNKNOWN_VERDICT = CompanionVerdict("unknown")
+
+
+def judge_neighbour(
+    other_species_key: str,
+    incompatible_keys: Collection[str],
+    compatible_scores: Mapping[str, Any],
+) -> CompanionVerdict:
+    """The per-pair rule: how the anchor species, whose edges are given, relates to ``other_species_key``.
+
+    ``incompatible_keys`` are the anchor's ``incompatible_with`` neighbours, ``compatible_scores`` its
+    ``compatible_with`` neighbours with the edge score. An incompatible edge wins over a compatible one between the
+    same two species; no edge at all is ``unknown`` - nothing is assumed (E-10).
+    """
+    if other_species_key in incompatible_keys:
+        return CompanionVerdict("incompatible")
+    if other_species_key in compatible_scores:
+        return CompanionVerdict("compatible", compatible_scores[other_species_key])
+    return UNKNOWN_VERDICT
+
+
+def strongest_verdict(verdicts: Iterable[CompanionVerdict]) -> CompanionVerdict:
+    """Fold verdicts with the precedence of :func:`judge_neighbour`.
+
+    Incompatible wins, else the best compatible, else unknown. Of several compatible verdicts the highest score is
+    kept (a missing score ranks below any number); on a tie the first one stays.
+    """
+    best = UNKNOWN_VERDICT
+    for verdict in verdicts:
+        rank, best_rank = COMPANION_STATUS_RANK[verdict.status], COMPANION_STATUS_RANK[best.status]
+        stronger = rank < best_rank
+        better_score = rank == best_rank and verdict.status == "compatible" and _higher(verdict.score, best.score)
+        if stronger or better_score:
+            best = verdict
+    return best
+
+
+def _higher(score: Any, than: Any) -> bool:
+    return _score_key(score) > _score_key(than)
+
+
+def _score_key(score: Any) -> float:
+    return float(score) if isinstance(score, int | float) else float("-inf")
 
 
 class CompanionPlantingEngine:
@@ -53,14 +128,15 @@ class CompanionPlantingEngine:
                 continue
             active_plants = self._plant_repo.get_active_by_slot(adj_slot_key, tenant_key=tenant_key)
             for plant in active_plants:
-                if plant.species_key in incompatible_keys:
+                verdict = judge_neighbour(plant.species_key, incompatible_keys, compatible_map)
+                if verdict.status == "incompatible":
                     species = self._species_repo.get_by_key(plant.species_key)
                     name = species.scientific_name if species else plant.species_key
                     warnings.append(f"Incompatible neighbor: {name} in slot {adj_slot_key}")
-                elif plant.species_key in compatible_map:
+                elif verdict.status == "compatible":
                     species = self._species_repo.get_by_key(plant.species_key)
                     name = species.scientific_name if species else plant.species_key
-                    benefits.append(f"Compatible neighbor: {name} (score: {compatible_map[plant.species_key]})")
+                    benefits.append(f"Compatible neighbor: {name} (score: {verdict.score})")
 
         return len(warnings) == 0, warnings, benefits
 

@@ -6,7 +6,7 @@ import { vi, type Mock } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
 import { HeadlessPlanRenderer } from '../renderer/HeadlessPlanRenderer';
 import { TEST_LABELS } from '../renderer/rendererTestKit';
-import type { Viewport } from '../renderer';
+import type { PlanRenderer, Viewport } from '../renderer';
 import type { PlanModel } from '../model/planModel';
 import { gardenPlanSlice, loadGardenPlan, type GardenPlanState } from '../state/gardenPlanSlice';
 import { GardenPlanEditor } from './GardenPlanEditor';
@@ -52,6 +52,8 @@ interface SetupOptions {
   onOpenLocation?: Mock<(locationKey: string) => void>;
   onOpenCare?: Mock<(locationKey: string) => void>;
   viewport?: Viewport;
+  /** Defaults to the headless test double; a test of drawn DOM (e.g. a layer's pointer targets) passes the SVG one. */
+  renderer?: PlanRenderer;
 }
 
 export function setupEditor(options: SetupOptions = {}) {
@@ -64,6 +66,7 @@ export function setupEditor(options: SetupOptions = {}) {
   store.dispatch(loadGardenPlan.pending('r1', 'site_1'));
   store.dispatch(loadGardenPlan.fulfilled(plan, 'r1', 'site_1'));
   const renderer = new HeadlessPlanRenderer();
+  const drawnBy: PlanRenderer = options.renderer ?? renderer;
   const state = (): GardenPlanState => store.getState().gardenPlan;
   const tree = () => (
     <Provider store={store}>
@@ -71,7 +74,7 @@ export function setupEditor(options: SetupOptions = {}) {
         <GardenPlanEditor
           plan={state().plan!}
           viewport={options.viewport ?? VIEWPORT}
-          renderer={renderer}
+          renderer={drawnBy}
           labels={TEST_LABELS}
           onPan={onPan}
           onZoom={onZoom}

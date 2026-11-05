@@ -313,9 +313,12 @@ class TestTheRouteOperand:
 
         +1: the soil analyses of a bed (REQ-053 WP 8.7, #2650): ``GET /t/{slug}/locations/{key}/soil-analyses``. Its
         consumer, the analysis history in the soil tab, is the next package of the lane (WP 8.8, #2651).
+
+        +1: the companion layer of a bed (REQ-053 WP 8.15, #2658): ``GET /t/{slug}/locations/{key}/companion-edges``.
+        Its consumer, the "Mischkultur" layer of the plan renderer, is the second member of the same group (#2659).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 893
+        assert len(checker.collect_operations(app)) == 894
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
