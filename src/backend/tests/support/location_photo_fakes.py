@@ -28,6 +28,8 @@ class FakePhotoAttachments:
         self.kept: list[str] = []
         #: Set to make every ``delete_if_unreferenced`` raise (storage down, the scan's budget exhausted).
         self.fail_with: Exception | None = None
+        #: Ids another carrier (a plant gallery, a task, a bed of another site …) still names.
+        self.held_elsewhere: set[str] = set()
 
     def add(
         self,
@@ -62,7 +64,7 @@ class FakePhotoAttachments:
             attachment_id in loc.photo_refs or loc.cover_photo_ref == attachment_id
             for loc in self._repo.locations.values()
         )
-        if named or self.get(attachment_id, tenant_key) is None:
+        if named or attachment_id in self.held_elsewhere or self.get(attachment_id, tenant_key) is None:
             self.kept.append(attachment_id)
             return False
         self.rows.pop(attachment_id)

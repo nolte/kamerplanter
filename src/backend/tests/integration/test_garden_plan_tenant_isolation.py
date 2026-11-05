@@ -578,7 +578,11 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
     )
     export: Any = GardenPlanExportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan)
-    importer: Any = GardenPlanImportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export)
+    # WP 8.18: a replace import and a restore discard the photos of the beds they removed, like every bed delete.
+    import_photos = _photo_service(db)
+    importer: Any = GardenPlanImportService(
+        ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export, photos=lambda: import_photos
+    )
     plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
     zones: Any = IrrigationZoneService(
         ArangoIrrigationZoneRepository(db),

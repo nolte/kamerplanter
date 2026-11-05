@@ -26,7 +26,7 @@ condition and nothing else. ``merge`` only adds.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Any
@@ -91,6 +91,7 @@ from app.domain.services.adjacency_service import AdjacencyDispatch, request_adj
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
+from app.domain.services.location_photo_service import LocationPhotoDiscard, release_location_photos
 from app.domain.services.site_service import place_in_tree
 
 #: Fields of a stored bed a backup never holds (REQ-053 GP-FR-051, WP 8.18): a file naming one is refused.
@@ -247,12 +248,16 @@ class GardenPlanImportService:
         export_service: GardenPlanExportService,
         *,
         dispatch_adjacency: AdjacencyDispatch | None = None,
+        photos: Callable[[], LocationPhotoDiscard] | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
         self._plans = plan_service
         self._export = export_service
         self._dispatch_adjacency = dispatch_adjacency
+        # WP 8.18: the photos of the beds a ``replace`` (or a restore) deleted are discarded after the commit, like
+        # those of every other bed delete. A provider, built only when a photo was released.
+        self._photos = photos
 
     # ── the entry ─────────────────────────────────────────────────────────────
 
@@ -364,7 +369,17 @@ class GardenPlanImportService:
         report.applied = True
         report.plan_revision = outcome.plan_revision
         report.snapshot_written = write.snapshot is not None
+        report.released_photo_refs = list(outcome.released_photo_refs)
         return report
+
+    async def release_photos(self, report: PlanImportReport, *, tenant_key: str) -> None:
+        """After a committed import or restore: delete the released bed photos unless something else names them.
+
+        The same after-commit step as the bed, batch and site deletes (WP 8.18): each photo goes through
+        ``delete_if_unreferenced`` and its stored object only when no other record holds it; a failure is logged,
+        the committed import still answers. A dry run and a ``merge`` release nothing.
+        """
+        await release_location_photos(self._photos, report.released_photo_refs, tenant_key=tenant_key)
 
     # ── GP-FR-148/170: the snapshots a replace left behind ────────────────────
 

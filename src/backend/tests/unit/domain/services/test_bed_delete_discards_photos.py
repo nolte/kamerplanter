@@ -1,7 +1,8 @@
 """REQ-053 WP 8.18 (#2661) - the photos of deleted beds go with them, unless another carrier still names them.
 
-Three paths delete a bed: ``DELETE /locations/{key}`` (``GardenResourceService.delete_bed``), a plan batch with a
-``delete`` operation (``GardenPlanService.apply_batch_async``) and the site delete (``SiteService.delete_site``).
+Five paths delete a bed: ``DELETE /locations/{key}`` (``GardenResourceService.delete_bed``), a plan batch with a
+``delete`` operation (``GardenPlanService.apply_batch_async``), the site delete (``SiteService.delete_site``), and a
+``replace`` plan import and a snapshot restore (``GardenPlanImportService.release_photos``).
 Each hands the photo ids its transaction read to ``LocationPhotoService.discard_released`` after the commit; the
 service tests cover the first two over the in-memory plan repository, this file the site delete and the wiring.
 """
@@ -69,10 +70,12 @@ async def test_a_foreign_site_releases_nothing() -> None:
 
 
 def test_the_request_wiring_hands_every_bed_delete_path_the_photo_service(monkeypatch) -> None:
-    """Production: the three delete paths get the photo service as a provider (built only when needed)."""
+    """Production: every bed-delete path gets the photo service as a provider (built only when needed)."""
     for name in ("get_site_repo", "get_tank_repo", "get_garden_plan_repo", "get_db"):
         monkeypatch.setattr(dependencies, name, MagicMock)
 
     assert dependencies.get_site_service()._photos is dependencies.get_location_photo_service
     assert dependencies.get_garden_plan_service()._photos is dependencies.get_location_photo_service
     assert dependencies.get_garden_resource_service()._photos is dependencies.get_location_photo_service
+    # a ``replace`` import and a snapshot restore delete beds too (#2661 follow-up)
+    assert dependencies.get_garden_plan_import_service()._photos is dependencies.get_location_photo_service

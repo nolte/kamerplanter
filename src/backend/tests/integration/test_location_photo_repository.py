@@ -22,6 +22,8 @@ from app.data_access.arango.garden_plan_repository import ArangoGardenPlanReposi
 from app.data_access.arango.location_photo_repository import ArangoLocationPhotoRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.interfaces.location_photo_repository import LocationPhotoState
+from app.domain.services.garden_plan_export_service import GardenPlanExportService
+from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_photo_service import LocationPhotoService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -301,3 +303,48 @@ class TestTheServiceOnTheDatabase:
         assert _stored(db, "bed_a") == ([], None)
         assert db.collection(col.ATTACHMENTS).get("p1") is None  # nothing else named it
         assert db.collection(col.ATTACHMENTS).get("shared") is not None  # bed_a2 still shows it
+
+
+class TestAReplaceImportAndARestoreDiscardThePhotos:
+    """#2661 follow-up: a ``replace`` import (and a restore, which is one) deletes beds through the plan batch, so the
+    photos those beds held are reported from the transaction and discarded after the commit."""
+
+    def _importer(self, db) -> GardenPlanImportService:
+        sites, plans_repo = ArangoSiteRepository(db), ArangoGardenPlanRepository(db)
+        plans = GardenPlanService(sites, plans_repo)
+        attachments = ArangoAttachmentRepository(db)
+        photos = LocationPhotoService(
+            sites, ArangoLocationPhotoRepository(db), attachments, lambda: _Deleter(attachments)
+        )
+        return GardenPlanImportService(
+            sites, plans_repo, plans, GardenPlanExportService(sites, plans_repo, plans), photos=lambda: photos
+        )
+
+    async def test_the_replaced_beds_photos_go_and_a_photo_another_site_shows_stays(self, db) -> None:
+        for key in ("p_own", "p_shared"):
+            db.collection(col.ATTACHMENTS).insert(_photo(key))
+        db.collection(col.LOCATIONS).update(
+            {"_key": "bed_a", "photo_refs": ["p_shared", "p_own"], "cover_photo_ref": "p_own"}
+        )
+        db.collection(col.SITES).insert({"_key": "site_a2", "tenant_key": A, "name": "site_a2", "type": "outdoor"})
+        db.collection(col.LOCATIONS).insert(_bed("bed_other_site", "site_a2", photo_refs=["p_shared"]))
+        importer = self._importer(db)
+        document = importer._export.export_json("site_a", tenant_key=A).model_dump(mode="json")
+
+        report = importer.import_plan(
+            "site_a",
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            mode="replace",
+            dry_run=False,
+            force=False,
+            confirm_site_name="site_a",
+            document=document,
+        )
+        await importer.release_photos(report, tenant_key=A)
+
+        assert report.applied and sorted(report.released_photo_refs) == ["p_own", "p_shared"]
+        assert db.collection(col.LOCATIONS).get("bed_a") is None  # replaced by beds with new keys
+        assert db.collection(col.ATTACHMENTS).get("p_own") is None
+        assert db.collection(col.ATTACHMENTS).get("p_shared") is not None  # bed_other_site still shows it

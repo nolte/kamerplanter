@@ -535,6 +535,7 @@ def get_garden_plan_import_service() -> GardenPlanImportService:
         get_garden_plan_service(),
         get_garden_plan_export_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
+        photos=get_location_photo_service,
     )
 
 

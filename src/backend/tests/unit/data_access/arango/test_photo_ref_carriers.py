@@ -172,6 +172,7 @@ _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
     # ``photo_refs`` in its transaction, handed to the discard - which asks the reference scan before anything goes.
     "PlanBatchOutcome.released_photo_refs": "the deleted beds' photo_refs, read in the transaction; never stored",
     "PlanBatchResult.released_photo_refs": "the same ids carried to the caller (excluded from the response)",
+    "PlanImportReport.released_photo_refs": "the same ids of a replace import or restore (excluded from the response)",
     # The answer of ``GET /locations/{key}/photos``: a copy of ``Location.cover_photo_ref``, which is scanned.
     "LocationPhotoGallery.cover_photo_ref": "a response projection of Location.cover_photo_ref; never stored",
 }

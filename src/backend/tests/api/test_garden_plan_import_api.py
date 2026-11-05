@@ -427,3 +427,73 @@ def test_the_request_schema_embedded_in_the_openapi_document_has_no_dangling_ref
     from app.api.v1.garden_plan.schemas import PlanImportRequest
 
     assert "$ref" not in json.dumps(PlanImportRequest.model_json_schema())
+
+
+class TestTheReplacedBedsTakeTheirPhotosWp818:
+    """#2661 follow-up on the wire: a ``replace`` import and a snapshot restore delete the photos of the beds they
+    removed after the commit - unless another bed still shows one - and never answer with the ids."""
+
+    @pytest.fixture
+    def photos(self, client, repo):  # type: ignore[no-untyped-def]
+        from app.domain.services.location_photo_service import LocationPhotoService
+        from app.main import app
+        from tests.support.location_photo_fakes import FakeLocationPhotoRepo, FakePhotoAttachments
+
+        attachments = FakePhotoAttachments(repo)
+        service = LocationPhotoService(
+            repo._sites, FakeLocationPhotoRepo(repo, attachments), attachments, lambda: attachments
+        )
+        plan_service = GardenPlanService(repo._sites, repo)
+        export_service = GardenPlanExportService(repo._sites, repo, plan_service)
+        app.dependency_overrides[get_garden_plan_import_service] = lambda: GardenPlanImportService(
+            repo._sites, repo, plan_service, export_service, photos=lambda: service
+        )
+        for key in ("p_own", "p_shared"):
+            attachments.add(key, tenant_key=TENANT)
+        repo.locations["bed"] = repo.locations["bed"].model_copy(
+            update={"photo_refs": ["p_shared", "p_own"], "cover_photo_ref": "p_own"}
+        )
+        return attachments
+
+    def test_a_replace_deletes_the_photos_of_the_beds_it_replaced(self, client, repo, photos) -> None:
+        response = client().post(_IMPORT, json=body(a_file(client), dry_run=False, confirm_site_name="Garten"))
+
+        assert response.status_code == 200, response.text
+        assert "released_photo_refs" not in response.json() and "p_own" not in response.text
+        assert sorted(photos.deleted) == ["p_own", "p_shared"]
+
+    def test_a_photo_another_bed_still_shows_survives_the_replace(self, client, repo, photos) -> None:
+        # Another carrier outside this plan (a bed of another site, a gallery) names the same record.
+        photos.held_elsewhere.add("p_shared")
+
+        response = client().post(_IMPORT, json=body(a_file(client), dry_run=False, confirm_site_name="Garten"))
+
+        assert response.status_code == 200, response.text
+        assert photos.deleted == ["p_own"] and "p_shared" in photos.rows
+
+    def test_a_restore_deletes_the_photos_of_the_beds_it_replaced(self, client, repo, photos) -> None:
+        client().post(_IMPORT, json=body(a_file(client), dry_run=False, confirm_site_name="Garten"))
+        photos.deleted.clear()
+        (bed,) = list(repo.locations)
+        photos.add("p_after", tenant_key=TENANT)
+        repo.locations[bed] = repo.locations[bed].model_copy(update={"photo_refs": ["p_after"]})
+        audit_key = client().get(_SNAPSHOTS).json()[0]["audit_key"]
+
+        response = client().post(
+            f"{_SNAPSHOTS}/{audit_key}/restore", json={"dry_run": False, "confirm_site_name": "Garten"}
+        )
+
+        assert response.status_code == 200, response.text
+        assert "released_photo_refs" not in response.json()
+        assert photos.deleted == ["p_after"]
+
+    def test_a_dry_run_restore_deletes_nothing(self, client, repo, photos) -> None:
+        client().post(_IMPORT, json=body(a_file(client), dry_run=False, confirm_site_name="Garten"))
+        photos.deleted.clear()
+        (bed,) = list(repo.locations)
+        photos.add("p_after", tenant_key=TENANT)
+        repo.locations[bed] = repo.locations[bed].model_copy(update={"photo_refs": ["p_after"]})
+        audit_key = client().get(_SNAPSHOTS).json()[0]["audit_key"]
+
+        assert client().post(f"{_SNAPSHOTS}/{audit_key}/restore", json={"dry_run": True}).status_code == 200
+        assert photos.deleted == [] and "p_after" in photos.rows

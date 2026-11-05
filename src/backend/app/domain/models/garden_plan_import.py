@@ -99,3 +99,6 @@ class PlanImportReport(BaseModel):
     plan_revision: int | None = None
     #: ``replace`` writes the state it replaces into the change log first (SR-011).
     snapshot_written: bool = False
+    #: The photos the beds a ``replace`` deleted held (REQ-053 GP-FR-051, WP 8.18), read inside the transaction; the
+    #: caller discards them after the commit (:meth:`GardenPlanImportService.release_photos`). Never in the response.
+    released_photo_refs: list[str] = Field(default_factory=list, exclude=True)

@@ -680,6 +680,8 @@ async def import_plan(
         target=envelope.target,
         offset_m=envelope.offset_m,
     )
+    # WP 8.18: the photos of the beds a replace deleted go after the commit, unless something else names them.
+    await service.release_photos(report, tenant_key=ctx.tenant_key)
     return PlanImportResponse(**report.model_dump())
 
 
@@ -713,7 +715,7 @@ def list_plan_snapshots(
     responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
 )
 @limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
-def restore_plan_snapshot(
+async def restore_plan_snapshot(
     request: Request,
     key: _SITE_KEY,
     audit_key: Annotated[str, Path(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_\-:.@+]+$")],
@@ -725,8 +727,10 @@ def restore_plan_snapshot(
     """Lead only. The stored plan goes through the checks of an uploaded file and is written as a `replace`: the
     state it overwrites is written as a snapshot first, so a restore can itself be restored. `dry_run` answers
     what would change. 404 for a snapshot of another site or tenant, 409 `import.not_empty` while a bed holds an
-    active plant (`force` lifts that, those beds then stay), 422 `import.site_name_mismatch` without the site name."""
-    report = service.restore_snapshot(
+    active plant (`force` lifts that, those beds then stay), 422 `import.site_name_mismatch` without the site name.
+    The photos of the beds the restore removes are deleted afterwards unless something else still names them."""
+    report = await run_in_threadpool(
+        service.restore_snapshot,
         key,
         audit_key,
         tenant_key=ctx.tenant_key,
@@ -736,6 +740,7 @@ def restore_plan_snapshot(
         force=body.force,
         confirm_site_name=body.confirm_site_name,
     )
+    await service.release_photos(report, tenant_key=ctx.tenant_key)
     return to_response(report, PlanImportResponse)
 
 
