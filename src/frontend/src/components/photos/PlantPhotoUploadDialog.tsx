@@ -158,7 +158,7 @@ export default function PlantPhotoUploadDialog({
       data-testid="plant-photo-upload-dialog"
       aria-labelledby="plant-photo-upload-title"
     >
-      <DialogTitle id="plant-photo-upload-title" sx={{ pr: touchTarget ? 10 : 6 }}>
+      <DialogTitle id="plant-photo-upload-title" sx={{ pr: touchTarget ? 10 : 6, overflowWrap: 'anywhere' }}>
         {title ?? t('pages.plantPhotos.uploadTitle')}
         <IconButton
           onClick={onClose}
