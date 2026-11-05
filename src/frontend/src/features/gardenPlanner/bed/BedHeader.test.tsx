@@ -2,7 +2,7 @@
  * The head of the bed view (REQ-053 GP-FR-047, #2487): the drainage of the soil profile is shown with its
  * label, and left out while it is unknown.
  */
-import { cleanup, screen, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
@@ -168,5 +168,20 @@ describe('BedHeader cover photo (GP-FR-051)', () => {
     renderHeader(bedSummary({ cover_photo_ref: null }));
     await screen.findByTestId('bed-header');
     expect(screen.queryByTestId('bed-header-cover')).toBeNull();
+  });
+
+  it('shows no broken frame when the cover photo cannot be loaded (its attachment is gone)', async () => {
+    let requested = 0;
+    server.use(
+      http.get('/api/v1/t/:tenant/attachments/:id/thumbnails/:px', () => {
+        requested += 1;
+        return new HttpResponse(null, { status: 404 });
+      }),
+    );
+    renderHeader(bedSummary({ cover_photo_ref: 'p_gone' }));
+    await screen.findByTestId('bed-header');
+    await waitFor(() => expect(screen.queryByTestId('bed-header-cover')).toBeNull());
+    expect(requested).toBe(1);
+    expect(screen.queryByTestId('bed-header-cover-image-error')).toBeNull();
   });
 });

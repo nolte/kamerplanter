@@ -12,7 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import AuthImage from '@/components/common/AuthImage';
-import { diaryPhotoUri } from '@/api/endpoints/diary';
+import { attachmentUri } from '@/api/endpoints/attachments';
 
 interface DiaryPhotoLightboxProps {
   /** All attachment ids of the entry, so the viewer can page through them. */
@@ -101,7 +101,7 @@ export default function DiaryPhotoLightbox({
           </IconButton>
           {attachmentId && (
             <AuthImage
-              uri={diaryPhotoUri(attachmentId, 1280)}
+              uri={attachmentUri(attachmentId, 1280)}
               alt={alt ?? t('pages.plantDiary.photos.fullAlt')}
               objectFit="contain"
               height="auto"

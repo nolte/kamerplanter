@@ -14,6 +14,7 @@ from app.domain.interfaces.location_photo_repository import (
     ILocationPhotoRepository,
     LocationPhotoState,
     LocationPhotoWrite,
+    without_photo,
 )
 
 #: The bed **through its site's tenant** (a location carries no ``tenant_key``, #2107): a key of another tenant's
@@ -27,7 +28,15 @@ FOR l IN @@locations
         RETURN {photo_refs: l.photo_refs || [], cover_photo_ref: l.cover_photo_ref}
 """
 
-#: The tenant's own ``location`` attachment, touched so a concurrent removal of the record conflicts (#2545).
+#: The tenant's own ``location`` attachment, read only: an add that changes nothing must not write the record.
+_ATTACHMENT_EXISTS = """
+FOR a IN @@attachments
+    FILTER a._key == @attachment_key AND a.tenant_key == @tenant_key AND a.category == @category
+    LIMIT 1
+    RETURN 1
+"""
+
+#: The same record, touched by the add that links it, so a concurrent removal of the record conflicts (#2545).
 _TOUCH_ATTACHMENT = """
 FOR a IN @@attachments
     FILTER a._key == @attachment_key AND a.tenant_key == @tenant_key AND a.category == @category
@@ -90,6 +99,20 @@ class ArangoLocationPhotoRepository(ILocationPhotoRepository):
             },
         )
 
+    @staticmethod
+    def _has_attachment(txn: StreamTransaction, attachment_key: str, tenant_key: str, *, touch: bool) -> bool:
+        """Whether the tenant's own ``location`` record ``attachment_key`` exists; ``touch`` writes it (#2545)."""
+        bind_vars: dict[str, Any] = {
+            "@attachments": col.ATTACHMENTS,
+            "attachment_key": attachment_key,
+            "tenant_key": tenant_key,
+            "category": AttachmentCategory.LOCATION.value,
+        }
+        # One literal query per branch: the tenant-predicate guard resolves a module constant, not a chosen one.
+        if touch:
+            return bool(list(txn.aql.execute(_TOUCH_ATTACHMENT, bind_vars={**bind_vars, "now": _now()})))
+        return bool(list(txn.aql.execute(_ATTACHMENT_EXISTS, bind_vars=bind_vars)))
+
     def add_photo(
         self, location_key: str, *, tenant_key: str, attachment_key: str, max_photos: int
     ) -> LocationPhotoWrite:
@@ -100,24 +123,18 @@ class ArangoLocationPhotoRepository(ILocationPhotoRepository):
             stored = self._read(txn, location_key, tenant_key)
             if stored is None:
                 return LocationPhotoWrite("location_not_found")
-            touched = list(
-                txn.aql.execute(
-                    _TOUCH_ATTACHMENT,
-                    bind_vars={
-                        "@attachments": col.ATTACHMENTS,
-                        "attachment_key": attachment_key,
-                        "tenant_key": tenant_key,
-                        "category": AttachmentCategory.LOCATION.value,
-                        "now": _now(),
-                    },
-                )
-            )
-            if not touched:
-                return LocationPhotoWrite("attachment_not_found")
-            if attachment_key in stored.photo_refs:
-                return LocationPhotoWrite("unchanged", stored)
-            if len(stored.photo_refs) >= max_photos:
+            # A no-op (already linked, bound reached) only reads the record: it links nothing, so there is no
+            # concurrent removal to conflict with, and the transaction commits no write of the attachment.
+            if attachment_key in stored.photo_refs or len(stored.photo_refs) >= max_photos:
+                if not self._has_attachment(txn, attachment_key, tenant_key, touch=False):
+                    return LocationPhotoWrite("attachment_not_found")
+                if attachment_key in stored.photo_refs:
+                    return LocationPhotoWrite("unchanged", stored)
                 return LocationPhotoWrite("limit_reached", stored)
+            # The linking path writes the record in this transaction: whichever of this add and a concurrent
+            # ``remove_if_unreferenced`` commits second conflicts, so a bed never names a just-deleted photo.
+            if not self._has_attachment(txn, attachment_key, tenant_key, touch=True):
+                return LocationPhotoWrite("attachment_not_found")
             written = LocationPhotoState(
                 photo_refs=(attachment_key, *stored.photo_refs),
                 cover_photo_ref=stored.cover_photo_ref or attachment_key,
@@ -133,10 +150,7 @@ class ArangoLocationPhotoRepository(ILocationPhotoRepository):
                 return LocationPhotoWrite("location_not_found")
             if attachment_key not in stored.photo_refs:
                 return LocationPhotoWrite("not_a_photo", stored)
-            written = LocationPhotoState(
-                photo_refs=tuple(ref for ref in stored.photo_refs if ref != attachment_key),
-                cover_photo_ref=None if stored.cover_photo_ref == attachment_key else stored.cover_photo_ref,
-            )
+            written = without_photo(stored, attachment_key)
             self._write(txn, location_key, written)
         return LocationPhotoWrite("written", written)
 

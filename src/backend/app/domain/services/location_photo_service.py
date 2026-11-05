@@ -128,20 +128,20 @@ class LocationPhotoService:
     ) -> LocationPhotoGallery:
         # Comprehensions, not ``append``: the write-route sweep cannot type a list receiver (its ceiling, #2039).
         found = [(ref, self._attachment_repo.get(ref, tenant_key)) for ref in state.photo_refs]
+        shown = [(ref, attachment) for ref, attachment in found if attachment is not None]
+        # A stale reference (its record is gone) is skipped, and so is a stale cover: the view names a cover only
+        # when that photo is among the ones it returns, so a client never asks for a rendition that cannot exist.
+        # Read-only - the bed keeps its stored refs until a write (or the removal) clears them.
+        cover = state.cover_photo_ref if any(ref == state.cover_photo_ref for ref, _ in shown) else None
         photos = tuple(
             LocationPhoto(
                 attachment=attachment,
-                is_cover=ref == state.cover_photo_ref,
+                is_cover=ref == cover,
                 can_remove=self._may_remove(attachment, user_key=user_key, role=role),
             )
-            for ref, attachment in found
-            if attachment is not None
+            for ref, attachment in shown
         )
-        return LocationPhotoGallery(
-            location_key=location_key,
-            cover_photo_ref=state.cover_photo_ref,
-            photos=photos,
-        )
+        return LocationPhotoGallery(location_key=location_key, cover_photo_ref=cover, photos=photos)
 
     @staticmethod
     def _state_of(write: LocationPhotoWrite, location_key: str) -> LocationPhotoState:
@@ -227,7 +227,7 @@ class LocationPhotoService:
         """Unlink a photo from the bed and delete it unless something else names it (see the module docstring).
 
         404 for a bed outside the tenant or a photo the bed does not show; 403 below ``grower``, and for another
-        member's photo below ``lead``. The cover is cleared when it was this photo.
+        member's photo below ``lead``. When it was the cover, the newest remaining photo becomes the cover.
         """
         location = await asyncio.to_thread(self._owned_location, key, tenant_key=tenant_key)
         self._require_editor(role)

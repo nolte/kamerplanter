@@ -465,7 +465,7 @@ On the **Photos** tab you keep track of how your bed develops over the season. T
 
 - **Add photo:** From the "grower" role, **Add photo** takes a picture with the camera or lets you choose an image file. You see a preview and save with **Save photo**. Kamerplanter removes location and camera data (EXIF) from the image on upload.
 - **Cover photo:** The first photo of a bed becomes its cover photo automatically. It appears in the summary of the bed view and in the bed sheet of field mode. The star makes another photo the cover; tapping the star of the cover photo takes it back, and the bed then has no cover photo.
-- **Remove photo:** You see the bin on your own photos; the lead can remove any photo. After a confirmation the photo disappears from the gallery. If nothing else uses it, Kamerplanter deletes it for good. If it was the cover photo, the bed has none afterwards.
+- **Remove photo:** You see the bin on your own photos; the lead can remove any photo. After a confirmation the photo disappears from the gallery. If nothing else uses it, Kamerplanter deletes it for good. If it was the cover photo, the newest remaining photo becomes the cover photo; if it was the last photo, the bed has none.
 - **At most 50 photos:** A bed holds up to 50 photos. Once the limit is reached, **Add photo** is locked and a notice asks you to remove a photo first.
 
 With the "viewer" role you only see the photos. A bed's photos belong to your garden: they are part of the garden export and are deleted with it, but they never go into the JSON backup of the garden plan. In field mode, too, you can give a photo straight to the bed, see [Field mode in the garden](garden-plan.md#field-mode-in-the-garden).

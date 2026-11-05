@@ -1,4 +1,4 @@
-import { tenantClient as client, getActiveTenantSlug } from '../client';
+import { tenantClient as client } from '../client';
 import { fetchAllPages } from '../paginate';
 import type {
   BatchResponse,
@@ -275,23 +275,6 @@ export async function updateTask(
 
 export async function deleteTask(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
-}
-
-/**
- * Build the authenticated URI of a task photo attachment.
- *
- * A task stores bare attachment ids in `photo_refs` (NFR-013 §2.2 / AC-09), not
- * URIs — a stored URI carries the tenant slug, which `TenantService.update_tenant`
- * re-derives on a rename, and the shipped `migrate_photo_refs` job rewrites that
- * exact shape back to ids. The shape mirrors `_base_uri()` in
- * `app/api/v1/attachments/tenant_router.py` and `diaryPhotoUri` next door; pass
- * the result to {@link AuthImage}, which sends the Bearer header a bare
- * `<img src>` could not.
- */
-export function taskPhotoUri(attachmentId: string, size?: number): string {
-  const slug = getActiveTenantSlug() ?? '';
-  const uri = `/api/v1/t/${slug}/attachments/${attachmentId}`;
-  return size ? `${uri}/thumbnails/${size}` : uri;
 }
 
 /**

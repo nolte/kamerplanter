@@ -25,7 +25,10 @@ class LocationPhoto(BaseModel):
 
 
 class LocationPhotoGallery(BaseModel):
-    """The bed's photos, newest first. ``photos`` skips a reference whose attachment is gone (a stale id)."""
+    """The bed's photos, newest first. ``photos`` skips a reference whose attachment is gone (a stale id).
+
+    ``cover_photo_ref`` is one of ``photos`` or ``None``: a stored cover whose attachment is gone reads as no cover.
+    """
 
     model_config = ConfigDict(frozen=True)
 

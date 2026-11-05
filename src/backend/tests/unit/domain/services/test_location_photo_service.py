@@ -14,6 +14,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import AttachmentCategory, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
+from app.domain.interfaces.location_photo_repository import LocationPhotoState, without_photo
 from app.domain.models.site import MAX_PHOTOS_PER_LOCATION, Location
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -213,17 +214,36 @@ class TestCover:
 
 
 class TestRemove:
-    async def test_removing_the_cover_clears_it_and_deletes_the_photo(self, world: World) -> None:
-        for key in ("p1", "p2"):
+    async def test_removing_the_cover_promotes_the_newest_remaining_photo_and_deletes_it(self, world: World) -> None:
+        for key in ("p1", "p2", "p3"):
             world.attachments.add(key, tenant_key=TENANT)
             world.add(key)
-        assert world.bed().cover_photo_ref == "p1"
+        assert world.bed().photo_refs == ["p3", "p2", "p1"] and world.bed().cover_photo_ref == "p1"
 
         view = await world.remove("p1")
 
-        assert world.bed().photo_refs == ["p2"] and world.bed().cover_photo_ref is None
-        assert view.cover_photo_ref is None and [photo.attachment.key for photo in view.photos] == ["p2"]
+        assert world.bed().photo_refs == ["p3", "p2"] and world.bed().cover_photo_ref == "p3"
+        assert view.cover_photo_ref == "p3" and [photo.is_cover for photo in view.photos] == [True, False]
         assert world.attachments.deleted == ["p1"]
+
+    async def test_removing_the_last_photo_leaves_no_cover(self, world: World) -> None:
+        world.attachments.add("p1", tenant_key=TENANT)
+        world.add("p1")
+
+        view = await world.remove("p1")
+
+        assert world.bed().photo_refs == [] and world.bed().cover_photo_ref is None
+        assert view.cover_photo_ref is None and view.photos == ()
+
+    async def test_a_cleared_cover_stays_cleared_when_another_photo_goes(self, world: World) -> None:
+        for key in ("p1", "p2", "p3"):
+            world.attachments.add(key, tenant_key=TENANT)
+            world.add(key)
+        world.service.set_cover("bed", None, tenant_key=TENANT, user_key=ME, role=TenantRole.GROWER)
+
+        await world.remove("p2")
+
+        assert world.bed().cover_photo_ref is None
 
     async def test_removing_another_photo_keeps_the_cover(self, world: World) -> None:
         for key in ("p1", "p2"):
@@ -330,6 +350,27 @@ class TestList:
         with pytest.raises(NotFoundError):
             world.service.list_photos("foreign_bed", tenant_key=TENANT, user_key=ME, role=TenantRole.LEAD)
 
+    def test_a_stale_cover_reads_as_no_cover_and_the_bed_is_not_rewritten(self, world: World) -> None:
+        world.attachments.add("p1", tenant_key=TENANT)
+        world.repo.locations["bed"] = world.bed().model_copy(
+            update={"photo_refs": ["p1", "gone"], "cover_photo_ref": "gone"}
+        )
+
+        view = world.service.list_photos("bed", tenant_key=TENANT, user_key=ME, role=TenantRole.VIEWER)
+
+        assert view.cover_photo_ref is None and [photo.is_cover for photo in view.photos] == [False]
+        assert world.bed().cover_photo_ref == "gone"  # a read never writes
+
+    def test_a_present_cover_is_reported(self, world: World) -> None:
+        world.attachments.add("p1", tenant_key=TENANT)
+        world.repo.locations["bed"] = world.bed().model_copy(
+            update={"photo_refs": ["gone", "p1"], "cover_photo_ref": "p1"}
+        )
+
+        view = world.service.list_photos("bed", tenant_key=TENANT, user_key=ME, role=TenantRole.VIEWER)
+
+        assert view.cover_photo_ref == "p1" and [photo.is_cover for photo in view.photos] == [True]
+
 
 class TestBedDelete:
     def _resources(self, world: World) -> GardenResourceService:
@@ -407,6 +448,28 @@ class TestBedDelete:
         assert event == "location_photos_discard_failed"
         assert fields["attachment_ids"] == ["p1", "p2"] and fields["count"] == 2
         assert not any("/" in str(value) for value in fields["attachment_ids"])
+
+
+class TestWithoutPhoto:
+    """The removal rule both repositories share (``without_photo``), on its own."""
+
+    @pytest.mark.parametrize(
+        ("refs", "cover", "removed", "expected"),
+        [
+            (("p3", "p2", "p1"), "p1", "p1", (("p3", "p2"), "p3")),  # the cover goes: the newest remaining takes over
+            (("p3", "p2", "p1"), "p3", "p3", (("p2", "p1"), "p2")),
+            (("p1",), "p1", "p1", ((), None)),  # the last photo goes: no cover
+            (("p2", "p1"), "p1", "p2", (("p1",), "p1")),  # another photo goes: the cover stays
+            (("p2", "p1"), None, "p2", (("p1",), None)),  # a cleared cover stays cleared
+        ],
+        ids=["cover_oldest", "cover_newest", "last", "other", "cleared"],
+    )
+    def test_the_cover_after_a_removal(
+        self, refs: tuple[str, ...], cover: str | None, removed: str, expected: tuple[tuple[str, ...], str | None]
+    ) -> None:
+        state = without_photo(LocationPhotoState(refs, cover), removed)
+
+        assert (state.photo_refs, state.cover_photo_ref) == expected
 
 
 class TestTheModel:

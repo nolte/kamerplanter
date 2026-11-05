@@ -13,6 +13,7 @@ from app.domain.interfaces.location_photo_repository import (
     ILocationPhotoRepository,
     LocationPhotoState,
     LocationPhotoWrite,
+    without_photo,
 )
 from app.domain.models.attachment import Attachment
 from tests.support.garden_plan_fakes import FakePlanRepo
@@ -115,10 +116,7 @@ class FakeLocationPhotoRepo(ILocationPhotoRepository):
             return LocationPhotoWrite("location_not_found")
         if attachment_key not in stored.photo_refs:
             return LocationPhotoWrite("not_a_photo", stored)
-        written = LocationPhotoState(
-            tuple(ref for ref in stored.photo_refs if ref != attachment_key),
-            None if stored.cover_photo_ref == attachment_key else stored.cover_photo_ref,
-        )
+        written = without_photo(stored, attachment_key)
         self._write(location_key, written)
         return LocationPhotoWrite("written", written)
 

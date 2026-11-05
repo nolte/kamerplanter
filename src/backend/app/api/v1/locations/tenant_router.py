@@ -411,8 +411,9 @@ async def remove_location_photo(
 ) -> LocationPhotosResponse:
     """Remove a photo from the bed (own upload from `grower`, another member's as `lead`); 404 if the bed lacks it.
 
-    The cover is cleared when it was this photo. The attachment is deleted unless another bed, gallery, task or
-    care event still names it, and its stored object only when no other record holds it.
+    When it was the cover, the newest remaining photo becomes the cover (none when it was the last). The attachment
+    is deleted unless another bed, gallery, task or care event still names it, and its stored object only when no
+    other record holds it.
     """
     view = await service.remove_photo(
         key, attachment_id, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role

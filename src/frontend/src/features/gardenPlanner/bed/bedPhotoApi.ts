@@ -1,11 +1,13 @@
-import { getActiveTenantSlug, tenantClient } from '@/api/client';
+import { tenantClient } from '@/api/client';
 
 /**
  * REST access to the photos of a bed (REQ-053 GP-FR-051) through the tenant-scoped client. A photo is a tenant
  * attachment of category `location` (EXIF/GPS stripped on upload); it is uploaded first through `POST /attachments`
  * and then linked to the bed with `POST /locations/{key}/photos`. The first photo linked becomes the cover.
  *
- * URIs are built and handed to `AuthImage` only - they are never logged (the URI names the tenant and the photo).
+ * Removing the cover makes the newest remaining photo the cover. The URI of a bare id such as `cover_photo_ref` comes
+ * from `attachmentUri` (`@/api/endpoints/attachments`) and goes to `AuthImage` only - never logged (it names the
+ * tenant and the photo).
  */
 
 const LOCATIONS = '/locations';
@@ -38,18 +40,6 @@ export interface BedPhotoGallery {
   photos: BedPhoto[];
   /** At most this many photos per bed (50). */
   max_photos: number;
-}
-
-/** Renditions the backend generates for every image (NFR-013 §8.2). */
-type BedPhotoSize = 128 | 512 | 1280;
-
-/**
- * The authenticated URI of a bed photo rendition, for a bare attachment id such as the bed's `cover_photo_ref`.
- * Mirrors the route the gallery answers with (`/api/v1/t/{slug}/attachments/{id}/thumbnails/{px}`).
- */
-export function bedPhotoUri(attachmentId: string, size: BedPhotoSize): string {
-  const slug = encodeURIComponent(getActiveTenantSlug() ?? '');
-  return `/api/v1/t/${slug}/attachments/${encodeURIComponent(attachmentId)}/thumbnails/${size}`;
 }
 
 /** The bed's photos, newest first, with the cover marked and `can_remove` for the caller. */

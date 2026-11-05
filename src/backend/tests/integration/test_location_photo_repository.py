@@ -141,15 +141,57 @@ class TestTheWrites:
         assert repo.add_photo("bed_a", tenant_key=A, attachment_key="p2", max_photos=1).status == "limit_reached"
         assert _stored(db, "bed_a") == (["p1"], "p1")
 
-    def test_remove_clears_the_cover_and_drops_the_attribute(self, db) -> None:
-        db.collection(col.LOCATIONS).update({"_key": "bed_a", "photo_refs": ["p2", "p1"], "cover_photo_ref": "p1"})
+    def test_removing_the_cover_promotes_the_newest_remaining_photo(self, db) -> None:
+        db.collection(col.LOCATIONS).update(
+            {"_key": "bed_a", "photo_refs": ["p3", "p2", "p1"], "cover_photo_ref": "p1"}
+        )
         repo = ArangoLocationPhotoRepository(db)
 
         write = repo.remove_photo("bed_a", tenant_key=A, attachment_key="p1")
 
-        assert write.state == LocationPhotoState(("p2",), None)
-        assert "cover_photo_ref" not in db.collection(col.LOCATIONS).get("bed_a")
+        assert write.state == LocationPhotoState(("p3", "p2"), "p3")
+        assert _stored(db, "bed_a") == (["p3", "p2"], "p3")
         assert repo.remove_photo("bed_a", tenant_key=A, attachment_key="p1").status == "not_a_photo"
+
+    def test_removing_the_last_photo_clears_the_cover_and_drops_the_attribute(self, db) -> None:
+        db.collection(col.LOCATIONS).update({"_key": "bed_a", "photo_refs": ["p1"], "cover_photo_ref": "p1"})
+
+        write = ArangoLocationPhotoRepository(db).remove_photo("bed_a", tenant_key=A, attachment_key="p1")
+
+        assert write.state == LocationPhotoState((), None)
+        assert "cover_photo_ref" not in db.collection(col.LOCATIONS).get("bed_a")
+
+    @pytest.mark.parametrize(
+        ("refs", "max_photos", "status"),
+        [(["p1"], 50, "unchanged"), (["other"], 1, "limit_reached")],
+        ids=["already_linked", "at_the_limit"],
+    )
+    def test_an_add_that_links_nothing_leaves_the_attachment_unwritten(self, db, refs, max_photos, status) -> None:
+        db.collection(col.ATTACHMENTS).insert(_photo("p1"))
+        db.collection(col.LOCATIONS).update({"_key": "bed_a", "photo_refs": refs, "cover_photo_ref": refs[0]})
+        before = db.collection(col.ATTACHMENTS).get("p1")
+        bed_before = db.collection(col.LOCATIONS).get("bed_a")
+
+        write = ArangoLocationPhotoRepository(db).add_photo(
+            "bed_a", tenant_key=A, attachment_key="p1", max_photos=max_photos
+        )
+
+        after = db.collection(col.ATTACHMENTS).get("p1")
+        assert write.status == status
+        assert after["_rev"] == before["_rev"] and "updated_at" not in after
+        assert db.collection(col.LOCATIONS).get("bed_a")["_rev"] == bed_before["_rev"]
+
+    @pytest.mark.parametrize(
+        ("refs", "max_photos"), [(["p_x"], 50), (["other"], 1)], ids=["already_linked", "at_the_limit"]
+    )
+    def test_an_add_that_links_nothing_still_refuses_a_missing_record(self, db, refs, max_photos) -> None:
+        db.collection(col.LOCATIONS).update({"_key": "bed_a", "photo_refs": refs})
+
+        write = ArangoLocationPhotoRepository(db).add_photo(
+            "bed_a", tenant_key=A, attachment_key="p_x", max_photos=max_photos
+        )
+
+        assert write.status == "attachment_not_found"
 
     def test_the_cover_must_be_a_photo_of_the_bed(self, db) -> None:
         db.collection(col.LOCATIONS).update({"_key": "bed_a", "photo_refs": ["p2", "p1"], "cover_photo_ref": "p1"})

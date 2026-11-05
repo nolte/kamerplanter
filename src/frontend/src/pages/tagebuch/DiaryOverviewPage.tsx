@@ -17,8 +17,8 @@ import { useApiError } from '@/hooks/useApiError';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useNotification } from '@/hooks/useNotification';
 import { isApiError } from '@/api/errors';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import {
-  diaryPhotoUri,
   listDiaryOverview,
   requestDiaryEntryAnalysis,
 } from '@/api/endpoints/diary';
@@ -364,7 +364,7 @@ export default function DiaryOverviewPage() {
                 <AuthImage
                   /* 128 px is the smallest rendition (NFR-013 §8.2) — a list of
                      50 rows must not pull 50 full-size images for a thumbnail. */
-                  uri={diaryPhotoUri(row.preview_photo_id, 128)}
+                  uri={attachmentUri(row.preview_photo_id, 128)}
                   alt={t('pages.diaryOverview.photoPreviewAlt')}
                   sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: 'action.hover' }}
                   data-testid="diary-photo-preview"
@@ -473,7 +473,7 @@ export default function DiaryOverviewPage() {
             leading={
               row.preview_photo_id ? (
                 <AuthImage
-                  uri={diaryPhotoUri(row.preview_photo_id, 128)}
+                  uri={attachmentUri(row.preview_photo_id, 128)}
                   alt={t('pages.diaryOverview.photoPreviewAlt')}
                   sx={{ width: 56, height: 56, borderRadius: 1, bgcolor: 'action.hover' }}
                   data-testid="diary-photo-preview"

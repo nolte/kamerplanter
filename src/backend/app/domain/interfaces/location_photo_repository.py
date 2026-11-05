@@ -4,7 +4,8 @@ Each write is **one transaction** that re-reads the location under its site's te
 ``tenant_key``, #2107 - the site is the anchor) and decides on that snapshot, so a check in the service cannot be
 outdated by the time the write lands. Adding a photo also **touches the attachment record** in the same
 transaction: a concurrent ``remove_if_unreferenced`` of that record writes it too, so whichever commits second
-conflicts instead of a bed naming a photo another request just deleted (the underlay's rule, #2545).
+conflicts instead of a bed naming a photo another request just deleted (the underlay's rule, #2545). Only the add
+that links writes the record; an add that changes nothing (already linked, bound reached) leaves it as it was.
 
 The outcome is a status, not an exception: which refusal a status becomes (404, 422 …) is the service's decision.
 """
@@ -40,6 +41,19 @@ class LocationPhotoWrite:
     state: LocationPhotoState | None = None
 
 
+def without_photo(state: LocationPhotoState, attachment_key: str) -> LocationPhotoState:
+    """The bed's photos after ``attachment_key`` is removed.
+
+    When it was the cover and photos remain, the newest remaining one (``photo_refs`` is newest first) becomes the
+    cover - the rule that makes the first photo the cover, so a bed with photos keeps one. A cover cleared on
+    purpose (``set_cover(None)``) stays cleared: only removing the cover itself promotes another photo.
+    """
+    remaining = tuple(ref for ref in state.photo_refs if ref != attachment_key)
+    if state.cover_photo_ref != attachment_key:
+        return LocationPhotoState(photo_refs=remaining, cover_photo_ref=state.cover_photo_ref)
+    return LocationPhotoState(photo_refs=remaining, cover_photo_ref=remaining[0] if remaining else None)
+
+
 class ILocationPhotoRepository(ABC):
     @abstractmethod
     def add_photo(
@@ -53,7 +67,10 @@ class ILocationPhotoRepository(ABC):
 
     @abstractmethod
     def remove_photo(self, location_key: str, *, tenant_key: str, attachment_key: str) -> LocationPhotoWrite:
-        """Drop the photo from the bed; the cover is cleared when it was that photo. ``not_a_photo`` if absent."""
+        """Drop the photo from the bed (:func:`without_photo`: the newest remaining photo takes over a removed cover).
+
+        ``not_a_photo`` if the bed does not show it.
+        """
 
     @abstractmethod
     def set_cover(self, location_key: str, *, tenant_key: str, attachment_key: str | None) -> LocationPhotoWrite:
@@ -65,4 +82,5 @@ __all__ = [
     "LocationPhotoState",
     "LocationPhotoWrite",
     "LocationPhotoWriteStatus",
+    "without_photo",
 ]
