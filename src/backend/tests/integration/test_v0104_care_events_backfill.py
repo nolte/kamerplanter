@@ -314,7 +314,18 @@ def test_the_dry_run_writes_nothing_and_its_counts_add_up(db) -> None:  # type: 
         assert sources[name]["without_bed"] == sum(len(keys) for keys in reasons.values())
 
 
-def test_the_real_run_writes_what_the_dry_run_reported(db) -> None:  # type: ignore[no-untyped-def]
+class _PinnedClock(datetime):
+    """``datetime`` whose ``now()`` is NOW, so two runs derive the same retention window."""
+
+    @classmethod
+    def now(cls, tz: Any = None) -> datetime:  # type: ignore[override]
+        return NOW if tz is None else NOW.astimezone(tz)
+
+
+def test_the_real_run_writes_what_the_dry_run_reported(db, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # Both runs read the wall clock for the window start; across a second boundary the reports
+    # differed in `window_start` alone (CI run 42090507688). The comparison is about the counts.
+    monkeypatch.setattr(v0104, "datetime", _PinnedClock)
     _seed(db)
 
     dry = migration.up(db, dry_run=True)
