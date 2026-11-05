@@ -1,6 +1,6 @@
 # Backend Architecture
 
-The backend is implemented in Python 3.14+ with FastAPI. It follows a Domain-Driven Design structure with strict layer separation: API routers delegate to services, services orchestrate engines and repositories, and engines contain exclusively pure domain logic without any database access.
+The backend is implemented in Python 3.15+ with FastAPI. It follows a Domain-Driven Design structure with strict layer separation: API routers delegate to services, services orchestrate engines and repositories, and engines contain exclusively pure domain logic without any database access.
 
 ---
 

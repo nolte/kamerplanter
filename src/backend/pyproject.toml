@@ -3,7 +3,7 @@ name = "kamerplanter-backend"
 version = "1.0.0"
 description = "Kamerplanter agricultural management system backend"
 license = "MIT"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 # Every direct dependency carries an upper bound (NFR-009 §2.1). The convention
 # is next-major above the currently-locked version: it bounds each dependency
 # against surprise breaking releases while keeping all patch/minor updates open
@@ -38,7 +38,7 @@ dependencies = [
     "boto3>=1.35,<2.0.0",
     "pillow>=13,<13.1",
     # REQ-037 — FAO-56 Penman-Monteith / Hargreaves reference evapotranspiration.
-    # BSD-3-Clause (a maintained fork of PyETo); verified importable on Python 3.14.
+    # BSD-3-Clause (a maintained fork of PyETo); verified importable on Python 3.15.
     "aquacropeto>=0.1.1,<1.0.0",
     # #777 — optional error tracking. Always installed so that setting SENTRY_DSN
     # in a deployment is enough to enable reporting; with no DSN the SDK is never
@@ -90,7 +90,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py315"
 line-length = 120
 
 [tool.ruff.lint]
@@ -98,7 +98,7 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
 ignore = ["B008"]
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.15"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -129,7 +129,7 @@ markers = [
 
 [tool.black]
 line-length = 120
-target-version = ["py314"]
+target-version = ["py315"]
 
 [tool.uv]
 # The lock toolchain (NFR-009 §2.3). uv replaced pip-tools on 2026-09-10: Renovate's
@@ -157,11 +157,11 @@ required-version = "==0.13.7"
 # the build backend keeps that reproducibility under uv without disabling
 # isolation. Aged by the `python build backend` regex rule in renovate.json5.
 #
-# On Python 3.15, the interpreter of the backend image, a third one joins
-# them: PyYAML 6.0.3 publishes no cp315 wheel, so it is built from its
-# sdist, whose `[build-system]` requires `Cython>=3.0` — pinned here for the same
-# reason as setuptools. On 3.14 PyYAML installs from its wheel and the Cython pin
-# is never consulted.
+# On Python 3.15 — the floor above and the interpreter of the backend image — a
+# third one joins them: PyYAML 6.0.3 publishes no cp315 wheel, so it is built
+# from its sdist, whose `[build-system]` requires `Cython>=3.0` — pinned here for
+# the same reason as setuptools. The pin stops being consulted once PyYAML ships
+# a cp315 wheel.
 build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0", "cython==3.3.0"]
 # Build PyYAML WITHOUT its optional libyaml C extension, so the 3.15 sdist build
 # needs no compiler and no libyaml headers in the image. Nothing is lost: the

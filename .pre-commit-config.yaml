@@ -900,7 +900,7 @@ repos:
         pass_filenames: false
 
   # ── Backend (Python) ──────────────────────────────────────────────────
-  # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
+  # Uses ruff via pip (not the pre-commit mirror) to support the py315 target-version.
   - repo: local
     hooks:
       - id: ruff-lint
