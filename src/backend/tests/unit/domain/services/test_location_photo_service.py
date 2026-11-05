@@ -125,6 +125,28 @@ class TestAdd:
         with pytest.raises(PlanValidationError):
             world.add("p_odd")
 
+    @pytest.mark.parametrize("mime_type", ["application/pdf", "image/heic", "image/gif", ""])
+    def test_a_bed_photo_that_is_not_a_strippable_image_is_refused(self, world: World, mime_type: str) -> None:
+        """SEC-002: the ``location`` whitelist is operator-configurable, so the link asks the type itself."""
+        row = world.attachments.add("p_doc", tenant_key=TENANT)
+        world.attachments.rows["p_doc"] = row.model_copy(update={"mime_type": mime_type})
+
+        with pytest.raises(PlanValidationError) as refused:
+            world.add("p_doc")
+
+        assert _codes(refused.value) == ["reference.not_found"]
+        assert world.bed().photo_refs == []
+
+    @pytest.mark.parametrize("mime_type", ["image/jpeg", "image/png", "image/webp", "IMAGE/PNG"])
+    def test_every_strippable_image_type_links(self, world: World, mime_type: str) -> None:
+        """The control: the refusal above is the type, not the path the row took."""
+        row = world.attachments.add("p_img", tenant_key=TENANT)
+        world.attachments.rows["p_img"] = row.model_copy(update={"mime_type": mime_type})
+
+        world.add("p_img")
+
+        assert world.bed().photo_refs == ["p_img"]
+
     def test_a_viewer_may_not_link_a_photo_a_grower_may(self, world: World) -> None:
         world.attachments.add("p1", tenant_key=TENANT)
 
@@ -368,6 +390,23 @@ class TestBedDelete:
             raise RuntimeError("no storage configured")
 
         await release_location_photos(broken, ["p1"], tenant_key=TENANT)
+
+    async def test_a_failed_release_logs_the_attachment_ids_the_sweep_will_collect(self) -> None:
+        """GDPR-001: the ids (never a URI) name what ``cleanup_orphaned_location_photos`` picks up later."""
+        from unittest.mock import patch
+
+        from app.domain.services import location_photo_service
+
+        def broken() -> Any:
+            raise RuntimeError("no storage configured")
+
+        with patch.object(location_photo_service, "logger") as logger:
+            await release_location_photos(broken, ["p1", "p2", "p1"], tenant_key=TENANT)
+
+        event, fields = logger.warning.call_args.args[0], logger.warning.call_args.kwargs
+        assert event == "location_photos_discard_failed"
+        assert fields["attachment_ids"] == ["p1", "p2"] and fields["count"] == 2
+        assert not any("/" in str(value) for value in fields["attachment_ids"])
 
 
 class TestTheModel:

@@ -327,6 +327,13 @@ def _photo_response(photo: LocationPhoto, tenant_slug: str) -> LocationPhotoResp
     )
 
 
+#: An ArangoDB document key is at most 254 bytes; the photo routes refuse a longer ``key`` before any lookup (SEC-003).
+_MAX_DOCUMENT_KEY_LENGTH = 254
+
+#: The ``key`` path parameter of the bed photo routes.
+BedKeyPath = Annotated[str, Path(description="Document key of the bed.", max_length=_MAX_DOCUMENT_KEY_LENGTH)]
+
+
 def _photos_response(view: LocationPhotoGallery, tenant_slug: str) -> LocationPhotosResponse:
     return LocationPhotosResponse(
         location_key=view.location_key,
@@ -338,7 +345,7 @@ def _photos_response(view: LocationPhotoGallery, tenant_slug: str) -> LocationPh
 
 @router.get("/{key}/photos", response_model=LocationPhotosResponse)
 def list_location_photos(
-    key: Annotated[str, Path(description="Document key of the bed.")],
+    key: BedKeyPath,
     ctx: TenantContext = Depends(get_current_tenant),
     service: LocationPhotoService = Depends(get_location_photo_service),
 ) -> LocationPhotosResponse:
@@ -357,7 +364,7 @@ def list_location_photos(
     responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
 )
 def add_location_photo(
-    key: Annotated[str, Path(description="Document key of the bed.")],
+    key: BedKeyPath,
     body: LocationPhotoRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
     service: LocationPhotoService = Depends(get_location_photo_service),
@@ -378,7 +385,7 @@ def add_location_photo(
     responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
 )
 def set_location_cover_photo(
-    key: Annotated[str, Path(description="Document key of the bed.")],
+    key: BedKeyPath,
     body: LocationCoverRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
     service: LocationPhotoService = Depends(get_location_photo_service),
@@ -397,7 +404,7 @@ def set_location_cover_photo(
     responses={**FORBIDDEN_RESPONSE},
 )
 async def remove_location_photo(
-    key: Annotated[str, Path(description="Document key of the bed.")],
+    key: BedKeyPath,
     attachment_id: Annotated[str, Path(description="The photo's attachment id.", max_length=MAX_PHOTO_REF_LENGTH)],
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
     service: LocationPhotoService = Depends(get_location_photo_service),

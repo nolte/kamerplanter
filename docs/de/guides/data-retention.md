@@ -729,9 +729,27 @@ dem Start des Beat-Prozesses: Ein Neustart des Beat-Pods verschiebt keinen Lauf,
 Wo ein Altersfilter einen Datensatz ohne lesbaren Zeitstempel nicht beurteilen kann,
 löscht er ihn nicht, sondern zählt ihn und meldet den Zähler als `held_undated` im
 Lauf-Ereignis: beim Konto-Bereinigungs-Task (R-02), bei den Aufrufprotokollen, bei den
-verwaisten Aufgabenfotos, bei den Consent Records (R-04, `purge_expired_consent_records`),
+verwaisten Aufgaben- und Beetfotos, bei den Consent Records (R-04, `purge_expired_consent_records`),
 bei den bestätigten E-Mail-Änderungen (R-07b, `expire_email_change_requests`) und beim
 Glossar-Cache (`glossary_cleanup_cache`).
+
+### Nie verknüpfte Beetfotos
+
+Ein Beetfoto lebt so lange wie das Beet, an dem es hängt, und damit höchstens so lange wie
+der Standort und der Mandant. Hochgeladen wird es in zwei Schritten: erst die Datei, dann
+die Verknüpfung mit dem Beet. Kommt die Verknüpfung nie zustande (das Beet hat schon 50
+Fotos, wurde zwischendurch gelöscht oder die Verbindung brach ab), bleibt eine Datei zurück,
+die kein Beet zeigt. Dasselbe passiert, wenn nach dem Entfernen eines Fotos oder dem Löschen
+eines Beets das Löschen der Datei fehlschlägt.
+
+Diese Dateien entfernt der Celery-Task `app.tasks.storage_tasks.cleanup_orphaned_location_photos`
+(täglich 03:50 UTC): Jedes Beetfoto (Kategorie `location`), das älter als
+`STORAGE_LOCATION_PHOTO_ORPHAN_HOURS` Stunden ist (Standard **48**, `0` schaltet den Task ab)
+und das nichts mehr nennt, wird samt Datei und Vorschaubildern gelöscht. „Nichts nennt es"
+heißt: kein Beet, keine Pflanzengalerie, keine Aufgabe und kein anderer Datensatz, der Fotos
+trägt. Ein frisch hochgeladenes Foto liegt innerhalb der 48 Stunden und bleibt. Der Lauf
+schreibt die Zeile `cleanup_orphaned_location_photos_audit` mit `found`, `deleted`, `failed`,
+`skipped`, `freed_bytes` und `held_undated`.
 
 ### Metriken
 
@@ -803,7 +821,7 @@ flowchart TD
 | Erntedaten, Qualitätsbewertungen, Behandlungen, Inspektionen | Anonymisieren (Tombstone-Hash `anon_…`, Namensfelder geleert), nicht löschen (Art. 17 Abs. 3) |
 | Aufgaben, Aufgaben-Kommentare, Tagebucheinträge, Dateien, Import-Aufträge, Einstellungen und Übersteuerungen in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
 | Unterlage des Gartenplans (Foto, Skizze oder Luftbild, Kategorie `garden_plan_underlay`) in einem (ggf. gemeinsamen) Garten | Wie die übrigen Dateien des Gartens: **anonymisieren, nicht löschen** — Kontenreferenz ersetzen, Bild und Eichung bleiben für die anderen Mitglieder. Ein Luftbild kann den Wohnort verraten; wer es nicht behalten will, entfernt die Unterlage im Plan-Editor (dann wird auch die Datei gelöscht), oder sie geht mit dem Garten |
-| Beetfotos (Kategorie `location`) in einem (ggf. gemeinsamen) Garten | Wie die übrigen Dateien des Gartens: **anonymisieren, nicht löschen** — Kontenreferenz ersetzen, das Foto bleibt am Beet für die anderen Mitglieder. Ein Gartenfoto kann Menschen oder ein Haus zeigen; EXIF- und GPS-Daten entfernt schon das Hochladen. Wer ein Foto nicht behalten will, entfernt es am Beet (dann wird die Datei gelöscht, sofern kein anderes Beet sie zeigt). Mit dem Beet oder dem Standort gehen seine Fotos ebenso |
+| Beetfotos (Kategorie `location`) in einem (ggf. gemeinsamen) Garten | Wie die übrigen Dateien des Gartens: **anonymisieren, nicht löschen** — Kontenreferenz ersetzen, das Foto bleibt am Beet für die anderen Mitglieder. Ein Gartenfoto kann Menschen oder ein Haus zeigen; EXIF- und GPS-Daten entfernt schon das Hochladen. Wer ein Foto nicht behalten will, entfernt es am Beet (dann wird die Datei gelöscht, sofern kein anderes Beet sie zeigt). Mit dem Beet oder dem Standort gehen seine Fotos ebenso; schlägt das Löschen danach fehl, holt der nächtliche Aufräum-Task die Datei nach (siehe [Nie verknüpfte Beetfotos](#nie-verknupfte-beetfotos)) |
 | Dein persönlicher Garten, auch mit weiteren Mitgliedern | Vollständig löschen (Mandanten-Löschinventar), Ernte-/Behandlungs-/Inspektionsdaten wie oben pseudonymisiert; die anderen Mitglieder werden beim Antrag benachrichtigt |
 | Gemeinschaftsgarten oder anderer Garten, den du angelegt hast (kein persönlicher) | Besitzer-Referenz ersetzen; bei einem von einem Spätbeitritt erhaltenen persönlichen Garten auch Name und Kurzname |
 | Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |

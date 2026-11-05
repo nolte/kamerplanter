@@ -770,7 +770,19 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         return next(iter(txn.aql.execute(query, bind_vars=bind_vars)), False) is True
 
     def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
-        """Task-category attachments older than *older_than* that nothing references.
+        """Task-category attachments older than *older_than* that nothing references (#1393).
+
+        :meth:`find_orphaned_photos` with ``category=task``; the reasoning below is that query's.
+        """
+        return self.find_orphaned_photos(AttachmentCategory.TASK, older_than=older_than, limit=limit)
+
+    def find_orphaned_photos(
+        self, category: AttachmentCategory, *, older_than: datetime, limit: int = 500
+    ) -> list[Attachment]:
+        """Attachments of *category* older than *older_than* that nothing references.
+
+        One query per sweep: ``task`` (#1393) and ``location`` (REQ-053 GP-FR-051, bed photos uploaded but never
+        linked, or left behind by a discard that failed after its bed write committed) differ only in the category.
 
         The three ways a task photo is orphaned (#1393), all of which this covers:
         an upload whose form was never submitted, a photo removed from the staging
@@ -816,7 +828,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         """
         bind_vars: dict[str, Any] = {
             "@collection": self._collection_name,
-            "category": AttachmentCategory.TASK.value,
+            "category": AttachmentCategory(category).value,
             "cutoff": older_than.isoformat(),
             "limit": int(limit),
         }
@@ -826,7 +838,11 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         return [Attachment(**self._from_doc(doc)) for doc in cursor]
 
     def count_undated_orphaned_task_photos(self) -> int:
-        """Unreferenced task photos :meth:`find_orphaned_task_photos` can never select (#1806 GDPR-003).
+        """Unreferenced task photos :meth:`find_orphaned_task_photos` can never select (#1806 GDPR-003)."""
+        return self.count_undated_orphaned_photos(AttachmentCategory.TASK)
+
+    def count_undated_orphaned_photos(self, category: AttachmentCategory) -> int:
+        """Unreferenced attachments of *category* :meth:`find_orphaned_photos` can never select (#1806 GDPR-003).
 
         The sweep needs ``created_at`` to apply its age floor, so a task photo
         without a readable one is held for ever, silently. Same reference test as
@@ -843,7 +859,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         """
         bind_vars: dict[str, Any] = {
             "@collection": self._collection_name,
-            "category": AttachmentCategory.TASK.value,
+            "category": AttachmentCategory(category).value,
         }
         bind_vars.update(self._reference_bind_vars())
         return int(next(iter(self._db.aql.execute(query, bind_vars=bind_vars)), 0))

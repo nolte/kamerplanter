@@ -251,7 +251,8 @@ export default function BedPhotosTab({ bedKey, bedName, coverPhotoRef, canEdit, 
                           <IconButton
                             onClick={() => void changeCover(photo, photo.is_cover ? null : photo.attachment_id)}
                             disabled={busy}
-                            aria-label={t(photo.is_cover ? 'pages.bed.photos.clearCover' : 'pages.bed.photos.setCover')}
+                            // A toggle button: a constant name, the state in `aria-pressed` (the tooltip says the action).
+                            aria-label={t('pages.bed.photos.coverToggle')}
                             aria-pressed={photo.is_cover}
                             color={photo.is_cover ? 'primary' : 'default'}
                             sx={{ width: ICON_TARGET, height: ICON_TARGET }}

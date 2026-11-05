@@ -1344,6 +1344,13 @@ class Settings(BaseSettings):
     # plausible form-filling session, never a tuning knob — 48 was the figure this
     # change was built and tested around.
     storage_task_photo_orphan_hours: int = 0
+    # REQ-053 GP-FR-051 — how long a bed photo (category ``location``) may sit unreferenced before its nightly sweep
+    # **deletes** it. ``0`` disables the sweep; 48 ships, ON, unlike the task-photo sweep above. The upload and the
+    # link to the bed are two requests of one client flow (``POST /attachments`` then
+    # ``POST /locations/{key}/photos``), so a never-linked upload is minutes old at most when it is legitimate, and
+    # a bed photo is only ever referenced by the bed's ``photo_refs`` / ``cover_photo_ref`` under its attachment
+    # id. The same task catches a photo whose post-commit discard failed (``LocationPhotoService`` only logs it).
+    storage_location_photo_orphan_hours: int = Field(default=48, ge=0)
     # #1834 — periodic reconciliation of the object store against the attachment
     # catalogue: objects under ``t/{tenant}/`` that no record holds any more.
     #

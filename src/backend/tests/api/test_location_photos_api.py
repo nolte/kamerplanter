@@ -199,6 +199,30 @@ class TestAdd:
         assert client().post(f"{_BASE}/locations/bed/photos", json=body).status_code == 422
 
 
+class TestTheKeyIsBounded:
+    """SEC-003: a bed key longer than an ArangoDB document key (254) is refused before any lookup."""
+
+    @pytest.mark.parametrize(
+        ("method", "suffix", "body"),
+        [
+            ("get", "/photos", None),
+            ("post", "/photos", {"attachment_id": "p1"}),
+            ("put", "/photos/cover", {"attachment_id": None}),
+            ("delete", "/photos/p1", None),
+        ],
+        ids=["list", "add", "cover", "remove"],
+    )
+    def test_an_overlong_key_is_422_and_a_maximal_one_is_looked_up(self, client, method, suffix, body) -> None:
+        def call(key: str):
+            request = getattr(client(TenantRole.LEAD), method)
+            url = f"{_BASE}/locations/{key}{suffix}"
+            return request(url, json=body) if body is not None else request(url)
+
+        assert call("k" * 255).status_code == 422
+        # The control: 254 characters pass the bound and reach the lookup, which finds no such bed.
+        assert call("k" * 254).status_code == 404
+
+
 class TestCover:
     def test_the_cover_must_be_a_photo_of_the_bed_and_null_clears_it(self, client, world) -> None:
         world.link("p1")

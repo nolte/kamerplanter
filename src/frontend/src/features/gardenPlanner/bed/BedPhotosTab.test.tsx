@@ -195,14 +195,15 @@ describe('BedPhotosTab (GP-FR-051)', () => {
     const user = userEvent.setup();
     renderTab({ coverPhotoRef: 'p2', onCoverChange });
     const setCover = await screen.findByTestId('bed-photo-toggle-cover-p1');
-    expect(setCover).toHaveAccessibleName('Use as cover photo');
+    expect(setCover).toHaveAccessibleName('Cover photo');
     expect(setCover).toHaveAttribute('aria-pressed', 'false');
     await user.click(setCover);
     expect(await screen.findByTestId('bed-photo-cover-p1')).toBeInTheDocument();
     expect(screen.queryByTestId('bed-photo-cover-p2')).not.toBeInTheDocument();
 
     const clear = screen.getByTestId('bed-photo-toggle-cover-p1');
-    expect(clear).toHaveAccessibleName('Stop using as cover photo');
+    expect(clear).toHaveAccessibleName('Cover photo');
+    expect(clear).toHaveAttribute('aria-pressed', 'true');
     await user.click(clear);
     await waitFor(() => expect(screen.queryByTestId('bed-photo-cover-p1')).not.toBeInTheDocument());
     expect(requests.map((request) => request.body)).toEqual([{ attachment_id: 'p1' }, { attachment_id: null }]);

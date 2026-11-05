@@ -10,6 +10,9 @@ import { getActiveTenantSlug, tenantClient } from '@/api/client';
 
 const LOCATIONS = '/locations';
 
+/** `/locations/{key}/photos`, with the key encoded as one path segment. */
+const photosPath = (key: string): string => `${LOCATIONS}/${encodeURIComponent(key)}/photos`;
+
 /** The attachment category of a bed photo. */
 const BED_PHOTO_CATEGORY = 'location';
 
@@ -45,13 +48,13 @@ type BedPhotoSize = 128 | 512 | 1280;
  * Mirrors the route the gallery answers with (`/api/v1/t/{slug}/attachments/{id}/thumbnails/{px}`).
  */
 export function bedPhotoUri(attachmentId: string, size: BedPhotoSize): string {
-  const slug = getActiveTenantSlug() ?? '';
-  return `/api/v1/t/${slug}/attachments/${attachmentId}/thumbnails/${size}`;
+  const slug = encodeURIComponent(getActiveTenantSlug() ?? '');
+  return `/api/v1/t/${slug}/attachments/${encodeURIComponent(attachmentId)}/thumbnails/${size}`;
 }
 
 /** The bed's photos, newest first, with the cover marked and `can_remove` for the caller. */
 export async function listBedPhotos(key: string): Promise<BedPhotoGallery> {
-  const { data } = await tenantClient.get<BedPhotoGallery>(`${LOCATIONS}/${key}/photos`);
+  const { data } = await tenantClient.get<BedPhotoGallery>(photosPath(key));
   return data;
 }
 
@@ -66,7 +69,7 @@ export async function addBedPhoto(key: string, file: File): Promise<BedPhotoGall
   const uploaded = await tenantClient.post<{ attachment_id: string }>('/attachments', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  const { data } = await tenantClient.post<BedPhotoGallery>(`${LOCATIONS}/${key}/photos`, {
+  const { data } = await tenantClient.post<BedPhotoGallery>(photosPath(key), {
     attachment_id: uploaded.data.attachment_id,
   });
   return data;
@@ -74,7 +77,7 @@ export async function addBedPhoto(key: string, file: File): Promise<BedPhotoGall
 
 /** Choose the cover from the bed's photos, or clear it with `null`. */
 export async function setBedCoverPhoto(key: string, attachmentId: string | null): Promise<BedPhotoGallery> {
-  const { data } = await tenantClient.put<BedPhotoGallery>(`${LOCATIONS}/${key}/photos/cover`, {
+  const { data } = await tenantClient.put<BedPhotoGallery>(`${photosPath(key)}/cover`, {
     attachment_id: attachmentId,
   });
   return data;
@@ -82,6 +85,6 @@ export async function setBedCoverPhoto(key: string, attachmentId: string | null)
 
 /** Remove a photo from the bed; the server deletes the file unless something else still names it. */
 export async function removeBedPhoto(key: string, attachmentId: string): Promise<BedPhotoGallery> {
-  const { data } = await tenantClient.delete<BedPhotoGallery>(`${LOCATIONS}/${key}/photos/${attachmentId}`);
+  const { data } = await tenantClient.delete<BedPhotoGallery>(`${photosPath(key)}/${encodeURIComponent(attachmentId)}`);
   return data;
 }

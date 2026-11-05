@@ -7523,6 +7523,7 @@
         "coverAlt": "Cover photo of {{bed}}",
         "setCover": "Use as cover photo",
         "clearCover": "Stop using as cover photo",
+        "coverToggle": "Cover photo",
         "coverSet": "Cover photo set.",
         "coverCleared": "The bed has no cover photo any more.",
         "remove": "Remove photo",

@@ -35,6 +35,7 @@ from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, Plan
 from app.common.log_privacy import log_tenant
 from app.common.types import LocationKey
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.storage.exif_stripper import is_strippable_format
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.location_photo_repository import (
     ILocationPhotoRepository,
@@ -97,11 +98,16 @@ class LocationPhotoService:
         return PlanValidationError([(None, "attachment_id", ERROR_REFERENCE_NOT_FOUND, {})])
 
     def _bed_photo(self, attachment_id: str, *, tenant_key: str) -> Attachment:
-        """The tenant's own ``location`` attachment, else 422 ``reference.not_found``."""
+        """The tenant's own ``location`` photo, else 422 ``reference.not_found``.
+
+        A photo means an image type the upload pipeline EXIF-strips (``is_strippable_format``): the category's MIME
+        whitelist is operator-configurable, and a bed shows its photos as images and thumbnails.
+        """
         attachment = self._attachment_repo.get(attachment_id, tenant_key) if attachment_id else None
         if (
             attachment is None
             or attachment.category != AttachmentCategory.LOCATION
+            or not is_strippable_format(attachment.mime_type)
             or not AttachmentService.in_own_namespace(attachment)
         ):
             raise self._reference_not_found()
@@ -313,6 +319,9 @@ async def release_location_photos(
             "location_photos_discard_failed",
             tenant=log_tenant(tenant_key),
             count=len(released),
+            # Ids only (never a URL): the nightly ``cleanup_orphaned_location_photos`` collects them, and the log
+            # names what it is going to collect.
+            attachment_ids=released,
             error_type=type(exc).__name__,
         )
 

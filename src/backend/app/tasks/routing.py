@@ -131,6 +131,7 @@ DEFAULT_TASKS: Final = frozenset(
         "app.tasks.season_tasks.evaluate_quarter_climate",
         "app.tasks.season_tasks.evaluate_season_states",
         "app.tasks.sensor_ingestion_tasks.ingest_ha_readings",
+        "app.tasks.storage_tasks.cleanup_orphaned_location_photos",
         "app.tasks.storage_tasks.cleanup_orphaned_task_photos",
         "app.tasks.storage_tasks.generate_thumbnails",
         "app.tasks.storage_tasks.reconcile_orphaned_storage_objects",

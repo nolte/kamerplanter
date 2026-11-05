@@ -192,6 +192,16 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def find_orphaned_photos(
+        self, category: AttachmentCategory, *, older_than: datetime, limit: int = 500
+    ) -> list[Attachment]:
+        """Attachments of *category* older than *older_than* that nothing references.
+
+        The generalisation of :meth:`find_orphaned_task_photos` (same contract, every carrier checked), used by the
+        ``location`` sweep for bed photos that were uploaded but never linked (REQ-053 GP-FR-051).
+        """
+
+    @abstractmethod
     def remove_if_unreferenced(self, attachment_id: str, tenant_key: str) -> Attachment | None:
         """Remove the tenant's record *attachment_id* unless a carrier still names it; the removed record, or ``None``.
 

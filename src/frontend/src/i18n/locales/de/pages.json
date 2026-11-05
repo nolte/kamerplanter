@@ -7524,6 +7524,7 @@
         "coverAlt": "Titelfoto von {{bed}}",
         "setCover": "Als Titelfoto verwenden",
         "clearCover": "Nicht mehr als Titelfoto verwenden",
+        "coverToggle": "Titelfoto",
         "coverSet": "Titelfoto gesetzt.",
         "coverCleared": "Das Beet hat jetzt kein Titelfoto mehr.",
         "remove": "Foto entfernen",
