@@ -11,6 +11,13 @@ The qualitative flags (preceding or standing nitrogen fixer, bark mulch, class D
 an amount and never produce a state on their own. The one qualitative rule active by default is the class D/E rule
 (R-006, :data:`HIGH_CLASS_SOURCE`): it only *withholds* compost and P, it never raises a state.
 
+**Salt limit (E-17 variant A).** The field-soil conductivity is no EC target; it is only read as the salt-limit hint
+of :mod:`app.domain.engines.soil_salinity_hint`. When that sourced rule fires (inert by default, R-001 open), every
+answer of a non-substrate bed carries the additive reason ``check_salt_content``. It never changes an amount and,
+like the class D/E rule, **never changes the state**: the state is the nutrient *supply* (its ``check`` reads "check
+the fertilising"), and a high salt content is no supply finding - raising an ``ok`` to ``check`` would send the
+gardener to the feeding when the soil is, if anything, oversupplied. The reason code carries the hint on its own.
+
 What the engine never does (hint-only list): compute or pre-fill a fertiliser amount, derive a feeder level for a
 species without one (no family fallback, no silent default), assign a content class from a number, or credit an N
 amount for a legume preceding crop.
@@ -30,6 +37,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.common.enums import GrowingMediumKind, NutrientDemand
+from app.domain.engines.soil_salinity_hint import SoilSalinityConfig, needs_salt_check
 from app.domain.models.nutrient_hint import (
     DEFAULT_READ_WINDOW_DAYS,
     NutrientHint,
@@ -37,6 +45,7 @@ from app.domain.models.nutrient_hint import (
     NutrientHintReason,
     NutrientHintState,
 )
+from app.domain.models.site import SoilProfile
 
 #: Materials of a ``mulching`` event that bind nitrogen while they rot (GP-FR-125: "Rindenmulch zählt als N-bindend").
 #: A qualitative flag; the amount it binds stays null ("stays null" item 12).
@@ -150,6 +159,8 @@ class NutrientHintConfig:
       only the qualitative flag, never an N credit - "stays null" item 6, R-015).
     * ``bark_mulch_binding`` - bark mulch after the last N input turns an ``ok`` of R1 into ``check`` (modifier M2;
       "stays null" item 12, R-014). Off by default; the reason code is given either way.
+    * ``soil_salinity`` - the sourced salt limit of a field soil (E-17 variant A, R-001): above it the hint carries
+      the reason ``check_salt_content``; the state stays as the other rules set it. Inert by default.
     * ``read_window_days`` - how far back the care log is read. Every active R1 threshold must fit inside it, or an
       input just beyond the window would read as "not recorded" while still being within the threshold.
 
@@ -161,6 +172,7 @@ class NutrientHintConfig:
     low_content_classes: SourcedClasses = field(default_factory=SourcedClasses)
     nitrogen_fixer_relief: SourcedFlag = field(default_factory=SourcedFlag)
     bark_mulch_binding: SourcedFlag = field(default_factory=SourcedFlag)
+    soil_salinity: SoilSalinityConfig = field(default_factory=SoilSalinityConfig)
     read_window_days: int = DEFAULT_READ_WINDOW_DAYS
 
     def __post_init__(self) -> None:
@@ -196,6 +208,8 @@ class NutrientHintConfig:
             names += ["nitrogen_fixer_relief"]
         if self.bark_mulch_binding.active:
             names += ["bark_mulch_binding"]
+        if self.soil_salinity.active:
+            names += ["soil_salinity"]
         return tuple(names)
 
 
@@ -230,6 +244,8 @@ class NutrientHintInputs:
     last_n_binding_mulch_at: datetime | None = None
     #: ``p`` / ``k`` → the class of the newest lab result by CAL (:func:`lab_content_classes`).
     content_classes: Mapping[str, str] = field(default_factory=dict)
+    #: The bed's soil profile; only its ``ec_ms_cm`` + ``ec_method`` are read, for the salt-limit hint.
+    soil_profile: SoilProfile | None = None
 
 
 def lab_content_classes(analyses: Iterable[Sequence[Mapping[str, Any]]]) -> dict[str, str]:
@@ -322,9 +338,14 @@ def _class_rule(inputs: NutrientHintInputs, config: NutrientHintConfig) -> list[
     return low or [_Verdict("ok", "content_classes_sufficient", source)]
 
 
-def _flags(inputs: NutrientHintInputs) -> tuple[list[NutrientHintReason], bool]:
+def _flags(inputs: NutrientHintInputs, config: NutrientHintConfig) -> tuple[list[NutrientHintReason], bool]:
     """The qualitative flags every answer carries, and whether compost / P are withheld (class D/E)."""
     flags: list[NutrientHintReason] = []
+    # Field soil only: in a mineral substrate bed the EC logic of REQ-004-A applies, not a soil salt limit.
+    if inputs.growing_medium_kind != GrowingMediumKind.MINERAL_SUBSTRATE and needs_salt_check(
+        inputs.soil_profile, config.soil_salinity
+    ):
+        flags += ["check_salt_content"]
     if inputs.preceding_nitrogen_fixing:
         flags += ["preceding_nitrogen_fixer"]
     if inputs.standing_nitrogen_fixing:
@@ -355,7 +376,7 @@ def _insufficient(reason: NutrientHintReason, flags: list[NutrientHintReason], w
 
 def assess(inputs: NutrientHintInputs, config: NutrientHintConfig = DEFAULT_CONFIG) -> NutrientHint:
     """The nutrient hint of one bed by the rule table (REQ-053 §15.3)."""
-    flags, withheld = _flags(inputs)
+    flags, withheld = _flags(inputs, config)
     if inputs.growing_medium_kind == GrowingMediumKind.MINERAL_SUBSTRATE:
         return _insufficient("substrate_bed", flags, withheld)
     if not inputs.species_demands:
@@ -398,6 +419,7 @@ def assess(inputs: NutrientHintInputs, config: NutrientHintConfig = DEFAULT_CONF
     ):
         state, lowered = "check", True
         sources += [str(binding.source)]
+    # ``check_salt_content`` (E-17 variant A) rides in ``flags`` only: it never changes the state (module docstring).
 
     partly_unknown = any(each is None for each in inputs.species_demands)
     if partly_unknown:

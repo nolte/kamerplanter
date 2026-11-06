@@ -329,9 +329,10 @@ class Species(BaseModel):
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
     #: LEGACY feeder class (four values incl. ``nitrogen_fixer``). Superseded by
-    #: ``nutrient_demand`` + ``nitrogen_fixing`` (REQ-053 GP-FR-139, M6 #2325) but kept:
-    #: ``phase_resource_resolver`` still scales the EC target by it, and a retirement
-    #: crashes the start on an alt volume. Never a source for ``nutrient_demand``.
+    #: ``nutrient_demand`` + ``nitrogen_fixing`` (REQ-053 GP-FR-139, M6 #2325). It scales
+    #: nothing (no EC scaling by feeder class, REQ-053 E-17 variant A); only migration M6
+    #: (v0096) reads it to derive anything. Kept because a retirement crashes the start
+    #: on an alt volume. Never a source for ``nutrient_demand``.
     nutrient_demand_level: NutrientDemandLevel | None = None
     green_manure_suitable: bool = False
     # ── Zehrerstufe / Fruchtfolge / Beetplanung (REQ-001 v4.11 ← REQ-053 §16.3, M6 #2325) ──

@@ -39,7 +39,8 @@ Field labels in the UI are shown in German (or English, depending on your langua
 | Growth Habit (`growth_habit`) | Herb, Shrub, Tree, Vine, ... | Herb |
 | Root Type (`root_type`) | Fibrous, Taproot, Tuberous, Bulbous, Corm | Fibrous |
 | Frost Sensitivity (`frost_sensitivity`) | Sensitive, Moderate, Hardy, Very hardy | Very hardy |
-| Nutrient Demand (`nutrient_demand_level`) | Heavy feeder, Medium feeder, Light feeder, Nitrogen fixer | Heavy feeder |
+| Feeder level (`nutrient_demand`) | Heavy feeder, Medium feeder, Light feeder — drives hints and crop rotation, never an EC number | Heavy feeder |
+| Nitrogen fixing (`nitrogen_fixing`) | Yes/No, separate from the feeder level: a pea is a light feeder *and* fixes nitrogen | Yes (pea) |
 | Photoperiodism (`photoperiod_type`, part of the lifecycle configuration) | Short-day, Long-day, Day-neutral | Day-neutral |
 | Toxicity (`toxicity_severity`) | Toxicity for cats/dogs (ASPCA data; ASPCA = American Society for the Prevention of Cruelty to Animals) | Toxic to cats |
 | **Propagation Methods** (`propagation_methods`) | One or more typical propagation methods (multi-select) | Seed, Cutting |

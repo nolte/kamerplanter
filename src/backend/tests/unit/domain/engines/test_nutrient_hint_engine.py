@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from app.common.enums import GrowingMediumKind, NutrientDemand
+from app.common.enums import EcMethod, GrowingMediumKind, NutrientDemand
 from app.domain.engines import nutrient_hint_engine
 from app.domain.engines.nutrient_hint_engine import (
     DEFAULT_CONFIG,
@@ -30,8 +30,10 @@ from app.domain.engines.nutrient_hint_engine import (
     lab_content_classes,
     strongest_demand,
 )
+from app.domain.engines.soil_salinity_hint import SoilSalinityConfig
 from app.domain.engines.task_completion_engine import NUTRIENT_MATERIALS
 from app.domain.models.nutrient_hint import NUTRIENT_HINT_REASONS, NUTRIENT_HINT_STATES, NutrientHint
+from app.domain.models.site import SoilProfile
 
 NOW = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
 HEAVY = NutrientDemand.HEAVY_FEEDER
@@ -321,6 +323,59 @@ class TestBarkMulch:
     def test_only_bark_mulch_binds(self) -> None:
         assert is_n_binding_mulch("bark_mulch") and is_n_binding_mulch(" Bark_Mulch ")
         assert not any(is_n_binding_mulch(each) for each in ("straw", "compost", None, ""))
+
+
+class TestSaltLimit:
+    """E-17 variant A (#2654): soil EC is a salt-limit hint ``check_salt_content`` - never a dose, never a state."""
+
+    SALT = SoilSalinityConfig(threshold_ms_cm=2.0, ec_method=EcMethod.SATURATED_PASTE, source=TEST_SOURCE)
+    SALTY = SoilProfile(
+        growing_medium_kind=GrowingMediumKind.NATIVE_SOIL, ec_ms_cm=3.0, ec_method=EcMethod.SATURATED_PASTE
+    )
+
+    def test_the_default_configuration_gives_no_salt_reason(self) -> None:
+        hint = assess(_inputs(soil_profile=self.SALTY))
+        assert "check_salt_content" not in hint.reasons
+
+    def test_above_a_sourced_threshold_of_the_same_method_gives_the_reason(self) -> None:
+        config = NutrientHintConfig(soil_salinity=self.SALT)
+        hint = assess(_inputs(soil_profile=self.SALTY), config)
+        assert "check_salt_content" in hint.reasons
+        assert config.active_rules() == ("soil_salinity",)
+
+    def test_another_method_gives_no_reason(self) -> None:
+        profile = SoilProfile(ec_ms_cm=3.0, ec_method=EcMethod.RATIO_1_5)
+        hint = assess(_inputs(soil_profile=profile), NutrientHintConfig(soil_salinity=self.SALT))
+        assert "check_salt_content" not in hint.reasons
+
+    def test_a_threshold_without_a_source_gives_no_reason(self) -> None:
+        unsourced = SoilSalinityConfig(threshold_ms_cm=2.0, ec_method=EcMethod.SATURATED_PASTE, source=None)
+        hint = assess(_inputs(soil_profile=self.SALTY), NutrientHintConfig(soil_salinity=unsourced))
+        assert "check_salt_content" not in hint.reasons
+
+    def test_the_reason_never_changes_an_ok(self) -> None:
+        config = dataclasses.replace(ACTIVE, soil_salinity=self.SALT)
+        plain = assess(_fed(10), ACTIVE)
+        salty = assess(_inputs(soil_profile=self.SALTY), config)
+        assert plain.state == salty.state == "ok"
+        assert plain.confidence == salty.confidence
+        assert plain.sources == salty.sources
+        assert "check_salt_content" in salty.reasons
+
+    def test_the_reason_never_produces_a_state_on_its_own(self) -> None:
+        hint = assess(_inputs(soil_profile=self.SALTY), NutrientHintConfig(soil_salinity=self.SALT))
+        assert hint.state == "insufficient_data"
+        assert hint.reasons[0] == "thresholds_without_source"
+
+    def test_a_mineral_substrate_bed_gets_no_soil_salt_reason(self) -> None:
+        substrate = SoilProfile(
+            growing_medium_kind=GrowingMediumKind.MINERAL_SUBSTRATE, ec_ms_cm=3.0, ec_method=EcMethod.SATURATED_PASTE
+        )
+        hint = assess(
+            _inputs(growing_medium_kind=GrowingMediumKind.MINERAL_SUBSTRATE, soil_profile=substrate),
+            NutrientHintConfig(soil_salinity=self.SALT),
+        )
+        assert hint.reasons == ("substrate_bed",)
 
 
 class TestNInputs:

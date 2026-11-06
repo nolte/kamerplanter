@@ -2780,6 +2780,9 @@ export interface AreaDosingRequest {
   fertilizer_keys: string[];
   area_m2?: number | null;
   location_key?: string | null;
+  /** The species the bed is dosed for; its `nitrogen_fixing` flag drives the N warning (REQ-053 E-17). */
+  species_key?: string | null;
+  /** @deprecated Use `species_key`. Only `nitrogen_fixer` has an effect (enables the N warning). */
   demand_level?: NutrientDemandLevel | null;
 }
 

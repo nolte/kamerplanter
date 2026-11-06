@@ -13,10 +13,11 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
-from app.common.enums import FertilizerType, SiteType, TenantRole
+from app.common.enums import FertilizerType, NutrientDemandLevel, SiteType, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.site import Location, Site
+from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
 
@@ -70,6 +71,52 @@ class _FakeSiteRepo:
         return location
 
 
+class _FakeSpeciesRepo:
+    """Only the two reads ``readable_species`` performs; grants are explicit edges."""
+
+    def __init__(self, species: dict[str, Species], grants: set[tuple[str, str]]) -> None:
+        self._species = species
+        self._grants = grants
+
+    def get_by_key(self, key: str) -> Species | None:
+        return self._species.get(key)
+
+    def is_granted_to(self, key: str, tenant_key: str) -> bool:
+        return (key, tenant_key) in self._grants
+
+
+def _species() -> dict[str, Species]:
+    return {
+        # Global seed that fixes nitrogen; the legacy feeder class is unset, as it
+        # is for every species M6 split (the acceptance case of #2654).
+        "pea-global": Species(_key="pea-global", scientific_name="Pisum sativum", tenant_key="", nitrogen_fixing=True),
+        # The caller's own species that fixes nitrogen.
+        "bean-own": Species(
+            _key="bean-own", scientific_name="Phaseolus vulgaris", tenant_key="personal", nitrogen_fixing=True
+        ),
+        # Global, not a fixer.
+        "tomato-global": Species(
+            _key="tomato-global", scientific_name="Solanum lycopersicum", tenant_key="", nitrogen_fixing=False
+        ),
+        # Stale legacy value without the new flag: the legacy field is no source.
+        "legacy-only": Species(
+            _key="legacy-only",
+            scientific_name="Vicia faba",
+            tenant_key="",
+            nutrient_demand_level=NutrientDemandLevel.NITROGEN_FIXER,
+            nitrogen_fixing=None,
+        ),
+        # Another tenant's private species, never granted to "personal".
+        "lupin-foreign": Species(
+            _key="lupin-foreign", scientific_name="Lupinus albus", tenant_key="other", nitrogen_fixing=True
+        ),
+        # Another tenant's private species, explicitly granted to "personal" (#1092).
+        "clover-granted": Species(
+            _key="clover-granted", scientific_name="Trifolium repens", tenant_key="other", nitrogen_fixing=True
+        ),
+    }
+
+
 def _fertilizers() -> dict[str, Fertilizer]:
     return {
         "fert-a": Fertilizer(
@@ -104,7 +151,11 @@ def _ctx() -> TenantContext:
 
 @pytest.fixture
 def client():
-    service = FertilizerService(_FakeFertRepo(_fertilizers()), site_repo=_FakeSiteRepo(_locations()))
+    service = FertilizerService(
+        _FakeFertRepo(_fertilizers()),  # type: ignore[arg-type]
+        site_repo=_FakeSiteRepo(_locations()),  # type: ignore[arg-type]
+        species_repo=_FakeSpeciesRepo(_species(), {("clover-granted", "personal")}),  # type: ignore[arg-type]
+    )
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
         from app.main import app
 
@@ -213,6 +264,71 @@ class TestAreaDosing:
             json={"fertilizer_keys": ["hornspaene"], "location_key": "loc-other"},
         )
         assert response.status_code == 404
+
+
+class TestAreaDosingSpeciesNitrogenFixing:
+    """The N warning reads ``Species.nitrogen_fixing`` of a readable species (REQ-053 E-17 A, #2654)."""
+
+    URL = "/api/v1/t/personal/nutrient-calculations/area-dosing"
+
+    @staticmethod
+    def _n_warning(response) -> bool:
+        return any("nitrogen" in w.lower() for w in response.json()["warnings"])
+
+    def _post(self, client, species_key: str, **extra):
+        return client.post(
+            self.URL, json={"fertilizer_keys": ["hornspaene"], "area_m2": 2.0, "species_key": species_key, **extra}
+        )
+
+    def test_global_fixer_with_legacy_level_null_gets_the_warning(self, client):
+        response = self._post(client, "pea-global")
+        assert response.status_code == 200, response.json()
+        assert self._n_warning(response)
+
+    def test_own_fixer_gets_the_warning(self, client):
+        response = self._post(client, "bean-own")
+        assert response.status_code == 200, response.json()
+        assert self._n_warning(response)
+
+    def test_granted_fixer_gets_the_warning(self, client):
+        response = self._post(client, "clover-granted")
+        assert response.status_code == 200, response.json()
+        assert self._n_warning(response)
+
+    def test_a_non_fixer_species_gets_no_warning(self, client):
+        response = self._post(client, "tomato-global")
+        assert response.status_code == 200, response.json()
+        assert not self._n_warning(response)
+
+    def test_the_legacy_field_on_the_species_is_no_source(self, client):
+        """``nutrient_demand_level = nitrogen_fixer`` without the flag does not warn."""
+        response = self._post(client, "legacy-only")
+        assert response.status_code == 200, response.json()
+        assert not self._n_warning(response)
+
+    def test_the_deprecated_request_alias_still_warns_with_a_non_fixer_species(self, client):
+        response = self._post(client, "tomato-global", demand_level="nitrogen_fixer")
+        assert response.status_code == 200, response.json()
+        assert self._n_warning(response)
+
+    def test_a_foreign_species_is_a_404(self, client):
+        response = self._post(client, "lupin-foreign")
+        assert response.status_code == 404
+
+    def test_an_unknown_species_is_a_404(self, client):
+        response = self._post(client, "does-not-exist")
+        assert response.status_code == 404
+
+    def test_a_malformed_species_key_is_a_422(self, client):
+        response = self._post(client, "not/a key")
+        assert response.status_code == 422
+
+    def test_the_openapi_schema_marks_demand_level_deprecated(self, client):
+        from app.main import app
+
+        props = app.openapi()["components"]["schemas"]["AreaDosingRequest"]["properties"]
+        assert props["demand_level"]["deprecated"] is True
+        assert "species_key" in props
 
 
 # ── Enum boundary validation (#1520) ─────────────────────────────────

@@ -3426,9 +3426,9 @@
       "areaOverridesLocationHint": "Es ist eine Fläche eingetragen — der Standort wird ignoriert. Feld leeren, um stattdessen die Fläche aus dem Standort zu übernehmen.",
       "location": "Standort",
       "locationHelper": "Optional: Standort auswählen, aus dessen Fläche (m²) die Dosierung berechnet wird, falls keine Fläche angegeben ist.",
-      "demandLevel": "Nährstoffbedarf der Pflanze",
-      "demandLevelHelper": "Optional: dient nur agronomischen Hinweisen (z.B. keine N-Dünger für Stickstoffsammler).",
-      "demandLevelNone": "Nicht angegeben",
+      "species": "Pflanzenart",
+      "speciesHelper": "Optional: Ist die Art ein Stickstoffsammler (z.B. Bohne, Erbse), warnt die Berechnung vor Düngern mit Stickstoff. Die Mengen ändern sich dadurch nicht.",
+      "speciesNoResults": "Keine passende Art gefunden",
       "areaRateGPerM2": "g/m²",
       "areaRateLPerM2": "L/m²",
       "areaTotalGrams": "Gesamt (g)",
@@ -6974,6 +6974,8 @@
         "reachDetail_unknown": "{{width}} m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang ({{threshold}} m). Trage unter „Merkmale ändern“ ein, von welchen Seiten du an das Beet kommst.",
         "nutrient": {
           "label": "Nährstoffe",
+          "saltLabel": "Salzgehalt",
+          "saltCheck": "Salzgehalt prüfen",
           "likelyDeficit": "Düngebedarf wahrscheinlich",
           "check": "Düngung prüfen",
           "confidence_low": "Eine grobe Einschätzung.",
@@ -6997,7 +6999,8 @@
             "bark_mulch_n_binding": "Seit deiner letzten Düngung hast du mit Rindenmulch gemulcht. Rindenmulch kann beim Verrotten Stickstoff binden.",
             "p_or_k_class_high": "Laut deinem Laborbefund ist der Boden reichlich mit Phosphor oder Kalium versorgt. Kompost dient bei hohen P/K-Gehalten nicht der Nährstoffversorgung; als Bodenverbesserung bleibt er möglich. Phosphordünger brauchst du hier nicht.",
             "species_not_readable": "In diesem Beet stehen Pflanzen, deren Art du nicht einsehen kannst.",
-            "standing_nitrogen_fixer": "Im Beet stehen gerade Stickstoffsammler wie Bohnen oder Erbsen. Wie viel Stickstoff sie liefern, schätzt die App nicht."
+            "standing_nitrogen_fixer": "Im Beet stehen gerade Stickstoffsammler wie Bohnen oder Erbsen. Wie viel Stickstoff sie liefern, schätzt die App nicht.",
+            "check_salt_content": "Die Leitfähigkeit deines Bodens liegt über dem hinterlegten Salzgrenzwert. Prüfe den Salzgehalt, bevor du weiter düngst. Eine Düngemenge leitet die App daraus nicht ab."
           }
         }
       },

@@ -13,6 +13,7 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 from app.common.enums import NutrientDemandLevel, PhaseName, SubstrateType
+from app.common.pagination import ARANGO_KEY_PATTERN
 
 
 class MixingProtocolRequest(BaseModel):
@@ -217,10 +218,25 @@ class AreaDosingRequest(BaseModel):
     fertilizer_keys: list[str] = Field(min_length=1)
     area_m2: float | None = Field(default=None, gt=0)
     location_key: str | None = None
-    # Advisory only, but a misspelling here never raised: the engine compares it
-    # against a literal, so a wrong spelling silently took the other branch and
-    # the caller got a plausible wrong answer instead of an error (#1520).
-    demand_level: NutrientDemandLevel | None = None
+    # The species the bed is dosed for. Its ``nitrogen_fixing`` flag drives the
+    # advisory "no N for a nitrogen fixer" warning (REQ-053 E-17 variant A). Must
+    # be a species the tenant may read (own, global or granted), otherwise 404.
+    species_key: str | None = Field(
+        default=None,
+        pattern=ARANGO_KEY_PATTERN,
+        description="Species the bed is dosed for; its nitrogen_fixing flag drives the N warning.",
+    )
+    # DEPRECATED legacy feeder class, kept so an old client does not silently lose
+    # the warning: ``nitrogen_fixer`` still means "fixes nitrogen", every other
+    # value is ignored (no EC or amount scaling by feeder class, E-17 variant A).
+    # Typed as the enum so a misspelling stays a 422, not a silent miss (#1520).
+    # Marked deprecated in the OpenAPI schema only: ``Field(deprecated=True)``
+    # would also raise a DeprecationWarning on every read in our own router.
+    demand_level: NutrientDemandLevel | None = Field(
+        default=None,
+        json_schema_extra={"deprecated": True},
+        description="Deprecated: use species_key. Only 'nitrogen_fixer' has an effect (enables the N warning).",
+    )
 
 
 class AreaDosingItemResponse(BaseModel):

@@ -3426,9 +3426,9 @@
       "areaOverridesLocationHint": "An area is entered — the location is ignored. Clear this field to use the area from the location instead.",
       "location": "Location",
       "locationHelper": "Optional: pick a location to compute dosing from its area (m²) when no area is provided.",
-      "demandLevel": "Plant Nutrient Demand",
-      "demandLevelHelper": "Optional: advisory only (e.g. no N fertilizers for nitrogen fixers).",
-      "demandLevelNone": "Not specified",
+      "species": "Plant species",
+      "speciesHelper": "Optional: if the species fixes nitrogen (e.g. bean, pea), the calculation warns about fertilizers containing nitrogen. The amounts do not change.",
+      "speciesNoResults": "No matching species found",
       "areaRateGPerM2": "g/m²",
       "areaRateLPerM2": "L/m²",
       "areaTotalGrams": "Total (g)",
@@ -6973,6 +6973,8 @@
         "reachDetail_unknown": "{{width}} m wide – the access sides are not recorded, so the one-side value applies ({{threshold}} m). Use “Change conditions” to record the sides you can reach the bed from.",
         "nutrient": {
           "label": "Nutrients",
+          "saltLabel": "Salt content",
+          "saltCheck": "Check salt content",
           "likelyDeficit": "Fertiliser likely needed",
           "check": "Check feeding",
           "confidence_low": "A rough estimate.",
@@ -6996,7 +6998,8 @@
             "bark_mulch_n_binding": "You mulched with bark mulch after your last feeding. Bark mulch can bind nitrogen while it rots.",
             "p_or_k_class_high": "According to your lab report, the soil is rich in phosphorus or potassium. With high P/K contents compost serves no nutrient supply; as a soil improver it remains an option. You do not need a phosphorus fertiliser here.",
             "species_not_readable": "Plants stand in this bed whose species you cannot view.",
-            "standing_nitrogen_fixer": "Nitrogen fixers such as beans or peas are growing in this bed right now. The app does not estimate how much nitrogen they supply."
+            "standing_nitrogen_fixer": "Nitrogen fixers such as beans or peas are growing in this bed right now. The app does not estimate how much nitrogen they supply.",
+            "check_salt_content": "The conductivity of your soil is above the stored salt limit. Check the salt content before you fertilise further. The app derives no fertiliser amount from it."
           }
         }
       },

@@ -10,15 +10,23 @@ from app.domain.engines.area_dosing_engine import AreaDosingCalculator, AreaDosi
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 from app.domain.services.catalogue_authorization import authorize_hybrid_catalogue_write
 from app.domain.services.location_ownership import resolve_owned_location
+from app.domain.services.species_visibility import readable_species
 
 
 class FertilizerService:
-    def __init__(self, repo: IFertilizerRepository, site_repo: ISiteRepository | None = None) -> None:
+    def __init__(
+        self,
+        repo: IFertilizerRepository,
+        site_repo: ISiteRepository | None = None,
+        species_repo: ISpeciesRepository | None = None,
+    ) -> None:
         self._repo = repo
         self._site_repo = site_repo
+        self._species_repo = species_repo
         self._area_calc = AreaDosingCalculator()
 
     # ── Fertilizer CRUD ──────────────────────────────────────────────
@@ -321,7 +329,8 @@ class FertilizerService:
         fertilizer_keys: list[FertilizerKey],
         area_m2: float | None = None,
         location_key: str | None = None,
-        demand_level: NutrientDemandLevel | None = None,
+        species_key: str | None = None,
+        legacy_demand_level: NutrientDemandLevel | None = None,
         tenant_key: str = "",
     ) -> AreaDosingResult:
         """Compute per-area amounts for a set of fertilizers over a bed area.
@@ -329,15 +338,35 @@ class FertilizerService:
         The area is taken from ``area_m2`` when provided (override); otherwise it
         is resolved from the location's ``area_m2`` (Location.area_m2). Exactly
         one source of area must yield a positive value.
+
+        The nitrogen-fixer warning reads ``Species.nitrogen_fixing`` of
+        ``species_key`` (REQ-053 E-17 variant A), resolved under the hybrid
+        catalogue rule — own, global or granted; any other key is a 404, never a
+        403. ``legacy_demand_level`` is the deprecated request input:
+        ``nitrogen_fixer`` still enables the warning so an old client keeps it,
+        every other value has no effect.
         """
         resolved_area = self._resolve_area(area_m2, location_key, tenant_key)
+
+        nitrogen_fixing = legacy_demand_level == NutrientDemandLevel.NITROGEN_FIXER
+        if species_key is not None:
+            nitrogen_fixing = self._species_fixes_nitrogen(species_key, tenant_key) or nitrogen_fixing
 
         fertilizers = [self.get_fertilizer(key, tenant_key=tenant_key) for key in fertilizer_keys]
 
         try:
-            return self._area_calc.calculate(fertilizers, resolved_area, demand_level)
+            return self._area_calc.calculate(fertilizers, resolved_area, nitrogen_fixing=nitrogen_fixing)
         except ValueError as exc:
             raise ValidationError(message=str(exc)) from exc
+
+    def _species_fixes_nitrogen(self, species_key: str, tenant_key: str) -> bool:
+        """``Species.nitrogen_fixing is True`` for a species the tenant may read, else 404."""
+        if self._species_repo is None:
+            raise ValidationError(message="Species repository not configured for species resolution.")
+        species = readable_species(self._species_repo, species_key, tenant_key)
+        if species is None:
+            raise NotFoundError("Species", species_key)
+        return species.nitrogen_fixing is True
 
     def _resolve_area(self, area_m2: float | None, location_key: str | None, tenant_key: str = "") -> float:
         """Resolve the application area; explicit ``area_m2`` overrides the location."""
