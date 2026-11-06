@@ -18,6 +18,7 @@ import BedHeader from './BedHeader';
 import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
 import RotationSwitch from './RotationSwitch';
+import SoilAnalysisSection from './SoilAnalysisSection';
 import SoilProfileForm from './SoilProfileForm';
 import { allowedBedTransitions } from './bedStatus';
 import type { BedSummary } from './types';
@@ -139,6 +140,14 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
               profile={summary.soil_profile}
               canEdit={canEdit}
               onSaved={() => void onReload()}
+            />
+            <SoilAnalysisSection
+              key={summary.key}
+              bedKey={summary.key}
+              bedName={summary.name}
+              canEdit={canEdit}
+              profileVersion={summary.soil_profile}
+              onRecorded={() => void onReload()}
             />
           </>
         );

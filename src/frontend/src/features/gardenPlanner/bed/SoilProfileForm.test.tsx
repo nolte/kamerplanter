@@ -2,7 +2,9 @@
 import { useState } from 'react';
 import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
+import { server } from '@/test/mocks/server';
 import { renderWithProviders } from '@/test/helpers';
 import SoilProfileForm from './SoilProfileForm';
 import { bedSummary } from './bedTestKit';
@@ -53,5 +55,26 @@ describe('SoilProfileForm reload handling', () => {
     expect(within(texture).getByRole('combobox')).toHaveTextContent('Loam');
     await user.click(screen.getByRole('button', { name: 'changed' }));
     expect(within(screen.getByTestId('form-field-soil_texture')).getByRole('combobox')).toHaveTextContent('Clay');
+  });
+});
+
+describe('SoilProfileForm EC method (U-002, WP 8.8)', () => {
+  it('asks for the EC method instead of sending a value the server refuses', async () => {
+    let patched = false;
+    server.use(
+      http.patch('/api/v1/t/:tenant/locations/:key', () => {
+        patched = true;
+        return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 1 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <SoilProfileForm bedKey="loc_b03" profile={bedSummary().soil_profile!} canEdit onSaved={() => undefined} />,
+    );
+    const ec = within(await screen.findByTestId('form-field-ec_ms_cm')).getByRole('spinbutton');
+    await user.type(ec, '0.8');
+    await user.click(screen.getByTestId('form-submit-button'));
+    expect(await screen.findByText(/Choose how the EC was measured/)).toBeInTheDocument();
+    expect(patched).toBe(false);
   });
 });

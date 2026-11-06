@@ -7036,6 +7036,90 @@
           "saving": "Saving …",
           "saved": "Saved.",
           "bothRefused": "A permanent crop cannot have the rotation check switched on. Set the check to \"Default of the bed type\" or \"Switched off\" first. Nothing was changed."
+        },
+        "ecMethod": "EC method",
+        "ecMethodHelper": "An EC value cannot be read without its method. The app never converts values between methods.",
+        "ecMethodRequired": "Choose how the EC was measured, or \"Method unknown\".",
+        "targetPh": "Target pH (CaCl₂)",
+        "targetPhHelper": "Only fill this in if your lab states it. The app does not derive a target pH from the soil texture.",
+        "analysis": {
+          "record": "Record soil analysis",
+          "title": "Record a soil analysis for {{name}}",
+          "description": "Enter the values from your lab report, test kit or probe, each with its unit and measuring method. The newest pH, EC, humus and lime values go into the soil profile automatically.",
+          "performedAt": "Sample taken on",
+          "performedAtHelper": "Up to one year back.",
+          "source": "Source",
+          "sourceHelper": "Where do the values come from?",
+          "depth": "Sampling depth",
+          "depthHelper": "Optional, e.g. 0–30 cm → 30.",
+          "values": "Values",
+          "valueN": "Value {{n}}",
+          "parameter": "Parameter",
+          "value": "Value",
+          "unit": "Unit",
+          "method": "Method",
+          "methodNone": "Not given",
+          "methodHelper": {
+            "ph": "It is on the report or the pack; otherwise \"Probe, method unknown\".",
+            "ec": "It is on the report; otherwise \"Method unknown\"."
+          },
+          "contentClass": "Content class",
+          "contentClassHelper": "Only as stated in the lab report.",
+          "contentClassNone": "None given",
+          "addValue": "Add another value",
+          "removeValue": "Remove value {{n}}",
+          "noConversion": "The app never converts values between measuring methods or units and does not suggest a fertiliser or lime amount.",
+          "submit": "Save analysis",
+          "summary": "Soil analysis ({{source}})",
+          "saved": "Soil analysis saved.",
+          "errors": {
+            "future": "The time lies in the future.",
+            "tooOld": "At most one year back.",
+            "invalid": "Please enter a date and time.",
+            "depth": "Enter a depth between 0 and 1000 cm.",
+            "method": "Choose the measuring method.",
+            "value": {
+              "required": "Enter a value.",
+              "number": "That is not a number.",
+              "range": "This value is not possible for the parameter."
+            }
+          }
+        },
+        "history": {
+          "title": "Soil analyses",
+          "intro": "How pH, EC and humus develop, separately per measuring method.",
+          "emptyTitle": "No soil analysis yet",
+          "emptyDescription": "Record your first soil analysis to see how pH, EC and humus develop.",
+          "emptyReadOnly": "No soil analysis has been recorded for this bed yet.",
+          "loadFailed": "The soil analyses could not be loaded.",
+          "truncated": "Showing the newest {{count}} analyses.",
+          "noChartValues": "The recorded analyses contain no pH, EC or humus value for the history.",
+          "asTable": "Show as table",
+          "methodsNotComparable": "Each measuring method has its own line. Values of different methods are not comparable and are never converted; a change of method is marked.",
+          "parameterTitle": "{{parameter}} over time",
+          "methodChange": "Method change",
+          "methodUnknown": "Method unknown",
+          "contentClass": "class {{value}}",
+          "columns": {
+            "date": "Date",
+            "method": "Method",
+            "value": "Value",
+            "source": "Source",
+            "depth": "Depth"
+          }
+        },
+        "liming": {
+          "likelyTitle": "Liming likely worthwhile",
+          "likely": "Your pH (measured in CaCl₂) is below the target pH you entered. Ask your lab how much lime your soil needs - the app does not give an amount.",
+          "reasons": {
+            "below_target": "Liming likely worthwhile.",
+            "at_or_above_target": "No sign of a lime need: your pH is not below the target pH.",
+            "no_ph": "Lime need: the app needs a pH value for this.",
+            "not_native_soil": "Lime need: the app only assesses it for grown garden soil (filling \"Native soil\").",
+            "ph_method_not_cacl2": "Lime need: only a pH measured in CaCl₂ can be compared with a target pH. The app does not convert other methods.",
+            "texture_unknown": "Lime need: the app needs the soil texture for this.",
+            "no_target_ph": "Lime need: enter the target pH from your lab report and the app can give a hint."
+          }
         }
       },
       "plan": {

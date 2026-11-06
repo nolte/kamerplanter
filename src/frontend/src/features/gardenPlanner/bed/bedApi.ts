@@ -8,6 +8,7 @@ import type {
   SoilProfile,
   SunProfilePatch,
 } from './types';
+import type { SoilAnalysesResponse, SoilAnalysisBody } from './soilAnalysisTypes';
 
 /**
  * REST access to beds (REQ-053 GP-API-010/011/012/018) through the tenant-scoped client. A bed is a
@@ -94,5 +95,23 @@ export async function patchRotationSwitch(
     ...(change.rotationEnabled !== undefined ? { rotation_enabled: change.rotationEnabled } : {}),
     ...(change.rotationExempt !== undefined ? { rotation_exempt: change.rotationExempt } : {}),
   });
+  return data;
+}
+
+/**
+ * GP-FR-122: the bed's soil analyses as series per parameter and method, the marked method changes and the
+ * "liming likely" hint of the current profile. Values of different methods are never merged or converted.
+ */
+export async function getSoilAnalyses(key: string, signal?: AbortSignal): Promise<SoilAnalysesResponse> {
+  const { data } = await tenantClient.get<SoilAnalysesResponse>(`/locations/${key}/soil-analyses`, { signal });
+  return data;
+}
+
+/**
+ * GP-FR-122 / GP-API-033: record a soil analysis as a care event. The server writes the newest pH, EC, humus and
+ * lime values with their method into the soil profile in the same transaction (never an older analysis).
+ */
+export async function recordSoilAnalysis(body: SoilAnalysisBody): Promise<{ key: string }> {
+  const { data } = await tenantClient.post<{ key: string }>('/care-events', body);
   return data;
 }

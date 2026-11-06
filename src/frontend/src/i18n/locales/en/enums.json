@@ -1186,6 +1186,39 @@
       "h2o": "Water",
       "probe_unknown": "Probe, method unknown"
     },
+    "soilParameter": {
+      "ph": "pH",
+      "ec": "EC (conductivity)",
+      "humus": "Humus",
+      "caco3": "Lime content (CaCO₃)",
+      "n_min": "Nmin (mineral nitrogen)",
+      "p": "Phosphorus (P)",
+      "k": "Potassium (K)",
+      "mg": "Magnesium (Mg)",
+      "moisture": "Soil moisture"
+    },
+    "soilUnit": {
+      "pH": "pH",
+      "mS/cm": "mS/cm",
+      "dS/m": "dS/m",
+      "%": "%",
+      "kg_n_per_ha": "kg N/ha",
+      "mg_per_100g": "mg/100 g soil",
+      "mg_per_l": "mg/l"
+    },
+    "soilAnalysisSource": {
+      "lab": "Lab",
+      "test_kit": "Test kit",
+      "sensor": "Probe/sensor",
+      "manual": "Manual"
+    },
+    "soilExtractionMethod": {
+      "cal": "CAL (lab)",
+      "ammonium_acetate": "Ammonium acetate",
+      "saturated_paste": "Saturated paste",
+      "quick_test": "Quick test",
+      "sensor": "Probe/sensor"
+    },
     "careUnit": {
       "l": "Litres",
       "ml": "Millilitres",

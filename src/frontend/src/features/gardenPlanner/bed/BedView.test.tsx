@@ -14,6 +14,7 @@ import BedView from './BedView';
 import { careTask, useCareBackend } from '../care/careTestKit';
 import { careItem, timeline, useHistoryBackend, year } from '../history/historyTestKit';
 import { bedSummary } from './bedTestKit';
+import { soilAnalyses } from './soilAnalysisTestKit';
 import type { BedSummary } from './types';
 
 const BASE = '/api/v1/t/:tenant';
@@ -47,6 +48,10 @@ function useBackend(extra: Parameters<typeof server.use> = []) {
           plants: [{ key: 'pl_1', instance_id: 'TOM-1', species_key: 'sp_tomato', slot_key: 's1' }],
         }),
       ),
+    ),
+    // The soil tab's analysis history (GP-FR-122): none recorded yet.
+    http.get(`${BASE}/locations/:key/soil-analyses`, () =>
+      HttpResponse.json(soilAnalyses({ series: [], method_changes: [], analyses: 0 })),
     ),
     // The planting tab and the rotation badge of the header.
     http.get(`${BASE}/locations/:key/plantings`, () => HttpResponse.json([])),
@@ -271,6 +276,39 @@ describe('BedView', () => {
       await waitFor(() => expect(bodies).toEqual([{ rotation_enabled: true }]));
       await waitFor(() => expect(reloaded).toBe(1));
       expect(screen.getByTestId('bed-soil-tab')).toBeInTheDocument();
+    });
+
+    it('carries the soil analyses below the profile: record, liming hint and history (GP-FR-122)', async () => {
+      const reads: string[] = [];
+      useBackend([
+        http.get(`${BASE}/locations/:key/soil-analyses`, ({ params }) => {
+          reads.push(String(params.key));
+          return HttpResponse.json(soilAnalyses({ liming_hint: { status: 'likely', reason: 'below_target' } }));
+        }),
+      ]);
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+      const section = await screen.findByTestId('bed-soil-analyses');
+      expect(await within(section).findByTestId('soil-history-chart')).toBeInTheDocument();
+      expect(within(section).getByTestId('soil-liming-hint')).toHaveTextContent('Liming likely worthwhile');
+      expect(within(section).getByTestId('soil-liming-hint')).not.toHaveTextContent(/\d+\s*(g|kg)/);
+      expect(within(section).getByTestId('soil-analysis-record')).toBeInTheDocument();
+      expect(reads).toEqual(['loc_b03']);
+    });
+
+    it('opens the record dialog from the empty state, and a viewer gets neither', async () => {
+      useBackend();
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+      const section = await screen.findByTestId('bed-soil-analyses');
+      await user.click(await within(section).findByRole('button', { name: 'Record soil analysis' }));
+      expect(await screen.findByTestId('soil-analysis-dialog')).toBeInTheDocument();
+      cleanup();
+
+      useBackend();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');
+      const readOnly = await screen.findByTestId('bed-soil-analyses');
+      expect(await within(readOnly).findByText(/No soil analysis has been recorded/)).toBeInTheDocument();
+      expect(within(readOnly).queryByRole('button', { name: 'Record soil analysis' })).toBeNull();
     });
 
     it('explains the finger test', async () => {
