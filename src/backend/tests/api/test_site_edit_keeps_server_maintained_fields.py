@@ -59,8 +59,9 @@ class _Repo(_ReferencesRepo):
         self.written["location"] = location
         return location.model_copy(update={"key": key})
 
-    def update_slot(self, key, slot):
+    def update_slot(self, key, slot, **write_options):
         self.written["slot"] = slot
+        self.written["slot_untouched"] = tuple(write_options.get("untouched", ()))
         return super().update_slot(key, slot)
 
 
@@ -130,3 +131,4 @@ def test_a_slot_edit_keeps_it_occupied(client: TestClient, repo: _Repo) -> None:
     assert response.status_code == 200
     assert repo.written["slot"].slot_id == "LOCOWN_B2"
     assert repo.written["slot"].currently_occupied is True
+    assert "currently_occupied" in repo.written["slot_untouched"]  # #2639: the stale copy is not written back

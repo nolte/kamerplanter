@@ -155,6 +155,18 @@ class _LocationRepository(BaseArangoRepository[Location]):
         return cast("Location", self._wrap(self._update_doc(key, location, untouched=untouched, merged=merged)))
 
 
+class _SlotRepository(BaseArangoRepository[Slot]):
+    """Slot view: a plain merge-mode repository with a write that leaves named columns alone (#2639)."""
+
+    _model_cls = Slot
+
+    def update_leaving(self, key: str, slot: Slot, *, untouched: Collection[str]) -> Slot:
+        """:meth:`update` without writing the ``untouched`` columns (#2639, the slot sibling of #2623)."""
+        if self._verify_references_on_update:
+            self._verify_changed_owned_references(key, slot)
+        return cast("Slot", self._wrap(self._update_doc(key, slot, untouched=untouched)))
+
+
 class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     is_tenant_scoped = True
     _model_cls = Site
@@ -162,7 +174,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SITES)
         self._locations = _LocationRepository(db, col.LOCATIONS)
-        self._slots = BaseArangoRepository[Slot](db, col.SLOTS, Slot)
+        self._slots = _SlotRepository(db, col.SLOTS)
 
     # ── Site CRUD ─────────────────────────────────────────────────────
 
@@ -698,8 +710,13 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             self.create_edge(col.HAS_SLOT, location_id, slot_id)
         return created
 
-    def update_slot(self, key: SlotKey, slot: Slot) -> Slot:
+    def update_slot(self, key: SlotKey, slot: Slot, *, untouched: Collection[str] = ()) -> Slot:
         """Rewrite a slot and keep its ``has_slot`` edge on ``slot.location_key`` (#1878).
+
+        The ``untouched`` columns are validated with the model but not written (#2639): they keep the value
+        stored at write time, so a ``PATCH /slots`` or an occupation write that landed after the caller's read
+        is not reverted, and an object column such as ``geometry`` is not merged into a newer one. The return
+        value is the slot as stored after the write — the untouched columns at their current values.
 
         The field and the edge are two spellings of the same fact — the field is
         read by the ownership anchor (``resolve_owned_slot``), the edge by
@@ -714,7 +731,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         following it would re-parent the owner's slot into the stranger's location.
         Such a row is left as it is for the v0067 migration to count.
         """
-        updated = self._slots.update(key, slot)
+        updated = self._slots.update_leaving(key, slot, untouched=untouched)
         if updated.location_key:
             self._point_has_slot_at(key, updated.location_key)
         return updated

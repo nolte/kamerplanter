@@ -119,7 +119,13 @@ class ISiteRepository(ABC):
     def create_slot(self, slot: Slot) -> Slot: ...
 
     @abstractmethod
-    def update_slot(self, key: SlotKey, slot: Slot) -> Slot: ...
+    def update_slot(self, key: SlotKey, slot: Slot, *, untouched: Collection[str] = ()) -> Slot:
+        """Rewrite a slot from *slot* without writing the ``untouched`` columns (#2639).
+
+        The ``untouched`` columns keep the values stored at write time, not the ones the caller read: a column
+        another path (``PATCH /slots``, a plant or planting run occupying the slot) wrote after the caller's
+        read is not reverted. Returns the slot as stored after the write.
+        """
 
     @abstractmethod
     def delete_slot(self, key: SlotKey) -> bool: ...

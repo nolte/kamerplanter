@@ -54,7 +54,12 @@ LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
 
 #: ``Slot`` fields the ``PUT /slots/{key}`` body (``SlotCreate``) does not carry and that the
 #: garden-plan paths write (REQ-053 WP 1.7). The slot view merges (a ``None`` is dropped), but
-#: ``slot_role`` defaults to ``position`` and would overwrite a row or zone — all are kept.
+#: ``slot_role`` defaults to ``position`` and would overwrite a row or zone. ``PUT /slots``
+#: therefore does **not write** them (#2639, the slot sibling of #2623): the repository leaves
+#: them out of the update, so a ``PATCH /slots`` that wrote them after the PUT's read is not
+#: reverted and a stored point geometry is never object-merged into a newer polygon. The model
+#: still takes them from the stored row (``keep_stored_fields``) so it validates as the stored
+#: slot does (the capacity bound follows ``slot_role``).
 SLOT_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "archived_at",
     "container_volume_l",
@@ -66,6 +71,11 @@ SLOT_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "slot_role",
     "sown_at",
 )
+
+#: What ``PUT /slots/{key}`` leaves out of its write (#2639): the plan fields plus the two
+#: server-maintained columns no edit body carries — the occupancy (plant and planting-run
+#: services) and ``last_sanitization`` (a ``None`` on the rebuilt model, never the body's).
+SLOT_COLUMNS_A_PUT_LEAVES: tuple[str, ...] = (*SLOT_FIELDS_KEPT_ON_EDIT, "currently_occupied", "last_sanitization")
 
 
 def frost_risk_to_mirror(location: Location, stored: Location | None) -> FrostRisk | None:
@@ -387,17 +397,21 @@ class SiteService:
     def update_slot(self, key: SlotKey, slot: Slot, *, tenant_key: str) -> Slot:
         """Rewrite a slot of ``tenant_key``; the location it names is resolved under the tenant too (#1871 B1).
 
-        ``currently_occupied`` is set by placing a plant or a planting run, never by
-        the edit body, which does not carry it: the rebuilt model held ``False`` and
-        every slot edit freed an occupied slot for the next batch placement (#2181).
-        It is taken from the stored slot.
+        Only the body's columns are written (#2639). ``currently_occupied`` is set by
+        placing a plant or a planting run, never by the edit body, which does not
+        carry it: the rebuilt model held ``False`` and every slot edit freed an
+        occupied slot for the next batch placement (#2181). The garden-plan fields
+        (:data:`SLOT_FIELDS_KEPT_ON_EDIT`) are the editor's. Neither is written: the
+        copy read here may be older than an occupation write or a ``PATCH /slots``
+        that landed since, and writing it back reverted that write without a 409.
+        The model still takes them from the stored slot, so it validates as the slot
+        was read, and the repository returns the slot as stored after the write.
         """
         existing = self.get_slot(key, tenant_key=tenant_key)
         self.get_location(slot.location_key, tenant_key=tenant_key)
         slot.currently_occupied = existing.currently_occupied
-        # The garden-plan fields (REQ-053 WP 1.7) are the editor's, not the edit body's.
         keep_stored_fields(slot, existing, SLOT_FIELDS_KEPT_ON_EDIT)
-        return self._repo.update_slot(key, slot)
+        return self._repo.update_slot(key, slot, untouched=SLOT_COLUMNS_A_PUT_LEAVES)
 
     def delete_slot(self, key: SlotKey, *, tenant_key: str) -> bool:
         self.get_slot(key, tenant_key=tenant_key)

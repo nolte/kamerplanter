@@ -55,7 +55,7 @@ class _Repo(FakeSiteRepo):
     def get_slots_by_location(self, location_key):
         return [s for s in self._slots.values() if s.location_key == location_key]
 
-    def update_slot(self, key, slot):
+    def update_slot(self, key, slot, **_write_options):
         self.slot_writes.append((key, slot.location_key))
         return slot.model_copy(update={"key": key})
 
