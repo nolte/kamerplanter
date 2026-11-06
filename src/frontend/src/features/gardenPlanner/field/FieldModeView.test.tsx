@@ -236,6 +236,27 @@ describe('field mode entry', () => {
     await waitFor(() => expect(router.state.location.search).toBe('?mode=plan'));
     expect(await screen.findByTestId('garden-plan-mode-field')).toBeInTheDocument();
   });
+
+  it('offers planning mode as the one action of a site without beds (GP-UX-049)', async () => {
+    useFieldBackend({ beds: [] });
+    const { container } = renderField();
+    const empty = await screen.findByTestId('field-bed-list-empty');
+    expect(within(empty).getByText('No beds yet')).toBeInTheDocument();
+    const action = within(empty).getByTestId('field-bed-list-empty-planning');
+    expect(within(empty).getAllByRole('link')).toEqual([action]);
+    expect(action).toHaveAttribute('href', screen.getByTestId('garden-plan-mode-planning').getAttribute('href'));
+    expect(action).toHaveStyle({ minHeight: `${KIOSK_TOUCH_TARGET}px` });
+    await expectNoA11yViolations(container);
+  });
+
+  it('shows a viewer a site without beds without the action', async () => {
+    useFieldBackend({ beds: [] });
+    renderField('viewer');
+    const empty = await screen.findByTestId('field-bed-list-empty');
+    expect(within(empty).getByText('Once beds are created in planning mode, they appear here.')).toBeInTheDocument();
+    expect(within(empty).queryByRole('link')).toBeNull();
+    expect(within(empty).queryByRole('button')).toBeNull();
+  });
 });
 
 describe('bed sheet', () => {

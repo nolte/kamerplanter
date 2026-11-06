@@ -152,10 +152,26 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
       {state.status === 'loading' ? <LoadingSkeleton variant="card" /> : null}
       {state.status === 'error' ? <ErrorDisplay error={state.message} onRetry={reload} /> : null}
       {state.status === 'ready' && items.length === 0 ? (
-        <EmptyState
-          message={t('pages.bed.planting.tab.empty.title')}
-          description={t('pages.bed.planting.tab.empty.description')}
-        />
+        // GP-UX-049: a describing text and exactly one action - "Plant", for whoever may plant this bed now.
+        <Box data-testid="bed-planting-empty">
+          <EmptyState
+            message={t('pages.bed.planting.tab.empty.title')}
+            description={t(canPlant ? 'pages.bed.planting.tab.empty.description' : 'pages.bed.planting.tab.empty.descriptionView')}
+          />
+          {canPlant ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setPlanting(true)}
+                sx={{ minHeight: 48 }}
+                data-testid="bed-planting-empty-plant"
+              >
+                {t('pages.bed.planting.tab.plant')}
+              </Button>
+            </Box>
+          ) : null}
+        </Box>
       ) : null}
 
       {planned.length > 0 ? (

@@ -6792,7 +6792,8 @@
           "overdue_other": "{{count}} Aufgaben überfällig",
           "dueToday": "Heute fällig",
           "next": "Nächste Fälligkeit: {{date}}",
-          "reloadFailed": "Die Beete konnten nicht aktualisiert werden. Du siehst den zuletzt geladenen Stand."
+          "reloadFailed": "Die Beete konnten nicht aktualisiert werden. Du siehst den zuletzt geladenen Stand.",
+          "emptyHintView": "Sobald im Planungsmodus Beete angelegt sind, erscheinen sie hier."
         },
         "map": {
           "toolbar": "Kartenansicht",
@@ -7103,7 +7104,7 @@
         "empty": {
           "title": "Hier ist nichts zu tun",
           "description": "Keine offenen Aufgaben für dieses Beet oder seine Pflanzen.",
-          "descriptionEdit": "Keine offenen Aufgaben für dieses Beet oder seine Pflanzen. Lege eine Aufgabe an oder protokolliere, was du gerade gemacht hast."
+          "descriptionEdit": "Keine offenen Aufgaben für dieses Beet oder seine Pflanzen. Lege eine Aufgabe an, dann erscheint sie hier."
         },
         "undo": {
           "action": "Rückgängig",
@@ -7248,7 +7249,8 @@
           "title": "Noch nichts protokolliert",
           "description": "Pflege, die du protokollierst, und Pflanzen, die du setzt, erscheinen hier, die neuesten zuerst.",
           "filteredTitle": "Kein Eintrag passt",
-          "filteredDescription": "Lockere einen Filter oder setze sie zurück, um mehr zu sehen."
+          "filteredDescription": "Lockere einen Filter oder setze sie zurück, um mehr zu sehen.",
+          "descriptionBackfill": "Pflege, die du protokollierst, und Pflanzen, die du setzt, erscheinen hier, die neuesten zuerst. Weißt du, was hier früher stand? Dann trag es nach."
         },
         "filters": {
           "label": "Historie filtern",
@@ -7383,7 +7385,8 @@
           "retired": "Ein stillgelegtes Beet lässt sich nicht bepflanzen. Aktiviere es zuerst wieder.",
           "empty": {
             "title": "Noch nichts gepflanzt",
-            "description": "Mit „Bepflanzen“ planst du, was in diesem Beet wächst. Du siehst gleich, wie viele Pflanzen passen."
+            "description": "Mit „Bepflanzen“ planst du, was in diesem Beet wächst. Du siehst gleich, wie viele Pflanzen passen.",
+            "descriptionView": "In diesem Beet ist noch nichts geplant oder gepflanzt."
           },
           "planned_one": "Geplant ({{count}})",
           "planned_other": "Geplant ({{count}})",

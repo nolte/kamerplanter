@@ -98,6 +98,7 @@ export default function CareHistoryPage() {
         pages={pages}
         bedName={bedName}
         filtered={activeFilterCount(filters, DEFAULTS) > 0}
+        onResetFilters={() => setFilters(DEFAULTS)}
         testIdPrefix="care-history"
       />
     </Box>

@@ -191,10 +191,26 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
       )}
       {care.state.status === 'error' && <ErrorDisplay error={care.state.message} onRetry={reload} />}
       {ready && total === 0 && (
-        <EmptyState
-          message={t('pages.bed.care.empty.title')}
-          description={t(canEdit ? 'pages.bed.care.empty.descriptionEdit' : 'pages.bed.care.empty.description')}
-        />
+        // GP-UX-049: a describing text and exactly one action - "New task", for the roles that may create one.
+        <Box data-testid="care-empty">
+          <EmptyState
+            message={t('pages.bed.care.empty.title')}
+            description={t(canEdit ? 'pages.bed.care.empty.descriptionEdit' : 'pages.bed.care.empty.description')}
+          />
+          {canEdit && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
+              <Button
+                variant="contained"
+                startIcon={<AddTaskIcon />}
+                onClick={() => setCreating(true)}
+                sx={{ minHeight: 48 }}
+                data-testid="care-empty-create"
+              >
+                {t('pages.bed.care.create.open')}
+              </Button>
+            </Box>
+          )}
+        </Box>
       )}
       {ready &&
         (['overdue', 'open', 'suggested'] as const).map((kind) =>

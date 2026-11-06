@@ -63,10 +63,23 @@ describe('BedCareTab sections', () => {
     expect(within(open).queryByTestId('care-task-t_sug')).toBeNull();
   });
 
-  it('says so when nothing is open', async () => {
+  it('says so when nothing is open and offers "New task" as its one action (GP-UX-049)', async () => {
     useCareBackend([]);
+    const user = userEvent.setup();
     renderTab();
-    expect(await screen.findByText('Nothing to do here')).toBeInTheDocument();
+    const empty = await screen.findByTestId('care-empty');
+    expect(within(empty).getByText('Nothing to do here')).toBeInTheDocument();
+    expect(within(empty).getAllByRole('button')).toHaveLength(1);
+    await user.click(within(empty).getByTestId('care-empty-create'));
+    expect(await screen.findByTestId('care-task-dialog')).toBeInTheDocument();
+  });
+
+  it('shows a viewer the empty state without the action', async () => {
+    useCareBackend([]);
+    renderTab(bedSummary(), 'viewer');
+    const empty = await screen.findByTestId('care-empty');
+    expect(within(empty).getByText('No open tasks for this bed or its plants.')).toBeInTheDocument();
+    expect(within(empty).queryByRole('button')).toBeNull();
   });
 
   it('shows no write controls to a viewer', async () => {
@@ -352,5 +365,12 @@ describe('accessibility', () => {
     await user.click(screen.getByTestId('care-done-t_over'));
     await screen.findByTestId('care-complete-dialog');
     await expectNoA11yViolations(document.body, { minElements: 60 });
+  });
+
+  it('the empty state with its action has no critical axe violations', async () => {
+    useCareBackend([]);
+    const { container } = renderTab();
+    await screen.findByTestId('care-empty-create');
+    await expectNoA11yViolations(container);
   });
 });

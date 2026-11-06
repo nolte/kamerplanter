@@ -6791,7 +6791,8 @@
           "overdue_other": "{{count}} tasks overdue",
           "dueToday": "Due today",
           "next": "Next due: {{date}}",
-          "reloadFailed": "The beds could not be refreshed. You are seeing the last loaded state."
+          "reloadFailed": "The beds could not be refreshed. You are seeing the last loaded state.",
+          "emptyHintView": "Once beds are created in planning mode, they appear here."
         },
         "map": {
           "toolbar": "Map view",
@@ -7102,7 +7103,7 @@
         "empty": {
           "title": "Nothing to do here",
           "description": "No open tasks for this bed or its plants.",
-          "descriptionEdit": "No open tasks for this bed or its plants. Create a task, or log what you have just done."
+          "descriptionEdit": "No open tasks for this bed or its plants. Create a task and it shows up here."
         },
         "undo": {
           "action": "Undo",
@@ -7247,7 +7248,8 @@
           "title": "Nothing logged yet",
           "description": "Care you log and plants you plant show up here, newest first.",
           "filteredTitle": "No entry matches",
-          "filteredDescription": "Loosen a filter or reset them to see more."
+          "filteredDescription": "Loosen a filter or reset them to see more.",
+          "descriptionBackfill": "Care you log and plants you plant show up here, newest first. Do you know what stood here before? Then fill it in."
         },
         "filters": {
           "label": "Filter the history",
@@ -7382,7 +7384,8 @@
           "retired": "A retired bed cannot be planted. Activate it again first.",
           "empty": {
             "title": "Nothing planted yet",
-            "description": "\"Plant\" plans what grows in this bed. You see right away how many plants fit."
+            "description": "\"Plant\" plans what grows in this bed. You see right away how many plants fit.",
+            "descriptionView": "Nothing is planned or planted in this bed yet."
           },
           "planned_one": "Planned ({{count}})",
           "planned_other": "Planned ({{count}})",

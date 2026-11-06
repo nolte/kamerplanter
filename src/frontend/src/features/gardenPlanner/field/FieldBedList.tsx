@@ -3,11 +3,14 @@
  * signed-in user's first, then by what is due; each row is one large target that opens the bed sheet.
  * Text is at least 16 px; overdue is said in words, not only in red.
  */
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import EmptyState from '@/components/common/EmptyState';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { formatBedDate } from '../bed/bedFormat';
@@ -19,9 +22,14 @@ interface FieldBedListProps {
   mine: ReadonlySet<string>;
   today: string;
   onOpen: (bed: BedListItem) => void;
+  /**
+   * Planning mode, where beds are created: the one action of the empty list (GP-UX-049). Passed only to the
+   * roles that may create beds; a viewer reads the text without it.
+   */
+  planningHref?: string;
 }
 
-export default function FieldBedList({ beds, mine, today, onOpen }: FieldBedListProps) {
+export default function FieldBedList({ beds, mine, today, onOpen, planningHref }: FieldBedListProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
 
@@ -30,8 +38,22 @@ export default function FieldBedList({ beds, mine, today, onOpen }: FieldBedList
       <Box data-testid="field-bed-list-empty">
         <EmptyState
           message={t('pages.gardenPlan.field.list.empty')}
-          description={t('pages.gardenPlan.field.list.emptyHint')}
+          description={t(planningHref ? 'pages.gardenPlan.field.list.emptyHint' : 'pages.gardenPlan.field.list.emptyHintView')}
         />
+        {planningHref && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
+            <Button
+              component={RouterLink}
+              to={planningHref}
+              variant="contained"
+              startIcon={<DesignServicesIcon />}
+              sx={{ minHeight: KIOSK_TOUCH_TARGET }}
+              data-testid="field-bed-list-empty-planning"
+            >
+              {t('pages.gardenPlan.field.toPlanning')}
+            </Button>
+          </Box>
+        )}
       </Box>
     );
   }

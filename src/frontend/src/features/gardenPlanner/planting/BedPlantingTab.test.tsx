@@ -87,10 +87,37 @@ describe('BedPlantingTab', () => {
     expect(within(screen.getByTestId('bed-planting-finished')).queryByRole('link')).toBeNull();
   });
 
-  it('says so when nothing is planted', async () => {
+  it('says so when nothing is planted and offers "Plant" as its one action (GP-UX-049)', async () => {
+    useTabBackend([]);
+    const user = userEvent.setup();
+    renderTab();
+    const empty = await screen.findByTestId('bed-planting-empty');
+    expect(within(empty).getByText('Nothing planted yet')).toBeInTheDocument();
+    expect(within(empty).getAllByRole('button')).toHaveLength(1);
+    await user.click(within(empty).getByTestId('bed-planting-empty-plant'));
+    expect(await screen.findByTestId('planting-dialog')).toBeInTheDocument();
+  });
+
+  it('shows a viewer the empty bed without the action, worded for reading', async () => {
+    useTabBackend([]);
+    renderTab('viewer');
+    const empty = await screen.findByTestId('bed-planting-empty');
+    expect(within(empty).getByText('Nothing is planned or planted in this bed yet.')).toBeInTheDocument();
+    expect(within(empty).queryByRole('button')).toBeNull();
+  });
+
+  it('offers no planting action in the empty state of a bed that is not on the plan', async () => {
+    useTabBackend([]);
+    renderTab('grower', bedSummary({ geometry: null, bbox: null }));
+    const empty = await screen.findByTestId('bed-planting-empty');
+    expect(within(empty).queryByTestId('bed-planting-empty-plant')).toBeNull();
+  });
+
+  it('the empty state with its action has no accessibility violations', async () => {
     useTabBackend([]);
     renderTab();
-    expect(await screen.findByText('Nothing planted yet')).toBeInTheDocument();
+    await screen.findByTestId('bed-planting-empty-plant');
+    await expectNoA11yViolations(screen.getByTestId('bed-planting-tab'));
   });
 
   it('shows a viewer the lists only: no Plant button, no plant actions', async () => {
