@@ -311,7 +311,7 @@ Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Link
 | Pflege | Offene und überfällige Aufgaben des Beets und seiner Pflanzen, Erledigen, Vorschläge und Pflegeprotokoll (siehe [Pflege am Beet](#pflege-am-beet)). |
 | Pflanzung | Geplante und stehende Pflanzen des Beets, die Schaltfläche **Bepflanzen** und die Aktionen an einer Pflanze (siehe [Beet bepflanzen](#beet-bepflanzen)). |
 | Historie | Zeitstrahl, was in den Jahren zuvor im Beet stand, und die Liste aller Pflegeeinträge und Pflanzungen (siehe [Historie des Beets](#historie-des-beets)). |
-| Boden | Bodenprofil des Beets (siehe unten). |
+| Boden | Bodenprofil und Bodenanalysen des Beets (siehe [Bodenprofil pflegen](#bodenprofil-pflegen) und [Bodenanalysen erfassen](#bodenanalysen-erfassen)). |
 | Fotos | Die Fotos des Beets mit Titelfoto (siehe [Fotos des Beets](#fotos-des-beets)). |
 | Stammdaten | Die bisherige Standortseite, unverändert. |
 
@@ -493,6 +493,22 @@ Eine Dauerkultur kann die Prüfung nicht eingeschaltet haben. Versuchst du es, l
 ### Bodenprofil pflegen
 
 Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe, falls du den Typ nicht kennst), Drainage, Standortfeuchte, Bedingungen sowie pH-Wert, EC (elektrische Leitfähigkeit) und Humusgehalt. Wählst du optional ein [Substrat](#substrate-verwalten), übernimmt Kamerplanter dessen pH und EC als Vorgabe. Die Drainage steht zusätzlich in der Beetübersicht, sobald du sie erfasst hast. Als Betrachter (Rolle „viewer") siehst du das Profil nur lesend.
+
+Trägst du eine EC ein, wählst du auch die **EC-Messmethode** (Sättigungsextrakt, 1:2- oder 1:5-Extrakt, Sonde oder „Methode unbekannt“) – ohne Methode lässt sich ein EC-Wert nicht lesen, und das Formular speichert ihn nicht. Den **Ziel-pH (CaCl₂)** trägst du nur ein, wenn dein Labor ihn nennt; Kamerplanter leitet keinen Ziel-pH aus der Bodenart ab.
+
+### Bodenanalysen erfassen {#bodenanalysen-erfassen}
+
+Unter dem Bodenprofil steht im Tab **Boden** der Bereich **Bodenanalysen**. Ab der Rolle „grower" öffnest du dort **Bodenanalyse erfassen** und trägst die Werte aus deinem Laborbefund, deinem Testset oder von deiner Sonde ein:
+
+1. Wann die Probe genommen wurde (bis zu einem Jahr zurück), woher die Werte stammen (**Labor**, **Testset** oder **Sonde/Sensor**) und optional die Entnahmetiefe in cm.
+2. Je Wert die **Messgröße** (pH, EC, Humus, Kalkgehalt, Nmin, Phosphor, Kalium, Magnesium, Bodenfeuchte), den **Wert**, die **Einheit** und die **Methode**. Bei pH und EC ist die Methode Pflicht; steht sie nicht auf dem Befund, wählst du „Sonde, Methode unbekannt“ bzw. „Methode unbekannt“. Mit **Weiteren Wert hinzufügen** erfasst du einen ganzen Befund in einem Schritt.
+3. Eine **Gehaltsklasse** (A bis E) kannst du nur bei Phosphor, Kalium und Magnesium angeben, wenn der Wert aus dem Labor nach der CAL-Methode stammt – so, wie sie im Befund steht. Kamerplanter berechnet keine Klasse.
+
+Die Analyse erscheint als Pflegeeintrag in der [Historie des Beets](#historie-des-beets). Die neuesten Werte für pH, EC, Humus und Kalkgehalt übernimmt Kamerplanter mit ihrer Methode ins Bodenprofil, aber nur in der Einheit des Profils (pH, mS/cm bzw. dS/m, %) und nie aus einer älteren Analyse als der zuletzt übernommenen.
+
+**Verlauf:** Für pH, EC und Humus zeigt der Bereich je ein Diagramm mit einer eigenen Linie pro Messmethode. Wechselt die Methode von einer Analyse zur nächsten, markiert eine gestrichelte Linie „Methodenwechsel“: Werte verschiedener Methoden sind nicht vergleichbar, und Kamerplanter rechnet sie nie ineinander um. Mit **Als Tabelle anzeigen** siehst du dieselben Werte als Tabelle; ein Screenreader liest immer die Tabelle vor.
+
+**Kalkung wahrscheinlich sinnvoll:** Diesen Hinweis zeigt Kamerplanter nur, wenn das Beet die Füllung „Gewachsener Boden“ und eine bekannte Bodenart hat, der pH-Wert in CaCl₂ gemessen wurde und unter dem Ziel-pH liegt, den du im Bodenprofil eingetragen hast. Fehlt eine dieser Angaben, steht dort, welche. Eine Kalkmenge nennt Kamerplanter nie – die sagt dir dein Labor.
 
 ### Status des Beets ändern
 
