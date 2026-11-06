@@ -10,7 +10,7 @@ import { renderWithProviders } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import BedHeader from './BedHeader';
 import { bedSummary } from './bedTestKit';
-import type { BedSummary } from './types';
+import type { BedSummary, NutrientHint } from './types';
 import type { ReachThresholds } from '@/api/types';
 
 afterEach(() => cleanup());
@@ -183,5 +183,64 @@ describe('BedHeader cover photo (GP-FR-051)', () => {
     await waitFor(() => expect(screen.queryByTestId('bed-header-cover')).toBeNull());
     expect(requested).toBe(1);
     expect(screen.queryByTestId('bed-header-cover-image-error')).toBeNull();
+  });
+});
+
+describe('BedHeader nutrient hint (GP-FR-125)', () => {
+  const hint = (state: NutrientHint['state'], reasons: NutrientHint['reasons'] = [], extra: Partial<NutrientHint> = {}) => ({
+    state,
+    confidence: 'medium' as const,
+    reasons,
+    compost_and_p_withheld: false,
+    sources: ['test source'],
+    ...extra,
+  });
+
+  it('shows "Fertiliser likely needed" with its reasons and no number', async () => {
+    const view = renderHeader(
+      bedSummary({
+        nutrient_hint: hint('likely_deficit', ['feeding_overdue', 'preceding_nitrogen_fixer'], {
+          compost_and_p_withheld: true,
+        }),
+      }),
+    );
+    const fact = await screen.findByTestId('bed-header-nutrient');
+    expect(within(fact).getByTestId('bed-nutrient-badge')).toHaveTextContent('Fertiliser likely needed');
+    expect(within(fact).getByTestId('bed-nutrient-reasons')).toHaveTextContent(
+      'Your last feeding was a long time ago for the feeder level of your crop.',
+    );
+    expect(within(fact).getByTestId('bed-nutrient-reasons')).toHaveTextContent('beans or peas');
+    expect(within(fact).getByTestId('bed-nutrient-note')).toHaveTextContent(
+      'An estimate from your care log. The app does not name a fertiliser amount.',
+    );
+    // never a measurement-like number: neither a value nor the source text reaches the head
+    expect(fact.textContent).not.toMatch(/\d/);
+    expect(fact).not.toHaveTextContent('test source');
+    await expectNoA11yViolations(view.container);
+  });
+
+  it('shows "Check feeding" for the check state', async () => {
+    const view = renderHeader(bedSummary({ nutrient_hint: hint('check', ['bark_mulch_n_binding']) }));
+    const badge = await screen.findByTestId('bed-nutrient-badge');
+    expect(badge).toHaveTextContent('Check feeding');
+    expect(badge).toHaveAttribute('data-state', 'check');
+    expect(screen.getByTestId('bed-nutrient-reasons')).toHaveTextContent('Bark mulch binds nitrogen while it rots.');
+    await expectNoA11yViolations(view.container);
+  });
+
+  it.each(['ok', 'insufficient_data'] as const)('shows nothing for "%s"', async (state) => {
+    renderHeader(bedSummary({ nutrient_hint: hint(state, ['thresholds_without_source']) }));
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-nutrient')).toBeNull();
+  });
+
+  it('shows nothing without a hint (a location that is no bed, or an older server)', async () => {
+    renderHeader(bedSummary({ nutrient_hint: null }));
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-nutrient')).toBeNull();
+    cleanup();
+    renderHeader(bedSummary());
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-nutrient')).toBeNull();
   });
 });

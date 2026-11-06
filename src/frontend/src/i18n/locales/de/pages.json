@@ -6971,7 +6971,33 @@
         "reachHint": "Beet zu breit",
         "reachDetail_both": "{{width}} m breit – von zwei gegenüberliegenden Seiten erreichst du bis {{threshold}} m. Die Beetmitte erreichst du nur, wenn du ins Beet trittst.",
         "reachDetail_one": "{{width}} m breit – von einer Seite erreichst du bis {{threshold}} m. Die hintere Hälfte erreichst du nur, wenn du ins Beet trittst.",
-        "reachDetail_unknown": "{{width}} m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang ({{threshold}} m). Trage unter „Merkmale ändern“ ein, von welchen Seiten du an das Beet kommst."
+        "reachDetail_unknown": "{{width}} m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang ({{threshold}} m). Trage unter „Merkmale ändern“ ein, von welchen Seiten du an das Beet kommst.",
+        "nutrient": {
+          "label": "Nährstoffe",
+          "likelyDeficit": "Düngebedarf wahrscheinlich",
+          "check": "Düngung prüfen",
+          "confidence_low": "Eine grobe Einschätzung.",
+          "confidence_medium": "Eine Einschätzung aus deinem Pflegeprotokoll.",
+          "confidence_high": "Eine Einschätzung aus deinem Laborbefund.",
+          "noAmount": "Eine Düngemenge nennt die App nicht.",
+          "reasons": {
+            "substrate_bed": "Für Beete mit mineralischem Substrat gilt die Nährlösung, nicht dieser Hinweis.",
+            "no_current_crop": "In diesem Beet steht gerade keine Pflanze.",
+            "demand_unknown": "Für die Arten in diesem Beet ist keine Zehrerstufe hinterlegt.",
+            "thresholds_without_source": "Für diesen Hinweis gibt es noch keine belegten Schwellenwerte.",
+            "no_feeding_recorded": "Im letzten Jahr hast du für dieses Beet keine Düngung erfasst.",
+            "feeding_overdue": "Deine letzte Düngung liegt für die Zehrerstufe deiner Kultur lange zurück.",
+            "feeding_due": "Deine letzte Düngung liegt schon eine Weile zurück. Schau nach, ob deine Pflanzen Nachschub brauchen.",
+            "fed_recently": "Du hast vor Kurzem gedüngt.",
+            "p_class_low": "Laut deinem Laborbefund ist der Boden knapp mit Phosphor versorgt.",
+            "k_class_low": "Laut deinem Laborbefund ist der Boden knapp mit Kalium versorgt.",
+            "content_classes_sufficient": "Laut deinem Laborbefund sind Phosphor und Kalium ausreichend vorhanden.",
+            "demand_partly_unknown": "Nicht für jede Art in diesem Beet ist die Zehrerstufe hinterlegt.",
+            "preceding_nitrogen_fixer": "Im Vorjahr standen hier Stickstoffsammler wie Bohnen oder Erbsen. Wie viel Stickstoff sie hinterlassen haben, schätzt die App nicht.",
+            "bark_mulch_n_binding": "Seit deiner letzten Düngung hast du mit Rindenmulch gemulcht. Rindenmulch bindet beim Verrotten Stickstoff.",
+            "p_or_k_class_high": "Laut deinem Laborbefund ist der Boden reichlich mit Phosphor oder Kalium versorgt. Kompost und Phosphordünger brauchst du hier nicht zur Nährstoffversorgung."
+          }
+        }
       },
       "status": {
         "title": "Status des Beets ändern",
