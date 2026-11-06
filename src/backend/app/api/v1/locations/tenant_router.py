@@ -31,6 +31,7 @@ from app.api.v1.locations.schemas import (
     LocationResponse,
     LocationStatusRequest,
     NeighbourHintResponse,
+    NutrientHintResponse,
     PlanPointResponse,
     PlantingItemResponse,
     PlantingLayoutPreviewRequest,
@@ -239,7 +240,11 @@ def get_location_summary(
     ctx: TenantContext = Depends(get_current_tenant),
     service: GardenResourceService = Depends(get_garden_resource_service),
 ) -> BedSummaryResponse:
-    """The head data of the bed view: area, type, status, soil, sun, plants, tasks, last care (GP-API-012)."""
+    """The head data of the bed view: area, type, status, soil, sun, plants, tasks, last care (GP-API-012).
+
+    A bed also carries `nutrient_hint` (GP-FR-125): `ok`, `check`, `likely_deficit` or `insufficient_data` with
+    reason codes, never a number. Thresholds without a source take no part (E-10).
+    """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
     counters = view.counters
     return to_response(
@@ -253,6 +258,7 @@ def get_location_summary(
         overdue_task_count=counters.overdue_task_count,
         next_due_at=counters.next_due_at,
         last_care_at=counters.last_care_at,
+        nutrient_hint=NutrientHintResponse.from_hint(view.nutrient_hint),
     )
 
 

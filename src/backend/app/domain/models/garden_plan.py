@@ -23,6 +23,7 @@ from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SlotRo
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
+from app.domain.models.nutrient_hint import NutrientHint
 from app.domain.models.site import Location, Microclimate, SiteConditions, SitePlan, Slot, SoilProfile, SunProfile
 
 if TYPE_CHECKING:
@@ -519,6 +520,8 @@ class BedSummaryView:
     #: ``planted`` or ``empty`` until the run, rotation and covering data of wave 3/4 exist (§7.4).
     season_state: str
     is_bed: bool
+    #: GP-FR-125 (WP 8.10): the nutrient hint of a bed; ``None`` for a location that is no bed.
+    nutrient_hint: NutrientHint | None = None
 
 
 # ── Read model (GP-API-001) ───────────────────────────────────────────────────

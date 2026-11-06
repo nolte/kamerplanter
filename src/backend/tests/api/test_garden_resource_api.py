@@ -11,6 +11,7 @@ Cross-tenant negative tests per endpoint are WP 1.10; the 404 here is the tenant
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -23,13 +24,18 @@ from app.common.dependencies import (
     get_site_service,
     get_tenant_service,
 )
-from app.common.enums import BedStatus, TenantRole
+from app.common.enums import BedStatus, NutrientDemand, TenantRole
 from app.common.exceptions import NotFoundError
+from app.domain.engines.nutrient_hint_engine import DEFAULT_CONFIG, NutrientHintConfig, SourcedThreshold
+from app.domain.interfaces.care_event_repository import CareEventRow
+from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_plan import BedCounters
 from app.domain.models.site import Slot
+from app.domain.models.species import Species
 from app.domain.models.user import User
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.nutrient_hint_service import NutrientHintService
 from app.domain.services.site_service import SiteService
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
@@ -168,6 +174,78 @@ class TestTheSummary:
 
     def test_a_foreign_bed_is_a_404(self, client) -> None:
         assert client().get(f"{_FOREIGN}/locations/bed/summary").status_code == 404
+
+
+class TestTheNutrientHint:
+    """GP-FR-125 (WP 8.10): the bed summary carries the hint - a state and codes, never a number."""
+
+    @staticmethod
+    def _install(repo: FakePlanRepo, config: NutrientHintConfig, feedings: list[CareEvent]) -> None:
+        from app.main import app
+
+        species = SimpleNamespace(
+            get_by_key=lambda key: Species(
+                _key=key, scientific_name="Solanum lycopersicum", nutrient_demand=NutrientDemand.HEAVY_FEEDER
+            ),
+            is_granted_to=lambda key, tenant_key: False,
+        )
+        events = SimpleNamespace(
+            list_events=lambda criteria, *, tenant_key, offset, limit: [
+                CareEventRow(event=e)
+                for e in feedings
+                if e.category == criteria.category and e.tenant_key == tenant_key
+            ]
+        )
+        validator = SimpleNamespace(
+            bed_rotation_entries=lambda location, *, tenant_key: ([], None),
+            timeline_resolver=lambda tenant_key: None,
+        )
+        hints = NutrientHintService(species, events, validator, config)  # type: ignore[arg-type]
+        service = GardenResourceService(
+            repo._sites, repo, FakeObjects(repo), GardenPlanService(repo._sites, repo), nutrient_hint=lambda: hints
+        )
+        app.dependency_overrides[get_garden_resource_service] = lambda: service
+
+    def test_without_a_sourced_threshold_a_bed_answers_insufficient_data(self, client, repo) -> None:
+        repo.counters["bed"] = BedCounters(active_plant_count=1, species_keys=["sp_tomato"])
+        self._install(repo, DEFAULT_CONFIG, [])
+        body = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed/summary").json()
+        assert body["nutrient_hint"] == {
+            "state": "insufficient_data",
+            "confidence": "low",
+            "reasons": ["thresholds_without_source"],
+            "compost_and_p_withheld": False,
+            "sources": [],
+        }
+
+    def test_with_a_sourced_test_threshold_the_wire_says_likely_deficit_without_a_number(self, client, repo) -> None:
+        repo.counters["bed"] = BedCounters(active_plant_count=1, species_keys=["sp_tomato"])
+        fed = CareEvent(
+            tenant_key=TENANT,
+            site_key=SITE,
+            location_key="bed",
+            category="feeding",
+            summary="x",
+            performed_at=datetime.now(UTC) - timedelta(days=90),
+        )
+        nulls = {each: SourcedThreshold() for each in NutrientDemand}
+        config = NutrientHintConfig(
+            likely_deficit_after_days={**nulls, NutrientDemand.HEAVY_FEEDER: SourcedThreshold(60, "test source")}
+        )
+        self._install(repo, config, [fed])
+        hint = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed/summary").json()["nutrient_hint"]
+        assert (hint["state"], hint["reasons"], hint["sources"]) == (
+            "likely_deficit",
+            ["feeding_overdue"],
+            ["test source"],
+        )
+        assert not [v for v in hint.values() if isinstance(v, (int, float)) and not isinstance(v, bool)]
+
+    def test_a_location_that_is_no_bed_carries_no_hint(self, client, repo) -> None:
+        repo.locations["tent"] = make_location("tent", name="Tent", location_type_key="greenhouse")
+        self._install(repo, DEFAULT_CONFIG, [])
+        body = client().get(f"{_BASE}/locations/tent/summary").json()
+        assert body["is_bed"] is False and body["nutrient_hint"] is None
 
 
 class TestPatch:

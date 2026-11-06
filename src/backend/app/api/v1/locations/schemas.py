@@ -39,6 +39,7 @@ from app.domain.calculators.planting_layout_calculator import (
 from app.domain.engines.crop_rotation_validator import TimelineEntry
 from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
+from app.domain.models.nutrient_hint import NUTRIENT_HINT_REASONS, NutrientHint, NutrientHintReason
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
 from app.domain.models.site import MAX_PHOTO_REF_LENGTH, MAX_PHOTOS_PER_LOCATION, SiteConditions
@@ -312,6 +313,49 @@ class LocationStatusRequest(BaseModel):
     )
 
 
+class NutrientHintResponse(BaseModel):
+    """The nutrient hint of a bed (GP-FR-125, W-010): a state with reason codes - never a number.
+
+    The UI words `likely_deficit` as "fertiliser likely needed". Every threshold of the rule table (REQ-053 §15.3)
+    takes part only with a `source`; none has one yet (E-10), so every bed answers `insufficient_data` with the reason
+    `thresholds_without_source` until a sourced value is configured. `compost_and_p_withheld` is `true` when a lab
+    result by CAL puts P or K into class D/E: the hint then never points to compost or a phosphorus fertiliser.
+    `sources` names the source of each threshold that decided the state.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "state": "insufficient_data",
+                    "confidence": "low",
+                    "reasons": ["thresholds_without_source", "preceding_nitrogen_fixer"],
+                    "compost_and_p_withheld": False,
+                    "sources": [],
+                }
+            ]
+        }
+    )
+
+    state: Literal["ok", "check", "likely_deficit", "insufficient_data"]
+    confidence: Literal["low", "medium", "high"]
+    reasons: list[NutrientHintReason] = Field(default_factory=list, max_length=len(NUTRIENT_HINT_REASONS))
+    compost_and_p_withheld: bool = False
+    sources: list[str] = Field(default_factory=list, max_length=len(NUTRIENT_HINT_REASONS))
+
+    @classmethod
+    def from_hint(cls, hint: NutrientHint | None) -> NutrientHintResponse | None:
+        if hint is None:
+            return None
+        return cls(
+            state=hint.state,
+            confidence=hint.confidence,
+            reasons=list(hint.reasons),
+            compost_and_p_withheld=hint.compost_and_p_withheld,
+            sources=list(hint.sources),
+        )
+
+
 class BedSummaryResponse(LocationResponse):
     """The head of the bed view (GP-API-012, GP-FR-047)."""
 
@@ -348,6 +392,8 @@ class BedSummaryResponse(LocationResponse):
     overdue_task_count: int = 0
     next_due_at: datetime | None = None
     last_care_at: datetime | None = None
+    #: GP-FR-125: only for a bed (`is_bed`); `null` for every other location.
+    nutrient_hint: NutrientHintResponse | None = None
 
 
 class LocationTreeNode(BaseModel):
