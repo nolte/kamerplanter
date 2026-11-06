@@ -853,6 +853,13 @@ CASES: tuple[Case, ...] = (
     # locations (WP 1.9)
     Case("list_locations", "GET", "/locations", params={"site_key": "site_b"}),
     Case("list_beds", "GET", "/locations", params={"site_key": "site_b", "is_bed": "true"}),
+    # REQ-053 WP 8.25: the bed list as CSV, with the member names opted in - the most revealing form of the route.
+    Case(
+        "list_beds_csv",
+        "GET",
+        "/locations",
+        params={"site_key": "site_b", "is_bed": "true", "format": "csv", "include_assignment": "true"},
+    ),
     Case(
         "create_location",
         "POST",

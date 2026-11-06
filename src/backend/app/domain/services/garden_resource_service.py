@@ -27,7 +27,7 @@ unless the caller is a lead.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -38,6 +38,12 @@ from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
 from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
+from app.domain.engines.bed_list_csv_engine import (
+    ASSIGNMENT_COLUMN,
+    COLUMN_ACTIVE_PLANTS,
+    COLUMN_IRRIGATION_ZONE,
+    COLUMN_TYPE,
+)
 from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
 from app.domain.engines.garden_plan_engine import (
     ERROR_INVALID_BED_TRANSITION,
@@ -53,7 +59,13 @@ from app.domain.engines.site_conditions_merge import merge_site_conditions, sent
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.models.care_event import CATEGORY_BED_STATUS_CHANGE, CareEvent
+from app.domain.models.bed_list_export import (
+    ERROR_TOO_MANY_ROWS,
+    MAX_BED_LIST_EXPORT_ROWS,
+    BedListExportRow,
+    LocationTypeName,
+)
+from app.domain.models.care_event import CATEGORY_BED_STATUS_CHANGE, CareEvent, display_performer
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     MAX_SLOTS_PER_BATCH,
@@ -129,6 +141,16 @@ def _not_found(field: str) -> PlanValidationError:
     return PlanValidationError([(None, field, ERROR_REFERENCE_NOT_FOUND, {})])
 
 
+def _name_order(location: Location) -> tuple[str, str]:
+    """The download's row order: by name, case-insensitive, the key breaking a tie."""
+    return location.name.casefold(), location.key or ""
+
+
+def _type_label(name: LocationTypeName | None, locale: str) -> str | None:
+    """The type's name in ``locale``; ``None`` when the type does not resolve (the CSV then writes its key)."""
+    return name.for_locale(locale) if name is not None else None
+
+
 class GardenResourceService:
     def __init__(
         self,
@@ -189,9 +211,19 @@ class GardenResourceService:
         ``is_bed`` is the ``is_bed`` flag of the location's type. Counters cost three queries over the
         listed keys, so a plain listing (neither filter) stays as cheap as before and carries none.
         """
+        with_counters = is_bed is not None or bed_status is not None
+        locations = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status)
+        counters: dict[str, BedCounters] = {}
+        if with_counters and locations:
+            counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
+        return [(loc, (counters.get(loc.key or "", BedCounters()) if with_counters else None)) for loc in locations]
+
+    def _filtered_locations(
+        self, site_key: SiteKey, *, tenant_key: str, is_bed: bool | None, bed_status: BedStatus | None
+    ) -> list[Location]:
+        """The owned site's locations, filtered by the ``is_bed`` flag of their type and by bed status."""
         self._owned_site(site_key, tenant_key=tenant_key)
         locations = self._sites.get_locations_by_site(site_key)
-        with_counters = is_bed is not None or bed_status is not None
         if bed_status is not None and is_bed is None:
             is_bed = True  # a status is a bed's property: ``bed_status=`` alone lists beds, not every location
         if is_bed is not None:
@@ -201,10 +233,75 @@ class GardenResourceService:
             locations = [loc for loc in locations if flags.get(loc.location_type_key, False) is is_bed]
         if bed_status is not None:
             locations = [loc for loc in locations if loc.bed_status is bed_status]
+        return locations
+
+    def export_bed_list(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        columns: Collection[str],
+        bed_status: BedStatus | None = None,
+        parent_location_key: LocationKey | None = None,
+        locale: str = "de",
+    ) -> list[BedListExportRow]:
+        """The beds of a site as the CSV download reads them (GP-FR-145/175, WP 8.25), sorted by name.
+
+        **Beds only**: the locations whose type has ``is_bed``, optionally of one ``bed_status``, behind the same
+        ownership step as :meth:`list_beds`. ``columns`` is the resolved selection (``resolve_bed_list_columns``):
+        only what a selected column needs is read - the counters for ``active_plants``, the type names for ``type``,
+        the zone names for ``irrigation_zone`` and, **only for** ``assigned_to`` (the SR-024 opt-in), the display
+        names of the members a bed is assigned to (``anonymisiert`` for an erased account; no account key leaves
+        this method). More than :data:`MAX_BED_LIST_EXPORT_ROWS` beds is 422 ``export.too_many_rows`` - checked
+        before any of those reads, and never a cut file.
+        """
+        listed = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=True, bed_status=bed_status)
+        if parent_location_key:
+            listed = [loc for loc in listed if loc.parent_location_key == parent_location_key]
+        if len(listed) > MAX_BED_LIST_EXPORT_ROWS:
+            raise PlanError(
+                ERROR_TOO_MANY_ROWS,
+                f"The export would have more than {MAX_BED_LIST_EXPORT_ROWS} rows; narrow it by status.",
+                status_code=422,
+                limit=MAX_BED_LIST_EXPORT_ROWS,
+            )
+        keys = [loc.key for loc in listed if loc.key]
+        wanted = set(columns)
         counters: dict[str, BedCounters] = {}
-        if with_counters and locations:
-            counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
-        return [(loc, (counters.get(loc.key or "", BedCounters()) if with_counters else None)) for loc in locations]
+        if COLUMN_ACTIVE_PLANTS in wanted and keys:
+            counters = self._plan.load_bed_counters(keys, tenant_key=tenant_key)
+        type_names: dict[str, LocationTypeName] = {}
+        if COLUMN_TYPE in wanted and listed:
+            type_names = self._plan.location_type_names(
+                sorted({loc.location_type_key for loc in listed if loc.location_type_key})
+            )
+        zone_names: dict[str, str] = {}
+        if COLUMN_IRRIGATION_ZONE in wanted and any(loc.irrigation_zone_key for loc in listed):
+            zone_names = self._plan.irrigation_zone_names(site_key, tenant_key=tenant_key)
+        include_assignment = ASSIGNMENT_COLUMN in wanted
+        assignees: dict[str, list[str]] = {}
+        if include_assignment and keys:
+            for assignee in self._plan.location_assignees(keys, tenant_key=tenant_key):
+                name = display_performer(assignee.user_key, assignee.display_name)
+                if name:
+                    assignees.setdefault(assignee.location_key, []).append(name)
+        rows = [
+            BedListExportRow(
+                location=loc,
+                counters=counters.get(loc.key or "", BedCounters()) if COLUMN_ACTIVE_PLANTS in wanted else None,
+                type_name=_type_label(type_names.get(loc.location_type_key), locale),
+                zone_name=zone_names.get(loc.irrigation_zone_key) if loc.irrigation_zone_key else None,
+                assignees=sorted(assignees.get(loc.key or "", []), key=str.casefold) if include_assignment else None,
+            )
+            for loc in sorted(listed, key=_name_order)
+        ]
+        logger.info(
+            "garden_resource.bed_list_exported",
+            site_key=site_key,
+            rows=len(rows),
+            include_assignment=include_assignment,
+        )
+        return rows
 
     # ── GP-API-012: the bed summary ───────────────────────────────────────────
 

@@ -6324,12 +6324,14 @@
           "formats": {
             "pdf": "PDF",
             "svg": "SVG",
-            "json": "Backup (JSON)"
+            "json": "Backup (JSON)",
+            "csv": "Bed list (CSV)"
           },
           "formatHints": {
             "pdf": "The plan to scale on paper – to print and take along.",
             "svg": "The drawing as a vector graphic, for editing in a drawing program.",
-            "json": "All beds, garden objects and plant places – to restore or to move. Without plants and tasks."
+            "json": "All beds, garden objects and plant places – to restore or to move. Without plants and tasks.",
+            "csv": "The beds of this site as a table – name, type, area, status and further columns of your choice. Without the plan."
           },
           "paper": "Paper",
           "orientation": "Orientation",
@@ -6365,7 +6367,43 @@
             "doesNotFit": "The plan does not fit the sheet at this scale. Choose a coarser scale or A3.",
             "rateLimited": "You asked for many exports in a short time. Wait a minute and try again.",
             "forbidden": "You may not export this plan.",
-            "failed": "The export did not work. Try again."
+            "failed": "The export did not work. Try again.",
+            "tooManyRows": "The bed list would be too long for one file (more than 2,000 beds).",
+            "unknownColumn": "The server does not know one of the chosen columns. Reload the page and choose the columns again.",
+            "noColumns": "Select at least one column."
+          },
+          "csv": {
+            "defaultColumns": "Standard columns",
+            "siteConditionColumns": "Site features (optional)",
+            "noColumns": "Select at least one column.",
+            "excel": "Excel variant",
+            "excelHint": "Columns separated by semicolons, numbers with a decimal comma. Opens directly as a table in Excel set to a decimal-comma language.",
+            "includeAssignment": "Include assignments",
+            "assignmentHint": "Adds the column “Assigned to” with the names of the members a bed is assigned to. That is personal data – share the file only with people who may see it. Off by default.",
+            "privacyWithAssignment": "The file holds the names of the members beds are assigned to. Notes and account data are never included.",
+            "summary": "The file holds one row per bed with these columns: {{columns}}.",
+            "columns": {
+              "name": "Name",
+              "type": "Type",
+              "area_m2": "Area (m²)",
+              "status": "Status",
+              "soil_texture": "Soil texture",
+              "irrigation_zone": "Irrigation zone",
+              "active_plants": "Active plants",
+              "sun_exposure": "Sun exposure",
+              "sun_window": "Sun window",
+              "direct_sun_hours_summer": "Direct sun hours in summer",
+              "foliage_shade_in_summer": "Leaf shade in summer",
+              "frost_risk": "Frost risk",
+              "cold_air_pocket": "Cold-air pocket",
+              "heat_retention": "Heat retention",
+              "wind_exposure": "Wind exposure",
+              "slope_deg": "Slope (°)",
+              "aspect_deg": "Aspect (°)",
+              "access_sides": "Access sides",
+              "site_flags": "Competition hints",
+              "assigned_to": "Assigned to"
+            }
           },
           "scope": "Scope",
           "scopes": {

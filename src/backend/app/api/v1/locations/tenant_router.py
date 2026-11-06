@@ -3,10 +3,12 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.responses import Response
 
 from app.api.mapping import to_response
 from app.api.v1.attachments.schemas import ThumbnailUris
-from app.api.v1.auth.router import limiter, user_rate_limit_key
+from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
+from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE
 from app.api.v1.locations.schemas import (
     BackfillRequest,
     BackfillResponse,
@@ -56,7 +58,8 @@ from app.api.v1.locations.schemas import (
 )
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
+from app.common.csv_download import CsvDelimiter, csv_download, csv_not_requested
 from app.common.datetimes import utc_range
 from app.common.dependencies import (
     get_bed_history_service,
@@ -72,7 +75,7 @@ from app.common.dependencies import (
     get_soil_analysis_service,
 )
 from app.common.enums import BedStatus
-from app.common.exceptions import ValidationError
+from app.common.exceptions import PlanError, ValidationError
 from app.common.openapi_responses import (
     CONFLICT_RESPONSE,
     FORBIDDEN_RESPONSE,
@@ -83,6 +86,7 @@ from app.common.pagination import PaginationParams, get_pagination
 from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
+from app.domain.engines.bed_list_csv_engine import ERROR_BEDS_ONLY, bed_list_csv_rows, resolve_bed_list_columns
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.interfaces.bed_history_repository import BedHistoryFilter
 from app.domain.models.care_event import CARE_EVENT_CATEGORIES
@@ -116,8 +120,29 @@ def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) 
     return service.get_location(key, tenant_key=ctx.tenant_key)
 
 
-@router.get("", response_model=list[BedListItemResponse])
+@router.get(
+    "",
+    response_model=list[BedListItemResponse],
+    responses={
+        **FORBIDDEN_RESPONSE,
+        200: {"content": {"text/csv": {}}, "description": "`format=csv`: the bed list as a UTF-8 CSV with BOM."},
+        422: {
+            "description": (
+                "`export.unknown_column` / `export.no_columns`: the column selection; `export.beds_only`: "
+                "`format=csv` with `is_bed=false`; `export.too_many_rows`: more than 2 000 beds."
+            )
+        },
+    },
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key, exempt_when=csv_not_requested)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant,
+    scope=PLAN_EXPORT_TENANT_SCOPE,
+    key_func=tenant_rate_limit_key,
+    exempt_when=csv_not_requested,
+)
 def list_locations(
+    request: Request,
     site_key: str = Query(..., description="Document key of the site to list locations for."),
     parent_location_key: str | None = Query(
         None, description="If set, list the child locations of this parent instead."
@@ -126,15 +151,68 @@ def list_locations(
         None, description="Only locations whose type is (true) or is not (false) a bed; adds the counters (GP-API-011)."
     ),
     bed_status: BedStatus | None = Query(None, description="Only beds in this status; adds the counters (GP-API-011)."),
-    ctx: TenantContext = Depends(get_current_tenant),
+    export_format: Literal["json", "csv"] = Query(
+        "json", alias="format", description="`csv` downloads the bed list as a file (GP-FR-145) instead of JSON."
+    ),
+    columns: str | None = Query(
+        None,
+        max_length=1000,
+        description=(
+            "`format=csv` only: comma-separated columns. Default `name,type,area_m2,status,soil_texture,"
+            "irrigation_zone,active_plants`; selectable besides: the site features `sun_exposure`, `sun_window`, "
+            "`direct_sun_hours_summer`, `foliage_shade_in_summer`, `frost_risk`, `cold_air_pocket`, "
+            "`heat_retention`, `wind_exposure`, `slope_deg`, `aspect_deg`, `access_sides`, `site_flags` (GP-FR-175)."
+        ),
+    ),
+    include_assignment: bool = Query(
+        False,
+        description=(
+            "`format=csv` only: add the column `assigned_to` with the display names of the members a bed is "
+            "assigned to. Off by default (SR-024): personal data enters the file only on request."
+        ),
+    ),
+    delimiter: CsvDelimiter = Query(
+        "comma",
+        description="`format=csv` only: `semicolon` is the Excel variant (semicolon delimiter, decimal comma).",
+    ),
+    locale: Literal["de", "en"] = Query("de", description="`format=csv` only: the language of the type names."),
+    # The verified tenant is recorded for the per-tenant export budget (GP-NFR-056); otherwise get_current_tenant.
+    ctx: TenantContext = Depends(get_budgeted_tenant),
     service: SiteService = Depends(get_site_service),
     resources: GardenResourceService = Depends(get_garden_resource_service),
-):
+) -> list[BedListItemResponse] | Response:
     """List a site's locations, or the children of a parent location.
 
     With ``is_bed`` or ``bed_status`` the rows carry ``active_plant_count``, ``open_task_count`` and
     ``next_due_at`` (GP-API-011).
+
+    ``format=csv`` (GP-FR-145/175) downloads the **beds** of the site (types with ``is_bed``; ``is_bed=false`` is
+    422 ``export.beds_only``), sorted by name: UTF-8 with BOM, RFC 4180 quoting, cells that look like a formula
+    prefixed with ``'`` (SR-016). The header row holds the column ids and enum cells the API's values (as the care-log
+    CSV). The columns are chosen with ``columns``; the member names of a bed only with ``include_assignment=true``
+    (SR-024). An unknown column is 422 ``export.unknown_column``. Rate-limited per account and per tenant (the
+    budget of the garden-plan exports); the JSON list is not counted.
     """
+    if export_format == "csv":
+        if is_bed is False:
+            raise PlanError(
+                ERROR_BEDS_ONLY, "The CSV lists beds only; drop is_bed=false.", status_code=422, field="is_bed"
+            )
+        selected = resolve_bed_list_columns(columns, include_assignment=include_assignment)
+        exported = resources.export_bed_list(
+            site_key,
+            tenant_key=ctx.tenant_key,
+            columns=selected,
+            bed_status=bed_status,
+            parent_location_key=parent_location_key,
+            locale=locale,
+        )
+        return csv_download(
+            selected,
+            bed_list_csv_rows(exported, selected, decimal_comma=delimiter == "semicolon"),
+            delimiter=delimiter,
+            filename_stem="bed-list",
+        )
     if is_bed is not None or bed_status is not None:
         rows = resources.list_beds(site_key, tenant_key=ctx.tenant_key, is_bed=is_bed, bed_status=bed_status)
         if parent_location_key:

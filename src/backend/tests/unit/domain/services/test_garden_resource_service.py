@@ -30,6 +30,9 @@ from app.common.exceptions import (
     PlanValidationError,
     WriteConflictError,
 )
+from app.domain.engines.bed_list_csv_engine import resolve_bed_list_columns
+from app.domain.models.bed_list_export import MAX_BED_LIST_EXPORT_ROWS, BedAssignee
+from app.domain.models.care_event import ANONYMIZED_MARKER
 from app.domain.models.garden_plan import (
     BedCounters,
     CreateGardenObjectData,
@@ -166,6 +169,104 @@ class TestTheBedList:
         service, _, _ = world
         with pytest.raises(NotFoundError):
             service.list_beds(SITE, tenant_key=OTHER_TENANT, is_bed=True, bed_status=None)
+
+
+# ── GP-FR-145/175: the bed list as a download (WP 8.25) ───────────────────────────────────────────
+
+
+class TestTheBedListDownload:
+    @pytest.fixture(autouse=True)
+    def beds(self, world):
+        _, repo, _ = world
+        repo.locations["bed"] = make_location(
+            "bed", name="beet b", geometry=rect(1, 1, 2, 1), irrigation_zone_key="zone_1"
+        )
+        repo.locations["raised"] = make_location(
+            "raised", name="Anbau A", geometry=rect(5, 5), location_type_key="raised_bed"
+        )
+        repo.locations["tent"] = make_location("tent", name="Tent", location_type_key="greenhouse")
+        repo.counters["bed"] = BedCounters(active_plant_count=4)
+        repo.assignees = [
+            (TENANT, BedAssignee("bed", "u_sabine", "Sabine")),
+            (TENANT, BedAssignee("bed", ANONYMIZED_MARKER, None)),
+            (TENANT, BedAssignee("raised", "u_ben", "Ben")),
+            (OTHER_TENANT, BedAssignee("bed", "u_mallory", "Mallory")),
+        ]
+
+    def export(self, service, *, include_assignment: bool = False, columns: str | None = None, **options):
+        return service.export_bed_list(
+            SITE,
+            tenant_key=options.pop("tenant", TENANT),
+            columns=resolve_bed_list_columns(columns, include_assignment=include_assignment),
+            **options,
+        )
+
+    def test_it_lists_the_beds_by_name_with_their_labels(self, world) -> None:
+        service, _, _ = world
+        rows = self.export(service)
+
+        assert [row.location.key for row in rows] == ["raised", "bed"]  # by name, case-insensitive; no tent
+        bed = rows[1]
+        assert (bed.type_name, bed.zone_name, bed.counters.active_plant_count) == ("Beet", "Tropf Ost", 4)
+        assert rows[0].zone_name is None and rows[0].counters.active_plant_count == 0
+
+    def test_the_type_name_follows_the_locale(self, world) -> None:
+        service, _, _ = world
+        assert [row.type_name for row in self.export(service, locale="en")] == ["Raised bed", "Bed"]
+
+    def test_without_the_opt_in_no_assignment_is_read_at_all(self, world) -> None:
+        """SR-024: not only left out of the file - the names are never loaded."""
+        service, repo, _ = world
+        rows = self.export(service)
+
+        assert {row.assignees for row in rows} == {None}
+        assert repo.assignee_reads == []
+
+    def test_with_the_opt_in_the_display_names_of_this_tenant(self, world) -> None:
+        service, _, _ = world
+        rows = {row.location.key: row.assignees for row in self.export(service, include_assignment=True)}
+
+        assert rows == {"bed": ["anonymisiert", "Sabine"], "raised": ["Ben"]}
+        assert "u_sabine" not in str(rows) and "Mallory" not in str(rows)
+
+    def test_a_read_runs_only_for_a_selected_column(self, world) -> None:
+        service, repo, _ = world
+        rows = self.export(service, columns="name,frost_risk")
+
+        assert repo.label_reads == []
+        assert {(row.type_name, row.zone_name, row.counters) for row in rows} == {(None, None, None)}
+
+        self.export(service, columns="active_plants,irrigation_zone,type")
+        assert sorted(repo.label_reads) == ["counters", "type_names", "zone_names"]
+
+    def test_the_status_and_parent_filters_apply(self, world) -> None:
+        service, repo, _ = world
+        repo.locations["raised"] = repo.locations["raised"].model_copy(update={"bed_status": BedStatus.RETIRED})
+        assert [row.location.key for row in self.export(service, bed_status=BedStatus.RETIRED)] == ["raised"]
+        assert self.export(service, parent_location_key="nowhere") == []
+
+    def test_too_many_rows_are_refused_before_any_counter_query(self, world) -> None:
+        service, repo, _ = world
+        for index in range(MAX_BED_LIST_EXPORT_ROWS):
+            repo.locations[f"b{index}"] = make_location(f"b{index}", name=f"B{index}")
+
+        with pytest.raises(PlanError) as refused:
+            self.export(service, include_assignment=True)
+        assert code_of(refused) == "export.too_many_rows"
+        assert refused.value.status_code == 422
+        assert repo.label_reads == [] and repo.assignee_reads == []
+
+    def test_exactly_the_cap_is_a_file(self, world) -> None:
+        service, repo, _ = world
+        for index in range(MAX_BED_LIST_EXPORT_ROWS - 2):  # plus "bed" and "raised"
+            repo.locations[f"b{index}"] = make_location(f"b{index}", name=f"B{index}")
+        assert len(self.export(service, columns="name")) == MAX_BED_LIST_EXPORT_ROWS
+
+    def test_a_foreign_site_is_a_404_and_reads_no_names(self, world) -> None:
+        service, repo, _ = world
+        with pytest.raises(NotFoundError):
+            self.export(service, tenant=OTHER_TENANT, include_assignment=True)
+        assert repo.assignee_reads == []
 
 
 # ── GP-API-012: the summary ────────────────────────────────────────────────────────────────────────

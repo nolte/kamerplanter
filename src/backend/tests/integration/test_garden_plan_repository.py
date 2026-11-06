@@ -60,6 +60,9 @@ _DOCUMENTS = (
     col.WATERING_EVENTS,
     # the underlay names an attachment, and its removal scans every carrier in one transaction (#2545)
     col.ATTACHMENTS,
+    # the bed list download names the members a bed is assigned to (REQ-053 WP 8.25)
+    col.MEMBERSHIPS,
+    col.LOCATION_ASSIGNMENTS,
     *_REFERENCE_READ,
 )
 #: Every edge collection the batch transaction declares — derived, so a relation added to the graph later is
@@ -1279,3 +1282,71 @@ class TestTheBatchCannotOverwriteAParallelUnderlay2545:
         plan = db.collection(col.SITES).get("site_a")["plan"]
         assert plan["plan_revision"] == 8 and plan["underlay"]["attachment_key"] == "att_1"
         assert db.collection(col.ATTACHMENTS).get("att_2").get("updated_at") is None  # the refused bind left nothing
+
+
+# ── the bed list download (REQ-053 WP 8.25, #2668) ──────────────────────────────────────────────────
+
+
+class TestTheBedListLabels:
+    """The three reads the CSV bed list adds: type names, zone names and the members a bed is assigned to."""
+
+    @pytest.fixture
+    def seeded(self, db):
+        db.collection(col.LOCATION_TYPES).update({"_key": "bed", "name_en": "Bed (en)"})
+        db.collection(col.LOCATION_TYPES).update({"_key": "greenhouse", "name": "Gewächshaus"})
+        db.collection(col.IRRIGATION_ZONES).insert_many(
+            [
+                {"_key": "zone_a", "tenant_key": A, "site_key": "site_a", "name": "Tropf Ost"},
+                {"_key": "zone_b", "tenant_key": B, "site_key": "site_b", "name": "Bobs Zone"},
+                # a zone stamped with another tenant on A's site is not A's
+                {"_key": "zone_x", "tenant_key": B, "site_key": "site_a", "name": "Fremd"},
+            ]
+        )
+        db.collection(col.USERS).insert_many(
+            [{"_key": "u_ben", "display_name": "Ben"}, {"_key": "u_bob", "display_name": "Bob"}]
+        )
+        db.collection(col.MEMBERSHIPS).insert_many(
+            [
+                {"_key": "m_sabine", "user_key": USER, "tenant_key": A, "is_active": True},
+                {"_key": "m_ben", "user_key": "u_ben", "tenant_key": A, "is_active": False},
+                {"_key": "m_bob", "user_key": "u_bob", "tenant_key": B, "is_active": True},
+                {"_key": "m_gone_user", "user_key": "u_gone", "tenant_key": A, "is_active": True},
+            ]
+        )
+        db.collection(col.LOCATION_ASSIGNMENTS).insert_many(
+            [
+                {"membership_key": "m_sabine", "location_key": "bed_1", "tenant_key": A},
+                {"membership_key": "m_ben", "location_key": "bed_1", "tenant_key": A},  # an ended membership
+                {"membership_key": "m_bob", "location_key": "bed_1", "tenant_key": A},  # a foreign membership
+                {"membership_key": "m_bob", "location_key": "bed_1", "tenant_key": B},  # a foreign assignment
+                {"membership_key": "m_gone_user", "location_key": "bed_2", "tenant_key": A},
+                {"membership_key": "m_missing", "location_key": "bed_2", "tenant_key": A},
+            ]
+        )
+        return ArangoGardenPlanRepository(db)
+
+    def test_the_type_names_in_both_languages(self, seeded) -> None:
+        names = seeded.location_type_names(["bed", "greenhouse", "unknown"])
+
+        assert {key: (value.name, value.name_en) for key, value in names.items()} == {
+            "bed": ("Bed", "Bed (en)"),
+            "greenhouse": ("Gewächshaus", None),
+        }
+
+    def test_the_zone_names_of_the_tenants_site_only(self, seeded) -> None:
+        assert seeded.irrigation_zone_names("site_a", tenant_key=A) == {"zone_a": "Tropf Ost"}
+        assert seeded.irrigation_zone_names("site_b", tenant_key=A) == {}
+
+    def test_the_assignees_of_active_memberships_of_the_tenant(self, seeded) -> None:
+        rows = seeded.location_assignees(["bed_1", "bed_2"], tenant_key=A)
+
+        assert sorted((row.location_key, row.user_key, row.display_name) for row in rows) == [
+            ("bed_1", USER, "Sabine"),
+            ("bed_2", "u_gone", None),  # the account is gone: the service names it "anonymisiert"
+        ]
+
+    def test_an_empty_tenant_is_refused(self, seeded) -> None:
+        with pytest.raises(ValueError):
+            seeded.location_assignees(["bed_1"], tenant_key="")
+        with pytest.raises(ValueError):
+            seeded.irrigation_zone_names("site_a", tenant_key="")
