@@ -47,7 +47,7 @@ describe('SoilAnalysisDialog', () => {
     renderDialog();
     await user.type(await screen.findByTestId('soil-analysis-value-1'), '6.4');
     await user.click(screen.getByTestId('soil-analysis-submit'));
-    expect(await screen.findByText('Choose the measuring method.')).toBeInTheDocument();
+    expect(await screen.findByText('Choose the measuring method - without it the value cannot be read.')).toBeInTheDocument();
     expect(posted).toBe(false);
   });
 

@@ -139,7 +139,7 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
       ) : (
         <>
           {/* The chart is a picture of the table below it; screen readers read the table. */}
-          <Box aria-hidden sx={{ width: '100%', height: { xs: 220, sm: 260 } }}>
+          <Box aria-hidden sx={{ width: '100%', height: { xs: 280, sm: 300 } }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
@@ -151,13 +151,15 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
                   tickFormatter={date}
                   stroke={theme.palette.text.secondary}
                   allowDuplicatedCategory={false}
+                  minTickGap={32}
+                  tick={{ fontSize: 12 }}
                 />
-                <YAxis stroke={theme.palette.text.secondary} tickFormatter={number} width={48} />
+                <YAxis stroke={theme.palette.text.secondary} tickFormatter={number} width={48} tick={{ fontSize: 12 }} />
                 <Tooltip
                   labelFormatter={(label) => date(Number(label))}
                   formatter={(value, name) => [number(Number(value)), name]}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 13, paddingTop: 8 }} />
                 {history.changes.map((time) => (
                   <ReferenceLine
                     key={time}
@@ -176,7 +178,7 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
                     stroke={colors[index % colors.length]}
                     strokeDasharray={DASHES[index % DASHES.length]}
                     strokeWidth={2}
-                    dot={{ r: 4 }}
+                    dot={{ r: 5 }}
                     isAnimationActive={false}
                   />
                 ))}

@@ -4,7 +4,7 @@
  * a care event (`soil_analysis`); the server writes the newest pH, EC, humus and lime values with their method into
  * the soil profile. Nothing is converted between methods or units, and no amount is suggested from it.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -13,7 +13,6 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -72,6 +71,10 @@ export default function SoilAnalysisDialog({ bedKey, bedName, onClose, onSaved }
   const [nextId, setNextId] = useState(2);
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The row that was just added takes the focus; after a removal the focus returns to "add value".
+  const [focusRowId, setFocusRowId] = useState<number | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const errors = showErrors ? validateSoilAnalysis(form, now) : { rows: {} };
 
   const patchRow = (id: number, change: (row: MeasurementRow) => MeasurementRow) =>
@@ -82,11 +85,15 @@ export default function SoilAnalysisDialog({ bedKey, bedName, onClose, onSaved }
     const used = new Set(form.rows.map((row) => row.parameter));
     const parameter = SOIL_PARAMETERS.find((value) => !used.has(value)) ?? 'ph';
     setForm((current) => ({ ...current, rows: [...current.rows, emptyRow(nextId, parameter)] }));
+    setFocusRowId(nextId);
     setNextId((value) => value + 1);
   };
 
-  const removeRow = (id: number) =>
+  const removeRow = (id: number) => {
     setForm((current) => ({ ...current, rows: current.rows.filter((row) => row.id !== id) }));
+    setFocusRowId(null);
+    addButtonRef.current?.focus();
+  };
 
   const unitLabel = (unit: string) => t(`enums.soilUnit.${unit}`, { defaultValue: unit });
   const parameterLabel = (parameter: string) => t(`enums.soilParameter.${parameter}`, { defaultValue: parameter });
@@ -102,6 +109,8 @@ export default function SoilAnalysisDialog({ bedKey, bedName, onClose, onSaved }
   const submit = async () => {
     if (hasErrors(validateSoilAnalysis(form, new Date()))) {
       setShowErrors(true);
+      // Move the focus to the first field with a problem once the errors are rendered.
+      window.setTimeout(() => contentRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
       return;
     }
     setSaving(true);
@@ -126,7 +135,7 @@ export default function SoilAnalysisDialog({ bedKey, bedName, onClose, onSaved }
       data-testid="soil-analysis-dialog"
     >
       <DialogTitle id="soil-analysis-title">{t(`${PREFIX}.title`, { name: bedName })}</DialogTitle>
-      <DialogContent>
+      <DialogContent ref={contentRef}>
         <DialogContentText sx={{ mb: 2 }}>{t(`${PREFIX}.description`)}</DialogContentText>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -191,6 +200,7 @@ export default function SoilAnalysisDialog({ bedKey, bedName, onClose, onSaved }
               removable={form.rows.length > 1}
               onChange={(change) => patchRow(row.id, change)}
               onRemove={() => removeRow(row.id)}
+              autoFocus={row.id === focusRowId}
               parameterLabel={parameterLabel}
               unitLabel={unitLabel}
             />
@@ -199,12 +209,16 @@ export default function SoilAnalysisDialog({ bedKey, bedName, onClose, onSaved }
             <Button
               startIcon={<AddIcon />}
               onClick={addRow}
+              ref={addButtonRef}
               disabled={form.rows.length >= MAX_ROWS}
               sx={{ minHeight: 48 }}
               data-testid="soil-analysis-add-row"
             >
               {t(`${PREFIX}.addValue`)}
             </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 1 }}>
+              {t(`${PREFIX}.rowCount`, { count: form.rows.length, max: MAX_ROWS })}
+            </Typography>
           </Box>
           <Typography variant="body2" color="text.secondary">
             {t(`${PREFIX}.noConversion`)}
@@ -237,6 +251,7 @@ interface MeasurementRowFieldsProps {
   removable: boolean;
   onChange: (change: (row: MeasurementRow) => MeasurementRow) => void;
   onRemove: () => void;
+  autoFocus: boolean;
   parameterLabel: (parameter: string) => string;
   unitLabel: (unit: string) => string;
 }
@@ -249,6 +264,7 @@ function MeasurementRowFields({
   removable,
   onChange,
   onRemove,
+  autoFocus,
   parameterLabel,
   unitLabel,
 }: MeasurementRowFieldsProps) {
@@ -269,9 +285,21 @@ function MeasurementRowFields({
       <Box component="legend" sx={{ px: 0.5, typography: 'caption', color: 'text.secondary' }}>
         {t(`${PREFIX}.valueN`, { n: position })}
       </Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'flex-start' } }}>
+      {/* Phone: parameter and method full width, value + unit side by side; from sm one row of four fields. */}
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          alignItems: 'start',
+          gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr)) auto' },
+          '& > .MuiTextField-root': { gridColumn: { xs: 'span 2', sm: 'auto' } },
+          '& > .soil-value, & > .soil-unit': { gridColumn: { xs: 'span 1', sm: 'auto' } },
+          '& > .soil-class': { gridColumn: { xs: 'span 2', sm: '1 / span 4' } },
+        }}
+      >
         <TextField
           select
+          autoFocus={autoFocus}
           label={t(`${PREFIX}.parameter`)}
           value={row.parameter}
           onChange={(event) => onChange((current) => withParameter(current, event.target.value as SoilParameter))}
@@ -286,6 +314,7 @@ function MeasurementRowFields({
           ))}
         </TextField>
         <TextField
+          className="soil-value"
           label={t(`${PREFIX}.value`)}
           value={row.value}
           onChange={(event) => {
@@ -301,6 +330,7 @@ function MeasurementRowFields({
         />
         <TextField
           select
+          className="soil-unit"
           label={t(`${PREFIX}.unit`)}
           value={row.unit}
           onChange={(event) => {
@@ -345,6 +375,7 @@ function MeasurementRowFields({
         {showClass && (
           <TextField
             select
+            className="soil-class"
             label={t(`${PREFIX}.contentClass`)}
             value={row.contentClass}
             onChange={(event) => {
@@ -365,16 +396,26 @@ function MeasurementRowFields({
           </TextField>
         )}
         {removable && (
-          <IconButton
+          <Button
             onClick={onRemove}
+            color="inherit"
             aria-label={t(`${PREFIX}.removeValue`, { n: position })}
-            sx={{ width: 48, height: 48, alignSelf: { xs: 'flex-end', sm: 'center' } }}
+            startIcon={<DeleteOutlinedIcon />}
+            sx={{
+              minWidth: 48,
+              minHeight: 48,
+              gridColumn: { xs: 'span 2', sm: 'auto' },
+              justifySelf: { xs: 'end', sm: 'center' },
+              '& .MuiButton-startIcon': { mr: { xs: 1, sm: 0 }, ml: { xs: -0.5, sm: 0 } },
+            }}
             data-testid={`soil-analysis-remove-${position}`}
           >
-            <DeleteOutlinedIcon />
-          </IconButton>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+              {t(`${PREFIX}.removeValueShort`)}
+            </Box>
+          </Button>
         )}
-      </Stack>
+      </Box>
     </Paper>
   );
 }

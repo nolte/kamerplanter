@@ -7041,13 +7041,13 @@
         "ecMethodHelper": "An EC value cannot be read without its method. The app never converts values between methods.",
         "ecMethodRequired": "Choose how the EC was measured, or \"Method unknown\".",
         "targetPh": "Target pH (CaCl₂)",
-        "targetPhHelper": "Only fill this in if your lab states it. The app does not derive a target pH from the soil texture.",
+        "targetPhHelper": "The pH your lab names as the goal for your soil - measured in CaCl₂ solution (calcium chloride), not in water. Only fill this in if the report states it; the app does not derive it from the soil texture.",
         "analysis": {
           "record": "Record soil analysis",
           "title": "Record a soil analysis for {{name}}",
           "description": "Enter the values from your lab report, test kit or probe, each with its unit and measuring method. The newest pH, EC, humus and lime values go into the soil profile automatically.",
           "performedAt": "Sample taken on",
-          "performedAtHelper": "Up to one year back.",
+          "performedAtHelper": "At most 365 days back, not in the future.",
           "source": "Source",
           "sourceHelper": "Where do the values come from?",
           "depth": "Sampling depth",
@@ -7060,8 +7060,8 @@
           "method": "Method",
           "methodNone": "Not given",
           "methodHelper": {
-            "ph": "It is on the report or the pack; otherwise \"Probe, method unknown\".",
-            "ec": "It is on the report; otherwise \"Method unknown\"."
+            "ph": "Required. It is on the report or the pack; otherwise \"Probe, method unknown\".",
+            "ec": "Required. It is on the report; otherwise \"Method unknown\"."
           },
           "contentClass": "Content class",
           "contentClassHelper": "Only as stated in the lab report.",
@@ -7074,16 +7074,18 @@
           "saved": "Soil analysis saved.",
           "errors": {
             "future": "The time lies in the future.",
-            "tooOld": "At most one year back.",
+            "tooOld": "At most 365 days back.",
             "invalid": "Please enter a date and time.",
             "depth": "Enter a depth between 0 and 1000 cm.",
-            "method": "Choose the measuring method.",
+            "method": "Choose the measuring method - without it the value cannot be read.",
             "value": {
               "required": "Enter a value.",
               "number": "That is not a number.",
               "range": "This value is not possible for the parameter."
             }
-          }
+          },
+          "rowCount": "{{count}} of {{max}} values",
+          "removeValueShort": "Remove"
         },
         "history": {
           "title": "Soil analyses",
@@ -7110,7 +7112,7 @@
         },
         "liming": {
           "likelyTitle": "Liming likely worthwhile",
-          "likely": "Your pH (measured in CaCl₂) is below the target pH you entered. Ask your lab how much lime your soil needs - the app does not give an amount.",
+          "likely": "Hint: Your pH (measured in CaCl₂) is below the target pH you entered. Whether and how much lime your soil needs is for you to clarify with your lab - the app does not give an amount.",
           "reasons": {
             "below_target": "Liming likely worthwhile.",
             "at_or_above_target": "No sign of a lime need: your pH is not below the target pH.",
