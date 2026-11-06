@@ -6529,7 +6529,6 @@
             "done": "Übernommen"
           },
           "help": "Lege viele Beete auf einmal an: Wähle eine CSV-Datei mit einer Zeile pro Beet. Zuerst prüft Kamerplanter die Datei und zeigt dir, welche Zeilen passen – angelegt wird erst, wenn du bestätigst.",
-          "columns": "Pflichtspalten in der Kopfzeile: Name;Typ;Breite_m;Länge_m (oder englisch name;type;width_m;length_m). Optional: Sonne, Bodenart, Zone (Name einer Bewässerungszone). Weitere Spalten werden übergangen.",
           "format": "Trenne die Spalten mit Semikolon (;), Dezimalzahlen mit Komma oder Punkt (2,5). Die Datei muss UTF-8-kodiert sein, höchstens 1 MB groß und höchstens {{rows}} Zeilen lang.",
           "chooseFile": "CSV-Datei wählen …",
           "chooseOther": "Andere Datei wählen …",
@@ -6554,7 +6553,11 @@
             "csv_duplicate_column_plain": "Eine Spalte steht zweimal in der Kopfzeile.",
             "plan_quota_exceeded": "Die Grenze von {{limit}} wäre überschritten ({{current}}). Eine Beetliste hat höchstens 500 Zeilen, ein Standort höchstens 500 Beete und Gartenobjekte.",
             "plan_quota_exceeded_plain": "Eine Beetliste hat höchstens 500 Zeilen, ein Standort höchstens 500 Beete und Gartenobjekte.",
-            "plan_revision_conflict": "Jemand hat den Plan geändert, seit du die Datei geprüft hast. Prüfe sie noch einmal, dann kannst du übernehmen."
+            "plan_revision_conflict": "Jemand hat den Plan geändert, seit du die Datei geprüft hast. Prüfe sie noch einmal, dann kannst du übernehmen.",
+            "unsupportedType": "Das war keine CSV-Datei. Wähle eine Datei mit der Endung .csv.",
+            "csv_too_many_columns": "Die Kopfzeile hat mehr als 100 Spalten. Entferne die Spalten, die der Import nicht braucht.",
+            "batch_too_complex": "Die Prüfung hat länger als {{limit}} Sekunden gedauert und wurde abgebrochen, nichts wurde angelegt. Teile die Liste in mehrere kleinere Dateien.",
+            "batch_too_complex_plain": "Die Prüfung hat zu lange gedauert und wurde abgebrochen, nichts wurde angelegt. Teile die Liste in mehrere kleinere Dateien."
           },
           "summary": "{{valid}} von {{total}} Zeilen sind gültig, {{skipped}} werden übersprungen.",
           "noErrors": "Alle Zeilen sind in Ordnung.",
@@ -6592,7 +6595,11 @@
             "bed_overlap": "Das Beet würde ein anderes Beet überlappen.",
             "geometry_invalid": "Die Form des Beets ist ungültig.",
             "csv_formula_stripped": "Ein Formelzeichen am Anfang (= + - @) wurde entfernt."
-          }
+          },
+          "columnsRequired": "Pflichtspalten in der Kopfzeile: Name;Typ;Breite_m;Länge_m (oder englisch name;type;width_m;length_m).",
+          "columnsOptional": "Optional: Sonne, Bodenart und Zone (Name einer Bewässerungszone). Weitere Spalten werden übergangen.",
+          "downloadExample": "Beispieldatei herunterladen",
+          "noRows": "Die Datei enthält nur die Kopfzeile, aber kein Beet. Trage pro Beet eine Zeile ein und wähle die Datei erneut."
         },
         "season": {
           "title": "Neue Saison aus dem Vorjahr",

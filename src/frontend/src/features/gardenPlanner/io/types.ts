@@ -184,6 +184,8 @@ export interface BedCsvImportReport {
   warnings: BedCsvFinding[];
   warnings_total: number;
   ignored_columns: string[];
+  /** Exact count; `ignored_columns` lists at most 50. */
+  ignored_columns_total: number;
   applied: boolean;
   /** The revision the check ran against (sent back as `expected_revision`), or the new one. */
   plan_revision: number;

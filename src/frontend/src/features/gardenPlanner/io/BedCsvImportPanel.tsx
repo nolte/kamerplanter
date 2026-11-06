@@ -5,7 +5,7 @@
  * wizard (lazy, like the snapshots) and is the lead's, as the wizard is. The server parses the file; nothing here
  * reads its cells.
  */
-import { useId, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -19,7 +19,7 @@ import StepLabel from '@mui/material/StepLabel';
 import Stepper from '@mui/material/Stepper';
 import Typography from '@mui/material/Typography';
 import { isApiError } from '@/api/errors';
-import { importBedCsv } from './ioApi';
+import { importBedCsv, saveBlob } from './ioApi';
 import { codeKey } from './ImportReportView';
 import {
   MAX_CSV_FILE_BYTES,
@@ -31,6 +31,9 @@ import {
 
 const PREFIX = 'pages.gardenPlan.io.csv';
 const STEPS = ['file', 'report', 'done'] as const;
+/** The example file: the same shape the server documents; a BOM lets Excel open it as UTF-8. */
+const EXAMPLE_CSV =
+  '\uFEFFName;Typ;Breite_m;Länge_m;Sonne;Bodenart;Zone\r\nHochbeet 1;Hochbeet;2,0;1,2;Volle Sonne;Lehm;\r\nHochbeet 2;Hochbeet;1,5;1,2;;;\r\n';
 
 interface BedCsvImportPanelProps {
   siteKey: string;
@@ -55,6 +58,8 @@ const KNOWN_FAILURES = new Set([
   'csv_malformed',
   'csv_missing_column',
   'csv_duplicate_column',
+  'csv_too_many_columns',
+  'batch_too_complex',
   'plan_quota_exceeded',
   'plan_revision_conflict',
   'import_forbidden',
@@ -63,6 +68,7 @@ const KNOWN_FAILURES = new Set([
 function failureOf(error: unknown): Failure {
   if (!isApiError(error)) return { key: 'failed', values: {} };
   if (error.statusCode === 413) return { key: 'tooLarge', values: {} };
+  if (error.statusCode === 415) return { key: 'unsupportedType', values: {} };
   if (error.statusCode === 429) return { key: 'rateLimited', values: {} };
   if (error.statusCode === 404) return { key: 'notFound', values: {} };
   const code = codeKey(error.errorCode);
@@ -76,6 +82,7 @@ function failureOf(error: unknown): Failure {
   // A message that names a value the envelope did not carry falls back to the plain one.
   if (code === 'csv_missing_column' && values.columns === undefined) return { key: 'csv_missing_column_plain', values };
   if (code === 'csv_duplicate_column' && values.column === undefined) return { key: 'csv_duplicate_column_plain', values };
+  if (code === 'batch_too_complex' && values.limit === undefined) return { key: 'batch_too_complex_plain', values };
   if (code === 'plan_quota_exceeded' && values.limit === undefined) return { key: 'plan_quota_exceeded_plain', values };
   return { key: code, values };
 }
@@ -135,12 +142,20 @@ function FindingList({
   testId: string;
 }) {
   const { t } = useTranslation();
+  const titleId = useId();
   return (
-    <Alert severity={severity} data-testid={testId}>
-      <Typography variant="subtitle2" component="h4">
+    <Alert
+      severity={severity}
+      variant={severity === 'error' ? 'standard' : 'outlined'}
+      role="group"
+      aria-labelledby={titleId}
+      data-testid={testId}
+      sx={{ '& .MuiAlert-message': { minWidth: 0, flexGrow: 1 } }}
+    >
+      <Typography id={titleId} variant="subtitle2" component="h4">
         {title}
       </Typography>
-      <List dense disablePadding aria-label={title} sx={{ maxHeight: 240, overflowY: 'auto' }}>
+      <List dense disablePadding aria-label={title} sx={{ maxHeight: { xs: 200, sm: 280 }, overflowY: 'auto' }}>
         {findings.map((finding, index) => (
           <FindingRow key={`${finding.line}-${finding.column ?? ''}-${finding.code}-${index}`} finding={finding} />
         ))}
@@ -154,19 +169,29 @@ function FindingList({
   );
 }
 
-function CsvReport({ report }: { report: BedCsvImportReport }) {
+function CsvReport({ report, summaryRef }: { report: BedCsvImportReport; summaryRef: RefObject<HTMLHeadingElement | null> }) {
   const { t } = useTranslation();
   const bedsTitle = t(`${PREFIX}.bedsTitle`, { count: report.rows_valid });
+  const hiddenIgnored = report.ignored_columns_total - report.ignored_columns.length;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }} data-testid="plan-csv-report">
-      <Typography variant="body2" data-testid="plan-csv-summary">
+      <Typography
+        ref={summaryRef}
+        tabIndex={-1}
+        variant="subtitle1"
+        component="h3"
+        sx={{ outline: 'none' }}
+        data-testid="plan-csv-summary"
+      >
         {t(`${PREFIX}.summary`, { valid: report.rows_valid, total: report.rows_total, skipped: report.rows_skipped })}
       </Typography>
 
       {report.errors_total === 0 ? (
-        <Alert severity="success" data-testid="plan-csv-ok">
-          {t(`${PREFIX}.noErrors`)}
-        </Alert>
+        report.rows_total > 0 && (
+          <Alert severity="success" data-testid="plan-csv-ok">
+            {t(`${PREFIX}.noErrors`)}
+          </Alert>
+        )
       ) : (
         <FindingList
           findings={report.errors}
@@ -188,9 +213,10 @@ function CsvReport({ report }: { report: BedCsvImportReport }) {
       )}
 
       {report.ignored_columns.length > 0 && (
-        <Alert severity="info" data-testid="plan-csv-ignored">
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }} data-testid="plan-csv-ignored">
           {t(`${PREFIX}.ignoredColumns`, { columns: report.ignored_columns.join(', ') })}
-        </Alert>
+          {hiddenIgnored > 0 && ` ${t('pages.gardenPlan.io.import.more', { count: hiddenIgnored })}`}
+        </Typography>
       )}
 
       {report.rows.length > 0 && (
@@ -198,7 +224,7 @@ function CsvReport({ report }: { report: BedCsvImportReport }) {
           <Typography variant="subtitle2" component="h4">
             {bedsTitle}
           </Typography>
-          <List dense disablePadding aria-label={bedsTitle} sx={{ maxHeight: 240, overflowY: 'auto' }}>
+          <List dense disablePadding aria-label={bedsTitle} sx={{ maxHeight: { xs: 200, sm: 280 }, overflowY: 'auto' }}>
             {report.rows.map((row) => (
               <RowLine key={row.line} row={row} />
             ))}
@@ -208,7 +234,7 @@ function CsvReport({ report }: { report: BedCsvImportReport }) {
 
       {report.rows_valid === 0 && (
         <Alert severity="warning" data-testid="plan-csv-nothing">
-          {t(`${PREFIX}.nothingValid`)}
+          {t(report.rows_total === 0 ? `${PREFIX}.noRows` : `${PREFIX}.nothingValid`)}
         </Alert>
       )}
     </Box>
@@ -219,6 +245,7 @@ export default function BedCsvImportPanel({ siteKey, onBack, onBusyChange, onApp
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
   const helpId = useId();
+  const summaryRef = useRef<HTMLHeadingElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [report, setReport] = useState<BedCsvImportReport | null>(null);
@@ -280,6 +307,13 @@ export default function BedCsvImportPanel({ siteKey, onBack, onBusyChange, onApp
     }
   };
 
+  // After a check the reader's place is the report: move focus to its summary (screen readers announce it).
+  useEffect(() => {
+    if (report !== null) summaryRef.current?.focus();
+  }, [report]);
+
+  const downloadExample = () => saveBlob(new Blob([EXAMPLE_CSV], { type: 'text/csv;charset=utf-8' }), 'beete-beispiel.csv');
+
   const step = result !== null ? 2 : report !== null ? 1 : 0;
   const canApply = report !== null && !stale && report.rows_valid > 0 && !busy;
 
@@ -317,12 +351,11 @@ export default function BedCsvImportPanel({ siteKey, onBack, onBusyChange, onApp
         <>
           <Box id={helpId} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Typography variant="body2">{t(`${PREFIX}.help`)}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t(`${PREFIX}.columns`)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t(`${PREFIX}.format`, { rows: MAX_CSV_ROWS })}
-            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2.5, color: 'text.secondary', typography: 'body2' }}>
+              <li>{t(`${PREFIX}.columnsRequired`)}</li>
+              <li>{t(`${PREFIX}.columnsOptional`)}</li>
+              <li>{t(`${PREFIX}.format`, { rows: MAX_CSV_ROWS })}</li>
+            </Box>
           </Box>
           <input
             ref={fileInput}
@@ -334,16 +367,23 @@ export default function BedCsvImportPanel({ siteKey, onBack, onBusyChange, onApp
             tabIndex={-1}
             aria-hidden="true"
           />
-          <Box>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
               variant={report === null ? 'contained' : 'outlined'}
               onClick={() => fileInput.current?.click()}
               disabled={busy}
               aria-describedby={helpId}
-              sx={{ minHeight: 48 }}
+              sx={{ minHeight: 44 }}
               data-testid="plan-csv-choose"
             >
               {t(report === null ? `${PREFIX}.chooseFile` : `${PREFIX}.chooseOther`)}
+            </Button>
+            <Button
+              onClick={downloadExample}
+              sx={{ minHeight: 44 }}
+              data-testid="plan-csv-example"
+            >
+              {t(`${PREFIX}.downloadExample`)}
             </Button>
           </Box>
           {file !== null && fileError === null && (
@@ -357,7 +397,7 @@ export default function BedCsvImportPanel({ siteKey, onBack, onBusyChange, onApp
             </Alert>
           )}
 
-          {report !== null && <CsvReport report={report} />}
+          {report !== null && <CsvReport report={report} summaryRef={summaryRef} />}
 
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {onBack !== undefined && (

@@ -11,6 +11,7 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import ImportWizard from './ImportWizard';
+import * as ioApi from './ioApi';
 import type { BedCsvImportReport } from './types';
 
 const BASE = '/api/v1/t/:tenant';
@@ -41,6 +42,7 @@ function report(overrides: Partial<BedCsvImportReport> = {}): BedCsvImportReport
     warnings: [],
     warnings_total: 0,
     ignored_columns: [],
+    ignored_columns_total: 0,
     applied: false,
     plan_revision: 12,
     ...overrides,
@@ -149,6 +151,7 @@ describe('BedCsvImportPanel', () => {
         warnings: [{ line: 2, column: 'Name', code: 'csv.formula_stripped' }],
         warnings_total: 1,
         ignored_columns: ['Notiz'],
+        ignored_columns_total: 1,
       }),
     );
     const user = userEvent.setup();
@@ -238,6 +241,55 @@ describe('BedCsvImportPanel', () => {
     renderCsv();
     await choose(user);
     expect(await screen.findByTestId('plan-csv-failure')).toHaveTextContent('larger than 1 MB');
+  });
+
+  it('names the new whole-file refusals: too many columns, over budget (with its limit), wrong media type', async () => {
+    const user = userEvent.setup();
+    renderCsv();
+
+    useBackend(calls, () => failure(422, 'csv.too_many_columns', [{ field: 'file', code: 'csv.too_many_columns' }]));
+    await choose(user);
+    expect(await screen.findByTestId('plan-csv-failure')).toHaveTextContent('more than 100 columns');
+
+    useBackend(calls, () => failure(422, 'batch.too_complex', [{ field: 'file', code: 'batch.too_complex', limit: 20 }]));
+    await choose(user);
+    await waitFor(() => expect(screen.getByTestId('plan-csv-failure')).toHaveTextContent('longer than 20 seconds'));
+
+    useBackend(calls, () => failure(422, 'batch.too_complex'));
+    await choose(user);
+    await waitFor(() => expect(screen.getByTestId('plan-csv-failure')).toHaveTextContent('The check took too long'));
+
+    useBackend(calls, () => failure(415, 'UNSUPPORTED_MEDIA_TYPE'));
+    await choose(user);
+    await waitFor(() => expect(screen.getByTestId('plan-csv-failure')).toHaveTextContent('not a CSV file'));
+  });
+
+  it('shows how many ignored columns the server did not list', async () => {
+    useBackend(calls, () => report({ ignored_columns: ['A', 'B'], ignored_columns_total: 62 }));
+    const user = userEvent.setup();
+    renderCsv();
+    await choose(user);
+    expect(await screen.findByTestId('plan-csv-ignored')).toHaveTextContent('A, B');
+    expect(screen.getByTestId('plan-csv-ignored')).toHaveTextContent('60');
+  });
+
+  it('says so when the file holds only a header, and moves focus to the report summary', async () => {
+    useBackend(calls, () => report({ rows: [], rows_total: 0, rows_valid: 0, rows_skipped: 0, errors: [], errors_total: 0 }));
+    const user = userEvent.setup();
+    renderCsv();
+    await choose(user);
+    expect(await screen.findByTestId('plan-csv-nothing')).toHaveTextContent('only the header row');
+    expect(screen.queryByTestId('plan-csv-ok')).not.toBeInTheDocument();
+    expect(screen.getByTestId('plan-csv-summary')).toHaveFocus();
+  });
+
+  it('offers an example file for download', async () => {
+    const save = vi.spyOn(ioApi, 'saveBlob').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    renderCsv();
+    await user.click(await screen.findByTestId('plan-csv-example'));
+    expect(save).toHaveBeenCalledWith(expect.any(Blob), 'beete-beispiel.csv');
+    save.mockRestore();
   });
 
   it('is reachable from the backup import and leads back to it', async () => {

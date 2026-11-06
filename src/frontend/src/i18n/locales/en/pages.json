@@ -6528,7 +6528,6 @@
             "done": "Applied"
           },
           "help": "Create many beds at once: choose a CSV file with one line per bed. Kamerplanter checks the file first and shows you which lines fit – nothing is created until you confirm.",
-          "columns": "Required columns in the header row: Name;Typ;Breite_m;Länge_m (or name;type;width_m;length_m). Optional: Sonne/sun, Bodenart/soil_texture, Zone/irrigation_zone (the name of an irrigation zone). Other columns are skipped.",
           "format": "Separate the columns with a semicolon (;); decimals take a comma or a point (2,5). The file must be UTF-8 encoded, at most 1 MB and at most {{rows}} lines.",
           "chooseFile": "Choose CSV file …",
           "chooseOther": "Choose another file …",
@@ -6553,7 +6552,11 @@
             "csv_duplicate_column_plain": "A column appears twice in the header row.",
             "plan_quota_exceeded": "The limit of {{limit}} would be exceeded ({{current}}). A bed list holds at most 500 lines, a site at most 500 beds and garden objects.",
             "plan_quota_exceeded_plain": "A bed list holds at most 500 lines, a site at most 500 beds and garden objects.",
-            "plan_revision_conflict": "Someone changed the plan since you checked the file. Check it again, then you can apply it."
+            "plan_revision_conflict": "Someone changed the plan since you checked the file. Check it again, then you can apply it.",
+            "unsupportedType": "That was not a CSV file. Choose a file ending in .csv.",
+            "csv_too_many_columns": "The header row has more than 100 columns. Remove the columns the import does not need.",
+            "batch_too_complex": "The check took longer than {{limit}} seconds and was stopped; nothing was created. Split the list into several smaller files.",
+            "batch_too_complex_plain": "The check took too long and was stopped; nothing was created. Split the list into several smaller files."
           },
           "summary": "{{valid}} of {{total}} lines are valid, {{skipped}} will be skipped.",
           "noErrors": "All lines are fine.",
@@ -6591,7 +6594,11 @@
             "bed_overlap": "The bed would overlap another bed.",
             "geometry_invalid": "The shape of the bed is invalid.",
             "csv_formula_stripped": "A leading formula character (= + - @) was removed."
-          }
+          },
+          "columnsRequired": "Required columns in the header row: Name;Typ;Breite_m;Länge_m (or name;type;width_m;length_m).",
+          "columnsOptional": "Optional: Sonne/sun, Bodenart/soil_texture and Zone/irrigation_zone (the name of an irrigation zone). Other columns are skipped.",
+          "downloadExample": "Download an example file",
+          "noRows": "The file holds only the header row and no bed. Add one line per bed and choose the file again."
         },
         "season": {
           "title": "New season from last year",

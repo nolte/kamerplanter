@@ -294,6 +294,7 @@ describe('GardenPlanRoute', () => {
           warnings: [],
           warnings_total: 0,
           ignored_columns: [],
+          ignored_columns_total: 0,
           applied: !dryRun,
           plan_revision: dryRun ? 4 : 5,
         });
