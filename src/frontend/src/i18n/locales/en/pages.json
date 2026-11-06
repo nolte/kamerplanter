@@ -6314,7 +6314,9 @@
           "leadOnly": "Only a lead can restore a backup.",
           "unsaved": "Save or discard your changes to the plan first.",
           "season": "New season from last year …",
-          "seasonLeadOnly": "Only a lead can start a new season."
+          "seasonLeadOnly": "Only a lead can start a new season.",
+          "csv": "Import a bed list (CSV) …",
+          "csvLeadOnly": "Only a lead can import a bed list."
         },
         "export": {
           "title": "Export plan",
@@ -6496,7 +6498,9 @@
           "offsetX": "To the right (m)",
           "offsetY": "Up (m)",
           "offsetHelp": "Every shape in the file is moved by this distance. Empty or 0: do not move.",
-          "offsetInvalid": "Enter a number between -{{max}} and {{max}}."
+          "offsetInvalid": "Enter a number between -{{max}} and {{max}}.",
+          "csvHelp": "Your beds are in a spreadsheet? Import them as a CSV bed list.",
+          "csvOpen": "Import a bed list (CSV)"
         },
         "snapshots": {
           "title": "Earlier states",
@@ -6513,6 +6517,80 @@
             "import_not_empty": "Beds with active plants stand in this plan. Remove the plants or confirm that those beds stay.",
             "import_site_name_mismatch": "The name you typed does not match the site.",
             "plan_revision_conflict": "Somebody changed the plan. Reload the plan and check the state again."
+          }
+        },
+        "csv": {
+          "title": "Import a bed list (CSV)",
+          "stepsLabel": "Steps of the bed list import",
+          "steps": {
+            "file": "Choose file",
+            "report": "Check report",
+            "done": "Applied"
+          },
+          "help": "Create many beds at once: choose a CSV file with one line per bed. Kamerplanter checks the file first and shows you which lines fit – nothing is created until you confirm.",
+          "columns": "Required columns in the header row: Name;Typ;Breite_m;Länge_m (or name;type;width_m;length_m). Optional: Sonne/sun, Bodenart/soil_texture, Zone/irrigation_zone (the name of an irrigation zone). Other columns are skipped.",
+          "format": "Separate the columns with a semicolon (;); decimals take a comma or a point (2,5). The file must be UTF-8 encoded, at most 1 MB and at most {{rows}} lines.",
+          "chooseFile": "Choose CSV file …",
+          "chooseOther": "Choose another file …",
+          "fileErrors": {
+            "notCsv": "The file is not a CSV file (.csv).",
+            "empty": "The file is empty.",
+            "tooLarge": "The file is larger than 1 MB."
+          },
+          "failures": {
+            "failed": "That did not work. Try again.",
+            "rateLimited": "There were too many imports in a short time. Wait a minute.",
+            "notFound": "The site was not found.",
+            "tooLarge": "The file is larger than 1 MB.",
+            "import_forbidden": "Only a lead can import a bed list.",
+            "csv_invalid_encoding": "The file is not UTF-8 encoded. Save it from your spreadsheet as \"CSV UTF-8\".",
+            "csv_invalid_delimiter": "The columns must be separated by a semicolon (;).",
+            "csv_empty": "The file is empty or has no header row.",
+            "csv_malformed": "The file is not a readable CSV file.",
+            "csv_missing_column": "The header row lacks: {{columns}}.",
+            "csv_missing_column_plain": "The header row lacks a required column (Name;Typ;Breite_m;Länge_m).",
+            "csv_duplicate_column": "The column \"{{column}}\" appears twice in the header row.",
+            "csv_duplicate_column_plain": "A column appears twice in the header row.",
+            "plan_quota_exceeded": "The limit of {{limit}} would be exceeded ({{current}}). A bed list holds at most 500 lines, a site at most 500 beds and garden objects.",
+            "plan_quota_exceeded_plain": "A bed list holds at most 500 lines, a site at most 500 beds and garden objects.",
+            "plan_revision_conflict": "Someone changed the plan since you checked the file. Check it again, then you can apply it."
+          },
+          "summary": "{{valid}} of {{total}} lines are valid, {{skipped}} will be skipped.",
+          "noErrors": "All lines are fine.",
+          "errorsTitle_one": "{{count}} error – this line will be skipped",
+          "errorsTitle_other": "{{count}} errors – these lines will be skipped",
+          "warningsTitle_one": "{{count}} note",
+          "warningsTitle_other": "{{count}} notes",
+          "atLine": "Line {{line}}",
+          "atLineColumn": "Line {{line}}, column {{column}}",
+          "ignoredColumns": "The import does not know these columns and skips them: {{columns}}",
+          "bedsTitle_one": "{{count}} bed will be created",
+          "bedsTitle_other": "{{count}} beds will be created",
+          "size": "{{width}} × {{length}} m",
+          "nothingValid": "No line is valid – there is nothing to apply. Correct the file and choose it again.",
+          "recheck": "Check again",
+          "apply_one": "Create {{count}} bed",
+          "apply_other": "Create {{count}} beds",
+          "done_one": "{{count}} bed was created. It is selected on the plan – you can arrange it now.",
+          "done_other": "{{count}} beds were created. They are selected on the plan – you can arrange them now.",
+          "doneSkipped_one": "{{count}} faulty line was skipped.",
+          "doneSkipped_other": "{{count}} faulty lines were skipped.",
+          "toEditor": "Go to the plan",
+          "codes": {
+            "csv_required": "A required value is missing.",
+            "csv_too_long": "The text is too long.",
+            "csv_invalid_number": "This is not a valid number (example: 2.5).",
+            "csv_out_of_range": "The value is outside the allowed range.",
+            "csv_unknown_type": "This bed type does not exist.",
+            "csv_not_a_bed_type": "This type is not a bed.",
+            "csv_unknown_value": "The import does not know this value.",
+            "csv_unknown_zone": "This site has no irrigation zone with this name.",
+            "csv_ambiguous_zone": "Several irrigation zones have this name.",
+            "csv_does_not_fit": "The bed finds no more room on the free garden area.",
+            "geometry_outside_parent": "The bed would lie outside the garden area.",
+            "bed_overlap": "The bed would overlap another bed.",
+            "geometry_invalid": "The shape of the bed is invalid.",
+            "csv_formula_stripped": "A leading formula character (= + - @) was removed."
           }
         },
         "season": {

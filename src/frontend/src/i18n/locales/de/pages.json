@@ -6315,7 +6315,9 @@
           "leadOnly": "Nur die Leitung darf eine Sicherung einspielen.",
           "unsaved": "Speichere oder verwirf zuerst deine Änderungen am Plan.",
           "season": "Neue Saison aus dem Vorjahr …",
-          "seasonLeadOnly": "Nur die Leitung darf eine neue Saison anlegen."
+          "seasonLeadOnly": "Nur die Leitung darf eine neue Saison anlegen.",
+          "csv": "Beetliste importieren (CSV) …",
+          "csvLeadOnly": "Nur die Leitung darf eine Beetliste importieren."
         },
         "export": {
           "title": "Plan exportieren",
@@ -6497,7 +6499,9 @@
           "offsetX": "Nach rechts (m)",
           "offsetY": "Nach oben (m)",
           "offsetHelp": "Alle Formen der Datei werden um diesen Abstand verschoben. Leer oder 0: nicht verschieben.",
-          "offsetInvalid": "Gib eine Zahl zwischen -{{max}} und {{max}} ein."
+          "offsetInvalid": "Gib eine Zahl zwischen -{{max}} und {{max}} ein.",
+          "csvHelp": "Du hast deine Beete in einer Tabelle? Importiere sie als CSV-Beetliste.",
+          "csvOpen": "Beetliste importieren (CSV)"
         },
         "snapshots": {
           "title": "Frühere Stände",
@@ -6514,6 +6518,80 @@
             "import_not_empty": "In diesem Plan stehen Beete mit aktiven Pflanzen. Entferne die Pflanzen oder bestätige, dass diese Beete erhalten bleiben.",
             "import_site_name_mismatch": "Der eingegebene Name stimmt nicht mit dem Standort überein.",
             "plan_revision_conflict": "Jemand hat den Plan geändert. Lade den Plan neu und prüfe den Stand noch einmal."
+          }
+        },
+        "csv": {
+          "title": "Beetliste importieren (CSV)",
+          "stepsLabel": "Schritte des Beetlisten-Imports",
+          "steps": {
+            "file": "Datei wählen",
+            "report": "Prüfbericht",
+            "done": "Übernommen"
+          },
+          "help": "Lege viele Beete auf einmal an: Wähle eine CSV-Datei mit einer Zeile pro Beet. Zuerst prüft Kamerplanter die Datei und zeigt dir, welche Zeilen passen – angelegt wird erst, wenn du bestätigst.",
+          "columns": "Pflichtspalten in der Kopfzeile: Name;Typ;Breite_m;Länge_m (oder englisch name;type;width_m;length_m). Optional: Sonne, Bodenart, Zone (Name einer Bewässerungszone). Weitere Spalten werden übergangen.",
+          "format": "Trenne die Spalten mit Semikolon (;), Dezimalzahlen mit Komma oder Punkt (2,5). Die Datei muss UTF-8-kodiert sein, höchstens 1 MB groß und höchstens {{rows}} Zeilen lang.",
+          "chooseFile": "CSV-Datei wählen …",
+          "chooseOther": "Andere Datei wählen …",
+          "fileErrors": {
+            "notCsv": "Die Datei ist keine CSV-Datei (.csv).",
+            "empty": "Die Datei ist leer.",
+            "tooLarge": "Die Datei ist größer als 1 MB."
+          },
+          "failures": {
+            "failed": "Das hat nicht geklappt. Versuche es noch einmal.",
+            "rateLimited": "Es gab zu viele Importe in kurzer Zeit. Warte eine Minute.",
+            "notFound": "Der Standort wurde nicht gefunden.",
+            "tooLarge": "Die Datei ist größer als 1 MB.",
+            "import_forbidden": "Nur die Leitung darf eine Beetliste importieren.",
+            "csv_invalid_encoding": "Die Datei ist nicht UTF-8-kodiert. Speichere sie in deiner Tabellenkalkulation als „CSV UTF-8“.",
+            "csv_invalid_delimiter": "Die Spalten müssen mit Semikolon (;) getrennt sein.",
+            "csv_empty": "Die Datei ist leer oder hat keine Kopfzeile.",
+            "csv_malformed": "Die Datei ist keine lesbare CSV-Datei.",
+            "csv_missing_column": "In der Kopfzeile fehlt: {{columns}}.",
+            "csv_missing_column_plain": "In der Kopfzeile fehlt eine Pflichtspalte (Name;Typ;Breite_m;Länge_m).",
+            "csv_duplicate_column": "Die Spalte „{{column}}“ steht zweimal in der Kopfzeile.",
+            "csv_duplicate_column_plain": "Eine Spalte steht zweimal in der Kopfzeile.",
+            "plan_quota_exceeded": "Die Grenze von {{limit}} wäre überschritten ({{current}}). Eine Beetliste hat höchstens 500 Zeilen, ein Standort höchstens 500 Beete und Gartenobjekte.",
+            "plan_quota_exceeded_plain": "Eine Beetliste hat höchstens 500 Zeilen, ein Standort höchstens 500 Beete und Gartenobjekte.",
+            "plan_revision_conflict": "Jemand hat den Plan geändert, seit du die Datei geprüft hast. Prüfe sie noch einmal, dann kannst du übernehmen."
+          },
+          "summary": "{{valid}} von {{total}} Zeilen sind gültig, {{skipped}} werden übersprungen.",
+          "noErrors": "Alle Zeilen sind in Ordnung.",
+          "errorsTitle_one": "{{count}} Fehler – diese Zeile wird übersprungen",
+          "errorsTitle_other": "{{count}} Fehler – diese Zeilen werden übersprungen",
+          "warningsTitle_one": "{{count}} Hinweis",
+          "warningsTitle_other": "{{count}} Hinweise",
+          "atLine": "Zeile {{line}}",
+          "atLineColumn": "Zeile {{line}}, Spalte {{column}}",
+          "ignoredColumns": "Diese Spalten kennt der Import nicht und übergeht sie: {{columns}}",
+          "bedsTitle_one": "{{count}} Beet wird angelegt",
+          "bedsTitle_other": "{{count}} Beete werden angelegt",
+          "size": "{{width}} × {{length}} m",
+          "nothingValid": "Keine Zeile ist gültig – es gibt nichts zu übernehmen. Korrigiere die Datei und wähle sie erneut.",
+          "recheck": "Erneut prüfen",
+          "apply_one": "{{count}} Beet anlegen",
+          "apply_other": "{{count}} Beete anlegen",
+          "done_one": "{{count}} Beet wurde angelegt und im Plan markiert – du kannst es jetzt anordnen.",
+          "done_other": "{{count}} Beete wurden angelegt und im Plan markiert – du kannst sie jetzt anordnen.",
+          "doneSkipped_one": "{{count}} fehlerhafte Zeile wurde übersprungen.",
+          "doneSkipped_other": "{{count}} fehlerhafte Zeilen wurden übersprungen.",
+          "toEditor": "Zum Plan",
+          "codes": {
+            "csv_required": "Hier fehlt ein Pflichtwert.",
+            "csv_too_long": "Der Text ist zu lang.",
+            "csv_invalid_number": "Das ist keine gültige Zahl (Beispiel: 2,5).",
+            "csv_out_of_range": "Der Wert liegt außerhalb des erlaubten Bereichs.",
+            "csv_unknown_type": "Diesen Beettyp gibt es nicht.",
+            "csv_not_a_bed_type": "Dieser Typ ist kein Beet.",
+            "csv_unknown_value": "Diesen Wert kennt der Import nicht.",
+            "csv_unknown_zone": "An diesem Standort gibt es keine Bewässerungszone mit diesem Namen.",
+            "csv_ambiguous_zone": "Mehrere Bewässerungszonen tragen diesen Namen.",
+            "csv_does_not_fit": "Das Beet findet auf der freien Gartenfläche keinen Platz mehr.",
+            "geometry_outside_parent": "Das Beet läge außerhalb der Gartenfläche.",
+            "bed_overlap": "Das Beet würde ein anderes Beet überlappen.",
+            "geometry_invalid": "Die Form des Beets ist ungültig.",
+            "csv_formula_stripped": "Ein Formelzeichen am Anfang (= + - @) wurde entfernt."
           }
         },
         "season": {

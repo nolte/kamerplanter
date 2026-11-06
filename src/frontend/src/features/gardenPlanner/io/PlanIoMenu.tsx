@@ -14,6 +14,7 @@ import MenuItem from '@mui/material/MenuItem';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import EventRepeatOutlinedIcon from '@mui/icons-material/EventRepeatOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
+import TableViewOutlinedIcon from '@mui/icons-material/TableViewOutlined';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
 import type { PlanSelection } from './types';
 
@@ -36,19 +37,30 @@ interface PlanIoMenuProps {
   selection?: PlanSelection;
   /** Bed names by key, so the new-season report can name the beds it lists (WP 7.17). */
   bedNames?: Record<string, string>;
+  /** A CSV bed list was written (GP-FR-174): reload the plan and select the new beds. Falls back to `onImported`. */
+  onBedsImported?: (locationKeys: string[]) => void;
 }
 
-export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, selection, bedNames }: PlanIoMenuProps) {
+export function PlanIoMenu({
+  siteKey,
+  siteName,
+  canImport,
+  dirty,
+  onImported,
+  selection,
+  bedNames,
+  onBedsImported,
+}: PlanIoMenuProps) {
   const { t } = useTranslation();
   const menuId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [dialog, setDialog] = useState<'export' | 'import' | 'season' | null>(null);
+  const [dialog, setDialog] = useState<'export' | 'import' | 'csv' | 'season' | null>(null);
 
   let importOff: string | null = null;
   if (!canImport) importOff = t(`${PREFIX}.menu.leadOnly`);
   else if (dirty) importOff = t(`${PREFIX}.menu.unsaved`);
 
-  const open = (which: 'export' | 'import' | 'season') => {
+  const open = (which: 'export' | 'import' | 'csv' | 'season') => {
     setAnchor(null);
     setDialog(which);
   };
@@ -95,6 +107,20 @@ export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, se
           <ListItemText primary={t(`${PREFIX}.menu.import`)} secondary={importOff} />
         </MenuItem>
         <MenuItem
+          onClick={() => open('csv')}
+          disabled={importOff !== null}
+          sx={{ minHeight: 48 }}
+          data-testid="garden-plan-io-csv"
+        >
+          <ListItemIcon>
+            <TableViewOutlinedIcon />
+          </ListItemIcon>
+          <ListItemText
+            primary={t(`${PREFIX}.menu.csv`)}
+            secondary={!canImport ? t(`${PREFIX}.menu.csvLeadOnly`) : importOff}
+          />
+        </MenuItem>
+        <MenuItem
           onClick={() => open('season')}
           disabled={importOff !== null}
           sx={{ minHeight: 48 }}
@@ -113,13 +139,15 @@ export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, se
         {dialog === 'export' && (
           <ExportDialog open siteKey={siteKey} selection={selection} onClose={() => setDialog(null)} />
         )}
-        {dialog === 'import' && (
+        {(dialog === 'import' || dialog === 'csv') && (
           <ImportWizard
             open
             siteKey={siteKey}
             siteName={siteName}
+            initialView={dialog === 'csv' ? 'csv' : 'import'}
             onClose={() => setDialog(null)}
             onImported={onImported}
+            onBedsImported={onBedsImported}
           />
         )}
         {dialog === 'season' && (

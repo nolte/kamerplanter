@@ -2,6 +2,9 @@
  * The import assistant of the garden plan (REQ-053 GP-UX-051, GP-API-005) in three steps: pick the file, read the
  * check report (`dry_run`), choose the mode. `replace` names the mandatory snapshot and asks for the site's name
  * before anything is overwritten; the server asks for the same name. Lazy, like the export dialog.
+ *
+ * A CSV bed list (GP-FR-174, WP 8.27) is the wizard's other path: `initialView="csv"` (or the link on the first
+ * step) shows `BedCsvImportPanel`, its own lazy chunk, with the same check-then-confirm flow.
  */
 import { lazy, Suspense, useId, useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,11 +40,14 @@ import {
   type ImportFinding,
   type ImportMode,
   type ImportTarget,
+  type BedCsvImportReport,
   type PlanImportReport,
 } from './types';
 
 // The earlier states of the plan are their own chunk: most imports never look at them (UI-NFR-003).
 const SnapshotPanel = lazy(() => import('./SnapshotPanel'));
+// The CSV bed list path is its own chunk too: a backup restore never needs it.
+const BedCsvImportPanel = lazy(() => import('./BedCsvImportPanel'));
 
 const PREFIX = 'pages.gardenPlan.io.import';
 const STEPS = ['file', 'report', 'mode'] as const;
@@ -53,6 +59,10 @@ interface ImportWizardProps {
   onClose: () => void;
   /** The import was written; the page reloads the plan. */
   onImported: () => void;
+  /** Open on the CSV bed list path instead of the backup import. */
+  initialView?: 'import' | 'csv';
+  /** A CSV bed list was written: the keys of the new beds, so the page can reload and select them. */
+  onBedsImported?: (locationKeys: string[]) => void;
 }
 
 interface Checked {
@@ -106,7 +116,15 @@ function failureOf(error: unknown): Failure {
   return { key: KNOWN_FAILURES.has(code) ? code : 'failed', findings };
 }
 
-export default function ImportWizard({ open, siteKey, siteName, onClose, onImported }: ImportWizardProps) {
+export default function ImportWizard({
+  open,
+  siteKey,
+  siteName,
+  onClose,
+  onImported,
+  initialView = 'import',
+  onBedsImported,
+}: ImportWizardProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('sm'));
@@ -119,7 +137,9 @@ export default function ImportWizard({ open, siteKey, siteName, onClose, onImpor
   const [checked, setChecked] = useState<Checked | null>(null);
   const [mode, setMode] = useState<ImportMode>('replace');
   const [force, setForce] = useState(false);
-  const [view, setView] = useState<'import' | 'snapshots'>('import');
+  const [view, setView] = useState<'import' | 'snapshots' | 'csv'>(initialView);
+  const [csvBusy, setCsvBusy] = useState(false);
+  const [csvApplied, setCsvApplied] = useState(false);
   const [target, setTarget] = useState<ImportTarget>('same_site');
   const [offsetX, setOffsetX] = useState('');
   const [offsetY, setOffsetY] = useState('');
@@ -252,18 +272,28 @@ export default function ImportWizard({ open, siteKey, siteName, onClose, onImpor
   const nameMatches = confirmName.trim() === siteName.trim() && confirmName.trim() !== '';
   const canApply =
     current !== null && current.report.errors_total === 0 && offsetValid && (mode === 'merge' || nameMatches);
+  const working = busy || csvBusy;
+
+  const csvWritten = (report: BedCsvImportReport) => {
+    setCsvApplied(true);
+    const keys = report.rows.flatMap((row) => (row.location_key === null ? [] : [row.location_key]));
+    if (onBedsImported) onBedsImported(keys);
+    else onImported();
+  };
 
   return (
     <Dialog
       open={open}
-      onClose={busy ? undefined : onClose}
+      onClose={working ? undefined : onClose}
       fullScreen={phone}
       maxWidth="md"
       fullWidth
       aria-labelledby="plan-import-title"
       data-testid="plan-import-wizard"
     >
-      <DialogTitle id="plan-import-title">{t(`${PREFIX}.title`)}</DialogTitle>
+      <DialogTitle id="plan-import-title">
+        {view === 'csv' ? t('pages.gardenPlan.io.csv.title') : t(`${PREFIX}.title`)}
+      </DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         {result === null && view === 'import' && (
           <Stepper
@@ -308,6 +338,17 @@ export default function ImportWizard({ open, siteKey, siteName, onClose, onImpor
           </Suspense>
         )}
 
+        {result === null && view === 'csv' && (
+          <Suspense fallback={<LinearProgress aria-hidden="true" />}>
+            <BedCsvImportPanel
+              siteKey={siteKey}
+              onBack={initialView === 'csv' ? undefined : () => setView('import')}
+              onBusyChange={setCsvBusy}
+              onApplied={csvWritten}
+            />
+          </Suspense>
+        )}
+
         {result !== null ? (
           <Alert severity="success" data-testid="plan-import-done">
             {t(`${PREFIX}.done`, {
@@ -317,7 +358,7 @@ export default function ImportWizard({ open, siteKey, siteName, onClose, onImpor
             })}
             {result.snapshot_written && ` ${t(`${PREFIX}.doneSnapshot`)}`}
           </Alert>
-        ) : view === 'snapshots' ? null : (
+        ) : view !== 'import' ? null : (
           <>
             {step === 0 && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -364,6 +405,19 @@ export default function ImportWizard({ open, siteKey, siteName, onClose, onImpor
                     data-testid="plan-import-snapshots"
                   >
                     {t(`${PREFIX}.snapshotsOpen`)}
+                  </Button>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    {t(`${PREFIX}.csvHelp`)}
+                  </Typography>
+                  <Button
+                    onClick={() => setView('csv')}
+                    disabled={busy}
+                    sx={{ minHeight: 44 }}
+                    data-testid="plan-import-csv"
+                  >
+                    {t(`${PREFIX}.csvOpen`)}
                   </Button>
                 </Box>
               </Box>
@@ -536,8 +590,12 @@ export default function ImportWizard({ open, siteKey, siteName, onClose, onImpor
           <Button variant="contained" onClick={onClose} autoFocus sx={{ minHeight: 44 }} data-testid="plan-import-close">
             {t('common.close')}
           </Button>
-        ) : view === 'snapshots' ? (
-          <Button onClick={onClose} disabled={busy} sx={{ minHeight: 44 }}>
+        ) : view === 'csv' && csvApplied ? (
+          <Button variant="contained" onClick={onClose} autoFocus sx={{ minHeight: 44 }} data-testid="plan-csv-close">
+            {t('pages.gardenPlan.io.csv.toEditor')}
+          </Button>
+        ) : view !== 'import' ? (
+          <Button onClick={onClose} disabled={working} sx={{ minHeight: 44 }} data-testid="plan-import-cancel">
             {t('common.cancel')}
           </Button>
         ) : (
