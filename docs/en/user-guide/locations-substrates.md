@@ -290,6 +290,11 @@ If you open a location whose type is a bed (Bed, Raised Bed, Greenhouse Bed, Col
 
 Above the tabs you see at a glance: area, type, status, soil type, sun exposure, active plants, open tasks, last care, next due date and who is responsible for the bed. If the bed has a cover photo, it leads the summary (see [Photos of the bed](#photos-of-the-bed)). Use the **season selector** to switch the year; it appears in the address as `?year=`.
 
+**Nutrient hint.** Under **Nutrients** the summary shows **Fertiliser likely needed** or **Check feeding** as soon as Kamerplanter can say something about it. Below it you see why: how long ago your last feeding or soil amendment with manure or horn shavings was (compost supplies little nitrogen and does not count), measured against the feeder level of the species in the bed, and what your lab report says about phosphorus and potassium. If you mulched with bark mulch after your last feeding, it says that bark mulch can bind nitrogen while it rots. If the previous crop was, or the current crop is, a nitrogen fixer such as beans or peas, the hint mentions it but does not estimate a nitrogen amount. If your lab report shows the soil is rich in phosphorus or potassium, compost serves no nutrient supply; as a soil improver it remains an option, and the hint never points you to compost or a phosphorus fertiliser. Only a lab report by the CAL method counts for the content classes. The hint never names a number or a fertiliser amount. When everything looks fine or data is missing, the line stays out. <!-- REQ-053 GP-FR-125 -->
+
+!!! note "Partially available: nutrient hint"
+    The rules of the hint are in place. To show anything, every threshold (for example after how many days without feeding a heavy feeder runs short) needs a sourced value. No threshold has such a source yet, so the line stays empty for every bed for now. Once sourced values exist, Kamerplanter will show the hint.
+
 !!! warning "Not yet implemented"
     Showing the previous year's crop in the summary is not implemented yet. Until then, Kamerplanter shows a placeholder line there. **Clear bed** will also only be available in a later version.
 

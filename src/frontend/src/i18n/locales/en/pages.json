@@ -6970,7 +6970,35 @@
         "reachHint": "Bed too wide",
         "reachDetail_both": "{{width}} m wide – from two opposite sides you reach up to {{threshold}} m. You can only reach the middle of the bed by stepping into it.",
         "reachDetail_one": "{{width}} m wide – from one side you reach up to {{threshold}} m. You can only reach the far half by stepping into the bed.",
-        "reachDetail_unknown": "{{width}} m wide – the access sides are not recorded, so the one-side value applies ({{threshold}} m). Use “Change conditions” to record the sides you can reach the bed from."
+        "reachDetail_unknown": "{{width}} m wide – the access sides are not recorded, so the one-side value applies ({{threshold}} m). Use “Change conditions” to record the sides you can reach the bed from.",
+        "nutrient": {
+          "label": "Nutrients",
+          "likelyDeficit": "Fertiliser likely needed",
+          "check": "Check feeding",
+          "confidence_low": "A rough estimate.",
+          "confidence_medium": "An estimate from your care log.",
+          "confidence_high": "An estimate from your lab report.",
+          "noAmount": "The app does not name a fertiliser amount.",
+          "reasons": {
+            "substrate_bed": "Beds with a mineral substrate follow the nutrient solution, not this hint.",
+            "no_current_crop": "No plant is standing in this bed right now.",
+            "demand_unknown": "No feeder level is stored for the species in this bed.",
+            "thresholds_without_source": "There are no sourced thresholds for this hint yet.",
+            "no_feeding_recorded": "You have not recorded a nitrogen feeding for this bed in the last year (compost does not count).",
+            "feeding_overdue": "Your last feeding was a long time ago for the feeder level of your crop.",
+            "feeding_due": "Your last feeding was a while ago. Check whether your plants need more.",
+            "fed_recently": "You fed recently.",
+            "p_class_low": "According to your lab report, the soil is low in phosphorus.",
+            "k_class_low": "According to your lab report, the soil is low in potassium.",
+            "content_classes_sufficient": "According to your lab report, phosphorus and potassium are sufficient.",
+            "demand_partly_unknown": "Not every species in this bed has a stored feeder level.",
+            "preceding_nitrogen_fixer": "The previous crop here was a nitrogen fixer such as beans or peas. The app does not estimate how much nitrogen it left.",
+            "bark_mulch_n_binding": "You mulched with bark mulch after your last feeding. Bark mulch can bind nitrogen while it rots.",
+            "p_or_k_class_high": "According to your lab report, the soil is rich in phosphorus or potassium. With high P/K contents compost serves no nutrient supply; as a soil improver it remains an option. You do not need a phosphorus fertiliser here.",
+            "species_not_readable": "Plants stand in this bed whose species you cannot view.",
+            "standing_nitrogen_fixer": "Nitrogen fixers such as beans or peas are growing in this bed right now. The app does not estimate how much nitrogen they supply."
+          }
+        }
       },
       "status": {
         "title": "Change bed status",

@@ -118,6 +118,7 @@ from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
 from app.domain.services.irrigation_zone_service import IrrigationZoneService
 from app.domain.services.location_photo_service import LocationPhotoService
+from app.domain.services.nutrient_hint_service import NutrientHintService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
@@ -627,7 +628,13 @@ def get_garden_resource_service() -> GardenResourceService:
         get_garden_plan_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
         photos=get_location_photo_service,
+        nutrient_hint=get_nutrient_hint_service,
     )
+
+
+def get_nutrient_hint_service() -> NutrientHintService:
+    """REQ-053 WP 8.10 — the nutrient hint of the bed summary (GP-FR-125); thresholds ``null`` until sourced."""
+    return NutrientHintService(get_species_repo(), get_care_event_repo(), _bed_rotation_validator())
 
 
 def get_irrigation_zone_service() -> IrrigationZoneService:

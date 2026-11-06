@@ -71,6 +71,7 @@ from app.domain.models.garden_plan import (
     SlotPatch,
 )
 from app.domain.models.geometry import Geometry
+from app.domain.models.nutrient_hint import NutrientHint
 from app.domain.models.site import Location, Site, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -80,6 +81,7 @@ from app.domain.services.location_ownership import (
     resolve_owned_slot,
 )
 from app.domain.services.location_photo_service import LocationPhotoDiscard, release_location_photos
+from app.domain.services.nutrient_hint_service import NutrientHintService
 from app.domain.services.site_service import place_in_tree
 
 logger = structlog.get_logger()
@@ -137,6 +139,7 @@ class GardenResourceService:
         dispatch_adjacency: AdjacencyDispatch | None = None,
         *,
         photos: Callable[[], LocationPhotoDiscard] | None = None,
+        nutrient_hint: Callable[[], NutrientHintService] | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
@@ -146,6 +149,8 @@ class GardenResourceService:
         # WP 8.18: the photos of a deleted bed are discarded after the commit (unless something else names them).
         # A provider, built only by a delete that released a photo.
         self._photos = photos
+        # WP 8.10: the nutrient hint of the bed summary (GP-FR-125). A provider, built only by a summary of a bed.
+        self._nutrient_hint = nutrient_hint
 
     # ── Anchor and roles ──────────────────────────────────────────────────────
 
@@ -207,11 +212,18 @@ class GardenResourceService:
         location = self._owned_location(key, tenant_key=tenant_key)
         counters = self._plan.load_bed_counters([key], tenant_key=tenant_key).get(key, BedCounters())
         flags = self._plan.bed_type_flags([location.location_type_key]) if location.location_type_key else {}
+        is_bed = flags.get(location.location_type_key, False)
+        hint: NutrientHint | None = None
+        provider = self._nutrient_hint
+        if is_bed and provider is not None:
+            hints: NutrientHintService = provider()
+            hint = hints.assess(location, counters.species_keys, tenant_key=tenant_key)
         return BedSummaryView(
             location=location,
             counters=counters,
             season_state="planted" if counters.active_plant_count else "empty",
-            is_bed=flags.get(location.location_type_key, False),
+            is_bed=is_bed,
+            nutrient_hint=hint,
         )
 
     # ── GP-API-010: PATCH /locations/{key} ────────────────────────────────────

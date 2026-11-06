@@ -4,6 +4,9 @@
  * is known. It reads the summary only and owns no state. A bed wider than its access reaches gets the
  * `bed.reach_too_wide` hint (GP-FR-166): a badge, never an error, shown only while it applies. The cover photo
  * (GP-FR-051) leads the head while the bed has one: full width on a phone, beside the facts from `sm`.
+ * The nutrient hint (GP-FR-125, WP 8.10) is shown only while it says something: "Düngebedarf wahrscheinlich" for
+ * `likely_deficit`, "Düngung prüfen" for `check`, each with its reasons - never a number. `ok` and
+ * `insufficient_data` show nothing (until a threshold has a source every bed is `insufficient_data`, E-10).
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +25,7 @@ import { assessReach, type ReachAccess } from '../model/reach';
 import { DEFAULT_REACH_THRESHOLDS, reachOptions } from '../model/siteThresholds';
 import type { ReachThresholds } from '@/api/types';
 import BedCoverPhoto from './BedCoverPhoto';
-import type { BedAssignee, BedSummary } from './types';
+import type { BedAssignee, BedSummary, NutrientHint, NutrientHintConfidence, NutrientHintReason } from './types';
 import { BED_STATUS_COLOR, formatBedDate, isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
 
 interface BedHeaderProps {
@@ -53,9 +56,50 @@ const REACH_DETAIL_KEY: Record<ReachAccess, string> = {
   unknown: 'pages.bed.header.reachDetail_unknown',
 };
 
-function Fact({ label, children, testId }: { label: string; children: ReactNode; testId: string }) {
+/** One literal key per reason code and confidence, so the i18n key checks see every key that is used. */
+const NUTRIENT_REASON_KEY: Record<NutrientHintReason, string> = {
+  substrate_bed: 'pages.bed.header.nutrient.reasons.substrate_bed',
+  no_current_crop: 'pages.bed.header.nutrient.reasons.no_current_crop',
+  species_not_readable: 'pages.bed.header.nutrient.reasons.species_not_readable',
+  demand_unknown: 'pages.bed.header.nutrient.reasons.demand_unknown',
+  thresholds_without_source: 'pages.bed.header.nutrient.reasons.thresholds_without_source',
+  no_feeding_recorded: 'pages.bed.header.nutrient.reasons.no_feeding_recorded',
+  feeding_overdue: 'pages.bed.header.nutrient.reasons.feeding_overdue',
+  feeding_due: 'pages.bed.header.nutrient.reasons.feeding_due',
+  fed_recently: 'pages.bed.header.nutrient.reasons.fed_recently',
+  p_class_low: 'pages.bed.header.nutrient.reasons.p_class_low',
+  k_class_low: 'pages.bed.header.nutrient.reasons.k_class_low',
+  content_classes_sufficient: 'pages.bed.header.nutrient.reasons.content_classes_sufficient',
+  demand_partly_unknown: 'pages.bed.header.nutrient.reasons.demand_partly_unknown',
+  preceding_nitrogen_fixer: 'pages.bed.header.nutrient.reasons.preceding_nitrogen_fixer',
+  standing_nitrogen_fixer: 'pages.bed.header.nutrient.reasons.standing_nitrogen_fixer',
+  bark_mulch_n_binding: 'pages.bed.header.nutrient.reasons.bark_mulch_n_binding',
+  p_or_k_class_high: 'pages.bed.header.nutrient.reasons.p_or_k_class_high',
+};
+const NUTRIENT_CONFIDENCE_KEY: Record<NutrientHintConfidence, string> = {
+  low: 'pages.bed.header.nutrient.confidence_low',
+  medium: 'pages.bed.header.nutrient.confidence_medium',
+  high: 'pages.bed.header.nutrient.confidence_high',
+};
+
+/** The hint states the head shows; the others say nothing a grower can act on. */
+function shownNutrientHint(hint: NutrientHint | null | undefined): NutrientHint | null {
+  return hint && (hint.state === 'likely_deficit' || hint.state === 'check') ? hint : null;
+}
+
+function Fact({
+  label,
+  children,
+  testId,
+  fullRow = false,
+}: {
+  label: string;
+  children: ReactNode;
+  testId: string;
+  fullRow?: boolean;
+}) {
   return (
-    <Box sx={{ minWidth: 0, overflowWrap: 'anywhere' }} data-testid={testId}>
+    <Box sx={{ minWidth: 0, overflowWrap: 'anywhere', ...(fullRow && { gridColumn: '1 / -1' }) }} data-testid={testId}>
       <Typography variant="caption" color="text.secondary" component="div">
         {label}
       </Typography>
@@ -97,6 +141,7 @@ export default function BedHeader({
     () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
     [summary.geometry, accessSides, reachThresholds],
   );
+  const nutrientHint = shownNutrientHint(summary.nutrient_hint);
   const reachNumbers = useMemo(() => {
     // Three digits: a bed of 0.601 m is wider than 0.6 m and must not read as "0.6 m".
     const format = new Intl.NumberFormat(language, { maximumFractionDigits: 3 });
@@ -214,6 +259,32 @@ export default function BedHeader({
                 />
                 <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-reach-detail">
                   {t(REACH_DETAIL_KEY[reach.access], reachNumbers)}
+                </Typography>
+              </Fact>
+            )}
+            {nutrientHint && (
+              <Fact label={t('pages.bed.header.nutrient.label')} testId="bed-header-nutrient" fullRow>
+                <Chip
+                  size="small"
+                  color={nutrientHint.state === 'likely_deficit' ? 'warning' : 'info'}
+                  variant={nutrientHint.state === 'likely_deficit' ? 'filled' : 'outlined'}
+                  label={t(
+                    nutrientHint.state === 'likely_deficit'
+                      ? 'pages.bed.header.nutrient.likelyDeficit'
+                      : 'pages.bed.header.nutrient.check',
+                  )}
+                  data-testid="bed-nutrient-badge"
+                  data-state={nutrientHint.state}
+                />
+                <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2 }} data-testid="bed-nutrient-reasons">
+                  {nutrientHint.reasons.map((reason) => (
+                    <Typography key={reason} component="li" variant="caption" color="text.secondary">
+                      {t(NUTRIENT_REASON_KEY[reason])}
+                    </Typography>
+                  ))}
+                </Box>
+                <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-nutrient-note">
+                  {t(NUTRIENT_CONFIDENCE_KEY[nutrientHint.confidence])} {t('pages.bed.header.nutrient.noAmount')}
                 </Typography>
               </Fact>
             )}

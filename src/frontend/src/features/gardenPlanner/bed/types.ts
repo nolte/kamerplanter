@@ -160,6 +160,40 @@ export interface BedListItem {
 }
 
 /** `GET /locations/{key}/summary`: the location document plus its derived head data. */
+/** The nutrient hint of a bed (GP-FR-125, WP 8.10): a state with reason codes, never a number. */
+export type NutrientHintState = 'ok' | 'check' | 'likely_deficit' | 'insufficient_data';
+export type NutrientHintConfidence = 'low' | 'medium' | 'high';
+/** Mirrors `NutrientHintReason` of `app/domain/models/nutrient_hint.py`; additive only. */
+export type NutrientHintReason =
+  | 'substrate_bed'
+  | 'no_current_crop'
+  | 'species_not_readable'
+  | 'demand_unknown'
+  | 'thresholds_without_source'
+  | 'no_feeding_recorded'
+  | 'feeding_overdue'
+  | 'feeding_due'
+  | 'fed_recently'
+  | 'p_class_low'
+  | 'k_class_low'
+  | 'content_classes_sufficient'
+  | 'demand_partly_unknown'
+  | 'preceding_nitrogen_fixer'
+  | 'standing_nitrogen_fixer'
+  | 'bark_mulch_n_binding'
+  | 'p_or_k_class_high';
+
+export interface NutrientHint {
+  state: NutrientHintState;
+  confidence: NutrientHintConfidence;
+  reasons: NutrientHintReason[];
+  /** P or K in lab class D/E: compost serves no nutrient supply there, the hint never points to compost or P. */
+  compost_and_p_withheld: boolean;
+  sources: string[];
+  /** The source of the D/E rule (R-006) when it applied. */
+  withheld_source?: string | null;
+}
+
 export interface BedSummary extends BedListItem {
   is_bed: boolean;
   season_state: string;
@@ -176,6 +210,8 @@ export interface BedSummary extends BedListItem {
   rotation_enabled?: boolean | null;
   notes?: string | null;
   description?: string | null;
+  /** GP-FR-125: only on a bed; `null` for every other location. */
+  nutrient_hint?: NutrientHint | null;
 }
 
 /** The document `PATCH /locations/{key}` and `POST /locations/{key}/status` answer with. */
