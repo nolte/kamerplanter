@@ -298,6 +298,11 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 
 Über den Tabs siehst du auf einen Blick: Fläche, Typ, Status, Bodentyp, Sonnenexposition, aktive Pflanzen, offene Aufgaben, letzte Pflege, nächste Fälligkeit und wer für das Beet zuständig ist. Hat das Beet ein Titelfoto, steht es vorne in der Übersicht (siehe [Fotos des Beets](#fotos-des-beets)). Mit der **Saison-Auswahl** wechselst du das Jahr; es steht in der Adresse als `?year=`.
 
+**Nährstoff-Hinweis.** Unter **Nährstoffe** zeigt die Übersicht **Düngebedarf wahrscheinlich** oder **Düngung prüfen**, sobald Kamerplanter dazu etwas sagen kann. Darunter steht, warum: wie lange deine letzte Düngung oder Bodenverbesserung mit Kompost, Mist oder Hornspänen zurückliegt, gemessen an der Zehrerstufe der Arten im Beet, und was dein Laborbefund zu Phosphor und Kalium sagt. Hast du nach der letzten Düngung mit Rindenmulch gemulcht, steht dort, dass Rindenmulch beim Verrotten Stickstoff bindet. Standen im Vorjahr Stickstoffsammler wie Bohnen oder Erbsen im Beet, erwähnt der Hinweis das, schätzt aber keine Stickstoffmenge. Ist dein Boden laut Labor reichlich mit Phosphor oder Kalium versorgt, rät der Hinweis nie zu Kompost oder Phosphordünger. Eine Zahl oder eine Düngemenge nennt der Hinweis nie. Ist alles unauffällig oder fehlen Angaben, bleibt die Zeile weg. <!-- REQ-053 GP-FR-125 -->
+
+!!! note "Teilweise verfügbar: Nährstoff-Hinweis"
+    Die Regeln des Hinweises sind umgesetzt. Damit er etwas anzeigt, braucht jede Schwelle (zum Beispiel, nach wie vielen Tagen ohne Düngung ein Starkzehrer knapp wird) einen belegten Wert mit Quelle. Für keine Schwelle gibt es diesen Beleg bisher, deshalb bleibt die Zeile vorerst bei jedem Beet leer. Sobald belegte Werte vorliegen, wird Kamerplanter den Hinweis zeigen.
+
 !!! warning "Noch nicht implementiert"
     Die Anzeige der Vorjahreskultur in der Übersicht ist noch nicht umgesetzt. Bis dahin zeigt Kamerplanter dort eine Platzhalterzeile. Auch **Beet räumen** wird erst in einer späteren Version verfügbar sein.
 
