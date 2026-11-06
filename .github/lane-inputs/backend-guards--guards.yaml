@@ -9,10 +9,10 @@ job: guards
 gate:
   kind: unfiltered
 status: measured
-measured_on: '2026-11-02'
-measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
-replay_seconds: 1513
-job_spec_sha256: 097283c4466514018f6ecd3a2aa74f5d809b54e3570a57a5ea6aed08149dbd02
+measured_on: '2026-11-06'
+measured_at_commit: d30d5c19c4c83e7519860cb7196a1b7a189e7cf1
+replay_seconds: 1297
+job_spec_sha256: 994046bfae2a2371a9907055deb8bb74e474124053721ba0c27d2b597ae6ab0e
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints
     tests/unit/test_route_role_guards_check.py tests/unit/domain/services/test_oauth_auto_link_claim.py tests/unit/test_e2e_a11y_helpers.py
@@ -25,11 +25,12 @@ invocations:
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 7325
+  untracked_reads_dropped: 7360
 subprocesses:
 - awk
 - bash
 - cat
+- cc1
 - collect2
 - cut
 - diff
@@ -42,13 +43,12 @@ subprocesses:
 - ld
 - ld-linux-x86-64.so.2
 - ldconfig
-- ldconfig.real
 - lsb_release
 - mkdir
 - pytest
 - python
 - python3
-- python3.14
+- python3.15
 - rm
 - rustc
 - scripts/ci/assert_rendered_manifests.sh
@@ -63,6 +63,7 @@ subprocesses:
 - uname
 - uv
 - writing-pre-commit
+- x86_64-linux-gnu-as
 - xargs
 accepted_gaps: []
 reads:
@@ -243,13 +244,11 @@ reads:
 - .github/lane-inputs/e2e-smoke--smoke.yaml
 - .github/lane-inputs/frontend--bundle-budget.yaml
 - .github/lane-inputs/frontend--changes.yaml
-- .github/lane-inputs/frontend--coverage.yaml
 - .github/lane-inputs/frontend--deadcode.yaml
 - .github/lane-inputs/frontend--dependency-gates.yaml
 - .github/lane-inputs/frontend--garden-planner-benchmarks.yaml
 - .github/lane-inputs/frontend--lighthouse.yaml
 - .github/lane-inputs/frontend--lint-test-build.yaml
-- .github/lane-inputs/frontend--node-version.yaml
 - .github/lane-inputs/frontend--npm-audit-dev.yaml
 - .github/lane-inputs/security-nuclei-postmerge--nuclei-scan.yaml
 - .github/lane-inputs/security-nuclei-postmerge--report-findings.yaml
@@ -932,6 +931,7 @@ reads:
 - spec/
 - spec/analysis/
 - spec/analysis/REQ-034-security-review.md
+- spec/analysis/agrobiology-req-053-wave8-ec.md
 - spec/analysis/agrobiology-review-req-053.md
 - spec/analysis/agrobiology-review-req-054.md
 - spec/analysis/agrobiology-seed-data-review.md
@@ -2051,6 +2051,7 @@ reads:
 - src/backend/app/common/async_bridge.py
 - src/backend/app/common/auth.py
 - src/backend/app/common/body_limit.py
+- src/backend/app/common/csv_export.py
 - src/backend/app/common/datetimes.py
 - src/backend/app/common/decoys.py
 - src/backend/app/common/dependencies.py
@@ -2103,6 +2104,8 @@ reads:
 - src/backend/app/data_access/arango/botanical_family_repository.py
 - src/backend/app/data_access/arango/calendar_feed_repository.py
 - src/backend/app/data_access/arango/calendar_source_repository.py
+- src/backend/app/data_access/arango/care_event_backfill_scan.py
+- src/backend/app/data_access/arango/care_event_gap_repository.py
 - src/backend/app/data_access/arango/care_event_repository.py
 - src/backend/app/data_access/arango/care_reminder_repository.py
 - src/backend/app/data_access/arango/climate_normal_repository.py
@@ -2139,6 +2142,7 @@ reads:
 - src/backend/app/data_access/arango/legal_retention_repository.py
 - src/backend/app/data_access/arango/lifecycle_repository.py
 - src/backend/app/data_access/arango/location_assignment_repository.py
+- src/backend/app/data_access/arango/location_photo_repository.py
 - src/backend/app/data_access/arango/location_type_repository.py
 - src/backend/app/data_access/arango/mcp_repository.py
 - src/backend/app/data_access/arango/membership_repository.py
@@ -2279,12 +2283,14 @@ reads:
 - src/backend/app/domain/calculators/irrigation_zone_consumption_calculator.py
 - src/backend/app/domain/calculators/irrigation_zone_demand_calculator.py
 - src/backend/app/domain/calculators/label_anchor_calculator.py
+- src/backend/app/domain/calculators/orientation_calculator.py
 - src/backend/app/domain/calculators/overdue_calculator.py
 - src/backend/app/domain/calculators/photoperiod_calculator.py
 - src/backend/app/domain/calculators/plant_state_calculator.py
 - src/backend/app/domain/calculators/plant_state_inputs.py
 - src/backend/app/domain/calculators/planting_layout_calculator.py
 - src/backend/app/domain/calculators/range_parser.py
+- src/backend/app/domain/calculators/reach_calculator.py
 - src/backend/app/domain/calculators/scientific_name.py
 - src/backend/app/domain/calculators/site_fit_calculator.py
 - src/backend/app/domain/calculators/slot_capacity_calculator.py
@@ -2302,7 +2308,10 @@ reads:
 - src/backend/app/domain/engines/apprise_url_secrets.py
 - src/backend/app/domain/engines/aquaponics_engine.py
 - src/backend/app/domain/engines/area_dosing_engine.py
+- src/backend/app/domain/engines/bed_frost_engine.py
 - src/backend/app/domain/engines/calendar_aggregation_engine.py
+- src/backend/app/domain/engines/care_event_backfill_mapper.py
+- src/backend/app/domain/engines/care_event_csv_engine.py
 - src/backend/app/domain/engines/care_reminder_engine.py
 - src/backend/app/domain/engines/companion_planting_engine.py
 - src/backend/app/domain/engines/consent_engine.py
@@ -2377,6 +2386,7 @@ reads:
 - src/backend/app/domain/engines/sensor_metrics.py
 - src/backend/app/domain/engines/site_conditions_merge.py
 - src/backend/app/domain/engines/slot_reservation_engine.py
+- src/backend/app/domain/engines/soil_analysis_engine.py
 - src/backend/app/domain/engines/sowing_calendar_engine.py
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
@@ -2390,6 +2400,7 @@ reads:
 - src/backend/app/domain/engines/substrate_lifecycle_manager.py
 - src/backend/app/domain/engines/substrate_mix_engine.py
 - src/backend/app/domain/engines/succession_plan_engine.py
+- src/backend/app/domain/engines/succession_recommendation_engine.py
 - src/backend/app/domain/engines/tank_engine.py
 - src/backend/app/domain/engines/task_completion_engine.py
 - src/backend/app/domain/engines/tenant_engine.py
@@ -2422,6 +2433,7 @@ reads:
 - src/backend/app/domain/interfaces/bed_template_repository.py
 - src/backend/app/domain/interfaces/calendar_feed_repository.py
 - src/backend/app/domain/interfaces/calendar_source_repository.py
+- src/backend/app/domain/interfaces/care_event_gap_reader.py
 - src/backend/app/domain/interfaces/care_event_repository.py
 - src/backend/app/domain/interfaces/care_reminder_repository.py
 - src/backend/app/domain/interfaces/climate_normal_repository.py
@@ -2459,6 +2471,7 @@ reads:
 - src/backend/app/domain/interfaces/legacy_reading_store.py
 - src/backend/app/domain/interfaces/legal_retention_repository.py
 - src/backend/app/domain/interfaces/location_assignment_repository.py
+- src/backend/app/domain/interfaces/location_photo_repository.py
 - src/backend/app/domain/interfaces/location_type_repository.py
 - src/backend/app/domain/interfaces/membership_repository.py
 - src/backend/app/domain/interfaces/mode_switch_repository.py
@@ -2557,6 +2570,7 @@ reads:
 - src/backend/app/domain/models/legal_retention.py
 - src/backend/app/domain/models/lifecycle.py
 - src/backend/app/domain/models/location_assignment.py
+- src/backend/app/domain/models/location_photo.py
 - src/backend/app/domain/models/location_type.py
 - src/backend/app/domain/models/mcp.py
 - src/backend/app/domain/models/membership.py
@@ -2627,11 +2641,13 @@ reads:
 - src/backend/app/domain/services/bed_rotation_service.py
 - src/backend/app/domain/services/bed_template_service.py
 - src/backend/app/domain/services/calendar_service.py
+- src/backend/app/domain/services/care_event_consistency_service.py
 - src/backend/app/domain/services/care_event_service.py
 - src/backend/app/domain/services/care_reminder_service.py
 - src/backend/app/domain/services/catalogue_authorization.py
 - src/backend/app/domain/services/climate_normal_fetcher.py
 - src/backend/app/domain/services/companion_edge_service.py
+- src/backend/app/domain/services/companion_overlay_service.py
 - src/backend/app/domain/services/cv_diagnosis_service.py
 - src/backend/app/domain/services/dashboard_service.py
 - src/backend/app/domain/services/dashboard_widget_catalog.py
@@ -2647,6 +2663,7 @@ reads:
 - src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
 - src/backend/app/domain/services/fields_kept_on_edit.py
+- src/backend/app/domain/services/frost_forecast.py
 - src/backend/app/domain/services/garden_plan_export_service.py
 - src/backend/app/domain/services/garden_plan_import_service.py
 - src/backend/app/domain/services/garden_plan_retention_service.py
@@ -2672,6 +2689,7 @@ reads:
 - src/backend/app/domain/services/ki_assistent_service.py
 - src/backend/app/domain/services/legacy_reading_cleanup.py
 - src/backend/app/domain/services/location_ownership.py
+- src/backend/app/domain/services/location_photo_service.py
 - src/backend/app/domain/services/location_type_service.py
 - src/backend/app/domain/services/mode_switch_service.py
 - src/backend/app/domain/services/notification_propagation_service.py
@@ -2706,6 +2724,7 @@ reads:
 - src/backend/app/domain/services/reference_image_license.py
 - src/backend/app/domain/services/reference_image_service.py
 - src/backend/app/domain/services/retention_service.py
+- src/backend/app/domain/services/rotation_matrix_service.py
 - src/backend/app/domain/services/season_phase_coupler.py
 - src/backend/app/domain/services/season_signal_resolver.py
 - src/backend/app/domain/services/season_state_service.py
@@ -2713,6 +2732,7 @@ reads:
 - src/backend/app/domain/services/sensor_service.py
 - src/backend/app/domain/services/singleton_document.py
 - src/backend/app/domain/services/site_service.py
+- src/backend/app/domain/services/soil_analysis_service.py
 - src/backend/app/domain/services/species_service.py
 - src/backend/app/domain/services/species_visibility.py
 - src/backend/app/domain/services/starter_kit_service.py
@@ -3004,6 +3024,8 @@ reads:
 - src/backend/app/migrations/versions/v0101_bed_template_index_and_system_templates.py
 - src/backend/app/migrations/versions/v0102_purge_site_orphans.py
 - src/backend/app/migrations/versions/v0103_clear_spinach_light_requirement.py
+- src/backend/app/migrations/versions/v0104_care_events_backfill.py
+- src/backend/app/migrations/versions/v0105_soil_profile_ec_method_unknown.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -3018,6 +3040,7 @@ reads:
 - src/backend/app/tasks/adjacency.py
 - src/backend/app/tasks/ai_tasks.py
 - src/backend/app/tasks/auth_tasks.py
+- src/backend/app/tasks/care_events_consistency.py
 - src/backend/app/tasks/care_tasks.py
 - src/backend/app/tasks/climate_tasks.py
 - src/backend/app/tasks/dormancy_checks.py
@@ -3138,6 +3161,7 @@ reads:
 - src/backend/tests/api/test_care_profile_update_null_semantics.py
 - src/backend/tests/api/test_child_keys_are_scoped_to_their_parent_api.py
 - src/backend/tests/api/test_client_ip_is_an_ip_address.py
+- src/backend/tests/api/test_companion_edges_api.py
 - src/backend/tests/api/test_companion_planting_router.py
 - src/backend/tests/api/test_cors_active_tenant_header.py
 - src/backend/tests/api/test_crop_rotation_router.py
@@ -3192,6 +3216,7 @@ reads:
 - src/backend/tests/api/test_list_route_windows.py
 - src/backend/tests/api/test_location_and_slot_references_api.py
 - src/backend/tests/api/test_location_frost_warning_router.py
+- src/backend/tests/api/test_location_photos_api.py
 - src/backend/tests/api/test_location_sensors_live_router.py
 - src/backend/tests/api/test_location_tenant_verification_router.py
 - src/backend/tests/api/test_login_refresh_token_body.py
@@ -3252,8 +3277,10 @@ reads:
 - src/backend/tests/api/test_sessions_device_name.py
 - src/backend/tests/api/test_site_delete_refuses_active_plants_api.py
 - src/backend/tests/api/test_site_edit_keeps_server_maintained_fields.py
+- src/backend/tests/api/test_site_thresholds_api.py
 - src/backend/tests/api/test_slot_adjacency_api.py
 - src/backend/tests/api/test_slot_rotation_bed_switch_api.py
+- src/backend/tests/api/test_soil_analyses_api.py
 - src/backend/tests/api/test_species_authorization_api.py
 - src/backend/tests/api/test_species_grants.py
 - src/backend/tests/api/test_species_tenant_scope_api.py
@@ -3301,7 +3328,10 @@ reads:
 - src/backend/tests/integration/test_calendar_feed_token_at_rest.py
 - src/backend/tests/integration/test_calendar_source_repository.py
 - src/backend/tests/integration/test_calendar_tenant_isolation.py
+- src/backend/tests/integration/test_care_confirmation_event.py
 - src/backend/tests/integration/test_care_event_repository.py
+- src/backend/tests/integration/test_care_events_consistency.py
+- src/backend/tests/integration/test_care_events_csv_export.py
 - src/backend/tests/integration/test_care_profile_edge_concurrency.py
 - src/backend/tests/integration/test_care_profile_null_clearing.py
 - src/backend/tests/integration/test_care_reminder_species_tenant_scope.py
@@ -3352,6 +3382,7 @@ reads:
 - src/backend/tests/integration/test_list_windows.py
 - src/backend/tests/integration/test_location_delete_cascade.py
 - src/backend/tests/integration/test_location_label_projection.py
+- src/backend/tests/integration/test_location_photo_repository.py
 - src/backend/tests/integration/test_mcp_audit_correlation_reach.py
 - src/backend/tests/integration/test_mcp_global_write_tool_admission.py
 - src/backend/tests/integration/test_mcp_idempotency_get_skips_expired.py
@@ -3369,6 +3400,7 @@ reads:
 - src/backend/tests/integration/test_oidc_discovery_conditional_write.py
 - src/backend/tests/integration/test_onboarding_repositories_tenant_scope.py
 - src/backend/tests/integration/test_open_task_by_name_lookup.py
+- src/backend/tests/integration/test_orphaned_location_photo_query.py
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_personal_tenant_erasure_reach.py
@@ -3412,6 +3444,7 @@ reads:
 - src/backend/tests/integration/test_site_delete_cascade.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
 - src/backend/tests/integration/test_slot_update_moves_has_slot_edge.py
+- src/backend/tests/integration/test_soil_analysis.py
 - src/backend/tests/integration/test_storage_reconciliation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
@@ -3472,6 +3505,7 @@ reads:
 - src/backend/tests/integration/test_v0098_location_site_conditions.py
 - src/backend/tests/integration/test_v0100_backfill_plant_location_site.py
 - src/backend/tests/integration/test_v0102_purge_site_orphans.py
+- src/backend/tests/integration/test_v0104_care_events_backfill.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/
@@ -3496,6 +3530,7 @@ reads:
 - src/backend/tests/support/ha_entity_grants.py
 - src/backend/tests/support/irrigation_zone_fakes.py
 - src/backend/tests/support/light_mode_routes.py
+- src/backend/tests/support/location_photo_fakes.py
 - src/backend/tests/support/oidc_admin.py
 - src/backend/tests/support/oidc_idp.py
 - src/backend/tests/support/onboarding_wiring.py
@@ -3616,6 +3651,7 @@ reads:
 - src/backend/tests/unit/common/test_clock_contract.py
 - src/backend/tests/unit/common/test_consent_required_error_names_the_purpose.py
 - src/backend/tests/unit/common/test_creating_tenant_key.py
+- src/backend/tests/unit/common/test_csv_export.py
 - src/backend/tests/unit/common/test_datetimes.py
 - src/backend/tests/unit/common/test_email_digest_keyed.py
 - src/backend/tests/unit/common/test_error_handlers_log_no_subject.py
@@ -3679,6 +3715,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_generated_activity_plan_lookup.py
 - src/backend/tests/unit/data_access/arango/test_glossary_repository.py
 - src/backend/tests/unit/data_access/arango/test_graph_edges.py
+- src/backend/tests/unit/data_access/arango/test_graph_repository_companion_overlay.py
 - src/backend/tests/unit/data_access/arango/test_graph_repository_counts.py
 - src/backend/tests/unit/data_access/arango/test_graph_repository_rotation_counts.py
 - src/backend/tests/unit/data_access/arango/test_harvest_repository_batch_id.py
@@ -3714,6 +3751,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_site_repository_delete_scope.py
 - src/backend/tests/unit/data_access/arango/test_site_repository_location_aware.py
 - src/backend/tests/unit/data_access/arango/test_site_repository_location_update_null_reset.py
+- src/backend/tests/unit/data_access/arango/test_site_repository_location_update_untouched.py
 - src/backend/tests/unit/data_access/arango/test_slot_delete_edges_repo.py
 - src/backend/tests/unit/data_access/arango/test_species_normalized_index.py
 - src/backend/tests/unit/data_access/arango/test_species_repository_cultivar_tenant_scope.py
@@ -3798,6 +3836,7 @@ reads:
 - src/backend/tests/unit/domain/calculators/test_irrigation_zone_demand_calculator.py
 - src/backend/tests/unit/domain/calculators/test_label_anchor_calculator.py
 - src/backend/tests/unit/domain/calculators/test_label_anchor_vectors.py
+- src/backend/tests/unit/domain/calculators/test_orientation_calculator.py
 - src/backend/tests/unit/domain/calculators/test_overdue_vectors.py
 - src/backend/tests/unit/domain/calculators/test_photoperiod_calculator.py
 - src/backend/tests/unit/domain/calculators/test_plan_calculators_benchmark.py
@@ -3805,6 +3844,7 @@ reads:
 - src/backend/tests/unit/domain/calculators/test_planting_layout_calculator.py
 - src/backend/tests/unit/domain/calculators/test_planting_layout_vectors.py
 - src/backend/tests/unit/domain/calculators/test_range_parser.py
+- src/backend/tests/unit/domain/calculators/test_reach_vectors.py
 - src/backend/tests/unit/domain/calculators/test_scientific_name.py
 - src/backend/tests/unit/domain/calculators/test_site_fit_vectors.py
 - src/backend/tests/unit/domain/calculators/test_slot_capacity_calculator.py
@@ -3832,12 +3872,16 @@ reads:
 - src/backend/tests/unit/domain/engines/test_apprise_url_secrets.py
 - src/backend/tests/unit/domain/engines/test_aquaponics_engine.py
 - src/backend/tests/unit/domain/engines/test_area_dosing_engine.py
+- src/backend/tests/unit/domain/engines/test_bed_frost_engine.py
 - src/backend/tests/unit/domain/engines/test_calendar_aggregation_engine.py
+- src/backend/tests/unit/domain/engines/test_care_event_backfill_mapper.py
+- src/backend/tests/unit/domain/engines/test_care_event_csv_engine.py
 - src/backend/tests/unit/domain/engines/test_care_reminder_engine.py
 - src/backend/tests/unit/domain/engines/test_care_reminder_engine_et.py
 - src/backend/tests/unit/domain/engines/test_care_reminder_engine_family_map.py
 - src/backend/tests/unit/domain/engines/test_care_reminder_engine_watering_guide.py
 - src/backend/tests/unit/domain/engines/test_care_reminder_engine_winter.py
+- src/backend/tests/unit/domain/engines/test_companion_pair_rule.py
 - src/backend/tests/unit/domain/engines/test_companion_planting_engine.py
 - src/backend/tests/unit/domain/engines/test_crop_rotation_validator.py
 - src/backend/tests/unit/domain/engines/test_crop_rotation_validator_bed.py
@@ -3918,11 +3962,13 @@ reads:
 - src/backend/tests/unit/domain/engines/test_sensor_metrics.py
 - src/backend/tests/unit/domain/engines/test_site_conditions_merge.py
 - src/backend/tests/unit/domain/engines/test_slot_reservation_engine.py
+- src/backend/tests/unit/domain/engines/test_soil_analysis_engine.py
 - src/backend/tests/unit/domain/engines/test_sowing_calendar_engine.py
 - src/backend/tests/unit/domain/engines/test_substrate_ec_adapter.py
 - src/backend/tests/unit/domain/engines/test_substrate_lifecycle_manager.py
 - src/backend/tests/unit/domain/engines/test_substrate_mix_engine.py
 - src/backend/tests/unit/domain/engines/test_succession_plan_engine.py
+- src/backend/tests/unit/domain/engines/test_succession_recommendation_engine.py
 - src/backend/tests/unit/domain/engines/test_tank_engine.py
 - src/backend/tests/unit/domain/engines/test_task_completion_engine.py
 - src/backend/tests/unit/domain/engines/test_tenant_engine.py
@@ -3970,6 +4016,7 @@ reads:
 - src/backend/tests/unit/domain/models/test_site.py
 - src/backend/tests/unit/domain/models/test_site_conditions.py
 - src/backend/tests/unit/domain/models/test_site_plan_fields.py
+- src/backend/tests/unit/domain/models/test_site_thresholds.py
 - src/backend/tests/unit/domain/models/test_site_underlay.py
 - src/backend/tests/unit/domain/models/test_species.py
 - src/backend/tests/unit/domain/models/test_succession_plan.py
@@ -4008,12 +4055,15 @@ reads:
 - src/backend/tests/unit/domain/services/test_auth_service_remember_me.py
 - src/backend/tests/unit/domain/services/test_auth_service_service_account_boundary.py
 - src/backend/tests/unit/domain/services/test_auth_service_token_paths_use_the_repository.py
+- src/backend/tests/unit/domain/services/test_bed_delete_discards_photos.py
 - src/backend/tests/unit/domain/services/test_bed_rotation_service.py
 - src/backend/tests/unit/domain/services/test_bed_template_service.py
 - src/backend/tests/unit/domain/services/test_calendar_feed_ownership_in_service.py
 - src/backend/tests/unit/domain/services/test_calendar_service.py
 - src/backend/tests/unit/domain/services/test_care_confirm_tenant_guard.py
+- src/backend/tests/unit/domain/services/test_care_confirmation_bed_event.py
 - src/backend/tests/unit/domain/services/test_care_dashboard_for_tenant.py
+- src/backend/tests/unit/domain/services/test_care_event_consistency_service.py
 - src/backend/tests/unit/domain/services/test_care_event_service.py
 - src/backend/tests/unit/domain/services/test_care_notification_read_state.py
 - src/backend/tests/unit/domain/services/test_care_profile_bootstrap.py
@@ -4036,6 +4086,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_catalogue_create_role_gate.py
 - src/backend/tests/unit/domain/services/test_child_keys_are_scoped_to_their_parent.py
 - src/backend/tests/unit/domain/services/test_climate_normal_fetcher.py
+- src/backend/tests/unit/domain/services/test_companion_overlay_service.py
 - src/backend/tests/unit/domain/services/test_consent_retention.py
 - src/backend/tests/unit/domain/services/test_cultivar_species_path_binding.py
 - src/backend/tests/unit/domain/services/test_cultivar_tenant_scope.py
@@ -4106,6 +4157,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_location_and_tank_links_are_the_tenants.py
 - src/backend/tests/unit/domain/services/test_location_ownership_anchor.py
 - src/backend/tests/unit/domain/services/test_location_parent_is_the_tenants.py
+- src/backend/tests/unit/domain/services/test_location_photo_service.py
 - src/backend/tests/unit/domain/services/test_location_type_service.py
 - src/backend/tests/unit/domain/services/test_member_limit_is_enforced.py
 - src/backend/tests/unit/domain/services/test_membership_changes_write_the_security_audit.py
@@ -4189,6 +4241,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_registration_mode.py
 - src/backend/tests/unit/domain/services/test_reopen_marker_is_not_downgradable.py
 - src/backend/tests/unit/domain/services/test_request_reads_visit_every_row.py
+- src/backend/tests/unit/domain/services/test_rotation_matrix_service.py
 - src/backend/tests/unit/domain/services/test_run_edges_and_run_plans_are_scoped.py
 - src/backend/tests/unit/domain/services/test_season_phase_coupler.py
 - src/backend/tests/unit/domain/services/test_season_phase_coupling_wiring.py
@@ -4589,6 +4642,7 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0101_bed_template_index_and_system_templates.py
 - src/backend/tests/unit/migrations/versions/test_v0102_purge_site_orphans.py
 - src/backend/tests/unit/migrations/versions/test_v0103_clear_spinach_light_requirement.py
+- src/backend/tests/unit/migrations/versions/test_v0104_care_events_backfill.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -4614,6 +4668,7 @@ reads:
 - src/backend/tests/unit/tasks/test_beat_tasks_visit_every_row.py
 - src/backend/tests/unit/tasks/test_beats_skip_inactive_tenants.py
 - src/backend/tests/unit/tasks/test_care_beats_skip_closed_tenants.py
+- src/backend/tests/unit/tasks/test_care_events_consistency_task.py
 - src/backend/tests/unit/tasks/test_care_profile_gap_warning.py
 - src/backend/tests/unit/tasks/test_care_tasks.py
 - src/backend/tests/unit/tasks/test_celery_registration.py
@@ -4629,6 +4684,7 @@ reads:
 - src/backend/tests/unit/tasks/test_ip_anonymization.py
 - src/backend/tests/unit/tasks/test_ip_anonymization_task.py
 - src/backend/tests/unit/tasks/test_irrigation_tasks.py
+- src/backend/tests/unit/tasks/test_location_photo_orphan_sweep.py
 - src/backend/tests/unit/tasks/test_notification_beats_select_in_store.py
 - src/backend/tests/unit/tasks/test_notification_recipients_are_members.py
 - src/backend/tests/unit/tasks/test_notification_tasks.py
@@ -4783,6 +4839,7 @@ reads:
 - src/frontend/src/
 - src/frontend/src/App.tsx
 - src/frontend/src/api/
+- src/frontend/src/api/blobError.ts
 - src/frontend/src/api/catalogueRevision.ts
 - src/frontend/src/api/client.ts
 - src/frontend/src/api/endpoints/
@@ -4799,6 +4856,7 @@ reads:
 - src/frontend/src/api/endpoints/adminWeatherProviders.ts
 - src/frontend/src/api/endpoints/ai.ts
 - src/frontend/src/api/endpoints/aquaponik.ts
+- src/frontend/src/api/endpoints/attachments.ts
 - src/frontend/src/api/endpoints/auth.ts
 - src/frontend/src/api/endpoints/botanicalFamilies.ts
 - src/frontend/src/api/endpoints/calculations.ts
@@ -5086,20 +5144,31 @@ reads:
 - src/frontend/src/features/
 - src/frontend/src/features/gardenPlanner/
 - src/frontend/src/features/gardenPlanner/a11y/
+- src/frontend/src/features/gardenPlanner/a11y/companionLayer.test.tsx
 - src/frontend/src/features/gardenPlanner/a11y/editorA11y.test.tsx
 - src/frontend/src/features/gardenPlanner/api/
+- src/frontend/src/features/gardenPlanner/api/companionEdges.ts
 - src/frontend/src/features/gardenPlanner/api/gardenPlan.ts
 - src/frontend/src/features/gardenPlanner/bed/
+- src/frontend/src/features/gardenPlanner/bed/BedCoverPhoto.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedHeader.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedHeader.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedListSection.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedListSection.tsx
+- src/frontend/src/features/gardenPlanner/bed/BedPhotosTab.test.tsx
+- src/frontend/src/features/gardenPlanner/bed/BedPhotosTab.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedPlanTab.markers.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedPlanTab.plantState.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedPlanTab.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedStatusDialog.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedView.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedView.tsx
+- src/frontend/src/features/gardenPlanner/bed/ChipChoice.tsx
+- src/frontend/src/features/gardenPlanner/bed/RotationSwitch.test.tsx
+- src/frontend/src/features/gardenPlanner/bed/RotationSwitch.tsx
+- src/frontend/src/features/gardenPlanner/bed/SiteConditionsDialog.tsx
+- src/frontend/src/features/gardenPlanner/bed/SiteConditionsFields.test.tsx
+- src/frontend/src/features/gardenPlanner/bed/SiteConditionsFields.tsx
 - src/frontend/src/features/gardenPlanner/bed/SoilProfileForm.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/SoilProfileForm.tsx
 - src/frontend/src/features/gardenPlanner/bed/SunDialog.tsx
@@ -5110,14 +5179,18 @@ reads:
 - src/frontend/src/features/gardenPlanner/bed/bedApi.ts
 - src/frontend/src/features/gardenPlanner/bed/bedFormat.test.ts
 - src/frontend/src/features/gardenPlanner/bed/bedFormat.ts
+- src/frontend/src/features/gardenPlanner/bed/bedPhotoApi.ts
+- src/frontend/src/features/gardenPlanner/bed/bedPhotoMessages.ts
 - src/frontend/src/features/gardenPlanner/bed/bedStatus.test.ts
 - src/frontend/src/features/gardenPlanner/bed/bedStatus.ts
 - src/frontend/src/features/gardenPlanner/bed/bedTestKit.ts
+- src/frontend/src/features/gardenPlanner/bed/siteConditionsPatch.ts
 - src/frontend/src/features/gardenPlanner/bed/soilForm.test.ts
 - src/frontend/src/features/gardenPlanner/bed/soilForm.ts
 - src/frontend/src/features/gardenPlanner/bed/types.ts
 - src/frontend/src/features/gardenPlanner/bed/useBedAssignments.ts
 - src/frontend/src/features/gardenPlanner/bed/useLocationTypeNames.ts
+- src/frontend/src/features/gardenPlanner/bed/useSiteThresholds.ts
 - src/frontend/src/features/gardenPlanner/bed/useYearParam.ts
 - src/frontend/src/features/gardenPlanner/care/
 - src/frontend/src/features/gardenPlanner/care/BatchCompleteDialog.test.tsx
@@ -5148,6 +5221,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/AddWithDimensionsDialog.tsx
 - src/frontend/src/features/gardenPlanner/editor/AlignMenu.tsx
 - src/frontend/src/features/gardenPlanner/editor/CareBadge.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/CompanionEdgeInfo.tsx
 - src/frontend/src/features/gardenPlanner/editor/Compass.tsx
 - src/frontend/src/features/gardenPlanner/editor/ConflictDialog.tsx
 - src/frontend/src/features/gardenPlanner/editor/ContextMenu.test.tsx
@@ -5241,6 +5315,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/useAttentionFilter.ts
 - src/frontend/src/features/gardenPlanner/editor/useAutoSave.ts
 - src/frontend/src/features/gardenPlanner/editor/useBedTypes.ts
+- src/frontend/src/features/gardenPlanner/editor/useCompanionEdges.test.ts
+- src/frontend/src/features/gardenPlanner/editor/useCompanionEdges.ts
 - src/frontend/src/features/gardenPlanner/editor/useEditorKeyboard.ts
 - src/frontend/src/features/gardenPlanner/editor/useEditorShortcuts.ts
 - src/frontend/src/features/gardenPlanner/editor/useLayerPrefs.test.tsx
@@ -5254,6 +5330,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/field/FieldModeView.test.tsx
 - src/frontend/src/features/gardenPlanner/field/FieldModeView.tsx
 - src/frontend/src/features/gardenPlanner/field/FieldPlantSection.tsx
+- src/frontend/src/features/gardenPlanner/field/FieldSiteSection.tsx
 - src/frontend/src/features/gardenPlanner/field/FieldSunSection.tsx
 - src/frontend/src/features/gardenPlanner/field/FieldTaskSection.tsx
 - src/frontend/src/features/gardenPlanner/field/QuickProtocolChips.tsx
@@ -5276,9 +5353,15 @@ reads:
 - src/frontend/src/features/gardenPlanner/history/BedHistoryTab.tsx
 - src/frontend/src/features/gardenPlanner/history/CareHistoryPage.test.tsx
 - src/frontend/src/features/gardenPlanner/history/CareHistoryPage.tsx
+- src/frontend/src/features/gardenPlanner/history/HistoryExport.test.tsx
+- src/frontend/src/features/gardenPlanner/history/HistoryExportButton.tsx
 - src/frontend/src/features/gardenPlanner/history/HistoryFilterBar.tsx
 - src/frontend/src/features/gardenPlanner/history/HistoryList.tsx
 - src/frontend/src/features/gardenPlanner/history/PlantingTimeline.tsx
+- src/frontend/src/features/gardenPlanner/history/RotationMatrixPage.test.tsx
+- src/frontend/src/features/gardenPlanner/history/RotationMatrixPage.tsx
+- src/frontend/src/features/gardenPlanner/history/SuccessionRecommendationPanel.test.tsx
+- src/frontend/src/features/gardenPlanner/history/SuccessionRecommendationPanel.tsx
 - src/frontend/src/features/gardenPlanner/history/backfillForm.test.ts
 - src/frontend/src/features/gardenPlanner/history/backfillForm.ts
 - src/frontend/src/features/gardenPlanner/history/familyColor.test.ts
@@ -5290,9 +5373,13 @@ reads:
 - src/frontend/src/features/gardenPlanner/history/historyFormat.ts
 - src/frontend/src/features/gardenPlanner/history/historyTestKit.ts
 - src/frontend/src/features/gardenPlanner/history/historyTypes.ts
+- src/frontend/src/features/gardenPlanner/history/rotationMatrix.test.ts
+- src/frontend/src/features/gardenPlanner/history/rotationMatrix.ts
 - src/frontend/src/features/gardenPlanner/history/useHistoryPages.ts
 - src/frontend/src/features/gardenPlanner/history/usePersonOptions.ts
+- src/frontend/src/features/gardenPlanner/history/useRotationMatrix.ts
 - src/frontend/src/features/gardenPlanner/history/useRotationTimeline.ts
+- src/frontend/src/features/gardenPlanner/history/useSuccessionRecommendation.ts
 - src/frontend/src/features/gardenPlanner/io/
 - src/frontend/src/features/gardenPlanner/io/ExportDialog.test.tsx
 - src/frontend/src/features/gardenPlanner/io/ExportDialog.tsx
@@ -5327,8 +5414,11 @@ reads:
 - src/frontend/src/features/gardenPlanner/model/plantState.benchmark.test.ts
 - src/frontend/src/features/gardenPlanner/model/plantState.ts
 - src/frontend/src/features/gardenPlanner/model/plantState.vectors.test.ts
+- src/frontend/src/features/gardenPlanner/model/reach.ts
+- src/frontend/src/features/gardenPlanner/model/reach.vectors.test.ts
 - src/frontend/src/features/gardenPlanner/model/siteFit.ts
 - src/frontend/src/features/gardenPlanner/model/siteFit.vectors.test.ts
+- src/frontend/src/features/gardenPlanner/model/siteThresholds.ts
 - src/frontend/src/features/gardenPlanner/model/types.ts
 - src/frontend/src/features/gardenPlanner/model/undoPatch.ts
 - src/frontend/src/features/gardenPlanner/model/units.test.ts
@@ -5349,6 +5439,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/planting/PlantingDialog.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantingDialog.tsx
 - src/frontend/src/features/gardenPlanner/planting/PositionCorrectionDialog.tsx
+- src/frontend/src/features/gardenPlanner/planting/SiteAxisHints.tsx
 - src/frontend/src/features/gardenPlanner/planting/SiteFitHint.tsx
 - src/frontend/src/features/gardenPlanner/planting/SpeciesPicker.tsx
 - src/frontend/src/features/gardenPlanner/planting/TransplantDialog.tsx
@@ -5365,6 +5456,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/planting/siteFitOf.test.ts
 - src/frontend/src/features/gardenPlanner/planting/siteFitOf.ts
 - src/frontend/src/features/gardenPlanner/planting/useBedHints.ts
+- src/frontend/src/features/gardenPlanner/planting/useBedSiteFeatures.test.ts
+- src/frontend/src/features/gardenPlanner/planting/useBedSiteFeatures.ts
 - src/frontend/src/features/gardenPlanner/planting/useCultivars.ts
 - src/frontend/src/features/gardenPlanner/planting/useEntryPreviews.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/useEntryPreviews.ts
@@ -5378,6 +5471,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/planting/useRotationBadge.ts
 - src/frontend/src/features/gardenPlanner/renderer/
 - src/frontend/src/features/gardenPlanner/renderer/BasePlanRenderer.ts
+- src/frontend/src/features/gardenPlanner/renderer/CompanionOverlay.test.tsx
+- src/frontend/src/features/gardenPlanner/renderer/CompanionOverlay.tsx
 - src/frontend/src/features/gardenPlanner/renderer/ConditionOverlays.test.tsx
 - src/frontend/src/features/gardenPlanner/renderer/ConditionOverlays.tsx
 - src/frontend/src/features/gardenPlanner/renderer/HeadlessPlanRenderer.test.ts
@@ -5392,6 +5487,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/renderer/ZoneOverlays.tsx
 - src/frontend/src/features/gardenPlanner/renderer/__snapshots__/
 - src/frontend/src/features/gardenPlanner/renderer/__snapshots__/SvgPlanRenderer.test.tsx.snap
+- src/frontend/src/features/gardenPlanner/renderer/companionLines.ts
 - src/frontend/src/features/gardenPlanner/renderer/hitTest.ts
 - src/frontend/src/features/gardenPlanner/renderer/icons.ts
 - src/frontend/src/features/gardenPlanner/renderer/index.test.ts
@@ -5452,6 +5548,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/zones/
 - src/frontend/src/features/gardenPlanner/zones/BedZoneInfo.test.tsx
 - src/frontend/src/features/gardenPlanner/zones/BedZoneInfo.tsx
+- src/frontend/src/features/gardenPlanner/zones/CompanionLegendSection.tsx
 - src/frontend/src/features/gardenPlanner/zones/PlantStateLegendSection.test.tsx
 - src/frontend/src/features/gardenPlanner/zones/PlantStateLegendSection.tsx
 - src/frontend/src/features/gardenPlanner/zones/WateringRoundDialog.tsx
@@ -5822,6 +5919,7 @@ reads:
 - src/frontend/src/pages/standorte/SiteDetailPage.tsx
 - src/frontend/src/pages/standorte/SiteListPage.tsx
 - src/frontend/src/pages/standorte/SiteRunsSection.tsx
+- src/frontend/src/pages/standorte/SiteThresholdsSection.tsx
 - src/frontend/src/pages/standorte/SlotCreateDialog.tsx
 - src/frontend/src/pages/standorte/SlotDetailPage.tsx
 - src/frontend/src/pages/standorte/SubstrateCreateDialog.tsx
@@ -5934,6 +6032,7 @@ reads:
 - src/frontend/src/test/api/endpoints/adminSettings.test.ts
 - src/frontend/src/test/api/endpoints/adminTenantImports.test.ts
 - src/frontend/src/test/api/endpoints/adminWeatherProviders.test.ts
+- src/frontend/src/test/api/endpoints/attachments.test.ts
 - src/frontend/src/test/api/endpoints/auth.test.ts
 - src/frontend/src/test/api/endpoints/botanicalFamilies.test.ts
 - src/frontend/src/test/api/endpoints/boundedListPaging.test.ts
@@ -6117,6 +6216,7 @@ reads:
 - src/frontend/src/test/hooks/catalogueReducersMounted.test.ts
 - src/frontend/src/test/hooks/useApiError.test.tsx
 - src/frontend/src/test/hooks/useAsyncOptions.test.tsx
+- src/frontend/src/test/hooks/useAuthImage.test.ts
 - src/frontend/src/test/hooks/useCanCreateCatalogEntry.test.tsx
 - src/frontend/src/test/hooks/useCatalogue.test.tsx
 - src/frontend/src/test/hooks/useColumnFilters.test.tsx
@@ -6143,6 +6243,7 @@ reads:
 - src/frontend/src/test/i18n/diary.test.ts
 - src/frontend/src/test/i18n/notificationChannels.test.ts
 - src/frontend/src/test/i18n/privacyInformalAddress.test.ts
+- src/frontend/src/test/i18n/siteThresholds.test.ts
 - src/frontend/src/test/i18n/successionPlans.test.ts
 - src/frontend/src/test/i18n/tenantInvitations.test.ts
 - src/frontend/src/test/i18nTestResources.ts
@@ -6473,6 +6574,7 @@ reads:
 - src/frontend/src/utils/pendingInvitation.ts
 - src/frontend/src/utils/phaseSequenceMapper.ts
 - src/frontend/src/utils/plantDisplay.ts
+- src/frontend/src/utils/saveBlob.ts
 - src/frontend/src/utils/stepUp.ts
 - src/frontend/src/utils/stepUpReauth.ts
 - src/frontend/src/utils/tenantImport.ts
@@ -6487,6 +6589,7 @@ reads:
 - src/frontend/vitest.config.ts
 - src/inference-service/
 - src/inference-service/.dockerignore
+- src/inference-service/.python-version
 - src/inference-service/Dockerfile
 - src/inference-service/README.md
 - src/inference-service/app/
@@ -6628,6 +6731,7 @@ reads:
 - tests/e2e/_auth_helpers.py
 - tests/e2e/_garden_plan_helpers.py
 - tests/e2e/_gherkin.py
+- tests/e2e/_inp_probe.py
 - tests/e2e/_journey_helpers.py
 - tests/e2e/_route_helpers.py
 - tests/e2e/_seed_log.py
@@ -6795,6 +6899,7 @@ reads:
 - tests/e2e/test_req053_bed_care.py
 - tests/e2e/test_req053_field_mode.py
 - tests/e2e/test_req053_garden_plan_editor.py
+- tests/e2e/test_req053_inp_profile.py
 - tests/e2e/test_req053_planting.py
 - tests/e2e/test_req053_wave7_editor.py
 - tests/e2e/test_req053_wave7_plan_io.py
@@ -6813,6 +6918,7 @@ reads:
 - tests/e2e_selftest/test_detail_page_readers_wave9.py
 - tests/e2e_selftest/test_element_proxy.py
 - tests/e2e_selftest/test_expand_all_fields.py
+- tests/e2e_selftest/test_inp_probe.py
 - tests/e2e_selftest/test_list_page_readers.py
 - tests/e2e_selftest/test_list_page_readers_wave8.py
 - tests/e2e_selftest/test_navigation_contract.py
