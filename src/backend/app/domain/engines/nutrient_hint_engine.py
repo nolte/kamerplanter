@@ -7,15 +7,17 @@ module is its reference implementation.
 and only takes part when it has a value *and* a ``source``. The research of WP 8.5
 (``spec/analysis/agrobiology-req-053-wave8-ec.md``, addendum) closed none of them, so :data:`DEFAULT_CONFIG` has no
 active threshold and the engine answers ``insufficient_data`` for every bed until somebody enters a sourced value.
-The qualitative flags (preceding nitrogen fixer, bark mulch, class D/E) are reason codes; they never carry an amount
-and never produce a state on their own.
+The qualitative flags (preceding or standing nitrogen fixer, bark mulch, class D/E) are reason codes; they never carry
+an amount and never produce a state on their own. The one qualitative rule active by default is the class D/E rule
+(R-006, :data:`HIGH_CLASS_SOURCE`): it only *withholds* compost and P, it never raises a state.
 
 What the engine never does (hint-only list): compute or pre-fill a fertiliser amount, derive a feeder level for a
 species without one (no family fallback, no silent default), assign a content class from a number, or credit an N
 amount for a legume preceding crop.
 
 Precedence (first match wins, all ``insufficient_data``): mineral substrate bed (``substrate_bed``, the EC logic of
-REQ-004-A applies there) → no plant standing (``no_current_crop``) → no current species states its feeder level
+REQ-004-A applies there) → no plant standing (``no_current_crop``) → plants stand, but the tenant may read none of
+their species (``species_not_readable``) → no current species states its feeder level
 (``demand_unknown``) → no rule with a source applies (``thresholds_without_source``). Otherwise the most severe state
 of the sourced rules wins; the modifiers below adjust it.
 """
@@ -28,7 +30,13 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.common.enums import GrowingMediumKind, NutrientDemand
-from app.domain.models.nutrient_hint import NutrientHint, NutrientHintConfidence, NutrientHintReason, NutrientHintState
+from app.domain.models.nutrient_hint import (
+    DEFAULT_READ_WINDOW_DAYS,
+    NutrientHint,
+    NutrientHintConfidence,
+    NutrientHintReason,
+    NutrientHintState,
+)
 
 #: Materials of a ``mulching`` event that bind nitrogen while they rot (GP-FR-125: "Rindenmulch zählt als N-bindend").
 #: A qualitative flag; the amount it binds stays null ("stays null" item 12).
@@ -37,6 +45,16 @@ N_BINDING_MULCH_MATERIALS: frozenset[str] = frozenset({"bark_mulch"})
 CLASS_PARAMETERS: tuple[str, ...] = ("p", "k")
 #: Classes D and E: P/K fertilising is mostly not needed, compost is no nutrient supply there (R-006).
 HIGH_CONTENT_CLASSES: frozenset[str] = frozenset({"D", "E"})
+#: The two institutional sources of the D/E rule (WP 8.5 addendum, R-006).
+HIGH_CLASS_SOURCE = (
+    "R-006: Bayerische Gartenakademie (LWG), Merkblatt 2202 Hinweise zur Düngung im Gemüsegarten (12/2020); "
+    "Hessisches Landeslabor, Erläuterungen zur Bodenuntersuchung Acker und Grünland (2024)"
+)
+#: A content class is only read from a lab result by this extraction method (VDLUFA CAL, R-007).
+CAL_METHOD = "cal"
+#: ``soil_amendment`` materials that reset R1: they supply nitrogen. Compost is left out on purpose - it is no N
+#: supplier (R-005) - although it still writes a feeding event for the fertiliser balance (W-007, §12.1).
+N_INPUT_AMENDMENT_MATERIALS: frozenset[str] = frozenset({"manure", "horn_shavings"})
 
 #: Strongest feeder level first: a mixed bed is judged by its hungriest stated crop.
 _DEMAND_ORDER: tuple[NutrientDemand, ...] = (
@@ -71,14 +89,32 @@ class SourcedThreshold:
 
 @dataclass(frozen=True)
 class SourcedClasses:
-    """The lab content classes that count as low supply; used only with a source."""
+    """The lab content classes that count as low supply.
+
+    Class bounds differ by lab, year and federal state (R-007), so the rule is used only when its source names all
+    three: ``lab``, ``year`` and ``region`` next to ``source``.
+    """
 
     classes: frozenset[str] = frozenset()
     source: str | None = None
+    lab: str | None = None
+    year: int | None = None
+    region: str | None = None
 
     @property
     def active(self) -> bool:
-        return bool(self.classes) and _has_source(self.source)
+        return (
+            bool(self.classes)
+            and _has_source(self.source)
+            and _has_source(self.lab)
+            and self.year is not None
+            and _has_source(self.region)
+        )
+
+    @property
+    def cited(self) -> str:
+        """The source as the answer names it: source, lab, year and region."""
+        return f"{self.source} ({self.lab}, {self.year}, {self.region})"
 
 
 @dataclass(frozen=True)
@@ -107,17 +143,41 @@ class NutrientHintConfig:
     """The thresholds of the rule table. Defaults are ``null`` throughout: no value has a closed research item.
 
     * ``check_after_days`` / ``likely_deficit_after_days`` - days since the last nutrient input after which a bed of
-      the feeder level is ``check`` / ``likely_deficit`` (rule R1; "stays null" items 3 and 4, R-010).
+      the feeder level is ``check`` / ``likely_deficit`` (rule R1; "stays null" items 3 and 4, R-013).
     * ``low_content_classes`` - the CAL classes of P or K that make a deficit likely (rule R2; R-006 covers only D/E,
       R-007: class limits are lab specific).
     * ``nitrogen_fixer_relief`` - a legume preceding crop lowers a ``likely_deficit`` of R1 to ``check`` (modifier M1;
-      only the qualitative flag, never an N credit - "stays null" item 6).
+      only the qualitative flag, never an N credit - "stays null" item 6, R-015).
+    * ``bark_mulch_binding`` - bark mulch after the last N input turns an ``ok`` of R1 into ``check`` (modifier M2;
+      "stays null" item 12, R-014). Off by default; the reason code is given either way.
+    * ``read_window_days`` - how far back the care log is read. Every active R1 threshold must fit inside it, or an
+      input just beyond the window would read as "not recorded" while still being within the threshold.
+
+    The R1 thresholds cite research item R-013 (feeding interval per feeder level); none is closed.
     """
 
     check_after_days: Mapping[NutrientDemand, SourcedThreshold] = field(default_factory=_null_per_demand)
     likely_deficit_after_days: Mapping[NutrientDemand, SourcedThreshold] = field(default_factory=_null_per_demand)
     low_content_classes: SourcedClasses = field(default_factory=SourcedClasses)
     nitrogen_fixer_relief: SourcedFlag = field(default_factory=SourcedFlag)
+    bark_mulch_binding: SourcedFlag = field(default_factory=SourcedFlag)
+    read_window_days: int = DEFAULT_READ_WINDOW_DAYS
+
+    def __post_init__(self) -> None:
+        if self.read_window_days <= 0:
+            raise ValueError("read_window_days must be positive.")
+        for name, table in (
+            ("check_after_days", self.check_after_days),
+            ("likely_deficit_after_days", self.likely_deficit_after_days),
+        ):
+            for demand in NutrientDemand:
+                threshold = _threshold(table, demand)
+                if not threshold.active:
+                    continue
+                value = float(threshold.value or 0)
+                if not 0 < value <= self.read_window_days:
+                    window = self.read_window_days
+                    raise ValueError(f"{name}.{demand.value} must lie within 0 < value <= read_window_days ({window}).")
 
     def active_rules(self) -> tuple[str, ...]:
         """Names of the thresholds that take part; empty for :data:`DEFAULT_CONFIG` (the E-10 test reads this)."""
@@ -134,6 +194,8 @@ class NutrientHintConfig:
             names += ["low_content_classes"]
         if self.nitrogen_fixer_relief.active:
             names += ["nitrogen_fixer_relief"]
+        if self.bark_mulch_binding.active:
+            names += ["bark_mulch_binding"]
         return tuple(names)
 
 
@@ -150,12 +212,19 @@ class NutrientHintInputs:
 
     now: datetime
     growing_medium_kind: GrowingMediumKind | None = None
-    #: The stored ``nutrient_demand`` of each species standing in the bed; ``None`` where the species has none.
+    #: The stored ``nutrient_demand`` of each species standing in the bed; ``None`` where the species has none or the
+    #: tenant may not read it.
     species_demands: Sequence[NutrientDemand | None] = ()
-    #: The crop of the previous year fixes nitrogen (``Species.nitrogen_fixing``, else the family's flag).
+    #: How many of ``species_demands`` are ``None`` because the tenant may not read the species.
+    unreadable_species: int = 0
+    #: The preceding crop fixes nitrogen: the newest rotation year before the current one (main crop or green
+    #: manure), without the species standing now (``Species.nitrogen_fixing``, else the family's flag).
     preceding_nitrogen_fixing: bool = False
-    #: The newest ``feeding`` or ``soil_amendment`` with a nutrient material (``compost``, ``manure``,
-    #: ``horn_shavings``) in the read window; ``None`` when none is recorded.
+    #: A species standing in the bed now fixes nitrogen (a perennial legume, or one sown last year and still there).
+    standing_nitrogen_fixing: bool = False
+    #: The newest N input in the read window: any ``feeding``, or a ``soil_amendment`` with
+    #: :data:`N_INPUT_AMENDMENT_MATERIALS`; ``None`` when none is recorded. A ``feeding`` counts whatever it supplies
+    #: (a pure-K feeding too) until the care event carries an N field.
     last_nutrient_input_at: datetime | None = None
     #: The newest ``mulching`` with an N-binding material (:data:`N_BINDING_MULCH_MATERIALS`).
     last_n_binding_mulch_at: datetime | None = None
@@ -167,7 +236,8 @@ def lab_content_classes(analyses: Iterable[Sequence[Mapping[str, Any]]]) -> dict
     """``p`` / ``k`` → the content class of the newest analysis that states one, from a lab only.
 
     ``analyses`` are the ``measurements`` of the soil analyses, **newest first**. A class is only read from a
-    measurement with ``source = lab``; a test kit or a sensor never has one, and none is derived from a value.
+    measurement with ``source = lab`` **and** ``extraction_method = cal``; a test kit, a sensor or another extraction
+    never counts, and no class is derived from a value.
     """
     found: dict[str, str] = {}
     measurement: Mapping[str, Any]
@@ -177,10 +247,15 @@ def lab_content_classes(analyses: Iterable[Sequence[Mapping[str, Any]]]) -> dict
             content_class = measurement.get("content_class")
             if parameter not in CLASS_PARAMETERS or parameter in found or not content_class:
                 continue
-            if measurement.get("source") != "lab":
+            if measurement.get("source") != "lab" or measurement.get("extraction_method") != CAL_METHOD:
                 continue
             found[parameter] = str(content_class)
     return found
+
+
+def is_n_input_amendment(material: str | None) -> bool:
+    """Whether a ``soil_amendment`` material resets R1 (manure, horn shavings; never compost, R-005)."""
+    return is_material_of(material, N_INPUT_AMENDMENT_MATERIALS)
 
 
 def is_n_binding_mulch(material: str | None) -> bool:
@@ -238,7 +313,7 @@ def _class_rule(inputs: NutrientHintInputs, config: NutrientHintConfig) -> list[
     present: dict[str, str] = {parameter: classes[parameter] for parameter in CLASS_PARAMETERS if parameter in classes}
     if not rule.active or not present:
         return []
-    source = str(rule.source)
+    source = rule.cited
     low: list[_Verdict] = []
     if present.get("p") in rule.classes:
         low += [_Verdict("likely_deficit", "p_class_low", source)]
@@ -252,6 +327,8 @@ def _flags(inputs: NutrientHintInputs) -> tuple[list[NutrientHintReason], bool]:
     flags: list[NutrientHintReason] = []
     if inputs.preceding_nitrogen_fixing:
         flags += ["preceding_nitrogen_fixer"]
+    if inputs.standing_nitrogen_fixing:
+        flags += ["standing_nitrogen_fixer"]
     if _mulch_after_input(inputs):
         flags += ["bark_mulch_n_binding"]
     classes: Mapping[str, str] = inputs.content_classes
@@ -268,8 +345,12 @@ def _mulch_after_input(inputs: NutrientHintInputs) -> bool:
     return inputs.last_nutrient_input_at is None or mulch > inputs.last_nutrient_input_at
 
 
+def _withheld_source(withheld: bool) -> str | None:
+    return HIGH_CLASS_SOURCE if withheld else None
+
+
 def _insufficient(reason: NutrientHintReason, flags: list[NutrientHintReason], withheld: bool) -> NutrientHint:
-    return NutrientHint("insufficient_data", "low", (reason, *flags), withheld, ())
+    return NutrientHint("insufficient_data", "low", (reason, *flags), withheld, (), _withheld_source(withheld))
 
 
 def assess(inputs: NutrientHintInputs, config: NutrientHintConfig = DEFAULT_CONFIG) -> NutrientHint:
@@ -279,6 +360,8 @@ def assess(inputs: NutrientHintInputs, config: NutrientHintConfig = DEFAULT_CONF
         return _insufficient("substrate_bed", flags, withheld)
     if not inputs.species_demands:
         return _insufficient("no_current_crop", flags, withheld)
+    if inputs.unreadable_species >= len(inputs.species_demands):
+        return _insufficient("species_not_readable", flags, withheld)
     demand = strongest_demand(inputs.species_demands)
     if demand is None:
         return _insufficient("demand_unknown", flags, withheld)
@@ -304,9 +387,17 @@ def assess(inputs: NutrientHintInputs, config: NutrientHintConfig = DEFAULT_CONF
     ):
         state, lowered = "check", True
         sources += [str(relief.source)]
-    # M2: bark mulch after the last nutrient input binds N while it rots - "ok" becomes "check" (GP-FR-125).
-    if state == "ok" and "bark_mulch_n_binding" in flags:
+    # M2: bark mulch after the last N input may bind N while it rots - an "ok" of the feeding age (R1, never of a lab
+    # class) becomes "check", only with a sourced flag (R-014); without one the code stays a reason only.
+    binding = config.bark_mulch_binding
+    if (
+        state == "ok"
+        and "bark_mulch_n_binding" in flags
+        and binding.active
+        and all(verdict.reason == "fed_recently" for verdict in deciding)
+    ):
         state, lowered = "check", True
+        sources += [str(binding.source)]
 
     partly_unknown = any(each is None for each in inputs.species_demands)
     if partly_unknown:
@@ -318,6 +409,7 @@ def assess(inputs: NutrientHintInputs, config: NutrientHintConfig = DEFAULT_CONF
         _unique([*reasons, *flags]),
         withheld,
         _unique(sources),
+        _withheld_source(withheld),
     )
 
 

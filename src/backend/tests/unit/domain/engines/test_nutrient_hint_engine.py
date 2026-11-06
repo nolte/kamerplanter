@@ -26,9 +26,11 @@ from app.domain.engines.nutrient_hint_engine import (
     SourcedThreshold,
     assess,
     is_n_binding_mulch,
+    is_n_input_amendment,
     lab_content_classes,
     strongest_demand,
 )
+from app.domain.engines.task_completion_engine import NUTRIENT_MATERIALS
 from app.domain.models.nutrient_hint import NUTRIENT_HINT_REASONS, NUTRIENT_HINT_STATES, NutrientHint
 
 NOW = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
@@ -47,7 +49,9 @@ def _sourced(check: float, likely: float, *, demand: NutrientDemand = HEAVY) -> 
 
 
 ACTIVE = _sourced(30, 60)
-CLASSES = NutrientHintConfig(low_content_classes=SourcedClasses(frozenset({"A", "B"}), TEST_SOURCE))
+LOW = SourcedClasses(frozenset({"A", "B"}), TEST_SOURCE, lab="test lab", year=2026, region="test region")
+CLASSES = NutrientHintConfig(low_content_classes=LOW)
+BARK = dataclasses.replace(ACTIVE, bark_mulch_binding=SourcedFlag(True, "bark source"))
 
 
 def _inputs(**overrides: object) -> NutrientHintInputs:
@@ -93,12 +97,26 @@ class TestNoSourceNoState:
             config = NutrientHintConfig(
                 check_after_days={**nulls, HEAVY: SourcedThreshold(1, source)},
                 likely_deficit_after_days={**nulls, HEAVY: SourcedThreshold(2, source)},
-                low_content_classes=SourcedClasses(frozenset({"A"}), source),
+                low_content_classes=SourcedClasses(frozenset({"A"}), source, lab="lab", year=2026, region="BY"),
             )
             assert config.active_rules() == ()
             assert assess(_fed(500), config).state == "insufficient_data"
         # counter-case: the same values with a source decide the state
         assert assess(_fed(500), _sourced(1, 2)).state == "likely_deficit"
+
+    def test_class_bounds_need_lab_year_and_region_next_to_the_source(self) -> None:
+        """R-007: class bounds vary by lab, year and federal state - a bare source is not enough."""
+        for partial in (
+            SourcedClasses(frozenset({"A"}), TEST_SOURCE),
+            SourcedClasses(frozenset({"A"}), TEST_SOURCE, lab="lab", year=2026),
+            SourcedClasses(frozenset({"A"}), TEST_SOURCE, lab="lab", region="BY"),
+            SourcedClasses(frozenset({"A"}), TEST_SOURCE, year=2026, region="BY"),
+        ):
+            config = NutrientHintConfig(low_content_classes=partial)
+            assert config.active_rules() == ()
+            assert assess(_inputs(content_classes={"p": "A"}), config).state == "insufficient_data"
+        hint = assess(_inputs(content_classes={"p": "A"}), CLASSES)
+        assert hint.state == "likely_deficit" and hint.sources == (f"{TEST_SOURCE} (test lab, 2026, test region)",)
 
     def test_a_source_without_a_value_takes_no_part(self) -> None:
         nulls = {each: SourcedThreshold() for each in NutrientDemand}
@@ -110,6 +128,14 @@ class TestPreconditions:
     def test_a_missing_nutrient_demand_is_insufficient_data(self) -> None:
         hint = assess(_inputs(species_demands=(None, None)), ACTIVE)
         assert (hint.state, hint.reasons[0]) == ("insufficient_data", "demand_unknown")
+
+    def test_plants_whose_species_the_tenant_cannot_read_are_named_as_such(self) -> None:
+        hint = assess(_inputs(species_demands=(None, None), unreadable_species=2), ACTIVE)
+        assert (hint.state, hint.reasons[0]) == ("insufficient_data", "species_not_readable")
+        # counter-case: one readable species without a feeder level is "demand_unknown", not "not readable"
+        assert assess(_inputs(species_demands=(None, None), unreadable_species=1), ACTIVE).reasons[0] == (
+            "demand_unknown"
+        )
 
     def test_a_bed_without_plants_is_insufficient_data(self) -> None:
         hint = assess(_inputs(species_demands=()), ACTIVE)
@@ -178,23 +204,32 @@ class TestLabClasses:
         assert (hint.state, hint.reasons) == ("ok", ("content_classes_sufficient",))
 
     def test_the_worse_of_two_rules_wins(self) -> None:
-        config = dataclasses.replace(ACTIVE, low_content_classes=CLASSES.low_content_classes)
+        config = dataclasses.replace(ACTIVE, low_content_classes=LOW)
         hint = assess(_inputs(content_classes={"p": "B"}, last_nutrient_input_at=NOW - timedelta(days=1)), config)
         assert (hint.state, hint.reasons) == ("likely_deficit", ("p_class_low",))
 
     def test_only_a_lab_class_is_read(self) -> None:
+        cal = {"source": "lab", "extraction_method": "cal"}
         analyses = [
-            [{"parameter": "p", "value": 3, "source": "test_kit", "content_class": "A"}],
+            [{"parameter": "p", "value": 3, "source": "test_kit", "extraction_method": "cal", "content_class": "A"}],
             [
-                {"parameter": "p", "value": 9, "source": "lab", "content_class": "D"},
-                {"parameter": "k", "value": 9, "source": "lab", "content_class": "B"},
-                {"parameter": "mg", "value": 9, "source": "lab", "content_class": "A"},
+                {"parameter": "p", "value": 9, **cal, "content_class": "D"},
+                {"parameter": "k", "value": 9, **cal, "content_class": "B"},
+                {"parameter": "mg", "value": 9, **cal, "content_class": "A"},
             ],
-            [{"parameter": "k", "value": 1, "source": "lab", "content_class": "E"}],
+            [{"parameter": "k", "value": 1, **cal, "content_class": "E"}],
         ]
         # newest first: the test-kit class is skipped, the newest lab class per parameter wins, Mg stays out
         assert lab_content_classes(analyses) == {"p": "D", "k": "B"}
-        assert lab_content_classes([[{"parameter": "p", "value": 3, "source": "lab"}]]) == {}
+        assert lab_content_classes([[{"parameter": "p", "value": 3, **cal}]]) == {}
+
+    @pytest.mark.parametrize("method", ["ammonium_acetate", "olsen", None])
+    def test_a_lab_class_by_another_method_than_cal_is_not_read(self, method: str | None) -> None:
+        other = [[{"parameter": "p", "value": 40, "source": "lab", "extraction_method": method, "content_class": "E"}]]
+        classes = lab_content_classes(other)
+        assert classes == {}
+        hint = assess(_inputs(content_classes=classes), CLASSES)
+        assert hint.compost_and_p_withheld is False and hint.state == "insufficient_data"
 
 
 class TestClassDOrEWithholdsCompostAndP:
@@ -204,6 +239,18 @@ class TestClassDOrEWithholdsCompostAndP:
             hint = assess(_inputs(content_classes=classes), config)
             assert hint.compost_and_p_withheld is True
             assert "p_or_k_class_high" in hint.reasons
+
+    def test_the_d_e_rule_is_active_by_default_and_names_its_source(self) -> None:
+        hint = assess(_inputs(content_classes={"p": "D"}))
+        assert hint.withheld_source is not None and "R-006" in hint.withheld_source
+        assert "LWG" in hint.withheld_source and "Hessisches Landeslabor" in hint.withheld_source
+        assert assess(_inputs(content_classes={"p": "C"})).withheld_source is None
+
+    def test_p_e_with_k_a_stays_conservative(self) -> None:
+        """P very high, K very low: the K deficit is reported, but compost and P stay withheld."""
+        hint = assess(_inputs(content_classes={"p": "E", "k": "A"}), CLASSES)
+        assert (hint.state, hint.compost_and_p_withheld) == ("likely_deficit", True)
+        assert hint.reasons[0] == "k_class_low" and "p_class_low" not in hint.reasons
 
     def test_class_c_withholds_nothing(self) -> None:
         hint = assess(_inputs(content_classes={"p": "C", "k": "B"}), CLASSES)
@@ -232,28 +279,74 @@ class TestPrecedingNitrogenFixer:
         assert (hint.state, hint.confidence) == ("check", "low")
         assert hint.sources == (TEST_SOURCE, "relief source")
         # counter-case: a deficit from a lab class is not softened by the preceding crop
-        both = dataclasses.replace(config, low_content_classes=CLASSES.low_content_classes)
+        both = dataclasses.replace(config, low_content_classes=LOW)
         lab = assess(_inputs(preceding_nitrogen_fixing=True, content_classes={"k": "A"}), both)
         assert lab.state == "likely_deficit"
 
 
+class TestStandingNitrogenFixer:
+    def test_a_standing_legume_is_a_flag_of_its_own_without_a_state(self) -> None:
+        hint = assess(_inputs(standing_nitrogen_fixing=True), ACTIVE)
+        assert hint.state == "ok" and "standing_nitrogen_fixer" in hint.reasons
+        assert "preceding_nitrogen_fixer" not in hint.reasons
+
+
 class TestBarkMulch:
-    def test_bark_mulch_after_the_last_input_turns_ok_into_check(self) -> None:
+    def test_without_a_source_bark_mulch_is_a_reason_only(self) -> None:
         hint = assess(_inputs(last_n_binding_mulch_at=NOW - timedelta(days=2)), ACTIVE)
-        assert (hint.state, hint.confidence) == ("check", "low")
+        assert (hint.state, hint.confidence) == ("ok", "medium")
         assert "bark_mulch_n_binding" in hint.reasons
 
+    def test_a_sourced_flag_turns_an_ok_of_the_feeding_age_into_check(self) -> None:
+        hint = assess(_inputs(last_n_binding_mulch_at=NOW - timedelta(days=2)), BARK)
+        assert (hint.state, hint.confidence) == ("check", "low")
+        assert hint.sources == (TEST_SOURCE, "bark source")
+
+    def test_an_ok_of_a_lab_class_is_never_raised(self) -> None:
+        config = dataclasses.replace(CLASSES, bark_mulch_binding=SourcedFlag(True, "bark source"))
+        hint = assess(_inputs(content_classes={"p": "C"}, last_n_binding_mulch_at=NOW - timedelta(days=2)), config)
+        assert hint.state == "ok" and "bark_mulch_n_binding" in hint.reasons
+
     def test_bark_mulch_before_the_last_input_is_no_flag(self) -> None:
-        hint = assess(_inputs(last_n_binding_mulch_at=NOW - timedelta(days=20)), ACTIVE)
+        hint = assess(_inputs(last_n_binding_mulch_at=NOW - timedelta(days=20)), BARK)
         assert hint.state == "ok" and "bark_mulch_n_binding" not in hint.reasons
 
     def test_bark_mulch_alone_produces_no_state(self) -> None:
-        hint = assess(_inputs(last_n_binding_mulch_at=NOW - timedelta(days=2)))
+        hint = assess(
+            _inputs(last_n_binding_mulch_at=NOW - timedelta(days=2)),
+            dataclasses.replace(DEFAULT_CONFIG, bark_mulch_binding=SourcedFlag(True, "bark source")),
+        )
         assert hint.state == "insufficient_data" and "bark_mulch_n_binding" in hint.reasons
 
     def test_only_bark_mulch_binds(self) -> None:
         assert is_n_binding_mulch("bark_mulch") and is_n_binding_mulch(" Bark_Mulch ")
         assert not any(is_n_binding_mulch(each) for each in ("straw", "compost", None, ""))
+
+
+class TestNInputs:
+    def test_compost_is_no_n_input_but_manure_and_horn_shavings_are(self) -> None:
+        """R-005: compost is no N supplier; W-007 (its feeding event for the balance) stays untouched."""
+        assert is_n_input_amendment("manure") and is_n_input_amendment("horn_shavings")
+        assert not any(is_n_input_amendment(each) for each in ("compost", "sand", None))
+        assert "compost" in NUTRIENT_MATERIALS
+
+
+class TestConfigValidation:
+    def test_an_active_r1_threshold_beyond_the_read_window_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="read_window_days"):
+            _sourced(30, 400)
+        with pytest.raises(ValueError, match="read_window_days"):
+            dataclasses.replace(_sourced(30, 60), read_window_days=45)
+        with pytest.raises(ValueError, match="read_window_days"):
+            _sourced(0, 60)
+        # counter-cases: on the window itself, and an inactive value beyond it, are accepted
+        assert _sourced(30, 365).active_rules()
+        nulls = {each: SourcedThreshold() for each in NutrientDemand}
+        assert NutrientHintConfig(check_after_days={**nulls, HEAVY: SourcedThreshold(9999, None)}).active_rules() == ()
+
+    def test_the_read_window_is_positive(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            NutrientHintConfig(read_window_days=0)
 
 
 def test_strongest_demand_never_invents_one() -> None:

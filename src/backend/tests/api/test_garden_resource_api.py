@@ -198,7 +198,7 @@ class TestTheNutrientHint:
         )
         validator = SimpleNamespace(
             bed_rotation_entries=lambda location, *, tenant_key: ([], None),
-            timeline_resolver=lambda tenant_key: None,
+            timeline_resolver=lambda tenant_key: SimpleNamespace(family=lambda key: None, species=lambda key: None),
         )
         hints = NutrientHintService(species, events, validator, config)  # type: ignore[arg-type]
         service = GardenResourceService(
@@ -216,6 +216,7 @@ class TestTheNutrientHint:
             "reasons": ["thresholds_without_source"],
             "compost_and_p_withheld": False,
             "sources": [],
+            "withheld_source": None,
         }
 
     def test_with_a_sourced_test_threshold_the_wire_says_likely_deficit_without_a_number(self, client, repo) -> None:

@@ -8,6 +8,7 @@ each read scoped by the tenant and bounded. And that production wires the servic
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -16,13 +17,14 @@ from unittest.mock import MagicMock
 from app.common import dependencies
 from app.common.enums import GrowingMediumKind, NutrientDemand
 from app.domain.engines.crop_rotation_validator import HistoryEntry
-from app.domain.engines.nutrient_hint_engine import DEFAULT_CONFIG, NutrientHintConfig, SourcedThreshold
+from app.domain.engines.nutrient_hint_engine import DEFAULT_CONFIG, NutrientHintConfig, SourcedFlag, SourcedThreshold
 from app.domain.interfaces.care_event_repository import CareEventFilter, CareEventRow
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.care_event import CareEvent
+from app.domain.models.nutrient_hint import DEFAULT_READ_WINDOW_DAYS
 from app.domain.models.site import Location, SoilProfile
 from app.domain.models.species import Species
-from app.domain.services.nutrient_hint_service import READ_WINDOW_DAYS, NutrientHintService
+from app.domain.services.nutrient_hint_service import NutrientHintService
 
 TENANT = "t_own"
 NOW = datetime(2026, 6, 15, 12, 0, tzinfo=UTC)
@@ -160,7 +162,10 @@ class TestDemand:
     def test_a_foreign_species_is_not_read(self) -> None:
         service, _, _ = _service()
         hint = service.assess(BED, ["foreign"], tenant_key=TENANT, now=NOW)
-        assert hint.reasons[0] == "demand_unknown"
+        assert hint.reasons[0] == "species_not_readable"
+        # with one readable species beside it, the foreign one only makes the feeder level partly unknown
+        mixed = service.assess(BED, ["foreign", "tomato"], tenant_key=TENANT, now=NOW)
+        assert mixed.reasons[0] == "no_feeding_recorded" and "demand_partly_unknown" in mixed.reasons
 
     def test_the_stored_demand_reaches_the_engine(self) -> None:
         service, _, _ = _service(events=[_event("feeding", 90)])
@@ -178,6 +183,19 @@ class TestNutrientInputs:
         )
         assert service.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).state == "ok"
 
+    def test_compost_does_not_reset_the_feeding_age_but_manure_does(self) -> None:
+        """R-005: compost is no N supplier."""
+        compost, _, _ = _service(events=[_event("feeding", 90), _event("soil_amendment", 1, material="compost")])
+        assert compost.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).state == "likely_deficit"
+        manure, _, _ = _service(events=[_event("feeding", 90), _event("soil_amendment", 1, material="manure")])
+        assert manure.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).state == "ok"
+
+    def test_the_read_window_comes_from_the_configuration(self) -> None:
+        service, events, _ = _service(config=dataclasses.replace(ACTIVE, read_window_days=120))
+        service.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW)
+        windows = {c.category: c.performed_from for c, _t, _l in events.calls}
+        assert windows["feeding"] == NOW - timedelta(days=120)
+
     def test_an_amendment_without_a_nutrient_material_does_not_count(self) -> None:
         service, _, _ = _service(events=[_event("feeding", 90), _event("soil_amendment", 1, material="sand")])
         assert service.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).state == "likely_deficit"
@@ -193,9 +211,14 @@ class TestNutrientInputs:
         assert hint.reasons[0] == "no_feeding_recorded"
 
     def test_bark_mulch_after_the_feeding_is_flagged(self) -> None:
-        service, _, _ = _service(events=[_event("feeding", 10), _event("mulching", 2, material="bark_mulch")])
+        events = [_event("feeding", 10), _event("mulching", 2, material="bark_mulch")]
+        service, _, _ = _service(events=events)
         hint = service.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW)
-        assert hint.state == "check" and "bark_mulch_n_binding" in hint.reasons
+        assert hint.state == "ok" and "bark_mulch_n_binding" in hint.reasons  # no source: a reason only (R-014)
+        sourced, _, _ = _service(
+            events=events, config=dataclasses.replace(ACTIVE, bark_mulch_binding=SourcedFlag(True, "bark source"))
+        )
+        assert sourced.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).state == "check"
 
     def test_the_reads_are_scoped_bounded_and_windowed(self) -> None:
         service, events, validator = _service()
@@ -203,7 +226,7 @@ class TestNutrientInputs:
         assert {tenant for _c, tenant, _l in events.calls} == {TENANT} and validator.tenants == [TENANT]
         assert all(limit <= 50 for _c, _t, limit in events.calls)
         windows = {c.category: c.performed_from for c, _t, _l in events.calls}
-        assert windows["feeding"] == NOW - timedelta(days=READ_WINDOW_DAYS)
+        assert windows["feeding"] == NOW - timedelta(days=DEFAULT_READ_WINDOW_DAYS)
         assert windows["soil_analysis"] is None  # a lab analysis is repeated every few years
 
 
@@ -212,11 +235,38 @@ class TestLabClasses:
         analysis = _event(
             "soil_analysis",
             800,
-            measurements=[{"parameter": "p", "value": 30, "unit": "mg", "source": "lab", "content_class": "D"}],
+            measurements=[
+                {
+                    "parameter": "p",
+                    "value": 30,
+                    "unit": "mg",
+                    "source": "lab",
+                    "extraction_method": "cal",
+                    "content_class": "D",
+                }
+            ],
         )
         service, _, _ = _service(events=[analysis])
         hint = service.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW)
         assert hint.compost_and_p_withheld is True
+
+    def test_a_class_by_another_extraction_is_not_read(self) -> None:
+        analysis = _event(
+            "soil_analysis",
+            10,
+            measurements=[
+                {
+                    "parameter": "k",
+                    "value": 30,
+                    "unit": "mg",
+                    "source": "lab",
+                    "extraction_method": "ammonium_acetate",
+                    "content_class": "E",
+                }
+            ],
+        )
+        service, _, _ = _service(events=[analysis])
+        assert service.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).compost_and_p_withheld is False
 
 
 class TestPrecedingCrop:
@@ -231,11 +281,27 @@ class TestPrecedingCrop:
         unflagged, _, _ = _service(entries=[_entry(NOW.year - 1, "pea_unflagged")])
         assert "preceding_nitrogen_fixer" in unflagged.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
 
-    def test_an_older_year_or_a_fallow_year_is_no_preceding_crop(self) -> None:
+    def test_the_newest_earlier_crop_year_is_the_preceding_crop(self) -> None:
         older, _, _ = _service(entries=[_entry(NOW.year - 2, "bean")])
-        assert "preceding_nitrogen_fixer" not in older.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
+        assert "preceding_nitrogen_fixer" in older.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
+        hidden, _, _ = _service(entries=[_entry(NOW.year - 2, "bean"), _entry(NOW.year - 1, "carrot_not_fixing")])
+        assert "preceding_nitrogen_fixer" not in hidden.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
+        this_year, _, _ = _service(entries=[_entry(NOW.year, "bean")])
+        assert "preceding_nitrogen_fixer" not in this_year.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
+
+    def test_a_fallow_year_is_no_crop_and_is_skipped(self) -> None:
         fallow, _, _ = _service(entries=[_entry(NOW.year - 1, None, role="fallow")])
         assert "preceding_nitrogen_fixer" not in fallow.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
+        behind, _, _ = _service(entries=[_entry(NOW.year - 2, "bean"), _entry(NOW.year - 1, None, role="fallow")])
+        assert "preceding_nitrogen_fixer" in behind.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
+
+    def test_a_species_standing_now_is_not_its_own_preceding_crop(self) -> None:
+        """A perennial legume planted last year and still there: a standing flag, not a preceding crop."""
+        service, _, _ = _service(entries=[_entry(NOW.year - 1, "bean")])
+        hint = service.assess(BED, ["bean"], tenant_key=TENANT, now=NOW)
+        assert "preceding_nitrogen_fixer" not in hint.reasons and "standing_nitrogen_fixer" in hint.reasons
+        plain, _, _ = _service()
+        assert "standing_nitrogen_fixer" not in plain.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).reasons
 
 
 def test_production_wires_the_hint_into_the_bed_summary_with_the_null_configuration(monkeypatch) -> None:

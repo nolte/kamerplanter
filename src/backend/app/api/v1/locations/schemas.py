@@ -319,8 +319,10 @@ class NutrientHintResponse(BaseModel):
     The UI words `likely_deficit` as "fertiliser likely needed". Every threshold of the rule table (REQ-053 §15.3)
     takes part only with a `source`; none has one yet (E-10), so every bed answers `insufficient_data` with the reason
     `thresholds_without_source` until a sourced value is configured. `compost_and_p_withheld` is `true` when a lab
-    result by CAL puts P or K into class D/E: the hint then never points to compost or a phosphorus fertiliser.
-    `sources` names the source of each threshold that decided the state.
+    result by CAL puts P or K into class D/E: compost then serves no nutrient supply (it stays possible as a soil
+    improver) and the hint never points to compost or a phosphorus fertiliser. This is the one qualitative rule active
+    by default; `withheld_source` names its source (R-006). `sources` names the source of each threshold that decided
+    the state.
     """
 
     model_config = ConfigDict(
@@ -332,6 +334,7 @@ class NutrientHintResponse(BaseModel):
                     "reasons": ["thresholds_without_source", "preceding_nitrogen_fixer"],
                     "compost_and_p_withheld": False,
                     "sources": [],
+                    "withheld_source": None,
                 }
             ]
         }
@@ -342,6 +345,8 @@ class NutrientHintResponse(BaseModel):
     reasons: list[NutrientHintReason] = Field(default_factory=list, max_length=len(NUTRIENT_HINT_REASONS))
     compost_and_p_withheld: bool = False
     sources: list[str] = Field(default_factory=list, max_length=len(NUTRIENT_HINT_REASONS))
+    #: The source of the class D/E rule when it applied (R-006); `null` otherwise.
+    withheld_source: str | None = None
 
     @classmethod
     def from_hint(cls, hint: NutrientHint | None) -> NutrientHintResponse | None:
@@ -353,6 +358,7 @@ class NutrientHintResponse(BaseModel):
             reasons=list(hint.reasons),
             compost_and_p_withheld=hint.compost_and_p_withheld,
             sources=list(hint.sources),
+            withheld_source=hint.withheld_source,
         )
 
 
