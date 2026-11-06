@@ -4,10 +4,10 @@ from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentInsertError, DocumentUpdateError
+from arango.exceptions import AQLQueryExecuteError, DocumentInsertError, DocumentUpdateError
 
 from app.common.enums import ReminderType, TaskCategory, TaskStatus
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, WriteConflictError
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -658,6 +658,42 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     def update_task(self, key: TaskKey, task: Task) -> Task:
         return super().update(key, task)
+
+    def resolve_suggestion(
+        self,
+        key: TaskKey,
+        *,
+        tenant_key: str,
+        changes: dict[str, Any],
+        open_statuses: Sequence[str] | None = None,
+    ) -> Task | None:
+        self._require_tenant_key(tenant_key, "resolve_suggestion")
+        if not changes:
+            raise ValueError("resolve_suggestion needs at least one field to write.")
+        query = (
+            f"FOR doc IN {col.TASKS} "
+            "FILTER doc._key == @key AND doc.tenant_key == @tenant_key AND doc.suggested == true "
+            "FILTER @open_statuses == null OR doc.status IN @open_statuses "
+            f"UPDATE doc WITH MERGE(@changes, {{ updated_at: @now }}) IN {col.TASKS} "
+            "OPTIONS { keepNull: true, mergeObjects: false } "
+            "RETURN NEW"
+        )
+        bind_vars: dict[str, Any] = {
+            "key": key,
+            "tenant_key": tenant_key,
+            # System attributes never ride along: ``_key``/``_id``/``_rev`` of the caller cannot redirect the write.
+            "changes": {name: value for name, value in changes.items() if not name.startswith("_")},
+            "open_statuses": list(open_statuses) if open_statuses is not None else None,
+            "now": self._now(),
+        }
+        try:
+            cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
+        except AQLQueryExecuteError as exc:
+            if exc.error_code == 1200:  # write-write conflict: another writer held the task
+                raise WriteConflictError(col.TASKS, "the task was changed at the same time") from exc
+            raise
+        doc = next(iter(cursor), None)
+        return Task(**self._from_doc(doc)) if doc else None
 
     def clear_parked_recurrence(self, key: TaskKey) -> None:
         # ``keep_none=False`` removes an attribute set to ``null``; the field is no model field, so no other writer

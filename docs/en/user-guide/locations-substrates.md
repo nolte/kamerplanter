@@ -385,10 +385,15 @@ Every field is optional, so you can tap **Complete** without entering anything. 
 
 **Logging care without a task.** **Log care** records what you just did ("I mulched") when no task exists for it. Plant protection treatments are not logged here; use the plant protection form, because the care log is not proof of a treatment.
 
-**Suggestions.** Tasks proposed by the system appear in their own **Suggestions** section with the reason. **Do now** carries out the suggestion and completes it, **Dismiss** rejects it. Nothing happens until you decide.
+**Suggestions.** Tasks proposed by the system appear in their own **Suggestions** section, each with its reason, for example "ET0 demand 4.2 L/m² over 3 days". Each suggestion has two buttons:
 
-!!! warning "Partly available: suggestions"
-    The system does not generate suggestions yet. The section is in place and appears as soon as suggestions exist. A separate **Accept** without completing at the same time is not possible yet. <!-- REQ-053 GP-FR-086 -->
+- **Accept:** the suggestion becomes an ordinary open task and moves into the list above. You then complete it like any other task.
+- **Dismiss:** the suggestion is closed. No care entry is written, and the task does not count as done. For eight seconds you can take this back with **Undo**; the suggestion is then back in the section.
+
+Nothing happens until you decide. If the bed has no suggestions, you do not see the section. Accepting and dismissing needs the role "grower" or higher; with the role "viewer" you only see the suggestions. If someone else has accepted or dismissed the suggestion in the meantime, Kamerplanter shows a message and reloads the list.
+
+!!! warning "Not implemented yet: generating suggestions"
+    Kamerplanter itself does not create suggestions yet. Accepting and dismissing work, but in your garden the section only appears once a later version creates suggestions. <!-- REQ-053 GP-FR-086 -->
 
 **Several beds at once.** On the garden plan page, the button **Complete tasks on several beds** sits above the bed list. You pick a kind of task (for example watering) and the beds. Kamerplanter finds every open task of that kind on those beds and their plants and completes them in one step with the same details for all. One step takes at most 200 tasks; Kamerplanter reports whatever could not be completed.
 

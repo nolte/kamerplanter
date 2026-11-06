@@ -11,8 +11,8 @@ import type {
 
 /**
  * REST access of the bed care tab through the tenant-scoped client (REQ-053 GP-API-030…033): the
- * location queue, the atomic completion, the batch completion, create for each plant, reopen with `undo` and the
- * care log without a task.
+ * location queue, the atomic completion, the batch completion, create for each plant, reopen with `undo`, the
+ * care log without a task and the decision on a suggestion (GP-API-040).
  */
 
 const TASKS = '/tasks';
@@ -67,9 +67,20 @@ export async function completeTasksBatch(
   return data;
 }
 
-/** Skip a task; a suggestion is dismissed this way (there is no dismiss endpoint yet, GP-API-040). */
-export async function skipBedTask(key: string): Promise<TaskItem> {
-  const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/skip`);
+// The two GP-API-040 paths are spelt out (not `${TASKS}/…`): `scripts/check_route_consumers.py` matches path literals.
+
+/** GP-API-040: accept a suggestion - it becomes an ordinary open task (`suggested = false`). */
+export async function acceptSuggestion(key: string): Promise<CareTask> {
+  const { data } = await tenantClient.post<CareTask>(`/tasks/${key}/accept-suggestion`);
+  return data;
+}
+
+/** GP-API-040: dismiss a suggestion - it is closed as `skipped`, without a care line or a completion. */
+export async function dismissSuggestion(key: string, reason?: string): Promise<CareTask> {
+  const { data } = await tenantClient.post<CareTask>(
+    `/tasks/${key}/dismiss-suggestion`,
+    reason ? { reason } : {},
+  );
   return data;
 }
 
@@ -79,7 +90,7 @@ export async function reopenWithUndo(key: string): Promise<TaskItem> {
   return data;
 }
 
-/** Reopen a skipped task (a dismissed suggestion has no care line to void). */
+/** Reopen a skipped task - the undo of a dismissed suggestion, which has no care line to void. */
 export async function reopenBedTask(key: string): Promise<TaskItem> {
   const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/reopen`, {});
   return data;

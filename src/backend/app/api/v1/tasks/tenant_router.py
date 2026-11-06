@@ -15,6 +15,7 @@ from app.api.v1.tasks.schemas import (
     HSTValidateRequest,
     HSTValidationResponse,
     PhaseReorderRequest,
+    SuggestionDismissRequest,
     TaskAuditEntryResponse,
     TaskCloneRequest,
     TaskCommentCreate,
@@ -863,6 +864,36 @@ def reopen_task(
             actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
         )
     )
+
+
+@router.post("/{key}/accept-suggestion", response_model=TaskResponse)
+def accept_suggestion(
+    key: Annotated[str, Path(description="Document key of the suggested task.")],
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
+    service: TaskService = Depends(get_task_service),
+) -> TaskResponse:
+    """Accept a suggested task (REQ-053 GP-API-040): `suggested` becomes `false`, the task stays open as it is.
+
+    `suggestion_reason` is cleared with the flag. An unknown or foreign key is a 404; a task that is no suggestion
+    (any more) is a 409 `task.not_a_suggestion`. Grower and above.
+    """
+    return _task_response(service.accept_suggestion(key, tenant_key=ctx.tenant_key))
+
+
+@router.post("/{key}/dismiss-suggestion", response_model=TaskResponse)
+def dismiss_suggestion(
+    key: Annotated[str, Path(description="Document key of the suggested task.")],
+    body: SuggestionDismissRequest | None = None,
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
+    service: TaskService = Depends(get_task_service),
+) -> TaskResponse:
+    """Dismiss a suggested task (REQ-053 GP-API-040): the task is closed as `skipped`, with the optional `reason`.
+
+    No care event, no completion, no notification. An unknown or foreign key is a 404; a task that is no suggestion
+    is a 409 `task.not_a_suggestion`, a suggestion already closed a 409 `task.suggestion_closed`. Grower and above.
+    """
+    reason = body.reason if body is not None else None
+    return _task_response(service.dismiss_suggestion(key, tenant_key=ctx.tenant_key, reason=reason))
 
 
 @router.get("/{task_key}/comments", response_model=list[TaskCommentResponse])

@@ -2,7 +2,8 @@
  * The "Care" tab of the bed view (REQ-053 GP-FR-083…086, GP-FR-090): the open and overdue tasks of
  * the bed and of the plants standing in it, completion with the short category dialog, tasks "for the
  * bed" or "for every plant", care logged without a task, and the system's suggestions in their own
- * section. Every write offers an undo for eight seconds.
+ * section with "Accept" and "Dismiss" (GP-FR-086, GP-API-040). Every write offers an undo for eight seconds, except
+ * accepting a suggestion: that only turns it into an ordinary open task, which stays in the list.
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +18,14 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedSummary } from '../bed/types';
-import { completeBedTask, reopenBedTask, reopenWithUndo, skipBedTask, voidCareEvent } from './careApi';
+import {
+  acceptSuggestion,
+  completeBedTask,
+  dismissSuggestion,
+  reopenBedTask,
+  reopenWithUndo,
+  voidCareEvent,
+} from './careApi';
 import { type CareContext } from './careCategories';
 import type { CareEventRef, CareTask, CompletionPayload, TaskScope } from './careTypes';
 import CareCompletionDialog from './CareCompletionDialog';
@@ -25,6 +33,7 @@ import CareLogDialog from './CareLogDialog';
 import { isOverdue } from '../model/overdue';
 import CareTaskDialog from './CareTaskDialog';
 import CareTaskList from './CareTaskList';
+import SuggestionList from './SuggestionList';
 import { isDuplicateTap } from './submitGuard';
 import { useBedCare } from './useBedCare';
 import { useUndoSnackbar } from './useUndoSnackbar';
@@ -115,11 +124,31 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
     }
   };
 
-  const dismiss = async (task: CareTask) => {
-    if (saving) return;
+  const accept = async (task: CareTask) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
-      await skipBedTask(task.key);
+      await acceptSuggestion(task.key);
+      changed();
+      restoreFocus();
+      notification.success(t('pages.bed.care.suggestions.accepted', { name: taskName(task) }));
+    } catch (error) {
+      handleError(error);
+      // A 409 means someone decided it in between; the reload shows the current state.
+      changed();
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  const dismiss = async (task: CareTask) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      await dismissSuggestion(task.key);
       changed();
       restoreFocus();
       offerUndo({
@@ -131,7 +160,9 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
       });
     } catch (error) {
       handleError(error);
+      changed();
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -217,7 +248,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
         </Box>
       )}
       {ready &&
-        (['overdue', 'open', 'suggested'] as const).map((kind) =>
+        (['overdue', 'open'] as const).map((kind) =>
           sections[kind].length > 0 ? (
             <CareTaskList
               key={kind}
@@ -227,10 +258,19 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
               canEdit={canEdit}
               busy={saving}
               onComplete={setCompleting}
-              onDismiss={(task) => void dismiss(task)}
             />
           ) : null,
         )}
+      {ready && (
+        <SuggestionList
+          tasks={sections.suggested}
+          plants={ready.plants ?? []}
+          canEdit={canEdit}
+          busy={saving}
+          onAccept={(task) => void accept(task)}
+          onDismiss={(task) => void dismiss(task)}
+        />
+      )}
 
       {completing && (
         <CareCompletionDialog

@@ -357,6 +357,22 @@ def test_the_task_completion_transition_is_a_keyed_write_and_takes_the_tenant_st
     assert not set(_COMPLETION_TRANSITION) & _REMAINING
 
 
+# REQ-053 WP 8.17 (#2660): the two suggestion decisions load by key (``get_task``) and write through the conditional
+# ``resolve_suggestion`` statement. Pinned for the same reason as the completion transition: a refactor that moved the
+# load behind a differently named helper would drop them from the inventory and the rule would pass by finding nothing.
+_SUGGESTION_DECISIONS = (
+    "TaskService.accept_suggestion",
+    "TaskService.dismiss_suggestion",
+)
+
+
+def test_the_suggestion_decisions_are_keyed_writes_and_take_the_tenant_strictly() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    assert set(_SUGGESTION_DECISIONS) <= set(shapes), sorted(set(_SUGGESTION_DECISIONS) - set(shapes))
+    assert {name: shapes[name] for name in _SUGGESTION_DECISIONS} == dict.fromkeys(_SUGGESTION_DECISIONS, "strict")
+    assert not set(_SUGGESTION_DECISIONS) & _REMAINING
+
+
 def test_the_completion_repository_takes_the_tenant_in_every_method() -> None:
     """The port's methods are keyword-only on the tenant too: a transposed pair of keys is invisible to mypy."""
     tree = ast.parse((_APP / "domain" / "interfaces" / "task_completion_repository.py").read_text(encoding="utf-8"))

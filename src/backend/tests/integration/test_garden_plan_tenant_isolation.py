@@ -66,6 +66,7 @@ from app.common.dependencies import (
     get_rotation_matrix_service,
     get_site_service,
     get_soil_analysis_service,
+    get_task_service,
 )
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
@@ -104,8 +105,11 @@ from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepo
 from app.data_access.arango.rotation_history_repository import ArangoRotationHistoryRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
+from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
+from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.models.attachment import Attachment
 from app.domain.models.bed_template import BedTemplate
@@ -134,6 +138,7 @@ from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.domain.services.site_service import SiteService
 from app.domain.services.soil_analysis_service import SoilAnalysisService
+from app.domain.services.task_service import TaskService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 from tests.support.care_event_fakes import FakeAttachmentRepo, FakeAttachmentService, FakeFertilizers, FakeMemberships
 
@@ -162,6 +167,8 @@ B_SECRETS = (
     "snap_b",
     "Bobs Vorlage",
     "ev_b",
+    "sugg_b",
+    "Bobs Gießvorschlag",
     B,
 )
 _BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 20, "length_m": 20, "rotation_deg": 0}
@@ -454,6 +461,22 @@ def db(database):
             "rotation_entry": {"year": 2024, "family_key": "fam", "plan_role": "main_crop"},
         }
     )
+    # REQ-053 WP 8.17: a suggested task on each tenant's bed, the subject of accept-/dismiss-suggestion.
+    for suffix, tenant, task_name in (("a", A, "Alices Gießvorschlag"), ("b", B, "Bobs Gießvorschlag")):
+        database.collection(col.TASKS).insert(
+            {
+                "_key": f"sugg_{suffix}",
+                "tenant_key": tenant,
+                "name": task_name,
+                "category": "watering",
+                "status": "pending",
+                "origin": "system",
+                "suggested": True,
+                "suggestion_reason": "ET0",
+                "entity_type": "location",
+                "entity_key": f"bed_{suffix}",
+            }
+        )
     return database
 
 
@@ -613,7 +636,10 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         _RecordDeleter(attachment_repo),  # type: ignore[arg-type]
     )
     bed_photos: Any = _photo_service(db)
+    # REQ-053 WP 8.17: the decision on a suggested task (GP-API-040) over the real task repository.
+    tasks: Any = TaskService(ArangoTaskRepository(db), HSTValidator(), DependencyResolver())
     if unscoped:
+        tasks = _Unscoped(tasks)
         bed_photos = _Unscoped(bed_photos)
         underlay = _Unscoped(underlay)
         templates = _Unscoped(templates)
@@ -662,6 +688,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_bed_template_service] = lambda: templates
     app.dependency_overrides[get_garden_plan_underlay_service] = lambda: underlay
     app.dependency_overrides[get_location_photo_service] = lambda: bed_photos
+    app.dependency_overrides[get_task_service] = lambda: tasks
     app.dependency_overrides[get_is_platform_admin] = lambda: False
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
@@ -1047,6 +1074,9 @@ CASES: tuple[Case, ...] = (
         writes=True,
         logs_batch=True,
     ),
+    # REQ-053 WP 8.17, GP-API-040: a suggestion of another tenant is neither accepted nor dismissed.
+    Case("accept_suggestion", "POST", "/tasks/sugg_b/accept-suggestion", writes=True),
+    Case("dismiss_suggestion", "POST", "/tasks/sugg_b/dismiss-suggestion", {"reason": "Rain"}, writes=True),
 )
 
 _ABSENT = {
@@ -1061,6 +1091,7 @@ _ABSENT = {
     "tpl_b": "tpl_gone",
     "att_b": "att_gone",
     "snap_b": "snap_gone",
+    "sugg_b": "sugg_gone",
 }
 
 
@@ -1162,6 +1193,7 @@ def _routes_of_the_four_routers() -> set[tuple[str, str]]:
     from app.api.v1.locations.tenant_router import router as locations
     from app.api.v1.planting_runs.tenant_router import router as planting_runs
     from app.api.v1.slots.tenant_router import router as slots
+    from app.api.v1.tasks.tenant_router import router as tasks
 
     found: set[tuple[str, str]] = set()
     for router in (garden_plan, garden_objects, locations, slots, irrigation_zones, bed_templates):
@@ -1176,6 +1208,10 @@ def _routes_of_the_four_routers() -> set[tuple[str, str]]:
                 (method, f"{planting_runs.prefix}{route.path.removeprefix(planting_runs.prefix)}")
                 for method in route.methods
             )
+    # The task router predates REQ-053 as well; the decision on a suggestion (WP 8.17, GP-API-040) belongs here.
+    for route in tasks.routes:
+        if route.path.endswith(("/accept-suggestion", "/dismiss-suggestion")):
+            found.update((method, f"{tasks.prefix}{route.path.removeprefix(tasks.prefix)}") for method in route.methods)
     return found
 
 
