@@ -25,6 +25,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -60,6 +61,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const online = useOnlineStatus();
+  const { canEdit } = useTenantPermissions();
   const userKey = useAppSelector((state) => state.auth.user?.key ?? null);
   const tenantSlug = useAppSelector((state) => state.tenants.activeTenant?.slug ?? null);
   const { plan, loadStatus, loadError } = useAppSelector(selectGardenPlanState);
@@ -248,6 +250,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
                   mine={assignments.mine}
                   today={today}
                   onOpen={(bed) => setOpenBedKey(bed.key)}
+                  planningHref={canEdit ? planningHref : undefined}
                 />
               )}
             </>

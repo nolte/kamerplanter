@@ -23,6 +23,13 @@ interface HistoryListProps {
   bedName?: (locationKey: string) => string | undefined;
   /** Whether any filter is set, to word the empty state. */
   filtered: boolean;
+  /** Resets the filters: the one action of the filtered empty state, open to every member (GP-UX-049). */
+  onResetFilters: () => void;
+  /**
+   * "What stood here?" (backfill): the one action of an unfiltered empty bed history, passed only to the
+   * roles that may write. The tenant-wide history is read-only and offers none there.
+   */
+  onBackfill?: () => void;
   testIdPrefix: string;
 }
 
@@ -107,7 +114,7 @@ function HistoryRow({ item, bedLabel, locale, testIdPrefix }: { item: HistoryIte
   );
 }
 
-export default function HistoryList({ pages, bedName, filtered, testIdPrefix }: HistoryListProps) {
+export default function HistoryList({ pages, bedName, filtered, onResetFilters, onBackfill, testIdPrefix }: HistoryListProps) {
   const { t, i18n } = useTranslation();
   const { state } = pages;
 
@@ -120,11 +127,34 @@ export default function HistoryList({ pages, bedName, filtered, testIdPrefix }: 
   }
   if (state.status === 'error') return <ErrorDisplay error={state.message} onRetry={pages.reload} />;
   if (state.items.length === 0 && !state.hasMore) {
+    // GP-UX-049: a describing text and at most one action - reset a filter that hides everything, else
+    // fill in an earlier year where the caller lets this role write.
+    const backfill = !filtered ? onBackfill : undefined;
+    const description = filtered
+      ? 'pages.bed.history.empty.filteredDescription'
+      : backfill
+        ? 'pages.bed.history.empty.descriptionBackfill'
+        : 'pages.bed.history.empty.description';
     return (
-      <EmptyState
-        message={t(filtered ? 'pages.bed.history.empty.filteredTitle' : 'pages.bed.history.empty.title')}
-        description={t(filtered ? 'pages.bed.history.empty.filteredDescription' : 'pages.bed.history.empty.description')}
-      />
+      <Box data-testid={`${testIdPrefix}-empty`}>
+        <EmptyState
+          message={t(filtered ? 'pages.bed.history.empty.filteredTitle' : 'pages.bed.history.empty.title')}
+          description={t(description)}
+        />
+        {(filtered || backfill) && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
+            {filtered ? (
+              <Button variant="contained" onClick={onResetFilters} sx={{ minHeight: 48 }} data-testid={`${testIdPrefix}-empty-reset`}>
+                {t('pages.bed.history.filters.reset')}
+              </Button>
+            ) : (
+              <Button variant="contained" onClick={backfill} sx={{ minHeight: 48 }} data-testid={`${testIdPrefix}-empty-backfill`}>
+                {t('pages.bed.history.timeline.whatStood')}
+              </Button>
+            )}
+          </Box>
+        )}
+      </Box>
     );
   }
 

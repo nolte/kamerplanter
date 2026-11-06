@@ -131,6 +131,24 @@ describe('CareHistoryPage', () => {
     expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['Everyone', 'Me']);
   });
 
+  it('words an empty history without an action and resets a filtered one (GP-UX-049)', async () => {
+    useHistoryBackend({ careEvents: [] });
+    const user = userEvent.setup();
+    const { container } = renderPage();
+    const empty = await screen.findByTestId('care-history-empty');
+    expect(within(empty).getByText('Nothing logged yet')).toBeInTheDocument();
+    // The tenant-wide history is read-only: care is logged on a bed, not here.
+    expect(within(empty).queryByRole('button')).toBeNull();
+
+    await user.click(screen.getByRole('switch', { name: 'Show corrections' }));
+    const filtered = await screen.findByTestId('care-history-empty');
+    await within(filtered).findByText('No entry matches');
+    expect(within(filtered).getAllByRole('button')).toHaveLength(1);
+    await expectNoA11yViolations(container);
+    await user.click(within(filtered).getByTestId('care-history-empty-reset'));
+    expect(await screen.findByText('Nothing logged yet')).toBeInTheDocument();
+  });
+
   it('has no critical accessibility violations', async () => {
     useHistoryBackend({ careEvents: [careLine('w1'), careLine('w2', { category: 'feeding' })] });
     const { container } = renderPage();

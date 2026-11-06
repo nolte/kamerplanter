@@ -151,6 +151,35 @@ describe('BedHistoryTab - the list (GP-ACC-027)', () => {
     expect(await screen.findByText('Nothing logged yet')).toBeInTheDocument();
   });
 
+  it('offers "What stood here?" as the one action of an empty history (GP-UX-049)', async () => {
+    useHistoryBackend({ items: [], timeline: timeline(FIVE_YEARS) });
+    const user = userEvent.setup();
+    renderTab();
+    const empty = await screen.findByTestId('history-empty');
+    expect(within(empty).getByText(/Do you know what stood here before/)).toBeInTheDocument();
+    expect(within(empty).getAllByRole('button')).toHaveLength(1);
+    await user.click(within(empty).getByTestId('history-empty-backfill'));
+    expect(await screen.findByTestId('backfill-dialog')).toBeInTheDocument();
+  });
+
+  it('resets the filters from a filtered empty history, for a viewer too (GP-UX-049)', async () => {
+    useHistoryBackend({ items: [], timeline: timeline(FIVE_YEARS) });
+    const user = userEvent.setup();
+    renderTab('viewer');
+    const empty = await screen.findByTestId('history-empty');
+    // A viewer may not fill in a year: the unfiltered empty history has no action for them.
+    expect(within(empty).queryByRole('button')).toBeNull();
+    expect(within(empty).getByText(/newest first\.$/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('switch', { name: 'Show corrections' }));
+    const filtered = await screen.findByTestId('history-empty');
+    await within(filtered).findByText('No entry matches');
+    expect(within(filtered).getAllByRole('button')).toHaveLength(1);
+    await user.click(within(filtered).getByTestId('history-empty-reset'));
+    expect(await screen.findByText('Nothing logged yet')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Show corrections' })).not.toBeChecked();
+  });
+
   it('keeps the list and offers a retry when the server fails', async () => {
     useHistoryBackend({ timeline: timeline(FIVE_YEARS) });
     server.use(http.get(`${BASE}/locations/:key/history`, () => HttpResponse.json({ detail: 'down' }, { status: 500 })));

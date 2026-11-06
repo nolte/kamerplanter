@@ -154,7 +154,13 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
           people={people}
           testIdPrefix="history"
         />
-        <HistoryList pages={pages} filtered={activeFilterCount(filters, DEFAULTS) > 0} testIdPrefix="history" />
+        <HistoryList
+          pages={pages}
+          filtered={activeFilterCount(filters, DEFAULTS) > 0}
+          onResetFilters={() => setFilters(DEFAULTS)}
+          onBackfill={canEdit ? () => setBackfillYearChoice(startYear) : undefined}
+          testIdPrefix="history"
+        />
       </Box>
 
       {backfillYearChoice !== null && (
