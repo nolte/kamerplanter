@@ -133,6 +133,7 @@ export default function CareLogDialog({
           now={now}
           areaM2={context.areaM2}
           testId="care-log"
+          touchTarget={touchTarget}
           noteLabelKey={category === NOTE_CATEGORY ? 'pages.bed.care.log.noteText' : 'pages.bed.care.form.note'}
         />
       </DialogContent>

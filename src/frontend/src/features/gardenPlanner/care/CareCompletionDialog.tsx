@@ -91,6 +91,7 @@ export default function CareCompletionDialog({
           now={now}
           areaM2={areaM2}
           testId="care-complete"
+          touchTarget={touchTarget}
         />
       </DialogContent>
       <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>

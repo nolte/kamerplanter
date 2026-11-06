@@ -7144,7 +7144,7 @@
             "l": "L"
           },
           "layerMm": "(a {{mm}} mm layer)",
-          "nitrogenApprox": "≈ {{kgPerHa}} kg N/ha ({{gPerM2}} g N/m²)",
+          "nitrogenApprox": "Approximation: ≈ {{kgPerHa}} kg N/ha ({{gPerM2}} g N/m²)",
           "nitrogenApproxHint": "Approximation from the N content on the label. This is not a nutrient balance and says nothing about fertilizer regulations.",
           "materialHint": "Pick a material from the list or type your own name.",
           "limingHint": "Lime and wood ash raise the pH. Do not apply them when the soil is already above the target pH, and not for acid-loving plants such as blueberry or rhododendron. The app does not calculate a lime amount."
