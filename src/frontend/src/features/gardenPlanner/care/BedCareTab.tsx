@@ -62,8 +62,12 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
   };
 
   const context = useMemo<CareContext>(
-    () => ({ growingMedium: bed.soil_profile?.growing_medium_kind ?? null, locationTypeKey: bed.location_type_key }),
-    [bed.soil_profile?.growing_medium_kind, bed.location_type_key],
+    () => ({
+      growingMedium: bed.soil_profile?.growing_medium_kind ?? null,
+      locationTypeKey: bed.location_type_key,
+      areaM2: bed.area_m2 ?? null,
+    }),
+    [bed.soil_profile?.growing_medium_kind, bed.location_type_key, bed.area_m2],
   );
   const { reload } = care;
   const changed = useCallback(() => {
@@ -232,6 +236,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
         <CareCompletionDialog
           category={completing.category}
           subject={taskName(completing)}
+          areaM2={bed.area_m2 ?? null}
           saving={saving}
           onSubmit={(payload) => void complete(completing, payload)}
           onClose={() => setCompleting(null)}

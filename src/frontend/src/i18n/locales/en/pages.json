@@ -7135,14 +7135,28 @@
           "product": "Product",
           "productHint": "Pick a fertilizer from the catalogue or type a name.",
           "performedAt": "When",
-          "performedAtHint": "Defaults to now. You can backdate up to 365 days, never into the future."
+          "performedAtHint": "Defaults to now. You can backdate up to 365 days, never into the future.",
+          "noAreaHint": "This bed has no area. Enter a total amount, or draw the bed to dose per m².",
+          "rateFromDataSheet": "Rate per m² from the product data sheet. You can change it.",
+          "areaTotal": "Total for {{area}} m²: {{total}} {{unit}}",
+          "totalUnit": {
+            "g": "g",
+            "l": "L"
+          },
+          "layerMm": "(a {{mm}} mm layer)",
+          "nitrogenApprox": "≈ {{kgPerHa}} kg N/ha ({{gPerM2}} g N/m²)",
+          "nitrogenApproxHint": "Approximation from the N content on the label. This is not a nutrient balance and says nothing about fertilizer regulations.",
+          "materialHint": "Pick a material from the list or type your own name.",
+          "limingHint": "Lime and wood ash raise the pH. Do not apply them when the soil is already above the target pH, and not for acid-loving plants such as blueberry or rhododendron. The app does not calculate a lime amount."
         },
         "errors": {
           "future": "The time lies in the future.",
           "tooOld": "The time is more than 365 days ago.",
           "invalid": "Enter a valid date and time.",
           "quantity": "Enter a number of 0 or more.",
-          "tooLong": "This text is too long."
+          "tooLong": "This text is too long.",
+          "noArea": "This bed has no area. Pick a unit without \"per m²\".",
+          "ratePositive": "A rate per m² must be greater than 0."
         },
         "create": {
           "open": "New task",

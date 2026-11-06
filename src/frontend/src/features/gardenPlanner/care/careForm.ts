@@ -2,7 +2,8 @@
  * The state of the short care form and its translation into the wire payload (REQ-053 GP-FR-084,
  * GP-FR-085). Pure, so the dialog tests can pin the rules without rendering.
  */
-import { formKindOf, UNITS_BY_KIND, type FormKind } from './careCategories';
+import { hasArea, isAreaUnit } from '../model/areaDose';
+import { formKindOf, isAreaDoseKind, UNITS_BY_KIND, type FormKind } from './careCategories';
 import type { CareEventBody, CareUnit, CompletionPayload, FertilizerRef } from './careTypes';
 
 const MS_PER_DAY = 86_400_000;
@@ -18,6 +19,8 @@ export interface CareFormState {
   /** Whether the user changed the instant; an untouched "now" is left to the server. */
   performedAtTouched: boolean;
   quantity: string;
+  /** The quantity was pre-filled from the product data sheet; choosing another product may replace it. */
+  quantityFromProduct: boolean;
   unit: CareUnit | '';
   /** Water source, material or cover; a code or free text. */
   material: string;
@@ -59,6 +62,7 @@ export function emptyForm(now: Date = new Date()): CareFormState {
     performedAt: toLocalInput(now),
     performedAtTouched: false,
     quantity: '',
+    quantityFromProduct: false,
     unit: '',
     material: '',
     productLabel: '',
@@ -67,9 +71,24 @@ export function emptyForm(now: Date = new Date()): CareFormState {
   };
 }
 
-/** The default unit of a form kind (the first it offers), or empty. */
-export function defaultUnit(kind: FormKind): CareUnit | '' {
-  return UNITS_BY_KIND[kind][0] ?? '';
+/**
+ * Whether the per-m² units are off for this form (GP-FR-123): a dose form on a bed without area. `areaM2`
+ * absent (`undefined`, several beds at once) disables nothing; the server computes each bed's total.
+ */
+export function areaUnitsBlocked(kind: FormKind, areaM2: number | null | undefined): boolean {
+  return isAreaDoseKind(kind) && areaM2 !== undefined && !hasArea(areaM2);
+}
+
+/** The default unit of a form kind (the first it offers and the bed allows), or empty. */
+export function defaultUnit(kind: FormKind, areaM2?: number | null): CareUnit | '' {
+  const blocked = areaUnitsBlocked(kind, areaM2);
+  return UNITS_BY_KIND[kind].find((unit) => !(blocked && isAreaUnit(unit))) ?? '';
+}
+
+/** What the validation needs to know beyond the fields: the category and the bed area. */
+interface ValidationContext {
+  category?: string;
+  areaM2?: number | null;
 }
 
 /** Parse a decimal typed with a comma or a point; `null` when it is not a number. */
@@ -90,7 +109,7 @@ export function performedAtProblem(value: string, now: Date): 'future' | 'tooOld
 }
 
 /** Field problems as i18n keys below `pages.bed.care.errors`; an empty object means the form may be sent. */
-export function validateForm(state: CareFormState, now: Date): FormErrors {
+export function validateForm(state: CareFormState, now: Date, context: ValidationContext = {}): FormErrors {
   const errors: FormErrors = {};
   if (state.performedAtTouched) {
     const problem = performedAtProblem(state.performedAt, now);
@@ -99,6 +118,15 @@ export function validateForm(state: CareFormState, now: Date): FormErrors {
   if (state.quantity.trim() !== '') {
     const quantity = parseQuantity(state.quantity);
     if (quantity === null || quantity < 0) errors.quantity = 'quantity';
+    else if (context.category !== undefined) {
+      const kind = formKindOf(context.category);
+      const unit = state.unit !== '' ? state.unit : defaultUnit(kind);
+      // GP-FR-123: a dose per m² is above 0 and needs the bed's area — never a silent total of 0.
+      if (isAreaDoseKind(kind) && isAreaUnit(unit)) {
+        if (areaUnitsBlocked(kind, context.areaM2)) errors.quantity = 'noArea';
+        else if (quantity <= 0) errors.quantity = 'ratePositive';
+      }
+    }
   }
   if (state.material.length > TEXT_MAX) errors.material = 'tooLong';
   if (state.productLabel.length > TEXT_MAX) errors.productLabel = 'tooLong';

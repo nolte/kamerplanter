@@ -1209,7 +1209,17 @@
       "fleece": "Vlies",
       "net": "Netz",
       "foil": "Folie",
-      "frost_cover": "Frostschutz"
+      "frost_cover": "Frostschutz",
+      "rock_dust": "Gesteinsmehl",
+      "biochar": "Pflanzenkohle",
+      "sand": "Sand",
+      "perlite": "Perlite",
+      "coffee_grounds": "Kaffeesatz",
+      "green_manure": "Gründüngung",
+      "sulfur": "Schwefel",
+      "lime": "Kalk",
+      "wood_ash": "Holzasche",
+      "other": "Sonstiges"
     },
     "rotationSeverity": {
       "OK": "unauffällig",

@@ -57,11 +57,11 @@ export default function CareLogDialog({
   const [category, setCategory] = useState<string>(categories[0] ?? NOTE_CATEGORY);
   const [state, setState] = useState<CareFormState>(() => ({
     ...emptyForm(now),
-    unit: defaultUnit(formKindOf(categories[0] ?? NOTE_CATEGORY)),
+    unit: defaultUnit(formKindOf(categories[0] ?? NOTE_CATEGORY), context.areaM2),
   }));
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
-  const errors = showErrors ? validateForm(state, new Date()) : {};
+  const errors = showErrors ? validateForm(state, new Date(), { category, areaM2: context.areaM2 }) : {};
   const label = (value: string) => careCategoryLabel(t, value);
 
   const changeCategory = (next: string) => {
@@ -72,13 +72,13 @@ export default function CareLogDialog({
       performedAt: current.performedAt,
       performedAtTouched: current.performedAtTouched,
       note: current.note,
-      unit: defaultUnit(formKindOf(next)),
+      unit: defaultUnit(formKindOf(next), context.areaM2),
     }));
   };
 
   const submit = async () => {
     const instant = new Date();
-    if (Object.keys(validateForm(state, instant)).length > 0) {
+    if (Object.keys(validateForm(state, instant, { category, areaM2: context.areaM2 })).length > 0) {
       setShowErrors(true);
       return;
     }
@@ -131,6 +131,7 @@ export default function CareLogDialog({
           errors={errors}
           onChange={(patch) => setState((current) => ({ ...current, ...patch }))}
           now={now}
+          areaM2={context.areaM2}
           testId="care-log"
           noteLabelKey={category === NOTE_CATEGORY ? 'pages.bed.care.log.noteText' : 'pages.bed.care.form.note'}
         />

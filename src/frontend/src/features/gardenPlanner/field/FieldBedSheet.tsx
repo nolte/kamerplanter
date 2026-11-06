@@ -113,7 +113,10 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     () => new Map((ready?.plants ?? []).map((plant) => [plant.plant_key, plant.instance_id])),
     [ready],
   );
-  const context = useMemo<CareContext>(() => ({ locationTypeKey: bed.location_type_key }), [bed.location_type_key]);
+  const context = useMemo<CareContext>(
+    () => ({ locationTypeKey: bed.location_type_key, areaM2: bed.area_m2 ?? null }),
+    [bed.location_type_key, bed.area_m2],
+  );
   const taskName = (task: CareTask) => careTaskName(task, i18n.language);
   const categoryLabel = (category: string) => careCategoryLabel(t, category);
 
@@ -306,6 +309,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
         <CareCompletionDialog
           category={overlay.task.category}
           subject={taskName(overlay.task)}
+          areaM2={bed.area_m2 ?? null}
           saving={saving}
           onSubmit={(payload) => void complete(overlay.task, payload)}
           onClose={closeOverlay}

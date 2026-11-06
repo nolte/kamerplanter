@@ -3,7 +3,7 @@
  * growing medium and its type; an unknown context hides nothing.
  */
 import { describe, expect, it } from 'vitest';
-import { categoriesFor, categoryFitsContext, formKindOf, taskTarget } from './careCategories';
+import { categoriesFor, categoryFitsContext, formKindOf, materialsFor, showsLimingHint, taskTarget } from './careCategories';
 
 describe('categoryFitsContext (F-03)', () => {
   it.each(['flush', 'ec_check', 'ph_adjustment'])('%s is offered on a substrate bed and hidden on native soil', (category) => {
@@ -65,5 +65,24 @@ describe('formKindOf (GP-FR-084)', () => {
     expect(taskTarget({ entity_type: 'plant_instance' })).toBe('plant');
     expect(taskTarget({ entity_type: 'tank' })).toBe('other');
     expect(taskTarget({ entity_type: null })).toBe('other');
+  });
+});
+
+describe('amendment materials (GP-FR-124)', () => {
+  it('a soil amendment offers the GP-FR-124 codes, liming what raises the pH', () => {
+    expect(materialsFor('soil_amendment')).toEqual(
+      expect.arrayContaining(['compost', 'manure', 'horn_shavings', 'rock_dust', 'biochar', 'sulfur', 'lime', 'wood_ash', 'other']),
+    );
+    expect(materialsFor('liming')).toEqual(['lime', 'wood_ash', 'other']);
+    expect(materialsFor('mulching')).toContain('bark_mulch');
+    expect(materialsFor('weeding')).toEqual([]);
+  });
+
+  it('the pH hint shows for liming and for lime or wood ash as an amendment, never elsewhere', () => {
+    expect(showsLimingHint('liming', '')).toBe(true);
+    expect(showsLimingHint('soil_amendment', 'wood_ash')).toBe(true);
+    expect(showsLimingHint('soil_amendment', ' lime ')).toBe(true);
+    expect(showsLimingHint('soil_amendment', 'compost')).toBe(false);
+    expect(showsLimingHint('mulching', 'lime')).toBe(false);
   });
 });

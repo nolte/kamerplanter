@@ -52,7 +52,7 @@ class TaskCompletionDetails(BaseModel):
     reason: str | None = Field(default=None, max_length=1000)
     product_ref: ProductRef | None = None
     product_label: str | None = Field(default=None, max_length=200)
-    quantity: float | None = Field(default=None, ge=0)
+    quantity: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     unit: str | None = None
     material: str | None = Field(default=None, max_length=200)
     measurements: list[Measurement] | None = Field(default=None, max_length=50)

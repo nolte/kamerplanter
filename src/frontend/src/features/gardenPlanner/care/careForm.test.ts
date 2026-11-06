@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  areaUnitsBlocked,
   buildCompletionPayload,
   buildLogBody,
   defaultUnit,
@@ -126,5 +127,41 @@ describe('validateForm', () => {
     expect(validateForm(form('watering', { quantity: '-1' }), NOW)).toEqual({ quantity: 'quantity' });
     expect(validateForm(form('watering', { quantity: 'abc' }), NOW)).toEqual({ quantity: 'quantity' });
     expect(validateForm(form('watering', { quantity: '0' }), NOW)).toEqual({});
+  });
+});
+
+describe('area doses (GP-FR-123, WP 8.9)', () => {
+  it('a dose form on a bed without area blocks the per-m² units; several beds (no area given) block nothing', () => {
+    expect(areaUnitsBlocked('feeding', 0)).toBe(true);
+    expect(areaUnitsBlocked('amendment', null)).toBe(true);
+    expect(areaUnitsBlocked('feeding', 3.6)).toBe(false);
+    expect(areaUnitsBlocked('feeding', undefined)).toBe(false);
+    // Watering and rainfall are measurements, not doses.
+    expect(areaUnitsBlocked('watering', 0)).toBe(false);
+    expect(areaUnitsBlocked('rainfall', null)).toBe(false);
+  });
+
+  it('the default unit skips a blocked per-m² unit', () => {
+    expect(defaultUnit('amendment')).toBe('g_per_m2');
+    expect(defaultUnit('amendment', 3.6)).toBe('g_per_m2');
+    expect(defaultUnit('amendment', 0)).toBe('kg');
+    expect(defaultUnit('rainfall', 0)).toBe('l_per_m2');
+  });
+
+  it('a rate of 0 per m² is refused for a dose, kept for rainfall and for plain grams', () => {
+    const zero = (category: string, unit: CareFormState['unit']) => form(category, { quantity: '0', unit });
+    expect(validateForm(zero('feeding', 'g_per_m2'), NOW, { category: 'feeding', areaM2: 3.6 })).toEqual({
+      quantity: 'ratePositive',
+    });
+    expect(validateForm(zero('liming', 'g_per_m2'), NOW, { category: 'liming' })).toEqual({ quantity: 'ratePositive' });
+    expect(validateForm(zero('rainfall', 'l_per_m2'), NOW, { category: 'rainfall', areaM2: 0 })).toEqual({});
+    expect(validateForm(zero('feeding', 'g'), NOW, { category: 'feeding', areaM2: 3.6 })).toEqual({});
+  });
+
+  it('a dose per m² on a bed without area is refused, never sent without its total', () => {
+    const state = form('feeding', { quantity: '80', unit: 'g_per_m2' });
+    expect(validateForm(state, NOW, { category: 'feeding', areaM2: 0 })).toEqual({ quantity: 'noArea' });
+    expect(validateForm(state, NOW, { category: 'feeding', areaM2: 3.6 })).toEqual({});
+    expect(validateForm(state, NOW, { category: 'feeding' })).toEqual({});
   });
 });
