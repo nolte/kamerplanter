@@ -193,6 +193,34 @@ Das erste Foto wird automatisch Titelbild; entfernst du das Titelbild, ist danac
 
 ---
 
+### Vorgeschlagene Aufgaben annehmen oder verwerfen (REQ-053)
+
+Eine vorgeschlagene Aufgabe ist eine offene Aufgabe mit `suggested = true`; `suggestion_reason` nennt den Grund. Beide Endpunkte brauchen ab Rolle `grower` (`viewer` → `403`), schreiben nichts außer der Aufgabe selbst und antworten mit der geänderten Aufgabe (`TaskResponse`).
+
+```
+POST /api/v1/t/{slug}/tasks/{key}/accept-suggestion    # wird zur normalen offenen Aufgabe
+POST /api/v1/t/{slug}/tasks/{key}/dismiss-suggestion   # schließt den Vorschlag als skipped
+```
+
+**`accept-suggestion`** setzt `suggested = false` und leert `suggestion_reason`; Status, Fälligkeit und alles andere bleiben. Wer den Vorschlag gemacht hat, steht weiter in `origin` und `source`.
+
+**`dismiss-suggestion`** nimmt den optionalen Body `{"reason": "…"}` (höchstens 500 Zeichen, weitere Felder → `422`) und setzt `status = skipped`, `completed_at` auf den Zeitpunkt des Schließens und `completion_notes` auf den Grund. `suggested` bleibt `true`: Der Vorschlag wurde nie angenommen, und alle Ansichten, die Vorschläge ausblenden, blenden ihn weiter aus. Es entsteht kein Pflegeeintrag, keine Benachrichtigung, und die Aufgabe zählt nicht als erledigt. `POST …/tasks/{key}/reopen` holt einen verworfenen Vorschlag zurück.
+
+Die Prüfung und das Schreiben sind eine Anweisung: Haben zwei Personen gleichzeitig entschieden, gewinnt eine, die andere bekommt `409`.
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Aufgabe nicht gefunden (oder nicht in diesem Mandanten) |
+| `409` | `task.not_a_suggestion` | Die Aufgabe ist kein Vorschlag (mehr), etwa weil sie schon angenommen wurde |
+| `409` | `task.suggestion_closed` | Nur beim Verwerfen: Der Vorschlag ist schon geschlossen (erledigt, übersprungen oder verworfen) |
+| `409` | `WRITE_CONFLICT` | Ein gleichzeitiger Schreibvorgang auf dieselbe Aufgabe; erneut versuchen |
+
+!!! warning "Noch nicht implementiert: Vorschläge erzeugen"
+    Bisher legt Kamerplanter selbst keine Aufgaben mit `suggested = true` an. Die Endpunkte sind bereit, haben in einer laufenden Installation aber erst etwas zu entscheiden, wenn eine spätere Version Vorschläge erzeugt. <!-- REQ-053 GP-FR-086, GP-API-040 -->
+
+---
+
 ### Mischkultur in einem Schritt anlegen (REQ-053)
 
 `POST /api/v1/t/{slug}/planting-runs/mixed-culture` legt für jede Art einer Mischkultur einen eigenen Durchlauf auf demselben Beet an, alle in einem Schritt (ab Rolle `grower`). Jeder Eintrag in `runs[]` trägt in `entry.row_assignment` die Reihen (ab 0 gezählt), die seine Art belegt. Jede Reihe gehört genau einer Art: Überschneiden sich die Reihen zweier Einträge, antwortet die API mit `422`, bevor etwas gespeichert wird. Es zählen nur Einträge mit einer Reihen-Anordnung (`grid`, `rows`, `triangular`) und einem `row_assignment`; Fläche (`zone`), freie Positionen (`free`) und Einträge ohne Anordnung belegen keine Reihen. Der Fehler nennt in `details[0].conflicts` die Paare als `{"runs": [i, j], "rows": [...], "rows_total": n}` (Positionen in `runs[]`, die gemeinsamen Reihen aufsteigend und ihre Zahl), höchstens 20 Paare mit je höchstens 50 Reihen; `details[0].pairs_total` nennt die Zahl aller Paare, `details[0].truncated` ist `true`, wenn etwas gekürzt wurde. `details[0].field` zeigt auf den späteren Eintrag des ersten Paars.

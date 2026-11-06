@@ -392,6 +392,17 @@ class TaskReopenRequest(BaseModel):
     undo: bool = False
 
 
+class SuggestionDismissRequest(BaseModel):
+    """Optional body of ``POST /tasks/{key}/dismiss-suggestion`` (REQ-053 GP-API-040)."""
+
+    model_config = ConfigDict(
+        extra="forbid", json_schema_extra={"examples": [{"reason": "Rain is forecast for tomorrow"}]}
+    )
+
+    #: Why the suggestion is dismissed; stored as the closed task's note (``completion_notes``).
+    reason: str | None = Field(default=None, max_length=500, examples=["Rain is forecast for tomorrow"])
+
+
 # ── Batch Operations ──
 
 

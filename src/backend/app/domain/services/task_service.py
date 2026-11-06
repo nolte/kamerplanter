@@ -7,7 +7,14 @@ import structlog
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, TenantRole, WorkflowTargetType
-from app.common.exceptions import ForbiddenError, KarenzViolationError, NotFoundError, PlanError, ValidationError
+from app.common.exceptions import (
+    ForbiddenError,
+    KarenzViolationError,
+    NotFoundError,
+    PlanError,
+    ValidationError,
+    WriteConflictError,
+)
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -1794,6 +1801,85 @@ class TaskService:
         updated = self._repo.update_task(key, task)
         self._propagate(lambda p: p.on_task_completed(updated))
         return updated
+
+    # ── Suggestions (REQ-053 GP-FR-086, GP-API-040) ──
+    #
+    # A suggestion is a pending task with ``suggested = true`` that the system proposed (§12.1 "automatisch
+    # vorgeschlagen"). Accepting turns it into an ordinary open task (``suggested = false``); dismissing closes it
+    # as ``skipped``. Neither is a completion: no care_event, no care-reminder confirmation, no notification.
+    # Both write through ``resolve_suggestion``, whose predicate and write are one statement, so two people
+    # deciding the same suggestion at once cannot both win and a concurrent edit is not overwritten.
+
+    #: The states a suggestion can be dismissed from - the same two ``skip_task`` accepts.
+    _DISMISSABLE = (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+
+    def accept_suggestion(self, key: str, *, tenant_key: str) -> Task:
+        """Turn a suggestion into an ordinary task (``suggested = false``); the task stays open as it is.
+
+        ``suggestion_reason`` is cleared with the flag: the field reads "why the system proposed it" and is
+        ``None`` unless ``suggested`` (``Task`` model, §20.9). Who proposed it stays on ``origin``/``source``.
+        404 for an unknown or foreign key, 409 ``task.not_a_suggestion`` for a task that is none (any more).
+        """
+        task = self.get_task(key, tenant_key=tenant_key)
+        self._require_suggestion(task)
+        written = self._repo.resolve_suggestion(
+            key, tenant_key=tenant_key, changes={"suggested": False, "suggestion_reason": None}
+        )
+        return written if written is not None else self._suggestion_lost(key, tenant_key=tenant_key, dismissing=False)
+
+    def dismiss_suggestion(self, key: str, *, tenant_key: str, reason: str | None = None) -> Task:
+        """Close a suggestion as ``skipped`` - the spec's "verworfen" (§12.1) - with an optional reason.
+
+        The reason lands in ``completion_notes`` (what a closed task carries as its note; ``reopen`` clears it).
+        ``suggested`` stays ``true``: the task was never accepted, and every reader that leaves suggestions out
+        (``t.suggested != true``) keeps leaving it out. ``completed_at`` is stamped as on a skip - the time the
+        task was closed, not a completion: the status says ``skipped``. Nothing else happens: no care_event, no
+        care-reminder confirmation, no notification. 404 for an unknown or foreign key, 409
+        ``task.not_a_suggestion`` for a task that is none, 409 ``task.suggestion_closed`` for one already closed.
+        """
+        task = self.get_task(key, tenant_key=tenant_key)
+        self._require_suggestion(task)
+        self._require_dismissable(task)
+        note = reason.strip() if reason else ""
+        written = self._repo.resolve_suggestion(
+            key,
+            tenant_key=tenant_key,
+            changes={
+                "status": TaskStatus.SKIPPED.value,
+                "completed_at": datetime.now(UTC).isoformat(),
+                "completion_notes": note or None,
+            },
+            open_statuses=self._DISMISSABLE,
+        )
+        return written if written is not None else self._suggestion_lost(key, tenant_key=tenant_key, dismissing=True)
+
+    @staticmethod
+    def _require_suggestion(task: Task) -> None:
+        if not task.suggested:
+            raise PlanError(
+                "task.not_a_suggestion",
+                "This task is not a suggestion (any more); there is nothing to accept or dismiss.",
+                status_code=409,
+                field="key",
+            )
+
+    @classmethod
+    def _require_dismissable(cls, task: Task) -> None:
+        if task.status not in cls._DISMISSABLE:
+            raise PlanError(
+                "task.suggestion_closed",
+                f"This suggestion is already closed (status '{task.status}'); there is nothing to dismiss.",
+                status_code=409,
+                field="key",
+            )
+
+    def _suggestion_lost(self, key: str, *, tenant_key: str, dismissing: bool) -> Task:
+        """The conditional write matched nothing: someone decided the suggestion in between. Name the reason."""
+        current = self.get_task(key, tenant_key=tenant_key)  # 404 when it was deleted in between
+        self._require_suggestion(current)
+        if dismissing:
+            self._require_dismissable(current)
+        raise WriteConflictError("tasks", "the suggestion was changed at the same time")
 
     # ── Clone ──
 

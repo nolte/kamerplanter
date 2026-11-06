@@ -7199,7 +7199,7 @@
           "overdue": "Overdue ({{count}})",
           "open": "Open ({{count}})",
           "suggested": "Suggestions ({{count}})",
-          "suggestedHint": "The system proposes these tasks. Do one now or dismiss it; nothing happens until you decide.",
+          "suggestedHint": "The system proposes these tasks. Accept one and it becomes an ordinary open task; dismiss it and it is closed without a care entry. Nothing happens until you decide.",
           "suggestedNoReason": "No reason given."
         },
         "target": {
@@ -7212,8 +7212,12 @@
         "dueOverdue": "Overdue since {{date}}",
         "done": "Done",
         "doneFor": "Done: {{name}}",
-        "doNow": "Do now",
-        "doNowFor": "Do now: {{name}}",
+        "suggestions": {
+          "reason": "Reason: {{reason}}",
+          "accept": "Accept",
+          "acceptFor": "Accept: {{name}}",
+          "accepted": "Accepted: {{name}} is now among the open tasks."
+        },
         "dismiss": "Dismiss",
         "dismissFor": "Dismiss: {{name}}",
         "loading": "Loading tasks",

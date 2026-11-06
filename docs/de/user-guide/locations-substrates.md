@@ -393,10 +393,15 @@ Alle Felder sind freiwillig. Du kannst also auch ohne Eingabe auf **Erledigen** 
 
 **Pflege ohne Aufgabe protokollieren.** Mit **Pflege protokollieren** hältst du fest, was du gerade getan hast („Ich habe gemulcht"), ohne dass dafür eine Aufgabe existiert. Pflanzenschutz-Behandlungen protokollierst du hier nicht, sondern über das Pflanzenschutz-Formular; das Pflegeprotokoll ist dafür kein Nachweis.
 
-**Vorschläge.** Aufgaben, die das System vorschlägt, stehen in einem eigenen Abschnitt **Vorschläge** mit dem Grund. Mit **Jetzt erledigen** führst du den Vorschlag aus und erledigst ihn dabei, mit **Verwerfen** lehnst du ihn ab. Ohne deine Entscheidung passiert nichts.
+**Vorschläge.** Aufgaben, die das System vorschlägt, stehen in einem eigenen Abschnitt **Vorschläge**, jeweils mit dem Grund, zum Beispiel „ET0-Bedarf 4,2 L/m² seit 3 Tagen". Für jeden Vorschlag hast du zwei Schaltflächen:
 
-!!! warning "Teilweise verfügbar: Vorschläge"
-    Das System erzeugt noch keine Vorschläge. Der Abschnitt ist vorbereitet und erscheint, sobald Vorschläge vorliegen. Ein eigenes **Annehmen** ohne gleichzeitiges Erledigen ist noch nicht möglich. <!-- REQ-053 GP-FR-086 -->
+- **Annehmen:** Der Vorschlag wird zu einer normalen offenen Aufgabe und wandert in die Liste darüber. Erledigen kannst du ihn dann wie jede andere Aufgabe.
+- **Verwerfen:** Der Vorschlag wird geschlossen. Es entsteht kein Pflegeeintrag, und die Aufgabe zählt nicht als erledigt. Acht Sekunden lang kannst du das mit **Rückgängig** zurücknehmen, dann steht der Vorschlag wieder im Abschnitt.
+
+Ohne deine Entscheidung passiert nichts. Hat das Beet keine Vorschläge, siehst du den Abschnitt nicht. Annehmen und Verwerfen kannst du ab der Rolle „grower"; mit der Rolle „viewer" siehst du die Vorschläge nur. Hat jemand anderes den Vorschlag inzwischen schon angenommen oder verworfen, zeigt Kamerplanter eine Meldung und lädt die Liste neu.
+
+!!! warning "Noch nicht implementiert: Vorschläge erzeugen"
+    Bisher erzeugt Kamerplanter selbst noch keine Vorschläge. Annehmen und Verwerfen funktionieren, aber in deinem Garten erscheint der Abschnitt erst, wenn eine spätere Version Vorschläge anlegt. <!-- REQ-053 GP-FR-086 -->
 
 **Mehrere Beete auf einmal.** Auf der Gartenplan-Seite findest du über der Beetliste die Schaltfläche **Aufgaben auf mehreren Beeten erledigen**. Du wählst eine Aufgabenart (zum Beispiel Gießen) und die Beete. Kamerplanter sucht alle offenen Aufgaben dieser Art auf diesen Beeten und ihren Pflanzen und erledigt sie in einem Schritt, mit denselben Angaben für alle. Pro Schritt sind höchstens 200 Aufgaben möglich; was nicht erledigt werden konnte, meldet Kamerplanter dir.
 
