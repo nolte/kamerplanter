@@ -142,6 +142,21 @@ class TestComplete:
         assert write.event.quantity_total == 5.0
         assert write.domain.collection == "feeding_events"
 
+    def test_a_zero_dose_per_m2_on_a_feeding_answers_422(self, client, world) -> None:
+        # Review acceptance "area dosing": rate <= 0 is refused, never a silent total of 0.
+        response = client().post(f"{_OWN}/t_feed/complete", json={"quantity": 0, "unit": "g_per_m2"})
+
+        assert response.status_code == 422, response.text
+        assert response.json()["details"][0]["code"] == "care_event.area_dose_not_positive"
+        assert world.completion.completed == []
+
+    def test_an_infinite_quantity_answers_422(self, client, world) -> None:
+        raw = '{"quantity": Infinity, "unit": "g_per_m2"}'
+        response = client().post(f"{_OWN}/t_feed/complete", content=raw, headers={"Content-Type": "application/json"})
+
+        assert response.status_code == 422, response.text
+        assert world.completion.completed == []
+
     @pytest.mark.parametrize(
         ("offset", "code"),
         [

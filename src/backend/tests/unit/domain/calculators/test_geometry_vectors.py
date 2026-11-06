@@ -32,7 +32,8 @@ DEFAULT_TOLERANCE: float = VECTORS["default_tolerance"]
 #: The planting-layout and adjacency operations live in the same file but run in their own test modules
 #: (``phase_color``: ``tests/unit/domain/engines/test_phase_colors.py``; ``place_geometry``:
 #: ``test_template_placement_vectors.py``; ``label_anchor`` and ``label_truncate``: ``test_label_anchor_vectors.py``;
-#: ``reach``: ``test_reach_vectors.py``).
+#: ``reach``: ``test_reach_vectors.py``; ``area_dose``, ``nitrogen_approximation`` and ``unit_identity``:
+#: ``test_area_dose_vectors.py``).
 LAYOUT_OPERATIONS = frozenset(
     {
         "layout",
@@ -47,6 +48,9 @@ LAYOUT_OPERATIONS = frozenset(
         "label_anchor",
         "label_truncate",
         "reach",
+        "area_dose",
+        "nitrogen_approximation",
+        "unit_identity",
     }
 )
 CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] not in LAYOUT_OPERATIONS]

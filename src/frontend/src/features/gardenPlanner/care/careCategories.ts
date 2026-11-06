@@ -57,6 +57,11 @@ export interface CareContext {
   growingMedium?: GrowingMediumKind | null;
   /** `location_type_key` of the bed (`greenhouse_bed`, `cold_frame`, `tent`, `raised_bed` ...). */
   locationTypeKey?: string | null;
+  /**
+   * `area_m2` of the bed for the area doses (GP-FR-123): `null` or <= 0 is a bed without area, which
+   * disables g/m² and L/m² in the dose forms; absent (`undefined`) is "several beds" and disables nothing.
+   */
+  areaM2?: number | null;
 }
 
 /** Whether `category` suits the bed (F-03); an unknown medium or type hides nothing. */
@@ -117,12 +122,58 @@ export const UNITS_BY_KIND: Record<FormKind, readonly CareUnit[]> = {
   note: [],
 };
 
+/**
+ * Form kinds whose per-m² unit is a dose of a product or material (GP-FR-123/124): a rate must be above 0
+ * and needs a bed area. The server refuses a zero dose per m² of these categories with 422
+ * (`care_event.area_dose_not_positive`). Watering and rainfall keep 0 L/m² as a measurement.
+ */
+const AREA_DOSE_KINDS: ReadonlySet<FormKind> = new Set(['feeding', 'amendment']);
+
+export function isAreaDoseKind(kind: FormKind): boolean {
+  return AREA_DOSE_KINDS.has(kind);
+}
+
 /** Suggestions for the material field (free text stays possible); codes are translated in the UI. */
-export const MATERIALS_BY_KIND: Partial<Record<FormKind, readonly string[]>> = {
-  amendment: ['compost', 'manure', 'horn_shavings'],
+const MATERIALS_BY_KIND: Partial<Record<FormKind, readonly string[]>> = {
+  // GP-FR-124: the soil amendments (the mulch materials are offered by the mulching form).
+  amendment: [
+    'compost',
+    'manure',
+    'horn_shavings',
+    'rock_dust',
+    'biochar',
+    'sand',
+    'perlite',
+    'coffee_grounds',
+    'green_manure',
+    'sulfur',
+    'lime',
+    'wood_ash',
+    'other',
+  ],
   mulching: ['straw', 'grass_clippings', 'bark_mulch', 'wood_chips', 'leaves', 'cardboard', 'compost'],
   cover: ['fleece', 'net', 'foil', 'frost_cover'],
 };
+
+/** Liming offers what raises the pH (GP-FR-124); no lime amount is ever computed (agrobiology review, no. 9). */
+const LIMING_MATERIALS = ['lime', 'wood_ash', 'other'] as const;
+
+/** Materials that raise the pH: lime and wood ash (review U-005, R-011). */
+const PH_RAISING_MATERIALS: ReadonlySet<string> = new Set(['lime', 'wood_ash']);
+
+/** The material suggestions of a category; an empty list hides the field. */
+export function materialsFor(category: string): readonly string[] {
+  if (category === 'liming') return LIMING_MATERIALS;
+  return MATERIALS_BY_KIND[formKindOf(category)] ?? [];
+}
+
+/**
+ * Whether the form shows the text-only hint "not above the target pH, not for acid-loving plants"
+ * (review U-005): every liming, and a soil amendment with lime or wood ash. Text only — no amount.
+ */
+export function showsLimingHint(category: string, material: string): boolean {
+  return category === 'liming' || (formKindOf(category) === 'amendment' && PH_RAISING_MATERIALS.has(material.trim()));
+}
 
 /** Water sources of the watering form (`WaterSource`); written into `material` of the care line. */
 export const WATER_SOURCES = ['tap', 'rainwater', 'well', 'tank', 'osmose', 'distilled', 'mixed'] as const;

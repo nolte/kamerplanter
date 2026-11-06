@@ -9,6 +9,7 @@ body cannot carry the server-owned fields, and — per endpoint — that **anoth
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -167,6 +168,29 @@ class TestLogging:
 
         assert response.status_code == 422
         assert response.json()["details"][0]["code"] == "care_event.category_server_only"
+        assert world.repo.inserted == []
+
+    def test_an_area_dose_of_80_g_per_m2_stores_rate_and_total(self, client) -> None:
+        # Review acceptance "area dosing" on the 2 m² test bed: quantity and unit as sent, total = rate × area.
+        created = logged(client, category="feeding", quantity=80, unit="g_per_m2")
+
+        assert (created["quantity"], created["unit"]) == (80, "g_per_m2")
+        assert (created["quantity_total"], created["quantity_total_unit"]) == (160.0, "g")
+
+    def test_a_zero_dose_per_m2_answers_422_with_its_code(self, client, world) -> None:
+        response = client().post(_OWN, json=body(category="feeding", quantity=0, unit="g_per_m2"))
+
+        assert response.status_code == 422
+        detail = response.json()["details"][0]
+        assert (detail["code"], detail["field"]) == ("care_event.area_dose_not_positive", "quantity")
+        assert world.repo.inserted == []
+
+    @pytest.mark.parametrize("literal", ["Infinity", "-Infinity", "NaN"])
+    def test_a_quantity_that_is_no_finite_number_answers_422(self, client, world, literal) -> None:
+        raw = json.dumps(body(category="feeding", unit="g_per_m2")).rstrip("}") + f', "quantity": {literal}}}'
+        response = client().post(_OWN, content=raw, headers={"Content-Type": "application/json"})
+
+        assert response.status_code == 422
         assert world.repo.inserted == []
 
     def test_the_past_and_future_limits_answer_422_with_their_codes(self, client) -> None:

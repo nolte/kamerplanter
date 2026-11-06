@@ -68,7 +68,7 @@ export default function BatchCompleteDialog({ beds, onClose, onChanged }: BatchC
   const [state, setState] = useState<CareFormState>(() => ({ ...emptyForm(now), unit: defaultUnit(formKindOf('watering')) }));
   const [showErrors, setShowErrors] = useState(false);
   const lastSubmitAt = useRef(0);
-  const errors = showErrors ? validateForm(state, new Date()) : {};
+  const errors = showErrors ? validateForm(state, new Date(), { category }) : {};
 
   const toggle = (key: string) =>
     setSelected((current) => {
@@ -103,7 +103,7 @@ export default function BatchCompleteDialog({ beds, onClose, onChanged }: BatchC
 
   const submit = async () => {
     if (found === null || isDuplicateTap(lastSubmitAt.current, Date.now(), busy)) return;
-    if (Object.keys(validateForm(state, new Date())).length > 0) {
+    if (Object.keys(validateForm(state, new Date(), { category })).length > 0) {
       setShowErrors(true);
       return;
     }

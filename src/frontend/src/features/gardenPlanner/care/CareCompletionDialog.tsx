@@ -29,6 +29,8 @@ interface CareCompletionDialogProps {
   touchTarget?: number;
   /** Label of the submit button; field mode says "Finish" (§18.1 step 5). */
   submitLabel?: string;
+  /** `area_m2` of the task's bed for the area doses (GP-FR-123); `null` or <= 0 disables g/m² and L/m². */
+  areaM2?: number | null;
 }
 
 export default function CareCompletionDialog({
@@ -39,6 +41,7 @@ export default function CareCompletionDialog({
   onClose,
   touchTarget = 48,
   submitLabel,
+  areaM2,
 }: CareCompletionDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -46,13 +49,13 @@ export default function CareCompletionDialog({
   const now = useMemo(() => new Date(), []);
   const [state, setState] = useState<CareFormState>(() => ({
     ...emptyForm(now),
-    unit: defaultUnit(formKindOf(category)),
+    unit: defaultUnit(formKindOf(category), areaM2),
   }));
   const [showErrors, setShowErrors] = useState(false);
-  const errors = showErrors ? validateForm(state, new Date()) : {};
+  const errors = showErrors ? validateForm(state, new Date(), { category, areaM2 }) : {};
 
   const submit = () => {
-    const found = validateForm(state, new Date());
+    const found = validateForm(state, new Date(), { category, areaM2 });
     if (Object.keys(found).length > 0) {
       setShowErrors(true);
       return;
@@ -86,7 +89,9 @@ export default function CareCompletionDialog({
           errors={errors}
           onChange={(patch) => setState((current) => ({ ...current, ...patch }))}
           now={now}
+          areaM2={areaM2}
           testId="care-complete"
+          touchTarget={touchTarget}
         />
       </DialogContent>
       <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>

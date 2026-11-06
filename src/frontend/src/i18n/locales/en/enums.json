@@ -1209,7 +1209,17 @@
       "fleece": "Fleece",
       "net": "Net",
       "foil": "Foil",
-      "frost_cover": "Frost cover"
+      "frost_cover": "Frost cover",
+      "rock_dust": "Rock dust",
+      "biochar": "Biochar",
+      "sand": "Sand",
+      "perlite": "Perlite",
+      "coffee_grounds": "Coffee grounds",
+      "green_manure": "Green manure",
+      "sulfur": "Sulfur",
+      "lime": "Lime",
+      "wood_ash": "Wood ash",
+      "other": "Other"
     },
     "rotationSeverity": {
       "OK": "no issue",

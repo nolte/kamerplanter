@@ -184,6 +184,65 @@ class TestCreate:
 
         assert (view.event.quantity_total, view.event.quantity_total_unit) == (4.0, "l")
 
+    def test_a_bed_without_area_stores_no_total_never_a_zero(self, world):
+        # WP 8.9: ``bed_other`` has no geometry, area_m2 = 0 → the total is absent, not 0.
+        service, repo, *_ = world
+
+        view = create(service, input_for(location_key="bed_other", category="feeding", quantity=80, unit="g_per_m2"))
+
+        stored = repo.events[view.event.key]
+        assert (stored.quantity, stored.unit) == (80, "g_per_m2")
+        assert (stored.quantity_total, stored.quantity_total_unit) == (None, None)
+
+    @pytest.mark.parametrize("category", ["feeding", "soil_amendment", "liming"])
+    @pytest.mark.parametrize("unit", ["g_per_m2", "l_per_m2"])
+    def test_a_zero_dose_per_m2_is_refused(self, world, category, unit):
+        # Review acceptance "area dosing": rate <= 0 → 422, never a silent total of 0.
+        service, repo, *_ = world
+
+        with pytest.raises(PlanError) as exc:
+            create(service, input_for(category=category, quantity=0, unit=unit))
+
+        assert (exc.value.error_code, exc.value.status_code) == ("care_event.area_dose_not_positive", 422)
+        assert repo.inserted == []
+
+    def test_zero_litres_per_m2_of_rain_stay_a_measurement(self, world):
+        # The control: a dry rain gauge is no dose; 0 L/m² of rainfall is stored with its total of 0.
+        service, *_ = world
+
+        view = create(service, input_for(category="rainfall", quantity=0, unit="l_per_m2"))
+
+        assert (view.event.quantity_total, view.event.quantity_total_unit) == (0.0, "l")
+
+    def test_a_zero_dose_in_grams_is_not_an_area_dose(self, world):
+        # The control: the rule binds the per-m² units only.
+        service, *_ = world
+
+        view = create(service, input_for(category="feeding", quantity=0, unit="g"))
+
+        assert view.event.quantity_total is None
+
+    def test_a_correction_to_a_zero_dose_per_m2_is_refused(self, world):
+        service, repo, *_ = world
+        original = create(service, input_for(category="feeding", quantity=80, unit="g_per_m2"))
+
+        with pytest.raises(PlanError) as exc:
+            service.supersede(
+                original.event.key,
+                correction_for(category="feeding", quantity=0, unit="g_per_m2"),
+                tenant_key=TENANT,
+                user_key=USER,
+                role=GROWER,
+            )
+
+        assert exc.value.error_code == "care_event.area_dose_not_positive"
+        assert len(repo.inserted) == 1
+
+    @pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+    def test_a_quantity_that_is_no_finite_number_is_refused(self, value):
+        with pytest.raises(PydanticValidationError):
+            input_for(category="feeding", quantity=value, unit="g_per_m2")
+
     def test_measurements_only_on_soil_analysis_and_ec_check(self):
         measurement = {"parameter": "ph", "value": 6.4, "unit": "pH"}
         assert input_for(category="soil_analysis", measurements=[measurement]).measurements

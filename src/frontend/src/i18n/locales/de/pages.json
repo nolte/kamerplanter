@@ -7136,14 +7136,28 @@
           "product": "Produkt",
           "productHint": "Wähle einen Dünger aus dem Katalog oder tippe einen Namen.",
           "performedAt": "Wann",
-          "performedAtHint": "Standard ist jetzt. Du kannst bis zu 365 Tage zurückdatieren, aber nie in die Zukunft."
+          "performedAtHint": "Standard ist jetzt. Du kannst bis zu 365 Tage zurückdatieren, aber nie in die Zukunft.",
+          "noAreaHint": "Das Beet hat keine Fläche. Gib eine Gesamtmenge an oder zeichne das Beet, um pro m² zu dosieren.",
+          "rateFromDataSheet": "Menge pro m² aus dem Datenblatt des Produkts. Du kannst sie ändern.",
+          "areaTotal": "Gesamtmenge für {{area}} m²: {{total}} {{unit}}",
+          "totalUnit": {
+            "g": "g",
+            "l": "L"
+          },
+          "layerMm": "(entspricht {{mm}} mm Schichtdicke)",
+          "nitrogenApprox": "Näherung: ≈ {{kgPerHa}} kg N/ha ({{gPerM2}} g N/m²)",
+          "nitrogenApproxHint": "Näherung aus dem N-Gehalt auf dem Etikett. Das ist keine Nährstoffbilanz und keine Aussage zur Düngeverordnung.",
+          "materialHint": "Wähle ein Material aus der Liste oder tippe einen eigenen Namen.",
+          "limingHint": "Kalk und Holzasche heben den pH-Wert. Bringe sie nicht aus, wenn der Boden schon über dem Ziel-pH liegt, und nicht bei säureliebenden Pflanzen wie Heidelbeere oder Rhododendron. Eine Kalkmenge berechnet die App nicht."
         },
         "errors": {
           "future": "Der Zeitpunkt liegt in der Zukunft.",
           "tooOld": "Der Zeitpunkt liegt mehr als 365 Tage zurück.",
           "invalid": "Gib ein gültiges Datum mit Uhrzeit ein.",
           "quantity": "Gib eine Zahl ab 0 ein.",
-          "tooLong": "Dieser Text ist zu lang."
+          "tooLong": "Dieser Text ist zu lang.",
+          "noArea": "Das Beet hat keine Fläche. Wähle eine Einheit ohne „pro m²“.",
+          "ratePositive": "Eine Menge pro m² muss größer als 0 sein."
         },
         "create": {
           "open": "Neue Aufgabe",

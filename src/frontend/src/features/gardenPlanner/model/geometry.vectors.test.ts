@@ -24,7 +24,7 @@ import { loadVectors, type VectorCase } from '@/test/gardenPlanVectors';
  * cases inline would certify nothing.
  */
 const ALL_VECTORS = loadVectors();
-/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3); `plant_state` runs in `plantState.vectors.test.ts`; `site_fit` and `site_fit_axes` run in `siteFit.vectors.test.ts`; `overdue` runs in `overdue.vectors.test.ts`; `phase_color` runs in `planting/phaseColors.vectors.test.ts`; `place_geometry` runs in `templates/placeGeometry.vectors.test.ts`; `label_anchor` and `label_truncate` run in `labelAnchor.vectors.test.ts`; `reach` runs in `reach.vectors.test.ts`. */
+/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3); `plant_state` runs in `plantState.vectors.test.ts`; `site_fit` and `site_fit_axes` run in `siteFit.vectors.test.ts`; `overdue` runs in `overdue.vectors.test.ts`; `phase_color` runs in `planting/phaseColors.vectors.test.ts`; `place_geometry` runs in `templates/placeGeometry.vectors.test.ts`; `label_anchor` and `label_truncate` run in `labelAnchor.vectors.test.ts`; `reach` runs in `reach.vectors.test.ts`; `area_dose`, `nitrogen_approximation` and `unit_identity` run in `areaDose.vectors.test.ts`. */
 const LAYOUT_OPERATIONS = new Set([
   'layout',
   'layout_error',
@@ -38,6 +38,9 @@ const LAYOUT_OPERATIONS = new Set([
   'label_anchor',
   'label_truncate',
   'reach',
+  'area_dose',
+  'nitrogen_approximation',
+  'unit_identity',
 ]);
 const VECTORS = {
   ...ALL_VECTORS,

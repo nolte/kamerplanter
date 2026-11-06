@@ -37,6 +37,7 @@ import structlog
 
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
+from app.domain.calculators.area_dose_calculator import AREA_UNITS, quantity_total
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.care_event_repository import (
@@ -83,6 +84,11 @@ ERROR_TOO_OLD = "care_event.too_old"
 ERROR_IMMUTABLE = "care_event.immutable"
 ERROR_SEQUENCE = "care_event.sequence"
 ERROR_SERVER_ONLY = "care_event.category_server_only"
+ERROR_AREA_DOSE_NOT_POSITIVE = "care_event.area_dose_not_positive"
+
+#: Categories whose area unit is a dose of a product or a material (GP-FR-123/124): a rate of 0 per m² is no dose
+#: and would store a total of 0, so it is refused. Watering and rainfall keep 0 L/m² (a dry measurement).
+AREA_DOSE_CATEGORIES: frozenset[str] = frozenset({"feeding", "soil_amendment", "liming"})
 
 
 def _not_found(field: str) -> PlanValidationError:
@@ -278,10 +284,27 @@ class CareEventService:
     def _quantity_total(
         data: CareEventInput | CareEventCorrection, location: Location
     ) -> tuple[float | None, str | None]:
-        """Area doses (``l_per_m2``, ``g_per_m2``) become a total for the bed: ``quantity × area_m2`` (GP-FR-088)."""
-        if data.quantity is None or data.unit not in ("l_per_m2", "g_per_m2") or location.area_m2 <= 0:
-            return None, None
-        return round(data.quantity * location.area_m2, 3), "l" if data.unit == "l_per_m2" else "g"
+        """Area doses (``l_per_m2``, ``g_per_m2``) become a total for the bed: ``quantity × area_m2`` (GP-FR-088).
+
+        A bed without area (``area_m2 <= 0``) has no total (``None``, GP-FR-123), never a silent 0.
+        """
+        return quantity_total(data.quantity, data.unit, location.area_m2)
+
+    @staticmethod
+    def _check_area_dose(data: CareEventInput | CareEventCorrection) -> None:
+        """A dose per m² of a product or material is positive (review acceptance "area dosing", WP 8.9)."""
+        if (
+            data.category in AREA_DOSE_CATEGORIES
+            and data.unit in AREA_UNITS
+            and data.quantity is not None
+            and data.quantity <= 0
+        ):
+            raise PlanError(
+                ERROR_AREA_DOSE_NOT_POSITIVE,
+                "A dose per m² must be greater than 0.",
+                status_code=422,
+                field="quantity",
+            )
 
     def _validated_fields(
         self,
@@ -301,6 +324,7 @@ class CareEventService:
         self._check_photos(data.photo_refs, already_photos, tenant_key=tenant_key, user_key=user_key)
         if check_instant:
             self._check_performed_at(data.performed_at, max_age_days=max_age_days)
+        self._check_area_dose(data)
         total, total_unit = self._quantity_total(data, location)
         return {
             "plant_keys": list(data.plant_keys),
