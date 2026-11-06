@@ -326,15 +326,18 @@ Kamerplanter shows the nutrient demand of the plant (from master data) in the pl
 Instead of deriving dosages by hand from the tables above, let Kamerplanter calculate them precisely:
 
 1. Open **Fertilization → Nutrient Calculations** and select the **Area Dosing (Outdoor)** card.
-2. Enter the keys of the desired fertilizers (comma-separated), e.g. compost and horn shavings.
+2. Select the desired fertilizers, e.g. compost and horn shavings.
 3. Either enter the **bed area in m²** directly, or enter a **location** instead. If an area is entered, it takes precedence — the location is then ignored. If the area field is left empty, Kamerplanter uses the area stored for the selected location.
-4. Optionally select the plant's **nutrient demand** (heavy/medium/light feeder, nitrogen fixer) — this provides additional guidance but does not replace the amount calculation itself.
+4. Optionally select the **plant species** you are fertilizing. If the species is recorded as nitrogen-fixing (e.g. bean, pea), the result warns you about every fertilizer containing nitrogen. The amounts do not change, and no feeder class scales anything here.
 5. Click **Calculate**.
 
 The result shows, per fertilizer, the total amount in grams or litres for the given area, the stored dilution ratio, the nutrient release speed, and additional notes.
 
 !!! tip "Area comes from the location or is entered manually"
-    If you have already stored a bed size under **Locations → Sites**, you can leave the area field empty and enter the location key instead — the area is picked up automatically.
+    If you have already stored a bed size under **Locations → Sites**, you can leave the area field empty and select the location instead — the area is picked up automatically.
+
+!!! info "The nitrogen warning comes from the species"
+    Whether a plant fixes nitrogen is read from the species' trait in the master data, no longer from a feeder class. If the species does not have the trait set, no warning appears. You only see species your garden may use: your own, the shared master data and those granted to you.
 
 ---
 

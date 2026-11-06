@@ -89,12 +89,14 @@ describe('NutrientCalculationsPage — AP-10/11 additions', () => {
     expect(within(card).getByText(/Rezept gültig/)).toBeTruthy();
   });
 
-  it('renders the area-dosing section with area, location and demand inputs', () => {
+  it('renders the area-dosing section with area, location and species inputs', () => {
     renderWithProviders(<NutrientCalculationsPage />);
     const card = cardForHeading(/Flächendosierung/);
     expect(within(card).getByLabelText(/Beetfläche/)).toBeTruthy();
     expect(within(card).getByLabelText(/Standort/)).toBeTruthy();
-    expect(within(card).getByLabelText(/Nährstoffbedarf/)).toBeTruthy();
+    expect(within(card).getByLabelText(/Pflanzenart/)).toBeTruthy();
+    // REQ-053 E-17 variant A: the feeder-class select is gone
+    expect(within(card).queryByLabelText(/Nährstoffbedarf/)).toBeNull();
   });
 
   it('calculates area dosing and renders the resulting amounts', async () => {
@@ -462,9 +464,7 @@ describe('NutrientCalculationsPage — area dosing edge cases', () => {
       expect(within(card).getByText(/Standort wird ignoriert/)).toBeTruthy();
     });
 
-    const demandSelect = within(card).getByLabelText(/Nährstoffbedarf/);
-    await user.click(demandSelect);
-    await user.click(await screen.findByRole('option', { name: 'Stickstoffsammler' }));
+    await pickOption(user, within(card).getByLabelText(/Pflanzenart/), /Tomato/);
 
     await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
 
@@ -484,8 +484,63 @@ describe('NutrientCalculationsPage — area dosing edge cases', () => {
     expect(captured).toMatchObject({
       area_m2: 8,
       location_key: 'loc-1',
-      demand_level: 'nitrogen_fixer',
+      species_key: 'sp-1',
       fertilizer_keys: ['liquid-manure'],
+    });
+    // the deprecated feeder class is never sent by this page
+    expect(captured).not.toHaveProperty('demand_level');
+  });
+});
+
+describe('NutrientCalculationsPage — area dosing species (REQ-053 E-17)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+
+  it('sends no species_key and no demand_level while no species is chosen', async () => {
+    let captured: Record<string, unknown> | null = null;
+    server.use(
+      http.post('/api/v1/t/:tenant/nutrient-calculations/area-dosing', async ({ request }) => {
+        captured = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ area_m2: 2, items: [], warnings: [], instructions: [] });
+      }),
+    );
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<NutrientCalculationsPage />);
+    const card = cardForHeading(/Flächendosierung/);
+
+    await pickOption(user, within(card).getByLabelText('Düngemittel'), /Compost/);
+    await retype(user, within(card).getByLabelText(/Beetfläche/), '2');
+    await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
+
+    await waitFor(() => expect(captured).not.toBeNull());
+    expect(captured).not.toHaveProperty('species_key');
+    expect(captured).not.toHaveProperty('demand_level');
+  });
+
+  it('renders the N warning the server derives from the chosen species', async () => {
+    server.use(
+      http.post('/api/v1/t/:tenant/nutrient-calculations/area-dosing', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          area_m2: 2,
+          items: [],
+          warnings: body.species_key === 'sp-1' ? ['Hornspäne: contains nitrogen (N=14)'] : [],
+          instructions: [],
+        });
+      }),
+    );
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<NutrientCalculationsPage />);
+    const card = cardForHeading(/Flächendosierung/);
+
+    await pickOption(user, within(card).getByLabelText('Düngemittel'), /Compost/);
+    await retype(user, within(card).getByLabelText(/Beetfläche/), '2');
+    await pickOption(user, within(card).getByLabelText(/Pflanzenart/), /Tomato/);
+    await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
+
+    await waitFor(() => {
+      expect(within(card).getByText(/contains nitrogen/)).toBeTruthy();
     });
   });
 });

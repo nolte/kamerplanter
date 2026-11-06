@@ -1,5 +1,8 @@
 """Unit tests for AreaDosingCalculator (REQ-004 W-013, AP-11)."""
 
+import inspect
+from pathlib import Path
+
 import pytest
 
 import app.domain.engines.area_dosing_engine as area_dosing_engine
@@ -53,38 +56,46 @@ class TestAreaDosing:
         assert result.items[0].total_liters is None
         assert any("no area application rate" in w for w in result.warnings)
 
+    def test_zero_area_raises(self):
+        calc = AreaDosingCalculator()
+        with pytest.raises(ValueError, match="area_m2"):
+            calc.calculate([_fert("X", application_rate_g_per_m2=10.0)], area_m2=0.0)
+
     def test_nitrogen_fixer_guard(self):
         calc = AreaDosingCalculator()
         n_fert = _fert("Blutmehl", application_rate_g_per_m2=50.0, npk_ratio=(12.0, 0.0, 0.0))
-        result = calc.calculate([n_fert], area_m2=1.0, demand_level=NutrientDemandLevel.NITROGEN_FIXER)
+        result = calc.calculate([n_fert], area_m2=1.0, nitrogen_fixing=True)
         assert any("nitrogen" in w.lower() for w in result.warnings)
 
-    def test_another_demand_level_gets_no_nitrogen_warning(self):
+    def test_a_non_fixer_gets_no_nitrogen_warning(self):
         """The control: the warning belongs to the fixer branch, not to every N fertilizer."""
         calc = AreaDosingCalculator()
         n_fert = _fert("Blutmehl", application_rate_g_per_m2=50.0, npk_ratio=(12.0, 0.0, 0.0))
-        result = calc.calculate([n_fert], area_m2=1.0, demand_level=NutrientDemandLevel.HEAVY_FEEDER)
+        result = calc.calculate([n_fert], area_m2=1.0)
+        assert not any("nitrogen" in w.lower() for w in result.warnings)
+
+    def test_a_fixer_with_an_n_free_product_gets_no_warning(self):
+        calc = AreaDosingCalculator()
+        k_fert = _fert("Kalimagnesia", application_rate_g_per_m2=40.0, npk_ratio=(0.0, 0.0, 30.0))
+        result = calc.calculate([k_fert], area_m2=1.0, nitrogen_fixing=True)
         assert not any("nitrogen" in w.lower() for w in result.warnings)
 
 
-class TestTheDemandLevelVocabularyHasOneSpelling:
-    """The branch is selected by the enum member, not by a copy of its value (review SCR-002).
+class TestTheEngineIgnoresTheLegacyFeederClass:
+    """REQ-053 E-17 variant A: the engine reads a boolean, not the feeder class."""
 
-    The module used to carry ``NITROGEN_FIXER = "nitrogen_fixer"`` of its own. It
-    behaved identically — ``NutrientDemandLevel`` is a ``StrEnum`` — which is
-    exactly why nothing would have caught it drifting: rename or retire the enum
-    member and this branch goes silently unreachable while every test stays green.
-    """
+    def test_the_engine_takes_no_demand_level(self):
+        params = inspect.signature(AreaDosingCalculator.calculate).parameters
+        assert "demand_level" not in params
+        assert params["nitrogen_fixing"].default is False
 
-    def test_the_module_defines_no_second_spelling_of_a_demand_level(self):
+    def test_the_module_does_not_reference_the_legacy_enum(self):
+        assert "NutrientDemandLevel" not in Path(inspect.getfile(area_dosing_engine)).read_text(encoding="utf-8")
+
+    def test_the_module_defines_no_copy_of_a_demand_level_value(self):
         duplicates = {
             name: value
             for name, value in vars(area_dosing_engine).items()
             if name.isupper() and isinstance(value, str) and value in set(NutrientDemandLevel)
         }
         assert not duplicates, f"module-level copies of a NutrientDemandLevel value: {duplicates}"
-
-    def test_zero_area_raises(self):
-        calc = AreaDosingCalculator()
-        with pytest.raises(ValueError, match="area_m2"):
-            calc.calculate([_fert("X", application_rate_g_per_m2=10.0)], area_m2=0.0)

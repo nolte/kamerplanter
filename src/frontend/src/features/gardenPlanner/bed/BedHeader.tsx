@@ -7,6 +7,9 @@
  * The nutrient hint (GP-FR-125, WP 8.10) is shown only while it says something: "Düngebedarf wahrscheinlich" for
  * `likely_deficit`, "Düngung prüfen" for `check`, each with its reasons - never a number. `ok` and
  * `insufficient_data` show nothing (until a threshold has a source every bed is `insufficient_data`, E-10).
+ * The salt-limit reason `check_salt_content` (E-17 variant A) is no supply finding and never changes the state, so it
+ * is shown as a fact of its own whenever the hint carries it - whatever the state - and left out of the nutrient
+ * reasons. It stays hidden until a sourced salt threshold is configured on the server.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -75,6 +78,7 @@ const NUTRIENT_REASON_KEY: Record<NutrientHintReason, string> = {
   standing_nitrogen_fixer: 'pages.bed.header.nutrient.reasons.standing_nitrogen_fixer',
   bark_mulch_n_binding: 'pages.bed.header.nutrient.reasons.bark_mulch_n_binding',
   p_or_k_class_high: 'pages.bed.header.nutrient.reasons.p_or_k_class_high',
+  check_salt_content: 'pages.bed.header.nutrient.reasons.check_salt_content',
 };
 const NUTRIENT_CONFIDENCE_KEY: Record<NutrientHintConfidence, string> = {
   low: 'pages.bed.header.nutrient.confidence_low',
@@ -86,6 +90,9 @@ const NUTRIENT_CONFIDENCE_KEY: Record<NutrientHintConfidence, string> = {
 function shownNutrientHint(hint: NutrientHint | null | undefined): NutrientHint | null {
   return hint && (hint.state === 'likely_deficit' || hint.state === 'check') ? hint : null;
 }
+
+/** The salt-limit reason is shown on its own (it is independent of the nutrient state). */
+const SALT_REASON: NutrientHintReason = 'check_salt_content';
 
 function Fact({
   label,
@@ -142,6 +149,7 @@ export default function BedHeader({
     [summary.geometry, accessSides, reachThresholds],
   );
   const nutrientHint = shownNutrientHint(summary.nutrient_hint);
+  const saltCheck = summary.nutrient_hint?.reasons.includes(SALT_REASON) ?? false;
   const reachNumbers = useMemo(() => {
     // Three digits: a bed of 0.601 m is wider than 0.6 m and must not read as "0.6 m".
     const format = new Intl.NumberFormat(language, { maximumFractionDigits: 3 });
@@ -277,7 +285,7 @@ export default function BedHeader({
                   data-state={nutrientHint.state}
                 />
                 <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2 }} data-testid="bed-nutrient-reasons">
-                  {nutrientHint.reasons.map((reason) => (
+                  {nutrientHint.reasons.filter((reason) => reason !== SALT_REASON).map((reason) => (
                     <Typography key={reason} component="li" variant="caption" color="text.secondary">
                       {t(NUTRIENT_REASON_KEY[reason])}
                     </Typography>
@@ -285,6 +293,20 @@ export default function BedHeader({
                 </Box>
                 <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-nutrient-note">
                   {t(NUTRIENT_CONFIDENCE_KEY[nutrientHint.confidence])} {t('pages.bed.header.nutrient.noAmount')}
+                </Typography>
+              </Fact>
+            )}
+            {saltCheck && (
+              <Fact label={t('pages.bed.header.nutrient.saltLabel')} testId="bed-header-salt" fullRow>
+                <Chip
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  label={t('pages.bed.header.nutrient.saltCheck')}
+                  data-testid="bed-salt-badge"
+                />
+                <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-salt-detail">
+                  {t(NUTRIENT_REASON_KEY[SALT_REASON])}
                 </Typography>
               </Fact>
             )}

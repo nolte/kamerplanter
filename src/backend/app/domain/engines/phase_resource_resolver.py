@@ -8,7 +8,9 @@ nutrient services apply the same lifecycle logic:
   water-only; ``dry_storage`` (geophytes) is dry; ``waterlogging_tolerance`` caps
   the volume.
 * **E8 nutrients** — rest phases get no feed; ``flushing`` is 0-0-0; otherwise the
-  EC target is scaled by the species ``nutrient_demand_level`` (feeder class).
+  EC target is the phase base EC. There is deliberately no scaling by feeder class
+  (REQ-053 E-17 variant A): no sourced factor exists (E-10), and field-soil EC is
+  only evaluated as a salt-limit hint (``soil_salinity_hint``), never as a target.
 
 Pure logic — callers pass the base profile values; the ET/sensor override
 (REQ-037/005) and the tank/mixing wiring (REQ-004/014) stay in their services and
@@ -19,16 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.common.enums import NutrientDemandLevel
 from app.domain.engines.phase_role_map import core_phase, is_rest_phase
-
-# EC scaling per feeder class (multiplies the phase base EC target).
-_FEEDER_EC_FACTOR: dict[NutrientDemandLevel, float] = {
-    NutrientDemandLevel.HEAVY_FEEDER: 1.15,
-    NutrientDemandLevel.MEDIUM_FEEDER: 1.0,
-    NutrientDemandLevel.LIGHT_FEEDER: 0.7,
-    NutrientDemandLevel.NITROGEN_FIXER: 0.6,
-}
 
 # Waterlogging tolerance -> multiplier on the phase-modulated volume. A sensitive
 # root zone gets less water per event (drainage/anoxia risk), a tolerant one may
@@ -191,9 +184,11 @@ def resolve_nutrient(
     base_npk: tuple[int, int, int] = (3, 1, 2),
     base_ec_ms: float = 1.5,
     base_ph: float = 6.0,
-    nutrient_demand_level: NutrientDemandLevel | None = None,
 ) -> NutrientRegime:
     """E8: resolve the nutrient regime for a phase.
+
+    A feeding phase keeps the phase base EC unchanged — the feeder class of the
+    species does not scale it (REQ-053 E-17 variant A).
 
     Surfaces the per-phase ``target_ph`` and the pH-gated micronutrient availability
     (``micros_available`` / ``ph_note``) alongside the NPK/EC guidance, so the caller
@@ -221,12 +216,11 @@ def resolve_nutrient(
             micros_available=micros_available,
             ph_note=ph_note,
         )
-    factor = _FEEDER_EC_FACTOR.get(nutrient_demand_level or NutrientDemandLevel.MEDIUM_FEEDER, 1.0)
     return NutrientRegime(
         feed=True,
         npk_ratio=base_npk,
-        target_ec_ms=round(base_ec_ms * factor, 2),
-        note=f"feed scaled by {nutrient_demand_level.value if nutrient_demand_level else 'medium_feeder'}",
+        target_ec_ms=round(base_ec_ms, 2),
+        note="feed at phase base EC",
         target_ph=base_ph,
         micros_available=micros_available,
         ph_note=ph_note,

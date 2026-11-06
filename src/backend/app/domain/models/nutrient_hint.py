@@ -37,6 +37,7 @@ NutrientHintReason = Literal[
     "standing_nitrogen_fixer",
     "bark_mulch_n_binding",
     "p_or_k_class_high",
+    "check_salt_content",
 ]
 
 NUTRIENT_HINT_STATES: tuple[NutrientHintState, ...] = ("ok", "check", "likely_deficit", "insufficient_data")
@@ -58,6 +59,7 @@ NUTRIENT_HINT_REASONS: tuple[NutrientHintReason, ...] = (
     "standing_nitrogen_fixer",
     "bark_mulch_n_binding",
     "p_or_k_class_high",
+    "check_salt_content",
 )
 
 #: Feedings, amendments and mulchings are read this far back (days). A read bound, not agronomy: every active R1

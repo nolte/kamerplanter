@@ -253,6 +253,33 @@ describe('BedHeader nutrient hint (GP-FR-125)', () => {
     expect(screen.queryByTestId('bed-header-nutrient')).toBeNull();
   });
 
+  it.each(['ok', 'insufficient_data'] as const)(
+    'shows the salt-limit reason on its own for "%s" (E-17: it never changes the state)',
+    async (state) => {
+      const view = renderHeader(bedSummary({ nutrient_hint: hint(state, ['thresholds_without_source', 'check_salt_content']) }));
+      const salt = await screen.findByTestId('bed-header-salt');
+      expect(screen.getByTestId('bed-salt-badge')).toHaveTextContent('Check salt content');
+      expect(salt).toHaveTextContent('above the stored salt limit');
+      expect(salt).toHaveTextContent('derives no fertiliser amount');
+      expect(salt.textContent).not.toMatch(/\d/);
+      expect(screen.queryByTestId('bed-header-nutrient')).toBeNull();
+      await expectNoA11yViolations(view.container);
+    },
+  );
+
+  it('lists the salt-limit reason once, beside a nutrient state that is shown', async () => {
+    renderHeader(bedSummary({ nutrient_hint: hint('check', ['feeding_due', 'check_salt_content']) }));
+    const reasons = await screen.findByTestId('bed-nutrient-reasons');
+    expect(reasons).not.toHaveTextContent('salt');
+    expect(screen.getByTestId('bed-header-salt')).toHaveTextContent('above the stored salt limit');
+  });
+
+  it('shows no salt fact while the hint does not carry the reason', async () => {
+    renderHeader(bedSummary({ nutrient_hint: hint('check', ['feeding_due']) }));
+    await screen.findByTestId('bed-nutrient-reasons');
+    expect(screen.queryByTestId('bed-header-salt')).toBeNull();
+  });
+
   it('shows nothing without a hint (a location that is no bed, or an older server)', async () => {
     renderHeader(bedSummary({ nutrient_hint: null }));
     await screen.findByTestId('bed-header');

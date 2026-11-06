@@ -181,7 +181,8 @@ export type NutrientHintReason =
   | 'preceding_nitrogen_fixer'
   | 'standing_nitrogen_fixer'
   | 'bark_mulch_n_binding'
-  | 'p_or_k_class_high';
+  | 'p_or_k_class_high'
+  | 'check_salt_content';
 
 export interface NutrientHint {
   state: NutrientHintState;

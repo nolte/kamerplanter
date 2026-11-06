@@ -454,11 +454,13 @@ class Suitability(StrEnum):
 
 class NutrientDemandLevel(StrEnum):
     """Legacy four-value feeder class (REQ-053 GP-FR-139: superseded on ``Species`` by
-    ``nutrient_demand`` + ``nitrogen_fixing`` since M6, v0096). Kept because
-    ``Species.nutrient_demand_level`` still scales the EC target in
-    ``phase_resource_resolver`` and the area-dosing advisory takes it as input; a
-    retirement would crash the start on an alt volume. Never a source for
-    ``nutrient_demand`` (E-10)."""
+    ``nutrient_demand`` + ``nitrogen_fixing`` since M6, v0096). It scales nothing: the
+    EC target is not scaled by feeder class (REQ-053 E-17 variant A), and the only
+    code that derives anything from ``Species.nutrient_demand_level`` is migration M6
+    (v0096). The value is still stored and passed through (species edit, MCP
+    readout), and ``nitrogen_fixer`` is accepted as the deprecated ``demand_level``
+    input of the area-dosing request. Kept because a retirement would crash the start
+    on an alt volume. Never a source for ``nutrient_demand`` (E-10)."""
 
     HEAVY_FEEDER = "heavy_feeder"
     MEDIUM_FEEDER = "medium_feeder"

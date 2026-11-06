@@ -96,6 +96,7 @@ class NutrientHintService:
             last_nutrient_input_at=self._last_nutrient_input(location_key, at, tenant_key=tenant_key),
             last_n_binding_mulch_at=self._last_n_binding_mulch(location_key, at, tenant_key=tenant_key),
             content_classes=self._content_classes(location_key, at, tenant_key=tenant_key),
+            soil_profile=location.soil_profile,
         )
         return assess(inputs, self._config)
 

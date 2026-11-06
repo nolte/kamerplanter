@@ -23,6 +23,8 @@ import {
   FertilizerMultiSelect,
   FertilizerSingleSelect,
   LocationSelect,
+  SpeciesSelect,
+  useSpeciesOptions,
   EcBudgetFertilizerRows,
   type EcBudgetFertilizerRow,
 } from './NutrientCalcFertilizerFields';
@@ -41,7 +43,6 @@ import type {
   AreaDosingItem,
   SubstrateType,
   PhaseName,
-  NutrientDemandLevel,
 } from '@/api/types';
 
 /**
@@ -100,6 +101,7 @@ export default function NutrientCalculationsPage() {
   // Shared master-data catalogues, fetched once and reused by every panel (#610).
   const { fertilizers, loading: fertilizersLoading } = useFertilizerOptions();
   const { locations, loading: locationsLoading } = useLocationOptions();
+  const { species, loading: speciesLoading } = useSpeciesOptions();
 
   // ── Mixing Protocol ──────────────────────────────────────────────────
   const [mpVolume, setMpVolume] = useState(10);
@@ -140,7 +142,7 @@ export default function NutrientCalculationsPage() {
   const [adFertKeys, setAdFertKeys] = useState<string[]>([]);
   const [adAreaM2, setAdAreaM2] = useState<number | ''>('');
   const [adLocationKey, setAdLocationKey] = useState('');
-  const [adDemandLevel, setAdDemandLevel] = useState<NutrientDemandLevel | ''>('');
+  const [adSpeciesKey, setAdSpeciesKey] = useState('');
   const [adResult, setAdResult] = useState<AreaDosingResponse | null>(null);
 
   // ── EC Budget ──────────────────────────────────────────────────────
@@ -221,7 +223,7 @@ export default function NutrientCalculationsPage() {
         fertilizer_keys: adFertKeys,
         area_m2: adAreaM2 !== '' ? adAreaM2 : undefined,
         location_key: adLocationKey.trim() || undefined,
-        demand_level: adDemandLevel || undefined,
+        species_key: adSpeciesKey || undefined,
       });
       setAdResult(result);
     } catch (err) {
@@ -295,13 +297,6 @@ export default function NutrientCalculationsPage() {
     { value: 'vegetative', label: t('enums.phaseName.vegetative') },
     { value: 'flowering', label: t('enums.phaseName.flowering') },
     { value: 'flushing', label: t('enums.phaseName.flushing') },
-  ];
-
-  const DEMAND_LEVEL_OPTIONS: { value: NutrientDemandLevel; label: string }[] = [
-    { value: 'heavy_feeder', label: t('enums.nutrientDemandLevel.heavy_feeder') },
-    { value: 'medium_feeder', label: t('enums.nutrientDemandLevel.medium_feeder') },
-    { value: 'light_feeder', label: t('enums.nutrientDemandLevel.light_feeder') },
-    { value: 'nitrogen_fixer', label: t('enums.nutrientDemandLevel.nitrogen_fixer') },
   ];
 
   const areaDosingColumns: Column<AreaDosingItem>[] = [
@@ -792,19 +787,14 @@ export default function NutrientCalculationsPage() {
                   </Grid>
                 )}
                 <Grid size={12}>
-                  <TextField
-                    select
-                    label={t('pages.nutrientCalc.demandLevel')}
-                    value={adDemandLevel}
-                    onChange={(e) => setAdDemandLevel(e.target.value as NutrientDemandLevel | '')}
-                    fullWidth
-                    helperText={t('pages.nutrientCalc.demandLevelHelper')}
-                  >
-                    <MenuItem value="">{t('pages.nutrientCalc.demandLevelNone')}</MenuItem>
-                    {DEMAND_LEVEL_OPTIONS.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                    ))}
-                  </TextField>
+                  <SpeciesSelect
+                    options={species}
+                    loading={speciesLoading}
+                    value={adSpeciesKey}
+                    onChange={setAdSpeciesKey}
+                    label={t('pages.nutrientCalc.species')}
+                    helperText={t('pages.nutrientCalc.speciesHelper')}
+                  />
                 </Grid>
               </Grid>
               <Button variant="contained" onClick={calcAreaDosing} fullWidth sx={{ mt: 2 }}>

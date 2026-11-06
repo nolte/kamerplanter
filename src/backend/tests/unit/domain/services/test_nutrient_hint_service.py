@@ -15,9 +15,10 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from app.common import dependencies
-from app.common.enums import GrowingMediumKind, NutrientDemand
+from app.common.enums import EcMethod, GrowingMediumKind, NutrientDemand
 from app.domain.engines.crop_rotation_validator import HistoryEntry
 from app.domain.engines.nutrient_hint_engine import DEFAULT_CONFIG, NutrientHintConfig, SourcedFlag, SourcedThreshold
+from app.domain.engines.soil_salinity_hint import SoilSalinityConfig
 from app.domain.interfaces.care_event_repository import CareEventFilter, CareEventRow
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.care_event import CareEvent
@@ -170,6 +171,33 @@ class TestDemand:
     def test_the_stored_demand_reaches_the_engine(self) -> None:
         service, _, _ = _service(events=[_event("feeding", 90)])
         assert service.assess(BED, ["tomato"], tenant_key=TENANT, now=NOW).state == "likely_deficit"
+
+
+class TestSoilSalinity:
+    """E-17 variant A (#2654): the bed's own soil profile reaches the salt-limit hint."""
+
+    SALT = SoilSalinityConfig(threshold_ms_cm=2.0, ec_method=EcMethod.SATURATED_PASTE, source="test, not agronomy")
+
+    def _bed(self, ec: float | None) -> Location:
+        profile = SoilProfile(
+            growing_medium_kind=GrowingMediumKind.NATIVE_SOIL,
+            ec_ms_cm=ec,
+            ec_method=EcMethod.SATURATED_PASTE if ec is not None else None,
+        )
+        return BED.model_copy(update={"soil_profile": profile})
+
+    def test_the_stored_conductivity_reaches_the_engine(self) -> None:
+        service, _, _ = _service(config=dataclasses.replace(ACTIVE, soil_salinity=self.SALT))
+        assert "check_salt_content" in service.assess(self._bed(3.0), ["tomato"], tenant_key=TENANT, now=NOW).reasons
+        assert (
+            "check_salt_content" not in service.assess(self._bed(1.0), ["tomato"], tenant_key=TENANT, now=NOW).reasons
+        )
+
+    def test_the_shipped_configuration_is_inert(self) -> None:
+        service, _, _ = _service(config=DEFAULT_CONFIG)
+        assert (
+            "check_salt_content" not in service.assess(self._bed(9.0), ["tomato"], tenant_key=TENANT, now=NOW).reasons
+        )
 
 
 class TestNutrientInputs:

@@ -9,7 +9,6 @@ agronomic warnings (missing rate, N on a nitrogen fixer).
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import NutrientDemandLevel
 from app.domain.models.fertilizer import Fertilizer
 
 
@@ -43,20 +42,17 @@ class AreaDosingCalculator:
         self,
         fertilizers: list[Fertilizer],
         area_m2: float,
-        demand_level: NutrientDemandLevel | None = None,
+        nitrogen_fixing: bool = False,
     ) -> AreaDosingResult:
         """Compute total amounts for a bed area.
 
         Args:
             fertilizers: Products to apply (organic/area-based).
             area_m2: Bed area in m². Must be > 0.
-            demand_level: Optional plant nutrient demand, used only for advisory
-                warnings. A ``NutrientDemandLevel`` member, not a loose string:
-                the module used to keep its own ``NITROGEN_FIXER =
-                "nitrogen_fixer"`` constant, a second spelling of
-                ``NutrientDemandLevel.NITROGEN_FIXER`` that nothing tied back to
-                the enum, so retiring or renaming the member would have left this
-                branch silently unreachable (review SCR-002 on #1527).
+            nitrogen_fixing: Whether the plant fixes nitrogen, used only for the
+                advisory warning against N fertilizers. The caller reads it from
+                ``Species.nitrogen_fixing`` (REQ-053 E-17); the legacy feeder
+                class ``nitrogen_fixer`` is no input of the engine any more.
 
         Raises:
             ValueError: if ``area_m2`` is not positive (mapped to HTTP 422).
@@ -68,9 +64,6 @@ class AreaDosingCalculator:
         warnings: list[str] = []
         instructions: list[str] = [f"Prepare bed of {area_m2} m²."]
         step = 2
-
-        # REQ-004 W-013 table: a nitrogen fixer must not receive nitrogen.
-        is_n_fixer = demand_level == NutrientDemandLevel.NITROGEN_FIXER
 
         for fert in fertilizers:
             total_grams: float | None = None
@@ -88,8 +81,8 @@ class AreaDosingCalculator:
             if fert.dilution_ratio:
                 note = f"Dilute {fert.dilution_ratio} before applying."
 
-            # Nitrogen fixer must not receive nitrogen (npk_ratio[0] = N).
-            if is_n_fixer and fert.npk_ratio[0] > 0:
+            # REQ-004 W-013: a nitrogen fixer must not receive nitrogen (npk_ratio[0] = N).
+            if nitrogen_fixing and fert.npk_ratio[0] > 0:
                 warnings.append(
                     f"{fert.product_name}: contains nitrogen (N={fert.npk_ratio[0]}) — "
                     f"avoid N fertilizers for nitrogen-fixing plants."

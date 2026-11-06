@@ -1,6 +1,12 @@
 """Tests for the E7/E8 phase resource resolver (REQ-003)."""
 
-from app.common.enums import NutrientDemandLevel
+import ast
+import inspect
+from pathlib import Path
+
+import pytest
+
+from app.domain.engines import phase_resource_resolver
 from app.domain.engines.phase_resource_resolver import (
     nutrient_profile_guidance,
     ph_micronutrient_availability,
@@ -84,11 +90,39 @@ class TestNutrient:
         assert reg.feed is False
         assert reg.npk_ratio == (0, 0, 0)
 
-    def test_heavy_feeder_scales_ec_up(self) -> None:
-        heavy = resolve_nutrient("vegetative", base_ec_ms=1.5, nutrient_demand_level=NutrientDemandLevel.HEAVY_FEEDER)
-        light = resolve_nutrient("vegetative", base_ec_ms=1.5, nutrient_demand_level=NutrientDemandLevel.LIGHT_FEEDER)
-        assert heavy.target_ec_ms > light.target_ec_ms
-        assert heavy.feed is True
+    def test_feeding_phase_keeps_the_phase_base_ec(self) -> None:
+        # REQ-053 E-17 variant A: the EC target is the phase base EC, unscaled.
+        reg = resolve_nutrient("vegetative", base_ec_ms=1.5)
+        assert reg.feed is True
+        assert reg.target_ec_ms == 1.5
+        assert "feeder" not in reg.note
+
+    def test_heavy_feeder_cannot_change_the_ec_target(self) -> None:
+        # The feeder class is no input any more: passing it is a call error, not a
+        # silently ignored keyword, so no caller can believe it scales the EC.
+        assert "nutrient_demand_level" not in inspect.signature(resolve_nutrient).parameters
+        with pytest.raises(TypeError):
+            resolve_nutrient("vegetative", base_ec_ms=1.5, nutrient_demand_level="heavy_feeder")  # type: ignore[call-arg]
+
+
+class TestNoFeederFactor:
+    """Static guard: no feeder-class EC factor lives in the resolver (E-17 A)."""
+
+    _SOURCE = Path(inspect.getfile(phase_resource_resolver)).read_text(encoding="utf-8")
+
+    def test_no_feeder_factor_table(self) -> None:
+        assert "_FEEDER_EC_FACTOR" not in self._SOURCE
+        assert not hasattr(phase_resource_resolver, "_FEEDER_EC_FACTOR")
+
+    def test_resolver_does_not_read_the_feeder_class(self) -> None:
+        tree = ast.parse(self._SOURCE)
+        names = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+        attrs = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+        imported = {alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) for alias in node.names}
+        for forbidden in ("NutrientDemandLevel", "nutrient_demand_level", "nutrient_demand"):
+            assert forbidden not in names
+            assert forbidden not in attrs
+            assert forbidden not in imported
 
     def test_extended_rest_phase_maps_to_no_feed(self) -> None:
         # summer_rest / cool_rest map to dormancy (D8) -> no feed
