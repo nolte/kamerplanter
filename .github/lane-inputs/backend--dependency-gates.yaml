@@ -9,10 +9,10 @@ job: dependency-gates
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-02'
-measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+measured_on: '2026-11-06'
+measured_at_commit: d30d5c19c4c83e7519860cb7196a1b7a189e7cf1
 replay_seconds: 13
-job_spec_sha256: 144594bcbaad63fbfe5a7c0dfc54f2c091c67c268d05ef63de4258570da18012
+job_spec_sha256: 9393fcfe1bdaf68c440cd3975158ec35d7b4a5f7d584aa885c7d9d7599cb77fe
 invocations:
 - command: task deps:check
   cwd: src/backend
@@ -34,7 +34,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 140
+  untracked_reads_dropped: 142
 - command: uv export --locked --no-emit-project --format requirements.txt -o /tmp/lane-inputs-scratch/requirements.txt
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -53,7 +53,7 @@ subprocesses:
 - ld-linux-x86-64.so.2
 - python
 - python3
-- python3.14
+- python3.15
 - task
 - uv
 accepted_gaps: []
@@ -130,7 +130,9 @@ reads:
 - src/backend/app/domain/calculators/image_tiler.py
 - src/backend/app/domain/calculators/irrigation_zone_consumption_calculator.py
 - src/backend/app/domain/calculators/irrigation_zone_demand_calculator.py
+- src/backend/app/domain/calculators/orientation_calculator.py
 - src/backend/app/domain/calculators/overdue_calculator.py
+- src/backend/app/domain/calculators/reach_calculator.py
 - src/backend/app/domain/calculators/zone_allocation_calculator.py
 - src/backend/app/domain/engines/
 - src/backend/app/domain/engines/__init__.py

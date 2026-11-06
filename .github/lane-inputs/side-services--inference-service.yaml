@@ -9,9 +9,9 @@ job: inference-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-02'
-measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
-replay_seconds: 14
+measured_on: '2026-11-06'
+measured_at_commit: d30d5c19c4c83e7519860cb7196a1b7a189e7cf1
+replay_seconds: 12
 job_spec_sha256: 389cb2b83565365d6d683550d65978eff6b112470a929266e47fad572c3ad28b
 invocations:
 - command: task deps:sync:inference-service
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 219
+  untracked_reads_dropped: 236
 - command: task test:inference-service
   cwd: .
   recorder: strace -ff -y -z
@@ -29,6 +29,8 @@ invocations:
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
+- python3
+- python3.14
 - task
 - uv
 accepted_gaps: []
@@ -46,6 +48,7 @@ reads:
 - .taskfiles/reach.yaml
 - Taskfile.yaml
 - src/inference-service/
+- src/inference-service/.python-version
 - src/inference-service/app/
 - src/inference-service/app/__init__.py
 - src/inference-service/app/auth.py

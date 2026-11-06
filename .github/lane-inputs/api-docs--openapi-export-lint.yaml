@@ -9,17 +9,17 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-02'
-measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
-replay_seconds: 49
-job_spec_sha256: 2f1bff7392a716c560eae9f1f5f5609f163c03d53b2487ffac5fe2ecd62284d4
+measured_on: '2026-11-06'
+measured_at_commit: d30d5c19c4c83e7519860cb7196a1b7a189e7cf1
+replay_seconds: 37
+job_spec_sha256: a8fee35a64ce591bfe2ab46e0f3a4a3c3d81c6c8b1616254af937c1d63bfa9e1
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 3208
+  untracked_reads_dropped: 3222
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -31,7 +31,6 @@ subprocesses:
 - gcc
 - ld
 - ldconfig
-- ldconfig.real
 - node
 - npm
 - npx
@@ -435,6 +434,7 @@ reads:
 - src/backend/app/common/async_bridge.py
 - src/backend/app/common/auth.py
 - src/backend/app/common/body_limit.py
+- src/backend/app/common/csv_export.py
 - src/backend/app/common/datetimes.py
 - src/backend/app/common/decoys.py
 - src/backend/app/common/dependencies.py
@@ -479,6 +479,8 @@ reads:
 - src/backend/app/data_access/arango/bed_history_repository.py
 - src/backend/app/data_access/arango/bed_template_repository.py
 - src/backend/app/data_access/arango/botanical_family_repository.py
+- src/backend/app/data_access/arango/care_event_backfill_scan.py
+- src/backend/app/data_access/arango/care_event_gap_repository.py
 - src/backend/app/data_access/arango/care_event_repository.py
 - src/backend/app/data_access/arango/care_reminder_repository.py
 - src/backend/app/data_access/arango/collection_entity_names.py
@@ -503,6 +505,7 @@ reads:
 - src/backend/app/data_access/arango/irrigation_zone_repository.py
 - src/backend/app/data_access/arango/lifecycle_repository.py
 - src/backend/app/data_access/arango/location_assignment_repository.py
+- src/backend/app/data_access/arango/location_photo_repository.py
 - src/backend/app/data_access/arango/mcp_repository.py
 - src/backend/app/data_access/arango/membership_repository.py
 - src/backend/app/data_access/arango/nutrient_plan_repository.py
@@ -584,11 +587,13 @@ reads:
 - src/backend/app/domain/calculators/irrigation_zone_consumption_calculator.py
 - src/backend/app/domain/calculators/irrigation_zone_demand_calculator.py
 - src/backend/app/domain/calculators/label_anchor_calculator.py
+- src/backend/app/domain/calculators/orientation_calculator.py
 - src/backend/app/domain/calculators/overdue_calculator.py
 - src/backend/app/domain/calculators/photoperiod_calculator.py
 - src/backend/app/domain/calculators/plant_state_calculator.py
 - src/backend/app/domain/calculators/plant_state_inputs.py
 - src/backend/app/domain/calculators/planting_layout_calculator.py
+- src/backend/app/domain/calculators/reach_calculator.py
 - src/backend/app/domain/calculators/scientific_name.py
 - src/backend/app/domain/calculators/slot_capacity_calculator.py
 - src/backend/app/domain/calculators/sun_calculator.py
@@ -605,7 +610,10 @@ reads:
 - src/backend/app/domain/engines/apprise_url_secrets.py
 - src/backend/app/domain/engines/aquaponics_engine.py
 - src/backend/app/domain/engines/area_dosing_engine.py
+- src/backend/app/domain/engines/bed_frost_engine.py
 - src/backend/app/domain/engines/calendar_aggregation_engine.py
+- src/backend/app/domain/engines/care_event_backfill_mapper.py
+- src/backend/app/domain/engines/care_event_csv_engine.py
 - src/backend/app/domain/engines/care_reminder_engine.py
 - src/backend/app/domain/engines/companion_planting_engine.py
 - src/backend/app/domain/engines/consent_engine.py
@@ -674,6 +682,7 @@ reads:
 - src/backend/app/domain/engines/sensor_metrics.py
 - src/backend/app/domain/engines/site_conditions_merge.py
 - src/backend/app/domain/engines/slot_reservation_engine.py
+- src/backend/app/domain/engines/soil_analysis_engine.py
 - src/backend/app/domain/engines/sowing_calendar_engine.py
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
@@ -686,6 +695,7 @@ reads:
 - src/backend/app/domain/engines/substrate_lifecycle_manager.py
 - src/backend/app/domain/engines/substrate_mix_engine.py
 - src/backend/app/domain/engines/succession_plan_engine.py
+- src/backend/app/domain/engines/succession_recommendation_engine.py
 - src/backend/app/domain/engines/tank_engine.py
 - src/backend/app/domain/engines/task_completion_engine.py
 - src/backend/app/domain/engines/tenant_engine.py
@@ -714,6 +724,7 @@ reads:
 - src/backend/app/domain/interfaces/bed_template_repository.py
 - src/backend/app/domain/interfaces/calendar_feed_repository.py
 - src/backend/app/domain/interfaces/calendar_source_repository.py
+- src/backend/app/domain/interfaces/care_event_gap_reader.py
 - src/backend/app/domain/interfaces/care_event_repository.py
 - src/backend/app/domain/interfaces/care_reminder_repository.py
 - src/backend/app/domain/interfaces/climate_normal_repository.py
@@ -749,6 +760,7 @@ reads:
 - src/backend/app/domain/interfaces/knowledge_service.py
 - src/backend/app/domain/interfaces/legal_retention_repository.py
 - src/backend/app/domain/interfaces/location_assignment_repository.py
+- src/backend/app/domain/interfaces/location_photo_repository.py
 - src/backend/app/domain/interfaces/location_type_repository.py
 - src/backend/app/domain/interfaces/membership_repository.py
 - src/backend/app/domain/interfaces/mode_switch_repository.py
@@ -842,6 +854,7 @@ reads:
 - src/backend/app/domain/models/legal_retention.py
 - src/backend/app/domain/models/lifecycle.py
 - src/backend/app/domain/models/location_assignment.py
+- src/backend/app/domain/models/location_photo.py
 - src/backend/app/domain/models/location_type.py
 - src/backend/app/domain/models/mcp.py
 - src/backend/app/domain/models/membership.py
@@ -916,6 +929,7 @@ reads:
 - src/backend/app/domain/services/catalogue_authorization.py
 - src/backend/app/domain/services/climate_normal_fetcher.py
 - src/backend/app/domain/services/companion_edge_service.py
+- src/backend/app/domain/services/companion_overlay_service.py
 - src/backend/app/domain/services/cv_diagnosis_service.py
 - src/backend/app/domain/services/dashboard_service.py
 - src/backend/app/domain/services/dashboard_widget_catalog.py
@@ -929,6 +943,7 @@ reads:
 - src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
 - src/backend/app/domain/services/fields_kept_on_edit.py
+- src/backend/app/domain/services/frost_forecast.py
 - src/backend/app/domain/services/garden_plan_export_service.py
 - src/backend/app/domain/services/garden_plan_import_service.py
 - src/backend/app/domain/services/garden_plan_retention_service.py
@@ -951,6 +966,7 @@ reads:
 - src/backend/app/domain/services/ipm_service.py
 - src/backend/app/domain/services/irrigation_zone_service.py
 - src/backend/app/domain/services/location_ownership.py
+- src/backend/app/domain/services/location_photo_service.py
 - src/backend/app/domain/services/location_type_service.py
 - src/backend/app/domain/services/mode_switch_service.py
 - src/backend/app/domain/services/notification_propagation_service.py
@@ -981,12 +997,14 @@ reads:
 - src/backend/app/domain/services/reference_image_license.py
 - src/backend/app/domain/services/reference_image_service.py
 - src/backend/app/domain/services/retention_service.py
+- src/backend/app/domain/services/rotation_matrix_service.py
 - src/backend/app/domain/services/season_signal_resolver.py
 - src/backend/app/domain/services/season_state_service.py
 - src/backend/app/domain/services/security_audit_service.py
 - src/backend/app/domain/services/sensor_service.py
 - src/backend/app/domain/services/singleton_document.py
 - src/backend/app/domain/services/site_service.py
+- src/backend/app/domain/services/soil_analysis_service.py
 - src/backend/app/domain/services/species_service.py
 - src/backend/app/domain/services/species_visibility.py
 - src/backend/app/domain/services/starter_kit_service.py

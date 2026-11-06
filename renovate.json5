@@ -356,7 +356,10 @@
     },
     // The build backend uv is constrained to for the two sdist-only backend
     // dependencies (`[tool.uv].build-constraint-dependencies`), read by the
-    // regex manager below. Grouped so setuptools and wheel move together.
+    // regex manager below. Grouped so setuptools and wheel move together. The
+    // knowledge-service carries the same pins since it moved to Python 3.15
+    // (PyYAML has no cp315 wheel there either), so both files age in one pull
+    // request instead of two that can drift.
     //
     // Position is load-bearing and UNCHANGED by #1550: this rule sits ABOVE
     // `application dependencies`, so if `pep621` ever extracted a dependency
@@ -371,6 +374,7 @@
       ],
       matchFileNames: [
         'src/backend/pyproject.toml',
+        'src/knowledge-service/pyproject.toml',
       ],
       matchPackageNames: [
         'setuptools',
@@ -780,8 +784,12 @@
     //
     // src/backend/Dockerfile is no longer held: its lock moved to releases
     // with cp315 wheels, PyYAML (no cp315 wheel) builds as pure Python, and
-    // backend.yml runs the suite on 3.15 as well. The list below is therefore
-    // the side services and the E2E image, enumerated rather than written as
+    // backend.yml runs the suite on 3.15 only. src/knowledge-service/Dockerfile
+    // followed the same way (requires-python >=3.15, httptools/uvloop with
+    // cp315 wheels, the same PyYAML build settings, side-services.yml on 3.15).
+    // The onnxruntime services stay held: onnxruntime 1.31.1 publishes no cp315
+    // wheel. The list below is therefore those three and the E2E image,
+    // enumerated rather than written as
     // "everything but the backend", because Renovate has no negated file match
     // that reads as plainly. Remove an entry when ITS tree is proven on 3.15
     // the same way; the `python` setup-python references are the github-actions
@@ -795,7 +803,6 @@
       ],
       matchFileNames: [
         'src/inference-service/Dockerfile',
-        'src/knowledge-service/Dockerfile',
         'docker/embedding-service/Dockerfile',
         'docker/reranker-service/Dockerfile',
         'tests/e2e/Dockerfile',

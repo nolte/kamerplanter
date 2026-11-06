@@ -105,7 +105,7 @@ jobs:
     steps:
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           allow-prereleases: true
 
       - name: Install uv
@@ -973,7 +973,7 @@ Alle Images sind öffentlich lesbar. Für lokale Tests:
 ## Häufige Fragen {#haeufige-fragen}
 
 ??? question "Warum schlägt der Backend-CI fehl, obwohl die Tests lokal laufen?"
-    Prüfe, welche Python-Version du verwendest (`python --version`). Die CI testet das Backend mit `python-version: '3.14'` (die Untergrenze aus `requires-python`) und zusätzlich mit `'3.15'`, der Version des Backend-Images; der 3.15-Lauf ist vorerst nur beratend und blockiert keinen Merge. Abweichende Python-Versionen können zu unterschiedlichem Verhalten führen. Prüfe auch, ob alle Abhängigkeiten mit `uv sync --locked --extra dev` installiert wurden.
+    Prüfe, welche Python-Version du verwendest (`python --version`). Die CI testet das Backend mit `python-version: '3.15'` — das ist zugleich die Untergrenze aus `requires-python` und die Version des Backend-Images. Den Knowledge-Service testet `side-services.yml` ebenfalls mit 3.15; Inference-, Embedding- und Reranker-Service bleiben auf 3.14, bis onnxruntime Wheels für 3.15 veröffentlicht. Abweichende Python-Versionen können zu unterschiedlichem Verhalten führen. Prüfe auch, ob alle Abhängigkeiten mit `uv sync --locked --extra dev` installiert wurden.
 
 ??? question "Warum wird kein neues Image gebaut, obwohl ich auf develop gepusht habe?"
     Das Pfad-Filtern in `docker-publish.yml` stellt sicher, dass nur tatsächlich betroffene Komponenten gebaut werden. Wenn du z. B. nur eine Spec-Datei geändert hast, wird kein Image gebaut. Bei `v*`-Tags wird das Filtern umgangen.

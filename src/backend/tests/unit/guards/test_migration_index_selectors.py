@@ -129,12 +129,11 @@ def index_type_selectors(source: str) -> list[int]:
                 for left, right in zip(operands, operands[1:], strict=False)
             ):
                 lines.append(node.lineno)
-        elif isinstance(node, ast.MatchMapping):
-            if any(
-                isinstance(key, ast.Constant) and key.value == "type" and _pattern_names_index_type(pattern)
-                for key, pattern in zip(node.keys, node.patterns, strict=True)
-            ):
-                lines.append(node.lineno)
+        elif isinstance(node, ast.MatchMapping) and any(
+            isinstance(key, ast.Constant) and key.value == "type" and _pattern_names_index_type(pattern)
+            for key, pattern in zip(node.keys, node.patterns, strict=True)
+        ):
+            lines.append(node.lineno)
     return sorted(lines)
 
 
