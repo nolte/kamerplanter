@@ -111,7 +111,12 @@ Area dosing: `AreaDosingRequest.demand_level` (`api/v1/nutrient_calculations/sch
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
-| — | — | — | — |
+| #2685 | no matching specialist — main session (spec text) | `git grep -n "nutrient_demand_level\|nitrogen_fixer" -- spec/req spec/target-audiences` | only changelog rows, struck-through field (REQ-001:109), M6 text, reason codes `*_nitrogen_fixer`, REQ-053 §16.3 motivation (:1046, outside #2685's files) |
+| #2654 | fullstack-developer (commit 686bc82ec) | `ruff check app tests && ruff format --check app tests` | `All checks passed!` / `2929 files already formatted` |
+| #2654 | fullstack-developer | `scripts/check_mypy_ratchet.py` | `3419 findings now, 3434 recorded ... GREEN` |
+| #2654 | fullstack-developer | `pytest tests/unit/domain/engines tests/unit/guards tests/api -q -x` | `1 failed, 7560 passed, 3 skipped` — failure `test_limiter_outage_on_real_routes.py::test_a_storage_never_reached_since_start_logs_an_error` (order-dependent, `4 passed` alone; `tests/api` rest `3508 passed, 1 deselected`); untouched by the diff |
+| #2654 | fullstack-developer | `npx tsc --noEmit`; `npx eslint` (8 files); `npx vitest run` (3 files) | exit 0; exit 0; `Tests 59 passed (59)` |
+| #2654 | main session re-run | `pytest` resolver, area-dosing, salinity, nutrient-hint engine+service, nutrient_calculations router | `166 passed, 84 warnings in 12.49s` |
 
 ## Deviations
 
@@ -123,4 +128,7 @@ Area dosing: `AreaDosingRequest.demand_level` (`api/v1/nutrient_calculations/sch
 
 | Finding | Source | Outcome | Reproduction | Issue |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| `common/dependencies.py:1048` production wiring `species_repo=get_species_repo()` untested (API tests override `get_fertilizer_service`) | member verification pass | fixed directly: `tests/unit/api/test_fertilizer_service_wiring.py` | without the kwarg: `1 failed`; restored: `1 passed` | — |
+| `NutrientCalcFertilizerFields.tsx:113-139` own `listAllSpecies` fetch next to `hooks/useCatalogue.ts` | member verification pass | not fixed — non-blocking duplication, bounded catalogue (~210), same pattern at 6 other sites | read of both files | — |
+| salt threshold only configurable in code (`DEFAULT_CONFIG`), no settings/env path | member verification pass | not fixed — same pattern as every other nutrient-hint threshold; no sourced value exists (#2643 Q10) | `nutrient_hint_service.py` uses `DEFAULT_CONFIG` | — |
+| `tests/api/test_limiter_outage_on_real_routes.py::test_a_storage_never_reached_since_start_logs_an_error` fails in the full `-x` run | check | not caused by the diff (rate limiter untouched, `4 passed` alone); CI decides | full run vs single run | — |
