@@ -210,6 +210,7 @@ describe('BedHeader nutrient hint (GP-FR-125)', () => {
       'Your last feeding was a long time ago for the feeder level of your crop.',
     );
     expect(within(fact).getByTestId('bed-nutrient-reasons')).toHaveTextContent('beans or peas');
+    expect(within(fact).getByTestId('bed-nutrient-reasons')).not.toHaveTextContent('compost');
     expect(within(fact).getByTestId('bed-nutrient-note')).toHaveTextContent(
       'An estimate from your care log. The app does not name a fertiliser amount.',
     );
@@ -219,12 +220,30 @@ describe('BedHeader nutrient hint (GP-FR-125)', () => {
     await expectNoA11yViolations(view.container);
   });
 
+  it('words high P/K as no nutrient supply by compost, while it stays a soil improver', async () => {
+    const view = renderHeader(
+      bedSummary({
+        nutrient_hint: hint('likely_deficit', ['k_class_low', 'p_or_k_class_high', 'standing_nitrogen_fixer'], {
+          compost_and_p_withheld: true,
+          withheld_source: 'R-006 source',
+        }),
+      }),
+    );
+    const reasons = await screen.findByTestId('bed-nutrient-reasons');
+    expect(reasons).toHaveTextContent(
+      'With high P/K contents compost serves no nutrient supply; as a soil improver it remains an option.',
+    );
+    expect(reasons).toHaveTextContent('are growing in this bed right now');
+    expect(screen.getByTestId('bed-header-nutrient')).not.toHaveTextContent('R-006 source');
+    await expectNoA11yViolations(view.container);
+  });
+
   it('shows "Check feeding" for the check state', async () => {
     const view = renderHeader(bedSummary({ nutrient_hint: hint('check', ['bark_mulch_n_binding']) }));
     const badge = await screen.findByTestId('bed-nutrient-badge');
     expect(badge).toHaveTextContent('Check feeding');
     expect(badge).toHaveAttribute('data-state', 'check');
-    expect(screen.getByTestId('bed-nutrient-reasons')).toHaveTextContent('Bark mulch binds nitrogen while it rots.');
+    expect(screen.getByTestId('bed-nutrient-reasons')).toHaveTextContent('Bark mulch can bind nitrogen while it rots.');
     await expectNoA11yViolations(view.container);
   });
 

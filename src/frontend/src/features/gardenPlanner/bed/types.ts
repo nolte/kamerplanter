@@ -167,6 +167,7 @@ export type NutrientHintConfidence = 'low' | 'medium' | 'high';
 export type NutrientHintReason =
   | 'substrate_bed'
   | 'no_current_crop'
+  | 'species_not_readable'
   | 'demand_unknown'
   | 'thresholds_without_source'
   | 'no_feeding_recorded'
@@ -178,6 +179,7 @@ export type NutrientHintReason =
   | 'content_classes_sufficient'
   | 'demand_partly_unknown'
   | 'preceding_nitrogen_fixer'
+  | 'standing_nitrogen_fixer'
   | 'bark_mulch_n_binding'
   | 'p_or_k_class_high';
 
@@ -185,9 +187,11 @@ export interface NutrientHint {
   state: NutrientHintState;
   confidence: NutrientHintConfidence;
   reasons: NutrientHintReason[];
-  /** P or K in lab class D/E: the hint never points to compost or a phosphorus fertiliser. */
+  /** P or K in lab class D/E: compost serves no nutrient supply there, the hint never points to compost or P. */
   compost_and_p_withheld: boolean;
   sources: string[];
+  /** The source of the D/E rule (R-006) when it applied. */
+  withheld_source?: string | null;
 }
 
 export interface BedSummary extends BedListItem {

@@ -60,6 +60,7 @@ const REACH_DETAIL_KEY: Record<ReachAccess, string> = {
 const NUTRIENT_REASON_KEY: Record<NutrientHintReason, string> = {
   substrate_bed: 'pages.bed.header.nutrient.reasons.substrate_bed',
   no_current_crop: 'pages.bed.header.nutrient.reasons.no_current_crop',
+  species_not_readable: 'pages.bed.header.nutrient.reasons.species_not_readable',
   demand_unknown: 'pages.bed.header.nutrient.reasons.demand_unknown',
   thresholds_without_source: 'pages.bed.header.nutrient.reasons.thresholds_without_source',
   no_feeding_recorded: 'pages.bed.header.nutrient.reasons.no_feeding_recorded',
@@ -71,6 +72,7 @@ const NUTRIENT_REASON_KEY: Record<NutrientHintReason, string> = {
   content_classes_sufficient: 'pages.bed.header.nutrient.reasons.content_classes_sufficient',
   demand_partly_unknown: 'pages.bed.header.nutrient.reasons.demand_partly_unknown',
   preceding_nitrogen_fixer: 'pages.bed.header.nutrient.reasons.preceding_nitrogen_fixer',
+  standing_nitrogen_fixer: 'pages.bed.header.nutrient.reasons.standing_nitrogen_fixer',
   bark_mulch_n_binding: 'pages.bed.header.nutrient.reasons.bark_mulch_n_binding',
   p_or_k_class_high: 'pages.bed.header.nutrient.reasons.p_or_k_class_high',
 };
