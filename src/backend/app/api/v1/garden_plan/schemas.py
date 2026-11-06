@@ -25,6 +25,7 @@ from app.common.enums import (
     IrrigationZoneType,
     SlotRole,
     SoilDrainage,
+    SoilTexture,
     SunExposure,
     SunWindow,
 )
@@ -613,6 +614,116 @@ class PlanImportResponse(PlanImportReport):
                 }
             ]
         }
+    )
+
+
+class BedCsvLineFindingResponse(BaseModel):
+    """One problem of one line of a CSV bed list (GP-FR-174): the line, the column as the file spells it, a code.
+
+    `line` counts the header as line 1; `column` is `null` when the whole row is concerned (its placement, e.g.
+    `geometry.outside_parent` or `bed.overlap`). The cell's value is never echoed.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"line": 3, "column": "Breite_m", "code": "csv.invalid_number"}]}
+    )
+
+    line: int
+    column: str | None = None
+    code: str
+
+
+class BedCsvRowResponse(BaseModel):
+    """A line the import writes (or wrote): the bed it becomes, placed as a `rect` with `origin` lower-left."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "line": 2,
+                    "name": "Hochbeet 1",
+                    "location_type_key": "raised_bed",
+                    "width_m": 2.0,
+                    "length_m": 1.2,
+                    "origin": [0.0, 8.8],
+                    "sun_exposure": "full_sun",
+                    "soil_texture": "loam",
+                    "irrigation_zone_key": None,
+                    "location_key": None,
+                }
+            ]
+        }
+    )
+
+    line: int
+    name: str
+    location_type_key: str
+    width_m: float
+    length_m: float
+    origin: tuple[float, float]
+    sun_exposure: SunExposure
+    soil_texture: SoilTexture | None = None
+    irrigation_zone_key: str | None = None
+    location_key: str | None = Field(default=None, description="The new bed's key; `null` in a dry run.")
+
+
+class BedCsvImportResponse(BaseModel):
+    """The report of a CSV bed list import (GP-FR-174), the same for the dry run and the confirmation."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "dry_run": True,
+                    "rows_total": 3,
+                    "rows": [
+                        {
+                            "line": 2,
+                            "name": "Hochbeet 1",
+                            "location_type_key": "raised_bed",
+                            "width_m": 2.0,
+                            "length_m": 1.2,
+                            "origin": [0.0, 8.8],
+                            "sun_exposure": "full_sun",
+                            "soil_texture": None,
+                            "irrigation_zone_key": None,
+                            "location_key": None,
+                        }
+                    ],
+                    "rows_valid": 1,
+                    "rows_skipped": 2,
+                    "errors": [
+                        {"line": 3, "column": "Breite_m", "code": "csv.invalid_number"},
+                        {"line": 4, "column": "Typ", "code": "csv.unknown_type"},
+                    ],
+                    "errors_total": 2,
+                    "warnings": [{"line": 2, "column": "Name", "code": "csv.formula_stripped"}],
+                    "warnings_total": 1,
+                    "ignored_columns": ["Notiz"],
+                    "ignored_columns_total": 1,
+                    "applied": False,
+                    "plan_revision": 12,
+                }
+            ]
+        }
+    )
+
+    dry_run: bool
+    rows_total: int = Field(description="Data lines of the file (rows of empty cells not counted).")
+    rows: list[BedCsvRowResponse] = Field(description="The lines that pass every check, in file order (<= 500).")
+    rows_valid: int
+    rows_skipped: int = Field(description="Lines with at least one error; never written.")
+    errors: list[BedCsvLineFindingResponse] = Field(description="Line errors, at most 500; see `errors_total`.")
+    errors_total: int
+    warnings: list[BedCsvLineFindingResponse] = Field(
+        description="`csv.formula_stripped`: a leading formula character was discarded (SR-016); at most 500."
+    )
+    warnings_total: int
+    ignored_columns: list[str] = Field(description="Header cells the import does not know; ignored. At most 50.")
+    ignored_columns_total: int
+    applied: bool = Field(description="`true` once the valid lines were written.")
+    plan_revision: int = Field(
+        description="The revision the check ran against (send it as `expected_revision` to confirm), or the new one."
     )
 
 

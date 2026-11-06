@@ -451,6 +451,11 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # REQ-053 WP 8.18 (#2661): the photos of a bed, resolved through ``resolve_owned_location``; the attachment is read
     # under the same tenant. A ``tenant_key`` transposed with the bed or attachment key would link another tenant's.
     "LocationPhotoService": "location_photo_service.py",
+    # REQ-053 WP 8.26 (#2669): the CSV bed list. It resolves the site through ``require_owned_site`` and the zones of
+    # the file under the same tenant and site - no ``get…_by_key``, so the keyed-write selector is blind to it - and
+    # writes through ``GardenPlanService.create_beds``. A ``tenant_key`` transposed with the site key would place
+    # beds in another tenant's garden.
+    "BedCsvImportService": "bed_csv_import_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -476,6 +481,8 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "CompanionOverlayService": 2,
     # REQ-053 WP 8.18 (#2661): measured 9 (five public methods, four private helpers).
     "LocationPhotoService": 9,
+    # REQ-053 WP 8.26 (#2669): measured 4 (``import_beds``, ``_check_lines``, ``_zone_index``, ``_place``).
+    "BedCsvImportService": 4,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -596,6 +603,11 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # and the repository re-reads it under the site's tenant in its transaction; the photo writes go through
     # ``ILocationPhotoRepository`` (no ``get…_by_key``), so the keyed-write selector is blind to them.
     "LocationPhotoService": "location_photo_service.py",
+    # REQ-053 WP 8.26 (#2669): the CSV bed list. It resolves the site through ``require_owned_site`` and the zones of
+    # the file under the same tenant and site - no ``get…_by_key``, so the keyed-write selector is blind to it - and
+    # writes through ``GardenPlanService.create_beds``. A ``tenant_key`` transposed with the site key would place
+    # beds in another tenant's garden.
+    "BedCsvImportService": "bed_csv_import_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
@@ -638,6 +650,10 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         # The call graph reaches the photo repository's write through ``add_photo``; ``set_cover`` and
         # ``remove_photo`` write through the same interface and take the tenant the same way (whole-class rule).
         "LocationPhotoService.add_photo",
+        # REQ-053 WP 8.26 (#2669): the CSV bed list writes its valid lines through ``create_beds`` - the batch path
+        # (``_apply``), anchored on ``require_owned_site`` like ``place_template``.
+        "GardenPlanService.create_beds",
+        "BedCsvImportService.import_beds",
     }
 )
 

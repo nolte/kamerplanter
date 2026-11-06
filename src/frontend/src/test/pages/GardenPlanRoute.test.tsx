@@ -1,10 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { SnackbarProvider } from 'notistack';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import GardenPlanRoute from '@/features/gardenPlanner/routes/GardenPlanRoute';
 import ModuleGuard from '@/components/common/ModuleGuard';
 import { applyAction } from '@/features/gardenPlanner/state/gardenPlanSlice';
@@ -45,6 +46,15 @@ function renderRoute(route = '/standorte/sites/site_1/plan', preloadedState?: Re
   return { store, router, ...view };
 }
 
+// The bed list asks for the tenant's members and assignments. Unanswered, MSW passes them through; a 403 from
+// whatever listens on the test origin is then read as a stale tenant and clears the active slug - mid-way through a
+// later test of this file, whose next tenant-scoped request (a write) waits for a slug that never comes back.
+beforeEach(() => {
+  server.use(
+    http.get('/api/v1/tenants/:slug/members', () => HttpResponse.json([])),
+    http.get('/api/v1/tenants/:slug/assignments', () => HttpResponse.json([])),
+  );
+});
 afterEach(() => cleanup());
 
 describe('GardenPlanRoute', () => {
@@ -244,6 +254,69 @@ describe('GardenPlanRoute', () => {
       expect(screen.queryByRole('button', { name: 'Add the first bed' })).toBeNull();
       expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
     });
+  });
+
+  it('reloads the plan after a CSV bed list and selects the new beds for arranging (GP-FR-174)', async () => {
+    let imported = false;
+    server.use(
+      http.get(PLAN_URL, () =>
+        HttpResponse.json(
+          planResponse({
+            locations: imported ? [bed('loc_a', 2, 2), bed('loc_new', 10, 10)] : [bed('loc_a', 2, 2)],
+            garden_objects: [],
+          }),
+        ),
+      ),
+      http.post('/api/v1/t/:tenant/sites/:key/beds/import-csv', ({ request }) => {
+        const dryRun = new URL(request.url).searchParams.get('dry_run') === 'true';
+        imported = !dryRun;
+        return HttpResponse.json({
+          dry_run: dryRun,
+          rows_total: 1,
+          rows: [
+            {
+              line: 2,
+              name: 'New bed',
+              location_type_key: 'raised_bed',
+              width_m: 1.2,
+              length_m: 2,
+              origin: [10, 10],
+              sun_exposure: 'full_sun',
+              soil_texture: null,
+              irrigation_zone_key: null,
+              location_key: dryRun ? null : 'loc_new',
+            },
+          ],
+          rows_valid: 1,
+          rows_skipped: 0,
+          errors: [],
+          errors_total: 0,
+          warnings: [],
+          warnings_total: 0,
+          ignored_columns: [],
+          ignored_columns_total: 0,
+          applied: !dryRun,
+          plan_revision: dryRun ? 4 : 5,
+        });
+      }),
+    );
+    const { store } = renderRoute(undefined, tenantState('lead'));
+    await screen.findByTestId('garden-plan-canvas');
+    fireEvent.click(screen.getByTestId('garden-plan-io-menu'));
+    fireEvent.click(await screen.findByTestId('garden-plan-io-csv'));
+    const user = userEvent.setup();
+    await user.upload(
+      await screen.findByTestId('plan-csv-file'),
+      new File(['Name;Typ;Breite_m;Länge_m\r\nNew bed;Hochbeet;1,2;2\r\n'], 'beds.csv', { type: 'text/csv' }),
+    );
+    await screen.findByTestId('plan-csv-report');
+    fireEvent.click(await screen.findByTestId('plan-csv-apply'));
+    await screen.findByTestId('plan-csv-done');
+
+    await waitFor(() =>
+      expect(store.getState().gardenPlan?.selection).toEqual([{ entity: 'location', key: 'loc_new' }]),
+    );
+    expect(store.getState().gardenPlan?.plan?.locations.loc_new).toBeDefined();
   });
 
   it('shows the existing error display for a site of another tenant (404) and retries', async () => {

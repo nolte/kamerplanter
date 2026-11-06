@@ -48,8 +48,8 @@ describe('PlanIoMenu', () => {
     await user.click(screen.getByTestId('garden-plan-io-menu'));
 
     expect(screen.getByTestId('garden-plan-io-import')).toHaveAttribute('aria-disabled', 'true');
-    // import and the new season both wait for the plan to be saved
-    expect(screen.getAllByText('Save or discard your changes to the plan first.')).toHaveLength(2);
+    // import, the CSV bed list and the new season all wait for the plan to be saved
+    expect(screen.getAllByText('Save or discard your changes to the plan first.')).toHaveLength(3);
   });
 
   it('offers the new season to a lead and keeps it off for anyone else', async () => {
@@ -71,6 +71,21 @@ describe('PlanIoMenu', () => {
 
     expect(await screen.findByTestId('plan-season-dialog')).toBeInTheDocument();
     expect(screen.queryByTestId('plan-import-wizard')).not.toBeInTheDocument();
+  });
+
+  it('offers the CSV bed list to a lead only and opens the wizard on that path', async () => {
+    const other = renderMenu({ canImport: false });
+    await other.click(screen.getByTestId('garden-plan-io-menu'));
+    expect(screen.getByTestId('garden-plan-io-csv')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Only a lead can import a bed list.')).toBeInTheDocument();
+    cleanup();
+
+    const user = renderMenu();
+    await user.click(screen.getByTestId('garden-plan-io-menu'));
+    expect(screen.getByTestId('garden-plan-io-csv')).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(screen.getByTestId('garden-plan-io-csv'));
+    expect(await screen.findByTestId('plan-csv-import')).toBeInTheDocument();
+    expect(screen.queryByTestId('plan-import-choose')).not.toBeInTheDocument();
   });
 
   it('loads the dialogs only when they are opened', async () => {

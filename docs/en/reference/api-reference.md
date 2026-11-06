@@ -325,6 +325,72 @@ The frost exposure of a bed (`frost_exposed` in `locations[]`) is part of the fi
 
 ---
 
+### Create beds from a CSV bed list
+
+Creates beds from a CSV file. <!-- REQ-053 GP-FR-174 --> **Only the lead** may import; growers and viewers get `403` before the file is read. A site of another tenant answers `404`, also before reading. `RATE_LIMIT_PLAN_CSV_IMPORT` requests per account (default 10 per minute) and `RATE_LIMIT_PLAN_CSV_IMPORT_TENANT` shared per tenant (default 30 per minute) apply.
+
+```
+POST /api/v1/t/{slug}/sites/{key}/beds/import-csv?dry_run=true
+Content-Type: text/csv
+```
+
+The body is the file itself (raw, not multipart). The accepted content types are `text/csv`, `text/plain` and `application/vnd.ms-excel`; anything else answers `415`. The file is UTF-8 (a BOM is allowed), uses `;` as the delimiter and has at most 1 MiB, 500 rows and 100 columns. Header: `Name;Typ;Breite_m;Länge_m` (also `Laenge_m`; English `name;type;width_m;length_m`), optionally `Sonne`/`sun`, `Bodenart`/`soil_texture` and `Zone`/`irrigation_zone`. Numbers take a decimal comma or point. A leading formula character (`=`, `+`, `-`, `@`, tab, CR) of a text cell is removed and reported as a warning.
+
+| Query parameter | Default | Description |
+|-----------------|---------|-------------|
+| `dry_run` | `true` | `true` checks the file and answers the report; nothing is written. `false` writes the valid lines in one transaction and skips the faulty ones |
+| `expected_revision` | – | The `plan_revision` of the dry run; if the plan changed since then, the route answers `409` |
+
+The beds are placed as rectangles in rows from the top-left corner of the garden boundary, 0.5 m apart, wrapping at the width of the boundary and stepping around existing beds. The write goes through the same path as a batch (containment, overlap, site quota, revision, change log with one `import_csv` entry).
+
+**Response (the same for dry run and import):**
+
+| Field | Description |
+|-------|-------------|
+| `dry_run` | As requested |
+| `rows_total`, `rows_valid`, `rows_skipped` | Data lines of the file (empty lines are not counted), valid lines and skipped lines |
+| `rows[]` | The valid lines in file order: `line`, `name`, `location_type_key`, `width_m`, `length_m`, `origin` (lower-left corner, `[x, y]`), `sun_exposure`, `soil_texture`, `irrigation_zone_key`, `location_key` (set only after the write) |
+| `errors[]`, `errors_total` | Errors per line: `line` (the header is line 1), `column` (as the file spells it, `null` for the placement) and `code`. At most 500 are listed, the total stays exact. The cell value is never part of the response |
+| `warnings[]`, `warnings_total` | Like `errors[]`, for warnings |
+| `ignored_columns[]`, `ignored_columns_total` | Unknown header columns (cut to 64 characters, at most 50 listed) |
+| `applied` | `true` once the valid lines were written; `false` for a dry run or without a valid line |
+| `plan_revision` | The plan revision the check ran against, or the one the write produced |
+
+**Whole-file error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `import.forbidden` | Not a lead |
+| `404` | `ENTITY_NOT_FOUND` | Site not found (or not in this tenant) |
+| `409` | `plan.revision_conflict` | The plan changed since the dry run (`expected_revision`) |
+| `413` | `REQUEST_BODY_TOO_LARGE` | More than 1 MiB |
+| `415` | `UNSUPPORTED_MEDIA_TYPE` | The content type is none of the above |
+| `422` | `csv.invalid_encoding`, `csv.invalid_delimiter`, `csv.empty`, `csv.malformed`, `csv.too_many_columns` | The file cannot be read: not UTF-8, no `;` delimiter, empty or without a header, not readable as CSV, more than 100 columns |
+| `422` | `csv.missing_column`, `csv.duplicate_column` | A required column is missing or a column appears twice in the header |
+| `422` | `plan.quota_exceeded` | More than 500 rows, or the site would exceed 500 beds and garden objects |
+| `422` | `batch.too_complex` | The placement exceeded its time budget; nothing was written |
+| `429` | | Budget per account or per tenant used up; `Retry-After` names the wait |
+
+**Line error codes** (listed in `errors[]`, the line is skipped):
+
+| Code | Meaning |
+|------|---------|
+| `csv.required` | A required value is missing |
+| `csv.too_long` | The text is too long |
+| `csv.invalid_number` | Not a valid number (thousands separators and units are not allowed) |
+| `csv.out_of_range` | The value is outside the allowed range |
+| `csv.unknown_type` | The type is unknown |
+| `csv.not_a_bed_type` | The type exists but is not a bed type |
+| `csv.unknown_value` | `Sonne` or `Bodenart` is unknown |
+| `csv.unknown_zone` | No irrigation zone of that name at the site |
+| `csv.ambiguous_zone` | Several irrigation zones carry the name |
+| `csv.does_not_fit` | The bed finds no space inside the garden boundary |
+| `geometry.outside_parent`, `bed.overlap`, `geometry.invalid` | The plan rules refuse the bed after placement (outside a non-rectangular boundary, overlapping, invalid shape) |
+
+`csv.formula_stripped` appears as a warning in `warnings[]`: the leading formula character of a cell was removed.
+
+---
+
 ### Garden Plan save: geometry errors
 
 `PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (the boundary) and `POST …/plan/batch` (a batch of operations) refuse a shape that breaks a geometry rule with `422` `VALIDATION_ERROR` (REQ-053). On the boundary route, a vertex or origin outside the plan's coordinate range (0 to 1000 m) carries `code: "geometry.invalid"`; for a polygon or polyline vertex the entry also carries `point_index`, the position of the first such vertex in `points` (counted from 0). The other shape rules there (dimensions, vertex count, rotation) answer with the generic `code: "value_error"`. In a batch, every geometry defect carries `code: "geometry.invalid"` with `op_index` naming the operation and, for a vertex, `point_index`. Slots and bed templates are saved on their own endpoints in the bed's frame (−1000 to 1000 m) and report an out-of-range vertex the same way.

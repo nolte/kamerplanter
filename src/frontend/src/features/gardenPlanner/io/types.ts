@@ -145,3 +145,48 @@ export interface SnapshotRestoreRequest {
 
 /** GP-NFR-051: the file is at most 5 MB. */
 export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
+
+/** GP-FR-174: a CSV bed list is at most 1 MiB and 500 data lines; the server refuses more (413 / 422). */
+export const MAX_CSV_FILE_BYTES = 1024 * 1024;
+export const MAX_CSV_ROWS = 500;
+
+/** One problem of one line of a CSV bed list; `line` counts the header as 1, `column` is `null` for the whole row. */
+export interface BedCsvFinding {
+  line: number;
+  column: string | null;
+  code: string;
+}
+
+/** A line the import writes (or wrote): the bed it becomes, placed as a `rect` with `origin` lower-left. */
+export interface BedCsvRow {
+  line: number;
+  name: string;
+  location_type_key: string;
+  width_m: number;
+  length_m: number;
+  origin: [number, number];
+  sun_exposure: string;
+  soil_texture: string | null;
+  irrigation_zone_key: string | null;
+  /** The new bed's key; `null` in a dry run. */
+  location_key: string | null;
+}
+
+/** The answer of `POST /sites/{key}/beds/import-csv`, the same for the dry run and the confirmation. */
+export interface BedCsvImportReport {
+  dry_run: boolean;
+  rows_total: number;
+  rows: BedCsvRow[];
+  rows_valid: number;
+  rows_skipped: number;
+  errors: BedCsvFinding[];
+  errors_total: number;
+  warnings: BedCsvFinding[];
+  warnings_total: number;
+  ignored_columns: string[];
+  /** Exact count; `ignored_columns` lists at most 50. */
+  ignored_columns_total: number;
+  applied: boolean;
+  /** The revision the check ran against (sent back as `expected_revision`), or the new one. */
+  plan_revision: number;
+}

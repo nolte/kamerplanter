@@ -320,9 +320,12 @@ class TestTheRouteOperand:
         +4: the photos of a bed (REQ-053 WP 8.18, #2661): ``GET|POST /t/{slug}/locations/{key}/photos``,
         ``PUT …/photos/cover`` and ``DELETE …/photos/{attachment_id}``. Their consumer, the gallery tab, the cover in
         the bed header and field mode, is the next package of the group (WP 8.19, #2662).
+
+        +1: the CSV bed list import (REQ-053 WP 8.26, #2669): ``POST /t/{slug}/sites/{key}/beds/import-csv``. Its
+        consumer, the CSV step of the import wizard, is the second member of the same group (WP 8.27, #2670).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 898
+        assert len(checker.collect_operations(app)) == 899
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

@@ -2,6 +2,7 @@ import axios from 'axios';
 import i18n from '@/i18n/i18n';
 import { tenantClient } from '@/api/client';
 import type {
+  BedCsvImportReport,
   ExportOptions,
   PlanImportReport,
   PlanImportRequest,
@@ -75,6 +76,28 @@ export async function fetchPlanExport(
 /** GP-API-005: check (`dry_run`) or write a backup file. */
 export async function importPlan(siteKey: string, request: PlanImportRequest): Promise<PlanImportReport> {
   const { data } = await tenantClient.post<PlanImportReport>(`/sites/${siteKey}/plan/import`, request);
+  return data;
+}
+
+/**
+ * GP-FR-174: check (`dry_run`) or write a CSV bed list. The body is the file itself (`text/csv`), sent as the
+ * bytes it holds: the server decides the encoding, so a decoded-and-re-encoded copy could not hide a wrong one.
+ * The confirmation sends the dry run's `plan_revision`; a plan changed in between is a 409.
+ */
+export async function importBedCsv(
+  siteKey: string,
+  file: Blob,
+  options: { dryRun: boolean; expectedRevision?: number | null },
+): Promise<BedCsvImportReport> {
+  const params: Record<string, string> = { dry_run: String(options.dryRun) };
+  if (options.expectedRevision !== undefined && options.expectedRevision !== null) {
+    params.expected_revision = String(options.expectedRevision);
+  }
+  const { data } = await tenantClient.post<BedCsvImportReport>(
+    `/sites/${encodeURIComponent(siteKey)}/beds/import-csv`,
+    file,
+    { params, headers: { 'Content-Type': 'text/csv' } },
+  );
   return data;
 }
 

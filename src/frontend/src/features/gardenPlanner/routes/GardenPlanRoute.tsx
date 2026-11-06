@@ -134,6 +134,18 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   const load = useCallback(() => {
     if (key) void dispatch(loadGardenPlan(key));
   }, [dispatch, key]);
+  // GP-FR-174: after a CSV bed list the new beds are selected once the plan is back, ready to be arranged.
+  const loadAndSelectBeds = useCallback(
+    (locationKeys: string[]) => {
+      if (!key) return;
+      void dispatch(loadGardenPlan(key)).then((action) => {
+        if (loadGardenPlan.fulfilled.match(action) && locationKeys.length > 0) {
+          dispatch(setSelection(locationKeys.map((locationKey) => ({ entity: 'location' as const, key: locationKey }))));
+        }
+      });
+    },
+    [dispatch, key],
+  );
 
   useEffect(() => {
     load();
@@ -276,6 +288,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           canImport={canDelete}
           dirty={dirty}
           onImported={load}
+          onBedsImported={loadAndSelectBeds}
           selection={ioSelection}
           bedNames={bedNames}
         />

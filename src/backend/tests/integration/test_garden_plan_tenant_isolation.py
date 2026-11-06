@@ -47,6 +47,7 @@ from app.common.auth import get_current_tenant, get_is_platform_admin
 from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
+    get_bed_csv_import_service,
     get_bed_history_service,
     get_bed_rotation_service,
     get_bed_template_service,
@@ -90,6 +91,7 @@ from app.data_access.arango.irrigation_zone_repository import (
     ArangoIrrigationZoneRepository,
 )
 from app.data_access.arango.location_photo_repository import ArangoLocationPhotoRepository
+from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
 from app.data_access.arango.planting_reservation_repository import (
@@ -111,6 +113,7 @@ from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import Location, Slot
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.adjacency_service import AdjacencyService
+from app.domain.services.bed_csv_import_service import BedCsvImportService
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.bed_template_service import BedTemplateService
@@ -583,6 +586,14 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     importer: Any = GardenPlanImportService(
         ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export, photos=lambda: import_photos
     )
+    # REQ-053 WP 8.26: the CSV bed list writes through the plan service's batch path (``create_beds``).
+    csv_import: Any = BedCsvImportService(
+        ArangoSiteRepository(db),
+        ArangoGardenPlanRepository(db),
+        plan,
+        ArangoLocationTypeRepository(db),
+        ArangoIrrigationZoneRepository(db),
+    )
     plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
     zones: Any = IrrigationZoneService(
         ArangoIrrigationZoneRepository(db),
@@ -616,6 +627,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         history = _Unscoped(history)
         export = _Unscoped(export)
         importer = _Unscoped(importer)
+        csv_import = _Unscoped(csv_import)
         plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
             _Unscoped(plan),
             _Unscoped(resources),
@@ -644,6 +656,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_bed_history_service] = lambda: history
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
+    app.dependency_overrides[get_bed_csv_import_service] = lambda: csv_import
     app.dependency_overrides[get_garden_plan_season_service] = lambda: season
     app.dependency_overrides[get_irrigation_zone_service] = lambda: zones
     app.dependency_overrides[get_bed_template_service] = lambda: templates
@@ -728,6 +741,9 @@ _IMPORT_REPLACE = {
     "document": _IMPORT_FILE,
 }
 
+#: REQ-053 WP 8.26: a bed list of one line (the body is the file itself, ``text/csv``).
+_BED_CSV = "Name;Typ;Breite_m;Länge_m\r\nNeues Beet;Bed;2;1\r\n".encode()
+
 #: The owner's keys: ``site_b``, ``bed_b``, ``slot_b``, ``obj_b``. Replaced by the absent twin below.
 CASES: tuple[Case, ...] = (
     # garden_plan (WP 1.8)
@@ -740,6 +756,18 @@ CASES: tuple[Case, ...] = (
     # file is read, in the dry run as in the replace, and the replace writes nothing.
     Case("import_plan_dry_run", "POST", "/sites/site_b/plan/import", _IMPORT_DRY_RUN),
     Case("import_plan_replace", "POST", "/sites/site_b/plan/import", _IMPORT_REPLACE, writes=True),
+    # REQ-053 WP 8.26, GP-FR-174: the CSV bed list creates beds in a whole site - a foreign site is a 404 before the
+    # file is read, in the dry run as in the confirmation, and the confirmation writes nothing.
+    Case("import_beds_csv_dry_run", "POST", "/sites/site_b/beds/import-csv", _BED_CSV),
+    Case(
+        "import_beds_csv",
+        "POST",
+        "/sites/site_b/beds/import-csv",
+        _BED_CSV,
+        params={"dry_run": "false"},
+        writes=True,
+        logs_batch=True,
+    ),
     # REQ-053 WP 7.18, GP-FR-172: the partial export names its keys - a foreign site is a 404 before any key is read,
     # and so is a key of the owner's other kinds when it is asked for through a foreign site.
     Case("export_plan_selection", "GET", "/sites/site_b/plan/export", params={"scope": "selection", "keys": "bed_b"}),
@@ -1034,6 +1062,14 @@ def _url(case: Case, slug: str) -> str:
 
 
 def _send(client: TestClient, case: Case, slug: str):
+    if isinstance(case.body, bytes):  # a file upload as the body itself (the CSV bed list, WP 8.26)
+        return client.request(
+            case.method,
+            _url(case, slug),
+            content=case.body,
+            params=case.params or None,
+            headers={"content-type": "text/csv"},
+        )
     return client.request(case.method, _url(case, slug), json=case.body, params=case.params or None)
 
 
@@ -1065,7 +1101,8 @@ def _assert_refused(db, client: TestClient, case: Case) -> None:
     assert refused.status_code == 404, _detail(case, refused)
     assert absent.status_code == 404, _detail(case, absent)
     # The caller's own path/params/body may be echoed back; what B owns beyond them must not be.
-    sent = json.dumps([case.path, case.params, case.body])
+    body = case.body.decode() if isinstance(case.body, bytes) else case.body
+    sent = json.dumps([case.path, case.params, body])
     echoed = refused.text
     for key in (secret for secret in B_SECRETS if secret in sent):
         echoed = echoed.replace(key, "")
