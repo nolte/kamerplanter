@@ -240,9 +240,9 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
                 not entry.is_symlink()  # a link would be unlinked *through*, deleting its target
                 and not entry.name.endswith(".meta.json")
                 and (not prefix_rel or key.startswith(prefix_rel))
+                and (after is None or key > after)
             ):
-                if after is None or key > after:
-                    yield key
+                yield key
 
     def _list_page_sync(self, prefix: str, page_token: str | None, limit: int) -> dict[str, Any]:
         prefix_rel = prefix.replace("\\", "/").strip("/")
