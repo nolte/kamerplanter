@@ -39,7 +39,8 @@ Die Feldnamen in der Oberfläche sind deutsch beschriftet; in Klammern findest d
 | Wuchsform (`growth_habit`) | Kraut, Strauch, Baum, Kletterpflanze, ... | Kraut |
 | Wurzeltyp (`root_type`) | Faserwurzel, Pfahlwurzel, Knollig, Zwiebel, Rhizom | Faserwurzel |
 | Frostempfindlichkeit (`frost_sensitivity`) | Empfindlich, Moderat, Hardy, Sehr hardy | Sehr hardy |
-| Nährstoffbedarf (`nutrient_demand_level`) | Starkzehrer, Mittelzehrer, Schwachzehrer, Stickstoffsammler | Starkzehrer |
+| Zehrerstufe (`nutrient_demand`) | Starkzehrer, Mittelzehrer, Schwachzehrer — steuert Hinweise und Fruchtfolge, keine EC-Zahl | Starkzehrer |
+| Stickstofffixierung (`nitrogen_fixing`) | Ja/Nein, getrennt von der Zehrerstufe: eine Erbse ist Schwachzehrer *und* bindet Stickstoff | Ja (Erbse) |
 | Photoperiodismus (`photoperiod_type`, Teil der Lebenszyklus-Konfiguration) | Kurztagspflanze, Langtagspflanze, Tagneutral | Tagneutral |
 | Toxizität (`toxicity_severity`) | Giftigkeit für Katzen/Hunde (ASPCA-Daten, ASPCA = American Society for the Prevention of Cruelty to Animals) | Giftig für Katzen |
 | **Vermehrungsarten** (`propagation_methods`) | Eine oder mehrere übliche Vermehrungsmethoden (Mehrfachauswahl) | Aussaat, Steckling |

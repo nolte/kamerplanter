@@ -7,13 +7,14 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.20 | 2026-11-06 | **E8 an E-17 Variante A angeglichen (REQ-053 §32.3, Betreiberantwort #2643 Frage 1, #2685):** Die EC-Zielwerte je Phase werden **nicht** mehr nach Zehrerstufe skaliert — weder im Boden noch in Substrat/Nährlösung (die EC-Logik von REQ-004-A bleibt phasenbasiert und braucht kein `nutrient_demand`). Das Alt-Feld `species.nutrient_demand_level` (vier Werte inkl. `nitrogen_fixer`) ist abgelöst durch `nutrient_demand` (drei Stufen) + `nitrogen_fixing` (REQ-001 v4.11, REQ-053 §16.3); die Zehrerstufe steuert Hinweistext (REQ-053 GP-FR-125) und Fruchtfolge, nie eine Menge. Boden-EC ist nur ein Salz-Hinweis (REQ-053 §15.1). |
 | 2.18 | 2026-08-07 | **Resolver-Fallback, Zuweisungspunkt und MCP-Oberfläche (Issue #949):** (1) **§D14 Regel 6 aufgespalten:** Die bisherige Sammelregel „annuell / biennial / **unbekannt** → `indoor_default`" wertete *Abwesenheit einer Antwort* als die stärkstmögliche aus. Eine Art ohne LifecycleConfig (null-`cycle_type`) landete auf einem 126-Tage-Zyklus mit terminaler, ernte-erlaubender Schlussphase — eine _Yucca gigantea_ (immergrün, perennierend, polykarp) war dadurch 126 Tage nach dem Pflanzen als erntereif und lebenszyklus-beendet eingeplant. Neu: Regel 6 gilt nur für **bekannt** determinierte Zyklen (`annual`/`biennial`), Regel 7 schickt jeden unauflösbaren Fall auf `evergreen_foliage_perennial` — eine Sicherheits-, keine botanische Regel (die beiden Irrtümer kosten nicht gleich viel). `LifecycleCreate.cycle_type` verliert seinen `annual`-Default und wird Pflichtfeld. (2) **Null-Semantik dokumentiert:** neue Tabelle in §D14, die je Resolver-Input Quelle und Wirkung eines fehlenden Werts benennt — das Verhalten war aus keinem Schema ablesbar, obwohl `photosynthesis_type` innerhalb `indoor_houseplant` ein tragender Diskriminator ist. (3) **Neuer §D15:** der schreibbare Zuweisungspunkt (`phase_sequence_key` im Lifecycle-Schreib-Schema; `PhaseService.assign_phase_sequence` als einzige Stelle, die Kante **und** Feld schreibt; Auslassung löscht nie) — vorher quittierten beide Schreibwege mit `200`, ohne etwas Dauerhaftes zu ändern. Dazu die acht MCP-Werkzeuge der Phasen-Ebene inkl. `phase_state`, das `never_initialised` von `unresolved` trennt. Sequenz-Authoring bleibt außerhalb der Palette. Siehe REQ-033 §2.1/§2.2/§2.3. |
 | 2.17 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586 → #616):** Der in v2.15 nur als Changelog-Notiz geführte **attributgetriebene Sequenz-Resolver** wird zur **First-Class-Spezifikation** ausgebaut (neuer Abschnitt **§D14**): (1) explizite Präzedenz-Kaskade `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type` als geordnete Entscheidungsregel mit Zuordnungstabelle; (2) `indoor_default` verbindlich als **Last-Resort-Fallback** deklariert (nur annuell/biennial/unbekannt), nicht als Blankett; (3) die 8 Audit-Archetypen (`cam_succulent_rest`, `cam_double_rest`, `clonal_monocarp`, `photoperiodic_ornamental`, `palm_evergreen`, `fern_spore`, `geophyte_fine`, `evergreen_foliage_perennial`) als benannte First-Class-Sequenzen in den Katalog aufgenommen (Deckung geprüft gegen `phase_sequences.yaml`: 21 Sequenzen / 28 `phase_definitions` auf `develop`); (4) Faktenkorrektur der Migration-Referenz (v0025 → real **v0027**) und der Kohorten-Ausnahmen (Cannabis annuell, Herbst-Anemone + Allium via WP-8 outdoor). Verweis REQ-001 v4.7 (drei Lifecycle-Achsen als **Pflicht-Resolution-Inputs**), REQ-047 (Dormanz-Kopplung der neuen Rest-Phasen bestätigt). Reine Spec-Schärfung, keine Code-/Seed-Änderung — beschreibt den auf `develop` bereits gelandeten Zustand. |
 | 2.16 | 2026-07-19 | **ADR-006 E6 Umsetzung (Epic #565 Nachzügler, WP-6/#615 — `cultivation_flexible`-Flag):** Additives Boolean `Species.cultivation_flexible` (default `false`) macht die in v2.13 (E1/#605) eingeführte per-Instanz-Kulturführungs-Wahl **botanisch gated**: Der „Kulturführung"-Select im Plant-Instance-Create-Flow wird nur noch für **fakultative** Arten angeboten (die genuin annuell ODER perennial gezogen werden können), sonst versteckt + informativer Hinweis. Die Steckbrief-belegte Kohorte (Tomate, Paprika, Aubergine, Andenbeere, Basilikum, Geranie, Petunie, Verbene, Stiefmütterchen, Erdbeere, Wachsbegonie, Fleißiges Lieschen) ist in `species.yaml/lifecycle_overrides` geflaggt und wird per idempotentem Seed-Pass (`seed_cultivation_flexible`) auf die Species-Records angewendet; strikt einjährig gezogene botanische Perennials (Kartoffel, Kapuzinerkresse) bleiben bewusst ungeflaggt. `resolve_effective_cycle`-Semantik (v2.13) **unverändert** (non-flexible → Art-Default). Additiv/non-breaking, **keine Migration** (schemaloses Feld, default false). #297 unangetastet — das Flag drückt die *Fähigkeit* aus, nicht den Wert. Siehe REQ-001 v4.6. |
@@ -1908,8 +1909,9 @@ Phasen-Regelwerk:
 ### E8 — Nährstoffbedarf über den Lebenszyklus
 
 Nährstoffversorgung ist **phasengetrieben**: `nutrient_profiles.npk_ratio` + `target_ec_ms` + `target_ph` je
-Phase, skaliert durch die Art-Basis `species.nutrient_demand_level`
-(`heavy_feeder`/`medium_feeder`/`light_feeder`/`nitrogen_fixer`). Phasen-Regelwerk:
+Phase. Die EC-Zielwerte werden **nicht** nach Zehrerstufe skaliert (E-17 Variante A, REQ-053 §32.3): eine
+Zehrerstufe ohne Quelle als Faktor auf die EC drängt zur Überdüngung, und im Freilandboden ist EC ein Salz-Indikator,
+kein Dosierziel. Phasen-Regelwerk:
 
 | Phase(n) | NPK-Tendenz | EC | Hinweis |
 |---|---|---|---|
@@ -1920,9 +1922,13 @@ Phase, skaliert durch die Art-Basis `species.nutrient_demand_level`
 | `flushing` | **0:0:0** (Flush erlaubt, validiert) | ~0 | Rest-Salze austragen |
 | `dormancy`, `winter_rest`, `summer_rest` | **keine Düngung** | – | Ruhephasen: Stoffwechsel reduziert |
 
-- **Feeder-Skalierung:** `heavy_feeder` (Tomate, Kohl) → oberes EC-Band + organische Grunddüngung
-  (g/m², REQ-004); `light_feeder`/`nitrogen_fixer` (Kräuter, Hülsenfrüchte) → unteres Band, N-Fixierer brauchen
-  wenig/keinen N-Zusatz.
+- **Zehrerstufe und Stickstofffixierung:** `species.nutrient_demand` (`heavy_feeder`/`medium_feeder`/`light_feeder`)
+  und das getrennte Merkmal `species.nitrogen_fixing` (REQ-001, REQ-053 §16.3) verändern keine EC-Zahl. Sie steuern
+  im Freiland den Hinweistext des Nährstoff-Hinweises (REQ-053 GP-FR-125) und die Fruchtfolge; die organische
+  Grunddüngung dosiert nach Fläche (g/m², REQ-004). Für eine Art mit `nitrogen_fixing = true` warnt die
+  Flächendosierung vor stickstoffhaltigen Düngern.
+- **Boden-EC:** Die `ec_ms_cm` des Bodenprofils ist nur ein Salz-Grenzwert-Hinweis, gelesen je `ec_method`; die
+  Schwelle ist konfigurierbar und ohne Quelle `null` (kein Hinweis, E-10; REQ-053 §15.1).
 - **pH-Gating:** Mikronährstoff-Verfügbarkeit ist pH-abhängig (`soil_ph_preference`, REQ-001; die meisten
   Mikros bei pH 6.0–6.5, Mo invers) — `target_ph` je Phase steuert die Aufnahme.
 - **Cross-Ref:** Mischreihenfolge/EC-net/Produkte REQ-004; organische Freiland-Flächendosierung REQ-004
