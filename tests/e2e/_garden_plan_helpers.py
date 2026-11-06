@@ -10,7 +10,9 @@ WHY THE API, AND WHICH ONE
 --------------------------
 The arrangement goes through the application's own REST API — the same routes
 the editor itself calls — never through a direct database write
-(`test-pyramid-foundation` §"Arrangement-Treue", `test-falsifiability` T9):
+(`test-pyramid-foundation` §"Arrangement-Treue", `test-falsifiability` T9) -
+with one named exception, :func:`mark_task_suggested` (the suggestion flag of a
+task has no route and no producer yet; see its docstring):
 
 * ``POST /sites`` creates the site;
 * ``PUT /sites/{key}/plan/boundary`` creates the plan with its boundary and grid
@@ -35,6 +37,11 @@ A ``429`` is reported as what it is instead of as a broken editor.
 
 from __future__ import annotations
 
+import base64
+import json
+import os
+import urllib.error
+import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -918,3 +925,227 @@ def rotation_years(base_url: str, seed: dict, bed_key: str) -> dict[int, list[di
     if not isinstance(body, dict) or not isinstance(body.get("timeline"), list):
         raise AssertionError(f"the rotation timeline of {bed_key!r} has no timeline: {body!r}")
     return {int(entry["year"]): list(entry.get("plantings") or []) for entry in body["timeline"]}
+
+
+# ── Wave 8 part A: soil, area dose, rotation matrix, suggestions (WP 8.30) ──
+#
+# Arranged through the routes the bed view itself calls - ``POST /care-events`` for a soil analysis or a care line,
+# ``POST /fertilizers`` for a catalogue product with a data-sheet rate, ``POST /locations/{key}/history/backfill`` for
+# a past year, ``PATCH /locations/{key}`` for the rotation switch - with ONE named exception: the suggestion flag of a
+# task (:func:`mark_task_suggested`), which no route writes.
+
+
+def record_soil_analysis(
+    base_url: str,
+    seed: dict,
+    *,
+    bed_key: str,
+    measurements: list[dict],
+    days_ago: float = 0.0,
+    summary: str = "Bodenanalyse (E2E)",
+) -> dict:
+    """``POST /care-events`` with ``category = soil_analysis`` - the body the "Bodenanalyse erfassen" dialog sends."""
+    return log_care_event(
+        base_url,
+        seed,
+        bed_key=bed_key,
+        category="soil_analysis",
+        summary=summary,
+        days_ago=days_ago,
+        measurements=measurements,
+    )
+
+
+def soil_analyses(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/soil-analyses``: the series per parameter and method, the method changes, the liming hint."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/soil-analyses")
+    if not isinstance(body, dict) or not isinstance(body.get("series"), list):
+        raise AssertionError(f"the soil analyses of {bed_key!r} carry no series: {body!r}")
+    return body
+
+
+def soil_series(analyses: dict, parameter: str) -> dict[str, list[float]]:
+    """``{method: [value, ...]}`` of one parameter, oldest first (the server's order)."""
+    return {
+        entry["method"]: [float(point["value"]) for point in entry["points"]]
+        for entry in analyses["series"]
+        if entry["parameter"] == parameter
+    }
+
+
+def stored_soil_profile(base_url: str, seed: dict, bed_key: str) -> dict:
+    """The stored ``soil_profile`` of a bed; loud when the bed has none."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}")
+    if not isinstance(body, dict) or not isinstance(body.get("soil_profile"), dict):
+        raise AssertionError(f"the bed {bed_key!r} has no stored soil profile: {body!r}")
+    return body["soil_profile"]
+
+
+def bed_summary(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/summary`` (GP-API-012): what the bed head renders, ``nutrient_hint`` included."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/summary")
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"the summary of {bed_key!r} is no bed summary: {body!r}")
+    return body
+
+
+def create_fertilizer(
+    base_url: str,
+    seed: dict,
+    *,
+    name: str,
+    rate_g_per_m2: float | None = None,
+    rate_l_per_m2: float | None = None,
+    npk: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> dict:
+    """A tenant catalogue product with a data-sheet area rate (REQ-004 W-013), as the fertilizer form creates it."""
+    data: dict = {
+        "product_name": name,
+        "fertilizer_type": "organic",
+        "is_organic": True,
+        "tank_safe": False,
+        "npk_ratio": [float(value) for value in npk],
+    }
+    if rate_g_per_m2 is not None:
+        data["application_rate_g_per_m2"] = float(rate_g_per_m2)
+    if rate_l_per_m2 is not None:
+        data["application_rate_l_per_m2"] = float(rate_l_per_m2)
+    return _tenant_post(base_url, seed, "/fertilizers", data, expected=(201,))
+
+
+def create_bed_without_area(base_url: str, seed: dict, *, site_key: str, name: str) -> str:
+    """A legacy bed without geometry (``area_m2 = 0``, TC-053-011): the per-m² dose units are blocked for it."""
+    body = _tenant_post(
+        base_url,
+        seed,
+        "/locations",
+        {"name": name, "site_key": site_key, "location_type_key": "raised_bed", "area_m2": 0.0},
+        expected=(201,),
+    )
+    return body["key"]
+
+
+def backfill_year(
+    base_url: str,
+    seed: dict,
+    bed_key: str,
+    year: int,
+    *,
+    species_key: str | None = None,
+    family_key: str | None = None,
+) -> int:
+    """Record what stood in the bed in *year* (GP-API-042, main crop): a species or a family."""
+    data: dict = {"year": year, "plan_role": "main_crop"}
+    if species_key:
+        data["species_key"] = species_key
+    if family_key:
+        data["family_key"] = family_key
+    _tenant_post(base_url, seed, f"/locations/{bed_key}/history/backfill", data)
+    return year
+
+
+_FAMILY_CACHE: dict[tuple[str, str], str] = {}
+
+
+def botanical_family_key(base_url: str, seed: dict, name: str) -> str:
+    """The key of the seeded botanical family *name* (``Cucurbitaceae``); loud when the catalogue lacks it."""
+    cached = _FAMILY_CACHE.get((base_url, name))
+    if cached is not None:
+        return cached
+    api, token = _global_api(base_url, seed)
+    status, body = _api_request(f"{api}/botanical-families?offset=0&limit=200", "GET", token)
+    _require(status, body, (200,), "GET /botanical-families")
+    items = body if isinstance(body, list) else (body.get("items") or [])
+    for item in items:
+        _FAMILY_CACHE[(base_url, item.get("name", ""))] = item["key"]
+    if (base_url, name) not in _FAMILY_CACHE:
+        raise AssertionError(
+            f"Self-provisioning failed: the botanical family catalogue has no {name!r}; "
+            f"{len(items)} families listed"
+        )
+    return _FAMILY_CACHE[(base_url, name)]
+
+
+def rotation_matrix(base_url: str, seed: dict, site_key: str) -> dict:
+    """``GET /sites/{key}/rotation-matrix`` (GP-FR-135): beds x years as the matrix page reads it."""
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/rotation-matrix")
+    if not isinstance(body, dict) or not isinstance(body.get("beds"), list):
+        raise AssertionError(f"the rotation matrix of {site_key!r} has no beds: {body!r}")
+    return body
+
+
+def succession_recommendation(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/succession-recommendation`` (GP-FR-133)."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/succession-recommendation")
+    if not isinstance(body, dict) or "status" not in body:
+        raise AssertionError(
+            f"the succession recommendation of {bed_key!r} has no status: {body!r}"
+        )
+    return body
+
+
+def patch_location(base_url: str, seed: dict, bed_key: str, data: dict) -> dict:
+    """``PATCH /locations/{key}`` with *data*; loud on anything but 200."""
+    status, body = tenant_request(base_url, seed, "PATCH", f"/locations/{bed_key}", data)
+    _require(status, body, (200,), f"PATCH /locations/{bed_key} ({sorted(data)})")
+    return body
+
+
+def tenant_location(base_url: str, seed: dict, bed_key: str) -> dict:
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}")
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"GET /locations/{bed_key} answered no location: {body!r}")
+    return body
+
+
+#: The E2E stack's ArangoDB as the compose file runs it (``docker-compose.e2e.yml``: service ``arangodb``, root
+#: password ``e2e-test-password``, database ``kamerplanter_e2e`` for the light and ``kamerplanter_e2e_full`` for the
+#: full app stack). Every value can be overridden for a stack that runs elsewhere.
+_ARANGO_URL = os.environ.get("E2E_ARANGO_URL", "http://arangodb:8529")
+_ARANGO_USER = os.environ.get("E2E_ARANGO_USER", "root")
+_ARANGO_PASSWORD = os.environ.get("E2E_ARANGO_PASSWORD", "e2e-test-password")
+_ARANGO_DB = {"light": "kamerplanter_e2e", "full": "kamerplanter_e2e_full"}
+
+
+def mark_task_suggested(app_mode: str, task_key: str, reason: str) -> None:
+    """Turn an open task into a system suggestion (``suggested = true`` + ``suggestion_reason``).
+
+    **Divergence from the running system, named (`test-pyramid-foundation` §"Arrangement fidelity", T9).** No route
+    and no producer writes ``suggested = true`` yet (REQ-053 E-02: the producer belongs to the ADR-008 propagation
+    strand; ``TaskCreate`` has no such field). The task itself is created through ``POST /tasks``, so every
+    attribute the creation path enforces - tenant, entity link, edge, ``care_dedup_key`` - is the system's own; this
+    write only sets the two fields the ``Task`` model declares for a proposal (``app/domain/models/task.py``,
+    migration v0095) on that document. The state is reachable by the model; only its producer is missing.
+
+    A direct ``PATCH`` on ArangoDB's document API - the database the backend under test uses. Loud when the database
+    cannot be reached or refuses the write: a missing suggestion must never read as "the section is hidden".
+    """
+    if app_mode not in _ARANGO_DB:
+        raise AssertionError(f"mark_task_suggested: unknown app mode {app_mode!r}")
+    database = os.environ.get("E2E_ARANGO_DB", _ARANGO_DB[app_mode])
+    url = f"{_ARANGO_URL.rstrip('/')}/_db/{database}/_api/document/tasks/{task_key}"
+    credentials = base64.b64encode(f"{_ARANGO_USER}:{_ARANGO_PASSWORD}".encode()).decode()
+    request = urllib.request.Request(
+        url,
+        data=json.dumps({"suggested": True, "suggestion_reason": reason}).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Basic {credentials}"},
+        method="PATCH",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB refused the suggestion flag on task {task_key} "
+            f"({database}): {exc.code} {exc.read()[:300]!r}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB at {_ARANGO_URL} is not reachable from the test runner ({exc.reason}). "
+            "The suggestion flag has no API route; set E2E_ARANGO_URL / E2E_ARANGO_DB / E2E_ARANGO_PASSWORD when the "
+            "stack does not run from docker-compose.e2e.yml."
+        ) from exc
+    if status not in (200, 201, 202):
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB answered {status} for task {task_key}"
+        )

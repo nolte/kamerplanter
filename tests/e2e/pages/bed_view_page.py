@@ -137,11 +137,21 @@ class BedViewPage(BasePage):
     # ── Care tab (WP 4.4) ──────────────────────────────────────────────
     CARE_TAB = _tid("bed-care-tab")
 
+    # ── Soil tab (WP 8.7 / 8.14): the analyses section is its last part ─
+    SOIL_TAB = _tid("bed-soil-analyses")
+
+    # ── Head: nutrient and salt hint (WP 8.10, GP-FR-125) ──────────────
+    HEADER = _tid("bed-header")
+    HEADER_PLANTS = _tid("bed-header-plants")
+    NUTRIENT_BADGE = _tid("bed-nutrient-badge")
+    SALT_BADGE = _tid("bed-salt-badge")
+
     #: The tab is part of the URL hash (``useTabUrl``).
     TAB_CONTENT = {
         "plan": PLAN_TAB,
         "planting": PLANTING_TAB,
         "care": CARE_TAB,
+        "soil": SOIL_TAB,
         "history": HISTORY_TAB,
     }
 
@@ -172,6 +182,37 @@ class BedViewPage(BasePage):
         return self
 
     # ── Head ───────────────────────────────────────────────────────────
+
+    def header_text(self) -> str:
+        """The whole text of the bed head ("Beet auf einen Blick"); loud when the head is missing."""
+        try:
+            return " ".join(
+                (self.wait_for_element(self.HEADER).get_attribute("textContent") or "").split()
+            )
+        except TimeoutException as exc:
+            raise AssertionError("the bed view shows no head") from exc
+
+    def wait_for_header_plants(self, count_text: str, what: str) -> str:
+        """Wait until the head's "Aktive Pflanzen" fact names *count_text* ("1 Pflanze"): the summary has arrived."""
+
+        def _fact() -> str:
+            found = self.driver.find_elements(*self.HEADER_PLANTS)
+            return " ".join((found[0].get_attribute("textContent") or "").split()) if found else ""
+
+        try:
+            self.poll().until(lambda _d: count_text in _fact())
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the head should name {count_text!r}; it reads {_fact()!r}"
+            ) from exc
+        return _fact()
+
+    def head_badges(self) -> dict[str, bool]:
+        """``{"nutrient": shown, "salt": shown}`` - read only after :meth:`wait_for_header_plants` anchored the head."""
+        return {
+            "nutrient": bool(self.driver.find_elements(*self.NUTRIENT_BADGE)),
+            "salt": bool(self.driver.find_elements(*self.SALT_BADGE)),
+        }
 
     def wait_for_rotation_badge(self, what: str) -> str:
         try:
