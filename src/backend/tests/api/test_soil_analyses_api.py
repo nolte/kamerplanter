@@ -19,6 +19,7 @@ from app.common.dependencies import get_soil_analysis_service, get_tenant_servic
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.care_event import CareEvent
+from app.domain.models.site import SoilProfile
 from app.domain.models.user import User
 from app.domain.services.soil_analysis_service import SoilAnalysisService
 from tests.support.care_event_fakes import FakeCareEventRepo
@@ -55,7 +56,7 @@ def world() -> SimpleNamespace:
     plan = FakePlanRepo(sites)
     plan.locations["bed"] = make_location("bed", name="Bed")
     repo = FakeCareEventRepo()
-    return SimpleNamespace(repo=repo, service=SoilAnalysisService(sites, repo))  # type: ignore[arg-type]
+    return SimpleNamespace(repo=repo, plan=plan, service=SoilAnalysisService(sites, repo))  # type: ignore[arg-type]
 
 
 def _store(world, days_ago: int, measurements: list[dict], **extra) -> None:  # type: ignore[no-untyped-def]
@@ -148,3 +149,17 @@ def test_the_list_is_bounded_and_says_when_it_was_cut(client, world) -> None:  #
 def test_an_unknown_parameter_and_an_inverted_range_are_422(client) -> None:  # type: ignore[no-untyped-def]
     assert client().get(_OWN, params={"parameter": "gold"}).status_code == 422
     assert client().get(_OWN, params={"from": "2026-06-02T00:00:00", "to": "2026-06-01T00:00:00Z"}).status_code == 422
+
+
+def test_the_liming_hint_comes_from_the_current_profile_and_never_an_amount(client, world) -> None:  # type: ignore[no-untyped-def]
+    assert client().get(_OWN).json()["liming_hint"] == {"status": "not_assessable", "reason": "no_ph"}
+
+    world.plan.locations["bed"] = make_location(
+        "bed",
+        soil_profile=SoilProfile(
+            growing_medium_kind="native_soil", soil_texture="loam", ph=5.5, ph_method="cacl2", target_ph=6.2
+        ),
+    )
+    hint = client().get(_OWN).json()["liming_hint"]
+
+    assert hint == {"status": "likely", "reason": "below_target"}  # status and reason only - no amount field

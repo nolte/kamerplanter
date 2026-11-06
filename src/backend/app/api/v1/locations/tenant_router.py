@@ -20,6 +20,7 @@ from app.api.v1.locations.schemas import (
     CompanionEdgesResponse,
     CompanionEndpointResponse,
     FrostWarningResponse,
+    LimingHintResponse,
     LocationCoverRequest,
     LocationCreate,
     LocationPatch,
@@ -915,7 +916,8 @@ def get_soil_analyses(
 
     A conductivity is read per `ec_method`, a pH per `ph_method`, the rest per `extraction_method`; `unknown` is its
     own method. Where the method of a parameter changes between two analyses the change is listed in
-    `method_changes`. Values of different methods are never merged, compared or converted. Readable by every role.
+    `method_changes`. Values of different methods are never merged, compared or converted. `liming_hint` is the
+    "liming likely" text of the current profile - never an amount. Readable by every role.
     """
     performed_from, performed_to = utc_range(performed_from, performed_to)
     result = service.series(
@@ -955,6 +957,7 @@ def get_soil_analyses(
         ],
         analyses=result.analyses,
         truncated=result.truncated,
+        liming_hint=LimingHintResponse(status=result.liming_hint.status, reason=result.liming_hint.reason),
     )
 
 

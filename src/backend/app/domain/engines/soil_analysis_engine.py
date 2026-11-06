@@ -9,6 +9,10 @@ Pure rules, no database (WP 8.7, #2650).
 * **Series are per method** (:func:`build_series`): a conductivity is read per ``ec_method``, a pH per ``ph_method``,
   the rest per ``extraction_method``; ``unknown`` is its own method. When the method of a parameter changes from one
   analysis to the next, the change is marked. Values of different methods are never merged or compared.
+* **"Liming likely" is a hint, never an amount** (:func:`liming_hint`): only for grown soil, only for a pH measured in
+  CaCl2 (the reference of the lab target ranges, R-008), only with a known ``soil_texture`` and only against a
+  ``target_ph`` someone *stated* (the profile never derives one, "stays null" item 17). Every other case says why no
+  assessment is possible - a pH by water or by probe is never converted to CaCl2 (hint-only list).
 """
 
 from __future__ import annotations
@@ -16,7 +20,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
+
+from app.common.enums import GrowingMediumKind, PhMethod, SoilTexture
+from app.domain.models.site import SoilProfile
 
 #: The unit each profile parameter is stored in; ``mS/cm`` and ``dS/m`` are the same number.
 _PROFILE_UNITS: dict[str, frozenset[str]] = {
@@ -156,3 +163,44 @@ def build_series(
                 changes += [MethodChange(parameter=name, at=at, from_method=before, to_method=after)]
     ordered = sorted(by_series.values(), key=lambda each: (each.parameter, each.method))
     return ordered, sorted(changes, key=lambda each: (each.at, each.parameter))
+
+
+LimingStatus = Literal["likely", "not_indicated", "not_assessable"]
+LimingReason = Literal[
+    "below_target",
+    "at_or_above_target",
+    "no_ph",
+    "not_native_soil",
+    "ph_method_not_cacl2",
+    "texture_unknown",
+    "no_target_ph",
+]
+
+
+@dataclass(frozen=True)
+class LimingHint:
+    """Whether liming is *likely* worth it, and why - a text, never an amount (hint-only list: no lime amount)."""
+
+    status: LimingStatus
+    reason: LimingReason
+
+
+def liming_hint(profile: SoilProfile | None) -> LimingHint:
+    """The liming hint of a bed profile; the first missing precondition is the reason when none is possible.
+
+    ``likely`` only when the bed is grown soil, its pH was measured in CaCl2, its texture is known and the pH is below
+    the stated ``target_ph``. ``ph`` and ``target_ph`` are compared as they are - nothing is converted or derived.
+    """
+    if profile is None or profile.ph is None:
+        return LimingHint("not_assessable", "no_ph")
+    if profile.growing_medium_kind != GrowingMediumKind.NATIVE_SOIL:
+        return LimingHint("not_assessable", "not_native_soil")
+    if profile.ph_method != PhMethod.CACL2:
+        return LimingHint("not_assessable", "ph_method_not_cacl2")
+    if profile.soil_texture == SoilTexture.UNKNOWN:
+        return LimingHint("not_assessable", "texture_unknown")
+    if profile.target_ph is None:
+        return LimingHint("not_assessable", "no_target_ph")
+    if profile.ph < profile.target_ph:
+        return LimingHint("likely", "below_target")
+    return LimingHint("not_indicated", "at_or_above_target")
