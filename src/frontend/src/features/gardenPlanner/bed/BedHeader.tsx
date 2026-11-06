@@ -87,9 +87,19 @@ function shownNutrientHint(hint: NutrientHint | null | undefined): NutrientHint 
   return hint && (hint.state === 'likely_deficit' || hint.state === 'check') ? hint : null;
 }
 
-function Fact({ label, children, testId }: { label: string; children: ReactNode; testId: string }) {
+function Fact({
+  label,
+  children,
+  testId,
+  fullRow = false,
+}: {
+  label: string;
+  children: ReactNode;
+  testId: string;
+  fullRow?: boolean;
+}) {
   return (
-    <Box sx={{ minWidth: 0, overflowWrap: 'anywhere' }} data-testid={testId}>
+    <Box sx={{ minWidth: 0, overflowWrap: 'anywhere', ...(fullRow && { gridColumn: '1 / -1' }) }} data-testid={testId}>
       <Typography variant="caption" color="text.secondary" component="div">
         {label}
       </Typography>
@@ -253,7 +263,7 @@ export default function BedHeader({
               </Fact>
             )}
             {nutrientHint && (
-              <Fact label={t('pages.bed.header.nutrient.label')} testId="bed-header-nutrient">
+              <Fact label={t('pages.bed.header.nutrient.label')} testId="bed-header-nutrient" fullRow>
                 <Chip
                   size="small"
                   color={nutrientHint.state === 'likely_deficit' ? 'warning' : 'info'}
