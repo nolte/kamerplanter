@@ -29,13 +29,14 @@ import { useNotification } from '@/hooks/useNotification';
 import { patchSoilProfile } from './bedApi';
 import {
   SUBSTRATE_MEDIA,
+  buildSoilFormSchema,
   formToSoil,
-  soilFormSchema,
   soilToForm,
   substrateDefaults,
   type SoilFormData,
 } from './soilForm';
 import {
+  EC_METHODS,
   GROWING_MEDIUM_KINDS,
   PH_METHODS,
   SITE_WATER_REGIMES,
@@ -62,8 +63,9 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
   const [substrates, setSubstrates] = useState<Substrate[]>([]);
 
   const initial = useMemo(() => soilToForm(profile), [profile]);
+  const resolver = useMemo(() => zodResolver(buildSoilFormSchema(t)), [t]);
   const { control, handleSubmit, reset, setValue, getValues, formState } = useForm<SoilFormData>({
-    resolver: zodResolver(soilFormSchema),
+    resolver,
     defaultValues: initial,
     disabled: !canEdit,
   });
@@ -124,7 +126,7 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
   const onSubmit = async (data: SoilFormData) => {
     setSaving(true);
     try {
-      await patchSoilProfile(bedKey, formToSoil(data));
+      await patchSoilProfile(bedKey, formToSoil(data, profile));
       notification.success(t('pages.bed.soil.saved'));
       reset(data);
       onSaved();
@@ -231,7 +233,7 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
             helperText={t('pages.bed.soil.phHelper')}
             min={0}
             max={14}
-            step={0.1}
+            step="any"
             inputMode="decimal"
           />
           <FormSelectField
@@ -255,6 +257,18 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
             inputMode="decimal"
             suffix="mS/cm"
           />
+          <FormSelectField
+            name="ec_method"
+            control={control}
+            label={t('pages.bed.soil.ecMethod')}
+            helperText={t('pages.bed.soil.ecMethodHelper')}
+            options={[
+              { value: '', label: t('pages.bed.soil.notSet') },
+              ...EC_METHODS.map((value) => ({ value, label: label('ecMethod', value) })),
+            ]}
+          />
+        </FormRow>
+        <FormRow>
           <FormNumberField
             name="humus_percent"
             control={control}
@@ -263,7 +277,18 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
             inputMode="decimal"
             min={0}
             max={100}
+            step="any"
             suffix="%"
+          />
+          <FormNumberField
+            name="target_ph"
+            control={control}
+            label={t('pages.bed.soil.targetPh')}
+            helperText={t('pages.bed.soil.targetPhHelper')}
+            min={0}
+            max={14}
+            step="any"
+            inputMode="decimal"
           />
         </FormRow>
         <FormTextField name="notes" control={control} label={t('pages.bed.soil.notes')} multiline minRows={2} />

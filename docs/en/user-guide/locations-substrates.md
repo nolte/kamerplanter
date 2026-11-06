@@ -303,7 +303,7 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 | Care | Open and overdue tasks of the bed and its plants, completing them, suggestions and the care log (see [Care on the bed](#care-on-the-bed)). |
 | Planting | Planned and standing plants of the bed, the **Plant** button and the actions on a plant (see [Planting a bed](#planting-a-bed)). |
 | History | A timeline of what stood in the bed in earlier years, and the list of all care entries and plantings (see [History of the bed](#history-of-the-bed)). |
-| Soil | The bed's soil profile (see below). |
+| Soil | The bed's soil profile and soil analyses (see [Maintaining the soil profile](#maintaining-the-soil-profile) and [Recording soil analyses](#recording-soil-analyses)). |
 | Photos | The bed's photos with its cover photo (see [Photos of the bed](#photos-of-the-bed)). |
 | Details | The previous location page, unchanged. |
 
@@ -485,6 +485,22 @@ A permanent crop cannot have the check switched on. If you try, Kamerplanter ref
 ### Maintaining the soil profile
 
 In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. The drainage also appears in the bed overview once you have recorded it. As a viewer (role "viewer") you see the profile read-only.
+
+If you enter an EC, you also choose the **EC method** (saturated paste, 1:2 or 1:5 extract, probe or "Method unknown") - an EC value cannot be read without its method, and the form does not save it without one. Only fill in the **Target pH (CaCl₂)** if your lab states it; Kamerplanter does not derive a target pH from the soil texture.
+
+### Recording soil analyses {#recording-soil-analyses}
+
+Below the soil profile, the **Soil** tab has the **Soil analyses** area. From the role "grower" upwards you open **Record soil analysis** there and enter the values from your lab report, test kit or probe:
+
+1. When the sample was taken (up to one year back), where the values come from (**Lab**, **Test kit** or **Probe/sensor**) and, optionally, the sampling depth in cm.
+2. For each value the **parameter** (pH, EC, humus, lime content, Nmin, phosphorus, potassium, magnesium, soil moisture), the **value**, the **unit** and the **method**. For pH and EC the method is required; if it is not on the report, choose "Probe, method unknown" or "Method unknown". **Add another value** records a whole report in one go.
+3. You can give a **content class** (A to E) only for phosphorus, potassium and magnesium when the value comes from a lab by the CAL method - exactly as stated in the report. Kamerplanter never computes a class.
+
+The analysis appears as a care entry in the [bed history](#history-of-the-bed). Kamerplanter takes the newest pH, EC, humus and lime values with their method into the soil profile, but only in the profile's unit (pH, mS/cm or dS/m, %) and never from an analysis older than the one last taken over.
+
+**History:** for pH, EC and humus the area shows one chart each, with a separate line per measuring method. When the method changes from one analysis to the next, a dashed "Method change" line marks it: values of different methods are not comparable, and Kamerplanter never converts one into another. **Show as table** shows the same values as a table; a screen reader always reads the table.
+
+**Liming likely worthwhile:** Kamerplanter shows this hint only when the bed has the filling "Native soil" and a known soil texture, the pH was measured in CaCl₂ and is below the target pH you entered in the soil profile. If one of these is missing, the area says which. Kamerplanter never gives a lime amount - your lab does.
 
 ### Changing the bed status
 

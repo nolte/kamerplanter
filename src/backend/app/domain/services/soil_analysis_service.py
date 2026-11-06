@@ -2,7 +2,8 @@
 
 ``GET /locations/{key}/soil-analyses``: the ``measurements`` of the bed's ``soil_analysis`` care events, per
 parameter and **per method**, with every change of method marked - and never converted (U-002/U-003). The rules are
-the pure :mod:`app.domain.engines.soil_analysis_engine`; this service reads.
+the pure :mod:`app.domain.engines.soil_analysis_engine`; this service reads. The answer also carries the
+"liming likely" hint of the bed's current profile (:func:`~app.domain.engines.soil_analysis_engine.liming_hint`).
 
 Read-only. The method takes ``*, tenant_key: str`` without a default; the bed is resolved through
 :mod:`~app.domain.services.location_ownership` (a bed has no ``tenant_key`` of its own, #2107), so a foreign and an
@@ -16,7 +17,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from app.domain.engines.soil_analysis_engine import AnalysisEvent, MethodChange, Series, build_series
+from app.domain.engines.soil_analysis_engine import (
+    AnalysisEvent,
+    LimingHint,
+    MethodChange,
+    Series,
+    build_series,
+    liming_hint,
+)
 from app.domain.interfaces.care_event_repository import CareEventFilter, ICareEventRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.services.location_ownership import resolve_owned_location
@@ -34,6 +42,8 @@ class SoilAnalysisSeries:
     method_changes: list[MethodChange] = field(default_factory=list)
     analyses: int = 0
     truncated: bool = False
+    #: "Liming likely" from the bed's current profile (method + texture + stated target), never an amount.
+    liming_hint: LimingHint = field(default_factory=lambda: LimingHint("not_assessable", "no_ph"))
 
 
 class SoilAnalysisService:
@@ -52,7 +62,7 @@ class SoilAnalysisService:
         limit: int = DEFAULT_ANALYSES,
     ) -> SoilAnalysisSeries:
         """The analyses of the bed in the range, newest ``limit`` of them, as series per method."""
-        resolve_owned_location(self._sites, location_key, tenant_key)
+        location = resolve_owned_location(self._sites, location_key, tenant_key)
         bounded = max(1, min(limit, MAX_ANALYSES))
         rows = self._events.list_events(
             CareEventFilter(
@@ -75,4 +85,10 @@ class SoilAnalysisService:
             if row.event.measurements
         ]
         series, changes = build_series(events, parameter)
-        return SoilAnalysisSeries(series=series, method_changes=changes, analyses=len(events), truncated=truncated)
+        return SoilAnalysisSeries(
+            series=series,
+            method_changes=changes,
+            analyses=len(events),
+            truncated=truncated,
+            liming_hint=liming_hint(location.soil_profile),
+        )

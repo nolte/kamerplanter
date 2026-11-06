@@ -7037,6 +7037,92 @@
           "saving": "Wird gespeichert …",
           "saved": "Gespeichert.",
           "bothRefused": "Eine Dauerkultur kann die Fruchtfolge-Prüfung nicht eingeschaltet haben. Stelle die Prüfung zuerst auf „Standard des Beettyps“ oder „Ausgeschaltet“. Es wurde nichts geändert."
+        },
+        "ecMethod": "EC-Messmethode",
+        "ecMethodHelper": "Ohne Methode ist ein EC-Wert nicht lesbar. Werte verschiedener Methoden rechnet die App nicht um.",
+        "ecMethodRequired": "Wähle aus, wie die EC gemessen wurde – oder „Methode unbekannt“.",
+        "targetPh": "Ziel-pH (CaCl₂)",
+        "targetPhHelper": "pH-Wert, den dein Labor als Ziel für deinen Boden nennt – gemessen in CaCl₂-Lösung (Calciumchlorid), nicht in Wasser. Nur eintragen, wenn der Befund ihn nennt; die App leitet ihn nicht aus der Bodenart ab.",
+        "analysis": {
+          "record": "Bodenanalyse erfassen",
+          "title": "Bodenanalyse für {{name}} erfassen",
+          "description": "Trag die Werte aus deinem Laborbefund, deinem Testset oder von deiner Sonde ein – jeden mit Einheit und Messmethode. Die neuesten Werte für pH, EC, Humus und Kalk landen automatisch im Bodenprofil.",
+          "performedAt": "Probe genommen am",
+          "performedAtHelper": "Höchstens 365 Tage zurück, nicht in der Zukunft.",
+          "source": "Herkunft",
+          "sourceHelper": "Woher stammen die Werte?",
+          "depth": "Entnahmetiefe",
+          "depthHelper": "Optional, z. B. 0–30 cm → 30.",
+          "values": "Messwerte",
+          "valueN": "Wert {{n}}",
+          "parameter": "Messgröße",
+          "value": "Wert",
+          "unit": "Einheit",
+          "method": "Methode",
+          "methodNone": "Nicht angegeben",
+          "methodHelper": {
+            "ph": "Pflichtangabe. Steht auf dem Befund oder der Packung; sonst „Sonde, Methode unbekannt“.",
+            "ec": "Pflichtangabe. Steht auf dem Befund; sonst „Methode unbekannt“."
+          },
+          "contentClass": "Gehaltsklasse",
+          "contentClassHelper": "Nur so, wie sie im Laborbefund steht.",
+          "contentClassNone": "Keine angegeben",
+          "addValue": "Weiteren Wert hinzufügen",
+          "removeValue": "Wert {{n}} entfernen",
+          "noConversion": "Die App rechnet Werte nie zwischen Messmethoden oder Einheiten um und schlägt keine Dünge- oder Kalkmenge vor.",
+          "submit": "Analyse speichern",
+          "summary": "Bodenanalyse ({{source}})",
+          "saved": "Bodenanalyse gespeichert.",
+          "errors": {
+            "future": "Der Zeitpunkt liegt in der Zukunft.",
+            "tooOld": "Höchstens 365 Tage zurück.",
+            "invalid": "Bitte gib Datum und Uhrzeit an.",
+            "depth": "Gib eine Tiefe zwischen 0 und 1000 cm an.",
+            "method": "Wähle die Messmethode – ohne sie ist der Wert nicht lesbar.",
+            "value": {
+              "required": "Gib einen Wert ein.",
+              "number": "Das ist keine Zahl.",
+              "range": "Dieser Wert ist für die Messgröße nicht möglich."
+            }
+          },
+          "rowCount": "{{count}} von {{max}} Werten",
+          "removeValueShort": "Entfernen"
+        },
+        "history": {
+          "title": "Bodenanalysen",
+          "intro": "Der Verlauf von pH, EC und Humus, getrennt nach Messmethode.",
+          "emptyTitle": "Noch keine Bodenanalyse",
+          "emptyDescription": "Erfasse deine erste Bodenanalyse, dann siehst du hier, wie sich pH, EC und Humus entwickeln.",
+          "emptyReadOnly": "Für dieses Beet wurde noch keine Bodenanalyse erfasst.",
+          "loadFailed": "Die Bodenanalysen konnten nicht geladen werden.",
+          "truncated": "Gezeigt werden die neuesten {{count}} Analysen.",
+          "noChartValues": "Die erfassten Analysen enthalten keinen pH-, EC- oder Humuswert für den Verlauf.",
+          "asTable": "Als Tabelle anzeigen",
+          "methodsNotComparable": "Jede Messmethode hat eine eigene Linie. Werte verschiedener Methoden sind nicht vergleichbar und werden nicht umgerechnet; ein Methodenwechsel ist markiert.",
+          "parameterTitle": "Verlauf {{parameter}}",
+          "methodChange": "Methodenwechsel",
+          "methodUnknown": "Methode unbekannt",
+          "contentClass": "Klasse {{value}}",
+          "columns": {
+            "date": "Datum",
+            "method": "Methode",
+            "value": "Wert",
+            "source": "Herkunft",
+            "depth": "Tiefe"
+          }
+        },
+        "liming": {
+          "likelyTitle": "Kalkung wahrscheinlich sinnvoll",
+          "likely": "Hinweis: Dein pH-Wert (gemessen in CaCl₂) liegt unter dem Ziel-pH, den du eingetragen hast. Ob und wie viel Kalk dein Boden braucht, klärst du mit deinem Labor – die App nennt keine Menge.",
+          "reasons": {
+            "below_target": "Kalkung wahrscheinlich sinnvoll.",
+            "at_or_above_target": "Kein Hinweis auf Kalkbedarf: Dein pH-Wert liegt nicht unter dem Ziel-pH.",
+            "no_ph": "Kalkbedarf: Dafür braucht die App einen pH-Wert.",
+            "not_native_soil": "Kalkbedarf: Die App schätzt ihn nur für gewachsenen Boden ein (Füllung „Gewachsener Boden“).",
+            "ph_method_not_cacl2": "Kalkbedarf: Nur ein in CaCl₂ gemessener pH-Wert lässt sich mit einem Ziel-pH vergleichen. Die App rechnet andere Methoden nicht um.",
+            "texture_unknown": "Kalkbedarf: Dafür braucht die App die Bodenart.",
+            "no_target_ph": "Kalkbedarf: Trag den Ziel-pH aus deinem Laborbefund ein, dann kann die App einen Hinweis geben."
+          }
         }
       },
       "plan": {

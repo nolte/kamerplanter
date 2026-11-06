@@ -38,6 +38,8 @@ export type SoilTexture =
 export type SiteWaterRegime = 'dry' | 'fresh' | 'moist' | 'wet' | 'unknown';
 export type SoilCondition = 'compacted' | 'depleted' | 'waterlogged' | 'crusting' | 'stony';
 export type PhMethod = 'cacl2' | 'h2o' | 'probe_unknown';
+/** How a soil conductivity was measured (`EcMethod`, U-002); `unknown` is comparable with nothing. */
+export type EcMethod = 'saturated_paste' | 'ratio_1_2' | 'ratio_1_5' | 'sensor' | 'unknown';
 
 export const GROWING_MEDIUM_KINDS: readonly GrowingMediumKind[] = [
   'native_soil',
@@ -72,6 +74,7 @@ export const SOIL_CONDITIONS: readonly SoilCondition[] = [
   'stony',
 ];
 export const PH_METHODS: readonly PhMethod[] = ['cacl2', 'h2o', 'probe_unknown'];
+export const EC_METHODS: readonly EcMethod[] = ['saturated_paste', 'ratio_1_2', 'ratio_1_5', 'sensor', 'unknown'];
 
 /** The v1 soil profile of a bed; everything optional, nothing invented (E-10). */
 export interface SoilProfile {
@@ -84,7 +87,17 @@ export interface SoilProfile {
   ph?: number | null;
   ph_method?: PhMethod | null;
   ec_ms_cm?: number | null;
+  /** Required by the server as soon as `ec_ms_cm` is set (U-002). */
+  ec_method?: EcMethod | null;
   humus_percent?: number | null;
+  caco3_percent?: number | null;
+  stone_content_class?: 'none' | 'few' | 'many' | 'unknown';
+  /** As stated (e.g. by a lab), measured in CaCl2; never derived from the texture (E-10). */
+  target_ph?: number | null;
+  established_on?: string | null;
+  /** Server-owned: the `performed_at` of the newest analysis in the profile; sent back as received. */
+  last_analysis_at?: string | null;
+  rotation_reset_at?: string | null;
   notes?: string | null;
 }
 

@@ -7,7 +7,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-from app.domain.engines.soil_analysis_engine import AnalysisEvent, build_series, is_newer, method_of, profile_patch
+from app.domain.engines.soil_analysis_engine import (
+    AnalysisEvent,
+    build_series,
+    is_newer,
+    liming_hint,
+    method_of,
+    profile_patch,
+)
 from app.domain.models.care_event import CareEventInput, Measurement
 from app.domain.models.site import SoilProfile
 
@@ -248,3 +255,49 @@ class TestOldDocumentsStayReadable:
         profile = parsed.locations[0].soil_profile
         assert profile is not None and profile.ec_method == "unknown"
         assert "ec_method" not in document["locations"][0]["soil_profile"]  # the caller's document is not changed
+
+
+class TestLimingHint:
+    """WP 8.8 (#2651): "liming likely" is a text from method + texture + a stated target - never an amount."""
+
+    @staticmethod
+    def _profile(**overrides) -> SoilProfile:  # type: ignore[no-untyped-def]
+        base = {
+            "growing_medium_kind": "native_soil",
+            "soil_texture": "loam",
+            "ph": 5.6,
+            "ph_method": "cacl2",
+            "target_ph": 6.2,
+        }
+        return SoilProfile.model_validate({**base, **overrides})
+
+    def test_a_cacl2_ph_below_the_stated_target_on_known_soil_is_likely(self) -> None:
+        hint = liming_hint(self._profile())
+        assert (hint.status, hint.reason) == ("likely", "below_target")
+
+    @pytest.mark.parametrize("ph", [6.2, 6.8])
+    def test_a_ph_at_or_above_the_target_is_not_indicated(self, ph: float) -> None:
+        hint = liming_hint(self._profile(ph=ph))
+        assert (hint.status, hint.reason) == ("not_indicated", "at_or_above_target")
+
+    @pytest.mark.parametrize(
+        ("overrides", "reason"),
+        [
+            ({"ph": None, "ph_method": None}, "no_ph"),
+            ({"growing_medium_kind": "raised_bed_mix"}, "not_native_soil"),
+            ({"growing_medium_kind": None}, "not_native_soil"),
+            # a pH by water or by probe is never converted to CaCl2 - even one far below the target
+            ({"ph_method": "h2o", "ph": 4.0}, "ph_method_not_cacl2"),
+            ({"ph_method": "probe_unknown", "ph": 4.0}, "ph_method_not_cacl2"),
+            ({"ph_method": None, "ph": 4.0}, "ph_method_not_cacl2"),
+            ({"soil_texture": "unknown"}, "texture_unknown"),
+            # no target is derived from the texture ("stays null" item 17)
+            ({"target_ph": None, "ph": 4.0}, "no_target_ph"),
+        ],
+    )
+    def test_without_every_precondition_nothing_is_assessed(self, overrides: dict, reason: str) -> None:
+        hint = liming_hint(self._profile(**overrides))
+        assert (hint.status, hint.reason) == ("not_assessable", reason)
+
+    def test_no_profile_is_no_ph(self) -> None:
+        assert liming_hint(None).reason == "no_ph"

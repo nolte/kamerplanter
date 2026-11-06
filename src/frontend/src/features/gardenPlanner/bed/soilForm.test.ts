@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Substrate } from '@/api/types';
 import { bedSummary } from './bedTestKit';
-import { EMPTY_SOIL_FORM, formToSoil, soilToForm, substrateDefaults } from './soilForm';
+import type { TFunction } from 'i18next';
+import { EMPTY_SOIL_FORM, buildSoilFormSchema, formToSoil, soilToForm, substrateDefaults } from './soilForm';
 
 describe('soil profile form mapping (GP-FR-120/121)', () => {
   it('round-trips a stored profile', () => {
@@ -30,9 +31,44 @@ describe('soil profile form mapping (GP-FR-120/121)', () => {
       ph: null,
       ph_method: null,
       ec_ms_cm: null,
+      ec_method: null,
       humus_percent: null,
+      target_ph: null,
       notes: null,
     });
+  });
+
+  it('sends back what the form does not show, so saving never erases what a soil analysis wrote (WP 8.8)', () => {
+    const stored = {
+      ...bedSummary().soil_profile!,
+      ec_ms_cm: 0.4,
+      ec_method: 'ratio_1_5' as const,
+      caco3_percent: 2,
+      stone_content_class: 'few' as const,
+      last_analysis_at: '2026-03-01T09:00:00Z',
+      target_ph: 6.2,
+    };
+    const back = formToSoil({ ...soilToForm(stored), drainage: 'poor' }, stored);
+    expect(back).toMatchObject({
+      drainage: 'poor',
+      ec_ms_cm: 0.4,
+      ec_method: 'ratio_1_5',
+      caco3_percent: 2,
+      stone_content_class: 'few',
+      last_analysis_at: '2026-03-01T09:00:00Z',
+      target_ph: 6.2,
+    });
+    // the EC method goes with its value: no value, no method
+    expect(formToSoil({ ...soilToForm(stored), ec_ms_cm: null }, stored).ec_method).toBeNull();
+  });
+
+  it('asks for the EC method as soon as an EC value is set (U-002)', () => {
+    const schema = buildSoilFormSchema(((key: string) => key) as unknown as TFunction);
+    const missing = schema.safeParse({ ...EMPTY_SOIL_FORM, ec_ms_cm: 0.8 });
+    expect(missing.success).toBe(false);
+    expect(missing.error?.issues[0]?.path).toEqual(['ec_method']);
+    expect(schema.safeParse({ ...EMPTY_SOIL_FORM, ec_ms_cm: 0.8, ec_method: 'sensor' }).success).toBe(true);
+    expect(schema.safeParse(EMPTY_SOIL_FORM).success).toBe(true);
   });
 
   it('drops a substrate unless the filling is a substrate one, and a method without a pH', () => {

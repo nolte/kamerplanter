@@ -1186,6 +1186,39 @@
       "h2o": "Wasser",
       "probe_unknown": "Sonde, Methode unbekannt"
     },
+    "soilParameter": {
+      "ph": "pH-Wert",
+      "ec": "EC (Leitfähigkeit)",
+      "humus": "Humus",
+      "caco3": "Kalkgehalt (CaCO₃)",
+      "n_min": "Nmin (mineralischer Stickstoff)",
+      "p": "Phosphor (P)",
+      "k": "Kalium (K)",
+      "mg": "Magnesium (Mg)",
+      "moisture": "Bodenfeuchte"
+    },
+    "soilUnit": {
+      "pH": "pH",
+      "mS/cm": "mS/cm",
+      "dS/m": "dS/m",
+      "%": "%",
+      "kg_n_per_ha": "kg N/ha",
+      "mg_per_100g": "mg/100 g Boden",
+      "mg_per_l": "mg/l"
+    },
+    "soilAnalysisSource": {
+      "lab": "Labor",
+      "test_kit": "Testset",
+      "sensor": "Sonde/Sensor",
+      "manual": "Manuell"
+    },
+    "soilExtractionMethod": {
+      "cal": "CAL (Labor)",
+      "ammonium_acetate": "Ammoniumacetat",
+      "saturated_paste": "Sättigungsextrakt",
+      "quick_test": "Schnelltest",
+      "sensor": "Sonde/Sensor"
+    },
     "careUnit": {
       "l": "Liter",
       "ml": "Milliliter",

@@ -1531,6 +1531,27 @@ class SoilMethodChangeResponse(BaseModel):
     to_method: str
 
 
+class LimingHintResponse(BaseModel):
+    """ "Liming likely" of the bed's current profile (GP-FR-122, §15.1 `needs_lime`): a hint, never an amount.
+
+    `likely` only for grown soil with a pH measured in CaCl2, a known texture and a pH below the stated `target_ph`.
+    Otherwise `not_assessable` names the first missing precondition; a pH by water or probe is never converted.
+    """
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"status": "not_assessable", "reason": "no_target_ph"}]})
+
+    status: Literal["likely", "not_indicated", "not_assessable"]
+    reason: Literal[
+        "below_target",
+        "at_or_above_target",
+        "no_ph",
+        "not_native_soil",
+        "ph_method_not_cacl2",
+        "texture_unknown",
+        "no_target_ph",
+    ]
+
+
 class SoilAnalysesResponse(BaseModel):
     """`GET /locations/{key}/soil-analyses` (GP-FR-122): a series per parameter and method, changes marked."""
 
@@ -1559,6 +1580,7 @@ class SoilAnalysesResponse(BaseModel):
                     "method_changes": [],
                     "analyses": 1,
                     "truncated": False,
+                    "liming_hint": {"status": "not_assessable", "reason": "no_target_ph"},
                 }
             ]
         }
@@ -1570,6 +1592,7 @@ class SoilAnalysesResponse(BaseModel):
     analyses: int
     #: `true` when older analyses than the ones listed exist (the read is bounded; narrow it with `from` / `to`).
     truncated: bool
+    liming_hint: LimingHintResponse
 
 
 # ── Companion overlay (REQ-053 WP 8.15, GP-FR-134) ───────────────────────────────────────────────────────────
