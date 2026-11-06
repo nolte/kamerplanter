@@ -96,6 +96,7 @@ from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
 from app.domain.services.auth_service import AuthService
+from app.domain.services.bed_csv_import_service import BedCsvImportService
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.bed_template_service import BedTemplateService
@@ -536,6 +537,17 @@ def get_garden_plan_import_service() -> GardenPlanImportService:
         get_garden_plan_export_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
         photos=get_location_photo_service,
+    )
+
+
+def get_bed_csv_import_service() -> BedCsvImportService:
+    """REQ-053 WP 8.26 - the CSV bed list import of a site (dry run, then the valid lines through the batch path)."""
+    return BedCsvImportService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_garden_plan_service(),
+        get_location_type_repo(),
+        ArangoIrrigationZoneRepository(get_db()),
     )
 
 

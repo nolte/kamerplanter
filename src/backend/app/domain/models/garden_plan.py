@@ -98,6 +98,16 @@ class TemplateLocationData(CreateLocationData):
     soil_profile: SoilProfile | None = None
 
 
+class ImportedBedData(TemplateLocationData):
+    """What a line of the CSV bed list creates (REQ-053 GP-FR-174, WP 8.26): a location plus its irrigation zone.
+
+    Server-side only, like its parent: the zone is resolved by the import against the zones of the path site (a
+    name of the file, never a key of another site), and the repository takes it again inside the transaction.
+    """
+
+    irrigation_zone_key: str | None = Field(default=None, min_length=1, max_length=200)
+
+
 class CreateGardenObjectData(_Strict):
     object_type: GardenObjectType
     label: str = Field(default="", max_length=200)

@@ -22,6 +22,7 @@ from app.api.v1.garden_objects.schemas import garden_object_to_response
 from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_export_selection, plan_svg_options
 from app.api.v1.garden_plan.schemas import (
     SCHEMA_VERSION,
+    BedCsvImportResponse,
     DerivedGeometrySchema,
     GardenPlanResponse,
     PlaceTemplateRequest,
@@ -54,6 +55,7 @@ from app.api.v1.locations.schemas import rotation_year_responses
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
 from app.common.body_limit import read_bounded_body
 from app.common.dependencies import (
+    get_bed_csv_import_service,
     get_garden_plan_export_service,
     get_garden_plan_import_service,
     get_garden_plan_season_service,
@@ -75,11 +77,13 @@ from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.calculators.geometry_calculator import area_m2
 from app.domain.engines.plan_svg_engine import PlanSvgOptions
+from app.domain.models.bed_csv_import import MAX_CSV_BYTES
 from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
 from app.domain.models.garden_plan_export import ExportScope, GardenPlanExport
 from app.domain.models.garden_plan_import import IMPORT_ENVELOPE_BYTES, MAX_IMPORT_BYTES
 from app.domain.models.site import SiteConditions, SiteUnderlay, SoilProfile, SunProfile
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.bed_csv_import_service import BedCsvImportService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
@@ -683,6 +687,67 @@ async def import_plan(
     # WP 8.18: the photos of the beds a replace deleted go after the commit, unless something else names them.
     await service.release_photos(report, tenant_key=ctx.tenant_key)
     return PlanImportResponse(**report.model_dump())
+
+
+#: What the OpenAPI document shows as the body of the CSV bed list import: the file itself, not a JSON envelope.
+_BED_CSV_EXAMPLE = "Name;Typ;Breite_m;Länge_m;Sonne;Bodenart;Zone\r\nHochbeet 1;Hochbeet;2,0;1,2;Volle Sonne;Lehm;\r\n"
+
+
+@router.post(
+    "/{key}/beds/import-csv",
+    response_model=BedCsvImportResponse,
+    summary="Create beds from a CSV bed list (dry run first, lead only)",
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **CONFLICT_RESPONSE,
+        **VALIDATION_RESPONSE,
+        413: {"description": "The file is larger than 1 MiB (`body_too_large`)."},
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"text/csv": {"schema": {"type": "string"}, "example": _BED_CSV_EXAMPLE}},
+        }
+    },
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def import_beds_csv(
+    request: Request,
+    key: _SITE_KEY,
+    dry_run: Annotated[bool, Query(description="Check the file and report; write nothing. Default `true`.")] = True,
+    expected_revision: Annotated[
+        int | None,
+        Query(ge=0, description="The `plan_revision` of the dry run; a plan changed since then is a 409."),
+    ] = None,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    service: BedCsvImportService = Depends(get_bed_csv_import_service),
+) -> BedCsvImportResponse:
+    """GP-FR-174 (WP 8.26). The body is the file (`text/csv`): UTF-8 (a BOM is tolerated), `;` as delimiter, a header
+    row with `Name;Typ;Breite_m;Länge_m` and optionally `Sonne`, `Bodenart`, `Zone`; at most 1 MiB and
+    500 rows (422 `plan.quota_exceeded`, also when the site would exceed its 500 beds and objects).
+    Numbers take a decimal comma or point (`2,5` = `2.5`). `Typ` is a bed type by key, German or English name;
+    `Sonne`/`Bodenart` a value or its German/English label; `Zone` the name of an irrigation zone of the site. A
+    leading formula character (`= + - @`, tab, CR) of a text cell is discarded and reported as a warning (SR-016).
+
+    Lead only (403). The body is read **here**, after authentication, the role gate and the rate limit. A file that
+    cannot be read at all is a 422 (`csv.invalid_encoding`, `csv.invalid_delimiter`, `csv.empty`, `csv.malformed`,
+    `csv.missing_column`, `csv.duplicate_column`); every other problem is a line error in the report and the line
+    is skipped. The beds are placed as `rect`s in rows from the top-left corner of the boundary, 0.5 m apart, and go
+    through the batch path (containment, overlap, quota, revision, change log). `dry_run=false` writes the valid
+    lines in one transaction and answers their new keys.
+    """
+    raw = await read_bounded_body(request, MAX_CSV_BYTES)
+    report = await run_in_threadpool(
+        service.import_beds,
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        content=raw,
+        dry_run=dry_run,
+        expected_revision=expected_revision,
+    )
+    return BedCsvImportResponse(**report.model_dump())
 
 
 @router.get(

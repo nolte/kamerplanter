@@ -83,6 +83,7 @@ from app.domain.models.garden_plan import (
     DerivedGeometry,
     GardenObjectFieldsPatch,
     GardenPlanView,
+    ImportedBedData,
     LocationFieldsPatch,
     PlanAuditEntry,
     PlanBatchResult,
@@ -613,6 +614,56 @@ class GardenPlanService:
             started=_now(),
         )
 
+    # ── GP-FR-174: the beds of a CSV bed list ────────────────────────────────
+
+    def create_beds(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        beds: list[tuple[str, ImportedBedData]],
+        expected_revision: int | None,
+        audit_summary: str,
+    ) -> PlanBatchResult:
+        """Create the beds of a CSV bed list through the batch path (WP 8.26, #2669): one transaction, one revision.
+
+        ``beds`` are ``(temp_key, data)`` the import built and resolved (location type, zone of the path site). Each
+        becomes a ``create_location`` of a batch and meets the same rules: containment and overlap (422
+        ``geometry.outside_parent``, ``bed.overlap``), the site quota (422 ``plan.quota_exceeded``) and, inside the
+        transaction, the revision (409 ``plan.revision_conflict``; ``None`` expects the revision read here). The
+        write carries one ``import_csv`` row of the change log with ``audit_summary`` (counts, never a name).
+
+        The role is checked like a batch's ``create_location`` (grower and up, SR-001); the import itself is
+        lead-only and refuses a grower before it calls this (SR-010).
+        """
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        if not MembershipEngine.can_edit_resource(role):
+            raise ForbiddenError("Requires at least grower role.")
+        if len(beds) > MAX_OPERATIONS:
+            raise PlanError(
+                "batch.too_many_operations",
+                f"A batch holds at most {MAX_OPERATIONS} operations.",
+                status_code=422,
+                limit=MAX_OPERATIONS,
+                current=len(beds),
+            )
+        operations: list[PlanOperation] = [
+            CreateLocationOp(op="create_location", temp_key=temp_key, data=data) for temp_key, data in beds
+        ]
+        revision = self._revision_of(site)
+        return self._apply(
+            site,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            expected_revision=revision if expected_revision is None else expected_revision,
+            basis_revision=revision,
+            operations=operations,
+            started=_now(),
+            audit=[{"op": "import_csv", "entity": "site", "key": site_key, "summary": audit_summary}],
+        )
+
     def _visible_template(self, template_key: str, *, tenant_key: str) -> BedTemplate:
         """The template when it is a system one or the tenant's own; otherwise 422 - a foreign key is no oracle."""
         found = self._templates.get_visible_by_key(template_key, tenant_key=tenant_key) if self._templates else None
@@ -740,7 +791,13 @@ class GardenPlanService:
         operations: list[PlanOperation],
         started: float,
         structure: tuple[list[Location], list[GardenObject]] | None = None,
+        audit: list[dict[str, str]] | None = None,
     ) -> PlanBatchResult:
+        """Run ``operations`` on a working copy, validate it and write it in one transaction.
+
+        ``audit`` are change-log rows the caller adds to those the operations produce (the CSV import's
+        ``import_csv`` row); they are written in the same transaction.
+        """
         site_key = site.key or ""
         locations, objects = structure or self._plan.load_structure(site_key, tenant_key=tenant_key)
         work = _Work(
@@ -776,6 +833,7 @@ class GardenPlanService:
             expected_revision=expected_revision,
             basis_revision=basis_revision,
             remaining=BATCH_TIME_BUDGET_SECONDS - (_now() - started),
+            audit=audit or [],
         )
         try:
             outcome = self._plan.apply_plan_batch(write)
@@ -883,6 +941,7 @@ class GardenPlanService:
                 area_m2=0.0,
                 template_key=data.template_key if isinstance(data, TemplateLocationData) else None,
                 soil_profile=data.soil_profile if isinstance(data, TemplateLocationData) else None,
+                irrigation_zone_key=data.irrigation_zone_key if isinstance(data, ImportedBedData) else None,
             )
         except PydanticValidationError as exc:
             work.findings.extend(_findings_of(exc, index))
@@ -1225,6 +1284,7 @@ class GardenPlanService:
         expected_revision: int,
         basis_revision: int,
         remaining: float,
+        audit: list[dict[str, str]],
     ) -> PlanBatchWrite:
         site_key = site.key or ""
         inserts = sorted(
@@ -1249,7 +1309,7 @@ class GardenPlanService:
             if key in work.stored_objects
             and (changed := _changed_fields(garden_object, work.stored_objects[key], _OBJECT_COLUMNS))
         ]
-        audit: list[dict[str, str]] = []
+        audit = list(audit)
         for key, (_, summary, cascade) in sorted(work.deleted_locations.items()):
             audit.append(
                 {
