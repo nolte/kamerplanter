@@ -14,7 +14,12 @@ from __future__ import annotations
 
 from app.common.enums import BedStatus, FrostRisk, SlotRole, SunExposure, SunWindow
 from app.domain.models.site import Location, Site, Slot
-from app.domain.services.site_service import LOCATION_FIELDS_KEPT_ON_EDIT, SLOT_FIELDS_KEPT_ON_EDIT, SiteService
+from app.domain.services.site_service import (
+    LOCATION_FIELDS_KEPT_ON_EDIT,
+    SLOT_COLUMNS_A_PUT_LEAVES,
+    SLOT_FIELDS_KEPT_ON_EDIT,
+    SiteService,
+)
 
 TENANT = "tenant_own"
 _RECT = {"kind": "rect", "origin": [1.0, 1.0], "width_m": 2.0, "length_m": 1.0}
@@ -86,8 +91,10 @@ class _Repo:
         self.stored_after_write = self.location.model_copy(update={"name": location.name})
         return self.stored_after_write
 
-    def update_slot(self, key, slot):
+    def update_slot(self, key, slot, *, untouched=()):
         self.written.append(slot)
+        #: The columns the last slot write leaves as stored (#2639).
+        self.slot_untouched = tuple(untouched)
         return slot
 
 
@@ -236,6 +243,17 @@ class TestUpdateSlot:
         for field in SLOT_FIELDS_KEPT_ON_EDIT:
             assert getattr(written, field) == getattr(repo.slot, field), field
         assert written.slot_role is SlotRole.ROW
+
+    def test_the_columns_the_body_lacks_are_not_written_2639(self) -> None:
+        """The kept copy is as old as the read: written back, it reverts a PATCH or an occupation since."""
+        repo = _Repo()
+        body = Slot(slot_id="BEET_R1", location_key="loc_1", capacity_plants=3)
+
+        _service(repo).update_slot("slot_1", body, tenant_key=TENANT)
+
+        assert repo.slot_untouched == SLOT_COLUMNS_A_PUT_LEAVES
+        assert set(SLOT_COLUMNS_A_PUT_LEAVES) == {*SLOT_FIELDS_KEPT_ON_EDIT, "currently_occupied", "last_sanitization"}
+        assert not set(SLOT_COLUMNS_A_PUT_LEAVES) & {"slot_id", "location_key", "capacity_plants"}  # the body's
 
     def test_the_kept_tuple_names_every_plan_field_the_body_lacks(self) -> None:
         from app.api.v1.slots.schemas import SlotCreate

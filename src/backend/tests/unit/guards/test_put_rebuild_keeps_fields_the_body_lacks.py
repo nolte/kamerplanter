@@ -164,7 +164,8 @@ _KEPT_BY_SERVICE: dict[str, tuple[str, ...]] = {
     "app/api/v1/location_types/router.py::update_location_type": LOCATION_TYPE_FIELDS_KEPT_ON_EDIT,
     "app/api/v1/substrates/router.py::update_substrate": SUBSTRATE_FIELDS_KEPT_ON_EDIT,
     # REQ-053 WP 1.7 (#2326): the garden-plan fields no edit body carries until the PATCH of WP 1.9.
-    # The location PUT keeps them on the model and, since #2623, does not write them at all.
+    # The location PUT keeps them on the model and, since #2623, does not write them at all; the slot PUT
+    # likewise since #2639.
     "app/api/v1/locations/tenant_router.py::update_location": LOCATION_FIELDS_KEPT_ON_EDIT,
     "app/api/v1/slots/tenant_router.py::update_slot": SLOT_FIELDS_KEPT_ON_EDIT,
 }

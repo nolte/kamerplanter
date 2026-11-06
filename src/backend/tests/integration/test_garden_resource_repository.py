@@ -25,7 +25,7 @@ from app.data_access.arango.garden_plan_repository import (
 )
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import GardenObjectPatch, LocationPatch, SlotBatchRequest, SlotPatch
-from app.domain.models.site import Location
+from app.domain.models.site import Location, Slot
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.site_service import SiteService
@@ -688,6 +688,99 @@ class TestPutLeavesThePlanColumnsAsStored:
         returned = sites.update_location("bed", self._body(area_m2=4.5), tenant_key=A)
 
         assert db.collection(col.LOCATIONS).get("bed")["area_m2"] == 4.5 and returned.area_m2 == 4.5
+
+
+class TestPutLeavesTheSlotColumnsAsStored:
+    """#2639: ``PUT /slots`` does not write the columns its body (``SlotCreate``) does not carry.
+
+    It wrote the copy of ``slot_role``, ``geometry``, ``geometry_source`` and ``currently_occupied`` it had
+    read, merged into the stored document, so a ``PATCH /slots`` or an occupation write between the PUT's read
+    and its write was reverted without a 409 — and a stale point geometry was object-merged into a newer
+    polygon. The race is forced by running the other write inside the repository call, after the service's read.
+    """
+
+    @pytest.fixture
+    def sites(self, db) -> SiteService:
+        add_slot(db, "slot", "BED_S1")
+        return SiteService(ArangoSiteRepository(db))
+
+    @staticmethod
+    def _body(**overrides) -> Slot:
+        """What the router rebuilds from a ``SlotCreate`` body."""
+        return Slot(**{"slot_id": "BED_S1_NEW", "location_key": "bed", "capacity_plants": 2, **overrides})
+
+    @staticmethod
+    def _race(sites: SiteService, monkeypatch, other_write) -> None:
+        """Run ``other_write`` after ``sites`` read the slot and before it writes."""
+        write = sites._repo.update_slot
+
+        def other_then_put(key, slot, **options):
+            other_write()
+            return write(key, slot, **options)
+
+        monkeypatch.setattr(sites._repo, "update_slot", other_then_put)
+
+    @staticmethod
+    def _occupy(db, occupied: bool) -> None:
+        """What the planting-run and plant-instance services do: read the slot, flip the flag, write it."""
+        repository = ArangoSiteRepository(db)
+        slot = repository.get_slot_or_raise("slot")
+        slot.currently_occupied = occupied
+        repository.update_slot("slot", slot)
+
+    def test_a_geometry_and_role_a_patch_writes_after_the_read_survive_the_put(
+        self, db, service, sites, monkeypatch
+    ) -> None:
+        zone = {"kind": "polygon", "points": [[0, 0], [1, 0], [1, 1], [0, 1]]}
+        self._race(
+            sites,
+            monkeypatch,
+            lambda: service.patch_slot(
+                "slot",
+                tenant_key=A,
+                role=TenantRole.GROWER,
+                patch=SlotPatch.model_validate({"slot_role": "zone", "geometry": zone}),
+            ),
+        )
+
+        returned = sites.update_slot("slot", self._body(), tenant_key=A)
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert document["slot_role"] == "zone" and document["geometry_source"] == "editor"  # the PATCH's
+        assert set(document["geometry"]) == {"kind", "points", "rotation_deg"}  # no ``origin`` of the read point
+        assert (document["slot_id"], document["capacity_plants"]) == ("BED_S1_NEW", 2)  # the body's columns
+        assert returned.slot_role == "zone" and returned.geometry is not None and returned.geometry.kind == "polygon"
+
+    def test_an_occupation_written_after_the_read_survives_the_put(self, db, sites, monkeypatch) -> None:
+        self._race(sites, monkeypatch, lambda: self._occupy(db, True))
+
+        returned = sites.update_slot("slot", self._body(), tenant_key=A)
+
+        assert db.collection(col.SLOTS).get("slot")["currently_occupied"] is True
+        assert returned.currently_occupied is True
+
+    def test_a_slot_freed_after_the_read_stays_free(self, db, sites, monkeypatch) -> None:
+        db.collection(col.SLOTS).update({"_key": "slot", "currently_occupied": True})
+        self._race(sites, monkeypatch, lambda: self._occupy(db, False))
+
+        returned = sites.update_slot("slot", self._body(), tenant_key=A)
+
+        assert db.collection(col.SLOTS).get("slot")["currently_occupied"] is False
+        assert returned.currently_occupied is False
+
+    def test_without_a_race_the_body_columns_are_written_and_the_rest_stays(self, db, sites) -> None:
+        db.collection(col.SLOTS).update(
+            {"_key": "slot", "currently_occupied": True, "row_index": 2, "sequence": 7, "geometry_source": "editor"}
+        )
+
+        returned = sites.update_slot("slot", self._body(capacity_plants=4), tenant_key=A)
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert (document["slot_id"], document["capacity_plants"]) == ("BED_S1_NEW", 4)
+        assert document["currently_occupied"] is True and document["geometry_source"] == "editor"
+        assert (document["row_index"], document["sequence"]) == (2, 7)
+        assert document["geometry"] == point(0.5, 0.5)
+        assert returned.slot_id == "BED_S1_NEW" and returned.currently_occupied is True
 
 
 class TestTheSlotBatchIsAllOrNothing:
