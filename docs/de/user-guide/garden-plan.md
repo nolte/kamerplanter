@@ -301,7 +301,7 @@ Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bewässerungszon
 
 **Sicherung einspielen** führt in drei Schritten durch den Import. Das darf nur die Leitung.
 
-1. **Datei wählen:** Die Datei darf höchstens 5 MB groß sein. Kamerplanter prüft sie sofort, ohne etwas zu schreiben.
+1. **Datei wählen:** Die Datei darf höchstens 5 MB groß sein. Kamerplanter prüft sie sofort, ohne etwas zu schreiben. Hast du stattdessen nur eine Beetliste in einer Tabelle, führt dich der Link **Beetliste importieren (CSV)** zum [CSV-Import](#beetliste-csv-import).
 2. **Prüfbericht:** Du siehst, wie viel angelegt und gelöscht würde, welche Verweise nicht übernommen werden (zum Beispiel eine Bewässerungszone, die es hier nicht gibt) und welche Probleme die Datei hat, etwa überlappende Beete. Bei Problemen geht es nicht weiter.
 3. **Modus:** *Hinzufügen* legt die Sicherung zusätzlich zum bestehenden Plan an. *Ersetzen* tauscht den Plan dieses Standorts aus. Dafür tippst du den Namen des Standorts ein. Vorher speichert Kamerplanter den bisherigen Plan als Snapshot im Änderungsprotokoll. Lade dir zur Sicherheit trotzdem vorher eine aktuelle Sicherung herunter.
 
@@ -318,6 +318,34 @@ Spielst du dieselbe Datei mehrmals mit *Hinzufügen* ein, legt jede Runde ihre B
 
 Alle Schlüssel werden beim Einspielen neu vergeben. Verknüpfungen zu Home Assistant und zu Aktoren übernimmt Kamerplanter nie; die richtest du danach neu ein. Wer gerade ungespeicherte Änderungen am Plan hat, speichert oder verwirft sie zuerst. Im Feldmodus sind Export und Import ausgeblendet.
 
+## Beetliste aus einer CSV-Datei importieren {#beetliste-csv-import}
+
+Hast du deine Beete schon in einer Tabelle, legst du sie mit einer CSV-Datei (Tabelle als Textdatei, eine Zeile pro Beet) auf einen Schlag im Gartenplan an. Das darf nur die Leitung. Du öffnest den Import im Menü **Export & Import** mit **Beetliste importieren (CSV) …** oder über den Link im ersten Schritt des Sicherung-Imports.
+
+1. **Datei wählen:** Wähle deine CSV-Datei. Mit **Beispieldatei herunterladen** bekommst du eine Vorlage, die du in deiner Tabellenkalkulation ausfüllst. Kamerplanter prüft die Datei sofort, schreibt aber noch nichts.
+2. **Prüfbericht:** Du siehst, wie viele Zeilen gültig sind, welche Beete (Name, Größe, Sonne) angelegt würden, welche Zeilen Fehler haben und welche Spalten der Import nicht kennt und übergeht. Fehler und Hinweise nennen Zeile und Spalte. Zeilen mit einem Fehler werden übersprungen, die übrigen kannst du trotzdem übernehmen. Ist keine Zeile gültig, korrigierst du die Datei und wählst sie erneut.
+3. **Anlegen:** Mit **… Beete anlegen** entstehen die gültigen Beete. Sie sind danach im Plan markiert, sodass du sie gleich anordnen kannst.
+
+!!! note "Hat sich der Plan geändert?"
+    Hat jemand den Plan geändert, seit du die Datei geprüft hast, bricht Kamerplanter ab und schreibt nichts. Klicke auf **Erneut prüfen** und übernimm dann noch einmal.
+
+### So muss die Datei aufgebaut sein
+
+- Die erste Zeile ist die Kopfzeile mit den Spaltennamen. Die Spalten trennst du mit Semikolon (`;`).
+- Pflichtspalten: `Name`, `Typ`, `Breite_m` und `Länge_m` (auch `Laenge_m`). Englisch heißen sie `name`, `type`, `width_m` und `length_m`.
+- Optionale Spalten: `Sonne` (`sun`), `Bodenart` (`soil_texture`) und `Zone` (`irrigation_zone`). Weitere Spalten übergeht der Import und nennt sie im Bericht.
+- Maße gibst du in Metern an, mit Komma oder Punkt als Dezimaltrenner (`2,5` oder `2.5`). Tausendertrennzeichen und Einheiten wie „m“ sind nicht erlaubt.
+- `Typ` ist der Schlüssel eines Beettyps oder sein deutscher oder englischer Name, zum Beispiel „Hochbeet“. Ein Typ, der kein Beet ist (etwa „Gewächshaus“), ist ein Fehler.
+- `Sonne` und `Bodenart` nehmen den Wert oder seine Bezeichnung. Ohne `Bodenart` bekommt das Beet kein Bodenprofil.
+- `Zone` ist der Name einer Bewässerungszone desselben Standorts.
+- Die Datei ist UTF-8-kodiert (ein BOM am Anfang ist erlaubt), höchstens 1 MB groß und hat höchstens 500 Zeilen und 100 Spalten. Wählst du in Excel „CSV UTF-8“, passt es.
+
+Beginnt eine Zelle mit einem Formelzeichen (`=`, `+`, `-`, `@`, Tabulator oder Zeilenumbruch), entfernt Kamerplanter das Zeichen und zeigt dafür einen Hinweis. So kann eine Tabelle keine Formel in deinen Plan schleusen.
+
+### Wo die Beete landen
+
+Kamerplanter setzt die neuen Beete als Rechtecke in Reihen von der oberen linken Ecke der Gartengrenze aus, mit 0,5 m Abstand. Am Rand der Gartengrenze beginnt eine neue Reihe, bestehende Beete werden übersprungen. Findet ein Beet keinen Platz mehr, ist das ein Fehler in dieser Zeile. Ein Standort fasst höchstens 500 Beete und Gartenobjekte zusammen; überschreitet die Liste das, lehnt Kamerplanter die ganze Datei ab. Die genaue Lage legst du danach im Editor fest.
+
 ## Für technische Nutzer / Self-Hoster {#fur-technische-nutzer-self-hoster}
 
 Dieser Abschnitt ist für alle, die den Plan über die API anlegen oder eine Installation betreiben. Alle Pfade liegen unter `/api/v1/t/{slug}/`.
@@ -325,6 +353,7 @@ Dieser Abschnitt ist für alle, die den Plan über die API anlegen oder eine Ins
 - **Ersten Plan anlegen:** `PUT /sites/{key}/plan/boundary` mit der Gartengrenze (Rechteck oder Vieleck), optional `north_angle_deg`. Der erste Aufruf legt den Plan an.
 - **Plan lesen:** `GET /sites/{key}/plan`. **Änderungsprotokoll lesen:** `GET /sites/{key}/plan/audit`.
 - **PDF mit Unterlage:** `GET /print/garden-plan/{site_key}?underlay=true`.
+- **Beetliste per API:** `POST /beds/import-csv` unter `/sites/{key}` mit der CSV-Datei als rohem Body (`dry_run` standardmäßig `true`). Routen, Berichtsfelder und Fehlercodes stehen in der [API-Referenz](../reference/api-reference.md#beetliste-aus-csv-importieren).
 - **Geschwindigkeitsgrenzen** und Aufbewahrung stehen unter [Umgebungsvariablen](../reference/environment-variables.md).
 - Aufbau, Stapel-Schnittstelle und Sicherungsformat sind unter [Gartenplan: Geometrie und Schnittstellen](../architecture/garden-plan.md) beschrieben; die Routen und Fehlercodes unter [API-Referenz](../reference/api-reference.md#gartenplan-pdf-svg-json-sicherung).
 

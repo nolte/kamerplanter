@@ -325,6 +325,72 @@ Die Frostexposition eines Beets (`frost_exposed` in `locations[]`) steht in der 
 
 ---
 
+### Beetliste aus CSV importieren
+
+Legt Beete aus einer CSV-Datei an. <!-- REQ-053 GP-FR-174 --> **Nur die Leitung** darf importieren; Gärtner und Betrachter bekommen `403`, bevor die Datei gelesen wird. Ein Standort eines anderen Mandanten antwortet `404`, ebenfalls vor dem Lesen. Je Konto gelten `RATE_LIMIT_PLAN_CSV_IMPORT` Anfragen (Standard 10 pro Minute) und gemeinsam je Mandant `RATE_LIMIT_PLAN_CSV_IMPORT_TENANT` (Standard 30 pro Minute).
+
+```
+POST /api/v1/t/{slug}/sites/{key}/beds/import-csv?dry_run=true
+Content-Type: text/csv
+```
+
+Der Body ist die Datei selbst (roh, kein Multipart). Erlaubt sind die Content-Types `text/csv`, `text/plain` und `application/vnd.ms-excel`; jeder andere antwortet `415`. Die Datei ist UTF-8 (ein BOM ist erlaubt), hat `;` als Trenner und höchstens 1 MiB, 500 Zeilen und 100 Spalten. Kopfzeile: `Name;Typ;Breite_m;Länge_m` (auch `Laenge_m`; englisch `name;type;width_m;length_m`), optional `Sonne`/`sun`, `Bodenart`/`soil_texture` und `Zone`/`irrigation_zone`. Zahlen nehmen Dezimalkomma oder -punkt. Ein führendes Formelzeichen (`=`, `+`, `-`, `@`, Tabulator, CR) einer Textzelle wird entfernt und als Warnung gemeldet.
+
+| Query-Parameter | Standard | Beschreibung |
+|-----------------|----------|--------------|
+| `dry_run` | `true` | `true` prüft die Datei und antwortet mit dem Bericht, nichts wird geschrieben. `false` schreibt die gültigen Zeilen in einer Transaktion und überspringt die fehlerhaften |
+| `expected_revision` | – | Die `plan_revision` des Dry-Runs; hat sich der Plan seitdem geändert, antwortet die Route mit `409` |
+
+Die Beete werden als Rechtecke in Reihen von der oberen linken Ecke der Gartengrenze gesetzt, 0,5 m auseinander, mit Umbruch an der Breite der Grenze und an bestehenden Beeten vorbei. Das Schreiben läuft über denselben Weg wie ein Stapel (Containment, Überlappung, Standort-Quote, Revision, Änderungsprotokoll mit einem Eintrag `import_csv`).
+
+**Antwort (Dry-Run und Import gleich):**
+
+| Feld | Beschreibung |
+|------|--------------|
+| `dry_run` | Wie angefragt |
+| `rows_total`, `rows_valid`, `rows_skipped` | Datenzeilen der Datei (leere Zeilen zählen nicht), gültige und übersprungene Zeilen |
+| `rows[]` | Die gültigen Zeilen in Dateireihenfolge: `line`, `name`, `location_type_key`, `width_m`, `length_m`, `origin` (linke untere Ecke, `[x, y]`), `sun_exposure`, `soil_texture`, `irrigation_zone_key`, `location_key` (erst nach dem Schreiben gesetzt) |
+| `errors[]`, `errors_total` | Fehler je Zeile: `line` (die Kopfzeile ist Zeile 1), `column` (wie die Datei sie schreibt, `null` bei der Platzierung) und `code`. Höchstens 500 aufgelistet, der Zähler bleibt genau. Der Zellwert steht nie in der Antwort |
+| `warnings[]`, `warnings_total` | Wie `errors[]`, für Hinweise |
+| `ignored_columns[]`, `ignored_columns_total` | Unbekannte Spalten der Kopfzeile (auf 64 Zeichen gekürzt, höchstens 50 aufgelistet) |
+| `applied` | `true`, sobald die gültigen Zeilen geschrieben wurden; bei Dry-Run oder ohne gültige Zeile `false` |
+| `plan_revision` | Die Plan-Revision, gegen die geprüft wurde, bzw. die, die das Schreiben erzeugt hat |
+
+**Fehlercodes der ganzen Datei:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `import.forbidden` | Nicht die Leitung |
+| `404` | `ENTITY_NOT_FOUND` | Standort nicht gefunden (oder nicht in diesem Mandanten) |
+| `409` | `plan.revision_conflict` | Der Plan hat sich seit dem Dry-Run (`expected_revision`) geändert |
+| `413` | `REQUEST_BODY_TOO_LARGE` | Mehr als 1 MiB |
+| `415` | `UNSUPPORTED_MEDIA_TYPE` | Content-Type ist keiner der oben genannten |
+| `422` | `csv.invalid_encoding`, `csv.invalid_delimiter`, `csv.empty`, `csv.malformed`, `csv.too_many_columns` | Die Datei lässt sich nicht lesen: kein UTF-8, kein `;` als Trenner, leer oder ohne Kopfzeile, nicht als CSV lesbar, mehr als 100 Spalten |
+| `422` | `csv.missing_column`, `csv.duplicate_column` | Eine Pflichtspalte fehlt oder eine Spalte steht zweimal in der Kopfzeile |
+| `422` | `plan.quota_exceeded` | Mehr als 500 Zeilen oder der Standort käme über 500 Beete und Gartenobjekte |
+| `422` | `batch.too_complex` | Die Platzierung hat das Zeitbudget überschritten; nichts wurde geschrieben |
+| `429` | | Budget je Konto oder je Mandant aufgebraucht; `Retry-After` nennt die Wartezeit |
+
+**Fehlercodes einer Zeile** (stehen in `errors[]`, die Zeile wird übersprungen):
+
+| Code | Bedeutung |
+|------|-----------|
+| `csv.required` | Ein Pflichtwert fehlt |
+| `csv.too_long` | Der Text ist zu lang |
+| `csv.invalid_number` | Keine gültige Zahl (Tausendertrenner und Einheiten sind nicht erlaubt) |
+| `csv.out_of_range` | Der Wert liegt außerhalb des erlaubten Bereichs |
+| `csv.unknown_type` | Der Typ ist unbekannt |
+| `csv.not_a_bed_type` | Der Typ existiert, ist aber kein Beettyp |
+| `csv.unknown_value` | `Sonne` oder `Bodenart` ist unbekannt |
+| `csv.unknown_zone` | Keine Bewässerungszone dieses Namens am Standort |
+| `csv.ambiguous_zone` | Mehrere Bewässerungszonen tragen den Namen |
+| `csv.does_not_fit` | Das Beet findet innerhalb der Gartengrenze keinen Platz |
+| `geometry.outside_parent`, `bed.overlap`, `geometry.invalid` | Die Planregeln lehnen das Beet nach der Platzierung ab (außerhalb einer nicht rechteckigen Grenze, überlappend, ungültige Form) |
+
+Als Hinweis in `warnings[]` steht `csv.formula_stripped`: Das führende Formelzeichen einer Zelle wurde entfernt.
+
+---
+
 ### Gartenplan speichern: Geometriefehler
 
 `PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (die Grenze) und `POST …/plan/batch` (ein Stapel von Operationen) lehnen eine Form, die eine Geometrieregel verletzt, mit `422` `VALIDATION_ERROR` ab (REQ-053). Auf der Grenz-Route trägt ein Eckpunkt oder Ursprung außerhalb des Koordinatenbereichs des Plans (0 bis 1000 m) `code: "geometry.invalid"`; bei einem Eckpunkt eines Polygons oder einer Polylinie trägt der Eintrag zusätzlich `point_index`, die Position des ersten solchen Eckpunkts in `points` (ab 0 gezählt). Die übrigen Formregeln dort (Maße, Anzahl der Eckpunkte, Drehung) antworten mit dem allgemeinen `code: "value_error"`. Im Stapel trägt jeder Geometriefehler `code: "geometry.invalid"`, dazu `op_index` für die Operation und bei einem Eckpunkt `point_index`. Stellplätze und Beetvorlagen speicherst du über eigene Endpunkte im Rahmen des Beets (−1000 bis 1000 m); einen Eckpunkt außerhalb dieses Bereichs melden sie genauso.

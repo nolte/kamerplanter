@@ -301,7 +301,7 @@ The **backup** holds beds, garden objects, plant places, irrigation zones, soil 
 
 **Restore a backup** leads through the import in three steps. Only a lead can do this.
 
-1. **Choose file:** The file may be at most 5 MB. Kamerplanter checks it right away without writing anything.
+1. **Choose file:** The file may be at most 5 MB. Kamerplanter checks it right away without writing anything. If you only have a bed list in a spreadsheet, the **Import a bed list (CSV)** link takes you to the [CSV import](#beetliste-csv-import).
 2. **Check report:** You see how much would be created and deleted, which references are not carried over (for example an irrigation zone that does not exist here) and which problems the file has, such as overlapping beds. With problems you cannot continue.
 3. **Mode:** *Add* creates the backup in addition to the existing plan. *Replace* swaps the plan of this site. For that you type the name of the site. Before that, Kamerplanter saves the previous plan as a snapshot in the change log. Download a current backup first anyway, to be safe.
 
@@ -318,6 +318,34 @@ If you import the same file several times with *Add*, each round creates its irr
 
 All keys are newly assigned on import. Links to Home Assistant and to actuators are never carried over; set them up again afterwards. If you have unsaved changes to the plan, save or discard them first. In field mode, export and import are hidden.
 
+## Importing a bed list from a CSV file {#beetliste-csv-import}
+
+If you already keep your beds in a spreadsheet, a CSV file (a table as a text file, one line per bed) creates them all in the garden plan at once. Only the lead role may do this. You open the import in the **Export & Import** menu with **Import a bed list (CSV) …** or through the link in the first step of the backup import.
+
+1. **Choose a file:** Pick your CSV file. **Download an example file** gives you a template to complete in your spreadsheet. Kamerplanter checks the file straight away but writes nothing yet.
+2. **Check report:** You see how many lines are valid, which beds (name, size, sun) would be created, which lines have errors and which columns the import does not know and ignores. Errors and warnings name the line and column. Lines with an error are skipped; you can still apply the remaining lines. If no line is valid, fix the file and choose it again.
+3. **Create:** **Create … beds** adds the valid beds. They are then selected in the plan so you can arrange them right away.
+
+!!! note "Did the plan change?"
+    If someone changed the plan since you checked the file, Kamerplanter stops and writes nothing. Click **Check again** and then apply once more.
+
+### How the file must be built
+
+- The first line is the header with the column names. Separate the columns with a semicolon (`;`).
+- Required columns: `Name`, `Typ`, `Breite_m` and `Länge_m` (also `Laenge_m`). The English names are `name`, `type`, `width_m` and `length_m`.
+- Optional columns: `Sonne` (`sun`), `Bodenart` (`soil_texture`) and `Zone` (`irrigation_zone`). The import ignores any other column and names it in the report.
+- Give sizes in metres, with a decimal comma or point (`2,5` or `2.5`). Thousands separators and units such as "m" are not allowed.
+- `Typ` is the key of a bed type or its German or English name, for example Raised Bed. A type that is not a bed (such as the type Greenhouse) is an error.
+- `Sonne` and `Bodenart` take the value or its label. Without `Bodenart` the bed gets no soil profile.
+- `Zone` is the name of an irrigation zone of the same site.
+- The file is UTF-8 encoded (a BOM at the start is fine), at most 1 MB in size, with at most 500 rows and 100 columns. In Excel, choose "CSV UTF-8".
+
+If a cell starts with a formula character (`=`, `+`, `-`, `@`, tab or line break), Kamerplanter removes the character and shows a warning. That way a spreadsheet cannot smuggle a formula into your plan.
+
+### Where the beds end up
+
+Kamerplanter places the new beds as rectangles in rows from the top-left corner of the garden boundary, 0.5 m apart. A new row starts at the edge of the boundary, and existing beds are skipped. If a bed finds no space, that line is an error. A site holds at most 500 beds and garden objects together; if the list would exceed that, Kamerplanter rejects the whole file. You fix the exact positions afterwards in the editor.
+
 ## For Technical Users / Self-Hosters {#for-technical-users-self-hosters}
 
 This section is for everyone who creates the plan through the API or operates an installation. All paths are under `/api/v1/t/{slug}/`.
@@ -325,6 +353,7 @@ This section is for everyone who creates the plan through the API or operates an
 - **Create the first plan:** `PUT /sites/{key}/plan/boundary` with the garden boundary (rectangle or polygon), optionally `north_angle_deg`. The first call creates the plan.
 - **Read the plan:** `GET /sites/{key}/plan`. **Read the change log:** `GET /sites/{key}/plan/audit`.
 - **PDF with underlay:** `GET /print/garden-plan/{site_key}?underlay=true`.
+- **Bed list via API:** `POST /beds/import-csv` under `/sites/{key}` with the CSV file as the raw body (`dry_run` defaults to `true`). Routes, report fields and error codes are in the [API reference](../reference/api-reference.md#create-beds-from-a-csv-bed-list).
 - **Rate limits** and retention are listed under [Environment Variables](../reference/environment-variables.md).
 - Structure, batch interface and backup format are described in [Garden Plan: Geometry and Interfaces](../architecture/garden-plan.md); the routes and error codes are in the [API Reference](../reference/api-reference.md#garden-plan-pdf-svg-json-backup).
 
