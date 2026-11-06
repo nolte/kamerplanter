@@ -53,7 +53,13 @@ from app.domain.engines.site_conditions_merge import merge_site_conditions, sent
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.models.care_event import CATEGORY_BED_STATUS_CHANGE, CareEvent
+from app.domain.models.bed_list_export import (
+    ERROR_TOO_MANY_ROWS,
+    MAX_BED_LIST_EXPORT_ROWS,
+    BedListExportRow,
+    LocationTypeName,
+)
+from app.domain.models.care_event import CATEGORY_BED_STATUS_CHANGE, CareEvent, display_performer
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     MAX_SLOTS_PER_BATCH,
@@ -127,6 +133,16 @@ def _dump(model: Any, **options: Any) -> dict[str, Any]:
 def _not_found(field: str) -> PlanValidationError:
     """422 ``reference.not_found`` — one text for a missing and for another tenant's key (GP-NFR-058)."""
     return PlanValidationError([(None, field, ERROR_REFERENCE_NOT_FOUND, {})])
+
+
+def _name_order(location: Location) -> tuple[str, str]:
+    """The download's row order: by name, case-insensitive, the key breaking a tie."""
+    return location.name.casefold(), location.key or ""
+
+
+def _type_label(name: LocationTypeName | None, locale: str) -> str | None:
+    """The type's name in ``locale``; ``None`` when the type does not resolve (the CSV then writes its key)."""
+    return name.for_locale(locale) if name is not None else None
 
 
 class GardenResourceService:
@@ -205,6 +221,67 @@ class GardenResourceService:
         if with_counters and locations:
             counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
         return [(loc, (counters.get(loc.key or "", BedCounters()) if with_counters else None)) for loc in locations]
+
+    def export_bed_list(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        is_bed: bool | None,
+        bed_status: BedStatus | None,
+        parent_location_key: LocationKey | None = None,
+        include_assignment: bool = False,
+        locale: str = "de",
+    ) -> list[BedListExportRow]:
+        """The bed list as the CSV download reads it (GP-FR-145/175, WP 8.25), sorted by name.
+
+        The same rows as :meth:`list_beds` - same ownership step, same filters - with the labels a spreadsheet
+        shows: the type's name in ``locale``, the irrigation zone's name and, **only with** ``include_assignment``
+        (SR-024), the display names of the members the bed is assigned to (``anonymisiert`` for an erased account;
+        no account key leaves this method). Without a bed filter the download lists the beds (``is_bed=True``).
+        More than :data:`MAX_BED_LIST_EXPORT_ROWS` rows is 422 ``export.too_many_rows`` - never a cut file.
+        """
+        if is_bed is None and bed_status is None:
+            is_bed = True
+        listed = self.list_beds(site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status)
+        if parent_location_key:
+            listed = [(loc, counters) for loc, counters in listed if loc.parent_location_key == parent_location_key]
+        if len(listed) > MAX_BED_LIST_EXPORT_ROWS:
+            raise PlanError(
+                ERROR_TOO_MANY_ROWS,
+                f"The export would have more than {MAX_BED_LIST_EXPORT_ROWS} rows; narrow it by status.",
+                status_code=422,
+                limit=MAX_BED_LIST_EXPORT_ROWS,
+            )
+        type_names = self._plan.location_type_names(
+            sorted({loc.location_type_key for loc, _ in listed if loc.location_type_key})
+        )
+        zone_names = self._plan.irrigation_zone_names(site_key, tenant_key=tenant_key) if listed else {}
+        assignees: dict[str, list[str]] = {}
+        if include_assignment and listed:
+            for assignee in self._plan.location_assignees(
+                [loc.key for loc, _ in listed if loc.key], tenant_key=tenant_key
+            ):
+                name = display_performer(assignee.user_key, assignee.display_name)
+                if name:
+                    assignees.setdefault(assignee.location_key, []).append(name)
+        rows = [
+            BedListExportRow(
+                location=loc,
+                counters=counters,
+                type_name=_type_label(type_names.get(loc.location_type_key), locale),
+                zone_name=zone_names.get(loc.irrigation_zone_key) if loc.irrigation_zone_key else None,
+                assignees=sorted(assignees.get(loc.key or "", []), key=str.casefold) if include_assignment else None,
+            )
+            for loc, counters in sorted(listed, key=lambda pair: _name_order(pair[0]))
+        ]
+        logger.info(
+            "garden_resource.bed_list_exported",
+            site_key=site_key,
+            rows=len(rows),
+            include_assignment=include_assignment,
+        )
+        return rows
 
     # ── GP-API-012: the bed summary ───────────────────────────────────────────
 

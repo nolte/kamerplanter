@@ -1,6 +1,8 @@
 /**
  * The export dialog of the garden plan (REQ-053 GP-UX-050): format, paper, scale, layers, a preview, progress and
  * the reason when it fails. On a phone only the JSON backup and the PDF with their standard options are offered.
+ * The bed list as CSV (GP-FR-145/175) has its column selection, the Excel variant and the assignment opt-in (SR-024,
+ * default off); like SVG it is not offered on a phone, where GP-UX-050 limits the dialog to JSON and PDF.
  * Lazy: the route chunk stays inside its budget (UI-NFR-003).
  */
 import { useState } from 'react';
@@ -21,13 +23,22 @@ import MenuItem from '@mui/material/MenuItem';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import Skeleton from '@mui/material/Skeleton';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import { describeExportFailure, fetchPlanExport, saveBlob } from './ioApi';
+import {
+  BED_LIST_COLUMNS,
+  BED_LIST_DEFAULT_COLUMNS,
+  BED_LIST_SITE_CONDITION_COLUMNS,
+  DEFAULT_BED_LIST_CSV_OPTIONS,
+  type BedListColumn,
+  type BedListCsvOptions,
+} from './bedListCsv';
+import { describeExportFailure, fetchBedListCsv, fetchPlanExport, saveBlob } from './ioApi';
 import { usePlanPreview } from './usePlanPreview';
 import {
   DEFAULT_EXPORT_OPTIONS,
@@ -60,11 +71,17 @@ const NO_SELECTION: PlanSelection = { locationKeys: [], objectKeys: [] };
 function scopeKeys(scope: ExportScope, selection: PlanSelection): string[] {
   if (scope === 'site') return [];
   const locations = [...selection.locationKeys];
-  return scope === 'subtree' ? locations : [...locations, ...selection.objectKeys.map((key) => `object:${key}`)];
+  return scope === 'subtree'
+    ? locations
+    : [...locations, ...selection.objectKeys.map((key) => `object:${key}`)];
 }
+
+/** The format buttons of the dialog: the three plan exports plus the bed list as CSV. */
+type DialogFormat = ExportFormat | 'csv';
 
 function errorKey(code: string | null, status: number | null): string {
   if (code === 'plan.empty') return 'empty';
+  if (code === 'export.too_many_rows') return 'tooManyRows';
   if (code === 'plan.does_not_fit') return 'doesNotFit';
   if (status === 429) return 'rateLimited';
   if (status === 403) return 'forbidden';
@@ -72,18 +89,28 @@ function errorKey(code: string | null, status: number | null): string {
 }
 
 function formatSize(bytes: number): string {
-  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, onClose }: ExportDialogProps) {
+export default function ExportDialog({
+  open,
+  siteKey,
+  selection = NO_SELECTION,
+  onClose,
+}: ExportDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('sm'));
   const [options, setOptions] = useState<ExportOptions>(DEFAULT_EXPORT_OPTIONS);
+  const [csvChosen, setCsvChosen] = useState(false);
+  const [csv, setCsv] = useState<BedListCsvOptions>(DEFAULT_BED_LIST_CSV_OPTIONS);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  // On a phone the standard options apply and SVG is not offered (GP-UX-050).
+  // On a phone the standard options apply and neither SVG nor CSV is offered (GP-UX-050).
+  const csvMode = csvChosen && !phone;
   const base: ExportOptions = phone
     ? { ...DEFAULT_EXPORT_OPTIONS, format: options.format === 'json' ? 'json' : 'pdf' }
     : options;
@@ -91,16 +118,34 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
   const available: Record<ExportScope, boolean> = {
     site: true,
     selection:
-      scopeKeys('selection', selection).length > 0 && scopeKeys('selection', selection).length <= MAX_EXPORT_KEYS,
+      scopeKeys('selection', selection).length > 0 &&
+      scopeKeys('selection', selection).length <= MAX_EXPORT_KEYS,
     subtree: selection.locationKeys.length > 0 && selection.locationKeys.length <= MAX_EXPORT_KEYS,
   };
-  const scope: ExportScope = base.format === 'json' && available[options.scope] ? options.scope : 'site';
+  const scope: ExportScope =
+    base.format === 'json' && available[options.scope] ? options.scope : 'site';
   const effective: ExportOptions = { ...base, scope, keys: scopeKeys(scope, selection) };
-  const preview = usePlanPreview(siteKey, effective, open);
+  // The CSV has no drawing to preview: no request is made while it is chosen.
+  const preview = usePlanPreview(siteKey, effective, open && !csvMode);
   const patch = (change: Partial<ExportOptions>) => {
     setFailure(null);
     setOptions((previous) => ({ ...previous, ...change }));
   };
+  const patchCsv = (change: Partial<BedListCsvOptions>) => {
+    setFailure(null);
+    setCsv((previous) => ({ ...previous, ...change }));
+  };
+  const chooseFormat = (value: DialogFormat) => {
+    setCsvChosen(value === 'csv');
+    if (value === 'csv') setFailure(null);
+    else patch({ format: value });
+  };
+  const toggleColumn = (column: BedListColumn) =>
+    patchCsv({
+      columns: csv.columns.includes(column)
+        ? csv.columns.filter((entry) => entry !== column)
+        : [...csv.columns, column],
+    });
   const toggleLayer = (layer: ExportLayer) =>
     patch({
       layers: effective.layers.includes(layer)
@@ -112,7 +157,9 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
     setBusy(true);
     setFailure(null);
     try {
-      const file = await fetchPlanExport(siteKey, effective);
+      const file = csvMode
+        ? await fetchBedListCsv(siteKey, csv)
+        : await fetchPlanExport(siteKey, effective);
       saveBlob(file.blob, file.filename);
       onClose();
     } catch (error) {
@@ -124,8 +171,27 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
   };
 
   const shownError =
-    failure ?? (preview.status === 'error' ? errorKey(preview.code, preview.httpStatus) : null);
-  const scaled = effective.format !== 'json';
+    failure ??
+    (!csvMode && preview.status === 'error' ? errorKey(preview.code, preview.httpStatus) : null);
+  const scaled = !csvMode && effective.format !== 'json';
+  const shownFormat: DialogFormat = csvMode ? 'csv' : effective.format;
+  const downloadBlocked = csvMode
+    ? csv.columns.length === 0
+    : preview.status === 'error' && preview.code === 'plan.empty';
+  const columnBox = (column: BedListColumn) => (
+    <FormControlLabel
+      key={column}
+      control={
+        <Checkbox
+          checked={csv.columns.includes(column)}
+          onChange={() => toggleColumn(column)}
+          slotProps={{ input: { 'data-testid': `plan-export-csv-column-${column}` } as object }}
+        />
+      }
+      label={t(`${PREFIX}.csv.columns.${column}`)}
+      sx={{ minHeight: 44 }}
+    />
+  );
 
   return (
     <Dialog
@@ -144,8 +210,8 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
           <ToggleButtonGroup
             exclusive
             fullWidth
-            value={effective.format}
-            onChange={(_, value: ExportFormat | null) => value && patch({ format: value })}
+            value={shownFormat}
+            onChange={(_, value: DialogFormat | null) => value && chooseFormat(value)}
             aria-labelledby="plan-export-format-label"
             sx={{ mt: 0.5 }}
           >
@@ -160,13 +226,86 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
             <ToggleButton value="json" sx={{ minHeight: 48 }} data-testid="plan-export-format-json">
               {t(`${PREFIX}.formats.json`)}
             </ToggleButton>
+            {!phone && (
+              <ToggleButton value="csv" sx={{ minHeight: 48 }} data-testid="plan-export-format-csv">
+                {t(`${PREFIX}.formats.csv`)}
+              </ToggleButton>
+            )}
           </ToggleButtonGroup>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {t(`${PREFIX}.formatHints.${effective.format}`)}
+            {t(`${PREFIX}.formatHints.${shownFormat}`)}
           </Typography>
         </FormControl>
 
-        {effective.format === 'json' && (
+        {csvMode && (
+          <>
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel component="legend">{t(`${PREFIX}.csv.defaultColumns`)}</FormLabel>
+              <FormGroup
+                sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}
+              >
+                {BED_LIST_DEFAULT_COLUMNS.map(columnBox)}
+              </FormGroup>
+            </FormControl>
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel component="legend">{t(`${PREFIX}.csv.siteConditionColumns`)}</FormLabel>
+              <FormGroup
+                sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}
+              >
+                {BED_LIST_SITE_CONDITION_COLUMNS.map(columnBox)}
+              </FormGroup>
+            </FormControl>
+            {csv.columns.length === 0 && (
+              <Alert severity="info" data-testid="plan-export-csv-no-columns">
+                {t(`${PREFIX}.csv.noColumns`)}
+              </Alert>
+            )}
+            <FormControl component="fieldset" variant="standard">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={csv.excel}
+                    onChange={(event) => patchCsv({ excel: event.target.checked })}
+                    slotProps={{ input: { 'data-testid': 'plan-export-csv-excel' } as object }}
+                  />
+                }
+                label={t(`${PREFIX}.csv.excel`)}
+                sx={{ minHeight: 44 }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                {t(`${PREFIX}.csv.excelHint`)}
+              </Typography>
+            </FormControl>
+            <FormControl component="fieldset" variant="standard">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={csv.includeAssignment}
+                    onChange={(event) => patchCsv({ includeAssignment: event.target.checked })}
+                    slotProps={{
+                      input: {
+                        'data-testid': 'plan-export-csv-assignment',
+                        'aria-describedby': 'plan-export-csv-assignment-hint',
+                      } as object,
+                    }}
+                  />
+                }
+                label={t(`${PREFIX}.csv.includeAssignment`)}
+                sx={{ minHeight: 44 }}
+              />
+              <Typography
+                id="plan-export-csv-assignment-hint"
+                variant="body2"
+                color="text.secondary"
+                data-testid="plan-export-csv-assignment-hint"
+              >
+                {t(`${PREFIX}.csv.assignmentHint`)}
+              </Typography>
+            </FormControl>
+          </>
+        )}
+
+        {!csvMode && effective.format === 'json' && (
           <FormControl>
             <FormLabel id="plan-export-scope-label">{t(`${PREFIX}.scope`)}</FormLabel>
             <RadioGroup
@@ -179,7 +318,13 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
                   key={name}
                   value={name}
                   disabled={!available[name]}
-                  control={<Radio slotProps={{ input: { 'data-testid': `plan-export-scope-${name}` } as object }} />}
+                  control={
+                    <Radio
+                      slotProps={{
+                        input: { 'data-testid': `plan-export-scope-${name}` } as object,
+                      }}
+                    />
+                  }
                   label={t(`${PREFIX}.scopes.${name}`)}
                   sx={{ minHeight: 44 }}
                 />
@@ -187,13 +332,20 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
             </RadioGroup>
             <Typography variant="body2" color="text.secondary" data-testid="plan-export-scope-hint">
               {t(`${PREFIX}.scopeHints.${effective.scope}`, { n: effective.keys.length })}
-              {!available.selection && ` ${t(`${PREFIX}.scopeNeedsSelection`, { max: MAX_EXPORT_KEYS })}`}
+              {!available.selection &&
+                ` ${t(`${PREFIX}.scopeNeedsSelection`, { max: MAX_EXPORT_KEYS })}`}
             </Typography>
           </FormControl>
         )}
 
         {scaled && !phone && (
-          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' } }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+            }}
+          >
             <TextField
               select
               label={t(`${PREFIX}.paper`)}
@@ -246,7 +398,9 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
                     <Checkbox
                       checked={effective.layers.includes(layer)}
                       onChange={() => toggleLayer(layer)}
-                      slotProps={{ input: { 'data-testid': `plan-export-layer-${layer}` } as object }}
+                      slotProps={{
+                        input: { 'data-testid': `plan-export-layer-${layer}` } as object,
+                      }}
                     />
                   }
                   label={t(`${PREFIX}.layerNames.${layer}`)}
@@ -276,8 +430,12 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
           </Typography>
         )}
 
-        <Typography variant="caption" color="text.secondary">
-          {t(`${PREFIX}.privacy`)}
+        <Typography variant="caption" color="text.secondary" data-testid="plan-export-privacy">
+          {t(
+            csvMode && csv.includeAssignment
+              ? `${PREFIX}.csv.privacyWithAssignment`
+              : `${PREFIX}.privacy`,
+          )}
         </Typography>
 
         {shownError !== null && (
@@ -285,7 +443,7 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
             {t(`${PREFIX}.errors.${shownError}`)}
           </Alert>
         )}
-        {preview.status === 'svg' && preview.suggestA3 && effective.paper === 'a4' && (
+        {!csvMode && preview.status === 'svg' && preview.suggestA3 && effective.paper === 'a4' && (
           <Alert severity="info" data-testid="plan-export-suggest-a3">
             {t(`${PREFIX}.suggestA3`)}
           </Alert>
@@ -296,12 +454,24 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
           data-testid="plan-export-preview"
           role="group"
           aria-label={t(`${PREFIX}.preview`)}
-          aria-busy={preview.status === 'loading' || preview.status === 'idle'}
+          aria-busy={!csvMode && (preview.status === 'loading' || preview.status === 'idle')}
         >
           <Typography variant="subtitle2" component="h3" sx={{ mb: 1 }}>
             {t(`${PREFIX}.preview`)}
           </Typography>
-          {(preview.status === 'loading' || preview.status === 'idle') && (
+          {csvMode && (
+            <Typography variant="body2" data-testid="plan-export-csv-summary">
+              {csv.columns.length === 0
+                ? t(`${PREFIX}.csv.noColumns`)
+                : t(`${PREFIX}.csv.summary`, {
+                    columns: BED_LIST_COLUMNS.filter((column) => csv.columns.includes(column))
+                      .map((column) => t(`${PREFIX}.csv.columns.${column}`))
+                      .concat(csv.includeAssignment ? [t(`${PREFIX}.csv.columns.assigned_to`)] : [])
+                      .join(', '),
+                  })}
+            </Typography>
+          )}
+          {!csvMode && (preview.status === 'loading' || preview.status === 'idle') && (
             <Skeleton
               variant="rectangular"
               height={140}
@@ -309,7 +479,7 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
               aria-label={t(`${PREFIX}.previewLoading`)}
             />
           )}
-          {preview.status === 'svg' && (
+          {!csvMode && preview.status === 'svg' && (
             <Box
               component="img"
               src={preview.url}
@@ -317,7 +487,7 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
               sx={{ width: '100%', maxHeight: 320, objectFit: 'contain', bgcolor: 'common.white' }}
             />
           )}
-          {preview.status === 'json' && (
+          {!csvMode && preview.status === 'json' && (
             <Typography variant="body2" data-testid="plan-export-json-summary">
               {t(`${PREFIX}.jsonSummary`, {
                 locations: preview.summary.locations,
@@ -327,7 +497,7 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
               })}
             </Typography>
           )}
-          {preview.status === 'error' && (
+          {!csvMode && preview.status === 'error' && (
             <Typography variant="body2" color="text.secondary">
               {t(`${PREFIX}.previewUnavailable`)}
             </Typography>
@@ -342,7 +512,7 @@ export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, 
           variant="contained"
           onClick={download}
           loading={busy}
-          disabled={preview.status === 'error' && preview.code === 'plan.empty'}
+          disabled={downloadBlocked}
           sx={{ minHeight: 44 }}
           data-testid="plan-export-download"
         >

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import i18n from '@/i18n/i18n';
 import { tenantClient } from '@/api/client';
+import { bedListCsvParams, type BedListCsvOptions } from './bedListCsv';
 import type {
   BedCsvImportReport,
   ExportOptions,
@@ -67,15 +68,42 @@ export async function fetchPlanExport(
   const scale = headers['x-plan-scale'];
   return {
     blob: response.data,
-    filename: filenameOf(headers['content-disposition'], `garden-plan-${siteKey}.${options.format}`),
+    filename: filenameOf(
+      headers['content-disposition'],
+      `garden-plan-${siteKey}.${options.format}`,
+    ),
     scale: typeof scale === 'string' ? scale : null,
     suggestA3: headers['x-plan-suggested-paper'] === 'a3',
   };
 }
 
+/** GP-FR-145/175: the site's bed list as a CSV download (`GET /locations?format=csv`). */
+export async function fetchBedListCsv(
+  siteKey: string,
+  options: BedListCsvOptions,
+  signal?: AbortSignal,
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await tenantClient.get<Blob>('/locations', {
+    params: bedListCsvParams(siteKey, options, i18n.language ?? 'de'),
+    responseType: 'blob',
+    signal,
+  });
+  const headers = response.headers as Record<string, unknown>;
+  return {
+    blob: response.data,
+    filename: filenameOf(headers['content-disposition'], 'bed-list.csv'),
+  };
+}
+
 /** GP-API-005: check (`dry_run`) or write a backup file. */
-export async function importPlan(siteKey: string, request: PlanImportRequest): Promise<PlanImportReport> {
-  const { data } = await tenantClient.post<PlanImportReport>(`/sites/${siteKey}/plan/import`, request);
+export async function importPlan(
+  siteKey: string,
+  request: PlanImportRequest,
+): Promise<PlanImportReport> {
+  const { data } = await tenantClient.post<PlanImportReport>(
+    `/sites/${siteKey}/plan/import`,
+    request,
+  );
   return data;
 }
 

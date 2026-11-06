@@ -242,6 +242,11 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
         "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it; "
         "the stored form excludes the deciding account (new_owner_key, Field(exclude=True), #1855 R3 W-3)"
     ),
+    # REQ-053 WP 8.25 (#2668) — read projection of location_assignments joined with memberships and users.
+    "BedAssignee": (
+        "read projection of location_assignments + memberships + users for the bed list CSV; the service turns "
+        "it into a display name before anything leaves it, never stored"
+    ),
 }
 
 #: Floor for R6. Measured on 2026-09-24: 52 user-reference model fields; 57 on 2026-10-11
@@ -252,7 +257,9 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
 #: 51 since #1855: 55 measured (TakeoverReceipt's account references, in memory only).
 #: 54 after #2138 met #1855 on 2026-10-12: 58 measured (both changes' fields together).
 #: 68 after REQ-053 WP 4.3 (#2413): 73 measured (the completion's CompletionActor and UndoWrite, in memory only).
-MIN_USER_REFERENCE_FIELDS = 68
+#: 70 after REQ-053 WP 8.25 (#2668): 75 measured (the bed list download's BedAssignee, in memory only - the
+#: service turns it into a display name before anything leaves it).
+MIN_USER_REFERENCE_FIELDS = 70
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:

@@ -13,6 +13,7 @@ from datetime import datetime
 from app.common.exceptions import DuplicateError, PlanError, PlanRevisionConflictError, WriteConflictError
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
+from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
@@ -175,6 +176,16 @@ class FakePlanRepo(IGardenPlanRepository):
         self.species_hints: list[SlotSpeciesHint] = []
         #: the ``slot_keys`` of every ``load_active_slots`` read (``None`` = the whole bed)
         self.active_slot_reads: list[list[str] | None] = []
+        #: The bed list download (WP 8.25): type names, zone names (per ``zones``) and assignments by tenant.
+        self.type_names: dict[str, LocationTypeName] = {
+            "bed": LocationTypeName("Beet", "Bed"),
+            "raised_bed": LocationTypeName("Hochbeet", "Raised bed"),
+        }
+        self.zone_names: dict[str, str] = {"zone_1": "Tropf Ost"}
+        #: ``(tenant_key, assignee)`` - what ``location_assignments`` joined to its membership would read.
+        self.assignees: list[tuple[str, BedAssignee]] = []
+        #: The ``location_keys`` of every ``location_assignees`` read (an export without opt-in must make none).
+        self.assignee_reads: list[list[str]] = []
         self._next = 100
         self._next_snapshot = 0
         sites.repo = self
@@ -222,6 +233,20 @@ class FakePlanRepo(IGardenPlanRepository):
 
     def bed_type_flags(self, location_type_keys):
         return {key: self.bed_types[key] for key in location_type_keys if key in self.bed_types}
+
+    def location_type_names(self, location_type_keys):
+        return {key: self.type_names[key] for key in location_type_keys if key in self.type_names}
+
+    def irrigation_zone_names(self, site_key, *, tenant_key):
+        return {
+            key: name
+            for key, name in self.zone_names.items()
+            if self.zones.get(key, ("", ""))[0] == tenant_key and self.zones[key][1] == site_key
+        }
+
+    def location_assignees(self, location_keys, *, tenant_key):
+        self.assignee_reads.append(sorted(location_keys))
+        return [row for owner, row in self.assignees if owner == tenant_key and row.location_key in location_keys]
 
     def count_active_plants(self, location_keys, *, tenant_key):
         return self.active_plants

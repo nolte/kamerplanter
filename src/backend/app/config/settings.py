@@ -934,7 +934,9 @@ class Settings(BaseSettings):
     #: ``GET /t/{slug}/print/garden-plan/{site_key}`` (REQ-053 GP-NFR-056, SR-017), **per account** and per route. A
     #: PDF is a WeasyPrint render of a full-size plan and the SVG and the JSON read every document of the site, so
     #: the cost is the same kind as ``rate_limit_export``; the spec's 10 a minute is the figure. A person who
-    #: exports a few formats of one plan and retries a size stays well inside it.
+    #: exports a few formats of one plan and retries a size stays well inside it. The bed list CSV
+    #: (``GET /t/{slug}/locations?format=csv``, GP-FR-145, WP 8.25) is metered by it too, in a bucket of its own; the
+    #: JSON list of that route is not.
     rate_limit_plan_export: str = "10/minute"
     #: The same three routes, per **tenant** (GP-NFR-056): 30 a minute across all members *and* all three routes
     #: (one bucket), so a club of thirty parcel holders cannot together keep the renderer busy while each stays

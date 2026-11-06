@@ -1,6 +1,7 @@
 /**
  * The export dialog (REQ-053 GP-UX-050): what it asks the server for, the preview, the reasons it gives when the
- * server refuses, and the phone variant with the standard options only.
+ * server refuses, and the phone variant with the standard options only. The bed list as CSV (GP-FR-145/175): column
+ * selection, Excel variant and the assignment opt-in that is off unless chosen (SR-024).
  */
 import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -32,6 +33,7 @@ interface Seen {
   pdf: URLSearchParams[];
   json: number;
   jsonParams: URLSearchParams[];
+  csv: URLSearchParams[];
 }
 
 function useBackend(seen: Seen, svgHeaders: Record<string, string> = { 'x-plan-scale': '1:50' }) {
@@ -46,6 +48,15 @@ function useBackend(seen: Seen, svgHeaders: Record<string, string> = { 'x-plan-s
         headers: {
           'content-type': 'application/pdf',
           'content-disposition': 'attachment; filename="garden-plan-s1.pdf"',
+        },
+      });
+    }),
+    http.get(`${BASE}/locations`, ({ request }) => {
+      seen.csv.push(new URL(request.url).searchParams);
+      return new HttpResponse('\ufeffname\r\nBeet 1\r\n', {
+        headers: {
+          'content-type': 'text/csv; charset=utf-8',
+          'content-disposition': 'attachment; filename="bed-list-20260601.csv"',
         },
       });
     }),
@@ -65,7 +76,7 @@ function renderDialog(onClose = vi.fn(), selection?: { locationKeys: string[]; o
 
 let seen: Seen;
 beforeEach(() => {
-  seen = { svg: [], pdf: [], json: 0, jsonParams: [] };
+  seen = { svg: [], pdf: [], json: 0, jsonParams: [], csv: [] };
   setPhone(false);
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 });
@@ -198,6 +209,115 @@ describe('ExportDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('downloads the bed list as CSV with the default columns and without member names', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+
+    for (const column of ['name', 'type', 'area_m2', 'status', 'soil_texture', 'irrigation_zone', 'active_plants']) {
+      expect(screen.getByTestId(`plan-export-csv-column-${column}`)).toBeChecked();
+    }
+    expect(screen.getByTestId('plan-export-csv-column-frost_risk')).not.toBeChecked();
+    expect(screen.getByTestId('plan-export-csv-assignment')).not.toBeChecked();
+    expect(screen.queryByTestId('plan-export-paper')).not.toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-csv-summary')).not.toHaveTextContent('Assigned to');
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('no member names');
+
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.csv).toHaveLength(1);
+    const params = seen.csv[0];
+    expect(params.get('site_key')).toBe('s1');
+    expect(params.get('is_bed')).toBe('true');
+    expect(params.get('format')).toBe('csv');
+    expect(params.get('columns')).toBe('name,type,area_m2,status,soil_texture,irrigation_zone,active_plants');
+    expect(params.get('include_assignment')).toBe('false');
+    expect(params.get('delimiter')).toBe('comma');
+  });
+
+  it('asks for no plan preview while the CSV is chosen', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+    const before = seen.svg.length;
+
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await new Promise((resolve) => setTimeout(resolve, 700)); // past the preview debounce
+
+    expect(seen.svg).toHaveLength(before);
+    expect(screen.getByTestId('plan-export-csv-summary')).toHaveTextContent('one row per bed');
+  });
+
+  it('adds site features, the Excel variant and - only when switched on - the assignments', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+
+    await user.click(screen.getByTestId('plan-export-csv-column-frost_risk'));
+    await user.click(screen.getByTestId('plan-export-csv-column-type'));
+    await user.click(screen.getByTestId('plan-export-csv-excel'));
+    await user.click(screen.getByTestId('plan-export-csv-assignment'));
+
+    expect(screen.getByTestId('plan-export-csv-assignment-hint')).toHaveTextContent('personal data');
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('holds the names of the members');
+    expect(screen.getByTestId('plan-export-csv-summary')).toHaveTextContent('Frost risk, Assigned to');
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(seen.csv).toHaveLength(1));
+    const params = seen.csv[0];
+    // the file order is the server's, not the order of the clicks; the assignment is never a column name
+    expect(params.get('columns')).toBe('name,area_m2,status,soil_texture,irrigation_zone,active_plants,frost_risk');
+    expect(params.get('include_assignment')).toBe('true');
+    expect(params.get('delimiter')).toBe('semicolon');
+  });
+
+  it('does not offer the download without a column', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+
+    for (const column of ['name', 'type', 'area_m2', 'status', 'soil_texture', 'irrigation_zone', 'active_plants']) {
+      await user.click(screen.getByTestId(`plan-export-csv-column-${column}`));
+    }
+
+    expect(screen.getByTestId('plan-export-csv-no-columns')).toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-download')).toBeDisabled();
+  });
+
+  it('names a bed list that is too long for one file', async () => {
+    useBackend(seen);
+    server.use(
+      http.get(`${BASE}/locations`, () =>
+        HttpResponse.json(
+          { error_id: 'e1', error_code: 'export.too_many_rows', message: 'x', details: [], path: '', method: 'GET' },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    expect(await screen.findByTestId('plan-export-error')).toHaveTextContent('too long for one file');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('has no critical accessibility violations with the CSV options', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await user.click(screen.getByTestId('plan-export-csv-assignment'));
+
+    await expectNoA11yViolations(document.body, { minElements: 25 });
+  });
+
   it('offers only JSON and PDF with their standard options on a phone', async () => {
     setPhone(true);
     useBackend(seen);
@@ -206,6 +326,7 @@ describe('ExportDialog', () => {
     expect(screen.getByTestId('plan-export-format-pdf')).toBeInTheDocument();
     expect(screen.getByTestId('plan-export-format-json')).toBeInTheDocument();
     expect(screen.queryByTestId('plan-export-format-svg')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-format-csv')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plan-export-paper')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plan-export-scale')).not.toBeInTheDocument();
     expect(screen.getByTestId('plan-export-phone-note')).toBeInTheDocument();

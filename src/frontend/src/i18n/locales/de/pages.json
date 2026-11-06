@@ -6325,12 +6325,14 @@
           "formats": {
             "pdf": "PDF",
             "svg": "SVG",
-            "json": "Sicherung (JSON)"
+            "json": "Sicherung (JSON)",
+            "csv": "Beetliste (CSV)"
           },
           "formatHints": {
             "pdf": "Der Plan im Maßstab auf Papier – zum Ausdrucken und Mitnehmen.",
             "svg": "Die Zeichnung als Vektorgrafik, zum Weiterbearbeiten in einem Zeichenprogramm.",
-            "json": "Alle Beete, Gartenobjekte und Pflanzplätze – zum Wiederherstellen oder Umziehen. Ohne Pflanzen und Aufgaben."
+            "json": "Alle Beete, Gartenobjekte und Pflanzplätze – zum Wiederherstellen oder Umziehen. Ohne Pflanzen und Aufgaben.",
+            "csv": "Die Beete dieses Standorts als Tabelle – Name, Typ, Fläche, Status und weitere Spalten nach Wahl. Ohne Plan."
           },
           "paper": "Papier",
           "orientation": "Ausrichtung",
@@ -6366,7 +6368,41 @@
             "doesNotFit": "Der Plan passt in diesem Maßstab nicht aufs Blatt. Wähle einen gröberen Maßstab oder A3.",
             "rateLimited": "Du hast in kurzer Zeit viele Exporte angefordert. Warte eine Minute und versuche es noch einmal.",
             "forbidden": "Du darfst diesen Plan nicht exportieren.",
-            "failed": "Der Export hat nicht geklappt. Versuche es noch einmal."
+            "failed": "Der Export hat nicht geklappt. Versuche es noch einmal.",
+            "tooManyRows": "Die Beetliste wäre zu lang für eine Datei (mehr als 2.000 Beete)."
+          },
+          "csv": {
+            "defaultColumns": "Standardspalten",
+            "siteConditionColumns": "Standortmerkmale (wählbar)",
+            "noColumns": "Wähle mindestens eine Spalte aus.",
+            "excel": "Excel-Variante",
+            "excelHint": "Spalten mit Semikolon getrennt, Zahlen mit Dezimalkomma. Öffnet sich in deutschsprachigem Excel direkt als Tabelle.",
+            "includeAssignment": "Zuweisungen einschließen",
+            "assignmentHint": "Fügt die Spalte „Zugewiesen an“ mit den Namen der Mitglieder hinzu, denen ein Beet zugewiesen ist. Das sind personenbezogene Daten – gib die Datei nur an Personen weiter, die sie sehen dürfen. Standardmäßig aus.",
+            "privacyWithAssignment": "Die Datei enthält die Namen der Mitglieder, denen Beete zugewiesen sind. Notizen und Kontodaten sind nie enthalten.",
+            "summary": "Die Datei enthält je Beet eine Zeile mit diesen Spalten: {{columns}}.",
+            "columns": {
+              "name": "Name",
+              "type": "Typ",
+              "area_m2": "Fläche (m²)",
+              "status": "Status",
+              "soil_texture": "Bodenart",
+              "irrigation_zone": "Bewässerungszone",
+              "active_plants": "Aktive Pflanzen",
+              "sun_exposure": "Sonneneinstrahlung",
+              "sun_window": "Sonnenfenster",
+              "direct_sun_hours_summer": "Direkte Sonnenstunden im Sommer",
+              "foliage_shade_in_summer": "Laubschatten im Sommer",
+              "frost_risk": "Frostrisiko",
+              "cold_air_pocket": "Kaltluftsenke",
+              "heat_retention": "Wärmespeicher",
+              "wind_exposure": "Windlage",
+              "slope_deg": "Hangneigung (°)",
+              "aspect_deg": "Hangausrichtung (°)",
+              "access_sides": "Zugangsseiten",
+              "site_flags": "Konkurrenzhinweise",
+              "assigned_to": "Zugewiesen an"
+            }
           },
           "scope": "Umfang",
           "scopes": {

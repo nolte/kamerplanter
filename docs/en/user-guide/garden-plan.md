@@ -30,7 +30,7 @@ Your role always applies to the garden (tenant) you are working in.
 | Task | viewer | grower | lead |
 |------|:------:|:------:|:----:|
 | View the plan, bed list, read field mode | yes | yes | yes |
-| Export as PDF, SVG and backup (JSON) | yes | yes | yes |
+| Export as PDF, SVG, backup (JSON) and bed list (CSV) | yes | yes | yes |
 | Draw, move, change, lock and save beds and objects | no | yes | yes |
 | Delete beds and objects | no | no | yes |
 | Plant, complete tasks | no | yes | yes |
@@ -293,7 +293,9 @@ What happened on a single bed is in its history: the crop rotation timeline and 
 
 On the garden plan page, **Export & import** opens two dialogs.
 
-**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers (for the PDF also **Bed list as a second page**); a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
+**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers (for the PDF also **Bed list as a second page**); a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments (the bed list as CSV can include them on request, see below).
+
+**Bed list (CSV)** outputs the beds of the site as a table, one line per bed, for further work in your spreadsheet. Name, type, area, status, soil texture, irrigation zone and active plants are preselected; you can also tick site conditions such as sun exposure, frost risk or slope. Choose at least one column. The **Excel variant** separates columns with a semicolon and writes numbers with a decimal comma so the file opens straight as a table in a German-language Excel. The **Include assignments** switch is off: without it no member names are in the file. If you switch it on, the column "Assigned to" is added; this is personal data, so share the file only with people who may see it. Notes and account data are never included. A file holds at most 2,000 beds; with more, the dialog shows a message. Like SVG, the bed list is not offered on a phone; use a larger screen.
 
 In the PDF and the SVG every plant shows its state as on the plan: the disc in the colour of its growth phase, a ring for how far it is (a thick ring means *harvesting*) and at most one sign for the most urgent matter, such as a triangle for an open finding or a drop when watering is due. The legend lists the growth phases, rings and signs that occur on the plan. Of the growth phases it names at most the six with the most plants; if there are more, one entry such as "+3 more phases" sums up the rest, so the plan still fits the page at the chosen scale. A long phase name is shortened with "…". Plants of a species with its own phase sequence carry the same colour as on the plan. From 2,000 plants on, each bed shows only the number of its plants instead. <!-- REQ-053 GP-UX-005, GP-UX-059, GP-UX-060 -->
 

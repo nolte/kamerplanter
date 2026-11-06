@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from app.common.types import SiteKey
+from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BedCounters,
@@ -132,6 +133,24 @@ class IGardenPlanRepository(ABC):
         """Plant, task and care counters for the named locations (which the caller took from an owned site).
 
         A location without any of them is absent from the result.
+        """
+
+    # ── The bed list as a download (WP 8.25, GP-FR-145/175) ───────────────────
+
+    @abstractmethod
+    def location_type_names(self, location_type_keys: list[str]) -> dict[str, LocationTypeName]:
+        """``location_type_key`` → its names (DE/EN) for the keys that resolve; location types are global."""
+
+    @abstractmethod
+    def irrigation_zone_names(self, site_key: SiteKey, *, tenant_key: str) -> dict[str, str]:
+        """``irrigation_zone_key`` → name of every zone of the tenant's site; a foreign site yields nothing."""
+
+    @abstractmethod
+    def location_assignees(self, location_keys: list[str], *, tenant_key: str) -> list[BedAssignee]:
+        """The active members of ``tenant_key`` the named locations are assigned to (``location_assignments``).
+
+        The caller took the keys from an owned site. An assignment of another tenant, of an ended membership or of
+        a membership that is gone is left out.
         """
 
     @abstractmethod

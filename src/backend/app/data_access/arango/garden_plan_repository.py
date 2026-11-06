@@ -45,6 +45,7 @@ from app.domain.calculators.overdue_calculator import start_of_utc_day
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
+from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BedCounters,
@@ -1275,6 +1276,76 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             rows[row["location"]] = {**rows.get(row["location"], {}), "last_care_at": row["last"]}
         # Validated here, so the stored ISO strings reach the caller as datetimes.
         return {location: BedCounters.model_validate(values) for location, values in rows.items()}
+
+    # ── The bed list as a download (WP 8.25) ──────────────────────────
+
+    def location_type_names(self, location_type_keys: list[str]) -> dict[str, LocationTypeName]:
+        if not location_type_keys:
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                "FOR t IN @@col FILTER t._key IN @keys RETURN {key: t._key, name: t.name, name_en: t.name_en}",
+                bind_vars={"@col": col.LOCATION_TYPES, "keys": sorted(set(location_type_keys))},
+            ),
+        )
+        return {
+            row["key"]: LocationTypeName(name=row["name"], name_en=row["name_en"] or None)
+            for row in cursor
+            if row["name"]
+        }
+
+    def irrigation_zone_names(self, site_key: SiteKey, *, tenant_key: str) -> dict[str, str]:
+        if not tenant_key:
+            raise ValueError("irrigation_zone_names needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR z IN @@zones
+                FILTER z.tenant_key == @tenant_key AND z.site_key == @site_key
+                RETURN {key: z._key, name: z.name}
+            """,
+                bind_vars={"@zones": col.IRRIGATION_ZONES, "tenant_key": tenant_key, "site_key": site_key},
+            ),
+        )
+        return {row["key"]: row["name"] for row in cursor if row["name"]}
+
+    def location_assignees(self, location_keys: list[str], *, tenant_key: str) -> list[BedAssignee]:
+        if not tenant_key:
+            raise ValueError("location_assignees needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return []
+        # The tenant is checked on the assignment *and* on the membership it names: an assignment row is written by
+        # the tenant service only, but a membership of another tenant must never lend a name to this list.
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@assignments
+                FILTER a.tenant_key == @tenant_key AND a.location_key IN @location_keys
+                LET m = DOCUMENT(CONCAT(@memberships, a.membership_key))
+                FILTER m != null AND m.tenant_key == @tenant_key AND m.is_active != false
+                LET u = DOCUMENT(CONCAT(@users, m.user_key))
+                RETURN {location_key: a.location_key, user_key: m.user_key, display_name: u.display_name}
+            """,
+                bind_vars={
+                    "@assignments": col.LOCATION_ASSIGNMENTS,
+                    "memberships": f"{col.MEMBERSHIPS}/",
+                    "users": f"{col.USERS}/",
+                    "tenant_key": tenant_key,
+                    "location_keys": location_keys,
+                },
+            ),
+        )
+        return [
+            BedAssignee(
+                location_key=row["location_key"],
+                user_key=row["user_key"],
+                display_name=row["display_name"],
+            )
+            for row in cursor
+        ]
 
     def count_active_slots(self, site_key: SiteKey, *, tenant_key: str) -> int:
         if not tenant_key:

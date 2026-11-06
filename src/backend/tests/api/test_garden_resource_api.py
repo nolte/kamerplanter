@@ -28,9 +28,10 @@ from app.common.enums import BedStatus, NutrientDemand, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.engines.nutrient_hint_engine import DEFAULT_CONFIG, NutrientHintConfig, SourcedThreshold
 from app.domain.interfaces.care_event_repository import CareEventRow
+from app.domain.models.bed_list_export import BedAssignee
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_plan import BedCounters
-from app.domain.models.site import Slot
+from app.domain.models.site import Microclimate, SiteConditions, Slot
 from app.domain.models.species import Species
 from app.domain.models.user import User
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -157,6 +158,99 @@ class TestTheBedList:
     def test_a_foreign_site_is_a_404(self, client) -> None:
         response = client().get(f"{_FOREIGN}/locations", params={"site_key": SITE, "is_bed": "true"})
         assert response.status_code == 404
+
+
+class TestTheBedListAsCsv:
+    """GP-FR-145/175 (WP 8.25, #2668): ``format=csv`` on the bed list - columns, opt-in, hardening, bounds."""
+
+    @staticmethod
+    def _get(client, role: TenantRole = TenantRole.VIEWER, base: str = _BASE, **params: str):  # type: ignore[no-untyped-def]
+        return client(role).get(f"{base}/locations", params={"site_key": SITE, "format": "csv", **params})
+
+    @staticmethod
+    def _text(response) -> str:  # type: ignore[no-untyped-def]
+        return response.content.decode("utf-8-sig")
+
+    @pytest.fixture(autouse=True)
+    def beds(self, repo: FakePlanRepo) -> None:
+        repo.locations["bed"] = make_location(
+            "bed",
+            name="Bed",
+            geometry=rect(1, 1, 2, 1),
+            irrigation_zone_key="zone_1",
+            site_conditions=SiteConditions(microclimate=Microclimate(frost_risk="high"), slope_deg=2.5),
+        )
+        repo.counters["bed"] = BedCounters(active_plant_count=3)
+        repo.assignees = [(TENANT, BedAssignee("bed", "u_sabine", "Sabine Gärtner"))]
+
+    def test_a_viewer_downloads_the_default_columns_as_utf8_with_bom(self, client) -> None:
+        response = self._get(client)
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        assert response.content.startswith(b"\xef\xbb\xbf")
+        assert response.headers["content-disposition"].startswith('attachment; filename="bed-list-')
+        assert response.headers["cache-control"] == "no-store"
+        header, row = self._text(response).splitlines()
+        assert header == "name,type,area_m2,status,soil_texture,irrigation_zone,active_plants"
+        assert row == "Bed,Beet,2.0,active,,Tropf Ost,3"
+
+    def test_without_the_opt_in_no_member_name_is_in_the_file(self, client, repo) -> None:
+        text = self._text(self._get(client, columns="name,frost_risk"))
+
+        assert "assigned_to" not in text and "Sabine" not in text
+        assert repo.assignee_reads == []
+
+    def test_with_the_opt_in_the_display_name_and_never_the_key(self, client) -> None:
+        text = self._text(self._get(client, include_assignment="true"))
+
+        header, row = text.splitlines()
+        assert header.endswith(",active_plants,assigned_to")
+        assert row.endswith(",Sabine Gärtner") and "u_sabine" not in text
+
+    def test_the_site_features_are_selectable_and_the_excel_variant_has_a_decimal_comma(self, client) -> None:
+        text = self._text(self._get(client, columns="name,slope_deg,frost_risk", delimiter="semicolon"))
+
+        assert text.splitlines() == ["name;frost_risk;slope_deg", "Bed;high;2,5"]
+
+    def test_the_type_names_follow_the_locale(self, client) -> None:
+        assert self._text(self._get(client, columns="type", locale="en")).splitlines()[1] == "Bed"
+
+    @pytest.mark.parametrize("columns", ["name,owner_email", "assigned_to"])
+    def test_an_unknown_column_is_a_422(self, client, columns: str) -> None:
+        response = self._get(client, columns=columns)
+
+        assert response.status_code == 422
+        assert response.json()["details"][0]["code"] == "export.unknown_column"
+
+    def test_a_formula_in_a_bed_name_is_neutralised_on_the_wire(self, client, repo) -> None:
+        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"name": '=HYPERLINK("http://evil")'})
+
+        text = self._text(self._get(client))
+
+        assert "\n\"'=HYPERLINK" in text.replace("\r", "")
+
+    def test_the_json_answer_is_unchanged(self, client) -> None:
+        response = client().get(f"{_BASE}/locations", params={"site_key": SITE, "is_bed": "true"})
+
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json()[0]["active_plant_count"] == 3
+
+    def test_a_foreign_site_is_a_404_also_as_csv(self, client) -> None:
+        assert self._get(client, base=_FOREIGN).status_code == 404
+
+    def test_the_json_list_is_not_counted_against_the_csv_budget(self, client) -> None:
+        from app.config.settings import settings
+
+        budget = int(settings.rate_limit_plan_export.split("/")[0])
+        json_statuses = {
+            client().get(f"{_BASE}/locations", params={"site_key": SITE, "is_bed": "true"}).status_code
+            for _ in range(budget + 3)
+        }
+        csv_statuses = [self._get(client).status_code for _ in range(budget + 1)]
+
+        assert json_statuses == {200}
+        assert csv_statuses[:budget] == [200] * budget and csv_statuses[budget] == 429
 
 
 class TestTheSummary:

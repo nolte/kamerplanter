@@ -128,7 +128,8 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
     ),
     "rate_limit_plan_export": (
         "Authenticated garden-plan exports (GET /t/{slug}/sites/{key}/plan/render.svg, …/plan/export, "
-        "/t/{slug}/print/garden-plan/{site_key}), per account: 401 x 25 anonymously."
+        "/t/{slug}/print/garden-plan/{site_key}, the bed list CSV GET /t/{slug}/locations?format=csv), per "
+        "account: 401 x 25 anonymously."
     ),
     "rate_limit_plan_export_tenant": (
         "The per-tenant bucket of the same three authenticated routes: 401 x 25 anonymously."
