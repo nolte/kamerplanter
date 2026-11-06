@@ -22,10 +22,14 @@ MAX_CSV_ROWS = MAX_PLAN_OBJECTS_PER_SITE
 BED_ROW_GAP_M = 0.5
 #: How many line errors and warnings one answer lists; the totals stay exact.
 MAX_REPORTED_LINES = 500
+#: How many ignored header cells one answer lists; ``ignored_columns_total`` stays exact.
+MAX_IGNORED_COLUMNS = 50
 
 # ── published codes ───────────────────────────────────────────────────────────
 ERROR_FORBIDDEN = "import.forbidden"
 ERROR_QUOTA = "plan.quota_exceeded"
+#: The batch path's code for a request past its time budget (GP-NFR-013), also for the dry run's placement.
+ERROR_TOO_COMPLEX = "batch.too_complex"
 ERROR_MISSING_COLUMN = "csv.missing_column"
 ERROR_DUPLICATE_COLUMN = "csv.duplicate_column"
 ERROR_REQUIRED = "csv.required"
@@ -85,8 +89,9 @@ class BedCsvImportReport(BaseModel):
     errors_total: int = 0
     warnings: list[CsvLineFinding] = Field(default_factory=list)
     warnings_total: int = 0
-    #: Header cells the import does not know; they are ignored (cut to 64 characters).
+    #: Header cells the import does not know; they are ignored (cut to 64 characters, at most 50 listed).
     ignored_columns: list[str] = Field(default_factory=list)
+    ignored_columns_total: int = 0
     #: ``True`` once the valid lines were written; a dry run and an import without a valid line leave it ``False``.
     applied: bool = False
     #: The plan revision the check ran against (dry run) or the one the write produced.

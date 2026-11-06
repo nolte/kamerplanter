@@ -64,7 +64,7 @@ from app.common.dependencies import (
     get_rotation_matrix_service,
 )
 from app.common.enums import FrostRisk, SlotRole, SoilDrainage, SunWindow
-from app.common.exceptions import PlanRevisionConflictError, ValidationError
+from app.common.exceptions import PlanRevisionConflictError, UnsupportedMediaTypeError, ValidationError
 from app.common.openapi_responses import (
     CONFLICT_RESPONSE,
     FORBIDDEN_RESPONSE,
@@ -691,6 +691,17 @@ async def import_plan(
 
 #: What the OpenAPI document shows as the body of the CSV bed list import: the file itself, not a JSON envelope.
 _BED_CSV_EXAMPLE = "Name;Typ;Breite_m;Länge_m;Sonne;Bodenart;Zone\r\nHochbeet 1;Hochbeet;2,0;1,2;Volle Sonne;Lehm;\r\n"
+#: The content types a bed list may arrive as (SEC-006): ``text/csv``, and what browsers send for a ``.csv`` file on
+#: systems that map it otherwise (``text/plain``; ``application/vnd.ms-excel`` on Windows with Office). Parameters
+#: (``; charset=utf-8``) are ignored - the encoding rule is the import's own.
+BED_CSV_MEDIA_TYPES: tuple[str, ...] = ("text/csv", "text/plain", "application/vnd.ms-excel")
+#: The per-tenant bucket of the CSV bed list import (GP-NFR-056, SEC-003).
+PLAN_CSV_IMPORT_TENANT_SCOPE = "garden_plan_csv_import_tenant"
+
+
+def _bed_csv_media_type(content_type: str) -> bool:
+    media_type = content_type.partition(";")[0].strip().lower()
+    return media_type in BED_CSV_MEDIA_TYPES
 
 
 @router.post(
@@ -701,7 +712,8 @@ _BED_CSV_EXAMPLE = "Name;Typ;Breite_m;Länge_m;Sonne;Bodenart;Zone\r\nHochbeet 1
         **FORBIDDEN_RESPONSE,
         **CONFLICT_RESPONSE,
         **VALIDATION_RESPONSE,
-        413: {"description": "The file is larger than 1 MiB (`body_too_large`)."},
+        413: {"description": "The file is larger than 1 MiB (`REQUEST_BODY_TOO_LARGE`)."},
+        415: {"description": "The body is no CSV file (`UNSUPPORTED_MEDIA_TYPE`)."},
     },
     openapi_extra={
         "requestBody": {
@@ -710,7 +722,10 @@ _BED_CSV_EXAMPLE = "Name;Typ;Breite_m;Länge_m;Sonne;Bodenart;Zone\r\nHochbeet 1
         }
     },
 )
-@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+@limiter.limit(settings.rate_limit_plan_csv_import, key_func=user_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_csv_import_tenant, scope=PLAN_CSV_IMPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
 async def import_beds_csv(
     request: Request,
     key: _SITE_KEY,
@@ -720,6 +735,7 @@ async def import_beds_csv(
         Query(ge=0, description="The `plan_revision` of the dry run; a plan changed since then is a 409."),
     ] = None,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
     service: BedCsvImportService = Depends(get_bed_csv_import_service),
 ) -> BedCsvImportResponse:
     """GP-FR-174 (WP 8.26). The body is the file (`text/csv`): UTF-8 (a BOM is tolerated), `;` as delimiter, a header
@@ -729,13 +745,19 @@ async def import_beds_csv(
     `Sonne`/`Bodenart` a value or its German/English label; `Zone` the name of an irrigation zone of the site. A
     leading formula character (`= + - @`, tab, CR) of a text cell is discarded and reported as a warning (SR-016).
 
-    Lead only (403). The body is read **here**, after authentication, the role gate and the rate limit. A file that
-    cannot be read at all is a 422 (`csv.invalid_encoding`, `csv.invalid_delimiter`, `csv.empty`, `csv.malformed`,
-    `csv.missing_column`, `csv.duplicate_column`); every other problem is a line error in the report and the line
+    Lead only (403); rate limited per account and per tenant. The body is read **here**, after authentication, the
+    role gate, the rate limits and the site's ownership (404 for a foreign or absent site); a content type other than
+    `text/csv`, `text/plain` or `application/vnd.ms-excel` is a 415. A file that cannot be read at all is a 422
+    (`csv.invalid_encoding`, `csv.invalid_delimiter`, `csv.empty`, `csv.malformed`, `csv.too_many_columns`,
+    `csv.missing_column`, `csv.duplicate_column`); a placement past the batch's time budget is a 422
+    `batch.too_complex`. Every other problem is a line error in the report and the line
     is skipped. The beds are placed as `rect`s in rows from the top-left corner of the boundary, 0.5 m apart, and go
     through the batch path (containment, overlap, quota, revision, change log). `dry_run=false` writes the valid
     lines in one transaction and answers their new keys.
     """
+    await run_in_threadpool(service.check_site, key, tenant_key=ctx.tenant_key)
+    if not _bed_csv_media_type(request.headers.get("content-type", "")):
+        raise UnsupportedMediaTypeError(list(BED_CSV_MEDIA_TYPES))
     raw = await read_bounded_body(request, MAX_CSV_BYTES)
     report = await run_in_threadpool(
         service.import_beds,

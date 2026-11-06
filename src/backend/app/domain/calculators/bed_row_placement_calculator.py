@@ -44,6 +44,16 @@ def _nearest(metres: float) -> int:
     return round(metres * _MM)
 
 
+#: The most obstacle comparisons one placement may make. A realistic list (a few hundred beds, a few hundred beds
+#: already on the plan) needs a few ten thousand; the bound keeps a crafted one - rows blocked across the width,
+#: beds that fit nowhere - from turning a dry run into seconds of CPU (#2669 SEC-001).
+MAX_PLACEMENT_STEPS = 2_000_000
+
+
+class PlacementTooComplexError(ValueError):
+    """The placement needed more than ``max_steps`` obstacle comparisons; nothing was placed."""
+
+
 def _overlaps(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> bool:
     """Interiors overlap; two boxes that only touch do not (V-05 compares interiors)."""
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
@@ -55,12 +65,14 @@ def place_in_rows(
     frame: Box,
     obstacles: Sequence[Box] = (),
     gap: float,
+    max_steps: int = MAX_PLACEMENT_STEPS,
 ) -> list[tuple[float, float] | None]:
     """The lower-left corner of every ``(width, length)`` in ``sizes``, in order, rows filled from the top-left.
 
     ``frame`` is the area to fill (the boundary's bounding box, or the plan frame); ``obstacles`` are boxes no
     position may cover. ``None`` for a bed that finds no place. Terminates for any input: every step either places a
-    bed, moves right past an obstacle, or starts a strictly lower row.
+    bed, moves right past an obstacle, or starts a strictly lower row; and it gives up with
+    :class:`PlacementTooComplexError` after ``max_steps`` obstacle comparisons.
     """
     left, bottom, right, top = _up(frame[0]), _up(frame[1]), _down(frame[2]), _down(frame[3])
     blocked = [(_down(b[0]), _down(b[1]), _up(b[2]), _up(b[3])) for b in obstacles]
@@ -71,6 +83,7 @@ def place_in_rows(
     #: The lowest bottom edge of the obstacles that blocked the current row.
     row_floor: int | None = None
     x = left
+    steps = 0
     for width_m, length_m in sizes:
         width, length = max(_nearest(width_m), 1), max(_nearest(length_m), 1)
         saved = (row_top, row_height, row_floor, x)
@@ -87,12 +100,20 @@ def place_in_rows(
                 else:
                     row_top -= length + spacing
                 row_height, row_floor, x = 0, None, left
+                steps += 1
                 continue
             candidate = (x, row_top - length, x + width, row_top)
             if candidate[1] < bottom:
                 fits = False  # no row left for it
                 break
-            hit = next((box for box in blocked if _overlaps(candidate, box)), None)
+            hit: tuple[int, int, int, int] | None = None
+            for box in blocked:
+                steps += 1
+                if _overlaps(candidate, box):
+                    hit = box
+                    break
+            if steps > max_steps:
+                raise PlacementTooComplexError(f"The placement needed more than {max_steps} steps.")
             if hit is None:
                 break
             row_floor = hit[1] if row_floor is None else min(row_floor, hit[1])

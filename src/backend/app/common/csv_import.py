@@ -35,6 +35,11 @@ ERROR_INVALID_ENCODING = "csv.invalid_encoding"
 ERROR_INVALID_DELIMITER = "csv.invalid_delimiter"
 ERROR_EMPTY = "csv.empty"
 ERROR_MALFORMED = "csv.malformed"
+ERROR_TOO_MANY_COLUMNS = "csv.too_many_columns"
+
+#: The leading run :func:`neutralise` drops: formula characters (``\t`` and ``\r`` are among ``\s``) and the
+#: whitespace between them. A character class with one quantifier: no backtracking.
+_LEADING_FORMULA = re.compile(r"[=+\-@\s]+")
 
 #: A plain unsigned decimal: digits, optionally one decimal mark (``,`` or ``.``) and more digits.
 _DECIMAL = re.compile(r"^(?P<whole>\d{1,7})(?:[.,](?P<fraction>\d{1,6}))?$")
@@ -42,6 +47,9 @@ _DECIMAL = re.compile(r"^(?P<whole>\d{1,7})(?:[.,](?P<fraction>\d{1,6}))?$")
 #: The longest cell the reader keeps. A longer one is not a value of any column an import knows; the importing
 #: service refuses it with its own length rule, and the reader does not carry megabytes through the report.
 MAX_CELL_CHARS = 4000
+#: The widest header the reader accepts (trailing empty cells not counted). A bed list has seven columns; a file
+#: of hundreds is no bed list, and every cell of a row would otherwise be carried through the report.
+MAX_COLUMNS = 100
 
 
 class CsvReadError(ValueError):
@@ -66,6 +74,14 @@ class CsvTable:
     records: tuple[CsvRecord, ...]
 
 
+def _trimmed(cells: tuple[str, ...]) -> tuple[str, ...]:
+    """``cells`` without the empty cells at the end (a spreadsheet's ``Name;Typ;;;``)."""
+    end = len(cells)
+    while end and not cells[end - 1].strip():
+        end -= 1
+    return cells[:end]
+
+
 def _blank(cells: tuple[str, ...]) -> bool:
     """A row of empty or whitespace-only cells (a spreadsheet's trailing ``;;;`` line)."""
     joined: str = "".join(cells)
@@ -84,10 +100,11 @@ def decode_csv(raw: bytes) -> str:
 def read_table(text: str, *, max_records: int | None = None) -> CsvTable:
     """Header and data rows of a ``;``-delimited file. Rows that hold only empty cells are skipped.
 
-    ``max_records`` stops the read one record past the bound: the caller reports "too many" without the reader
-    walking whatever else the file holds. Refuses an empty file (``csv.empty``), a header without ``;``
-    (``csv.invalid_delimiter``) and a file the CSV module cannot read (``csv.malformed``: a NUL byte, an unclosed
-    quote at the end).
+    The header ends at its last non-empty cell and may hold at most :data:`MAX_COLUMNS` (``csv.too_many_columns``);
+    a data row keeps the cells under the header only. ``max_records`` stops the read one record past the bound:
+    the caller reports "too many" without the reader walking whatever else the file holds. Refuses an empty file
+    (``csv.empty``), a header without ``;`` (``csv.invalid_delimiter``) and a file the CSV module cannot read
+    (``csv.malformed``: a NUL byte, an unclosed quote at the end).
     """
     reader = csv.reader(io.StringIO(text, newline=""), delimiter=IMPORT_DELIMITER, strict=True)
     header: tuple[str, ...] | None = None
@@ -98,11 +115,14 @@ def read_table(text: str, *, max_records: int | None = None) -> CsvTable:
             if _blank(cells):
                 continue
             if header is None:
-                if len(cells) < 2:  # noqa: PLR2004 - one column = the delimiter was not ``;``
+                header = _trimmed(cells)
+                if len(header) > MAX_COLUMNS:
+                    raise CsvReadError(ERROR_TOO_MANY_COLUMNS, f"The header holds more than {MAX_COLUMNS} columns.")
+                if len(header) < 2:  # noqa: PLR2004 - one column = the delimiter was not ``;``
                     raise CsvReadError(ERROR_INVALID_DELIMITER, "The columns must be separated by a semicolon (;).")
-                header = cells
                 continue
-            records += (CsvRecord(line=reader.line_num, cells=cells),)
+            # A cell right of the last header column belongs to no column: it is not kept.
+            records += (CsvRecord(line=reader.line_num, cells=cells[: len(header)]),)
             if max_records is not None and len(records) > max_records:
                 break
     except csv.Error as exc:
@@ -112,24 +132,31 @@ def read_table(text: str, *, max_records: int | None = None) -> CsvTable:
     return CsvTable(header=header, records=records)
 
 
-def neutralised_text(value: str) -> str:
-    """A text cell as an import stores it: trimmed, the formula prefixes of SR-016 gone.
+def neutralise(value: str) -> tuple[str, bool]:
+    """A text cell as an import stores it, and whether a formula prefix of SR-016 was removed - in one pass.
 
-    ``'=SUM(A1)`` (an exported, already neutralised cell) and ``=SUM(A1)`` both become ``SUM(A1)``; ``-- Beet``
-    becomes ``Beet``. A ``'`` that precedes no formula character is part of the value (``'s Gartl``).
+    Trimmed, then one ``'`` that :func:`csv_export.csv_text` put before a formula character dropped, then the whole
+    leading run of formula characters and whitespace between them dropped. ``'=SUM(A1)`` (an exported, already
+    neutralised cell) and ``=SUM(A1)`` both become ``SUM(A1)``; ``-- Beet`` becomes ``Beet``. A ``'`` that precedes
+    no formula character is part of the value (``'s Gartl``). Linear in the cell's length, whatever the prefix chain
+    (a cell of 4 000 ``=`` costs what a cell of 4 000 letters costs).
     """
     text: str = value.strip()
-    if text.startswith("'") and text[1:].startswith(FORMULA_PREFIXES):
-        text = text[1:]
-    while text.startswith(FORMULA_PREFIXES):
-        text = text[1:].strip()
-    return text
+    body = text[1:] if text.startswith("'") and text[1:].startswith(FORMULA_PREFIXES) else text
+    if body.startswith(FORMULA_PREFIXES):
+        match = _LEADING_FORMULA.match(body)
+        body = body[match.end() :] if match is not None else body
+    return body, body != text
+
+
+def neutralised_text(value: str) -> str:
+    """:func:`neutralise` without the flag."""
+    return neutralise(value)[0]
 
 
 def had_formula_prefix(value: str) -> bool:
-    """Whether :func:`neutralised_text` removed a formula prefix (and not just whitespace)."""
-    stripped = value.strip()
-    return bool(stripped) and neutralised_text(value) != stripped
+    """Whether :func:`neutralise` removed a formula prefix (and not just whitespace)."""
+    return neutralise(value)[1]
 
 
 def parse_decimal(value: str) -> float:

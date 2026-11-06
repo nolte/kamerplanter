@@ -700,6 +700,7 @@ class BedCsvImportResponse(BaseModel):
                     "warnings": [{"line": 2, "column": "Name", "code": "csv.formula_stripped"}],
                     "warnings_total": 1,
                     "ignored_columns": ["Notiz"],
+                    "ignored_columns_total": 1,
                     "applied": False,
                     "plan_revision": 12,
                 }
@@ -718,7 +719,8 @@ class BedCsvImportResponse(BaseModel):
         description="`csv.formula_stripped`: a leading formula character was discarded (SR-016); at most 500."
     )
     warnings_total: int
-    ignored_columns: list[str] = Field(description="Header cells the import does not know; ignored.")
+    ignored_columns: list[str] = Field(description="Header cells the import does not know; ignored. At most 50.")
+    ignored_columns_total: int
     applied: bool = Field(description="`true` once the valid lines were written.")
     plan_revision: int = Field(
         description="The revision the check ran against (send it as `expected_revision` to confirm), or the new one."

@@ -372,3 +372,95 @@ class TestWhoMayImport:
     def test_an_empty_tenant_is_no_tenant(self, service) -> None:
         with pytest.raises(NotFoundError):
             run(service, csv("A;Beet;1;1"), tenant_key="")
+
+
+class TestTheWorkIsBounded:
+    """#2669 SEC-001/SEC-002: the dry run's own work - placement and plan rules - is bounded like a batch."""
+
+    def test_the_site_quota_is_checked_before_the_placement(self, service, repo, monkeypatch) -> None:
+        import app.domain.services.bed_csv_import_service as module
+
+        for n in range(499):
+            repo.locations[f"l{n}"] = make_location(f"l{n}", f"Fläche {n}", geometry=None)
+
+        def must_not_run(*_args, **_kwargs):
+            raise AssertionError("the placement ran before the quota")
+
+        monkeypatch.setattr(module, "place_in_rows", must_not_run)
+
+        with pytest.raises(PlanError) as caught:
+            run(service, csv("A;Beet;1;1", "B;Beet;1;1"))
+
+        assert caught.value.error_code == "plan.quota_exceeded"
+
+    def test_a_placement_past_its_step_budget_is_batch_too_complex(self, service, repo, monkeypatch) -> None:
+        import app.domain.services.bed_csv_import_service as module
+        from app.domain.calculators.bed_row_placement_calculator import PlacementTooComplexError
+
+        def too_complex(*_args, **_kwargs):
+            raise PlacementTooComplexError("budget")
+
+        monkeypatch.setattr(module, "place_in_rows", too_complex)
+
+        with pytest.raises(PlanError) as caught:
+            run(service, csv("A;Beet;1;1"), dry_run=False)
+
+        assert caught.value.status_code == 422 and caught.value.error_code == "batch.too_complex"
+        assert repo.applied == []
+
+    def test_a_check_past_the_batch_time_budget_is_batch_too_complex(self, service, repo, monkeypatch) -> None:
+        import app.domain.services.bed_csv_import_service as module
+
+        clock = iter([0.0, 0.0, 11.0, 11.0, 11.0])
+        monkeypatch.setattr(module, "perf_counter", lambda: next(clock))
+
+        with pytest.raises(PlanError) as caught:
+            run(service, csv("A;Beet;1;1"), dry_run=False)
+
+        assert caught.value.error_code == "batch.too_complex" and caught.value.details[0]["limit"] == 10
+        assert repo.applied == []
+
+    def test_a_crafted_plan_and_list_end_inside_the_budget(self, service, repo) -> None:
+        """250 beds on the plan blocking every row, 250 lines of beds that fit nowhere: bounded, not minutes."""
+        import time
+
+        repo._sites.sites[SITE].plan = SitePlan(
+            boundary={"kind": "rect", "origin": [0, 0], "width_m": 60, "length_m": 10, "rotation_deg": 0},
+            plan_revision=3,
+        )
+        for n in range(250):
+            row, col = divmod(n, 25)
+            repo.locations[f"p{n}"] = make_location(f"p{n}", f"Pfosten {n}", geometry=rect(2.4 * col, row, 0.1, 1))
+        started = time.perf_counter()
+
+        try:
+            report = run(service, csv(*[f"B{n};Beet;3;1" for n in range(250)]))
+        except PlanError as exc:
+            assert exc.error_code == "batch.too_complex"
+        else:
+            assert report.rows_valid == 0 and {e.code for e in report.errors} == {"csv.does_not_fit"}
+
+        assert time.perf_counter() - started < 10.0
+
+    def test_ignored_columns_are_listed_up_to_50_and_counted_exactly(self, service) -> None:
+        header = HEADER + "".join(f";Extra{n}" for n in range(60))
+
+        report = run(service, csv("A;Beet;1;1", header=header))
+
+        assert len(report.ignored_columns) == 50 and report.ignored_columns_total == 60
+
+    def test_a_header_of_more_than_100_columns_is_refused(self, service) -> None:
+        header = HEADER + "".join(f";Extra{n}" for n in range(97))
+
+        with pytest.raises(PlanError) as caught:
+            run(service, csv("A;Beet;1;1", header=header))
+
+        assert caught.value.status_code == 422 and caught.value.error_code == "csv.too_many_columns"
+
+
+class TestTheSiteCheck:
+    def test_check_site_answers_404_for_a_foreign_and_nothing_for_the_own_site(self, service) -> None:
+        service.check_site(SITE, tenant_key=TENANT)  # the positive control
+
+        with pytest.raises(NotFoundError):
+            service.check_site(FOREIGN_SITE, tenant_key=TENANT)

@@ -15,10 +15,13 @@ from app.common.csv_import import (
     ERROR_INVALID_DELIMITER,
     ERROR_INVALID_ENCODING,
     ERROR_MALFORMED,
+    ERROR_TOO_MANY_COLUMNS,
+    MAX_COLUMNS,
     CsvReadError,
     decode_csv,
     had_formula_prefix,
     header_key,
+    neutralise,
     neutralised_text,
     parse_decimal,
     read_table,
@@ -80,6 +83,23 @@ class TestTheTable:
         assert len(read_table(text).records) == 50  # the positive control: unbounded reads them all
 
 
+class TestTheWidth:
+    def test_a_header_wider_than_the_bound_is_refused(self) -> None:
+        with pytest.raises(CsvReadError) as caught:
+            read_table(";".join(f"C{n}" for n in range(MAX_COLUMNS + 1)) + "\r\n")
+
+        assert caught.value.code == ERROR_TOO_MANY_COLUMNS
+        assert len(read_table(";".join(f"C{n}" for n in range(MAX_COLUMNS)) + "\r\n").header) == MAX_COLUMNS
+
+    def test_trailing_empty_header_cells_do_not_count(self) -> None:
+        assert read_table("Name;Typ" + ";" * 500 + "\r\n").header == ("Name", "Typ")
+
+    def test_a_data_row_keeps_the_cells_under_the_header_only(self) -> None:
+        table = read_table("Name;Typ\r\nA;Beet" + ";x" * 10_000 + "\r\n")
+
+        assert table.records[0].cells == ("A", "Beet")
+
+
 class TestFormulaPrefixesAreDiscarded:
     @pytest.mark.parametrize(
         ("cell", "stored"),
@@ -105,6 +125,21 @@ class TestFormulaPrefixesAreDiscarded:
         assert had_formula_prefix("=1+1") is True
         assert had_formula_prefix("  Beet  ") is False
         assert had_formula_prefix("") is False
+
+    def test_value_and_flag_come_from_one_pass(self) -> None:
+        assert neutralise("  =Beet ") == ("Beet", True)
+        assert neutralise("  Beet ") == ("Beet", False)
+        assert neutralise("") == ("", False)
+
+    def test_a_long_prefix_chain_costs_one_pass(self) -> None:
+        """#2669 SEC-004: the old loop sliced the cell once per prefix character - quadratic in the chain."""
+        import time
+
+        cell = "= " * 200_000 + "x"
+        started = time.perf_counter()
+
+        assert neutralise(cell) == ("x", True)
+        assert time.perf_counter() - started < 0.5
 
     def test_what_the_writer_neutralises_the_reader_neutralises_again(self) -> None:
         file = encode_csv(["Name", "Typ"], [[csv_text("=cmd|' /C calc'!A0"), "Beet"]], delimiter=";")

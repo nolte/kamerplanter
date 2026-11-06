@@ -225,8 +225,9 @@ class TestTheOneMebibyteCeiling:
 
 
 class TestRateLimit:
-    def test_the_budget_is_the_plan_batch_budget_per_user(self) -> None:
-        assert settings.rate_limit_plan_batch == "10/minute"
+    def test_the_budgets_are_ten_per_account_and_thirty_per_tenant(self) -> None:
+        assert settings.rate_limit_plan_csv_import == "10/minute"
+        assert settings.rate_limit_plan_csv_import_tenant == "30/minute"
 
     def test_the_eleventh_request_of_a_user_is_refused_another_user_still_passes(self, client) -> None:
         statuses = [client("token-sabine").post(_IMPORT, content=_MIXED, headers=_CSV).status_code for _ in range(10)]
@@ -237,6 +238,45 @@ class TestRateLimit:
         assert limited.status_code == 429 and 1 <= int(limited.headers["retry-after"]) <= 60
         assert other.status_code == 200
 
+    def test_the_tenant_bucket_is_shared_by_its_members(self, client) -> None:
+        """SEC-003: three members spend the tenant's 30 a minute, a fourth is refused inside his own budget."""
+        statuses = [
+            client(f"token-{name}").post(_IMPORT, content=_MIXED, headers=_CSV).status_code
+            for name in ("sabine", "anna", "jonas")
+            for _ in range(10)
+        ]
+        fourth = client("token-mia").post(_IMPORT, content=_MIXED, headers=_CSV)
+
+        assert statuses == [200] * 30
+        assert fourth.status_code == 429
+
+
+class TestTheContentType:
+    @pytest.mark.parametrize(
+        "content_type", ["text/csv", "text/csv; charset=utf-8", "TEXT/PLAIN", "application/vnd.ms-excel"]
+    )
+    def test_what_browsers_send_for_a_csv_file_is_accepted(self, client, content_type) -> None:
+        response = client().post(_IMPORT, content=_MIXED, headers={"content-type": content_type})
+
+        assert response.status_code == 200, response.text
+
+    @pytest.mark.parametrize("content_type", ["application/json", "multipart/form-data; boundary=x", "image/png"])
+    def test_any_other_type_is_a_415_and_nothing_is_read(self, client, repo, content_type) -> None:
+        response = client().post(
+            _IMPORT, params={"dry_run": "false"}, content=_MIXED, headers={"content-type": content_type}
+        )
+
+        assert response.status_code == 415 and response.json()["error_code"] == "UNSUPPORTED_MEDIA_TYPE"
+        assert repo.applied == []
+
+    def test_a_foreign_site_is_a_404_before_the_content_type_and_the_body(self, client) -> None:
+        """SEC-005: the ownership is resolved before the body is read - a foreign site never sees a 415 or 422."""
+        response = client().post(
+            f"{_BASE}/sites/site_foreign/beds/import-csv", content=b"\xff garbage", headers={"content-type": "x/y"}
+        )
+
+        assert response.status_code == 404
+
 
 class TestTheContract:
     def test_the_openapi_document_names_the_csv_body_and_the_report(self) -> None:
@@ -246,5 +286,7 @@ class TestTheContract:
 
         assert "text/csv" in operation["requestBody"]["content"]
         assert {p["name"] for p in operation["parameters"]} >= {"key", "dry_run", "expected_revision"}
+        assert "REQUEST_BODY_TOO_LARGE" in operation["responses"]["413"]["description"]
+        assert "415" in operation["responses"]
         schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
         assert schema["$ref"].endswith("/BedCsvImportResponse")

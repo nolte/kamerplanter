@@ -6,11 +6,13 @@ and ``Zone``. This service turns each line into the ``create_location`` of a bat
 revision check inside the transaction and a change-log row. There is no second write path: what the batch refuses,
 this import refuses too.
 
-**Check order (SR-013).** (1) authentication and the lead gate - the route; (2) tenant anchor: the site of the
-path, a foreign one is a 404 before a byte of the file is read; (3) the caller's role (lead only, like the JSON
-import - SR-010); (4) the file: size, encoding, delimiter, header, the row bound (422 ``plan.quota_exceeded`` above
-500 rows); (5) every line on its own (line errors); (6) the placement and the plan rules on the lines that passed
-(5); (7) the site quota; (8) unless ``dry_run``, the write.
+**Check order (SR-013).** (1) authentication, the lead gate and the rate limits - the route; (2) tenant anchor: the
+site of the path - the route resolves it through :meth:`BedCsvImportService.check_site` *before* it reads the body,
+so a foreign site is a 404 before a byte of the file is read; then the content type (415); (3) the caller's role
+(lead only, like the JSON import - SR-010); (4) the file: size, encoding, delimiter, header, the row bound (422
+``plan.quota_exceeded`` above 500 rows); (5) every line on its own (line errors); (6) the site quota on the lines
+that passed (5); (7) the placement and the plan rules, inside the batch's time budget (422 ``batch.too_complex``);
+(8) unless ``dry_run``, the write.
 
 **Line errors do not refuse the file.** A line that fails (5) or (6) is listed with its line number, its column and a
 code, and is skipped; a confirmed import (``dry_run=false``) writes the other lines. A dry run and the confirmation
@@ -38,9 +40,9 @@ from app.common.csv_import import (
     CsvReadError,
     CsvRecord,
     decode_csv,
-    had_formula_prefix,
     header_key,
     label_key,
+    neutralise,
     neutralised_text,
     parse_decimal,
     read_table,
@@ -48,7 +50,7 @@ from app.common.csv_import import (
 from app.common.enums import SoilTexture, SunExposure, TenantRole
 from app.common.exceptions import PlanError, RequestBodyTooLargeError
 from app.common.types import SiteKey
-from app.domain.calculators.bed_row_placement_calculator import Box, place_in_rows
+from app.domain.calculators.bed_row_placement_calculator import Box, PlacementTooComplexError, place_in_rows
 from app.domain.calculators.geometry_calculator import bounding_box
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
@@ -67,12 +69,14 @@ from app.domain.models.bed_csv_import import (
     ERROR_OUT_OF_RANGE,
     ERROR_QUOTA,
     ERROR_REQUIRED,
+    ERROR_TOO_COMPLEX,
     ERROR_TOO_LONG,
     ERROR_UNKNOWN_TYPE,
     ERROR_UNKNOWN_VALUE,
     ERROR_UNKNOWN_ZONE,
     MAX_CSV_BYTES,
     MAX_CSV_ROWS,
+    MAX_IGNORED_COLUMNS,
     MAX_REPORTED_LINES,
     WARNING_FORMULA_STRIPPED,
     BedCsvImportReport,
@@ -80,7 +84,12 @@ from app.domain.models.bed_csv_import import (
     CsvLineFinding,
 )
 from app.domain.models.garden_object import GardenObject
-from app.domain.models.garden_plan import MAX_PLAN_OBJECTS_PER_SITE, MAX_PLAN_ZONES, ImportedBedData
+from app.domain.models.garden_plan import (
+    BATCH_TIME_BUDGET_SECONDS,
+    MAX_PLAN_OBJECTS_PER_SITE,
+    MAX_PLAN_ZONES,
+    ImportedBedData,
+)
 from app.domain.models.geometry import (
     GEOMETRY_INVALID,
     MAX_COORDINATE_M,
@@ -206,6 +215,11 @@ class BedCsvImportService:
 
     # ── the entry ─────────────────────────────────────────────────────────────
 
+    def check_site(self, site_key: SiteKey, *, tenant_key: str) -> None:
+        """(2) alone: 404 for a site that is absent or another tenant's. The route calls it before it reads the body,
+        so a foreign site never makes the server buffer a file (SEC-005); :meth:`import_beds` checks again."""
+        require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
+
     def import_beds(
         self,
         site_key: SiteKey,
@@ -229,9 +243,10 @@ class BedCsvImportService:
         records, header = self._read(content)  # (4)
         checked = self._check_lines(records, header, site_key=site_key, tenant_key=tenant_key)  # (5)
         locations, objects = self._plan.load_structure(site_key, tenant_key=tenant_key)
-        rows = self._place(site, checked, locations, objects, tenant_key=tenant_key)  # (6)
-        current = len(locations) + len(objects) + len(rows)
-        if rows and current > MAX_PLAN_OBJECTS_PER_SITE:  # (7)
+        # (6) the site quota on the lines that passed (5), *before* the placement: what the placement and the plan
+        # rules work on is then bounded by the quota itself - existing structure plus new beds <= 500 (SEC-001).
+        current = len(locations) + len(objects) + len(checked.lines)
+        if checked.lines and current > MAX_PLAN_OBJECTS_PER_SITE:
             raise PlanError(
                 ERROR_QUOTA,
                 f"A site holds at most {MAX_PLAN_OBJECTS_PER_SITE} locations and garden objects.",
@@ -239,6 +254,7 @@ class BedCsvImportService:
                 limit=MAX_PLAN_OBJECTS_PER_SITE,
                 current=current,
             )
+        rows = self._place(site, checked, locations, objects, tenant_key=tenant_key, started=started)  # (7)
         report = self._report(site, checked, rows, records=records, header=header, dry_run=dry_run)
         if dry_run or not rows:
             logger.info(
@@ -346,6 +362,7 @@ class BedCsvImportService:
         objects: list[GardenObject],
         *,
         tenant_key: str,
+        started: float,
     ) -> list[CsvBedRow]:
         """The rows the import writes: placed in rows from the top-left, then checked like a batch would check them.
 
@@ -369,7 +386,11 @@ class BedCsvImportService:
             for loc in locations
             if loc.parent_location_key is None and loc.bbox is not None and flags.get(loc.location_type_key, False)
         ]
-        positions = place_in_rows(sizes, frame=frame, obstacles=obstacles, gap=BED_ROW_GAP_M)
+        try:
+            positions = place_in_rows(sizes, frame=frame, obstacles=obstacles, gap=BED_ROW_GAP_M)
+        except PlacementTooComplexError:
+            raise _too_complex() from None
+        _check_deadline(started)
 
         site_key = site.key or ""
         candidates: list[tuple[_Line, tuple[float, float], Location]] = []
@@ -403,6 +424,7 @@ class BedCsvImportService:
             boundary=boundary,
             boundary_changed=False,
         )
+        _check_deadline(started)
         refused: dict[int, set[str]] = {}
         for index, _field, code, _extra in findings:
             if index is not None and 0 <= index < len(candidates):
@@ -450,12 +472,30 @@ class BedCsvImportService:
             errors_total=len(errors),
             warnings=warnings[:MAX_REPORTED_LINES],
             warnings_total=len(warnings),
-            ignored_columns=header.ignored,
+            ignored_columns=header.ignored[:MAX_IGNORED_COLUMNS],
+            ignored_columns_total=len(header.ignored),
             plan_revision=site.plan.plan_revision if site.plan is not None else 0,
         )
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+
+def _too_complex() -> PlanError:
+    """The batch path's answer to a request past its budget (GP-NFR-013): 422 ``batch.too_complex``."""
+    return PlanError(
+        ERROR_TOO_COMPLEX,
+        "The bed list took longer than its time budget; nothing was applied.",
+        status_code=422,
+        field="file",
+        limit=int(BATCH_TIME_BUDGET_SECONDS),
+    )
+
+
+def _check_deadline(started: float) -> None:
+    """The batch's time budget for the dry-run work too: placement and plan rules run before ``_apply`` (SEC-001)."""
+    if perf_counter() - started > BATCH_TIME_BUDGET_SECONDS:
+        raise _too_complex()
 
 
 def _header(cells: tuple[str, ...]) -> _Header:
@@ -548,10 +588,10 @@ class _LineReader:
 
     def _value(self, column: str) -> str:
         """The neutralised text of a cell; a stripped formula prefix is a warning of the line."""
-        raw = self._cell(column) or ""
-        if had_formula_prefix(raw):
+        value, stripped = neutralise(self._cell(column) or "")
+        if stripped:
             self._checked.add_warning(self._record.line, WARNING_FORMULA_STRIPPED, self._column(column))
-        return neutralised_text(raw)
+        return value
 
     def text(self, column: str) -> str | None:
         value = self._value(column)

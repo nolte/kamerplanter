@@ -945,6 +945,13 @@ class Settings(BaseSettings):
     #: assistant needs two requests (the dry run, then the write) and a retry after a refused file; three a minute
     #: covers that for one person and keeps a club's members from queueing imports behind each other.
     rate_limit_plan_import: str = "3/minute"
+    #: ``POST /t/{slug}/sites/{key}/beds/import-csv`` (REQ-053 GP-FR-174, WP 8.26), per **account**: a bed list is at
+    #: most 1 MiB and 500 rows, and the wizard needs a dry run, the confirmation and a few correction loops (the user
+    #: fixes the sheet and checks again). 10 a minute covers that for one person.
+    rate_limit_plan_csv_import: str = "10/minute"
+    #: The same route per **tenant** (GP-NFR-056, #2669 SEC-003): 30 a minute across all members, so a club cannot
+    #: together keep the placement and the plan rules busy while each member stays inside the per-account budget.
+    rate_limit_plan_csv_import_tenant: str = "30/minute"
     #: ``POST /t/{slug}/care-events`` and its supersede / void / redact siblings (REQ-053 GP-NFR-056, SR-017),
     #: per account. A care log entry is one small document; 60 a minute covers a round of quick-log chips in
     #: the field with room for a retry, and bounds a runaway client.

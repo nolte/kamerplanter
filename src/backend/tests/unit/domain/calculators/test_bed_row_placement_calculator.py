@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import time
+
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from app.domain.calculators.bed_row_placement_calculator import place_in_rows
+from app.domain.calculators.bed_row_placement_calculator import (
+    MAX_PLACEMENT_STEPS,
+    PlacementTooComplexError,
+    place_in_rows,
+)
 
 _FRAME = (0.0, 0.0, 10.0, 6.0)
 
@@ -93,3 +100,39 @@ def test_placed_beds_never_overlap_each_other_or_an_obstacle(sizes, obstacles) -
         assert _FRAME[1] - 1e-6 <= box[1] and box[3] <= _FRAME[3] + 1e-6  # and top to bottom
         assert not any(_overlap(box, other) for other in placed[index + 1 :])
         assert not any(_overlap(box, obstacle) for obstacle in obstacles)
+
+
+class TestTheWorkIsBounded:
+    """#2669 SEC-001: rows blocked across the width and beds that fit nowhere cannot buy unbounded CPU."""
+
+    @staticmethod
+    def _blocked_garden() -> tuple[tuple[float, float, float, float], list[tuple[float, float, float, float]]]:
+        """A 60 x 16 m frame covered by 480 posts (30 per row, 2 m apart, 16 rows): no 3 m bed fits anywhere, so
+        every bed walks every row and steps over every post of it before it is given up."""
+        frame = (0.0, 0.0, 60.0, 16.0)
+        posts = [(2.0 * col, float(row), 2.0 * col + 0.1, row + 1.0) for row in range(16) for col in range(30)]
+        return frame, posts
+
+    def test_the_step_budget_ends_a_crafted_placement(self) -> None:
+        frame, posts = self._blocked_garden()
+
+        with pytest.raises(PlacementTooComplexError):
+            place_in_rows([(3.0, 1.0)] * 500, frame=frame, obstacles=posts, gap=0.5, max_steps=100_000)
+
+    def test_480_obstacles_and_500_beds_are_refused_by_the_default_budget_in_well_under_a_second(self) -> None:
+        frame, posts = self._blocked_garden()
+        started = time.perf_counter()
+
+        with pytest.raises(PlacementTooComplexError):
+            place_in_rows([(3.0, 1.0)] * 500, frame=frame, obstacles=posts, gap=0.5)
+
+        assert time.perf_counter() - started < 2.0  # measured ~0.13 s; the batch's time budget is 10 s
+
+    def test_a_realistic_list_stays_far_below_the_budget(self) -> None:
+        sizes = [(2.0, 1.2)] * 250
+        existing = [(x * 3.0, 50.0, x * 3.0 + 2.0, 51.0) for x in range(250)]
+
+        positions = place_in_rows(sizes, frame=(0.0, 0.0, 100.0, 100.0), obstacles=existing, gap=0.5,
+                                  max_steps=MAX_PLACEMENT_STEPS // 10)  # fmt: skip
+
+        assert all(position is not None for position in positions)
