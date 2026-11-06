@@ -939,25 +939,28 @@ Location.soil_profile {
 | GP-FR-122 | SHOULD | Bodenanalyse als Ereignis (§15.1) mit Verlaufsdiagramm pH/EC/Humus im Boden-Tab. | nein |
 | GP-FR-123 | SHOULD | **Flächendosierung** (REQ-004 `application_rate_g_per_m2`/`l_per_m2`): Der Düngen-Dialog am Beet rechnet g/m² × `area_m2` in die Gesamtmenge um und schreibt beides in den `care_event`: `quantity` und `unit` (`g_per_m2` oder `l_per_m2`) sowie `quantity_total` und `quantity_total_unit` (`g` bzw. `l`); die Gesamtmenge ist `quantity × area_m2`, gerundet auf 3 Nachkommastellen, und entfällt (`null`) bei anderen Einheiten oder `area_m2 ≤ 0` (Stand im Code: `CareEventService._quantity_total`). Es gibt kein Feld `quantity_total_g`. | nein |
 | GP-FR-124 | SHOULD | Bodenverbesserungen (Kompost, Mulch, Kalk, Sand, Gründüngung) als `care_event(category ∈ {soil_amendment, mulching, liming})` mit `material ∈ {compost, manure, horn_shavings, lime, sulfur, rock_dust, wood_ash, sand, perlite, biochar, straw_mulch, bark_mulch, grass_clippings, coffee_grounds, green_manure, other}` und Menge. | nein |
-| GP-FR-125 | SHOULD | Nährstoff-Hinweis am Beet (W-010): aus `nutrient_demand` der aktuellen Spezies (REQ-001), Vorfrucht (`nitrogen_fixing`-Gutschrift), letzter Düngung/Bodenverbesserung mit Nährstoffwirkung und Gehaltsklassen der Bodenanalyse eine Einschätzung `ok \| check \| likely_deficit \| insufficient_data` mit `confidence` und Begründungstext; beschriftet als „Düngebedarf wahrscheinlich", nie als Messwert. Regelwerk in einem reinen Engine-Modul (Regeltabelle §15.3); Rindenmulch zählt als N-bindend. | nein |
+| GP-FR-125 | SHOULD | Nährstoff-Hinweis am Beet (W-010): aus `nutrient_demand` der aktuellen Spezies (REQ-001), Vorfrucht (`nitrogen_fixing`-Flag), letzter Düngung/Bodenverbesserung mit Nährstoffwirkung und Gehaltsklassen der Bodenanalyse eine Einschätzung `ok \| check \| likely_deficit \| insufficient_data` mit `confidence` und Begründungstext; beschriftet als „Düngebedarf wahrscheinlich", nie als Messwert. Regelwerk in einem reinen Engine-Modul (Regeltabelle §15.3); Rindenmulch zählt als N-bindend. | nein |
 | GP-FR-126 | COULD | Mulchschicht-Status (`mulched_at`, `mulch_material`, `mulch_depth_cm`) im Profil, aus dem letzten Mulch-Ereignis abgeleitet. | nein |
 | GP-FR-127 | COULD | Verknüpfung mit `substrate_ec_adapter` / Nährstoffplänen (REQ-004): Nährstoffplan für ein Beet (statt je Pflanze) mit Flächenbezug. | nein |
 
 ### 15.3 Regeltabelle Nährstoff-Hinweis (GP-FR-125, WP 8.10)
 
-Referenzimplementierung: `src/backend/app/domain/engines/nutrient_hint_engine.py` (rein, ohne Datenbank); die Eingänge sammelt `nutrient_hint_service.py`, ausgeliefert wird das Ergebnis als `nutrient_hint` in `GET /locations/{key}/summary` (nur für Beete, sonst `null`). Es gibt keine eigene Route und keine TypeScript-Portierung: Die Oberfläche zeigt nur den Zustand und die Begründungscodes an.
+Referenzimplementierung: `src/backend/app/domain/engines/nutrient_hint_engine.py` (rein, ohne Datenbank); die Eingänge sammelt `nutrient_hint_service.py`, ausgeliefert wird das Ergebnis als `nutrient_hint` in `GET /locations/{key}/summary` (nur für Beete, sonst `null`). Es gibt keine eigene Route und keine TypeScript-Portierung: Die Oberfläche zeigt nur den Zustand und die Begründungscodes an. Agrarbiologie-Review vom 2026-11-06: PASS für den inerten Stand, Änderungen 1–10 eingearbeitet.
 
-**Grundsatz (E-10).** Jede agronomische Schwelle ist Konfiguration (`NutrientHintConfig`) und wirkt nur mit Wert **und** `source`. Die Recherche WP 8.5 (`spec/analysis/agrobiology-req-053-wave8-ec.md`, Addendum) hat keine dieser Schwellen geschlossen. Deshalb sind alle Schwellen ausgeliefert `null`, und jedes Beet erhält `insufficient_data` mit dem Code `thresholds_without_source`. Die qualitativen Flags (Vorfrucht-Leguminose, Rindenmulch, Klasse D/E) erscheinen als Begründungscodes. Sie tragen nie eine Menge und erzeugen allein keinen Zustand.
+**Grundsatz (E-10).** Jede agronomische Schwelle ist Konfiguration (`NutrientHintConfig`) und wirkt nur mit Wert **und** `source`. Die Recherche WP 8.5 (`spec/analysis/agrobiology-req-053-wave8-ec.md`, Addendum) hat keine dieser Schwellen geschlossen. Deshalb sind alle Schwellen ausgeliefert `null`, und jedes Beet erhält `insufficient_data` mit dem Code `thresholds_without_source`. Die qualitativen Flags (Vorfrucht- und stehende Leguminose, Rindenmulch) erscheinen als Begründungscodes. Sie tragen nie eine Menge und erzeugen allein keinen Zustand.
+
+**Dokumentierte Ausnahme (M3).** Die Regel „P oder K in Klasse D/E" ist die einzige qualitative Regel, die ausgeliefert aktiv ist, abweichend von „Hinweis nur mit `source`, Default aus" (Addendum WP 8.5). Begründung: Sie hebt keinen Zustand an und empfiehlt nichts, sie hält nur Kompost und P-Dünger zurück (die vorsichtige Richtung). Ihre Quelle ist R-006 (Bayerische Gartenakademie/LWG, Merkblatt 2202, 12/2020; Hessisches Landeslabor, Erläuterungen zur Bodenuntersuchung, 2024); die Antwort nennt sie in `withheld_source`.
 
 **Eingänge.**
 
 | Eingang | Herkunft | Regel |
 |---|---|---|
 | Zehrerstufe | `Species.nutrient_demand` jeder Art, die mit aktiver Pflanze im Beet steht (`BedCounters.species_keys`), nur für den Mandanten lesbare Arten | Kein Ersatz durch `BotanicalFamily.typical_nutrient_demand`, kein stiller Default. Gemischtes Beet: die stärkste angegebene Stufe |
-| Vorfrucht `nitrogen_fixing` | Fruchtfolge-Historie des Beets (`bed_rotation_entries`), nur das Kalenderjahr vor dem aktuellen, `main_crop` oder `green_manure`; `Species.nitrogen_fixing`, bei `null` das Flag der Familie | Nur qualitatives Flag, keine N-Gutschrift als Menge („Bleibt null" Nr. 6) |
-| Letzte Nährstoffgabe | neuester `care_event` `feeding` oder `soil_amendment` mit `material ∈ {compost, manure, horn_shavings}` (§12.1), nicht storniert, nicht ersetzt, höchstens 365 Tage zurück | Älter oder nicht erfasst gilt als „nicht erfasst", nicht als „nicht gedüngt" |
-| N-bindender Mulch | neuester `care_event` `mulching` mit `material = bark_mulch`, höchstens 365 Tage zurück | Zählt, wenn er nach der letzten Nährstoffgabe liegt oder keine erfasst ist |
-| Gehaltsklassen P, K | neueste `soil_analysis`-Messung je Parameter mit `source = lab` und `content_class` (die Klasse ist nur aus CAL übernehmbar, §15.1); bis zu 20 Analysen ohne Zeitfenster | Mg bleibt außen vor (CaCl2, R-007). Nie eine eigene Klassenzuweisung aus Zahlen |
+| Vorfrucht `nitrogen_fixing` | Fruchtfolge-Historie des Beets (`bed_rotation_entries`): das neueste Jahr vor dem aktuellen mit einem Eintrag `main_crop` oder `green_manure` (Brache zählt nicht), ohne die Arten, die jetzt im Beet stehen; `Species.nitrogen_fixing`, bei `null` das Flag der Familie | Nur qualitatives Flag, keine N-Menge („Bleibt null" Nr. 6, R-015) |
+| Stehende Leguminose | eine jetzt im Beet stehende Art mit `nitrogen_fixing` (Art, sonst Familie), z. B. eine mehrjährige Leguminose | Eigenes Flag `standing_nitrogen_fixer`, keine N-Menge (R-015) |
+| Letzte N-Gabe | neuester `care_event` `feeding` oder `soil_amendment` mit `material ∈ {manure, horn_shavings}`, nicht storniert, nicht ersetzt, höchstens `read_window_days` (Standard 365) zurück | **Kompost zählt nicht** (R-005: kein N-Lieferant); W-007 bleibt unverändert (Kompost schreibt weiter ein `feeding_event` für die Düngebilanz). Ein `feeding` zählt unabhängig vom Produkt, also auch eine reine K-Düngung, bis der Pflegeeintrag ein N-Feld trägt. Älter oder nicht erfasst gilt als „nicht erfasst", nicht als „nicht gedüngt" |
+| N-bindender Mulch | neuester `care_event` `mulching` mit `material = bark_mulch`, höchstens `read_window_days` zurück | Zählt, wenn er nach der letzten N-Gabe liegt oder keine erfasst ist |
+| Gehaltsklassen P, K | neueste `soil_analysis`-Messung je Parameter mit `source = lab` **und** `extraction_method = cal` und `content_class`; bis zu 20 Analysen ohne Zeitfenster | Eine Klasse aus einer anderen Extraktion zählt weder für R2 noch für M3. Mg bleibt außen vor (CaCl2, R-007). Nie eine eigene Klassenzuweisung aus Zahlen. Wie lange eine Analyse gilt, ist offen (R-016) |
 | Füllung | `soil_profile.growing_medium_kind` | `mineral_substrate` folgt REQ-004-A (Nährlösung), nicht dieser Regel |
 
 **Vorbedingungen** (erste zutreffende gewinnt, Ergebnis immer `insufficient_data`, `confidence = low`):
@@ -965,39 +968,54 @@ Referenzimplementierung: `src/backend/app/domain/engines/nutrient_hint_engine.py
 | Nr. | Bedingung | Code |
 |---|---|---|
 | V1 | `growing_medium_kind = mineral_substrate` | `substrate_bed` |
-| V2 | keine Pflanze im Beet | `no_current_crop` |
-| V3 | keine Art im Beet hat eine gespeicherte Zehrerstufe | `demand_unknown` |
+| V2a | keine Pflanze im Beet | `no_current_crop` |
+| V2b | Pflanzen stehen, aber keine ihrer Arten ist für den Mandanten lesbar | `species_not_readable` |
+| V3 | keine lesbare Art im Beet hat eine gespeicherte Zehrerstufe | `demand_unknown` |
 | V4 | keine Regel R1/R2 mit Quelle greift | `thresholds_without_source` |
 
 **Regeln** (nur mit Quelle; der schwerste Zustand gewinnt, Rangfolge `likely_deficit` > `check` > `ok`):
 
 | Nr. | Eingang → Zustand | Code | Schwelle (Konfiguration) | Wert / `source` heute |
 |---|---|---|---|---|
-| R1a | Tage seit letzter Nährstoffgabe > `likely_deficit_after_days[Stufe]` → `likely_deficit` | `feeding_overdue` | `likely_deficit_after_days` je Zehrerstufe | `null` / `null` („Bleibt null" Nr. 3/4, R-010) |
-| R1b | sonst Tage > `check_after_days[Stufe]` → `check` | `feeding_due` | `check_after_days` je Zehrerstufe | `null` / `null` (wie R1a) |
+| R1a | Tage seit letzter N-Gabe > `likely_deficit_after_days[Stufe]` → `likely_deficit` | `feeding_overdue` | `likely_deficit_after_days` je Zehrerstufe | `null` / `null` (R-013) |
+| R1b | sonst Tage > `check_after_days[Stufe]` → `check` | `feeding_due` | `check_after_days` je Zehrerstufe | `null` / `null` (R-013) |
 | R1c | sonst (eine R1-Schwelle der Stufe aktiv) → `ok` | `fed_recently` | wie R1a/R1b | — |
-| R1d | keine Nährstoffgabe erfasst, eine R1-Schwelle der Stufe aktiv → höchstens `check` | `no_feeding_recorded` | wie R1a/R1b | — |
-| R2a | Laborklasse P oder K in `low_content_classes` → `likely_deficit` | `p_class_low` / `k_class_low` | `low_content_classes` (Menge von Klassen) | `null` / `null` (R-006 deckt nur D/E, R-007: Klassengrenzen laborabhängig) |
+| R1d | keine N-Gabe erfasst, eine R1-Schwelle der Stufe aktiv → höchstens `check` | `no_feeding_recorded` | wie R1a/R1b | — |
+| R2a | Laborklasse P oder K in `low_content_classes` → `likely_deficit` | `p_class_low` / `k_class_low` | `low_content_classes`: Klassenmenge plus `source`, `lab`, `year`, `region` (Bundesland); ohne eine der vier Angaben inaktiv | `null` / `null` (R-006 deckt nur D/E; R-007: Klassengrenzen je Labor, Jahr und Land verschieden) |
 | R2b | Laborklassen vorhanden, keine niedrig → `ok` | `content_classes_sufficient` | wie R2a | — |
 
 Grenzfall: Ein Wert genau auf der Schwelle gilt noch nicht als überschritten (`>`).
+
+**Konfigurationsprüfung.** `NutrientHintConfig` lehnt beim Anlegen ab (Fehler), wenn eine aktive R1-Schwelle nicht in `0 < Wert ≤ read_window_days` liegt; sonst läse eine Gabe knapp hinter dem Lesefenster als „nicht erfasst", obwohl sie noch innerhalb der Schwelle liegt. `read_window_days` muss positiv sein. Ob R1 in Kalendertagen oder in Tagen der Vegetationszeit zu messen ist, ist offen (R-017); bis dahin Kalendertage.
 
 **Modifikatoren und Flags** (immer als Code, auch bei `insufficient_data`):
 
 | Nr. | Bedingung | Wirkung | Code | Schwelle / `source` heute |
 |---|---|---|---|---|
-| M1 | Vorfrucht fixiert Stickstoff | Flag. Senkt nur mit aktivem `nitrogen_fixer_relief` ein `likely_deficit`, das allein auf R1a beruht, auf `check` (nie ein Laborbefund-Defizit) | `preceding_nitrogen_fixer` | `nitrogen_fixer_relief`: aus / `null` (keine Quelle; die Richtung „weniger Vorsicht" bleibt ohne Beleg gesperrt) |
-| M2 | Rindenmulch nach der letzten Nährstoffgabe | Flag. `ok` wird `check` (GP-FR-125 „Rindenmulch zählt als N-bindend"); erzeugt allein keinen Zustand, keine Bindungsmenge („Bleibt null" Nr. 12) | `bark_mulch_n_binding` | — (Spec-Regel, wirkt nur auf einen belegten Zustand) |
-| M3 | Laborklasse P oder K in D oder E | `compost_and_p_withheld = true`: Der Hinweis verweist nie auf Kompost oder P-Dünger. Der Hinweis nennt grundsätzlich kein Mittel und keine Menge | `p_or_k_class_high` | Klassen D/E aus R-006 (LWG-Gemüsegarten, Hessen-Landeslabor), qualitativ |
+| M1 | Vorfrucht fixiert Stickstoff | Flag. Senkt nur mit aktivem `nitrogen_fixer_relief` ein `likely_deficit`, das allein auf R1a beruht, auf `check` (nie ein Laborbefund-Defizit) | `preceding_nitrogen_fixer` | `nitrogen_fixer_relief`: aus / `null` (R-015) |
+| M1b | Stehende Art fixiert Stickstoff | Nur Flag, ändert keinen Zustand | `standing_nitrogen_fixer` | — |
+| M2 | Rindenmulch nach der letzten N-Gabe | Flag („Rindenmulch kann Stickstoff binden"). Hebt nur mit aktivem `bark_mulch_binding` ein `ok`, das allein aus R1 stammt, auf `check`; ein `ok` aus R2 nie. Keine Bindungsmenge | `bark_mulch_n_binding` | `bark_mulch_binding`: aus / `null` („Bleibt null" Nr. 12, R-014) |
+| M3 | Laborklasse (CAL) P oder K in D oder E | `compost_and_p_withheld = true`, `withheld_source` = R-006. Kompost dient bei hohen P/K-Gehalten nicht der Nährstoffversorgung; als Bodenverbesserung bleibt er möglich. Der Hinweis verweist nie auf Kompost oder P-Dünger und nennt grundsätzlich kein Mittel und keine Menge | `p_or_k_class_high` | aktiv, Quelle R-006 (siehe Ausnahme oben) |
 | M4 | Nicht jede Art im Beet hat eine Zehrerstufe | Flag, `confidence = low` | `demand_partly_unknown` | — |
+
+**Konservativer Fall P = E, K = A.** Die Rückhaltung gilt, sobald P **oder** K in D/E liegt. Bei P in E und K in A meldet R2 (mit Quelle) das K-Defizit (`k_class_low`), M3 hält trotzdem Kompost und P zurück: Kompost brächte weiteren Phosphor ein (R-005, R-006). Ob Kompost bei Klasse A/B für P/K sinnvoll ist, bleibt offen (R-018).
 
 **`confidence`.** `low` bei `insufficient_data`, bei `no_feeding_recorded`, bei `demand_partly_unknown` oder wenn M1/M2 den Zustand geändert haben. `high`, wenn eine Laborklasse (R2) den Zustand bestimmt. Sonst `medium`.
 
-**Antwort.** `state`, `confidence`, `reasons[]` (Codes, entscheidende zuerst, dann Flags), `compost_and_p_withheld`, `sources[]` (die `source` jeder Schwelle, die den Zustand bestimmt hat; leer bei `insufficient_data`). Nie eine Zahl.
+**Antwort.** `state`, `confidence`, `reasons[]` (Codes, entscheidende zuerst, dann Flags), `compost_and_p_withheld`, `withheld_source` (Quelle von M3, sonst `null`), `sources[]` (die `source` jeder Schwelle, die den Zustand bestimmt hat; bei R2 mit Labor, Jahr und Land; leer bei `insufficient_data`). Nie eine Zahl.
 
 **Anzeige (Beetkopf).** `likely_deficit` → Chip „Düngebedarf wahrscheinlich", `check` → Chip „Düngung prüfen", jeweils mit den Begründungstexten und dem Satz „Eine Düngemenge nennt die App nicht." `ok` und `insufficient_data` zeigen nichts. Damit bleibt der Beetkopf ohne Hinweis, bis eine Schwelle eine Quelle hat (bekannte Inert-Gefahr, Plan §3 Welle 8; die Gegenprobe mit aktivierter Testschwelle steht in `tests/unit/domain/engines/test_nutrient_hint_engine.py`).
 
-**Offen für das Agrarbiologie-Review.** (1) Kompost zählt laut §12.1 als Nährstoffgabe für R1, R-005 nennt Kompost aber „kein N-Lieferant". (2) Ob „Vorfrucht" nur das Vorjahr meint. (3) Ob M2 ohne eigene Quelle `ok` zu `check` heben darf. (4) Lesefenster 365 Tage für Nährstoffgaben.
+**Offene Recherchepunkte** (aus dem Review vom 2026-11-06, Fortsetzung der Liste R-001…R-012 in `spec/analysis/agrobiology-req-053-wave8-ec.md`; keine Zahl, bis je Punkt drei Quellen vorliegen, E-10):
+
+| Nr. | Frage | Betrifft |
+|---|---|---|
+| R-013 | Düngeintervall in Tagen je Zehrerstufe | R1a/R1b |
+| R-014 | N-Immobilisierung durch Rindenmulch (ob und wann ein `ok` zu `check` werden soll) | M2 |
+| R-015 | Rest-N einer Leguminosen-Vorfrucht und mehrjähriger Leguminosen | M1, M1b |
+| R-016 | Gültigkeitsdauer einer Bodenanalyse (ab welchem Alter eine Laborklasse nicht mehr zählt) | R2, M3 |
+| R-017 | Vegetationszeit gegen Kalendertage als Maß für R1 | R1, Konfigurationsprüfung |
+| R-018 | P/K-Beitrag von Kompost bei Klasse A/B | M3, R2 |
 
 ---
 

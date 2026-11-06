@@ -362,6 +362,10 @@ Zulässig als Hinweistext ohne Zahl, nur mit `source`, Default aus: Kompost ist 
 - **REQ-004 Z. 89–94:** „Heavy feeder 3–4 L/m²“ überschreitet die in zwei verwandten Quellen genannte Obergrenze von 3 L/m². Nach den Gütezeugnissen liegt die Gesamt-N-Menge einer solchen Gabe deutlich über der Hauptteil-Annahme. Daher bleibt die Anweisung des Hauptteils: Tabelle auf `nutrient_demand` plus `nitrogen_fixing` umstellen und Mengen als „Beispiel, unverifiziert“ kennzeichnen oder entfernen.
 - **Betreiberfrage (nicht blockierend, #2643):** Genügt für E-10 eine Veröffentlichungsreihe mit gemeinsamer Datenlinie (Maas & Hoffman, FAO-29, UC)?
 
+### Folgepunkte R-013 bis R-018 (Review WP 8.10, 2026-11-06)
+
+Aus dem Review der Regeltabelle REQ-053 §15.3. Offen, alle Werte `null` (E-10): R-013 Düngeintervall je Zehrerstufe; R-014 N-Immobilisierung durch Rindenmulch; R-015 Rest-N von Leguminosen-Vorfrucht und mehrjährigen Leguminosen; R-016 Gültigkeitsdauer einer Bodenanalyse; R-017 Vegetationszeit gegen Kalendertage; R-018 P/K-Beitrag von Kompost bei Klasse A/B. Details in REQ-053 §15.3.
+
 ### Quellenliste
 
 Geöffnet [G], Abruf 2026-11-03:
