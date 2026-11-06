@@ -7,7 +7,7 @@ correct their own entry, the author may undo within ten minutes, only the lead c
 the service's.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -23,7 +23,7 @@ from app.api.v1.care_events.schemas import (
     care_event_to_response,
 )
 from app.common.auth import get_current_tenant, require_permission
-from app.common.csv_export import encode_csv
+from app.common.csv_download import CsvDelimiter, csv_download, csv_not_requested
 from app.common.datetimes import utc_range
 from app.common.dependencies import get_care_event_service
 from app.common.exceptions import ValidationError
@@ -42,16 +42,6 @@ router = APIRouter(prefix="/care-events", tags=["care-events"], responses=NOT_FO
 _EVENT_KEY = Annotated[str, Path(description="Document key of the care event.")]
 
 
-#: The download headers of the CSV: an attachment, never sniffed, never cached (a personal activity log).
-_CSV_HEADERS = {"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"}
-_DELIMITERS = {"comma": ",", "semicolon": ";"}
-
-
-def _csv_only(request: Request) -> bool:
-    """``exempt_when`` of the export budget: only ``format=csv`` is counted against it."""
-    return request.query_params.get("format") != "csv"
-
-
 @router.get(
     "",
     response_model=list[CareEventResponse],
@@ -62,7 +52,7 @@ def _csv_only(request: Request) -> bool:
         422: {"description": "`export.too_many_rows`: a CSV of more than 50 000 rows is refused as a whole."},
     },
 )
-@limiter.limit(settings.rate_limit_care_events_export, key_func=user_rate_limit_key, exempt_when=_csv_only)
+@limiter.limit(settings.rate_limit_care_events_export, key_func=user_rate_limit_key, exempt_when=csv_not_requested)
 def list_care_events(
     request: Request,
     location_key: str | None = Query(None, description="Only the events of this bed."),
@@ -83,7 +73,7 @@ def list_care_events(
         alias="format",
         description="`csv` downloads every entry the filter lists (at most 50 000) instead of one page of JSON.",
     ),
-    delimiter: Literal["comma", "semicolon"] = Query(
+    delimiter: CsvDelimiter = Query(
         "comma",
         description=(
             "`format=csv` only: `semicolon` is the Excel variant (semicolon as delimiter, decimal comma in numbers)."
@@ -120,16 +110,11 @@ def list_care_events(
         exported = service.export_window(
             criteria, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, admin_scopes=ctx.admin_scopes
         )
-        body = encode_csv(
+        return csv_download(
             CARE_EVENT_CSV_COLUMNS,
             care_event_csv_rows(exported, decimal_comma=delimiter == "semicolon"),
-            delimiter=_DELIMITERS[delimiter],
-        )
-        stamp = datetime.now(UTC).strftime("%Y%m%d")
-        return Response(
-            content=body,
-            media_type="text/csv; charset=utf-8",
-            headers={**_CSV_HEADERS, "Content-Disposition": f'attachment; filename="care-events-{stamp}.csv"'},
+            delimiter=delimiter,
+            filename_stem="care-events",
         )
     views = service.list_window(
         criteria,

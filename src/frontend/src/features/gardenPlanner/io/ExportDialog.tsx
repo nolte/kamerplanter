@@ -31,10 +31,10 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import {
-  BED_LIST_COLUMNS,
   BED_LIST_DEFAULT_COLUMNS,
   BED_LIST_SITE_CONDITION_COLUMNS,
   DEFAULT_BED_LIST_CSV_OPTIONS,
+  orderedBedListColumns,
   type BedListColumn,
   type BedListCsvOptions,
 } from './bedListCsv';
@@ -82,6 +82,8 @@ type DialogFormat = ExportFormat | 'csv';
 function errorKey(code: string | null, status: number | null): string {
   if (code === 'plan.empty') return 'empty';
   if (code === 'export.too_many_rows') return 'tooManyRows';
+  if (code === 'export.unknown_column') return 'unknownColumn';
+  if (code === 'export.no_columns') return 'noColumns';
   if (code === 'plan.does_not_fit') return 'doesNotFit';
   if (status === 429) return 'rateLimited';
   if (status === 403) return 'forbidden';
@@ -464,7 +466,7 @@ export default function ExportDialog({
               {csv.columns.length === 0
                 ? t(`${PREFIX}.csv.noColumns`)
                 : t(`${PREFIX}.csv.summary`, {
-                    columns: BED_LIST_COLUMNS.filter((column) => csv.columns.includes(column))
+                    columns: orderedBedListColumns(csv.columns)
                       .map((column) => t(`${PREFIX}.csv.columns.${column}`))
                       .concat(csv.includeAssignment ? [t(`${PREFIX}.csv.columns.assigned_to`)] : [])
                       .join(', '),

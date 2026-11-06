@@ -6369,7 +6369,9 @@
             "rateLimited": "Du hast in kurzer Zeit viele Exporte angefordert. Warte eine Minute und versuche es noch einmal.",
             "forbidden": "Du darfst diesen Plan nicht exportieren.",
             "failed": "Der Export hat nicht geklappt. Versuche es noch einmal.",
-            "tooManyRows": "Die Beetliste wäre zu lang für eine Datei (mehr als 2.000 Beete)."
+            "tooManyRows": "Die Beetliste wäre zu lang für eine Datei (mehr als 2.000 Beete).",
+            "unknownColumn": "Eine gewählte Spalte kennt der Server nicht. Lade die Seite neu und wähle die Spalten noch einmal.",
+            "noColumns": "Wähle mindestens eine Spalte aus."
           },
           "csv": {
             "defaultColumns": "Standardspalten",

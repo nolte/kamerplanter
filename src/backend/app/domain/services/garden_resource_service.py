@@ -27,7 +27,7 @@ unless the caller is a lead.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -38,6 +38,12 @@ from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
 from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
+from app.domain.engines.bed_list_csv_engine import (
+    ASSIGNMENT_COLUMN,
+    COLUMN_ACTIVE_PLANTS,
+    COLUMN_IRRIGATION_ZONE,
+    COLUMN_TYPE,
+)
 from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
 from app.domain.engines.garden_plan_engine import (
     ERROR_INVALID_BED_TRANSITION,
@@ -205,9 +211,19 @@ class GardenResourceService:
         ``is_bed`` is the ``is_bed`` flag of the location's type. Counters cost three queries over the
         listed keys, so a plain listing (neither filter) stays as cheap as before and carries none.
         """
+        with_counters = is_bed is not None or bed_status is not None
+        locations = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status)
+        counters: dict[str, BedCounters] = {}
+        if with_counters and locations:
+            counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
+        return [(loc, (counters.get(loc.key or "", BedCounters()) if with_counters else None)) for loc in locations]
+
+    def _filtered_locations(
+        self, site_key: SiteKey, *, tenant_key: str, is_bed: bool | None, bed_status: BedStatus | None
+    ) -> list[Location]:
+        """The owned site's locations, filtered by the ``is_bed`` flag of their type and by bed status."""
         self._owned_site(site_key, tenant_key=tenant_key)
         locations = self._sites.get_locations_by_site(site_key)
-        with_counters = is_bed is not None or bed_status is not None
         if bed_status is not None and is_bed is None:
             is_bed = True  # a status is a bed's property: ``bed_status=`` alone lists beds, not every location
         if is_bed is not None:
@@ -217,35 +233,31 @@ class GardenResourceService:
             locations = [loc for loc in locations if flags.get(loc.location_type_key, False) is is_bed]
         if bed_status is not None:
             locations = [loc for loc in locations if loc.bed_status is bed_status]
-        counters: dict[str, BedCounters] = {}
-        if with_counters and locations:
-            counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
-        return [(loc, (counters.get(loc.key or "", BedCounters()) if with_counters else None)) for loc in locations]
+        return locations
 
     def export_bed_list(
         self,
         site_key: SiteKey,
         *,
         tenant_key: str,
-        is_bed: bool | None,
-        bed_status: BedStatus | None,
+        columns: Collection[str],
+        bed_status: BedStatus | None = None,
         parent_location_key: LocationKey | None = None,
-        include_assignment: bool = False,
         locale: str = "de",
     ) -> list[BedListExportRow]:
-        """The bed list as the CSV download reads it (GP-FR-145/175, WP 8.25), sorted by name.
+        """The beds of a site as the CSV download reads them (GP-FR-145/175, WP 8.25), sorted by name.
 
-        The same rows as :meth:`list_beds` - same ownership step, same filters - with the labels a spreadsheet
-        shows: the type's name in ``locale``, the irrigation zone's name and, **only with** ``include_assignment``
-        (SR-024), the display names of the members the bed is assigned to (``anonymisiert`` for an erased account;
-        no account key leaves this method). Without a bed filter the download lists the beds (``is_bed=True``).
-        More than :data:`MAX_BED_LIST_EXPORT_ROWS` rows is 422 ``export.too_many_rows`` - never a cut file.
+        **Beds only**: the locations whose type has ``is_bed``, optionally of one ``bed_status``, behind the same
+        ownership step as :meth:`list_beds`. ``columns`` is the resolved selection (``resolve_bed_list_columns``):
+        only what a selected column needs is read - the counters for ``active_plants``, the type names for ``type``,
+        the zone names for ``irrigation_zone`` and, **only for** ``assigned_to`` (the SR-024 opt-in), the display
+        names of the members a bed is assigned to (``anonymisiert`` for an erased account; no account key leaves
+        this method). More than :data:`MAX_BED_LIST_EXPORT_ROWS` beds is 422 ``export.too_many_rows`` - checked
+        before any of those reads, and never a cut file.
         """
-        if is_bed is None and bed_status is None:
-            is_bed = True
-        listed = self.list_beds(site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status)
+        listed = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=True, bed_status=bed_status)
         if parent_location_key:
-            listed = [(loc, counters) for loc, counters in listed if loc.parent_location_key == parent_location_key]
+            listed = [loc for loc in listed if loc.parent_location_key == parent_location_key]
         if len(listed) > MAX_BED_LIST_EXPORT_ROWS:
             raise PlanError(
                 ERROR_TOO_MANY_ROWS,
@@ -253,27 +265,35 @@ class GardenResourceService:
                 status_code=422,
                 limit=MAX_BED_LIST_EXPORT_ROWS,
             )
-        type_names = self._plan.location_type_names(
-            sorted({loc.location_type_key for loc, _ in listed if loc.location_type_key})
-        )
-        zone_names = self._plan.irrigation_zone_names(site_key, tenant_key=tenant_key) if listed else {}
+        keys = [loc.key for loc in listed if loc.key]
+        wanted = set(columns)
+        counters: dict[str, BedCounters] = {}
+        if COLUMN_ACTIVE_PLANTS in wanted and keys:
+            counters = self._plan.load_bed_counters(keys, tenant_key=tenant_key)
+        type_names: dict[str, LocationTypeName] = {}
+        if COLUMN_TYPE in wanted and listed:
+            type_names = self._plan.location_type_names(
+                sorted({loc.location_type_key for loc in listed if loc.location_type_key})
+            )
+        zone_names: dict[str, str] = {}
+        if COLUMN_IRRIGATION_ZONE in wanted and any(loc.irrigation_zone_key for loc in listed):
+            zone_names = self._plan.irrigation_zone_names(site_key, tenant_key=tenant_key)
+        include_assignment = ASSIGNMENT_COLUMN in wanted
         assignees: dict[str, list[str]] = {}
-        if include_assignment and listed:
-            for assignee in self._plan.location_assignees(
-                [loc.key for loc, _ in listed if loc.key], tenant_key=tenant_key
-            ):
+        if include_assignment and keys:
+            for assignee in self._plan.location_assignees(keys, tenant_key=tenant_key):
                 name = display_performer(assignee.user_key, assignee.display_name)
                 if name:
                     assignees.setdefault(assignee.location_key, []).append(name)
         rows = [
             BedListExportRow(
                 location=loc,
-                counters=counters,
+                counters=counters.get(loc.key or "", BedCounters()) if COLUMN_ACTIVE_PLANTS in wanted else None,
                 type_name=_type_label(type_names.get(loc.location_type_key), locale),
                 zone_name=zone_names.get(loc.irrigation_zone_key) if loc.irrigation_zone_key else None,
                 assignees=sorted(assignees.get(loc.key or "", []), key=str.casefold) if include_assignment else None,
             )
-            for loc, counters in sorted(listed, key=lambda pair: _name_order(pair[0]))
+            for loc in sorted(listed, key=_name_order)
         ]
         logger.info(
             "garden_resource.bed_list_exported",

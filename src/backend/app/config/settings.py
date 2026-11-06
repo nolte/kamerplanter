@@ -940,7 +940,8 @@ class Settings(BaseSettings):
     rate_limit_plan_export: str = "10/minute"
     #: The same three routes, per **tenant** (GP-NFR-056): 30 a minute across all members *and* all three routes
     #: (one bucket), so a club of thirty parcel holders cannot together keep the renderer busy while each stays
-    #: inside the per-account budget.
+    #: inside the per-account budget. The bed list CSV (``GET /t/{slug}/locations?format=csv``, WP 8.25) draws on the
+    #: same bucket.
     rate_limit_plan_export_tenant: str = "30/minute"
     #: ``POST /t/{slug}/sites/{key}/plan/import`` (REQ-053 GP-NFR-056, SR-017), per **tenant**: an import reads up to
     #: 5 MB, checks every entity against the plan and, applied, rewrites the whole structure in one transaction. The

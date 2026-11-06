@@ -6368,7 +6368,9 @@
             "rateLimited": "You asked for many exports in a short time. Wait a minute and try again.",
             "forbidden": "You may not export this plan.",
             "failed": "The export did not work. Try again.",
-            "tooManyRows": "The bed list would be too long for one file (more than 2,000 beds)."
+            "tooManyRows": "The bed list would be too long for one file (more than 2,000 beds).",
+            "unknownColumn": "The server does not know one of the chosen columns. Reload the page and choose the columns again.",
+            "noColumns": "Select at least one column."
           },
           "csv": {
             "defaultColumns": "Standard columns",

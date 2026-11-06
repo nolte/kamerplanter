@@ -308,6 +308,27 @@ describe('ExportDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['export.unknown_column', 'does not know one of the chosen columns'],
+    ['export.no_columns', 'Select at least one column'],
+  ])('names the refused column selection %s', async (code, text) => {
+    useBackend(seen);
+    server.use(
+      http.get(`${BASE}/locations`, () =>
+        HttpResponse.json(
+          { error_id: 'e1', error_code: code, message: 'x', details: [], path: '', method: 'GET' },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    expect(await screen.findByTestId('plan-export-error')).toHaveTextContent(text);
+  });
+
   it('has no critical accessibility violations with the CSV options', async () => {
     useBackend(seen);
     const user = userEvent.setup();

@@ -55,6 +55,11 @@ export const DEFAULT_BED_LIST_CSV_OPTIONS: BedListCsvOptions = {
   excel: false,
 };
 
+/** The chosen columns in the order the file writes them (the server's order), whatever order they were ticked in. */
+export function orderedBedListColumns(columns: readonly BedListColumn[]): BedListColumn[] {
+  return BED_LIST_COLUMNS.filter((column) => columns.includes(column));
+}
+
 /** The query of `GET /locations?format=csv`: the site's beds, the chosen columns in file order. */
 export function bedListCsvParams(
   siteKey: string,
@@ -65,7 +70,7 @@ export function bedListCsvParams(
     site_key: siteKey,
     is_bed: 'true',
     format: 'csv',
-    columns: BED_LIST_COLUMNS.filter((column) => options.columns.includes(column)).join(','),
+    columns: orderedBedListColumns(options.columns).join(','),
     include_assignment: String(options.includeAssignment),
     delimiter: options.excel ? 'semicolon' : 'comma',
     locale: locale.startsWith('en') ? 'en' : 'de',

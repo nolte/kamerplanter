@@ -26,14 +26,19 @@ from app.domain.models.site import SiteConditions
 #: Separator of several values inside one cell (assignees, access sides, flags), as the care log's plant names.
 VALUE_SEPARATOR = " | "
 
+#: The columns whose cells need a read of their own (the service skips it when the column is not selected).
+COLUMN_TYPE = "type"
+COLUMN_IRRIGATION_ZONE = "irrigation_zone"
+COLUMN_ACTIVE_PLANTS = "active_plants"
+
 DEFAULT_COLUMNS: tuple[str, ...] = (
     "name",
-    "type",
+    COLUMN_TYPE,
     "area_m2",
     "status",
     "soil_texture",
-    "irrigation_zone",
-    "active_plants",
+    COLUMN_IRRIGATION_ZONE,
+    COLUMN_ACTIVE_PLANTS,
 )
 
 #: §10.2 site features of a bed (plus the coarse ``sun_exposure`` of §10.1 they refine), selectable (GP-FR-175).
@@ -60,6 +65,8 @@ ASSIGNMENT_COLUMN = "assigned_to"
 
 ERROR_UNKNOWN_COLUMN = "export.unknown_column"
 ERROR_NO_COLUMNS = "export.no_columns"
+#: ``format=csv`` with ``is_bed=false``: the download is the bed list, not every location of the site.
+ERROR_BEDS_ONLY = "export.beds_only"
 
 
 def resolve_bed_list_columns(columns: str | None, *, include_assignment: bool) -> tuple[str, ...]:

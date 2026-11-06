@@ -186,6 +186,8 @@ class FakePlanRepo(IGardenPlanRepository):
         self.assignees: list[tuple[str, BedAssignee]] = []
         #: The ``location_keys`` of every ``location_assignees`` read (an export without opt-in must make none).
         self.assignee_reads: list[list[str]] = []
+        #: Which of the download's other reads ran (WP 8.25 review: only what a selected column needs).
+        self.label_reads: list[str] = []
         self._next = 100
         self._next_snapshot = 0
         sites.repo = self
@@ -235,9 +237,11 @@ class FakePlanRepo(IGardenPlanRepository):
         return {key: self.bed_types[key] for key in location_type_keys if key in self.bed_types}
 
     def location_type_names(self, location_type_keys):
+        self.label_reads.append("type_names")
         return {key: self.type_names[key] for key in location_type_keys if key in self.type_names}
 
     def irrigation_zone_names(self, site_key, *, tenant_key):
+        self.label_reads.append("zone_names")
         return {
             key: name
             for key, name in self.zone_names.items()
@@ -364,6 +368,7 @@ class FakePlanRepo(IGardenPlanRepository):
 
     # single resources (WP 1.9) -------------------------------------------
     def load_bed_counters(self, location_keys, *, tenant_key):
+        self.label_reads.append("counters")
         return {key: self.counters[key] for key in location_keys if key in self.counters}
 
     def count_active_slots(self, site_key, *, tenant_key):

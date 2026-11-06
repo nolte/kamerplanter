@@ -239,6 +239,34 @@ class TestTheBedListAsCsv:
     def test_a_foreign_site_is_a_404_also_as_csv(self, client) -> None:
         assert self._get(client, base=_FOREIGN).status_code == 404
 
+    def test_is_bed_false_is_refused_the_download_lists_beds_only(self, client, repo) -> None:
+        repo.locations["tent"] = make_location("tent", name="Tent", location_type_key="greenhouse")
+
+        refused = self._get(client, is_bed="false")
+        listed = self._text(self._get(client, columns="name")).splitlines()
+
+        assert refused.status_code == 422
+        assert refused.json()["details"][0]["code"] == "export.beds_only"
+        assert listed == ["name", "Bed"]  # without a filter: the beds, not the tent
+
+    def test_the_csv_draws_on_the_tenant_bucket_of_the_plan_exports(self, client) -> None:
+        """GP-NFR-056: four callers stay under their ten each and still exhaust the tenant's thirty.
+
+        The account override resolves no principal here, so the per-account bucket falls back to the address;
+        four addresses are four per-account buckets, while the tenant bucket is the one tenant they share.
+        """
+        from app.config.settings import settings
+        from app.main import app
+
+        assert settings.rate_limit_plan_export_tenant == "30/minute"
+        client()  # sets the role of the tenant double
+        callers = [TestClient(app, client=(f"203.0.113.{n}", 40000)) for n in range(4)]
+        statuses = [self._get(lambda *_, http=http: http).status_code for http in callers for _ in range(8)]
+
+        assert statuses[:30] == [200] * 30 and statuses[30:] == [429, 429]
+        json_list = callers[0].get(f"{_BASE}/locations", params={"site_key": SITE, "is_bed": "true"})
+        assert json_list.status_code == 200  # the JSON list never counts
+
     def test_the_json_list_is_not_counted_against_the_csv_budget(self, client) -> None:
         from app.config.settings import settings
 
