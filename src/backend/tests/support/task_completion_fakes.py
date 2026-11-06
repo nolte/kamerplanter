@@ -40,6 +40,17 @@ class FakeTaskRepo:
     def clear_parked_recurrence(self, key: str) -> None:
         self.cleared_parked.append(key)
 
+    def resolve_suggestion(self, key, *, tenant_key, changes, open_statuses=None) -> Task | None:
+        """The predicate of the AQL statement: same tenant, still a suggestion, and (if given) still open."""
+        task = self.store.get(key)
+        if task is None or task.tenant_key != tenant_key or task.suggested is not True:
+            return None
+        if open_statuses is not None and task.status not in open_statuses:
+            return None
+        merged = Task.model_validate({**task.model_dump(by_alias=True), **changes})
+        self.store[key] = merged
+        return merged.model_copy(deep=True)
+
     def get_tasks_for_entity(self, *_args, **_kwargs) -> list[Task]:
         return []
 

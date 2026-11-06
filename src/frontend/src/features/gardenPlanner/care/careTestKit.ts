@@ -66,8 +66,9 @@ export interface Seen {
 }
 
 /**
- * The backend of a bed with a mutable pending queue: completing, skipping or reopening a task moves
- * it out of or back into the queue, so a reload shows what the server would show.
+ * The backend of a bed with a mutable pending queue: completing, skipping, dismissing or reopening a task moves
+ * it out of or back into the queue, and accepting a suggestion turns it into a plain task, so a reload shows what
+ * the server would show.
  */
 export function useCareBackend(initial: CareTask[], plants: { plant_key: string; instance_id: string }[] = []) {
   const queue = new Map(initial.map((task) => [task.key, task]));
@@ -100,6 +101,32 @@ export function useCareBackend(initial: CareTask[], plants: { plant_key: string;
         queue.delete(task.key);
         done.set(task.key, task);
       }
+      return HttpResponse.json({ ...task, status: 'skipped' });
+    }),
+    http.post(`${BASE}/tasks/:key/accept-suggestion`, async ({ request, params }) => {
+      await record(request);
+      const task = queue.get(String(params.key));
+      if (!task?.suggested) {
+        return HttpResponse.json(
+          { error_code: 'task.not_a_suggestion', message: 'This task is not a suggestion (any more).', details: [] },
+          { status: 409 },
+        );
+      }
+      const accepted = { ...task, suggested: false, suggestion_reason: null };
+      queue.set(task.key, accepted);
+      return HttpResponse.json(accepted);
+    }),
+    http.post(`${BASE}/tasks/:key/dismiss-suggestion`, async ({ request, params }) => {
+      await record(request);
+      const task = queue.get(String(params.key));
+      if (!task?.suggested) {
+        return HttpResponse.json(
+          { error_code: 'task.not_a_suggestion', message: 'This task is not a suggestion (any more).', details: [] },
+          { status: 409 },
+        );
+      }
+      queue.delete(task.key);
+      done.set(task.key, task);
       return HttpResponse.json({ ...task, status: 'skipped' });
     }),
     http.post(`${BASE}/tasks/:key/reopen`, async ({ request, params }) => {

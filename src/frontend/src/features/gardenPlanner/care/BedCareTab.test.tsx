@@ -185,26 +185,66 @@ describe('completing a task (GP-FR-083/084)', () => {
   });
 });
 
-describe('suggestions (GP-FR-086)', () => {
-  it('dismisses one by skipping it, with an undo', async () => {
+describe('suggestions (GP-FR-086, GP-API-040)', () => {
+  it('accepting one moves it into the open list and calls the accept endpoint', async () => {
+    const backend = useCareBackend([careTask('t_sug', { name: 'Water (ET0)', suggested: true, suggestion_reason: 'Dry spell' })]);
+    const user = userEvent.setup();
+    renderTab();
+    await user.click(await screen.findByTestId('care-accept-t_sug'));
+    const open = await screen.findByTestId('care-section-open');
+    expect(within(open).getByTestId('care-task-t_sug')).toBeInTheDocument();
+    expect(screen.queryByTestId('care-section-suggested')).toBeNull();
+    expect(backend.seen).toEqual([{ url: '/tasks/t_sug/accept-suggestion', body: null }]);
+  });
+
+  it('dismisses one through the dismiss endpoint, with an undo that reopens it as a suggestion', async () => {
     const backend = useCareBackend([careTask('t_sug', { suggested: true, suggestion_reason: 'Dry spell' })]);
     const user = userEvent.setup();
     renderTab();
     await user.click(await screen.findByTestId('care-dismiss-t_sug'));
     await waitFor(() => expect(screen.queryByTestId('care-task-t_sug')).toBeNull());
-    expect(backend.seen[0].url).toBe('/tasks/t_sug/skip');
+    expect(backend.seen[0]).toEqual({ url: '/tasks/t_sug/dismiss-suggestion', body: {} });
+    // Neither a skip nor a completion: the dismissal is its own transition.
+    expect(backend.seen.map((entry) => entry.url)).not.toContain('/tasks/t_sug/skip');
     await user.click(await screen.findByTestId('care-undo'));
-    expect(await screen.findByTestId('care-task-t_sug')).toBeInTheDocument();
+    const suggested = await screen.findByTestId('care-section-suggested');
+    expect(within(suggested).getByTestId('care-task-t_sug')).toBeInTheDocument();
     // A dismissal has no care line to void: the plain reopen, not the undo variant.
     expect(backend.seen[backend.seen.length - 1]).toEqual({ url: '/tasks/t_sug/reopen', body: {} });
   });
 
-  it('"Do now" opens the same completion dialog', async () => {
+  it('offers no "Done" on a suggestion', async () => {
     useCareBackend([careTask('t_sug', { suggested: true, category: 'watering' })]);
+    renderTab();
+    await screen.findByTestId('care-accept-t_sug');
+    expect(screen.queryByTestId('care-done-t_sug')).toBeNull();
+  });
+
+  it('renders no suggestions section when there is none', async () => {
+    useCareBackend([careTask('t_open', { name: 'Mulch', due_date: FUTURE })]);
+    renderTab();
+    await screen.findByTestId('care-section-open');
+    expect(screen.queryByTestId('care-section-suggested')).toBeNull();
+  });
+
+  it('shows a viewer the suggestion and its reason without the decisions', async () => {
+    useCareBackend([careTask('t_sug', { suggested: true, suggestion_reason: 'Dry spell' })]);
+    renderTab(bedSummary(), 'viewer');
+    expect(await screen.findByTestId('care-reason-t_sug')).toHaveTextContent('Dry spell');
+    expect(screen.queryByTestId('care-accept-t_sug')).toBeNull();
+    expect(screen.queryByTestId('care-dismiss-t_sug')).toBeNull();
+  });
+
+  it('reloads after a 409 so a suggestion decided elsewhere leaves the section', async () => {
+    const backend = useCareBackend([careTask('t_sug', { suggested: true })]);
     const user = userEvent.setup();
     renderTab();
-    await user.click(await screen.findByTestId('care-done-t_sug'));
-    expect(await screen.findByTestId('care-complete-dialog')).toBeInTheDocument();
+    await screen.findByTestId('care-accept-t_sug');
+    // Someone else accepted it meanwhile.
+    backend.queue.set('t_sug', { ...backend.queue.get('t_sug')!, suggested: false });
+    await user.click(screen.getByTestId('care-accept-t_sug'));
+    const open = await screen.findByTestId('care-section-open');
+    expect(within(open).getByTestId('care-task-t_sug')).toBeInTheDocument();
   });
 });
 

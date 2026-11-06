@@ -193,6 +193,34 @@ The first photo becomes the cover automatically; if you remove the cover, none i
 
 ---
 
+### Accept or dismiss suggested tasks (REQ-053)
+
+A suggested task is an open task with `suggested = true`; `suggestion_reason` gives the reason. Both endpoints need the role `grower` or higher (`viewer` → `403`), write nothing but the task itself and answer with the changed task (`TaskResponse`).
+
+```
+POST /api/v1/t/{slug}/tasks/{key}/accept-suggestion    # becomes an ordinary open task
+POST /api/v1/t/{slug}/tasks/{key}/dismiss-suggestion   # closes the suggestion as skipped
+```
+
+**`accept-suggestion`** sets `suggested = false` and clears `suggestion_reason`; status, due date and everything else stay. Who made the suggestion stays in `origin` and `source`.
+
+**`dismiss-suggestion`** takes the optional body `{"reason": "…"}` (at most 500 characters, other fields → `422`) and sets `status = skipped`, `completed_at` to the moment it was closed and `completion_notes` to the reason. `suggested` stays `true`: the suggestion was never accepted, and every view that hides suggestions keeps hiding it. No care entry and no notification are written, and the task does not count as done. `POST …/tasks/{key}/reopen` brings a dismissed suggestion back.
+
+The check and the write are one statement: if two people decide at the same time, one wins and the other gets `409`.
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Task not found (or not in this tenant) |
+| `409` | `task.not_a_suggestion` | The task is not (or no longer) a suggestion, for example because it was already accepted |
+| `409` | `task.suggestion_closed` | Dismiss only: the suggestion is already closed (completed, skipped or dismissed) |
+| `409` | `WRITE_CONFLICT` | A concurrent write on the same task; try again |
+
+!!! warning "Not implemented yet: generating suggestions"
+    Kamerplanter itself does not create tasks with `suggested = true` yet. The endpoints are ready, but in a running installation they only have something to decide once a later version creates suggestions. <!-- REQ-053 GP-FR-086, GP-API-040 -->
+
+---
+
 ### Create a mixed culture in one step (REQ-053)
 
 `POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Only items with a row layout (`grid`, `rows`, `triangular`) and a `row_assignment` take part; an area (`zone`), free positions (`free`) and items without a layout take no rows. The error names the pairs in `details[0].conflicts` as `{"runs": [i, j], "rows": [...], "rows_total": n}` (positions in `runs[]`, the shared rows in ascending order and their count), at most 20 pairs with at most 50 rows each; `details[0].pairs_total` gives the number of all pairs, and `details[0].truncated` is `true` when anything was cut. `details[0].field` points at the later item of the first pair.

@@ -162,6 +162,24 @@ class ITaskRepository(ABC):
     def update_task(self, key: TaskKey, task: Task) -> Task: ...
 
     @abstractmethod
+    def resolve_suggestion(
+        self,
+        key: TaskKey,
+        *,
+        tenant_key: str,
+        changes: dict[str, Any],
+        open_statuses: Sequence[str] | None = None,
+    ) -> Task | None:
+        """Write ``changes`` onto a suggestion only while it still is one (REQ-053 GP-API-040).
+
+        One statement: the predicate (``tenant_key``, ``suggested == true`` and, if given, ``status`` in
+        ``open_statuses``) and the write are evaluated on the same document, so an accept and a dismiss racing on
+        the same task cannot both win, and a concurrent edit of the task is never overwritten by a stale copy -
+        only the named ``changes`` (stored values: strings, booleans, ``None``) are merged in. ``None`` when the
+        predicate no longer holds (or the task is gone); the caller re-reads to name the reason.
+        """
+
+    @abstractmethod
     def clear_parked_recurrence(self, key: TaskKey) -> None:
         """Drop ``recurrence_rule_unconvertible`` from the stored task (REQ-053 v1.5 §12.2, #2411 item 4).
 

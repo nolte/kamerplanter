@@ -7200,7 +7200,7 @@
           "overdue": "Überfällig ({{count}})",
           "open": "Offen ({{count}})",
           "suggested": "Vorschläge ({{count}})",
-          "suggestedHint": "Diese Aufgaben schlägt das System vor. Erledige eine jetzt oder verwirf sie; ohne deine Entscheidung passiert nichts.",
+          "suggestedHint": "Diese Aufgaben schlägt das System vor. Nimmst du einen Vorschlag an, wird er zu einer normalen offenen Aufgabe; verwirfst du ihn, wird er ohne Pflegeeintrag geschlossen. Ohne deine Entscheidung passiert nichts.",
           "suggestedNoReason": "Kein Grund angegeben."
         },
         "target": {
@@ -7213,8 +7213,12 @@
         "dueOverdue": "Überfällig seit {{date}}",
         "done": "Erledigt",
         "doneFor": "Erledigt: {{name}}",
-        "doNow": "Jetzt erledigen",
-        "doNowFor": "Jetzt erledigen: {{name}}",
+        "suggestions": {
+          "reason": "Grund: {{reason}}",
+          "accept": "Annehmen",
+          "acceptFor": "Annehmen: {{name}}",
+          "accepted": "Angenommen: {{name}} steht jetzt bei den offenen Aufgaben."
+        },
         "dismiss": "Verwerfen",
         "dismissFor": "Verwerfen: {{name}}",
         "loading": "Aufgaben werden geladen",

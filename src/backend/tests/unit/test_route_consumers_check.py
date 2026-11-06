@@ -323,9 +323,13 @@ class TestTheRouteOperand:
 
         +1: the CSV bed list import (REQ-053 WP 8.26, #2669): ``POST /t/{slug}/sites/{key}/beds/import-csv``. Its
         consumer, the CSV step of the import wizard, is the second member of the same group (WP 8.27, #2670).
+
+        +2: the decision on a suggested task (REQ-053 WP 8.17, #2660, GP-API-040): ``POST /t/{slug}/tasks/{key}/
+        accept-suggestion`` and ``…/dismiss-suggestion``. The suggestions section of the bed care tab
+        (``features/gardenPlanner/care/careApi.ts``) consumes both in the same change.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 899
+        assert len(checker.collect_operations(app)) == 901
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
