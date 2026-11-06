@@ -19,10 +19,10 @@ keyword-only, without a default; every read below is scoped by that tenant.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
-from app.common.datetimes import today_utc
+from app.common.datetimes import now_utc, today_utc
 from app.common.enums import NutrientDemand, PlanRole
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.nutrient_hint_engine import (
@@ -30,6 +30,7 @@ from app.domain.engines.nutrient_hint_engine import (
     NutrientHintConfig,
     NutrientHintInputs,
     assess,
+    is_material_of,
     is_n_binding_mulch,
     lab_content_classes,
 )
@@ -73,7 +74,7 @@ class NutrientHintService:
         now: datetime | None = None,
     ) -> NutrientHint:
         """The hint of an owned bed whose standing species are ``species_keys``."""
-        at = now or datetime.now(UTC)
+        at = now if now is not None else now_utc()
         location_key = location.key or ""
         inputs = NutrientHintInputs(
             now=at,
@@ -138,7 +139,7 @@ class NutrientHintService:
             for performed, material, _x in self._read(
                 location_key, "soil_amendment", at, MAX_AMENDMENTS, tenant_key=tenant_key
             )
-            if material is not None and material.strip().lower() in NUTRIENT_MATERIALS
+            if is_material_of(material, NUTRIENT_MATERIALS)
         ]
         return max(found, default=None)
 

@@ -71,6 +71,7 @@ from app.domain.models.garden_plan import (
     SlotPatch,
 )
 from app.domain.models.geometry import Geometry
+from app.domain.models.nutrient_hint import NutrientHint
 from app.domain.models.site import Location, Site, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -212,9 +213,11 @@ class GardenResourceService:
         counters = self._plan.load_bed_counters([key], tenant_key=tenant_key).get(key, BedCounters())
         flags = self._plan.bed_type_flags([location.location_type_key]) if location.location_type_key else {}
         is_bed = flags.get(location.location_type_key, False)
-        hint = None
-        if is_bed and self._nutrient_hint is not None:
-            hint = self._nutrient_hint().assess(location, counters.species_keys, tenant_key=tenant_key)
+        hint: NutrientHint | None = None
+        provider = self._nutrient_hint
+        if is_bed and provider is not None:
+            hints: NutrientHintService = provider()
+            hint = hints.assess(location, counters.species_keys, tenant_key=tenant_key)
         return BedSummaryView(
             location=location,
             counters=counters,

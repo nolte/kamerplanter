@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.common.enums import GrowingMediumKind, NutrientDemand
@@ -51,7 +51,10 @@ _SEVERITY: dict[NutrientHintState, int] = {"ok": 0, "check": 1, "likely_deficit"
 
 
 def _has_source(source: str | None) -> bool:
-    return source is not None and bool(source.strip())
+    if source is None:
+        return False
+    text: str = source
+    return bool(text.strip())
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,11 @@ class SourcedFlag:
         return self.enabled and _has_source(self.source)
 
 
+def _threshold(table: Mapping[NutrientDemand, SourcedThreshold], demand: NutrientDemand) -> SourcedThreshold:
+    """The threshold of a feeder level; a level the table leaves out has none."""
+    return table[demand] if demand in table else SourcedThreshold()
+
+
 def _null_per_demand() -> Mapping[NutrientDemand, SourcedThreshold]:
     return {demand: SourcedThreshold() for demand in NutrientDemand}
 
@@ -119,8 +127,8 @@ class NutrientHintConfig:
                 ("check_after_days", self.check_after_days),
                 ("likely_deficit_after_days", self.likely_deficit_after_days),
             )
-            for demand, threshold in table.items()
-            if threshold.active
+            for demand in NutrientDemand
+            if _threshold(table, demand).active
         ]
         if self.low_content_classes.active:
             names += ["low_content_classes"]
@@ -162,6 +170,7 @@ def lab_content_classes(analyses: Iterable[Sequence[Mapping[str, Any]]]) -> dict
     measurement with ``source = lab``; a test kit or a sensor never has one, and none is derived from a value.
     """
     found: dict[str, str] = {}
+    measurement: Mapping[str, Any]
     for measurements in analyses:
         for measurement in measurements:
             parameter = str(measurement.get("parameter"))
@@ -176,7 +185,15 @@ def lab_content_classes(analyses: Iterable[Sequence[Mapping[str, Any]]]) -> dict
 
 def is_n_binding_mulch(material: str | None) -> bool:
     """Whether a ``mulching`` material binds nitrogen (the stored code, compared without case and spaces)."""
-    return material is not None and material.strip().lower() in N_BINDING_MULCH_MATERIALS
+    return is_material_of(material, N_BINDING_MULCH_MATERIALS)
+
+
+def is_material_of(material: str | None, materials: frozenset[str]) -> bool:
+    """Whether a stored ``material`` code is one of ``materials`` (compared without case and outer spaces)."""
+    if material is None:
+        return False
+    text: str = material
+    return text.strip().lower() in materials
 
 
 def strongest_demand(demands: Iterable[NutrientDemand | None]) -> NutrientDemand | None:
@@ -197,15 +214,16 @@ class _Verdict:
 
 def _feeding_rule(demand: NutrientDemand, inputs: NutrientHintInputs, config: NutrientHintConfig) -> _Verdict | None:
     """R1: days since the last nutrient input against the sourced thresholds of the feeder level."""
-    check = config.check_after_days.get(demand, SourcedThreshold())
-    likely = config.likely_deficit_after_days.get(demand, SourcedThreshold())
+    check = _threshold(config.check_after_days, demand)
+    likely = _threshold(config.likely_deficit_after_days, demand)
     active = [threshold for threshold in (likely, check) if threshold.active]
     if not active:
         return None
     if inputs.last_nutrient_input_at is None:
         # Not recorded is not the same as not fed: at most "check".
         return _Verdict("check", "no_feeding_recorded", str(active[0].source))
-    days = (inputs.now - inputs.last_nutrient_input_at).total_seconds() / 86400
+    elapsed: timedelta = inputs.now - inputs.last_nutrient_input_at
+    days = elapsed.total_seconds() / 86400
     if likely.active and days > float(likely.value or 0):
         return _Verdict("likely_deficit", "feeding_overdue", str(likely.source))
     if check.active and days > float(check.value or 0):
@@ -217,7 +235,7 @@ def _class_rule(inputs: NutrientHintInputs, config: NutrientHintConfig) -> list[
     """R2: a lab class of P or K in the sourced low classes makes a deficit likely."""
     rule = config.low_content_classes
     classes = inputs.content_classes
-    present = {parameter: classes[parameter] for parameter in CLASS_PARAMETERS if parameter in classes}
+    present: dict[str, str] = {parameter: classes[parameter] for parameter in CLASS_PARAMETERS if parameter in classes}
     if not rule.active or not present:
         return []
     source = str(rule.source)
@@ -236,7 +254,8 @@ def _flags(inputs: NutrientHintInputs) -> tuple[list[NutrientHintReason], bool]:
         flags += ["preceding_nitrogen_fixer"]
     if _mulch_after_input(inputs):
         flags += ["bark_mulch_n_binding"]
-    withheld = any(inputs.content_classes.get(parameter) in HIGH_CONTENT_CLASSES for parameter in CLASS_PARAMETERS)
+    classes: Mapping[str, str] = inputs.content_classes
+    withheld = any(each in classes and classes[each] in HIGH_CONTENT_CLASSES for each in CLASS_PARAMETERS)
     if withheld:
         flags += ["p_or_k_class_high"]
     return flags, withheld
@@ -296,10 +315,19 @@ def assess(inputs: NutrientHintInputs, config: NutrientHintConfig = DEFAULT_CONF
     return NutrientHint(
         state,
         confidence,
-        tuple(dict.fromkeys([*reasons, *flags])),
+        _unique([*reasons, *flags]),
         withheld,
-        tuple(dict.fromkeys(sources)),
+        _unique(sources),
     )
+
+
+def _unique[T](items: Iterable[T]) -> tuple[T, ...]:
+    """``items`` without repeats, in their first order."""
+    seen: list[T] = []
+    for item in items:
+        if item not in seen:
+            seen += [item]
+    return tuple(seen)
 
 
 def _confidence(deciding: Sequence[_Verdict], *, partly_unknown: bool, adjusted: bool) -> NutrientHintConfidence:
