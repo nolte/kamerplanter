@@ -13,6 +13,7 @@ The guard enumerates the class, not the sites: it reads the ``export interface S
 from __future__ import annotations
 
 import re
+from functools import cache
 from pathlib import Path
 
 import pytest
@@ -25,14 +26,16 @@ if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
     pytest.skip("checkout root not found", allow_module_level=True)
 
 _TYPES = _REPO_ROOT / "src" / "frontend" / "src" / "api" / "types.ts"
-_FIELD = re.compile(r"^  (\w+)\??:")
+#: A top-level member of the interface: two-space indent, optional ``readonly``, a bare or quoted key.
+_FIELD = re.compile(r"""^  (?:readonly\s+)?["']?([A-Za-z_$][\w$-]*)["']?\??\s*:""")
 
 
-def _client_species_keys() -> list[str]:
+@cache
+def _client_species_keys() -> tuple[str, ...]:
     lines = _TYPES.read_text(encoding="utf-8").splitlines()
     start = lines.index("export interface Species {")
     end = next(i for i in range(start + 1, len(lines)) if lines[i].startswith("}"))
-    return [match.group(1) for line in lines[start + 1 : end] if (match := _FIELD.match(line))]
+    return tuple(match.group(1) for line in lines[start + 1 : end] if (match := _FIELD.match(line)))
 
 
 def test_the_client_type_is_read_from_the_real_interface() -> None:
@@ -41,6 +44,14 @@ def test_the_client_type_is_read_from_the_real_interface() -> None:
     # Falsifies a reader that silently finds nothing (wrong path, renamed interface, changed indentation).
     assert len(keys) > 40, keys
     assert {"scientific_name", "light_requirement", "toxicity"} <= set(keys)
+
+
+def test_the_reader_takes_readonly_and_quoted_keys() -> None:
+    assert [
+        m.group(1)
+        for line in ("  readonly sowing_depth_cm?: number;", "  'x-flag'?: boolean;", "  key: string;")
+        if (m := _FIELD.match(line))
+    ] == ["sowing_depth_cm", "x-flag", "key"]
 
 
 def test_every_client_species_field_is_served_by_the_response() -> None:
