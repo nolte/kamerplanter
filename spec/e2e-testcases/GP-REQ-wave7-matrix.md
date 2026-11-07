@@ -4,8 +4,9 @@
 
 The rows are the SHOULD rows of wave 7 (`WAVE7_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3
 "Welle 7", spec section 34); the priority is read from the spec table. A test claims a row by carrying
-its id (`GP-FR-117`, or the shorthand `GP-FR-112/117`). A reference proves that a test claims the row;
-whether it proves it completely stays a review question. Honest gaps are listed in
+its id (`GP-FR-117`, or the shorthand `GP-FR-112/117`). **Limit of the method:** a row counts as covered
+when a test file names its id; that is a claim, not proof the test exercises the row - whether it does
+stays a review question. Honest gaps are listed in
 `GP-REQ-wave7-gaps.json` with a reason and an issue: **GAP** (no test) or **partial** (the tests leave
 the named part unproven).
 

@@ -54,7 +54,9 @@ _SELF = {"test_req053_acceptance_matrix.py"}
 WAVE7_MATRIX = ROOT / "spec/e2e-testcases/GP-REQ-wave7-matrix.md"
 WAVE7_GAPS = ROOT / "spec/e2e-testcases/GP-REQ-wave7-gaps.json"
 _SPEC_ROW = re.compile(r"^\| GP-(FR|UX|API|NFR)-(\d{3}) \|([^|]*)\|", re.MULTILINE)
-_TEST_ROW = re.compile(r"GP-(FR|API|UX|NFR)-(\d{3})((?:/\d{3})*)")
+#: A row id with its own boundaries: ``GP-NFR-0151`` is no claim of GP-NFR-015, and the ``/ddd`` shorthand only counts
+#: a three-digit number that ends there (``GP-FR-105/2026-11`` claims GP-FR-105 only).
+_TEST_ROW = re.compile(r"(?<![\w-])GP-(FR|API|UX|NFR)-(\d{3})(?!\d)((?:/\d{3}(?!\d))*)")
 
 WAVE8_MATRIX = ROOT / "spec/e2e-testcases/GP-REQ-wave8-matrix.md"
 WAVE8_GAPS = ROOT / "spec/e2e-testcases/GP-REQ-wave8-gaps.json"
@@ -103,10 +105,11 @@ WAVE7_ROWS: dict[str, str] = {
 }
 
 
-#: The rows of wave 8 (plan section 3 "Welle 8", WP 8.1-8.29; spec section 34 row 8), with the part a row contributes
-#: when only part of it is wave 8. Not here, with the plan's reason: GP-FR-131/132 (delivered in wave 3), GP-FR-157-160
-#: and 169 (wave 7), GP-FR-165/167 (COULD, wave 9 per section 34), GP-FR-144 (PNG, wave 9), GP-FR-173/176 (wave 9),
-#: the COULD rows GP-FR-108/126/127/136, GP-FR-087/091 (not in section 34 wave 8).
+#: The rows of wave 8, with the part a row contributes when only part of it is wave 8. The rule: a row is here when a
+#: work package of plan section 3 "Welle 8" (WP 8.1-8.29) names it as its deliverable - whatever its priority; that is
+#: why the COULD row GP-FR-168 (WP 8.22/8.24) is here. Not here, because no wave-8 package delivers them: GP-FR-131/132
+#: (delivered in wave 3), GP-FR-157-160 and 169 (wave 7), GP-FR-144, 165, 167, 173, 176 (wave 9 per section 34), the
+#: COULD rows GP-FR-108/126/127/136 and GP-FR-087/091 (named by no wave-8 package).
 WAVE8_ROWS: dict[str, str] = {
     "GP-FR-051": "bed photos with cover photo, gallery tab, field-mode photo (WP 8.18, 8.19)",
     "GP-FR-086": "suggestions section with accept / dismiss (WP 8.17; no producer, E-02)",
@@ -387,8 +390,9 @@ def render_wave7(
         "",
         "The rows are the SHOULD rows of wave 7 (`WAVE7_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3",
         '"Welle 7", spec section 34); the priority is read from the spec table. A test claims a row by carrying',
-        "its id (`GP-FR-117`, or the shorthand `GP-FR-112/117`). A reference proves that a test claims the row;",
-        "whether it proves it completely stays a review question. Honest gaps are listed in",
+        "its id (`GP-FR-117`, or the shorthand `GP-FR-112/117`). **Limit of the method:** a row counts as covered",
+        "when a test file names its id; that is a claim, not proof the test exercises the row - whether it does",
+        "stays a review question. Honest gaps are listed in",
         "`GP-REQ-wave7-gaps.json` with a reason and an issue: **GAP** (no test) or **partial** (the tests leave",
         "the named part unproven).",
         "",
@@ -408,8 +412,9 @@ def render_wave8(
         "",
         "The rows are the rows of wave 8 (`WAVE8_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3",
         '"Welle 8", WP 8.1-8.29, spec section 34); the priority is read from the spec table (`API` for an API row).',
-        "A test claims a row by carrying its id (`GP-FR-135`, `GP-NFR-063`, or the shorthand `GP-FR-145/175`). A",
-        "reference proves that a test claims the row; whether it proves it completely stays a review question.",
+        "A test claims a row by carrying its id (`GP-FR-135`, `GP-NFR-063`, or the shorthand `GP-FR-145/175`).",
+        "**Limit of the method:** a row counts as covered when a test file names its id; that is a claim, not proof",
+        "the test exercises the row - whether it does stays a review question.",
         "Honest gaps are listed in `GP-REQ-wave8-gaps.json` with a reason and an issue: **GAP** (no test) or",
         "**partial** (the tests leave the named part unproven).",
         "",
@@ -474,6 +479,18 @@ def wave8_problems(
     return _wave_problems("8", WAVE8_ROWS, rows, found, gaps)
 
 
+def stray_rows(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+) -> list[str]:
+    """Row ids a test claims that are no row of the spec (a typo or a retired id), like the GP-ACC check."""
+    return [
+        f"{r}: referenced by {', '.join(sorted(f for files in found[r].values() for f in files))} but not a row of the spec"
+        for r in sorted(found)
+        if r not in rows
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument(
@@ -493,6 +510,7 @@ def main() -> int:
         problems(ids, found, gaps)
         + wave7_problems(rows, found_rows, wave7_gaps)
         + wave8_problems(rows, found_rows, wave8_gaps)
+        + stray_rows(rows, found_rows)
     )
     for path, text in outputs:
         if args.write:

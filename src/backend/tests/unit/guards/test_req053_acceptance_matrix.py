@@ -149,3 +149,20 @@ def test_an_nfr_id_in_a_test_is_scanned(matrix, tmp_path, monkeypatch) -> None:
     probe.write_text('"""Measures GP-NFR-071."""\n', encoding="utf-8")
     monkeypatch.setattr(matrix, "ROOT", tmp_path)
     assert matrix.scan_rows() == {"GP-NFR-071": {"e2e": {"tests/e2e/test_probe.py"}}}
+
+
+def test_a_longer_number_or_a_following_date_is_no_claim(matrix, tmp_path, monkeypatch) -> None:
+    probe = tmp_path / "src" / "backend" / "tests" / "unit" / "test_probe.py"
+    probe.parent.mkdir(parents=True)
+    probe.write_text('"""GP-NFR-0151, XGP-FR-100, GP-FR-105/2026-11 and GP-FR-158/159."""\n', encoding="utf-8")
+    monkeypatch.setattr(matrix, "ROOT", tmp_path)
+    assert set(matrix.scan_rows()) == {"GP-FR-105", "GP-FR-158", "GP-FR-159"}
+
+
+def test_no_test_claims_a_row_the_spec_does_not_have(matrix) -> None:
+    assert matrix.stray_rows(matrix.spec_rows(), matrix.scan_rows()) == []
+
+
+def test_a_claimed_id_outside_the_spec_is_reported(matrix) -> None:
+    errors = matrix.stray_rows({"GP-FR-001": "MUST"}, {"GP-FR-999": {"unit": {"a.py"}}})
+    assert errors == ["GP-FR-999: referenced by a.py but not a row of the spec"]

@@ -1,7 +1,7 @@
 {
   "GP-FR-086": {
     "partial": true,
-    "reason": "The suggestions section, accept and dismiss are tested with a suggestion seeded through the repository (unit, API, frontend, E2E TC-053-070/071). No code creates a task with `suggested = true` (E-02, ADR-008 phase 2; #2643 question 3 confirmed shipping without a producer), so in a running installation the section never appears. First producer candidate: the zone demand (GP-FR-113)",
+    "reason": "The suggestions section, accept and dismiss are tested with a suggestion seeded through the repository (API, integration, frontend, E2E TC-053-070/071). No code creates a task with `suggested = true` (E-02, ADR-008 phase 2; #2643 question 3 confirmed shipping without a producer), so in a running installation the section never appears. First producer candidate: the zone demand (GP-FR-113)",
     "issue": 2643
   },
   "GP-FR-125": {

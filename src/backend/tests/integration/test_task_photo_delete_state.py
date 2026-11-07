@@ -60,7 +60,7 @@ _COLLECTIONS = [
     col.PEST_IMAGE_CONTRIBUTIONS,
     col.PESTS,
     col.SITES,  # the plan underlay (REQ-053 GP-FR-033)
-    col.LOCATIONS,  # the bed photos (REQ-053 GP-FR-051)
+    col.LOCATIONS,  # the bed photos (REQ-053 WP 8.18)
 ]
 
 
