@@ -134,7 +134,7 @@ With `scope` you choose `site` (everything), `selection` (exactly the beds or ob
 
 ### Additive keys and versions
 
-`schema_version` is `"1"`. New fields are added **additively** only; a known entry ignores unknown fields. A file with an unknown key at the top level comes from a newer version and is refused with `422 import.unknown_keys`; a missing or unsupported `schema_version` gives `import.schema_version_missing` or `import.schema_version_unsupported`. The frost exposure of a bed (`frost_exposed`) is part of the file; if it is missing, the import derives it from the frost risk.
+`schema_version` is `"1"`. A breaking change raises the version; the import then keeps reading at least the two versions before it and lifts an older file step by step to the current one before any check (migration chain `plan_schema_migration`, one step per version). If the conversion fails, it answers `422 import.schema_migration_failed`. A guard test turns red when the version is raised without those steps. New fields are added **additively** only; a known entry ignores unknown fields. A file with an unknown key at the top level comes from a newer version and is refused with `422 import.unknown_keys`; a missing or unsupported `schema_version` gives `import.schema_version_missing` or `import.schema_version_unsupported`. The frost exposure of a bed (`frost_exposed`) is part of the file; if it is missing, the import derives it from the frost risk.
 
 ### Snapshots
 

@@ -23,9 +23,5 @@
     "partial": true,
     "reason": "Slope and aspect per bed and the orientation derived from `aspect_deg` (8 directions) are tested. Not implemented: \"vom Site-Wert geerbt\" - the site has no terrain field and #2643 question 4 decided per bed only, no inheritance; the row text still names the inheritance",
     "issue": 2643
-  },
-  "GP-NFR-072": {
-    "reason": "WP 8.28 (#2671) is not merged: the import still knows only `schema_version \"1\"` (`domain/models/garden_plan_import.py`), there is no migration chain and no guard `test_plan_import_keeps_two_schema_versions.py`. With one version there is nothing to migrate yet; the guard that turns red when the version is raised without migrators is the open deliverable",
-    "issue": 2671
   }
 }

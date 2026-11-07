@@ -6443,6 +6443,7 @@
             "import_not_empty": "This plan has beds with active plants. Remove the plants or confirm that these beds stay.",
             "import_schema_version_missing": "The file has no version and is not a backup.",
             "import_schema_version_unsupported": "This version of the backup cannot be read here.",
+            "import_schema_migration_failed": "This older backup could not be converted. Export the plan again if you can.",
             "import_unknown_keys": "The file holds parts this version does not know. Update Kamerplanter or export the backup again.",
             "import_site_name_mismatch": "The name you typed does not match the site.",
             "plan_revision_conflict": "Someone changed the plan while you were importing. Reload the plan and check the file again.",

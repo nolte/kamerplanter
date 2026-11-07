@@ -372,6 +372,7 @@ Die Frostexposition eines Beets (`frost_exposed` in `locations[]`) steht in der 
 | `409` | `plan.revision_conflict` | Jemand hat den Plan während des Imports gespeichert |
 | `413` | `REQUEST_BODY_TOO_LARGE` | Mehr als 5 MB |
 | `422` | `import.schema_version_missing`, `import.schema_version_unsupported` | Die Datei ist keine Sicherung einer Version, die diese Installation liest |
+| `422` | `import.schema_migration_failed` | Eine ältere Sicherung ließ sich nicht auf die aktuelle Version umwandeln |
 | `422` | `import.unknown_keys` | Die Datei enthält Teile auf oberster Ebene, die diese Version nicht kennt (neuere Datei) |
 | `422` | `import.site_name_mismatch` | `replace` ohne den genauen Site-Namen |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` ist nicht endlich oder außerhalb von ±1000 m / gehört nur zu `merge` |

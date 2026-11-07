@@ -6444,6 +6444,7 @@
             "import_not_empty": "In diesem Plan stehen Beete mit aktiven Pflanzen. Entferne die Pflanzen oder bestätige, dass diese Beete erhalten bleiben.",
             "import_schema_version_missing": "Die Datei hat keine Versionsangabe und ist keine Sicherung.",
             "import_schema_version_unsupported": "Diese Version der Sicherung kann hier nicht gelesen werden.",
+            "import_schema_migration_failed": "Diese ältere Sicherung ließ sich nicht umwandeln. Exportiere den Plan, wenn möglich, neu.",
             "import_unknown_keys": "Die Datei enthält Teile, die diese Version nicht kennt. Aktualisiere Kamerplanter oder exportiere die Sicherung neu.",
             "import_site_name_mismatch": "Der eingegebene Name stimmt nicht mit dem Standort überein.",
             "plan_revision_conflict": "Jemand hat den Plan geändert, während du importiert hast. Lade den Plan neu und prüfe die Datei noch einmal.",

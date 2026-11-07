@@ -372,6 +372,7 @@ The frost exposure of a bed (`frost_exposed` in `locations[]`) is part of the fi
 | `409` | `plan.revision_conflict` | Someone saved the plan while the import ran |
 | `413` | `REQUEST_BODY_TOO_LARGE` | More than 5 MB |
 | `422` | `import.schema_version_missing`, `import.schema_version_unsupported` | The file is no backup of a version this installation reads |
+| `422` | `import.schema_migration_failed` | An older backup could not be converted to the current version |
 | `422` | `import.unknown_keys` | The file holds top-level parts this version does not know (a newer file) |
 | `422` | `import.site_name_mismatch` | `replace` without the exact site name |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` is not finite or beyond ±1000 m / belongs to `merge` only |
