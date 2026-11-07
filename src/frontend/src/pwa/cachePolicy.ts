@@ -23,16 +23,20 @@ export const API_NETWORK_TIMEOUT_SECONDS = 5;
 export const API_CACHE_PREFIX = 'kp:';
 
 /**
- * Caches that hold only build output or deployment config — no personal data. They survive a
- * logout or tenant switch so the app shell stays loadable; the kill switch deletes them too.
+ * Caches that hold only build output — no personal data. They survive a logout or tenant switch so
+ * the app shell stays loadable; the kill switch deletes them too. (`runtime-config.js` is never
+ * cached: it carries the kill switch, so a stale copy could keep a switched-off worker alive.)
  */
 export const STATIC_ASSET_CACHE = 'kp-static-assets';
-export const RUNTIME_CONFIG_CACHE = 'kp-runtime-config';
 /** Workbox names its precache `workbox-precache-v2-<scope>`. */
 export const PRECACHE_CACHE_PREFIX = 'workbox-precache';
 
-/** Ceiling for the runtime static-asset cache (files not in the precache manifest). */
-export const STATIC_ASSET_MAX_ENTRIES = 120;
+/**
+ * Ceiling for the runtime static-asset cache: the lazy route chunks and illustrations outside the
+ * app-shell precache. Above the ~380 files of one build, so one build's routes fit; older builds'
+ * hashed files are evicted oldest-first.
+ */
+export const STATIC_ASSET_MAX_ENTRIES = 450;
 
 /** Header the worker stamps on a stored API answer: epoch milliseconds of the write. */
 export const CACHED_AT_HEADER = 'x-kp-cached-at';
@@ -84,6 +88,12 @@ export function namespaceCacheName(
   if (typeof userKey !== 'string' || typeof tenantKey !== 'string') return null;
   if (!NAMESPACE_KEY.test(userKey) || !NAMESPACE_KEY.test(tenantKey)) return null;
   return `${API_CACHE_PREFIX}${userKey}:${tenantKey}`;
+}
+
+/** The prefix of every namespace of one user: `kp:{user_key}:`, or `null` for a malformed key. */
+export function userCachePrefix(userKey: string | null | undefined): string | null {
+  if (typeof userKey !== 'string' || !NAMESPACE_KEY.test(userKey)) return null;
+  return `${API_CACHE_PREFIX}${userKey}:`;
 }
 
 /** Whether a request may be answered from (and written into) the namespaced API cache. */
@@ -160,11 +170,7 @@ export function selectEvictions(
 
 /** Whether a cache is one of the public build/config caches a logout leaves in place. */
 export function isPublicCacheName(name: string): boolean {
-  return (
-    name.startsWith(PRECACHE_CACHE_PREFIX) ||
-    name === STATIC_ASSET_CACHE ||
-    name === RUNTIME_CONFIG_CACHE
-  );
+  return name.startsWith(PRECACHE_CACHE_PREFIX) || name === STATIC_ASSET_CACHE;
 }
 
 /**

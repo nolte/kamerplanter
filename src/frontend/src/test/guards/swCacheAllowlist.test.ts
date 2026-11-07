@@ -15,7 +15,8 @@ import {
  *
  * The rule is the ONE predicate the worker calls (`isAllowlistedApiRequest`), so this test reaches
  * it through the same path as production. The second half pins that `src/sw.ts` routes API
- * requests through exactly that predicate and writes only through `isCacheableApiResponse`.
+ * requests through exactly that predicate and the per-client plugin; the plugin's write rules
+ * (`isCacheableApiResponse`, namespace, generation) are exercised in `swApiCachePerClient.test.ts`.
  */
 
 const ORIGIN = 'https://kamerplanter.example';
@@ -132,11 +133,11 @@ describe('src/sw.ts applies the allowlist on its only API caching path', () => {
     expect(source).toMatch(/new Route\(\(\{ url \}\) => url\.pathname\.startsWith\('\/api\/'\), networkOnly\)/);
   });
 
-  it('gates every API cache write on isCacheableApiResponse and the current namespace', () => {
-    const plugin = source.slice(source.indexOf('function apiCachePlugin'), source.indexOf('const apiStrategies'));
-    expect(plugin).toMatch(/cacheWillUpdate:[\s\S]*isCacheableApiResponse\(response\)/);
-    expect(plugin).toMatch(/\(await namespace\) !== cacheName\) return null/);
-    expect(plugin).toMatch(/cachedResponseWillBeUsed:[\s\S]*isFresh\(/);
+  it("answers an allowlisted read only from the requesting client's namespace", () => {
+    const route = source.slice(source.indexOf('isAllowlistedApiRequest(request.method'), source.indexOf('router.registerRoute(new Route(({ url }) =>'));
+    expect(route).toMatch(/registry\.forClient\(clientIdOf\(options\.event\)\)/);
+    expect(route).toMatch(/if \(killed \|\| !cacheName\) return networkOnly\.handle\(options\)/);
+    expect(source).toMatch(/plugins: \[createApiCachePlugin\(cacheName, apiContext\) as WorkboxPlugin\]/);
   });
 
   it('keeps the static cache-first route off /api/', () => {

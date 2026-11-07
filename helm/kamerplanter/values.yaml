@@ -2182,13 +2182,30 @@ configMaps:
             # never cached; without these exact matches /sw.js falls into the
             # static-asset regex below (1y immutable) and no worker update reaches a
             # browser. Same blocks as src/frontend/nginx.conf.
+            #
+            # A location with its own add_header drops every server-level add_header,
+            # so both repeat the server's headers. They also carry the image's CSP
+            # (src/frontend/nginx-security-headers.inc, held equal by
+            # test_nginx_service_worker_no_store.py): the worker's own CSP comes from
+            # the /sw.js response. CSP for the rest of the chart is a separate,
+            # pre-existing gap (the image sets it per location via the snippet).
             location = /sw.js {
                 add_header Cache-Control "no-store, no-cache, must-revalidate";
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" always;
             }
 
             location = /manifest.json {
-                default_type application/manifest+json;
+                types { application/manifest+json json; }
                 add_header Cache-Control "no-store, no-cache, must-revalidate";
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" always;
             }
 
             location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
