@@ -812,9 +812,10 @@ class TestTheReadModel:
 #: GP-ACC-034: ``GET /plan`` runs 20 times on the "large" class; GP-NFR-030 / GP-NFR-002: p95 <= 300 ms.
 BENCHMARK_RUNS = 20
 GET_PLAN_P95_SPEC_SECONDS = 0.300
-#: The regression ceiling that holds today: measured 2026-10-20 at p95 0.82 s (median 0.54 s) against the
-#: `arangodb:3.12` service container on a developer machine, about 1.8x margin for a shared runner. It stops the
-#: read from getting slower; GP-NFR-030 itself is the test after it.
+#: The regression ceiling: set 2026-10-20 at p95 0.82 s (median 0.54 s, unfrozen heap) against the `arangodb:3.12`
+#: service container on a developer machine. Since #2526 the runs are measured with the start-up heap frozen
+#: (2026-11-07: p95 0.18 s locally), so the ceiling is a coarse order-of-magnitude bound - an AQL scan per slot, a
+#: per-plant query - and GP-NFR-030 itself, the test after it, is the one that catches a slower read.
 GET_PLAN_P95_CEILING_SECONDS = 1.5
 
 
@@ -848,12 +849,16 @@ def measure_get_plan(db, service) -> tuple[list[float], int]:
         body = _plan_response(view).model_dump_json(exclude_none=True).encode()
         return time.perf_counter() - started, len(body)
 
-    one_request()
+    # Frozen before the warm-up, as the server freezes before its first request: what the first request leaves
+    # alive (pool state, caches) stays collectable here exactly as it does there.
+    already_frozen = gc.get_freeze_count() > 0
     freeze_startup_heap()
     try:
+        one_request()
         runs = [one_request() for _ in range(BENCHMARK_RUNS)]
     finally:
-        gc.unfreeze()
+        if not already_frozen:  # leave a policy someone else set in this process as it was
+            gc.unfreeze()
     sizes = {size for _, size in runs}
     assert len(sizes) == 1, f"the same plan answered with different sizes: {sorted(sizes)}"
     return [duration for duration, _ in runs], sizes.pop()
