@@ -445,7 +445,7 @@ class TestBackfill:
 
 
 class TestRotationMatrix:
-    """GP-FR-135 / WP 8.12 (#2655): ``GET /sites/{key}/rotation-matrix`` - a cell is a ``/rotation`` row."""
+    """GP-FR-135, GP-API-063 / WP 8.12 (#2655): ``GET /sites/{key}/rotation-matrix`` - a cell is a ``/rotation`` row."""
 
     URL = f"{_BASE}/sites/site_1/rotation-matrix"
 
@@ -555,7 +555,7 @@ class TestRotationMatrix:
 
 
 class TestSuccessionRecommendation:
-    """GP-FR-133 / WP 8.14 (#2657): ``GET /locations/{key}/succession-recommendation`` - the next step of the cycle."""
+    """GP-FR-133, GP-API-064 / WP 8.14 (#2657): ``GET /locations/{key}/succession-recommendation`` - the next step."""
 
     URL = f"{_BASE}/locations/bed/succession-recommendation"
 

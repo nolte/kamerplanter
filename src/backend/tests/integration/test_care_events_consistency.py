@@ -1,4 +1,4 @@
-"""WP 8.2 (#2645) — the daily consistency job measured on a real ArangoDB.
+"""WP 8.2 (#2645; GP-FR-105, GP-NFR-016) — the daily consistency job measured on a real ArangoDB.
 
 The job runs with the production reader (the scan it shares with the M4 migration) and the production writer over the
 unique ``source_ref`` index, on stored shapes: a watering that only knows slots, a feeding a task completion already

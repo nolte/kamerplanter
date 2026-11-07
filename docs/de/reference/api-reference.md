@@ -134,6 +134,8 @@ Lesende Endpunkte der Beet-Historie. Alle brauchen ein gültiges JWT und stehen 
 ```
 GET    /api/v1/t/{slug}/locations/{key}/history                       # Pflegeeinträge + Pflanzungsereignisse
 GET    /api/v1/t/{slug}/locations/{key}/rotation                      # Zeitstrahl je Jahr (Familie, Nährstoffbedarf, Rolle)
+GET    /api/v1/t/{slug}/locations/{key}/succession-recommendation     # Folgekultur: nächster Schritt der Fruchtfolge
+GET    /api/v1/t/{slug}/sites/{key}/rotation-matrix                   # Fruchtfolge-Matrix: Beete × Jahre eines Standorts
 GET    /api/v1/t/{slug}/locations/{key}/soil-analyses                 # Bodenanalysen als Serien je Methode
 GET    /api/v1/t/{slug}/locations/{key}/companion-edges               # Mischkultur-Ebene: bewertete Nachbarpaare
 GET    /api/v1/t/{slug}/locations/{key}/summary                       # Beetkopf inkl. Nährstoff-Hinweis
@@ -160,6 +162,10 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 **`GET …/companion-edges`** liefert die Mischkultur-Ebene des Beetes: je benachbartem Paar von Pflanzplätzen (`adjacent_to`), in dem **beide** Plätze eine Art tragen, eine bewertete Verbindung. Eine Art zählt, wenn dort eine Pflanze steht oder ein laufender Pflanzdurchlauf sie dort plant, also dieselbe Menge wie bei `POST …/validate-planting`. `status` ist `compatible`, `incompatible` oder `unknown` und folgt derselben Regel wie der Pflanzdialog: Eine Unverträglichkeit gewinnt, sonst gilt eine Verträglichkeit mit ihrem `score`, sonst ist die Beziehung unbekannt. Stehen mehrere Arten auf einem Platz, gewinnt die stärkste Aussage. `reason_code` (`companion.incompatible`, `companion.compatible`, `companion.unknown`) ist der Schlüssel für die Anzeige, `reason` der hinterlegte Grund einer Unverträglichkeit, `deciding` nennt die beiden ausschlaggebenden Arten. `slot_a` und `slot_b` tragen `slot_key`, `species_keys` und `position` (`{x, y}` in Plankoordinaten in Metern, `null` ohne Geometrie). Die Arbeit ist begrenzt: Bewertet werden höchstens 2000 Paare (die ersten nach Platz-Schlüsseln) und höchstens 8 Arten je Platz (`species_truncated` ist `true`, wenn ein Platz mehr trägt). Von den bewerteten Paaren kommen höchstens 500 zurück, zuerst `incompatible`, dann `compatible`, dann `unknown`, jeweils nach Platz-Schlüsseln. `total` nennt alle Paare genau, `truncated` ist `true`, wenn Paare fehlen. Hat ein Beet mehr als 2000 belegte Paare, werden die Paare jenseits dieses Fensters nicht bewertet, gleich welchen Status sie hätten. <!-- REQ-053 GP-FR-134 -->
 
 **`GET …/rotation`** liefert je Jahr die Familien, die im Beet standen (`family_key`, `family_name`, `nutrient_demand`, `plan_role`, `source` = `plant` oder `backfill`). `years` ist standardmäßig `max(Anbaupause der beteiligten Familien, 5)`, höchstens 10 (`422` darüber).
+
+**`GET /sites/{key}/rotation-matrix`** legt diese Zeitstrahlen aller Beete eines Standorts nebeneinander: `columns` sind die Jahre, je Beet steht in `cells` für jedes Jahr dieselbe Liste wie in `GET …/rotation` desselben Beetes (Familie, `nutrient_demand`, `plan_role`, Saison). `years` wie oben (1 bis 10); der Standard wird aus den Beeten der Seite gelesen, sende beim Weiterblättern das `years` der ersten Antwort mit. Die Beete stehen nach Name, höchstens 500, seitenweise über `offset`/`limit` (`limit` höchstens 200); `total` ist die Zahl der gelesenen Beete (nach der Grenze von 500, die Basis zum Blättern), `truncated` ist `true`, wenn der Standort mehr als 500 Beete hat und der Rest fehlt. Ein Beet ohne Fruchtfolge-Prüfung steht mit `rotation_applicable: false` und dem Grund in `not_applicable_reason` darin, Jahre vor `rotation_reset_at` fehlen. Spalten für künftige Jahre gibt es nicht. Lesbar für jedes Mitglied; das Budget ist `RATE_LIMIT_PLAN_EXPORT` je Konto. <!-- REQ-053 GP-FR-135 -->
+
+**`GET …/succession-recommendation`** schlägt Familien und Arten für das nächste Jahr vor, **nur die Reihenfolge, nie eine Menge**. Der Schritt nach dem letzten erfassten Jahr folgt dem Kreis Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung oder Brache → Starkzehrer (`target`); Kandidaten sind die in der Fruchtfolge hinterlegten Nachfolger der Familien dieses Jahres (`families[]` mit Arten, höchstens 20), ohne die Familien, deren Anbaupause im Beet noch läuft (`held_back[]`). Eine Art erscheint nur, wenn ihr Nährstoffbedarf gespeichert ist; es gibt keinen Standardwert. `status` erklärt eine leere Liste: `no_history`, `demand_unknown`, `no_successor_data`, `no_matching_species` oder `not_applicable` (Fruchtfolge-Prüfung aus, Grund in `not_applicable_reason`). `previous` nennt das Jahr, auf dem die Empfehlung beruht. Lesbar für jedes Mitglied. <!-- REQ-053 GP-FR-133 -->
 
 **`POST …/history/backfill`** nimmt `{year, season?, species_key?, family_key?, plan_role}`. `year` liegt zwischen dem laufenden Jahr minus 10 und minus 1 (`422 backfill.year_out_of_range`). Eine Art bestimmt ihre Familie; eine abweichende `family_key` ergibt `422 backfill.family_mismatch`. Nur eine Brache (`plan_role: fallow`) braucht keine Familie. Der Server schreibt den Pflegeeintrag selbst; den `trigger` kann der Client nicht setzen.
 
@@ -191,7 +197,7 @@ Alle vier antworten mit `{location_key, cover_photo_ref, photos[], max_photos}`.
 | `422 location.cover_not_a_photo` | Das Titelbild ist keins der Fotos dieses Beetes |
 | `403` | Rolle zu niedrig, oder das Foto eines anderen Mitglieds ohne Rolle `lead` |
 
-Das erste Foto wird automatisch Titelbild; entfernst du das Titelbild, ist danach keins gesetzt. `GET /locations/{key}` und die Beetliste nennen das Titelbild in `cover_photo_ref`. Ein entferntes Foto wird gelöscht, sofern kein anderes Beet, keine Galerie und keine Aufgabe es noch zeigt. Löschst du ein Beet oder einen Standort, gehen seine Fotos auf dieselbe Weise mit. Fotos sind nie Teil der JSON-Sicherung des Gartenplans; eine Datei, deren Beete `photo_refs` oder `cover_photo_ref` enthalten, lehnt der Import mit `422 import.unknown_keys` ab. <!-- REQ-053 GP-FR-051 -->
+Das erste Foto wird automatisch Titelbild; entfernst du das Titelbild, wird das neueste verbliebene Foto zum Titelbild (beim letzten Foto ist danach keins gesetzt). `GET /locations/{key}` und die Beetliste nennen das Titelbild in `cover_photo_ref`. Ein entferntes Foto wird gelöscht, sofern kein anderes Beet, keine Galerie und keine Aufgabe es noch zeigt. Löschst du ein Beet oder einen Standort, gehen seine Fotos auf dieselbe Weise mit. Fotos sind nie Teil der JSON-Sicherung des Gartenplans; eine Datei, deren Beete `photo_refs` oder `cover_photo_ref` enthalten, lehnt der Import mit `422 import.unknown_keys` ab. <!-- REQ-053 GP-FR-051 -->
 
 ---
 
@@ -263,6 +269,23 @@ Der Schalter gilt auch für die Prüfung je Pflanzplatz: Ist die Prüfung für e
 | `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
 | `422` | `patch.rotation_exempt_and_enabled` | Nach der Änderung wären `rotation_exempt` und `rotation_enabled` beide `true`; zum Ausnehmen eines eingeschalteten Beets `rotation_enabled: null` mitsenden |
 | `422` | `VALIDATION_ERROR` | `rotation_exempt: null` oder ein Wert, der kein Boolean ist |
+
+---
+
+### Sonnen- und Erreichbarkeitsschwellen eines Standorts (REQ-053)
+
+`POST /api/v1/t/{slug}/sites` und `PUT /api/v1/t/{slug}/sites/{key}` nehmen zwei optionale Objekte, die festlegen, wo die Sonnenklassen beginnen und wie breit ein Beet sein darf, bevor der Hinweis „schwer erreichbar“ (`bed.reach_too_wide`) erscheint. `GET` liefert immer die wirksamen Werte: die gespeicherten, sonst die Standards. Weggelassen oder `null` heißt beim Ändern „gespeicherten Wert behalten“.
+
+| Feld | Standard | Bedeutung |
+|------|----------|-----------|
+| `sun_class_thresholds.full_sun_min_hours` | `6` | Volle Sonne ab mehr als so vielen Stunden direkter Sonne am Referenztag |
+| `sun_class_thresholds.partial_shade_min_hours` | `3` | Untergrenze Halbschatten |
+| `sun_class_thresholds.shade_min_hours` | `2` | Untergrenze Schatten; darunter tiefer Schatten |
+| `sun_class_thresholds.reference_month`, `reference_day` | `6`, `21` | Referenztag (21. Juni) |
+| `reach_thresholds.both_sides_m` | `1.2` | Höchste Beetbreite bei Zugang von zwei gegenüberliegenden Seiten |
+| `reach_thresholds.one_side_m` | `0.6` | Höchste Beetbreite bei Zugang von einer Seite oder unbekanntem Zugang |
+
+Die Stundengrenzen müssen größer als 0 und streng absteigend sein, `one_side_m` darf `both_sides_m` nicht übersteigen; sonst `422`. Kamerplanter berechnet aus den Sonnengrenzen noch nichts, sie bestimmen die Hilfetexte der Sonnenkacheln. Den Zugang eines Beetes liest der Hinweis nur aus seinen Zugangsseiten (`site_conditions.access_sides`), nicht aus angrenzenden Wegen. <!-- REQ-053 GP-FR-164, GP-FR-166 -->
 
 ---
 

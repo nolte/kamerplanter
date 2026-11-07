@@ -1,0 +1,31 @@
+{
+  "GP-FR-086": {
+    "partial": true,
+    "reason": "The suggestions section, accept and dismiss are tested with a suggestion seeded through the repository (API, integration, frontend, E2E TC-053-070/071). No code creates a task with `suggested = true` (E-02, ADR-008 phase 2; #2643 question 3 confirmed shipping without a producer), so in a running installation the section never appears. First producer candidate: the zone demand (GP-FR-113)",
+    "issue": 2643
+  },
+  "GP-FR-125": {
+    "partial": true,
+    "reason": "The rule table is tested with sourced thresholds (`SourcedThreshold` with value and source) and the default configuration answers `insufficient_data`. Shipped inert by decision (#2643 question 9): WP 8.5 closed no threshold with three independent sources, so `DEFAULT_CONFIG` has no active threshold and every live bed answers `insufficient_data` (or the D/E rule withholds compost and P). Activation is a configuration change once sources exist (#2643 question 10, R-001...R-012)",
+    "issue": 2643
+  },
+  "GP-FR-135": {
+    "partial": true,
+    "reason": "Beds x years with a list of families per season, `nutrient_demand` and `plan_role` is tested (same expression as `/rotation`). Not implemented: the future columns \"aus `CropRotationPlan`\" - there is no store for it (no model, no repository; only REQ-002 and v0096 name the collection), so the matrix ends at the current year (#2643 addendum A, recommendation: planned runs as the source)",
+    "issue": 2643
+  },
+  "GP-FR-166": {
+    "partial": true,
+    "reason": "The hint from the shortest side against the site thresholds (1.2 m two-sided, 0.6 m one-sided) with access from `access_sides` is tested (Python and TS against the `reach` vectors, API, E2E TC-053-076). Not implemented: access derived from an adjacent `path` object (\"kein Weg angrenzt\") - no bed-to-object edge-distance rule exists (`adjacency_engine` compares slot centres), so a bed without `access_sides` counts as having no access",
+    "issue": 2703
+  },
+  "GP-FR-168": {
+    "partial": true,
+    "reason": "Slope and aspect per bed and the orientation derived from `aspect_deg` (8 directions) are tested. Not implemented: \"vom Site-Wert geerbt\" - the site has no terrain field and #2643 question 4 decided per bed only, no inheritance; the row text still names the inheritance",
+    "issue": 2643
+  },
+  "GP-NFR-072": {
+    "reason": "WP 8.28 (#2671) is not merged: the import still knows only `schema_version \"1\"` (`domain/models/garden_plan_import.py`), there is no migration chain and no guard `test_plan_import_keeps_two_schema_versions.py`. With one version there is nothing to migrate yet; the guard that turns red when the version is raised without migrators is the open deliverable",
+    "issue": 2671
+  }
+}

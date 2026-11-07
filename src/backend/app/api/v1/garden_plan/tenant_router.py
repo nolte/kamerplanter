@@ -502,11 +502,12 @@ def get_rotation_matrix(
     """Beds x years of a site (GP-FR-135), all roles: what stood in each bed per year (family, `nutrient_demand`,
     `plan_role`, season) - the very rows `GET /locations/{key}/rotation` answers for the same bed and year.
 
-    Beds are listed in name order, at most 500 of them, paged by `offset`/`limit`; `total` and `truncated` say how
-    many exist. A bed the rotation check is off for (`rotation_exempt` or switched off)
-    is listed with `rotation_applicable: false` and its reason. History before a bed's `rotation_reset_at` is left
-    out. There is no future column yet: the planned rotation (`CropRotationPlan`) has no store. The default `years`
-    is read from the beds of the page - pass the `years` of the first answer when paging.
+    Beds are listed in name order, at most 500 of them, paged by `offset`/`limit`; `total` is the bed count after
+    that cap (the paging basis), `truncated` says the site holds more than 500 beds. A bed the rotation check is off
+    for (`rotation_exempt` or switched off) is listed with `rotation_applicable: false` and its reason. History before
+    a bed's `rotation_reset_at` is left out. There is no future column yet: the planned rotation (`CropRotationPlan`)
+    has no store. The default `years` is read from the beds of the page - pass the `years` of the first answer when
+    paging.
     """
     matrix = service.rotation_matrix(
         key, tenant_key=ctx.tenant_key, years=years, offset=pagination.offset, limit=pagination.limit

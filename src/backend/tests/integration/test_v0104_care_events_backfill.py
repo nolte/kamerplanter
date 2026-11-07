@@ -1,5 +1,7 @@
 """WP 8.1 (#2644) — v0104 ``M4_care_events_backfill`` measured on a real ArangoDB (prod point P-6).
 
+Rows: GP-FR-105 (the backfill half), GP-NFR-015 (migration M4 with its dry-run report).
+
 The scan resolves ``plant / slot -> location -> site`` in AQL and the writer is the production
 :class:`ArangoCareEventRepository` over the unique-sparse ``source_ref`` index — both are exercised here on the
 stored shapes (a task completion's own ``care_event`` with ``source_ref``, a watering that only knows slots, a

@@ -3,8 +3,8 @@
 The defect class: a species field sits on the domain model and in the seeds, the client type declares it and a
 component reads it, but ``SpeciesResponse`` does not list it - ``to_response`` drops it silently and the feature
 built on it is inert. Seen three times: ``light_requirement``/``shade_tolerance``/``row_spacing_cm`` (WP 3.9,
-#2399), ``waterlogging_tolerance`` (GP-FR-161 hint never shown) and ``toxicity`` (REQ-001 warning badge never
-shown since #465), the last two found by the REQ-053 wave-8 E2E run (#2674).
+#2399), ``waterlogging_tolerance`` (the drainage hint of ``site_fit`` never shown) and ``toxicity`` (REQ-001 warning
+badge never shown since #465), the last two found by the REQ-053 wave-8 E2E run (#2674).
 
 The guard enumerates the class, not the sites: it reads the ``export interface Species`` block of
 ``src/frontend/src/api/types.ts`` and requires each declared key in ``SpeciesResponse.model_fields``.

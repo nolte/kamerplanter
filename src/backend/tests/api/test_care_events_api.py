@@ -415,7 +415,7 @@ class TestAnotherTenantSeesNothing:
 
 
 class TestCsvDownload:
-    """WP 8.4 (#2647, GP-FR-104): ``GET /care-events?format=csv`` - the list, as a file, under the list's rules."""
+    """WP 8.4 (#2647, GP-FR-104, GP-API-034): ``GET /care-events?format=csv`` - the list, as a file, under its rules."""
 
     @staticmethod
     def _text(response) -> str:  # type: ignore[no-untyped-def]

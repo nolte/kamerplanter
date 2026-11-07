@@ -25,6 +25,11 @@ the row id. A test carries ``GP-FR-nnn`` (or ``GP-API-nnn`` / ``GP-UX-nnn``) lit
 ``GP-REQ-wave7-gaps.json`` - a full gap (no test at all) or, with ``"partial": true``, a row whose tests leave a
 named part of it unproven (for example GP-FR-025: multi-duplicate is tested, the ``Ctrl/Cmd+D`` key is not wired).
 
+Wave 8 (WP 8.32, #2675) adds a third matrix with the same rules for the rows of wave 8 (plan section 3 "Welle 8",
+WP 8.1-8.29; spec section 34 row 8), listed in :data:`WAVE8_ROWS`. Wave 8 also carries GP-NFR rows (backfill
+migration, consistency job, INP profile, import schema compatibility), so a test claims ``GP-NFR-nnn`` the same way.
+Output ``spec/e2e-testcases/GP-REQ-wave8-matrix.md``; honest gaps in ``GP-REQ-wave8-gaps.json``.
+
 Usage: ``python3 scripts/gp_acc_matrix.py [--write | --check]`` (default ``--check``).
 """
 
@@ -48,8 +53,13 @@ _SELF = {"test_req053_acceptance_matrix.py"}
 
 WAVE7_MATRIX = ROOT / "spec/e2e-testcases/GP-REQ-wave7-matrix.md"
 WAVE7_GAPS = ROOT / "spec/e2e-testcases/GP-REQ-wave7-gaps.json"
-_SPEC_ROW = re.compile(r"^\| GP-(FR|UX|API)-(\d{3}) \|([^|]*)\|", re.MULTILINE)
-_TEST_ROW = re.compile(r"GP-(FR|API|UX)-(\d{3})((?:/\d{3})*)")
+_SPEC_ROW = re.compile(r"^\| GP-(FR|UX|API|NFR)-(\d{3}) \|([^|]*)\|", re.MULTILINE)
+#: A row id with its own boundaries: ``GP-NFR-0151`` is no claim of GP-NFR-015, and the ``/ddd`` shorthand only counts
+#: a three-digit number that ends there (``GP-FR-105/2026-11`` claims GP-FR-105 only).
+_TEST_ROW = re.compile(r"(?<![\w-])GP-(FR|API|UX|NFR)-(\d{3})(?!\d)((?:/\d{3}(?!\d))*)")
+
+WAVE8_MATRIX = ROOT / "spec/e2e-testcases/GP-REQ-wave8-matrix.md"
+WAVE8_GAPS = ROOT / "spec/e2e-testcases/GP-REQ-wave8-gaps.json"
 
 #: The SHOULD rows of wave 7 (plan section 3 "Welle 7", WP 7.1-7.24; spec section 34 row 7), with the part a row
 #: contributes when only part of it is SHOULD. Not here, with the plan's reason: GP-FR-161-168 (wave 8 per section
@@ -92,6 +102,52 @@ WAVE7_ROWS: dict[str, str] = {
     "GP-API-060": "set / remove the plan underlay",
     "GP-API-061": "bed template catalogue CRUD",
     "GP-API-062": "place a bed from a template",
+}
+
+
+#: The rows of wave 8, with the part a row contributes when only part of it is wave 8. The rule: a row is here when a
+#: work package of plan section 3 "Welle 8" (WP 8.1-8.29) names it as its deliverable - whatever its priority; that is
+#: why the COULD row GP-FR-168 (WP 8.22/8.24) is here. Not here, because no wave-8 package delivers them: GP-FR-131/132
+#: (delivered in wave 3), GP-FR-157-160 and 169 (wave 7), GP-FR-144, 165, 167, 173, 176 (wave 9 per section 34), the
+#: COULD rows GP-FR-108/126/127/136 and GP-FR-087/091 (named by no wave-8 package).
+WAVE8_ROWS: dict[str, str] = {
+    "GP-FR-051": "bed photos with cover photo, gallery tab, field-mode photo (WP 8.18, 8.19)",
+    "GP-FR-086": "suggestions section with accept / dismiss (WP 8.17; no producer, E-02)",
+    "GP-FR-104": "care history of a bed as CSV, hardened (WP 8.4)",
+    "GP-FR-105": "M4 backfill and the daily consistency job (WP 8.1, 8.2)",
+    "GP-FR-106": "care confirmations also write a care event (WP 8.3)",
+    "GP-FR-122": "soil analysis as an event, history chart per method (WP 8.7, 8.8)",
+    "GP-FR-123": "area dosing: rate from the product sheet, total from the bed area (WP 8.9)",
+    "GP-FR-124": "soil amendment materials as codes (WP 8.9)",
+    "GP-FR-125": "nutrient hint per bed, never a number (WP 8.10)",
+    "GP-FR-133": "follow-up crop recommendation, order only (WP 8.14)",
+    "GP-FR-134": "companion-planting layer (WP 8.15, 8.16)",
+    "GP-FR-135": "rotation matrix per site (WP 8.12, 8.13)",
+    "GP-FR-137": "wave-8 part: the per-bed rotation switch in the soil tab (WP 8.14)",
+    "GP-FR-145": "bed list as CSV (WP 8.25)",
+    "GP-FR-161": "site_fit with frost, wind and drainage (WP 8.21)",
+    "GP-FR-162": "frost risk per bed in the early warning and the plant state (WP 8.20, 8.22)",
+    "GP-FR-163": "wind exposure entered by hand (WP 8.22)",
+    "GP-FR-164": "sun class thresholds as site configuration (WP 8.24)",
+    "GP-FR-166": "reach hint bed.reach_too_wide (WP 8.23)",
+    "GP-FR-168": "slope / aspect per bed, orientation derived from the aspect (WP 8.22, 8.24)",
+    "GP-FR-174": "CSV bed list import with dry-run report (WP 8.26, 8.27)",
+    "GP-FR-175": "column selection of the bed list CSV, assignment opt-in (WP 8.25)",
+    "GP-UX-057": "wave-8 part: field-mode chips moist / normal / dry and windy (WP 8.22)",
+    "GP-NFR-015": "wave-8 part: migration M4_care_events_backfill with dry-run report (WP 8.1)",
+    "GP-NFR-016": "wave-8 part: Celery beat task care_events_consistency (WP 8.2)",
+    "GP-NFR-063": "consistency job reports run time and hits, warns above 100 (WP 8.2)",
+    "GP-NFR-071": "INP measurement profile (WP 8.29)",
+    "GP-NFR-072": "import migrates the last two schema versions (WP 8.28)",
+    "GP-API-034": "wave-8 part: format=csv on the care-event list (WP 8.4)",
+    "GP-API-040": "accept / dismiss a suggested task (WP 8.17)",
+    "GP-API-063": "rotation matrix of a site (WP 8.12)",
+    "GP-API-064": "follow-up crop recommendation of a bed (WP 8.14)",
+    "GP-API-065": "companion edges of a bed (WP 8.15)",
+    "GP-API-066": "soil analysis series of a bed (WP 8.7)",
+    "GP-API-067": "bed photos: list, link, cover, remove (WP 8.18)",
+    "GP-API-068": "bed list as CSV with column selection (WP 8.25)",
+    "GP-API-069": "CSV bed list import (WP 8.26)",
 }
 
 
@@ -224,7 +280,7 @@ def problems(
 
 
 def spec_rows() -> dict[str, str]:
-    """``{row id: priority}`` for every GP-FR / GP-UX / GP-API table row of the spec (``API`` for the API rows)."""
+    """``{row id: priority}`` for every GP-FR / GP-UX / GP-API / GP-NFR table row (``API`` for the API rows)."""
     (spec,) = sorted(ROOT.glob(SPEC_GLOB))
     rows: dict[str, str] = {}
     for match in _SPEC_ROW.finditer(spec.read_text(encoding="utf-8")):
@@ -254,7 +310,7 @@ def _test_files() -> list[tuple[Path, str]]:
 
 
 def scan_rows() -> dict[str, dict[str, set[str]]]:
-    """``{row id: {tier: {file, ...}}}`` - the GP-FR / GP-API / GP-UX ids the tests carry (``a/b`` shorthand expanded)."""
+    """``{row id: {tier: {file, ...}}}`` - the GP-FR / GP-API / GP-UX / GP-NFR ids of the tests (``a/b`` expanded)."""
     found: dict[str, dict[str, set[str]]] = {}
     for rel, tier in _test_files():
         text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
@@ -267,45 +323,40 @@ def scan_rows() -> dict[str, dict[str, set[str]]]:
     return found
 
 
+def _load_gaps(path: Path) -> dict[str, dict[str, object]]:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
 def load_wave7_gaps() -> dict[str, dict[str, object]]:
-    return (
-        json.loads(WAVE7_GAPS.read_text(encoding="utf-8"))
-        if WAVE7_GAPS.exists()
-        else {}
-    )
+    return _load_gaps(WAVE7_GAPS)
 
 
-def render_wave7(
+def load_wave8_gaps() -> dict[str, dict[str, object]]:
+    return _load_gaps(WAVE8_GAPS)
+
+
+def _render_wave(
+    header: list[str],
+    wave: str,
+    wave_rows: dict[str, str],
     rows: dict[str, str],
     found: dict[str, dict[str, set[str]]],
     gaps: dict[str, dict[str, object]],
 ) -> str:
-    lines = [
-        "# REQ-053 wave 7 requirement matrix GP-FR / GP-API / GP-UX (SHOULD) <-> test",
-        "",
-        "<!-- GENERATED by scripts/gp_acc_matrix.py --write from the tests - do not edit by hand. -->",
-        "",
-        "The rows are the SHOULD rows of wave 7 (`WAVE7_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3",
-        '"Welle 7", spec section 34); the priority is read from the spec table. A test claims a row by carrying',
-        "its id (`GP-FR-117`, or the shorthand `GP-FR-112/117`). A reference proves that a test claims the row;",
-        "whether it proves it completely stays a review question. Honest gaps are listed in",
-        "`GP-REQ-wave7-gaps.json` with a reason and an issue: **GAP** (no test) or **partial** (the tests leave",
-        "the named part unproven).",
-        "",
-    ]
-    covered = [r for r in WAVE7_ROWS if r in found]
+    lines = list(header)
+    covered = [r for r in wave_rows if r in found]
     partial = [r for r in covered if gaps.get(r, {}).get("partial")]
-    uncovered = [r for r in WAVE7_ROWS if r not in found]
+    uncovered = [r for r in wave_rows if r not in found]
     lines += [
         (
-            f"**{len(covered)} of {len(WAVE7_ROWS)} wave-7 rows have a test, {len(partial)} of them with a partial"
+            f"**{len(covered)} of {len(wave_rows)} wave-{wave} rows have a test, {len(partial)} of them with a partial"
             f" gap; {len(uncovered)} without a test.**"
         ),
         "",
         "| Row | Prio | Scope | Tiers | Tests |",
         "|---|---|---|---|---|",
     ]
-    for row, scope in WAVE7_ROWS.items():
+    for row, scope in wave_rows.items():
         tiers = found.get(row, {})
         gap = gaps.get(row, {})
         if tiers:
@@ -327,35 +378,82 @@ def render_wave7(
     return "\n".join(lines) + "\n"
 
 
-def wave7_problems(
+def render_wave7(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+) -> str:
+    header = [
+        "# REQ-053 wave 7 requirement matrix GP-FR / GP-API / GP-UX (SHOULD) <-> test",
+        "",
+        "<!-- GENERATED by scripts/gp_acc_matrix.py --write from the tests - do not edit by hand. -->",
+        "",
+        "The rows are the SHOULD rows of wave 7 (`WAVE7_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3",
+        '"Welle 7", spec section 34); the priority is read from the spec table. A test claims a row by carrying',
+        "its id (`GP-FR-117`, or the shorthand `GP-FR-112/117`). **Limit of the method:** a row counts as covered",
+        "when a test file names its id; that is a claim, not proof the test exercises the row - whether it does",
+        "stays a review question. Honest gaps are listed in",
+        "`GP-REQ-wave7-gaps.json` with a reason and an issue: **GAP** (no test) or **partial** (the tests leave",
+        "the named part unproven).",
+        "",
+    ]
+    return _render_wave(header, "7", WAVE7_ROWS, rows, found, gaps)
+
+
+def render_wave8(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+) -> str:
+    header = [
+        "# REQ-053 wave 8 requirement matrix GP-FR / GP-API / GP-UX / GP-NFR <-> test",
+        "",
+        "<!-- GENERATED by scripts/gp_acc_matrix.py --write from the tests - do not edit by hand. -->",
+        "",
+        "The rows are the rows of wave 8 (`WAVE8_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3",
+        '"Welle 8", WP 8.1-8.29, spec section 34); the priority is read from the spec table (`API` for an API row).',
+        "A test claims a row by carrying its id (`GP-FR-135`, `GP-NFR-063`, or the shorthand `GP-FR-145/175`).",
+        "**Limit of the method:** a row counts as covered when a test file names its id; that is a claim, not proof",
+        "the test exercises the row - whether it does stays a review question.",
+        "Honest gaps are listed in `GP-REQ-wave8-gaps.json` with a reason and an issue: **GAP** (no test) or",
+        "**partial** (the tests leave the named part unproven).",
+        "",
+    ]
+    return _render_wave(header, "8", WAVE8_ROWS, rows, found, gaps)
+
+
+def _wave_problems(
+    wave: str,
+    wave_rows: dict[str, str],
     rows: dict[str, str],
     found: dict[str, dict[str, set[str]]],
     gaps: dict[str, dict[str, object]],
 ) -> list[str]:
+    gaps_file = f"GP-REQ-wave{wave}-gaps.json"
     out = [
-        f"{r}: listed in WAVE7_ROWS but not a row of the spec"
-        for r in WAVE7_ROWS
+        f"{r}: listed in WAVE{wave}_ROWS but not a row of the spec"
+        for r in wave_rows
         if r not in rows
     ]
     out += [
-        f"{r}: no test references it and it is not in GP-REQ-wave7-gaps.json"
-        for r in WAVE7_ROWS
+        f"{r}: no test references it and it is not in {gaps_file}"
+        for r in wave_rows
         if r not in found and r not in gaps
     ]
     out += [
-        f"{r}: a full gap in GP-REQ-wave7-gaps.json but a test now covers it - remove it or mark it partial"
+        f"{r}: a full gap in {gaps_file} but a test now covers it - remove it or mark it partial"
         for r, g in gaps.items()
         if r in found and not g.get("partial")
     ]
     out += [
-        f"{r}: marked partial in GP-REQ-wave7-gaps.json but no test references it - it is a full gap"
+        f"{r}: marked partial in {gaps_file} but no test references it - it is a full gap"
         for r, g in gaps.items()
         if g.get("partial") and r not in found
     ]
     out += [
-        f"{r}: in GP-REQ-wave7-gaps.json but not a wave-7 row"
+        f"{r}: in {gaps_file} but not a wave-{wave} row"
         for r in gaps
-        if r not in WAVE7_ROWS
+        if r not in wave_rows
     ]
     out += [
         f"{r}: a gap entry needs a non-empty reason and an issue number"
@@ -363,6 +461,34 @@ def wave7_problems(
         if not (g.get("reason") and g.get("issue"))
     ]
     return out
+
+
+def wave7_problems(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+) -> list[str]:
+    return _wave_problems("7", WAVE7_ROWS, rows, found, gaps)
+
+
+def wave8_problems(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+) -> list[str]:
+    return _wave_problems("8", WAVE8_ROWS, rows, found, gaps)
+
+
+def stray_rows(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+) -> list[str]:
+    """Row ids a test claims that are no row of the spec (a typo or a retired id), like the GP-ACC check."""
+    return [
+        f"{r}: referenced by {', '.join(sorted(f for files in found[r].values() for f in files))} but not a row of the spec"
+        for r in sorted(found)
+        if r not in rows
+    ]
 
 
 def main() -> int:
@@ -373,12 +499,19 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="verify (the default)")
     args = parser.parse_args()
     ids, found, gaps = spec_ids(), scan(), load_gaps()
-    rows, found_rows, wave7_gaps = spec_rows(), scan_rows(), load_wave7_gaps()
+    rows, found_rows = spec_rows(), scan_rows()
+    wave7_gaps, wave8_gaps = load_wave7_gaps(), load_wave8_gaps()
     outputs = (
         (MATRIX, render(ids, found, gaps)),
         (WAVE7_MATRIX, render_wave7(rows, found_rows, wave7_gaps)),
+        (WAVE8_MATRIX, render_wave8(rows, found_rows, wave8_gaps)),
     )
-    errors = problems(ids, found, gaps) + wave7_problems(rows, found_rows, wave7_gaps)
+    errors = (
+        problems(ids, found, gaps)
+        + wave7_problems(rows, found_rows, wave7_gaps)
+        + wave8_problems(rows, found_rows, wave8_gaps)
+        + stray_rows(rows, found_rows)
+    )
     for path, text in outputs:
         if args.write:
             path.write_text(text, encoding="utf-8")

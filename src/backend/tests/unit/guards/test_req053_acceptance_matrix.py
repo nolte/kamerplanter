@@ -10,6 +10,9 @@ by hand. Two rules, both measured against the live tree:
 Wave 7 (WP 7.27, #2493) adds the same two rules for the SHOULD rows of wave 7 (GP-FR / GP-API / GP-UX, listed in
 ``WAVE7_ROWS``) against ``spec/e2e-testcases/GP-REQ-wave7-matrix.md`` and ``GP-REQ-wave7-gaps.json``; a gap there is
 either full (no test) or ``partial`` (tests exist, a named part of the row is unproven).
+
+Wave 8 (WP 8.32, #2675) adds them a third time for the rows of wave 8 (``WAVE8_ROWS``, now with GP-NFR rows) against
+``spec/e2e-testcases/GP-REQ-wave8-matrix.md`` and ``GP-REQ-wave8-gaps.json``.
 """
 
 from __future__ import annotations
@@ -102,3 +105,64 @@ def test_the_shorthand_counts_for_each_number(matrix, tmp_path, monkeypatch) -> 
     found = matrix.scan_rows()
     assert set(found) == {"GP-FR-158", "GP-FR-159", "GP-API-052"}
     assert found["GP-FR-159"] == {"unit": {"src/backend/tests/unit/test_probe.py"}}
+
+
+def test_every_wave8_row_is_a_row_of_the_spec(matrix) -> None:
+    rows = matrix.spec_rows()
+    missing = [row for row in matrix.WAVE8_ROWS if row not in rows]
+    assert missing == []
+
+
+def test_the_spec_rows_include_the_nfr_table(matrix) -> None:
+    rows = matrix.spec_rows()
+    assert rows.get("GP-NFR-015") == "MUST" and rows.get("GP-NFR-072") == "SHOULD"
+
+
+def test_every_wave8_row_has_a_test_or_a_reviewed_gap(matrix) -> None:
+    errors = matrix.wave8_problems(matrix.spec_rows(), matrix.scan_rows(), matrix.load_wave8_gaps())
+    assert errors == []
+
+
+def test_the_committed_wave8_matrix_is_the_generated_one(matrix) -> None:
+    expected = matrix.render_wave8(matrix.spec_rows(), matrix.scan_rows(), matrix.load_wave8_gaps())
+    assert matrix.WAVE8_MATRIX.read_text(encoding="utf-8") == expected, "run: python3 scripts/gp_acc_matrix.py --write"
+
+
+def test_a_wave8_row_without_a_test_is_reported_against_the_wave8_gap_file(matrix) -> None:
+    row = "GP-NFR-063"
+    rows = dict.fromkeys(matrix.WAVE8_ROWS, "SHOULD")
+    found = {r: {"unit": {"a"}} for r in matrix.WAVE8_ROWS if r != row}
+    errors = matrix.wave8_problems(rows, found, {})
+    assert errors == [f"{row}: no test references it and it is not in GP-REQ-wave8-gaps.json"]
+
+
+def test_a_wave8_gap_for_a_row_of_another_wave_is_reported(matrix) -> None:
+    rows = dict.fromkeys(matrix.WAVE8_ROWS, "SHOULD")
+    found = {r: {"unit": {"a"}} for r in matrix.WAVE8_ROWS}
+    errors = matrix.wave8_problems(rows, found, {"GP-FR-117": {"reason": "r", "issue": 1, "partial": True}})
+    assert any("GP-FR-117" in e and "not a wave-8 row" in e for e in errors)
+
+
+def test_an_nfr_id_in_a_test_is_scanned(matrix, tmp_path, monkeypatch) -> None:
+    probe = tmp_path / "tests" / "e2e" / "test_probe.py"
+    probe.parent.mkdir(parents=True)
+    probe.write_text('"""Measures GP-NFR-071."""\n', encoding="utf-8")
+    monkeypatch.setattr(matrix, "ROOT", tmp_path)
+    assert matrix.scan_rows() == {"GP-NFR-071": {"e2e": {"tests/e2e/test_probe.py"}}}
+
+
+def test_a_longer_number_or_a_following_date_is_no_claim(matrix, tmp_path, monkeypatch) -> None:
+    probe = tmp_path / "src" / "backend" / "tests" / "unit" / "test_probe.py"
+    probe.parent.mkdir(parents=True)
+    probe.write_text('"""GP-NFR-0151, XGP-FR-100, GP-FR-105/2026-11 and GP-FR-158/159."""\n', encoding="utf-8")
+    monkeypatch.setattr(matrix, "ROOT", tmp_path)
+    assert set(matrix.scan_rows()) == {"GP-FR-105", "GP-FR-158", "GP-FR-159"}
+
+
+def test_no_test_claims_a_row_the_spec_does_not_have(matrix) -> None:
+    assert matrix.stray_rows(matrix.spec_rows(), matrix.scan_rows()) == []
+
+
+def test_a_claimed_id_outside_the_spec_is_reported(matrix) -> None:
+    errors = matrix.stray_rows({"GP-FR-001": "MUST"}, {"GP-FR-999": {"unit": {"a.py"}}})
+    assert errors == ["GP-FR-999: referenced by a.py but not a row of the spec"]

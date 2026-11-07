@@ -81,7 +81,7 @@ REFERENCED: list[tuple[str, str, dict]] = [
     (col.INSPECTIONS, "ref-inspection", {"tenant_key": TENANT}),
     (col.STORAGE_OBSERVATIONS, "ref-storage", {"tenant_key": TENANT}),
     (col.CARE_EVENTS, "ref-care-event", {"tenant_key": TENANT}),
-    # REQ-053 GP-FR-051 (WP 8.18): the photos of a bed. A location has no tenant_key (its site carries it).
+    # REQ-053 WP 8.18: the photos of a bed. A location has no tenant_key (its site carries it).
     (col.LOCATIONS, "ref-bed", {"name": "Beet", "site_key": "site-1"}),
 ]
 
@@ -103,7 +103,7 @@ REFERENCED_BY_OTHER_FIELD: list[tuple[str, str, dict]] = [
     (col.PESTS, "ref-pest-gallery", {"reference_image_refs": ["ref-pest-gallery"]}),
     # REQ-053 GP-FR-033: the background picture of a site plan - a nested path, plan.underlay.attachment_key.
     (col.SITES, "ref-underlay", {"tenant_key": TENANT, "plan": {"underlay": {"attachment_key": "ref-underlay"}}}),
-    # REQ-053 GP-FR-051 (WP 8.18): the cover photo of a bed, checked on its own (no photo_refs on this row).
+    # REQ-053 WP 8.18: the cover photo of a bed, checked on its own (no photo_refs on this row).
     (col.LOCATIONS, "ref-bed-cover", {"name": "Beet", "site_key": "site-1", "cover_photo_ref": "ref-bed-cover"}),
 ]
 

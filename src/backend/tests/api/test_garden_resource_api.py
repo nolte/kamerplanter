@@ -161,7 +161,7 @@ class TestTheBedList:
 
 
 class TestTheBedListAsCsv:
-    """GP-FR-145/175 (WP 8.25, #2668): ``format=csv`` on the bed list - columns, opt-in, hardening, bounds."""
+    """GP-FR-145/175, GP-API-068 (WP 8.25, #2668): ``format=csv`` on the bed list - columns, opt-in, hardening."""
 
     @staticmethod
     def _get(client, role: TenantRole = TenantRole.VIEWER, base: str = _BASE, **params: str):  # type: ignore[no-untyped-def]

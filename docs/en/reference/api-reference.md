@@ -134,6 +134,8 @@ Read endpoints of the bed history. All need a valid JWT and are open to every me
 ```
 GET    /api/v1/t/{slug}/locations/{key}/history                       # care entries + planting events
 GET    /api/v1/t/{slug}/locations/{key}/rotation                      # timeline per year (family, nutrient demand, role)
+GET    /api/v1/t/{slug}/locations/{key}/succession-recommendation     # next crop: the next step of the rotation
+GET    /api/v1/t/{slug}/sites/{key}/rotation-matrix                   # crop rotation matrix: beds × years of a site
 GET    /api/v1/t/{slug}/locations/{key}/soil-analyses                 # soil analyses as series per method
 GET    /api/v1/t/{slug}/locations/{key}/companion-edges               # companion layer: judged neighbouring pairs
 GET    /api/v1/t/{slug}/locations/{key}/summary                       # bed head incl. the nutrient hint
@@ -160,6 +162,10 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 **`GET …/companion-edges`** returns the companion layer of the bed: one judged line per neighbouring pair of plant places (`adjacent_to`) in which **both** places hold a species. A species counts when a plant stands there or a live planting run plans it there, the same set as `POST …/validate-planting`. `status` is `compatible`, `incompatible` or `unknown` and follows the same rule as the planting dialog: an incompatibility wins, else a compatibility with its `score`, else the relation is unknown. With several species on one place the strongest statement wins. `reason_code` (`companion.incompatible`, `companion.compatible`, `companion.unknown`) is the key for display, `reason` the stored reason of an incompatibility, `deciding` names the two deciding species. `slot_a` and `slot_b` carry `slot_key`, `species_keys` and `position` (`{x, y}` in plan coordinates in metres, `null` without geometry). The work is bounded: at most 2000 pairs (the first by place keys) and at most 8 species per place are judged (`species_truncated` is `true` when a place holds more). Of the judged pairs at most 500 are returned, `incompatible` first, then `compatible`, then `unknown`, each by place keys. `total` counts all pairs exactly, `truncated` is `true` when pairs are missing. When a bed has more than 2000 occupied pairs, the pairs beyond that window are not judged, whatever their status would be. <!-- REQ-053 GP-FR-134 -->
 
 **`GET …/rotation`** returns for each year the families that stood in the bed (`family_key`, `family_name`, `nutrient_demand`, `plan_role`, `source` = `plant` or `backfill`). `years` defaults to `max(rotation pause of the families involved, 5)`, at most 10 (`422` above).
+
+**`GET /sites/{key}/rotation-matrix`** puts these timelines of all beds of a site side by side: `columns` are the years, and for each bed `cells` holds, per year, the same list as `GET …/rotation` of that bed (family, `nutrient_demand`, `plan_role`, season). `years` as above (1 to 10); the default is read from the beds of the page, so send the `years` of the first answer when you page on. Beds are listed by name, at most 500, paged with `offset`/`limit` (`limit` at most 200); `total` is the number of beds read (after the cap of 500, the basis for paging), `truncated` is `true` when the site holds more than 500 beds and the rest is left out. A bed without the rotation check is listed with `rotation_applicable: false` and the reason in `not_applicable_reason`; years before `rotation_reset_at` are left out. There are no columns for future years. Readable by every member; the budget is `RATE_LIMIT_PLAN_EXPORT` per account. <!-- REQ-053 GP-FR-135 -->
+
+**`GET …/succession-recommendation`** suggests families and species for the next year, **the order only, never an amount**. The step after the latest recorded year follows the cycle heavy feeder → medium feeder → light feeder → green manure or fallow → heavy feeder (`target`); candidates are the successors stored in the crop rotation data for that year's families (`families[]` with species, at most 20), minus the families whose rotation pause in this bed is not over (`held_back[]`). A species appears only when its nutrient demand is stored; there is no default. `status` explains an empty list: `no_history`, `demand_unknown`, `no_successor_data`, `no_matching_species` or `not_applicable` (rotation check off, reason in `not_applicable_reason`). `previous` names the year the recommendation is based on. Readable by every member. <!-- REQ-053 GP-FR-133 -->
 
 **`POST …/history/backfill`** takes `{year, season?, species_key?, family_key?, plan_role}`. `year` lies between the current year minus 10 and minus 1 (`422 backfill.year_out_of_range`). A species names its family; a differing `family_key` is `422 backfill.family_mismatch`. Only a fallow year (`plan_role: fallow`) needs no family. The server writes the care entry itself; a client cannot set the `trigger`.
 
@@ -191,7 +197,7 @@ All four answer with `{location_key, cover_photo_ref, photos[], max_photos}`. An
 | `422 location.cover_not_a_photo` | The cover is not one of this bed's photos |
 | `403` | Role too low, or another member's photo without the `lead` role |
 
-The first photo becomes the cover automatically; if you remove the cover, none is set afterwards. `GET /locations/{key}` and the bed list name the cover in `cover_photo_ref`. A removed photo is deleted unless another bed, a gallery or a task still shows it. When you delete a bed or a site, its photos go the same way. Photos are never part of the garden plan's JSON backup; the import refuses a file whose beds contain `photo_refs` or `cover_photo_ref` with `422 import.unknown_keys`. <!-- REQ-053 GP-FR-051 -->
+The first photo becomes the cover automatically; if you remove the cover, the newest remaining photo becomes the cover (none is set after the last photo). `GET /locations/{key}` and the bed list name the cover in `cover_photo_ref`. A removed photo is deleted unless another bed, a gallery or a task still shows it. When you delete a bed or a site, its photos go the same way. Photos are never part of the garden plan's JSON backup; the import refuses a file whose beds contain `photo_refs` or `cover_photo_ref` with `422 import.unknown_keys`. <!-- REQ-053 GP-FR-051 -->
 
 ---
 
@@ -263,6 +269,23 @@ The switch also governs the check per plant place: when the check is off for a b
 | `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
 | `422` | `patch.rotation_exempt_and_enabled` | After the change both `rotation_exempt` and `rotation_enabled` would be `true`; to exempt a switched-on bed, send `rotation_enabled: null` with it |
 | `422` | `VALIDATION_ERROR` | `rotation_exempt: null` or a value that is not a boolean |
+
+---
+
+### Sun and reach thresholds of a site (REQ-053)
+
+`POST /api/v1/t/{slug}/sites` and `PUT /api/v1/t/{slug}/sites/{key}` take two optional objects that set where the sun classes begin and how wide a bed may be before the hint "hard to reach" (`bed.reach_too_wide`) appears. `GET` always returns the effective values: the stored ones, else the defaults. Left out or `null` means "keep the stored value" on an edit.
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `sun_class_thresholds.full_sun_min_hours` | `6` | Full sun above this many hours of direct sun on the reference day |
+| `sun_class_thresholds.partial_shade_min_hours` | `3` | Lower bound of partial shade |
+| `sun_class_thresholds.shade_min_hours` | `2` | Lower bound of shade; below it deep shade |
+| `sun_class_thresholds.reference_month`, `reference_day` | `6`, `21` | Reference day (21 June) |
+| `reach_thresholds.both_sides_m` | `1.2` | Widest bed with access from two opposite sides |
+| `reach_thresholds.one_side_m` | `0.6` | Widest bed with access from one side or unknown access |
+
+The hour bounds must be above 0 and strictly descending, and `one_side_m` may not exceed `both_sides_m`; otherwise `422`. Kamerplanter computes nothing from the sun bounds yet; they set the help texts of the sun tiles. The hint reads a bed's access only from its access sides (`site_conditions.access_sides`), not from adjacent paths. <!-- REQ-053 GP-FR-164, GP-FR-166 -->
 
 ---
 
