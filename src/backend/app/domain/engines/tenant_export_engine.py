@@ -214,6 +214,9 @@ class TenantExportEngine:
         "ai_tip_cache": "a cache, regenerated on demand",
         "import_jobs": "short-lived CSV upload jobs of this installation",
         "mcp_idempotency_record": "short-lived MCP replay protection of this installation",
+        # REQ-053 WP 9.3: random ids of deleted buffered writes; replay protection of this installation, aged out by
+        # a TTL index - meaningless in another installation, and no content of the tenant.
+        "client_event_tombstones": "replay protection of buffered writes in this installation (TTL), no tenant content",
         "ai_audit_log": _AUDIT,
         "mcp_audit_log": _AUDIT,
         "security_audit_log": _AUDIT,

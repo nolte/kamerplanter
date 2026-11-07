@@ -200,6 +200,15 @@ class _NoopCollection:
                 "unique": True,
                 "sparse": True,
             },
+            {
+                "type": "persistent",
+                "fields": col.CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS,
+                "unique": True,
+                "sparse": True,
+            },
+            # ... and client_event_tombstones: unique (not sparse) and its TTL index.
+            {"type": "persistent", "fields": col.CLIENT_EVENT_TOMBSTONE_INDEX_FIELDS, "unique": True},
+            {"type": "ttl", "fields": col.CLIENT_EVENT_TOMBSTONE_TTL_FIELDS, "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

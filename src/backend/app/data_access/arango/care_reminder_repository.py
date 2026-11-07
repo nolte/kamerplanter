@@ -217,6 +217,20 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         stored: CareConfirmation = self._confirmations._wrap(self._confirmations._from_doc(inserted))  # noqa: SLF001
         return stored
 
+    def find_confirmation_by_completion(
+        self, plant_key: str, completion_client_event_id: str
+    ) -> CareConfirmation | None:
+        found = self._confirmations.find_by_field(
+            "plant_key",
+            plant_key,
+            sort="confirmed_at",
+            sort_direction="ASC",
+            offset=0,
+            limit=1,
+            extra_filters=[("completion_client_event_id", "==", completion_client_event_id)],
+        )
+        return found[0] if found else None
+
     def get_confirmations_by_plant(
         self,
         plant_key: str,

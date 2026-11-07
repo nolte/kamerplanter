@@ -79,6 +79,7 @@ describe('useApiError', () => {
     ['task.already_closed', 409, /already done|schon erledigt/],
     ['task.missing', 404, /no longer exists|gibt es nicht mehr/],
     ['client_event.payload_mismatch', 409, /different details|anderen Angaben/],
+    ['client_event.deleted', 404, /deleted in the meantime|inzwischen gelöscht/],
   ])('names the completion conflict %s instead of the generic message (REQ-053 WP 9.3)', (code, status, text) => {
     const { result } = renderHook(() => useApiError(), { wrapper });
     result.current.handleError(makeApiError(code, 'conflict', [], status));

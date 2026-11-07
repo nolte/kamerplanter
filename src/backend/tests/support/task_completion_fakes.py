@@ -34,21 +34,32 @@ class FakeTaskRepo:
         self.cleared_parked: list[str] = []
         #: ``plant key -> (tenant, location)``: what the location queue needs to find a plant's tasks.
         self.plants: dict[str, tuple[str, str]] = {}
+        #: ``(tenant, client_event_id)`` of deleted tasks a buffered completion closed (WP 9.3).
+        self.tombstones: set[tuple[str, str]] = set()
+        #: Every batched client-id lookup, to pin "one query per batch".
+        self.client_id_lookups: list[list[str]] = []
 
     def get_task_or_raise(self, key: str) -> Task:
         if key not in self.store:
             raise NotFoundError("Task", key)
         return self.store[key].model_copy(deep=True)
 
-    def find_task_by_completion_client_event_id(self, client_event_id: str, *, tenant_key: str) -> Task | None:
-        return next(
-            (
-                task.model_copy(deep=True)
-                for task in self.store.values()
-                if task.tenant_key == tenant_key and task.completion_client_event_id == client_event_id
-            ),
-            None,
-        )
+    def find_tasks_by_completion_client_event_ids(self, client_event_ids, *, tenant_key: str) -> list[Task]:
+        self.client_id_lookups.append(list(client_event_ids))
+        return [
+            task.model_copy(deep=True)
+            for task in self.store.values()
+            if task.tenant_key == tenant_key and task.completion_client_event_id in client_event_ids
+        ]
+
+    def client_event_tombstones(self, client_event_ids, *, tenant_key: str) -> set[str]:
+        return {i for (t, i) in self.tombstones if t == tenant_key and i in client_event_ids}
+
+    def delete_task(self, key: str) -> bool:
+        task = self.store.pop(key, None)
+        if task is not None and task.completion_client_event_id:
+            self.tombstones.add((task.tenant_key, task.completion_client_event_id))
+        return task is not None
 
     def update_task(self, key: str, task: Task) -> Task:
         self.store[key] = task.model_copy(deep=True)
@@ -149,8 +160,12 @@ class FakeCompletionRepo(ITaskCompletionRepository):
                 raise ValidationError(f"Cannot complete task in status '{stored.status}'.")
             client_id = write.task_patch.get("completion_client_event_id")
             if client_id:
-                holder = self._tasks.find_task_by_completion_client_event_id(client_id, tenant_key=tenant_key)
-                if holder is not None and holder.key != write.task_key:  # the unique index of v0106
+                holders = [
+                    t
+                    for t in self._tasks.store.values()
+                    if t.tenant_key == tenant_key and t.completion_client_event_id == client_id
+                ]
+                if any(holder.key != write.task_key for holder in holders):  # the unique index of v0106
                     raise DuplicateError("tasks", "completion_client_event_id", client_id)
         for write in writes:
             stored = self._tasks.store[write.task_key]

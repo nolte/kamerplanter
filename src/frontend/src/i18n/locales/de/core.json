@@ -466,6 +466,7 @@
     "taskAlreadyClosed": "Diese Aufgabe ist schon erledigt oder übersprungen – vermutlich war jemand schneller. Lade die Liste neu.",
     "taskMissing": "Diese Aufgabe gibt es nicht mehr – vermutlich wurde sie gelöscht.",
     "clientEventMismatch": "Dieser Eintrag wurde schon mit anderen Angaben gespeichert. Prüfe den gespeicherten Eintrag, bevor du ihn erneut sendest.",
+    "clientEventDeleted": "Was du hier gespeichert hattest, wurde inzwischen gelöscht – der Eintrag wird nicht erneut angelegt.",
     "tooLarge": "Die Datei ist zu groß. Bitte wähle eine kleinere Datei.",
     "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
     "validation": "Bitte überprüfe deine Eingaben.",

@@ -129,6 +129,7 @@ def _parse_category(value: str) -> AttachmentCategory:
     status_code=201,
     responses={
         200: {"model": AttachmentResponse, "description": "A replay: `client_event_id` names a stored upload."},
+        404: {"description": "`client_event.deleted`: the record this `client_event_id` created was deleted since."},
         409: {"description": "`client_event.payload_mismatch`: the `client_event_id` names another upload."},
     },
 )
@@ -175,17 +176,6 @@ async def upload_attachment(
     # Content-Length cannot force the whole file into RAM before the size check.
     data = await _read_upload_bounded(file, max_bytes)
 
-    if client_event_id is None:
-        attachment = await service.upload(
-            tenant_key=ctx.tenant_key,
-            user_key=ctx.user_key,
-            data=data,
-            mime_type=mime_type,
-            original_filename=file.filename or "upload",
-            category=parsed_category,
-            capture_device=capture_device,
-        )
-        return _to_response(attachment, ctx.tenant_slug)
     outcome = await service.upload_once(
         tenant_key=ctx.tenant_key,
         user_key=ctx.user_key,

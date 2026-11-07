@@ -466,6 +466,7 @@
     "taskAlreadyClosed": "This task is already done or skipped – someone was probably faster. Reload the list.",
     "taskMissing": "This task no longer exists. It was probably deleted.",
     "clientEventMismatch": "This entry was already saved with different details. Check the saved entry before you send it again.",
+    "clientEventDeleted": "What you saved here was deleted in the meantime – the entry is not created again.",
     "tooLarge": "The file is too large. Please choose a smaller file.",
     "notFound": "The requested resource was not found.",
     "validation": "Please check your input.",

@@ -68,7 +68,10 @@ class _FakeAttachmentRepo:
         return att if att and att.tenant_key == tenant_key else None
 
     def delete(self, key, tenant_key):
-        if self.get(key, tenant_key):
+        record = self.get(key, tenant_key)
+        if record is not None and record.client_event_id:  # the tombstone the Arango repository leaves (WP 9.3)
+            self.tombstones = {*getattr(self, "tombstones", set()), (tenant_key, record.client_event_id)}
+        if record:
             del self._store[key]
             return True
         return False
@@ -99,6 +102,16 @@ class _FakeAttachmentRepo:
             if a.tenant_key == tenant_key and a.sha256 == sha256:
                 return a
         return None
+
+    def stamp_client_event(self, key, *, tenant_key, client_event_id, digest):
+        record = self._store.get(key)
+        if record is None or record.tenant_key != tenant_key or record.client_event_id is not None:
+            return False
+        self._store[key] = record.model_copy(update={"client_event_id": client_event_id, "client_event_digest": digest})
+        return True
+
+    def client_event_tombstones(self, client_event_ids, *, tenant_key):
+        return {i for (t, i) in getattr(self, "tombstones", set()) if t == tenant_key and i in client_event_ids}
 
     def find_by_client_event_id(self, *, tenant_key, client_event_id):
         return next(
@@ -570,3 +583,29 @@ class TestClientEventId:
         assert self._post(client, _make_jpeg()).status_code == 201
 
         assert self._post(client, _make_jpeg()).status_code != 201
+
+
+class TestReferenceFeedOncePerRecord:
+    """Code review of #2787: the DINOv2 reference is fed for a record this upload wrote, never for a replay."""
+
+    def test_a_replay_and_an_own_record_feed_nothing_a_second_time(self, tmp_path):
+        import app.tasks.reference_contribution_tasks as reference_tasks
+
+        app, _plant_repo, att_repo = _build(tmp_path, species_key="sp_1", species_name="Fragaria vesca")
+        fed: list[str] = []
+        reference_tasks.feed_user_reference.delay = lambda attachment_id, *a, **k: fed.append(attachment_id)  # type: ignore[assignment]
+        client = TestClient(app)
+        data = _make_jpeg()
+
+        def post(client_id: str | None):
+            form = {"client_event_id": client_id} if client_id else None
+            return client.post(_base(), files={"file": ("plant.jpg", data, "image/jpeg")}, data=form)
+
+        first = post("4d5e6f70-8192-4a3b-8c4d-5e6f70819203")
+        replay = post("4d5e6f70-8192-4a3b-8c4d-5e6f70819203")
+        own = post(None)  # the same bytes again: the #1770 dedup hands back the same record
+
+        assert (first.status_code, replay.status_code) == (201, 200)
+        assert own.json()["attachment_id"] == first.json()["attachment_id"]
+        assert fed == [first.json()["attachment_id"]]
+        assert len(att_repo._store) == 1

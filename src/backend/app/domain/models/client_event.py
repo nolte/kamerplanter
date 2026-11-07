@@ -12,12 +12,19 @@ can never create a second object:
 
 "The same request" is decided by a digest of the request as the server read it (:func:`client_event_digest`),
 stored beside the id. The digest includes the caller's account key: one member cannot claim another member's
-write by replaying its id.
+write by replaying its id. It is an **HMAC** keyed with the erasure tombstone salt (a server secret that never
+rotates): an unkeyed hash over ``{user: <key>, ...}`` would re-link an anonymised row to its person by trying the
+account keys (NFR-011).
+
+A replay of an object the user **deleted** since must not re-create it: the delete leaves a tombstone
+(``client_event_tombstones``, kept :data:`CLIENT_EVENT_TOMBSTONE_DAYS`, longer than any buffered write may be
+late), and a replay that meets one answers 404 ``client_event.deleted``.
 """
 
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -29,14 +36,37 @@ CLIENT_EVENT_ID_FIELD = "client_event_id"
 CLIENT_EVENT_DIGEST_FIELD = "client_event_digest"
 
 
+#: The field names of the unique client-event indexes (v0106): a 1210 naming one of them is "the id is taken",
+#: any other 1210 is a different conflict and is never read as a replay.
+CLIENT_EVENT_INDEX_FIELDS: frozenset[str] = frozenset({"client_event_id", "completion_client_event_id"})
+
+#: How long a tombstone outlives the object a buffered write created: longer than a client event may lie back
+#: (``MAX_AGE_DAYS`` of V-11, a year) plus a margin for a device that was offline at the end of that year.
+CLIENT_EVENT_TOMBSTONE_DAYS = 365 + 30
+
+#: ``kind`` of a tombstone: which path's object was deleted.
+TOMBSTONE_KINDS: frozenset[str] = frozenset({"task_completion", "attachment", "care_event"})
+
+
+def _digest_key() -> bytes:
+    from app.config.settings import settings  # read per call: a test may set the salt
+
+    return bytes(settings.erasure_tombstone_salt, "utf-8")
+
+
 def client_event_digest(payload: Mapping[str, Any]) -> str:
-    """SHA-256 over the canonical JSON of ``payload`` (sorted keys, no whitespace).
+    """HMAC-SHA-256 (keyed with the server's tombstone salt) over the canonical JSON of ``payload``.
 
     ``payload`` is JSON-shaped already (``model_dump(mode="json")``); a value JSON cannot spell is written with
     ``str`` so a digest never fails on a stray ``datetime``.
     """
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return hmac.new(_digest_key(), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def is_client_event_conflict(details: list[dict[str, Any]]) -> bool:
+    """Whether a :class:`~app.common.exceptions.DuplicateError`'s ``details`` name a client-event index."""
+    return any("field" in entry and entry["field"] in CLIENT_EVENT_INDEX_FIELDS for entry in details)
 
 
 def batch_item_client_event_id(batch_id: UUID, task_key: str) -> str:

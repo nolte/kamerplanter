@@ -228,15 +228,16 @@ Die Prüfung und das Schreiben sind eine Anweisung: Haben zwei Personen gleichze
 
 Ein Client, der Schreibvorgänge offline zwischenspeichert, schickt jeden mit einer eigenen `client_event_id` (UUID), damit eine Wiederholung nie ein zweites Objekt anlegt. Fünf Routen nehmen sie an: `POST /care-events` und `POST /tasks/{key}/complete` im Body, `POST /tasks/batch/status` einmal für den ganzen Stapel (jede Aufgabe bekommt daraus eine eigene ID) und die Foto-Uploads `POST /attachments` und `POST /plant-instances/{key}/photos` als Formularfeld. Die ID ist je Mandant eindeutig.
 
-Die erste Anfrage antwortet wie bisher (`201` für einen neuen Pflegeeintrag). Schickst du dieselbe ID noch einmal, antwortet die API mit `200` und dem Objekt der ersten Anfrage und schreibt nichts; eine erledigte Aufgabe bleibt erledigt, auch wenn sie zwischendurch wieder geöffnet wurde. Zwei gleichzeitige Anfragen mit derselben ID legen genau ein Objekt an.
+Die erste Anfrage antwortet wie bisher (`201` für einen neuen Pflegeeintrag). Schickst du dieselbe ID noch einmal, antwortet die API mit `200` und dem Objekt der ersten Anfrage und schreibt nichts; eine erledigte Aufgabe bleibt erledigt, auch wenn sie zwischendurch wieder geöffnet wurde. Zwei gleichzeitige Anfragen mit derselben ID legen genau ein Objekt an. Ein Pflegeeintrag zeigt seine `client_event_id` nur dem Mitglied, das ihn geschrieben hat. Hast du gelöscht, was eine Anfrage angelegt hat (ein Foto, eine Aufgabe), legt eine spätere Wiederholung mit derselben ID nichts an und antwortet mit `404 client_event.deleted`; verwirf dann den gepufferten Eintrag.
 
 | HTTP-Status | Code | Bedeutung |
 |-------------|------|-----------|
 | `409` | `client_event.payload_mismatch` | Die ID wurde schon für eine andere Anfrage verwendet (andere Aufgabe, Pflanze, Datei, Kategorie oder anderes Mitglied) |
 | `409` | `task.already_closed` | Die Aufgabe ist schon erledigt oder übersprungen (vorher: `422 VALIDATION_ERROR`) |
 | `404` | `task.missing` | Die Aufgabe wurde gelöscht oder gehört nicht zu diesem Mandanten (vorher: `404 ENTITY_NOT_FOUND`) |
+| `404` | `client_event.deleted` | Was diese ID angelegt hat, wurde inzwischen gelöscht; nichts wurde geschrieben |
 
-Im Stapel steht eine schon geschlossene Aufgabe unter `failed` mit ihrem `code`, eine wiederholte unter `succeeded`.
+Im Stapel steht eine schon geschlossene Aufgabe unter `failed` mit ihrem `code`, ebenso eine Aufgabe, die dieser Stapel erledigt hat und die seitdem gelöscht wurde (`client_event.deleted`, nie ein `404` für den ganzen Stapel); eine wiederholte steht unter `succeeded`.
 
 !!! warning "Noch nicht implementiert: Vorschläge erzeugen"
     Bisher legt Kamerplanter selbst keine Aufgaben mit `suggested = true` an. Die Endpunkte sind bereit, haben in einer laufenden Installation aber erst etwas zu entscheiden, wenn eine spätere Version Vorschläge erzeugt. <!-- REQ-053 GP-FR-086, GP-API-040 -->

@@ -120,7 +120,7 @@ class CareEventResponse(BaseModel):
     redacted_at: datetime | None = None
     redaction_reason: str | None = None
     created_at: datetime | None = None
-    #: The id the client sent with a buffered write (WP 9.3); a replay answers the event that carries it.
+    #: The id the client sent with a buffered write (WP 9.3); shown to the event's author only (`created_by_me`).
     client_event_id: str | None = None
     #: The supersede chain, oldest first; filled by `GET /care-events/{key}` only.
     chain: list[str] = Field(default_factory=list)
@@ -164,6 +164,7 @@ def care_event_to_response(view: CareEventView) -> CareEventResponse:
         redacted_at=event.redacted_at,
         redaction_reason=event.redaction_reason,
         created_at=event.created_at,
-        client_event_id=event.client_event_id,
+        # Only to its author: the id is the author's device's handle on the write, not a tenant-wide fact.
+        client_event_id=event.client_event_id if view.created_by_me else None,
         chain=view.chain_keys,
     )

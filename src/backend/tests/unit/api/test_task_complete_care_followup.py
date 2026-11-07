@@ -133,3 +133,59 @@ def test_completing_a_watering_task_schedules_the_next_occurrence(monkeypatch, c
     assert pending[0].tenant_key == TENANT
     # The follow-up lookup was the narrowed one — the request closed the task itself.
     assert task_store.lookups[-1]["include_completed_today"] is False
+
+
+class _ReplayingStub(_TaskServiceStub):
+    """The first call commits (not a replay), every later one is a replay of it (REQ-053 WP 9.3)."""
+
+    def __init__(self, completed: Task) -> None:
+        super().__init__(completed)
+        self.calls = 0
+
+    def complete_task_once(self, key: str, *args, **kwargs) -> TaskCompletionOutcome:
+        self.calls += 1
+        return TaskCompletionOutcome(self._completed, replayed=self.calls > 1)
+
+
+def test_a_replay_records_the_confirmation_a_crashed_first_attempt_lost_and_only_once(monkeypatch, care_stack):
+    # REQ-053 WP 9.3: the first attempt committed and died before its follow-up; the replay must record the
+    # confirmation, and a further replay must not record it twice.
+    care_service, task_store = care_stack
+    repo = care_service._repo  # noqa: SLF001 - the MagicMock the fixture built
+    confirmations: list[CareConfirmation] = []
+    repo.find_confirmation_by_completion.side_effect = lambda plant_key, client_id: next(
+        (c for c in confirmations if c.completion_client_event_id == client_id), None
+    )
+    repo.create_confirmation_logged.side_effect = lambda confirmation, **_: confirmations.append(confirmation)
+    completed = task_store.store[0].model_copy(update={"completion_client_event_id": "ce-1"})
+    task_store.store[0] = completed
+    stub = _ReplayingStub(completed)
+
+    def crashed() -> CareReminderService:
+        raise RuntimeError("the process died between the commit and the follow-up")
+
+    monkeypatch.setattr("app.common.dependencies.get_care_reminder_service", crashed)
+    with pytest.raises(RuntimeError):
+        complete_task(_request(), TASK_KEY, TaskCompleteRequest(), ctx=_ctx(), service=stub)  # type: ignore[arg-type]
+    assert confirmations == []
+
+    monkeypatch.setattr("app.common.dependencies.get_care_reminder_service", lambda: care_service)
+    for _ in range(2):
+        complete_task(_request(), TASK_KEY, TaskCompleteRequest(), ctx=_ctx(), service=stub)  # type: ignore[arg-type]
+
+    assert [c.completion_client_event_id for c in confirmations] == ["ce-1"]
+    assert len(task_store.open_care_tasks(ReminderType.WATERING)) == 1  # the next occurrence once, too
+
+
+def test_a_replay_of_a_reopened_task_runs_no_follow_up(monkeypatch, care_stack):
+    care_service, task_store = care_stack
+    repo = care_service._repo  # noqa: SLF001
+    repo.find_confirmation_by_completion.return_value = None
+    reopened = task_store.store[0].model_copy(update={"status": TaskStatus.PENDING, "completion_client_event_id": "c"})
+    stub = _ReplayingStub(reopened)
+    stub.calls = 1  # every call is a replay
+    monkeypatch.setattr("app.common.dependencies.get_care_reminder_service", lambda: care_service)
+
+    complete_task(_request(), TASK_KEY, TaskCompleteRequest(), ctx=_ctx(), service=stub)  # type: ignore[arg-type]
+
+    repo.create_confirmation_logged.assert_not_called()

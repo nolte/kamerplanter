@@ -76,6 +76,9 @@ export function useApiError() {
           case 'client_event.payload_mismatch':
             notification.error(t('errors.clientEventMismatch'));
             break;
+          case 'client_event.deleted':
+            notification.error(t('errors.clientEventDeleted'));
+            break;
           case 'VALIDATION_ERROR': {
             if (mappedFieldError) {
               notification.error(t('errors.validation'));

@@ -222,6 +222,21 @@ class ClientEventMismatchError(PlanError):
         )
 
 
+class ClientEventDeletedError(PlanError):
+    """404 ``client_event.deleted``: a replay of a buffered write whose object was deleted since (WP 9.3).
+
+    The delete left a tombstone for the id; the replay creates nothing. A client drops the buffered entry.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "client_event.deleted",
+            "What this client_event_id created was deleted since; nothing was written.",
+            status_code=404,
+            field="client_event_id",
+        )
+
+
 class TaskAlreadyClosedError(PlanError):
     """409 ``task.already_closed``: a completion of a task that is completed or skipped already (WP 9.3).
 

@@ -184,4 +184,5 @@ def test_completion_is_the_only_writer_of_photo_refs():
         and call.func.attr == "_prepare_completion"
     }
     # ``_batch_complete_pass`` is one attempt of the batch completion (REQ-053 WP 9.3 retries a buffered batch).
-    assert callers == {"complete_task", "_batch_complete_pass"}, sorted(callers)
+    # ``_commit_completion`` is the single completion's commit (REQ-053 WP 9.3: the follow-ups stay outside it).
+    assert callers == {"_commit_completion", "_batch_complete_pass"}, sorted(callers)

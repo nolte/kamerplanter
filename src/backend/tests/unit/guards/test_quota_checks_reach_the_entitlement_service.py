@@ -52,7 +52,8 @@ CHECKS: dict[tuple[str, str], EntitlementDimension] = {
 
 #: ``(module, Class.method)`` → the check it must call: the doors through which one more is admitted.
 DOORS: dict[tuple[str, str], str] = {
-    ("domain/services/attachment_service.py", "AttachmentService.upload"): "_enforce_quota",
+    # REQ-053 WP 9.3: ``upload`` and ``upload_once`` both run the pipeline, which is the door.
+    ("domain/services/attachment_service.py", "AttachmentService._pipeline"): "_enforce_quota",
     ("domain/services/plant_photo_service.py", "PlantPhotoService.assert_can_add_photo"): "_enforce_photo_quota",
     ("domain/services/plant_photo_service.py", "PlantPhotoService.link_photo"): "_enforce_photo_quota",
     ("domain/services/tenant_service.py", "TenantService._create_membership_unless_erasing"): (

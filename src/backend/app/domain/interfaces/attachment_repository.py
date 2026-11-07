@@ -136,6 +136,14 @@ class IAttachmentRepository(ABC):
         """The tenant's record a buffered upload with ``client_event_id`` created (REQ-053 WP 9.3), else ``None``."""
 
     @abstractmethod
+    def stamp_client_event(self, key: str, *, tenant_key: str, client_event_id: str, digest: str) -> bool:
+        """Stamp a buffered upload's id on an existing record without one; ``True`` when this call did (WP 9.3)."""
+
+    @abstractmethod
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        """The ids among ``client_event_ids`` whose record was deleted since (WP 9.3 tombstones)."""
+
+    @abstractmethod
     def storage_keys_held_elsewhere(
         self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
     ) -> set[str]:

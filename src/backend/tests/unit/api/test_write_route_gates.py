@@ -399,6 +399,10 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
                 "self._db.collection(col.SECURITY_AUDIT_LOG).insert() in "
                 "app.data_access.arango.security_audit_repository::ArangoSecurityAuditRepository.record",
                 "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
+                # REQ-053 WP 9.3 — the tombstone a deleted attachment or task leaves; reached only through the
+                # detector's ``.delete`` name fallback, like the repository deletes above.
+                "db.collection(col.CLIENT_EVENT_TOMBSTONES).insert() in "
+                "app.data_access.arango.client_event_tombstones::record_tombstone",
                 "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
                 "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
                 "self.collection.update() in app.data_access.arango.base_repository"

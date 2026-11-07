@@ -166,6 +166,7 @@ FILTER e != null AND e.tenant_key == @tenant_key
 _EVENT_BY_CLIENT_ID = """
 FOR e IN @@events
     FILTER e.tenant_key == @tenant_key AND e.client_event_id == @client_event_id
+    SORT e._key
     LIMIT 1
     RETURN e._key
 """

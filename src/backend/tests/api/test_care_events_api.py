@@ -17,6 +17,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.v1.care_events.schemas import CareEventCreate
 from app.common.auth import get_current_user
 from app.common.dependencies import get_care_event_service, get_tenant_service
 from app.common.enums import TenantRole
@@ -33,6 +34,7 @@ from tests.support.care_event_fakes import (
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     TENANT,
+    USER,
     FakePlanRepo,
     FakeSites,
     make_location,
@@ -568,3 +570,19 @@ class TestClientEventId:
         # The positive control: the replay rule needs the id; two plain posts stay two entries.
         assert [client().post(_OWN, json=body()).status_code for _ in range(2)] == [201, 201]
         assert len(world.repo.inserted) == 2
+
+
+def test_the_client_event_id_is_shown_to_its_author_only(world) -> None:
+    # Code review of #2787 (security L2): the id is the author's device's handle on the write.
+    from app.api.v1.care_events.schemas import care_event_to_response
+
+    view = world.service.log(
+        CareEventCreate(**body(client_event_id="6f708192-a3b4-4c5d-8e6f-708192a3b4c5")),
+        tenant_key=TENANT,
+        user_key=USER,
+        role=TenantRole.GROWER,
+    ).view
+
+    assert care_event_to_response(view).client_event_id == "6f708192-a3b4-4c5d-8e6f-708192a3b4c5"
+    other = view.model_copy(update={"created_by_me": False})
+    assert care_event_to_response(other).client_event_id is None

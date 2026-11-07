@@ -11,6 +11,7 @@ from app.common.exceptions import NotFoundError, WriteConflictError
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.client_event_tombstones import record_tombstone, tombstoned_ids
 from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
@@ -78,11 +79,13 @@ _EXECUTION_OWNER = f"""
 """
 
 
-#: The task a buffered completion closed (REQ-053 WP 9.3).
-_TASK_BY_COMPLETION_CLIENT_ID = """
+#: The tasks buffered completions closed (REQ-053 WP 9.3), one query for a whole batch. ``SORT`` keeps the answer
+#: deterministic on a volume where v0106 could not create the unique index (two rows under one id).
+_TASKS_BY_COMPLETION_CLIENT_IDS = """
 FOR t IN @@tasks
-    FILTER t.tenant_key == @tenant_key AND t.completion_client_event_id == @client_event_id
-    LIMIT 1
+    FILTER t.tenant_key == @tenant_key AND t.completion_client_event_id IN @client_event_ids
+    SORT t._key
+    LIMIT @limit
     RETURN t
 """
 
@@ -665,18 +668,31 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         doc = next(cursor, None)
         return Task(**self._from_doc(doc)) if doc else None
 
-    def find_task_by_completion_client_event_id(self, client_event_id: str, *, tenant_key: str) -> Task | None:
-        """Served by the unique ``(tenant_key, completion_client_event_id)`` index (v0106); tenant-anchored."""
-        self._require_tenant_key(tenant_key, "find_task_by_completion_client_event_id")
+    def find_tasks_by_completion_client_event_ids(self, client_event_ids: list[str], *, tenant_key: str) -> list[Task]:
+        """Served by the unique ``(tenant_key, completion_client_event_id)`` index (v0106); tenant-anchored, bounded."""
+        self._require_tenant_key(tenant_key, "find_tasks_by_completion_client_event_ids")
+        if not client_event_ids:
+            return []
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
-                _TASK_BY_COMPLETION_CLIENT_ID,
-                bind_vars={"@tasks": col.TASKS, "tenant_key": tenant_key, "client_event_id": client_event_id},
+                _TASKS_BY_COMPLETION_CLIENT_IDS,
+                bind_vars=cast(
+                    "dict[str, Any]",
+                    {
+                        "@tasks": col.TASKS,
+                        "tenant_key": tenant_key,
+                        "client_event_ids": list(client_event_ids),
+                        "limit": len(client_event_ids),
+                    },
+                ),
             ),
         )
-        doc = next(cursor, None)
-        return Task(**self._from_doc(doc)) if doc else None
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        self._require_tenant_key(tenant_key, "client_event_tombstones")
+        return tombstoned_ids(self._db, client_event_ids, tenant_key=tenant_key)
 
     def update_task(self, key: TaskKey, task: Task) -> Task:
         return super().update(key, task)
@@ -724,6 +740,8 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     def delete_task(self, key: TaskKey) -> bool:
         task_id = f"{col.TASKS}/{key}"
+        # A task a buffered completion closed leaves a tombstone, so a late replay does not report it done (WP 9.3).
+        stored = get_document(self.collection, key)
         # Cascade-delete comments and audit entries for this task
         self.delete_comments_for_task(key)
         self._delete_audit_entries_for_task(key)
@@ -733,7 +751,15 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         # Delete inbound edges (has_task, wf_generated, task_blocks, task_cloned_from to this task)
         for edge_col in [col.HAS_TASK, col.WF_GENERATED, col.TASK_BLOCKS, col.TASK_CLONED_FROM]:
             self.delete_edges(edge_col, task_id, direction="inbound")
-        return super().delete(key)
+        deleted = super().delete(key)
+        if deleted and stored and stored.get("completion_client_event_id"):
+            record_tombstone(
+                self._db,
+                tenant_key=str(stored.get("tenant_key") or ""),
+                client_event_id=str(stored["completion_client_event_id"]),
+                kind="task_completion",
+            )
+        return deleted
 
     def clear_assignee(self, *, tenant_key: str, user_key: str) -> int:
         """Unassign *user_key* from every task of *tenant_key* (#2114); the count of tasks changed."""

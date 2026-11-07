@@ -10,6 +10,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, TenantRole, WorkflowTargetType
 from app.common.exceptions import (
+    ClientEventDeletedError,
     ClientEventMismatchError,
     DuplicateError,
     ForbiddenError,
@@ -32,7 +33,12 @@ from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.care_event import UNDO_REASON, CareEvent, CareEventInput, CareEventOrigin
-from app.domain.models.client_event import ClientEventStamp, batch_item_client_event_id, client_event_digest
+from app.domain.models.client_event import (
+    ClientEventStamp,
+    batch_item_client_event_id,
+    client_event_digest,
+    is_client_event_conflict,
+)
 from app.domain.models.task import (
     ChecklistItem,
     Task,
@@ -1438,18 +1444,33 @@ class TaskService:
         except NotFoundError as exc:
             raise TaskMissingError(key) from exc
 
-    def _completion_replay(self, task_key: str, stamp: ClientEventStamp, *, tenant_key: str) -> Task | None:
-        """The task an earlier completion with ``stamp``'s id closed, if any (WP 9.3).
+    def _completion_replays(self, stamps: dict[str, ClientEventStamp], *, tenant_key: str) -> dict[str, Task]:
+        """The tasks earlier completions with the ``stamps``' ids closed, by task key - one query (WP 9.3).
 
-        409 ``client_event.payload_mismatch`` when the id closed another task or carried another request. The task
-        is answered as it is now - a reopen since then is not undone by a late replay.
+        409 ``client_event.payload_mismatch`` when an id closed another task or carried another request. A task is
+        answered as it is now - a reopen since then is not undone by a late replay.
         """
-        holder = self._repo.find_task_by_completion_client_event_id(stamp.client_event_id, tenant_key=tenant_key)
-        if holder is None:
-            return None
-        if holder.key != task_key or holder.completion_client_event_digest != stamp.digest:
-            raise ClientEventMismatchError()
-        return holder
+        if not stamps:
+            return {}
+        task_of = {stamp.client_event_id: key for key, stamp in stamps.items()}
+        found: dict[str, Task] = {}
+        holders: list[Task] = self._repo.find_tasks_by_completion_client_event_ids(list(task_of), tenant_key=tenant_key)
+        for holder in holders:
+            key = task_of.get(holder.completion_client_event_id or "")
+            if key is None:
+                continue
+            if holder.key != key or holder.completion_client_event_digest != stamps[key].digest:
+                raise ClientEventMismatchError()
+            found[key] = holder
+        return found
+
+    def _tombstoned(self, stamps: dict[str, ClientEventStamp], *, tenant_key: str) -> set[str]:
+        """The task keys whose earlier buffered completion closed a task that was deleted since (WP 9.3)."""
+        if not stamps:
+            return set()
+        task_of = {stamp.client_event_id: key for key, stamp in stamps.items()}
+        gone = self._repo.client_event_tombstones(list(task_of), tenant_key=tenant_key)
+        return {task_of[client_event_id] for client_event_id in gone if client_event_id in task_of}
 
     @staticmethod
     def _completion_digest(
@@ -1754,6 +1775,36 @@ class TaskService:
         A task without a bed, or a caller without an actor, closes the task alone. The recurrence spawn, the
         dependents and the notification follow the commit (their own ADR-008 strand, E-02).
         """
+        updated, as_stored = self._commit_completion(
+            key,
+            completion_notes,
+            actual_minutes,
+            photo_refs,
+            difficulty_rating,
+            quality_rating,
+            tenant_key=tenant_key,
+            details=details,
+            actor=actor,
+            stamp=stamp,
+        )
+        self._after_completion(updated, as_stored)
+        return updated
+
+    def _commit_completion(
+        self,
+        key: str,
+        completion_notes: str | None,
+        actual_minutes: int | None,
+        photo_refs: list[str] | None,
+        difficulty_rating: int | None,
+        quality_rating: int | None,
+        *,
+        tenant_key: str,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+        stamp: ClientEventStamp | None,
+    ) -> tuple[Task, Task]:
+        """Load, prepare and commit one completion; the follow-ups are the caller's. ``(as committed, as loaded)``."""
         task = self._task_for_completion(key, tenant_key=tenant_key)
         prepared = self._prepare_completion(
             task,
@@ -1769,8 +1820,7 @@ class TaskService:
             stamp=stamp,
         )
         updated = self._commit_completions([prepared], [task], tenant_key=tenant_key)[0]
-        self._after_completion(updated, task)
-        return updated
+        return updated, task
 
     def complete_task_once(
         self,
@@ -1820,12 +1870,18 @@ class TaskService:
             quality_rating=quality_rating,
         )
         stamp = ClientEventStamp(str(client_event_id), digest)
-        replayed = self._completion_replay(key, stamp, tenant_key=tenant_key)
+        stamps = {key: stamp}
+        replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
         if replayed is not None:
             return TaskCompletionOutcome(replayed, replayed=True)
+        if self._tombstoned(stamps, tenant_key=tenant_key):
+            raise ClientEventDeletedError()
+        committed: tuple[Task, Task] | None = None
         for attempt in range(_CLIENT_WRITE_ATTEMPTS):
+            # Only the commit of the completion may lead to the replay path: a follow-up error after the commit
+            # (the next occurrence, the notification) surfaces as it does without an id.
             try:
-                updated = self.complete_task(
+                committed = self._commit_completion(
                     key,
                     completion_notes,
                     actual_minutes,
@@ -1838,15 +1894,21 @@ class TaskService:
                     stamp=stamp,
                 )
             except (TaskAlreadyClosedError, DuplicateError, WriteConflictError) as exc:
-                replayed = self._completion_replay(key, stamp, tenant_key=tenant_key)
+                if isinstance(exc, DuplicateError) and not is_client_event_conflict(exc.details):
+                    raise  # another unique index (a harvest batch id) refused the commit: not a replay
+                replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
                 if replayed is not None:
                     logger.info("task_completion.replayed", task_key=key, raced=True)
                     return TaskCompletionOutcome(replayed, replayed=True)
                 if not isinstance(exc, WriteConflictError) or attempt == _CLIENT_WRITE_ATTEMPTS - 1:
                     raise
                 continue
-            return TaskCompletionOutcome(updated)
-        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
+            break
+        if committed is None:  # pragma: no cover - the loop breaks with a commit or raises
+            raise AssertionError("unreachable")
+        updated, as_stored = committed
+        self._after_completion(updated, as_stored)
+        return TaskCompletionOutcome(updated)
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
         # ``tenant_key`` is part of the guard, not an optional extra: the
@@ -2367,9 +2429,12 @@ class TaskService:
                 return self._batch_complete_pass(
                     keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor, stamps=stamps
                 )
-            except TaskAlreadyClosedError, DuplicateError, WriteConflictError:
+            except (TaskAlreadyClosedError, DuplicateError, WriteConflictError) as exc:
                 # A task of the batch was closed, or its id taken, between the pass's reads and its commit - by a
-                # concurrent attempt of this very batch, most likely. The next pass decides each task again.
+                # concurrent attempt of this very batch, most likely. The next pass decides each task again. Any
+                # other unique index (a harvest batch id) is the request's error, not a race of this batch.
+                if isinstance(exc, DuplicateError) and not is_client_event_conflict(exc.details):
+                    raise
                 if attempt == _CLIENT_WRITE_ATTEMPTS - 1:
                     raise
         raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
@@ -2386,15 +2451,21 @@ class TaskService:
     ) -> tuple[list[str], list[dict[str, str]]]:
         """One attempt at a batch completion; ``stamps`` (per task) is empty without a ``client_event_id``."""
         # Per task (WP 9.3): a task its id closed before is a replay - succeeded, nothing written for it.
-        replayed = {
-            key
-            for key, stamp in stamps.items()
-            if self._completion_replay(key, stamp, tenant_key=tenant_key) is not None
-        }
+        replayed = set(self._completion_replays(stamps, tenant_key=tenant_key))
+        # A task this batch closed that was deleted since is reported per task, never a 404 for the whole batch.
+        deleted = self._tombstoned({k: v for k, v in stamps.items() if k not in replayed}, tenant_key=tenant_key)
+        failed: list[dict[str, str]] = [
+            {"key": key, "error": "What this batch completed was deleted since.", "code": "client_event.deleted"}
+            for key in keys
+            if key in deleted
+        ]
         # All keys first: a foreign or unknown one is a 404 for the whole batch (GP-API-032) — before any write and
         # before any status is judged, so the answer cannot tell a foreign task from an absent one.
-        tasks = [self._task_for_completion(key, tenant_key=tenant_key) for key in keys if key not in replayed]
-        failed: list[dict[str, str]] = []
+        tasks = [
+            self._task_for_completion(key, tenant_key=tenant_key)
+            for key in keys
+            if key not in replayed and key not in deleted
+        ]
         prepared: list[CompletionWrite] = []
         ready: list[Task] = []
         taken_batch_ids: set[str] = set()

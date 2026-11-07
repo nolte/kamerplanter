@@ -31,6 +31,7 @@ from PIL import Image
 
 from app.common.enums import AttachmentCategory, TenantRole
 from app.common.exceptions import (
+    ClientEventDeletedError,
     ClientEventMismatchError,
     DuplicateError,
     TaskAlreadyClosedError,
@@ -41,13 +42,16 @@ from app.config.settings import Settings
 from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
+from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
+from app.data_access.arango.client_event_tombstones import record_tombstone
 from app.data_access.arango.task_completion_repository import ArangoTaskCompletionRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.models.care_event import CareEvent, CareEventInput
-from app.domain.models.client_event import batch_item_client_event_id
+from app.domain.models.care_reminder import CareConfirmation
+from app.domain.models.client_event import batch_item_client_event_id, is_client_event_conflict
 from app.domain.models.task_completion import CompletionActor, TaskCompletionDetails
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.care_event_service import CareEventService
@@ -92,7 +96,15 @@ def _handle() -> Any:
 
 @pytest.fixture
 def db(database):
-    for name in (col.CARE_EVENTS, col.TASKS, col.ATTACHMENTS, col.CARE_EVENT_AT, col.TASK_LOGGED_AS):
+    for name in (
+        col.CARE_EVENTS,
+        col.TASKS,
+        col.ATTACHMENTS,
+        col.CARE_EVENT_AT,
+        col.TASK_LOGGED_AS,
+        col.CLIENT_EVENT_TOMBSTONES,
+        col.CARE_CONFIRMATIONS,
+    ):
         database.collection(name).truncate()
     for key in ("t1", "t2", "t3"):
         database.collection(col.TASKS).insert(
@@ -456,3 +468,121 @@ class TestUpload:
         with pytest.raises(ClientEventMismatchError):
             _upload(service, data, client_id, plant_instance_key="pi_2")
         assert _rows(db, col.ATTACHMENTS, "client_event_id", str(client_id)) == 1
+
+
+# ── Review findings of #2787 ──────────────────────────────────────────────────
+
+
+class TestTombstones:
+    def test_the_collection_carries_its_unique_and_its_ttl_index(self, db) -> None:
+        indexes = db.collection(col.CLIENT_EVENT_TOMBSTONES).indexes()
+
+        assert any(i["type"] == "ttl" and i["fields"] == ["deleted_at"] for i in indexes)
+        ttl = next(i for i in indexes if i["type"] == "ttl")
+        # python-arango formats the server's expireAfter as expiry_time.
+        assert ttl.get("expiry_time", ttl.get("expireAfter")) == col.CLIENT_EVENT_TOMBSTONE_TTL_SECONDS
+        assert any(i.get("unique") and i["fields"] == ["tenant_key", "client_event_id"] for i in indexes)
+
+    def test_a_replay_of_a_deleted_task_is_refused_and_writes_nothing(self, db) -> None:
+        service = _tasks(db)
+        client_id = uuid.uuid4()
+        service.complete_task_once(
+            "t1", tenant_key=TENANT, client_event_id=client_id, details=TaskCompletionDetails(), actor=ACTOR
+        )
+        assert ArangoTaskRepository(db).delete_task("t1") is True
+
+        with pytest.raises(ClientEventDeletedError):
+            service.complete_task_once(
+                "t1", tenant_key=TENANT, client_event_id=client_id, details=TaskCompletionDetails(), actor=ACTOR
+            )
+        assert _rows(db, col.CLIENT_EVENT_TOMBSTONES, "client_event_id", str(client_id)) == 1
+        assert db.collection(col.TASKS).get("t1") is None
+        assert _rows(db, col.CARE_EVENTS, "task_key", "t1") == 1  # the first completion's line only
+
+    def test_a_batch_reports_the_deleted_task_and_completes_the_rest(self, db) -> None:
+        service = _tasks(db)
+        batch_id = uuid.uuid4()
+        args = {"tenant_key": TENANT, "details": TaskCompletionDetails(), "actor": ACTOR, "client_event_id": batch_id}
+        service.batch_status_change(["t1"], "complete", **args)
+        ArangoTaskRepository(db).delete_task("t1")
+
+        # The same batch replayed: t1 per task, never a 404 for the whole batch (here t2 was never part of it).
+        succeeded, failed = service.batch_status_change(["t1"], "complete", **args)
+
+        assert succeeded == []
+        assert [(item["key"], item["code"]) for item in failed] == [("t1", "client_event.deleted")]
+
+    def test_a_replay_of_a_deleted_upload_stores_nothing(self, db, uploads) -> None:
+        service = uploads(db)
+        client_id, data = uuid.uuid4(), _photo()
+        stored = _upload(service, data, client_id).attachment
+        assert ArangoAttachmentRepository(db).delete(stored.key or "", TENANT) is True
+
+        with pytest.raises(ClientEventDeletedError):
+            _upload(service, data, client_id)
+        assert _rows(db, col.ATTACHMENTS, "sha256", stored.sha256) == 0
+
+    def test_another_tenant_is_not_refused_by_a_tombstone(self, db) -> None:
+        repo = ArangoTaskRepository(db)
+        record_tombstone(db, tenant_key=TENANT, client_event_id="ce-x", kind="task_completion")
+
+        assert repo.client_event_tombstones(["ce-x"], tenant_key=TENANT) == {"ce-x"}
+        assert repo.client_event_tombstones(["ce-x"], tenant_key=OTHER_TENANT) == set()
+
+
+class TestOwnRecordDedup:
+    def test_an_own_record_without_an_id_is_stamped_and_then_replayed(self, db, uploads) -> None:
+        service = uploads(db)
+        data = _photo()
+        plain = asyncio.run(
+            service.upload(
+                tenant_key=TENANT,
+                user_key=USER,
+                data=data,
+                mime_type="image/jpeg",
+                original_filename="bed.jpg",
+                category=AttachmentCategory.LOCATION,
+            )
+        )
+        client_id = uuid.uuid4()
+
+        first = _upload(service, data, client_id)
+        replay = _upload(service, data, client_id)
+
+        assert (first.created, first.replayed) == (False, False)
+        assert (replay.created, replay.replayed) == (False, True)
+        assert first.attachment.key == replay.attachment.key == plain.key
+        assert db.collection(col.ATTACHMENTS).get(plain.key)["client_event_id"] == str(client_id)
+
+    def test_two_twins_create_one_record_and_exactly_one_of_them_is_new(self, db, uploads) -> None:
+        client_id, data = uuid.uuid4(), _photo()
+
+        results = _race(lambda: _upload(uploads(_handle()), data, client_id))
+
+        answered = [result for result in results if not isinstance(result, Exception)]
+        assert answered, results
+        assert all(isinstance(result, WriteConflictError) for result in results if isinstance(result, Exception))
+        assert sum(answer.created for answer in answered) == 1  # one feed of the DINOv2 reference, not two
+        assert _rows(db, col.ATTACHMENTS, "client_event_id", str(client_id)) == 1
+
+
+class TestCareConfirmationOnce:
+    def test_the_index_refuses_a_second_confirmation_of_one_completion_and_names_the_id(self, db) -> None:
+        repo = ArangoCareReminderRepository(db)
+        confirmation = CareConfirmation(
+            plant_key="pi_1",
+            care_profile_key="",
+            reminder_type="watering",
+            action="confirmed",
+            confirmed_at=datetime.now(UTC),
+            task_key="t1",
+            completion_client_event_id="ce-once",
+        )
+        repo.create_confirmation_logged(confirmation, profile_key="", plant_key="pi_1", event_for=lambda _key: None)
+
+        with pytest.raises(DuplicateError) as raised:
+            repo.create_confirmation_logged(confirmation, profile_key="", plant_key="pi_1", event_for=lambda _k: None)
+
+        assert is_client_event_conflict(raised.value.details)  # what the service reads as "a twin confirmed first"
+        assert repo.find_confirmation_by_completion("pi_1", "ce-once") is not None
+        assert repo.find_confirmation_by_completion("pi_1", "ce-other") is None

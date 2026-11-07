@@ -232,6 +232,8 @@ class TenantErasureEngine:
         _delete("import_jobs"),
         _delete("attachments"),
         _delete("mcp_idempotency_record"),
+        # REQ-053 WP 9.3: the ids of the tenant's deleted buffered writes; random UUIDs, no personal data.
+        _delete("client_event_tombstones"),
         # #1769 review GDPR-007 — an API key restricted to this tenant
         # (``tenant_scope``) authorises nothing once the tenant is gone; its
         # label and IP allowlist are the member's. Account-scoped keys stay.

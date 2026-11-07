@@ -648,8 +648,8 @@ def batch_status_change(
     `code = task.already_closed`.
 
     `client_event_id` (REQ-053 WP 9.3, `complete` only) makes a buffered batch idempotent per task: a task this
-    batch closed before is in `succeeded` without a second write; the same id with another body is 409
-    `client_event.payload_mismatch`.
+    batch closed before is in `succeeded` without a second write, one it closed that was deleted since is in
+    `failed` with `code = client_event.deleted`; the same id with another body is 409 `client_event.payload_mismatch`.
     """
     succeeded, failed = service.batch_status_change(
         body.task_keys,
@@ -757,7 +757,8 @@ def complete_task(
     Conflicts (REQ-053 WP 9.3): 409 `task.already_closed` for a task completed or skipped already, 404
     `task.missing` for a deleted (or foreign) one. `client_event_id` (optional UUID of a buffered completion): a
     replay answers the task this id closed, as it is now, without a second write; the same id on another task or
-    with another body is 409 `client_event.payload_mismatch`.
+    with another body is 409 `client_event.payload_mismatch`; a replay of a task deleted since is 404
+    `client_event.deleted`.
     """
     outcome = service.complete_task_once(
         key,
@@ -772,8 +773,9 @@ def complete_task(
         actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
     )
     completed = outcome.task
-    if outcome.replayed:
-        # Nothing was written: the confirmation of the first answer stands, a second one would double the care log.
+    # A replay runs the follow-up too - a first attempt may have died between its commit and here - unless the task
+    # was reopened since. The confirmation of a buffered completion is idempotent (one per id, REQ-053 WP 9.3).
+    if outcome.replayed and completed.status != "completed":
         return _task_response(completed)
     # The care-state consequences of a completed care-reminder task are domain
     # logic and live in the service (NFR-001): confirmation + edges, the
