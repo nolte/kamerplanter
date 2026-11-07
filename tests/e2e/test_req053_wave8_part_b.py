@@ -35,8 +35,8 @@ test follows the product and says so in its docstring. Corrections, in short:
               degrees ("Ausrichtung 200°") - nothing is derived (§29), so no "Süd-Südwest"; access sides are four
               toggles N/E/S/W ("beidseitig" = Ost + West); the head shows "Frostrisiko: Hoch" as text (no
               snowflake) and the drainage as its own fact; the water regime is not part of the head.
-  TC-053-074  PRODUCT DEFECT: the waterlogging hint never appears - ``GET /species`` does not expose
-              ``waterlogging_tolerance`` (``SpeciesResponse``); "Beet N" is its own case, xfail(strict=True).
+  TC-053-074  "Beet N" (waterlogging) is its own case; the hint needed ``waterlogging_tolerance`` in
+              ``SpeciesResponse``, which the first run found missing and #2765 added.
               "Staunass" is the drainage "Schlecht" (``poor``); the texts are the product's: "… ist frostempfindlich,
               und die Frostgefahr an diesem Beet ist erhöht." etc. The seeded tomato has no light requirement, so no
               light verdict is shown next to the axis hints (not asserted).
@@ -591,16 +591,6 @@ def test_tc_053_073_site_features_are_choices_stored_and_shown_in_the_bed_head(
 # ── TC-053-074 ──────────────────────────────────────────────────────────────
 
 
-#: Product defect found by the first browser run (light, 2026-11-06): the waterlogging hint can never appear.
-WATERLOGGING_NOT_EXPOSED = (
-    "Product defect: GET /species does not expose `waterlogging_tolerance` - SpeciesResponse "
-    "(src/backend/app/api/v1/species/schemas.py:71-131) lacks the field although the Species model carries it "
-    "(src/backend/app/domain/models/species.py:463) and the planting dialog reads it from the catalogue "
-    "(src/frontend/src/features/gardenPlanner/planting/siteFitOf.ts:39-46, src/frontend/src/api/types.ts:380); the "
-    "species always arrives without it, so `waterlogging_risk` (GP-FR-161) is never shown"
-)
-
-
 def _axis_hints_of(bed_view: BedViewPage, bed_key: str, species_key: str, what: str):
     """Open "Bepflanzen" on *bed_key* with a tomato; return the dialog and its axis hints for *species_key*."""
     bed_view.open(bed_key, "planting")
@@ -626,7 +616,7 @@ def test_tc_053_074_site_hints_for_frost_and_wind_never_block(
     with the product's sentence. In "Beet F" the run is created despite the hint (the server lists it). Breaks if a
     hint is missing, appears on the wrong bed, is shown as an error, or blocks the planting.
 
-    The waterlogging bed ("Beet N") is its own case below: it is held by a product defect (xfail strict).
+    The waterlogging bed ("Beet N") is its own case below (it was held by a product defect, fixed in #2765).
 
     Spec corrections: the texts are the product's; the seeded tomato has no light requirement, so the light verdict
     beside the axis hints is not asserted.
@@ -695,7 +685,6 @@ def test_tc_053_074_site_hints_for_frost_and_wind_never_block(
 
 
 @pytest.mark.requires_desktop
-@pytest.mark.xfail(strict=True, reason=WATERLOGGING_NOT_EXPOSED)
 def test_tc_053_074_waterlogging_hint_on_a_poorly_drained_bed(
     bed_view: BedViewPage,
     base_url: str,
@@ -707,10 +696,7 @@ def test_tc_053_074_waterlogging_hint_on_a_poorly_drained_bed(
     Precondition (API): "Beet N" with ``soil_profile.drainage = poor`` (the TC's "Staunass"); the seed catalogue gives
     the tomato ``waterlogging_tolerance: sensitive`` (``species.yaml``). The dialog "Bepflanzen" with a tomato must
     show exactly ``waterlogging_risk`` as a warning: "… verträgt Staunässe schlecht, und dieses Beet ist schlecht
-    drainiert." Breaks (as it does today, see the xfail reason) when the hint is missing.
-
-    xfail(strict=True): a product defect, not a test gap - the species API never carries the tolerance. Once the
-    field is exposed the case passes, the strict xfail turns that into a failure, and the marker must go.
+    drainiert." Breaks when the hint is missing - as it did until #2765 made ``GET /species`` serve the tolerance.
     """
     tomato = species(base_url, e2e_seed_data, TOMATO)
     garden = provision_garden(
