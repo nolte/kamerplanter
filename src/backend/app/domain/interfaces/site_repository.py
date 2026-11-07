@@ -128,6 +128,16 @@ class ISiteRepository(ABC):
         """
 
     @abstractmethod
+    def set_slot_occupied(self, key: SlotKey, occupied: bool) -> None:
+        """Write only ``currently_occupied`` of a slot — no read-modify-write of the rest (#2727).
+
+        The occupation writers (placing or removing a plant, a planting run creating or moving its plants)
+        change one flag. Writing the whole slot they had read reverted a ``PATCH /slots`` (role, geometry,
+        capacity) that landed between their read and their write. The caller has resolved the slot under its
+        tenant; a missing slot raises :class:`~app.common.exceptions.NotFoundError`.
+        """
+
+    @abstractmethod
     def delete_slot(self, key: SlotKey) -> bool: ...
 
     @abstractmethod

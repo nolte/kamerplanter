@@ -38,6 +38,8 @@ from app.common.exceptions import DuplicateError, KamerplanterError, WriteConfli
 UNIQUE_CONSTRAINT_VIOLATED = 1210
 #: ``arango.errno.CONFLICT`` — a statement about timing.
 WRITE_WRITE_CONFLICT = 1200
+#: ``arango.errno.DOCUMENT_NOT_FOUND`` — the document addressed by key is not (any more) there; not a conflict.
+DOCUMENT_NOT_FOUND = 1202
 #: ``arango.errno.LOCK_TIMEOUT`` — a collection lock could not be taken in time;
 #: raised by ``begin_transaction`` once its ``lock_timeout`` has passed.
 LOCK_TIMEOUT = 18
@@ -134,3 +136,8 @@ def conflict_error_for(
     if code == WRITE_WRITE_CONFLICT:
         return WriteConflictError(entity)
     return None
+
+
+def is_document_not_found(error: ArangoServerError) -> bool:
+    """Whether *error* is ArangoDB's ``1202``: the addressed document does not exist (any more)."""
+    return getattr(error, "error_code", None) == DOCUMENT_NOT_FOUND

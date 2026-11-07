@@ -46,6 +46,7 @@ from app.domain.models.planting_run import SOURCE_FIELD_MODE, PlantingRun, Plant
 from app.domain.models.site import Location, Slot
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 from app.domain.services.planting_reservation_service import FreePlacement, PlantingReservationService
+from app.domain.services.slot_occupancy import plants_standing_on
 
 logger = structlog.get_logger()
 
@@ -896,9 +897,9 @@ class PlantingRunService:
                     )
                     self._phase_repo.create_phase_history(hist)
             # Mark slot as occupied (once: a row or a zone takes several plants)
+            # Only the flag is written (#2727): writing back the slot read above reverted a PATCH /slots since.
             if slot is not None and slot_key and self._site_repo and slot_key not in occupied_slot_keys:
-                slot.currently_occupied = True
-                self._site_repo.update_slot(slot_key, slot)
+                self._site_repo.set_slot_occupied(slot_key, True)
                 occupied_slot_keys.add(slot_key)
             created_plants.append(created)
 
@@ -1319,21 +1320,26 @@ class PlantingRunService:
         # tenant's plant is skipped, not re-slotted (#2107 review SEC-001 sweep).
         plants_raw = self._owned_run_plant_rows(run_key, tenant_key)
 
-        # Release old slots
+        # Release old slots: first take the moved plants off them, then free each distinct slot once - and only
+        # when no other plant still stands on it (a zone or row holds several; a standalone plant outside this
+        # run may share it, #2727 review).
+        old_slot_keys: dict[str, None] = {}
         for p in plants_raw:
             slot_key = p.get("slot_key")
             if slot_key:
+                old_slot_keys[slot_key] = None
                 plant_key = p.get("_key") or p.get("key", "")
                 plant = self._plant_repo.get_by_key(plant_key)
                 if plant:
                     plant.slot_key = None
                     self._plant_repo.update(plant_key, plant)
-                try:
-                    slot, _location = resolve_owned_slot(self._site_repo, slot_key, tenant_key)
-                except NotFoundError:
-                    continue  # a foreign or vanished slot is not this tenant's to free
-                slot.currently_occupied = False
-                self._site_repo.update_slot(slot_key, slot)
+        for slot_key in old_slot_keys:
+            try:
+                resolve_owned_slot(self._site_repo, slot_key, tenant_key)
+            except NotFoundError:
+                continue  # a foreign or vanished slot is not this tenant's to free
+            if not plants_standing_on(self._plant_repo, slot_key, tenant_key=tenant_key):
+                self._site_repo.set_slot_occupied(slot_key, False)
 
         # Move every plant to the new location - its bed and garden, as `create_plants` stamps them (bed reads
         # find a bed's plants by `location_key`) - and onto the new location's available slots while they last.
@@ -1348,8 +1354,7 @@ class PlantingRunService:
             target = available_slots[i] if i < len(available_slots) else None
             if target is not None and target.key:
                 plant.slot_key = target.key
-                target.currently_occupied = True
-                self._site_repo.update_slot(target.key, target)
+                self._site_repo.set_slot_occupied(target.key, True)
             self._plant_repo.update(plant_key, plant)
 
     def transition(

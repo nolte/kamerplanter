@@ -1182,6 +1182,16 @@ class TestPatchingASlot:
         ((key, fields),) = repo.slot_field_updates
         assert key == "s1" and set(fields) == {"slot_role", "geometry", "geometry_source"}
 
+    def test_the_write_is_conditional_on_the_slot_it_was_validated_against_2727(self, world) -> None:
+        """The capacity is validated against the stored role (and the role against the stored geometry kind):
+        the write carries the slot it read, so a PUT or PATCH that changed one of them since is a 409."""
+        service, repo, _ = world
+        read = repo.slots[0]
+
+        patch_slot(service, capacity_plants=4)
+
+        assert repo.slot_field_update_read == read and repo.slot_field_update_read.capacity_plants == 1
+
     def test_a_patch_that_changes_nothing_writes_nothing(self, world) -> None:
         service, repo, _ = world
         patch_slot(service, capacity_plants=1)

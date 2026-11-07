@@ -816,7 +816,9 @@ class GardenResourceService:
         now, before = _dump(updated, by_alias=True, mode="json"), _dump(slot, by_alias=True, mode="json")
         fields = {name: now.get(name) for name in _SLOT_PATCH_COLUMNS if now.get(name) != before.get(name)}
         if fields:
-            self._plan.update_slot_fields(key, fields)
+            # Conditional on the role, capacity and geometry kind it was validated against (#2727): a 409, not a
+            # slot neither write validated, when another PATCH changed one of them since the read.
+            self._plan.update_slot_fields(key, fields, read=slot)
             self._recompute_adjacency(location.key or "")
         return resolve_owned_slot(self._sites, key, tenant_key)[0]
 

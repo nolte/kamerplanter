@@ -81,3 +81,13 @@ def test_a_misspelt_untouched_name_is_refused_before_the_write(db: MagicMock) ->
         ArangoSiteRepository(db).update_slot("slot-1", _slot(), untouched=("occupied",))
 
     db.collection.return_value.update.assert_not_called()
+
+
+def test_an_occupation_write_names_the_flag_and_nothing_else_2727(db: MagicMock) -> None:
+    """``set_slot_occupied`` hands ArangoDB the flag and ``updated_at``: no column a ``PATCH /slots`` writes."""
+    ArangoSiteRepository(db).set_slot_occupied("slot-1", False)
+
+    payload = _payload(db)
+    assert set(payload) == {"_key", "currently_occupied", "updated_at"}
+    assert (payload["_key"], payload["currently_occupied"]) == ("slot-1", False)
+    db.aql.execute.assert_not_called()  # no has_slot edge re-pointing: the location does not change

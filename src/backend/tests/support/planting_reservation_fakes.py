@@ -344,9 +344,15 @@ def build_world() -> SimpleNamespace:
         reservations=reservations,
         reservation_repo=reservation_repo,
     )
-    # create_plants marks slots occupied through the site repository; keep what it was told
+    # create_plants marks slots occupied through the site repository - the flag alone (#2727); keep what it was
+    # told, and refuse a whole-slot write: it would revert a PATCH /slots that landed after the service's read
     updates: list = []
-    sites.update_slot = lambda key, slot: updates.append((key, slot.currently_occupied)) or slot
+    sites.set_slot_occupied = lambda key, occupied: updates.append((key, occupied))
+
+    def _whole_slot_write(key, slot, **_options):
+        raise AssertionError(f"whole-slot write of {key!r}: an occupation writes only the flag (#2727)")
+
+    sites.update_slot = _whole_slot_write
     return SimpleNamespace(
         service=service,
         runs=runs,

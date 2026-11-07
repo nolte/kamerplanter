@@ -13,7 +13,9 @@ from datetime import UTC, datetime
 
 import pytest
 from arango import ArangoClient
+from pydantic import ValidationError as PydanticValidationError
 
+from app.api.v1.slots.schemas import SlotCreate
 from app.common.enums import BedStatus, TenantRole
 from app.common.exceptions import DuplicateError, NotFoundError, PlanError, WriteConflictError
 from app.data_access.arango import collections as col
@@ -25,7 +27,7 @@ from app.data_access.arango.garden_plan_repository import (
 )
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import GardenObjectPatch, LocationPatch, SlotBatchRequest, SlotPatch
-from app.domain.models.site import Location, Slot
+from app.domain.models.site import MAX_POSITION_CAPACITY, Location, Slot
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.site_service import SiteService
@@ -722,11 +724,8 @@ class TestPutLeavesTheSlotColumnsAsStored:
 
     @staticmethod
     def _occupy(db, occupied: bool) -> None:
-        """What the planting-run and plant-instance services do: read the slot, flip the flag, write it."""
-        repository = ArangoSiteRepository(db)
-        slot = repository.get_slot_or_raise("slot")
-        slot.currently_occupied = occupied
-        repository.update_slot("slot", slot)
+        """What the planting-run and plant-instance services do: write the flag alone (#2727)."""
+        ArangoSiteRepository(db).set_slot_occupied("slot", occupied)
 
     def test_a_geometry_and_role_a_patch_writes_after_the_read_survive_the_put(
         self, db, service, sites, monkeypatch
@@ -781,6 +780,180 @@ class TestPutLeavesTheSlotColumnsAsStored:
         assert (document["row_index"], document["sequence"]) == (2, 7)
         assert document["geometry"] == point(0.5, 0.5)
         assert returned.slot_id == "BED_S1_NEW" and returned.currently_occupied is True
+
+
+_ZONE = {"kind": "polygon", "points": [[0, 0], [1, 0], [1, 1], [0, 1]]}
+
+
+def _patch_slot(service: GardenResourceService, body: dict) -> None:
+    service.patch_slot("slot", tenant_key=A, role=TenantRole.GROWER, patch=SlotPatch.model_validate(body))
+
+
+class TestOccupationWritesOnlyTheFlag:
+    """#2727: an occupation write sets ``currently_occupied`` and nothing else.
+
+    The planting-run and plant-instance services read the slot, flipped the flag and wrote the whole slot back
+    (an object merge). The interleaving is forced in the order the services run: the read, then a ``PATCH
+    /slots`` (role and geometry, written with ``merge=False``), then the occupation write. The old spelling is
+    run beside the new one, so the test also shows the revert it closes.
+    """
+
+    def test_a_patch_between_the_read_and_the_occupation_survives(self, db, service) -> None:
+        add_slot(db, "slot", "BED_S1")
+        sites = ArangoSiteRepository(db)
+        assert sites.get_slot_by_key("slot") is not None  # the read the services make before they occupy
+
+        _patch_slot(service, {"slot_role": "zone", "geometry": _ZONE, "capacity_plants": 6})
+        sites.set_slot_occupied("slot", True)
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert document["currently_occupied"] is True
+        assert (document["slot_role"], document["capacity_plants"], document["geometry_source"]) == (
+            "zone",
+            6,
+            "editor",
+        )
+        assert document["geometry"] == {**_ZONE, "rotation_deg": 0}  # no ``origin`` of the read point
+
+    def test_freeing_leaves_a_patch_in_place_too(self, db, service) -> None:
+        add_slot(db, "slot", "BED_S1", occupied=True)
+        sites = ArangoSiteRepository(db)
+        assert sites.get_slot_by_key("slot") is not None
+
+        _patch_slot(service, {"slot_role": "zone", "geometry": _ZONE})
+        sites.set_slot_occupied("slot", False)
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert document["currently_occupied"] is False and document["slot_role"] == "zone"
+        assert "origin" not in document["geometry"]
+
+    def test_the_old_whole_slot_write_reverted_the_patch(self, db, service) -> None:
+        """Control: the spelling #2727 removed, under the same interleaving, loses the PATCH."""
+        add_slot(db, "slot", "BED_S1")
+        sites = ArangoSiteRepository(db)
+        read = sites.get_slot_or_raise("slot")
+
+        _patch_slot(service, {"slot_role": "zone", "geometry": _ZONE})
+        read.currently_occupied = True
+        with pytest.raises(PydanticValidationError):  # the row it stored no longer reads back as a slot
+            sites.update_slot("slot", read)
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert document["slot_role"] == "position"  # reverted
+        assert {"origin", "points"} <= set(document["geometry"])  # and the point merged into the polygon
+
+    def test_a_vanished_slot_is_not_found(self, db) -> None:
+        with pytest.raises(NotFoundError):
+            ArangoSiteRepository(db).set_slot_occupied("gone", True)
+
+
+class TestASlotPatchIsConditionalOnWhatItValidated:
+    """#2727: the geometry kind and the capacity bound follow ``slot_role``; no slot edit may store a pair
+    nobody validated.
+
+    ``PATCH /slots`` validates the slot as it will be - the body's columns over the ones it read - and writes
+    only the columns that changed. Two PATCHes of one unplaced zone interleaved (role to ``row`` here, the
+    zone's polygon drawn there) stored a row with a polygon, a slot no read can validate any more.
+    The write is conditional on the role, capacity and geometry kind it read and answers 409
+    (``WriteConflictError``) when one changed, writing nothing.
+
+    The capacity half of the issue's edge case (``PUT`` capacity > 20 against a role changed to ``position``)
+    is unreachable, and the last test pins why: every edit body caps ``capacity_plants`` at the position bound
+    (``SlotCreate``, ``SlotPatch``: ``le=20``), so whatever role a concurrent PATCH stored, an edit's capacity
+    is valid for it; ``PUT`` writes neither the role nor the geometry (#2639), so it is not made conditional.
+    The capacity stays in the PATCH's condition for the writers without that cap (the plan's slot writes).
+    """
+
+    @pytest.fixture(autouse=True)
+    def zone(self, db) -> None:
+        add_slot(db, "slot", "BED_S1", geometry=_ZONE)
+        db.collection(col.SLOTS).update({"_key": "slot", "slot_role": "zone", "capacity_plants": 5})
+
+    @staticmethod
+    def _race(service: GardenResourceService, monkeypatch, other_write) -> None:
+        """Run ``other_write`` after ``service`` read and validated the slot, before it writes."""
+        write = service._plan.update_slot_fields
+
+        def other_then_patch(key, fields, **options):
+            other_write()
+            return write(key, fields, **options)
+
+        monkeypatch.setattr(service._plan, "update_slot_fields", other_then_patch)
+
+    @staticmethod
+    def _unplace(db) -> None:
+        """A zone not drawn yet: any role is valid without a geometry, any geometry of its kind for its role."""
+        db.collection(col.SLOTS).update({"_key": "slot", "geometry": None}, keep_none=False)
+
+    @staticmethod
+    def _other(db) -> GardenResourceService:
+        sites, plan = ArangoSiteRepository(db), ArangoGardenPlanRepository(db)
+        return GardenResourceService(sites, plan, ArangoGardenObjectRepository(db), GardenPlanService(sites, plan))
+
+    def test_a_role_change_after_the_zone_was_drawn_is_a_conflict(self, db, service, monkeypatch) -> None:
+        self._unplace(db)
+        self._race(service, monkeypatch, lambda: _patch_slot(self._other(db), {"geometry": _ZONE}))  # a zone's
+
+        with pytest.raises(WriteConflictError):
+            _patch_slot(service, {"slot_role": "row"})  # valid on the unplaced slot it read
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert (document["slot_role"], document["geometry"]["kind"]) == ("zone", "polygon")  # the other, alone
+        assert Slot(**document).slot_role == "zone"  # still a slot that reads back
+
+    def test_without_the_condition_the_two_patches_stored_an_unreadable_slot(self, db, service, monkeypatch) -> None:
+        """Control: the same interleaving through the write ``update_slot_fields`` made before #2727 - the
+        columns alone, unconditional (``merge=False, keep_none=False``)."""
+        self._unplace(db)
+        other = self._other(db)
+
+        def other_then_unconditional(key, fields, **_options):
+            _patch_slot(other, {"geometry": _ZONE})
+            db.collection(col.SLOTS).update({"_key": key, **fields}, merge=False, keep_none=False)
+
+        monkeypatch.setattr(service._plan, "update_slot_fields", other_then_unconditional)
+
+        with pytest.raises(PydanticValidationError):  # the re-read after the write: role and geometry disagree
+            _patch_slot(service, {"slot_role": "row"})
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert (document["slot_role"], document["geometry"]["kind"]) == ("row", "polygon")
+
+    def test_a_change_of_a_column_it_did_not_read_is_no_conflict(self, db, service, monkeypatch) -> None:
+        """Positive control: an occupation (or a rename) in between does not fence the PATCH off."""
+        self._race(service, monkeypatch, lambda: ArangoSiteRepository(db).set_slot_occupied("slot", True))
+
+        _patch_slot(service, {"slot_role": "position", "geometry": point(0.5, 0.5)})
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert (document["slot_role"], document["capacity_plants"]) == ("position", 5)
+        assert document["geometry"] == {"kind": "point", "origin": [0.5, 0.5]}  # replaced whole, no ``points``
+        assert document["currently_occupied"] is True
+
+    def test_a_row_without_a_stored_role_reads_as_a_position(self, db, service) -> None:
+        """A pre-REQ-053 slot has no ``slot_role``/``geometry`` attribute; the model default, not a 409."""
+        db.collection(col.SLOTS).update(
+            {"_key": "slot", "slot_role": None, "geometry": None, "capacity_plants": None}, keep_none=False
+        )
+
+        _patch_slot(service, {"capacity_plants": 4})
+
+        document = db.collection(col.SLOTS).get("slot")
+        assert "slot_role" not in document and document["capacity_plants"] == 4
+
+    def test_a_vanished_slot_is_not_found(self, db, service, monkeypatch) -> None:
+        self._race(service, monkeypatch, lambda: db.collection(col.SLOTS).delete("slot"))
+
+        with pytest.raises(NotFoundError):
+            _patch_slot(service, {"capacity_plants": 4})
+
+    def test_the_put_body_cannot_carry_more_than_a_position_holds(self) -> None:
+        """Why ``PUT /slots`` is not conditional: an edit's capacity is valid under every role a PATCH may store."""
+        with pytest.raises(PydanticValidationError):
+            SlotCreate(slot_id="BED_S1", location_key="bed", capacity_plants=MAX_POSITION_CAPACITY + 1)
+        with pytest.raises(PydanticValidationError):
+            SlotPatch(capacity_plants=MAX_POSITION_CAPACITY + 1)
+        assert SlotCreate(slot_id="BED_S1", location_key="bed", capacity_plants=MAX_POSITION_CAPACITY)
 
 
 class TestTheSlotBatchIsAllOrNothing:

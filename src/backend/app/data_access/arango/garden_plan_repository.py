@@ -38,6 +38,7 @@ from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLEC
 from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.graph_edges import edges_touching, remove_edges
+from app.data_access.arango.guarded_update import StoredValue, update_if_unchanged
 from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
 from app.data_access.arango.watering_queries import last_waterings
@@ -159,6 +160,20 @@ def _insert_doc(model: Location | GardenObject) -> dict[str, Any]:
     data = _dump(_revalidated(model), by_alias=True, exclude_none=True, mode="json")
     data.pop("_key", None)
     return data
+
+
+def _slot_cross_validated(slot: Slot) -> tuple[StoredValue, ...]:
+    """The columns of ``slot`` the model validates against each other, as preconditions of a slot write (#2727).
+
+    The capacity bound and the geometry kind both follow ``slot_role``; a row without a column reads as the
+    model default.
+    """
+    fields = Slot.model_fields
+    return (
+        StoredValue(("slot_role",), slot.slot_role.value, fields["slot_role"].default.value),
+        StoredValue(("capacity_plants",), slot.capacity_plants, fields["capacity_plants"].default),
+        StoredValue(("geometry", "kind"), slot.geometry.kind.value if slot.geometry is not None else None),
+    )
 
 
 class ArangoGardenPlanRepository(IGardenPlanRepository):
@@ -1529,15 +1544,19 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": location_id, "created_at": now}
                 )
 
-    def update_slot_fields(self, slot_key: str, fields: dict[str, Any]) -> None:
-        try:
-            self._db.collection(col.SLOTS).update(
-                {"_key": slot_key, **fields, "updated_at": _now()}, merge=False, keep_none=False
-            )
-        except DocumentUpdateError as exc:
-            if exc.error_code == 1202:  # document not found: removed after the service read it
-                raise NotFoundError("Slot", slot_key) from exc
-            raise
+    def update_slot_fields(self, slot_key: str, fields: dict[str, Any], *, read: Slot) -> None:
+        # Nested objects replaced whole (``merge_objects=False``) and nulls removed, as a PATCH writes them; a
+        # vanished slot is a NotFoundError, a changed one a WriteConflictError (``update_if_unchanged``).
+        update_if_unchanged(
+            self._db,
+            col.SLOTS,
+            slot_key,
+            {**fields, "updated_at": _now()},
+            expected=_slot_cross_validated(read),
+            entity="Slot",
+            keep_null=False,
+            merge_objects=False,
+        )
 
     def irrigation_zone_site_key(self, zone_key: str, *, tenant_key: str) -> str | None:
         if not tenant_key:

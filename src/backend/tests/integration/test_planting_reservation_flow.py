@@ -26,6 +26,7 @@ from app.data_access.arango.planting_reservation_repository import ArangoPlantin
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import QuickPlantingInput
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.care_event_service import CareEventService
@@ -176,6 +177,83 @@ def test_gp_acc_020_the_plants_stand_on_the_planned_slots_in_sequence_order(worl
     assert len(plantings(world, "active")) == 6
     assert world.db.collection(col.PLANTING_RUNS).get(run.key)["status"] == "active"
     assert len(edges(world, col.RUN_PLANNED_AT)) == 6  # consumed reservations stay until the run ends
+
+
+def test_a_slot_patch_between_the_read_and_the_occupation_survives_2727(world, monkeypatch) -> None:
+    """#2727: ``create_plants`` reads the planned slots, then marks each occupied. A ``PATCH /slots`` that lands in
+    between (here: right as the first plant is created, after the read) used to be reverted by the occupation
+    write, which wrote the whole slot it had read back. The occupation now writes the flag alone."""
+    run = world.service.create_run(run_of(), [entry_of(quantity=1)], tenant_key=A)
+    (slot_key,) = [e["_to"].split("/")[1] for e in edges(world, col.RUN_PLANNED_AT)]
+    moved = {"kind": "point", "origin": [1.25, 0.75]}
+    create = world.service._plant_repo.create
+
+    def patch_then_create(plant):
+        ArangoGardenPlanRepository(world.db).update_slot_fields(  # the columns PATCH /slots writes
+            slot_key,
+            {"geometry": moved, "geometry_source": "editor", "capacity_plants": 3},
+            read=ArangoSiteRepository(world.db).get_slot_or_raise(slot_key),
+        )
+        return create(plant)
+
+    monkeypatch.setattr(world.service._plant_repo, "create", patch_then_create)
+
+    world.service.create_plants(run.key, tenant_key=A)
+
+    document = world.db.collection(col.SLOTS).get(slot_key)
+    assert document["currently_occupied"] is True
+    assert (document["geometry"], document["geometry_source"], document["capacity_plants"]) == (moved, "editor", 3)
+
+
+def _zone_with_a_run_of_two(world, monkeypatch) -> tuple[str, list[tuple[str, bool]]]:
+    """A zone on ``bed`` holding both plants of a run, a second bed of the tenant, and a log of the flag writes."""
+    db = world.db
+    db.collection(col.LOCATIONS).insert(
+        {"_key": "bed2", "site_key": "site_a", "name": "Bed 4", "area_m2": 8.0,
+         "geometry": {"kind": "rect", "origin": [0, 0], "width_m": 4, "length_m": 2, "rotation_deg": 0}}
+    )  # fmt: skip
+    db.collection(col.SLOTS).insert(
+        {"_key": "zone", "slot_id": "BED3_Z1", "location_key": "bed", "slot_role": "zone", "capacity_plants": 5,
+         "currently_occupied": False, "geometry": {"kind": "polygon", "points": [[0, 0], [1, 0], [1, 1], [0, 1]]}}
+    )  # fmt: skip
+    db.collection(col.HAS_SLOT).insert({"_from": f"{col.LOCATIONS}/bed", "_to": f"{col.SLOTS}/zone"})
+    run = world.service.create_run(
+        run_of(planned_until=None), [entry_of(layout_strategy=None, quantity=2)], tenant_key=A
+    )
+    # Both plants on the zone, as a reserved zone takes them (create_plants' free fallback puts one per slot).
+    for key in world.service.create_plants(run.key, tenant_key=A, assign_to_slots=False)["plant_keys"]:
+        db.collection(col.PLANT_INSTANCES).update({"_key": key, "slot_key": "zone"})
+        db.collection(col.PLACED_IN).insert({"_from": f"{col.PLANT_INSTANCES}/{key}", "_to": f"{col.SLOTS}/zone"})
+    world.service._site_repo.set_slot_occupied("zone", True)
+    writes: list[tuple[str, bool]] = []
+    sites = world.service._site_repo
+    write = sites.set_slot_occupied
+    monkeypatch.setattr(
+        sites, "set_slot_occupied", lambda key, occupied: writes.append((key, occupied)) or write(key, occupied)
+    )
+    return run.key, writes
+
+
+def test_moving_a_run_frees_its_old_zone_once_2727(world, monkeypatch) -> None:
+    run_key, writes = _zone_with_a_run_of_two(world, monkeypatch)
+
+    world.service.update_run(run_key, {"location_key": "bed2"}, tenant_key=A)
+
+    assert world.db.collection(col.SLOTS).get("zone")["currently_occupied"] is False
+    assert writes.count(("zone", False)) == 1  # once per slot, not once per plant that stood on it
+
+
+def test_moving_a_run_leaves_a_zone_a_standalone_plant_still_stands_on_2727(world, monkeypatch) -> None:
+    run_key, writes = _zone_with_a_run_of_two(world, monkeypatch)
+    world.plants.create(
+        PlantInstance(tenant_key=A, instance_id="BASIL-1", species_key="sp", planted_on=D(2026, 5, 1),
+                      location_key="bed", slot_key="zone")
+    )  # fmt: skip
+
+    world.service.update_run(run_key, {"location_key": "bed2"}, tenant_key=A)
+
+    assert world.db.collection(col.SLOTS).get("zone")["currently_occupied"] is True
+    assert ("zone", False) not in writes
 
 
 def test_gp_acc_021_and_039_the_time_window_decides(world) -> None:

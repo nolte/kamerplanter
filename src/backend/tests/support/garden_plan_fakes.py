@@ -395,8 +395,10 @@ class FakePlanRepo(IGardenPlanRepository):
         site.plan = site.plan.model_copy(update={"underlay": underlay})
         return True, previous
 
-    def update_slot_fields(self, slot_key, fields):
+    def update_slot_fields(self, slot_key, fields, *, read):
         self.slot_field_updates.append((slot_key, dict(fields)))
+        #: The slot the last field write is conditional on (#2727).
+        self.slot_field_update_read = read
         self.slots = [
             Slot(**{**slot.model_dump(by_alias=True), **fields}) if slot.key == slot_key else slot
             for slot in self.slots

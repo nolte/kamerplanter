@@ -77,9 +77,11 @@ class FakeSiteRepo:
     def get_slot_by_key(self, key: str) -> Slot | None:
         return self.slots.get(key)
 
-    def update_slot(self, key, slot):
-        self.slots[key] = slot
-        return slot
+    def update_slot(self, key, slot, **_options):
+        raise AssertionError(f"whole-slot write of {key!r}: an occupation writes only the flag (#2727)")
+
+    def set_slot_occupied(self, key, occupied):
+        self.slots[key] = self.slots[key].model_copy(update={"currently_occupied": occupied})
 
 
 class FakeSubstrateRepo:
@@ -338,16 +340,18 @@ def test_an_unknown_location_is_refused() -> None:
 
 
 def test_an_own_slot_is_accepted() -> None:
+    slots = {"slot-own": _slot("slot-own", "loc-own")}
     service, plant_repo = _service(
         sites={"site-own": _site("site-own")},
         locations={"loc-own": _location("loc-own", "site-own")},
-        slots={"slot-own": _slot("slot-own", "loc-own")},
+        slots=slots,
     )
 
     created = service.create_plant(_plant(slot_key="slot-own"), skip_validation=True, tenant_key=TENANT)
 
     assert created.slot_key == "slot-own"
     plant_repo.create.assert_called_once()
+    assert slots["slot-own"].currently_occupied is True  # through set_slot_occupied - update_slot raises (#2727)
 
 
 def test_a_slot_under_a_foreign_site_is_refused() -> None:

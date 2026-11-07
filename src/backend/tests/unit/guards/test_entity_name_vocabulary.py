@@ -65,6 +65,7 @@ ENTITY_NAME_ARGUMENTS: dict[str, tuple[int | None, str | None]] = {
     "_authorize_tenant_owned_write": (None, "entity"),
     "authorize_hybrid_catalogue_write": (None, "entity"),
     "_require_owned_site": (2, "entity_name"),
+    "update_if_unchanged": (None, "entity"),
 }
 
 #: Non-literal entity-name arguments, keyed by ``<module>::<unparsed expression>``,
@@ -85,6 +86,9 @@ DERIVED_ENTITY_SITES: dict[str, str] = {
     ),
     "app/data_access/arango/base_repository.py::entity_name": (
         "``get_or_raise_named``'s own parameter; its call sites are checked through ENTITY_NAME_ARGUMENTS."
+    ),
+    "app/data_access/arango/guarded_update.py::entity": (
+        "``update_if_unchanged``'s own parameter (#2727); its call sites are checked through ENTITY_NAME_ARGUMENTS."
     ),
     "app/data_access/arango/tenant_ownership.py::name": (
         "``entity_name or entity_name_for_collection(collection)`` — the "
