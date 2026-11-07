@@ -33,15 +33,18 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import UUID
 
 import httpx
 import structlog
 
 from app.common.enums import AttachmentCategory, CaptureDevice, EntitlementDimension
 from app.common.exceptions import (
+    ClientEventMismatchError,
+    DuplicateError,
     FileTooLargeError,
     InvalidFileTypeError,
     ValidationError,
@@ -65,9 +68,18 @@ from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
 from app.domain.models.attachment import Attachment
+from app.domain.models.client_event import ClientEventStamp, client_event_digest
 from app.domain.services.entitlement_service import EntitlementService
 
 logger = structlog.get_logger()
+
+
+@dataclass(frozen=True)
+class UploadOutcome:
+    """An upload with a ``client_event_id`` (REQ-053 WP 9.3): the record, and whether it was stored before."""
+
+    attachment: Attachment
+    replayed: bool = False
 
 
 @dataclass(frozen=True)
@@ -142,8 +154,14 @@ class AttachmentService:
         category: AttachmentCategory,
         capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
         reuse_own_record: bool = True,
+        stamp: ClientEventStamp | None = None,
     ) -> Attachment:
         """Run the full upload pipeline and return the persisted attachment.
+
+        ``stamp`` (REQ-053 WP 9.3) is stored on a record this upload creates; the unique index
+        ``(tenant_key, client_event_id)`` then refuses a concurrent twin (:class:`DuplicateError`), and the twin's
+        freshly written object is deleted again. An upload that is handed the uploader's own existing record for
+        these bytes (the #1770 dedup) leaves that record as it is.
 
         ``reuse_own_record=False`` gives this upload a record of its own even when
         the uploader already holds one for these bytes in this category — for a
@@ -221,6 +239,7 @@ class AttachmentService:
                 original_filename=original_filename,
                 category=category,
                 capture_device=capture_device,
+                stamp=stamp,
             )
 
         # 7. EXIF strip for images (unless disabled).
@@ -254,9 +273,17 @@ class AttachmentService:
             # Client-declared provenance (#1137). Recorded at ingestion because
             # EXIF is stripped in step 5 — a device hint not captured here is gone.
             capture_device=capture_device,
+            client_event_id=stamp.client_event_id if stamp else None,
+            client_event_digest=stamp.digest if stamp else None,
             created_at=created_at,
         )
-        created = self._repo.create(attachment)
+        try:
+            created = self._repo.create(attachment)
+        except DuplicateError, WriteConflictError:
+            # A concurrent attempt of the same buffered upload won the unique index (WP 9.3): the object written
+            # above belongs to no record. Remove it; the caller reads the winner.
+            await self._delete_object_quietly(storage_key, tenant_key=tenant_key)
+            raise
 
         # 10. Audit log — never log bytes / presign URLs / filename (NFR-013 §9.2).
         logger.info(
@@ -274,6 +301,119 @@ class AttachmentService:
 
         return created
 
+    @staticmethod
+    def _upload_stamp(
+        client_event_id: UUID,
+        *,
+        user_key: str,
+        data: bytes,
+        category: AttachmentCategory,
+        scope: Mapping[str, str] | None,
+    ) -> ClientEventStamp:
+        """The id and digest of a buffered upload: uploader, category, the bytes' hash and the carrier (``scope``)."""
+        digest = client_event_digest(
+            {
+                "user": user_key,
+                "category": category.value,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "scope": dict(scope or {}),
+            }
+        )
+        return ClientEventStamp(str(client_event_id), digest)
+
+    def find_upload_replay(
+        self,
+        *,
+        tenant_key: str,
+        user_key: str,
+        client_event_id: UUID,
+        data: bytes,
+        category: AttachmentCategory,
+        scope: Mapping[str, str] | None = None,
+    ) -> Attachment | None:
+        """The record an earlier attempt of this buffered upload created, if any (REQ-053 WP 9.3).
+
+        Read **before** any quota or limit is checked: a replay of an upload that was stored is answered even when
+        the gallery is full by now. 409 ``client_event.payload_mismatch`` when the id names other bytes, another
+        category, another uploader or another carrier.
+        """
+        stamp = self._upload_stamp(client_event_id, user_key=user_key, data=data, category=category, scope=scope)
+        return self._replayed_upload(stamp, tenant_key=tenant_key)
+
+    def _replayed_upload(self, stamp: ClientEventStamp, *, tenant_key: str) -> Attachment | None:
+        stored = self._repo.find_by_client_event_id(tenant_key=tenant_key, client_event_id=stamp.client_event_id)
+        if stored is None:
+            return None
+        if stored.client_event_digest != stamp.digest:
+            raise ClientEventMismatchError()
+        return stored
+
+    async def upload_once(
+        self,
+        *,
+        tenant_key: str,
+        user_key: str,
+        data: bytes,
+        mime_type: str,
+        original_filename: str,
+        category: AttachmentCategory,
+        client_event_id: UUID | None,
+        capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
+        scope: Mapping[str, str] | None = None,
+    ) -> UploadOutcome:
+        """:meth:`upload` with the replay rule of a buffered upload (REQ-053 WP 9.3).
+
+        Without a ``client_event_id`` this is :meth:`upload`. With one, the record of an earlier attempt is answered
+        (``replayed``); otherwise the pipeline runs and stamps the id on the record it creates. A concurrent twin
+        loses the unique index and answers the winner's record.
+        """
+        if client_event_id is None:
+            created = await self.upload(
+                tenant_key=tenant_key,
+                user_key=user_key,
+                data=data,
+                mime_type=mime_type,
+                original_filename=original_filename,
+                category=category,
+                capture_device=capture_device,
+            )
+            return UploadOutcome(created)
+        stamp = self._upload_stamp(client_event_id, user_key=user_key, data=data, category=category, scope=scope)
+        stored = self._replayed_upload(stamp, tenant_key=tenant_key)
+        if stored is not None:
+            return UploadOutcome(stored, replayed=True)
+        try:
+            created = await self.upload(
+                tenant_key=tenant_key,
+                user_key=user_key,
+                data=data,
+                mime_type=mime_type,
+                original_filename=original_filename,
+                category=category,
+                capture_device=capture_device,
+                stamp=stamp,
+            )
+        except DuplicateError, WriteConflictError:
+            stored = self._replayed_upload(stamp, tenant_key=tenant_key)
+            if stored is None:
+                raise
+            logger.info("attachment_upload_replayed", tenant=log_tenant(tenant_key), attachment_id=stored.key)
+            return UploadOutcome(stored, replayed=True)
+        return UploadOutcome(created)
+
+    async def _delete_object_quietly(self, storage_key: str, *, tenant_key: str) -> None:
+        """Remove the object a refused record would have held, unless a record holds it after all (#1770).
+
+        A failure is logged, never raised - the caller's error is the one to answer, and the orphan sweep is the
+        backstop.
+        """
+        if self._repo.storage_keys_held_elsewhere(tenant_key=tenant_key, storage_keys=[storage_key], excluding=[]):
+            return
+        try:
+            await self._storage.delete_object(storage_key)
+        except Exception as exc:  # noqa: BLE001 - the caller's error is the one to answer
+            logger.warning("attachment_orphan_delete_failed", error_type=type(exc).__name__)
+
     async def _link_to_stored_object(
         self,
         held: Attachment,
@@ -284,6 +424,7 @@ class AttachmentService:
         original_filename: str,
         category: AttachmentCategory,
         capture_device: CaptureDevice,
+        stamp: ClientEventStamp | None = None,
     ) -> Attachment:
         """Give *user_key* a record of their own over the object *held* points at (#1770).
 
@@ -311,6 +452,8 @@ class AttachmentService:
                 category=category,
                 storage_key=held.storage_key,
                 capture_device=capture_device,
+                client_event_id=stamp.client_event_id if stamp else None,
+                client_event_digest=stamp.digest if stamp else None,
                 created_at=created_at,
             )
         )

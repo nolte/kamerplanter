@@ -199,6 +199,12 @@ class Task(BaseModel):
     reopened_from_status: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    #: The id of the buffered write that completed this task (REQ-053 WP 9.3), unique per tenant (sparse index,
+    #: v0106). It stays after a reopen: a late replay of that completion answers the task as it is instead of
+    #: closing it again over the user's undo. A later completion with an id of its own replaces it.
+    completion_client_event_id: str | None = None
+    #: The digest of the completion request (:func:`~app.domain.models.client_event.client_event_digest`).
+    completion_client_event_digest: str | None = None
     activity_key: str | None = None
     template_key: str | None = None
     workflow_execution_key: str | None = None

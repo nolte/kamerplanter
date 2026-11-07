@@ -16,7 +16,7 @@ import structlog
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
-from app.common.exceptions import NotFoundError, PlanError, ValidationError
+from app.common.exceptions import NotFoundError, PlanError, TaskAlreadyClosedError, TaskMissingError, ValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import (
     CARE_EVENT_WRITE_COLLECTIONS,
@@ -35,6 +35,8 @@ logger = structlog.get_logger()
 
 #: Statuses a task may be completed from.
 _COMPLETABLE = ("pending", "in_progress")
+#: Statuses of a task that is closed already: a completion answers 409 ``task.already_closed`` (WP 9.3).
+_CLOSED = ("completed", "skipped")
 
 #: Collections the specialist documents and their edges live in.
 _DOMAIN_WRITE: tuple[str, ...] = (
@@ -181,7 +183,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
             None,
         )
         if status is None:
-            raise NotFoundError("Task", key)
+            raise TaskMissingError(key)  # deleted since the service read it, or another tenant's (WP 9.3)
         return str(status)
 
     @staticmethod
@@ -204,6 +206,8 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
             for write in writes:
                 txn.check_budget()
                 status = self._stored_status(txn, write.task_key, tenant_key)
+                if status in _CLOSED:
+                    raise TaskAlreadyClosedError(status)  # closed by someone else since the service read it
                 if status not in _COMPLETABLE:
                     raise ValidationError(f"Cannot complete task in status '{status}'.")
                 if write.event is not None and write.replaces_event_key:

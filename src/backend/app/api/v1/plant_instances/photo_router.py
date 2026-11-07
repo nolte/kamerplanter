@@ -21,9 +21,10 @@ blocks the response.
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, Path, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Form, Path, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.tenant_router import _read_upload_bounded
@@ -118,12 +119,28 @@ def _resolved_cover(cover_photo_ref: str | None, photo_ids: list[str]) -> str | 
     return photo_ids[0] if photo_ids else None
 
 
-@router.post("", response_model=PlantPhotoResponse, status_code=201)
+@router.post(
+    "",
+    response_model=PlantPhotoResponse,
+    status_code=201,
+    responses={
+        200: {"model": PlantPhotoResponse, "description": "A replay: `client_event_id` names a stored photo."},
+        409: {"description": "`client_event.payload_mismatch`: the `client_event_id` names another upload."},
+    },
+)
 @limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def upload_plant_photo(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     request: Request,
+    response: Response,
     file: UploadFile,
+    client_event_id: UUID | None = Form(
+        None,
+        description=(
+            "The id of a buffered photo (REQ-053 WP 9.3): a replay with the same id and the same file answers 200 "
+            "with the stored photo, linked to this plant, instead of a second one."
+        ),
+    ),
     ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
     attachment_service: AttachmentService = Depends(get_attachment_service),
@@ -132,10 +149,12 @@ async def upload_plant_photo(
 
     The per-instance quota (``STORAGE_MAX_PHOTOS_PER_INSTANCE``) is enforced
     *before* any bytes are written (AC-15), so a rejected upload never leaves
-    orphan storage objects.
+    orphan storage objects. A replay (``client_event_id``) is answered before the
+    quota: it writes nothing new, it only completes the link of its photo.
     """
-    # AC-15 — quota + instance existence pre-check before reading/writing bytes.
-    plant = photo_service.assert_can_add_photo(key, tenant_key=ctx.tenant_key)
+    if client_event_id is None:
+        # AC-15 — quota + instance existence pre-check before reading/writing bytes.
+        plant = photo_service.assert_can_add_photo(key, tenant_key=ctx.tenant_key)
 
     mime_type = (file.content_type or "").lower().strip()
     if not mime_type:
@@ -147,15 +166,52 @@ async def upload_plant_photo(
         raise FileTooLargeError(max_bytes)
     data = await _read_upload_bounded(file, max_bytes)
 
-    attachment = await attachment_service.upload(
-        tenant_key=ctx.tenant_key,
-        user_key=ctx.user_key,
-        data=data,
-        mime_type=mime_type,
-        original_filename=file.filename or "photo",
-        category=AttachmentCategory.PLANT,
-    )
-    photo_service.link_photo(key, attachment.key or "", tenant_key=ctx.tenant_key)
+    # The carrier is part of the request: the same id sent to another plant is another upload (WP 9.3).
+    scope = {"plant_instance_key": key}
+    if client_event_id is not None:
+        replayed = attachment_service.find_upload_replay(
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            client_event_id=client_event_id,
+            data=data,
+            category=AttachmentCategory.PLANT,
+            scope=scope,
+        )
+        if replayed is not None:
+            # Idempotent: links the photo when the first attempt stopped between the upload and the link.
+            linked = photo_service.link_photo(key, replayed.key or "", tenant_key=ctx.tenant_key)
+            response.status_code = 200
+            return _photo_response(replayed, ctx.tenant_slug, is_cover=linked.cover_photo_ref == replayed.key)
+        # AC-15 — quota + instance existence before anything is written.
+        plant = photo_service.assert_can_add_photo(key, tenant_key=ctx.tenant_key)
+
+    if client_event_id is None:
+        attachment = await attachment_service.upload(
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            data=data,
+            mime_type=mime_type,
+            original_filename=file.filename or "photo",
+            category=AttachmentCategory.PLANT,
+        )
+        photo_service.link_photo(key, attachment.key or "", tenant_key=ctx.tenant_key)
+    else:
+        outcome = await attachment_service.upload_once(
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            data=data,
+            mime_type=mime_type,
+            original_filename=file.filename or "photo",
+            category=AttachmentCategory.PLANT,
+            client_event_id=client_event_id,
+            scope=scope,
+        )
+        attachment = outcome.attachment
+        linked_plant = photo_service.link_photo(key, attachment.key or "", tenant_key=ctx.tenant_key)
+        if outcome.replayed:
+            # A concurrent twin stored this photo first: answer it, and feed nothing a second time.
+            response.status_code = 200
+            return _photo_response(attachment, ctx.tenant_slug, is_cover=linked_plant.cover_photo_ref == attachment.key)
 
     # REQ-034 §4 — best-effort DINOv2 reference contribution (no-op until the
     # inference service is enabled). Never blocks the upload or raises.

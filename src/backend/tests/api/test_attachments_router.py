@@ -69,6 +69,12 @@ class _FakeRepo:
                 return a
         return None
 
+    def find_by_client_event_id(self, *, tenant_key, client_event_id):
+        return next(
+            (a for a in self._store.values() if a.tenant_key == tenant_key and a.client_event_id == client_event_id),
+            None,
+        )
+
     def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):
         # As the repository answers it (#1770): the uploader's own record only.
         for a in self._store.values():
@@ -604,3 +610,41 @@ def _restore_delay():
     original = storage_tasks.generate_thumbnails.delay
     yield
     storage_tasks.generate_thumbnails.delay = original
+
+
+class TestClientEventId:
+    """REQ-053 WP 9.3: a buffered bed photo (``category=location``) replayed with its ``client_event_id``."""
+
+    _ID = "9e8d7c6b-5a49-4382-a1b0-c9d8e7f6a5b4"
+
+    def test_a_replay_answers_200_with_the_stored_record(self, tmp_path):
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        data = _make_jpeg()
+
+        def post():
+            return client.post(
+                _base(),
+                files={"file": ("bed.jpg", data, "image/jpeg")},
+                data={"category": "location", "client_event_id": self._ID},
+            )
+
+        first, *replays = [post() for _ in range(3)]
+
+        assert first.status_code == 201, first.text
+        assert [r.status_code for r in replays] == [200, 200]
+        assert all(r.json() == first.json() for r in replays)
+        assert [a.client_event_id for a in service._repo._store.values()] == [self._ID]
+
+    def test_the_same_id_in_another_category_is_409(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        data = _make_jpeg()
+        sent = {"client_event_id": self._ID}
+        files = {"file": ("bed.jpg", data, "image/jpeg")}
+        assert client.post(_base(), files=files, data={"category": "location", **sent}).status_code == 201
+
+        response = client.post(_base(), files=files, data={"category": "diary", **sent})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"

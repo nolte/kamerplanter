@@ -204,6 +204,55 @@ class PlanError(KamerplanterError):
         )
 
 
+class ClientEventMismatchError(PlanError):
+    """409 ``client_event.payload_mismatch``: a ``client_event_id`` that names another request (REQ-053 WP 9.3).
+
+    A ``client_event_id`` stands for exactly one buffered write. A replay with the same id and the same request
+    answers the stored object; the same id with a different body, on a different task or plant, or from another
+    member is refused here instead of being read as "already done" - the caller would otherwise believe a write
+    happened that never did. Nothing of the stored object is echoed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "client_event.payload_mismatch",
+            "This client_event_id was already used for a different request.",
+            status_code=409,
+            field="client_event_id",
+        )
+
+
+class TaskAlreadyClosedError(PlanError):
+    """409 ``task.already_closed``: a completion of a task that is completed or skipped already (WP 9.3).
+
+    The stable conflict reason an offline queue branches on ("someone else was faster"); the status the task has
+    rides along. A task in another non-completable state (``failed``, ``dormant``) stays the 422 it was.
+    """
+
+    def __init__(self, status: str) -> None:
+        super().__init__(
+            "task.already_closed",
+            f"The task is closed already (status '{status}').",
+            status_code=409,
+            field="status",
+            status=status,
+        )
+
+
+class TaskMissingError(NotFoundError):
+    """404 ``task.missing``: the task to complete is gone - deleted, or never the caller's tenant's (WP 9.3).
+
+    A :class:`NotFoundError` (every handler of a 404 still catches it) whose code is the stable conflict reason of
+    a completion; ``details[0].entity`` stays ``task`` so a client that separates 404s by entity (#1437) keeps
+    working. Foreign and absent answer alike (GP-NFR-050).
+    """
+
+    def __init__(self, key: str) -> None:
+        super().__init__("Task", key)
+        self.error_code = "task.missing"
+        self.details[0]["code"] = "task.missing"
+
+
 class PlanRevisionConflictError(PlanError):
     """409 ``plan.revision_conflict``: ``expected_revision`` is not the site's ``plan_revision`` (V-14).
 

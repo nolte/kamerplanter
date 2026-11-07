@@ -71,6 +71,10 @@ class ICareEventRepository(ABC):
         """:meth:`get` with the display names of its account references."""
 
     @abstractmethod
+    def find_key_by_client_event_id(self, client_event_id: str, *, tenant_key: str) -> str | None:
+        """The key of the tenant's event a buffered write with ``client_event_id`` stored (WP 9.3), else ``None``."""
+
+    @abstractmethod
     def chain(self, key: str, *, tenant_key: str) -> list[CareEvent]:
         """Every event of ``key``'s supersede chain, oldest first (empty when ``key`` is not the tenant's)."""
 

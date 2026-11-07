@@ -2,16 +2,22 @@ from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 import structlog
+from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, TenantRole, WorkflowTargetType
 from app.common.exceptions import (
+    ClientEventMismatchError,
+    DuplicateError,
     ForbiddenError,
     KarenzViolationError,
     NotFoundError,
     PlanError,
+    TaskAlreadyClosedError,
+    TaskMissingError,
     ValidationError,
     WriteConflictError,
 )
@@ -26,6 +32,7 @@ from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.care_event import UNDO_REASON, CareEvent, CareEventInput, CareEventOrigin
+from app.domain.models.client_event import ClientEventStamp, batch_item_client_event_id, client_event_digest
 from app.domain.models.task import (
     ChecklistItem,
     Task,
@@ -42,6 +49,7 @@ from app.domain.models.task_completion import (
     CompletionWrite,
     DomainDocument,
     TaskCompletionDetails,
+    TaskCompletionOutcome,
     UndoWrite,
 )
 from app.domain.services.care_event_service import check_performed_instant, check_void_allowed
@@ -52,6 +60,9 @@ if TYPE_CHECKING:
     from app.domain.services.harvest_service import HarvestService
 
 logger = structlog.get_logger(__name__)
+
+#: How often a buffered completion tries again when a concurrent one holds the same task (WP 9.3).
+_CLIENT_WRITE_ATTEMPTS = 3
 
 #: Rows the unscoped task queue answers with at most.
 #:
@@ -1415,8 +1426,53 @@ class TaskService:
 
     @staticmethod
     def _require_completable(task: Task) -> None:
+        if task.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED):
+            raise TaskAlreadyClosedError(task.status)
         if task.status not in ("pending", "in_progress"):
             raise ValidationError(f"Cannot complete task in status '{task.status}'.")
+
+    def _task_for_completion(self, key: str, *, tenant_key: str) -> Task:
+        """The task a completion closes; 404 ``task.missing`` when it is gone or another tenant's (WP 9.3)."""
+        try:
+            return self.get_task(key, tenant_key=tenant_key)
+        except NotFoundError as exc:
+            raise TaskMissingError(key) from exc
+
+    def _completion_replay(self, task_key: str, stamp: ClientEventStamp, *, tenant_key: str) -> Task | None:
+        """The task an earlier completion with ``stamp``'s id closed, if any (WP 9.3).
+
+        409 ``client_event.payload_mismatch`` when the id closed another task or carried another request. The task
+        is answered as it is now - a reopen since then is not undone by a late replay.
+        """
+        holder = self._repo.find_task_by_completion_client_event_id(stamp.client_event_id, tenant_key=tenant_key)
+        if holder is None:
+            return None
+        if holder.key != task_key or holder.completion_client_event_digest != stamp.digest:
+            raise ClientEventMismatchError()
+        return holder
+
+    @staticmethod
+    def _completion_digest(
+        task_keys: list[str],
+        *,
+        actor: CompletionActor | None,
+        completion_notes: str | None,
+        details: BaseModel | None,
+        **fields: object,
+    ) -> str:
+        """The request digest of a completion: the tasks, the care fields, the task fields, and the caller.
+
+        ``details`` is typed as the pydantic base on purpose (the call-graph sweep's blind-spot ceiling, #2039).
+        """
+        return client_event_digest(
+            {
+                "user": actor.user_key if actor else None,
+                "tasks": sorted(task_keys),
+                "completion_notes": completion_notes,
+                "details": details.model_dump(mode="json") if details else None,
+                **fields,
+            }
+        )
 
     def _bed_of(self, task: Task, *, tenant_key: str) -> str | None:
         """The bed this task's completion is logged in, or ``None`` for a task outside the care log (GP-FR-083)."""
@@ -1489,8 +1545,13 @@ class TaskService:
         actor: CompletionActor | None,
         tenant_key: str,
         taken_batch_ids: set[str],
+        stamp: ClientEventStamp | None = None,
     ) -> CompletionWrite:
-        """Validate one completion and compute everything its transaction writes; nothing is stored here."""
+        """Validate one completion and compute everything its transaction writes; nothing is stored here.
+
+        ``stamp`` is the buffered write's id and digest (WP 9.3): stored on the task with the status, so the unique
+        index ``(tenant_key, completion_client_event_id)`` holds it in the same commit.
+        """
         self._require_completable(task)
         if task.requires_photo and not task.photo_refs and not photo_refs:
             raise ValidationError("This task requires at least one photo before completion.")
@@ -1545,6 +1606,9 @@ class TaskService:
             task.difficulty_rating = difficulty_rating
         if quality_rating is not None:
             task.quality_rating = quality_rating
+        if stamp is not None:
+            task.completion_client_event_id = stamp.client_event_id
+            task.completion_client_event_digest = stamp.digest
         patch = task.model_dump(
             mode="json",
             include={
@@ -1555,6 +1619,8 @@ class TaskService:
                 "difficulty_rating",
                 "quality_rating",
                 "photo_refs",
+                "completion_client_event_id",
+                "completion_client_event_digest",
             },
             exclude_none=True,
         )
@@ -1678,6 +1744,7 @@ class TaskService:
         tenant_key: str,
         details: TaskCompletionDetails | None = None,
         actor: CompletionActor | None = None,
+        stamp: ClientEventStamp | None = None,
     ) -> Task:
         """Complete a task: ONE transition over the task, the care-log line and the specialist document.
 
@@ -1687,7 +1754,7 @@ class TaskService:
         A task without a bed, or a caller without an actor, closes the task alone. The recurrence spawn, the
         dependents and the notification follow the commit (their own ADR-008 strand, E-02).
         """
-        task = self.get_task(key, tenant_key=tenant_key)
+        task = self._task_for_completion(key, tenant_key=tenant_key)
         prepared = self._prepare_completion(
             task,
             completion_notes=completion_notes,
@@ -1699,10 +1766,87 @@ class TaskService:
             actor=actor,
             tenant_key=tenant_key,
             taken_batch_ids=set(),
+            stamp=stamp,
         )
         updated = self._commit_completions([prepared], [task], tenant_key=tenant_key)[0]
         self._after_completion(updated, task)
         return updated
+
+    def complete_task_once(
+        self,
+        key: str,
+        completion_notes: str | None = None,
+        actual_minutes: int | None = None,
+        photo_refs: list[str] | None = None,
+        difficulty_rating: int | None = None,
+        quality_rating: int | None = None,
+        *,
+        tenant_key: str,
+        client_event_id: UUID | None,
+        details: TaskCompletionDetails | None = None,
+        actor: CompletionActor | None = None,
+    ) -> TaskCompletionOutcome:
+        """:meth:`complete_task` with the replay rule of a buffered write (REQ-053 WP 9.3, GP-API-031).
+
+        Without a ``client_event_id`` this is :meth:`complete_task`. With one, the task the id closed before is
+        answered as it is (``replayed``; nothing is written, no follow-up runs again). Two attempts at once: the
+        task document serialises them - the loser's transaction sees the task closed (409 ``task.already_closed``)
+        or conflicts on it (``1200``) - and the loser then finds the winner's id on the task and answers the replay.
+        A task closed by anyone else stays 409 ``task.already_closed``; a deleted or foreign one 404 ``task.missing``;
+        the id of another task or request 409 ``client_event.payload_mismatch``.
+        """
+        if client_event_id is None:
+            return TaskCompletionOutcome(
+                self.complete_task(
+                    key,
+                    completion_notes,
+                    actual_minutes,
+                    photo_refs,
+                    difficulty_rating,
+                    quality_rating,
+                    tenant_key=tenant_key,
+                    details=details,
+                    actor=actor,
+                )
+            )
+        digest = self._completion_digest(
+            [key],
+            actor=actor,
+            completion_notes=completion_notes,
+            details=details,
+            actual_minutes=actual_minutes,
+            photo_refs=list(photo_refs or []),
+            difficulty_rating=difficulty_rating,
+            quality_rating=quality_rating,
+        )
+        stamp = ClientEventStamp(str(client_event_id), digest)
+        replayed = self._completion_replay(key, stamp, tenant_key=tenant_key)
+        if replayed is not None:
+            return TaskCompletionOutcome(replayed, replayed=True)
+        for attempt in range(_CLIENT_WRITE_ATTEMPTS):
+            try:
+                updated = self.complete_task(
+                    key,
+                    completion_notes,
+                    actual_minutes,
+                    photo_refs,
+                    difficulty_rating,
+                    quality_rating,
+                    tenant_key=tenant_key,
+                    details=details,
+                    actor=actor,
+                    stamp=stamp,
+                )
+            except (TaskAlreadyClosedError, DuplicateError, WriteConflictError) as exc:
+                replayed = self._completion_replay(key, stamp, tenant_key=tenant_key)
+                if replayed is not None:
+                    logger.info("task_completion.replayed", task_key=key, raced=True)
+                    return TaskCompletionOutcome(replayed, replayed=True)
+                if not isinstance(exc, WriteConflictError) or attempt == _CLIENT_WRITE_ATTEMPTS - 1:
+                    raise
+                continue
+            return TaskCompletionOutcome(updated)
+        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
         # ``tenant_key`` is part of the guard, not an optional extra: the
@@ -1958,7 +2102,8 @@ class TaskService:
         """
         self._require_tenant_key(tenant_key, "fan_out_to_plants")
         source = self.get_task(key, tenant_key=tenant_key)
-        self._require_completable(source)
+        if source.status not in ("pending", "in_progress"):  # the fan-out keeps its 422; 409 is the completion's
+            raise ValidationError(f"Cannot fan out a task in status '{source.status}'.")
         if source.entity_type != "location" or not source.entity_key:
             raise ValidationError(
                 "Only a task bound to a bed (entity_type 'location') can be fanned out to its plants."
@@ -2142,22 +2287,38 @@ class TaskService:
         tenant_key: str,
         details: TaskCompletionDetails | None = None,
         actor: CompletionActor | None = None,
+        client_event_id: UUID | None = None,
     ) -> tuple[list[str], list[dict]]:
         """Apply ``start`` / ``complete`` / ``skip`` to many tasks.
 
         ``complete`` is the atomic transition (GP-FR-088, GP-API-032): every key is resolved first — an unknown or
-        foreign one answers 404 for the **whole** batch and nothing is written — then the completable tasks are
-        completed in ONE transaction, one care event each. A task that cannot be completed (wrong status, missing
-        photo) is reported in ``failed`` and left out. The other actions keep their per-key result.
+        foreign one answers 404 ``task.missing`` for the **whole** batch and nothing is written — then the
+        completable tasks are completed in ONE transaction, one care event each. A task that cannot be completed
+        (closed already: ``task.already_closed``; missing photo) is reported in ``failed`` with its code and left
+        out. The other actions keep their per-key result.
+
+        ``client_event_id`` (``complete`` only, WP 9.3) is decided **per task**: each task stores an id derived from
+        the batch id and its key, a task that id closed before counts as succeeded without a write, the rest is
+        completed as usual.
         """
         if action != "complete" and details is not None and (details.carries_care_fields or details.performed_at):
             raise ValidationError(
                 "Care fields belong to action 'complete'.",
                 details=[{"field": "action", "message": "performed_at and care fields apply to 'complete' only"}],
             )
+        if action != "complete" and client_event_id is not None:
+            raise ValidationError(
+                "client_event_id belongs to action 'complete'.",
+                details=[{"field": "client_event_id", "message": "applies to 'complete' only"}],
+            )
         if action == "complete":
             return self._batch_complete(
-                task_keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor
+                task_keys,
+                completion_notes,
+                tenant_key=tenant_key,
+                details=details,
+                actor=actor,
+                client_event_id=client_event_id,
             )
         succeeded: list[str] = []
         failed: list[dict] = []
@@ -2172,11 +2333,11 @@ class TaskService:
                 elif action == "skip":
                     self.skip_task(tk, tenant_key=tenant_key)
                 else:
-                    failed.append({"key": tk, "error": f"Unknown action: {action}"})
+                    failed.append({"key": tk, "error": f"Unknown action: {action}", "code": None})
                     continue
                 succeeded.append(tk)
             except (NotFoundError, ValidationError) as e:
-                failed.append({"key": tk, "error": str(e)})
+                failed.append({"key": tk, "error": str(e), "code": e.error_code})
         return succeeded, failed
 
     def _batch_complete(
@@ -2187,6 +2348,7 @@ class TaskService:
         tenant_key: str,
         details: TaskCompletionDetails | None,
         actor: CompletionActor | None,
+        client_event_id: UUID | None = None,
     ) -> tuple[list[str], list[dict[str, str]]]:
         keys = list(dict.fromkeys(task_keys))
         if len(keys) > MAX_BATCH_COMPLETION:
@@ -2194,9 +2356,44 @@ class TaskService:
                 f"A batch completes at most {MAX_BATCH_COMPLETION} tasks.",
                 details=[{"field": "task_keys", "message": f"at most {MAX_BATCH_COMPLETION}"}],
             )
+        if client_event_id is None:
+            return self._batch_complete_pass(
+                keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor, stamps={}
+            )
+        digest = self._completion_digest(keys, actor=actor, completion_notes=completion_notes, details=details)
+        stamps = {key: ClientEventStamp(batch_item_client_event_id(client_event_id, key), digest) for key in keys}
+        for attempt in range(_CLIENT_WRITE_ATTEMPTS):
+            try:
+                return self._batch_complete_pass(
+                    keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor, stamps=stamps
+                )
+            except TaskAlreadyClosedError, DuplicateError, WriteConflictError:
+                # A task of the batch was closed, or its id taken, between the pass's reads and its commit - by a
+                # concurrent attempt of this very batch, most likely. The next pass decides each task again.
+                if attempt == _CLIENT_WRITE_ATTEMPTS - 1:
+                    raise
+        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
+
+    def _batch_complete_pass(
+        self,
+        keys: list[str],
+        completion_notes: str | None,
+        *,
+        tenant_key: str,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+        stamps: dict[str, ClientEventStamp],
+    ) -> tuple[list[str], list[dict[str, str]]]:
+        """One attempt at a batch completion; ``stamps`` (per task) is empty without a ``client_event_id``."""
+        # Per task (WP 9.3): a task its id closed before is a replay - succeeded, nothing written for it.
+        replayed = {
+            key
+            for key, stamp in stamps.items()
+            if self._completion_replay(key, stamp, tenant_key=tenant_key) is not None
+        }
         # All keys first: a foreign or unknown one is a 404 for the whole batch (GP-API-032) — before any write and
         # before any status is judged, so the answer cannot tell a foreign task from an absent one.
-        tasks = [self.get_task(key, tenant_key=tenant_key) for key in keys]
+        tasks = [self._task_for_completion(key, tenant_key=tenant_key) for key in keys if key not in replayed]
         failed: list[dict[str, str]] = []
         prepared: list[CompletionWrite] = []
         ready: list[Task] = []
@@ -2215,16 +2412,17 @@ class TaskService:
                         actor=actor,
                         tenant_key=tenant_key,
                         taken_batch_ids=taken_batch_ids,
+                        stamp=stamps.get(task.key or ""),
                     )
                 )
                 ready.append(task)
-            except (ValidationError, KarenzViolationError) as e:
-                # Not completable (status, missing photo) or a harvest inside its safety interval: this task is
-                # reported and left out. A refused reference of the care fields (a plant outside the bed) is the
-                # request's error and fails the whole batch with its own code.
-                failed.append({"key": task.key or "", "error": str(e)})
+            except (ValidationError, KarenzViolationError, TaskAlreadyClosedError) as e:
+                # Not completable (closed already, another status, missing photo) or a harvest inside its safety
+                # interval: this task is reported with its code and left out. A refused reference of the care fields
+                # (a plant outside the bed) is the request's error and fails the whole batch with its own code.
+                failed.append({"key": task.key or "", "error": str(e), "code": e.error_code})
         if not ready:
-            return [], failed
+            return [key for key in keys if key in replayed], failed
         stored = self._commit_completions(prepared, ready, tenant_key=tenant_key)
         for completed, as_stored in zip(stored, ready, strict=True):
             # The batch is committed: one task's follow-up (next occurrence, notification) failing must not turn the
@@ -2233,7 +2431,8 @@ class TaskService:
                 self._after_completion(completed, as_stored)
             except Exception as exc:  # noqa: BLE001 — see above; the failure is logged by type, never by text
                 logger.error("task_completion.follow_up_failed", task_key=completed.key, error_type=type(exc).__name__)
-        return [task.key or "" for task in stored], failed
+        done = replayed | {task.key or "" for task in stored}
+        return [key for key in keys if key in done], failed
 
     def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []

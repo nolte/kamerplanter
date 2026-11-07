@@ -35,7 +35,10 @@ _EXAMPLE: JsonDict = {
 
 
 class CareEventCreate(CareEventInput):
-    """``POST /care-events`` (GP-API-033); ``trigger`` is ``manual`` or ``observation`` and defaults to ``manual``."""
+    """``POST /care-events`` (GP-API-033); ``trigger`` is ``manual`` or ``observation`` and defaults to ``manual``.
+
+    ``client_event_id`` (optional UUID, WP 9.3) makes a buffered write idempotent: a replay answers the stored event.
+    """
 
     model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [_EXAMPLE]})
 
@@ -117,6 +120,8 @@ class CareEventResponse(BaseModel):
     redacted_at: datetime | None = None
     redaction_reason: str | None = None
     created_at: datetime | None = None
+    #: The id the client sent with a buffered write (WP 9.3); a replay answers the event that carries it.
+    client_event_id: str | None = None
     #: The supersede chain, oldest first; filled by `GET /care-events/{key}` only.
     chain: list[str] = Field(default_factory=list)
 
@@ -159,5 +164,6 @@ def care_event_to_response(view: CareEventView) -> CareEventResponse:
         redacted_at=event.redacted_at,
         redaction_reason=event.redaction_reason,
         created_at=event.created_at,
+        client_event_id=event.client_event_id,
         chain=view.chain_keys,
     )

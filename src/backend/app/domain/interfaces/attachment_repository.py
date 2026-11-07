@@ -132,6 +132,10 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def find_by_client_event_id(self, *, tenant_key: str, client_event_id: str) -> Attachment | None:
+        """The tenant's record a buffered upload with ``client_event_id`` created (REQ-053 WP 9.3), else ``None``."""
+
+    @abstractmethod
     def storage_keys_held_elsewhere(
         self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
     ) -> set[str]:

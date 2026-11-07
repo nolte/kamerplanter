@@ -643,8 +643,13 @@ def batch_status_change(
     """Apply a status change to a batch of tasks.
 
     `action = complete` is the atomic transition (GP-API-032): the care fields of the body go into one care event
-    per task, all in one transaction; an unknown or foreign task key answers 404 for the whole batch and nothing is
-    written; at most 200 tasks.
+    per task, all in one transaction; an unknown or foreign task key answers 404 `task.missing` for the whole batch
+    and nothing is written; at most 200 tasks. A task closed already is listed in `failed` with
+    `code = task.already_closed`.
+
+    `client_event_id` (REQ-053 WP 9.3, `complete` only) makes a buffered batch idempotent per task: a task this
+    batch closed before is in `succeeded` without a second write; the same id with another body is 409
+    `client_event.payload_mismatch`.
     """
     succeeded, failed = service.batch_status_change(
         body.task_keys,
@@ -653,8 +658,12 @@ def batch_status_change(
         tenant_key=ctx.tenant_key,
         details=body.details(),
         actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
+        client_event_id=body.client_event_id,
     )
-    return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
+    return BatchResponse(
+        succeeded=succeeded,
+        failed=[BatchResultItem(key=f["key"], error=f["error"], code=f["code"]) for f in failed],
+    )
 
 
 @router.post("/batch/delete", response_model=BatchResponse)
@@ -744,8 +753,13 @@ def complete_task(
     category, a `watering_events` / `feeding_events` / `harvest_batches` document; an error in any of them leaves the
     task as it was. `performed_at` may lie a year back, not ahead (422 `care_event.too_old` /
     `care_event.performed_in_future`). Care-reminder confirmations are propagated where applicable.
+
+    Conflicts (REQ-053 WP 9.3): 409 `task.already_closed` for a task completed or skipped already, 404
+    `task.missing` for a deleted (or foreign) one. `client_event_id` (optional UUID of a buffered completion): a
+    replay answers the task this id closed, as it is now, without a second write; the same id on another task or
+    with another body is 409 `client_event.payload_mismatch`.
     """
-    completed = service.complete_task(
+    outcome = service.complete_task_once(
         key,
         body.completion_notes,
         body.actual_duration_minutes,
@@ -753,9 +767,14 @@ def complete_task(
         body.difficulty_rating,
         body.quality_rating,
         tenant_key=ctx.tenant_key,
+        client_event_id=body.client_event_id,
         details=body.details(),
         actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
     )
+    completed = outcome.task
+    if outcome.replayed:
+        # Nothing was written: the confirmation of the first answer stands, a second one would double the care log.
+        return _task_response(completed)
     # The care-state consequences of a completed care-reminder task are domain
     # logic and live in the service (NFR-001): confirmation + edges, the
     # watering/fertilizing log and the next watering occurrence. The guard here is

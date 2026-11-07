@@ -66,6 +66,16 @@ export function useApiError() {
             // REQ-053 #2706: the form echoed a profile read before a newer soil analysis was stored.
             notification.error(t('errors.soilProfileStale'));
             break;
+          // REQ-053 WP 9.3: the stable conflict reasons of a task completion and of a replayed buffered write.
+          case 'task.already_closed':
+            notification.error(t('errors.taskAlreadyClosed'));
+            break;
+          case 'task.missing':
+            notification.error(t('errors.taskMissing'));
+            break;
+          case 'client_event.payload_mismatch':
+            notification.error(t('errors.clientEventMismatch'));
+            break;
           case 'VALIDATION_ERROR': {
             if (mappedFieldError) {
               notification.error(t('errors.validation'));

@@ -78,6 +78,15 @@ _EXECUTION_OWNER = f"""
 """
 
 
+#: The task a buffered completion closed (REQ-053 WP 9.3).
+_TASK_BY_COMPLETION_CLIENT_ID = """
+FOR t IN @@tasks
+    FILTER t.tenant_key == @tenant_key AND t.completion_client_event_id == @client_event_id
+    LIMIT 1
+    RETURN t
+"""
+
+
 class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     # Base collection TASKS is tenant-scoped.  Tenant listings use get_all_tasks
     # (which filters explicitly); the inherited get_all is only reached from
@@ -653,6 +662,19 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         )
         bind_vars = {"tenant_key": tenant_key, "source": source, "external_ref": external_ref}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        doc = next(cursor, None)
+        return Task(**self._from_doc(doc)) if doc else None
+
+    def find_task_by_completion_client_event_id(self, client_event_id: str, *, tenant_key: str) -> Task | None:
+        """Served by the unique ``(tenant_key, completion_client_event_id)`` index (v0106); tenant-anchored."""
+        self._require_tenant_key(tenant_key, "find_task_by_completion_client_event_id")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                _TASK_BY_COMPLETION_CLIENT_ID,
+                bind_vars={"@tasks": col.TASKS, "tenant_key": tenant_key, "client_event_id": client_event_id},
+            ),
+        )
         doc = next(cursor, None)
         return Task(**self._from_doc(doc)) if doc else None
 

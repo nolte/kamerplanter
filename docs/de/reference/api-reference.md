@@ -224,6 +224,20 @@ Die Prüfung und das Schreiben sind eine Anweisung: Haben zwei Personen gleichze
 | `409` | `task.suggestion_closed` | Nur beim Verwerfen: Der Vorschlag ist schon geschlossen (erledigt, übersprungen oder verworfen) |
 | `409` | `WRITE_CONFLICT` | Ein gleichzeitiger Schreibvorgang auf dieselbe Aufgabe; erneut versuchen |
 
+### Gepufferte Schreibvorgänge: `client_event_id`
+
+Ein Client, der Schreibvorgänge offline zwischenspeichert, schickt jeden mit einer eigenen `client_event_id` (UUID), damit eine Wiederholung nie ein zweites Objekt anlegt. Fünf Routen nehmen sie an: `POST /care-events` und `POST /tasks/{key}/complete` im Body, `POST /tasks/batch/status` einmal für den ganzen Stapel (jede Aufgabe bekommt daraus eine eigene ID) und die Foto-Uploads `POST /attachments` und `POST /plant-instances/{key}/photos` als Formularfeld. Die ID ist je Mandant eindeutig.
+
+Die erste Anfrage antwortet wie bisher (`201` für einen neuen Pflegeeintrag). Schickst du dieselbe ID noch einmal, antwortet die API mit `200` und dem Objekt der ersten Anfrage und schreibt nichts; eine erledigte Aufgabe bleibt erledigt, auch wenn sie zwischendurch wieder geöffnet wurde. Zwei gleichzeitige Anfragen mit derselben ID legen genau ein Objekt an.
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `409` | `client_event.payload_mismatch` | Die ID wurde schon für eine andere Anfrage verwendet (andere Aufgabe, Pflanze, Datei, Kategorie oder anderes Mitglied) |
+| `409` | `task.already_closed` | Die Aufgabe ist schon erledigt oder übersprungen (vorher: `422 VALIDATION_ERROR`) |
+| `404` | `task.missing` | Die Aufgabe wurde gelöscht oder gehört nicht zu diesem Mandanten (vorher: `404 ENTITY_NOT_FOUND`) |
+
+Im Stapel steht eine schon geschlossene Aufgabe unter `failed` mit ihrem `code`, eine wiederholte unter `succeeded`.
+
 !!! warning "Noch nicht implementiert: Vorschläge erzeugen"
     Bisher legt Kamerplanter selbst keine Aufgaben mit `suggested = true` an. Die Endpunkte sind bereit, haben in einer laufenden Installation aber erst etwas zu entscheiden, wenn eine spätere Version Vorschläge erzeugt. <!-- REQ-053 GP-FR-086, GP-API-040 -->
 

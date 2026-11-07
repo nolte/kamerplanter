@@ -27,6 +27,7 @@ from app.common.enums import ReminderType, TaskCategory, TaskStatus, TenantRole
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 from app.domain.models.task import Task
+from app.domain.models.task_completion import TaskCompletionOutcome
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.care_reminder_service import CareReminderService
 from tests.unit.domain.services.care_task_fakes import FakeTaskRepo
@@ -70,6 +71,10 @@ class _TaskServiceStub:
 
     def complete_task(self, key: str, *args, **kwargs) -> Task:
         return self._completed
+
+    def complete_task_once(self, key: str, *args, **kwargs) -> TaskCompletionOutcome:
+        # The route's entry point since REQ-053 WP 9.3; without a client id it is ``complete_task``.
+        return TaskCompletionOutcome(self.complete_task(key, *args, **kwargs))
 
 
 @pytest.fixture

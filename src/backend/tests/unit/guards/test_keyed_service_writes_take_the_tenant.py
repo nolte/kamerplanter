@@ -345,6 +345,8 @@ def test_the_inventory_is_not_vacuous() -> None:
 
 _COMPLETION_TRANSITION = (
     "TaskService.complete_task",
+    # REQ-053 WP 9.3: the route's entry point, the completion with the replay rule of a buffered write.
+    "TaskService.complete_task_once",
     "TaskService.reopen_task",
     "TaskService.batch_status_change",
 )
@@ -639,6 +641,9 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "GardenResourceService.patch_slot",
         "GardenResourceService.replace_slots",
         "CareEventService.create",
+        # REQ-053 WP 9.3: ``POST /care-events`` with the replay rule of a buffered write; resolves the bed through
+        # ``build_event`` like ``create``; a replay is read through the tenant-anchored client-id lookup.
+        "CareEventService.log",
         "CareEventService.supersede",
         "CareEventService.void",
         "CareEventService.redact",

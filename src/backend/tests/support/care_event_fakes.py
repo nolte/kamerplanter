@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from app.common.exceptions import NotFoundError, PlanError
+from app.common.exceptions import DuplicateError, NotFoundError, PlanError
 from app.domain.interfaces.care_event_repository import (
     AnonymizedBatch,
     CareEventFilter,
@@ -60,6 +60,16 @@ class FakeCareEventRepo(ICareEventRepository):
             event=event,
             performed_by_name=NAMES.get(event.performed_by_user_key or ""),
             performed_for_name=NAMES.get(event.performed_for_user_key or ""),
+        )
+
+    def find_key_by_client_event_id(self, client_event_id, *, tenant_key):
+        return next(
+            (
+                key
+                for key, event in self.events.items()
+                if event.tenant_key == tenant_key and event.client_event_id == client_event_id
+            ),
+            None,
         )
 
     def chain(self, key, *, tenant_key):
@@ -112,6 +122,9 @@ class FakeCareEventRepo(ICareEventRepository):
     # writes --------------------------------------------------------------
     def insert(self, event, *, tenant_key):
         assert event.tenant_key == tenant_key
+        if event.client_event_id and self.find_key_by_client_event_id(event.client_event_id, tenant_key=tenant_key):
+            # the unique (tenant_key, client_event_id) index of v0106
+            raise DuplicateError("care_events", "client_event_id", event.client_event_id)
         self.inserted.append(event)
         return self._store(event)
 

@@ -1842,6 +1842,12 @@ CARE_EVENT_TASK_INDEX_FIELDS = ["task_key"]
 #: (#2029, ``test_tenant_unique_indexes_are_scoped``), and a source event belongs to
 #: exactly one tenant, so the constraint is not weakened.
 CARE_EVENT_SOURCE_REF_INDEX_FIELDS = ["tenant_key", "source_ref.collection", "source_ref.key"]
+#: One object per buffered write (REQ-053 WP 9.3; v0106): the ``client_event_id`` a client sends with a care event,
+#: a task completion or an upload is unique per tenant. Sparse, so the rows without an id (every write before
+#: wave 9, every server-made one) do not collide; ``tenant_key`` leads (``test_tenant_unique_indexes_are_scoped``).
+CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "completion_client_event_id"]
+ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
 #: A site's irrigation zones (GP-API-050, §20.11; v0099). ``tenant_key`` leads: the zone carries it (E-01).
 IRRIGATION_ZONE_SITE_INDEX_FIELDS = ["tenant_key", "site_key"]
 #: A bed is in at most one irrigation zone (§14.1, WP 7.1; v0099): ``zone_covers`` is unique on its target.
@@ -2886,6 +2892,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     care_events_col.add_persistent_index(
         fields=CARE_EVENT_SOURCE_REF_INDEX_FIELDS, unique=True, sparse=True, in_background=True
     )
+    # REQ-053 WP 9.3 (v0106): one object per buffered write. Created only when clean - this runs before the
+    # migrations, and v0106 reports a volume that cannot take the index instead of failing the boot.
+    ensure_unique_index_when_clean(care_events_col, CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS, sparse=True)
+    ensure_unique_index_when_clean(db.collection(TASKS), TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS, sparse=True)
+    ensure_unique_index_when_clean(db.collection(ATTACHMENTS), ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS, sparse=True)
     # REQ-053 WP 7.1 (v0099): the zones of a site, and one zone per bed.
     db.collection(IRRIGATION_ZONES).add_persistent_index(
         fields=IRRIGATION_ZONE_SITE_INDEX_FIELDS, unique=False, in_background=True

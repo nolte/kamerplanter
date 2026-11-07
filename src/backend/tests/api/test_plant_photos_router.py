@@ -100,6 +100,12 @@ class _FakeAttachmentRepo:
                 return a
         return None
 
+    def find_by_client_event_id(self, *, tenant_key, client_event_id):
+        return next(
+            (a for a in self._store.values() if a.tenant_key == tenant_key and a.client_event_id == client_event_id),
+            None,
+        )
+
     def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):
         # As the repository answers it (#1770): the uploader's own record only.
         for a in self._store.values():
@@ -515,3 +521,52 @@ def _restore_delay():
     original = storage_tasks.generate_thumbnails.delay
     yield
     storage_tasks.generate_thumbnails.delay = original
+
+
+class TestClientEventId:
+    """REQ-053 WP 9.3: a buffered plant photo replayed with its ``client_event_id``."""
+
+    _ID = "3c0b8f2e-6d1a-4b7e-9f3c-2a1b0c9d8e7f"
+
+    def _post(self, client, data: bytes, client_id: str | None = None):
+        form = {"client_event_id": client_id} if client_id else None
+        return client.post(_base(), files={"file": ("plant.jpg", data, "image/jpeg")}, data=form)
+
+    def test_a_replay_answers_200_with_the_photo_even_when_the_gallery_is_full(self, tmp_path):
+        app, plant_repo, att_repo = _build(tmp_path, max_photos=1)
+        client = TestClient(app)
+        data = _make_jpeg()
+
+        first = self._post(client, data, self._ID)
+        replays = [self._post(client, data, self._ID) for _ in range(2)]
+
+        assert first.status_code == 201, first.text
+        assert [r.status_code for r in replays] == [200, 200]  # answered before the quota, which is reached
+        # The same photo; `is_cover` is left out because this double hands the route its own plant object, which
+        # the link mutates before the first answer reads it - the replay reads the stored cover, which it is.
+        same = {k: v for k, v in first.json().items() if k != "is_cover"}
+        assert all({k: v for k, v in r.json().items() if k != "is_cover"} == same for r in replays)
+        assert all(r.json()["is_cover"] is True for r in replays)
+        assert len(att_repo._store) == 1
+        assert plant_repo._plant.photo_refs == [first.json()["attachment_id"]]
+
+    def test_the_same_id_with_other_bytes_is_409(self, tmp_path):
+        app, _plant_repo, att_repo = _build(tmp_path)
+        client = TestClient(app)
+        assert self._post(client, _make_jpeg(), self._ID).status_code == 201
+
+        other = io.BytesIO()
+        Image.new("RGB", (160, 120), (10, 20, 200)).save(other, format="JPEG")
+        response = self._post(client, other.getvalue(), self._ID)
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"
+        assert len(att_repo._store) == 1
+
+    def test_without_an_id_the_full_gallery_still_refuses(self, tmp_path):
+        # The positive control of the first test: the quota is in force; only a replay passes it.
+        app, _plant_repo, _att_repo = _build(tmp_path, max_photos=1)
+        client = TestClient(app)
+        assert self._post(client, _make_jpeg()).status_code == 201
+
+        assert self._post(client, _make_jpeg()).status_code != 201

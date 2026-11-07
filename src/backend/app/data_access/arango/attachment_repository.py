@@ -421,6 +421,24 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             return None
         return Attachment(**self._from_doc(doc))
 
+    def find_by_client_event_id(self, *, tenant_key: str, client_event_id: str) -> Attachment | None:
+        self._require_tenant_key(tenant_key, "find_by_client_event_id")
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key AND att.client_event_id == @client_event_id
+          LIMIT 1
+          RETURN att
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "client_event_id": client_event_id,
+        }
+        doc = next(cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars)), None)
+        if doc is None:
+            return None
+        return Attachment(**self._from_doc(doc))
+
     def storage_keys_held_elsewhere(
         self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
     ) -> set[str]:

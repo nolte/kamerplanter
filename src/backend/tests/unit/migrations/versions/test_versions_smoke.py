@@ -191,6 +191,15 @@ class _NoopCollection:
             {"type": "persistent", "fields": col.CARE_EVENT_TENANT_HISTORY_INDEX_FIELDS, "unique": False},
             {"type": "persistent", "fields": col.CARE_EVENT_TASK_INDEX_FIELDS, "unique": False},
             {"type": "persistent", "fields": col.CARE_EVENT_SOURCE_REF_INDEX_FIELDS, "unique": True, "sparse": True},
+            # v0106 (REQ-053 WP 9.3): the unique sparse client-event indexes are bootstrapped on a fresh volume
+            # (care_events and attachments share the field pair; tasks has its own).
+            {"type": "persistent", "fields": col.CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS, "unique": True, "sparse": True},
+            {
+                "type": "persistent",
+                "fields": col.TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS,
+                "unique": True,
+                "sparse": True,
+            },
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

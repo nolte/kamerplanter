@@ -21,6 +21,7 @@ from app.common.exceptions import (
     NotFoundError,
     PlanError,
     PlanValidationError,
+    TaskAlreadyClosedError,
     ValidationError,
 )
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -353,10 +354,12 @@ class TestRefusalsWriteNothing:
         assert completion.calls == 0
 
     def test_a_task_that_is_not_open_cannot_be_completed(self, world):
+        # REQ-053 WP 9.3: a closed task is the stable conflict 409 `task.already_closed`, no longer a 422.
         service, *_ = world
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(TaskAlreadyClosedError) as raised:
             complete(service, "t_done")
+        assert (raised.value.status_code, raised.value.error_code) == (409, "task.already_closed")
 
     def test_another_tenants_task_is_404_and_untouched(self, world):
         # Cross-tenant negative: a foreign key answers like an absent one and nothing is written.

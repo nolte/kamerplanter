@@ -298,3 +298,83 @@ class TestReopen:
 
     def test_a_body_that_names_more_than_undo_is_422(self, client, world, done) -> None:
         assert client().post(f"{_OWN}/t1/reopen", json={"void_reason": "x"}).status_code == 422
+
+
+class TestConflictCodesAndClientEventId:
+    """REQ-053 WP 9.3: the stable conflict reasons of a completion and the replay of a buffered one.
+
+    Measured before the change: a closed task answered 422 ``VALIDATION_ERROR`` and a deleted one 404
+    ``ENTITY_NOT_FOUND``; no completion route accepted a client id.
+    """
+
+    _ID = "7a3f3c0e-9a3b-4f7e-8e7d-1f2a3b4c5d6e"
+
+    def test_a_closed_task_is_409_already_closed(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={}).status_code == 200
+
+        response = client().post(f"{_OWN}/t1/complete", json={})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "task.already_closed"
+        assert response.json()["details"][0]["status"] == "completed"
+        assert len(world.completion.completed) == 1
+
+    @pytest.mark.parametrize("key", ["t_deleted", "t_foreign"])
+    def test_a_deleted_or_foreign_task_is_404_missing(self, client, world, key) -> None:
+        response = client().post(f"{_OWN}/{key}/complete", json={})
+
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "task.missing"
+        assert response.json()["details"][0]["entity"] == "task"  # #1437: a 404 still names its entity
+        assert world.completion.completed == []
+
+    def test_a_replay_answers_the_task_without_a_second_completion(self, client, world) -> None:
+        first = client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID})
+        replays = [client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}) for _ in range(2)]
+
+        assert first.status_code == 200, first.text
+        assert [r.status_code for r in replays] == [200, 200]
+        assert all(r.json() == first.json() for r in replays)
+        assert len(world.completion.completed) == 1
+
+    def test_the_id_of_one_task_on_another_is_409_mismatch(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}).status_code == 200
+
+        response = client().post(f"{_OWN}/t2/complete", json={"client_event_id": self._ID})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"
+        assert world.tasks.store["t2"].status == TaskStatus.PENDING
+
+    def test_a_batch_replay_decides_per_task(self, client, world) -> None:
+        payload = {"task_keys": ["t1", "t2"], "action": "complete", "client_event_id": self._ID}
+
+        answers = [client().post(f"{_OWN}/batch/status", json=payload) for _ in range(3)]
+
+        assert [a.status_code for a in answers] == [200, 200, 200]
+        assert all(a.json() == {"succeeded": ["t1", "t2"], "failed": []} for a in answers)
+        assert [w.task_key for w in world.completion.completed] == ["t1", "t2"]  # once each, not three times
+
+    def test_a_closed_task_in_a_batch_is_failed_with_its_code(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={}).status_code == 200
+
+        response = client().post(f"{_OWN}/batch/status", json={"task_keys": ["t1", "t2"], "action": "complete"})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["succeeded"] == ["t2"]
+        assert [(f["key"], f["code"]) for f in response.json()["failed"]] == [("t1", "task.already_closed")]
+
+    def test_a_deleted_task_in_a_batch_is_404_missing_for_the_whole_batch(self, client, world) -> None:
+        response = client().post(f"{_OWN}/batch/status", json={"task_keys": ["t1", "t_deleted"], "action": "complete"})
+
+        assert response.status_code == 404
+        assert response.json()["error_code"] == "task.missing"
+        assert world.completion.completed == []
+
+    def test_an_id_on_another_action_is_422(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/batch/status", json={"task_keys": ["t1"], "action": "start", "client_event_id": self._ID}
+        )
+
+        assert response.status_code == 422
+        assert world.tasks.store["t1"].status == TaskStatus.PENDING

@@ -8,7 +8,14 @@ Shared by the unit tier and the API tier.
 from __future__ import annotations
 
 from app.common.enums import TaskCategory, TaskStatus
-from app.common.exceptions import KarenzViolationError, NotFoundError, ValidationError
+from app.common.exceptions import (
+    DuplicateError,
+    KarenzViolationError,
+    NotFoundError,
+    TaskAlreadyClosedError,
+    TaskMissingError,
+    ValidationError,
+)
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.models.care_event import CareEvent
 from app.domain.models.task import Task
@@ -32,6 +39,16 @@ class FakeTaskRepo:
         if key not in self.store:
             raise NotFoundError("Task", key)
         return self.store[key].model_copy(deep=True)
+
+    def find_task_by_completion_client_event_id(self, client_event_id: str, *, tenant_key: str) -> Task | None:
+        return next(
+            (
+                task.model_copy(deep=True)
+                for task in self.store.values()
+                if task.tenant_key == tenant_key and task.completion_client_event_id == client_event_id
+            ),
+            None,
+        )
 
     def update_task(self, key: str, task: Task) -> Task:
         self.store[key] = task.model_copy(deep=True)
@@ -125,12 +142,24 @@ class FakeCompletionRepo(ITaskCompletionRepository):
         for write in writes:
             stored = self._tasks.store.get(write.task_key)
             if stored is None or stored.tenant_key != tenant_key:
-                raise NotFoundError("Task", write.task_key)
+                raise TaskMissingError(write.task_key)
+            if stored.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED):
+                raise TaskAlreadyClosedError(stored.status)
             if stored.status not in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS):
                 raise ValidationError(f"Cannot complete task in status '{stored.status}'.")
+            client_id = write.task_patch.get("completion_client_event_id")
+            if client_id:
+                holder = self._tasks.find_task_by_completion_client_event_id(client_id, tenant_key=tenant_key)
+                if holder is not None and holder.key != write.task_key:  # the unique index of v0106
+                    raise DuplicateError("tasks", "completion_client_event_id", client_id)
         for write in writes:
             stored = self._tasks.store[write.task_key]
-            self._tasks.store[write.task_key] = stored.model_copy(update={"status": TaskStatus.COMPLETED})
+            ids = {
+                field: write.task_patch[field]
+                for field in ("completion_client_event_id", "completion_client_event_digest")
+                if field in write.task_patch
+            }
+            self._tasks.store[write.task_key] = stored.model_copy(update={"status": TaskStatus.COMPLETED, **ids})
             self.completed.append(write)
         return [CompletedTask(w.task_key, "ce_x" if w.event else None, None) for w in writes]
 

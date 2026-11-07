@@ -159,6 +159,11 @@ class ITaskRepository(ABC):
         ...
 
     @abstractmethod
+    def find_task_by_completion_client_event_id(self, client_event_id: str, *, tenant_key: str) -> Task | None:
+        """The tenant's task a buffered completion with ``client_event_id`` closed (REQ-053 WP 9.3), else ``None``."""
+        ...
+
+    @abstractmethod
     def update_task(self, key: TaskKey, task: Task) -> Task: ...
 
     @abstractmethod

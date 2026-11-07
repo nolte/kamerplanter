@@ -24,6 +24,7 @@ from app.api.v1.tasks.schemas import TaskCompleteRequest
 from app.api.v1.tasks.tenant_router import complete_task, skip_task
 from app.common.enums import TaskCategory, TaskStatus, TenantRole
 from app.domain.models.task import Task
+from app.domain.models.task_completion import TaskCompletionOutcome
 from app.domain.models.tenant_context import TenantContext
 
 TENANT = "tenant-A"
@@ -73,6 +74,10 @@ class _TaskServiceStub:
     def complete_task(self, key, *args, tenant_key: str, **kwargs) -> Task:  # noqa: ANN002, ANN003 — router passes positionals
         self.complete_calls.append((key, tenant_key))
         return self._task
+
+    def complete_task_once(self, key, *args, tenant_key: str, **kwargs) -> TaskCompletionOutcome:  # noqa: ANN002, ANN003
+        # The route's entry point since REQ-053 WP 9.3; without a client id it is ``complete_task``.
+        return TaskCompletionOutcome(self.complete_task(key, *args, tenant_key=tenant_key, **kwargs))
 
     def skip_task(self, key: str, *, tenant_key: str) -> Task:
         self.skip_calls.append((key, tenant_key))
