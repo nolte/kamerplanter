@@ -1,17 +1,48 @@
 /**
- * Service worker registration for Web Push (PWA notifications).
+ * Service worker boot (UI-NFR-012 basis, REQ-053 WP 9.1, #2741).
  *
- * The worker itself lives at `public/sw.js` and is served from the site root as
- * `/sw.js`. Registration is intentionally guarded and non-fatal: on browsers
- * without service-worker support, or if registration fails, app startup must
- * continue unaffected.
+ * One worker at `/sw.js` (built from `src/sw.ts`) carries Web Push, the app-shell precache and the
+ * tenant-bound API cache. Registration is guarded and non-fatal: without service-worker support, or
+ * if registration fails, app startup continues unaffected.
+ *
+ * Kill switch (G-W9 e): `PWA_CACHING_ENABLED=false` in `runtime-config.js` (written at container
+ * start, never cached) unregisters every worker and deletes every cache and IndexedDB database
+ * instead of registering. The worker reads the same flag on its own and removes itself as well, so
+ * the switch also reaches a tab whose app code is an older build.
  */
-export function registerServiceWorker(): void {
+import { runtimeConfig } from '@/config/runtimeConfig';
+import { isPwaCachingEnabled } from '@/pwa/cachePolicy';
+import { clearAllOfflineStorage, repostNamespace } from '@/pwa/offlineData';
+import {
+  markUpdateAvailable,
+  registerServiceWorker as registerWorker,
+  unregisterAll,
+} from '@/lib/serviceWorkerRegistration';
+
+/** Whether this deployment allows the service worker to cache (default: yes). */
+export function pwaCachingEnabled(): boolean {
+  return isPwaCachingEnabled(runtimeConfig().PWA_CACHING_ENABLED);
+}
+
+/** Register the worker, or — with the kill switch off — remove it and everything it stored. */
+export async function registerServiceWorker(): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     return;
   }
-  // Register after load to avoid competing with critical startup work.
-  navigator.serviceWorker.register('/sw.js').catch(() => {
-    // Non-fatal: push notifications simply stay unavailable on this device.
-  });
+  try {
+    if (!pwaCachingEnabled()) {
+      await unregisterAll();
+      await clearAllOfflineStorage();
+      return;
+    }
+    const registration = await registerWorker({ onUpdateAvailable: markUpdateAvailable });
+    if (!registration) return;
+    // A worker that just took control has no namespace yet (first install, or a confirmed update
+    // whose reload is still pending): hand it the current one.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      void repostNamespace();
+    });
+  } catch {
+    // Non-fatal: push notifications and offline reading simply stay unavailable on this device.
+  }
 }

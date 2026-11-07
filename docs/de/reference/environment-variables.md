@@ -672,6 +672,10 @@ Diese Variablen aktivieren den Browser-Push-Benachrichtigungskanal (`channel_key
 
 *Alle drei `VAPID_*`-Variablen müssen gesetzt sein, damit der Browser-Push-Kanal aktiv wird. Fehlt eine Variable, bleibt der Kanal deaktiviert. `PWA_PUSH_ENDPOINT_ALLOWED_HOSTS` ist unabhängig davon optional.
 
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|----------|---------|--------------|
+| `PWA_CACHING_ENABLED` | `true` | Nein | Notschalter für den Service Worker des Frontends. Wird zur Laufzeit über `runtime-config.js` eingespeist. Mit `false` registriert die App keinen Service Worker mehr, meldet einen bereits installierten ab und löscht seine Caches und die lokale Datenbank des Browsers. Web-Push-Benachrichtigungen fallen damit ebenfalls weg, bis du den Schalter wieder auf `true` stellst. |
+
 ### Schlüsselpaar generieren
 
 ```bash

@@ -303,6 +303,15 @@
     "updatedAt": "Aktualisiert am",
     "skipToContent": "Zum Inhalt springen",
     "toggleSidebar": "Seitenleiste umschalten",
+    "pwa": {
+      "online": "Online",
+      "offline": "Offline",
+      "onlineHint": "Verbunden – Daten werden live geladen.",
+      "offlineHint": "Keine Verbindung – Änderungen sind erst wieder online möglich.",
+      "updateAvailable": "Neue Version verfügbar",
+      "updateNow": "Jetzt aktualisieren",
+      "updateLater": "Später"
+    },
     "sliderLabel": "{{label}} (Regler)",
     "days": "Tage",
     "months_unit": "Monate",

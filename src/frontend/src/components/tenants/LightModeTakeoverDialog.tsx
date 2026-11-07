@@ -20,6 +20,7 @@ import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchProfile } from '@/store/slices/authSlice';
 import { loadMyTenants, switchTenant } from '@/store/slices/tenantSlice';
+import { clearOfflineData } from '@/pwa/offlineData';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
 
 /** The counts the dialog lists, in this order; a zero count is left out. */
@@ -92,6 +93,10 @@ export default function LightModeTakeoverDialog() {
     await dispatch(fetchProfile());
     if (result.accepted && result.tenant_slug) {
       await dispatch(loadMyTenants());
+      // REQ-053 WP 9.1 (G-W9 b): a tenant switch empties the service worker's API
+      // cache and IndexedDB before the new tenant becomes active. Pinned by
+      // test/guards/offlineDataClearedOnSessionChange.test.ts.
+      await clearOfflineData();
       dispatch(switchTenant(result.tenant_slug));
     }
     setDecision(null);

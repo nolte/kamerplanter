@@ -670,6 +670,10 @@ These variables enable the browser push notification channel (`channel_key: "pwa
 
 *All three `VAPID_*` variables must be set for the browser push channel to become active. If any variable is missing, the channel remains disabled. `PWA_PUSH_ENDPOINT_ALLOWED_HOSTS` is independently optional.
 
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `PWA_CACHING_ENABLED` | `true` | No | Kill switch for the frontend's service worker, injected at runtime through `runtime-config.js`. With `false` the app no longer registers a service worker, unregisters one that is already installed and deletes its caches and the browser's local database. Web push notifications stop as well until you set it back to `true`. |
+
 ### Generating a Key Pair
 
 ```bash

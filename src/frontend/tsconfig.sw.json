@@ -1,0 +1,20 @@
+{
+  "//": "UI-NFR-012 / REQ-053 WP 9.1 — the service worker runs in a ServiceWorkerGlobalScope, not a window: it is type-checked against the WebWorker lib here and excluded from the DOM program in tsconfig.json. Its shared rules (src/pwa/cachePolicy.ts, src/pwa/pushHandlers.ts) are checked by both programs.",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "WebWorker"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": []
+  },
+  "files": ["src/sw.ts"]
+}
