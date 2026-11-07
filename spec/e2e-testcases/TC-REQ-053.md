@@ -2036,6 +2036,8 @@ Testdaten legen sie als Seed-Daten an (Aufgabe über die API, Vorschlags-Markier
 **Category**: Negativ
 **Preconditions**:
 - Bodenbeet „Beet 1“ mit aktiver Tomate (Starkzehrer im Steckbrief), Vorjahr Erbse, letzte Düngung vor 120 Tagen
+- Bodenprofil: Füllung „Gewachsener Boden“, Bodenart bekannt (z. B. Lehm), Ziel-pH 6,5 laut Labor – ohne diese Angaben
+  zeigt der Tab „Boden“ nur die Begründung, warum er den Kalkbedarf nicht einschätzt, und der begründete Hinweis erscheint nie
 - Laborklasse Phosphor „D“ (Quelle Labor, Methode CAL) und eine Analyse mit niedrigem pH in der Historie
 - Ausgelieferte Konfiguration: keine Schwelle mit Quelle aktiv
 
@@ -2131,6 +2133,10 @@ Einstellung, über die der E2E-Stack eine Testschwelle mit Quelle aktivieren kan
 **Category**: Anzeige
 **Preconditions**:
 - Site mit drei Beeten mit Fruchtfolge: „Beet 1“ 2025 Vorkultur Feldsalat und Hauptkultur Tomate (Nachtschatten, Starkzehrer), 2026 Erbse (Hülsenfrüchte); „Beet 2“ 2025 Kohl; „Beet 3“ mit ausgeschalteter Fruchtfolge (Pflanzgefäß)
+- Abweichung der Automatisierung: Das Produkt kennt keine Rolle „Vorkultur“ – eine Vorkultur ist ein zweiter Eintrag
+  desselben Jahres mit der Saison „Frühjahr“, die Hauptkultur trägt „Hauptsaison“; die Zelle unterscheidet beide über
+  diese Saison-Beschriftung. Feldsalat fehlt im Seed-Katalog, der Test nutzt Salat (Lactuca sativa). Die Erbse des
+  laufenden Jahres ist eine echte Pflanzung (Nacherfassen nimmt nur vergangene Jahre). Jahre relativ zum laufenden Jahr.
 - „Beet 2“ hat für 2024 keine Angabe; ein Fruchtfolgeplan enthält für 2027 „Beet 1“: Möhre
 
 **Testschritte**:

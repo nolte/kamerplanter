@@ -606,6 +606,29 @@ class HistoryTab(DownloadCapture):
                 f"{self.shown_count()} and the list holds {len(self.item_texts())}"
             ) from exc
 
+    #: Per history row: whether its box lies inside the viewport, and whether it renders with a size.
+    _ROW_IN_VIEW = (
+        "return arguments[0].map(function (el) { var r = el.getBoundingClientRect();"
+        " return r.height > 0 && r.width > 0 && r.top < window.innerHeight && r.bottom > 0; });"
+    )
+
+    def reveal_entries(self, expected: int, what: str) -> int:
+        """Wait for exactly *expected* rows, scroll the first one into view, return how many rows are on screen.
+
+        The list sits below the timeline and the recommendation panel, so a screenshot taken right after the tab
+        settled shows the reserved area above it, not the entries. Loud when the first row is not on screen after
+        the scroll (zero size or outside the viewport): the checkpoint would again show no entry.
+        """
+        self.wait_for_shown(expected, what)
+        items = self.driver.find_elements(*self.ITEMS)
+        self.scroll_into_view(items[0])
+        in_view = self.driver.execute_script(self._ROW_IN_VIEW, items)
+        if not in_view or not in_view[0]:
+            raise AssertionError(
+                f"{what}: the first history entry is not on screen after scrolling to it"
+            )
+        return sum(1 for flag in in_view if flag)
+
     def filter_category(self, category: str) -> None:
         """Pick a category in the filter bar (``''`` is "Alle Kategorien")."""
         choose_from_native_select(self, "history-category", category)

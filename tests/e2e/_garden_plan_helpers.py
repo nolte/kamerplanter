@@ -1033,9 +1033,16 @@ def backfill_year(
     *,
     species_key: str | None = None,
     family_key: str | None = None,
+    season: str | None = None,
 ) -> int:
-    """Record what stood in the bed in *year* (GP-API-042, main crop): a species or a family."""
+    """Record what stood in the bed in *year* (GP-API-042, main crop): a species or a family.
+
+    *season* (``spring`` / ``main`` / ``autumn``) dates the entry to that season's middle; two entries of one year
+    with ``spring`` and ``main`` are a pre-crop and its main crop as the product records them.
+    """
     data: dict = {"year": year, "plan_role": "main_crop"}
+    if season:
+        data["season"] = season
     if species_key:
         data["species_key"] = species_key
     if family_key:

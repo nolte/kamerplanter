@@ -100,6 +100,9 @@ pytestmark = pytest.mark.requires_desktop
 
 TOMATO = "Solanum lycopersicum"
 CABBAGE = "Brassica oleracea var. capitata"
+PEA = "Pisum sativum"
+#: The seed catalogue has no Feldsalat (Valerianella locusta); lettuce stands in as the spring pre-crop.
+LETTUCE = "Lactuca sativa"
 
 #: A bed of 3,0 x 1,2 m: 3,6 m², the area of the TC-053-063 arithmetic.
 BED_1 = BedSpec("Beet 1", rect(1.0, 1.0, 3.0, 1.2))
@@ -403,6 +406,7 @@ def test_tc_053_062_content_class_only_from_a_lab_and_an_older_analysis_keeps_th
 def test_tc_053_063_area_dose_prefills_the_rate_and_totals_it_over_the_bed(
     bed_view: BedViewPage,
     care_tab: BedCareTab,
+    history_tab: HistoryTab,
     base_url: str,
     e2e_seed_data: dict,
     screenshot,
@@ -499,6 +503,8 @@ def test_tc_053_063_area_dose_prefills_the_rate_and_totals_it_over_the_bed(
     bed_view.open(bed, "history")
     row = bed_view.wait_for_history_entry(product, "TC-053-063: the history row")
     assert "80 Gramm pro m²" in row, f"TC-053-063: the row names the dose: {row!r}"
+    on_screen = history_tab.reveal_entries(1, "TC-053-063: the history")
+    assert on_screen == 1, f"TC-053-063: the one history entry is on screen, {on_screen} are"
     screenshot("053_063_03_history", "Historie: Düngung mit 80 Gramm pro m²")
 
     bed_view.open(legacy, "care")
@@ -536,6 +542,7 @@ AMENDMENT_MATERIALS = [
 def test_tc_053_064_amendment_mulch_and_liming_with_a_text_only_hint(
     bed_view: BedViewPage,
     care_tab: BedCareTab,
+    history_tab: HistoryTab,
     base_url: str,
     e2e_seed_data: dict,
     screenshot,
@@ -633,6 +640,8 @@ def test_tc_053_064_amendment_mulch_and_liming_with_a_text_only_hint(
     ):
         row = bed_view.wait_for_history_entry(material, f"TC-053-064: the {category} row")
         assert category in row, f"TC-053-064: the {material} row names {category}: {row!r}"
+    on_screen = history_tab.reveal_entries(3, "TC-053-064: the history")
+    assert on_screen >= 1, f"TC-053-064: no history entry is on screen ({on_screen})"
     screenshot("053_064_03_history", "Historie: Bodenverbesserung, Mulchen, Kalkung")
 
 
@@ -649,13 +658,17 @@ def test_tc_053_065_shipped_nutrient_hint_shows_no_chip_and_no_amount(
 ) -> None:
     """TC-053-065 — the shipped nutrient hint: no chip, no salt chip, no number with an amount unit (GP-FR-125).
 
-    Precondition (API): a 3,6 m² bed with one tomato (a heavy feeder in the seed catalogue), a feeding 120 days
-    ago, a lab analysis with phosphorus class "D" by CAL and pH 5,2 CaCl₂. The arrangement is checked on the server:
-    the summary's hint is ``insufficient_data`` with ``thresholds_without_source`` - the feeder gate was passed, only
-    the sourced threshold is missing (a "demand_unknown" bed would prove nothing). Asserted in the browser, after the
-    head named "1 Pflanze": neither "Düngebedarf wahrscheinlich"/"Düngung prüfen" nor "Salzgehalt prüfen" is shown,
-    the head names no number with a dose unit, and the soil tab's "Kalkbedarf" line names none either. Breaks if a
-    chip appears without a sourced threshold or if any surface prints an amount.
+    Precondition (API): a 3,6 m² bed of natural soil ("Gewachsener Boden", loam, lab target pH 6,5) with one
+    tomato (a heavy feeder in the seed catalogue), a pea last year, a feeding 120 days ago, a lab analysis with
+    phosphorus class "D" by CAL and pH 5,2 CaCl₂. The arrangement is checked on the server: the summary's hint is
+    ``insufficient_data`` with ``thresholds_without_source`` - the feeder gate was passed, only the sourced threshold
+    is missing (a "demand_unknown" bed would prove nothing) - and carries the reason codes of the pea
+    (``preceding_nitrogen_fixer``) and of class D (``p_or_k_class_high``); the soil analyses answer liming
+    ``likely / below_target``. Asserted in the browser, after the head named "1 Pflanze": neither "Düngebedarf
+    wahrscheinlich"/"Düngung prüfen" nor "Salzgehalt prüfen" is shown, the head names no number with a dose unit,
+    and the soil tab shows the reasoned hint "Kalkung wahrscheinlich sinnvoll" (``data-status = likely``) that says
+    the app names no amount and contains no number with an amount unit. Breaks if a chip appears without a sourced
+    threshold, if the reasoned liming hint does not render, or if any surface prints an amount.
     """
     garden = _garden(base_url, e2e_seed_data, "tc065")
     bed = garden.bed_key(BED_1.name)
@@ -669,6 +682,28 @@ def test_tc_053_065_shipped_nutrient_hint_shows_no_chip_and_no_amount(
         points=((0.5, 0.5),),
     )
     assert len(plants.plant_by_slot) == 1, "the arrangement must stand one tomato in the bed"
+    # Natural soil with a known texture and a lab target pH: without them the liming line only says why it cannot
+    # judge ("nur für gewachsenen Boden"), and the reasoned hint - the one that must carry no amount - never renders.
+    # Written before the analysis: the analysis then writes its newer pH into this profile.
+    patch_location(
+        base_url,
+        e2e_seed_data,
+        bed,
+        {
+            "soil_profile": {
+                "growing_medium_kind": "native_soil",
+                "soil_texture": "loam",
+                "target_ph": 6.5,
+            }
+        },
+    )
+    backfill_year(
+        base_url,
+        e2e_seed_data,
+        bed,
+        utc_today().year - 1,
+        species_key=species(base_url, e2e_seed_data, PEA)["key"],
+    )
     log_care_event(
         base_url,
         e2e_seed_data,
@@ -702,6 +737,14 @@ def test_tc_053_065_shipped_nutrient_hint_shows_no_chip_and_no_amount(
     ), (
         f"TC-053-065 arrangement: the shipped engine must stop at the missing sourced threshold: {hint}"
     )
+    reasons = hint.get("reasons", [])
+    assert "preceding_nitrogen_fixer" in reasons and "p_or_k_class_high" in reasons, (
+        f"TC-053-065 arrangement: last year's pea and the class D must reach the hint as reason codes: {reasons}"
+    )
+    liming_server = soil_analyses(base_url, e2e_seed_data, bed)["liming_hint"]
+    assert liming_server == {"status": "likely", "reason": "below_target"}, (
+        f"TC-053-065 arrangement: pH 5,2 CaCl₂ under the target 6,5 on loam must make liming likely: {liming_server}"
+    )
 
     bed_view.open(bed, "soil")
     bed_view.wait_for_header_plants("1 Pflanze", "TC-053-065: the head read the summary")
@@ -713,8 +756,14 @@ def test_tc_053_065_shipped_nutrient_hint_shows_no_chip_and_no_amount(
         f"TC-053-065: the head names an amount: {AMOUNT.search(head)!r} in {head!r}"
     )
     status, liming = soil_tab.liming_hint()
+    assert status == "likely" and liming.startswith("Kalkung wahrscheinlich sinnvoll"), (
+        f"TC-053-065: the reasoned liming hint must render on natural soil: {status!r} {liming!r}"
+    )
+    assert "die App nennt keine Menge" in liming, (
+        f"TC-053-065: the hint says it names no amount: {liming!r}"
+    )
     assert not AMOUNT.search(liming), (
-        f"TC-053-065: the liming line names an amount: {liming!r} ({status})"
+        f"TC-053-065: the liming hint names an amount: {AMOUNT.search(liming)!r} in {liming!r}"
     )
     screenshot(
         "053_065_01_head_without_chip", "Beetkopf ohne Nährstoff-Chip, Boden-Tab ohne Mengenangabe"
@@ -779,7 +828,8 @@ def test_tc_053_067_history_csv_is_bom_utf8_formula_safe_and_names_the_performer
     bed_view.open(bed_1, "history")
     history_tab.wait_for_shown(3, "TC-053-067: all lines of Beet 1")
     history_tab.filter_category("watering")
-    history_tab.wait_for_shown(2, "TC-053-067: filtered to Gießen")
+    on_screen = history_tab.reveal_entries(2, "TC-053-067: filtered to Gießen")
+    assert on_screen >= 1, f"TC-053-067: no history entry is on screen ({on_screen})"
     screenshot("053_067_01_filtered", "Historie Beet 1, Kategorie Gießen: zwei Einträge")
     saved = history_tab.export_csv_comma("TC-053-067: bed CSV")
     assert re.fullmatch(r"care-events-\d{8}\.csv", saved["name"]), (
@@ -826,16 +876,22 @@ def test_tc_053_068_rotation_matrix_lists_beds_by_year_and_backfills_from_a_cell
 ) -> None:
     """TC-053-068 — the rotation matrix of a site, a backfill from an empty past cell, the jump to a bed (GP-FR-135).
 
-    Precondition (API): a site with "Beet 1" (tomato last year), "Beet 2" (cabbage last year) and "Beet 3" taken
-    out of the rotation (``rotation_exempt``). Asserted against the server's matrix: the column years, the family
-    swatch of "Beet 1"/last year, the two families of last year differing by fill pattern and code (not colour
-    only), the "Fruchtfolge aus" mark on "Beet 3" and
-    none on "Beet 1". Tapping the empty cell "Beet 2"/two years ago opens "Was stand hier <Jahr>?"; with
+    Precondition (API): a site with "Beet 1" (last year lettuce in spring as pre-crop and tomato in the main
+    season, this year a pea standing in the bed), "Beet 2" (cabbage last year) and "Beet 3" taken out of the
+    rotation (``rotation_exempt``). Asserted against the server's matrix: the column years; the cell "Beet 1"/last
+    year lists both entries in the server's order, spring before main season, each with its season label
+    ("Frühjahr", "Hauptsaison"); the current-year cell of "Beet 1" shows the pea's family; the families of tomato
+    and cabbage differ by fill pattern and code (not colour only); the "Fruchtfolge aus" mark on "Beet 3" and none
+    on "Beet 1". Tapping the empty cell "Beet 2"/two years ago opens "Was stand hier <Jahr>?"; with
     Cucurbitaceae saved, the cell shows that family, the server's rotation of "Beet 2" holds it for that year, and
     the history timeline of "Beet 2" shows it too. The bed link opens the bed view of "Beet 1". Breaks if the matrix
     misreads the server, if the backfill writes nothing or somewhere else, or if matrix and history disagree.
 
-    Spec deviations: relative years; the planned 2027 cell, greyscale and the phone view are not automated.
+    Spec deviations: relative years (last year = "2025", this year = "2026" of the TC); the product has no
+    "Vorkultur" role - a pre-crop is a second main-crop entry of the same year dated to spring (``season =
+    spring``), the cell tells the two apart by their season label; Feldsalat is not in the seed catalogue, lettuce
+    (Lactuca sativa) stands in for it; the pea of this year is a real planting (a backfill only takes past years).
+    Not automated: the planned 2027 cell, greyscale and the phone view.
     """
     garden = _garden(base_url, e2e_seed_data, "tc068", BED_1, BED_2, BED_3)
     bed_1, bed_2, bed_3 = (garden.bed_key(spec.name) for spec in (BED_1, BED_2, BED_3))
@@ -845,8 +901,26 @@ def test_tc_053_068_rotation_matrix_lists_beds_by_year_and_backfills_from_a_cell
         e2e_seed_data,
         bed_1,
         year - 1,
-        species_key=species(base_url, e2e_seed_data, TOMATO)["key"],
+        species_key=species(base_url, e2e_seed_data, LETTUCE)["key"],
+        season="spring",
     )
+    backfill_year(
+        base_url,
+        e2e_seed_data,
+        bed_1,
+        year - 1,
+        species_key=species(base_url, e2e_seed_data, TOMATO)["key"],
+        season="main",
+    )
+    peas = plant_on_positions(
+        base_url,
+        e2e_seed_data,
+        bed_key=bed_1,
+        species_key=species(base_url, e2e_seed_data, PEA)["key"],
+        id_prefix="TCP",
+        points=((0.5, 0.5),),
+    )
+    assert len(peas.plant_by_slot) == 1, "the arrangement must stand one pea in Beet 1 this year"
     backfill_year(
         base_url,
         e2e_seed_data,
@@ -870,31 +944,59 @@ def test_tc_053_068_rotation_matrix_lists_beds_by_year_and_backfills_from_a_cell
     assert cells[(bed_2, target)] == [], (
         f"the arrangement needs an empty {target} cell: {cells[(bed_2, target)]}"
     )
-    tomato_families = cells[(bed_1, year - 1)]
+    seasons = {
+        (row["location_key"], cell["year"]): [p.get("season") for p in cell["plantings"]]
+        for row in server["beds"]
+        for cell in row["cells"]
+    }
+    # The order inside a cell is the server's (the spec names no order; the matrix lists main before spring
+    # today - reported in #2764); the browser must show exactly that order.
+    pair_seasons = seasons[(bed_1, year - 1)]
+    assert sorted(pair_seasons) == ["main", "spring"], (
+        f"the arrangement needs a pre-crop and a main crop in Beet 1/{year - 1}: {pair_seasons}"
+    )
+    pair_families = cells[(bed_1, year - 1)]
+    assert len(pair_families) == 2 and len(set(pair_families)) == 2, (
+        f"pre-crop and main crop must carry two families: {pair_families}"
+    )
+    tomato_family = pair_families[pair_seasons.index("main")]
+    pea_families = cells[(bed_1, year)]
+    assert pea_families, f"the arrangement needs the pea in Beet 1/{year}: {cells[(bed_1, year)]}"
     cabbage_families = cells[(bed_2, year - 1)]
-    assert tomato_families and cabbage_families and tomato_families != cabbage_families, (
-        f"the arrangement needs two different families in {year - 1}: {cells}"
+    assert cabbage_families and cabbage_families[0] != tomato_family, (
+        f"the arrangement needs two different main-crop families in {year - 1}: {cells}"
     )
 
     matrix.open(garden.site_key)
     assert matrix.column_years() == server["columns"], (
         f"TC-053-068: columns {matrix.column_years()}"
     )
-    assert matrix.cell_families(bed_1, year - 1) == tomato_families, (
-        f"TC-053-068: Beet 1/{year - 1} shows the server's family: {matrix.cell_text(bed_1, year - 1)!r}"
+    assert matrix.cell_families(bed_1, year - 1) == pair_families, (
+        f"TC-053-068: Beet 1/{year - 1} lists pre-crop and main crop in the server's order: "
+        f"{matrix.cell_families(bed_1, year - 1)} ({matrix.cell_text(bed_1, year - 1)!r})"
+    )
+    pair_text = matrix.cell_text(bed_1, year - 1)
+    labels = {"spring": "Frühjahr", "main": "Hauptsaison"}
+    assert all(labels[season] in pair_text for season in pair_seasons) and (
+        pair_text.index(labels[pair_seasons[0]]) < pair_text.index(labels[pair_seasons[1]])
+    ), (
+        f"TC-053-068: the cell names both seasons in the server's order {pair_seasons}: {pair_text!r}"
+    )
+    assert matrix.cell_families(bed_1, year) == pea_families, (
+        f"TC-053-068: Beet 1/{year} shows this year's pea: {matrix.cell_text(bed_1, year)!r}"
     )
     # Colour must not be the only carrier (greyscale, GP-FR-135): ``familyMarks`` gives each family of the page
     # its own entry of FAMILY_PATTERNS - index 0 is the plain fill ``none`` by design - and a code. So the claim is
     # "two families differ by pattern and by code", not "every swatch is patterned".
-    tomato_pattern = matrix.swatch_pattern(bed_1, year - 1, tomato_families[0])
+    tomato_pattern = matrix.swatch_pattern(bed_1, year - 1, tomato_family)
     cabbage_pattern = matrix.swatch_pattern(bed_2, year - 1, cabbage_families[0])
     assert tomato_pattern != cabbage_pattern, (
         f"TC-053-068: two families must differ by fill pattern, not only colour: {tomato_pattern!r} vs "
         f"{cabbage_pattern!r}"
     )
-    tomato_cell, cabbage_cell = matrix.cell_text(bed_1, year - 1), matrix.cell_text(bed_2, year - 1)
-    assert tomato_cell and cabbage_cell and tomato_cell != cabbage_cell, (
-        f"TC-053-068: each family cell names its own code: {tomato_cell!r} vs {cabbage_cell!r}"
+    pea_cell, cabbage_cell = matrix.cell_text(bed_1, year), matrix.cell_text(bed_2, year - 1)
+    assert pea_cell and cabbage_cell and pea_cell != cabbage_cell, (
+        f"TC-053-068: each single-family cell names its own code: {pea_cell!r} vs {cabbage_cell!r}"
     )
     off = matrix.off_mark(bed_3)
     assert off is not None and "Fruchtfolge" in off, (
