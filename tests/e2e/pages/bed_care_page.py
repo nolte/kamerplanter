@@ -668,13 +668,22 @@ class HistoryTab(DownloadCapture):
         passt als Nächstes …" line, ``status`` the info line of a non-``ok`` answer. Loud when the panel stays busy
         or shows its load error.
         """
+
+        def _answered(driver) -> bool:
+            # Re-resolved on every poll: the panel re-renders while it loads and unmounts for ``not_applicable``,
+            # so a reference captured once would go stale instead of telling those cases apart.
+            panels = driver.find_elements(*self.SUCCESSION)
+            return bool(panels) and panels[0].get_attribute("aria-busy") == "false"
+
         try:
-            panel = self.wait_for_element(self.SUCCESSION)
-            self.poll().until(lambda _d: panel.get_attribute("aria-busy") == "false")
+            self.poll().until(_answered)
         except TimeoutException as exc:
+            present = bool(self.driver.find_elements(*self.SUCCESSION))
             raise AssertionError(
-                f"{what}: the follow-up crop recommendation never finished loading"
+                f"{what}: the follow-up crop recommendation never answered "
+                f"({'still busy' if present else 'panel not rendered - not_applicable or not mounted'})"
             ) from exc
+        panel = self.wait_for_element(self.SUCCESSION)
         if self.driver.find_elements(*_tid("succession-error")):
             raise AssertionError(f"{what}: the recommendation shows its load error")
 

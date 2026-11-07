@@ -206,8 +206,17 @@ class SoilTab(BasePage):
             alert = self.wait_for_element_visible(self.ROTATION_REFUSAL)
         except TimeoutException as exc:
             raise AssertionError(f"{what}: switching 'Dauerkultur' on showed no refusal") from exc
-        section = self.wait_for_element(self.ROTATION)
-        self.poll().until(lambda _d: section.get_attribute("aria-busy") == "false")
+        try:
+            self.poll().until(
+                lambda d: (
+                    d.find_elements(*self.ROTATION)
+                    and d.find_elements(*self.ROTATION)[0].get_attribute("aria-busy") == "false"
+                )
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the rotation switch stayed busy after the refusal of 'Dauerkultur'"
+            ) from exc
         return _text(alert)
 
 

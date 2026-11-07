@@ -113,8 +113,8 @@ from ._garden_plan_helpers import (
     rect,
     runs_of_bed,
     site_conditions,
-    soil_profile_of,
     species,
+    stored_soil_profile,
     store_frost_forecast,
     stored_location,
     tenant_key_of,
@@ -340,7 +340,7 @@ def test_tc_053_072_companion_layer_draws_good_bad_and_unknown_neighbours(
     )
 
     plan.open(garden.site_key)
-    plan.zoom_in_until(100)
+    plan.zoom_in_until(100, what="TC-053-072: start at 100 %")
     assert not plan.is_layer_on("companion"), "TC-053-072: the layer 'Mischkultur' starts off"
     assert not plan.is_present(plan.COMPANION_LAYER), (
         "TC-053-072: no companion line before the layer is on"
@@ -413,7 +413,7 @@ def test_tc_053_072_companion_layer_draws_good_bad_and_unknown_neighbours(
         "unknown": "Gepunktet: keine Angabe zu diesem Paar",
     }, f"TC-053-072: the legend explains colour and line style: {legend}"
 
-    plan.zoom_out_to_fit()
+    plan.zoom_out_to_fit(what="TC-053-072: cluster zoom")
     try:
         plan.poll().until(lambda _d: not plan.is_present(plan.COMPANION_LAYER))
     except TimeoutException as exc:
@@ -429,7 +429,7 @@ def test_tc_053_072_companion_layer_draws_good_bad_and_unknown_neighbours(
 
     # Back at a readable zoom the lines return - so their absence above was the zoom, not a lost layer - and only
     # then is the layer switched off, so "gone without the layer" is measured against lines that were drawn.
-    plan.zoom_in_until(100)
+    plan.zoom_in_until(100, what="TC-053-072: back at 100 %")
     plan.wait_for_companion_pairs(bed, pairs, "TC-053-072: back at 100 %")
     plan.set_layer("companion", False)
     try:
@@ -750,7 +750,9 @@ def test_tc_053_075_field_mode_moisture_and_wind_chips_store_with_one_tap(
         beds=(BedSpec("Beet 1", rect(1.0, 1.0, 2.0, 1.0)),),
     )
     bed = garden.bed_key("Beet 1")
-    assert soil_profile_of(base_url, e2e_seed_data, bed).get("site_water_regime") in (
+    assert stored_soil_profile(base_url, e2e_seed_data, bed, required=False).get(
+        "site_water_regime"
+    ) in (
         None,
         "unknown",
     ), "TC-053-075 precondition: no water regime stored"
@@ -923,7 +925,7 @@ def test_tc_053_077_empty_photo_tab_offers_the_upload_and_refuses_a_text_file(
     Precondition (API): "Beet 1" without photos. The tab reads "Noch keine Fotos vom Beet" with "Erstes Foto
     hinzufügen"; that action opens the upload dialog; "notiz.txt" is refused by the capture panel with "Nicht
     unterstütztes Bildformat. Erlaubt sind JPEG und PNG." and offers no upload; after cancelling the server still holds
-    no photo. Runs in every profile (nothing is stored). Breaks if the empty tab offers no upload, if the text file is
+    no photo. Desktop only (``requires_desktop``); nothing is stored, so it needs no writable storage. Breaks if the empty tab offers no upload, if the text file is
     taken, or if anything reaches the gallery.
     """
     garden = provision_garden(

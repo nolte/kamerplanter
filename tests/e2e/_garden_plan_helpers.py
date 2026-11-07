@@ -11,8 +11,15 @@ WHY THE API, AND WHICH ONE
 The arrangement goes through the application's own REST API — the same routes
 the editor itself calls — never through a direct database write
 (`test-pyramid-foundation` §"Arrangement-Treue", `test-falsifiability` T9) -
-with one named exception, :func:`mark_task_suggested` (the suggestion flag of a
-task has no route and no producer yet; see its docstring):
+with two named exceptions, both going through :func:`_arango_document_write`
+and each explaining its divergence in its own docstring:
+
+* :func:`mark_task_suggested` - the suggestion flag of a task has no route and
+  no producer yet (REQ-053 E-02);
+* :func:`store_frost_forecast` - a weather forecast is written only by the
+  weather fetch task, and the E2E stack has no outbound weather source.
+
+The routes used otherwise:
 
 * ``POST /sites`` creates the site;
 * ``PUT /sites/{key}/plan/boundary`` creates the plan with its boundary and grid
@@ -973,12 +980,22 @@ def soil_series(analyses: dict, parameter: str) -> dict[str, list[float]]:
     }
 
 
-def stored_soil_profile(base_url: str, seed: dict, bed_key: str) -> dict:
-    """The stored ``soil_profile`` of a bed; loud when the bed has none."""
+def stored_soil_profile(base_url: str, seed: dict, bed_key: str, *, required: bool = True) -> dict:
+    """The stored ``soil_profile`` of a bed.
+
+    ``required`` (the default) is loud when the bed has none - the reader after a write. ``required=False`` answers
+    ``{}`` for a bed without profile - the precondition read of a fresh bed. Either way an answer that is no
+    location of *bed_key* is loud.
+    """
     body = tenant_get(base_url, seed, f"/locations/{bed_key}")
-    if not isinstance(body, dict) or not isinstance(body.get("soil_profile"), dict):
-        raise AssertionError(f"the bed {bed_key!r} has no stored soil profile: {body!r}")
-    return body["soil_profile"]
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"GET /locations/{bed_key} answered no location: {body!r}")
+    profile = body.get("soil_profile")
+    if isinstance(profile, dict):
+        return profile
+    if required or profile is not None:
+        raise AssertionError(f"the bed {bed_key!r} has no stored soil profile: {profile!r}")
+    return {}
 
 
 def bed_summary(base_url: str, seed: dict, bed_key: str) -> dict:
@@ -1114,6 +1131,42 @@ _ARANGO_PASSWORD = os.environ.get("E2E_ARANGO_PASSWORD", "e2e-test-password")
 _ARANGO_DB = {"light": "kamerplanter_e2e", "full": "kamerplanter_e2e_full"}
 
 
+def _arango_document_write(
+    app_mode: str, method: str, path: str, document: dict, *, what: str, reason_no_route: str
+) -> None:
+    """One document write on the backend's ArangoDB (``/_db/<db>/_api/document/<path>``); loud on every failure.
+
+    The single place the two named direct writes go through. *what* names the arranged state in the failure
+    message, *reason_no_route* says why there is no API route for it.
+    """
+    if app_mode not in _ARANGO_DB:
+        raise AssertionError(f"{what}: unknown app mode {app_mode!r}")
+    database = os.environ.get("E2E_ARANGO_DB", _ARANGO_DB[app_mode])
+    url = f"{_ARANGO_URL.rstrip('/')}/_db/{database}/_api/document/{path}"
+    credentials = base64.b64encode(f"{_ARANGO_USER}:{_ARANGO_PASSWORD}".encode()).decode()
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(document).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Basic {credentials}"},
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB refused {what} ({database}): {exc.code} {exc.read()[:300]!r}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB at {_ARANGO_URL} is not reachable from the test runner "
+            f"({exc.reason}). {reason_no_route}; set E2E_ARANGO_URL / E2E_ARANGO_DB / E2E_ARANGO_PASSWORD when the "
+            "stack does not run from docker-compose.e2e.yml."
+        ) from exc
+    if status not in (200, 201, 202):
+        raise AssertionError(f"Self-provisioning failed: ArangoDB answered {status} for {what}")
+
+
 def mark_task_suggested(app_mode: str, task_key: str, reason: str) -> None:
     """Turn an open task into a system suggestion (``suggested = true`` + ``suggestion_reason``).
 
@@ -1127,35 +1180,14 @@ def mark_task_suggested(app_mode: str, task_key: str, reason: str) -> None:
     A direct ``PATCH`` on ArangoDB's document API - the database the backend under test uses. Loud when the database
     cannot be reached or refuses the write: a missing suggestion must never read as "the section is hidden".
     """
-    if app_mode not in _ARANGO_DB:
-        raise AssertionError(f"mark_task_suggested: unknown app mode {app_mode!r}")
-    database = os.environ.get("E2E_ARANGO_DB", _ARANGO_DB[app_mode])
-    url = f"{_ARANGO_URL.rstrip('/')}/_db/{database}/_api/document/tasks/{task_key}"
-    credentials = base64.b64encode(f"{_ARANGO_USER}:{_ARANGO_PASSWORD}".encode()).decode()
-    request = urllib.request.Request(
-        url,
-        data=json.dumps({"suggested": True, "suggestion_reason": reason}).encode(),
-        headers={"Content-Type": "application/json", "Authorization": f"Basic {credentials}"},
-        method="PATCH",
+    _arango_document_write(
+        app_mode,
+        "PATCH",
+        f"tasks/{task_key}",
+        {"suggested": True, "suggestion_reason": reason},
+        what=f"the suggestion flag on task {task_key}",
+        reason_no_route="The suggestion flag has no API route",
     )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            status = response.status
-    except urllib.error.HTTPError as exc:
-        raise AssertionError(
-            f"Self-provisioning failed: ArangoDB refused the suggestion flag on task {task_key} "
-            f"({database}): {exc.code} {exc.read()[:300]!r}"
-        ) from exc
-    except urllib.error.URLError as exc:
-        raise AssertionError(
-            f"Self-provisioning failed: ArangoDB at {_ARANGO_URL} is not reachable from the test runner ({exc.reason}). "
-            "The suggestion flag has no API route; set E2E_ARANGO_URL / E2E_ARANGO_DB / E2E_ARANGO_PASSWORD when the "
-            "stack does not run from docker-compose.e2e.yml."
-        ) from exc
-    if status not in (200, 201, 202):
-        raise AssertionError(
-            f"Self-provisioning failed: ArangoDB answered {status} for task {task_key}"
-        )
 
 
 # ── Wave 8 part B: companion layer, site features, photos, CSV, frost reason (WP 8.31) ──
@@ -1200,11 +1232,6 @@ def edge_between(edges: list[dict], slot_a: str, slot_b: str) -> dict:
 def site_conditions(base_url: str, seed: dict, bed_key: str) -> dict:
     """The stored ``site_conditions`` of a bed (``{}`` when none are stored)."""
     return dict(tenant_location(base_url, seed, bed_key).get("site_conditions") or {})
-
-
-def soil_profile_of(base_url: str, seed: dict, bed_key: str) -> dict:
-    """The stored ``soil_profile`` of a bed (``{}`` when none is stored)."""
-    return dict(tenant_location(base_url, seed, bed_key).get("soil_profile") or {})
 
 
 def bed_photos(base_url: str, seed: dict, bed_key: str) -> dict:
@@ -1302,15 +1329,12 @@ def store_frost_forecast(
 
     Loud when the database cannot be reached or refuses the write: a missing forecast must never read as "no frost".
     """
-    if app_mode not in _ARANGO_DB:
-        raise AssertionError(f"store_frost_forecast: unknown app mode {app_mode!r}")
-    database = os.environ.get("E2E_ARANGO_DB", _ARANGO_DB[app_mode])
-    url = f"{_ARANGO_URL.rstrip('/')}/_db/{database}/_api/document/weather_forecasts"
+    # One instant for both: "today" and the fetch time must not straddle midnight UTC.
     now = datetime.now(UTC)
     document = {
         "tenant_key": tenant_key,
         "site_key": site_key,
-        "forecast_date": utc_today().isoformat(),
+        "forecast_date": now.date().isoformat(),
         "temp_min_c": float(temp_min_c),
         "temp_max_c": float(temp_min_c) + 9.0,
         "source": "open_meteo",
@@ -1318,28 +1342,11 @@ def store_frost_forecast(
         "data_kind": "forecast",
         "is_current_conditions": False,
     }
-    credentials = base64.b64encode(f"{_ARANGO_USER}:{_ARANGO_PASSWORD}".encode()).decode()
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(document).encode(),
-        headers={"Content-Type": "application/json", "Authorization": f"Basic {credentials}"},
-        method="POST",
+    _arango_document_write(
+        app_mode,
+        "POST",
+        "weather_forecasts",
+        document,
+        what=f"the forecast for site {site_key}",
+        reason_no_route="A forecast has no API route",
     )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            status = response.status
-    except urllib.error.HTTPError as exc:
-        raise AssertionError(
-            f"Self-provisioning failed: ArangoDB refused the forecast for site {site_key} ({database}): "
-            f"{exc.code} {exc.read()[:300]!r}"
-        ) from exc
-    except urllib.error.URLError as exc:
-        raise AssertionError(
-            f"Self-provisioning failed: ArangoDB at {_ARANGO_URL} is not reachable from the test runner ({exc.reason}). "
-            "A forecast has no API route; set E2E_ARANGO_URL / E2E_ARANGO_DB / E2E_ARANGO_PASSWORD when the stack "
-            "does not run from docker-compose.e2e.yml."
-        ) from exc
-    if status not in (200, 201, 202):
-        raise AssertionError(
-            f"Self-provisioning failed: ArangoDB answered {status} for the forecast"
-        )

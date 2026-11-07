@@ -1965,12 +1965,17 @@ class GardenPlanPage(BasePage):
         self.scroll_into_view(self.wait_for_element(self.CANVAS))
         centre = self.driver.execute_script(
             'var g = document.querySelector("[data-companion-edge=\'" + arguments[0] + "\']");'
-            "if (!g) { return null; } var hit = g.querySelector('.gp-companion-hit');"
+            "if (!g) { return 'no-line'; } var hit = g.querySelector('.gp-companion-hit');"
+            "if (!hit) { return 'no-hit'; }"
             "var r = hit.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2];",
             line_id,
         )
-        if centre is None:
+        if centre == "no-line":
             raise AssertionError(f"the companion line {line_id!r} is not drawn")
+        if centre == "no-hit" or not isinstance(centre, list):
+            raise AssertionError(
+                f"the companion line {line_id!r} is drawn without its hover target '.gp-companion-hit' ({centre!r})"
+            )
         found = self.driver.execute_script(
             "var el = document.elementFromPoint(arguments[0], arguments[1]);"
             "var g = el ? el.closest('[data-companion-edge]') : null;"
@@ -2025,27 +2030,40 @@ class GardenPlanPage(BasePage):
         )
         return {status: {"text": text, "dash": dash} for status, text, dash in rows}
 
-    def zoom_out_to_fit(self, max_steps: int = 25) -> None:
+    def zoom_out_to_fit(self, max_steps: int = 25, *, what: str = "zoom out to fit") -> None:
         """Press "zoom out" until it is disabled (the fit zoom is the lowest level); bounded, loud."""
-        for _ in range(max_steps):
+        for step in range(1, max_steps + 1):
             button = self.wait_for_element(self.ZOOM_OUT)
             if not button.is_enabled():
                 return
             before = self.zoom_percent()
             self.wait_and_click(self.ZOOM_OUT)
-            self.poll().until(lambda _d, b=before: self.zoom_percent() != b)
-        raise AssertionError(f"the zoom never reached its lowest level in {max_steps} steps")
+            try:
+                self.poll().until(lambda _d, b=before: self.zoom_percent() != b)
+            except TimeoutException as exc:
+                raise AssertionError(
+                    f"{what}: step {step} of 'zoom out' did not change the level, it stays at {before} %"
+                ) from exc
+        raise AssertionError(
+            f"{what}: the zoom never reached its lowest level in {max_steps} steps"
+        )
 
-    def zoom_in_until(self, percent: int, max_steps: int = 25) -> int:
+    def zoom_in_until(self, percent: int, max_steps: int = 25, *, what: str = "zoom in") -> int:
         """Press "zoom in" until the level reads at least *percent*; return the level reached (bounded, loud)."""
-        for _ in range(max_steps):
+        for step in range(1, max_steps + 1):
             current = self.zoom_percent()
             if current >= percent:
                 return current
             self.wait_and_click(self.ZOOM_IN)
-            self.poll().until(lambda _d, b=current: self.zoom_percent() != b)
+            try:
+                self.poll().until(lambda _d, b=current: self.zoom_percent() != b)
+            except TimeoutException as exc:
+                raise AssertionError(
+                    f"{what}: step {step} of 'zoom in' towards {percent} % did not change the level, "
+                    f"it stays at {current} %"
+                ) from exc
         raise AssertionError(
-            f"the zoom never reached {percent} % (it reads {self.zoom_percent()} %)"
+            f"{what}: the zoom never reached {percent} % in {max_steps} steps (it reads {self.zoom_percent()} %)"
         )
 
     def open_csv_import(self) -> None:

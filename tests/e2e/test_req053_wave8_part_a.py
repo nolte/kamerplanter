@@ -607,7 +607,11 @@ def test_tc_053_064_amendment_mulch_and_liming_with_a_text_only_hint(
     dialog.submit_and_wait_closed("TC-053-064: liming")
     care_tab.wait_for_task_gone(liming, "TC-053-064: liming")
 
-    events = {e["category"]: e for e in care_events(base_url, e2e_seed_data, bed)}
+    stored = care_events(base_url, e2e_seed_data, bed)
+    assert sorted(e["category"] for e in stored) == ["liming", "mulching", "soil_amendment"], (
+        f"TC-053-064: exactly one event per action, three in total: {[e['category'] for e in stored]}"
+    )
+    events = {e["category"]: e for e in stored}
     assert (
         events["soil_amendment"]["material"],
         events["soil_amendment"]["quantity"],
@@ -1227,7 +1231,12 @@ def test_tc_053_071_dismissing_a_suggestion_closes_it_without_a_care_entry(
     care_tab.wait_for_suggestion(drop, "TC-053-071")
     screenshot("053_071_01_two_suggestions", "Zwei Vorschläge: Gießen und Düngen")
     care_tab.dismiss_suggestion(drop, "TC-053-071: Verwerfen")
-    assert keep in care_tab.suggestion_keys(), "TC-053-071: the other suggestion stays"
+    # Settle on the server's state before the negative checks: a fresh document load renders the task list from the
+    # server alone, and the kept suggestion being listed proves the list arrived - a dismissed task that came back
+    # with the refetch would be listed by then, so its absence below is falsifiable.
+    bed_view.open(bed, "care")
+    care_tab.wait_for_suggestion(keep, "TC-053-071: after the reload")
+    assert drop not in care_tab.suggestion_keys(), "TC-053-071: the dismissed suggestion stays gone"
     assert drop not in care_tab.open_task_keys(), (
         "TC-053-071: a dismissed suggestion is no open task"
     )
