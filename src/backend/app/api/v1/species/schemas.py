@@ -19,7 +19,9 @@ from app.domain.models.species import (
     PhotosynthesisType,
     PropagationConfig,
     ShadeTolerance,
+    Toxicity,
     WateringGuide,
+    WaterloggingTolerance,
 )
 
 
@@ -113,6 +115,10 @@ class SpeciesResponse(BaseModel):
     light_requirement: LightRequirement | None = None
     #: How far down the sun ladder the species still grows (the yellow zone of ``site_fit``).
     shade_tolerance: ShadeTolerance | None = None
+    #: With the bed's drainage it gives the planting dialog's ``waterlogging_risk`` hint (GP-FR-161).
+    waterlogging_tolerance: WaterloggingTolerance | None = None
+    #: The species detail page's pet/child toxicity warning (REQ-001, ``ToxicityBadge``).
+    toxicity: Toxicity | None = None
     indoor_suitable: Suitability | None = None
     balcony_suitable: Suitability | None = None
     greenhouse_recommended: bool = False
