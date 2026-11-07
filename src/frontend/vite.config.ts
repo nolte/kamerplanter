@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
 /**
@@ -59,6 +60,31 @@ function manualChunks(id: string): string | undefined {
 export default defineConfig({
   plugins: [
     react(),
+    // UI-NFR-012 basis (REQ-053 WP 9.1, #2741, R-011): one Workbox service worker, built from
+    // src/sw.ts and emitted as dist/sw.js — the URL of the former push-only worker, so existing
+    // registrations update in place. `injectManifest` because the worker also owns Web Push, the
+    // tenant-bound API cache and the kill switch; a generated worker could hold none of them.
+    // Registration stays in src/serviceWorkerRegistration.ts (`injectRegister: false`), and the
+    // manifest is the hand-written public/manifest.json (`manifest: false`).
+    VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectRegister: false,
+      manifest: false,
+      injectManifest: {
+        // The app shell: every built JS/CSS chunk (lazy routes included, so a route visited
+        // offline still loads), index.html, the icons and the manifest. The error illustrations
+        // (large SVGs) load cache-first at runtime instead. runtime-config.js is deployment
+        // state rewritten at container start and the kill switch's carrier: never precached.
+        globPatterns: ['**/*.{js,css,html}', 'icons/*.png', 'manifest.json'],
+        globIgnores: ['runtime-config.js', 'sw.js', '**/node_modules/**'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
+      devOptions: {
+        enabled: false,
+      },
+    }),
     // Emits a treemap of the bundle to bundle-stats/stats.html for the CI
     // artifact (UI-NFR-003 DoD §4). Gzip sizes make the report comparable to
     // the budget. Deliberately written OUTSIDE dist/ so the Lighthouse CI job

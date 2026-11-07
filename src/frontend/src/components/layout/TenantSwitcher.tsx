@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { switchTenant } from '@/store/slices/tenantSlice';
+import { clearOfflineData } from '@/pwa/offlineData';
 
 export default function TenantSwitcher() {
   const { t } = useTranslation();
@@ -36,7 +37,7 @@ export default function TenantSwitcher() {
     setAnchorEl(null);
   };
 
-  const handleSwitch = (slug: string) => {
+  const handleSwitch = async (slug: string) => {
     if (slug === activeTenant?.slug) {
       handleClose();
       return;
@@ -53,6 +54,12 @@ export default function TenantSwitcher() {
     // sources (Redux and `setActiveTenantSlug`), so a full reload re-issues every
     // request under the new tenant with no invalidation list to keep in sync — a
     // list that would silently rot each time a new tenant-aware slice is added.
+    //
+    // REQ-053 WP 9.1 (G-W9 b): the service worker's API cache and IndexedDB are
+    // emptied completely BEFORE the reload, so the next tenant never reads the
+    // previous one's answers offline. Pinned by
+    // test/guards/offlineDataClearedOnSessionChange.test.ts.
+    await clearOfflineData();
     window.location.reload();
   };
 
@@ -108,7 +115,7 @@ export default function TenantSwitcher() {
           <MenuItem
             key={tenant.key}
             selected={tenant.slug === activeTenant?.slug}
-            onClick={() => handleSwitch(tenant.slug)}
+            onClick={() => void handleSwitch(tenant.slug)}
             data-testid={`tenant-switcher-item-${tenant.slug}`}
           >
             <ListItemIcon>
