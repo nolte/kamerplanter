@@ -1150,7 +1150,11 @@ def _current_document(document: dict[str, Any]) -> dict[str, Any]:
             got=str(version)[:16],
         ) from None
     except SchemaMigrationError as exc:
-        logger.warning("garden_plan_import.migration_failed", schema_version=str(version)[:16], reason=str(exc))
+        # The type only: a migrator's own exception may quote the file it tripped over.
+        cause = exc.__cause__ if exc.__cause__ is not None else exc
+        logger.warning(
+            "garden_plan_import.migration_failed", schema_version=str(version)[:16], error_type=type(cause).__name__
+        )
         raise PlanError(
             "import.schema_migration_failed",
             "This file has an older schema version and could not be converted; export it again if you can.",
