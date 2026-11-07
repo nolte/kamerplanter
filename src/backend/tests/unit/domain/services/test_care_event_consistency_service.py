@@ -1,5 +1,7 @@
 """WP 8.2 (#2645) — the consistency job's rules around the shared scan, with the scan fed as rows.
 
+Rows: GP-FR-105 (the job closes a gap), GP-NFR-063 (run time and hits are reported, a warning above 100 hits).
+
 The real AQL (reference resolution, ``present`` through the unique ``source_ref`` index) and the real writer are
 measured on an ArangoDB in ``tests/integration/test_care_events_consistency.py``.
 """

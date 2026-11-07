@@ -1,4 +1,4 @@
-"""REQ-053 WP 8.18 (#2661) - the bed-photo routes through the deployed app.
+"""REQ-053 WP 8.18 (#2661, GP-FR-051, GP-API-067) - the bed-photo routes through the deployed app.
 
 ``app.main`` with the real tenant gate, the real ``LocationPhotoService`` / ``GardenResourceService`` and the
 in-memory doubles of ``tests/support``. What is pinned here is how a decision reads on the wire: the status, the

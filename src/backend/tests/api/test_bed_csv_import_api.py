@@ -1,4 +1,4 @@
-"""REQ-053 WP 8.26 (#2669) - ``POST /t/{slug}/sites/{key}/beds/import-csv`` on the wire.
+"""REQ-053 WP 8.26 (#2669, GP-FR-174, GP-API-069) - ``POST /t/{slug}/sites/{key}/beds/import-csv`` on the wire.
 
 ``app.main`` with the real import service, the real plan service, the real tenant gate and the real rate limiter
 (only the auth provider, the tenant lookup and the repositories are doubles). What a client receives is measured:

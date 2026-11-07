@@ -1,4 +1,4 @@
-"""WP 8.7 (#2650) — ``GET /locations/{key}/soil-analyses`` through the deployed app.
+"""WP 8.7 (#2650, GP-FR-122, GP-API-066) — ``GET /locations/{key}/soil-analyses`` through the deployed app.
 
 ``app.main`` with the real ``SoilAnalysisService``, the real tenant gate and the in-memory doubles of the care-event
 tier: the status codes, that every role may read, that another tenant's bed is a 404 that names nothing, that the

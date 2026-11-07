@@ -1,4 +1,4 @@
-"""WP 8.2 (#2645) — the beat entry and the task that wires the consistency service."""
+"""WP 8.2 (#2645; GP-NFR-016) — the beat entry and the task that wires the consistency service."""
 
 from __future__ import annotations
 

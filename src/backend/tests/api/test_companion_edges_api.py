@@ -1,4 +1,4 @@
-"""WP 8.15 (#2658) — ``GET /locations/{key}/companion-edges`` through the deployed app.
+"""WP 8.15 (#2658, GP-FR-134, GP-API-065) — ``GET /locations/{key}/companion-edges`` through the deployed app.
 
 ``app.main`` with the real ``CompanionOverlayService``, the real tenant gate and the in-memory doubles: every role may
 read, another tenant's bed is a 404 that names nothing, the list is capped at 500 with ``truncated``, and the status

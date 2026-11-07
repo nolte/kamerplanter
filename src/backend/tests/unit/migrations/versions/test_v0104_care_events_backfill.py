@@ -1,4 +1,4 @@
-"""v0104 (WP 8.1, #2644): the write path of the M4 backfill, with the scan fed as rows.
+"""v0104 (WP 8.1, #2644; GP-FR-105, GP-NFR-015): the write path of the M4 backfill, with the scan fed as rows.
 
 The real AQL (reference resolution, ``source_ref`` presence, the window) is measured on an ArangoDB in
 ``tests/integration/test_v0104_care_events_backfill.py``; this suite pins what happens *around* the scan: the dry
