@@ -25,7 +25,7 @@ from arango.database import StandardDatabase
 from arango.exceptions import ArangoServerError
 
 from app.common.exceptions import NotFoundError, WriteConflictError
-from app.data_access.arango.conflicts import conflict_error_for
+from app.data_access.arango.conflicts import conflict_error_for, is_document_not_found
 
 
 @dataclass(frozen=True)
@@ -36,8 +36,6 @@ class StoredValue:
     value: Any
     default: Any = None
 
-
-_DOCUMENT_NOT_FOUND = 1202
 
 #: ``VALUE(doc, path)`` reads a nested attribute (``["geometry", "kind"]``) and answers ``null`` when absent; a
 #: ``null`` reads as the default the model gives a row without the column, so a legacy row is not a conflict.
@@ -50,7 +48,8 @@ LET held = doc != null AND (
 ) ALL == true
 LET written = (
     FOR d IN (held ? [doc] : [])
-        UPDATE {_key: d._key, _rev: d._rev} WITH @data IN @@collection
+        LET fenced = {_key: d._key, _rev: d._rev}
+        UPDATE fenced WITH @data IN @@collection
         OPTIONS {ignoreRevs: false, keepNull: @keep_null, mergeObjects: @merge_objects}
         RETURN NEW
 )
@@ -94,7 +93,7 @@ def update_if_unchanged(
         )
         row = next(cursor, None)
     except ArangoServerError as exc:
-        if getattr(exc, "error_code", None) == _DOCUMENT_NOT_FOUND:  # removed between the read and the update
+        if is_document_not_found(exc):  # removed between the read and the update
             raise NotFoundError(entity, key) from exc
         conflict = conflict_error_for(exc, entity=entity, data=data)
         if conflict is not None:

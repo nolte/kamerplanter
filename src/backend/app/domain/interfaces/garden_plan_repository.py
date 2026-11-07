@@ -189,12 +189,12 @@ class IGardenPlanRepository(ABC):
         """
 
     @abstractmethod
-    def update_slot_fields(self, slot_key: str, fields: dict[str, Any], *, read: Slot | None = None) -> None:
+    def update_slot_fields(self, slot_key: str, fields: dict[str, Any], *, read: Slot) -> None:
         """Write *only* ``fields`` of a slot, nested objects replaced whole (a geometry may change its kind).
 
         The caller has resolved the slot under the tenant through ``location_ownership``.
 
-        ``read`` is the slot the change was validated against (#2727). The write is then conditional: it lands
+        ``read`` is the slot the change was validated against (#2727); the write is conditional on it: it lands
         only while the stored ``slot_role``, ``capacity_plants`` and geometry kind — the columns the slot model
         validates against each other — are still those of ``read``; otherwise
         :class:`~app.common.exceptions.WriteConflictError` (409) and nothing is written. Without it a second

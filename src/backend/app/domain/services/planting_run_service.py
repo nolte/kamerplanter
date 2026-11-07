@@ -46,6 +46,7 @@ from app.domain.models.planting_run import SOURCE_FIELD_MODE, PlantingRun, Plant
 from app.domain.models.site import Location, Slot
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 from app.domain.services.planting_reservation_service import FreePlacement, PlantingReservationService
+from app.domain.services.slot_occupancy import plants_standing_on
 
 logger = structlog.get_logger()
 
@@ -1319,19 +1320,25 @@ class PlantingRunService:
         # tenant's plant is skipped, not re-slotted (#2107 review SEC-001 sweep).
         plants_raw = self._owned_run_plant_rows(run_key, tenant_key)
 
-        # Release old slots
+        # Release old slots: first take the moved plants off them, then free each distinct slot once - and only
+        # when no other plant still stands on it (a zone or row holds several; a standalone plant outside this
+        # run may share it, #2727 review).
+        old_slot_keys: dict[str, None] = {}
         for p in plants_raw:
             slot_key = p.get("slot_key")
             if slot_key:
+                old_slot_keys[slot_key] = None
                 plant_key = p.get("_key") or p.get("key", "")
                 plant = self._plant_repo.get_by_key(plant_key)
                 if plant:
                     plant.slot_key = None
                     self._plant_repo.update(plant_key, plant)
-                try:
-                    resolve_owned_slot(self._site_repo, slot_key, tenant_key)
-                except NotFoundError:
-                    continue  # a foreign or vanished slot is not this tenant's to free
+        for slot_key in old_slot_keys:
+            try:
+                resolve_owned_slot(self._site_repo, slot_key, tenant_key)
+            except NotFoundError:
+                continue  # a foreign or vanished slot is not this tenant's to free
+            if not plants_standing_on(self._plant_repo, slot_key, tenant_key=tenant_key):
                 self._site_repo.set_slot_occupied(slot_key, False)
 
         # Move every plant to the new location - its bed and garden, as `create_plants` stamps them (bed reads

@@ -44,6 +44,7 @@ from app.domain.models.survival_stats import (
 )
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.propagation_service import PropagationService
+from app.domain.services.slot_occupancy import plants_standing_on
 from app.domain.services.species_visibility import readable_species
 
 if TYPE_CHECKING:
@@ -1039,10 +1040,14 @@ class PlantInstanceService:
         # instances left (a run may contain several plants).
         self._delete_orphaned_run_tasks(key, tenant_key=plant.tenant_key)
 
-        if plant.slot_key and self._site_repo.get_slot_by_key(plant.slot_key) is not None:
-            active = self._repo.get_active_by_slot(plant.slot_key, tenant_key=plant.tenant_key)
-            if len(active) <= 1:
-                self._site_repo.set_slot_occupied(plant.slot_key, False)  # the flag alone (#2727)
+        # Freed only when no plant is left on it: ``removed_on`` is already set above, so the removed plant is not
+        # among them (``<= 1`` freed a zone while a second plant still stood on it, #2727 review).
+        if (
+            plant.slot_key
+            and self._site_repo.get_slot_by_key(plant.slot_key) is not None
+            and not plants_standing_on(self._repo, plant.slot_key, tenant_key=plant.tenant_key, leaving=key)
+        ):
+            self._site_repo.set_slot_occupied(plant.slot_key, False)  # the flag alone (#2727)
 
         return updated
 

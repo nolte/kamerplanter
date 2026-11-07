@@ -5,12 +5,14 @@ from the queue so they no longer surface as orphaned work. Completed, skipped
 and failed tasks are kept as history.
 """
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
 import structlog.testing
 
 from app.common.exceptions import NotFoundError
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Slot
 from app.domain.models.task import Task
 from app.domain.services.plant_instance_service import PlantInstanceService
@@ -266,36 +268,61 @@ class TestATenantlessPlantSaysSoInsteadOfSkippingSilently:
 
 
 class TestRemovePlantFreesItsSlot:
-    """#2727: removing the last plant of a slot frees it by writing ``currently_occupied`` alone."""
+    """#2727: a slot is freed - by writing ``currently_occupied`` alone - once no plant is left standing on it.
+
+    The plant repository is a store of real plants, so ``get_active_by_slot`` answers what the ArangoDB query
+    answers: the live plants (``removed_on`` unset) on the slot. The removed plant is already stamped
+    ``removed_on`` when the service asks, which is why ``len(active) <= 1`` freed a zone with a plant still on it.
+    """
 
     def setup_method(self):
+        self.store = {
+            key: PlantInstance(
+                _key=key,
+                tenant_key="tenant-a",
+                instance_id=key.upper(),
+                species_key="sp",
+                planted_on=date(2026, 5, 1),
+                slot_key="zone-1",
+            )
+            for key in ("plant-1", "plant-2")
+        }
         self.plant_repo = MagicMock()
+        self.plant_repo.get_or_raise.side_effect = lambda key: self.store[key]
+        self.plant_repo.get_by_key.side_effect = self.store.get
+        self.plant_repo.update.side_effect = self._update
+        self.plant_repo.get_active_by_slot.side_effect = lambda slot_key, *, tenant_key: [
+            p for p in self.store.values() if p.removed_on is None and p.tenant_key == tenant_key
+        ]
         self.site_repo = MagicMock()
-        self.plant = MagicMock()
-        self.plant.slot_key = "slot-1"
-        self.plant.tenant_key = "tenant-a"
-        self.plant_repo.get_or_raise.return_value = self.plant
-        self.plant_repo.get_by_key.return_value = self.plant
-        self.plant_repo.update.return_value = self.plant
-        self.site_repo.get_slot_by_key.return_value = Slot(_key="slot-1", slot_id="BED_A1", location_key="bed")
+        self.site_repo.get_slot_by_key.return_value = Slot(_key="zone-1", slot_id="BED_Z1", location_key="bed")
 
-    def _remove(self) -> None:
+    def _update(self, key, plant):
+        self.store[key] = plant.model_copy()
+        return self.store[key]
+
+    def _remove(self, key: str) -> None:
         PlantInstanceService(self.plant_repo, self.site_repo, MagicMock(), MagicMock()).remove_plant(
-            "plant-1", tenant_key="tenant-a"
+            key, tenant_key="tenant-a"
         )
 
-    def test_the_last_plant_frees_the_slot_with_the_flag_alone(self):
-        self.plant_repo.get_active_by_slot.return_value = [self.plant]
-
-        self._remove()
-
-        self.site_repo.set_slot_occupied.assert_called_once_with("slot-1", False)
-        self.site_repo.update_slot.assert_not_called()  # no whole-slot write that could revert a PATCH /slots
-
-    def test_a_slot_still_holding_another_plant_stays_occupied(self):
-        self.plant_repo.get_active_by_slot.return_value = [self.plant, MagicMock()]
-
-        self._remove()
+    def test_the_zone_stays_occupied_while_a_second_plant_stands_on_it(self):
+        self._remove("plant-1")
 
         self.site_repo.set_slot_occupied.assert_not_called()
         self.site_repo.update_slot.assert_not_called()
+
+    def test_the_last_plant_frees_the_slot_with_the_flag_alone(self):
+        self._remove("plant-1")
+        self._remove("plant-2")
+
+        self.site_repo.set_slot_occupied.assert_called_once_with("zone-1", False)
+        self.site_repo.update_slot.assert_not_called()  # no whole-slot write that could revert a PATCH /slots
+
+    def test_a_plant_moved_off_the_slot_does_not_hold_it(self):
+        """``placed_in`` is not re-pointed on a move; the plant's own ``slot_key`` decides."""
+        self.store["plant-2"] = self.store["plant-2"].model_copy(update={"slot_key": "elsewhere"})
+
+        self._remove("plant-1")
+
+        self.site_repo.set_slot_occupied.assert_called_once_with("zone-1", False)

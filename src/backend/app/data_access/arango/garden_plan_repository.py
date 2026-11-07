@@ -1544,27 +1544,19 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": location_id, "created_at": now}
                 )
 
-    def update_slot_fields(self, slot_key: str, fields: dict[str, Any], *, read: Slot | None = None) -> None:
-        if read is not None:
-            update_if_unchanged(
-                self._db,
-                col.SLOTS,
-                slot_key,
-                {**fields, "updated_at": _now()},
-                expected=_slot_cross_validated(read),
-                entity="Slot",
-                keep_null=False,
-                merge_objects=False,
-            )
-            return
-        try:
-            self._db.collection(col.SLOTS).update(
-                {"_key": slot_key, **fields, "updated_at": _now()}, merge=False, keep_none=False
-            )
-        except DocumentUpdateError as exc:
-            if exc.error_code == 1202:  # document not found: removed after the service read it
-                raise NotFoundError("Slot", slot_key) from exc
-            raise
+    def update_slot_fields(self, slot_key: str, fields: dict[str, Any], *, read: Slot) -> None:
+        # Nested objects replaced whole (``merge_objects=False``) and nulls removed, as a PATCH writes them; a
+        # vanished slot is a NotFoundError, a changed one a WriteConflictError (``update_if_unchanged``).
+        update_if_unchanged(
+            self._db,
+            col.SLOTS,
+            slot_key,
+            {**fields, "updated_at": _now()},
+            expected=_slot_cross_validated(read),
+            entity="Slot",
+            keep_null=False,
+            merge_objects=False,
+        )
 
     def irrigation_zone_site_key(self, zone_key: str, *, tenant_key: str) -> str | None:
         if not tenant_key:

@@ -7,11 +7,15 @@ new polygon. The flag now has its own single-field write, ``ISiteRepository.set_
 
 **The class, enumerated over the source** rather than over the callers known on the day of the fix:
 
-* every ``.update_slot(`` call under ``app/`` is listed in :data:`_WHOLE_SLOT_WRITERS` with its reason — a new
-  caller fails until it is either moved to ``set_slot_occupied`` or justified here;
-* every assignment to ``<x>.currently_occupied`` under ``app/`` is listed in :data:`_FLAG_ASSIGNMENTS` — the
-  occupation writers left none behind, and a reintroduced "flip then write the slot" is caught at the flip,
-  whatever write follows it.
+* every call of a whole-slot write under ``app/`` is listed in :data:`_WHOLE_SLOT_WRITERS` with its reason — a
+  new caller fails until it is either moved to ``set_slot_occupied`` or justified here. The write methods are
+  derived from ``ISiteRepository`` (every method taking a ``Slot``, the insert excepted), plus the private slot
+  view's ``update_leaving`` and any reach into ``._slots`` — so a ``replace_slot(key, slot)`` added later is
+  covered without editing this file;
+* every way of setting the flag on a model under ``app/`` is listed in :data:`_FLAG_ASSIGNMENTS`:
+  ``x.currently_occupied = …``, ``setattr(x, "currently_occupied", …)`` and ``x.model_copy(update={…
+  "currently_occupied": …})``. The occupation writers left none behind, and a reintroduced "flip then write the
+  slot" is caught at the flip, whatever write follows it.
 
 The runtime half lives in the service doubles (``tests/support/planting_reservation_fakes.py``,
 ``test_planting_run_location_ownership.py``, ``test_run_and_tank_writes_check_the_tenant.py``,
@@ -23,11 +27,33 @@ ArangoDB in ``tests/integration/test_garden_resource_repository.py::TestOccupati
 from __future__ import annotations
 
 import ast
+import inspect
+from functools import cache
 from pathlib import Path
 
+from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.site import Slot
 from tests.support.execution_guards import find_project_root
 
 _APP = find_project_root(Path(__file__)) / "app"
+
+#: Site-repository methods that take a ``Slot`` but insert a new row: nothing stored to revert.
+_INSERTS = frozenset({"create_slot"})
+#: Whole-slot writes not on the interface: the private slot view of ``ArangoSiteRepository``.
+_PRIVATE_WRITES = frozenset({"update_leaving"})
+
+
+@cache
+def _whole_slot_write_methods() -> frozenset[str]:
+    """Every ``ISiteRepository`` method with a ``Slot`` parameter except the inserts, plus the private ones."""
+    names = {
+        name
+        for name, fn in inspect.getmembers(ISiteRepository, inspect.isfunction)
+        if any(p.annotation in (Slot, "Slot") for p in inspect.signature(fn).parameters.values())
+    }
+    assert "update_slot" in names, "the derivation lost the write it exists for"
+    return frozenset(names - _INSERTS) | _PRIVATE_WRITES
+
 
 #: ``module::Class.method`` → why it may rewrite the whole slot.
 _WHOLE_SLOT_WRITERS: dict[str, str] = {
@@ -71,18 +97,41 @@ def _scan(module: str, source: str) -> tuple[set[str], set[str]]:
     for name, fn in _qualified_functions(tree):
         for node in ast.walk(fn):
             owner[id(node)] = name  # inner functions are visited later and overwrite: innermost wins
+    writes = _whole_slot_write_methods()
     for node in ast.walk(tree):
         where = f"{module}::{owner.get(id(node), '<module>')}"
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "update_slot":
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in writes:
             callers.add(where)
-        targets: list[ast.expr] = []
-        if isinstance(node, ast.Assign):
-            targets = list(node.targets)
-        elif isinstance(node, ast.AugAssign | ast.AnnAssign):
-            targets = [node.target]
-        if any(isinstance(t, ast.Attribute) and t.attr == "currently_occupied" for t in targets):
+        if isinstance(node, ast.Attribute) and node.attr == "_slots" and not _is_self(node.value):
+            callers.add(where)  # a reach into another object's private slot view, whatever it calls there
+        if _sets_the_flag(node):
             assigners.add(where)
     return callers, assigners
+
+
+def _is_self(node: ast.expr) -> bool:
+    """``self._slots`` is an object's own attribute (a memo dict in ``phase_transitions``), not a reach-in."""
+    return isinstance(node, ast.Name) and node.id == "self"
+
+
+def _is_flag(node: ast.expr | None) -> bool:
+    return isinstance(node, ast.Constant) and node.value == "currently_occupied"
+
+
+def _sets_the_flag(node: ast.AST) -> bool:
+    """``x.currently_occupied = …`` (plain, augmented, annotated), ``setattr(x, "currently_occupied", …)`` or
+    ``x.model_copy(update={… "currently_occupied": …})``."""
+    if isinstance(node, ast.Assign | ast.AugAssign | ast.AnnAssign):
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        return any(isinstance(t, ast.Attribute) and t.attr == "currently_occupied" for t in targets)
+    if not isinstance(node, ast.Call):
+        return False
+    if isinstance(node.func, ast.Name) and node.func.id == "setattr":
+        return len(node.args) >= 2 and _is_flag(node.args[1])
+    if isinstance(node.func, ast.Attribute) and node.func.attr == "model_copy":
+        updates = [kw.value for kw in node.keywords if kw.arg == "update"] + list(node.args)
+        return any(isinstance(u, ast.Dict) and any(_is_flag(k) for k in u.keys) for u in updates)
+    return False
 
 
 def _sites() -> tuple[set[str], set[str]]:
@@ -115,18 +164,56 @@ def test_no_occupation_writer_flips_the_flag_on_a_slot_it_read() -> None:
     )
 
 
+_CONTROL_MODULE = "app/domain/services/x.py"
+_CONTROL_WHERE = f"{_CONTROL_MODULE}::PlantingRunService.occupy"
+
+
+def _control(body: str) -> tuple[set[str], set[str]]:
+    """``body`` as the method ``PlantingRunService.occupy``, through the same :func:`_scan`."""
+    lines = "".join(f"        {line}\n" for line in body.strip().splitlines())
+    return _scan(_CONTROL_MODULE, f"class PlantingRunService:\n    def occupy(self, slot_key, slot):\n{lines}")
+
+
 def test_the_scan_sees_the_spelling_it_forbids() -> None:
     """Positive control: the old occupation write, through the same scan, is found at both of its halves."""
-    source = (
-        "class PlantingRunService:\n"
-        "    def create_plants(self, slot_key):\n"
-        "        slot = self._site_repo.get_slot_by_key(slot_key)\n"
-        "        slot.currently_occupied = True\n"
-        "        self._site_repo.update_slot(slot_key, slot)\n"
-    )
-    where = "app/domain/services/x.py::PlantingRunService.create_plants"
+    found = _control("slot.currently_occupied = True\nself._site_repo.update_slot(slot_key, slot)")
 
-    assert _scan("app/domain/services/x.py", source) == ({where}, {where})
+    assert found == ({_CONTROL_WHERE}, {_CONTROL_WHERE})
+
+
+def test_the_scan_sees_every_way_of_setting_the_flag() -> None:
+    for body in (
+        "slot.currently_occupied |= True",
+        "slot.currently_occupied: bool = True",
+        'setattr(slot, "currently_occupied", True)',
+        'slot = slot.model_copy(update={"slot_id": "A", "currently_occupied": True})',
+        'slot = slot.model_copy(deep=True, update={"currently_occupied": True})',
+    ):
+        assert _control(body) == (set(), {_CONTROL_WHERE}), body
+    # Negative controls: another column, another attribute, a read of the flag.
+    for body in (
+        'slot = slot.model_copy(update={"slot_id": "A"})',
+        'setattr(slot, "slot_id", "A")',
+        "busy = slot.currently_occupied",
+    ):
+        assert _control(body) == (set(), set()), body
+
+
+def test_the_scan_sees_every_whole_slot_write() -> None:
+    for body in (
+        "self._site_repo.update_slot(slot_key, slot)",
+        "self._site_repo._slots.update_leaving(slot_key, slot, untouched=())",
+        "self._site_repo._slots.update(slot_key, slot)",
+    ):
+        assert _control(body)[0] == {_CONTROL_WHERE}, body
+    assert _control("self._site_repo.set_slot_occupied(slot_key, True)") == (set(), set())
+    assert _control("self._site_repo.create_slot(slot)") == (set(), set())  # an insert, nothing to revert
+    assert _control("self._slots = {}\nreturn self._slots.get(slot_key)") == (set(), set())  # own attribute
+
+
+def test_a_new_slot_taking_write_on_the_interface_is_covered() -> None:
+    """The write set is derived: today ``update_slot``; an added ``replace_slot(key, slot: Slot)`` joins it."""
+    assert _whole_slot_write_methods() == {"update_slot", "update_leaving"}
 
 
 def test_the_listed_reasons_name_live_sites() -> None:

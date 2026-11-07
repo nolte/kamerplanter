@@ -902,14 +902,14 @@ class TestASlotPatchIsConditionalOnWhatItValidated:
         assert Slot(**document).slot_role == "zone"  # still a slot that reads back
 
     def test_without_the_condition_the_two_patches_stored_an_unreadable_slot(self, db, service, monkeypatch) -> None:
-        """Control: the same interleaving through the unconditional write (``read=None``), as before #2727."""
+        """Control: the same interleaving through the write ``update_slot_fields`` made before #2727 - the
+        columns alone, unconditional (``merge=False, keep_none=False``)."""
         self._unplace(db)
         other = self._other(db)
-        write = service._plan.update_slot_fields
 
         def other_then_unconditional(key, fields, **_options):
             _patch_slot(other, {"geometry": _ZONE})
-            return write(key, fields)
+            db.collection(col.SLOTS).update({"_key": key, **fields}, merge=False, keep_none=False)
 
         monkeypatch.setattr(service._plan, "update_slot_fields", other_then_unconditional)
 
