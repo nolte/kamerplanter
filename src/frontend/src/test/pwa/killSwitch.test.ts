@@ -107,9 +107,30 @@ describe('worker-side kill switch (src/sw.ts)', () => {
     expect(destruct).toMatch(/self\.registration\.unregister\(\)/);
   });
 
-  it('serves /runtime-config.js network-only, never from a cache (finding 3b)', () => {
-    expect(sw).toMatch(/url\.pathname === '\/runtime-config\.js',\s*networkOnly,/);
-    expect(sw).not.toMatch(/RUNTIME_CONFIG_CACHE|kp-runtime-config/);
+  it('serves the page its last runtime-config.js offline, fresh online (review F2)', () => {
+    const route = sw.slice(sw.indexOf("url.pathname === '/runtime-config.js'"), sw.indexOf('// The injection point'));
+    expect(route).toMatch(/new NetworkFirst\(\{\s*cacheName: RUNTIME_CONFIG_CACHE,\s*networkTimeoutSeconds: RUNTIME_CONFIG_NETWORK_TIMEOUT_SECONDS,/);
+    expect(route).not.toMatch(/networkOnly/);
+  });
+
+  it('keeps the kill-switch probe off that cache: the worker fetches it itself with no-store', () => {
+    // A worker's own fetch() never passes through its fetch handler, so the route above cannot
+    // answer the probe; `cache: 'no-store'` also bypasses the HTTP cache.
+    expect(probe).toMatch(/fetch\('\/runtime-config\.js', \{\s*cache: 'no-store'/);
+    expect(probe).not.toMatch(/caches\.|RUNTIME_CONFIG_CACHE|matchPrecache/);
+  });
+
+  it('writes nothing back after the kill: registry reset, state and namespace messages guarded (F3)', () => {
+    expect(destruct).toMatch(/killed = true;[\s\S]*registry = new NamespaceRegistry\(\);[\s\S]*ledger = new ByteLedger\(\);[\s\S]*deleteCaches\(\)/);
+    const persist = sw.slice(sw.indexOf('async function persistState'), sw.indexOf('async function deleteApiCaches'));
+    expect(persist).toMatch(/^async function persistState\(\): Promise<void> \{\s*\/\/[^\n]*\n\s*if \(killed\) return;/);
+    expect(persist).toMatch(/caches\.open\(STATE_CACHE\);\s*if \(killed\) return;/);
+    for (const fn of ['async function setClientNamespace', 'async function endSession']) {
+      const body = sw.slice(sw.indexOf(fn), sw.indexOf('\n}\n', sw.indexOf(fn)));
+      expect(body).toMatch(/await stateLoaded;\s*if \(killed\) return;/);
+    }
+    const message = sw.slice(sw.indexOf("self.addEventListener('message'"), sw.indexOf('// Web Push'));
+    expect(message).toMatch(/\} else if \(killed\) \{[\s\S]*?return;[\s\S]*?SW_MESSAGE_SET_NAMESPACE/);
   });
 });
 

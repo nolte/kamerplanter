@@ -63,10 +63,10 @@ describe('selectEvictions — R-013 50 MB ceiling, oldest first', () => {
 });
 
 describe('isPublicCacheName — what a logout leaves', () => {
-  it('keeps only build caches — runtime-config.js is never cached at all', () => {
+  it('keeps only build and deployment-config caches', () => {
     expect(isPublicCacheName('workbox-precache-v2-https://kamerplanter.example/')).toBe(true);
     expect(isPublicCacheName('kp-static-assets')).toBe(true);
-    expect(isPublicCacheName('kp-runtime-config')).toBe(false);
+    expect(isPublicCacheName('kp-runtime-config')).toBe(true);
     expect(isPublicCacheName('kp:user_1:tenant_a')).toBe(false);
     expect(isPublicCacheName('kp-sw-state')).toBe(false);
     expect(isPublicCacheName('something-else')).toBe(false);

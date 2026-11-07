@@ -23,11 +23,19 @@ export const API_NETWORK_TIMEOUT_SECONDS = 5;
 export const API_CACHE_PREFIX = 'kp:';
 
 /**
- * Caches that hold only build output — no personal data. They survive a logout or tenant switch so
- * the app shell stays loadable; the kill switch deletes them too. (`runtime-config.js` is never
- * cached: it carries the kill switch, so a stale copy could keep a switched-off worker alive.)
+ * Caches that hold only build output or deployment config — no personal data. They survive a logout
+ * or tenant switch so the app shell stays loadable; the kill switch deletes them too.
  */
 export const STATIC_ASSET_CACHE = 'kp-static-assets';
+/**
+ * The page's last `runtime-config.js` (network-first, #2786 review F2): offline, a light-mode
+ * install must still start in light mode instead of falling back to `full`. The worker's own
+ * kill-switch probe never reads it — it fetches with `cache: 'no-store'`, and a worker's own
+ * `fetch()` does not pass through its fetch handler.
+ */
+export const RUNTIME_CONFIG_CACHE = 'kp-runtime-config';
+/** How long the page's `runtime-config.js` waits for the network before the last copy answers. */
+export const RUNTIME_CONFIG_NETWORK_TIMEOUT_SECONDS = 3;
 /** Workbox names its precache `workbox-precache-v2-<scope>`. */
 export const PRECACHE_CACHE_PREFIX = 'workbox-precache';
 
@@ -170,7 +178,7 @@ export function selectEvictions(
 
 /** Whether a cache is one of the public build/config caches a logout leaves in place. */
 export function isPublicCacheName(name: string): boolean {
-  return name.startsWith(PRECACHE_CACHE_PREFIX) || name === STATIC_ASSET_CACHE;
+  return name.startsWith(PRECACHE_CACHE_PREFIX) || name === STATIC_ASSET_CACHE || name === RUNTIME_CONFIG_CACHE;
 }
 
 /**

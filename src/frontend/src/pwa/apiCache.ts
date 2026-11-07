@@ -113,11 +113,12 @@ export function createApiCachePlugin(cacheName: string, ctx: ApiCacheContext) {
         // The namespace ended while the answer was in flight: undo the write, and drop the cache
         // the write re-created if no live client uses it.
         if (request) await cache.delete(request);
-        if (!ctx.registry.inUse().has(cacheName)) {
+        if (ctx.isKilled() || !ctx.registry.inUse().has(cacheName)) {
           await ctx.deleteCache(cacheName);
           ctx.ledger.forget(cacheName);
         }
-        await ctx.persist();
+        // After the kill switch nothing is written back (#2786 review F3).
+        if (!ctx.isKilled()) await ctx.persist();
         return;
       }
       if (ctx.ledger.record(cacheName, sizeOf(newResponse), sizeOf(oldResponse), ctx.maxBytes)) {

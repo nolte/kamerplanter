@@ -4,7 +4,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
-import { appShellFiles, isAppShellEntry } from './src/pwa/appShell';
+import { appShellFiles, firstPaintFiles, isAppShellEntry, type ViteManifestChunk } from './src/pwa/appShell';
 
 /**
  * Group the genuinely eager, always-loaded core libraries into stable,
@@ -84,10 +84,21 @@ export default defineConfig({
         // eagerly. Lazy route chunks are cached on first use by the worker's /assets/ route.
         manifestTransforms: [
           (entries) => {
-            // `vite dev` has no dist/index.html (and its worker skips the precache anyway).
+            // `vite dev` has no dist/ (and its worker skips the precache anyway).
             const indexPath = fileURLToPath(new URL('./dist/index.html', import.meta.url));
-            const indexHtml = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '';
-            const shell = appShellFiles(indexHtml);
+            if (!existsSync(indexPath)) {
+              return { manifest: entries.filter((entry) => entry.url === 'index.html'), warnings: [] };
+            }
+            const shell = appShellFiles(readFileSync(indexPath, 'utf8'));
+            // ...plus the locale bundles and start routes the first paint loads by dynamic import.
+            const chunkGraph = JSON.parse(
+              readFileSync(fileURLToPath(new URL('./dist/.vite/manifest.json', import.meta.url)), 'utf8'),
+            ) as Record<string, ViteManifestChunk>;
+            const firstPaint = firstPaintFiles(chunkGraph);
+            if (firstPaint.missing.length > 0) {
+              throw new Error(`app-shell precache: not in the build manifest: ${firstPaint.missing.join(', ')}`);
+            }
+            firstPaint.files.forEach((file) => shell.add(file));
             return { manifest: entries.filter((entry) => isAppShellEntry(entry.url, shell)), warnings: [] };
           },
         ],

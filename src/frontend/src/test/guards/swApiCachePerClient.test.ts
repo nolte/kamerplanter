@@ -241,3 +241,21 @@ describe('byte ceiling without a scan per write (review finding 9)', () => {
     expect(stored?.headers.get(CACHED_SIZE_HEADER)).toBe('5');
   });
 });
+
+describe('after the kill switch (review F3)', () => {
+  it('undoes a landing write and never persists the state again', async () => {
+    const { ctx, caches } = setup();
+    let persisted = 0;
+    ctx.persist = async () => {
+      persisted += 1;
+    };
+    ctx.registry.set('tab-1', A_X);
+    let killed = false;
+    ctx.isKilled = () => killed;
+    await write(ctx, A_X, 'tab-1', '"answer"', () => {
+      killed = true;
+    });
+    expect(caches.has(A_X)).toBe(false);
+    expect(persisted).toBe(0);
+  });
+});

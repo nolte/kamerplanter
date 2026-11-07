@@ -29,6 +29,8 @@ import type { WorkboxPlugin } from 'workbox-core/types';
 import {
   API_CACHE_MAX_BYTES,
   API_NETWORK_TIMEOUT_SECONDS,
+  RUNTIME_CONFIG_CACHE,
+  RUNTIME_CONFIG_NETWORK_TIMEOUT_SECONDS,
   STATIC_ASSET_CACHE,
   STATIC_ASSET_MAX_ENTRIES,
   SW_MESSAGE_CLEAR_DATA,
@@ -80,8 +82,11 @@ async function loadState(): Promise<void> {
 }
 
 async function persistState(): Promise<void> {
+  // After the kill switch nothing may re-create the state cache (#2786 review F3).
+  if (killed) return;
   try {
     const cache = await caches.open(STATE_CACHE);
+    if (killed) return;
     await cache.put(
       STATE_URL,
       new Response(JSON.stringify({ registry: registry.toJSON(), ledger: ledger.toJSON() }), {
@@ -110,6 +115,7 @@ async function liveClientIds(): Promise<Set<string>> {
 
 async function setClientNamespace(clientId: string, cacheName: string | null): Promise<void> {
   await stateLoaded;
+  if (killed) return;
   const unused = registry.set(clientId, cacheName);
   // Closed or reloaded tabs leave stale ids; a cache stays as long as ANY live tab uses it.
   unused.push(...registry.prune(await liveClientIds()));
@@ -119,6 +125,7 @@ async function setClientNamespace(clientId: string, cacheName: string | null): P
 
 async function endSession(userKey: unknown, senderClientId: string): Promise<void> {
   await stateLoaded;
+  if (killed) return;
   const ended = registry.endSession(userCachePrefix(typeof userKey === 'string' ? userKey : null), senderClientId);
   await deleteApiCaches(ended);
   await persistState();
@@ -130,6 +137,10 @@ async function endSession(userKey: unknown, senderClientId: string): Promise<voi
 
 async function selfDestruct(): Promise<void> {
   killed = true;
+  // Forget every namespace and byte total, so nothing in memory can be written back.
+  registry = new NamespaceRegistry();
+  ledger = new ByteLedger();
+  apiStrategies.clear();
   await Promise.all([deleteCaches(), deleteAllDatabases()]);
   await self.registration.unregister();
 }
@@ -224,11 +235,16 @@ router.registerRoute(
 );
 router.registerRoute(new Route(({ url }) => url.pathname.startsWith('/api/'), networkOnly));
 
-// The kill switch's carrier is never cached: a stale `true` must not outlive a switched-off deployment.
+// The page's runtime config: fresh whenever the network answers, the last copy offline — so a
+// light-mode install starts offline in light mode (#2786 review F2). The kill-switch probe does not
+// go through here: it is the worker's own `fetch(..., { cache: 'no-store' })`.
 router.registerRoute(
   new Route(
     ({ url }) => url.origin === self.location.origin && url.pathname === '/runtime-config.js',
-    networkOnly,
+    new NetworkFirst({
+      cacheName: RUNTIME_CONFIG_CACHE,
+      networkTimeoutSeconds: RUNTIME_CONFIG_NETWORK_TIMEOUT_SECONDS,
+    }),
   ),
 );
 
@@ -282,14 +298,16 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   if (!data || typeof data.type !== 'string') return;
 
   if (data.type === SW_MESSAGE_SKIP_WAITING) {
+    // An update must still be able to replace a killed worker.
     event.waitUntil(self.skipWaiting());
+  } else if (killed) {
+    // Switched off: namespace messages must not bring the state back.
+    return;
   } else if (data.type === SW_MESSAGE_SET_NAMESPACE) {
-    const cacheName = killed
-      ? null
-      : namespaceCacheName(
-          typeof data.userKey === 'string' ? data.userKey : null,
-          typeof data.tenantKey === 'string' ? data.tenantKey : null,
-        );
+    const cacheName = namespaceCacheName(
+      typeof data.userKey === 'string' ? data.userKey : null,
+      typeof data.tenantKey === 'string' ? data.tenantKey : null,
+    );
     event.waitUntil(setClientNamespace(source.id, cacheName));
   } else if (data.type === SW_MESSAGE_CLEAR_DATA) {
     event.waitUntil(endSession(data.userKey, source.id));

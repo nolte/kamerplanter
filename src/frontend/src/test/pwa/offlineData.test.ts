@@ -65,7 +65,6 @@ describe('clearOfflineData (logout, tenant switch)', () => {
   it('deletes every API cache and the namespace state, keeps the public build caches', async () => {
     await clearOfflineData();
     expect(deletedCaches.sort()).toEqual([
-      'kp-runtime-config',
       'kp-sw-state',
       'kp:user_1:tenant_a',
       'kp:user_1:tenant_b',
