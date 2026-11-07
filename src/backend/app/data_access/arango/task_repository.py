@@ -11,6 +11,7 @@ from app.common.exceptions import NotFoundError, WriteConflictError
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
@@ -255,8 +256,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
 
     def get_workflow_template_by_key(self, key: WorkflowTemplateKey) -> WorkflowTemplate | None:
-        coll = self._db.collection(col.WORKFLOW_TEMPLATES)
-        doc = coll.get(key)
+        doc = get_document(self._db.collection(col.WORKFLOW_TEMPLATES), key)
         return WorkflowTemplate(**self._from_doc(doc)) if doc else None
 
     def get_workflow_template_or_raise(self, key: WorkflowTemplateKey) -> WorkflowTemplate:
@@ -341,7 +341,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [WorkflowPhase(**self._from_doc(doc)) for doc in cursor]
 
     def get_phase_by_key(self, key: str) -> WorkflowPhase | None:
-        doc = self._db.collection(col.WORKFLOW_PHASES).get(key)
+        doc = get_document(self._db.collection(col.WORKFLOW_PHASES), key)
         return WorkflowPhase(**self._from_doc(doc)) if doc else None
 
     def get_phase_or_raise(self, key: str) -> WorkflowPhase:
@@ -394,7 +394,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         for item in phase_orders:
             coll.update({"_key": item["key"], "phase_order": item["phase_order"], "updated_at": now})
         if phase_orders:
-            first = coll.get(phase_orders[0]["key"])
+            first = get_document(coll, phase_orders[0]["key"])
             if first:
                 wf_key = first.get("workflow_template_key", "")
                 return self.get_phases_for_workflow(wf_key)
@@ -437,7 +437,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [TaskTemplate(**self._from_doc(doc)) for doc in cursor]
 
     def get_task_template_by_key(self, key: str) -> TaskTemplate | None:
-        doc = self._db.collection(col.TASK_TEMPLATES).get(key)
+        doc = get_document(self._db.collection(col.TASK_TEMPLATES), key)
         return TaskTemplate(**self._from_doc(doc)) if doc else None
 
     def get_task_template_or_raise(self, key: str) -> TaskTemplate:
@@ -1296,7 +1296,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [TaskComment(**self._from_doc(doc)) for doc in cursor]
 
     def get_comment_by_key(self, key: str) -> TaskComment | None:
-        doc = self._db.collection(col.TASK_COMMENTS).get(key)
+        doc = get_document(self._db.collection(col.TASK_COMMENTS), key)
         return TaskComment(**self._from_doc(doc)) if doc else None
 
     def get_comment_or_raise(self, key: str) -> TaskComment:

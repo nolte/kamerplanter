@@ -20,7 +20,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.site import Location
 from app.domain.models.species import Species
-from app.domain.services.location_ownership import find_owned_location, resolve_owned_location
+from app.domain.services.location_ownership import find_owned_location, read_slot, resolve_owned_location
 from app.domain.services.species_visibility import readable_species
 
 Severity = Literal["OK", "INFO", "WARNING", "CRITICAL"]
@@ -430,7 +430,7 @@ class CropRotationValidator:
         """
         if self._sites is None or not slot_key:
             return None
-        slot = self._sites.get_slot_by_key(slot_key)
+        slot = read_slot(self._sites, slot_key, tenant_key)
         if slot is None or not slot.location_key:
             return None
         location = find_owned_location(self._sites, slot.location_key, tenant_key)

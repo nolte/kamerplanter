@@ -192,7 +192,7 @@ def test_a_slot_patch_between_the_read_and_the_occupation_survives_2727(world, m
         ArangoGardenPlanRepository(world.db).update_slot_fields(  # the columns PATCH /slots writes
             slot_key,
             {"geometry": moved, "geometry_source": "editor", "capacity_plants": 3},
-            read=ArangoSiteRepository(world.db).get_slot_or_raise(slot_key),
+            read=ArangoSiteRepository(world.db).get_slot_by_key(slot_key),
         )
         return create(plant)
 

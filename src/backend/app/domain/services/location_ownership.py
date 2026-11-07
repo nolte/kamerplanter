@@ -34,7 +34,7 @@ second time to use it — which is what a plain predicate would have cost them.
 
 from typing import Protocol
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, StoredDocumentInvalidError
 from app.domain.models.site import Location, Site, Slot
 
 
@@ -102,7 +102,7 @@ def resolve_owned_slot(
     The location comes back because every caller so far needs it — to compare
     against a supplied ``location_key``, or to derive one.
     """
-    slot = source.get_slot_by_key(slot_key) if slot_key else None
+    slot = read_slot(source, slot_key, tenant_key) if slot_key else None
     if slot is None:
         raise NotFoundError("Slot", slot_key)
     location = source.get_location_by_key(slot.location_key) if slot.location_key else None
@@ -110,6 +110,24 @@ def resolve_owned_slot(
         raise NotFoundError("Slot", slot_key)
     require_owned_site(source, location.site_key, tenant_key, "Slot", slot_key)
     return slot, location
+
+
+def read_slot(source: SiteAnchorSource, slot_key: str, tenant_key: str) -> Slot | None:
+    """``get_slot_by_key``, except that a legacy slot of another tenant reads as absent (#2709).
+
+    The slot read raises the 409 ``StoredDocumentInvalidError`` for a stored slot that fails validation, and it
+    raises before any ownership is known. Answering that 409 to a foreign tenant would tell it the key exists
+    (and which fields are broken) where an absent key answers 404 - the oracle this module exists to prevent.
+    So the location named by the raw document decides: the tenant's own row raises the 409, anything else is
+    ``None``. Ownership is *not* established for a readable slot; the caller still walks it.
+    """
+    try:
+        return source.get_slot_by_key(slot_key)
+    except StoredDocumentInvalidError as exc:
+        location_key = exc.stored.get("location_key")
+        if not location_key or find_owned_location(source, str(location_key), tenant_key) is None:
+            return None
+        raise
 
 
 def find_owned_location(

@@ -19,6 +19,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.propagation import (
     PhenotypeNote,
@@ -370,7 +371,7 @@ class PropagationRepository:
 
     def get_plant_raw(self, key: str, tenant_key: str) -> dict[str, Any] | None:
         """Raw plant document scoped to ``tenant_key`` (keeps denormalized mother flags)."""
-        doc = self._db.collection(col.PLANT_INSTANCES).get(key)
+        doc = get_document(self._db.collection(col.PLANT_INSTANCES), key)
         if doc is None or doc.get("tenant_key") != tenant_key:
             return None
         return self._events._from_doc(doc)

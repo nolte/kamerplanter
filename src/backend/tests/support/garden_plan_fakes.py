@@ -199,7 +199,7 @@ class FakePlanRepo(IGardenPlanRepository):
             return [], []
         return list(self.locations.values()), list(self.objects.values())
 
-    def load_read_model(self, site_key, *, tenant_key, include_plants, include_tasks):
+    def load_read_model(self, site_key, *, tenant_key, include_plants, include_tasks, skip_unreadable_slots=True):
         locations, objects = self.load_structure(site_key, tenant_key=tenant_key)
         return PlanReadData(
             locations=locations,

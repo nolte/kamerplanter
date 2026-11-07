@@ -5,6 +5,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import escape_aql_like
 from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
@@ -72,7 +73,7 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         return "FILTER LIKE(doc.name, @name_filter, true)", {"name_filter": f"%{escape_aql_like(name_filter)}%"}
 
     def get_definition_by_key(self, key: str) -> PhaseDefinition | None:
-        doc = self._db.collection(col.PHASE_DEFINITIONS).get(key)
+        doc = get_document(self._db.collection(col.PHASE_DEFINITIONS), key)
         return PhaseDefinition(**self._from_doc(doc)) if doc else None
 
     def get_definition_by_name(self, name: str) -> PhaseDefinition | None:
@@ -205,7 +206,7 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         return [PhaseSequence(**self._from_doc(doc)) for doc in cursor]
 
     def get_sequence_by_key(self, key: str) -> PhaseSequence | None:
-        doc = self._db.collection(col.PHASE_SEQUENCES).get(key)
+        doc = get_document(self._db.collection(col.PHASE_SEQUENCES), key)
         return PhaseSequence(**self._from_doc(doc)) if doc else None
 
     def create_sequence(self, seq: PhaseSequence) -> PhaseSequence:
@@ -355,7 +356,7 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         return [PhaseSequenceEntry(**self._from_doc(doc)) for doc in cursor]
 
     def get_entry_by_key(self, key: str) -> PhaseSequenceEntry | None:
-        doc = self._db.collection(col.PHASE_SEQUENCE_ENTRIES).get(key)
+        doc = get_document(self._db.collection(col.PHASE_SEQUENCE_ENTRIES), key)
         return PhaseSequenceEntry(**self._from_doc(doc)) if doc else None
 
     def create_entry(self, entry: PhaseSequenceEntry) -> PhaseSequenceEntry:

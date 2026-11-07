@@ -5,12 +5,13 @@ usability flag) — never any image bytes. Jobs are keyed deterministically by
 species so re-runs upsert in place (idempotent re-indexing).
 """
 
-from typing import Any
+from typing import Any, cast
 
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.domain.models.reference_image import ReferenceImageJob
 
 
@@ -33,12 +34,12 @@ class ArangoReferenceImageRepository(BaseArangoRepository[ReferenceImageJob]):
         doc["updated_at"] = self._now()
         if "created_at" not in doc or doc["created_at"] is None:
             doc["created_at"] = self._now()
-        self.collection.insert(doc, overwrite=True)
-        stored = self.collection.get(doc["_key"])
+        # The stored document comes back from the write itself - no read by key after it (#2709).
+        stored = cast("dict[str, Any]", self.collection.insert(doc, overwrite=True, return_new=True))["new"]
         return ReferenceImageJob(**stored)
 
     def get_by_species(self, species_key: str) -> ReferenceImageJob | None:
-        doc = self.collection.get(_job_key(species_key))
+        doc = get_document(self.collection, _job_key(species_key))
         return ReferenceImageJob(**doc) if doc else None
 
     def coverage_report(self) -> list[dict[str, Any]]:

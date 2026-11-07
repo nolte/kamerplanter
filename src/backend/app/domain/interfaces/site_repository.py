@@ -113,9 +113,6 @@ class ISiteRepository(ABC):
     def get_slot_by_key(self, key: SlotKey) -> Slot | None: ...
 
     @abstractmethod
-    def get_slot_or_raise(self, key: SlotKey) -> Slot: ...
-
-    @abstractmethod
     def create_slot(self, slot: Slot) -> Slot: ...
 
     @abstractmethod

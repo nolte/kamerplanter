@@ -76,6 +76,36 @@ class NotFoundError(KamerplanterError):
         )
 
 
+class StoredDocumentInvalidError(KamerplanterError):
+    """409: a document read by key exists but no longer satisfies its model (a legacy row, #2709).
+
+    Not a 404 - the document is there, and saying otherwise would be false - and not a 422: the request is
+    well-formed, the stored state is what conflicts. ``details`` names the failing fields, never their stored
+    values (NFR-006: no internal data in a response).
+
+    ``stored`` is the raw document, for the caller that must decide ownership before the 409 may be answered
+    (a foreign tenant's legacy row reads as absent, not as a 409 - no existence oracle). It is never part of
+    the response.
+    """
+
+    def __init__(self, entity: str, key: str, fields: list[str], *, stored: dict[str, Any] | None = None) -> None:
+        super().__init__(
+            message=f"The stored {entity} '{key}' does not satisfy the current model.",
+            error_code="STORED_DOCUMENT_INVALID",
+            status_code=409,
+            details=[
+                {
+                    "field": field,
+                    "reason": "The stored value does not satisfy the current model.",
+                    "code": "STORED_DOCUMENT_INVALID",
+                    "entity": normalise_entity_name(entity),
+                }
+                for field in fields
+            ],
+        )
+        self.stored: dict[str, Any] = stored or {}
+
+
 class DuplicateError(KamerplanterError):
     def __init__(self, entity: str, field: str, value: str) -> None:
         super().__init__(

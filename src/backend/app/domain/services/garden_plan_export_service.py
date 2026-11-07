@@ -222,7 +222,10 @@ class GardenPlanExportService:
         A key the site does not hold answers 404, exactly like a key of another tenant.
         """
         site = self._owned_site(site_key, tenant_key=tenant_key)
-        data = self._plan.load_read_model(site_key, tenant_key=tenant_key, include_plants=False, include_tasks=False)
+        # A legacy slot answers 409, not a shorter file: a replace import restores the site from it (#2709).
+        data = self._plan.load_read_model(
+            site_key, tenant_key=tenant_key, include_plants=False, include_tasks=False, skip_unreadable_slots=False
+        )
         zone_rows = self._plans.zone_rows(site_key, tenant_key=tenant_key)
         slots = [slot for slot in data.slots if slot.key and slot.archived_at is None]
         exported_at = datetime.now(UTC)

@@ -17,7 +17,13 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.api.v1.slots.schemas import SlotCreate
 from app.common.enums import BedStatus, TenantRole
-from app.common.exceptions import DuplicateError, NotFoundError, PlanError, WriteConflictError
+from app.common.exceptions import (
+    DuplicateError,
+    NotFoundError,
+    PlanError,
+    StoredDocumentInvalidError,
+    WriteConflictError,
+)
 from app.data_access.arango import collections as col
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import (
@@ -831,7 +837,8 @@ class TestOccupationWritesOnlyTheFlag:
         """Control: the spelling #2727 removed, under the same interleaving, loses the PATCH."""
         add_slot(db, "slot", "BED_S1")
         sites = ArangoSiteRepository(db)
-        read = sites.get_slot_or_raise("slot")
+        read = sites.get_slot_by_key("slot")
+        assert read is not None
 
         _patch_slot(service, {"slot_role": "zone", "geometry": _ZONE})
         read.currently_occupied = True
@@ -913,7 +920,8 @@ class TestASlotPatchIsConditionalOnWhatItValidated:
 
         monkeypatch.setattr(service._plan, "update_slot_fields", other_then_unconditional)
 
-        with pytest.raises(PydanticValidationError):  # the re-read after the write: role and geometry disagree
+        # The re-read after the write: role and geometry disagree - the 409 of a stored slot that fails its model.
+        with pytest.raises(StoredDocumentInvalidError):
             _patch_slot(service, {"slot_role": "row"})
 
         document = db.collection(col.SLOTS).get("slot")

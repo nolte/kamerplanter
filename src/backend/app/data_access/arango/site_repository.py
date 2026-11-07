@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import structlog
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
@@ -12,11 +13,14 @@ from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import model_or_conflict
 from app.data_access.arango.graph_edges import EdgeEndpoint, edges_touching, remove_edges
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.site_repository import ISiteRepository, SiteDeletion
 from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.site import Location, Site, Slot
+
+logger = structlog.get_logger(__name__)
 
 _SITE_EDGES = edges_touching(col.SITES)
 _LOCATION_EDGES = edges_touching(col.LOCATIONS)
@@ -159,6 +163,17 @@ class _SlotRepository(BaseArangoRepository[Slot]):
     """Slot view: a plain merge-mode repository with a write that leaves named columns alone (#2639)."""
 
     _model_cls = Slot
+
+    def get_by_key(self, key: str) -> Slot | None:
+        """The slot ``key``; a stored slot that fails :class:`Slot` validation raises a 409 (#2709).
+
+        A read by key cannot leave the row out the way a display read does - that would answer 404 for a slot
+        that exists - so it says what is wrong instead: :class:`StoredDocumentInvalidError` with the failing
+        fields (never their values) and the raw document as ``stored``, which the ownership walk
+        (``location_ownership.read_slot``) needs to answer a foreign tenant's row as absent before any 409.
+        """
+        doc = self._get_doc(key)
+        return None if doc is None else model_or_conflict(Slot, doc, entity="Slot")
 
     def update_leaving(self, key: str, slot: Slot, *, untouched: Collection[str]) -> Slot:
         """:meth:`update` without writing the ``untouched`` columns (#2639, the slot sibling of #2623)."""
@@ -698,13 +713,10 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def get_slots_by_location(self, location_key: LocationKey) -> list[Slot]:
         location_id = f"{col.LOCATIONS}/{location_key}"
         results = self.get_edges(col.HAS_SLOT, location_id, direction="outbound")
-        return [Slot(**self._from_doc(r["vertex"])) for r in results]
+        return [model_or_conflict(Slot, self._from_doc(r["vertex"]), entity="Slot") for r in results]
 
     def get_slot_by_key(self, key: SlotKey) -> Slot | None:
         return self._slots.get_by_key(key)
-
-    def get_slot_or_raise(self, key: SlotKey) -> Slot:
-        return self._slots.get_or_raise(key)
 
     def create_slot(self, slot: Slot) -> Slot:
         created = self._slots.create(slot)
@@ -871,4 +883,4 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         doc = next(cursor, None)
         if doc is None:
             return None
-        return Slot(**self._from_doc(doc))
+        return model_or_conflict(Slot, self._from_doc(doc), entity="Slot")

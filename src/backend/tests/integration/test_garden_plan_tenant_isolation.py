@@ -221,6 +221,8 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.SPECIES,
             col.BOTANICAL_FAMILIES,
             col.TASKS,
+            # #2709: a masterdata grant the species-visibility cases write and revoke.
+            col.TENANT_HAS_ACCESS,
             *_BATCH_WRITE,
             *_SLOT_BATCH_WRITE,
             *_CLEAR_WRITE,
@@ -1245,6 +1247,43 @@ class TestTheMatrixCoversTheRouters:
         assert orphan == []
 
 
+#: Path keys no document can be read by, each as the client puts it on the wire (#2709). Measured against
+#: ArangoDB 3.12 on 2026-11-07: ``collection.get("a b")`` and ``get("x!%")`` answer ``None`` (an unknown key),
+#: but ``get(".")`` and ``get("..")`` raise ``DocumentGetError`` [HTTP 404][ERR 1203] - the dot segment is
+#: normalised out of ``/_api/document/<collection>/<key>`` - which used to reach the client as a 500.
+_UNREADABLE_PATH_KEYS = {"a b": "a%20b", "x!%": "x!%25", ".": "%2E", "..": "%2E%2E"}
+
+
+def _with_path_key(case: Case, wire_key: str) -> Case | None:
+    """``case`` with every key segment of its path replaced by ``wire_key``; ``None`` when the path has no key."""
+    segments = case.path.split("?")[0].split("/")
+    swapped = [wire_key if segment in _ABSENT else segment for segment in segments]
+    if swapped == segments:
+        return None
+    return Case(case.name, case.method, "/".join(swapped), copy.deepcopy(case.body), dict(case.params))
+
+
+class TestAnUnreadableKeyIsNeverA500:
+    """#2709 item 2: every keyed garden-plan route answers a malformed key like an absent one, never a 500.
+
+    The class predicate: every route of :data:`CASES` that names a key in its path, with the key replaced by each
+    of :data:`_UNREADABLE_PATH_KEYS` (path only - the body stays a valid request), answers 404 or 422.
+    """
+
+    @pytest.mark.parametrize("key", sorted(_UNREADABLE_PATH_KEYS), ids=repr)
+    def test_every_keyed_route_answers_404_or_422(self, db, key: str) -> None:
+        client = _client(db)
+        answered: dict[str, int] = {}
+        for case in CASES:
+            probe = _with_path_key(case, _UNREADABLE_PATH_KEYS[key])
+            if probe is not None:
+                answered[case.name] = _send(client, probe, SLUG_A).status_code
+
+        assert len(answered) >= 50, f"the sweep reached almost no keyed route: {sorted(answered)}"
+        wrong = {name: status for name, status in answered.items() if status not in (404, 422)}
+        assert wrong == {}, f"{key!r} answered neither 404 nor 422 on {wrong}"
+
+
 class TestAForeignTenantIsRefusedOnEveryRoute:
     @pytest.mark.parametrize("case", CASES, ids=lambda case: case.name)
     def test_the_route_answers_404_like_an_absent_key_and_writes_nothing(self, db, case: Case) -> None:
@@ -2026,16 +2065,60 @@ class TestTheCompanionLayerReadsNothingOfTheOtherTenant:
         assert edge["deciding"]["species_a_name"] == "Solanum lycopersicum"
         assert edge["deciding"]["species_b_name"] == "Ocimum basilicum"
 
-    def test_a_private_species_of_the_other_tenant_in_the_own_slot_is_neither_named_nor_related(self, db) -> None:
-        """A stored species key is no proof of access (#1963): A's own plant naming B's species stays ``unknown``."""
+    def test_a_private_species_of_the_other_tenant_in_the_own_slot_is_neither_named_nor_keyed(self, db) -> None:
+        """A stored species key is no proof of access (#1963, #2709): A's own plant naming B's species holds nothing.
+
+        Before #2709 the slot hint kept the key, so the pair was drawn ``unknown`` and the answer carried B's
+        species key - the existence oracle. The hint read now cuts the keys with A's visible set: the slot holds
+        no species A may read, so no pair is drawn and the key appears nowhere.
+        """
         self._seed(db)
         db.collection(col.PLANT_INSTANCES).update({"_key": "pl_a2", "species_key": self._SECRET_SPECIES})
 
         response = self._get(db)
 
-        (edge,) = response.json()["edges"]
-        assert (edge["status"], edge["deciding"], edge["reason"]) == ("unknown", None, None)
-        assert self._SECRET_NAME not in response.text and self._SECRET_REASON not in response.text
+        assert (response.json()["edges"], response.json()["total"]) == ([], 0)
+        for secret in (self._SECRET_SPECIES, self._SECRET_NAME, self._SECRET_REASON):
+            assert secret not in response.text, secret
+
+    def test_a_planned_species_the_tenant_may_not_read_is_not_keyed(self, db) -> None:
+        """#2709: A's own live run planning B's private species into A's slot names no species either."""
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).delete("pl_a2")
+        db.collection(col.PLANTING_RUNS).insert({"_key": "run_a_live", "tenant_key": A, "status": "active"})
+        db.collection(col.RUN_PLANNED_AT).insert(
+            {
+                "_from": f"{col.PLANTING_RUNS}/run_a_live",
+                "_to": f"{col.SLOTS}/slot2_a",
+                "planned_species_key": self._SECRET_SPECIES,
+            }
+        )
+
+        response = self._get(db)
+
+        assert (response.json()["edges"], response.json()["total"]) == ([], 0)
+        assert self._SECRET_SPECIES not in response.text
+
+    def test_a_granted_species_is_keyed_until_the_grant_is_taken_back(self, db) -> None:
+        """#2709, the case no write-path check covers: the key was readable when written, the grant is revoked.
+
+        The positive control first - granted (#1092), the species counts and the pair is drawn with its key - so
+        the empty answer after the revoke is the visibility cut and not a read that sees nothing.
+        """
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).update({"_key": "pl_a2", "species_key": self._SECRET_SPECIES})
+        grant = db.collection(col.TENANT_HAS_ACCESS).insert(
+            {"_from": f"{col.TENANTS}/{A}", "_to": f"{col.SPECIES}/{self._SECRET_SPECIES}"}
+        )
+
+        granted = self._get(db).json()
+        db.collection(col.TENANT_HAS_ACCESS).delete(grant["_key"])
+        revoked = self._get(db)
+
+        (edge,) = granted["edges"]
+        assert self._SECRET_SPECIES in {*edge["slot_a"]["species_keys"], *edge["slot_b"]["species_keys"]}
+        assert (revoked.json()["edges"], revoked.json()["total"]) == ([], 0)
+        assert self._SECRET_SPECIES not in revoked.text
 
     def test_a_planned_species_of_the_other_tenants_run_does_not_count(self, db) -> None:
         """SEC-004: a ``run_planned_at`` edge into A's slot from B's live run is not A's planning."""
@@ -2053,3 +2136,158 @@ class TestTheCompanionLayerReadsNothingOfTheOtherTenant:
         body = self._get(db).json()
 
         assert (body["edges"], body["total"]) == ([], 0)  # slot2_a holds nothing of A's, so no pair is drawn
+
+
+class TestALegacyRowIsNoServerError:
+    """#2709 item 3: a stored document that fails model validation does not turn a read into a 500.
+
+    ``slot_legacy_a`` is a slot of A's own bed with ``capacity_plants: 0`` - a bound the model has (``ge=1``) and
+    an old row need not. The displayed plan leaves it out and logs it (``stored_document.unreadable_row_skipped``,
+    the key and the failing fields, no values). Every other read - by key, the slot list, the sibling read of the
+    write paths and the companion layer (``load_active_slots``), the export - answers 409
+    ``STORED_DOCUMENT_INVALID``: leaving the row out there would be a 404 for a slot that exists, a duplicate slot
+    id or quota pass on a write, or a backup that a replace import restores without the slot. Another tenant
+    asking for the key gets the 404 of an absent slot, never the 409 (no existence oracle).
+    """
+
+    _LEGACY = "slot_legacy_a"
+
+    def _seed(self, db) -> None:
+        db.collection(col.SLOTS).insert(
+            _slot(self._LEGACY, "bed_a") | {"capacity_plants": 0, "geometry": {"kind": "point", "origin": [1.0, 0.5]}}
+        )
+        db.collection(col.HAS_SLOT).insert({"_from": f"{col.LOCATIONS}/bed_a", "_to": f"{col.SLOTS}/{self._LEGACY}"})
+
+    @staticmethod
+    def _skipped(logs: list[dict[str, Any]]) -> list[tuple[str, str, list[str]]]:
+        return [
+            (entry["read"], entry["key"], entry["fields"])
+            for entry in logs
+            if entry["event"] == "stored_document.unreadable_row_skipped"
+        ]
+
+    def test_the_plan_read_leaves_the_row_out_and_logs_it(self, db) -> None:
+        self._seed(db)
+
+        with capture_logs() as logs:
+            response = _client(db, tenant=A, role=TenantRole.VIEWER).get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan")
+
+        assert response.status_code == 200, response.text
+        slots = {slot["key"] for slot in response.json()["slots"]}
+        assert "slot_a" in slots  # the positive control: the readable slots of the same bed are answered
+        assert self._LEGACY not in slots
+        assert self._skipped(logs) == [("load_read_model", self._LEGACY, ["capacity_plants"])]
+
+    def test_the_companion_layer_answers_409_for_a_row_in_a_pair(self, db) -> None:
+        """The legacy slot holds a plant next to ``slot_a``: the slot read of the layer says so, no 500."""
+        self._seed(db)
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": "sp_basil",
+                "scientific_name": "Ocimum basilicum",
+                "scientific_name_normalized": "ocimum basilicum",
+                "tenant_key": "",
+            }
+        )
+        for key, slot, species in (("pl_a1", "slot_a", "sp"), ("pl_legacy", self._LEGACY, "sp_basil")):
+            db.collection(col.PLANT_INSTANCES).insert(
+                {
+                    "_key": key,
+                    "instance_id": key.upper(),
+                    "tenant_key": A,
+                    "slot_key": slot,
+                    "species_key": species,
+                    "removed_on": None,
+                }
+            )
+        for a, b in (("slot_a", self._LEGACY), (self._LEGACY, "slot_a")):
+            db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/{a}", "_to": f"{col.SLOTS}/{b}"})
+
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/locations/bed_a/companion-edges"
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
+
+    def test_a_species_row_the_hint_cannot_read_is_left_out(self, db) -> None:
+        """A species whose ``spacing_cm`` is stored as a number (the hint reads the range string) - no 500."""
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": "sp_num",
+                "scientific_name": "Numerus",
+                "scientific_name_normalized": "numerus",
+                "tenant_key": "",
+                "spacing_cm": 30,
+            }
+        )
+        for key, slot, species in (("pl_a1", "slot_a", "sp"), ("pl_a2", "slot2_a", "sp_num")):
+            db.collection(col.PLANT_INSTANCES).insert(
+                {
+                    "_key": key,
+                    "instance_id": key.upper(),
+                    "tenant_key": A,
+                    "slot_key": slot,
+                    "species_key": species,
+                    "removed_on": None,
+                }
+            )
+
+        with capture_logs() as logs:
+            response = _client(db, tenant=A, role=TenantRole.GROWER).post(
+                f"/api/v1/t/{SLUG_A}/locations/bed_a/validate-planting", json={"species_key": "sp"}
+            )
+
+        assert response.status_code == 200, response.text
+        assert self._skipped(logs) == [("load_slot_species_hints", "slot2_a", ["spacing_cm"])]
+
+    def test_a_read_by_key_answers_409(self, db) -> None:
+        self._seed(db)
+
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(f"/api/v1/t/{SLUG_A}/slots/{self._LEGACY}")
+        readable = _client(db, tenant=A, role=TenantRole.VIEWER).get(f"/api/v1/t/{SLUG_A}/slots/slot_a")
+
+        assert readable.status_code == 200, readable.text
+        assert response.status_code == 409, response.text
+        body = response.json()
+        assert body["error_code"] == "STORED_DOCUMENT_INVALID"
+        assert "capacity_plants" in json.dumps(body["details"])
+        assert '"0"' not in json.dumps(body) and ": 0" not in json.dumps(body["details"])
+
+    @pytest.mark.parametrize("method", ["GET", "PUT", "DELETE"])
+    def test_another_tenant_asking_for_the_key_gets_the_404_of_an_absent_slot(self, db, method: str) -> None:
+        """B names A's legacy slot: the answer is the one an unknown key gets, not the 409 of A's own read."""
+        self._seed(db)
+        client = _client(db, tenant=B, role=TenantRole.LEAD)
+
+        legacy = client.request(
+            method, f"/api/v1/t/{SLUG_B}/slots/{self._LEGACY}", json={} if method == "PUT" else None
+        )
+        unknown = client.request(method, f"/api/v1/t/{SLUG_B}/slots/slot_nope", json={} if method == "PUT" else None)
+
+        assert legacy.status_code == unknown.status_code, (legacy.text, unknown.text)
+        assert legacy.status_code in (404, 422), legacy.text
+        assert "STORED_DOCUMENT_INVALID" not in legacy.text and "capacity_plants" not in legacy.text
+
+    def test_the_slot_list_of_the_bed_answers_409(self, db) -> None:
+        self._seed(db)
+
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/slots", params={"location_key": "bed_a"}
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
+
+    def test_the_export_answers_409_instead_of_a_file_without_the_slot(self, db) -> None:
+        """A replace import restores the site from this file: a silently shorter file would delete the slot."""
+        self._seed(db)
+        client = _client(db, tenant=A, role=TenantRole.VIEWER)
+        db.collection(col.SLOTS).update({"_key": self._LEGACY, "capacity_plants": 1})
+        assert client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan/export").status_code == 200  # positive control
+        db.collection(col.SLOTS).update({"_key": self._LEGACY, "capacity_plants": 0})
+
+        response = client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan/export")
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
