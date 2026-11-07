@@ -145,9 +145,9 @@ Quellen (§1.8): [ResearchGate — Light inhibits soybean seed germination (Abbi
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine gelesene Fachquelle (LfL Bayern, OMAFRA) nennt eine Standort-Lichtstufe für Sojabohne --> | `species.light_requirement` |
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
 | Schattentoleranz | full_sun | `species.shade_tolerance` |
-| Quelle Lichtbedarf | — | — |
+| Quelle Lichtbedarf | NC State Extension Plants Database, „Glycine max" (Cultural Conditions, Light: „Full sun (6 or more hours of direct sunlight a day)"; Beschreibung: „Soybean grows readily in most garden soils in full sun."), https://plants.ces.ncsu.edu/plants/glycine-max/ — einzige genannte Lichtstufe, daher `full_sun`. | — |
 
 ---
 

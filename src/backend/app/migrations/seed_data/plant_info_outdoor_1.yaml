@@ -1692,7 +1692,7 @@ species_enrichment:
       thousand_seed_weight_g: 97.3
       sowing_density_per_m2: 20
     row_spacing_cm: "18–75"
-    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
     nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
@@ -1711,7 +1711,7 @@ species_enrichment:
       thousand_seed_weight_g: 45
       sowing_density_per_m2: 350
     row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
-    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
     nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
@@ -1841,7 +1841,7 @@ species_enrichment:
       thousand_seed_weight_g: 25
       sowing_density_per_m2: 25
     row_spacing_cm: "30–50"
-    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
     nutrient_demand: heavy_feeder
     nutrient_demand_source: "LTZ Augustenberg Zuckerhirse (relativ hoher Naehrstoffbedarf, 150-200 kg N/ha), https://ltz.landwirtschaft-bw.de/,Len/Kulturpflanzen/Zuckerhirse; TFZ Bayern Sorghum-Sortenvergleich 2018 (N-Bedarfswert 200 kg N/ha, 30 % unter Mais), https://www.tfz.bayern.de/mam/cms08/rohstoffpflanzen/dateien/19pfr002_mb_bayernweiter_sorghum-sortenvergleich_2018_tfz.pdf; EIP LUPI-HIRSE-Huhn 2022 (mittlere Maisduengung 120 kg N/ha). Ackerbau ohne Zehrerklasse, Einstufung indirekt"
     nutrient_demand_confidence: low

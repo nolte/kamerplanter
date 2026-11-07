@@ -163,9 +163,9 @@ Quellen (§1.8):
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine lesbare Fachquelle mit Standortstufe für Gerste gelesen (LK OÖ Anbaublatt 2026 nennt nichts zum Licht) --> | `species.light_requirement` |
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
 | Schattentoleranz | full_sun | `species.shade_tolerance` |
-| Quelle Lichtbedarf | — | — |
+| Quelle Lichtbedarf | NC State Extension Plants Database, „Hordeum vulgare" (Cultural Conditions, Light: „Full sun (6 or more hours of direct sunlight a day)"; Beschreibung: „Barley grows best in full sun but is adaptable to a variety of soil types, as long as the soil is well-drained."), https://plants.ces.ncsu.edu/plants/hordeum-vulgare/ — die Quelle nennt Vollsonne als beste Position, daher `full_sun`. | — |
 
 ---
 
