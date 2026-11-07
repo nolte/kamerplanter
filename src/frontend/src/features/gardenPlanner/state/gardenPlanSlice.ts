@@ -38,6 +38,15 @@ import { MAX_BATCH_OPERATIONS, type PlanEntity, type PlanOperation } from '../mo
 import { applyUndoPatch, diffPlans, type UndoPatch } from '../model/undoPatch';
 import * as api from '../api/gardenPlan';
 import type { PlanSaveFailure } from '../api/gardenPlan';
+import {
+  cacheGeneration,
+  isOfflineCacheMiss,
+  planEntry,
+  readThrough,
+  scopeFromState,
+  writeCached,
+  type ScopeState,
+} from '../offline/planCache';
 
 /** Undo steps kept (GP-FR-026 asks for at least 50). */
 export const HISTORY_LIMIT = 100;
@@ -123,6 +132,13 @@ export interface GardenPlanState {
   loadStatus: LoadStatus;
   loadError: string | null;
   loadRequestId: string | null;
+  /**
+   * The loaded plan comes from the plan cache (REQ-053 WP 9.2): the epoch milliseconds of the online read
+   * it was stored by. `null` = fresh from the server. While set, geometry tools stay locked.
+   */
+  cachedAt: number | null;
+  /** The last load failed because there is no connection and nothing in the plan cache. */
+  offlineMiss: boolean;
   selection: SelectionRef[];
   stack: SelectionStack | null;
   tool: PlanTool;
@@ -149,6 +165,8 @@ export const initialState: GardenPlanState = {
   loadStatus: 'idle',
   loadError: null,
   loadRequestId: null,
+  cachedAt: null,
+  offlineMiss: false,
   selection: [],
   stack: null,
   tool: 'select',
@@ -167,17 +185,29 @@ export const initialState: GardenPlanState = {
 
 // ── Thunks ───────────────────────────────────────────────────────────────────
 
-/** Load (or reload) the plan of a site; replaces the model, `pending` and the history. */
-export const loadGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue: string }>(
-  'gardenPlan/load',
-  async (siteKey, { rejectWithValue }) => {
-    try {
-      return normalizePlan(await api.getGardenPlan(siteKey));
-    } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
-    }
-  },
-);
+/**
+ * Load (or reload) the plan of a site; replaces the model, `pending` and the history. Network first;
+ * without a connection the plan cache answers (REQ-053 WP 9.2) and `meta.cachedAt` says from when.
+ */
+export const loadGardenPlan = createAsyncThunk<
+  PlanModel,
+  string,
+  {
+    rejectValue: string;
+    fulfilledMeta: { cachedAt: number | null };
+    rejectedMeta: { offlineMiss: boolean };
+  }
+>('gardenPlan/load', async (siteKey, { getState, fulfillWithValue, rejectWithValue }) => {
+  const scope = scopeFromState(getState() as ScopeState);
+  try {
+    const read = await readThrough(scope ? planEntry(scope, siteKey) : null, () => api.getGardenPlan(siteKey));
+    return fulfillWithValue(normalizePlan(read.data), { cachedAt: read.cachedAt });
+  } catch (error) {
+    return rejectWithValue(error instanceof Error ? error.message : 'Unknown error', {
+      offlineMiss: isOfflineCacheMiss(error),
+    });
+  }
+});
 
 /**
  * Re-read the plan after the server changed it behind the editor's back (a placed template, GP-FR-044): the
@@ -186,9 +216,14 @@ export const loadGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue:
  */
 export const refreshGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue: string }>(
   'gardenPlan/refresh',
-  async (siteKey, { rejectWithValue }) => {
+  async (siteKey, { getState, rejectWithValue }) => {
     try {
-      return normalizePlan(await api.getGardenPlan(siteKey));
+      const scope = scopeFromState(getState() as ScopeState);
+      const generation = cacheGeneration();
+      const response = await api.getGardenPlan(siteKey);
+      // The re-read plan is the last loaded one now (WP 9.2): the cache follows it.
+      if (scope) void writeCached(planEntry(scope, siteKey), response, Date.now(), generation);
+      return normalizePlan(response);
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
     }
@@ -481,6 +516,7 @@ export const gardenPlanSlice = createSlice({
       .addCase(loadGardenPlan.pending, (state, action) => {
         state.loadStatus = 'loading';
         state.loadError = null;
+        state.offlineMiss = false;
         state.loadRequestId = action.meta.requestId;
       })
       .addCase(loadGardenPlan.fulfilled, (state, action) => {
@@ -488,6 +524,7 @@ export const gardenPlanSlice = createSlice({
         if (action.meta.requestId !== state.loadRequestId) return;
         state.plan = action.payload;
         state.loadStatus = 'ready';
+        state.cachedAt = action.meta.cachedAt ?? null;
         state.past = [];
         state.future = [];
         state.pending = [];
@@ -504,6 +541,7 @@ export const gardenPlanSlice = createSlice({
         if (action.meta.requestId !== state.loadRequestId) return;
         state.loadStatus = 'error';
         state.loadError = action.payload ?? action.error.message ?? 'Unknown error';
+        state.offlineMiss = action.meta.offlineMiss ?? false;
       })
 
       .addCase(placeTemplateAt.pending, (state) => {
@@ -521,6 +559,7 @@ export const gardenPlanSlice = createSlice({
         if (state.plan?.siteKey !== action.payload.siteKey) return;
         if (state.pending.length > 0 || state.saveStatus === 'saving') return;
         state.plan = action.payload;
+        state.cachedAt = null;
         state.past = [];
         state.future = [];
         state.saveStatus = 'idle';

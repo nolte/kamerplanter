@@ -11,6 +11,10 @@
  * dimensions" open. It owns the viewport - fitted to the plan, then panned and zoomed
  * (WP 2.5: zoom levels, wheel, "fit to area").
  *
+ * Offline (WP 9.2, GP-UX-024): the plan comes from the plan cache with a "Stand von hh:mm" banner and is
+ * drawn read-only - geometry tools stay online-only, a hint (not an error) says so. A site never loaded
+ * online shows an empty state with a hint. Import/export and the bed list need the server and are hidden.
+ *
  * Field mode (WP 5.1, GP-UX-020) is the default on xs and `?mode=field` everywhere; `?mode=plan` forces
  * planning mode. Field mode is its own lazy chunk (`field/FieldModeView`), so the route budget only carries
  * the switch. The route still chooses the renderer for it.
@@ -32,6 +36,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
 import { useNotification } from '@/hooks/useNotification';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { registerLazySlice } from '@/store/lazySlices';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -59,6 +64,9 @@ import { boundingBox } from '../model/geometry';
 import { EMPTY_PLAN_BOUNDS, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
+import CachedDataBanner from '../offline/CachedDataBanner';
+import OfflineCacheMiss from '../offline/OfflineCacheMiss';
+import ReadOnlyPlanView from '../offline/ReadOnlyPlanView';
 
 // Field mode is its own chunk (GP-UX-020): it loads only when the page opens in field mode.
 const FieldModeView = lazy(() => import('../field/FieldModeView'));
@@ -112,7 +120,10 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   // From md up the properties panel sits beside the plan and takes its width from the drawing.
   const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
-  const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
+  const { plan, loadStatus, loadError, loadRequestId, cachedAt, offlineMiss } = useAppSelector(selectGardenPlanState);
+  const online = useOnlineStatus();
+  // Geometry is online-only (GP-UX-024): offline, or with a cached plan, the editor is not mounted.
+  const readOnlyReason: 'offline' | 'cached' | null = !online ? 'offline' : cachedAt !== null ? 'cached' : null;
   const dirty = useAppSelector(selectIsDirty);
   const selected = useAppSelector((state) => selectGardenPlanState(state).selection);
   // The plan's selection as the keys the partial export names (GP-FR-172); slots and plants are no plan entities.
@@ -154,6 +165,12 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       dispatch(resetGardenPlan());
     };
   }, [load, dispatch]);
+
+  // A plan read from the cache is read from the server again as soon as the connection is back (R-012).
+  const fromCache = cachedAt !== null;
+  useEffect(() => {
+    if (online && fromCache) load();
+  }, [online, fromCache, load]);
 
   const siteName = plan?.siteName ?? null;
   useEffect(() => {
@@ -281,7 +298,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       >
         {t('pages.gardenPlan.field.toField')}
       </Button>
-      {key && (
+      {key && readOnlyReason === null && (
         <PlanIoMenu
           siteKey={key}
           siteName={plan?.siteName ?? ''}
@@ -297,7 +314,9 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   );
 
   let content: React.ReactNode;
-  if (loadStatus === 'error' && loadError) {
+  if (loadStatus === 'error' && offlineMiss) {
+    content = <OfflineCacheMiss subject="plan" testId="garden-plan-offline-miss" />;
+  } else if (loadStatus === 'error' && loadError) {
     content = <ErrorDisplay error={loadError} onRetry={load} />;
   } else if (plan === null || loadStatus !== 'ready') {
     content = <LoadingSkeleton variant="card" />;
@@ -307,9 +326,13 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       <Box data-testid="garden-plan-empty">
         <EmptyState
           message={t('pages.gardenPlan.empty.title')}
-          description={t(canEdit ? 'pages.gardenPlan.empty.descriptionCanEdit' : 'pages.gardenPlan.empty.description')}
+          description={t(
+            canEdit && readOnlyReason === null
+              ? 'pages.gardenPlan.empty.descriptionCanEdit'
+              : 'pages.gardenPlan.empty.description',
+          )}
         />
-        {canEdit && key && (
+        {canEdit && key && readOnlyReason === null && (
           <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
             <Button
               variant="contained"
@@ -323,6 +346,10 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           </Box>
         )}
       </Box>
+    );
+  } else if (readOnlyReason !== null) {
+    content = (
+      <ReadOnlyPlanView plan={plan} viewport={viewport} renderer={renderer} labels={labels} reason={readOnlyReason} />
     );
   } else {
     content = (
@@ -350,9 +377,10 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       </Typography>
       {/* Unsaved changes (GP-NFR-005): a reload, a closed tab or a route change asks first. */}
       <UnsavedChangesGuard dirty={dirty} />
+      {cachedAt !== null && plan !== null && loadStatus === 'ready' && <CachedDataBanner cachedAt={cachedAt} />}
       {/* The measured box exists in every state, so the first drawing already fits the width. */}
       <Box ref={canvasRef}>{content}</Box>
-      {key && plan !== null && (
+      {key && plan !== null && readOnlyReason === null && (
         <BedListSection siteKey={key} reloadToken={loadRequestId} onSelectBed={onSelectBed} />
       )}
     </Box>

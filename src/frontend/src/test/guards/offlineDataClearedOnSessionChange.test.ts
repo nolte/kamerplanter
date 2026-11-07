@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { createElement } from 'react';
@@ -20,6 +21,11 @@ import i18n from 'i18next';
  *   `components/tenants/LightModeTakeoverDialog.tsx` (before `switchTenant`).
  *
  * The sweep at the end catches a NEW place that dispatches `switchTenant` without clearing first.
+ *
+ * REQ-053 WP 9.2 (#2742): the plan cache (`features/gardenPlanner/offline`, Dexie) is one of the databases
+ * those clearings empty — the real `clearOfflineData` / `clearAllOfflineStorage` and the worker's wipe
+ * (`deleteAllDatabases`) run against a real IndexedDB (`fake-indexeddb`) holding a cached plan, and the
+ * plan is gone afterwards; a write whose read began before a clearing never lands.
  */
 
 const calls: string[] = [];
@@ -37,6 +43,7 @@ vi.mock('@/pwa/offlineData', () => ({
   }),
   repostNamespace: vi.fn(async () => undefined),
   clearAllOfflineStorage: vi.fn(async () => undefined),
+  offlineDataGeneration: vi.fn(() => 0),
 }));
 vi.mock('@/api/endpoints/system', () => ({ getTakeoverStatus: vi.fn(), decideTakeover: vi.fn() }));
 vi.mock('@/api/endpoints/auth', async () => ({
@@ -222,5 +229,83 @@ describe('sweep: every place that switches the tenant clears first', () => {
     }
     expect(sites).toBeGreaterThanOrEqual(2);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the plan cache database is emptied by the same clearings (WP 9.2)', () => {
+  const ALICE = { userKey: 'alice', tenantKey: 'tenant_a' };
+  const T0 = Date.now();
+
+  /** A plan, a bed list, a site list, a bed summary and a bed sheet: every table of the plan cache. */
+  async function seededPlanCache() {
+    const cache = await import('@/features/gardenPlanner/offline/planCache');
+    const entries = [
+      cache.planEntry(ALICE, 'site_1'),
+      cache.bedListEntry(ALICE, 'site_1'),
+      cache.siteListEntry(ALICE),
+      cache.bedSummaryEntry(ALICE, 'loc_1'),
+      cache.bedSheetEntry(ALICE, 'loc_1'),
+    ];
+    for (const item of entries) {
+      await cache.writeCached(item, { cached: item.table }, T0, 0);
+      expect(await cache.readCached(item, T0)).not.toBeNull();
+    }
+    /** What is still readable afterwards, by table. */
+    const left = async (): Promise<string[]> => {
+      const reads = await Promise.all(entries.map((item) => cache.readCached(item, T0)));
+      return entries.filter((_, index) => reads[index] !== null).map((item) => item.table);
+    };
+    return { left };
+  }
+
+  async function databaseNames(): Promise<string[]> {
+    return (await indexedDB.databases()).map((database) => database.name ?? '');
+  }
+
+  it('lives in the database the wipe knows by name', async () => {
+    const { PLAN_CACHE_DB_NAME, APP_DATABASE_NAMES } = await import('@/pwa/storageWipe');
+    await seededPlanCache();
+    expect(await databaseNames()).toContain(PLAN_CACHE_DB_NAME);
+    expect(APP_DATABASE_NAMES).toContain(PLAN_CACHE_DB_NAME);
+  });
+
+  it('is empty after a logout or tenant switch (clearOfflineData)', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    const { left } = await seededPlanCache();
+    await actual.clearOfflineData();
+    expect(await left()).toEqual([]);
+  });
+
+  it('is empty after the kill switch (clearAllOfflineStorage)', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    const { left } = await seededPlanCache();
+    await actual.clearAllOfflineStorage();
+    expect(await left()).toEqual([]);
+  });
+
+  it("is empty after the worker's self-destruct wipe, even where databases() cannot enumerate", async () => {
+    const { deleteAllDatabases } = await import('@/pwa/storageWipe');
+    const { left } = await seededPlanCache();
+    const databases = indexedDB.databases;
+    // Firefox before 126: no enumeration. The plan cache must still go, by its name.
+    Object.defineProperty(indexedDB, 'databases', { configurable: true, value: undefined });
+    try {
+      await deleteAllDatabases();
+    } finally {
+      Object.defineProperty(indexedDB, 'databases', { configurable: true, value: databases });
+    }
+    expect(await left()).toEqual([]);
+  });
+
+  it('drops a write whose read began before a clearing started', async () => {
+    const cache = await import('@/features/gardenPlanner/offline/planCache');
+    const entry = cache.planEntry(ALICE, 'site_2');
+    vi.mocked(offlineData.offlineDataGeneration).mockReturnValue(1);
+    try {
+      await cache.writeCached(entry, { site_key: 'site_2' }, T0, 0);
+    } finally {
+      vi.mocked(offlineData.offlineDataGeneration).mockReturnValue(0);
+    }
+    expect(await cache.readCached(entry, T0)).toBeNull();
   });
 });

@@ -8,6 +8,10 @@
  * destructive actions (GP-UX-023); import and export stay in planning mode. Tenant, site, tab and the map
  * view are remembered per device (localStorage).
  *
+ * Without a connection the bed list and the plan come from the plan cache (REQ-053 WP 9.2): a banner names
+ * the time of that state, and a site that was never loaded online shows an empty state with a hint instead
+ * of an error. Field mode has no geometry tools; the bed sheet keeps its writes locked offline.
+ *
  * This module is its own lazy chunk: the planning route loads it only in field mode, so it does not
  * count against the garden-planner route budget.
  */
@@ -33,6 +37,9 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import { kioskHighContrastTheme } from '@/theme/theme';
 import type { BedListItem } from '../bed/types';
 import { useBedAssignments } from '../bed/useBedAssignments';
+import CachedDataBanner from '../offline/CachedDataBanner';
+import OfflineCacheMiss from '../offline/OfflineCacheMiss';
+import { useCacheScope } from '../offline/useCacheScope';
 import type { PlanRenderer, RendererLabels } from '../renderer/types';
 import { loadGardenPlan, resetGardenPlan, selectGardenPlanState } from '../state/gardenPlanSlice';
 import FieldBedList from './FieldBedList';
@@ -64,8 +71,10 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
   const { canEdit } = useTenantPermissions();
   const userKey = useAppSelector((state) => state.auth.user?.key ?? null);
   const tenantSlug = useAppSelector((state) => state.tenants.activeTenant?.slug ?? null);
-  const { plan, loadStatus, loadError } = useAppSelector(selectGardenPlanState);
-  const beds = useFieldBeds(siteKey);
+  const { plan, loadStatus, loadError, cachedAt: planCachedAt, offlineMiss: planOfflineMiss } =
+    useAppSelector(selectGardenPlanState);
+  const cacheScope = useCacheScope();
+  const beds = useFieldBeds(siteKey, cacheScope);
   const assignments = useBedAssignments(true);
   const [prefs] = useState(() => readFieldPrefs(userKey));
   const samePlace = prefs !== null && prefs.tenantSlug === tenantSlug && prefs.siteKey === siteKey;
@@ -112,6 +121,17 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
     void dispatch(loadGardenPlan(siteKey));
   }, [dispatch, siteKey]);
 
+  // What came from the plan cache is read from the server again once the connection is back (R-012).
+  const planFromCache = plan?.siteKey === siteKey && planCachedAt !== null;
+  const bedsFromCache = beds.cachedAt !== null;
+  const { reload: reloadBeds } = beds;
+  useEffect(() => {
+    if (online && bedsFromCache) reloadBeds();
+  }, [online, bedsFromCache, reloadBeds]);
+  useEffect(() => {
+    if (online && planFromCache) reloadPlan();
+  }, [online, planFromCache, reloadPlan]);
+
   const siteName = plan?.siteKey === siteKey ? plan.siteName : null;
   useEffect(() => {
     if (siteName === null) return undefined;
@@ -141,6 +161,11 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
   const bedKeys = useMemo(() => new Set(sorted.map((bed) => bed.key)), [sorted]);
   const openBed: BedListItem | null = sorted.find((bed) => bed.key === openBedKey) ?? null;
   const { reload } = beds;
+  // The older of the two cached states decides the banner: nothing on screen is newer than it says.
+  const cachedTimes = [beds.cachedAt, plan?.siteKey === siteKey ? planCachedAt : null].filter(
+    (value): value is number => value !== null,
+  );
+  const cachedAt = cachedTimes.length > 0 ? Math.min(...cachedTimes) : null;
 
   const tabButtonSx = { minHeight: KIOSK_TOUCH_TARGET, fontSize: '1rem', textTransform: 'none' } as const;
 
@@ -190,6 +215,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
             {t('pages.gardenPlan.field.offline')}
           </Alert>
         )}
+        {cachedAt !== null && <CachedDataBanner cachedAt={cachedAt} />}
 
         <Tabs
           value={tab}
@@ -224,7 +250,12 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
                   <LoadingSkeleton variant="card" />
                 </Box>
               )}
-              {beds.state.status === 'error' && <ErrorDisplay error={beds.state.message} onRetry={reload} />}
+              {beds.state.status === 'error' && beds.offlineMiss && (
+                <OfflineCacheMiss subject="beds" testId="field-list-offline-miss" />
+              )}
+              {beds.state.status === 'error' && !beds.offlineMiss && (
+                <ErrorDisplay error={beds.state.message} onRetry={reload} />
+              )}
               {list && beds.reloadError && (
                 <Alert
                   severity="warning"
@@ -260,7 +291,10 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
         <Box role="tabpanel" id="field-panel-map" aria-labelledby="field-tab-map" hidden={tab !== 'map'}>
           {tab === 'map' && (
             <>
-              {loadStatus === 'error' && loadError && (
+              {loadStatus === 'error' && planOfflineMiss && (
+                <OfflineCacheMiss subject="plan" testId="field-map-offline-miss" />
+              )}
+              {loadStatus === 'error' && loadError && !planOfflineMiss && (
                 <ErrorDisplay error={loadError} onRetry={() => void dispatch(loadGardenPlan(siteKey))} />
               )}
               {loadStatus !== 'error' && plan === null && (

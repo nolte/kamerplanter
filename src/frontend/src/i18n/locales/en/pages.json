@@ -6960,6 +6960,22 @@
             "dry": "Dry"
           }
         }
+      },
+      "offline": {
+        "cachedAt": "Offline: you are looking at the state as of {{time}}.",
+        "geometryLocked": {
+          "offline": "Without a connection you can only view the plan. Drawing, moving and transplanting are locked until the connection is back – unsaved changes are kept.",
+          "cached": "The plan comes from the offline cache. Drawing, moving and transplanting are locked until it is loaded from the server again."
+        },
+        "miss": {
+          "plan": "This plan is not available offline",
+          "beds": "The beds are not available offline",
+          "sites": "The sites are not available offline",
+          "hint": "Open the page once with a connection. After that you can read it offline for 15 minutes.",
+          "bed": "This bed is not available offline",
+          "bedDetails": "The master data of this location is not available offline"
+        },
+        "bedEditsLocked": "Without a connection you can only view the bed. Status, sun, soil, crop rotation and photos are locked until the connection is back."
       }
     },
     "bed": {

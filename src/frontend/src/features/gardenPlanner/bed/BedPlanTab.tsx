@@ -3,6 +3,10 @@
  * plant markers at scale, plus the dimensions. It loads the site plan (GP-API-001), keeps the bed's
  * subtree and draws it read-only with the same renderer as the garden plan; editing stays on the
  * garden plan page, which this tab links to.
+ *
+ * Without a connection the plan comes from the plan cache (REQ-053 WP 9.2) with a "Stand von hh:mm"
+ * banner; the plant actions that move a plant (correct, transplant) are locked with a hint, and a bed
+ * whose site was never loaded online shows an empty state instead of an error.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -13,9 +17,15 @@ import Typography from '@mui/material/Typography';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import Alert from '@mui/material/Alert';
 import { parseApiError } from '@/api/errors';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { getGardenPlan } from '../api/gardenPlan';
+import CachedDataBanner from '../offline/CachedDataBanner';
+import OfflineCacheMiss from '../offline/OfflineCacheMiss';
+import { isOfflineCacheMiss, planEntry, readThrough } from '../offline/planCache';
+import { useCacheScope } from '../offline/useCacheScope';
 import { boundingBox } from '../model/geometry';
 import { locationSubtree, normalizePlan, type PlanModel } from '../model/planModel';
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
@@ -46,8 +56,8 @@ interface BedPlanTabProps {
 
 type PlanState =
   | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'ready'; model: PlanModel };
+  | { status: 'error'; message: string; offlineMiss: boolean }
+  | { status: 'ready'; model: PlanModel; cachedAt: number | null };
 
 /** The plan reduced to the bed and everything below it; the rest of the garden is not this view's business. */
 export function bedSubModel(plan: PlanModel, bedKey: string): PlanModel {
@@ -75,6 +85,8 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const [state, setState] = useState<PlanState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const { canEdit } = useTenantPermissions();
+  const online = useOnlineStatus();
+  const cacheScope = useCacheScope();
   const canvasBoxRef = useRef<HTMLDivElement | null>(null);
   // The bubble is placed inside the canvas: it needs the element in render, the handlers read the ref.
   const [canvasBox, setCanvasBox] = useState<HTMLDivElement | null>(null);
@@ -95,17 +107,19 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   useEffect(() => {
     if (!placed) return undefined;
     let cancelled = false;
-    getGardenPlan(siteKey, ['plants'])
-      .then((response) => {
-        if (!cancelled) setState({ status: 'ready', model: bedSubModel(normalizePlan(response), bedKey) });
+    readThrough(cacheScope ? planEntry(cacheScope, siteKey) : null, () => getGardenPlan(siteKey, ['plants']))
+      .then(({ data, cachedAt }) => {
+        if (!cancelled) setState({ status: 'ready', model: bedSubModel(normalizePlan(data), bedKey), cachedAt });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
+        if (!cancelled) {
+          setState({ status: 'error', message: parseApiError(error), offlineMiss: isOfflineCacheMiss(error) });
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [placed, siteKey, bedKey, attempt]);
+  }, [placed, siteKey, bedKey, attempt, cacheScope]);
 
   const retry = useCallback(() => {
     setState({ status: 'loading' });
@@ -114,6 +128,9 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   }, [refreshStates]);
 
   const model = state.status === 'ready' ? state.model : null;
+  const cachedAt = state.status === 'ready' ? state.cachedAt : null;
+  // Moving a plant changes geometry: online-only (GP-UX-024), locked with a hint while offline or cached.
+  const geometryLocked = !online || cachedAt !== null;
   const location = model?.locations[bedKey] ?? null;
   const geometry = location?.geometry ?? null;
   const viewport = useMemo(() => {
@@ -243,8 +260,11 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
         </Typography>
         {planLink}
       </Box>
+      {cachedAt !== null && <CachedDataBanner cachedAt={cachedAt} />}
       <Box ref={canvasRef}>
-        {state.status === 'error' ? (
+        {state.status === 'error' && state.offlineMiss ? (
+          <OfflineCacheMiss subject="plan" testId="bed-plan-offline-miss" />
+        ) : state.status === 'error' ? (
           <ErrorDisplay error={state.message} onRetry={retry} />
         ) : rendered === null ? (
           <LoadingSkeleton variant="card" />
@@ -291,8 +311,14 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
           <Typography variant="subtitle2" component="h3" sx={{ flex: '1 1 auto' }}>
             {t('pages.bed.plan.plantPanel', { id: selectedPlant.instance_id })}
           </Typography>
+          {canEdit && geometryLocked ? (
+            <Alert severity="info" role="status" sx={{ flex: '1 1 100%' }} data-testid="bed-plan-geometry-locked">
+              {t(`pages.gardenPlan.offline.geometryLocked.${online ? 'cached' : 'offline'}`)}
+            </Alert>
+          ) : null}
           {canEdit && selectedPlant.slot_key ? (
             <Button
+              disabled={geometryLocked}
               onClick={() =>
                 setTarget({
                   action: 'correct',
@@ -309,6 +335,7 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
           ) : null}
           {canEdit ? (
             <Button
+              disabled={geometryLocked}
               onClick={() =>
                 setTarget({
                   action: 'transplant',

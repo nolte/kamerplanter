@@ -55,6 +55,9 @@ import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, S
 import { getPlantDisplayName } from '@/utils/plantDisplay';
 import { getBedSummary } from '@/features/gardenPlanner/bed/bedApi';
 import type { BedSummary } from '@/features/gardenPlanner/bed/types';
+import OfflineCacheMiss from '@/features/gardenPlanner/offline/OfflineCacheMiss';
+import { bedSummaryEntry, isOfflineCacheMiss, readThrough } from '@/features/gardenPlanner/offline/planCache';
+import { useCacheScope } from '@/features/gardenPlanner/offline/useCacheScope';
 
 // The bed view (REQ-053 WP 3.5) and its renderer only load for a bed.
 const BedView = lazy(() => import('@/features/gardenPlanner/bed/BedView'));
@@ -134,6 +137,13 @@ export default function LocationDetailPage() {
   // location we came from is never shown (or written to) under the one we navigated to.
   const [loadedSummary, setLoadedSummary] = useState<BedSummary | null>(null);
   const bedSummary = loadedSummary !== null && loadedSummary.key === key ? loadedSummary : null;
+  // REQ-053 WP 9.2: offline the summary comes from the plan cache; `cachedAt` is the online read it was stored by.
+  const cacheScope = useCacheScope();
+  const [summaryRead, setSummaryRead] = useState<{ key: string; cachedAt: number | null; offlineMiss: boolean } | null>(
+    null,
+  );
+  const summaryCachedAt = summaryRead !== null && summaryRead.key === key ? summaryRead.cachedAt : null;
+  const summaryOfflineMiss = summaryRead !== null && summaryRead.key === key && summaryRead.offlineMiss;
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
@@ -171,18 +181,21 @@ export default function LocationDetailPage() {
   const loadBedSummary = useCallback(async () => {
     if (!key) return;
     try {
-      setLoadedSummary(await getBedSummary(key));
-    } catch {
+      const read = await readThrough(cacheScope ? bedSummaryEntry(cacheScope, key) : null, () => getBedSummary(key));
+      setLoadedSummary(read.data);
+      setSummaryRead({ key, cachedAt: read.cachedAt, offlineMiss: false });
+    } catch (err) {
       setLoadedSummary(null);
+      setSummaryRead({ key, cachedAt: null, offlineMiss: isOfflineCacheMiss(err) });
     }
-  }, [key]);
+  }, [key, cacheScope]);
 
   const load = async () => {
     if (!key) return;
     setLoading(true);
+    // The summary decides whether this is a bed; it is asked for alongside the location, not after it.
+    const summaryLoaded = loadBedSummary();
     try {
-      // The summary decides whether this is a bed; it is asked for alongside the location, not after it.
-      const summaryLoaded = loadBedSummary();
       const loc = await api.getLocation(key);
       setLocation(loc);
       await summaryLoaded;
@@ -291,6 +304,8 @@ export default function LocationDetailPage() {
         setAssignedRuns([]);
       }
     } catch (err) {
+      // Offline the cached summary may still carry the bed view (WP 9.2): it decides before the error shows.
+      await summaryLoaded;
       setError(String(err));
     } finally {
       setLoading(false);
@@ -382,7 +397,27 @@ export default function LocationDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) {
+    // REQ-053 WP 9.2: without a connection the bed view reads its summary from the plan cache. Only the
+    // location's own master data (the "Details" tab) needs the server.
+    if (bedSummary?.is_bed && summaryCachedAt !== null) {
+      return (
+        <Box data-testid="location-detail-page">
+          <PageTitle title={bedSummary.name} />
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <BedView
+              summary={bedSummary}
+              cachedAt={summaryCachedAt}
+              details={<OfflineCacheMiss subject="bedDetails" testId="bed-details-offline" />}
+              onReload={loadBedSummary}
+            />
+          </Suspense>
+        </Box>
+      );
+    }
+    if (summaryOfflineMiss) return <OfflineCacheMiss subject="bed" testId="location-offline-miss" />;
+    return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  }
 
   const PANEL_GAP = 4;
 
@@ -903,7 +938,7 @@ export default function LocationDetailPage() {
 
       {bedSummary?.is_bed ? (
         <Suspense fallback={<LoadingSkeleton variant="card" />}>
-          <BedView summary={bedSummary} details={pageBody} onReload={loadBedSummary} />
+          <BedView summary={bedSummary} cachedAt={summaryCachedAt} details={pageBody} onReload={loadBedSummary} />
         </Suspense>
       ) : (
         pageBody

@@ -49,6 +49,9 @@ import FieldTaskSection from './FieldTaskSection';
 import QuickProtocolChips from './QuickProtocolChips';
 import { quickLogBody, type QuickChip } from './quickChips';
 import { useBedSheet } from './useBedSheet';
+import CachedDataBanner from '../offline/CachedDataBanner';
+import OfflineCacheMiss from '../offline/OfflineCacheMiss';
+import { useCacheScope } from '../offline/useCacheScope';
 
 const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
 const PlantingDialog = lazy(() => import('../planting/PlantingDialog'));
@@ -84,7 +87,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const { handleError } = useApiError();
   const notification = useNotification();
   const { offerUndo } = useUndoSnackbar();
-  const sheet = useBedSheet(bed.key);
+  const sheet = useBedSheet(bed.key, useCacheScope());
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [saving, setSaving] = useState(false);
   const lastDoneTapAt = useRef(0);
@@ -198,7 +201,8 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const bedPhotoError = useCallback((error: unknown) => bedPhotoUploadError(t, error), [t]);
 
   const closeOverlay = () => setOverlay(null);
-  const writesLocked = saving || !online;
+  // A sheet read from the plan cache is a past state: nothing is written against it (WP 9.2).
+  const writesLocked = saving || !online || (ready?.cachedAt ?? null) !== null;
 
   return (
     <Drawer
@@ -247,7 +251,15 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             <LoadingSkeleton variant="card" />
           </Box>
         )}
-        {sheet.state.status === 'error' && <ErrorDisplay error={sheet.state.message} onRetry={reload} />}
+        {sheet.state.status === 'ready' && sheet.state.cachedAt !== null && (
+          <CachedDataBanner cachedAt={sheet.state.cachedAt} testId="field-sheet-cached-banner" />
+        )}
+        {sheet.state.status === 'error' && sheet.state.offlineMiss && (
+          <OfflineCacheMiss subject="bed" testId="field-sheet-offline-miss" />
+        )}
+        {sheet.state.status === 'error' && !sheet.state.offlineMiss && (
+          <ErrorDisplay error={sheet.state.message} onRetry={reload} />
+        )}
 
         {canEdit && (
           <QuickProtocolChips

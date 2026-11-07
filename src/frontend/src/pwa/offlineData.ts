@@ -18,6 +18,17 @@ interface Namespace {
 }
 
 let lastNamespace: Namespace = { userKey: null, tenantKey: null };
+/**
+ * Moves at the START of every clearing. An app-side cache write (the plan cache, REQ-053 WP 9.2)
+ * remembers the generation its read began in and is dropped when it has moved: an answer that
+ * lands after a logout or tenant switch began never re-fills the database that is being emptied.
+ */
+let generation = 0;
+
+/** The current clearing generation (see {@link clearOfflineData}). */
+export function offlineDataGeneration(): number {
+  return generation;
+}
 
 function serviceWorkerContainer(): ServiceWorkerContainer | null {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
@@ -61,6 +72,7 @@ export function repostNamespace(): Promise<void> {
  * Await this BEFORE `window.location.reload()` on logout and tenant switch (G-W9 b).
  */
 export async function clearOfflineData(): Promise<void> {
+  generation += 1;
   const { userKey } = lastNamespace;
   lastNamespace = { userKey: null, tenantKey: null };
   await postToWorker({ type: SW_MESSAGE_CLEAR_DATA, userKey });
@@ -69,6 +81,7 @@ export async function clearOfflineData(): Promise<void> {
 
 /** Kill switch (G-W9 e): everything goes, the app shell caches included. */
 export async function clearAllOfflineStorage(): Promise<void> {
+  generation += 1;
   lastNamespace = { userKey: null, tenantKey: null };
   await Promise.all([deleteCaches(), deleteAllDatabases()]);
 }

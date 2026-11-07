@@ -3,18 +3,25 @@
  * Care, Soil, History, Photos (GP-FR-051) and Details. The tab is part of the URL hash (`useTabUrl`), so every tab can
  * be linked. "Details" is the location page as it always was (master data, tank, runs, slots,
  * watering, sensors), handed in by `LocationDetailPage`.
+ *
+ * Offline (REQ-053 WP 9.2) the page hands in the summary from the plan cache with its `cachedAt`: a
+ * "Stand von hh:mm" banner says so, and every edit of the bed (status, sun, site conditions, rotation,
+ * soil, photos) stays locked with a hint while there is no connection or the summary is the cached one.
  */
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { TabPanel, tabA11yProps } from '@/components/common/TabPanel';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import BedHeader from './BedHeader';
+import CachedDataBanner from '../offline/CachedDataBanner';
 import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
 import RotationSwitch from './RotationSwitch';
@@ -54,11 +61,17 @@ interface BedViewProps {
   details: ReactNode;
   /** The summary changed on the server (status, soil); reload it. */
   onReload: () => void | Promise<void>;
+  /** The summary comes from the plan cache: epoch milliseconds of the online read; `null`/absent = live. */
+  cachedAt?: number | null;
 }
 
-export default function BedView({ summary, details, onReload }: BedViewProps) {
+export default function BedView({ summary, details, onReload, cachedAt = null }: BedViewProps) {
   const { t } = useTranslation();
-  const { canEdit, canDelete } = useTenantPermissions();
+  const { canEdit: mayEdit, canDelete } = useTenantPermissions();
+  const online = useOnlineStatus();
+  // Edits are online-only and never made against a cached state (WP 9.2): locked with a hint, not an error.
+  const editsLocked = !online || cachedAt !== null;
+  const canEdit = mayEdit && !editsLocked;
   const { isModuleVisible } = useModuleVisibility();
   const planVisible = isModuleVisible('garden_planner');
   const tabIds: readonly BedTab[] = planVisible ? TABS_WITH_PLAN : TABS_WITHOUT_PLAN;
@@ -158,6 +171,12 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
 
   return (
     <Box data-testid="bed-view" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {cachedAt !== null && <CachedDataBanner cachedAt={cachedAt} testId="bed-view-cached-banner" />}
+      {mayEdit && editsLocked && (
+        <Alert severity="info" role="status" data-testid="bed-view-edits-locked">
+          {t('pages.gardenPlan.offline.bedEditsLocked')}
+        </Alert>
+      )}
       <BedHeader
         summary={summary}
         typeName={typeNames.get(summary.location_type_key) ?? summary.location_type_key}

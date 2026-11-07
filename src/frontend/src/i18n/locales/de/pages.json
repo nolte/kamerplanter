@@ -6961,6 +6961,22 @@
             "dry": "Trocken"
           }
         }
+      },
+      "offline": {
+        "cachedAt": "Ohne Verbindung: Du siehst den Stand von {{time}}.",
+        "geometryLocked": {
+          "offline": "Ohne Verbindung kannst du den Plan nur ansehen. Zeichnen, Verschieben und Umsetzen sind gesperrt, bis die Verbindung zurück ist – nicht gespeicherte Änderungen bleiben erhalten.",
+          "cached": "Der Plan kommt aus dem Zwischenspeicher. Zeichnen, Verschieben und Umsetzen sind gesperrt, bis er wieder vom Server geladen ist."
+        },
+        "miss": {
+          "plan": "Dieser Plan ist ohne Verbindung nicht verfügbar",
+          "beds": "Die Beete sind ohne Verbindung nicht verfügbar",
+          "sites": "Die Standorte sind ohne Verbindung nicht verfügbar",
+          "hint": "Öffne die Seite einmal mit Verbindung. Danach kannst du sie 15 Minuten lang auch ohne Netz lesen.",
+          "bed": "Dieses Beet ist ohne Verbindung nicht verfügbar",
+          "bedDetails": "Die Stammdaten des Standorts sind ohne Verbindung nicht verfügbar"
+        },
+        "bedEditsLocked": "Ohne Verbindung kannst du das Beet nur ansehen. Status, Sonne, Boden, Fruchtfolge und Fotos sind gesperrt, bis die Verbindung zurück ist."
       }
     },
     "bed": {

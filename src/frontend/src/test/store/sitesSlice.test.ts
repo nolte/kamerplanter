@@ -31,7 +31,7 @@ describe('sitesSlice', () => {
       {
         sites: [], currentSite: { key: 'x' } as never,
         locations: [], currentLocation: { key: 'y' } as never,
-        slots: [], loading: false, error: null,
+        slots: [], loading: false, error: null, sitesCachedAt: null, sitesOfflineMiss: false,
       },
       clearCurrent(),
     );
@@ -41,7 +41,8 @@ describe('sitesSlice', () => {
 
   it('clearError resets error', () => {
     const state = reducer(
-      { sites: [], currentSite: null, locations: [], currentLocation: null, slots: [], loading: false, error: 'err' },
+      { sites: [], currentSite: null, locations: [], currentLocation: null, slots: [], loading: false, error: 'err',
+        sitesCachedAt: null, sitesOfflineMiss: false },
       clearError(),
     );
     expect(state.error).toBeNull();
@@ -118,7 +119,7 @@ describe('sitesSlice', () => {
   it('fetchLocation.pending sets loading and clears prior error', () => {
     const withError = {
       sites: [], currentSite: null, locations: [], currentLocation: null,
-      slots: [], loading: false, error: 'old',
+      slots: [], loading: false, error: 'old', sitesCachedAt: null, sitesOfflineMiss: false,
     };
     const state = reducer(withError, { type: fetchLocation.pending.type });
     expect(state.loading).toBe(true);
