@@ -38,9 +38,14 @@ const DEFAULTS: HistoryFilters = emptyFilters('all');
 
 interface BedHistoryTabProps {
   bed: BedSummary;
+  /**
+   * An entry was taken back or recorded here: the bed summary (soil profile, `last_analysis_at`) may have moved on
+   * the server, so the bed view reloads it and no form keeps a stale profile (#2706).
+   */
+  onChanged?: () => void;
 }
 
-export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
+export default function BedHistoryTab({ bed, onChanged }: BedHistoryTabProps) {
   const { t } = useTranslation();
   const { canEdit } = useTenantPermissions();
   const { handleError } = useApiError();
@@ -88,7 +93,8 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
     reloadHistory();
     reloadTimeline();
     setHistoryVersion((value) => value + 1);
-  }, [reloadHistory, reloadTimeline]);
+    onChanged?.();
+  }, [reloadHistory, reloadTimeline, onChanged]);
 
   const onSaved = (result: BackfillResult) => {
     setBackfillYearChoice(null);

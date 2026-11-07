@@ -29,11 +29,12 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Collection, Sequence
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 import structlog
 from pydantic import ValidationError as PydanticValidationError
 
+from app.common.datetimes import ensure_aware_utc
 from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
@@ -56,9 +57,8 @@ from app.domain.engines.garden_plan_engine import (
 )
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_site_parts
-from app.domain.engines.soil_analysis_engine import LEGACY_HAND_AT, as_utc
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
-from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
+from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, SoilProfileEdit
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.bed_list_export import (
     ERROR_TOO_MANY_ROWS,
@@ -85,7 +85,7 @@ from app.domain.models.garden_plan import (
 )
 from app.domain.models.geometry import Geometry
 from app.domain.models.nutrient_hint import NutrientHint
-from app.domain.models.site import AnalysisField, Location, Site, Slot, SoilHandValue, SoilProfile
+from app.domain.models.site import Location, Site, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import (
@@ -105,26 +105,6 @@ _NEW = "new"
 _ENTITY_LOCATION = "location"
 _ENTITY_OBJECT = "garden_object"
 
-
-def _same_instant(left: datetime | None, right: datetime | None) -> bool:
-    """Two optional instants are the same moment (a naive one reads as UTC)."""
-    if left is None or right is None:
-        return left is right
-    return as_utc(left) == as_utc(right)
-
-
-def _method_text(method: Any) -> str | None:
-    return None if method is None else str(getattr(method, "value", method))
-
-
-#: The measured-value fields of a soil profile with their method fields (REQ-053 §15.1): a PATCH that changes one
-#: makes it a hand value (#2706).
-SOIL_VALUE_FIELDS: tuple[tuple[str, str | None], ...] = (
-    ("ph", "ph_method"),
-    ("ec_ms_cm", "ec_method"),
-    ("humus_percent", None),
-    ("caco3_percent", None),
-)
 
 #: What ``PATCH /locations`` writes without the plan revision (GP-NFR-007): the document's own columns.
 #: ``geometry``, ``locked`` and ``z_order`` are structure — they go through the plan batch and raise the revision,
@@ -373,6 +353,8 @@ class GardenResourceService:
         self._check_rotation_switch(location, patch)
 
         fields = self._field_changes(location, patch)
+        soil = self._soil_edit(patch, tenant_key=tenant_key)
+        self._refuse_stale_soil(location, soil)
         operations = self._structure_operations(location, patch)
         if target_status is not None:
             if any(op["op"] == "update_geometry" for op in operations):
@@ -396,8 +378,8 @@ class GardenResourceService:
             )
         if target_status is not None:
             self._write_status(location, target_status, patch.status_reason, tenant_key=tenant_key, user_key=user_key)
-        if fields:
-            self._plan.update_location_fields(key, fields)
+        if fields or soil is not None:
+            self._plan.update_location_fields(key, fields, soil=soil)
 
         stored = self._owned_location(key, tenant_key=tenant_key)
         site = self._owned_site(stored.site_key, tenant_key=tenant_key)
@@ -510,51 +492,39 @@ class GardenResourceService:
         provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
 
     @staticmethod
-    def _with_server_soil_fields(
-        location: Location, sent: SoilProfile | None, sent_fields: set[str]
-    ) -> SoilProfile | None:
-        """The sent profile with the **server-owned** soil fields kept, and the hand entries it makes (#2706).
+    def _soil_edit(patch: LocationPatch, *, tenant_key: str) -> SoilProfileEdit | None:
+        """The ``soil_profile`` of the PATCH as an edit the repository writes through the derivation (#2706).
 
-        * Precondition (M2): a body that carries ``last_analysis_at`` must carry the stored one - a client that read
-          the profile before a newer analysis was stored would otherwise echo the old pH as a "hand change" and
-          displace the newer analysis for good. Differs: 409 ``soil_profile.stale``; absent: no check.
-        * ``last_analysis_at`` and ``hand_values`` are the stored values whatever the client sent.
-        * A measured-value field whose ``(value, method)`` differs from the stored effective one gets a hand entry
-          ``{value, method, at: now}`` (``value = null`` = cleared by hand). Per field the newest observation then
-          wins against the analyses (soil engine). A row stored before ``hand_values`` keeps its other present values
-          as hand entries at the oldest instant, so the partial list does not drop them.
-        * ``null`` stores ``null``: clearing the profile clears its bookkeeping with it.
+        The service writes no derived soil field itself: the repository records the hand entries of the edited
+        measured fields, takes the other soil fields as sent, checks the ``last_analysis_at`` precondition and runs
+        the one derivation, all in the column write's transaction. ``None`` when the PATCH does not send the profile.
         """
-        if sent is None:
+        if "soil_profile" not in patch.model_fields_set:
             return None
-        stored = location.soil_profile
-        stored_last = stored.last_analysis_at if stored is not None else None
-        if "last_analysis_at" in sent_fields and not _same_instant(sent.last_analysis_at, stored_last):
+        sent = patch.soil_profile
+        if sent is None:
+            return SoilProfileEdit(tenant_key=tenant_key, profile=None)
+        return SoilProfileEdit(
+            tenant_key=tenant_key,
+            profile=_dump(sent, mode="json"),
+            check_last_analysis_at="last_analysis_at" in sent.model_fields_set,
+            expected_last_analysis_at=sent.last_analysis_at,
+        )
+
+    @staticmethod
+    def _refuse_stale_soil(location: Location, soil: SoilProfileEdit | None) -> None:
+        """The ``last_analysis_at`` precondition before the first write (#2706); the repository checks it again
+        inside its transaction, against what it reads there, for an analysis stored in between."""
+        if soil is None or not soil.check_last_analysis_at:
+            return
+        stored = location.soil_profile.last_analysis_at if location.soil_profile is not None else None
+        if ensure_aware_utc(stored) != ensure_aware_utc(soil.expected_last_analysis_at):
             raise PlanError(
                 "soil_profile.stale",
                 "The soil profile changed since it was read (a soil analysis was stored); reload and try again.",
                 status_code=409,
                 field="soil_profile.last_analysis_at",
             )
-        now = datetime.now(UTC)
-        legacy = stored is None or stored.hand_values is None
-        entries: dict[str, SoilHandValue] = {}
-        if stored is not None and stored.hand_values:
-            entries.update({str(name): entry for name, entry in stored.hand_values.items()})
-        for value_field, method_field in SOIL_VALUE_FIELDS:
-            sent_pair = (getattr(sent, value_field), getattr(sent, method_field) if method_field else None)
-            stored_pair = (
-                getattr(stored, value_field) if stored is not None else None,
-                getattr(stored, method_field) if stored is not None and method_field else None,
-            )
-            if sent_pair != stored_pair:
-                entries[value_field] = SoilHandValue(value=sent_pair[0], method=_method_text(sent_pair[1]), at=now)
-            elif legacy and stored_pair[0] is not None:
-                entries[value_field] = SoilHandValue(
-                    value=stored_pair[0], method=_method_text(stored_pair[1]), at=LEGACY_HAND_AT
-                )
-        hand_values = cast("dict[AnalysisField, SoilHandValue]", entries) if entries or not legacy else None
-        return sent.model_copy(update={"last_analysis_at": stored_last, "hand_values": hand_values})
 
     def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
         """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""
@@ -563,12 +533,10 @@ class GardenResourceService:
             return {}
         if patch.site_conditions is not None:
             provided["site_conditions"] = merge_site_conditions(location.site_conditions, patch.site_conditions)
-        if "soil_profile" in provided:
-            provided["soil_profile"] = self._with_server_soil_fields(
-                location,
-                patch.soil_profile,
-                patch.soil_profile.model_fields_set if patch.soil_profile is not None else set(),
-            )
+        # ``soil_profile`` is not a plain column: the repository writes it through the derivation (``_soil_edit``).
+        provided.pop("soil_profile", None)
+        if not provided:
+            return {}
         self._mirror_frost_risk(location, provided)
         try:
             updated = Location.model_validate({**_dump(location, by_alias=True), **provided})

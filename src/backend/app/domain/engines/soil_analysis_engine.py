@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from app.common.datetimes import ensure_aware_utc
 from app.common.enums import GrowingMediumKind, PhMethod, SoilTexture
 from app.domain.models.site import SoilProfile
 
@@ -45,6 +46,10 @@ _PROFILE_GROUPS: dict[str, tuple[str, str | None]] = {
     "humus": ("humus_percent", None),
     "caco3": ("caco3_percent", None),
 }
+#: The measured profile fields with their method fields (``None`` where there is none), in one place: the derivation,
+#: the hand entries of ``PATCH /locations`` and the services all read this tuple.
+PROFILE_MEASURED_FIELDS: tuple[tuple[str, str | None], ...] = tuple(_PROFILE_GROUPS.values())
+
 #: The server-owned bookkeeping of the profile; a derivation writes them, a location write never takes them as sent.
 _SERVER_FIELDS: tuple[str, ...] = ("last_analysis_at", "hand_values")
 #: The instant of a hand entry classified from a row stored before ``hand_values``: older than every analysis, so
@@ -65,31 +70,42 @@ def writes_the_soil_profile(category: Any, measurements: Any) -> bool:
 
 def normal_unit(unit: Any) -> str:
     """A unit as the profile and the series compare it: stripped, lower-case, aliases folded (``dS/m`` = ``mS/cm``)."""
-    folded = str(unit).strip().lower()
-    return _UNIT_ALIASES.get(folded, folded)
+    text: str = str(unit)
+    stripped: str = text.strip()
+    folded: str = stripped.lower()
+    aliases: dict[str, str] = _UNIT_ALIASES
+    return aliases.get(folded, folded)
 
 
-def display_unit(unit: Any) -> str:
-    """The reported spelling of a normalised unit (``pH``, ``mS/cm``, ``%``; others as normalised)."""
-    normal = normal_unit(unit)
-    return _UNIT_DISPLAY.get(normal, normal)
+def _spelling(unit: Any) -> str:
+    """A unit as entered, without surrounding blanks (the reported spelling of a unit the profile does not know)."""
+    text: str = str(unit)
+    return text.strip()
 
 
-def as_utc(instant: datetime) -> datetime:
-    """``instant`` as an aware UTC datetime; a naive one is read as UTC (the stored convention)."""
-    return instant.replace(tzinfo=UTC) if instant.tzinfo is None else instant.astimezone(UTC)
+def _known_display(normal: str) -> str | None:
+    """The fixed spelling of a unit the profile knows (``pH``, ``mS/cm``, ``%``), else ``None``."""
+    display: dict[str, str] = _UNIT_DISPLAY
+    return display.get(normal)
 
 
-def parse_instant(value: Any) -> datetime | None:
-    """A stored instant (ISO text or datetime) as aware UTC, or ``None`` when it is absent or unreadable."""
-    if isinstance(value, datetime):
-        return as_utc(value)
-    if not isinstance(value, str):
+def read_instant(value: Any) -> datetime | None:
+    """A stored instant as aware UTC through :func:`~app.common.datetimes.ensure_aware_utc`; ``None`` when unreadable.
+
+    Stored documents are not trusted to hold valid ISO text: an unreadable value reads as absent instead of failing
+    the derivation of a whole bed.
+    """
+    if not isinstance(value, datetime | str):
         return None
     try:
-        return as_utc(datetime.fromisoformat(value))
+        return ensure_aware_utc(value)
     except ValueError:
         return None
+
+
+def _utc(instant: datetime) -> datetime:
+    aware = ensure_aware_utc(instant)
+    return aware if aware is not None else instant
 
 
 def _depth_rank(measurement: Mapping[str, Any]) -> float:
@@ -144,7 +160,8 @@ def _legacy_hand_values(current: Mapping[str, Any], history: Iterable[AnalysisEv
             if _in_profile_unit(measurement):
                 measured.setdefault(str(measurement["parameter"]), set()).add(float(measurement["value"]))
     entries: dict[str, dict[str, Any]] = {}
-    for parameter, (value_field, method_field) in _PROFILE_GROUPS.items():
+    groups: dict[str, tuple[str, str | None]] = _PROFILE_GROUPS
+    for parameter, (value_field, method_field) in groups.items():
         value = current.get(value_field)
         if not isinstance(value, int | float) or float(value) in measured.get(parameter, set()):
             continue
@@ -159,10 +176,37 @@ def _legacy_hand_values(current: Mapping[str, Any], history: Iterable[AnalysisEv
 def _hand_entries(raw: Any) -> dict[str, dict[str, Any]]:
     """The stored hand entries with readable instants; an entry without one is dropped."""
     entries: dict[str, dict[str, Any]] = {}
-    for name, entry in (raw or {}).items() if isinstance(raw, Mapping) else ():
-        at = parse_instant(entry.get("at")) if isinstance(entry, Mapping) else None
+    stored: Mapping[str, Any] = raw if isinstance(raw, Mapping) else {}
+    for name in stored:
+        item = stored[name]
+        if not isinstance(item, Mapping):
+            continue
+        entry: Mapping[str, Any] = item
+        at = read_instant(entry.get("at"))
         if at is not None:
             entries[str(name)] = {"value": entry.get("value"), "method": entry.get("method"), "at": at}
+    return entries
+
+
+def hand_values_after_edit(
+    stored: Mapping[str, Any], sent: Mapping[str, Any], at: datetime
+) -> dict[str, dict[str, Any]]:
+    """The hand entries after a location write (``PATCH /locations``, #2706): one new entry per edited field.
+
+    ``stored`` is the profile as stored (its measured fields are the effective values), ``sent`` the body's profile.
+    A measured field whose ``(value, method)`` differs from the stored one gets the entry ``{value, method, at}``
+    (``value = null`` = cleared by hand); an unchanged field gets none - also on a row without ``hand_values``, whose
+    other values the derivation's legacy rule classifies (the caller derives such a row before the edit).
+    """
+    raw = stored.get("hand_values")
+    entries: dict[str, dict[str, Any]] = {
+        str(name): dict(entry) for name, entry in (raw.items() if isinstance(raw, Mapping) else ())
+    }
+    for value_field, method_field in PROFILE_MEASURED_FIELDS:
+        sent_pair = (sent.get(value_field), sent.get(method_field) if method_field else None)
+        stored_pair = (stored.get(value_field), stored.get(method_field) if method_field else None)
+        if sent_pair != stored_pair:
+            entries[value_field] = {"value": sent_pair[0], "method": sent_pair[1], "at": at}
     return entries
 
 
@@ -183,15 +227,16 @@ def derive_profile(
     stored = current.get("hand_values")
     hand = _hand_entries(stored) if isinstance(stored, Mapping) else _legacy_hand_values(current, history)
     newest: dict[str, tuple[datetime, dict[str, Any]]] = {}
-    for analysis in sorted(analyses, key=lambda each: as_utc(each.performed_at), reverse=True):
+    for analysis in sorted(analyses, key=lambda each: _utc(each.performed_at), reverse=True):
         for parameter, group in profile_values(analysis.measurements).items():
-            newest.setdefault(parameter, (as_utc(analysis.performed_at), group))
-    measured_fields = {name for pair in _PROFILE_GROUPS.values() for name in pair if name}
+            newest.setdefault(parameter, (_utc(analysis.performed_at), group))
+    measured_fields = {name for pair in PROFILE_MEASURED_FIELDS for name in pair if name}
+    groups: dict[str, tuple[str, str | None]] = _PROFILE_GROUPS
     derived = {
         name: value for name, value in current.items() if name not in _SERVER_FIELDS and name not in measured_fields
     }
     last: datetime | None = None
-    for parameter, (value_field, method_field) in _PROFILE_GROUPS.items():
+    for parameter, (value_field, method_field) in groups.items():
         entry = hand.get(value_field)
         candidate = newest.get(parameter)
         if entry is not None and (candidate is None or entry["at"] >= candidate[0]):
@@ -227,7 +272,7 @@ class Series:
     """The points of one parameter measured by one method in one unit, oldest first.
 
     The unit is part of the series (#2706): ``1100 µS/cm`` and ``1.1 mS/cm`` of the same method are two series,
-    because the system never converts. ``unit`` is normalised as the profile reads it (:func:`display_unit`), so
+    because the system never converts. Series are grouped on the unit normalised as the profile reads it, so
     ``mS/cm``, ``ms/cm `` and ``dS/m`` are one series; each point keeps the unit as entered.
     """
 
@@ -278,15 +323,24 @@ def build_series(
     timeline: dict[str, list[tuple[datetime, tuple[str, ...]]]] = {}
     event: AnalysisEvent
     measurement: Mapping[str, Any]
-    for event in sorted(events, key=lambda each: (as_utc(each.performed_at), each.key)):
+    for event in sorted(events, key=lambda each: (_utc(each.performed_at), each.key)):
         methods: dict[str, list[str]] = {}
         for measurement in event.measurements:
             name = str(measurement["parameter"])
             if parameter is not None and name != parameter:
                 continue
             method = method_of(measurement)
-            unit = display_unit(measurement["unit"])
-            series = by_series.setdefault((name, method, unit), Series(parameter=name, method=method, unit=unit))
+            unit_key = normal_unit(measurement["unit"])
+            # The series reports the fixed spelling of a known unit, else the spelling of its **oldest** measurement
+            # (events run oldest first); grouping is on the normalised key either way.
+            series = by_series.setdefault(
+                (name, method, unit_key),
+                Series(
+                    parameter=name,
+                    method=method,
+                    unit=_known_display(unit_key) or _spelling(measurement["unit"]),
+                ),
+            )
             series.points.append(
                 SeriesPoint(
                     performed_at=event.performed_at,
@@ -311,8 +365,8 @@ def build_series(
             changes += [
                 MethodChange(parameter=name, at=at, from_method=old, to_method=new) for old in before for new in after
             ]
-    ordered = sorted(by_series.values(), key=lambda each: (each.parameter, each.method, each.unit))
-    return ordered, sorted(changes, key=lambda each: (as_utc(each.at), each.parameter))
+    ordered = [by_series[key] for key in sorted(by_series)]
+    return ordered, sorted(changes, key=lambda each: (_utc(each.at), each.parameter))
 
 
 LimingStatus = Literal["likely", "not_indicated", "not_assessable"]

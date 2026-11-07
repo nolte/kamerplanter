@@ -402,11 +402,13 @@ class TestPatchingALocation:
         (_, fields) = repo.field_updates[0]
         assert fields["name"] == "Bed Seven" and fields["path"] == "bed_seven"
 
-    def test_a_soil_profile_is_stored_whole(self, world) -> None:
+    def test_a_soil_profile_goes_to_the_repository_as_an_edit_not_as_a_column(self, world) -> None:
+        """#2706: the service writes no derived soil field; the repository's derivation does."""
         service, repo, _ = world
         patch_location(service, soil_profile={"soil_texture": "loam", "ph": 6.5})
-        assert repo.locations["bed"].soil_profile.ph == 6.5
-        assert repo.field_updates[0][1]["soil_profile"]["soil_texture"] == "loam"
+        stored = repo.locations["bed"].soil_profile
+        assert stored is not None and (stored.ph, stored.soil_texture) == (6.5, "loam")
+        assert "soil_profile" not in repo.field_updates[0][1]
 
     def test_site_conditions_write_only_the_sent_parts_and_null_clears_them(self, world) -> None:
         """#2569: the write holds the sent parts, merged by the repository - never the whole value read."""

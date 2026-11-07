@@ -645,3 +645,90 @@ class TestHandEntriesThroughThePatch:
         profile = _profile(db)
         assert (profile["drainage"], profile["ph"]) == ("moderate", 6.6)
         assert datetime.fromisoformat(profile["last_analysis_at"]) == NOW - timedelta(days=1)
+
+
+class TestThePatchGoesThroughTheDerivation:
+    """#2706 third review: PATCH records hand entries and runs the one derivation in its own transaction."""
+
+    @staticmethod
+    def _plan_repo(db):  # type: ignore[no-untyped-def]
+        from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
+
+        return ArangoGardenPlanRepository(db)
+
+    def test_a_patch_and_a_concurrent_analysis_insert_conflict_instead_of_overwriting(self, db) -> None:  # type: ignore[no-untyped-def]
+        from app.common.exceptions import WriteConflictError
+        from app.data_access.arango.care_event_repository import (
+            SOIL_ANALYSIS_WRITE_COLLECTIONS,
+            SOIL_PROFILE_READ_COLLECTIONS,
+            rederive_soil_profile,
+            write_care_event,
+        )
+        from app.data_access.arango.transactions import stream_transaction
+        from app.domain.interfaces.garden_plan_repository import SoilProfileEdit
+
+        ArangoCareEventRepository(db).insert(_analysis(NOW, [_measure("ph", 6.9, "pH")]), tenant_key="t1")
+        before = _profile(db)
+        edit = SoilProfileEdit(tenant_key="t1", profile={"drainage": "good", "ph": 6.0, "ph_method": "h2o"})
+        with stream_transaction(
+            db, write=SOIL_ANALYSIS_WRITE_COLLECTIONS, read=SOIL_PROFILE_READ_COLLECTIONS, entity="care_event"
+        ) as insert:
+            # an older analysis: its derivation changes nothing, and it must still take the bed (M1)
+            write_care_event(insert, _analysis(NOW - timedelta(days=9), [_measure("ph", 5.0, "pH")]), NOW.isoformat())
+            rederive_soil_profile(insert, "L1", tenant_key="t1")
+            with pytest.raises(WriteConflictError):
+                self._plan_repo(db).update_location_fields("L1", {}, soil=edit)
+
+        assert _profile(db) == before  # the insert committed, the PATCH wrote nothing and was told so
+
+    def test_a_drainage_patch_on_a_legacy_row_creates_no_hand_entry_and_a_void_clears_the_analysis_value(
+        self, db
+    ) -> None:  # type: ignore[no-untyped-def]
+        from app.domain.interfaces.garden_plan_repository import SoilProfileEdit
+
+        repo = ArangoCareEventRepository(db)
+        only = repo.insert(_analysis(NOW, [_measure("ph", 6.4, "pH")]), tenant_key="t1")
+        db.collection(col.LOCATIONS).update(  # a pre-#2706 row: the forward write's value, no entries
+            {"_key": "L1", "soil_profile": {"ph": 6.4, "drainage": "good"}}, merge=False
+        )
+
+        self._plan_repo(db).update_location_fields(
+            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", profile={"ph": 6.4, "drainage": "poor"})
+        )
+        patched = _profile(db)
+        repo.void(only.key or "", tenant_key="t1", voided_by="u1", reason="typo", at=NOW)
+
+        assert (patched["drainage"], patched["ph"], patched["hand_values"]) == ("poor", 6.4, {})
+        assert "ph" not in _profile(db) and _profile(db)["drainage"] == "poor"
+
+    def test_a_hand_override_moves_last_analysis_at_to_the_newest_analysis_that_still_wins(self, db) -> None:  # type: ignore[no-untyped-def]
+        from app.domain.interfaces.garden_plan_repository import SoilProfileEdit
+
+        repo = ArangoCareEventRepository(db)
+        repo.insert(_analysis(NOW - timedelta(days=40), [_measure("humus", 3.0, "%")]), tenant_key="t1")
+        repo.insert(_analysis(NOW - timedelta(days=30), [_measure("ph", 6.0, "pH")]), tenant_key="t1")
+        assert datetime.fromisoformat(_profile(db)["last_analysis_at"]) == NOW - timedelta(days=30)
+
+        sent = {k: v for k, v in _profile(db).items() if k not in ("hand_values", "last_analysis_at")}
+        self._plan_repo(db).update_location_fields(
+            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", profile={**sent, "ph": 6.6})
+        )
+
+        profile = _profile(db)
+        assert (profile["ph"], profile["humus_percent"]) == (6.6, 3.0)
+        assert datetime.fromisoformat(profile["last_analysis_at"]) == NOW - timedelta(days=40)
+
+    def test_a_derived_profile_the_model_refuses_aborts_the_void(self, db) -> None:  # type: ignore[no-untyped-def]
+        from app.common.exceptions import PlanError
+
+        repo = ArangoCareEventRepository(db)
+        analysis = repo.insert(_analysis(NOW - timedelta(days=5), [_measure("humus", 3.0, "%")]), tenant_key="t1")
+        broken = {"value": 1.2, "method": None, "at": NOW.isoformat()}  # a conductivity without its method
+        db.collection(col.LOCATIONS).update({"_key": "L1", "soil_profile": {"hand_values": {"ec_ms_cm": broken}}})
+
+        with pytest.raises(PlanError) as refused:
+            repo.void(analysis.key or "", tenant_key="t1", voided_by="u1", reason="typo", at=NOW)
+
+        assert refused.value.status_code == 422 and refused.value.error_code == "soil_profile.derivation_invalid"
+        assert "1.2" not in str(refused.value.details)  # names the field, never a value
+        assert db.collection(col.CARE_EVENTS).get(analysis.key).get("voided_at") is None  # the void was rolled back

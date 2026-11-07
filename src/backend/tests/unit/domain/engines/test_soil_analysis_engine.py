@@ -15,8 +15,8 @@ from app.domain.engines.soil_analysis_engine import (
     liming_hint,
     method_of,
     normal_unit,
-    parse_instant,
     profile_values,
+    read_instant,
     writes_the_soil_profile,
 )
 from app.domain.models.care_event import CareEventInput, Measurement
@@ -329,7 +329,7 @@ class TestFollowUps2706:
 
         assert [(s.method, s.unit, [p.value for p in s.points]) for s in series] == [
             ("sensor", "mS/cm", [1.1]),
-            ("sensor", "us/cm", [1100.0]),
+            ("sensor", "uS/cm", [1100.0]),
         ]
         assert changes == []  # the same method: no method change, only another unit
 
@@ -377,8 +377,8 @@ class TestFollowUps2706:
         assert values["ph"]["ph"] == 6.6
 
     def test_an_unreadable_stored_instant_reads_as_missing(self) -> None:
-        assert parse_instant("not a date") is None and parse_instant(None) is None
-        assert parse_instant("2026-03-01T09:00:00") == T0  # naive text is UTC
+        assert read_instant("not a date") is None and read_instant(None) is None
+        assert read_instant("2026-03-01T09:00:00") == T0  # naive text is UTC
         # a naive performed_at reads as UTC: it ties with the aware one, the one listed first wins
         derived = derive_profile(
             {}, [AnalysisEvent("a", T0.replace(tzinfo=None), [_m("ph", 6.0, "pH")]), AnalysisEvent("b", T0, [])]
@@ -477,3 +477,14 @@ class TestNewestObservationWins:
         assert derived["hand_values"]["humus_percent"]["at"] == LEGACY_HAND_AT == datetime.min.replace(tzinfo=UTC)
         later = derive_profile(derived, [AnalysisEvent("H", T0 - timedelta(days=900), [_m("humus", 2.0, "%")])])
         assert later["humus_percent"] == 2.0  # any open analysis supersedes a classified legacy value
+
+
+def test_an_unknown_unit_is_reported_in_the_spelling_of_its_oldest_measurement() -> None:
+    events = [
+        AnalysisEvent("e2", T0 + timedelta(days=1), [_m("p", 13, "MG_PER_L ")]),
+        AnalysisEvent("e1", T0, [_m("p", 12, " mg_per_L")]),
+    ]
+
+    series, _ = build_series(events, "p")
+
+    assert [(s.unit, len(s.points)) for s in series] == [("mg_per_L", 2)]  # grouped on the key, never lower-cased

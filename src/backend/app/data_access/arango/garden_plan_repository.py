@@ -34,7 +34,12 @@ from app.common.exceptions import (
 )
 from app.common.types import SiteKey
 from app.data_access.arango import collections as col
-from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
+from app.data_access.arango.care_event_repository import (
+    CARE_EVENT_WRITE_COLLECTIONS,
+    SOIL_PROFILE_READ_COLLECTIONS,
+    write_care_event,
+    write_soil_profile_edit,
+)
 from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.document_reads import model_or_conflict, readable_rows
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
@@ -47,7 +52,7 @@ from app.data_access.arango.watering_queries import last_waterings
 from app.domain.calculators.overdue_calculator import start_of_utc_day
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
-from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
+from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData, SoilProfileEdit
 from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
@@ -175,6 +180,27 @@ def _slot_cross_validated(slot: Slot) -> tuple[StoredValue, ...]:
         StoredValue(("slot_role",), slot.slot_role.value, fields["slot_role"].default.value),
         StoredValue(("capacity_plants",), slot.capacity_plants, fields["capacity_plants"].default),
         StoredValue(("geometry", "kind"), slot.geometry.kind.value if slot.geometry is not None else None),
+    )
+
+
+def _soil_reads(soil: SoilProfileEdit | None, *, with_sites: bool = True) -> tuple[str, ...]:
+    """What a soil edit reads besides the bed (#2706): the bed's site and its soil analyses."""
+    if soil is None:
+        return ()
+    return (*SOIL_PROFILE_READ_COLLECTIONS, col.CARE_EVENTS) if with_sites else (col.CARE_EVENTS,)
+
+
+def _write_soil(txn: StreamTransaction, location_key: str, soil: SoilProfileEdit | None) -> None:
+    """The ``soil_profile`` of a PATCH, through the one derivation, in the column write's transaction (#2706)."""
+    if soil is None:
+        return
+    write_soil_profile_edit(
+        txn,
+        location_key,
+        tenant_key=soil.tenant_key,
+        profile=soil.profile,
+        check_last_analysis_at=soil.check_last_analysis_at,
+        expected_last_analysis_at=soil.expected_last_analysis_at,
     )
 
 
@@ -1412,12 +1438,15 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
         return int(next(cursor, 0))
 
-    def update_location_fields(self, location_key: str, fields: dict[str, Any]) -> None:
+    def update_location_fields(
+        self, location_key: str, fields: dict[str, Any], *, soil: SoilProfileEdit | None = None
+    ) -> None:
         if "irrigation_zone_key" in fields:
-            self._update_location_fields_with_zone(location_key, fields)
+            self._update_location_fields_with_zone(location_key, fields, soil)
             return
-        with stream_transaction(self._db, write=(col.LOCATIONS,), entity="location") as txn:
+        with stream_transaction(self._db, write=(col.LOCATIONS,), read=_soil_reads(soil), entity="location") as txn:
             self._write_location_columns(txn.collection(col.LOCATIONS), location_key, fields, _now())
+            _write_soil(txn, location_key, soil)
 
     @staticmethod
     def _write_location_columns(
@@ -1516,7 +1545,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         if not touched:
             raise PlanValidationError([(None, "attachment_key", ERROR_REFERENCE_NOT_FOUND, {})])
 
-    def _update_location_fields_with_zone(self, location_key: str, fields: dict[str, Any]) -> None:
+    def _update_location_fields_with_zone(
+        self, location_key: str, fields: dict[str, Any], soil: SoilProfileEdit | None = None
+    ) -> None:
         """The column write of a PATCH that changes the bed's zone, with its ``zone_covers`` edge (WP 7.1).
 
         One transaction: the new zone's document is taken first (a zone deleted after the service resolved it is
@@ -1533,7 +1564,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         with stream_transaction(
             self._db,
             write=(col.IRRIGATION_ZONES, col.LOCATIONS, col.ZONE_COVERS),
-            read=(col.SITES,),
+            read=(col.SITES, *_soil_reads(soil, with_sites=False)),
             entity="location",
         ) as txn:
             if zone_key:
@@ -1561,6 +1592,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 if not taken:
                     raise PlanValidationError([(None, "irrigation_zone_key", ERROR_REFERENCE_NOT_FOUND, {})])
             self._write_location_columns(txn.collection(col.LOCATIONS), location_key, fields, now)
+            _write_soil(txn, location_key, soil)
             remove_edges(txn, col.ZONE_COVERS, "_to", [location_id])
             if zone_key:
                 txn.collection(col.ZONE_COVERS).insert(

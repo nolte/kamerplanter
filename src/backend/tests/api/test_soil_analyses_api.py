@@ -126,7 +126,7 @@ def test_a_series_never_carries_two_units(client, world) -> None:  # type: ignor
 
     assert [(s["method"], s["unit"], [p["value"] for p in s["points"]]) for s in body["series"]] == [
         ("sensor", "mS/cm", [1.1]),
-        ("sensor", "us/cm", [1100.0]),
+        ("sensor", "uS/cm", [1100.0]),
     ]
     assert body["method_changes"] == []
 

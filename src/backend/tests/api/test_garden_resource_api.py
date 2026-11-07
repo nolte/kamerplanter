@@ -427,8 +427,8 @@ class TestPatch:
         assert stale.status_code == 409 and stale.json()["error_code"] == "soil_profile.stale"
         assert matching.status_code == omitted.status_code == cleared.status_code == 200
         assert matching.json()["soil_profile"]["drainage"] == "poor"
-        assert omitted.json()["soil_profile"]["last_analysis_at"].startswith("2026-03-01T09:00:00")
         assert omitted.json()["soil_profile"]["drainage"] == "good"  # the rest of the profile is the client's
+        assert omitted.json()["soil_profile"]["ph"] == 6.5  # a hand value (this bed has no analysis to outrank it)
         assert "hand_values" not in omitted.json()["soil_profile"]  # server bookkeeping is not on the wire
         assert cleared.json()["soil_profile"] is None  # null stores null, bookkeeping included (#2706 review)
 

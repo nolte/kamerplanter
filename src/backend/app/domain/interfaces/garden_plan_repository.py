@@ -39,6 +39,20 @@ class PlanReadData:
     plan_updated_by_name: str | None = None
 
 
+@dataclass(frozen=True)
+class SoilProfileEdit:
+    """A ``soil_profile`` sent with ``PATCH /locations`` (#2706); the repository writes it through the derivation.
+
+    ``profile`` is the body's profile as JSON (``None`` stores ``null``). ``check_last_analysis_at`` says the body
+    carried ``last_analysis_at``; then ``expected_last_analysis_at`` must equal the stored one (409 otherwise).
+    """
+
+    tenant_key: str
+    profile: dict[str, Any] | None
+    check_last_analysis_at: bool = False
+    expected_last_analysis_at: datetime | None = None
+
+
 class IGardenPlanRepository(ABC):
     """Persistence of the garden plan beyond the single documents (REQ-053 §21.1, §21.3).
 
@@ -175,7 +189,9 @@ class IGardenPlanRepository(ABC):
         """Slots (``archived_at`` null) in all locations of the tenant's site — the GP-NFR-017 quota counts these."""
 
     @abstractmethod
-    def update_location_fields(self, location_key: str, fields: dict[str, Any]) -> None:
+    def update_location_fields(
+        self, location_key: str, fields: dict[str, Any], *, soil: SoilProfileEdit | None = None
+    ) -> None:
         """Write *only* ``fields`` (``None`` removes a stored value) — outside the plan revision (GP-API-010).
 
         The caller has resolved the location under the tenant through ``location_ownership``; the repository
@@ -187,6 +203,11 @@ class IGardenPlanRepository(ABC):
         parts the PATCH sent (a nested part only its sent keys) and is merged into the stored value, a ``None``
         inside it removing that key; ``site_conditions: None`` clears the whole value. A part the plan batch
         wrote after the caller's read (``sun_profile``, #2538) is therefore kept.
+
+        ``soil`` (#2706) writes the bed's ``soil_profile`` in the **same** transaction: the precondition on
+        ``last_analysis_at`` (409 ``soil_profile.stale``), the hand entries of the edited measured fields, the other
+        soil fields as sent, then the one derivation every soil-analysis write runs - so a concurrent derivation of
+        the bed collides (409 ``WRITE_CONFLICT``) instead of being overwritten.
         """
 
     @abstractmethod

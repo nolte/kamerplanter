@@ -24,16 +24,19 @@ from arango.aql import AQL
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import DuplicateError, NotFoundError, PlanError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.transactions import StreamTransaction, TransactionAql, stream_transaction
 from app.domain.engines.soil_analysis_engine import (
+    PROFILE_MEASURED_FIELDS,
     SOIL_ANALYSIS_CATEGORY,
     AnalysisEvent,
     derive_profile,
-    parse_instant,
+    hand_values_after_edit,
+    read_instant,
 )
 from app.domain.engines.soil_analysis_engine import writes_the_soil_profile as _feeds_the_profile
 from app.domain.interfaces.care_event_repository import (
@@ -82,7 +85,8 @@ def writes_the_soil_profile(event: CareEvent | dict[str, Any]) -> bool:
     """
     if isinstance(event, CareEvent):
         return _feeds_the_profile(event.category, event.measurements)
-    return _feeds_the_profile(event.get("category"), event.get("measurements"))
+    doc: dict[str, Any] = event
+    return _feeds_the_profile(doc.get("category"), doc.get("measurements"))
 
 
 def write_collections_for(events: Sequence[CareEvent]) -> tuple[str, ...]:
@@ -97,10 +101,14 @@ def read_collections_for(events: Sequence[CareEvent]) -> tuple[str, ...]:
     return SOIL_PROFILE_READ_COLLECTIONS if any(writes_the_soil_profile(event) for event in events) else ()
 
 
+def _location_key_of(doc: dict[str, Any]) -> str:
+    return str(doc.get("location_key"))
+
+
 def profile_locations(events: Sequence[CareEvent | dict[str, Any]]) -> list[str]:
     """The beds whose profile ``events`` feed, each once, in a stable order."""
     keys = {
-        str(event.location_key if isinstance(event, CareEvent) else event.get("location_key"))
+        event.location_key if isinstance(event, CareEvent) else _location_key_of(event)
         for event in events
         if writes_the_soil_profile(event)
     }
@@ -111,15 +119,15 @@ def profile_locations(events: Sequence[CareEvent | dict[str, Any]]) -> list[str]
 #: of each parameter matters, so the bound keeps the read finite without changing a real bed; hitting it is logged.
 MAX_DERIVATION_ANALYSES = 500
 
+#: The bed's soil analyses, open ones (``@open``) or closed ones, newest first. The index ``tenant_key,
+#: location_key, performed_at`` selects the bed, the category is filtered inside the index scan before the sort.
 _ANALYSES_OF_BED = """
 FOR e IN @@events
     FILTER e.tenant_key == @tenant_key AND e.location_key == @location_key AND e.category == @category
+    FILTER (e.voided_at == null AND e.superseded_by_key == null) == @open
     SORT DATE_TIMESTAMP(e.performed_at) DESC, DATE_TIMESTAMP(e.created_at) DESC, e._key DESC
     LIMIT @limit
-    RETURN {
-        key: e._key, performed_at: e.performed_at, category: e.category, measurements: e.measurements,
-        open: e.voided_at == null AND e.superseded_by_key == null
-    }
+    RETURN { key: e._key, performed_at: e.performed_at, category: e.category, measurements: e.measurements }
 """
 
 #: The bed and whether its site belongs to the tenant (a bed has no ``tenant_key`` of its own, #2107).
@@ -218,16 +226,9 @@ def write_care_event(
     return cast("dict[str, Any]", stored)
 
 
-def rederive_soil_profile(txn: StreamTransaction, location_key: str, *, tenant_key: str) -> None:
-    """Derive the bed's ``soil_profile`` from its analyses, inside the caller's transaction (#2706, the one write path).
-
-    Runs after every store, void, correction or withdrawn task completion of a soil analysis: the profile is a
-    function of the bed's open analyses and its provenance (:func:`derive_profile`). The caller declared
-    :data:`SOIL_PROFILE_WRITE_COLLECTIONS` and :data:`SOIL_PROFILE_READ_COLLECTIONS` and has already written the event
-    columns in ``txn``, so the read sees them. A bed that is gone or whose site is not the tenant's (fail closed), an
-    unchanged profile, or a derived profile the model refuses leaves the document as it is.
-    """
-    rows = list(
+def _analyses(txn: StreamTransaction, location_key: str, tenant_key: str, *, open_ones: bool) -> list[AnalysisEvent]:
+    """The bed's open (or closed) soil analyses, newest first, at most :data:`MAX_DERIVATION_ANALYSES`."""
+    rows: list[dict[str, Any]] = list(
         cast(
             "Cursor",
             txn.aql.execute(
@@ -237,6 +238,7 @@ def rederive_soil_profile(txn: StreamTransaction, location_key: str, *, tenant_k
                     "tenant_key": tenant_key,
                     "location_key": location_key,
                     "category": SOIL_ANALYSIS_CATEGORY,
+                    "open": open_ones,
                     "limit": MAX_DERIVATION_ANALYSES,
                 },
             ),
@@ -244,19 +246,21 @@ def rederive_soil_profile(txn: StreamTransaction, location_key: str, *, tenant_k
     )
     if len(rows) >= MAX_DERIVATION_ANALYSES:
         logger.warning(
-            "soil_analysis.derivation_bound_reached", location_key=location_key, limit=MAX_DERIVATION_ANALYSES
+            "soil_analysis.derivation_bound_reached",
+            location_key=location_key,
+            limit=MAX_DERIVATION_ANALYSES,
+            open=open_ones,
         )
-    history: list[AnalysisEvent] = []
-    analyses: list[AnalysisEvent] = []
-    for row in rows:
-        performed_at = parse_instant(row.get("performed_at"))
-        if performed_at is None or not writes_the_soil_profile(row):
-            continue
-        analysis = AnalysisEvent(key=str(row["key"]), performed_at=performed_at, measurements=row["measurements"])
-        history.append(analysis)
-        if row.get("open"):
-            analyses.append(analysis)
-    found = next(
+    return [
+        AnalysisEvent(key=str(row["key"]), performed_at=performed_at, measurements=row["measurements"])
+        for row in rows
+        if (performed_at := read_instant(row.get("performed_at"))) is not None and writes_the_soil_profile(row)
+    ]
+
+
+def _owned_location(txn: StreamTransaction, location_key: str, tenant_key: str) -> dict[str, Any] | None:
+    """The bed if its site is the tenant's; ``None`` when it is gone; a foreign bed is logged and ``None`` too."""
+    found: dict[str, Any] | None = next(
         iter(
             cast(
                 "Cursor",
@@ -273,19 +277,22 @@ def rederive_soil_profile(txn: StreamTransaction, location_key: str, *, tenant_k
         ),
         None,
     )
-    if found is None or found["location"] is None:
-        return
-    location = cast("dict[str, Any]", found["location"])
-    if not found["owned"]:
+    if found is None or found.get("location") is None:
+        return None
+    if not found.get("owned"):
         logger.warning("soil_analysis.profile_write_refused_foreign_bed", location_key=location_key)
-        return
-    current: dict[str, Any] = location["soil_profile"] if isinstance(location.get("soil_profile"), dict) else {}
-    derived = cast("dict[str, Any]", _json_value(derive_profile(current, analyses, history=history)))
-    try:
-        SoilProfile(**derived)
-    except ValueError:
-        logger.warning("soil_analysis.profile_rederivation_refused", location_key=location_key)
-        return
+        return None
+    return cast("dict[str, Any]", found["location"])
+
+
+def _soil_of(location: dict[str, Any]) -> dict[str, Any]:
+    profile = location.get("soil_profile")
+    return cast("dict[str, Any]", profile) if isinstance(profile, dict) else {}
+
+
+def _write_profile(
+    txn: StreamTransaction, location_key: str, tenant_key: str, profile: dict[str, Any] | None, *, write: bool = True
+) -> None:
     txn.aql.execute(
         _WRITE_OWNED_PROFILE,
         bind_vars={
@@ -293,19 +300,112 @@ def rederive_soil_profile(txn: StreamTransaction, location_key: str, *, tenant_k
             "sites": f"{col.SITES}/",
             "key": location_key,
             "tenant_key": tenant_key,
-            "profile": derived,
-            # A bed that had no profile and derives none keeps none; the revision moves either way.
-            "write_profile": bool(derived) or bool(current),
+            "profile": profile,
+            "write_profile": write,
         },
     )
+
+
+def _refused(exc: PydanticValidationError) -> PlanError:
+    """A derived profile the model refuses: 422 naming the field, never a value (the transaction aborts)."""
+    locations = [error["loc"] for error in exc.errors()]
+    path = ".".join(str(part) for part in locations[0]) if locations else ""
+    return PlanError(
+        "soil_profile.derivation_invalid",
+        "The soil profile derived from the analyses and hand entries is not valid; nothing was written.",
+        status_code=422,
+        field=".".join(("soil_profile", path)) if path else "soil_profile",
+    )
+
+
+def rederive_soil_profile(txn: StreamTransaction, location_key: str, *, tenant_key: str) -> None:
+    """Derive the bed's ``soil_profile``, inside the caller's transaction (#2706, the one write path).
+
+    Runs after every store, void, correction or withdrawn task completion of a soil analysis and after a hand edit
+    (``PATCH /locations``): per measured field the newest observation wins (:func:`derive_profile`). The caller
+    declared :data:`SOIL_PROFILE_WRITE_COLLECTIONS` and :data:`SOIL_PROFILE_READ_COLLECTIONS` and has already
+    written its own columns in ``txn``, so the read sees them. The bed is **always** written (``soil_profile_rev``
+    moves even when the profile comes out unchanged), so two derivations of one bed collide on the write-write
+    conflict. At most :data:`MAX_DERIVATION_ANALYSES` open analyses are read (logged when reached); the closed ones
+    are read only for a row from before ``hand_values`` (legacy rule), bounded alike. A bed that is gone or whose
+    site is not the tenant's (fail closed) is left alone; a derived profile the model refuses raises 422
+    ``soil_profile.derivation_invalid`` and aborts the transaction.
+    """
+    location = _owned_location(txn, location_key, tenant_key)
+    if location is None:
+        return
+    current = _soil_of(location)
+    analyses = _analyses(txn, location_key, tenant_key, open_ones=True)
+    legacy = not isinstance(current.get("hand_values"), dict) and any(
+        current.get(value_field) is not None for value_field, _ in PROFILE_MEASURED_FIELDS
+    )
+    history = [*analyses, *_analyses(txn, location_key, tenant_key, open_ones=False)] if legacy else analyses
+    derived = cast("dict[str, Any]", _json_value(derive_profile(current, analyses, history=history)))
+    try:
+        SoilProfile(**derived)
+    except PydanticValidationError as exc:
+        raise _refused(exc) from exc
+    # A bed that had no profile and derives none keeps none; the revision moves either way.
+    _write_profile(txn, location_key, tenant_key, derived, write=bool(derived) or bool(current))
+
+
+def write_soil_profile_edit(
+    txn: StreamTransaction,
+    location_key: str,
+    *,
+    tenant_key: str,
+    profile: dict[str, Any] | None,
+    check_last_analysis_at: bool,
+    expected_last_analysis_at: datetime | None,
+) -> None:
+    """A ``soil_profile`` sent with ``PATCH /locations``, written through the derivation (#2706).
+
+    Inside the caller's transaction (it declared what :func:`rederive_soil_profile` needs). In order: the
+    precondition - a body that carried ``last_analysis_at`` must carry the stored one, else 409
+    ``soil_profile.stale``; ``null`` stores ``null``; a row from before ``hand_values`` is derived first (its values
+    get their hand entries from the legacy rule, never from the edit); then the edited measured fields become hand
+    entries at now (unchanged ones none), the other soil fields are taken as sent, and the derivation computes the
+    measured fields and ``last_analysis_at``. The derived fields are never written from the body.
+    """
+    location = _owned_location(txn, location_key, tenant_key)
+    if location is None:
+        raise NotFoundError("Location", location_key)
+    current = _soil_of(location)
+    stored_last = read_instant(current.get("last_analysis_at"))
+    expected = read_instant(expected_last_analysis_at)
+    if check_last_analysis_at and stored_last != expected:
+        raise PlanError(
+            "soil_profile.stale",
+            "The soil profile changed since it was read (a soil analysis was stored); reload and try again.",
+            status_code=409,
+            field="soil_profile.last_analysis_at",
+        )
+    if profile is None:
+        _write_profile(txn, location_key, tenant_key, None)
+        return
+    if current and not isinstance(current.get("hand_values"), dict):
+        rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
+        location = _owned_location(txn, location_key, tenant_key) or location
+        current = _soil_of(location)
+    derived_fields = {name for pair in PROFILE_MEASURED_FIELDS for name in pair if name} | {
+        "last_analysis_at",
+        "hand_values",
+    }
+    staged = {name: value for name, value in profile.items() if name not in derived_fields}
+    staged.update({name: value for name, value in current.items() if name in derived_fields})
+    staged["hand_values"] = hand_values_after_edit(current, profile, datetime.now(UTC))
+    _write_profile(txn, location_key, tenant_key, cast("dict[str, Any]", _json_value(staged)))
+    rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
 
 
 def _json_value(value: Any) -> Any:
     """A derived profile as the database stores it: every instant (nested ones too) as ISO text."""
     if isinstance(value, datetime):
-        return value.isoformat()
+        instant: datetime = value
+        return instant.isoformat()
     if isinstance(value, dict):
-        return {str(name): _json_value(item) for name, item in value.items()}
+        mapping: dict[str, Any] = value
+        return {str(name): _json_value(mapping[name]) for name in mapping}
     if isinstance(value, list):
         return [_json_value(item) for item in value]
     return value

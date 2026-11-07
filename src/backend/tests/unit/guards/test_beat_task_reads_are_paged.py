@@ -69,10 +69,10 @@ _MCP_CAP = "MCP tool scan cap: the tool reports `truncated` to the agent when th
 #: window (bounded by construction), why only the newest rows are wanted, or why only
 #: the ``total`` is read.
 ALLOWED: dict[tuple[str, str], str] = {
-    # REQ-053 #2706: the soil-profile re-derivation reads the newest MAX_DERIVATION_ANALYSES soil analyses of one bed
-    # on purpose - only the newest open analysis per parameter matters; reaching the bound is logged
+    # REQ-053 #2706: the soil-profile derivation reads the newest MAX_DERIVATION_ANALYSES open (or closed) analyses
+    # of one bed on purpose - only the newest open analysis per parameter matters; reaching the bound is logged
     # (``soil_analysis.derivation_bound_reached``) and the bound is stated in REQ-053 §15.1.
-    ("data_access/arango/care_event_repository.py", "rederive_soil_profile"): (
+    ("data_access/arango/care_event_repository.py", "_analyses"): (
         "newest-N read of one bed's soil analyses; the bound is logged when reached and specified in REQ-053 §15.1"
     ),
     # REQ-053 WP 8.15 (#2658, SEC-001): the companion overlay bounds its work on purpose. The adjacency read is cut

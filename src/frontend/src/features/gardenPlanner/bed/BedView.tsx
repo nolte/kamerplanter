@@ -109,7 +109,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
       case 'history':
         return (
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
-            <BedHistoryTab key={summary.key} bed={summary} />
+            <BedHistoryTab key={summary.key} bed={summary} onChanged={() => void onReload()} />
           </Suspense>
         );
       case 'photos':

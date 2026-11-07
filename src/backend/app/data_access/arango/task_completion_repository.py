@@ -198,7 +198,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
         self._require_tenant(tenant_key, "complete")
         completed: list[CompletedTask] = []
         # The soil analyses this batch stores or replaces: their beds' profiles are derived again at the end (#2706).
-        touched: list[CareEvent | dict[str, Any]] = []
+        beds: set[str] = set()
         with stream_transaction(self._db, write=_COMPLETION_WRITE, read=_UNDO_READ, entity="task_completion") as txn:
             now = _now()
             for write in writes:
@@ -221,7 +221,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                             at=now,
                             strict=True,
                         )
-                        touched.append(earlier)
+                        beds.update(profile_locations([earlier]))
                 reference: dict[str, str] | None = None
                 if write.domain is not None:
                     reference = self._insert_domain(txn, write.domain, now)
@@ -231,12 +231,12 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                         raise ValueError("complete: the event belongs to another tenant than the one it writes under.")
                     event = write.event.model_copy(update={"source_ref": reference}) if reference else write.event
                     event_key = str(write_care_event(txn, event, now)["_key"])
-                    touched.append(event)
+                    beds.update(profile_locations([event]))
                 txn.collection(col.TASKS).update({"_key": write.task_key, **write.task_patch, "updated_at": now})
                 completed.append(CompletedTask(write.task_key, event_key, reference))
             # One write path: the profile of every bed a stored or replaced soil analysis belongs to is derived from
             # its open analyses (the new lines included), in this transaction.
-            for location_key in profile_locations(touched):
+            for location_key in sorted(beds):
                 rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         logger.info(
             "task_completion.committed",
