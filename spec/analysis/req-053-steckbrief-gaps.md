@@ -221,7 +221,7 @@ Konventionen wie bei Batch 1 und 2. Auswahl: alphabetische Dateiliste von `spec/
 
 | Art | Feld | Grund |
 |---|---|---|
-| Dieffenbachia, Dracaena trifasciata, Epipremnum, Euphorbia, Ficus elastica, Drachenpalmen, Geranium sanguineum, Eruca, Glycine max | `light_requirement` | RHS nennt Spanne ohne Vorzug („Full sun, Partial shade"); bei Eruca und Glycine max keine Standortstufe gelesen |
+| Dieffenbachia, Dracaena trifasciata, Epipremnum, Euphorbia, Ficus elastica, Drachenpalmen, Geranium sanguineum, Eruca | `light_requirement` | RHS nennt Spanne ohne Vorzug („Full sun, Partial shade"); bei Eruca keine Standortstufe gelesen (Glycine max: seit #2516 belegt, siehe Nachtrag) |
 | Ficus lyrata | `light_requirement` | RHS-Positionsfeld „Full sun", Kulturtext „full sun or partial shade" widerspricht — konservativ null |
 | Fittonia | `light_requirement` | RHS nennt nur „bright light, out of direct sun", keine Standortstufe |
 | Delphinium, Echinacea, Geranium sanguineum | `spacing_cm` | RHS nennt Endbreite/Etikett, keinen Pflanzabstand; Echinacea 1.6 „40–50" von keiner Quelle gestützt |
@@ -295,7 +295,7 @@ Konventionen wie bei Batch 1–3. Auswahl: alphabetische Dateiliste von `spec/kn
 |---|---|---|
 | Hedera helix, Humulus lupulus, Jasminum polyanthum, Livistona chinensis, Ligustrum vulgare | `light_requirement` | RHS nennt Spanne ohne Vorzug |
 | Haworthiopsis fasciata, Hoya carnosa, Hibiscus rosa-sinensis, Levisticum officinale, Lupinus polyphyllus | `light_requirement` | Quellen widersprechen sich (RHS-Positionsfeld vs. Kulturtext bzw. Artseite vs. Guide) |
-| Gymnocalycium, Hordeum, Lens, Hippeastrum | `light_requirement` | keine Standortstufe gelesen („bright, filtered light" ist keine Stufe) |
+| Gymnocalycium, Lens, Hippeastrum | `light_requirement` | keine Standortstufe gelesen („bright, filtered light" ist keine Stufe) (Hordeum: seit #2516 belegt, siehe Nachtrag) |
 | Helianthus, Hordeum, Humulus, Lens, Levisticum (Reihe), Lavandula, Hosta, Hydrangea, Ligustrum, Lupinus, Malus | `spacing_cm` / `row_spacing_cm` | RHS nennt nur Endbreite bzw. Obergrenze; Getreide/Hülsenfrüchte nach Saatstärke; Hopfen/Sonnenblume: Fachquellen als PDF nicht lesbar |
 | Lens, Hordeum, Humulus, Helianthus, Levisticum, Luffa | `nutrient_demand` | keine artspezifische Zehrerstufe gelesen (LK NRW nennt nur Sammelgruppe „Kräuter") |
 | Zierpflanzen/Gehölze (Helleborus, Hemerocallis, Hosta, Hydrangea, Jasminum, Ligustrum, Lupinus, Malus, Hibiscus) | `nutrient_demand`, `rotation_pause_years` | keine Zehrerstufe in Fruchtfolge-Quellen |
@@ -565,7 +565,7 @@ Konventionen wie bei Batch 1–6. Auswahl: alphabetische Dateiliste von `spec/kn
 | Feld | gesetzt (mit Quelle) | `null` n/a | `null` unbelegt |
 |---|---|---|---|
 | `row_spacing_cm` | 9 (Sorghum 30–50, Spinat 20, Tagetes erecta 30, Tagetes patula 30, Weizen 12,5–25, Tropaeolum 30, Ackerbohne 45, Weinrebe 150–180, Mais 34–45) | 15 (12 Zimmerpflanzen, Syringa, Viburnum, Weigela; keine Reihenkultur) | 6 (Thymus, Trifolium, Vaccinium, Tigridia, Verbena, Viola) |
-| `light_requirement` | 26 (`full_sun` 18, `partial_shade` 8) | 0 | 4 (Sorghum, Viburnum, Viola, Weigela) |
+| `light_requirement` | 26 (`full_sun` 18, `partial_shade` 8) | 0 | 4 (Sorghum, Viburnum, Viola, Weigela; Sorghum seit #2516 belegt, siehe Nachtrag) |
 | `nutrient_demand` (+ `_source`, `_confidence`) | 8 (light 5, medium 1, heavy 2; Konfidenz medium 2, low 6, high 0) | 20 (12 Zimmerpflanzen, 8 Zierpflanzen; optional) | 2 von 10 Nutzarten (**Pflicht**): Weizen, Kapuzinerkresse |
 | `nitrogen_fixing` | 2 (`true`: Rotklee, Ackerbohne) | 20 (Zimmer-/Zierpflanzen) | 8 von 10 Nutzarten (keine gelesene Quelle nennt „fixiert keinen Stickstoff“; `false` ist eine Behauptung) |
 | `rotation_pause_years` (Art-Override) | 2 (Rotklee 4, Ackerbohne 4) | 20 (Zimmer-/Zierpflanzen) | übrige Nutzarten: „Familienwert gilt“ (Spinat: Familie Amaranthaceae nicht in `botanical_families.yaml`) bzw. kein Familienwert (Lamiaceae, Fabaceae, Poaceae) bzw. Dauerkultur ohne Quelle bzw. „selbstverträglich“ ohne Zahl (Mais, Sorghum) |
@@ -727,3 +727,15 @@ Quelle: Kommentar des Betreibers in #2371 („source quality decides, conservati
 | Vitis vinifera | medium_feeder | light_feeder (siehe Batch 6/7) |
 
 Ein Abgleich beider Felder im Seed (`plant_info_outdoor_*.yaml`) ergab 7 abweichende Arten in `plant_info_outdoor_*.yaml` plus Raphanus (Altfeld in `species.yaml`), zusammen 8; die Regel gilt für alle (die Betreiberentscheidung nannte Mentha, Ocimum, Raphanus ausdrücklich; Rheum aus Batch-6-Frage 3 und die übrigen folgen derselben Regel). Solanum: kein Widerspruch. Die Zeile „Vorrang Zehrerfelder“ steht nur in den Steckbriefen der drei ausdrücklich genannten Arten; für die übrigen fünf trägt der Seed-Kommentar den Hinweis (Nachziehen im Steckbrief ist Folgearbeit). `nutrient_demand_level` bleibt Laufzeitquelle der EC-Skalierung, bis die Angleichung erfolgt. Familienwerte Fabaceae 3 und Lamiaceae 4 gelten auch für Arten ohne Art-Override (z. B. Lens, Thymus); die Untergrenze ist bewusst konservativ.Hinweis: `nutrient_demand_level` skaliert weiterhin das EC-Ziel (`phase_resource_resolver`); eine Angleichung an `nutrient_demand` ist Folgearbeit außerhalb dieser Datenänderung.
+
+## Nachtrag #2516 — Recherche-Batch `light_requirement` (2026-11-07)
+
+Alle 54 Steckbriefe, die nach Batch 1–7 ohne belegten Lichtanspruch blieben (Spinat ausgenommen: #2620, v0103), erneut gegen RHS-Artseiten („Position") und die NC State Extension Plant Toolbox („Light") gelesen. Regel unverändert: ein Wert nur, wenn eine Fachquelle **eine** Stufe nennt; „Spanne ohne Vorzug = null", „bright, filtered/indirect light" ist keine Stufe, eine Quelle zu einer Sortengruppe oder einem anderen Taxon belegt die Art nicht, und „blüht am besten in voller Sonne" innerhalb einer Spanne gilt wie beim Spinat nicht als Vorzug.
+
+| Art | Wert | Quelle |
+|---|---|---|
+| Glycine max | `full_sun` | NC State Plant Toolbox „Glycine max" (Light: nur „Full sun"; „Soybean grows readily … in full sun") |
+| Hordeum vulgare | `full_sun` | NC State Plant Toolbox „Hordeum vulgare" (Light: nur „Full sun"; „Barley grows best in full sun") |
+| Sorghum bicolor | `full_sun` | NC State Plant Toolbox „Sorghum bicolor" (Light: nur „Full sun"; „shade intolerant") — eine Quelle |
+
+Die übrigen 51 bleiben `null`; der Grund steht im DATEN-FEHLEN-Marker des Steckbriefs. Im Review verworfen (Wert vorgeschlagen, auf `null` belassen): Fittonia (RHS-Position nur für die Argyroneura Group), Maranta und Soleirolia („bright, indirect light", Positionsspanne), Pelargonium zonale (NC-State-Seite gilt *P.* × *hybridum*), Sambucus nigra und Weigela florida („full sun to partial shade", Blühvorzug), Mammillaria (Gattungsseite mit beiden Stufen gegen RHS-Artseiten), Gymnocalycium (Spanne mit weichem Vorzug, eine Quelle). Folgehinweis: dieselbe NC-State-Seite nennt Sorghum „shade intolerant"; `shade_tolerance` ist nicht Gegenstand dieses Batches.

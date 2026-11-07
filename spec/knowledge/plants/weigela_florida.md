@@ -128,9 +128,9 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS nennt Spanne „Full sun, Partial shade“ ohne ausdrücklichen Vorzug; keine weitere gelesene Quelle mit Vorzug --> | `species.light_requirement` |
 | Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
-| Quelle Lichtbedarf | NC State Extension, Plant Toolbox „Weigela florida“, https://plants.ces.ncsu.edu/plants/weigela-florida/ — „Plant this shrub in the full sun to light shade or dappled sunlight … the best flowering and foliage color will occur in full sun.“ Abbildung: der genannte Vorzug „best … in full sun“ → `full_sun`; Halbschatten/lichter Schatten gilt als Toleranz (§1.7). Vereinbar mit RHS, „Weigela florida“ (Position: Full sun, Partial shade; Kulturtext „in sun or partial shade“, kein Vorzug), https://www.rhs.org.uk/plants/101006/wd/details | — |
+| Quelle Lichtbedarf | RHS, „Weigela florida“ (Position: Full sun, Partial shade; Kulturtext „in sun or partial shade“, kein Vorzug genannt), https://www.rhs.org.uk/plants/101006/wd/details | — |
 
 ---
 
@@ -318,7 +318,7 @@ Weigela florida,"Liebliche Weigelie;Weigelie;Weigela",Caprifoliaceae,Weigela,per
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 6. [RHS — Weigela florida](https://www.rhs.org.uk/plants/101006/weigela-florida/details) — Standort (Sonne/Halbschatten), Boden-pH (sauer/neutral/alkalisch), Feuchte (durchlässig), Staunässe-Empfindlichkeit
 7. [Missouri Botanical Garden — Weigela florida](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=c367) — Sonnenbedarf, mittlere Bodenfeuchte, USDA-Zonen, laubabwerfend, Salztoleranz
-8. [NC State Extension — Weigela florida](https://plants.ces.ncsu.edu/plants/weigela-florida/) — Boden-pH, Licht (Vorzug Vollsonne), „lightly salt tolerant", USDA-Zonen
+8. [NC State Extension — Weigela florida](https://plants.ces.ncsu.edu/plants/weigela-florida/) — Boden-pH, Licht, „lightly salt tolerant", USDA-Zonen
 9. [Clemson HGIC — Old-Fashioned Weigela](https://hgic.clemson.edu/how-to-grow-and-care-for-old-fashioned-weigela-weigela-florida/) — Sonne, durchlässiger Boden, Bodentypen, USDA-Zonen
 10. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling gegen Blattläuse, Ausbringrate
 11. [Cornell NYSIPM — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Raubmilbe gegen Spinnmilben, Ausbringrate, Etablierungsbedingungen

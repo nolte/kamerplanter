@@ -151,9 +151,9 @@ Quellen (§1.8): [Thompson & Morgan — Raising F1 Hybrid Geraniums from Seed](h
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite „Pelargonium zonale“: Position „Full sun, Partial shade“ und Kulturtext „full sun or partial shade“ ohne Vorzug; RHS-Leitfaden (Gattung): „Most flower best in full sun … Zonal cultivars will tolerate some shade“ — Gattungsaussage, keine eindeutige Standortstufe der Art --> | `species.light_requirement` |
 | Schattentoleranz | full_sun | `species.shade_tolerance` |
-| Quelle Lichtbedarf | NC State Extension, Plant Toolbox „Pelargonium × hybridum“ (zonal pelargonium; dort „Previously known as: Pelargonium × hortorum“), https://plants.ces.ncsu.edu/plants/pelargonium-x-hybridum/common-name/zonal-pelargonium/ — Feld „Light“: „Full sun (6 or more hours of direct sunlight a day)“; Text: „Zonal pelargonium requires full sun and soils that are well-drained. In insufficient light, plants become leggy and bloom poorly.“ Zuordnung: ausdrückliche Anspruchsaussage („requires full sun“) → `full_sun`. Vereinbar mit RHS-Leitfaden „How to grow pelargoniums“ (https://www.rhs.org.uk/plants/pelargonium/growing-guide): „Most flower best in full sun … Zonal cultivars will tolerate some shade“ (Halbschatten = Toleranz) sowie mit Clemson HGIC (Quelle 12, mind. 6 h Direktsonne). Die RHS-Artseite (https://www.rhs.org.uk/plants/12407/pelargonium-zonale/details) nennt „Full sun, Partial shade“ ohne Vorzug und widerspricht dem nicht. | — |
+| Quelle Lichtbedarf | — | — |
 
 
 ---
@@ -383,5 +383,4 @@ Pelargonium zonale,"Zimmerpelargonie;Zonale Geranie;Stehende Geranie;Zonal Geran
 27. [Senior Gardening — Growing Geraniums from Seed](http://www.senior-gardening.com/features/seed_geraniums-2009.html) — Keimdauer bis 20 Tage, Anzuchtpraxis
 28. [RHS — Pelargonium zonale](https://www.rhs.org.uk/plants/12407/pelargonium-zonale/details) — Position „Full sun, Partial shade“ ohne Vorzug; kein Pflanzabstand angegeben
 29. [RHS — How to grow pelargoniums (Growing Guide)](https://www.rhs.org.uk/plants/pelargonium/growing-guide) — „Most flower best in full sun … Zonal cultivars will tolerate some shade“; kein Pflanzabstand angegeben
-30. [NC State Extension — Pelargonium × hybridum (zonal pelargonium)](https://plants.ces.ncsu.edu/plants/pelargonium-x-hybridum/common-name/zonal-pelargonium/) — „Zonal pelargonium requires full sun“
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
