@@ -26,9 +26,6 @@ MAX_REPORTED = 50
 #: that writes a new one removes the oldest beyond it in the same transaction (a snapshot holds a whole plan).
 MAX_SNAPSHOTS_PER_SITE = 20
 
-#: ``GardenPlanExport`` fields the import knows. A top-level key outside this set belongs to a *newer* file.
-SUPPORTED_SCHEMA_VERSIONS: tuple[str, ...] = ("1",)
-
 #: Keys that name a technical coupling (a Home Assistant entity, an actuator, the flow source): never imported.
 #: A ``flow_rate_source`` of ``manual`` carries no coupling and is not reported.
 ALWAYS_DROPPED_FIELDS: tuple[str, ...] = ("flow_rate_ha_entity_id", "actuator_key", "flow_rate_source")

@@ -48,6 +48,7 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.plan_schema_migration import migrate, readable_versions
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_object import GardenObject
@@ -75,7 +76,6 @@ from app.domain.models.garden_plan_import import (
     MAX_IMPORT_NESTING,
     MAX_OFFSET_M,
     MAX_REPORTED,
-    SUPPORTED_SCHEMA_VERSIONS,
     DroppedReference,
     DropReason,
     ImportCounts,
@@ -449,15 +449,18 @@ class GardenPlanImportService:
                 status_code=422,
                 field="schema_version",
             )
-        if version not in SUPPORTED_SCHEMA_VERSIONS:
+        readable = readable_versions()
+        if version not in readable:
             raise PlanError(
                 "import.schema_version_unsupported",
                 "This file has a schema version this installation cannot read.",
                 status_code=422,
                 field="schema_version",
-                supported=list(SUPPORTED_SCHEMA_VERSIONS),
+                supported=readable,
                 got=str(version)[:16],
             )
+        # GP-NFR-072: an older file is lifted to the current version first; every check below sees one shape.
+        document = migrate(document)
         unknown = sorted(set(document) - set(GardenPlanExport.model_fields))
         plan = document.get("plan")
         if isinstance(plan, dict):

@@ -538,6 +538,55 @@ class TestTheFileIsUntrusted:
         assert detail["key"] == document["locations"][1]["key"]
 
 
+class TestAnOlderFileIsMigratedBeforeItIsChecked2671:
+    """GP-NFR-072 (WP 8.28): the chain lifts an older file to the current version before the key check and the model.
+
+    Today ``"1"`` is the only version, so the chain is stood in for at the service's seam: a previous version whose
+    file names its beds ``beds`` instead of ``locations``. Its migrator is what makes the file pass - unmigrated, the
+    same document is refused with ``import.unknown_keys``.
+    """
+
+    @staticmethod
+    def _previous(document: dict[str, Any]) -> dict[str, Any]:
+        older = {key: value for key, value in document.items() if key != "locations"}
+        return {**older, "schema_version": "0", "beds": document["locations"]}
+
+    @staticmethod
+    def _lift(document: dict[str, Any]) -> dict[str, Any]:
+        if document["schema_version"] == "1":
+            return document
+        lifted = {key: value for key, value in document.items() if key != "beds"}
+        return {**lifted, "schema_version": "1", "locations": document["beds"]}
+
+    def test_a_previous_version_file_is_imported_through_its_migrator(self, rig, repo, monkeypatch) -> None:
+        from app.domain.services import garden_plan_import_service as module
+
+        monkeypatch.setattr(module, "readable_versions", lambda: ["0", "1"])
+        monkeypatch.setattr(module, "migrate", self._lift)
+
+        assert rig.run(self._previous(rig.file())) is not None
+        assert repo.applied, "the migrated file was written like a current one"
+
+    def test_without_the_migrator_the_same_file_is_refused(self, rig, repo, monkeypatch) -> None:
+        from app.domain.services import garden_plan_import_service as module
+
+        monkeypatch.setattr(module, "readable_versions", lambda: ["0", "1"])
+        monkeypatch.setattr(module, "migrate", lambda document: {**document, "schema_version": "1"})
+
+        with pytest.raises(PlanError) as refused:
+            rig.run(self._previous(rig.file()))
+
+        assert refused.value.error_code == "import.unknown_keys"
+        assert repo.applied == []
+
+    def test_an_unreadable_version_names_the_readable_ones(self, rig) -> None:
+        with pytest.raises(PlanError) as refused:
+            rig.run({**rig.file(), "schema_version": "7"})
+
+        assert refused.value.error_code == "import.schema_version_unsupported"
+        assert refused.value.details[0]["supported"] == ["1"]
+
+
 class TestOversizedListsAreRefusedBeforeAnyLookup2542:
     """#2542 W-1: a file with more entries than a site may hold is refused whole, before ``_prepare`` looks up."""
 
