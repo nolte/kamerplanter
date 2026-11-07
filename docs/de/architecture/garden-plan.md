@@ -134,7 +134,7 @@ Mit `scope` wählst du `site` (alles), `selection` (genau die in `keys` genannte
 
 ### Additive Schlüssel und Versionen
 
-`schema_version` ist `"1"`. Neue Felder werden nur **additiv** ergänzt; ein bekannter Eintrag ignoriert unbekannte Felder. Eine Datei mit unbekanntem Schlüssel auf oberster Ebene stammt von einer neueren Version und wird mit `422 import.unknown_keys` abgelehnt; ein fehlender oder nicht unterstützter Wert von `schema_version` ergibt `import.schema_version_missing` bzw. `import.schema_version_unsupported`. Die Frostexposition eines Beets (`frost_exposed`) ist Teil der Datei; fehlt sie, leitet der Import sie aus dem Frostrisiko ab.
+`schema_version` ist `"1"`. Ein Breaking Change hebt die Version an; der Import liest dann mindestens die zwei Versionen davor weiter und hebt eine ältere Datei vor jeder Prüfung schrittweise auf die aktuelle an (Migrationskette `plan_schema_migration`, je Version ein Schritt). Scheitert die Umwandlung, antwortet er mit `422 import.schema_migration_failed`. Ein Guard-Test wird rot, wenn die Version ohne diese Schritte angehoben wird. Neue Felder werden nur **additiv** ergänzt; ein bekannter Eintrag ignoriert unbekannte Felder. Eine Datei mit unbekanntem Schlüssel auf oberster Ebene stammt von einer neueren Version und wird mit `422 import.unknown_keys` abgelehnt; ein fehlender oder nicht unterstützter Wert von `schema_version` ergibt `import.schema_version_missing` bzw. `import.schema_version_unsupported`. Die Frostexposition eines Beets (`frost_exposed`) ist Teil der Datei; fehlt sie, leitet der Import sie aus dem Frostrisiko ab.
 
 ### Snapshots
 

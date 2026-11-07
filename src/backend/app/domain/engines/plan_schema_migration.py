@@ -12,17 +12,32 @@ While ``"1"`` is the only version there is nothing to migrate and :data:`MIGRATO
 ``tests/unit/guards/test_plan_import_keeps_two_schema_versions.py`` turns red the moment ``SCHEMA_VERSION`` is
 raised without migrators for the two versions before it.
 
-Versions are decimal strings (``"1"``, ``"2"`` ...), compared as numbers.
+Versions are decimal strings (``"1"``, ``"2"`` ...); a file's ``schema_version`` must be one of those strings - a
+JSON number ``1`` is not a version this module reads. Steps are counted on their numeric value.
+
+A migrator runs on a file that has not been validated yet: it must not trust the shape, and whatever it raises is
+reported as :class:`SchemaMigrationError` (the import answers 422, never 500). It receives a deep copy, so it may
+change its argument in place without touching the caller's request or a stored snapshot.
 """
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable, Mapping
 from typing import Any
 
 from app.domain.models import garden_plan_export
 
 type Migrator = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+class UnreadableSchemaVersionError(ValueError):
+    """The file's ``schema_version`` is not one this installation can read or migrate."""
+
+
+class SchemaMigrationError(ValueError):
+    """A migrator failed on the file, or did not advance ``schema_version`` by exactly one."""
+
 
 #: GP-NFR-072: how many versions before the current one the import must still read.
 KEPT_PREDECESSORS = 2
@@ -53,7 +68,8 @@ def readable_versions(current: str | None = None, migrators: Mapping[str, Migrat
     migrators = MIGRATORS if migrators is None else migrators
     readable = [current]
     version = int(current) - 1
-    while version >= 1 and str(version) in migrators:
+    # Down to "0": no real file has it, but a test may register a step from it (the required ones start at "1").
+    while version >= 0 and str(version) in migrators:
         readable.insert(0, str(version))
         version -= 1
     return readable
@@ -62,18 +78,27 @@ def readable_versions(current: str | None = None, migrators: Mapping[str, Migrat
 def migrate(
     document: dict[str, Any], current: str | None = None, migrators: Mapping[str, Migrator] | None = None
 ) -> dict[str, Any]:
-    """``document`` lifted to ``current``; its ``schema_version`` must be one of :func:`readable_versions`.
+    """``document`` lifted to ``current`` - the one place that decides whether a file's version is readable.
 
-    Each step must advance ``schema_version`` by exactly one - a migrator that skips or repeats a version is a bug,
-    raised here rather than validated against the wrong model.
+    Raises :class:`UnreadableSchemaVersionError` for a version outside :func:`readable_versions` (or not a string)
+    and :class:`SchemaMigrationError` when a migrator fails or skips/repeats a version. A current file comes back
+    as the same object; an older one as a migrated deep copy.
     """
     current = current_version() if current is None else current
     migrators = MIGRATORS if migrators is None else migrators
-    if document.get("schema_version") not in readable_versions(current, migrators):
-        raise ValueError(f"schema_version {document.get('schema_version')!r} cannot be migrated to {current!r}")
-    while (version := str(document["schema_version"])) != current:
-        document = migrators[version](document)
+    version = document.get("schema_version")
+    if not isinstance(version, str) or version not in readable_versions(current, migrators):
+        raise UnreadableSchemaVersionError(f"schema_version {version!r} cannot be migrated to {current!r}")
+    if version == current:
+        return document
+    document = copy.deepcopy(document)
+    while version != current:
         expected = str(int(version) + 1)
-        if str(document.get("schema_version")) != expected:
-            raise ValueError(f"the migrator from {version!r} must produce {expected!r}")
+        try:
+            document = migrators[version](document)
+        except Exception as exc:  # untrusted input reaches the migrator unvalidated
+            raise SchemaMigrationError(f"the migrator from {version!r} failed: {type(exc).__name__}") from exc
+        if not isinstance(document, dict) or document.get("schema_version") != expected:
+            raise SchemaMigrationError(f"the migrator from {version!r} must produce {expected!r}")
+        version = expected
     return document

@@ -92,6 +92,7 @@ const KNOWN_FAILURES = new Set([
   'import_not_empty',
   'import_schema_version_missing',
   'import_schema_version_unsupported',
+  'import_schema_migration_failed',
   'import_unknown_keys',
   'import_site_name_mismatch',
   'import_offset_invalid',

@@ -539,11 +539,11 @@ class TestTheFileIsUntrusted:
 
 
 class TestAnOlderFileIsMigratedBeforeItIsChecked2671:
-    """GP-NFR-072 (WP 8.28): the chain lifts an older file to the current version before the key check and the model.
+    """GP-NFR-072 (WP 8.28): the real chain lifts an older file to the current version before every check.
 
-    Today ``"1"`` is the only version, so the chain is stood in for at the service's seam: a previous version whose
-    file names its beds ``beds`` instead of ``locations``. Its migrator is what makes the file pass - unmigrated, the
-    same document is refused with ``import.unknown_keys``.
+    Today ``"1"`` is the only version, so the test registers a step from a stand-in previous version ``"0"`` whose
+    file names its beds ``beds`` instead of ``locations``. Only the engine's data is patched; ``readable_versions``
+    and ``migrate`` run as in production. Unmigrated, the same document is refused with ``import.unknown_keys``.
     """
 
     @staticmethod
@@ -553,25 +553,27 @@ class TestAnOlderFileIsMigratedBeforeItIsChecked2671:
 
     @staticmethod
     def _lift(document: dict[str, Any]) -> dict[str, Any]:
-        if document["schema_version"] == "1":
-            return document
-        lifted = {key: value for key, value in document.items() if key != "beds"}
-        return {**lifted, "schema_version": "1", "locations": document["beds"]}
+        document["locations"] = document.pop("beds")  # in place: the chain hands the step a copy
+        document["schema_version"] = "1"
+        return document
 
     def test_a_previous_version_file_is_imported_through_its_migrator(self, rig, repo, monkeypatch) -> None:
-        from app.domain.services import garden_plan_import_service as module
+        from app.domain.engines import plan_schema_migration
 
-        monkeypatch.setattr(module, "readable_versions", lambda: ["0", "1"])
-        monkeypatch.setattr(module, "migrate", self._lift)
+        monkeypatch.setattr(plan_schema_migration, "MIGRATORS", {"0": self._lift})
+        older = self._previous(rig.file())
+        sent = copy.deepcopy(older)
 
-        assert rig.run(self._previous(rig.file())) is not None
+        assert rig.run(older) is not None
         assert repo.applied, "the migrated file was written like a current one"
+        assert older == sent, "the caller's document is not changed by the migration"
 
-    def test_without_the_migrator_the_same_file_is_refused(self, rig, repo, monkeypatch) -> None:
-        from app.domain.services import garden_plan_import_service as module
+    def test_a_step_that_does_not_move_the_beds_leaves_the_file_refused(self, rig, repo, monkeypatch) -> None:
+        from app.domain.engines import plan_schema_migration
 
-        monkeypatch.setattr(module, "readable_versions", lambda: ["0", "1"])
-        monkeypatch.setattr(module, "migrate", lambda document: {**document, "schema_version": "1"})
+        monkeypatch.setattr(
+            plan_schema_migration, "MIGRATORS", {"0": lambda document: {**document, "schema_version": "1"}}
+        )
 
         with pytest.raises(PlanError) as refused:
             rig.run(self._previous(rig.file()))
@@ -579,9 +581,29 @@ class TestAnOlderFileIsMigratedBeforeItIsChecked2671:
         assert refused.value.error_code == "import.unknown_keys"
         assert repo.applied == []
 
-    def test_an_unreadable_version_names_the_readable_ones(self, rig) -> None:
+    @pytest.mark.parametrize(
+        "step",
+        [
+            lambda document: document["no_such_key"],  # a migrator tripping over the file's shape
+            lambda document: {**document, "schema_version": "2"},  # a migrator skipping a version
+        ],
+        ids=["raises", "skips"],
+    )
+    def test_a_failing_step_is_a_422_not_a_500(self, rig, repo, monkeypatch, step) -> None:
+        from app.domain.engines import plan_schema_migration
+
+        monkeypatch.setattr(plan_schema_migration, "MIGRATORS", {"0": step})
+
         with pytest.raises(PlanError) as refused:
-            rig.run({**rig.file(), "schema_version": "7"})
+            rig.run(self._previous(rig.file()))
+
+        assert refused.value.error_code == "import.schema_migration_failed" and refused.value.status_code == 422
+        assert repo.applied == []
+
+    @pytest.mark.parametrize("version", ["7", 1])
+    def test_an_unreadable_version_names_the_readable_ones(self, rig, version) -> None:
+        with pytest.raises(PlanError) as refused:
+            rig.run({**rig.file(), "schema_version": version})
 
         assert refused.value.error_code == "import.schema_version_unsupported"
         assert refused.value.details[0]["supported"] == ["1"]

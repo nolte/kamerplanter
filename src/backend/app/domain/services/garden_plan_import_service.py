@@ -48,7 +48,12 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
-from app.domain.engines.plan_schema_migration import migrate, readable_versions
+from app.domain.engines.plan_schema_migration import (
+    SchemaMigrationError,
+    UnreadableSchemaVersionError,
+    migrate,
+    readable_versions,
+)
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_object import GardenObject
@@ -290,6 +295,9 @@ class GardenPlanImportService:
                 "import.forbidden", "Only a lead may import a garden plan.", status_code=403, field="request"
             )
         offset = _checked_offset(offset_m, mode)
+        # GP-NFR-072: an older file is lifted to the current version first - the model below and every later reader
+        # of the raw document (``_prepare``'s dropped couplings) see one shape.
+        document = _current_document(document)
         parsed = self._read_document(document)  # (4)
         shift_findings: list[ImportFinding] = []
         if offset is not None:
@@ -422,6 +430,8 @@ class GardenPlanImportService:
         stored = self._plan.load_import_snapshot(site_key, audit_key, tenant_key=tenant_key)
         if stored is None:
             raise NotFoundError("PlanSnapshotEntry", audit_key)
+        # A snapshot of an older schema_version: whether it names its zones is a question about the current shape.
+        stored = _current_document(stored)
         return self.import_plan(
             site_key,
             tenant_key=tenant_key,
@@ -440,27 +450,7 @@ class GardenPlanImportService:
 
     @staticmethod
     def _read_document(document: dict[str, Any]) -> GardenPlanExport:
-        """``schema_version``, the top-level keys and the shape — refused as a whole, before any lookup."""
-        version = document.get("schema_version")
-        if version is None:
-            raise PlanError(
-                "import.schema_version_missing",
-                "The file has no schema_version; it is not a garden-plan backup.",
-                status_code=422,
-                field="schema_version",
-            )
-        readable = readable_versions()
-        if version not in readable:
-            raise PlanError(
-                "import.schema_version_unsupported",
-                "This file has a schema version this installation cannot read.",
-                status_code=422,
-                field="schema_version",
-                supported=readable,
-                got=str(version)[:16],
-            )
-        # GP-NFR-072: an older file is lifted to the current version first; every check below sees one shape.
-        document = migrate(document)
+        """The top-level keys and the shape of a current-version document — refused as a whole, before any lookup."""
         unknown = sorted(set(document) - set(GardenPlanExport.model_fields))
         plan = document.get("plan")
         if isinstance(plan, dict):
@@ -1136,6 +1126,38 @@ class GardenPlanImportService:
             snapshot_summary=f"state before the replace import (revision {revision})",
             time_budget_seconds=max(IMPORT_TIME_BUDGET_SECONDS - (perf_counter() - started), 1.0),
         )
+
+
+def _current_document(document: dict[str, Any]) -> dict[str, Any]:
+    """``document`` at the current ``schema_version`` (GP-NFR-004/072), or the 422 that says why it cannot be."""
+    version = document.get("schema_version")
+    if version is None:
+        raise PlanError(
+            "import.schema_version_missing",
+            "The file has no schema_version; it is not a garden-plan backup.",
+            status_code=422,
+            field="schema_version",
+        )
+    try:
+        return migrate(document)
+    except UnreadableSchemaVersionError:
+        raise PlanError(
+            "import.schema_version_unsupported",
+            "This file has a schema version this installation cannot read.",
+            status_code=422,
+            field="schema_version",
+            supported=readable_versions(),
+            got=str(version)[:16],
+        ) from None
+    except SchemaMigrationError as exc:
+        logger.warning("garden_plan_import.migration_failed", schema_version=str(version)[:16], reason=str(exc))
+        raise PlanError(
+            "import.schema_migration_failed",
+            "This file has an older schema version and could not be converted; export it again if you can.",
+            status_code=422,
+            field="schema_version",
+            got=str(version)[:16],
+        ) from None
 
 
 def _require_lead(role: TenantRole) -> None:
