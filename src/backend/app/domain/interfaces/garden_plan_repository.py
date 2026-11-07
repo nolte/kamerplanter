@@ -55,7 +55,11 @@ class IGardenPlanRepository(ABC):
     def load_read_model(
         self, site_key: SiteKey, *, tenant_key: str, include_plants: bool, include_tasks: bool
     ) -> PlanReadData:
-        """The documents of the plan read model; slots of archived runs are left out."""
+        """The documents of the plan read model; slots of archived runs are left out.
+
+        A stored slot that fails :class:`Slot` validation (a legacy row) is logged and left out, so one such row
+        does not turn the whole plan into a 500 (#2709).
+        """
 
     @abstractmethod
     def load_active_slots(
@@ -71,13 +75,17 @@ class IGardenPlanRepository(ABC):
 
         The locations must belong to the tenant's site; a key of another site or tenant yields nothing. With
         *slot_keys* only those slots among them are read (the companion overlay reads just the slots in pairs).
+        A stored slot that fails :class:`Slot` validation is logged and left out (#2709): a list read answers the
+        rows it can read.
         """
 
     @abstractmethod
     def load_slot_species_hints(self, location_key: str, *, tenant_key: str) -> list[SlotSpeciesHint]:
         """The species of the active plants and of the live run reservations in a bed's slots (GP-FR-130).
 
-        Empty when the bed does not belong to the tenant's site. Several rows may name one slot.
+        Empty when the bed does not belong to the tenant's site. Several rows may name one slot. Only species the
+        tenant may read (own ∪ global ∪ granted) are answered: a stored key is no proof of access, so an invisible
+        species is left out rather than named (#2709). A row that fails validation is logged and left out.
         """
 
     @abstractmethod

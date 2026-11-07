@@ -6,6 +6,7 @@ from arango.database import StandardDatabase
 from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
@@ -203,7 +204,7 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
 
-        old = self._db.collection(col.PLANTING_RUN_ENTRIES).get(entry_key)
+        old = get_document(self._db.collection(col.PLANTING_RUN_ENTRIES), entry_key)
         result = self._db.collection(col.PLANTING_RUN_ENTRIES).update(
             {"_key": entry_key, **data},
             return_new=True,

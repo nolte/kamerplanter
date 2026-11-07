@@ -12,6 +12,7 @@ from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.data_access.arango import tenant_ownership
 from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.data_access.arango.conflicts import conflict_error_for, describe_unique_conflict, extract_unique_field
+from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import AQLBuilder
 
 logger = structlog.get_logger(__name__)
@@ -627,7 +628,7 @@ class BaseArangoRepository[TModel: BaseModel]:
         """
         if not self._owned_reference_fields:
             return
-        stored = self.collection.get(key)
+        stored = get_document(self.collection, key)
         if stored is None:
             # The document is gone; :meth:`_update_doc` raises ``NotFoundError``
             # for it a moment later. There is no stored state to compare against
@@ -659,7 +660,7 @@ class BaseArangoRepository[TModel: BaseModel]:
     # ── Doc primitives (dict level) ──────────────────────────────────────────
 
     def _get_doc(self, key: str) -> dict[str, Any] | None:
-        doc = self.collection.get(key)
+        doc = get_document(self.collection, key)
         if doc is None:
             return None
         return self._from_doc(doc)

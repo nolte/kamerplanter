@@ -10,6 +10,7 @@ from app.common.enums import DiagnosisCategory
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.domain.interfaces.plant_diagnosis_repository import IPlantDiagnosisRepository
 from app.domain.models.plant_diagnosis_request import PlantDiagnosisRequest
 
@@ -94,7 +95,7 @@ class ArangoPlantDiagnosisRepository(BaseArangoRepository[PlantDiagnosisRequest]
         read the missing field as the global arm and admitted any tenant's row. An
         observation without a plant has no owner to verify against and is refused.
         """
-        observation = self._db.collection(col.HARVEST_OBSERVATIONS).get(observation_key)
+        observation = get_document(self._db.collection(col.HARVEST_OBSERVATIONS), observation_key)
         plant_key = observation.get("plant_key") if isinstance(observation, dict) else None
         if not plant_key:
             raise NotFoundError("HarvestObservation", observation_key)

@@ -3,12 +3,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import structlog
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import FrostRisk
-from app.common.exceptions import NotFoundError, PlanError
+from app.common.exceptions import NotFoundError, PlanError, StoredDocumentInvalidError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -17,6 +19,8 @@ from app.data_access.arango.transactions import StreamTransaction, stream_transa
 from app.domain.interfaces.site_repository import ISiteRepository, SiteDeletion
 from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.site import Location, Site, Slot
+
+logger = structlog.get_logger(__name__)
 
 _SITE_EDGES = edges_touching(col.SITES)
 _LOCATION_EDGES = edges_touching(col.LOCATIONS)
@@ -159,6 +163,21 @@ class _SlotRepository(BaseArangoRepository[Slot]):
     """Slot view: a plain merge-mode repository with a write that leaves named columns alone (#2639)."""
 
     _model_cls = Slot
+
+    def get_by_key(self, key: str) -> Slot | None:
+        """The slot ``key``; a stored slot that fails :class:`Slot` validation raises a 409 (#2709).
+
+        A read by key cannot leave the row out the way a list read does - that would answer 404 for a slot that
+        exists - so it says what is wrong instead: :class:`StoredDocumentInvalidError` with the failing fields
+        (never their values), logged. Every slot resolution goes through here (``get_slot_by_key``,
+        ``get_slot_or_raise``, the ownership walk of ``location_ownership.resolve_owned_slot``).
+        """
+        try:
+            return super().get_by_key(key)
+        except PydanticValidationError as exc:
+            fields = sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()})
+            logger.warning("slot.unreadable_document", key=key, fields=fields)
+            raise StoredDocumentInvalidError("Slot", key, fields) from None
 
     def update_leaving(self, key: str, slot: Slot, *, untouched: Collection[str]) -> Slot:
         """:meth:`update` without writing the ``untouched`` columns (#2639, the slot sibling of #2623)."""

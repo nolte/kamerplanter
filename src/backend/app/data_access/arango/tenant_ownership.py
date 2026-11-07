@@ -31,6 +31,7 @@ from arango.database import StandardDatabase
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.collection_entity_names import entity_name_for_collection
+from app.data_access.arango.document_reads import get_document
 
 #: Allowlist of collections whose documents may be ownership-verified as a
 #: caller-supplied foreign reference on a write path. Constraining the handle set
@@ -106,7 +107,7 @@ def verify_entity_ownership(
     if collection not in OWNERSHIP_VERIFIABLE_COLLECTIONS:
         # Never dial an off-allowlist collection handle.
         raise NotFoundError(name, key)
-    doc = db.collection(collection).get(key)
+    doc = get_document(db.collection(collection), key)
     if doc is None:
         raise NotFoundError(name, key)
     doc_tenant = doc.get("tenant_key", "") or ""

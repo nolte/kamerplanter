@@ -7,6 +7,7 @@ from app.common.enums import TaskStatus, TerminationType
 from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.plant_instance import PlantInstance
 
@@ -197,7 +198,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         """Resolve a GrowthPhase key to its name."""
         if not phase_key:
             return ""
-        doc = self._db.collection(col.GROWTH_PHASES).get(phase_key)
+        doc = get_document(self._db.collection(col.GROWTH_PHASES), phase_key)
         return doc.get("name", "") if doc else ""
 
     # ── Survival / failure-cause analytics (REQ-003 G1) ───────────────

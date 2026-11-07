@@ -15,6 +15,7 @@ writes run inside.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -23,6 +24,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
 from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import (
@@ -40,6 +42,7 @@ from app.data_access.arango.garden_object_repository import ArangoGardenObjectRe
 from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.guarded_update import StoredValue, update_if_unchanged
 from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
+from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
 from app.data_access.arango.watering_queries import last_waterings
 from app.domain.calculators.overdue_calculator import start_of_utc_day
@@ -176,6 +179,28 @@ def _slot_cross_validated(slot: Slot) -> tuple[StoredValue, ...]:
     )
 
 
+def _readable_rows[T: BaseModel](model: type[T], rows: Iterable[dict[str, Any]], *, read: str) -> list[T]:
+    """``rows`` as ``model``, a row that fails validation logged and left out (#2709).
+
+    A list read answers the rows it can read: one legacy document (a retired enum value, a bound a later model
+    tightened) must not turn the whole bed or plan into a 500. The log names the document and the failing
+    fields, never their values.
+    """
+    readable: list[T] = []
+    for row in rows:
+        try:
+            readable.append(model(**row))
+        except PydanticValidationError as exc:
+            logger.warning(
+                "garden_plan.unreadable_row_skipped",
+                read=read,
+                model=model.__name__,
+                key=row.get("_key") or row.get("slot_key"),
+                fields=sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()}),
+            )
+    return readable
+
+
 class ArangoGardenPlanRepository(IGardenPlanRepository):
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
@@ -226,7 +251,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             # Every slot of the beds, archived ones too: the "last watered" lookup below maps a watering event's
             # slots to their bed over all of them, and reads that map from here instead of querying it again.
             slot_to_bed = {row["_key"]: row["location_key"] for row in rows}
-            data.slots = [Slot(**row) for row in rows if row.get("archived_at") is None]
+            data.slots = _readable_rows(
+                Slot, (row for row in rows if row.get("archived_at") is None), read="load_read_model"
+            )
         if include_plants and location_keys:
             data.plants = self._plants(location_keys, tenant_key)
         if include_tasks and location_keys:
@@ -388,12 +415,21 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         }
 
     def load_slot_species_hints(self, location_key: str, *, tenant_key: str) -> list[SlotSpeciesHint]:
+        """See the interface. Only species the tenant may read (own ∪ global ∪ granted, #1092) are answered (#2709).
+
+        The write paths check the species of a plant and of a run entry under that rule, but a stored key is no
+        proof of access: a plant written before the check keeps its key (the changed-only rule), and a revoked
+        grant leaves every bound key behind. So the read cuts the keys with the visible set itself - a species
+        the reader may not see is neither a key nor a spacing in the answer. A row that fails
+        :class:`SlotSpeciesHint` is logged and left out.
+        """
         if not tenant_key:
             raise ValueError("load_slot_species_hints needs a tenant_key (an empty tenant is no tenant, #2107).")
+        visible, visible_binds = tenant_union_with_grants_predicate(tenant_key, doc_var="sp")
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
-                """
+                f"""
             LET l = DOCUMENT(CONCAT(@locations, @location_key))
             FILTER l != null
             LET site = DOCUMENT(CONCAT(@sites, l.site_key))
@@ -405,7 +441,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             LET from_plants = (
                 FOR p IN @@plants
                     FILTER p.tenant_key == @tenant_key AND p.slot_key IN bed_slots AND p.removed_on == null
-                    RETURN {slot_key: p.slot_key, species_key: p.species_key}
+                    RETURN {{slot_key: p.slot_key, species_key: p.species_key}}
             )
             LET from_runs = (
                 FOR e IN @@planned
@@ -413,19 +449,19 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     LET run = DOCUMENT(e._from)
                     // SEC-004: the run itself must be the tenant's, not only live (defence in depth: the bed is).
                     FILTER run.status IN @live_statuses AND run.tenant_key == @tenant_key
-                    RETURN {slot_key: PARSE_IDENTIFIER(e._to).key, species_key: e.planned_species_key}
+                    RETURN {{slot_key: PARSE_IDENTIFIER(e._to).key, species_key: e.planned_species_key}}
             )
             FOR r IN APPEND(from_plants, from_runs)
                 LET sp = DOCUMENT(CONCAT(@species, r.species_key))
-                FILTER sp != null
-                RETURN {
+                FILTER sp != null AND {visible}
+                RETURN {{
                     slot_key: r.slot_key,
                     species_key: r.species_key,
                     spacing_cm: sp.spacing_cm,
                     row_spacing_cm: sp.row_spacing_cm,
                     mature_width_cm: sp.mature_width_cm,
                     growth_habit: sp.growth_habit
-                }
+                }}
             """,
                 bind_vars={
                     "locations": f"{col.LOCATIONS}/",
@@ -438,10 +474,11 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     "location_key": location_key,
                     "tenant_key": tenant_key,
                     "live_statuses": sorted(LIVE_RUN_STATUSES),
+                    **visible_binds,
                 },
             ),
         )
-        return [SlotSpeciesHint(**row) for row in cursor]
+        return _readable_rows(SlotSpeciesHint, cursor, read="load_slot_species_hints")
 
     def load_active_slots(
         self,
@@ -481,7 +518,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 },
             ),
         )
-        return [Slot(**doc) for doc in cursor]
+        return _readable_rows(Slot, cursor, read="load_active_slots")
 
     def bed_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
         if not location_type_keys:
