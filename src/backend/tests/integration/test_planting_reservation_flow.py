@@ -178,6 +178,30 @@ def test_gp_acc_020_the_plants_stand_on_the_planned_slots_in_sequence_order(worl
     assert len(edges(world, col.RUN_PLANNED_AT)) == 6  # consumed reservations stay until the run ends
 
 
+def test_a_slot_patch_between_the_read_and_the_occupation_survives_2727(world, monkeypatch) -> None:
+    """#2727: ``create_plants`` reads the planned slots, then marks each occupied. A ``PATCH /slots`` that lands in
+    between (here: right as the first plant is created, after the read) used to be reverted by the occupation
+    write, which wrote the whole slot it had read back. The occupation now writes the flag alone."""
+    run = world.service.create_run(run_of(), [entry_of(quantity=1)], tenant_key=A)
+    (slot_key,) = [e["_to"].split("/")[1] for e in edges(world, col.RUN_PLANNED_AT)]
+    moved = {"kind": "point", "origin": [1.25, 0.75]}
+    create = world.service._plant_repo.create
+
+    def patch_then_create(plant):
+        ArangoGardenPlanRepository(world.db).update_slot_fields(  # the columns PATCH /slots writes
+            slot_key, {"geometry": moved, "geometry_source": "editor", "capacity_plants": 3}
+        )
+        return create(plant)
+
+    monkeypatch.setattr(world.service._plant_repo, "create", patch_then_create)
+
+    world.service.create_plants(run.key, tenant_key=A)
+
+    document = world.db.collection(col.SLOTS).get(slot_key)
+    assert document["currently_occupied"] is True
+    assert (document["geometry"], document["geometry_source"], document["capacity_plants"]) == (moved, "editor", 3)
+
+
 def test_gp_acc_021_and_039_the_time_window_decides(world) -> None:
     first = world.service.create_run(run_of(), [entry_of(quantity=2)], tenant_key=A)
     slot_keys = [e["_to"].split("/")[1] for e in edges(world, col.RUN_PLANNED_AT)]

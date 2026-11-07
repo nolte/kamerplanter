@@ -11,6 +11,7 @@ import pytest
 import structlog.testing
 
 from app.common.exceptions import NotFoundError
+from app.domain.models.site import Slot
 from app.domain.models.task import Task
 from app.domain.services.plant_instance_service import PlantInstanceService
 
@@ -262,3 +263,39 @@ class TestATenantlessPlantSaysSoInsteadOfSkippingSilently:
 
         self.plant_repo.update.assert_not_called()
         self.task_repo.get_tasks_for_plant.assert_not_called()
+
+
+class TestRemovePlantFreesItsSlot:
+    """#2727: removing the last plant of a slot frees it by writing ``currently_occupied`` alone."""
+
+    def setup_method(self):
+        self.plant_repo = MagicMock()
+        self.site_repo = MagicMock()
+        self.plant = MagicMock()
+        self.plant.slot_key = "slot-1"
+        self.plant.tenant_key = "tenant-a"
+        self.plant_repo.get_or_raise.return_value = self.plant
+        self.plant_repo.get_by_key.return_value = self.plant
+        self.plant_repo.update.return_value = self.plant
+        self.site_repo.get_slot_by_key.return_value = Slot(_key="slot-1", slot_id="BED_A1", location_key="bed")
+
+    def _remove(self) -> None:
+        PlantInstanceService(self.plant_repo, self.site_repo, MagicMock(), MagicMock()).remove_plant(
+            "plant-1", tenant_key="tenant-a"
+        )
+
+    def test_the_last_plant_frees_the_slot_with_the_flag_alone(self):
+        self.plant_repo.get_active_by_slot.return_value = [self.plant]
+
+        self._remove()
+
+        self.site_repo.set_slot_occupied.assert_called_once_with("slot-1", False)
+        self.site_repo.update_slot.assert_not_called()  # no whole-slot write that could revert a PATCH /slots
+
+    def test_a_slot_still_holding_another_plant_stays_occupied(self):
+        self.plant_repo.get_active_by_slot.return_value = [self.plant, MagicMock()]
+
+        self._remove()
+
+        self.site_repo.set_slot_occupied.assert_not_called()
+        self.site_repo.update_slot.assert_not_called()

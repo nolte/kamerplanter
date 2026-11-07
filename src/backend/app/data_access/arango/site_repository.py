@@ -166,6 +166,10 @@ class _SlotRepository(BaseArangoRepository[Slot]):
             self._verify_changed_owned_references(key, slot)
         return cast("Slot", self._wrap(self._update_doc(key, slot, untouched=untouched)))
 
+    def set_occupied(self, key: str, occupied: bool) -> None:
+        """Write ``currently_occupied`` (and ``updated_at``) alone — a field merge, no model round trip (#2727)."""
+        self._update_doc_fields(key, {"currently_occupied": occupied})
+
 
 class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     is_tenant_scoped = True
@@ -725,16 +729,21 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         its new one. The edge is re-pointed whenever the stored one does not
         already hang off the new location; an unchanged location writes nothing.
 
-        The edge is **never** moved across a tenant boundary. Internal callers
-        (a planting run occupying a slot, a plant being placed) hand back the slot
-        they read, whose field on a pre-#1871 row may point into another tenant;
-        following it would re-parent the owner's slot into the stranger's location.
-        Such a row is left as it is for the v0067 migration to count.
+        The edge is **never** moved across a tenant boundary. A caller may hand
+        back the slot it read, whose field on a pre-#1871 row may point into
+        another tenant; following it would re-parent the owner's slot into the
+        stranger's location. Such a row is left as it is for the v0067 migration
+        to count. (The occupation writers no longer come through here; they write
+        the flag alone through :meth:`set_slot_occupied`, #2727.)
         """
         updated = self._slots.update_leaving(key, slot, untouched=untouched)
         if updated.location_key:
             self._point_has_slot_at(key, updated.location_key)
         return updated
+
+    def set_slot_occupied(self, key: SlotKey, occupied: bool) -> None:
+        """Write only ``currently_occupied``; the ``has_slot`` edge is not touched — the location does not change."""
+        self._slots.set_occupied(key, occupied)
 
     def _location_tenant(self, location_key: str) -> str | None:
         """The tenant of the site a location hangs off, ``None`` when the location or its site is missing."""

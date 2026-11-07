@@ -896,9 +896,9 @@ class PlantingRunService:
                     )
                     self._phase_repo.create_phase_history(hist)
             # Mark slot as occupied (once: a row or a zone takes several plants)
+            # Only the flag is written (#2727): writing back the slot read above reverted a PATCH /slots since.
             if slot is not None and slot_key and self._site_repo and slot_key not in occupied_slot_keys:
-                slot.currently_occupied = True
-                self._site_repo.update_slot(slot_key, slot)
+                self._site_repo.set_slot_occupied(slot_key, True)
                 occupied_slot_keys.add(slot_key)
             created_plants.append(created)
 
@@ -1329,11 +1329,10 @@ class PlantingRunService:
                     plant.slot_key = None
                     self._plant_repo.update(plant_key, plant)
                 try:
-                    slot, _location = resolve_owned_slot(self._site_repo, slot_key, tenant_key)
+                    resolve_owned_slot(self._site_repo, slot_key, tenant_key)
                 except NotFoundError:
                     continue  # a foreign or vanished slot is not this tenant's to free
-                slot.currently_occupied = False
-                self._site_repo.update_slot(slot_key, slot)
+                self._site_repo.set_slot_occupied(slot_key, False)
 
         # Move every plant to the new location - its bed and garden, as `create_plants` stamps them (bed reads
         # find a bed's plants by `location_key`) - and onto the new location's available slots while they last.
@@ -1348,8 +1347,7 @@ class PlantingRunService:
             target = available_slots[i] if i < len(available_slots) else None
             if target is not None and target.key:
                 plant.slot_key = target.key
-                target.currently_occupied = True
-                self._site_repo.update_slot(target.key, target)
+                self._site_repo.set_slot_occupied(target.key, True)
             self._plant_repo.update(plant_key, plant)
 
     def transition(

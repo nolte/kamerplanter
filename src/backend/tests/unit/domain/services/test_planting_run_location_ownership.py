@@ -76,9 +76,11 @@ class FakeSiteRepo:
         self.slot_reads.append(location_key)
         return list(self.slots.get(location_key, []))
 
-    def update_slot(self, key, slot):
+    def update_slot(self, key, slot, **_options):
+        raise AssertionError(f"whole-slot write of {key!r}: an occupation writes only the flag (#2727)")
+
+    def set_slot_occupied(self, key, occupied):
         self.slot_writes.append(key)
-        return slot
 
 
 class FakeRunRepo:

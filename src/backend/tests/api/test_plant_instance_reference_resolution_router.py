@@ -123,8 +123,8 @@ class _SiteRepo:
     def get_slot_by_key(self, key: str) -> Slot | None:
         return _SLOTS.get(key)
 
-    def update_slot(self, key, slot):  # pragma: no cover - no slot case here
-        return slot
+    def set_slot_occupied(self, key, occupied):  # pragma: no cover - no slot case here
+        pass
 
 
 @pytest.fixture
