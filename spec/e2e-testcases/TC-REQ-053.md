@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 60
+test_count: 82
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -20,8 +20,10 @@ coverage_areas:
   - Welle 7 — Bewässerungszonen, Gießrunde, Ebene „zuletzt gegossen“, Beetvorlagen und Standardgrößen
   - Welle 7 — Objekt-Snap, Ausrichten/Verteilen, Mehrfach duplizieren, Auto-Save, Mini-Map
   - Welle 7 — Pflanzenzustand-Filter, Teilexport/Import-Ziel, frühere Stände, Sonnenfenster im Feldmodus
+  - Welle 8 Teil A — Bodenanalyse, Flächendosis, Bodenverbesserung, Nährstoff-Hinweis ohne Zahl, Historie als CSV, Rotationsmatrix, Folgekultur, Vorschläge
+  - Welle 8 Teil B — Mischkultur-Ebene, Standortmerkmale, Erreichbarkeit, Beet-Fotos, CSV-Beetliste/-Import, Frost-Grund im Pflanzenzustand
 generated: "2026-10-11"
-version: "1.8"
+version: "1.9"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -103,6 +105,15 @@ Welle-7-Zeilen GP-FR/GP-API/GP-UX (SHOULD) zu Tests steht in der generierten Mat
 Automatisierung, weil die Oberfläche fehlt: TC-053-047 („Regen — übersprungen“ — keine Aktion im Gießrunden-Dialog,
 keine Route) und TC-053-027 („Beet räumen“ — kein Knopf ruft die Route auf). GP-ACC-033 ist in der Tabelle der
 nicht abgedeckten Kriterien um die Benchmark-Tests ergänzt; die E2E-Datei des Feldmodus zählt nicht mehr dafür.
+
+**Version 1.9 (2026-11-06, WP 8.30 / #2673 und WP 8.31 / #2674)** — 22 neue Fälle TC-053-061 bis TC-053-082 aus den
+Welle-8-Zeilen GP-FR-104, 122, 123, 124, 125, 133, 135, 086 (Teil A, Abschnitt 9) sowie GP-FR-051, 134, 145, 161–163,
+166, 168, 174, 175, GP-UX-057 und §11.4 (Teil B, Abschnitt 10); `test_count` 60 → 82, die Abdeckungs-Matrix ist um die
+abgeleiteten Zeilen ergänzt. Bereits abgedeckte Teile werden nicht wiederholt: Düngen mit Flächenmenge in l/m² steht in
+TC-053-020, die Sonnenfenster-Chips im Feldmodus in TC-053-059, Sonne/Schatten-Kacheln in TC-053-036, die
+Eignungs-Ampel (Licht) in TC-053-037, Pflanzenzustand und Info-Blase in TC-053-034/035/056, JSON-Export in
+TC-053-030/057. GP-FR-105 (Konsistenz-Job), GP-FR-165 und GP-FR-167 haben keinen Browser-Weg und stehen am Dokumentende
+unter „Nicht abgedeckte Welle-8-Zeilen“.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -1867,6 +1878,741 @@ keinen neuen Fall. Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die M
 
 ---
 
+## 9. Neu in Welle 8, Teil A (Welle 8 Teil A — Boden, Dosierung, Nährstoff-Hinweis, Historie als CSV, Rotation, Vorschläge)
+
+Die Fälle TC-053-061 bis TC-053-071 sind aus den Zeilen GP-FR-104, 122, 123, 124, 125, 133, 135 und 086 abgeleitet
+(WP 8.30, #2673) und für das E2E-Modul „Welle 8 Teil A“ gedacht. Keine dieser SHOULD-Zeilen hat ein eigenes
+Akzeptanzkriterium; die Matrix führt sie als „abgeleitet“. Die Texte in Anführungszeichen sind mit den deutschen
+Oberflächentexten (`src/frontend/src/i18n/locales/de/`) abgeglichen. Der Nährstoff-Hinweis (GP-FR-125) ist ausgeliefert ohne belegte Schwelle und zeigt
+deshalb im Normalzustand nichts (§15.3, „Inert-Gefahr“); TC-053-065 prüft diesen Zustand, TC-053-066 die Gegenprobe mit
+einer in der Testumgebung aktivierten Schwelle (derzeit nicht automatisierbar, siehe dort). Vorschläge (GP-FR-086) haben in Welle 8 keinen Erzeuger; die
+Testdaten legen sie als Seed-Daten an (Aufgabe über die API, Vorschlags-Markierung direkt in der Datenbank).
+
+### TC-053-061: Bodenanalyse erfassen — Verlauf pH/EC/Humus je Methode
+
+**Requirement**: REQ-053 §15.1, §15.2 GP-FR-122 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Bodenbeet „Beet 1“ (3,6 m²) ohne Bodenanalyse; Rolle Gärtner oder Leitung
+- Das Beet ist gespeichert; der Tab „Boden“ ist erreichbar (Stand TC-053-014 für die Tab-Struktur)
+
+**Testschritte**:
+1. Nutzer öffnet die Beetansicht, den Tab „Boden“ und wählt „Bodenanalyse erfassen“
+2. Nutzer trägt pH 6,4, Methode „CaCl₂-Lösung“, „Probe genommen am“ vor 300 Tagen ein und wählt „Analyse speichern“
+   (der Dialog nimmt höchstens 365 Tage zurück)
+3. Nutzer erfasst eine zweite Analyse: pH 6,8, Methode „CaCl₂-Lösung“, Datum heute, über „Weiteren Wert hinzufügen“ Humus 3 %
+4. Nutzer erfasst eine dritte Analyse: pH 7,2, Methode „Wasser“, Datum heute
+5. Nutzer betrachtet das Verlaufsdiagramm und schaltet „Als Tabelle anzeigen“ ein
+
+**Erwartete Ergebnisse**:
+- Der Dialog bietet Messgröße, Wert, Einheit, Methode, Entnahmetiefe und Herkunft an; die Fingerprobe zur Bodenart bleibt erhalten
+- Das Diagramm „Verlauf pH-Wert“ zeigt für „CaCl₂-Lösung“ eine Linie mit zwei Punkten und für „Wasser“ eine eigene Linie mit einem Punkt;
+  die Werte der beiden Methoden werden **nicht** ineinander umgerechnet
+- Der Wechsel der Methode ist im Diagramm gekennzeichnet (Marke „Methodenwechsel“, nicht nur Farbe)
+- Die Tabellen-Ansicht nennt dieselben drei Werte mit Datum und Methode (Alternative für Screenreader)
+- Das Profil im Tab „Boden“ zeigt den zuletzt gemessenen Stand (heute: pH 7,2 „Wasser“, Humus 3 %); nach dem Neuladen ist
+  der Verlauf unverändert
+
+**Nachbedingungen**:
+- Drei Bodenanalysen am Beet; Profil trägt den jüngsten Stand
+
+**Tags**: [req-053, welle-8, boden, bodenanalyse, verlauf, diagramm, desktop, gp-fr-122]
+
+---
+
+### TC-053-062: Bodenanalyse — Gehaltsklasse nur vom Labor, ältere Analyse überschreibt nicht, Zukunftsdatum abgelehnt
+
+**Requirement**: REQ-053 §15.1, §15.2 GP-FR-122; §22 V-11 (SHOULD, abgeleitet); Review-Akzeptanz Bodenanalyse (WP 8.7)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Validierung
+**Preconditions**:
+- Bodenbeet „Beet 1“ mit einer Analyse von heute (pH 6,8, Methode „CaCl2“), wie nach TC-053-061
+
+**Testschritte**:
+1. Nutzer öffnet „Bodenanalyse erfassen“ und wählt als Messgröße „Phosphor (P)“, Methode „CAL“, Herkunft „Testset“
+2. Nutzer prüft, ob eine „Gehaltsklasse“ (A–E) auswählbar ist; danach wechselt er die Herkunft auf „Labor“
+3. Nutzer erfasst eine Analyse pH 5,9, Methode „CaCl₂-Lösung“, Datum vor 200 Tagen, und speichert
+4. Nutzer erfasst eine Analyse mit Datum „morgen“
+5. Nutzer erfasst einen EC-Wert ohne Angabe der Messmethode
+
+**Erwartete Ergebnisse**:
+- Bei Herkunft „Testset“ gibt es kein Feld „Gehaltsklasse“; erst bei „Labor“ und „CAL“ ist sie wählbar und wird nur übernommen,
+  nicht berechnet
+- Die ältere Analyse erscheint im Verlauf an ihrer Stelle in der Zeitachse; das Profil zeigt weiter den Stand von heute (pH 6,8)
+- Das Datum „morgen“ wird mit der Feldmeldung „Der Zeitpunkt liegt in der Zukunft.“ abgelehnt; der Dialog bleibt offen,
+  es entsteht kein Eintrag
+- Der EC-Wert ohne Methode wird nicht gespeichert: Die Methode ist für EC Pflicht, die Feldmeldung lautet „Wähle die
+  Messmethode – ohne sie ist der Wert nicht lesbar.“; es entsteht kein Eintrag und kein Hinweis „Salzgehalt prüfen“
+
+**Nachbedingungen**:
+- Zusätzlich die ältere Analyse im Verlauf; Profil unverändert
+
+**Tags**: [req-053, welle-8, boden, bodenanalyse, validierung, desktop, gp-fr-122]
+
+---
+
+### TC-053-063: Düngen mit Flächendosis — Gesamtmenge live berechnet, ohne Fläche gesperrt
+
+**Requirement**: REQ-053 §15.2 GP-FR-123, §12.3 (SHOULD, abgeleitet); Review-Akzeptanz Flächendosierung (WP 8.9). Ergänzt TC-053-020 (l/m²-Fall)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Beet „Beet 1“ mit Fläche 3,6 m² und eine offene Aufgabe „Düngen“; ein Düngerprodukt mit Datenblatt-Rate 80 g/m²
+- Beet „Beet 2“ ohne Fläche (Bestandsbeet ohne Geometrie, TC-053-011) mit offener Aufgabe „Düngen“
+
+**Testschritte**:
+1. Nutzer öffnet im Tab „Pflege“ von „Beet 1“ bei der Aufgabe „Erledigt“ und wählt das Düngerprodukt
+2. Nutzer liest die vorbelegte Dosis und die Gesamtmenge
+3. Nutzer ändert die Dosis auf 100 g/m², danach wieder auf 80 g/m², und bestätigt
+4. Nutzer wechselt die Einheit auf „Liter pro m²“, trägt 3 ein und prüft die Gesamtmenge, ohne zu bestätigen
+5. Nutzer trägt Dosis 0 ein und wählt „Erledigt“
+6. Nutzer öffnet im Tab „Historie“ den Eintrag „Düngen“
+7. Nutzer öffnet bei „Beet 2“ denselben Dialog und prüft die Einheiten
+
+**Erwartete Ergebnisse**:
+- Die Dosis ist mit 80 „Gramm pro m²“ vorbelegt („Menge pro m² aus dem Datenblatt des Produkts.“); die Gesamtmenge zeigt
+  „Gesamtmenge für 3,6 m²: 288 g“ und ändert sich beim Tippen sofort (100 g/m² → 360 g)
+- Bei 3 „Liter pro m²“ zeigt die Gesamtmenge „10,8 L“
+- Dosis 0 wird beim Speichern mit der Feldmeldung „Eine Menge pro m² muss größer als 0 sein.“ abgelehnt; der Dialog bleibt
+  offen und es entsteht kein Eintrag
+- Der Historien-Eintrag nennt Produkt und Dosis („80 Gramm pro m²“); die Gesamtmenge 288 g steht am gespeicherten Eintrag
+  (die Historienzeile zeigt nur die Dosis)
+- Bei „Beet 2“ sind die Einheiten „Gramm pro m²“ und „Liter pro m²“ deaktiviert, der Hinweis lautet „Das Beet hat keine
+  Fläche. …“; die Gesamtmenge entfällt
+- Die Näherungsangabe beginnt mit „Näherung: ≈ … kg N/ha“; es erscheint keine Warnung vor einer Saisonsumme
+
+**Nachbedingungen**:
+- Ein Pflegeereignis „Düngen“ mit 80 g/m² und 288 g Gesamtmenge an „Beet 1“
+
+**Tags**: [req-053, welle-8, pflege, duengen, flaechendosierung, desktop, gp-fr-123]
+
+---
+
+### TC-053-064: Bodenverbesserung erfassen — Kompost, Mulch, Kalk mit Hinweistext
+
+**Requirement**: REQ-053 §12.1, §15.2 GP-FR-124 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- Bodenbeet „Beet 1“ (3,6 m²) mit offener Aufgabe „Bodenverbesserung“ und einer weiteren „Kalkung“; Rolle Gärtner oder Leitung
+
+**Testschritte**:
+1. Nutzer öffnet bei der Aufgabe „Bodenverbesserung“ den Dialog „Erledigt“ und öffnet die Materialauswahl
+2. Nutzer wählt „Kompost“, trägt 3 „Liter“ ein und bestätigt
+3. Nutzer erfasst über „Pflege protokollieren“ (Kategorie „Mulchen“) eine Mulchschicht mit Material „Rindenmulch“
+4. Nutzer öffnet bei der Aufgabe „Kalkung“ den Dialog und liest den Hinweis
+5. Nutzer wählt das Material „Kalk“, trägt eine Menge ein und bestätigt
+6. Nutzer öffnet den Tab „Historie“
+
+**Erwartete Ergebnisse**:
+- Die Materialliste der Bodenverbesserung enthält Kompost, Mist, Hornspäne, Gesteinsmehl, Pflanzenkohle, Sand, Perlite,
+  Kaffeesatz, Gründüngung, Schwefel, Kalk, Holzasche und „Sonstiges“ (Freitext bleibt möglich); die Mulch-Materialien
+  (Stroh, Grasschnitt, Rindenmulch, Holzhäcksel, Laub, Pappe, Kompost) bietet die Kategorie „Mulchen“ an, die Kalkung
+  Kalk, Holzasche und „Sonstiges“
+- Der Kalkungs-Dialog trägt den Hinweis „Kalk und Holzasche heben den pH-Wert. Bringe sie nicht aus, wenn der Boden schon
+  über dem Ziel-pH liegt, und nicht bei säureliebenden Pflanzen … Eine Kalkmenge berechnet die App nicht.“ als reinen Text;
+  das Mengenfeld bleibt leer, es wird keine Menge vorgeschlagen
+- Die Historie enthält die drei Einträge „Bodenverbesserung“ (Kompost), „Mulchen“ (Rindenmulch) und „Kalkung“ (Kalk) mit
+  Material, Menge und Datum
+- Die offenen Aufgaben „Bodenverbesserung“ und „Kalkung“ sind erledigt
+
+**Nachbedingungen**:
+- Drei Pflegeereignisse in der Historie
+
+**Tags**: [req-053, welle-8, pflege, bodenverbesserung, kompost, kalkung, desktop, gp-fr-124]
+
+---
+
+### TC-053-065: Nährstoff-Hinweis im Ausgangszustand — keine Zahl, keine Düngemenge, keine Kalkmenge
+
+**Requirement**: REQ-053 §15.2 GP-FR-125, §15.3 (SHOULD, abgeleitet); Review-Akzeptanz Nährstoff-Hinweis (WP 8.10, 8.8)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Negativ
+**Preconditions**:
+- Bodenbeet „Beet 1“ mit aktiver Tomate (Starkzehrer im Steckbrief), Vorjahr Erbse, letzte Düngung vor 120 Tagen
+- Bodenprofil: Füllung „Gewachsener Boden“, Bodenart bekannt (z. B. Lehm), Ziel-pH 6,5 laut Labor – ohne diese Angaben
+  zeigt der Tab „Boden“ nur die Begründung, warum er den Kalkbedarf nicht einschätzt, und der begründete Hinweis erscheint nie
+- Laborklasse Phosphor „D“ (Quelle Labor, Methode CAL) und eine Analyse mit niedrigem pH in der Historie
+- Ausgelieferte Konfiguration: keine Schwelle mit Quelle aktiv
+
+**Testschritte**:
+1. Nutzer öffnet die Beetansicht und betrachtet den Beetkopf
+2. Nutzer öffnet den Tab „Boden“ und liest den Hinweis zur Kalkung
+3. Nutzer sucht im Beetkopf, in der Beet-Zusammenfassung und im Tab „Boden“ nach einer Düngemenge oder Kalkmenge
+
+**Erwartete Ergebnisse**:
+- Der Beetkopf zeigt keinen Chip „Düngebedarf wahrscheinlich“ und keinen Chip „Düngung prüfen“ (die Einschätzung bleibt ohne belegte Schwelle unbestimmt)
+- Es erscheint keine Zahl, die wie ein Messwert oder eine Empfehlung wirkt (weder g/m², kg/ha noch Liter)
+- Der Hinweis zur Kalkung ist, falls vorhanden, nur ein Text (z. B. „Kalkung wahrscheinlich sinnvoll.“ oder eine
+  „Kalkbedarf: …“-Begründung) ohne Mengenangabe
+- Ein Hinweis auf Kompost oder Phosphordünger wird nicht gegeben, weil die Laborklasse Phosphor „D“ vorliegt; Kompost als Bodenverbesserung (TC-053-064) bleibt weiter erfassbar
+- Der Hinweis „Salzgehalt prüfen“ fehlt, weil keine Schwelle aktiv ist
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-8, naehrstoff-hinweis, ohne-zahl, kalkbedarf, inert, desktop, gp-fr-125]
+
+---
+
+### TC-053-066: Nährstoff-Hinweis mit aktivierter Testschwelle — Chip und Begründung, nie eine Menge
+
+**Requirement**: REQ-053 §15.3 GP-FR-125 (SHOULD, abgeleitet); Gegenprobe zu TC-053-065
+**Automatisierung**: übersprungen (`pytest.skip` mit Grund). Die Schwellen sind Code-Konstanten (`DEFAULT_CONFIG` in
+`src/backend/app/domain/engines/nutrient_hint_engine.py`; `NutrientHintService` wird in
+`src/backend/app/common/dependencies.py` ohne Konfiguration gebaut); es gibt keine Umgebungsvariable und keine
+Einstellung, über die der E2E-Stack eine Testschwelle mit Quelle aktivieren kann.
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Fachregel
+**Preconditions**:
+- Testumgebung, in der für die Düngeregel eine Testschwelle mit Quelle aktiv ist (Starkzehrer: Hinweis nach 30 Tagen, Prüfung nach 14 Tagen)
+- „Beet 1“ mit Tomate (Starkzehrer), letzte Düngung vor 45 Tagen; „Beet 2“ mit Tomate, letzte Düngung vor 20 Tagen; „Beet 3“ mit Tomate, letzte Düngung vor 5 Tagen; „Beet 4“ mit Bohne (Stickstoff-Fixierer) und Rindenmulch nach der letzten Düngung
+- Ein Beet mit Boden-EC über der Testschwelle, gemessen mit der passenden Methode
+
+**Testschritte**:
+1. Nutzer öffnet nacheinander die Beetansichten von „Beet 1“ bis „Beet 4“ und liest jeweils den Beetkopf
+2. Nutzer öffnet den Chip von „Beet 1“ und liest die Begründung
+3. Nutzer öffnet das Beet mit der hohen Boden-EC
+
+**Erwartete Ergebnisse**:
+- „Beet 1“ trägt den Chip „Düngebedarf wahrscheinlich“, „Beet 2“ den Chip „Düngung prüfen“, „Beet 3“ keinen Chip
+- Die Begründung nennt Gründe im Klartext (z. B. „letzte Düngung lange her“) und den Satz „Eine Düngemenge nennt die App nicht.“; der Hinweis ist nie als Messwert beschriftet und enthält keine Zahl mit Mengeneinheit
+- „Beet 4“ zeigt die Begründung „Rindenmulch kann Stickstoff binden“ ohne Mengenangabe
+- Das Beet mit hoher Boden-EC zeigt einen eigenen Chip „Salzgehalt prüfen“ mit Begründung; der Code erscheint nicht zusätzlich in der Begründungsliste des Nährstoff-Chips
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-8, naehrstoff-hinweis, chip, ohne-zahl, gegenprobe, desktop, gp-fr-125]
+
+---
+
+### TC-053-067: Historie als CSV herunterladen — Inhalt, Härtung, Gesamtseite
+
+**Requirement**: REQ-053 §13 GP-FR-104, SR-016 (SHOULD, abgeleitet). Ergänzt TC-053-023 (Filter der Historie)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Export
+**Preconditions**:
+- Beet „Beet 1“ mit mehreren Pflegeereignissen „Gießen“, darunter eines mit dem Text „=1+1“ und eines mit dem Text
+  „@Hinweis“, sowie einem Ereignis „Düngung“, ausgeführt von einer Person mit Anzeigename (z. B. „Anna Beispiel“)
+- Zweites Beet „Beet 2“ mit eigenen Ereignissen; Rolle Leitung
+
+**Testschritte**:
+1. Nutzer öffnet den Tab „Historie“ von „Beet 1“, filtert auf die Kategorie „Gießen“ und wählt „CSV exportieren“ →
+   „CSV (Komma)“
+2. Nutzer öffnet die heruntergeladene Datei in einem Tabellenprogramm und in einem Texteditor
+3. Nutzer öffnet die Seite „Historie aller Beete“ und lädt von dort ebenfalls „CSV exportieren“ → „CSV (Komma)“ herunter
+
+**Erwartete Ergebnisse**:
+- Der Browser lädt eine Datei mit Endung „.csv“ herunter; sie enthält eine Kopfzeile und nur die Ereignisse von „Beet 1“ der gewählten Kategorie
+- Die Datei ist UTF-8 mit Byte-Order-Mark; Umlaute werden im Tabellenprogramm richtig angezeigt
+- Zellen, die mit „=“, „+“, „-“, „@“ beginnen, beginnen in der Datei mit einem vorangestellten Hochkomma; das Tabellenprogramm rechnet nichts aus
+- Die Spalte der ausführenden Person (`performed_by`) zeigt den Anzeigenamen der Person, nie einen Kontoschlüssel
+- Die CSV der Seite „Historie aller Beete“ enthält auch die Ereignisse von „Beet 2“
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-8, historie, csv, export, formelhaertung, desktop, gp-fr-104]
+
+---
+
+### TC-053-068: Rotationsmatrix — Beet × Jahr, Familie als Liste, Nacherfassung aus der Zelle
+
+**Requirement**: REQ-053 §16 GP-FR-135 (SHOULD, abgeleitet). Ergänzt TC-053-024 (Verlauf je Beet)
+**Gerät**: Desktop und Smartphone 390 × 844
+**Priority**: High
+**Category**: Anzeige
+**Preconditions**:
+- Site mit drei Beeten mit Fruchtfolge: „Beet 1“ 2025 Vorkultur Feldsalat und Hauptkultur Tomate (Nachtschatten, Starkzehrer), 2026 Erbse (Hülsenfrüchte); „Beet 2“ 2025 Kohl; „Beet 3“ mit ausgeschalteter Fruchtfolge (Pflanzgefäß)
+- Abweichung der Automatisierung: Das Produkt kennt keine Rolle „Vorkultur“ – eine Vorkultur ist ein zweiter Eintrag
+  desselben Jahres mit der Saison „Frühjahr“, die Hauptkultur trägt „Hauptsaison“; die Zelle unterscheidet beide über
+  diese Saison-Beschriftung. Feldsalat fehlt im Seed-Katalog, der Test nutzt Salat (Lactuca sativa). Die Erbse des
+  laufenden Jahres ist eine echte Pflanzung (Nacherfassen nimmt nur vergangene Jahre). Jahre relativ zum laufenden Jahr.
+- „Beet 2“ hat für 2024 keine Angabe; ein Fruchtfolgeplan enthält für 2027 „Beet 1“: Möhre
+
+**Testschritte**:
+1. Nutzer öffnet die Rotationsmatrix der Site
+2. Nutzer liest Spaltenköpfe, Zellen und Legende und schaltet die Darstellung in den Entwicklerwerkzeugen auf Graustufen
+3. Nutzer tippt die leere Zelle „Beet 2 / 2024“
+4. Nutzer wählt im Dialog „Was stand hier 2024?“ die „Pflanzenfamilie“ Kürbisgewächse (Cucurbitaceae) und wählt „Speichern“
+5. Nutzer tippt eine Zelle von „Beet 1“ und wählt den Sprung zum Beet
+6. Nutzer öffnet dieselbe Matrix auf dem Smartphone
+
+**Erwartete Ergebnisse**:
+- Zeilen sind die Beete, Spalten die Jahre (mindestens die Anbaupause, hier fünf Jahre); die Kopfzeile bleibt beim Scrollen sichtbar
+- „Beet 1 / 2025“ nennt als Liste beide Einträge (Feldsalat als Vorkultur, Tomate als Hauptkultur) mit Familie, Zehrerstufe als Text und Kürzel/Muster; die Zelle für 2027 zeigt die geplante Möhre
+- „Beet 3“ ist als ohne Fruchtfolge gekennzeichnet (z. B. „Von der Fruchtfolge-Prüfung ausgenommen“)
+- In Graustufen bleiben die Familien über Kürzel oder Muster unterscheidbar
+- Nach dem Bestätigen zeigt „Beet 2 / 2024“ die Kürbisgewächse; die Historie von „Beet 2“ führt 2024 ebenfalls auf (selbe Aussage wie die Matrix)
+- Der Sprung öffnet die Beetansicht von „Beet 1“
+- Auf dem Smartphone ist die Tabelle horizontal scrollbar, ohne dass die Seite selbst seitlich wandert
+
+**Nachbedingungen**:
+- Nacherfassung für „Beet 2“ im Jahr 2024
+
+**Tags**: [req-053, welle-8, fruchtfolge, rotationsmatrix, nacherfassung, desktop, smartphone, gp-fr-135]
+
+---
+
+### TC-053-069: Folgekultur-Empfehlung unter dem Zeitstrahl und Schalter „Fruchtfolge für dieses Beet“
+
+**Requirement**: REQ-053 §16 GP-FR-133 (SHOULD, abgeleitet); Schalter aus WP 8.14 (GP-FR-137 UI)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Fachregel
+**Preconditions**:
+- „Beet 1“: Vorjahr Tomate (Starkzehrer); Steckbriefe von Kohlrabi (Mittelzehrer), Salat (Schwachzehrer) und einer Art ohne gespeicherte Zehrerstufe liegen vor
+- „Beet 2“ ohne Historie
+
+**Testschritte**:
+1. Nutzer öffnet den Tab „Historie“ von „Beet 1“ und betrachtet den Bereich unter dem Zeitstrahl
+2. Nutzer öffnet den Tab „Historie“ von „Beet 2“
+3. Nutzer stellt im Tab „Boden“ von „Beet 1“ im Abschnitt „Fruchtfolge für dieses Beet“ die „Fruchtfolge-Prüfung“ auf
+   „Eingeschaltet“ und schaltet zusätzlich „Dauerkultur (von der Fruchtfolge ausgenommen)“ ein
+4. Nutzer lädt die Seite neu
+
+**Erwartete Ergebnisse**:
+- Unter dem Zeitstrahl steht die „Folgekultur-Empfehlung“ mit „Nach <Vorjahr> (Starkzehrer) passt als Nächstes:
+  Mittelzehrer.“ und einer Liste geeigneter Familien/Arten dieser Stufe; sie nennt keine Düngemengen
+- Die Art ohne gespeicherte Zehrerstufe erscheint nicht in der Liste und wird nicht mit einer erfundenen Stufe gezeigt
+- „Beet 2“ zeigt keine Empfehlung, sondern den Hinweis „Es ist noch kein Jahr erfasst. …“
+- Beide Schalter gleichzeitig an werden mit „Eine Dauerkultur kann die Fruchtfolge-Prüfung nicht eingeschaltet haben. …
+  Es wurde nichts geändert.“ abgelehnt und nicht gespeichert
+- Nach dem Neuladen steht der zuletzt gültige Schalterzustand
+
+**Nachbedingungen**:
+- Schalter „Fruchtfolge“ am Beet im gültigen Zustand
+
+**Tags**: [req-053, welle-8, fruchtfolge, folgekultur, empfehlung, desktop, gp-fr-133]
+
+---
+
+### TC-053-070: Vorgeschlagene Aufgabe annehmen
+
+**Requirement**: REQ-053 §12 GP-FR-086, GP-API-040 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Seed-Daten: „Beet 1“ mit einer vorgeschlagenen Aufgabe „Gießen“ und dem Grund „ET0-Bedarf 4,2 L/m² seit 3 Tagen“; „Beet 2“ ohne Vorschlag; Rolle Gärtner oder Leitung
+- Es gibt in Welle 8 keinen Erzeuger für Vorschläge, deshalb die Seed-Daten
+
+**Testschritte**:
+1. Nutzer öffnet den Tab „Pflege“ von „Beet 2“
+2. Nutzer öffnet den Tab „Pflege“ von „Beet 1“ und liest den Abschnitt „Vorschläge“
+3. Nutzer klickt bei dem Vorschlag auf „Annehmen“
+4. Nutzer betrachtet die offenen Aufgaben und die Historie
+
+**Erwartete Ergebnisse**:
+- Bei „Beet 2“ gibt es keinen Abschnitt „Vorschläge“
+- Bei „Beet 1“ erscheint der Abschnitt „Vorschläge (1)“ mit der Aufgabe, dem Grund im Klartext („Grund: …“) und den
+  Schaltflächen „Annehmen“ und „Verwerfen“
+- Nach „Annehmen“ verschwindet der Eintrag aus „Vorschläge“; die Aufgabe „Gießen“ steht als normale offene Aufgabe in der Liste
+- In der Historie entsteht durch das Annehmen kein Pflegeereignis (erst das Erledigen schreibt eines)
+- Nach dem Neuladen bleibt die Aufgabe offen und der Abschnitt „Vorschläge“ ist leer bzw. ausgeblendet
+
+**Nachbedingungen**:
+- Die Aufgabe ist eine reguläre offene Aufgabe
+
+**Tags**: [req-053, welle-8, aufgaben, vorschlag, annehmen, desktop, gp-fr-086]
+
+---
+
+### TC-053-071: Vorgeschlagene Aufgabe verwerfen — und Rolle „Betrachter“
+
+**Requirement**: REQ-053 §12 GP-FR-086, GP-API-040 (SHOULD, abgeleitet). Variante zu TC-053-070
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Negativ
+**Preconditions**:
+- Seed-Daten: „Beet 1“ mit zwei vorgeschlagenen Aufgaben „Gießen“ und „Düngen“, jeweils mit Grund; ein zweiter Nutzer mit der Rolle Betrachter
+
+**Testschritte**:
+1. Als Betrachter öffnet der Nutzer den Tab „Pflege“ von „Beet 1“
+2. Als Gärtner klickt der Nutzer bei „Düngen“ auf „Verwerfen“
+3. Nutzer betrachtet die offenen Aufgaben, den Abschnitt „Vorschläge“ und die Historie
+4. Nutzer aktiviert in der Aufgabenliste den Filter für erledigte/abgebrochene Aufgaben
+
+**Erwartete Ergebnisse**:
+- Der Betrachter sieht die Vorschläge lesend, aber keine Schaltflächen „Annehmen“ und „Verwerfen“
+- Nach „Verwerfen“ ist „Düngen“ aus dem Abschnitt „Vorschläge“ verschwunden und taucht nicht als offene Aufgabe auf; „Gießen“ bleibt unberührt im Abschnitt
+- In der Historie entsteht kein Pflegeereignis
+- Die verworfene Aufgabe erscheint nur im Filter der abgebrochenen Aufgaben, mit dem Vermerk, dass sie verworfen wurde
+  (Stand Welle 8: der Pflege-Tab hat keinen solchen Filter; der Zustand „übersprungen“ ist nur am Server ablesbar)
+
+**Nachbedingungen**:
+- „Düngen“ verworfen; „Gießen“ weiter als Vorschlag
+
+**Tags**: [req-053, welle-8, aufgaben, vorschlag, verwerfen, rollen, desktop, gp-fr-086]
+
+---
+
+## 10. Neu in Welle 8, Teil B (Welle 8 Teil B — Mischkultur, Standortmerkmale, Erreichbarkeit, Fotos, CSV, Frost-Grund)
+
+Die Fälle TC-053-072 bis TC-053-082 sind aus den Zeilen GP-FR-051, 134, 145, 161, 162, 163, 166, 168, 174, 175, GP-UX-057
+und §11.4 abgeleitet (WP 8.31, #2674) und für das E2E-Modul „Welle 8 Teil B“ gedacht. Keine dieser Zeilen hat ein
+eigenes Akzeptanzkriterium; die Matrix führt sie als „abgeleitet“. Die Texte in Anführungszeichen sind Platzhalter.
+Berührungsziele im Feldmodus messen mindestens 64 × 64 px (wie TC-053-025 und TC-053-059).
+
+### TC-053-072: Ebene „Mischkultur“ — grüne, rote und graue Verbindungen mit Grund und Score
+
+**Requirement**: REQ-053 §16 GP-FR-134 (SHOULD, abgeleitet); REQ-028 §7.3
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Ebenen
+**Preconditions**:
+- Plan mit vier Beeten nebeneinander: Beet A (Tomate), Beet B (Basilikum, verträglich mit Tomate), Beet C (Fenchel, unverträglich mit Tomate), Beet D (eine Art ohne Angabe zur Verträglichkeit); alle Beete grenzen aneinander
+- Ebenen im Ausgangszustand
+
+**Testschritte**:
+1. Nutzer öffnet den Plan und das Ebenen-Menü
+2. Nutzer schaltet die Ebene „Mischkultur“ ein
+3. Nutzer bewegt den Zeiger auf die Verbindung Tomate–Basilikum, dann auf Tomate–Fenchel (Touch: Tipp)
+4. Nutzer öffnet die Legende
+5. Nutzer zoomt so weit heraus, dass die Pflanzen nur noch als Cluster erscheinen
+6. Nutzer schaltet die Ebene wieder aus
+7. Nutzer öffnet für Tomate den Dialog „Bepflanzen“ neben Fenchel und liest den Mischkultur-Hinweis (Vergleich)
+
+**Erwartete Ergebnisse**:
+- Vor dem Einschalten sind keine Verbindungslinien sichtbar
+- Mit der Ebene verbindet eine grüne Linie (durchgezogen) Tomate und Basilikum, eine rote (gestrichelt) Tomate und Fenchel, eine graue (gepunktet) Verbindungen zur Art ohne Angabe; der Status ist nie nur an der Farbe erkennbar
+- Hover bzw. Tipp zeigt Grund und Score der Verbindung im Klartext
+- Die Legende erklärt Farbe und Linienstil der drei Zustände
+- In der Cluster-Stufe zeichnet die Ebene keine Linien, ohne eine Fehlermeldung
+- Ohne die Ebene verschwinden die Linien wieder
+- Der Dialog „Bepflanzen“ nennt für Tomate/Fenchel denselben Befund (unverträglich) wie die rote Linie
+
+**Nachbedingungen**:
+- Keine Änderung am Plan; die Ebenen-Wahl gilt nur für diesen Browser
+
+**Tags**: [req-053, welle-8, ebenen, mischkultur, overlay, legende, desktop, gp-fr-134]
+
+---
+
+### TC-053-073: Standortmerkmale am Beet erfassen — Mikroklima, Wind, Hang und abgeleitete Ausrichtung
+
+**Requirement**: REQ-053 §10.2 GP-FR-162, GP-FR-163, GP-FR-168 (SHOULD/COULD, abgeleitet). Ergänzt TC-053-036 (Sonne/Schatten)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Standortmerkmale
+**Preconditions**:
+- Plan mit „Beet 1“ (Hochbeet 2 × 1 m) und einem Weg; Rolle Gärtner oder Leitung
+- Vor dem Test hat „Beet 1“ keine Standortmerkmale außer Sonne „Unbekannt“
+
+**Testschritte**:
+1. Nutzer wählt „Beet 1“ und öffnet im Eigenschaftenpanel den Abschnitt „Standort“
+2. Nutzer wählt als Frostrisiko „Hoch“ und schaltet „Kaltluftsenke“ ein
+3. Nutzer wählt als Windlage „Windig“
+4. Nutzer trägt Hangneigung 8° und Exposition 200° ein und liest die Ausrichtung
+5. Nutzer wählt als Zugangsseiten „Beidseitig“
+6. Nutzer speichert, lädt die Seite neu und öffnet die Beet-Zusammenfassung
+7. Nutzer setzt das Frostrisiko wieder auf „Normal“ und speichert
+
+**Erwartete Ergebnisse**:
+- Jede Auswahl hat einen erklärenden Hilfetext (Glossar); Frostrisiko, Windlage und Zugangsseiten sind Auswahlfelder, kein Freitext
+- Die Ausrichtung wird aus der Exposition abgeleitet und nur angezeigt (200° → Süd-Südwest bzw. „Süd“, je nach Achtteilung der Oberfläche); sie ist nicht mehr manuell pflegbar, solange die Exposition gesetzt ist
+- Es wird keine Hangneigung vom Standort vererbt: ohne eigene Eingabe bleibt das Feld leer
+- Nach dem Neuladen zeigen Panel und Beet-Zusammenfassung dieselben Werte; Drainage/Wasserregime stehen zusätzlich in der Zusammenfassung
+- Das Frostrisiko „Hoch“ erscheint in der Zusammenfassung mit Schneeflocke und Text; nach dem Zurücksetzen ist es wieder „Normal“
+
+**Nachbedingungen**:
+- Standortmerkmale gespeichert (Frostrisiko wieder „Normal“)
+
+**Tags**: [req-053, welle-8, standortmerkmale, mikroklima, wind, hang, desktop, gp-fr-162, gp-fr-163, gp-fr-168]
+
+---
+
+### TC-053-074: Eignungs-Ampel um Frost, Wind und Drainage — nicht blockierend, unbekannt ohne Hinweis
+
+**Requirement**: REQ-053 §10.2 GP-FR-161 (SHOULD, abgeleitet). Erweitert TC-053-037 (Licht)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Standortmerkmale
+**Preconditions**:
+- Art Tomate (frostempfindlich, braucht Stützen) im Steckbrief
+- „Beet F“: Frostrisiko „Hoch“; „Beet W“: Windlage „Windig“; „Beet N“: Drainage „Staunass“ und eine Art ohne Staunässe-Toleranz; „Beet U“: alle Merkmale „Unbekannt“; „Beet G“: Frostrisiko „Normal“, windgeschützt, gut drainiert
+
+**Testschritte**:
+1. Nutzer öffnet für „Beet F“ den Dialog „Bepflanzen“ mit Tomate und liest die Ampel
+2. Nutzer legt den Durchlauf an
+3. Nutzer öffnet in „Beet W“ den Dialog mit Tomate
+4. Nutzer öffnet in „Beet N“ den Dialog mit der Art ohne Staunässe-Toleranz
+5. Nutzer öffnet „Bepflanzen“ in „Beet U“ und „Beet G“
+
+**Erwartete Ergebnisse**:
+- „Beet F“ zeigt einen Hinweis mit Klartext zum Frostrisiko („Beet: Frostgefährdet — Tomate ist frostempfindlich“); er blockiert nicht, der Durchlauf lässt sich anlegen
+- „Beet W“ weist darauf hin, dass die Pflanze Stützen braucht, wenn das Beet windig ist
+- „Beet N“ weist auf das Risiko von Staunässe hin
+- In „Beet U“ erscheint für diese Merkmale kein Hinweis; in „Beet G“ ebenfalls nicht
+- Die Hinweise treten zusätzlich zur Lichtampel auf; die Lichtampel bleibt wie in TC-053-037
+
+**Nachbedingungen**:
+- Durchlauf in „Beet F“ angelegt
+
+**Tags**: [req-053, welle-8, site-fit, frost, wind, drainage, eignung, desktop, gp-fr-161]
+
+---
+
+### TC-053-075: Feldmodus-Kurzbefragung — Chips „Feucht/Normal/Trocken“ und „Windig“ bei 390 px
+
+**Requirement**: REQ-053 §18, §10.2 GP-UX-057, GP-FR-162/163 (SHOULD, abgeleitet). Ergänzt TC-053-059 (Sonnenfenster-Chips)
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Standortmerkmale
+**Preconditions**:
+- Beet „Beet 1“ ohne Angabe zum Wasserregime und zur Windlage; Rolle Gärtner oder Leitung; Feldmodus
+
+**Testschritte**:
+1. Nutzer öffnet den Feldmodus und tippt auf „Beet 1“
+2. Nutzer tippt im Abschnitt „Boden“ den Chip „Trocken“
+3. Nutzer tippt den Chip „Windig“
+4. Nutzer tippt nochmals „Windig“ und dann „Normal“
+5. Nutzer öffnet den Feldmodus neu und tippt wieder auf „Beet 1“
+6. Nutzer misst die Größe der Chips
+
+**Erwartete Ergebnisse**:
+- Der Beet-Sheet enthält die Chip-Gruppen Sonne (TC-053-059), „Feucht / Normal / Trocken“ und „Windig“, kein Formular mit weiteren Feldern
+- Vor der Wahl ist keiner der drei Wasser-Chips gewählt
+- Ein Tipp genügt: „Trocken“ ist gewählt und ohne Speichern-Schaltfläche gespeichert; „Windig“ ist an
+- Das zweite Tippen auf „Windig“ schaltet den Chip wieder aus; „Normal“ ersetzt „Trocken“
+- Nach dem Neuladen sind „Normal“ gewählt und „Windig“ aus
+- Jeder Chip misst mindestens 64 × 64 px; die Seite scrollt nicht seitlich
+
+**Nachbedingungen**:
+- Wasserregime „Normal“, Windlage nicht windig
+
+**Tags**: [req-053, welle-8, feldmodus, chips, standortmerkmale, smartphone, 390px, touch, gp-ux-057]
+
+---
+
+### TC-053-076: Erreichbarkeits-Hinweis — nur Hinweis, nie Fehler
+
+**Requirement**: REQ-053 §10.2 GP-FR-166 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Fachregel
+**Preconditions**:
+- Plan mit vier Beeten: „Breit“ (1,3 × 3,0 m, kein angrenzender Weg), „Breit mit Weg“ (1,3 × 3,0 m, an beiden Längsseiten ein Weg), „Grenzwert“ (1,2 × 3,0 m, kein Weg), „Schmal einseitig“ (0,7 × 3,0 m, Zugangsseiten „Einseitig“, kein Weg)
+- Standardschwellen (1,2 m beidseitig, 0,6 m einseitig)
+
+**Testschritte**:
+1. Nutzer wählt „Breit“ und betrachtet Beet-Zusammenfassung und Badge am Beet
+2. Nutzer wiederholt die Prüfung bei „Breit mit Weg“, „Grenzwert“ und „Schmal einseitig“
+3. Nutzer verbreitert „Grenzwert“ per Maßeingabe auf 1,3 m und speichert
+4. Nutzer vergrößert „Breit“ weiter auf 2,0 m
+
+**Erwartete Ergebnisse**:
+- „Breit“ zeigt in der Zusammenfassung und am Badge den Hinweis, dass die Beetmitte von den Rändern schwer erreichbar ist (Platzhalter „Beet zu breit zum Erreichen“); er enthält die Schwelle
+- „Breit mit Weg“ zeigt keinen Hinweis (beidseitiger Zugang über die Wege)
+- „Grenzwert“ zeigt keinen Hinweis (genau 1,2 m gilt noch nicht als überschritten)
+- „Schmal einseitig“ zeigt den Hinweis (0,7 m über der Schwelle 0,6 m für einseitigen Zugang)
+- Nach Schritt 3 zeigt „Grenzwert“ den Hinweis
+- Der Hinweis ist nie rot als Fehler dargestellt, verhindert weder das Speichern noch das Bepflanzen und trägt ein Icon plus Text
+
+**Nachbedingungen**:
+- „Grenzwert“ ist 1,3 m breit; „Breit“ 2,0 m
+
+**Tags**: [req-053, welle-8, erreichbarkeit, hinweis, standortmerkmale, desktop, gp-fr-166]
+
+---
+
+### TC-053-077: Beet-Fotos am Desktop — Galerie, Titelbild, Entfernen
+
+**Requirement**: REQ-053 §10.1 GP-FR-051 (SHOULD, abgeleitet); Muster Galerie REQ-034/REQ-052
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- „Beet 1“ ohne Fotos; zwei Bilddateien (JPG, je unter 5 MB) und eine Textdatei „notiz.txt“; Rolle Gärtner oder Leitung
+
+**Testschritte**:
+1. Nutzer öffnet die Beetansicht und den Tab „Fotos“
+2. Nutzer lädt beide Bilder hoch
+3. Nutzer versucht, „notiz.txt“ hochzuladen
+4. Nutzer setzt das zweite Bild als Titelbild
+5. Nutzer betrachtet den Beetkopf und die Beet-Zusammenfassung im Plan
+6. Nutzer entfernt das Titelbild und bestätigt
+7. Nutzer exportiert den Plan als JSON (Weg aus TC-053-030) und öffnet die Datei
+
+**Erwartete Ergebnisse**:
+- Der leere Tab erklärt, dass noch keine Fotos vorliegen, und bietet das Hochladen an
+- Nach dem Hochladen zeigt die Galerie beide Bilder als Vorschau; das erste ist automatisch bzw. nach Wahl Titelbild
+- Die Textdatei wird mit einer verständlichen Meldung zu den erlaubten Dateitypen abgelehnt
+- Nach Schritt 4 erscheint das zweite Bild als Titelbild im Beetkopf und im Beet-Sheet der Zusammenfassung
+- Nach dem Entfernen und Bestätigen ist das Bild aus der Galerie verschwunden; das verbleibende Bild bleibt erhalten, der Beetkopf zeigt kein Titelbild bzw. das verbleibende
+- Die JSON-Sicherung des Plans enthält keine Fotos
+
+**Nachbedingungen**:
+- Ein Foto am Beet
+
+**Tags**: [req-053, welle-8, fotos, galerie, titelbild, beet, desktop, gp-fr-051]
+
+---
+
+### TC-053-078: Foto vom Beet im Feldmodus — Touch-Ziel mindestens 64 px
+
+**Requirement**: REQ-053 §18.1 Schritt 7 GP-FR-051 (SHOULD, abgeleitet); Berührungsziele GP-UX-023
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Touch-Bedienung
+**Preconditions**:
+- Feldmodus, Beet „Beet 1“ mit einer Pflanze; Kamera bzw. Dateiauswahl des Browsers steht zur Verfügung (im Test eine Bilddatei)
+
+**Testschritte**:
+1. Nutzer öffnet den Feldmodus und tippt auf „Beet 1“
+2. Nutzer misst die Aktion „Foto vom Beet“ im Beet-Sheet
+3. Nutzer tippt „Foto vom Beet“ und wählt ein Bild
+4. Nutzer tippt eine Pflanze an und prüft, ob dort ebenfalls ein Foto angeboten wird
+5. Nutzer öffnet am Desktop den Tab „Fotos“ von „Beet 1“
+
+**Erwartete Ergebnisse**:
+- Die Aktion „Foto vom Beet“ ist im Beet-Sheet ohne Scrollen auffindbar und misst mindestens 64 × 64 px
+- Nach der Bildwahl erscheint eine Bestätigung („Foto gespeichert“); die Aktion ist bis dahin gesperrt, ein Doppeltipp lädt das Bild nicht doppelt hoch
+- Die Pflanze bietet weiterhin ihre eigene Foto-Aktion; das Beet-Foto liegt nicht an der Pflanze
+- Das Bild erscheint im Tab „Fotos“ des Beets und ist bei fehlendem Titelbild das Titelbild im Beet-Sheet
+
+**Nachbedingungen**:
+- Ein Foto am Beet
+
+**Tags**: [req-053, welle-8, fotos, feldmodus, smartphone, 390px, touch, 64px, gp-fr-051]
+
+---
+
+### TC-053-079: CSV-Beetliste exportieren — Standardspalten, Spaltenauswahl, Excel-Variante
+
+**Requirement**: REQ-053 §23 GP-FR-145, GP-FR-175, GP-FR-174 (Excel-Variante) (SHOULD, abgeleitet). Ergänzt TC-053-030 (JSON-Sicherung)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Export
+**Preconditions**:
+- Site mit drei Beeten (Bodenart, Zone, aktive Pflanzen, Status unterschiedlich), eines davon heißt „=SUMME(A1)“; Sonne und Frostrisiko erfasst; Rolle Leitung
+
+**Testschritte**:
+1. Nutzer öffnet „Export & Import“ → „Beetliste exportieren (CSV)“
+2. Nutzer lässt die Spaltenauswahl unverändert und lädt herunter
+3. Nutzer öffnet den Dialog erneut, wählt zusätzlich „Sonne“ und „Frostrisiko“ und lädt die Datei herunter
+4. Nutzer wählt „Excel-Variante“ und lädt herunter
+5. Nutzer öffnet die Dateien im Texteditor
+
+**Erwartete Ergebnisse**:
+- Voreingestellt sind die Spalten Name, Typ, Fläche, Status, Bodenart, Zone und aktive Pflanzen; die Zuweisung ist nicht angekreuzt (TC-053-080)
+- Datei 1 enthält genau diese Spalten und drei Zeilen
+- Datei 2 enthält zusätzlich die Spalten Sonne und Frostrisiko
+- Die Excel-Variante trennt die Spalten mit Semikolon und beginnt mit Byte-Order-Mark; Umlaute sind im Tabellenprogramm korrekt
+- Der Beetname „=SUMME(A1)“ steht in der Datei mit vorangestelltem Hochkomma
+- Es gibt keinen Fehler und keinen Download bei leerer Spaltenauswahl: der Dialog verlangt mindestens eine Spalte
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-8, export, csv, beetliste, spaltenauswahl, excel, desktop, gp-fr-145, gp-fr-175]
+
+---
+
+### TC-053-080: CSV-Beetliste — Zuweisung nur mit Opt-in, ohne Opt-in keine Namen
+
+**Requirement**: REQ-053 §23 GP-FR-175, SR-024 (SHOULD, abgeleitet); Datenschutz
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Datenschutz
+**Preconditions**:
+- Site mit „Beet 1“, das der Person „Anna Beispiel“ zugewiesen ist (Zuständigkeit), und „Beet 2“ ohne Zuweisung; Rolle Leitung
+
+**Testschritte**:
+1. Nutzer öffnet „Export & Import“ → „Beetliste exportieren (CSV)“ und liest die Spaltenauswahl
+2. Nutzer lädt ohne Änderung herunter und sucht in der Datei nach „Anna“
+3. Nutzer schaltet „Zuweisung (enthält Namen von Personen)“ ein und liest den Hinweis
+4. Nutzer lädt herunter und öffnet die Datei
+5. Nutzer öffnet den Dialog erneut
+
+**Erwartete Ergebnisse**:
+- Die Option „Zuweisung“ ist standardmäßig aus und mit einem Datenschutz-Hinweis versehen
+- Die Datei ohne Opt-in enthält weder eine Spalte für Zuständige noch den Namen „Anna Beispiel“
+- Nach dem Einschalten benennt ein Hinweis, dass Personennamen in der Datei stehen
+- Die zweite Datei enthält eine Spalte „Zuweisung“ mit „Anna Beispiel“ bei „Beet 1“ und einem leeren Feld bei „Beet 2“
+- Beim erneuten Öffnen ist die Option wieder aus (der Opt-in wird nicht gemerkt)
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-8, export, csv, datenschutz, opt-in, zuweisung, desktop, gp-fr-175]
+
+---
+
+### TC-053-081: CSV-Beetliste importieren — Prüfbericht mit Zeilenfehlern, Bestätigung, Sprung in den Editor
+
+**Requirement**: REQ-053 §23 GP-FR-174 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Import
+**Preconditions**:
+- Standort B mit Gartengrenze und ohne Beete; Rolle Leitung; ein zweiter Nutzer mit Rolle Gärtner
+- CSV-Datei (UTF-8, Semikolon) mit Spalten `Name;Typ;Breite_m;Länge_m;Sonne`: vier gültige Zeilen („Hochbeet A“, „Hochbeet B“, „Kräuterbeet“, „=Beet4“), eine Zeile mit Breite „abc“ und eine Zeile ohne Namen
+
+**Testschritte**:
+1. Nutzer öffnet den Plan von Standort B, dann „Sicherung einspielen …“ und wählt als Dateityp CSV
+2. Nutzer wählt die Datei und liest den Prüfbericht
+3. Nutzer bricht ab und prüft den Plan
+4. Nutzer wiederholt den Import, bestätigt den Bericht und fährt fort
+5. Nutzer betrachtet den Plan
+6. Als Gärtner öffnet der Nutzer „Sicherung einspielen …“
+
+**Erwartete Ergebnisse**:
+- Der Prüfbericht nennt 4 Beete, die angelegt werden, und listet die beiden Fehlerzeilen mit Zeilennummer und Grund (Breite keine Zahl; Name fehlt)
+- Nach dem Abbrechen steht der Plan unverändert (keine Beete); die Vorschau hat nichts geschrieben
+- Nach der Bestätigung meldet der Dialog 4 angelegte Beete; die Fehlerzeilen wurden nicht angelegt
+- Der Plan zeigt die vier Beete mit den Maßen aus der Datei in einer Reihe nebeneinander ohne Überlappung; ein Hinweis fordert auf, sie im Editor anzuordnen, und führt dorthin
+- Der Name „=Beet4“ erscheint ohne führendes „=“ bzw. als Text, nicht als Formel
+- Als Gärtner ist der CSV-Import nicht verfügbar oder wird mit verständlicher Meldung abgelehnt (nur Leitung)
+
+**Nachbedingungen**:
+- Standort B enthält 4 neue Beete ohne Layout-Anordnung
+
+**Tags**: [req-053, welle-8, import, csv, beetliste, pruefbericht, desktop, gp-fr-174]
+
+---
+
+### TC-053-082: Frost-Grund im Pflanzenzustand — nur bei Frostrisiko „Hoch“ und vorhergesagtem Frost
+
+**Requirement**: REQ-053 §11.4, GP-FR-162, GP-UX-060 (SHOULD, abgeleitet). Ergänzt TC-053-034/035 (Info-Blase, Zustände)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Pflanzenzustand
+**Preconditions**:
+- Standort mit gespeicherter Wettervorhersage, die im Vorhersagehorizont Frost enthält (Seed-Daten)
+- „Beet A“: Frostrisiko „Hoch“, eine Tomate ohne weitere Auffälligkeit; „Beet B“: Frostrisiko „Normal“, eine Tomate; „Beet C“: Frostrisiko „Niedrig“, eine Tomate; „Beet D“: Frostrisiko „Hoch“, eine Tomate mit offenem Befund
+- Zweiter Standort, an dem keine Frostvorhersage vorliegt, mit „Beet E“ (Frostrisiko „Hoch“) und einer Tomate
+
+**Testschritte**:
+1. Nutzer öffnet die Beetansicht von „Beet A“ und bewegt den Zeiger auf die Tomate
+2. Nutzer prüft die Tomaten in „Beet B“ und „Beet C“
+3. Nutzer prüft die Tomate in „Beet D“
+4. Nutzer öffnet am zweiten Standort „Beet E“ und prüft die Tomate
+5. Nutzer öffnet die Benachrichtigungen und liest die Frühwarnung des ersten Standorts
+
+**Erwartete Ergebnisse**:
+- Die Tomate in „Beet A“ trägt das Badge mit der Schneeflocke; die Info-Blase nennt im Bereich „Handlungsbedarf“ die Frostgefahr im Klartext
+- Die Tomaten in „Beet B“ und „Beet C“ tragen kein Frost-Badge und keinen Frost-Grund
+- „Beet D“ zeigt genau ein Badge, das Warndreieck für den Befund (Priorität Befund vor Frost); die Frostgefahr steht trotzdem in der Info-Blase
+- In „Beet E“ erscheint trotz Frostrisiko „Hoch“ kein Frost-Grund, weil keine Vorhersage vorliegt
+- Die Frühwarnung nennt „Beet A“ und „Beet D“, nicht „Beet C“ (Frostrisiko „Niedrig“ wird ausgelassen); sie nennt keine neue Temperaturschwelle
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-8, pflanzenzustand, frost, schneeflocke, badge, fruehwarnung, desktop, gp-fr-162]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -1930,6 +2676,23 @@ keinen neuen Fall. Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die M
 | (abgeleitet aus GP-FR-148/170) | Früheren Stand wiederherstellen | TC-053-058 |
 | (abgeleitet aus GP-FR-158/159, GP-UX-057) | Sonnenfenster im Feldmodus | TC-053-059 |
 | (abgeleitet aus GP-NFR-071) | Messprofil Interaktion: INP, Pinch-Frametime, Feldmodus bei 4× CPU (beratend) | TC-053-060 |
+| (abgeleitet aus GP-FR-122) | Welle 8 Teil A: Bodenanalyse erfassen, Verlauf je Methode; Validierung | TC-053-061, TC-053-062 |
+| (abgeleitet aus GP-FR-123) | Welle 8 Teil A: Flächendosis, Gesamtmenge live (ergänzt TC-053-020) | TC-053-063 |
+| (abgeleitet aus GP-FR-124) | Welle 8 Teil A: Bodenverbesserung, Kalkung mit Hinweistext | TC-053-064 |
+| (abgeleitet aus GP-FR-125) | Welle 8 Teil A: Nährstoff-Hinweis ohne Zahl (Ausgangszustand, Gegenprobe) | TC-053-065, TC-053-066 |
+| (abgeleitet aus GP-FR-104) | Welle 8 Teil A: Historie als CSV | TC-053-067 |
+| (abgeleitet aus GP-FR-135) | Welle 8 Teil A: Rotationsmatrix, Nacherfassung aus der Zelle | TC-053-068 |
+| (abgeleitet aus GP-FR-133) | Welle 8 Teil A: Folgekultur-Empfehlung, Fruchtfolge-Schalter | TC-053-069 |
+| (abgeleitet aus GP-FR-086) | Welle 8 Teil A: Vorschlag annehmen / verwerfen | TC-053-070, TC-053-071 |
+| (abgeleitet aus GP-FR-134) | Welle 8 Teil B: Ebene „Mischkultur“ | TC-053-072 |
+| (abgeleitet aus GP-FR-162/163/168) | Welle 8 Teil B: Standortmerkmale (Mikroklima, Wind, Hang, Ausrichtung) | TC-053-073 |
+| (abgeleitet aus GP-FR-161) | Welle 8 Teil B: Eignungs-Ampel Frost/Wind/Drainage | TC-053-074 |
+| (abgeleitet aus GP-UX-057) | Welle 8 Teil B: Feldmodus-Chips „Feucht/Normal/Trocken“, „Windig“ (Sonne: TC-053-059) | TC-053-075 |
+| (abgeleitet aus GP-FR-166) | Welle 8 Teil B: Erreichbarkeits-Hinweis | TC-053-076 |
+| (abgeleitet aus GP-FR-051) | Welle 8 Teil B: Beet-Fotos Desktop und Feldmodus (Aktion ≥ 64 px) | TC-053-077, TC-053-078 |
+| (abgeleitet aus GP-FR-145/175) | Welle 8 Teil B: CSV-Beetliste, Spaltenauswahl, Opt-in Zuweisung | TC-053-079, TC-053-080 |
+| (abgeleitet aus GP-FR-174) | Welle 8 Teil B: CSV-Beetlisten-Import mit Prüfbericht | TC-053-081 |
+| (abgeleitet aus §11.4, GP-FR-162) | Welle 8 Teil B: Frost-Grund im Pflanzenzustand | TC-053-082 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
@@ -1963,6 +2726,15 @@ Testebenen:
 | GP-ACC-055 | Fruchtfolge standardmäßig aus für Pflanzgefäß/Zelt/Regal, je Beet einschaltbar (v1.4) | Integrationstest (`validate-planting`); Hinweis-Anzeige in TC-053-018 |
 | GP-ACC-056 | Plan-Rahmen mit Punkt > 1 000 m abgelehnt (v1.4) | API-Fehlervertrag; Integrationstest |
 | GP-ACC-057 | Mandantenweite Historie: nur eigener Mandant, 90 Tage, paginiert (v1.4) | Sicherheits-/Integrationstest auf API-Ebene; Filter-Anzeige in TC-053-023 |
+
+## Nicht abgedeckte Welle-8-Zeilen
+
+| Zeile | Grund |
+|-------|-------|
+| GP-FR-105 | Täglicher Konsistenz-Job (Celery): läuft ohne Nutzeraktion, kein Auslöser und keine eigene Oberfläche. Beobachtbar wäre nur das nachträgliche Auftauchen von Einträgen mit der Auslöser-Art „Nacherfassung“ in der Historie; das gehört in einen Integrationstest mit Job-Aufruf. |
+| GP-FR-165 | COULD, in Welle 8 ohne Oberfläche (Wurzeldruck/Allelopathie-Flags sind Welle 9). |
+| GP-FR-167 | COULD, nächste Wasserquelle als Beetlisten-Spalte; Welle 9. |
+| Mengen-Obergrenzen (500 Kanten je Antwort, 500 Zeilen je CSV-Import, 50 000 Zeilen je Historien-CSV, Quote 1 MiB) | API-Grenzen, über die Oberfläche nicht herstellbar; Integrationstest. |
 
 Teilweise nicht abgedeckt: der Import aus GP-ACC-031 ist über TC-053-041 für den Weg „Ersetzen“ abgedeckt; die Konfliktfälle der Ersetzungs-/Wiederherstellungsfunktion sowie die Quoten- und
 Prüfregeln der Datei sind kein Browser-Artefakt.

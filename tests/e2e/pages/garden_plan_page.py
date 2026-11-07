@@ -1893,3 +1893,180 @@ class GardenPlanPage(BasePage):
             raise AssertionError(
                 f"{what}: the editor should draw {sorted(expected)}, it draws {sorted(self.object_keys())}"
             ) from exc
+
+    # ── Wave 8 part B (WP 8.15, 8.27): companion layer, CSV bed list import ──
+    #
+    # The companion layer (``CompanionOverlay``) draws one ``<g data-companion-edge=<bed>:<slotA>|<slotB>>`` per judged
+    # pair with ``data-companion-status``; its visible line carries the dash pattern, an invisible 24 px stroke takes
+    # the pointer. Hovering is a spatial gesture with no keyboard equivalent on the canvas (the lines are not
+    # focusable by design; the legend lists them as text), so it is a trusted pointer move to the line's midpoint,
+    # guarded by ``elementFromPoint`` resolving to that very line.
+
+    COMPANION_LAYER = _tid("garden-plan-companion-layer")
+    COMPANION_INFO = _tid("garden-plan-companion-info")
+    LEGEND_COMPANION = _tid("garden-plan-legend-companion")
+    IO_CSV = _tid("garden-plan-io-csv")
+
+    def companion_lines(self) -> dict[str, dict[str, str]]:
+        """line id -> ``{status, dash}`` of every drawn companion line; loud when the layer is not drawn at all."""
+        layer = self.wait_for_element(self.COMPANION_LAYER)
+        rows = self.driver.execute_script(
+            "return Array.from(arguments[0].querySelectorAll('[data-companion-edge]')).map(function (g) {"
+            "  var line = g.querySelector('.gp-companion-line');"
+            "  return [g.getAttribute('data-companion-edge'), g.getAttribute('data-companion-status'),"
+            "          line ? (line.getAttribute('stroke-dasharray') || '') : null]; });",
+            layer,
+        )
+        return {line_id: {"status": status, "dash": dash} for line_id, status, dash in rows}
+
+    @staticmethod
+    def _pair_line(
+        bed_key: str, slot_a: str, slot_b: str, lines: dict[str, dict[str, str]]
+    ) -> str | None:
+        for candidate in (f"{bed_key}:{slot_a}|{slot_b}", f"{bed_key}:{slot_b}|{slot_a}"):
+            if candidate in lines:
+                return candidate
+        return None
+
+    def wait_for_companion_pairs(
+        self, bed_key: str, pairs: list[tuple[str, str]], what: str
+    ) -> dict[tuple[str, str], str]:
+        """Wait until the layer draws a line for every slot pair of *pairs*; return pair -> line id.
+
+        The line id is ``<bed>:<slot a>|<slot b>`` in the server's order, so either order is accepted. Other lines
+        the bed may carry (a derived neighbourhood) do not matter here.
+        """
+
+        def _found() -> dict[tuple[str, str], str] | bool:
+            if not self.is_present(self.COMPANION_LAYER):
+                return False
+            lines = self.companion_lines()
+            ids = {pair: self._pair_line(bed_key, pair[0], pair[1], lines) for pair in pairs}
+            return ids if all(ids.values()) else False  # type: ignore[return-value]
+
+        try:
+            return self.poll(timeout=20).until(lambda _d: _found())
+        except TimeoutException as exc:
+            drawn = self.companion_lines() if self.is_present(self.COMPANION_LAYER) else None
+            raise AssertionError(
+                f"{what}: the companion layer should draw the pairs {pairs} of bed {bed_key!r}, it draws {drawn}"
+            ) from exc
+
+    def hover_companion_line(self, line_id: str, status: str) -> dict[str, str]:
+        """Rest the mouse on the midpoint of *line_id*; return the info card once it shows *status*.
+
+        The card carries no line id, only the status; the caller hovers lines of different statuses, so the status
+        tells this card from the previous one.
+
+        The canvas is scrolled into view first: the editor's toolbar and legend push it below the fold of a 1080 px
+        window (first browser run), where a viewport point of the line does not exist and the hit guard rightly
+        refuses. The midpoint is measured after that scroll.
+        """
+        self.scroll_into_view(self.wait_for_element(self.CANVAS))
+        centre = self.driver.execute_script(
+            'var g = document.querySelector("[data-companion-edge=\'" + arguments[0] + "\']");'
+            "if (!g) { return 'no-line'; } var hit = g.querySelector('.gp-companion-hit');"
+            "if (!hit) { return 'no-hit'; }"
+            "var r = hit.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2];",
+            line_id,
+        )
+        if centre == "no-line":
+            raise AssertionError(f"the companion line {line_id!r} is not drawn")
+        if centre == "no-hit" or not isinstance(centre, list):
+            raise AssertionError(
+                f"the companion line {line_id!r} is drawn without its hover target '.gp-companion-hit' ({centre!r})"
+            )
+        found = self.driver.execute_script(
+            "var el = document.elementFromPoint(arguments[0], arguments[1]);"
+            "var g = el ? el.closest('[data-companion-edge]') : null;"
+            "return g ? g.getAttribute('data-companion-edge') : (el ? el.tagName + '.' + el.getAttribute('class') : null);",
+            centre[0],
+            centre[1],
+        )
+        if found != line_id:
+            raise AssertionError(
+                f"the midpoint {centre} of companion line {line_id!r} does not hit it; it hits {found!r}"
+            )
+        builder = ActionBuilder(self.driver, duration=50)
+        builder.pointer_action.move_to_location(round(centre[0]), round(centre[1]))
+        builder.perform()
+        try:
+            self.poll().until(
+                lambda d: any(
+                    card.get_attribute("data-companion-status") == status
+                    for card in d.find_elements(*self.COMPANION_INFO)
+                )
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"hovering companion line {line_id!r} opened no info card with status {status!r}"
+            ) from exc
+        return self.companion_info()
+
+    def companion_info(self) -> dict[str, str]:
+        card = self.wait_for_element(self.COMPANION_INFO)
+
+        def part(testid: str) -> str:
+            found = card.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+            return " ".join((found[0].get_attribute("textContent") or "").split()) if found else ""
+
+        return {
+            "status": card.get_attribute("data-companion-status") or "",
+            "text": " ".join((card.get_attribute("textContent") or "").split()),
+            "pair": part("garden-plan-companion-info-pair"),
+            "reason": part("garden-plan-companion-info-reason"),
+            "score": part("garden-plan-companion-info-score"),
+        }
+
+    def companion_legend_rows(self) -> dict[str, dict[str, str]]:
+        """status -> ``{text, dash}`` of the companion part of the layer legend."""
+        legend = self.wait_for_element(self.LEGEND_COMPANION)
+        rows = self.driver.execute_script(
+            "return Array.from(arguments[0].querySelectorAll('[data-legend-companion]')).map(function (li) {"
+            "  var line = li.querySelector('svg line');"
+            "  return [li.getAttribute('data-legend-companion'), li.textContent.trim(),"
+            "          line ? (line.getAttribute('stroke-dasharray') || '') : null]; });",
+            legend,
+        )
+        return {status: {"text": text, "dash": dash} for status, text, dash in rows}
+
+    def zoom_out_to_fit(self, max_steps: int = 25, *, what: str = "zoom out to fit") -> None:
+        """Press "zoom out" until it is disabled (the fit zoom is the lowest level); bounded, loud."""
+        for step in range(1, max_steps + 1):
+            button = self.wait_for_element(self.ZOOM_OUT)
+            if not button.is_enabled():
+                return
+            before = self.zoom_percent()
+            self.wait_and_click(self.ZOOM_OUT)
+            try:
+                self.poll().until(lambda _d, b=before: self.zoom_percent() != b)
+            except TimeoutException as exc:
+                raise AssertionError(
+                    f"{what}: step {step} of 'zoom out' did not change the level, it stays at {before} %"
+                ) from exc
+        raise AssertionError(
+            f"{what}: the zoom never reached its lowest level in {max_steps} steps"
+        )
+
+    def zoom_in_until(self, percent: int, max_steps: int = 25, *, what: str = "zoom in") -> int:
+        """Press "zoom in" until the level reads at least *percent*; return the level reached (bounded, loud)."""
+        for step in range(1, max_steps + 1):
+            current = self.zoom_percent()
+            if current >= percent:
+                return current
+            self.wait_and_click(self.ZOOM_IN)
+            try:
+                self.poll().until(lambda _d, b=current: self.zoom_percent() != b)
+            except TimeoutException as exc:
+                raise AssertionError(
+                    f"{what}: step {step} of 'zoom in' towards {percent} % did not change the level, "
+                    f"it stays at {current} %"
+                ) from exc
+        raise AssertionError(
+            f"{what}: the zoom never reached {percent} % in {max_steps} steps (it reads {self.zoom_percent()} %)"
+        )
+
+    def open_csv_import(self) -> None:
+        """ "Export & Import" -> "Beetliste importieren (CSV) …"; return once the wizard's CSV panel is on screen."""
+        self._open_io_entry(self.IO_CSV, self.IMPORT_WIZARD, "CSV bed list import")
+        self.wait_for_element(_tid("plan-csv-import"))

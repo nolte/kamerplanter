@@ -10,7 +10,16 @@ WHY THE API, AND WHICH ONE
 --------------------------
 The arrangement goes through the application's own REST API — the same routes
 the editor itself calls — never through a direct database write
-(`test-pyramid-foundation` §"Arrangement-Treue", `test-falsifiability` T9):
+(`test-pyramid-foundation` §"Arrangement-Treue", `test-falsifiability` T9) -
+with two named exceptions, both going through :func:`_arango_document_write`
+and each explaining its divergence in its own docstring:
+
+* :func:`mark_task_suggested` - the suggestion flag of a task has no route and
+  no producer yet (REQ-053 E-02);
+* :func:`store_frost_forecast` - a weather forecast is written only by the
+  weather fetch task, and the E2E stack has no outbound weather source.
+
+The routes used otherwise:
 
 * ``POST /sites`` creates the site;
 * ``PUT /sites/{key}/plan/boundary`` creates the plan with its boundary and grid
@@ -35,6 +44,11 @@ A ``429`` is reported as what it is instead of as a broken editor.
 
 from __future__ import annotations
 
+import base64
+import json
+import os
+import urllib.error
+import urllib.request
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -918,3 +932,421 @@ def rotation_years(base_url: str, seed: dict, bed_key: str) -> dict[int, list[di
     if not isinstance(body, dict) or not isinstance(body.get("timeline"), list):
         raise AssertionError(f"the rotation timeline of {bed_key!r} has no timeline: {body!r}")
     return {int(entry["year"]): list(entry.get("plantings") or []) for entry in body["timeline"]}
+
+
+# ── Wave 8 part A: soil, area dose, rotation matrix, suggestions (WP 8.30) ──
+#
+# Arranged through the routes the bed view itself calls - ``POST /care-events`` for a soil analysis or a care line,
+# ``POST /fertilizers`` for a catalogue product with a data-sheet rate, ``POST /locations/{key}/history/backfill`` for
+# a past year, ``PATCH /locations/{key}`` for the rotation switch - with ONE named exception: the suggestion flag of a
+# task (:func:`mark_task_suggested`), which no route writes.
+
+
+def record_soil_analysis(
+    base_url: str,
+    seed: dict,
+    *,
+    bed_key: str,
+    measurements: list[dict],
+    days_ago: float = 0.0,
+    summary: str = "Bodenanalyse (E2E)",
+) -> dict:
+    """``POST /care-events`` with ``category = soil_analysis`` - the body the "Bodenanalyse erfassen" dialog sends."""
+    return log_care_event(
+        base_url,
+        seed,
+        bed_key=bed_key,
+        category="soil_analysis",
+        summary=summary,
+        days_ago=days_ago,
+        measurements=measurements,
+    )
+
+
+def soil_analyses(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/soil-analyses``: the series per parameter and method, the method changes, the liming hint."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/soil-analyses")
+    if not isinstance(body, dict) or not isinstance(body.get("series"), list):
+        raise AssertionError(f"the soil analyses of {bed_key!r} carry no series: {body!r}")
+    return body
+
+
+def soil_series(analyses: dict, parameter: str) -> dict[str, list[float]]:
+    """``{method: [value, ...]}`` of one parameter, oldest first (the server's order)."""
+    return {
+        entry["method"]: [float(point["value"]) for point in entry["points"]]
+        for entry in analyses["series"]
+        if entry["parameter"] == parameter
+    }
+
+
+def stored_soil_profile(base_url: str, seed: dict, bed_key: str, *, required: bool = True) -> dict:
+    """The stored ``soil_profile`` of a bed.
+
+    ``required`` (the default) is loud when the bed has none - the reader after a write. ``required=False`` answers
+    ``{}`` for a bed without profile - the precondition read of a fresh bed. Either way an answer that is no
+    location of *bed_key* is loud.
+    """
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}")
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"GET /locations/{bed_key} answered no location: {body!r}")
+    profile = body.get("soil_profile")
+    if isinstance(profile, dict):
+        return profile
+    if required or profile is not None:
+        raise AssertionError(f"the bed {bed_key!r} has no stored soil profile: {profile!r}")
+    return {}
+
+
+def bed_summary(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/summary`` (GP-API-012): what the bed head renders, ``nutrient_hint`` included."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/summary")
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"the summary of {bed_key!r} is no bed summary: {body!r}")
+    return body
+
+
+def create_fertilizer(
+    base_url: str,
+    seed: dict,
+    *,
+    name: str,
+    rate_g_per_m2: float | None = None,
+    rate_l_per_m2: float | None = None,
+    npk: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> dict:
+    """A tenant catalogue product with a data-sheet area rate (REQ-004 W-013), as the fertilizer form creates it."""
+    data: dict = {
+        "product_name": name,
+        "fertilizer_type": "organic",
+        "is_organic": True,
+        "tank_safe": False,
+        "npk_ratio": [float(value) for value in npk],
+    }
+    if rate_g_per_m2 is not None:
+        data["application_rate_g_per_m2"] = float(rate_g_per_m2)
+    if rate_l_per_m2 is not None:
+        data["application_rate_l_per_m2"] = float(rate_l_per_m2)
+    return _tenant_post(base_url, seed, "/fertilizers", data, expected=(201,))
+
+
+def create_bed_without_area(base_url: str, seed: dict, *, site_key: str, name: str) -> str:
+    """A legacy bed without geometry (``area_m2 = 0``, TC-053-011): the per-m² dose units are blocked for it."""
+    body = _tenant_post(
+        base_url,
+        seed,
+        "/locations",
+        {"name": name, "site_key": site_key, "location_type_key": "raised_bed", "area_m2": 0.0},
+        expected=(201,),
+    )
+    return body["key"]
+
+
+def backfill_year(
+    base_url: str,
+    seed: dict,
+    bed_key: str,
+    year: int,
+    *,
+    species_key: str | None = None,
+    family_key: str | None = None,
+    season: str | None = None,
+) -> int:
+    """Record what stood in the bed in *year* (GP-API-042, main crop): a species or a family.
+
+    *season* (``spring`` / ``main`` / ``autumn``) dates the entry to that season's middle; two entries of one year
+    with ``spring`` and ``main`` are a pre-crop and its main crop as the product records them.
+    """
+    data: dict = {"year": year, "plan_role": "main_crop"}
+    if season:
+        data["season"] = season
+    if species_key:
+        data["species_key"] = species_key
+    if family_key:
+        data["family_key"] = family_key
+    _tenant_post(base_url, seed, f"/locations/{bed_key}/history/backfill", data)
+    return year
+
+
+_FAMILY_CACHE: dict[tuple[str, str], str] = {}
+
+
+def botanical_family_key(base_url: str, seed: dict, name: str) -> str:
+    """The key of the seeded botanical family *name* (``Cucurbitaceae``); loud when the catalogue lacks it."""
+    cached = _FAMILY_CACHE.get((base_url, name))
+    if cached is not None:
+        return cached
+    api, token = _global_api(base_url, seed)
+    status, body = _api_request(f"{api}/botanical-families?offset=0&limit=200", "GET", token)
+    _require(status, body, (200,), "GET /botanical-families")
+    items = body if isinstance(body, list) else (body.get("items") or [])
+    for item in items:
+        _FAMILY_CACHE[(base_url, item.get("name", ""))] = item["key"]
+    if (base_url, name) not in _FAMILY_CACHE:
+        raise AssertionError(
+            f"Self-provisioning failed: the botanical family catalogue has no {name!r}; "
+            f"{len(items)} families listed"
+        )
+    return _FAMILY_CACHE[(base_url, name)]
+
+
+def rotation_matrix(base_url: str, seed: dict, site_key: str) -> dict:
+    """``GET /sites/{key}/rotation-matrix`` (GP-FR-135): beds x years as the matrix page reads it."""
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/rotation-matrix")
+    if not isinstance(body, dict) or not isinstance(body.get("beds"), list):
+        raise AssertionError(f"the rotation matrix of {site_key!r} has no beds: {body!r}")
+    return body
+
+
+def succession_recommendation(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/succession-recommendation`` (GP-FR-133)."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/succession-recommendation")
+    if not isinstance(body, dict) or "status" not in body:
+        raise AssertionError(
+            f"the succession recommendation of {bed_key!r} has no status: {body!r}"
+        )
+    return body
+
+
+def patch_location(base_url: str, seed: dict, bed_key: str, data: dict) -> dict:
+    """``PATCH /locations/{key}`` with *data*; loud on anything but 200."""
+    status, body = tenant_request(base_url, seed, "PATCH", f"/locations/{bed_key}", data)
+    _require(status, body, (200,), f"PATCH /locations/{bed_key} ({sorted(data)})")
+    return body
+
+
+def tenant_location(base_url: str, seed: dict, bed_key: str) -> dict:
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}")
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"GET /locations/{bed_key} answered no location: {body!r}")
+    return body
+
+
+#: The E2E stack's ArangoDB as the compose file runs it (``docker-compose.e2e.yml``: service ``arangodb``, root
+#: password ``e2e-test-password``, database ``kamerplanter_e2e`` for the light and ``kamerplanter_e2e_full`` for the
+#: full app stack). Every value can be overridden for a stack that runs elsewhere.
+_ARANGO_URL = os.environ.get("E2E_ARANGO_URL", "http://arangodb:8529")
+_ARANGO_USER = os.environ.get("E2E_ARANGO_USER", "root")
+_ARANGO_PASSWORD = os.environ.get("E2E_ARANGO_PASSWORD", "e2e-test-password")
+_ARANGO_DB = {"light": "kamerplanter_e2e", "full": "kamerplanter_e2e_full"}
+
+
+def _arango_document_write(
+    app_mode: str, method: str, path: str, document: dict, *, what: str, reason_no_route: str
+) -> None:
+    """One document write on the backend's ArangoDB (``/_db/<db>/_api/document/<path>``); loud on every failure.
+
+    The single place the two named direct writes go through. *what* names the arranged state in the failure
+    message, *reason_no_route* says why there is no API route for it.
+    """
+    if app_mode not in _ARANGO_DB:
+        raise AssertionError(f"{what}: unknown app mode {app_mode!r}")
+    database = os.environ.get("E2E_ARANGO_DB", _ARANGO_DB[app_mode])
+    url = f"{_ARANGO_URL.rstrip('/')}/_db/{database}/_api/document/{path}"
+    credentials = base64.b64encode(f"{_ARANGO_USER}:{_ARANGO_PASSWORD}".encode()).decode()
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(document).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Basic {credentials}"},
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB refused {what} ({database}): {exc.code} {exc.read()[:300]!r}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB at {_ARANGO_URL} is not reachable from the test runner "
+            f"({exc.reason}). {reason_no_route}; set E2E_ARANGO_URL / E2E_ARANGO_DB / E2E_ARANGO_PASSWORD when the "
+            "stack does not run from docker-compose.e2e.yml."
+        ) from exc
+    if status not in (200, 201, 202):
+        raise AssertionError(f"Self-provisioning failed: ArangoDB answered {status} for {what}")
+
+
+def mark_task_suggested(app_mode: str, task_key: str, reason: str) -> None:
+    """Turn an open task into a system suggestion (``suggested = true`` + ``suggestion_reason``).
+
+    **Divergence from the running system, named (`test-pyramid-foundation` §"Arrangement fidelity", T9).** No route
+    and no producer writes ``suggested = true`` yet (REQ-053 E-02: the producer belongs to the ADR-008 propagation
+    strand; ``TaskCreate`` has no such field). The task itself is created through ``POST /tasks``, so every
+    attribute the creation path enforces - tenant, entity link, edge, ``care_dedup_key`` - is the system's own; this
+    write only sets the two fields the ``Task`` model declares for a proposal (``app/domain/models/task.py``,
+    migration v0095) on that document. The state is reachable by the model; only its producer is missing.
+
+    A direct ``PATCH`` on ArangoDB's document API - the database the backend under test uses. Loud when the database
+    cannot be reached or refuses the write: a missing suggestion must never read as "the section is hidden".
+    """
+    _arango_document_write(
+        app_mode,
+        "PATCH",
+        f"tasks/{task_key}",
+        {"suggested": True, "suggestion_reason": reason},
+        what=f"the suggestion flag on task {task_key}",
+        reason_no_route="The suggestion flag has no API route",
+    )
+
+
+# ── Wave 8 part B: companion layer, site features, photos, CSV, frost reason (WP 8.31) ──
+#
+# Arranged through the routes the product itself calls - ``PUT /slots/{a}/adjacent/{b}`` is the "mark as
+# neighbours" action of the slot neighbourhood (SR-021), ``PATCH /locations/{key}`` with ``site_conditions`` /
+# ``soil_profile`` is what the site-conditions dialog and the field-mode chips send, ``POST /tenants/{slug}/assignments``
+# is the assignment the tenant settings write - with ONE named exception: a stored weather forecast
+# (:func:`store_frost_forecast`), which only the weather fetch task writes.
+
+
+def mark_neighbours(base_url: str, seed: dict, slot_a: str, slot_b: str) -> None:
+    """``PUT /slots/{a}/adjacent/{b}`` (manual neighbourhood, both directions); loud on anything but 204.
+
+    The manual edge, not the derived one: the derivation runs out of band (a Celery task after a slot change), so a
+    test that waited for it would wait on a worker; a manual edge is the user's own path and is never removed by the
+    geometry.
+    """
+    status, body = tenant_request(base_url, seed, "PUT", f"/slots/{slot_a}/adjacent/{slot_b}")
+    _require(status, body, (204,), f"PUT /slots/{slot_a}/adjacent/{slot_b}")
+
+
+def companion_edges(base_url: str, seed: dict, bed_key: str) -> list[dict]:
+    """``GET /locations/{key}/companion-edges`` (GP-FR-134): the judged neighbour pairs the layer draws."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/companion-edges")
+    if not isinstance(body, dict) or not isinstance(body.get("edges"), list):
+        raise AssertionError(f"the companion edges of {bed_key!r} carry no edge list: {body!r}")
+    return body["edges"]
+
+
+def edge_between(edges: list[dict], slot_a: str, slot_b: str) -> dict:
+    """The judged pair of *slot_a* and *slot_b* (either order); loud when the server answers none."""
+    for edge in edges:
+        if {edge["slot_a"]["slot_key"], edge["slot_b"]["slot_key"]} == {slot_a, slot_b}:
+            return edge
+    pairs = [(e["slot_a"]["slot_key"], e["slot_b"]["slot_key"], e["status"]) for e in edges]
+    raise AssertionError(
+        f"no companion edge between {slot_a!r} and {slot_b!r}; the server judged {pairs}"
+    )
+
+
+def site_conditions(base_url: str, seed: dict, bed_key: str) -> dict:
+    """The stored ``site_conditions`` of a bed (``{}`` when none are stored)."""
+    return dict(tenant_location(base_url, seed, bed_key).get("site_conditions") or {})
+
+
+def bed_photos(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/photos`` (GP-FR-051): the gallery as the photos tab reads it."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/photos")
+    if not isinstance(body, dict) or not isinstance(body.get("photos"), list):
+        raise AssertionError(f"the photo gallery of {bed_key!r} has no photo list: {body!r}")
+    return body
+
+
+def plant_photos(base_url: str, seed: dict, plant_key: str) -> list[dict]:
+    """``GET /plant-instances/{key}/photos`` (REQ-034): the gallery of one plant."""
+    body = tenant_get(base_url, seed, f"/plant-instances/{plant_key}/photos")
+    if not isinstance(body, dict) or not isinstance(body.get("photos"), list):
+        raise AssertionError(
+            f"the photo gallery of plant {plant_key!r} has no photo list: {body!r}"
+        )
+    return body["photos"]
+
+
+def _tenants_api(base_url: str, seed: dict) -> tuple[str, str | None]:
+    from .conftest import _fresh_access_token
+
+    slug = seed.get("tenant_slug", "mein-garten")
+    return f"{base_url.rstrip('/')}/api/v1/tenants/{slug}", _fresh_access_token(seed, base_url)
+
+
+def acting_member(base_url: str, seed: dict) -> dict:
+    """The acting account's membership in the test tenant (``key``, ``display_name``); loud when it has none.
+
+    ``GET /users/me`` names the account, ``GET /tenants/{slug}/members`` its membership - the two reads the tenant
+    settings page makes.
+    """
+    api, token = _global_api(base_url, seed)
+    status, me = _api_request(f"{api}/users/me", "GET", token)
+    _require(status, me, (200,), "GET /users/me")
+    tenants, token = _tenants_api(base_url, seed)
+    status, members = _api_request(f"{tenants}/members?offset=0&limit=200", "GET", token)
+    _require(status, members, (200,), "GET /tenants/{slug}/members")
+    mine = [m for m in members if isinstance(m, dict) and m.get("user_key") == me.get("key")]
+    if len(mine) != 1 or not (mine[0].get("display_name") or "").strip():
+        raise AssertionError(
+            f"Self-provisioning failed: the acting account {me.get('key')!r} should have exactly one membership "
+            f"with a display name in the test tenant; members: {members!r}"
+        )
+    return mine[0]
+
+
+def assign_bed(base_url: str, seed: dict, *, membership_key: str, bed_key: str) -> dict:
+    """``POST /tenants/{slug}/assignments`` (REQ-049 §3.5): *bed_key* becomes the member's responsibility."""
+    tenants, token = _tenants_api(base_url, seed)
+    status, body = _api_request(
+        f"{tenants}/assignments",
+        "POST",
+        token,
+        {"membership_key": membership_key, "location_key": bed_key, "can_edit": True},
+    )
+    _require(status, body, (201,), f"POST /tenants/{{slug}}/assignments ({bed_key})")
+    return body
+
+
+def tenant_key_of(base_url: str, seed: dict) -> str:
+    """The document key of the test tenant (``GET /tenants/{slug}``)."""
+    tenants, token = _tenants_api(base_url, seed)
+    status, body = _api_request(tenants, "GET", token)
+    _require(status, body, (200,), "GET /tenants/{slug}")
+    if not body.get("key"):
+        raise AssertionError(f"GET /tenants/{{slug}} answered no key: {body!r}")
+    return str(body["key"])
+
+
+def plant_states(base_url: str, seed: dict, bed_key: str) -> dict[str, list[str]]:
+    """``GET /locations/{key}/plant-states``: plant key -> the attention reasons, highest priority first."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/plant-states")
+    if not isinstance(body, list):
+        raise AssertionError(f"the plant states of {bed_key!r} are not a list: {body!r}")
+    return {
+        row["plant_key"]: [item["reason"] for item in row.get("attention") or []] for row in body
+    }
+
+
+def store_frost_forecast(
+    app_mode: str, *, tenant_key: str, site_key: str, temp_min_c: float = -3.0
+) -> None:
+    """Store one daily forecast for *site_key* for today (UTC) with a night minimum of *temp_min_c*.
+
+    **Divergence from the running system, named (`test-pyramid-foundation` §"Arrangement fidelity", T9).** A
+    forecast is written only by the weather fetch task (Open-Meteo / DWD / Home Assistant through
+    ``WeatherForecastRepository.upsert_daily``); the E2E stack has neither an outbound weather source nor a route that
+    stores a forecast. This write is the document that path stores - every field of ``WeatherForecast``
+    (``app/domain/models/weather.py``) with the values a fetched forecast carries (``data_kind = forecast``,
+    ``source``, ``fetched_at``), scoped to the tenant and the site - in the ``weather_forecasts`` collection the plant
+    state reads by ``site_key`` and ``tenant_key`` (``find_by_site``). Not written: the ``has_forecast`` graph edge,
+    which no reader of the frost verdict follows. The state is the one a fetch produces; only the producer is missing.
+
+    Loud when the database cannot be reached or refuses the write: a missing forecast must never read as "no frost".
+    """
+    # One instant for both: "today" and the fetch time must not straddle midnight UTC.
+    now = datetime.now(UTC)
+    document = {
+        "tenant_key": tenant_key,
+        "site_key": site_key,
+        "forecast_date": now.date().isoformat(),
+        "temp_min_c": float(temp_min_c),
+        "temp_max_c": float(temp_min_c) + 9.0,
+        "source": "open_meteo",
+        "fetched_at": now.isoformat(),
+        "data_kind": "forecast",
+        "is_current_conditions": False,
+    }
+    _arango_document_write(
+        app_mode,
+        "POST",
+        "weather_forecasts",
+        document,
+        what=f"the forecast for site {site_key}",
+        reason_no_route="A forecast has no API route",
+    )
