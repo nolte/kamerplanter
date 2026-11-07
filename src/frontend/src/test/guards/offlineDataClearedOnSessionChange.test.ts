@@ -1,0 +1,226 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { createElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { configureStore } from '@reduxjs/toolkit';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import i18n from 'i18next';
+
+/**
+ * REQ-053 WP 9.1 (#2741), guardrail G-W9 (b) / UI-NFR-012 SR-019: a logout and a tenant switch
+ * empty the service worker's API cache and IndexedDB completely BEFORE the page reloads (or the new
+ * tenant becomes active) — on a shared device the next account must not read the previous one's
+ * plans offline.
+ *
+ * Pinned at both places the issue names, through the production components and the real listener:
+ *
+ * - logout / forced sign-out: `store/sessionListener.ts`;
+ * - tenant switch: `components/layout/TenantSwitcher.tsx` (before `reload()`) and
+ *   `components/tenants/LightModeTakeoverDialog.tsx` (before `switchTenant`).
+ *
+ * The sweep at the end catches a NEW place that dispatches `switchTenant` without clearing first.
+ */
+
+const calls: string[] = [];
+let releaseClear: () => void = () => undefined;
+let clearGate: Promise<void> = Promise.resolve();
+
+vi.mock('@/pwa/offlineData', () => ({
+  clearOfflineData: vi.fn(async () => {
+    calls.push('clear:start');
+    await clearGate;
+    calls.push('clear:done');
+  }),
+  postNamespace: vi.fn(async (userKey: string | null, tenantKey: string | null) => {
+    calls.push(`namespace:${userKey}:${tenantKey}`);
+  }),
+  repostNamespace: vi.fn(async () => undefined),
+  clearAllOfflineStorage: vi.fn(async () => undefined),
+}));
+vi.mock('@/api/endpoints/system', () => ({ getTakeoverStatus: vi.fn(), decideTakeover: vi.fn() }));
+vi.mock('@/api/endpoints/auth', async () => ({
+  ...(await vi.importActual<typeof import('@/api/endpoints/auth')>('@/api/endpoints/auth')),
+  getProfile: vi.fn(),
+  listProviders: vi.fn(),
+  logout: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('@/api/endpoints/tenants', async () => ({
+  ...(await vi.importActual<typeof import('@/api/endpoints/tenants')>('@/api/endpoints/tenants')),
+  listMyTenants: vi.fn(),
+}));
+
+const offlineData = await import('@/pwa/offlineData');
+const { renderWithProviders, createTestStore, authState } = await import('@/test/helpers');
+
+const TENANT_A = { key: 'tenant_a', slug: 'garten-a', name: 'Garten A', tenant_type: 'personal', role: 'lead' };
+const TENANT_B = { key: 'tenant_b', slug: 'garten-b', name: 'Garten B', tenant_type: 'organization', role: 'grower' };
+
+function holdClear() {
+  clearGate = new Promise<void>((resolve) => {
+    releaseClear = resolve;
+  });
+}
+
+describe('offline data is cleared before a tenant switch reloads (TenantSwitcher)', () => {
+  let reload: ReturnType<typeof vi.fn>;
+  let originalLocation: Location;
+
+  beforeEach(async () => {
+    calls.length = 0;
+    vi.mocked(offlineData.clearOfflineData).mockClear();
+    await i18n.changeLanguage('de');
+    originalLocation = window.location;
+    reload = vi.fn(() => calls.push('reload'));
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...originalLocation, reload } });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+    clearGate = Promise.resolve();
+  });
+
+  it('awaits the clear and reloads only after it finished', async () => {
+    const { default: TenantSwitcher } = await import('@/components/layout/TenantSwitcher');
+    holdClear();
+    const store = createTestStore({
+      tenants: { activeTenant: TENANT_A, myTenants: [TENANT_A, TENANT_B], isLoading: false, error: null },
+    } as never);
+    renderWithProviders(createElement(TenantSwitcher), { store });
+
+    await userEvent.click(screen.getByRole('button', { name: /Garten A/ }));
+    await userEvent.click(screen.getByTestId('tenant-switcher-item-garten-b'));
+
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+    expect(reload).not.toHaveBeenCalled();
+    releaseClear();
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(calls).toEqual(['clear:start', 'clear:done', 'reload']);
+  });
+});
+
+describe('offline data is cleared before the light-mode take-over switches the tenant', () => {
+  beforeEach(async () => {
+    calls.length = 0;
+    localStorage.clear();
+    vi.mocked(offlineData.clearOfflineData).mockClear();
+    await i18n.changeLanguage('de');
+  });
+
+  it('clears before the taken-over garden becomes active', async () => {
+    const systemApi = await import('@/api/endpoints/system');
+    const authApi = await import('@/api/endpoints/auth');
+    const tenantApi = await import('@/api/endpoints/tenants');
+    const { default: LightModeTakeoverDialog } = await import('@/components/tenants/LightModeTakeoverDialog');
+    vi.mocked(systemApi.getTakeoverStatus).mockResolvedValue({
+      pending: true,
+      eligible: true,
+      tenant_key: 'tenant_b',
+      tenant_name: 'Garten B',
+      tenant_slug: 'garten-b',
+      resource_counts: { plants: 1, sites: 1, planting_runs: 0, nutrient_plans: 0, tasks: 0 },
+    } as never);
+    vi.mocked(systemApi.decideTakeover).mockResolvedValue({
+      accepted: true,
+      tenant_slug: 'garten-b',
+      platform_admin_granted: true,
+    } as never);
+    vi.mocked(authApi.getProfile).mockResolvedValue({ key: 'user-1', display_name: 'T' } as never);
+    vi.mocked(authApi.listProviders).mockResolvedValue([{ provider: 'local' }] as never);
+    // The first garden is the one `loadMyTenants` picks, so only `switchTenant` can make B active.
+    vi.mocked(tenantApi.listMyTenants).mockResolvedValue([TENANT_A, TENANT_B] as never);
+
+    holdClear();
+    const store = createTestStore(authState());
+    renderWithProviders(createElement(LightModeTakeoverDialog), { store });
+
+    await userEvent.click(await screen.findByTestId('light-mode-takeover-accept'));
+    const field = await screen.findByTestId('light-mode-takeover-step-up-password');
+    await userEvent.type(field.querySelector('input') as HTMLInputElement, ['pw', 'x', '1'].join('-'));
+    await userEvent.click(screen.getByTestId('light-mode-takeover-step-up-confirm'));
+
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+    expect(store.getState().tenants.activeTenant?.slug).not.toBe('garten-b');
+    releaseClear();
+    await waitFor(() => expect(store.getState().tenants.activeTenant?.slug).toBe('garten-b'));
+  });
+});
+
+describe('offline data is cleared on logout and the namespace follows user and tenant (sessionListener)', () => {
+  beforeEach(() => {
+    calls.length = 0;
+    clearGate = Promise.resolve();
+    vi.mocked(offlineData.clearOfflineData).mockClear();
+    vi.mocked(offlineData.postNamespace).mockClear();
+  });
+
+  async function listenedStore(preloaded: unknown) {
+    const { rootReducer } = await import('@/store/rootReducer');
+    const { sessionListener } = await import('@/store/sessionListener');
+    return configureStore({
+      reducer: rootReducer,
+      preloadedState: preloaded as never,
+      middleware: (getDefault) => getDefault().prepend(sessionListener.middleware),
+    });
+  }
+
+  it('clears on a forced sign-out (clearAuth) and on a logout', async () => {
+    const { clearAuth, logoutUser } = await import('@/store/slices/authSlice');
+    const store = await listenedStore(authState());
+    store.dispatch(clearAuth());
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+    await store.dispatch(logoutUser());
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(2));
+  });
+
+  it('posts the user and tenant keys — never a token — when the active tenant changes', async () => {
+    const { switchTenant } = await import('@/store/slices/tenantSlice');
+    const state = authState() as Record<string, unknown>;
+    const auth = state.auth as Record<string, unknown>;
+    const store = await listenedStore({
+      ...state,
+      auth: { ...auth, user: { ...(auth.user as object), key: 'user_1' } },
+      tenants: { activeTenant: TENANT_A, myTenants: [TENANT_A, TENANT_B], isLoading: false, error: null },
+    });
+    store.dispatch(switchTenant('garten-b'));
+    await waitFor(() => expect(offlineData.postNamespace).toHaveBeenCalledWith('user_1', 'tenant_b'));
+    for (const args of vi.mocked(offlineData.postNamespace).mock.calls) {
+      expect(args.join(' ')).not.toMatch(/ey[A-Za-z0-9_-]{8,}\./);
+    }
+  });
+});
+
+describe('sweep: every place that switches the tenant clears first', () => {
+  const srcRoot = join(process.cwd(), 'src');
+
+  function sourceFiles(dir: string): string[] {
+    return readdirSync(dir).flatMap((name) => {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) return name === 'test' ? [] : sourceFiles(path);
+      return /\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
+    });
+  }
+
+  it('finds no switchTenant dispatch without a preceding await clearOfflineData()', () => {
+    const offenders: string[] = [];
+    let sites = 0;
+    for (const file of sourceFiles(srcRoot)) {
+      const text = readFileSync(file, 'utf8');
+      for (const match of text.matchAll(/dispatch\(switchTenant\(/g)) {
+        sites += 1;
+        const before = text.slice(0, match.index);
+        const lastClear = before.lastIndexOf('await clearOfflineData()');
+        const fnStart = Math.max(before.lastIndexOf('=> {'), before.lastIndexOf('function '));
+        if (lastClear === -1 || lastClear < fnStart) {
+          // TenantSwitcher clears after the dispatch but before its reload — checked below.
+          const after = text.slice(match.index);
+          const reload = after.indexOf('window.location.reload()');
+          const clear = after.indexOf('await clearOfflineData()');
+          if (!(clear !== -1 && reload !== -1 && clear < reload)) offenders.push(relative(srcRoot, file));
+        }
+      }
+    }
+    expect(sites).toBeGreaterThanOrEqual(2);
+    expect(offenders).toEqual([]);
+  });
+});

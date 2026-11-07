@@ -303,6 +303,15 @@
     "updatedAt": "Updated at",
     "skipToContent": "Skip to content",
     "toggleSidebar": "Toggle sidebar",
+    "pwa": {
+      "online": "Online",
+      "offline": "Offline",
+      "onlineHint": "Connected – data loads live.",
+      "offlineHint": "No connection – changes are possible again once you are online.",
+      "updateAvailable": "New version available",
+      "updateNow": "Update now",
+      "updateLater": "Later"
+    },
     "sliderLabel": "{{label}} (slider)",
     "days": "days",
     "months_unit": "months",

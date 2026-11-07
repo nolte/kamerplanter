@@ -1059,7 +1059,8 @@ controllers:
               SENTRY_DSN: "${SENTRY_DSN:-}",
               SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-}",
               SENTRY_RELEASE: "${SENTRY_RELEASE:-}",
-              SENTRY_SAMPLE_RATE: "${SENTRY_SAMPLE_RATE:-}"
+              SENTRY_SAMPLE_RATE: "${SENTRY_SAMPLE_RATE:-}",
+              PWA_CACHING_ENABLED: "${PWA_CACHING_ENABLED:-true}"
             };
             EOF
         env:
@@ -1076,6 +1077,12 @@ controllers:
             value: ""
           SENTRY_SAMPLE_RATE:
             value: "1.0"
+          # REQ-053 WP 9.1 (#2741, G-W9 e) — kill switch of the service worker's
+          # offline caching. "false" unregisters the worker and deletes its
+          # caches and IndexedDB in every browser on the next page load (Web
+          # Push stops with it). Mirrors docker-entrypoint.d/10-runtime-config.sh.
+          PWA_CACHING_ENABLED:
+            value: "true"
         # #2127 — every container carries a limit (NFR-002 §11); a heredoc
         # into an emptyDir needs next to nothing.
         resources:
@@ -2169,6 +2176,36 @@ configMaps:
             location = /runtime-config.js {
                 alias /usr/share/nginx/html/runtime-config/runtime-config.js;
                 add_header Cache-Control "no-store, no-cache, must-revalidate";
+            }
+
+            # REQ-053 WP 9.1 (#2741, G-W9 d) — the service worker and the manifest are
+            # never cached; without these exact matches /sw.js falls into the
+            # static-asset regex below (1y immutable) and no worker update reaches a
+            # browser. Same blocks as src/frontend/nginx.conf.
+            #
+            # A location with its own add_header drops every server-level add_header,
+            # so both repeat the server's headers. They also carry the image's CSP
+            # (src/frontend/nginx-security-headers.inc, held equal by
+            # test_nginx_service_worker_no_store.py): the worker's own CSP comes from
+            # the /sw.js response. CSP for the rest of the chart is a separate,
+            # pre-existing gap (the image sets it per location via the snippet).
+            location = /sw.js {
+                add_header Cache-Control "no-store, no-cache, must-revalidate";
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" always;
+            }
+
+            location = /manifest.json {
+                types { application/manifest+json json; }
+                add_header Cache-Control "no-store, no-cache, must-revalidate";
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" always;
             }
 
             location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {

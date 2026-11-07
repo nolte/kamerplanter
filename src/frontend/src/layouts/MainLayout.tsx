@@ -21,7 +21,9 @@ import PersonIcon from '@mui/icons-material/Person';
 import HomeIcon from '@mui/icons-material/Home';
 import Sidebar from './Sidebar';
 import ModuleGuard from '@/components/common/ModuleGuard';
+import UpdateBanner from '@/components/common/UpdateBanner';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
+import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
 import LanguageSelector from '@/components/layout/LanguageSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
@@ -166,6 +168,8 @@ export default function MainLayout() {
             </>
           )}
           <Box sx={{ flexGrow: 1 }} />
+          {/* UI-NFR-012 R-033 — permanently visible online/offline state. */}
+          <ConnectivityIndicator />
           {!isLightMode && <TenantSwitcher />}
           <LanguageSelector />
           <ThemeToggle />
@@ -276,6 +280,8 @@ export default function MainLayout() {
         </ModuleGuard>
         {/* REQ-027 §7a (#1855) — the take-over of a former light-mode garden; renders nothing otherwise. */}
         {!isLightMode && <LightModeTakeoverDialog />}
+        {/* UI-NFR-012 R-014 — a new service worker waits for the user's go. */}
+        <UpdateBanner />
       </Box>
     </Box>
   );

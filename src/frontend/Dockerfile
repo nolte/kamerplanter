@@ -37,7 +37,7 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # `tsc --noEmit` in CI (.github/workflows/frontend.yml) and pre-commit.
 # NOTE: this is an allow-list — if a new non-test build input appears, add it.
 FROM base AS build
-COPY tsconfig.json tsconfig.build.json tsconfig.node.json vite.config.ts index.html ./
+COPY tsconfig.json tsconfig.build.json tsconfig.node.json tsconfig.sw.json vite.config.ts index.html ./
 COPY public ./public
 COPY src ./src
 RUN npm run build
