@@ -201,6 +201,16 @@ class FieldModePage(BasePage):
                 return text
         return ""
 
+    def wait_for_snackbar(self, fragment: str, what: str) -> str:
+        """Wait until the notification snackbar names *fragment*; return its message."""
+        try:
+            self.poll().until(lambda _d: fragment in self.snackbar_text())
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: no snackbar named {fragment!r}; it reads {self.snackbar_text()!r}"
+            ) from exc
+        return self.snackbar_text()
+
     def is_undo_offered(self) -> bool:
         return bool(self.driver.find_elements(*self.SNACKBAR_UNDO))
 
@@ -332,6 +342,149 @@ class FieldModePage(BasePage):
                 f"the hours field should hold {text!r}, it holds {field.get_attribute('value')!r}"
             )
         field.send_keys(Keys.ENTER)
+
+    # ── Moisture and wind chips (GP-FR-162/163, GP-UX-057, WP 8.22) ─────
+    #
+    # ``FieldSiteSection`` draws ``ChipChoice`` groups: "Feuchte am Beet" (radios moist / fresh / dry) and "Wind" (one
+    # checkbox ``windy``). Like the sun chips, each chip is a ``<label>`` covered by its native input at opacity 0; a
+    # tap is a real pointer click at the chip's centre, guarded by ``elementFromPoint`` resolving to that input.
+
+    SITE_SECTION = _tid("field-mode-site-section")
+    MOISTURE = "field-mode-site-moisture"
+    WIND = "field-mode-site-wind"
+
+    def site_chip(self, group: str, value: str) -> WebElement:
+        return self.wait_for_element(_tid(f"{group}-{value}"))
+
+    def site_chip_input(self, group: str, value: str) -> WebElement:
+        return self.wait_for_element(_tid(f"{group}-{value}-input"))
+
+    def checked_site_values(self, group: str) -> list[str]:
+        """The checked values of one chip group, read from the inputs themselves."""
+        box = self.wait_for_element(_tid(group))
+        return [
+            i.get_attribute("value") or ""
+            for i in box.find_elements(By.CSS_SELECTOR, "input")
+            if i.is_selected()
+        ]
+
+    def site_section_controls(self) -> dict[str, int]:
+        """What the site section holds: native inputs by type, text inputs and buttons (it must hold chips only)."""
+        section = self.wait_for_element(self.SITE_SECTION)
+        return self.driver.execute_script(
+            "var s = arguments[0];"
+            "return {radio: s.querySelectorAll(\"input[type='radio']\").length,"
+            " checkbox: s.querySelectorAll(\"input[type='checkbox']\").length,"
+            " text: s.querySelectorAll(\"input[type='text'], input:not([type]), textarea, select\").length,"
+            " button: s.querySelectorAll('button').length};",
+            section,
+        )
+
+    def site_chip_sizes(self) -> dict[str, tuple[float, float]]:
+        """``group:value`` -> rendered size (CSS px) of every chip of the site section."""
+        section = self.wait_for_element(self.SITE_SECTION)
+        sizes: dict[str, tuple[float, float]] = {}
+        for chip in section.find_elements(By.CSS_SELECTOR, "label[data-testid]"):
+            testid = chip.get_attribute("data-testid") or ""
+            sizes[testid] = self.element_size(chip)
+        if not sizes:
+            raise AssertionError("the site section shows no chip")
+        return sizes
+
+    def tap_site_chip(self, group: str, value: str) -> None:
+        """Tap one chip with a real pointer once its input is enabled; return once the input flipped.
+
+        The section locks its inputs while a write runs (``busy``), so the tap waits for the lock to lift first:
+        a tap on a disabled input would be swallowed and read as "the chip did not store".
+        """
+        chip = self.site_chip(group, value)
+        target = self.site_chip_input(group, value)
+        try:
+            self.poll().until(lambda _d: target.is_enabled())
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"the chip {group}-{value} stays locked (a write still running?)"
+            ) from exc
+        before = target.is_selected()
+        self.scroll_into_view(chip)
+        # The chips are the last part of the sheet, so they cannot scroll above the bottom edge, where the "Gespeichert."
+        # snackbar of the previous tap sits for a few seconds (first browser run: the "Windig" chip under it). The tap
+        # waits until the chip's centre resolves to its own input again - a state on the page, not a duration - and
+        # names what still covers it when that never happens.
+        locate = (
+            "var r = arguments[0].getBoundingClientRect(); var x = r.left + r.width / 2, y = r.top + r.height / 2;"
+            "var el = document.elementFromPoint(x, y);"
+            "return {hit: el === arguments[1], x: x, y: y,"
+            " cover: el ? el.tagName + '#' + (el.id || '') + '.' + (el.getAttribute('class') || '') : null};"
+        )
+        try:
+            self.poll().until(lambda d: d.execute_script(locate, chip, target)["hit"])
+        except TimeoutException as exc:
+            probe = self.driver.execute_script(locate, chip, target)
+            raise AssertionError(
+                f"the centre ({probe['x']:.0f}, {probe['y']:.0f}) of the chip {group}-{value} stays covered by "
+                f"{probe['cover']!r}"
+            ) from exc
+        ActionChains(self.driver).move_to_element(chip).click().perform()
+        try:
+            self.poll().until(lambda _d: target.is_selected() is not before)
+        except TimeoutException as exc:
+            raise AssertionError(f"the chip {group}-{value} stayed {before} after the tap") from exc
+        # Lift the "finger": a mouse left resting on the chip ends up under the "Gespeichert." snackbar that the tap
+        # brings up, and a hovered snackbar pauses its auto-hide (second browser run: it never left, and the next
+        # tap on the same chip stayed covered). The pointer goes to the section heading, which nothing overlays.
+        heading = self.wait_for_element(self.SITE_SECTION).find_element(By.CSS_SELECTOR, "h3")
+        ActionChains(self.driver).move_to_element(heading).perform()
+
+    def page_scrolls_sideways(self) -> bool:
+        """Whether the document is wider than the viewport (a horizontal scroll bar on the phone)."""
+        return bool(
+            self.driver.execute_script(
+                "return document.documentElement.scrollWidth > window.innerWidth;"
+            )
+        )
+
+    # ── "Foto vom Beet" (GP-FR-051, §18.1 step 7) ──────────────────────
+
+    BED_PHOTO = _tid("field-bed-photo")
+    SHEET_COVER_IMAGE = _tid("field-sheet-cover-image")
+
+    def bed_photo_button(self) -> WebElement:
+        try:
+            return self.wait_for_element(self.BED_PHOTO)
+        except TimeoutException as exc:
+            raise AssertionError("the bed sheet offers no 'Foto vom Beet' action") from exc
+
+    def is_in_viewport_unscrolled(self, element: WebElement) -> bool:
+        """Whether *element* lies fully inside the viewport as rendered - read before anything is scrolled."""
+        return bool(
+            self.driver.execute_script(
+                "var r = arguments[0].getBoundingClientRect();"
+                "return r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth;",
+                element,
+            )
+        )
+
+    def tap_bed_photo(self) -> None:
+        """Tap "Foto vom Beet"; return once the upload dialog's capture panel is on screen."""
+        button = self.bed_photo_button()
+        self.scroll_and_click(button)
+        self.wait_for_element_visible(_tid("plant-photo-upload-dialog"))
+        self.wait_for_element_visible(_tid("image-capture-panel"))
+
+    def plant_photo_button(self, plant_key: str) -> WebElement:
+        try:
+            return self.wait_for_element(_tid(f"field-plant-photo-{plant_key}"))
+        except TimeoutException as exc:
+            raise AssertionError(f"plant {plant_key!r} offers no photo action of its own") from exc
+
+    def wait_for_sheet_cover(self, what: str) -> str:
+        try:
+            return self.wait_for_element(self.SHEET_COVER_IMAGE).get_attribute("src") or ""
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the bed sheet shows no cover photo beside the name"
+            ) from exc
 
 
 def set_phone_viewport(driver: WebDriver, width: int = 390, height: int = 844) -> tuple[int, int]:

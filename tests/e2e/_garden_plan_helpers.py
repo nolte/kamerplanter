@@ -1149,3 +1149,190 @@ def mark_task_suggested(app_mode: str, task_key: str, reason: str) -> None:
         raise AssertionError(
             f"Self-provisioning failed: ArangoDB answered {status} for task {task_key}"
         )
+
+
+# ── Wave 8 part B: companion layer, site features, photos, CSV, frost reason (WP 8.31) ──
+#
+# Arranged through the routes the product itself calls - ``PUT /slots/{a}/adjacent/{b}`` is the "mark as
+# neighbours" action of the slot neighbourhood (SR-021), ``PATCH /locations/{key}`` with ``site_conditions`` /
+# ``soil_profile`` is what the site-conditions dialog and the field-mode chips send, ``POST /tenants/{slug}/assignments``
+# is the assignment the tenant settings write - with ONE named exception: a stored weather forecast
+# (:func:`store_frost_forecast`), which only the weather fetch task writes.
+
+
+def mark_neighbours(base_url: str, seed: dict, slot_a: str, slot_b: str) -> None:
+    """``PUT /slots/{a}/adjacent/{b}`` (manual neighbourhood, both directions); loud on anything but 204.
+
+    The manual edge, not the derived one: the derivation runs out of band (a Celery task after a slot change), so a
+    test that waited for it would wait on a worker; a manual edge is the user's own path and is never removed by the
+    geometry.
+    """
+    status, body = tenant_request(base_url, seed, "PUT", f"/slots/{slot_a}/adjacent/{slot_b}")
+    _require(status, body, (204,), f"PUT /slots/{slot_a}/adjacent/{slot_b}")
+
+
+def companion_edges(base_url: str, seed: dict, bed_key: str) -> list[dict]:
+    """``GET /locations/{key}/companion-edges`` (GP-FR-134): the judged neighbour pairs the layer draws."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/companion-edges")
+    if not isinstance(body, dict) or not isinstance(body.get("edges"), list):
+        raise AssertionError(f"the companion edges of {bed_key!r} carry no edge list: {body!r}")
+    return body["edges"]
+
+
+def edge_between(edges: list[dict], slot_a: str, slot_b: str) -> dict:
+    """The judged pair of *slot_a* and *slot_b* (either order); loud when the server answers none."""
+    for edge in edges:
+        if {edge["slot_a"]["slot_key"], edge["slot_b"]["slot_key"]} == {slot_a, slot_b}:
+            return edge
+    pairs = [(e["slot_a"]["slot_key"], e["slot_b"]["slot_key"], e["status"]) for e in edges]
+    raise AssertionError(
+        f"no companion edge between {slot_a!r} and {slot_b!r}; the server judged {pairs}"
+    )
+
+
+def site_conditions(base_url: str, seed: dict, bed_key: str) -> dict:
+    """The stored ``site_conditions`` of a bed (``{}`` when none are stored)."""
+    return dict(tenant_location(base_url, seed, bed_key).get("site_conditions") or {})
+
+
+def soil_profile_of(base_url: str, seed: dict, bed_key: str) -> dict:
+    """The stored ``soil_profile`` of a bed (``{}`` when none is stored)."""
+    return dict(tenant_location(base_url, seed, bed_key).get("soil_profile") or {})
+
+
+def bed_photos(base_url: str, seed: dict, bed_key: str) -> dict:
+    """``GET /locations/{key}/photos`` (GP-FR-051): the gallery as the photos tab reads it."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/photos")
+    if not isinstance(body, dict) or not isinstance(body.get("photos"), list):
+        raise AssertionError(f"the photo gallery of {bed_key!r} has no photo list: {body!r}")
+    return body
+
+
+def plant_photos(base_url: str, seed: dict, plant_key: str) -> list[dict]:
+    """``GET /plant-instances/{key}/photos`` (REQ-034): the gallery of one plant."""
+    body = tenant_get(base_url, seed, f"/plant-instances/{plant_key}/photos")
+    if not isinstance(body, dict) or not isinstance(body.get("photos"), list):
+        raise AssertionError(
+            f"the photo gallery of plant {plant_key!r} has no photo list: {body!r}"
+        )
+    return body["photos"]
+
+
+def _tenants_api(base_url: str, seed: dict) -> tuple[str, str | None]:
+    from .conftest import _fresh_access_token
+
+    slug = seed.get("tenant_slug", "mein-garten")
+    return f"{base_url.rstrip('/')}/api/v1/tenants/{slug}", _fresh_access_token(seed, base_url)
+
+
+def acting_member(base_url: str, seed: dict) -> dict:
+    """The acting account's membership in the test tenant (``key``, ``display_name``); loud when it has none.
+
+    ``GET /users/me`` names the account, ``GET /tenants/{slug}/members`` its membership - the two reads the tenant
+    settings page makes.
+    """
+    api, token = _global_api(base_url, seed)
+    status, me = _api_request(f"{api}/users/me", "GET", token)
+    _require(status, me, (200,), "GET /users/me")
+    tenants, token = _tenants_api(base_url, seed)
+    status, members = _api_request(f"{tenants}/members?offset=0&limit=200", "GET", token)
+    _require(status, members, (200,), "GET /tenants/{slug}/members")
+    mine = [m for m in members if isinstance(m, dict) and m.get("user_key") == me.get("key")]
+    if len(mine) != 1 or not (mine[0].get("display_name") or "").strip():
+        raise AssertionError(
+            f"Self-provisioning failed: the acting account {me.get('key')!r} should have exactly one membership "
+            f"with a display name in the test tenant; members: {members!r}"
+        )
+    return mine[0]
+
+
+def assign_bed(base_url: str, seed: dict, *, membership_key: str, bed_key: str) -> dict:
+    """``POST /tenants/{slug}/assignments`` (REQ-049 §3.5): *bed_key* becomes the member's responsibility."""
+    tenants, token = _tenants_api(base_url, seed)
+    status, body = _api_request(
+        f"{tenants}/assignments",
+        "POST",
+        token,
+        {"membership_key": membership_key, "location_key": bed_key, "can_edit": True},
+    )
+    _require(status, body, (201,), f"POST /tenants/{{slug}}/assignments ({bed_key})")
+    return body
+
+
+def tenant_key_of(base_url: str, seed: dict) -> str:
+    """The document key of the test tenant (``GET /tenants/{slug}``)."""
+    tenants, token = _tenants_api(base_url, seed)
+    status, body = _api_request(tenants, "GET", token)
+    _require(status, body, (200,), "GET /tenants/{slug}")
+    if not body.get("key"):
+        raise AssertionError(f"GET /tenants/{{slug}} answered no key: {body!r}")
+    return str(body["key"])
+
+
+def plant_states(base_url: str, seed: dict, bed_key: str) -> dict[str, list[str]]:
+    """``GET /locations/{key}/plant-states``: plant key -> the attention reasons, highest priority first."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/plant-states")
+    if not isinstance(body, list):
+        raise AssertionError(f"the plant states of {bed_key!r} are not a list: {body!r}")
+    return {
+        row["plant_key"]: [item["reason"] for item in row.get("attention") or []] for row in body
+    }
+
+
+def store_frost_forecast(
+    app_mode: str, *, tenant_key: str, site_key: str, temp_min_c: float = -3.0
+) -> None:
+    """Store one daily forecast for *site_key* for today (UTC) with a night minimum of *temp_min_c*.
+
+    **Divergence from the running system, named (`test-pyramid-foundation` §"Arrangement fidelity", T9).** A
+    forecast is written only by the weather fetch task (Open-Meteo / DWD / Home Assistant through
+    ``WeatherForecastRepository.upsert_daily``); the E2E stack has neither an outbound weather source nor a route that
+    stores a forecast. This write is the document that path stores - every field of ``WeatherForecast``
+    (``app/domain/models/weather.py``) with the values a fetched forecast carries (``data_kind = forecast``,
+    ``source``, ``fetched_at``), scoped to the tenant and the site - in the ``weather_forecasts`` collection the plant
+    state reads by ``site_key`` and ``tenant_key`` (``find_by_site``). Not written: the ``has_forecast`` graph edge,
+    which no reader of the frost verdict follows. The state is the one a fetch produces; only the producer is missing.
+
+    Loud when the database cannot be reached or refuses the write: a missing forecast must never read as "no frost".
+    """
+    if app_mode not in _ARANGO_DB:
+        raise AssertionError(f"store_frost_forecast: unknown app mode {app_mode!r}")
+    database = os.environ.get("E2E_ARANGO_DB", _ARANGO_DB[app_mode])
+    url = f"{_ARANGO_URL.rstrip('/')}/_db/{database}/_api/document/weather_forecasts"
+    now = datetime.now(UTC)
+    document = {
+        "tenant_key": tenant_key,
+        "site_key": site_key,
+        "forecast_date": utc_today().isoformat(),
+        "temp_min_c": float(temp_min_c),
+        "temp_max_c": float(temp_min_c) + 9.0,
+        "source": "open_meteo",
+        "fetched_at": now.isoformat(),
+        "data_kind": "forecast",
+        "is_current_conditions": False,
+    }
+    credentials = base64.b64encode(f"{_ARANGO_USER}:{_ARANGO_PASSWORD}".encode()).decode()
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(document).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Basic {credentials}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB refused the forecast for site {site_key} ({database}): "
+            f"{exc.code} {exc.read()[:300]!r}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB at {_ARANGO_URL} is not reachable from the test runner ({exc.reason}). "
+            "A forecast has no API route; set E2E_ARANGO_URL / E2E_ARANGO_DB / E2E_ARANGO_PASSWORD when the stack "
+            "does not run from docker-compose.e2e.yml."
+        ) from exc
+    if status not in (200, 201, 202):
+        raise AssertionError(
+            f"Self-provisioning failed: ArangoDB answered {status} for the forecast"
+        )

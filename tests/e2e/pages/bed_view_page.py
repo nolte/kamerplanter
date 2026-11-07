@@ -140,6 +140,9 @@ class BedViewPage(BasePage):
     # ── Soil tab (WP 8.7 / 8.14): the analyses section is its last part ─
     SOIL_TAB = _tid("bed-soil-analyses")
 
+    # ── Photos tab (WP 8.18, GP-FR-051): the section renders once the gallery answered ─
+    PHOTOS_TAB = _tid("bed-photos")
+
     # ── Head: nutrient and salt hint (WP 8.10, GP-FR-125) ──────────────
     HEADER = _tid("bed-header")
     HEADER_PLANTS = _tid("bed-header-plants")
@@ -153,6 +156,7 @@ class BedViewPage(BasePage):
         "care": CARE_TAB,
         "soil": SOIL_TAB,
         "history": HISTORY_TAB,
+        "photos": PHOTOS_TAB,
     }
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -214,6 +218,77 @@ class BedViewPage(BasePage):
             "salt": bool(self.driver.find_elements(*self.SALT_BADGE)),
         }
 
+    # ── Head: site conditions, reach, cover photo (WP 8.22-8.24, 8.18) ──
+
+    HEADER_SITE = _tid("bed-header-site")
+    HEADER_DRAINAGE = _tid("bed-header-drainage")
+    SITE_CHANGE = _tid("bed-site-change-button")
+    REACH_BADGE = _tid("bed-reach-badge")
+    REACH_DETAIL = _tid("bed-reach-detail")
+    HEADER_COVER_IMAGE = _tid("bed-header-cover-image")
+
+    def _fact_text(self, locator: tuple[str, str]) -> str | None:
+        """The text of a head fact, ``None`` when the head does not show it (read after the head is anchored)."""
+        found = self.driver.find_elements(*locator)
+        return " ".join((found[0].get_attribute("textContent") or "").split()) if found else None
+
+    def head_site_line(self) -> str | None:
+        """ "Standortmerkmale" of the head (the recorded features in one line); ``None`` without the fact."""
+        self.wait_for_element(self.HEADER)
+        return self._fact_text(self.HEADER_SITE)
+
+    def head_drainage(self) -> str | None:
+        self.wait_for_element(self.HEADER)
+        return self._fact_text(self.HEADER_DRAINAGE)
+
+    def wait_for_head_site_line(self, fragment: str, what: str) -> str:
+        """Wait until the head's site line names *fragment* (the summary reloaded after a save)."""
+        try:
+            self.poll().until(lambda _d: fragment in (self.head_site_line() or ""))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the head's site line should name {fragment!r}; it reads {self.head_site_line()!r}"
+            ) from exc
+        return self.head_site_line() or ""
+
+    def reach_hint(self) -> dict[str, str] | None:
+        """The reach hint of the head: badge text, detail text and the chip's MUI colour; ``None`` without it.
+
+        Read only after :meth:`wait_for_header_plants` anchored the summary: the hint is computed from it, so an
+        absent badge before that would say nothing.
+        """
+        badges = self.driver.find_elements(*self.REACH_BADGE)
+        if not badges:
+            return None
+        classes = badges[0].get_attribute("class") or ""
+        match = re.search(r"MuiChip-color(\w+)", classes)
+        return {
+            "badge": " ".join((badges[0].get_attribute("textContent") or "").split()),
+            "detail": self._fact_text(self.REACH_DETAIL) or "",
+            "color": match.group(1).lower() if match else "",
+            "variant": "outlined" if "MuiChip-outlined" in classes else "filled",
+        }
+
+    def open_site_dialog(self) -> None:
+        """ "Merkmale ändern" in the head; return once the site-conditions dialog (a lazy chunk) is on screen."""
+        self.wait_and_click(self.SITE_CHANGE)
+        try:
+            self.wait_for_element_visible(_tid("bed-site-dialog"))
+        except TimeoutException as exc:
+            raise AssertionError("'Merkmale ändern' opened no site-conditions dialog") from exc
+
+    def wait_for_head_cover(self, what: str) -> str:
+        """Wait until the head shows a cover photo; return the image's ``src`` (the attachment rendition)."""
+        try:
+            image = self.wait_for_element(self.HEADER_COVER_IMAGE)
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the bed head shows no cover photo") from exc
+        return image.get_attribute("src") or ""
+
+    def has_head_cover(self) -> bool:
+        self.wait_for_element(self.HEADER)
+        return self.is_present(self.HEADER_COVER_IMAGE)
+
     def wait_for_rotation_badge(self, what: str) -> str:
         try:
             badge = self.wait_for_element(self.ROTATION_BADGE)
@@ -228,6 +303,14 @@ class BedViewPage(BasePage):
         dialog = PlantingDialog(self.driver, self.base_url)
         dialog.wait_until_ready()
         return dialog
+
+    def is_planting_enabled(self) -> bool:
+        """Whether "Bepflanzen" is offered and enabled (read after the planting tab settled); loud without the button."""
+        self.wait_for_element(self.PLANTING_TAB)
+        try:
+            return self.wait_for_element(self.PLANT_BUTTON).is_enabled()
+        except TimeoutException as exc:
+            raise AssertionError("the planting tab offers no 'Bepflanzen' button") from exc
 
     def planned_slot_keys(self) -> list[str]:
         """Slot keys of the "Geplant" list, in the order shown (empty when the list is absent)."""
@@ -753,6 +836,26 @@ class PlantingDialog(BasePage):
             match.group(1).lower() if match else "",
             " ".join((hint.get_attribute("textContent") or "").split()),
         )
+
+    def site_axis_hints(self, species_key: str) -> dict[str, tuple[str, str]]:
+        """The frost / wind / waterlogging hints of *species_key* (GP-FR-161): axis -> (severity class, text).
+
+        Read after :meth:`wait_for_hint` anchored the species' hint block: the axis hints render in the same block
+        from data the dialog already holds, so an empty answer then means "no hint", not "not yet".
+        """
+        prefix = "planting-site-axis-"
+        suffix = f"-{species_key}"
+        found: dict[str, tuple[str, str]] = {}
+        for alert in self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid^='{prefix}']"):
+            testid = alert.get_attribute("data-testid") or ""
+            if not testid.endswith(suffix):
+                continue
+            match = re.search(r"MuiAlert-color(\w+)", alert.get_attribute("class") or "")
+            found[testid[len(prefix) : -len(suffix)]] = (
+                match.group(1).lower() if match else "",
+                " ".join((alert.get_attribute("textContent") or "").split()),
+            )
+        return found
 
     def hints_precede_layout(self, index: int = 0) -> bool:
         """Whether the hints section comes before the entry's layout field in reading order."""
