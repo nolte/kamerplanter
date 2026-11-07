@@ -12,6 +12,7 @@ own row read through the same path — so an empty answer cannot be a reader tha
 
 from __future__ import annotations
 
+import gc
 import math
 import statistics
 import time
@@ -28,6 +29,7 @@ from app.common.exceptions import (
     PlanValidationError,
     WriteConflictError,
 )
+from app.common.gc_policy import freeze_startup_heap
 from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import _REFERENCE_READ, ArangoAttachmentRepository
 from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGardenPlanRepository
@@ -810,9 +812,10 @@ class TestTheReadModel:
 #: GP-ACC-034: ``GET /plan`` runs 20 times on the "large" class; GP-NFR-030 / GP-NFR-002: p95 <= 300 ms.
 BENCHMARK_RUNS = 20
 GET_PLAN_P95_SPEC_SECONDS = 0.300
-#: The regression ceiling that holds today: measured 2026-10-20 at p95 0.82 s (median 0.54 s) against the
-#: `arangodb:3.12` service container on a developer machine, about 1.8x margin for a shared runner. It stops the
-#: read from getting slower; it does not certify GP-NFR-030 (see the strict xfail below).
+#: The regression ceiling: set 2026-10-20 at p95 0.82 s (median 0.54 s, unfrozen heap) against the `arangodb:3.12`
+#: service container on a developer machine. Since #2526 the runs are measured with the start-up heap frozen
+#: (2026-11-07: p95 0.18 s locally), so the ceiling is a coarse order-of-magnitude bound - an AQL scan per slot, a
+#: per-plant query - and GP-NFR-030 itself, the test after it, is the one that catches a slower read.
 GET_PLAN_P95_CEILING_SECONDS = 1.5
 
 
@@ -829,6 +832,11 @@ def measure_get_plan(db, service) -> tuple[list[float], int]:
     domain views) and the response model with its JSON encoding - everything `GET /plan` does between the router
     receiving the request and the bytes leaving it. One untimed warm-up run first (the query plan and the
     connection pool are cold on the first request; the budget is a steady-state one).
+
+    Under the process's GC policy: the server freezes its start-up heap at the end of the lifespan
+    (:func:`app.common.gc_policy.freeze_startup_heap`, #2526), so the timed runs freeze what is alive before
+    them - the test process's heap standing in for the server's start-up heap - and unfreeze it afterwards so
+    the rest of the suite is collected as usual.
     """
     from app.api.v1.garden_plan.tenant_router import _plan_response
 
@@ -841,8 +849,16 @@ def measure_get_plan(db, service) -> tuple[list[float], int]:
         body = _plan_response(view).model_dump_json(exclude_none=True).encode()
         return time.perf_counter() - started, len(body)
 
-    one_request()
-    runs = [one_request() for _ in range(BENCHMARK_RUNS)]
+    # Frozen before the warm-up, as the server freezes before its first request: what the first request leaves
+    # alive (pool state, caches) stays collectable here exactly as it does there.
+    already_frozen = gc.get_freeze_count() > 0
+    freeze_startup_heap()
+    try:
+        one_request()
+        runs = [one_request() for _ in range(BENCHMARK_RUNS)]
+    finally:
+        if not already_frozen:  # leave a policy someone else set in this process as it was
+            gc.unfreeze()
     sizes = {size for _, size in runs}
     assert len(sizes) == 1, f"the same plan answered with different sizes: {sorted(sizes)}"
     return [duration for duration, _ in runs], sizes.pop()
@@ -867,19 +883,8 @@ class TestGetPlanBenchmark:
             f"max {max(durations) * 1000:.0f} ms, {size} bytes"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "GP-NFR-030 / GP-ACC-034 target p95 <= 300 ms is not certified on the CI runner (#2526): after #2526 a "
-            "developer machine measures median 0.17 s, p95 0.28 s (before: 0.20 s / 0.32 s; repo read 0.10 s, "
-            "service views 0.02 s, response model 0.03 s, JSON 0.01 s), and the shared runner runs this benchmark "
-            "about 1.5x slower. The p95 is median plus one ~0.1 s full garbage collection over the process heap, "
-            "which every fourth request triggers. Strict: it turns red wherever the read is fast enough, and the "
-            "marker goes."
-        ),
-    )
     def test_get_plan_on_the_large_class_meets_the_spec_p95_of_300_ms(self, db, service) -> None:
-        """The spec value itself (GP-NFR-030): p95 <= 300 ms over 20 runs. Known open; see the xfail reason."""
+        """The spec value itself (GP-NFR-030): p95 <= 300 ms over 20 runs, under the process's GC policy (#2526)."""
         durations, _size = measure_get_plan(db, service)
 
         measured = p95(durations)
