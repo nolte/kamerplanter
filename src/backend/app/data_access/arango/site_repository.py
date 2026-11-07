@@ -718,9 +718,6 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def get_slot_by_key(self, key: SlotKey) -> Slot | None:
         return self._slots.get_by_key(key)
 
-    def get_slot_or_raise(self, key: SlotKey) -> Slot:
-        return self._slots.get_or_raise(key)
-
     def create_slot(self, slot: Slot) -> Slot:
         created = self._slots.create(slot)
         if slot.location_key:

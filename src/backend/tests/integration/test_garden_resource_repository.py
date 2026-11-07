@@ -837,7 +837,8 @@ class TestOccupationWritesOnlyTheFlag:
         """Control: the spelling #2727 removed, under the same interleaving, loses the PATCH."""
         add_slot(db, "slot", "BED_S1")
         sites = ArangoSiteRepository(db)
-        read = sites.get_slot_or_raise("slot")
+        read = sites.get_slot_by_key("slot")
+        assert read is not None
 
         _patch_slot(service, {"slot_role": "zone", "geometry": _ZONE})
         read.currently_occupied = True
