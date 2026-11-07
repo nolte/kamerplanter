@@ -36,3 +36,18 @@ def test_a_species_without_them_answers_null_not_a_default() -> None:
     assert response.light_requirement is None
     assert response.shade_tolerance is None
     assert response.row_spacing_cm is None
+
+
+def test_the_waterlogging_tolerance_and_the_toxicity_reach_the_response() -> None:
+    """#2674 run: both sat on the model, the client read them, the response dropped them (GP-FR-161, REQ-001)."""
+    response = to_response(
+        _species(
+            waterlogging_tolerance="sensitive",
+            toxicity={"is_toxic_cats": True, "toxic_parts": ["leaves"]},
+        ),
+        SpeciesResponse,
+    )
+
+    assert response.waterlogging_tolerance == "sensitive"
+    assert response.toxicity is not None
+    assert (response.toxicity.is_toxic_cats, response.toxicity.toxic_parts) == (True, ["leaves"])
