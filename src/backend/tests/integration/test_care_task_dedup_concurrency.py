@@ -247,7 +247,17 @@ def test_tasks_carries_exactly_one_unique_index(db):
 
     unique_indexes = [idx for idx in db.collection(col.TASKS).indexes() if isinstance(idx, dict) and idx.get("unique")]
     non_primary = [idx for idx in unique_indexes if idx.get("type") != "primary"]
-    assert [idx["fields"] for idx in non_primary] == [col.CARE_TASK_DEDUP_INDEX_FIELDS]
+    # Two unique indexes, and only the care dedup one can be violated by an INSERT of a new task: the completion
+    # index (#2743) is sparse over completion_client_event_id, which only a completion carrying a client_event_id
+    # sets; a new task has none, so it is not in that index and cannot collide there on insert.
+    assert sorted(idx["fields"] for idx in non_primary) == sorted(
+        [col.CARE_TASK_DEDUP_INDEX_FIELDS, col.TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS]
+    )
+    completion = next(idx for idx in non_primary if idx["fields"] == col.TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS)
+    assert completion.get("sparse") is True
+    from app.domain.models.task import Task
+
+    assert Task.model_fields["completion_client_event_id"].default is None
 
 
 def test_dedup_key_is_derived_from_the_real_task_builder(db, plant):
