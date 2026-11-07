@@ -40,6 +40,8 @@ _DOCUMENTS = (
     col.HARVEST_BATCHES,
     col.FERTILIZERS,
     col.LOCATIONS,
+    # read by the re-derivation of a soil profile, which every completion and undo declares (#2706)
+    col.SITES,
     col.QUALITY_ASSESSMENTS,
     col.YIELD_METRICS,
     col.POST_HARVEST_BATCHES,

@@ -40,7 +40,7 @@ describe('SoilAnalysisChart', () => {
   it('says so when no analysis carries a pH, EC or humus value', () => {
     renderWithProviders(
       <SoilAnalysisChart
-        data={soilAnalyses({ series: [{ parameter: 'p', method: 'cal', points: [] }], method_changes: [] })}
+        data={soilAnalyses({ series: [{ parameter: 'p', method: 'cal', unit: 'mg_per_100g', points: [] }], method_changes: [] })}
       />,
     );
     expect(screen.getByTestId('soil-history-no-chart-values')).toBeInTheDocument();

@@ -171,7 +171,7 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
                 ))}
                 {history.lines.map((line, index) => (
                   <Line
-                    key={line.method}
+                    key={line.id}
                     data={line.points}
                     dataKey="value"
                     name={`${methodLabel(line.method)} (${unitLabel(line.unit)})`}

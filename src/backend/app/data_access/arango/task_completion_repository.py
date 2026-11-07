@@ -20,8 +20,11 @@ from app.common.exceptions import NotFoundError, PlanError, ValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import (
     CARE_EVENT_WRITE_COLLECTIONS,
+    SOIL_PROFILE_READ_COLLECTIONS,
+    SOIL_PROFILE_WRITE_COLLECTIONS,
+    profile_locations,
+    rederive_soil_profile,
     write_care_event,
-    write_collections_for,
 )
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
@@ -44,8 +47,15 @@ _DOMAIN_WRITE: tuple[str, ...] = (
     col.HARVESTED_AS,
 )
 
-_COMPLETION_WRITE: tuple[str, ...] = (col.TASKS, *CARE_EVENT_WRITE_COLLECTIONS, *_DOMAIN_WRITE)
-_UNDO_WRITE: tuple[str, ...] = (col.TASKS, col.CARE_EVENTS, *_DOMAIN_WRITE)
+#: A completion and its undo can store or withdraw a soil analysis, which derives the bed's profile again (#2706):
+#: both always declare what that touches, so no read before the transaction decides the declaration.
+_COMPLETION_WRITE: tuple[str, ...] = (
+    col.TASKS,
+    *CARE_EVENT_WRITE_COLLECTIONS,
+    *_DOMAIN_WRITE,
+    *SOIL_PROFILE_WRITE_COLLECTIONS,
+)
+_UNDO_WRITE: tuple[str, ...] = (col.TASKS, col.CARE_EVENTS, *_DOMAIN_WRITE, *SOIL_PROFILE_WRITE_COLLECTIONS)
 
 #: The documents a completion writes, with the edges that hang off them: ``(edge collection, direction)`` where
 #: ``out`` means the document is the edge's ``_from``. What the withdrawal of a completion removes with the document.
@@ -61,7 +71,10 @@ _HARVEST_DEPENDENTS: tuple[tuple[str, str], ...] = (
     (col.YIELD_METRICS, "batch_key"),
     (col.POST_HARVEST_BATCHES, "harvest_batch_key"),
 )
-_UNDO_READ: tuple[str, ...] = tuple(collection for collection, _ in _HARVEST_DEPENDENTS)
+_UNDO_READ: tuple[str, ...] = (
+    *(collection for collection, _ in _HARVEST_DEPENDENTS),
+    *SOIL_PROFILE_READ_COLLECTIONS,
+)
 
 #: ``void_reason`` of a line a re-completion replaces (the task was reopened without an undo).
 REOPENED_REASON = "reopened"
@@ -184,12 +197,9 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
     def complete(self, writes: Sequence[CompletionWrite], *, tenant_key: str) -> list[CompletedTask]:
         self._require_tenant(tenant_key, "complete")
         completed: list[CompletedTask] = []
-        # A completed soil-analysis task writes the bed's profile too (WP 8.7): only then ``locations`` is declared.
-        declared = (
-            *_COMPLETION_WRITE,
-            *(c for c in write_collections_for([w.event for w in writes if w.event]) if c not in _COMPLETION_WRITE),
-        )
-        with stream_transaction(self._db, write=declared, read=_UNDO_READ, entity="task_completion") as txn:
+        # The soil analyses this batch stores or replaces: their beds' profiles are derived again at the end (#2706).
+        touched: list[CareEvent | dict[str, Any]] = []
+        with stream_transaction(self._db, write=_COMPLETION_WRITE, read=_UNDO_READ, entity="task_completion") as txn:
             now = _now()
             for write in writes:
                 txn.check_budget()
@@ -211,6 +221,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                             at=now,
                             strict=True,
                         )
+                        touched.append(earlier)
                 reference: dict[str, str] | None = None
                 if write.domain is not None:
                     reference = self._insert_domain(txn, write.domain, now)
@@ -219,9 +230,14 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                     if write.event.tenant_key != tenant_key:
                         raise ValueError("complete: the event belongs to another tenant than the one it writes under.")
                     event = write.event.model_copy(update={"source_ref": reference}) if reference else write.event
-                    event_key = str(write_care_event(txn, event, now, apply_soil_profile=True)["_key"])
+                    event_key = str(write_care_event(txn, event, now)["_key"])
+                    touched.append(event)
                 txn.collection(col.TASKS).update({"_key": write.task_key, **write.task_patch, "updated_at": now})
                 completed.append(CompletedTask(write.task_key, event_key, reference))
+            # One write path: the profile of every bed a stored or replaced soil analysis belongs to is derived from
+            # its open analyses (the new lines included), in this transaction.
+            for location_key in profile_locations(touched):
+                rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         logger.info(
             "task_completion.committed",
             task_count=len(completed),
@@ -249,6 +265,9 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                     at=write.voided_at.astimezone(UTC).isoformat(),
                     strict=True,
                 )
+                # The undo of a soil-analysis completion takes its values out of the bed's profile (#2706).
+                for location_key in profile_locations([current]):
+                    rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
             # ``keep_none=False``: the reset fields (``completed_at`` …) are removed, as the plain reopen does.
             txn.collection(col.TASKS).update(
                 {"_key": write.task_key, **write.task_patch, "updated_at": _now()}, keep_none=False

@@ -91,7 +91,9 @@ class SoilProfileSchema(BaseModel):
     stone_content_class: StoneContentClass = StoneContentClass.UNKNOWN
     target_ph: float | None = Field(default=None, ge=0.0, le=14.0)
     established_on: date | None = None
-    #: Set by the server when a soil analysis updates the profile (WP 8.7); a client sends back what it received.
+    #: Server-owned (WP 8.7, #2706): the `performed_at` of the newest soil analysis whose values the profile holds.
+    #: A location write keeps the stored value; sent back as received it is a precondition (409 `soil_profile.stale`
+    #: when a soil analysis changed the profile since it was read).
     last_analysis_at: datetime | None = None
     #: Substrate change: the crop-rotation history starts on this day (GP-FR-131).
     rotation_reset_at: date | None = None
@@ -1531,7 +1533,7 @@ class SoilAnalysisPointResponse(BaseModel):
 
 
 class SoilAnalysisSeriesItemResponse(BaseModel):
-    """The points of one parameter measured by one method, oldest first (never merged with another method)."""
+    """The points of one parameter by one method in one unit, oldest first (never merged with another one)."""
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -1539,6 +1541,7 @@ class SoilAnalysisSeriesItemResponse(BaseModel):
                 {
                     "parameter": "ph",
                     "method": "cacl2",
+                    "unit": "pH",
                     "points": [
                         {
                             "performed_at": "2026-03-01T09:00:00Z",
@@ -1558,6 +1561,8 @@ class SoilAnalysisSeriesItemResponse(BaseModel):
     parameter: str
     #: `ec_method` of a conductivity, `ph_method` of a pH, else the `extraction_method`; `unknown` is its own method.
     method: str
+    #: The unit of every point of the series (#2706): a value in another unit is another series, never converted.
+    unit: str
     points: list[SoilAnalysisPointResponse]
 
 
@@ -1616,6 +1621,7 @@ class SoilAnalysesResponse(BaseModel):
                         {
                             "parameter": "ph",
                             "method": "cacl2",
+                            "unit": "pH",
                             "points": [
                                 {
                                     "performed_at": "2026-03-01T09:00:00Z",

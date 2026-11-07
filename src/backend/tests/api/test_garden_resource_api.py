@@ -31,7 +31,7 @@ from app.domain.interfaces.care_event_repository import CareEventRow
 from app.domain.models.bed_list_export import BedAssignee
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_plan import BedCounters
-from app.domain.models.site import Microclimate, SiteConditions, Slot
+from app.domain.models.site import Microclimate, SiteConditions, Slot, SoilProfile
 from app.domain.models.species import Species
 from app.domain.models.user import User
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -406,6 +406,40 @@ class TestPatch:
     def test_a_foreign_bed_is_a_404_and_nothing_is_written(self, client, repo) -> None:
         response = client(TenantRole.LEAD).patch(f"{_FOREIGN}/locations/bed", json={"notes": "x"})
         assert response.status_code == 404 and repo.field_updates == [] and repo.applied == []
+
+    def test_a_location_write_can_neither_set_nor_clear_last_analysis_at(self, client, repo) -> None:
+        """#2706: the server owns the instant of the newest analysis; a sent one is a precondition (409 when stale)."""
+        analysed = "2026-03-01T09:00:00Z"
+        repo.locations["bed"] = make_location(
+            "bed", name="Bed", geometry=rect(1, 1, 2, 1), soil_profile=SoilProfile(ph=6.4, last_analysis_at=analysed)
+        )
+
+        stale = client().patch(
+            f"{_BASE}/locations/bed", json={"soil_profile": {"ph": 6.4, "last_analysis_at": "2099-01-01T00:00:00Z"}}
+        )
+        matching = client().patch(
+            f"{_BASE}/locations/bed",
+            json={"soil_profile": {"ph": 6.4, "drainage": "poor", "last_analysis_at": analysed}},
+        )
+        omitted = client().patch(f"{_BASE}/locations/bed", json={"soil_profile": {"ph": 6.5, "drainage": "good"}})
+        cleared = client().patch(f"{_BASE}/locations/bed", json={"soil_profile": None})
+
+        assert stale.status_code == 409 and stale.json()["error_code"] == "soil_profile.stale"
+        assert matching.status_code == omitted.status_code == cleared.status_code == 200
+        assert matching.json()["soil_profile"]["drainage"] == "poor"
+        assert omitted.json()["soil_profile"]["last_analysis_at"].startswith("2026-03-01T09:00:00")
+        assert omitted.json()["soil_profile"]["drainage"] == "good"  # the rest of the profile is the client's
+        assert "hand_values" not in omitted.json()["soil_profile"]  # server bookkeeping is not on the wire
+        assert cleared.json()["soil_profile"] is None  # null stores null, bookkeeping included (#2706 review)
+
+    def test_a_bed_without_an_analysis_cannot_get_last_analysis_at(self, client, repo) -> None:
+        stale = client().patch(
+            f"{_BASE}/locations/bed", json={"soil_profile": {"last_analysis_at": "2099-01-01T00:00:00Z"}}
+        )
+        response = client().patch(f"{_BASE}/locations/bed", json={"soil_profile": {"last_analysis_at": None}})
+
+        assert stale.status_code == 409
+        assert response.status_code == 200 and response.json()["soil_profile"]["last_analysis_at"] is None
 
 
 class TestStatus:

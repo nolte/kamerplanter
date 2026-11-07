@@ -66,6 +66,15 @@ describe('useApiError', () => {
     expect(mockEnqueue).toHaveBeenCalled();
   });
 
+  it('names a stale soil profile instead of the generic conflict (REQ-053 #2706)', () => {
+    const { result } = renderHook(() => useApiError(), { wrapper });
+    result.current.handleError(makeApiError('soil_profile.stale', 'stale', [], 409));
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      expect.stringMatching(/soil analysis|Bodenanalyse/),
+      expect.objectContaining({ variant: 'error' }),
+    );
+  });
+
   it('handles VALIDATION_ERROR', () => {
     const { result } = renderHook(() => useApiError(), { wrapper });
     result.current.handleError(makeApiError('VALIDATION_ERROR', 'Invalid', [], 422));

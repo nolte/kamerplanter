@@ -342,6 +342,32 @@ class TestFrostOverrideRoundTrip2512:
         assert stored["Beet b2"]["frost_exposed"] is True
         assert stored["Beet b3"].get("frost_exposed") is None
 
+    def test_the_server_owned_soil_fields_are_not_taken_from_the_file(self, rig) -> None:
+        """#2706 review: ``last_analysis_at`` and the provenance describe analyses the restored bed does not have."""
+        keys = build_source_plan(rig)
+        rig.db.collection(col.LOCATIONS).update(
+            {
+                "_key": keys["b1"],
+                "soil_profile": {
+                    "ph": 6.4,
+                    "last_analysis_at": "2099-01-01T00:00:00+00:00",
+                    "hand_values": {"ph": {"value": 6.4, "method": None, "at": "2099-01-01T00:00:00+00:00"}},
+                },
+            },
+            merge=False,
+        )
+        source = rig.exported()
+        (exported,) = [loc for loc in source["locations"] if loc["name"] == "Beet b1"]
+        assert exported["soil_profile"]["last_analysis_at"]  # positive control: the file does carry it
+
+        report = rig.run(source)
+
+        assert report.applied and report.errors == []
+        (stored,) = list(rig.db.collection(col.LOCATIONS).find({"site_key": "site_c", "name": "Beet b1"}))
+        profile = stored["soil_profile"]
+        assert profile["ph"] == 6.4  # the measured value is restored
+        assert profile.get("last_analysis_at") is None and profile.get("hand_values") is None
+
     def test_a_restored_snapshot_gives_back_a_forced_false_from_the_stored_row(self, rig) -> None:
         """#2512: the snapshot path carries ``frost_exposed`` like the file; the restore takes the stored value.
 

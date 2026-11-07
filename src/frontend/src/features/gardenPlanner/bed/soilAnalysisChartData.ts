@@ -11,6 +11,8 @@ export interface ChartPoint {
 }
 
 export interface ChartLine {
+  /** Stable identity of the line: one per method and unit. */
+  id: string;
   method: string;
   unit: string;
   points: ChartPoint[];
@@ -49,14 +51,15 @@ export function parameterHistory(response: SoilAnalysesResponse, parameter: Char
     .map((change) => toTime(change.at));
   const changeSet = new Set(changes);
   const lines = series.map((item) => ({
+    id: `${item.method}|${item.unit}`,
     method: item.method,
-    unit: item.points[0].unit,
+    unit: item.unit,
     points: item.points.map((point) => ({ time: toTime(point.performed_at), value: point.value })),
   }));
   const rows = series
     .flatMap((item) =>
       item.points.map((point: SoilAnalysisPoint, index) => ({
-        key: `${item.method}-${point.event_key}-${index}`,
+        key: `${item.method}-${item.unit}-${point.event_key}-${index}`,
         time: toTime(point.performed_at),
         method: item.method,
         value: point.value,

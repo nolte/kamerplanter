@@ -453,6 +453,7 @@
     "serverWithDetail": "Server error: {{detail}}",
     "forbidden": "You do not have permission for this action.",
     "conflict": "Conflict: The resource has been modified.",
+    "soilProfileStale": "The soil profile has changed in the meantime because a soil analysis was saved. Reload the page and enter your change again.",
     "tooLarge": "The file is too large. Please choose a smaller file.",
     "notFound": "The requested resource was not found.",
     "validation": "Please check your input.",
