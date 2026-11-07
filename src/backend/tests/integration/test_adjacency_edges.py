@@ -19,7 +19,8 @@ TEST_DATABASE = run_database_name("adjacency_edges")
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 _DOCUMENTS = [col.SITES, col.LOCATIONS, col.SLOTS, col.SPECIES, col.PLANT_INSTANCES, col.PLANTING_RUNS]
-_EDGES = [col.ADJACENT_TO, col.RUN_PLANNED_AT]
+# TENANT_HAS_ACCESS: the species hints cut keys with the visible set, grants included (#2709).
+_EDGES = [col.ADJACENT_TO, col.RUN_PLANNED_AT, col.TENANT_HAS_ACCESS]
 
 
 @pytest.fixture(scope="module")
