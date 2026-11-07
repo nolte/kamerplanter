@@ -2,7 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
+import { appShellFiles, isAppShellEntry } from './src/pwa/appShell';
 
 /**
  * Group the genuinely eager, always-loaded core libraries into stable,
@@ -64,7 +66,7 @@ export default defineConfig({
     // src/sw.ts and emitted as dist/sw.js — the URL of the former push-only worker, so existing
     // registrations update in place. `injectManifest` because the worker also owns Web Push, the
     // tenant-bound API cache and the kill switch; a generated worker could hold none of them.
-    // Registration stays in src/serviceWorkerRegistration.ts (`injectRegister: false`), and the
+    // Registration lives in src/lib/serviceWorkerRegistration.ts (`injectRegister: false`), and the
     // manifest is the hand-written public/manifest.json (`manifest: false`).
     VitePWA({
       strategies: 'injectManifest',
@@ -73,16 +75,28 @@ export default defineConfig({
       injectRegister: false,
       manifest: false,
       injectManifest: {
-        // The app shell: every built JS/CSS chunk (lazy routes included, so a route visited
-        // offline still loads), index.html, the icons and the manifest. The error illustrations
-        // (large SVGs) load cache-first at runtime instead. runtime-config.js is deployment
+        // Candidates: built JS/CSS, index.html, icons, manifest. runtime-config.js is deployment
         // state rewritten at container start and the kill switch's carrier: never precached.
         globPatterns: ['**/*.{js,css,html}', 'icons/*.png', 'manifest.json'],
         globIgnores: ['runtime-config.js', 'sw.js', '**/node_modules/**'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // ...narrowed to the app shell (src/pwa/appShell.ts): index.html and what it loads
+        // eagerly. Lazy route chunks are cached on first use by the worker's /assets/ route.
+        manifestTransforms: [
+          (entries) => {
+            // `vite dev` has no dist/index.html (and its worker skips the precache anyway).
+            const indexPath = fileURLToPath(new URL('./dist/index.html', import.meta.url));
+            const indexHtml = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '';
+            const shell = appShellFiles(indexHtml);
+            return { manifest: entries.filter((entry) => isAppShellEntry(entry.url, shell)), warnings: [] };
+          },
+        ],
       },
+      // Skaffold's dev target runs `vite dev`: serve the worker there too (as a module worker at
+      // /dev-sw.js?dev-sw, without the precache), so Web Push keeps working in development.
       devOptions: {
-        enabled: false,
+        enabled: true,
+        type: 'module',
       },
     }),
     // Emits a treemap of the bundle to bundle-stats/stats.html for the CI

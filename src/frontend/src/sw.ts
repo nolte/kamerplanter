@@ -7,16 +7,20 @@
  * second worker running beside it. Responsibilities:
  *
  * 1. Web Push delivery and notification clicks (taken over from `public/sw.js`).
- * 2. Precache of the app shell (R-007, R-010) and a navigation fallback to `index.html`.
- * 3. Same-origin static assets cache-first (R-008).
+ * 2. Precache of the app shell — `index.html`, the entry chunk and the chunks it preloads (R-007,
+ *    R-010) — and a navigation fallback to `index.html`.
+ * 3. Same-origin static assets cache-first (R-008): the lazy route chunks land here on first use.
  * 4. Allowlisted tenant-scoped API reads network-first, 15 min TTL, 50 MB per namespace (R-009,
- *    R-012, R-013) — in a cache named `kp:{user_key}:{tenant_key}`. The keys come from the app via
- *    `postMessage`; the worker never reads a token. Without a namespace it caches no API answer.
+ *    R-012, R-013), in a cache named `kp:{user_key}:{tenant_key}` — PER CLIENT: each tab posts its
+ *    own keys (`postMessage`; the worker never reads a token), and a request is served from and
+ *    written into only its own tab's namespace. Without a namespace a tab gets network only.
  * 5. Kill switch (G-W9 e): `PWA_CACHING_ENABLED=false` in `/runtime-config.js` makes the worker
- *    delete every cache and unregister itself.
+ *    delete every cache and IndexedDB database and unregister itself.
  *
  * Updates wait for the user (R-014): a new worker stays `waiting` until the app posts `SKIP_WAITING`
  * from the update banner. Type-checked by `tsconfig.sw.json` (WebWorker lib), not the app program.
+ * In `vite dev` (Skaffold's dev target) the plugin serves this worker as a module at
+ * `/dev-sw.js?dev-sw` without the precache, so Web Push keeps working there.
  */
 import { PrecacheController, PrecacheRoute, type PrecacheEntry } from 'workbox-precaching';
 import { NavigationRoute, Route, Router } from 'workbox-routing';
@@ -24,78 +28,100 @@ import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
 import type { WorkboxPlugin } from 'workbox-core/types';
 import {
   API_CACHE_MAX_BYTES,
-  API_CACHE_PREFIX,
   API_NETWORK_TIMEOUT_SECONDS,
-  CACHED_AT_HEADER,
-  CACHED_SIZE_HEADER,
-  RUNTIME_CONFIG_CACHE,
   STATIC_ASSET_CACHE,
   STATIC_ASSET_MAX_ENTRIES,
   SW_MESSAGE_CLEAR_DATA,
   SW_MESSAGE_SET_NAMESPACE,
   SW_MESSAGE_SKIP_WAITING,
   isAllowlistedApiRequest,
-  isCacheableApiResponse,
-  isFresh,
   namespaceCacheName,
   runtimeConfigDisablesCaching,
-  selectEvictions,
-  type CacheEntryInfo,
+  userCachePrefix,
 } from './pwa/cachePolicy';
+import { clientIdOf, createApiCachePlugin, type ApiCacheContext } from './pwa/apiCache';
+import { ByteLedger, NamespaceRegistry } from './pwa/namespaceRegistry';
 import { buildNotification, parsePushData, resolveTargetUrl } from './pwa/pushHandlers';
+import { deleteAllDatabases, deleteCaches } from './pwa/storageWipe';
 
 declare let self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<PrecacheEntry | string>;
 };
 
-/** Where the current namespace survives a worker restart (deleted with every data clear). */
+/** Where the per-client namespaces and byte totals survive a worker restart. */
 const STATE_CACHE = 'kp-sw-state';
-const NAMESPACE_STATE_URL = '/__kp-sw-state/namespace';
+const STATE_URL = '/__kp-sw-state/namespaces';
 /** Minimum spacing of the kill-switch probe on navigations. */
 const KILL_SWITCH_PROBE_INTERVAL_MS = 60_000;
+/** A probe never holds anything up longer than this. */
+const KILL_SWITCH_PROBE_TIMEOUT_MS = 3_000;
 
 let killed = false;
 let lastKillSwitchProbe = 0;
-let namespace: Promise<string | null> = loadNamespace();
+let registry = new NamespaceRegistry();
+let ledger = new ByteLedger();
+const stateLoaded: Promise<void> = loadState();
 
 // ---------------------------------------------------------------------------
-// Namespace (`kp:{user_key}:{tenant_key}`)
+// Per-client namespaces (`kp:{user_key}:{tenant_key}`)
 // ---------------------------------------------------------------------------
 
-async function loadNamespace(): Promise<string | null> {
+async function loadState(): Promise<void> {
   try {
     const cache = await caches.open(STATE_CACHE);
-    const stored = await cache.match(NAMESPACE_STATE_URL);
-    if (!stored) return null;
-    const value = (await stored.json()) as { cacheName?: unknown };
-    return typeof value.cacheName === 'string' && value.cacheName.startsWith(API_CACHE_PREFIX)
-      ? value.cacheName
-      : null;
+    const stored = await cache.match(STATE_URL);
+    if (!stored) return;
+    const value = (await stored.json()) as { registry?: unknown; ledger?: unknown };
+    registry = NamespaceRegistry.fromJSON(value.registry);
+    ledger = ByteLedger.fromJSON(value.ledger);
   } catch {
-    return null;
+    // Unreadable state: start empty — every tab re-posts its namespace on its next change.
   }
 }
 
-async function deleteApiCaches(keep: string | null): Promise<void> {
-  const names = await caches.keys();
+async function persistState(): Promise<void> {
+  try {
+    const cache = await caches.open(STATE_CACHE);
+    await cache.put(
+      STATE_URL,
+      new Response(JSON.stringify({ registry: registry.toJSON(), ledger: ledger.toJSON() }), {
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+  } catch {
+    // Storage full or gone: the in-memory state still applies until the worker restarts.
+  }
+}
+
+async function deleteApiCaches(names: readonly string[]): Promise<void> {
   await Promise.all(
-    names
-      .filter((name) => (name.startsWith(API_CACHE_PREFIX) && name !== keep) || name === STATE_CACHE)
-      .map((name) => caches.delete(name)),
+    names.map(async (name) => {
+      ledger.forget(name);
+      apiStrategies.delete(name);
+      await caches.delete(name);
+    }),
   );
 }
 
-async function setNamespace(cacheName: string | null): Promise<void> {
-  namespace = Promise.resolve(cacheName);
-  // A different user or tenant never reads the previous one's answers, even if the app's own clear
-  // did not run (e.g. a tab closed mid-switch).
-  await deleteApiCaches(cacheName);
-  if (!cacheName) return;
-  const cache = await caches.open(STATE_CACHE);
-  await cache.put(
-    NAMESPACE_STATE_URL,
-    new Response(JSON.stringify({ cacheName }), { headers: { 'content-type': 'application/json' } }),
-  );
+async function liveClientIds(): Promise<Set<string>> {
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  return new Set(windows.map((client) => client.id));
+}
+
+async function setClientNamespace(clientId: string, cacheName: string | null): Promise<void> {
+  await stateLoaded;
+  const unused = registry.set(clientId, cacheName);
+  // Closed or reloaded tabs leave stale ids; a cache stays as long as ANY live tab uses it.
+  unused.push(...registry.prune(await liveClientIds()));
+  await deleteApiCaches([...new Set(unused)].filter((name) => !registry.inUse().has(name)));
+  await persistState();
+}
+
+async function endSession(userKey: unknown, senderClientId: string): Promise<void> {
+  await stateLoaded;
+  const ended = registry.endSession(userCachePrefix(typeof userKey === 'string' ? userKey : null), senderClientId);
+  await deleteApiCaches(ended);
+  await persistState();
 }
 
 // ---------------------------------------------------------------------------
@@ -104,66 +130,51 @@ async function setNamespace(cacheName: string | null): Promise<void> {
 
 async function selfDestruct(): Promise<void> {
   killed = true;
-  const names = await caches.keys();
-  await Promise.all(names.map((name) => caches.delete(name)));
+  await Promise.all([deleteCaches(), deleteAllDatabases()]);
   await self.registration.unregister();
 }
 
 async function probeKillSwitch(): Promise<void> {
   lastKillSwitchProbe = Date.now();
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), KILL_SWITCH_PROBE_TIMEOUT_MS);
   try {
-    const response = await fetch('/runtime-config.js', { cache: 'no-store', credentials: 'same-origin' });
+    const response = await fetch('/runtime-config.js', {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      signal: abort.signal,
+    });
     if (!response.ok) return;
     if (runtimeConfigDisablesCaching(await response.text())) await selfDestruct();
   } catch {
-    // Offline or unreachable: keep the current state; the next navigation probes again.
+    // Offline, unreachable or too slow: keep the current state; the next navigation probes again.
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 // ---------------------------------------------------------------------------
-// API cache plugins: TTL stamp, no-store respect, byte ceiling
+// Strategies
 // ---------------------------------------------------------------------------
-
-async function enforceByteCeiling(cacheName: string): Promise<void> {
-  const cache = await caches.open(cacheName);
-  const requests = await cache.keys();
-  const entries: CacheEntryInfo[] = [];
-  for (const request of requests) {
-    const response = await cache.match(request);
-    if (!response) continue;
-    entries.push({
-      url: request.url,
-      size: Number(response.headers.get(CACHED_SIZE_HEADER)) || 0,
-      cachedAt: Number(response.headers.get(CACHED_AT_HEADER)) || 0,
-    });
-  }
-  await Promise.all(selectEvictions(entries, API_CACHE_MAX_BYTES).map((url) => cache.delete(url)));
-}
-
-function apiCachePlugin(cacheName: string): WorkboxPlugin {
-  return {
-    cacheWillUpdate: async ({ response }) => {
-      if (killed || !isCacheableApiResponse(response)) return null;
-      // The namespace may have changed (logout, tenant switch) while the request was in flight.
-      if ((await namespace) !== cacheName) return null;
-      const body = await response.blob();
-      const headers = new Headers(response.headers);
-      headers.set(CACHED_AT_HEADER, String(Date.now()));
-      headers.set(CACHED_SIZE_HEADER, String(body.size));
-      return new Response(body, { status: response.status, statusText: response.statusText, headers });
-    },
-    cachedResponseWillBeUsed: async ({ cachedResponse }) => {
-      if (!cachedResponse || killed) return null;
-      if ((await namespace) !== cacheName) return null;
-      return isFresh(cachedResponse.headers.get(CACHED_AT_HEADER), Date.now()) ? cachedResponse : null;
-    },
-    cacheDidUpdate: async () => {
-      await enforceByteCeiling(cacheName);
-    },
-  };
-}
 
 const apiStrategies = new Map<string, NetworkFirst>();
+
+const apiContext: ApiCacheContext = {
+  get registry() {
+    return registry;
+  },
+  get ledger() {
+    return ledger;
+  },
+  maxBytes: API_CACHE_MAX_BYTES,
+  isKilled: () => killed,
+  now: () => Date.now(),
+  openCache: (name) => caches.open(name),
+  deleteCache: async (name) => {
+    await caches.delete(name);
+  },
+  persist: persistState,
+};
 
 function apiStrategy(cacheName: string): NetworkFirst {
   let strategy = apiStrategies.get(cacheName);
@@ -171,7 +182,7 @@ function apiStrategy(cacheName: string): NetworkFirst {
     strategy = new NetworkFirst({
       cacheName,
       networkTimeoutSeconds: API_NETWORK_TIMEOUT_SECONDS,
-      plugins: [apiCachePlugin(cacheName)],
+      plugins: [createApiCachePlugin(cacheName, apiContext) as WorkboxPlugin],
     });
     apiStrategies.set(cacheName, strategy);
   }
@@ -179,10 +190,6 @@ function apiStrategy(cacheName: string): NetworkFirst {
 }
 
 const networkOnly = new NetworkOnly();
-
-// ---------------------------------------------------------------------------
-// Static assets: bounded cache-first
-// ---------------------------------------------------------------------------
 
 const staticAssetPlugin: WorkboxPlugin = {
   cacheWillUpdate: async ({ response }) => (response.status === 200 ? response : null),
@@ -199,9 +206,6 @@ const staticAssetPlugin: WorkboxPlugin = {
 // Routing
 // ---------------------------------------------------------------------------
 
-const precache = new PrecacheController();
-precache.precache(self.__WB_MANIFEST);
-
 const router = new Router();
 
 // Allowlisted API reads first; every other API GET is network-only (explicit, so no later route can
@@ -211,7 +215,8 @@ router.registerRoute(
     ({ url, request }) =>
       url.pathname.startsWith('/api/') && isAllowlistedApiRequest(request.method, url, self.location.origin),
     async (options) => {
-      const cacheName = await namespace;
+      await stateLoaded;
+      const cacheName = registry.forClient(clientIdOf(options.event));
       if (killed || !cacheName) return networkOnly.handle(options);
       return apiStrategy(cacheName).handle(options);
     },
@@ -219,21 +224,26 @@ router.registerRoute(
 );
 router.registerRoute(new Route(({ url }) => url.pathname.startsWith('/api/'), networkOnly));
 
-// The kill switch must always be read fresh; the last copy only serves an offline start.
+// The kill switch's carrier is never cached: a stale `true` must not outlive a switched-off deployment.
 router.registerRoute(
   new Route(
     ({ url }) => url.origin === self.location.origin && url.pathname === '/runtime-config.js',
-    new NetworkFirst({ cacheName: RUNTIME_CONFIG_CACHE, networkTimeoutSeconds: 3 }),
+    networkOnly,
   ),
 );
 
-router.registerRoute(new PrecacheRoute(precache));
-
-router.registerRoute(
-  new NavigationRoute(precache.createHandlerBoundToURL('/index.html'), {
-    denylist: [/^\/api\//, /^\/sw\.js$/, /^\/runtime-config\.js$/, /^\/manifest\.json$/],
-  }),
-);
+// The injection point must stay a literal `self.__WB_MANIFEST` for the build to fill it.
+const precacheManifest = self.__WB_MANIFEST;
+if (!import.meta.env.DEV) {
+  const precache = new PrecacheController();
+  precache.precache(precacheManifest);
+  router.registerRoute(new PrecacheRoute(precache));
+  router.registerRoute(
+    new NavigationRoute(precache.createHandlerBoundToURL('/index.html'), {
+      denylist: [/^\/api\//, /^\/sw\.js$/, /^\/runtime-config\.js$/, /^\/manifest\.json$/],
+    }),
+  );
+}
 
 router.registerRoute(
   new Route(
@@ -259,12 +269,10 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 // ---------------------------------------------------------------------------
 
 self.addEventListener('activate', (event: ExtendableEvent) => {
-  event.waitUntil(
-    (async () => {
-      await self.clients.claim();
-      await probeKillSwitch();
-    })(),
-  );
+  // Only the claim holds activation (fetches wait for it); the kill-switch probe runs beside it,
+  // bounded by its own timeout, and every navigation probes again.
+  event.waitUntil(self.clients.claim());
+  void probeKillSwitch();
 });
 
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
@@ -282,9 +290,9 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
           typeof data.userKey === 'string' ? data.userKey : null,
           typeof data.tenantKey === 'string' ? data.tenantKey : null,
         );
-    event.waitUntil(setNamespace(cacheName));
+    event.waitUntil(setClientNamespace(source.id, cacheName));
   } else if (data.type === SW_MESSAGE_CLEAR_DATA) {
-    event.waitUntil(setNamespace(null));
+    event.waitUntil(endSession(data.userKey, source.id));
   }
 });
 

@@ -40,7 +40,7 @@ describe('src/sw.ts carries the Web Push handlers', () => {
     expect(viteConfig).toMatch(/strategies: 'injectManifest'/);
     expect(viteConfig).toMatch(/filename: 'sw\.ts'/);
     const registration = readFileSync(join(root, 'src/lib/serviceWorkerRegistration.ts'), 'utf8');
-    expect(registration).toMatch(/register\('\/sw\.js'/);
+    expect(registration).toMatch(/url: '\/sw\.js', type: 'classic'/);
   });
 });
 

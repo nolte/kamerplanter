@@ -1,32 +1,35 @@
 /**
- * UI-NFR-012 §3.2 service worker registration helper (REQ-053 WP 9.1, #2741).
+ * The ONE service worker registration module (UI-NFR-012 §3.2, REQ-053 WP 9.1, #2741).
  *
  * The worker is built by `vite-plugin-pwa` (`injectManifest`, R-011) from `src/sw.ts` and served as
- * `/sw.js`. This module wraps the registration and the update lifecycle: a new version waits until
- * the user confirms it in the update banner (R-014), which calls {@link activateWaitingWorker}; the
- * page reloads once the new worker has taken control.
+ * `/sw.js`; in `vite dev` the plugin serves it as a module worker at `/dev-sw.js?dev-sw`, so Web
+ * Push also works on Skaffold's dev target. {@link registerServiceWorker} is the only entry point —
+ * the bare `navigator.serviceWorker.register` call is not exported, so no caller can register while
+ * skipping the kill switch or the namespace hand-over:
+ *
+ * - Kill switch (G-W9 e): `PWA_CACHING_ENABLED=false` in `runtime-config.js` (written at container
+ *   start, never cached) unregisters every worker and deletes every cache and IndexedDB database
+ *   instead of registering. The worker reads the same flag itself, so the switch also reaches a tab
+ *   whose app code is an older build.
+ * - A worker that takes control gets this tab's namespace again.
+ * - Updates (R-014): a new version waits until the user confirms it in the update banner. Once a
+ *   tab has seen a waiting update, it reloads when the new worker takes control — whichever tab
+ *   confirmed it.
  *
  * The waiting registration is kept in a tiny external store ({@link subscribeToUpdate},
- * {@link getWaitingRegistration}) so the banner can read it with `useSyncExternalStore` without the
- * boot code depending on React.
+ * {@link getWaitingRegistration}) so the banner can read it with `useSyncExternalStore`.
  */
-import { SW_MESSAGE_SKIP_WAITING } from '@/pwa/cachePolicy';
-
-export interface ServiceWorkerRegistrationOptions {
-  /**
-   * Called when a new service worker version is available. UI layers
-   * use this to render the "Neue Version verfügbar" banner (R-014).
-   */
-  onUpdateAvailable?: (registration: ServiceWorkerRegistration) => void;
-  /** Called once the service worker has activated for the first time. */
-  onActivated?: (registration: ServiceWorkerRegistration) => void;
-  /** Suppress registration entirely (test seam / opt-out). */
-  disabled?: boolean;
-}
+import { runtimeConfig } from '@/config/runtimeConfig';
+import { SW_MESSAGE_SKIP_WAITING, isPwaCachingEnabled } from '@/pwa/cachePolicy';
+import { clearAllOfflineStorage, repostNamespace } from '@/pwa/offlineData';
 
 let waitingRegistration: ServiceWorkerRegistration | null = null;
 const updateListeners = new Set<() => void>();
 let reloadArmed = false;
+
+function serviceWorkerSupported(): boolean {
+  return typeof navigator !== 'undefined' && 'serviceWorker' in navigator && Boolean(navigator.serviceWorker);
+}
 
 /** Subscribe to "a new version is waiting" (for `useSyncExternalStore`). */
 export function subscribeToUpdate(listener: () => void): () => void {
@@ -41,81 +44,104 @@ export function getWaitingRegistration(): ServiceWorkerRegistration | null {
   return waitingRegistration;
 }
 
-/** Record a waiting update (or its dismissal with `null`) and notify the banner. */
-export function markUpdateAvailable(registration: ServiceWorkerRegistration | null): void {
-  waitingRegistration = registration;
-  updateListeners.forEach((listener) => listener());
+/** Reload this tab as soon as a new worker controls it (armed once per page). */
+function armReloadOnControllerChange(): void {
+  if (reloadArmed || !serviceWorkerSupported()) return;
+  reloadArmed = true;
+  navigator.serviceWorker.addEventListener(
+    'controllerchange',
+    () => {
+      markUpdateAvailable(null);
+      window.location.reload();
+    },
+    { once: true },
+  );
 }
 
 /**
- * Register the service worker if the runtime supports it.
- *
- * Returns `null` on environments without service worker support
- * (`navigator.serviceWorker` undefined, e.g. SSR, very old browsers,
- * insecure http), when registration is explicitly disabled, or when the
- * browser refuses it. On success returns the `ServiceWorkerRegistration`.
+ * Record a waiting update (or its dismissal with `null`) and notify the banner. A tab that has seen
+ * an update reloads when it activates — also when ANOTHER tab confirmed it (review finding 7).
  */
-export async function registerServiceWorker(
-  options: ServiceWorkerRegistrationOptions = {},
-): Promise<ServiceWorkerRegistration | null> {
-  if (options.disabled) return null;
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
-    return null;
-  }
+export function markUpdateAvailable(registration: ServiceWorkerRegistration | null): void {
+  waitingRegistration = registration;
+  if (registration) armReloadOnControllerChange();
+  updateListeners.forEach((listener) => listener());
+}
 
+/** Whether this deployment allows the service worker to cache (default: yes). */
+export function pwaCachingEnabled(): boolean {
+  return isPwaCachingEnabled(runtimeConfig().PWA_CACHING_ENABLED);
+}
+
+/** The worker's URL and type: the built classic worker, or the dev server's module worker. */
+function workerScript(): { url: string; type: WorkerType } {
+  return import.meta.env.DEV ? { url: '/dev-sw.js?dev-sw', type: 'module' } : { url: '/sw.js', type: 'classic' };
+}
+
+function watchForUpdates(registration: ServiceWorkerRegistration): void {
+  if (registration.waiting && navigator.serviceWorker.controller) markUpdateAvailable(registration);
+  registration.addEventListener('updatefound', () => {
+    const installing = registration.installing;
+    if (!installing) return;
+    installing.addEventListener('statechange', () => {
+      // A first install has no controller and activates on its own; only a replacement waits.
+      if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+        markUpdateAvailable(registration);
+      }
+    });
+  });
+}
+
+/**
+ * Register the worker, or — with the kill switch off — remove it and everything it stored.
+ * Guarded: without service-worker support nothing happens, and a failure never breaks startup —
+ * but it is reported, because a missing worker silently disables Web Push.
+ */
+export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (!serviceWorkerSupported()) return null;
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js', {
+    if (!pwaCachingEnabled()) {
+      await unregisterAll();
+      await clearAllOfflineStorage();
+      return null;
+    }
+    const { url, type } = workerScript();
+    const registration = await navigator.serviceWorker.register(url, {
       scope: '/',
+      type,
       updateViaCache: 'none',
     });
-
-    if (registration.waiting && options.onUpdateAvailable) {
-      options.onUpdateAvailable(registration);
-    }
-
-    registration.addEventListener('updatefound', () => {
-      const installing = registration.installing;
-      if (!installing) return;
-      installing.addEventListener('statechange', () => {
-        if (installing.state === 'installed') {
-          if (navigator.serviceWorker.controller && options.onUpdateAvailable) {
-            options.onUpdateAvailable(registration);
-          } else if (!navigator.serviceWorker.controller && options.onActivated) {
-            options.onActivated(registration);
-          }
-        }
-      });
+    watchForUpdates(registration);
+    // A worker that just took control (first install, confirmed update) has no namespace for this
+    // tab yet: hand it the current one.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      void repostNamespace();
     });
-
     return registration;
-  } catch {
-    // The environment refuses the worker (e.g. the dev server serves none). Don't break the app.
+  } catch (error) {
+    console.warn('[pwa] service worker registration failed; push and offline reading are unavailable', error);
     return null;
   }
 }
 
 /**
  * Activate the waiting worker — the "Jetzt aktualisieren" button of the update banner (R-014). The
- * page reloads once the new worker controls it, so the new build's assets are the ones in use.
+ * page reloads once the new worker controls it. When another tab already activated it (nothing
+ * waits any more), the banner closes and this tab reloads onto the new build at once.
  */
 export function activateWaitingWorker(registration: ServiceWorkerRegistration): void {
-  if (!registration.waiting) return;
-  if (!reloadArmed && typeof navigator !== 'undefined' && navigator.serviceWorker) {
-    reloadArmed = true;
-    navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), {
-      once: true,
-    });
+  if (!registration.waiting) {
+    markUpdateAvailable(null);
+    window.location.reload();
+    return;
   }
+  armReloadOnControllerChange();
   registration.waiting.postMessage({ type: SW_MESSAGE_SKIP_WAITING });
 }
 
-/**
- * Unregister all service workers. Used by the kill switch (`PWA_CACHING_ENABLED=false`).
- */
+/** Unregister all service workers (kill switch). */
 export async function unregisterAll(): Promise<void> {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
-    return;
-  }
+  if (!serviceWorkerSupported()) return;
   const registrations = await navigator.serviceWorker.getRegistrations();
   await Promise.all(registrations.map((r) => r.unregister()));
 }

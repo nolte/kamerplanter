@@ -5,7 +5,7 @@ import i18n, { initI18n } from './i18n';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { initErrorTracking } from '@/observability/errorTracking';
 import './styles/print.css';
-import { registerServiceWorker } from './serviceWorkerRegistration';
+import { registerServiceWorker } from '@/lib/serviceWorkerRegistration';
 
 function mount() {
   ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -64,7 +64,12 @@ describe('clearOfflineData (logout, tenant switch)', () => {
 
   it('deletes every API cache and the namespace state, keeps the public build caches', async () => {
     await clearOfflineData();
-    expect(deletedCaches.sort()).toEqual(['kp-sw-state', 'kp:user_1:tenant_a', 'kp:user_1:tenant_b']);
+    expect(deletedCaches.sort()).toEqual([
+      'kp-runtime-config',
+      'kp-sw-state',
+      'kp:user_1:tenant_a',
+      'kp:user_1:tenant_b',
+    ]);
   });
 
   it('deletes every named IndexedDB database', async () => {
@@ -72,9 +77,10 @@ describe('clearOfflineData (logout, tenant switch)', () => {
     expect(deletedDatabases).toEqual(['kp-plan-cache', 'workbox-expiration']);
   });
 
-  it('tells the worker to forget its namespace', async () => {
+  it("tells the worker whose session ended, so it ends that user's namespace in every tab", async () => {
+    await postNamespace('user_1', 'tenant_a');
     await clearOfflineData();
-    expect(postMessage).toHaveBeenCalledWith({ type: 'KP_CLEAR_DATA' });
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'KP_CLEAR_DATA', userKey: 'user_1' });
   });
 
   it('does not wait forever on a blocked IndexedDB deletion', async () => {

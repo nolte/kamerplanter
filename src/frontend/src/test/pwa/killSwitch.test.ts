@@ -7,7 +7,7 @@ import { runtimeConfigDisablesCaching } from '@/pwa/cachePolicy';
  * REQ-053 WP 9.1 (#2741), guardrail G-W9 (e): `PWA_CACHING_ENABLED=false` in `runtime-config.js`
  * unregisters the service worker and deletes its caches. Two carriers, both pinned here:
  *
- * - the app (`src/serviceWorkerRegistration.ts`): at boot it reads `window.__RUNTIME_CONFIG__`
+ * - the app (`src/lib/serviceWorkerRegistration.ts`): at boot it reads `window.__RUNTIME_CONFIG__`
  *   and unregisters + clears instead of registering;
  * - the worker (`src/sw.ts`): it reads the text of `/runtime-config.js` itself, so the switch also
  *   reaches a tab running an older app build.
@@ -52,14 +52,14 @@ afterEach(() => {
 });
 
 async function boot() {
-  const { registerServiceWorker } = await import('@/serviceWorkerRegistration');
+  const { registerServiceWorker } = await import('@/lib/serviceWorkerRegistration');
   await registerServiceWorker();
 }
 
 describe('app-side kill switch', () => {
   it('registers /sw.js when the flag is absent (default on)', async () => {
     await boot();
-    expect(register).toHaveBeenCalledWith('/sw.js', { scope: '/', updateViaCache: 'none' });
+    expect(register).toHaveBeenCalledTimes(1);
     expect(unregister).not.toHaveBeenCalled();
   });
 
@@ -80,19 +80,36 @@ describe('app-side kill switch', () => {
 
 describe('worker-side kill switch (src/sw.ts)', () => {
   const sw = readFileSync(join(root, 'src/sw.ts'), 'utf8');
+  const probe = sw.slice(sw.indexOf('async function probeKillSwitch'), sw.indexOf('// Strategies'));
+  const destruct = sw.slice(sw.indexOf('async function selfDestruct'), sw.indexOf('async function probeKillSwitch'));
 
   it('reads /runtime-config.js uncached and self-destructs on an off value', () => {
-    const probe = sw.slice(sw.indexOf('async function probeKillSwitch'), sw.indexOf('// API cache plugins'));
-    expect(probe).toMatch(/fetch\('\/runtime-config\.js', \{ cache: 'no-store'/);
+    expect(probe).toMatch(/fetch\('\/runtime-config\.js', \{\s*cache: 'no-store'/);
     expect(probe).toMatch(/runtimeConfigDisablesCaching\(await response\.text\(\)\)\) await selfDestruct\(\)/);
-    const destruct = sw.slice(sw.indexOf('async function selfDestruct'), sw.indexOf('async function probeKillSwitch'));
-    expect(destruct).toMatch(/caches\.delete\(name\)/);
+  });
+
+  it('bounds the probe with an abort timeout (review finding 3a)', () => {
+    expect(sw).toMatch(/const KILL_SWITCH_PROBE_TIMEOUT_MS = 3_000;/);
+    expect(probe).toMatch(/setTimeout\(\(\) => abort\.abort\(\), KILL_SWITCH_PROBE_TIMEOUT_MS\)/);
+    expect(probe).toMatch(/signal: abort\.signal/);
+  });
+
+  it('does not hold activation on the probe (fetches wait for activate)', () => {
+    const activate = sw.slice(sw.indexOf("self.addEventListener('activate'"), sw.indexOf("self.addEventListener('message'"));
+    expect(activate).toMatch(/event\.waitUntil\(self\.clients\.claim\(\)\);/);
+    expect(activate).not.toMatch(/waitUntil\([^)]*probeKillSwitch/);
+    expect(activate).toMatch(/void probeKillSwitch\(\);/);
+    expect(sw).toMatch(/event\.request\.mode === 'navigate'[\s\S]*?probeKillSwitch\(\)/);
+  });
+
+  it('deletes every cache AND every IndexedDB database before unregistering (finding 3c)', () => {
+    expect(destruct).toMatch(/Promise\.all\(\[deleteCaches\(\), deleteAllDatabases\(\)\]\)/);
     expect(destruct).toMatch(/self\.registration\.unregister\(\)/);
   });
 
-  it('probes on activation and on navigations', () => {
-    expect(sw).toMatch(/addEventListener\('activate'[\s\S]*?await probeKillSwitch\(\)/);
-    expect(sw).toMatch(/event\.request\.mode === 'navigate'[\s\S]*?probeKillSwitch\(\)/);
+  it('serves /runtime-config.js network-only, never from a cache (finding 3b)', () => {
+    expect(sw).toMatch(/url\.pathname === '\/runtime-config\.js',\s*networkOnly,/);
+    expect(sw).not.toMatch(/RUNTIME_CONFIG_CACHE|kp-runtime-config/);
   });
 });
 
