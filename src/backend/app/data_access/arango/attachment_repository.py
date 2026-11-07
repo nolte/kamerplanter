@@ -10,7 +10,7 @@ from arango.exceptions import AQLQueryExecuteError
 from app.common.enums import AttachmentCategory
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.data_access.arango.client_event_tombstones import record_tombstone, tombstoned_ids
+from app.data_access.arango.client_event_tombstones import record_tombstone, record_tombstone_in, tombstoned_ids
 from app.data_access.arango.conflicts import conflict_error_for
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
@@ -791,9 +791,16 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
 
         Returns the removed record (its stored object is the caller's next step), or ``None`` when it is absent,
         another tenant's or still referenced. The scan is the tenant-scoped one of :meth:`task_photo_delete_state`.
+
+        A record a buffered upload created leaves its tombstone in the same transaction (REQ-053 WP 9.3): a late
+        replay of ``POST /attachments`` must not store the photo again (and the client re-link it) - the bed-photo
+        removal comes this way.
         """
         with stream_transaction(
-            self._db, write=(self._collection_name,), read=_REFERENCE_READ, entity=self._collection_name
+            self._db,
+            write=(self._collection_name, col.CLIENT_EVENT_TOMBSTONES),
+            read=_REFERENCE_READ,
+            entity=self._collection_name,
         ) as txn:
             if not self._unreferenced_in(txn, attachment_id, tenant_key):
                 return None
@@ -812,6 +819,10 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
                     },
                 )
             )
+            if removed and removed[0].get("client_event_id"):
+                record_tombstone_in(
+                    txn, tenant_key=tenant_key, client_event_id=str(removed[0]["client_event_id"]), kind="attachment"
+                )
         return Attachment(**self._from_doc(removed[0])) if removed else None
 
     def _unreferenced_in(self, txn: StreamTransaction, attachment_id: str, tenant_key: str) -> bool:

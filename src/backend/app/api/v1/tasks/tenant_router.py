@@ -785,7 +785,11 @@ def complete_task(
     if completed.category == "care_reminder" and completed.entity_type == "plant_instance" and completed.entity_key:
         from app.common.dependencies import get_care_reminder_service
 
-        get_care_reminder_service().record_care_task_completion(completed, tenant_key=ctx.tenant_key)
+        # The dedup key is THIS request's id (outcome), never the task's stored one: a completion without an id
+        # after a reopen leaves an earlier completion's id on the task.
+        get_care_reminder_service().record_care_task_completion(
+            completed, tenant_key=ctx.tenant_key, completion_client_event_id=outcome.client_event_id
+        )
     return _task_response(completed)
 
 

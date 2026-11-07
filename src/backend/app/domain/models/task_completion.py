@@ -168,6 +168,10 @@ class TaskCompletionOutcome:
 
     task: Task
     replayed: bool = False
+    #: The id of THIS request's buffered completion (its stamp, or the stamp it replayed); ``None`` without one.
+    #: What a follow-up dedups on - never the id stored on the task, which may be an earlier completion's (a
+    #: completion without an id after a reopen leaves the earlier id on the task).
+    client_event_id: str | None = None
 
 
 @dataclass(frozen=True)

@@ -37,6 +37,7 @@ from app.data_access.external.registration import register_external_adapters
 from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
 from app.observability.event_user import error_event_user
+from app.observability.garden_plan_metrics import record_client_event_indexes
 from app.observability.metrics import MetricsMiddleware, start_configured_metrics_server, stop_metrics_server
 
 # Redaction before anything below can log (#1832): error tracking, adapter
@@ -190,7 +191,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     conn = get_connection()
     db = conn.connect()
-    ensure_collections(db)
+    # REQ-053 WP 9.3: a client-event unique index a dirty volume blocks is retried every boot and alerted on.
+    record_client_event_indexes(ensure_collections(db))
     logger.info("database_ready")
 
     # NFR-016 / ADR-005: versioned, tracked, lock-guarded migrations run FIRST

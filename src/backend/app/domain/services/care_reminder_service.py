@@ -1282,6 +1282,7 @@ class CareReminderService:
         task: Task,
         *,
         tenant_key: str,
+        completion_client_event_id: str | None = None,
     ) -> Task | None:
         """Mirror a completed care-reminder task into the plant's care state (REQ-022).
 
@@ -1301,7 +1302,8 @@ class CareReminderService:
         a care profile are no-ops. Returns the newly scheduled follow-up watering
         task, or ``None``.
 
-        REQ-053 WP 9.3: a buffered completion (``completion_client_event_id``) confirms exactly once. Its replay
+        REQ-053 WP 9.3: a buffered completion (``completion_client_event_id``, the id of the completing *request* -
+        never read from the task, whose stored id may be an earlier completion's) confirms exactly once. Its replay
         runs this again - a first attempt may have died between the commit and this follow-up - and a confirmation
         that is there already is written neither twice nor with a second watering log. The next occurrence keeps
         its own dedup (#768) and is tried again.
@@ -1311,7 +1313,7 @@ class CareReminderService:
             return None
         plant_key, profile, reminder_type = context
 
-        completion_id = task.completion_client_event_id
+        completion_id = completion_client_event_id
         if completion_id and self._repo.find_confirmation_by_completion(plant_key, completion_id) is not None:
             return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
         confirmation = CareConfirmation(

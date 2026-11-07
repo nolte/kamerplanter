@@ -99,7 +99,9 @@ class _CareServiceStub:
     def __getattr__(self, name: str):  # noqa: ANN204 — test guard
         raise AssertionError(f"the router must not touch the care service's private {name!r}")
 
-    def record_care_task_completion(self, task: Task, *, tenant_key: str = "") -> None:
+    def record_care_task_completion(
+        self, task: Task, *, tenant_key: str = "", completion_client_event_id: str | None = None
+    ) -> None:
         self.completions.append((task, tenant_key))
         return None
 

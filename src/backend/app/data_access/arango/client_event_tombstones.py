@@ -23,6 +23,7 @@ from arango.exceptions import DocumentInsertError
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.conflicts import UNIQUE_CONSTRAINT_VIOLATED
+from app.data_access.arango.transactions import StreamTransaction
 
 logger = structlog.get_logger(__name__)
 
@@ -46,14 +47,46 @@ def record_tombstone(db: StandardDatabase, *, tenant_key: str, client_event_id: 
         "tenant_key": tenant_key,
         "client_event_id": client_event_id,
         "kind": kind,
-        # ISO 8601 UTC: the TTL index reads a date string.
-        "deleted_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "deleted_at": _now_iso(),
     }
     try:
         db.collection(col.CLIENT_EVENT_TOMBSTONES).insert(document)
     except DocumentInsertError as exc:
         if exc.error_code != UNIQUE_CONSTRAINT_VIOLATED:
             logger.error("client_event_tombstone_failed", kind=kind, error_code=exc.error_code)
+
+
+_UPSERT_TOMBSTONE = """
+UPSERT { tenant_key: @tenant_key, client_event_id: @client_event_id }
+INSERT { tenant_key: @tenant_key, client_event_id: @client_event_id, kind: @kind, deleted_at: @deleted_at }
+UPDATE {}
+IN @@tombstones
+"""
+
+
+def record_tombstone_in(txn: StreamTransaction, *, tenant_key: str, client_event_id: str, kind: str) -> None:
+    """:func:`record_tombstone` inside the caller's transaction: the delete and its tombstone commit together.
+
+    An ``UPSERT``, so a second delete of the same id inside a transaction never aborts it with a 1210. The
+    caller declares :data:`~app.data_access.arango.collections.CLIENT_EVENT_TOMBSTONES` for writing.
+    """
+    if not tenant_key or not client_event_id:
+        return
+    txn.aql.execute(
+        _UPSERT_TOMBSTONE,
+        bind_vars={
+            "@tombstones": col.CLIENT_EVENT_TOMBSTONES,
+            "tenant_key": tenant_key,
+            "client_event_id": client_event_id,
+            "kind": kind,
+            "deleted_at": _now_iso(),
+        },
+    )
+
+
+def _now_iso() -> str:
+    # ISO 8601 UTC: the TTL index reads a date string.
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def tombstoned_ids(db: StandardDatabase, ids: Sequence[str], *, tenant_key: str) -> set[str]:

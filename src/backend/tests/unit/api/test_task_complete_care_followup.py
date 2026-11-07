@@ -144,7 +144,7 @@ class _ReplayingStub(_TaskServiceStub):
 
     def complete_task_once(self, key: str, *args, **kwargs) -> TaskCompletionOutcome:
         self.calls += 1
-        return TaskCompletionOutcome(self._completed, replayed=self.calls > 1)
+        return TaskCompletionOutcome(self._completed, replayed=self.calls > 1, client_event_id="ce-1")
 
 
 def test_a_replay_records_the_confirmation_a_crashed_first_attempt_lost_and_only_once(monkeypatch, care_stack):
@@ -189,3 +189,37 @@ def test_a_replay_of_a_reopened_task_runs_no_follow_up(monkeypatch, care_stack):
     complete_task(_request(), TASK_KEY, TaskCompleteRequest(), ctx=_ctx(), service=stub)  # type: ignore[arg-type]
 
     repo.create_confirmation_logged.assert_not_called()
+
+
+class _ScriptedStub(_TaskServiceStub):
+    """Answers the outcomes it is given, in order: what the route sees of A, a reopen, B and a late replay."""
+
+    def __init__(self, completed: Task, outcomes: list[tuple[bool, str | None]]) -> None:
+        super().__init__(completed)
+        self._outcomes = list(outcomes)
+
+    def complete_task_once(self, key: str, *args, **kwargs) -> TaskCompletionOutcome:
+        replayed, client_id = self._outcomes.pop(0)
+        return TaskCompletionOutcome(self._completed, replayed=replayed, client_event_id=client_id)
+
+
+def test_a_completion_without_an_id_after_a_reopen_confirms_again_and_a_late_replay_does_not(monkeypatch, care_stack):
+    # Verifying review of #2787 (F1): A completed with id X, the task was reopened, B completed it WITHOUT an id -
+    # the task still carries X. B's confirmation must not be deduped against A's, and a late replay of X confirms
+    # nothing more: exactly two confirmations and two watering logs.
+    care_service, task_store = care_stack
+    repo = care_service._repo  # noqa: SLF001
+    confirmations: list[CareConfirmation] = []
+    repo.find_confirmation_by_completion.side_effect = lambda plant_key, client_id: next(
+        (c for c in confirmations if c.completion_client_event_id == client_id), None
+    )
+    repo.create_confirmation_logged.side_effect = lambda confirmation, **_: confirmations.append(confirmation)
+    stale = task_store.store[0].model_copy(update={"completion_client_event_id": "X"})  # A's id stays on the task
+    stub = _ScriptedStub(stale, [(False, "X"), (False, None), (True, "X")])
+    monkeypatch.setattr("app.common.dependencies.get_care_reminder_service", lambda: care_service)
+
+    for _ in range(3):  # A, then B (no id), then the late replay of A
+        complete_task(_request(), TASK_KEY, TaskCompleteRequest(), ctx=_ctx(), service=stub)  # type: ignore[arg-type]
+
+    assert [c.completion_client_event_id for c in confirmations] == ["X", None]
+    assert care_service._watering_log_repo.create.call_count == 2  # noqa: SLF001

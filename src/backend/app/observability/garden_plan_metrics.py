@@ -10,6 +10,8 @@ object count (small / medium / large, §25.1), not the count itself.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from prometheus_client import Counter, Gauge, Histogram
 
 from app.observability.metrics import REGISTRY
@@ -100,3 +102,9 @@ CLIENT_EVENT_INDEX_BLOCKED = Gauge(
 def record_client_event_index_blocked(collection: str, *, blocked: bool) -> None:
     """Set the blocked state of one collection's client-event index; ``collection`` is a fixed collection name."""
     CLIENT_EVENT_INDEX_BLOCKED.labels(collection=collection).set(1 if blocked else 0)
+
+
+def record_client_event_indexes(present: Mapping[str, bool]) -> None:
+    """Set the gauge for every collection ``ensure_collections`` reported: blocked where the index is missing."""
+    for collection, in_place in present.items():
+        record_client_event_index_blocked(collection, blocked=not in_place)

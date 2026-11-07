@@ -1873,7 +1873,7 @@ class TaskService:
         stamps = {key: stamp}
         replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
         if replayed is not None:
-            return TaskCompletionOutcome(replayed, replayed=True)
+            return TaskCompletionOutcome(replayed, replayed=True, client_event_id=stamp.client_event_id)
         if self._tombstoned(stamps, tenant_key=tenant_key):
             raise ClientEventDeletedError()
         committed: tuple[Task, Task] | None = None
@@ -1899,7 +1899,7 @@ class TaskService:
                 replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
                 if replayed is not None:
                     logger.info("task_completion.replayed", task_key=key, raced=True)
-                    return TaskCompletionOutcome(replayed, replayed=True)
+                    return TaskCompletionOutcome(replayed, replayed=True, client_event_id=stamp.client_event_id)
                 if not isinstance(exc, WriteConflictError) or attempt == _CLIENT_WRITE_ATTEMPTS - 1:
                     raise
                 continue
@@ -1908,7 +1908,7 @@ class TaskService:
             raise AssertionError("unreachable")
         updated, as_stored = committed
         self._after_completion(updated, as_stored)
-        return TaskCompletionOutcome(updated)
+        return TaskCompletionOutcome(updated, client_event_id=stamp.client_event_id)
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
         # ``tenant_key`` is part of the guard, not an optional extra: the

@@ -186,3 +186,51 @@ class TestUp:
 def test_down_is_irreversible() -> None:
     with pytest.raises(IrreversibleMigrationError):
         migration.down(_Db())  # type: ignore[arg-type]
+
+
+def test_every_boot_reports_the_index_state_and_the_lifespan_sets_the_gauge() -> None:
+    # Verifying review of #2787 (F3): v0106 runs once; ensure_collections retries on every boot and reports the
+    # state, which the lifespan turns into the gauge either way - or a restart clears the alert while the index
+    # is still missing. The data layer itself does not touch observability.
+    import ast
+    import inspect
+    import textwrap
+
+    from arango.exceptions import IndexCreateError
+
+    from app import main
+    from app.observability.garden_plan_metrics import record_client_event_indexes
+
+    blocked = _RecordingDb()
+    attachments = blocked.collection(col.ATTACHMENTS)
+    original = attachments.add_persistent_index
+
+    def refuse(fields: list[str], unique: bool = False, sparse: bool = False, **kwargs: Any) -> Any:
+        if list(fields) != col.ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS:
+            return original(fields, unique, sparse, **kwargs)
+        error = IndexCreateError.__new__(IndexCreateError)
+        error.error_code = 1210  # two records under one id
+        raise error
+
+    attachments.add_persistent_index = refuse  # type: ignore[method-assign]
+    state = col.ensure_collections(blocked)  # type: ignore[arg-type]
+    assert state[col.ATTACHMENTS] is False and state[col.TASKS] is True
+    record_client_event_indexes(state)
+    assert CLIENT_EVENT_INDEX_BLOCKED.labels(collection=col.ATTACHMENTS)._value.get() == 1
+    assert CLIENT_EVENT_INDEX_BLOCKED.labels(collection=col.TASKS)._value.get() == 0
+
+    record_client_event_indexes(col.ensure_collections(_RecordingDb()))  # type: ignore[arg-type]  # resolved by hand
+    assert CLIENT_EVENT_INDEX_BLOCKED.labels(collection=col.ATTACHMENTS)._value.get() == 0
+
+    # The lifespan passes ensure_collections' answer straight to the gauge.
+    calls = [
+        node
+        for node in ast.walk(ast.parse(textwrap.dedent(inspect.getsource(main.lifespan))))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "record_client_event_indexes"
+    ]
+    assert len(calls) == 1
+    argument = calls[0].args[0]
+    assert isinstance(argument, ast.Call) and isinstance(argument.func, ast.Name)
+    assert argument.func.id == "ensure_collections"

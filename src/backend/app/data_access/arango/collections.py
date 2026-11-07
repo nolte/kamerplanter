@@ -2369,8 +2369,12 @@ def ensure_client_event_tombstone_indexes(db: StandardDatabase) -> None:
         )
 
 
-def ensure_collections(db: StandardDatabase) -> None:
-    """Create all collections and the graph if they don't exist."""
+def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
+    """Create all collections and the graph if they don't exist.
+
+    Returns, per collection, whether its client-event unique index is in place (REQ-053 WP 9.3): the caller sets
+    the operator's gauge from it (the data layer does not depend on observability).
+    """
     for name in DOCUMENT_COLLECTIONS:
         if not db.has_collection(name):
             db.create_collection(name)
@@ -2927,12 +2931,16 @@ def ensure_collections(db: StandardDatabase) -> None:
     )
     # REQ-053 WP 9.3 (v0106): one object per buffered write. Created only when clean - this runs before the
     # migrations, and v0106 reports a volume that cannot take the index instead of failing the boot.
-    ensure_unique_index_when_clean(care_events_col, CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS, sparse=True)
-    ensure_unique_index_when_clean(db.collection(TASKS), TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS, sparse=True)
-    ensure_unique_index_when_clean(db.collection(ATTACHMENTS), ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS, sparse=True)
-    ensure_unique_index_when_clean(
-        db.collection(CARE_CONFIRMATIONS), CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS, sparse=True
-    )
+    # Every boot retries a blocked index and reports it either way (the lifespan sets the operator's gauge), so a
+    # restart neither hides a block nor leaves a cleared one raised.
+    client_event_indexes: dict[str, bool] = {}
+    for name, fields in (
+        (CARE_EVENTS, CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS),
+        (TASKS, TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS),
+        (ATTACHMENTS, ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS),
+        (CARE_CONFIRMATIONS, CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS),
+    ):
+        client_event_indexes[name] = ensure_unique_index_when_clean(db.collection(name), fields, sparse=True)
     ensure_client_event_tombstone_indexes(db)
     # REQ-053 WP 7.1 (v0099): the zones of a site, and one zone per bed.
     db.collection(IRRIGATION_ZONES).add_persistent_index(
@@ -2963,3 +2971,4 @@ def ensure_collections(db: StandardDatabase) -> None:
                     old.get("to_vertex_collections", [])
                 ) != set(ed["to_vertex_collections"]):
                     graph.replace_edge_definition(**ed)
+    return client_event_indexes
