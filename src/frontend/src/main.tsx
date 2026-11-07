@@ -5,7 +5,7 @@ import i18n, { initI18n } from './i18n';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { initErrorTracking } from '@/observability/errorTracking';
 import './styles/print.css';
-import { registerServiceWorker } from './serviceWorkerRegistration';
+import { registerServiceWorker } from '@/lib/serviceWorkerRegistration';
 
 function mount() {
   ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -35,9 +35,10 @@ function mount() {
     </React.StrictMode>,
   );
 
-  // Register the service worker for Web Push (PWA notifications). Guarded and
-  // non-fatal: a registration failure must never break app startup.
-  registerServiceWorker();
+  // Register the service worker (Web Push, app-shell precache, tenant-bound API
+  // cache — UI-NFR-012, REQ-053 WP 9.1), or remove it when the deployment's kill
+  // switch is off. Guarded and non-fatal: a failure must never break app startup.
+  void registerServiceWorker();
 }
 
 // #612 — the feature translation namespaces are code-split and dynamically

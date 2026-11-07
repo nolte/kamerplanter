@@ -25,6 +25,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -46,7 +47,6 @@ import {
   type FieldViewport,
 } from './fieldPrefs';
 import { useFieldBeds } from './useFieldBeds';
-import { useOnlineStatus } from './useOnlineStatus';
 
 interface FieldModeViewProps {
   siteKey: string;

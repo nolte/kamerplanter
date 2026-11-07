@@ -41,15 +41,17 @@
 
   // ── Scope ─────────────────────────────────────────────────────────────
   //
-  // `public/` is deliberately outside `project`: runtime-config.js and sw.js
-  // are served by nginx and referenced from index.html at runtime, so a static
-  // importer graph cannot see them and would report both as dead every run.
+  // `public/` is deliberately outside `project`: runtime-config.js is served by
+  // nginx and referenced from index.html at runtime, so a static importer graph
+  // cannot see it and would report it as dead every run.
   "project": ["src/**/*.{ts,tsx}", "scripts/*.mjs"],
 
   // Entry points beyond what knip's Vite/Vitest plugins already detect. The
   // detected ones (src/main.tsx via index.html, the vitest setup file, the
   // config files) are NOT restated here: a restated default drifts silently
   // when the tool's detection changes, and knip reports it as redundant.
+  // (`src/sw.ts`, the service worker of REQ-053 WP 9.1, is found by knip itself;
+  // restating it is reported as a redundant entry.)
   "entry": ["src/**/*.test.{ts,tsx}"],
 
   // An export used only inside its own file is a private helper that happens to

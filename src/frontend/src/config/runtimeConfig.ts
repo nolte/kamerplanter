@@ -21,6 +21,11 @@ export interface RuntimeConfig {
   SENTRY_RELEASE?: string;
   /** Event sample rate as a string, because it arrives from a shell heredoc. */
   SENTRY_SAMPLE_RATE?: string;
+  /**
+   * UI-NFR-012 kill switch (REQ-053 WP 9.1, G-W9 e). `"false"` unregisters the service worker and
+   * deletes its caches and IndexedDB; absent or anything else keeps offline caching on.
+   */
+  PWA_CACHING_ENABLED?: string;
 }
 
 declare global {
