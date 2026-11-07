@@ -2142,9 +2142,12 @@ class TestALegacyRowIsNoServerError:
     """#2709 item 3: a stored document that fails model validation does not turn a read into a 500.
 
     ``slot_legacy_a`` is a slot of A's own bed with ``capacity_plants: 0`` - a bound the model has (``ge=1``) and
-    an old row need not. The list reads leave it out and log it (``garden_plan.unreadable_row_skipped``, the key and
-    the failing fields, no values); a read *by key* answers 409 ``STORED_DOCUMENT_INVALID``: the request is fine,
-    the stored state is not, and leaving the slot out there would be a 404 for a slot that exists.
+    an old row need not. The displayed plan leaves it out and logs it (``stored_document.unreadable_row_skipped``,
+    the key and the failing fields, no values). Every other read - by key, the slot list, the sibling read of the
+    write paths and the companion layer (``load_active_slots``), the export - answers 409
+    ``STORED_DOCUMENT_INVALID``: leaving the row out there would be a 404 for a slot that exists, a duplicate slot
+    id or quota pass on a write, or a backup that a replace import restores without the slot. Another tenant
+    asking for the key gets the 404 of an absent slot, never the 409 (no existence oracle).
     """
 
     _LEGACY = "slot_legacy_a"
@@ -2160,7 +2163,7 @@ class TestALegacyRowIsNoServerError:
         return [
             (entry["read"], entry["key"], entry["fields"])
             for entry in logs
-            if entry["event"] == "garden_plan.unreadable_row_skipped"
+            if entry["event"] == "stored_document.unreadable_row_skipped"
         ]
 
     def test_the_plan_read_leaves_the_row_out_and_logs_it(self, db) -> None:
@@ -2175,8 +2178,8 @@ class TestALegacyRowIsNoServerError:
         assert self._LEGACY not in slots
         assert self._skipped(logs) == [("load_read_model", self._LEGACY, ["capacity_plants"])]
 
-    def test_the_companion_layer_answers_with_the_row_in_a_pair(self, db) -> None:
-        """The legacy slot holds a plant next to ``slot_a``: the hint names it, the slot read cannot."""
+    def test_the_companion_layer_answers_409_for_a_row_in_a_pair(self, db) -> None:
+        """The legacy slot holds a plant next to ``slot_a``: the slot read of the layer says so, no 500."""
         self._seed(db)
         db.collection(col.SPECIES).insert(
             {
@@ -2200,14 +2203,12 @@ class TestALegacyRowIsNoServerError:
         for a, b in (("slot_a", self._LEGACY), (self._LEGACY, "slot_a")):
             db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/{a}", "_to": f"{col.SLOTS}/{b}"})
 
-        with capture_logs() as logs:
-            response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
-                f"/api/v1/t/{SLUG_A}/locations/bed_a/companion-edges"
-            )
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/locations/bed_a/companion-edges"
+        )
 
-        assert response.status_code == 200, response.text
-        assert response.json()["total"] == 1
-        assert self._skipped(logs) == [("load_active_slots", self._LEGACY, ["capacity_plants"])]
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
 
     def test_a_species_row_the_hint_cannot_read_is_left_out(self, db) -> None:
         """A species whose ``spacing_cm`` is stored as a number (the hint reads the range string) - no 500."""
@@ -2252,3 +2253,41 @@ class TestALegacyRowIsNoServerError:
         assert body["error_code"] == "STORED_DOCUMENT_INVALID"
         assert "capacity_plants" in json.dumps(body["details"])
         assert '"0"' not in json.dumps(body) and ": 0" not in json.dumps(body["details"])
+
+    @pytest.mark.parametrize("method", ["GET", "PUT", "DELETE"])
+    def test_another_tenant_asking_for_the_key_gets_the_404_of_an_absent_slot(self, db, method: str) -> None:
+        """B names A's legacy slot: the answer is the one an unknown key gets, not the 409 of A's own read."""
+        self._seed(db)
+        client = _client(db, tenant=B, role=TenantRole.LEAD)
+
+        legacy = client.request(
+            method, f"/api/v1/t/{SLUG_B}/slots/{self._LEGACY}", json={} if method == "PUT" else None
+        )
+        unknown = client.request(method, f"/api/v1/t/{SLUG_B}/slots/slot_nope", json={} if method == "PUT" else None)
+
+        assert legacy.status_code == unknown.status_code, (legacy.text, unknown.text)
+        assert legacy.status_code in (404, 422), legacy.text
+        assert "STORED_DOCUMENT_INVALID" not in legacy.text and "capacity_plants" not in legacy.text
+
+    def test_the_slot_list_of_the_bed_answers_409(self, db) -> None:
+        self._seed(db)
+
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/slots", params={"location_key": "bed_a"}
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
+
+    def test_the_export_answers_409_instead_of_a_file_without_the_slot(self, db) -> None:
+        """A replace import restores the site from this file: a silently shorter file would delete the slot."""
+        self._seed(db)
+        client = _client(db, tenant=A, role=TenantRole.VIEWER)
+        db.collection(col.SLOTS).update({"_key": self._LEGACY, "capacity_plants": 1})
+        assert client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan/export").status_code == 200  # positive control
+        db.collection(col.SLOTS).update({"_key": self._LEGACY, "capacity_plants": 0})
+
+        response = client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan/export")
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"

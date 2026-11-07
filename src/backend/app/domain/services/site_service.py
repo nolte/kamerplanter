@@ -385,8 +385,8 @@ class SiteService:
 
     def get_slot(self, key: SlotKey, *, tenant_key: str) -> Slot:
         """A slot of ``tenant_key`` — two hops, slot → location → site (#1397), 404 otherwise."""
-        slot = self._repo.get_slot_or_raise(key)
-        resolve_owned_slot(self._repo, key, tenant_key)
+        # Ownership first: a legacy slot of another tenant must answer 404, not the 409 of its read (#2709).
+        slot, _location = resolve_owned_slot(self._repo, key, tenant_key)
         return slot
 
     def create_slot(self, slot: Slot, *, tenant_key: str) -> Slot:

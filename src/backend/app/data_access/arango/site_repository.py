@@ -7,13 +7,13 @@ import structlog
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
-from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import FrostRisk
-from app.common.exceptions import NotFoundError, PlanError, StoredDocumentInvalidError
+from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import model_or_conflict
 from app.data_access.arango.graph_edges import EdgeEndpoint, edges_touching, remove_edges
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.site_repository import ISiteRepository, SiteDeletion
@@ -167,17 +167,13 @@ class _SlotRepository(BaseArangoRepository[Slot]):
     def get_by_key(self, key: str) -> Slot | None:
         """The slot ``key``; a stored slot that fails :class:`Slot` validation raises a 409 (#2709).
 
-        A read by key cannot leave the row out the way a list read does - that would answer 404 for a slot that
-        exists - so it says what is wrong instead: :class:`StoredDocumentInvalidError` with the failing fields
-        (never their values), logged. Every slot resolution goes through here (``get_slot_by_key``,
-        ``get_slot_or_raise``, the ownership walk of ``location_ownership.resolve_owned_slot``).
+        A read by key cannot leave the row out the way a display read does - that would answer 404 for a slot
+        that exists - so it says what is wrong instead: :class:`StoredDocumentInvalidError` with the failing
+        fields (never their values) and the raw document as ``stored``, which the ownership walk
+        (``location_ownership.read_slot``) needs to answer a foreign tenant's row as absent before any 409.
         """
-        try:
-            return super().get_by_key(key)
-        except PydanticValidationError as exc:
-            fields = sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()})
-            logger.warning("slot.unreadable_document", key=key, fields=fields)
-            raise StoredDocumentInvalidError("Slot", key, fields) from None
+        doc = self._get_doc(key)
+        return None if doc is None else model_or_conflict(Slot, doc, entity="Slot")
 
     def update_leaving(self, key: str, slot: Slot, *, untouched: Collection[str]) -> Slot:
         """:meth:`update` without writing the ``untouched`` columns (#2639, the slot sibling of #2623)."""
@@ -717,7 +713,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def get_slots_by_location(self, location_key: LocationKey) -> list[Slot]:
         location_id = f"{col.LOCATIONS}/{location_key}"
         results = self.get_edges(col.HAS_SLOT, location_id, direction="outbound")
-        return [Slot(**self._from_doc(r["vertex"])) for r in results]
+        return [model_or_conflict(Slot, self._from_doc(r["vertex"]), entity="Slot") for r in results]
 
     def get_slot_by_key(self, key: SlotKey) -> Slot | None:
         return self._slots.get_by_key(key)
@@ -890,4 +886,4 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         doc = next(cursor, None)
         if doc is None:
             return None
-        return Slot(**self._from_doc(doc))
+        return model_or_conflict(Slot, self._from_doc(doc), entity="Slot")

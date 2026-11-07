@@ -53,12 +53,20 @@ class IGardenPlanRepository(ABC):
 
     @abstractmethod
     def load_read_model(
-        self, site_key: SiteKey, *, tenant_key: str, include_plants: bool, include_tasks: bool
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        include_plants: bool,
+        include_tasks: bool,
+        skip_unreadable_slots: bool = True,
     ) -> PlanReadData:
         """The documents of the plan read model; slots of archived runs are left out.
 
         A stored slot that fails :class:`Slot` validation (a legacy row) is logged and left out, so one such row
-        does not turn the whole plan into a 500 (#2709).
+        does not turn the displayed plan into an error (#2709). A reader that hands the slots on - the export,
+        whose file a replace import restores from - passes ``skip_unreadable_slots=False`` and gets the 409
+        ``StoredDocumentInvalidError`` instead of a silently shorter file.
         """
 
     @abstractmethod
@@ -75,8 +83,9 @@ class IGardenPlanRepository(ABC):
 
         The locations must belong to the tenant's site; a key of another site or tenant yields nothing. With
         *slot_keys* only those slots among them are read (the companion overlay reads just the slots in pairs).
-        A stored slot that fails :class:`Slot` validation is logged and left out (#2709): a list read answers the
-        rows it can read.
+        A stored slot that fails :class:`Slot` validation raises the 409 ``StoredDocumentInvalidError`` (#2709):
+        the write paths read their siblings here (taken slot ids, sequence, quota, overlap), and a row left out
+        would let them hand out a duplicate id or pass a cap.
         """
 
     @abstractmethod

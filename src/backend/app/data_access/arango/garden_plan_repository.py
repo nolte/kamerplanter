@@ -15,7 +15,6 @@ writes run inside.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -24,7 +23,6 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
 from pydantic import BaseModel
-from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import (
@@ -38,6 +36,7 @@ from app.common.types import SiteKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
+from app.data_access.arango.document_reads import model_or_conflict, readable_rows
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.guarded_update import StoredValue, update_if_unchanged
@@ -179,28 +178,6 @@ def _slot_cross_validated(slot: Slot) -> tuple[StoredValue, ...]:
     )
 
 
-def _readable_rows[T: BaseModel](model: type[T], rows: Iterable[dict[str, Any]], *, read: str) -> list[T]:
-    """``rows`` as ``model``, a row that fails validation logged and left out (#2709).
-
-    A list read answers the rows it can read: one legacy document (a retired enum value, a bound a later model
-    tightened) must not turn the whole bed or plan into a 500. The log names the document and the failing
-    fields, never their values.
-    """
-    readable: list[T] = []
-    for row in rows:
-        try:
-            readable.append(model(**row))
-        except PydanticValidationError as exc:
-            logger.warning(
-                "garden_plan.unreadable_row_skipped",
-                read=read,
-                model=model.__name__,
-                key=row.get("_key") or row.get("slot_key"),
-                fields=sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()}),
-            )
-    return readable
-
-
 class ArangoGardenPlanRepository(IGardenPlanRepository):
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
@@ -238,7 +215,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
 
     def load_read_model(
-        self, site_key: SiteKey, *, tenant_key: str, include_plants: bool, include_tasks: bool
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        include_plants: bool,
+        include_tasks: bool,
+        skip_unreadable_slots: bool = True,
     ) -> PlanReadData:
         locations, objects = self.load_structure(site_key, tenant_key=tenant_key)
         location_keys = [loc.key for loc in locations if loc.key]
@@ -251,8 +234,11 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             # Every slot of the beds, archived ones too: the "last watered" lookup below maps a watering event's
             # slots to their bed over all of them, and reads that map from here instead of querying it again.
             slot_to_bed = {row["_key"]: row["location_key"] for row in rows}
-            data.slots = _readable_rows(
-                Slot, (row for row in rows if row.get("archived_at") is None), read="load_read_model"
+            live = [row for row in rows if row.get("archived_at") is None]
+            data.slots = (
+                readable_rows(Slot, live, read="load_read_model")
+                if skip_unreadable_slots
+                else [model_or_conflict(Slot, row, entity="Slot") for row in live]
             )
         if include_plants and location_keys:
             data.plants = self._plants(location_keys, tenant_key)
@@ -478,7 +464,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 },
             ),
         )
-        return _readable_rows(SlotSpeciesHint, cursor, read="load_slot_species_hints")
+        return readable_rows(SlotSpeciesHint, cursor, read="load_slot_species_hints")
 
     def load_active_slots(
         self,
@@ -518,7 +504,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 },
             ),
         )
-        return _readable_rows(Slot, cursor, read="load_active_slots")
+        return [model_or_conflict(Slot, doc, entity="Slot") for doc in cursor]
 
     def bed_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
         if not location_type_keys:

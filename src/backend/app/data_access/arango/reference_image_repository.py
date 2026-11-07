@@ -34,9 +34,8 @@ class ArangoReferenceImageRepository(BaseArangoRepository[ReferenceImageJob]):
         doc["updated_at"] = self._now()
         if "created_at" not in doc or doc["created_at"] is None:
             doc["created_at"] = self._now()
-        self.collection.insert(doc, overwrite=True)
-        # Written a line above with ``overwrite=True``: the read finds it.
-        stored = cast("dict[str, Any]", get_document(self.collection, doc["_key"]))
+        # The stored document comes back from the write itself - no read by key after it (#2709).
+        stored = cast("dict[str, Any]", self.collection.insert(doc, overwrite=True, return_new=True))["new"]
         return ReferenceImageJob(**stored)
 
     def get_by_species(self, species_key: str) -> ReferenceImageJob | None:

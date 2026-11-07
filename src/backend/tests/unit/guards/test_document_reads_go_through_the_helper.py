@@ -5,12 +5,14 @@
 route as ``%2E`` / ``%2E%2E``: every keyed garden-plan route answered them with a 500. The fix is one place,
 :func:`~app.data_access.arango.document_reads.get_document`; this guard holds that no repository reads past it.
 
-The predicate: no call ``<x>.collection(...).get(...)`` and no call ``<x>.collection.get(...)`` in a module under
+The predicate: no call ``<x>.collection(...).get(...)``, no call ``<x>.collection.get(...)`` and no ``.get(...)``
+on a name bound from ``<x>.collection(...)`` in the same module (``coll = self._db.collection(c)`` then
+``coll.get(key)`` - two such reads were missed by the first version of this guard) in a module under
 ``app/data_access`` other than ``document_reads.py``.
 
-Spellings this does not see: a collection handle bound to a local name first (``edges = db.collection(c)``
-then ``edges.get(key)`` - none reads by key today), a stream-transaction handle, and ``app/migrations`` (its
-keys come from the database itself, not from a client).
+Spellings this does not see: a handle passed in as a parameter or kept on an attribute under another name, a
+stream-transaction handle, ``.has(...)`` / ``.get_many(...)``, and ``app/migrations`` (its keys come from the
+database itself, not from a client).
 """
 
 from __future__ import annotations
@@ -30,15 +32,31 @@ def _is_collection_handle(node: ast.expr) -> bool:
     return isinstance(node, ast.Attribute) and node.attr == "collection"
 
 
+def _bound_handles(tree: ast.AST) -> set[str]:
+    """Names assigned from ``x.collection(...)`` anywhere in the module (``coll = self._db.collection(c)``)."""
+    return {
+        target.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and _is_collection_handle(node.value)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+
+
 def _direct_reads(source: str) -> list[int]:
     """Line numbers of ``<collection handle>.get(...)`` calls in ``source``."""
+    tree = ast.parse(source)
+    bound = _bound_handles(tree)
     return sorted(
         node.lineno
-        for node in ast.walk(ast.parse(source))
+        for node in ast.walk(tree)
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "get"
-        and _is_collection_handle(node.func.value)
+        and (
+            _is_collection_handle(node.func.value)
+            or (isinstance(node.func.value, ast.Name) and node.func.value.id in bound)
+        )
     )
 
 
@@ -71,7 +89,7 @@ def test_no_repository_reads_a_document_past_the_helper() -> None:
     assert helped >= 20, f"the sweep saw only {helped} get_document calls"
 
 
-def test_the_detector_sees_both_spellings() -> None:
+def test_the_detector_sees_every_spelling_it_claims() -> None:
     planted = (
         "def a(self, key):\n"
         "    return self._db.collection('x').get(key)\n"
@@ -79,6 +97,9 @@ def test_the_detector_sees_both_spellings() -> None:
         "    return self.collection.get(key)\n"
         "def c(self, row):\n"
         "    return row.get('collection')\n"
+        "def d(self, key):\n"
+        "    coll = self._db.collection('x')\n"
+        "    return coll.get(key)\n"
     )
 
-    assert _direct_reads(planted) == [2, 4]
+    assert _direct_reads(planted) == [2, 4, 9]

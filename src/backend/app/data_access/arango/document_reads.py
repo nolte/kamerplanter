@@ -25,10 +25,18 @@ still raises.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any, cast
 
+import structlog
 from arango.collection import StandardCollection
 from arango.exceptions import DocumentParseError
+from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
+
+from app.common.exceptions import StoredDocumentInvalidError
+
+logger = structlog.get_logger(__name__)
 
 #: Keys the document endpoint cannot address: the URL normalisation removes them before the server sees them.
 UNADDRESSABLE_KEYS: frozenset[str] = frozenset({"", ".", ".."})
@@ -43,3 +51,47 @@ def get_document(collection: StandardCollection, key: str) -> dict[str, Any] | N
     except DocumentParseError:
         # A "/" naming another collection: no document of *this* collection has that key.
         return None
+
+
+def invalid_fields(exc: PydanticValidationError) -> list[str]:
+    """The dotted paths of the fields ``exc`` rejects - never their values (NFR-006), for the log and the 409."""
+    return sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()})
+
+
+def model_or_conflict[T: BaseModel](model: type[T], doc: dict[str, Any], *, entity: str) -> T:
+    """``doc`` as ``model``; a stored document that fails validation raises the 409 (#2709).
+
+    For a read whose caller acts on the answer - a read by key, a write path's sibling read, an export: leaving
+    the row out would answer 404 for a document that exists, or let a write miss it (a duplicate slot id, an
+    undercounted quota, a backup without the row). The raw document rides on the error as ``stored`` so an
+    ownership walk can answer a foreign tenant's row as absent first.
+    """
+    try:
+        return model(**doc)
+    except PydanticValidationError as exc:
+        key = str(doc.get("_key") or doc.get("key") or "")
+        fields = invalid_fields(exc)
+        logger.warning("stored_document.unreadable", entity=entity, key=key, fields=fields)
+        raise StoredDocumentInvalidError(entity, key, fields, stored=doc) from None
+
+
+def readable_rows[T: BaseModel](model: type[T], rows: Iterable[dict[str, Any]], *, read: str) -> list[T]:
+    """``rows`` as ``model``, a row that fails validation logged and left out (#2709).
+
+    Only for a read that is displayed and acted on by nobody: one legacy document (a retired enum value, a bound
+    a later model tightened) must not turn the whole plan into an error. Every other read uses
+    :func:`model_or_conflict`. The log names the document and the failing fields, never their values.
+    """
+    readable: list[T] = []
+    for row in rows:
+        try:
+            readable.append(model(**row))
+        except PydanticValidationError as exc:
+            logger.warning(
+                "stored_document.unreadable_row_skipped",
+                read=read,
+                model=model.__name__,
+                key=row.get("_key") or row.get("slot_key"),
+                fields=invalid_fields(exc),
+            )
+    return readable
