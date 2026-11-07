@@ -383,6 +383,7 @@ def write_soil_profile_edit(
     if profile is None:
         _write_profile(txn, location_key, tenant_key, None)
         return
+    as_read = current
     if current and not isinstance(current.get("hand_values"), dict):
         rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         location = _owned_location(txn, location_key, tenant_key) or location
@@ -393,7 +394,9 @@ def write_soil_profile_edit(
     }
     staged = {name: value for name, value in profile.items() if name not in derived_fields}
     staged.update({name: value for name, value in current.items() if name in derived_fields})
-    staged["hand_values"] = hand_values_after_edit(current, profile, datetime.now(UTC))
+    # Compared with the profile as the client read it: on a legacy row the derivation above may have replaced an
+    # echoed value, and that echo is not a hand edit (#2706 review).
+    staged["hand_values"] = hand_values_after_edit(current, profile, datetime.now(UTC), as_read=as_read)
     _write_profile(txn, location_key, tenant_key, cast("dict[str, Any]", _json_value(staged)))
     rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
 

@@ -701,6 +701,30 @@ class TestThePatchGoesThroughTheDerivation:
         assert (patched["drainage"], patched["ph"], patched["hand_values"]) == ("poor", 6.4, {})
         assert "ph" not in _profile(db) and _profile(db)["drainage"] == "poor"
 
+    def test_an_echoed_legacy_hand_value_the_derivation_replaces_is_not_a_hand_edit(self, db) -> None:  # type: ignore[no-untyped-def]
+        """Review of 7773667d8: the legacy row's pH 6.0 was a hand value; an open analysis measured 7.0 (newer than the
+        legacy instant), so the derivation shows 7.0. A PATCH that changes only the drainage and echoes the 6.0 it
+        read must not turn the 6.0 into a hand entry at now and displace the analysis."""
+        from app.domain.interfaces.garden_plan_repository import SoilProfileEdit
+
+        repo = ArangoCareEventRepository(db)
+        repo.insert(_analysis(NOW - timedelta(days=3), [_measure("ph", 7.0, "pH")]), tenant_key="t1")
+        db.collection(col.LOCATIONS).update(  # a pre-#2706 row: a hand pH no analysis measured, no entries
+            {"_key": "L1", "soil_profile": {"ph": 6.0, "drainage": "good"}}, merge=False
+        )
+
+        self._plan_repo(db).update_location_fields(
+            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", profile={"ph": 6.0, "drainage": "poor"})
+        )
+
+        profile = _profile(db)
+        assert (profile["drainage"], profile["ph"]) == ("poor", 7.0)
+        assert (
+            "ph" not in profile["hand_values"]
+            or profile["hand_values"]["ph"]["value"] != 6.0
+            or (datetime.fromisoformat(profile["hand_values"]["ph"]["at"]) < NOW - timedelta(days=3))
+        )
+
     def test_a_hand_override_moves_last_analysis_at_to_the_newest_analysis_that_still_wins(self, db) -> None:  # type: ignore[no-untyped-def]
         from app.domain.interfaces.garden_plan_repository import SoilProfileEdit
 

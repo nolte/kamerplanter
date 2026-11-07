@@ -342,7 +342,11 @@ class GardenResourceService:
         drawing order) through one plan batch, which can still refuse, so it runs first → status → the
         remaining columns. Everything that can be refused is refused before the first write; what runs after
         the structure batch is a status change (refused up front when combined with a geometry, see below) or a
-        plain column update of a document just read, which fails only if the document vanished meanwhile.
+        plain column update of a document just read, which fails only if the document vanished meanwhile - or,
+        with a ``soil_profile`` in the body (#2706), on the soil write's in-transaction checks: a soil analysis
+        stored between the up-front ``soil_profile.stale`` check and the write (409 ``soil_profile.stale`` or
+        ``WRITE_CONFLICT``) or a stored profile the derivation refuses (422). A geometry or status change of the
+        same request is then already committed; the client reloads and sends the soil edit again.
         A status change and a geometry change are two structural writes, each with its own revision step, and
         cannot be one transaction here — they are refused together (422 ``patch.status_with_geometry``).
         """

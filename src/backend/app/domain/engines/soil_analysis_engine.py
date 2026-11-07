@@ -189,7 +189,11 @@ def _hand_entries(raw: Any) -> dict[str, dict[str, Any]]:
 
 
 def hand_values_after_edit(
-    stored: Mapping[str, Any], sent: Mapping[str, Any], at: datetime
+    stored: Mapping[str, Any],
+    sent: Mapping[str, Any],
+    at: datetime,
+    *,
+    as_read: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """The hand entries after a location write (``PATCH /locations``, #2706): one new entry per edited field.
 
@@ -197,6 +201,10 @@ def hand_values_after_edit(
     A measured field whose ``(value, method)`` differs from the stored one gets the entry ``{value, method, at}``
     (``value = null`` = cleared by hand); an unchanged field gets none - also on a row without ``hand_values``, whose
     other values the derivation's legacy rule classifies (the caller derives such a row before the edit).
+
+    ``as_read`` is the profile the client was shown when that differs from ``stored``: for a legacy row the caller
+    derives first, and an echoed value must be compared with what was stored before that derivation, or a value
+    the derivation replaced would read as a hand edit at ``at``. The existing entries still come from ``stored``.
     """
     raw = stored.get("hand_values")
     entries: dict[str, dict[str, Any]] = {
@@ -204,7 +212,8 @@ def hand_values_after_edit(
     }
     for value_field, method_field in PROFILE_MEASURED_FIELDS:
         sent_pair = (sent.get(value_field), sent.get(method_field) if method_field else None)
-        stored_pair = (stored.get(value_field), stored.get(method_field) if method_field else None)
+        shown = stored if as_read is None else as_read
+        stored_pair = (shown.get(value_field), shown.get(method_field) if method_field else None)
         if sent_pair != stored_pair:
             entries[value_field] = {"value": sent_pair[0], "method": sent_pair[1], "at": at}
     return entries
