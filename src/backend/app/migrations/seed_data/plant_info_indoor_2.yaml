@@ -782,7 +782,7 @@ new_species:
       min_ph: 5.5
       max_ph: 6.5
     row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
-    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
     # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
@@ -1783,7 +1783,7 @@ new_species:
       max_ph: 6.5
     # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
     row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
-    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
     nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)

@@ -133,9 +133,9 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite führt Position „Full shade, Partial shade“ (Spanne ohne Vorzug); Kulturtext „Bright filtered or indirect light is best“ nennt keine Standortstufe --> | `species.light_requirement` |
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
 | Schattentoleranz | shade | `species.shade_tolerance` |
-| Quelle Lichtbedarf | — | — |
+| Quelle Lichtbedarf | NC State Extension Plants Database, „Maranta leuconeura" (Light: „Dappled Sunlight (Shade through upper canopy all day)"; Beschreibung: „When grown indoors, place in bright, indirect light. Too much sun will bleach out the attractive leaves colors." / „It is intolerant of direct sunlight"), https://plants.ces.ncsu.edu/plants/maranta-leuconeura/; bestätigt durch RHS, „Maranta leuconeura" (Position: Full shade, Partial shade; Kulturtext: „Bright filtered or indirect light is best"). Beide Quellen nennen helles, gefiltertes/indirektes Licht als bevorzugte Position, daher `partial_shade`; tiefer Schatten gilt als Toleranz. | — |
 
 ---
 

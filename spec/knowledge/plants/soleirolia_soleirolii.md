@@ -130,9 +130,9 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS nennt Spanne „Full sun, Partial shade“ / „full light, with shade from hot sun, or in partial shade“ ohne ausdrücklichen Vorzug --> | `species.light_requirement` |
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
 | Schattentoleranz | shade | `species.shade_tolerance` |
-| Quelle Lichtbedarf | RHS -- Soleirolia soleirolii | — |
+| Quelle Lichtbedarf | NC State Extension, Plant Toolbox „Soleirolia soleirolii“, https://plants.ces.ncsu.edu/plants/soleirolia-soleirolii/ — Feld „Light“: „Dappled Sunlight“, „Partial Shade (Direct sunlight only part of the day, 2-6 hours)“, „Deep shade“; Text: die Pflanze bevorzugt „bright, indirect lighting“, „Direct sunlight can scorch the leaves“. Zuordnung: genannter Vorzug „bright, indirect“ → `partial_shade` (Wortlaut-Regel für Zimmerpflanzen); Tiefschatten gilt als Toleranz (`shade_tolerance`). Vereinbar mit RHS, „Soleirolia soleirolii“ (Position: Full sun, Partial shade; Kulturtext „full light, with shade from hot sun, or in partial shade“ — Sonnenschutz gegen heiße Sonne), https://www.rhs.org.uk/plants/17471/soleirolia-soleirolii/details | — |
 
 ---
 
@@ -342,7 +342,7 @@ Soleirolia soleirolii,Bubikopf;Baby's Tears;Mind-Your-Own-Business,Urticaceae,So
 
 ## Quellenverzeichnis
 
-1. [NC State Extension — Soleirolia soleirolii](https://plants.ces.ncsu.edu/plants/soleirolia-soleirolii/) — Botanische Einordnung, USDA Zone
+1. [NC State Extension — Soleirolia soleirolii](https://plants.ces.ncsu.edu/plants/soleirolia-soleirolii/) — Botanische Einordnung, USDA Zone, Lichtvorzug (bright, indirect)
 2. [Epic Gardening — Baby Tears Plant](https://www.epicgardening.com/baby-tears-plant/) — Pflegehinweise
 3. [Gardenia.net — Soleirolia soleirolii](https://www.gardenia.net/plant/soleirolia-soleirolii-baby-tears-grow-care-tips) — Kulturdaten
 4. [Plantophiles — Soleirolia soleirolii](https://plantophiles.com/plant-care/babys-tears-soleirolia-soleirolii/) — Schädlinge, Krankheiten
@@ -364,5 +364,5 @@ Soleirolia soleirolii,Bubikopf;Baby's Tears;Mind-Your-Own-Business,Urticaceae,So
 <!-- Quelle: growing-phase-auditor 2026-07 -->
 18. [Plantura — Bubikopf Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/bubikopf/bubikopf-pflanzenportrait) — Blütezeit April–Juni, Vermehrung ausschließlich Teilung/Stecklinge, "bedingt winterhart"
 19. [Zimmerpflanzen-FAQ — Soleirolia soleirolii](https://zimmerpflanzen-faq.de/soleirolia-soleirolii/) — Vermehrung ausschließlich Teilung/Stecklinge (kein Saatgut)
-RHS -- Soleirolia soleirolii (Position: Full sun, Partial shade; Kulturtext „full light, with shade from hot sun, or in partial shade“ -- Spanne ohne Vorzug, light_requirement bleibt null): https://www.rhs.org.uk/plants/17471/soleirolia-soleirolii/details
+RHS -- Soleirolia soleirolii (Position: Full sun, Partial shade; Kulturtext „full light, with shade from hot sun, or in partial shade“ -- Spanne, mit NC State zusammen als partial_shade gewertet): https://www.rhs.org.uk/plants/17471/soleirolia-soleirolii/details
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

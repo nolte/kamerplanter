@@ -129,9 +129,9 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS Sambucus nigra nennt „Full sun, Partial shade“ ohne ausdrücklichen Vorzug; keine weitere gelesene Quelle --> | `species.light_requirement` |
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
 | Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
-| Quelle Lichtbedarf | RHS Sambucus nigra, https://www.rhs.org.uk/plants/16391/sambucus-nigra/details (Position: „Full sun, Partial shade“, kein Vorzug genannt) | — |
+| Quelle Lichtbedarf | NC State Extension, Plant Toolbox „Sambucus nigra“, https://plants.ces.ncsu.edu/plants/sambucus-nigra/ — „Full sun to partial shade though it flowers and fruits best in the full sun.“ Zuordnung: der genannte Vorzug „best in the full sun“ → `full_sun`; Halbschatten gilt als Toleranz (§1.7). Vereinbar mit RHS Sambucus nigra, https://www.rhs.org.uk/plants/16391/sambucus-nigra/details (Position: „Full sun, Partial shade“, kein Vorzug genannt) | — |
 
 ---
 
@@ -339,7 +339,7 @@ Sambucus nigra,"Schwarzer Holunder;Fliederbeere;Hollerbusch;Black Elderberry",Ad
 5. [PFAF — Sambucus nigra](https://pfaf.org/user/plant.aspx?latinname=Sambucus+nigra) — Boden-pH (5,0–8,0), Schatten-/Halbschattentoleranz, Wurzelmuster (Ausläufer), Feuchtevorzug
 6. [UF/IFAS HS1390 — Elderberry and Elderflower (Sambucus spp.) Cultivation Guide](https://ask.ifas.ufl.edu/publication/HS1390) — Chilling-/Dormanzbedarf, Wurzelsystem, Staunässe-Management
 7. [West Virginia University Extension — Elderberry](https://extension.wvu.edu/agriculture/horticulture/elderberry) — flaches fibröses Wurzelsystem, kritische Aufnahmezone 15–25 cm, Staunässe/Damm­pflanzung
-8. [NC State Extension — Sambucus nigra Plant Toolbox](https://plants.ces.ncsu.edu/plants/sambucus-nigra/) — Standort, Sonne/Halbschatten, Bodenansprüche, Winterhärte
+8. [NC State Extension — Sambucus nigra Plant Toolbox](https://plants.ces.ncsu.edu/plants/sambucus-nigra/) — Standort, Sonne/Halbschatten (blüht und fruchtet am besten in voller Sonne), Bodenansprüche, Winterhärte
 9. [Wojciechowicz-Żytko et al. — Sambucus nigra L. as a reservoir of beneficial insects (Diptera, Syrphidae)](https://www.researchgate.net/publication/311972995_Sambucus_nigra_L_as_a_reservoir_of_beneficial_insects_Diptera_Syrphidae) — Aphis sambuci, aphidophage Schwebfliegen (Epistrophe eligans) als Nützlinge
 10. [Frontiers in Plant Science — Interactive Effects of Chilling, Photoperiod, and Forcing Temperature on Flowering Phenology of Temperate Woody Plants](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.00443/full) — Temperatur-/Chilling-Steuerung der Blühphänologie (Beleg day_neutral statt long_day)
 11. RHS Sambucus nigra: https://www.rhs.org.uk/plants/16391/sambucus-nigra/details (Position Full sun / Partial shade; Spread 2,5–4 m)

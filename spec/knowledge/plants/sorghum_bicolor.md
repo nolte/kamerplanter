@@ -148,9 +148,9 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine gelesene Quelle nennt einen Lichtanspruch (LTZ nennt nur Wärmebedarf, C4) --> | `species.light_requirement` |
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
 | Schattentoleranz | <!-- DATEN FEHLEN: keine gelesene Quelle --> | `species.shade_tolerance` |
-| Quelle Lichtbedarf | — | — |
+| Quelle Lichtbedarf | NC State Extension, Plant Toolbox „Sorghum bicolor“, https://plants.ces.ncsu.edu/plants/sorghum-bicolor/ — Feld „Light“: „Full sun (6 or more hours of direct sunlight a day)“ als einzige Stufe; Seite führt zudem „shade intolerant“. Zuordnung: einzige genannte Stufe → `full_sun`. (Hinweis: eine zweite Fachquelle wurde nicht gelesen; Wert stützt sich auf diese eine Universitätsquelle.) | — |
 
 ---
 

@@ -130,9 +130,9 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Indoor-Angabe (hell/indirekt) nicht auf Standortstufen abbildbar; RHS: „Position in bright light, but out of direct sun" --> | `species.light_requirement` |
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
 | Schattentoleranz | shade | `species.shade_tolerance` |
-| Quelle Lichtbedarf | — | — |
+| Quelle Lichtbedarf | RHS, „Fittonia albivenis Argyroneura Group", Angabe „Position: Partial shade", Kulturtext „Under glass grow in potting compost in indirect light", https://www.rhs.org.uk/plants/84077/fittonia-albivenis-argyroneura-group/details; ergänzend RHS Plant Guide „Fittonia", https://www.rhs.org.uk/plants/fittonia („bright position out of direct sunlight"). Einzelwert „Partial shade" (keine Spanne) wird als Anspruch partial_shade übernommen; die RHS-Artseite selbst führt nur Gruppen/Sorten. | — |
 
 ---
 
