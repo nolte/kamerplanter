@@ -25,6 +25,7 @@ from app.common.error_handlers import (
     validation_error_handler,
 )
 from app.common.exceptions import KamerplanterError
+from app.common.gc_policy import freeze_startup_heap
 from app.common.log_privacy import loggable_path, redact_text_in_flight, register_route_source
 from app.common.middleware import request_id_middleware
 from app.common.rate_limit import rate_limit_exceeded_with_retry_after
@@ -281,6 +282,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # NFR-007 metrics on their own port (#2129); off unless METRICS_PORT is set.
     metrics_server = start_configured_metrics_server()
+
+    # Last step of start-up: what is alive now lives as long as the process; keep it out of every full
+    # collection a request triggers (GP-NFR-030 p95, #2526).
+    freeze_startup_heap()
 
     yield
 
