@@ -1018,6 +1018,7 @@ def get_soil_analyses(
             SoilAnalysisSeriesItemResponse(
                 parameter=item.parameter,
                 method=item.method,
+                unit=item.unit,
                 points=[
                     SoilAnalysisPointResponse(
                         performed_at=point.performed_at,

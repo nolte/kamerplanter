@@ -90,6 +90,8 @@ export interface SoilAnalysisSeries {
   parameter: string;
   /** `ec_method` of a conductivity, `ph_method` of a pH, else the extraction; `unknown` is its own method. */
   method: string;
+  /** The unit of every point: a value in another unit is another series, never converted. */
+  unit: string;
   points: SoilAnalysisPoint[];
 }
 

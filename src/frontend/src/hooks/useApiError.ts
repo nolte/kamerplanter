@@ -62,6 +62,10 @@ export function useApiError() {
           case 'DUPLICATE_ENTRY':
             notification.error(t('errors.duplicate'));
             break;
+          case 'soil_profile.stale':
+            // REQ-053 #2706: the form echoed a profile read before a newer soil analysis was stored.
+            notification.error(t('errors.soilProfileStale'));
+            break;
           case 'VALIDATION_ERROR': {
             if (mappedFieldError) {
               notification.error(t('errors.validation'));

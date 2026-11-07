@@ -22,7 +22,8 @@ from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO
 TEST_DATABASE = run_database_name("rotation_history")
 pytestmark = pytest.mark.usefixtures("arango_db")
 
-_DOCUMENTS = [col.SLOTS, col.PLANT_INSTANCES, col.PLANTING_RUNS, col.CARE_EVENTS]
+# LOCATIONS + SITES: a care-event void derives the bed's soil profile in its transaction, which declares both (#2706).
+_DOCUMENTS = [col.SLOTS, col.PLANT_INSTANCES, col.PLANTING_RUNS, col.CARE_EVENTS, col.LOCATIONS, col.SITES]
 _EDGES = [col.RUN_CONTAINS, col.CARE_EVENT_AT, col.CARE_EVENT_FOR, col.TASK_LOGGED_AS]
 TENANT = "ten_own"
 OTHER = "ten_other"

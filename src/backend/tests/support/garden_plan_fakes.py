@@ -378,10 +378,12 @@ class FakePlanRepo(IGardenPlanRepository):
         in_site = {key for key, loc in self.locations.items() if loc.site_key == site_key}
         return sum(1 for slot in self.slots if slot.location_key in in_site and slot.archived_at is None)
 
-    def update_location_fields(self, location_key, fields):
+    def update_location_fields(self, location_key, fields, *, soil=None):
         self.field_updates.append((location_key, dict(fields)))
         location = self.locations[location_key]
         merged = {**location.model_dump(by_alias=True), **fields}
+        if soil is not None:  # the repository's soil edit (#2706) for a bed without analyses
+            merged["soil_profile"] = _soil_edit(location, soil)
         if fields.get("site_conditions") is not None:  # the sent parts merged into the stored value (#2569)
             stored = location.site_conditions.model_dump(mode="json") if location.site_conditions else {}
             merged["site_conditions"] = _merge_dropping_none(stored, fields["site_conditions"])
@@ -453,3 +455,24 @@ def make_location(key: str, name: str = "Bed", geometry: dict | None = None, **k
         geometry=geometry,
         **kwargs,
     )
+
+
+def _soil_edit(location, soil):  # type: ignore[no-untyped-def]
+    """What ``write_soil_profile_edit`` stores for a bed without soil analyses: precondition, hand entries, derive."""
+    from datetime import UTC, datetime
+
+    from app.common.exceptions import PlanError
+    from app.domain.engines.soil_analysis_engine import derive_profile, hand_values_after_edit, read_instant
+
+    current = location.soil_profile.model_dump(mode="json", exclude_none=True) if location.soil_profile else {}
+    if soil.check_last_analysis_at and read_instant(current.get("last_analysis_at")) != read_instant(
+        soil.expected_last_analysis_at
+    ):
+        raise PlanError("soil_profile.stale", "stale", status_code=409, field="soil_profile.last_analysis_at")
+    if soil.profile is None:
+        return None
+    if "hand_values" not in current:
+        current = derive_profile(current, [])
+    staged = {k: v for k, v in soil.profile.items() if k not in ("last_analysis_at", "hand_values")}
+    staged["hand_values"] = hand_values_after_edit(current, soil.profile, datetime.now(UTC))
+    return derive_profile(staged, [])

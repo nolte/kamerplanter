@@ -412,6 +412,36 @@ class TestPatchWritesOnlyWhatItChanged:
         document = db.collection(col.LOCATIONS).get("bed")
         assert "notes" not in document and document["soil_profile"] == {"soil_texture": "clay"}
 
+    def test_a_soil_profile_null_stores_null_and_a_hand_edit_is_recorded_per_field(self, db, service) -> None:
+        """#2706: ``null`` clears the profile and its bookkeeping; a changed value gets its own hand entry."""
+        analysed = "2026-03-01T09:00:00+00:00"
+        db.collection(col.LOCATIONS).update(
+            {
+                "_key": "bed",
+                "soil_profile": {"ph": 6.4, "humus_percent": 3.0, "last_analysis_at": analysed, "hand_values": {}},
+            }
+        )
+
+        _patch(
+            service,
+            {
+                "soil_profile": {
+                    "ph": 6.8,
+                    "humus_percent": 3.0,
+                    "hand_values": {"caco3_percent": {"value": 9, "at": "2099-01-01T00:00:00Z"}},
+                }
+            },
+        )
+        edited = db.collection(col.LOCATIONS).get("bed")["soil_profile"]
+        _patch(service, {"soil_profile": None})
+
+        assert list(edited["hand_values"]) == ["ph"]  # only the changed field; the sent entries are ignored
+        assert edited["hand_values"]["ph"]["value"] == 6.8 and edited["ph"] == 6.8
+        # derived, not written from the body: the bed has no analysis, so no analysis value won - and the unchanged
+        # humus, which no analysis and no hand entry backs, is not a value any more
+        assert "last_analysis_at" not in edited and "humus_percent" not in edited
+        assert db.collection(col.LOCATIONS).get("bed").get("soil_profile") is None
+
     def test_the_rotation_switch_is_stored_and_null_returns_it_to_the_type_default(self, db, service) -> None:
         """GP-FR-137 (#2544): ``rotation_enabled`` round trip through ArangoDB; ``null`` removes the attribute."""
 
@@ -487,7 +517,7 @@ class TestPatchWritesOnlyTheSentSiteConditionParts:
         )
         column_write = repo.update_location_fields
 
-        def batch_then_write(location_key, fields):
+        def batch_then_write(location_key, fields, **options):
             # The plan batch lands after the PATCH read the bed (the service holds the stale "morning").
             service._plan_service.apply_batch(
                 "site_a",
@@ -508,7 +538,7 @@ class TestPatchWritesOnlyTheSentSiteConditionParts:
             assert db.collection(col.LOCATIONS).get("bed")["site_conditions"]["sun_profile"]["sun_window"] == (
                 "afternoon"
             )  # the race really happened before the column write
-            column_write(location_key, fields)
+            column_write(location_key, fields, **options)
 
         monkeypatch.setattr(repo, "update_location_fields", batch_then_write)
 

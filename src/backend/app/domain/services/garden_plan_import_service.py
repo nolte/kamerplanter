@@ -747,6 +747,12 @@ class GardenPlanImportService:
             prepared.drop(DroppedReference(entity=_LOCATION, key=item.key, field="template_key", reason="not_found"))
             template_key = None
         soil = _copied(item.soil_profile) if item.soil_profile is not None else None
+        if soil is not None:
+            # Server-owned bookkeeping (#2706) is never taken from a file: the file's analysis instant and hand entries
+            # describe observations this bed does not have. ``hand_values = None`` lets the first derivation classify
+            # the imported values against the bed's own analyses (legacy rule).
+            soil.last_analysis_at = None
+            soil.hand_values = None
         site_conditions = _copied(item.site_conditions) if item.site_conditions is not None else None
         if soil is not None and soil.substrate_key:
             if soil.substrate_key not in substrate_cache:

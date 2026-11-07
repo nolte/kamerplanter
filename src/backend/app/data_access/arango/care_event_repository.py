@@ -24,12 +24,21 @@ from arango.aql import AQL
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import DuplicateError, NotFoundError, PlanError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.transactions import StreamTransaction, TransactionAql, stream_transaction
-from app.domain.engines.soil_analysis_engine import is_newer, profile_patch
+from app.domain.engines.soil_analysis_engine import (
+    PROFILE_MEASURED_FIELDS,
+    SOIL_ANALYSIS_CATEGORY,
+    AnalysisEvent,
+    derive_profile,
+    hand_values_after_edit,
+    read_instant,
+)
+from app.domain.engines.soil_analysis_engine import writes_the_soil_profile as _feeds_the_profile
 from app.domain.interfaces.care_event_repository import (
     AnonymizedBatch,
     CareEventFilter,
@@ -58,21 +67,91 @@ CARE_EVENT_WRITE_COLLECTIONS: tuple[str, ...] = (
     col.TASK_LOGGED_AS,
 )
 
-#: The transaction of a ``soil_analysis`` writes the bed's profile as well (WP 8.7): only this one declares
-#: ``locations``, so no other care-event writer declares a collection it never writes.
-SOIL_ANALYSIS_WRITE_COLLECTIONS: tuple[str, ...] = (*CARE_EVENT_WRITE_COLLECTIONS, col.LOCATIONS)
+#: What the re-derivation of a bed's profile touches besides the care events: it writes ``locations`` and reads
+#: ``sites`` (a bed belongs to its site's tenant). A transaction calling :func:`rederive_soil_profile` declares both.
+SOIL_PROFILE_WRITE_COLLECTIONS: tuple[str, ...] = (col.LOCATIONS,)
+SOIL_PROFILE_READ_COLLECTIONS: tuple[str, ...] = (col.SITES,)
+
+#: The transaction storing a ``soil_analysis`` writes the bed's profile as well (WP 8.7): of the plain inserts only
+#: this one declares ``locations``, so no other insert declares a collection it never writes.
+SOIL_ANALYSIS_WRITE_COLLECTIONS: tuple[str, ...] = (*CARE_EVENT_WRITE_COLLECTIONS, *SOIL_PROFILE_WRITE_COLLECTIONS)
 
 
-def writes_the_soil_profile(event: CareEvent) -> bool:
-    """Whether storing ``event`` also updates the bed's ``soil_profile`` (a soil analysis with measurements)."""
-    return event.category == "soil_analysis" and bool(event.measurements)
+def writes_the_soil_profile(event: CareEvent | dict[str, Any]) -> bool:
+    """Whether storing, voiding or replacing ``event`` (a model or a stored document) derives the bed's profile again.
+
+    The engine's one predicate (:func:`~app.domain.engines.soil_analysis_engine.writes_the_soil_profile`) for both
+    shapes; every caller in the data-access tier asks here.
+    """
+    if isinstance(event, CareEvent):
+        return _feeds_the_profile(event.category, event.measurements)
+    doc: dict[str, Any] = event
+    return _feeds_the_profile(doc.get("category"), doc.get("measurements"))
 
 
 def write_collections_for(events: Sequence[CareEvent]) -> tuple[str, ...]:
-    """The collections a transaction storing ``events`` declares for writing."""
+    """The collections an insert of ``events`` declares for writing."""
     if any(writes_the_soil_profile(event) for event in events):
         return SOIL_ANALYSIS_WRITE_COLLECTIONS
     return CARE_EVENT_WRITE_COLLECTIONS
+
+
+def read_collections_for(events: Sequence[CareEvent]) -> tuple[str, ...]:
+    """The collections an insert of ``events`` declares for reading (the re-derivation's ``sites``)."""
+    return SOIL_PROFILE_READ_COLLECTIONS if any(writes_the_soil_profile(event) for event in events) else ()
+
+
+def _location_key_of(doc: dict[str, Any]) -> str:
+    return str(doc.get("location_key"))
+
+
+def profile_locations(events: Sequence[CareEvent | dict[str, Any]]) -> list[str]:
+    """The beds whose profile ``events`` feed, each once, in a stable order."""
+    keys = {
+        event.location_key if isinstance(event, CareEvent) else _location_key_of(event)
+        for event in events
+        if writes_the_soil_profile(event)
+    }
+    return sorted(keys)
+
+
+#: Most analyses of one bed the re-derivation reads (newest first, open and closed). Only the newest open analysis
+#: of each parameter matters, so the bound keeps the read finite without changing a real bed; hitting it is logged.
+MAX_DERIVATION_ANALYSES = 500
+
+#: The bed's soil analyses, open ones (``@open``) or closed ones, newest first. The index ``tenant_key,
+#: location_key, performed_at`` selects the bed, the category is filtered inside the index scan before the sort.
+_ANALYSES_OF_BED = """
+FOR e IN @@events
+    FILTER e.tenant_key == @tenant_key AND e.location_key == @location_key AND e.category == @category
+    FILTER (e.voided_at == null AND e.superseded_by_key == null) == @open
+    SORT DATE_TIMESTAMP(e.performed_at) DESC, DATE_TIMESTAMP(e.created_at) DESC, e._key DESC
+    LIMIT @limit
+    RETURN { key: e._key, performed_at: e.performed_at, category: e.category, measurements: e.measurements }
+"""
+
+#: The bed and whether its site belongs to the tenant (a bed has no ``tenant_key`` of its own, #2107).
+_LOCATION_OF_TENANT = """
+LET l = DOCUMENT(CONCAT(@locations, @key))
+LET s = l == null ? null : DOCUMENT(CONCAT(@sites, l.site_key))
+RETURN { location: l, owned: s != null AND s.tenant_key == @tenant_key }
+"""
+
+#: The profile write, guarded by the same ownership predicate in the same statement (defence in depth): a bed whose
+#: site is not the tenant's is not written. It **always** writes - ``soil_profile_rev`` moves even when the profile
+#: comes out unchanged - so two derivations of one bed running concurrently collide on ArangoDB's write-write
+#: conflict instead of one silently skipping its write on a state the other is changing (#2706, M1).
+_WRITE_OWNED_PROFILE = """
+FOR l IN @@locations
+    FILTER l._key == @key
+    LET s = DOCUMENT(CONCAT(@sites, l.site_key))
+    FILTER s != null AND s.tenant_key == @tenant_key
+    UPDATE l WITH MERGE(
+        { soil_profile_rev: (IS_NUMBER(l.soil_profile_rev) ? l.soil_profile_rev : 0) + 1 },
+        @write_profile ? { soil_profile: @profile } : {}
+    ) IN @@locations OPTIONS { mergeObjects: false }
+    RETURN 1
+"""
 
 
 #: A supersede chain longer than this is not a chain a person made; the walk stops (and the redaction with it).
@@ -118,14 +197,13 @@ def write_care_event(
     now: str,
     *,
     link_task: bool = True,
-    apply_soil_profile: bool = False,
 ) -> dict[str, Any]:
     """Insert ``event`` and its edges inside the caller's transaction; returns the stored document.
 
     The caller declares :data:`CARE_EVENT_WRITE_COLLECTIONS` for writing. ``created_at`` is stamped here, the
     ``_key`` is the database's. A ``None`` field is not stored (an absent attribute reads as ``null`` in AQL).
-    ``apply_soil_profile=True`` (only for a caller that declared :data:`SOIL_ANALYSIS_WRITE_COLLECTIONS`) also writes a
-    soil analysis's newest values into the bed's profile, in this transaction.
+    The bed's profile is not written here: a caller storing a soil analysis calls :func:`rederive_soil_profile`
+    for :func:`profile_locations` afterwards, in the same transaction.
     ``link_task=False`` leaves the ``task_logged_as`` edge out: a correction carries its predecessor's ``task_key``
     for display, but the task is logged *as* the first entry (one edge per completion, WP 4.3).
     """
@@ -145,50 +223,195 @@ def write_care_event(
         txn.collection(col.TASK_LOGGED_AS).insert(
             {"_from": f"{col.TASKS}/{event.task_key}", "_to": event_id, "created_at": now}
         )
-    if apply_soil_profile and writes_the_soil_profile(event):
-        _apply_soil_analysis(txn, event)
     return cast("dict[str, Any]", stored)
 
 
-def _json_value(value: Any) -> Any:
-    """A value of a soil patch as the database stores it: an instant as ISO text, everything else as it is."""
-    return datetime.isoformat(value) if isinstance(value, datetime) else value
-
-
-def _apply_soil_analysis(txn: StreamTransaction, event: CareEvent) -> None:
-    """Write the latest values of a ``soil_analysis`` event into the bed's ``soil_profile`` (GP-FR-122, WP 8.7).
-
-    In the caller's transaction, so the profile and the event stand or fall together. Only when the event is **newer**
-    than the profile's ``last_analysis_at`` (an older analysis, entered late, never overwrites a newer state), only
-    the parameters the profile has a field for, and only as measured - see :func:`profile_patch`. A bed that is gone,
-    or a merged profile the model refuses, leaves the profile as it was (the event is still the record).
-    """
-    patch = profile_patch(event.measurements, event.performed_at)
-    if patch is None:
-        return
-    found = list(
+def _analyses(txn: StreamTransaction, location_key: str, tenant_key: str, *, open_ones: bool) -> list[AnalysisEvent]:
+    """The bed's open (or closed) soil analyses, newest first, at most :data:`MAX_DERIVATION_ANALYSES`."""
+    rows: list[dict[str, Any]] = list(
         cast(
             "Cursor",
-            txn.aql.execute("RETURN DOCUMENT(@id)", bind_vars={"id": f"{col.LOCATIONS}/{event.location_key}"}),
+            txn.aql.execute(
+                _ANALYSES_OF_BED,
+                bind_vars={
+                    "@events": col.CARE_EVENTS,
+                    "tenant_key": tenant_key,
+                    "location_key": location_key,
+                    "category": SOIL_ANALYSIS_CATEGORY,
+                    "open": open_ones,
+                    "limit": MAX_DERIVATION_ANALYSES,
+                },
+            ),
         )
     )
-    location = cast("dict[str, Any] | None", found[0] if found else None)
+    if len(rows) >= MAX_DERIVATION_ANALYSES:
+        logger.warning(
+            "soil_analysis.derivation_bound_reached",
+            location_key=location_key,
+            limit=MAX_DERIVATION_ANALYSES,
+            open=open_ones,
+        )
+    return [
+        AnalysisEvent(key=str(row["key"]), performed_at=performed_at, measurements=row["measurements"])
+        for row in rows
+        if (performed_at := read_instant(row.get("performed_at"))) is not None and writes_the_soil_profile(row)
+    ]
+
+
+def _owned_location(txn: StreamTransaction, location_key: str, tenant_key: str) -> dict[str, Any] | None:
+    """The bed if its site is the tenant's; ``None`` when it is gone; a foreign bed is logged and ``None`` too."""
+    found: dict[str, Any] | None = next(
+        iter(
+            cast(
+                "Cursor",
+                txn.aql.execute(
+                    _LOCATION_OF_TENANT,
+                    bind_vars={
+                        "locations": f"{col.LOCATIONS}/",
+                        "sites": f"{col.SITES}/",
+                        "key": location_key,
+                        "tenant_key": tenant_key,
+                    },
+                ),
+            )
+        ),
+        None,
+    )
+    if found is None or found.get("location") is None:
+        return None
+    if not found.get("owned"):
+        logger.warning("soil_analysis.profile_write_refused_foreign_bed", location_key=location_key)
+        return None
+    return cast("dict[str, Any]", found["location"])
+
+
+def _soil_of(location: dict[str, Any]) -> dict[str, Any]:
+    profile = location.get("soil_profile")
+    return cast("dict[str, Any]", profile) if isinstance(profile, dict) else {}
+
+
+def _write_profile(
+    txn: StreamTransaction, location_key: str, tenant_key: str, profile: dict[str, Any] | None, *, write: bool = True
+) -> None:
+    txn.aql.execute(
+        _WRITE_OWNED_PROFILE,
+        bind_vars={
+            "@locations": col.LOCATIONS,
+            "sites": f"{col.SITES}/",
+            "key": location_key,
+            "tenant_key": tenant_key,
+            "profile": profile,
+            "write_profile": write,
+        },
+    )
+
+
+def _refused(exc: PydanticValidationError) -> PlanError:
+    """A derived profile the model refuses: 422 naming the field, never a value (the transaction aborts)."""
+    locations = [error["loc"] for error in exc.errors()]
+    path = ".".join(str(part) for part in locations[0]) if locations else ""
+    return PlanError(
+        "soil_profile.derivation_invalid",
+        "The soil profile derived from the analyses and hand entries is not valid; nothing was written.",
+        status_code=422,
+        field=".".join(("soil_profile", path)) if path else "soil_profile",
+    )
+
+
+def rederive_soil_profile(txn: StreamTransaction, location_key: str, *, tenant_key: str) -> None:
+    """Derive the bed's ``soil_profile``, inside the caller's transaction (#2706, the one write path).
+
+    Runs after every store, void, correction or withdrawn task completion of a soil analysis and after a hand edit
+    (``PATCH /locations``): per measured field the newest observation wins (:func:`derive_profile`). The caller
+    declared :data:`SOIL_PROFILE_WRITE_COLLECTIONS` and :data:`SOIL_PROFILE_READ_COLLECTIONS` and has already
+    written its own columns in ``txn``, so the read sees them. The bed is **always** written (``soil_profile_rev``
+    moves even when the profile comes out unchanged), so two derivations of one bed collide on the write-write
+    conflict. At most :data:`MAX_DERIVATION_ANALYSES` open analyses are read (logged when reached); the closed ones
+    are read only for a row from before ``hand_values`` (legacy rule), bounded alike. A bed that is gone or whose
+    site is not the tenant's (fail closed) is left alone; a derived profile the model refuses raises 422
+    ``soil_profile.derivation_invalid`` and aborts the transaction.
+    """
+    location = _owned_location(txn, location_key, tenant_key)
     if location is None:
         return
-    current: dict[str, Any] = location["soil_profile"] if isinstance(location.get("soil_profile"), dict) else {}
-    last = current.get("last_analysis_at")
-    last_at = datetime.fromisoformat(last) if isinstance(last, str) else None
-    if last_at is not None and last_at.tzinfo is None:
-        last_at = last_at.replace(tzinfo=UTC)
-    if not is_newer(event.performed_at, last_at):
-        return
-    merged = {**current, **{key: _json_value(value) for key, value in patch.fields.items()}}
+    current = _soil_of(location)
+    analyses = _analyses(txn, location_key, tenant_key, open_ones=True)
+    legacy = not isinstance(current.get("hand_values"), dict) and any(
+        current.get(value_field) is not None for value_field, _ in PROFILE_MEASURED_FIELDS
+    )
+    history = [*analyses, *_analyses(txn, location_key, tenant_key, open_ones=False)] if legacy else analyses
+    derived = cast("dict[str, Any]", _json_value(derive_profile(current, analyses, history=history)))
     try:
-        SoilProfile(**merged)
-    except ValueError:
-        logger.warning("soil_analysis.profile_update_refused", location_key=event.location_key)
+        SoilProfile(**derived)
+    except PydanticValidationError as exc:
+        raise _refused(exc) from exc
+    # A bed that had no profile and derives none keeps none; the revision moves either way.
+    _write_profile(txn, location_key, tenant_key, derived, write=bool(derived) or bool(current))
+
+
+def write_soil_profile_edit(
+    txn: StreamTransaction,
+    location_key: str,
+    *,
+    tenant_key: str,
+    profile: dict[str, Any] | None,
+    check_last_analysis_at: bool,
+    expected_last_analysis_at: datetime | None,
+) -> None:
+    """A ``soil_profile`` sent with ``PATCH /locations``, written through the derivation (#2706).
+
+    Inside the caller's transaction (it declared what :func:`rederive_soil_profile` needs). In order: the
+    precondition - a body that carried ``last_analysis_at`` must carry the stored one, else 409
+    ``soil_profile.stale``; ``null`` stores ``null``; a row from before ``hand_values`` is derived first (its values
+    get their hand entries from the legacy rule, never from the edit); then the edited measured fields become hand
+    entries at now (unchanged ones none), the other soil fields are taken as sent, and the derivation computes the
+    measured fields and ``last_analysis_at``. The derived fields are never written from the body.
+    """
+    location = _owned_location(txn, location_key, tenant_key)
+    if location is None:
+        raise NotFoundError("Location", location_key)
+    current = _soil_of(location)
+    stored_last = read_instant(current.get("last_analysis_at"))
+    expected = read_instant(expected_last_analysis_at)
+    if check_last_analysis_at and stored_last != expected:
+        raise PlanError(
+            "soil_profile.stale",
+            "The soil profile changed since it was read (a soil analysis was stored); reload and try again.",
+            status_code=409,
+            field="soil_profile.last_analysis_at",
+        )
+    if profile is None:
+        _write_profile(txn, location_key, tenant_key, None)
         return
-    txn.collection(col.LOCATIONS).update({"_key": event.location_key, "soil_profile": merged}, merge=False)
+    as_read = current
+    if current and not isinstance(current.get("hand_values"), dict):
+        rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
+        location = _owned_location(txn, location_key, tenant_key) or location
+        current = _soil_of(location)
+    derived_fields = {name for pair in PROFILE_MEASURED_FIELDS for name in pair if name} | {
+        "last_analysis_at",
+        "hand_values",
+    }
+    staged = {name: value for name, value in profile.items() if name not in derived_fields}
+    staged.update({name: value for name, value in current.items() if name in derived_fields})
+    # Compared with the profile as the client read it: on a legacy row the derivation above may have replaced an
+    # echoed value, and that echo is not a hand edit (#2706 review).
+    staged["hand_values"] = hand_values_after_edit(current, profile, datetime.now(UTC), as_read=as_read)
+    _write_profile(txn, location_key, tenant_key, cast("dict[str, Any]", _json_value(staged)))
+    rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
+
+
+def _json_value(value: Any) -> Any:
+    """A derived profile as the database stores it: every instant (nested ones too) as ISO text."""
+    if isinstance(value, datetime):
+        instant: datetime = value
+        return instant.isoformat()
+    if isinstance(value, dict):
+        mapping: dict[str, Any] = value
+        return {str(name): _json_value(mapping[name]) for name in mapping}
+    if isinstance(value, list):
+        return [_json_value(item) for item in value]
+    return value
 
 
 def retention_patch(doc: dict[str, Any], now: str) -> dict[str, Any]:
@@ -396,8 +619,12 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         self._require_tenant_key(tenant_key, "insert")
         if event.tenant_key != tenant_key:
             raise ValueError("insert: the event belongs to another tenant than the one it is written under.")
-        with stream_transaction(self._db, write=write_collections_for([event]), entity="care_event") as txn:
-            stored = write_care_event(txn, event, _now(), apply_soil_profile=True)
+        with stream_transaction(
+            self._db, write=write_collections_for([event]), read=read_collections_for([event]), entity="care_event"
+        ) as txn:
+            stored = write_care_event(txn, event, _now())
+            for location_key in profile_locations([event]):
+                rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         return self._wrapped(stored)
 
     def insert_many(self, events: list[CareEvent], *, tenant_key: str) -> list[CareEvent]:
@@ -407,8 +634,13 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         if not events:
             return []
         now = _now()
-        with stream_transaction(self._db, write=CARE_EVENT_WRITE_COLLECTIONS, entity="care_event") as txn:
+        # Like ``insert`` (and its conflict fallback): a soil analysis in the batch writes the bed's profile too.
+        with stream_transaction(
+            self._db, write=write_collections_for(events), read=read_collections_for(events), entity="care_event"
+        ) as txn:
             stored = [write_care_event(txn, event, now) for event in events]
+            for location_key in profile_locations(events):
+                rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         return [self._wrapped(doc) for doc in stored]
 
     def insert_backfilled(self, events: list[CareEvent], *, tenant_key: str) -> tuple[int, int]:
@@ -469,7 +701,14 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         self._require_tenant_key(tenant_key, "supersede")
         if event.tenant_key != tenant_key:
             raise ValueError("supersede: the event belongs to another tenant than the one it is written under.")
-        with stream_transaction(self._db, write=write_collections_for([event]), entity="care_event") as txn:
+        # Replacing a soil analysis (by anything) or writing one derives the bed's profile again (#2706); the
+        # transaction always declares what that touches, so no read before it decides the declaration.
+        with stream_transaction(
+            self._db,
+            write=SOIL_ANALYSIS_WRITE_COLLECTIONS,
+            read=SOIL_PROFILE_READ_COLLECTIONS,
+            entity="care_event",
+        ) as txn:
             predecessor = self._load_in(txn, predecessor_key, tenant_key)
             self._refuse_if_closed(predecessor)
             if predecessor.get("location_key") != event.location_key or event.supersedes_key != predecessor_key:
@@ -479,13 +718,23 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
                     status_code=422,
                     field="supersedes_key",
                 )
-            stored = write_care_event(txn, event, _now(), link_task=False, apply_soil_profile=True)
+            stored = write_care_event(txn, event, _now(), link_task=False)
             txn.collection(col.CARE_EVENTS).update({"_key": predecessor_key, "superseded_by_key": stored["_key"]})
+            # A correction that drops a parameter or moves ``performed_at`` earlier must not leave the predecessor's
+            # value or its later ``last_analysis_at`` behind: the profile is derived from the open analyses again.
+            for location_key in profile_locations([predecessor, event]):
+                rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         return self._wrapped(stored)
 
     def void(self, key: str, *, tenant_key: str, voided_by: str, reason: str, at: datetime) -> CareEvent:
         self._require_tenant_key(tenant_key, "void")
-        with stream_transaction(self._db, write=(col.CARE_EVENTS,), entity="care_event") as txn:
+        # A voided soil analysis takes its values out of the bed's profile (#2706).
+        with stream_transaction(
+            self._db,
+            write=(col.CARE_EVENTS, *SOIL_PROFILE_WRITE_COLLECTIONS),
+            read=SOIL_PROFILE_READ_COLLECTIONS,
+            entity="care_event",
+        ) as txn:
             current = self._load_in(txn, key, tenant_key)
             self._refuse_if_closed(current)
             updated = txn.collection(col.CARE_EVENTS).update(
@@ -497,6 +746,8 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
                 },
                 return_new=True,
             )["new"]
+            for location_key in profile_locations([current]):
+                rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         return self._wrapped(updated)
 
     def redact(

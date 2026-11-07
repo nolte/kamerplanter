@@ -1,7 +1,7 @@
 /** The chart's view of the soil series (GP-FR-122): one line per method, never merged; changes marked. */
 import { describe, expect, it } from 'vitest';
 import { parameterHistory } from './soilAnalysisChartData';
-import { soilAnalyses } from './soilAnalysisTestKit';
+import { point, soilAnalyses } from './soilAnalysisTestKit';
 
 describe('parameterHistory', () => {
   it('keeps one line per method and marks the change in the chart and the table', () => {
@@ -17,6 +17,25 @@ describe('parameterHistory', () => {
       ['h2o', 6.8, false],
       ['cacl2', 6.1, true],
     ]);
+  });
+
+  it('keeps two units of one method apart, each line and row with its own identity', () => {
+    const at = '2026-03-01T09:00:00Z';
+    const history = parameterHistory(
+      soilAnalyses({
+        series: [
+          { parameter: 'ec', method: 'sensor', unit: 'mS/cm', points: [point(at, 1.1, 'mS/cm', 'ce_9')] },
+          { parameter: 'ec', method: 'sensor', unit: 'uS/cm', points: [point(at, 1100, 'uS/cm', 'ce_9')] },
+        ],
+        method_changes: [],
+      }),
+      'ec',
+    )!;
+    expect(history.lines.map((line) => [line.id, line.unit])).toEqual([
+      ['sensor|mS/cm', 'mS/cm'],
+      ['sensor|uS/cm', 'uS/cm'],
+    ]);
+    expect(new Set(history.rows.map((row) => row.key)).size).toBe(2);
   });
 
   it('answers null for a parameter without values', () => {

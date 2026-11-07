@@ -117,6 +117,31 @@ def test_two_methods_are_two_series_with_the_change_marked(client, world) -> Non
     assert [(c["from_method"], c["to_method"]) for c in body["method_changes"]] == [("ratio_1_5", "saturated_paste")]
 
 
+def test_a_series_never_carries_two_units(client, world) -> None:  # type: ignore[no-untyped-def]
+    """#2706: 1100 uS/cm and 1.1 mS/cm by the same method are two series, each naming its unit; nothing converted."""
+    _store(world, 30, [_measure("ec", 1100, "uS/cm", ec_method="sensor")])
+    _store(world, 10, [_measure("ec", 1.1, "mS/cm", ec_method="sensor")])
+
+    body = client().get(_OWN, params={"parameter": "ec"}).json()
+
+    assert [(s["method"], s["unit"], [p["value"] for p in s["points"]]) for s in body["series"]] == [
+        ("sensor", "mS/cm", [1.1]),
+        ("sensor", "uS/cm", [1100.0]),
+    ]
+    assert body["method_changes"] == []
+
+
+def test_spellings_of_one_unit_are_one_series_with_the_normalised_unit(client, world) -> None:  # type: ignore[no-untyped-def]
+    _store(world, 30, [_measure("ec", 1.0, "mS/cm", ec_method="sensor")])
+    _store(world, 20, [_measure("ec", 1.1, "dS/m", ec_method="sensor")])
+    _store(world, 10, [_measure("ec", 1.2, " MS/CM", ec_method="sensor")])
+
+    body = client().get(_OWN, params={"parameter": "ec"}).json()
+
+    assert [(s["unit"], len(s["points"])) for s in body["series"]] == [("mS/cm", 3)]
+    assert [p["unit"] for p in body["series"][0]["points"]] == ["mS/cm", "dS/m", " MS/CM"]  # each as entered
+
+
 def test_a_content_class_is_only_what_the_lab_stated(client, world) -> None:  # type: ignore[no-untyped-def]
     _store(world, 5, [_measure("p", 12, "mg_per_100g", extraction_method="cal", content_class="C")])
     _store(world, 4, [_measure("k", 9, "mg_per_100g", source="test_kit")])

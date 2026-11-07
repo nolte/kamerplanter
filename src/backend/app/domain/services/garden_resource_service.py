@@ -34,6 +34,7 @@ from typing import Any
 import structlog
 from pydantic import ValidationError as PydanticValidationError
 
+from app.common.datetimes import ensure_aware_utc
 from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
@@ -57,7 +58,7 @@ from app.domain.engines.garden_plan_engine import (
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_site_parts
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
-from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
+from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, SoilProfileEdit
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.bed_list_export import (
     ERROR_TOO_MANY_ROWS,
@@ -103,6 +104,7 @@ _NEW = "new"
 
 _ENTITY_LOCATION = "location"
 _ENTITY_OBJECT = "garden_object"
+
 
 #: What ``PATCH /locations`` writes without the plan revision (GP-NFR-007): the document's own columns.
 #: ``geometry``, ``locked`` and ``z_order`` are structure — they go through the plan batch and raise the revision,
@@ -340,7 +342,11 @@ class GardenResourceService:
         drawing order) through one plan batch, which can still refuse, so it runs first → status → the
         remaining columns. Everything that can be refused is refused before the first write; what runs after
         the structure batch is a status change (refused up front when combined with a geometry, see below) or a
-        plain column update of a document just read, which fails only if the document vanished meanwhile.
+        plain column update of a document just read, which fails only if the document vanished meanwhile - or,
+        with a ``soil_profile`` in the body (#2706), on the soil write's in-transaction checks: a soil analysis
+        stored between the up-front ``soil_profile.stale`` check and the write (409 ``soil_profile.stale`` or
+        ``WRITE_CONFLICT``) or a stored profile the derivation refuses (422). A geometry or status change of the
+        same request is then already committed; the client reloads and sends the soil edit again.
         A status change and a geometry change are two structural writes, each with its own revision step, and
         cannot be one transaction here — they are refused together (422 ``patch.status_with_geometry``).
         """
@@ -351,6 +357,8 @@ class GardenResourceService:
         self._check_rotation_switch(location, patch)
 
         fields = self._field_changes(location, patch)
+        soil = self._soil_edit(patch, tenant_key=tenant_key)
+        self._refuse_stale_soil(location, soil)
         operations = self._structure_operations(location, patch)
         if target_status is not None:
             if any(op["op"] == "update_geometry" for op in operations):
@@ -374,8 +382,8 @@ class GardenResourceService:
             )
         if target_status is not None:
             self._write_status(location, target_status, patch.status_reason, tenant_key=tenant_key, user_key=user_key)
-        if fields:
-            self._plan.update_location_fields(key, fields)
+        if fields or soil is not None:
+            self._plan.update_location_fields(key, fields, soil=soil)
 
         stored = self._owned_location(key, tenant_key=tenant_key)
         site = self._owned_site(stored.site_key, tenant_key=tenant_key)
@@ -487,6 +495,41 @@ class GardenResourceService:
             return
         provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
 
+    @staticmethod
+    def _soil_edit(patch: LocationPatch, *, tenant_key: str) -> SoilProfileEdit | None:
+        """The ``soil_profile`` of the PATCH as an edit the repository writes through the derivation (#2706).
+
+        The service writes no derived soil field itself: the repository records the hand entries of the edited
+        measured fields, takes the other soil fields as sent, checks the ``last_analysis_at`` precondition and runs
+        the one derivation, all in the column write's transaction. ``None`` when the PATCH does not send the profile.
+        """
+        if "soil_profile" not in patch.model_fields_set:
+            return None
+        sent = patch.soil_profile
+        if sent is None:
+            return SoilProfileEdit(tenant_key=tenant_key, profile=None)
+        return SoilProfileEdit(
+            tenant_key=tenant_key,
+            profile=_dump(sent, mode="json"),
+            check_last_analysis_at="last_analysis_at" in sent.model_fields_set,
+            expected_last_analysis_at=sent.last_analysis_at,
+        )
+
+    @staticmethod
+    def _refuse_stale_soil(location: Location, soil: SoilProfileEdit | None) -> None:
+        """The ``last_analysis_at`` precondition before the first write (#2706); the repository checks it again
+        inside its transaction, against what it reads there, for an analysis stored in between."""
+        if soil is None or not soil.check_last_analysis_at:
+            return
+        stored = location.soil_profile.last_analysis_at if location.soil_profile is not None else None
+        if ensure_aware_utc(stored) != ensure_aware_utc(soil.expected_last_analysis_at):
+            raise PlanError(
+                "soil_profile.stale",
+                "The soil profile changed since it was read (a soil analysis was stored); reload and try again.",
+                status_code=409,
+                field="soil_profile.last_analysis_at",
+            )
+
     def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
         """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""
         provided = {name: getattr(patch, name) for name in patch.model_fields_set if name in set(_PATCH_COLUMNS)}
@@ -494,6 +537,10 @@ class GardenResourceService:
             return {}
         if patch.site_conditions is not None:
             provided["site_conditions"] = merge_site_conditions(location.site_conditions, patch.site_conditions)
+        # ``soil_profile`` is not a plain column: the repository writes it through the derivation (``_soil_edit``).
+        provided.pop("soil_profile", None)
+        if not provided:
+            return {}
         self._mirror_frost_risk(location, provided)
         try:
             updated = Location.model_validate({**_dump(location, by_alias=True), **provided})

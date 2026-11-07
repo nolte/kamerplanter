@@ -7,7 +7,7 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
@@ -473,6 +473,30 @@ describe('BedHistoryTab - what stood here in {year}? (GP-API-042)', () => {
       year: THIS_YEAR - 1,
       plan_role: 'fallow',
     });
+  });
+
+  it('reloads the bed summary after an entry was taken back (#2706)', async () => {
+    useHistoryBackend({
+      items: [],
+      timeline: timeline([
+        year(THIS_YEAR, []),
+        year(THIS_YEAR - 1, [{ ...SOLANACEAE, source: 'backfill', care_event_key: 'ce_9' }]),
+        year(THIS_YEAR - 2),
+        year(THIS_YEAR - 3),
+        year(THIS_YEAR - 4),
+      ]),
+    });
+    const onChanged = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<BedHistoryTab bed={bedSummary()} onChanged={onChanged} />, {
+      store: createTestStore({ ...tenantState('grower'), ...authState() }),
+      route: '/standorte/locations/loc_b03#history',
+    });
+
+    await user.click(await screen.findByTestId('timeline-cancel-ce_9'));
+    await user.click(within(await screen.findByTestId('confirm-dialog')).getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
   });
 
   it('takes a recorded year back after a confirmation', async () => {

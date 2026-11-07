@@ -8,12 +8,16 @@ import pytest
 from pydantic import ValidationError
 
 from app.domain.engines.soil_analysis_engine import (
+    LEGACY_HAND_AT,
     AnalysisEvent,
     build_series,
-    is_newer,
+    derive_profile,
     liming_hint,
     method_of,
-    profile_patch,
+    normal_unit,
+    profile_values,
+    read_instant,
+    writes_the_soil_profile,
 )
 from app.domain.models.care_event import CareEventInput, Measurement
 from app.domain.models.site import SoilProfile
@@ -102,21 +106,25 @@ class TestProfileFields:
         assert profile.target_ph is None and profile.stone_content_class == "unknown" and profile.caco3_percent is None
 
 
-class TestProfilePatch:
+def _fields(measurements, at=T0) -> dict:  # type: ignore[no-untyped-def]
+    """The profile one analysis derives on an empty bed, without the bookkeeping."""
+    derived = derive_profile({}, [AnalysisEvent("e", at, measurements)])
+    return {k: v for k, v in derived.items() if k != "hand_values"}
+
+
+class TestProfileValues:
     def test_the_values_land_as_measured_with_their_methods(self) -> None:
-        patch = profile_patch(
+        fields = _fields(
             [
                 _m("ph", 6.4, "pH", ph_method="cacl2"),
                 _m("ec", 1.1, "mS/cm", ec_method="ratio_1_5"),
                 _m("humus", 3.2, "%"),
                 _m("caco3", 0.5, "%"),
                 _m("p", 12, "mg_per_100g"),  # no profile field for it
-            ],
-            T0,
+            ]
         )
 
-        assert patch is not None
-        assert patch.fields == {
+        assert fields == {
             "ph": 6.4,
             "ph_method": "cacl2",
             "ec_ms_cm": 1.1,
@@ -127,30 +135,35 @@ class TestProfilePatch:
         }
 
     def test_a_new_ph_never_keeps_the_method_of_the_old_one(self) -> None:
-        patch = profile_patch([_m("ph", 6.4, "pH")], T0)
+        derived = derive_profile({"ph": 5.0, "ph_method": "cacl2"}, [AnalysisEvent("e", T0, [_m("ph", 6.4, "pH")])])
 
-        assert patch is not None and patch.fields["ph_method"] is None
+        assert derived["ph"] == 6.4 and derived["ph_method"] is None
 
     def test_a_value_in_another_unit_is_left_out_not_converted(self) -> None:
-        patch = profile_patch([_m("ec", 1100, "uS/cm", ec_method="sensor"), _m("humus", 0.03, "fraction")], T0)
-
-        assert patch is None
+        assert profile_values([_m("ec", 1100, "uS/cm", ec_method="sensor"), _m("humus", 0.03, "fraction")]) == {}
 
     def test_ds_per_m_is_the_same_number_as_ms_per_cm(self) -> None:
-        patch = profile_patch([_m("ec", 1.1, "dS/m", ec_method="saturated_paste")], T0)
-
-        assert patch is not None and patch.fields["ec_ms_cm"] == 1.1
+        assert _fields([_m("ec", 1.1, " dS/m ", ec_method="saturated_paste")])["ec_ms_cm"] == 1.1
+        assert normal_unit("dS/m") == normal_unit("MS/CM ") == "ms/cm"
 
     def test_an_analysis_without_a_profile_value_changes_nothing(self) -> None:
-        assert profile_patch([_m("p", 12, "mg_per_100g"), _m("k", 20, "mg_per_100g")], T0) is None
-        assert profile_patch(None, T0) is None
+        assert derive_profile({}, [AnalysisEvent("e", T0, [_m("p", 12, "mg_per_100g")])]) == {}
+        assert profile_values(None) == {}
 
-    def test_only_an_analysis_that_is_not_older_may_write(self) -> None:
-        assert is_newer(T0, None) is True
-        assert is_newer(T0, T0 - timedelta(days=1)) is True
-        assert is_newer(T0 - timedelta(days=1), T0) is False
-        # the same instant: the latest write wins, so the correction of the newest analysis refreshes the profile
-        assert is_newer(T0, T0) is True
+    def test_an_older_analysis_does_not_replace_a_newer_value(self) -> None:
+        analyses = [
+            AnalysisEvent("new", T0, [_m("ph", 6.4, "pH")]),
+            AnalysisEvent("old", T0 - timedelta(days=200), [_m("ph", 5.1, "pH"), _m("humus", 3.0, "%")]),
+        ]
+
+        derived = derive_profile({}, analyses)
+
+        assert (derived["ph"], derived["humus_percent"], derived["last_analysis_at"]) == (6.4, 3.0, T0)
+
+    def test_one_predicate_says_which_events_feed_the_profile(self) -> None:
+        assert writes_the_soil_profile("soil_analysis", [_m("ph", 6.4, "pH")]) is True
+        assert writes_the_soil_profile("soil_analysis", []) is False
+        assert writes_the_soil_profile("watering", [_m("ph", 6.4, "pH")]) is False
 
 
 class TestSeries:
@@ -301,3 +314,177 @@ class TestLimingHint:
 
     def test_no_profile_is_no_ph(self) -> None:
         assert liming_hint(None).reason == "no_ph"
+
+
+class TestFollowUps2706:
+    """#2706: unit-split series, per-analysis method changes, the shallowest depth, tolerant instants, re-derivation."""
+
+    def test_two_units_of_one_method_are_two_series(self) -> None:
+        events = [
+            AnalysisEvent("e1", T0, [_m("ec", 1100, "uS/cm", ec_method="sensor")]),
+            AnalysisEvent("e2", T0 + timedelta(days=30), [_m("ec", 1.1, "mS/cm", ec_method="sensor")]),
+        ]
+
+        series, changes = build_series(events, "ec")
+
+        assert [(s.method, s.unit, [p.value for p in s.points]) for s in series] == [
+            ("sensor", "mS/cm", [1.1]),
+            ("sensor", "uS/cm", [1100.0]),
+        ]
+        assert changes == []  # the same method: no method change, only another unit
+
+    def test_spellings_of_one_unit_are_one_series_reported_normalised(self) -> None:
+        events = [
+            AnalysisEvent("e1", T0, [_m("ec", 1.0, "mS/cm", ec_method="sensor")]),
+            AnalysisEvent("e2", T0 + timedelta(days=1), [_m("ec", 1.1, " ms/cm", ec_method="sensor")]),
+            AnalysisEvent("e3", T0 + timedelta(days=2), [_m("ec", 1.2, "dS/m", ec_method="sensor")]),
+            AnalysisEvent("e4", T0 + timedelta(days=3), [_m("ph", 6.1, "PH")]),
+        ]
+
+        series, _ = build_series(events)
+
+        assert [(s.parameter, s.unit, len(s.points)) for s in series] == [("ec", "mS/cm", 3), ("ph", "pH", 1)]
+
+    def test_a_method_change_at_the_same_instant_is_marked(self) -> None:
+        events = [
+            AnalysisEvent("e1", T0, [_m("ph", 6.0, "pH", ph_method="cacl2")]),
+            AnalysisEvent("e2", T0, [_m("ph", 6.6, "pH", ph_method="h2o")]),
+        ]
+
+        _, changes = build_series(events, "ph")
+
+        assert [(c.from_method, c.to_method, c.at) for c in changes] == [("cacl2", "h2o", T0)]
+
+    def test_the_mark_does_not_depend_on_the_order_inside_an_analysis(self) -> None:
+        first = [_m("ph", 6.4, "pH", ph_method="h2o"), _m("ph", 6.0, "pH", ph_method="cacl2")]
+        events = [
+            AnalysisEvent("e1", T0, first),
+            AnalysisEvent("e2", T0 + timedelta(days=30), [_m("ph", 6.2, "pH", ph_method="cacl2")]),
+        ]
+
+        assert build_series(events, "ph")[1] == []  # cacl2 continues; listing h2o first must not invent a change
+        moved = [AnalysisEvent("e1", T0, first), AnalysisEvent("e2", T0 + timedelta(days=30), [_m("ph", 6.2, "pH")])]
+        assert [(c.from_method, c.to_method) for c in build_series(moved, "ph")[1]] == [
+            ("cacl2", "unknown"),
+            ("h2o", "unknown"),
+        ]
+
+    def test_the_shallowest_sample_depth_wins_in_the_profile(self) -> None:
+        values = profile_values(
+            [_m("ph", 6.0, "pH", sample_depth_cm=30), _m("ph", 6.6, "pH", sample_depth_cm=10), _m("ph", 7.0, "pH")]
+        )
+
+        assert values["ph"]["ph"] == 6.6
+
+    def test_an_unreadable_stored_instant_reads_as_missing(self) -> None:
+        assert read_instant("not a date") is None and read_instant(None) is None
+        assert read_instant("2026-03-01T09:00:00") == T0  # naive text is UTC
+        # a naive performed_at reads as UTC: it ties with the aware one, the one listed first wins
+        derived = derive_profile(
+            {}, [AnalysisEvent("a", T0.replace(tzinfo=None), [_m("ph", 6.0, "pH")]), AnalysisEvent("b", T0, [])]
+        )
+        assert derived["last_analysis_at"] == T0
+
+    def test_the_profile_is_derived_from_the_newest_analysis_per_parameter_and_keeps_hand_fields(self) -> None:
+        current = {
+            "drainage": "good",
+            "target_ph": 6.5,
+            "ph": 9.9,
+            "humus_percent": 8.0,
+            "last_analysis_at": "x",
+            "hand_values": {},
+        }
+        analyses = [
+            AnalysisEvent("old", T0, [_m("ph", 6.0, "pH", ph_method="h2o"), _m("humus", 3.0, "%")]),
+            AnalysisEvent("new", T0 + timedelta(days=10), [_m("ph", 6.4, "pH", ph_method="cacl2")]),
+        ]
+
+        derived = derive_profile(current, analyses)
+
+        assert derived == {
+            "drainage": "good",
+            "target_ph": 6.5,
+            "ph": 6.4,
+            "ph_method": "cacl2",
+            "humus_percent": 3.0,
+            "last_analysis_at": T0 + timedelta(days=10),
+            "hand_values": {},
+        }
+
+    def test_without_an_analysis_the_measured_fields_and_the_instant_are_cleared(self) -> None:
+        current = {
+            "drainage": "good",
+            "ph": 6.4,
+            "ph_method": "cacl2",
+            "ec_ms_cm": 1.0,
+            "ec_method": "sensor",
+            "hand_values": {},
+        }
+
+        assert derive_profile({**current, "last_analysis_at": T0}, []) == {"drainage": "good", "hand_values": {}}
+
+
+def _hand(value, at, method=None) -> dict:  # type: ignore[no-untyped-def]
+    return {"value": value, "method": method, "at": at.isoformat()}
+
+
+class TestNewestObservationWins:
+    """#2706 re-review: per field the newer of the hand entry and the newest open analysis wins; a tie is the hand's."""
+
+    def test_voiding_the_newer_analysis_returns_to_the_hand_value_not_the_older_analysis(self) -> None:  # M3
+        hand = {"ph": _hand(6.5, T0, "h2o")}
+        older = AnalysisEvent("A", T0 - timedelta(days=30), [_m("ph", 6.0, "pH", ph_method="cacl2")])
+        newer = AnalysisEvent("N", T0 + timedelta(days=30), [_m("ph", 6.9, "pH", ph_method="cacl2")])
+
+        with_n = derive_profile({"ph": 6.9, "hand_values": hand}, [newer, older])
+        after_void = derive_profile(with_n, [older])
+
+        assert (with_n["ph"], with_n["last_analysis_at"]) == (6.9, T0 + timedelta(days=30))
+        assert (after_void["ph"], after_void["ph_method"], "last_analysis_at" in after_void) == (6.5, "h2o", False)
+
+    def test_a_value_cleared_by_hand_stays_cleared_against_older_analyses(self) -> None:  # M4
+        current = {"humus_percent": 3.0, "hand_values": {"ph": _hand(None, T0)}}
+        older = AnalysisEvent("A", T0 - timedelta(days=30), [_m("ph", 6.0, "pH")])
+        humus = AnalysisEvent("H", T0 + timedelta(days=1), [_m("humus", 3.0, "%")])
+
+        derived = derive_profile(current, [humus, older])
+
+        assert "ph" not in derived and derived["humus_percent"] == 3.0
+
+    def test_the_times_are_per_field(self) -> None:  # L2
+        hand = {"ph": _hand(6.5, T0), "humus_percent": _hand(4.0, T0 + timedelta(days=20))}
+        between = AnalysisEvent("B", T0 + timedelta(days=10), [_m("ph", 6.9, "pH"), _m("humus", 3.0, "%")])
+
+        derived = derive_profile({"hand_values": hand}, [between])
+
+        assert (derived["ph"], derived["humus_percent"]) == (6.9, 4.0)  # the later humus edit protects only humus
+
+    def test_a_tie_goes_to_the_hand_entry(self) -> None:
+        derived = derive_profile(
+            {"hand_values": {"ph": _hand(6.5, T0)}}, [AnalysisEvent("A", T0, [_m("ph", 6.0, "pH")])]
+        )
+
+        assert derived["ph"] == 6.5 and "last_analysis_at" not in derived
+
+    def test_a_row_from_before_the_entries_classifies_its_values(self) -> None:
+        voided = AnalysisEvent("voided", T0, [_m("ph", 9.9, "pH")])
+        current = {"ph": 9.9, "humus_percent": 4.0}
+
+        derived = derive_profile(current, [], history=[voided])
+
+        # 9.9 was the analysis's and goes with it; 4.0 becomes a hand entry at the oldest instant
+        assert "ph" not in derived and derived["humus_percent"] == 4.0
+        assert derived["hand_values"]["humus_percent"]["at"] == LEGACY_HAND_AT == datetime.min.replace(tzinfo=UTC)
+        later = derive_profile(derived, [AnalysisEvent("H", T0 - timedelta(days=900), [_m("humus", 2.0, "%")])])
+        assert later["humus_percent"] == 2.0  # any open analysis supersedes a classified legacy value
+
+
+def test_an_unknown_unit_is_reported_in_the_spelling_of_its_oldest_measurement() -> None:
+    events = [
+        AnalysisEvent("e2", T0 + timedelta(days=1), [_m("p", 13, "MG_PER_L ")]),
+        AnalysisEvent("e1", T0, [_m("p", 12, " mg_per_L")]),
+    ]
+
+    series, _ = build_series(events, "p")
+
+    assert [(s.unit, len(s.points)) for s in series] == [("mg_per_L", 2)]  # grouped on the key, never lower-cased

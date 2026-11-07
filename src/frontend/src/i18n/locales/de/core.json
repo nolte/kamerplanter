@@ -453,6 +453,7 @@
     "serverWithDetail": "Serverfehler: {{detail}}",
     "forbidden": "Du hast keine Berechtigung für diese Aktion.",
     "conflict": "Konflikt: Die Ressource wurde zwischenzeitlich geändert.",
+    "soilProfileStale": "Das Bodenprofil hat sich inzwischen geändert, weil eine Bodenanalyse gespeichert wurde. Lade die Seite neu und trage deine Änderung erneut ein.",
     "tooLarge": "Die Datei ist zu groß. Bitte wähle eine kleinere Datei.",
     "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
     "validation": "Bitte überprüfe deine Eingaben.",

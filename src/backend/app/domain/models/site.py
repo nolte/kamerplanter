@@ -222,6 +222,20 @@ def with_legacy_ec_method(profile: object) -> object:
     return profile
 
 
+#: The measured-value fields of a soil profile an analysis can write (REQ-053 §15.1); each pairs with its method
+#: field where it has one (``ph_method``, ``ec_method``).
+AnalysisField = Literal["ph", "ec_ms_cm", "humus_percent", "caco3_percent"]
+
+
+class SoilHandValue(BaseModel):
+    """One measured-value field as a person set it (#2706): the value (``None`` = cleared), its method, the instant."""
+
+    value: float | None = None
+    #: ``ph_method`` / ``ec_method`` of the entry; ``None`` for a field without a method.
+    method: str | None = None
+    at: datetime
+
+
 class SoilProfile(BaseModel):
     """The v1 soil profile of a bed location (REQ-053 §15.1, GP-FR-120/121).
 
@@ -253,8 +267,14 @@ class SoilProfile(BaseModel):
     stone_content_class: StoneContentClass = StoneContentClass.UNKNOWN
     target_ph: float | None = Field(default=None, ge=0.0, le=14.0)
     established_on: date | None = None
-    #: The ``performed_at`` of the newest soil analysis whose values the profile holds (WP 8.7).
+    #: The ``performed_at`` of the newest soil analysis whose values the profile holds (WP 8.7). Server-owned: only a
+    #: soil analysis, its void or its correction moves it; ``PATCH /locations`` keeps the stored value (#2706).
     last_analysis_at: datetime | None = None
+    #: Server-owned (#2706): the hand entries of the measured-value fields, per field ``{value, method, at}``. A
+    #: ``null`` value is a value cleared by hand. Per field the newest observation wins - the hand entry (``at``) or
+    #: the newest open analysis that measured it (``performed_at``); a tie goes to the hand entry. ``None`` = a row
+    #: from before the entries; the first derivation classifies its values (see the soil engine).
+    hand_values: dict[AnalysisField, SoilHandValue] | None = None
     #: A substrate change resets the crop-rotation history: plantings before this day do not count (GP-FR-131).
     rotation_reset_at: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
