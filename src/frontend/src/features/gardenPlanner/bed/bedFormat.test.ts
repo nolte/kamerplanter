@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import i18next from 'i18next';
-import { isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
+import i18n from '@/i18n/i18n';
+import { isOverdue, siteConditionsLine, siteFlagsLine, sunProfileLine } from './bedFormat';
 
 /** The boundary cases live in the shared vectors (`model/overdue.vectors.test.ts`); this pins the re-export. */
 describe('isOverdue (bed list column)', () => {
@@ -79,5 +80,38 @@ describe('siteConditionsLine (GP-FR-162/163/168)', () => {
         'pages.gardenPlan.siteConditions.summary.access:enums.accessSide.N, enums.accessSide.S',
       ].join(' · '),
     );
+  });
+});
+
+describe('site flags (GP-FR-165, WP 9.11)', () => {
+  const de = i18n.getFixedT('de');
+  const en = i18n.getFixedT('en');
+
+  it('names exactly the flags that are set', () => {
+    expect(siteFlagsLine(de, ['allelopathy_risk'])).toBe('Allelopathie-Risiko am Standort gemeldet');
+    expect(siteFlagsLine(de, ['root_competition'])).toBe('Wurzelkonkurrenz am Standort gemeldet');
+    expect(siteFlagsLine(en, ['root_competition', 'allelopathy_risk'])).toBe(
+      'Root competition/Allelopathy risk reported at this site',
+    );
+  });
+
+  it('is null without a flag', () => {
+    expect(siteFlagsLine(de, [])).toBeNull();
+    expect(siteFlagsLine(de, undefined)).toBeNull();
+    expect(siteFlagsLine(de, null)).toBeNull();
+  });
+
+  it('shows a value it does not know as a neutral report, never as a raw key, and only once', () => {
+    const line = siteFlagsLine(de, ['shade_tree', 'other_new_flag', 'root_competition']);
+    expect(line).toBe('Weitere Meldung/Wurzelkonkurrenz am Standort gemeldet');
+    expect(line).not.toContain('enums.');
+  });
+
+  it('is part of the site line, so a bed with flags only has one', () => {
+    expect(siteConditionsLine(de, { flags: ['allelopathy_risk'] })).toBe('Konkurrenz: Allelopathie-Risiko');
+    expect(siteConditionsLine(en, { wind_exposure: 'exposed', flags: ['root_competition', 'allelopathy_risk'] })).toBe(
+      'Wind: Exposed · Competition: Root competition, Allelopathy risk',
+    );
+    expect(siteConditionsLine(de, { flags: [] })).toBeNull();
   });
 });

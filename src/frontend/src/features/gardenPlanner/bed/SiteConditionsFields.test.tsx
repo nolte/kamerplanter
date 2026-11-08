@@ -84,6 +84,23 @@ describe('SiteConditionsFields', () => {
     ]);
   });
 
+  it('toggles the competition flags and reports the whole list (GP-FR-165)', async () => {
+    const spy = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<Harness initial={{ flags: ['allelopathy_risk'] }} spy={spy} />);
+
+    const group = screen.getByRole('group', { name: 'Competition at the site' });
+    expect(within(group).getByRole('checkbox', { name: 'Allelopathy risk' })).toBeChecked();
+    expect(within(group).getByRole('checkbox', { name: 'Root competition' })).not.toBeChecked();
+    await user.click(within(group).getByRole('checkbox', { name: 'Root competition' }));
+    await user.click(within(group).getByRole('checkbox', { name: 'Allelopathy risk' }));
+
+    expect(spy.mock.calls.map(([patch]) => patch)).toEqual([
+      { flags: ['allelopathy_risk', 'root_competition'] },
+      { flags: ['root_competition'] },
+    ]);
+  });
+
   it('commits slope and aspect on Enter, clears with an empty entry and flags an unreadable one', async () => {
     const spy = vi.fn();
     const user = userEvent.setup();
@@ -126,7 +143,9 @@ describe('SiteConditionsFields', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = renderWithProviders(<Harness initial={{ wind_exposure: 'exposed' }} />);
+    const { container } = renderWithProviders(
+      <Harness initial={{ wind_exposure: 'exposed', flags: ['root_competition'] }} />,
+    );
     await expectNoA11yViolations(container, { minElements: 10 });
   });
 });
@@ -175,6 +194,21 @@ describe('the patch helpers', () => {
     const out = changedSitePatch(stored, { microclimate: { frost_risk: 'low' } });
     expect(out).toEqual({ microclimate: { frost_risk: 'low' } });
     expect(JSON.stringify(out)).not.toContain('frost_exposed');
+  });
+
+  it('sends the flags only when the set differs from what is stored, whatever the order', () => {
+    const flagged: SiteConditionsSlice = { flags: ['root_competition', 'allelopathy_risk'] };
+    expect(changedSitePatch(flagged, { flags: ['allelopathy_risk', 'root_competition'] })).toEqual({});
+    expect(changedSitePatch(flagged, { flags: ['root_competition'] })).toEqual({ flags: ['root_competition'] });
+    expect(changedSitePatch(flagged, { flags: [] })).toEqual({ flags: [] });
+    expect(changedSitePatch(null, { flags: [] })).toEqual({});
+    expect(changedSitePatch(undefined, { flags: ['allelopathy_risk'] })).toEqual({ flags: ['allelopathy_risk'] });
+  });
+
+  it('replaces the flags as a whole when patches are merged', () => {
+    expect(mergeSitePatch({ flags: ['root_competition'] }, { flags: ['allelopathy_risk'] })).toEqual({
+      flags: ['allelopathy_risk'],
+    });
   });
 
   it('merges microclimate keys across patches', () => {

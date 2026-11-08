@@ -38,8 +38,26 @@ export function sunProfileLine(t: TFunction, profile: SunProfile | null | undefi
 }
 
 /**
- * One line with the site conditions that were recorded (GP-FR-162/163/168): frost risk, cold-air pocket, stored
- * heat, wind, slope, aspect and access sides. Only what was entered appears (`unknown` and absent are left out);
+ * The names of the competition flags (GP-FR-165) in the order given, each once. A value this client does not know
+ * (a newer server) reads as a neutral "Other report", never as a raw i18n key.
+ */
+function siteFlagLabels(t: TFunction, flags: readonly string[] | null | undefined): string[] {
+  const other = t('pages.gardenPlan.siteConditions.flags.other');
+  return [...new Set((flags ?? []).map((flag) => t(`enums.siteFlag.${flag}`, { defaultValue: other })))];
+}
+
+/**
+ * "Allelopathy risk reported at this site" - naming exactly the flags that are set, combined when there are two
+ * (GP-FR-165); `null` without a flag. A note, never a rating: nothing is derived from it.
+ */
+export function siteFlagsLine(t: TFunction, flags: readonly string[] | null | undefined): string | null {
+  const labels = siteFlagLabels(t, flags);
+  return labels.length > 0 ? t('pages.gardenPlan.siteConditions.flags.reported', { value: labels.join('/') }) : null;
+}
+
+/**
+ * One line with the site conditions that were recorded (GP-FR-162/163/165/168): frost risk, cold-air pocket, stored
+ * heat, wind, slope, aspect, access sides and competition flags. Only what was entered appears (`unknown` and absent are left out);
  * `null` when nothing was.
  */
 export function siteConditionsLine(t: TFunction, conditions: SiteConditionsSlice | null | undefined): string | null {
@@ -71,5 +89,7 @@ export function siteConditionsLine(t: TFunction, conditions: SiteConditionsSlice
       }),
     );
   }
+  const flags = siteFlagLabels(t, conditions.flags);
+  if (flags.length > 0) parts.push(t('pages.gardenPlan.siteConditions.summary.flags', { value: flags.join(', ') }));
   return parts.length > 0 ? parts.join(' · ') : null;
 }
