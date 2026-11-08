@@ -50,18 +50,28 @@ export async function listBedPhotos(key: string): Promise<BedPhotoGallery> {
 
 /**
  * Upload a photo and link it to the bed. Two requests: the upload (category `location`), then the link; a 422
- * `location.photo_limit_reached` at 50 photos comes from the link.
+ * `location.photo_limit_reached` at 50 photos comes from the link. `clientEventId` (WP 9.3/9.4): a buffered photo
+ * resends both steps with the same id — the upload answers the stored attachment, the link is idempotent.
  */
-export async function addBedPhoto(key: string, file: File): Promise<BedPhotoGallery> {
+export async function addBedPhoto(
+  key: string,
+  file: File,
+  clientEventId?: string,
+  config: { timeout?: number } = {},
+): Promise<BedPhotoGallery> {
   const form = new FormData();
   form.append('file', file);
   form.append('category', BED_PHOTO_CATEGORY);
+  if (clientEventId) form.append('client_event_id', clientEventId);
   const uploaded = await tenantClient.post<{ attachment_id: string }>('/attachments', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    ...config,
   });
-  const { data } = await tenantClient.post<BedPhotoGallery>(photosPath(key), {
-    attachment_id: uploaded.data.attachment_id,
-  });
+  const { data } = await tenantClient.post<BedPhotoGallery>(
+    photosPath(key),
+    { attachment_id: uploaded.data.attachment_id },
+    config,
+  );
   return data;
 }
 

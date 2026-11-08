@@ -20,7 +20,7 @@ import { careCategoryLabel } from './careLabels';
 import { buildLogBody, defaultUnit, emptyForm, validateForm, type CareFormState } from './careForm';
 import { logCareEvent } from './careApi';
 import CareFormFields from './CareFormFields';
-import type { CareEventRef } from './careTypes';
+import type { CareEventBody, CareEventRef } from './careTypes';
 
 interface CareLogDialogProps {
   bedKey: string;
@@ -35,6 +35,11 @@ interface CareLogDialogProps {
   fixedCategory?: string;
   /** Edge of the action buttons in px; field mode passes the kiosk target (64 px, GP-UX-020). */
   touchTarget?: number;
+  /**
+   * Store the line itself instead of `POST /care-events` + `onLogged`: field mode sends or buffers the note
+   * (REQ-053 WP 9.4) and reports the outcome itself. Resolves when it is done; the dialog only shows the wait.
+   */
+  logCare?: (body: CareEventBody, label: string) => Promise<void>;
 }
 
 export default function CareLogDialog({
@@ -44,6 +49,7 @@ export default function CareLogDialog({
   onLogged,
   fixedCategory,
   touchTarget = 48,
+  logCare,
 }: CareLogDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -84,8 +90,13 @@ export default function CareLogDialog({
     }
     setSaving(true);
     try {
-      const event = await logCareEvent(buildLogBody(state, category, bedKey, label(category), instant));
-      onLogged(event, label(category));
+      const body = buildLogBody(state, category, bedKey, label(category), instant);
+      if (logCare) {
+        await logCare(body, label(category));
+      } else {
+        const event = await logCareEvent(body);
+        onLogged(event, label(category));
+      }
     } catch (error) {
       handleError(error);
     } finally {

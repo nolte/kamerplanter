@@ -20,9 +20,10 @@ const TASKS = '/tasks';
 /** GP-API-030: the pending tasks of a bed and the plants standing in it (suggestions included). */
 export async function getBedQueue(
   locationKey: string,
-  options: { includeChildren?: boolean; category?: string } = {},
+  options: { includeChildren?: boolean; category?: string; timeout?: number } = {},
 ): Promise<CareTask[]> {
   const { data } = await tenantClient.get<CareTask[]>(`${TASKS}/queue`, {
+    ...(options.timeout ? { timeout: options.timeout } : {}),
     params: {
       location_key: locationKey,
       include_children: options.includeChildren ?? true,
@@ -48,9 +49,18 @@ export async function listActivePlants(bedKey: string): Promise<BedPlantRef[]> {
   );
 }
 
-/** GP-API-031: the one completion transition; the task's care line is written in the same transaction. */
-export async function completeBedTask(key: string, payload: CompletionPayload): Promise<TaskItem> {
-  const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/complete`, payload);
+/**
+ * GP-API-031: the one completion transition; the task's care line is written in the same transaction.
+ * `clientEventId` (WP 9.3/9.4): the buffered completion's id — a resend with it is a replay, never a second close.
+ */
+export async function completeBedTask(
+  key: string,
+  payload: CompletionPayload,
+  clientEventId?: string,
+  config: { timeout?: number } = {},
+): Promise<TaskItem> {
+  const body = clientEventId ? { ...payload, client_event_id: clientEventId } : payload;
+  const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/complete`, body, config);
   return data;
 }
 
@@ -120,9 +130,17 @@ export async function createTasksForEachPlant(body: BedTaskBody): Promise<CareTa
   return data;
 }
 
-/** GP-API-033 / GP-FR-090: log care without a task. */
-export async function logCareEvent(body: CareEventBody): Promise<CareEventRef> {
-  const { data } = await tenantClient.post<CareEventRef>('/care-events', body);
+/**
+ * GP-API-033 / GP-FR-090: log care without a task. `clientEventId` (WP 9.3/9.4): a resend with the same id answers
+ * the stored entry (200) instead of a second one.
+ */
+export async function logCareEvent(
+  body: CareEventBody,
+  clientEventId?: string,
+  config: { timeout?: number } = {},
+): Promise<CareEventRef> {
+  const sent = clientEventId ? { ...body, client_event_id: clientEventId } : body;
+  const { data } = await tenantClient.post<CareEventRef>('/care-events', sent, config);
   return data;
 }
 

@@ -6887,6 +6887,18 @@
           "action": "Foto vom Beet",
           "actionFor": "Foto vom Beet {{bed}} aufnehmen",
           "saved": "Foto bei {{bed}} gespeichert."
+        },
+        "buffer": {
+          "offline": "Keine Verbindung. „Erledigt“, Notizen und Fotos werden auf dem Gerät gespeichert und übertragen, sobald du wieder online bist. Alles andere ist bis dahin gesperrt.",
+          "full": "Der Offline-Speicher ist voll ({{max}} Einträge). Geh online, damit sie übertragen werden – bis dahin wird nichts mehr gespeichert.",
+          "completed": "„{{name}}“ auf dem Gerät gespeichert – wird übertragen, sobald du online bist.",
+          "noted": "Notiz auf dem Gerät gespeichert – wird übertragen, sobald du online bist.",
+          "photoQueued": "Foto auf dem Gerät gespeichert – wird übertragen, sobald du online bist.",
+          "photoUnreadable": "Das Foto konnte auf dem Gerät nicht verkleinert werden. Versuch es noch einmal, wenn du online bist.",
+          "taskQueued": "Wartet auf Übertragung",
+          "undoTooLate": "Der Eintrag wird gerade übertragen und lässt sich hier nicht mehr zurücknehmen.",
+          "chipsOffline": "Ohne Verbindung geht im Schnellprotokoll nur die Notiz.",
+          "tooOld": "Das Datum liegt mehr als ein Jahr zurück – so alte Einträge nimmt der Server nicht an. Wähle ein jüngeres Datum."
         }
       },
       "glossary": {
@@ -7837,6 +7849,57 @@
       "open": "Fruchtfolge-Matrix",
       "openHint": "Welche Pflanzenfamilie in welchem Beet und Jahr stand",
       "refreshFailed": "Die Matrix konnte nicht aktualisiert werden. Der angezeigte Stand ist möglicherweise veraltet."
+    },
+    "offlineQueue": {
+      "kind": {
+        "complete": "Erledigt: {{task}}",
+        "note": "Notiz",
+        "bedPhoto": "Foto vom Beet",
+        "plantPhoto": "Foto von {{plant}}"
+      },
+      "conflict": {
+        "client_event_payload_mismatch": "Dieser Eintrag passt nicht zu dem, was unter seiner Kennung schon übertragen wurde. Er kann nicht gesendet werden.",
+        "task_already_closed": "Die Aufgabe ist inzwischen schon erledigt oder übersprungen.",
+        "task_missing": "Die Aufgabe gibt es nicht mehr.",
+        "client_event_deleted": "Was dieser Eintrag angelegt hatte, wurde inzwischen gelöscht."
+      },
+      "failed": {
+        "attempts": "Nach 5 Versuchen nicht übertragen.",
+        "refused": "Der Server hat den Eintrag abgelehnt (Code: {{code}})."
+      },
+      "dialog": {
+        "title": "Nicht übertragene Einträge",
+        "intro": "Diese Einträge aus dem Offline-Speicher konnten nicht übertragen werden. Entscheide, was mit ihnen passiert.",
+        "where": "{{bed}} · erfasst {{time}}",
+        "keep": "Behalten",
+        "discard": "Verwerfen",
+        "retry": "Erneut versuchen",
+        "keptChip": "Auf dem Gerät behalten",
+        "keepHint": "„Behalten“ bewahrt den Eintrag nur auf diesem Gerät auf, damit du ihn nachlesen kannst – er wird nicht noch einmal gesendet. Beim Abmelden wird er gelöscht, spätestens nach einem Jahr.",
+        "empty": "Hier ist nichts zu entscheiden.",
+        "actionFailed": "Das ging gerade nicht – der Eintrag wird vielleicht schon übertragen. Versuch es gleich noch einmal.",
+        "syncNow_one": "{{count}} wartenden Eintrag jetzt übertragen",
+        "syncNow_other": "{{count}} wartende Einträge jetzt übertragen"
+      },
+      "chip_one": "{{count}} nicht übertragen",
+      "chip_other": "{{count}} nicht übertragen",
+      "progress": "Übertrage {{done}}/{{total}} Einträge …",
+      "synced_one": "{{count}} Eintrag übertragen.",
+      "synced_other": "{{count}} Einträge übertragen.",
+      "failedNotice_one": "{{count}} Eintrag konnte nicht übertragen werden. Tippe auf „nicht übertragen“ oben in der Leiste.",
+      "failedNotice_other": "{{count}} Einträge konnten nicht übertragen werden. Tippe auf „nicht übertragen“ oben in der Leiste.",
+      "sessionChange": {
+        "title": "Noch nicht übertragen",
+        "syncNow": "Jetzt übertragen",
+        "syncing": "Einträge werden übertragen",
+        "offline": "Keine Verbindung – „Jetzt übertragen“ geht erst wieder, wenn du online bist. Du kannst abbrechen oder die Einträge verwerfen und dich abmelden.",
+        "text_one": "{{count}} Eintrag ist noch nicht übertragen. Beim Abmelden wird er von diesem Gerät gelöscht.",
+        "text_other": "{{count}} Einträge sind noch nicht übertragen (auch aus anderen Gärten). Beim Abmelden werden sie von diesem Gerät gelöscht.",
+        "discard": "Verwerfen und abmelden",
+        "textUnknown": "Ob noch Einträge auf Übertragung warten, ließ sich gerade nicht prüfen. Beim Abmelden werden nicht übertragene Einträge von diesem Gerät gelöscht."
+      },
+      "purged_one": "{{count}} nicht übertragener Eintrag war älter als ein Jahr und wurde von diesem Gerät gelöscht – der Server nimmt so alte Einträge nicht mehr an.",
+      "purged_other": "{{count}} nicht übertragene Einträge waren älter als ein Jahr und wurden von diesem Gerät gelöscht – der Server nimmt so alte Einträge nicht mehr an."
     }
   }
 }

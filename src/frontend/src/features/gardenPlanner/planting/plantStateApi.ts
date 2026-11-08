@@ -57,12 +57,17 @@ export const PLANT_STATES_PAGE_SIZE = 200;
 const MAX_PAGES = 10;
 
 /** All standing plants of the bed: pages of 200 until one comes back shorter. */
-export async function listPlantStates(bedKey: string, signal?: AbortSignal): Promise<PlantStateWire[]> {
+export async function listPlantStates(
+  bedKey: string,
+  signal?: AbortSignal,
+  timeout?: number,
+): Promise<PlantStateWire[]> {
   const all: PlantStateWire[] = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const { data } = await tenantClient.get<PlantStateWire[]>(`/locations/${bedKey}/plant-states`, {
       params: { offset: page * PLANT_STATES_PAGE_SIZE, limit: PLANT_STATES_PAGE_SIZE },
       signal,
+      ...(timeout ? { timeout } : {}),
     });
     all.push(...data);
     if (data.length < PLANT_STATES_PAGE_SIZE) break;

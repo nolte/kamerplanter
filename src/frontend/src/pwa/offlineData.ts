@@ -10,7 +10,8 @@
  * or a service worker simply has nothing to clear, and a logout must never fail on cleanup.
  */
 import { SW_MESSAGE_CLEAR_DATA, SW_MESSAGE_SET_NAMESPACE, isPublicCacheName } from './cachePolicy';
-import { deleteAllDatabases, deleteCaches } from './storageWipe';
+import { WRITE_QUEUE_DB_NAME, deleteAllDatabases, deleteCaches } from './storageWipe';
+import { deleteWriteQueueEntriesOf } from './writeQueueWipe';
 
 interface Namespace {
   userKey: string | null;
@@ -139,6 +140,25 @@ export function postNamespace(userKey: string | null, tenantKey: string | null):
   return postToWorker({ type: SW_MESSAGE_SET_NAMESPACE, userKey, tenantKey });
 }
 
+/**
+ * The confirmation an explicit logout needs before it discards the user's unsent offline entries (REQ-053 WP 9.4,
+ * UI-NFR-012 R-056 c). The app bar sets it after the user confirmed (or after it counted none); the session
+ * listener takes it. A logout without it — the count could not even be loaded — keeps the entries.
+ */
+let approvedDiscard: string | null = null;
+
+/** The user confirmed (or nothing was buffered): their logout may discard their unsent entries. */
+export function approveWriteQueueDiscard(userKey: string | null): void {
+  approvedDiscard = userKey;
+}
+
+/** Whether `userKey`'s logout was confirmed; the approval is used up. */
+export function takeWriteQueueDiscardApproval(userKey: string | null): boolean {
+  const approved = userKey !== null && approvedDiscard === userKey;
+  approvedDiscard = null;
+  return approved;
+}
+
 /** Re-send the last namespace, e.g. after a new worker took control of the page. */
 export function repostNamespace(): Promise<void> {
   return postNamespace(lastNamespace.userKey, lastNamespace.tenantKey);
@@ -151,20 +171,29 @@ export function repostNamespace(): Promise<void> {
  * user's session ended, so it invalidates that user's namespace in every tab.
  *
  * Await this BEFORE `window.location.reload()` on logout and tenant switch (G-W9 b).
+ *
+ * The offline write buffer (REQ-053 WP 9.4) is the one exception (UI-NFR-012 R-050/R-051): unsent entries are
+ * not API data but the user's own work, bound to their `user_key` + `tenant_key` and never shown or sent in another
+ * scope. A tenant switch, a forced sign-out, a refused refresh keep them. Only `discardWriteQueueOf` — the explicit,
+ * confirmed logout and the account erasure — deletes the entries of that user (and no one else's).
  */
-export async function clearOfflineData(): Promise<void> {
+export async function clearOfflineData({ discardWriteQueueOf }: { discardWriteQueueOf?: string | null } = {}): Promise<void> {
   const { userKey } = lastNamespace;
   announceClearing(userKey);
   lastNamespace = { userKey: null, tenantKey: null };
   try {
     await postToWorker({ type: SW_MESSAGE_CLEAR_DATA, userKey });
-    await Promise.all([deleteCaches((name) => !isPublicCacheName(name)), deleteAllDatabases()]);
+    await Promise.all([
+      deleteCaches((name) => !isPublicCacheName(name)),
+      deleteAllDatabases([WRITE_QUEUE_DB_NAME]),
+      discardWriteQueueOf ? deleteWriteQueueEntriesOf(discardWriteQueueOf) : Promise.resolve(),
+    ]);
   } finally {
     emit('local-done');
   }
 }
 
-/** Kill switch (G-W9 e): everything goes, the app shell caches included. */
+/** Kill switch (G-W9 e): everything goes, the app shell caches and the offline write buffer included. */
 export async function clearAllOfflineStorage(): Promise<void> {
   announceClearing(lastNamespace.userKey, true);
   lastNamespace = { userKey: null, tenantKey: null };

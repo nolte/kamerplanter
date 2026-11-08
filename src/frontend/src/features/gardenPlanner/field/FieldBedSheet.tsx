@@ -5,13 +5,18 @@
  * dirty state (GP-UX-003, F-16).
  *
  * "Done" → short dialog → "Finish" is two taps after the bed was chosen (GP-ACC-029). A second tap within
- * 300 ms, or while the first is waiting for its answer, is the same tap; while offline "Done" is locked
- * instead of losing the entry (no offline buffer before wave 9, D-23). Every write offers "Undo" for 8 s.
+ * 300 ms, or while the first is waiting for its answer, is the same tap. Every write offers "Undo" for 8 s.
+ *
+ * Offline (REQ-053 WP 9.4, GP-UX-024 part 2): "Done", the note and the photos go into the offline write buffer
+ * (`offline/bufferedWrite.ts`) and are sent with their capture time once the connection is back; "Undo" then
+ * takes the entry out of the buffer. Everything else — the one-tap chips, harvest, planting, a position
+ * correction, sun and site — stays online-only. Without a usable buffer (no IndexedDB, kill switch) every write
+ * stays locked offline, as before wave 9 (D-23).
  *
  * A photo goes to the bed or to a plant (§18.1 step 7, GP-FR-051): "Photo of the bed" stores it in the bed's
  * gallery (the first one becomes the cover shown beside the name), "Photo" at a plant in that plant's gallery.
  */
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -32,11 +37,12 @@ import BedCoverPhoto from '../bed/BedCoverPhoto';
 import { addBedPhoto } from '../bed/bedPhotoApi';
 import { bedPhotoUploadError } from '../bed/bedPhotoMessages';
 import type { BedListItem } from '../bed/types';
+import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
 import { completeBedTask, logCareEvent, reopenWithUndo, voidCareEvent } from '../care/careApi';
-import type { CareContext } from '../care/careCategories';
+import { NOTE_CATEGORY, type CareContext } from '../care/careCategories';
 import { careCategoryLabel, careTaskName } from '../care/careLabels';
 import CareCompletionDialog from '../care/CareCompletionDialog';
-import type { CareEventRef, CareTask, CompletionPayload } from '../care/careTypes';
+import type { CareEventBody, CareEventRef, CareTask, CompletionPayload } from '../care/careTypes';
 import { isDuplicateTap } from '../care/submitGuard';
 import { useUndoSnackbar } from '../care/useUndoSnackbar';
 import type { PlantStateWire } from '../planting/plantStateApi';
@@ -47,17 +53,32 @@ import FieldSiteSection from './FieldSiteSection';
 import FieldSunSection from './FieldSunSection';
 import FieldTaskSection from './FieldTaskSection';
 import QuickProtocolChips from './QuickProtocolChips';
-import { quickLogBody, type QuickChip } from './quickChips';
+import { quickLogBody, type QuickChip, type QuickChipId } from './quickChips';
 import { useBedSheet } from './useBedSheet';
 import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import { useCacheScope } from '../offline/useCacheScope';
 import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
+import { canBuffer, sendOrBuffer, type BufferTarget } from '../offline/bufferedWrite';
+import { QUEUE_CAPACITY, discardEntry, isPerformedTooOld, isQueueFull } from '../offline/queue';
+import { photoAsSent, photoForQueue, withGenericName } from '../offline/queuedPhoto';
+// The direct send carries the same per-request timeouts as the sync (review B2): a hanging request ends as a
+// network failure, so the buffer fallback with the same id is reached.
+import { PHOTO_SEND_TIMEOUT_MS, SEND_TIMEOUT_MS } from '../offline/sync';
+import type { QueueEntry, QueuedWrite, StoredPhoto } from '../offline/queueTypes';
+import { useWriteQueue } from '../offline/useWriteQueue';
 
 const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
 const PlantingDialog = lazy(() => import('../planting/PlantingDialog'));
 const PositionCorrectionDialog = lazy(() => import('../planting/PositionCorrectionDialog'));
 const PlantPhotoUploadDialog = lazy(() => import('@/components/photos/PlantPhotoUploadDialog'));
+
+/** Offline with the buffer, only the note chip works (the other chips need the server). */
+const BUFFERED_CHIPS: ReadonlySet<QuickChipId> = new Set<QuickChipId>(['note']);
+
+/** Lie-fi: the first and the longest wait before the cached sheet is read again while the browser says online. */
+export const SHEET_RETRY_FIRST_MS = 2000;
+export const SHEET_RETRY_MAX_MS = 60_000;
 
 /** Long press before a marker can be dragged (GP-UX-023). */
 export const FIELD_LONG_PRESS_MS = 500;
@@ -88,7 +109,9 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const { handleError } = useApiError();
   const notification = useNotification();
   const { offerUndo } = useUndoSnackbar();
-  const sheet = useBedSheet(bed.key, useCacheScope());
+  const scope = useCacheScope();
+  const sheet = useBedSheet(bed.key, scope);
+  const queue = useWriteQueue(scope);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [saving, setSaving] = useState(false);
   const lastDoneTapAt = useRef(0);
@@ -107,6 +130,21 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     reload();
     onChanged();
   }, [reload, onChanged]);
+
+  // Lie-fi: online, yet the sheet is the cached one — `useReloadOnReconnect` never fires (nothing flips), so the
+  // read is retried with a backoff (2 s, 4 s … 60 s) until the server answers.
+  const staleWhileOnline = online && sheet.state.status === 'ready' && sheet.state.cachedAt !== null;
+  const retryDelay = useRef(SHEET_RETRY_FIRST_MS);
+  useEffect(() => {
+    if (!staleWhileOnline) {
+      retryDelay.current = SHEET_RETRY_FIRST_MS;
+      return undefined;
+    }
+    if (sheet.reloading) return undefined;
+    const timer = setTimeout(reload, retryDelay.current);
+    retryDelay.current = Math.min(SHEET_RETRY_MAX_MS, retryDelay.current * 2);
+    return () => clearTimeout(timer);
+  }, [staleWhileOnline, sheet.reloading, reload]);
   /** Planting and a position correction also change the plan's geometry and plants: the map reloads too. */
   const plantsChanged = useCallback(() => {
     changed();
@@ -130,6 +168,38 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const taskName = (task: CareTask) => careTaskName(task, i18n.language);
   const categoryLabel = (category: string) => careCategoryLabel(t, category);
 
+  // ── The offline write buffer (WP 9.4) ──
+  const bufferOn = queue.available && canBuffer(scope);
+  const target: BufferTarget = {
+    scope,
+    // A sheet from the cache (lie-fi) buffers like offline: no direct send against a snapshot.
+    online: online && (sheet.state.status !== 'ready' || sheet.state.cachedAt === null),
+    bedKey: bed.key,
+    bedName: bed.name,
+  };
+  const queuedTaskKeys = useMemo(
+    // Only what is still on its way hides "Done": a failed or conflicting completion shows its own state in the
+    // dialog and must not lock the task for good.
+    () =>
+      new Set(
+        queue.entries.flatMap((entry) =>
+          entry.write.kind === 'complete' && (entry.status === 'pending' || entry.status === 'syncing')
+            ? [entry.write.taskKey]
+            : [],
+        ),
+      ),
+    [queue.entries],
+  );
+  // An entry of this bed left the buffer (sent or discarded): what the server has now is read again.
+  const bedEntryCount = queue.entries.filter((entry) => entry.bedKey === bed.key).length;
+  const lastBedEntryCount = useRef(bedEntryCount);
+  useEffect(() => {
+    if (bedEntryCount < lastBedEntryCount.current && online) changed();
+    lastBedEntryCount.current = bedEntryCount;
+  }, [bedEntryCount, online, changed]);
+  /** The last photo went into the buffer, not to the server (the confirmation says so). */
+  const photoQueued = useRef(false);
+
   /**
    * The double-tap guard (GP-UX-023, R-029): "Done" has its own clock, "Finish" and the one-tap chips share
    * one - a tap within 300 ms of the last on the same control, or while a write waits, is the same tap.
@@ -149,17 +219,61 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     setSaving(false);
   };
 
+  // A sheet read from the plan cache is a past state: nothing is written against it (WP 9.2) — except what the
+  // buffer takes, which the server checks on arrival (a closed task is a conflict, WP 9.3).
+  const writesLocked = saving || !online || (ready?.cachedAt ?? null) !== null;
+  // Online with a sheet from the plan cache (WP 9.2): the lock stays — the sheet reloads first; nothing is sent
+  // or buffered against a snapshot while the server is reachable.
+  const fromCache = (ready?.cachedAt ?? null) !== null;
+  // The sheet came from the plan cache although the browser says online (lie-fi: the read got no answer). A write
+  // is then made against the capture-time view the user sees — exactly what offline buffering is for — so it is
+  // BUFFERED, never sent directly against the snapshot (WP 9.2). Locked only while a reload is on its way.
+  const sendDirect = online && !fromCache;
+  const bufferedLocked = bufferOn
+    ? saving || (!sendDirect && queue.full) || (online && fromCache && sheet.reloading)
+    : writesLocked;
+
+  /** "Undo" of a buffered entry: it leaves the buffer (refused once a sync has it on the way). */
+  const offerQueuedUndo = (entry: QueueEntry, message: string) => {
+    offerUndo({
+      message,
+      undo: async () => {
+        if (!scope || !(await discardEntry(scope, entry.id))) {
+          throw new Error(t('pages.gardenPlan.field.buffer.undoTooLate'));
+        }
+      },
+      onUndone: () => undefined,
+    });
+  };
+
+  const bufferError = (error: unknown) => {
+    if (isQueueFull(error)) notification.warning(t('pages.gardenPlan.field.buffer.full', { max: QUEUE_CAPACITY }));
+    else if (isPerformedTooOld(error)) notification.warning(t('pages.gardenPlan.field.buffer.tooOld'));
+    else handleError(error);
+  };
+
   const openDone = (task: CareTask) => {
-    if (!online || !claimTap(lastDoneTapAt)) return;
+    if (bufferedLocked || queuedTaskKeys.has(task.key) || !claimTap(lastDoneTapAt)) return;
     setOverlay({ kind: 'complete', task });
   };
 
   const complete = async (task: CareTask, payload: CompletionPayload) => {
-    if (!online || !claimTap(lastWriteTapAt)) return;
+    if (bufferedLocked || !claimTap(lastWriteTapAt)) return;
     begin();
+    // The capture time travels with the entry (GP-UX-024); the online attempt sends the same body, so a resend
+    // with its id is a replay and never a `payload_mismatch`.
+    const sent: CompletionPayload = bufferOn ? { ...payload, performed_at: payload.performed_at ?? new Date().toISOString() } : payload;
     try {
-      await completeBedTask(task.key, payload);
+      const outcome = await sendOrBuffer(
+        target,
+        () => ({ kind: 'complete', taskKey: task.key, taskName: taskName(task), payload: sent }),
+        (id) => completeBedTask(task.key, sent, id, { timeout: SEND_TIMEOUT_MS }),
+      );
       setOverlay(null);
+      if (outcome.status === 'queued') {
+        offerQueuedUndo(outcome.entry, t('pages.gardenPlan.field.buffer.completed', { name: taskName(task) }));
+        return;
+      }
       changed();
       offerUndo({
         message: t('pages.bed.care.undo.completed', { name: taskName(task) }),
@@ -169,11 +283,54 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
         onUndone: changed,
       });
     } catch (error) {
-      handleError(error);
+      bufferError(error);
     } finally {
       end();
     }
   };
+
+  /** The note chip's short form (GP-UX-029): sent, or buffered offline. */
+  const logNote = async (body: CareEventBody, label: string) => {
+    try {
+      const outcome = await sendOrBuffer(target, () => ({ kind: 'note', body }), (id) => logCareEvent(body, id, { timeout: SEND_TIMEOUT_MS }));
+      setOverlay(null);
+      if (outcome.status === 'queued') {
+        offerQueuedUndo(outcome.entry, t('pages.gardenPlan.field.buffer.noted'));
+      } else {
+        offerLogUndo(outcome.result, label);
+      }
+    } catch (error) {
+      bufferError(error);
+    }
+  };
+
+  /**
+   * A photo of the bed or a plant. Online it goes as the upload dialog prepared it (the gallery's single encode,
+   * 2048 px / JPEG 90). Only what is buffered is re-encoded for the device (≤ 1920 px, JPEG 80, R-044) — a capture
+   * made offline. A buffered copy of an online attempt whose answer got lost keeps the bytes that were sent: the
+   * resend under the same id must carry the same file, or it would be a `payload_mismatch`.
+   */
+  const sendPhoto = async (
+    file: File,
+    write: (photo: StoredPhoto) => QueuedWrite,
+    direct: (file: File, id: string | undefined) => Promise<unknown>,
+  ): Promise<void> => {
+    const sent = bufferOn ? withGenericName(file) : file;
+    const outcome = await sendOrBuffer(
+      target,
+      async (fallback) => {
+        if (fallback) return write(await photoAsSent(sent));
+        try {
+          return write(await photoForQueue(file));
+        } catch {
+          throw new Error(t('pages.gardenPlan.field.buffer.photoUnreadable'));
+        }
+      },
+      (id) => direct(sent, id),
+    );
+    photoQueued.current = outcome.status === 'queued';
+  };
+
 
   const offerLogUndo = (event: CareEventRef, label: string) => {
     onChanged();
@@ -204,12 +361,34 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     else if (chip.action === 'planting') setOverlay({ kind: 'planting' });
   };
 
-  const uploadBedPhoto = useCallback((file: File) => addBedPhoto(bed.key, file), [bed.key]);
-  const bedPhotoError = useCallback((error: unknown) => bedPhotoUploadError(t, error), [t]);
+  const uploadBedPhoto = (file: File) =>
+    sendPhoto(
+      file,
+      (photo) => ({ kind: 'bedPhoto', locationKey: bed.key, photo }),
+      (sent, id) => addBedPhoto(bed.key, sent, id, { timeout: PHOTO_SEND_TIMEOUT_MS }),
+    );
+  /** The photo of the plant the photo dialog was opened for. */
+  const uploadPhotoOfPlant = (file: File): Promise<void> => {
+    if (overlay?.kind !== 'photo') return Promise.resolve();
+    const { plant_key: plantKey, instance_id: plantName } = overlay.plant;
+    return sendPhoto(
+      file,
+      (photo) => ({ kind: 'plantPhoto', plantKey, plantName, photo }),
+      (sent, id) => uploadPlantPhoto(plantKey, sent, id, { timeout: PHOTO_SEND_TIMEOUT_MS }),
+    );
+  };
+  const fullMessage = (error: unknown): string | null =>
+    isQueueFull(error) ? t('pages.gardenPlan.field.buffer.full', { max: QUEUE_CAPACITY }) : null;
+  const bedPhotoError = useCallback(
+    (error: unknown) =>
+      isQueueFull(error) ? t('pages.gardenPlan.field.buffer.full', { max: QUEUE_CAPACITY }) : bedPhotoUploadError(t, error),
+    [t],
+  );
 
   const closeOverlay = () => setOverlay(null);
-  // A sheet read from the plan cache is a past state: nothing is written against it (WP 9.2).
-  const writesLocked = saving || !online || (ready?.cachedAt ?? null) !== null;
+  const chipsDisabled = writesLocked && (!bufferOn || bufferedLocked);
+  const onlyChips = writesLocked && bufferOn && !bufferedLocked ? BUFFERED_CHIPS : undefined;
+  const bufferedOffline = !online && bufferOn;
 
   return (
     <Drawer
@@ -249,7 +428,12 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
 
         {!online && (
           <Alert severity="warning" data-testid="field-sheet-offline">
-            {t('pages.gardenPlan.field.offline')}
+            {bufferedOffline ? t('pages.gardenPlan.field.buffer.offline') : t('pages.gardenPlan.field.offline')}
+          </Alert>
+        )}
+        {bufferOn && queue.full && (
+          <Alert severity="warning" data-testid="field-sheet-buffer-full">
+            {t('pages.gardenPlan.field.buffer.full', { max: QUEUE_CAPACITY })}
           </Alert>
         )}
 
@@ -270,7 +454,8 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
 
         {canEdit && (
           <QuickProtocolChips
-            disabled={writesLocked}
+            disabled={chipsDisabled}
+            onlyChips={onlyChips}
             plantingAvailable={Boolean(bed.geometry)}
             onChip={onChip}
           />
@@ -289,7 +474,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
               color="inherit"
               startIcon={<AddAPhotoIcon aria-hidden="true" />}
               onClick={() => setOverlay({ kind: 'bedPhoto' })}
-              disabled={!online}
+              disabled={bufferOn ? bufferedLocked : !online}
               sx={{ minHeight: KIOSK_TOUCH_TARGET, minWidth: KIOSK_TOUCH_TARGET, borderWidth: 2 }}
               aria-label={t('pages.gardenPlan.field.bedPhoto.actionFor', { bed: bed.name })}
               data-testid="field-bed-photo"
@@ -304,7 +489,8 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             sections={sections}
             plantNames={plantNames}
             canEdit={canEdit}
-            locked={writesLocked}
+            locked={bufferedLocked}
+            queuedTaskKeys={queuedTaskKeys}
             onDone={openDone}
           />
         )}
@@ -314,6 +500,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             groups={groups}
             canEdit={canEdit}
             offline={!online}
+            photoLocked={bufferOn ? bufferedLocked : !online}
             canCorrect={Boolean(bed.geometry)}
             onCorrect={(plant) => setOverlay({ kind: 'correct', plant })}
             onPhoto={(plant) => setOverlay({ kind: 'photo', plant })}
@@ -343,6 +530,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             context={context}
             fixedCategory={overlay.category}
             touchTarget={KIOSK_TOUCH_TARGET}
+            logCare={overlay.category === NOTE_CATEGORY ? logNote : undefined}
             onClose={closeOverlay}
             onLogged={(event, label) => {
               setOverlay(null);
@@ -390,11 +578,16 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
         {overlay?.kind === 'photo' && (
           <PlantPhotoUploadDialog
             open
-            plantInstanceKey={overlay.plant.plant_key}
+            upload={uploadPhotoOfPlant}
+            errorMessage={fullMessage}
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}
             onUploaded={() => {
-              notification.success(t('pages.gardenPlan.field.photoSaved', { plant: overlay.plant.instance_id }));
+              notification.success(
+                photoQueued.current
+                  ? t('pages.gardenPlan.field.buffer.photoQueued')
+                  : t('pages.gardenPlan.field.photoSaved', { plant: overlay.plant.instance_id }),
+              );
               setOverlay(null);
             }}
           />
@@ -408,6 +601,11 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}
             onUploaded={() => {
+              if (photoQueued.current) {
+                notification.success(t('pages.gardenPlan.field.buffer.photoQueued'));
+                setOverlay(null);
+                return;
+              }
               notification.success(t('pages.gardenPlan.field.bedPhoto.saved', { bed: bed.name }));
               setOverlay(null);
               // The first photo becomes the cover; the list carries it.

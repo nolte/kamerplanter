@@ -27,6 +27,16 @@ import i18n from 'i18next';
  * (`deleteAllDatabases`) run against a real IndexedDB (`fake-indexeddb`) holding a cached plan, and the
  * plan is gone afterwards; a write whose read began before a clearing never lands.
  *
+ * REQ-053 WP 9.4 (#2744), UI-NFR-012 R-050/R-051 — the offline write buffer (`kp-write-queue`, its own database)
+ * is the pinned EXCEPTION to the clearings above. The READ cache (plan cache, API caches) goes on every one of
+ * them; the buffer's unsent entries are the user's own work, bound to their user + tenant:
+ *
+ * - kept by a tenant switch (TenantSwitcher, light-mode take-over), a forced sign-out (`clearAuth`) and a refused
+ *   refresh (dead session) — `clearOfflineData()` without `discardWriteQueueOf`;
+ * - discarded — only that user's rows, in all tenants — by the explicit logout (after the app bar's confirmation,
+ *   `test/guards/unsyncedWritesBeforeSessionChange.test.tsx`) and the account erasure;
+ * - deleted with the database by the kill switch and the worker's self-destruct wipe.
+ *
  * #2789 review S3: two more places end a session's offline data — the account erasure
  * (`pages/auth/AccountSettingsPage.tsx`, before its redirect) and a refresh the server refused
  * (`store/sessionListener.ts`, the bootstrap swallows it without `clearAuth`). A refresh that got no
@@ -50,7 +60,17 @@ vi.mock('@/pwa/offlineData', () => ({
   clearAllOfflineStorage: vi.fn(async () => undefined),
   offlineDataGeneration: vi.fn(() => 0),
   onOfflineDataEvent: vi.fn(() => () => undefined),
+  approveWriteQueueDiscard: vi.fn((userKey: string | null) => {
+    approval.userKey = userKey;
+  }),
+  takeWriteQueueDiscardApproval: vi.fn((userKey: string | null) => {
+    const approved = userKey !== null && approval.userKey === userKey;
+    approval.userKey = null;
+    return approved;
+  }),
 }));
+/** The confirmation of the app bar, as the mocked module keeps it. */
+const approval: { userKey: string | null } = { userKey: null };
 vi.mock('@/api/endpoints/system', () => ({ getTakeoverStatus: vi.fn(), decideTakeover: vi.fn() }));
 vi.mock('@/api/endpoints/auth', async () => ({
   ...(await vi.importActual<typeof import('@/api/endpoints/auth')>('@/api/endpoints/auth')),
@@ -109,6 +129,8 @@ describe('offline data is cleared before a tenant switch reloads (TenantSwitcher
     releaseClear();
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
     expect(calls).toEqual(['clear:start', 'clear:done', 'reload']);
+    // The read cache goes; the offline write buffer stays bound to the previous tenant (WP 9.4).
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[0]).toEqual([]);
   });
 });
 
@@ -156,6 +178,7 @@ describe('offline data is cleared before the light-mode take-over switches the t
     expect(store.getState().tenants.activeTenant?.slug).not.toBe('garten-b');
     releaseClear();
     await waitFor(() => expect(store.getState().tenants.activeTenant?.slug).toBe('garten-b'));
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[0]).toEqual([]);
   });
 });
 
@@ -182,8 +205,21 @@ describe('offline data is cleared on logout and the namespace follows user and t
     const store = await listenedStore(authState());
     store.dispatch(clearAuth());
     await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+    // A forced sign-out keeps the offline write buffer for the owner's next sign-in (WP 9.4, R-051) ...
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[0]).toEqual([undefined]);
     await store.dispatch(logoutUser());
     await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(2));
+    // ... a logout the user did not confirm keeps them too (R-056 c) ...
+    const unconfirmed = await listenedStore(authState());
+    await unconfirmed.dispatch(logoutUser());
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[2]).toEqual([undefined]);
+    // ... and the confirmed logout discards the user's entries.
+    const confirmed = await listenedStore(authState());
+    offlineData.approveWriteQueueDiscard('user-1');
+    await confirmed.dispatch(logoutUser());
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(4));
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[3]).toEqual([{ discardWriteQueueOf: 'user-1' }]);
   });
 
   it('posts the user and tenant keys — never a token — when the active tenant changes', async () => {
@@ -322,6 +358,84 @@ describe('the plan cache database is emptied by the same clearings (WP 9.2)', ()
   });
 });
 
+describe('the offline write buffer is emptied by the same clearings (WP 9.4)', () => {
+  const ALICE = { userKey: 'alice', tenantKey: 'tenant_a' };
+
+  beforeEach(async () => {
+    const { emptyWriteQueue } = await import('@/test/writeQueueTestKit');
+    await emptyWriteQueue();
+  });
+
+  /** Two buffered entries, the database on disk; returns whether the database still exists afterwards. */
+  async function seededBuffer() {
+    const { capture } = await import('@/test/writeQueueTestKit');
+    const { WRITE_QUEUE_DB_NAME } = await import('@/pwa/storageWipe');
+    await capture(ALICE);
+    await capture(ALICE);
+    const names = async () => (await indexedDB.databases()).map((database) => database.name ?? '');
+    expect(await names()).toContain(WRITE_QUEUE_DB_NAME);
+    return { exists: async () => (await names()).includes(WRITE_QUEUE_DB_NAME) };
+  }
+
+  it('is KEPT by a tenant switch, a forced sign-out and a refused refresh (clearOfflineData(), R-050/R-051)', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    const { exists } = await seededBuffer();
+    await actual.clearOfflineData();
+    expect(await exists()).toBe(true);
+    const { listEntries } = await import('@/features/gardenPlanner/offline/queue');
+    expect(await listEntries(ALICE)).toHaveLength(2);
+  });
+
+  it("an explicit logout or the account erasure discards that user's entries in every tenant — no one else's", async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    const { capture } = await import('@/test/writeQueueTestKit');
+    const { listEntries } = await import('@/features/gardenPlanner/offline/queue');
+    await seededBuffer();
+    const ALICE_B = { userKey: 'alice', tenantKey: 'tenant_b' };
+    const BOB = { userKey: 'bob', tenantKey: 'tenant_a' };
+    await capture(ALICE_B);
+    await capture(BOB);
+    await actual.clearOfflineData({ discardWriteQueueOf: 'alice' });
+    expect(await listEntries(ALICE)).toEqual([]);
+    expect(await listEntries(ALICE_B)).toEqual([]);
+    expect(await listEntries(BOB)).toHaveLength(1);
+  });
+
+  it('is gone after the kill switch (clearAllOfflineStorage)', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    const { exists } = await seededBuffer();
+    await actual.clearAllOfflineStorage();
+    expect(await exists()).toBe(false);
+  });
+
+  it("is gone after the worker's wipe, even where databases() cannot enumerate", async () => {
+    const { deleteAllDatabases } = await import('@/pwa/storageWipe');
+    const { exists } = await seededBuffer();
+    const databases = indexedDB.databases;
+    Object.defineProperty(indexedDB, 'databases', { configurable: true, value: undefined });
+    try {
+      await deleteAllDatabases();
+    } finally {
+      Object.defineProperty(indexedDB, 'databases', { configurable: true, value: databases });
+    }
+    expect(await exists()).toBe(false);
+  });
+
+  it('drops a capture whose call began before a clearing started', async () => {
+    const { capture } = await import('@/test/writeQueueTestKit');
+    const { listEntries } = await import('@/features/gardenPlanner/offline/queue');
+    let calls = 0;
+    // The generation moves between the start of the capture and its transaction.
+    vi.mocked(offlineData.offlineDataGeneration).mockImplementation(() => (calls++ === 0 ? 0 : 1));
+    try {
+      await expect(capture(ALICE)).rejects.toThrow('offline_queue.unavailable');
+    } finally {
+      vi.mocked(offlineData.offlineDataGeneration).mockImplementation(() => 0);
+    }
+    expect(await listEntries(ALICE)).toEqual([]);
+  });
+});
+
 describe('offline data is cleared on account erasure and on a dead session (#2789 review S3)', () => {
   beforeEach(() => {
     calls.length = 0;
@@ -354,6 +468,8 @@ describe('offline data is cleared on account erasure and on a dead session (#278
     const store = await listenedStore();
     store.dispatch(refreshAccessToken.rejected(await apiError(status), `r${status}`));
     await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+    // The read cache goes, the offline write buffer stays (WP 9.4, UI-NFR-012 R-051).
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[0]).toEqual([]);
   });
 
   it('keeps the offline data on a 5xx (enveloped or not), no answer at all, or a rate limit (#2789 M1)', async () => {
@@ -413,6 +529,8 @@ describe('offline data is cleared on account erasure and on a dead session (#278
       await userEvent.click(within(dialog).getByTestId('delete-account-confirm'));
 
       await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+      // The closed account's unsent offline entries go with it (WP 9.4).
+      expect(vi.mocked(offlineData.clearOfflineData).mock.calls[0]).toEqual([{ discardWriteQueueOf: 'user-1' }]);
       expect(calls).not.toContain('href:/login');
       releaseClear();
       await waitFor(() => expect(calls).toContain('href:/login'));

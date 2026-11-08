@@ -58,7 +58,9 @@ export default function TenantSwitcher() {
     // REQ-053 WP 9.1 (G-W9 b): the service worker's API cache and IndexedDB are
     // emptied completely BEFORE the reload, so the next tenant never reads the
     // previous one's answers offline. Pinned by
-    // test/guards/offlineDataClearedOnSessionChange.test.ts.
+    // test/guards/offlineDataClearedOnSessionChange.test.ts. The offline write buffer (WP 9.4) is the
+    // exception: the previous garden's unsent entries stay bound to it and are sent when the user returns
+    // there (UI-NFR-012 R-050/R-051) — nothing is lost, nothing is shown in the new garden.
     await clearOfflineData();
     window.location.reload();
   };

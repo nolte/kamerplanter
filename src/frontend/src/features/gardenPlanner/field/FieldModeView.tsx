@@ -10,7 +10,8 @@
  *
  * Without a connection the bed list and the plan come from the plan cache (REQ-053 WP 9.2): a banner names
  * the time of that state, and a site that was never loaded online shows an empty state with a hint instead
- * of an error. Field mode has no geometry tools; the bed sheet keeps its writes locked offline.
+ * of an error. Field mode has no geometry tools. Offline, the bed sheet buffers "Done", the note and photos
+ * (WP 9.4, the offline write buffer) and keeps every other write locked; without a usable buffer all stay locked.
  *
  * This module is its own lazy chunk: the planning route loads it only in field mode, so it does not
  * count against the garden-planner route budget.
@@ -39,6 +40,7 @@ import type { BedListItem } from '../bed/types';
 import { useBedAssignments } from '../bed/useBedAssignments';
 import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
+import { canBuffer } from '../offline/bufferedWrite';
 import { useCacheScope } from '../offline/useCacheScope';
 import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import type { PlanRenderer, RendererLabels } from '../renderer/types';
@@ -207,7 +209,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
 
         {!online && (
           <Alert severity="warning" sx={{ mb: 2 }} data-testid="field-offline">
-            {t('pages.gardenPlan.field.offline')}
+            {canBuffer(cacheScope) ? t('pages.gardenPlan.field.buffer.offline') : t('pages.gardenPlan.field.offline')}
           </Alert>
         )}
         {cachedAt !== null && <CachedDataBanner cachedAt={cachedAt} />}

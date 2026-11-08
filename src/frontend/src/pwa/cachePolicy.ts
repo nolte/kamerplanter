@@ -57,6 +57,14 @@ export const SW_MESSAGE_CLEAR_DATA = 'KP_CLEAR_DATA';
 export const SW_MESSAGE_SKIP_WAITING = 'SKIP_WAITING';
 
 /**
+ * REQ-053 WP 9.4 (UI-NFR-012 R-022): the Background Sync tag the app registers after buffering a write offline,
+ * and the message the worker posts to the open windows when the browser fires it. The worker never sends a
+ * buffered write itself — it holds no token — it only wakes a signed-in tab, which syncs in its own scope.
+ */
+export const BACKGROUND_SYNC_TAG = 'kp-write-queue';
+export const SW_MESSAGE_SYNC_NOW = 'KP_SYNC_NOW';
+
+/**
  * Paths that are never cached, whatever the allowlist says (checked first). The allowlist below
  * cannot reach them today; this list makes a future, too-broad allowlist entry fail closed.
  */
