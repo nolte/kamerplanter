@@ -425,8 +425,14 @@ class GardenPlanPage(BasePage):
         The renderer draws a bed's markers as ONE decorative path,
         ``M{x-r} {-y}a…a…`` per marker (``data-plan-markers``); this parses it
         back. Loud when the group is missing — "no markers drawn" must not read
-        as "zero positions".
+        as "zero positions". SVG renderer only: on the Konva renderer (plans of
+        3 000+ objects) the markers are canvas pixels, and this says so.
         """
+        if self.renderer_kind() == "konva":
+            raise AssertionError(
+                f"marker positions of bed {location_key!r} cannot be read: the Konva renderer draws them on a "
+                "canvas (data-renderer='konva'); use a plan below 3 000 objects for this check"
+            )
         locator = (
             By.CSS_SELECTOR,
             f"[data-testid='garden-plan-svg'] [data-plan-markers='{location_key}'] path",
@@ -601,6 +607,10 @@ class GardenPlanPage(BasePage):
     #: garden object and the boundary), the plant/slot markers drawn one by one (distinct ``data-plan-key`` of
     #: kind ``plant``/``slot``), the batched markers (one ``M`` command per circle in the ``data-plan-markers``
     #: paths, see :meth:`marker_centres`) and the clusters of a bed below the marker LOD.
+    #:
+    #: On the Konva renderer (WP 9.7, ``data-renderer="konva"``, plans of 3 000+ objects) the SVG is the accessible
+    #: overlay above the canvas: shapes and clusters are there as on SVG, but the markers are pixels. The overlay
+    #: states their count itself (``data-plan-markers-single`` / ``data-plan-markers-batched``), and that is read.
     _CENSUS = (
         "var svg = arguments[0];"
         "var shapes = {location: new Set(), gardenObject: new Set(), boundary: new Set()};"
@@ -613,6 +623,9 @@ class GardenPlanPage(BasePage):
         "var batched = 0;"
         "svg.querySelectorAll('[data-plan-markers] path').forEach(function (p) {"
         "  batched += ((p.getAttribute('d') || '').match(/M/g) || []).length; });"
+        "if (svg.getAttribute('data-renderer') === 'konva') {"
+        "  single = {size: Number(svg.getAttribute('data-plan-markers-single'))};"
+        "  batched = Number(svg.getAttribute('data-plan-markers-batched')); }"
         "return {beds: shapes.location.size, garden_objects: shapes.gardenObject.size,"
         " boundary: shapes.boundary.size, markers_single: single.size, markers_batched: batched,"
         " clusters: svg.querySelectorAll('[data-plan-cluster]').length,"
@@ -626,6 +639,7 @@ class GardenPlanPage(BasePage):
         objects D-01's "> 3 000 sichtbare Objekte" is about; the boundary is a frame, not an object. "Visible" is
         the renderer's own: what survived viewport culling (with its 20 % margin, GP-NFR-010) and the LOD rules.
         Loud when the SVG is missing; an empty plan reads as zeros, which the caller's arrangement check catches.
+        On the Konva renderer ``svg_nodes`` counts the accessible overlay only.
         """
         census = self.driver.execute_script(self._CENSUS, self.wait_for_element(self.SVG))
         if not isinstance(census, dict):
@@ -639,6 +653,13 @@ class GardenPlanPage(BasePage):
             + counts["clusters"]
         )
         return counts
+
+    def renderer_kind(self) -> str:
+        """Which renderer drew the plan: ``svg`` or ``konva`` (the surface's ``data-renderer``, WP 9.7)."""
+        kind = self.wait_for_element(self.SVG).get_attribute("data-renderer")
+        if kind not in ("svg", "konva"):
+            raise AssertionError(f"the plan surface names no renderer (data-renderer={kind!r})")
+        return str(kind)
 
     def svg_size_px(self) -> tuple[int, int]:
         """The drawn size of the plan SVG in CSS px (what the renderer's viewport covers)."""

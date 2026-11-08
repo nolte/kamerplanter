@@ -1,0 +1,108 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import type { PlanSlot } from '../model/types';
+import {
+  KONVA_MIN_PLAN_OBJECTS,
+  loadKonvaRenderer,
+  planObjectCount,
+  rendererKindFor,
+  usePlanRenderer,
+  type KonvaRendererLoader,
+} from './createRenderer';
+import { HeadlessPlanRenderer } from './HeadlessPlanRenderer';
+import { KonvaPlanRenderer } from './KonvaPlanRenderer';
+import { bed, gardenObject, normalizePlan, planResponse, type PlanModel } from './rendererTestKit';
+import { SvgPlanRenderer } from './SvgPlanRenderer';
+import type { PlanRenderer } from './types';
+
+/** A plan of `beds` beds, `objects` garden objects and `slots` slots. */
+function planOf(beds: number, objects: number, slots: number): PlanModel {
+  const slotList: PlanSlot[] = Array.from({ length: slots }, (_, i) => ({
+    key: `s${i}`,
+    slot_id: `S${i}`,
+    location_key: 'b0',
+    plan_geometry: { origin: [0.1 + (i % 10) * 0.1, 0.1 + Math.floor(i / 10) * 0.01] },
+  }));
+  return normalizePlan(
+    planResponse({
+      locations: Array.from({ length: beds }, (_, i) => bed(`b${i}`, i * 2, 0)),
+      garden_objects: Array.from({ length: objects }, (_, i) => gardenObject(`g${i}`, i * 3, 20)),
+      slots: slotList,
+      plants: [],
+    }),
+  );
+}
+
+describe('renderer choice by plan size (D-01, WP 9.6 threshold)', () => {
+  it('counts beds, garden objects and slots', () => {
+    expect(planObjectCount(planOf(30, 2, 3000))).toBe(3032);
+    expect(planObjectCount(null)).toBe(0);
+  });
+
+  it('switches to Konva at 3 000 objects: the smallest plan WP 9.6 measured over the drag budget', () => {
+    expect(KONVA_MIN_PLAN_OBJECTS).toBe(3000);
+    expect(rendererKindFor(KONVA_MIN_PLAN_OBJECTS - 1)).toBe('svg');
+    expect(rendererKindFor(KONVA_MIN_PLAN_OBJECTS)).toBe('konva');
+    // The measured plans: 30 beds x 100 slots (3 030) and the "large" class 250 x 20 (5 250).
+    expect(rendererKindFor(planObjectCount(planOf(30, 0, 3000)))).toBe('konva');
+    expect(rendererKindFor(planObjectCount(planOf(30, 0, 2969)))).toBe('svg');
+  });
+
+  it('builds the real Konva renderer from its chunk', async () => {
+    expect(await loadKonvaRenderer()).toBeInstanceOf(KonvaPlanRenderer);
+  });
+});
+
+describe('usePlanRenderer', () => {
+  const small = planOf(2, 0, 10);
+  const large = planOf(30, 0, 3000);
+
+  it('draws a small plan with SVG and never loads the Konva chunk', () => {
+    const loader = vi.fn<KonvaRendererLoader>();
+    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, loader), {
+      initialProps: { model: small as PlanModel | null },
+    });
+    expect(result.current).toBeInstanceOf(SvgPlanRenderer);
+    const first = result.current;
+    rerender({ model: null });
+    expect(result.current).toBe(first);
+    expect(loader).not.toHaveBeenCalled();
+  });
+
+  it('starts on SVG, then hands a large plan to the loaded renderer and keeps it when the plan shrinks', async () => {
+    const konva: PlanRenderer = new HeadlessPlanRenderer();
+    const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(konva));
+    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, loader), {
+      initialProps: { model: large },
+    });
+    expect(result.current).toBeInstanceOf(SvgPlanRenderer); // nothing waits for the chunk
+    await waitFor(() => expect(result.current).toBe(konva));
+    rerender({ model: small });
+    expect(result.current).toBe(konva); // latched: an edit never swaps the surface back
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
+  it('switches when an open plan grows past the threshold', async () => {
+    const konva: PlanRenderer = new HeadlessPlanRenderer();
+    const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(konva));
+    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, loader), {
+      initialProps: { model: small },
+    });
+    expect(loader).not.toHaveBeenCalled();
+    rerender({ model: large });
+    await waitFor(() => expect(result.current).toBe(konva));
+  });
+
+  it('stays on SVG when the Konva chunk fails to load', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const failure = new Error('chunk load failed');
+    const loader = vi.fn<KonvaRendererLoader>(() => Promise.reject(failure));
+    const { result } = renderHook(() => usePlanRenderer(large, loader));
+    const svg = result.current;
+    await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining('stays on SVG'), failure));
+    await act(async () => undefined);
+    expect(result.current).toBe(svg);
+    expect(result.current).toBeInstanceOf(SvgPlanRenderer);
+    warn.mockRestore();
+  });
+});

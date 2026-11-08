@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 // The budget gate script is authored as an .mjs Node CLI; Vitest can import its
 // pure, side-effect-free export directly (the CLI `main()` is guarded by an
 // import.meta.url check, so importing it does not run the build measurement).
-import { evaluateBudget, kib } from '../../scripts/check-bundle-budget.mjs';
+import { evaluateBudget, kib, lazyChunkClosure } from '../../scripts/check-bundle-budget.mjs';
 
 /**
  * UI-NFR-003 R-013/R-014/R-015/R-028 — unit coverage for the bundle-budget
@@ -17,6 +17,7 @@ const budget = {
   routeChunks: {
     dashboard: { source: 'src/pages/DashboardPage.tsx', gzipKb: 12 },
     gardenPlanner: { source: 'src/features/gardenPlanner/routes/GardenPlanRoute.tsx', gzipKb: 120 },
+    gardenPlannerKonva: { source: 'src/features/gardenPlanner/renderer/KonvaPlanRenderer.tsx', gzipKb: 200 },
   },
 };
 
@@ -97,6 +98,33 @@ describe('evaluateBudget', () => {
       budget,
     });
     expect(checks.find((c) => c.requirement === 'REQ-053 WP 2.3')).toBeUndefined();
+  });
+
+  it('budgets the Konva renderer chunk on its own at 200 KB (REQ-053 WP 9.7) without touching the route budget', () => {
+    const base = { initialJsBytes: 400 * KB, initialCssBytes: 1 * KB, dashboardBytes: 3 * KB, gardenPlannerBytes: 110 * KB };
+    const within = evaluateBudget({ ...base, konvaRendererBytes: 190 * KB, budget });
+    expect(within.failed).toBe(false);
+    expect(within.checks.find((c) => c.requirement === 'REQ-053 WP 9.7')?.budget).toBe(200 * KB);
+    expect(within.checks.find((c) => c.requirement === 'REQ-053 WP 2.3')?.budget).toBe(120 * KB);
+    const over = evaluateBudget({ ...base, konvaRendererBytes: 201 * KB, budget });
+    expect(over.failed).toBe(true);
+    expect(over.checks.find((c) => c.requirement === 'REQ-053 WP 9.7')?.status).toBe('FAIL');
+    expect(evaluateBudget({ ...base, budget }).checks.find((c) => c.requirement === 'REQ-053 WP 9.7')).toBeUndefined();
+  });
+
+  it('measures a lazy chunk with the chunks it imports, minus what is loaded before it', () => {
+    const manifest = {
+      'konva.tsx': { file: 'assets/konva.js', imports: ['_vendor-konva', 'route.tsx', '_shared'] },
+      '_vendor-konva': { file: 'assets/vendor-konva.js', imports: ['_shared'] },
+      'route.tsx': { file: 'assets/route.js', imports: ['_shared'] },
+      _shared: { file: 'assets/shared.js' },
+    };
+    expect(lazyChunkClosure(manifest, 'konva.tsx', new Set(['assets/route.js', 'assets/shared.js']))?.sort()).toEqual([
+      'assets/konva.js',
+      'assets/vendor-konva.js',
+    ]);
+    expect(lazyChunkClosure(manifest, 'konva.tsx', new Set())).toHaveLength(4);
+    expect(lazyChunkClosure(manifest, 'missing.tsx', new Set())).toBeNull();
   });
 
   it('treats a CSS overshoot as a non-blocking warning when cssSeverity is warn', () => {

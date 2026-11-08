@@ -255,6 +255,11 @@ def decide(records: list[dict]) -> tuple[Reading, Reading]:
 # ── Writing ─────────────────────────────────────────────────────────────────
 
 
+def renderer_of(record: dict) -> str:
+    """The renderer that drew the case (WP 9.7); a record from before the field existed was SVG, the only one."""
+    return str(record.get("renderer") or "svg")
+
+
 def _ms(value: object) -> str:
     return "–" if value is None else f"{float(value):.1f}"
 
@@ -283,9 +288,9 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         "",
         "## Messwerte",
         "",
-        "| Fall | Profil | CPU | Viewport | gespeichert (Beete/Slots/Pflanzen) | sichtbar Fit / gezoomt | Geste "
-        "| Frames im Fenster / erfasst | p95 ms | max ms | Budget ms | GP-NFR-033/034 |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Fall | Profil | Renderer | CPU | Viewport | gespeichert (Beete/Slots/Pflanzen) | sichtbar Fit / gezoomt "
+        "| Geste | Frames im Fenster / erfasst | p95 ms | max ms | Budget ms | GP-NFR-033/034 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for record in records:
         plan = record.get("plan") or {}
@@ -301,14 +306,15 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         for item in record.get("gestures") or []:
             lines.append(
                 f"| {CASE_TITLES.get(record['case'], record['case'])} "
-                f"| {PROFILE_TITLES.get(record['profile'], record['profile'])} | {cpu} | {viewport} "
+                f"| {PROFILE_TITLES.get(record['profile'], record['profile'])} | {renderer_of(record)} | {cpu} "
+                f"| {viewport} "
                 f"| {stored} | {fit} / {zoomed} | {item.get('name')} "
                 f"| {item.get('frames', 0)} / {item.get('frames_recorded', '–')} "
                 f"| {_ms(item.get('frame_p95_ms'))} | {_ms(item.get('frame_max_ms'))} "
                 f"| {_ms(item.get('frame_budget_ms'))} | {_budget_cell(item)} |"
             )
     if not records:
-        lines.append("| – | – | – | – | – | – | – | – | – | – | – | keine Messung |")
+        lines.append("| – | – | – | – | – | – | – | – | – | – | – | – | keine Messung |")
 
     lines += ["", "## Entscheidung", ""]
     for title, reading in (
@@ -328,15 +334,17 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
     lines += [
         "## Sichtbare Objekte",
         "",
-        "| Fall | Profil | Beete | Marker einzeln | Marker gebündelt | Cluster | SVG-Knoten | px/m |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Fall | Profil | Renderer | Beete | Marker einzeln | Marker gebündelt | Cluster "
+        "| SVG-Knoten (Konva: nur Overlay) | px/m |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for record in records:
         for part, label in (("census_fit", "Fit"), ("census_zoomed", "gezoomt")):
             census = record.get(part) or {}
             px = record.get(f"px_per_m_{part.removeprefix('census_')}")
             lines.append(
-                f"| {record['case']} ({label}) | {record['profile']} | {census.get('beds', '–')} "
+                f"| {record['case']} ({label}) | {record['profile']} | {renderer_of(record)} "
+                f"| {census.get('beds', '–')} "
                 f"| {census.get('markers_single', '–')} | {census.get('markers_batched', '–')} "
                 f"| {census.get('clusters', '–')} | {census.get('svg_nodes', '–')} | {_ms(px)} |"
             )

@@ -2,8 +2,9 @@
  * The garden plan page (REQ-053 WP 2.3): `standorte/sites/:key/plan`.
  *
  * This module is the lazy route chunk. It is the one place that chooses a renderer implementation
- * (`SvgPlanRenderer`, GP-NFR-009) and that injects the plan slice into the root reducer, so neither
- * the renderer, the plan model nor the slice are part of the initial bundle (UI-NFR-003).
+ * (`usePlanRenderer`, GP-NFR-009: SVG, or Konva from its own chunk for a plan of 3 000 objects and more, D-01)
+ * and that injects the plan slice into the root reducer, so neither the renderer, the plan model nor the
+ * slice are part of the initial bundle (UI-NFR-003).
  *
  * The page loads the plan, explains the empty and error states and mounts the editor (WP 2.4:
  * select, pan, draw, handles). An empty plan offers its one next step to the roles that may edit
@@ -53,7 +54,7 @@ import {
   setSelection,
   selectIsDirty,
 } from '../state/gardenPlanSlice';
-import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
+import { usePlanRenderer } from '../renderer/createRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { GardenPlanEditor } from '../editor/GardenPlanEditor';
 import { EDITOR_SIDEBAR_RESERVE_PX } from '../editor/layout';
@@ -104,7 +105,9 @@ export default function GardenPlanRoute() {
 
 function FieldModeRoute({ siteKey, planningHref }: { siteKey: string; planningHref: string }) {
   const labels = useRendererLabels();
-  const renderer = useMemo(() => new SvgPlanRenderer(), []);
+  // Field mode loads the plan into the same slice; the renderer follows its size like in planning mode.
+  const fieldPlan = useAppSelector((state) => selectGardenPlanState(state).plan);
+  const renderer = usePlanRenderer(fieldPlan);
   return (
     <Box data-testid="garden-plan-page">
       <Suspense fallback={<LoadingSkeleton variant="card" />}>
@@ -149,7 +152,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     [plan],
   );
   const labels = useRendererLabels();
-  const renderer = useMemo(() => new SvgPlanRenderer(), []);
+  const renderer = usePlanRenderer(plan);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
 
   const load = useCallback(() => {

@@ -136,7 +136,8 @@ export default tseslint.config(
     // REQ-053 GP-NFR-009 / D-01: the garden editor talks to the `PlanRenderer` interface only.
     // A renderer implementation or rendering library imported here would weld the editor to one
     // renderer and make the Konva fallback a rewrite instead of a swap. Only the code that mounts
-    // the editor (the lazy route) may pick `SvgPlanRenderer`; tests use `HeadlessPlanRenderer`.
+    // the editor (the lazy route) may pick a renderer (`createRenderer.ts`: SVG or Konva); tests use
+    // `HeadlessPlanRenderer`. Konva's subpath entries (`konva/lib/Core`, `react-konva/lib/...`) are patterns.
     files: ['src/features/gardenPlanner/editor/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
@@ -148,7 +149,21 @@ export default tseslint.config(
           })),
           patterns: [
             {
-              group: ['**/SvgPlanRenderer', '**/SvgPlanRenderer.*', '**/renderer/svg', '**/renderer/svg/**', '@pixi/*'],
+              group: [
+                '**/SvgPlanRenderer',
+                '**/SvgPlanRenderer.*',
+                '**/KonvaPlanRenderer',
+                '**/KonvaPlanRenderer.*',
+                '**/konvaDraw',
+                '**/konvaDraw.*',
+                '**/createRenderer',
+                '**/createRenderer.*',
+                '**/renderer/svg',
+                '**/renderer/svg/**',
+                'konva/*',
+                'react-konva/*',
+                '@pixi/*',
+              ],
               message:
                 'The garden editor must not import a renderer implementation (GP-NFR-009). Import the PlanRenderer interface from the renderer barrel and receive the instance from the route.',
             },

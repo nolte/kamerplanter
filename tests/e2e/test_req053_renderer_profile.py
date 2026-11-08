@@ -281,6 +281,7 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
     census_fit = _wait_for_all_beds(plan, measured.stored_beds)
     px_fit = plan.px_per_m()
     canvas_px = list(plan.svg_size_px())
+    renderer = plan.renderer_kind()
     if case == SYNTHETIC_3000.name and not setup.phone:
         assert census_fit["visible_objects"] >= D01_VISIBLE_OBJECTS, (
             f"TC-053-083: the synthetic plan should show >= {D01_VISIBLE_OBJECTS} objects at the desktop fit "
@@ -333,6 +334,7 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
             "throttle": throttle,
             "viewport": viewport,
             "canvas_px": canvas_px,
+            "renderer": renderer,
             "run_id": RUN_ID,
             "budget_ms": setup.budget_ms,
             "vsync_ms": vsync,

@@ -14,6 +14,10 @@ import type { PlanPlant, PlanSlot } from '../model/types';
 import { ATTENTION_PRIORITY } from '../model/plantState';
 import type { PlantMarkerState } from './types';
 import { COMPANION_LINE_CAP, cullCompanionLines, type CompanionLine } from './companionLines';
+import { drawDragged, drawScene, type DrawFrame, type PlanCanvasContext } from './konvaDraw';
+import { planPalette } from './planDrawing';
+import { TEST_LABELS } from './rendererTestKit';
+import { createTheme } from '@mui/material/styles';
 
 /**
  * GP-NFR-034 / GP-NFR-033 (benchmark half): a frame's scene and a hit test on the "large" plan
@@ -23,6 +27,10 @@ import { COMPANION_LINE_CAP, cullCompanionLines, type CompanionLine } from './co
  *     GP_BENCHMARK=1 npx vitest run src/features/gardenPlanner/renderer/renderer.benchmark.test.ts
  *
  * The always-on half (counts, not time) is in `SvgPlanRenderer.test.tsx` (GP-ACC-033).
+ *
+ * The Konva cases (D-01, WP 9.7) time the renderer's own work per frame - painting the scene onto a 2D context and
+ * repainting the drag layer - against a context whose calls cost nothing, so they measure the renderer and not a
+ * rasteriser (jsdom has none). The browser's raster time is what the WP 9.6 E2E probe measures.
  */
 const RUNS = 100;
 const BUDGET_MS = 16;
@@ -68,6 +76,86 @@ function statedPlan(): { model: PlanModel; states: Record<string, PlantMarkerSta
   const model = normalizePlan(planResponse({ locations, garden_objects: [], slots, plants }));
   return { model, states };
 }
+
+/** A 2D context whose every call is free: what remains is the renderer's own work. */
+function freeContext(): PlanCanvasContext & { calls: number } {
+  const context = { calls: 0 } as PlanCanvasContext & { calls: number };
+  for (const name of ['save', 'restore', 'translate', 'scale', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'arc',
+    'fill', 'stroke', 'fillText', 'setLineDash'] as const) {
+    (context as unknown as Record<string, () => void>)[name] = () => {
+      context.calls += 1;
+    };
+  }
+  return context;
+}
+
+const THEME = createTheme();
+
+function konvaFrame(scene: ReturnType<typeof buildScene>, viewport: ReturnType<typeof viewportAt>): DrawFrame {
+  return {
+    scene,
+    viewport,
+    palette: planPalette(THEME),
+    labels: TEST_LABELS,
+    fontPx: 12,
+    fontFamily: 'sans-serif',
+    contrastText: () => '#fff',
+    path: () => ({}) as Path2D,
+  };
+}
+
+describe.runIf(process.env.GP_BENCHMARK === '1')('Konva renderer frame cost on a large plan (D-01, WP 9.7)', () => {
+  it('paints a frame of the "large" plan onto the canvas within one frame (median)', () => {
+    const model = largePlacedPlan();
+    const view = (i: number) => viewportAt((i * 0.7) % 60, 30 + (i % 50), 36, 1000, 1000);
+    const context = freeContext();
+    const frames = Array.from({ length: RUNS }, (_, i) => konvaFrame(buildScene(model, view(i), NO_SELECTION, {}), view(i)));
+    drawScene(context, frames[0]);
+    expect(context.calls).toBeGreaterThan(1000); // the case draws a real plan, not an empty view
+    const times = frames.map((frame) => {
+      const start = performance.now();
+      drawScene(context, frame);
+      return performance.now() - start;
+    });
+    expect(median(times)).toBeLessThanOrEqual(BUDGET_MS);
+  });
+
+  it('paints 5 000 stated plants of the plant-state layer within one frame (median, #2488)', () => {
+    const { model: stated, states } = statedPlan();
+    const view = viewportAt(-1, 31, 36, 2000, 1200);
+    const scene = buildScene(stated, view, NO_SELECTION, { plantStateLayer: { states, attentionOnly: false } });
+    expect(scene.markers).toHaveLength(5000);
+    const frame = konvaFrame(scene, view);
+    const context = freeContext();
+    const times = Array.from({ length: RUNS }, () => {
+      const start = performance.now();
+      drawScene(context, frame);
+      return performance.now() - start;
+    });
+    expect(median(times)).toBeLessThanOrEqual(BUDGET_MS);
+  });
+
+  it('repaints only the dragged bed per pointer move (median far below one frame, GP-NFR-033)', () => {
+    const model = largePlacedPlan();
+    const view = viewportAt(10, 50, 36, 1000, 1000);
+    const scene = buildScene(model, view, NO_SELECTION, {});
+    const key = scene.shapes.find((item) => item.entry.kind === 'location')?.entry.key as string;
+    const frame = konvaFrame(scene, view);
+    const whole = freeContext();
+    drawScene(whole, frame);
+    const dragged = freeContext();
+    drawDragged(dragged, frame, { key, dxPx: 1, dyPx: 1 });
+    // A pointer move costs one node's calls, a small share of the plan's.
+    expect(dragged.calls).toBeGreaterThan(0);
+    expect(dragged.calls * 50).toBeLessThan(whole.calls);
+    const times = Array.from({ length: RUNS }, (_, i) => {
+      const start = performance.now();
+      drawDragged(dragged, frame, { key, dxPx: i % 30, dyPx: 0 });
+      return performance.now() - start;
+    });
+    expect(median(times)).toBeLessThanOrEqual(BUDGET_MS / 8);
+  });
+});
 
 describe.runIf(process.env.GP_BENCHMARK === '1')('renderer frame cost on a large plan', () => {
   const model = largePlacedPlan();

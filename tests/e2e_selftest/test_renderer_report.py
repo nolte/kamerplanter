@@ -240,3 +240,19 @@ def test_the_report_and_the_probe_share_one_bound() -> None:
     from tests.e2e import _frame_budget, _inp_probe
 
     assert report.frame_bound is _frame_budget.frame_bound is _inp_probe.frame_bound
+
+
+def test_every_row_names_the_renderer_that_drew_it() -> None:
+    """WP 9.7: a plan of 3 000+ objects is drawn by Konva; the report says which renderer a figure belongs to."""
+    records = _complete()
+    records[0]["renderer"] = "konva"
+    text = report.render(records, date="2026-11-08", sources=[])
+    drag_rows = [line for line in text.splitlines() if "| drag |" in line]
+    assert any("| konva |" in line for line in drag_rows)
+    # A record from before the field existed was drawn by the only renderer there was.
+    assert any("| svg |" in line for line in drag_rows)
+    census_rows = [
+        line for line in text.splitlines() if line.startswith(f"| {records[0]['case']} (Fit)")
+    ]
+    assert any("| konva |" in line for line in census_rows)
+    assert report.renderer_of({}) == "svg"
