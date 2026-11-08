@@ -139,6 +139,11 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "Authenticated watering round (POST /t/{slug}/irrigation-zones/{key}/log-watering), per account: "
         "401 x 25 anonymously."
     ),
+    "rate_limit_zone_rain_skipped": (
+        "Authenticated 'rain - skipped' of a watering round (POST /t/{slug}/irrigation-zones/{key}/rain-skipped), "
+        "per account. Not measured on the scan stack; the same gate order as rate_limit_zone_log_watering "
+        "(authentication before the per-account budget)."
+    ),
     "rate_limit_plan_import": (
         "Authenticated garden-plan import (POST /t/{slug}/sites/{key}/plan/import), per tenant: 401 x 25 anonymously."
     ),

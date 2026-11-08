@@ -2282,13 +2282,15 @@ class IrrigationZoneType(StrEnum):
 class CareEventAllocation(StrEnum):
     """How the quantity of a care event came about (REQ-053 GP-FR-117, WP 7.3). Additive (M-9).
 
-    ``measured`` is the default: the person measured what this bed received. ``by_area`` and ``equal`` mark a
-    quantity that a zone round divided over its beds - an allocated value is never shown as a measured one.
+    ``measured`` is the default: the person measured what this bed received. ``by_area``, ``equal`` and
+    ``by_demand`` mark a quantity that a zone round divided over its beds - an allocated value is never shown as a
+    measured one. ``by_demand`` (WP 9.13, #2753) divides by each bed's REQ-037 net demand of the round's day.
     """
 
     MEASURED = "measured"
     BY_AREA = "by_area"
     EQUAL = "equal"
+    BY_DEMAND = "by_demand"
 
 
 class FlowRateSource(StrEnum):

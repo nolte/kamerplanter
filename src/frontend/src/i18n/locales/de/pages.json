@@ -6312,11 +6312,13 @@
             "allocation": "Verteilung auf die Beete",
             "allocationOption": {
               "by_area": "Nach Beetfläche",
-              "equal": "Zu gleichen Teilen"
+              "equal": "Zu gleichen Teilen",
+              "by_demand": "Nach Bedarf"
             },
             "allocationHelp": {
               "by_area": "Jedes Beet bekommt einen Anteil nach seiner Fläche. Beete ohne Fläche bleiben außen vor.",
-              "equal": "Jedes Beet bekommt gleich viel, unabhängig von der Fläche."
+              "equal": "Jedes Beet bekommt gleich viel, unabhängig von der Fläche.",
+              "by_demand": "Jedes Beet bekommt einen Anteil nach seinem berechneten Wasserbedarf an diesem Tag. Beete ohne Bedarf bleiben außen vor."
             },
             "summary": "Notiz zur Runde",
             "marker": "Die Menge wird auf die Beete verteilt und nicht gemessen. Das Protokoll kennzeichnet das so.",
@@ -6331,7 +6333,17 @@
             "resultTitle": "Gießrunde gespeichert",
             "resultMarker": "{{allocation}}: Diese Mengen sind verteilt, nicht gemessen.",
             "share": "{{bed}}: {{liters}} Liter",
-            "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}."
+            "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}.",
+            "skippedNoDemand": "Nicht berücksichtigt, weil ohne Wasserbedarf an diesem Tag: {{beds}}.",
+            "noBedDemand": "Für kein Beet der Zone ist an diesem Tag ein Wasserbedarf berechnet. Wähle eine andere Verteilung.",
+            "rainHeading": "Regen — Runde übersprungen",
+            "rainHelp": "Es hat geregnet, deshalb wird heute nicht gegossen. Für jedes Beet der Zone wird ein Regen-Eintrag ohne Menge gespeichert. Offene Gieß-Aufgaben bleiben offen. Die Notiz oben wird übernommen.",
+            "rainSkip": "Regen — übersprungen",
+            "rainConflict": "Diese Runde wurde schon mit einer anderen Notiz als übersprungen gespeichert. Schließe den Dialog und sieh im Protokoll nach.",
+            "rainResultTitle": "Runde als übersprungen gespeichert",
+            "rainResultMarker": "Regen-Einträge ohne Menge. Offene Gieß-Aufgaben bleiben offen.",
+            "rainResultBeds_one": "Eingetragen für {{count}} Beet: {{beds}}.",
+            "rainResultBeds_other": "Eingetragen für {{count}} Beete: {{beds}}."
           },
           "bed": {
             "zone": "Bewässerungszone: {{number}}. {{name}}",

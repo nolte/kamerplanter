@@ -21,6 +21,7 @@ from app.common.auth import get_current_user
 from app.common.dependencies import get_irrigation_zone_service, get_tenant_service
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import NotFoundError
+from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.irrigation_zone import IrrigationZone, LastWatering, ZoneWateringFacts
 from app.domain.models.user import User
@@ -360,6 +361,87 @@ class TestStatusAndWateringRound:
         assert foreign.status_code == 404
         assert empty.status_code == 422 and _code(empty) == "irrigation_zone.no_beds"
         assert care.inserted == []
+
+    def test_by_demand_divides_by_the_demand_and_without_one_is_a_422(self, client, zones: FakeZones, care) -> None:
+        self._cover(zones)
+
+        refused = client(TenantRole.GROWER).post(
+            f"{_BASE}/irrigation-zones/zone_1/log-watering", json={"volume_liters": 9, "allocation": "by_demand"}
+        )
+        zones.demands = [BedDemand(location_key="bed", net_demand_mm=2.0, area_m2=3.0)]
+        logged = client(TenantRole.GROWER).post(
+            f"{_BASE}/irrigation-zones/zone_1/log-watering", json={"volume_liters": 9, "allocation": "by_demand"}
+        )
+
+        assert refused.status_code == 422 and _code(refused) == "irrigation_zone.no_bed_demand"
+        assert logged.status_code == 201, logged.text
+        body = logged.json()
+        assert (body["allocation"], body["shares"], body["skipped_location_keys"]) == (
+            "by_demand",
+            [{"location_key": "bed", "liters": 9.0}],
+            ["bed_2"],
+        )
+
+
+class TestRainSkipped:
+    """REQ-053 WP 9.13 (#2753, GP-FR-117, §32.4 Pkt. 2): "rain - skipped" on the wire."""
+
+    _PATH = f"{_BASE}/irrigation-zones/zone_1/rain-skipped"
+
+    def test_a_grower_writes_one_rainfall_event_per_bed_and_the_viewer_cannot(
+        self, client, zones: FakeZones, care
+    ) -> None:
+        zones.replace_zone_locations("zone_1", ["bed", "bed_2"], tenant_key=TENANT)
+
+        denied = client(TenantRole.VIEWER).post(self._PATH, json={})
+        logged = client(TenantRole.GROWER).post(self._PATH, json={"summary": "Rained overnight"})
+
+        assert denied.status_code == 403
+        assert logged.status_code == 201, logged.text
+        body = logged.json()
+        assert sorted(body["location_keys"]) == ["bed", "bed_2"]
+        assert (len(body["event_keys"]), body["replayed"]) == (2, False)
+        assert [(e.category, e.quantity, e.summary) for e in care.inserted] == [
+            ("rainfall", None, "Rained overnight"),
+            ("rainfall", None, "Rained overnight"),
+        ]
+
+    def test_a_foreign_zone_is_a_404_and_a_zone_without_beds_a_422(self, client, care) -> None:
+        foreign = client(TenantRole.LEAD).post(f"{_BASE}/irrigation-zones/zone_foreign/rain-skipped", json={})
+        empty = client(TenantRole.GROWER).post(self._PATH, json={})
+
+        assert foreign.status_code == 404
+        assert empty.status_code == 422 and _code(empty) == "irrigation_zone.no_beds"
+        assert care.inserted == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"volume_liters": 5},
+            {"tenant_key": "x"},
+            {"summary": "x" * 501},
+            {"client_event_id": "not-a-uuid"},
+        ],
+    )
+    def test_a_malformed_body_is_a_422_and_writes_nothing(self, client, zones: FakeZones, care, body) -> None:
+        zones.replace_zone_locations("zone_1", ["bed"], tenant_key=TENANT)
+
+        response = client(TenantRole.GROWER).post(self._PATH, json=body)
+
+        assert response.status_code == 422 and care.inserted == []
+
+    def test_a_double_press_writes_the_round_once_and_the_replay_is_a_200(self, client, zones: FakeZones, care) -> None:
+        zones.replace_zone_locations("zone_1", ["bed", "bed_2"], tenant_key=TENANT)
+        body = {"client_event_id": "6f1c2a3e-8d4b-4c5e-9f00-1a2b3c4d5e6f"}
+
+        first = client(TenantRole.GROWER).post(self._PATH, json=body)
+        again = client(TenantRole.GROWER).post(self._PATH, json=body)
+        other = client(TenantRole.GROWER).post(self._PATH, json=body | {"summary": "Another round"})
+
+        assert (first.status_code, again.status_code) == (201, 200)
+        assert again.json()["replayed"] is True and again.json()["event_keys"] == first.json()["event_keys"]
+        assert other.status_code == 409 and _code(other) == "client_event.payload_mismatch"
+        assert len(care.inserted) == 2
 
 
 class TestTechnicalCoupling:

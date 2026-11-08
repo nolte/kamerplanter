@@ -1281,7 +1281,8 @@
     "careEventAllocation": {
       "measured": "Measured",
       "by_area": "Divided by area",
-      "equal": "Divided in equal parts"
+      "equal": "Divided in equal parts",
+      "by_demand": "Divided by demand"
     },
     "sunWindow": {
       "morning": "Morning",

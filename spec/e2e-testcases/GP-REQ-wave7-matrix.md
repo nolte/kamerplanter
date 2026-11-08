@@ -10,7 +10,7 @@ stays a review question. Honest gaps are listed in
 `GP-REQ-wave7-gaps.json` with a reason and an issue: **GAP** (no test) or **partial** (the tests leave
 the named part unproven).
 
-**37 of 37 wave-7 rows have a test, 3 of them with a partial gap; 0 without a test.**
+**37 of 37 wave-7 rows have a test, 2 of them with a partial gap; 0 without a test.**
 
 | Row | Prio | Scope | Tiers | Tests |
 |---|---|---|---|---|
@@ -27,7 +27,7 @@ the named part unproven).
 | GP-FR-112 | SHOULD | last watering per zone and bed | unit | `src/backend/tests/unit/domain/services/test_irrigation_zone_watering.py` |
 | GP-FR-113 | SHOULD | zone demand from REQ-037 (net litres, gross with efficiency) | unit | `src/backend/tests/unit/domain/calculators/test_irrigation_zone_demand_calculator.py`<br>`src/backend/tests/unit/domain/services/test_irrigation_zone_watering.py` |
 | GP-FR-114 | SHOULD | zone consumption (logged + actuator runtime x flow rate) | unit | `src/backend/tests/unit/domain/calculators/test_irrigation_zone_consumption_calculator.py`<br>`src/backend/tests/unit/domain/services/test_irrigation_zone_coupling.py` |
-| GP-FR-117 | SHOULD | watering round of a zone (allocated total) | e2e, unit (**partial**) | `tests/e2e/test_req053_wave7_editor.py`<br>`src/backend/tests/unit/domain/services/test_care_event_service.py`<br>`src/backend/tests/unit/domain/services/test_irrigation_zone_watering.py`<br>**Partial gap:** The round divided `by_area` or `equal`, marked as allocated, is tested (unit, API, integration, E2E TC-053-046). Not implemented: `allocation = by_demand` (the decision of #2466 item 1 ties it to the zone demand of WP 7.5, which is merged; `CareEventAllocation` has no such value) and "Regen - übersprungen" (#2466 item 2: one `care_event(rainfall)` per bed; no route, no dialog action - TC-053-047 is therefore not automatable) (#2466) |
+| GP-FR-117 | SHOULD | watering round of a zone (allocated total) | api, e2e, frontend, integration, unit | `src/backend/tests/api/test_irrigation_zones_api.py`<br>`tests/e2e/test_req053_wave7_editor.py`<br>`src/frontend/src/features/gardenPlanner/zones/WateringRoundDialog.test.tsx`<br>`src/backend/tests/integration/test_garden_plan_tenant_isolation.py`<br>`src/backend/tests/integration/test_irrigation_zone_wave7.py`<br>`src/backend/tests/unit/domain/services/test_care_event_service.py`<br>`src/backend/tests/unit/domain/services/test_irrigation_zone_watering.py`<br>`src/backend/tests/unit/test_route_consumers_check.py` |
 | GP-FR-119 | SHOULD | conflict hint zone type vs bed irrigation system | unit | `src/backend/tests/unit/domain/calculators/test_irrigation_zone_demand_calculator.py`<br>`src/backend/tests/unit/domain/services/test_irrigation_zone_watering.py` |
 | GP-FR-148 | SHOULD | snapshots before replace, list and restore | e2e, integration | `tests/e2e/test_req053_wave7_plan_io.py`<br>`src/backend/tests/integration/test_garden_plan_import.py`<br>`src/backend/tests/integration/test_garden_plan_tenant_isolation.py` |
 | GP-FR-158 | SHOULD | sun profile (sun window chips) | e2e, frontend | `tests/e2e/test_req053_wave7_plan_io.py`<br>`src/frontend/src/features/gardenPlanner/bed/BedView.test.tsx`<br>`src/frontend/src/features/gardenPlanner/bed/SunWindowFields.test.tsx`<br>`src/frontend/src/features/gardenPlanner/editor/PropertiesPanel.test.tsx`<br>`src/frontend/src/features/gardenPlanner/field/FieldModeView.test.tsx` |

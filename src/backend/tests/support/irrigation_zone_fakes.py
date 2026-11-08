@@ -32,6 +32,8 @@ class FakeZones(IIrrigationZoneRepository):
         self.facts_asked: list[list[str]] = []
         #: What ``bed_demands`` answers (REQ-037 demand of the day per bed).
         self.demands: list[BedDemand] = []
+        #: The days ``bed_demands`` was asked about, in call order.
+        self.demand_dates_asked: list[Any] = []
         #: actuator key -> (tenant, location) and its recorded switches (WP 7.4).
         self.actuators: dict[str, tuple[str, str]] = {}
         self.switches: dict[str, list[StateChange]] = {}
@@ -121,6 +123,7 @@ class FakeZones(IIrrigationZoneRepository):
 
     def bed_demands(self, site_key, location_keys, *, tenant_key, on_date):
         assert tenant_key
+        self.demand_dates_asked.append(on_date)
         return [demand for demand in self.demands if demand.location_key in location_keys]
 
     def actuator_location_key(self, actuator_key, *, tenant_key):

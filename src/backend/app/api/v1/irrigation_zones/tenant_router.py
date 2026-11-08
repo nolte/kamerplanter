@@ -8,7 +8,7 @@ the service (§22.3 T-01…T-03): a foreign and an absent key answer 404 alike, 
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request
+from fastapi import APIRouter, Depends, Path, Request, Response
 
 from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.irrigation_zones.schemas import (
@@ -16,11 +16,14 @@ from app.api.v1.irrigation_zones.schemas import (
     IrrigationZoneLocationsResponse,
     IrrigationZoneLocationsUpdate,
     IrrigationZoneLogWatering,
+    IrrigationZoneRainSkipped,
+    IrrigationZoneRainSkippedResponse,
     IrrigationZoneResponse,
     IrrigationZoneStatusResponse,
     IrrigationZoneUpdate,
     IrrigationZoneWateringResponse,
     zone_locations_to_response,
+    zone_rain_skipped_to_response,
     zone_status_to_response,
     zone_to_response,
     zone_watering_to_response,
@@ -181,10 +184,50 @@ def log_irrigation_zone_watering(
 ) -> IrrigationZoneWateringResponse:
     """Log one watering round for every bed of the zone (GP-API-053, from grower; 20 a minute per account).
 
-    `volume_liters` is divided `by_area` or `equal` over the beds and written as one `watering` care event per bed
-    in a single transaction, each marked with the `allocation`. Beds without an area are left out of `by_area` and
-    named in `skipped_location_keys`; 422 `irrigation_zone.no_beds` / `irrigation_zone.no_bed_area` when nothing can
-    be divided.
+    `volume_liters` is divided `by_area`, `equal` or `by_demand` (each bed's REQ-037 net demand of the round's UTC
+    day) over the beds and written as one `watering` care event per bed in a single transaction, each marked with
+    the `allocation`. Beds without an area (`by_area`) or without a demand (`by_demand`) are left out and named in
+    `skipped_location_keys`; 422 `irrigation_zone.no_beds` / `irrigation_zone.no_bed_area` /
+    `irrigation_zone.no_bed_demand` when nothing can be divided.
     """
     result = service.log_watering(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, data=body)
     return zone_watering_to_response(result)
+
+
+@router.post(
+    "/irrigation-zones/{key}/rain-skipped",
+    response_model=IrrigationZoneRainSkippedResponse,
+    status_code=201,
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **VALIDATION_RESPONSE,
+        200: {
+            "model": IrrigationZoneRainSkippedResponse,
+            "description": "A replay: `client_event_id` names a round stored before; nothing was written.",
+        },
+        409: {"description": "`client_event.payload_mismatch`: the `client_event_id` names a different request."},
+    },
+)
+@limiter.limit(settings.rate_limit_zone_rain_skipped, key_func=user_rate_limit_key)
+def log_irrigation_zone_rain_skipped(
+    request: Request,
+    response: Response,
+    key: _ZONE_KEY,
+    body: IrrigationZoneRainSkipped,
+    ctx: TenantContext = Depends(require_permission(ResourceType.IRRIGATION_ZONE, Action.UPDATE)),
+    service: IrrigationZoneService = Depends(get_irrigation_zone_service),
+) -> IrrigationZoneRainSkippedResponse:
+    """Rain - skipped: the round was not walked because it rained (GP-FR-117, §32.4 Pkt. 2; from grower).
+
+    One `rainfall` care event **without a quantity** per bed of the zone, in a single transaction. No task is closed:
+    the open watering tasks stay open. The events carry no litres and enter no water balance (§32.6 Pkt. 11). 422
+    `irrigation_zone.no_beds` for a zone without beds, `care_event.performed_in_future` / `care_event.too_old` (V-11).
+
+    `client_event_id` (a UUID the client makes once per press of the action, optional): a second request with the
+    same id and the same body answers **200** with the events of the first instead of writing them again; the same id
+    with another body, zone or member is 409 `client_event.payload_mismatch`. 20 a minute per account.
+    """
+    result = service.log_rain_skipped(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, data=body)
+    if result.replayed:
+        response.status_code = 200
+    return zone_rain_skipped_to_response(result)

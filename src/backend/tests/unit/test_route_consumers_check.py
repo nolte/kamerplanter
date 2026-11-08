@@ -331,9 +331,13 @@ class TestTheRouteOperand:
         +2: the template exchange (REQ-053 WP 9.9, #2749, GP-API-070/071): ``GET /t/{slug}/bed-templates/{key}/
         export`` and ``POST /t/{slug}/bed-templates/import``. The template panel
         (``features/gardenPlanner/templates/templateExchange.ts``) consumes both in the same change.
+
+        +1: "rain - skipped" of a watering round (REQ-053 WP 9.13, #2753, GP-FR-117): ``POST /t/{slug}/
+        irrigation-zones/{key}/rain-skipped``. The watering-round dialog (``features/gardenPlanner/zones/zonesApi.ts``,
+        ``logZoneRainSkipped``) consumes it in the same change.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 903
+        assert len(checker.collect_operations(app)) == 904
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

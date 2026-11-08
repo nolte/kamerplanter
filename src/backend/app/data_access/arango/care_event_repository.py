@@ -171,6 +171,16 @@ FOR e IN @@events
     RETURN e._key
 """
 
+#: The events a buffered round stored under its derived ids (WP 9.13): one statement, so one snapshot - a reader that
+#: meets a round's commit sees all of its events or none. Served by the same unique index.
+_EVENTS_BY_CLIENT_IDS = """
+FOR e IN @@events
+    FILTER e.tenant_key == @tenant_key AND e.client_event_id IN @client_event_ids
+    SORT e._key
+    LIMIT @limit
+    RETURN e
+"""
+
 #: The readable names of ``e.plant_keys`` (bind ``@plants`` = ``"plant_instances/"``), one primary-key lookup per
 #: plant: ``plant_name``, else ``instance_id``; a plant that is gone or another tenant's is left out (#2514). Shared
 #: with the bed history (``bed_history_repository``) so both lists name a plant alike.
@@ -512,6 +522,19 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         )
         key = next(cursor, None)
         return str(key) if key is not None else None
+
+    def find_by_client_event_ids(self, client_event_ids: list[str], *, tenant_key: str) -> list[CareEvent]:
+        self._require_tenant_key(tenant_key, "find_by_client_event_ids")
+        if not client_event_ids:
+            return []
+        bind_vars: dict[str, Any] = {
+            "@events": col.CARE_EVENTS,
+            "tenant_key": tenant_key,
+            "client_event_ids": client_event_ids,
+            "limit": len(client_event_ids),
+        }
+        cursor = cast("Cursor", self._db.aql.execute(_EVENTS_BY_CLIENT_IDS, bind_vars=bind_vars))
+        return [self._wrapped(doc) for doc in cursor]
 
     def _row(self, row: dict[str, Any]) -> CareEventRow:
         return CareEventRow(

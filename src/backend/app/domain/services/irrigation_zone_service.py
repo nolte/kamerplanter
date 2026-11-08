@@ -31,7 +31,14 @@ import structlog
 from pydantic import BaseModel
 
 from app.common.enums import AdminScope, CareEventAllocation, FlowRateSource, GardenObjectType, TenantRole
-from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
+from app.common.exceptions import (
+    ClientEventMismatchError,
+    DuplicateError,
+    ForbiddenError,
+    PlanError,
+    PlanValidationError,
+    WriteConflictError,
+)
 from app.common.types import IrrigationZoneKey, SiteKey
 from app.domain.calculators.irrigation_zone_consumption_calculator import (
     resolve_flow_rate,
@@ -43,6 +50,7 @@ from app.domain.calculators.irrigation_zone_demand_calculator import (
     ZoneDemand,
     days_of_supply,
     irrigation_system_differs,
+    net_liters,
     zone_demand,
 )
 from app.domain.calculators.overdue_calculator import is_overdue
@@ -60,6 +68,12 @@ from app.domain.interfaces.garden_object_repository import IGardenObjectReposito
 from app.domain.interfaces.ha_entity_gate import DenyAllHaEntityGate, HaEntityGate
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.models.care_event import CareEvent
+from app.domain.models.client_event import (
+    ClientEventStamp,
+    batch_item_client_event_id,
+    client_event_digest,
+    is_client_event_conflict,
+)
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import ERROR_ZONE_QUOTA, MAX_PLAN_ZONES
 from app.domain.models.irrigation_zone import (
@@ -72,10 +86,13 @@ from app.domain.models.irrigation_zone import (
     NextPlannedView,
     ZoneCoverageChange,
     ZoneHint,
+    ZoneRainSkippedInput,
+    ZoneRainSkippedResult,
     ZoneStatusView,
     ZoneWateringInput,
     ZoneWateringResult,
 )
+from app.domain.models.site import Location
 from app.domain.services.care_event_service import check_performed_instant
 from app.domain.services.ha_entity_grant_service import require_granted
 from app.domain.services.location_ownership import (
@@ -113,6 +130,12 @@ CONSUMPTION_DAYS = 30
 #: 422 of a watering round on a zone that covers no bed / on ``by_area`` when no bed has an area.
 ERROR_NO_BEDS = "irrigation_zone.no_beds"
 ERROR_NO_BED_AREA = "irrigation_zone.no_bed_area"
+#: 422 of ``by_demand`` when no bed of the zone has a REQ-037 demand above zero for the round's day (WP 9.13).
+ERROR_NO_BED_DEMAND = "irrigation_zone.no_bed_demand"
+#: The summary of a skipped round without a handover note (GP-FR-117, F-05); like the round's, never translated.
+RAIN_SKIPPED_SUMMARY = "Rain - watering round skipped, zone {name}"
+#: How often a replayable round tries its insert while a concurrent attempt with the same id still writes (WP 9.3).
+_CLIENT_WRITE_ATTEMPTS = 3
 
 #: The fields a PATCH writes on the document (the coupling fields are refused before).
 _PATCH_COLUMNS: tuple[str, ...] = (
@@ -537,31 +560,32 @@ class IrrigationZoneService:
     ) -> ZoneWateringResult:
         """One ``care_event(watering)`` per bed of the zone, in one transaction (GP-FR-117).
 
-        The total is divided by ``area_m2`` or evenly and every event is marked with the ``allocation``, so an
-        allocated quantity is never taken for a measured one. A bed without an area is left out of ``by_area``
-        and named in the answer; no area anywhere is 422 ``irrigation_zone.no_bed_area``. ``performed_at`` obeys
-        V-11 (five minutes ahead, a year back). Nothing is written when anything is refused.
+        The total is divided by ``area_m2``, evenly or by each bed's net demand of the round's UTC day
+        (``by_demand``, WP 9.13) and every event is marked with the ``allocation``, so an allocated quantity is
+        never taken for a measured one. A bed without an area (``by_area``) or without a demand above zero
+        (``by_demand``) is left out and named in the answer; nothing left is 422 ``irrigation_zone.no_bed_area`` /
+        ``irrigation_zone.no_bed_demand``. ``performed_at`` obeys V-11 (five minutes ahead, a year back). Nothing
+        is written when anything is refused.
         """
         zone = self._zones.get_zone_or_raise(key, tenant_key=tenant_key)
         self._require_editor(role)
         performed_at = data.performed_at or datetime.now(UTC)
         check_performed_instant(performed_at)
-        bed_keys = self._zones.covered_location_keys([key], tenant_key=tenant_key).get(key, [])
-        if not bed_keys:
-            raise PlanError(ERROR_NO_BEDS, "The zone covers no bed to water.", status_code=422, field="location_keys")
-        owned = find_owned_locations(self._sites, bed_keys, tenant_key)
-        beds = [owned[bed] for bed in bed_keys if bed in owned and owned[bed].site_key == zone.site_key]
-        by_area = data.allocation is CareEventAllocation.BY_AREA
-        placed = [bed for bed in beds if bed.area_m2 > 0] if by_area else beds
+        beds = self._zone_beds(zone, tenant_key=tenant_key)
+        weights = self._round_weights(zone, beds, data.allocation, performed_at, tenant_key=tenant_key)
+        placed = [bed for bed in beds if (bed.key or "") in weights]
         skipped = tuple(bed.key or "" for bed in beds if bed not in placed)
         if not placed:
+            by_demand = data.allocation is CareEventAllocation.BY_DEMAND
             raise PlanError(
-                ERROR_NO_BED_AREA,
-                "No bed of the zone has an area to divide the total by; use `equal`.",
+                ERROR_NO_BED_DEMAND if by_demand else ERROR_NO_BED_AREA,
+                "No bed of the zone has a demand for this day to divide the total by; use `equal`."
+                if by_demand
+                else "No bed of the zone has an area to divide the total by; use `equal`.",
                 status_code=422,
                 field="allocation",
             )
-        liters = divide_volume(data.volume_liters, [bed.area_m2 if by_area else 1.0 for bed in placed])
+        liters = divide_volume(data.volume_liters, [weights[bed.key or ""] for bed in placed])
         summary = data.summary or f"Watering round, zone {zone.name}"
         events = [
             CareEvent(
@@ -598,6 +622,168 @@ class IrrigationZoneService:
             performed_at=performed_at,
             skipped_location_keys=skipped,
         )
+
+    def _zone_beds(self, zone: IrrigationZone, *, tenant_key: str) -> list[Location]:
+        """The tenant's beds the zone covers on its own site, in edge order; 422 ``irrigation_zone.no_beds`` if none.
+
+        Bounded: a bed is in at most one zone and a site holds at most :data:`MAX_ZONE_LOCATIONS` locations.
+        """
+        zone_key = zone.key or ""
+        bed_keys = self._zones.covered_location_keys([zone_key], tenant_key=tenant_key).get(zone_key, [])
+        owned = find_owned_locations(self._sites, bed_keys, tenant_key)
+        beds = [owned[bed] for bed in bed_keys if bed in owned and owned[bed].site_key == zone.site_key]
+        if not beds:
+            raise PlanError(ERROR_NO_BEDS, "The zone covers no bed to water.", status_code=422, field="location_keys")
+        return beds
+
+    def _round_weights(
+        self,
+        zone: IrrigationZone,
+        beds: list[Location],
+        allocation: CareEventAllocation,
+        performed_at: datetime,
+        *,
+        tenant_key: str,
+    ) -> dict[str, float]:
+        """The positive weight of every bed that gets a share, by bed key; a bed without one is left out.
+
+        ``by_area``: ``area_m2``. ``equal``: 1. ``by_demand``: REQ-037's net litres of the round's UTC day
+        (depth x area, :func:`net_liters`) - the same figure the zone status shows, read, never estimated (E-10).
+        """
+        if allocation is CareEventAllocation.BY_DEMAND:
+            demands = self._zones.bed_demands(
+                zone.site_key, [bed.key or "" for bed in beds], tenant_key=tenant_key, on_date=performed_at.date()
+            )
+            litres = {demand.location_key: net_liters(demand) for demand in demands}
+            return {key: value for key, value in litres.items() if value > 0}
+        if allocation is CareEventAllocation.BY_AREA:
+            return {bed.key or "": bed.area_m2 for bed in beds if bed.area_m2 > 0}
+        return {bed.key or "": 1.0 for bed in beds}
+
+    # ── GP-FR-117: "rain - skipped" ───────────────────────────────────────
+
+    def log_rain_skipped(
+        self,
+        key: IrrigationZoneKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        data: ZoneRainSkippedInput,
+    ) -> ZoneRainSkippedResult:
+        """One ``care_event(rainfall)`` without a quantity per bed of the zone, in one transaction (§32.4 Pkt. 2).
+
+        The round was not walked because it rained. No task is touched - the open watering tasks stay open - and
+        the events carry no litres, so they enter neither the zone's consumption nor any water balance (§32.6
+        Pkt. 11, GP-FR-113 stays without a consumer). ``performed_at`` obeys V-11.
+
+        **Replay (WP 9.3).** With a ``client_event_id`` every event stores an id of its own,
+        ``uuid5(client_event_id, location_key)``, under the unique index per tenant, and the digest of the request
+        (caller, zone, body). A second attempt with the same id answers the events of the first (``replayed``)
+        and writes nothing; the same id with another body, zone or caller is 409 ``client_event.payload_mismatch``.
+        Two attempts at once race on the index: the loser reads the winner.
+        """
+        zone = self._zones.get_zone_or_raise(key, tenant_key=tenant_key)
+        self._require_editor(role)
+        performed_at = data.performed_at or datetime.now(UTC)
+        check_performed_instant(performed_at)
+        beds = self._zone_beds(zone, tenant_key=tenant_key)
+        stamps = self._rain_stamps(key, beds, data, user_key=user_key)
+        if stamps:
+            stored = self._replayed_round(stamps, tenant_key=tenant_key)
+            if stored is not None:
+                logger.info("irrigation_zone.rain_skipped_replayed", zone_key=key, beds=len(stored.event_keys))
+                return stored
+        summary = (data.summary or RAIN_SKIPPED_SUMMARY.format(name=zone.name))[:500]
+        events = [
+            CareEvent(
+                tenant_key=tenant_key,
+                site_key=bed.site_key,
+                location_key=bed.key or "",
+                category="rainfall",
+                summary=summary,
+                performed_at=performed_at,
+                performed_by_user_key=user_key,
+                trigger="manual",
+                client_event_id=stamps[bed.key or ""].client_event_id if stamps else None,
+                client_event_digest=stamps[bed.key or ""].digest if stamps else None,
+                created_by=user_key,
+            )
+            for bed in beds
+        ]
+        written = self._insert_round(events, stamps, tenant_key=tenant_key)
+        if isinstance(written, ZoneRainSkippedResult):
+            logger.info("irrigation_zone.rain_skipped_replayed", zone_key=key, beds=len(written.event_keys), raced=True)
+            return written
+        logger.info("irrigation_zone.rain_skipped_logged", zone_key=key, site_key=zone.site_key, beds=len(written))
+        return ZoneRainSkippedResult(
+            event_keys=tuple(event.key or "" for event in written),
+            location_keys=tuple(event.location_key for event in written),
+            performed_at=performed_at,
+        )
+
+    @staticmethod
+    def _rain_stamps(
+        zone_key: str, beds: list[Location], data: ZoneRainSkippedInput, *, user_key: str
+    ) -> dict[str, ClientEventStamp]:
+        """The id and digest each bed's event stores, by bed key; empty without a ``client_event_id``."""
+        if data.client_event_id is None:
+            return {}
+        # Through a receiver typed as the pydantic base (the call-graph sweep's blind-spot ceiling, #2039).
+        request: BaseModel = data
+        body = request.model_dump(mode="json", exclude={"client_event_id"})
+        digest = client_event_digest({"user": user_key, "zone": zone_key, "body": body})
+        return {
+            bed.key or "": ClientEventStamp(batch_item_client_event_id(data.client_event_id, bed.key or ""), digest)
+            for bed in beds
+        }
+
+    def _replayed_round(self, stamps: dict[str, ClientEventStamp], *, tenant_key: str) -> ZoneRainSkippedResult | None:
+        """The events an earlier attempt with the same id stored, or ``None``; 409 when they answer another request.
+
+        One statement for every bed's id (bounded like :meth:`_zone_beds`), so one snapshot: a reader that meets the
+        commit of a concurrent attempt sees its whole round or nothing of it, never a part (measured: two separate
+        reads straddled the commit and answered one bed of two). A bed that joined the zone after the first attempt
+        has no event of it and is not written now: the round is what it was when it was logged.
+        """
+        digests = {stamp.client_event_id: stamp.digest for stamp in stamps.values()}
+        stored = self._care.find_by_client_event_ids(list(digests), tenant_key=tenant_key)
+        if any(digests.get(event.client_event_id or "") != event.client_event_digest for event in stored):
+            raise ClientEventMismatchError()
+        order = {stamp.client_event_id: index for index, stamp in enumerate(stamps.values())}
+        found = sorted(stored, key=lambda event: order.get(event.client_event_id or "", len(order)))
+        if not found:
+            return None
+        return ZoneRainSkippedResult(
+            event_keys=tuple(event.key or "" for event in found),
+            location_keys=tuple(event.location_key for event in found),
+            performed_at=found[0].performed_at,
+            replayed=True,
+        )
+
+    def _insert_round(
+        self, events: list[CareEvent], stamps: dict[str, ClientEventStamp], *, tenant_key: str
+    ) -> list[CareEvent] | ZoneRainSkippedResult:
+        """``insert_many`` (all or none); with ``stamps`` a lost race on the client-event index reads the winner."""
+        if not stamps:
+            return self._care.insert_many(events, tenant_key=tenant_key)
+        for attempt in range(_CLIENT_WRITE_ATTEMPTS):
+            try:
+                return self._care.insert_many(events, tenant_key=tenant_key)
+            except DuplicateError as exc:
+                if not is_client_event_conflict(exc.details):
+                    raise  # another unique index refused the write: not a replay
+                stored = self._replayed_round(stamps, tenant_key=tenant_key)
+                if stored is None:
+                    raise
+                return stored
+            except WriteConflictError:
+                stored = self._replayed_round(stamps, tenant_key=tenant_key)
+                if stored is not None:
+                    return stored
+                if attempt == _CLIENT_WRITE_ATTEMPTS - 1:  # the winner rolled back, or is still writing
+                    raise
+        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
 
     # ── References ────────────────────────────────────────────────────────
 

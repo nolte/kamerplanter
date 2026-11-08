@@ -6311,11 +6311,13 @@
             "allocation": "Division over the beds",
             "allocationOption": {
               "by_area": "By bed area",
-              "equal": "Equal parts"
+              "equal": "Equal parts",
+              "by_demand": "By demand"
             },
             "allocationHelp": {
               "by_area": "Each bed gets a share by its area. Beds without an area are left out.",
-              "equal": "Each bed gets the same amount, whatever its area."
+              "equal": "Each bed gets the same amount, whatever its area.",
+              "by_demand": "Each bed gets a share by its calculated water demand on that day. Beds without a demand are left out."
             },
             "summary": "Note on the round",
             "marker": "The amount is divided over the beds and not measured. The log marks it that way.",
@@ -6330,7 +6332,17 @@
             "resultTitle": "Watering round saved",
             "resultMarker": "{{allocation}}: these amounts are divided, not measured.",
             "share": "{{bed}}: {{liters}} litres",
-            "skipped": "Left out because they have no area: {{beds}}."
+            "skipped": "Left out because they have no area: {{beds}}.",
+            "skippedNoDemand": "Left out because they have no water demand on that day: {{beds}}.",
+            "noBedDemand": "No bed of the zone has a calculated water demand on that day. Choose another division.",
+            "rainHeading": "Rain — round skipped",
+            "rainHelp": "It rained, so there is no watering today. One rain entry without an amount is saved for every bed of the zone. Open watering tasks stay open. The note above is used.",
+            "rainSkip": "Rain — skipped",
+            "rainConflict": "This round was already saved as skipped with a different note. Close the dialog and check the log.",
+            "rainResultTitle": "Round saved as skipped",
+            "rainResultMarker": "Rain entries without an amount. Open watering tasks stay open.",
+            "rainResultBeds_one": "Saved for {{count}} bed: {{beds}}.",
+            "rainResultBeds_other": "Saved for {{count}} beds: {{beds}}."
           },
           "bed": {
             "zone": "Irrigation zone: {{number}}. {{name}}",

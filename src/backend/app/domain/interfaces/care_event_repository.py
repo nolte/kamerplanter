@@ -75,6 +75,14 @@ class ICareEventRepository(ABC):
         """The key of the tenant's event a buffered write with ``client_event_id`` stored (WP 9.3), else ``None``."""
 
     @abstractmethod
+    def find_by_client_event_ids(self, client_event_ids: list[str], *, tenant_key: str) -> list[CareEvent]:
+        """The tenant's events stored under any of ``client_event_ids``, read in ONE statement (WP 9.13).
+
+        One snapshot: a reader that meets the commit of a round written with :meth:`insert_many` sees every event of
+        it or none, never a part. At most ``len(client_event_ids)`` events (the ids are unique per tenant).
+        """
+
+    @abstractmethod
     def chain(self, key: str, *, tenant_key: str) -> list[CareEvent]:
         """Every event of ``key``'s supersede chain, oldest first (empty when ``key`` is not the tenant's)."""
 

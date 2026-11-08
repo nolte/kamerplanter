@@ -13,6 +13,8 @@ What no double can decide, measured here against the production schema:
 
 from __future__ import annotations
 
+import threading
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -20,7 +22,7 @@ import pytest
 from arango import ArangoClient
 
 from app.common.enums import AdminScope, TenantRole
-from app.common.exceptions import PlanValidationError
+from app.common.exceptions import PlanValidationError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.actuator_repository import ArangoActuatorRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
@@ -28,7 +30,12 @@ from app.data_access.arango.garden_object_repository import ArangoGardenObjectRe
 from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
 from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
-from app.domain.models.irrigation_zone import IrrigationZoneInput, IrrigationZonePatch, ZoneWateringInput
+from app.domain.models.irrigation_zone import (
+    IrrigationZoneInput,
+    IrrigationZonePatch,
+    ZoneRainSkippedInput,
+    ZoneWateringInput,
+)
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.irrigation_zone_service import IrrigationZoneService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -199,6 +206,85 @@ class TestWateringRound:
         )
 
         assert _status(db, zone).consumption_liters_30d == 0.0
+
+
+class TestRainSkipped:
+    """WP 9.13 (#2753, GP-FR-117, §32.4 Pkt. 2): "rain - skipped" on the production schema."""
+
+    def _open_task(self, db, key: str, bed: str) -> None:
+        db.collection(col.TASKS).insert(
+            {
+                "_key": key,
+                "tenant_key": A,
+                "status": "pending",
+                "category": "watering",
+                "entity_type": "location",
+                "entity_key": bed,
+                "due_date": NOW.isoformat(),
+            }
+        )
+
+    def test_n_beds_give_n_rainfall_events_and_no_task_is_closed(self, db) -> None:
+        zone = _zone(db)
+        self._open_task(db, "t_bed_1", "bed_1")
+        self._open_task(db, "t_bed_2", "bed_2")
+
+        result = _service(db).log_rain_skipped(
+            zone, tenant_key=A, user_key=USER, role=TenantRole.GROWER, data=ZoneRainSkippedInput()
+        )
+
+        stored = list(db.collection(col.CARE_EVENTS).all())
+        assert sorted((e["location_key"], e["category"], e.get("quantity")) for e in stored) == [
+            ("bed_1", "rainfall", None),
+            ("bed_2", "rainfall", None),
+        ]
+        assert sorted(result.event_keys) == sorted(e["_key"] for e in stored)
+        assert len(db.collection(col.CARE_EVENT_AT).all()) == 2
+        assert {t["_key"]: t["status"] for t in db.collection(col.TASKS).all()} == {
+            "t_bed_1": "pending",
+            "t_bed_2": "pending",
+        }
+        status = _status(db, zone)
+        # §32.6 Pkt. 11: a rainfall event without litres is no watering and enters no water balance.
+        assert status.last_watering is None and status.consumption_liters_30d == 0.0
+        assert status.next_planned is not None and status.next_planned.task_key in {"t_bed_1", "t_bed_2"}
+        plans = GardenPlanService(
+            ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoIrrigationZoneRepository(db)
+        )
+        # TC-053-047: no bed counts as watered - the "last watered" layer stays as it was.
+        assert plans.get_plan("site_a", tenant_key=A).last_watered == {}
+
+    def test_two_presses_at_once_with_one_id_store_the_round_once(self, db) -> None:
+        zone = _zone(db)
+        data = ZoneRainSkippedInput(client_event_id=uuid.uuid4())
+        barrier = threading.Barrier(2)
+        answers: list[Any] = []
+
+        def press() -> None:
+            client = ArangoClient(hosts=ARANGO_URL)  # one HTTP session per thread
+            handle = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+            barrier.wait()
+            try:
+                answers.append(
+                    _service(handle).log_rain_skipped(
+                        zone, tenant_key=A, user_key=USER, role=TenantRole.GROWER, data=data
+                    )
+                )
+            except WriteConflictError as exc:  # the retryable answer of a loser that met an uncommitted winner
+                answers.append(exc)
+
+        threads = [threading.Thread(target=press) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        again = _service(db).log_rain_skipped(zone, tenant_key=A, user_key=USER, role=TenantRole.GROWER, data=data)
+
+        stored = list(db.collection(col.CARE_EVENTS).all())
+        assert len(stored) == 2  # n beds once, never 2n
+        assert again.replayed is True and sorted(again.event_keys) == sorted(e["_key"] for e in stored)
+        written = [a for a in answers if not isinstance(a, Exception)]
+        assert written and all(sorted(a.event_keys) == sorted(again.event_keys) for a in written)
 
 
 class TestStatusReads:

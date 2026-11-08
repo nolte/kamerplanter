@@ -64,6 +64,12 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "WP 7.3); the zone panel that calls it is WP 7.6/7.7. One round per grower and minute at most is "
         "human-scale, so raising it here would test nothing the suite uses."
     ),
+    "rate_limit_zone_rain_skipped": (
+        "The 'rain - skipped' action of the watering-round dialog (POST /irrigation-zones/{key}/rain-skipped, "
+        "REQ-053 WP 9.13) is pressed once per round: TC-053-047 (WP 9.16) presses it once per run. A grower "
+        "who skips a round because it rained does that a few times a season, never in a burst, so raising it "
+        "here would test nothing the suite uses."
+    ),
     "rate_limit_care_events_export": (
         "No E2E test downloads the care-log CSV (grep over tests/e2e finds no call to "
         "GET /care-events?format=csv and no click on the history export button, REQ-053 WP 8.4); the "

@@ -1281,7 +1281,8 @@
     "careEventAllocation": {
       "measured": "Gemessen",
       "by_area": "Nach Fläche verteilt",
-      "equal": "Zu gleichen Teilen verteilt"
+      "equal": "Zu gleichen Teilen verteilt",
+      "by_demand": "Nach Bedarf verteilt"
     },
     "sunWindow": {
       "morning": "Morgens",

@@ -72,6 +72,14 @@ class FakeCareEventRepo(ICareEventRepository):
             None,
         )
 
+    def find_by_client_event_ids(self, client_event_ids, *, tenant_key):
+        wanted = set(client_event_ids)
+        return [
+            event
+            for event in self.events.values()
+            if event.tenant_key == tenant_key and event.client_event_id in wanted
+        ]
+
     def chain(self, key, *, tenant_key):
         event = self.get(key, tenant_key=tenant_key)
         if event is None:
