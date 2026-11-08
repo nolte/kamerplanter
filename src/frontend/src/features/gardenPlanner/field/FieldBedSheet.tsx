@@ -60,8 +60,8 @@ import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import { useCacheScope } from '../offline/useCacheScope';
 import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import { canBuffer, sendOrBuffer, type BufferTarget } from '../offline/bufferedWrite';
-import { QUEUE_CAPACITY, discardEntry, isQueueFull } from '../offline/queue';
-import { photoFile, photoForQueue } from '../offline/queuedPhoto';
+import { QUEUE_CAPACITY, discardEntry, isPerformedTooOld, isQueueFull } from '../offline/queue';
+import { photoAsSent, photoForQueue, withGenericName } from '../offline/queuedPhoto';
 import type { QueueEntry, QueuedWrite, StoredPhoto } from '../offline/queueTypes';
 import { useWriteQueue } from '../offline/useWriteQueue';
 
@@ -150,7 +150,16 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const bufferOn = queue.available && canBuffer(scope);
   const target: BufferTarget = { scope, online, bedKey: bed.key, bedName: bed.name };
   const queuedTaskKeys = useMemo(
-    () => new Set(queue.entries.flatMap((entry) => (entry.write.kind === 'complete' ? [entry.write.taskKey] : []))),
+    // Only what is still on its way hides "Done": a failed or conflicting completion shows its own state in the
+    // dialog and must not lock the task for good.
+    () =>
+      new Set(
+        queue.entries.flatMap((entry) =>
+          entry.write.kind === 'complete' && (entry.status === 'pending' || entry.status === 'syncing')
+            ? [entry.write.taskKey]
+            : [],
+        ),
+      ),
     [queue.entries],
   );
   // An entry of this bed left the buffer (sent or discarded): what the server has now is read again.
@@ -185,7 +194,10 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   // A sheet read from the plan cache is a past state: nothing is written against it (WP 9.2) — except what the
   // buffer takes, which the server checks on arrival (a closed task is a conflict, WP 9.3).
   const writesLocked = saving || !online || (ready?.cachedAt ?? null) !== null;
-  const bufferedLocked = bufferOn ? saving || (!online && queue.full) : writesLocked;
+  // Online with a sheet from the plan cache (WP 9.2): the lock stays — the sheet reloads first; nothing is sent
+  // or buffered against a snapshot while the server is reachable.
+  const fromCache = (ready?.cachedAt ?? null) !== null;
+  const bufferedLocked = bufferOn ? saving || (!online && queue.full) || (online && fromCache) : writesLocked;
 
   /** "Undo" of a buffered entry: it leaves the buffer (refused once a sync has it on the way). */
   const offerQueuedUndo = (entry: QueueEntry, message: string) => {
@@ -202,6 +214,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
 
   const bufferError = (error: unknown) => {
     if (isQueueFull(error)) notification.warning(t('pages.gardenPlan.field.buffer.full', { max: QUEUE_CAPACITY }));
+    else if (isPerformedTooOld(error)) notification.warning(t('pages.gardenPlan.field.buffer.tooOld'));
     else handleError(error);
   };
 
@@ -258,27 +271,29 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   };
 
   /**
-   * A photo of the bed or a plant: downscaled for the buffer (≤ 1920 px, JPEG 80, R-044) BEFORE the online
-   * attempt, so the request and a later resend carry the same file (a different file under the same id would be a
-   * `payload_mismatch`). Without a buffer the dialog's file goes as it is.
+   * A photo of the bed or a plant. Online it goes as the upload dialog prepared it (the gallery's single encode,
+   * 2048 px / JPEG 90). Only what is buffered is re-encoded for the device (≤ 1920 px, JPEG 80, R-044) — a capture
+   * made offline. A buffered copy of an online attempt whose answer got lost keeps the bytes that were sent: the
+   * resend under the same id must carry the same file, or it would be a `payload_mismatch`.
    */
   const sendPhoto = async (
     file: File,
     write: (photo: StoredPhoto) => QueuedWrite,
     direct: (file: File, id: string | undefined) => Promise<unknown>,
   ): Promise<void> => {
-    let stored: StoredPhoto | null = null;
-    if (bufferOn) {
-      try {
-        stored = await photoForQueue(file);
-      } catch {
-        stored = null;
-      }
-    }
-    if (!stored && !online) throw new Error(t('pages.gardenPlan.field.buffer.photoUnreadable'));
-    const outcome = stored
-      ? await sendOrBuffer(target, () => write(stored), (id) => direct(photoFile(stored), id))
-      : { status: 'sent' as const, result: await direct(file, undefined) };
+    const sent = bufferOn ? withGenericName(file) : file;
+    const outcome = await sendOrBuffer(
+      target,
+      async (fallback) => {
+        if (fallback) return write(await photoAsSent(sent));
+        try {
+          return write(await photoForQueue(file));
+        } catch {
+          throw new Error(t('pages.gardenPlan.field.buffer.photoUnreadable'));
+        }
+      },
+      (id) => direct(sent, id),
+    );
     photoQueued.current = outcome.status === 'queued';
   };
 

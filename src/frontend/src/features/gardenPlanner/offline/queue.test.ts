@@ -9,6 +9,7 @@ import {
   completeWrite,
   emptyWriteQueue,
   noteWrite,
+  storeRow,
   testWriteQueueDatabase,
 } from '@/test/writeQueueTestKit';
 import {
@@ -16,6 +17,8 @@ import {
   QUEUE_CAPACITY,
   QueueFullError,
   ENTRY_MAX_AGE_DAYS,
+  PerformedTooOldError,
+  UNSENDABLE_MAX_AGE_DAYS,
   backoffMs,
   countUnsynced,
   countUserEntries,
@@ -24,6 +27,7 @@ import {
   keepEntry,
   listEntries,
   newClientEventId,
+  resetWriteQueueForTests,
   retryEntry,
   updateEntry,
   writeQueueAvailable,
@@ -75,8 +79,21 @@ describe('capacity (R-019)', () => {
     expect(await testWriteQueueDatabase().entries.count()).toBe(QUEUE_CAPACITY);
   });
 
-  it('counts the entries of every scope on the device', async () => {
+  it("counts only the capturing user's entries — another user's full buffer neither blocks nor shows", async () => {
     await fill(QUEUE_CAPACITY, BOB_A);
+    await expect(capture(ALICE_A)).resolves.toMatchObject({ userKey: 'alice' });
+    await expect(capture(BOB_A)).rejects.toBeInstanceOf(QueueFullError);
+    // Alice's tenants share her 500.
+    await fill(QUEUE_CAPACITY - 1, ALICE_B);
+    await expect(capture(ALICE_A)).rejects.toBeInstanceOf(QueueFullError);
+  });
+
+  it('refuses at the device ceiling, a storage safety net far above one user', async () => {
+    const { QUEUE_DEVICE_CEILING } = await import('./queue');
+    for (let user = 0; user < QUEUE_DEVICE_CEILING / QUEUE_CAPACITY; user += 1) {
+      await fill(QUEUE_CAPACITY - 1, { userKey: `u${user}`, tenantKey: 't' });
+    }
+    await fill(QUEUE_DEVICE_CEILING - (await testWriteQueueDatabase().entries.count()), { userKey: 'filler', tenantKey: 't' });
     await expect(capture(ALICE_A)).rejects.toBeInstanceOf(QueueFullError);
   });
 });
@@ -161,32 +178,70 @@ describe("retention (GDPR, the server's MAX_AGE_DAYS)", () => {
   const DAY = 24 * 60 * 60 * 1000;
   const NOW = Date.UTC(2026, 10, 8, 12);
 
-  it('deletes every entry of the device older than a year, whoever captured it, and keeps the rest', async () => {
+  it('deletes every pending entry of the device whose performed_at is older than a year, whoever captured it', async () => {
     expect(ENTRY_MAX_AGE_DAYS).toBe(365);
-    await capture(ALICE_A, noteWrite('too old'), NOW - 366 * DAY);
-    await capture(BOB_A, noteWrite('too old, bob'), NOW - 400 * DAY);
-    const fresh = await capture(ALICE_A, noteWrite('fresh'), NOW - 364 * DAY);
-    expect(await purgeExpiredEntries(NOW)).toBe(2);
+    await storeRow(ALICE_A, { capturedAt: NOW - 366 * DAY });
+    await storeRow(BOB_A, { capturedAt: NOW - 400 * DAY });
+    // Captured yesterday, but the note is dated back past the limit: the server would refuse it — it goes too.
+    await storeRow(ALICE_A, { capturedAt: NOW - DAY, performedAt: NOW - 370 * DAY });
+    const fresh = await storeRow(ALICE_A, { capturedAt: NOW - 364 * DAY });
+    expect(await purgeExpiredEntries(NOW)).toBe(3);
     expect((await listEntries(ALICE_A)).map((entry) => entry.id)).toEqual([fresh.id]);
     expect(await listEntries(BOB_A)).toEqual([]);
+  });
+
+  it('deletes failed and conflict entries 90 days after capture; a pending one of the same age stays', async () => {
+    expect(UNSENDABLE_MAX_AGE_DAYS).toBe(90);
+    await storeRow(ALICE_A, { capturedAt: NOW - 91 * DAY, status: 'failed' });
+    await storeRow(ALICE_A, { capturedAt: NOW - 91 * DAY, status: 'conflict' });
+    const young = await storeRow(ALICE_A, { capturedAt: NOW - 89 * DAY, status: 'conflict' });
+    const pending = await storeRow(ALICE_A, { capturedAt: NOW - 91 * DAY });
+    expect(await purgeExpiredEntries(NOW)).toBe(2);
+    expect((await listEntries(ALICE_A)).map((entry) => entry.id)).toEqual([young.id, pending.id]);
+  });
+
+  it('refuses a capture whose performed_at the server would no longer accept', async () => {
+    const old = { ...noteWrite(), body: { ...(noteWrite() as Extract<ReturnType<typeof noteWrite>, { kind: 'note' }>).body, performed_at: new Date(NOW - 366 * DAY).toISOString() } };
+    await expect(capture(ALICE_A, old as ReturnType<typeof noteWrite>, NOW)).rejects.toBeInstanceOf(PerformedTooOldError);
+    expect(await listEntries(ALICE_A)).toEqual([]);
   });
 
   it('is purged before a sync sends anything', async () => {
     const { syncQueue } = await import('./sync');
     const sent: string[] = [];
-    await capture(ALICE_A, noteWrite('too old'), NOW - 366 * DAY);
+    await storeRow(ALICE_A, { capturedAt: NOW - 366 * DAY });
     await syncQueue({ scope: ALICE_A, now: () => NOW, send: async (entry) => void sent.push(entry.id) });
     expect(sent).toEqual([]);
     expect(await listEntries(ALICE_A)).toEqual([]);
   });
 
   it('does not create the database on app start when there is none', async () => {
-    await indexedDB.deleteDatabase(WRITE_QUEUE_DB_NAME);
     const { resetWriteQueueForTests } = await import('./queue');
-    resetWriteQueueForTests();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    resetWriteQueueForTests(); // closes this tab's connection, so the deletion goes through
+    await new Promise<void>((resolve) => {
+      const request = indexedDB.deleteDatabase(WRITE_QUEUE_DB_NAME);
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+    });
     expect(await purgeExpiredEntries(NOW)).toBe(0);
     expect((await indexedDB.databases()).map((database) => database.name)).not.toContain(WRITE_QUEUE_DB_NAME);
+  });
+});
+
+describe("another account's clearing (review 9)", () => {
+  it('keeps this tab buffering: it neither deletes kp-write-queue nor retires the buffer here', async () => {
+    const { retireFromOtherTab } = await import('@/test/writeQueueTestKit');
+    await capture(ALICE_A);
+    const { OFFLINE_CLEAR_CHANNEL } = await import('@/pwa/offlineData');
+    await retireFromOtherTab('alice'); // sets this tab's namespace to alice, then retires…
+    resetWriteQueueForTests(); // a fresh page for this tab, its namespace still alice
+    const channel = new BroadcastChannel(OFFLINE_CLEAR_CHANNEL);
+    channel.postMessage({ type: 'offline-data-cleared', userKey: 'bob' }); // …bob logs out in another tab
+    channel.close();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(writeQueueAvailable()).toBe(true);
+    await expect(capture(ALICE_A)).resolves.toMatchObject({ userKey: 'alice' });
+    expect(await listEntries(ALICE_A)).toHaveLength(2);
   });
 });
 
@@ -198,6 +253,13 @@ describe('the logout count', () => {
     expect(await countUserEntries('alice')).toBe(2);
     expect(await countUserEntries('bob')).toBe(1);
     expect(await countUserEntries('carol')).toBe(0);
+  });
+
+  it('answers null (unknown) — never 0 — while the buffer cannot be read in this tab', async () => {
+    await capture(ALICE_A);
+    const { retireFromOtherTab } = await import('@/test/writeQueueTestKit');
+    await retireFromOtherTab('alice'); // another tab ended this session: the buffer is retired here
+    expect(await countUserEntries('alice')).toBeNull();
   });
 });
 

@@ -12,12 +12,12 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { rootReducer } from '@/store/rootReducer';
 import { authState, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
-import { emptyWriteQueue, noteWrite, testWriteQueueDatabase } from '@/test/writeQueueTestKit';
+import { completeWrite, emptyWriteQueue, noteWrite, testWriteQueueDatabase } from '@/test/writeQueueTestKit';
 import { ThemeContextProvider } from '@/theme';
 import * as imageNormalization from '@/utils/imageNormalization';
 import { bedListItem } from '../bed/bedTestKit';
 import { BASE, careTask, useCareBackend } from '../care/careTestKit';
-import { QUEUE_CAPACITY, listEntries, newClientEventId } from '../offline/queue';
+import { QUEUE_CAPACITY, enqueue, listEntries, newClientEventId, updateEntry } from '../offline/queue';
 import type { QueueEntry } from '../offline/queueTypes';
 import FieldBedSheet from './FieldBedSheet';
 
@@ -183,7 +183,7 @@ describe('offline with the buffer', () => {
     expect(await screen.findByText('Photo stored on this device — it is sent as soon as you are online.')).toBeInTheDocument();
     expect(normalize).toHaveBeenLastCalledWith(expect.any(File), { maxEdge: 1920, quality: 0.8 });
     const [entry] = await listEntries(SCOPE);
-    expect(entry.write).toMatchObject({ kind: 'bedPhoto', locationKey: 'loc_a', photo: { type: 'image/jpeg', name: 'bed.jpg' } });
+    expect(entry.write).toMatchObject({ kind: 'bedPhoto', locationKey: 'loc_a', photo: { type: 'image/jpeg', name: 'photo.jpg' } });
     expect(new Uint8Array((entry.write as Extract<QueueEntry['write'], { kind: 'bedPhoto' }>).photo.bytes)).toEqual(
       new Uint8Array([9, 9]),
     );
@@ -232,5 +232,78 @@ describe('online with the buffer', () => {
     await within(sheet).findByTestId('field-done-queued-t_water');
     const [entry] = await listEntries(SCOPE);
     expect(sent).toEqual([entry.id]);
+  });
+
+  async function pickBedPhoto(user: ReturnType<typeof userEvent.setup>, sheet: HTMLElement) {
+    await user.click(within(sheet).getByTestId('field-bed-photo'));
+    const dialog = await screen.findByTestId('plant-photo-upload-dialog');
+    await user.click(within(dialog).getByTestId('mock-pick-image'));
+    await user.click(within(dialog).getByTestId('plant-photo-upload-confirm'));
+  }
+
+  it("uploads a photo online as the dialog prepared it (no second encode), under a generic name", async () => {
+    useBackend();
+    const normalize = vi.spyOn(imageNormalization, 'normalizeImage');
+    const uploads: string[] = [];
+    server.use(
+      http.post(`${BASE}/attachments`, async ({ request }) => {
+        uploads.push(await request.text());
+        return HttpResponse.json({ attachment_id: 'p_new' }, { status: 201 });
+      }),
+      http.post(`${BASE}/locations/:key/photos`, () =>
+        HttpResponse.json({ location_key: 'loc_a', cover_photo_ref: 'p_new', photos: [], max_photos: 50 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderSheet();
+    const sheet = await screen.findByTestId('field-bed-sheet');
+    await within(sheet).findByTestId('field-done-t_water');
+    await pickBedPhoto(user, sheet);
+    await waitFor(() => expect(uploads).toHaveLength(1));
+    expect(normalize).not.toHaveBeenCalled();
+    expect(uploads[0]).toContain('filename="photo.jpg"');
+    expect(uploads[0]).not.toContain('bed.jpg');
+    expect(await listEntries(SCOPE)).toEqual([]);
+  });
+
+  it('buffers the very bytes it sent when the answer got lost, so the resend is a replay', async () => {
+    useBackend();
+    const normalize = vi.spyOn(imageNormalization, 'normalizeImage');
+    const ids: string[] = [];
+    server.use(
+      http.post(`${BASE}/attachments`, async ({ request }) => {
+        ids.push(/name="client_event_id"\r\n\r\n([^\r]*)/.exec(await request.text())?.[1] ?? '');
+        return HttpResponse.error();
+      }),
+    );
+    const user = userEvent.setup();
+    renderSheet();
+    const sheet = await screen.findByTestId('field-bed-sheet');
+    await within(sheet).findByTestId('field-done-t_water');
+    await pickBedPhoto(user, sheet);
+    await waitFor(async () => expect(await listEntries(SCOPE)).toHaveLength(1));
+    const [entry] = await listEntries(SCOPE);
+    expect(ids).toEqual([entry.id]);
+    expect(normalize).not.toHaveBeenCalled();
+    const photo = (entry.write as Extract<QueueEntry['write'], { kind: 'bedPhoto' }>).photo;
+    expect(new Uint8Array(photo.bytes)).toEqual(new Uint8Array([1, 2, 3]));
+    expect(photo.name).toBe('photo.jpg');
+  });
+});
+
+describe('the state of a buffered completion', () => {
+  it('hides "Done" only while the completion is on its way; a failed one gives it back', async () => {
+    useBackend();
+    const entry = await enqueue({ scope: SCOPE, bedKey: 'loc_a', bedName: 'Raised bed 1', write: completeWrite('t_water') });
+    await updateEntry(SCOPE, entry.seq!, { status: 'failed', attempts: 5 });
+    renderSheet();
+    const sheet = await screen.findByTestId('field-bed-sheet');
+    expect(await within(sheet).findByTestId('field-done-t_water')).toBeEnabled();
+    expect(within(sheet).queryByTestId('field-done-queued-t_water')).toBeNull();
+    await updateEntry(SCOPE, entry.seq!, { status: 'pending', attempts: 0 });
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    expect(await within(sheet).findByTestId('field-done-queued-t_water')).toBeInTheDocument();
   });
 });

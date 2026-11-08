@@ -39,6 +39,9 @@ import {
 import { photoFile } from './queuedPhoto';
 import type { ConflictCode, QueueEntry } from './queueTypes';
 
+/** The entries a run of this tab is sending right now: a stale-claim reset never takes them back. */
+const claimedHere = new Set<number>();
+
 /** A `syncing` claim older than this belongs to a run that died (a closed tab); it is pending again. */
 export const SYNC_STALE_MS = 2 * 60_000;
 /** The Web Locks name: one sender per origin. */
@@ -159,6 +162,8 @@ export async function syncQueue({
   const entries = await listEntries(scope);
   const staleBefore = ownsLock ? Number.POSITIVE_INFINITY : now() - SYNC_STALE_MS;
   for (const entry of entries) {
+    // A claim a live run of THIS tab holds is never taken back (runs are serialised, this is the safety net).
+    if (entry.seq !== undefined && claimedHere.has(entry.seq)) continue;
     if (entry.status === 'syncing' && entry.seq && (entry.syncingSince ?? 0) < staleBefore) {
       // The run that claimed it is gone; the request may have reached the server — the resend is a replay.
       await updateEntry(scope, entry.seq, { status: 'pending', syncingSince: null }, { ...write, expect: 'syncing' });
@@ -181,13 +186,28 @@ export async function syncQueue({
     }
     const claimed = await updateEntry(scope, seq, { status: 'syncing', syncingSince: now() }, { ...write, expect: 'pending' });
     if (!claimed) continue; // discarded meanwhile, or another sender has it
+    claimedHere.add(seq);
     let outcome: SendOutcome | null = null;
     try {
       await send(entry);
     } catch (error) {
       outcome = classifySendError(error);
     }
+    try {
+      await settle(entry, outcome);
+    } finally {
+      claimedHere.delete(seq);
+    }
+    // A stop, or a retry still within its budget, holds the head (FIFO): the run ends here.
+    if (outcome?.kind === 'stop' || (outcome?.kind === 'retry' && entry.attempts + 1 < MAX_ATTEMPTS)) break;
+    progress.done += 1;
+    onProgress?.({ ...progress });
+  }
+  return result;
 
+  /** Write what the answer means for the entry (sent → deleted, conflict, failed, back to pending). */
+  async function settle(current: QueueEntry, outcome: SendOutcome | null): Promise<void> {
+    const seq = current.seq as number;
     if (outcome === null) {
       await removeEntry(scope, seq, write);
       result.sent += 1;
@@ -204,9 +224,9 @@ export async function syncQueue({
       result.failed += 1;
     } else if (outcome.kind === 'stop') {
       await updateEntry(scope, seq, { status: 'pending', syncingSince: null }, write);
-      break;
+      return;
     } else {
-      const attempts = entry.attempts + 1;
+      const attempts = current.attempts + 1;
       if (attempts >= MAX_ATTEMPTS) {
         await updateEntry(
           scope,
@@ -224,32 +244,57 @@ export async function syncQueue({
           write,
         );
         result.nextRetryAt = nextAttemptAt;
-        break;
+        return;
       }
     }
-    progress.done += 1;
-    onProgress?.({ ...progress });
   }
-  return result;
 }
 
 interface LockManagerLike {
   request: (
     name: string,
-    options: { ifAvailable: boolean },
+    options: { ifAvailable?: boolean },
     callback: (lock: unknown) => Promise<SyncResult>,
   ) => Promise<SyncResult>;
 }
 
-/** Run `task` while holding the origin-wide sync lock; `null` lock (another tab sends) skips. */
-async function withSyncLock(task: (ownsLock: boolean) => Promise<SyncResult>): Promise<SyncResult> {
+/**
+ * Run `task` while holding the origin-wide sync lock. `wait = false`: another tab holding it skips this run (the
+ * app bar's sync tries again on the next trigger); `wait = true` (the logout dialog) queues for it. Without the
+ * Web Locks API — or when `locks.request` itself is refused — the task runs without a lock (a second sender is
+ * still harmless: its request is a replay). An error INSIDE the task is the task's and is never retried here.
+ */
+export async function withSyncLock(
+  task: (ownsLock: boolean) => Promise<SyncResult>,
+  wait = false,
+): Promise<SyncResult> {
   const locks = (typeof navigator !== 'undefined' ? (navigator as { locks?: LockManagerLike }).locks : undefined) ?? null;
-  if (!locks) return task(false);
+  if (!locks || typeof locks.request !== 'function') return task(false);
+  let started = false;
   try {
-    return await locks.request(SYNC_LOCK_NAME, { ifAvailable: true }, (lock) => (lock ? task(true) : Promise.resolve(EMPTY)));
-  } catch {
+    return await locks.request(SYNC_LOCK_NAME, { ifAvailable: !wait }, (lock) => {
+      started = true;
+      return lock ? task(true) : Promise.resolve(EMPTY);
+    });
+  } catch (error) {
+    if (started) throw error;
     return task(false);
   }
+}
+
+/** This tab's runs, one after the other (the app bar's scheduler and the logout dialog share it). */
+let tail: Promise<unknown> = Promise.resolve();
+
+/** Run `task` after every run this tab already started has finished. */
+export function runExclusive<T>(task: () => Promise<T>): Promise<T> {
+  const next = tail.then(task, task);
+  tail = next.catch(() => undefined);
+  return next;
+}
+
+/** One sync through the single sender: this tab's run queue, then the origin-wide lock (waiting for it). */
+export function runSyncExclusive(options: Omit<SyncOptions, 'ownsLock'>): Promise<SyncResult> {
+  return runExclusive(() => withSyncLock((ownsLock) => syncQueue({ ...options, ownsLock }), true));
 }
 
 export interface SyncSchedulerOptions {
@@ -257,6 +302,8 @@ export interface SyncSchedulerOptions {
   onStart?: () => void;
   onProgress?: (progress: SyncProgress) => void;
   onFinish?: (result: SyncResult) => void;
+  /** Called once on dispose — also mid-run, where `onFinish` will not come (the host clears its progress). */
+  onDispose?: () => void;
   /** Replaces {@link syncQueue} (tests). */
   run?: (options: SyncOptions) => Promise<SyncResult>;
   now?: () => number;
@@ -274,6 +321,7 @@ export function createSyncScheduler({
   onStart,
   onProgress,
   onFinish,
+  onDispose,
   run = syncQueue,
   now = Date.now,
 }: SyncSchedulerOptions): SyncScheduler {
@@ -294,8 +342,12 @@ export function createSyncScheduler({
     onStart?.();
     let result: SyncResult;
     try {
-      result = await withSyncLock((ownsLock) =>
-        run({ scope, currentScope: getScope, onProgress, ownsLock, now }),
+      // A late progress of a disposed scheduler (scope changed, host unmounted) is dropped.
+      const progress = (value: SyncProgress) => {
+        if (!disposed) onProgress?.(value);
+      };
+      result = await runExclusive(() =>
+        withSyncLock((ownsLock) => run({ scope, currentScope: getScope, onProgress: progress, ownsLock, now })),
       );
     } catch {
       result = EMPTY;
@@ -328,8 +380,10 @@ export function createSyncScheduler({
   return {
     request,
     dispose: () => {
+      if (disposed) return;
       disposed = true;
       clearTimer();
+      onDispose?.();
     },
   };
 }

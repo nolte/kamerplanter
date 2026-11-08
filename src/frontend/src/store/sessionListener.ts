@@ -1,7 +1,7 @@
 import { createListenerMiddleware } from '@reduxjs/toolkit';
 import { setActiveTenantSlug } from '@/api/client';
 import { releasePushSubscription } from '@/lib/pushSubscription';
-import { clearOfflineData, postNamespace } from '@/pwa/offlineData';
+import { clearOfflineData, postNamespace, takeWriteQueueDiscardApproval } from '@/pwa/offlineData';
 import { isSessionEnd, type rootReducer } from './rootReducer';
 import { DEAD_SESSION_REFRESH_CODE, RATE_LIMITED_REJECTION, logoutUser, refreshAccessToken } from './slices/authSlice';
 
@@ -35,18 +35,19 @@ export const sessionListener = createListenerMiddleware();
 sessionListener.startListening({
   predicate: (action) => isSessionEnd(action),
   effect: async (action, api) => {
-    // REQ-053 WP 9.4 (UI-NFR-012 R-050/R-051): only an explicit logout — confirmed in the app bar when entries
-    // were unsent — discards that user's offline write buffer. A forced sign-out (`clearAuth`: refresh token
-    // gone) keeps it for the owner's next sign-in.
+    // REQ-053 WP 9.4 (UI-NFR-012 R-050/R-051, R-056 c): only an explicit logout the user CONFIRMED in the app
+    // bar (or that found nothing buffered) discards that user's offline write buffer. A forced sign-out
+    // (`clearAuth`: refresh token gone) or an unconfirmed logout keeps it for the owner's next sign-in.
     const explicitLogout = logoutUser.fulfilled.match(action) || logoutUser.rejected.match(action);
     const userKey = (api.getOriginalState() as SessionState).auth.user?.key ?? null;
+    const discard = takeWriteQueueDiscardApproval(explicitLogout ? userKey : null);
     setActiveTenantSlug(null);
     try {
       localStorage.removeItem(ACTIVE_TENANT_KEY);
     } catch {
       // Storage unavailable (private mode) — nothing persisted to remove.
     }
-    await clearOfflineData(explicitLogout ? { discardWriteQueueOf: userKey } : undefined);
+    await clearOfflineData(discard ? { discardWriteQueueOf: userKey } : undefined);
     await releasePushSubscription({ notifyServer: false });
   },
 });

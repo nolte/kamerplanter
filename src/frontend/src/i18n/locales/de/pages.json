@@ -6897,7 +6897,8 @@
           "photoUnreadable": "Das Foto konnte auf dem Gerät nicht verkleinert werden. Versuch es noch einmal, wenn du online bist.",
           "taskQueued": "Wartet auf Übertragung",
           "undoTooLate": "Der Eintrag wird gerade übertragen und lässt sich hier nicht mehr zurücknehmen.",
-          "chipsOffline": "Ohne Verbindung geht im Schnellprotokoll nur die Notiz."
+          "chipsOffline": "Ohne Verbindung geht im Schnellprotokoll nur die Notiz.",
+          "tooOld": "Das Datum liegt mehr als ein Jahr zurück – so alte Einträge nimmt der Server nicht an. Wähle ein jüngeres Datum."
         }
       },
       "glossary": {
@@ -7894,7 +7895,8 @@
         "offline": "Keine Verbindung – „Jetzt übertragen“ geht erst wieder, wenn du online bist. Du kannst abbrechen oder die Einträge verwerfen und dich abmelden.",
         "text_one": "{{count}} Eintrag ist noch nicht übertragen. Beim Abmelden wird er von diesem Gerät gelöscht.",
         "text_other": "{{count}} Einträge sind noch nicht übertragen (auch aus anderen Gärten). Beim Abmelden werden sie von diesem Gerät gelöscht.",
-        "discard": "Verwerfen und abmelden"
+        "discard": "Verwerfen und abmelden",
+        "textUnknown": "Ob noch Einträge auf Übertragung warten, ließ sich gerade nicht prüfen. Beim Abmelden werden nicht übertragene Einträge von diesem Gerät gelöscht."
       },
       "purged_one": "{{count}} nicht übertragener Eintrag war älter als ein Jahr und wurde von diesem Gerät gelöscht – der Server nimmt so alte Einträge nicht mehr an.",
       "purged_other": "{{count}} nicht übertragene Einträge waren älter als ein Jahr und wurden von diesem Gerät gelöscht – der Server nimmt so alte Einträge nicht mehr an."

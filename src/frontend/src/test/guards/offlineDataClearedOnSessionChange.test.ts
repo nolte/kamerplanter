@@ -60,7 +60,17 @@ vi.mock('@/pwa/offlineData', () => ({
   clearAllOfflineStorage: vi.fn(async () => undefined),
   offlineDataGeneration: vi.fn(() => 0),
   onOfflineDataEvent: vi.fn(() => () => undefined),
+  approveWriteQueueDiscard: vi.fn((userKey: string | null) => {
+    approval.userKey = userKey;
+  }),
+  takeWriteQueueDiscardApproval: vi.fn((userKey: string | null) => {
+    const approved = userKey !== null && approval.userKey === userKey;
+    approval.userKey = null;
+    return approved;
+  }),
 }));
+/** The confirmation of the app bar, as the mocked module keeps it. */
+const approval: { userKey: string | null } = { userKey: null };
 vi.mock('@/api/endpoints/system', () => ({ getTakeoverStatus: vi.fn(), decideTakeover: vi.fn() }));
 vi.mock('@/api/endpoints/auth', async () => ({
   ...(await vi.importActual<typeof import('@/api/endpoints/auth')>('@/api/endpoints/auth')),
@@ -199,11 +209,17 @@ describe('offline data is cleared on logout and the namespace follows user and t
     expect(vi.mocked(offlineData.clearOfflineData).mock.calls[0]).toEqual([undefined]);
     await store.dispatch(logoutUser());
     await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(2));
-    // ... the explicit logout discards the user's entries (the app bar asked first).
-    const signedIn = await listenedStore(authState());
-    await signedIn.dispatch(logoutUser());
+    // ... a logout the user did not confirm keeps them too (R-056 c) ...
+    const unconfirmed = await listenedStore(authState());
+    await unconfirmed.dispatch(logoutUser());
     await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(3));
-    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[2]).toEqual([{ discardWriteQueueOf: 'user-1' }]);
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[2]).toEqual([undefined]);
+    // ... and the confirmed logout discards the user's entries.
+    const confirmed = await listenedStore(authState());
+    offlineData.approveWriteQueueDiscard('user-1');
+    await confirmed.dispatch(logoutUser());
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(4));
+    expect(vi.mocked(offlineData.clearOfflineData).mock.calls[3]).toEqual([{ discardWriteQueueOf: 'user-1' }]);
   });
 
   it('posts the user and tenant keys — never a token — when the active tenant changes', async () => {

@@ -42,8 +42,13 @@ function mount() {
   void registerServiceWorker();
   // REQ-053 WP 9.2: what expired in the plan cache while the app was closed is deleted at start (R-012).
   void purgeExpiredPlanCache();
-  // REQ-053 WP 9.4: unsent offline entries older than the server accepts are deleted (retention); its own chunk.
-  void import('@/features/gardenPlanner/offline/queue').then((queue) => queue.purgeExpiredEntries()).catch(() => undefined);
+  // REQ-053 WP 9.4: unsent offline entries past their retention are deleted; its own chunk. The kill switch
+  // decides whether the buffer exists at all, so the purge waits for `runtime-config.js` — the page's `load`
+  // when the script has not run yet. The sync host purges again after sign-in.
+  const purgeWriteQueue = () =>
+    void import('@/features/gardenPlanner/offline/queue').then((queue) => queue.purgeExpiredEntries()).catch(() => undefined);
+  if (window.__RUNTIME_CONFIG__ !== undefined || document.readyState === 'complete') purgeWriteQueue();
+  else window.addEventListener('load', purgeWriteQueue, { once: true });
 }
 
 // #612 — the feature translation namespaces are code-split and dynamically

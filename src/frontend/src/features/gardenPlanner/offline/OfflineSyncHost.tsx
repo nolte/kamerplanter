@@ -31,7 +31,7 @@ import {
 } from '@/store/slices/offlineSlice';
 import ConflictDialog from './ConflictDialog';
 import type { CacheScope } from './planCache';
-import { countEntries, onQueueChange, takePurgedCount } from './queue';
+import { countEntries, onQueueChange, purgeExpiredEntries, takePurgedCount } from './queue';
 import { createSyncScheduler, type SyncResult } from './sync';
 import { useCacheScope } from './useCacheScope';
 import { useWriteQueue } from './useWriteQueue';
@@ -76,6 +76,8 @@ export default function OfflineSyncHost() {
       getScope: () => (alive ? own : null),
       onProgress: (value) => dispatch(syncProgressed(value.total > 0 ? value : null)),
       onFinish: (result) => finishRef.current(result),
+      // Disposed mid-run (a new scope, the host unmounts): no `onFinish` will come — the progress must not stay.
+      onDispose: () => dispatch(syncProgressed(null)),
     });
     const request = () => {
       if (navigator.onLine !== false) void scheduler.request();
@@ -110,7 +112,10 @@ export default function OfflineSyncHost() {
       if (purged > 0) notification.warning(t('pages.offlineQueue.purged', { count: purged }));
     };
     announce();
-    return onQueueChange(announce);
+    const unsubscribe = onQueueChange(announce);
+    // Retention also when the start-up purge could not run (main.tsx): once per signed-in user.
+    void purgeExpiredEntries();
+    return unsubscribe;
   }, [userKey, notification, t]);
 
   const counts = useMemo(() => countEntries(queue.entries), [queue.entries]);

@@ -7,6 +7,7 @@
  * shell carries neither. If they cannot load (an outdated chunk), the logout must still work: it proceeds.
  */
 import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { approveWriteQueueDiscard } from '@/pwa/offlineData';
 import { useAppSelector } from '@/store/hooks';
 
 const UnsyncedWritesDialog = lazy(() => import('@/features/gardenPlanner/offline/UnsyncedWritesDialog'));
@@ -19,7 +20,8 @@ interface Scope {
 interface PendingRequest {
   userKey: string;
   scope: Scope | null;
-  count: number;
+  /** `null` = the buffer could not be counted: the dialog asks without a number. */
+  count: number | null;
   proceed: () => void | Promise<void>;
 }
 
@@ -41,14 +43,18 @@ export function useUnsyncedWritesGuard(): UnsyncedWritesGuard {
         return;
       }
       const scope = tenantKey === null ? null : { userKey, tenantKey };
-      let count: number;
+      let count: number | null;
       try {
         const { unsyncedEntries } = await import('@/features/gardenPlanner/offline/sessionChange');
         count = await unsyncedEntries(userKey);
       } catch {
-        count = 0;
+        // The buffer module could not even load: log out, but WITHOUT the discard approval — the entries stay
+        // for the owner's next sign-in (R-056 c: never discard unconfirmed).
+        await proceed();
+        return;
       }
       if (count === 0) {
+        approveWriteQueueDiscard(userKey);
         await proceed();
         return;
       }
@@ -66,6 +72,8 @@ export function useUnsyncedWritesGuard(): UnsyncedWritesGuard {
             scope={request.scope}
             count={request.count}
             onProceed={() => {
+              // The user confirmed: this logout may discard what is left.
+              approveWriteQueueDiscard(request.userKey);
               setRequest(null);
               void request.proceed();
             }}

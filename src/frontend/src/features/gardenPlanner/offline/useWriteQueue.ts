@@ -11,7 +11,7 @@ import type { QueueEntry } from './queueTypes';
 export interface WriteQueueState {
   /** The scope's entries, oldest first. */
   entries: QueueEntry[];
-  /** Every entry of the device. */
+  /** Every entry of the user, in all their tenants (the R-019 capacity counts them; other users' never). */
   total: number;
   /** The buffer holds {@link QUEUE_CAPACITY} entries: nothing more is taken in (R-019). */
   full: boolean;
@@ -47,7 +47,7 @@ export function useWriteQueue(scope: CacheScope | null): WriteQueueState {
   useEffect(() => {
     if (key === null || userKey === null || tenantKey === null) return undefined;
     let cancelled = false;
-    void Promise.all([listEntries({ userKey, tenantKey }), totalEntries()]).then(([entries, total]) => {
+    void Promise.all([listEntries({ userKey, tenantKey }), totalEntries(userKey)]).then(([entries, total]) => {
       if (!cancelled) setSnapshot({ key, entries, total });
     });
     return () => {

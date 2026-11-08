@@ -23,7 +23,8 @@ interface UnsyncedWritesDialogProps {
   userKey: string;
   /** The active tenant's scope (what can be sent now), or `null` without an active tenant. */
   scope: CacheScope | null;
-  count: number;
+  /** `null` = could not be counted: the text says so instead of a number. */
+  count: number | null;
   /** Continue with the logout (which discards what is left). */
   onProceed: () => void;
   onCancel: () => void;
@@ -32,7 +33,7 @@ interface UnsyncedWritesDialogProps {
 export default function UnsyncedWritesDialog({ userKey, scope, count, onProceed, onCancel }: UnsyncedWritesDialogProps) {
   const { t } = useTranslation();
   const online = useOnlineStatus();
-  const [left, setLeft] = useState(count);
+  const [left, setLeft] = useState<number | null>(count);
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const proceedRef = useRef(onProceed);
@@ -77,7 +78,7 @@ export default function UnsyncedWritesDialog({ userKey, scope, count, onProceed,
       <DialogTitle id="unsynced-writes-title">{t('pages.offlineQueue.sessionChange.title')}</DialogTitle>
       <DialogContent>
         <DialogContentText id="unsynced-writes-text" data-testid="unsynced-writes-count">
-          {t('pages.offlineQueue.sessionChange.text', { count: left })}
+          {left === null ? t('pages.offlineQueue.sessionChange.textUnknown') : t('pages.offlineQueue.sessionChange.text', { count: left })}
         </DialogContentText>
         {syncing && (
           <LinearProgress

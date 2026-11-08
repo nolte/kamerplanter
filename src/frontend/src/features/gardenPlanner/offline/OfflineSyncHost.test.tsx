@@ -12,7 +12,7 @@ import { rootReducer } from '@/store/rootReducer';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
-import { capture, completeWrite, emptyWriteQueue, noteWrite } from '@/test/writeQueueTestKit';
+import { capture, completeWrite, emptyWriteQueue, noteWrite, storeRow } from '@/test/writeQueueTestKit';
 import { ThemeContextProvider } from '@/theme';
 import OfflineSyncHost from './OfflineSyncHost';
 import { listEntries, purgeExpiredEntries, updateEntry } from './queue';
@@ -101,9 +101,9 @@ describe('retention notice (UI-NFR-012 R-056)', () => {
 
   it('names how many of my entries the app-start purge deleted — never a silent drop, never another user\'s', async () => {
     setOnline(false);
-    await capture(SCOPE, noteWrite('a year and a day'), Date.now() - 366 * DAY);
-    await capture(SCOPE, noteWrite('older still'), Date.now() - 500 * DAY);
-    await capture({ userKey: 'someone-else', tenantKey: 'tenant-1' }, noteWrite('not mine'), Date.now() - 400 * DAY);
+    await storeRow(SCOPE, { capturedAt: Date.now() - 366 * DAY });
+    await storeRow(SCOPE, { capturedAt: Date.now() - 100 * DAY, status: 'failed' }); // undecided for 90+ days
+    await storeRow({ userKey: 'someone-else', tenantKey: 'tenant-1' }, { capturedAt: Date.now() - 400 * DAY });
     await capture(SCOPE, noteWrite('recent'));
     expect(await purgeExpiredEntries()).toBe(3); // as main.tsx does at start, before anyone is signed in
     renderHost();
@@ -113,6 +113,16 @@ describe('retention notice (UI-NFR-012 R-056)', () => {
       ),
     ).toBeInTheDocument();
     expect(await listEntries(SCOPE)).toHaveLength(1);
+  });
+});
+
+describe('retention without the start-up purge (review 10)', () => {
+  it('purges and names the count once the user is signed in, also when main.tsx could not purge', async () => {
+    setOnline(false);
+    await storeRow(SCOPE, { capturedAt: Date.now() - 400 * 24 * 60 * 60 * 1000 });
+    renderHost();
+    expect(await screen.findByText(/1 nicht übertragener Eintrag war älter als ein Jahr/)).toBeInTheDocument();
+    expect(await listEntries(SCOPE)).toEqual([]);
   });
 });
 
@@ -128,7 +138,8 @@ describe('owner scope (G-W9 a, UI-NFR-012 R-050/R-051)', () => {
     await capture({ userKey: 'someone-else', tenantKey: 'tenant-1' }, noteWrite('not mine'));
     await capture({ userKey: 'user-1', tenantKey: 'tenant-2' }, noteWrite('other garden'));
     const store = renderHost();
-    await waitFor(() => expect(store.getState().offline.counts.total).toBe(2));
+    // The total is the user's own (both tenants), never another user's rows.
+    await waitFor(() => expect(store.getState().offline.counts.total).toBe(1));
     expect(store.getState().offline.counts.pending).toBe(0);
     expect(screen.queryByTestId('offline-queue-chip')).toBeNull();
     act(() => {

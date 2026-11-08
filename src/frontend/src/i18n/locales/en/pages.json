@@ -6896,7 +6896,8 @@
           "photoUnreadable": "The photo could not be scaled down on this device. Try again once you are online.",
           "taskQueued": "Waiting to be sent",
           "undoTooLate": "The entry is being sent right now and can no longer be taken back here.",
-          "chipsOffline": "Without a connection only the note works in the quick protocol."
+          "chipsOffline": "Without a connection only the note works in the quick protocol.",
+          "tooOld": "The date is more than a year ago — the server does not accept entries that old. Pick a more recent date."
         }
       },
       "glossary": {
@@ -7893,7 +7894,8 @@
         "offline": "No connection — “Send now” works again once you are online. You can cancel, or discard the entries and sign out.",
         "text_one": "{{count}} entry has not been sent yet. Signing out deletes it from this device.",
         "text_other": "{{count}} entries have not been sent yet (other gardens included). Signing out deletes them from this device.",
-        "discard": "Discard and sign out"
+        "discard": "Discard and sign out",
+        "textUnknown": "Whether entries are still waiting to be sent could not be checked right now. Signing out deletes unsent entries from this device."
       },
       "purged_one": "{{count}} unsent entry was older than a year and has been deleted from this device — the server no longer accepts entries that old.",
       "purged_other": "{{count}} unsent entries were older than a year and have been deleted from this device — the server no longer accepts entries that old."

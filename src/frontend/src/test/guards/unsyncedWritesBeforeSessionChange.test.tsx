@@ -13,7 +13,7 @@ import { rootReducer } from '@/store/rootReducer';
 import { sessionListener } from '@/store/sessionListener';
 import { renderWithProviders } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
-import { BOB_A, capture, emptyWriteQueue, noteWrite, testWriteQueueDatabase } from '@/test/writeQueueTestKit';
+import { BOB_A, capture, emptyWriteQueue, noteWrite, retireFromOtherTab, testWriteQueueDatabase } from '@/test/writeQueueTestKit';
 
 /**
  * REQ-053 WP 9.4 (#2744), G-W9 (b) with UI-NFR-012 R-050/R-051: an explicit logout discards the user's unsent
@@ -129,6 +129,23 @@ describe('logout (MainLayout)', () => {
     await waitFor(() => expect(appStore.getState().auth.user).toBeNull());
     expect(ids).toContain(entry.id);
     expect(await listEntries(SCOPE)).toEqual([]);
+  });
+
+  it('asks without a number — never discards unasked — when the buffer cannot be counted (R-056 c)', async () => {
+    setOnline(false);
+    await capture(SCOPE, noteWrite('one'));
+    const user = userEvent.setup();
+    const { store: appStore } = renderWithProviders(<MainLayout />, { store: store() });
+    await retireFromOtherTab('alice'); // another tab ended this session: this tab may not read the buffer now
+    await logOut(user);
+    const dialog = await screen.findByTestId('unsynced-writes-dialog');
+    expect(within(dialog).getByTestId('unsynced-writes-count')).toHaveTextContent(
+      'Ob noch Einträge auf Übertragung warten, ließ sich gerade nicht prüfen.',
+    );
+    expect(appStore.getState().auth.user).not.toBeNull();
+    await user.click(within(dialog).getByTestId('unsynced-writes-cancel'));
+    expect(appStore.getState().auth.user).not.toBeNull();
+    expect(await testWriteQueueDatabase().entries.count()).toBe(1);
   });
 
   it('asks nobody when the buffer is empty', async () => {

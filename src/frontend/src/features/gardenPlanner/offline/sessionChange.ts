@@ -10,12 +10,16 @@
  * Loaded on demand by `hooks/useUnsyncedWritesGuard.ts`, so the app shell does not carry the buffer.
  */
 import type { CacheScope } from './planCache';
-import { countUserEntries, writeQueueExists } from './queue';
-import { syncQueue, type SyncProgress } from './sync';
+import { countUserEntries } from './queue';
+import { runSyncExclusive, type SyncOptions, type SyncProgress } from './sync';
 
-/** The user's entries not yet at the server, in all tenants (pending, syncing, failed, conflicts, kept ones). */
-export async function unsyncedEntries(userKey: string | null): Promise<number> {
-  if (userKey === null || !(await writeQueueExists())) return 0;
+/**
+ * The user's entries not yet at the server, in all tenants (pending, syncing, failed, conflicts, kept ones);
+ * `null` = could not be counted — the logout then asks without a number (never discards unasked, R-056 c).
+ */
+export async function unsyncedEntries(userKey: string | null): Promise<number | null> {
+  if (userKey === null) return 0;
+  // Not `writeQueueExists()` first: it answers "no" in a retired tab, where rows may well exist (null, not 0).
   return countUserEntries(userKey);
 }
 
@@ -24,7 +28,11 @@ export async function syncThenCount(
   userKey: string,
   scope: CacheScope | null,
   onProgress?: (progress: SyncProgress) => void,
-): Promise<number> {
-  if (scope !== null) await syncQueue({ scope, onProgress });
+  /** The sender and clock (tests). */
+  options: Pick<SyncOptions, 'send' | 'now'> = {},
+): Promise<number | null> {
+  // Through the shared single sender (this tab's queue of runs + the origin-wide Web Lock): never beside the
+  // app bar's sync, never resetting its claims.
+  if (scope !== null) await runSyncExclusive({ scope, onProgress, ...options });
   return unsyncedEntries(userKey);
 }

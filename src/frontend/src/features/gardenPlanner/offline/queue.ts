@@ -31,17 +31,54 @@ import type { CacheScope } from './planCache';
 import type { WriteQueueDatabase } from './queueDb';
 import type { ConflictCode, QueueEntry, QueuedWrite, QueueStatus } from './queueTypes';
 
-/** R-019: at most this many entries are buffered on the device. */
+/**
+ * R-019: at most this many entries per USER are buffered. Other users' rows on a shared device never block a
+ * capture and never show (their existence is not revealed).
+ */
 export const QUEUE_CAPACITY = 500;
+/**
+ * A storage safety net for the whole device (many users on one shared tablet), far above any one user's share.
+ * Reaching it refuses a capture like a full buffer.
+ */
+export const QUEUE_DEVICE_CEILING = 5000;
 /** R-027: after this many failed attempts an entry is `failed`. */
 export const MAX_ATTEMPTS = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
 /**
- * GDPR retention of an entry that never reached the server: the backend refuses a client event whose
- * `performed_at` lies further back than `MAX_AGE_DAYS` (V-11, `domain/models/care_event.py`, one year), so an
- * older entry can never be sent — it is deleted from the device (on app start and before every sync).
+ * GDPR retention of a PENDING entry: the backend refuses a client event whose `performed_at` lies further back
+ * than `MAX_AGE_DAYS` (V-11, `domain/models/care_event.py`, 365 days — the placeholder default of REQ-053 §32.6
+ * item 14), so an entry whose effective `performed_at` is older can never be sent: it is deleted from the device
+ * (app start, before every sync), and a capture already that old is refused.
  */
 export const ENTRY_MAX_AGE_DAYS = 365;
-const ENTRY_MAX_AGE_MS = ENTRY_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+/**
+ * GDPR retention of an entry the sync will never send by itself — `failed`, `conflict`, kept: 90 days after its
+ * capture (REQ-053 §32.6 item 14). "Try again" or "Discard" are the user's within that time.
+ */
+export const UNSENDABLE_MAX_AGE_DAYS = 90;
+
+/** The `performed_at` the request will carry (a note's is editable), or the capture time. */
+export function effectivePerformedAt(entry: Pick<QueueEntry, 'capturedAt' | 'write'>): number {
+  const { write } = entry;
+  const stated = write.kind === 'note' ? write.body.performed_at : write.kind === 'complete' ? write.payload.performed_at : null;
+  const parsed = stated ? Date.parse(stated) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : entry.capturedAt;
+}
+
+/** Whether retention deletes `entry` at `now`. */
+export function isExpired(entry: QueueEntry, now: number): boolean {
+  if (effectivePerformedAt(entry) < now - ENTRY_MAX_AGE_DAYS * DAY_MS) return true;
+  const unsendable = entry.status === 'failed' || entry.status === 'conflict';
+  return unsendable && entry.capturedAt < now - UNSENDABLE_MAX_AGE_DAYS * DAY_MS;
+}
+
+/** The capture names a `performed_at` the server no longer accepts (older than {@link ENTRY_MAX_AGE_DAYS}). */
+export class PerformedTooOldError extends Error {
+  constructor() {
+    super('offline_queue.performed_too_old');
+    this.name = 'PerformedTooOldError';
+  }
+}
 
 /** R-026: the first retry waits 1 s, every next one twice as long, never more than 60 s. */
 export const BACKOFF_BASE_MS = 1000;
@@ -73,28 +110,28 @@ export function isQueueFull(error: unknown): error is QueueFullError {
   return error instanceof QueueFullError;
 }
 
+export function isPerformedTooOld(error: unknown): error is PerformedTooOldError {
+  return error instanceof PerformedTooOldError;
+}
+
 // ── Retirement and clearing (the plan cache's rule, planCache.ts) ─────────────────────────────
 
 let retired = false;
 /** What retired the buffer: a clearing of THIS tab's session elsewhere, or a deletion no broadcast explained yet. */
-let retiredBy: 'remote' | 'deletion' | null = null;
 let localClearing = false;
-/** A `foreign` broadcast came in: a deletion seen until then belongs to that other session. */
-let foreignDeletionUntil = 0;
-/** How far apart the broadcast and the `versionchange` of the same clearing may arrive (as in the plan cache). */
-const SAME_CLEARING_WINDOW_MS = 5000;
 let dbModule: typeof import('./queueDb') | null = null;
 
 function closeConnection(): void {
   dbModule?.forgetWriteQueueConnection();
 }
 
-/** `versionchange`: another connection deletes the database (queueDb.ts has closed ours already). */
+/**
+ * `versionchange`: another connection deletes the database (queueDb.ts has closed ours already). Since WP 9.4 only
+ * the kill switch deletes `kp-write-queue` (logout, tenant switch and dead session keep it) — and a tab still on
+ * the build before it, whose logout wipes every database. Either way this tab stops until a new session.
+ */
 function deletedElsewhere(): void {
-  if (!localClearing && Date.now() >= foreignDeletionUntil) {
-    retired = true;
-    retiredBy = 'deletion';
-  }
+  if (!localClearing) retired = true;
   changed();
 }
 
@@ -110,23 +147,15 @@ onOfflineDataEvent((event) => {
       break;
     case 'remote':
       retired = true;
-      retiredBy = 'remote';
       closeConnection();
       changed();
       break;
     case 'foreign':
-      // Another account's clearing deletes every database of the origin (WP 9.1) — this tab's entries with it.
-      // This tab's session is alive, so it may buffer again into a fresh database.
-      foreignDeletionUntil = Date.now() + SAME_CLEARING_WINDOW_MS;
-      if (retiredBy === 'deletion') {
-        retired = false;
-        retiredBy = null;
-      }
-      changed();
+      // Another account's clearing in another tab keeps the write buffer (it never deletes `kp-write-queue`):
+      // nothing to do here — this tab's entries and session are untouched.
       break;
     case 'session':
       retired = false;
-      retiredBy = null;
       closeConnection();
       changed();
       break;
@@ -212,6 +241,14 @@ export function newClientEventId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+/** Every `[userKey, tenantKey]` of one user: `['' … [])`, since an array sorts after every string. */
+function userRange(userKey: string): [[string, string], [string, never[]]] {
+  return [
+    [userKey, ''],
+    [userKey, []],
+  ];
+}
+
 function owned(entry: QueueEntry, scope: CacheScope): boolean {
   return entry.userKey === scope.userKey && entry.tenantKey === scope.tenantKey;
 }
@@ -232,6 +269,10 @@ export interface CaptureInput {
  * {@link QueueUnavailableError} when the buffer cannot be used (or a clearing started since the call).
  */
 export async function enqueue(input: CaptureInput, now: number = Date.now()): Promise<QueueEntry> {
+  if (effectivePerformedAt({ capturedAt: now, write: input.write }) < now - ENTRY_MAX_AGE_DAYS * DAY_MS) {
+    // The server would refuse it (V-11): say so now instead of keeping something that can never be sent.
+    throw new PerformedTooOldError();
+  }
   const generation = queueGeneration();
   const db = await database();
   if (!db || generation === null) throw new QueueUnavailableError();
@@ -254,7 +295,9 @@ export async function enqueue(input: CaptureInput, now: number = Date.now()): Pr
   try {
     await db.transaction('rw', db.entries, async () => {
       if (retired || queueGeneration() !== generation) throw new QueueUnavailableError();
-      if ((await db.entries.count()) >= QUEUE_CAPACITY) throw new QueueFullError();
+      // R-019 per user: only the capturing user's rows count; the device ceiling is a storage safety net.
+      const mine = await db.entries.where('[userKey+tenantKey]').between(...userRange(entry.userKey), true, false).count();
+      if (mine >= QUEUE_CAPACITY || (await db.entries.count()) >= QUEUE_DEVICE_CEILING) throw new QueueFullError();
       entry.seq = await db.entries.add(entry);
     });
   } catch (error) {
@@ -281,49 +324,51 @@ export async function listEntries(scope: CacheScope): Promise<QueueEntry[]> {
   }
 }
 
-/** All entries of the device, whoever captured them: the capacity counts them all. */
-export async function totalEntries(): Promise<number> {
-  if (!(await writeQueueExists())) return 0;
-  const db = await database();
-  if (!db) return 0;
-  try {
-    return await db.entries.count();
-  } catch {
-    return 0;
-  }
+/** All entries of one user, in every tenant: what the capacity counts (R-019). */
+export async function totalEntries(userKey: string): Promise<number> {
+  return (await countUserEntries(userKey)) ?? 0;
 }
 
 /**
  * Every entry of one user, in all their tenants — what an explicit logout discards. Never another user's.
+ * `null` = unknown (the buffer exists but cannot be read now: a clearing, a retired tab, a read error) — the
+ * logout must then ask without a number, never discard silently (R-056 c).
  */
-export async function countUserEntries(userKey: string): Promise<number> {
+export async function countUserEntries(userKey: string): Promise<number | null> {
+  // Retired or clearing: rows may well exist, this tab just must not read them now.
+  if (typeof indexedDB !== 'undefined' && (retired || localClearing)) return null;
   if (!(await writeQueueExists())) return 0;
   const db = await database();
-  if (!db) return 0;
+  if (!db) return writeQueueAvailable() ? null : 0;
   try {
-    return await db.entries.where('[userKey+tenantKey]').between([userKey, ''], [userKey, []], true, false).count();
-    // ['' … []) covers every string tenant key: an array sorts after every string.
+    return await db.entries.where('[userKey+tenantKey]').between(...userRange(userKey), true, false).count();
   } catch {
-    return 0;
+    return null;
   }
 }
 
 /**
- * Retention ({@link ENTRY_MAX_AGE_DAYS}): delete the entries of the device — whoever captured them — whose capture
- * time is older than the server would accept. A database that does not exist is not created for it.
+ * Retention ({@link ENTRY_MAX_AGE_DAYS} by the effective `performed_at`, {@link UNSENDABLE_MAX_AGE_DAYS} for
+ * failed and conflict entries): delete the entries of the device — whoever captured them — the server would never
+ * take or the user never decided. A database that does not exist is not created for it.
  */
 export async function purgeExpiredEntries(now: number = Date.now()): Promise<number> {
   if (!(await writeQueueExists())) return 0;
+  const generation = queueGeneration();
   const db = await database();
-  if (!db) return 0;
+  if (!db || generation === null) return 0;
   try {
-    const expired = db.entries.where('capturedAt').below(now - ENTRY_MAX_AGE_MS);
-    const owners = (await expired.toArray()).map((entry) => entry.userKey);
-    const removed = await expired.delete();
+    const owners: string[] = [];
+    await db.transaction('rw', db.entries, async () => {
+      if (retired || queueGeneration() !== generation) return;
+      const expired = (await db.entries.toArray()).filter((entry) => isExpired(entry, now));
+      await db.entries.bulkDelete(expired.flatMap((entry) => (entry.seq === undefined ? [] : [entry.seq])));
+      owners.push(...expired.map((entry) => entry.userKey));
+    });
     // Never a silent drop (UI-NFR-012 R-056): the owner is told the count once they are signed in.
     for (const owner of owners) purgedUnannounced.set(owner, (purgedUnannounced.get(owner) ?? 0) + 1);
-    if (removed > 0) changed();
-    return removed;
+    if (owners.length > 0) changed();
+    return owners.length;
   } catch {
     return 0;
   }
@@ -408,6 +453,7 @@ export async function removeEntry(
   let done = false;
   try {
     await db.transaction('rw', db.entries, async () => {
+      if (retired || queueGeneration() !== generation) return;
       const entry = await db.entries.get(seq);
       if (!entry || !owned(entry, scope) || (unlessStatus && entry.status === unlessStatus)) return;
       await db.entries.delete(seq);
@@ -475,8 +521,7 @@ export function asConflictCode(code: string | null | undefined): ConflictCode | 
 /** Tests only: a fresh page — the buffer is usable again and the next call opens a new connection. */
 export function resetWriteQueueForTests(): void {
   retired = false;
-  retiredBy = null;
   localClearing = false;
-  foreignDeletionUntil = 0;
+  purgedUnannounced.clear();
   dbModule?.forgetWriteQueueConnection();
 }

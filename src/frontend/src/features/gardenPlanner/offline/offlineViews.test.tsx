@@ -351,7 +351,7 @@ describe('field-mode bed sheet', () => {
     expect(requests).toEqual([]);
   });
 
-  it('locks the server-only writes also when the browser is online but the sheet is the cached one', async () => {
+  it('locks every write — buffered ones too — when the browser is online but the sheet is the cached one', async () => {
     await writeCached(
       bedSheetEntry(SCOPE, 'loc_b03'),
       { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [] },
@@ -363,11 +363,9 @@ describe('field-mode bed sheet', () => {
     await within(sheet).findByTestId('field-sheet-cached-banner');
     const chips = within(sheet).getAllByRole('button').filter((b) => b.dataset.testid?.startsWith('field-chip-'));
     expect(chips.length).toBeGreaterThan(0);
-    // WP 9.4: the note is sent (or buffered if the request gets no answer); the rest waits for a fresh sheet.
-    for (const chip of chips) {
-      if (chip.dataset.testid === 'field-chip-note') expect(chip).toBeEnabled();
-      else expect(chip).toBeDisabled();
-    }
+    // WP 9.4 keeps the WP 9.2 lock online: nothing is sent or buffered against a snapshot; the sheet reloads first.
+    for (const chip of chips) expect(chip).toBeDisabled();
+    expect(within(sheet).getByTestId('field-done-t_cached')).toBeDisabled();
   });
 
   it('a cache miss offline is an empty state, not an error', async () => {

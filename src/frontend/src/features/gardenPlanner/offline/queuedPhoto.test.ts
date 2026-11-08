@@ -77,7 +77,8 @@ describe('photoForQueue', () => {
     expect(contains(bytes, ascii('Exif'))).toBe(false);
     expect(contains(bytes, ascii('GPS'))).toBe(false);
     expect(contains(bytes, [0xff, 0xe1])).toBe(false); // no APP1 segment at all
-    expect(stored).toMatchObject({ type: 'image/jpeg', name: 'IMG_0001.jpg' });
+    // A generic name: the original's (`IMG_0001.JPG`, often with date, place or person) is not kept.
+    expect(stored).toMatchObject({ type: 'image/jpeg', name: 'photo.jpg' });
     expect(new Uint8Array(await photoFile(stored).arrayBuffer())).toEqual(CANVAS_JPEG);
   });
 

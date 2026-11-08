@@ -6,8 +6,15 @@ import { setActiveTenantSlug } from '@/api/client';
 import { ApiError } from '@/api/errors';
 import { server } from '@/test/mocks/server';
 import { ALICE_A, BOB_A, capture, completeWrite, emptyWriteQueue, noteWrite } from '@/test/writeQueueTestKit';
-import { MAX_ATTEMPTS, listEntries, updateEntry } from './queue';
-import { SYNC_STALE_MS, classifySendError, createSyncScheduler, syncQueue, type SyncResult } from './sync';
+import { MAX_ATTEMPTS, listEntries, queueGeneration, removeEntry, updateEntry } from './queue';
+import {
+  SYNC_STALE_MS,
+  classifySendError,
+  createSyncScheduler,
+  syncQueue,
+  withSyncLock,
+  type SyncResult,
+} from './sync';
 import type { ConflictCode, QueueEntry } from './queueTypes';
 
 /**
@@ -316,6 +323,7 @@ describe('createSyncScheduler', () => {
     const first = scheduler.request();
     void scheduler.request();
     void scheduler.request();
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
     release();
     await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(2));
     release();
@@ -346,5 +354,116 @@ describe('createSyncScheduler', () => {
     const scheduler = createSyncScheduler({ getScope: () => null, run });
     await scheduler.request();
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('one sender (review 1-3, 8)', () => {
+  const RESULT: SyncResult = { sent: 0, conflicts: 0, failed: 0, nextRetryAt: null, skipped: false };
+
+  it("the logout dialog's sync waits for the app bar's run and never resends what that run is sending", async () => {
+    let release: () => void = () => undefined;
+    let held = false;
+    // The host's first request hangs (a slow upload); every later one answers at once.
+    const hostSend = vi.fn(() => {
+      if (held) return Promise.resolve();
+      held = true;
+      return new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    });
+    const dialogSend = vi.fn(async () => undefined);
+    const entry = await capture(ALICE_A);
+    const second = await capture(ALICE_A, noteWrite('second'));
+    // Long after the claim: a run that did not know about the live one would take it back as stale.
+    const late = () => Date.now() + SYNC_STALE_MS * 2;
+    const scheduler = createSyncScheduler({ getScope: () => ALICE_A, run: (options) => syncQueue({ ...options, send: hostSend }) });
+    const hostRun = scheduler.request();
+    await vi.waitFor(() => expect(hostSend).toHaveBeenCalledTimes(1));
+    const { syncThenCount } = await import('./sessionChange');
+    const dialogRun = syncThenCount('alice', ALICE_A, undefined, { now: late, send: dialogSend });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(dialogSend).not.toHaveBeenCalled();
+    release();
+    await hostRun;
+    await dialogRun;
+    expect(dialogSend).not.toHaveBeenCalled(); // the host's run sent both; nothing was left
+    expect(hostSend).toHaveBeenCalledTimes(2);
+    expect(await statusOf(entry)).toBeUndefined();
+    expect(await statusOf(second)).toBeUndefined();
+    scheduler.dispose();
+  });
+
+  it('a stale-claim reset never takes back an entry a live run of this tab is sending', async () => {
+    let release: () => void = () => undefined;
+    const first = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const second = vi.fn(async () => undefined);
+    await capture(ALICE_A);
+    const running = syncQueue({ scope: ALICE_A, send: first });
+    await vi.waitFor(() => expect(first).toHaveBeenCalledTimes(1));
+    // Bypassing the run queue on purpose, holding "the lock": every syncing claim would count as stale.
+    await syncQueue({ scope: ALICE_A, send: second, ownsLock: true });
+    expect(second).not.toHaveBeenCalled();
+    release();
+    await running;
+  });
+
+  it('withSyncLock never reruns a task that failed inside the lock; it runs unlocked only when the lock API refuses', async () => {
+    const task = vi.fn(async () => {
+      throw new Error('task failed');
+    });
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), {
+      locks: { request: (_name: string, _options: unknown, callback: (lock: unknown) => Promise<SyncResult>) => callback({}) },
+    }));
+    await expect(withSyncLock(task)).rejects.toThrow('task failed');
+    expect(task).toHaveBeenCalledTimes(1);
+
+    const plain = vi.fn(async () => RESULT);
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), {
+      locks: {
+        request: () => {
+          throw new DOMException('denied', 'SecurityError');
+        },
+      },
+    }));
+    await expect(withSyncLock(plain)).resolves.toBe(RESULT);
+    expect(plain).toHaveBeenCalledWith(false);
+    vi.unstubAllGlobals();
+  });
+
+  it('a scheduler disposed mid-run reports onDispose once and drops every later progress', async () => {
+    let release: () => void = () => undefined;
+    const onProgress = vi.fn();
+    const onFinish = vi.fn();
+    const onDispose = vi.fn();
+    const run = vi.fn(async (options: { onProgress?: (value: { done: number; total: number }) => void }) => {
+      options.onProgress?.({ done: 0, total: 3 });
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      options.onProgress?.({ done: 1, total: 3 });
+      return RESULT;
+    });
+    const scheduler = createSyncScheduler({ getScope: () => ALICE_A, run, onProgress, onFinish, onDispose });
+    const pending = scheduler.request();
+    await vi.waitFor(() => expect(onProgress).toHaveBeenCalledTimes(1));
+    scheduler.dispose();
+    scheduler.dispose();
+    release();
+    await pending;
+    expect(onDispose).toHaveBeenCalledTimes(1);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+
+  it('removeEntry writes nothing once a clearing started since its generation', async () => {
+    const entry = await capture(ALICE_A);
+    const stale = (queueGeneration() ?? 0) - 1;
+    expect(await removeEntry(ALICE_A, entry.seq!, { generation: stale })).toBe(false);
+    expect(await statusOf(entry)).toBeDefined();
   });
 });

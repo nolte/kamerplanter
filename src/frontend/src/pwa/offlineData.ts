@@ -140,6 +140,25 @@ export function postNamespace(userKey: string | null, tenantKey: string | null):
   return postToWorker({ type: SW_MESSAGE_SET_NAMESPACE, userKey, tenantKey });
 }
 
+/**
+ * The confirmation an explicit logout needs before it discards the user's unsent offline entries (REQ-053 WP 9.4,
+ * UI-NFR-012 R-056 c). The app bar sets it after the user confirmed (or after it counted none); the session
+ * listener takes it. A logout without it — the count could not even be loaded — keeps the entries.
+ */
+let approvedDiscard: string | null = null;
+
+/** The user confirmed (or nothing was buffered): their logout may discard their unsent entries. */
+export function approveWriteQueueDiscard(userKey: string | null): void {
+  approvedDiscard = userKey;
+}
+
+/** Whether `userKey`'s logout was confirmed; the approval is used up. */
+export function takeWriteQueueDiscardApproval(userKey: string | null): boolean {
+  const approved = userKey !== null && approvedDiscard === userKey;
+  approvedDiscard = null;
+  return approved;
+}
+
 /** Re-send the last namespace, e.g. after a new worker took control of the page. */
 export function repostNamespace(): Promise<void> {
   return postNamespace(lastNamespace.userKey, lastNamespace.tenantKey);

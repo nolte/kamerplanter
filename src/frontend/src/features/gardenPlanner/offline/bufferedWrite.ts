@@ -29,19 +29,22 @@ export function canBuffer(scope: CacheScope | null): scope is CacheScope {
 }
 
 /**
- * Send `direct(id)` now or buffer `write()`. `write` is built only when it is needed (a photo is downscaled for the
- * buffer only). Rejects with the buffer's errors (`QueueFullError`, `QueueUnavailableError`) or the request's.
+ * Send `direct(id)` now or buffer `write(fallback)`. `write` is built only when it is needed; `fallback` is `true`
+ * when an online request already went out under the id (its answer got lost) — the buffered copy must then carry
+ * exactly what was sent (a photo: the same bytes), `false` for a capture made offline. Rejects with the buffer's
+ * errors (`QueueFullError`, `PerformedTooOldError`, `QueueUnavailableError`) or the request's.
  */
 export async function sendOrBuffer<T>(
   target: BufferTarget,
-  write: () => QueuedWrite | Promise<QueuedWrite>,
+  write: (fallback: boolean) => QueuedWrite | Promise<QueuedWrite>,
   direct: (clientEventId: string | undefined) => Promise<T>,
 ): Promise<WriteOutcome<T>> {
   const { scope } = target;
   const bufferable = canBuffer(scope);
   const buffer = async (id?: string): Promise<WriteOutcome<T>> => {
     if (!canBuffer(scope)) throw new Error('offline_queue.unavailable');
-    const entry = await enqueue({ scope, bedKey: target.bedKey, bedName: target.bedName, write: await write(), id });
+    const queued = await write(id !== undefined);
+    const entry = await enqueue({ scope, bedKey: target.bedKey, bedName: target.bedName, write: queued, id });
     void requestBackgroundSync();
     return { status: 'queued', entry };
   };
