@@ -169,23 +169,32 @@ class GardenPlanPage(BasePage):
 
     # ── Navigation ─────────────────────────────────────────────────────
 
-    def open(self, site_key: str) -> GardenPlanPage:
+    def open(self, site_key: str, *, timeout: int = DEFAULT_TIMEOUT) -> GardenPlanPage:
         """Open the plan of *site_key* and return once the **editor** rendered.
 
         The editor only mounts for a plan with content (boundary, bed or
         object); every caller provisions one, so the empty state or an error
         surface is a failure here, reported with what the route showed.
+        *timeout* is raised only for a plan of the large class (WP 9.6).
         """
         self.navigate(self.PATH.format(key=site_key))
-        self.wait_for_content(self.EDITOR, f"garden plan editor of site {site_key}")
-        self.wait_for_element(self.SVG)
+        self.wait_for_content(
+            self.EDITOR, f"garden plan editor of site {site_key}", timeout=timeout
+        )
+        self.wait_for_element(self.SVG, timeout=timeout)
         return self
 
-    def open_in_planning_mode(self, site_key: str) -> GardenPlanPage:
+    def open_in_planning_mode(
+        self, site_key: str, *, timeout: int = DEFAULT_TIMEOUT
+    ) -> GardenPlanPage:
         """Open the plan with ``?mode=plan``: the editor also on a phone viewport (default there: field mode)."""
         self.navigate(f"{self.PATH.format(key=site_key)}?mode=plan")
-        self.wait_for_content(self.EDITOR, f"garden plan editor (planning mode) of site {site_key}")
-        self.wait_for_element(self.SVG)
+        self.wait_for_content(
+            self.EDITOR,
+            f"garden plan editor (planning mode) of site {site_key}",
+            timeout=timeout,
+        )
+        self.wait_for_element(self.SVG, timeout=timeout)
         return self
 
     def reload(self, site_key: str) -> GardenPlanPage:
@@ -585,6 +594,205 @@ class GardenPlanPage(BasePage):
         self._require_hit(start, key, f"dragging {key!r}")
         end = ScreenPoint(start.x + dx_px, start.y + dy_px)
         self.pointer_drag(start, end, alt=alt, during=during)
+
+    # ── Renderer measurement (REQ-053 WP 9.6, D-01) ───────────────────
+
+    #: What the renderer drew after culling and LOD, read off the SVG: the shapes (one ``g.gp-obj`` per bed,
+    #: garden object and the boundary), the plant/slot markers drawn one by one (distinct ``data-plan-key`` of
+    #: kind ``plant``/``slot``), the batched markers (one ``M`` command per circle in the ``data-plan-markers``
+    #: paths, see :meth:`marker_centres`) and the clusters of a bed below the marker LOD.
+    _CENSUS = (
+        "var svg = arguments[0];"
+        "var shapes = {location: new Set(), gardenObject: new Set(), boundary: new Set()};"
+        "svg.querySelectorAll('g.gp-obj[data-plan-kind]').forEach(function (g) {"
+        "  var k = g.getAttribute('data-plan-kind');"
+        "  if (shapes[k]) { shapes[k].add(g.getAttribute('data-plan-key')); } });"
+        "var single = new Set();"
+        "svg.querySelectorAll(\"[data-plan-kind='plant'],[data-plan-kind='slot']\").forEach(function (e) {"
+        "  if (e.getAttribute('data-plan-key')) { single.add(e.getAttribute('data-plan-key')); } });"
+        "var batched = 0;"
+        "svg.querySelectorAll('[data-plan-markers] path').forEach(function (p) {"
+        "  batched += ((p.getAttribute('d') || '').match(/M/g) || []).length; });"
+        "return {beds: shapes.location.size, garden_objects: shapes.gardenObject.size,"
+        " boundary: shapes.boundary.size, markers_single: single.size, markers_batched: batched,"
+        " clusters: svg.querySelectorAll('[data-plan-cluster]').length,"
+        " svg_nodes: svg.getElementsByTagName('*').length};"
+    )
+
+    def rendered_census(self) -> dict[str, int]:
+        """How many plan objects the renderer drew right now, by class, plus ``visible_objects`` (their sum).
+
+        ``visible_objects`` counts beds, garden objects, every drawn plant/slot marker and every cluster - the
+        objects D-01's "> 3 000 sichtbare Objekte" is about; the boundary is a frame, not an object. "Visible" is
+        the renderer's own: what survived viewport culling (with its 20 % margin, GP-NFR-010) and the LOD rules.
+        Loud when the SVG is missing; an empty plan reads as zeros, which the caller's arrangement check catches.
+        """
+        census = self.driver.execute_script(self._CENSUS, self.wait_for_element(self.SVG))
+        if not isinstance(census, dict):
+            raise AssertionError(f"the plan SVG could not be counted: {census!r}")
+        counts = {key: int(value) for key, value in census.items()}
+        counts["visible_objects"] = (
+            counts["beds"]
+            + counts["garden_objects"]
+            + counts["markers_single"]
+            + counts["markers_batched"]
+            + counts["clusters"]
+        )
+        return counts
+
+    def svg_size_px(self) -> tuple[int, int]:
+        """The drawn size of the plan SVG in CSS px (what the renderer's viewport covers)."""
+        size = self.driver.execute_script(
+            "var r = arguments[0].getBoundingClientRect(); return [r.width, r.height];",
+            self.wait_for_element(self.SVG),
+        )
+        return round(float(size[0])), round(float(size[1]))
+
+    def canvas_centre(self) -> ScreenPoint:
+        """The centre of the part of the canvas inside the viewport (CSS px), checked to hit the plan SVG."""
+        self._bring_canvas_into_view()
+        found = self.driver.execute_script(
+            "var c = arguments[0], svg = arguments[1], r = c.getBoundingClientRect();"
+            "var left = Math.max(r.left, 0), right = Math.min(r.right, window.innerWidth);"
+            "var top = Math.max(r.top, 0), bottom = Math.min(r.bottom, window.innerHeight);"
+            "var x = (left + right) / 2, y = (top + bottom) / 2;"
+            "var el = document.elementFromPoint(x, y);"
+            "return {x: x, y: y, inside: !!el && svg.contains(el)};",
+            self.wait_for_element(self.CANVAS),
+            self.wait_for_element(self.SVG),
+        )
+        if not found["inside"]:
+            raise AssertionError(
+                f"the centre of the visible canvas ({found['x']:.0f}, {found['y']:.0f}) is covered by "
+                "something that is not the plan"
+            )
+        return ScreenPoint(float(found["x"]), float(found["y"]))
+
+    def bed_nearest_canvas_centre(self) -> str:
+        """The bed whose shape centre is closest to the visible canvas centre and hits that bed itself.
+
+        A drag needs an object it can press on: the candidate's centre must resolve to the bed through
+        ``elementFromPoint`` (not to a sheet, the panel or a neighbour). Loud when no drawn bed qualifies.
+        """
+        centre = self.canvas_centre()
+        key = self.driver.execute_script(
+            "var svg = arguments[0], cx = arguments[1], cy = arguments[2], best = null, bestD = Infinity;"
+            "svg.querySelectorAll(\"g.gp-obj[data-plan-kind='location']\").forEach(function (g) {"
+            "  var s = g.querySelector('.gp-shape'); if (!s) { return; }"
+            "  var r = s.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;"
+            "  if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) { return; }"
+            "  var hit = document.elementFromPoint(x, y), obj = hit && hit.closest('[data-plan-key]');"
+            "  if (obj !== g) { return; }"
+            "  var d = (x - cx) * (x - cx) + (y - cy) * (y - cy);"
+            "  if (d < bestD) { bestD = d; best = g.getAttribute('data-plan-key'); } });"
+            "return best;",
+            self.wait_for_element(self.SVG),
+            centre.x,
+            centre.y,
+        )
+        if not key:
+            raise AssertionError("no drawn bed of the plan can be pressed on in the visible canvas")
+        return str(key)
+
+    def point_inside_right_edge(self, key: str, inset_m: float) -> ScreenPoint:
+        """A point *inset_m* inside the right edge of the object's drawn shape, at its vertical centre.
+
+        The press point for a bed whose interior is covered by plant markers: a strip along the edge that the
+        arrangement left free (the caller's knowledge), still guarded by :meth:`_require_hit` when pressed.
+        """
+        box = self.driver.execute_script(
+            "var s = arguments[0].querySelector('.gp-shape');"
+            "if (!s) { return null; } var r = s.getBoundingClientRect();"
+            "return [r.right, r.top + r.height / 2];",
+            self.wait_for_object(key),
+        )
+        if not box:
+            raise AssertionError(f"plan object {key!r} has no drawn shape (.gp-shape)")
+        return ScreenPoint(float(box[0]) - inset_m * self.px_per_m(), float(box[1]))
+
+    def drag_object_along(
+        self,
+        key: str,
+        waypoints_px: list[tuple[int, int]],
+        *,
+        step_ms: int = 16,
+        alt_on_release: bool = False,
+        grab_inset_m: float | None = None,
+    ) -> None:
+        """Press on plan object *key*, move through *waypoints_px* (offsets from its centre), release.
+
+        One W3C pointer move per waypoint, each lasting *step_ms*: a hand-speed drag whose frames the frame
+        probe can sample (:meth:`pointer_drag` makes three moves, enough for a result, too few for a frame
+        time). Guarded like every press here (``elementFromPoint``) and loud when the page scrolled meanwhile.
+        The caller reads the effect back (the drawn origin, the pending count).
+
+        *alt_on_release* holds Alt for the **last** waypoint and the release only: every move before it runs
+        with snapping on (its cost is part of a drag frame), the final position bypasses it (Alt, GP-FR-154) -
+        so a small net offset is not pulled back onto the edges the object was aligned with.
+
+        *grab_inset_m* presses :meth:`point_inside_right_edge` instead of the shape's centre.
+        """
+        if len(waypoints_px) < (2 if alt_on_release else 1):
+            raise AssertionError(
+                "drag_object_along(): a drag needs a waypoint (two with alt_on_release)"
+            )
+        self._bring_canvas_into_view()
+        start = (
+            self.object_centre(key)
+            if grab_inset_m is None
+            else self.point_inside_right_edge(key, grab_inset_m)
+        )
+        self._require_hit(start, key, f"dragging {key!r} for the frame measurement")
+        scroll_before = self._scroll_position()
+        builder = ActionBuilder(self.driver, duration=step_ms)
+        # One action per device and tick: the keyboard pauses alongside every pointer action.
+        builder.pointer_action.move_to_location(round(start.x), round(start.y))
+        builder.key_action.pause(0)
+        builder.pointer_action.pointer_down(MouseButton.LEFT)
+        builder.key_action.pause(0)
+        last = len(waypoints_px) - 1
+        for index, (dx, dy) in enumerate(waypoints_px):
+            builder.pointer_action.move_to_location(round(start.x + dx), round(start.y + dy))
+            # Within a tick the mouse acts before the keyboard: Alt goes down in the tick *before* the last
+            # move, so the last move and the release carry it.
+            if alt_on_release and index == last - 1:
+                builder.key_action.key_down(Keys.ALT)
+            else:
+                builder.key_action.pause(0)
+        builder.pointer_action.pointer_up(MouseButton.LEFT)
+        builder.key_action.pause(0)
+        if alt_on_release:
+            builder.pointer_action.pause(0)
+            builder.key_action.key_up(Keys.ALT)
+        builder.perform()
+        scroll_after = self._scroll_position()
+        if scroll_after != scroll_before:
+            raise AssertionError(
+                f"the page scrolled during the measured drag ({scroll_before} -> {scroll_after})"
+            )
+
+    def wheel_zoom(self, at: ScreenPoint, deltas: list[int], *, interval_ms: int = 40) -> None:
+        """Ctrl + mouse wheel at *at*, one wheel event per entry of *deltas* (negative = zoom in), paced.
+
+        The editor zooms on Ctrl + wheel about the pointer (``WHEEL_ZOOM_PER_PX``); *interval_ms* between the
+        notches is a hand on a wheel, not a burst the browser would coalesce into one event. This method only
+        performs the input: the caller reads the zoom before and after and fails when it did not change.
+        """
+        if not deltas:
+            raise AssertionError("wheel_zoom(): a zoom gesture needs at least one wheel notch")
+        builder = ActionBuilder(self.driver)
+        builder.key_action.key_down(Keys.CONTROL)
+        builder.wheel_action.pause(0)
+        for delta in deltas:
+            builder.key_action.pause(0)
+            builder.wheel_action.scroll(
+                x=round(at.x), y=round(at.y), delta_x=0, delta_y=int(delta), origin="viewport"
+            )
+            builder.key_action.pause(0)
+            builder.wheel_action.pause(interval_ms / 1000)
+        builder.key_action.key_up(Keys.CONTROL)
+        builder.wheel_action.pause(0)
+        builder.perform()
 
     def draw_rect(
         self,

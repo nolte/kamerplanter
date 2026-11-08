@@ -328,6 +328,35 @@ jobs:
           fail-on-empty: false
           use-actions-summary: true
 
+      # REQ-053 WP 9.6 (#2746): the renderer measurement D-01 runs inside the
+      # suite above (tests/e2e/test_req053_renderer_profile.py, desktop profiles
+      # only - it sets its own viewports) and is advisory like the INP profile of
+      # WP 8.29: its frame times are warnings and JUnit properties, never a red
+      # night. A broken measurement fails that test, i.e. the suite step above.
+      # This step only turns the recorded values into the D-01 report and puts
+      # it in the job summary and the uploaded artifact; a profile that skipped
+      # the module has no record and writes nothing (`--allow-empty`).
+      - name: Renderer measurement report (advisory)
+        if: always()
+        # gate-integrity-ok: a reporter, not a measurement. The verdict on the
+        # measurement is the suite step's; the D-01 thresholds are advisory by
+        # decision (REQ-053 #2746, "CI-Job advisory wie 8.29"), so neither the
+        # report nor a missing record may turn a night red.
+        continue-on-error: true
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          if [ ! -d test-reports/e2e ]; then
+            echo "No test-reports/e2e directory (the run failed before pytest)."
+            exit 0
+          fi
+          report="test-reports/e2e/renderer-measurement-${PROFILE}.md"
+          python3 tests/e2e/_renderer_report.py test-reports/e2e --allow-empty --output "$report"
+          if [ -f "$report" ]; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # The rendered report above already carries this profile's totals and the
       # concrete per-test failure messages. This step therefore adds only what
       # the reporter cannot know — where the raw evidence lives — instead of
