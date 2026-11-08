@@ -23,6 +23,7 @@ from app.common.auth import get_current_user, get_is_platform_admin
 from app.common.dependencies import get_bed_template_service, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
+from app.config.settings import settings
 from app.domain.models.bed_template import MAX_TEMPLATES_PER_TENANT, BedTemplate, DefaultLayout, SoilProfileDefaults
 from app.domain.models.bed_template_exchange import MAX_FILE_BYTES
 from app.domain.models.user import User
@@ -395,12 +396,13 @@ class TestTheHardening:
         assert templates.templates[response.json()["created_key"]].name == "Kr\u00e4uterbeet"
 
     def test_the_import_is_budgeted_per_tenant(self, client) -> None:
-        """SEC-001: the plan import's budget (3/minute per tenant) holds for the template import too."""
+        """SEC-001: the template import has its own per-tenant budget (``rate_limit_bed_template_import``)."""
+        budget = int(settings.rate_limit_bed_template_import.split("/")[0])
         document = {**_export(client()), "name": "New"}
 
-        statuses = [_import(client(), document).status_code for _ in range(4)]
+        statuses = [_import(client(), document).status_code for _ in range(budget + 1)]
 
-        assert statuses == [200, 200, 200, 429]
+        assert statuses == [200] * budget + [429]
 
 
 def _shape() -> dict[str, Any]:

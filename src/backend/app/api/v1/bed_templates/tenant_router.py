@@ -97,7 +97,7 @@ def create_bed_template(
         }
     },
 )
-@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
+@limiter.limit(settings.rate_limit_bed_template_import, key_func=tenant_rate_limit_key)
 async def import_bed_template(
     request: Request,
     dry_run: Annotated[bool, Query(description="Check the file and report; write nothing. Default `true`.")] = True,
@@ -111,7 +111,8 @@ async def import_bed_template(
 ) -> BedTemplateImportResponse:
     """GP-API-071 (from grower). The body is the file of `GET /bed-templates/{key}/export`, at most 256 KB (413).
 
-    It is read **here**, after authentication, the role gate and the per-tenant rate limit (the plan import's).
+    It is read **here**, after authentication, the role gate and the per-tenant rate limit
+    (`RATE_LIMIT_BED_TEMPLATE_IMPORT`).
     The file must be one JSON object nested at most
     10 levels with `format: "kamerplanter.bed_template"` and a `schema_version` of the current or the previous
     version (422 `bed_template.schema_version_unsupported` otherwise); the schema check is a 422 `VALIDATION_ERROR`.
