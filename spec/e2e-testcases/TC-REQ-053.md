@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 82
+test_count: 83
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -22,8 +22,9 @@ coverage_areas:
   - Welle 7 — Pflanzenzustand-Filter, Teilexport/Import-Ziel, frühere Stände, Sonnenfenster im Feldmodus
   - Welle 8 Teil A — Bodenanalyse, Flächendosis, Bodenverbesserung, Nährstoff-Hinweis ohne Zahl, Historie als CSV, Rotationsmatrix, Folgekultur, Vorschläge
   - Welle 8 Teil B — Mischkultur-Ebene, Standortmerkmale, Erreichbarkeit, Beet-Fotos, CSV-Beetliste/-Import, Frost-Grund im Pflanzenzustand
+  - Welle 9 — Renderer-Messung D-01 (Drag-/Zoom-Frametime, große Pläne, Desktop und Mobile CPU 4×)
 generated: "2026-10-11"
-version: "1.9"
+version: "1.10"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -114,6 +115,10 @@ TC-053-020, die Sonnenfenster-Chips im Feldmodus in TC-053-059, Sonne/Schatten-K
 Eignungs-Ampel (Licht) in TC-053-037, Pflanzenzustand und Info-Blase in TC-053-034/035/056, JSON-Export in
 TC-053-030/057. GP-FR-105 (Konsistenz-Job), GP-FR-165 und GP-FR-167 haben keinen Browser-Weg und stehen am Dokumentende
 unter „Nicht abgedeckte Welle-8-Zeilen“.
+
+**Version 1.10 (2026-11-08, WP 9.6 / #2746)** — ein neuer Fall TC-053-083 (Renderer-Messung D-01, GP-NFR-033/034,
+Abschnitt 11); `test_count` 82 → 83, die Abdeckungs-Matrix ist um die abgeleitete Zeile ergänzt. Die Grenzwerte sind
+beratend; der Fall liefert die Messwerte für die Go/No-Go-Entscheidung zu WP 9.7.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -2613,6 +2618,43 @@ Berührungsziele im Feldmodus messen mindestens 64 × 64 px (wie TC-053-025 und 
 
 ---
 
+## 11. Neu in Welle 9 (Renderer-Messung)
+
+Der Fall TC-053-083 ist aus GP-NFR-033/034 und der Entscheidung D-01 abgeleitet (WP 9.6, #2746). Er prüft keine
+Funktion, sondern misst: das Ergebnis ist ein Bericht (`.audits/req-053/renderer-measurement-<Datum>.md`), aus dem
+sich das Go/No-Go für den zweiten Renderer (WP 9.7) ergibt.
+
+### TC-053-083: Renderer-Messung D-01 — Drag- und Zoom-Frametime auf großen Plänen, Desktop und Mobile bei 4-facher CPU-Drosselung
+
+**Requirement**: REQ-053 §25.2 GP-NFR-033, GP-NFR-034, §19.4 D-01 (MUST, abgeleitet)
+**Gerät**: Desktop und Smartphone 390 × 844 (Planungsmodus)
+**Priority**: Medium
+**Category**: Performance
+**Preconditions**:
+- Plan „large“: 250 Beete (1,2 × 2 m) mit je 20 Positionen, auf jeder eine Pflanze (5 000 Pflanzen)
+- Plan „3 000 Objekte“: 30 Beete (3 × 3 m) mit je 100 Pflanzen, so dicht angeordnet, dass auf dem Desktop in der Gesamtansicht jede Pflanze einzeln gezeichnet wird (30 + 3 000 = 3 030 sichtbare Objekte); auf dem Smartphone zeigt die Gesamtansicht nur Beete und Cluster
+- Chrome; für das Mobile-Profil eine Sitzung, die die CDP-Drosselung zulässt
+
+**Testschritte**:
+1. Nutzer öffnet einen der beiden Pläne in der Gesamtansicht; die Messung zählt die gezeichneten Objekte
+2. Nutzer zoomt mit Strg + Mausrad zehn Rasten hinein und zehn heraus; die Messung liest die Frametime je Hälfte
+3. Nutzer zieht ein Beet nahe der Bildmitte hin und zurück; die Messung liest die Frametime; danach macht er die Verschiebung rückgängig
+4. Dasselbe auf dem Smartphone mit vierfach gedrosselter CPU
+
+**Erwartete Ergebnisse**:
+- Je Fall, Profil und Geste liegt ein 95.-Perzentil der Frametime vor; eine fehlende Messung ist ein Fehler
+- In der Gesamtansicht sind alle Beete gezeichnet; der Plan „3 000 Objekte“ zeigt auf dem Desktop mindestens 3 000 Objekte
+- Zoom ändert die Zoomstufe in beide Richtungen, der Drag verschiebt das Beet (sonst ist die Messung ungültig)
+- Beratend (kein Gate): Frametime ≤ 16 ms (Desktop) bzw. ≤ 33 ms (Smartphone); D-01-Schwelle > 3 000 sichtbare Objekte oder Drag-Frametime > 16 ms; eine Überschreitung wird als Warnung berichtet
+- Ist die Drosselung in der Sitzung nicht verfügbar, steht das als benannte Lücke im Bericht
+
+**Nachbedingungen**:
+- Nichts gespeichert; die Messwerte liegen als JSON bei den Screenshots und als JUnit-Eigenschaft `renderer_record`
+
+**Tags**: [req-053, welle-9, performance, renderer, frametime, d-01, desktop, smartphone, gp-nfr-033, gp-nfr-034]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -2693,6 +2735,7 @@ Berührungsziele im Feldmodus messen mindestens 64 × 64 px (wie TC-053-025 und 
 | (abgeleitet aus GP-FR-145/175) | Welle 8 Teil B: CSV-Beetliste, Spaltenauswahl, Opt-in Zuweisung | TC-053-079, TC-053-080 |
 | (abgeleitet aus GP-FR-174) | Welle 8 Teil B: CSV-Beetlisten-Import mit Prüfbericht | TC-053-081 |
 | (abgeleitet aus §11.4, GP-FR-162) | Welle 8 Teil B: Frost-Grund im Pflanzenzustand | TC-053-082 |
+| (abgeleitet aus GP-NFR-033/034, D-01) | Welle 9: Renderer-Messung, Drag-/Zoom-Frametime, Desktop und Mobile CPU 4× (beratend) | TC-053-083 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
