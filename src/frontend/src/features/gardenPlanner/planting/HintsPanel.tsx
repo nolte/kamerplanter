@@ -2,9 +2,9 @@
  * Crop-rotation and companion hints with a strength (REQ-053 GP-FR-132, D-09): shown in the planting
  * dialog before the layout is chosen, never as a blocker. From a warning on, the grower plants anyway
  * only with a reason ("Trotzdem pflanzen"), which the run stores as `rotation_override_reason`.
- * Root competition or allelopathy reported at the bed (GP-FR-165) adds one qualitative line for the whole bed -
- * "Wurzelkonkurrenz/Allelopathie am Standort gemeldet". Nothing is computed from it: no strength, no `site_fit`,
- * no reason needed to plant.
+ * Root competition or allelopathy reported at the bed (GP-FR-165) adds one neutral note for the whole bed that names
+ * exactly the flags set ("Allelopathy risk reported at this site"). Nothing is computed from it: no strength, no
+ * `site_fit`, no reason needed to plant.
  */
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,7 @@ import type { SpeciesSiteFit } from './siteFitOf';
 import type { SiteAxisHint } from '../model/siteFit';
 import type { SunExposure } from '../model/types';
 import type { SiteFlag } from '../bed/types';
+import { siteFlagsLine } from '../bed/bedFormat';
 import { needsOverrideReason } from './plantingLogic';
 import type { NeighbourHint, RotationFinding, RotationSeverity } from './plantingTypes';
 import PlannerGlossary, { type PlannerGlossaryTerm } from '../glossary/PlannerGlossary';
@@ -123,6 +124,7 @@ export default function HintsPanel({
 }: HintsPanelProps) {
   const { t } = useTranslation();
   const mustGiveReason = needsOverrideReason(severity);
+  const flagsLine = siteFlagsLine(t, siteFlags);
   const nameOf = (key: string) => speciesNames.get(key) ?? key;
 
   /** The rotation and neighbour hints of one species, or the reason there are none. */
@@ -205,14 +207,12 @@ export default function HintsPanel({
         {t('pages.bed.planting.hints.title')}
       </Typography>
       <PlannerGlossary id="planting-hints" terms={HINT_TERMS} />
-      {siteFlags.length > 0 ? (
+      {flagsLine ? (
         <Alert severity="info" data-testid="planting-site-flags">
           <Typography variant="subtitle2" component="div">
-            {t('pages.bed.planting.hints.siteFlags')}
+            {flagsLine}
           </Typography>
-          {t('pages.bed.planting.hints.siteFlagsDetail', {
-            value: siteFlags.map((flag) => t(`enums.siteFlag.${flag}`)).join(', '),
-          })}
+          {t('pages.bed.planting.hints.siteFlagsDetail')}
         </Alert>
       ) : null}
       {species.map(({ key, name, state, siteFit, axisHints }) => (

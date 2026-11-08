@@ -557,8 +557,8 @@ describe('site flags: root competition and allelopathy (GP-FR-165, WP 9.11)', ()
     await choose(user, 0, 'Tomato');
 
     const line = await screen.findByTestId('planting-site-flags');
-    expect(line).toHaveTextContent('Root competition/allelopathy reported at this site');
-    expect(line).toHaveTextContent('Root competition, Allelopathy risk');
+    expect(line).toHaveTextContent('Root competition/Allelopathy risk reported at this site');
+    expect(line).toHaveClass('MuiAlert-colorInfo');
     expect(line.textContent).not.toMatch(/\d/);
     // No influence on the site fit: the matching bed stays green.
     expect(screen.getByTestId('planting-site-fit-sp_tomato')).toHaveTextContent('site well suited');
@@ -569,6 +569,17 @@ describe('site flags: root competition and allelopathy (GP-FR-165, WP 9.11)', ()
     await user.click(screen.getByTestId('planting-submit'));
     await waitFor(() => expect(onPlanted).toHaveBeenCalled());
     expect(runPosts(backend)[0].body).not.toHaveProperty('rotation_override_reason');
+  });
+
+  it('names only the flag that is set', async () => {
+    usePlantingBackend({ species: [SUNNY] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), 'full_sun', undefined, ['allelopathy_risk']);
+    await choose(user, 0, 'Tomato');
+
+    const line = await screen.findByTestId('planting-site-flags');
+    expect(line).toHaveTextContent('Allelopathy risk reported at this site');
+    expect(line).not.toHaveTextContent('Root competition');
   });
 
   it('shows no line while no flag is set', async () => {

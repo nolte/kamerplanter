@@ -7015,7 +7015,9 @@
         },
         "flags": {
           "title": "Competition at the site",
-          "hint": "Is the bed under or next to trees and shrubs? Their roots take water and nutrients, and some woody plants (walnut, for example) hold other plants back. Just a note – Kamerplanter calculates nothing from it."
+          "hint": "Is the bed under or next to trees and shrubs? Their roots take water and nutrients, and some woody plants (walnut, for example) hold other plants back. Just a note – Kamerplanter calculates nothing from it.",
+          "reported": "{{value}} reported at this site",
+          "other": "Other report"
         },
         "summary": {
           "frost": "Frost risk: {{value}}",
@@ -7023,7 +7025,8 @@
           "wind": "Wind: {{value}}",
           "slope": "Slope {{value, number}}°",
           "aspect": "Aspect {{value, number}}°",
-          "access": "Access: {{value}}"
+          "access": "Access: {{value}}",
+          "flags": "Competition: {{value}}"
         },
         "dialog": {
           "title": "Site conditions: {{bed}}",
@@ -7105,8 +7108,6 @@
         "changeSun": "Change sun",
         "site": "Site conditions",
         "changeSite": "Change conditions",
-        "siteFlagsHint": "Root competition/allelopathy",
-        "siteFlagsDetail": "Reported: {{value}}",
         "reach": "Reach",
         "reachHint": "Bed too wide",
         "reachDetail_both": "{{width}} m wide – from two opposite sides you reach up to {{threshold}} m. You can only reach the middle of the bed by stepping into it.",
@@ -7805,8 +7806,7 @@
           "reasonHelp": "The reason is stored with the planting.",
           "reasonRequired": "Give a reason to plant anyway.",
           "confirmToContinue": "Confirm \"Plant anyway\" to continue.",
-          "siteFlags": "Root competition/allelopathy reported at this site",
-          "siteFlagsDetail": "The bed is marked with: {{value}}. Expect plants to grow less vigorously here – a note, not a rating of the species."
+          "siteFlagsDetail": "Expect plants to grow less vigorously here – a note, not a rating of the species."
         },
         "position": {
           "title": "Correct position: {{plant}}",

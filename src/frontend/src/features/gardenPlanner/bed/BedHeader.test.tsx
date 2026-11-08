@@ -296,19 +296,38 @@ describe('BedHeader site flags (GP-FR-165, WP 9.11)', () => {
     const view = renderHeader(
       bedSummary({ site_conditions: { flags: ['root_competition', 'allelopathy_risk'] } }),
     );
-    const flags = await screen.findByTestId('bed-site-flags');
-    expect(within(flags).getByTestId('bed-site-flags-badge')).toHaveTextContent('Root competition/allelopathy');
-    expect(flags).toHaveTextContent('Reported: Root competition, Allelopathy risk');
-    // Only flags set: the site fact is shown without "Not set" beside the chip.
-    expect(screen.getByTestId('bed-header-site')).not.toHaveTextContent('Not set');
+    const badge = await screen.findByTestId('bed-site-flags-badge');
+    expect(badge).toHaveTextContent('Root competition/Allelopathy risk reported at this site');
+    // A note, not a rating: the chip is neutral.
+    expect(badge).toHaveClass('MuiChip-colorInfo');
     await expectNoA11yViolations(view.container);
   });
 
-  it('names a single flag only', async () => {
+  it('names a single flag only, and a bed with flags only has a site line instead of nothing', async () => {
     renderHeader(bedSummary({ site_conditions: { flags: ['allelopathy_risk'] } }));
-    const flags = await screen.findByTestId('bed-site-flags');
-    expect(flags).toHaveTextContent('Reported: Allelopathy risk');
-    expect(flags).not.toHaveTextContent('Root competition,');
+    const badge = await screen.findByTestId('bed-site-flags-badge');
+    expect(badge).toHaveTextContent('Allelopathy risk reported at this site');
+    expect(badge).not.toHaveTextContent('Root competition');
+    const site = screen.getByTestId('bed-header-site');
+    expect(site).toHaveTextContent('Competition: Allelopathy risk');
+    expect(site).not.toHaveTextContent('Not set');
+  });
+
+  it('says "Not set" when nothing at all is recorded', async () => {
+    renderWithProviders(
+      <BedHeader
+        summary={bedSummary({ site_conditions: { flags: [] } })}
+        typeName="Raised bed"
+        assignees={[]}
+        year={2026}
+        years={[2026]}
+        onYearChange={() => undefined}
+        onChangeStatus={null}
+        onChangeSite={() => undefined}
+      />,
+    );
+    expect(await screen.findByTestId('bed-header-site')).toHaveTextContent('Not set');
+    expect(screen.queryByTestId('bed-site-flags')).toBeNull();
   });
 
   it('shows no chip while no flag is set', async () => {
