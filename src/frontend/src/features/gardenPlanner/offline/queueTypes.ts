@@ -71,8 +71,20 @@ export interface QueueEntry {
   conflictCode: ConflictCode | null;
   /** "Keep" was chosen: the entry stays on the device, is never resent and does not reopen the dialog. */
   kept: boolean;
+  /**
+   * Epoch ms from which retention deletes the entry (`queue.ts` `expiryOf`): the effective `performed_at` + 365 days,
+   * for a failed or conflict entry at most the capture + 90 days. Indexed, so the purge finds what is due by key
+   * alone — without reading any row (photos included) into memory.
+   */
+  expiresAt: number;
   /** The bed it was captured at, for the lists (its name as shown then). */
   bedKey: string;
   bedName: string;
   write: QueuedWrite;
+}
+
+/** The retention notice of one user (R-056): how many of their entries the purge deleted, not yet shown. */
+export interface PurgeNotice {
+  userKey: string;
+  count: number;
 }

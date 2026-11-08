@@ -4,6 +4,7 @@
  */
 import { enqueue, newClientEventId, resetWriteQueueForTests } from '@/features/gardenPlanner/offline/queue';
 import { writeQueueDatabase } from '@/features/gardenPlanner/offline/queueDb';
+import { expiryOf } from '@/features/gardenPlanner/offline/retention';
 import type { CacheScope } from '@/features/gardenPlanner/offline/planCache';
 import type { QueueEntry, QueueStatus, QueuedWrite } from '@/features/gardenPlanner/offline/queueTypes';
 
@@ -17,7 +18,8 @@ export function testWriteQueueDatabase() {
 
 export async function emptyWriteQueue(): Promise<void> {
   resetWriteQueueForTests();
-  await testWriteQueueDatabase().entries.clear();
+  const db = testWriteQueueDatabase();
+  await Promise.all([db.entries.clear(), db.notices.clear()]);
 }
 
 export function noteWrite(summary = 'Aphids on the beans', locationKey = 'loc_a'): QueuedWrite {
@@ -61,6 +63,7 @@ export async function storeRow(
     lastErrorCode: null,
     conflictCode: status === 'conflict' ? 'task.already_closed' : null,
     kept: false,
+    expiresAt: 0,
     bedKey: 'loc_a',
     bedName: 'Raised bed 1',
     write: {
@@ -68,6 +71,7 @@ export async function storeRow(
       body: { location_key: 'loc_a', category: 'note', summary: 'row', performed_at: new Date(performedAt ?? capturedAt).toISOString() },
     },
   };
+  row.expiresAt = expiryOf(row);
   row.seq = await testWriteQueueDatabase().entries.add(row);
   return row;
 }

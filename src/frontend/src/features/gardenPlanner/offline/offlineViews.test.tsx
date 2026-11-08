@@ -351,21 +351,56 @@ describe('field-mode bed sheet', () => {
     expect(requests).toEqual([]);
   });
 
-  it('locks every write — buffered ones too — when the browser is online but the sheet is the cached one', async () => {
+  it('lie-fi: online with a cached sheet, "Done" and the note are BUFFERED, never sent directly; the read is retried', async () => {
+    const { emptyWriteQueue } = await import('@/test/writeQueueTestKit');
+    const { listEntries } = await import('./queue');
+    await emptyWriteQueue();
     await writeCached(
       bedSheetEntry(SCOPE, 'loc_b03'),
       { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [] },
       CACHED_AT,
     );
-    server.use(http.get(`${BASE}/tasks/queue`, () => HttpResponse.error()));
+    let reads = 0;
+    let releaseRetry: () => void = () => undefined;
+    const completes: unknown[] = [];
+    server.use(
+      http.get(`${BASE}/tasks/queue`, async () => {
+        reads += 1;
+        // Read 1: the sheet; read 2: the existing re-read once a cached sheet shows (WP 9.2); read 3: the retry.
+        if (reads === 3) {
+          await new Promise<void>((resolve) => {
+            releaseRetry = resolve;
+          });
+        }
+        return HttpResponse.error();
+      }),
+      http.post(`${BASE}/tasks/:key/complete`, async ({ request }) => {
+        completes.push(await request.json());
+        return HttpResponse.json({});
+      }),
+    );
     renderPlan('field', 'grower');
     const sheet = await openBed('Raised bed 3');
     await within(sheet).findByTestId('field-sheet-cached-banner');
-    const chips = within(sheet).getAllByRole('button').filter((b) => b.dataset.testid?.startsWith('field-chip-'));
-    expect(chips.length).toBeGreaterThan(0);
-    // WP 9.4 keeps the WP 9.2 lock online: nothing is sent or buffered against a snapshot; the sheet reloads first.
-    for (const chip of chips) expect(chip).toBeDisabled();
-    expect(within(sheet).getByTestId('field-done-t_cached')).toBeDisabled();
+    // The browser says online, the read got no answer: the buffered actions work, the server-only ones wait.
+    await waitFor(() => {
+      expect(within(sheet).getByTestId('field-done-t_cached')).toBeEnabled();
+      expect(within(sheet).getByTestId('field-chip-note')).toBeEnabled();
+      expect(within(sheet).getByTestId('field-chip-watering')).toBeDisabled();
+    });
+
+    // No online/offline flip ever comes: the sheet retries the read by itself (2 s first) and locks meanwhile.
+    await waitFor(() => expect(reads).toBe(3), { timeout: 5000 });
+    await waitFor(() => expect(within(sheet).getByTestId('field-done-t_cached')).toBeDisabled());
+    act(() => releaseRetry());
+    await waitFor(() => expect(within(sheet).getByTestId('field-done-t_cached')).toBeEnabled());
+
+    fireEvent.click(within(sheet).getByTestId('field-done-t_cached'));
+    fireEvent.click(within(await screen.findByTestId('care-complete-dialog')).getByTestId('care-complete-submit'));
+    await within(sheet).findByTestId('field-done-queued-t_cached');
+    expect(completes).toEqual([]); // nothing went to the server against the snapshot
+    const [entry] = await listEntries(SCOPE);
+    expect(entry.write).toMatchObject({ kind: 'complete', taskKey: 't_cached' });
   });
 
   it('a cache miss offline is an empty state, not an error', async () => {

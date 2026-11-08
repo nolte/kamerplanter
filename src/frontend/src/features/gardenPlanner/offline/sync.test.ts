@@ -467,3 +467,68 @@ describe('one sender (review 1-3, 8)', () => {
     expect(await statusOf(entry)).toBeDefined();
   });
 });
+
+describe('the logout wait is bounded (review 2)', () => {
+  it('gives up waiting for the lock when the signal ends — nothing is sent', async () => {
+    const task = vi.fn(async () => ({ sent: 1, conflicts: 0, failed: 0, nextRetryAt: null, skipped: false }));
+    vi.stubGlobal('navigator', Object.assign(Object.create(navigator), {
+      locks: {
+        // Another tab holds the lock: the request waits until its signal aborts.
+        request: (_name: string, options: { signal?: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            options.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          }),
+      },
+    }));
+    const controller = new AbortController();
+    const waiting = withSyncLock(task, true, controller.signal);
+    controller.abort();
+    await expect(waiting).resolves.toMatchObject({ skipped: true });
+    expect(task).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it.each(['the wait limit', 'a cancel'])('the dialog only counts once %s ends the wait for a hanging app-bar run', async (how) => {
+    const { syncThenCount, LOGOUT_SYNC_WAIT_MS } = await import('./sessionChange');
+    expect(LOGOUT_SYNC_WAIT_MS).toBe(30_000);
+    let release: () => void = () => undefined;
+    const hang = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    await capture(ALICE_A);
+    const scheduler = createSyncScheduler({ getScope: () => ALICE_A, run: (options) => syncQueue({ ...options, send: hang }) });
+    void scheduler.request();
+    await vi.waitFor(() => expect(hang).toHaveBeenCalledTimes(1));
+    const controller = new AbortController();
+    const counted = syncThenCount('alice', ALICE_A, undefined, { waitMs: how === 'a cancel' ? 60_000 : 50 }, controller.signal);
+    if (how === 'a cancel') controller.abort();
+    await expect(counted).resolves.toBe(1); // counted, nothing discarded, the buttons are free
+    release();
+    scheduler.dispose();
+  });
+
+  it('sends with a per-request timeout: 30 s for JSON, 120 s for a photo', async () => {
+    const { tenantClient } = await import('@/api/client');
+    const { SEND_TIMEOUT_MS, PHOTO_SEND_TIMEOUT_MS, sendEntry } = await import('./sync');
+    const post = vi.spyOn(tenantClient, 'post').mockResolvedValue({ data: { attachment_id: 'a' } });
+    try {
+      const note = await capture(ALICE_A);
+      await sendEntry(note);
+      expect(post.mock.calls[0][2]).toMatchObject({ timeout: SEND_TIMEOUT_MS });
+      const photo = await capture(ALICE_A, {
+        kind: 'plantPhoto',
+        plantKey: 'pl_1',
+        plantName: 'PL',
+        photo: { bytes: new Uint8Array([1]).buffer, type: 'image/jpeg', name: 'photo.jpg' },
+      });
+      await sendEntry(photo);
+      expect(post.mock.calls[1][2]).toMatchObject({ timeout: PHOTO_SEND_TIMEOUT_MS });
+      expect([SEND_TIMEOUT_MS, PHOTO_SEND_TIMEOUT_MS]).toEqual([30_000, 120_000]);
+    } finally {
+      post.mockRestore();
+    }
+  });
+});

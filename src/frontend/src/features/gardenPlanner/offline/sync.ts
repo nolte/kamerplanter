@@ -84,21 +84,31 @@ export function classifySendError(error: unknown): SendOutcome {
   return { kind: 'refused', code: 'client' };
 }
 
+/**
+ * Per-request timeouts of a buffered send (the app's Axios clients have none): a request that hangs on a bad
+ * connection must end, count as a failed attempt (no answer → backoff, the resend is a replay) and free the single
+ * sender. A photo upload gets longer.
+ */
+export const SEND_TIMEOUT_MS = 30_000;
+export const PHOTO_SEND_TIMEOUT_MS = 120_000;
+
 /** Send one entry with its own `client_event_id`. Resolves on a `201` and on a replay `200` alike. */
 export async function sendEntry(entry: QueueEntry): Promise<void> {
   const { write, id } = entry;
+  const json = { timeout: SEND_TIMEOUT_MS };
+  const photo = { timeout: PHOTO_SEND_TIMEOUT_MS };
   switch (write.kind) {
     case 'complete':
-      await completeBedTask(write.taskKey, write.payload, id);
+      await completeBedTask(write.taskKey, write.payload, id, json);
       return;
     case 'note':
-      await logCareEvent(write.body, id);
+      await logCareEvent(write.body, id, json);
       return;
     case 'bedPhoto':
-      await addBedPhoto(write.locationKey, photoFile(write.photo), id);
+      await addBedPhoto(write.locationKey, photoFile(write.photo), id, photo);
       return;
     case 'plantPhoto':
-      await uploadPlantPhoto(write.plantKey, photoFile(write.photo), id);
+      await uploadPlantPhoto(write.plantKey, photoFile(write.photo), id, photo);
       return;
   }
 }
@@ -253,7 +263,7 @@ export async function syncQueue({
 interface LockManagerLike {
   request: (
     name: string,
-    options: { ifAvailable?: boolean },
+    options: { ifAvailable?: boolean; signal?: AbortSignal },
     callback: (lock: unknown) => Promise<SyncResult>,
   ) => Promise<SyncResult>;
 }
@@ -267,17 +277,20 @@ interface LockManagerLike {
 export async function withSyncLock(
   task: (ownsLock: boolean) => Promise<SyncResult>,
   wait = false,
+  signal?: AbortSignal,
 ): Promise<SyncResult> {
   const locks = (typeof navigator !== 'undefined' ? (navigator as { locks?: LockManagerLike }).locks : undefined) ?? null;
   if (!locks || typeof locks.request !== 'function') return task(false);
   let started = false;
   try {
-    return await locks.request(SYNC_LOCK_NAME, { ifAvailable: !wait }, (lock) => {
+    return await locks.request(SYNC_LOCK_NAME, wait ? { signal } : { ifAvailable: true }, (lock) => {
       started = true;
       return lock ? task(true) : Promise.resolve(EMPTY);
     });
   } catch (error) {
     if (started) throw error;
+    // The wait for the lock was given up (timeout, cancel): nothing is sent.
+    if (signal?.aborted) return EMPTY;
     return task(false);
   }
 }
@@ -292,9 +305,22 @@ export function runExclusive<T>(task: () => Promise<T>): Promise<T> {
   return next;
 }
 
-/** One sync through the single sender: this tab's run queue, then the origin-wide lock (waiting for it). */
-export function runSyncExclusive(options: Omit<SyncOptions, 'ownsLock'>): Promise<SyncResult> {
-  return runExclusive(() => withSyncLock((ownsLock) => syncQueue({ ...options, ownsLock }), true));
+/**
+ * One sync through the single sender: this tab's run queue, then the origin-wide lock (waiting for it). `signal`
+ * ends the WAIT (a timeout, the user's cancel): the promise then resolves with nothing sent, while a run already
+ * under way finishes on its own (it is the single sender; abandoning it mid-request would only cost a replay).
+ */
+export function runSyncExclusive(options: Omit<SyncOptions, 'ownsLock'>, signal?: AbortSignal): Promise<SyncResult> {
+  const run = runExclusive(() =>
+    signal?.aborted ? Promise.resolve(EMPTY) : withSyncLock((ownsLock) => syncQueue({ ...options, ownsLock }), true, signal),
+  );
+  if (!signal) return run;
+  return new Promise<SyncResult>((resolve, reject) => {
+    const onAbort = () => resolve(EMPTY);
+    if (signal.aborted) return onAbort();
+    signal.addEventListener('abort', onAbort, { once: true });
+    run.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
 
 export interface SyncSchedulerOptions {

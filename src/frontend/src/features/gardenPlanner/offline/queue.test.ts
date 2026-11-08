@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WRITE_QUEUE_DB_NAME, APP_DATABASE_NAMES } from '@/pwa/storageWipe';
 import {
   ALICE_A,
@@ -64,6 +64,7 @@ async function fill(count: number, scope = ALICE_A): Promise<void> {
     lastErrorCode: null,
     conflictCode: null,
     kept: false,
+    expiresAt: Number.MAX_SAFE_INTEGER,
     bedKey: 'loc_a',
     bedName: 'Raised bed 1',
     write: noteWrite(`n${index}`),
@@ -286,3 +287,88 @@ describe('database and kill switch', () => {
     expect(await listEntries(ALICE_A)).toEqual([]);
   });
 });
+
+describe('the purge reads keys only and keeps its notice on the device (review 3/4)', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = Date.UTC(2026, 10, 8, 12);
+
+  it('selects what is due by the [expiresAt+userKey] index — no row (and no photo) is read', async () => {
+    await storeRow(ALICE_A, { capturedAt: NOW - 400 * DAY });
+    await storeRow(BOB_A, { capturedAt: NOW - 100 * DAY, status: 'failed' });
+    await storeRow(ALICE_A, { capturedAt: NOW - DAY });
+    const spies = [
+      vi.spyOn(IDBObjectStore.prototype, 'getAll'),
+      vi.spyOn(IDBObjectStore.prototype, 'openCursor'),
+      vi.spyOn(IDBIndex.prototype, 'getAll'),
+      vi.spyOn(IDBIndex.prototype, 'openCursor'),
+    ];
+    try {
+      expect(await purgeExpiredEntries(NOW)).toBe(2);
+      for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spies.forEach((spy) => spy.mockRestore());
+    }
+    expect(await listEntries(ALICE_A)).toHaveLength(1);
+  });
+
+  it("keeps each owner's notice across a reload until that owner takes it — then it is used up", async () => {
+    const { takePurgedCount } = await import('./queue');
+    await storeRow(BOB_A, { capturedAt: NOW - 400 * DAY });
+    await storeRow(BOB_A, { capturedAt: NOW - 95 * DAY, status: 'conflict' });
+    await storeRow(ALICE_A, { capturedAt: NOW - 400 * DAY });
+    expect(await purgeExpiredEntries(NOW)).toBe(3); // alice is signed in, bob is not
+    resetWriteQueueForTests(); // a reload: nothing in memory survives
+    expect(await takePurgedCount('bob')).toBe(2);
+    expect(await takePurgedCount('bob')).toBe(0);
+    expect(await takePurgedCount('alice')).toBe(1);
+  });
+
+  it('a status change moves the expiry: failed after 90 days of capture, back to 365 on "Try again"', async () => {
+    const entry = await capture(ALICE_A, noteWrite(), NOW - 100 * DAY);
+    await updateEntry(ALICE_A, entry.seq!, { status: 'failed' });
+    expect((await testWriteQueueDatabase().entries.get(entry.seq!))?.expiresAt).toBe(NOW - 10 * DAY);
+    await retryEntry(ALICE_A, entry.id);
+    expect((await testWriteQueueDatabase().entries.get(entry.seq!))?.expiresAt).toBeGreaterThan(NOW);
+  });
+
+  it('upgrades a version-1 database: every row gets its expiry', async () => {
+    const Dexie = (await import('dexie')).default;
+    resetWriteQueueForTests();
+    await new Promise<void>((resolve) => {
+      const request = indexedDB.deleteDatabase(WRITE_QUEUE_DB_NAME);
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+    });
+    const v1 = new Dexie(WRITE_QUEUE_DB_NAME);
+    v1.version(1).stores({ entries: '++seq, &id, [userKey+tenantKey], status, capturedAt' });
+    // A version-1 row has no `expiresAt`.
+    const legacy: Partial<QueueEntry> = await storeRowShape(ALICE_A, NOW - 400 * DAY);
+    delete legacy.expiresAt;
+    await v1.table('entries').add(legacy);
+    v1.close();
+    expect(await purgeExpiredEntries(NOW)).toBe(1);
+  });
+});
+
+async function storeRowShape(scope: { userKey: string; tenantKey: string }, capturedAt: number): Promise<QueueEntry> {
+  return {
+    id: newClientEventId(),
+    userKey: scope.userKey,
+    tenantKey: scope.tenantKey,
+    capturedAt,
+    status: 'pending',
+    attempts: 0,
+    nextAttemptAt: 0,
+    syncingSince: null,
+    lastErrorCode: null,
+    conflictCode: null,
+    kept: false,
+    expiresAt: 0,
+    bedKey: 'loc_a',
+    bedName: 'B',
+    write: {
+      kind: 'note',
+      body: { location_key: 'loc_a', category: 'note', summary: 'legacy', performed_at: new Date(capturedAt).toISOString() },
+    },
+  };
+}

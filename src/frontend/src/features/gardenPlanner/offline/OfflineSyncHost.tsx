@@ -107,15 +107,22 @@ export default function OfflineSyncHost() {
   // R-056: entries the retention purge deleted (at app start or before a sync) are named, never dropped silently.
   useEffect(() => {
     if (userKey === null) return undefined;
+    let alive = true;
+    // The notice is stored on the device (`notices`): a purge while someone else was signed in, or before a
+    // reload, is still named at this user's next sign-in — then it is used up.
     const announce = () => {
-      const purged = takePurgedCount(userKey);
-      if (purged > 0) notification.warning(t('pages.offlineQueue.purged', { count: purged }));
+      void takePurgedCount(userKey).then((purged) => {
+        if (alive && purged > 0) notification.warning(t('pages.offlineQueue.purged', { count: purged }));
+      });
     };
     announce();
     const unsubscribe = onQueueChange(announce);
     // Retention also when the start-up purge could not run (main.tsx): once per signed-in user.
     void purgeExpiredEntries();
-    return unsubscribe;
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, [userKey, notification, t]);
 
   const counts = useMemo(() => countEntries(queue.entries), [queue.entries]);

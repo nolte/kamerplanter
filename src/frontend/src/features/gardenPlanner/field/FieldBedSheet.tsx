@@ -73,6 +73,10 @@ const PlantPhotoUploadDialog = lazy(() => import('@/components/photos/PlantPhoto
 /** Offline with the buffer, only the note chip works (the other chips need the server). */
 const BUFFERED_CHIPS: ReadonlySet<QuickChipId> = new Set<QuickChipId>(['note']);
 
+/** Lie-fi: the first and the longest wait before the cached sheet is read again while the browser says online. */
+export const SHEET_RETRY_FIRST_MS = 2000;
+export const SHEET_RETRY_MAX_MS = 60_000;
+
 /** Long press before a marker can be dragged (GP-UX-023). */
 export const FIELD_LONG_PRESS_MS = 500;
 
@@ -123,6 +127,21 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     reload();
     onChanged();
   }, [reload, onChanged]);
+
+  // Lie-fi: online, yet the sheet is the cached one — `useReloadOnReconnect` never fires (nothing flips), so the
+  // read is retried with a backoff (2 s, 4 s … 60 s) until the server answers.
+  const staleWhileOnline = online && sheet.state.status === 'ready' && sheet.state.cachedAt !== null;
+  const retryDelay = useRef(SHEET_RETRY_FIRST_MS);
+  useEffect(() => {
+    if (!staleWhileOnline) {
+      retryDelay.current = SHEET_RETRY_FIRST_MS;
+      return undefined;
+    }
+    if (sheet.reloading) return undefined;
+    const timer = setTimeout(reload, retryDelay.current);
+    retryDelay.current = Math.min(SHEET_RETRY_MAX_MS, retryDelay.current * 2);
+    return () => clearTimeout(timer);
+  }, [staleWhileOnline, sheet.reloading, reload]);
   /** Planting and a position correction also change the plan's geometry and plants: the map reloads too. */
   const plantsChanged = useCallback(() => {
     changed();
@@ -148,7 +167,13 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
 
   // ── The offline write buffer (WP 9.4) ──
   const bufferOn = queue.available && canBuffer(scope);
-  const target: BufferTarget = { scope, online, bedKey: bed.key, bedName: bed.name };
+  const target: BufferTarget = {
+    scope,
+    // A sheet from the cache (lie-fi) buffers like offline: no direct send against a snapshot.
+    online: online && (sheet.state.status !== 'ready' || sheet.state.cachedAt === null),
+    bedKey: bed.key,
+    bedName: bed.name,
+  };
   const queuedTaskKeys = useMemo(
     // Only what is still on its way hides "Done": a failed or conflicting completion shows its own state in the
     // dialog and must not lock the task for good.
@@ -197,7 +222,13 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   // Online with a sheet from the plan cache (WP 9.2): the lock stays — the sheet reloads first; nothing is sent
   // or buffered against a snapshot while the server is reachable.
   const fromCache = (ready?.cachedAt ?? null) !== null;
-  const bufferedLocked = bufferOn ? saving || (!online && queue.full) || (online && fromCache) : writesLocked;
+  // The sheet came from the plan cache although the browser says online (lie-fi: the read got no answer). A write
+  // is then made against the capture-time view the user sees — exactly what offline buffering is for — so it is
+  // BUFFERED, never sent directly against the snapshot (WP 9.2). Locked only while a reload is on its way.
+  const sendDirect = online && !fromCache;
+  const bufferedLocked = bufferOn
+    ? saving || (!sendDirect && queue.full) || (online && fromCache && sheet.reloading)
+    : writesLocked;
 
   /** "Undo" of a buffered entry: it leaves the buffer (refused once a sync has it on the way). */
   const offerQueuedUndo = (entry: QueueEntry, message: string) => {

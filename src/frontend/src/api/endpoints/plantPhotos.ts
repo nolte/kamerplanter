@@ -121,6 +121,7 @@ export async function uploadPlantPhoto(
   plantInstanceKey: string,
   file: File,
   clientEventId?: string,
+  config: { timeout?: number } = {},
 ): Promise<PlantPhoto> {
   const formData = new FormData();
   formData.append('file', file);
@@ -128,7 +129,7 @@ export async function uploadPlantPhoto(
   const { data } = await tenantClient.post<PlantPhoto>(
     base(plantInstanceKey),
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
+    { headers: { 'Content-Type': 'multipart/form-data' }, ...config },
   );
   return data;
 }

@@ -13,16 +13,33 @@
  */
 import Dexie, { type EntityTable } from 'dexie';
 import { WRITE_QUEUE_DB_NAME } from '@/pwa/storageWipe';
-import type { QueueEntry } from './queueTypes';
+import { expiryOf } from './retention';
+import type { PurgeNotice, QueueEntry } from './queueTypes';
 
 export class WriteQueueDatabase extends Dexie {
   entries!: EntityTable<QueueEntry, 'seq'>;
+  notices!: EntityTable<PurgeNotice, 'userKey'>;
 
   constructor() {
     super(WRITE_QUEUE_DB_NAME);
     this.version(1).stores({
       entries: '++seq, &id, [userKey+tenantKey], status, capturedAt',
     });
+    // Review of #2792: the purge selects by `[expiresAt+userKey]` (keys only, no row is read), and a retention
+    // notice survives a reload or another user's session until its owner signs in.
+    this.version(2)
+      .stores({
+        entries: '++seq, &id, [userKey+tenantKey], status, [expiresAt+userKey]',
+        notices: 'userKey',
+      })
+      .upgrade((tx) =>
+        tx
+          .table<QueueEntry, number>('entries')
+          .toCollection()
+          .modify((entry) => {
+            entry.expiresAt = expiryOf(entry);
+          }),
+      );
   }
 }
 

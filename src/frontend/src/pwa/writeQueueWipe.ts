@@ -11,6 +11,8 @@ import { WRITE_QUEUE_DB_NAME } from './storageWipe';
 
 /** The object store and compound index Dexie created for `entries: '++seq, &id, [userKey+tenantKey], …'`. */
 const STORE = 'entries';
+/** The per-user retention notices (schema v2): the user's count goes with their entries. */
+const NOTICES = 'notices';
 const OWNER_INDEX = '[userKey+tenantKey]';
 const TIMEOUT_MS = 2000;
 
@@ -38,17 +40,21 @@ export function deleteWriteQueueEntriesOf(userKey: string): Promise<void> {
             done();
             return;
           }
-          const transaction = db.transaction(STORE, 'readwrite');
-          // Every tenant of the user: [userKey] < [userKey, any string] < [userKey, []].
+          const stores = db.objectStoreNames.contains(NOTICES) ? [STORE, NOTICES] : [STORE];
+          const transaction = db.transaction(stores, 'readwrite');
+          const entries = transaction.objectStore(STORE);
+          // Every tenant of the user: [userKey] < [userKey, any string] < [userKey, []]. A key cursor: the rows
+          // (photo bytes) are never read, each is deleted by its primary key.
           const range = IDBKeyRange.bound([userKey], [userKey, []]);
-          const cursor = transaction.objectStore(STORE).index(OWNER_INDEX).openCursor(range);
+          const cursor = entries.index(OWNER_INDEX).openKeyCursor(range);
           cursor.onsuccess = () => {
             const current = cursor.result;
             if (current) {
-              current.delete();
+              entries.delete(current.primaryKey);
               current.continue();
             }
           };
+          if (stores.length === 2) transaction.objectStore(NOTICES).delete(userKey);
           transaction.oncomplete = () => {
             db.close();
             done();

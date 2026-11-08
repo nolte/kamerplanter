@@ -186,3 +186,33 @@ describe('tenant switch (TenantSwitcher)', () => {
     expect(await listEntries({ userKey: 'alice', tenantKey: 'tenant_b' })).toEqual([]);
   });
 });
+
+describe('the logout dialog while it waits (review 2)', () => {
+  it('keeps "Cancel" usable while the sync hangs', async () => {
+    let release: () => void = () => undefined;
+    server.use(
+      http.post('/api/v1/t/:tenant/care-events', async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return HttpResponse.json({ key: 'ce_1', category: 'note' }, { status: 201 });
+      }),
+    );
+    await capture(SCOPE, noteWrite('one'));
+    const { default: UnsyncedWritesDialog } = await import('@/features/gardenPlanner/offline/UnsyncedWritesDialog');
+    const onCancel = vi.fn();
+    const onProceed = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <UnsyncedWritesDialog userKey="alice" scope={SCOPE} count={1} onProceed={onProceed} onCancel={onCancel} />,
+      { store: store() },
+    );
+    const dialog = await screen.findByTestId('unsynced-writes-dialog');
+    await waitFor(() => expect(within(dialog).getByTestId('unsynced-writes-sync')).toBeDisabled()); // syncing
+    expect(within(dialog).getByTestId('unsynced-writes-cancel')).toBeEnabled();
+    await user.click(within(dialog).getByTestId('unsynced-writes-cancel'));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onProceed).not.toHaveBeenCalled();
+    release();
+  });
+});

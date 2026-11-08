@@ -202,6 +202,7 @@ describe('offline with the buffer', () => {
       lastErrorCode: null,
       conflictCode: null,
       kept: false,
+      expiresAt: Number.MAX_SAFE_INTEGER,
       bedKey: 'loc_x',
       bedName: 'Other',
       write: noteWrite(),

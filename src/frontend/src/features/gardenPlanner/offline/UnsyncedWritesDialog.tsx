@@ -38,11 +38,22 @@ export default function UnsyncedWritesDialog({ userKey, scope, count, onProceed,
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const proceedRef = useRef(onProceed);
   const startedRef = useRef(false);
+  /** The running wait for the single sender; "Cancel" ends it at once. */
+  const waitRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
+  const cancel = () => {
+    cancelledRef.current = true;
+    waitRef.current?.abort();
+    onCancel();
+  };
 
   const syncNow = async () => {
     setSyncing(true);
     try {
-      const remaining = await syncThenCount(userKey, scope, setProgress);
+      const controller = new AbortController();
+      waitRef.current = controller;
+      const remaining = await syncThenCount(userKey, scope, setProgress, {}, controller.signal);
+      if (controller.signal.aborted && cancelledRef.current) return;
       setLeft(remaining);
       if (remaining === 0) proceedRef.current();
     } finally {
@@ -68,7 +79,8 @@ export default function UnsyncedWritesDialog({ userKey, scope, count, onProceed,
   return (
     <Dialog
       open
-      onClose={syncing ? undefined : onCancel}
+      // Cancel works while the dialog waits for the sync: it ends the wait (the sync itself goes on).
+      onClose={cancel}
       maxWidth="xs"
       fullWidth
       aria-labelledby="unsynced-writes-title"
@@ -95,7 +107,7 @@ export default function UnsyncedWritesDialog({ userKey, scope, count, onProceed,
         )}
       </DialogContent>
       <DialogActions sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-        <Button onClick={onCancel} disabled={syncing} data-testid="unsynced-writes-cancel">
+        <Button onClick={cancel} data-testid="unsynced-writes-cancel">
           {t('common.cancel')}
         </Button>
         <Button color="error" onClick={onProceed} disabled={syncing} data-testid="unsynced-writes-discard">

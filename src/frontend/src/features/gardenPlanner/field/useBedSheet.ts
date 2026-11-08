@@ -56,10 +56,12 @@ export interface BedSheet {
   state: BedSheetState;
   /** Fetch again without blanking the sheet. */
   reload: () => void;
+  /** A read is on its way and its answer is not in yet (the first load or a reload). */
+  reloading: boolean;
 }
 
 export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet {
-  const [loaded, setLoaded] = useState<{ bedKey: string; state: BedSheetState } | null>(null);
+  const [loaded, setLoaded] = useState<{ bedKey: string; attempt: number; state: BedSheetState } | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -77,13 +79,14 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
     }, { toStored: storableSheet })
       .then(({ data, cachedAt }) => {
         if (!controller.signal.aborted) {
-          setLoaded({ bedKey, state: { status: 'ready', tasks: data.tasks, plants: data.plants, cachedAt } });
+          setLoaded({ bedKey, attempt, state: { status: 'ready', tasks: data.tasks, plants: data.plants, cachedAt } });
         }
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
           setLoaded({
             bedKey,
+            attempt,
             state: { status: 'error', message: parseApiError(error), offlineMiss: isOfflineCacheMiss(error) },
           });
         }
@@ -93,5 +96,6 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
   const state = loaded && loaded.bedKey === bedKey ? loaded.state : null;
-  return useMemo(() => ({ state: state ?? { status: 'loading' }, reload }), [state, reload]);
+  const reloading = !(loaded && loaded.bedKey === bedKey && loaded.attempt === attempt);
+  return useMemo(() => ({ state: state ?? { status: 'loading' }, reload, reloading }), [state, reload, reloading]);
 }

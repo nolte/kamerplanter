@@ -28,11 +28,42 @@ export async function syncThenCount(
   userKey: string,
   scope: CacheScope | null,
   onProgress?: (progress: SyncProgress) => void,
-  /** The sender and clock (tests). */
-  options: Pick<SyncOptions, 'send' | 'now'> = {},
+  /** The sender, the clock and the wait limit (tests). */
+  { waitMs = LOGOUT_SYNC_WAIT_MS, ...options }: Pick<SyncOptions, 'send' | 'now'> & { waitMs?: number } = {},
+  /** Ends the wait (the dialog's cancel); the timeout below ends it in any case. */
+  signal?: AbortSignal,
 ): Promise<number | null> {
   // Through the shared single sender (this tab's queue of runs + the origin-wide Web Lock): never beside the
-  // app bar's sync, never resetting its claims.
-  if (scope !== null) await runSyncExclusive({ scope, onProgress, ...options });
+  // app bar's sync, never resetting its claims. Never longer than LOGOUT_SYNC_WAIT_MS: then it only counts.
+  if (scope !== null) {
+    const wait = waitSignal(waitMs, signal);
+    try {
+      await runSyncExclusive({ scope, onProgress, ...options }, wait.signal);
+    } finally {
+      wait.done();
+    }
+  }
   return unsyncedEntries(userKey);
+}
+
+/** How long the logout dialog waits for the single sender before it just counts (and frees its buttons). */
+export const LOGOUT_SYNC_WAIT_MS = 30_000;
+
+/** `signal` or the timeout, whichever ends first (without `AbortSignal.any`/`timeout` in older browsers). */
+function waitSignal(waitMs: number, signal?: AbortSignal): { signal: AbortSignal; done: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), waitMs);
+  const end = () => {
+    clearTimeout(timer);
+    controller.abort();
+  };
+  if (signal?.aborted) end();
+  else signal?.addEventListener('abort', end, { once: true });
+  return {
+    signal: controller.signal,
+    done: () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', end);
+    },
+  };
 }

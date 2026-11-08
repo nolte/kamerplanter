@@ -29,6 +29,7 @@ import { offlineDataGeneration, onOfflineDataEvent } from '@/pwa/offlineData';
 import { WRITE_QUEUE_DB_NAME } from '@/pwa/storageWipe';
 import type { CacheScope } from './planCache';
 import type { WriteQueueDatabase } from './queueDb';
+import { DAY_MS, ENTRY_MAX_AGE_DAYS, effectivePerformedAt, expiryOf } from './retention';
 import type { ConflictCode, QueueEntry, QueuedWrite, QueueStatus } from './queueTypes';
 
 /**
@@ -43,34 +44,7 @@ export const QUEUE_CAPACITY = 500;
 export const QUEUE_DEVICE_CEILING = 5000;
 /** R-027: after this many failed attempts an entry is `failed`. */
 export const MAX_ATTEMPTS = 5;
-const DAY_MS = 24 * 60 * 60 * 1000;
-/**
- * GDPR retention of a PENDING entry: the backend refuses a client event whose `performed_at` lies further back
- * than `MAX_AGE_DAYS` (V-11, `domain/models/care_event.py`, 365 days — the placeholder default of REQ-053 §32.6
- * item 14), so an entry whose effective `performed_at` is older can never be sent: it is deleted from the device
- * (app start, before every sync), and a capture already that old is refused.
- */
-export const ENTRY_MAX_AGE_DAYS = 365;
-/**
- * GDPR retention of an entry the sync will never send by itself — `failed`, `conflict`, kept: 90 days after its
- * capture (REQ-053 §32.6 item 14). "Try again" or "Discard" are the user's within that time.
- */
-export const UNSENDABLE_MAX_AGE_DAYS = 90;
-
-/** The `performed_at` the request will carry (a note's is editable), or the capture time. */
-export function effectivePerformedAt(entry: Pick<QueueEntry, 'capturedAt' | 'write'>): number {
-  const { write } = entry;
-  const stated = write.kind === 'note' ? write.body.performed_at : write.kind === 'complete' ? write.payload.performed_at : null;
-  const parsed = stated ? Date.parse(stated) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : entry.capturedAt;
-}
-
-/** Whether retention deletes `entry` at `now`. */
-export function isExpired(entry: QueueEntry, now: number): boolean {
-  if (effectivePerformedAt(entry) < now - ENTRY_MAX_AGE_DAYS * DAY_MS) return true;
-  const unsendable = entry.status === 'failed' || entry.status === 'conflict';
-  return unsendable && entry.capturedAt < now - UNSENDABLE_MAX_AGE_DAYS * DAY_MS;
-}
+export { ENTRY_MAX_AGE_DAYS, UNSENDABLE_MAX_AGE_DAYS } from './retention';
 
 /** The capture names a `performed_at` the server no longer accepts (older than {@link ENTRY_MAX_AGE_DAYS}). */
 export class PerformedTooOldError extends Error {
@@ -288,10 +262,12 @@ export async function enqueue(input: CaptureInput, now: number = Date.now()): Pr
     lastErrorCode: null,
     conflictCode: null,
     kept: false,
+    expiresAt: 0,
     bedKey: input.bedKey,
     bedName: input.bedName,
     write: input.write,
   };
+  entry.expiresAt = expiryOf(entry);
   try {
     await db.transaction('rw', db.entries, async () => {
       if (retired || queueGeneration() !== generation) throw new QueueUnavailableError();
@@ -357,31 +333,49 @@ export async function purgeExpiredEntries(now: number = Date.now()): Promise<num
   const generation = queueGeneration();
   const db = await database();
   if (!db || generation === null) return 0;
+  let removed = 0;
   try {
-    const owners: string[] = [];
-    await db.transaction('rw', db.entries, async () => {
+    await db.transaction('rw', db.entries, db.notices, async () => {
       if (retired || queueGeneration() !== generation) return;
-      const expired = (await db.entries.toArray()).filter((entry) => isExpired(entry, now));
-      await db.entries.bulkDelete(expired.flatMap((entry) => (entry.seq === undefined ? [] : [entry.seq])));
-      owners.push(...expired.map((entry) => entry.userKey));
+      // Keys only — `[expiresAt, userKey]` and the primary key — never a row with its photo bytes.
+      const due = db.entries.where('[expiresAt+userKey]').below([now, []]);
+      const [keys, seqs] = await Promise.all([due.keys(), due.primaryKeys()]);
+      if (seqs.length === 0) return;
+      await db.entries.bulkDelete(seqs);
+      // Never a silent drop (UI-NFR-012 R-056): the count waits on the device for its owner's next sign-in.
+      const perOwner = new Map<string, number>();
+      for (const key of keys) {
+        const owner = String((key as unknown as [number, string])[1]);
+        perOwner.set(owner, (perOwner.get(owner) ?? 0) + 1);
+      }
+      for (const [userKey, count] of perOwner) {
+        const notice = await db.notices.get(userKey);
+        await db.notices.put({ userKey, count: (notice?.count ?? 0) + count });
+      }
+      removed = seqs.length;
     });
-    // Never a silent drop (UI-NFR-012 R-056): the owner is told the count once they are signed in.
-    for (const owner of owners) purgedUnannounced.set(owner, (purgedUnannounced.get(owner) ?? 0) + 1);
-    if (owners.length > 0) changed();
-    return owners.length;
   } catch {
     return 0;
   }
+  if (removed > 0) changed();
+  return removed;
 }
 
-/** Entries the retention purge deleted, per owner, not yet announced (the purge runs before anyone is signed in). */
-const purgedUnannounced = new Map<string, number>();
-
-/** How many of `userKey`'s entries the retention purge deleted since the last call (the notice, R-056). */
-export function takePurgedCount(userKey: string): number {
-  const count = purgedUnannounced.get(userKey) ?? 0;
-  purgedUnannounced.delete(userKey);
-  return count;
+/** How many of `userKey`'s entries the retention purge deleted since the notice was last shown; the notice is used up. */
+export async function takePurgedCount(userKey: string): Promise<number> {
+  if (!(await writeQueueExists())) return 0;
+  const db = await database();
+  if (!db) return 0;
+  try {
+    let count = 0;
+    await db.transaction('rw', db.notices, async () => {
+      count = (await db.notices.get(userKey))?.count ?? 0;
+      if (count > 0) await db.notices.delete(userKey);
+    });
+    return count;
+  } catch {
+    return 0;
+  }
 }
 
 /** Entries not yet at the server — pending, syncing, failed and conflicts (kept ones too). */
@@ -431,7 +425,9 @@ export async function updateEntry(
       if (retired || queueGeneration() !== generation) return;
       const entry = await db.entries.get(seq);
       if (!entry || !owned(entry, scope) || (expect && entry.status !== expect)) return;
-      await db.entries.update(seq, changes);
+      // The retention follows the status: failed / conflict entries go after 90 days, pending ones after 365.
+      const expiresAt = expiryOf({ ...entry, ...changes, write: changes.write ?? entry.write });
+      await db.entries.update(seq, { ...changes, expiresAt });
       done = true;
     });
   } catch {
@@ -522,6 +518,5 @@ export function asConflictCode(code: string | null | undefined): ConflictCode | 
 export function resetWriteQueueForTests(): void {
   retired = false;
   localClearing = false;
-  purgedUnannounced.clear();
   dbModule?.forgetWriteQueueConnection();
 }

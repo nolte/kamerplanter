@@ -56,9 +56,10 @@ export async function completeBedTask(
   key: string,
   payload: CompletionPayload,
   clientEventId?: string,
+  config: { timeout?: number } = {},
 ): Promise<TaskItem> {
   const body = clientEventId ? { ...payload, client_event_id: clientEventId } : payload;
-  const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/complete`, body);
+  const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/complete`, body, config);
   return data;
 }
 
@@ -132,9 +133,13 @@ export async function createTasksForEachPlant(body: BedTaskBody): Promise<CareTa
  * GP-API-033 / GP-FR-090: log care without a task. `clientEventId` (WP 9.3/9.4): a resend with the same id answers
  * the stored entry (200) instead of a second one.
  */
-export async function logCareEvent(body: CareEventBody, clientEventId?: string): Promise<CareEventRef> {
+export async function logCareEvent(
+  body: CareEventBody,
+  clientEventId?: string,
+  config: { timeout?: number } = {},
+): Promise<CareEventRef> {
   const sent = clientEventId ? { ...body, client_event_id: clientEventId } : body;
-  const { data } = await tenantClient.post<CareEventRef>('/care-events', sent);
+  const { data } = await tenantClient.post<CareEventRef>('/care-events', sent, config);
   return data;
 }
 
