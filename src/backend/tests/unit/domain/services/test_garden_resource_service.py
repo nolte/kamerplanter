@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.common.enums import BedStatus, FrostRisk, Orientation, TenantRole
+from app.common.enums import BedStatus, FrostRisk, GardenObjectType, Orientation, TenantRole
 from app.common.exceptions import (
     DuplicateError,
     ForbiddenError,
@@ -33,6 +33,7 @@ from app.common.exceptions import (
 from app.domain.engines.bed_list_csv_engine import resolve_bed_list_columns
 from app.domain.models.bed_list_export import MAX_BED_LIST_EXPORT_ROWS, BedAssignee
 from app.domain.models.care_event import ANONYMIZED_MARKER
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BedCounters,
     CreateGardenObjectData,
@@ -71,6 +72,30 @@ def world():
         sites, repo, FakeObjects(repo), GardenPlanService(sites, repo), dispatch_adjacency=repo.dispatched.append
     )
     return service, repo, site
+
+
+def water_source(key: str, x: float, y: float, *, site: str = SITE, off_site: bool = False) -> GardenObject:
+    return GardenObject(
+        _key=key,
+        site_key=site,
+        object_type=GardenObjectType.WATER_SOURCE,
+        label="Tap",
+        geometry={"kind": "point", "origin": [x, y]},
+        props={"water_source_kind": "tap"},
+        off_site=off_site,
+    )
+
+
+class _ObjectReadSpy(FakeObjects):
+    """Records which site and tenant the service asked the objects of (the read must be tenant-anchored)."""
+
+    def __init__(self, repo: FakePlanRepo) -> None:
+        super().__init__(repo)
+        self.reads: list[tuple[str, str]] = []
+
+    def get_garden_objects_by_site(self, site_key, *, tenant_key):
+        self.reads.append((site_key, tenant_key))
+        return super().get_garden_objects_by_site(site_key, tenant_key=tenant_key)
 
 
 def code_of(exc: pytest.ExceptionInfo) -> str:
@@ -268,6 +293,38 @@ class TestTheBedListDownload:
             self.export(service, tenant=OTHER_TENANT, include_assignment=True)
         assert repo.assignee_reads == []
 
+    def test_the_water_column_carries_the_distance_per_bed(self, world) -> None:
+        """GP-FR-167, edge to edge: tap (4, 1.5) - ``bed`` (x 1..3, y 1..2) 1 m, ``raised`` corner (5, 5) 3.64 m."""
+        service, repo, _ = world
+        repo.objects["tap"] = water_source("tap", 4.0, 1.5)
+
+        rows = {
+            row.location.key: row.nearest_water_source_m
+            for row in self.export(service, columns="name,nearest_water_source_m")
+        }
+
+        assert rows == {"bed": 1.0, "raised": 3.64}
+
+    def test_the_water_column_is_empty_without_a_source(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["far"] = water_source("far", 4.0, 1.5, off_site=True)  # scenery, not the garden's water
+
+        rows = self.export(service, columns="nearest_water_source_m")
+
+        assert {row.nearest_water_source_m for row in rows} == {None}
+
+    def test_the_sources_are_read_only_for_the_water_column(self, world) -> None:
+        service, repo, _ = world
+        spy = _ObjectReadSpy(repo)
+        service._objects = spy
+        repo.objects["tap"] = water_source("tap", 4.0, 1.5)
+
+        rows = self.export(service, columns="name,frost_risk")
+        assert spy.reads == [] and {row.nearest_water_source_m for row in rows} == {None}
+
+        self.export(service, columns="nearest_water_source_m")
+        assert spy.reads == [(SITE, TENANT)]
+
 
 # ── GP-API-012: the summary ────────────────────────────────────────────────────────────────────────
 
@@ -297,6 +354,61 @@ class TestTheSummary:
         with pytest.raises(NotFoundError) as exc:
             service.get_summary(key, tenant_key=OTHER_TENANT)
         assert exc.value.status_code == 404
+
+
+class TestTheSummaryWaterSource:
+    """GP-FR-167 (WP 9.12): the bed spans x 1..3, y 1..2; distances are edge to edge, ``None`` without a source."""
+
+    def test_the_nearest_water_source_is_measured_from_the_bed_edge(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["far"] = water_source("far", 10.0, 1.5)
+        repo.objects["near"] = water_source("near", 5.0, 1.5)
+
+        assert service.get_summary("bed", tenant_key=TENANT).nearest_water_source_m == 2.0
+
+    def test_without_a_water_source_it_is_none(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["tree"] = GardenObject(
+            _key="tree",
+            site_key=SITE,
+            object_type=GardenObjectType.TREE,
+            geometry={"kind": "circle", "origin": [8, 8], "radius_m": 1.0},
+            props={"crown_radius_m": 1.0},
+        )
+
+        assert service.get_summary("bed", tenant_key=TENANT).nearest_water_source_m is None
+
+    def test_an_off_site_source_and_another_sites_source_do_not_count(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["neighbour"] = water_source("neighbour", 4.0, 1.5, off_site=True)
+        repo.objects["elsewhere"] = water_source("elsewhere", 4.0, 1.5, site="site_foreign")
+
+        assert service.get_summary("bed", tenant_key=TENANT).nearest_water_source_m is None
+
+    def test_a_source_inside_the_bed_is_zero(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["tap"] = water_source("tap", 2.0, 1.5)
+
+        assert service.get_summary("bed", tenant_key=TENANT).nearest_water_source_m == 0.0
+
+    def test_the_sources_are_read_for_the_beds_own_site_and_tenant(self, world) -> None:
+        service, repo, _ = world
+        spy = _ObjectReadSpy(repo)
+        service._objects = spy
+
+        service.get_summary("bed", tenant_key=TENANT)
+
+        assert spy.reads == [(SITE, TENANT)]
+
+    def test_a_location_without_a_geometry_reads_no_objects(self, world) -> None:
+        service, repo, _ = world
+        spy = _ObjectReadSpy(repo)
+        service._objects = spy
+        repo.locations["tent"] = make_location("tent", location_type_key="greenhouse")
+        repo.objects["tap"] = water_source("tap", 4.0, 1.5)
+
+        assert service.get_summary("tent", tenant_key=TENANT).nearest_water_source_m is None
+        assert spy.reads == []
 
 
 # ── GP-API-010: PATCH /locations/{key} ─────────────────────────────────────────────────────────────

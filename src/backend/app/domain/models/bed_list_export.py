@@ -61,3 +61,6 @@ class BedListExportRow(BaseModel):
     #: Display names of the members the bed is assigned to, sorted; ``None`` when the assignment was not asked
     #: for (SR-024 opt-in) - an empty list means "asked for, nobody assigned".
     assignees: list[str] | None = Field(default=None)
+    #: GP-FR-167: metres from the bed's edge to the nearest water source; ``None`` when the column was not asked for,
+    #: the bed has no geometry or the site no water source (an empty cell in each case).
+    nearest_water_source_m: float | None = None

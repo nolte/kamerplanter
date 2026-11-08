@@ -386,6 +386,7 @@ class BedSummaryResponse(LocationResponse):
                     "species_keys": ["sp_solanum_lycopersicum"],
                     "open_task_count": 2,
                     "last_care_at": "2026-06-14T18:30:00Z",
+                    "nearest_water_source_m": 3.5,
                 }
             ]
         }
@@ -402,6 +403,10 @@ class BedSummaryResponse(LocationResponse):
     last_care_at: datetime | None = None
     #: GP-FR-125: only for a bed (`is_bed`); `null` for every other location.
     nutrient_hint: NutrientHintResponse | None = None
+    #: GP-FR-167: derived, read-only - metres from the location's edge to the nearest water source of its site
+    #: (edge to edge in the plan frame, 0 when the source lies on or inside it); `null` without a geometry or without
+    #: a water source.
+    nearest_water_source_m: float | None = Field(default=None, ge=0)
 
 
 class LocationTreeNode(BaseModel):

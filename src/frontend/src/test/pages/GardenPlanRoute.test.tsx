@@ -146,6 +146,27 @@ describe('GardenPlanRoute', () => {
     }
   });
 
+  it('hands the plan\'s water sources to the bed list, which measures each bed to the nearest one (GP-FR-167)', async () => {
+    // The kit's bed spans x 1..2.2, y 1..3; the tap at (6, 2) is 3.8 m from its east edge. The neighbour's tap
+    // (off_site, at the bed) and the tree are no water source of the garden.
+    const water = { object_type: 'water_source' as const, props: { object_type: 'water_source', water_source_kind: 'tap' } };
+    usePlan(
+      planResponse({
+        locations: [bed('loc_a', 2, 2)],
+        garden_objects: [
+          gardenObject('go_tap', 6, 2, { ...water, geometry: { kind: 'point', origin: [6, 2] } } as never),
+          gardenObject('go_neighbour', 2, 2, { ...water, off_site: true, geometry: { kind: 'point', origin: [2, 2] } } as never),
+          gardenObject('go_tree', 1.5, 1.5),
+        ],
+      }),
+    );
+    server.use(http.get('/api/v1/t/:tenant/locations', () => HttpResponse.json([bedListItem('loc_a', { name: 'Bed near' })])));
+    renderRoute();
+    const row = (await screen.findByText('Bed near')).closest('tr')!;
+    expect(screen.getByRole('columnheader', { name: /Water source/ })).toBeInTheDocument();
+    expect(row).toHaveTextContent('3.8 m');
+  });
+
   it('does not select a bed that is not drawn yet, and says so', async () => {
     usePlan(planResponse({ locations: [bed('loc_a', 2, 2)], garden_objects: [] }));
     server.use(

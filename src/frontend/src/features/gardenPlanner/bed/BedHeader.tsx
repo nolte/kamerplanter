@@ -12,6 +12,8 @@
  * reasons. It stays hidden until a sourced salt threshold is configured on the server.
  * Root competition or allelopathy reported at the bed (GP-FR-165, WP 9.11) is part of the site line and a neutral
  * chip naming exactly the flags set, shown only while one is - a note, never a rating.
+ * The distance to the nearest water source (GP-FR-167, WP 9.12) is derived on the server, edge to edge in a straight
+ * line; it is shown only while the site has a water source and the bed a geometry - "no source" is not "0 m".
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -158,6 +160,13 @@ export default function BedHeader({
     () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
     [summary.geometry, accessSides, reachThresholds],
   );
+  const waterM = summary.nearest_water_source_m ?? null;
+  const waterText = useMemo(() => {
+    if (waterM === null) return null;
+    if (waterM === 0) return t('pages.bed.header.waterSourceAtBed');
+    const distance = new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(waterM);
+    return t('pages.bed.header.waterSourceDistance', { distance });
+  }, [language, t, waterM]);
   const nutrientHint = shownNutrientHint(summary.nutrient_hint);
   const saltCheck = summary.nutrient_hint?.reasons.includes(SALT_REASON) ?? false;
   const reachNumbers = useMemo(() => {
@@ -290,6 +299,11 @@ export default function BedHeader({
                 <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-reach-detail">
                   {t(REACH_DETAIL_KEY[reach.access], reachNumbers)}
                 </Typography>
+              </Fact>
+            )}
+            {waterText && (
+              <Fact label={t('pages.bed.header.waterSource')} testId="bed-header-water-source">
+                {waterText}
               </Fact>
             )}
             {nutrientHint && (

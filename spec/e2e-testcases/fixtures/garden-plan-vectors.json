@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity), GP-FR-167 (edge_distance, nearest_water_source)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -61,7 +61,9 @@
     "reach": "input.geometry (rect | circle | polygon | polyline | point, plan frame, or null), input.access_sides (list of N | E | S | W, or null), optional input.both_sides_m (default 1.2) and input.one_side_m (default 0.6) -> expected {hint, reason (too_wide | within_reach | width_unknown), access (both | one | unknown), threshold_m, width_m}: access is both when the list holds an opposite pair (N + S or E + W), one for any other non-empty list (two adjacent sides are one), unknown for an empty or missing list, which takes the one-side threshold; width = min(width_m, length_m) of a rect, the diameter of a circle, the minimum caliper width of a convex polygon (over all edges the largest vertex distance from the edge line), null for a concave polygon, a polyline, a point or no geometry; width rounded to 0.001 m, hint (bed.reach_too_wide) only when width > threshold, never an error - reach_calculator.assess / model/reach.ts assessReach (GP-FR-166, WP 8.23; thresholds confirmed O-17)",
     "area_dose": "input.quantity (rate per m2 | null), input.unit (care unit | null), input.area_m2 (bed area | null) -> expected {quantity_total, quantity_total_unit, display_total}: for g_per_m2 / l_per_m2 the total is quantity x area_m2 rounded to 0.001 with unit g / l, display_total the same total in whole grams or litres to 0.1; any other unit, no quantity or area_m2 <= 0 or null -> all three null, never 0. Rounding half up on the exact binary value (area_dose_calculator.quantity_total, display_total / model/areaDose.ts areaDoseTotal, REQ-053 GP-FR-123, WP 8.9)",
     "nitrogen_approximation": "input.rate_g_per_m2, input.n_percent (product N % on the label | null) -> expected {g_n_per_m2, kg_n_per_ha} | null: g N/m2 = rate x N % / 100 rounded to 0.1, kg N/ha = the unrounded g N/m2 x 10 rounded to whole kg; null when the rate is <= 0 or the N % is missing, <= 0 or > 100. An approximation of the product N, labelled as such; no threshold, no seasonal warning (R-004 open) (area_dose_calculator.nitrogen_approximation / model/areaDose.ts nitrogenApproximation, WP 8.9)",
-    "unit_identity": "input.value, input.unit (g_per_m2 | l_per_m2) -> expected {kg_per_ha} for g_per_m2 (1 g/m2 = 10 kg/ha) or {mm} for l_per_m2 (1 L/m2 = 1 mm layer), unrounded (area_dose_calculator.g_per_m2_to_kg_per_ha, l_per_m2_to_mm / model/areaDose.ts, review U-001, WP 8.9)"
+    "unit_identity": "input.value, input.unit (g_per_m2 | l_per_m2) -> expected {kg_per_ha} for g_per_m2 (1 g/m2 = 10 kg/ha) or {mm} for l_per_m2 (1 L/m2 = 1 mm layer), unrounded (area_dose_calculator.g_per_m2_to_kg_per_ha, l_per_m2_to_mm / model/areaDose.ts, review U-001, WP 8.9)",
+    "edge_distance": "input.a, input.b (rect | circle | polygon | polyline | point, plan frame) -> expected number (m): the shortest edge-to-edge distance between the two shapes, 0 when they touch, overlap or one contains the other (also a point inside an area). Rotation is applied about the anchor; a circle is exact (centre distance minus radius); a polyline counts with its stroke (a band of width_m around the centre line, round ends); a point is the point itself. Exact, no tolerance; rounded to 0.001 m like every stored length - geometry_distance.edge_distance_m / model/geometryDistance.ts edgeDistanceM (REQ-053 GP-FR-167, WP 9.12; the primitive GP-FR-130 path access consumes)",
+    "nearest_water_source": "input.bed (rect | circle | polygon, plan frame, or null), input.sources (list of water-source geometries, plan frame) -> expected number (m) | null: the smallest edge_distance from the bed to any source, rounded to 0.001 m; null without a bed geometry or without a source. Which objects are sources (object_type water_source, not off_site) is decided by the caller - geometry_distance.nearest_water_source_m / model/geometryDistance.ts nearestWaterSourceM (REQ-053 GP-FR-167, WP 9.12)"
   },
   "cases": [
     {
@@ -5406,6 +5408,195 @@
       "spec": "review U-001: 3 L/m2 of compost = a 3 mm layer",
       "input": {"value": 3, "unit": "l_per_m2"},
       "expected": {"mm": 3.0}
+    },
+    {
+      "id": "edge-distance-rects-apart",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: two rects side by side, 3 m gap between the facing edges (edge to edge, not centre to centre: the centres are 4.5 m apart)",
+      "input": {"a": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 1}, "b": {"kind": "rect", "origin": [5, 0], "width_m": 1, "length_m": 1}},
+      "expected": 3.0
+    },
+    {
+      "id": "edge-distance-rects-diagonal-corners",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: nearest points are two corners, (1, 1) and (4, 5) - a 3-4-5 triangle",
+      "input": {"a": {"kind": "rect", "origin": [0, 0], "width_m": 1, "length_m": 1}, "b": {"kind": "rect", "origin": [4, 5], "width_m": 1, "length_m": 1}},
+      "expected": 5.0
+    },
+    {
+      "id": "edge-distance-rects-share-an-edge",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: touching beds are 0 apart",
+      "input": {"a": {"kind": "rect", "origin": [0, 0], "width_m": 3, "length_m": 1.2}, "b": {"kind": "rect", "origin": [3, 0], "width_m": 3, "length_m": 1.2}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-rects-overlap",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: overlapping shapes are 0 apart",
+      "input": {"a": {"kind": "rect", "origin": [0, 0], "width_m": 3, "length_m": 2}, "b": {"kind": "rect", "origin": [2, 1], "width_m": 3, "length_m": 2}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-rect-contains-rect",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: containment is 0, not the 4 m from the inner to the outer edges",
+      "input": {"a": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 10}, "b": {"kind": "rect", "origin": [4, 4], "width_m": 1, "length_m": 1}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-rect-inside-rect",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: containment the other way round is 0 as well (the measure is symmetric)",
+      "input": {"a": {"kind": "rect", "origin": [4, 4], "width_m": 1, "length_m": 1}, "b": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 10}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-crossing-bars",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: two bars cross without any vertex of one inside the other - only the edge crossing tells",
+      "input": {"a": {"kind": "rect", "origin": [0, 1], "width_m": 5, "length_m": 1}, "b": {"kind": "rect", "origin": [2, 0], "width_m": 1, "length_m": 3}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-rotated-rect-to-point",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a 2 x 2 rect rotated 45 deg about (5, 0) has its corner at (6.414, 1.414); the point at (8, 1.414) is 1.586 m from it (unrotated the edge x = 7 would be 1.0)",
+      "input": {"a": {"kind": "rect", "origin": [5, 0], "width_m": 2, "length_m": 2, "rotation_deg": 45.0}, "b": {"kind": "point", "origin": [8, 1.41421356]}},
+      "expected": 1.586
+    },
+    {
+      "id": "edge-distance-rotated-polygon-to-point",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a polygon rotated 90 deg about its first vertex (5, 5) spans x 4..5; the point at (8, 6) is 3 m away (unrotated 1 m)",
+      "input": {"a": {"kind": "polygon", "points": [[5, 5], [7, 5], [7, 6], [5, 6]], "rotation_deg": 90.0}, "b": {"kind": "point", "origin": [8, 6]}},
+      "expected": 3.0
+    },
+    {
+      "id": "edge-distance-circles",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: two circles: centre distance 5 m minus the radii 1 m and 1.5 m",
+      "input": {"a": {"kind": "circle", "origin": [2, 2], "radius_m": 1.0}, "b": {"kind": "circle", "origin": [7, 2], "radius_m": 1.5}},
+      "expected": 2.5
+    },
+    {
+      "id": "edge-distance-circle-to-rect-corner",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: circle centre (5, 5) to the corner (2, 2) is sqrt(18) = 4.243 m, minus the radius 1 m",
+      "input": {"a": {"kind": "circle", "origin": [5, 5], "radius_m": 1.0}, "b": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 2}},
+      "expected": 3.243
+    },
+    {
+      "id": "edge-distance-point-inside-circle",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a point inside a circle is 0",
+      "input": {"a": {"kind": "circle", "origin": [5, 5], "radius_m": 2.0}, "b": {"kind": "point", "origin": [5.5, 5]}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-circle-inside-rect",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a circle inside a rect is 0",
+      "input": {"a": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 10}, "b": {"kind": "circle", "origin": [5, 5], "radius_m": 1.0}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-rect-inside-circle",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a rect inside a circle is 0 (the centre is 0.5 m from the rect, inside the 3 m radius)",
+      "input": {"a": {"kind": "circle", "origin": [5, 5], "radius_m": 3.0}, "b": {"kind": "rect", "origin": [3.5, 4], "width_m": 1, "length_m": 1}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-concave-notch",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a point in the notch of an L-shaped bed lies inside its bounding box but outside the bed: 1.5 m to the inner edge y = 1",
+      "input": {"a": {"kind": "polygon", "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]}, "b": {"kind": "point", "origin": [3, 2.5]}},
+      "expected": 1.5
+    },
+    {
+      "id": "edge-distance-point-inside-concave",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a point inside the arm of an L-shaped bed is 0",
+      "input": {"a": {"kind": "polygon", "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]}, "b": {"kind": "point", "origin": [0.5, 3]}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-polyline-stroke",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a 1 m wide path along y = 5 and a rect with its top edge at y = 2: 3 m to the centre line, 2.5 m to the edge of the path",
+      "input": {"a": {"kind": "polyline", "points": [[0, 5], [10, 5]], "width_m": 1.0}, "b": {"kind": "rect", "origin": [2, 0], "width_m": 2, "length_m": 2}},
+      "expected": 2.5
+    },
+    {
+      "id": "edge-distance-polyline-crosses-rect",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a path running across a bed is 0",
+      "input": {"a": {"kind": "polyline", "points": [[0, 1], [10, 1]], "width_m": 0.5}, "b": {"kind": "rect", "origin": [2, 0], "width_m": 2, "length_m": 2}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-polyline-stroke-touches",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: the stroke reaches the bed although the centre line does not: 0.4 m to the centre line, half the 1 m stroke is 0.5 m",
+      "input": {"a": {"kind": "polyline", "points": [[0, 2.4], [10, 2.4]], "width_m": 1.0}, "b": {"kind": "rect", "origin": [2, 0], "width_m": 2, "length_m": 2}},
+      "expected": 0.0
+    },
+    {
+      "id": "edge-distance-point-to-point",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: two points: (1, 1) to (2, 2) is sqrt(2), rounded half up to 0.001",
+      "input": {"a": {"kind": "point", "origin": [1, 1]}, "b": {"kind": "point", "origin": [2, 2]}},
+      "expected": 1.414
+    },
+    {
+      "id": "edge-distance-point-on-edge",
+      "operation": "edge_distance",
+      "spec": "GP-FR-167: a point on the edge of a rect is 0",
+      "input": {"a": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 2}, "b": {"kind": "point", "origin": [2, 1]}},
+      "expected": 0.0
+    },
+    {
+      "id": "nearest-water-source-picks-the-nearest",
+      "operation": "nearest_water_source",
+      "spec": "GP-FR-167: three taps at 8 m, 1 m and 4 m from the bed edge: the nearest counts",
+      "input": {"bed": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 1}, "sources": [{"kind": "point", "origin": [10, 0.5]}, {"kind": "point", "origin": [3, 0.5]}, {"kind": "point", "origin": [1, 5]}]},
+      "expected": 1.0
+    },
+    {
+      "id": "nearest-water-source-none",
+      "operation": "nearest_water_source",
+      "spec": "GP-FR-167: no water source on the plan: null, not 0",
+      "input": {"bed": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 1}, "sources": []},
+      "expected": null
+    },
+    {
+      "id": "nearest-water-source-bed-without-geometry",
+      "operation": "nearest_water_source",
+      "spec": "GP-FR-167: a bed without a geometry has no distance",
+      "input": {"bed": null, "sources": [{"kind": "point", "origin": [3, 0.5]}]},
+      "expected": null
+    },
+    {
+      "id": "nearest-water-source-inside-the-bed",
+      "operation": "nearest_water_source",
+      "spec": "GP-FR-167: a tap inside the bed is 0 m away",
+      "input": {"bed": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 1}, "sources": [{"kind": "point", "origin": [1, 0.5]}, {"kind": "point", "origin": [9, 9]}]},
+      "expected": 0.0
+    },
+    {
+      "id": "nearest-water-source-circle-bed",
+      "operation": "nearest_water_source",
+      "spec": "GP-FR-167: a round bed of radius 1 m at (5, 5) and a rain barrel at (5, 9): 3 m from the edge",
+      "input": {"bed": {"kind": "circle", "origin": [5, 5], "radius_m": 1.0}, "sources": [{"kind": "point", "origin": [5, 9]}]},
+      "expected": 3.0
+    },
+    {
+      "id": "nearest-water-source-concave-bed",
+      "operation": "nearest_water_source",
+      "spec": "GP-FR-167: an L-shaped bed, a tap in its notch at (3, 2.5): 1.5 m, although the tap lies inside the bed's bounding box",
+      "input": {"bed": {"kind": "polygon", "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]}, "sources": [{"kind": "point", "origin": [3, 2.5]}]},
+      "expected": 1.5
     }
   ]
 }

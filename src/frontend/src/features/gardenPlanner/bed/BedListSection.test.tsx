@@ -10,6 +10,7 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import BedListSection from './BedListSection';
+import type { Geometry } from '../model/types';
 import { bedListItem } from './bedTestKit';
 
 const BEDS = [
@@ -42,10 +43,10 @@ function useBackend(beds = BEDS, seen: URLSearchParams[] = []) {
   );
 }
 
-function renderList(onSelectBed = vi.fn()) {
+function renderList(onSelectBed = vi.fn(), waterSources?: readonly Geometry[]) {
   const store = createTestStore({ ...tenantState('grower'), ...authState() });
   const view = renderWithProviders(
-    <BedListSection siteKey="site_1" reloadToken="r1" onSelectBed={onSelectBed} />,
+    <BedListSection siteKey="site_1" reloadToken="r1" onSelectBed={onSelectBed} waterSources={waterSources} />,
     { store },
   );
   return { onSelectBed, ...view };
@@ -132,5 +133,32 @@ describe('BedListSection', () => {
     const { container } = renderList();
     await screen.findByText('Tomato bed');
     await expectNoA11yViolations(container);
+  });
+});
+
+describe('BedListSection nearest water source column (GP-FR-167, WP 9.12)', () => {
+  // The kit's bed spans x 1..2.2, y 1..3; a tap at (5, 2) is 2.8 m from its east edge.
+  const TAP: Geometry = { kind: 'point', origin: [5, 2] };
+
+  it('shows the distance from each bed edge to the nearest water source of the plan', async () => {
+    useBackend([
+      bedListItem('bed_1', { name: 'Tomato bed' }),
+      bedListItem('bed_2', { name: 'Herb spiral', geometry: null }),
+    ]);
+    const view = renderList(vi.fn(), [TAP, { kind: 'point', origin: [20, 20] }]);
+    const header = await screen.findByRole('columnheader', { name: /Water source/ });
+    expect(header).toBeInTheDocument();
+    const measured = (await screen.findByText('Tomato bed')).closest('tr')!;
+    expect(within(measured).getByText('2.8 m')).toBeInTheDocument();
+    const unmeasured = screen.getByText('Herb spiral').closest('tr')!;
+    expect(within(unmeasured).getAllByText('—').length).toBeGreaterThan(0);
+    await expectNoA11yViolations(view.container);
+  });
+
+  it('has no distance column while the plan has no water source', async () => {
+    useBackend();
+    renderList(vi.fn(), []);
+    await screen.findByText('Tomato bed');
+    expect(screen.queryByRole('columnheader', { name: /Water source/ })).toBeNull();
   });
 });

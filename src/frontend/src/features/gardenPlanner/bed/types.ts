@@ -222,6 +222,11 @@ export interface BedSummary extends BedListItem {
   description?: string | null;
   /** GP-FR-125: only on a bed; `null` for every other location. */
   nutrient_hint?: NutrientHint | null;
+  /**
+   * GP-FR-167: metres from the edge of the location to the nearest water source of its site, derived on the server
+   * (`geometry_distance.nearest_water_source_m`); `null` without a geometry or without a water source.
+   */
+  nearest_water_source_m?: number | null;
 }
 
 /** The document `PATCH /locations/{key}` and `POST /locations/{key}/status` answer with. */

@@ -161,7 +161,9 @@ def list_locations(
             "`format=csv` only: comma-separated columns. Default `name,type,area_m2,status,soil_texture,"
             "irrigation_zone,active_plants`; selectable besides: the site features `sun_exposure`, `sun_window`, "
             "`direct_sun_hours_summer`, `foliage_shade_in_summer`, `frost_risk`, `cold_air_pocket`, "
-            "`heat_retention`, `wind_exposure`, `slope_deg`, `aspect_deg`, `access_sides`, `site_flags` (GP-FR-175)."
+            "`heat_retention`, `wind_exposure`, `slope_deg`, `aspect_deg`, `access_sides`, `site_flags` (GP-FR-175) "
+            "and the derived `nearest_water_source_m` (metres to the nearest water source, empty without one; "
+            "GP-FR-167)."
         ),
     ),
     include_assignment: bool = Query(
@@ -322,6 +324,8 @@ def get_location_summary(
 
     A bed also carries `nutrient_hint` (GP-FR-125): `ok`, `check`, `likely_deficit` or `insufficient_data` with
     reason codes, never a number. Thresholds without a source take no part (E-10).
+    `nearest_water_source_m` (GP-FR-167) is the distance in metres from the location's edge to the nearest water source
+    of its site, `null` without a geometry or without one.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
     counters = view.counters
@@ -337,6 +341,7 @@ def get_location_summary(
         next_due_at=counters.next_due_at,
         last_care_at=counters.last_care_at,
         nutrient_hint=NutrientHintResponse.from_hint(view.nutrient_hint),
+        nearest_water_source_m=view.nearest_water_source_m,
     )
 
 

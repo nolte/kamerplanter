@@ -522,6 +522,9 @@ class BedSummaryView:
     is_bed: bool
     #: GP-FR-125 (WP 8.10): the nutrient hint of a bed; ``None`` for a location that is no bed.
     nutrient_hint: NutrientHint | None = None
+    #: GP-FR-167 (WP 9.12): metres from the location's edge to the nearest water source of its site, derived and
+    #: read-only; ``None`` without a geometry or without a water source.
+    nearest_water_source_m: float | None = None
 
 
 # ── Read model (GP-API-001) ───────────────────────────────────────────────────

@@ -24,12 +24,13 @@ from app.common.dependencies import (
     get_site_service,
     get_tenant_service,
 )
-from app.common.enums import BedStatus, NutrientDemand, TenantRole
+from app.common.enums import BedStatus, GardenObjectType, NutrientDemand, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.engines.nutrient_hint_engine import DEFAULT_CONFIG, NutrientHintConfig, SourcedThreshold
 from app.domain.interfaces.care_event_repository import CareEventRow
 from app.domain.models.bed_list_export import BedAssignee
 from app.domain.models.care_event import CareEvent
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import BedCounters
 from app.domain.models.site import Microclimate, SiteConditions, Slot, SoilProfile
 from app.domain.models.species import Species
@@ -68,6 +69,16 @@ class _Tenants:
 
     def get_personal_tenant(self, user_key: str) -> None:
         return None
+
+
+def _water_source(key: str, x: float, y: float) -> GardenObject:
+    return GardenObject(
+        _key=key,
+        site_key=SITE,
+        object_type=GardenObjectType.WATER_SOURCE,
+        geometry={"kind": "point", "origin": [x, y]},
+        props={"water_source_kind": "tap"},
+    )
 
 
 @pytest.fixture
@@ -216,6 +227,17 @@ class TestTheBedListAsCsv:
     def test_the_type_names_follow_the_locale(self, client) -> None:
         assert self._text(self._get(client, columns="type", locale="en")).splitlines()[1] == "Bed"
 
+    def test_the_distance_to_the_nearest_water_source_is_a_selectable_column(self, client, repo) -> None:
+        """GP-FR-167 (WP 9.12): the bed spans x 1..3; the tap at (5, 1.5) is 2 m from its edge."""
+        repo.objects["tap"] = _water_source("tap", 5.0, 1.5)
+
+        text = self._text(self._get(client, columns="name,nearest_water_source_m", delimiter="semicolon"))
+        assert text.splitlines() == ["name;nearest_water_source_m", "Bed;2,0"]
+
+    def test_the_water_column_is_empty_without_a_source(self, client) -> None:
+        text = self._text(self._get(client, columns="name,nearest_water_source_m"))
+        assert text.splitlines() == ["name,nearest_water_source_m", "Bed,"]
+
     @pytest.mark.parametrize("columns", ["name,owner_email", "assigned_to"])
     def test_an_unknown_column_is_a_422(self, client, columns: str) -> None:
         response = self._get(client, columns=columns)
@@ -296,6 +318,18 @@ class TestTheSummary:
 
     def test_a_foreign_bed_is_a_404(self, client) -> None:
         assert client().get(f"{_FOREIGN}/locations/bed/summary").status_code == 404
+
+    def test_the_nearest_water_source_is_null_without_one(self, client) -> None:
+        """GP-FR-167: the field is always on the wire; ``null`` without a water source, never 0."""
+        body = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed/summary").json()
+        assert "nearest_water_source_m" in body and body["nearest_water_source_m"] is None
+
+    def test_the_nearest_water_source_is_measured_from_the_bed_edge(self, client, repo) -> None:
+        repo.objects["far"] = _water_source("far", 9.0, 1.5)
+        repo.objects["near"] = _water_source("near", 4.5, 1.5)
+
+        body = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed/summary").json()
+        assert body["nearest_water_source_m"] == 1.5
 
 
 class TestTheNutrientHint:
