@@ -5,6 +5,16 @@
  * programs. Best-effort and never throws: a missing API means nothing was stored there.
  */
 
+/**
+ * The garden plan cache (REQ-053 WP 9.2, `features/gardenPlanner/offline/db.ts`). Named here so the
+ * wipe knows it even where `indexedDB.databases()` is missing (Firefox before 126): every database
+ * the app itself creates is listed in {@link APP_DATABASE_NAMES}.
+ */
+export const PLAN_CACHE_DB_NAME = 'kp-plan-cache';
+
+/** The IndexedDB databases the app creates; deleted even when the browser cannot enumerate them. */
+export const APP_DATABASE_NAMES: readonly string[] = [PLAN_CACHE_DB_NAME];
+
 /** How long one IndexedDB deletion may hold up the caller (a blocked deletion completes later). */
 export const IDB_DELETE_TIMEOUT_MS = 2000;
 
@@ -27,17 +37,21 @@ function deleteDatabase(name: string): Promise<void> {
   });
 }
 
-/** Delete every IndexedDB database of this origin. */
+/** Delete every IndexedDB database of this origin, and the app's own ones even if they cannot be listed. */
 export async function deleteAllDatabases(): Promise<void> {
-  if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return;
-  try {
-    const databases = await indexedDB.databases();
-    await Promise.all(
-      databases
+  if (typeof indexedDB === 'undefined') return;
+  let listed: string[] = [];
+  if (typeof indexedDB.databases === 'function') {
+    try {
+      listed = (await indexedDB.databases())
         .map((database) => database.name)
-        .filter((name): name is string => typeof name === 'string' && name.length > 0)
-        .map(deleteDatabase),
-    );
+        .filter((name): name is string => typeof name === 'string' && name.length > 0);
+    } catch {
+      // Enumeration refused: the app's own databases are still deleted by name.
+    }
+  }
+  try {
+    await Promise.all([...new Set([...listed, ...APP_DATABASE_NAMES])].map(deleteDatabase));
   } catch {
     // IndexedDB unavailable (private mode): nothing was stored.
   }

@@ -5475,7 +5475,8 @@
           "plan": {
             "revision_conflict": "The plan was changed meanwhile and has been reloaded. Place the template again.",
             "quota_exceeded": "That many beds and objects do not fit into this garden (at most 500). Nothing was created.",
-            "saving": "Saving is in progress – try again in a moment. This change was not applied."
+            "saving": "Saving is in progress – try again in a moment. This change was not applied.",
+            "offline": "The plan is locked without a connection. This change was not applied; unsaved changes are kept."
           },
           "template": {
             "save_first": "Your unsaved changes could not be saved. Save first, then place the template.",
@@ -6960,6 +6961,22 @@
             "dry": "Dry"
           }
         }
+      },
+      "offline": {
+        "cachedAt": "Offline: you are looking at the state as of {{time}}.",
+        "geometryLocked": {
+          "offline": "Without a connection you can only view the plan. Drawing, moving and transplanting are locked until the connection is back – unsaved changes are kept.",
+          "cached": "The plan comes from the offline cache. Drawing, moving and transplanting are locked until it is loaded from the server again."
+        },
+        "miss": {
+          "plan": "This plan is not available offline",
+          "beds": "The beds are not available offline",
+          "sites": "The sites are not available offline",
+          "hint": "Open the page once with a connection. After that you can read it offline for 15 minutes.",
+          "bed": "This bed is not available offline",
+          "bedDetails": "The master data of this location is not available offline"
+        },
+        "bedEditsLocked": "Without a connection you can only view the bed. Status, sun, soil, crop rotation and photos are locked until the connection is back."
       }
     },
     "bed": {

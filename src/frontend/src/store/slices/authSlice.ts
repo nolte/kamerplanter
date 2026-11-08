@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice, miniSerializeError } from '@reduxjs/toolkit';
+import axios from 'axios';
 import { isRateLimited } from '@/api/client';
 import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
@@ -104,6 +105,13 @@ export const logoutUser = createAsyncThunk('auth/logout', async () => {
  */
 export const RATE_LIMITED_REJECTION = 'rate-limited';
 
+/**
+ * `error.code` of a refresh the server refused as a dead session (401/403), set by the thunk's error
+ * serialiser (#2789 verification M1). A 5xx carries the same `ApiError` envelope but leaves the refresh
+ * cookie valid; only this code may end the session's offline data (`store/sessionListener.ts`).
+ */
+export const DEAD_SESSION_REFRESH_CODE = 'refresh.dead_session';
+
 export const refreshAccessToken = createAsyncThunk(
   'auth/refresh',
   async (_: void, { rejectWithValue }) => {
@@ -117,6 +125,22 @@ export const refreshAccessToken = createAsyncThunk(
       if (isRateLimited(error)) return rejectWithValue(RATE_LIMITED_REJECTION);
       throw error;
     }
+  },
+  {
+    // The status survives serialisation only as `code`: 401/403 is a dead session, anything else
+    // (5xx, no answer) is an outage the offline data must outlive.
+    serializeError: (error) => {
+      const serialized = miniSerializeError(error);
+      const status = isApiError(error)
+        ? error.statusCode
+        : axios.isAxiosError(error)
+          ? error.response?.status
+          : undefined;
+      if (status === 401 || status === 403) {
+        return { ...serialized, code: DEAD_SESSION_REFRESH_CODE };
+      }
+      return serialized;
+    },
   },
 );
 

@@ -38,6 +38,15 @@ import { MAX_BATCH_OPERATIONS, type PlanEntity, type PlanOperation } from '../mo
 import { applyUndoPatch, diffPlans, type UndoPatch } from '../model/undoPatch';
 import * as api from '../api/gardenPlan';
 import type { PlanSaveFailure } from '../api/gardenPlan';
+import {
+  cacheGeneration,
+  isOfflineCacheMiss,
+  planEntry,
+  readThrough,
+  scopeFromState,
+  writeCached,
+  type ScopeState,
+} from '../offline/planCache';
 
 /** Undo steps kept (GP-FR-026 asks for at least 50). */
 export const HISTORY_LIMIT = 100;
@@ -116,13 +125,27 @@ export type PlanEditError =
   /** An edit while a template is being placed (the server is changing the plan). */
   | 'template.busy'
   /** An edit while a save is in flight: refused visibly, the user tries again in a moment. */
-  | 'plan.saving';
+  | 'plan.saving'
+  /** An edit without a connection (REQ-053 WP 9.2): geometry is online-only; unsaved edits are kept. */
+  | 'plan.offline';
 
 export interface GardenPlanState {
   plan: PlanModel | null;
   loadStatus: LoadStatus;
   loadError: string | null;
   loadRequestId: string | null;
+  /**
+   * The loaded plan comes from the plan cache (REQ-053 WP 9.2): the epoch milliseconds of the online read
+   * it was stored by. `null` = fresh from the server. While set, geometry tools stay locked.
+   */
+  cachedAt: number | null;
+  /** The last load failed because there is no connection and nothing in the plan cache. */
+  offlineMiss: boolean;
+  /**
+   * The browser has no connection (WP 9.2, #2789 review C6): the editor stays mounted - tool, selection
+   * and unsaved edits survive a short outage - but edits, undo/redo and saves are refused until it is back.
+   */
+  offline: boolean;
   selection: SelectionRef[];
   stack: SelectionStack | null;
   tool: PlanTool;
@@ -149,6 +172,9 @@ export const initialState: GardenPlanState = {
   loadStatus: 'idle',
   loadError: null,
   loadRequestId: null,
+  cachedAt: null,
+  offlineMiss: false,
+  offline: false,
   selection: [],
   stack: null,
   tool: 'select',
@@ -167,17 +193,29 @@ export const initialState: GardenPlanState = {
 
 // ── Thunks ───────────────────────────────────────────────────────────────────
 
-/** Load (or reload) the plan of a site; replaces the model, `pending` and the history. */
-export const loadGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue: string }>(
-  'gardenPlan/load',
-  async (siteKey, { rejectWithValue }) => {
-    try {
-      return normalizePlan(await api.getGardenPlan(siteKey));
-    } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
-    }
-  },
-);
+/**
+ * Load (or reload) the plan of a site; replaces the model, `pending` and the history. Network first;
+ * without a connection the plan cache answers (REQ-053 WP 9.2) and `meta.cachedAt` says from when.
+ */
+export const loadGardenPlan = createAsyncThunk<
+  PlanModel,
+  string,
+  {
+    rejectValue: string;
+    fulfilledMeta: { cachedAt: number | null };
+    rejectedMeta: { offlineMiss: boolean };
+  }
+>('gardenPlan/load', async (siteKey, { getState, fulfillWithValue, rejectWithValue }) => {
+  const scope = scopeFromState(getState() as ScopeState);
+  try {
+    const read = await readThrough(scope ? planEntry(scope, siteKey) : null, () => api.getGardenPlan(siteKey));
+    return fulfillWithValue(normalizePlan(read.data), { cachedAt: read.cachedAt });
+  } catch (error) {
+    return rejectWithValue(error instanceof Error ? error.message : 'Unknown error', {
+      offlineMiss: isOfflineCacheMiss(error),
+    });
+  }
+});
 
 /**
  * Re-read the plan after the server changed it behind the editor's back (a placed template, GP-FR-044): the
@@ -186,9 +224,14 @@ export const loadGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue:
  */
 export const refreshGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue: string }>(
   'gardenPlan/refresh',
-  async (siteKey, { rejectWithValue }) => {
+  async (siteKey, { getState, rejectWithValue }) => {
     try {
-      return normalizePlan(await api.getGardenPlan(siteKey));
+      const scope = scopeFromState(getState() as ScopeState);
+      const generation = cacheGeneration();
+      const response = await api.getGardenPlan(siteKey);
+      // The re-read plan is the last loaded one now (WP 9.2): the cache follows it.
+      if (scope) void writeCached(planEntry(scope, siteKey), response, Date.now(), generation);
+      return normalizePlan(response);
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
     }
@@ -234,6 +277,8 @@ export const saveGardenPlan = createAsyncThunk<
       const { plan, pending, saveStatus } = selectGardenPlanState(getState());
       // A conflict is left by reloading, never by sending the same stale request again.
       if (plan === null || pending.length === 0) return false;
+      // Offline nothing is sent: the edits stay pending until the connection is back (WP 9.2).
+      if (selectGardenPlanState(getState()).offline) return false;
       return saveStatus !== 'saving' && saveStatus !== 'conflict';
     },
   },
@@ -263,7 +308,7 @@ export const placeTemplateAt = createAsyncThunk<
 >('gardenPlan/placeTemplate', async (arg, { getState, dispatch }) => {
   let current = selectGardenPlanState(getState());
   if (current.plan === null) return { ok: false, code: 'template.failed' };
-  if (current.saveStatus === 'saving' || current.saveStatus === 'conflict') {
+  if (current.saveStatus === 'saving' || current.saveStatus === 'conflict' || current.offline) {
     return { ok: false, code: 'template.busy' };
   }
   if (current.pending.length > 0) {
@@ -317,7 +362,8 @@ function isEditable(state: GardenPlanState): boolean {
     state.plan !== null &&
     state.saveStatus !== 'saving' &&
     state.saveStatus !== 'conflict' &&
-    !state.placing
+    !state.placing &&
+    !state.offline
   );
 }
 
@@ -368,6 +414,10 @@ export const gardenPlanSlice = createSlice({
     clearEditError(state) {
       state.editError = null;
     },
+    /** The connection went away or came back (the route follows `navigator.onLine`). */
+    setPlanOffline(state, action: PayloadAction<boolean>) {
+      state.offline = action.payload;
+    },
     /** Leave the editor: forget the plan, the history and everything pending. */
     resetGardenPlan() {
       return initialState;
@@ -386,6 +436,11 @@ export const gardenPlanSlice = createSlice({
         if (plan === null || ops.length === 0) return;
         if (state.placing) {
           state.editError = 'template.busy';
+          return;
+        }
+        if (state.offline) {
+          // Locked with a hint, not lost: nothing is applied while there is no connection.
+          state.editError = 'plan.offline';
           return;
         }
         if (state.saveStatus === 'saving') {
@@ -481,6 +536,7 @@ export const gardenPlanSlice = createSlice({
       .addCase(loadGardenPlan.pending, (state, action) => {
         state.loadStatus = 'loading';
         state.loadError = null;
+        state.offlineMiss = false;
         state.loadRequestId = action.meta.requestId;
       })
       .addCase(loadGardenPlan.fulfilled, (state, action) => {
@@ -488,6 +544,7 @@ export const gardenPlanSlice = createSlice({
         if (action.meta.requestId !== state.loadRequestId) return;
         state.plan = action.payload;
         state.loadStatus = 'ready';
+        state.cachedAt = action.meta.cachedAt ?? null;
         state.past = [];
         state.future = [];
         state.pending = [];
@@ -504,6 +561,7 @@ export const gardenPlanSlice = createSlice({
         if (action.meta.requestId !== state.loadRequestId) return;
         state.loadStatus = 'error';
         state.loadError = action.payload ?? action.error.message ?? 'Unknown error';
+        state.offlineMiss = action.meta.offlineMiss ?? false;
       })
 
       .addCase(placeTemplateAt.pending, (state) => {
@@ -521,6 +579,7 @@ export const gardenPlanSlice = createSlice({
         if (state.plan?.siteKey !== action.payload.siteKey) return;
         if (state.pending.length > 0 || state.saveStatus === 'saving') return;
         state.plan = action.payload;
+        state.cachedAt = null;
         state.past = [];
         state.future = [];
         state.saveStatus = 'idle';
@@ -611,6 +670,7 @@ export const {
   setStack,
   clearEditError,
   resetGardenPlan,
+  setPlanOffline,
   applyAction,
   undo,
   redo,
@@ -689,4 +749,5 @@ export const selectRedoLabel = (state: RootWithPlan): string | null => {
 export const selectAutoSaveReady = (state: RootWithPlan): boolean =>
   planState(state).pending.length > 0 &&
   planState(state).saveStatus === 'idle' &&
-  !planState(state).placing;
+  !planState(state).placing &&
+  !planState(state).offline;

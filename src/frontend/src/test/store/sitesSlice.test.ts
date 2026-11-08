@@ -31,7 +31,7 @@ describe('sitesSlice', () => {
       {
         sites: [], currentSite: { key: 'x' } as never,
         locations: [], currentLocation: { key: 'y' } as never,
-        slots: [], loading: false, error: null,
+        slots: [], loading: false, error: null, sitesCachedAt: null, sitesOfflineMiss: false,
       },
       clearCurrent(),
     );
@@ -41,7 +41,8 @@ describe('sitesSlice', () => {
 
   it('clearError resets error', () => {
     const state = reducer(
-      { sites: [], currentSite: null, locations: [], currentLocation: null, slots: [], loading: false, error: 'err' },
+      { sites: [], currentSite: null, locations: [], currentLocation: null, slots: [], loading: false, error: 'err',
+        sitesCachedAt: null, sitesOfflineMiss: false },
       clearError(),
     );
     expect(state.error).toBeNull();
@@ -118,7 +119,7 @@ describe('sitesSlice', () => {
   it('fetchLocation.pending sets loading and clears prior error', () => {
     const withError = {
       sites: [], currentSite: null, locations: [], currentLocation: null,
-      slots: [], loading: false, error: 'old',
+      slots: [], loading: false, error: 'old', sitesCachedAt: null, sitesOfflineMiss: false,
     };
     const state = reducer(withError, { type: fetchLocation.pending.type });
     expect(state.loading).toBe(true);
@@ -171,5 +172,17 @@ describe('sitesSlice', () => {
     const state = store.getState().sites;
     expect(state.slots.length).toBe(1);
     expect(state.slots[0].slot_id).toBe('A1');
+  });
+
+  it('fetchSites.rejected drops the "as of" time of a cached list (no stale banner next to a miss)', () => {
+    const cached = reducer(undefined, {
+      type: fetchSites.fulfilled.type,
+      payload: [{ key: 's1', name: 'Main' }],
+      meta: { cachedAt: 1_000 },
+    });
+    expect(cached.sitesCachedAt).toBe(1_000);
+    const missed = reducer(cached, { type: fetchSites.rejected.type, error: {}, meta: { offlineMiss: true } });
+    expect(missed.sitesCachedAt).toBeNull();
+    expect(missed.sitesOfflineMiss).toBe(true);
   });
 });

@@ -33,6 +33,9 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSites } from '@/store/slices/sitesSlice';
+import CachedDataBanner from '@/features/gardenPlanner/offline/CachedDataBanner';
+import OfflineCacheMiss from '@/features/gardenPlanner/offline/OfflineCacheMiss';
+import { useReloadOnReconnect } from '@/features/gardenPlanner/offline/useReloadOnReconnect';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
 import type { Site, LocationTreeNode, LocationType } from '@/api/types';
@@ -378,9 +381,12 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
 export default function SiteListPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const { sites, loading } = useAppSelector((s) => s.sites);
+  const { sites, loading, sitesCachedAt, sitesOfflineMiss } = useAppSelector((s) => s.sites);
   const [createOpen, setCreateOpen] = useState(false);
   const [locationTypes, setLocationTypes] = useState<Record<string, LocationType>>({});
+  const reloadSites = useCallback(() => void dispatch(fetchSites({})), [dispatch]);
+  // A cached list or an offline miss is read again once the connection is back (REQ-053 WP 9.2).
+  useReloadOnReconnect(sitesCachedAt !== null || sitesOfflineMiss, reloadSites);
 
   useEffect(() => {
     dispatch(fetchSites({}));
@@ -416,8 +422,13 @@ export default function SiteListPage() {
         </Typography>
       )}
 
+      {/* Offline the list comes from the plan cache (REQ-053 WP 9.2): say from when. */}
+      {!loading && sitesCachedAt !== null && <CachedDataBanner cachedAt={sitesCachedAt} />}
+
       {loading ? (
         <LoadingSkeleton rows={5} />
+      ) : sitesOfflineMiss ? (
+        <OfflineCacheMiss subject="sites" testId="site-list-offline-miss" onRetry={reloadSites} />
       ) : sites.length === 0 ? (
         <EmptyState
           message={t('pages.sites.noSites')}

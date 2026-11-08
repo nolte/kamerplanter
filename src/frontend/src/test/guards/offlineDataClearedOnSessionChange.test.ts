@@ -1,9 +1,10 @@
+import 'fake-indexeddb/auto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
 
@@ -20,6 +21,16 @@ import i18n from 'i18next';
  *   `components/tenants/LightModeTakeoverDialog.tsx` (before `switchTenant`).
  *
  * The sweep at the end catches a NEW place that dispatches `switchTenant` without clearing first.
+ *
+ * REQ-053 WP 9.2 (#2742): the plan cache (`features/gardenPlanner/offline`, Dexie) is one of the databases
+ * those clearings empty — the real `clearOfflineData` / `clearAllOfflineStorage` and the worker's wipe
+ * (`deleteAllDatabases`) run against a real IndexedDB (`fake-indexeddb`) holding a cached plan, and the
+ * plan is gone afterwards; a write whose read began before a clearing never lands.
+ *
+ * #2789 review S3: two more places end a session's offline data — the account erasure
+ * (`pages/auth/AccountSettingsPage.tsx`, before its redirect) and a refresh the server refused
+ * (`store/sessionListener.ts`, the bootstrap swallows it without `clearAuth`). A refresh that got no
+ * answer (offline start) or was rate limited must NOT clear: the offline start reads that cache.
  */
 
 const calls: string[] = [];
@@ -37,6 +48,8 @@ vi.mock('@/pwa/offlineData', () => ({
   }),
   repostNamespace: vi.fn(async () => undefined),
   clearAllOfflineStorage: vi.fn(async () => undefined),
+  offlineDataGeneration: vi.fn(() => 0),
+  onOfflineDataEvent: vi.fn(() => () => undefined),
 }));
 vi.mock('@/api/endpoints/system', () => ({ getTakeoverStatus: vi.fn(), decideTakeover: vi.fn() }));
 vi.mock('@/api/endpoints/auth', async () => ({
@@ -222,5 +235,190 @@ describe('sweep: every place that switches the tenant clears first', () => {
     }
     expect(sites).toBeGreaterThanOrEqual(2);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the plan cache database is emptied by the same clearings (WP 9.2)', () => {
+  const ALICE = { userKey: 'alice', tenantKey: 'tenant_a' };
+  const T0 = Date.now();
+
+  // Each test is a fresh page: a deletion in the previous one retired that page's cache.
+  beforeEach(async () => {
+    const { emptyPlanCache } = await import('@/test/planCacheTestKit');
+    await emptyPlanCache();
+  });
+
+  /** A plan, a bed list, a site list, a bed summary and a bed sheet: every table of the plan cache. */
+  async function seededPlanCache() {
+    const cache = await import('@/features/gardenPlanner/offline/planCache');
+    const entries = [
+      cache.planEntry(ALICE, 'site_1'),
+      cache.bedListEntry(ALICE, 'site_1'),
+      cache.siteListEntry(ALICE, 50),
+      cache.bedSummaryEntry(ALICE, 'loc_1'),
+      cache.bedSheetEntry(ALICE, 'loc_1'),
+    ];
+    for (const item of entries) {
+      await cache.writeCached(item, { cached: item.table }, T0, 0);
+      expect(await cache.readCached(item, T0)).not.toBeNull();
+    }
+    /** What is still readable afterwards, by table. */
+    const left = async (): Promise<string[]> => {
+      const reads = await Promise.all(entries.map((item) => cache.readCached(item, T0)));
+      return entries.filter((_, index) => reads[index] !== null).map((item) => item.table);
+    };
+    return { left };
+  }
+
+  async function databaseNames(): Promise<string[]> {
+    return (await indexedDB.databases()).map((database) => database.name ?? '');
+  }
+
+  it('lives in the database the wipe knows by name', async () => {
+    const { PLAN_CACHE_DB_NAME, APP_DATABASE_NAMES } = await import('@/pwa/storageWipe');
+    await seededPlanCache();
+    expect(await databaseNames()).toContain(PLAN_CACHE_DB_NAME);
+    expect(APP_DATABASE_NAMES).toContain(PLAN_CACHE_DB_NAME);
+  });
+
+  it('is empty after a logout or tenant switch (clearOfflineData)', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    const { left } = await seededPlanCache();
+    await actual.clearOfflineData();
+    expect(await left()).toEqual([]);
+  });
+
+  it('is empty after the kill switch (clearAllOfflineStorage)', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    const { left } = await seededPlanCache();
+    await actual.clearAllOfflineStorage();
+    expect(await left()).toEqual([]);
+  });
+
+  it("is empty after the worker's self-destruct wipe, even where databases() cannot enumerate", async () => {
+    const { deleteAllDatabases } = await import('@/pwa/storageWipe');
+    const { left } = await seededPlanCache();
+    const databases = indexedDB.databases;
+    // Firefox before 126: no enumeration. The plan cache must still go, by its name.
+    Object.defineProperty(indexedDB, 'databases', { configurable: true, value: undefined });
+    try {
+      await deleteAllDatabases();
+    } finally {
+      Object.defineProperty(indexedDB, 'databases', { configurable: true, value: databases });
+    }
+    expect(await left()).toEqual([]);
+  });
+
+  it('drops a write whose read began before a clearing started', async () => {
+    const cache = await import('@/features/gardenPlanner/offline/planCache');
+    const entry = cache.planEntry(ALICE, 'site_2');
+    vi.mocked(offlineData.offlineDataGeneration).mockReturnValue(1);
+    try {
+      await cache.writeCached(entry, { site_key: 'site_2' }, T0, 0);
+    } finally {
+      vi.mocked(offlineData.offlineDataGeneration).mockReturnValue(0);
+    }
+    expect(await cache.readCached(entry, T0)).toBeNull();
+  });
+});
+
+describe('offline data is cleared on account erasure and on a dead session (#2789 review S3)', () => {
+  beforeEach(() => {
+    calls.length = 0;
+    clearGate = Promise.resolve();
+    vi.mocked(offlineData.clearOfflineData).mockClear();
+  });
+
+  async function listenedStore() {
+    const { rootReducer } = await import('@/store/rootReducer');
+    const { sessionListener } = await import('@/store/sessionListener');
+    return configureStore({
+      reducer: rootReducer,
+      preloadedState: authState() as never,
+      middleware: (getDefault) => getDefault().prepend(sessionListener.middleware),
+    });
+  }
+
+  function apiError(status: number) {
+    return import('@/api/errors').then(
+      ({ ApiError }) =>
+        new ApiError(
+          { error_id: 'e', error_code: `HTTP_${status}`, message: 'x', details: [], path: '/', method: 'POST' } as never,
+          status,
+        ),
+    );
+  }
+
+  it.each([401, 403])('clears when the server refuses the refresh with %i (a dead session)', async (status) => {
+    const { refreshAccessToken } = await import('@/store/slices/authSlice');
+    const store = await listenedStore();
+    store.dispatch(refreshAccessToken.rejected(await apiError(status), `r${status}`));
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the offline data on a 5xx (enveloped or not), no answer at all, or a rate limit (#2789 M1)', async () => {
+    const { refreshAccessToken, RATE_LIMITED_REJECTION } = await import('@/store/slices/authSlice');
+    const { AxiosError, AxiosHeaders } = await import('axios');
+    const store = await listenedStore();
+    // The backend's unhandled-error handler answers 500 with the ApiError envelope.
+    store.dispatch(refreshAccessToken.rejected(await apiError(500), 'r500'));
+    // A proxy 503 without envelope stays an AxiosError with a response.
+    const proxy = new AxiosError('Service Unavailable', 'ERR_BAD_RESPONSE', undefined, undefined, {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+      data: '<html>',
+    });
+    store.dispatch(refreshAccessToken.rejected(proxy, 'r503'));
+    store.dispatch(refreshAccessToken.rejected(new AxiosError('Network Error', 'ERR_NETWORK'), 'rnet'));
+    store.dispatch(refreshAccessToken.rejected(null, 'rlimit', undefined, RATE_LIMITED_REJECTION));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(offlineData.clearOfflineData).not.toHaveBeenCalled();
+  });
+
+  it('the account erasure clears before it leaves for the login page', async () => {
+    const { http, HttpResponse } = await import('msw');
+    const { server } = await import('@/test/mocks/server');
+    const authApi = await import('@/api/endpoints/auth');
+    const { default: AccountSettingsPage } = await import('@/pages/auth/AccountSettingsPage');
+    vi.mocked(authApi.listProviders).mockResolvedValue([
+      { key: 'prov-0', provider: 'local', provider_email: 'tester@example.org' },
+    ] as never);
+    server.use(http.delete('/api/v1/users/me', () => HttpResponse.json({ message: 'ok' })));
+    await i18n.changeLanguage('de');
+    const originalLocation = window.location;
+    let href = `${originalLocation.origin}/account`;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        get href() {
+          return href;
+        },
+        set href(value: string) {
+          calls.push(`href:${value}`);
+          href = value;
+        },
+      },
+    });
+    try {
+      holdClear();
+      renderWithProviders(createElement(AccountSettingsPage), { store: createTestStore(authState()), route: '/account#account' });
+      await userEvent.click(await screen.findByTestId('delete-account-btn'));
+      const dialog = await screen.findByTestId('delete-account-dialog');
+      const email = dialog.querySelector('[data-testid="delete-account-email"] input') as HTMLInputElement;
+      await userEvent.type(email, 'tester@example.org');
+      await userEvent.type(within(dialog).getByLabelText(/passwort/i), ['my', 'password'].join('-'));
+      await userEvent.click(within(dialog).getByTestId('delete-account-confirm'));
+
+      await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+      expect(calls).not.toContain('href:/login');
+      releaseClear();
+      await waitFor(() => expect(calls).toContain('href:/login'));
+      expect(calls.indexOf('clear:done')).toBeLessThan(calls.indexOf('href:/login'));
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+    }
   });
 });

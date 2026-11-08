@@ -11,6 +11,12 @@
  * dimensions" open. It owns the viewport - fitted to the plan, then panned and zoomed
  * (WP 2.5: zoom levels, wheel, "fit to area").
  *
+ * Offline (WP 9.2, GP-UX-024): a plan that comes from the plan cache is drawn read-only with a "Stand von
+ * hh:mm" banner. A plan loaded online stays in the editor when the connection drops (tool, selection and
+ * unsaved edits survive); its edits, undo/redo and saves are refused until it is back. Either way a hint
+ * (not an error) says geometry is online-only. A site never loaded online shows an empty state with a
+ * hint. Import/export and the bed list need the server and are hidden while offline.
+ *
  * Field mode (WP 5.1, GP-UX-020) is the default on xs and `?mode=field` everywhere; `?mode=plan` forces
  * planning mode. Field mode is its own lazy chunk (`field/FieldModeView`), so the route budget only carries
  * the switch. The route still chooses the renderer for it.
@@ -18,6 +24,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -32,6 +39,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
 import { useNotification } from '@/hooks/useNotification';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { registerLazySlice } from '@/store/lazySlices';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -41,6 +49,7 @@ import {
   loadGardenPlan,
   resetGardenPlan,
   selectGardenPlanState,
+  setPlanOffline,
   setSelection,
   selectIsDirty,
 } from '../state/gardenPlanSlice';
@@ -59,6 +68,10 @@ import { boundingBox } from '../model/geometry';
 import { EMPTY_PLAN_BOUNDS, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
+import CachedDataBanner from '../offline/CachedDataBanner';
+import OfflineCacheMiss from '../offline/OfflineCacheMiss';
+import ReadOnlyPlanView from '../offline/ReadOnlyPlanView';
+import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 
 // Field mode is its own chunk (GP-UX-020): it loads only when the page opens in field mode.
 const FieldModeView = lazy(() => import('../field/FieldModeView'));
@@ -112,7 +125,15 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   // From md up the properties panel sits beside the plan and takes its width from the drawing.
   const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
-  const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
+  const { plan, loadStatus, loadError, loadRequestId, cachedAt, offlineMiss } = useAppSelector(selectGardenPlanState);
+  const online = useOnlineStatus();
+  // Only a plan that came from the cache replaces the editor; a live plan keeps it mounted, locked while offline.
+  const readOnlyReason: 'offline' | 'cached' | null = cachedAt === null ? null : online ? 'cached' : 'offline';
+  // Import/export, the bed list and "add the first bed" need the server.
+  const serverReachable = online && cachedAt === null;
+  useEffect(() => {
+    dispatch(setPlanOffline(!online));
+  }, [dispatch, online]);
   const dirty = useAppSelector(selectIsDirty);
   const selected = useAppSelector((state) => selectGardenPlanState(state).selection);
   // The plan's selection as the keys the partial export names (GP-FR-172); slots and plants are no plan entities.
@@ -154,6 +175,9 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       dispatch(resetGardenPlan());
     };
   }, [load, dispatch]);
+
+  // A plan read from the cache, or missed offline, is read from the server again once the connection is back.
+  useReloadOnReconnect(cachedAt !== null || offlineMiss, load);
 
   const siteName = plan?.siteName ?? null;
   useEffect(() => {
@@ -281,7 +305,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       >
         {t('pages.gardenPlan.field.toField')}
       </Button>
-      {key && (
+      {key && serverReachable && (
         <PlanIoMenu
           siteKey={key}
           siteName={plan?.siteName ?? ''}
@@ -297,7 +321,9 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   );
 
   let content: React.ReactNode;
-  if (loadStatus === 'error' && loadError) {
+  if (loadStatus === 'error' && offlineMiss) {
+    content = <OfflineCacheMiss subject="plan" testId="garden-plan-offline-miss" onRetry={load} />;
+  } else if (loadStatus === 'error' && loadError) {
     content = <ErrorDisplay error={loadError} onRetry={load} />;
   } else if (plan === null || loadStatus !== 'ready') {
     content = <LoadingSkeleton variant="card" />;
@@ -307,9 +333,13 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       <Box data-testid="garden-plan-empty">
         <EmptyState
           message={t('pages.gardenPlan.empty.title')}
-          description={t(canEdit ? 'pages.gardenPlan.empty.descriptionCanEdit' : 'pages.gardenPlan.empty.description')}
+          description={t(
+            canEdit && serverReachable
+              ? 'pages.gardenPlan.empty.descriptionCanEdit'
+              : 'pages.gardenPlan.empty.description',
+          )}
         />
-        {canEdit && key && (
+        {canEdit && key && serverReachable && (
           <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
             <Button
               variant="contained"
@@ -324,21 +354,32 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
         )}
       </Box>
     );
+  } else if (readOnlyReason !== null) {
+    content = (
+      <ReadOnlyPlanView plan={plan} viewport={viewport} renderer={renderer} labels={labels} reason={readOnlyReason} />
+    );
   } else {
     content = (
-      <GardenPlanEditor
-        plan={plan}
-        viewport={viewport}
-        renderer={renderer}
-        labels={labels}
-        onPan={onPan}
-        onOpenLocation={(locationKey) => navigate(`/standorte/locations/${locationKey}`)}
-        onOpenCare={(locationKey) => navigate(`/standorte/locations/${locationKey}#care`)}
-        onZoom={onZoom}
-        onFit={onFit}
-        minPxPerM={minPxPerM}
-        initialAddOpen={startingFirstBed && contentBounds === null}
-      />
+      <>
+        {!online && (
+          <Alert severity="info" role="status" sx={{ mb: 2 }} data-testid="garden-plan-geometry-locked">
+            {t('pages.gardenPlan.offline.geometryLocked.offline')}
+          </Alert>
+        )}
+        <GardenPlanEditor
+          plan={plan}
+          viewport={viewport}
+          renderer={renderer}
+          labels={labels}
+          onPan={onPan}
+          onOpenLocation={(locationKey) => navigate(`/standorte/locations/${locationKey}`)}
+          onOpenCare={(locationKey) => navigate(`/standorte/locations/${locationKey}#care`)}
+          onZoom={onZoom}
+          onFit={onFit}
+          minPxPerM={minPxPerM}
+          initialAddOpen={startingFirstBed && contentBounds === null}
+        />
+      </>
     );
   }
 
@@ -350,9 +391,10 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       </Typography>
       {/* Unsaved changes (GP-NFR-005): a reload, a closed tab or a route change asks first. */}
       <UnsavedChangesGuard dirty={dirty} />
+      {cachedAt !== null && plan !== null && loadStatus === 'ready' && <CachedDataBanner cachedAt={cachedAt} />}
       {/* The measured box exists in every state, so the first drawing already fits the width. */}
       <Box ref={canvasRef}>{content}</Box>
-      {key && plan !== null && (
+      {key && plan !== null && serverReachable && (
         <BedListSection siteKey={key} reloadToken={loadRequestId} onSelectBed={onSelectBed} />
       )}
     </Box>

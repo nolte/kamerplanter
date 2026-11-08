@@ -130,6 +130,7 @@ import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
 import { PestRecognitionAdminCard } from '@/components/admin/PestRecognitionAdminCard';
 import { PestContributionsAdminCard } from '@/components/admin/PestContributionsAdminCard';
+import { clearOfflineData } from '@/pwa/offlineData';
 import type {
   AuthProviderInfo,
   SessionInfo,
@@ -715,6 +716,9 @@ export default function AccountSettingsPage() {
   const handleDeleteAccount = async ({ echo, ...credentials }: StepUpConfirmation) => {
     await deleteAccount({ confirm_email: echo, ...toStepUpBody(credentials) });
     setDeleteAccountOpen(false);
+    // The closed account's offline data goes before the page does (REQ-053 WP 9.2, #2789 review S3):
+    // the reload's refresh fails, and nothing else would clear the plan cache or the API caches.
+    await clearOfflineData();
     // Full reload, not a router navigation: the session is gone server-side and
     // every in-memory slice belongs to the closed account.
     window.location.href = '/login';
