@@ -3,8 +3,9 @@
  * drawing on screen - the screen here is a canvas-only renderer with no SVG at all (D-01, WP 9.7). Resolution
  * 1×/2×/4× with the canvas cap and its hint, the watermark off unless chosen, no request to the server.
  */
-import type { ReactNode } from 'react';
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { StrictMode, type ReactNode } from 'react';
+import { act, cleanup, screen, waitFor } from '@testing-library/react';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -101,15 +102,19 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderDialog(onClose = vi.fn()) {
-  const store = createTestStore({ ...tenantState('viewer'), ...authState() });
-  renderWithProviders(
+/** The fixture plan belongs to `site_1`; the dialog draws only the plan of the site it was opened for. */
+let store: ReturnType<typeof createTestStore>;
+
+function renderDialog(onClose = vi.fn(), { siteKey = 'site_1', strict = false } = {}) {
+  store = createTestStore({ ...tenantState('viewer'), ...authState() });
+  const plan = (loaded.state as GardenPlanState).plan;
+  const ui = (
     <>
-      <OnScreenPlan plan={(loaded.state as GardenPlanState).plan as PlanModel} />
-      <ExportDialog open siteKey="s1" onClose={onClose} />
-    </>,
-    { store },
+      {plan ? <OnScreenPlan plan={plan as PlanModel} /> : null}
+      <ExportDialog open siteKey={siteKey} onClose={onClose} />
+    </>
   );
+  renderWithProviders(strict ? <StrictMode>{ui}</StrictMode> : ui, { store });
   return onClose;
 }
 
@@ -128,7 +133,7 @@ describe('ExportDialog PNG', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(saved.calls).toHaveLength(1);
-    expect(saved.calls[0].filename).toMatch(/^garden-plan-s1-\d{8}\.png$/);
+    expect(saved.calls[0].filename).toMatch(/^garden-plan-site_1-\d{8}\.png$/);
     expect(saved.calls[0].blob.type).toBe('image/png');
     expect(canvasSizes).toEqual([[2400, 2400]]);
     // The image came from the export's own SVG of the loaded plan, sized by the factor (the PDF preview fetched
@@ -185,6 +190,56 @@ describe('ExportDialog PNG', () => {
     await user.click(screen.getByTestId('plan-export-format-png'));
     expect(screen.getByTestId('plan-export-png-summary')).toHaveTextContent('The plan is still empty');
     expect(screen.getByTestId('plan-export-download')).toBeDisabled();
+  });
+
+  it('says the plan is not loaded when there is none, and does not download', async () => {
+    loaded.state = { plan: null } as unknown as GardenPlanState;
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-png'));
+    expect(screen.getByTestId('plan-export-png-summary')).toHaveTextContent('The plan is not loaded');
+    expect(screen.getByTestId('plan-export-download')).toBeDisabled();
+  });
+
+  it('does not draw the loaded plan of another site', async () => {
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), { siteKey: 'other_site' });
+    await user.click(screen.getByTestId('plan-export-format-png'));
+    expect(screen.getByTestId('plan-export-png-summary')).toHaveTextContent('The plan is not loaded');
+    expect(screen.getByTestId('plan-export-download')).toBeDisabled();
+  });
+
+  it('downloads once under StrictMode, whose mount effects run twice', async () => {
+    const user = userEvent.setup();
+    const onClose = renderDialog(vi.fn(), { strict: true });
+    await user.click(screen.getByTestId('plan-export-format-png'));
+    await user.click(screen.getByTestId('plan-export-download'));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // Give a second, unguarded report the time to arrive.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(saved.calls).toHaveLength(1);
+    expect(canvasSizes).toHaveLength(1);
+  });
+
+  it('ends a run whose plan goes away while it draws: not busy, the reason shown, Cancel usable', async () => {
+    // The image never loads, so the export is still running when the plan disappears.
+    vi.spyOn(HTMLImageElement.prototype, 'src', 'set').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-png'));
+    await user.click(screen.getByTestId('plan-export-download'));
+    expect(screen.getByTestId('plan-png-offscreen')).toBeInTheDocument();
+
+    loaded.state = { plan: null } as unknown as GardenPlanState;
+    // A store change makes the selector run again (it is memoised on the store state).
+    act(() => {
+      store.dispatch(setBreadcrumbs([{ label: 'changed' }]));
+    });
+
+    expect(await screen.findByTestId('plan-export-error')).toHaveTextContent('The image could not be created');
+    expect(screen.queryByTestId('plan-png-offscreen')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('reports a failed drawing and keeps the dialog open', async () => {

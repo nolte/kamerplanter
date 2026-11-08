@@ -6386,7 +6386,8 @@
             "watermarkHint": "Schreibt „Kamerplanter“ und das heutige Datum in die rechte untere Ecke. Standardmäßig aus.",
             "watermarkText": "Kamerplanter · {{date}}",
             "summary": "Das Bild wird {{width}} × {{height}} Pixel groß und zeigt den ganzen Plan.",
-            "nothingToDraw": "Der Plan ist noch leer. Zeichne zuerst eine Gartengrenze oder ein Beet."
+            "nothingToDraw": "Der Plan ist noch leer. Zeichne zuerst eine Gartengrenze oder ein Beet.",
+            "notLoaded": "Der Plan ist nicht geladen. Schließe den Dialog und lade die Seite neu, dann kannst du das Bild erstellen."
           },
           "csv": {
             "defaultColumns": "Standardspalten",

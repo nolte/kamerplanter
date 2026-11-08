@@ -212,4 +212,10 @@ describe('planPngFilename', () => {
   it('names the site and the day', () => {
     expect(planPngFilename('s1', new Date(2026, 10, 8))).toBe('garden-plan-s1-20261108.png');
   });
+
+  it('makes the site key safe like the server does', () => {
+    expect(planPngFilename('../a b/ü"x', new Date(2026, 10, 8))).toBe('garden-plan-___a_b___x-20261108.png');
+    expect(planPngFilename('k'.repeat(80), new Date(2026, 10, 8))).toBe(`garden-plan-${'k'.repeat(64)}-20261108.png`);
+    expect(planPngFilename('', new Date(2026, 10, 8))).toBe('garden-plan-plan-20261108.png');
+  });
 });

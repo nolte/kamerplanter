@@ -7,7 +7,7 @@
  * hint, and the watermark "Kamerplanter · date" as an option that is off by default. It is not offered on a phone.
  * Lazy: the route chunk stays inside its budget (UI-NFR-003).
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -36,6 +36,8 @@ import { useAppSelector } from '@/store/hooks';
 import { selectGardenPlanState } from '../state/gardenPlanSlice';
 import { fitViewport, planContentBounds } from '../routes/fitViewport';
 import { useRendererLabels } from '../renderer/useRendererLabels';
+import { useLayerPrefs } from '../editor/useLayerPrefs';
+import { lightTheme } from '@/theme/theme';
 import OffscreenPlanSvg from './OffscreenPlanSvg';
 import {
   MAX_CANVAS_AREA_PX,
@@ -135,8 +137,19 @@ export default function ExportDialog({
   const [pngRunning, setPngRunning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const plan = useAppSelector(selectGardenPlanState).plan;
+  const storePlan = useAppSelector(selectGardenPlanState).plan;
+  // Only the plan of this site is drawn: the file is named after `siteKey`, so a plan of another site never is.
+  const plan = storePlan && storePlan.siteKey === siteKey ? storePlan : null;
   const labels = useRendererLabels();
+  // The site-condition layers come from the plan itself and the user's layer switches, as in the editor. Zones,
+  // "last watered", plant states and companions need their own requests and stay out of the PNG.
+  const { prefs: layerPrefs } = useLayerPrefs();
+  const pngRenderOptions = useMemo(
+    () => ({ sunLayer: layerPrefs.sun, moistureLayer: layerPrefs.moisture, frostLayer: layerPrefs.frost }),
+    [layerPrefs.sun, layerPrefs.moisture, layerPrefs.frost],
+  );
+  // Set when Download starts a PNG and cleared by the first result: a second report of the same run is ignored.
+  const pngActive = useRef(false);
 
   // On a phone the standard options apply and neither SVG, CSV nor PNG is offered (GP-UX-050).
   const csvMode = localChosen === 'csv' && !phone;
@@ -150,6 +163,13 @@ export default function ExportDialog({
   const pngSize = pngViewport
     ? resolvePngSize(pngViewport.widthPx, pngViewport.heightPx, png.resolution)
     : null;
+  // A run whose drawing can no longer mount (the plan went away after Download) ends here instead of hanging busy.
+  // (`pngActive` stays set; nothing can report without a mounted drawing, and the next Download sets it anew.)
+  if (pngRunning && (!plan || !pngViewport)) {
+    setPngRunning(false);
+    setBusy(false);
+    setFailure('pngFailed');
+  }
   const base: ExportOptions = phone
     ? { ...DEFAULT_EXPORT_OPTIONS, format: options.format === 'json' ? 'json' : 'pdf' }
     : options;
@@ -200,11 +220,12 @@ export default function ExportDialog({
         : EXPORT_LAYERS.filter((entry) => entry === layer || effective.layers.includes(entry)),
     });
 
-  const { background, text } = theme.palette;
   const { language } = i18n;
   // The off-screen drawing is in the document: inline its styles, draw it at the chosen size and download it.
   const exportPng = useCallback(
     async (svg: SVGSVGElement) => {
+      if (!pngActive.current) return;
+      pngActive.current = false;
       try {
         if (!pngViewport || !pngSize) throw new Error('png-export: nothing to draw');
         const svgText = serializePlanSvg(svg, {
@@ -217,13 +238,14 @@ export default function ExportDialog({
           widthPx: pngSize.widthPx,
           heightPx: pngSize.heightPx,
           factor: pngSize.factor,
-          background: background.paper,
+          // Fixed, not the page theme: the PNG is white like the preview and the server's exports.
+          background: lightTheme.palette.common.white,
           watermark: png.watermark
             ? t(`${PREFIX}.png.watermarkText`, {
                 date: new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(today),
               })
             : null,
-          watermarkColor: text.secondary,
+          watermarkColor: lightTheme.palette.text.secondary,
         });
         saveBlob(blob, planPngFilename(siteKey, today));
         onClose();
@@ -234,13 +256,21 @@ export default function ExportDialog({
         setBusy(false);
       }
     },
-    [pngViewport, pngSize, background.paper, text.secondary, png.watermark, t, language, siteKey, onClose],
+    [pngViewport, pngSize, png.watermark, t, language, siteKey, onClose],
   );
+  const pngDrawingFailed = useCallback(() => {
+    if (!pngActive.current) return;
+    pngActive.current = false;
+    setFailure('pngFailed');
+    setPngRunning(false);
+    setBusy(false);
+  }, []);
 
   const download = async () => {
     setBusy(true);
     setFailure(null);
     if (pngMode) {
+      pngActive.current = true;
       setPngRunning(true);
       return;
     }
@@ -629,7 +659,7 @@ export default function ExportDialog({
             <Typography variant="body2" data-testid="plan-export-png-summary">
               {pngSize
                 ? t(`${PREFIX}.png.summary`, { width: pngSize.widthPx, height: pngSize.heightPx })
-                : t(`${PREFIX}.png.nothingToDraw`)}
+                : t(`${PREFIX}.png.${plan ? 'nothingToDraw' : 'notLoaded'}`)}
             </Typography>
           )}
           {!localMode && (preview.status === 'loading' || preview.status === 'idle') && (
@@ -681,7 +711,14 @@ export default function ExportDialog({
         </Button>
       </DialogActions>
       {pngRunning && plan && pngViewport && (
-        <OffscreenPlanSvg plan={plan} viewport={pngViewport} labels={labels} onReady={exportPng} />
+        <OffscreenPlanSvg
+          plan={plan}
+          viewport={pngViewport}
+          labels={labels}
+          options={pngRenderOptions}
+          onReady={exportPng}
+          onError={pngDrawingFailed}
+        />
       )}
     </Dialog>
   );

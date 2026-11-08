@@ -6385,7 +6385,8 @@
             "watermarkHint": "Writes “Kamerplanter” and today's date in the bottom-right corner. Off by default.",
             "watermarkText": "Kamerplanter · {{date}}",
             "summary": "The image will be {{width}} × {{height}} pixels and shows the whole plan.",
-            "nothingToDraw": "The plan is still empty. Draw a garden boundary or a bed first."
+            "nothingToDraw": "The plan is still empty. Draw a garden boundary or a bed first.",
+            "notLoaded": "The plan is not loaded. Close the dialog and reload the page, then you can create the image."
           },
           "csv": {
             "defaultColumns": "Standard columns",

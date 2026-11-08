@@ -152,13 +152,13 @@ export function serializePlanSvg(svg: SVGSVGElement, options: SerializeOptions):
     const style = styleOf(source);
     const parentStyle = source === svg || !source.parentElement ? null : styleOf(source.parentElement);
     const nonScaling = style.getPropertyValue('vector-effect').trim() === 'non-scaling-stroke';
+    const parentNonScaling =
+      parentStyle?.getPropertyValue('vector-effect').trim() === 'non-scaling-stroke';
     const declarations: string[] = [];
     for (const property of INHERITED_PROPERTIES) {
       let value = style.getPropertyValue(property).trim();
       if (value === '') continue;
       const parentValue = parentStyle?.getPropertyValue(property).trim() ?? null;
-      const parentNonScaling =
-        parentStyle?.getPropertyValue('vector-effect').trim() === 'non-scaling-stroke';
       // The parent's scaled length is not this element's when only one of them is non-scaling.
       if (value === parentValue && !(SCREEN_LENGTH_PROPERTIES.has(property) && nonScaling !== parentNonScaling)) {
         continue;
@@ -284,8 +284,20 @@ export async function rasterizeSvg(
   }
 }
 
-/** `garden-plan-<site>-<yyyymmdd>.png`, like the server's file names. */
+/**
+ * A key as a file-name fragment, the same rule as the server's `safe_filename_part`
+ * (`garden_plan_export_service.py`): every character outside `[A-Za-z0-9_-]` becomes `_`, at most 64 characters,
+ * `plan` when nothing is left.
+ */
+export function safeFilenamePart(key: string): string {
+  return key.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64) || 'plan';
+}
+
+/**
+ * `garden-plan-<site>-<yyyymmdd>.png`: the site part as the server's PDF/SVG/JSON names make it
+ * (`garden-plan-<site>.<ext>`), plus the local calendar day of the export, which the server names do not carry.
+ */
 export function planPngFilename(siteKey: string, date: Date): string {
   const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-  return `garden-plan-${siteKey}-${stamp}.png`;
+  return `garden-plan-${safeFilenamePart(siteKey)}-${stamp}.png`;
 }
