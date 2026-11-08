@@ -112,6 +112,26 @@ describe('usePlanRenderer', () => {
     expect(result.current).toBe(konva);
   });
 
+  it('decides afresh on a new load of the same plan, and keeps the choice while that load is under way', async () => {
+    const konva: PlanRenderer = new HeadlessPlanRenderer();
+    const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(konva));
+    const { result, rerender } = renderHook(({ model, identity }) => usePlanRenderer(model, identity, loader), {
+      initialProps: { model: small, identity: 'site_1#r1' as string | null },
+    });
+    const svg = result.current;
+    expect(svg).toBeInstanceOf(SvgPlanRenderer);
+    rerender({ model: large, identity: 'site_1#r1' }); // an edit of the opened plan: no swap
+    expect(result.current).toBe(svg);
+    rerender({ model: small, identity: null }); // a reload under way still shows the old plan
+    expect(result.current).toBe(svg);
+    rerender({ model: large, identity: 'site_1#r2' }); // the reload brought 3 000+ objects (an import)
+    await waitFor(() => expect(result.current).toBe(konva));
+    rerender({ model: small, identity: 'site_1#r2' }); // edited below the threshold: still no swap
+    expect(result.current).toBe(konva);
+    rerender({ model: small, identity: null }); // the next reload under way, the edited plan still shown: no swap
+    expect(result.current).toBe(konva);
+  });
+
   it('stays on SVG when the Konva chunk fails to load', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const failure = new Error('chunk load failed');

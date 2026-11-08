@@ -173,8 +173,6 @@ export interface GardenPlanEditorProps {
   initialAddOpen?: boolean;
 }
 
-/** The wheel zooms stepless: `exp(-deltaY * this)` per event (the buttons and + / - use the fixed levels). */
-
 /** The companion line the event hit (`data-companion-edge`, drawn by the renderer's companion layer), or `null`. */
 function companionEdgeOf(event: { target: EventTarget | null }): string | null {
   const line = event.target instanceof Element ? event.target.closest('[data-companion-edge]') : null;
@@ -649,8 +647,6 @@ export function GardenPlanEditor({
   const zoomOut = useCallback(() => zoomBy(-1), [zoomBy]);
   const fit = useCallback(() => onFit?.(), [onFit]);
 
-  // The wheel zooms around the pointer (with Ctrl/Cmd or a focused canvas) - a burst at a time, shown by a CSS
-  // transform of the plan layer and committed once the wheel is idle (GP-NFR-034, `usePendingZoom`).
   const toolKeyDown = tools.containerProps.onKeyDown;
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {

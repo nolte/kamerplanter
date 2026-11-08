@@ -329,8 +329,10 @@ export function buildScene(
   }
   for (const marker of interactiveMarkers) marker.tabStop = marker.entry.key === tabStopKey;
 
+  // Keys are unique per collection only (a slot may share its key with a bed or a garden object): the shape wins,
+  // as it did when the drag preview searched the shapes first.
   const nodes = new Map<string, SceneNode>();
-  for (const item of shapes) nodes.set(item.entry.key, { kind: 'shape', item });
   for (const item of sceneMarkers) nodes.set(item.entry.key, { kind: 'marker', item });
+  for (const item of shapes) nodes.set(item.entry.key, { kind: 'shape', item });
   return { shapes, markers: sceneMarkers, markerBatches, clusters, tabStopKey, nodes };
 }

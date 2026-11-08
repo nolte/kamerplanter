@@ -194,34 +194,26 @@ function canvasOrigin(element: HTMLElement): Point {
 }
 
 /**
- * The canvas origin a gesture works with: read at the press and then moved only by scrolling. A layout shift while
- * the pointer is down (a notice or a sheet that opens on the selection) is not followed - the gesture must not jump
- * by it - but a scroll is: the pointer then really points at another part of the plan. Scroll offsets are read once
- * per scroll event, never per pointer move, so a move forces no layout (GP-NFR-033).
+ * The canvas origin a gesture works with: read at the press and then re-read only when something scrolls. A layout
+ * shift while the pointer is down (a notice or a sheet that opens on the selection) is not followed on its own - the
+ * gesture must not jump by it - but a scroll is: the pointer then really points at another part of the plan.
+ *
+ * At a scroll the canvas's position on screen is measured, not the scroll offsets summed: what counts is where the
+ * canvas is, and a scroll offset can change while the canvas stays put - scroll anchoring that answers a layout shift
+ * above the canvas, or a canvas inside a sticky or fixed box while the page scrolls under it. The canvas is measured
+ * once per scroll event, never per pointer move, so a move forces no layout (GP-NFR-033).
  */
 class PressOrigin {
   point: Point;
-  private readonly scrollers: { element: Element; left: number; top: number }[] = [];
+  private readonly element: HTMLElement;
 
   constructor(element: HTMLElement) {
+    this.element = element;
     this.point = canvasOrigin(element);
-    for (let node = element.parentElement; node !== null; node = node.parentElement) {
-      this.scrollers.push({ element: node, left: node.scrollLeft, top: node.scrollTop });
-    }
   }
 
-  /** A scroll somewhere: the content under the canvas moved by the change of its scroll ancestors. */
   readonly onScroll = (): void => {
-    let dx = 0;
-    let dy = 0;
-    for (const entry of this.scrollers) {
-      const { scrollLeft, scrollTop } = entry.element;
-      dx += scrollLeft - entry.left;
-      dy += scrollTop - entry.top;
-      entry.left = scrollLeft;
-      entry.top = scrollTop;
-    }
-    if (dx !== 0 || dy !== 0) this.point = [this.point[0] - dx, this.point[1] - dy];
+    this.point = canvasOrigin(this.element);
   };
 }
 
@@ -487,16 +479,19 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   const cancel = useCallback(() => {
     const m = current();
     const o = latest.current;
-    if (m.draw.kind !== 'idle') update({ draw: INITIAL_DRAW_STATE, active: null, pointerId: null });
-    else if (isGestureActive(m.select))
+    if (m.draw.kind !== 'idle') {
+      update({ draw: INITIAL_DRAW_STATE, active: null, pointerId: null });
+      endPress(); // the release no longer reaches the gesture: its press origin and scroll listener end here
+    } else if (isGestureActive(m.select)) {
       update({ select: selectCancel(m.select), active: null, pointerId: null });
-    else if (m.select.vertex !== null) update({ select: clearVertex(m.select) });
+      endPress();
+    } else if (m.select.vertex !== null) update({ select: clearVertex(m.select) });
     else if (o.selection.length > 0) {
       o.onSelect([]);
       o.onStack(null);
     } else if (o.tool !== 'select') o.onTool('select');
     o.renderer.setDragOffset(null);
-  }, [current, update]);
+  }, [current, endPress, update]);
 
   const finishDraw = useCallback(() => {
     const o = latest.current;

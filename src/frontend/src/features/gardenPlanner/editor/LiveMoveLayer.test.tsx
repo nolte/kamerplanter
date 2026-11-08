@@ -65,12 +65,35 @@ describe('a move re-renders only the live layer (GP-NFR-011, GP-NFR-033)', () =>
     expect(screen.queryAllByTestId('garden-plan-ghost')).toEqual([]);
   });
 
+  /** Puts the canvas `dy` px lower on screen than where jsdom draws it (0, 0). */
+  const canvasAt = (canvas: HTMLElement, dy: number) =>
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ top: dy, y: dy, bottom: 800 + dy, left: 0, right: 800, width: 800, height: 800, x: 0, toJSON: () => ({}) });
+
   it('follows a scroll while the pointer is down: the pointer then points at another part of the plan', () => {
     const t = setupEditor();
     t.click(11, 11);
     fireEvent.pointerDown(t.canvas(), pointer(px(11, 11)));
     // The page scrolls 40 px (1 m at 40 px/m): the plan moves up under the pointer that stays where it is.
     document.documentElement.scrollTop = 40;
+    const moved = canvasAt(t.canvas(), -40);
+    act(() => {
+      document.dispatchEvent(new Event('scroll'));
+    });
+    fireEvent.pointerMove(t.canvas(), pointer(px(11, 11.2)));
+    fireEvent.pointerUp(t.canvas(), pointer(px(11, 11.2)));
+    moved.mockRestore();
+    t.rerender();
+    document.documentElement.scrollTop = 0;
+    // 0.2 m up by the pointer, 1 m down by the scroll.
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 1.2] });
+  });
+
+  it('does not follow a scroll offset that leaves the canvas where it is on screen (scroll anchoring)', () => {
+    const t = setupEditor();
+    t.click(11, 11);
+    fireEvent.pointerDown(t.canvas(), pointer(px(11, 11)));
+    // A notice opens above the canvas and scroll anchoring scrolls the page by its 176 px: the canvas stays put.
+    document.documentElement.scrollTop = 176;
     act(() => {
       document.dispatchEvent(new Event('scroll'));
     });
@@ -78,7 +101,38 @@ describe('a move re-renders only the live layer (GP-NFR-011, GP-NFR-033)', () =>
     fireEvent.pointerUp(t.canvas(), pointer(px(11, 11.2)));
     t.rerender();
     document.documentElement.scrollTop = 0;
-    // 0.2 m up by the pointer, 1 m down by the scroll.
-    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 1.2] });
+    // Only the 0.2 m of the pointer, not the 4.4 m of the anchoring scroll.
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 2.2] });
+  });
+
+  it('does not follow the page scrolling under a canvas in a fixed box', () => {
+    const t = setupEditor();
+    t.click(11, 11);
+    fireEvent.pointerDown(t.canvas(), pointer(px(11, 11)));
+    // An ancestor scrolls 80 px, but the canvas sits in a fixed box: it has not moved on screen.
+    const scroller = t.canvas().parentElement!;
+    scroller.scrollTop = 80;
+    act(() => {
+      scroller.dispatchEvent(new Event('scroll'));
+    });
+    fireEvent.pointerMove(t.canvas(), pointer(px(11, 11.2)));
+    fireEvent.pointerUp(t.canvas(), pointer(px(11, 11.2)));
+    t.rerender();
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 2.2] });
+  });
+
+  it('ends the press with Escape: its scroll listener does not outlive the gesture', () => {
+    const t = setupEditor();
+    t.click(11, 11);
+    const added = vi.spyOn(window, 'addEventListener');
+    const removed = vi.spyOn(window, 'removeEventListener');
+    fireEvent.pointerDown(t.canvas(), pointer(px(11, 11)));
+    fireEvent.pointerMove(t.canvas(), pointer(px(11, 11.3)));
+    const listener = added.mock.calls.find(([type]) => type === 'scroll')?.[1];
+    expect(listener).toBeDefined();
+    fireEvent.keyDown(t.canvas(), { key: 'Escape' });
+    expect(removed.mock.calls.some(([type, fn]) => type === 'scroll' && fn === listener)).toBe(true);
+    added.mockRestore();
+    removed.mockRestore();
   });
 });

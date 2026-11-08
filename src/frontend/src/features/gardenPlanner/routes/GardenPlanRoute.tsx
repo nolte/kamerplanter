@@ -53,7 +53,9 @@ import {
   setPlanOffline,
   setSelection,
   selectIsDirty,
+  type LoadStatus,
 } from '../state/gardenPlanSlice';
+import type { PlanModel } from '../model/planModel';
 import { usePlanRenderer } from '../renderer/createRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { GardenPlanEditor } from '../editor/GardenPlanEditor';
@@ -86,6 +88,16 @@ const MAX_HEIGHT_SHARE = 0.7;
 /** Both sides of the 1px canvas border; the drawing must fit inside it or the box scrolls sideways. */
 const CANVAS_BORDER_PX = 2;
 
+/**
+ * Which opened plan the renderer is chosen for (D-01, `usePlanRenderer`): the site and the load that brought the
+ * plan, so a reload, an import or the live plan after a cached one is decided afresh from its size, while an edit
+ * (also a re-read after a placed template, which keeps the load) never swaps the drawing surface. `null` while a load
+ * is under way: the plan still shown is the old one and keeps its renderer.
+ */
+function planLoadIdentity(plan: PlanModel | null, loadStatus: LoadStatus, loadRequestId: string | null): string | null {
+  return plan !== null && loadStatus === 'ready' ? `${plan.siteKey}#${loadRequestId ?? ''}` : null;
+}
+
 export default function GardenPlanRoute() {
   const { key } = useParams<{ key: string }>();
   const [searchParams] = useSearchParams();
@@ -107,7 +119,9 @@ function FieldModeRoute({ siteKey, planningHref }: { siteKey: string; planningHr
   const labels = useRendererLabels();
   // Field mode loads the plan into the same slice; the renderer follows its size like in planning mode.
   const fieldPlan = useAppSelector((state) => selectGardenPlanState(state).plan);
-  const renderer = usePlanRenderer(fieldPlan);
+  const loadStatus = useAppSelector((state) => selectGardenPlanState(state).loadStatus);
+  const loadRequestId = useAppSelector((state) => selectGardenPlanState(state).loadRequestId);
+  const renderer = usePlanRenderer(fieldPlan, planLoadIdentity(fieldPlan, loadStatus, loadRequestId));
   return (
     <Box data-testid="garden-plan-page">
       <Suspense fallback={<LoadingSkeleton variant="card" />}>
@@ -152,7 +166,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     [plan],
   );
   const labels = useRendererLabels();
-  const renderer = usePlanRenderer(plan);
+  const renderer = usePlanRenderer(plan, planLoadIdentity(plan, loadStatus, loadRequestId));
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
 
   const load = useCallback(() => {

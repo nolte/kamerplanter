@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Viewport } from '../renderer';
-import { stepZoom } from '../model/units';
+import { stepZoom, zoomAround, type ZoomView } from '../model/units';
 import { usePendingZoom } from './usePendingZoom';
 import { WHEEL_COMMIT_IDLE_MS } from './wheelZoom';
 
@@ -70,5 +70,39 @@ describe('usePendingZoom (GP-NFR-034)', () => {
     });
     expect(t.onZoom).toHaveBeenCalledTimes(1);
     expect(t.onZoom.mock.calls[0][0]).toBeCloseTo(60, 9);
+  });
+
+  it('drops a pending burst when the route draws a view of its own (fit, a focused bed)', () => {
+    vi.useFakeTimers();
+    const t = setup();
+    act(() => t.result.current.zoomTo(60, [400, 400], true)); // a wheel burst, still pending
+    expect(t.layer.style.transform).not.toBe('');
+    const fitted: Viewport = { ...VIEW, pxPerM: 20, originM: [-5, 25] };
+    t.rerender({ viewport: fitted }); // "fit" - not the hook's own commit
+    expect(t.layer.style.transform).toBe('');
+    expect(t.result.current.newestView()).toEqual(fitted);
+    act(() => vi.advanceTimersByTime(WHEEL_COMMIT_IDLE_MS * 2));
+    expect(t.onZoom).not.toHaveBeenCalled(); // the fit stays
+    expect(t.onPan).not.toHaveBeenCalled();
+  });
+
+  it('commits a burst that returns to the drawn scale onto the view on screen, also over an undrawn commit', () => {
+    vi.useFakeTimers();
+    // The route as it is: onZoom zooms the drawn view (absolute), onPan adds to its newest state (functional).
+    let state: ZoomView = VIEW;
+    const onZoom = vi.fn((pxPerM: number, anchorPx: [number, number]) => {
+      state = zoomAround(VIEW, pxPerM, anchorPx, 1);
+    });
+    const t = setup(onZoom);
+    t.onPan.mockImplementation((dx, dy) => {
+      state = { pxPerM: state.pxPerM, originM: [state.originM[0] - dx / state.pxPerM, state.originM[1] + dy / state.pxPerM] };
+    });
+    act(() => t.result.current.zoomTo(80, [100, 100])); // committed, not drawn yet
+    act(() => t.result.current.zoomTo(40, [700, 300], true)); // a wheel burst back to the drawn scale
+    const shown = t.result.current.newestView();
+    act(() => vi.advanceTimersByTime(WHEEL_COMMIT_IDLE_MS * 2));
+    expect(state.pxPerM).toBeCloseTo(shown.pxPerM, 9);
+    expect(state.originM[0]).toBeCloseTo(shown.originM[0], 9);
+    expect(state.originM[1]).toBeCloseTo(shown.originM[1], 9);
   });
 });

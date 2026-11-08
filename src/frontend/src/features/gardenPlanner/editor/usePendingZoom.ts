@@ -11,6 +11,15 @@ export const WHEEL_ZOOM_PER_PX = 0.0015;
 /** How long a committed view may wait for the route's render before the layer stops showing it (a refused zoom). */
 const RECONCILE_MS = 250;
 
+/** Two views show the same plan: equal scale, origins less than a hundredth of a pixel apart (rounding of a commit). */
+function sameView(a: ZoomView, b: ZoomView): boolean {
+  return (
+    Math.abs(a.pxPerM - b.pxPerM) <= 1e-9 * b.pxPerM &&
+    Math.abs(a.originM[0] - b.originM[0]) * b.pxPerM < 0.01 &&
+    Math.abs(a.originM[1] - b.originM[1]) * b.pxPerM < 0.01
+  );
+}
+
 interface PendingZoomOptions {
   viewport: Viewport;
   onZoom?: (pxPerM: number, anchorPx: Point) => void;
@@ -40,7 +49,9 @@ export interface PendingZoom {
  *
  * The layer always shows the newest of them relative to the drawn view; it is reset when the route draws a new view,
  * and also when the route does not (a zoom it refuses or that changes nothing). A pointer press commits a pending
- * burst synchronously first, so hit testing and the overlays never work on a view the screen does not show.
+ * burst synchronously first, so hit testing and the overlays never work on a view the screen does not show. A view
+ * the route draws for another reason (fit, a bed brought into view, a pan) drops a pending burst: it was meant for
+ * the view before, and committing it later would undo the fit.
  */
 export function usePendingZoom({
   viewport,
@@ -70,6 +81,14 @@ export function usePendingZoom({
 
   // A new drawn view: the committed one has arrived (or another change replaced it).
   useLayoutEffect(() => {
+    const own = target.current !== null && sameView(viewport, target.current);
+    if (!own && !sameView(viewport, drawn.current) && pending.current !== null) {
+      pending.current = null;
+      if (timer.current !== null) {
+        window.clearTimeout(timer.current);
+        timer.current = null;
+      }
+    }
     drawn.current = viewport;
     target.current = null;
     if (reconcile.current !== null) {
@@ -98,7 +117,17 @@ export function usePendingZoom({
         return;
       }
       target.current = next;
-      const run = () => (step.kind === 'zoom' ? zoom(step.pxPerM, step.anchorPx) : pan(step.dxPx, step.dyPx));
+      // Both kinds land on `next` whatever the route holds already. `onZoom` is absolute (it zooms the drawn view),
+      // `onPan` adds to the route's newest view - which can be an earlier commit not drawn yet. So a pan first sets
+      // the route back to the drawn view (a zoom to its own scale changes nothing else) and then pans from there.
+      const run = () => {
+        if (step.kind === 'zoom') {
+          zoom(step.pxPerM, step.anchorPx);
+          return;
+        }
+        zoom(drawn.current.pxPerM, [0, 0]);
+        pan(step.dxPx, step.dyPx);
+      };
       if (sync) flushSync(run);
       else run();
       // The route may draw nothing new (a refused or clamped-away zoom): then the layer must not keep the transform.

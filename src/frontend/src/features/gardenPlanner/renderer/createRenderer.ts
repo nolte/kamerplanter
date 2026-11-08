@@ -51,9 +51,12 @@ export const loadKonvaRenderer: KonvaRendererLoader = () =>
  * - Below the threshold: SVG.
  * - At or above it: the Konva chunk loads; until it is there a placeholder holds the plan's place (no full SVG
  *   drawing that is thrown away a moment later). A chunk that fails to load leaves the plan on SVG.
- * - The choice is made once per plan, when it opens (`identity`, by default the site): an edit that takes the plan
- *   across the threshold - either way - never swaps the drawing surface mid-session. Another plan in the same
- *   mounted page (the route does not remount on a new `:key`) is decided afresh when it opens.
+ * - The choice is made once per opened plan (`identity`, by default the site): an edit that takes the plan across
+ *   the threshold - either way - never swaps the drawing surface mid-session. A new `identity` is decided afresh from
+ *   the model it comes with: another plan in the same mounted page (the route does not remount on a new `:key`), and -
+ *   when the caller names the load in it, as the route does - a new load of the same plan (a reload, an import, the
+ *   live plan after a cached one). `identity` `null` with a model means "no settled load yet" (a reload under way
+ *   still shows the old plan): the choice made so far stays, and only the very first model decides one.
  */
 export function usePlanRenderer(
   model: PlanModel | null | undefined,
@@ -66,10 +69,10 @@ export function usePlanRenderer(
   const [decided, setDecided] = useState<{ identity: string | null; konva: boolean } | null>(null);
   const [konva, setKonva] = useState<PlanRenderer | null>(null);
   const [failed, setFailed] = useState(false);
-  if (model && (decided === null || decided.identity !== identity)) {
+  if (model && (decided === null || (identity !== null && decided.identity !== identity))) {
     setDecided({ identity, konva: rendererKindFor(planObjectCount(model)) === 'konva' });
   }
-  const konvaWanted = decided !== null && decided.identity === identity && decided.konva;
+  const konvaWanted = decided !== null && (identity === null || decided.identity === identity) && decided.konva;
 
   useEffect(() => {
     if (!konvaWanted || konva || failed) return;
