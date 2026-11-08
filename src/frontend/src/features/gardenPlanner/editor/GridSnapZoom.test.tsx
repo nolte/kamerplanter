@@ -11,6 +11,7 @@ import { ThemeContextProvider } from '@/theme';
 import { useAppSelector } from '@/store/hooks';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { HeadlessPlanRenderer } from '../renderer/HeadlessPlanRenderer';
+import { WHEEL_COMMIT_IDLE_MS } from './wheelZoom';
 import type { Viewport } from '../renderer';
 import { TEST_LABELS } from '../renderer/rendererTestKit';
 import {
@@ -19,7 +20,7 @@ import {
   selectGardenPlanState,
   type GardenPlanState,
 } from '../state/gardenPlanSlice';
-import { zoomAround } from '../model/units';
+import { stepZoom, zoomAround } from '../model/units';
 import type { Point } from '../model/types';
 import { testPlan } from './tools/toolTestKit';
 import { GardenPlanEditor } from './GardenPlanEditor';
@@ -216,16 +217,70 @@ describe('zoom (GP-FR-009, GP-FR-150)', () => {
     expect(level()).toBe('40 %');
   });
 
-  it('Ctrl + wheel zooms stepless around the pointer and keeps the page from scrolling', () => {
+  it('Ctrl + wheel zooms stepless around the pointer and keeps the page from scrolling', async () => {
     const t = setup();
     const wheel = new WheelEvent('wheel', { deltaY: -200, clientX: 200, clientY: 200, ctrlKey: true, cancelable: true, bubbles: true });
     act(() => {
       t.canvas().dispatchEvent(wheel);
     });
     expect(wheel.defaultPrevented).toBe(true);
+    // The burst is committed once the wheel is idle (GP-NFR-034).
+    await act(() => new Promise((resolve) => setTimeout(resolve, WHEEL_COMMIT_IDLE_MS + 20)));
     const percent = Number(level()!.replace(' %', ''));
     expect(percent).toBeGreaterThan(40);
     expect(percent).not.toBe(100); // no snapping to a level
+  });
+
+  it('a wheel burst transforms the plan layer and renders the zoom once, after the wheel is idle (GP-NFR-034)', async () => {
+    const t = setup();
+    const notch = (deltaY: number) =>
+      act(() => {
+        t.canvas().dispatchEvent(
+          new WheelEvent('wheel', { deltaY, clientX: 200, clientY: 200, ctrlKey: true, cancelable: true, bubbles: true }),
+        );
+      });
+    const layer = screen.getByTestId('garden-plan-zoom-layer');
+    for (let i = 0; i < 5; i += 1) notch(-120);
+    // No render per notch: the zoom level is still the committed one, the layer is scaled around the pointer.
+    expect(level()).toBe('40 %');
+    const scale = Number(/scale\(([\d.]+)\)/.exec(layer.style.transform)?.[1]);
+    expect(scale).toBeCloseTo(Math.exp(5 * 120 * 0.0015), 6);
+    await act(() => new Promise((resolve) => setTimeout(resolve, WHEEL_COMMIT_IDLE_MS + 20)));
+    expect(Number(level()!.replace(' %', ''))).toBeCloseTo(40 * scale, 0);
+    expect(layer.style.transform).toBe('');
+  });
+
+  it('moves the overlays with the plan during a burst and commits it at the next press (GP-NFR-034)', () => {
+    const t = setup();
+    const layer = screen.getByTestId('garden-plan-zoom-layer');
+    // Handles, ghost, size labels and snap marker are drawn in the layer the burst transforms.
+    expect(layer).toContainElement(screen.getByTestId('garden-plan-overlay'));
+    act(() => {
+      t.canvas().dispatchEvent(
+        new WheelEvent('wheel', { deltaY: -120, clientX: 200, clientY: 200, ctrlKey: true, cancelable: true, bubbles: true }),
+      );
+    });
+    expect(level()).toBe('40 %');
+    // A press does not wait for the idle timer: the view on screen is committed first.
+    act(() => {
+      t.canvas().dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    });
+    expect(level()).not.toBe('40 %');
+  });
+
+  it('steps the "+" button from a wheel burst still pending, not from the drawn zoom', () => {
+    const t = setup();
+    for (let i = 0; i < 3; i += 1) {
+      act(() => {
+        t.canvas().dispatchEvent(
+          new WheelEvent('wheel', { deltaY: -120, clientX: 200, clientY: 200, ctrlKey: true, cancelable: true, bubbles: true }),
+        );
+      });
+    }
+    const fromBurst = stepZoom(40 * Math.exp(3 * 120 * 0.0015), 1, MIN_PX_PER_M);
+    expect(fromBurst).not.toBe(stepZoom(40, 1, MIN_PX_PER_M)); // the case tells the two apart
+    fireEvent.click(screen.getByTestId('garden-plan-zoom-in'));
+    expect(level()).toBe(`${Math.round((fromBurst / 100) * 100)} %`);
   });
 
   it('zooming keeps the model point under the anchor fixed', () => {

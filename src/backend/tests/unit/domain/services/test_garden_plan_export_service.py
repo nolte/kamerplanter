@@ -37,6 +37,7 @@ from app.domain.engines.plan_svg_engine import (
 )
 from app.domain.engines.print_engine import TEMPLATES_DIR, PrintEngine
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
+from app.domain.models.bed_list_export import BedAssignee
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlantShortInfo
 from app.domain.models.site import Microclimate, SiteConditions, SitePlan, Slot
@@ -292,6 +293,88 @@ class TestNoPersonalDataByDefault:
         _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options())
 
         assert "bed-list" in engine.html[-1] and "<section" not in engine.html[-1]
+
+
+class TestTheParcelList:
+    """GP-FR-176 (WP 9.10, #2750): identifier in plan order, area, zone; the assignment only behind the opt-in."""
+
+    def test_the_numbers_follow_the_plan_order_and_skip_what_is_no_placed_bed(self, repo) -> None:
+        # Inserted b1, b2, b3, x0 and keyed so that neither the read order nor the key order is the plan order.
+        repo.locations["b1"] = repo.locations["b1"].model_copy(update={"z_order": 3})
+        repo.locations["x0"] = make_location(
+            "x0", "alpha", geometry=rect(4, 3, 1, 1), irrigation_zone_key="zone_1"
+        ).model_copy(update={"depth": 1})
+        repo.locations["unplaced"] = make_location("unplaced", "Zelt ohne Platz")
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        html = engine.html[-1]
+        section = html[html.index('<section class="parcel-list">') :]
+        expected = ["1 &middot; Beet 2", "2 &middot; Beet 3", "3 &middot; Beet 1", "4 &middot; alpha"]
+        positions = [section.index(entry) for entry in expected]
+        assert positions == sorted(positions)
+        assert "Zelt ohne Platz" not in section
+        assert "Tropf Ost" in section
+
+    def test_the_number_is_said_to_hold_for_this_print_only(self, repo) -> None:
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        assert "Die Nummer gilt nur für diesen Ausdruck" in engine.html[-1]
+
+    def test_an_erased_account_and_a_deleted_membership_print_differently(self, repo) -> None:
+        """SEC-003: erased account = "anonymisiert"; a deleted membership's assignment is gone, the cell is "–".
+
+        The repository drops the assignment of a deleted or inactive membership (its AQL filters the membership),
+        so for ``b2`` the read returns nothing - as it does for a bed nobody was ever assigned to (``b3``).
+        """
+        repo.assignees = [(TENANT, BedAssignee("b1", "u_erased", None))]
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(
+            SITE, tenant_key=TENANT, options=_options(), parcel_list=True, include_assignment=True
+        )
+
+        section = engine.html[-1][engine.html[-1].index('<section class="parcel-list">') :]
+        rows = re.findall(r"<tr>(.*?)</tr>", section, flags=re.S)[1:]
+        cells = [re.findall(r"<td>(.*?)</td>", row, flags=re.S)[-1].strip() for row in rows]
+        assert cells == ["anonymisiert", "–", "–"]
+
+    def test_without_the_opt_in_the_assignment_is_neither_read_nor_printed(self, repo) -> None:
+        repo.assignees = [(TENANT, BedAssignee("b1", "u_sabine", "Sabine Gärtner"))]
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        assert "Sabine" not in engine.html[-1] and "Zuweisung" not in engine.html[-1]
+        assert repo.assignee_reads == []
+
+    def test_the_assignment_is_escaped_into_text(self, repo) -> None:
+        repo.locations["b1"] = make_location("b1", "Beet 1", geometry=rect(1, 1, 2, 1))
+        repo.assignees = [(TENANT, BedAssignee("b1", "u_x", HOSTILE_IMAGE_NAME))]
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(
+            SITE, tenant_key=TENANT, options=_options(), parcel_list=True, include_assignment=True
+        )
+
+        html = engine.html[-1]
+        assert "&#34;&gt;&lt;image href=&#34;http://169.254.169.254/&#34;/&gt;" in html
+        assert '"><image' not in html
+
+    def test_the_assignment_without_the_parcel_list_is_refused_before_anything_is_read(self, repo) -> None:
+        reads: list[str] = []
+        original = repo.load_read_model
+        repo.load_read_model = lambda site_key, **kwargs: reads.append(site_key) or original(site_key, **kwargs)
+
+        with pytest.raises(PlanError) as refused:
+            _service(repo).render_pdf(SITE, tenant_key=TENANT, options=_options(), include_assignment=True)
+
+        assert refused.value.status_code == 422
+        assert refused.value.details[0]["code"] == "export.assignment_needs_parcel_list"
+        assert reads == [] and repo.assignee_reads == []
 
 
 class TestCrossTenant:

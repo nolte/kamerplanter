@@ -1,7 +1,7 @@
 /** Shared rendering helpers of the editor component tests (WP 2.6): store, editor and pointer helpers. */
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { configureStore } from '@reduxjs/toolkit';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { vi, type Mock } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
 import tenantsReducer from '@/store/slices/tenantSlice';
@@ -56,6 +56,16 @@ interface SetupOptions {
   viewport?: Viewport;
   /** Defaults to the headless test double; a test of drawn DOM (e.g. a layer's pointer targets) passes the SVG one. */
   renderer?: PlanRenderer;
+  /**
+   * Read the plan from the store on every render, like the route does - for a test of what the editor does in the
+   * render that follows a commit (by default the plan prop changes only on `rerender()`).
+   */
+  connected?: boolean;
+}
+
+function ConnectedEditor(props: Omit<Parameters<typeof GardenPlanEditor>[0], 'plan'>) {
+  const plan = useSelector((state: { gardenPlan: GardenPlanState }) => state.gardenPlan.plan);
+  return plan ? <GardenPlanEditor plan={plan} {...props} /> : null;
 }
 
 export function setupEditor(options: SetupOptions = {}) {
@@ -77,16 +87,28 @@ export function setupEditor(options: SetupOptions = {}) {
   const tree = () => (
     <Provider store={store}>
       <ThemeContextProvider>
-        <GardenPlanEditor
-          plan={state().plan!}
-          viewport={options.viewport ?? VIEWPORT}
-          renderer={drawnBy}
-          labels={TEST_LABELS}
-          onPan={onPan}
-          onZoom={onZoom}
-          onOpenLocation={onOpenLocation}
-          onOpenCare={onOpenCare}
-        />
+        {options.connected ? (
+          <ConnectedEditor
+            viewport={options.viewport ?? VIEWPORT}
+            renderer={drawnBy}
+            labels={TEST_LABELS}
+            onPan={onPan}
+            onZoom={onZoom}
+            onOpenLocation={onOpenLocation}
+            onOpenCare={onOpenCare}
+          />
+        ) : (
+          <GardenPlanEditor
+            plan={state().plan!}
+            viewport={options.viewport ?? VIEWPORT}
+            renderer={drawnBy}
+            labels={TEST_LABELS}
+            onPan={onPan}
+            onZoom={onZoom}
+            onOpenLocation={onOpenLocation}
+            onOpenCare={onOpenCare}
+          />
+        )}
       </ThemeContextProvider>
     </Provider>
   );

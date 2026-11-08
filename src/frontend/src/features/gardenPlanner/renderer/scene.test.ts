@@ -436,3 +436,16 @@ describe('buildScene - label placement (GP-UX-047, #2490)', () => {
     expect(second).toEqual(first);
   });
 });
+
+describe('buildScene - nodes a drag can move (GP-NFR-033)', () => {
+  it('keeps the shape when a plant shares its key with a bed: keys are unique per collection only', () => {
+    const { slots, plants } = plantedBed('b', 1, 1, 2, 0.5);
+    // The plant in the entered bed carries the key of the other bed - a plant and a location from two collections.
+    const clashing = plants.map((plant, i) => (i === 0 ? { ...plant, key: 'a' } : plant));
+    const planted = plan({ locations: [bed('a', 1, 8), bed('b', 1, 1)], garden_objects: [], slots, plants: clashing });
+    const scene = buildScene(planted, viewportAt(0, 10, 100), NO_SELECTION, { enteredLocationKey: 'b' });
+    expect(scene.markers.map((marker) => marker.entry.key)).toContain('a');
+    expect(scene.nodes.get('a')?.kind).toBe('shape');
+    expect(scene.nodes.get('b_p1')?.kind).toBe('marker');
+  });
+});

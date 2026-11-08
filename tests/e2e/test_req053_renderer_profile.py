@@ -130,6 +130,29 @@ def _report_dir(screenshot_dir: Path) -> Path:
     return target
 
 
+#: The frontend's threshold (``renderer/createRenderer.ts`` ``KONVA_MIN_PLAN_OBJECTS``): from this many beds + garden
+#: objects + slots the plan is drawn by Konva (WP 9.7), whose chunk loads after the plan - not on the first paint.
+KONVA_MIN_PLAN_OBJECTS = 3000
+
+
+def _expected_renderer(measured: MeasuredPlan) -> str:
+    """The renderer the plan must be drawn by (the seeded plans carry no garden objects)."""
+    return (
+        "konva" if measured.stored_beds + measured.stored_slots >= KONVA_MIN_PLAN_OBJECTS else "svg"
+    )
+
+
+def _wait_for_renderer(plan: GardenPlanPage, expected: str) -> str:
+    """Wait until *expected* draws the plan, so no census, size or gesture is read off a surface about to be swapped."""
+    try:
+        plan.poll(OPEN_TIMEOUT_S).until(lambda _d: plan.current_renderer() == expected)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"the plan should be drawn by the {expected} renderer, it is drawn by {plan.current_renderer()!r}"
+        ) from exc
+    return expected
+
+
 def _wait_for_all_beds(plan: GardenPlanPage, beds: int) -> dict[str, int]:
     """The fit view shows the whole plan: wait until every bed is drawn; the census of that moment."""
     try:
@@ -278,6 +301,9 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
             measured.garden.site_key, timeout=OPEN_TIMEOUT_S
         )
     viewport = [int(v) for v in browser.execute_script("return [innerWidth, innerHeight];")]
+    # A large plan swaps its surface once the Konva chunk is there: wait for that first, then read everything off
+    # the surface that stays (each read looks the element up again).
+    renderer = _wait_for_renderer(plan, _expected_renderer(measured))
     census_fit = _wait_for_all_beds(plan, measured.stored_beds)
     px_fit = plan.px_per_m()
     canvas_px = list(plan.svg_size_px())
@@ -318,6 +344,10 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
             if throttle == "applied" and not set_cpu_slowdown(browser, 1):
                 warnings.warn("GP-NFR-033: the CPU throttle could not be reset", stacklevel=2)
         plan.take_screenshot(f"053_083_{case}_{profile}_02_after", screenshot_dir)
+        drawn_by = plan.current_renderer()
+        assert drawn_by == renderer, (
+            f"the gestures ran on {drawn_by!r}, the record names {renderer!r} - the surface was swapped mid-measurement"
+        )
 
         results = [zoom_in, zoom_out, drag]
         if throttle == "unavailable":
@@ -333,6 +363,7 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
             "throttle": throttle,
             "viewport": viewport,
             "canvas_px": canvas_px,
+            "renderer": renderer,
             "run_id": RUN_ID,
             "budget_ms": setup.budget_ms,
             "vsync_ms": vsync,

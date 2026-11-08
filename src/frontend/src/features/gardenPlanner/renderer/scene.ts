@@ -93,7 +93,15 @@ export interface Scene {
   markerBatches: SceneMarkerBatch[];
   clusters: SceneCluster[];
   tabStopKey: string | null;
+  /**
+   * The nodes a drag can move - every shape and every individually drawn marker - by key. Built once per scene, so a
+   * renderer's drag preview finds its node without a scan per pointer move (GP-NFR-033).
+   */
+  nodes: ReadonlyMap<string, SceneNode>;
 }
+
+/** A node of its own in the scene: a shape or an individually drawn marker. */
+export type SceneNode = { kind: 'shape'; item: SceneShape } | { kind: 'marker'; item: SceneMarker };
 
 /** Row (north first) then column by the bounding box (GP-NFR-020), after layer and z-order. */
 export function compareDomOrder(a: ShapeEntry, b: ShapeEntry): number {
@@ -321,5 +329,10 @@ export function buildScene(
   }
   for (const marker of interactiveMarkers) marker.tabStop = marker.entry.key === tabStopKey;
 
-  return { shapes, markers: sceneMarkers, markerBatches, clusters, tabStopKey };
+  // Keys are unique per collection only (a slot may share its key with a bed or a garden object): the shape wins,
+  // as it did when the drag preview searched the shapes first.
+  const nodes = new Map<string, SceneNode>();
+  for (const item of sceneMarkers) nodes.set(item.entry.key, { kind: 'marker', item });
+  for (const item of shapes) nodes.set(item.entry.key, { kind: 'shape', item });
+  return { shapes, markers: sceneMarkers, markerBatches, clusters, tabStopKey, nodes };
 }

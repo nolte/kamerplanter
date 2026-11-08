@@ -43,7 +43,14 @@ export function exportParams(options: ExportOptions, locale: string): Record<str
     layers: options.layers.join(','),
     locale: locale.startsWith('en') ? 'en' : 'de',
   };
-  if (options.format === 'pdf') params.bed_list = String(options.bedList);
+  if (options.format === 'pdf') {
+    params.bed_list = String(options.bedList);
+    if (options.parcelList) {
+      params.parcel_list = 'true';
+      // The member names are asked for only together with the parcel list (SR-024 opt-in).
+      if (options.includeAssignment) params.include_assignment = 'true';
+    }
+  }
   return params;
 }
 

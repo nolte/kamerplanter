@@ -243,9 +243,12 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
         "the stored form excludes the deciding account (new_owner_key, Field(exclude=True), #1855 R3 W-3)"
     ),
     # REQ-053 WP 8.25 (#2668) — read projection of location_assignments joined with memberships and users.
+    # REQ-053 WP 9.10 (#2750) — read again for the parcel list of the garden-plan PDF.
     "BedAssignee": (
-        "read projection of location_assignments + memberships + users for the bed list CSV; the service turns "
-        "it into a display name before anything leaves it, never stored"
+        "read projection of location_assignments + memberships + users for the bed list CSV and, since #2750, the "
+        "parcel list of the garden-plan PDF (GET /print/garden-plan/{site_key}?parcel_list=true&"
+        "include_assignment=true); both resolve it through app/domain/services/bed_list_labels.py into a display "
+        "name before anything leaves the service, only on the explicit opt-in, never stored"
     ),
 }
 

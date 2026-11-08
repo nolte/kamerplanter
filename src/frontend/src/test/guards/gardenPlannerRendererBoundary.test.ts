@@ -24,6 +24,11 @@ describe('gardenPlanner editor/** may import only the PlanRenderer interface', (
     ["import { x } from '../../renderer/svg/internals';"],
     ["import Konva from 'konva';"],
     ["import { Stage } from 'react-konva';"],
+    ["import { Stage } from 'react-konva/lib/ReactKonvaCore';"],
+    ["import Konva from 'konva/lib/Core';"],
+    ["import { KonvaPlanRenderer } from '../../renderer/KonvaPlanRenderer';"],
+    ["import { drawScene } from '../../renderer/konvaDraw';"],
+    ["import { usePlanRenderer } from '../../renderer/createRenderer';"],
     ["import { fabric } from 'fabric';"],
   ])('rejects %s', async (code) => {
     const messages = await restrictedImports(`${code}\nexport const used = 1;\n`, EDITOR_FILE);
@@ -42,7 +47,9 @@ describe('gardenPlanner editor/** may import only the PlanRenderer interface', (
 
   it('does not restrict the code that wires the renderer in (outside editor/**)', async () => {
     const code =
-      "import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';\nexport const r = SvgPlanRenderer;\n";
+      "import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';\n" +
+      "import { usePlanRenderer } from '../renderer/createRenderer';\n" +
+      'export const r = [SvgPlanRenderer, usePlanRenderer];\n';
     expect(await restrictedImports(code, ROUTE_FILE)).toEqual([]);
   });
 });

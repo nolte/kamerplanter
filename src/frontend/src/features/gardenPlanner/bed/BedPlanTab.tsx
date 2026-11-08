@@ -29,7 +29,7 @@ import { useCacheScope } from '../offline/useCacheScope';
 import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import { boundingBox } from '../model/geometry';
 import { locationSubtree, normalizePlan, type PlanModel } from '../model/planModel';
-import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
+import { usePlanRenderer } from '../renderer/createRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { fitViewport } from '../routes/fitViewport';
 import { useElementWidth } from '../routes/useElementWidth';
@@ -84,7 +84,6 @@ export function bedSubModel(plan: PlanModel, bedKey: string): PlanModel {
 export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const { t } = useTranslation();
   const labels = useRendererLabels();
-  const renderer = useMemo(() => new SvgPlanRenderer(), []);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
   const [state, setState] = useState<PlanState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -134,6 +133,8 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   }, [refreshStates]);
 
   const model = state.status === 'ready' ? state.model : null;
+  // The bed's own subtree decides SVG or Konva (D-01), like the plan does on the garden plan page.
+  const renderer = usePlanRenderer(model, bedKey);
   const cachedAt = state.status === 'ready' ? state.cachedAt : null;
   // Moving a plant changes geometry: online-only (GP-UX-024), locked with a hint while offline or cached.
   const geometryLocked = !online || cachedAt !== null;
