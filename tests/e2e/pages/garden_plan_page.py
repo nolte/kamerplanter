@@ -32,7 +32,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.actions.mouse_button import MouseButton
@@ -660,6 +660,19 @@ class GardenPlanPage(BasePage):
         if kind not in ("svg", "konva"):
             raise AssertionError(f"the plan surface names no renderer (data-renderer={kind!r})")
         return str(kind)
+
+    def current_renderer(self) -> str | None:
+        """The renderer drawing right now, without waiting: ``svg``, ``konva`` or ``None``.
+
+        ``None`` while no plan surface is mounted - e.g. a plan of 3 000+ objects shows a placeholder until the
+        Konva chunk has loaded - or when the surface was just replaced (a stale element is not an answer).
+        """
+        try:
+            found = self.driver.find_elements(*self.SVG)
+            kind = found[0].get_attribute("data-renderer") if found else None
+        except StaleElementReferenceException:
+            return None
+        return str(kind) if kind in ("svg", "konva") else None
 
     def svg_size_px(self) -> tuple[int, int]:
         """The drawn size of the plan SVG in CSS px (what the renderer's viewport covers)."""

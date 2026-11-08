@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { PlanSlot } from '../model/types';
 import {
@@ -10,8 +10,9 @@ import {
   type KonvaRendererLoader,
 } from './createRenderer';
 import { HeadlessPlanRenderer } from './HeadlessPlanRenderer';
+import { PlaceholderPlanRenderer } from './PlaceholderPlanRenderer';
 import { KonvaPlanRenderer } from './KonvaPlanRenderer';
-import { bed, gardenObject, normalizePlan, planResponse, type PlanModel } from './rendererTestKit';
+import { TEST_LABELS, bed, gardenObject, normalizePlan, planResponse, type PlanModel } from './rendererTestKit';
 import { SvgPlanRenderer } from './SvgPlanRenderer';
 import type { PlanRenderer } from './types';
 
@@ -59,7 +60,7 @@ describe('usePlanRenderer', () => {
 
   it('draws a small plan with SVG and never loads the Konva chunk', () => {
     const loader = vi.fn<KonvaRendererLoader>();
-    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, loader), {
+    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, undefined, loader), {
       initialProps: { model: small as PlanModel | null },
     });
     expect(result.current).toBeInstanceOf(SvgPlanRenderer);
@@ -69,13 +70,14 @@ describe('usePlanRenderer', () => {
     expect(loader).not.toHaveBeenCalled();
   });
 
-  it('starts on SVG, then hands a large plan to the loaded renderer and keeps it when the plan shrinks', async () => {
+  it('starts on a placeholder, then hands a large plan to the loaded renderer and keeps it when the plan shrinks', async () => {
     const konva: PlanRenderer = new HeadlessPlanRenderer();
     const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(konva));
-    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, loader), {
+    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, undefined, loader), {
       initialProps: { model: large },
     });
-    expect(result.current).toBeInstanceOf(SvgPlanRenderer); // nothing waits for the chunk
+    // No throwaway SVG drawing of a large plan: a placeholder holds its place until the chunk is there.
+    expect(result.current).toBeInstanceOf(PlaceholderPlanRenderer);
     await waitFor(() => expect(result.current).toBe(konva));
     rerender({ model: small });
     expect(result.current).toBe(konva); // latched: an edit never swaps the surface back
@@ -85,7 +87,7 @@ describe('usePlanRenderer', () => {
   it('switches when an open plan grows past the threshold', async () => {
     const konva: PlanRenderer = new HeadlessPlanRenderer();
     const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(konva));
-    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, loader), {
+    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, undefined, loader), {
       initialProps: { model: small },
     });
     expect(loader).not.toHaveBeenCalled();
@@ -93,16 +95,47 @@ describe('usePlanRenderer', () => {
     await waitFor(() => expect(result.current).toBe(konva));
   });
 
+  it('decides afresh for another plan in the same mounted page, but never swaps on an edit of the same one', async () => {
+    const konva: PlanRenderer = new HeadlessPlanRenderer();
+    const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(konva));
+    const otherSmall = normalizePlan(planResponse({ ...planResponse(), site_key: 'site_2', slots: [], plants: [] }));
+    const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, undefined, loader), {
+      initialProps: { model: large },
+    });
+    await waitFor(() => expect(result.current).toBe(konva));
+    rerender({ model: small }); // same site, smaller after an edit
+    expect(result.current).toBe(konva);
+    rerender({ model: otherSmall }); // the route's `:key` changed: a small site
+    expect(result.current).toBeInstanceOf(SvgPlanRenderer);
+    rerender({ model: large }); // back to the large site
+    expect(result.current).toBe(konva);
+  });
+
   it('stays on SVG when the Konva chunk fails to load', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const failure = new Error('chunk load failed');
     const loader = vi.fn<KonvaRendererLoader>(() => Promise.reject(failure));
-    const { result } = renderHook(() => usePlanRenderer(large, loader));
-    const svg = result.current;
+    const { result } = renderHook(() => usePlanRenderer(large, undefined, loader));
+    expect(result.current).toBeInstanceOf(PlaceholderPlanRenderer);
     await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining('stays on SVG'), failure));
     await act(async () => undefined);
-    expect(result.current).toBe(svg);
     expect(result.current).toBeInstanceOf(SvgPlanRenderer);
+    expect(loader).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+});
+
+describe('PlaceholderPlanRenderer', () => {
+  it('holds the plan its size while the Konva chunk loads, busy and named, and still hit-tests by the model', () => {
+    const placeholder = new PlaceholderPlanRenderer();
+    const viewport = { originM: [0, 10] as [number, number], pxPerM: 100, widthPx: 800, heightPx: 600 };
+    const { getByTestId } = render(
+      <>{placeholder.render(planOf(1, 0, 0), viewport, { selectedKeys: new Set() }, { labels: TEST_LABELS })}</>,
+    );
+    const node = getByTestId('garden-plan-renderer-loading');
+    expect(node).toHaveAttribute('aria-busy', 'true');
+    expect(node).toHaveAttribute('aria-label', 'Plan');
+    expect(document.querySelector('[data-testid="garden-plan-svg"]')).toBeNull(); // no throwaway SVG drawing
+    expect(placeholder.hitTest([60, 900])).toBe('b0'); // bed b0 at (0, 0), 1.2 x 2 m
   });
 });

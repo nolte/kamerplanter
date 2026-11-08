@@ -13,6 +13,7 @@ export interface CanvasCall {
   strokeStyle: unknown;
   font: string;
   lineWidth: number;
+  lineCap: string;
   globalAlpha: number;
   lineDash: number[];
 }
@@ -50,6 +51,7 @@ export class RecordingContext {
       strokeStyle: this.strokeStyle,
       font: this.font,
       lineWidth: this.lineWidth,
+      lineCap: this.lineCap,
       globalAlpha: this.globalAlpha,
       lineDash: [...this.dash],
     });

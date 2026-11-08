@@ -44,7 +44,7 @@ export function evaluateBudget(input: EvaluateBudgetInput): {
 export function kib(bytes: number): string;
 
 export function lazyChunkClosure(
-  manifest: Record<string, { file: string; imports?: string[] }>,
+  manifest: Record<string, { file: string; css?: string[]; imports?: string[] }>,
   sourceKey: string,
   alreadyLoaded: Set<string>,
 ): string[] | null;

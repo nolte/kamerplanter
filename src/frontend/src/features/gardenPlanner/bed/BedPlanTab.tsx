@@ -134,7 +134,7 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
 
   const model = state.status === 'ready' ? state.model : null;
   // The bed's own subtree decides SVG or Konva (D-01), like the plan does on the garden plan page.
-  const renderer = usePlanRenderer(model);
+  const renderer = usePlanRenderer(model, bedKey);
   const cachedAt = state.status === 'ready' ? state.cachedAt : null;
   // Moving a plant changes geometry: online-only (GP-UX-024), locked with a hint while offline or cached.
   const geometryLocked = !online || cachedAt !== null;

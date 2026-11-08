@@ -114,16 +114,23 @@ describe('evaluateBudget', () => {
 
   it('measures a lazy chunk with the chunks it imports, minus what is loaded before it', () => {
     const manifest = {
-      'konva.tsx': { file: 'assets/konva.js', imports: ['_vendor-konva', 'route.tsx', '_shared'] },
+      'konva.tsx': { file: 'assets/konva.js', css: ['assets/konva.css'], imports: ['_vendor-konva', 'route.tsx', '_shared'] },
       '_vendor-konva': { file: 'assets/vendor-konva.js', imports: ['_shared'] },
       'route.tsx': { file: 'assets/route.js', imports: ['_shared'] },
       _shared: { file: 'assets/shared.js' },
     };
     expect(lazyChunkClosure(manifest, 'konva.tsx', new Set(['assets/route.js', 'assets/shared.js']))?.sort()).toEqual([
+      'assets/konva.css',
       'assets/konva.js',
       'assets/vendor-konva.js',
     ]);
-    expect(lazyChunkClosure(manifest, 'konva.tsx', new Set())).toHaveLength(4);
+    // Only the initial payload is certainly loaded (two pages import the chunk): the shared chunks count too.
+    expect(lazyChunkClosure(manifest, 'konva.tsx', new Set(['assets/konva.css']))?.sort()).toEqual([
+      'assets/konva.js',
+      'assets/route.js',
+      'assets/shared.js',
+      'assets/vendor-konva.js',
+    ]);
     expect(lazyChunkClosure(manifest, 'missing.tsx', new Set())).toBeNull();
   });
 

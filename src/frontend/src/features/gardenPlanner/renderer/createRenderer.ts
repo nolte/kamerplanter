@@ -1,11 +1,12 @@
 /**
  * The one place that picks a plan renderer (REQ-053 D-01, GP-NFR-009): SVG for every plan, Konva for a plan with at
  * least {@link KONVA_MIN_PLAN_OBJECTS} objects. The Konva renderer is its own chunk (GP-NFR-003: ≤ 200 KB gzip, only
- * for this chunk) and loads only when such a plan opens; until it is there - and for good when it fails to load - the
- * plan is drawn by SVG, so a plan never waits for, or breaks on, the second renderer.
+ * for this chunk) and loads only when such a plan opens; while it loads a placeholder stands in, and when it fails to
+ * load the plan is drawn by SVG, so a plan never breaks on the second renderer.
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { PlanModel } from '../model/planModel';
+import { PlaceholderPlanRenderer } from './PlaceholderPlanRenderer';
 import { SvgPlanRenderer } from './SvgPlanRenderer';
 import type { PlanRenderer } from './types';
 
@@ -45,22 +46,32 @@ export const loadKonvaRenderer: KonvaRendererLoader = () =>
   import('./KonvaPlanRenderer').then(({ KonvaPlanRenderer }) => new KonvaPlanRenderer());
 
 /**
- * The renderer for `model`. SVG at once; once the plan reaches the threshold the Konva chunk loads and its renderer
- * takes over. The choice is latched: a plan that shrinks below the threshold while open keeps Konva, so an edit never
- * swaps the drawing surface back and forth. A chunk that fails to load leaves the plan on SVG.
+ * The renderer for `model`.
+ *
+ * - Below the threshold: SVG.
+ * - At or above it: the Konva chunk loads; until it is there a placeholder holds the plan's place (no full SVG
+ *   drawing that is thrown away a moment later). A chunk that fails to load leaves the plan on SVG.
+ * - The choice is latched per plan (`identity`, by default the site): a plan that shrinks below the threshold while
+ *   open keeps Konva, so an edit never swaps the drawing surface. Another plan in the same mounted page (the route
+ *   does not remount on a new `:key`) is decided afresh.
  */
 export function usePlanRenderer(
   model: PlanModel | null | undefined,
+  identity: string | null = model?.siteKey ?? null,
   loader: KonvaRendererLoader = loadKonvaRenderer,
 ): PlanRenderer {
   const svg = useMemo(() => createSvgRenderer(), []);
-  const [konvaWanted, setKonvaWanted] = useState(false);
+  const placeholder = useMemo(() => new PlaceholderPlanRenderer(), []);
+  // The plan the Konva choice was made for; `undefined` = none yet.
+  const [latchedFor, setLatchedFor] = useState<string | null | undefined>(undefined);
   const [konva, setKonva] = useState<PlanRenderer | null>(null);
+  const [failed, setFailed] = useState(false);
   const wanted = rendererKindFor(planObjectCount(model)) === 'konva';
-  if (wanted && !konvaWanted) setKonvaWanted(true);
+  if (wanted && latchedFor !== identity) setLatchedFor(identity);
+  const konvaWanted = latchedFor !== undefined && latchedFor === identity;
 
   useEffect(() => {
-    if (!konvaWanted) return;
+    if (!konvaWanted || konva || failed) return;
     let alive = true;
     loader().then(
       (renderer) => {
@@ -69,12 +80,14 @@ export function usePlanRenderer(
       (error: unknown) => {
         // The SVG renderer stays: slower on this plan, but complete.
         console.warn('[garden-plan] the Konva renderer did not load; the plan stays on SVG', error);
+        if (alive) setFailed(true);
       },
     );
     return () => {
       alive = false;
     };
-  }, [konvaWanted, loader]);
+  }, [konvaWanted, konva, failed, loader]);
 
-  return konva ?? svg;
+  if (!konvaWanted) return svg;
+  return konva ?? (failed ? svg : placeholder);
 }

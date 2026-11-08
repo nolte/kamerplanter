@@ -64,11 +64,11 @@ function resolveManifestChunk(sourceKey) {
 }
 
 /**
- * The JS files a lazily loaded chunk brings with it: its own file plus every chunk it imports statically
- * (transitively), minus the files that are already loaded before it (`alreadyLoaded`: the initial payload and the
- * route chunk that imports it). Pure, so it can be unit-tested against a manifest object.
+ * The files a lazily loaded chunk brings with it: its own JS and CSS plus those of every chunk it imports statically
+ * (transitively), minus the files that are already loaded before it (`alreadyLoaded`). Pure, so it can be
+ * unit-tested against a manifest object.
  *
- * @param {Record<string, {file: string, imports?: string[]}>} manifest
+ * @param {Record<string, {file: string, css?: string[], imports?: string[]}>} manifest
  * @param {string} sourceKey
  * @param {Set<string>} alreadyLoaded dist-relative files
  * @returns {string[] | null}
@@ -81,6 +81,7 @@ export function lazyChunkClosure(manifest, sourceKey, alreadyLoaded) {
     const chunk = manifest[key];
     if (!chunk || alreadyLoaded.has(chunk.file) || files.has(chunk.file)) return;
     files.add(chunk.file);
+    for (const cssFile of chunk.css ?? []) if (!alreadyLoaded.has(cssFile)) files.add(cssFile);
     for (const next of chunk.imports ?? []) visit(next);
   };
   visit(sourceKey);
@@ -195,13 +196,9 @@ function main() {
   const konvaSource = budget.routeChunks.gardenPlannerKonva?.source;
   let konvaRendererBytes = null;
   if (konvaSource) {
-    // The chunk is only ever imported by the plan route: the initial payload and the route with every chunk it
-    // imports are already in the browser when it loads, so only what the chunk adds on top counts.
-    const manifest = readManifest();
-    const initial = new Set(js);
-    const routeClosure = gardenPlannerSource ? (lazyChunkClosure(manifest, gardenPlannerSource, initial) ?? []) : [];
-    const alreadyLoaded = new Set([...initial, ...routeClosure]);
-    const konvaFiles = lazyChunkClosure(manifest, konvaSource, alreadyLoaded);
+    // Two pages load the chunk - the plan route and the bed page's plan tab - and they share different chunks with
+    // it, so nothing beyond the initial payload is certainly in the browser: everything else the chunk pulls in counts.
+    const konvaFiles = lazyChunkClosure(readManifest(), konvaSource, new Set([...js, ...css]));
     if (!konvaFiles) {
       console.error(`Lazy chunk "${konvaSource}" is missing from the Vite manifest.`);
       process.exit(1);

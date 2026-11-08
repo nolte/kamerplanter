@@ -87,6 +87,26 @@ export interface DragPreview {
 
 const TAU = Math.PI * 2;
 
+/**
+ * Parsed paths by factory and path data: the icons and badge glyphs are a handful of fixed strings drawn thousands of
+ * times a frame, so each is parsed once (a `Path2D` is immutable and can be reused).
+ */
+const PATHS = new WeakMap<PathFactory, Map<string, Path2D>>();
+
+export function pathOf(frame: DrawFrame, d: string): Path2D {
+  let byData = PATHS.get(frame.path);
+  if (!byData) {
+    byData = new Map();
+    PATHS.set(frame.path, byData);
+  }
+  let path = byData.get(d);
+  if (!path) {
+    path = frame.path(d);
+    byData.set(d, path);
+  }
+  return path;
+}
+
 function screen(frame: DrawFrame, [x, y]: Point): Point {
   const { originM, pxPerM } = frame.viewport;
   return [(x - originM[0]) * pxPerM, (originM[1] - y) * pxPerM];
@@ -96,7 +116,20 @@ function font(frame: DrawFrame, px: number, bold = false): string {
   return `${bold ? '700 ' : ''}${px}px ${frame.fontFamily}`;
 }
 
-function strokeWith(ctx: PlanCanvasContext, color: string, width: number, dash: number[] = []): void {
+/**
+ * Strokes the current path. Cap and join are set on every stroke (default butt/miter), so a round cap of a fence or
+ * a cross never leaks into the next dashed ring.
+ */
+function strokeWith(
+  ctx: PlanCanvasContext,
+  color: string,
+  width: number,
+  dash: number[] = [],
+  cap: CanvasLineCap = 'butt',
+  join: CanvasLineJoin = 'miter',
+): void {
+  ctx.lineCap = cap;
+  ctx.lineJoin = join;
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.setLineDash(dash);
@@ -136,16 +169,12 @@ export function drawShape(ctx: PlanCanvasContext, frame: DrawFrame, item: SceneS
   traceShape(ctx, frame, item);
   if (entry.geometry.kind === 'polyline') {
     // A fence or path is a wide stroke in its fill colour, as in the SVG.
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    strokeWith(ctx, style.fill, entry.geometry.width_m * pxPerM);
+    strokeWith(ctx, style.fill, entry.geometry.width_m * pxPerM, [], 'round', 'round');
   } else {
     if (style.fill !== 'none') {
       ctx.fillStyle = style.fill;
       ctx.fill();
     }
-    ctx.lineCap = 'butt';
-    ctx.lineJoin = 'miter';
     strokeWith(ctx, style.stroke, style.strokeWidth, dashList(style.strokeDasharray));
   }
 
@@ -164,7 +193,7 @@ export function drawShape(ctx: PlanCanvasContext, frame: DrawFrame, item: SceneS
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.setLineDash([]);
-    ctx.stroke(frame.path(OBJECT_ICON_PATHS[iconKind]));
+    ctx.stroke(pathOf(frame, OBJECT_ICON_PATHS[iconKind]));
     ctx.restore();
   }
 
@@ -226,14 +255,14 @@ function drawPlantBadge(
   ctx.scale(radiusPx, radiusPx);
   ctx.setLineDash([]);
   ctx.fillStyle = style.fill;
-  ctx.fill(frame.path(style.outline));
+  ctx.fill(pathOf(frame, style.outline));
   ctx.strokeStyle = BADGE_OUTLINE;
   ctx.lineWidth = 1.5 / radiusPx;
-  ctx.stroke(frame.path(style.outline));
+  ctx.stroke(pathOf(frame, style.outline));
   ctx.lineWidth = 1.4 / radiusPx;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.stroke(frame.path(style.glyph));
+  ctx.stroke(pathOf(frame, style.glyph));
   ctx.restore();
 }
 
@@ -287,8 +316,7 @@ function drawStatedMarker(
     ctx.lineTo(cx + d, cy + d);
     ctx.moveTo(cx + d, cy - d);
     ctx.lineTo(cx - d, cy + d);
-    ctx.lineCap = 'round';
-    strokeWith(ctx, frame.palette.text, 2);
+    strokeWith(ctx, frame.palette.text, 2, [], 'round');
   }
   const detail = frame.viewport.pxPerM >= DETAIL_PX_PER_M;
   if (detail && state.progress !== null && !ring.cross && state.progress > 0) {
@@ -296,8 +324,7 @@ function drawStatedMarker(
     const share = Math.min(Math.max(state.progress, 0), 1);
     ctx.beginPath();
     ctx.arc(cx, cy, radius + 5, -Math.PI / 2, -Math.PI / 2 + share * TAU);
-    ctx.lineCap = 'round';
-    strokeWith(ctx, fill, 3);
+    strokeWith(ctx, fill, 3, [], 'round');
   }
   if (!ring.cross && state.initial) {
     ctx.font = font(frame, radius * 1.15, true);

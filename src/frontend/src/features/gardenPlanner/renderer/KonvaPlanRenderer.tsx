@@ -20,7 +20,7 @@
  *    the canvas, so on this renderer they also cover the plant markers.
  */
 import { lazy, memo, Suspense, useCallback, useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled, useTheme, type Theme } from '@mui/material/styles';
 import type { Context } from 'konva/lib/Context';
 import type { Layer as KonvaLayer } from 'konva/lib/Layer';
 import { Layer, Shape, Stage } from 'react-konva/lib/ReactKonvaCore';
@@ -52,11 +52,14 @@ interface Surface {
   main: KonvaLayer | null;
   drag: KonvaLayer | null;
   scene: Scene | null;
+  /** The accessible overlay: its node of the dragged object follows the drag (focus ring, badge target). */
+  overlay: SVGSVGElement | null;
 }
 
 export class KonvaPlanRenderer extends BasePlanRenderer {
   private preview: DragPreview | null = null;
-  private readonly surface: Surface = { main: null, drag: null, scene: null };
+  private readonly surface: Surface = { main: null, drag: null, scene: null, overlay: null };
+  private overlayNode: SVGElement | null = null;
 
   /** The node of the drag preview right now, or `null` (for tests and the drag layer). */
   get dragPreview(): DragPreview | null {
@@ -77,13 +80,37 @@ export class KonvaPlanRenderer extends BasePlanRenderer {
     const before = this.preview?.key ?? null;
     const scene = this.surface.scene;
     this.preview = key !== null && scene !== null && drawsNode(scene, key) ? { key, dxPx, dyPx } : null;
-    if ((this.preview?.key ?? null) !== before) this.surface.main?.batchDraw();
+    const after = this.preview?.key ?? null;
+    if (after !== before) this.surface.main?.batchDraw();
     this.surface.drag?.batchDraw();
+    this.moveOverlayNode(after, dxPx, dyPx);
+  }
+
+  /** The overlay node moves like the SVG renderer's node: a CSS transform in metres (one user unit = 1 m). */
+  private moveOverlayNode(key: string | null, dxPx: number, dyPx: number): void {
+    if (this.overlayNode && this.overlayNode.getAttribute('data-plan-key') !== key) {
+      this.overlayNode.style.transform = '';
+      this.overlayNode = null;
+    }
+    const viewport = this.currentViewport;
+    if (key === null || !this.surface.overlay || !viewport) return;
+    if (!this.overlayNode) {
+      for (const node of this.surface.overlay.querySelectorAll<SVGElement>('[data-plan-key]')) {
+        if (node.getAttribute('data-plan-key') === key) {
+          this.overlayNode = node;
+          break;
+        }
+      }
+    }
+    if (this.overlayNode) {
+      this.overlayNode.style.transform = `translate(${dxPx / viewport.pxPerM}px, ${dyPx / viewport.pxPerM}px)`;
+    }
   }
 
   /** @internal The stage reports its layers and the scene it draws. */
   attach(part: Partial<Surface>): void {
     Object.assign(this.surface, part);
+    if (part.overlay === null) this.overlayNode = null;
     if (part.scene !== undefined && this.preview && (part.scene === null || !drawsNode(part.scene, this.preview.key))) {
       this.preview = null;
     }
@@ -119,6 +146,19 @@ const Overlay = styled('svg')(({ theme }) => ({
     strokeDasharray: 'none',
   },
 }));
+
+/** `getContrastText` per fill, computed once per theme: a frame asks it for every stated plant. */
+function contrastOf(theme: Theme): (fill: string) => string {
+  const cache = new Map<string, string>();
+  return (fill) => {
+    let text = cache.get(fill);
+    if (text === undefined) {
+      text = theme.palette.getContrastText(fill);
+      cache.set(fill, text);
+    }
+    return text;
+  };
+}
 
 function createPath(d: string): Path2D {
   return new Path2D(d);
@@ -167,6 +207,7 @@ function KonvaPlan({ renderer, model, viewport, selection, options }: KonvaPlanP
     [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys, plantStateLayer, fieldMode, dimensionsOnOverlay],
   );
   const palette = useMemo(() => planPalette(theme), [theme]);
+  const contrastText = useMemo(() => contrastOf(theme), [theme]);
   const fontPx = labelFontPx(fieldMode);
   const frame = useMemo<DrawFrame>(
     () => ({
@@ -178,10 +219,10 @@ function KonvaPlan({ renderer, model, viewport, selection, options }: KonvaPlanP
       fontFamily: theme.typography.fontFamily ?? 'sans-serif',
       phaseColors,
       plantStates,
-      contrastText: (fill: string) => theme.palette.getContrastText(fill),
+      contrastText,
       path: createPath,
     }),
-    [scene, viewport, palette, labels, fontPx, theme, phaseColors, plantStates],
+    [scene, viewport, palette, labels, fontPx, theme, phaseColors, plantStates, contrastText],
   );
   useLayoutEffect(() => renderer.attach({ scene }), [renderer, scene]);
 
@@ -196,6 +237,7 @@ function KonvaPlan({ renderer, model, viewport, selection, options }: KonvaPlanP
   );
   const mainRef = useCallback((layer: KonvaLayer | null) => renderer.attach({ main: layer }), [renderer]);
   const dragRef = useCallback((layer: KonvaLayer | null) => renderer.attach({ drag: layer }), [renderer]);
+  const overlayRef = useCallback((svg: SVGSVGElement | null) => renderer.attach({ overlay: svg }), [renderer]);
 
   const batchedMarkers = useMemo(
     () => scene.markerBatches.reduce((sum, batch) => sum + batch.markers.length, 0),
@@ -209,6 +251,7 @@ function KonvaPlan({ renderer, model, viewport, selection, options }: KonvaPlanP
     <Root style={{ width: viewport.widthPx, height: viewport.heightPx }}>
       {/* First in the DOM: the accessible surface is the plan's `svg` for every caller that looks one up. */}
       <Overlay
+        ref={overlayRef}
         xmlns="http://www.w3.org/2000/svg"
         width={viewport.widthPx}
         height={viewport.heightPx}

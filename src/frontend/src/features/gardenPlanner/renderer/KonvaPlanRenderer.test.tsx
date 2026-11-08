@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { smallPlan } from '@/test/gardenPlanFixtures';
 import { KonvaPlanRenderer } from './KonvaPlanRenderer';
+import { pathOf } from './konvaDraw';
 import {
   contextOf,
   installRecordingCanvas,
@@ -124,6 +125,32 @@ describe('KonvaPlanRenderer - plant state channels (GP-UX-059/060)', () => {
   });
 });
 
+describe('KonvaPlanRenderer - stroke state', () => {
+  it('never draws a dashed slot ring with the round cap of a fence before it', async () => {
+    const { slots } = plantedBed('loc_a', 1, 1, 3, 0.5);
+    const model = smallPlan({
+      slots,
+      plants: [],
+      locations: [bed('loc_a', 1, 1)],
+      garden_objects: [
+        gardenObject('fence', 0, 0, {
+          object_type: 'fence',
+          props: { object_type: 'fence' },
+          geometry: { kind: 'polyline', points: [[1, 8], [6, 8]], width_m: 0.4 },
+          bbox: [1, 7.8, 6, 8.2],
+        }),
+      ],
+    });
+    const { plan } = await mount(new KonvaPlanRenderer(), model);
+    const capOfStrokes: string[] = [];
+    const dashed = plan.ops('stroke').filter((call) => call.lineDash.join(' ') === '2 2');
+    expect(dashed.length).toBeGreaterThan(0);
+    for (const call of dashed) capOfStrokes.push(String(call.lineCap));
+    expect(new Set(capOfStrokes)).toEqual(new Set(['butt']));
+    expect(plan.ops('stroke').some((call) => call.lineCap === 'round')).toBe(true); // the fence itself
+  });
+});
+
 describe('KonvaPlanRenderer - accessible overlay (GP-NFR-020/068, §9.7)', () => {
   it('labels the surface and gives every object a name and one tab stop, like the SVG renderer', async () => {
     const { svg } = await mount(new KonvaPlanRenderer());
@@ -221,7 +248,7 @@ describe('KonvaPlanRenderer - accessible overlay (GP-NFR-020/068, §9.7)', () =>
 describe('KonvaPlanRenderer - drag on its own layer (GP-NFR-011, GP-NFR-033)', () => {
   it('moves the dragged bed to the drag layer and repaints only that layer while it moves', async () => {
     const renderer = new KonvaPlanRenderer();
-    const { plan, drag } = await mount(renderer);
+    const { plan, drag, svg } = await mount(renderer);
     plan.reset();
     drag.reset();
 
@@ -235,6 +262,9 @@ describe('KonvaPlanRenderer - drag on its own layer (GP-NFR-011, GP-NFR-033)', (
     const moved = drag.ops('fillText').find((call) => call.args[0] === 'Bed loc_a');
     expect(moved).toBeDefined();
     expect(drag.ops('translate').map((call) => call.args)).toContainEqual([50, -20]);
+    // The overlay node follows like the SVG renderer's node: focus ring and badge target stay on the bed.
+    const overlayNode = svg.querySelector<SVGGElement>('g[data-plan-key="loc_a"]');
+    expect(overlayNode?.style.transform).toBe('translate(0.5px, -0.2px)');
 
     plan.reset();
     drag.reset();
@@ -251,6 +281,7 @@ describe('KonvaPlanRenderer - drag on its own layer (GP-NFR-011, GP-NFR-033)', (
     });
     expect(renderer.dragPreview).toBeNull();
     expect(texts(plan)).toContain('Bed loc_a');
+    expect(overlayNode?.style.transform).toBe('');
   });
 
   it('ignores an unknown key and is a no-op before anything is mounted', async () => {
@@ -259,5 +290,16 @@ describe('KonvaPlanRenderer - drag on its own layer (GP-NFR-011, GP-NFR-033)', (
     await mount(renderer);
     renderer.setDragOffset('nope', 1, 1);
     expect(renderer.dragPreview).toBeNull();
+  });
+});
+
+describe('konvaDraw - path cache', () => {
+  it('parses each icon or glyph path once per factory and reuses it', () => {
+    const factory = vi.fn((d: string) => ({ d }) as unknown as Path2D);
+    const frame = { path: factory } as unknown as Parameters<typeof pathOf>[0];
+    const first = pathOf(frame, 'M0 0L1 1');
+    expect(pathOf(frame, 'M0 0L1 1')).toBe(first);
+    expect(pathOf(frame, 'M0 0L2 2')).not.toBe(first);
+    expect(factory).toHaveBeenCalledTimes(2);
   });
 });
