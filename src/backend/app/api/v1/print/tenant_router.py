@@ -142,6 +142,21 @@ async def export_garden_plan_pdf(
     site_key: Annotated[str, Path(description="Document key of the site.")],
     options: PlanSvgOptions = Depends(plan_svg_options),
     bed_list: bool = Query(False, description="Add a second page listing the beds (name, area, status, sun)."),
+    parcel_list: bool = Query(
+        False,
+        description=(
+            "Add a page listing the beds as parcels (GP-FR-176): identifier (running number in plan order and "
+            "bed name), area and irrigation zone."
+        ),
+    ),
+    include_assignment: bool = Query(
+        False,
+        description=(
+            "`parcel_list=true` only: add the column with the display names of the members a bed is assigned to. "
+            "Off by default (SR-024): personal data enters the PDF only on request. Without `parcel_list=true` "
+            "it is 422 `export.assignment_needs_parcel_list`."
+        ),
+    ),
     underlay: bool = Query(
         False,
         description=(
@@ -155,7 +170,8 @@ async def export_garden_plan_pdf(
     """The garden plan to scale as PDF (GP-API-007, GP-FR-142): scale bar, north arrow, legend, title block.
 
     Default A4 landscape with the finest scale at which the plan fits; ``X-Plan-Suggested-Paper: a3`` when A4
-    would need a scale coarser than 1:200. Carries no member names, assignments, notes or coordinates.
+    would need a scale coarser than 1:200. Carries no notes or coordinates, and member names only in the
+    parcel list's assignment column (``parcel_list=true&include_assignment=true``, SR-024 opt-in).
     ``underlay=true`` lays the site's background picture under the plan; without it the PDF never carries one.
     422 ``plan.does_not_fit`` when a fixed scale does not fit the paper, ``plan.empty`` when there is nothing to draw.
     """
@@ -166,6 +182,8 @@ async def export_garden_plan_pdf(
         tenant_key=ctx.tenant_key,
         options=options,
         bed_list=bed_list,
+        parcel_list=parcel_list,
+        include_assignment=include_assignment,
         underlay=picture,
     )
     headers = {

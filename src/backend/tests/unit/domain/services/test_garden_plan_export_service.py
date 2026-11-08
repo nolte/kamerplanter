@@ -37,6 +37,7 @@ from app.domain.engines.plan_svg_engine import (
 )
 from app.domain.engines.print_engine import TEMPLATES_DIR, PrintEngine
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
+from app.domain.models.bed_list_export import BedAssignee
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlantShortInfo
 from app.domain.models.site import Microclimate, SiteConditions, SitePlan, Slot
@@ -292,6 +293,59 @@ class TestNoPersonalDataByDefault:
         _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options())
 
         assert "bed-list" in engine.html[-1] and "<section" not in engine.html[-1]
+
+
+class TestTheParcelList:
+    """GP-FR-176 (WP 9.10, #2750): identifier in plan order, area, zone; the assignment only behind the opt-in."""
+
+    def test_the_numbers_follow_the_plan_order_and_skip_what_is_no_placed_bed(self, repo) -> None:
+        repo.locations["unplaced"] = make_location("unplaced", "Zelt ohne Platz")
+        repo.locations["b2"] = make_location("b2", "alpha", geometry=rect(4, 1, 2, 1), irrigation_zone_key="zone_1")
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        html = engine.html[-1]
+        section = html[html.index('<section class="parcel-list">') :]
+        planned = [loc.name for loc in repo.locations.values() if loc.geometry is not None]
+        for number, name in enumerate(planned, start=1):
+            assert f"{number} &middot; {name}" in section
+        assert "Zelt ohne Platz" not in section
+        assert "Tropf Ost" in section
+
+    def test_without_the_opt_in_the_assignment_is_neither_read_nor_printed(self, repo) -> None:
+        repo.assignees = [(TENANT, BedAssignee("b1", "u_sabine", "Sabine Gärtner"))]
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        assert "Sabine" not in engine.html[-1] and "Zuweisung" not in engine.html[-1]
+        assert repo.assignee_reads == []
+
+    def test_the_assignment_is_escaped_into_text(self, repo) -> None:
+        repo.locations["b1"] = make_location("b1", "Beet 1", geometry=rect(1, 1, 2, 1))
+        repo.assignees = [(TENANT, BedAssignee("b1", "u_x", HOSTILE_IMAGE_NAME))]
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(
+            SITE, tenant_key=TENANT, options=_options(), parcel_list=True, include_assignment=True
+        )
+
+        html = engine.html[-1]
+        assert "&#34;&gt;&lt;image href=&#34;http://169.254.169.254/&#34;/&gt;" in html
+        assert '"><image' not in html
+
+    def test_the_assignment_without_the_parcel_list_is_refused_before_anything_is_read(self, repo) -> None:
+        reads: list[str] = []
+        original = repo.load_read_model
+        repo.load_read_model = lambda site_key, **kwargs: reads.append(site_key) or original(site_key, **kwargs)
+
+        with pytest.raises(PlanError) as refused:
+            _service(repo).render_pdf(SITE, tenant_key=TENANT, options=_options(), include_assignment=True)
+
+        assert refused.value.status_code == 422
+        assert refused.value.details[0]["code"] == "export.assignment_needs_parcel_list"
+        assert reads == [] and repo.assignee_reads == []
 
 
 class TestCrossTenant:

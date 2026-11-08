@@ -6408,6 +6408,13 @@
             "labels": "Labels"
           },
           "bedList": "Bed list as a second page",
+          "parcelList": {
+            "label": "Parcel list as an extra page",
+            "hint": "A page for the board or the landlord: every bed with a running number in plan order and its name, plus area and irrigation zone.",
+            "includeAssignment": "Include assignments in the parcel list",
+            "assignmentHint": "Adds the column “Assigned to” with the names of the members a bed is assigned to. That is personal data – share the PDF only with people who may see it. Off by default.",
+            "privacyWithAssignment": "The parcel list of the PDF holds the names of the members beds are assigned to. Notes and account data are never included."
+          },
           "privacy": "The export holds no member names, no assignments and no notes of other people.",
           "phoneNote": "On a phone the standard settings apply (A4, landscape, automatic scale). More options are available on a larger screen.",
           "preview": "Preview",

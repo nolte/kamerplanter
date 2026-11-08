@@ -7,9 +7,11 @@ read model itself comes from :class:`GardenPlanService`, which anchors again; th
 document and keeps this class correct if it is ever handed a different collaborator.
 
 **What a PDF carries (SR-024).** The plan, its scale bar, north arrow and legend, a title block (garden name,
-date, revision, scale, paper) and, on request, a bed list (name, area, status, sun exposure). Never member
-names, assignments, notes, GPS coordinates, ``*_by`` fields or photos. The SVG is embedded as a ``data:``
-image, so the template needs neither ``|safe`` nor any URL, and the print engine's fetcher
+date, revision, scale, paper) and, on request, a bed list (name, area, status, sun exposure) and a parcel list
+(bed identifier, area, irrigation zone; GP-FR-176). Never notes, GPS coordinates, ``*_by`` fields or photos, and
+member names **only** in the parcel list's assignment column, which exists only with ``include_assignment=True``
+(the opt-in of the bed-list CSV, #2668) - without it the assignments are not even read. The SVG is embedded as
+a ``data:`` image, so the template needs neither ``|safe`` nor any URL, and the print engine's fetcher
 (``RestrictedURLFetcher``: ``data:`` and the template tree only) sees nothing it could be talked into
 fetching (GP-NFR-052 (a), (f)).
 
@@ -73,6 +75,7 @@ from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
+from app.domain.models.care_event import display_performer
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import GardenPlanView
 from app.domain.models.garden_plan_export import (
@@ -101,6 +104,12 @@ _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9_-]")
 #: Plants per plant-state read; a site needs at most ``PLANT_COUNTER_THRESHOLD / page`` reads (+1 to see the end).
 STATE_PAGE_SIZE = 200
 _MAX_STATE_PAGES = PLANT_COUNTER_THRESHOLD // STATE_PAGE_SIZE + 1
+
+
+#: ``include_assignment=true`` without ``parcel_list=true``: the assignment is a column of the parcel list only.
+ERROR_ASSIGNMENT_NEEDS_PARCEL_LIST = "export.assignment_needs_parcel_list"
+#: Separator of several members in one assignment cell (as the bed-list CSV).
+ASSIGNEE_SEPARATOR = ", "
 
 
 def _export_error(code: str, message: str) -> PlanError:
@@ -298,10 +307,23 @@ class GardenPlanExportService:
         tenant_key: str,
         options: PlanSvgOptions,
         bed_list: bool = False,
+        parcel_list: bool = False,
+        include_assignment: bool = False,
         underlay: UnderlayImage | None = None,
         now: datetime | None = None,
     ) -> PlanPdf:
-        """A scaled plan on one page (plus the bed list when asked). 422 ``plan.does_not_fit`` when it cannot."""
+        """A scaled plan on one page (plus the bed list and the parcel list when asked).
+
+        422 ``plan.does_not_fit`` when it cannot; 422 ``export.assignment_needs_parcel_list`` for
+        ``include_assignment`` without ``parcel_list`` - the member names have no other place in the PDF.
+        """
+        if include_assignment and not parcel_list:
+            raise PlanError(
+                ERROR_ASSIGNMENT_NEEDS_PARCEL_LIST,
+                "The assignment is a column of the parcel list; add parcel_list=true.",
+                status_code=422,
+                field="include_assignment",
+            )
         started = perf_counter()
         pdf_options = replace(options, header_mm=PDF_HEADER_MM)
         view = self._view(site_key, tenant_key=tenant_key, options=pdf_options)
@@ -336,6 +358,13 @@ class GardenPlanExportService:
             "underlay": placement,
             "beds": self._bed_rows(view, options.locale) if bed_list else [],
             "show_bed_list": bed_list,
+            "parcels": self._parcel_rows(
+                view, tenant_key=tenant_key, locale=options.locale, include_assignment=include_assignment
+            )
+            if parcel_list
+            else [],
+            "show_parcel_list": parcel_list,
+            "show_assignment": parcel_list and include_assignment,
         }
         content = self._print.render_pdf(_TEMPLATE, context, options.locale)
         logger.info(
@@ -345,6 +374,8 @@ class GardenPlanExportService:
             beds=len(view.locations),
             plants=len(view.plants),
             stated_plants=len(marks.states) if marks is not None else 0,
+            parcel_list=parcel_list,
+            include_assignment=include_assignment,
             seconds=round(perf_counter() - started, 3),
         )
         return PlanPdf(
@@ -472,22 +503,69 @@ class GardenPlanExportService:
         include = frozenset({"plants"}) if PlanSvgLayer.PLANTS in options.layers else frozenset()
         return self._plans.get_plan(site_key, tenant_key=tenant_key, include=include)
 
-    def _bed_rows(self, view: GardenPlanView, locale: str) -> list[dict[str, str]]:
-        """Name, area, status and sun exposure of every placed *bed* — no rooms or areas, no notes, no assignments
-        (SR-024). Whether a location is a bed is the ``is_bed`` flag of its type."""
+    def _placed_beds(self, view: GardenPlanView) -> list[Location]:
+        """The placed *beds* of the plan in plan order — no rooms or areas, nothing without a geometry. Whether a
+        location is a bed is the ``is_bed`` flag of its type."""
         is_bed = self._plan.bed_type_flags(sorted({loc.location_type_key for loc in view.locations}))
+        return [
+            location
+            for location in view.locations
+            if location.geometry is not None and is_bed.get(location.location_type_key, False)
+        ]
+
+    def _bed_rows(self, view: GardenPlanView, locale: str) -> list[dict[str, str]]:
+        """Name, area, status and sun exposure of every placed bed, sorted by name — no notes, no assignments
+        (SR-024)."""
+        return [
+            {
+                "name": location.name,
+                "area": _area_label(location.area_m2, locale),
+                "status": location.bed_status.value,
+                "sun": location.sun_exposure.value,
+            }
+            for location in sorted(self._placed_beds(view), key=lambda loc: loc.name.casefold())
+        ]
+
+    def _parcel_rows(
+        self, view: GardenPlanView, *, tenant_key: str, locale: str, include_assignment: bool
+    ) -> list[dict[str, str]]:
+        """The parcel list (GP-FR-176): identifier, area, irrigation zone and - only on request - the assignment.
+
+        **The identifier is the bed's name with a running number in plan order** (the order of the plan read model:
+        depth, drawing order, key). There is no ``bed_number`` field; the number is counted here, so it is the same
+        on every print of an unchanged plan (placeholder assumption 8 of wave 9, #2759). **The assignment** is read
+        only when ``include_assignment`` is set: the display names of the members a bed is assigned to, sorted,
+        ``anonymisiert`` for an erased account - never an account key (SR-024, as the bed-list CSV of #2668).
+
+        ``view`` is the read model of a site this service resolved through the tenant anchor; the zone and the
+        assignment reads still filter on ``tenant_key``.
+        """
+        beds = self._placed_beds(view)
+        zone_names: dict[str, str] = {}
+        if any(bed.irrigation_zone_key for bed in beds):
+            zone_names = self._plan.irrigation_zone_names(view.site_key, tenant_key=tenant_key)
+        assignees: dict[str, list[str]] = {}
+        if include_assignment and beds:
+            keys = [bed.key for bed in beds if bed.key]
+            for assignee in self._plan.location_assignees(keys, tenant_key=tenant_key):
+                name = display_performer(assignee.user_key, assignee.display_name)
+                if name:
+                    assignees.setdefault(assignee.location_key, []).append(name)
         rows = []
-        for location in sorted(view.locations, key=lambda loc: loc.name.casefold()):
-            if location.geometry is None or not is_bed.get(location.location_type_key, False):
-                continue
-            rows.append(
-                {
-                    "name": location.name,
-                    "area": f"{location.area_m2:.1f}".replace(".", ",")
-                    if locale == "de"
-                    else f"{location.area_m2:.1f}",
-                    "status": location.bed_status.value,
-                    "sun": location.sun_exposure.value,
-                }
-            )
+        for number, bed in enumerate(beds, start=1):
+            row = {
+                "number": str(number),
+                "name": bed.name,
+                "area": _area_label(bed.area_m2, locale),
+                "zone": zone_names.get(bed.irrigation_zone_key, "") if bed.irrigation_zone_key else "",
+            }
+            if include_assignment:
+                row["assigned_to"] = ASSIGNEE_SEPARATOR.join(sorted(assignees.get(bed.key or "", []), key=str.casefold))
+            rows.append(row)
         return rows
+
+
+def _area_label(area_m2: float, locale: str) -> str:
+    """An area in m² with one decimal, with a decimal comma in German."""
+    text = f"{area_m2:.1f}"
+    return text.replace(".", ",") if locale == "de" else text

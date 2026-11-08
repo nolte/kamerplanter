@@ -6409,6 +6409,13 @@
             "labels": "Beschriftungen"
           },
           "bedList": "Beetliste als zweite Seite",
+          "parcelList": {
+            "label": "Parzellenliste als Zusatzseite",
+            "hint": "Eine Seite für Vorstand oder Verpächter: jedes Beet mit laufender Nummer in Plan-Reihenfolge und Name, dazu Fläche und Bewässerungszone.",
+            "includeAssignment": "Zuweisungen in die Parzellenliste aufnehmen",
+            "assignmentHint": "Fügt die Spalte „Zuweisung“ mit den Namen der Mitglieder hinzu, denen ein Beet zugewiesen ist. Das sind personenbezogene Daten – gib das PDF nur an Personen weiter, die sie sehen dürfen. Standardmäßig aus.",
+            "privacyWithAssignment": "Das PDF enthält in der Parzellenliste die Namen der Mitglieder, denen Beete zugewiesen sind. Notizen und Kontodaten sind nie enthalten."
+          },
           "privacy": "Der Export enthält keine Namen von Mitgliedern, keine Zuweisungen und keine Notizen anderer Personen.",
           "phoneNote": "Auf dem Handy gelten die Standardeinstellungen (A4, Querformat, automatischer Maßstab). Weitere Optionen gibt es auf einem größeren Bildschirm.",
           "preview": "Vorschau",
