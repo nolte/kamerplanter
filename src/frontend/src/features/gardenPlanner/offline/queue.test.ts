@@ -312,7 +312,12 @@ describe('the purge reads keys only and keeps its notice on the device (review 3
   });
 
   it("keeps each owner's notice across a reload until that owner takes it — then it is used up", async () => {
-    const { takePurgedCount } = await import('./queue');
+    const { acknowledgePurged, readPurgedCount } = await import('./queue');
+    const takePurgedCount = async (userKey: string) => {
+      const count = await readPurgedCount(userKey);
+      await acknowledgePurged(userKey, count);
+      return count;
+    };
     await storeRow(BOB_A, { capturedAt: NOW - 400 * DAY });
     await storeRow(BOB_A, { capturedAt: NOW - 95 * DAY, status: 'conflict' });
     await storeRow(ALICE_A, { capturedAt: NOW - 400 * DAY });
@@ -321,6 +326,18 @@ describe('the purge reads keys only and keeps its notice on the device (review 3
     expect(await takePurgedCount('bob')).toBe(2);
     expect(await takePurgedCount('bob')).toBe(0);
     expect(await takePurgedCount('alice')).toBe(1);
+  });
+
+  it('a notice that was read but not acknowledged (nobody saw it) is still there; an acknowledge takes off only what was shown', async () => {
+    const { acknowledgePurged, readPurgedCount } = await import('./queue');
+    await storeRow(BOB_A, { capturedAt: NOW - 400 * DAY });
+    await purgeExpiredEntries(NOW);
+    expect(await readPurgedCount('bob')).toBe(1);
+    expect(await readPurgedCount('bob')).toBe(1); // reading consumes nothing
+    await storeRow(BOB_A, { capturedAt: NOW - 400 * DAY });
+    await purgeExpiredEntries(NOW); // a purge between showing and acknowledging
+    await acknowledgePurged('bob', 1);
+    expect(await readPurgedCount('bob')).toBe(1);
   });
 
   it('a status change moves the expiry: failed after 90 days of capture, back to 365 on "Try again"', async () => {

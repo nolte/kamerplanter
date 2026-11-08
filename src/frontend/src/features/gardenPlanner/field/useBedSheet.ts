@@ -60,6 +60,9 @@ export interface BedSheet {
   reloading: boolean;
 }
 
+/** How long one read of the bed sheet may take before it counts as no answer. */
+export const SHEET_READ_TIMEOUT_MS = 15_000;
+
 export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet {
   const [loaded, setLoaded] = useState<{ bedKey: string; attempt: number; state: BedSheetState } | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -69,8 +72,10 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
     readThrough<SheetData>(scope ? bedSheetEntry(scope, bedKey) : null, async () => {
       let complete = true;
       const [tasks, plants] = await Promise.all([
-        getBedQueue(bedKey),
-        listPlantStates(bedKey, controller.signal).catch((): null => {
+        // A bounded read (review B1): a request that never answers must end, so `reloading` ends and the lie-fi
+        // lock of the sheet lifts; the timeout counts as a network failure (the cache answers, the retry goes on).
+        getBedQueue(bedKey, { timeout: SHEET_READ_TIMEOUT_MS }),
+        listPlantStates(bedKey, controller.signal, SHEET_READ_TIMEOUT_MS).catch((): null => {
           complete = false;
           return null;
         }),

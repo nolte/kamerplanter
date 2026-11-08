@@ -20,9 +20,10 @@ const TASKS = '/tasks';
 /** GP-API-030: the pending tasks of a bed and the plants standing in it (suggestions included). */
 export async function getBedQueue(
   locationKey: string,
-  options: { includeChildren?: boolean; category?: string } = {},
+  options: { includeChildren?: boolean; category?: string; timeout?: number } = {},
 ): Promise<CareTask[]> {
   const { data } = await tenantClient.get<CareTask[]>(`${TASKS}/queue`, {
+    ...(options.timeout ? { timeout: options.timeout } : {}),
     params: {
       location_key: locationKey,
       include_children: options.includeChildren ?? true,

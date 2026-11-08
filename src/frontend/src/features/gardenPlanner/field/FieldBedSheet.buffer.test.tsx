@@ -308,3 +308,23 @@ describe('the state of a buffered completion', () => {
     expect(await within(sheet).findByTestId('field-done-queued-t_water')).toBeInTheDocument();
   });
 });
+
+describe('bounded requests (review B1/B2)', () => {
+  it('reads the sheet with a 15 s timeout and sends "Done" directly with the 30 s send timeout', async () => {
+    useBackend();
+    const { tenantClient } = await import('@/api/client');
+    const get = vi.spyOn(tenantClient, 'get');
+    const post = vi.spyOn(tenantClient, 'post');
+    const user = userEvent.setup();
+    renderSheet();
+    const sheet = await screen.findByTestId('field-bed-sheet');
+    await user.click(await within(sheet).findByTestId('field-done-t_water'));
+    await user.click(within(await screen.findByTestId('care-complete-dialog')).getByTestId('care-complete-submit'));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const reads = get.mock.calls.filter(([url]) => /tasks\/queue|plant-states/.test(String(url)));
+    expect(reads.length).toBeGreaterThanOrEqual(2);
+    for (const [, config] of reads) expect(config).toMatchObject({ timeout: 15_000 });
+    expect(post.mock.calls[0][0]).toMatch(/tasks\/t_water\/complete/);
+    expect(post.mock.calls[0][2]).toMatchObject({ timeout: 30_000 });
+  });
+});

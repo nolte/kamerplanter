@@ -126,6 +126,22 @@ describe('retention without the start-up purge (review 10)', () => {
   });
 });
 
+describe('the notice is never used up unseen (review B3)', () => {
+  it('a host gone before the notice showed leaves it for the next one', async () => {
+    const { readPurgedCount } = await import('./queue');
+    setOnline(false);
+    await storeRow(SCOPE, { capturedAt: Date.now() - 400 * 24 * 60 * 60 * 1000 });
+    await purgeExpiredEntries();
+    renderHost();
+    cleanup(); // unmounted before its read came back
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(await readPurgedCount('user-1')).toBe(1);
+    renderHost();
+    expect(await screen.findByText(/1 nicht übertragener Eintrag war älter als ein Jahr/)).toBeInTheDocument();
+    await waitFor(async () => expect(await readPurgedCount('user-1')).toBe(0));
+  });
+});
+
 describe('owner scope (G-W9 a, UI-NFR-012 R-050/R-051)', () => {
   it("neither shows nor sends another user's or another tenant's entries kept on the device", async () => {
     const bodies: unknown[] = [];

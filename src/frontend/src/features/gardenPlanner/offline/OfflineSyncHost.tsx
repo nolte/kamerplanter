@@ -31,7 +31,7 @@ import {
 } from '@/store/slices/offlineSlice';
 import ConflictDialog from './ConflictDialog';
 import type { CacheScope } from './planCache';
-import { countEntries, onQueueChange, purgeExpiredEntries, takePurgedCount } from './queue';
+import { acknowledgePurged, countEntries, onQueueChange, purgeExpiredEntries, readPurgedCount } from './queue';
 import { createSyncScheduler, type SyncResult } from './sync';
 import { useCacheScope } from './useCacheScope';
 import { useWriteQueue } from './useWriteQueue';
@@ -111,8 +111,11 @@ export default function OfflineSyncHost() {
     // The notice is stored on the device (`notices`): a purge while someone else was signed in, or before a
     // reload, is still named at this user's next sign-in — then it is used up.
     const announce = () => {
-      void takePurgedCount(userKey).then((purged) => {
-        if (alive && purged > 0) notification.warning(t('pages.offlineQueue.purged', { count: purged }));
+      // Read, show, THEN acknowledge (review B3): a host that unmounted in between leaves the notice for later.
+      void readPurgedCount(userKey).then((purged) => {
+        if (!alive || purged <= 0) return;
+        notification.warning(t('pages.offlineQueue.purged', { count: purged }));
+        void acknowledgePurged(userKey, purged);
       });
     };
     announce();

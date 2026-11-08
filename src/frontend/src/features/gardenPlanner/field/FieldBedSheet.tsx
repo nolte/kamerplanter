@@ -62,6 +62,9 @@ import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import { canBuffer, sendOrBuffer, type BufferTarget } from '../offline/bufferedWrite';
 import { QUEUE_CAPACITY, discardEntry, isPerformedTooOld, isQueueFull } from '../offline/queue';
 import { photoAsSent, photoForQueue, withGenericName } from '../offline/queuedPhoto';
+// The direct send carries the same per-request timeouts as the sync (review B2): a hanging request ends as a
+// network failure, so the buffer fallback with the same id is reached.
+import { PHOTO_SEND_TIMEOUT_MS, SEND_TIMEOUT_MS } from '../offline/sync';
 import type { QueueEntry, QueuedWrite, StoredPhoto } from '../offline/queueTypes';
 import { useWriteQueue } from '../offline/useWriteQueue';
 
@@ -264,7 +267,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
       const outcome = await sendOrBuffer(
         target,
         () => ({ kind: 'complete', taskKey: task.key, taskName: taskName(task), payload: sent }),
-        (id) => completeBedTask(task.key, sent, id),
+        (id) => completeBedTask(task.key, sent, id, { timeout: SEND_TIMEOUT_MS }),
       );
       setOverlay(null);
       if (outcome.status === 'queued') {
@@ -289,7 +292,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   /** The note chip's short form (GP-UX-029): sent, or buffered offline. */
   const logNote = async (body: CareEventBody, label: string) => {
     try {
-      const outcome = await sendOrBuffer(target, () => ({ kind: 'note', body }), (id) => logCareEvent(body, id));
+      const outcome = await sendOrBuffer(target, () => ({ kind: 'note', body }), (id) => logCareEvent(body, id, { timeout: SEND_TIMEOUT_MS }));
       setOverlay(null);
       if (outcome.status === 'queued') {
         offerQueuedUndo(outcome.entry, t('pages.gardenPlan.field.buffer.noted'));
@@ -362,7 +365,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     sendPhoto(
       file,
       (photo) => ({ kind: 'bedPhoto', locationKey: bed.key, photo }),
-      (sent, id) => addBedPhoto(bed.key, sent, id),
+      (sent, id) => addBedPhoto(bed.key, sent, id, { timeout: PHOTO_SEND_TIMEOUT_MS }),
     );
   /** The photo of the plant the photo dialog was opened for. */
   const uploadPhotoOfPlant = (file: File): Promise<void> => {
@@ -371,7 +374,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
     return sendPhoto(
       file,
       (photo) => ({ kind: 'plantPhoto', plantKey, plantName, photo }),
-      (sent, id) => uploadPlantPhoto(plantKey, sent, id),
+      (sent, id) => uploadPlantPhoto(plantKey, sent, id, { timeout: PHOTO_SEND_TIMEOUT_MS }),
     );
   };
   const fullMessage = (error: unknown): string | null =>

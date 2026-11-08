@@ -361,20 +361,34 @@ export async function purgeExpiredEntries(now: number = Date.now()): Promise<num
   return removed;
 }
 
-/** How many of `userKey`'s entries the retention purge deleted since the notice was last shown; the notice is used up. */
-export async function takePurgedCount(userKey: string): Promise<number> {
+/** How many of `userKey`'s entries the retention purge deleted and no notice has named yet (read only). */
+export async function readPurgedCount(userKey: string): Promise<number> {
   if (!(await writeQueueExists())) return 0;
   const db = await database();
   if (!db) return 0;
   try {
-    let count = 0;
-    await db.transaction('rw', db.notices, async () => {
-      count = (await db.notices.get(userKey))?.count ?? 0;
-      if (count > 0) await db.notices.delete(userKey);
-    });
-    return count;
+    return (await db.notices.get(userKey))?.count ?? 0;
   } catch {
     return 0;
+  }
+}
+
+/**
+ * The notice named `shown` deleted entries: only that many are taken off (a purge in between adds to the row and
+ * stays for the next notice). Called AFTER the notice is on screen, so a notice is never used up unseen.
+ */
+export async function acknowledgePurged(userKey: string, shown: number): Promise<void> {
+  if (shown <= 0) return;
+  const db = await database();
+  if (!db) return;
+  try {
+    await db.transaction('rw', db.notices, async () => {
+      const left = ((await db.notices.get(userKey))?.count ?? 0) - shown;
+      if (left > 0) await db.notices.put({ userKey, count: left });
+      else await db.notices.delete(userKey);
+    });
+  } catch {
+    // Best effort: the notice may show once more, it is never lost.
   }
 }
 
