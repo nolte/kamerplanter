@@ -1,1 +1,14 @@
-{}
+{
+  "062": {
+    "reason": "planned: bed template export (GP-API-070), WP 9.9 not implemented yet",
+    "issue": 2749
+  },
+  "063": {
+    "reason": "planned: bed template import (GP-API-071), WP 9.9 not implemented yet",
+    "issue": 2749
+  },
+  "064": {
+    "reason": "planned: parcel list page in the garden plan PDF (parcel_list on GP-API-007), WP 9.10 not implemented yet",
+    "issue": 2750
+  }
+}

@@ -4,13 +4,13 @@ ID: UI-NFR-012
 Titel: PWA & Offline-Faehigkeit
 Kategorie: UI-Verhalten Unterkategorie: Progressive Web App, Offline, Synchronisation
 Technologie: React, TypeScript, Vite (vite-plugin-pwa), Workbox, IndexedDB (Dexie), Redux Toolkit
-Status: Entwurf
+Status: in Umsetzung (Welle 9: Phase 1 + Gartenplan-Puffer)
 Prioritaet: Hoch
-Version: 2.2 (W-005 Phasen-Begründung, W-011 KI-Online-only)
+Version: 2.3 (REQ-053 Welle 9: Umsetzungsstand, Mandantenbindung von Cache und Puffer aus SR-019, Allowlist statt R-053-Interceptor, CDP-Abnahme statt Lighthouse-PWA-Score); 2.2 (W-005 Phasen-Begründung, W-011 KI-Online-only)
 Autor: Business Analyst - Agrotech
-Datum: 2026-04-27
+Datum: 2026-11-08
 Tags: [pwa, offline, service-worker, indexeddb, dexie, sync, installable, cache, connectivity, mobile-strategy]
-Abhaengigkeiten: [UI-NFR-001, UI-NFR-003, UI-NFR-004, UI-NFR-006, UI-NFR-009, UI-NFR-019, REQ-023 v1.9]
+Abhaengigkeiten: [UI-NFR-001, UI-NFR-003, UI-NFR-004, UI-NFR-006, UI-NFR-009, UI-NFR-019, REQ-023 v1.9, REQ-053 v1.13]
 Betroffene Module: [Frontend, Backend (ETag-Support)]
 ---
 
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Backend (ETag-Support)]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.3 | 2026-11-08 | **REQ-053 Welle 9, WP 9.5 (#2745).** (a) Status „Entwurf“ → „in Umsetzung (Welle 9: Phase 1 + Gartenplan-Puffer)“. (b) Neuer §2.3 Umsetzungsstand Welle 9: WP 9.1 (#2741, PR #2786), 9.2 (#2742, PR #2789) und 9.3 (#2743, PR #2787) gemergt, WP 9.4 (#2744, Offline-Puffer) in Arbeit; §2.1 als historischer Stand gekennzeichnet. (c) Neuer §3.11 mit R-055…R-060: Namensraum aus `user_key` und `tenant_key` und Leerung des Lesecaches bei Logout und Tenant-Wechsel vor dem Neuladen (übernommen aus REQ-053 SR-019) mit eigenen Regeln für den Schreibpuffer, Lese- und Schreib-Allowlist der Welle 9, Auslieferung und Kill-Switch, Daten auf dem Gerät (R-060). (d) R-053 (generischer Axios-Interceptor) gilt nicht für Welle 9: Welle 9 puffert nur Erledigt/Notiz/Foto über eine Allowlist (REQ-053 §32.6 Pkt. 4, #2759); der Rest von Phase 3/4 bleibt ein eigener Strang (§3.10, §7.3). (e) §7.2: umgesetzt ist `injectManifest` statt `generateSW` (ein Worker unter `/sw.js` übernimmt die Web-Push-Handler). (f) Nachtrag aus der Spec-Readiness-Prüfung: R-056 trennt Lesecache und Schreibpuffer (Puffer bleibt beim Sitzungsende ohne Abmelden, Bestätigung beim Abmelden, Kill-Switch/Kontolöschung löschen ihn; R-050/R-051 angeglichen), neues R-060 (Daten auf dem Gerät: `MAX_AGE_DAYS`, Kontolöschung, Foto-Neukodierung), R-055 mit Token-Ausnahme, R-057 mit den Lesepfaden der IndexedDB-Schicht, neuer §5.5 mit Testverweisen, §3.11 nennt die Quelle im Plan statt der Kennung „G-W9“, Zeile `AuthProvider.tsx` in §5.2.2 als überholt markiert, Platzhalter-Verweise auf REQ-053 §32.6. (g) Abnahme Phase 1: „Lighthouse PWA-Score ≥ 90“ und der Lighthouse-Installable-Check durch CDP-Kriterien im Selenium-E2E ersetzt (Manifest ausgeliefert, Service Worker registriert und aktiv, App-Shell offline ladbar), weil Lighthouse 12 die PWA-Kategorie entfernt hat (https://github.com/GoogleChrome/lighthouse/releases/tag/v12.0.0; §5.1, §5.1.5, §12.3); Phase 3: E2E per CDP-Offline-Emulation (§5.3.4). |
 | 2.2 | 2026-04-27 | **W-005 + W-011:** R-020a Begründung präzisiert (`is_cycle_restart`-Ausnahmen für Dauerkulturen explizit erwähnt). R-042a + R-042b ergänzt: KI-Features (Tipps, Daily-Tip, Why-Buttons, Chat, Diagnose) sind Online-only; KI-Glossar-Einträge bleiben offline lesbar. Offline/Online-Tabelle in §5.2.4 erweitert. |
 | 2.1 | 2026-04-27 | **W-004 Fix (Refresh-Token Device-Id):** R-049 um `X-Device-Id`-Header erweitert. R-049a (Replay-Detection-Fallback) und R-049b (`device_id`-Persistenz in IndexedDB als UUIDv4) ergänzt. Cross-Reference zu REQ-023 v1.9 §3.2a. |
 | 2.0 | 2026-03-01 | Erstversion v2 — PWA-Strategie statt Flutter, vollständige Anforderungen. |
@@ -93,6 +94,8 @@ Die urspruengliche Planung sah Flutter (spec/stack.md, Abschnitt 4.2) als mobile
 
 ### 2.1 Implementierungsstand: 0% — Komplett offen
 
+> Historischer Stand vom 2026-03-01. Den aktuellen Stand nach REQ-053 Welle 9 beschreibt §2.3.
+
 | Komponente | Status | Beschreibung |
 |-----------|--------|-------------|
 | Web App Manifest | Nicht vorhanden | Kein `manifest.webmanifest`, kein `<link rel="manifest">` in `index.html` |
@@ -119,6 +122,19 @@ Die urspruengliche Planung sah Flutter (spec/stack.md, Abschnitt 4.2) als mobile
 | AuthProvider | `src/auth/AuthProvider.tsx` | JWT-Token-Persistierung fuer Offline-Auth noetig |
 | `updated_at` auf allen Entities | `base_repository.py:62,73` | Versionsstempel fuer Konflikterkennung vorhanden |
 | UI-NFR-009 Visual Identity | `spec/ui-nfr/UI-NFR-009` | Branding-Richtlinien fuer PWA-Icons/Splash |
+
+### 2.3 Umsetzungsstand Welle 9 (REQ-053, Stand 2026-11-08)
+
+REQ-053 Welle 9 (E-06, REQ-053 §34) baut die Basis dieses Dokuments mit dem Gartenplan als erstem Offline-Fall des Repos: **Phase 1** (§5.1) und ein **Schreibpuffer nur für Erledigt/Notiz/Foto des Gartenplans** (R-058). Alles Übrige aus Phase 2–4 — der generische Interceptor R-053, Token-Persistenz und `device_id` (R-048…R-051, R-049b), Background-Sync-Konflikte für alle Entitäten, Install-Prompt-UI — ist nicht Teil dieser Welle und bleibt ein eigener Strang. Die Platzhalter und offenen Betreiberfragen der Welle stehen in REQ-053 §32.6 (gespiegelt aus #2759).
+
+| WP | Inhalt | Status | Nachweis |
+|----|--------|--------|----------|
+| 9.1 (#2741) | **Ein** Workbox-Service-Worker unter `/sw.js` (`vite-plugin-pwa`, Modus `injectManifest`, Quelle `src/sw.ts`); die Web-Push-Handler des früheren `public/sw.js` sind übernommen. Precache der App-Shell (Shell, Locale-Bundles DE/EN, Startrouten). API-`GET` nur aus der Allowlist (R-057) Network-First mit TTL 15 min (R-012) und 50 MB (R-013). Cache-Namensraum `kp:{user_key}:{tenant_key}` je Tab (R-055). Leerung bei Logout und Tenant-Wechsel (R-056). Kill-Switch `PWA_CACHING_ENABLED` in `runtime-config.js`: deregistriert den Worker, löscht Caches und IndexedDB (R-059). nginx liefert `/sw.js` und `/manifest.json` mit `no-store`; CSP `worker-src 'self'`, `manifest-src 'self'`. | gemergt | PR #2786 (`8e756a58e`) |
+| 9.2 (#2742) | **Offline-Lesepfad über IndexedDB** (Dexie, Datenbank `kp-plan-cache`): Plan, Site-Liste, Beet-Summary und Feldmodus-Beetblatt unter dem Schlüssel `{user_key}:{tenant_key}:{key}` mit Eigentümerprüfung und TTL 15 min; Banner „Stand von hh:mm“; Geometrie- und Beet-Bearbeitung offline gesperrt. Dieser **Lesecache** wird geleert bei Logout, Tenant-Wechsel, Kill-Switch, Kontolöschung und bei einem mit 401/403 abgewiesenen Refresh (nicht bei 5xx); die Leerung wird an die anderen Tabs desselben Nutzers gemeldet (R-056 a). Für den Schreibpuffer gelten eigene Regeln (R-056 b–d). | gemergt | PR #2789 (`14c332504`) |
+| 9.3 (#2743) | **Idempotenz für gepufferte Schreibvorgänge (Backend):** `client_event_id` an `POST /care-events`, am Aufgabenabschluss (einzeln und Batch) und an Foto-Uploads; Wiederholung → 200; Konflikte `409 client_event.payload_mismatch`, `409 task.already_closed` (vorher 422), `404 task.missing`, `404 client_event.deleted` (Grabsteine, TTL 395 Tage); Migration `v0106`. | gemergt | PR #2787 (`fa21f480a`) |
+| 9.4 (#2744) | Offline-Schreibpuffer Erledigt/Notiz/Foto (R-058) | in Arbeit | — |
+
+**Abweichung vom Plan, mit Grund:** Der Plan sah den Offline-Lesecache im Service Worker vor. Der API-Cache des Workers ist umgesetzt, aber **latent**: das Backend sendet auf allen `/api/v1`-Antworten `Cache-Control: no-store` (MT-044), und der Worker respektiert das (R-057). Gelesen wird offline deshalb aus IndexedDB (WP 9.2). Ob tenant-private Leseantworten `no-store` verlieren, ist eine offene Betreiberfrage (REQ-053 §32.6 Pkt. 13); der Standard behält `no-store`.
 
 ---
 
@@ -235,16 +251,29 @@ Bestimmte Aktionen erfordern serverseitige Validierung und DUERFEN NICHT offline
 | R-049 | Wenn der Access Token waehrend einer Offline-Phase ablaeuft (15 min TTL, REQ-023), MUSS die App beim naechsten Online-Zugriff automatisch einen Token-Refresh versuchen, bevor ein Re-Login erzwungen wird. **Der Refresh-Aufruf MUSS den Header `X-Device-Id: <stable_uuid>` mitsenden** (Persistenz siehe R-049b), damit das Backend-Grace-Window (REQ-023 §3.2a) parallele Refresh-Versuche aus Service-Worker und UI-Thread idempotent behandelt. <!-- W-004 --> | MUSS |
 | R-049a | **Replay-Detection-Fallback (W-004):** Wenn das Backend bei `POST /auth/refresh` mit HTTP 401 + `error_code='refresh_replay_detected'` antwortet, MUSS die App: (1) alle lokalen Auth-Tokens loeschen, (2) den Nutzer freundlich zum Re-Login auffordern (gleicher Dialog wie R-051), (3) alle nicht-synchronisierten Daten in IndexedDB ERHALTEN (R-051 gilt analog). Nach erfolgreichem Re-Login wird die Sync-Queue weiter abgearbeitet. <!-- W-004 --> | MUSS |
 | R-049b | **`device_id`-Persistenz (W-004):** Beim ersten Login MUSS die App eine UUIDv4 generieren und in IndexedDB unter `auth.deviceId` persistieren. Bei jedem Folge-Login UND bei jedem Refresh wird dieselbe UUID via `X-Device-Id`-Header gesendet. Wenn IndexedDB die ID verliert (Browser-Cache-Reset, Inkognito-Modus), wird beim naechsten Login eine neue UUID generiert — der Nutzer wird dadurch wie ein neues Geraet behandelt. KEIN Browser-Fingerprinting (kein User-Agent, keine Bildschirmaufloesung, keine Sprache). <!-- W-004 --> | MUSS |
-| R-050 | Waehrend einer Offline-Phase MUSS die App den Nutzer **nicht** ausloggen, auch wenn der Access Token abgelaufen ist. Die lokale Authentifizierung MUSS auf dem letzten gueltigen Auth-State basieren. | MUSS |
-| R-051 | Wenn der Refresh Token waehrend einer laengeren Offline-Phase ablaeuft (30 Tage TTL), MUSS die App beim naechsten Online-Zugriff den Nutzer freundlich zum Re-Login auffordern und alle nicht-synchronisierten Daten MUESSEN erhalten bleiben. | MUSS |
+| R-050 | Waehrend einer Offline-Phase MUSS die App den Nutzer **nicht** ausloggen, auch wenn der Access Token abgelaufen ist. Die lokale Authentifizierung MUSS auf dem letzten gueltigen Auth-State basieren. **REQ-053 Welle 9:** nicht umgesetzt (REQ-053 §32.6 Pkt. 7); endet die Sitzung, gilt für den Schreibpuffer R-056 (b). | MUSS |
+| R-051 | Wenn der Refresh Token waehrend einer laengeren Offline-Phase ablaeuft (30 Tage TTL), MUSS die App beim naechsten Online-Zugriff den Nutzer freundlich zum Re-Login auffordern und alle nicht-synchronisierten Daten MUESSEN erhalten bleiben. **REQ-053 Welle 9:** für den Schreibpuffer konkretisiert durch R-056 (b) — erhalten, gebunden an `{user_key, tenant_key}`; der Lesecache wird dagegen geleert (R-056 a). | MUSS |
 
 ### 3.10 Redux-Integration fuer Offline-State
 
 | # | Regel | Stufe |
 |---|-------|-------|
 | R-052 | Ein dediziertes Redux-Slice `offlineSlice` MUSS den Offline-State verwalten: Connectivity-Status, Pending-Count, Sync-Fortschritt, letzte Sync-Zeit. | MUSS |
-| R-053 | Alle existierenden API-Aufrufe (via `src/api/client.ts` Axios-Interceptor) MUESSEN bei Offline-Status automatisch in die IndexedDB-Queue umgeleitet werden, anstatt einen Netzwerkfehler zu werfen. | MUSS |
+| R-053 | Alle existierenden API-Aufrufe (via `src/api/client.ts` Axios-Interceptor) MUESSEN bei Offline-Status automatisch in die IndexedDB-Queue umgeleitet werden, anstatt einen Netzwerkfehler zu werfen. **Nicht in REQ-053 Welle 9:** dort gilt stattdessen die Schreib-Allowlist R-058 (REQ-053 §32.6 Pkt. 4, #2759); R-053 bleibt Ziel des eigenen Strangs Phase 2–4. | MUSS |
 | R-054 | Das `offlineSlice` MUSS per `useAppSelector` aus jeder Komponente abfragbar sein, um Offline-Gating (R-040, R-041) deklarativ zu steuern. | MUSS |
+
+### 3.11 Mandantenbindung, Allowlists und Kill-Switch (v2.3, REQ-053 Welle 9)
+
+Quelle: REQ-053 SR-019 und GP-UX-024 sowie die Leitplanken der Welle 9 im Implementierungsplan (`.audits/plans/req-053-garden-bed-planning-implementation.md`, §3 „Welle 9 — Offline & Konva: UI-NFR-012-Basis, Plan-Offline, Renderer-Messung, PNG, Vorlagen-Austausch, Parzellenliste, Standort-Reste“, Absatz „Guardrails G-W9“); die Regeln stehen hier vollständig, der Plan ist nur Herkunftsnachweis. R-055…R-060 gelten für Welle 9; R-009 und R-020 bleiben als Ziel der späteren Phasen unverändert, R-057 schränkt sie für Welle 9 auf die genannten Lesepfade ein.
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-055 | API-Daten DUERFEN NICHT in `localStorage` liegen. Lesecache und Schreibpuffer liegen nur in IndexedDB bzw. im Cache Storage des Service Workers, unter einem Namensraum, der `user_key` **und** `tenant_key` enthält (REQ-053 SR-019, GP-UX-024). `user_key` und `tenant_key` kommen aus dem App-Store (angemeldeter Nutzer, aktiver Mandant) und erreichen den Worker per `postMessage`; sie werden nie aus dem Token gelesen. **Ausnahme Tokens:** Auth-Tokens sind keine API-Daten im Sinne dieser Regel und liegen weder in `localStorage` noch im Cache — der Refresh-Token ist ein HttpOnly-Cookie (REQ-023, REQ-025 §10), der Access-Token lebt nur im Speicher; Token-Persistenz (R-048…R-051) ist nicht Teil von Welle 9. | MUSS |
+| R-056 | Leerung (REQ-053 SR-019; Standard nach REQ-053 §32.6 Pkt. 14): **(a) Lesecache:** Logout, Tenant-Wechsel, Kill-Switch, Kontolöschung und ein mit 401/403 abgewiesener Refresh MUESSEN ihn vollständig leeren — bei Logout und Tenant-Wechsel **bevor** die Seite neu lädt; ein Guard-Test pinnt beide Stellen. **(b) Schreibpuffer bei Sitzungsende ohne ausdrückliches Abmelden** (Refresh mit 401/403, Token-Ablauf; ein Start ohne Verbindung beendet die Sitzung nicht, R-050): Er bleibt erhalten (R-051). Die Einträge bleiben an `{user_key, tenant_key}` gebunden und werden nur gesendet, wenn sich derselbe Nutzer wieder in diesem Mandanten anmeldet; ein anderer Nutzer auf dem Gerät kann sie weder lesen noch senden. **(c) Ausdrückliches Abmelden** mit ungesendeten Einträgen zeigt eine Bestätigung mit deren Anzahl („Jetzt synchronisieren“ / „Verwerfen und abmelden“ / „Abbrechen“); ohne Verbindung ist „Jetzt synchronisieren“ deaktiviert, und der Dialog sagt, warum. Ein **Tenant-Wechsel** behält die Einträge des anderen Mandanten; sie werden erst angezeigt und gesendet, wenn der Nutzer dorthin zurückkehrt. **(d) Kill-Switch und Kontolöschung** löschen auch den Schreibpuffer; ungesendete Einträge gehen dabei verloren. **Stand im Code:** (b)–(d) gelten ab WP 9.4 (#2744); bis dahin löscht `clearOfflineData` bei Logout und Tenant-Wechsel alle IndexedDB-Datenbanken; der Guard `offlineDataClearedOnSessionChange.test.ts` wird mit WP 9.4 so umgebaut, dass er den Puffer ausnimmt. | MUSS |
+| R-057 | Lese-Allowlist (Welle 9): Der Service Worker cached nur `GET`-Antworten dieser mandantenbezogenen Lesepfade — `GET …/sites/{key}/plan` (REQ-053 GP-API-001), `GET …/sites` (Site-Liste), `GET …/locations/{key}/summary` (Beet-Summary, GP-API-012); alles andere ist Network-only. Die IndexedDB-Leseschicht (§2.3, WP 9.2) hält dieselben drei Pfade und zusätzlich die Lesepfade von Beetliste und Feldmodus-Beetblatt: `GET …/locations?site_key=&is_bed=true` (GP-API-011), `GET …/tasks/queue?location_key=` (GP-API-030) und `GET …/locations/{key}/plant-states` (GP-API-054); weitere Pfade nur mit Änderung dieser Regel. Nie gecacht werden `/api/v1/auth/*`, `/privacy/*`, `/admin/*` und Originale von Attachments. Eine Antwort mit `Cache-Control: no-store` wird respektiert. | MUSS |
+| R-058 | Schreib-Allowlist (REQ-053 Welle 9): Offline gepuffert werden nur Erledigt, Notiz und Foto des Gartenplans; jeder Eintrag trägt eine `client_event_id`, die bei jedem Sendeversuch dieselbe bleibt; das Nachsenden ist idempotent (REQ-053 WP 9.3: Wiederholung → 200 mit dem vorhandenen Objekt), nie „einfach nochmal senden“. Geometrie bleibt online-only. Diese Regel ersetzt für Welle 9 den generischen Interceptor R-053. | MUSS |
+| R-059 | Auslieferung und Kill-Switch: Der Service Worker liegt unter `/sw.js`; nginx liefert `/sw.js` und `/manifest.json` mit `Cache-Control: no-store`. Die CSP nennt `worker-src 'self'` und `manifest-src 'self'`. `PWA_CACHING_ENABLED=false` in `runtime-config.js` deregistriert den Worker und löscht Caches und IndexedDB (Lesecache und Schreibpuffer, R-056 d). | MUSS |
+| R-060 | Daten auf dem Gerät (DSGVO). Rahmen, nicht Beleg: REQ-025 §3.1.3 und §10 sowie NFR-011 §2.1 und §5 regeln heute nur serverseitige Daten bzw. nennen IndexedDB und Cache Storage nicht; das Nachziehen ist REQ-053 §32.6 Pkt. 15. **(a)** Nie gesendete Puffer-Einträge, deren Erfassungszeit älter als 365 Tage ist, MUESSEN verworfen werden; die Bereinigung läuft beim App-Start. Die 365 Tage stammen aus Regel V-11 von REQ-053 (`MAX_AGE_DAYS = 365`, `src/backend/app/domain/models/care_event.py`) — ältere Einträge würde der Server ohnehin abweisen; Standard nach REQ-053 §32.6 Pkt. 14. Das Verwerfen geschieht nicht still: die App zeigt einen Hinweis mit der Anzahl der verworfenen Einträge und verweist, soweit vorhanden, auf die Behalten-Option des Konflikt-Dialogs. **(b)** Kontolöschung löscht Lesecache und Schreibpuffer auf dem Gerät (R-056 a/d). **(c)** Fotos werden vor dem Puffern im Browser über ein Canvas neu als JPEG kodiert (≤ 1920 px Kantenlänge, Qualität 80, R-044); das entfernt EXIF- und GPS-Daten schon auf dem Gerät. Der serverseitige EXIF-Strip (NFR-013) bleibt als zweite Linie. | MUSS |
 
 ---
 
@@ -280,7 +309,7 @@ Die folgenden Backend-Erweiterungen sind noetig, um die PWA-Features vollstaendi
 
 ### 5.1 Phase 1 — PWA-Installierbarkeit (Abdeckung: R-001 bis R-014)
 
-**Ziel:** Die App wird installierbar und laedt deutlich schneller. Lighthouse PWA-Score >= 90.
+**Ziel:** Die App wird installierbar und laedt deutlich schneller. Die Abnahme prueft das mit messbaren Kriterien per CDP im E2E (§5.1.5); ein Lighthouse-PWA-Score ist seit Lighthouse 12 nicht mehr verfügbar — die Release-Notes v12.0.0 nennen „PWA Category Removal“ (https://github.com/GoogleChrome/lighthouse/releases/tag/v12.0.0). Im Repo laufen `@lhci/cli ^0.16.0` (`src/frontend/package.json`) und `lighthouserc.json` nur mit `performance` und `accessibility`.
 
 **Keine Abhaengigkeit zu Backend-Aenderungen.**
 
@@ -370,13 +399,14 @@ Die folgenden Routen MUESSEN vorab gecacht werden (abgeleitet aus `AppRoutes.tsx
 
 #### 5.1.5 Akzeptanzkriterien Phase 1
 
-- [ ] Web App Manifest ist korrekt konfiguriert (Lighthouse Installable-Check bestanden)
+- [ ] **Manifest ausgeliefert:** `index.html` verlinkt das Manifest (`<link rel="manifest">`); CDP `Page.getAppManifest` liefert es ohne `errors`, mit den Feldern aus R-002
+- [ ] **Service Worker registriert und aktiv:** `navigator.serviceWorker.getRegistration()` liefert eine Registrierung für `/sw.js`, deren `active.state` `activated` ist; nach einem Neuladen ist `navigator.serviceWorker.controller` gesetzt
+- [ ] **App-Shell offline ladbar:** nach einem Online-Aufruf lädt die App-Shell bei CDP `Network.emulateNetworkConditions` mit `offline: true` neu; die Probe liest zusätzlich `navigator.serviceWorker.controller` und belegt, dass die Antwort aus dem Worker kam und der Lauf wirklich offline war
 - [ ] Anwendung ist auf Android installierbar (Add to Home Screen)
 - [ ] Anwendung ist auf iOS installierbar (Safari: Add to Home Screen)
 - [ ] Im Standalone-Modus wird keine Browser-UI angezeigt
 - [ ] Statische Assets werden per Cache-First geladen (zweiter Seitenaufruf funktioniert offline fuer die App-Shell)
 - [ ] Service-Worker-Update wird dem Nutzer per Banner angezeigt
-- [ ] Lighthouse PWA-Score >= 90
 - [ ] Keine Regressionen in bestehenden 198 Vitest-Tests
 
 ---
@@ -409,7 +439,7 @@ Die folgenden Routen MUESSEN vorab gecacht werden (abgeleitet aus `AppRoutes.tsx
 | `src/frontend/src/api/client.ts` | Axios Request-Interceptor: Bei Offline-Status und schreibendem Request (POST/PUT/PATCH/DELETE) in IndexedDB-Queue umleiten, statt Netzwerkfehler. Response-Interceptor: Bei GET und Offline-Status aus API-Cache laden. |
 | `src/frontend/src/store/store.ts` | `offlineSlice` Reducer registrieren |
 | `src/frontend/src/App.tsx` | `<ConnectivityIndicator />` in AppBar einbinden, Connectivity-Listener initialisieren |
-| `src/frontend/src/auth/AuthProvider.tsx` | Token-Persistierung ueberarbeiten: localStorage statt nur Memory, Offline-Graceful-Degradation (R-050) |
+| `src/frontend/src/auth/AuthProvider.tsx` | ~~Token-Persistierung ueberarbeiten: localStorage statt nur Memory~~ **Überholt (v2.3):** Tokens gehören nicht in `localStorage` (R-055); der Refresh-Token ist ein HttpOnly-Cookie (REQ-023). Offen bleibt nur die Offline-Graceful-Degradation (R-050) |
 | `src/frontend/src/main.tsx` | IndexedDB-Initialisierung beim App-Start, Stammdaten-Prefetch triggern |
 
 #### 5.2.3 IndexedDB-Schema (Dexie)
@@ -562,7 +592,7 @@ Offline-Eintrag erstellt
 - [ ] Nach 5 Fehlversuchen: "failed"-Status + "Erneut versuchen"-Button
 - [ ] Statuswechsel-Snackbars (Online <-> Offline) erscheinen zuverlaessig
 - [ ] FIFO-Reihenfolge wird eingehalten
-- [ ] End-to-End-Test: Offline-Eingabe -> Flugmodus -> Online -> Sync -> Daten auf Server vorhanden
+- [ ] End-to-End-Test: Offline-Eingabe -> Offline per CDP `Network.emulateNetworkConditions` (Flugmodus nur im Geraetetest) -> Online -> Sync -> Daten auf Server vorhanden
 
 ---
 
@@ -604,6 +634,19 @@ Offline-Eintrag erstellt
 - [ ] Warnung bei 200 MB Foto-Speicher
 - [ ] Konflikt-Test: Offline-Aenderung + Server-Aenderung -> Konfliktdialog -> korrekte Aufloesung
 - [ ] Foto-Test: 10 Fotos offline -> Sync -> alle Fotos auf Server
+
+### 5.5 Akzeptanzkriterien Welle 9 (R-055 bis R-060)
+
+Belegt = ein Test im Repo pinnt das Kriterium (Stand 2026-11-08); offen = Nachweis kommt mit WP 9.4 (#2744), WP 9.15 (#2755, E2E) oder der Abnahme WP 9.17 (#2757).
+
+- [ ] **R-055 Namensraum:** Cache-Name `kp:{user_key}:{tenant_key}` je Tab, Schlüssel aus dem Store per `postMessage` — belegt: `src/frontend/src/test/guards/swApiCachePerClient.test.ts`; IndexedDB-Schlüssel `{user_key}:{tenant_key}:{key}` mit Eigentümerprüfung — belegt: `src/frontend/src/features/gardenPlanner/offline/planCache.test.ts`
+- [ ] **R-056 (a) Leerung des Lesecaches** bei Logout und Tenant-Wechsel vor dem Neuladen — belegt: `src/frontend/src/test/guards/offlineDataClearedOnSessionChange.test.ts`; Kill-Switch, Kontolöschung, 401/403-Refresh (nicht 5xx) — belegt: dieselbe Datei (Abschnitte zu WP 9.2 und #2789 S3), `src/frontend/src/test/pwa/offlineData.test.ts`
+- [ ] **R-056 (b)–(d) Schreibpuffer:** bleibt bei Sitzungsende ohne Abmelden und sendet nur für denselben Nutzer und Mandanten; Bestätigung beim Abmelden mit offenen Einträgen; Tenant-Wechsel behält die Einträge des anderen Mandanten; Kill-Switch und Kontolöschung löschen ihn — offen (WP 9.4, E2E WP 9.15). Hinweis für WP 9.4: `clearOfflineData` löscht heute bei jedem Abmelden, auch beim erzwungenen (`clearAuth`), alle IndexedDB-Datenbanken; der Puffer muss davon nach (b)/(c) ausgenommen werden
+- [ ] **R-057 Lese-Allowlist:** nur die genannten `GET`-Pfade, nie `/auth`, `/privacy`, `/admin`, Attachments, `no-store` respektiert — belegt: `src/frontend/src/test/guards/swCacheAllowlist.test.ts`, `src/frontend/src/test/pwa/cachePolicy.test.ts`
+- [ ] **R-058 Schreib-Allowlist und Idempotenz:** nur Erledigt/Notiz/Foto werden gepuffert — offen (WP 9.4); dieselbe `client_event_id` über alle Sendeversuche ergibt genau ein Objekt (Wiederholung → 200) — Server belegt: `src/backend/tests/integration/test_client_event_idempotency.py`, Client offen (WP 9.4)
+- [ ] **R-059 Auslieferung:** nginx und Helm liefern `/sw.js` und `/manifest.json` `no-store`, CSP mit `worker-src 'self'` — belegt: `src/backend/tests/unit/guards/test_nginx_service_worker_no_store.py`; `manifest-src 'self'` steht in `nginx-security-headers.inc` und den Helm-Werten, ein Guard dafür fehlt (offen bis WP 9.17); Kill-Switch — belegt: `src/frontend/src/test/pwa/killSwitch.test.ts`; Web Push im selben Worker — belegt: `src/frontend/src/test/guards/swWebPushTakenOver.test.ts`
+- [ ] **R-060 Daten auf dem Gerät:** Verwerfen nach `MAX_AGE_DAYS` beim App-Start, Neukodierung der Fotos ohne EXIF/GPS — offen (WP 9.4); Leerung bei Kontolöschung — siehe R-056 (a)
+- [ ] **Phase-1-Kriterien per CDP** (§5.1.5) — offen (E2E WP 9.15)
 
 ---
 
@@ -749,6 +792,8 @@ Offline-Eintrag erstellt
 
 **Entscheidung Phase 3:** Migration zu `injectManifest`, wenn Background Sync oder Custom-Sync-Logik im Service Worker noetig wird.
 
+**Umgesetzt (REQ-053 WP 9.1, v2.3):** `injectManifest` mit `src/sw.ts` bereits in Phase 1, weil ein einziger Worker unter `/sw.js` die bestehenden Web-Push-Handler übernehmen muss; die URL blieb gleich, damit vorhandene Registrierungen aktualisiert statt doppelt betrieben werden.
+
 ### 7.3 Offline-Queue vs. Axios-Interceptor
 
 Die Offline-Queue wird als **Axios-Request-Interceptor** in `src/api/client.ts` implementiert:
@@ -764,6 +809,8 @@ Die Offline-Queue wird als **Axios-Request-Interceptor** in `src/api/client.ts` 
    - Wenn nichts gefunden: Offline-Fehlermeldung
 
 **Vorteil:** Alle bestehenden API-Aufrufe (~150 Endpoints) profitieren automatisch, ohne Aenderung an den einzelnen Seiten/Slices.
+
+**REQ-053 Welle 9 (v2.3):** Dieser Interceptor wird in Welle 9 **nicht** gebaut. Gelesen wird über die Lese-Allowlist R-057 (offline aus IndexedDB, §2.3), gepuffert nur Erledigt/Notiz/Foto über die Schreib-Allowlist R-058. Der generische Interceptor bleibt Teil des eigenen Strangs Phase 2–4.
 
 ---
 
@@ -869,7 +916,7 @@ pwa.pendingCount              → "{{count}} ausstehend" / "{{count}} pending"
 | Conflict-Roundtrip | Offline-Eintrag erstellen -> Online simulieren -> API-Mock antwortet 412 -> Konflikt-State pruefen |
 | Token-Expiry | Token ablaufen lassen -> Offline simulieren -> Online simulieren -> Refresh-Request pruefen |
 
-### 12.3 End-to-End-Tests (Manuell + Lighthouse)
+### 12.3 End-to-End-Tests (Manuell + Selenium/CDP)
 
 | Test | Beschreibung |
 |------|-------------|
@@ -877,19 +924,20 @@ pwa.pendingCount              → "{{count}} ausstehend" / "{{count}} pending"
 | E2E-Konflikt | Offline-Aenderung + Server-Aenderung -> Konfliktdialog -> korrekte Aufloesung |
 | E2E-Stress | 100+ Offline-Eintraege -> Sync -> alle korrekt uebertragen |
 | E2E-Foto | 10 Fotos offline -> Sync -> alle Fotos auf Server |
-| Lighthouse PWA-Audit | Score >= 90, alle PWA-Checks bestanden |
+| PWA-Grundpruefung (CDP) | Manifest ausgeliefert, Service Worker registriert und aktiv, App-Shell offline ladbar (§5.1.5); ersetzt den Lighthouse-PWA-Audit (seit Lighthouse 12 nicht mehr verfügbar, https://github.com/GoogleChrome/lighthouse/releases/tag/v12.0.0) |
 | Device-Test | Chrome DevTools Throttling + Flugmodus auf echten Android/iOS-Geraeten |
 
 ---
 
 **Dokumenten-Ende**
 
-**Version**: 2.0
-**Status**: Entwurf
-**Letzte Aktualisierung**: 2026-03-01
+**Version**: 2.3
+**Status**: in Umsetzung (Welle 9: Phase 1 + Gartenplan-Puffer)
+**Letzte Aktualisierung**: 2026-11-08
 **Review**: Pending
 **Genehmigung**: Pending
 **Aenderungshistorie**:
 - v1.0 (2026-02-28): Initiale Anforderungen (47 Regeln, 4 Phasen)
 - v1.1 (2026-02-28): Implementierungsprioritaet & MVP-Scope ergaenzt (Frontend-Design-Review K-003)
 - v2.0 (2026-03-01): Major-Update — IST-Analyse, Strategische PWA-vs-Flutter-Entscheidung, Backend-Voraussetzungen (ETag, Bulk-Sync, Snapshot), Auth-Token-Persistierung (R-048 bis R-051), Redux-Integration (R-052 bis R-054), Datei-fuer-Datei-Implementierungsplan, IndexedDB-Schema (Dexie), Technologieentscheidungen, Abhaengigkeitsmatrix, i18n-Keys, Testing-Strategie
+- v2.1–v2.3: siehe Changelog am Anfang
