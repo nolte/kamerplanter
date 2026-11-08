@@ -116,6 +116,41 @@ class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplat
         )
         return int(next(iter(cursor), 0) or 0)
 
+    def taken_names(self, names: list[str], *, tenant_key: str) -> set[str]:
+        self._require_tenant_key(tenant_key, "taken_names")
+        if not names:
+            return set()
+        # The name filter comes first and the cap bounds the distinct matches only: a cap on the visible rows read
+        # before the filter could stop short of the one row that carries the name (review of #2749). Both sides are
+        # lowered by AQL, so the comparison has one notion of case.
+        wanted = sorted(set(names))
+        bind_vars: dict[str, Any] = {
+            "@templates": col.BED_TEMPLATES,
+            "tenant_key": tenant_key,
+            "names": wanted,
+            "cap": len(wanted),
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"""
+            LET lowered = (FOR n IN @names RETURN LOWER(n))
+            LET found = (
+                FOR t IN @@templates
+                    FILTER {_VISIBLE} AND LOWER(t.name) IN lowered
+                    COLLECT name = LOWER(t.name)
+                    LIMIT @cap
+                    RETURN name
+            )
+            FOR n IN @names
+                FILTER LOWER(n) IN found
+                RETURN n
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return {str(name) for name in cursor}
+
     # ── Writes ────────────────────────────────────────────────────────────
 
     def create_template(self, template: BedTemplate) -> BedTemplate:

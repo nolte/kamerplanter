@@ -100,7 +100,7 @@ class SoilProfileDefaults(_Strict):
         )
 
 
-def _check_default_geometry(geometry: BedFrameGeometry) -> BedFrameGeometry:
+def check_default_geometry(geometry: BedFrameGeometry) -> BedFrameGeometry:
     """A bed encloses an area (rect, circle, polygon) and a polygon does not cross itself (V-02)."""
     if geometry.kind not in AREA_KINDS:
         raise ValueError(f"default_geometry must enclose an area (rect, circle, polygon), got {geometry.kind}.")
@@ -151,7 +151,7 @@ class BedTemplate(BaseModel):
     @field_validator("default_geometry")
     @classmethod
     def validate_default_geometry(cls, value: BedFrameGeometry) -> BedFrameGeometry:
-        return _check_default_geometry(value)
+        return check_default_geometry(value)
 
     @field_validator("recurring_task_templates")
     @classmethod
@@ -188,7 +188,7 @@ class BedTemplateInput(_Strict):
     @field_validator("default_geometry")
     @classmethod
     def validate_default_geometry(cls, value: BedFrameGeometry) -> BedFrameGeometry:
-        return _check_default_geometry(value)
+        return check_default_geometry(value)
 
     @field_validator("recurring_task_templates")
     @classmethod
@@ -223,7 +223,7 @@ class BedTemplatePatch(_Strict):
     @field_validator("default_geometry")
     @classmethod
     def validate_default_geometry(cls, value: BedFrameGeometry | None) -> BedFrameGeometry | None:
-        return None if value is None else _check_default_geometry(value)
+        return None if value is None else check_default_geometry(value)
 
     @field_validator("recurring_task_templates")
     @classmethod

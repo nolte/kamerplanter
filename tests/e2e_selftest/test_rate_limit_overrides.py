@@ -101,6 +101,13 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "bounds a route that reads, verifies and stores a whole upload, so raising it here would "
         "test nothing the suite uses."
     ),
+    "rate_limit_bed_template_import": (
+        "No E2E test imports a bed-template file (grep over tests/e2e finds no call to "
+        "/bed-templates/import, #2749). The import is a deliberate file upload from the template "
+        "panel, never on a bootstrap or navigation path, and its per-tenant budget of ten a minute "
+        "covers the dry run, a recheck after a name collision and the confirm. If a journey ever "
+        "imports a template, this entry is wrong and the limit needs raising."
+    ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "
         "deliberate send per channel a user is configuring. It is not on any bootstrap "

@@ -142,6 +142,10 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
     "rate_limit_plan_import": (
         "Authenticated garden-plan import (POST /t/{slug}/sites/{key}/plan/import), per tenant: 401 x 25 anonymously."
     ),
+    "rate_limit_bed_template_import": (
+        "Authenticated bed-template import (POST /t/{slug}/bed-templates/import), per tenant. Not measured on the "
+        "scan stack; the same gate order as rate_limit_plan_import (authentication before the tenant budget)."
+    ),
     "rate_limit_plan_csv_import": (
         "Authenticated CSV bed list import (POST /t/{slug}/sites/{key}/beds/import-csv), per account: "
         "401 x 25 anonymously."

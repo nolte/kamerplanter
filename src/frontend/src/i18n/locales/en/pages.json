@@ -6017,6 +6017,58 @@
             "sys_planter_d0_3": "Planter Ø 0.3 m",
             "sys_planter_d0_4": "Planter Ø 0.4 m",
             "sys_planter_d0_5": "Planter Ø 0.5 m"
+          },
+          "exchange": {
+            "export": "Export",
+            "import": "Import",
+            "notice": {
+              "exported": "The template was downloaded as a JSON file. It holds no tenant key, no author and no notes.",
+              "imported": "The template was imported and is selected.",
+              "exportFailed": "The template could not be exported."
+            },
+            "title": "Import template",
+            "intro": "Choose a template file (JSON, at most 256 KB). It is checked first; nothing is saved until you confirm. Keys in the file are ignored, task templates are not taken over.",
+            "pick": "Choose file",
+            "pickOther": "Choose another file",
+            "picked": "Chosen: {{file}}",
+            "checking": "Checking the file …",
+            "name": "Template name",
+            "recheck": "Check with this name",
+            "confirm": "Import",
+            "shape": {
+              "rect": "Rectangle {{width}} × {{length}} m",
+              "circle": "Circle Ø {{diameter}} m",
+              "polygon_one": "Polygon with {{count}} corner",
+              "polygon_other": "Polygon with {{count}} corners"
+            },
+            "report": {
+              "title": "Check report",
+              "name": "Name: {{name}}",
+              "shape": "Shape: {{shape}}",
+              "height": "Height: {{height}} m",
+              "grid": "Planting grid: row spacing {{rows}} cm, plant spacing {{spacing}} cm",
+              "migrated": "The file was written in version {{version}} and is taken over into the current version.",
+              "dropped_one": "{{count}} field of the file is ignored (for example keys or the author).",
+              "dropped_other": "{{count}} fields of the file are ignored (for example keys or the author)."
+            },
+            "error": {
+              "generic": "The file could not be imported.",
+              "nameTaken": "A template of this name exists already. Take the suggested name or enter another one and check again.",
+              "tooLarge": "The file is larger than 256 KB.",
+              "forbidden": "You lack the permission for this. Growers and leads import templates.",
+              "codes": {
+                "bed_template": {
+                  "import_invalid": "The file is no valid bed template.",
+                  "import_too_deep": "The file is nested too deeply.",
+                  "schema_version_unsupported": "This version of the template file is no longer read. Export the template again.",
+                  "quota_exceeded": "You have reached the most templates you may keep. Delete one you no longer need.",
+                  "not_a_bed_type": "The bed type of the file does not suit a bed template."
+                },
+                "reference": {
+                  "not_found": "The bed type of the file does not exist on this installation."
+                }
+              }
+            }
           }
         },
         "underlay": {

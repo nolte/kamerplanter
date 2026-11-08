@@ -33,6 +33,11 @@ class IBedTemplateRepository(ABC):
         """How many templates the tenant owns (system templates are not counted)."""
 
     @abstractmethod
+    def taken_names(self, names: list[str], *, tenant_key: str) -> set[str]:
+        """Which of ``names`` a system template or one of the tenant's own already carries, compared without case
+        (the name-collision check of the import, GP-API-071). Answers the names as they were passed in."""
+
+    @abstractmethod
     def create_template(self, template: BedTemplate) -> BedTemplate:
         """Insert the template as it is (``tenant_key`` and ``created_by`` are the service's)."""
 

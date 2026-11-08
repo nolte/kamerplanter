@@ -948,6 +948,10 @@ class Settings(BaseSettings):
     #: assistant needs two requests (the dry run, then the write) and a retry after a refused file; three a minute
     #: covers that for one person and keeps a club's members from queueing imports behind each other.
     rate_limit_plan_import: str = "3/minute"
+    #: ``POST /t/{slug}/bed-templates/import`` (REQ-053 GP-API-071, WP 9.9), per **tenant**: one document of at most
+    #: 256 KB, cheap to check - but the dialog needs several requests (the dry run, a 409 with a proposed name, the
+    #: check again, the confirmation). The plan import's 3 a minute would answer 429 inside that normal flow.
+    rate_limit_bed_template_import: str = "10/minute"
     #: ``POST /t/{slug}/sites/{key}/beds/import-csv`` (REQ-053 GP-FR-174, WP 8.26), per **account**: a bed list is at
     #: most 1 MiB and 500 rows, and the wizard needs a dry run, the confirmation and a few correction loops (the user
     #: fixes the sheet and checks again). 10 a minute covers that for one person.

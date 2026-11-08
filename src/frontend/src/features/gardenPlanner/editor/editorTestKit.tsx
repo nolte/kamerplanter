@@ -4,6 +4,8 @@ import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
 import { vi, type Mock } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
+import tenantsReducer from '@/store/slices/tenantSlice';
+import { tenantState } from '@/test/helpers';
 import { HeadlessPlanRenderer } from '../renderer/HeadlessPlanRenderer';
 import { TEST_LABELS } from '../renderer/rendererTestKit';
 import type { PlanRenderer, Viewport } from '../renderer';
@@ -62,7 +64,11 @@ export function setupEditor(options: SetupOptions = {}) {
   const onZoom = options.onZoom;
   const onOpenLocation = options.onOpenLocation;
   const onOpenCare = options.onOpenCare;
-  const store = configureStore({ reducer: { gardenPlan: gardenPlanSlice.reducer } });
+  // The editor is the grower's surface: tools that gate on the role (the template import, #2749) need a tenant.
+  const store = configureStore({
+    reducer: { gardenPlan: gardenPlanSlice.reducer, tenants: tenantsReducer },
+    preloadedState: { tenants: tenantState('grower').tenants as ReturnType<typeof tenantsReducer> },
+  });
   store.dispatch(loadGardenPlan.pending('r1', 'site_1'));
   store.dispatch(loadGardenPlan.fulfilled(plan, 'r1', 'site_1'));
   const renderer = new HeadlessPlanRenderer();

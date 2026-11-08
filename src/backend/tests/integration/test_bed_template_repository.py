@@ -152,6 +152,39 @@ class TestReads:
         assert repo.bed_type_flags(["bed", "greenhouse", "nope"]) == {"bed": True, "greenhouse": False}
 
 
+class TestTakenNames:
+    """REQ-053 WP 9.9 (#2749): the name-collision check of the import reads the visible rows only, without case."""
+
+    def test_a_name_is_taken_by_a_system_row_or_the_own_one_never_by_another_tenants(self, repo) -> None:
+        repo.create_template(_template("Kräuterbeet", A))
+        repo.create_template(_template("System bed", None))
+        repo.create_template(_template("Bobs Beet", B))
+
+        taken = repo.taken_names(["KRÄUTERBEET", "system BED", "Bobs Beet", "Frei"], tenant_key=A)
+
+        assert taken == {"KRÄUTERBEET", "system BED"}
+
+    def test_a_name_behind_many_visible_rows_is_still_found(self, repo, db) -> None:
+        """Review of #2749: the cap bounds the matches, not the rows read - 800 visible rows sort before the one
+        that carries the name, and it is still found."""
+        db.collection(col.BED_TEMPLATES).insert_many(
+            [
+                {**_template(f"Aaa {index:04d}", A).model_dump(mode="json", exclude={"key"}), "tenant_key": A}
+                for index in range(800)
+            ]
+        )
+        repo.create_template(_template("Zebra", A))
+
+        assert repo.taken_names(["ZEBRA", "Frei"], tenant_key=A) == {"ZEBRA"}
+
+    def test_no_names_read_nothing(self, repo) -> None:
+        assert repo.taken_names([], tenant_key=A) == set()
+
+    def test_a_blank_tenant_is_refused(self, repo) -> None:
+        with pytest.raises(ValueError):
+            repo.taken_names(["x"], tenant_key="")
+
+
 class TestWrites:
     def test_an_update_names_the_owner_and_cannot_reach_the_other_kind_of_row(self, repo) -> None:
         sys_row = repo.create_template(_template("System", None))
