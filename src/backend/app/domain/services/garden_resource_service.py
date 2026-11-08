@@ -61,12 +61,10 @@ from app.domain.interfaces.garden_object_repository import IGardenObjectReposito
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, SoilProfileEdit
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.bed_list_export import (
-    ERROR_TOO_MANY_ROWS,
-    MAX_BED_LIST_EXPORT_ROWS,
     BedListExportRow,
     LocationTypeName,
 )
-from app.domain.models.care_event import CATEGORY_BED_STATUS_CHANGE, CareEvent, display_performer
+from app.domain.models.care_event import CATEGORY_BED_STATUS_CHANGE, CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     MAX_SLOTS_PER_BATCH,
@@ -87,6 +85,7 @@ from app.domain.models.geometry import Geometry
 from app.domain.models.nutrient_hint import NutrientHint
 from app.domain.models.site import Location, Site, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
+from app.domain.services.bed_list_labels import bed_assignee_names, irrigation_zone_names, require_bed_list_size
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import (
     require_owned_site,
@@ -260,13 +259,7 @@ class GardenResourceService:
         listed = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=True, bed_status=bed_status)
         if parent_location_key:
             listed = [loc for loc in listed if loc.parent_location_key == parent_location_key]
-        if len(listed) > MAX_BED_LIST_EXPORT_ROWS:
-            raise PlanError(
-                ERROR_TOO_MANY_ROWS,
-                f"The export would have more than {MAX_BED_LIST_EXPORT_ROWS} rows; narrow it by status.",
-                status_code=422,
-                limit=MAX_BED_LIST_EXPORT_ROWS,
-            )
+        require_bed_list_size(len(listed))
         keys = [loc.key for loc in listed if loc.key]
         wanted = set(columns)
         counters: dict[str, BedCounters] = {}
@@ -278,22 +271,19 @@ class GardenResourceService:
                 sorted({loc.location_type_key for loc in listed if loc.location_type_key})
             )
         zone_names: dict[str, str] = {}
-        if COLUMN_IRRIGATION_ZONE in wanted and any(loc.irrigation_zone_key for loc in listed):
-            zone_names = self._plan.irrigation_zone_names(site_key, tenant_key=tenant_key)
+        if COLUMN_IRRIGATION_ZONE in wanted:
+            zone_names = irrigation_zone_names(self._plan, site_key, listed, tenant_key=tenant_key)
         include_assignment = ASSIGNMENT_COLUMN in wanted
         assignees: dict[str, list[str]] = {}
-        if include_assignment and keys:
-            for assignee in self._plan.location_assignees(keys, tenant_key=tenant_key):
-                name = display_performer(assignee.user_key, assignee.display_name)
-                if name:
-                    assignees.setdefault(assignee.location_key, []).append(name)
+        if include_assignment:
+            assignees = bed_assignee_names(self._plan, keys, tenant_key=tenant_key)
         rows = [
             BedListExportRow(
                 location=loc,
                 counters=counters.get(loc.key or "", BedCounters()) if COLUMN_ACTIVE_PLANTS in wanted else None,
                 type_name=_type_label(type_names.get(loc.location_type_key), locale),
                 zone_name=zone_names.get(loc.irrigation_zone_key) if loc.irrigation_zone_key else None,
-                assignees=sorted(assignees.get(loc.key or "", []), key=str.casefold) if include_assignment else None,
+                assignees=assignees.get(loc.key or "", []) if include_assignment else None,
             )
             for loc in sorted(listed, key=_name_order)
         ]

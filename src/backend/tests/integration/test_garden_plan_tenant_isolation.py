@@ -141,6 +141,7 @@ from app.domain.services.soil_analysis_service import SoilAnalysisService
 from app.domain.services.task_service import TaskService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 from tests.support.care_event_fakes import FakeAttachmentRepo, FakeAttachmentService, FakeFertilizers, FakeMemberships
+from tests.support.pdf_text import pdf_pages_text
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -217,6 +218,9 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.ATTACHMENTS,
             col.LOCATION_TYPES,
             col.USERS,
+            # REQ-053 WP 9.10 (#2750): the assignments the parcel list of the PDF prints on opt-in.
+            col.MEMBERSHIPS,
+            col.LOCATION_ASSIGNMENTS,
             col.PLANT_INSTANCES,
             col.SPECIES,
             col.BOTANICAL_FAMILIES,
@@ -862,6 +866,13 @@ CASES: tuple[Case, ...] = (
         "/locations",
         params={"site_key": "site_b", "is_bed": "true", "format": "csv", "include_assignment": "true"},
     ),
+    # REQ-053 WP 9.10 (#2750): its twin in the garden-plan PDF - the parcel list with the member names opted in.
+    Case(
+        "print_garden_plan_parcel_list",
+        "GET",
+        "/print/garden-plan/site_b",
+        params={"parcel_list": "true", "include_assignment": "true"},
+    ),
     Case(
         "create_location",
         "POST",
@@ -1198,6 +1209,7 @@ def _routes_of_the_four_routers() -> set[tuple[str, str]]:
     from app.api.v1.irrigation_zones.tenant_router import router as irrigation_zones
     from app.api.v1.locations.tenant_router import router as locations
     from app.api.v1.planting_runs.tenant_router import router as planting_runs
+    from app.api.v1.print.tenant_router import router as print_router
     from app.api.v1.slots.tenant_router import router as slots
     from app.api.v1.tasks.tenant_router import router as tasks
 
@@ -1218,6 +1230,14 @@ def _routes_of_the_four_routers() -> set[tuple[str, str]]:
     for route in tasks.routes:
         if route.path.endswith(("/accept-suggestion", "/dismiss-suggestion")):
             found.update((method, f"{tasks.prefix}{route.path.removeprefix(tasks.prefix)}") for method in route.methods)
+    # The print router predates REQ-053 too; its garden-plan PDF (GP-API-007) prints member names on opt-in since
+    # the parcel list (WP 9.10, #2750), so it belongs here.
+    for route in print_router.routes:
+        if "/garden-plan/" in route.path:
+            found.update(
+                (method, f"{print_router.prefix}{route.path.removeprefix(print_router.prefix)}")
+                for method in route.methods
+            )
     return found
 
 
@@ -2375,3 +2395,65 @@ class TestALegacyRowIsNoServerError:
 
         assert response.status_code == 409, response.text
         assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
+
+
+class TestTheParcelListPrintsOnlyTheTenantsMembers:
+    """REQ-053 WP 9.10 (#2750, SEC-002): the PDF's parcel list with ``include_assignment`` against the real AQL.
+
+    Tenant A's members are assigned to A's bed; one of A's memberships is (wrongly) named by an assignment of B's,
+    and B has an assignment of a deactivated membership. B's PDF must print its own member and none of A's, the
+    deactivated membership's bed as "–", and A's site must be an absent one to B. Read from the PDF's text layer.
+    """
+
+    @pytest.fixture
+    def assigned(self, db):
+        for document in [
+            {"_key": "u_alice", "email": "alice@example.org", "display_name": "Alice Ackermann"},
+            {"_key": "u_bob", "email": "bob@example.org", "display_name": "Bob Brenner"},
+            {"_key": "u_ben", "email": "ben@example.org", "display_name": "Ben Beendet"},
+        ]:
+            db.collection(col.USERS).insert(document)
+        for document in [
+            {"_key": "m_alice", "user_key": "u_alice", "tenant_key": A, "is_active": True},
+            {"_key": "m_bob", "user_key": "u_bob", "tenant_key": B, "is_active": True},
+            {"_key": "m_ben", "user_key": "u_ben", "tenant_key": B, "is_active": False},
+        ]:
+            db.collection(col.MEMBERSHIPS).insert(document)
+        db.collection(col.LOCATIONS).insert(_bed("bed2_b", "site_b", "Bobs Zweitbeet") | {"z_order": 1})
+        for document in [
+            {"membership_key": "m_alice", "location_key": "bed_a", "tenant_key": A},
+            {"membership_key": "m_bob", "location_key": "bed_b", "tenant_key": B},
+            # B's assignment naming A's membership: the membership's tenant must stop it.
+            {"membership_key": "m_alice", "location_key": "bed_b", "tenant_key": B},
+            # A deactivated membership: no longer an assignment, the cell is "–".
+            {"membership_key": "m_ben", "location_key": "bed2_b", "tenant_key": B},
+        ]:
+            db.collection(col.LOCATION_ASSIGNMENTS).insert(document)
+        return db
+
+    def _pdf(self, client: TestClient, slug: str, site: str):
+        return client.get(
+            f"/api/v1/t/{slug}/print/garden-plan/{site}", params={"parcel_list": "true", "include_assignment": "true"}
+        )
+
+    def test_tenant_b_prints_its_own_member_and_none_of_tenant_a(self, assigned) -> None:
+        response = self._pdf(_client(assigned, tenant=B), SLUG_B, "site_b")
+
+        assert response.status_code == 200, response.text
+        parcel_page = pdf_pages_text(response.content)[1]
+        assert "1 · Bobs Geheimbeet" in parcel_page and "Bob Brenner" in parcel_page
+        assert "2 · Bobs Zweitbeet" in parcel_page
+        for leaked in ("Alice", "Ackermann", "Ben Beendet", "Alices"):
+            assert leaked not in parcel_page, parcel_page
+        # The deactivated membership's bed: its row ends with the empty-cell dash.
+        second = next(line for line in parcel_page.splitlines() if "Bobs Zweitbeet" in line)
+        assert second.rstrip().endswith("–"), second
+
+    def test_tenant_a_is_an_absent_site_to_tenant_b(self, assigned) -> None:
+        client = _client(assigned, tenant=B)
+
+        foreign, absent = self._pdf(client, SLUG_B, "site_a"), self._pdf(client, SLUG_B, "site_gone")
+
+        assert (foreign.status_code, absent.status_code) == (404, 404)
+        assert _canonical(foreign.text).replace("site_a", "site_gone") == _canonical(absent.text)
+        assert "Alice" not in foreign.text

@@ -6408,6 +6408,13 @@
             "labels": "Labels"
           },
           "bedList": "Bed list as a second page",
+          "parcelList": {
+            "label": "Parcel list as an extra page",
+            "hint": "A page for the board or the landlord: every bed with a running number in plan order and its name, plus area and irrigation zone. The number holds for this print only.",
+            "includeAssignment": "Include assignments in the parcel list",
+            "assignmentHint": "Adds the column “Assigned to” with the names of the members a bed is assigned to. That is personal data – share the PDF only with people who may see it. Off by default.",
+            "privacyWithAssignment": "The parcel list of the PDF holds the names of the members beds are assigned to. Notes and account data are never included."
+          },
           "privacy": "The export holds no member names, no assignments and no notes of other people.",
           "phoneNote": "On a phone the standard settings apply (A4, landscape, automatic scale). More options are available on a larger screen.",
           "preview": "Preview",
@@ -7013,13 +7020,20 @@
           "title": "Access sides",
           "hint": "From which sides do you tend the bed?"
         },
+        "flags": {
+          "title": "Competition at the site",
+          "hint": "Is the bed under or next to trees and shrubs? Their roots take water and nutrients, and some woody plants (walnut, for example) hold other plants back. Just a note – Kamerplanter calculates nothing from it.",
+          "reported": "{{value}} reported at this site",
+          "other": "Other report"
+        },
         "summary": {
           "frost": "Frost risk: {{value}}",
           "heat": "Stored heat: {{value}}",
           "wind": "Wind: {{value}}",
           "slope": "Slope {{value, number}}°",
           "aspect": "Aspect {{value, number}}°",
-          "access": "Access: {{value}}"
+          "access": "Access: {{value}}",
+          "flags": "Competition: {{value}}"
         },
         "dialog": {
           "title": "Site conditions: {{bed}}",
@@ -7798,7 +7812,8 @@
           "reason": "Reason",
           "reasonHelp": "The reason is stored with the planting.",
           "reasonRequired": "Give a reason to plant anyway.",
-          "confirmToContinue": "Confirm \"Plant anyway\" to continue."
+          "confirmToContinue": "Confirm \"Plant anyway\" to continue.",
+          "siteFlagsDetail": "Expect plants to grow less vigorously here – a note, not a rating of the species."
         },
         "position": {
           "title": "Correct position: {{plant}}",

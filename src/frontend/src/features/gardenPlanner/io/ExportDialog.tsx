@@ -3,6 +3,8 @@
  * the reason when it fails. On a phone only the JSON backup and the PDF with their standard options are offered.
  * The bed list as CSV (GP-FR-145/175) has its column selection, the Excel variant and the assignment opt-in (SR-024,
  * default off); like SVG it is not offered on a phone, where GP-UX-050 limits the dialog to JSON and PDF.
+ * The PDF can add the parcel list (GP-FR-176) as an extra page; the members a bed is assigned to are a second,
+ * separate opt-in under it (SR-024, default off), offered only while the parcel list is chosen.
  * The PNG (GP-FR-144) is drawn in the browser from the loaded plan: 1×/2×/4×, capped to the canvas limits with a
  * hint, and the watermark "Kamerplanter · date" as an option that is off by default. It is not offered on a phone.
  * Lazy: the route chunk stays inside its budget (UI-NFR-003).
@@ -325,6 +327,9 @@ export default function ExportDialog({
     failure ??
     (!localMode && preview.status === 'error' ? errorKey(preview.code, preview.httpStatus) : null);
   const scaled = !localMode && effective.format !== 'json';
+  // The parcel list and its assignment opt-in belong to the PDF only; a phone keeps the standard options (GP-UX-050).
+  const parcelList = scaled && effective.format === 'pdf' && effective.parcelList === true;
+  const parcelAssignment = parcelList && effective.includeAssignment === true;
   const shownFormat: DialogFormat = csvMode ? 'csv' : pngMode ? 'png' : effective.format;
   let downloadBlocked: boolean;
   if (csvMode) downloadBlocked = csv.columns.length === 0;
@@ -637,7 +642,71 @@ export default function ExportDialog({
                   sx={{ minHeight: 44 }}
                 />
               )}
+              {effective.format === 'pdf' && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={parcelList}
+                      onChange={(event) =>
+                        patch(
+                          event.target.checked
+                            ? { parcelList: true }
+                            : { parcelList: false, includeAssignment: false },
+                        )
+                      }
+                      slotProps={{
+                        input: {
+                          'data-testid': 'plan-export-parcel-list',
+                          'aria-describedby': 'plan-export-parcel-list-hint',
+                        } as object,
+                      }}
+                    />
+                  }
+                  label={t(`${PREFIX}.parcelList.label`)}
+                  sx={{ minHeight: 44 }}
+                />
+              )}
             </FormGroup>
+          </FormControl>
+        )}
+
+        {scaled && !phone && effective.format === 'pdf' && (
+          <Typography
+            id="plan-export-parcel-list-hint"
+            variant="body2"
+            color="text.secondary"
+            sx={{ mt: -1 }}
+          >
+            {t(`${PREFIX}.parcelList.hint`)}
+          </Typography>
+        )}
+
+        {scaled && !phone && parcelList && (
+          <FormControl component="fieldset" variant="standard" sx={{ pl: { xs: 0, sm: 4 } }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={parcelAssignment}
+                  onChange={(event) => patch({ includeAssignment: event.target.checked })}
+                  slotProps={{
+                    input: {
+                      'data-testid': 'plan-export-parcel-assignment',
+                      'aria-describedby': 'plan-export-parcel-assignment-hint',
+                    } as object,
+                  }}
+                />
+              }
+              label={t(`${PREFIX}.parcelList.includeAssignment`)}
+              sx={{ minHeight: 44 }}
+            />
+            <Typography
+              id="plan-export-parcel-assignment-hint"
+              variant="body2"
+              color="text.secondary"
+              data-testid="plan-export-parcel-assignment-hint"
+            >
+              {t(`${PREFIX}.parcelList.assignmentHint`)}
+            </Typography>
           </FormControl>
         )}
 
@@ -651,7 +720,9 @@ export default function ExportDialog({
           {t(
             csvMode && csv.includeAssignment
               ? `${PREFIX}.csv.privacyWithAssignment`
-              : `${PREFIX}.privacy`,
+              : parcelAssignment
+                ? `${PREFIX}.parcelList.privacyWithAssignment`
+                : `${PREFIX}.privacy`,
           )}
         </Typography>
 

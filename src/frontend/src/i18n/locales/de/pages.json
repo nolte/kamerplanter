@@ -6409,6 +6409,13 @@
             "labels": "Beschriftungen"
           },
           "bedList": "Beetliste als zweite Seite",
+          "parcelList": {
+            "label": "Parzellenliste als Zusatzseite",
+            "hint": "Eine Seite für Vorstand oder Verpächter: jedes Beet mit laufender Nummer in Plan-Reihenfolge und Name, dazu Fläche und Bewässerungszone. Die Nummer gilt nur für diesen Ausdruck.",
+            "includeAssignment": "Zuweisungen in die Parzellenliste aufnehmen",
+            "assignmentHint": "Fügt die Spalte „Zuweisung“ mit den Namen der Mitglieder hinzu, denen ein Beet zugewiesen ist. Das sind personenbezogene Daten – gib das PDF nur an Personen weiter, die sie sehen dürfen. Standardmäßig aus.",
+            "privacyWithAssignment": "Das PDF enthält in der Parzellenliste die Namen der Mitglieder, denen Beete zugewiesen sind. Notizen und Kontodaten sind nie enthalten."
+          },
           "privacy": "Der Export enthält keine Namen von Mitgliedern, keine Zuweisungen und keine Notizen anderer Personen.",
           "phoneNote": "Auf dem Handy gelten die Standardeinstellungen (A4, Querformat, automatischer Maßstab). Weitere Optionen gibt es auf einem größeren Bildschirm.",
           "preview": "Vorschau",
@@ -7014,13 +7021,20 @@
           "title": "Zugangsseiten",
           "hint": "Von welchen Seiten pflegst du das Beet?"
         },
+        "flags": {
+          "title": "Konkurrenz am Standort",
+          "hint": "Steht das Beet unter oder neben Bäumen und Sträuchern? Wurzeln nehmen Wasser und Nährstoffe weg, manche Gehölze (etwa Walnuss) hemmen andere Pflanzen. Nur ein Vermerk – Kamerplanter rechnet nichts daraus aus.",
+          "reported": "{{value}} am Standort gemeldet",
+          "other": "Weitere Meldung"
+        },
         "summary": {
           "frost": "Frostrisiko: {{value}}",
           "heat": "Wärmespeicher: {{value}}",
           "wind": "Wind: {{value}}",
           "slope": "Hang {{value, number}}°",
           "aspect": "Ausrichtung {{value, number}}°",
-          "access": "Zugang: {{value}}"
+          "access": "Zugang: {{value}}",
+          "flags": "Konkurrenz: {{value}}"
         },
         "dialog": {
           "title": "Standortmerkmale: {{bed}}",
@@ -7799,7 +7813,8 @@
           "reason": "Grund",
           "reasonHelp": "Der Grund wird an der Pflanzung gespeichert.",
           "reasonRequired": "Nenne einen Grund, um trotzdem zu pflanzen.",
-          "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren."
+          "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren.",
+          "siteFlagsDetail": "Rechne damit, dass Pflanzen hier schwächer wachsen können – ein Vermerk, keine Bewertung der Art."
         },
         "position": {
           "title": "Position korrigieren: {{plant}}",

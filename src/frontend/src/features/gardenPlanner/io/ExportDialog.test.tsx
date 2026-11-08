@@ -1,7 +1,8 @@
 /**
  * The export dialog (REQ-053 GP-UX-050): what it asks the server for, the preview, the reasons it gives when the
  * server refuses, and the phone variant with the standard options only. The bed list as CSV (GP-FR-145/175): column
- * selection, Excel variant and the assignment opt-in that is off unless chosen (SR-024).
+ * selection, Excel variant and the assignment opt-in that is off unless chosen (SR-024). The parcel list of the PDF
+ * (GP-FR-176) with its own assignment opt-in, offered only under the parcel list.
  */
 import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -339,6 +340,101 @@ describe('ExportDialog', () => {
     await expectNoA11yViolations(document.body, { minElements: 25 });
   });
 
+  it('asks for no parcel list and no member names unless chosen', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    expect(screen.getByTestId('plan-export-parcel-list')).not.toBeChecked();
+    expect(screen.queryByTestId('plan-export-parcel-assignment')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].has('parcel_list')).toBe(false);
+    expect(seen.pdf[0].has('include_assignment')).toBe(false);
+  });
+
+  it('adds the parcel list page without member names until the assignment is switched on', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+
+    expect(screen.getByTestId('plan-export-parcel-assignment')).not.toBeChecked();
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('no member names');
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].get('parcel_list')).toBe('true');
+    expect(seen.pdf[0].has('include_assignment')).toBe(false);
+  });
+
+  it('sends the assignment only with the parcel list and says the PDF then holds names', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-parcel-assignment'));
+
+    expect(screen.getByTestId('plan-export-parcel-assignment-hint')).toHaveTextContent('personal data');
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('holds the names of the members');
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].get('parcel_list')).toBe('true');
+    expect(seen.pdf[0].get('include_assignment')).toBe('true');
+  });
+
+  it('drops the assignment together with the parcel list', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-parcel-assignment'));
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+
+    expect(screen.queryByTestId('plan-export-parcel-assignment')).not.toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('no member names');
+    // Switched on again, the parcel list starts without the names.
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    expect(screen.getByTestId('plan-export-parcel-assignment')).not.toBeChecked();
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].has('include_assignment')).toBe(false);
+  });
+
+  it('offers the parcel list for the PDF only', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-format-svg'));
+
+    expect(screen.queryByTestId('plan-export-parcel-list')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-parcel-assignment')).not.toBeInTheDocument();
+  });
+
+  it('has no critical accessibility violations with the parcel list options', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-parcel-assignment'));
+
+    await expectNoA11yViolations(document.body, { minElements: 25 });
+  });
+
   it('offers only JSON and PDF with their standard options on a phone', async () => {
     setPhone(true);
     useBackend(seen);
@@ -350,6 +446,7 @@ describe('ExportDialog', () => {
     expect(screen.queryByTestId('plan-export-format-csv')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plan-export-paper')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plan-export-scale')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-parcel-list')).not.toBeInTheDocument();
     expect(screen.getByTestId('plan-export-phone-note')).toBeInTheDocument();
   });
 
