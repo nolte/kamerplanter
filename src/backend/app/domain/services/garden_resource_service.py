@@ -38,11 +38,18 @@ from app.common.datetimes import ensure_aware_utc
 from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
+from app.domain.calculators.geometry_distance import (
+    WATER_SOURCE_OBJECT_TYPE,
+    WATER_SOURCES_ON_SITE_ONLY,
+    nearest_water_source_m,
+    water_source_geometries,
+)
 from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
 from app.domain.engines.bed_list_csv_engine import (
     ASSIGNMENT_COLUMN,
     COLUMN_ACTIVE_PLANTS,
     COLUMN_IRRIGATION_ZONE,
+    COLUMN_NEAREST_WATER_SOURCE,
     COLUMN_TYPE,
 )
 from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
@@ -70,6 +77,7 @@ from app.domain.models.garden_plan import (
     MAX_SLOTS_PER_BATCH,
     MAX_SLOTS_PER_SITE,
     BedCounters,
+    BedListRow,
     BedSummaryView,
     CreateGardenObjectData,
     GardenObjectPatch,
@@ -197,6 +205,21 @@ class GardenResourceService:
     def _revision_of(site: Site) -> int:
         return site.plan.plan_revision if site.plan is not None else 0
 
+    def _water_sources(self, site_key: SiteKey, *, tenant_key: str) -> list[Geometry]:
+        """The water-source geometries of an **owned** site (GP-FR-167), read through the tenant-anchored object query.
+
+        The query keeps only on-site ``water_source`` objects (the rule of :mod:`geometry_distance`); the caller has
+        resolved the site's ownership already, and the repository anchors the read on the site's tenant once more, so
+        a foreign site's objects never enter a distance. Bounded by the plan quota of a site.
+        """
+        objects = self._objects.get_garden_objects_by_site(
+            site_key,
+            tenant_key=tenant_key,
+            object_type=WATER_SOURCE_OBJECT_TYPE,
+            on_site_only=WATER_SOURCES_ON_SITE_ONLY,
+        )
+        return water_source_geometries(objects)
+
     # ── GP-API-011: the bed list ──────────────────────────────────────────────
 
     def list_beds(
@@ -206,18 +229,32 @@ class GardenResourceService:
         tenant_key: str,
         is_bed: bool | None,
         bed_status: BedStatus | None,
-    ) -> list[tuple[Location, BedCounters | None]]:
+    ) -> list[BedListRow]:
         """A site's locations, filtered; with counters when a bed filter is given (GP-API-011).
 
         ``is_bed`` is the ``is_bed`` flag of the location's type. Counters cost three queries over the
         listed keys, so a plain listing (neither filter) stays as cheap as before and carries none.
+        When **beds** are listed (``is_bed=true``, or a ``bed_status`` alone) each row also carries
+        ``nearest_water_source_m`` (GP-FR-167) - the value the summary and the CSV compute, from one read of the
+        site's water sources per call.
         """
         with_counters = is_bed is not None or bed_status is not None
+        beds_listed = is_bed is True or (is_bed is None and bed_status is not None)
         locations = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status)
         counters: dict[str, BedCounters] = {}
         if with_counters and locations:
             counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
-        return [(loc, (counters.get(loc.key or "", BedCounters()) if with_counters else None)) for loc in locations]
+        sources: list[Geometry] = []
+        if beds_listed and any(loc.geometry is not None for loc in locations):
+            sources = self._water_sources(site_key, tenant_key=tenant_key)
+        return [
+            BedListRow(
+                location=loc,
+                counters=counters.get(loc.key or "", BedCounters()) if with_counters else None,
+                nearest_water_source_m=nearest_water_source_m(loc.geometry, sources) if beds_listed else None,
+            )
+            for loc in locations
+        ]
 
     def _filtered_locations(
         self, site_key: SiteKey, *, tenant_key: str, is_bed: bool | None, bed_status: BedStatus | None
@@ -251,10 +288,11 @@ class GardenResourceService:
         **Beds only**: the locations whose type has ``is_bed``, optionally of one ``bed_status``, behind the same
         ownership step as :meth:`list_beds`. ``columns`` is the resolved selection (``resolve_bed_list_columns``):
         only what a selected column needs is read - the counters for ``active_plants``, the type names for ``type``,
-        the zone names for ``irrigation_zone`` and, **only for** ``assigned_to`` (the SR-024 opt-in), the display
-        names of the members a bed is assigned to (``anonymisiert`` for an erased account; no account key leaves
-        this method). More than :data:`MAX_BED_LIST_EXPORT_ROWS` beds is 422 ``export.too_many_rows`` - checked
-        before any of those reads, and never a cut file.
+        the zone names for ``irrigation_zone``, the site's water sources for ``nearest_water_source_m`` (GP-FR-167)
+        and, **only for** ``assigned_to`` (the SR-024 opt-in), the display names of the members a bed is assigned to
+        (``anonymisiert`` for an erased account; no account key leaves this method). More than
+        :data:`MAX_BED_LIST_EXPORT_ROWS` beds is 422 ``export.too_many_rows`` - checked before any of those reads, and
+        never a cut file.
         """
         listed = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=True, bed_status=bed_status)
         if parent_location_key:
@@ -273,6 +311,10 @@ class GardenResourceService:
         zone_names: dict[str, str] = {}
         if COLUMN_IRRIGATION_ZONE in wanted:
             zone_names = irrigation_zone_names(self._plan, site_key, listed, tenant_key=tenant_key)
+        include_water = COLUMN_NEAREST_WATER_SOURCE in wanted
+        sources: list[Geometry] = []
+        if include_water and any(loc.geometry is not None for loc in listed):
+            sources = self._water_sources(site_key, tenant_key=tenant_key)
         include_assignment = ASSIGNMENT_COLUMN in wanted
         assignees: dict[str, list[str]] = {}
         if include_assignment:
@@ -284,6 +326,7 @@ class GardenResourceService:
                 type_name=_type_label(type_names.get(loc.location_type_key), locale),
                 zone_name=zone_names.get(loc.irrigation_zone_key) if loc.irrigation_zone_key else None,
                 assignees=assignees.get(loc.key or "", []) if include_assignment else None,
+                nearest_water_source_m=nearest_water_source_m(loc.geometry, sources) if include_water else None,
             )
             for loc in sorted(listed, key=_name_order)
         ]
@@ -307,12 +350,18 @@ class GardenResourceService:
         if is_bed and provider is not None:
             hints: NutrientHintService = provider()
             hint = hints.assess(location, counters.species_keys, tenant_key=tenant_key)
+        water: float | None = None
+        if is_bed and location.geometry is not None:  # GP-FR-167 is a bed's value, as the nutrient hint
+            water = nearest_water_source_m(
+                location.geometry, self._water_sources(location.site_key, tenant_key=tenant_key)
+            )
         return BedSummaryView(
             location=location,
             counters=counters,
             season_state="planted" if counters.active_plant_count else "empty",
             is_bed=is_bed,
             nutrient_hint=hint,
+            nearest_water_source_m=water,
         )
 
     # ── GP-API-010: PATCH /locations/{key} ────────────────────────────────────

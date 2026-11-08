@@ -30,6 +30,8 @@ VALUE_SEPARATOR = " | "
 COLUMN_TYPE = "type"
 COLUMN_IRRIGATION_ZONE = "irrigation_zone"
 COLUMN_ACTIVE_PLANTS = "active_plants"
+#: GP-FR-167: derived from the bed's geometry and the site's water sources (read only when selected).
+COLUMN_NEAREST_WATER_SOURCE = "nearest_water_source_m"
 
 DEFAULT_COLUMNS: tuple[str, ...] = (
     "name",
@@ -41,7 +43,8 @@ DEFAULT_COLUMNS: tuple[str, ...] = (
     COLUMN_ACTIVE_PLANTS,
 )
 
-#: §10.2 site features of a bed (plus the coarse ``sun_exposure`` of §10.1 they refine), selectable (GP-FR-175).
+#: §10.2 site features of a bed (plus the coarse ``sun_exposure`` of §10.1 they refine), selectable (GP-FR-175); the
+#: last one, the distance to the nearest water source in metres, is derived from the plan (GP-FR-167).
 SITE_CONDITION_COLUMNS: tuple[str, ...] = (
     "sun_exposure",
     "sun_window",
@@ -55,6 +58,7 @@ SITE_CONDITION_COLUMNS: tuple[str, ...] = (
     "aspect_deg",
     "access_sides",
     "site_flags",
+    COLUMN_NEAREST_WATER_SOURCE,
 )
 
 #: Every column ``columns=`` may name, in the order the file writes them.
@@ -161,6 +165,7 @@ def _cells(decimal: str) -> dict[str, Callable[[BedListExportRow], str]]:
         "aspect_deg": condition_number(lambda value: value.aspect_deg),
         "access_sides": condition_text(lambda value: VALUE_SEPARATOR.join(side.value for side in value.access_sides)),
         "site_flags": condition_text(lambda value: VALUE_SEPARATOR.join(flag.value for flag in value.flags)),
+        COLUMN_NEAREST_WATER_SOURCE: lambda row: csv_number(row.nearest_water_source_m, decimal=decimal),
         ASSIGNMENT_COLUMN: assigned_to,
     }
 

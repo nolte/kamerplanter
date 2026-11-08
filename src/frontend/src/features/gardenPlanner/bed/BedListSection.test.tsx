@@ -134,3 +134,45 @@ describe('BedListSection', () => {
     await expectNoA11yViolations(container);
   });
 });
+
+describe('BedListSection nearest water source column (GP-FR-167, WP 9.12)', () => {
+  const WATER_BEDS = [
+    bedListItem('bed_1', { name: 'Tomato bed', nearest_water_source_m: 2.8 }),
+    bedListItem('bed_2', { name: 'Herb spiral', nearest_water_source_m: null }),
+    bedListItem('bed_3', { name: 'Bean row', nearest_water_source_m: 0.5 }),
+    bedListItem('bed_4', { name: 'Tap bed', nearest_water_source_m: 0.003 }),
+  ];
+  const names = () =>
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByTestId(/^bed-list-link-/)[0].textContent);
+
+  it('shows the distance the server listed for each bed, "Right at the bed" below the display precision', async () => {
+    useBackend(WATER_BEDS);
+    const view = renderList();
+    expect(await screen.findByRole('columnheader', { name: /Water source/ })).toBeInTheDocument();
+    expect(within(screen.getByText('Tomato bed').closest('tr')!).getByText('2.8 m')).toBeInTheDocument();
+    expect(within(screen.getByText('Tap bed').closest('tr')!).getByText('Right at the bed')).toBeInTheDocument();
+    expect(within(screen.getByText('Herb spiral').closest('tr')!).getAllByText('—').length).toBeGreaterThan(0);
+    await expectNoA11yViolations(view.container);
+  });
+
+  it('keeps a bed without a distance last in both sort directions', async () => {
+    useBackend(WATER_BEDS);
+    const user = userEvent.setup();
+    renderList();
+    const header = await screen.findByRole('columnheader', { name: /Water source/ });
+    await user.click(within(header).getByRole('button'));
+    expect(names()).toEqual(['Tap bed', 'Bean row', 'Tomato bed', 'Herb spiral']);
+    await user.click(within(header).getByRole('button'));
+    expect(names()).toEqual(['Tomato bed', 'Bean row', 'Tap bed', 'Herb spiral']);
+  });
+
+  it('has no distance column while no bed has a distance (the site has no water source)', async () => {
+    useBackend();
+    renderList();
+    await screen.findByText('Tomato bed');
+    expect(screen.queryByRole('columnheader', { name: /Water source/ })).toBeNull();
+  });
+});

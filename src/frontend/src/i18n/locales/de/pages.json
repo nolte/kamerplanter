@@ -6478,6 +6478,7 @@
               "aspect_deg": "Hangausrichtung (°)",
               "access_sides": "Zugangsseiten",
               "site_flags": "Konkurrenzhinweise",
+              "nearest_water_source_m": "Abstand zur nächsten Wasserquelle (m)",
               "assigned_to": "Zugewiesen an"
             }
           },
@@ -7120,6 +7121,9 @@
         "reachHint": "Beet zu breit",
         "reachDetail_both": "{{width}} m breit – von zwei gegenüberliegenden Seiten erreichst du bis {{threshold}} m. Die Beetmitte erreichst du nur, wenn du ins Beet trittst.",
         "reachDetail_one": "{{width}} m breit – von einer Seite erreichst du bis {{threshold}} m. Die hintere Hälfte erreichst du nur, wenn du ins Beet trittst.",
+        "waterSource": "Nächste Wasserquelle",
+        "waterSourceDistance": "{{distance}} m Luftlinie von der Beetkante",
+        "waterSourceAtBed": "Direkt am Beet",
         "reachDetail_unknown": "{{width}} m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang ({{threshold}} m). Trage unter „Merkmale ändern“ ein, von welchen Seiten du an das Beet kommst.",
         "nutrient": {
           "label": "Nährstoffe",
@@ -7340,6 +7344,8 @@
         "empty": "Noch keine Beete",
         "emptyDescription": "Zeichne ein Beet im Gartenplan, dann erscheint es hier.",
         "onlyMineNone": "Dir sind noch keine Beete zugewiesen.",
+        "waterSource": "Wasserquelle",
+        "waterSourceDistance": "{{distance}} m",
         "notPlaced": "„{{name}}“ ist noch nicht im Gartenplan eingezeichnet.",
         "batchOpen": "Aufgaben auf mehreren Beeten erledigen",
         "careLink": "{{tasks}}: Pflege-Tab von {{name}} öffnen"

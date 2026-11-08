@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import i18next from 'i18next';
 import i18n from '@/i18n/i18n';
-import { isOverdue, siteConditionsLine, siteFlagsLine, sunProfileLine } from './bedFormat';
+import {
+  compareNullableLast,
+  isOverdue,
+  siteConditionsLine,
+  siteFlagsLine,
+  sunProfileLine,
+  waterSourceText,
+} from './bedFormat';
 
 /** The boundary cases live in the shared vectors (`model/overdue.vectors.test.ts`); this pins the re-export. */
 describe('isOverdue (bed list column)', () => {
@@ -113,5 +120,41 @@ describe('site flags (GP-FR-165, WP 9.11)', () => {
       'Wind: Exposed · Competition: Root competition, Allelopathy risk',
     );
     expect(siteConditionsLine(de, { flags: [] })).toBeNull();
+  });
+});
+
+describe('waterSourceText (GP-FR-167): one formatter for the bed head and the bed list', () => {
+  const de = i18n.getFixedT('de');
+  const en = i18n.getFixedT('en');
+
+  it('writes "at the bed" for every distance that would print as 0 m, in both places', () => {
+    for (const metres of [0, 0.001, 0.0049]) {
+      expect(waterSourceText(en, 'en', metres, 'header')).toBe('Right at the bed');
+      expect(waterSourceText(en, 'en', metres, 'list')).toBe('Right at the bed');
+      expect(waterSourceText(de, 'de', metres, 'list')).toBe('Direkt am Beet');
+    }
+  });
+
+  it('writes two decimals at most with the locale\'s decimal mark', () => {
+    expect(waterSourceText(en, 'en', 0.005, 'list')).toBe('0.01 m');
+    expect(waterSourceText(de, 'de', 3.256, 'list')).toBe('3,26 m');
+    expect(waterSourceText(en, 'en', 3.25, 'header')).toBe('3.25 m in a straight line from the bed edge');
+  });
+
+  it('has nothing to write without a value', () => {
+    expect(waterSourceText(en, 'en', null, 'header')).toBeNull();
+    expect(waterSourceText(en, 'en', undefined, 'list')).toBeNull();
+  });
+});
+
+describe('compareNullableLast (a DataTable comparator, which the table multiplies by the direction)', () => {
+  const sorted = (values: (number | null)[], direction: 'asc' | 'desc') => {
+    const dir = direction === 'asc' ? 1 : -1;
+    return [...values].sort((a, b) => compareNullableLast(a, b, direction) * dir);
+  };
+
+  it('keeps missing values last in both directions', () => {
+    expect(sorted([2, null, 0.5, null, 1], 'asc')).toEqual([0.5, 1, 2, null, null]);
+    expect(sorted([2, null, 0.5, null, 1], 'desc')).toEqual([2, 1, 0.5, null, null]);
   });
 });

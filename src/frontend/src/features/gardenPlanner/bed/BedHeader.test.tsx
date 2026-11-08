@@ -336,3 +336,36 @@ describe('BedHeader site flags (GP-FR-165, WP 9.11)', () => {
     expect(screen.queryByTestId('bed-site-flags')).toBeNull();
   });
 });
+
+describe('BedHeader nearest water source (GP-FR-167, WP 9.12)', () => {
+  it('shows the distance the server derived, from the bed edge', async () => {
+    const view = renderHeader({ ...bedSummary(), nearest_water_source_m: 3.25 });
+    expect(await screen.findByTestId('bed-header-water-source')).toHaveTextContent(
+      'Nearest water source3.25 m in a straight line from the bed edge',
+    );
+    await expectNoA11yViolations(view.container);
+  });
+
+  it.each([0, 0.003, 0.0049])('says "Right at the bed" for %s m (nothing that would print as 0 m)', async (metres) => {
+    renderHeader({ ...bedSummary(), nearest_water_source_m: metres });
+    const fact = await screen.findByTestId('bed-header-water-source');
+    expect(fact).toHaveTextContent('Right at the bed');
+    expect(fact).not.toHaveTextContent('0 m');
+  });
+
+  it('shows the smallest distance that is not 0 at the display precision', async () => {
+    renderHeader({ ...bedSummary(), nearest_water_source_m: 0.005 });
+    expect(await screen.findByTestId('bed-header-water-source')).toHaveTextContent('0.01 m in a straight line');
+  });
+
+  it('shows nothing without a water source (null is not 0 m) or from an older server', async () => {
+    renderHeader({ ...bedSummary(), nearest_water_source_m: null });
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-water-source')).toBeNull();
+    cleanup();
+
+    renderHeader(bedSummary());
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-water-source')).toBeNull();
+  });
+});

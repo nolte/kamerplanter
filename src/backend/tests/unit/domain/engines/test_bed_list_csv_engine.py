@@ -27,6 +27,7 @@ from app.common.enums import (
 from app.common.exceptions import PlanError
 from app.domain.engines.bed_list_csv_engine import (
     ASSIGNMENT_COLUMN,
+    COLUMN_NEAREST_WATER_SOURCE,
     DEFAULT_COLUMNS,
     ERROR_NO_COLUMNS,
     ERROR_UNKNOWN_COLUMN,
@@ -59,6 +60,7 @@ def _row(**fields) -> BedListExportRow:  # type: ignore[no-untyped-def]
         type_name=fields.pop("type_name", "Hochbeet"),
         zone_name=fields.pop("zone_name", "Tropf Ost"),
         assignees=fields.pop("assignees", None),
+        nearest_water_source_m=fields.pop("nearest_water_source_m", None),
     )
 
 
@@ -182,7 +184,29 @@ class TestTheCells:
             "aspect_deg": "180.0",
             "access_sides": "N | S",
             "site_flags": "root_competition",
+            "nearest_water_source_m": "",  # derived from the plan, not from the site conditions
         }
+
+    def test_the_distance_to_the_nearest_water_source(self) -> None:
+        """GP-FR-167: a number cell in metres, the decimal comma in the Excel variant, empty without a source."""
+        assert COLUMN_NEAREST_WATER_SOURCE in SITE_CONDITION_COLUMNS
+        assert _cells(_row(nearest_water_source_m=3.25), (COLUMN_NEAREST_WATER_SOURCE,)) == {
+            COLUMN_NEAREST_WATER_SOURCE: "3.25"
+        }
+        assert _cells(_row(nearest_water_source_m=0.0), (COLUMN_NEAREST_WATER_SOURCE,)) == {
+            COLUMN_NEAREST_WATER_SOURCE: "0.0"
+        }
+        assert _cells(_row(nearest_water_source_m=3.25), (COLUMN_NEAREST_WATER_SOURCE,), decimal_comma=True) == {
+            COLUMN_NEAREST_WATER_SOURCE: "3,25"
+        }
+        assert _cells(_row(), (COLUMN_NEAREST_WATER_SOURCE,)) == {COLUMN_NEAREST_WATER_SOURCE: ""}
+
+    def test_the_water_column_is_selectable_but_not_a_default(self) -> None:
+        assert COLUMN_NEAREST_WATER_SOURCE not in DEFAULT_COLUMNS
+        assert resolve_bed_list_columns("nearest_water_source_m,name", include_assignment=False) == (
+            "name",
+            COLUMN_NEAREST_WATER_SOURCE,
+        )
 
     def test_a_bed_without_site_features_has_empty_feature_cells(self) -> None:
         cells = _cells(_row(site_conditions=None), SITE_CONDITION_COLUMNS)

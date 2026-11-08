@@ -16,7 +16,10 @@ export const BED_LIST_DEFAULT_COLUMNS = [
   'active_plants',
 ] as const;
 
-/** GP-FR-175: the site features of §10.2 (and the coarse sun class they refine), selectable on top. */
+/**
+ * GP-FR-175: the site features of §10.2 (and the coarse sun class they refine), selectable on top; the last one is
+ * the distance to the nearest water source in metres, derived from the plan (GP-FR-167).
+ */
 export const BED_LIST_SITE_CONDITION_COLUMNS = [
   'sun_exposure',
   'sun_window',
@@ -30,6 +33,7 @@ export const BED_LIST_SITE_CONDITION_COLUMNS = [
   'aspect_deg',
   'access_sides',
   'site_flags',
+  'nearest_water_source_m',
 ] as const;
 
 export type BedListColumn =

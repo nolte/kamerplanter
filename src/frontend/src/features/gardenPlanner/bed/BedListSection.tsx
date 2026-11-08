@@ -3,6 +3,8 @@
  * responsible, active plants, open tasks and the next due date. A click (or Enter) on a row selects
  * the bed on the plan and brings it into view (GP-ACC-016); the name links to the bed view. "My
  * beds" narrows the list to the beds assigned to the signed-in user.
+ * While a bed has a distance to the nearest water source, an optional column shows it (GP-FR-167, WP 9.12): the
+ * server's value of the list response, the same as the summary and the CSV - hidden on narrow screens.
  */
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -24,7 +26,7 @@ import { useTableLocalState } from '@/hooks/useTableState';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedStatus } from '../model/types';
 import { listBeds } from './bedApi';
-import { BED_STATUS_COLOR, formatBedDate, isOverdue } from './bedFormat';
+import { BED_STATUS_COLOR, compareNullableLast, formatBedDate, isOverdue, waterSourceText } from './bedFormat';
 import type { BedListItem } from './types';
 import { useBedAssignments } from './useBedAssignments';
 import { useLocationTypeNames } from './useLocationTypeNames';
@@ -87,6 +89,14 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
       return !onlyMine || assignments.mine.has(bed.key);
     });
   }, [beds, statusFilter, onlyMine, assignments.mine]);
+
+  // GP-FR-167: the column appears once any bed has a distance (the site has a water source).
+  const hasWater = useMemo(
+    () => (beds ?? []).some((bed) => bed.nearest_water_source_m !== null && bed.nearest_water_source_m !== undefined),
+    [beds],
+  );
+  const water = (bed: BedListItem) => waterSourceText(t, language, bed.nearest_water_source_m, 'list') ?? '';
+  const sortDirection = tableState.sort?.direction ?? 'asc';
 
   const typeName = (bed: BedListItem) => typeNames.get(bed.location_type_key) ?? bed.location_type_key;
   const area = (bed: BedListItem) =>
@@ -179,6 +189,21 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
       ),
       hideBelowBreakpoint: 'md',
     },
+    ...(hasWater
+      ? [
+          {
+            id: 'waterSource',
+            label: t('pages.bed.list.waterSource'),
+            align: 'right' as const,
+            render: (bed: BedListItem) => water(bed) || '—',
+            searchValue: water,
+            // A bed without a distance (no geometry) stays last whichever way the column is sorted.
+            sortFn: (a: BedListItem, b: BedListItem) =>
+              compareNullableLast(a.nearest_water_source_m, b.nearest_water_source_m, sortDirection),
+            hideBelowBreakpoint: 'lg' as const,
+          },
+        ]
+      : []),
   ];
 
   return (

@@ -6477,6 +6477,7 @@
               "aspect_deg": "Aspect (°)",
               "access_sides": "Access sides",
               "site_flags": "Competition hints",
+              "nearest_water_source_m": "Distance to the nearest water source (m)",
               "assigned_to": "Assigned to"
             }
           },
@@ -7119,6 +7120,9 @@
         "reachHint": "Bed too wide",
         "reachDetail_both": "{{width}} m wide – from two opposite sides you reach up to {{threshold}} m. You can only reach the middle of the bed by stepping into it.",
         "reachDetail_one": "{{width}} m wide – from one side you reach up to {{threshold}} m. You can only reach the far half by stepping into the bed.",
+        "waterSource": "Nearest water source",
+        "waterSourceDistance": "{{distance}} m in a straight line from the bed edge",
+        "waterSourceAtBed": "Right at the bed",
         "reachDetail_unknown": "{{width}} m wide – the access sides are not recorded, so the one-side value applies ({{threshold}} m). Use “Change conditions” to record the sides you can reach the bed from.",
         "nutrient": {
           "label": "Nutrients",
@@ -7339,6 +7343,8 @@
         "empty": "No beds yet",
         "emptyDescription": "Draw a bed on the garden plan and it appears here.",
         "onlyMineNone": "No beds are assigned to you yet.",
+        "waterSource": "Water source",
+        "waterSourceDistance": "{{distance}} m",
         "notPlaced": "\"{{name}}\" is not drawn on the garden plan yet.",
         "batchOpen": "Complete tasks on several beds",
         "careLink": "{{tasks}}: open the care tab of {{name}}"

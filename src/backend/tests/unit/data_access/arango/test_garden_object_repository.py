@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from app.common.enums import GardenObjectType
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
@@ -131,6 +132,29 @@ class TestReadsJoinTheSiteOnTheTenant:
             "sites": f"{col.SITES}/",
             "tenant_key": TENANT,
         }
+
+    def test_the_narrowing_is_in_the_query_and_keeps_the_tenant_join(self) -> None:
+        """GP-FR-167: the water sources are filtered by class and ``off_site`` in AQL, not in the caller's loop."""
+        db = _CapturingDb(rows=[dict(_DOC)])
+        repo = ArangoGardenObjectRepository(db)
+
+        repo.get_garden_objects_by_site(
+            "site_1", tenant_key=TENANT, object_type=GardenObjectType.WATER_SOURCE, on_site_only=True
+        )
+
+        call = db.aql.calls[0]
+        assert "FILTER o.object_type == @object_type" in call["query"]
+        assert "FILTER o.off_site != true" in call["query"]
+        assert "site.tenant_key == @tenant_key" in call["query"]
+        assert call["bind_vars"]["object_type"] == "water_source"
+        assert call["bind_vars"]["tenant_key"] == TENANT
+
+    def test_without_narrowing_the_query_has_no_class_or_scenery_filter(self) -> None:
+        db = _CapturingDb(rows=[dict(_DOC)])
+        ArangoGardenObjectRepository(db).get_garden_objects_by_site("site_1", tenant_key=TENANT)
+
+        query = db.aql.calls[0]["query"]
+        assert "@object_type" not in query and "off_site" not in query
 
     def test_by_key_reads_through_the_site_s_tenant(self) -> None:
         db = _CapturingDb(rows=[dict(_DOC)])

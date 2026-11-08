@@ -161,7 +161,9 @@ def list_locations(
             "`format=csv` only: comma-separated columns. Default `name,type,area_m2,status,soil_texture,"
             "irrigation_zone,active_plants`; selectable besides: the site features `sun_exposure`, `sun_window`, "
             "`direct_sun_hours_summer`, `foliage_shade_in_summer`, `frost_risk`, `cold_air_pocket`, "
-            "`heat_retention`, `wind_exposure`, `slope_deg`, `aspect_deg`, `access_sides`, `site_flags` (GP-FR-175)."
+            "`heat_retention`, `wind_exposure`, `slope_deg`, `aspect_deg`, `access_sides`, `site_flags` (GP-FR-175) "
+            "and the derived `nearest_water_source_m` (metres to the nearest water source, empty without one; "
+            "GP-FR-167)."
         ),
     ),
     include_assignment: bool = Query(
@@ -184,7 +186,9 @@ def list_locations(
     """List a site's locations, or the children of a parent location.
 
     With ``is_bed`` or ``bed_status`` the rows carry ``active_plant_count``, ``open_task_count`` and
-    ``next_due_at`` (GP-API-011).
+    ``next_due_at`` (GP-API-011). When beds are listed (``is_bed=true`` or ``bed_status``) they also carry
+    ``nearest_water_source_m`` (GP-FR-167): metres from the bed's edge to the nearest water source of the site,
+    ``null`` without a geometry or without a water source.
 
     ``format=csv`` (GP-FR-145/175) downloads the **beds** of the site (types with ``is_bed``; ``is_bed=false`` is
     422 ``export.beds_only``), sorted by name: UTF-8 with BOM, RFC 4180 quoting, cells that look like a formula
@@ -216,17 +220,18 @@ def list_locations(
     if is_bed is not None or bed_status is not None:
         rows = resources.list_beds(site_key, tenant_key=ctx.tenant_key, is_bed=is_bed, bed_status=bed_status)
         if parent_location_key:
-            rows = [(loc, counters) for loc, counters in rows if loc.parent_location_key == parent_location_key]
+            rows = [row for row in rows if row.location.parent_location_key == parent_location_key]
         return [
             to_response(
-                loc,
+                row.location,
                 BedListItemResponse,
-                active_plant_count=counters.active_plant_count if counters else None,
-                open_task_count=counters.open_task_count if counters else None,
-                overdue_task_count=counters.overdue_task_count if counters else None,
-                next_due_at=counters.next_due_at if counters else None,
+                active_plant_count=row.counters.active_plant_count if row.counters else None,
+                open_task_count=row.counters.open_task_count if row.counters else None,
+                overdue_task_count=row.counters.overdue_task_count if row.counters else None,
+                next_due_at=row.counters.next_due_at if row.counters else None,
+                nearest_water_source_m=row.nearest_water_source_m,
             )
-            for loc, counters in rows
+            for row in rows
         ]
     service.get_site(site_key, tenant_key=ctx.tenant_key)
     if parent_location_key:
@@ -322,6 +327,8 @@ def get_location_summary(
 
     A bed also carries `nutrient_hint` (GP-FR-125): `ok`, `check`, `likely_deficit` or `insufficient_data` with
     reason codes, never a number. Thresholds without a source take no part (E-10).
+    `nearest_water_source_m` (GP-FR-167) is the distance in metres from the bed's edge to the nearest water source of
+    its site; `null` for a location that is no bed, without a geometry or without a water source.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
     counters = view.counters
@@ -337,6 +344,7 @@ def get_location_summary(
         next_due_at=counters.next_due_at,
         last_care_at=counters.last_care_at,
         nutrient_hint=NutrientHintResponse.from_hint(view.nutrient_hint),
+        nearest_water_source_m=view.nearest_water_source_m,
     )
 
 
