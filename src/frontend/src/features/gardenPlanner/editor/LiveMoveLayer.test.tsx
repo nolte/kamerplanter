@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pointer, px, setupEditor } from './editorTestKit';
 
@@ -53,5 +53,32 @@ describe('a move re-renders only the live layer (GP-NFR-011, GP-NFR-033)', () =>
     t.rerender();
     // The area (2, 2) moved by what the last move did - 0.2 m - not by the 4.4 m of the shift.
     expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 2.2] });
+  });
+
+  it('drops the ghost when the tool is switched in the middle of a move', () => {
+    const t = setupEditor();
+    t.click(11, 11);
+    fireEvent.pointerDown(t.canvas(), pointer(px(11, 11)));
+    fireEvent.pointerMove(t.canvas(), pointer(px(11, 11.3)));
+    expect(screen.queryAllByTestId('garden-plan-ghost').length).toBeGreaterThan(0);
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-tool-bed')));
+    expect(screen.queryAllByTestId('garden-plan-ghost')).toEqual([]);
+  });
+
+  it('follows a scroll while the pointer is down: the pointer then points at another part of the plan', () => {
+    const t = setupEditor();
+    t.click(11, 11);
+    fireEvent.pointerDown(t.canvas(), pointer(px(11, 11)));
+    // The page scrolls 40 px (1 m at 40 px/m): the plan moves up under the pointer that stays where it is.
+    document.documentElement.scrollTop = 40;
+    act(() => {
+      document.dispatchEvent(new Event('scroll'));
+    });
+    fireEvent.pointerMove(t.canvas(), pointer(px(11, 11.2)));
+    fireEvent.pointerUp(t.canvas(), pointer(px(11, 11.2)));
+    t.rerender();
+    document.documentElement.scrollTop = 0;
+    // 0.2 m up by the pointer, 1 m down by the scroll.
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 1.2] });
   });
 });

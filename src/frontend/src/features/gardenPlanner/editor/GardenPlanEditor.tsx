@@ -14,7 +14,6 @@ import {
   Suspense,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -60,7 +59,7 @@ import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
-import { MAX_PX_PER_M, nearestGridStep, stepZoom, type ZoomView } from '../model/units';
+import { MAX_PX_PER_M, nearestGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { snapCandidates } from '../renderer/planIndex';
 import { toScreen as projectToScreen } from '../renderer/viewport';
@@ -90,7 +89,7 @@ import { ConflictDialog } from './ConflictDialog';
 import { EditorHeaderActions } from './EditorHeaderActions';
 import { EditorOverlay } from './EditorOverlay';
 import { LiveMoveLayer } from './LiveMoveLayer';
-import { WHEEL_COMMIT_IDLE_MS, commitOf, cssTransform, layerTransform, wheelStep } from './wheelZoom';
+import { usePendingZoom } from './usePendingZoom';
 import { EditorToolbar, type AngleStep, type EditorTool } from './EditorToolbar';
 import { Grid } from './Grid';
 import { MiniMap } from './MiniMap';
@@ -175,7 +174,6 @@ export interface GardenPlanEditorProps {
 }
 
 /** The wheel zooms stepless: `exp(-deltaY * this)` per event (the buttons and + / - use the fixed levels). */
-const WHEEL_ZOOM_PER_PX = 0.0015;
 
 /** The companion line the event hit (`data-companion-edge`, drawn by the renderer's companion layer), or `null`. */
 function companionEdgeOf(event: { target: EventTarget | null }): string | null {
@@ -475,12 +473,14 @@ export function GardenPlanEditor({
   const shortcuts = useSingleKeyShortcuts();
   const dockRef = useRef<HTMLDivElement | null>(null);
   // The phone's "pan the selection above the sheet" waits for the release when a pointer holds a gesture: a view
-  // that moves under a pressed object would turn the press into a drag by the pan (GP-UX-052).
-  const panIntoViewLater = useRef<(() => void) | null>(null);
+  // that moves under a pressed object would turn the press into a drag by the pan (GP-UX-052). The release bumps
+  // `panAfterRelease`, so the pan runs after the render that shows where the selection now is.
+  const panDeferred = useRef(false);
+  const [panAfterRelease, setPanAfterRelease] = useState(0);
   const runPanIntoViewLater = useCallback(() => {
-    const later = panIntoViewLater.current;
-    panIntoViewLater.current = null;
-    later?.();
+    if (!panDeferred.current) return;
+    panDeferred.current = false;
+    setPanAfterRelease((count) => count + 1);
   }, []);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -633,77 +633,24 @@ export function GardenPlanEditor({
     () => [viewport.widthPx / 2, viewport.heightPx / 2],
     [viewport.widthPx, viewport.heightPx],
   );
+  const {
+    attachLayer: attachZoomLayer,
+    zoomTo,
+    newestView,
+  } = usePendingZoom({ viewport, onZoom, onPan, minPxPerM, canvasRef, canvasKey: view });
+  // The buttons and the keys step from the newest view: a wheel burst still pending is part of it.
   const zoomBy = useCallback(
-    (direction: 1 | -1) => onZoom?.(stepZoom(pxPerM, direction, minPxPerM), zoomCenter),
-    [minPxPerM, onZoom, pxPerM, zoomCenter],
+    (direction: 1 | -1) => {
+      if (onZoom) zoomTo(stepZoom(newestView().pxPerM, direction, minPxPerM), zoomCenter);
+    },
+    [minPxPerM, newestView, onZoom, zoomCenter, zoomTo],
   );
   const zoomIn = useCallback(() => zoomBy(1), [zoomBy]);
   const zoomOut = useCallback(() => zoomBy(-1), [zoomBy]);
   const fit = useCallback(() => onFit?.(), [onFit]);
 
-  // The wheel zooms around the pointer (with Ctrl/Cmd or a focused canvas). A listener of its own: React's wheel handlers are passive
-  // and could not keep the page from scrolling.
-  // A wheel burst moves a pending view that the plan layer follows by a CSS transform; it is committed once the
-  // wheel is idle (`wheelZoom.ts`, GP-NFR-034): one render per burst instead of one per notch.
-  const wheelState = useRef({ viewport, onZoom, onPan, minPxPerM });
-  useEffect(() => {
-    wheelState.current = { viewport, onZoom, onPan, minPxPerM };
-  });
-  const zoomLayerRef = useRef<HTMLDivElement | null>(null);
-  const pendingZoom = useRef<ZoomView | null>(null);
-  const wheelTimer = useRef<number | null>(null);
-  // A new committed view: the layer shows it as drawn, or still the rest of a pending burst.
-  useLayoutEffect(() => {
-    const layer = zoomLayerRef.current;
-    if (!layer) return;
-    layer.style.transform = pendingZoom.current ? cssTransform(layerTransform(viewport, pendingZoom.current)) : '';
-  }, [viewport]);
-  useEffect(() => {
-    const element = canvasRef.current;
-    if (element === null) return undefined;
-    const commit = () => {
-      wheelTimer.current = null;
-      const pending = pendingZoom.current;
-      pendingZoom.current = null;
-      const { viewport: committed, onZoom: zoom, onPan: pan } = wheelState.current;
-      const step = pending ? commitOf(committed, pending) : null;
-      if (step === null || !zoom) {
-        if (zoomLayerRef.current) zoomLayerRef.current.style.transform = '';
-      } else if (step.kind === 'zoom') zoom(step.pxPerM, step.anchorPx);
-      else pan(step.dxPx, step.dyPx);
-    };
-    const onWheel = (event: WheelEvent) => {
-      const { viewport: committed, onZoom: zoom, minPxPerM: min } = wheelState.current;
-      if (!zoom) return;
-      // A plain wheel (or a two-finger touchpad scroll) scrolls the page; zooming needs Ctrl/Cmd
-      // (a touchpad pinch arrives as Ctrl + wheel) or the focus on the canvas.
-      const focused = element.contains(document.activeElement);
-      if (!event.ctrlKey && !event.metaKey && !focused) return;
-      event.preventDefault();
-      const box = element.getBoundingClientRect();
-      const lines = event.deltaMode === 1 ? 16 : 1;
-      const base = pendingZoom.current ?? committed;
-      const next = wheelStep(base, base.pxPerM * Math.exp(-event.deltaY * lines * WHEEL_ZOOM_PER_PX), [
-        event.clientX - box.left - element.clientLeft,
-        event.clientY - box.top - element.clientTop,
-      ], min);
-      pendingZoom.current = next;
-      if (zoomLayerRef.current) zoomLayerRef.current.style.transform = cssTransform(layerTransform(committed, next));
-      if (wheelTimer.current !== null) window.clearTimeout(wheelTimer.current);
-      wheelTimer.current = window.setTimeout(commit, WHEEL_COMMIT_IDLE_MS);
-    };
-    element.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      element.removeEventListener('wheel', onWheel);
-      // A burst cut off by a view switch is committed at once rather than lost.
-      if (wheelTimer.current !== null) {
-        window.clearTimeout(wheelTimer.current);
-        commit();
-      }
-    };
-    // The canvas element is a new one each time the list view has been shown in between.
-  }, [view]);
-
+  // The wheel zooms around the pointer (with Ctrl/Cmd or a focused canvas) - a burst at a time, shown by a CSS
+  // transform of the plan layer and committed once the wheel is idle (GP-NFR-034, `usePendingZoom`).
   const toolKeyDown = tools.containerProps.onKeyDown;
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -869,9 +816,9 @@ export function GardenPlanEditor({
     () =>
       onZoom
         ? (factor: number, centerPx: Point) =>
-            onZoom(wheelState.current.viewport.pxPerM * factor, centerPx)
+            zoomTo(newestView().pxPerM * factor, centerPx)
         : undefined,
-    [onZoom],
+    [newestView, onZoom, zoomTo],
   );
   // A finger that lands on a companion line must not lose the pan or the pinch (a dense bed is mostly line): the hook
   // pans on a drag and pins the card on a tap that did not move, and the press selects nothing (GP-FR-134).
@@ -1362,9 +1309,9 @@ export function GardenPlanEditor({
       const dy = panIntoView(Math.min(...ys), Math.max(...ys), free);
       if (dy !== 0) latest.onPan(0, dy);
     };
-    if (isPointerDown()) panIntoViewLater.current = run;
+    if (isPointerDown()) panDeferred.current = true;
     else run();
-  }, [selectionSignature, toolbarBelow, isPointerDown]);
+  }, [selectionSignature, toolbarBelow, isPointerDown, panAfterRelease]);
 
   const code = notice ?? editError;
   const noticeText = code
@@ -1660,71 +1607,71 @@ export function GardenPlanEditor({
         },
       }}
     >
-      {/* The plan layer: the pending wheel zoom transforms it until the burst is committed. */}
-      <Box ref={zoomLayerRef} sx={{ position: 'relative', transformOrigin: '0 0' }} data-testid="garden-plan-zoom-layer">
+      {/* The plan layer: drawing, grid and the editor's overlays. A pending wheel zoom transforms all of it at once. */}
+      <Box ref={attachZoomLayer} sx={{ position: 'relative', transformOrigin: '0 0' }} data-testid="garden-plan-zoom-layer">
         {rendered}
         {gridVisible && <Grid viewport={viewport} stepM={gridStepM} />}
-      </Box>
-      {companionInfo && (
-        <Suspense fallback={null}>
-          <CompanionEdgeInfo
-            edge={companionInfo.edge}
-            x={companionInfo.x}
-            y={companionInfo.y}
-            canvasWidthPx={viewport.widthPx}
-            canvasHeightPx={viewport.heightPx}
-            pinned={companionInfo.pinned}
-            onClose={closeCompanionInfo}
-          />
-        </Suspense>
-      )}
-      {/* A move re-renders only this layer: the editor stays as it is until the gesture ends (GP-NFR-033). */}
-      <LiveMoveLayer
-        liveMove={tools.liveMove}
-        overlay={tools.overlay}
-        dimensionItems={dimensionItems}
-        snapMark={shownSnapMark}
-        handles={handles}
-        handlesPx={handlesPx}
-      >
-        {(live) => (
-          <EditorOverlay
-            overlay={live.overlay}
-            handles={live.handles}
-            vertex={tools.vertex}
-            toScreen={toScreen}
-            pxPerM={viewport.pxPerM}
-            widthPx={viewport.widthPx}
-            heightPx={viewport.heightPx}
-          >
-            <DimensionLabels
-              items={live.dimensionItems}
-              toScreen={toScreen}
-              unit={unit}
-              handlesPx={live.handlesPx}
-              heightPx={viewport.heightPx}
+        {companionInfo && (
+          <Suspense fallback={null}>
+            <CompanionEdgeInfo
+              edge={companionInfo.edge}
+              x={companionInfo.x}
+              y={companionInfo.y}
+              canvasWidthPx={viewport.widthPx}
+              canvasHeightPx={viewport.heightPx}
+              pinned={companionInfo.pinned}
+              onClose={closeCompanionInfo}
             />
-            {selectedTemplate && ghostPoint && templateMode && (
-              <TemplateGhost
-                template={selectedTemplate}
-                invalid={ghostInvalid}
-                originM={ghostPoint}
-                rotationDeg={templateMode.rotationDeg}
+          </Suspense>
+        )}
+        {/* A move re-renders only this layer: the editor stays as it is until the gesture ends (GP-NFR-033). */}
+        <LiveMoveLayer
+          liveMove={tools.liveMove}
+          overlay={tools.overlay}
+          dimensionItems={dimensionItems}
+          snapMark={shownSnapMark}
+          handles={handles}
+          handlesPx={handlesPx}
+        >
+          {(live) => (
+            <EditorOverlay
+              overlay={live.overlay}
+              handles={live.handles}
+              vertex={tools.vertex}
+              toScreen={toScreen}
+              pxPerM={viewport.pxPerM}
+              widthPx={viewport.widthPx}
+              heightPx={viewport.heightPx}
+            >
+              <DimensionLabels
+                items={live.dimensionItems}
                 toScreen={toScreen}
-                pxPerM={pxPerM}
-              />
-            )}
-            {live.snapMark && (
-              <SnapMarker
-                mark={live.snapMark}
-                toScreen={toScreen}
-                widthPx={viewport.widthPx}
+                unit={unit}
+                handlesPx={live.handlesPx}
                 heightPx={viewport.heightPx}
               />
-            )}
-          </EditorOverlay>
-        )}
-      </LiveMoveLayer>
+              {selectedTemplate && ghostPoint && templateMode && (
+                <TemplateGhost
+                  template={selectedTemplate}
+                  invalid={ghostInvalid}
+                  originM={ghostPoint}
+                  rotationDeg={templateMode.rotationDeg}
+                  toScreen={toScreen}
+                  pxPerM={pxPerM}
+                />
+              )}
+              {live.snapMark && (
+                <SnapMarker
+                  mark={live.snapMark}
+                  toScreen={toScreen}
+                  widthPx={viewport.widthPx}
+                  heightPx={viewport.heightPx}
+                />
+              )}
+            </EditorOverlay>
+          )}
+        </LiveMoveLayer>
+      </Box>
       <ScaleBar pxPerM={pxPerM} />
       {showMiniMap && extent && (
         <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} />

@@ -84,15 +84,16 @@ describe('usePlanRenderer', () => {
     expect(loader).toHaveBeenCalledTimes(1);
   });
 
-  it('switches when an open plan grows past the threshold', async () => {
-    const konva: PlanRenderer = new HeadlessPlanRenderer();
-    const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(konva));
+  it('keeps the renderer a plan opened with when an edit takes it across the threshold (no swap mid-session)', () => {
+    const loader = vi.fn<KonvaRendererLoader>(() => Promise.resolve(new HeadlessPlanRenderer()));
     const { result, rerender } = renderHook(({ model }) => usePlanRenderer(model, undefined, loader), {
       initialProps: { model: small },
     });
+    const svg = result.current;
+    expect(svg).toBeInstanceOf(SvgPlanRenderer);
+    rerender({ model: large }); // same site, grown past 3 000 objects by an edit
+    expect(result.current).toBe(svg);
     expect(loader).not.toHaveBeenCalled();
-    rerender({ model: large });
-    await waitFor(() => expect(result.current).toBe(konva));
   });
 
   it('decides afresh for another plan in the same mounted page, but never swaps on an edit of the same one', async () => {
@@ -107,7 +108,7 @@ describe('usePlanRenderer', () => {
     expect(result.current).toBe(konva);
     rerender({ model: otherSmall }); // the route's `:key` changed: a small site
     expect(result.current).toBeInstanceOf(SvgPlanRenderer);
-    rerender({ model: large }); // back to the large site
+    rerender({ model: large }); // back to the large site: opened again, decided again
     expect(result.current).toBe(konva);
   });
 

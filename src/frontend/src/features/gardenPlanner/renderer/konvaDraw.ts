@@ -443,20 +443,17 @@ export function drawScene(ctx: PlanCanvasContext, frame: DrawFrame, excludeKey: 
 
 /** Whether the scene draws `key` as a node of its own (a shape or an individual marker) - only those move in a drag. */
 export function drawsNode(scene: Scene, key: string): boolean {
-  return (
-    scene.shapes.some((item) => item.entry.key === key) || scene.markers.some((marker) => marker.entry.key === key)
-  );
+  return scene.nodes.has(key);
 }
 
 /** The dragged node, shifted by the preview offset; nothing when the scene does not draw it. */
 export function drawDragged(ctx: PlanCanvasContext, frame: DrawFrame, preview: DragPreview | null): void {
   if (!preview) return;
-  const shape = frame.scene.shapes.find((item) => item.entry.key === preview.key);
-  const marker = shape ? undefined : frame.scene.markers.find((item) => item.entry.key === preview.key);
-  if (!shape && !marker) return;
+  const node = frame.scene.nodes.get(preview.key);
+  if (!node) return;
   ctx.save();
   ctx.translate(preview.dxPx, preview.dyPx);
-  if (shape) drawShape(ctx, frame, shape);
-  else if (marker) drawMarker(ctx, frame, marker);
+  if (node.kind === 'shape') drawShape(ctx, frame, node.item);
+  else drawMarker(ctx, frame, node.item);
   ctx.restore();
 }

@@ -51,9 +51,9 @@ export const loadKonvaRenderer: KonvaRendererLoader = () =>
  * - Below the threshold: SVG.
  * - At or above it: the Konva chunk loads; until it is there a placeholder holds the plan's place (no full SVG
  *   drawing that is thrown away a moment later). A chunk that fails to load leaves the plan on SVG.
- * - The choice is latched per plan (`identity`, by default the site): a plan that shrinks below the threshold while
- *   open keeps Konva, so an edit never swaps the drawing surface. Another plan in the same mounted page (the route
- *   does not remount on a new `:key`) is decided afresh.
+ * - The choice is made once per plan, when it opens (`identity`, by default the site): an edit that takes the plan
+ *   across the threshold - either way - never swaps the drawing surface mid-session. Another plan in the same
+ *   mounted page (the route does not remount on a new `:key`) is decided afresh when it opens.
  */
 export function usePlanRenderer(
   model: PlanModel | null | undefined,
@@ -62,13 +62,14 @@ export function usePlanRenderer(
 ): PlanRenderer {
   const svg = useMemo(() => createSvgRenderer(), []);
   const placeholder = useMemo(() => new PlaceholderPlanRenderer(), []);
-  // The plan the Konva choice was made for; `undefined` = none yet.
-  const [latchedFor, setLatchedFor] = useState<string | null | undefined>(undefined);
+  // The choice for the open plan, made from its size when it opened; `null` = no plan opened yet.
+  const [decided, setDecided] = useState<{ identity: string | null; konva: boolean } | null>(null);
   const [konva, setKonva] = useState<PlanRenderer | null>(null);
   const [failed, setFailed] = useState(false);
-  const wanted = rendererKindFor(planObjectCount(model)) === 'konva';
-  if (wanted && latchedFor !== identity) setLatchedFor(identity);
-  const konvaWanted = latchedFor !== undefined && latchedFor === identity;
+  if (model && (decided === null || decided.identity !== identity)) {
+    setDecided({ identity, konva: rendererKindFor(planObjectCount(model)) === 'konva' });
+  }
+  const konvaWanted = decided !== null && decided.identity === identity && decided.konva;
 
   useEffect(() => {
     if (!konvaWanted || konva || failed) return;

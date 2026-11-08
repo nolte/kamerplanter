@@ -194,10 +194,38 @@ function canvasOrigin(element: HTMLElement): Point {
 }
 
 /**
- * The pointer in canvas pixels. A gesture passes the canvas origin of its press: a layout shift while the pointer is
- * down (a notice or a sheet that opens on the selection) must not turn into a jump of the gesture, and a move does
- * not force a layout per event (GP-NFR-033).
+ * The canvas origin a gesture works with: read at the press and then moved only by scrolling. A layout shift while
+ * the pointer is down (a notice or a sheet that opens on the selection) is not followed - the gesture must not jump
+ * by it - but a scroll is: the pointer then really points at another part of the plan. Scroll offsets are read once
+ * per scroll event, never per pointer move, so a move forces no layout (GP-NFR-033).
  */
+class PressOrigin {
+  point: Point;
+  private readonly scrollers: { element: Element; left: number; top: number }[] = [];
+
+  constructor(element: HTMLElement) {
+    this.point = canvasOrigin(element);
+    for (let node = element.parentElement; node !== null; node = node.parentElement) {
+      this.scrollers.push({ element: node, left: node.scrollLeft, top: node.scrollTop });
+    }
+  }
+
+  /** A scroll somewhere: the content under the canvas moved by the change of its scroll ancestors. */
+  readonly onScroll = (): void => {
+    let dx = 0;
+    let dy = 0;
+    for (const entry of this.scrollers) {
+      const { scrollLeft, scrollTop } = entry.element;
+      dx += scrollLeft - entry.left;
+      dy += scrollTop - entry.top;
+      entry.left = scrollLeft;
+      entry.top = scrollTop;
+    }
+    if (dx !== 0 || dy !== 0) this.point = [this.point[0] - dx, this.point[1] - dy];
+  };
+}
+
+/** The pointer in canvas pixels, from the gesture's origin when one is under way (see {@link PressOrigin}). */
 function sampleOf(event: ReactPointerEvent<HTMLElement>, additive = false, origin?: Point): PointerSample {
   const [left, top] = origin ?? canvasOrigin(event.currentTarget);
   return {
@@ -275,7 +303,13 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   });
   const live = useRef<Machines>(stored);
   // The canvas origin at the press of the gesture in progress (see `sampleOf`).
-  const pressOrigin = useRef<Point | null>(null);
+  const pressOrigin = useRef<PressOrigin | null>(null);
+  const endPress = useCallback(() => {
+    const origin = pressOrigin.current;
+    if (origin) window.removeEventListener('scroll', origin.onScroll, { capture: true });
+    pressOrigin.current = null;
+  }, []);
+  useEffect(() => endPress, [endPress]);
   // What was last handed to React: a move-only step is compared against it, not against the live state.
   const committed = useRef<Machines>(stored);
   const liveMove = useMemo(() => createLiveMoveStore(), []);
@@ -342,7 +376,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   const { tool, drawShape } = options;
   useEffect(() => {
     latest.current.renderer.setDragOffset(null);
-  }, [tool, drawShape]);
+    // A move cut off by the switch leaves no ghost behind in the live layer.
+    liveMove.set(null);
+  }, [tool, drawShape, liveMove]);
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
@@ -351,8 +387,11 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       if (m.pointerId !== null) return; // one pointer at a time
       const o = latest.current;
       o.onNotice(null);
-      pressOrigin.current = canvasOrigin(event.currentTarget);
-      const sample = sampleOf(event, o.additive, pressOrigin.current);
+      endPress();
+      const origin = new PressOrigin(event.currentTarget);
+      pressOrigin.current = origin;
+      window.addEventListener('scroll', origin.onScroll, { capture: true, passive: true });
+      const sample = sampleOf(event, o.additive, origin.point);
       const env = envOf(o);
       const kind = event.button === 1 ? 'pan' : toolKind(o.tool);
       try {
@@ -373,7 +412,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       }
       syncPreview();
     },
-    [apply, current, syncPreview, update],
+    [apply, current, endPress, syncPreview, update],
   );
 
   const onPointerMove = useCallback(
@@ -381,7 +420,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       const m = current();
       const o = latest.current;
       if (m.pointerId !== null && event.pointerId !== m.pointerId) return;
-      const sample = sampleOf(event, o.additive, m.pointerId !== null ? (pressOrigin.current ?? undefined) : undefined);
+      const sample = sampleOf(event, o.additive, m.pointerId !== null ? pressOrigin.current?.point : undefined);
       const env = envOf(o);
       if (m.active === 'pan') {
         const step = panMove(m.pan, sample);
@@ -406,7 +445,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       const m = current();
       const o = latest.current;
       if (m.pointerId === null || event.pointerId !== m.pointerId) return;
-      const sample = sampleOf(event, o.additive, m.pointerId !== null ? (pressOrigin.current ?? undefined) : undefined);
+      const sample = sampleOf(event, o.additive, pressOrigin.current?.point);
+      endPress();
       const env = envOf(o);
       try {
         event.currentTarget.releasePointerCapture?.(event.pointerId);
@@ -427,7 +467,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         apply(step.effects);
       }
     },
-    [apply, current, update],
+    [apply, current, endPress, update],
   );
 
   const onPointerCancel = useCallback(() => {
@@ -439,8 +479,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       active: null,
       pointerId: null,
     });
+    endPress();
     latest.current.renderer.setDragOffset(null);
-  }, [current, update]);
+  }, [current, endPress, update]);
 
   /** Escape: the innermost thing under way ends first - a draft, a gesture, a picked point, the selection, the tool. */
   const cancel = useCallback(() => {
