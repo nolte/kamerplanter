@@ -70,6 +70,7 @@ from app.common.openapi_responses import (
     FORBIDDEN_RESPONSE,
     NOT_FOUND_RESPONSE,
     VALIDATION_RESPONSE,
+    request_body_schema,
 )
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
@@ -635,7 +636,7 @@ PLAN_IMPORT_MAX_BODY_BYTES = MAX_IMPORT_BYTES + IMPORT_ENVELOPE_BYTES
     openapi_extra={
         "requestBody": {
             "required": True,
-            "content": {"application/json": {"schema": PlanImportRequest.model_json_schema()}},
+            "content": {"application/json": {"schema": request_body_schema(PlanImportRequest)}},
         }
     },
 )
