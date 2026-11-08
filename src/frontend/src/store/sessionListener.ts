@@ -3,7 +3,7 @@ import { setActiveTenantSlug } from '@/api/client';
 import { releasePushSubscription } from '@/lib/pushSubscription';
 import { clearOfflineData, postNamespace } from '@/pwa/offlineData';
 import { isSessionEnd, type rootReducer } from './rootReducer';
-import { RATE_LIMITED_REJECTION, refreshAccessToken } from './slices/authSlice';
+import { DEAD_SESSION_REFRESH_CODE, RATE_LIMITED_REJECTION, refreshAccessToken } from './slices/authSlice';
 
 /** Where `tenantSlice` persists the active tenant across reloads. */
 const ACTIVE_TENANT_KEY = 'kp_active_tenant_slug';
@@ -50,13 +50,16 @@ sessionListener.startListening({
  * A refresh the server refused means the session is gone (#2789 review S3): the bootstrap in
  * `AuthProvider` swallows that rejection without `clearAuth`, e.g. after an account erasure or a
  * revocation elsewhere, so the previous session's offline data is cleared here. A rate limit is not a
- * dead session (#1131), and a refresh that got no answer at all (offline start) must keep the cache —
- * it is exactly what the offline start reads. The serialised error keeps the error class's `name`.
+ * dead session (#1131), a 5xx is an outage, and a refresh that got no answer at all (offline start)
+ * must keep the cache — it is exactly what the offline start reads. The thunk's error serialiser marks
+ * a 401/403 with {@link DEAD_SESSION_REFRESH_CODE}.
  */
 export function isDeadSessionRefresh(action: unknown): boolean {
   if (!refreshAccessToken.rejected.match(action)) return false;
   if (action.payload === RATE_LIMITED_REJECTION) return false;
-  return action.error.name === 'ApiError';
+  // Only 401/403 (#2789 verification M1): a 5xx answers with the same ApiError envelope while the
+  // refresh cookie stays valid — the outage is exactly when the offline data is needed.
+  return action.error.code === DEAD_SESSION_REFRESH_CODE;
 }
 
 sessionListener.startListening({

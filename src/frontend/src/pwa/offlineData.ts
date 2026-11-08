@@ -34,30 +34,53 @@ export function offlineDataGeneration(): number {
  * Every tab of the origin hears a clearing (#2789 review S2): the generation is per tab, so without
  * this a second tab of the same account — its access token still valid for up to 15 minutes — would
  * finish an in-flight write, or start a new one, into the database the first tab just deleted.
+ *
+ * The message names whose session ended (#2789 verification L1): a tab acts on it only when it holds
+ * that user — an anonymous tab's bootstrap clearing, or another account's logout, must not switch off
+ * the cache of a tab whose session is alive. The kill switch (`all`) concerns every tab.
  */
 export const OFFLINE_CLEAR_CHANNEL = 'kp-offline';
 const CLEAR_MESSAGE = 'offline-data-cleared';
 
-/** `local`: this tab clears; `remote`: another tab of the origin did. */
-export type ClearingOrigin = 'local' | 'remote';
-type ClearedListener = (origin: ClearingOrigin) => void;
-const clearedListeners = new Set<ClearedListener>();
+/**
+ * What the plan cache hears:
+ * - `local`: this tab starts a clearing; `local-done`: it has finished (the databases are deleted);
+ * - `remote`: another tab cleared the session this tab holds (or the kill switch fired);
+ * - `foreign`: another tab cleared a session this tab does NOT hold — its deletion is not about us;
+ * - `session`: this tab now has a complete user + tenant namespace (a sign-in, a tenant switch).
+ */
+export type OfflineDataEvent = 'local' | 'local-done' | 'remote' | 'foreign' | 'session';
+type EventListener = (event: OfflineDataEvent) => void;
+const listeners = new Set<EventListener>();
 
-/** Called on every clearing — in this tab and in any other tab of the origin. Returns the unsubscribe. */
-export function onOfflineDataCleared(listener: ClearedListener): () => void {
-  clearedListeners.add(listener);
-  return () => clearedListeners.delete(listener);
+/** Subscribe to {@link OfflineDataEvent}s. Returns the unsubscribe. */
+export function onOfflineDataEvent(listener: EventListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
-function cleared(origin: ClearingOrigin): void {
-  generation += 1;
-  clearedListeners.forEach((listener) => {
+function emit(event: OfflineDataEvent): void {
+  if (event === 'local' || event === 'remote') generation += 1;
+  listeners.forEach((listener) => {
     try {
-      listener(origin);
+      listener(event);
     } catch {
       // A listener's failure never stops the clearing.
     }
   });
+}
+
+interface ClearMessage {
+  type: typeof CLEAR_MESSAGE;
+  /** The user whose session ended; `null` = none (an anonymous tab); `all` = the kill switch. */
+  userKey: string | null;
+  all?: boolean;
+}
+
+/** Whether a clearing in another tab concerns this tab's session. */
+function concernsThisTab(message: ClearMessage): boolean {
+  if (message.all) return true;
+  return message.userKey !== null && message.userKey === lastNamespace.userKey;
 }
 
 let channel: BroadcastChannel | null = null;
@@ -67,17 +90,20 @@ if (typeof BroadcastChannel !== 'undefined') {
     // Node (tests) keeps the process alive for an open channel; a browser has no `unref`.
     (channel as BroadcastChannel & { unref?: () => void }).unref?.();
     channel.onmessage = (event: MessageEvent) => {
-      if ((event.data as { type?: unknown } | null)?.type === CLEAR_MESSAGE) cleared('remote');
+      const message = event.data as ClearMessage | null;
+      if (message?.type !== CLEAR_MESSAGE) return;
+      emit(concernsThisTab(message) ? 'remote' : 'foreign');
     };
   } catch {
     channel = null;
   }
 }
 
-function announceClearing(): void {
-  cleared('local');
+function announceClearing(userKey: string | null, all = false): void {
+  emit('local');
   try {
-    channel?.postMessage({ type: CLEAR_MESSAGE });
+    const message: ClearMessage = { type: CLEAR_MESSAGE, userKey, all };
+    channel?.postMessage(message);
   } catch {
     // No channel (old browser): the other tabs still lose their database connection (`versionchange`).
   }
@@ -107,7 +133,9 @@ async function postToWorker(message: Record<string, unknown>): Promise<void> {
 
 /** Tell the worker which user and tenant this tab's API cache belongs to (`null` = cache nothing). */
 export function postNamespace(userKey: string | null, tenantKey: string | null): Promise<void> {
+  const changed = lastNamespace.userKey !== userKey || lastNamespace.tenantKey !== tenantKey;
   lastNamespace = { userKey, tenantKey };
+  if (changed && userKey && tenantKey) emit('session');
   return postToWorker({ type: SW_MESSAGE_SET_NAMESPACE, userKey, tenantKey });
 }
 
@@ -125,16 +153,24 @@ export function repostNamespace(): Promise<void> {
  * Await this BEFORE `window.location.reload()` on logout and tenant switch (G-W9 b).
  */
 export async function clearOfflineData(): Promise<void> {
-  announceClearing();
   const { userKey } = lastNamespace;
+  announceClearing(userKey);
   lastNamespace = { userKey: null, tenantKey: null };
-  await postToWorker({ type: SW_MESSAGE_CLEAR_DATA, userKey });
-  await Promise.all([deleteCaches((name) => !isPublicCacheName(name)), deleteAllDatabases()]);
+  try {
+    await postToWorker({ type: SW_MESSAGE_CLEAR_DATA, userKey });
+    await Promise.all([deleteCaches((name) => !isPublicCacheName(name)), deleteAllDatabases()]);
+  } finally {
+    emit('local-done');
+  }
 }
 
 /** Kill switch (G-W9 e): everything goes, the app shell caches included. */
 export async function clearAllOfflineStorage(): Promise<void> {
-  announceClearing();
+  announceClearing(lastNamespace.userKey, true);
   lastNamespace = { userKey: null, tenantKey: null };
-  await Promise.all([deleteCaches(), deleteAllDatabases()]);
+  try {
+    await Promise.all([deleteCaches(), deleteAllDatabases()]);
+  } finally {
+    emit('local-done');
+  }
 }

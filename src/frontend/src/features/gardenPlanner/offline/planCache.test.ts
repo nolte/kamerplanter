@@ -3,7 +3,7 @@ import { AxiosError, AxiosHeaders } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api/errors';
 import { emptyPlanCache, testPlanCacheDatabase } from '@/test/planCacheTestKit';
-import { clearOfflineData } from '@/pwa/offlineData';
+import { clearOfflineData, postNamespace } from '@/pwa/offlineData';
 import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
 import { storableSheet } from '../field/useBedSheet';
 import { careTask } from '../care/careTestKit';
@@ -299,6 +299,10 @@ describe('the bed sheet record (#2789 review L1, C5)', () => {
 });
 
 describe('a second tab cannot refill the deleted database (#2789 review S2)', () => {
+  afterEach(async () => {
+    await postNamespace(null, null);
+  });
+
   /** Another tab of the origin: its own module scope — own Dexie connection, own channel, own generation. */
   async function secondTab() {
     vi.resetModules();
@@ -308,6 +312,10 @@ describe('a second tab cannot refill the deleted database (#2789 review S2)', ()
 
   it('the other tab drops its in-flight write and writes nothing new after the clearing', async () => {
     const tabB = await secondTab();
+    // Both tabs hold alice's session.
+    await postNamespace('alice', 'tenant_a');
+    const tabBData = await import('@/pwa/offlineData');
+    await tabBData.postNamespace('alice', 'tenant_a');
     // Tab B has a read under way (its token is still valid) but no connection yet: only the broadcast
     // can tell it that tab A cleared.
     let answer: (value: unknown) => void = () => undefined;
@@ -335,5 +343,60 @@ describe('a second tab cannot refill the deleted database (#2789 review S2)', ()
     await tabB.writeCached(tabB.planEntry(ALICE_A, 'site_2'), PLAN, Date.now());
     await settle();
     expect(await databaseNames()).not.toContain(PLAN_CACHE_DB_NAME);
+  });
+});
+
+describe('retirement ends with a new session and ignores other sessions (#2789 verification L1)', () => {
+  async function secondTab() {
+    vi.resetModules();
+    const cache = await import('./planCache');
+    const data = await import('@/pwa/offlineData');
+    return { cache, data };
+  }
+
+  async function usable(cache: typeof import('./planCache'), site: string): Promise<boolean> {
+    await cache.writeCached(cache.planEntry(ALICE_A, site), PLAN, Date.now());
+    return (await cache.readCached(cache.planEntry(ALICE_A, site), Date.now())) !== null;
+  }
+
+  afterEach(async () => {
+    await postNamespace(null, null);
+  });
+
+  it('a re-login in the tab that was retired by a logout elsewhere caches again', async () => {
+    const tabB = await secondTab();
+    await postNamespace('alice', 'tenant_a');
+    await tabB.data.postNamespace('alice', 'tenant_a');
+    expect(await usable(tabB.cache, 'site_b0')).toBe(true);
+    await clearOfflineData(); // tab A: alice signs out
+    await settle();
+    expect(await usable(tabB.cache, 'site_b1')).toBe(false);
+    await tabB.data.postNamespace(null, null); // tab B notices (401 -> session end) ...
+    await tabB.data.postNamespace('carol', 'tenant_a'); // ... and someone signs in without a reload
+    expect(await usable(tabB.cache, 'site_b2')).toBe(true);
+  });
+
+  it("a connection opened during the tab's own clearing does not retire the tab", async () => {
+    await postNamespace('alice', 'tenant_a');
+    await writeCached(planEntry(ALICE_A, 'site_w'), PLAN, Date.now());
+    // A read that lands while the clearing waits for the worker opens (or would open) a connection,
+    // which the clearing's own deletion then sees as `versionchange`.
+    const clearing = clearOfflineData();
+    const late = writeCached(planEntry(ALICE_A, 'site_x'), PLAN, Date.now());
+    await Promise.all([late, clearing]);
+    expect(await readCached(planEntry(ALICE_A, 'site_x'), Date.now())).toBeNull();
+    // No new session in between: the tab must simply still be usable.
+    await writeCached(planEntry(ALICE_A, 'site_y'), PLAN, Date.now());
+    expect(await readCached(planEntry(ALICE_A, 'site_y'), Date.now())).not.toBeNull();
+  });
+
+  it("an anonymous tab's bootstrap clearing does not retire a signed-in tab", async () => {
+    const tabB = await secondTab(); // anonymous: no namespace
+    await postNamespace('alice', 'tenant_a'); // this tab is signed in and has its connection open
+    await writeCached(planEntry(ALICE_A, 'site_0'), PLAN, Date.now());
+    await tabB.data.clearOfflineData(); // its refresh was refused (401)
+    await settle();
+    await writeCached(planEntry(ALICE_A, 'site_1'), PLAN, Date.now());
+    expect(await readCached(planEntry(ALICE_A, 'site_1'), Date.now())).not.toBeNull();
   });
 });

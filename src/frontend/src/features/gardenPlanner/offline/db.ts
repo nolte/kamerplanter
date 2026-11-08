@@ -57,15 +57,15 @@ let instance: PlanCacheDatabase | null = null;
  * switch) fires `versionchange`. Dexie's default closes and REOPENS on the next access, which would let
  * this tab — possibly still holding the previous account's token — write that account's rows into a
  * fresh database (#2789 review S2). So the handler closes for good (`disableAutoOpen: true`), returns
- * `false` to stop the default, and `onRetired` turns the plan cache off for the rest of the page's life.
+ * `false` to stop the default, and `onDeletedElsewhere` lets the plan cache decide whether to retire.
  */
-export function planCacheDatabase(onRetired: () => void): PlanCacheDatabase {
+export function planCacheDatabase(onDeletedElsewhere: () => void): PlanCacheDatabase {
   if (instance === null) {
     const db = new PlanCacheDatabase();
     db.on('versionchange', () => {
       db.close({ disableAutoOpen: true });
       if (instance === db) instance = null;
-      onRetired();
+      onDeletedElsewhere();
       return false;
     });
     instance = db;

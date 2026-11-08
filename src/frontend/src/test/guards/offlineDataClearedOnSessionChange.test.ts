@@ -49,7 +49,7 @@ vi.mock('@/pwa/offlineData', () => ({
   repostNamespace: vi.fn(async () => undefined),
   clearAllOfflineStorage: vi.fn(async () => undefined),
   offlineDataGeneration: vi.fn(() => 0),
-  onOfflineDataCleared: vi.fn(() => () => undefined),
+  onOfflineDataEvent: vi.fn(() => () => undefined),
 }));
 vi.mock('@/api/endpoints/system', () => ({ getTakeoverStatus: vi.fn(), decideTakeover: vi.fn() }));
 vi.mock('@/api/endpoints/auth', async () => ({
@@ -339,23 +339,42 @@ describe('offline data is cleared on account erasure and on a dead session (#278
     });
   }
 
-  it('clears when the server refuses the refresh, not when it got no answer or was rate limited', async () => {
-    const { refreshAccessToken, RATE_LIMITED_REJECTION } = await import('@/store/slices/authSlice');
-    const { ApiError } = await import('@/api/errors');
-    const { AxiosError } = await import('axios');
-    const store = await listenedStore();
+  function apiError(status: number) {
+    return import('@/api/errors').then(
+      ({ ApiError }) =>
+        new ApiError(
+          { error_id: 'e', error_code: `HTTP_${status}`, message: 'x', details: [], path: '/', method: 'POST' } as never,
+          status,
+        ),
+    );
+  }
 
-    store.dispatch(refreshAccessToken.rejected(new AxiosError('Network Error', 'ERR_NETWORK'), 'r1'));
-    store.dispatch(refreshAccessToken.rejected(null, 'r2', undefined, RATE_LIMITED_REJECTION));
+  it.each([401, 403])('clears when the server refuses the refresh with %i (a dead session)', async (status) => {
+    const { refreshAccessToken } = await import('@/store/slices/authSlice');
+    const store = await listenedStore();
+    store.dispatch(refreshAccessToken.rejected(await apiError(status), `r${status}`));
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the offline data on a 5xx (enveloped or not), no answer at all, or a rate limit (#2789 M1)', async () => {
+    const { refreshAccessToken, RATE_LIMITED_REJECTION } = await import('@/store/slices/authSlice');
+    const { AxiosError, AxiosHeaders } = await import('axios');
+    const store = await listenedStore();
+    // The backend's unhandled-error handler answers 500 with the ApiError envelope.
+    store.dispatch(refreshAccessToken.rejected(await apiError(500), 'r500'));
+    // A proxy 503 without envelope stays an AxiosError with a response.
+    const proxy = new AxiosError('Service Unavailable', 'ERR_BAD_RESPONSE', undefined, undefined, {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: {},
+      config: { headers: new AxiosHeaders() },
+      data: '<html>',
+    });
+    store.dispatch(refreshAccessToken.rejected(proxy, 'r503'));
+    store.dispatch(refreshAccessToken.rejected(new AxiosError('Network Error', 'ERR_NETWORK'), 'rnet'));
+    store.dispatch(refreshAccessToken.rejected(null, 'rlimit', undefined, RATE_LIMITED_REJECTION));
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(offlineData.clearOfflineData).not.toHaveBeenCalled();
-
-    const refused = new ApiError(
-      { error_id: 'e', error_code: 'UNAUTHORIZED', message: 'Session expired', details: [], path: '/', method: 'POST' } as never,
-      401,
-    );
-    store.dispatch(refreshAccessToken.rejected(refused, 'r3'));
-    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
   });
 
   it('the account erasure clears before it leaves for the login page', async () => {

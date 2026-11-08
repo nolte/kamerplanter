@@ -17,9 +17,10 @@
  * - **No `localStorage`** (guardrail G-W9 a): only IndexedDB, cleared with every other database on
  *   logout, tenant switch, account erasure, a dead session and the kill switch (`pwa/offlineData.ts`).
  *   A clearing in this tab first closes this tab's connection (so its own deletion goes through and a
- *   later sign-in may cache again); a clearing in ANOTHER tab (`BroadcastChannel`) or a deletion of the
- *   database by another connection retires the cache in this tab until the page reloads — that tab may
- *   still hold the previous account's token (#2789 review S2). A write whose read began before any
+ *   later sign-in may cache again); a clearing in ANOTHER tab for the session this tab holds
+ *   (`BroadcastChannel`), or a deletion of the database by another connection that no broadcast
+ *   explains, retires the cache in this tab until it starts a new session or reloads — that tab may
+ *   still hold the previous account's token (#2789 review S2, verification L1). A write whose read began before any
  *   clearing is dropped (`offlineDataGeneration`), so a late answer cannot refill the database.
  * - **Kill switch** (G-W9 e): with `PWA_CACHING_ENABLED=false` nothing is read or written and the
  *   database is never opened.
@@ -30,7 +31,7 @@
 import axios from 'axios';
 import { runtimeConfig } from '@/config/runtimeConfig';
 import { API_CACHE_TTL_SECONDS, isPwaCachingEnabled } from '@/pwa/cachePolicy';
-import { offlineDataGeneration, onOfflineDataCleared } from '@/pwa/offlineData';
+import { offlineDataGeneration, onOfflineDataEvent } from '@/pwa/offlineData';
 import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
 import type { CachedRecord, PlanCacheDatabase, PlanCacheTable } from './db';
 
@@ -97,20 +98,63 @@ export function isNetworkFailure(error: unknown): boolean {
 
 const TABLES: readonly PlanCacheTable[] = ['plans', 'bedLists', 'siteLists', 'bedSummaries', 'bedSheets'];
 
-/** Set once another tab cleared or deleted the database; only a reload starts the cache again. */
+/**
+ * Retirement (#2789 reviews S2, verification L1). Set when another tab ended the session this tab holds
+ * (`remote`), or the database was deleted by a connection that is neither this tab's own clearing nor a
+ * clearing for a session this tab does not hold. It lasts until this tab starts a new complete session
+ * (`session`: a sign-in, a tenant switch) or the page reloads — never just until the next read.
+ */
 let retired = false;
-/** The loaded `db` module, so a local clearing can close the connection synchronously. */
+/** When a deletion by another connection retired the cache; a `foreign` broadcast arriving later undoes it. */
+let retiredByDeletionAt: number | null = null;
+/** This tab is clearing: nothing opens a connection until it is done, and its own deletion retires nothing. */
+let localClearing = false;
+/** A `foreign` broadcast came in: a deletion seen until then belongs to that other session. */
+let foreignDeletionUntil = 0;
+/** How far apart the broadcast and the `versionchange` of the same clearing may arrive. */
+const SAME_CLEARING_WINDOW_MS = 5000;
+/** The loaded `db` module, so a clearing can close the connection synchronously. */
 let dbModule: typeof import('./db') | null = null;
 
-function retire(): void {
-  retired = true;
+function closeConnection(): void {
   dbModule?.forgetPlanCacheConnection();
 }
 
-onOfflineDataCleared((origin) => {
-  if (origin === 'remote') retire();
-  // A local clearing: close this tab's connection before the deletion starts; the next read opens anew.
-  else dbModule?.forgetPlanCacheConnection();
+/** `versionchange`: another connection deletes the database (db.ts has already closed ours). */
+function deletedElsewhere(): void {
+  if (localClearing || Date.now() < foreignDeletionUntil) return;
+  retired = true;
+  retiredByDeletionAt = Date.now();
+}
+
+onOfflineDataEvent((event) => {
+  switch (event) {
+    case 'local':
+      // Close before the deletion starts; nothing reopens until it is done.
+      localClearing = true;
+      closeConnection();
+      break;
+    case 'local-done':
+      localClearing = false;
+      break;
+    case 'remote':
+      retired = true;
+      retiredByDeletionAt = null;
+      closeConnection();
+      break;
+    case 'foreign':
+      foreignDeletionUntil = Date.now() + SAME_CLEARING_WINDOW_MS;
+      if (retiredByDeletionAt !== null && Date.now() - retiredByDeletionAt < SAME_CLEARING_WINDOW_MS) {
+        retired = false;
+        retiredByDeletionAt = null;
+      }
+      break;
+    case 'session':
+      retired = false;
+      retiredByDeletionAt = null;
+      closeConnection();
+      break;
+  }
 });
 
 /** Whether the plan cache may be used in this tab: kill switch on, not retired, IndexedDB present. */
@@ -124,10 +168,10 @@ function cacheUsable(): boolean {
 }
 
 async function database(): Promise<PlanCacheDatabase | null> {
-  if (!cacheUsable()) return null;
+  if (!cacheUsable() || localClearing) return null;
   try {
     dbModule ??= await import('./db');
-    return retired ? null : dbModule.planCacheDatabase(retire);
+    return retired || localClearing ? null : dbModule.planCacheDatabase(deletedElsewhere);
   } catch {
     return null;
   }
@@ -314,5 +358,8 @@ export async function readThrough<T>(
 /** Tests only: a fresh page — the cache is usable again and the next call opens a new connection. */
 export function resetPlanCacheForTests(): void {
   retired = false;
+  retiredByDeletionAt = null;
+  localClearing = false;
+  foreignDeletionUntil = 0;
   dbModule?.forgetPlanCacheConnection();
 }
