@@ -4,7 +4,7 @@ import { join, relative } from 'node:path';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
 
@@ -26,6 +26,11 @@ import i18n from 'i18next';
  * those clearings empty — the real `clearOfflineData` / `clearAllOfflineStorage` and the worker's wipe
  * (`deleteAllDatabases`) run against a real IndexedDB (`fake-indexeddb`) holding a cached plan, and the
  * plan is gone afterwards; a write whose read began before a clearing never lands.
+ *
+ * #2789 review S3: two more places end a session's offline data — the account erasure
+ * (`pages/auth/AccountSettingsPage.tsx`, before its redirect) and a refresh the server refused
+ * (`store/sessionListener.ts`, the bootstrap swallows it without `clearAuth`). A refresh that got no
+ * answer (offline start) or was rate limited must NOT clear: the offline start reads that cache.
  */
 
 const calls: string[] = [];
@@ -44,6 +49,7 @@ vi.mock('@/pwa/offlineData', () => ({
   repostNamespace: vi.fn(async () => undefined),
   clearAllOfflineStorage: vi.fn(async () => undefined),
   offlineDataGeneration: vi.fn(() => 0),
+  onOfflineDataCleared: vi.fn(() => () => undefined),
 }));
 vi.mock('@/api/endpoints/system', () => ({ getTakeoverStatus: vi.fn(), decideTakeover: vi.fn() }));
 vi.mock('@/api/endpoints/auth', async () => ({
@@ -236,13 +242,19 @@ describe('the plan cache database is emptied by the same clearings (WP 9.2)', ()
   const ALICE = { userKey: 'alice', tenantKey: 'tenant_a' };
   const T0 = Date.now();
 
+  // Each test is a fresh page: a deletion in the previous one retired that page's cache.
+  beforeEach(async () => {
+    const { emptyPlanCache } = await import('@/test/planCacheTestKit');
+    await emptyPlanCache();
+  });
+
   /** A plan, a bed list, a site list, a bed summary and a bed sheet: every table of the plan cache. */
   async function seededPlanCache() {
     const cache = await import('@/features/gardenPlanner/offline/planCache');
     const entries = [
       cache.planEntry(ALICE, 'site_1'),
       cache.bedListEntry(ALICE, 'site_1'),
-      cache.siteListEntry(ALICE),
+      cache.siteListEntry(ALICE, 50),
       cache.bedSummaryEntry(ALICE, 'loc_1'),
       cache.bedSheetEntry(ALICE, 'loc_1'),
     ];
@@ -307,5 +319,87 @@ describe('the plan cache database is emptied by the same clearings (WP 9.2)', ()
       vi.mocked(offlineData.offlineDataGeneration).mockReturnValue(0);
     }
     expect(await cache.readCached(entry, T0)).toBeNull();
+  });
+});
+
+describe('offline data is cleared on account erasure and on a dead session (#2789 review S3)', () => {
+  beforeEach(() => {
+    calls.length = 0;
+    clearGate = Promise.resolve();
+    vi.mocked(offlineData.clearOfflineData).mockClear();
+  });
+
+  async function listenedStore() {
+    const { rootReducer } = await import('@/store/rootReducer');
+    const { sessionListener } = await import('@/store/sessionListener');
+    return configureStore({
+      reducer: rootReducer,
+      preloadedState: authState() as never,
+      middleware: (getDefault) => getDefault().prepend(sessionListener.middleware),
+    });
+  }
+
+  it('clears when the server refuses the refresh, not when it got no answer or was rate limited', async () => {
+    const { refreshAccessToken, RATE_LIMITED_REJECTION } = await import('@/store/slices/authSlice');
+    const { ApiError } = await import('@/api/errors');
+    const { AxiosError } = await import('axios');
+    const store = await listenedStore();
+
+    store.dispatch(refreshAccessToken.rejected(new AxiosError('Network Error', 'ERR_NETWORK'), 'r1'));
+    store.dispatch(refreshAccessToken.rejected(null, 'r2', undefined, RATE_LIMITED_REJECTION));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(offlineData.clearOfflineData).not.toHaveBeenCalled();
+
+    const refused = new ApiError(
+      { error_id: 'e', error_code: 'UNAUTHORIZED', message: 'Session expired', details: [], path: '/', method: 'POST' } as never,
+      401,
+    );
+    store.dispatch(refreshAccessToken.rejected(refused, 'r3'));
+    await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+  });
+
+  it('the account erasure clears before it leaves for the login page', async () => {
+    const { http, HttpResponse } = await import('msw');
+    const { server } = await import('@/test/mocks/server');
+    const authApi = await import('@/api/endpoints/auth');
+    const { default: AccountSettingsPage } = await import('@/pages/auth/AccountSettingsPage');
+    vi.mocked(authApi.listProviders).mockResolvedValue([
+      { key: 'prov-0', provider: 'local', provider_email: 'tester@example.org' },
+    ] as never);
+    server.use(http.delete('/api/v1/users/me', () => HttpResponse.json({ message: 'ok' })));
+    await i18n.changeLanguage('de');
+    const originalLocation = window.location;
+    let href = `${originalLocation.origin}/account`;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        get href() {
+          return href;
+        },
+        set href(value: string) {
+          calls.push(`href:${value}`);
+          href = value;
+        },
+      },
+    });
+    try {
+      holdClear();
+      renderWithProviders(createElement(AccountSettingsPage), { store: createTestStore(authState()), route: '/account#account' });
+      await userEvent.click(await screen.findByTestId('delete-account-btn'));
+      const dialog = await screen.findByTestId('delete-account-dialog');
+      const email = dialog.querySelector('[data-testid="delete-account-email"] input') as HTMLInputElement;
+      await userEvent.type(email, 'tester@example.org');
+      await userEvent.type(within(dialog).getByLabelText(/passwort/i), ['my', 'password'].join('-'));
+      await userEvent.click(within(dialog).getByTestId('delete-account-confirm'));
+
+      await waitFor(() => expect(offlineData.clearOfflineData).toHaveBeenCalledTimes(1));
+      expect(calls).not.toContain('href:/login');
+      releaseClear();
+      await waitFor(() => expect(calls).toContain('href:/login'));
+      expect(calls.indexOf('clear:done')).toBeLessThan(calls.indexOf('href:/login'));
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+    }
   });
 });

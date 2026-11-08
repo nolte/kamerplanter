@@ -50,8 +50,31 @@ export class PlanCacheDatabase extends Dexie {
 
 let instance: PlanCacheDatabase | null = null;
 
-/** The one connection of this tab; Dexie closes it by itself when a deletion asks (`versionchange`). */
-export function planCacheDatabase(): PlanCacheDatabase {
-  instance ??= new PlanCacheDatabase();
+/**
+ * The one connection of this tab, or `null` once it was retired.
+ *
+ * Another connection deleting the database (a logout or tenant switch in this or another tab, the kill
+ * switch) fires `versionchange`. Dexie's default closes and REOPENS on the next access, which would let
+ * this tab — possibly still holding the previous account's token — write that account's rows into a
+ * fresh database (#2789 review S2). So the handler closes for good (`disableAutoOpen: true`), returns
+ * `false` to stop the default, and `onRetired` turns the plan cache off for the rest of the page's life.
+ */
+export function planCacheDatabase(onRetired: () => void): PlanCacheDatabase {
+  if (instance === null) {
+    const db = new PlanCacheDatabase();
+    db.on('versionchange', () => {
+      db.close({ disableAutoOpen: true });
+      if (instance === db) instance = null;
+      onRetired();
+      return false;
+    });
+    instance = db;
+  }
   return instance;
+}
+
+/** Close this tab's connection for good; the next {@link planCacheDatabase} call opens a new one. */
+export function forgetPlanCacheConnection(): void {
+  instance?.close({ disableAutoOpen: true });
+  instance = null;
 }

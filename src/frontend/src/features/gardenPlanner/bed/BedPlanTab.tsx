@@ -26,6 +26,7 @@ import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import { isOfflineCacheMiss, planEntry, readThrough } from '../offline/planCache';
 import { useCacheScope } from '../offline/useCacheScope';
+import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import { boundingBox } from '../model/geometry';
 import { locationSubtree, normalizePlan, type PlanModel } from '../model/planModel';
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
@@ -42,6 +43,9 @@ import { usePlantStateText } from '../planting/usePlantStateText';
 import type { BedSummary } from './types';
 
 const PlantInfoSheet = lazy(() => import('../planting/PlantInfoSheet'));
+
+/** The tab reads the plan with its plants; the cache keeps that answer apart from the plain plan (C1). */
+const PLAN_INCLUDE = ['plants'] as const;
 
 /** The drawing may take this share of the window height before the page scrolls. */
 const MAX_HEIGHT_SHARE = 0.6;
@@ -107,7 +111,9 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   useEffect(() => {
     if (!placed) return undefined;
     let cancelled = false;
-    readThrough(cacheScope ? planEntry(cacheScope, siteKey) : null, () => getGardenPlan(siteKey, ['plants']))
+    readThrough(cacheScope ? planEntry(cacheScope, siteKey, PLAN_INCLUDE) : null, () =>
+      getGardenPlan(siteKey, PLAN_INCLUDE),
+    )
       .then(({ data, cachedAt }) => {
         if (!cancelled) setState({ status: 'ready', model: bedSubModel(normalizePlan(data), bedKey), cachedAt });
       })
@@ -131,6 +137,8 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const cachedAt = state.status === 'ready' ? state.cachedAt : null;
   // Moving a plant changes geometry: online-only (GP-UX-024), locked with a hint while offline or cached.
   const geometryLocked = !online || cachedAt !== null;
+  // A cached plan or an offline miss is read again once the connection is back: the lock clears with it (C3).
+  useReloadOnReconnect(cachedAt !== null || (state.status === 'error' && state.offlineMiss), retry);
   const location = model?.locations[bedKey] ?? null;
   const geometry = location?.geometry ?? null;
   const viewport = useMemo(() => {
@@ -263,7 +271,7 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
       {cachedAt !== null && <CachedDataBanner cachedAt={cachedAt} />}
       <Box ref={canvasRef}>
         {state.status === 'error' && state.offlineMiss ? (
-          <OfflineCacheMiss subject="plan" testId="bed-plan-offline-miss" />
+          <OfflineCacheMiss subject="plan" testId="bed-plan-offline-miss" onRetry={retry} />
         ) : state.status === 'error' ? (
           <ErrorDisplay error={state.message} onRetry={retry} />
         ) : rendered === null ? (

@@ -173,4 +173,16 @@ describe('sitesSlice', () => {
     expect(state.slots.length).toBe(1);
     expect(state.slots[0].slot_id).toBe('A1');
   });
+
+  it('fetchSites.rejected drops the "as of" time of a cached list (no stale banner next to a miss)', () => {
+    const cached = reducer(undefined, {
+      type: fetchSites.fulfilled.type,
+      payload: [{ key: 's1', name: 'Main' }],
+      meta: { cachedAt: 1_000 },
+    });
+    expect(cached.sitesCachedAt).toBe(1_000);
+    const missed = reducer(cached, { type: fetchSites.rejected.type, error: {}, meta: { offlineMiss: true } });
+    expect(missed.sitesCachedAt).toBeNull();
+    expect(missed.sitesOfflineMiss).toBe(true);
+  });
 });

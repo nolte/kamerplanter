@@ -4,11 +4,12 @@
  * hh:mm" banner, and a miss is an empty state with a hint.
  */
 import 'fake-indexeddb/auto';
-import { act, cleanup, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readCached, siteListEntry, writeCached, type CacheScope } from '@/features/gardenPlanner/offline/planCache';
 import SiteListPage from '@/pages/standorte/SiteListPage';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
+import { emptyPlanCache } from '@/test/planCacheTestKit';
 
 const SCOPE: CacheScope = { userKey: 'user-1', tenantKey: 'tenant-1' };
 const OTHER_USER: CacheScope = { userKey: 'user-2', tenantKey: 'tenant-1' };
@@ -30,24 +31,24 @@ function renderSites() {
 }
 
 beforeEach(async () => {
-  const { planCacheDatabase } = await import('@/features/gardenPlanner/offline/db');
-  await planCacheDatabase().siteLists.clear();
+  await emptyPlanCache();
 });
 
 afterEach(() => {
-  setOnline(true);
+  // Unmount first: a view coming back online would read from the server again and write the cache.
   cleanup();
+  setOnline(true);
 });
 
 describe('site list offline (WP 9.2)', () => {
   it('writes the site list into the cache after an online read', async () => {
     renderSites();
-    await waitFor(async () => expect(await readCached(siteListEntry(SCOPE))).not.toBeNull());
+    await waitFor(async () => expect(await readCached(siteListEntry(SCOPE, 50))).not.toBeNull());
     expect(screen.queryByTestId('offline-cached-banner')).toBeNull();
   });
 
   it('reads the cached site list offline with the banner', async () => {
-    await writeCached(siteListEntry(SCOPE), [{ key: 'site_1', name: 'Allotment', type: 'outdoor' }], CACHED_AT);
+    await writeCached(siteListEntry(SCOPE, 50), [{ key: 'site_1', name: 'Allotment', type: 'outdoor' }], CACHED_AT);
     setOnline(false);
     renderSites();
     expect(await screen.findByTestId('offline-cached-banner')).toHaveTextContent(stamp(CACHED_AT));
@@ -55,10 +56,29 @@ describe('site list offline (WP 9.2)', () => {
   });
 
   it("a cache miss offline is an empty state with a hint — another user's list is no hit", async () => {
-    await writeCached(siteListEntry(OTHER_USER), [{ key: 'site_9', name: 'Not mine', type: 'outdoor' }], CACHED_AT);
+    await writeCached(siteListEntry(OTHER_USER, 50), [{ key: 'site_9', name: 'Not mine', type: 'outdoor' }], CACHED_AT);
     setOnline(false);
     renderSites();
     expect(await screen.findByTestId('site-list-offline-miss')).toHaveTextContent('The sites are not available offline');
     expect(screen.queryByText('Not mine')).toBeNull();
+  });
+
+  it('reads a missed list once the connection is back, and offers "try again"', async () => {
+    setOnline(false);
+    renderSites();
+    const miss = await screen.findByTestId('site-list-offline-miss');
+    expect(within(miss).getByTestId('empty-state-action')).toBeInTheDocument();
+    setOnline(true);
+    await waitFor(() => expect(screen.queryByTestId('site-list-offline-miss')).toBeNull());
+    expect(screen.queryByTestId('offline-cached-banner')).toBeNull();
+  });
+
+  it('reads a cached list again once the connection is back: the banner goes', async () => {
+    await writeCached(siteListEntry(SCOPE, 50), [{ key: 'site_1', name: 'Allotment', type: 'outdoor' }], CACHED_AT);
+    setOnline(false);
+    renderSites();
+    await screen.findByTestId('offline-cached-banner');
+    setOnline(true);
+    await waitFor(() => expect(screen.queryByTestId('offline-cached-banner')).toBeNull());
   });
 });

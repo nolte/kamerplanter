@@ -3,6 +3,7 @@ import { setActiveTenantSlug } from '@/api/client';
 import { releasePushSubscription } from '@/lib/pushSubscription';
 import { clearOfflineData, postNamespace } from '@/pwa/offlineData';
 import { isSessionEnd, type rootReducer } from './rootReducer';
+import { RATE_LIMITED_REJECTION, refreshAccessToken } from './slices/authSlice';
 
 /** Where `tenantSlice` persists the active tenant across reloads. */
 const ACTIVE_TENANT_KEY = 'kp_active_tenant_slug';
@@ -42,6 +43,26 @@ sessionListener.startListening({
     }
     await clearOfflineData();
     await releasePushSubscription({ notifyServer: false });
+  },
+});
+
+/**
+ * A refresh the server refused means the session is gone (#2789 review S3): the bootstrap in
+ * `AuthProvider` swallows that rejection without `clearAuth`, e.g. after an account erasure or a
+ * revocation elsewhere, so the previous session's offline data is cleared here. A rate limit is not a
+ * dead session (#1131), and a refresh that got no answer at all (offline start) must keep the cache —
+ * it is exactly what the offline start reads. The serialised error keeps the error class's `name`.
+ */
+export function isDeadSessionRefresh(action: unknown): boolean {
+  if (!refreshAccessToken.rejected.match(action)) return false;
+  if (action.payload === RATE_LIMITED_REJECTION) return false;
+  return action.error.name === 'ApiError';
+}
+
+sessionListener.startListening({
+  predicate: (action) => isDeadSessionRefresh(action),
+  effect: async () => {
+    await clearOfflineData();
   },
 });
 

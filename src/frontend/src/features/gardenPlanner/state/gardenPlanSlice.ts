@@ -125,7 +125,9 @@ export type PlanEditError =
   /** An edit while a template is being placed (the server is changing the plan). */
   | 'template.busy'
   /** An edit while a save is in flight: refused visibly, the user tries again in a moment. */
-  | 'plan.saving';
+  | 'plan.saving'
+  /** An edit without a connection (REQ-053 WP 9.2): geometry is online-only; unsaved edits are kept. */
+  | 'plan.offline';
 
 export interface GardenPlanState {
   plan: PlanModel | null;
@@ -139,6 +141,11 @@ export interface GardenPlanState {
   cachedAt: number | null;
   /** The last load failed because there is no connection and nothing in the plan cache. */
   offlineMiss: boolean;
+  /**
+   * The browser has no connection (WP 9.2, #2789 review C6): the editor stays mounted - tool, selection
+   * and unsaved edits survive a short outage - but edits, undo/redo and saves are refused until it is back.
+   */
+  offline: boolean;
   selection: SelectionRef[];
   stack: SelectionStack | null;
   tool: PlanTool;
@@ -167,6 +174,7 @@ export const initialState: GardenPlanState = {
   loadRequestId: null,
   cachedAt: null,
   offlineMiss: false,
+  offline: false,
   selection: [],
   stack: null,
   tool: 'select',
@@ -269,6 +277,8 @@ export const saveGardenPlan = createAsyncThunk<
       const { plan, pending, saveStatus } = selectGardenPlanState(getState());
       // A conflict is left by reloading, never by sending the same stale request again.
       if (plan === null || pending.length === 0) return false;
+      // Offline nothing is sent: the edits stay pending until the connection is back (WP 9.2).
+      if (selectGardenPlanState(getState()).offline) return false;
       return saveStatus !== 'saving' && saveStatus !== 'conflict';
     },
   },
@@ -298,7 +308,7 @@ export const placeTemplateAt = createAsyncThunk<
 >('gardenPlan/placeTemplate', async (arg, { getState, dispatch }) => {
   let current = selectGardenPlanState(getState());
   if (current.plan === null) return { ok: false, code: 'template.failed' };
-  if (current.saveStatus === 'saving' || current.saveStatus === 'conflict') {
+  if (current.saveStatus === 'saving' || current.saveStatus === 'conflict' || current.offline) {
     return { ok: false, code: 'template.busy' };
   }
   if (current.pending.length > 0) {
@@ -352,7 +362,8 @@ function isEditable(state: GardenPlanState): boolean {
     state.plan !== null &&
     state.saveStatus !== 'saving' &&
     state.saveStatus !== 'conflict' &&
-    !state.placing
+    !state.placing &&
+    !state.offline
   );
 }
 
@@ -403,6 +414,10 @@ export const gardenPlanSlice = createSlice({
     clearEditError(state) {
       state.editError = null;
     },
+    /** The connection went away or came back (the route follows `navigator.onLine`). */
+    setPlanOffline(state, action: PayloadAction<boolean>) {
+      state.offline = action.payload;
+    },
     /** Leave the editor: forget the plan, the history and everything pending. */
     resetGardenPlan() {
       return initialState;
@@ -421,6 +436,11 @@ export const gardenPlanSlice = createSlice({
         if (plan === null || ops.length === 0) return;
         if (state.placing) {
           state.editError = 'template.busy';
+          return;
+        }
+        if (state.offline) {
+          // Locked with a hint, not lost: nothing is applied while there is no connection.
+          state.editError = 'plan.offline';
           return;
         }
         if (state.saveStatus === 'saving') {
@@ -650,6 +670,7 @@ export const {
   setStack,
   clearEditError,
   resetGardenPlan,
+  setPlanOffline,
   applyAction,
   undo,
   redo,
@@ -728,4 +749,5 @@ export const selectRedoLabel = (state: RootWithPlan): string | null => {
 export const selectAutoSaveReady = (state: RootWithPlan): boolean =>
   planState(state).pending.length > 0 &&
   planState(state).saveStatus === 'idle' &&
-  !planState(state).placing;
+  !planState(state).placing &&
+  !planState(state).offline;

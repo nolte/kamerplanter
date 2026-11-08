@@ -52,6 +52,7 @@ import { useBedSheet } from './useBedSheet';
 import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import { useCacheScope } from '../offline/useCacheScope';
+import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 
 const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
 const PlantingDialog = lazy(() => import('../planting/PlantingDialog'));
@@ -96,6 +97,12 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const titleId = `field-sheet-title-${bed.key}`;
 
   const { reload } = sheet;
+  // A cached sheet or an offline miss is read again once the connection is back: the write lock clears (C3).
+  useReloadOnReconnect(
+    (sheet.state.status === 'ready' && sheet.state.cachedAt !== null) ||
+      (sheet.state.status === 'error' && sheet.state.offlineMiss),
+    reload,
+  );
   const changed = useCallback(() => {
     reload();
     onChanged();
@@ -255,7 +262,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
           <CachedDataBanner cachedAt={sheet.state.cachedAt} testId="field-sheet-cached-banner" />
         )}
         {sheet.state.status === 'error' && sheet.state.offlineMiss && (
-          <OfflineCacheMiss subject="bed" testId="field-sheet-offline-miss" />
+          <OfflineCacheMiss subject="bed" testId="field-sheet-offline-miss" onRetry={reload} />
         )}
         {sheet.state.status === 'error' && !sheet.state.offlineMiss && (
           <ErrorDisplay error={sheet.state.message} onRetry={reload} />

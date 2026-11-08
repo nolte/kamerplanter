@@ -10,15 +10,19 @@ interface OfflineCacheMissProps {
   /** Which data is missing (`pages.gardenPlan.offline.miss.<subject>`). */
   subject: 'plan' | 'beds' | 'sites' | 'bed' | 'bedDetails';
   testId?: string;
+  /** "Try again": reads from the server once more (also done by itself when the connection returns). */
+  onRetry?: () => void;
 }
 
-export default function OfflineCacheMiss({ subject, testId = 'offline-cache-miss' }: OfflineCacheMissProps) {
+export default function OfflineCacheMiss({ subject, testId = 'offline-cache-miss', onRetry }: OfflineCacheMissProps) {
   const { t } = useTranslation();
   return (
     <Box data-testid={testId}>
       <EmptyState
         message={t(`pages.gardenPlan.offline.miss.${subject}`)}
         description={t('pages.gardenPlan.offline.miss.hint')}
+        actionLabel={onRetry ? t('common.retry') : undefined}
+        onAction={onRetry}
       />
     </Box>
   );

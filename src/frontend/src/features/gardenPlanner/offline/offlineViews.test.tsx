@@ -23,11 +23,13 @@ import { rootReducer } from '@/store/rootReducer';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
+import { emptyPlanCache } from '@/test/planCacheTestKit';
 import { ThemeContextProvider } from '@/theme';
 import BedPlanTab from '../bed/BedPlanTab';
 import BedView from '../bed/BedView';
 import { bedListItem, bedSummary } from '../bed/bedTestKit';
 import { careTask } from '../care/careTestKit';
+import { applyAction, selectGardenPlanState } from '../state/gardenPlanSlice';
 import { bedListEntry, bedSheetEntry, planEntry, readCached, writeCached, type CacheScope } from './planCache';
 
 const BASE = '/api/v1/t/:tenant';
@@ -56,10 +58,13 @@ function setOnline(value: boolean) {
 }
 
 let requests: string[];
+/** Reads of the assignments (bed list, field mode): not offline data, counted apart. */
+let assignmentReads = 0;
 
 /** The server; offline nothing of it may be needed for the plan, the bed list or the site list. */
 function useBackend() {
   requests = [];
+  assignmentReads = 0;
   server.use(
     http.get(`${BASE}/sites/:key/plan`, () => {
       requests.push('plan');
@@ -75,7 +80,10 @@ function useBackend() {
       return HttpResponse.json([careTask('t_live', { name: 'Live task', entity_key: 'loc_b03' })]);
     }),
     http.get('/api/v1/tenants/:slug/members', () => HttpResponse.json([])),
-    http.get('/api/v1/tenants/:slug/assignments', () => HttpResponse.json([])),
+    http.get('/api/v1/tenants/:slug/assignments', () => {
+      assignmentReads += 1;
+      return HttpResponse.json([]);
+    }),
     http.get('/api/v1/growth-phases/:key', () => HttpResponse.json({ key: 'ph', name: 'Vegetative' })),
   );
 }
@@ -86,7 +94,7 @@ function renderPlan(mode: 'plan' | 'field', role: 'viewer' | 'grower' | 'lead' =
     [{ path: 'standorte/sites/:key/plan', element: <GardenPlanRoute /> }],
     { initialEntries: [`/standorte/sites/site_1/plan?mode=${mode}`] },
   );
-  return render(
+  const view = render(
     <Provider store={store}>
       <ThemeContextProvider>
         <SnackbarProvider>
@@ -95,29 +103,24 @@ function renderPlan(mode: 'plan' | 'field', role: 'viewer' | 'grower' | 'lead' =
       </ThemeContextProvider>
     </Provider>,
   );
+  return { ...view, store };
 }
 
-async function wipeCache() {
-  const { planCacheDatabase } = await import('./db');
-  const db = planCacheDatabase();
-  await Promise.all([
-    db.plans.clear(),
-    db.bedLists.clear(),
-    db.siteLists.clear(),
-    db.bedSummaries.clear(),
-    db.bedSheets.clear(),
-  ]);
+/** `navigator.onLine` turns true without the `online` event: only a click can read again. */
+function setOnlineSilently(value: boolean) {
+  Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => value });
 }
 
 beforeEach(async () => {
   localStorage.clear();
-  await wipeCache();
+  await emptyPlanCache();
   useBackend();
 });
 
 afterEach(() => {
-  setOnline(true);
+  // Unmount first: a view coming back online would read from the server again and write the cache.
   cleanup();
+  setOnline(true);
 });
 
 describe('planning mode', () => {
@@ -186,6 +189,50 @@ describe('planning mode', () => {
   });
 });
 
+describe('planning mode: a short outage (#2789 review C6, C2)', () => {
+  it('keeps the editor mounted, locks it with a hint and refuses edits until the connection is back', async () => {
+    const { store } = renderPlan('plan');
+    const toolbar = await screen.findByRole('toolbar', { name: 'Garden plan tools' });
+    setOnline(false);
+    // Same editor, still there: tool, selection and unsaved edits survive.
+    expect(screen.getByRole('toolbar', { name: 'Garden plan tools' })).toBe(toolbar);
+    expect(await screen.findByTestId('garden-plan-geometry-locked')).toBeInTheDocument();
+    expect(screen.queryByTestId('garden-plan-read-only')).toBeNull();
+    act(() => {
+      store.dispatch(applyAction([{ op: 'delete', entity: 'location', key: 'loc_b04' }]));
+    });
+    const state = selectGardenPlanState(store.getState() as never);
+    expect(state.editError).toBe('plan.offline');
+    expect(state.pending).toEqual([]);
+    setOnline(true);
+    await waitFor(() => expect(screen.queryByTestId('garden-plan-geometry-locked')).toBeNull());
+    act(() => {
+      store.dispatch(applyAction([{ op: 'delete', entity: 'location', key: 'loc_b04' }]));
+    });
+    expect(selectGardenPlanState(store.getState() as never).pending).toHaveLength(1);
+  });
+
+  it('reads a missed plan once the connection is back', async () => {
+    setOnline(false);
+    renderPlan('plan');
+    await screen.findByTestId('garden-plan-offline-miss');
+    setOnline(true);
+    expect(await screen.findByRole('toolbar', { name: 'Garden plan tools' })).toBeInTheDocument();
+    // The bed list below the editor is back too; let its reads finish inside this test.
+    await waitFor(() => expect(assignmentReads).toBeGreaterThan(0));
+  });
+
+  it('offers "try again" on a miss', async () => {
+    setOnline(false);
+    renderPlan('plan');
+    const miss = await screen.findByTestId('garden-plan-offline-miss');
+    setOnlineSilently(true);
+    fireEvent.click(within(miss).getByTestId('empty-state-action'));
+    expect(await screen.findByRole('toolbar', { name: 'Garden plan tools' })).toBeInTheDocument();
+    await waitFor(() => expect(assignmentReads).toBeGreaterThan(0));
+  });
+});
+
 describe('field mode', () => {
   it('reads the bed list and the map from the cache with the banner', async () => {
     await writeCached(bedListEntry(SCOPE, 'site_1'), BEDS, CACHED_AT);
@@ -238,7 +285,9 @@ describe('bed view (plan tab)', () => {
   }
 
   it('reads the cached plan offline and locks moving a plant with a hint', async () => {
-    await writeCached(planEntry(SCOPE, 'site_1'), PLAN, CACHED_AT);
+    // The tab reads the plan with its plants: its own record, not the plain plan's (#2789 review C1).
+    await writeCached(planEntry(SCOPE, 'site_1'), { ...PLAN, plants: [] }, CACHED_AT);
+    await writeCached(planEntry(SCOPE, 'site_1', ['plants']), PLAN, CACHED_AT);
     setOnline(false);
     const { container } = renderTab();
 
@@ -254,6 +303,16 @@ describe('bed view (plan tab)', () => {
     expect(screen.getByTestId('bed-plan-transplant')).toBeDisabled();
     expect(screen.getByTestId('bed-plan-geometry-locked')).toHaveTextContent('locked');
     expect(requests).toEqual([]);
+  });
+
+  it('reads the plan again once the connection is back: banner gone, moves unlocked', async () => {
+    await writeCached(planEntry(SCOPE, 'site_1', ['plants']), PLAN, CACHED_AT);
+    setOnline(false);
+    renderTab();
+    await screen.findByTestId('offline-cached-banner');
+    setOnline(true);
+    await waitFor(() => expect(screen.queryByTestId('offline-cached-banner')).toBeNull());
+    expect(requests).toContain('plan');
   });
 
   it('a cache miss offline is an empty state, not an error', async () => {
@@ -314,15 +373,69 @@ describe('field-mode bed sheet', () => {
     expect(within(sheet).queryByTestId('error-display')).toBeNull();
   });
 
-  it('writes the sheet into the cache after an online read', async () => {
+  it('writes the sheet into the cache after an online read, without the person-related fields', async () => {
+    server.use(
+      http.get(`${BASE}/tasks/queue`, () =>
+        HttpResponse.json([
+          careTask('t_live', {
+            name: 'Live task',
+            entity_key: 'loc_b03',
+            assigned_to_user_key: 'user-7',
+            completion_notes: 'note',
+            photo_refs: ['att_1'],
+          }),
+        ]),
+      ),
+    );
     renderPlan('field');
     const sheet = await openBed('Raised bed 3');
     await within(sheet).findByText('Live task');
     await waitFor(async () =>
-      expect((await readCached<{ tasks: { name: string }[] }>(bedSheetEntry(SCOPE, 'loc_b03')))?.data.tasks[0].name).toBe(
-        'Live task',
+      expect((await readCached<{ tasks: Record<string, unknown>[] }>(bedSheetEntry(SCOPE, 'loc_b03')))?.data.tasks[0]).toMatchObject(
+        { name: 'Live task', assigned_to_user_key: null, completion_notes: null, photo_refs: [] },
       ),
     );
+  });
+
+  it('never writes a partial sheet over a good one (plant states failed)', async () => {
+    await writeCached(bedSheetEntry(SCOPE, 'loc_b03'), { tasks: [], plants: [{ plant_key: 'pl_good' }] }, CACHED_AT);
+    server.use(http.get(`${BASE}/locations/:key/plant-states`, () => HttpResponse.json({}, { status: 500 })));
+    renderPlan('field');
+    const sheet = await openBed('Raised bed 3');
+    await within(sheet).findByText('Live task');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect((await readCached<{ plants: { plant_key: string }[] }>(bedSheetEntry(SCOPE, 'loc_b03')))?.data.plants).toEqual([
+      { plant_key: 'pl_good' },
+    ]);
+  });
+
+  it('reads a cached sheet again once the connection is back, and unlocks the writes', async () => {
+    await writeCached(bedListEntry(SCOPE, 'site_1'), BEDS, CACHED_AT);
+    await writeCached(planEntry(SCOPE, 'site_1'), PLAN, CACHED_AT);
+    await writeCached(
+      bedSheetEntry(SCOPE, 'loc_b03'),
+      { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [] },
+      CACHED_AT,
+    );
+    setOnline(false);
+    renderPlan('field', 'grower');
+    const sheet = await openBed('Raised bed 3');
+    await within(sheet).findByTestId('field-sheet-cached-banner');
+    setOnline(true);
+    expect(await within(sheet).findByText('Live task')).toBeInTheDocument();
+    expect(within(sheet).queryByTestId('field-sheet-cached-banner')).toBeNull();
+    const chips = within(sheet).getAllByRole('button').filter((b) => b.dataset.testid?.startsWith('field-chip-'));
+    expect(chips.some((chip) => !chip.hasAttribute('disabled'))).toBe(true);
+  });
+
+  it('reads a missed sheet once the connection is back', async () => {
+    await writeCached(bedListEntry(SCOPE, 'site_1'), BEDS, CACHED_AT);
+    setOnline(false);
+    renderPlan('field');
+    const sheet = await openBed('Raised bed 3');
+    await within(sheet).findByTestId('field-sheet-offline-miss');
+    setOnline(true);
+    expect(await within(sheet).findByText('Live task')).toBeInTheDocument();
   });
 });
 

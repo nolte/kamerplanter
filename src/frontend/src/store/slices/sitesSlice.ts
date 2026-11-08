@@ -42,6 +42,9 @@ const initialState: SitesState = {
  * The site list. Its first page is the offline-readable one (REQ-053 WP 9.2, UI-NFR-012 R-020): written to
  * the plan cache after every online read, read from it when there is no connection.
  */
+/** `listSites`' default page size: the cached first page is kept per page size (#2789 review C7). */
+const SITE_LIST_DEFAULT_LIMIT = 50;
+
 export const fetchSites = createAsyncThunk<
   Site[],
   { offset?: number; limit?: number } | undefined,
@@ -49,7 +52,7 @@ export const fetchSites = createAsyncThunk<
 >('sites/fetchAll', async (args, { getState, fulfillWithValue, rejectWithValue }) => {
   const { offset, limit } = args ?? {};
   const scope = scopeFromState(getState() as ScopeState);
-  const entry = scope && !offset ? siteListEntry(scope) : null;
+  const entry = scope && !offset ? siteListEntry(scope, limit ?? SITE_LIST_DEFAULT_LIMIT) : null;
   try {
     const read = await readThrough(entry, () => api.listSites(offset, limit));
     return fulfillWithValue(read.data, { cachedAt: read.cachedAt });
@@ -110,6 +113,8 @@ const sitesSlice = createSlice({
       })
       .addCase(fetchSites.rejected, (state, action) => {
         state.loading = false;
+        // No stale "as of" banner next to a miss or an error (#2789 review C8).
+        state.sitesCachedAt = null;
         state.sitesOfflineMiss = action.meta?.offlineMiss ?? false;
         state.error = state.sitesOfflineMiss ? null : (action.error.message ?? 'errors.loadFailed');
       })

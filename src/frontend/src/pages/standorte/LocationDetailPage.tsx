@@ -58,6 +58,7 @@ import type { BedSummary } from '@/features/gardenPlanner/bed/types';
 import OfflineCacheMiss from '@/features/gardenPlanner/offline/OfflineCacheMiss';
 import { bedSummaryEntry, isOfflineCacheMiss, readThrough } from '@/features/gardenPlanner/offline/planCache';
 import { useCacheScope } from '@/features/gardenPlanner/offline/useCacheScope';
+import { useReloadOnReconnect } from '@/features/gardenPlanner/offline/useReloadOnReconnect';
 
 // The bed view (REQ-053 WP 3.5) and its renderer only load for a bed.
 const BedView = lazy(() => import('@/features/gardenPlanner/bed/BedView'));
@@ -193,6 +194,7 @@ export default function LocationDetailPage() {
   const load = async () => {
     if (!key) return;
     setLoading(true);
+    setError(null);
     // The summary decides whether this is a bed; it is asked for alongside the location, not after it.
     const summaryLoaded = loadBedSummary();
     try {
@@ -312,6 +314,9 @@ export default function LocationDetailPage() {
     }
   };
 
+  // A cached bed summary or an offline miss is read again once the connection is back (#2789 review C4).
+  useReloadOnReconnect(summaryCachedAt !== null || summaryOfflineMiss, () => void load());
+
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [key]);
 
@@ -415,7 +420,9 @@ export default function LocationDetailPage() {
         </Box>
       );
     }
-    if (summaryOfflineMiss) return <OfflineCacheMiss subject="bed" testId="location-offline-miss" />;
+    if (summaryOfflineMiss) {
+      return <OfflineCacheMiss subject="bed" testId="location-offline-miss" onRetry={() => void load()} />;
+    }
     return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
   }
 

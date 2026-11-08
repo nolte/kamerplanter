@@ -13,6 +13,7 @@ import { bedSummaryEntry, readCached, writeCached, type CacheScope } from '@/fea
 import LocationDetailPage from '@/pages/standorte/LocationDetailPage';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
+import { emptyPlanCache } from '@/test/planCacheTestKit';
 
 vi.mock('react-router-dom', async (orig) => {
   const actual = await orig<typeof import('react-router-dom')>();
@@ -51,13 +52,18 @@ function noNetwork() {
 }
 
 beforeEach(async () => {
-  const { planCacheDatabase } = await import('@/features/gardenPlanner/offline/db');
-  await planCacheDatabase().bedSummaries.clear();
+  await emptyPlanCache();
+  // The bed view reads the tenant's members and assignments (bed head); not offline data.
+  server.use(
+    http.get('/api/v1/tenants/:slug/members', () => HttpResponse.json([])),
+    http.get('/api/v1/tenants/:slug/assignments', () => HttpResponse.json([])),
+  );
 });
 
 afterEach(() => {
-  setOnline(true);
+  // Unmount first: a view coming back online would read from the server again and write the cache.
   cleanup();
+  setOnline(true);
 });
 
 describe('bed view offline (WP 9.2)', () => {
@@ -88,5 +94,42 @@ describe('bed view offline (WP 9.2)', () => {
     server.use(http.get(`${BASE}/locations/:key/summary`, () => HttpResponse.json(bedSummary())));
     renderPage();
     await waitFor(async () => expect((await readCached(bedSummaryEntry(SCOPE, 'loc_b03')))?.data).toEqual(bedSummary()));
+  });
+
+  /** Back online: the summary answers; the rest of the location page is not this test's business. */
+  function summaryBack(): string[] {
+    const reads: string[] = [];
+    server.use(
+      http.get(`${BASE}/locations/:key/summary`, () => {
+        reads.push('summary');
+        return HttpResponse.json(bedSummary());
+      }),
+    );
+    return reads;
+  }
+
+  it('reads a cached bed again once the connection is back: the cached banner goes', async () => {
+    await writeCached(bedSummaryEntry(SCOPE, 'loc_b03'), bedSummary(), CACHED_AT);
+    noNetwork();
+    setOnline(false);
+    renderPage();
+    await screen.findByTestId('bed-view-cached-banner');
+    const reads = summaryBack();
+    setOnline(true);
+    await waitFor(() => expect(reads).toEqual(['summary']));
+    await waitFor(() => expect(screen.queryByTestId('bed-view-cached-banner')).toBeNull());
+    // Let the page's own reads finish inside this test.
+    await waitFor(() => expect(screen.queryByTestId('loading-skeleton')).toBeNull());
+  });
+
+  it('reads a missed bed once the connection is back', async () => {
+    noNetwork();
+    setOnline(false);
+    renderPage();
+    await screen.findByTestId('location-offline-miss');
+    const reads = summaryBack();
+    setOnline(true);
+    await waitFor(() => expect(reads).toEqual(['summary']));
+    await waitFor(() => expect(screen.queryByTestId('location-offline-miss')).toBeNull());
   });
 });

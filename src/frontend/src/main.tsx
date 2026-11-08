@@ -6,6 +6,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { initErrorTracking } from '@/observability/errorTracking';
 import './styles/print.css';
 import { registerServiceWorker } from '@/lib/serviceWorkerRegistration';
+import { purgeExpiredPlanCache } from '@/features/gardenPlanner/offline/planCache';
 
 function mount() {
   ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -39,6 +40,8 @@ function mount() {
   // cache — UI-NFR-012, REQ-053 WP 9.1), or remove it when the deployment's kill
   // switch is off. Guarded and non-fatal: a failure must never break app startup.
   void registerServiceWorker();
+  // REQ-053 WP 9.2: what expired in the plan cache while the app was closed is deleted at start (R-012).
+  void purgeExpiredPlanCache();
 }
 
 // #612 — the feature translation namespaces are code-split and dynamically

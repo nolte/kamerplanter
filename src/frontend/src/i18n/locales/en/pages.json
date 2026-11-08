@@ -5475,7 +5475,8 @@
           "plan": {
             "revision_conflict": "The plan was changed meanwhile and has been reloaded. Place the template again.",
             "quota_exceeded": "That many beds and objects do not fit into this garden (at most 500). Nothing was created.",
-            "saving": "Saving is in progress – try again in a moment. This change was not applied."
+            "saving": "Saving is in progress – try again in a moment. This change was not applied.",
+            "offline": "The plan is locked without a connection. This change was not applied; unsaved changes are kept."
           },
           "template": {
             "save_first": "Your unsaved changes could not be saved. Save first, then place the template.",

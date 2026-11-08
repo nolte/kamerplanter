@@ -1,27 +1,37 @@
 /**
  * Plan cache (REQ-053 WP 9.2, GP-UX-024 part 1, R-020): the last plan loaded per site, the bed list
- * of field mode and the site list, kept in IndexedDB so the garden can be read without a connection.
+ * and bed sheets of field mode, the bed summaries and the site list, kept in IndexedDB so the garden
+ * can be read without a connection.
  *
  * The service worker's API cache stays latent (the backend answers `Cache-Control: no-store`,
  * MT-044, operator default #2759), so THIS cache is the offline read path. The app writes it after
  * every successful online read and reads it only when the network is unavailable:
  *
- * - **Key** `{user_key}:{tenant_key}:{site_key}` (`{user_key}:{tenant_key}` for the site list); each
- *   part is URI-encoded, so a `:` inside a key cannot make two scopes collide. The record repeats
- *   both keys and a read checks them, so a record is only ever returned to its own user and tenant.
+ * - **Key** `{user_key}:{tenant_key}:{site_key}` (`…:{location_key}` for a bed, `{user_key}:{tenant_key}`
+ *   plus the page size for the site list; a plan read with `include=` carries the include set). Each part
+ *   is URI-encoded, so a `:` inside a key cannot make two scopes collide. The record repeats both keys
+ *   and a read checks them, so a record is only ever returned to its own user and tenant.
  * - **TTL** 15 minutes (R-012, the same constant as the service worker): an older record is never
- *   returned and is deleted on the next write.
+ *   returned, and expired records of every table are deleted on app start, on every read and on every
+ *   write.
  * - **No `localStorage`** (guardrail G-W9 a): only IndexedDB, cleared with every other database on
- *   logout, tenant switch and the kill switch (`pwa/offlineData.ts`). A write whose read began
- *   before a clearing started is dropped (`offlineDataGeneration`), so a late answer cannot refill
- *   the database a logout is emptying.
+ *   logout, tenant switch, account erasure, a dead session and the kill switch (`pwa/offlineData.ts`).
+ *   A clearing in this tab first closes this tab's connection (so its own deletion goes through and a
+ *   later sign-in may cache again); a clearing in ANOTHER tab (`BroadcastChannel`) or a deletion of the
+ *   database by another connection retires the cache in this tab until the page reloads — that tab may
+ *   still hold the previous account's token (#2789 review S2). A write whose read began before any
+ *   clearing is dropped (`offlineDataGeneration`), so a late answer cannot refill the database.
+ * - **Kill switch** (G-W9 e): with `PWA_CACHING_ENABLED=false` nothing is read or written and the
+ *   database is never opened.
  *
  * Every function is best-effort and never throws: a browser without IndexedDB (private mode, jsdom)
  * simply has no cache. Dexie loads with the first call (`import('./db')`), never with the route.
  */
 import axios from 'axios';
-import { API_CACHE_TTL_SECONDS } from '@/pwa/cachePolicy';
-import { offlineDataGeneration } from '@/pwa/offlineData';
+import { runtimeConfig } from '@/config/runtimeConfig';
+import { API_CACHE_TTL_SECONDS, isPwaCachingEnabled } from '@/pwa/cachePolicy';
+import { offlineDataGeneration, onOfflineDataCleared } from '@/pwa/offlineData';
+import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
 import type { CachedRecord, PlanCacheDatabase, PlanCacheTable } from './db';
 
 /** R-012: a cached answer older than this is never served. */
@@ -74,10 +84,6 @@ export function siteCacheKey(scope: CacheScope, siteKey: string): string {
   return `${scopePrefix(scope)}:${encodeURIComponent(siteKey)}`;
 }
 
-/** `{user_key}:{tenant_key}` — the key of the site list. */
-export function siteListCacheKey(scope: CacheScope): string {
-  return scopePrefix(scope);
-}
 
 /** Whether the browser says it has no connection. */
 export function browserOffline(): boolean {
@@ -89,17 +95,68 @@ export function isNetworkFailure(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response && error.code !== 'ERR_CANCELED';
 }
 
-async function database(): Promise<PlanCacheDatabase | null> {
-  if (typeof indexedDB === 'undefined') return null;
+const TABLES: readonly PlanCacheTable[] = ['plans', 'bedLists', 'siteLists', 'bedSummaries', 'bedSheets'];
+
+/** Set once another tab cleared or deleted the database; only a reload starts the cache again. */
+let retired = false;
+/** The loaded `db` module, so a local clearing can close the connection synchronously. */
+let dbModule: typeof import('./db') | null = null;
+
+function retire(): void {
+  retired = true;
+  dbModule?.forgetPlanCacheConnection();
+}
+
+onOfflineDataCleared((origin) => {
+  if (origin === 'remote') retire();
+  // A local clearing: close this tab's connection before the deletion starts; the next read opens anew.
+  else dbModule?.forgetPlanCacheConnection();
+});
+
+/** Whether the plan cache may be used in this tab: kill switch on, not retired, IndexedDB present. */
+function cacheUsable(): boolean {
+  if (retired || typeof indexedDB === 'undefined') return false;
   try {
-    const { planCacheDatabase } = await import('./db');
-    return planCacheDatabase();
+    return isPwaCachingEnabled(runtimeConfig().PWA_CACHING_ENABLED);
+  } catch {
+    return false;
+  }
+}
+
+async function database(): Promise<PlanCacheDatabase | null> {
+  if (!cacheUsable()) return null;
+  try {
+    dbModule ??= await import('./db');
+    return retired ? null : dbModule.planCacheDatabase(retire);
   } catch {
     return null;
   }
 }
 
-/** Write one answer and drop every record of the table that is past its TTL. */
+/** Drop the records of every table that are past their TTL. */
+async function purgeExpired(db: PlanCacheDatabase, now: number): Promise<void> {
+  const limit = now - PLAN_CACHE_TTL_MS;
+  await Promise.all(TABLES.map((table) => db[table].where('cachedAt').below(limit).delete()));
+}
+
+/**
+ * App start (L2): delete what expired while the app was closed. A database that does not exist is not
+ * created for it; with the kill switch off nothing is opened at all.
+ */
+export async function purgeExpiredPlanCache(now: number = Date.now()): Promise<void> {
+  if (!cacheUsable()) return;
+  try {
+    if (typeof indexedDB.databases === 'function') {
+      const names = (await indexedDB.databases()).map((database) => database.name);
+      if (!names.includes(PLAN_CACHE_DB_NAME)) return;
+    }
+    const db = await database();
+    if (db) await purgeExpired(db, now);
+  } catch {
+    // Best effort: the next read or write purges as well.
+  }
+}
+
 function currentGeneration(): number | null {
   try {
     return offlineDataGeneration();
@@ -108,6 +165,7 @@ function currentGeneration(): number | null {
   }
 }
 
+/** Write one answer and drop every record past its TTL — unless a clearing started since the read began. */
 async function writeRecord(
   table: PlanCacheTable,
   key: string,
@@ -121,10 +179,10 @@ async function writeRecord(
   if (!db) return;
   try {
     const record: CachedRecord = { key, userKey: scope.userKey, tenantKey: scope.tenantKey, cachedAt: now, data };
-    await db.transaction('rw', db[table], async () => {
-      await db[table].where('cachedAt').below(now - PLAN_CACHE_TTL_MS).delete();
+    await db.transaction('rw', TABLES.map((name) => db[name]), async () => {
+      await purgeExpired(db, now);
       // Checked again inside the transaction: a clearing that began meanwhile wins.
-      if (currentGeneration() !== generation) return;
+      if (retired || currentGeneration() !== generation) return;
       await db[table].put(record);
     });
   } catch {
@@ -141,6 +199,7 @@ async function readRecord<T>(
   const db = await database();
   if (!db) return null;
   try {
+    await purgeExpired(db, now);
     const record = await db[table].get(key);
     if (!record || record.userKey !== scope.userKey || record.tenantKey !== scope.tenantKey) return null;
     const age = now - record.cachedAt;
@@ -158,8 +217,13 @@ export interface CacheEntry {
   scope: CacheScope;
 }
 
-export function planEntry(scope: CacheScope, siteKey: string): CacheEntry {
-  return { table: 'plans', key: siteCacheKey(scope, siteKey), scope };
+/**
+ * A site's plan. The answer depends on `include` (#2789 review C1): a plan read with `plants` is a
+ * different record than the plain one, so the include set (sorted) is part of the key.
+ */
+export function planEntry(scope: CacheScope, siteKey: string, include: readonly string[] = []): CacheEntry {
+  const suffix = include.length > 0 ? `#include=${[...include].sort().map(encodeURIComponent).join(',')}` : '';
+  return { table: 'plans', key: `${siteCacheKey(scope, siteKey)}${suffix}`, scope };
 }
 
 export function bedListEntry(scope: CacheScope, siteKey: string): CacheEntry {
@@ -176,8 +240,9 @@ export function bedSheetEntry(scope: CacheScope, locationKey: string): CacheEntr
   return { table: 'bedSheets', key: siteCacheKey(scope, locationKey), scope };
 }
 
-export function siteListEntry(scope: CacheScope): CacheEntry {
-  return { table: 'siteLists', key: siteListCacheKey(scope), scope };
+/** The first page of the site list, per page size (#2789 review C7): `{user_key}:{tenant_key}#limit=<n>`. */
+export function siteListEntry(scope: CacheScope, limit: number): CacheEntry {
+  return { table: 'siteLists', key: `${scopePrefix(scope)}#limit=${limit}`, scope };
 }
 
 /**
@@ -202,19 +267,31 @@ export function readCached<T>(entry: CacheEntry, now: number = Date.now()): Prom
   return readRecord<T>(entry.table, entry.key, entry.scope, now);
 }
 
+/** How {@link readThrough} reads the clock and what it stores. */
+export interface ReadThroughOptions<T> {
+  now?: () => number;
+  /**
+   * What goes into the cache: the answer reduced to what the offline view needs (person-related fields
+   * stripped, #2789 review L1), or `undefined` for an answer that must not be cached at all — a partial
+   * or aborted one (C5). Default: the answer as it is.
+   */
+  toStored?: (data: T) => T | undefined;
+}
+
 /**
  * Network first, cache when there is no connection. Online, the answer is returned at once and
  * written to the cache in the background. Offline (the browser says so, or the request got no
  * answer at all) the cached answer of the same scope is returned with its time; without one the
  * read fails with {@link OfflineCacheMissError} — or, when the browser believed it was online, with
- * the original error. A refusal of the server (4xx/5xx) is never answered from the cache.
+ * the original error. A refusal of the server (4xx/5xx) is never answered from the cache. With the
+ * kill switch off or the cache retired it is a plain network read.
  */
 export async function readThrough<T>(
   entry: CacheEntry | null,
   fetcher: () => Promise<T>,
-  now: () => number = Date.now,
+  { now = Date.now, toStored = (data) => data }: ReadThroughOptions<T> = {},
 ): Promise<CachedRead<T>> {
-  if (entry === null) return { data: await fetcher(), cachedAt: null };
+  if (entry === null || !cacheUsable()) return { data: await fetcher(), cachedAt: null };
   if (browserOffline()) {
     const cached = await readCached<T>(entry, now());
     if (cached) return cached;
@@ -223,7 +300,8 @@ export async function readThrough<T>(
   const generation = currentGeneration();
   try {
     const data = await fetcher();
-    void writeCached(entry, data, now(), generation);
+    const stored = toStored(data);
+    if (stored !== undefined) void writeCached(entry, stored, now(), generation);
     return { data, cachedAt: null };
   } catch (error) {
     if (!isNetworkFailure(error)) throw error;
@@ -231,4 +309,10 @@ export async function readThrough<T>(
     if (cached) return cached;
     throw browserOffline() ? new OfflineCacheMissError() : error;
   }
+}
+
+/** Tests only: a fresh page — the cache is usable again and the next call opens a new connection. */
+export function resetPlanCacheForTests(): void {
+  retired = false;
+  dbModule?.forgetPlanCacheConnection();
 }

@@ -6,6 +6,10 @@
  * Without a connection the sheet comes from the plan cache (REQ-053 WP 9.2) under
  * `{user_key}:{tenant_key}:{location_key}`: `cachedAt` names the online read it was stored by, `offlineMiss`
  * says nothing was cached for this bed. Writes stay locked offline (the sheet checks `online`).
+ *
+ * Only a complete answer is cached (#2789 review C5): a failed or aborted plant-state read must not
+ * overwrite a good entry with `plants: null`. And only what the sheet shows (L1): the person-related
+ * fields of a task (assignee, completion notes, photos, ratings) and the plants' photo refs are stripped.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { parseApiError } from '@/api/errors';
@@ -22,6 +26,30 @@ export type BedSheetState =
 interface SheetData {
   tasks: CareTask[];
   plants: PlantStateWire[] | null;
+  /** Both reads answered and none was aborted; never stored. */
+  complete?: boolean;
+}
+
+/** A task as the offline sheet keeps it: nothing about a person. */
+export function storableTask(task: CareTask): CareTask {
+  return {
+    ...task,
+    assigned_to_user_key: null,
+    completion_notes: null,
+    photo_refs: [],
+    difficulty_rating: null,
+    quality_rating: null,
+    actual_duration_minutes: null,
+  };
+}
+
+/** What goes into the plan cache: the complete answer without person-related fields, or nothing. */
+export function storableSheet(data: SheetData): SheetData | undefined {
+  if (!data.complete || data.plants === null) return undefined;
+  return {
+    tasks: data.tasks.map(storableTask),
+    plants: data.plants.map((plant) => ({ ...plant, cover_photo_ref: null })),
+  };
 }
 
 export interface BedSheet {
@@ -37,12 +65,16 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
   useEffect(() => {
     const controller = new AbortController();
     readThrough<SheetData>(scope ? bedSheetEntry(scope, bedKey) : null, async () => {
+      let complete = true;
       const [tasks, plants] = await Promise.all([
         getBedQueue(bedKey),
-        listPlantStates(bedKey, controller.signal).catch((): null => null),
+        listPlantStates(bedKey, controller.signal).catch((): null => {
+          complete = false;
+          return null;
+        }),
       ]);
-      return { tasks, plants };
-    })
+      return { tasks, plants, complete: complete && !controller.signal.aborted };
+    }, { toStored: storableSheet })
       .then(({ data, cachedAt }) => {
         if (!controller.signal.aborted) {
           setLoaded({ bedKey, state: { status: 'ready', tasks: data.tasks, plants: data.plants, cachedAt } });

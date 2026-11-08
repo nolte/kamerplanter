@@ -30,6 +30,59 @@ export function offlineDataGeneration(): number {
   return generation;
 }
 
+/**
+ * Every tab of the origin hears a clearing (#2789 review S2): the generation is per tab, so without
+ * this a second tab of the same account — its access token still valid for up to 15 minutes — would
+ * finish an in-flight write, or start a new one, into the database the first tab just deleted.
+ */
+export const OFFLINE_CLEAR_CHANNEL = 'kp-offline';
+const CLEAR_MESSAGE = 'offline-data-cleared';
+
+/** `local`: this tab clears; `remote`: another tab of the origin did. */
+export type ClearingOrigin = 'local' | 'remote';
+type ClearedListener = (origin: ClearingOrigin) => void;
+const clearedListeners = new Set<ClearedListener>();
+
+/** Called on every clearing — in this tab and in any other tab of the origin. Returns the unsubscribe. */
+export function onOfflineDataCleared(listener: ClearedListener): () => void {
+  clearedListeners.add(listener);
+  return () => clearedListeners.delete(listener);
+}
+
+function cleared(origin: ClearingOrigin): void {
+  generation += 1;
+  clearedListeners.forEach((listener) => {
+    try {
+      listener(origin);
+    } catch {
+      // A listener's failure never stops the clearing.
+    }
+  });
+}
+
+let channel: BroadcastChannel | null = null;
+if (typeof BroadcastChannel !== 'undefined') {
+  try {
+    channel = new BroadcastChannel(OFFLINE_CLEAR_CHANNEL);
+    // Node (tests) keeps the process alive for an open channel; a browser has no `unref`.
+    (channel as BroadcastChannel & { unref?: () => void }).unref?.();
+    channel.onmessage = (event: MessageEvent) => {
+      if ((event.data as { type?: unknown } | null)?.type === CLEAR_MESSAGE) cleared('remote');
+    };
+  } catch {
+    channel = null;
+  }
+}
+
+function announceClearing(): void {
+  cleared('local');
+  try {
+    channel?.postMessage({ type: CLEAR_MESSAGE });
+  } catch {
+    // No channel (old browser): the other tabs still lose their database connection (`versionchange`).
+  }
+}
+
 function serviceWorkerContainer(): ServiceWorkerContainer | null {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
   return navigator.serviceWorker ?? null;
@@ -72,7 +125,7 @@ export function repostNamespace(): Promise<void> {
  * Await this BEFORE `window.location.reload()` on logout and tenant switch (G-W9 b).
  */
 export async function clearOfflineData(): Promise<void> {
-  generation += 1;
+  announceClearing();
   const { userKey } = lastNamespace;
   lastNamespace = { userKey: null, tenantKey: null };
   await postToWorker({ type: SW_MESSAGE_CLEAR_DATA, userKey });
@@ -81,7 +134,7 @@ export async function clearOfflineData(): Promise<void> {
 
 /** Kill switch (G-W9 e): everything goes, the app shell caches included. */
 export async function clearAllOfflineStorage(): Promise<void> {
-  generation += 1;
+  announceClearing();
   lastNamespace = { userKey: null, tenantKey: null };
   await Promise.all([deleteCaches(), deleteAllDatabases()]);
 }

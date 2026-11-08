@@ -40,6 +40,7 @@ import { useBedAssignments } from '../bed/useBedAssignments';
 import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import { useCacheScope } from '../offline/useCacheScope';
+import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import type { PlanRenderer, RendererLabels } from '../renderer/types';
 import { loadGardenPlan, resetGardenPlan, selectGardenPlanState } from '../state/gardenPlanSlice';
 import FieldBedList from './FieldBedList';
@@ -121,16 +122,10 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
     void dispatch(loadGardenPlan(siteKey));
   }, [dispatch, siteKey]);
 
-  // What came from the plan cache is read from the server again once the connection is back (R-012).
+  // What came from the plan cache, or was missed offline, is read again once the connection is back (R-012).
   const planFromCache = plan?.siteKey === siteKey && planCachedAt !== null;
-  const bedsFromCache = beds.cachedAt !== null;
-  const { reload: reloadBeds } = beds;
-  useEffect(() => {
-    if (online && bedsFromCache) reloadBeds();
-  }, [online, bedsFromCache, reloadBeds]);
-  useEffect(() => {
-    if (online && planFromCache) reloadPlan();
-  }, [online, planFromCache, reloadPlan]);
+  useReloadOnReconnect(beds.cachedAt !== null || beds.offlineMiss, beds.reload);
+  useReloadOnReconnect(planFromCache || planOfflineMiss, reloadPlan);
 
   const siteName = plan?.siteKey === siteKey ? plan.siteName : null;
   useEffect(() => {
@@ -251,7 +246,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
                 </Box>
               )}
               {beds.state.status === 'error' && beds.offlineMiss && (
-                <OfflineCacheMiss subject="beds" testId="field-list-offline-miss" />
+                <OfflineCacheMiss subject="beds" testId="field-list-offline-miss" onRetry={reload} />
               )}
               {beds.state.status === 'error' && !beds.offlineMiss && (
                 <ErrorDisplay error={beds.state.message} onRetry={reload} />
@@ -292,7 +287,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
           {tab === 'map' && (
             <>
               {loadStatus === 'error' && planOfflineMiss && (
-                <OfflineCacheMiss subject="plan" testId="field-map-offline-miss" />
+                <OfflineCacheMiss subject="plan" testId="field-map-offline-miss" onRetry={reloadPlan} />
               )}
               {loadStatus === 'error' && loadError && !planOfflineMiss && (
                 <ErrorDisplay error={loadError} onRetry={() => void dispatch(loadGardenPlan(siteKey))} />
