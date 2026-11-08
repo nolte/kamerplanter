@@ -7,7 +7,7 @@
  * hint, and the watermark "Kamerplanter · date" as an option that is off by default. It is not offered on a phone.
  * Lazy: the route chunk stays inside its budget (UI-NFR-003).
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -37,6 +37,10 @@ import { selectGardenPlanState } from '../state/gardenPlanSlice';
 import { fitViewport, planContentBounds } from '../routes/fitViewport';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { useLayerPrefs } from '../editor/useLayerPrefs';
+import { useAttentionFilter } from '../editor/useAttentionFilter';
+import { markerLodBedKeys } from '../renderer/scene';
+import { usePlanPlantStates } from '../planting/usePlanPlantStates';
+import { usePlantStateLayer } from '../planting/usePlantStateLayer';
 import { lightTheme } from '@/theme/theme';
 import OffscreenPlanSvg from './OffscreenPlanSvg';
 import {
@@ -87,6 +91,7 @@ interface ExportDialogProps {
 }
 
 const NO_SELECTION: PlanSelection = { locationKeys: [], objectKeys: [] };
+const NO_BED_KEYS: readonly string[] = [];
 
 /** The keys a partial export names: beds and (for a selection only) garden objects as `object:<key>`. */
 function scopeKeys(scope: ExportScope, selection: PlanSelection): string[] {
@@ -141,15 +146,15 @@ export default function ExportDialog({
   // Only the plan of this site is drawn: the file is named after `siteKey`, so a plan of another site never is.
   const plan = storePlan && storePlan.siteKey === siteKey ? storePlan : null;
   const labels = useRendererLabels();
-  // The site-condition layers come from the plan itself and the user's layer switches, as in the editor. Zones,
-  // "last watered", plant states and companions need their own requests and stay out of the PNG.
-  const { prefs: layerPrefs } = useLayerPrefs();
-  const pngRenderOptions = useMemo(
-    () => ({ sunLayer: layerPrefs.sun, moistureLayer: layerPrefs.moisture, frostLayer: layerPrefs.frost }),
-    [layerPrefs.sun, layerPrefs.moisture, layerPrefs.frost],
-  );
   // Set when Download starts a PNG and cleared by the first result: a second report of the same run is ignored.
   const pngActive = useRef(false);
+  // The id of the current run (Download counts it up) and whether a run is still on: a drawing that finishes after
+  // its run ended, or after a newer one started, downloads nothing.
+  const pngRun = useRef(0);
+  const pngRunningNow = useRef(false);
+  useEffect(() => {
+    pngRunningNow.current = pngRunning;
+  }, [pngRunning]);
 
   // On a phone the standard options apply and neither SVG, CSV nor PNG is offered (GP-UX-050).
   const csvMode = localChosen === 'csv' && !phone;
@@ -163,6 +168,27 @@ export default function ExportDialog({
   const pngSize = pngViewport
     ? resolvePngSize(pngViewport.widthPx, pngViewport.heightPx, png.resolution)
     : null;
+  // The PNG draws what the editor draws with the user's layer switches: the site-condition layers from the plan
+  // itself, and the plant states with their phase colours (GP-UX-061, GP-FR-067) read for the beds at marker LOD of
+  // the export's viewport, while PNG is chosen. Zones, "last watered" and companions stay out of the PNG.
+  const { prefs: layerPrefs } = useLayerPrefs();
+  const [attentionOnly] = useAttentionFilter();
+  const plantStateOn = pngMode && layerPrefs.plantState && plan !== null;
+  const stateBedKeys = useMemo(
+    () => (plantStateOn && plan && pngViewport ? markerLodBedKeys(plan, pngViewport) : NO_BED_KEYS),
+    [plantStateOn, plan, pngViewport],
+  );
+  const planStates = usePlanPlantStates(siteKey, stateBedKeys, plantStateOn);
+  const { phaseColors, plantStateLayer } = usePlantStateLayer(plan, planStates, plantStateOn, attentionOnly);
+  const pngRenderOptions = useMemo(
+    () => ({
+      sunLayer: layerPrefs.sun,
+      moistureLayer: layerPrefs.moisture,
+      frostLayer: layerPrefs.frost,
+      ...(plantStateLayer ? { plantStateLayer, phaseColors } : {}),
+    }),
+    [layerPrefs.sun, layerPrefs.moisture, layerPrefs.frost, plantStateLayer, phaseColors],
+  );
   // A run whose drawing can no longer mount (the plan went away after Download) ends here instead of hanging busy.
   // (`pngActive` stays set; nothing can report without a mounted drawing, and the next Download sets it anew.)
   if (pngRunning && (!plan || !pngViewport)) {
@@ -226,6 +252,8 @@ export default function ExportDialog({
     async (svg: SVGSVGElement) => {
       if (!pngActive.current) return;
       pngActive.current = false;
+      const run = pngRun.current;
+      const current = () => pngRun.current === run && pngRunningNow.current;
       try {
         if (!pngViewport || !pngSize) throw new Error('png-export: nothing to draw');
         const svgText = serializePlanSvg(svg, {
@@ -247,13 +275,17 @@ export default function ExportDialog({
             : null,
           watermarkColor: lightTheme.palette.text.secondary,
         });
+        // The run was ended while the image was drawn (its plan went away): no file, the dialog already says why.
+        if (!current()) return;
         saveBlob(blob, planPngFilename(siteKey, today));
         onClose();
       } catch {
-        setFailure('pngFailed');
+        if (current()) setFailure('pngFailed');
       } finally {
-        setPngRunning(false);
-        setBusy(false);
+        if (current()) {
+          setPngRunning(false);
+          setBusy(false);
+        }
       }
     },
     [pngViewport, pngSize, png.watermark, t, language, siteKey, onClose],
@@ -271,6 +303,7 @@ export default function ExportDialog({
     setFailure(null);
     if (pngMode) {
       pngActive.current = true;
+      pngRun.current += 1;
       setPngRunning(true);
       return;
     }

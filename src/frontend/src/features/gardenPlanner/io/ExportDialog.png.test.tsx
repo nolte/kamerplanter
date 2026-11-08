@@ -10,7 +10,9 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
-import { smallPlan } from '@/test/gardenPlanFixtures';
+import { planResponse, smallPlan } from '@/test/gardenPlanFixtures';
+import { normalizePlan } from '../model/planModel';
+import { phaseColor } from '../planting/phaseColors';
 import { server } from '@/test/mocks/server';
 import { BasePlanRenderer } from '../renderer/BasePlanRenderer';
 import { TEST_LABELS } from '../renderer/rendererTestKit';
@@ -147,6 +149,68 @@ describe('ExportDialog PNG', () => {
     expect(serverRequests).toBe(requestsBefore);
   });
 
+  it('draws the plant states and phase colours the editor draws, with the plant-state layer on', async () => {
+    window.localStorage.setItem('kp_garden_plan_layers', JSON.stringify({ plantState: true }));
+    const today = new Date().toISOString().slice(0, 10);
+    loaded.state = {
+      plan: normalizePlan(
+        planResponse({
+          plants: [{ key: 'pl_1', instance_id: 'TOM-1', species_key: 'sp_tomato', slot_key: 'slot_1', phase_key: 'ph_veg' }],
+        }),
+      ),
+    } as unknown as GardenPlanState;
+    const stateReads: string[] = [];
+    server.use(
+      http.get('/api/v1/t/:tenant/locations/:key/plant-states', ({ params }) => {
+        stateReads.push(String(params.key));
+        return HttpResponse.json(
+          params.key === 'loc_a'
+            ? [
+                {
+                  plant_key: 'pl_1',
+                  instance_id: 'TOM-1',
+                  species_key: 'sp_tomato',
+                  species_name: 'Tomato',
+                  planted_on: '2026-04-01',
+                  lifecycle: 'active',
+                  phase: { key: 'ph_veg', name: 'vegetative', elapsed_d: 10 },
+                  last_care: {},
+                  attention: [],
+                  harvest: { ready: false },
+                  inputs: {
+                    open_tasks: [{ category: 'pruning', due: '2020-01-01' }],
+                    open_findings: 0,
+                    frost_risk: false,
+                    harvest_batches: 0,
+                    phase: { key: 'ph_veg', started_on: today, typical_days: 30, allows_harvest: false, is_terminal: false },
+                  },
+                },
+              ]
+            : [],
+        );
+      }),
+      http.get('/api/v1/growth-phases/:key', () => HttpResponse.json({ key: 'ph_veg', name: 'vegetative' })),
+    );
+    try {
+      const user = userEvent.setup();
+      const onClose = renderDialog();
+      await user.click(screen.getByTestId('plan-export-format-png'));
+      await waitFor(() => expect(stateReads).toContain('loc_a'));
+      // Let the answer reach the hook before the export reads it.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await user.click(screen.getByTestId('plan-export-download'));
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+      await waitFor(() => expect(svgTexts.some((text) => text.includes('data-plan-state-layer'))).toBe(true));
+      const exported = svgTexts.find((text) => text.includes('data-plan-state-layer')) ?? '';
+      expect(exported).toContain('data-plan-lifecycle="active"');
+      expect(exported).toContain('data-plan-badge-reason="overdue"');
+      expect(exported.toLowerCase()).toContain(`fill="${phaseColor('vegetative').toLowerCase()}"`);
+    } finally {
+      window.localStorage.removeItem('kp_garden_plan_layers');
+    }
+  });
+
   it('caps 4x at the canvas limit, says so and exports the reduced size', async () => {
     const user = userEvent.setup();
     renderDialog();
@@ -239,6 +303,31 @@ describe('ExportDialog PNG', () => {
     expect(await screen.findByTestId('plan-export-error')).toHaveTextContent('The image could not be created');
     expect(screen.queryByTestId('plan-png-offscreen')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('downloads nothing when the image finishes after its run was ended', async () => {
+    let finishLoad: (() => void) | null = null;
+    vi.spyOn(HTMLImageElement.prototype, 'src', 'set').mockImplementation(function (this: HTMLImageElement) {
+      finishLoad = () => this.onload?.(new Event('load'));
+    });
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-png'));
+    await user.click(screen.getByTestId('plan-export-download'));
+    await waitFor(() => expect(finishLoad).not.toBeNull());
+
+    loaded.state = { plan: null } as unknown as GardenPlanState;
+    act(() => {
+      store.dispatch(setBreadcrumbs([{ label: 'changed' }]));
+    });
+    expect(await screen.findByTestId('plan-export-error')).toBeInTheDocument();
+    await act(async () => {
+      (finishLoad as unknown as () => void)();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(saved.calls).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
   });
 
