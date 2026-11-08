@@ -30,7 +30,7 @@ from app.config.settings import settings
 from app.domain.engines.plan_svg_engine import ALLOWED_ATTRIBUTES, ALLOWED_ELEMENTS
 from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
-from app.domain.models.bed_list_export import BedAssignee
+from app.domain.models.bed_list_export import MAX_BED_LIST_EXPORT_ROWS, BedAssignee
 from app.domain.models.garden_plan import PlantShortInfo
 from app.domain.models.site import Location, SitePlan
 from app.domain.models.user import User
@@ -404,10 +404,42 @@ class TestTheParcelList:
         assert "Parzellenliste" in parcel_page
         for header in ("Beet-Kennung", "Fläche (m²)", "Bewässerungszone"):
             assert header in parcel_page
-        # Plan order, not name order: "Tomatenbeet" comes first although "Kräuterspirale" sorts before it.
-        assert parcel_page.index("1 · Tomatenbeet") < parcel_page.index("2 · Kräuterspirale")
+        assert "1 · Tomatenbeet" in parcel_page and "2 · Kräuterspirale" in parcel_page
         assert "2,0" in parcel_page and "4,0" in parcel_page
         assert "Tropf Ost" in parcel_page
+        assert "nur für diesen Ausdruck" in parcel_page
+
+    def test_the_numbers_follow_depth_then_drawing_order_then_key(self, client, repo) -> None:
+        """Inserted (= the fake's read order) as d, z, m, b and keyed a…z: neither order is the plan order."""
+        repo.locations.clear()
+        for key, name, depth, z_order, x in (
+            ("d_deep", "Tiefes Beet", 1, 0, 1),
+            ("z_late", "Spätes Beet", 0, 5, 3),
+            ("m_tie", "Gleichstand M", 0, 1, 5),
+            ("b_tie", "Gleichstand B", 0, 1, 7),
+        ):
+            repo.locations[key] = _bed(key, name, rect(x, 1, 1, 1), 1.0).model_copy(
+                update={"depth": depth, "z_order": z_order}
+            )
+
+        parcel_page = pdf_pages_text(client().get(_PDF, params={"parcel_list": "true"}).content)[1]
+
+        expected = ["1 · Gleichstand B", "2 · Gleichstand M", "3 · Spätes Beet", "4 · Tiefes Beet"]
+        positions = [parcel_page.index(entry) for entry in expected]
+        assert positions == sorted(positions), parcel_page
+
+    def test_one_bed_over_the_bound_is_refused_before_zones_or_assignments_are_read(self, client, repo) -> None:
+        repo.locations.clear()
+        for index in range(MAX_BED_LIST_EXPORT_ROWS + 1):
+            key = f"bed_{index:04d}"
+            repo.locations[key] = _bed(key, key, rect(1, 1, 1, 1), 1.0, irrigation_zone_key="zone_1")
+        repo.assignees = [(TENANT, BedAssignee("bed_0000", "u_sabine", "Sabine Gärtner"))]
+
+        response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true"})
+
+        assert response.status_code == 422
+        assert response.json()["details"][0]["code"] == "export.too_many_rows"
+        assert repo.assignee_reads == [] and "zone_names" not in repo.label_reads
 
     def test_without_the_opt_in_no_member_name_and_no_assignment_column_is_printed(self, client, assigned) -> None:
         response = client().get(_PDF, params={"parcel_list": "true"})
@@ -435,6 +467,34 @@ class TestTheParcelList:
         response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true"})
 
         assert "anonymisiert" in pdf_pages_text(response.content)[1]
+
+    def test_an_erased_account_prints_in_the_language_of_the_document(self, client, assigned) -> None:
+        assigned.assignees = [(TENANT, BedAssignee("bed", "u_gone", None))]
+
+        response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true", "locale": "en"})
+
+        parcel_page = pdf_pages_text(response.content)[1]
+        assert "anonymised" in parcel_page and "anonymisiert" not in parcel_page
+
+    def test_the_refusal_comes_before_the_underlay_is_loaded(self, client, assigned, monkeypatch) -> None:
+        from app.main import app
+
+        service = app.dependency_overrides[get_garden_plan_export_service]()
+        loads: list[str] = []
+
+        async def spy(site_key, *, tenant_key):
+            loads.append(site_key)
+
+        monkeypatch.setattr(service, "load_underlay", spy)
+
+        refused = client().get(_PDF, params={"underlay": "true", "include_assignment": "true"})
+
+        assert refused.status_code == 422
+        assert refused.json()["details"][0]["code"] == "export.assignment_needs_parcel_list"
+        assert loads == []
+        # Positive control: the same spy sees the load of an admissible request.
+        assert client().get(_PDF, params={"underlay": "true"}).status_code == 200
+        assert loads == [SITE]
 
     def test_the_assignment_without_the_parcel_list_is_a_422_and_reads_nobody(self, client, assigned) -> None:
         response = client().get(_PDF, params={"include_assignment": "true"})

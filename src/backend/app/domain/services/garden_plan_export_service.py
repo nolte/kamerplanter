@@ -69,13 +69,12 @@ from app.domain.engines.plan_underlay_engine import (
     place_underlay,
     prepare_image,
 )
-from app.domain.engines.print_engine import PrintEngine
+from app.domain.engines.print_engine import PrintEngine, format_decimal, print_label
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
-from app.domain.models.care_event import display_performer
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import GardenPlanView
 from app.domain.models.garden_plan_export import (
@@ -92,6 +91,7 @@ from app.domain.models.garden_plan_export import (
 )
 from app.domain.models.site import Location, Site
 from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.bed_list_labels import bed_assignee_names, irrigation_zone_names, require_bed_list_size
 from app.domain.services.frost_forecast import read_site_frost_verdict
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
@@ -110,6 +110,26 @@ _MAX_STATE_PAGES = PLANT_COUNTER_THRESHOLD // STATE_PAGE_SIZE + 1
 ERROR_ASSIGNMENT_NEEDS_PARCEL_LIST = "export.assignment_needs_parcel_list"
 #: Separator of several members in one assignment cell (as the bed-list CSV).
 ASSIGNEE_SEPARATOR = ", "
+
+
+def require_parcel_list_for_assignment(*, parcel_list: bool, include_assignment: bool) -> None:
+    """422 ``export.assignment_needs_parcel_list`` for ``include_assignment`` without ``parcel_list``.
+
+    The member names have no other place in the PDF. The route runs this before it loads anything (the underlay
+    included); :meth:`GardenPlanExportService.render_pdf` runs it again for any other caller.
+    """
+    if include_assignment and not parcel_list:
+        raise PlanError(
+            ERROR_ASSIGNMENT_NEEDS_PARCEL_LIST,
+            "The assignment is a column of the parcel list; add parcel_list=true.",
+            status_code=422,
+            field="include_assignment",
+        )
+
+
+def _plan_order(location: Location) -> tuple[int, int, str]:
+    """The order of the plan read model: depth, drawing order (``z_order``), key - stated here, not inherited."""
+    return location.depth, location.z_order, location.key or ""
 
 
 def _export_error(code: str, message: str) -> PlanError:
@@ -315,18 +335,18 @@ class GardenPlanExportService:
         """A scaled plan on one page (plus the bed list and the parcel list when asked).
 
         422 ``plan.does_not_fit`` when it cannot; 422 ``export.assignment_needs_parcel_list`` for
-        ``include_assignment`` without ``parcel_list`` - the member names have no other place in the PDF.
+        ``include_assignment`` without ``parcel_list``; 422 ``export.too_many_rows`` for a parcel list longer than
+        the bed-list bound - before its zones and assignments are read and before the plan is drawn.
         """
-        if include_assignment and not parcel_list:
-            raise PlanError(
-                ERROR_ASSIGNMENT_NEEDS_PARCEL_LIST,
-                "The assignment is a column of the parcel list; add parcel_list=true.",
-                status_code=422,
-                field="include_assignment",
-            )
+        require_parcel_list_for_assignment(parcel_list=parcel_list, include_assignment=include_assignment)
         started = perf_counter()
         pdf_options = replace(options, header_mm=PDF_HEADER_MM)
         view = self._view(site_key, tenant_key=tenant_key, options=pdf_options)
+        parcels = (
+            self._parcel_rows(view, tenant_key=tenant_key, locale=options.locale, include_assignment=include_assignment)
+            if parcel_list
+            else []
+        )
         marks = self._plant_marks(view, tenant_key=tenant_key, options=pdf_options, now=now)
         rendered = render_plan_svg(view, pdf_options, marks)
         if not rendered.fits:
@@ -358,13 +378,10 @@ class GardenPlanExportService:
             "underlay": placement,
             "beds": self._bed_rows(view, options.locale) if bed_list else [],
             "show_bed_list": bed_list,
-            "parcels": self._parcel_rows(
-                view, tenant_key=tenant_key, locale=options.locale, include_assignment=include_assignment
-            )
-            if parcel_list
-            else [],
+            "parcels": parcels,
             "show_parcel_list": parcel_list,
-            "show_assignment": parcel_list and include_assignment,
+            # Only together with the parcel list: require_parcel_list_for_assignment refused the rest above.
+            "show_assignment": include_assignment,
         }
         content = self._print.render_pdf(_TEMPLATE, context, options.locale)
         logger.info(
@@ -519,7 +536,7 @@ class GardenPlanExportService:
         return [
             {
                 "name": location.name,
-                "area": _area_label(location.area_m2, locale),
+                "area": format_decimal(location.area_m2, locale),
                 "status": location.bed_status.value,
                 "sun": location.sun_exposure.value,
             }
@@ -531,41 +548,46 @@ class GardenPlanExportService:
     ) -> list[dict[str, str]]:
         """The parcel list (GP-FR-176): identifier, area, irrigation zone and - only on request - the assignment.
 
-        **The identifier is the bed's name with a running number in plan order** (the order of the plan read model:
-        depth, drawing order, key). There is no ``bed_number`` field; the number is counted here, so it is the same
-        on every print of an unchanged plan (placeholder assumption 8 of wave 9, #2759). **The assignment** is read
-        only when ``include_assignment`` is set: the display names of the members a bed is assigned to, sorted,
-        ``anonymisiert`` for an erased account - never an account key (SR-024, as the bed-list CSV of #2668).
+        **The identifier is the bed's name with a running number in plan order** - depth, drawing order
+        (``z_order``), key (:func:`_plan_order`). There is no ``bed_number`` field (placeholder assumption 8 of
+        wave 9, #2759): the number is counted for this print and **holds for this print only**. A bed added or
+        removed, or moved in the drawing order (bring to front / send to back), renumbers the beds after it; the
+        page says so under its heading. It is no stable identifier to refer to across prints - the bed name is.
+
+        **Bounded** like the CSV: more than ``MAX_BED_LIST_EXPORT_ROWS`` beds is 422 ``export.too_many_rows``,
+        checked before the zone or the assignment is read.
+
+        **The assignment** is read only when ``include_assignment`` is set, through the one SR-024 mapping of the bed
+        list (:func:`~app.domain.services.bed_list_labels.bed_assignee_names`): the display names of the members a
+        bed is assigned to, sorted, never an account key. Per cell:
+
+        * an erased account reads ``anonymisiert`` / ``anonymised`` (the print language);
+        * an assignment whose membership was deleted or deactivated is no assignment any more - it gives no name,
+          and a bed with no other member prints ``–``, like a bed nobody is assigned to.
 
         ``view`` is the read model of a site this service resolved through the tenant anchor; the zone and the
         assignment reads still filter on ``tenant_key``.
         """
-        beds = self._placed_beds(view)
-        zone_names: dict[str, str] = {}
-        if any(bed.irrigation_zone_key for bed in beds):
-            zone_names = self._plan.irrigation_zone_names(view.site_key, tenant_key=tenant_key)
+        beds = sorted(self._placed_beds(view), key=_plan_order)
+        require_bed_list_size(len(beds))
+        zone_names = irrigation_zone_names(self._plan, view.site_key, beds, tenant_key=tenant_key)
         assignees: dict[str, list[str]] = {}
-        if include_assignment and beds:
-            keys = [bed.key for bed in beds if bed.key]
-            for assignee in self._plan.location_assignees(keys, tenant_key=tenant_key):
-                name = display_performer(assignee.user_key, assignee.display_name)
-                if name:
-                    assignees.setdefault(assignee.location_key, []).append(name)
+        if include_assignment:
+            assignees = bed_assignee_names(
+                self._plan,
+                [bed.key for bed in beds if bed.key],
+                tenant_key=tenant_key,
+                anonymised_label=print_label(locale, "garden_plan_assignee_anonymised"),
+            )
         rows = []
         for number, bed in enumerate(beds, start=1):
             row = {
                 "number": str(number),
                 "name": bed.name,
-                "area": _area_label(bed.area_m2, locale),
+                "area": format_decimal(bed.area_m2, locale),
                 "zone": zone_names.get(bed.irrigation_zone_key, "") if bed.irrigation_zone_key else "",
             }
             if include_assignment:
-                row["assigned_to"] = ASSIGNEE_SEPARATOR.join(sorted(assignees.get(bed.key or "", []), key=str.casefold))
+                row["assigned_to"] = ASSIGNEE_SEPARATOR.join(assignees.get(bed.key or "", []))
             rows.append(row)
         return rows
-
-
-def _area_label(area_m2: float, locale: str) -> str:
-    """An area in m² with one decimal, with a decimal comma in German."""
-    text = f"{area_m2:.1f}"
-    return text.replace(".", ",") if locale == "de" else text

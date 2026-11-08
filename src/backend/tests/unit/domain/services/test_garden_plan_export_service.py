@@ -299,19 +299,48 @@ class TestTheParcelList:
     """GP-FR-176 (WP 9.10, #2750): identifier in plan order, area, zone; the assignment only behind the opt-in."""
 
     def test_the_numbers_follow_the_plan_order_and_skip_what_is_no_placed_bed(self, repo) -> None:
+        # Inserted b1, b2, b3, x0 and keyed so that neither the read order nor the key order is the plan order.
+        repo.locations["b1"] = repo.locations["b1"].model_copy(update={"z_order": 3})
+        repo.locations["x0"] = make_location(
+            "x0", "alpha", geometry=rect(4, 3, 1, 1), irrigation_zone_key="zone_1"
+        ).model_copy(update={"depth": 1})
         repo.locations["unplaced"] = make_location("unplaced", "Zelt ohne Platz")
-        repo.locations["b2"] = make_location("b2", "alpha", geometry=rect(4, 1, 2, 1), irrigation_zone_key="zone_1")
         engine = _CapturingEngine()
 
         _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
 
         html = engine.html[-1]
         section = html[html.index('<section class="parcel-list">') :]
-        planned = [loc.name for loc in repo.locations.values() if loc.geometry is not None]
-        for number, name in enumerate(planned, start=1):
-            assert f"{number} &middot; {name}" in section
+        expected = ["1 &middot; Beet 2", "2 &middot; Beet 3", "3 &middot; Beet 1", "4 &middot; alpha"]
+        positions = [section.index(entry) for entry in expected]
+        assert positions == sorted(positions)
         assert "Zelt ohne Platz" not in section
         assert "Tropf Ost" in section
+
+    def test_the_number_is_said_to_hold_for_this_print_only(self, repo) -> None:
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        assert "Die Nummer gilt nur für diesen Ausdruck" in engine.html[-1]
+
+    def test_an_erased_account_and_a_deleted_membership_print_differently(self, repo) -> None:
+        """SEC-003: erased account = "anonymisiert"; a deleted membership's assignment is gone, the cell is "–".
+
+        The repository drops the assignment of a deleted or inactive membership (its AQL filters the membership),
+        so for ``b2`` the read returns nothing - as it does for a bed nobody was ever assigned to (``b3``).
+        """
+        repo.assignees = [(TENANT, BedAssignee("b1", "u_erased", None))]
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(
+            SITE, tenant_key=TENANT, options=_options(), parcel_list=True, include_assignment=True
+        )
+
+        section = engine.html[-1][engine.html[-1].index('<section class="parcel-list">') :]
+        rows = re.findall(r"<tr>(.*?)</tr>", section, flags=re.S)[1:]
+        cells = [re.findall(r"<td>(.*?)</td>", row, flags=re.S)[-1].strip() for row in rows]
+        assert cells == ["anonymisiert", "–", "–"]
 
     def test_without_the_opt_in_the_assignment_is_neither_read_nor_printed(self, repo) -> None:
         repo.assignees = [(TENANT, BedAssignee("b1", "u_sabine", "Sabine Gärtner"))]

@@ -15,7 +15,10 @@ from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.tenant_context import TenantContext
-from app.domain.services.garden_plan_export_service import GardenPlanExportService
+from app.domain.services.garden_plan_export_service import (
+    GardenPlanExportService,
+    require_parcel_list_for_assignment,
+)
 from app.domain.services.print_service import PrintService
 
 router = APIRouter(prefix="/print", tags=["print"], responses=NOT_FOUND_RESPONSE)
@@ -175,6 +178,8 @@ async def export_garden_plan_pdf(
     ``underlay=true`` lays the site's background picture under the plan; without it the PDF never carries one.
     422 ``plan.does_not_fit`` when a fixed scale does not fit the paper, ``plan.empty`` when there is nothing to draw.
     """
+    # Refused before anything is loaded - the underlay is an attachment read (#2750 review).
+    require_parcel_list_for_assignment(parcel_list=parcel_list, include_assignment=include_assignment)
     picture = await service.load_underlay(site_key, tenant_key=ctx.tenant_key) if underlay else None
     pdf = await run_in_threadpool(
         service.render_pdf,
