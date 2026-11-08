@@ -11,6 +11,7 @@ import { ThemeContextProvider } from '@/theme';
 import { useAppSelector } from '@/store/hooks';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { HeadlessPlanRenderer } from '../renderer/HeadlessPlanRenderer';
+import { WHEEL_COMMIT_IDLE_MS } from './wheelZoom';
 import type { Viewport } from '../renderer';
 import { TEST_LABELS } from '../renderer/rendererTestKit';
 import {
@@ -216,16 +217,37 @@ describe('zoom (GP-FR-009, GP-FR-150)', () => {
     expect(level()).toBe('40 %');
   });
 
-  it('Ctrl + wheel zooms stepless around the pointer and keeps the page from scrolling', () => {
+  it('Ctrl + wheel zooms stepless around the pointer and keeps the page from scrolling', async () => {
     const t = setup();
     const wheel = new WheelEvent('wheel', { deltaY: -200, clientX: 200, clientY: 200, ctrlKey: true, cancelable: true, bubbles: true });
     act(() => {
       t.canvas().dispatchEvent(wheel);
     });
     expect(wheel.defaultPrevented).toBe(true);
+    // The burst is committed once the wheel is idle (GP-NFR-034).
+    await act(() => new Promise((resolve) => setTimeout(resolve, WHEEL_COMMIT_IDLE_MS + 20)));
     const percent = Number(level()!.replace(' %', ''));
     expect(percent).toBeGreaterThan(40);
     expect(percent).not.toBe(100); // no snapping to a level
+  });
+
+  it('a wheel burst transforms the plan layer and renders the zoom once, after the wheel is idle (GP-NFR-034)', async () => {
+    const t = setup();
+    const notch = (deltaY: number) =>
+      act(() => {
+        t.canvas().dispatchEvent(
+          new WheelEvent('wheel', { deltaY, clientX: 200, clientY: 200, ctrlKey: true, cancelable: true, bubbles: true }),
+        );
+      });
+    const layer = screen.getByTestId('garden-plan-zoom-layer');
+    for (let i = 0; i < 5; i += 1) notch(-120);
+    // No render per notch: the zoom level is still the committed one, the layer is scaled around the pointer.
+    expect(level()).toBe('40 %');
+    const scale = Number(/scale\(([\d.]+)\)/.exec(layer.style.transform)?.[1]);
+    expect(scale).toBeCloseTo(Math.exp(5 * 120 * 0.0015), 6);
+    await act(() => new Promise((resolve) => setTimeout(resolve, WHEEL_COMMIT_IDLE_MS + 20)));
+    expect(Number(level()!.replace(' %', ''))).toBeCloseTo(40 * scale, 0);
+    expect(layer.style.transform).toBe('');
   });
 
   it('zooming keeps the model point under the anchor fixed', () => {

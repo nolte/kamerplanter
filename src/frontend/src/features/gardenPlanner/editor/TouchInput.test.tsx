@@ -2,7 +2,7 @@ import { act, cleanup, createEvent, fireEvent, screen, within } from '@testing-l
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import type { PlanModel } from '../model/planModel';
-import { px, setupEditor, stubPhone } from './editorTestKit';
+import { pointer, px, setupEditor, stubPhone } from './editorTestKit';
 import { testPlan } from './tools/toolTestKit';
 
 let restore: (() => void) | null = null;
@@ -135,6 +135,25 @@ describe('selection above the sheet (GP-UX-052)', () => {
     touchEvent(t, 'pointerUp', [4, 4], { id: 1, at: 1050 });
     act(() => t.rerender());
     expect(t.onPan).toHaveBeenCalledWith(0, 16 - 600);
+  });
+
+  it('waits for the release while a pointer holds the selected bed, so the press does not become a drag by the pan', () => {
+    const t = setupEditor();
+    const rect = { top: 100, bottom: 100, left: 0, right: 0, width: 0, height: 0, x: 0, y: 100 };
+    vi.spyOn(screen.getByTestId('garden-plan-dock'), 'getBoundingClientRect').mockReturnValue({
+      ...rect,
+      toJSON: () => ({}),
+    });
+    fireEvent.pointerDown(t.canvas(), pointer(px(4, 4)));
+    act(() => t.rerender());
+    expect(t.selected()).toEqual(['b1']);
+    expect(t.onPan).not.toHaveBeenCalled(); // the view stays under the held pointer
+    fireEvent.pointerMove(t.canvas(), pointer(px(4, 4.3)));
+    fireEvent.pointerUp(t.canvas(), pointer(px(4, 4.3)));
+    act(() => t.rerender());
+    expect(t.onPan).toHaveBeenCalledTimes(1);
+    // The move is what the pointer did - 0.3 m - not the pan (the bed origin was (3, 3)).
+    expect(t.state().plan!.locations.b1.geometry).toMatchObject({ origin: [3, 3.3] });
   });
 
   it('leaves the view alone when the bed is visible already', () => {

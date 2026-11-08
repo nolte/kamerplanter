@@ -95,7 +95,58 @@ export interface EditorToolsOptions {
   objectType?: GardenObjectType;
 }
 
+/**
+ * The select state of a move gesture between React commits (GP-NFR-011, GP-NFR-033): a pointer move that only shifts
+ * the moved selection is published here instead of re-rendering the editor. `get()` is `null` while no move is in
+ * flight past its first frame; then the committed `overlay` / `moveSnap` are current.
+ */
+export interface LiveMoveStore {
+  subscribe: (listener: () => void) => () => void;
+  get: () => SelectState | null;
+}
+
+function createLiveMoveStore(): LiveMoveStore & { set: (state: SelectState | null) => void } {
+  let value: SelectState | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    get: () => value,
+    set: (next) => {
+      if (next === value) return;
+      value = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+/**
+ * A step that only moves the selection: same tool, pointer, machines and vertex, a press or a move before and a move
+ * after. Nothing the editor renders besides the ghost, the size labels, the move's snap marker and the (then hidden)
+ * handles depends on it - all of them are drawn by the live layer.
+ */
+function isMoveOnly(committed: Machines, next: Machines): boolean {
+  return (
+    committed.forTool === next.forTool &&
+    committed.active === 'select' &&
+    next.active === 'select' &&
+    committed.pointerId === next.pointerId &&
+    committed.draw === next.draw &&
+    committed.pan === next.pan &&
+    committed.select.vertex === next.select.vertex &&
+    // The press that turns into a move is live too: the editor renders at the press and at the release only.
+    (committed.select.gesture.kind === 'move' || committed.select.gesture.kind === 'press') &&
+    next.select.gesture.kind === 'move'
+  );
+}
+
 export interface EditorTools {
+  /** The live state of a move gesture (see {@link LiveMoveStore}); the ghost layer subscribes to it. */
+  liveMove: LiveMoveStore;
+  /** A pointer holds a gesture right now (press, move, draw, pan): the view must not move under it. */
+  isPointerDown: () => boolean;
   containerProps: {
     onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
     onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -136,14 +187,21 @@ function toolKind(tool: PlanTool): 'select' | 'draw' | 'pan' {
   return 'select';
 }
 
-function sampleOf(event: ReactPointerEvent<HTMLElement>, additive = false): PointerSample {
-  const element = event.currentTarget;
+/** Where the canvas content starts in client pixels (inside its border). */
+function canvasOrigin(element: HTMLElement): Point {
   const box = element.getBoundingClientRect();
+  return [box.left + element.clientLeft, box.top + element.clientTop];
+}
+
+/**
+ * The pointer in canvas pixels. A gesture passes the canvas origin of its press: a layout shift while the pointer is
+ * down (a notice or a sheet that opens on the selection) must not turn into a jump of the gesture, and a move does
+ * not force a layout per event (GP-NFR-033).
+ */
+function sampleOf(event: ReactPointerEvent<HTMLElement>, additive = false, origin?: Point): PointerSample {
+  const [left, top] = origin ?? canvasOrigin(event.currentTarget);
   return {
-    pointPx: [
-      event.clientX - box.left - element.clientLeft,
-      event.clientY - box.top - element.clientTop,
-    ],
+    pointPx: [event.clientX - left, event.clientY - top],
     pointerType:
       event.pointerType === 'touch' || event.pointerType === 'pen' ? event.pointerType : 'mouse',
     shift: event.shiftKey || additive,
@@ -216,6 +274,11 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     forTool: toolId(options),
   });
   const live = useRef<Machines>(stored);
+  // The canvas origin at the press of the gesture in progress (see `sampleOf`).
+  const pressOrigin = useRef<Point | null>(null);
+  // What was last handed to React: a move-only step is compared against it, not against the live state.
+  const committed = useRef<Machines>(stored);
+  const liveMove = useMemo(() => createLiveMoveStore(), []);
   /**
    * The machine states for the tool that is active now. A tool or shape switch ends whatever was
    * under way (a half-drawn polygon, a drag): states recorded for another tool count as initial.
@@ -226,10 +289,17 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   }, []);
   const update = useCallback(
     (patch: Partial<Machines>) => {
-      live.current = { ...current(), ...patch };
-      setMachines(live.current);
+      const next = { ...current(), ...patch };
+      live.current = next;
+      if (isMoveOnly(committed.current, next)) {
+        liveMove.set(next.select);
+        return;
+      }
+      committed.current = next;
+      liveMove.set(null);
+      setMachines(next);
     },
-    [current],
+    [current, liveMove],
   );
   const machines =
     stored.forTool === toolId(options) ? stored : { ...INITIAL_MACHINES, forTool: toolId(options) };
@@ -281,7 +351,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       if (m.pointerId !== null) return; // one pointer at a time
       const o = latest.current;
       o.onNotice(null);
-      const sample = sampleOf(event, o.additive);
+      pressOrigin.current = canvasOrigin(event.currentTarget);
+      const sample = sampleOf(event, o.additive, pressOrigin.current);
       const env = envOf(o);
       const kind = event.button === 1 ? 'pan' : toolKind(o.tool);
       try {
@@ -310,7 +381,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       const m = current();
       const o = latest.current;
       if (m.pointerId !== null && event.pointerId !== m.pointerId) return;
-      const sample = sampleOf(event, o.additive);
+      const sample = sampleOf(event, o.additive, m.pointerId !== null ? (pressOrigin.current ?? undefined) : undefined);
       const env = envOf(o);
       if (m.active === 'pan') {
         const step = panMove(m.pan, sample);
@@ -335,7 +406,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       const m = current();
       const o = latest.current;
       if (m.pointerId === null || event.pointerId !== m.pointerId) return;
-      const sample = sampleOf(event, o.additive);
+      const sample = sampleOf(event, o.additive, m.pointerId !== null ? (pressOrigin.current ?? undefined) : undefined);
       const env = envOf(o);
       try {
         event.currentTarget.releasePointerCapture?.(event.pointerId);
@@ -495,6 +566,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     [cancel, current, deleteVertex, finishDraw, pickedVertex, update],
   );
 
+  const isPointerDown = useCallback(() => current().pointerId !== null, [current]);
+
   const kind = toolKind(options.tool);
   const {
     plan,
@@ -573,6 +646,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
 
   return useMemo(
     () => ({
+      liveMove,
+      isPointerDown,
       containerProps: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onKeyDown },
       overlay,
       handles,
@@ -589,6 +664,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       insertVertexAfter,
     }),
     [
+      liveMove,
+      isPointerDown,
       onPointerDown,
       onPointerMove,
       onPointerUp,

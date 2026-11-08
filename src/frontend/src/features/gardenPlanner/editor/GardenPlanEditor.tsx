@@ -14,6 +14,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -59,7 +60,7 @@ import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
-import { MAX_PX_PER_M, nearestGridStep, stepZoom } from '../model/units';
+import { MAX_PX_PER_M, nearestGridStep, stepZoom, type ZoomView } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { snapCandidates } from '../renderer/planIndex';
 import { toScreen as projectToScreen } from '../renderer/viewport';
@@ -88,6 +89,8 @@ import { DimensionLabels, type DimensionItem } from './DimensionLabels';
 import { ConflictDialog } from './ConflictDialog';
 import { EditorHeaderActions } from './EditorHeaderActions';
 import { EditorOverlay } from './EditorOverlay';
+import { LiveMoveLayer } from './LiveMoveLayer';
+import { WHEEL_COMMIT_IDLE_MS, commitOf, cssTransform, layerTransform, wheelStep } from './wheelZoom';
 import { EditorToolbar, type AngleStep, type EditorTool } from './EditorToolbar';
 import { Grid } from './Grid';
 import { MiniMap } from './MiniMap';
@@ -471,6 +474,14 @@ export function GardenPlanEditor({
   const [helpOpen, setHelpOpen] = useState(false);
   const shortcuts = useSingleKeyShortcuts();
   const dockRef = useRef<HTMLDivElement | null>(null);
+  // The phone's "pan the selection above the sheet" waits for the release when a pointer holds a gesture: a view
+  // that moves under a pressed object would turn the press into a drag by the pan (GP-UX-052).
+  const panIntoViewLater = useRef<(() => void) | null>(null);
+  const runPanIntoViewLater = useCallback(() => {
+    const later = panIntoViewLater.current;
+    panIntoViewLater.current = null;
+    later?.();
+  }, []);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const announcement = useAnnouncement(plan, past, future, t(`${PREFIX}.liveRegion.unnamed`));
@@ -632,15 +643,37 @@ export function GardenPlanEditor({
 
   // The wheel zooms around the pointer (with Ctrl/Cmd or a focused canvas). A listener of its own: React's wheel handlers are passive
   // and could not keep the page from scrolling.
-  const wheelState = useRef({ pxPerM, onZoom });
+  // A wheel burst moves a pending view that the plan layer follows by a CSS transform; it is committed once the
+  // wheel is idle (`wheelZoom.ts`, GP-NFR-034): one render per burst instead of one per notch.
+  const wheelState = useRef({ viewport, onZoom, onPan, minPxPerM });
   useEffect(() => {
-    wheelState.current = { pxPerM, onZoom };
+    wheelState.current = { viewport, onZoom, onPan, minPxPerM };
   });
+  const zoomLayerRef = useRef<HTMLDivElement | null>(null);
+  const pendingZoom = useRef<ZoomView | null>(null);
+  const wheelTimer = useRef<number | null>(null);
+  // A new committed view: the layer shows it as drawn, or still the rest of a pending burst.
+  useLayoutEffect(() => {
+    const layer = zoomLayerRef.current;
+    if (!layer) return;
+    layer.style.transform = pendingZoom.current ? cssTransform(layerTransform(viewport, pendingZoom.current)) : '';
+  }, [viewport]);
   useEffect(() => {
     const element = canvasRef.current;
     if (element === null) return undefined;
+    const commit = () => {
+      wheelTimer.current = null;
+      const pending = pendingZoom.current;
+      pendingZoom.current = null;
+      const { viewport: committed, onZoom: zoom, onPan: pan } = wheelState.current;
+      const step = pending ? commitOf(committed, pending) : null;
+      if (step === null || !zoom) {
+        if (zoomLayerRef.current) zoomLayerRef.current.style.transform = '';
+      } else if (step.kind === 'zoom') zoom(step.pxPerM, step.anchorPx);
+      else pan(step.dxPx, step.dyPx);
+    };
     const onWheel = (event: WheelEvent) => {
-      const { pxPerM: current, onZoom: zoom } = wheelState.current;
+      const { viewport: committed, onZoom: zoom, minPxPerM: min } = wheelState.current;
       if (!zoom) return;
       // A plain wheel (or a two-finger touchpad scroll) scrolls the page; zooming needs Ctrl/Cmd
       // (a touchpad pinch arrives as Ctrl + wheel) or the focus on the canvas.
@@ -649,13 +682,25 @@ export function GardenPlanEditor({
       event.preventDefault();
       const box = element.getBoundingClientRect();
       const lines = event.deltaMode === 1 ? 16 : 1;
-      zoom(current * Math.exp(-event.deltaY * lines * WHEEL_ZOOM_PER_PX), [
+      const base = pendingZoom.current ?? committed;
+      const next = wheelStep(base, base.pxPerM * Math.exp(-event.deltaY * lines * WHEEL_ZOOM_PER_PX), [
         event.clientX - box.left - element.clientLeft,
         event.clientY - box.top - element.clientTop,
-      ]);
+      ], min);
+      pendingZoom.current = next;
+      if (zoomLayerRef.current) zoomLayerRef.current.style.transform = cssTransform(layerTransform(committed, next));
+      if (wheelTimer.current !== null) window.clearTimeout(wheelTimer.current);
+      wheelTimer.current = window.setTimeout(commit, WHEEL_COMMIT_IDLE_MS);
     };
     element.addEventListener('wheel', onWheel, { passive: false });
-    return () => element.removeEventListener('wheel', onWheel);
+    return () => {
+      element.removeEventListener('wheel', onWheel);
+      // A burst cut off by a view switch is committed at once rather than lost.
+      if (wheelTimer.current !== null) {
+        window.clearTimeout(wheelTimer.current);
+        commit();
+      }
+    };
     // The canvas element is a new one each time the list view has been shown in between.
   }, [view]);
 
@@ -728,6 +773,12 @@ export function GardenPlanEditor({
         const edge = event.buttons === 0 ? companionEdgeOf(event) : null;
         setCompanionHover((previous) => (previous === edge ? previous : edge));
       }
+      const snapping = (drawTool || templateTool || toolHandleDragging) && snapEnabled && !event.altKey;
+      if (!templateTool && !snapping) {
+        // A move of the selection or a hover: no marker, and no layout read per pointer move (GP-NFR-033).
+        setSnapMark((previous) => (previous === null ? previous : null));
+        return;
+      }
       const box = event.currentTarget.getBoundingClientRect();
       const pointM = renderer.toModel([
         event.clientX - box.left - event.currentTarget.clientLeft,
@@ -740,7 +791,7 @@ export function GardenPlanEditor({
           previous && previous[0] === landing[0] && previous[1] === landing[1] ? previous : landing,
         );
       }
-      if (!(drawTool || templateTool || toolHandleDragging) || !snapEnabled || event.altKey) {
+      if (!snapping) {
         setSnapMark((previous) => (previous === null ? previous : null));
         return;
       }
@@ -788,15 +839,17 @@ export function GardenPlanEditor({
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerUp(event);
       setSnapMark(null);
+      runPanIntoViewLater();
     },
-    [toolPointerUp],
+    [toolPointerUp, runPanIntoViewLater],
   );
   const onPointerCancel = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerCancel(event);
       setSnapMark(null);
+      runPanIntoViewLater();
     },
-    [toolPointerCancel],
+    [toolPointerCancel, runPanIntoViewLater],
   );
   const onPlantsNearby = useCallback(
     (keys: string[], pointPx: Point) => {
@@ -816,7 +869,7 @@ export function GardenPlanEditor({
     () =>
       onZoom
         ? (factor: number, centerPx: Point) =>
-            onZoom(wheelState.current.pxPerM * factor, centerPx)
+            onZoom(wheelState.current.viewport.pxPerM * factor, centerPx)
         : undefined,
     [onZoom],
   );
@@ -1286,26 +1339,32 @@ export function GardenPlanEditor({
   useEffect(() => {
     latestView.current = { plan, renderer, onPan, selection };
   });
+  const isPointerDown = tools.isPointerDown;
   useEffect(() => {
-    const dock = dockRef.current;
-    const canvas = canvasRef.current;
-    if (!toolbarBelow || selectionSignature === '' || !dock || !canvas) return;
-    const free = dock.getBoundingClientRect().top - canvas.getBoundingClientRect().top;
-    if (free <= 0) return;
-    const latest = latestView.current;
-    const ref = latest.selection.length === 1 ? latest.selection[0] : null;
-    if (!ref || !isPlanEntity(ref)) return;
-    const source =
-      ref.entity === 'location' ? latest.plan.locations[ref.key] : latest.plan.gardenObjects[ref.key];
-    const bbox = source?.bbox;
-    if (!bbox) return;
-    const ys = [
-      latest.renderer.toScreen([bbox[0], bbox[1]])[1],
-      latest.renderer.toScreen([bbox[2], bbox[3]])[1],
-    ];
-    const dy = panIntoView(Math.min(...ys), Math.max(...ys), free);
-    if (dy !== 0) latest.onPan(0, dy);
-  }, [selectionSignature, toolbarBelow]);
+    if (!toolbarBelow || selectionSignature === '') return;
+    const run = () => {
+      const dock = dockRef.current;
+      const canvas = canvasRef.current;
+      if (!dock || !canvas) return;
+      const free = dock.getBoundingClientRect().top - canvas.getBoundingClientRect().top;
+      if (free <= 0) return;
+      const latest = latestView.current;
+      const ref = latest.selection.length === 1 ? latest.selection[0] : null;
+      if (!ref || !isPlanEntity(ref)) return;
+      const source =
+        ref.entity === 'location' ? latest.plan.locations[ref.key] : latest.plan.gardenObjects[ref.key];
+      const bbox = source?.bbox;
+      if (!bbox) return;
+      const ys = [
+        latest.renderer.toScreen([bbox[0], bbox[1]])[1],
+        latest.renderer.toScreen([bbox[2], bbox[3]])[1],
+      ];
+      const dy = panIntoView(Math.min(...ys), Math.max(...ys), free);
+      if (dy !== 0) latest.onPan(0, dy);
+    };
+    if (isPointerDown()) panIntoViewLater.current = run;
+    else run();
+  }, [selectionSignature, toolbarBelow, isPointerDown]);
 
   const code = notice ?? editError;
   const noticeText = code
@@ -1601,8 +1660,11 @@ export function GardenPlanEditor({
         },
       }}
     >
-      {rendered}
-      {gridVisible && <Grid viewport={viewport} stepM={gridStepM} />}
+      {/* The plan layer: the pending wheel zoom transforms it until the burst is committed. */}
+      <Box ref={zoomLayerRef} sx={{ position: 'relative', transformOrigin: '0 0' }} data-testid="garden-plan-zoom-layer">
+        {rendered}
+        {gridVisible && <Grid viewport={viewport} stepM={gridStepM} />}
+      </Box>
       {companionInfo && (
         <Suspense fallback={null}>
           <CompanionEdgeInfo
@@ -1616,41 +1678,53 @@ export function GardenPlanEditor({
           />
         </Suspense>
       )}
-      <EditorOverlay
+      {/* A move re-renders only this layer: the editor stays as it is until the gesture ends (GP-NFR-033). */}
+      <LiveMoveLayer
+        liveMove={tools.liveMove}
         overlay={tools.overlay}
+        dimensionItems={dimensionItems}
+        snapMark={shownSnapMark}
         handles={handles}
-        vertex={tools.vertex}
-        toScreen={toScreen}
-        pxPerM={viewport.pxPerM}
-        widthPx={viewport.widthPx}
-        heightPx={viewport.heightPx}
+        handlesPx={handlesPx}
       >
-        <DimensionLabels
-          items={dimensionItems}
-          toScreen={toScreen}
-          unit={unit}
-          handlesPx={handlesPx}
-          heightPx={viewport.heightPx}
-        />
-        {selectedTemplate && ghostPoint && templateMode && (
-          <TemplateGhost
-            template={selectedTemplate}
-            invalid={ghostInvalid}
-            originM={ghostPoint}
-            rotationDeg={templateMode.rotationDeg}
+        {(live) => (
+          <EditorOverlay
+            overlay={live.overlay}
+            handles={live.handles}
+            vertex={tools.vertex}
             toScreen={toScreen}
-            pxPerM={pxPerM}
-          />
-        )}
-        {shownSnapMark && (
-          <SnapMarker
-            mark={shownSnapMark}
-            toScreen={toScreen}
+            pxPerM={viewport.pxPerM}
             widthPx={viewport.widthPx}
             heightPx={viewport.heightPx}
-          />
+          >
+            <DimensionLabels
+              items={live.dimensionItems}
+              toScreen={toScreen}
+              unit={unit}
+              handlesPx={live.handlesPx}
+              heightPx={viewport.heightPx}
+            />
+            {selectedTemplate && ghostPoint && templateMode && (
+              <TemplateGhost
+                template={selectedTemplate}
+                invalid={ghostInvalid}
+                originM={ghostPoint}
+                rotationDeg={templateMode.rotationDeg}
+                toScreen={toScreen}
+                pxPerM={pxPerM}
+              />
+            )}
+            {live.snapMark && (
+              <SnapMarker
+                mark={live.snapMark}
+                toScreen={toScreen}
+                widthPx={viewport.widthPx}
+                heightPx={viewport.heightPx}
+              />
+            )}
+          </EditorOverlay>
         )}
-      </EditorOverlay>
+      </LiveMoveLayer>
       <ScaleBar pxPerM={pxPerM} />
       {showMiniMap && extent && (
         <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} />
