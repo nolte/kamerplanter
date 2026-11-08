@@ -10,6 +10,8 @@
  * The salt-limit reason `check_salt_content` (E-17 variant A) is no supply finding and never changes the state, so it
  * is shown as a fact of its own whenever the hint carries it - whatever the state - and left out of the nutrient
  * reasons. It stays hidden until a sourced salt threshold is configured on the server.
+ * Root competition or allelopathy reported at the bed (GP-FR-165, WP 9.11) is a chip under the site features,
+ * shown only while a flag is set - a note, never a rating.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -144,6 +146,7 @@ export default function BedHeader({
   const sunLine = sunProfileLine(t, summary.site_conditions?.sun_profile);
   const siteLine = siteConditionsLine(t, summary.site_conditions);
   const accessSides = summary.site_conditions?.access_sides;
+  const siteFlags = summary.site_conditions?.flags ?? [];
   const reach = useMemo(
     () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
     [summary.geometry, accessSides, reachThresholds],
@@ -238,10 +241,10 @@ export default function BedHeader({
                 </Typography>
               )}
             </Fact>
-            {(siteLine || onChangeSite) && (
+            {(siteLine || onChangeSite || siteFlags.length > 0) && (
               <Fact label={t('pages.bed.header.site')} testId="bed-header-site">
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  {siteLine ?? notSet}
+                  {siteLine ?? (siteFlags.length > 0 ? null : notSet)}
                   {onChangeSite && (
                     <Button
                       size="small"
@@ -254,6 +257,22 @@ export default function BedHeader({
                     </Button>
                   )}
                 </Box>
+                {siteFlags.length > 0 && (
+                  <Box sx={{ mt: 0.5 }} data-testid="bed-site-flags">
+                    <Chip
+                      size="small"
+                      color="warning"
+                      variant="outlined"
+                      label={t('pages.bed.header.siteFlagsHint')}
+                      data-testid="bed-site-flags-badge"
+                    />
+                    <Typography variant="caption" color="text.secondary" component="div">
+                      {t('pages.bed.header.siteFlagsDetail', {
+                        value: siteFlags.map((flag) => t(`enums.siteFlag.${flag}`)).join(', '),
+                      })}
+                    </Typography>
+                  </Box>
+                )}
               </Fact>
             )}
             {reach.hint && (

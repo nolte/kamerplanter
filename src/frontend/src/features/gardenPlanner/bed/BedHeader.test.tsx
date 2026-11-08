@@ -290,3 +290,30 @@ describe('BedHeader nutrient hint (GP-FR-125)', () => {
     expect(screen.queryByTestId('bed-header-nutrient')).toBeNull();
   });
 });
+
+describe('BedHeader site flags (GP-FR-165, WP 9.11)', () => {
+  it('shows a chip with the reported flags under the site features', async () => {
+    const view = renderHeader(
+      bedSummary({ site_conditions: { flags: ['root_competition', 'allelopathy_risk'] } }),
+    );
+    const flags = await screen.findByTestId('bed-site-flags');
+    expect(within(flags).getByTestId('bed-site-flags-badge')).toHaveTextContent('Root competition/allelopathy');
+    expect(flags).toHaveTextContent('Reported: Root competition, Allelopathy risk');
+    // Only flags set: the site fact is shown without "Not set" beside the chip.
+    expect(screen.getByTestId('bed-header-site')).not.toHaveTextContent('Not set');
+    await expectNoA11yViolations(view.container);
+  });
+
+  it('names a single flag only', async () => {
+    renderHeader(bedSummary({ site_conditions: { flags: ['allelopathy_risk'] } }));
+    const flags = await screen.findByTestId('bed-site-flags');
+    expect(flags).toHaveTextContent('Reported: Allelopathy risk');
+    expect(flags).not.toHaveTextContent('Root competition,');
+  });
+
+  it('shows no chip while no flag is set', async () => {
+    renderHeader(bedSummary({ site_conditions: { flags: [], wind_exposure: 'exposed' } }));
+    await screen.findByTestId('bed-header-site');
+    expect(screen.queryByTestId('bed-site-flags')).toBeNull();
+  });
+});

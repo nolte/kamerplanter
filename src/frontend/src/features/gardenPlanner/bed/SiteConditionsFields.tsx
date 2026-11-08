@@ -1,8 +1,10 @@
 /**
- * Microclimate, wind, slope, aspect and access sides of a bed (REQ-053 GP-FR-162/163/168, GP-UX-057, WP 8.22).
+ * Microclimate, wind, slope, aspect, access sides and competition flags of a bed (REQ-053 GP-FR-162/163/165/168,
+ * GP-UX-057, WP 8.22, WP 9.11).
  *
  * Frost risk, stored heat and wind are chips (with "Unknown" last, the default), the cold-air pocket is a
- * switch, slope and aspect are optional numbers (degrees), the access sides are four toggles. All of it is
+ * switch, slope and aspect are optional numbers (degrees), the access sides are four toggles and the competition
+ * flags (root competition, allelopathy) two more - a note only, no value is derived from them. All of it is
  * entered by hand; nothing is derived (§29). The component only reports what changed, per part; the caller
  * stores it with `PATCH /locations/{key}` (merged per key by the server). `touchTarget` is 48 px by default.
  */
@@ -15,12 +17,13 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { FrostRisk, WindExposure } from '../model/types';
 import ChipChoice from './ChipChoice';
-import type { AccessSide, HeatRetention, SiteConditionsPatch, SiteConditionsSlice } from './types';
+import type { AccessSide, HeatRetention, SiteConditionsPatch, SiteConditionsSlice, SiteFlag } from './types';
 
 export const FROST_RISK_VALUES: readonly FrostRisk[] = ['low', 'normal', 'high', 'unknown'];
 export const HEAT_RETENTION_VALUES: readonly HeatRetention[] = ['none', 'wall', 'building', 'unknown'];
 export const WIND_EXPOSURE_VALUES: readonly WindExposure[] = ['sheltered', 'normal', 'exposed', 'unknown'];
 export const ACCESS_SIDE_VALUES: readonly AccessSide[] = ['N', 'E', 'S', 'W'];
+export const SITE_FLAG_VALUES: readonly SiteFlag[] = ['root_competition', 'allelopathy_risk'];
 
 const SLOPE_MAX = 90;
 const ASPECT_MAX_EXCLUSIVE = 360;
@@ -149,6 +152,7 @@ export default function SiteConditionsFields({
   const heat = value.microclimate?.heat_retention ?? 'unknown';
   const wind = value.wind_exposure ?? 'unknown';
   const sides = value.access_sides ?? [];
+  const flags = value.flags ?? [];
   const labelled = <T extends string>(values: readonly T[], enumName: string) =>
     values.map((option) => ({ value: option, label: t(`enums.${enumName}.${option}`) }));
   const coldHelpId = `${name}-cold-help`;
@@ -247,6 +251,19 @@ export default function SiteConditionsFields({
         disabled={disabled}
         touchTarget={touchTarget}
         testId={`${testId}-access`}
+      />
+      <ChipChoice
+        title={t('pages.gardenPlan.siteConditions.flags.title')}
+        hint={t('pages.gardenPlan.siteConditions.flags.hint')}
+        options={labelled(SITE_FLAG_VALUES, 'siteFlag')}
+        value={flags}
+        mode="multiple"
+        onToggle={(flag) =>
+          onChange({ flags: flags.includes(flag) ? flags.filter((entry) => entry !== flag) : [...flags, flag] })
+        }
+        disabled={disabled}
+        touchTarget={touchTarget}
+        testId={`${testId}-flags`}
       />
     </Box>
   );

@@ -7014,6 +7014,10 @@
           "title": "Zugangsseiten",
           "hint": "Von welchen Seiten pflegst du das Beet?"
         },
+        "flags": {
+          "title": "Konkurrenz am Standort",
+          "hint": "Steht das Beet unter oder neben Bäumen und Sträuchern? Wurzeln nehmen Wasser und Nährstoffe weg, manche Gehölze (etwa Walnuss) hemmen andere Pflanzen. Nur ein Vermerk – Kamerplanter rechnet nichts daraus aus."
+        },
         "summary": {
           "frost": "Frostrisiko: {{value}}",
           "heat": "Wärmespeicher: {{value}}",
@@ -7102,6 +7106,8 @@
         "changeSun": "Sonne ändern",
         "site": "Standortmerkmale",
         "changeSite": "Merkmale ändern",
+        "siteFlagsHint": "Wurzelkonkurrenz/Allelopathie",
+        "siteFlagsDetail": "Gemeldet: {{value}}",
         "reach": "Erreichbarkeit",
         "reachHint": "Beet zu breit",
         "reachDetail_both": "{{width}} m breit – von zwei gegenüberliegenden Seiten erreichst du bis {{threshold}} m. Die Beetmitte erreichst du nur, wenn du ins Beet trittst.",
@@ -7799,7 +7805,9 @@
           "reason": "Grund",
           "reasonHelp": "Der Grund wird an der Pflanzung gespeichert.",
           "reasonRequired": "Nenne einen Grund, um trotzdem zu pflanzen.",
-          "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren."
+          "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren.",
+          "siteFlags": "Wurzelkonkurrenz/Allelopathie am Standort gemeldet",
+          "siteFlagsDetail": "Am Beet ist vermerkt: {{value}}. Rechne damit, dass Pflanzen hier schwächer wachsen können – ein Vermerk, keine Bewertung der Art."
         },
         "position": {
           "title": "Position korrigieren: {{plant}}",

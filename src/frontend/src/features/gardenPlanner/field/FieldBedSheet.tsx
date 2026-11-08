@@ -545,6 +545,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             geometry={bed.geometry}
             sunExposure={bed.sun_exposure}
             bedSite={bedSite}
+            siteFlags={bed.site_conditions?.flags}
             initialAlreadyPlanted
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}

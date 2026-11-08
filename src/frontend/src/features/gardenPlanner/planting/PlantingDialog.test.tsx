@@ -22,6 +22,7 @@ import {
   type PlantingBackend,
 } from './plantingTestKit';
 import type { BedSiteFeatures } from './siteFitOf';
+import type { SiteFlag } from '../bed/types';
 
 const TOMATO = species('sp_tomato', 'Tomato', { spacing_cm: '60', row_spacing_cm: '80', mature_width_cm: '50' });
 const CARROT = species('sp_carrot', 'Carrot', { spacing_cm: '5', row_spacing_cm: '80' });
@@ -32,6 +33,7 @@ function renderDialog(
   onClose = vi.fn(),
   sunExposure: SunExposure = 'unknown',
   bedSite?: BedSiteFeatures,
+  siteFlags?: readonly SiteFlag[],
 ) {
   const view = renderWithProviders(
     <PlantingDialog
@@ -40,6 +42,7 @@ function renderDialog(
       geometry={BED_GEOMETRY}
       sunExposure={sunExposure}
       bedSite={bedSite}
+      siteFlags={siteFlags}
       onClose={onClose}
       onPlanted={onPlanted}
     />,
@@ -538,6 +541,44 @@ describe('site axes: frost, wind, waterlogging (GP-FR-161)', () => {
 
     expect(screen.queryByTestId('planting-site-axis-frost_mismatch-sp_bare')).toBeNull();
     expect(screen.queryByTestId('planting-site-axis-waterlogging_risk-sp_bare')).toBeNull();
+  });
+});
+
+describe('site flags: root competition and allelopathy (GP-FR-165, WP 9.11)', () => {
+  const SUNNY = species('sp_tomato', 'Tomato', { spacing_cm: '60', light_requirement: 'full_sun' });
+
+  it('names the reported competition once for the bed, computes nothing from it and asks for no reason', async () => {
+    const backend = usePlantingBackend({ species: [SUNNY] });
+    const user = userEvent.setup();
+    const { onPlanted } = renderDialog(vi.fn(), vi.fn(), 'full_sun', undefined, [
+      'root_competition',
+      'allelopathy_risk',
+    ]);
+    await choose(user, 0, 'Tomato');
+
+    const line = await screen.findByTestId('planting-site-flags');
+    expect(line).toHaveTextContent('Root competition/allelopathy reported at this site');
+    expect(line).toHaveTextContent('Root competition, Allelopathy risk');
+    expect(line.textContent).not.toMatch(/\d/);
+    // No influence on the site fit: the matching bed stays green.
+    expect(screen.getByTestId('planting-site-fit-sp_tomato')).toHaveTextContent('site well suited');
+    expect(screen.queryByTestId('planting-override-check')).toBeNull();
+    await expectNoA11yViolations(screen.getByTestId('planting-hints'));
+
+    await hintsDone();
+    await user.click(screen.getByTestId('planting-submit'));
+    await waitFor(() => expect(onPlanted).toHaveBeenCalled());
+    expect(runPosts(backend)[0].body).not.toHaveProperty('rotation_override_reason');
+  });
+
+  it('shows no line while no flag is set', async () => {
+    usePlantingBackend({ species: [SUNNY] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), 'full_sun', undefined, []);
+    await choose(user, 0, 'Tomato');
+    await screen.findByTestId('planting-hint-sp_tomato');
+
+    expect(screen.queryByTestId('planting-site-flags')).toBeNull();
   });
 });
 

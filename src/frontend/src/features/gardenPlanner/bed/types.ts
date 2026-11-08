@@ -17,6 +17,11 @@ import type {
 export type HeatRetention = 'none' | 'wall' | 'building' | 'unknown';
 /** The side of a bed it is tended from (`AccessSide`, GP-FR-168). */
 export type AccessSide = 'N' | 'E' | 'S' | 'W';
+/**
+ * Competition at a bed under or beside woody plants (GP-FR-165, `SiteFlag` of the backend): a note the grower
+ * sets by hand. Nothing is computed from it and it never enters `site_fit` (§29).
+ */
+export type SiteFlag = 'root_competition' | 'allelopathy_risk';
 
 export type { SoilDrainage };
 
@@ -121,6 +126,8 @@ export interface SiteConditionsSlice {
   slope_deg?: number | null;
   aspect_deg?: number | null;
   access_sides?: AccessSide[];
+  /** Root competition / allelopathy reported at the bed (GP-FR-165); no repeats (the server answers 422). */
+  flags?: SiteFlag[];
 }
 
 /**
@@ -134,6 +141,8 @@ export interface SiteConditionsPatch {
   slope_deg?: number | null;
   aspect_deg?: number | null;
   access_sides?: AccessSide[];
+  /** Root competition / allelopathy reported at the bed (GP-FR-165); no repeats (the server answers 422). */
+  flags?: SiteFlag[];
 }
 
 /** One row of `GET /locations?site_key=&is_bed=true` (counters are `null` on a plain listing). */

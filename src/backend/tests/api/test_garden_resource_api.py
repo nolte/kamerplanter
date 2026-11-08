@@ -432,6 +432,42 @@ class TestPatch:
         assert "hand_values" not in omitted.json()["soil_profile"]  # server bookkeeping is not on the wire
         assert cleared.json()["soil_profile"] is None  # null stores null, bookkeeping included (#2706 review)
 
+    def test_site_flags_round_trip_and_a_repeated_flag_is_a_422(self, client, repo) -> None:
+        """GP-FR-165 (WP 9.11): the flags are stored as sent, replaced whole, and a repeat is refused unwritten."""
+        repo.locations["bed"] = make_location(
+            "bed",
+            name="Bed",
+            geometry=rect(1, 1, 2, 1),
+            site_conditions=SiteConditions(microclimate=Microclimate(frost_risk="high"), access_sides=["N"]),
+        )
+
+        both = client().patch(
+            f"{_BASE}/locations/bed", json={"site_conditions": {"flags": ["root_competition", "allelopathy_risk"]}}
+        )
+        assert both.status_code == 200
+        conditions = both.json()["site_conditions"]
+        assert conditions["flags"] == ["root_competition", "allelopathy_risk"]
+        # The other parts are kept: only the sent key changes.
+        assert (conditions["microclimate"]["frost_risk"], conditions["access_sides"]) == ("high", ["N"])
+        assert repo.locations["bed"].site_conditions.flags == ["root_competition", "allelopathy_risk"]
+
+        one = client().patch(f"{_BASE}/locations/bed", json={"site_conditions": {"flags": ["allelopathy_risk"]}})
+        assert one.status_code == 200 and one.json()["site_conditions"]["flags"] == ["allelopathy_risk"]
+        read = client().get(f"{_BASE}/locations/bed/summary")
+        assert read.status_code == 200 and read.json()["site_conditions"]["flags"] == ["allelopathy_risk"]
+
+        writes = len(repo.field_updates)
+        repeated = client().patch(
+            f"{_BASE}/locations/bed", json={"site_conditions": {"flags": ["root_competition", "root_competition"]}}
+        )
+        unknown = client().patch(f"{_BASE}/locations/bed", json={"site_conditions": {"flags": ["shade_tree"]}})
+        assert repeated.status_code == unknown.status_code == 422
+        assert len(repo.field_updates) == writes
+        assert repo.locations["bed"].site_conditions.flags == ["allelopathy_risk"]
+
+        cleared = client().patch(f"{_BASE}/locations/bed", json={"site_conditions": {"flags": []}})
+        assert cleared.status_code == 200 and cleared.json()["site_conditions"]["flags"] == []
+
     def test_a_bed_without_an_analysis_cannot_get_last_analysis_at(self, client, repo) -> None:
         stale = client().patch(
             f"{_BASE}/locations/bed", json={"soil_profile": {"last_analysis_at": "2099-01-01T00:00:00Z"}}

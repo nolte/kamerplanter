@@ -1314,6 +1314,10 @@
       "E": "East",
       "S": "South",
       "W": "West"
+    },
+    "siteFlag": {
+      "root_competition": "Root competition",
+      "allelopathy_risk": "Allelopathy risk"
     }
   }
 }
