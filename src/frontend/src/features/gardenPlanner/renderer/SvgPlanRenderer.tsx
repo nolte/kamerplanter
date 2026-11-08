@@ -1,7 +1,6 @@
-import { lazy, memo, Suspense, useMemo, type KeyboardEvent, type ReactNode, type Ref } from 'react';
-import { alpha, styled, useTheme, type Theme } from '@mui/material/styles';
+import { lazy, memo, Suspense, useMemo, type ReactNode, type Ref } from 'react';
+import { styled, useTheme } from '@mui/material/styles';
 import type { PlanModel } from '../model/planModel';
-import type { BedStatus, GardenObject, PlanLocation, Point } from '../model/types';
 import { BasePlanRenderer } from './BasePlanRenderer';
 import { OBJECT_ICON_PATHS } from './icons';
 import { ICON_SIZE_PX, MARKER_RADIUS_PX, labelFontPx } from './lod';
@@ -11,7 +10,23 @@ import { UnderlayLayer } from '../underlay/UnderlayLayer';
 import { WateredLayer, ZoneLayer } from './ZoneOverlays';
 import { ConditionLayer, FROST_CONDITION, MOISTURE_CONDITION, SUN_CONDITION } from './ConditionOverlays';
 import { DETAIL_PX_PER_M, PLANT_INFO_ID, STATE_MARKER_RADIUS_PX } from './plantMarkerStyle';
-import type { MarkerEntry, ShapeEntry } from './planIndex';
+import type { MarkerEntry } from './planIndex';
+import {
+  activationKeys,
+  BADGE_FONT_PX,
+  clusterAriaLabel,
+  markerAriaLabel,
+  markerFill,
+  num,
+  pathData,
+  planPalette,
+  shapeAriaLabel,
+  shapeIconKind,
+  shapeStyle,
+  taskBadgeOf,
+  type PlanPalette,
+  type TaskBadgeBox,
+} from './planDrawing';
 import {
   buildScene,
   type SceneCluster,
@@ -20,6 +35,8 @@ import {
   type SceneShape,
 } from './scene';
 import type { PlantMarkerState, RenderOptions, RenderSelection, RendererLabels, Viewport } from './types';
+
+export { planPalette, type PlanPalette };
 
 // The companion-planting layer (GP-FR-134) is its own chunk (UI-NFR-003): nothing of it loads until it is switched on.
 const CompanionLayer = lazy(() => import('./CompanionOverlay'));
@@ -165,6 +182,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
       aria-roledescription={labels.canvasRole}
       aria-label={labels.canvas}
       data-testid="garden-plan-svg"
+      data-renderer="svg"
     >
       {underlayLayer ? <UnderlayLayer layer={underlayLayer} /> : null}
       {scene.shapes.map((item) => (
@@ -235,96 +253,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
   );
 }
 
-// ── Palette ──────────────────────────────────────────────────────────────────
-
-export interface PlanPalette {
-  stroke: string;
-  selected: string;
-  text: string;
-  boundary: string;
-  bed: Record<BedStatus, { fill: string; dash?: string }>;
-  object: string;
-  tree: string;
-  lawn: string;
-  path: string;
-  water: string;
-  plant: string;
-  slot: string;
-  /** Outline of an object a refused save named (GP-UX-017). */
-  invalid: string;
-  /** Task badge on a bed (GP-FR-089): overdue tasks, otherwise open tasks; the text is the contrast of the fill. */
-  badgeOverdue: { fill: string; text: string };
-  badgeOpen: { fill: string; text: string };
-}
-
-export function planPalette(theme: Theme): PlanPalette {
-  const { palette } = theme;
-  return {
-    stroke: palette.text.secondary,
-    selected: palette.primary.main,
-    text: palette.text.primary,
-    // text.disabled is 2.7:1 on white; a boundary and an empty slot are information (WCAG 1.4.11, 3:1).
-    boundary: palette.text.secondary,
-    // Planned beds are dashed and retired ones grey, so status is not carried by colour alone.
-    bed: {
-      active: { fill: alpha(palette.success.main, 0.35) },
-      planned: { fill: alpha(palette.info.main, 0.2), dash: '6 4' },
-      retired: { fill: alpha(palette.grey[500], 0.2) },
-    },
-    object: alpha(palette.grey[500], 0.35),
-    tree: alpha(palette.success.dark, 0.3),
-    lawn: alpha(palette.success.light, 0.2),
-    path: alpha(palette.warning.dark, 0.5),
-    water: alpha(palette.info.main, 0.4),
-    plant: palette.success.dark,
-    slot: palette.text.secondary,
-    invalid: palette.error.main,
-    badgeOverdue: { fill: palette.error.main, text: palette.getContrastText(palette.error.main) },
-    badgeOpen: { fill: palette.primary.main, text: palette.getContrastText(palette.primary.main) },
-  };
-}
-
-function objectFill(object: GardenObject, palette: PlanPalette): string {
-  switch (object.object_type) {
-    case 'tree':
-    case 'shrub':
-      return palette.tree;
-    case 'lawn':
-      return palette.lawn;
-    case 'path':
-      return palette.path;
-    case 'water_source':
-      return palette.water;
-    default:
-      return palette.object;
-  }
-}
-
 // ── Shape nodes ──────────────────────────────────────────────────────────────
-
-/** Stable, short numbers keep DOM output (and its snapshots) free of float noise. */
-function num(value: number): string {
-  return String(Number(value.toFixed(3)));
-}
-
-function point([x, y]: Point): string {
-  return `${num(x)} ${num(-y)}`;
-}
-
-function pathData(entry: ShapeEntry): string {
-  const { shape } = entry;
-  if (shape.kind === 'circle') return '';
-  return `M${shape.vertices.map(point).join('L')}${shape.closed ? 'Z' : ''}`;
-}
-
-function activationKeys(onActivateKey: ((key: string) => void) | undefined, key: string) {
-  return (event: KeyboardEvent<SVGGElement>) => {
-    if (onActivateKey && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault();
-      onActivateKey(key);
-    }
-  };
-}
 
 interface ShapeNodeProps {
   item: SceneShape;
@@ -334,36 +263,6 @@ interface ShapeNodeProps {
   palette: PlanPalette;
   onFocusKey?: (key: string) => void;
   onActivateKey?: (key: string) => void;
-}
-
-/** Radius of the task badge on a bed, in screen pixels. */
-const BADGE_RADIUS_PX = 11;
-/** Font size of the count, in screen pixels. */
-const BADGE_FONT_PX = 12;
-/** A bed narrower than this on screen shows no badge (the aria-label still carries the count). */
-const BADGE_MIN_BED_PX = 44;
-
-function shapeStyle(entry: ShapeEntry, selected: boolean, invalid: boolean, palette: PlanPalette) {
-  const location = entry.kind === 'location' ? (entry.source as PlanLocation) : null;
-  const object = entry.kind === 'gardenObject' ? (entry.source as GardenObject) : null;
-  const bed = location ? palette.bed[location.bed_status] : null;
-  return {
-    fill:
-      entry.kind === 'boundary'
-        ? 'none'
-        : bed
-          ? bed.fill
-          : objectFill(object as GardenObject, palette),
-    stroke: invalid
-      ? palette.invalid
-      : selected
-        ? palette.selected
-        : entry.kind === 'boundary'
-          ? palette.boundary
-          : palette.stroke,
-    strokeWidth: invalid ? 4 : selected ? 3 : entry.kind === 'boundary' ? 2 : 1,
-    strokeDasharray: invalid ? undefined : entry.kind === 'boundary' ? '10 6' : bed?.dash,
-  };
 }
 
 const ShapeNode = memo(function ShapeNode({
@@ -381,30 +280,12 @@ const ShapeNode = memo(function ShapeNode({
   // The name and the type icon sit at the shared label anchor - a polygon's pole of inaccessibility (GP-UX-047).
   const centre = labelAnchorOf(entry.geometry).point;
   const fontSize = fontPx / pxPerM;
-  const widthPx = (entry.bbox[2] - entry.bbox[0]) * pxPerM;
 
   const size = labels.size(entry.geometry, entry.areaM2 || entry.bboxAreaM2);
-  let ariaLabel: string;
-  let iconPath: string | null = null;
-  if (entry.kind === 'location') {
-    const location = entry.source as PlanLocation;
-    ariaLabel = labels.bed({
-      name: location.name,
-      size,
-      plants: item.plantCount,
-      openTasks: location.open_task_count,
-    });
-  } else if (entry.kind === 'gardenObject') {
-    const object = entry.source as GardenObject;
-    ariaLabel = labels.object({
-      label: object.label,
-      typeLabel: labels.objectType(object.object_type),
-      size,
-    });
-    iconPath = OBJECT_ICON_PATHS[object.object_type];
-  } else {
-    ariaLabel = labels.boundary;
-  }
+  const ariaLabel = shapeAriaLabel(item, labels);
+  const iconKind = shapeIconKind(entry);
+  const iconPath = iconKind ? OBJECT_ICON_PATHS[iconKind] : null;
+  const badge = taskBadgeOf(entry, pxPerM);
 
   const { label } = item;
   const cx = centre[0];
@@ -497,32 +378,7 @@ const ShapeNode = memo(function ShapeNode({
           {size}
         </text>
       ) : null}
-      {entry.kind === 'location' && widthPx >= BADGE_MIN_BED_PX
-        ? (() => {
-            const location = entry.source as PlanLocation;
-            if (location.open_task_count <= 0) return null;
-            // The top-right corner of the box, except on a circle, where that corner lies outside the bed: there
-            // the badge sits on the rim at 45 degrees.
-            const badgeCorner: Point =
-              entry.shape.kind === 'circle'
-                ? [
-                    entry.shape.center[0] + entry.shape.radiusM * Math.SQRT1_2,
-                    -(entry.shape.center[1] + entry.shape.radiusM * Math.SQRT1_2),
-                  ]
-                : [entry.bbox[2], -entry.bbox[3]];
-            return (
-              <TaskBadge
-                locationKey={entry.key}
-                openCount={location.open_task_count}
-                overdueCount={location.overdue_task_count}
-                x={badgeCorner[0]}
-                y={badgeCorner[1]}
-                pxPerM={pxPerM}
-                palette={palette}
-              />
-            );
-          })()
-        : null}
+      {badge ? <TaskBadge badge={badge} pxPerM={pxPerM} palette={palette} /> : null}
     </g>
   );
 });
@@ -530,12 +386,7 @@ const ShapeNode = memo(function ShapeNode({
 // ── Task badge ───────────────────────────────────────────────────────────────
 
 interface TaskBadgeProps {
-  locationKey: string;
-  openCount: number;
-  overdueCount: number;
-  /** Where the badge's top-right corner sits, in drawing coordinates (y already flipped). */
-  x: number;
-  y: number;
+  badge: TaskBadgeBox;
   pxPerM: number;
   palette: PlanPalette;
 }
@@ -546,18 +397,15 @@ interface TaskBadgeProps {
  * and the properties panel offers the care tab as a button. The `data-plan-badge` marker lets the editor
  * recognise a click on it and open the care tab.
  */
-function TaskBadge({ locationKey, openCount, overdueCount, x, y, pxPerM, palette }: TaskBadgeProps) {
-  const colors = overdueCount > 0 ? palette.badgeOverdue : palette.badgeOpen;
-  const text = openCount > 99 ? '99+' : String(openCount);
-  const height = (2 * BADGE_RADIUS_PX) / pxPerM;
-  // One digit is a circle; more grow into a pill so the number never spills out of its badge.
-  const width = Math.max(height, (text.length * BADGE_FONT_PX * 0.62 + 10) / pxPerM);
-  const left = x - width;
+function TaskBadge({ badge, pxPerM, palette }: TaskBadgeProps) {
+  const colors = badge.overdue ? palette.badgeOverdue : palette.badgeOpen;
+  const { text, left, top: y, width, height } = badge;
+  const locationKey = badge.locationKey;
   return (
     <g
       className="gp-badge"
       data-plan-badge={locationKey}
-      data-overdue={overdueCount > 0 ? 'true' : 'false'}
+      data-overdue={badge.overdue ? 'true' : 'false'}
       aria-hidden="true"
       style={{ cursor: 'pointer' }}
     >
@@ -602,11 +450,6 @@ interface MarkerNodeProps {
   described?: boolean;
   onFocusKey?: (key: string) => void;
   onActivateKey?: (key: string) => void;
-}
-
-/** The fill of a plant marker: its phase's colour, else the plant default. */
-function markerFill(phaseKey: string | null | undefined, palette: PlanPalette, phaseColors?: Readonly<Record<string, string>>) {
-  return (phaseKey && phaseColors?.[phaseKey]) || palette.plant;
 }
 
 const MarkerNode = memo(function MarkerNode({
@@ -675,9 +518,7 @@ const MarkerNode = memo(function MarkerNode({
       data-plan-kind={entry.kind}
       role="button"
       tabIndex={tabStop ? 0 : -1}
-      aria-label={
-        plant ? (state?.ariaLabel ?? labels.plant({ id: entry.displayId })) : labels.slot({ id: entry.displayId })
-      }
+      aria-label={markerAriaLabel(entry, labels, state)}
       aria-describedby={described ? PLANT_INFO_ID : undefined}
       aria-pressed={selected}
       onFocus={onFocusKey ? () => onFocusKey(entry.key) : undefined}
@@ -769,11 +610,7 @@ const ClusterNode = memo(function ClusterNode({
     <g
       data-plan-cluster={cluster.locationKey}
       role="img"
-      aria-label={
-        cluster.attention !== null && labels.clusterSummary
-          ? labels.clusterSummary({ count: cluster.count, attention: cluster.attention })
-          : labels.cluster({ count: cluster.count })
-      }
+      aria-label={clusterAriaLabel(cluster, labels)}
       pointerEvents="none"
     >
       <circle

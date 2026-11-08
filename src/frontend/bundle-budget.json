@@ -11,6 +11,11 @@
     "gardenPlanner": {
       "source": "src/features/gardenPlanner/routes/GardenPlanRoute.tsx",
       "gzipKb": 120
+    },
+    "gardenPlannerKonva": {
+      "_comment": "REQ-053 WP 9.7 (#2747): the Konva renderer is its own lazy chunk (loaded only for plans of 3 000+ objects). GP-NFR-003 allows 200 KB gzip 'mit Konva'; operator question 3 of #2759 grants it to THIS chunk only - every other budget above stays unchanged.",
+      "source": "src/features/gardenPlanner/renderer/KonvaPlanRenderer.tsx",
+      "gzipKb": 200
     }
   }
 }

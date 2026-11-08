@@ -8,7 +8,8 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import GardenPlanRoute from '@/features/gardenPlanner/routes/GardenPlanRoute';
 import ModuleGuard from '@/components/common/ModuleGuard';
-import { applyAction } from '@/features/gardenPlanner/state/gardenPlanSlice';
+import { applyAction, loadGardenPlan } from '@/features/gardenPlanner/state/gardenPlanSlice';
+import { installRecordingCanvas, uninstallRecordingCanvas } from '@/features/gardenPlanner/renderer/konvaTestCanvas';
 import { rootReducer } from '@/store/rootReducer';
 import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
@@ -317,6 +318,43 @@ describe('GardenPlanRoute', () => {
       expect(store.getState().gardenPlan?.selection).toEqual([{ entity: 'location', key: 'loc_new' }]),
     );
     expect(store.getState().gardenPlan?.plan?.locations.loc_new).toBeDefined();
+  });
+
+  it('decides the renderer afresh when the same site loads again: a plan grown past 3 000 objects goes to Konva (D-01)', async () => {
+    installRecordingCanvas();
+    try {
+      let big = false;
+      server.use(
+        http.get(PLAN_URL, () =>
+          HttpResponse.json(
+            planResponse({
+              locations: [bed('loc_a', 2, 2)],
+              garden_objects: [],
+              plants: [],
+              slots: big
+                ? Array.from({ length: 3000 }, (_, i) => ({
+                    key: `s${i}`,
+                    slot_id: `S${i}`,
+                    location_key: 'loc_a',
+                    plan_geometry: { origin: [2.1 + (i % 10) * 0.1, 2.1 + Math.floor(i / 10) * 0.005] as [number, number] },
+                  }))
+                : [],
+            }),
+          ),
+        ),
+      );
+      const { store } = renderRoute();
+      await screen.findByTestId('garden-plan-canvas');
+      expect(screen.queryByTestId('garden-plan-konva')).toBeNull(); // the small plan: SVG
+      // An import into the same site, a reload after a conflict: the page stays mounted, the plan loads again.
+      big = true;
+      await act(async () => {
+        await store.dispatch(loadGardenPlan('site_1'));
+      });
+      expect(await screen.findByTestId('garden-plan-konva', undefined, { timeout: 5000 })).toBeInTheDocument();
+    } finally {
+      uninstallRecordingCanvas();
+    }
   });
 
   it('shows the existing error display for a site of another tenant (404) and retries', async () => {

@@ -2,7 +2,7 @@ import { act, cleanup, createEvent, fireEvent, screen, within } from '@testing-l
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import type { PlanModel } from '../model/planModel';
-import { px, setupEditor, stubPhone } from './editorTestKit';
+import { pointer, px, setupEditor, stubPhone } from './editorTestKit';
 import { testPlan } from './tools/toolTestKit';
 
 let restore: (() => void) | null = null;
@@ -137,6 +137,27 @@ describe('selection above the sheet (GP-UX-052)', () => {
     expect(t.onPan).toHaveBeenCalledWith(0, 16 - 600);
   });
 
+  it('waits for the release while a pointer holds the selected bed, so the press does not become a drag by the pan', () => {
+    const t = setupEditor({ connected: true });
+    const rect = { top: 100, bottom: 100, left: 0, right: 0, width: 0, height: 0, x: 0, y: 100 };
+    vi.spyOn(screen.getByTestId('garden-plan-dock'), 'getBoundingClientRect').mockReturnValue({
+      ...rect,
+      toJSON: () => ({}),
+    });
+    fireEvent.pointerDown(t.canvas(), pointer(px(4, 4)));
+    act(() => t.rerender());
+    expect(t.selected()).toEqual(['b1']);
+    expect(t.onPan).not.toHaveBeenCalled(); // the view stays under the held pointer
+    fireEvent.pointerMove(t.canvas(), pointer(px(4, 4.3)));
+    fireEvent.pointerUp(t.canvas(), pointer(px(4, 4.3)));
+    act(() => t.rerender());
+    expect(t.onPan).toHaveBeenCalledTimes(1);
+    // ... computed from where the bed is now: its top moved from 600 to 588 px (0.3 m up at 40 px/m).
+    expect(t.onPan).toHaveBeenCalledWith(0, 16 - 588);
+    // The move is what the pointer did - 0.3 m - not the pan (the bed origin was (3, 3)).
+    expect(t.state().plan!.locations.b1.geometry).toMatchObject({ origin: [3, 3.3] });
+  });
+
   it('leaves the view alone when the bed is visible already', () => {
     const t = setupEditor();
     touchEvent(t, 'pointerDown', [4, 4], { id: 1, at: 1000 });
@@ -154,10 +175,11 @@ describe('two fingers (GP-UX-040)', () => {
     touchEvent(t, 'pointerDown', [6, 10], { id: 2, at: 1200 });
     touchEvent(t, 'pointerMove', [3, 10], { id: 1, at: 1300 });
     touchEvent(t, 'pointerMove', [7, 10], { id: 2, at: 1300 });
-    // Each finger moved on its own: 2 m -> 3 m -> 4 m apart, the factors multiply to 2. The editor
-    // hands the route the new absolute zoom (the viewport of this harness stays at 40 px/m).
-    const factor = onZoom.mock.calls.reduce((product, [pxPerM]) => product * (pxPerM / 40), 1);
-    expect(factor).toBeCloseTo(2, 5);
+    // Each finger moved on its own: 2 m -> 3 m -> 4 m apart, the factors multiply to 2. Each step starts from the
+    // zoom the previous one asked for (the viewport of this harness stays at 40 px/m, the route has not drawn it
+    // yet), so the last call names the whole pinch.
+    const last = onZoom.mock.calls[onZoom.mock.calls.length - 1][0];
+    expect(last / 40).toBeCloseTo(2, 5);
     t.onPan.mockClear();
     touchEvent(t, 'pointerMove', [3, 11], { id: 1, at: 1400 });
     touchEvent(t, 'pointerMove', [7, 11], { id: 2, at: 1400 });
