@@ -256,3 +256,44 @@ def test_every_row_names_the_renderer_that_drew_it() -> None:
     ]
     assert any("| konva |" in line for line in census_rows)
     assert report.renderer_of({}) == "svg"
+
+
+def _konva(records: list[dict]) -> list[dict]:
+    for record in records:
+        record["renderer"] = "konva"
+    return records
+
+
+def test_an_svg_run_keeps_the_d01_go_no_go_and_its_columns() -> None:
+    """WP 9.6: the SVG run decides D-01; its report has no renderer column and no budget verdict."""
+    text = report.render(
+        _complete({("large", "desktop"): {"drag_p95": 50.0}}), date="2026-11-08", sources=[]
+    )
+    assert "**Go/No-Go für WP 9.7 (D-01 wörtlich):** Go" in text
+    assert "**Lesart Platzhalter (3)" in text
+    assert "Budget GP-NFR-033/034 (Renderer" not in text
+    assert "| Fall | Profil | CPU |" in text
+    assert "| Renderer |" not in text
+
+
+def test_a_konva_run_in_budget_reads_as_kept_with_d01_only_as_information() -> None:
+    """WP 9.7: a Konva run is held against GP-NFR-033/034, not read as Go/No-Go for Konva."""
+    # The phone's drag at 30 ms: over D-01's 16 ms, inside the phone budget of 33 ms.
+    records = _konva(_complete({("synthetic_3000", "mobile"): {"drag_p95": 30.0}}))
+    text = report.render(records, date="2026-11-08", sources=[])
+    assert "**Budget GP-NFR-033/034 (Renderer konva):** eingehalten" in text
+    assert "Go/No-Go" not in text and "No-Go" not in text and "Lesart Platzhalter" not in text
+    assert "Nur zur Information, D-01 wörtlich" in text
+    assert "synthetic_3000/mobile: Drag-Frametime p95 30.0 ms > 16 ms" in text
+    assert "maßgeblich ist GP-NFR-033 mit dem Budget des Profils" in text
+    assert "| Fall | Profil | Renderer |" in text
+
+
+def test_a_konva_run_over_budget_names_the_gesture_and_a_missing_case_leaves_it_open() -> None:
+    over = _konva(_complete({("large", "mobile"): {"drag_p95": 50.0}}))
+    text = report.render(over, date="2026-11-08", sources=[])
+    assert "**Budget GP-NFR-033/034 (Renderer konva):** gerissen" in text
+    assert "- Budget gerissen: large/mobile/drag: p95 50.0 ms > 33 ms" in text
+    partial = _konva([r for r in _complete() if (r["case"], r["profile"]) != ("large", "mobile")])
+    assert report.read_budget(partial).verdict == "offen"
+    assert report.read_budget(_konva(_complete())).verdict == "eingehalten"

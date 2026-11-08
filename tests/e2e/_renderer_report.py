@@ -260,6 +260,52 @@ def renderer_of(record: dict) -> str:
     return str(record.get("renderer") or "svg")
 
 
+def measured_renderer(records: list[dict]) -> str | None:
+    """``None`` for an SVG run (the D-01 decision of WP 9.6), else the renderer(s) the run measured (WP 9.7)."""
+    kinds = sorted({renderer_of(record) for record in records})
+    return None if kinds in ([], ["svg"]) else "/".join(kinds)
+
+
+@dataclass
+class BudgetReading:
+    """GP-NFR-033/034 over a run of a renderer that is not SVG: is every gesture inside its own budget?"""
+
+    verdict: str  # "eingehalten", "gerissen" or "offen"
+    breaches: list[str] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
+
+
+def read_budget(records: list[dict]) -> BudgetReading:
+    reading = BudgetReading(verdict="eingehalten")
+    by_key = {(r["case"], r["profile"]): r for r in records}
+    for case in CASES:
+        for profile in PROFILES:
+            record = by_key.get((case, profile))
+            label = f"{case}/{profile}"
+            if record is None:
+                reading.gaps.append(f"{label}: keine Messung")
+                continue
+            if not is_throttled(record):
+                reading.gaps.append(
+                    f"{label}: CPU-Drosselung nicht verfügbar, ungedrosselt gemessen"
+                )
+            for item in record.get("gestures") or []:
+                cell = _budget_cell(item)
+                if cell == "keine Messung":
+                    reading.gaps.append(f"{label}/{item.get('name')}: keine Frametime")
+                elif cell == "über Budget":
+                    bound = frame_bound(float(item["frame_budget_ms"]), item.get("vsync_ms"))
+                    reading.breaches.append(
+                        f"{label}/{item.get('name')}: p95 {float(item['frame_p95_ms']):.1f} ms > "
+                        f"{float(item['frame_budget_ms']):g} ms (Grenze mit Bildwechsel-Toleranz {bound:.1f} ms)"
+                    )
+    if reading.breaches:
+        reading.verdict = "gerissen"
+    elif reading.gaps:
+        reading.verdict = "offen"
+    return reading
+
+
 def _ms(value: object) -> str:
     return "–" if value is None else f"{float(value):.1f}"
 
@@ -274,6 +320,9 @@ def _budget_cell(item: dict) -> str:
 
 
 def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
+    # An SVG run decides D-01 (Go = SVG misses, Konva is needed; WP 9.6). A run of another renderer (WP 9.7) is
+    # held against GP-NFR-033/034 instead: its question is whether that renderer stays inside the budget.
+    kind = measured_renderer(records)
     literal, mobile = decide(records)
     lines = [
         f"# Renderer-Messung D-01 — {date}",
@@ -281,17 +330,31 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         "REQ-053 WP 9.6 (#2746), GP-NFR-033/034. Erzeugt von `tests/e2e/_renderer_report.py` aus den Messwerten",
         "von `tests/e2e/test_req053_renderer_profile.py`; nicht von Hand bearbeiten, neu erzeugen.",
         "",
-        f"**Go/No-Go für WP 9.7 (D-01 wörtlich):** {literal.verdict}",
-        "",
-        f"**Lesart Platzhalter (3) aus #2759 (nur Mobile-Profil, CPU 4×, Drag gegen das Telefon-Budget "
-        f"33 ms aus GP-NFR-033):** {mobile.verdict}",
-        "",
-        "## Messwerte",
-        "",
-        "| Fall | Profil | Renderer | CPU | Viewport | gespeichert (Beete/Slots/Pflanzen) | sichtbar Fit / gezoomt "
-        "| Geste | Frames im Fenster / erfasst | p95 ms | max ms | Budget ms | GP-NFR-033/034 |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
+    budget = read_budget(records) if kind is not None else None
+    if budget is None:
+        lines += [
+            f"**Go/No-Go für WP 9.7 (D-01 wörtlich):** {literal.verdict}",
+            "",
+            f"**Lesart Platzhalter (3) aus #2759 (nur Mobile-Profil, CPU 4×, Drag gegen das Telefon-Budget "
+            f"33 ms aus GP-NFR-033):** {mobile.verdict}",
+            "",
+            "## Messwerte",
+            "",
+            "| Fall | Profil | CPU | Viewport | gespeichert (Beete/Slots/Pflanzen) | sichtbar Fit / gezoomt | Geste "
+            "| Frames im Fenster / erfasst | p95 ms | max ms | Budget ms | GP-NFR-033/034 |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|",
+        ]
+    else:
+        lines += [
+            f"**Budget GP-NFR-033/034 (Renderer {kind}):** {budget.verdict}",
+            "",
+            "## Messwerte",
+            "",
+            "| Fall | Profil | Renderer | CPU | Viewport | gespeichert (Beete/Slots/Pflanzen) | sichtbar Fit / gezoomt "
+            "| Geste | Frames im Fenster / erfasst | p95 ms | max ms | Budget ms | GP-NFR-033/034 |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        ]
     for record in records:
         plan = record.get("plan") or {}
         stored = f"{plan.get('beds', '–')}/{plan.get('slots', '–')}/{plan.get('plants', '–')}"
@@ -306,20 +369,44 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         for item in record.get("gestures") or []:
             lines.append(
                 f"| {CASE_TITLES.get(record['case'], record['case'])} "
-                f"| {PROFILE_TITLES.get(record['profile'], record['profile'])} | {renderer_of(record)} | {cpu} "
-                f"| {viewport} "
+                f"| {PROFILE_TITLES.get(record['profile'], record['profile'])} "
+                + (f"| {renderer_of(record)} " if budget is not None else "")
+                + f"| {cpu} | {viewport} "
                 f"| {stored} | {fit} / {zoomed} | {item.get('name')} "
                 f"| {item.get('frames', 0)} / {item.get('frames_recorded', '–')} "
                 f"| {_ms(item.get('frame_p95_ms'))} | {_ms(item.get('frame_max_ms'))} "
                 f"| {_ms(item.get('frame_budget_ms'))} | {_budget_cell(item)} |"
             )
     if not records:
-        lines.append("| – | – | – | – | – | – | – | – | – | – | – | – | keine Messung |")
+        lines.append("| – | – | – | – | – | – | – | – | – | – | – | keine Messung |")
 
     lines += ["", "## Entscheidung", ""]
+    if budget is not None:
+        lines.append(
+            f"**Budget GP-NFR-033/034 (Renderer {kind}, Drag und Zoom je Profil): {budget.verdict}**"
+        )
+        lines.append("")
+        for breach in budget.breaches:
+            lines.append(f"- Budget gerissen: {breach}")
+        for gap in budget.gaps:
+            lines.append(f"- Lücke: {gap}")
+        if not budget.breaches and not budget.gaps:
+            lines.append(
+                "- Jede Geste in ihrem Budget (16 ms Desktop, 33 ms Telefon), alle Fälle gemessen."
+            )
+        lines += ["", "Nur zur Information, D-01 wörtlich (Drag gegen 16 ms auf jedem Profil):", ""]
+        for reason in literal.reasons:
+            lines.append(f"- {reason}; maßgeblich ist GP-NFR-033 mit dem Budget des Profils")
+        if not literal.reasons:
+            lines.append("- Kein Drag über 16 ms.")
+        lines.append("")
     for title, reading in (
-        ("D-01 wörtlich (Drag gegen 16 ms, alle Profile)", literal),
-        ("Platzhalter (3), nur Mobile (Drag gegen 33 ms)", mobile),
+        ()
+        if budget is not None
+        else (
+            ("D-01 wörtlich (Drag gegen 16 ms, alle Profile)", literal),
+            ("Platzhalter (3), nur Mobile (Drag gegen 33 ms)", mobile),
+        )
     ):
         lines.append(f"**{title}: {reading.verdict}**")
         lines.append("")
@@ -331,20 +418,26 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
             lines.append("- Keine Schwelle gerissen, alle Fälle gemessen.")
         lines.append("")
 
-    lines += [
-        "## Sichtbare Objekte",
-        "",
-        "| Fall | Profil | Renderer | Beete | Marker einzeln | Marker gebündelt | Cluster "
-        "| SVG-Knoten (Konva: nur Overlay) | px/m |",
-        "|---|---|---|---|---|---|---|---|---|",
-    ]
+    lines += ["## Sichtbare Objekte", ""]
+    if budget is None:
+        lines += [
+            "| Fall | Profil | Beete | Marker einzeln | Marker gebündelt | Cluster | SVG-Knoten | px/m |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+    else:
+        lines += [
+            "| Fall | Profil | Renderer | Beete | Marker einzeln | Marker gebündelt | Cluster "
+            "| SVG-Knoten (Konva: nur Overlay) | px/m |",
+            "|---|---|---|---|---|---|---|---|---|",
+        ]
     for record in records:
         for part, label in (("census_fit", "Fit"), ("census_zoomed", "gezoomt")):
             census = record.get(part) or {}
             px = record.get(f"px_per_m_{part.removeprefix('census_')}")
             lines.append(
-                f"| {record['case']} ({label}) | {record['profile']} | {renderer_of(record)} "
-                f"| {census.get('beds', '–')} "
+                f"| {record['case']} ({label}) | {record['profile']} "
+                + (f"| {renderer_of(record)} " if budget is not None else "")
+                + f"| {census.get('beds', '–')} "
                 f"| {census.get('markers_single', '–')} | {census.get('markers_batched', '–')} "
                 f"| {census.get('clusters', '–')} | {census.get('svg_nodes', '–')} | {_ms(px)} |"
             )

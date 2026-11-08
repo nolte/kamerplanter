@@ -9,15 +9,12 @@ von `tests/e2e/test_req053_renderer_profile.py`; nicht von Hand bearbeiten, neu 
 > `renderer-measurement-2026-11-08.md` (WP 9.6), p95 Drag: large Desktop 50,1 → 16,8 ms, 3 030 Desktop 33,4 → 16,8 ms,
 > large Mobile 666,7 → 16,8 ms, 3 030 Mobile 183,3 → 33,4 ms; p95 Zoom: Desktop 33,4–66,7 → 16,7–16,8 ms, Mobile
 > 316,7–416,7 → 16,7–16,8 ms. Alle zwölf Werte liegen im Budget von GP-NFR-033/034 (16 ms Desktop, 33 ms Telefon, je
-> mit Bildwechsel-Toleranz). Die Zeile „D-01 wörtlich“ unten hält auch das Telefon gegen 16 ms und meldet deshalb den
-> 3 030-Mobile-Drag (33,4 ms); maßgeblich für die Abnahme ist GP-NFR-033 mit 33 ms auf dem Telefon.
+> mit Bildwechsel-Toleranz). Die Lesart „D-01 wörtlich“ (Telefon gegen 16 ms) steht unten nur zur Information.
 > Nicht im Fenster: Der Zoom rendert den Plan einmal nach der Geste (120 ms nach dem letzten Mausrad-Ereignis); dieses
 > eine Bild liegt außerhalb des gewerteten Fensters. Die „max ms“ des Drags sind das Bild des Drückens (Auswahl,
 > Eigenschaften-Blatt) bzw. des Loslassens (Übernahme ins Modell) - INP auf dem Telefon bis 912 ms (beratend).
 
-**Go/No-Go für WP 9.7 (D-01 wörtlich):** Go
-
-**Lesart Platzhalter (3) aus #2759 (nur Mobile-Profil, CPU 4×, Drag gegen das Telefon-Budget 33 ms aus GP-NFR-033):** No-Go
+**Budget GP-NFR-033/034 (Renderer konva):** eingehalten
 
 ## Messwerte
 
@@ -38,13 +35,13 @@ von `tests/e2e/test_req053_renderer_profile.py`; nicht von Hand bearbeiten, neu 
 
 ## Entscheidung
 
-**D-01 wörtlich (Drag gegen 16 ms, alle Profile): Go**
+**Budget GP-NFR-033/034 (Renderer konva, Drag und Zoom je Profil): eingehalten**
 
-- Schwelle gerissen: synthetic_3000/mobile: Drag-Frametime p95 33.4 ms > 16 ms (Grenze mit Bildwechsel-Toleranz 17.7 ms)
+- Jede Geste in ihrem Budget (16 ms Desktop, 33 ms Telefon), alle Fälle gemessen.
 
-**Platzhalter (3), nur Mobile (Drag gegen 33 ms): No-Go**
+Nur zur Information, D-01 wörtlich (Drag gegen 16 ms auf jedem Profil):
 
-- Keine Schwelle gerissen, alle Fälle gemessen.
+- synthetic_3000/mobile: Drag-Frametime p95 33.4 ms > 16 ms (Grenze mit Bildwechsel-Toleranz 17.7 ms); maßgeblich ist GP-NFR-033 mit dem Budget des Profils
 
 ## Sichtbare Objekte
 
