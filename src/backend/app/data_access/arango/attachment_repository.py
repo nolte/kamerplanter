@@ -5,10 +5,13 @@ from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
+from arango.exceptions import AQLQueryExecuteError
 
 from app.common.enums import AttachmentCategory
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.client_event_tombstones import record_tombstone, record_tombstone_in, tombstoned_ids
+from app.data_access.arango.conflicts import conflict_error_for
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
@@ -226,7 +229,13 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         existing = self.get(key, tenant_key)
         if existing is None:
             return False
-        return super().delete(key)
+        deleted = super().delete(key)
+        if deleted and existing.client_event_id:
+            # A late replay of the buffered upload must not store the photo again (REQ-053 WP 9.3).
+            record_tombstone(
+                self._db, tenant_key=tenant_key, client_event_id=existing.client_event_id, kind="attachment"
+            )
+        return deleted
 
     def update_metadata(
         self,
@@ -420,6 +429,59 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         if doc is None:
             return None
         return Attachment(**self._from_doc(doc))
+
+    def find_by_client_event_id(self, *, tenant_key: str, client_event_id: str) -> Attachment | None:
+        self._require_tenant_key(tenant_key, "find_by_client_event_id")
+        # ``SORT`` keeps the answer deterministic where v0106 could not create the unique index.
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key AND att.client_event_id == @client_event_id
+          SORT att._key
+          LIMIT 1
+          RETURN att
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "client_event_id": client_event_id,
+        }
+        doc = next(cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars)), None)
+        if doc is None:
+            return None
+        return Attachment(**self._from_doc(doc))
+
+    def stamp_client_event(self, key: str, *, tenant_key: str, client_event_id: str, digest: str) -> bool:
+        """Put a buffered upload's id on an existing record that carries none (the #1770 own-record dedup).
+
+        One statement: only a record of ``tenant_key`` without an id is stamped, so two attempts cannot both claim
+        it. ``True`` when this call stamped it. A taken id raises the unique index's ``DuplicateError``.
+        """
+        self._require_tenant_key(tenant_key, "stamp_client_event")
+        query = """
+        FOR att IN @@collection
+          FILTER att._key == @key AND att.tenant_key == @tenant_key AND att.client_event_id == null
+          UPDATE att WITH { client_event_id: @client_event_id, client_event_digest: @digest } IN @@collection
+          RETURN 1
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "key": key,
+            "tenant_key": tenant_key,
+            "client_event_id": client_event_id,
+            "digest": digest,
+        }
+        try:
+            cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
+            return next(cursor, None) is not None
+        except AQLQueryExecuteError as exc:
+            mapped = conflict_error_for(exc, entity=self._collection_name, data={"client_event_id": client_event_id})
+            if mapped is not None:
+                raise mapped from exc
+            raise
+
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        self._require_tenant_key(tenant_key, "client_event_tombstones")
+        return tombstoned_ids(self._db, client_event_ids, tenant_key=tenant_key)
 
     def storage_keys_held_elsewhere(
         self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
@@ -729,9 +791,16 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
 
         Returns the removed record (its stored object is the caller's next step), or ``None`` when it is absent,
         another tenant's or still referenced. The scan is the tenant-scoped one of :meth:`task_photo_delete_state`.
+
+        A record a buffered upload created leaves its tombstone in the same transaction (REQ-053 WP 9.3): a late
+        replay of ``POST /attachments`` must not store the photo again (and the client re-link it) - the bed-photo
+        removal comes this way.
         """
         with stream_transaction(
-            self._db, write=(self._collection_name,), read=_REFERENCE_READ, entity=self._collection_name
+            self._db,
+            write=(self._collection_name, col.CLIENT_EVENT_TOMBSTONES),
+            read=_REFERENCE_READ,
+            entity=self._collection_name,
         ) as txn:
             if not self._unreferenced_in(txn, attachment_id, tenant_key):
                 return None
@@ -750,6 +819,10 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
                     },
                 )
             )
+            if removed and removed[0].get("client_event_id"):
+                record_tombstone_in(
+                    txn, tenant_key=tenant_key, client_event_id=str(removed[0]["client_event_id"]), kind="attachment"
+                )
         return Attachment(**self._from_doc(removed[0])) if removed else None
 
     def _unreferenced_in(self, txn: StreamTransaction, attachment_id: str, tenant_key: str) -> bool:

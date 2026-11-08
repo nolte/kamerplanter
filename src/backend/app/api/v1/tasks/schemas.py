@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -364,6 +365,8 @@ class TaskCompleteRequest(TaskCompletionDetails):
     photo_refs: list[str] = Field(default_factory=list)
     difficulty_rating: int | None = Field(default=None, ge=1, le=5)
     quality_rating: int | None = Field(default=None, ge=1, le=5)
+    #: A buffered completion's id (REQ-053 WP 9.3): a replay answers the task this id closed, never a second close.
+    client_event_id: UUID | None = None
 
 
 class TaskCloneRequest(BaseModel):
@@ -416,6 +419,13 @@ class BatchStatusRequest(TaskCompletionDetails):
     task_keys: list[str] = Field(min_length=1)
     action: str = Field(description="start, complete, or skip")
     completion_notes: str | None = None
+    client_event_id: UUID | None = Field(
+        default=None,
+        description=(
+            "`complete` only (REQ-053 WP 9.3): the buffered batch's id. Decided per task - a task this batch closed "
+            "before counts as succeeded without a second write."
+        ),
+    )
 
 
 class BatchDeleteRequest(BaseModel):
@@ -430,6 +440,8 @@ class BatchAssignRequest(BaseModel):
 class BatchResultItem(BaseModel):
     key: str
     error: str
+    #: The stable reason, e.g. `task.already_closed` (REQ-053 WP 9.3); `None` for the actions that name none.
+    code: str | None = None
 
 
 class BatchResponse(BaseModel):

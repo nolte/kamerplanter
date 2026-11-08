@@ -31,6 +31,7 @@ from app.domain.models.care_event import (
     Measurement,
     ProductRef,
 )
+from app.domain.models.task import Task
 
 #: GP-FR-088: tasks one batch completion may carry (``batch_too_large`` beyond).
 MAX_BATCH_COMPLETION = 200
@@ -154,6 +155,23 @@ class CompletedTask:
     task_key: str
     event_key: str | None = None
     domain_ref: dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class TaskCompletionOutcome:
+    """What ``POST /tasks/{key}/complete`` answers: the task, and whether the request was a replay (WP 9.3).
+
+    ``replayed`` is ``True`` when the ``client_event_id`` named the completion that closed this task before:
+    nothing was written, and the follow-ups of a completion (care-reminder confirmation, next occurrence,
+    notification) do not run a second time.
+    """
+
+    task: Task
+    replayed: bool = False
+    #: The id of THIS request's buffered completion (its stamp, or the stamp it replayed); ``None`` without one.
+    #: What a follow-up dedups on - never the id stored on the task, which may be an earlier completion's (a
+    #: completion without an id after a reopen leaves the earlier id on the task).
+    client_event_id: str | None = None
 
 
 @dataclass(frozen=True)

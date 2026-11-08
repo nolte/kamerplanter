@@ -62,6 +62,8 @@ _DOCUMENTS = (
     col.WATERING_EVENTS,
     # the underlay names an attachment, and its removal scans every carrier in one transaction (#2545)
     col.ATTACHMENTS,
+    # an attachment removal writes the tombstone of a client_event_id in the same transaction (#2743)
+    col.CLIENT_EVENT_TOMBSTONES,
     # the bed list download names the members a bed is assigned to (REQ-053 WP 8.25)
     col.MEMBERSHIPS,
     col.LOCATION_ASSIGNMENTS,

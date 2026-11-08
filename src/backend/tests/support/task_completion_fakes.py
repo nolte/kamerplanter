@@ -8,7 +8,14 @@ Shared by the unit tier and the API tier.
 from __future__ import annotations
 
 from app.common.enums import TaskCategory, TaskStatus
-from app.common.exceptions import KarenzViolationError, NotFoundError, ValidationError
+from app.common.exceptions import (
+    DuplicateError,
+    KarenzViolationError,
+    NotFoundError,
+    TaskAlreadyClosedError,
+    TaskMissingError,
+    ValidationError,
+)
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.models.care_event import CareEvent
 from app.domain.models.task import Task
@@ -27,11 +34,32 @@ class FakeTaskRepo:
         self.cleared_parked: list[str] = []
         #: ``plant key -> (tenant, location)``: what the location queue needs to find a plant's tasks.
         self.plants: dict[str, tuple[str, str]] = {}
+        #: ``(tenant, client_event_id)`` of deleted tasks a buffered completion closed (WP 9.3).
+        self.tombstones: set[tuple[str, str]] = set()
+        #: Every batched client-id lookup, to pin "one query per batch".
+        self.client_id_lookups: list[list[str]] = []
 
     def get_task_or_raise(self, key: str) -> Task:
         if key not in self.store:
             raise NotFoundError("Task", key)
         return self.store[key].model_copy(deep=True)
+
+    def find_tasks_by_completion_client_event_ids(self, client_event_ids, *, tenant_key: str) -> list[Task]:
+        self.client_id_lookups.append(list(client_event_ids))
+        return [
+            task.model_copy(deep=True)
+            for task in self.store.values()
+            if task.tenant_key == tenant_key and task.completion_client_event_id in client_event_ids
+        ]
+
+    def client_event_tombstones(self, client_event_ids, *, tenant_key: str) -> set[str]:
+        return {i for (t, i) in self.tombstones if t == tenant_key and i in client_event_ids}
+
+    def delete_task(self, key: str) -> bool:
+        task = self.store.pop(key, None)
+        if task is not None and task.completion_client_event_id:
+            self.tombstones.add((task.tenant_key, task.completion_client_event_id))
+        return task is not None
 
     def update_task(self, key: str, task: Task) -> Task:
         self.store[key] = task.model_copy(deep=True)
@@ -125,12 +153,28 @@ class FakeCompletionRepo(ITaskCompletionRepository):
         for write in writes:
             stored = self._tasks.store.get(write.task_key)
             if stored is None or stored.tenant_key != tenant_key:
-                raise NotFoundError("Task", write.task_key)
+                raise TaskMissingError(write.task_key)
+            if stored.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED):
+                raise TaskAlreadyClosedError(stored.status)
             if stored.status not in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS):
                 raise ValidationError(f"Cannot complete task in status '{stored.status}'.")
+            client_id = write.task_patch.get("completion_client_event_id")
+            if client_id:
+                holders = [
+                    t
+                    for t in self._tasks.store.values()
+                    if t.tenant_key == tenant_key and t.completion_client_event_id == client_id
+                ]
+                if any(holder.key != write.task_key for holder in holders):  # the unique index of v0106
+                    raise DuplicateError("tasks", "completion_client_event_id", client_id)
         for write in writes:
             stored = self._tasks.store[write.task_key]
-            self._tasks.store[write.task_key] = stored.model_copy(update={"status": TaskStatus.COMPLETED})
+            ids = {
+                field: write.task_patch[field]
+                for field in ("completion_client_event_id", "completion_client_event_digest")
+                if field in write.task_patch
+            }
+            self._tasks.store[write.task_key] = stored.model_copy(update={"status": TaskStatus.COMPLETED, **ids})
             self.completed.append(write)
         return [CompletedTask(w.task_key, "ce_x" if w.event else None, None) for w in writes]
 

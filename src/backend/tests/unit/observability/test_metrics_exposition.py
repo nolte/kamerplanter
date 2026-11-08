@@ -121,6 +121,9 @@ def test_no_series_is_labelled_by_tenant_person_or_request(api: TestClient, scra
         # REQ-053 care_events_consistency_backfilled_total{source}: one of the four domain-event collection names
         # (a closed, code-defined set, pinned below) - never a person, a tenant or a request.
         "source",
+        # REQ-053 client_event_index_blocked{collection}: one of the four collection names of migration v0106
+        # (a closed, code-defined set) - never a person, a tenant or a request.
+        "collection",
     }
     for forbidden in ("tenant", "user", "subject", "actor", "request_id", "ip"):
         assert forbidden not in label_names

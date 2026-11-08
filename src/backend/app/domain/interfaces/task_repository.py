@@ -159,6 +159,16 @@ class ITaskRepository(ABC):
         ...
 
     @abstractmethod
+    def find_tasks_by_completion_client_event_ids(self, client_event_ids: list[str], *, tenant_key: str) -> list[Task]:
+        """The tenant's tasks buffered completions with one of ``client_event_ids`` closed (REQ-053 WP 9.3)."""
+        ...
+
+    @abstractmethod
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        """The ids among ``client_event_ids`` whose task was deleted since (WP 9.3 tombstones)."""
+        ...
+
+    @abstractmethod
     def update_task(self, key: TaskKey, task: Task) -> Task: ...
 
     @abstractmethod

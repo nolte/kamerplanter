@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -165,6 +166,12 @@ class CareEvent(BaseModel):
     #: Set once by ``retention.anonymize_expired_care_events`` (NFR-011 R-25): the person fields, the free texts and
     #: the photos are gone and the sweep selects the row no more. A system mutation like the redaction, not an edit.
     retention_anonymized_at: datetime | None = None
+    #: The client's id of a buffered write (WP 9.3), unique per tenant (sparse index, v0106); ``None`` when the
+    #: client sent none and on every server-made event.
+    client_event_id: str | None = None
+    #: The digest of the request that wrote this event (:func:`~app.domain.models.client_event.client_event_digest`);
+    #: a replay with another body under the same id is refused.
+    client_event_digest: str | None = None
     created_at: datetime | None = None
     created_by: str | None = None
 
@@ -336,6 +343,8 @@ class CareEventInput(_CareEventFields):
 
     location_key: str = Field(min_length=1, max_length=200)
     trigger: str = "manual"
+    #: A buffered write's id (WP 9.3): a replay with the same id answers the stored event, never a second one.
+    client_event_id: UUID | None = None
 
     @field_validator("trigger")
     @classmethod
@@ -410,3 +419,15 @@ class CareEventView(BaseModel):
     chain_keys: list[str] = Field(default_factory=list)
     #: Readable names of the event's plants, in ``plant_keys`` order; a plant that is gone is left out (#2514).
     plant_names: list[str] = Field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class LoggedCareEvent:
+    """What ``POST /care-events`` answers: the event, and whether it was a replay of a stored one (WP 9.3).
+
+    ``replayed`` is ``True`` when the ``client_event_id`` named an event stored before - the first answer was
+    201, a replay is 200 with the same body.
+    """
+
+    view: CareEventView
+    replayed: bool = False

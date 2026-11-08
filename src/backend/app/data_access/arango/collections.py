@@ -1,5 +1,5 @@
 import contextlib
-from typing import Any
+from typing import Any, cast
 
 from arango.collection import StandardCollection
 from arango.database import StandardDatabase
@@ -246,6 +246,8 @@ GLOSSARY_TERM_CACHE = "glossary_term_cache"
 # tools by idempotency key (retention 24h).
 MCP_AUDIT_LOG = "mcp_audit_log"
 MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
+#: REQ-053 WP 9.3: the ids of deleted objects a buffered write created, so a late replay does not re-create them.
+CLIENT_EVENT_TOMBSTONES = "client_event_tombstones"
 
 # MT-014 (#2111) — the persistent security audit: who changed whose membership,
 # role or scopes, in which tenant, when. Append-only; retention in NFR-011 R-38.
@@ -398,6 +400,8 @@ DOCUMENT_COLLECTIONS = [
     # REQ-033 MCP server (adapter-layer only)
     MCP_AUDIT_LOG,
     MCP_IDEMPOTENCY_RECORD,
+    # REQ-053 WP 9.3 buffered-write tombstones
+    CLIENT_EVENT_TOMBSTONES,
     # MT-014 security audit (#2111)
     SECURITY_AUDIT_LOG,
     # MT-015 Home Assistant entity allowlist (#2112)
@@ -1842,6 +1846,21 @@ CARE_EVENT_TASK_INDEX_FIELDS = ["task_key"]
 #: (#2029, ``test_tenant_unique_indexes_are_scoped``), and a source event belongs to
 #: exactly one tenant, so the constraint is not weakened.
 CARE_EVENT_SOURCE_REF_INDEX_FIELDS = ["tenant_key", "source_ref.collection", "source_ref.key"]
+#: One object per buffered write (REQ-053 WP 9.3; v0106): the ``client_event_id`` a client sends with a care event,
+#: a task completion or an upload is unique per tenant. Sparse, so the rows without an id (every write before
+#: wave 9, every server-made one) do not collide; ``tenant_key`` leads (``test_tenant_unique_indexes_are_scoped``).
+CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "completion_client_event_id"]
+ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+#: One tombstone per deleted object of a buffered write, per tenant; the TTL index ages it out.
+CLIENT_EVENT_TOMBSTONE_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+CLIENT_EVENT_TOMBSTONE_TTL_FIELDS = ["deleted_at"]
+#: ``CLIENT_EVENT_TOMBSTONE_DAYS`` (domain/models/client_event.py) in seconds; equal by unit test.
+CLIENT_EVENT_TOMBSTONE_TTL_SECONDS = (365 + 30) * 86400
+#: A care confirmation of a buffered task completion exists once (WP 9.3): the replay of a completion runs the
+#: confirmation again only when the first attempt did not get to it. ``plant_key`` scopes it (the parent chain).
+#: The id leads so a 1210 names it (``extract_unique_field`` reports the first field that is no scope).
+CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS = ["completion_client_event_id", "plant_key"]
 #: A site's irrigation zones (GP-API-050, §20.11; v0099). ``tenant_key`` leads: the zone carries it (E-01).
 IRRIGATION_ZONE_SITE_INDEX_FIELDS = ["tenant_key", "site_key"]
 #: A bed is in at most one irrigation zone (§14.1, WP 7.1; v0099): ``zone_covers`` is unique on its target.
@@ -2330,8 +2349,32 @@ def ensure_seed_identity_indexes(db: StandardDatabase) -> None:
         ensure_unique_index_when_clean(db.collection(name), EDGE_PAIR_FIELDS)
 
 
-def ensure_collections(db: StandardDatabase) -> None:
-    """Create all collections and the graph if they don't exist."""
+def has_ttl_index(collection: StandardCollection, fields: list[str]) -> bool:
+    """Whether ``collection`` carries a TTL index on exactly ``fields``."""
+    rows = cast("list[dict[str, Any]]", collection.indexes())  # a synchronous database answers a list
+    return any("type" in idx and idx["type"] == "ttl" and "fields" in idx and idx["fields"] == fields for idx in rows)
+
+
+def ensure_client_event_tombstone_indexes(db: StandardDatabase) -> None:
+    """The unique ``(tenant_key, client_event_id)`` and the TTL index of ``client_event_tombstones`` (WP 9.3)."""
+    tombstones = db.collection(CLIENT_EVENT_TOMBSTONES)
+    ensure_unique_index_when_clean(tombstones, CLIENT_EVENT_TOMBSTONE_INDEX_FIELDS)
+    if not has_ttl_index(tombstones, CLIENT_EVENT_TOMBSTONE_TTL_FIELDS):
+        tombstones.add_index(
+            {
+                "type": "ttl",
+                "fields": CLIENT_EVENT_TOMBSTONE_TTL_FIELDS,
+                "expireAfter": CLIENT_EVENT_TOMBSTONE_TTL_SECONDS,
+            }
+        )
+
+
+def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
+    """Create all collections and the graph if they don't exist.
+
+    Returns, per collection, whether its client-event unique index is in place (REQ-053 WP 9.3): the caller sets
+    the operator's gauge from it (the data layer does not depend on observability).
+    """
     for name in DOCUMENT_COLLECTIONS:
         if not db.has_collection(name):
             db.create_collection(name)
@@ -2886,6 +2929,19 @@ def ensure_collections(db: StandardDatabase) -> None:
     care_events_col.add_persistent_index(
         fields=CARE_EVENT_SOURCE_REF_INDEX_FIELDS, unique=True, sparse=True, in_background=True
     )
+    # REQ-053 WP 9.3 (v0106): one object per buffered write. Created only when clean - this runs before the
+    # migrations, and v0106 reports a volume that cannot take the index instead of failing the boot.
+    # Every boot retries a blocked index and reports it either way (the lifespan sets the operator's gauge), so a
+    # restart neither hides a block nor leaves a cleared one raised.
+    client_event_indexes: dict[str, bool] = {}
+    for name, fields in (
+        (CARE_EVENTS, CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS),
+        (TASKS, TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS),
+        (ATTACHMENTS, ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS),
+        (CARE_CONFIRMATIONS, CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS),
+    ):
+        client_event_indexes[name] = ensure_unique_index_when_clean(db.collection(name), fields, sparse=True)
+    ensure_client_event_tombstone_indexes(db)
     # REQ-053 WP 7.1 (v0099): the zones of a site, and one zone per bed.
     db.collection(IRRIGATION_ZONES).add_persistent_index(
         fields=IRRIGATION_ZONE_SITE_INDEX_FIELDS, unique=False, in_background=True
@@ -2915,3 +2971,4 @@ def ensure_collections(db: StandardDatabase) -> None:
                     old.get("to_vertex_collections", [])
                 ) != set(ed["to_vertex_collections"]):
                     graph.replace_edge_definition(**ed)
+    return client_event_indexes

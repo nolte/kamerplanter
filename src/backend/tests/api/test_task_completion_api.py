@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from app.common.auth import get_current_user
 from app.common.dependencies import get_care_event_service, get_task_service, get_tenant_service
 from app.common.enums import TaskCategory, TaskStatus, TenantRole
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.models.care_event import CareEvent
@@ -298,3 +298,142 @@ class TestReopen:
 
     def test_a_body_that_names_more_than_undo_is_422(self, client, world, done) -> None:
         assert client().post(f"{_OWN}/t1/reopen", json={"void_reason": "x"}).status_code == 422
+
+
+class TestConflictCodesAndClientEventId:
+    """REQ-053 WP 9.3: the stable conflict reasons of a completion and the replay of a buffered one.
+
+    Measured before the change: a closed task answered 422 ``VALIDATION_ERROR`` and a deleted one 404
+    ``ENTITY_NOT_FOUND``; no completion route accepted a client id.
+    """
+
+    _ID = "7a3f3c0e-9a3b-4f7e-8e7d-1f2a3b4c5d6e"
+
+    def test_a_closed_task_is_409_already_closed(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={}).status_code == 200
+
+        response = client().post(f"{_OWN}/t1/complete", json={})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "task.already_closed"
+        assert response.json()["details"][0]["status"] == "completed"
+        assert len(world.completion.completed) == 1
+
+    @pytest.mark.parametrize("key", ["t_deleted", "t_foreign"])
+    def test_a_deleted_or_foreign_task_is_404_missing(self, client, world, key) -> None:
+        response = client().post(f"{_OWN}/{key}/complete", json={})
+
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "task.missing"
+        assert response.json()["details"][0]["entity"] == "task"  # #1437: a 404 still names its entity
+        assert world.completion.completed == []
+
+    def test_a_replay_answers_the_task_without_a_second_completion(self, client, world) -> None:
+        first = client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID})
+        replays = [client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}) for _ in range(2)]
+
+        assert first.status_code == 200, first.text
+        assert [r.status_code for r in replays] == [200, 200]
+        assert all(r.json() == first.json() for r in replays)
+        assert len(world.completion.completed) == 1
+
+    def test_the_id_of_one_task_on_another_is_409_mismatch(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}).status_code == 200
+
+        response = client().post(f"{_OWN}/t2/complete", json={"client_event_id": self._ID})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"
+        assert world.tasks.store["t2"].status == TaskStatus.PENDING
+
+    def test_a_batch_replay_decides_per_task(self, client, world) -> None:
+        payload = {"task_keys": ["t1", "t2"], "action": "complete", "client_event_id": self._ID}
+
+        answers = [client().post(f"{_OWN}/batch/status", json=payload) for _ in range(3)]
+
+        assert [a.status_code for a in answers] == [200, 200, 200]
+        assert all(a.json() == {"succeeded": ["t1", "t2"], "failed": []} for a in answers)
+        assert [w.task_key for w in world.completion.completed] == ["t1", "t2"]  # once each, not three times
+
+    def test_a_closed_task_in_a_batch_is_failed_with_its_code(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={}).status_code == 200
+
+        response = client().post(f"{_OWN}/batch/status", json={"task_keys": ["t1", "t2"], "action": "complete"})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["succeeded"] == ["t2"]
+        assert [(f["key"], f["code"]) for f in response.json()["failed"]] == [("t1", "task.already_closed")]
+
+    def test_a_deleted_task_in_a_batch_is_404_missing_for_the_whole_batch(self, client, world) -> None:
+        response = client().post(f"{_OWN}/batch/status", json={"task_keys": ["t1", "t_deleted"], "action": "complete"})
+
+        assert response.status_code == 404
+        assert response.json()["error_code"] == "task.missing"
+        assert world.completion.completed == []
+
+    def test_an_id_on_another_action_is_422(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/batch/status", json={"task_keys": ["t1"], "action": "start", "client_event_id": self._ID}
+        )
+
+        assert response.status_code == 422
+        assert world.tasks.store["t1"].status == TaskStatus.PENDING
+
+
+class TestClientEventReviewFindings:
+    """Code review of #2787: post-commit errors, tombstones, the batched lookup, unrelated unique indexes."""
+
+    _ID = "1b2c3d4e-5f60-4718-8a9b-0c1d2e3f4a5b"
+
+    def test_a_follow_up_error_after_the_commit_surfaces_and_is_no_replay(self, client, world, monkeypatch) -> None:
+        def follow_up_fails(*_args, **_kwargs) -> None:
+            raise WriteConflictError("tasks", "the next occurrence conflicted")
+
+        monkeypatch.setattr(world.service, "_after_completion", follow_up_fails)
+
+        response = client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "WRITE_CONFLICT"  # as without an id, never a 200 "replayed"
+        assert len(world.completion.completed) == 1
+
+    def test_a_replay_of_a_deleted_task_is_404_deleted_and_writes_nothing(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}).status_code == 200
+        world.tasks.delete_task("t1")
+
+        response = client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID})
+
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "client_event.deleted"
+        assert len(world.completion.completed) == 1
+
+    def test_a_batch_reports_a_deleted_task_per_task(self, client, world) -> None:
+        payload = {"task_keys": ["t1", "t2"], "action": "complete", "client_event_id": self._ID}
+        assert client().post(f"{_OWN}/batch/status", json=payload).status_code == 200
+        world.tasks.delete_task("t1")
+
+        response = client().post(f"{_OWN}/batch/status", json=payload)
+
+        assert response.status_code == 200, response.text  # never a 404 for the whole batch
+        assert response.json()["succeeded"] == ["t2"]
+        assert [(f["key"], f["code"]) for f in response.json()["failed"]] == [("t1", "client_event.deleted")]
+        assert len(world.completion.completed) == 2
+
+    def test_a_batch_replay_looks_its_tasks_up_in_one_query(self, client, world) -> None:
+        payload = {"task_keys": ["t1", "t2"], "action": "complete", "client_event_id": self._ID}
+        client().post(f"{_OWN}/batch/status", json=payload)
+        world.tasks.client_id_lookups.clear()
+
+        client().post(f"{_OWN}/batch/status", json=payload)
+
+        assert [len(ids) for ids in world.tasks.client_id_lookups] == [2]
+
+    def test_an_unrelated_unique_index_is_not_retried_as_a_race(self, client, world) -> None:
+        world.completion.fail_with = DuplicateError("harvest_batches", "batch_id", "B-1")
+        payload = {"task_keys": ["t1"], "action": "complete", "client_event_id": self._ID}
+
+        response = client().post(f"{_OWN}/batch/status", json=payload)
+
+        assert response.status_code == 409
+        assert response.json()["error_code"] == "DUPLICATE_ENTRY"
+        assert world.completion.calls == 1  # one attempt, not three

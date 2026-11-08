@@ -17,6 +17,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.v1.care_events.schemas import CareEventCreate
 from app.common.auth import get_current_user
 from app.common.dependencies import get_care_event_service, get_tenant_service
 from app.common.enums import TenantRole
@@ -33,6 +34,7 @@ from tests.support.care_event_fakes import (
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     TENANT,
+    USER,
     FakePlanRepo,
     FakeSites,
     make_location,
@@ -531,3 +533,56 @@ class TestCsvDownload:
 
         assert json_statuses == {200}
         assert csv_statuses[:budget] == [200] * budget and csv_statuses[budget:] == [429, 429]
+
+
+class TestClientEventId:
+    """REQ-053 WP 9.3: a buffered care event replayed with its ``client_event_id`` is answered, never stored twice."""
+
+    def test_a_replay_answers_200_with_the_same_event(self, client, world) -> None:
+        payload = body(client_event_id="5f7c7c1e-0b55-4c2b-9a8e-2b2f0b1e6a11")
+
+        first = client().post(_OWN, json=payload)
+        replays = [client().post(_OWN, json=payload) for _ in range(2)]
+
+        assert first.status_code == 201, first.text
+        assert [r.status_code for r in replays] == [200, 200]
+        assert all(r.json() == first.json() for r in replays)  # the same body shape as the first answer
+        assert first.json()["client_event_id"] == payload["client_event_id"]
+        assert len(world.repo.inserted) == 1
+
+    def test_the_same_id_with_another_body_is_409(self, client, world) -> None:
+        client_id = "0d6f1d0e-4d4c-4f61-8d8f-4b0e5a4f2c11"
+        assert client().post(_OWN, json=body(client_event_id=client_id)).status_code == 201
+
+        response = client().post(_OWN, json=body(client_event_id=client_id, summary="Something else"))
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"
+        assert len(world.repo.inserted) == 1
+
+    def test_an_id_that_is_no_uuid_is_422(self, client, world) -> None:
+        response = client().post(_OWN, json=body(client_event_id="not-a-uuid"))
+
+        assert response.status_code == 422
+        assert world.repo.inserted == []
+
+    def test_without_an_id_every_post_is_a_new_event(self, client, world) -> None:
+        # The positive control: the replay rule needs the id; two plain posts stay two entries.
+        assert [client().post(_OWN, json=body()).status_code for _ in range(2)] == [201, 201]
+        assert len(world.repo.inserted) == 2
+
+
+def test_the_client_event_id_is_shown_to_its_author_only(world) -> None:
+    # Code review of #2787 (security L2): the id is the author's device's handle on the write.
+    from app.api.v1.care_events.schemas import care_event_to_response
+
+    view = world.service.log(
+        CareEventCreate(**body(client_event_id="6f708192-a3b4-4c5d-8e6f-708192a3b4c5")),
+        tenant_key=TENANT,
+        user_key=USER,
+        role=TenantRole.GROWER,
+    ).view
+
+    assert care_event_to_response(view).client_event_id == "6f708192-a3b4-4c5d-8e6f-708192a3b4c5"
+    other = view.model_copy(update={"created_by_me": False})
+    assert care_event_to_response(other).client_event_id is None

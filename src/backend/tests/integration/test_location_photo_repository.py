@@ -346,6 +346,25 @@ class TestTheServiceOnTheDatabase:
         assert db.collection(col.ATTACHMENTS).get("p1") is None  # nothing else named it
         assert db.collection(col.ATTACHMENTS).get("shared") is not None  # bed_a2 still shows it
 
+    async def test_removing_a_buffered_bed_photo_leaves_its_tombstone(self, db) -> None:
+        # Verifying review of #2787 (F2): the bed-photo removal deletes through ``remove_if_unreferenced``; without a
+        # tombstone a late replay of ``POST /attachments`` with the same id stored the photo again.
+        db.collection(col.CLIENT_EVENT_TOMBSTONES).truncate()
+        db.collection(col.ATTACHMENTS).insert({**_photo("p_buffered"), "client_event_id": "ce-bed-1"})
+        db.collection(col.ATTACHMENTS).insert(_photo("p_plain"))
+        service = self._service(db)
+        for photo in ("p_buffered", "p_plain"):
+            service.add_photo("bed_a", photo, tenant_key=A, user_key=USER, role=TenantRole.GROWER)
+
+        for photo in ("p_buffered", "p_plain"):
+            await service.remove_photo("bed_a", photo, tenant_key=A, user_key=USER, role=TenantRole.GROWER)
+
+        repo = ArangoAttachmentRepository(db)
+        assert db.collection(col.ATTACHMENTS).get("p_buffered") is None
+        assert repo.client_event_tombstones(["ce-bed-1"], tenant_key=A) == {"ce-bed-1"}
+        assert repo.client_event_tombstones(["ce-bed-1"], tenant_key=B) == set()
+        assert db.collection(col.CLIENT_EVENT_TOMBSTONES).count() == 1  # the photo without an id leaves none
+
 
 class TestAReplaceImportAndARestoreDiscardThePhotos:
     """#2661 follow-up: a ``replace`` import (and a restore, which is one) deletes beds through the plan batch, so the

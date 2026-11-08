@@ -224,6 +224,21 @@ The check and the write are one statement: if two people decide at the same time
 | `409` | `task.suggestion_closed` | Dismiss only: the suggestion is already closed (completed, skipped or dismissed) |
 | `409` | `WRITE_CONFLICT` | A concurrent write on the same task; try again |
 
+### Buffered writes: `client_event_id`
+
+A client that queues writes while offline sends each one with its own `client_event_id` (a UUID) so a retry never creates a second object. Five routes take it: `POST /care-events` and `POST /tasks/{key}/complete` in the body, `POST /tasks/batch/status` once for the whole batch (each task gets its own id derived from it), and the photo uploads `POST /attachments` and `POST /plant-instances/{key}/photos` as a form field. The id is unique per tenant.
+
+The first request answers as before (`201` for a new care entry). Sending the same id again answers `200` with the object the first request created and writes nothing; a completed task stays completed even if it was reopened in between. Two requests with the same id at the same moment create exactly one object. A care entry shows its `client_event_id` only to the member who wrote it. If you deleted what a request created (a photo, a task), a later retry with the same id creates nothing and answers `404 client_event.deleted`; drop the queued entry.
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `409` | `client_event.payload_mismatch` | The id was already used for a different request (another task, plant, file, category or member) |
+| `409` | `task.already_closed` | The task is already completed or skipped (before: `422 VALIDATION_ERROR`) |
+| `404` | `task.missing` | The task was deleted or is not in this tenant (before: `404 ENTITY_NOT_FOUND`) |
+| `404` | `client_event.deleted` | What this id created was deleted since; nothing was written |
+
+In a batch, a task that is already closed is listed under `failed` with its `code`, as is a task this batch completed that was deleted since (`client_event.deleted`, never a `404` for the whole batch); a replayed task is listed under `succeeded`.
+
 !!! warning "Not implemented yet: generating suggestions"
     Kamerplanter itself does not create tasks with `suggested = true` yet. The endpoints are ready, but in a running installation they only have something to decide once a later version creates suggestions. <!-- REQ-053 GP-FR-086, GP-API-040 -->
 

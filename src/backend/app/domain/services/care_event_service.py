@@ -34,9 +34,19 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 import structlog
+from pydantic import BaseModel
 
 from app.common.enums import AdminScope, TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
+from app.common.exceptions import (
+    ClientEventMismatchError,
+    DuplicateError,
+    ForbiddenError,
+    NotFoundError,
+    PlanError,
+    PlanValidationError,
+    ValidationError,
+    WriteConflictError,
+)
 from app.domain.calculators.area_dose_calculator import AREA_UNITS, quantity_total
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
@@ -61,8 +71,10 @@ from app.domain.models.care_event import (
     CareEventInput,
     CareEventOrigin,
     CareEventView,
+    LoggedCareEvent,
     display_performer,
 )
+from app.domain.models.client_event import ClientEventStamp, client_event_digest, is_client_event_conflict
 from app.domain.models.site import Location
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.location_ownership import resolve_owned_location
@@ -85,6 +97,8 @@ ERROR_IMMUTABLE = "care_event.immutable"
 ERROR_SEQUENCE = "care_event.sequence"
 ERROR_SERVER_ONLY = "care_event.category_server_only"
 ERROR_AREA_DOSE_NOT_POSITIVE = "care_event.area_dose_not_positive"
+#: How often a buffered write tries its insert when a concurrent one holds the same id (WP 9.3).
+_CLIENT_WRITE_ATTEMPTS = 3
 
 #: Categories whose area unit is a dose of a product or a material (GP-FR-123/124): a rate of 0 per m² is no dose
 #: and would store a total of 0, so it is refused. Watering and rainfall keep 0 L/m² (a dry measurement).
@@ -464,11 +478,13 @@ class CareEventService:
         user_key: str,
         role: TenantRole,
         origin: CareEventOrigin | None = None,
+        stamp: ClientEventStamp | None = None,
     ) -> CareEvent:
         """Validate ``data`` and return the event as it would be stored — nothing is written.
 
         For a caller that writes inside its own transaction (see the module docstring). Raises exactly what
-        :meth:`create` raises.
+        :meth:`create` raises. ``stamp`` is the buffered write's id and digest, computed once by :meth:`log`; a
+        server caller (``origin``) never carries one.
         """
         self._require_editor(role)
         if origin is None and data.category in SERVER_ONLY_CATEGORIES:
@@ -489,6 +505,9 @@ class CareEventService:
             # window of GP-API-042 (V-11 exception). The future bound (five minutes) holds for every caller.
             max_age_days=origin.max_age_days if origin else MAX_AGE_DAYS,
         )
+        if origin is not None:
+            # A server caller (the task completion) anchors its idempotency on its own object (WP 9.3).
+            stamp = None
         return CareEvent(
             tenant_key=tenant_key,
             site_key=location.site_key,
@@ -498,9 +517,86 @@ class CareEventService:
             task_key=origin.task_key if origin else None,
             source_ref=origin.source_ref if origin else None,
             rotation_entry=origin.rotation_entry if origin else None,
+            client_event_id=stamp.client_event_id if stamp else None,
+            client_event_digest=stamp.digest if stamp else None,
             created_by=user_key,
             **fields,
         )
+
+    @staticmethod
+    def _client_stamp(data: CareEventInput, *, user_key: str) -> ClientEventStamp | None:
+        """The id and the request digest a client's event stores; ``None`` without a ``client_event_id``.
+
+        The digest is the body as the server read it (``performed_at`` in UTC, the summary trimmed) plus the
+        caller: another member replaying the id is a different request.
+        """
+        if data.client_event_id is None:
+            return None
+        # Through a receiver typed as the pydantic base (the call-graph sweep's blind-spot ceiling, #2039).
+        request: BaseModel = data
+        body = request.model_dump(mode="json", exclude={"client_event_id"})
+        return ClientEventStamp(str(data.client_event_id), client_event_digest({"user": user_key, "body": body}))
+
+    def _replayed(self, stamp: ClientEventStamp, *, tenant_key: str, user_key: str) -> CareEventView | None:
+        """The stored event of ``stamp``'s id, if any; 409 ``client_event.payload_mismatch`` for another request."""
+        key = self._repo.find_key_by_client_event_id(stamp.client_event_id, tenant_key=tenant_key)
+        if key is None:
+            return None
+        row = self._repo.get_row(key, tenant_key=tenant_key)
+        if row is None:  # erased between the two reads; the id is free again
+            return None
+        if row.event.client_event_digest != stamp.digest:
+            raise ClientEventMismatchError()
+        return self._view(row, user_key)
+
+    def log(
+        self,
+        data: CareEventInput,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+    ) -> LoggedCareEvent:
+        """``POST /care-events`` (GP-API-033) with the replay rule of a buffered write (WP 9.3).
+
+        Without a ``client_event_id`` this is :meth:`create`. With one, a stored event of the same id and the same
+        request is answered as it is (``replayed``) - before anything is validated again, so a replay of a write
+        whose plant was removed since still finds its event. Two attempts at once race on the unique index
+        ``(tenant_key, client_event_id)``: the loser's insert is refused (``1210``, or ``1200`` while the winner has
+        not committed) and it reads the winner instead of answering an error. ``performed_at`` is the capture time
+        the client sent, held to V-11 like every client event (a year back at most, ``MAX_AGE_DAYS``).
+        """
+        self._require_editor(role)
+        stamp = self._client_stamp(data, user_key=user_key)
+        if stamp is None:
+            return LoggedCareEvent(self.create(data, tenant_key=tenant_key, user_key=user_key, role=role))
+        stored = self._replayed(stamp, tenant_key=tenant_key, user_key=user_key)
+        if stored is not None:
+            logger.info("care_event.replayed", event_key=stored.event.key)
+            return LoggedCareEvent(stored, replayed=True)
+        event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, stamp=stamp)
+        for attempt in range(_CLIENT_WRITE_ATTEMPTS):
+            try:
+                written = self._repo.insert(event, tenant_key=tenant_key)
+            except DuplicateError as exc:
+                if not is_client_event_conflict(exc.details):
+                    raise  # another unique index refused the write: not a replay
+                stored = self._replayed(stamp, tenant_key=tenant_key, user_key=user_key)
+                if stored is None:
+                    raise
+                logger.info("care_event.replayed", event_key=stored.event.key, raced=True)
+                return LoggedCareEvent(stored, replayed=True)
+            except WriteConflictError:
+                stored = self._replayed(stamp, tenant_key=tenant_key, user_key=user_key)
+                if stored is not None:
+                    logger.info("care_event.replayed", event_key=stored.event.key, raced=True)
+                    return LoggedCareEvent(stored, replayed=True)
+                if attempt == _CLIENT_WRITE_ATTEMPTS - 1:  # the winner rolled back, or is still writing
+                    raise
+                continue
+            self._record_created(written)
+            return LoggedCareEvent(self._stored_view(written.key or "", tenant_key=tenant_key, user_key=user_key))
+        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
 
     def create(
         self,

@@ -68,7 +68,10 @@ class _FakeAttachmentRepo:
         return att if att and att.tenant_key == tenant_key else None
 
     def delete(self, key, tenant_key):
-        if self.get(key, tenant_key):
+        record = self.get(key, tenant_key)
+        if record is not None and record.client_event_id:  # the tombstone the Arango repository leaves (WP 9.3)
+            self.tombstones = {*getattr(self, "tombstones", set()), (tenant_key, record.client_event_id)}
+        if record:
             del self._store[key]
             return True
         return False
@@ -99,6 +102,22 @@ class _FakeAttachmentRepo:
             if a.tenant_key == tenant_key and a.sha256 == sha256:
                 return a
         return None
+
+    def stamp_client_event(self, key, *, tenant_key, client_event_id, digest):
+        record = self._store.get(key)
+        if record is None or record.tenant_key != tenant_key or record.client_event_id is not None:
+            return False
+        self._store[key] = record.model_copy(update={"client_event_id": client_event_id, "client_event_digest": digest})
+        return True
+
+    def client_event_tombstones(self, client_event_ids, *, tenant_key):
+        return {i for (t, i) in getattr(self, "tombstones", set()) if t == tenant_key and i in client_event_ids}
+
+    def find_by_client_event_id(self, *, tenant_key, client_event_id):
+        return next(
+            (a for a in self._store.values() if a.tenant_key == tenant_key and a.client_event_id == client_event_id),
+            None,
+        )
 
     def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):
         # As the repository answers it (#1770): the uploader's own record only.
@@ -515,3 +534,78 @@ def _restore_delay():
     original = storage_tasks.generate_thumbnails.delay
     yield
     storage_tasks.generate_thumbnails.delay = original
+
+
+class TestClientEventId:
+    """REQ-053 WP 9.3: a buffered plant photo replayed with its ``client_event_id``."""
+
+    _ID = "3c0b8f2e-6d1a-4b7e-9f3c-2a1b0c9d8e7f"
+
+    def _post(self, client, data: bytes, client_id: str | None = None):
+        form = {"client_event_id": client_id} if client_id else None
+        return client.post(_base(), files={"file": ("plant.jpg", data, "image/jpeg")}, data=form)
+
+    def test_a_replay_answers_200_with_the_photo_even_when_the_gallery_is_full(self, tmp_path):
+        app, plant_repo, att_repo = _build(tmp_path, max_photos=1)
+        client = TestClient(app)
+        data = _make_jpeg()
+
+        first = self._post(client, data, self._ID)
+        replays = [self._post(client, data, self._ID) for _ in range(2)]
+
+        assert first.status_code == 201, first.text
+        assert [r.status_code for r in replays] == [200, 200]  # answered before the quota, which is reached
+        # The same photo; `is_cover` is left out because this double hands the route its own plant object, which
+        # the link mutates before the first answer reads it - the replay reads the stored cover, which it is.
+        same = {k: v for k, v in first.json().items() if k != "is_cover"}
+        assert all({k: v for k, v in r.json().items() if k != "is_cover"} == same for r in replays)
+        assert all(r.json()["is_cover"] is True for r in replays)
+        assert len(att_repo._store) == 1
+        assert plant_repo._plant.photo_refs == [first.json()["attachment_id"]]
+
+    def test_the_same_id_with_other_bytes_is_409(self, tmp_path):
+        app, _plant_repo, att_repo = _build(tmp_path)
+        client = TestClient(app)
+        assert self._post(client, _make_jpeg(), self._ID).status_code == 201
+
+        other = io.BytesIO()
+        Image.new("RGB", (160, 120), (10, 20, 200)).save(other, format="JPEG")
+        response = self._post(client, other.getvalue(), self._ID)
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"
+        assert len(att_repo._store) == 1
+
+    def test_without_an_id_the_full_gallery_still_refuses(self, tmp_path):
+        # The positive control of the first test: the quota is in force; only a replay passes it.
+        app, _plant_repo, _att_repo = _build(tmp_path, max_photos=1)
+        client = TestClient(app)
+        assert self._post(client, _make_jpeg()).status_code == 201
+
+        assert self._post(client, _make_jpeg()).status_code != 201
+
+
+class TestReferenceFeedOncePerRecord:
+    """Code review of #2787: the DINOv2 reference is fed for a record this upload wrote, never for a replay."""
+
+    def test_a_replay_and_an_own_record_feed_nothing_a_second_time(self, tmp_path):
+        import app.tasks.reference_contribution_tasks as reference_tasks
+
+        app, _plant_repo, att_repo = _build(tmp_path, species_key="sp_1", species_name="Fragaria vesca")
+        fed: list[str] = []
+        reference_tasks.feed_user_reference.delay = lambda attachment_id, *a, **k: fed.append(attachment_id)  # type: ignore[assignment]
+        client = TestClient(app)
+        data = _make_jpeg()
+
+        def post(client_id: str | None):
+            form = {"client_event_id": client_id} if client_id else None
+            return client.post(_base(), files={"file": ("plant.jpg", data, "image/jpeg")}, data=form)
+
+        first = post("4d5e6f70-8192-4a3b-8c4d-5e6f70819203")
+        replay = post("4d5e6f70-8192-4a3b-8c4d-5e6f70819203")
+        own = post(None)  # the same bytes again: the #1770 dedup hands back the same record
+
+        assert (first.status_code, replay.status_code) == (201, 200)
+        assert own.json()["attachment_id"] == first.json()["attachment_id"]
+        assert fed == [first.json()["attachment_id"]]
+        assert len(att_repo._store) == 1

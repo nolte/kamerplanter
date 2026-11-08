@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from arango import ArangoClient
 
-from app.common.exceptions import DuplicateError, NotFoundError, PlanError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, PlanError, TaskAlreadyClosedError, ValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.task_completion_repository import ArangoTaskCompletionRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
@@ -221,7 +221,7 @@ class TestComplete:
             assert count(db, name) == 0, name
 
     def test_a_batch_is_all_or_nothing(self, db, repo) -> None:
-        with pytest.raises(ValidationError):
+        with pytest.raises(TaskAlreadyClosedError):  # 409 task.already_closed since REQ-053 WP 9.3
             repo.complete([completion("t1"), completion("t_done")], tenant_key=A)
 
         assert db.collection(col.TASKS).get("t1")["status"] == "pending"  # the first task was rolled back
@@ -236,7 +236,8 @@ class TestComplete:
 
     def test_a_task_that_is_no_longer_open_is_refused_inside_the_transaction(self, db, repo) -> None:
         # The service judged "pending" before it opened the transaction; a concurrent completion won the race.
-        with pytest.raises(ValidationError):
+        # REQ-053 WP 9.3: the stable conflict reason, 409 task.already_closed.
+        with pytest.raises(TaskAlreadyClosedError):
             repo.complete([completion("t_done")], tenant_key=A)
 
         nothing_was_written(db)

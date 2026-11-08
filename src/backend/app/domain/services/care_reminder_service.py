@@ -42,6 +42,7 @@ from app.domain.models.care_reminder import (
     CareDashboardEntry,
     CareProfile,
 )
+from app.domain.models.client_event import is_client_event_conflict
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.plant_instance import PlantInstance
@@ -1281,6 +1282,7 @@ class CareReminderService:
         task: Task,
         *,
         tenant_key: str,
+        completion_client_event_id: str | None = None,
     ) -> Task | None:
         """Mirror a completed care-reminder task into the plant's care state (REQ-022).
 
@@ -1299,12 +1301,21 @@ class CareReminderService:
         Non-care tasks, non-plant entities, foreign tasks/plants and plants without
         a care profile are no-ops. Returns the newly scheduled follow-up watering
         task, or ``None``.
+
+        REQ-053 WP 9.3: a buffered completion (``completion_client_event_id``, the id of the completing *request* -
+        never read from the task, whose stored id may be an earlier completion's) confirms exactly once. Its replay
+        runs this again - a first attempt may have died between the commit and this follow-up - and a confirmation
+        that is there already is written neither twice nor with a second watering log. The next occurrence keeps
+        its own dedup (#768) and is tried again.
         """
         context = self._resolve_care_task_context(task, tenant_key)
         if context is None:
             return None
         plant_key, profile, reminder_type = context
 
+        completion_id = completion_client_event_id
+        if completion_id and self._repo.find_confirmation_by_completion(plant_key, completion_id) is not None:
+            return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
         confirmation = CareConfirmation(
             plant_key=plant_key,
             care_profile_key=profile.key or "",
@@ -1314,20 +1325,37 @@ class CareReminderService:
             task_key=task.key,
             notes=task.completion_notes,
             interval_at_time=self._engine._get_interval_days(profile, reminder_type),
+            completion_client_event_id=completion_id,
         )
-        self._repo.create_confirmation_logged(
-            confirmation,
-            profile_key=profile.key or "",
-            plant_key=plant_key,
-            event_for=self._bed_event_for(
-                self._owned_plant(plant_key, tenant_key),
-                reminder_type,
-                tenant_key=tenant_key,
-                performed_at=confirmation.confirmed_at,
-            ),
-        )
+        try:
+            self._repo.create_confirmation_logged(
+                confirmation,
+                profile_key=profile.key or "",
+                plant_key=plant_key,
+                event_for=self._bed_event_for(
+                    self._owned_plant(plant_key, tenant_key),
+                    reminder_type,
+                    tenant_key=tenant_key,
+                    performed_at=confirmation.confirmed_at,
+                ),
+            )
+        except DuplicateError as exc:
+            # A concurrent replay of the same completion confirmed first (the unique index of v0106).
+            if not (completion_id and is_client_event_conflict(exc.details)):
+                raise
+            return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
+        except WriteConflictError:
+            # 1200: the twin's confirmation may still be uncommitted - only a confirmation that is there now counts.
+            if not completion_id or self._repo.find_confirmation_by_completion(plant_key, completion_id) is None:
+                raise
+            return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
         self.complete_care_task_with_log(task.key or "", plant_key, reminder_type, tenant_key=tenant_key)
+        return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
 
+    def _next_watering_after(
+        self, profile: CareProfile, reminder_type: ReminderType, task: Task, *, tenant_key: str
+    ) -> Task | None:
+        """The next watering occurrence after a confirmed watering task; ``None`` for every other reminder."""
         if reminder_type != ReminderType.WATERING:
             return None
 

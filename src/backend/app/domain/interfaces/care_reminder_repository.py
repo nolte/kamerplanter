@@ -56,6 +56,15 @@ class ICareReminderRepository(ABC):
     @abstractmethod
     def create_confirmation(self, confirmation: CareConfirmation) -> CareConfirmation: ...
 
+    def find_confirmation_by_completion(
+        self, plant_key: str, completion_client_event_id: str
+    ) -> CareConfirmation | None:
+        """The confirmation a buffered task completion already recorded for ``plant_key`` (REQ-053 WP 9.3).
+
+        Not abstract: a repository that keeps no such marker finds none, and the follow-up then runs as before.
+        """
+        return None
+
     @abstractmethod
     def create_confirmation_logged(
         self,

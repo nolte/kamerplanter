@@ -133,11 +133,17 @@ def list_care_events(
     response_model=CareEventResponse,
     status_code=201,
     summary="Log a care event without a task",
-    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **VALIDATION_RESPONSE,
+        200: {"model": CareEventResponse, "description": "A replay: `client_event_id` names a stored event."},
+        409: {"description": "`client_event.payload_mismatch`: the `client_event_id` names a different request."},
+    },
 )
 @limiter.limit(settings.rate_limit_care_events, key_func=user_rate_limit_key)
 def create_care_event(
     request: Request,
+    response: Response,
     body: CareEventCreate,
     ctx: TenantContext = Depends(require_permission(ResourceType.CARE_EVENT, Action.CREATE)),
     service: CareEventService = Depends(get_care_event_service),
@@ -147,14 +153,20 @@ def create_care_event(
     `trigger` is `manual` or `observation`; every other trigger, `task_key`, `source_ref` and the server-only
     categories are refused. 404 for a foreign bed; 422 `reference.not_found` for a plant outside the bed, a foreign
     photo, product or member; 422 `care_event.performed_in_future` / `care_event.too_old` (V-11).
+
+    `client_event_id` (a UUID the client makes once per buffered write, optional): a replay with the same id and the
+    same body answers **200** with the stored event instead of a second one; the same id with another body, or from
+    another member, is 409 `client_event.payload_mismatch`. `performed_at` is the capture time.
     """
-    view = service.create(
+    logged = service.log(
         body,
         tenant_key=ctx.tenant_key,
         user_key=ctx.user_key,
         role=ctx.role,
     )
-    return care_event_to_response(view)
+    if logged.replayed:
+        response.status_code = 200
+    return care_event_to_response(logged.view)
 
 
 @router.get("/{key}", response_model=CareEventResponse, summary="One care event with its supersede chain")
