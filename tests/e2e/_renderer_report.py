@@ -21,12 +21,16 @@ visible objects, or a frame time over 16 ms while dragging**. Read here as:
 * the object count is judged on the **large** class only - the synthetic plan is built *at* 3 000 visible objects
   to measure the frame time there; its count is its premise, not a finding;
 * the frame time is the drag's p95 against 16 ms on **every** profile, with the probe's refresh tolerance
-  (``_inp_probe.VSYNC_TOLERANCE``: an idle 60 Hz page already reads 16.7 ms per frame);
+  (``_frame_budget.frame_bound``: an idle 60 Hz page already reads 16.7 ms per frame);
 * a measured violation is a Go even when another record is missing; without one, a missing record or an
   unavailable CPU throttle leaves the decision **open** instead of reading as No-Go.
 
-The placeholder assumption (3) of #2759 narrows the Go to a violation on the **mobile** profile (CPU 4x); the
-report shows that reading next to the literal one. Which one counts is the operator's call (question 3).
+The placeholder assumption (3) of #2759 narrows the Go to a violation on the **mobile** profile (CPU 4x); in that
+reading the drag is held against the phone budget of GP-NFR-033 (33 ms), not the laptop's 16 ms. The report shows
+it next to the literal reading, which stays the primary line.
+
+Only the records of **one** run count (``run_id``, the latest run unless ``--run-id`` names another); a directory
+input is read without its subfolders. Which one counts is the operator's call (question 3).
 
 Standard library only: it runs on a bare CI runner after the suite, without the E2E extras.
 """
@@ -42,6 +46,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+try:  # as part of the tests.e2e package (the E2E suite, the self-tests)
+    from ._frame_budget import D01_DRAG_FRAME_MS, VSYNC_TOLERANCE, frame_bound
+except ImportError:  # run as a script: its own directory is on sys.path
+    from _frame_budget import D01_DRAG_FRAME_MS, VSYNC_TOLERANCE, frame_bound
+
 RECORD_PROPERTY = "renderer_record"
 RECORD_FILE_PREFIX = "renderer-profile-"
 RECORD_SCHEMA = 1
@@ -54,11 +63,16 @@ CASE_TITLES = {
 }
 PROFILE_TITLES = {"desktop": "Desktop", "mobile": "Mobile (CPU 4×)"}
 
-#: D-01 / GP-NFR-013.
+#: D-01 / GP-NFR-013 (the 16 ms drag threshold and the tolerance rule live in ``_frame_budget``).
 D01_VISIBLE_OBJECTS = 3000
-D01_DRAG_FRAME_MS = 16.0
-#: Mirrors ``_inp_probe.VSYNC_TOLERANCE`` (this script must not import Selenium).
-VSYNC_TOLERANCE = 0.1
+__all__ = [
+    "D01_DRAG_FRAME_MS",
+    "D01_VISIBLE_OBJECTS",
+    "VSYNC_TOLERANCE",
+    "decide",
+    "load_records",
+    "render",
+]
 
 #: The repository root when the module runs from a checkout (tests/e2e/<this>); inside the E2E container the file
 #: sits at /app/<this> and there is no repository above it - the report is then written next to the records.
@@ -86,8 +100,9 @@ def _files(paths: Iterable[Path]) -> list[Path]:
     found: list[Path] = []
     for path in paths:
         if path.is_dir():
-            found += sorted(path.rglob(f"{RECORD_FILE_PREFIX}*.json"))
-            found += sorted(path.rglob("junit*.xml"))
+            # This directory only, never its subfolders: older runs' sidecars live in timestamped subfolders.
+            found += sorted(path.glob(f"{RECORD_FILE_PREFIX}*.json"))
+            found += sorted(path.glob("junit*.xml"))
         elif path.is_file():
             found.append(path)
         else:
@@ -95,24 +110,37 @@ def _files(paths: Iterable[Path]) -> list[Path]:
     return found
 
 
-def load_records(paths: Iterable[Path]) -> tuple[list[dict], list[Path]]:
-    """Every record in *paths*; one per (case, profile), the latest ``recorded_at`` winning; the sources read."""
-    latest: dict[tuple[str, str], dict] = {}
-    sources: list[Path] = []
+def load_records(
+    paths: Iterable[Path], *, run_id: str | None = None
+) -> tuple[list[dict], list[Path]]:
+    """The records of **one** run in *paths*: *run_id*, else the run with the latest record. One per (case,
+    profile), the latest ``recorded_at`` winning; the sources that contributed. A case the run did not measure
+    is simply absent - the decision reports it as open, never as a value of another run."""
+    found: list[tuple[Path, dict]] = []
     for path in _files(paths):
         records = _records_from_junit(path) if path.suffix == ".xml" else _records_from_json(path)
-        records = [record for record in records if isinstance(record, dict)]
-        if not records:
-            continue
-        sources.append(path)
         for record in records:
+            if not isinstance(record, dict):
+                continue
             if record.get("schema") != RECORD_SCHEMA:
                 raise ValueError(f"{path}: a renderer record of schema {record.get('schema')!r}")
-            key = (str(record["case"]), str(record["profile"]))
-            if key not in latest or str(record.get("recorded_at", "")) > str(
-                latest[key].get("recorded_at", "")
-            ):
-                latest[key] = record
+            found.append((path, record))
+    if found and run_id is None:
+        run_id = str(
+            max(found, key=lambda item: str(item[1].get("recorded_at", "")))[1].get("run_id")
+        )
+    latest: dict[tuple[str, str], dict] = {}
+    sources: list[Path] = []
+    for path, record in found:
+        if str(record.get("run_id")) != run_id:
+            continue
+        if path not in sources:
+            sources.append(path)
+        key = (str(record["case"]), str(record["profile"]))
+        if key not in latest or str(record.get("recorded_at", "")) > str(
+            latest[key].get("recorded_at", "")
+        ):
+            latest[key] = record
     ordered = sorted(
         latest.values(),
         key=lambda r: (_rank(CASES, r["case"]), _rank(PROFILES, r["profile"])),
@@ -141,18 +169,25 @@ def max_visible(record: dict) -> int:
     )
 
 
-def drag_bound(record: dict) -> float:
+def drag_threshold(record: dict, *, profile_budget: bool) -> float:
+    """D-01's 16 ms, or with *profile_budget* the profile's own (GP-NFR-033: 16 ms laptop, 33 ms phone)."""
+    if profile_budget:
+        drag = gesture(record, "drag") or {}
+        return float(drag.get("frame_budget_ms") or record.get("budget_ms") or D01_DRAG_FRAME_MS)
+    return D01_DRAG_FRAME_MS
+
+
+def drag_bound(record: dict, *, profile_budget: bool = False) -> float:
     drag = gesture(record, "drag") or {}
-    vsync = drag.get("vsync_ms")
-    return D01_DRAG_FRAME_MS + (VSYNC_TOLERANCE * float(vsync) if vsync else 0.0)
+    return frame_bound(drag_threshold(record, profile_budget=profile_budget), drag.get("vsync_ms"))
 
 
-def drag_violates(record: dict) -> bool | None:
-    """``True`` = drag p95 over D-01's 16 ms, ``None`` = no drag frame time recorded."""
+def drag_violates(record: dict, *, profile_budget: bool = False) -> bool | None:
+    """``True`` = drag p95 over the threshold, ``None`` = no drag frame time recorded."""
     drag = gesture(record, "drag")
     if not drag or drag.get("frame_p95_ms") is None:
         return None
-    return float(drag["frame_p95_ms"]) > drag_bound(record)
+    return float(drag["frame_p95_ms"]) > drag_bound(record, profile_budget=profile_budget)
 
 
 def is_throttled(record: dict) -> bool:
@@ -168,7 +203,9 @@ class Reading:
     gaps: list[str] = field(default_factory=list)
 
 
-def _read_d01(records: list[dict], profiles: tuple[str, ...]) -> Reading:
+def _read_d01(
+    records: list[dict], profiles: tuple[str, ...], *, profile_budget: bool = False
+) -> Reading:
     reading = Reading(verdict="No-Go")
     by_key = {(r["case"], r["profile"]): r for r in records}
     for case in CASES:
@@ -182,14 +219,16 @@ def _read_d01(records: list[dict], profiles: tuple[str, ...]) -> Reading:
                 reading.gaps.append(
                     f"{label}: CPU-Drosselung nicht verfügbar, ungedrosselt gemessen"
                 )
-            violated = drag_violates(record)
+            violated = drag_violates(record, profile_budget=profile_budget)
             if violated is None:
                 reading.gaps.append(f"{label}: keine Drag-Frametime")
             elif violated:
                 p95 = float(gesture(record, "drag")["frame_p95_ms"])
+                threshold = drag_threshold(record, profile_budget=profile_budget)
+                bound = drag_bound(record, profile_budget=profile_budget)
                 reading.reasons.append(
-                    f"{label}: Drag-Frametime p95 {p95:.1f} ms > {D01_DRAG_FRAME_MS:g} ms "
-                    f"(Grenze mit Bildwechsel-Toleranz {drag_bound(record):.1f} ms)"
+                    f"{label}: Drag-Frametime p95 {p95:.1f} ms > {threshold:g} ms "
+                    f"(Grenze mit Bildwechsel-Toleranz {bound:.1f} ms)"
                 )
             if case == "large" and max_visible(record) > D01_VISIBLE_OBJECTS:
                 reading.reasons.append(
@@ -203,10 +242,13 @@ def _read_d01(records: list[dict], profiles: tuple[str, ...]) -> Reading:
 
 
 def decide(records: list[dict]) -> tuple[Reading, Reading]:
-    """D-01 as written (every profile) and as placeholder (3) of #2759 narrows it (mobile profile only)."""
+    """D-01 as written (every profile, 16 ms) and as placeholder (3) of #2759 narrows it: the mobile profile only,
+    its drag held against the phone budget of GP-NFR-033 (33 ms), not D-01's laptop 16 ms."""
     literal = _read_d01(records, PROFILES)
     # A mobile record measured un-throttled is not "the mobile profile": it counts as missing here.
-    mobile = _read_d01([record for record in records if is_throttled(record)], ("mobile",))
+    mobile = _read_d01(
+        [record for record in records if is_throttled(record)], ("mobile",), profile_budget=True
+    )
     return literal, mobile
 
 
@@ -222,7 +264,7 @@ def _budget_cell(item: dict) -> str:
     p95, budget = item.get("frame_p95_ms"), item.get("frame_budget_ms")
     if p95 is None or budget is None:
         return "keine Messung"
-    bound = float(budget) + VSYNC_TOLERANCE * float(item.get("vsync_ms") or 0.0)
+    bound = frame_bound(float(budget), item.get("vsync_ms"))
     return "über Budget" if float(p95) > bound else "im Budget"
 
 
@@ -236,12 +278,13 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         "",
         f"**Go/No-Go für WP 9.7 (D-01 wörtlich):** {literal.verdict}",
         "",
-        f"**Lesart Platzhalter (3) aus #2759 (nur Mobile-Profil, CPU 4×):** {mobile.verdict}",
+        f"**Lesart Platzhalter (3) aus #2759 (nur Mobile-Profil, CPU 4×, Drag gegen das Telefon-Budget "
+        f"33 ms aus GP-NFR-033):** {mobile.verdict}",
         "",
         "## Messwerte",
         "",
         "| Fall | Profil | CPU | Viewport | gespeichert (Beete/Slots/Pflanzen) | sichtbar Fit / gezoomt | Geste "
-        "| Frames | p95 ms | max ms | Budget ms | GP-NFR-033/034 |",
+        "| Frames im Fenster / erfasst | p95 ms | max ms | Budget ms | GP-NFR-033/034 |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for record in records:
@@ -250,6 +293,8 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         fit = (record.get("census_fit") or {}).get("visible_objects", "–")
         zoomed = (record.get("census_zoomed") or {}).get("visible_objects", "–")
         viewport = "×".join(str(v) for v in record.get("viewport") or []) or "–"
+        if record.get("canvas_px"):
+            viewport += " (Canvas " + "×".join(str(v) for v in record["canvas_px"]) + ")"
         cpu = f"{record.get('cpu_slowdown', 1)}×"
         if record.get("throttle") == "unavailable":
             cpu += " (Drosselung nicht verfügbar)"
@@ -257,7 +302,8 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
             lines.append(
                 f"| {CASE_TITLES.get(record['case'], record['case'])} "
                 f"| {PROFILE_TITLES.get(record['profile'], record['profile'])} | {cpu} | {viewport} "
-                f"| {stored} | {fit} / {zoomed} | {item.get('name')} | {item.get('frames', 0)} "
+                f"| {stored} | {fit} / {zoomed} | {item.get('name')} "
+                f"| {item.get('frames', 0)} / {item.get('frames_recorded', '–')} "
                 f"| {_ms(item.get('frame_p95_ms'))} | {_ms(item.get('frame_max_ms'))} "
                 f"| {_ms(item.get('frame_budget_ms'))} | {_budget_cell(item)} |"
             )
@@ -265,7 +311,10 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         lines.append("| – | – | – | – | – | – | – | – | – | – | – | keine Messung |")
 
     lines += ["", "## Entscheidung", ""]
-    for title, reading in (("D-01 wörtlich", literal), ("Platzhalter (3), nur Mobile", mobile)):
+    for title, reading in (
+        ("D-01 wörtlich (Drag gegen 16 ms, alle Profile)", literal),
+        ("Platzhalter (3), nur Mobile (Drag gegen 33 ms)", mobile),
+    ):
         lines.append(f"**{title}: {reading.verdict}**")
         lines.append("")
         for reason in reading.reasons:
@@ -308,12 +357,16 @@ def render(records: list[dict], *, date: str, sources: list[Path]) -> str:
         "(`tests/e2e/_inp_probe.py`), 95. Perzentil nach Rangverfahren. Ein leerlaufender 60-Hz-Browser liest "
         "16,7 ms je Bild; eine Grenze gilt deshalb mit einer Toleranz von 10 % des gemessenen Leerlauf-Bildabstands "
         "als eingehalten (16,7 ms = kein Bild verloren).",
-        "- Drag: ein Beet nahe der Canvas-Mitte, 30 Zeigerbewegungen à 16 ms hin und zurück, Netto-Versatz klein; "
+        "- Fenster einer Geste: die Seite stempelt jedes Zeiger- und Mausrad-Ereignis; gewertet werden nur Bilder, "
+        "die nach dem ersten Ereignis enden, bis einschließlich des ersten Bildes nach dem letzten Ereignis. Bilder "
+        "davor (WebDriver-Rundlauf) und danach (Warten auf den Effekt) sind erfasst, aber nicht gewertet.",
+        "- Drag: ein Beet nahe der Canvas-Mitte, 30 Zeigerbewegungen à 16 ms hin und zurück, Netto-Versatz 2 px; "
         "danach Rückgängig. Zoom: Strg + Mausrad, 10 Rasten hinein und 10 heraus im Abstand von 40 ms, ab der "
         "Fit-Ansicht (überquert die Marker-LOD-Schwelle).",
         "- Sichtbare Objekte: was der SVG-Renderer nach Culling (20 % Rand) und LOD gezeichnet hat — Beete, "
         "Gartenobjekte, jeder Marker (einzeln oder gebündelt), jeder Cluster; die Grenze zählt nicht.",
-        "- Profile: Desktop = Fenster 1920 × 1080 ohne Drosselung (Budget 16 ms); Mobile = Viewport 390 × 844 im "
+        "- Profile: Desktop = Fenster 1920 × 1080 (gesetzt; Viewport und Canvas-Größe stehen im Datensatz) ohne "
+        "Drosselung (Budget 16 ms); Mobile = Viewport 390 × 844 im "
         "Planungsmodus, CPU über CDP `Emulation.setCPUThrottlingRate` 4× gedrosselt (Budget 33 ms).",
         "- Beratend: eine Überschreitung ist eine Warnung im Testlauf, kein Fehler. Die Messung läuft im "
         "Selenium-Grid neben anderen Workern; Ausreißer sind möglich, eine knappe Entscheidung ist zu wiederholen.",
@@ -340,6 +393,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--date", default=datetime.now(UTC).date().isoformat())
     parser.add_argument(
+        "--run-id", default=None, help="the run to report (default: the latest one)"
+    )
+    parser.add_argument(
         "--output",
         default=None,
         help="target file, '-' for stdout (default: .audits/req-053/renderer-measurement-<date>.md)",
@@ -350,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
         help="exit 0 when the inputs hold no renderer record (a profile that skips the measurement)",
     )
     args = parser.parse_args(argv)
-    records, sources = load_records(args.inputs)
+    records, sources = load_records(args.inputs, run_id=args.run_id)
     if not records and not args.allow_empty:
         print(f"no '{RECORD_PROPERTY}' record in {[str(p) for p in args.inputs]}", file=sys.stderr)
         return 1

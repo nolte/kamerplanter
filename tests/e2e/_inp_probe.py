@@ -12,10 +12,12 @@ What is measured, and with which instrument
   gesture runs (pinch-zoom probe).
 * **Frame time of a drag and a zoom gesture** on a large plan (GP-NFR-033/034, the renderer measurement D-01 of
   WP 9.6): the same loop, read through :meth:`InpProbe.read_gesture` against a budget of 16 ms (laptop) or 33 ms
-  (phone). A ``requestAnimationFrame`` gap is a whole number of display refreshes - at 60 Hz an idle page already
-  reads 16.7 ms - so the bound is judged with a tolerance of a tenth of the page's own idle refresh interval
-  (:meth:`InpProbe.frame_cadence_ms`): 16.7 ms is "one refresh, no frame dropped" and within 16 ms, 33.3 ms is one
-  dropped frame and over it.
+  (phone), judged by :func:`_frame_budget.frame_bound` (budget plus a tenth of the idle refresh interval,
+  :meth:`InpProbe.frame_cadence_ms`). Only the frames **of the gesture** count: the page records the timestamp of
+  every pointer and wheel event, and a gesture's frames are those ending after its first input, up to and
+  including the first frame ending after its last input (the frame that presents it). Frames before the input
+  arrives (the WebDriver round trip) and after it (the effect polls, the settle) are recorded but not judged -
+  they would dilute the p95 with idle refreshes.
 * **CPU 4x throttling** (the low-end Android profile) through the CDP command ``Emulation.setCPUThrottlingRate``.
   Selenium's ``Remote`` driver has no ``execute_cdp_cmd``; chromedriver (behind the Grid too) serves the command at
   ``/session/<id>/goog/cdp/execute``, which is registered here. When the browser refuses it the profile is
@@ -35,21 +37,27 @@ from typing import Any
 
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._frame_budget import (
+    LAPTOP_FRAME_BUDGET_MS,
+    PHONE_FRAME_BUDGET_MS,
+    VSYNC_TOLERANCE,
+    frame_bound,
+)
+
 #: GP-NFR-071.
 INP_BUDGET_MS = 200
 FRAME_BUDGET_MS = 33
-#: GP-NFR-033/034: one frame at 60 fps on a mid-range laptop, two on a mid-range phone.
-LAPTOP_FRAME_BUDGET_MS = 16
-PHONE_FRAME_BUDGET_MS = 33
-#: The share of the idle refresh interval a frame gap may exceed its budget by (see the module docstring).
-VSYNC_TOLERANCE = 0.1
 #: Event Timing reports nothing shorter than this.
 INP_FLOOR_MS = 16
 CPU_SLOWDOWN = 4
 
 _INSTALL = """
 if (window.__kpInp && window.__kpInp.observer) { window.__kpInp.reset(); return true; }
-const probe = { interactions: new Map(), frames: [], rafId: 0, last: 0, observer: null };
+const probe = { interactions: new Map(), frames: [], frameEnds: [], inputs: [], rafId: 0, last: 0, observer: null };
+const mark = (e) => { if (probe.rafId) probe.inputs.push(e.timeStamp); };
+for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel']) {
+  window.addEventListener(type, mark, { capture: true, passive: true });
+}
 probe.consume = function (entries) {
   for (const e of entries) {
     if (!e.interactionId) continue;
@@ -65,18 +73,22 @@ probe.reset = function () {
   probe.consume(probe.observer.takeRecords());
   probe.interactions.clear();
   probe.frames = [];
+  probe.frameEnds = [];
+  probe.inputs = [];
 };
 probe.startFrames = function () {
   probe.frames = [];
+  probe.frameEnds = [];
+  probe.inputs = [];
   probe.last = 0;
   const tick = (t) => {
-    if (probe.last) probe.frames.push(t - probe.last);
+    if (probe.last) { probe.frames.push(t - probe.last); probe.frameEnds.push(t); }
     probe.last = t;
     probe.rafId = requestAnimationFrame(tick);
   };
   probe.rafId = requestAnimationFrame(tick);
 };
-probe.stopFrames = function () { cancelAnimationFrame(probe.rafId); };
+probe.stopFrames = function () { cancelAnimationFrame(probe.rafId); probe.rafId = 0; };
 probe.cadence = function (ms, done) {
   const gaps = [];
   let last = 0;
@@ -111,6 +123,8 @@ p.consume(p.observer.takeRecords());
 return {
   interactions: Array.from(p.interactions.values()),
   frames: p.frames.slice(),
+  frame_ends: (p.frameEnds || []).slice(),
+  inputs: (p.inputs || []).slice(),
   supported: PerformanceObserver.supportedEntryTypes.includes('event'),
 };
 """
@@ -133,6 +147,9 @@ class Measurement:
     frame_budget_ms: float | None = None
     #: The page's idle ``requestAnimationFrame`` interval; ``None`` = not measured, the bound has no tolerance.
     vsync_ms: float | None = None
+    #: A gesture: every frame the loop recorded, of which ``frames`` fell in the gesture's window; its inputs.
+    frames_recorded: int | None = None
+    inputs: int | None = None
 
     def inp_text(self) -> str:
         return f"< {INP_FLOOR_MS}" if self.inp_ms is None else f"{self.inp_ms:.0f}"
@@ -141,9 +158,8 @@ class Measurement:
         return FRAME_BUDGET_MS if self.frame_budget_ms is None else self.frame_budget_ms
 
     def frame_bound(self) -> float:
-        """The value the frame p95 is held against: the budget plus the refresh tolerance."""
-        tolerance = 0.0 if self.vsync_ms is None else VSYNC_TOLERANCE * self.vsync_ms
-        return self.frame_budget() + tolerance
+        """The value the frame p95 is held against (:func:`_frame_budget.frame_bound`)."""
+        return frame_bound(self.frame_budget(), self.vsync_ms)
 
     def exceeded(self) -> list[str]:
         """The advisory bounds this scenario is over (empty = within)."""
@@ -168,6 +184,8 @@ class Measurement:
             "cpu_slowdown": self.cpu_slowdown,
             "frame_budget_ms": self.frame_budget(),
             "vsync_ms": self.vsync_ms,
+            "frames_recorded": self.frames_recorded,
+            "inputs": self.inputs,
             "exceeded": self.exceeded(),
             "notes": self.notes,
         }
@@ -198,6 +216,9 @@ class InpProbe:
         """The scenario's result; raises when the measurement itself is broken."""
         # Event Timing entries are dispatched after the next presentation: let two frames and a task pass first.
         self.driver.execute_async_script(_SETTLE)
+        return self._measure(self._data(name), name, cpu_slowdown, expect_frames)
+
+    def _data(self, name: str) -> dict:
         data = self.driver.execute_script(_READ)
         if data is None:
             raise AssertionError(f"{name}: the INP probe is gone (the page navigated mid-scenario)")
@@ -205,6 +226,10 @@ class InpProbe:
             raise AssertionError(
                 f"{name}: this browser has no Event Timing API; INP cannot be measured"
             )
+        return data
+
+    @staticmethod
+    def _measure(data: dict, name: str, cpu_slowdown: int, expect_frames: bool) -> Measurement:
         durations = [float(item["duration"]) for item in data["interactions"]]
         frames = [float(gap) for gap in data["frames"]]
         result = Measurement(
@@ -243,16 +268,47 @@ class InpProbe:
     ) -> Measurement:
         """The frame time of the gesture since :meth:`start_frames`, held against *budget_ms* (GP-NFR-033/034).
 
-        Lets the trailing render of the gesture land first (two frames and a task, the same settle as
-        :meth:`read`), then stops the frame loop. A gesture that recorded no frame is a broken measurement and
+        Lets the trailing render land (one settle: two frames and a task), stops the loop and keeps the frames of
+        the gesture's window only (see the module docstring); ``frames_recorded`` says how many the loop saw. A
+        gesture whose input never reached the page, or with no frame in its window, is a broken measurement and
         raises.
         """
         self.driver.execute_async_script(_SETTLE)
         self.stop_frames()
-        result = self.read(name, cpu_slowdown=cpu_slowdown, expect_frames=True)
+        data = self._data(name)
+        recorded = len(data.get("frames") or [])
+        data = {**data, "frames": gesture_frames(data, name)}
+        result = self._measure(data, name, cpu_slowdown, expect_frames=True)
         result.frame_budget_ms = float(budget_ms)
         result.vsync_ms = vsync_ms
+        result.frames_recorded = recorded
+        result.inputs = len(data.get("inputs") or [])
         return result
+
+
+def gesture_frames(data: dict, name: str) -> list[float]:
+    """The frame gaps of the gesture's window: frames ending after its first input, up to and including the first
+    frame ending after its last input. Loud when the page saw no input while recording."""
+    inputs = [float(t) for t in data.get("inputs") or []]
+    gaps = [float(g) for g in data.get("frames") or []]
+    ends = [float(t) for t in data.get("frame_ends") or []]
+    if not inputs:
+        raise AssertionError(
+            f"{name}: the page recorded no pointer or wheel input during the gesture"
+        )
+    if len(ends) != len(gaps):
+        raise AssertionError(
+            f"{name}: the frame probe lost the frame timestamps (old probe on the page?)"
+        )
+    first, last = min(inputs), max(inputs)
+    window: list[float] = []
+    for gap, end in zip(gaps, ends, strict=True):
+        if end <= first:
+            continue
+        window.append(gap)
+        if end > last:
+            break
+    return window
 
 
 # ── CPU throttling ─────────────────────────────────────────────────────────
@@ -311,6 +367,8 @@ __all__ = [
     "LAPTOP_FRAME_BUDGET_MS",
     "PHONE_FRAME_BUDGET_MS",
     "VSYNC_TOLERANCE",
+    "frame_bound",
+    "gesture_frames",
     "InpProbe",
     "Measurement",
     "report_json",

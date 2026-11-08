@@ -2632,7 +2632,7 @@ sich das Go/No-Go für den zweiten Renderer (WP 9.7) ergibt.
 **Category**: Performance
 **Preconditions**:
 - Plan „large“: 250 Beete (1,2 × 2 m) mit je 20 Positionen, auf jeder eine Pflanze (5 000 Pflanzen)
-- Plan „3 000 Objekte“: 30 Beete (3 × 3 m) mit je 100 Pflanzen, so dicht angeordnet, dass auf dem Desktop in der Gesamtansicht jede Pflanze einzeln gezeichnet wird (30 + 3 000 = 3 030 sichtbare Objekte); auf dem Smartphone zeigt die Gesamtansicht nur Beete und Cluster
+- Plan „3 000 Objekte“: 30 Beete (3,3 × 3 m, rechts ein pflanzenfreier Streifen von 0,3 m als Griff für den Drag) mit je 100 Pflanzen, so dicht angeordnet, dass auf dem Desktop in der Gesamtansicht jede Pflanze einzeln gezeichnet wird (30 + 3 000 = 3 030 sichtbare Objekte); auf dem Smartphone zeigt die Gesamtansicht nur Beete und Cluster
 - Chrome; für das Mobile-Profil eine Sitzung, die die CDP-Drosselung zulässt
 
 **Testschritte**:

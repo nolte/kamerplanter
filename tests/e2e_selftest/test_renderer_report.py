@@ -25,9 +25,11 @@ def _record(
     visible=500,
     throttle=None,
     at="2026-11-08T10:00",
+    run_id="run-b",
 ):
     return {
         "schema": report.RECORD_SCHEMA,
+        "run_id": run_id,
         "case": case,
         "profile": profile,
         "cpu_slowdown": 4 if profile == "mobile" else 1,
@@ -173,12 +175,6 @@ def test_a_record_of_another_schema_is_refused(tmp_path: Path) -> None:
         report.load_records([tmp_path])
 
 
-def test_the_tolerance_mirrors_the_probe() -> None:
-    from tests.e2e._inp_probe import VSYNC_TOLERANCE
-
-    assert report.VSYNC_TOLERANCE == VSYNC_TOLERANCE
-
-
 def test_the_budget_column_holds_each_gesture_against_its_own_budget() -> None:
     records = _complete(
         {("large", "mobile"): {"drag_p95": 33.3}, ("large", "desktop"): {"drag_p95": 33.3}}
@@ -197,3 +193,50 @@ def test_the_budget_column_holds_each_gesture_against_its_own_budget() -> None:
 def test_the_report_says_the_phone_cannot_show_3000_at_fit() -> None:
     text = report.render(_complete(), date="2026-11-08", sources=[])
     assert "kann der Plan „3 000 Objekte“ in der Gesamtansicht keine 3 000 Objekte zeigen" in text
+
+
+def test_the_mobile_reading_holds_the_drag_against_the_phone_budget() -> None:
+    # 25 ms: over D-01's 16 ms (literal Go), within the phone's 33 ms (placeholder reading No-Go).
+    literal, mobile = report.decide(_complete({("large", "mobile"): {"drag_p95": 25.0}}))
+    assert (literal.verdict, mobile.verdict) == ("Go", "No-Go")
+
+
+def test_only_the_latest_run_is_reported(tmp_path: Path) -> None:
+    older = [
+        _record(case, profile, run_id="run-a", at="2026-11-07T10:00", drag_p95=99.0)
+        for case in report.CASES
+        for profile in report.PROFILES
+    ]
+    newer = [_record("large", "desktop", run_id="run-b", at="2026-11-08T10:00")]
+    (tmp_path / f"{report.RECORD_FILE_PREFIX}old.json").write_text(
+        json.dumps(older), encoding="utf-8"
+    )
+    (tmp_path / f"{report.RECORD_FILE_PREFIX}new.json").write_text(
+        json.dumps(newer), encoding="utf-8"
+    )
+    records, sources = report.load_records([tmp_path])
+    assert [(r["case"], r["profile"], r["run_id"]) for r in records] == [
+        ("large", "desktop", "run-b")
+    ]
+    assert [p.name for p in sources] == [f"{report.RECORD_FILE_PREFIX}new.json"]
+    literal, _ = report.decide(records)
+    assert literal.verdict == "offen", (
+        "the cases the latest run did not measure are open, not run-a's values"
+    )
+    chosen, _ = report.load_records([tmp_path], run_id="run-a")
+    assert len(chosen) == 4
+
+
+def test_a_directory_is_read_without_its_subfolders(tmp_path: Path) -> None:
+    (tmp_path / "old-run").mkdir()
+    (tmp_path / "old-run" / f"{report.RECORD_FILE_PREFIX}large-desktop.json").write_text(
+        json.dumps(_record()), encoding="utf-8"
+    )
+    records, _ = report.load_records([tmp_path])
+    assert records == []
+
+
+def test_the_report_and_the_probe_share_one_bound() -> None:
+    from tests.e2e import _frame_budget, _inp_probe
+
+    assert report.frame_bound is _frame_budget.frame_bound is _inp_probe.frame_bound

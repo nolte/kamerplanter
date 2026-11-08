@@ -640,6 +640,14 @@ class GardenPlanPage(BasePage):
         )
         return counts
 
+    def svg_size_px(self) -> tuple[int, int]:
+        """The drawn size of the plan SVG in CSS px (what the renderer's viewport covers)."""
+        size = self.driver.execute_script(
+            "var r = arguments[0].getBoundingClientRect(); return [r.width, r.height];",
+            self.wait_for_element(self.SVG),
+        )
+        return round(float(size[0])), round(float(size[1]))
+
     def canvas_centre(self) -> ScreenPoint:
         """The centre of the part of the canvas inside the viewport (CSS px), checked to hit the plan SVG."""
         self._bring_canvas_into_view()

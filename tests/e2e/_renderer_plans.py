@@ -7,7 +7,8 @@ Two plans, both arranged through the application's own API (`test-pyramid-founda
   0.3 x 0.35 m grid, and a plant on every slot - 5 000 plants. That is the load the issue names ("250 Beete x 20
   Pflanzen"); it is larger than the §25.1 table row "groß" (150 beds, 2 000 plants) and equals its stress limit
   in plants (GP-NFR-073).
-* **"synthetic 3 000"** - 30 beds of 3 x 3 m with 100 planted slots each (10 x 10 at 0.3 m), laid out so that the
+* **"synthetic 3 000"** - 30 beds of 3.3 x 3 m with 100 planted slots each (10 x 10 at 0.3 m on the left 3 m, a
+  plant-free 0.3 m strip on the right as the drag handle), laid out so that the
   whole plan fits the desktop canvas at a zoom where every plant marker is drawn: 30 beds + 3 000 plants = 3 030
   visible objects (D-01's threshold). Garden objects cannot carry the count: beds and objects share the quota of
   500 per site (GP-NFR-017). On a 390 px phone the fit is far below the marker LOD: there the case shows beds and
@@ -15,7 +16,8 @@ Two plans, both arranged through the application's own API (`test-pyramid-founda
 
 HOW, AND WHY THIS PATH
 ----------------------
-The structure goes in through **one** ``POST /sites/{key}/plan/import`` (``mode = replace``, GP-API-005): the
+The structure goes in through **one** ``POST /sites/{key}/plan/import`` (``mode = replace``, GP-API-005,
+``replace_plan_with``): the
 backup file is the server's own export of the freshly provisioned site (``GET /plan/export``), extended by the
 beds and slots - the import validates it like any file a user restores (quotas GP-NFR-017, containment, slot
 ids). The plan batch (GP-API-003) cannot carry it: it has no slot operation, and 500 operations per batch.
@@ -43,15 +45,16 @@ from dataclasses import dataclass
 from ._garden_plan_helpers import (
     ProvisionedGarden,
     _api,
-    _require,
+    _tenant_post,
     export_plan_json,
     provision_garden,
     rect,
+    replace_plan_with,
     run_payload,
     species,
+    tenant_get,
     unique_tag,
 )
-from ._journey_helpers import _api_request
 
 #: The plan import may take a while for 5 000 slots; the default socket timeout of the helpers is 15 s.
 IMPORT_TIMEOUT_S = 180
@@ -121,17 +124,19 @@ LARGE = GridPlan(
     planted=True,
 )
 
-#: 30 beds + 30 x 100 plants = 3 030 visible objects, 0.3 m apart on 3.3 x 3 m beds (the right 0.3 m strip is
-#: plant-free, the drag handle) with 0.2 m gaps: the plan (21.8 x 16.8 m) is as dense as the marker LOD allows, so the desktop fit (~40 px/m on a 1080 px high window)
-#: draws every plant on its own from a canvas width of ~800 px on (markers need >= 10 px, i.e. >= 33.4 px/m).
-#: Planted, not empty: the first run (2026-11-08) showed an empty bed below that zoom draws nothing at all.
+#: 30 beds + 30 x 100 plants = 3 030 visible objects. A bed is 3.3 x 3 m: 10 x 10 plants 0.3 m apart on its left
+#: 3 m, and a plant-free strip of 0.3 m along its right edge - the drag handle, where a press hits the bed and no
+#: marker. Gaps 0.3 m across (pitch 3.6 m), 0.2 m along (pitch 3.2 m); the drag moves across. The plan
+#: (22.3 x 16.8 m) is as dense as the marker LOD allows: the desktop fit (~40 px/m on a 1080 px high window) draws
+#: every plant on its own from a canvas width of ~830 px on (markers need >= 10 px, i.e. >= 33.4 px/m).
+#: Planted, not empty: the first run (2026-11-08) showed that an empty bed below that zoom draws nothing at all.
 SYNTHETIC_3000 = GridPlan(
     name="synthetic_3000",
     columns=6,
     rows=5,
     bed_width_m=3.3,
     bed_length_m=3.0,
-    pitch_x_m=3.5,
+    pitch_x_m=3.6,
     pitch_y_m=3.2,
     slots=tuple(
         (round(0.15 + c * 0.3, 3), round(0.15 + r * 0.3, 3)) for r in range(10) for c in range(10)
@@ -199,37 +204,12 @@ def _import_document(base_url: str, seed: dict, site_key: str, spec: GridPlan) -
     return document
 
 
-def _import(base_url: str, seed: dict, garden: ProvisionedGarden, document: dict) -> dict:
-    api, token = _api(base_url, seed)
-    status, report = _api_request(
-        f"{api}/sites/{garden.site_key}/plan/import",
-        "POST",
-        token,
-        {
-            "mode": "replace",
-            "dry_run": False,
-            "force": False,
-            "confirm_site_name": garden.site_name,
-            "target": "same_site",
-            "document": document,
-        },
-        timeout=IMPORT_TIMEOUT_S,
-    )
-    _require(status, report, (200,), f"POST /sites/{garden.site_key}/plan/import (renderer plan)")
-    if not report.get("applied"):
-        raise AssertionError(
-            f"Self-provisioning failed: the plan import was not applied: {report!r}"
-        )
-    return report
-
-
 def _plant_bed(base_url: str, seed: dict, bed_key: str, species_key: str, quantity: int) -> int:
     """One planned run of *quantity* on *bed_key*, its plants put on the bed's free slots; the slots taken."""
-    api, token = _api(base_url, seed)
-    status, run = _api_request(
-        f"{api}/planting-runs",
-        "POST",
-        token,
+    run = _tenant_post(
+        base_url,
+        seed,
+        "/planting-runs",
         run_payload(
             bed_key=bed_key,
             species_key=species_key,
@@ -238,16 +218,15 @@ def _plant_bed(base_url: str, seed: dict, bed_key: str, species_key: str, quanti
             name=f"E2E-GP-render-{unique_tag()}",
             entry={"spacing_cm": 30.0, "layout_strategy": "free"},
         ),
+        expected=(201,),
     )
-    _require(status, run, (201,), f"POST /planting-runs (bed {bed_key})")
-    status, result = _api_request(
-        f"{api}/planting-runs/{run['key']}/create-plants",
-        "POST",
-        token,
+    result = _tenant_post(
+        base_url,
+        seed,
+        f"/planting-runs/{run['key']}/create-plants",
         {"assign_to_slots": True},
         timeout=60,
     )
-    _require(status, result, (200, 201), f"POST /planting-runs/{run['key']}/create-plants")
     assigned = int(result.get("slots_assigned") or 0)
     if int(result.get("created_count") or 0) != quantity or assigned != quantity:
         raise AssertionError(
@@ -258,11 +237,9 @@ def _plant_bed(base_url: str, seed: dict, bed_key: str, species_key: str, quanti
 
 
 def _read_plan(base_url: str, seed: dict, site_key: str) -> dict:
-    api, token = _api(base_url, seed)
-    status, body = _api_request(
-        f"{api}/sites/{site_key}/plan", "GET", token, timeout=READ_TIMEOUT_S
-    )
-    _require(status, body, (200,), f"GET /sites/{site_key}/plan (renderer plan)")
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/plan", timeout=READ_TIMEOUT_S)
+    if not isinstance(body, dict):
+        raise AssertionError(f"the plan of {site_key!r} is not a plan: {body!r}")
     return body
 
 
@@ -275,7 +252,14 @@ def provision_grid_plan(base_url: str, seed: dict, spec: GridPlan) -> MeasuredPl
     garden = provision_garden(
         base_url, seed, purpose=f"render-{spec.name}", boundary=spec.boundary()
     )
-    _import(base_url, seed, garden, _import_document(base_url, seed, garden.site_key, spec))
+    replace_plan_with(
+        base_url,
+        seed,
+        site_key=garden.site_key,
+        site_name=garden.site_name,
+        document=_import_document(base_url, seed, garden.site_key, spec),
+        timeout=IMPORT_TIMEOUT_S,
+    )
 
     plan = _read_plan(base_url, seed, garden.site_key)
     names = {spec.bed_name(index) for index in range(spec.beds)}

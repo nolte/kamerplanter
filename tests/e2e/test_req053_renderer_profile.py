@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
 import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -42,10 +43,14 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from ._inp_probe import (
-    CPU_SLOWDOWN,
+from ._frame_budget import (
+    D01_DRAG_FRAME_MS,
     LAPTOP_FRAME_BUDGET_MS,
     PHONE_FRAME_BUDGET_MS,
+    frame_bound,
+)
+from ._inp_probe import (
+    CPU_SLOWDOWN,
     InpProbe,
     Measurement,
     set_cpu_slowdown,
@@ -53,12 +58,10 @@ from ._inp_probe import (
 )
 from ._renderer_plans import LARGE, SYNTHETIC_3000, MeasuredPlan, provision_grid_plan
 from ._renderer_report import (
-    D01_DRAG_FRAME_MS,
     D01_VISIBLE_OBJECTS,
     RECORD_FILE_PREFIX,
     RECORD_PROPERTY,
     RECORD_SCHEMA,
-    VSYNC_TOLERANCE,
 )
 from .pages.field_mode_page import set_phone_viewport
 from .pages.garden_plan_page import GardenPlanPage
@@ -67,15 +70,23 @@ from .pages.garden_plan_page import GardenPlanPage
 # measure the same thing in a second emulation.
 pytestmark = pytest.mark.requires_desktop
 
+#: Every record of this run carries it; the report reads one run only (older runs' records never mix in).
+#: ``--dist=loadfile`` keeps the module on one worker, so one import is one run.
+RUN_ID = os.environ.get("E2E_RENDERER_RUN_ID") or uuid.uuid4().hex[:12]
+#: The desktop profile's window (outer size); the record keeps the inner viewport and the canvas it gave.
+DESKTOP_WINDOW = (1920, 1080)
+
 #: Opening a plan of 5 000 plants: one large ``GET /plan`` (GP-NFR-031) and its first render.
 OPEN_TIMEOUT_S = 90
 
-#: 60 px out in 15 moves, back to +3 px in 15: the gesture is long enough for a frame time, the net move small
-#: enough to land clear of every neighbour (0.8 m gap in "large", 0.3 m in the synthetic plan, at every fit zoom).
+#: 60 px out in 15 moves, back to +2 px in 15: the gesture is long enough for a frame time, and the net move lands
+#: clear of every neighbour - the gaps across are 0.8 m ("large") and 0.3 m (synthetic); +2 px is at most 0.29 m
+#: on the phone fit of "large" (~7 px/m) and ~0.13 m on that of the synthetic plan (~15 px/m). Not 0: a drag that
+#: returns to its start leaves no move, and the effect check ("the bed moved") would have nothing to read.
 #: Snapping runs on every move but the last; the last move and the release hold Alt (snap bypass, GP-FR-154), or
-#: the object snap would pull a 3 px offset back onto the column the bed was aligned with - and nothing moved.
+#: the object snap would pull the small offset back onto the column the bed was aligned with.
 DRAG_WAYPOINTS = [(4 * k, 0) for k in range(1, 16)] + [
-    (round(60 - k * 57 / 15), 0) for k in range(1, 16)
+    (round(60 - k * 58 / 15), 0) for k in range(1, 16)
 ]
 DRAG_STEP_MS = 16
 #: Ten notches of 120 px: x 6 in zoom (``WHEEL_ZOOM_PER_PX`` 0.0015), from the fit across the marker LOD.
@@ -182,8 +193,11 @@ def _undo_the_drag(plan: GardenPlanPage) -> None:
     """Leave the plan as stored: no unsaved change, no leave prompt, nothing an auto-save could write.
 
     Ctrl+Z on the focused canvas rather than the toolbar button: the keyboard path exists on every viewport,
-    the button may sit in an overflow menu on a phone. Verified through the pending count.
+    the button may sit in an overflow menu on a phone. Verified through the pending count; nothing to do when
+    no move is pending (the test failed before the drag, or the drag moved nothing).
     """
+    if plan.pending_count() == 0:
+        return
     plan.focus_canvas()
     plan.press(Keys.CONTROL, "z")
     plan.wait_for_pending(0, "renderer profile: undoing the measured drag")
@@ -217,7 +231,7 @@ def _publish(
         for over in item.exceeded():
             warnings.warn(f"GP-NFR-033/034 (advisory) {label}/{item.name}: {over}", stacklevel=2)
     drag = next(item for item in results if item.name == "drag")
-    d01_bound = D01_DRAG_FRAME_MS + VSYNC_TOLERANCE * (drag.vsync_ms or 0.0)
+    d01_bound = frame_bound(D01_DRAG_FRAME_MS, drag.vsync_ms)
     if drag.frame_p95_ms is not None and drag.frame_p95_ms > d01_bound:
         warnings.warn(
             f"D-01 (advisory) {label}: drag frame p95 {drag.frame_p95_ms:.1f} ms > {D01_DRAG_FRAME_MS:g} ms",
@@ -259,12 +273,14 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
             measured.garden.site_key, timeout=OPEN_TIMEOUT_S
         )
     else:
+        browser.set_window_size(*DESKTOP_WINDOW)
         plan = GardenPlanPage(browser, base_url).open(
             measured.garden.site_key, timeout=OPEN_TIMEOUT_S
         )
     viewport = [int(v) for v in browser.execute_script("return [innerWidth, innerHeight];")]
     census_fit = _wait_for_all_beds(plan, measured.stored_beds)
     px_fit = plan.px_per_m()
+    canvas_px = list(plan.svg_size_px())
     if case == SYNTHETIC_3000.name and not setup.phone:
         assert census_fit["visible_objects"] >= D01_VISIBLE_OBJECTS, (
             f"TC-053-083: the synthetic plan should show >= {D01_VISIBLE_OBJECTS} objects at the desktop fit "
@@ -286,45 +302,52 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
                 stacklevel=2,
             )
     cpu = setup.cpu if throttle == "applied" else 1
+    # Whatever fails after the drag, the unsaved move is taken back (published first: a refused undo must not
+    # cost the measurement).
     try:
-        vsync = probe.frame_cadence_ms()
-        read = {"budget_ms": setup.budget_ms, "vsync_ms": vsync, "cpu_slowdown": cpu}
-        zoom_in, px_zoomed = _zoom_half(plan, probe, "zoom_in", +1, **read)
-        census_zoomed = plan.rendered_census()
-        zoom_out, _px = _zoom_half(plan, probe, "zoom_out", -1, **read)
-        # A bed packed with plant markers is pressed in its plant-free edge strip (half its width inside).
-        strip = measured.spec.drag_strip_m
-        drag = _measured_drag(plan, probe, strip / 2 if strip else None, **read)
-    finally:
-        if throttle == "applied" and not set_cpu_slowdown(browser, 1):
-            warnings.warn("GP-NFR-033: the CPU throttle could not be reset", stacklevel=2)
-    plan.take_screenshot(f"053_083_{case}_{profile}_02_after", screenshot_dir)
+        try:
+            vsync = probe.frame_cadence_ms()
+            read = {"budget_ms": setup.budget_ms, "vsync_ms": vsync, "cpu_slowdown": cpu}
+            zoom_in, px_zoomed = _zoom_half(plan, probe, "zoom_in", +1, **read)
+            census_zoomed = plan.rendered_census()
+            zoom_out, _px = _zoom_half(plan, probe, "zoom_out", -1, **read)
+            # A bed packed with plant markers is pressed in its plant-free edge strip (half its width inside).
+            strip = measured.spec.drag_strip_m
+            drag = _measured_drag(plan, probe, strip / 2 if strip else None, **read)
+        finally:
+            if throttle == "applied" and not set_cpu_slowdown(browser, 1):
+                warnings.warn("GP-NFR-033: the CPU throttle could not be reset", stacklevel=2)
+        plan.take_screenshot(f"053_083_{case}_{profile}_02_after", screenshot_dir)
 
-    results = [zoom_in, zoom_out, drag]
-    if throttle == "unavailable":
-        for item in results:
-            item.notes.append("named gap: no CPU throttling in this session; measured un-throttled")
-    record = {
-        "schema": RECORD_SCHEMA,
-        "case": case,
-        "profile": profile,
-        "cpu_slowdown": cpu,
-        "throttle": throttle,
-        "viewport": viewport,
-        "budget_ms": setup.budget_ms,
-        "vsync_ms": vsync,
-        "plan": measured.as_dict(),
-        "census_fit": census_fit,
-        "census_zoomed": census_zoomed,
-        "px_per_m_fit": round(px_fit, 2),
-        "px_per_m_zoomed": round(px_zoomed, 2),
-        "gestures": [item.as_dict() for item in results],
-        "recorded_at": datetime.now(UTC).isoformat(),
-        "nodeid": request.node.nodeid,
-    }
-    # Published before the clean-up: a refused undo must not cost the measurement.
-    _publish(record, results, screenshot_dir, record_property)
-    _undo_the_drag(plan)
+        results = [zoom_in, zoom_out, drag]
+        if throttle == "unavailable":
+            for item in results:
+                item.notes.append(
+                    "named gap: no CPU throttling in this session; measured un-throttled"
+                )
+        record = {
+            "schema": RECORD_SCHEMA,
+            "case": case,
+            "profile": profile,
+            "cpu_slowdown": cpu,
+            "throttle": throttle,
+            "viewport": viewport,
+            "canvas_px": canvas_px,
+            "run_id": RUN_ID,
+            "budget_ms": setup.budget_ms,
+            "vsync_ms": vsync,
+            "plan": measured.as_dict(),
+            "census_fit": census_fit,
+            "census_zoomed": census_zoomed,
+            "px_per_m_fit": round(px_fit, 2),
+            "px_per_m_zoomed": round(px_zoomed, 2),
+            "gestures": [item.as_dict() for item in results],
+            "recorded_at": datetime.now(UTC).isoformat(),
+            "nodeid": request.node.nodeid,
+        }
+        _publish(record, results, screenshot_dir, record_property)
+    finally:
+        _undo_the_drag(plan)
     assert [item.name for item in results] == ["zoom_in", "zoom_out", "drag"] and all(
         item.frames > 0 for item in results
     ), f"TC-053-083: every gesture of {case}/{profile} carries a frame time: {results}"

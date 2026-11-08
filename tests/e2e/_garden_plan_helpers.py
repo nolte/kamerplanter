@@ -338,17 +338,19 @@ def species(base_url: str, seed: dict, scientific_name: str) -> dict:
     return found
 
 
-def tenant_get(base_url: str, seed: dict, path: str) -> object:
+def tenant_get(base_url: str, seed: dict, path: str, *, timeout: float = 15) -> object:
     """``GET`` a tenant-scoped *path* (``/locations/...``); loud on anything but 200."""
     api, token = _api(base_url, seed)
-    status, body = _api_request(f"{api}{path}", "GET", token)
+    status, body = _api_request(f"{api}{path}", "GET", token, timeout=timeout)
     _require(status, body, (200,), f"GET {path}")
     return body
 
 
-def _tenant_post(base_url: str, seed: dict, path: str, data: dict, expected=(200, 201)) -> dict:
+def _tenant_post(
+    base_url: str, seed: dict, path: str, data: dict, expected=(200, 201), *, timeout: float = 15
+) -> dict:
     api, token = _api(base_url, seed)
-    status, body = _api_request(f"{api}{path}", "POST", token, data)
+    status, body = _api_request(f"{api}{path}", "POST", token, data, timeout=timeout)
     _require(status, body, expected, f"POST {path}")
     return body
 
@@ -848,9 +850,17 @@ def export_plan_json(
 
 
 def replace_plan_with(
-    base_url: str, seed: dict, *, site_key: str, site_name: str, document: dict
+    base_url: str,
+    seed: dict,
+    *,
+    site_key: str,
+    site_name: str,
+    document: dict,
+    timeout: float = 15,
 ) -> dict:
-    """Write *document* over the site's plan (``mode = replace``, GP-API-005); the server keeps a snapshot."""
+    """Write *document* over the site's plan (``mode = replace``, GP-API-005); the server keeps a snapshot.
+
+    *timeout* (seconds) is raised only for a large file (the renderer plans of WP 9.6)."""
     report = _tenant_post(
         base_url,
         seed,
@@ -863,6 +873,7 @@ def replace_plan_with(
             "target": "same_site",
             "document": document,
         },
+        timeout=timeout,
     )
     if not report.get("applied") or not report.get("snapshot_written"):
         raise AssertionError(

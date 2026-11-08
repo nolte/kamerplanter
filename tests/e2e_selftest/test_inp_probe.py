@@ -32,10 +32,21 @@ class _Driver:
         return None
 
 
-def _reading(durations=(), frames=(), supported=True):
+def _reading(durations=(), frames=(), supported=True, inputs=None, frame_ends=None):
+    """A probe reading; a gesture's frames end 16.7 ms apart from t = 1000 and its inputs span all of them."""
+    frames = list(frames)
+    ends = (
+        frame_ends
+        if frame_ends is not None
+        else [1000 + 16.7 * (i + 1) for i in range(len(frames))]
+    )
+    if inputs is None:
+        inputs = [999.0, ends[-1] - 1] if ends else [999.0]
     return {
         "interactions": [{"name": "pointerup", "duration": d} for d in durations],
-        "frames": list(frames),
+        "frames": frames,
+        "frame_ends": ends,
+        "inputs": inputs,
         "supported": supported,
     }
 
@@ -153,6 +164,46 @@ def test_a_gesture_without_a_frame_is_loud() -> None:
         InpProbe(_GestureDriver(_reading())).read_gesture(
             "drag", budget_ms=LAPTOP_FRAME_BUDGET_MS, vsync_ms=16.7
         )
+
+
+def test_a_gesture_whose_input_never_reached_the_page_is_loud() -> None:
+    with pytest.raises(AssertionError, match="no pointer or wheel input"):
+        InpProbe(_GestureDriver(_reading(frames=[16.7] * 10, inputs=[]))).read_gesture(
+            "zoom_in", budget_ms=LAPTOP_FRAME_BUDGET_MS, vsync_ms=16.7
+        )
+
+
+def test_only_the_frames_of_the_gesture_window_are_judged() -> None:
+    # 10 idle frames (the WebDriver round trip), 2 heavy frames of the gesture, 48 idle ones (polls, settle).
+    frames = [16.7] * 10 + [50.0] * 2 + [16.7] * 48
+    ends, t = [], 0.0
+    for gap in frames:
+        t += gap
+        ends.append(t)
+    # Inputs from just after frame 10 ends to just before frame 12 ends: the window is frames 11 and 12.
+    reading = _reading(frames=frames, frame_ends=ends, inputs=[ends[9] + 1, ends[11] - 1])
+    result = InpProbe(_GestureDriver(reading)).read_gesture(
+        "zoom_in", budget_ms=LAPTOP_FRAME_BUDGET_MS, vsync_ms=16.7
+    )
+    assert (result.frames, result.frames_recorded, result.inputs) == (2, 60, 2)
+    assert result.frame_p95_ms == 50.0
+    # The counter-check: the same reading unfiltered is diluted below the bound by the idle frames.
+    assert InpProbe(_GestureDriver(reading)).read("zoom_in").frame_p95_ms == 16.7
+
+
+def test_the_presenting_frame_after_the_last_input_is_part_of_the_window() -> None:
+    frames = [16.7, 16.7, 200.0, 16.7]
+    ends = [16.7, 33.4, 233.4, 250.1]
+    reading = _reading(frames=frames, frame_ends=ends, inputs=[20.0, 30.0])
+    result = InpProbe(_GestureDriver(reading)).read_gesture(
+        "drag", budget_ms=LAPTOP_FRAME_BUDGET_MS, vsync_ms=16.7
+    )
+    assert result.frames == 1 and result.frame_p95_ms == 16.7
+    late = _reading(frames=frames, frame_ends=ends, inputs=[20.0, 40.0])
+    result = InpProbe(_GestureDriver(late)).read_gesture(
+        "drag", budget_ms=LAPTOP_FRAME_BUDGET_MS, vsync_ms=16.7
+    )
+    assert result.frames == 2 and result.frame_max_ms == 200.0, "the slow presenting frame counts"
 
 
 def test_the_cadence_is_the_median_idle_gap() -> None:
