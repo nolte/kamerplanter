@@ -166,6 +166,12 @@ export interface BedListItem {
   next_due_at?: string | null;
   /** The bed's cover photo, an attachment id (GP-FR-051); `null` without one. The gallery is `GET .../photos`. */
   cover_photo_ref?: string | null;
+  /**
+   * GP-FR-167: metres from the bed's edge to the nearest water source of its site, derived on the server
+   * (`geometry_distance.nearest_water_source_m`) - the same value in the list, the summary and the CSV. `null` for a
+   * location that is no bed (or a plain listing), without a geometry or without a water source.
+   */
+  nearest_water_source_m?: number | null;
 }
 
 /** `GET /locations/{key}/summary`: the location document plus its derived head data. */
@@ -222,11 +228,6 @@ export interface BedSummary extends BedListItem {
   description?: string | null;
   /** GP-FR-125: only on a bed; `null` for every other location. */
   nutrient_hint?: NutrientHint | null;
-  /**
-   * GP-FR-167: metres from the edge of the location to the nearest water source of its site, derived on the server
-   * (`geometry_distance.nearest_water_source_m`); `null` without a geometry or without a water source.
-   */
-  nearest_water_source_m?: number | null;
 }
 
 /** The document `PATCH /locations/{key}` and `POST /locations/{key}/status` answer with. */

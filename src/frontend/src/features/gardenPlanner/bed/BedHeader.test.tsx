@@ -346,9 +346,16 @@ describe('BedHeader nearest water source (GP-FR-167, WP 9.12)', () => {
     await expectNoA11yViolations(view.container);
   });
 
-  it('says "Right at the bed" for a source on or inside the bed', async () => {
-    renderHeader({ ...bedSummary(), nearest_water_source_m: 0 });
-    expect(await screen.findByTestId('bed-header-water-source')).toHaveTextContent('Right at the bed');
+  it.each([0, 0.003, 0.0049])('says "Right at the bed" for %s m (nothing that would print as 0 m)', async (metres) => {
+    renderHeader({ ...bedSummary(), nearest_water_source_m: metres });
+    const fact = await screen.findByTestId('bed-header-water-source');
+    expect(fact).toHaveTextContent('Right at the bed');
+    expect(fact).not.toHaveTextContent('0 m');
+  });
+
+  it('shows the smallest distance that is not 0 at the display precision', async () => {
+    renderHeader({ ...bedSummary(), nearest_water_source_m: 0.005 });
+    expect(await screen.findByTestId('bed-header-water-source')).toHaveTextContent('0.01 m in a straight line');
   });
 
   it('shows nothing without a water source (null is not 0 m) or from an older server', async () => {

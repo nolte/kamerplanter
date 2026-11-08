@@ -13,7 +13,7 @@
  */
 
 import { pointInPolygon, roundLength, segmentsIntersect, toShape } from './geometry';
-import type { GardenObject, Geometry, Point } from './types';
+import type { GardenObjectType, Geometry, Point } from './types';
 
 /** Below this squared length a segment is a point (the Python reference uses the same floor). */
 const DEGENERATE_SQ = 1e-18;
@@ -91,15 +91,11 @@ export function edgeDistanceM(a: Geometry, b: Geometry): number {
 }
 
 /**
- * The geometries GP-FR-167 measures to: the `water_source` objects of the plan, scenery `off_site` left out (mirrors
- * `garden_resource_service.water_source_geometries`).
+ * Whether GP-FR-167 measures to a garden object: class `water_source` and not `off_site` scenery (mirrors
+ * `geometry_distance.is_water_source`; vector operation `is_water_source`).
  */
-export function waterSourceGeometries(objects: Iterable<GardenObject>): Geometry[] {
-  const sources: Geometry[] = [];
-  for (const item of objects) {
-    if (item.object_type === 'water_source' && !item.off_site) sources.push(item.geometry);
-  }
-  return sources;
+export function isWaterSource(objectType: GardenObjectType | string, offSite: boolean): boolean {
+  return objectType === 'water_source' && !offSite;
 }
 
 /**

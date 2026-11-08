@@ -116,8 +116,15 @@ class FakeObjects(IGardenObjectRepository):
         site = self._repo._sites.get_site_by_key(garden_object.site_key)
         return bool(tenant_key) and site is not None and site.tenant_key == tenant_key
 
-    def get_garden_objects_by_site(self, site_key, *, tenant_key):
-        return [o for o in self._repo.objects.values() if o.site_key == site_key and self._owned(o, tenant_key)]
+    def get_garden_objects_by_site(self, site_key, *, tenant_key, object_type=None, on_site_only=False):
+        return [
+            o
+            for o in self._repo.objects.values()
+            if o.site_key == site_key
+            and self._owned(o, tenant_key)
+            and (object_type is None or o.object_type is object_type)
+            and not (on_site_only and o.off_site)
+        ]
 
     def get_garden_object_by_key(self, key, *, tenant_key):
         found = self._repo.objects.get(key)

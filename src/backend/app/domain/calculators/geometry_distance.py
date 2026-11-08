@@ -24,6 +24,11 @@ crossing); otherwise it is the smallest point-to-segment distance between the tw
 
 The result is exact - no tolerance - and rounded to the storage precision of 0.001 m (GP-FR-004) by the public
 functions. Nothing agronomic is derived from it: it is a length the grower reads.
+
+**What counts as a water source** (GP-FR-167) is decided here too, once: a garden object of class ``water_source``
+that is not ``off_site`` scenery (the neighbour's tap behind the fence is not the garden's water). The service narrows
+its query with :data:`WATER_SOURCE_OBJECT_TYPE` / :data:`WATER_SOURCES_ON_SITE_ONLY` and applies
+:func:`is_water_source` to what comes back; the TS port mirrors the predicate (vector operation ``is_water_source``).
 """
 
 from __future__ import annotations
@@ -31,14 +36,22 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Final
 
+from app.common.enums import GardenObjectType
 from app.domain.calculators.geometry_calculator import (
     CircleShape,
     point_in_polygon,
     segments_intersect,
     to_shape,
 )
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import Geometry, Point2D, PolylineGeometry, round_length
+
+#: The class of garden object GP-FR-167 measures to.
+WATER_SOURCE_OBJECT_TYPE: Final = GardenObjectType.WATER_SOURCE
+#: ``off_site`` scenery is not the garden's water.
+WATER_SOURCES_ON_SITE_ONLY: Final = True
 
 #: Below this squared length a segment is a point (numerical noise floor, well under the storage precision).
 _DEGENERATE_SQ = 1e-18
@@ -124,6 +137,16 @@ def edge_distance_m(a: Geometry, b: Geometry) -> float:
     Both geometries are in the same frame (the plan frame for locations and garden objects). Rounded to 0.001 m.
     """
     return round_length(raw_edge_distance_m(a, b))
+
+
+def is_water_source(object_type: GardenObjectType | str, off_site: bool) -> bool:
+    """Whether a garden object is one GP-FR-167 measures to: class ``water_source`` and not ``off_site``."""
+    return str(object_type) == WATER_SOURCE_OBJECT_TYPE.value and not (WATER_SOURCES_ON_SITE_ONLY and off_site)
+
+
+def water_source_geometries(objects: Iterable[GardenObject]) -> list[Geometry]:
+    """The geometries of those ``objects`` that are water sources (:func:`is_water_source`)."""
+    return [item.geometry for item in objects if is_water_source(item.object_type, item.off_site)]
 
 
 def nearest_water_source_m(bed: Geometry | None, sources: Iterable[Geometry]) -> float | None:

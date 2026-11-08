@@ -40,6 +40,7 @@ import {
   siteConditionsLine,
   siteFlagsLine,
   sunProfileLine,
+  waterSourceText,
 } from './bedFormat';
 
 interface BedHeaderProps {
@@ -160,13 +161,7 @@ export default function BedHeader({
     () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
     [summary.geometry, accessSides, reachThresholds],
   );
-  const waterM = summary.nearest_water_source_m ?? null;
-  const waterText = useMemo(() => {
-    if (waterM === null) return null;
-    if (waterM === 0) return t('pages.bed.header.waterSourceAtBed');
-    const distance = new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(waterM);
-    return t('pages.bed.header.waterSourceDistance', { distance });
-  }, [language, t, waterM]);
+  const waterText = waterSourceText(t, language, summary.nearest_water_source_m, 'header');
   const nutrientHint = shownNutrientHint(summary.nutrient_hint);
   const saltCheck = summary.nutrient_hint?.reasons.includes(SALT_REASON) ?? false;
   const reachNumbers = useMemo(() => {

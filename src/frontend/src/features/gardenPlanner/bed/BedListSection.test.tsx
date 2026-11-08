@@ -10,7 +10,6 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import BedListSection from './BedListSection';
-import type { Geometry } from '../model/types';
 import { bedListItem } from './bedTestKit';
 
 const BEDS = [
@@ -43,10 +42,10 @@ function useBackend(beds = BEDS, seen: URLSearchParams[] = []) {
   );
 }
 
-function renderList(onSelectBed = vi.fn(), waterSources?: readonly Geometry[]) {
+function renderList(onSelectBed = vi.fn()) {
   const store = createTestStore({ ...tenantState('grower'), ...authState() });
   const view = renderWithProviders(
-    <BedListSection siteKey="site_1" reloadToken="r1" onSelectBed={onSelectBed} waterSources={waterSources} />,
+    <BedListSection siteKey="site_1" reloadToken="r1" onSelectBed={onSelectBed} />,
     { store },
   );
   return { onSelectBed, ...view };
@@ -137,27 +136,42 @@ describe('BedListSection', () => {
 });
 
 describe('BedListSection nearest water source column (GP-FR-167, WP 9.12)', () => {
-  // The kit's bed spans x 1..2.2, y 1..3; a tap at (5, 2) is 2.8 m from its east edge.
-  const TAP: Geometry = { kind: 'point', origin: [5, 2] };
+  const WATER_BEDS = [
+    bedListItem('bed_1', { name: 'Tomato bed', nearest_water_source_m: 2.8 }),
+    bedListItem('bed_2', { name: 'Herb spiral', nearest_water_source_m: null }),
+    bedListItem('bed_3', { name: 'Bean row', nearest_water_source_m: 0.5 }),
+    bedListItem('bed_4', { name: 'Tap bed', nearest_water_source_m: 0.003 }),
+  ];
+  const names = () =>
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByTestId(/^bed-list-link-/)[0].textContent);
 
-  it('shows the distance from each bed edge to the nearest water source of the plan', async () => {
-    useBackend([
-      bedListItem('bed_1', { name: 'Tomato bed' }),
-      bedListItem('bed_2', { name: 'Herb spiral', geometry: null }),
-    ]);
-    const view = renderList(vi.fn(), [TAP, { kind: 'point', origin: [20, 20] }]);
-    const header = await screen.findByRole('columnheader', { name: /Water source/ });
-    expect(header).toBeInTheDocument();
-    const measured = (await screen.findByText('Tomato bed')).closest('tr')!;
-    expect(within(measured).getByText('2.8 m')).toBeInTheDocument();
-    const unmeasured = screen.getByText('Herb spiral').closest('tr')!;
-    expect(within(unmeasured).getAllByText('—').length).toBeGreaterThan(0);
+  it('shows the distance the server listed for each bed, "Right at the bed" below the display precision', async () => {
+    useBackend(WATER_BEDS);
+    const view = renderList();
+    expect(await screen.findByRole('columnheader', { name: /Water source/ })).toBeInTheDocument();
+    expect(within(screen.getByText('Tomato bed').closest('tr')!).getByText('2.8 m')).toBeInTheDocument();
+    expect(within(screen.getByText('Tap bed').closest('tr')!).getByText('Right at the bed')).toBeInTheDocument();
+    expect(within(screen.getByText('Herb spiral').closest('tr')!).getAllByText('—').length).toBeGreaterThan(0);
     await expectNoA11yViolations(view.container);
   });
 
-  it('has no distance column while the plan has no water source', async () => {
+  it('keeps a bed without a distance last in both sort directions', async () => {
+    useBackend(WATER_BEDS);
+    const user = userEvent.setup();
+    renderList();
+    const header = await screen.findByRole('columnheader', { name: /Water source/ });
+    await user.click(within(header).getByRole('button'));
+    expect(names()).toEqual(['Tap bed', 'Bean row', 'Tomato bed', 'Herb spiral']);
+    await user.click(within(header).getByRole('button'));
+    expect(names()).toEqual(['Tomato bed', 'Bean row', 'Tap bed', 'Herb spiral']);
+  });
+
+  it('has no distance column while no bed has a distance (the site has no water source)', async () => {
     useBackend();
-    renderList(vi.fn(), []);
+    renderList();
     await screen.findByText('Tomato bed');
     expect(screen.queryByRole('columnheader', { name: /Water source/ })).toBeNull();
   });

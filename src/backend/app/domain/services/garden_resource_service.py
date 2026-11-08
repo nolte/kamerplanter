@@ -27,7 +27,7 @@ unless the caller is a lead.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Collection, Iterable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -35,10 +35,15 @@ import structlog
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.datetimes import ensure_aware_utc
-from app.common.enums import BedStatus, FrostRisk, GardenObjectType, TenantRole
+from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
-from app.domain.calculators.geometry_distance import nearest_water_source_m
+from app.domain.calculators.geometry_distance import (
+    WATER_SOURCE_OBJECT_TYPE,
+    WATER_SOURCES_ON_SITE_ONLY,
+    nearest_water_source_m,
+    water_source_geometries,
+)
 from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
 from app.domain.engines.bed_list_csv_engine import (
     ASSIGNMENT_COLUMN,
@@ -74,6 +79,7 @@ from app.domain.models.garden_plan import (
     MAX_SLOTS_PER_BATCH,
     MAX_SLOTS_PER_SITE,
     BedCounters,
+    BedListRow,
     BedSummaryView,
     CreateGardenObjectData,
     GardenObjectPatch,
@@ -150,16 +156,6 @@ def _name_order(location: Location) -> tuple[str, str]:
     return location.name.casefold(), location.key or ""
 
 
-def water_source_geometries(objects: Iterable[GardenObject]) -> list[Geometry]:
-    """The geometries GP-FR-167 measures to: the site's ``water_source`` objects, scenery ``off_site`` left out.
-
-    An ``off_site`` object is drawn outside the garden boundary (the neighbour's tap) and is not the garden's water.
-    """
-    return [
-        item.geometry for item in objects if item.object_type is GardenObjectType.WATER_SOURCE and not item.off_site
-    ]
-
-
 def _type_label(name: LocationTypeName | None, locale: str) -> str | None:
     """The type's name in ``locale``; ``None`` when the type does not resolve (the CSV then writes its key)."""
     return name.for_locale(locale) if name is not None else None
@@ -213,10 +209,17 @@ class GardenResourceService:
     def _water_sources(self, site_key: SiteKey, *, tenant_key: str) -> list[Geometry]:
         """The water-source geometries of an **owned** site (GP-FR-167), read through the tenant-anchored object query.
 
-        The caller has resolved the site's ownership already; the repository anchors the read on the site's tenant
-        once more, so a foreign site's objects never enter a distance. Bounded by the plan quota of a site.
+        The query keeps only on-site ``water_source`` objects (the rule of :mod:`geometry_distance`); the caller has
+        resolved the site's ownership already, and the repository anchors the read on the site's tenant once more, so
+        a foreign site's objects never enter a distance. Bounded by the plan quota of a site.
         """
-        return water_source_geometries(self._objects.get_garden_objects_by_site(site_key, tenant_key=tenant_key))
+        objects = self._objects.get_garden_objects_by_site(
+            site_key,
+            tenant_key=tenant_key,
+            object_type=WATER_SOURCE_OBJECT_TYPE,
+            on_site_only=WATER_SOURCES_ON_SITE_ONLY,
+        )
+        return water_source_geometries(objects)
 
     # ── GP-API-011: the bed list ──────────────────────────────────────────────
 
@@ -227,18 +230,32 @@ class GardenResourceService:
         tenant_key: str,
         is_bed: bool | None,
         bed_status: BedStatus | None,
-    ) -> list[tuple[Location, BedCounters | None]]:
+    ) -> list[BedListRow]:
         """A site's locations, filtered; with counters when a bed filter is given (GP-API-011).
 
         ``is_bed`` is the ``is_bed`` flag of the location's type. Counters cost three queries over the
         listed keys, so a plain listing (neither filter) stays as cheap as before and carries none.
+        When **beds** are listed (``is_bed=true``, or a ``bed_status`` alone) each row also carries
+        ``nearest_water_source_m`` (GP-FR-167) - the value the summary and the CSV compute, from one read of the
+        site's water sources per call.
         """
         with_counters = is_bed is not None or bed_status is not None
+        beds_listed = is_bed is True or (is_bed is None and bed_status is not None)
         locations = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status)
         counters: dict[str, BedCounters] = {}
         if with_counters and locations:
             counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
-        return [(loc, (counters.get(loc.key or "", BedCounters()) if with_counters else None)) for loc in locations]
+        sources: list[Geometry] = []
+        if beds_listed and any(loc.geometry is not None for loc in locations):
+            sources = self._water_sources(site_key, tenant_key=tenant_key)
+        return [
+            BedListRow(
+                location=loc,
+                counters=counters.get(loc.key or "", BedCounters()) if with_counters else None,
+                nearest_water_source_m=nearest_water_source_m(loc.geometry, sources) if beds_listed else None,
+            )
+            for loc in locations
+        ]
 
     def _filtered_locations(
         self, site_key: SiteKey, *, tenant_key: str, is_bed: bool | None, bed_status: BedStatus | None
@@ -344,7 +361,7 @@ class GardenResourceService:
             hints: NutrientHintService = provider()
             hint = hints.assess(location, counters.species_keys, tenant_key=tenant_key)
         water: float | None = None
-        if location.geometry is not None:
+        if is_bed and location.geometry is not None:  # GP-FR-167 is a bed's value, as the nutrient hint
             water = nearest_water_source_m(
                 location.geometry, self._water_sources(location.site_key, tenant_key=tenant_key)
             )

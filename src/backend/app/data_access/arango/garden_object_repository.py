@@ -1,8 +1,9 @@
-from typing import cast
+from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
+from app.common.enums import GardenObjectType
 from app.common.exceptions import NotFoundError
 from app.common.types import GardenObjectKey, SiteKey
 from app.data_access.arango import collections as col
@@ -15,6 +16,10 @@ _OWNED_BY_SITE = """
     LET site = DOCUMENT(CONCAT(@sites, o.site_key))
     FILTER site != null AND site.tenant_key == @tenant_key
 """
+
+#: Optional narrowing of a site's objects (constant fragments; the values are bound).
+_OF_TYPE = "FILTER o.object_type == @object_type"
+_ON_SITE_ONLY = "FILTER o.off_site != true"
 
 
 class ArangoGardenObjectRepository(BaseArangoRepository[GardenObject], IGardenObjectRepository):
@@ -39,25 +44,44 @@ class ArangoGardenObjectRepository(BaseArangoRepository[GardenObject], IGardenOb
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.GARDEN_OBJECTS)
 
-    def get_garden_objects_by_site(self, site_key: SiteKey, *, tenant_key: str) -> list[GardenObject]:
-        """Every object of a site of ``tenant_key``, in ``z_order`` (the v0093 ``(site_key, object_type)`` index)."""
+    def get_garden_objects_by_site(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        object_type: GardenObjectType | None = None,
+        on_site_only: bool = False,
+    ) -> list[GardenObject]:
+        """The objects of a site of ``tenant_key``, in ``z_order`` (the v0093 ``(site_key, object_type)`` index).
+
+        ``object_type`` keeps one class and ``on_site_only`` leaves ``off_site`` scenery out (a missing flag is on
+        site, as the model's default) - both in the query. The tenant join applies either way.
+        """
         self._require_tenant_key(tenant_key, "get_garden_objects_by_site")
+        bind_vars: dict[str, Any] = {
+            "@col": self._collection_name,
+            "site_key": site_key,
+            "sites": f"{col.SITES}/",
+            "tenant_key": tenant_key,
+        }
+        narrowing = ""
+        if object_type is not None:
+            narrowing += _OF_TYPE
+            bind_vars["object_type"] = object_type.value
+        if on_site_only:
+            narrowing += f"\n                {_ON_SITE_ONLY}"
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
                 f"""
             FOR o IN @@col
                 FILTER o.site_key == @site_key
+                {narrowing}
                 {_OWNED_BY_SITE}
                 SORT o.z_order ASC, o._key ASC
                 RETURN o
             """,
-                bind_vars={
-                    "@col": self._collection_name,
-                    "site_key": site_key,
-                    "sites": f"{col.SITES}/",
-                    "tenant_key": tenant_key,
-                },
+                bind_vars=bind_vars,
             ),
         )
         return [GardenObject(**self._from_doc(doc)) for doc in cursor]

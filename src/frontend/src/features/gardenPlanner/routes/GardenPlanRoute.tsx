@@ -65,7 +65,6 @@ import { PlanIoMenu } from '../io/PlanIoMenu';
 import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
-import { waterSourceGeometries } from '../model/geometryDistance';
 import { EMPTY_PLAN_BOUNDS, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
@@ -149,9 +148,6 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     () => Object.fromEntries(Object.values(plan?.locations ?? {}).map((location) => [location.key, location.name])),
     [plan],
   );
-  // GP-FR-167: the bed list measures each bed to these (the plan as loaded and edited, off-site scenery left out).
-  const gardenObjects = plan?.gardenObjects;
-  const waterSources = useMemo(() => waterSourceGeometries(Object.values(gardenObjects ?? {})), [gardenObjects]);
   const labels = useRendererLabels();
   const renderer = useMemo(() => new SvgPlanRenderer(), []);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
@@ -399,12 +395,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       {/* The measured box exists in every state, so the first drawing already fits the width. */}
       <Box ref={canvasRef}>{content}</Box>
       {key && plan !== null && serverReachable && (
-        <BedListSection
-          siteKey={key}
-          reloadToken={loadRequestId}
-          onSelectBed={onSelectBed}
-          waterSources={waterSources}
-        />
+        <BedListSection siteKey={key} reloadToken={loadRequestId} onSelectBed={onSelectBed} />
       )}
     </Box>
   );

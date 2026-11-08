@@ -14,7 +14,14 @@ from typing import Any
 
 import pytest
 
-from app.domain.calculators.geometry_distance import edge_distance_m, nearest_water_source_m
+from app.common.enums import GardenObjectType
+from app.domain.calculators.geometry_distance import (
+    WATER_SOURCE_OBJECT_TYPE,
+    WATER_SOURCES_ON_SITE_ONLY,
+    edge_distance_m,
+    is_water_source,
+    nearest_water_source_m,
+)
 from app.domain.models.geometry import Geometry, parse_geometry
 from tests.support.repo_scripts import find_repo_root
 
@@ -26,7 +33,7 @@ VECTORS: dict[str, Any] = json.loads(
     (_REPO_ROOT / "spec" / "e2e-testcases" / "fixtures" / "garden-plan-vectors.json").read_text(encoding="utf-8")
 )
 DEFAULT_TOLERANCE: float = VECTORS["default_tolerance"]
-OPERATIONS = ("edge_distance", "nearest_water_source")
+OPERATIONS = ("edge_distance", "nearest_water_source", "is_water_source")
 CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] in OPERATIONS]
 
 
@@ -34,8 +41,10 @@ def _geometry(raw: dict[str, Any] | None) -> Geometry | None:
     return parse_geometry(raw) if raw is not None else None
 
 
-def _run(case: dict[str, Any]) -> float | None:
+def _run(case: dict[str, Any]) -> float | bool | None:
     raw = case["input"]
+    if case["operation"] == "is_water_source":
+        return is_water_source(raw["object_type"], raw["off_site"])
     if case["operation"] == "edge_distance":
         a, b = parse_geometry(raw["a"]), parse_geometry(raw["b"])
         return edge_distance_m(a, b)
@@ -47,8 +56,8 @@ def test_reference_matches_the_shared_vector(case: dict[str, Any]) -> None:
     actual = _run(case)
     expected = case["expected"]
 
-    if expected is None:
-        assert actual is None, case["spec"]
+    if expected is None or isinstance(expected, bool):
+        assert actual is expected, case["spec"]
     else:
         assert actual == pytest.approx(expected, abs=case.get("tolerance", DEFAULT_TOLERANCE)), case["spec"]
 
@@ -81,6 +90,12 @@ class TestRulesApartFromTheFile:
     def test_the_measure_is_symmetric(self, case: dict[str, Any]) -> None:
         a, b = _parsed(case["input"]["a"]), _parsed(case["input"]["b"])
         assert edge_distance_m(a, b) == edge_distance_m(b, a)
+
+    def test_the_query_narrowing_is_the_same_rule(self) -> None:
+        """The service narrows its query with these constants; they must say what the predicate says."""
+        assert WATER_SOURCE_OBJECT_TYPE is GardenObjectType.WATER_SOURCE
+        assert WATER_SOURCES_ON_SITE_ONLY is True
+        assert is_water_source(WATER_SOURCE_OBJECT_TYPE, False) and not is_water_source(WATER_SOURCE_OBJECT_TYPE, True)
 
     def test_a_shape_is_zero_from_itself(self) -> None:
         bed = _parsed({"kind": "polygon", "points": [[0, 0], [3, 0], [3, 2]]})

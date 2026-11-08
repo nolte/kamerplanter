@@ -512,6 +512,18 @@ class SlotBatchResult:
 
 
 @dataclass(frozen=True)
+class BedListRow:
+    """One location of the bed list (GP-API-011): the document, its counters and the derived water distance."""
+
+    location: Location
+    #: ``None`` on a plain listing (neither ``is_bed`` nor ``bed_status``).
+    counters: BedCounters | None = None
+    #: GP-FR-167: metres from the bed's edge to the nearest water source of its site; ``None`` unless beds are
+    #: listed, and without a geometry or without a water source.
+    nearest_water_source_m: float | None = None
+
+
+@dataclass(frozen=True)
 class BedSummaryView:
     """The head data of the bed view (GP-FR-047): the document, its counters and the derived season state."""
 
@@ -522,8 +534,8 @@ class BedSummaryView:
     is_bed: bool
     #: GP-FR-125 (WP 8.10): the nutrient hint of a bed; ``None`` for a location that is no bed.
     nutrient_hint: NutrientHint | None = None
-    #: GP-FR-167 (WP 9.12): metres from the location's edge to the nearest water source of its site, derived and
-    #: read-only; ``None`` without a geometry or without a water source.
+    #: GP-FR-167 (WP 9.12): metres from the bed's edge to the nearest water source of its site, derived and
+    #: read-only; ``None`` for a location that is no bed, without a geometry or without a water source.
     nearest_water_source_m: float | None = None
 
 

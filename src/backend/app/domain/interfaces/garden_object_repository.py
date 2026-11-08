@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from app.common.enums import GardenObjectType
 from app.common.types import GardenObjectKey, SiteKey
 from app.domain.models.garden_object import GardenObject
 
@@ -15,7 +16,18 @@ class IGardenObjectRepository(ABC):
     """
 
     @abstractmethod
-    def get_garden_objects_by_site(self, site_key: SiteKey, *, tenant_key: str) -> list[GardenObject]: ...
+    def get_garden_objects_by_site(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        object_type: GardenObjectType | None = None,
+        on_site_only: bool = False,
+    ) -> list[GardenObject]:
+        """The objects of a site of ``tenant_key``; ``object_type`` keeps one class, ``on_site_only`` drops scenery.
+
+        Both narrow the query itself (the ``(site_key, object_type)`` index of v0093), not the caller's loop.
+        """
 
     @abstractmethod
     def get_garden_object_by_key(self, key: GardenObjectKey, *, tenant_key: str) -> GardenObject | None: ...

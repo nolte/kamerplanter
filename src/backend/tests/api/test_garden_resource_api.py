@@ -170,6 +170,24 @@ class TestTheBedList:
         response = client().get(f"{_FOREIGN}/locations", params={"site_key": SITE, "is_bed": "true"})
         assert response.status_code == 404
 
+    def test_the_bed_list_carries_the_distance_to_the_nearest_water_source(self, client, repo) -> None:
+        """GP-FR-167: the bed (x 1..3) is 1.5 m from the tap at (4.5, 1.5) - the same value as its summary."""
+        repo.objects["tap"] = _water_source("tap", 4.5, 1.5)
+
+        rows = client(TenantRole.VIEWER).get(f"{_BASE}/locations", params={"site_key": SITE, "is_bed": "true"}).json()
+        summary = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed/summary").json()
+
+        assert [(r["key"], r["nearest_water_source_m"]) for r in rows] == [("bed", 1.5)]
+        assert summary["nearest_water_source_m"] == 1.5
+
+    def test_the_bed_list_distance_is_null_without_a_source_and_on_a_plain_listing(self, client, repo) -> None:
+        listed = client().get(f"{_BASE}/locations", params={"site_key": SITE, "is_bed": "true"}).json()
+        assert listed[0]["nearest_water_source_m"] is None
+
+        repo.objects["tap"] = _water_source("tap", 4.5, 1.5)
+        plain = client().get(f"{_BASE}/locations", params={"site_key": SITE}).json()
+        assert plain[0]["nearest_water_source_m"] is None
+
 
 class TestTheBedListAsCsv:
     """GP-FR-145/175, GP-API-068 (WP 8.25, #2668): ``format=csv`` on the bed list - columns, opt-in, hardening."""

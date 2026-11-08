@@ -93,3 +93,46 @@ export function siteConditionsLine(t: TFunction, conditions: SiteConditionsSlice
   if (flags.length > 0) parts.push(t('pages.gardenPlan.siteConditions.summary.flags', { value: flags.join(', ') }));
   return parts.length > 0 ? parts.join(' · ') : null;
 }
+
+/** The two places the water distance is written; each has its own sentence around the number. */
+const WATER_SOURCE_KEY = {
+  header: 'pages.bed.header.waterSourceDistance',
+  list: 'pages.bed.list.waterSourceDistance',
+} as const;
+
+/**
+ * The distance to the nearest water source as the bed head and the bed list show it (GP-FR-167): two decimals at
+ * most, and "Right at the bed" for every distance that would read as 0 at that precision - a tap 3 mm off the edge is
+ * at the bed, not "0 m" away. `null` without a value (no source, or no geometry): nothing to show, never "0 m".
+ */
+export function waterSourceText(
+  t: TFunction,
+  language: string,
+  metres: number | null | undefined,
+  place: keyof typeof WATER_SOURCE_KEY,
+): string | null {
+  if (metres === null || metres === undefined || !Number.isFinite(metres)) return null;
+  const shown = Number(metres.toFixed(2));
+  if (shown === 0) return t('pages.bed.header.waterSourceAtBed');
+  const distance = new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(shown);
+  return t(WATER_SOURCE_KEY[place], { distance });
+}
+
+/**
+ * A comparator for a nullable number column of a `DataTable`, which multiplies the comparator by the direction: a
+ * missing value stays **last in both directions** (the sign of the null comparison is flipped for `desc`, so the
+ * table's flip restores it), the values themselves sort by the direction.
+ */
+export function compareNullableLast(
+  a: number | null | undefined,
+  b: number | null | undefined,
+  direction: 'asc' | 'desc',
+): number {
+  const aMissing = a === null || a === undefined;
+  const bMissing = b === null || b === undefined;
+  if (aMissing || bMissing) {
+    const nulls = (aMissing ? 1 : 0) - (bMissing ? 1 : 0);
+    return direction === 'asc' ? nulls : -nulls;
+  }
+  return a - b;
+}
