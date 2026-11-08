@@ -49,6 +49,10 @@ class FakeTemplates(IBedTemplateRepository):
     def count_owned(self, *, tenant_key):
         return sum(1 for t in self.templates.values() if t.tenant_key == tenant_key)
 
+    def taken_names(self, names, *, tenant_key):
+        used = {t.name.lower() for t in self.templates.values() if self._visible(t, tenant_key)}
+        return {name for name in names if name.lower() in used}
+
     def create_template(self, template: BedTemplate) -> BedTemplate:
         self._next += 1
         stored = template.model_copy(update={"key": f"bt_{self._next}", "created_at": datetime.now(UTC)})

@@ -1064,6 +1064,8 @@ CASES: tuple[Case, ...] = (
     # REQ-053 WP 7.8, GP-FR-044: a template of another tenant is not there for the caller.
     Case("patch_bed_template", "PATCH", "/bed-templates/tpl_b", {"name": "Taken over"}, writes=True),
     Case("delete_bed_template", "DELETE", "/bed-templates/tpl_b", owner_status=204, writes=True),
+    # REQ-053 WP 9.9, GP-API-070: another tenant's template is not there to be exported either.
+    Case("export_bed_template", "GET", "/bed-templates/tpl_b/export"),
     # REQ-053 WP 7.14, GP-FR-033: the background picture of a foreign site is neither set, replaced nor removed.
     Case("put_underlay", "PUT", "/sites/site_b/plan/underlay", _UNDERLAY, writes=True),
     Case("delete_underlay", "DELETE", "/sites/site_b/plan/underlay", owner_status=204, writes=True),
@@ -1166,6 +1168,8 @@ _OTHER_ROUTES: dict[tuple[str, str], str] = {
     "TestBedTemplatesAreScopedToTheTenant lists it as both tenants",
     ("POST", "/bed-templates"): "addresses no key (the owner is the caller's tenant, never a body field); "
     "TestBedTemplatesAreScopedToTheTenant creates as A and reads as B",
+    ("POST", "/bed-templates/import"): "addresses no key (keys of the file are ignored, the owner is the caller's "
+    "tenant); TestBedTemplateExchange imports A's file as B and a file naming B's key as A",
     **{
         (method, path): "sensor and frost-warning routes of a location are served by the sensor and weather "
         "services and predate REQ-053 (#1871 pinned them); WP 1.10 covers the garden-plan services"
@@ -1479,6 +1483,79 @@ class TestBedTemplatesAreScopedToTheTenant:
         assert bed.get("template_key") is None  # the plan omits an unset value
         assert "template_key" not in db.collection(col.LOCATIONS).get(real)
         assert db.collection(col.LOCATIONS).get("bed_b") == tenant_b_before
+
+
+class TestBedTemplateExchange:
+    """REQ-053 WP 9.9 (#2749) against ArangoDB: GP-ACC-062 (the file, the roundtrip) and GP-ACC-063 (keys of the
+    file ignored, a dry run writes nothing, a taken name is a 409)."""
+
+    _HEADERS = {"content-type": "application/json"}
+
+    def _export(self, client: TestClient, slug: str, key: str):
+        response = client.get(f"/api/v1/t/{slug}/bed-templates/{key}/export")
+        assert response.status_code == 200, response.text
+        return response
+
+    def _import(self, client: TestClient, slug: str, content: bytes, **params: str):
+        return client.post(
+            f"/api/v1/t/{slug}/bed-templates/import", content=content, params=params, headers=self._HEADERS
+        )
+
+    def test_export_then_import_into_another_tenant_gives_the_same_template(self, db) -> None:
+        """GP-ACC-062: the file names no tenant, author or note; B's import of A's file exports as the same file."""
+        exported = self._export(_client(db, role=TenantRole.VIEWER), SLUG_A, "tpl_a")
+        assert exported.json()["schema_version"] == "1" and exported.json()["default_geometry"]["kind"] == "rect"
+        assert [
+            needle for needle in ("tenant_key", "created_by", "note", A, USER, '"_key"') if needle in exported.text
+        ] == []
+
+        as_b = _client(db, tenant=B, role=TenantRole.GROWER)
+        before = _snapshot(db)
+        checked = self._import(as_b, SLUG_B, exported.content)
+        assert checked.status_code == 200, checked.text
+        assert (checked.json()["dry_run"], checked.json()["created_key"]) == (True, None)
+        assert _snapshot(db) == before, "the dry run wrote"
+
+        applied = self._import(as_b, SLUG_B, exported.content, dry_run="false")
+        assert applied.status_code == 200, applied.text
+        key = applied.json()["created_key"]
+        stored = db.collection(col.BED_TEMPLATES).get(key)
+        assert (stored["tenant_key"], stored["created_by"], stored["recurring_task_templates"]) == (B, USER, [])
+        assert self._export(as_b, SLUG_B, key).json() == exported.json()
+
+    def test_the_own_tenant_gets_a_409_with_a_free_name_and_nothing_written(self, db) -> None:
+        client = _client(db, role=TenantRole.GROWER)
+        exported = self._export(client, SLUG_A, "tpl_a")
+        before = _snapshot(db)
+
+        refused = self._import(client, SLUG_A, exported.content, dry_run="false")
+
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["details"][0]["suggested_name"] == "Alices Vorlage (2)"
+        assert _snapshot(db) == before
+        renamed = self._import(client, SLUG_A, exported.content, dry_run="false", name="Alices Vorlage (2)")
+        assert renamed.status_code == 200, renamed.text
+
+    def test_keys_of_the_file_are_ignored(self, db) -> None:
+        """GP-ACC-063: a file naming B's template, B as owner and an author is stored as a new row of A."""
+        client = _client(db, role=TenantRole.GROWER)
+        document = {
+            **self._export(client, SLUG_A, "tpl_a").json(),
+            "name": "Uebernommen",
+            "_key": "tpl_b",
+            "tenant_key": B,
+            "created_by": "u_bob",
+        }
+        tpl_b_before = db.collection(col.BED_TEMPLATES).get("tpl_b")
+
+        applied = self._import(client, SLUG_A, json.dumps(document).encode(), dry_run="false")
+
+        assert applied.status_code == 200, applied.text
+        assert applied.json()["dropped_fields"] == ["_key", "created_by", "tenant_key"]
+        stored = db.collection(col.BED_TEMPLATES).get(applied.json()["created_key"])
+        assert stored["_key"] != "tpl_b" and (stored["tenant_key"], stored["created_by"]) == (A, USER)
+        assert db.collection(col.BED_TEMPLATES).get("tpl_b") == tpl_b_before
+        assert [secret for secret in B_SECRETS if secret in applied.text] == []
 
 
 class TestTheMatrixCanFail:

@@ -1021,9 +1021,10 @@ class RequestBodyTooLargeError(KamerplanterError):
     """
 
     def __init__(self, max_bytes: int) -> None:
-        max_mb = max_bytes / (1024 * 1024)
+        # A ceiling below 1 MiB (the bed-template file, 256 KB) is named in KB: "0 MB" would say nothing.
+        size = f"{max_bytes / (1024 * 1024):.0f} MB" if max_bytes >= 1024 * 1024 else f"{max_bytes // 1024} KB"
         super().__init__(
-            message=f"Request body exceeds the maximum allowed size of {max_mb:.0f} MB.",
+            message=f"Request body exceeds the maximum allowed size of {size}.",
             error_code="REQUEST_BODY_TOO_LARGE",
             status_code=413,
         )

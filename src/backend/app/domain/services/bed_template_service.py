@@ -14,21 +14,37 @@ a tenant template: from grower; deleting it: lead only; changing or deleting a *
 only. The router gate says the same for the rank; the service repeats it so a second caller (an MCP tool, a task)
 cannot skip it.
 
+**Exchange (GP-API-070/071, WP 9.9, #2749).** ``export_template`` writes the file of a visible template
+(:class:`~app.domain.models.bed_template_exchange.BedTemplateExchange` - no key, owner, author or note).
+``import_template`` reads one: the role first, then the file (JSON object, nesting, ``schema_version``, schema - each
+a 422), then the bed type (422), the quota (422) and the name (409 with a free name proposed), and only then - not on
+a dry run - the write, through :meth:`BedTemplateService.create_template`. Keys of the file are never kept and no
+reference of the file is resolved: the new template has no task templates.
+
 **Logs carry no user text** (GP-NFR-060): keys, counts and codes - never a template name.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
+import pydantic_core
 import structlog
 from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
 from app.common.types import BedTemplateKey
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.plan_schema_migration import (
+    SchemaMigrationError,
+    UnreadableSchemaVersionError,
+    migrate,
+    readable_versions,
+)
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.models.bed_template import (
     ERROR_NOT_A_BED_TYPE,
@@ -36,6 +52,20 @@ from app.domain.models.bed_template import (
     BedTemplate,
     BedTemplateInput,
     BedTemplatePatch,
+)
+from app.domain.models.bed_template_exchange import (
+    ERROR_FILE_INVALID,
+    ERROR_NAME_TAKEN,
+    ERROR_NESTING,
+    ERROR_SCHEMA_VERSION,
+    KEPT_PREDECESSORS,
+    KNOWN_DROPPED_FIELDS,
+    MAX_NESTING,
+    MAX_REPORTED_FIELDS,
+    MIGRATORS,
+    SCHEMA_VERSION,
+    BedTemplateExchange,
+    BedTemplateImportReport,
 )
 from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 
@@ -76,6 +106,111 @@ def _quota_exceeded(current: int) -> PlanError:
         limit=MAX_TEMPLATES_PER_TENANT,
         current=current,
     )
+
+
+#: The top-level fields of a template file the import reads.
+_EXCHANGE_FIELDS: frozenset[str] = frozenset(BedTemplateExchange.model_fields)
+#: A trailing " (2)" of a name: stripped before a new number is proposed, so a re-import does not grow "(2) (2)".
+_NUMBER_SUFFIX = re.compile(r"\s*\((\d{1,4})\)$")
+#: The most a name may be long (``BedTemplate.name``).
+_MAX_NAME = 200
+
+
+def _import_refused(code: str, message: str, *, field: str = "file") -> PlanError:
+    """422 with the published code of the import (``details[0].code``)."""
+    return PlanError(code, message, status_code=422, field=field)
+
+
+def _nesting_depth(value: Any) -> int:
+    """How deeply ``value`` nests (a scalar is 0, ``{}`` is 1), walked without recursion."""
+    deepest = 0
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if isinstance(node, dict):
+            children: list[Any] = [node[name] for name in node]
+        elif isinstance(node, list):
+            children = node
+        else:
+            continue
+        deepest = max(deepest, depth + 1)
+        if depth + 1 > MAX_NESTING:
+            return depth + 1
+        stack.extend((child, depth + 1) for child in children)
+    return deepest
+
+
+def _parse_file(content: bytes) -> dict[str, Any]:
+    """The file as a JSON object; 422 for anything else, for a nesting past :data:`MAX_NESTING`."""
+    try:
+        parsed = pydantic_core.from_json(content)
+    except ValueError:
+        # Not JSON, not UTF-8, or nested past the parser's own recursion guard.
+        raise _import_refused(ERROR_FILE_INVALID, "The file is no JSON document.") from None
+    if not isinstance(parsed, dict):
+        raise _import_refused(ERROR_FILE_INVALID, "The file must hold one JSON object.")
+    if _nesting_depth(parsed) > MAX_NESTING:
+        raise _import_refused(ERROR_NESTING, f"The file nests deeper than {MAX_NESTING} levels.")
+    return parsed
+
+
+def _migrated(document: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """The file lifted to :data:`SCHEMA_VERSION` - only from the current version and the one before it (GP-API-071).
+
+    The garden-plan chain decides the steps; the window of :data:`KEPT_PREDECESSORS` is this file's own and is
+    applied first, so a migrator registered for an older version does not widen what the import accepts.
+    """
+    version = document.get("schema_version")
+    accepted = readable_versions(SCHEMA_VERSION, MIGRATORS)[-(KEPT_PREDECESSORS + 1) :]
+    if not isinstance(version, str) or version not in accepted:
+        raise _import_refused(
+            ERROR_SCHEMA_VERSION,
+            f"schema_version must be one of {', '.join(accepted)}.",
+            field="schema_version",
+        )
+    try:
+        lifted = migrate(document, current=SCHEMA_VERSION, migrators=MIGRATORS)
+    except UnreadableSchemaVersionError, SchemaMigrationError:
+        raise _import_refused(
+            ERROR_SCHEMA_VERSION, "The file cannot be read in the current version.", field="schema_version"
+        ) from None
+    return lifted, version != SCHEMA_VERSION
+
+
+def _validated(document: dict[str, Any]) -> BedTemplateExchange:
+    """The schema check of the file: 422 ``VALIDATION_ERROR`` with one entry per finding (at most 20)."""
+    try:
+        # JSON object keys are strings, so the document is a valid keyword set.
+        return BedTemplateExchange(**document)
+    except PydanticValidationError as exc:
+        raise ValidationError(
+            "The template file is invalid.",
+            details=[
+                {
+                    "field": ".".join(str(part) for part in error["loc"])[:_MAX_NAME] or "file",
+                    "reason": error["type"],
+                    "code": ERROR_FILE_INVALID,
+                }
+                for error in exc.errors()[:MAX_REPORTED_FIELDS]
+            ],
+        ) from None
+
+
+def _numbered(base: str, number: int) -> str:
+    """``base (number)``, with ``base`` shortened so the whole stays a valid name."""
+    suffix = f" ({number})"
+    return f"{base[: _MAX_NAME - len(suffix)].rstrip()}{suffix}"
+
+
+def name_candidates(name: str, *, count: int) -> list[str]:
+    """``name`` and the numbered alternatives the 409 may propose, in the order they are tried."""
+    base = _NUMBER_SUFFIX.sub("", name).strip() or name
+    candidates = [name]
+    for number in range(2, count + 2):
+        candidate = _numbered(base, number)
+        if candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
 
 
 class BedTemplateService:
@@ -184,6 +319,100 @@ class BedTemplateService:
         if not self._templates.delete_template(key, owner_tenant_key=stored.tenant_key):
             raise NotFoundError("BedTemplate", key)
         logger.info("bed_template.deleted", template_key=key, system=stored.is_system)
+
+    # ── Exchange (GP-API-070/071, WP 9.9) ─────────────────────────────────
+
+    def export_template(self, key: BedTemplateKey, *, tenant_key: str) -> BedTemplateExchange:
+        """The file of a visible template (every member; a system template too). 404 for another tenant's."""
+        template = self.get_template(key, tenant_key=tenant_key)
+        logger.info("bed_template.exported", template_key=key, system=template.is_system)
+        return BedTemplateExchange.of(template)
+
+    def import_template(
+        self,
+        content: bytes,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        dry_run: bool,
+        name: str | None = None,
+    ) -> BedTemplateImportReport:
+        """Check a template file and - unless ``dry_run`` - store it as a new template of the tenant.
+
+        ``name`` replaces the file's name (the way out of a 409). The order is the module docstring's; a dry run
+        runs every check and writes nothing.
+        """
+        self._require_editor(role)
+        parsed = _parse_file(content)
+        file_version = str(parsed.get("schema_version"))
+        document, migrated = _migrated(parsed)
+        foreign = sorted(field for field in document if field not in _EXCHANGE_FIELDS)
+        dropped = [field for field in foreign if field in KNOWN_DROPPED_FIELDS]
+        if name is not None:
+            document = {**document, "name": name}
+        exchange = _validated(document)
+        candidate = BedTemplate(
+            tenant_key=tenant_key,
+            created_by=user_key,
+            name=exchange.name,
+            location_type_key=exchange.location_type_key,
+            default_geometry=exchange.default_geometry,
+            height_m=exchange.height_m,
+            default_layout=exchange.default_layout,
+            soil_profile_defaults=exchange.soil_profile_defaults,
+        )
+        self._resolve_references(candidate, tenant_key=tenant_key, only=frozenset({"location_type_key"}))
+        owned = self._templates.count_owned(tenant_key=tenant_key)
+        if owned >= MAX_TEMPLATES_PER_TENANT:
+            raise _quota_exceeded(owned)
+        self._refuse_a_taken_name(exchange.name, tenant_key=tenant_key)
+        report = BedTemplateImportReport(
+            dry_run=dry_run,
+            schema_version=file_version,
+            migrated=migrated,
+            template=exchange,
+            dropped_fields=dropped[:MAX_REPORTED_FIELDS],
+            unknown_fields_ignored=len(foreign) - len(dropped),
+        )
+        if dry_run:
+            logger.info("bed_template.import_checked", dropped=len(dropped), migrated=migrated)
+            return report
+        created = self.create_template(
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            data=BedTemplateInput(
+                name=exchange.name,
+                location_type_key=exchange.location_type_key,
+                default_geometry=exchange.default_geometry,
+                height_m=exchange.height_m,
+                default_layout=exchange.default_layout,
+                soil_profile_defaults=exchange.soil_profile_defaults,
+            ),
+        )
+        logger.info("bed_template.imported", template_key=created.key, dropped=len(dropped), migrated=migrated)
+        report.created_key = created.key
+        return report
+
+    def _refuse_a_taken_name(self, name: str, *, tenant_key: str) -> None:
+        """409 ``bed_template.name_taken`` when a visible template has the name; ``suggested_name`` is a free one.
+
+        A convenience, not an invariant: ``POST /bed-templates`` admits two templates of one name, and two imports
+        racing on one name may both pass. ``suggested_name`` is ``null`` only if every candidate is taken.
+        """
+        candidates = name_candidates(name, count=MAX_TEMPLATES_PER_TENANT + 1)
+        taken = self._templates.taken_names(candidates, tenant_key=tenant_key)
+        if name not in taken:
+            return
+        suggestion = next((candidate for candidate in candidates if candidate not in taken), None)
+        raise PlanError(
+            ERROR_NAME_TAKEN,
+            "A template of this name exists already.",
+            status_code=409,
+            field="name",
+            suggested_name=suggestion,
+        )
 
     # ── Helpers ───────────────────────────────────────────────────────────
 

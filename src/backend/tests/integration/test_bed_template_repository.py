@@ -152,6 +152,26 @@ class TestReads:
         assert repo.bed_type_flags(["bed", "greenhouse", "nope"]) == {"bed": True, "greenhouse": False}
 
 
+class TestTakenNames:
+    """REQ-053 WP 9.9 (#2749): the name-collision check of the import reads the visible rows only, without case."""
+
+    def test_a_name_is_taken_by_a_system_row_or_the_own_one_never_by_another_tenants(self, repo) -> None:
+        repo.create_template(_template("Kräuterbeet", A))
+        repo.create_template(_template("System bed", None))
+        repo.create_template(_template("Bobs Beet", B))
+
+        taken = repo.taken_names(["KRÄUTERBEET", "system BED", "Bobs Beet", "Frei"], tenant_key=A)
+
+        assert taken == {"KRÄUTERBEET", "system BED"}
+
+    def test_no_names_read_nothing(self, repo) -> None:
+        assert repo.taken_names([], tenant_key=A) == set()
+
+    def test_a_blank_tenant_is_refused(self, repo) -> None:
+        with pytest.raises(ValueError):
+            repo.taken_names(["x"], tenant_key="")
+
+
 class TestWrites:
     def test_an_update_names_the_owner_and_cannot_reach_the_other_kind_of_row(self, repo) -> None:
         sys_row = repo.create_template(_template("System", None))

@@ -3,29 +3,41 @@
 ``GET /bed-templates`` answers the system templates and the tenant's own. The gate decides the caller's rank only
 (read all roles, create and change from grower, delete lead only); whose row it is - the tenant's, a system one
 (platform admin only) or another tenant's (404) - is decided in the service (§22.3 T-01..T-03).
+
+The exchange pair (GP-API-070/071, WP 9.9): ``GET /bed-templates/{key}/export`` (every member) delivers one template
+as a JSON file without keys, owner, author or note; ``POST /bed-templates/import`` (from grower) reads such a file,
+at most 256 KB, as a new template of the caller's tenant.
 """
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
+from starlette.concurrency import run_in_threadpool
 
 from app.api.v1.bed_templates.schemas import (
     BedTemplateCreate,
+    BedTemplateExchangeFile,
+    BedTemplateImportResponse,
     BedTemplateResponse,
     BedTemplateUpdate,
     bed_template_to_response,
+    import_report_to_response,
 )
 from app.common.auth import get_current_tenant, get_is_platform_admin, require_permission
+from app.common.body_limit import read_bounded_body
 from app.common.dependencies import get_bed_template_service
 from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
     FORBIDDEN_RESPONSE,
     NOT_FOUND_RESPONSE,
     VALIDATION_RESPONSE,
 )
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
+from app.domain.models.bed_template_exchange import MAX_FILE_BYTES
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.bed_template_service import BedTemplateService
+from app.domain.services.garden_plan_export_service import safe_filename_part
 
 router = APIRouter(tags=["bed-templates"], responses=NOT_FOUND_RESPONSE)
 
@@ -63,6 +75,82 @@ def create_bed_template(
     """
     created = service.create_template(tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, data=body)
     return bed_template_to_response(created)
+
+
+@router.post(
+    "/bed-templates/import",
+    response_model=BedTemplateImportResponse,
+    summary="Check (dry run) or import a bed template file",
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **CONFLICT_RESPONSE,
+        **VALIDATION_RESPONSE,
+        413: {"description": "The file is larger than 256 KB (`REQUEST_BODY_TOO_LARGE`)."},
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": BedTemplateExchangeFile.model_json_schema()}},
+        }
+    },
+)
+async def import_bed_template(
+    request: Request,
+    dry_run: Annotated[bool, Query(description="Check the file and report; write nothing. Default `true`.")] = True,
+    name: Annotated[
+        str | None,
+        Query(min_length=1, max_length=200, description="Use this name instead of the file's (after a 409)."),
+    ] = None,
+    ctx: TenantContext = Depends(require_permission(ResourceType.BED_TEMPLATE, Action.CREATE)),
+    service: BedTemplateService = Depends(get_bed_template_service),
+) -> BedTemplateImportResponse:
+    """GP-API-071 (from grower). The body is the file of `GET /bed-templates/{key}/export`, at most 256 KB (413).
+
+    It is read **here**, after authentication and the role gate. The file must be one JSON object nested at most
+    10 levels with `format: "kamerplanter.bed_template"` and a `schema_version` of the current or the previous
+    version (422 `bed_template.schema_version_unsupported` otherwise); the schema check is a 422 `VALIDATION_ERROR`.
+    Top-level fields the schema does not name - `_key`, `tenant_key`, `created_by`, `recurring_task_templates` ... -
+    are ignored and reported, never stored; no reference of the file is resolved. 422 `reference.not_found` /
+    `bed_template.not_a_bed_type` for a bed type this installation does not have, 422
+    `bed_template.quota_exceeded` at 200 own templates, 409 `bed_template.name_taken` with
+    `details[0].suggested_name` when a template of that name exists (system or own, compared without case).
+    `dry_run=true` (default) runs every check and writes nothing.
+    """
+    raw = await read_bounded_body(request, MAX_FILE_BYTES)
+    report = await run_in_threadpool(
+        service.import_template,
+        raw,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        dry_run=dry_run,
+        name=name,
+    )
+    return import_report_to_response(report)
+
+
+@router.get(
+    "/bed-templates/{key}/export",
+    response_model=BedTemplateExchangeFile,
+    summary="Download one bed template as a JSON file",
+)
+def export_bed_template(
+    key: _TEMPLATE_KEY,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: BedTemplateService = Depends(get_bed_template_service),
+) -> Response:
+    """GP-API-070 (every member): `format`, `schema_version`, name, bed type, geometry, height and planting grid -
+    no key, no `tenant_key`, no `created_by`, no task templates, no note. A system template can be exported too;
+    another tenant's template answers 404. Delivered as an attachment."""
+    document = service.export_template(key, tenant_key=ctx.tenant_key)
+    return Response(
+        content=document.model_dump_json(),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="bed-template-{safe_filename_part(key)}.json"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.patch(
