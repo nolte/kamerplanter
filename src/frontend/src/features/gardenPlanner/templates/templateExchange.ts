@@ -5,6 +5,7 @@
  */
 import { tenantClient } from '@/api/client';
 import { isApiError } from '@/api/errors';
+import { safeFilenamePart } from '../io/pngExport';
 import type { Geometry } from '../model/types';
 
 /** GP-API-071: the server refuses a larger file with 413; the panel says so before sending it. */
@@ -57,7 +58,10 @@ export async function exportBedTemplate(key: string): Promise<{ blob: Blob; file
   const headers = response.headers as Record<string, unknown>;
   return {
     blob: response.data,
-    filename: filenameOf(headers['content-disposition'], `bed-template-${key}.json`),
+    filename: filenameOf(
+      headers['content-disposition'],
+      `bed-template-${safeFilenamePart(key)}.json`,
+    ),
   };
 }
 

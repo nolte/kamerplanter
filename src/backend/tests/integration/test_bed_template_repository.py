@@ -164,6 +164,19 @@ class TestTakenNames:
 
         assert taken == {"KRÄUTERBEET", "system BED"}
 
+    def test_a_name_behind_many_visible_rows_is_still_found(self, repo, db) -> None:
+        """Review of #2749: the cap bounds the matches, not the rows read - 800 visible rows sort before the one
+        that carries the name, and it is still found."""
+        db.collection(col.BED_TEMPLATES).insert_many(
+            [
+                {**_template(f"Aaa {index:04d}", A).model_dump(mode="json", exclude={"key"}), "tenant_key": A}
+                for index in range(800)
+            ]
+        )
+        repo.create_template(_template("Zebra", A))
+
+        assert repo.taken_names(["ZEBRA", "Frei"], tenant_key=A) == {"ZEBRA"}
+
     def test_no_names_read_nothing(self, repo) -> None:
         assert repo.taken_names([], tenant_key=A) == set()
 

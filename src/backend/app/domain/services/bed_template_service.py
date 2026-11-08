@@ -18,7 +18,8 @@ cannot skip it.
 (:class:`~app.domain.models.bed_template_exchange.BedTemplateExchange` - no key, owner, author or note).
 ``import_template`` reads one: the role first, then the file (JSON object, nesting, ``schema_version``, schema - each
 a 422), then the bed type (422), the quota (422) and the name (409 with a free name proposed), and only then - not on
-a dry run - the write, through :meth:`BedTemplateService.create_template`. Keys of the file are never kept and no
+a dry run - the write. The quota and the references are the same single step ``create_template`` runs
+(``_admit_new``), followed by the same insert (``_insert``). Keys of the file are never kept and no
 reference of the file is resolved: the new template has no task templates.
 
 **Logs carry no user text** (GP-NFR-060): keys, counts and codes - never a template name.
@@ -27,6 +28,7 @@ reference of the file is resolved: the new template has no task templates.
 from __future__ import annotations
 
 import re
+import typing
 from typing import Any
 
 import pydantic_core
@@ -34,7 +36,7 @@ import structlog
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import TenantRole
+from app.common.enums import GeometryKind, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
 from app.common.types import BedTemplateKey
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
@@ -66,6 +68,13 @@ from app.domain.models.bed_template_exchange import (
     SCHEMA_VERSION,
     BedTemplateExchange,
     BedTemplateImportReport,
+)
+from app.domain.models.geometry import (
+    CircleGeometry,
+    PointGeometry,
+    PolygonGeometry,
+    PolylineGeometry,
+    RectGeometry,
 )
 from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 
@@ -180,20 +189,62 @@ def _migrated(document: dict[str, Any]) -> tuple[dict[str, Any], bool]:
 def _validated(document: dict[str, Any]) -> BedTemplateExchange:
     """The schema check of the file: 422 ``VALIDATION_ERROR`` with one entry per finding (at most 20)."""
     try:
-        # JSON object keys are strings, so the document is a valid keyword set.
-        return BedTemplateExchange(**document)
+        return BedTemplateExchange.model_validate(document)
     except PydanticValidationError as exc:
         raise ValidationError(
             "The template file is invalid.",
             details=[
                 {
-                    "field": ".".join(str(part) for part in error["loc"])[:_MAX_NAME] or "file",
+                    "field": _safe_location(error["loc"], extra=error["type"] == "extra_forbidden"),
                     "reason": error["type"],
                     "code": ERROR_FILE_INVALID,
                 }
                 for error in exc.errors()[:MAX_REPORTED_FIELDS]
             ],
         ) from None
+
+
+def _field_names(model: type[BaseModel], seen: set[str], visited: set[type[BaseModel]]) -> None:
+    """Every field name of ``model`` and of the models it nests (and their aliases)."""
+    visited.add(model)
+    for name, info in model.model_fields.items():
+        seen.add(name)
+        if info.alias:
+            seen.add(info.alias)
+        for nested in _nested_models(info.annotation):
+            if nested not in visited:
+                _field_names(nested, seen, visited)
+
+
+def _nested_models(annotation: Any) -> list[type[BaseModel]]:
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return [annotation]
+    return [model for argument in typing.get_args(annotation) for model in _nested_models(argument)]
+
+
+def _known_location_parts() -> frozenset[str]:
+    """The names a 422 ``loc`` may carry back: model fields, geometry fields and the geometry kinds (union tags)."""
+    seen: set[str] = set()
+    visited: set[type[BaseModel]] = set()
+    for model in (BedTemplateExchange, RectGeometry, CircleGeometry, PolygonGeometry, PolylineGeometry, PointGeometry):
+        _field_names(model, seen, visited)
+    return frozenset(seen | {kind.value for kind in GeometryKind})
+
+
+#: SEC-002: what of a ``loc`` may be echoed - nothing the file named on its own.
+_KNOWN_LOCATION_PARTS = _known_location_parts()
+_UNKNOWN_PART = "<unknown>"
+
+
+def _safe_location(loc: tuple[int | str, ...], *, extra: bool) -> str:
+    """The path of a finding with every part the file could have chosen replaced by ``<unknown>``.
+
+    Integer indices and the names of the schema pass; any other string - the key an ``extra_forbidden`` names
+    above all - does not, so the answer never echoes a key of the file."""
+    parts = [str(part) if isinstance(part, int) or part in _KNOWN_LOCATION_PARTS else _UNKNOWN_PART for part in loc]
+    if extra and parts:
+        parts[-1] = _UNKNOWN_PART
+    return ".".join(parts) or "file"
 
 
 def _numbered(base: str, number: int) -> str:
@@ -249,9 +300,6 @@ class BedTemplateService:
     ) -> BedTemplate:
         """A template of the tenant (never a system one: those ship with the migration)."""
         self._require_editor(role)
-        owned = self._templates.count_owned(tenant_key=tenant_key)
-        if owned >= MAX_TEMPLATES_PER_TENANT:
-            raise _quota_exceeded(owned)
         template = BedTemplate(
             tenant_key=tenant_key,
             created_by=user_key,
@@ -263,7 +311,19 @@ class BedTemplateService:
             soil_profile_defaults=data.soil_profile_defaults,
             recurring_task_templates=list(data.recurring_task_templates),
         )
+        self._admit_new(template, tenant_key=tenant_key)
+        return self._insert(template, tenant_key=tenant_key)
+
+    def _admit_new(self, template: BedTemplate, *, tenant_key: str) -> None:
+        """The one check of a new tenant template before its insert: the quota (422), then its references (422).
+        ``create_template`` and ``import_template`` (dry run and applied) both run exactly this."""
+        owned = self._templates.count_owned(tenant_key=tenant_key)
+        if owned >= MAX_TEMPLATES_PER_TENANT:
+            raise _quota_exceeded(owned)
         self._resolve_references(template, tenant_key=tenant_key, only=None)
+
+    def _insert(self, template: BedTemplate, *, tenant_key: str) -> BedTemplate:
+        """Insert an admitted template and settle it against the quota (#2529)."""
         created = self._templates.create_template(template)
         self._settle_create_against_quota(created, tenant_key=tenant_key)
         logger.info("bed_template.created", template_key=created.key, kind=created.default_geometry.kind.value)
@@ -362,10 +422,7 @@ class BedTemplateService:
             default_layout=exchange.default_layout,
             soil_profile_defaults=exchange.soil_profile_defaults,
         )
-        self._resolve_references(candidate, tenant_key=tenant_key, only=frozenset({"location_type_key"}))
-        owned = self._templates.count_owned(tenant_key=tenant_key)
-        if owned >= MAX_TEMPLATES_PER_TENANT:
-            raise _quota_exceeded(owned)
+        self._admit_new(candidate, tenant_key=tenant_key)
         self._refuse_a_taken_name(exchange.name, tenant_key=tenant_key)
         report = BedTemplateImportReport(
             dry_run=dry_run,
@@ -378,19 +435,7 @@ class BedTemplateService:
         if dry_run:
             logger.info("bed_template.import_checked", dropped=len(dropped), migrated=migrated)
             return report
-        created = self.create_template(
-            tenant_key=tenant_key,
-            user_key=user_key,
-            role=role,
-            data=BedTemplateInput(
-                name=exchange.name,
-                location_type_key=exchange.location_type_key,
-                default_geometry=exchange.default_geometry,
-                height_m=exchange.height_m,
-                default_layout=exchange.default_layout,
-                soil_profile_defaults=exchange.soil_profile_defaults,
-            ),
-        )
+        created = self._insert(candidate, tenant_key=tenant_key)
         logger.info("bed_template.imported", template_key=created.key, dropped=len(dropped), migrated=migrated)
         report.created_key = created.key
         return report

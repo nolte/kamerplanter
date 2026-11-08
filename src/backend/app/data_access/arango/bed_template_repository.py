@@ -26,14 +26,12 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
-from app.domain.models.bed_template import MAX_TEMPLATES_PER_TENANT, BedTemplate
+from app.domain.models.bed_template import BedTemplate
 
 logger = structlog.get_logger()
 
 #: A row the tenant may read: its own or a system one (``tenant_key`` is ``null`` or absent).
 _VISIBLE = "(t.tenant_key == @tenant_key OR t.tenant_key == null)"
-#: How many visible rows the name-collision check reads at most: the tenant's quota and room for system templates.
-_TAKEN_NAMES_CAP = MAX_TEMPLATES_PER_TENANT + 500
 
 
 class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplateRepository):
@@ -122,27 +120,31 @@ class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplat
         self._require_tenant_key(tenant_key, "taken_names")
         if not names:
             return set()
-        # The visible rows are bounded by the tenant's quota plus the system templates; ``@cap`` keeps the read
-        # bounded even if a volume holds more than either should.
+        # The name filter comes first and the cap bounds the distinct matches only: a cap on the visible rows read
+        # before the filter could stop short of the one row that carries the name (review of #2749). Both sides are
+        # lowered by AQL, so the comparison has one notion of case.
+        wanted = sorted(set(names))
         bind_vars: dict[str, Any] = {
             "@templates": col.BED_TEMPLATES,
             "tenant_key": tenant_key,
-            "names": sorted(set(names)),
-            "cap": _TAKEN_NAMES_CAP,
+            "names": wanted,
+            "cap": len(wanted),
         }
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
                 f"""
-            LET taken = (
+            LET lowered = (FOR n IN @names RETURN LOWER(n))
+            LET found = (
                 FOR t IN @@templates
-                    FILTER {_VISIBLE}
+                    FILTER {_VISIBLE} AND LOWER(t.name) IN lowered
+                    COLLECT name = LOWER(t.name)
                     LIMIT @cap
-                    RETURN LOWER(t.name)
+                    RETURN name
             )
-            FOR name IN @names
-                FILTER LOWER(name) IN taken
-                RETURN name
+            FOR n IN @names
+                FILTER LOWER(n) IN found
+                RETURN n
             """,
                 bind_vars=bind_vars,
             ),

@@ -111,6 +111,15 @@ function Body({ onImported, onClose }: Omit<TemplateImportDialogProps, 'open'>) 
   const [failure, setFailure] = useState<TemplateImportFailure | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // The name the shown report was checked with (`null` = the file's own): exactly what the confirmation sends.
+  const [checkedName, setCheckedName] = useState<string | null>(null);
+
+  const refuse = (error: unknown) => {
+    const refusal = describeImportFailure(error);
+    setFailure(refusal);
+    if (refusal.kind === 'name_taken' && refusal.suggestedName) setName(refusal.suggestedName);
+  };
+
   const check = async (picked: File, override: string | null) => {
     setReport(null);
     setFailure(null);
@@ -120,11 +129,11 @@ function Body({ onImported, onClose }: Omit<TemplateImportDialogProps, 'open'>) 
     }
     setBusy(true);
     try {
-      setReport(await importBedTemplate(picked, { dryRun: true, name: override }));
+      const checked = await importBedTemplate(picked, { dryRun: true, name: override });
+      setCheckedName(override);
+      setReport(checked);
     } catch (error) {
-      const refusal = describeImportFailure(error);
-      setFailure(refusal);
-      if (refusal.kind === 'name_taken' && refusal.suggestedName) setName(refusal.suggestedName);
+      refuse(error);
     } finally {
       setBusy(false);
     }
@@ -134,20 +143,18 @@ function Body({ onImported, onClose }: Omit<TemplateImportDialogProps, 'open'>) 
     if (!file || !report || busy) return;
     setBusy(true);
     try {
-      const applied = await importBedTemplate(file, {
-        dryRun: false,
-        name: name.trim() || null,
-      });
+      const applied = await importBedTemplate(file, { dryRun: false, name: checkedName });
       if (applied.created_key) onImported(applied.created_key);
     } catch (error) {
+      // A name taken in between (409) proposes a free one exactly like the check; confirming needs a new check.
       setReport(null);
-      setFailure(describeImportFailure(error));
+      refuse(error);
     } finally {
       setBusy(false);
     }
   };
 
-  const nameAsked = failure?.kind === 'name_taken' || (report !== null && name.trim() !== '');
+  const nameAsked = failure?.kind === 'name_taken' || checkedName !== null || name !== '';
   return (
     <>
       <DialogContent>
@@ -166,6 +173,7 @@ function Body({ onImported, onClose }: Omit<TemplateImportDialogProps, 'open'>) 
             if (!picked) return;
             setFile(picked);
             setName('');
+            setCheckedName(null);
             void check(picked, null);
           }}
         />
@@ -200,7 +208,11 @@ function Body({ onImported, onClose }: Omit<TemplateImportDialogProps, 'open'>) 
               size="small"
               label={t(`${PREFIX}.name`)}
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                // A changed name was not checked: the report goes, "Import" waits for the next check.
+                setName(event.target.value);
+                setReport(null);
+              }}
               slotProps={{
                 htmlInput: { maxLength: 200, 'data-testid': 'garden-plan-template-import-name' },
               }}

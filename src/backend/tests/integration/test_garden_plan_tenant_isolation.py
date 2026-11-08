@@ -1491,6 +1491,13 @@ class TestBedTemplateExchange:
 
     _HEADERS = {"content-type": "application/json"}
 
+    @pytest.fixture(autouse=True)
+    def _fresh_budget(self) -> Iterator[None]:
+        """The import shares the plan import's 3/minute per tenant; each test starts with a full budget."""
+        limiter.reset()
+        yield
+        limiter.reset()
+
     def _export(self, client: TestClient, slug: str, key: str):
         response = client.get(f"/api/v1/t/{slug}/bed-templates/{key}/export")
         assert response.status_code == 200, response.text

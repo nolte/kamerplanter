@@ -14,6 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 
+from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
 from app.api.v1.bed_templates.schemas import (
     BedTemplateCreate,
     BedTemplateExchangeFile,
@@ -23,7 +24,7 @@ from app.api.v1.bed_templates.schemas import (
     bed_template_to_response,
     import_report_to_response,
 )
-from app.common.auth import get_current_tenant, get_is_platform_admin, require_permission
+from app.common.auth import get_budgeted_tenant, get_current_tenant, get_is_platform_admin, require_permission
 from app.common.body_limit import read_bounded_body
 from app.common.dependencies import get_bed_template_service
 from app.common.openapi_responses import (
@@ -33,6 +34,7 @@ from app.common.openapi_responses import (
     VALIDATION_RESPONSE,
 )
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.bed_template_exchange import MAX_FILE_BYTES
 from app.domain.models.tenant_context import TenantContext
@@ -86,6 +88,7 @@ def create_bed_template(
         **CONFLICT_RESPONSE,
         **VALIDATION_RESPONSE,
         413: {"description": "The file is larger than 256 KB (`REQUEST_BODY_TOO_LARGE`)."},
+        429: {"description": "The tenant's import budget is spent (`RATE_LIMIT_EXCEEDED`)."},
     },
     openapi_extra={
         "requestBody": {
@@ -94,6 +97,7 @@ def create_bed_template(
         }
     },
 )
+@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
 async def import_bed_template(
     request: Request,
     dry_run: Annotated[bool, Query(description="Check the file and report; write nothing. Default `true`.")] = True,
@@ -102,11 +106,13 @@ async def import_bed_template(
         Query(min_length=1, max_length=200, description="Use this name instead of the file's (after a 409)."),
     ] = None,
     ctx: TenantContext = Depends(require_permission(ResourceType.BED_TEMPLATE, Action.CREATE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
     service: BedTemplateService = Depends(get_bed_template_service),
 ) -> BedTemplateImportResponse:
     """GP-API-071 (from grower). The body is the file of `GET /bed-templates/{key}/export`, at most 256 KB (413).
 
-    It is read **here**, after authentication and the role gate. The file must be one JSON object nested at most
+    It is read **here**, after authentication, the role gate and the per-tenant rate limit (the plan import's).
+    The file must be one JSON object nested at most
     10 levels with `format: "kamerplanter.bed_template"` and a `schema_version` of the current or the previous
     version (422 `bed_template.schema_version_unsupported` otherwise); the schema check is a 422 `VALIDATION_ERROR`.
     Top-level fields the schema does not name - `_key`, `tenant_key`, `created_by`, `recurring_task_templates` ... -
@@ -134,7 +140,9 @@ async def import_bed_template(
     response_model=BedTemplateExchangeFile,
     summary="Download one bed template as a JSON file",
 )
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
 def export_bed_template(
+    request: Request,
     key: _TEMPLATE_KEY,
     ctx: TenantContext = Depends(get_current_tenant),
     service: BedTemplateService = Depends(get_bed_template_service),

@@ -24,6 +24,7 @@ the garden-plan one (``app.domain.engines.plan_schema_migration.migrate``), call
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
@@ -75,6 +76,9 @@ KNOWN_DROPPED_FIELDS: frozenset[str] = frozenset(
     }
 )
 
+#: Unicode categories a name of an imported file must not contain: controls (Cc) and format characters (Cf).
+_REFUSED_CATEGORIES: frozenset[str] = frozenset({"Cc", "Cf"})
+
 #: 422 codes of the import (``details[0].code``).
 ERROR_FILE_INVALID = "bed_template.import_invalid"
 ERROR_SCHEMA_VERSION = "bed_template.schema_version_unsupported"
@@ -105,9 +109,14 @@ class BedTemplateExchange(BaseModel):
     @field_validator("name")
     @classmethod
     def strip_name(cls, value: str) -> str:
-        stripped = value.strip()
+        """SEC-003: a file from elsewhere carries a name in NFC and without control or format characters (Cc, Cf:
+        a bidi override or a zero-width space would make two names look alike). Only this model checks it - the
+        names of templates created here stay as they are."""
+        stripped = unicodedata.normalize("NFC", value).strip()
         if not stripped:
             raise ValueError("A template needs a name.")
+        if any(unicodedata.category(char) in _REFUSED_CATEGORIES for char in stripped):
+            raise ValueError("A template name must not contain control or format characters.")
         return stripped
 
     @field_validator("default_geometry")

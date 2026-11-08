@@ -18,6 +18,7 @@ import Typography from '@mui/material/Typography';
 import RotateRightIcon from '@mui/icons-material/RotateRight';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { saveBlob } from '../io/ioApi';
 import type { BedTemplates } from './useBedTemplates';
 import { templateName } from './templateName';
@@ -47,6 +48,8 @@ export default function TemplatePanel(props: TemplatePanelProps) {
   const { t } = useTranslation();
   const { catalogue, templateKey } = props;
   const known = catalogue.templates.some((template) => template.key === templateKey);
+  // Importing creates a template: from grower, like "Save as template" (the server says the same, 403).
+  const { canEdit } = useTenantPermissions();
   const [importOpen, setImportOpen] = useState(false);
   const [exchangeNotice, setExchangeNotice] = useState<'exported' | 'imported' | 'exportFailed' | null>(
     null,
@@ -135,16 +138,18 @@ export default function TemplatePanel(props: TemplatePanelProps) {
       >
         {t(`${PREFIX}.exchange.export`)}
       </Button>
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={<UploadFileIcon />}
-        onClick={() => setImportOpen(true)}
-        data-testid="garden-plan-template-import"
-        sx={{ minHeight: TARGET_PX }}
-      >
-        {t(`${PREFIX}.exchange.import`)}
-      </Button>
+      {canEdit && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<UploadFileIcon />}
+          onClick={() => setImportOpen(true)}
+          data-testid="garden-plan-template-import"
+          sx={{ minHeight: TARGET_PX }}
+        >
+          {t(`${PREFIX}.exchange.import`)}
+        </Button>
+      )}
       <Button
         size="small"
         onClick={props.onClose}
@@ -179,7 +184,7 @@ export default function TemplatePanel(props: TemplatePanelProps) {
           {t(`${PREFIX}.exchange.notice.${exchangeNotice}`)}
         </Alert>
       )}
-      {importOpen && (
+      {canEdit && importOpen && (
         <Suspense fallback={null}>
           <TemplateImportDialog
             open

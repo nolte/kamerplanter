@@ -154,8 +154,8 @@ class BedTemplateImportResponse(BaseModel):
     #: The version the file was written in; ``migrated`` = lifted to the current one.
     schema_version: str
     migrated: bool
-    #: The template as it is (or would be) stored, with the name it gets.
-    template: BedTemplateExchangeFile
+    #: The template as it is (or would be) stored, with the name it gets - the file's own type, so nothing is copied.
+    template: BedTemplateExchange
     #: The new template's key; ``null`` on a dry run.
     created_key: str | None = None
     #: Known fields of the file that were dropped on purpose (document keys, owner, author, task templates).
@@ -169,16 +169,7 @@ def import_report_to_response(report: BedTemplateImportReport) -> BedTemplateImp
         dry_run=report.dry_run,
         schema_version=report.schema_version,
         migrated=report.migrated,
-        template=BedTemplateExchangeFile(
-            format=report.template.format,
-            schema_version=report.template.schema_version,
-            name=report.template.name,
-            location_type_key=report.template.location_type_key,
-            default_geometry=report.template.default_geometry,
-            height_m=report.template.height_m,
-            default_layout=report.template.default_layout,
-            soil_profile_defaults=report.template.soil_profile_defaults,
-        ),
+        template=report.template,
         created_key=report.created_key,
         dropped_fields=list(report.dropped_fields),
         unknown_fields_ignored=report.unknown_fields_ignored,

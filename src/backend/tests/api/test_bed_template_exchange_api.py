@@ -350,6 +350,59 @@ class TestTheImport:
         assert _own_writes(templates) == []
 
 
+class TestTheHardening:
+    def test_a_key_of_the_file_is_never_echoed_in_a_422(self, client) -> None:
+        """SEC-002: the path of a finding names schema fields and indices only, never a key the file chose."""
+        document = {
+            **_export(client()),
+            "name": "New",
+            "default_layout": {"spacing_cm": 20, "exfil_k3y_one": 1},
+            "soil_profile_defaults": {"exfil_k3y_two": True},
+        }
+
+        response = _import(client(), document)
+
+        assert response.status_code == 422, response.text
+        assert "exfil_k3y" not in response.text
+        fields = sorted(detail["field"] for detail in response.json()["details"])
+        assert fields == ["default_layout.<unknown>", "soil_profile_defaults.<unknown>"]
+
+    def test_an_index_and_a_schema_field_pass(self, client) -> None:
+        document = {**_export(client()), "name": "New", "default_geometry": {**_POLYGON, "points": [[0, 0], [1, "x"]]}}
+
+        response = _import(client(), document)
+
+        assert response.status_code == 422, response.text
+        assert any(detail["field"].startswith("default_geometry.") for detail in response.json()["details"])
+
+    @pytest.mark.parametrize(
+        "name", ["Beet\u202e1", "Beet\u200b", "Beet\x07", "Beet\u2066x"], ids=["bidi", "zwsp", "bell", "isolate"]
+    )
+    def test_a_name_with_a_control_or_format_character_is_refused(self, client, templates, name: str) -> None:
+        """SEC-003: Cc and Cf characters are refused in the name of an imported file - also as the ``name`` override."""
+        in_file = _import(client(), {**_export(client()), "name": name}, dry_run="false")
+        as_override = _import(client(), _export(client()), name=name, dry_run="false")
+
+        assert (in_file.status_code, as_override.status_code) == (422, 422), in_file.text
+        assert _own_writes(templates) == []
+
+    def test_the_name_is_stored_in_nfc(self, client, templates: FakeTemplates) -> None:
+        decomposed = "Kra\u0308uterbeet"
+
+        response = _import(client(), {**_export(client()), "name": decomposed}, dry_run="false")
+
+        assert response.status_code == 200, response.text
+        assert templates.templates[response.json()["created_key"]].name == "Kr\u00e4uterbeet"
+
+    def test_the_import_is_budgeted_per_tenant(self, client) -> None:
+        """SEC-001: the plan import's budget (3/minute per tenant) holds for the template import too."""
+        document = {**_export(client()), "name": "New"}
+
+        statuses = [_import(client(), document).status_code for _ in range(4)]
+
+        assert statuses == [200, 200, 200, 429]
+
+
 def _shape() -> dict[str, Any]:
     return {
         "location_type_key": "bed",

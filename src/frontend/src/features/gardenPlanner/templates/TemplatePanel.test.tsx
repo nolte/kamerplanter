@@ -72,13 +72,18 @@ function catalogue(reload = vi.fn()): BedTemplates {
   };
 }
 
-function renderPanel(templateKey: string | null = 'tpl_1') {
+function renderPanel(
+  templateKey: string | null = 'tpl_1',
+  role: 'viewer' | 'grower' | 'lead' = 'grower',
+  templateList?: BedTemplates['templates'],
+) {
   const reload = vi.fn();
   const onTemplateKey = vi.fn();
-  const store = createTestStore({ ...tenantState('grower'), ...authState() });
+  const store = createTestStore({ ...tenantState(role), ...authState() });
+  const shown = catalogue(reload);
   renderWithProviders(
     <TemplatePanel
-      catalogue={catalogue(reload)}
+      catalogue={templateList ? { ...shown, templates: templateList } : shown}
       templateKey={templateKey}
       onTemplateKey={onTemplateKey}
       rotationDeg={0}
@@ -163,7 +168,78 @@ describe('TemplatePanel - export', () => {
   });
 });
 
+describe('TemplatePanel - export file name', () => {
+  it('cleans the key like the server when the answer names no file', async () => {
+    server.use(http.get(`${BASE}/bed-templates/:key/export`, () => HttpResponse.json(FILE)));
+    const user = userEvent.setup();
+    renderPanel('a/b c', 'grower', [{ ...catalogue().templates[0], key: 'a/b c' }]);
+
+    await user.click(screen.getByTestId('garden-plan-template-export'));
+
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('bed-template-a_b_c.json');
+  });
+});
+
 describe('TemplatePanel - import', () => {
+  it('offers no import below the grower role, but the export', () => {
+    renderPanel('tpl_1', 'viewer');
+
+    expect(screen.queryByTestId('garden-plan-template-import')).not.toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-template-export')).toBeInTheDocument();
+  });
+
+  it('drops the report when the name changes after the check and imports the checked name only', async () => {
+    useImportBackend(calls, (params) =>
+      params.get('dry_run') === 'true'
+        ? report({ template: { ...FILE, name: params.get('name') ?? FILE.name } })
+        : report({ dry_run: false, created_key: 'tpl_3' }),
+    );
+    const user = userEvent.setup();
+    const { onTemplateKey } = renderPanel();
+    await openImport(user);
+    await screen.findByTestId('garden-plan-template-import-report');
+    expect(screen.queryByTestId('garden-plan-template-import-name')).not.toBeInTheDocument();
+
+    // No name field yet: the file's own name passed the check. The real import then meets a taken name.
+    useImportBackend(calls, (params) =>
+      params.get('dry_run') === 'false' && params.get('name') === null
+        ? refusal(409, [{ field: 'name', code: 'bed_template.name_taken', suggested_name: 'Herb bed (2)' }])
+        : params.get('dry_run') === 'true'
+          ? report({ template: { ...FILE, name: params.get('name') ?? FILE.name } })
+          : report({ dry_run: false, created_key: 'tpl_3' }),
+    );
+    await user.click(screen.getByTestId('garden-plan-template-import-confirm'));
+
+    // A 409 of the real import proposes the free name like the check does, and asks for a new check.
+    expect(await screen.findByTestId('garden-plan-template-import-error')).toHaveTextContent(
+      'A template of this name exists already.',
+    );
+    const field = screen.getByTestId('garden-plan-template-import-name');
+    expect(field).toHaveValue('Herb bed (2)');
+    expect(screen.getByTestId('garden-plan-template-import-confirm')).toBeDisabled();
+
+    await user.click(screen.getByTestId('garden-plan-template-import-recheck'));
+    expect(await screen.findByText('Name: Herb bed (2)')).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-template-import-confirm')).toBeEnabled();
+
+    // Typing after the check discards the report: "Import" waits for the next check.
+    await user.type(field, 'x');
+    expect(screen.queryByTestId('garden-plan-template-import-report')).not.toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-template-import-confirm')).toBeDisabled();
+
+    await user.clear(field);
+    await user.type(field, 'Herb bed (2)');
+    await user.click(screen.getByTestId('garden-plan-template-import-recheck'));
+    await screen.findByText('Name: Herb bed (2)');
+    await user.click(screen.getByTestId('garden-plan-template-import-confirm'));
+
+    await waitFor(() => expect(onTemplateKey).toHaveBeenCalledWith('tpl_3'));
+    const last = calls[calls.length - 1];
+    expect(last.params.get('name')).toBe('Herb bed (2)');
+    expect(last.params.get('dry_run')).toBe('false');
+  });
+
   it('checks the file first, shows the report, writes on confirmation and picks the new template', async () => {
     useImportBackend(calls, (params) =>
       params.get('dry_run') === 'true' ? report() : report({ dry_run: false, created_key: 'tpl_new' }),
