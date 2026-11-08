@@ -6326,13 +6326,15 @@
             "pdf": "PDF",
             "svg": "SVG",
             "json": "Backup (JSON)",
-            "csv": "Bed list (CSV)"
+            "csv": "Bed list (CSV)",
+            "png": "PNG (image)"
           },
           "formatHints": {
             "pdf": "The plan to scale on paper – to print and take along.",
             "svg": "The drawing as a vector graphic, for editing in a drawing program.",
             "json": "All beds, garden objects and plant places – to restore or to move. Without plants and tasks.",
-            "csv": "The beds of this site as a table – name, type, area, status and further columns of your choice. Without the plan."
+            "csv": "The beds of this site as a table – name, type, area, status and further columns of your choice. Without the plan.",
+            "png": "The whole plan as an image, made in your browser – for sharing in messages or pasting into documents."
           },
           "paper": "Paper",
           "orientation": "Orientation",
@@ -6371,7 +6373,20 @@
             "failed": "The export did not work. Try again.",
             "tooManyRows": "The bed list would be too long for one file (more than 2,000 beds).",
             "unknownColumn": "The server does not know one of the chosen columns. Reload the page and choose the columns again.",
-            "noColumns": "Select at least one column."
+            "noColumns": "Select at least one column.",
+            "pngFailed": "The image could not be created. Try a lower resolution."
+          },
+          "png": {
+            "resolution": "Resolution",
+            "factor": "{{factor}}×",
+            "resolutionHint": "1× is at most 1,200 pixels on its longer side; 2× and 4× are sharper, and the file gets larger.",
+            "capped": "{{requested}}× would be larger than your browser can draw an image (at most {{megapixels}} megapixels). The image is created at {{factor}}×.",
+            "watermark": "Watermark “Kamerplanter · date”",
+            "watermarkHint": "Writes “Kamerplanter” and today's date in the bottom-right corner. Off by default.",
+            "watermarkText": "Kamerplanter · {{date}}",
+            "summary": "The image will be {{width}} × {{height}} pixels and shows the whole plan.",
+            "nothingToDraw": "The plan is still empty. Draw a garden boundary or a bed first.",
+            "notLoaded": "The plan is not loaded. Close the dialog and reload the page, then you can create the image."
           },
           "csv": {
             "defaultColumns": "Standard columns",

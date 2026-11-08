@@ -6327,13 +6327,15 @@
             "pdf": "PDF",
             "svg": "SVG",
             "json": "Sicherung (JSON)",
-            "csv": "Beetliste (CSV)"
+            "csv": "Beetliste (CSV)",
+            "png": "PNG (Bild)"
           },
           "formatHints": {
             "pdf": "Der Plan im Maßstab auf Papier – zum Ausdrucken und Mitnehmen.",
             "svg": "Die Zeichnung als Vektorgrafik, zum Weiterbearbeiten in einem Zeichenprogramm.",
             "json": "Alle Beete, Gartenobjekte und Pflanzplätze – zum Wiederherstellen oder Umziehen. Ohne Pflanzen und Aufgaben.",
-            "csv": "Die Beete dieses Standorts als Tabelle – Name, Typ, Fläche, Status und weitere Spalten nach Wahl. Ohne Plan."
+            "csv": "Die Beete dieses Standorts als Tabelle – Name, Typ, Fläche, Status und weitere Spalten nach Wahl. Ohne Plan.",
+            "png": "Der ganze Plan als Bild, im Browser erstellt – zum Teilen in Nachrichten oder zum Einfügen in Dokumente."
           },
           "paper": "Papier",
           "orientation": "Ausrichtung",
@@ -6372,7 +6374,20 @@
             "failed": "Der Export hat nicht geklappt. Versuche es noch einmal.",
             "tooManyRows": "Die Beetliste wäre zu lang für eine Datei (mehr als 2.000 Beete).",
             "unknownColumn": "Eine gewählte Spalte kennt der Server nicht. Lade die Seite neu und wähle die Spalten noch einmal.",
-            "noColumns": "Wähle mindestens eine Spalte aus."
+            "noColumns": "Wähle mindestens eine Spalte aus.",
+            "pngFailed": "Das Bild konnte nicht erstellt werden. Versuche eine kleinere Auflösung."
+          },
+          "png": {
+            "resolution": "Auflösung",
+            "factor": "{{factor}}×",
+            "resolutionHint": "1× ist auf der längeren Seite höchstens 1.200 Pixel groß; 2× und 4× sind schärfer, die Datei wird größer.",
+            "capped": "{{requested}}× wäre größer, als dein Browser ein Bild zeichnen kann (höchstens {{megapixels}} Megapixel). Das Bild wird mit {{factor}}× erstellt.",
+            "watermark": "Wasserzeichen „Kamerplanter · Datum“",
+            "watermarkHint": "Schreibt „Kamerplanter“ und das heutige Datum in die rechte untere Ecke. Standardmäßig aus.",
+            "watermarkText": "Kamerplanter · {{date}}",
+            "summary": "Das Bild wird {{width}} × {{height}} Pixel groß und zeigt den ganzen Plan.",
+            "nothingToDraw": "Der Plan ist noch leer. Zeichne zuerst eine Gartengrenze oder ein Beet.",
+            "notLoaded": "Der Plan ist nicht geladen. Schließe den Dialog und lade die Seite neu, dann kannst du das Bild erstellen."
           },
           "csv": {
             "defaultColumns": "Standardspalten",

@@ -3,9 +3,11 @@
  * the reason when it fails. On a phone only the JSON backup and the PDF with their standard options are offered.
  * The bed list as CSV (GP-FR-145/175) has its column selection, the Excel variant and the assignment opt-in (SR-024,
  * default off); like SVG it is not offered on a phone, where GP-UX-050 limits the dialog to JSON and PDF.
+ * The PNG (GP-FR-144) is drawn in the browser from the loaded plan: 1×/2×/4×, capped to the canvas limits with a
+ * hint, and the watermark "Kamerplanter · date" as an option that is off by default. It is not offered on a phone.
  * Lazy: the route chunk stays inside its budget (UI-NFR-003).
  */
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -30,6 +32,25 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import { useAppSelector } from '@/store/hooks';
+import { selectGardenPlanState } from '../state/gardenPlanSlice';
+import { fitViewport, planContentBounds } from '../routes/fitViewport';
+import { useRendererLabels } from '../renderer/useRendererLabels';
+import { useLayerPrefs } from '../editor/useLayerPrefs';
+import { useAttentionFilter } from '../editor/useAttentionFilter';
+import { markerLodBedKeys } from '../renderer/scene';
+import { usePlanPlantStates } from '../planting/usePlanPlantStates';
+import { usePlantStateLayer } from '../planting/usePlantStateLayer';
+import { lightTheme } from '@/theme/theme';
+import OffscreenPlanSvg from './OffscreenPlanSvg';
+import {
+  MAX_CANVAS_AREA_PX,
+  PNG_BASE_EDGE_PX,
+  planPngFilename,
+  rasterizeSvg,
+  resolvePngSize,
+  serializePlanSvg,
+} from './pngExport';
 import {
   BED_LIST_DEFAULT_COLUMNS,
   BED_LIST_SITE_CONDITION_COLUMNS,
@@ -42,9 +63,11 @@ import { describeExportFailure, fetchBedListCsv, fetchPlanExport, saveBlob } fro
 import { usePlanPreview } from './usePlanPreview';
 import {
   DEFAULT_EXPORT_OPTIONS,
+  DEFAULT_PNG_EXPORT_OPTIONS,
   EXPORT_LAYERS,
   EXPORT_SCALES,
   MAX_EXPORT_KEYS,
+  PNG_RESOLUTIONS,
   type ExportFormat,
   type ExportLayer,
   type ExportOptions,
@@ -53,6 +76,8 @@ import {
   type ExportScale,
   type ExportScope,
   type PlanSelection,
+  type PngExportOptions,
+  type PngResolution,
 } from './types';
 
 const PREFIX = 'pages.gardenPlan.io.export';
@@ -66,6 +91,7 @@ interface ExportDialogProps {
 }
 
 const NO_SELECTION: PlanSelection = { locationKeys: [], objectKeys: [] };
+const NO_BED_KEYS: readonly string[] = [];
 
 /** The keys a partial export names: beds and (for a selection only) garden objects as `object:<key>`. */
 function scopeKeys(scope: ExportScope, selection: PlanSelection): string[] {
@@ -76,8 +102,11 @@ function scopeKeys(scope: ExportScope, selection: PlanSelection): string[] {
     : [...locations, ...selection.objectKeys.map((key) => `object:${key}`)];
 }
 
-/** The format buttons of the dialog: the three plan exports plus the bed list as CSV. */
-type DialogFormat = ExportFormat | 'csv';
+/** The format buttons of the dialog: the three server exports, the bed list as CSV and the PNG drawn in the browser. */
+type DialogFormat = ExportFormat | 'csv' | 'png';
+
+/** The formats that are not a server plan export and keep their own options. */
+type LocalFormat = 'csv' | 'png';
 
 function errorKey(code: string | null, status: number | null): string {
   if (code === 'plan.empty') return 'empty';
@@ -102,17 +131,71 @@ export default function ExportDialog({
   selection = NO_SELECTION,
   onClose,
 }: ExportDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('sm'));
   const [options, setOptions] = useState<ExportOptions>(DEFAULT_EXPORT_OPTIONS);
-  const [csvChosen, setCsvChosen] = useState(false);
+  const [localChosen, setLocalChosen] = useState<LocalFormat | null>(null);
   const [csv, setCsv] = useState<BedListCsvOptions>(DEFAULT_BED_LIST_CSV_OPTIONS);
+  const [png, setPng] = useState<PngExportOptions>(DEFAULT_PNG_EXPORT_OPTIONS);
+  // While set, the plan is drawn off screen for one PNG export (GP-FR-144).
+  const [pngRunning, setPngRunning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const storePlan = useAppSelector(selectGardenPlanState).plan;
+  // Only the plan of this site is drawn: the file is named after `siteKey`, so a plan of another site never is.
+  const plan = storePlan && storePlan.siteKey === siteKey ? storePlan : null;
+  const labels = useRendererLabels();
+  // Set when Download starts a PNG and cleared by the first result: a second report of the same run is ignored.
+  const pngActive = useRef(false);
+  // The id of the current run (Download counts it up) and whether a run is still on: a drawing that finishes after
+  // its run ended, or after a newer one started, downloads nothing.
+  const pngRun = useRef(0);
+  const pngRunningNow = useRef(false);
+  useEffect(() => {
+    pngRunningNow.current = pngRunning;
+  }, [pngRunning]);
 
-  // On a phone the standard options apply and neither SVG nor CSV is offered (GP-UX-050).
-  const csvMode = csvChosen && !phone;
+  // On a phone the standard options apply and neither SVG, CSV nor PNG is offered (GP-UX-050).
+  const csvMode = localChosen === 'csv' && !phone;
+  const pngMode = localChosen === 'png' && !phone;
+  const localMode = csvMode || pngMode;
+  // The PNG shows the whole plan, fitted into the base box; 2x and 4x multiply that size.
+  const pngViewport = useMemo(() => {
+    const bounds = plan ? planContentBounds(plan) : null;
+    return bounds ? fitViewport(bounds, PNG_BASE_EDGE_PX, PNG_BASE_EDGE_PX) : null;
+  }, [plan]);
+  const pngSize = pngViewport
+    ? resolvePngSize(pngViewport.widthPx, pngViewport.heightPx, png.resolution)
+    : null;
+  // The PNG draws what the editor draws with the user's layer switches: the site-condition layers from the plan
+  // itself, and the plant states with their phase colours (GP-UX-061, GP-FR-067) read for the beds at marker LOD of
+  // the export's viewport, while PNG is chosen. Zones, "last watered" and companions stay out of the PNG.
+  const { prefs: layerPrefs } = useLayerPrefs();
+  const [attentionOnly] = useAttentionFilter();
+  const plantStateOn = pngMode && layerPrefs.plantState && plan !== null;
+  const stateBedKeys = useMemo(
+    () => (plantStateOn && plan && pngViewport ? markerLodBedKeys(plan, pngViewport) : NO_BED_KEYS),
+    [plantStateOn, plan, pngViewport],
+  );
+  const planStates = usePlanPlantStates(siteKey, stateBedKeys, plantStateOn);
+  const { phaseColors, plantStateLayer } = usePlantStateLayer(plan, planStates, plantStateOn, attentionOnly);
+  const pngRenderOptions = useMemo(
+    () => ({
+      sunLayer: layerPrefs.sun,
+      moistureLayer: layerPrefs.moisture,
+      frostLayer: layerPrefs.frost,
+      ...(plantStateLayer ? { plantStateLayer, phaseColors } : {}),
+    }),
+    [layerPrefs.sun, layerPrefs.moisture, layerPrefs.frost, plantStateLayer, phaseColors],
+  );
+  // A run whose drawing can no longer mount (the plan went away after Download) ends here instead of hanging busy.
+  // (`pngActive` stays set; nothing can report without a mounted drawing, and the next Download sets it anew.)
+  if (pngRunning && (!plan || !pngViewport)) {
+    setPngRunning(false);
+    setBusy(false);
+    setFailure('pngFailed');
+  }
   const base: ExportOptions = phone
     ? { ...DEFAULT_EXPORT_OPTIONS, format: options.format === 'json' ? 'json' : 'pdf' }
     : options;
@@ -127,8 +210,8 @@ export default function ExportDialog({
   const scope: ExportScope =
     base.format === 'json' && available[options.scope] ? options.scope : 'site';
   const effective: ExportOptions = { ...base, scope, keys: scopeKeys(scope, selection) };
-  // The CSV has no drawing to preview: no request is made while it is chosen.
-  const preview = usePlanPreview(siteKey, effective, open && !csvMode);
+  // Neither the CSV nor the PNG asks the server for a preview.
+  const preview = usePlanPreview(siteKey, effective, open && !localMode);
   const patch = (change: Partial<ExportOptions>) => {
     setFailure(null);
     setOptions((previous) => ({ ...previous, ...change }));
@@ -138,9 +221,17 @@ export default function ExportDialog({
     setCsv((previous) => ({ ...previous, ...change }));
   };
   const chooseFormat = (value: DialogFormat) => {
-    setCsvChosen(value === 'csv');
-    if (value === 'csv') setFailure(null);
-    else patch({ format: value });
+    if (value === 'csv' || value === 'png') {
+      setLocalChosen(value);
+      setFailure(null);
+    } else {
+      setLocalChosen(null);
+      patch({ format: value });
+    }
+  };
+  const patchPng = (change: Partial<PngExportOptions>) => {
+    setFailure(null);
+    setPng((previous) => ({ ...previous, ...change }));
   };
   const toggleColumn = (column: BedListColumn) =>
     patchCsv({
@@ -155,9 +246,67 @@ export default function ExportDialog({
         : EXPORT_LAYERS.filter((entry) => entry === layer || effective.layers.includes(entry)),
     });
 
+  const { language } = i18n;
+  // The off-screen drawing is in the document: inline its styles, draw it at the chosen size and download it.
+  const exportPng = useCallback(
+    async (svg: SVGSVGElement) => {
+      if (!pngActive.current) return;
+      pngActive.current = false;
+      const run = pngRun.current;
+      const current = () => pngRun.current === run && pngRunningNow.current;
+      try {
+        if (!pngViewport || !pngSize) throw new Error('png-export: nothing to draw');
+        const svgText = serializePlanSvg(svg, {
+          widthPx: pngViewport.widthPx,
+          heightPx: pngViewport.heightPx,
+          factor: pngSize.factor,
+        });
+        const today = new Date();
+        const blob = await rasterizeSvg(svgText, {
+          widthPx: pngSize.widthPx,
+          heightPx: pngSize.heightPx,
+          factor: pngSize.factor,
+          // Fixed, not the page theme: the PNG is white like the preview and the server's exports.
+          background: lightTheme.palette.common.white,
+          watermark: png.watermark
+            ? t(`${PREFIX}.png.watermarkText`, {
+                date: new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(today),
+              })
+            : null,
+          watermarkColor: lightTheme.palette.text.secondary,
+        });
+        // The run was ended while the image was drawn (its plan went away): no file, the dialog already says why.
+        if (!current()) return;
+        saveBlob(blob, planPngFilename(siteKey, today));
+        onClose();
+      } catch {
+        if (current()) setFailure('pngFailed');
+      } finally {
+        if (current()) {
+          setPngRunning(false);
+          setBusy(false);
+        }
+      }
+    },
+    [pngViewport, pngSize, png.watermark, t, language, siteKey, onClose],
+  );
+  const pngDrawingFailed = useCallback(() => {
+    if (!pngActive.current) return;
+    pngActive.current = false;
+    setFailure('pngFailed');
+    setPngRunning(false);
+    setBusy(false);
+  }, []);
+
   const download = async () => {
     setBusy(true);
     setFailure(null);
+    if (pngMode) {
+      pngActive.current = true;
+      pngRun.current += 1;
+      setPngRunning(true);
+      return;
+    }
     try {
       const file = csvMode
         ? await fetchBedListCsv(siteKey, csv)
@@ -174,12 +323,14 @@ export default function ExportDialog({
 
   const shownError =
     failure ??
-    (!csvMode && preview.status === 'error' ? errorKey(preview.code, preview.httpStatus) : null);
-  const scaled = !csvMode && effective.format !== 'json';
-  const shownFormat: DialogFormat = csvMode ? 'csv' : effective.format;
-  const downloadBlocked = csvMode
-    ? csv.columns.length === 0
-    : preview.status === 'error' && preview.code === 'plan.empty';
+    (!localMode && preview.status === 'error' ? errorKey(preview.code, preview.httpStatus) : null);
+  const scaled = !localMode && effective.format !== 'json';
+  const shownFormat: DialogFormat = csvMode ? 'csv' : pngMode ? 'png' : effective.format;
+  let downloadBlocked: boolean;
+  if (csvMode) downloadBlocked = csv.columns.length === 0;
+  else if (pngMode) downloadBlocked = pngSize === null;
+  else downloadBlocked = preview.status === 'error' && preview.code === 'plan.empty';
+  const number = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 });
   const columnBox = (column: BedListColumn) => (
     <FormControlLabel
       key={column}
@@ -228,6 +379,11 @@ export default function ExportDialog({
             <ToggleButton value="json" sx={{ minHeight: 48 }} data-testid="plan-export-format-json">
               {t(`${PREFIX}.formats.json`)}
             </ToggleButton>
+            {!phone && (
+              <ToggleButton value="png" sx={{ minHeight: 48 }} data-testid="plan-export-format-png">
+                {t(`${PREFIX}.formats.png`)}
+              </ToggleButton>
+            )}
             {!phone && (
               <ToggleButton value="csv" sx={{ minHeight: 48 }} data-testid="plan-export-format-csv">
                 {t(`${PREFIX}.formats.csv`)}
@@ -307,7 +463,66 @@ export default function ExportDialog({
           </>
         )}
 
-        {!csvMode && effective.format === 'json' && (
+        {pngMode && (
+          <>
+            <FormControl>
+              <FormLabel id="plan-export-png-resolution-label">{t(`${PREFIX}.png.resolution`)}</FormLabel>
+              <ToggleButtonGroup
+                exclusive
+                value={png.resolution}
+                onChange={(_, value: PngResolution | null) => value && patchPng({ resolution: value })}
+                aria-labelledby="plan-export-png-resolution-label"
+                sx={{ mt: 0.5 }}
+              >
+                {PNG_RESOLUTIONS.map((factor) => (
+                  <ToggleButton
+                    key={factor}
+                    value={factor}
+                    sx={{ minHeight: 48, minWidth: 64 }}
+                    data-testid={`plan-export-png-resolution-${factor}`}
+                  >
+                    {t(`${PREFIX}.png.factor`, { factor })}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {t(`${PREFIX}.png.resolutionHint`)}
+              </Typography>
+            </FormControl>
+            {pngSize?.capped && (
+              <Alert severity="info" data-testid="plan-export-png-capped">
+                {t(`${PREFIX}.png.capped`, {
+                  requested: png.resolution,
+                  factor: number.format(pngSize.factor),
+                  megapixels: number.format(Math.round(MAX_CANVAS_AREA_PX / 100_000) / 10),
+                })}
+              </Alert>
+            )}
+            <FormControl component="fieldset" variant="standard">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={png.watermark}
+                    onChange={(event) => patchPng({ watermark: event.target.checked })}
+                    slotProps={{
+                      input: {
+                        'data-testid': 'plan-export-png-watermark',
+                        'aria-describedby': 'plan-export-png-watermark-hint',
+                      } as object,
+                    }}
+                  />
+                }
+                label={t(`${PREFIX}.png.watermark`)}
+                sx={{ minHeight: 44 }}
+              />
+              <Typography id="plan-export-png-watermark-hint" variant="body2" color="text.secondary">
+                {t(`${PREFIX}.png.watermarkHint`)}
+              </Typography>
+            </FormControl>
+          </>
+        )}
+
+        {!localMode && effective.format === 'json' && (
           <FormControl>
             <FormLabel id="plan-export-scope-label">{t(`${PREFIX}.scope`)}</FormLabel>
             <RadioGroup
@@ -445,7 +660,7 @@ export default function ExportDialog({
             {t(`${PREFIX}.errors.${shownError}`)}
           </Alert>
         )}
-        {!csvMode && preview.status === 'svg' && preview.suggestA3 && effective.paper === 'a4' && (
+        {!localMode && preview.status === 'svg' && preview.suggestA3 && effective.paper === 'a4' && (
           <Alert severity="info" data-testid="plan-export-suggest-a3">
             {t(`${PREFIX}.suggestA3`)}
           </Alert>
@@ -456,7 +671,7 @@ export default function ExportDialog({
           data-testid="plan-export-preview"
           role="group"
           aria-label={t(`${PREFIX}.preview`)}
-          aria-busy={!csvMode && (preview.status === 'loading' || preview.status === 'idle')}
+          aria-busy={!localMode && (preview.status === 'loading' || preview.status === 'idle')}
         >
           <Typography variant="subtitle2" component="h3" sx={{ mb: 1 }}>
             {t(`${PREFIX}.preview`)}
@@ -473,7 +688,14 @@ export default function ExportDialog({
                   })}
             </Typography>
           )}
-          {!csvMode && (preview.status === 'loading' || preview.status === 'idle') && (
+          {pngMode && (
+            <Typography variant="body2" data-testid="plan-export-png-summary">
+              {pngSize
+                ? t(`${PREFIX}.png.summary`, { width: pngSize.widthPx, height: pngSize.heightPx })
+                : t(`${PREFIX}.png.${plan ? 'nothingToDraw' : 'notLoaded'}`)}
+            </Typography>
+          )}
+          {!localMode && (preview.status === 'loading' || preview.status === 'idle') && (
             <Skeleton
               variant="rectangular"
               height={140}
@@ -481,7 +703,7 @@ export default function ExportDialog({
               aria-label={t(`${PREFIX}.previewLoading`)}
             />
           )}
-          {!csvMode && preview.status === 'svg' && (
+          {!localMode && preview.status === 'svg' && (
             <Box
               component="img"
               src={preview.url}
@@ -489,7 +711,7 @@ export default function ExportDialog({
               sx={{ width: '100%', maxHeight: 320, objectFit: 'contain', bgcolor: 'common.white' }}
             />
           )}
-          {!csvMode && preview.status === 'json' && (
+          {!localMode && preview.status === 'json' && (
             <Typography variant="body2" data-testid="plan-export-json-summary">
               {t(`${PREFIX}.jsonSummary`, {
                 locations: preview.summary.locations,
@@ -499,7 +721,7 @@ export default function ExportDialog({
               })}
             </Typography>
           )}
-          {!csvMode && preview.status === 'error' && (
+          {!localMode && preview.status === 'error' && (
             <Typography variant="body2" color="text.secondary">
               {t(`${PREFIX}.previewUnavailable`)}
             </Typography>
@@ -521,6 +743,16 @@ export default function ExportDialog({
           {t(`${PREFIX}.download`)}
         </Button>
       </DialogActions>
+      {pngRunning && plan && pngViewport && (
+        <OffscreenPlanSvg
+          plan={plan}
+          viewport={pngViewport}
+          labels={labels}
+          options={pngRenderOptions}
+          onReady={exportPng}
+          onError={pngDrawingFailed}
+        />
+      )}
     </Dialog>
   );
 }
