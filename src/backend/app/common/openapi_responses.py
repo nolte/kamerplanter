@@ -24,6 +24,34 @@ class ErrorResponse(BaseModel):
     method: str = Field(description="HTTP method of the failing request.")
 
 
+def request_body_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """The JSON schema of *model* with every ``$defs`` entry inlined, for a hand-written ``openapi_extra`` body.
+
+    ``model_json_schema()`` points nested models at ``#/$defs/<Name>`` — a root-relative reference that resolves
+    nowhere once the schema sits inside ``paths`` of the published document (Spectral ``invalid-ref``). A recursive
+    model has no inline form and is refused.
+    """
+    schema = model.model_json_schema()
+    defs: dict[str, Any] = schema.pop("$defs", {})
+
+    def resolve(node: Any, seen: tuple[str, ...]) -> Any:
+        if isinstance(node, list):
+            return [resolve(item, seen) for item in node]
+        if not isinstance(node, dict):
+            return node
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            name = ref.removeprefix("#/$defs/")
+            if name in seen:
+                raise ValueError(f"{model.__name__}: recursive model {name} cannot be inlined")
+            siblings = {key: resolve(value, seen) for key, value in node.items() if key != "$ref"}
+            return {**resolve(defs[name], (*seen, name)), **siblings}
+        return {key: resolve(value, seen) for key, value in node.items()}
+
+    inlined: dict[str, Any] = resolve(schema, ())
+    return inlined
+
+
 def _error(description: str) -> dict[str, Any]:
     return {"model": ErrorResponse, "description": description}
 
