@@ -32,6 +32,7 @@ from app.common.openapi_responses import (
     FORBIDDEN_RESPONSE,
     NOT_FOUND_RESPONSE,
     VALIDATION_RESPONSE,
+    request_body_schema,
 )
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
@@ -93,7 +94,7 @@ def create_bed_template(
     openapi_extra={
         "requestBody": {
             "required": True,
-            "content": {"application/json": {"schema": BedTemplateExchangeFile.model_json_schema()}},
+            "content": {"application/json": {"schema": request_body_schema(BedTemplateExchangeFile)}},
         }
     },
 )

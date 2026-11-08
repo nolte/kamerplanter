@@ -24,6 +24,41 @@ class ErrorResponse(BaseModel):
     method: str = Field(description="HTTP method of the failing request.")
 
 
+def request_body_schema(model: type[BaseModel]) -> dict[str, Any]:
+    """The JSON schema of *model* with every ``$defs`` entry inlined, for a hand-written ``openapi_extra`` body.
+
+    ``model_json_schema()`` points nested models at ``#/$defs/<Name>`` — a root-relative reference that resolves
+    nowhere once the schema sits inside ``paths`` of the published document (Spectral ``invalid-ref``). A recursive
+    model has no inline form and is refused.
+    """
+    schema: dict[str, Any] = model.model_json_schema()
+    defs: dict[str, Any] = schema.pop("$defs", {})
+
+    def resolve(node: object, seen: tuple[str, ...]) -> object:
+        if isinstance(node, list):
+            items: list[object] = node
+            return [resolve(item, seen) for item in items]
+        if isinstance(node, dict):
+            mapping: dict[str, object] = node
+            return resolve_mapping(mapping, seen)
+        return node
+
+    def resolve_mapping(mapping: dict[str, object], seen: tuple[str, ...]) -> dict[str, object]:
+        ref = mapping.get("$ref")
+        if isinstance(ref, str):
+            pointer: str = ref
+            if pointer.startswith("#/$defs/"):
+                name: str = pointer.removeprefix("#/$defs/")
+                if name in seen:
+                    raise ValueError(f"{model.__name__}: recursive model {name} cannot be inlined")
+                target: dict[str, object] = defs[name]
+                siblings = {key: resolve(value, seen) for key, value in mapping.items() if key != "$ref"}
+                return {**resolve_mapping(target, (*seen, name)), **siblings}
+        return {key: resolve(value, seen) for key, value in mapping.items()}
+
+    return resolve_mapping(schema, ())
+
+
 def _error(description: str) -> dict[str, Any]:
     return {"model": ErrorResponse, "description": description}
 
