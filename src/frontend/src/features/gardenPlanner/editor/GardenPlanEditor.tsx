@@ -66,7 +66,7 @@ import { toScreen as projectToScreen } from '../renderer/viewport';
 import { markerLodBedKeys } from '../renderer/scene';
 import type { CompanionPairItem } from '../api/companionEdges';
 import { cullCompanionLines } from '../renderer/companionLines';
-import { colorsOf, usePhaseNames } from '../planting/phaseColors';
+import { usePlantStateLayer } from '../planting/usePlantStateLayer';
 import { usePlanPlantStates } from '../planting/usePlanPlantStates';
 import { planContentBounds } from '../routes/fitViewport';
 import {
@@ -220,7 +220,6 @@ const CompanionEdgeInfo = lazy(() => import('./CompanionEdgeInfo'));
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const NO_BED_KEYS: readonly string[] = [];
-const NO_PHASE_KEYS: readonly (string | null | undefined)[] = [];
 
 /** The turn a click on "Rotate" adds to the template being placed (GP-FR-044). */
 const TEMPLATE_TURN_DEG = 90;
@@ -357,23 +356,13 @@ export function GardenPlanEditor({
     setLayerRefresh((value) => value + 1);
     refreshPlanStates();
   }, [refreshPlanStates]);
-  // Phase names are read only for the plants whose states are loaded (beds at marker LOD), never for the whole plan.
-  const planPhaseKeys = useMemo(() => {
-    const plantKeys = Object.keys(planStates.states);
-    return plantStateOn && plantKeys.length > 0
-      ? plantKeys.map((plantKey) => plan.plants[plantKey]?.phase_key)
-      : NO_PHASE_KEYS;
-  }, [plantStateOn, planStates.states, plan.plants]);
-  const fetchedPhaseNames = usePhaseNames(planPhaseKeys);
-  // A phase-sequence entry key is unknown to `/growth-phases/{key}`; the state answer names it. The fetched name wins.
-  const phaseNames = useMemo(
-    () => ({ ...planStates.phaseNames, ...fetchedPhaseNames }),
-    [planStates.phaseNames, fetchedPhaseNames],
-  );
-  const phaseColors = useMemo(() => colorsOf(phaseNames), [phaseNames]);
-  const plantStateLayer = useMemo(
-    () => (plantStateOn ? { states: planStates.states, attentionOnly } : undefined),
-    [plantStateOn, planStates.states, attentionOnly],
+  // Phase names are read only for the plants whose states are loaded (beds at marker LOD), never for the whole plan;
+  // the PNG export derives its markers through the same hook.
+  const { planPhaseKeys, phaseNames, phaseColors, plantStateLayer } = usePlantStateLayer(
+    plan,
+    planStates,
+    plantStateOn,
+    attentionOnly,
   );
   // The legend sorts the translated names itself, in the active language.
   const legendPhases = useMemo(() => {

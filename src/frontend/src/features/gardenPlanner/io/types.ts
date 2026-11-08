@@ -65,6 +65,19 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
   keys: [],
 };
 
+/** GP-FR-144: the PNG is drawn in the browser at one, two or four times the base size. */
+export const PNG_RESOLUTIONS = [1, 2, 4] as const;
+export type PngResolution = (typeof PNG_RESOLUTIONS)[number];
+
+/** The options of the client-side PNG export (GP-FR-144); no request goes to the server. */
+export interface PngExportOptions {
+  resolution: PngResolution;
+  /** "Kamerplanter · date" in a corner. An option, off unless chosen (REQ-053 §23.1, §32.6 Pkt. 9). */
+  watermark: boolean;
+}
+
+export const DEFAULT_PNG_EXPORT_OPTIONS: PngExportOptions = { resolution: 2, watermark: false };
+
 export type ImportMode = 'replace' | 'merge';
 
 /** GP-FR-172: where the file goes. Keys are always new; the other two never resolve a reference outside the file. */

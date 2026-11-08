@@ -6018,6 +6018,58 @@
             "sys_planter_d0_3": "Kübel Ø 0,3 m",
             "sys_planter_d0_4": "Kübel Ø 0,4 m",
             "sys_planter_d0_5": "Kübel Ø 0,5 m"
+          },
+          "exchange": {
+            "export": "Exportieren",
+            "import": "Importieren",
+            "notice": {
+              "exported": "Die Vorlage ist als JSON-Datei heruntergeladen – ohne Mandanten-Kennung, Autor und Notizen.",
+              "imported": "Die Vorlage ist importiert und ausgewählt.",
+              "exportFailed": "Die Vorlage konnte nicht exportiert werden."
+            },
+            "title": "Vorlage importieren",
+            "intro": "Wähle eine Vorlagen-Datei (JSON, höchstens 256 KB). Die Datei wird zuerst geprüft; gespeichert wird erst, wenn du bestätigst. Kennungen aus der Datei werden ignoriert, Aufgaben-Vorlagen nicht übernommen.",
+            "pick": "Datei wählen",
+            "pickOther": "Andere Datei wählen",
+            "picked": "Gewählt: {{file}}",
+            "checking": "Die Datei wird geprüft …",
+            "name": "Name der Vorlage",
+            "recheck": "Mit diesem Namen prüfen",
+            "confirm": "Importieren",
+            "shape": {
+              "rect": "Rechteck {{width}} × {{length}} m",
+              "circle": "Kreis Ø {{diameter}} m",
+              "polygon_one": "Vieleck mit {{count}} Ecke",
+              "polygon_other": "Vieleck mit {{count}} Ecken"
+            },
+            "report": {
+              "title": "Prüfbericht",
+              "name": "Name: {{name}}",
+              "shape": "Form: {{shape}}",
+              "height": "Höhe: {{height}} m",
+              "grid": "Pflanzraster: Reihenabstand {{rows}} cm, Pflanzabstand {{spacing}} cm",
+              "migrated": "Die Datei stammt aus Version {{version}} und wird in die aktuelle Version übernommen.",
+              "dropped_one": "{{count}} Feld der Datei wird ignoriert (zum Beispiel Kennungen oder Autor).",
+              "dropped_other": "{{count}} Felder der Datei werden ignoriert (zum Beispiel Kennungen oder Autor)."
+            },
+            "error": {
+              "generic": "Die Datei konnte nicht importiert werden.",
+              "nameTaken": "Eine Vorlage mit diesem Namen gibt es schon. Übernimm den vorgeschlagenen Namen oder gib einen anderen ein und prüfe erneut.",
+              "tooLarge": "Die Datei ist größer als 256 KB.",
+              "forbidden": "Dafür fehlt dir die Berechtigung. Vorlagen importieren Gärtner und Leitung.",
+              "codes": {
+                "bed_template": {
+                  "import_invalid": "Die Datei ist keine gültige Beetvorlage.",
+                  "import_too_deep": "Die Datei ist zu tief verschachtelt.",
+                  "schema_version_unsupported": "Diese Version der Vorlagen-Datei wird nicht mehr gelesen. Exportiere die Vorlage neu.",
+                  "quota_exceeded": "Du hast die höchste Zahl an Vorlagen erreicht. Lösche eine, die du nicht mehr brauchst.",
+                  "not_a_bed_type": "Der Beettyp der Datei taugt nicht für eine Beetvorlage."
+                },
+                "reference": {
+                  "not_found": "Den Beettyp der Datei gibt es in dieser Installation nicht."
+                }
+              }
+            }
           }
         },
         "underlay": {
@@ -6327,13 +6379,15 @@
             "pdf": "PDF",
             "svg": "SVG",
             "json": "Sicherung (JSON)",
-            "csv": "Beetliste (CSV)"
+            "csv": "Beetliste (CSV)",
+            "png": "PNG (Bild)"
           },
           "formatHints": {
             "pdf": "Der Plan im Maßstab auf Papier – zum Ausdrucken und Mitnehmen.",
             "svg": "Die Zeichnung als Vektorgrafik, zum Weiterbearbeiten in einem Zeichenprogramm.",
             "json": "Alle Beete, Gartenobjekte und Pflanzplätze – zum Wiederherstellen oder Umziehen. Ohne Pflanzen und Aufgaben.",
-            "csv": "Die Beete dieses Standorts als Tabelle – Name, Typ, Fläche, Status und weitere Spalten nach Wahl. Ohne Plan."
+            "csv": "Die Beete dieses Standorts als Tabelle – Name, Typ, Fläche, Status und weitere Spalten nach Wahl. Ohne Plan.",
+            "png": "Der ganze Plan als Bild, im Browser erstellt – zum Teilen in Nachrichten oder zum Einfügen in Dokumente."
           },
           "paper": "Papier",
           "orientation": "Ausrichtung",
@@ -6372,7 +6426,20 @@
             "failed": "Der Export hat nicht geklappt. Versuche es noch einmal.",
             "tooManyRows": "Die Beetliste wäre zu lang für eine Datei (mehr als 2.000 Beete).",
             "unknownColumn": "Eine gewählte Spalte kennt der Server nicht. Lade die Seite neu und wähle die Spalten noch einmal.",
-            "noColumns": "Wähle mindestens eine Spalte aus."
+            "noColumns": "Wähle mindestens eine Spalte aus.",
+            "pngFailed": "Das Bild konnte nicht erstellt werden. Versuche eine kleinere Auflösung."
+          },
+          "png": {
+            "resolution": "Auflösung",
+            "factor": "{{factor}}×",
+            "resolutionHint": "1× ist auf der längeren Seite höchstens 1.200 Pixel groß; 2× und 4× sind schärfer, die Datei wird größer.",
+            "capped": "{{requested}}× wäre größer, als dein Browser ein Bild zeichnen kann (höchstens {{megapixels}} Megapixel). Das Bild wird mit {{factor}}× erstellt.",
+            "watermark": "Wasserzeichen „Kamerplanter · Datum“",
+            "watermarkHint": "Schreibt „Kamerplanter“ und das heutige Datum in die rechte untere Ecke. Standardmäßig aus.",
+            "watermarkText": "Kamerplanter · {{date}}",
+            "summary": "Das Bild wird {{width}} × {{height}} Pixel groß und zeigt den ganzen Plan.",
+            "nothingToDraw": "Der Plan ist noch leer. Zeichne zuerst eine Gartengrenze oder ein Beet.",
+            "notLoaded": "Der Plan ist nicht geladen. Schließe den Dialog und lade die Seite neu, dann kannst du das Bild erstellen."
           },
           "csv": {
             "defaultColumns": "Standardspalten",
