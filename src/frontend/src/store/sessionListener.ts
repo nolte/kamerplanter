@@ -3,7 +3,7 @@ import { setActiveTenantSlug } from '@/api/client';
 import { releasePushSubscription } from '@/lib/pushSubscription';
 import { clearOfflineData, postNamespace } from '@/pwa/offlineData';
 import { isSessionEnd, type rootReducer } from './rootReducer';
-import { DEAD_SESSION_REFRESH_CODE, RATE_LIMITED_REJECTION, refreshAccessToken } from './slices/authSlice';
+import { DEAD_SESSION_REFRESH_CODE, RATE_LIMITED_REJECTION, logoutUser, refreshAccessToken } from './slices/authSlice';
 
 /** Where `tenantSlice` persists the active tenant across reloads. */
 const ACTIVE_TENANT_KEY = 'kp_active_tenant_slug';
@@ -34,14 +34,19 @@ export const sessionListener = createListenerMiddleware();
 
 sessionListener.startListening({
   predicate: (action) => isSessionEnd(action),
-  effect: async () => {
+  effect: async (action, api) => {
+    // REQ-053 WP 9.4 (UI-NFR-012 R-050/R-051): only an explicit logout — confirmed in the app bar when entries
+    // were unsent — discards that user's offline write buffer. A forced sign-out (`clearAuth`: refresh token
+    // gone) keeps it for the owner's next sign-in.
+    const explicitLogout = logoutUser.fulfilled.match(action) || logoutUser.rejected.match(action);
+    const userKey = (api.getOriginalState() as SessionState).auth.user?.key ?? null;
     setActiveTenantSlug(null);
     try {
       localStorage.removeItem(ACTIVE_TENANT_KEY);
     } catch {
       // Storage unavailable (private mode) — nothing persisted to remove.
     }
-    await clearOfflineData();
+    await clearOfflineData(explicitLogout ? { discardWriteQueueOf: userKey } : undefined);
     await releasePushSubscription({ notifyServer: false });
   },
 });
@@ -52,7 +57,8 @@ sessionListener.startListening({
  * revocation elsewhere, so the previous session's offline data is cleared here. A rate limit is not a
  * dead session (#1131), a 5xx is an outage, and a refresh that got no answer at all (offline start)
  * must keep the cache — it is exactly what the offline start reads. The thunk's error serialiser marks
- * a 401/403 with {@link DEAD_SESSION_REFRESH_CODE}.
+ * a 401/403 with {@link DEAD_SESSION_REFRESH_CODE}. The offline write buffer (REQ-053 WP 9.4) is kept
+ * (UI-NFR-012 R-051: an expired refresh token must not cost unsent entries); it waits for its owner's sign-in.
  */
 export function isDeadSessionRefresh(action: unknown): boolean {
   if (!refreshAccessToken.rejected.match(action)) return false;

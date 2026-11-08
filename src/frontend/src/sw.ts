@@ -29,6 +29,7 @@ import type { WorkboxPlugin } from 'workbox-core/types';
 import {
   API_CACHE_MAX_BYTES,
   API_NETWORK_TIMEOUT_SECONDS,
+  BACKGROUND_SYNC_TAG,
   RUNTIME_CONFIG_CACHE,
   RUNTIME_CONFIG_NETWORK_TIMEOUT_SECONDS,
   STATIC_ASSET_CACHE,
@@ -36,6 +37,7 @@ import {
   SW_MESSAGE_CLEAR_DATA,
   SW_MESSAGE_SET_NAMESPACE,
   SW_MESSAGE_SKIP_WAITING,
+  SW_MESSAGE_SYNC_NOW,
   isAllowlistedApiRequest,
   namespaceCacheName,
   runtimeConfigDisablesCaching,
@@ -312,6 +314,22 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
   } else if (data.type === SW_MESSAGE_CLEAR_DATA) {
     event.waitUntil(endSession(data.userKey, source.id));
   }
+});
+
+/**
+ * Background Sync (REQ-053 WP 9.4, R-022) where the browser has it (not Safari): the browser fires `sync` once
+ * the connection is back, and the worker wakes the open windows. A window syncs its own buffer with its own token
+ * and scope; with no window open nothing is sent (the next app start syncs). Typed locally: `SyncEvent` is not
+ * part of the TypeScript worker library.
+ */
+self.addEventListener('sync', (event: Event) => {
+  const syncEvent = event as ExtendableEvent & { tag?: string };
+  if (syncEvent.tag !== BACKGROUND_SYNC_TAG || killed) return;
+  syncEvent.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windows) => windows.forEach((client) => client.postMessage({ type: SW_MESSAGE_SYNC_NOW }))),
+  );
 });
 
 // ---------------------------------------------------------------------------

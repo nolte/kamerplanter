@@ -6886,6 +6886,17 @@
           "action": "Photo of the bed",
           "actionFor": "Take a photo of the bed {{bed}}",
           "saved": "Photo saved to {{bed}}."
+        },
+        "buffer": {
+          "offline": "No connection. “Done”, notes and photos are stored on this device and sent as soon as you are back online. Everything else is locked until then.",
+          "full": "The offline storage is full ({{max}} entries). Go online so they are sent — until then nothing more is stored.",
+          "completed": "“{{name}}” stored on this device — it is sent as soon as you are online.",
+          "noted": "Note stored on this device — it is sent as soon as you are online.",
+          "photoQueued": "Photo stored on this device — it is sent as soon as you are online.",
+          "photoUnreadable": "The photo could not be scaled down on this device. Try again once you are online.",
+          "taskQueued": "Waiting to be sent",
+          "undoTooLate": "The entry is being sent right now and can no longer be taken back here.",
+          "chipsOffline": "Without a connection only the note works in the quick protocol."
         }
       },
       "glossary": {
@@ -7836,6 +7847,56 @@
       "open": "Rotation matrix",
       "openHint": "Which plant family stood in which bed and year",
       "refreshFailed": "The matrix could not be refreshed. What is shown may be out of date."
+    },
+    "offlineQueue": {
+      "kind": {
+        "complete": "Done: {{task}}",
+        "note": "Note",
+        "bedPhoto": "Photo of the bed",
+        "plantPhoto": "Photo of {{plant}}"
+      },
+      "conflict": {
+        "client_event_payload_mismatch": "This entry does not match what was already sent under its id. It cannot be sent.",
+        "task_already_closed": "The task has been completed or skipped in the meantime.",
+        "task_missing": "The task no longer exists.",
+        "client_event_deleted": "What this entry created has been deleted in the meantime."
+      },
+      "failed": {
+        "attempts": "Not sent after 5 attempts.",
+        "refused": "The server refused the entry (code: {{code}})."
+      },
+      "dialog": {
+        "title": "Entries not sent",
+        "intro": "These entries from the offline storage could not be sent. Decide what happens to them.",
+        "where": "{{bed}} · captured {{time}}",
+        "keep": "Keep",
+        "discard": "Discard",
+        "retry": "Try again",
+        "keptChip": "Kept on this device",
+        "keepHint": "“Keep” holds the entry on this device only, so you can read it — it is not sent again. Signing out deletes it, a year at the latest.",
+        "empty": "Nothing to decide here.",
+        "actionFailed": "That did not work just now — the entry may be on its way. Try again in a moment.",
+        "syncNow_one": "Send {{count}} waiting entry now",
+        "syncNow_other": "Send {{count}} waiting entries now"
+      },
+      "chip_one": "{{count}} not sent",
+      "chip_other": "{{count}} not sent",
+      "progress": "Sending {{done}}/{{total}} entries …",
+      "synced_one": "{{count}} entry sent.",
+      "synced_other": "{{count}} entries sent.",
+      "failedNotice_one": "{{count}} entry could not be sent. Tap “not sent” in the top bar.",
+      "failedNotice_other": "{{count}} entries could not be sent. Tap “not sent” in the top bar.",
+      "sessionChange": {
+        "title": "Not sent yet",
+        "syncNow": "Send now",
+        "syncing": "Sending entries",
+        "offline": "No connection — “Send now” works again once you are online. You can cancel, or discard the entries and sign out.",
+        "text_one": "{{count}} entry has not been sent yet. Signing out deletes it from this device.",
+        "text_other": "{{count}} entries have not been sent yet (other gardens included). Signing out deletes them from this device.",
+        "discard": "Discard and sign out"
+      },
+      "purged_one": "{{count}} unsent entry was older than a year and has been deleted from this device — the server no longer accepts entries that old.",
+      "purged_other": "{{count}} unsent entries were older than a year and have been deleted from this device — the server no longer accepts entries that old."
     }
   }
 }

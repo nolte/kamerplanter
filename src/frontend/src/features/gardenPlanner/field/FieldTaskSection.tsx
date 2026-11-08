@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { formatBedDate } from '../bed/bedFormat';
 import { taskTarget } from '../care/careCategories';
@@ -23,12 +24,23 @@ interface FieldTaskSectionProps {
   /** Instance ids of the standing plants by plant key, to name the plant tasks. */
   plantNames: ReadonlyMap<string, string>;
   canEdit: boolean;
-  /** "Done" is locked: a completion is waiting for its answer, or the device is offline. */
+  /** "Done" is locked: a completion is waiting for its answer, or the device is offline without the buffer. */
   locked: boolean;
+  /** Tasks whose "Done" waits in the offline write buffer (WP 9.4): no second "Done", a note instead. */
+  queuedTaskKeys?: ReadonlySet<string>;
   onDone: (task: CareTask) => void;
 }
 
-export default function FieldTaskSection({ sections, plantNames, canEdit, locked, onDone }: FieldTaskSectionProps) {
+const NO_QUEUED: ReadonlySet<string> = new Set();
+
+export default function FieldTaskSection({
+  sections,
+  plantNames,
+  canEdit,
+  locked,
+  queuedTaskKeys = NO_QUEUED,
+  onDone,
+}: FieldTaskSectionProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
   const taskName = (task: CareTask) => careTaskName(task, language);
@@ -97,7 +109,16 @@ export default function FieldTaskSection({ sections, plantNames, canEdit, locked
                         </Typography>
                       )}
                     </Box>
-                    {canEdit && (
+                    {canEdit && queuedTaskKeys.has(task.key) && (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, maxWidth: '10rem' }}
+                        data-testid={`field-done-queued-${task.key}`}
+                      >
+                        <CloudUploadIcon aria-hidden="true" />
+                        <Typography variant="body1">{t('pages.gardenPlan.field.buffer.taskQueued')}</Typography>
+                      </Box>
+                    )}
+                    {canEdit && !queuedTaskKeys.has(task.key) && (
                       <Button
                         variant="contained"
                         onClick={() => onDone(task)}

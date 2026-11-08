@@ -9,17 +9,22 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { chipIcon, FIELD_ICON_PX } from './fieldIcons';
-import { QUICK_CHIPS, type QuickChip } from './quickChips';
+import { QUICK_CHIPS, type QuickChip, type QuickChipId } from './quickChips';
 
 interface QuickProtocolChipsProps {
-  /** A write is running or the device is offline: every chip waits. */
+  /** A write is running or the device is offline without the buffer: every chip waits. */
   disabled: boolean;
+  /**
+   * Offline with the write buffer (WP 9.4): only these chips work — the note is buffered, the others need the
+   * server (a one-tap log, a harvest, planting). `undefined` = all chips.
+   */
+  onlyChips?: ReadonlySet<QuickChipId>;
   /** "Planted" needs a drawn bed (the planting dialog lays the plants out on its geometry). */
   plantingAvailable: boolean;
   onChip: (chip: QuickChip) => void;
 }
 
-export default function QuickProtocolChips({ disabled, plantingAvailable, onChip }: QuickProtocolChipsProps) {
+export default function QuickProtocolChips({ disabled, onlyChips, plantingAvailable, onChip }: QuickProtocolChipsProps) {
   const { t } = useTranslation();
   return (
     <Box component="section" aria-labelledby="field-quick-heading" data-testid="field-quick-protocol">
@@ -35,7 +40,8 @@ export default function QuickProtocolChips({ disabled, plantingAvailable, onChip
       >
         {QUICK_CHIPS.map((chip) => {
           const Icon = chipIcon(chip.id);
-          const unavailable = chip.action === 'planting' && !plantingAvailable;
+          const unavailable =
+            (chip.action === 'planting' && !plantingAvailable) || (onlyChips !== undefined && !onlyChips.has(chip.id));
           return (
             <Button
               key={chip.id}
@@ -59,6 +65,11 @@ export default function QuickProtocolChips({ disabled, plantingAvailable, onChip
           );
         })}
       </Box>
+      {onlyChips !== undefined && (
+        <Typography variant="body2" sx={{ mt: 1 }} data-testid="field-chips-offline-hint">
+          {t('pages.gardenPlan.field.buffer.chipsOffline')}
+        </Typography>
+      )}
       {!plantingAvailable && (
         <Typography variant="body2" sx={{ mt: 1 }} data-testid="field-chip-planted-hint">
           {t('pages.gardenPlan.field.quick.plantedNeedsGeometry')}

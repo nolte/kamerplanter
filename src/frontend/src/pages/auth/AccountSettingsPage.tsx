@@ -717,8 +717,9 @@ export default function AccountSettingsPage() {
     await deleteAccount({ confirm_email: echo, ...toStepUpBody(credentials) });
     setDeleteAccountOpen(false);
     // The closed account's offline data goes before the page does (REQ-053 WP 9.2, #2789 review S3):
-    // the reload's refresh fails, and nothing else would clear the plan cache or the API caches.
-    await clearOfflineData();
+    // the reload's refresh fails, and nothing else would clear the plan cache or the API caches. The account's
+    // unsent offline entries go too (REQ-053 WP 9.4); other users' entries on the device stay.
+    await clearOfflineData({ discardWriteQueueOf: user?.key ?? null });
     // Full reload, not a router navigation: the session is gone server-side and
     // every in-memory slice belongs to the closed account.
     window.location.href = '/login';

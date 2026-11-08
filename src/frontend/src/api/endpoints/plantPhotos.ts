@@ -114,13 +114,17 @@ export async function listPlantPhotos(
  *
  * The per-instance quota is enforced server-side *before* any bytes are written;
  * an exceeded quota surfaces as a 409 (`PHOTO_QUOTA_EXCEEDED`) for the caller.
+ * `clientEventId` (REQ-053 WP 9.3/9.4): a buffered photo's id — a resend with it
+ * answers the stored photo instead of a second one.
  */
 export async function uploadPlantPhoto(
   plantInstanceKey: string,
   file: File,
+  clientEventId?: string,
 ): Promise<PlantPhoto> {
   const formData = new FormData();
   formData.append('file', file);
+  if (clientEventId) formData.append('client_event_id', clientEventId);
   const { data } = await tenantClient.post<PlantPhoto>(
     base(plantInstanceKey),
     formData,

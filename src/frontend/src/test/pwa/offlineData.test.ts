@@ -73,6 +73,7 @@ describe('clearOfflineData (logout, tenant switch)', () => {
 
   it('deletes every named IndexedDB database', async () => {
     await clearOfflineData();
+    // The offline write buffer survives a tenant switch and a forced sign-out (WP 9.4, UI-NFR-012 R-050/R-051).
     expect(deletedDatabases).toEqual(['kp-plan-cache', 'workbox-expiration']);
   });
 
@@ -113,7 +114,7 @@ describe('clearAllOfflineStorage (kill switch)', () => {
   it('deletes the public build caches too', async () => {
     await clearAllOfflineStorage();
     expect(deletedCaches.sort()).toEqual([...CACHE_NAMES].sort());
-    expect(deletedDatabases).toEqual(['kp-plan-cache', 'workbox-expiration']);
+    expect(deletedDatabases).toEqual(['kp-plan-cache', 'workbox-expiration', 'kp-write-queue']);
   });
 });
 

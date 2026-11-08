@@ -12,8 +12,18 @@
  */
 export const PLAN_CACHE_DB_NAME = 'kp-plan-cache';
 
+/**
+ * The offline write buffer (REQ-053 WP 9.4, `features/gardenPlanner/offline/queueDb.ts`): "Done", note and
+ * photo captured without a connection. Its own database, not a table of the plan cache: the plan cache drops
+ * every record past its 15-minute TTL, the buffer must keep an entry until it is sent or discarded — also across
+ * a tenant switch and a session that ended without a logout (UI-NFR-012 R-050/R-051). Listed here so the kill
+ * switch deletes it even where the databases cannot be enumerated; an explicit logout and the account erasure
+ * delete only the rows of that user (`pwa/writeQueueWipe.ts`).
+ */
+export const WRITE_QUEUE_DB_NAME = 'kp-write-queue';
+
 /** The IndexedDB databases the app creates; deleted even when the browser cannot enumerate them. */
-export const APP_DATABASE_NAMES: readonly string[] = [PLAN_CACHE_DB_NAME];
+export const APP_DATABASE_NAMES: readonly string[] = [PLAN_CACHE_DB_NAME, WRITE_QUEUE_DB_NAME];
 
 /** How long one IndexedDB deletion may hold up the caller (a blocked deletion completes later). */
 export const IDB_DELETE_TIMEOUT_MS = 2000;
@@ -37,8 +47,12 @@ function deleteDatabase(name: string): Promise<void> {
   });
 }
 
-/** Delete every IndexedDB database of this origin, and the app's own ones even if they cannot be listed. */
-export async function deleteAllDatabases(): Promise<void> {
+/**
+ * Delete every IndexedDB database of this origin, and the app's own ones even if they cannot be listed — except
+ * the names in `keep` (the offline write buffer survives a tenant switch and a session that ended without an
+ * explicit logout, UI-NFR-012 R-050/R-051; its entries stay bound to their own user and tenant).
+ */
+export async function deleteAllDatabases(keep: readonly string[] = []): Promise<void> {
   if (typeof indexedDB === 'undefined') return;
   let listed: string[] = [];
   if (typeof indexedDB.databases === 'function') {
@@ -51,7 +65,8 @@ export async function deleteAllDatabases(): Promise<void> {
     }
   }
   try {
-    await Promise.all([...new Set([...listed, ...APP_DATABASE_NAMES])].map(deleteDatabase));
+    const names = [...new Set([...listed, ...APP_DATABASE_NAMES])].filter((name) => !keep.includes(name));
+    await Promise.all(names.map(deleteDatabase));
   } catch {
     // IndexedDB unavailable (private mode): nothing was stored.
   }

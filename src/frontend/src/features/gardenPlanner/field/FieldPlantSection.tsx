@@ -20,8 +20,10 @@ interface FieldPlantSectionProps {
   /** `null`: the plants could not be read (unknown, not "none"). */
   groups: readonly FieldPlantGroup[] | null;
   canEdit: boolean;
-  /** Writes wait while the device is offline. */
+  /** Writes wait while the device is offline (a position correction is geometry: online only). */
   offline: boolean;
+  /** The photo is locked: offline without the write buffer (WP 9.4); with it, an offline photo is buffered. */
+  photoLocked?: boolean;
   /** The bed is drawn: a position can be corrected on it. */
   canCorrect: boolean;
   onCorrect: (plant: PlantStateWire) => void;
@@ -34,6 +36,7 @@ export default function FieldPlantSection({
   groups,
   canEdit,
   offline,
+  photoLocked = offline,
   canCorrect,
   onCorrect,
   onPhoto,
@@ -143,7 +146,7 @@ export default function FieldPlantSection({
                           color="inherit"
                           startIcon={<AddAPhotoIcon aria-hidden="true" />}
                           onClick={() => onPhoto(plant)}
-                          disabled={offline}
+                          disabled={photoLocked}
                           sx={{ minHeight: KIOSK_TOUCH_TARGET, borderWidth: 2 }}
                           aria-label={t('pages.gardenPlan.field.plants.photoFor', { plant: plant.instance_id })}
                           data-testid={`field-plant-photo-${plant.plant_key}`}

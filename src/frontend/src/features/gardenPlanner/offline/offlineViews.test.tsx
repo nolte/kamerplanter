@@ -330,7 +330,7 @@ describe('field-mode bed sheet', () => {
     return screen.findByTestId('field-bed-sheet');
   }
 
-  it('reads tasks and plants from the cache offline, with the banner and the writes locked', async () => {
+  it('reads tasks and plants from the cache offline, with the banner and every write but the buffered note locked', async () => {
     await writeCached(bedListEntry(SCOPE, 'site_1'), BEDS, CACHED_AT);
     await writeCached(planEntry(SCOPE, 'site_1'), PLAN, CACHED_AT);
     await writeCached(
@@ -343,13 +343,15 @@ describe('field-mode bed sheet', () => {
     const sheet = await openBed('Raised bed 3');
     expect(await within(sheet).findByTestId('field-sheet-cached-banner')).toHaveTextContent(stamp(CACHED_AT));
     expect(within(sheet).getByText('Cached task')).toBeInTheDocument();
+    // WP 9.4: offline the note goes into the write buffer; every other chip needs the server.
     for (const chip of within(sheet).getAllByRole('button').filter((b) => b.dataset.testid?.startsWith('field-chip-'))) {
-      expect(chip).toBeDisabled();
+      if (chip.dataset.testid === 'field-chip-note') expect(chip).toBeEnabled();
+      else expect(chip).toBeDisabled();
     }
     expect(requests).toEqual([]);
   });
 
-  it('locks the writes also when the browser is online but the sheet is the cached one', async () => {
+  it('locks the server-only writes also when the browser is online but the sheet is the cached one', async () => {
     await writeCached(
       bedSheetEntry(SCOPE, 'loc_b03'),
       { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [] },
@@ -361,7 +363,11 @@ describe('field-mode bed sheet', () => {
     await within(sheet).findByTestId('field-sheet-cached-banner');
     const chips = within(sheet).getAllByRole('button').filter((b) => b.dataset.testid?.startsWith('field-chip-'));
     expect(chips.length).toBeGreaterThan(0);
-    for (const chip of chips) expect(chip).toBeDisabled();
+    // WP 9.4: the note is sent (or buffered if the request gets no answer); the rest waits for a fresh sheet.
+    for (const chip of chips) {
+      if (chip.dataset.testid === 'field-chip-note') expect(chip).toBeEnabled();
+      else expect(chip).toBeDisabled();
+    }
   });
 
   it('a cache miss offline is an empty state, not an error', async () => {

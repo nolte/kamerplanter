@@ -33,6 +33,7 @@ import pestDetectionReducer from './slices/pestDetectionSlice';
 import overwinteringProfilesReducer from './slices/overwinteringProfilesSlice';
 import seasonReducer from './slices/seasonSlice';
 import dashboardReducer from './slices/dashboardSlice';
+import offlineReducer from './slices/offlineSlice';
 // Type only: the slice itself is injected by the lazy plan route (REQ-053 WP 2.3), so its code
 // stays out of the initial bundle.
 import type { GardenPlanState } from '@/features/gardenPlanner/state/gardenPlanSlice';
@@ -79,6 +80,7 @@ export const appReducer = combineSlices({
   overwinteringProfiles: overwinteringProfilesReducer,
   season: seasonReducer,
   dashboard: dashboardReducer,
+  offline: offlineReducer,
 }).withLazyLoadedSlices<LazyLoadedSlices>();
 connectLazySlices(appReducer);
 

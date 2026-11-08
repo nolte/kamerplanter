@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -35,6 +35,10 @@ import { logoutUser } from '@/store/slices/authSlice';
 import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
 import { isLightMode } from '@/config/mode';
 import { KioskContext } from '@/kiosk/KioskProvider';
+import { useUnsyncedWritesGuard } from '@/hooks/useUnsyncedWritesGuard';
+
+// REQ-053 WP 9.4 — the offline write buffer's sync, progress and conflict dialog; its own chunk.
+const OfflineSyncHost = lazy(() => import('@/features/gardenPlanner/offline/OfflineSyncHost'));
 
 function isPrivateNetwork(): boolean {
   const { hostname } = window.location;
@@ -91,10 +95,14 @@ export default function MainLayout() {
     navigate('/privacy');
   };
 
+  // G-W9 (b): the logout discards the user's unsent offline entries — they are named first (WP 9.4).
+  const unsyncedGuard = useUnsyncedWritesGuard();
   const handleLogout = async () => {
     handleMenuClose();
-    await dispatch(logoutUser());
-    navigate('/login');
+    await unsyncedGuard.guard(async () => {
+      await dispatch(logoutUser());
+      navigate('/login');
+    });
   };
 
   return (
@@ -168,6 +176,10 @@ export default function MainLayout() {
             </>
           )}
           <Box sx={{ flexGrow: 1 }} />
+          {/* REQ-053 WP 9.4 — entries of the offline write buffer not yet sent, their sync and conflicts. */}
+          <Suspense fallback={null}>
+            <OfflineSyncHost />
+          </Suspense>
           {/* UI-NFR-012 R-033 — permanently visible online/offline state. */}
           <ConnectivityIndicator />
           {!isLightMode && <TenantSwitcher />}
@@ -282,6 +294,7 @@ export default function MainLayout() {
         {!isLightMode && <LightModeTakeoverDialog />}
         {/* UI-NFR-012 R-014 — a new service worker waits for the user's go. */}
         <UpdateBanner />
+        {unsyncedGuard.dialog}
       </Box>
     </Box>
   );

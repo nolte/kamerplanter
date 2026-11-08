@@ -31,6 +31,7 @@ import wateringLogsReducer from '@/store/slices/wateringLogsSlice';
 import fertilizersReducer from '@/store/slices/fertilizersSlice';
 import activitiesReducer from '@/store/slices/activitiesSlice';
 import nutrientPlansReducer from '@/store/slices/nutrientPlansSlice';
+import offlineReducer from '@/store/slices/offlineSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -63,6 +64,8 @@ const rootReducer = combineReducers({
   // — which surfaces as an unrelated render error, not as a missing reducer
   // (#1560). The registry in `useCatalogue.ts` is the list.
   nutrientPlans: nutrientPlansReducer,
+  // The app bar's offline write buffer host (REQ-053 WP 9.4) reads it in every MainLayout render.
+  offline: offlineReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need
