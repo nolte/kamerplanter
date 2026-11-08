@@ -9,12 +9,13 @@ export function mergeSitePatch(previous: SiteConditionsPatch, next: SiteConditio
   return merged;
 }
 
-const sameSides = (a: readonly string[], b: readonly string[]) =>
+/** Order does not matter for the access sides and the flags: the same entries are the same value. */
+const sameEntries = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 /**
  * Only the keys that differ from what is stored go out (a key set back to its stored value drops out); the
- * defaults a missing stored value stands for are `unknown`, `false`, `null` and no sides.
+ * defaults a missing stored value stands for are `unknown`, `false`, `null`, no sides and no flags.
  */
 export function changedSitePatch(stored: SiteConditionsSlice | null | undefined, patch: SiteConditionsPatch): SiteConditionsPatch {
   const out: SiteConditionsPatch = {};
@@ -45,9 +46,10 @@ export function changedSitePatch(stored: SiteConditionsSlice | null | undefined,
   if (patch.aspect_deg !== undefined && patch.aspect_deg !== (stored?.aspect_deg ?? null)) {
     out.aspect_deg = patch.aspect_deg;
   }
-  if (patch.access_sides !== undefined && !sameSides(patch.access_sides, stored?.access_sides ?? [])) {
+  if (patch.access_sides !== undefined && !sameEntries(patch.access_sides, stored?.access_sides ?? [])) {
     out.access_sides = patch.access_sides;
   }
+  if (patch.flags !== undefined && !sameEntries(patch.flags, stored?.flags ?? [])) out.flags = patch.flags;
   return out;
 }
 

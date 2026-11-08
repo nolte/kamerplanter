@@ -7013,13 +7013,20 @@
           "title": "Access sides",
           "hint": "From which sides do you tend the bed?"
         },
+        "flags": {
+          "title": "Competition at the site",
+          "hint": "Is the bed under or next to trees and shrubs? Their roots take water and nutrients, and some woody plants (walnut, for example) hold other plants back. Just a note – Kamerplanter calculates nothing from it.",
+          "reported": "{{value}} reported at this site",
+          "other": "Other report"
+        },
         "summary": {
           "frost": "Frost risk: {{value}}",
           "heat": "Stored heat: {{value}}",
           "wind": "Wind: {{value}}",
           "slope": "Slope {{value, number}}°",
           "aspect": "Aspect {{value, number}}°",
-          "access": "Access: {{value}}"
+          "access": "Access: {{value}}",
+          "flags": "Competition: {{value}}"
         },
         "dialog": {
           "title": "Site conditions: {{bed}}",
@@ -7798,7 +7805,8 @@
           "reason": "Reason",
           "reasonHelp": "The reason is stored with the planting.",
           "reasonRequired": "Give a reason to plant anyway.",
-          "confirmToContinue": "Confirm \"Plant anyway\" to continue."
+          "confirmToContinue": "Confirm \"Plant anyway\" to continue.",
+          "siteFlagsDetail": "Expect plants to grow less vigorously here – a note, not a rating of the species."
         },
         "position": {
           "title": "Correct position: {{plant}}",

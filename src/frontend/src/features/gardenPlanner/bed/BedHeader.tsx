@@ -10,6 +10,8 @@
  * The salt-limit reason `check_salt_content` (E-17 variant A) is no supply finding and never changes the state, so it
  * is shown as a fact of its own whenever the hint carries it - whatever the state - and left out of the nutrient
  * reasons. It stays hidden until a sourced salt threshold is configured on the server.
+ * Root competition or allelopathy reported at the bed (GP-FR-165, WP 9.11) is part of the site line and a neutral
+ * chip naming exactly the flags set, shown only while one is - a note, never a rating.
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +31,14 @@ import { DEFAULT_REACH_THRESHOLDS, reachOptions } from '../model/siteThresholds'
 import type { ReachThresholds } from '@/api/types';
 import BedCoverPhoto from './BedCoverPhoto';
 import type { BedAssignee, BedSummary, NutrientHint, NutrientHintConfidence, NutrientHintReason } from './types';
-import { BED_STATUS_COLOR, formatBedDate, isOverdue, siteConditionsLine, sunProfileLine } from './bedFormat';
+import {
+  BED_STATUS_COLOR,
+  formatBedDate,
+  isOverdue,
+  siteConditionsLine,
+  siteFlagsLine,
+  sunProfileLine,
+} from './bedFormat';
 
 interface BedHeaderProps {
   summary: BedSummary;
@@ -144,6 +153,7 @@ export default function BedHeader({
   const sunLine = sunProfileLine(t, summary.site_conditions?.sun_profile);
   const siteLine = siteConditionsLine(t, summary.site_conditions);
   const accessSides = summary.site_conditions?.access_sides;
+  const flagsLine = siteFlagsLine(t, summary.site_conditions?.flags);
   const reach = useMemo(
     () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
     [summary.geometry, accessSides, reachThresholds],
@@ -254,6 +264,18 @@ export default function BedHeader({
                     </Button>
                   )}
                 </Box>
+                {flagsLine && (
+                  <Box sx={{ mt: 0.5 }} data-testid="bed-site-flags">
+                    <Chip
+                      size="small"
+                      color="info"
+                      variant="outlined"
+                      label={flagsLine}
+                      data-testid="bed-site-flags-badge"
+                      sx={{ maxWidth: '100%', height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal' } }}
+                    />
+                  </Box>
+                )}
               </Fact>
             )}
             {reach.hint && (

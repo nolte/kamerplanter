@@ -28,6 +28,7 @@ import { useServerFavorites } from '@/hooks/useServerFavorites';
 import { toLocalShape } from '../model/geometry';
 import { computeLayout } from '../model/layout';
 import type { Geometry, Point, SunExposure } from '../model/types';
+import type { SiteFlag } from '../bed/types';
 import EntryCard from './EntryCard';
 import HintsPanel from './HintsPanel';
 import { siteAxesOf, siteFitOf, type BedSiteFeatures } from './siteFitOf';
@@ -73,6 +74,11 @@ interface PlantingDialogProps {
   sunExposure?: SunExposure;
   /** Frost risk, wind and drainage of the bed; with the species' values they give the axis hints (GP-FR-161). */
   bedSite?: BedSiteFeatures;
+  /**
+   * Root competition / allelopathy reported at the bed (GP-FR-165): one qualitative line in the hints, nothing
+   * computed from it and no part of `site_fit` or the axis hints.
+   */
+  siteFlags?: readonly SiteFlag[];
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
   /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
@@ -123,6 +129,7 @@ export default function PlantingDialog({
   geometry,
   sunExposure = 'unknown',
   bedSite,
+  siteFlags,
   onClose,
   onPlanted,
   initialAlreadyPlanted = false,
@@ -444,6 +451,7 @@ export default function PlantingDialog({
                 <HintsPanel
                   species={hintSpecies}
                   bedSun={sunExposure}
+                  siteFlags={siteFlags}
                   speciesNames={speciesNames}
                   mix={mix}
                   severity={severity}
