@@ -144,6 +144,20 @@ describe('BedPlantingTab', () => {
     expect(await screen.findByTestId('planting-dialog')).toBeInTheDocument();
   });
 
+  it('hands the competition flags of the bed to the planting dialog (GP-FR-165, WP 9.11)', async () => {
+    useTabBackend();
+    usePlantingBackend({ species: [species('sp_tomato', 'Tomato', { spacing_cm: '60' })] });
+    const user = userEvent.setup();
+    renderTab('grower', bedSummary({ site_conditions: { flags: ['root_competition'] } }));
+    await user.click(await screen.findByTestId('bed-plant-button'));
+    const box = within(await screen.findByTestId('planting-entry-0')).getByRole('combobox', { name: /^Species/ });
+    await user.click(box);
+    await user.type(box, 'Toma');
+    await user.click(await screen.findByRole('option', { name: /Tomato/ }));
+
+    expect(await screen.findByTestId('planting-site-flags')).toHaveTextContent('Root competition');
+  });
+
   it('has no accessibility violations', async () => {
     useTabBackend();
     renderTab();

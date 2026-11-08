@@ -7014,13 +7014,20 @@
           "title": "Zugangsseiten",
           "hint": "Von welchen Seiten pflegst du das Beet?"
         },
+        "flags": {
+          "title": "Konkurrenz am Standort",
+          "hint": "Steht das Beet unter oder neben Bäumen und Sträuchern? Wurzeln nehmen Wasser und Nährstoffe weg, manche Gehölze (etwa Walnuss) hemmen andere Pflanzen. Nur ein Vermerk – Kamerplanter rechnet nichts daraus aus.",
+          "reported": "{{value}} am Standort gemeldet",
+          "other": "Weitere Meldung"
+        },
         "summary": {
           "frost": "Frostrisiko: {{value}}",
           "heat": "Wärmespeicher: {{value}}",
           "wind": "Wind: {{value}}",
           "slope": "Hang {{value, number}}°",
           "aspect": "Ausrichtung {{value, number}}°",
-          "access": "Zugang: {{value}}"
+          "access": "Zugang: {{value}}",
+          "flags": "Konkurrenz: {{value}}"
         },
         "dialog": {
           "title": "Standortmerkmale: {{bed}}",
@@ -7799,7 +7806,8 @@
           "reason": "Grund",
           "reasonHelp": "Der Grund wird an der Pflanzung gespeichert.",
           "reasonRequired": "Nenne einen Grund, um trotzdem zu pflanzen.",
-          "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren."
+          "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren.",
+          "siteFlagsDetail": "Rechne damit, dass Pflanzen hier schwächer wachsen können – ein Vermerk, keine Bewertung der Art."
         },
         "position": {
           "title": "Position korrigieren: {{plant}}",

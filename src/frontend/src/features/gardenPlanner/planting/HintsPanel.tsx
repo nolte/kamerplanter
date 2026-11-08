@@ -2,6 +2,9 @@
  * Crop-rotation and companion hints with a strength (REQ-053 GP-FR-132, D-09): shown in the planting
  * dialog before the layout is chosen, never as a blocker. From a warning on, the grower plants anyway
  * only with a reason ("Trotzdem pflanzen"), which the run stores as `rotation_override_reason`.
+ * Root competition or allelopathy reported at the bed (GP-FR-165) adds one neutral note for the whole bed that names
+ * exactly the flags set ("Allelopathy risk reported at this site"). Nothing is computed from it: no strength, no
+ * `site_fit`, no reason needed to plant.
  */
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +21,8 @@ import SiteFitHint from './SiteFitHint';
 import type { SpeciesSiteFit } from './siteFitOf';
 import type { SiteAxisHint } from '../model/siteFit';
 import type { SunExposure } from '../model/types';
+import type { SiteFlag } from '../bed/types';
+import { siteFlagsLine } from '../bed/bedFormat';
 import { needsOverrideReason } from './plantingLogic';
 import type { NeighbourHint, RotationFinding, RotationSeverity } from './plantingTypes';
 import PlannerGlossary, { type PlannerGlossaryTerm } from '../glossary/PlannerGlossary';
@@ -47,6 +52,8 @@ interface HintsPanelProps {
   }[];
   /** The sun class of the bed, named in the site-fit line. */
   bedSun?: SunExposure;
+  /** Competition flags of the bed (GP-FR-165); empty or absent = no line. */
+  siteFlags?: readonly SiteFlag[];
   /** Names of species by key, for the neighbours the server names. */
   speciesNames: ReadonlyMap<string, string>;
   mix: readonly MixPair[];
@@ -106,6 +113,7 @@ export default function HintsPanel({
   species,
   speciesNames,
   bedSun = 'unknown',
+  siteFlags = [],
   mix,
   overrideChecked,
   overrideReason,
@@ -116,6 +124,7 @@ export default function HintsPanel({
 }: HintsPanelProps) {
   const { t } = useTranslation();
   const mustGiveReason = needsOverrideReason(severity);
+  const flagsLine = siteFlagsLine(t, siteFlags);
   const nameOf = (key: string) => speciesNames.get(key) ?? key;
 
   /** The rotation and neighbour hints of one species, or the reason there are none. */
@@ -198,6 +207,14 @@ export default function HintsPanel({
         {t('pages.bed.planting.hints.title')}
       </Typography>
       <PlannerGlossary id="planting-hints" terms={HINT_TERMS} />
+      {flagsLine ? (
+        <Alert severity="info" data-testid="planting-site-flags">
+          <Typography variant="subtitle2" component="div">
+            {flagsLine}
+          </Typography>
+          {t('pages.bed.planting.hints.siteFlagsDetail')}
+        </Alert>
+      ) : null}
       {species.map(({ key, name, state, siteFit, axisHints }) => (
         <Fragment key={key}>
           {rotationBlock(key, name, state)}
