@@ -438,7 +438,6 @@ export function GardenPlanEditor({
       })),
     [layerPrefs, t, hasUnderlay],
   );
-  const onShortcut = useEditorShortcuts();
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [snapMark, setSnapMark] = useState<SnapMark | null>(null);
   const [unit, setUnit] = useLengthUnit();
@@ -881,6 +880,10 @@ export function GardenPlanEditor({
     dispatch(setSelection(outcome.value.selection));
     dispatch(setStack(null));
   }, [dispatch, onCommit, plan, selection, t]);
+  // Ctrl/Cmd+D runs the same duplicate as the panel and the item menu (GP-FR-025, WP 9.14); with no bed or
+  // object selected the key stays the browser's.
+  const canDuplicate = selection.some(isPlanEntity);
+  const onShortcut = useEditorShortcuts(canDuplicate ? duplicate : null);
 
   /** Align / distribute: one batch of `update_geometry`, one undo step; a refusal says why (GP-FR-029). */
   const availability = useMemo(() => alignAvailability(plan, selection), [plan, selection]);
@@ -1059,6 +1062,7 @@ export function GardenPlanEditor({
         label: t(`${PREFIX}.contextMenu.duplicate`),
         icon: <ContentCopyIcon fontSize="small" />,
         onClick: duplicate,
+        shortcut: { label: t(`${PREFIX}.contextMenu.duplicateShortcut`), aria: 'Control+D Meta+D' },
       },
       {
         id: 'multiDuplicate',

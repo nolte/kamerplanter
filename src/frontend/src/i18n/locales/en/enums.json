@@ -1284,6 +1284,14 @@
       "equal": "Divided in equal parts",
       "by_demand": "Divided by demand"
     },
+    "waterSourceKind": {
+      "tap": "Tap",
+      "rain_barrel": "Rain barrel",
+      "well": "Well",
+      "pond": "Pond",
+      "cistern": "Cistern",
+      "hose_reel": "Hose reel"
+    },
     "sunWindow": {
       "morning": "Morning",
       "midday": "Midday",

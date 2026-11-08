@@ -5662,9 +5662,13 @@
             "save": {
               "keys": "Ctrl + S",
               "does": "Save the plan."
+            },
+            "duplicate": {
+              "keys": "Ctrl + D / Cmd + D",
+              "does": "Duplicate the selection, offset by one grid step. Plants, tasks and planting spots are not copied."
             }
           },
-          "shortcutNote": "The single keys ?, G, +, − and 0 only work while the plan has the focus. Switch them off below if they get in your way (WCAG 2.1.4). Arrow keys, Page Down/Up, Delete, Esc as well as Ctrl + A, Ctrl + Z, Ctrl + Shift + Z, Ctrl + Y and Ctrl + S stay active. In text fields, Ctrl + Z and Ctrl + Y act on the field itself.",
+          "shortcutNote": "The single keys ?, G, +, − and 0 only work while the plan has the focus. Switch them off below if they get in your way (WCAG 2.1.4). Arrow keys, Page Down/Up, Delete, Esc as well as Ctrl + A, Ctrl + Z, Ctrl + Shift + Z, Ctrl + Y, Ctrl + S and Ctrl + D stay active. In text fields, Ctrl + Z and Ctrl + Y act on the field itself, and Ctrl + D duplicates nothing.",
           "singleKeyLabel": "Single-key shortcuts",
           "singleKeyHint": "Switch off to stop the keys ?, G, +, − and 0 from reacting. This help stays available through the “Keyboard help” button."
         },
@@ -5675,6 +5679,16 @@
           "label": "Label",
           "type": "Type: {{type}}",
           "notPlaced": "This bed is not placed on the plan yet.",
+          "waterSource": {
+            "title": "Water source",
+            "kind": "Kind of water source",
+            "capacity": "Capacity",
+            "capacityHelp": "For a rain barrel or a cistern. Used to work out how many days the supply lasts. Leave empty if unknown.",
+            "capacityInvalid": "Enter a capacity above 0 litres, or leave the field empty.",
+            "litres": "litres",
+            "lastRefilled": "Last refilled",
+            "lastRefilledHelp": "The day the source was last refilled. Leave empty if unknown."
+          },
           "lockedHint": "Locked: the values are read-only. Unlock the object to change it.",
           "locked": "Locked",
           "fields": {
@@ -5717,7 +5731,8 @@
           "lock": "Lock",
           "unlock": "Unlock",
           "selectAll": "Select all",
-          "multiDuplicate": "Duplicate several times"
+          "multiDuplicate": "Duplicate several times",
+          "duplicateShortcut": "Ctrl/Cmd + D"
         },
         "duplicate": {
           "name": "{{name}} (copy)"

@@ -5663,9 +5663,13 @@
             "save": {
               "keys": "Strg + S",
               "does": "Speichert den Plan."
+            },
+            "duplicate": {
+              "keys": "Strg + D / Cmd + D",
+              "does": "Dupliziert die Auswahl um einen Rasterschritt versetzt. Pflanzen, Aufgaben und Pflanzplätze werden nicht kopiert."
             }
           },
-          "shortcutNote": "Die Einzeltasten ?, G, +, − und 0 reagieren nur, solange der Plan den Fokus hat. Schalte sie unten aus, wenn sie dich stören (WCAG 2.1.4). Pfeiltasten, Bild ab/auf, Entf, Esc sowie Strg + A, Strg + Z, Strg + Umschalt + Z, Strg + Y und Strg + S bleiben aktiv. Strg + Z und Strg + Y gelten in Textfeldern für das Feld selbst.",
+          "shortcutNote": "Die Einzeltasten ?, G, +, − und 0 reagieren nur, solange der Plan den Fokus hat. Schalte sie unten aus, wenn sie dich stören (WCAG 2.1.4). Pfeiltasten, Bild ab/auf, Entf, Esc sowie Strg + A, Strg + Z, Strg + Umschalt + Z, Strg + Y, Strg + S und Strg + D bleiben aktiv. Strg + Z und Strg + Y gelten in Textfeldern für das Feld selbst, Strg + D dupliziert dort nichts.",
           "singleKeyLabel": "Einzeltasten-Kürzel",
           "singleKeyHint": "Schalte sie aus, damit die Tasten ?, G, +, − und 0 nicht reagieren. Diese Hilfe bleibt über die Schaltfläche „Tastaturhilfe“ erreichbar."
         },
@@ -5676,6 +5680,16 @@
           "label": "Bezeichnung",
           "type": "Typ: {{type}}",
           "notPlaced": "Dieses Beet ist noch nicht auf dem Plan platziert.",
+          "waterSource": {
+            "title": "Wasserquelle",
+            "kind": "Art der Wasserquelle",
+            "capacity": "Fassungsvermögen",
+            "capacityHelp": "Für Regentonne oder Zisterne. Daraus wird berechnet, wie viele Tage der Vorrat reicht. Leer lassen, wenn unbekannt.",
+            "capacityInvalid": "Gib ein Fassungsvermögen über 0 Litern ein oder lass das Feld leer.",
+            "litres": "Liter",
+            "lastRefilled": "Zuletzt aufgefüllt",
+            "lastRefilledHelp": "Tag, an dem die Quelle zuletzt aufgefüllt wurde. Leer lassen, wenn unbekannt."
+          },
           "lockedHint": "Gesperrt: Die Werte sind schreibgeschützt. Entsperre das Objekt, um es zu ändern.",
           "locked": "Gesperrt",
           "fields": {
@@ -5718,7 +5732,8 @@
           "lock": "Sperren",
           "unlock": "Entsperren",
           "selectAll": "Alle auswählen",
-          "multiDuplicate": "Mehrfach duplizieren"
+          "multiDuplicate": "Mehrfach duplizieren",
+          "duplicateShortcut": "Strg/Cmd + D"
         },
         "duplicate": {
           "name": "{{name}} (Kopie)"

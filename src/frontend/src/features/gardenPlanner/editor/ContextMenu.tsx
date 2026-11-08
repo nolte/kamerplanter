@@ -9,6 +9,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Typography from '@mui/material/Typography';
 
 export type MenuAnchor =
   { kind: 'position'; x: number; y: number } | { kind: 'element'; element: HTMLElement };
@@ -21,6 +22,8 @@ export interface MenuAction {
   disabled?: boolean;
   /** A divider is drawn above this entry. */
   separated?: boolean;
+  /** The key combination that runs the same action, shown at the end of the entry (e.g. Ctrl/Cmd + D). */
+  shortcut?: { label: string; aria: string };
 }
 
 interface ContextMenuProps {
@@ -60,10 +63,16 @@ export function ContextMenu({
             action.onClick();
           }}
           sx={{ minHeight: 48 }}
+          aria-keyshortcuts={action.shortcut?.aria}
           data-testid={`garden-plan-menu-${action.id}`}
         >
           {action.icon && <ListItemIcon>{action.icon}</ListItemIcon>}
           <ListItemText>{action.label}</ListItemText>
+          {action.shortcut && (
+            <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }} aria-hidden>
+              {action.shortcut.label}
+            </Typography>
+          )}
         </MenuItem>,
       ])}
     </Menu>

@@ -1,12 +1,7 @@
 {
   "GP-FR-025": {
     "partial": true,
-    "reason": "Multi-duplicate (the SHOULD part) is tested. The MUST part of the same row is not met: `Ctrl/Cmd+D` has no key handler (`useEditorShortcuts.ts` handles only Ctrl+S/Z/Y, `useEditorTools.ts` only Ctrl+A), and a duplicated bed starts without slots because the closed batch operation list has no `create_slot` (`duplicate.ts`; #2466 item 8 decided: no `create_slot`). Follow-up issue still to be opened",
-    "issue": 2493
-  },
-  "GP-FR-111": {
-    "partial": true,
-    "reason": "The water-source model carries `water_source_kind`, `capacity_liters` and `last_refilled_at`, and the zone status turns the capacity into a days-of-supply hint (tested). The editor offers no field for any of the three (a new water source is always `tap`); they are written only through the API (batch `create_garden_object` / `update_fields` props, GP-API-013). Follow-up issue still to be opened",
-    "issue": 2493
+    "reason": "Duplicate with offset through the panel, the item menu and `Ctrl/Cmd+D` (WP 9.14, #2754: one handler in `useEditorShortcuts.ts`, the menu entry names the key) and multi-duplicate (the SHOULD part) are tested. Not met by decision: a duplicated bed starts without slots, because the closed batch operation list has no `create_slot` (`duplicate.ts`; §32.4 item 8, #2466 item 8: no `create_slot`, the panel offers a layout instead). The sentence \"bei Beeten werden Slots mitkopiert\" of GP-FR-025 stays unmet until that decision changes",
+    "issue": 2754
   }
 }
