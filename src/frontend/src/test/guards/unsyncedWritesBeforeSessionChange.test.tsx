@@ -214,5 +214,9 @@ describe('the logout dialog while it waits (review 2)', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onProceed).not.toHaveBeenCalled();
     release();
+    // The released sync still finishes; wait for it, or its state update lands after the test environment is gone
+    // ("window is not defined" as an unhandled rejection that fails the whole run). A cancelled sync never logs out.
+    await waitFor(() => expect(within(dialog).getByTestId('unsynced-writes-discard')).toBeEnabled());
+    expect(onProceed).not.toHaveBeenCalled();
   });
 });
