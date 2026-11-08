@@ -30,8 +30,9 @@ from app.config.settings import settings
 from app.domain.engines.plan_svg_engine import ALLOWED_ATTRIBUTES, ALLOWED_ELEMENTS
 from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
+from app.domain.models.bed_list_export import MAX_BED_LIST_EXPORT_ROWS, BedAssignee
 from app.domain.models.garden_plan import PlantShortInfo
-from app.domain.models.site import SitePlan
+from app.domain.models.site import Location, SitePlan
 from app.domain.models.user import User
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -45,6 +46,7 @@ from tests.support.garden_plan_fakes import (
     make_site,
     rect,
 )
+from tests.support.pdf_text import pdf_pages_text, pdf_text
 
 _BASE = "/api/v1/t/own"
 _SVG = f"{_BASE}/sites/{SITE}/plan/render.svg"
@@ -359,6 +361,179 @@ class TestThePdf:
     def test_the_bed_list_is_optional(self, client) -> None:
         assert client().get(_PDF, params={"bed_list": "true"}).status_code == 200
         assert client().get(_PDF, params={"bed_list": "maybe"}).status_code == 422
+
+
+def _bed(key: str, name: str, geometry: dict | None, area_m2: float, **kwargs) -> Location:
+    return make_location(key, name, geometry=geometry, **kwargs).model_copy(update={"area_m2": area_m2})
+
+
+class TestTheParcelList:
+    """GP-FR-176 (WP 9.10, #2750): the parcel list page, and the member names only behind ``include_assignment``.
+
+    Every assertion reads the text layer of the PDF the route returns - what a reader of the file can copy out of it.
+    """
+
+    @pytest.fixture
+    def assigned(self, repo: FakePlanRepo) -> FakePlanRepo:
+        repo.locations["bed"] = _bed("bed", "Tomatenbeet", rect(1, 1, 2, 1), 2.0, irrigation_zone_key="zone_1")
+        repo.locations["bed_2"] = _bed("bed_2", "Kräuterspirale", rect(5, 1, 2, 2), 4.0)
+        repo.assignees = [
+            (TENANT, BedAssignee("bed", "u_sabine", "Sabine Gärtner")),
+            (TENANT, BedAssignee("bed_2", "u_karl", "Karl Pächter")),
+            # The same bed key under another tenant: its member must never lend a name to this list.
+            (OTHER_TENANT, BedAssignee("bed", "u_mallory", "Mallory Fremd")),
+        ]
+        return repo
+
+    def test_without_the_parameter_there_is_no_parcel_page(self, client, assigned) -> None:
+        response = client().get(_PDF)
+
+        assert response.status_code == 200
+        text = pdf_text(response.content)
+        assert "Parzellenliste" not in text
+        assert len(pdf_pages_text(response.content)) == 1
+        assert assigned.assignee_reads == []
+
+    def test_the_page_lists_number_name_area_and_zone_in_plan_order(self, client, assigned) -> None:
+        response = client().get(_PDF, params={"parcel_list": "true"})
+
+        assert response.status_code == 200
+        pages = pdf_pages_text(response.content)
+        assert len(pages) == 2
+        parcel_page = pages[1]
+        assert "Parzellenliste" in parcel_page
+        for header in ("Beet-Kennung", "Fläche (m²)", "Bewässerungszone"):
+            assert header in parcel_page
+        assert "1 · Tomatenbeet" in parcel_page and "2 · Kräuterspirale" in parcel_page
+        assert "2,0" in parcel_page and "4,0" in parcel_page
+        assert "Tropf Ost" in parcel_page
+        assert "nur für diesen Ausdruck" in parcel_page
+
+    def test_the_numbers_follow_depth_then_drawing_order_then_key(self, client, repo) -> None:
+        """Inserted (= the fake's read order) as d, z, m, b and keyed a…z: neither order is the plan order."""
+        repo.locations.clear()
+        for key, name, depth, z_order, x in (
+            ("d_deep", "Tiefes Beet", 1, 0, 1),
+            ("z_late", "Spätes Beet", 0, 5, 3),
+            ("m_tie", "Gleichstand M", 0, 1, 5),
+            ("b_tie", "Gleichstand B", 0, 1, 7),
+        ):
+            repo.locations[key] = _bed(key, name, rect(x, 1, 1, 1), 1.0).model_copy(
+                update={"depth": depth, "z_order": z_order}
+            )
+
+        parcel_page = pdf_pages_text(client().get(_PDF, params={"parcel_list": "true"}).content)[1]
+
+        expected = ["1 · Gleichstand B", "2 · Gleichstand M", "3 · Spätes Beet", "4 · Tiefes Beet"]
+        positions = [parcel_page.index(entry) for entry in expected]
+        assert positions == sorted(positions), parcel_page
+
+    def test_one_bed_over_the_bound_is_refused_before_zones_or_assignments_are_read(self, client, repo) -> None:
+        repo.locations.clear()
+        for index in range(MAX_BED_LIST_EXPORT_ROWS + 1):
+            key = f"bed_{index:04d}"
+            repo.locations[key] = _bed(key, key, rect(1, 1, 1, 1), 1.0, irrigation_zone_key="zone_1")
+        repo.assignees = [(TENANT, BedAssignee("bed_0000", "u_sabine", "Sabine Gärtner"))]
+
+        response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true"})
+
+        assert response.status_code == 422
+        assert response.json()["details"][0]["code"] == "export.too_many_rows"
+        assert repo.assignee_reads == [] and "zone_names" not in repo.label_reads
+
+    def test_without_the_opt_in_no_member_name_and_no_assignment_column_is_printed(self, client, assigned) -> None:
+        response = client().get(_PDF, params={"parcel_list": "true"})
+
+        text = pdf_text(response.content)
+        assert "Zuweisung" not in text
+        for name in ("Sabine", "Gärtner", "Karl", "Pächter", "Mallory"):
+            assert name not in text
+        # Not only not printed: not read at all.
+        assert assigned.assignee_reads == []
+
+    def test_with_the_opt_in_the_assignment_column_carries_the_members_of_this_tenant(self, client, assigned) -> None:
+        response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true"})
+
+        assert response.status_code == 200
+        parcel_page = pdf_pages_text(response.content)[1]
+        assert "Zuweisung" in parcel_page
+        assert "Sabine Gärtner" in parcel_page and "Karl Pächter" in parcel_page
+        assert "Mallory" not in parcel_page
+        assert assigned.assignee_reads == [["bed", "bed_2"]]
+
+    def test_an_erased_account_prints_as_anonymised(self, client, assigned) -> None:
+        assigned.assignees = [(TENANT, BedAssignee("bed", "u_gone", None))]
+
+        response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true"})
+
+        assert "anonymisiert" in pdf_pages_text(response.content)[1]
+
+    def test_an_erased_account_prints_in_the_language_of_the_document(self, client, assigned) -> None:
+        assigned.assignees = [(TENANT, BedAssignee("bed", "u_gone", None))]
+
+        response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true", "locale": "en"})
+
+        parcel_page = pdf_pages_text(response.content)[1]
+        assert "anonymised" in parcel_page and "anonymisiert" not in parcel_page
+
+    def test_the_refusal_comes_before_the_underlay_is_loaded(self, client, assigned, monkeypatch) -> None:
+        from app.main import app
+
+        service = app.dependency_overrides[get_garden_plan_export_service]()
+        loads: list[str] = []
+
+        async def spy(site_key, *, tenant_key):
+            loads.append(site_key)
+
+        monkeypatch.setattr(service, "load_underlay", spy)
+
+        refused = client().get(_PDF, params={"underlay": "true", "include_assignment": "true"})
+
+        assert refused.status_code == 422
+        assert refused.json()["details"][0]["code"] == "export.assignment_needs_parcel_list"
+        assert loads == []
+        # Positive control: the same spy sees the load of an admissible request.
+        assert client().get(_PDF, params={"underlay": "true"}).status_code == 200
+        assert loads == [SITE]
+
+    def test_the_assignment_without_the_parcel_list_is_a_422_and_reads_nobody(self, client, assigned) -> None:
+        response = client().get(_PDF, params={"include_assignment": "true"})
+
+        assert response.status_code == 422
+        detail = response.json()["details"][0]
+        assert detail["code"] == "export.assignment_needs_parcel_list"
+        assert detail["field"] == "include_assignment"
+        assert assigned.assignee_reads == []
+
+    def test_the_page_is_translated(self, client, assigned) -> None:
+        response = client().get(_PDF, params={"parcel_list": "true", "include_assignment": "true", "locale": "en"})
+
+        parcel_page = pdf_pages_text(response.content)[1]
+        for header in ("Parcel list", "Bed identifier", "Area (m²)", "Irrigation zone", "Assigned to"):
+            assert header in parcel_page
+        assert "2.0" in parcel_page
+
+    def test_it_follows_the_bed_list(self, client, assigned) -> None:
+        response = client().get(_PDF, params={"bed_list": "true", "parcel_list": "true"})
+
+        pages = pdf_pages_text(response.content)
+        assert len(pages) == 3
+        assert "Beetliste" in pages[1] and "Parzellenliste" in pages[2]
+
+    def test_only_placed_beds_are_parcels(self, client, assigned) -> None:
+        assigned.locations["unplaced"] = _bed("unplaced", "Ohne Ort", None, 1.0)
+        assigned.locations["house"] = make_location(
+            "house", "Gewächshaus", geometry=rect(8, 3, 1, 1), location_type_key="greenhouse"
+        )
+
+        parcel_page = pdf_pages_text(client().get(_PDF, params={"parcel_list": "true"}).content)[1]
+
+        assert "Ohne Ort" not in parcel_page and "Gewächshaus" not in parcel_page
+        assert "3 ·" not in parcel_page
+
+    def test_the_flags_are_booleans(self, client) -> None:
+        assert client().get(_PDF, params={"parcel_list": "maybe"}).status_code == 422
+        assert client().get(_PDF, params={"parcel_list": "true", "include_assignment": "maybe"}).status_code == 422
 
 
 class TestAForeignSite:

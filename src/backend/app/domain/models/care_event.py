@@ -394,14 +394,21 @@ class CareEventOrigin:
 PERFORMED_BY_ANONYMISED = "anonymisiert"
 
 
-def display_performer(account_key: str | None, display_name: str | None, label: str | None = None) -> str | None:
+def display_performer(
+    account_key: str | None,
+    display_name: str | None,
+    label: str | None = None,
+    *,
+    anonymised: str = PERFORMED_BY_ANONYMISED,
+) -> str | None:
     """Who carried the care out, as the API names them: a display name, the third party's label, or "anonymisiert".
 
     Never the account key (GP-API-034). An account key whose user document is gone or that carries the erasure
-    marker reads "anonymisiert"; no key and no label (a system entry) reads ``None``.
+    marker reads ``anonymised`` ("anonymisiert" unless a printed document passes its own language's word);
+    no key and no label (a system entry) reads ``None``.
     """
     if account_key:
-        return display_name if display_name and account_key != ANONYMIZED_MARKER else PERFORMED_BY_ANONYMISED
+        return display_name if display_name and account_key != ANONYMIZED_MARKER else anonymised
     return label or None
 
 

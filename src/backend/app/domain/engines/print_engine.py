@@ -203,6 +203,16 @@ LABELS: dict[str, dict[str, str]] = {
         "garden_plan_bed_area": "Fläche (m²)",
         "garden_plan_bed_status": "Status",
         "garden_plan_bed_sun": "Sonne",
+        "garden_plan_parcel_list": "Parzellenliste",
+        "garden_plan_parcel_id": "Beet-Kennung",
+        "garden_plan_parcel_zone": "Bewässerungszone",
+        "garden_plan_parcel_assignment": "Zuweisung",
+        "garden_plan_parcel_id_hint": (
+            "Kennung = laufende Nummer in Plan-Reihenfolge und Beetname. Die Nummer gilt nur für diesen Ausdruck: "
+            "Kommt ein Beet hinzu, fällt eines weg oder ändert sich die Zeichenreihenfolge, verschiebt sie sich."
+        ),
+        "garden_plan_assignee_anonymised": "anonymisiert",
+        "garden_plan_parcel_empty": "Der Plan enthält keine platzierten Beete.",
         "bed_status_planned": "geplant",
         "bed_status_active": "aktiv",
         "bed_status_retired": "stillgelegt",
@@ -257,6 +267,16 @@ LABELS: dict[str, dict[str, str]] = {
         "garden_plan_bed_area": "Area (m²)",
         "garden_plan_bed_status": "Status",
         "garden_plan_bed_sun": "Sun",
+        "garden_plan_parcel_list": "Parcel list",
+        "garden_plan_parcel_id": "Bed identifier",
+        "garden_plan_parcel_zone": "Irrigation zone",
+        "garden_plan_parcel_assignment": "Assigned to",
+        "garden_plan_parcel_id_hint": (
+            "Identifier = running number in plan order and bed name. The number holds for this print only: a bed "
+            "added or removed, or a change of the drawing order, shifts it."
+        ),
+        "garden_plan_assignee_anonymised": "anonymised",
+        "garden_plan_parcel_empty": "The plan holds no placed beds.",
         "bed_status_planned": "planned",
         "bed_status_active": "active",
         "bed_status_retired": "retired",
@@ -267,6 +287,18 @@ LABELS: dict[str, dict[str, str]] = {
         "sun_exposure_unknown": "unknown",
     },
 }
+
+
+def print_label(locale: str, key: str) -> str:
+    """One print label in ``locale`` (German for an unknown locale, as :meth:`PrintEngine.render_html`)."""
+    return LABELS.get(locale, LABELS["de"])[key]
+
+
+def format_decimal(value: float, locale: str, *, decimals: int = 1) -> str:
+    """A number for a printed document: ``decimals`` places, a decimal comma in German (``2,5``), a point else."""
+    text = f"{value:.{decimals}f}"
+    return text.replace(".", ",") if locale == "de" else text
+
 
 REMINDER_TYPE_LABELS: dict[str, dict[str, str]] = {
     "de": {

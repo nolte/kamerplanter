@@ -52,6 +52,13 @@ export interface ExportOptions {
   layers: readonly ExportLayer[];
   /** PDF only: the bed list as a second page. */
   bedList: boolean;
+  /** PDF only: the parcel list as an extra page - number in plan order with the bed name, area, zone (GP-FR-176). */
+  parcelList?: boolean;
+  /**
+   * PDF with `parcelList` only: the column with the members a bed is assigned to. Personal data, so an explicit
+   * opt-in that is off by default (SR-024, as the CSV's); never sent without `parcelList`.
+   */
+  includeAssignment?: boolean;
 }
 
 export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
@@ -61,6 +68,8 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
   scale: 'auto',
   layers: ['beds', 'objects', 'plants', 'labels'],
   bedList: false,
+  parcelList: false,
+  includeAssignment: false,
   scope: 'site',
   keys: [],
 };

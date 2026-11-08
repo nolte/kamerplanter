@@ -54,21 +54,39 @@
     transform-origin: 0 0;
 }
 
-.bed-list {
+.bed-list,
+.parcel-list {
     page-break-before: always;
 }
 
-.bed-list table {
+.bed-list table,
+.parcel-list table {
     width: 100%;
     border-collapse: collapse;
     font-size: 9pt;
 }
 
 .bed-list th,
-.bed-list td {
+.bed-list td,
+.parcel-list th,
+.parcel-list td {
     border-bottom: 0.2mm solid #ccc;
     padding: 1.5mm 2mm;
     text-align: left;
+}
+
+.parcel-list thead {
+    display: table-header-group;
+}
+
+.parcel-list tr {
+    page-break-inside: avoid;
+}
+
+.parcel-list .hint {
+    font-size: 8pt;
+    color: #555;
+    margin-bottom: 2mm;
 }
 {% endblock %}
 
@@ -114,6 +132,37 @@
         {% endfor %}
         </tbody>
     </table>
+</section>
+{% endif %}
+
+{% if show_parcel_list %}
+<section class="parcel-list">
+    <h2>{{ labels.garden_plan_parcel_list }}: {{ site_name }}</h2>
+    <p class="hint">{{ labels.garden_plan_parcel_id_hint }}</p>
+    {% if parcels %}
+    <table>
+        <thead>
+            <tr>
+                <th>{{ labels.garden_plan_parcel_id }}</th>
+                <th>{{ labels.garden_plan_bed_area }}</th>
+                <th>{{ labels.garden_plan_parcel_zone }}</th>
+                {% if show_assignment %}<th>{{ labels.garden_plan_parcel_assignment }}</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for parcel in parcels %}
+            <tr>
+                <td>{{ parcel.number }} &middot; {{ parcel.name }}</td>
+                <td>{{ parcel.area }}</td>
+                <td>{{ parcel.zone or '–' }}</td>
+                {% if show_assignment %}<td>{{ parcel.assigned_to or '–' }}</td>{% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>{{ labels.garden_plan_parcel_empty }}</p>
+    {% endif %}
 </section>
 {% endif %}
 {% endblock %}
