@@ -423,7 +423,7 @@ So that you can work in the garden without a network (see [What works offline](g
 
 | What | Content | How long |
 |------|---------|----------|
-| Remembered state | Garden plan, site list, bed list, bed head and bed sheet, as you loaded them last. Without member names, without assignments and without notes and descriptions of the beds. | Usable for at most 15 minutes; the app deletes older states on the next start or read. |
+| Remembered state | Garden plan, site list, bed list, bed head and bed sheet, as you loaded them last. Without member names, without assignments and without notes and descriptions of beds and garden objects. | Usable for at most 15 minutes; the app deletes older states on the next start or read. |
 | Offline entries | What you capture in field mode without a connection: done, notes, photos, each with its time, your account and the garden. Photos are scaled down to at most 1,920 pixels and carry no location or camera data (EXIF/GPS). | Until they are sent. Waiting entries older than one year, and entries not sent or kept 90 days after capture, are deleted by the app on the next start; it tells you how many there were. |
 | App files | The app's program files, language files and icons, so that it starts without a network. | Until a new version replaces them. Contains no personal data. |
 

@@ -293,34 +293,85 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** The plan collections whose items may carry a free-text `notes` / `description` (locations, garden objects, …). */
+const PLAN_ITEM_LISTS = ['locations', 'garden_objects', 'slots', 'plants', 'zones'] as const;
+
+/** An item without its free text: `notes` and `description` blanked where present. */
+function withoutFreeText(item: unknown): unknown {
+  if (!isRecord(item)) return item;
+  const out: Record<string, unknown> = { ...item };
+  if ('notes' in out) out.notes = null;
+  if ('description' in out) out.description = null;
+  return out;
+}
+
+/** A task of the bed sheet as the cache keeps it: nothing about a person and no completion text. */
+function storedTask(task: unknown): unknown {
+  if (!isRecord(task)) return task;
+  return {
+    ...task,
+    assigned_to_user_key: null,
+    completion_notes: null,
+    photo_refs: [],
+    difficulty_rating: null,
+    quality_rating: null,
+    actual_duration_minutes: null,
+  };
+}
+
 /**
- * What a table keeps of an answer (wave 9 acceptance #2757, review finding GDPR-004): nothing about a
- * person and no free text the offline views do not show. The plan's `plan.plan_updated_by_name` (a
- * member's display name) and the bed summary's `notes` / `description` are blanked HERE, at the one
- * write every caller goes through (the editor load, the bed plan tab, the refresh after a placed
- * template), so no caller can forget it. The answer the caller returns to its view is untouched.
+ * What a table keeps of an answer (wave 9 acceptance #2757, review findings GDPR-004 and the follow-up
+ * review of PR #2817): nothing about a person and no free text — the offline views show neither. All data
+ * minimisation of the plan cache sits HERE, at the one write every caller goes through (`writeCached`,
+ * and through it `readThrough`), so no caller can forget it. The answer the caller returns to its view
+ * is untouched. `undefined` means: store nothing.
+ *
+ * - `plans`: `plan.plan_updated_by_name` (a member's display name) and the `notes` / `description` of every
+ *   location, garden object, slot, plant and zone.
+ * - `bedSummaries`: `notes` and `description` of the bed.
+ * - `bedSheets`: only a complete answer (both reads answered, none aborted); tasks without assignee,
+ *   completion text, photos, ratings and duration, plants without their cover photo; the `complete` flag
+ *   itself is never stored (#2789 review L1, C5).
  */
 export function storedProjection(table: PlanCacheTable, data: unknown): unknown {
   if (!isRecord(data)) return data;
-  if (table === 'plans' && isRecord(data.plan)) {
-    return { ...data, plan: { ...data.plan, plan_updated_by_name: null } };
+  if (table === 'plans') {
+    const out: Record<string, unknown> = { ...data };
+    if (isRecord(data.plan)) out.plan = { ...data.plan, plan_updated_by_name: null };
+    for (const list of PLAN_ITEM_LISTS) {
+      const items = data[list];
+      if (Array.isArray(items)) out[list] = items.map(withoutFreeText);
+    }
+    return out;
   }
   if (table === 'bedSummaries') return { ...data, notes: null, description: null };
+  if (table === 'bedSheets') {
+    if (data.complete !== true || !Array.isArray(data.plants) || !Array.isArray(data.tasks))
+      return undefined;
+    return {
+      tasks: data.tasks.map(storedTask),
+      plants: data.plants.map((plant) =>
+        isRecord(plant) ? { ...plant, cover_photo_ref: null } : plant,
+      ),
+    };
+  }
   return data;
 }
 
 /**
  * Write one answer. `generation` is the clearing generation the read began in (default: now); the
  * write is dropped when a logout, tenant switch or kill switch started since. What is written is the
- * {@link storedProjection} of `data`.
+ * {@link storedProjection} of `data`; nothing is written when the projection is `undefined`.
  */
-export function writeCached(
+export async function writeCached(
   entry: CacheEntry,
   data: unknown,
   now: number = Date.now(),
   generation: number | null = currentGeneration(),
 ): Promise<void> {
-  return writeRecord(entry.table, entry.key, entry.scope, storedProjection(entry.table, data), now, generation);
+  const stored = storedProjection(entry.table, data);
+  if (stored === undefined) return;
+  return writeRecord(entry.table, entry.key, entry.scope, stored, now, generation);
 }
 
 /** The clearing generation a read begins in; pass it to {@link writeCached} when the answer is in. */
@@ -332,15 +383,9 @@ export function readCached<T>(entry: CacheEntry, now: number = Date.now()): Prom
   return readRecord<T>(entry.table, entry.key, entry.scope, now);
 }
 
-/** How {@link readThrough} reads the clock and what it stores. */
-export interface ReadThroughOptions<T> {
+/** How {@link readThrough} reads the clock. What it stores is {@link storedProjection}. */
+export interface ReadThroughOptions {
   now?: () => number;
-  /**
-   * What goes into the cache: the answer reduced to what the offline view needs (person-related fields
-   * stripped, #2789 review L1), or `undefined` for an answer that must not be cached at all — a partial
-   * or aborted one (C5). Default: the answer as it is.
-   */
-  toStored?: (data: T) => T | undefined;
 }
 
 /**
@@ -354,7 +399,7 @@ export interface ReadThroughOptions<T> {
 export async function readThrough<T>(
   entry: CacheEntry | null,
   fetcher: () => Promise<T>,
-  { now = Date.now, toStored = (data) => data }: ReadThroughOptions<T> = {},
+  { now = Date.now }: ReadThroughOptions = {},
 ): Promise<CachedRead<T>> {
   if (entry === null || !cacheUsable()) return { data: await fetcher(), cachedAt: null };
   if (browserOffline()) {
@@ -365,8 +410,7 @@ export async function readThrough<T>(
   const generation = currentGeneration();
   try {
     const data = await fetcher();
-    const stored = toStored(data);
-    if (stored !== undefined) void writeCached(entry, stored, now(), generation);
+    void writeCached(entry, data, now(), generation);
     return { data, cachedAt: null };
   } catch (error) {
     if (!isNetworkFailure(error)) throw error;

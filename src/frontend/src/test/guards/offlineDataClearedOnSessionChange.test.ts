@@ -295,7 +295,9 @@ describe('the plan cache database is emptied by the same clearings (WP 9.2)', ()
       cache.bedSheetEntry(ALICE, 'loc_1'),
     ];
     for (const item of entries) {
-      await cache.writeCached(item, { cached: item.table }, T0, 0);
+      // A bed sheet is only stored when complete (`storedProjection('bedSheets')`).
+      const data = item.table === 'bedSheets' ? { tasks: [], plants: [], complete: true } : { cached: item.table };
+      await cache.writeCached(item, data, T0, 0);
       expect(await cache.readCached(item, T0)).not.toBeNull();
     }
     /** What is still readable afterwards, by table. */

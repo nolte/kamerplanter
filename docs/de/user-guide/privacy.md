@@ -423,7 +423,7 @@ Damit du im Garten auch ohne Netz arbeiten kannst (siehe [Was geht ohne Netz](ga
 
 | Was | Inhalt | Wie lange |
 |-----|--------|-----------|
-| Gemerkter Stand | Gartenplan, Standortliste, Beetliste, Beetkopf und Beet-Blatt, so wie du sie zuletzt geladen hast. Ohne die Namen von Mitgliedern, ohne Zuweisungen und ohne Notizen und Beschreibungen der Beete. | Höchstens 15 Minuten nutzbar; ältere Stände löscht die App beim nächsten Start oder Lesen. |
+| Gemerkter Stand | Gartenplan, Standortliste, Beetliste, Beetkopf und Beet-Blatt, so wie du sie zuletzt geladen hast. Ohne die Namen von Mitgliedern, ohne Zuweisungen und ohne Notizen und Beschreibungen von Beeten und Gartenobjekten. | Höchstens 15 Minuten nutzbar; ältere Stände löscht die App beim nächsten Start oder Lesen. |
 | Offline-Einträge | Was du im Feldmodus ohne Verbindung erfasst: Erledigt, Notizen, Fotos, jeweils mit Zeitpunkt, deinem Konto und dem Garten. Fotos sind auf höchstens 1 920 Pixel verkleinert und ohne Standort- und Kameradaten (EXIF/GPS). | Bis sie übertragen sind. Wartende Einträge, die älter als ein Jahr sind, und nicht übertragene oder behaltene Einträge 90 Tage nach dem Erfassen löscht die App beim nächsten Start und sagt dir, wie viele es waren. |
 | App-Dateien | Die Programmdateien der App, Sprachdateien und Symbole, damit sie ohne Netz startet. | Bis eine neue Version sie ersetzt. Enthält keine persönlichen Daten. |
 

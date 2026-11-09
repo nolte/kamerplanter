@@ -5,13 +5,13 @@ import { ApiError } from '@/api/errors';
 import { emptyPlanCache, testPlanCacheDatabase } from '@/test/planCacheTestKit';
 import { clearOfflineData, postNamespace } from '@/pwa/offlineData';
 import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
-import { storableSheet } from '../field/useBedSheet';
 import { careTask } from '../care/careTestKit';
 import {
   OfflineCacheMissError,
   PLAN_CACHE_TTL_MS,
   purgeExpiredPlanCache,
   bedListEntry,
+  bedSheetEntry,
   bedSummaryEntry,
   planEntry,
   readCached,
@@ -19,6 +19,7 @@ import {
   scopeFromState,
   siteCacheKey,
   siteListEntry,
+  storedProjection,
   writeCached,
   type CacheScope,
 } from './planCache';
@@ -276,11 +277,11 @@ describe('the bed sheet record (#2789 review L1, C5)', () => {
   });
 
   it('keeps no person-related field of a task or a plant', () => {
-    const stored = storableSheet({
+    const stored = storedProjection('bedSheets', {
       tasks: [task],
-      plants: [{ plant_key: 'pl_1', cover_photo_ref: 'att_2' } as never],
+      plants: [{ plant_key: 'pl_1', cover_photo_ref: 'att_2' }],
       complete: true,
-    });
+    }) as { tasks: Record<string, unknown>[]; plants: Record<string, unknown>[] } | undefined;
     expect(stored?.tasks[0]).toMatchObject({
       key: 't_1',
       name: task.name,
@@ -294,8 +295,19 @@ describe('the bed sheet record (#2789 review L1, C5)', () => {
   });
 
   it('stores nothing for a partial or aborted answer', () => {
-    expect(storableSheet({ tasks: [task], plants: null, complete: false })).toBeUndefined();
-    expect(storableSheet({ tasks: [task], plants: [], complete: false })).toBeUndefined();
+    expect(storedProjection('bedSheets', { tasks: [task], plants: null, complete: false })).toBeUndefined();
+    expect(storedProjection('bedSheets', { tasks: [task], plants: [], complete: false })).toBeUndefined();
+    expect(storedProjection('bedSheets', { tasks: [task], plants: null, complete: true })).toBeUndefined();
+  });
+
+  it('a partial answer read through the cache is returned but never written', async () => {
+    const partial = { tasks: [task], plants: null, complete: false };
+    const result = await readThrough(bedSheetEntry(ALICE_A, 'bed_1'), () => Promise.resolve(partial), {
+      now: () => T0,
+    });
+    expect(result.data).toBe(partial);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(await readCached(bedSheetEntry(ALICE_A, 'bed_1'), T0)).toBeNull();
   });
 });
 
@@ -320,6 +332,20 @@ describe('the plan and the bed summary keep no name and no free text (#2757 GDPR
       plan_updated_at: '2026-11-09T08:00:00Z',
       plan_updated_by_name: null,
     });
+  });
+
+  it('the plan keeps no notes or descriptions of its beds and garden objects (#2817 review)', async () => {
+    const plan = {
+      ...PLAN_WITH_NAME,
+      locations: [{ key: 'bed_1', name: 'Beet 1', notes: 'Schlüssel bei Frau M.', description: 'Ecke' }],
+      garden_objects: [{ key: 'go_1', label: 'Tonne', notes: 'gehört Nachbar K.' }],
+      slots: [{ key: 's_1' }],
+    };
+    await writeCached(planEntry(ALICE_A, 'site_1'), plan, T0);
+    const cached = await readCached<typeof plan>(planEntry(ALICE_A, 'site_1'), T0);
+    expect(cached?.data.locations).toEqual([{ key: 'bed_1', name: 'Beet 1', notes: null, description: null }]);
+    expect(cached?.data.garden_objects).toEqual([{ key: 'go_1', label: 'Tonne', notes: null }]);
+    expect(cached?.data.slots).toEqual([{ key: 's_1' }]);
   });
 
   it('a direct write (the refresh after a placed template) strips the name as well', async () => {
