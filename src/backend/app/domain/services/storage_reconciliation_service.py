@@ -35,6 +35,10 @@ from app.common.exceptions import NotFoundError
 from app.domain.engines.storage.reconciliation_keys import TENANT_NAMESPACE, holder_candidates, is_reconcilable
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.storage_release_retry_repository import (
+    IStorageReleaseRetryRepository,
+    StorageReleaseRetry,
+)
 
 logger = structlog.get_logger()
 
@@ -42,6 +46,9 @@ logger = structlog.get_logger()
 #: legitimately be mostly orphans, and the brake exists for the installation-wide
 #: "the catalogue is empty" signature, which fills every page.
 _BRAKE_MIN_PAGE_OBJECTS = 20
+
+#: Owed releases (#2630) worked per run; the rest waits for the next run.
+_RELEASES_PER_RUN = 500
 
 
 class IReconciliationCursorStore(Protocol):
@@ -70,6 +77,10 @@ class ReconciliationReport:
     freed_bytes: int = 0
     truncated: bool = False
     brake_tripped: bool = False
+    #: #2630 — owed releases: deleted, dropped because a record holds the object again, still failing.
+    released: int = 0
+    release_held_again: int = 0
+    release_failed: int = 0
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -85,6 +96,9 @@ class ReconciliationReport:
             "freed_bytes": self.freed_bytes,
             "truncated": self.truncated,
             "brake_tripped": self.brake_tripped,
+            "released": self.released,
+            "release_held_again": self.release_held_again,
+            "release_failed": self.release_failed,
             "delete_enabled": self.delete_enabled,
             "report_only": not self.delete_enabled,
             "min_age_hours": self.min_age_hours,
@@ -122,6 +136,7 @@ class StorageReconciliationService:
         max_orphan_fraction: float = 0.5,
         cursor_store: IReconciliationCursorStore | None = None,
         clock: Callable[[], datetime] | None = None,
+        release_retries: IStorageReleaseRetryRepository | None = None,
     ) -> None:
         self._storage = storage
         self._repo = attachment_repo
@@ -131,11 +146,13 @@ class StorageReconciliationService:
         self._max_orphan_fraction = max_orphan_fraction
         self._cursor = cursor_store
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._release_retries = release_retries
 
     async def run(self) -> ReconciliationReport:
         report = ReconciliationReport(
             delete_enabled=self._delete_enabled, min_age_hours=self._min_age.total_seconds() / 3600
         )
+        await self._retry_owed_releases(report)
         cutoff = self._clock() - self._min_age
         token = self._cursor.get() if self._cursor is not None else None
         resumed = token is not None
@@ -163,6 +180,54 @@ class StorageReconciliationService:
                 if self._cursor is not None:
                     self._cursor.set(token)
                 return report
+
+    async def _retry_owed_releases(self, report: ReconciliationReport) -> None:
+        """Delete the objects an attachment delete owes (#2630), whatever ``delete_enabled`` says.
+
+        Each was named by the delete that removed its last record, so it is not a guess about the catalogue: the
+        operator decision of 2026-11-09 retries exactly these objects and leaves the general sweep report-only.
+        Before each delete the catalogue is asked again (fail-closed): a record holding the object again — the same
+        bytes uploaded since — keeps it, and so does an object rewritten after the release was owed (an upload writes
+        the object before its record).
+        """
+        if self._release_retries is None:
+            return
+        for owed in self._release_retries.due(_RELEASES_PER_RUN):
+            outcome = await self._release(owed)
+            if outcome == "failed":
+                report.release_failed += 1
+                self._release_retries.failed_again(owed.key)
+                continue
+            if outcome == "held":
+                report.release_held_again += 1
+            else:
+                report.released += 1
+            self._release_retries.resolve(owed.key)
+
+    async def _release(self, owed: StorageReleaseRetry) -> str:
+        candidates = sorted({candidate for key in owed.object_keys for candidate in holder_candidates(key)})
+        if candidates and self._repo.held_storage_keys(candidates):
+            return "held"
+        owed_since = _parse_modified(owed.created_at)
+        outcome = "released"
+        for key in owed.object_keys:
+            try:
+                meta = await self._storage.head_object(key)
+            except NotFoundError:
+                continue  # already gone — the release is done for this key
+            except Exception as exc:  # noqa: BLE001 — one unreadable object is a failed attempt, not a stop
+                logger.warning("storage_release_retry_failed", error_type=type(exc).__name__)
+                outcome = "failed"
+                continue
+            modified = _parse_modified(meta.last_modified)
+            if owed_since is not None and modified is not None and modified > owed_since:
+                return "held"  # rewritten since: an upload in flight owns it now
+            try:
+                await self._storage.delete_object(key)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("storage_release_retry_failed", error_type=type(exc).__name__)
+                outcome = "failed"
+        return outcome
 
     async def _judge_page(self, keys: list[str], cutoff: datetime, report: ReconciliationReport) -> None:
         if not keys:

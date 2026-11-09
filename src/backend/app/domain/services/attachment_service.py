@@ -70,6 +70,7 @@ from app.domain.engines.storage.thumbnail_generator import (
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
+from app.domain.interfaces.storage_release_retry_repository import IStorageReleaseRetryRepository
 from app.domain.models.attachment import Attachment
 from app.domain.models.client_event import (
     ClientEventStamp,
@@ -129,9 +130,12 @@ class AttachmentService:
         key_builder: StorageKeyBuilder | None = None,
         rendition_claims: IRenditionDispatchClaims | None = None,
         entitlements: EntitlementService | None = None,
+        release_retries: IStorageReleaseRetryRepository | None = None,
     ) -> None:
         self._storage = storage
         self._repo = attachment_repo
+        # #2630 — where a delete that failed after the record was gone is owed; ``None``: the failure propagates.
+        self._release_retries = release_retries
         self._settings = settings
         # REQ-056 §7.4 (#2142) — the tenant's storage quota comes from its plan (``null`` = the instance
         # setting ``STORAGE_TENANT_QUOTA_MB``). ``get_attachment_service`` wires the plan resolution; a service
@@ -787,9 +791,7 @@ class AttachmentService:
             # records each saw the other one. Asked again once this record is gone,
             # at least one of them sees no holder, so the object does not outlive
             # every record (#1770 review SEC-001).
-            for key in self._object_keys(attachment):
-                await self._storage.delete_object(key)
-            shared = False
+            shared = await self._release_object(attachment, tenant_key)
         logger.info(
             "attachment_deleted",
             tenant=log_tenant(tenant_key),
@@ -818,9 +820,9 @@ class AttachmentService:
         ``attachment_delete_skipped_concurrent_write``.
 
         The stored object follows unless another record holds it; a storage call failing after the
-        commit leaves an object no record holds — never a reference to a missing picture. The reconciliation
-        sweep (#1834) only *reports* such an object by default: it deletes it only when the operator sets
-        ``STORAGE_RECONCILE_DELETE_ENABLED`` (default ``False``); until then the object stays in the store.
+        commit leaves an object no record holds — never a reference to a missing picture. That object is recorded
+        as an owed release (#2630) and the reconciliation run deletes exactly it later, unless a record holds it
+        again by then; the global ``STORAGE_RECONCILE_DELETE_ENABLED`` stays off.
 
         The repository calls are synchronous (python-arango) and run in a worker thread, off the event loop.
         """
@@ -864,8 +866,27 @@ class AttachmentService:
         )
         if attachment.storage_key in held:
             return True
+        # The record was committed away before this runs, so a storage error can no longer roll anything back: the
+        # object would stay with no record holding it (#2630). Every key is tried; each failed one is recorded as an
+        # owed release, which the reconciliation run retries for exactly that object (operator decision 2026-11-09,
+        # not the global ``STORAGE_RECONCILE_DELETE_ENABLED``). Without a retry store, or when recording fails too,
+        # the error propagates as before.
+        failed: list[str] = []
+        error: Exception | None = None
         for key in self._object_keys(attachment):
-            await self._storage.delete_object(key)
+            try:
+                await self._storage.delete_object(key)
+            except Exception as exc:  # noqa: BLE001 — every key is tried; the failures are owed below
+                failed.append(key)
+                error = error or exc
+                # The exception type only: a storage error text embeds the object path (tenant).
+                logger.warning("attachment_object_release_failed", error_type=type(exc).__name__)
+        if error is None:
+            return False
+        if self._release_retries is None:
+            raise error
+        await asyncio.to_thread(self._release_retries.record, tenant_key=tenant_key, object_keys=failed)
+        logger.info("attachment_object_release_owed", tenant=log_tenant(tenant_key), objects=len(failed))
         return False
 
     def _object_keys(self, attachment: Attachment) -> list[str]:

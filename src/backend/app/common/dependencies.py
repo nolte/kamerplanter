@@ -94,6 +94,7 @@ from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
+from app.domain.interfaces.storage_release_retry_repository import IStorageReleaseRetryRepository
 from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
 from app.domain.services.auth_service import AuthService
 from app.domain.services.bed_csv_import_service import BedCsvImportService
@@ -2954,7 +2955,15 @@ def get_attachment_service() -> AttachmentService:
         rendition_claims=get_rendition_dispatch_claims(),
         # REQ-056 §7.4 (#2142) — the storage quota is the tenant's plan's (``null`` = STORAGE_TENANT_QUOTA_MB).
         entitlements=get_entitlement_service(),
+        # #2630 — a delete that fails after the record is gone is owed and retried by the reconciliation run.
+        release_retries=get_storage_release_retry_repo(),
     )
+
+
+def get_storage_release_retry_repo() -> IStorageReleaseRetryRepository:
+    from app.data_access.arango.storage_release_retry_repository import ArangoStorageReleaseRetryRepository
+
+    return ArangoStorageReleaseRetryRepository(get_db())
 
 
 def get_rendition_dispatch_claims() -> IRenditionDispatchClaims:

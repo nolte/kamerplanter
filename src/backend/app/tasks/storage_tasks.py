@@ -27,7 +27,7 @@ from typing import Any
 import structlog
 from PIL import UnidentifiedImageError
 
-from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.common.dependencies import get_attachment_repo, get_object_storage, get_storage_release_retry_repo
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import ImagePixelLimitError
 from app.common.log_privacy import log_tenant, loggable_error
@@ -507,6 +507,8 @@ def reconcile_orphaned_storage_objects(self) -> dict:  # type: ignore[no-untyped
         max_objects_per_run=settings.storage_reconcile_max_objects_per_run,
         max_orphan_fraction=settings.storage_reconcile_max_orphan_fraction,
         cursor_store=_RedisCursorStore(_get_redis_client(), settings.storage_backend),
+        # #2630 — the objects a delete owes are retried in every run, even in report-only mode.
+        release_retries=get_storage_release_retry_repo(),
     )
     try:
         result = asyncio.run(service.run()).as_dict()

@@ -824,6 +824,69 @@ class TestDeleteIfUnreferenced:
         assert await service._object_exists(attachment.storage_key)
 
 
+class _OwedReleases:
+    """In-memory owed releases (#2630)."""
+
+    def __init__(self) -> None:
+        self.recorded: list[tuple[str, list[str]]] = []
+
+    def record(self, *, tenant_key: str, object_keys: list[str]) -> None:
+        self.recorded.append((tenant_key, list(object_keys)))
+
+
+class TestAFailedObjectReleaseIsOwed:
+    """#2630 case 2 — the record is gone, the storage delete fails: the object is recorded for a retry, not lost."""
+
+    async def _stored(self, service) -> Attachment:
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            return await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=_make_jpeg(),
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.GARDEN_PLAN_UNDERLAY,
+            )
+
+    async def test_the_failed_delete_is_recorded_and_the_caller_is_not_failed(self, adapter, repo, settings):
+        owed = _OwedReleases()
+        service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings, release_retries=owed)
+        attachment = await self._stored(service)
+
+        async def failing(key: str) -> None:
+            raise OSError(f"storage unavailable for {key}")
+
+        adapter.delete_object = failing  # type: ignore[method-assign]
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
+
+        assert repo.get(attachment.key, "t-1") is None
+        assert len(owed.recorded) == 1
+        tenant, keys = owed.recorded[0]
+        assert tenant == "t-1" and keys[0] == attachment.storage_key
+
+    async def test_a_successful_delete_owes_nothing(self, adapter, repo, settings):
+        owed = _OwedReleases()
+        service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings, release_retries=owed)
+        attachment = await self._stored(service)
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
+
+        assert owed.recorded == []
+
+    async def test_without_a_retry_store_the_failure_propagates_as_before(self, adapter, repo, settings):
+        service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+        attachment = await self._stored(service)
+
+        async def failing(key: str) -> None:
+            raise OSError("storage unavailable")
+
+        adapter.delete_object = failing  # type: ignore[method-assign]
+
+        with pytest.raises(OSError):
+            await service.delete_if_unreferenced(attachment.key, "t-1")
+
+
 class TestARecordNeverReachesAnotherTenantsObject:
     """#2138 review SEC-004 (second defence) — a record whose key leaves ``t/<its tenant>/`` serves nothing.
 
