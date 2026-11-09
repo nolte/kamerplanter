@@ -363,6 +363,7 @@ class TestStatusAndWateringRound:
         assert care.inserted == []
 
     def test_by_demand_divides_by_the_demand_and_without_one_is_a_422(self, client, zones: FakeZones, care) -> None:
+        # GP-API-053 allocation `by_demand` (WP 9.13, #2753).
         self._cover(zones)
 
         refused = client(TenantRole.GROWER).post(

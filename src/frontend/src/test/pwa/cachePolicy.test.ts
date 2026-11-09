@@ -10,6 +10,11 @@ import {
   selectEvictions,
 } from '@/pwa/cachePolicy';
 
+/**
+ * UI-NFR-012 rules of the service worker's cache policy (REQ-053 WP 9.1, #2741): the namespace per user and
+ * tenant (R-055), the 15-minute TTL (R-012), the 50 MB ceiling with the oldest evicted first (R-013), what a
+ * logout leaves, and the parsing of the kill switch (R-059).
+ */
 describe('namespaceCacheName — kp:{user_key}:{tenant_key}', () => {
   it('binds the cache to the user AND the tenant', () => {
     expect(namespaceCacheName('user_1', 'tenant_a')).toBe('kp:user_1:tenant_a');

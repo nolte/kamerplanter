@@ -14,6 +14,8 @@ import {
  * Precache scope (REQ-053 WP 9.1, #2786 review finding 8): only the app shell is precached —
  * index.html and what it loads eagerly, icons, manifest. Lazy route chunks come cache-first from the
  * worker's /assets/ route on first use.
+ *
+ * UI-NFR-012 R-010 (precache of the app shell).
  */
 
 const INDEX = `<!doctype html><html><head>

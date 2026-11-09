@@ -17,6 +17,9 @@ import {
  * it through the same path as production. The second half pins that `src/sw.ts` routes API
  * requests through exactly that predicate and the per-client plugin; the plugin's write rules
  * (`isCacheableApiResponse`, namespace, generation) are exercised in `swApiCachePerClient.test.ts`.
+ *
+ * UI-NFR-012 R-057 (read allowlist, `no-store` honoured) and R-009 (the allowlisted API reads are the
+ * network-first route; every other `/api/` request is network-only).
  */
 
 const ORIGIN = 'https://kamerplanter.example';

@@ -370,6 +370,8 @@ def _bed(key: str, name: str, geometry: dict | None, area_m2: float, **kwargs) -
 class TestTheParcelList:
     """GP-FR-176 (WP 9.10, #2750): the parcel list page, and the member names only behind ``include_assignment``.
 
+    The parameters ``parcel_list`` and ``include_assignment`` of GP-API-007 on the wire.
+
     Every assertion reads the text layer of the PDF the route returns - what a reader of the file can copy out of it.
     """
 
