@@ -1,41 +1,40 @@
-# SPEC-08 — API and Data Model Changes
+# SPEC-08 — Änderungen an API und Datenmodell
 
 ```
-Package: spec/privacy · Version 1.0 · 2026-11-09 · measured against develop 24d1c2988
-Requirement IDs: PRIV-600 … PRIV-649
-Depends on: 01 §3 (components), 03–07 (behaviour); BACKEND.md / FRONTEND.md style guides;
-NFR-016 (migrations), NFR-006 (error format)
+Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Anforderungs-IDs: PRIV-600 … PRIV-649
+Hängt ab von: 01 §3 (Komponenten), 03–07 (Verhalten); Style Guides BACKEND.md / FRONTEND.md;
+NFR-016 (Migrationen), NFR-006 (Fehlerformat)
 ```
 
-Every change below is **additive** unless marked *breaking*; where compatibility costs
-little it is preserved for one release and the deprecation is stated. Nothing here was
-implemented; the existing model was validated first (`02` §4 lists fields that do not
-exist).
+Jede Änderung unten ist **additiv**, sofern nicht als *inkompatibel (breaking)* markiert; wo Kompatibilität
+wenig kostet, bleibt sie für ein Release erhalten und die Deprecation ist benannt. Nichts hiervon wurde
+implementiert; das bestehende Modell wurde zuerst validiert (`02` §4 listet Felder, die es nicht gibt).
 
 ---
 
-## 1. Principles
+## 1. Prinzipien
 
-**PRIV-600** New metadata extends the existing Pydantic models in
+**PRIV-600** Neue Metadaten erweitern die bestehenden Pydantic-Modelle in
 `src/backend/app/domain/models/privacy.py` (`AnonymizationRule`, `PseudonymizationRule`,
-`ErasureStep`, `ErasureExclusion`, `DataSourceDefinition`); no parallel registry module. The
-existing fields (`collection`, `user_field`, `anonymized_value`, `replacement_strategy`,
-`clear_fields`, `rename_fields`, `rename_when`, `reason`) are unchanged.
+`ErasureStep`, `ErasureExclusion`, `DataSourceDefinition`); kein paralleles Registry-Modul. Die
+bestehenden Felder (`collection`, `user_field`, `anonymized_value`, `replacement_strategy`,
+`clear_fields`, `rename_fields`, `rename_when`, `reason`) bleiben unverändert.
 
-**PRIV-601** Enum values are additive only; DE/EN i18n in the same PR (project rule).
+**PRIV-601** Enum-Werte sind nur additiv; DE/EN-i18n im selben PR (Projektregel).
 
-**PRIV-602** New routes are tenant-scoped under `/api/v1/t/{tenant_slug}/privacy/…` and
-platform-scoped under `/api/v1/admin/platform/privacy/…`; every new route goes into the
-route-walk isolation matrix, the route-consumer pin and the bounded-list guard (REQ-053
-guardrails), and new service methods that load by key and write take `*, tenant_key: str`.
+**PRIV-602** Neue Routen sind mandantenbezogen unter `/api/v1/t/{tenant_slug}/privacy/…` und
+plattformbezogen unter `/api/v1/admin/platform/privacy/…`; jede neue Route kommt in die
+Route-Walk-Isolationsmatrix, den Route-Consumer-Pin und den Bounded-List-Guard (REQ-053-
+Leitplanken), und neue Service-Methoden, die per Schlüssel laden und schreiben, nehmen `*, tenant_key: str`.
 
-**PRIV-603** Error format follows NFR-006 (`error_code` strings listed in §7).
+**PRIV-603** Das Fehlerformat folgt NFR-006 (`error_code`-Strings siehe §7).
 
 ---
 
-## 2. Registry (domain models)
+## 2. Registry (Domänenmodelle)
 
-### 2.1 Attribution and retention class on the inventory entries
+### 2.1 Zuordnung und Aufbewahrungsklasse bei den Inventareinträgen
 
 ```python
 # domain/models/privacy.py — additive fields (defaults keep every existing entry valid)
@@ -70,11 +69,11 @@ class ErasureExclusion(BaseModel):
     attribution: AttributionRole | None = None        # free-text "performed_by" fields: None + reason
 ```
 
-**PRIV-604** `scripts/check_privacy_inventory.py` gains **R7**: every `AnonymizationRule` and
-`PseudonymizationRule` has an `attribution`; every account-shaped model field reached by a
-rule has exactly one. The unit test `test_privacy_engines.py` gains the same assertion.
+**PRIV-604** `scripts/check_privacy_inventory.py` erhält **R7**: Jede `AnonymizationRule` und
+`PseudonymizationRule` hat eine `attribution`; jedes kontoförmige Modellfeld, das eine
+Regel erreicht, hat genau eine. Der Unit-Test `test_privacy_engines.py` erhält dieselbe Assertion.
 
-### 2.2 Shared constants (one definition)
+### 2.2 Gemeinsame Konstanten (eine Definition)
 
 ```python
 # domain/models/privacy.py
@@ -88,17 +87,17 @@ def carry_account_reference(value: str | None, *, target: Literal["marker", "tom
     any other string (a label) → None."""
 ```
 
-Call sites to repoint [verified]: `erasure_engine.py` (defines today), `models/care_event.py`
+Aufrufstellen, die umzuhängen sind [verifiziert]: `erasure_engine.py` (definiert heute), `models/care_event.py`
 (`ANONYMIZED_MARKER`, `REDACTED`), `data_access/arango/attachment_repository.py`,
 `domain/engines/tenant_export_engine.py` (`ANONYMIZED_ACCOUNT`, `_TOMBSTONE`),
 `data_access/arango/tenant_erasure_executor.py` (`_TOMBSTONE_REGEX`),
-`domain/engines/care_event_backfill_mapper.py` (`account_of` → uses
+`domain/engines/care_event_backfill_mapper.py` (`account_of` → nutzt
 `carry_account_reference`), `domain/engines/task_completion_engine.py`
-(`harvested_by_key = event.performed_by_user_key`). The test
-`test_garden_plan_retention.py` (pins three copies equal) becomes a guard that the names
-are imported, not redefined (AST scan for a second literal `"_anonymized"` in `app/`).
+(`harvested_by_key = event.performed_by_user_key`). Der Test
+`test_garden_plan_retention.py` (pinnt drei Kopien als gleich) wird zu einem Guard, der prüft, dass die Namen
+importiert und nicht neu definiert werden (AST-Scan auf ein zweites Literal `"_anonymized"` in `app/`).
 
-### 2.3 PersonRef and the resolver
+### 2.3 PersonRef und der Resolver
 
 ```python
 # domain/models/person_ref.py (new)
@@ -124,11 +123,11 @@ class IdentityReferenceService:
         None/None → SYSTEM, account_type=service → SERVICE_ACCOUNT."""
 ```
 
-**PRIV-605** `display_performer()` in `models/care_event.py` is replaced by a thin adapter
-that calls the service result; its `anonymised=` keyword (used by print templates) maps to
-the i18n of `PersonRefState.ERASED`.
+**PRIV-605** `display_performer()` in `models/care_event.py` wird durch einen dünnen Adapter ersetzt,
+der das Service-Ergebnis aufruft; sein Schlüsselwort `anonymised=` (von Druckvorlagen genutzt) bildet auf die
+i18n von `PersonRefState.ERASED` ab.
 
-### 2.4 Lineage registry
+### 2.4 Lineage-Registry
 
 ```python
 # domain/models/privacy.py
@@ -147,18 +146,18 @@ class DerivedField(BaseModel):
 DERIVED_FIELDS: tuple[DerivedField, ...] = (...)   # content of 02 §5
 ```
 
-**PRIV-606** Guard **R8** (`scripts/check_privacy_inventory.py`): every code location that
-assigns an account-shaped field from another document's field (AST: attribute → attribute
-assignment inside `domain/engines/*` and `domain/services/*`) is listed in `DERIVED_FIELDS`
-or in an explicit exclusion with reason.
+**PRIV-606** Guard **R8** (`scripts/check_privacy_inventory.py`): Jede Codestelle, die
+ein kontoförmiges Feld aus dem Feld eines anderen Dokuments zuweist (AST: Attribut → Attribut-
+Zuweisung innerhalb `domain/engines/*` und `domain/services/*`), ist in `DERIVED_FIELDS`
+oder in einem expliziten Ausschluss mit Begründung aufgeführt.
 
-### 2.5 Redactable fields
+### 2.5 Schwärzbare Felder
 
 ```python
 REDACTABLE_FIELDS: frozenset[tuple[str, str]]  # derived: union of review_fields over all rules + garden_plan_audit.summary/snapshot leaves
 ```
 
-### 2.6 Tombstone allowlist
+### 2.6 Tombstone-Allowlist
 
 ```python
 def tombstone_allowed_fields() -> frozenset[tuple[str, str]]:
@@ -167,19 +166,19 @@ def tombstone_allowed_fields() -> frozenset[tuple[str, str]]:
 
 ---
 
-## 3. Domain model changes
+## 3. Änderungen am Domänenmodell
 
-### 3.1 Care events (additive)
+### 3.1 Pflegeereignisse (additiv)
 
-| Field / change | Type | Purpose | Compat |
-|----------------|------|---------|--------|
-| `CareEventView.performed_by_kind`, `performed_for_kind`, `created_by_kind`, `voided_by_kind`, `redacted_by_kind` | `PersonRefState` | PRIV-007 rendering by kind | additive; `performed_by` string stays for one release (deprecated: still `"anonymisiert"` for erased until removal, then `null`) |
-| `CareEventResponse.performed_by_kind` etc. | same | API | additive |
-| `FREE_TEXT_FIELDS` += `material`; measurement strings handled by the redaction/retention patch | — | PRIV-213 | behaviour change for redaction/R-25 (spec change proposal) |
-| correction right: `created_by is None and performed_by_user_key == user` | — | PRIV-215 | additive |
-| `check_performed_by_filter`: refuse tombstone-shaped values (422) | — | PRIV-207 | additive |
+| Feld / Änderung | Typ | Zweck | Kompat. |
+|-----------------|-----|-------|---------|
+| `CareEventView.performed_by_kind`, `performed_for_kind`, `created_by_kind`, `voided_by_kind`, `redacted_by_kind` | `PersonRefState` | PRIV-007 Darstellung nach Art | additiv; der String `performed_by` bleibt für ein Release (deprecated: weiterhin `"anonymisiert"` für gelöschte, bis zur Entfernung, danach `null`) |
+| `CareEventResponse.performed_by_kind` usw. | gleich | API | additiv |
+| `FREE_TEXT_FIELDS` += `material`; Messwert-Strings werden vom Schwärzungs-/Aufbewahrungs-Patch behandelt | — | PRIV-213 | Verhaltensänderung für Schwärzung/R-25 (Spec-Änderungsvorschlag) |
+| Korrekturrecht: `created_by is None and performed_by_user_key == user` | — | PRIV-215 | additiv |
+| `check_performed_by_filter`: Tombstone-förmige Werte ablehnen (422) | — | PRIV-207 | additiv |
 
-### 3.2 Tenants (additive settings)
+### 3.2 Mandanten (additive Einstellungen)
 
 ```python
 class AttributionVisibility(StrEnum): ALL_MEMBERS = "all_members"; LEADS_AND_SELF = "leads_and_self"
@@ -192,40 +191,40 @@ class TenantSettings(BaseModel):
     shared_device_mode: bool = False                                                    # PRIV-524
 ```
 
-Defaults equal today's behaviour (no migration needed; `extra="allow"` keeps stored
-documents valid). `PATCH /tenants/{slug}` accepts them for `lead ∧ management`; changes are
-audited (`TENANT_PRIVACY_SETTING_CHANGED`, old/new value in the existing `reason`-free
-shape → add `setting_key`, `old_value`, `new_value` to `SecurityAuditEntry` as optional
-strings, no free text).
+Die Standardwerte entsprechen dem heutigen Verhalten (keine Migration nötig; `extra="allow"` hält gespeicherte
+Dokumente gültig). `PATCH /tenants/{slug}` akzeptiert sie für `lead ∧ management`; Änderungen werden
+auditiert (`TENANT_PRIVACY_SETTING_CHANGED`, alter/neuer Wert in der bestehenden `reason`-freien
+Form → `setting_key`, `old_value`, `new_value` zu `SecurityAuditEntry` als optionale
+Strings hinzufügen, kein Freitext).
 
-### 3.3 Users (no new persisted field)
+### 3.3 Nutzer (kein neues persistiertes Feld)
 
-Closed state is derived (`is_active=false` ∧ erasure request exists) — PRIV-104 needs
-`is_active` in the display join only.
+Der geschlossene Zustand wird abgeleitet (`is_active=false` ∧ Löschanfrage existiert) — PRIV-104 braucht
+`is_active` nur im Anzeige-Join.
 
-### 3.4 Free-text performer fields → keyed (migration, `09` §5)
+### 3.4 Freitext-Durchführer-Felder → schlüsselbasiert (Migration, `09` §5)
 
-| Model | Today [v] | Target |
-|-------|-----------|--------|
-| `watering_events.performed_by`, `watering_logs.performed_by`, `tank_fill_events.performed_by`, `maintenance_logs.performed_by` | free text, excluded from erasure | `performed_by_user_key: str \| None` (server-stamped, not in request schema) + `performed_by_label: str \| None` (≤ 80, third party only); the old field becomes the label on migration; UI dialog replaced by "I did it / someone else (label)" |
-| `nutrient_plans.author`, `propagation.*.author` | free text, unbounded | `author_user_key` + `author_label` (≤ 80); print template renders through `PersonRef` |
-| `inspections.inspector` via MCP `"mcp:<key>"` | pseudo-key in free text | `inspected_by_key = service account key`; `inspector = ""` |
-| `workflow_templates.created_by` | free text | `created_by_user_key` + review field |
+| Modell | Heute [v] | Ziel |
+|--------|-----------|------|
+| `watering_events.performed_by`, `watering_logs.performed_by`, `tank_fill_events.performed_by`, `maintenance_logs.performed_by` | Freitext, von der Löschung ausgenommen | `performed_by_user_key: str \| None` (serverseitig gestempelt, nicht im Request-Schema) + `performed_by_label: str \| None` (≤ 80, nur Dritte); das alte Feld wird bei der Migration zum Label; UI-Dialog ersetzt durch „Ich war es / jemand anderes (Label)" |
+| `nutrient_plans.author`, `propagation.*.author` | Freitext, unbegrenzt | `author_user_key` + `author_label` (≤ 80); Druckvorlage rendert über `PersonRef` |
+| `inspections.inspector` über MCP `"mcp:<key>"` | Pseudo-Schlüssel im Freitext | `inspected_by_key = service account key`; `inspector = ""` |
+| `workflow_templates.created_by` | Freitext | `created_by_user_key` + Prüffeld |
 
-All new `*_user_key` fields join `ANONYMIZE_COLLECTIONS` (marker, `attribution=performed_by`
-/ `created_by`) and `USER_DATA_MANIFEST` (R2 reciprocity) in the same PR.
+Alle neuen `*_user_key`-Felder kommen im selben PR in `ANONYMIZE_COLLECTIONS` (Marker, `attribution=performed_by`
+/ `created_by`) und `USER_DATA_MANIFEST` (R2-Reziprozität).
 
-### 3.5 Attachments
+### 3.5 Anhänge
 
-`original_filename` stays a field; erasure clears it (`clear_fields` on the attachment
-rule, PRIV-211). No schema change.
+`original_filename` bleibt ein Feld; die Löschung leert es (`clear_fields` an der Anhang-
+Regel, PRIV-211). Keine Schemaänderung.
 
-### 3.6 Garden plan audit
+### 3.6 Gartenplan-Audit
 
-`PlanAuditRecord.user_key` rule moves to the marker (DEC-16). API `PlanAuditEntry.changed_by:
-PersonRef` added; `changed_by_name` deprecated (kept one release, `null` for non-members).
+Die Regel `PlanAuditRecord.user_key` wechselt zum Marker (DEC-16). API `PlanAuditEntry.changed_by:
+PersonRef` hinzugefügt; `changed_by_name` deprecated (für ein Release erhalten, `null` für Nicht-Mitglieder).
 
-### 3.7 New collections
+### 3.7 Neue Collections
 
 ```python
 # collections.py (additive)
@@ -264,17 +263,17 @@ class ErasureReplayLedgerEntry(BaseModel):
     expires_at: datetime                          # completed_at + BACKUP_RETENTION_DAYS + 5
 ```
 
-Indexes (migration `vNNNN`): `privacy_review_items(tenant_key, status, created_at)`,
+Indizes (Migration `vNNNN`): `privacy_review_items(tenant_key, status, created_at)`,
 `(tenant_key, collection, row_key)`, `(erasure_key)`; `erasure_replay_ledger(expires_at)`.
-Both collections join the Art. 15 manifest? — `privacy_review_items` discloses nothing about
-the subject (their key is gone; the item has no text) → `EXCLUDED_FROM_DISCLOSURE` with
-reason; `erasure_replay_ledger` is disclosed to the subject while it exists (it is their
-key) — but the subject cannot log in (closed/erased); the admin erasure status shows
-"ledger entry present until <date>". Decision: list it in `EXCLUDED_FROM_DISCLOSURE` with the
-reason "subject has no login during its lifetime; its existence is shown in the erasure
-status". Guard R2 accepts exclusions with reasons [v].
+Kommen beide Collections ins Art.-15-Manifest? — `privacy_review_items` legt nichts über das
+Subjekt offen (ihr Schlüssel ist weg; das Item hat keinen Text) → `EXCLUDED_FROM_DISCLOSURE` mit
+Begründung; `erasure_replay_ledger` wird dem Subjekt gegenüber offengelegt, solange es existiert (es ist deren
+Schlüssel) — aber das Subjekt kann sich nicht anmelden (geschlossen/gelöscht); der Admin-Löschstatus zeigt
+„Ledger-Eintrag vorhanden bis <Datum>". Entscheidung: in `EXCLUDED_FROM_DISCLOSURE` aufführen mit der
+Begründung „Subjekt hat während der Lebensdauer keinen Login; ihre Existenz wird im Löschstatus
+angezeigt". Guard R2 akzeptiert Ausschlüsse mit Begründung [v].
 
-### 3.8 Security audit (additive enum values and optional fields)
+### 3.8 Security-Audit (additive Enum-Werte und optionale Felder)
 
 ```python
 class SecurityAuditAction(StrEnum):
@@ -293,105 +292,105 @@ class SecurityAuditEntry(BaseModel):
     row_count: int | None = None                                                                # exports
 ```
 
-`target_user_key` of erasure rows is the tombstone from the start (PRIV-219).
+`target_user_key` von Löschzeilen ist von Anfang an der Tombstone (PRIV-219).
 
 ---
 
-## 4. API changes
+## 4. API-Änderungen
 
-### 4.1 Tenant-scoped privacy routes (new; `api/v1/privacy/tenant_router.py`)
+### 4.1 Mandantenbezogene Privacy-Routen (neu; `api/v1/privacy/tenant_router.py`)
 
-| Method & path | Gate | Body / query | Response | Spec |
-|---------------|------|--------------|----------|------|
-| `GET /t/{slug}/privacy/review` | `privacy.review` (lead ∨ management) | `status=open\|decided\|void`, `collection`, cursor, `limit ≤ 200` | `{items: PrivacyReviewItemResponse[], next_cursor, counts: {open, overdue}}`; each item carries a **resolved row preview** fetched through the normal read path (`detail_url`, current `fields` values) — the preview is computed, never stored | PRIV-224 |
-| `POST /t/{slug}/privacy/review/{item_key}/decide` | `privacy.review` | `{decision: redact\|keep, fields?: [], reason_code, reason_text?}` | item | PRIV-225 |
+| Methode & Pfad | Gate | Body / Query | Antwort | Spec |
+|----------------|------|--------------|---------|------|
+| `GET /t/{slug}/privacy/review` | `privacy.review` (lead ∨ management) | `status=open\|decided\|void`, `collection`, cursor, `limit ≤ 200` | `{items: PrivacyReviewItemResponse[], next_cursor, counts: {open, overdue}}`; jedes Item trägt eine **aufgelöste Zeilenvorschau**, geholt über den normalen Leseweg (`detail_url`, aktuelle `fields`-Werte) — die Vorschau wird berechnet, nie gespeichert | PRIV-224 |
+| `POST /t/{slug}/privacy/review/{item_key}/decide` | `privacy.review` | `{decision: redact\|keep, fields?: [], reason_code, reason_text?}` | Item | PRIV-225 |
 | `POST /t/{slug}/privacy/redactions` | `privacy.review` | `{collection, key, fields[], reason_code, reason_text?, review_item_key?}` | `{redacted_fields, audit_key}`; 422 `redaction.field_not_redactable`; idempotent 200 | PRIV-228 |
-| `GET /t/{slug}/privacy/review/suggestions?item={key}` | `privacy.review` | — | lineage batch (locations from a template, audit summaries) | PRIV-230 |
+| `GET /t/{slug}/privacy/review/suggestions?item={key}` | `privacy.review` | — | Lineage-Batch (Standorte aus einer Vorlage, Audit-Zusammenfassungen) | PRIV-230 |
 | `GET /t/{slug}/privacy/summary` | `privacy.review` | — | `{open_review_items, overdue, last_erasure_at, settings: {attribution_visibility, record_keeping, shared_device_mode}}` | — |
-| `POST /t/{slug}/privacy/attribution-removal` | member (self) | `{confirm: true}` + step-up | 202; tenant-scoped marker run + review items | PRIV-116 (P2) |
-| `POST /care-events/{key}/redact` (existing) | lead → lead ∨ management | unchanged body | delegates to the generic redaction | PRIV-228/231 |
+| `POST /t/{slug}/privacy/attribution-removal` | Mitglied (selbst) | `{confirm: true}` + Step-up | 202; mandantenbezogener Marker-Lauf + Prüf-Items | PRIV-116 (P2) |
+| `POST /care-events/{key}/redact` (bestehend) | lead → lead ∨ management | Body unverändert | delegiert an die generische Schwärzung | PRIV-228/231 |
 
-### 4.2 Platform routes (new; `api/v1/admin/platform/router.py`)
+### 4.2 Plattform-Routen (neu; `api/v1/admin/platform/router.py`)
 
-| Method & path | Response |
-|---------------|----------|
-| `GET /admin/platform/privacy/operations?kind=account_erasure\|tenant_erasure\|export\|migration&status=…` | list of operation state documents (keys, status, attempt_count, next_attempt_at, residue counts, `review_items_created`, `ledger_present_until`); **no tenant names beyond key, no row content** |
-| `GET /admin/platform/privacy/consistency` | last `privacy.consistency` run: tombstones outside allowlist per collection, markers in tombstone fields, open review items per tenant (counts), overdue |
+| Methode & Pfad | Antwort |
+|----------------|---------|
+| `GET /admin/platform/privacy/operations?kind=account_erasure\|tenant_erasure\|export\|migration&status=…` | Liste von Operations-Zustandsdokumenten (Schlüssel, Status, attempt_count, next_attempt_at, Rest-Zähler, `review_items_created`, `ledger_present_until`); **keine Mandantennamen außer dem Schlüssel, kein Zeileninhalt** |
+| `GET /admin/platform/privacy/consistency` | letzter `privacy.consistency`-Lauf: Tombstones außerhalb der Allowlist pro Collection, Marker in Tombstone-Feldern, offene Prüf-Items pro Mandant (Zähler), überfällig |
 
-### 4.3 Changed responses (additive)
+### 4.3 Geänderte Antworten (additiv)
 
-| Response | Change |
-|----------|--------|
-| `CareEventResponse` | `+ performed_by_kind, performed_for_kind, created_by_kind, voided_by_kind, redacted_by_kind` (`PersonRefState`); `performed_by`/`performed_for` strings deprecated for the erased case |
+| Antwort | Änderung |
+|---------|----------|
+| `CareEventResponse` | `+ performed_by_kind, performed_for_kind, created_by_kind, voided_by_kind, redacted_by_kind` (`PersonRefState`); die Strings `performed_by`/`performed_for` sind für den gelöschten Fall deprecated |
 | `PlanAuditEntry` | `+ changed_by: PersonRef`; `changed_by_name` deprecated |
-| `MemberInfoResponse` | `email` present only for `management`/platform admin (*breaking for viewer/grower clients that read it*; frontend `TenantSettingsPage` adjusted in the same PR) |
-| Harvest/IPM responses | `+ harvested_by: PersonRef`, `applied_by_ref: PersonRef`, `inspected_by: PersonRef`; free-text name fields unchanged |
-| Diary, task comment, garden object, bed template, attachment responses | `+ created_by: PersonRef` (today: nothing or raw key in MCP) |
-| MCP tools `diary.*`, `ipm.*` | `created_by`/`inspector` → `PersonRef` shape; raw keys removed (*breaking for MCP clients*; REQ-033 version bump) |
-| `GET /care-events?format=csv` | columns unchanged; values render `R` for non-leads (PRIV-307); `+ Cache-Control: no-store` exists |
+| `MemberInfoResponse` | `email` nur für `management`/Plattform-Admin vorhanden (*inkompatibel (breaking) für viewer/grower-Clients, die es lesen*; Frontend `TenantSettingsPage` im selben PR angepasst) |
+| Ernte-/IPM-Antworten | `+ harvested_by: PersonRef`, `applied_by_ref: PersonRef`, `inspected_by: PersonRef`; Freitext-Namensfelder unverändert |
+| Antworten zu Tagebuch, Aufgabenkommentar, Gartenobjekt, Beetvorlage, Anhang | `+ created_by: PersonRef` (heute: nichts oder roher Schlüssel im MCP) |
+| MCP-Tools `diary.*`, `ipm.*` | `created_by`/`inspector` → `PersonRef`-Form; rohe Schlüssel entfernt (*inkompatibel (breaking) für MCP-Clients*; REQ-033-Versionssprung) |
+| `GET /care-events?format=csv` | Spalten unverändert; Werte rendern `R` für Nicht-Leads (PRIV-307); `+ Cache-Control: no-store` existiert |
 | `GET /tenants/{slug}` | `+ settings.attribution_visibility, record_keeping, shared_device_mode` |
-| Auth refresh | `401 {error_code: "account.closed"}` for a closed account (PRIV-520) |
-| Tenant write paths | `403 {error_code: "membership.ended"}` when the caller's token is valid and a `MEMBERSHIP_LEFT/REMOVED` audit row exists for `(user, tenant)` (PRIV-520) |
+| Auth-Refresh | `401 {error_code: "account.closed"}` für ein geschlossenes Konto (PRIV-520) |
+| Mandanten-Schreibpfade | `403 {error_code: "membership.ended"}`, wenn das Token des Aufrufers gültig ist und eine `MEMBERSHIP_LEFT/REMOVED`-Audit-Zeile für `(user, tenant)` existiert (PRIV-520) |
 
 ### 4.4 Frontend
 
-| Area | Change |
-|------|--------|
-| i18n | `enums.personRef.{member, former_member, erased, third_party, system, service_account}` DE/EN; drop reliance on the literal `anonymisiert` |
-| `HistoryList`, bed history, CSV button | render by `*_kind`; CSV button shows "names included" only for leads |
-| Tenant settings page | three new settings with explanations (PRIV-301, PRIV-401, PRIV-524) |
-| Privacy admin page (new, `pages/tenants/PrivacyReviewPage.tsx`) | review queue, decide, batch suggestions, summary; lazy chunk (bundle budget) |
-| Account page | device section (PRIV-530); leave-tenant dialog text (PRIV-115); attribution-removal action (P2) |
-| Offline layer | `quarantined` state, settings from `runtime-config.js`, PRIV-512 key wipe, awaited logout wipe, `KP_CLEAR_DONE` handshake, shared-device mode |
+| Bereich | Änderung |
+|---------|----------|
+| i18n | `enums.personRef.{member, former_member, erased, third_party, system, service_account}` DE/EN; Abhängigkeit vom Literal `anonymisiert` entfällt |
+| `HistoryList`, Beet-Verlauf, CSV-Button | Rendern nach `*_kind`; CSV-Button zeigt „Namen enthalten" nur für Leads |
+| Mandanten-Einstellungsseite | drei neue Einstellungen mit Erklärungen (PRIV-301, PRIV-401, PRIV-524) |
+| Privacy-Admin-Seite (neu, `pages/tenants/PrivacyReviewPage.tsx`) | Prüfwarteschlange, Entscheiden, Batch-Vorschläge, Zusammenfassung; Lazy-Chunk (Bundle-Budget) |
+| Konto-Seite | Geräte-Abschnitt (PRIV-530); Dialogtext zum Verlassen des Mandanten (PRIV-115); Aktion zur Zuordnungsentfernung (P2) |
+| Offline-Schicht | Zustand `quarantined`, Einstellungen aus `runtime-config.js`, PRIV-512-Schlüsselbereinigung, abgewartete Logout-Bereinigung, `KP_CLEAR_DONE`-Handshake, Shared-Device-Modus |
 
 ---
 
 ## 5. Observability
 
-**PRIV-607** Prometheus metrics (`app/observability/privacy_metrics.py`, new):
-`privacy_operations_open{kind,status}` (gauge, set by each beat), `privacy_review_items_open{tenant_kind}`,
+**PRIV-607** Prometheus-Metriken (`app/observability/privacy_metrics.py`, neu):
+`privacy_operations_open{kind,status}` (Gauge, von jedem Beat gesetzt), `privacy_review_items_open{tenant_kind}`,
 `privacy_review_items_overdue`, `privacy_consistency_findings{kind}`,
-`privacy_erasure_duration_seconds` (histogram), `privacy_replay_ledger_entries`. No tenant
-key as a label (cardinality and privacy); `tenant_kind ∈ {personal, organization}`.
+`privacy_erasure_duration_seconds` (Histogramm), `privacy_replay_ledger_entries`. Kein Mandanten-
+Schlüssel als Label (Kardinalität und Datenschutz); `tenant_kind ∈ {personal, organization}`.
 
-**PRIV-608** Structlog events keep the `sub_…`/`ten_…` pseudonyms (guards exist); new events:
-`privacy.review_items_created`, `privacy.redaction_applied` (category only),
+**PRIV-608** Structlog-Ereignisse behalten die Pseudonyme `sub_…`/`ten_…` (Guards existieren); neue Ereignisse:
+`privacy.review_items_created`, `privacy.redaction_applied` (nur Kategorie),
 `privacy.consistency.completed`, `privacy.ledger_purged`.
 
 ---
 
-## 6. Background jobs (additive beats; each in `TENANT_AGNOSTIC_BEATS` or `TENANT_WRITING_BEATS` with reason)
+## 6. Hintergrundjobs (additive Beats; jeder in `TENANT_AGNOSTIC_BEATS` oder `TENANT_WRITING_BEATS` mit Begründung)
 
-| Task | Schedule (UTC) | Does | Tenant gate |
-|------|----------------|------|-------------|
-| `privacy.consistency` | 05:20 daily | PRIV-206 scans (tombstones outside allowlist, markers in tombstone fields), open/overdue review counts, metrics | agnostic (read-only counts) |
-| `privacy.purge_replay_ledger` (R-45) | 05:25 | delete `expires_at < now` | agnostic |
-| `privacy.purge_review_items` (R-43) | 05:30 | delete decided items older than 3 y | agnostic |
-| `privacy.post_commit_followups` | 04:05 (after erasures) | retries review-item creation / ledger for erasures flagged `post_commit_pending` | agnostic |
-| `retention.purge_notifications` (R-48, proposal) | 05:35 | 90 d after `read_at`, 180 d unread | writing beat → `ActiveTenants` not needed (deletes) |
+| Task | Zeitplan (UTC) | Tut | Mandanten-Gate |
+|------|----------------|-----|----------------|
+| `privacy.consistency` | täglich 05:20 | PRIV-206-Scans (Tombstones außerhalb der Allowlist, Marker in Tombstone-Feldern), Zähler offener/überfälliger Prüfungen, Metriken | agnostisch (nur lesende Zähler) |
+| `privacy.purge_replay_ledger` (R-45) | 05:25 | löscht `expires_at < now` | agnostisch |
+| `privacy.purge_review_items` (R-43) | 05:30 | löscht entschiedene Items älter als 3 J. | agnostisch |
+| `privacy.post_commit_followups` | 04:05 (nach Löschungen) | wiederholt Prüf-Item-Erzeugung / Ledger für Löschungen, die mit `post_commit_pending` markiert sind | agnostisch |
+| `retention.purge_notifications` (R-48, Vorschlag) | 05:35 | 90 d nach `read_at`, 180 d ungelesen | schreibender Beat → `ActiveTenants` nicht nötig (löscht) |
 
-NFR-011 §3.1 table rows added in the same PR (guard `test_nfr011_task_table_matches_the_beat`).
-
----
-
-## 7. Error codes (NFR-006)
-
-| Code | HTTP | Where |
-|------|------|-------|
-| `care_event.filter_target_unavailable` | 422 | filter by marker / tombstone / suppressed former member |
-| `redaction.field_not_redactable` | 422 | generic redaction |
-| `redaction.row_not_found` | 404 | generic redaction (same body as foreign tenant) |
-| `privacy_review.already_decided` | 409 | decide twice with a different decision |
-| `account.closed` | 401 | refresh / writes from a closed account |
-| `membership.ended` | 403 | tenant write after membership end (valid token) |
-| `tenant.record_keeping_downgrade_blocked` | 422 | `record_keeping` statutory → none while a statutory purge job is running |
+Zeilen der NFR-011-§3.1-Tabelle werden im selben PR ergänzt (Guard `test_nfr011_task_table_matches_the_beat`).
 
 ---
 
-## 8. Settings (environment / `runtime-config.js`)
+## 7. Fehlercodes (NFR-006)
 
-| Setting | Default | Floor / ceiling | Spec |
-|---------|---------|-----------------|------|
+| Code | HTTP | Wo |
+|------|------|----|
+| `care_event.filter_target_unavailable` | 422 | Filter nach Marker / Tombstone / unterdrücktem ehemaligem Mitglied |
+| `redaction.field_not_redactable` | 422 | generische Schwärzung |
+| `redaction.row_not_found` | 404 | generische Schwärzung (gleicher Body wie fremder Mandant) |
+| `privacy_review.already_decided` | 409 | zweimal entscheiden mit abweichender Entscheidung |
+| `account.closed` | 401 | Refresh / Schreibzugriffe von einem geschlossenen Konto |
+| `membership.ended` | 403 | Mandanten-Schreibzugriff nach Ende der Mitgliedschaft (gültiges Token) |
+| `tenant.record_keeping_downgrade_blocked` | 422 | `record_keeping` gesetzlich → none, solange ein gesetzlicher Purge-Job läuft |
+
+---
+
+## 8. Einstellungen (Umgebung / `runtime-config.js`)
+
+| Einstellung | Standard | Untergrenze / Obergrenze | Spec |
+|-------------|----------|--------------------------|------|
 | `RETENTION_FORMER_MEMBER_NAME_DAYS` | 90 | 0 / 365 | PRIV-112 |
 | `PRIVACY_OPERATION_ESCALATE_AFTER_ATTEMPTS` | 3 | 1 / 10 | PRIV-109 |
 | `PRIVACY_OPERATION_STALE_ALERT_DAYS` | 14 | 1 / 60 | PRIV-110 |
@@ -408,21 +407,21 @@ NFR-011 §3.1 table rows added in the same PR (guard `test_nfr011_task_table_mat
 | `PLAN_CACHE_MAX_BYTES` | 20 MB | — | PRIV-505 |
 | `QUEUE_PHOTO_MAX_BYTES` | 100 MB | — | PRIV-509 |
 
-All added to `RETENTION_CEILINGS` / `test_retention_ceilings.py` and
-`docs/de/reference/environment-variables.md` (DE/EN).
+Alle werden zu `RETENTION_CEILINGS` / `test_retention_ceilings.py` und
+`docs/de/reference/environment-variables.md` (DE/EN) hinzugefügt.
 
 ---
 
-## 9. Compatibility summary
+## 9. Kompatibilitätsübersicht
 
-| Change | Compat |
-|--------|--------|
-| new fields on inventory models | internal |
-| `*_kind` fields on responses | additive |
-| `performed_by` string for erased → stays `"anonymisiert"` one release, then `null` | deprecation notice in OpenAPI |
-| `MemberInfoResponse.email` restricted | **breaking** for non-management clients (frontend updated in the same PR; documented in release notes) |
-| MCP raw keys removed | **breaking** (REQ-033 tool version) |
-| CSV values `R` for non-leads | behaviour change for viewers/growers; documented |
-| `material` redacted with the set | behaviour change (more redaction), spec change proposal |
-| `garden_plan_audit` tombstone → marker | data migration `09` §3 |
-| free-text performer → keyed | migration `09` §5; request schemas accept the old field as `performed_by_label` for one release |
+| Änderung | Kompat. |
+|----------|---------|
+| neue Felder an Inventarmodellen | intern |
+| `*_kind`-Felder an Antworten | additiv |
+| `performed_by`-String für gelöschte → bleibt `"anonymisiert"` für ein Release, danach `null` | Deprecation-Hinweis in OpenAPI |
+| `MemberInfoResponse.email` eingeschränkt | **inkompatibel (breaking)** für Nicht-management-Clients (Frontend im selben PR aktualisiert; in den Release Notes dokumentiert) |
+| rohe MCP-Schlüssel entfernt | **inkompatibel (breaking)** (REQ-033-Tool-Version) |
+| CSV-Werte `R` für Nicht-Leads | Verhaltensänderung für viewer/grower; dokumentiert |
+| `material` wird mit dem Set geschwärzt | Verhaltensänderung (mehr Schwärzung), Spec-Änderungsvorschlag |
+| `garden_plan_audit` Tombstone → Marker | Datenmigration `09` §3 |
+| Freitext-Durchführer → schlüsselbasiert | Migration `09` §5; Request-Schemas akzeptieren das alte Feld für ein Release als `performed_by_label` |

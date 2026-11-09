@@ -1,233 +1,230 @@
-# SPEC-05 — Access and Visibility Matrix
+# SPEC-05 — Zugriffs- und Sichtbarkeitsmatrix
 
 ```
-Package: spec/privacy · Version 1.0 · 2026-11-09 · measured against develop 24d1c2988
-Requirement IDs: PRIV-300 … PRIV-339
-Depends on: REQ-049 (roles), REQ-024 (tenants), 01 §4 (attribution roles), 03 §3 (former members)
+Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Anforderungs-IDs: PRIV-300 … PRIV-339
+Abhängig von: REQ-049 (Rollen), REQ-024 (Mandanten), 01 §4 (Zurechnungsrollen), 03 §3 (ehemalige Mitglieder)
 ```
 
-A restriction on **filtering** is not a restriction on **visibility** (#2517): today every
-member sees every performer in the unfiltered list and in the CSV; only the shortcut
-(filter by someone else) is role-gated. This document defines who may see which personal
-attribution, for which purpose, and separates tenant-level permissions from platform-level
-access.
+Eine Einschränkung des **Filterns** ist keine Einschränkung der **Sichtbarkeit** (#2517): heute sieht jedes
+Mitglied jede ausführende Person in der ungefilterten Liste und in der CSV; nur die Abkürzung
+(nach einer anderen Person filtern) ist rollenbeschränkt. Dieses Dokument legt fest, wer welche personenbezogene
+Zurechnung zu welchem Zweck sehen darf, und trennt Berechtigungen auf Mandantenebene vom Zugriff auf Plattformebene.
 
 ---
 
-## 1. Actors
+## 1. Akteure
 
-| Actor | Definition [verified] | Notes |
-|-------|------------------------|-------|
-| **Anonymous** | no token | reaches `/api/v1/auth/*`, `/privacy/policy`, public catalogue (light mode: everything as the system user) |
-| **Viewer** (`viewer`) | member, rank 0 | reads, prints, exports all tenant data (REQ-049 §2.3: "Buchhalter, Prüfer, Angehörige") |
-| **Grower** (`grower`) | rank 1 | creates and edits; no delete; typical holders include "Mitarbeiter, Saisonkraft" |
-| **Lead** (`lead`) | rank 2 | deletes, assigns to others, changes structure, voids/redacts care events |
-| **Management** (`admin_scopes ∋ management`) | axis 2, rank-independent | members, roles, invites, location assignments; tenant deletion with `lead` |
-| **Technical** (`admin_scopes ∋ technical`) | axis 2 | integrations, service accounts (with `lead`); reads the member list |
-| **Tenant administrator** | not a role in code; this package uses it for `lead ∧ management` | the two-axis model has no single "admin" |
-| **Platform operator** | `lead` in tenant `platform` (light mode: always) | administrative data across tenants (existence, name, member list, security audit); **no domain data** (REQ-049 P4, AK-09) |
-| **Platform viewer** | specified (REQ-024 §1a.4), **not implemented** (#2179) | no access today |
-| **Service account** | `account_type: service`, max role `grower`, tenant-scoped API key | no interactive login |
-| **Data subject (self)** | any account about its own data | Art. 15–21 self-service |
+| Akteur | Definition [verifiziert] | Hinweise |
+|--------|---------------------------|----------|
+| **Anonym** | kein Token | erreicht `/api/v1/auth/*`, `/privacy/policy`, öffentlichen Katalog (Light-Modus: alles als Systemnutzer) |
+| **Viewer** (`viewer`) | Mitglied, Rang 0 | liest, druckt, exportiert alle Mandantendaten (REQ-049 §2.3: „Buchhalter, Prüfer, Angehörige") |
+| **Grower** (`grower`) | Rang 1 | erstellt und bearbeitet; kein Löschen; typische Inhaber sind u. a. „Mitarbeiter, Saisonkraft" |
+| **Lead** (`lead`) | Rang 2 | löscht, weist anderen zu, ändert Struktur, annulliert/schwärzt Pflegeereignisse |
+| **Management** (`admin_scopes ∋ management`) | Achse 2, rangunabhängig | Mitglieder, Rollen, Einladungen, Standortzuweisungen; Mandantenlöschung mit `lead` |
+| **Technical** (`admin_scopes ∋ technical`) | Achse 2 | Integrationen, Service-Accounts (mit `lead`); liest die Mitgliederliste |
+| **Mandantenadministrator** | keine Rolle im Code; dieses Paket verwendet den Begriff für `lead ∧ management` | das Zwei-Achsen-Modell kennt keinen einzelnen „Admin" |
+| **Plattformbetreiber** | `lead` im Mandanten `platform` (Light-Modus: immer) | administrative Daten über Mandanten hinweg (Existenz, Name, Mitgliederliste, Security-Audit); **keine Domänendaten** (REQ-049 P4, AK-09) |
+| **Plattform-Viewer** | spezifiziert (REQ-024 §1a.4), **nicht implementiert** (#2179) | heute kein Zugriff |
+| **Service-Account** | `account_type: service`, maximale Rolle `grower`, mandantenbezogener API-Key | kein interaktiver Login |
+| **Betroffene Person (selbst)** | jedes Konto bezüglich seiner eigenen Daten | Art. 15–21 Selbstbedienung |
 
-**[verified]** `require_permission(resource, action)` ignores `resource` ("does not change the
-decision today"); the descriptive matrix `core/permissions.py:_RBAC` disagrees with the real
-gates in places (tenant `UPDATE` granted to viewer in the table, `management` required in
-the router; membership writes granted to `lead` in the table, gated by `management` in
-code). This package does not fix the table (follow-up noted in `12`), it adds **visibility
-rules** evaluated in the service, next to the ownership predicate.
-
----
-
-## 2. Visibility dimensions
-
-| Dimension | Meaning |
-|-----------|---------|
-| **P** performer identity | `performed_by` / `performed_for` of care events, harvests, treatments, inspections, confirmations-derived events |
-| **C** creator identity | `created_by` of diary entries, comments, objects, templates, attachments, care events |
-| **K** confirmation identity | the principal of a task completion / care confirmation (= P of the derived event; no separate field) |
-| **M** modifier/actor identity | `voided_by`, `redacted_by`, `plan_updated_by`, `garden_plan_audit.user_key` |
-| **F** free-text content | summaries, notes, names, comments, captions |
-| **H** historical records | the rows themselves (care log, diary, audit) |
-| **E** member directory | `display_name`, `email`, role, scopes, `joined_at` of members |
-| **A** privacy administration | review queue, redaction, erasure state per tenant |
-| **X** exports | CSV with names, plan PDF/JSON, Art. 15 bundle, tenant archive |
-| **S** statistics per person | counts/aggregations of activity by member |
-
-Rendering states of an identity (from `01` §4.3): `member` (name shown), `former_member`
-(no name after N days), `erased`, `third_party` (label), `system`, `service_account`.
+**[verifiziert]** `require_permission(resource, action)` ignoriert `resource` („does not change the
+decision today"); die beschreibende Matrix `core/permissions.py:_RBAC` weicht stellenweise von den echten
+Gates ab (Mandanten-`UPDATE` in der Tabelle dem Viewer gewährt, im Router aber `management` erforderlich;
+Mitgliedschaftsschreibzugriffe in der Tabelle `lead` gewährt, im Code durch `management` abgesichert). Dieses Paket korrigiert die Tabelle nicht (Folgepunkt in `12` vermerkt), es ergänzt **Sichtbarkeits-
+regeln**, die im Service neben dem Ownership-Prädikat ausgewertet werden.
 
 ---
 
-## 3. The matrix
+## 2. Sichtbarkeitsdimensionen
 
-Legend: **N** = name shown; **R** = role/relationship only ("a member", "a lead"), no name;
-**–** = nothing / no access; **own** = only the actor's own rows; **S** = self-service;
-**!** = audited read (security audit row, PRIV-330); **(t)** = subject to the tenant
-setting `attribution_visibility` (§4); **[v]** verified today; **[p]** proposal.
+| Dimension | Bedeutung |
+|-----------|-----------|
+| **P** Identität der ausführenden Person | `performed_by` / `performed_for` von Pflegeereignissen, Ernten, Behandlungen, Inspektionen, aus Bestätigungen abgeleiteten Ereignissen |
+| **C** Identität des Erstellers/der Erstellerin | `created_by` von Tagebucheinträgen, Kommentaren, Objekten, Vorlagen, Anhängen, Pflegeereignissen |
+| **K** Identität der Bestätigung | der Principal eines Aufgabenabschlusses / einer Pflegebestätigung (= P des abgeleiteten Ereignisses; kein eigenes Feld) |
+| **M** Identität von Ändernden/Handelnden | `voided_by`, `redacted_by`, `plan_updated_by`, `garden_plan_audit.user_key` |
+| **F** Freitextinhalt | Zusammenfassungen, Notizen, Namen, Kommentare, Bildunterschriften |
+| **H** historische Datensätze | die Zeilen selbst (Pflegelog, Tagebuch, Audit) |
+| **E** Mitgliederverzeichnis | `display_name`, `email`, Rolle, Scopes, `joined_at` der Mitglieder |
+| **A** Datenschutzadministration | Prüfwarteschlange, Schwärzung, Löschzustand pro Mandant |
+| **X** Exporte | CSV mit Namen, Plan-PDF/JSON, Art.-15-Bündel, Mandantenarchiv |
+| **S** Statistiken pro Person | Zähler/Aggregationen der Aktivität nach Mitglied |
 
-| Dimension | Anonymous | Viewer | Grower | Lead | Management | Lead ∧ Management | Platform operator | Service account |
-|-----------|-----------|--------|--------|------|------------|-------------------|-------------------|-----------------|
-| **P** performer of a current member | – | N (t) [v: N] | N (t) [v: N] | N | N | N | – | R |
-| **P** performer, former member (> N days) | – | R | R | R | R | R | – (account page only) | R |
-| **P** performer, erased | – | `erased` | `erased` | `erased` | `erased` | `erased` | – | `erased` |
-| **P** third-party label | – | label | label | label | label | label | – | label |
-| **P** filter / search by another person | – | – [v] | – [v] | yes [v] | yes [v] | yes | – | – |
-| **C** creator of diary / comment / object | – | N (t) | N (t) | N | N | N | – | R |
-| **C** own-row marker (`created_by_me`) | – | own | own | own | own | own | – | own |
-| **K** who confirmed a task | – | N (t) | N (t) | N | N | N | – | R |
-| **M** who voided / redacted | – | R [p; v: N via performer join only] | R | N | N | N | – | R |
-| **M** plan audit actor (`changed_by`) | – | R [p; v: N] | R | N | N | N | – | – |
-| **F** free text of any member | – | yes [v] | yes [v] | yes | yes | yes | – | yes (read tools) |
-| **F** redact free text | – | – | – | yes [v: care events only] | yes [p] | yes | – | – |
-| **H** care log, diary, history (rows) | – | yes [v] | yes [v] | yes | yes | yes | – | yes |
-| **H** `garden_plan_audit` rows | – | yes [v] | yes | yes | yes | yes | – | – |
-| **E** member display names + roles | – | yes [v] | yes | yes | yes | yes | yes (admin list) | yes |
-| **E** member e-mail addresses | – | yes [v] → **–** [p, LEG-14] | – [p] | – [p] | yes | yes | yes | – |
-| **A** review queue, erasure state of the tenant | – | – | – | yes [p] | yes [p] | yes | counts only [p] | – |
-| **A** own Art. 15–21 requests | – | S | S | S | S | S | S (admin erasure, preview) | – |
-| **X** care-event CSV with other members' names | – | – [p; v: yes] | – [p; v: yes] | yes ! | yes ! | yes ! | – | – |
-| **X** care-event CSV, own rows / names rendered as R | – | yes | yes | yes | yes | yes | – | – |
-| **X** bed list CSV `include_assignment=true` | – | yes [v, §32.5 Pkt. 13] → (t) [p] | (t) | yes ! | yes ! | yes ! | – | – |
-| **X** plan JSON / SVG / PDF (no names by design) | – | yes [v] | yes | yes | yes | yes | – | yes |
-| **X** tenant archive (REQ-056) | – | – | – | – | yes ! [v: management + step-up] | yes ! | export of orphaned tenant ! | – |
-| **S** per-person activity statistics | – | – | – | – [p: none exists; MUST NOT be built without LEG-05] | – | – | – | – |
-
-### 3.1 Readings of the matrix
-
-- **Tenant level**: everything above except the "Platform operator" column. Platform access
-  never reaches dimension P/C/K/M/F/H of a tenant (REQ-049 P4); it sees E (admin member
-  lists with e-mail, needed for support and INV-1), A as counts, and the security audit.
-- **Statutory rows** (`06` §3): the applicator/harvester of a `treatment_applications` /
-  `harvest_batches` row follows **P** while the account exists; after erasure the pseudonym
-  is never rendered (state `erased`); the typed display name is cleared [v].
-- **Light mode**: a single system user; the matrix collapses to "Lead ∧ Management" for the
-  only actor; no `former_member`/`erased` states arise (no accounts).
+Darstellungszustände einer Identität (aus `01` §4.3): `member` (Name angezeigt), `former_member`
+(kein Name nach N Tagen), `erased`, `third_party` (Label), `system`, `service_account`.
 
 ---
 
-## 4. Tenant setting `attribution_visibility` [proposal, DEC-10]
+## 3. Die Matrix
 
-**PRIV-300** A tenant MUST carry `settings.attribution_visibility ∈ {all_members,
-leads_and_self}` with default `all_members` (today's behaviour, REQ-049 P2 "no private areas
-within a tenant"). With `leads_and_self`, dimensions P/C/K/M render **R** for viewers and
-growers unless the row is their own (`own` → N). Leads and `management` always see N for
-current members.
+Legende: **N** = Name angezeigt; **R** = nur Rolle/Beziehung („ein Mitglied", „ein Lead"), kein Name;
+**–** = nichts / kein Zugriff; **eigene** = nur die eigenen Zeilen des Akteurs; **S** = Selbstbedienung;
+**!** = auditierter Lesezugriff (Security-Audit-Zeile, PRIV-330); **(t)** = abhängig von der Mandanten-
+einstellung `attribution_visibility` (§4); **[v]** heute verifiziert; **[V]** Vorschlag.
 
-**PRIV-301** The setting MUST be changeable only by `lead ∧ management` with the reason shown
-in the UI: "In organisations with employees, the law may require that activity of individual
-employees is not visible to all colleagues (Art. 88 GDPR, §26 BDSG, §87(1) No. 6 BetrVG)."
-**[legal LEG-05]** whether the default for an organisation tenant should be `leads_and_self`
-instead. The package recommends: default `all_members` for `personal`, **`leads_and_self` for
-`organization`** created after the change, `all_members` for existing tenants (no silent
-behaviour change) — the operator decides.
+| Dimension | Anonym | Viewer | Grower | Lead | Management | Lead ∧ Management | Plattformbetreiber | Service-Account |
+|-----------|--------|--------|--------|------|------------|-------------------|--------------------|-----------------|
+| **P** Ausführende/r, aktuelles Mitglied | – | N (t) [v: N] | N (t) [v: N] | N | N | N | – | R |
+| **P** Ausführende/r, ehemaliges Mitglied (> N Tage) | – | R | R | R | R | R | – (nur Kontoseite) | R |
+| **P** Ausführende/r, gelöscht | – | `erased` | `erased` | `erased` | `erased` | `erased` | – | `erased` |
+| **P** Label Dritter | – | Label | Label | Label | Label | Label | – | Label |
+| **P** Filtern / Suchen nach einer anderen Person | – | – [v] | – [v] | ja [v] | ja [v] | ja | – | – |
+| **C** Ersteller/in von Tagebuch / Kommentar / Objekt | – | N (t) | N (t) | N | N | N | – | R |
+| **C** Marker für eigene Zeile (`created_by_me`) | – | eigene | eigene | eigene | eigene | eigene | – | eigene |
+| **K** wer eine Aufgabe bestätigt hat | – | N (t) | N (t) | N | N | N | – | R |
+| **M** wer annulliert / geschwärzt hat | – | R [V; v: N nur über Performer-Join] | R | N | N | N | – | R |
+| **M** Akteur im Plan-Audit (`changed_by`) | – | R [V; v: N] | R | N | N | N | – | – |
+| **F** Freitext beliebiger Mitglieder | – | ja [v] | ja [v] | ja | ja | ja | – | ja (Lese-Tools) |
+| **F** Freitext schwärzen | – | – | – | ja [v: nur Pflegeereignisse] | ja [V] | ja | – | – |
+| **H** Pflegelog, Tagebuch, Historie (Zeilen) | – | ja [v] | ja [v] | ja | ja | ja | – | ja |
+| **H** `garden_plan_audit`-Zeilen | – | ja [v] | ja | ja | ja | ja | – | – |
+| **E** Anzeigenamen + Rollen der Mitglieder | – | ja [v] | ja | ja | ja | ja | ja (Admin-Liste) | ja |
+| **E** E-Mail-Adressen der Mitglieder | – | ja [v] → **–** [V, LEG-14] | – [V] | – [V] | ja | ja | ja | – |
+| **A** Prüfwarteschlange, Löschzustand des Mandanten | – | – | – | ja [V] | ja [V] | ja | nur Zähler [V] | – |
+| **A** eigene Art.-15–21-Anfragen | – | S | S | S | S | S | S (Admin-Löschung, Vorschau) | – |
+| **X** Pflegeereignis-CSV mit Namen anderer Mitglieder | – | – [V; v: ja] | – [V; v: ja] | ja ! | ja ! | ja ! | – | – |
+| **X** Pflegeereignis-CSV, eigene Zeilen / Namen als R dargestellt | – | ja | ja | ja | ja | ja | – | – |
+| **X** Beetlisten-CSV `include_assignment=true` | – | ja [v, §32.5 Pkt. 13] → (t) [V] | (t) | ja ! | ja ! | ja ! | – | – |
+| **X** Plan-JSON / SVG / PDF (konstruktionsbedingt keine Namen) | – | ja [v] | ja | ja | ja | ja | – | ja |
+| **X** Mandantenarchiv (REQ-056) | – | – | – | – | ja ! [v: management + Step-up] | ja ! | Export verwaister Mandant ! | – |
+| **S** Aktivitätsstatistiken pro Person | – | – | – | – [V: existiert nicht; DARF NICHT ohne LEG-05 gebaut werden] | – | – | – | – |
 
-**PRIV-302** The setting MUST be part of the tenant export (REQ-056) and of the Art. 15
-bundle's personal-tenant section (it is the person's own setting there).
+### 3.1 Lesarten der Matrix
 
-**PRIV-303** Notifications MUST follow the setting: a notification text to a viewer/grower
-MUST NOT name the performer of another member's action when the tenant is `leads_and_self`
-[verified today: system notification texts carry task and plant names, not member names —
-REQ-025 §3.1.2 rule 8 measurement; keep it that way regardless of the setting].
+- **Mandantenebene**: alles oben außer der Spalte „Plattformbetreiber". Plattformzugriff
+  erreicht nie die Dimensionen P/C/K/M/F/H eines Mandanten (REQ-049 P4); er sieht E (Admin-Mitglieder-
+  listen mit E-Mail, nötig für Support und INV-1), A als Zähler und das Security-Audit.
+- **Gesetzlich aufzubewahrende Zeilen** (`06` §3): die/der Anwendende bzw. Erntende einer `treatment_applications` /
+  `harvest_batches`-Zeile folgt **P**, solange das Konto existiert; nach der Löschung wird das Pseudonym
+  nie dargestellt (Zustand `erased`); der typisierte Anzeigename ist geleert [v].
+- **Light-Modus**: ein einzelner Systemnutzer; die Matrix kollabiert für den
+  einzigen Akteur auf „Lead ∧ Management"; es entstehen keine Zustände `former_member`/`erased` (keine Konten).
 
 ---
 
-## 5. Purpose-specific permissions
+## 4. Mandanteneinstellung `attribution_visibility` [Vorschlag, DEC-10]
 
-**PRIV-304** Three purpose permissions MUST exist in `core/permissions.py` and be wired where
-the matrix says, evaluated in the service (not at the router alone, following #2107):
+**PRIV-300** Ein Mandant MUSS `settings.attribution_visibility ∈ {all_members,
+leads_and_self}` führen, mit Standard `all_members` (heutiges Verhalten, REQ-049 P2 „keine privaten Bereiche
+within a tenant"). Bei `leads_and_self` werden die Dimensionen P/C/K/M für Viewer und
+Grower als **R** dargestellt, außer die Zeile ist ihre eigene (`eigene` → N). Leads und `management` sehen für
+aktuelle Mitglieder immer N.
 
-| Permission | Granted to | Gates |
-|------------|-----------|-------|
-| `attribution.filter` | `lead`, `management` [v: `MembershipEngine.can_filter_care_log_by_member`] | `performed_by` filter for someone else (care log, bed history) |
-| `attribution.export` | `lead`, `management` | CSV/export rows carrying other members' names; `include_assignment=true` on the bed list CSV when `attribution_visibility = leads_and_self` |
-| `privacy.review` | `lead`, `management` | review queue read, decisions, generic redaction (PRIV-228) |
+**PRIV-301** Die Einstellung DARF NUR von `lead ∧ management` geändert werden können, mit dem in der UI angezeigten Grund:
+„In Organisationen mit Beschäftigten kann das Gesetz verlangen, dass die Aktivität einzelner
+Beschäftigter nicht für alle Kolleginnen und Kollegen sichtbar ist (Art. 88 DSGVO, §26 BDSG, §87(1) Nr. 6 BetrVG)."
+**[rechtlich LEG-05]** ob der Standard für einen Organisationsmandanten stattdessen `leads_and_self` sein sollte.
+Das Paket empfiehlt: Standard `all_members` für `personal`, **`leads_and_self` für
+`organization`**, die nach der Änderung angelegt werden, `all_members` für bestehende Mandanten (keine stille
+Verhaltensänderung) — der Betreiber entscheidet.
 
-**PRIV-305** `GET /tenants/{slug}/members` MUST return `email` only to `management` (and the
-platform admin routes); for every other member the field is omitted (not nulled, to keep
-the schema's semantics) — **spec change proposal** to REQ-024/REQ-049; **[legal LEG-14]**
-necessity of showing every member's e-mail to every member. [verified] today the route is
-gated only by `get_current_tenant` and `MemberInfoResponse` includes `email`.
+**PRIV-302** Die Einstellung MUSS Teil des Mandantenexports (REQ-056) und des Abschnitts zum persönlichen Mandanten
+im Art.-15-Bündel sein (dort ist sie die eigene Einstellung der Person).
 
-**PRIV-306** `technical` scope reads the member list as today (REQ-049 §2.4) — names and
-roles, no e-mail (PRIV-305 applies).
+**PRIV-303** Benachrichtigungen MÜSSEN der Einstellung folgen: ein Benachrichtigungstext an einen Viewer/Grower
+DARF NICHT die ausführende Person der Aktion eines anderen Mitglieds nennen, wenn der Mandant `leads_and_self` ist
+[heute verifiziert: Systembenachrichtigungstexte enthalten Aufgaben- und Pflanzennamen, keine Mitgliedsnamen —
+REQ-025 §3.1.2 Regel 8 Messung; unabhängig von der Einstellung so beibehalten].
 
 ---
 
-## 6. Exports and bulk reads
+## 5. Zweckbezogene Berechtigungen
 
-**PRIV-307** A CSV export that would contain other members' names MUST require
-`attribution.export`; for everyone else the same export MUST succeed with the P/C/K columns
-rendered **R** (`"Mitglied"` / `"member"` via i18n of the requested `locale`, or the own name
-for own rows). Rationale: a 50 000-row CSV with names is an activity profile; the operational
-need of a viewer ("print the watering plan") does not require names. [verified today] every
-member exports the CSV with display names.
+**PRIV-304** Drei Zweck-Berechtigungen MÜSSEN in `core/permissions.py` existieren und dort verdrahtet sein, wo
+die Matrix es vorsieht, ausgewertet im Service (nicht allein im Router, gemäß #2107):
 
-**PRIV-308** [proposal] Exports with names MUST write a `security_audit_log` row
-(`ATTRIBUTION_EXPORTED`, `tenant_key`, actor, row count, no content). Today the tenant
-archive logs `tenant_export_requested` [verified in NFR-011 R-38 plan], the care-log CSV logs
-nothing.
+| Berechtigung | Gewährt an | Sichert ab |
+|--------------|-----------|------------|
+| `attribution.filter` | `lead`, `management` [v: `MembershipEngine.can_filter_care_log_by_member`] | `performed_by`-Filter für eine andere Person (Pflegelog, Beethistorie) |
+| `attribution.export` | `lead`, `management` | CSV-/Export-Zeilen mit Namen anderer Mitglieder; `include_assignment=true` bei der Beetlisten-CSV, wenn `attribution_visibility = leads_and_self` |
+| `privacy.review` | `lead`, `management` | Lesen der Prüfwarteschlange, Entscheidungen, generische Schwärzung (PRIV-228) |
 
-**PRIV-309** The bed-list CSV `include_assignment=true` [verified: no role check, §32.5
-Pkt. 13 argues that every member reads `/members` and `/assignments` anyway] MUST follow
-`attribution_visibility`: under `leads_and_self` the assignment column renders R for
-non-leads; the `/assignments` read follows the same rule (location assignments are
-responsibility hints, REQ-049 §3.5).
+**PRIV-305** `GET /tenants/{slug}/members` MUSS `email` nur an `management` zurückgeben (und die
+Plattform-Admin-Routen); für jedes andere Mitglied wird das Feld weggelassen (nicht genullt, um die
+Semantik des Schemas zu wahren) — **Spec-Änderungsvorschlag** zu REQ-024/REQ-049; **[rechtlich LEG-14]**
+Notwendigkeit, jedem Mitglied die E-Mail jedes Mitglieds zu zeigen. [verifiziert] heute ist die Route
+nur durch `get_current_tenant` abgesichert, und `MemberInfoResponse` enthält `email`.
 
-**PRIV-310** MCP read tools MUST return `PersonRef` renderings, never raw keys. [verified]
-`mcp_server/tools/diary.py` returns `created_by` as the bare `users._key`; `ipm.py` writes
-`inspector = "mcp:<account_key>"` (a free-text pseudo-key — reclassify: it is an account
-reference in disguise and MUST become `inspected_by_key` = service-account key, label
+**PRIV-306** Der Scope `technical` liest die Mitgliederliste wie heute (REQ-049 §2.4) — Namen und
+Rollen, keine E-Mail (PRIV-305 gilt).
+
+---
+
+## 6. Exporte und Massenlesezugriffe
+
+**PRIV-307** Ein CSV-Export, der Namen anderer Mitglieder enthalten würde, MUSS
+`attribution.export` erfordern; für alle anderen MUSS derselbe Export gelingen, wobei die Spalten P/C/K
+als **R** dargestellt werden (`"Mitglied"` / `"member"` über i18n des angeforderten `locale`, oder der eigene Name
+bei eigenen Zeilen). Begründung: eine CSV mit 50 000 Zeilen und Namen ist ein Aktivitätsprofil; der operative
+Bedarf eines Viewers („den Gießplan drucken") erfordert keine Namen. [heute verifiziert] jedes
+Mitglied exportiert die CSV mit Anzeigenamen.
+
+**PRIV-308** [Vorschlag] Exporte mit Namen MÜSSEN eine `security_audit_log`-Zeile schreiben
+(`ATTRIBUTION_EXPORTED`, `tenant_key`, Akteur, Zeilenanzahl, kein Inhalt). Heute protokolliert das Mandanten-
+archiv `tenant_export_requested` [verifiziert im NFR-011-R-38-Plan], die Pflegelog-CSV protokolliert
+nichts.
+
+**PRIV-309** Die Beetlisten-CSV mit `include_assignment=true` [verifiziert: keine Rollenprüfung, §32.5
+Pkt. 13 argumentiert, dass ohnehin jedes Mitglied `/members` und `/assignments` liest] MUSS
+`attribution_visibility` folgen: unter `leads_and_self` wird die Zuweisungsspalte für
+Nicht-Leads als R dargestellt; das Lesen von `/assignments` folgt derselben Regel (Standortzuweisungen sind
+Zuständigkeitshinweise, REQ-049 §3.5).
+
+**PRIV-310** MCP-Lese-Tools MÜSSEN `PersonRef`-Darstellungen zurückgeben, niemals rohe Keys. [verifiziert]
+`mcp_server/tools/diary.py` gibt `created_by` als nackten `users._key` zurück; `ipm.py` schreibt
+`inspector = "mcp:<account_key>"` (ein Freitext-Pseudo-Key — umklassifizieren: es ist eine Konto-
+Referenz in Verkleidung und MUSS zu `inspected_by_key` = Service-Account-Key werden, Label
 `service_account`).
 
 ---
 
-## 7. Platform level
+## 7. Plattformebene
 
-**PRIV-311** The platform operator MUST NOT gain any read on dimensions P/C/K/M/F/H through
-this package. The privacy-operations endpoint (`08` §5) returns per-tenant **counts** and
-operation **states**; the erasure preview and `GET /admin/platform/erasures/{key}` stay as
-today [verified].
+**PRIV-311** Der Plattformbetreiber DARF durch dieses Paket KEINEN Lesezugriff auf die Dimensionen P/C/K/M/F/H erhalten. Der Endpunkt für Datenschutzvorgänge
+(`08` §5) liefert **Zähler** pro Mandant und **Zustände** der Vorgänge; die Löschvorschau und
+`GET /admin/platform/erasures/{key}` bleiben wie heute [verifiziert].
 
-**PRIV-312** A future **platform viewer** (#2179) MUST inherit the operator's column with
-every write removed; it is noted, not specified here.
+**PRIV-312** Ein künftiger **Plattform-Viewer** (#2179) MUSS die Spalte des Betreibers erben, wobei
+jeder Schreibzugriff entfällt; er ist hier vermerkt, nicht spezifiziert.
 
-**PRIV-313** Light mode (`kamerplanter_mode = light`) has no accounts; every rule above that
-depends on a person's state is inert there, and the review queue is not created (there is
-no erasure).
-
----
-
-## 8. Historical records and the "former member" boundary
-
-**PRIV-314** Historical rows (H) remain readable to every member regardless of who wrote
-them — the tenant's history is the tenant's (REQ-049 P2). What changes with this package is
-only the **rendering of the person** (P/C/K/M) and the **reviewability of the text** (F).
-
-**PRIV-315** The `former_member` state MUST render identically for every tenant role (no
-lead exception, `03` PRIV-113); the platform operator sees the account on the user page only
-if it still exists.
+**PRIV-313** Der Light-Modus (`kamerplanter_mode = light`) hat keine Konten; jede obige Regel, die
+vom Zustand einer Person abhängt, ist dort inaktiv, und die Prüfwarteschlange wird nicht angelegt (es gibt
+keine Löschung).
 
 ---
 
-## 9. Audit logging of privacy-sensitive reads
+## 8. Historische Datensätze und die Grenze „ehemaliges Mitglied"
 
-**PRIV-316** The following reads MUST write a `security_audit_log` row (actor, tenant,
-action, count; no content): exports with names (PRIV-308), tenant archive, platform-admin
-erasure preview, review-queue decisions. Ordinary list reads MUST NOT be audited (volume,
-and REQ-049's "no surveillance of members").
+**PRIV-314** Historische Zeilen (H) bleiben für jedes Mitglied lesbar, unabhängig davon, wer sie
+geschrieben hat — die Historie des Mandanten gehört dem Mandanten (REQ-049 P2). Was sich mit diesem Paket ändert, ist
+nur die **Darstellung der Person** (P/C/K/M) und die **Prüfbarkeit des Textes** (F).
+
+**PRIV-315** Der Zustand `former_member` MUSS für jede Mandantenrolle identisch dargestellt werden (keine
+Lead-Ausnahme, `03` PRIV-113); der Plattformbetreiber sieht das Konto auf der Nutzerseite nur,
+wenn es noch existiert.
 
 ---
 
-## 10. Acceptance (summary)
+## 9. Audit-Protokollierung datenschutzrelevanter Lesezugriffe
 
-| ID | Criterion |
+**PRIV-316** Die folgenden Lesezugriffe MÜSSEN eine `security_audit_log`-Zeile schreiben (Akteur, Mandant,
+Aktion, Anzahl; kein Inhalt): Exporte mit Namen (PRIV-308), Mandantenarchiv, Löschvorschau des Plattform-Admins,
+Entscheidungen in der Prüfwarteschlange. Gewöhnliche Listenzugriffe DÜRFEN NICHT auditiert werden (Volumen
+und REQ-049 („keine Überwachung von Mitgliedern")).
+
+---
+
+## 10. Abnahme (Zusammenfassung)
+
+| ID | Kriterium |
 |----|-----------|
-| TA-300 | With `leads_and_self`, a grower's care-log list renders other members' performer as `R`, own rows as `N`; a lead sees `N`. |
-| TA-301 | With `all_members`, behaviour equals today (regression pin). |
-| TA-302 | `GET /members` omits `email` for viewer/grower/lead without `management`; includes it for `management` and platform admin. |
-| TA-303 | CSV export by a viewer renders other members as `R`; by a lead with names and writes `ATTRIBUTION_EXPORTED`. |
-| TA-304 | MCP diary/ipm tools return no raw `users._key`. |
-| TA-305 | Platform admin cannot read review items (403), only counts. |
-| TA-306 | `performed_by` filter for another member by a grower → 403 (regression pin); for a former suppressed member → 422. |
-| TA-307 | Route walk: every new `/t/{slug}/privacy/*` route is in `test_garden_plan_tenant_isolation`-style matrix and refuses a foreign tenant with 404. |
+| TA-300 | Mit `leads_and_self` stellt die Pflegelog-Liste eines Growers die ausführende Person anderer Mitglieder als `R` dar, eigene Zeilen als `N`; ein Lead sieht `N`. |
+| TA-301 | Mit `all_members` entspricht das Verhalten dem heutigen (Regressions-Pin). |
+| TA-302 | `GET /members` lässt `email` für Viewer/Grower/Lead ohne `management` weg; enthält sie für `management` und Plattform-Admin. |
+| TA-303 | CSV-Export durch einen Viewer stellt andere Mitglieder als `R` dar; durch einen Lead mit Namen und schreibt `ATTRIBUTION_EXPORTED`. |
+| TA-304 | MCP-Diary-/IPM-Tools geben keinen rohen `users._key` zurück. |
+| TA-305 | Plattform-Admin kann keine Prüfeinträge lesen (403), nur Zähler. |
+| TA-306 | `performed_by`-Filter für ein anderes Mitglied durch einen Grower → 403 (Regressions-Pin); für ein unterdrücktes ehemaliges Mitglied → 422. |
+| TA-307 | Routen-Walk: jede neue `/t/{slug}/privacy/*`-Route steht in einer Matrix im Stil von `test_garden_plan_tenant_isolation` und weist einen fremden Mandanten mit 404 ab. |
