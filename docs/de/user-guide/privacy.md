@@ -415,6 +415,34 @@ Dein Datenexport enthält alle gespeicherten Anhänge als ZIP-Archiv. Das Archiv
 
 ---
 
+## Daten auf deinem Gerät {#daten-auf-deinem-geraet}
+
+Damit du im Garten auch ohne Netz arbeiten kannst (siehe [Was geht ohne Netz](garden-plan.md#was-geht-ohne-netz)), legt Kamerplanter einige Daten in deinem Browser ab, in dessen eigener Datenbank (IndexedDB) und im Zwischenspeicher der App. Nichts davon geht an Dritte, und es gibt keine Funktion, die diese Daten aus dem Browser exportiert.
+
+**Was auf deinem Gerät liegt:**
+
+| Was | Inhalt | Wie lange |
+|-----|--------|-----------|
+| Gemerkter Stand | Gartenplan, Standortliste, Beetliste, Beetkopf und Beet-Blatt, so wie du sie zuletzt geladen hast. Ohne die Namen von Mitgliedern, ohne Zuweisungen und ohne Notizen und Beschreibungen der Beete. | Höchstens 15 Minuten nutzbar; ältere Stände löscht die App beim nächsten Start oder Lesen. |
+| Offline-Einträge | Was du im Feldmodus ohne Verbindung erfasst: Erledigt, Notizen, Fotos, jeweils mit Zeitpunkt, deinem Konto und dem Garten. Fotos sind auf höchstens 1 920 Pixel verkleinert und ohne Standort- und Kameradaten (EXIF/GPS). | Bis sie übertragen sind. Wartende Einträge, die älter als ein Jahr sind, und nicht übertragene oder behaltene Einträge 90 Tage nach dem Erfassen löscht die App beim nächsten Start und sagt dir, wie viele es waren. |
+| App-Dateien | Die Programmdateien der App, Sprachdateien und Symbole, damit sie ohne Netz startet. | Bis eine neue Version sie ersetzt. Enthält keine persönlichen Daten. |
+
+**Wann Kamerplanter diese Daten löscht:**
+
+- **Abmelden:** Der gemerkte Stand wird gelöscht. Offline-Einträge, die noch nicht übertragen sind, löscht die App nach deiner Bestätigung („Verwerfen und abmelden"); vorher kannst du sie übertragen.
+- **Anderen Garten wählen:** Der gemerkte Stand wird gelöscht. Deine Offline-Einträge des bisherigen Gartens bleiben auf dem Gerät und werden gesendet, wenn du dorthin zurückkehrst.
+- **Sitzung abgelaufen:** Lehnt der Server deine Anmeldung ab, löscht die App den gemerkten Stand. Deine Offline-Einträge bleiben erhalten und werden nur gesendet, wenn du dich wieder mit demselben Konto im selben Garten anmeldest.
+- **Konto auf diesem Gerät löschen:** Gemerkter Stand und deine Offline-Einträge werden gelöscht.
+- **Websitedaten im Browser löschen:** Alles ist weg, auch Einträge, die noch nicht übertragen sind.
+
+!!! warning "Geteiltes Gerät: immer abmelden"
+    Die Offline-Einträge liegen unverschlüsselt in deinem Browserprofil. Andere Personen sehen sie in Kamerplanter nicht und können sie nicht senden; wer aber dein Browserprofil benutzt, kann sie mit den Entwicklerwerkzeugen des Browsers lesen. Melde dich auf einem Gerät, das andere mitbenutzen, deshalb immer ausdrücklich ab.
+
+!!! note "Konto auf einem anderen Gerät gelöscht"
+    Löschst du dein Konto auf einem anderen Gerät, erfährt dieses Gerät davon nur, dass deine Anmeldung nicht mehr gilt. Offline-Einträge, die hier noch liegen, bleiben dann bis zum Ende ihrer Frist (90 Tage bzw. ein Jahr) oder bis du die Websitedaten löschst. Dasselbe gilt für Einträge eines Gartens, aus dem du entfernt wurdest. <!-- REQ-025 §10, NFR-011 §2.1, UI-NFR-012 R-060 -->
+
+---
+
 ## Datenspeicherung und Aufbewahrungsfristen
 
 Kamerplanter speichert verschiedene Datenkategorien mit unterschiedlichen Aufbewahrungsfristen:
