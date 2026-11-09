@@ -7,10 +7,12 @@ three call sites that compared with ``!=`` instead (``task_service`` for the bat
 twice for the upload replay) beside one that used the helper (``care_event_service``) - the same rule, opt-in at
 each call site, drifted between siblings.
 
-**Predicate** - every ``==`` / ``!=`` comparison in ``app/**`` with an operand whose name ends in ``digest`` (an
-attribute such as ``client_event_digest``, ``completion_client_event_digest``, ``stamp.digest``, or a bare name
-``digest``) is a finding. ``is None`` / ``is not None`` is a presence check, not a comparison of values, and stays
-allowed. A call such as ``hashlib.sha256(...).hexdigest()`` is not a name and is not matched.
+**Predicate** - every ``==`` / ``!=`` / ``in`` / ``not in`` comparison in ``app/**`` with an operand whose
+name ends in ``digest`` (an attribute such as ``client_event_digest``, ``completion_client_event_digest``,
+``stamp.digest``, or a bare name ``digest``) is a finding. ``in`` is a membership test by equality (a ``set`` or
+``list`` of digests), so it counts too (#2757 review). ``is None`` / ``is not None`` is a presence check, not a
+comparison of values, and stays allowed. A call such as ``hashlib.sha256(...).hexdigest()`` is not a name and is not
+matched.
 """
 
 from __future__ import annotations
@@ -32,12 +34,12 @@ def _name(node: ast.expr) -> str | None:
 
 
 def digest_equality_comparisons(source: str, path: str = "<probe>") -> list[str]:
-    """``path:line: expression`` for every ``==`` / ``!=`` comparison with an operand named ``*digest``."""
+    """``path:line: expression`` for every ``==`` / ``!=`` / ``in`` / ``not in`` with an operand named ``*digest``."""
     findings: list[str] = []
     for node in ast.walk(ast.parse(source)):
         if not isinstance(node, ast.Compare):
             continue
-        if not any(isinstance(op, (ast.Eq, ast.NotEq)) for op in node.ops):
+        if not any(isinstance(op, (ast.Eq, ast.NotEq, ast.In, ast.NotIn)) for op in node.ops):
             continue
         operands = [node.left, *node.comparators]
         if any((name := _name(operand)) is not None and name.endswith("digest") for operand in operands):
@@ -57,8 +59,10 @@ def test_the_predicate_finds_both_operators_and_the_attribute_forms() -> None:
         "if stored.client_event_digest != stamp.digest:\n    pass\n"
         "ok = holder.completion_client_event_digest == stamps[key].digest\n"
         "same = digest == other\n"
+        "known = stamp.digest in stored_digests\n"
+        "fresh = row.client_event_digest not in seen\n"
     )
-    assert len(digest_equality_comparisons(probe)) == 3
+    assert len(digest_equality_comparisons(probe)) == 5
 
 
 def test_presence_checks_and_hash_calls_are_not_findings() -> None:

@@ -256,6 +256,17 @@ class TestBatch:
         assert world.tasks.store["t1"].status == TaskStatus.PENDING
         assert world.tasks.store["t1"].assigned_to_user_key is None
 
+    @pytest.mark.parametrize(
+        ("path", "extra"),
+        [("batch/status", {"action": "start"}), ("batch/delete", {}), ("batch/assign", {"assigned_to_user_key": USER})],
+    )
+    def test_an_overlong_task_key_is_422_at_the_body(self, client, world, path, extra) -> None:
+        # #2757 security suggestion: each entry is bounded too (64 chars; Arango generates numeric keys).
+        response = client(TenantRole.LEAD).post(f"{_OWN}/{path}", json={"task_keys": ["t1", "k" * 65], **extra})
+
+        assert response.status_code == 422, response.text
+        assert world.tasks.store["t1"].status == TaskStatus.PENDING
+
     def test_a_body_cannot_carry_the_server_owned_fields(self, client, world) -> None:
         response = client().post(
             f"{_OWN}/batch/status", json={"task_keys": ["t1"], "action": "complete", "trigger": "system"}
