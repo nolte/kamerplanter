@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import structlog
 from pydantic import BaseModel
@@ -39,13 +40,11 @@ from pydantic import BaseModel
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import (
     ClientEventMismatchError,
-    DuplicateError,
     ForbiddenError,
     NotFoundError,
     PlanError,
     PlanValidationError,
     ValidationError,
-    WriteConflictError,
 )
 from app.domain.calculators.area_dose_calculator import AREA_UNITS, quantity_total
 from app.domain.engines.membership_engine import MembershipEngine
@@ -74,9 +73,10 @@ from app.domain.models.care_event import (
     LoggedCareEvent,
     display_performer,
 )
-from app.domain.models.client_event import ClientEventStamp, client_event_digest, is_client_event_conflict
+from app.domain.models.client_event import ClientEventStamp, client_event_digest, same_digest
 from app.domain.models.site import Location
 from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.client_event_writes import insert_or_read_winner
 from app.domain.services.location_ownership import resolve_owned_location
 from app.observability.garden_plan_metrics import record_care_event_created
 
@@ -97,8 +97,6 @@ ERROR_IMMUTABLE = "care_event.immutable"
 ERROR_SEQUENCE = "care_event.sequence"
 ERROR_SERVER_ONLY = "care_event.category_server_only"
 ERROR_AREA_DOSE_NOT_POSITIVE = "care_event.area_dose_not_positive"
-#: How often a buffered write tries its insert when a concurrent one holds the same id (WP 9.3).
-_CLIENT_WRITE_ATTEMPTS = 3
 
 #: Categories whose area unit is a dose of a product or a material (GP-FR-123/124): a rate of 0 per m² is no dose
 #: and would store a total of 0, so it is refused. Watering and rainfall keep 0 L/m² (a dry measurement).
@@ -545,7 +543,7 @@ class CareEventService:
         row = self._repo.get_row(key, tenant_key=tenant_key)
         if row is None:  # erased between the two reads; the id is free again
             return None
-        if row.event.client_event_digest != stamp.digest:
+        if not same_digest(row.event.client_event_digest, stamp.digest):
             raise ClientEventMismatchError()
         return self._view(row, user_key)
 
@@ -575,28 +573,16 @@ class CareEventService:
             logger.info("care_event.replayed", event_key=stored.event.key)
             return LoggedCareEvent(stored, replayed=True)
         event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, stamp=stamp)
-        for attempt in range(_CLIENT_WRITE_ATTEMPTS):
-            try:
-                written = self._repo.insert(event, tenant_key=tenant_key)
-            except DuplicateError as exc:
-                if not is_client_event_conflict(exc.details):
-                    raise  # another unique index refused the write: not a replay
-                stored = self._replayed(stamp, tenant_key=tenant_key, user_key=user_key)
-                if stored is None:
-                    raise
-                logger.info("care_event.replayed", event_key=stored.event.key, raced=True)
-                return LoggedCareEvent(stored, replayed=True)
-            except WriteConflictError:
-                stored = self._replayed(stamp, tenant_key=tenant_key, user_key=user_key)
-                if stored is not None:
-                    logger.info("care_event.replayed", event_key=stored.event.key, raced=True)
-                    return LoggedCareEvent(stored, replayed=True)
-                if attempt == _CLIENT_WRITE_ATTEMPTS - 1:  # the winner rolled back, or is still writing
-                    raise
-                continue
-            self._record_created(written)
-            return LoggedCareEvent(self._stored_view(written.key or "", tenant_key=tenant_key, user_key=user_key))
-        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
+        outcome = insert_or_read_winner(
+            lambda: self._repo.insert(event, tenant_key=tenant_key),
+            lambda: self._replayed(stamp, tenant_key=tenant_key, user_key=user_key),
+        )
+        if outcome.replayed is not None:
+            logger.info("care_event.replayed", event_key=outcome.replayed.event.key, raced=True)
+            return LoggedCareEvent(outcome.replayed, replayed=True)
+        written = cast("CareEvent", outcome.written)
+        self._record_created(written)
+        return LoggedCareEvent(self._stored_view(written.key or "", tenant_key=tenant_key, user_key=user_key))
 
     def create(
         self,

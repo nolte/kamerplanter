@@ -64,6 +64,11 @@ def client_event_digest(payload: Mapping[str, Any]) -> str:
     return hmac.new(_digest_key(), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+def same_digest(stored: str | None, expected: str) -> bool:
+    """Whether a stored request digest is ``expected``, compared in constant time (``hmac.compare_digest``)."""
+    return stored is not None and hmac.compare_digest(stored, expected)
+
+
 def is_client_event_conflict(details: list[dict[str, Any]]) -> bool:
     """Whether a :class:`~app.common.exceptions.DuplicateError`'s ``details`` name a client-event index."""
     return any("field" in entry and entry["field"] in CLIENT_EVENT_INDEX_FIELDS for entry in details)

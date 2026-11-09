@@ -27,6 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -206,21 +207,11 @@ class ZoneWateringFacts:
 MAX_ROUND_LITERS = 100_000.0
 
 
-class ZoneWateringInput(_Strict):
-    """``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): one total, divided over the zone's beds."""
+class _ZoneRoundInput(_Strict):
+    """What every zone round carries: the instant (UTC, V-11 checked by the service) and the handover note (F-05)."""
 
-    volume_liters: float = Field(gt=0, le=MAX_ROUND_LITERS)
-    #: ``by_area`` divides by ``Location.area_m2``, ``equal`` evenly. ``by_demand`` waits for WP 7.5 (#2466 item 1).
-    allocation: CareEventAllocation
     performed_at: datetime | None = None
     summary: str | None = Field(default=None, max_length=500)
-
-    @field_validator("allocation")
-    @classmethod
-    def refuse_measured(cls, value: CareEventAllocation) -> CareEventAllocation:
-        if value is CareEventAllocation.MEASURED:
-            raise ValueError("A divided total is `by_area` or `equal`; `measured` is a value taken per bed.")
-        return value
 
     @field_validator("performed_at")
     @classmethod
@@ -234,6 +225,24 @@ class ZoneWateringInput(_Strict):
     @classmethod
     def strip_summary(cls, value: str | None) -> str | None:
         return _stripped_or_none(value)
+
+
+class ZoneWateringInput(_ZoneRoundInput):
+    """``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): one total, divided over the zone's beds."""
+
+    volume_liters: float = Field(gt=0, le=MAX_ROUND_LITERS)
+    #: ``by_area`` divides by ``Location.area_m2``, ``equal`` evenly, ``by_demand`` by each bed's REQ-037 net demand
+    #: of the round's UTC day (WP 9.13, #2753; the demand of WP 7.5).
+    allocation: CareEventAllocation
+
+    @field_validator("allocation")
+    @classmethod
+    def refuse_measured(cls, value: CareEventAllocation) -> CareEventAllocation:
+        if value is CareEventAllocation.MEASURED:
+            raise ValueError(
+                "A divided total is `by_area`, `equal` or `by_demand`; `measured` is a value taken per bed."
+            )
+        return value
 
 
 @dataclass(frozen=True)
@@ -253,6 +262,33 @@ class ZoneWateringResult:
     allocation: CareEventAllocation
     performed_at: datetime
     skipped_location_keys: tuple[str, ...]
+
+
+class ZoneRainSkippedInput(_ZoneRoundInput):
+    """``POST /irrigation-zones/{key}/rain-skipped`` (GP-FR-117, §32.4 Pkt. 2; WP 9.13, #2753).
+
+    The round was not walked because it rained: one ``care_event(rainfall)`` without a quantity per bed. The open
+    watering tasks stay open, and the event carries no litres, so it does not enter any water balance (§32.6
+    Pkt. 11). ``client_event_id`` makes a second press of the same action (a double click, a retry after a lost
+    answer) answer the round stored before instead of writing it twice (WP 9.3).
+    """
+
+    #: Without a ``summary`` the server writes a fixed English one naming the zone.
+    client_event_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class ZoneRainSkippedResult:
+    """The skipped round: one ``rainfall`` event per bed of the zone, in the order of ``location_keys``.
+
+    ``replayed`` is ``True`` when ``client_event_id`` named a round stored before: nothing was written now and the
+    events are the ones of the first attempt.
+    """
+
+    event_keys: tuple[str, ...]
+    location_keys: tuple[str, ...]
+    performed_at: datetime
+    replayed: bool = False
 
 
 @dataclass(frozen=True)

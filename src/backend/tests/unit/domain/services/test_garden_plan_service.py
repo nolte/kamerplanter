@@ -13,7 +13,7 @@ role check answers 422 where the spec says 403.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from structlog.testing import capture_logs
@@ -289,6 +289,51 @@ class TestAGoodBatch:
             ],
         )
         assert repo.objects["go"].props.capacity_liters == 300
+
+    def _refill(self, world, refilled_at: str | None, *, create: bool = False):
+        service, repo, _ = world
+        repo.objects["go"] = GardenObject(
+            _key="go",
+            site_key=SITE,
+            object_type=GardenObjectType.WATER_SOURCE,
+            geometry={"kind": "point", "origin": [9.7, 0.4]},
+            props={"water_source_kind": "rain_barrel"},
+        )
+        props = {"water_source_kind": "rain_barrel", "last_refilled_at": refilled_at}
+        op = (
+            {
+                "op": "create_garden_object",
+                "temp_key": "tmp_ws",
+                "data": {
+                    "object_type": "water_source",
+                    "label": "Barrel",
+                    "geometry": {"kind": "point", "origin": [5.0, 5.0]},
+                    "props": props,
+                },
+            }
+            if create
+            else {"op": "update_fields", "entity": "garden_object", "key": "go", "fields": {"props": props}}
+        )
+        return batch(service, [op])
+
+    @pytest.mark.parametrize("create", [False, True])
+    def test_a_refill_in_the_future_is_refused_on_create_and_on_update(self, world, create):
+        tomorrow = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+
+        with pytest.raises(PlanValidationError) as refused:
+            self._refill(world, tomorrow, create=create)
+
+        assert [(d["op_index"], d["field"], d["code"]) for d in refused.value.details] == [
+            (0, "props.last_refilled_at", "water_source.refilled_in_future")
+        ]
+        assert world[1].applied == []
+
+    def test_a_refill_within_the_clock_skew_is_taken(self, world):
+        in_two_minutes = (datetime.now(UTC) + timedelta(minutes=2)).isoformat()
+
+        self._refill(world, in_two_minutes)
+
+        assert world[1].objects["go"].props.last_refilled_at is not None
 
 
 class TestTheCheckOrder:

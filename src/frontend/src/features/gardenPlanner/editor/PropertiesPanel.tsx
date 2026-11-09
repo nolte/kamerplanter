@@ -45,6 +45,7 @@ import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
 import { EDITOR_ANCHORS } from './anchors';
 import { PANEL_WIDTH_PX } from './layout';
 import { NumberField } from './NumberField';
+import { WaterSourceFields } from './WaterSourceFields';
 import { insertVertex, removeVertex } from './tools/geometryEdit';
 import { isPlanEntity } from './tools/hierarchy';
 import type { ActionLabel } from './tools/machineTypes';
@@ -228,6 +229,9 @@ function EntityForm({
     return slot ? slot.location_key === entityKey : p.location_key === entityKey;
   }).length;
   const emptyBed = entity === 'location' && slotCount === 0 && plantCount === 0;
+  // GP-FR-111: the fields of a water source - only what `WaterSourceProps` carries (WP 9.14).
+  const objectProps = entity === 'garden_object' ? plan.gardenObjects[entityKey]?.props : undefined;
+  const waterSource = objectProps?.object_type === 'water_source' ? objectProps : null;
   const errorText = error
     ? t(`${PREFIX}.notice.${error}`, { defaultValue: t(`${PREFIX}.notice.generic`) })
     : null;
@@ -290,6 +294,10 @@ function EntityForm({
             </Box>
           </Suspense>
         </Box>
+      )}
+
+      {waterSource && (
+        <WaterSourceFields objectKey={entityKey} props={waterSource} disabled={locked} onCommit={onCommit} />
       )}
 
       {geometry === null && (

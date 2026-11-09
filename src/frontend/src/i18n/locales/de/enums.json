@@ -1281,7 +1281,16 @@
     "careEventAllocation": {
       "measured": "Gemessen",
       "by_area": "Nach Fläche verteilt",
-      "equal": "Zu gleichen Teilen verteilt"
+      "equal": "Zu gleichen Teilen verteilt",
+      "by_demand": "Nach Bedarf verteilt"
+    },
+    "waterSourceKind": {
+      "tap": "Wasserhahn",
+      "rain_barrel": "Regentonne",
+      "well": "Brunnen",
+      "pond": "Teich",
+      "cistern": "Zisterne",
+      "hose_reel": "Schlauchtrommel"
     },
     "sunWindow": {
       "morning": "Morgens",

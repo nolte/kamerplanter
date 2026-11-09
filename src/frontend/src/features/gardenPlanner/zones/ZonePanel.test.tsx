@@ -260,8 +260,8 @@ describe('watering round', () => {
     const dialog = await screen.findByTestId('garden-plan-round-dialog');
     expect(within(dialog).getByTestId('garden-plan-round-marker')).toHaveTextContent('not measured');
     expect(within(dialog).getByTestId('garden-plan-round-no-area')).toHaveTextContent('South bed');
-    // Only the two decided allocations are offered; `by_demand` is not.
-    expect(within(dialog).getAllByRole('radio')).toHaveLength(2);
+    // The three divided allocations are offered (`by_demand` since WP 9.13); `measured` never is.
+    expect(within(dialog).getAllByRole('radio')).toHaveLength(3);
     expect(within(dialog).getByTestId('garden-plan-round-submit')).toBeDisabled();
     await user.type(within(dialog).getByTestId('garden-plan-round-volume'), '40');
     await user.click(within(dialog).getByTestId('garden-plan-round-submit'));

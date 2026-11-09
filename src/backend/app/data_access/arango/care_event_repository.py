@@ -171,6 +171,17 @@ FOR e IN @@events
     RETURN e._key
 """
 
+#: The events of one replayable zone round (WP 9.13), by the raw id they all carry: one statement, so one snapshot - a
+#: reader that meets a round's commit sees all of its events or none. Served by the sparse
+#: ``(tenant_key, client_round_id)`` index; bounded by ``@limit``.
+_EVENTS_OF_CLIENT_ROUND = """
+FOR e IN @@events
+    FILTER e.tenant_key == @tenant_key AND e.client_round_id == @client_round_id
+    SORT e._key
+    LIMIT @limit
+    RETURN e
+"""
+
 #: The readable names of ``e.plant_keys`` (bind ``@plants`` = ``"plant_instances/"``), one primary-key lookup per
 #: plant: ``plant_name``, else ``instance_id``; a plant that is gone or another tenant's is left out (#2514). Shared
 #: with the bed history (``bed_history_repository``) so both lists name a plant alike.
@@ -512,6 +523,17 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         )
         key = next(cursor, None)
         return str(key) if key is not None else None
+
+    def find_client_round(self, client_round_id: str, *, tenant_key: str, limit: int) -> list[CareEvent]:
+        self._require_tenant_key(tenant_key, "find_client_round")
+        bind_vars: dict[str, Any] = {
+            "@events": col.CARE_EVENTS,
+            "tenant_key": tenant_key,
+            "client_round_id": client_round_id,
+            "limit": limit,
+        }
+        cursor = cast("Cursor", self._db.aql.execute(_EVENTS_OF_CLIENT_ROUND, bind_vars=bind_vars))
+        return [self._wrapped(doc) for doc in cursor]
 
     def _row(self, row: dict[str, Any]) -> CareEventRow:
         return CareEventRow(

@@ -11,13 +11,31 @@ function isTextField(target: EventTarget | null): boolean {
 }
 
 /**
- * Undo, redo and save by keyboard (REQ-053 GP-FR-026): Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y and
- * Ctrl/Cmd+S. Attach the handler to the editor root; it only reacts to keys that come from inside
- * it (a modal rendered in a portal bubbles through the React tree but is not part of the editor)
- * and leaves Ctrl+Z / Ctrl+Y to text fields. Ctrl+S is claimed everywhere in the editor so that the
- * browser's "save page" never opens; a field is left first so that its value is committed.
+ * A form control that is no text field: MUI's Select is a `div role="combobox"`, its open list a `listbox` of
+ * `option`s, a number stepper a `spinbutton` (WP 9.14 review). With the focus in one of them, Ctrl+D / Ctrl+Z /
+ * Ctrl+Y must not act on the plan - the water-source kind in the panel would otherwise duplicate its object.
  */
-export function useEditorShortcuts(): (event: ReactKeyboardEvent<HTMLElement>) => void {
+const FORM_CONTROL_ROLES = '[role="combobox"], [role="listbox"], [role="option"], [role="spinbutton"]';
+
+/** The focus is in a field or control that keeps the key for itself. */
+function keepsTheKey(target: EventTarget | null): boolean {
+  return isTextField(target) || (target instanceof Element && target.closest(FORM_CONTROL_ROLES) !== null);
+}
+
+/**
+ * Undo, redo, save and duplicate by keyboard (REQ-053 GP-FR-026, GP-FR-025): Ctrl/Cmd+Z,
+ * Ctrl/Cmd+Shift+Z, Ctrl+Y, Ctrl/Cmd+S and Ctrl/Cmd+D. Attach the handler to the editor root; it only
+ * reacts to keys that come from inside it (a modal rendered in a portal bubbles through the React tree
+ * but is not part of the editor) and leaves Ctrl+Z / Ctrl+Y / Ctrl+D to text fields. Ctrl+S is claimed
+ * everywhere in the editor so that the browser's "save page" never opens; a field is left first so that
+ * its value is committed.
+ *
+ * `duplicate` is the editor's own duplicate action - the one behind the panel button and the item menu
+ * (WP 9.14) - or `null` while nothing duplicable is selected: then Ctrl+D is left to the browser.
+ */
+export function useEditorShortcuts(
+  duplicate: (() => void) | null = null,
+): (event: ReactKeyboardEvent<HTMLElement>) => void {
   const dispatch = useAppDispatch();
   return useCallback(
     (event) => {
@@ -30,8 +48,12 @@ export function useEditorShortcuts(): (event: ReactKeyboardEvent<HTMLElement>) =
         void dispatch(saveGardenPlan());
         return;
       }
-      if (isTextField(event.target)) return;
-      if (key === 'z' && !event.shiftKey) {
+      if (keepsTheKey(event.target)) return;
+      if (key === 'd' && !event.shiftKey) {
+        if (duplicate === null) return;
+        event.preventDefault(); // the browser's "bookmark this page" stays closed
+        duplicate();
+      } else if (key === 'z' && !event.shiftKey) {
         event.preventDefault();
         dispatch(undo());
       } else if ((key === 'z' && event.shiftKey) || (key === 'y' && event.ctrlKey && !event.shiftKey)) {
@@ -39,6 +61,6 @@ export function useEditorShortcuts(): (event: ReactKeyboardEvent<HTMLElement>) =
         dispatch(redo());
       }
     },
-    [dispatch],
+    [dispatch, duplicate],
   );
 }

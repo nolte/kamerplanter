@@ -72,6 +72,13 @@ class FakeCareEventRepo(ICareEventRepository):
             None,
         )
 
+    def find_client_round(self, client_round_id, *, tenant_key, limit):
+        return [
+            event
+            for event in self.events.values()
+            if event.tenant_key == tenant_key and event.client_round_id == client_round_id
+        ][:limit]
+
     def chain(self, key, *, tenant_key):
         event = self.get(key, tenant_key=tenant_key)
         if event is None:

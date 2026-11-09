@@ -930,6 +930,9 @@ class Settings(BaseSettings):
     rate_limit_plan_batch: str = "10/minute"
     #: ``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): a watering round writes one event per bed.
     rate_limit_zone_log_watering: str = "20/minute"
+    #: ``POST /irrigation-zones/{key}/rain-skipped`` (GP-FR-117, WP 9.13): the same cost as a round - one event per
+    #: bed in one transaction - so the same figure, in a bucket of its own so either can be tuned alone.
+    rate_limit_zone_rain_skipped: str = "20/minute"
     #: The garden-plan exports — ``GET /t/{slug}/sites/{key}/plan/render.svg``, ``…/plan/export`` and
     #: ``GET /t/{slug}/print/garden-plan/{site_key}`` (REQ-053 GP-NFR-056, SR-017), **per account** and per route. A
     #: PDF is a WeasyPrint render of a full-size plan and the SVG and the JSON read every document of the site, so

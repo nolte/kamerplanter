@@ -1072,6 +1072,15 @@ CASES: tuple[Case, ...] = (
         owner_status=201,
         writes=True,
     ),
+    # REQ-053 WP 9.13, GP-FR-117: "rain - skipped" on another tenant's zone writes no rainfall event there.
+    Case(
+        "log_irrigation_zone_rain_skipped",
+        "POST",
+        "/irrigation-zones/zone_b/rain-skipped",
+        {"summary": "Rained overnight"},
+        owner_status=201,
+        writes=True,
+    ),
     # REQ-053 WP 7.8, GP-FR-044: a template of another tenant is not there for the caller.
     Case("patch_bed_template", "PATCH", "/bed-templates/tpl_b", {"name": "Taken over"}, writes=True),
     Case("delete_bed_template", "DELETE", "/bed-templates/tpl_b", owner_status=204, writes=True),

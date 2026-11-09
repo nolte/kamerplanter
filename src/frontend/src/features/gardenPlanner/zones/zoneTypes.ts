@@ -9,10 +9,13 @@ export type IrrigationZoneType = (typeof IRRIGATION_TYPES)[number];
 
 export type FlowRateSource = 'manual' | 'ha_entity';
 
-/** `by_demand` is not offered yet (operator decision #2466); `measured` is never sent for a divided total. */
-export type CareEventAllocation = 'measured' | 'by_area' | 'equal';
+/**
+ * `by_demand` divides by each bed's REQ-037 net demand of the round's day (WP 9.13, #2753); `measured` is never
+ * sent for a divided total.
+ */
+export type CareEventAllocation = 'measured' | 'by_area' | 'equal' | 'by_demand';
 export type RoundAllocation = Exclude<CareEventAllocation, 'measured'>;
-export const ROUND_ALLOCATIONS: readonly RoundAllocation[] = ['by_area', 'equal'];
+export const ROUND_ALLOCATIONS: readonly RoundAllocation[] = ['by_area', 'equal', 'by_demand'];
 
 export interface IrrigationZone {
   key: string;
@@ -104,4 +107,19 @@ export interface WateringRoundResult {
   allocation: CareEventAllocation;
   performed_at: string;
   skipped_location_keys: string[];
+}
+
+/** `POST /irrigation-zones/{key}/rain-skipped` (GP-FR-117, WP 9.13): one rainfall event without a quantity per bed. */
+export interface RainSkippedRequest {
+  summary?: string | null;
+  /** Made once per press of the action, so a second press answers the first round instead of writing it again. */
+  client_event_id: string;
+}
+
+export interface RainSkippedResult {
+  event_keys: string[];
+  location_keys: string[];
+  performed_at: string;
+  /** `true` when the server answered a round stored before under the same `client_event_id`. */
+  replayed: boolean;
 }

@@ -5662,9 +5662,13 @@
             "save": {
               "keys": "Ctrl + S",
               "does": "Save the plan."
+            },
+            "duplicate": {
+              "keys": "Ctrl + D / Cmd + D",
+              "does": "Duplicate the selection, offset by one grid step. Plants, tasks and planting spots are not copied."
             }
           },
-          "shortcutNote": "The single keys ?, G, +, − and 0 only work while the plan has the focus. Switch them off below if they get in your way (WCAG 2.1.4). Arrow keys, Page Down/Up, Delete, Esc as well as Ctrl + A, Ctrl + Z, Ctrl + Shift + Z, Ctrl + Y and Ctrl + S stay active. In text fields, Ctrl + Z and Ctrl + Y act on the field itself.",
+          "shortcutNote": "The single keys ?, G, +, − and 0 only work while the plan has the focus. Switch them off below if they get in your way (WCAG 2.1.4). Arrow keys, Page Down/Up, Delete, Esc as well as Ctrl + A, Ctrl + Z, Ctrl + Shift + Z, Ctrl + Y, Ctrl + S and Ctrl + D stay active. In text fields, Ctrl + Z and Ctrl + Y act on the field itself, and Ctrl + D duplicates nothing.",
           "singleKeyLabel": "Single-key shortcuts",
           "singleKeyHint": "Switch off to stop the keys ?, G, +, − and 0 from reacting. This help stays available through the “Keyboard help” button."
         },
@@ -5675,6 +5679,17 @@
           "label": "Label",
           "type": "Type: {{type}}",
           "notPlaced": "This bed is not placed on the plan yet.",
+          "waterSource": {
+            "title": "Water source",
+            "kind": "Kind of water source",
+            "capacity": "Capacity",
+            "capacityHelp": "For a rain barrel or a cistern. Used to work out how many days the supply lasts. Leave empty if unknown.",
+            "capacityInvalid": "Enter a capacity above 0 litres, or leave the field empty.",
+            "litres": "litres",
+            "lastRefilled": "Last refilled",
+            "lastRefilledHelp": "The day the source was last refilled. Leave empty if unknown.",
+            "lastRefilledFuture": "That day is in the future. Pick today or an earlier day."
+          },
           "lockedHint": "Locked: the values are read-only. Unlock the object to change it.",
           "locked": "Locked",
           "fields": {
@@ -5717,7 +5732,8 @@
           "lock": "Lock",
           "unlock": "Unlock",
           "selectAll": "Select all",
-          "multiDuplicate": "Duplicate several times"
+          "multiDuplicate": "Duplicate several times",
+          "duplicateShortcut": "Ctrl/Cmd + D"
         },
         "duplicate": {
           "name": "{{name}} (copy)"
@@ -5869,6 +5885,9 @@
             },
             "garden_object": {
               "not_plantable": "Plants cannot be placed on a garden object."
+            },
+            "water_source": {
+              "refilled_in_future": "The last refill of the water source is in the future. Pick today or an earlier day."
             },
             "batch": {
               "too_many_operations": "More than 500 changes are open. Save in between, or the server will not accept them.",
@@ -6311,11 +6330,13 @@
             "allocation": "Division over the beds",
             "allocationOption": {
               "by_area": "By bed area",
-              "equal": "Equal parts"
+              "equal": "Equal parts",
+              "by_demand": "By demand"
             },
             "allocationHelp": {
               "by_area": "Each bed gets a share by its area. Beds without an area are left out.",
-              "equal": "Each bed gets the same amount, whatever its area."
+              "equal": "Each bed gets the same amount, whatever its area.",
+              "by_demand": "Each bed gets a share by its calculated water demand on that day. Beds without a demand are left out."
             },
             "summary": "Note on the round",
             "marker": "The amount is divided over the beds and not measured. The log marks it that way.",
@@ -6330,7 +6351,18 @@
             "resultTitle": "Watering round saved",
             "resultMarker": "{{allocation}}: these amounts are divided, not measured.",
             "share": "{{bed}}: {{liters}} litres",
-            "skipped": "Left out because they have no area: {{beds}}."
+            "skipped": "Left out because they have no area: {{beds}}.",
+            "skippedNoDemand": "Left out because they have no water demand on that day: {{beds}}.",
+            "noBedDemand": "No bed of the zone has a calculated water demand on that day. Choose another division.",
+            "rainHeading": "Rain — round skipped",
+            "rainHelp": "It rained, so there is no watering today. One rain entry without an amount is saved for every bed of the zone. Open watering tasks stay open. The note above is used.",
+            "rainSkip": "Rain — skipped",
+            "rainConflict": "This round was already saved as skipped with a different note. Close the dialog and check the log.",
+            "rainChanged": "This round was already saved as skipped and has since been taken back or corrected in the log. Close the dialog and check the log.",
+            "rainResultTitle": "Round saved as skipped",
+            "rainResultMarker": "Rain entries without an amount. Open watering tasks stay open.",
+            "rainResultBeds_one": "Saved for {{count}} bed: {{beds}}.",
+            "rainResultBeds_other": "Saved for {{count}} beds: {{beds}}."
           },
           "bed": {
             "zone": "Irrigation zone: {{number}}. {{name}}",

@@ -883,6 +883,8 @@ _ZONE_KEYED_WRITES = (
     "IrrigationZoneService.replace_locations",
     # WP 7.3 (#2469): the watering round loads the zone by key and writes care events for its beds.
     "IrrigationZoneService.log_watering",
+    # WP 9.13 (#2753): "rain - skipped" loads the zone by key and writes one rainfall event per bed.
+    "IrrigationZoneService.log_rain_skipped",
 )
 
 

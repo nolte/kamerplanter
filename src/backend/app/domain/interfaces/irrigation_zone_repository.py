@@ -70,12 +70,19 @@ class IIrrigationZoneRepository(ABC):
 
     @abstractmethod
     def bed_demands(
-        self, site_key: SiteKey, location_keys: list[LocationKey], *, tenant_key: str, on_date: date
+        self,
+        site_key: SiteKey,
+        location_keys: list[LocationKey],
+        *,
+        tenant_key: str,
+        on_date: date,
+        lookback_days: int = 0,
     ) -> list[BedDemand]:
-        """The REQ-037 demand of ``on_date`` for the run standing in each of ``location_keys``, one per bed.
+        """The REQ-037 demand for the run standing in each of ``location_keys``, **one per bed**.
 
-        A bed without a demand for that day is absent. Where several runs share a bed the one with the larger
-        litres is taken (a mixed bed is not divided by area share yet, GP-FR-113).
+        Read from the days ``on_date - lookback_days`` … ``on_date``; per bed the newest day wins (``demand_date``
+        says which). A bed without a demand in the window is absent. Where several runs share a bed on that day the
+        one with the larger litres is taken (a mixed bed is not divided by area share yet, GP-FR-113).
         """
 
     @abstractmethod

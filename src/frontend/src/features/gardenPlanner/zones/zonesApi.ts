@@ -1,6 +1,8 @@
 import { tenantClient } from '@/api/client';
 import type {
   IrrigationZone,
+  RainSkippedRequest,
+  RainSkippedResult,
   WateringRoundRequest,
   WateringRoundResult,
   ZoneCreate,
@@ -54,5 +56,11 @@ export async function logZoneWatering(
   body: WateringRoundRequest,
 ): Promise<WateringRoundResult> {
   const { data } = await tenantClient.post<WateringRoundResult>(`/irrigation-zones/${zoneKey}/log-watering`, body);
+  return data;
+}
+
+/** "Rain - skipped" (GP-FR-117): `201` for a new round, `200` for a replay of the same `client_event_id` - both resolve. */
+export async function logZoneRainSkipped(zoneKey: string, body: RainSkippedRequest): Promise<RainSkippedResult> {
+  const { data } = await tenantClient.post<RainSkippedResult>(`/irrigation-zones/${zoneKey}/rain-skipped`, body);
   return data;
 }

@@ -20,6 +20,8 @@ from app.domain.models.irrigation_zone import (
     IrrigationZoneView,
     ZoneCoverageChange,
     ZoneLocationsInput,
+    ZoneRainSkippedInput,
+    ZoneRainSkippedResult,
     ZoneStatusView,
     ZoneWateringInput,
     ZoneWateringResult,
@@ -152,6 +154,50 @@ class IrrigationZoneLogWatering(ZoneWateringInput):
         json_schema_extra={
             "examples": [{"volume_liters": 60, "allocation": "by_area", "summary": "Morning round, drip line"}]
         },
+    )
+
+
+class IrrigationZoneRainSkipped(ZoneRainSkippedInput):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"summary": "12 mm overnight, beds are wet", "client_event_id": "6f1c2a3e-8d4b-4c5e-9f00-1a2b3c4d5e6f"}
+            ]
+        },
+    )
+
+
+class IrrigationZoneRainSkippedResponse(BaseModel):
+    """GP-FR-117 "rain - skipped": one `rainfall` event per bed, without a quantity; no task was closed."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "event_keys": ["ce_1", "ce_2"],
+                    "location_keys": ["loc_bed_1", "loc_bed_2"],
+                    "performed_at": "2026-10-19T06:30:00Z",
+                    "replayed": False,
+                }
+            ]
+        }
+    )
+
+    event_keys: list[str]
+    #: The bed of each event, in the order of `event_keys`.
+    location_keys: list[str]
+    performed_at: datetime
+    #: `true` when `client_event_id` named a round stored before: nothing was written by this request.
+    replayed: bool = False
+
+
+def zone_rain_skipped_to_response(result: ZoneRainSkippedResult) -> IrrigationZoneRainSkippedResponse:
+    return IrrigationZoneRainSkippedResponse(
+        event_keys=list(result.event_keys),
+        location_keys=list(result.location_keys),
+        performed_at=result.performed_at,
+        replayed=result.replayed,
     )
 
 

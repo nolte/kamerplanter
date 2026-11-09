@@ -5663,9 +5663,13 @@
             "save": {
               "keys": "Strg + S",
               "does": "Speichert den Plan."
+            },
+            "duplicate": {
+              "keys": "Strg + D / Cmd + D",
+              "does": "Dupliziert die Auswahl um einen Rasterschritt versetzt. Pflanzen, Aufgaben und Pflanzplätze werden nicht kopiert."
             }
           },
-          "shortcutNote": "Die Einzeltasten ?, G, +, − und 0 reagieren nur, solange der Plan den Fokus hat. Schalte sie unten aus, wenn sie dich stören (WCAG 2.1.4). Pfeiltasten, Bild ab/auf, Entf, Esc sowie Strg + A, Strg + Z, Strg + Umschalt + Z, Strg + Y und Strg + S bleiben aktiv. Strg + Z und Strg + Y gelten in Textfeldern für das Feld selbst.",
+          "shortcutNote": "Die Einzeltasten ?, G, +, − und 0 reagieren nur, solange der Plan den Fokus hat. Schalte sie unten aus, wenn sie dich stören (WCAG 2.1.4). Pfeiltasten, Bild ab/auf, Entf, Esc sowie Strg + A, Strg + Z, Strg + Umschalt + Z, Strg + Y, Strg + S und Strg + D bleiben aktiv. Strg + Z und Strg + Y gelten in Textfeldern für das Feld selbst, Strg + D dupliziert dort nichts.",
           "singleKeyLabel": "Einzeltasten-Kürzel",
           "singleKeyHint": "Schalte sie aus, damit die Tasten ?, G, +, − und 0 nicht reagieren. Diese Hilfe bleibt über die Schaltfläche „Tastaturhilfe“ erreichbar."
         },
@@ -5676,6 +5680,17 @@
           "label": "Bezeichnung",
           "type": "Typ: {{type}}",
           "notPlaced": "Dieses Beet ist noch nicht auf dem Plan platziert.",
+          "waterSource": {
+            "title": "Wasserquelle",
+            "kind": "Art der Wasserquelle",
+            "capacity": "Fassungsvermögen",
+            "capacityHelp": "Für Regentonne oder Zisterne. Daraus wird berechnet, wie viele Tage der Vorrat reicht. Leer lassen, wenn unbekannt.",
+            "capacityInvalid": "Gib ein Fassungsvermögen über 0 Litern ein oder lass das Feld leer.",
+            "litres": "Liter",
+            "lastRefilled": "Zuletzt aufgefüllt",
+            "lastRefilledHelp": "Tag, an dem die Quelle zuletzt aufgefüllt wurde. Leer lassen, wenn unbekannt.",
+            "lastRefilledFuture": "Der Tag liegt in der Zukunft. Wähle heute oder einen früheren Tag."
+          },
           "lockedHint": "Gesperrt: Die Werte sind schreibgeschützt. Entsperre das Objekt, um es zu ändern.",
           "locked": "Gesperrt",
           "fields": {
@@ -5718,7 +5733,8 @@
           "lock": "Sperren",
           "unlock": "Entsperren",
           "selectAll": "Alle auswählen",
-          "multiDuplicate": "Mehrfach duplizieren"
+          "multiDuplicate": "Mehrfach duplizieren",
+          "duplicateShortcut": "Strg/Cmd + D"
         },
         "duplicate": {
           "name": "{{name}} (Kopie)"
@@ -5870,6 +5886,9 @@
             },
             "garden_object": {
               "not_plantable": "Auf ein Gartenobjekt lassen sich keine Pflanzen setzen."
+            },
+            "water_source": {
+              "refilled_in_future": "Die letzte Auffüllung der Wasserquelle liegt in der Zukunft. Wähle heute oder einen früheren Tag."
             },
             "batch": {
               "too_many_operations": "Es sind mehr als 500 Änderungen offen. Speichere zwischendurch, sonst nimmt der Server sie nicht an.",
@@ -6312,11 +6331,13 @@
             "allocation": "Verteilung auf die Beete",
             "allocationOption": {
               "by_area": "Nach Beetfläche",
-              "equal": "Zu gleichen Teilen"
+              "equal": "Zu gleichen Teilen",
+              "by_demand": "Nach Bedarf"
             },
             "allocationHelp": {
               "by_area": "Jedes Beet bekommt einen Anteil nach seiner Fläche. Beete ohne Fläche bleiben außen vor.",
-              "equal": "Jedes Beet bekommt gleich viel, unabhängig von der Fläche."
+              "equal": "Jedes Beet bekommt gleich viel, unabhängig von der Fläche.",
+              "by_demand": "Jedes Beet bekommt einen Anteil nach seinem berechneten Wasserbedarf an diesem Tag. Beete ohne Bedarf bleiben außen vor."
             },
             "summary": "Notiz zur Runde",
             "marker": "Die Menge wird auf die Beete verteilt und nicht gemessen. Das Protokoll kennzeichnet das so.",
@@ -6331,7 +6352,18 @@
             "resultTitle": "Gießrunde gespeichert",
             "resultMarker": "{{allocation}}: Diese Mengen sind verteilt, nicht gemessen.",
             "share": "{{bed}}: {{liters}} Liter",
-            "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}."
+            "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}.",
+            "skippedNoDemand": "Nicht berücksichtigt, weil ohne Wasserbedarf an diesem Tag: {{beds}}.",
+            "noBedDemand": "Für kein Beet der Zone ist an diesem Tag ein Wasserbedarf berechnet. Wähle eine andere Verteilung.",
+            "rainHeading": "Regen — Runde übersprungen",
+            "rainHelp": "Es hat geregnet, deshalb wird heute nicht gegossen. Für jedes Beet der Zone wird ein Regen-Eintrag ohne Menge gespeichert. Offene Gieß-Aufgaben bleiben offen. Die Notiz oben wird übernommen.",
+            "rainSkip": "Regen — übersprungen",
+            "rainConflict": "Diese Runde wurde schon mit einer anderen Notiz als übersprungen gespeichert. Schließe den Dialog und sieh im Protokoll nach.",
+            "rainChanged": "Diese Runde wurde schon als übersprungen gespeichert und seither im Protokoll zurückgenommen oder korrigiert. Schließe den Dialog und sieh im Protokoll nach.",
+            "rainResultTitle": "Runde als übersprungen gespeichert",
+            "rainResultMarker": "Regen-Einträge ohne Menge. Offene Gieß-Aufgaben bleiben offen.",
+            "rainResultBeds_one": "Eingetragen für {{count}} Beet: {{beds}}.",
+            "rainResultBeds_other": "Eingetragen für {{count}} Beete: {{beds}}."
           },
           "bed": {
             "zone": "Bewässerungszone: {{number}}. {{name}}",

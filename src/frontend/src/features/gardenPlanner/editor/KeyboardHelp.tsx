@@ -33,6 +33,7 @@ const KEYS = [
   'undo',
   'redo',
   'save',
+  'duplicate',
 ] as const;
 
 interface KeyboardHelpProps {
