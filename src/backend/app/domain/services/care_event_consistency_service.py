@@ -116,6 +116,9 @@ class CareEventConsistencyService:
                 report.no_timestamp += 1
                 continue
             anchor = resolve_anchor(row, source)
+            if anchor is SkipReason.INACTIVE_TENANT:
+                report.skipped_inactive_tenant += 1
+                continue
             if isinstance(anchor, SkipReason):
                 report.without_bed[source] += 1
                 continue

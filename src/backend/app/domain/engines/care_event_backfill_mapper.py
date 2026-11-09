@@ -31,6 +31,7 @@ from enum import StrEnum
 from typing import Any
 
 from app.common.datetimes import replace_year
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.models.care_event import CARE_EVENT_UNITS, CareEvent
 
 WATERING_EVENTS = "watering_events"
@@ -130,6 +131,9 @@ class SkipReason(StrEnum):
     SITE_WITHOUT_TENANT = "site_without_tenant"
     #: The document, one of its plants or the bed's site belong to different tenants (or the document has none).
     TENANT_MISMATCH = "tenant_mismatch"
+    #: The bed's tenant is not ``active`` (suspended, pending deletion, orphaned): nothing is written into it
+    #: (REQ-056 §5.2, the gate the consistency job applies too).
+    INACTIVE_TENANT = "inactive_tenant"
     #: A reminder type no category is mapped for (a confirmation of a type added after this mapping).
     UNMAPPED_CATEGORY = "unmapped_category"
 
@@ -180,7 +184,11 @@ def account_of(document: dict[str, Any], collection: str) -> str | None:
     """The account the source names as the one who recorded it; ``None`` for a source without an account reference."""
     field = ACCOUNT_FIELDS[collection]
     value = document.get(field) if field else None
-    return value if isinstance(value, str) and value.strip() else None
+    if not isinstance(value, str) or not value.strip():
+        return None
+    # An erased account's reference is its tombstone hash (``anon_<16hex>``): the care log carries the fixed marker
+    # instead (GP-NFR-055), so the pseudonym is not copied into a five-year log where no erasure rule reaches it.
+    return ANONYMIZED_MARKER if ErasureEngine.is_tombstone(value) else value
 
 
 def resolve_anchor(row: dict[str, Any], collection: str | None = None) -> BedAnchor | SkipReason:
@@ -225,6 +233,9 @@ def resolve_anchor(row: dict[str, Any], collection: str | None = None) -> BedAnc
         return SkipReason.TENANT_MISMATCH
     if any(ref["plant_tenant"] != site_tenant for ref in plants):
         return SkipReason.TENANT_MISMATCH
+    # Last, so it only reclassifies a document that would otherwise be written: every other reason stays as it was.
+    if bed.get("site_tenant_active") is False:
+        return SkipReason.INACTIVE_TENANT
     return BedAnchor(
         tenant_key=str(site_tenant),
         site_key=str(bed["site_key"]),
@@ -268,6 +279,7 @@ def map_document(
     performed_by_user_key: str | None = None,
     quantity: float | None = None,
     unit: str | None = None,
+    created_by: str | None = None,
 ) -> CareEvent:
     """The care event that logs ``document`` in ``anchor``'s bed; reads nothing but its arguments.
 
@@ -291,6 +303,7 @@ def map_document(
         performed_at=performed_at,
         performed_by_user_key=performed_by_user_key or account_of(document, collection),
         trigger=trigger,
+        created_by=created_by,
         source_ref={"collection": collection, "key": str(key)},
         **quantity_fields,
     )

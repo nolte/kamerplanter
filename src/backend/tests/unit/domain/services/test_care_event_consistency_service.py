@@ -125,6 +125,19 @@ def test_a_tenant_that_is_not_active_is_left_alone() -> None:
     assert service.run(now=NOW, window_days=7).hits == 2
 
 
+def test_a_tenant_the_scan_reports_inactive_counts_as_skipped_not_as_without_bed() -> None:
+    # #2770: the shared scan now flags a stored tenant that is not active; the job keeps its own counter for it
+    row = _row("closed")
+    row["locations"][0]["site_tenant_active"] = False
+    service, _, events = _service({"watering_events": [row]}, active={"t1"})
+
+    report = service.run(now=NOW, window_days=7)
+
+    assert events.events == {}
+    assert report.skipped_inactive_tenant == 1
+    assert report.without_bed["watering_events"] == 0
+
+
 def test_a_source_without_a_resolvable_bed_is_counted_and_never_written() -> None:
     rows = {"watering_events": [_row("nobed", plant=None), _row("cross", tenant="t2")]}
     service, _, events = _service(rows, active={"t1", "t2"})
