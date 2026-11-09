@@ -291,25 +291,25 @@ Compliance.
 
 ```mermaid
 flowchart LR
-    E01[P0 E01 #2770] --> E04[P0 E04 v0107]
-    E03[P0 E03 constants+residue] --> E04
-    E02[P0 E02 closed-name] --> E05
-    E03 --> E05[P1 E05 registry+PersonRef]
-    E05 --> E06[P1 E06 former member]
-    E05 --> E07[P1 E07 review queue]
-    E05 --> E08[P1 E08 visibility]
-    E05 --> E09[P1 E09 record_keeping]
-    E10[P1 E10 offline revocation] --> E11[P2 E11 device retention]
-    E06 --> E12[P2 E12 attribution removal]
+    E01["P0 E01 (Issue 2770)"] --> E04["P0 E04 v0107"]
+    E03["P0 E03 constants+residue"] --> E04
+    E02["P0 E02 closed-name"] --> E05
+    E03 --> E05["P1 E05 registry+PersonRef"]
+    E05 --> E06["P1 E06 former member"]
+    E05 --> E07["P1 E07 review queue"]
+    E05 --> E08["P1 E08 visibility"]
+    E05 --> E09["P1 E09 record_keeping"]
+    E10["P1 E10 offline revocation"] --> E11["P2 E11 device retention"]
+    E06 --> E12["P2 E12 attribution removal"]
     E07 --> E12
     E09 --> E12
-    E05 --> E13[P2 E13 retention rows]
-    E03 --> E14[P2 E14 backups]
+    E05 --> E13["P2 E13 retention rows"]
+    E03 --> E14["P2 E14 backups"]
     E07 --> E14
-    E03 --> E15[P3 E15 observability]
+    E03 --> E15["P3 E15 observability"]
     E07 --> E15
-    E05 --> E17[P3 E17 DPIA/RoPA]
-    E16[P3 E16 spec changes]
+    E05 --> E17["P3 E17 DPIA/RoPA"]
+    E16["P3 E16 spec changes"]
 ```
 
 Vorgeschlagene Lane-Reihenfolge im seriellen Merge-Zug: E01 → E03 → E02 → E04 → E05 → E10 →

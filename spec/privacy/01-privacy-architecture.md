@@ -286,8 +286,8 @@ Konsistenzjob gemeldet, `04` §6) und als `erased` dargestellt werden.
 ```mermaid
 stateDiagram-v2
     [*] --> Active: registration (personal tenant auto-created)
-    Active --> Closed: POST /privacy/erasure or DELETE /users/me<br/>(step-up; is_active=false, password_hash=null, sessions revoked,<br/>organisations settled, members notified)
-    Closed --> Erased: retention.execute_scheduled_erasures<br/>(R-01, default 90 d; admin path immediate)
+    Active --> Closed: POST /privacy/erasure or DELETE /users/me<br/>(step-up, is_active=false, password_hash=null, sessions revoked,<br/>organisations settled, members notified)
+    Closed --> Erased: retention.execute_scheduled_erasures<br/>(R-01, default 90 d, admin path immediate)
     Erased --> Erased: retry (partially_completed → backoff 1,2,4,7 d, escalation at 5)
     Erased --> [*]: erasure_requests purged (R-06, 3 y, only if user_key is a tombstone)
 
@@ -297,8 +297,8 @@ stateDiagram-v2
       → PRIV-104 unterdrückt ihn bei Closed.
     end note
     note right of Erased
-      users-Zeile entfernt; geteilte Zeilen tragen _anonymized;
-      gesetzliche/Audit-Zeilen tragen anon_<hash>;
+      users-Zeile entfernt, geteilte Zeilen tragen _anonymized,
+      gesetzliche/Audit-Zeilen tragen anon_<hash>,
       Freitext über privacy_review_items (neu) geprüft.
     end note
 ```
@@ -310,9 +310,9 @@ stateDiagram-v2
     [*] --> Invited: invitation (e-mail or link)
     Invited --> Member: accept (joined_at)
     Member --> Member: role / scope change (security_audit_log)
-    Member --> Former: leave / remove / admin remove<br/>(membership row deleted; task assignee cleared;<br/>calendar feeds deleted; INV-1 guard)
+    Member --> Former: leave / remove / admin remove<br/>(membership row deleted, task assignee cleared,<br/>calendar feeds deleted, INV-1 guard)
     Former --> Member: rejoin (new membership, new joined_at)
-    Former --> Suppressed: RETENTION_FORMER_MEMBER_NAME_DAYS elapsed<br/>(display state former_member; key kept) [Vorschlag, LEG-06]
+    Former --> Suppressed: RETENTION_FORMER_MEMBER_NAME_DAYS elapsed<br/>(display state former_member, key kept) [Vorschlag, LEG-06]
     Member --> Erased: account erasure (membership deleted, rows → marker)
     Former --> Erased: account erasure
     Suppressed --> Erased: account erasure
@@ -387,7 +387,7 @@ sequenceDiagram
     TS->>MR: delete(membership) (+ edges, location_assignments)
     TS->>SA: MEMBERSHIP_REMOVED | MEMBERSHIP_LEFT (old_role, old_scopes)
     TS->>TS: _end_membership: clear task assignee, delete calendar feeds
-    Note over REG: ★ kein Schreibvorgang; resolve_display leitet<br/>former_member aus „Schlüssel vorhanden, keine aktive Mitgliedschaft" ab<br/>und unterdrückt den Namen nach RETENTION_FORMER_MEMBER_NAME_DAYS
+    Note over REG: ★ kein Schreibvorgang, resolve_display leitet<br/>former_member aus „Schlüssel vorhanden, keine aktive Mitgliedschaft" ab<br/>und unterdrückt den Namen nach RETENTION_FORMER_MEMBER_NAME_DAYS
 ```
 
 ### 6.3 Schwärzungsprüfung (neu)
