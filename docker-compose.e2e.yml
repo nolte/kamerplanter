@@ -218,6 +218,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -245,6 +248,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -272,6 +278,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -496,6 +505,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend-full:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: full
     depends_on:
       frontend-full:
@@ -540,6 +552,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: mobile
       KAMERPLANTER_MODE: light
     depends_on:
@@ -570,6 +585,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: tablet
       KAMERPLANTER_MODE: light
     depends_on:
@@ -600,6 +618,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend-full:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: mobile
       KAMERPLANTER_MODE: full
     depends_on:
@@ -630,6 +651,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend-full:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: tablet
       KAMERPLANTER_MODE: full
     depends_on:

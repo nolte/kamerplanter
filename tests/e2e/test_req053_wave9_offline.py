@@ -72,6 +72,7 @@ from ._offline_helpers import (
     app_manifest,
     browser_now_ms,
     cache_names,
+    cdp,
     indexeddb_database_names,
     navigation_entry,
     navigator_online,
@@ -85,8 +86,12 @@ from ._offline_helpers import (
     worker_state,
 )
 from .pages.bed_site_page import BedPhotosTab
+from .pages.bed_view_page import BedViewPage
 from .pages.field_mode_page import set_phone_viewport
 from .pages.offline_page import AccountMenu, OfflineFieldMode, OfflinePlanPage, OfflineSyncHost
+
+#: Every case switches the network or reads browser storage over CDP (``_offline_helpers.cdp``): Chrome only.
+pytestmark = pytest.mark.requires_chrome
 
 #: "Ohne Verbindung: Du siehst den Stand von {{time}}." (``pages.gardenPlan.offline.cachedAt``), time as HH:MM.
 CACHED_BANNER = re.compile(r"^Ohne Verbindung: Du siehst den Stand von .*\d{1,2}:\d{2}.*\.$")
@@ -162,7 +167,6 @@ def _own_account(browser: WebDriver, base_url: str) -> dict:
     import time
     import uuid
 
-    from ._auth_helpers import clear_auth_session
     from ._journey_helpers import _api_request
     from .conftest import _browser_login
 
@@ -188,9 +192,21 @@ def _own_account(browser: WebDriver, base_url: str) -> dict:
     assert status in (200, 204), (
         f"Self-provisioning failed: onboarding/skip answered {status}: {body!r}"
     )
-    clear_auth_session(browser)
+    # Every cookie, whatever its path: the demo session's refresh cookie is scoped to /api/v1/auth, which
+    # WebDriver's delete_all_cookies does not reach from another page - and ``execute_cdp_cmd`` does not exist on
+    # the Grid's Remote driver. Left behind, the app would refresh into the demo session and the case would log
+    # out the account every parallel worker provisions with.
+    cdp(browser, "Network.clearBrowserCookies")
     _browser_login(browser, base_url, email, password)
-    return {"access_token": token, "tenant_slug": slug, "_fresh_token": (token, time.time())}
+    signed_in = AccountMenu(browser, base_url).signed_in_email()
+    assert signed_in == email, f"the browser should be signed in as {email!r}, it is {signed_in!r}"
+    return {
+        "access_token": token,
+        "tenant_slug": slug,
+        "email": email,
+        "password": password,
+        "_fresh_token": (token, time.time()),
+    }
 
 
 def _garden_with_task(base_url: str, seed: dict, purpose: str, task_name: str):
@@ -207,13 +223,15 @@ def _cache_sheet_then_go_offline(
 ) -> str:
     """Open the bed sheet online (its copy lands in IndexedDB), close it, go offline, open it from the cache.
 
-    Returns the sheet's "Stand von" banner. The offline half starts only once the cached record exists.
+    Returns the sheet's "Stand von" banner. The offline half starts only once the cached record exists and the
+    sheet reports the offline capture code as loaded (``data-offline-capture-ready``).
     """
     field.open(site_key)
     field.tap_bed(bed)
     wait_for_cached_record(
         field.driver, PLAN_CACHE_DB, "bedSheets", bed, f"{what}: the sheet cached online"
     )
+    field.wait_for_offline_capture_ready(what)
     field.close_sheet()
     set_network_offline(field.driver, True)
     return field.tap_bed_offline(bed, what)
@@ -562,6 +580,12 @@ def test_tc_053_088_bed_photo_is_buffered_offline_and_reaches_the_gallery(
     )
     screenshot("053_088_02_photo_synced", "Wieder online: Foto übertragen")
 
+    BedViewPage(browser, base_url).open(bed, "photos")
+    synced_id = gallery["photos"][0]["attachment_id"]
+    assert photos.wait_for_photo_count(1, "TC-053-088: the bed's gallery") == [synced_id]
+    photos.wait_for_cover(synced_id, "TC-053-088: the gallery")
+    screenshot("053_088_03_gallery", "Galerie des Beets: genau ein Foto, als Titelbild markiert")
+
 
 # ── TC-053-089 ──────────────────────────────────────────────────────────────
 
@@ -588,7 +612,12 @@ def test_tc_053_089_task_closed_meanwhile_opens_the_conflict_dialog(
     field.tap_done(task)
     field.tap_finish("TC-053-089: 'Fertig' offline")
     host.wait_for_queue_chip("1 nicht übertragen", "TC-053-089: the completion waits")
+    # The buffered completion is captured by now (the chip counts it): every instant it can carry lies before
+    # this mark. The other device closes the task strictly after it.
+    captured_by = browser_now_ms(browser)
     other_device_at = browser_now_ms(browser)
+    while other_device_at <= captured_by:
+        other_device_at = browser_now_ms(browser)
     complete_task_via_api(base_url, e2e_seed_data, task)
 
     set_network_offline(browser, False)
@@ -610,7 +639,7 @@ def test_tc_053_089_task_closed_meanwhile_opens_the_conflict_dialog(
     )
     # The buffered "Erledigt" was captured before the other device closed the task; the stored completion is
     # the other device's - timed at or after its close, never at the earlier capture time.
-    assert _instant_ms(completions[0]["performed_at"]) >= other_device_at - 1000, (
+    assert _instant_ms(completions[0]["performed_at"]) >= other_device_at, (
         f"TC-053-089: the stored completion is the other device's, not the buffered one: {completions[0]}"
     )
     assert task_state(base_url, e2e_seed_data, task)["status"] == "completed"

@@ -9,14 +9,17 @@
 * :class:`AccountMenu` - "Abmelden" in the app bar's account menu (full mode).
 
 Hooks: ``data-testid`` only, every one of them present in ``src/frontend/src/features/gardenPlanner/offline/``,
-``.../field/`` or ``src/layouts/MainLayout.tsx`` (``account-menu-button``, ``menu-logout``). State-changing helpers read their effect back and fail loudly when
-it never arrives (`e2e-test-stability` §D); there is no retry loop and no sleep.
+``.../field/`` or ``src/layouts/MainLayout.tsx`` (``account-menu-button``, ``account-menu-email``,
+``menu-logout``). State-changing helpers read their effect back and fail loudly when it never arrives
+(`e2e-test-stability` §D); there is no retry loop and no sleep.
 """
 
 from __future__ import annotations
 
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
@@ -149,6 +152,24 @@ class OfflineFieldMode(FieldModePage):
     NOTE_DIALOG = _tid("care-log-dialog")
     NOTE_FIELD = _tid("care-log-note")
     NOTE_SUBMIT = _tid("care-log-submit")
+
+    def wait_for_offline_capture_ready(self, what: str) -> None:
+        """Wait until the open sheet loaded what an offline capture needs (``data-offline-capture-ready``).
+
+        The buffer's code and the note/photo dialogs are lazy chunks the sheet loads while online
+        (``preloadOfflineCapture``); going offline before that would test a race, not the buffer.
+        """
+        try:
+            self.poll(timeout=30).until(
+                lambda d: (
+                    d.find_element(*self.SHEET).get_attribute("data-offline-capture-ready")
+                    == "true"
+                )
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the sheet never reported its offline capture code as loaded"
+            ) from exc
 
     def tap_bed_offline(self, bed_key: str, what: str) -> str:
         """Tap a bed row while offline; return the sheet's "Stand von" banner once the cached sheet is shown."""
@@ -302,6 +323,23 @@ class AccountMenu(BasePage):
     MENU_BUTTON = _tid("account-menu-button")
     LOGOUT_ITEM = _tid("menu-logout")
     LOGIN_EMAIL = (By.CSS_SELECTOR, "input[type='email']")
+
+    EMAIL = _tid("account-menu-email")
+
+    def signed_in_email(self) -> str:
+        """The e-mail the account menu names (the signed-in user); the menu is closed again (Escape)."""
+        self.wait_and_click(self.MENU_BUTTON)
+        try:
+            self.wait_for_element_visible(self.LOGOUT_ITEM)
+        except TimeoutException as exc:
+            raise AssertionError("the account menu did not open") from exc
+        email = _text(self.wait_for_element(self.EMAIL))
+        ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+        try:
+            self.wait_for_element_hidden(self.LOGOUT_ITEM)
+        except TimeoutException as exc:
+            raise AssertionError("the account menu did not close on Escape") from exc
+        return str(email or "")
 
     def logout(self, what: str) -> None:
         """Open the account menu, choose "Abmelden"; return once the login form is on screen."""

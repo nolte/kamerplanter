@@ -306,7 +306,12 @@ export function ZoneEditor({
         label={t(`${PREFIX}.form.waterSource`)}
         value={source}
         onChange={(event) => setSource(event.target.value)}
-        slotProps={{ select: { native: true }, htmlInput: { 'data-testid': 'garden-plan-zone-water-source' } }}
+        // The empty choice shows "Keine Wasserquelle": the label stays shrunk above it instead of overlaying it.
+        slotProps={{
+          select: { native: true },
+          inputLabel: { shrink: true },
+          htmlInput: { 'data-testid': 'garden-plan-zone-water-source' },
+        }}
         sx={{ '& select': { minHeight: 48, boxSizing: 'border-box', display: 'flex', alignItems: 'center' } }}
       >
         <option value="">{t(`${PREFIX}.form.waterSourceNone`)}</option>

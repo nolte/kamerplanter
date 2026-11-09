@@ -221,7 +221,7 @@ export default function MainLayout() {
               >
                 <Box sx={{ px: 2, py: 1 }}>
                   <Typography variant="subtitle2">{user?.display_name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" data-testid="account-menu-email">
                     {user?.email}
                   </Typography>
                 </Box>

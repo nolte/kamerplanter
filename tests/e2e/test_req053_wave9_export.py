@@ -189,6 +189,7 @@ def test_tc_053_091_png_is_factor_times_the_fitted_view_box(
     export.open_with_format(plan, "png")
     export.choose_png_factor(1)
     export.wait_for_png_summary(PNG_SUMMARY.format(w=one[0], h=one[1]), "TC-053-091: 1x")
+    screenshot("053_091_02_png_dialog_1x", "Export als PNG, 1×: 1200 × 655 Pixel")
     single = export.download_file("TC-053-091: the 1x PNG")
     assert png_size(single["data"]) == one, (
         f"TC-053-091: the 1x PNG is {png_size(single['data'])}, expected {one}"
@@ -196,7 +197,7 @@ def test_tc_053_091_png_is_factor_times_the_fitted_view_box(
     assert png_size(saved["data"])[0] == 2 * png_size(single["data"])[0], (
         "TC-053-091: the width scales with the factor"
     )
-    screenshot("053_091_02_after_downloads", "Nach zwei PNG-Downloads (2× und 1×)")
+    screenshot("053_091_03_after_downloads", "Nach zwei PNG-Downloads (2× und 1×)")
 
 
 # ── TC-053-092 ──────────────────────────────────────────────────────────────
@@ -262,6 +263,7 @@ def test_tc_053_092_template_exported_without_keys_and_imported_back(
     assert f"Name: {proposed}" in plan.import_report_text(), (
         f"TC-053-092: {plan.import_report_text()!r}"
     )
+    screenshot("053_092_03_report", "Erneut geprüft: Prüfbericht mit dem vorgeschlagenen Namen")
     plan.confirm_import("TC-053-092: 'Importieren'")
     plan.wait_for_template_notice(TEMPLATE_IMPORTED, "TC-053-092: after the import")
 
@@ -274,7 +276,14 @@ def test_tc_053_092_template_exported_without_keys_and_imported_back(
         assert copy[field] == original[field], (
             f"TC-053-092: {field} survives the round trip: {copy[field]!r} != {original[field]!r}"
         )
-    screenshot("053_092_03_imported", "Vorlage importiert und ausgewählt")
+    screenshot("053_092_04_imported", "Vorlage importiert und ausgewählt")
+    labels = plan.open_template_options()
+    named = [label for label in labels if original["name"] in label]
+    assert len(named) >= 2 and any(proposed in label for label in named), (
+        f"TC-053-092: the picker lists the original and the copy: {labels}"
+    )
+    screenshot("053_092_05_template_list", "Vorlagenliste: Original und importierte Kopie")
+    plan.close_template_options()
 
 
 # ── TC-053-093 ──────────────────────────────────────────────────────────────
@@ -314,6 +323,10 @@ def test_tc_053_093_parcel_page_only_with_its_opt_in(
         "TC-053-093: no assignment switch without the parcel list"
     )
     assert export.text_of(export.PRIVACY) == PRIVACY_DEFAULT, export.text_of(export.PRIVACY)
+    screenshot(
+        "053_093_00_default",
+        "PDF-Export im Ausgangszustand: Parzellenliste aus, kein Zuweisungs-Schalter",
+    )
     plain = pdf_outline_titles(export.download_file("TC-053-093: the PDF without opt-in")["data"])
     assert plan_heading in plain, f"TC-053-093: the PDF's bookmarks were read: {plain}"
     assert parcel_heading not in plain, f"TC-053-093: no parcel page without the opt-in: {plain}"
@@ -417,6 +430,7 @@ def test_tc_053_094_site_flags_in_the_panel_and_as_the_head_chip(
     dialog.toggle("flags", "allelopathy_risk")
     dialog.save_and_wait_closed("TC-053-094: one flag left")
     head.wait_for_site_flags_badge("Wurzelkonkurrenz am Standort gemeldet", "TC-053-094: one flag")
+    screenshot("053_094_03_chip_one", "Kopf des Beets: Chip nur mit Wurzelkonkurrenz")
     assert site_conditions(base_url, e2e_seed_data, bed).get("flags") == ["root_competition"]
 
     head.open_site_dialog()
@@ -427,7 +441,7 @@ def test_tc_053_094_site_flags_in_the_panel_and_as_the_head_chip(
     )
     head.open(bed, "soil")
     assert head.site_flags_badge() is None, "TC-053-094: without a flag the chip is gone"
-    screenshot("053_094_03_chip_gone", "Ohne Meldung kein Chip")
+    screenshot("053_094_04_chip_gone", "Ohne Meldung kein Chip")
 
 
 # ── TC-053-095 ──────────────────────────────────────────────────────────────
@@ -516,6 +530,9 @@ def test_tc_053_095_nearest_water_source_in_list_head_and_csv(
     head.open(legacy, "soil")
     assert head.head_water_source() is None, (
         "TC-053-095: a bed without geometry has no distance in the head"
+    )
+    screenshot(
+        "053_095_03_head_legacy", "Kopf von Beet Alt (ohne Geometrie): keine Wasserquellen-Angabe"
     )
 
 

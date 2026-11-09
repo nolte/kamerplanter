@@ -66,24 +66,13 @@ import { photoAsSent, photoForQueue, withGenericName } from '../offline/queuedPh
 // network failure, so the buffer fallback with the same id is reached.
 import { PHOTO_SEND_TIMEOUT_MS, SEND_TIMEOUT_MS } from '../offline/sync';
 import type { QueueEntry, QueuedWrite, StoredPhoto } from '../offline/queueTypes';
+import { preloadOfflineCapture } from '../offline/preloadOfflineCapture';
 import { useWriteQueue } from '../offline/useWriteQueue';
 
-const loadCareLogDialog = () => import('../care/CareLogDialog');
-const loadPhotoUploadDialog = () => import('@/components/photos/PlantPhotoUploadDialog');
-const CareLogDialog = lazy(loadCareLogDialog);
+const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
 const PlantingDialog = lazy(() => import('../planting/PlantingDialog'));
 const PositionCorrectionDialog = lazy(() => import('../planting/PositionCorrectionDialog'));
-const PlantPhotoUploadDialog = lazy(loadPhotoUploadDialog);
-
-/**
- * The dialogs of the two bufferable actions besides "Done" (the note, the photo) are lazy chunks. Offline a chunk
- * that was never loaded cannot be fetched (the worker caches lazy chunks only on first use), and the sheet fell
- * into the error page on the first offline note. Loaded once while the buffer is usable and the device online.
- */
-function preloadBufferedDialogs(): void {
-  void loadCareLogDialog().catch(() => undefined);
-  void loadPhotoUploadDialog().catch(() => undefined);
-}
+const PlantPhotoUploadDialog = lazy(() => import('@/components/photos/PlantPhotoUploadDialog'));
 
 /** Offline with the buffer, only the note chip works (the other chips need the server). */
 const BUFFERED_CHIPS: ReadonlySet<QuickChipId> = new Set<QuickChipId>(['note']);
@@ -182,8 +171,18 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
 
   // ── The offline write buffer (WP 9.4) ──
   const bufferOn = queue.available && canBuffer(scope);
+  // The first offline capture must not need a chunk download (`preloadOfflineCapture`): loaded while online, again
+  // after a reconnect when a load failed. `captureReady` is the sheet's signal that an offline capture can work.
+  const [captureReady, setCaptureReady] = useState(false);
   useEffect(() => {
-    if (bufferOn && online) preloadBufferedDialogs();
+    if (!bufferOn || !online) return undefined;
+    let cancelled = false;
+    void preloadOfflineCapture().then((ready) => {
+      if (!cancelled && ready) setCaptureReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [bufferOn, online]);
   const target: BufferTarget = {
     scope,
@@ -419,6 +418,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
         },
       }}
       data-testid="field-bed-sheet"
+      data-offline-capture-ready={captureReady ? 'true' : 'false'}
     >
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3, fontSize: '1rem' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

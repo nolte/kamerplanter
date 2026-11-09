@@ -22,7 +22,9 @@ import json
 from pathlib import Path
 
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
 from .bed_care_page import DownloadCapture
@@ -260,6 +262,25 @@ class Wave9PlanPage(GardenPlanPage):
                 f"{what}: the template file is no JSON: {saved['data'][:120]!r}"
             ) from exc
         return {"name": saved["name"], "document": document}
+
+    TEMPLATE_OPTIONS = (By.CSS_SELECTOR, "[role='listbox'] [role='option']")
+
+    def open_template_options(self) -> list[str]:
+        """Open the template picker; the labels of its options (the list stays open for a checkpoint)."""
+        self.open_select_in("[data-testid='garden-plan-template-panel']", "template picker")
+        try:
+            self.poll().until(lambda d: d.find_elements(*self.TEMPLATE_OPTIONS))
+        except TimeoutException as exc:
+            raise AssertionError("the template picker opened no option list") from exc
+        return [_text(option) for option in self.driver.find_elements(*self.TEMPLATE_OPTIONS)]
+
+    def close_template_options(self) -> None:
+        """Escape closes the picker's list without changing the choice."""
+        ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+        try:
+            self.wait_for_element_hidden((By.CSS_SELECTOR, "[role='listbox']"))
+        except TimeoutException as exc:
+            raise AssertionError("the template picker's list did not close on Escape") from exc
 
     def open_template_import(self) -> None:
         self.wait_and_click(self.TEMPLATE_IMPORT)
