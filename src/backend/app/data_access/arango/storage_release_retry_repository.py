@@ -50,11 +50,21 @@ def _row_key(main_object_key: str) -> str:
     return hashlib.sha256(main_object_key.encode()).hexdigest()[:40]
 
 
+def _owed_from(row: dict[str, Any]) -> StorageReleaseRetry:
+    return StorageReleaseRetry(
+        key=str(row["_key"]),
+        tenant_key=str(row.get("tenant_key") or ""),
+        object_keys=tuple(str(key) for key in row.get("object_keys") or []),
+        attempts=int(row.get("attempts") or 0),
+        created_at=str(row.get("created_at") or ""),
+    )
+
+
 class ArangoStorageReleaseRetryRepository(IStorageReleaseRetryRepository):
     def __init__(self, db: StandardDatabase) -> None:
         self._db = db
 
-    def record(self, *, tenant_key: str, object_keys: list[str]) -> None:
+    def owe_release(self, *, tenant_key: str, object_keys: list[str]) -> None:
         if not object_keys:
             return
         self._db.aql.execute(
@@ -73,22 +83,12 @@ class ArangoStorageReleaseRetryRepository(IStorageReleaseRetryRepository):
             return []  # a database before ``ensure_collections`` owes nothing
         bind_vars: dict[str, Any] = {"@retries": col.STORAGE_RELEASE_RETRIES, "limit": limit}
         cursor = cast(Cursor, self._db.aql.execute(_DUE, bind_vars=bind_vars))
-        rows: list[dict[str, Any]] = list(cursor)
-        return [
-            StorageReleaseRetry(
-                key=str(row["_key"]),
-                tenant_key=str(row.get("tenant_key") or ""),
-                object_keys=tuple(str(key) for key in row.get("object_keys") or []),
-                attempts=int(row.get("attempts") or 0),
-                created_at=str(row.get("created_at") or ""),
-            )
-            for row in rows
-        ]
+        return [_owed_from(row) for row in cursor]
 
-    def resolve(self, key: str) -> None:
+    def settle_release(self, key: str) -> None:
         self._db.collection(col.STORAGE_RELEASE_RETRIES).delete(key, ignore_missing=True)
 
-    def failed_again(self, key: str) -> None:
+    def release_failed_again(self, key: str) -> None:
         self._db.aql.execute(
             _FAILED_AGAIN, bind_vars={"@retries": col.STORAGE_RELEASE_RETRIES, "key": key, "now": _now()}
         )

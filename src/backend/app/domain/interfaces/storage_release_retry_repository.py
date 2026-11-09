@@ -20,7 +20,7 @@ class StorageReleaseRetry:
 
 class IStorageReleaseRetryRepository(ABC):
     @abstractmethod
-    def record(self, *, tenant_key: str, object_keys: list[str]) -> None:
+    def owe_release(self, *, tenant_key: str, object_keys: list[str]) -> None:
         """Remember that ``object_keys`` must still be deleted; a second record of the same object merges."""
 
     @abstractmethod
@@ -28,9 +28,9 @@ class IStorageReleaseRetryRepository(ABC):
         """The owed releases, oldest first, at most ``limit``."""
 
     @abstractmethod
-    def resolve(self, key: str) -> None:
+    def settle_release(self, key: str) -> None:
         """The release happened, or the object is held again: forget it."""
 
     @abstractmethod
-    def failed_again(self, key: str) -> None:
+    def release_failed_again(self, key: str) -> None:
         """Another attempt failed: count it, keep the entry."""

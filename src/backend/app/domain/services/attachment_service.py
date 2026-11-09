@@ -885,7 +885,7 @@ class AttachmentService:
             return False
         if self._release_retries is None:
             raise error
-        await asyncio.to_thread(self._release_retries.record, tenant_key=tenant_key, object_keys=failed)
+        await asyncio.to_thread(self._release_retries.owe_release, tenant_key=tenant_key, object_keys=failed)
         logger.info("attachment_object_release_owed", tenant=log_tenant(tenant_key), objects=len(failed))
         return False
 

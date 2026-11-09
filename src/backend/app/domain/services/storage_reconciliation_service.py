@@ -196,13 +196,13 @@ class StorageReconciliationService:
             outcome = await self._release(owed)
             if outcome == "failed":
                 report.release_failed += 1
-                self._release_retries.failed_again(owed.key)
+                self._release_retries.release_failed_again(owed.key)
                 continue
             if outcome == "held":
                 report.release_held_again += 1
             else:
                 report.released += 1
-            self._release_retries.resolve(owed.key)
+            self._release_retries.settle_release(owed.key)
 
     async def _release(self, owed: StorageReleaseRetry) -> str:
         candidates = sorted({candidate for key in owed.object_keys for candidate in holder_candidates(key)})

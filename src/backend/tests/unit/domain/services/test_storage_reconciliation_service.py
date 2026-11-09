@@ -237,11 +237,11 @@ class _Owed:
     def due(self, limit):
         return list(self.rows.values())[:limit]
 
-    def resolve(self, key):
+    def settle_release(self, key):
         self.resolved.append(key)
         self.rows.pop(key, None)
 
-    def failed_again(self, key):
+    def release_failed_again(self, key):
         self.failed.append(key)
 
 

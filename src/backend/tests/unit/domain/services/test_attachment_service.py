@@ -830,7 +830,7 @@ class _OwedReleases:
     def __init__(self) -> None:
         self.recorded: list[tuple[str, list[str]]] = []
 
-    def record(self, *, tenant_key: str, object_keys: list[str]) -> None:
+    def owe_release(self, *, tenant_key: str, object_keys: list[str]) -> None:
         self.recorded.append((tenant_key, list(object_keys)))
 
 
