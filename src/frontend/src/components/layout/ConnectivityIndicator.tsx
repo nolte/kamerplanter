@@ -24,7 +24,7 @@ export default function ConnectivityIndicator() {
       aria-live="polite"
       data-testid="connectivity-indicator"
       data-online={online ? 'true' : 'false'}
-      sx={{ display: 'inline-flex', alignItems: 'center', mr: 1, flexShrink: 0 }}
+      sx={{ display: 'inline-flex', alignItems: 'center', mr: { xs: 0.5, sm: 1 }, flexShrink: 0 }}
     >
       {online ? (
         <Tooltip title={t('common.pwa.onlineHint')}>
@@ -54,7 +54,13 @@ export default function ConnectivityIndicator() {
             color="warning"
             size="small"
             tabIndex={0}
-            sx={{ fontWeight: 600 }}
+            // #2815: below sm the chip shows its icon alone; the text is only visually hidden, so the live region
+            // still announces "Offline".
+            sx={(theme) => ({
+              fontWeight: 600,
+              '& .MuiChip-label': { [theme.breakpoints.down('sm')]: visuallyHidden },
+              '& .MuiChip-icon': { [theme.breakpoints.down('sm')]: { mr: 0.5 } },
+            })}
           />
         </Tooltip>
       )}

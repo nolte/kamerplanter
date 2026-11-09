@@ -20,7 +20,8 @@ export default function App() {
             preventDuplicate
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             autoHideDuration={5000}
-            style={{ maxWidth: '480px', whiteSpace: 'pre-line' }}
+            // #2814: never wider than the viewport (390 px), the action button stays visible.
+            style={{ maxWidth: 'min(480px, calc(100vw - 16px))', whiteSpace: 'pre-line' }}
           >
             <AuthProvider>
               <RouterProvider router={router} />

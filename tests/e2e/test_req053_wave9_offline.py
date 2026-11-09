@@ -464,6 +464,7 @@ def test_tc_053_087_done_and_note_are_buffered_offline_and_synced_online(
     field.open_note()
     field.submit_note(note, "TC-053-087: the note offline")
     host.wait_for_queue_chip("2 nicht übertragen", "TC-053-087: two entries wait")
+    host.assert_app_bar_fits("TC-053-087: offline with two entries waiting (#2815)")
     screenshot(
         "053_087_02_buffered", "Erledigt und Notiz auf dem Gerät gespeichert: „2 nicht übertragen“"
     )
@@ -557,6 +558,7 @@ def test_tc_053_088_bed_photo_is_buffered_offline_and_reaches_the_gallery(
     )
     assert message.startswith("Foto auf dem Gerät gespeichert"), f"TC-053-088: {message!r}"
     host.wait_for_queue_chip("1 nicht übertragen", "TC-053-088: the photo waits")
+    host.assert_app_bar_fits("TC-053-088: offline with the photo waiting (#2815)")
     assert bed_photos(base_url, e2e_seed_data, bed)["photos"] == [], (
         "TC-053-088: nothing uploaded while offline"
     )

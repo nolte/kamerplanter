@@ -14,6 +14,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Snackbar from '@mui/material/Snackbar';
 import SnackbarContent from '@mui/material/SnackbarContent';
@@ -165,11 +166,22 @@ export default function OfflineSyncHost() {
       {unsynced > 0 && (
         <Chip
           icon={<CloudUploadIcon />}
-          label={t('pages.offlineQueue.chip', { count: unsynced })}
+          // #2815: below sm only the number shows next to the icon; the name stays complete for assistive tech.
+          aria-label={t('pages.offlineQueue.chip', { count: unsynced })}
+          label={
+            <>
+              <Box component="span" aria-hidden sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {t('pages.offlineQueue.chip', { count: unsynced })}
+              </Box>
+              <Box component="span" aria-hidden sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                {unsynced}
+              </Box>
+            </>
+          }
           color={counts.failed + counts.conflict > 0 ? 'warning' : 'default'}
           onClick={() => setManualOpen(true)}
           size="small"
-          sx={{ mr: 1, fontWeight: 600, bgcolor: counts.failed + counts.conflict > 0 ? undefined : 'background.paper' }}
+          sx={{ mr: { xs: 0.5, sm: 1 }, fontWeight: 600, bgcolor: counts.failed + counts.conflict > 0 ? undefined : 'background.paper' }}
           data-testid="offline-queue-chip"
         />
       )}

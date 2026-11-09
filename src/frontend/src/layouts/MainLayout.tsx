@@ -148,7 +148,7 @@ export default function MainLayout() {
             color="inherit"
             edge="start"
             onClick={() => dispatch(toggleSidebar())}
-            sx={{ mr: 2 }}
+            sx={{ mr: { xs: 1, sm: 2 } }} // #2815: room for the offline indicators at 390 px
             aria-label={t('common.toggleSidebar')}
             data-testid="sidebar-toggle"
           >

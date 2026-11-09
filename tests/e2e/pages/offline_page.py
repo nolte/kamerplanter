@@ -258,9 +258,24 @@ class OfflineSyncHost(BasePage):
     ENTRIES = (By.CSS_SELECTOR, "[data-testid='offline-conflict-dialog'] li[data-status]")
 
     def queue_chip_text(self) -> str | None:
-        """The chip's text, ``None`` while the buffer holds nothing unsent (the host renders no chip then)."""
+        """The chip's accessible name, ``None`` while the buffer holds nothing unsent (no chip then).
+
+        The name, not the visible text: below ``sm`` the chip shows only the number next to its icon (#2815), its
+        name stays "2 nicht übertragen".
+        """
         found = self.driver.find_elements(*self.QUEUE_CHIP)
-        return _text(found[0]) if found else None
+        return (found[0].get_attribute("aria-label") or _text(found[0])) if found else None
+
+    def assert_app_bar_fits(self, what: str) -> None:
+        """No horizontal overflow of the page or the app bar at the current width (#2815, 390 px)."""
+        sizes = self.driver.execute_script(
+            "const bar = document.querySelector('header .MuiToolbar-root');"
+            "return {page: document.documentElement.scrollWidth, view: window.innerWidth,"
+            " bar: bar ? bar.scrollWidth : 0, barView: bar ? bar.clientWidth : 0};"
+        )
+        assert sizes["page"] <= sizes["view"] and sizes["bar"] <= sizes["barView"], (
+            f"{what}: the app bar overflows: {sizes}"
+        )
 
     def wait_for_queue_chip(self, expected: str, what: str) -> str:
         try:
