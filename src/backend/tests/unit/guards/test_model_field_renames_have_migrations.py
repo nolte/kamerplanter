@@ -210,13 +210,13 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     # REQ-053 WP 9.13 review (PR #2811, item 8): the two request bodies of a zone round share their validated
     # ``performed_at``/``summary`` through the base ``_ZoneRoundInput``; the fields moved up, none was dropped.
     **{
-        ("irrigation_zone.py", class_name, field_name): _NoStoredDocuments(
-            "75c06dad3 added ZoneRainSkippedInput (#2753); review item 8 of PR #2811 moved both bodies onto a "
-            "base. A request body (POST /irrigation-zones/{key}/log-watering and .../rain-skipped), validated "
-            "and turned into care events; never written as such. The field is inherited from _ZoneRoundInput in "
-            "the same module - this AST sweep reads class bodies only, so it reports the move as a loss."
+        ("irrigation_zone.py", "ZoneWateringInput", field_name): _NoStoredDocuments(
+            "Review item 8 of PR #2811 moved the body onto a base. A request body (POST "
+            "/irrigation-zones/{key}/log-watering), validated and turned into care events; never written as "
+            "such. The field is inherited from _ZoneRoundInput in the same module - this AST sweep reads class "
+            "bodies only, so it reports the move as a loss. ZoneRainSkippedInput is not listed: the squash "
+            "merge 59cc4751c brought it onto develop already on the base, so it never lost a field there."
         )
-        for class_name in ("ZoneWateringInput", "ZoneRainSkippedInput")
         for field_name in ("performed_at", "summary")
     },
 }
