@@ -595,3 +595,32 @@ def test_a_treatment_keeps_the_longer_pflschg_window_like_the_retention_sweep(db
 
     assert set(_backfilled(db)) == {("treatment_applications", "tr_old")}
     assert report.details["sources"]["watering_events"]["outside_r25"] == 1
+
+
+def test_a_bed_of_a_tenant_that_is_not_active_is_counted_and_never_written(db) -> None:  # type: ignore[no-untyped-def]
+    # #2770: the backfill wrote into suspended / pending-deletion tenants; the shared scan now reads the tenant state
+    _seed(db)
+    _insert(db.collection(col.TENANTS), [{"_key": "t1", "slug": "t1", "name": "T1", "status": "suspended"}])
+
+    report = migration.up(db, dry_run=True)
+    watering = report.details["sources"]["watering_events"]
+    assert watering["will_write"] == 0
+    assert watering["without_bed_reasons"]["inactive_tenant"]["count"] == len(_WRITTEN["watering_events"])
+    assert report.details["totals"]["counts_add_up"]
+
+    migration.up(db)
+    assert _backfilled(db) == {}
+    # counter-case: the same tenant once active is written as before
+    db.collection(col.TENANTS).update({"_key": "t1", "status": "active"})
+    migration.up(db)
+    assert ("watering_events", "w_plant") in _backfilled(db)
+
+
+def test_an_erased_harvesters_tombstone_is_logged_as_the_marker(db) -> None:  # type: ignore[no-untyped-def]
+    # #2770: the erasure left ``anon_<16hex>`` in ``harvested_by_key``; the care log must not copy the pseudonym
+    _seed(db)
+    db.collection(col.HARVEST_BATCHES).update({"_key": "h_plant", "harvested_by_key": "anon_0123456789abcdef"})
+
+    migration.up(db)
+
+    assert _backfilled(db)[("harvest_batches", "h_plant")]["performed_by_user_key"] == "_anonymized"

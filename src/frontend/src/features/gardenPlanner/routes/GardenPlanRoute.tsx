@@ -64,6 +64,7 @@ import { EDITOR_ANCHORS } from '../editor/anchors';
 import type { BoundingBox, Point } from '../model/types';
 import { zoomAround } from '../model/units';
 import BedListSection from '../bed/BedListSection';
+import { bedListReloadToken } from '../bed/bedListReload';
 import { PlanIoMenu } from '../io/PlanIoMenu';
 import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
@@ -412,7 +413,11 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       {/* The measured box exists in every state, so the first drawing already fits the width. */}
       <Box ref={canvasRef}>{content}</Box>
       {key && plan !== null && serverReachable && (
-        <BedListSection siteKey={key} reloadToken={loadRequestId} onSelectBed={onSelectBed} />
+        <BedListSection
+          siteKey={key}
+          reloadToken={bedListReloadToken(loadRequestId, plan.revision)}
+          onSelectBed={onSelectBed}
+        />
       )}
     </Box>
   );
