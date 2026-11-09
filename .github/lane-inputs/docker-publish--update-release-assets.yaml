@@ -9,8 +9,8 @@ job: update-release-assets
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-02'
-measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
+measured_on: '2026-11-09'
+measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
 replay_seconds: 1
 job_spec_sha256: fb788497fc80674eb8c2ed056871164c8ad65c3e971fad292abc77266e3593de
 invocations:
