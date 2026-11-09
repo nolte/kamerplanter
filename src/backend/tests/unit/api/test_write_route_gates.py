@@ -403,6 +403,11 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
                 # detector's ``.delete`` name fallback, like the repository deletes above.
                 "db.collection(col.CLIENT_EVENT_TOMBSTONES).insert() in "
                 "app.data_access.arango.client_event_tombstones::record_tombstone",
+                # #2630 — the release a failed storage delete still owes, recorded by ``AttachmentService`` after
+                # the record is gone; reached only through the detector's ``.delete`` name fallback, like the
+                # tombstone above.
+                "module-level query write _RECORD in app.data_access.arango.storage_release_retry_repository"
+                "::ArangoStorageReleaseRetryRepository.owe_release",
                 "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
                 "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
                 "self.collection.update() in app.data_access.arango.base_repository"

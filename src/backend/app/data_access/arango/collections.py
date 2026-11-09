@@ -248,6 +248,8 @@ MCP_AUDIT_LOG = "mcp_audit_log"
 MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
 #: REQ-053 WP 9.3: the ids of deleted objects a buffered write created, so a late replay does not re-create them.
 CLIENT_EVENT_TOMBSTONES = "client_event_tombstones"
+#: #2630 — stored objects whose delete failed after their last record was removed; retried by the reconciliation run.
+STORAGE_RELEASE_RETRIES = "storage_release_retries"
 
 # MT-014 (#2111) — the persistent security audit: who changed whose membership,
 # role or scopes, in which tenant, when. Append-only; retention in NFR-011 R-38.
@@ -402,6 +404,8 @@ DOCUMENT_COLLECTIONS = [
     MCP_IDEMPOTENCY_RECORD,
     # REQ-053 WP 9.3 buffered-write tombstones
     CLIENT_EVENT_TOMBSTONES,
+    # #2630 failed object releases, retried
+    STORAGE_RELEASE_RETRIES,
     # MT-014 security audit (#2111)
     SECURITY_AUDIT_LOG,
     # MT-015 Home Assistant entity allowlist (#2112)
