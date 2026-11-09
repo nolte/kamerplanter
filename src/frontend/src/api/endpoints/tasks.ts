@@ -444,15 +444,18 @@ export function chunkTaskKeys(keys: readonly string[]): string[][] {
   return chunks;
 }
 
-/** Send one batch per block, sequentially, and merge the per-key results in key order. */
-async function postInChunks(
-  path: string,
+/**
+ * Send one batch per block, sequentially, and merge the per-key results in key order.
+ * Each caller keeps its literal `client.post` path so the endpoint join
+ * (`test_frontend_endpoints_are_served.py`) can resolve the call site.
+ */
+async function sendInChunks(
   taskKeys: readonly string[],
-  body: Record<string, unknown>,
+  send: (chunk: string[]) => Promise<{ data: BatchResponse }>,
 ): Promise<BatchResponse> {
   const merged: BatchResponse = { succeeded: [], failed: [] };
   for (const chunk of chunkTaskKeys(taskKeys)) {
-    const { data } = await client.post<BatchResponse>(path, { ...body, task_keys: chunk });
+    const { data } = await send(chunk);
     merged.succeeded.push(...data.succeeded);
     merged.failed.push(...data.failed);
   }
@@ -464,23 +467,31 @@ export async function batchStatusChange(
   action: 'start' | 'complete' | 'skip',
   completionNotes?: string,
 ): Promise<BatchResponse> {
-  return postInChunks(`${BASE}/batch/status`, taskKeys, {
-    action,
-    completion_notes: completionNotes,
-  });
+  return sendInChunks(taskKeys, (chunk) =>
+    client.post<BatchResponse>(`${BASE}/batch/status`, {
+      task_keys: chunk,
+      action,
+      completion_notes: completionNotes,
+    }),
+  );
 }
 
 export async function batchDelete(taskKeys: string[]): Promise<BatchResponse> {
-  return postInChunks(`${BASE}/batch/delete`, taskKeys, {});
+  return sendInChunks(taskKeys, (chunk) =>
+    client.post<BatchResponse>(`${BASE}/batch/delete`, { task_keys: chunk }),
+  );
 }
 
 export async function batchAssign(
   taskKeys: string[],
   assignedToUserKey: string,
 ): Promise<BatchResponse> {
-  return postInChunks(`${BASE}/batch/assign`, taskKeys, {
-    assigned_to_user_key: assignedToUserKey,
-  });
+  return sendInChunks(taskKeys, (chunk) =>
+    client.post<BatchResponse>(`${BASE}/batch/assign`, {
+      task_keys: chunk,
+      assigned_to_user_key: assignedToUserKey,
+    }),
+  );
 }
 
 // -- Comments --
