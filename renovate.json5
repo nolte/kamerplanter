@@ -755,8 +755,20 @@
     // operator decision at the top of this file a green run of EVERY check —
     // integration lane, image builds with smoke, E2E smoke — is now also
     // sufficient, and the group merges on its own.
+    //
+    // `groupSlug` REPEATS the conditional on purpose. Renovate compiles
+    // `groupName` only in its branch-name step; when an earlier rule already set
+    // a `groupSlug` for the dependency, its package-rule merge slugifies the RAW
+    // `groupName` instead (template braces stripped, never compiled). The shared
+    // preset sets `groupSlug: 'digests'` on github-actions digest updates, and the
+    // ArangoDB service container of backend-guards.yml is one of them: its digest
+    // bumps opened `renovate/if-(equals-updatetype-"major")depname-imageelse…`
+    // (#2555, #2627, #2810) apart from the compose reference — the lane/compose
+    // digest split this group exists to prevent. An explicit `groupSlug` is
+    // compiled. Pinned by tests/unit/guards/test_renovate_templated_group_names.py.
     {
       groupName: '{{#if (equals updateType "major")}}{{depName}} image{{else}}third-party images{{/if}}',
+      groupSlug: '{{#if (equals updateType "major")}}{{depName}}-image{{else}}third-party-images{{/if}}',
       matchDatasources: [
         'docker',
       ],
