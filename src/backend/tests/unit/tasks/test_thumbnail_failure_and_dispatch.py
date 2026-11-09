@@ -163,6 +163,8 @@ class TestRedisClaims:
         # #2142 — the storage quota is resolved through the plan catalogue: its two repository leaves.
         monkeypatch.setattr(dependencies, "get_plan_repo", lambda: object())
         monkeypatch.setattr(dependencies, "get_tenant_repo", lambda: object())
+        # #2630 — the owed-release store is a repository leaf as well.
+        monkeypatch.setattr(dependencies, "get_storage_release_retry_repo", lambda: object())
 
         service = dependencies.get_attachment_service()
 
