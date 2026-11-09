@@ -11,6 +11,18 @@ function isTextField(target: EventTarget | null): boolean {
 }
 
 /**
+ * A form control that is no text field: MUI's Select is a `div role="combobox"`, its open list a `listbox` of
+ * `option`s, a number stepper a `spinbutton` (WP 9.14 review). With the focus in one of them, Ctrl+D / Ctrl+Z /
+ * Ctrl+Y must not act on the plan - the water-source kind in the panel would otherwise duplicate its object.
+ */
+const FORM_CONTROL_ROLES = '[role="combobox"], [role="listbox"], [role="option"], [role="spinbutton"]';
+
+/** The focus is in a field or control that keeps the key for itself. */
+function keepsTheKey(target: EventTarget | null): boolean {
+  return isTextField(target) || (target instanceof Element && target.closest(FORM_CONTROL_ROLES) !== null);
+}
+
+/**
  * Undo, redo, save and duplicate by keyboard (REQ-053 GP-FR-026, GP-FR-025): Ctrl/Cmd+Z,
  * Ctrl/Cmd+Shift+Z, Ctrl+Y, Ctrl/Cmd+S and Ctrl/Cmd+D. Attach the handler to the editor root; it only
  * reacts to keys that come from inside it (a modal rendered in a portal bubbles through the React tree
@@ -36,7 +48,7 @@ export function useEditorShortcuts(
         void dispatch(saveGardenPlan());
         return;
       }
-      if (isTextField(event.target)) return;
+      if (keepsTheKey(event.target)) return;
       if (key === 'd' && !event.shiftKey) {
         if (duplicate === null) return;
         event.preventDefault(); // the browser's "bookmark this page" stays closed

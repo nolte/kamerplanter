@@ -207,24 +207,11 @@ class ZoneWateringFacts:
 MAX_ROUND_LITERS = 100_000.0
 
 
-class ZoneWateringInput(_Strict):
-    """``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): one total, divided over the zone's beds."""
+class _ZoneRoundInput(_Strict):
+    """What every zone round carries: the instant (UTC, V-11 checked by the service) and the handover note (F-05)."""
 
-    volume_liters: float = Field(gt=0, le=MAX_ROUND_LITERS)
-    #: ``by_area`` divides by ``Location.area_m2``, ``equal`` evenly, ``by_demand`` by each bed's REQ-037 net demand
-    #: of the round's UTC day (WP 9.13, #2753; the demand of WP 7.5).
-    allocation: CareEventAllocation
     performed_at: datetime | None = None
     summary: str | None = Field(default=None, max_length=500)
-
-    @field_validator("allocation")
-    @classmethod
-    def refuse_measured(cls, value: CareEventAllocation) -> CareEventAllocation:
-        if value is CareEventAllocation.MEASURED:
-            raise ValueError(
-                "A divided total is `by_area`, `equal` or `by_demand`; `measured` is a value taken per bed."
-            )
-        return value
 
     @field_validator("performed_at")
     @classmethod
@@ -238,6 +225,24 @@ class ZoneWateringInput(_Strict):
     @classmethod
     def strip_summary(cls, value: str | None) -> str | None:
         return _stripped_or_none(value)
+
+
+class ZoneWateringInput(_ZoneRoundInput):
+    """``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): one total, divided over the zone's beds."""
+
+    volume_liters: float = Field(gt=0, le=MAX_ROUND_LITERS)
+    #: ``by_area`` divides by ``Location.area_m2``, ``equal`` evenly, ``by_demand`` by each bed's REQ-037 net demand
+    #: of the round's UTC day (WP 9.13, #2753; the demand of WP 7.5).
+    allocation: CareEventAllocation
+
+    @field_validator("allocation")
+    @classmethod
+    def refuse_measured(cls, value: CareEventAllocation) -> CareEventAllocation:
+        if value is CareEventAllocation.MEASURED:
+            raise ValueError(
+                "A divided total is `by_area`, `equal` or `by_demand`; `measured` is a value taken per bed."
+            )
+        return value
 
 
 @dataclass(frozen=True)
@@ -259,7 +264,7 @@ class ZoneWateringResult:
     skipped_location_keys: tuple[str, ...]
 
 
-class ZoneRainSkippedInput(_Strict):
+class ZoneRainSkippedInput(_ZoneRoundInput):
     """``POST /irrigation-zones/{key}/rain-skipped`` (GP-FR-117, §32.4 Pkt. 2; WP 9.13, #2753).
 
     The round was not walked because it rained: one ``care_event(rainfall)`` without a quantity per bed. The open
@@ -268,23 +273,8 @@ class ZoneRainSkippedInput(_Strict):
     answer) answer the round stored before instead of writing it twice (WP 9.3).
     """
 
-    performed_at: datetime | None = None
-    #: The handover note of the round (F-05); without one the server writes a fixed English summary.
-    summary: str | None = Field(default=None, max_length=500)
+    #: Without a ``summary`` the server writes a fixed English one naming the zone.
     client_event_id: UUID | None = None
-
-    @field_validator("performed_at")
-    @classmethod
-    def aware_utc(cls, value: datetime | None) -> datetime | None:
-        """A naive instant is read as UTC (§20.13: ``performed_at`` is UTC)."""
-        if value is None:
-            return None
-        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
-
-    @field_validator("summary")
-    @classmethod
-    def strip_summary(cls, value: str | None) -> str | None:
-        return _stripped_or_none(value)
 
 
 @dataclass(frozen=True)

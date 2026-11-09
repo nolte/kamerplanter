@@ -22,7 +22,7 @@ it concurrently cannot leave a dead ``water_source_key``.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 
 import structlog
@@ -38,7 +38,7 @@ from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.data_access.arango.watering_queries import zone_watering_facts
 from app.domain.calculators.irrigation_zone_consumption_calculator import StateChange
-from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand, net_liters
+from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand, newest_demand_per_bed
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.models.garden_plan import PlanAuditRecord
@@ -385,21 +385,33 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
         return [change for row in rows if (change := _state_change(row)) is not None]
 
     def bed_demands(
-        self, site_key: SiteKey, location_keys: list[LocationKey], *, tenant_key: str, on_date: date
+        self,
+        site_key: SiteKey,
+        location_keys: list[LocationKey],
+        *,
+        tenant_key: str,
+        on_date: date,
+        lookback_days: int = 0,
     ) -> list[BedDemand]:
         self._require_tenant_key(tenant_key, "bed_demands")
         if not location_keys:
             return []
+        from_date: date = on_date - timedelta(days=max(lookback_days, 0))
         rows = cast(
             "Cursor",
             self._db.aql.execute(
                 """
                 FOR d IN @@demands
-                    FILTER d.tenant_key == @tenant_key AND d.site_key == @site_key AND d.demand_date == @on_date
-                        AND d.run_key != null
+                    FILTER d.tenant_key == @tenant_key AND d.site_key == @site_key
+                        AND d.demand_date >= @from_date AND d.demand_date <= @on_date AND d.run_key != null
                     LET run = DOCUMENT(CONCAT(@runs, d.run_key))
                     FILTER run != null AND run.tenant_key == @tenant_key AND run.location_key IN @location_keys
-                    RETURN {location: run.location_key, net_demand_mm: d.net_demand_mm, area_m2: d.area_m2}
+                    RETURN {
+                        location: run.location_key,
+                        demand_date: d.demand_date,
+                        net_demand_mm: d.net_demand_mm,
+                        area_m2: d.area_m2
+                    }
                 """,
                 bind_vars={
                     "@demands": col.IRRIGATION_DEMANDS,
@@ -407,21 +419,21 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
                     "tenant_key": tenant_key,
                     "site_key": site_key,
                     "on_date": on_date.isoformat(),
+                    "from_date": from_date.isoformat(),
                     "location_keys": location_keys,
                 },
             ),
         )
-        best: dict[str, BedDemand] = {}
-        for row in rows:
-            demand = BedDemand(
+        demands = [
+            BedDemand(
                 location_key=row["location"],
                 net_demand_mm=float(row["net_demand_mm"] or 0.0),
                 area_m2=float(row["area_m2"] or 0.0),
+                demand_date=date.fromisoformat(str(row["demand_date"])[:10]),
             )
-            current = best.get(demand.location_key)
-            if current is None or net_liters(demand) > net_liters(current):
-                best[demand.location_key] = demand
-        return sorted(best.values(), key=lambda item: item.location_key)
+            for row in rows
+        ]
+        return newest_demand_per_bed(demands)
 
     def replace_zone_locations(
         self, key: IrrigationZoneKey, location_keys: list[LocationKey], *, tenant_key: str

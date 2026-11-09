@@ -111,6 +111,7 @@ describe('rain - skipped', () => {
 
   it.each([
     ['client_event.payload_mismatch', 409, /already saved as skipped with a different note/],
+    ['client_event.round_changed', 409, /taken back or corrected in the log/],
     ['irrigation_zone.no_beds', 422, /no bed yet/],
     ['x', 403, /permission/],
   ])('words %s (%i)', async (code, status_, text) => {

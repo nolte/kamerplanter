@@ -205,7 +205,10 @@ def log_irrigation_zone_watering(
             "model": IrrigationZoneRainSkippedResponse,
             "description": "A replay: `client_event_id` names a round stored before; nothing was written.",
         },
-        409: {"description": "`client_event.payload_mismatch`: the `client_event_id` names a different request."},
+        409: {
+            "description": "`client_event.payload_mismatch`: the `client_event_id` names a different request (body, "
+            "zone or member); `client_event.round_changed`: the round it logged was taken back or corrected since."
+        },
     },
 )
 @limiter.limit(settings.rate_limit_zone_rain_skipped, key_func=user_rate_limit_key)
@@ -224,8 +227,10 @@ def log_irrigation_zone_rain_skipped(
     `irrigation_zone.no_beds` for a zone without beds, `care_event.performed_in_future` / `care_event.too_old` (V-11).
 
     `client_event_id` (a UUID the client makes once per press of the action, optional): a second request with the
-    same id and the same body answers **200** with the events of the first instead of writing them again; the same id
-    with another body, zone or member is 409 `client_event.payload_mismatch`. 20 a minute per account.
+    same id and the same body answers **200** with the events of the first instead of writing them again - the stored
+    round, whatever beds the zone covers now; the same id with another body, zone or member is 409
+    `client_event.payload_mismatch`, a round of which an event was taken back or corrected since is 409
+    `client_event.round_changed`. 20 a minute per account.
     """
     result = service.log_rain_skipped(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, data=body)
     if result.replayed:

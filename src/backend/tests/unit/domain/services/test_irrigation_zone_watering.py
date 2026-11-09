@@ -9,6 +9,7 @@ source and on beds equipped otherwise (GP-FR-119).
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -30,6 +31,7 @@ from app.domain.services.irrigation_zone_service import (
     ERROR_NO_BED_AREA,
     ERROR_NO_BED_DEMAND,
     ERROR_NO_BEDS,
+    ERROR_ROUND_CHANGED,
     IrrigationZoneService,
 )
 from tests.support.care_event_fakes import FakeCareEventRepo
@@ -206,7 +208,52 @@ class TestByDemand:
         assert result.skipped_location_keys == ("bed_flat",)
         assert result.allocation is CareEventAllocation.BY_DEMAND
         assert all(e.allocation is CareEventAllocation.BY_DEMAND for e in world.care.inserted)
-        assert world.zones.demand_dates_asked == [performed.date()]  # the round's day, not today
+        # The round's day (not today) and the day before: the day's demand is computed at 06:15 UTC.
+        assert world.zones.demand_dates_asked == [(performed.date(), 1)]
+
+    def test_an_early_round_takes_yesterdays_demand_and_today_wins_once_computed(self, world) -> None:
+        performed = datetime.now(UTC).replace(hour=5, minute=0, second=0, microsecond=0)
+        if performed > datetime.now(UTC):  # the test runs before 05:00 UTC: one day back is still "early"
+            performed -= timedelta(days=1)
+        day = performed.date()
+        world.zones.demands = [
+            BedDemand(location_key="bed_1", net_demand_mm=1.0, area_m2=6.0, demand_date=day - timedelta(days=1)),
+            BedDemand(location_key="bed_2", net_demand_mm=2.0, area_m2=2.0, demand_date=day - timedelta(days=1)),
+        ]
+
+        early = world.log(allocation="by_demand", volume_liters=10.0, performed_at=performed)
+        world.zones.demands.append(BedDemand(location_key="bed_1", net_demand_mm=3.0, area_m2=6.0, demand_date=day))
+        later = world.log(allocation="by_demand", volume_liters=22.0, performed_at=performed)
+
+        # Yesterday: 6 L and 4 L. Today's 18 L for bed_1 replaces its yesterday's, bed_2 keeps yesterday's 4 L.
+        assert {s.location_key: s.liters for s in early.shares} == {"bed_1": 6.0, "bed_2": 4.0}
+        assert {s.location_key: s.liters for s in later.shares} == {"bed_1": 18.0, "bed_2": 4.0}
+
+    def test_a_demand_older_than_yesterday_is_not_used(self, world) -> None:
+        performed = datetime.now(UTC) - timedelta(hours=1)
+        world.zones.demands = [
+            BedDemand(
+                location_key="bed_1", net_demand_mm=3.0, area_m2=6.0, demand_date=performed.date() - timedelta(days=2)
+            ),
+        ]
+
+        with pytest.raises(PlanError) as refused:
+            world.log(allocation="by_demand", volume_liters=10.0, performed_at=performed)
+
+        assert refused.value.error_code == ERROR_NO_BED_DEMAND and world.care.inserted == []
+
+    def test_two_runs_in_one_bed_on_one_day_count_once_with_the_larger_litres(self, world) -> None:
+        # I-3: one demand row per run; a mixed bed has two. Neither is added to the other nor does the last one win.
+        world.zones.demands = [
+            BedDemand(location_key="bed_1", net_demand_mm=1.0, area_m2=6.0),  # 6 L
+            BedDemand(location_key="bed_1", net_demand_mm=3.0, area_m2=6.0),  # 18 L
+            BedDemand(location_key="bed_1", net_demand_mm=2.0, area_m2=6.0),  # 12 L, last
+            BedDemand(location_key="bed_2", net_demand_mm=3.0, area_m2=2.0),  # 6 L
+        ]
+
+        result = world.log(allocation="by_demand", volume_liters=24.0)
+
+        assert {s.location_key: s.liters for s in result.shares} == {"bed_1": 18.0, "bed_2": 6.0}
 
     def test_a_zero_demand_gets_no_share(self, world) -> None:
         world.zones.demands = [
@@ -295,9 +342,8 @@ class TestRainSkipped:
         body = {"summary": "Rain", "client_event_id": client_event_id} | {
             k: v for k, v in changed.items() if k != "zone"
         }
-        # On another zone the beds differ, so their derived ids do: only the zone's own beds can collide.
-        world.zones.replace_zone_locations("z_second", ["bed_flat", "bed_1"], tenant_key=TENANT)
 
+        # The other zone has other beds, so the per-bed ids never collide: the stored round is found by its raw id.
         with pytest.raises(ClientEventMismatchError):
             self._skip(world, zone=changed.get("zone", "z"), user=user, **body)
 
@@ -306,19 +352,57 @@ class TestRainSkipped:
     def test_a_race_lost_on_the_index_reads_the_winner(self, world) -> None:
         client_event_id = uuid4()
         first = self._skip(world, client_event_id=client_event_id)
-        real_find = world.care.find_by_client_event_ids
+        real_find = world.care.find_client_round
         calls = {"n": 0}
 
-        def blind_first_look(event_ids, *, tenant_key):
+        def blind_first_look(round_id, *, tenant_key, limit):
             calls["n"] += 1
             # The pre-check runs before the winner committed: it sees nothing, the insert then meets the index.
-            return [] if calls["n"] == 1 else real_find(event_ids, tenant_key=tenant_key)
+            return [] if calls["n"] == 1 else real_find(round_id, tenant_key=tenant_key, limit=limit)
 
-        world.care.find_by_client_event_ids = blind_first_look  # type: ignore[method-assign]
+        world.care.find_client_round = blind_first_look  # type: ignore[method-assign]
 
         again = self._skip(world, client_event_id=client_event_id)
 
         assert again.replayed is True and again.event_keys == first.event_keys
+        assert len(world.care.inserted) == 3
+
+    def test_a_replay_answers_the_stored_round_whatever_the_zone_covers_now(self, world) -> None:
+        client_event_id = uuid4()
+        first = self._skip(world, client_event_id=client_event_id)
+
+        world.zones.replace_zone_locations("z", ["bed_1"], tenant_key=TENANT)  # two beds left the zone
+        shrunk = self._skip(world, client_event_id=client_event_id)
+        world.zones.replace_zone_locations("z", [], tenant_key=TENANT)  # no bed left: a fresh round would be 422
+        emptied = self._skip(world, client_event_id=client_event_id)
+
+        assert len(world.care.inserted) == 3
+        for again in (shrunk, emptied):
+            assert again.replayed is True
+            assert (again.event_keys, sorted(again.location_keys)) == (first.event_keys, sorted(first.location_keys))
+
+    def test_a_replay_is_answered_before_the_instant_is_checked_again(self, world) -> None:
+        client_event_id = uuid4()
+        performed = datetime.now(UTC) - timedelta(days=1)
+        self._skip(world, client_event_id=client_event_id, performed_at=performed)
+
+        with patch("app.domain.services.irrigation_zone_service.check_performed_instant") as check:
+            again = self._skip(world, client_event_id=client_event_id, performed_at=performed)
+
+        assert again.replayed is True and check.call_count == 0
+
+    @pytest.mark.parametrize("change", ["voided_at", "superseded_by_key"])
+    def test_a_round_taken_back_or_corrected_since_is_a_409_and_writes_nothing(self, world, change) -> None:
+        client_event_id = uuid4()
+        self._skip(world, client_event_id=client_event_id)
+        first_key = next(iter(world.care.events))
+        value = datetime.now(UTC) if change == "voided_at" else "ce_newer"
+        world.care.events[first_key] = world.care.events[first_key].model_copy(update={change: value})
+
+        with pytest.raises(PlanError) as refused:
+            self._skip(world, client_event_id=client_event_id)
+
+        assert (refused.value.error_code, refused.value.status_code) == (ERROR_ROUND_CHANGED, 409)
         assert len(world.care.inserted) == 3
 
 

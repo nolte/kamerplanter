@@ -1850,6 +1850,10 @@ CARE_EVENT_SOURCE_REF_INDEX_FIELDS = ["tenant_key", "source_ref.collection", "so
 #: a task completion or an upload is unique per tenant. Sparse, so the rows without an id (every write before
 #: wave 9, every server-made one) do not collide; ``tenant_key`` leads (``test_tenant_unique_indexes_are_scoped``).
 CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+#: The events of one replayable zone round ("rain - skipped", REQ-053 WP 9.13) share the raw ``client_round_id``.
+#: Not unique (n events per round), sparse (every other event carries none) - so it can never refuse a write and
+#: needs no migration: the bootstrap creates it on every boot.
+CARE_EVENT_CLIENT_ROUND_INDEX_FIELDS = ["tenant_key", "client_round_id"]
 TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "completion_client_event_id"]
 ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
 #: One tombstone per deleted object of a buffered write, per tenant; the TTL index ages it out.
@@ -2928,6 +2932,9 @@ def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
     care_events_col.add_persistent_index(fields=CARE_EVENT_TASK_INDEX_FIELDS, unique=False, in_background=True)
     care_events_col.add_persistent_index(
         fields=CARE_EVENT_SOURCE_REF_INDEX_FIELDS, unique=True, sparse=True, in_background=True
+    )
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_CLIENT_ROUND_INDEX_FIELDS, unique=False, sparse=True, in_background=True
     )
     # REQ-053 WP 9.3 (v0106): one object per buffered write. Created only when clean - this runs before the
     # migrations, and v0106 reports a volume that cannot take the index instead of failing the boot.

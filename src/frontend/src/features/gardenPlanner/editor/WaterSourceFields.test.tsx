@@ -98,6 +98,25 @@ describe('water source fields (GP-FR-111)', () => {
     ]);
   });
 
+  it('shows the UTC day of a stored instant with an offset, not the day written in the string', () => {
+    renderFields({ ...BARREL, last_refilled_at: '2026-11-02T23:30:00-02:00' });
+
+    expect(screen.getByTestId('garden-plan-panel-water-source-refilled')).toHaveValue('2026-11-03');
+  });
+
+  it('caps the day at today (UTC) and commits no day in the future', () => {
+    const onCommit = renderFields();
+    const refilled = screen.getByTestId('garden-plan-panel-water-source-refilled');
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+
+    expect(refilled).toHaveAttribute('max', new Date().toISOString().slice(0, 10));
+    fireEvent.change(refilled, { target: { value: tomorrow } });
+    fireEvent.blur(refilled);
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByText('That day is in the future. Pick today or an earlier day.')).toBeInTheDocument();
+  });
+
   it('does not commit an unchanged value', () => {
     const onCommit = renderFields();
     const capacity = screen.getByTestId('garden-plan-panel-water-source-capacity');

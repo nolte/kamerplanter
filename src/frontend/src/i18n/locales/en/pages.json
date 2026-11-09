@@ -5687,7 +5687,8 @@
             "capacityInvalid": "Enter a capacity above 0 litres, or leave the field empty.",
             "litres": "litres",
             "lastRefilled": "Last refilled",
-            "lastRefilledHelp": "The day the source was last refilled. Leave empty if unknown."
+            "lastRefilledHelp": "The day the source was last refilled. Leave empty if unknown.",
+            "lastRefilledFuture": "That day is in the future. Pick today or an earlier day."
           },
           "lockedHint": "Locked: the values are read-only. Unlock the object to change it.",
           "locked": "Locked",
@@ -5884,6 +5885,9 @@
             },
             "garden_object": {
               "not_plantable": "Plants cannot be placed on a garden object."
+            },
+            "water_source": {
+              "refilled_in_future": "The last refill of the water source is in the future. Pick today or an earlier day."
             },
             "batch": {
               "too_many_operations": "More than 500 changes are open. Save in between, or the server will not accept them.",
@@ -6354,6 +6358,7 @@
             "rainHelp": "It rained, so there is no watering today. One rain entry without an amount is saved for every bed of the zone. Open watering tasks stay open. The note above is used.",
             "rainSkip": "Rain — skipped",
             "rainConflict": "This round was already saved as skipped with a different note. Close the dialog and check the log.",
+            "rainChanged": "This round was already saved as skipped and has since been taken back or corrected in the log. Close the dialog and check the log.",
             "rainResultTitle": "Round saved as skipped",
             "rainResultMarker": "Rain entries without an amount. Open watering tasks stay open.",
             "rainResultBeds_one": "Saved for {{count}} bed: {{beds}}.",

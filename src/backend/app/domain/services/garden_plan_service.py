@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from time import monotonic
 from typing import Any
 
@@ -68,7 +69,7 @@ from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.bed_template import ERROR_NOT_A_BED_TYPE, BedTemplate
-from app.domain.models.garden_object import GardenObject
+from app.domain.models.garden_object import GardenObject, WaterSourceProps
 from app.domain.models.garden_plan import (
     BATCH_TIME_BUDGET_SECONDS,
     ERROR_ZONE_QUOTA,
@@ -244,6 +245,28 @@ def _finding_extra(error: ErrorDetails) -> dict[str, Any]:
     """The offending vertex of a coordinate-range violation (GP-ACC-056), else nothing."""
     point_index = point_index_of(error)
     return {} if point_index is None else {POINT_INDEX_KEY: point_index}
+
+
+#: 422 of a water source whose ``last_refilled_at`` lies in the future (GP-FR-111, WP 9.14).
+ERROR_REFILLED_IN_FUTURE = "water_source.refilled_in_future"
+#: Clock skew a client may have: the same five minutes as the care log's ``performed_at`` (V-11).
+_REFILL_FUTURE_TOLERANCE = timedelta(minutes=5)
+
+
+def _refill_finding(garden_object: GardenObject, op_index: int) -> _Finding | None:
+    """A water source cannot have been refilled after now (+ the clock tolerance); checked on a write only.
+
+    Not a model validator: a stored row from before this check must still load. A naive instant is read as UTC.
+    """
+    props = garden_object.props
+    if not isinstance(props, WaterSourceProps) or props.last_refilled_at is None:
+        return None
+    refilled: datetime = props.last_refilled_at
+    if refilled.tzinfo is None:
+        refilled = datetime.combine(refilled.date(), refilled.time(), UTC)
+    if refilled <= datetime.now(UTC) + _REFILL_FUTURE_TOLERANCE:
+        return None
+    return (op_index, "props.last_refilled_at", ERROR_REFILLED_IN_FUTURE, {})
 
 
 def _findings_of(error: PydanticValidationError, op_index: int | None, *, tagged: bool = False) -> list[_Finding]:
@@ -981,6 +1004,10 @@ class GardenPlanService:
         except PydanticValidationError as exc:
             work.findings.extend(_findings_of(exc, index))
             return
+        refill = _refill_finding(garden_object, index)
+        if refill is not None:
+            work.findings.append(refill)
+            return
         work.objects[op.temp_key] = garden_object
         work.temp_objects.append(op.temp_key)
         work.moved[(_ENTITY_OBJECT, op.temp_key)] = index
@@ -1038,7 +1065,12 @@ class GardenPlanService:
                 }
                 if "props" in patch and patch["props"] is not None:
                     merged["props"] = {**patch["props"], "object_type": garden_object.object_type}
-                work.objects[op.key] = GardenObject(**merged)
+                changed = GardenObject(**merged)
+                refill = _refill_finding(changed, index) if "props" in patch else None
+                if refill is not None:
+                    work.findings.append(refill)
+                    return
+                work.objects[op.key] = changed
                 if "off_site" in patch:
                     # ``off_site`` takes an object in or out of V-03: switching it off is a placement to check.
                     work.moved[(op.entity, op.key)] = index

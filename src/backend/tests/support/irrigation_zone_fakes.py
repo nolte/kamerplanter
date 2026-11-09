@@ -7,7 +7,7 @@ that both moved together. Shared by the unit tier and the API tier.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.common.exceptions import NotFoundError
@@ -121,10 +121,19 @@ class FakeZones(IIrrigationZoneRepository):
         self.facts_asked.append(list(location_keys))
         return self.facts
 
-    def bed_demands(self, site_key, location_keys, *, tenant_key, on_date):
+    def bed_demands(self, site_key, location_keys, *, tenant_key, on_date, lookback_days=0):
+        """Raw rows of the window, NOT reduced to one per bed: the service must not rely on the reduction.
+
+        A demand without ``demand_date`` counts as one of the asked day.
+        """
         assert tenant_key
-        self.demand_dates_asked.append(on_date)
-        return [demand for demand in self.demands if demand.location_key in location_keys]
+        self.demand_dates_asked.append((on_date, lookback_days))
+        first = on_date - timedelta(days=lookback_days)
+        return [
+            demand
+            for demand in self.demands
+            if demand.location_key in location_keys and first <= (demand.demand_date or on_date) <= on_date
+        ]
 
     def actuator_location_key(self, actuator_key, *, tenant_key):
         found = self.actuators.get(actuator_key)

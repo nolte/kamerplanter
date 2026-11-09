@@ -37,10 +37,18 @@ interface WaterSourceFieldsProps {
   onCommit: (ops: PlanOperation[], label: ActionLabel) => void;
 }
 
-/** `YYYY-MM-DD` of a stored instant (UTC), or `''`. */
+/**
+ * `YYYY-MM-DD` of a stored instant on the UTC calendar, or `''` (also for a value that is no instant). Read through
+ * `Date`, not by cutting the string: an instant with an offset (`2026-11-02T23:30:00-02:00`) is the next UTC day.
+ */
 function dayOf(instant: string | null | undefined): string {
-  return instant ? instant.slice(0, 10) : '';
+  if (!instant) return '';
+  const parsed = new Date(instant);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
 }
+
+/** Today on the UTC calendar: the latest day a source can have been refilled (the server refuses a later one). */
+const todayUtc = (): string => new Date().toISOString().slice(0, 10);
 
 const formatCapacity = (value: number | null | undefined): string => (value == null ? '' : String(value));
 
@@ -60,9 +68,11 @@ export function WaterSourceFields({ objectKey, props, disabled, onCommit }: Wate
     setSeenDay(storedDay);
     setDayDraft(storedDay);
   }
+  const today = todayUtc();
+  const dayInFuture = dayDraft !== '' && dayDraft > today;
   // A date input yields `''` while it is incomplete: only a whole day or an emptied field is committed.
   const commitDay = () => {
-    if (dayDraft === storedDay) return;
+    if (dayDraft === storedDay || dayInFuture) return;
     if (dayDraft !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(dayDraft)) return;
     commit({ last_refilled_at: dayDraft === '' ? null : `${dayDraft}T00:00:00Z` });
   };
@@ -149,7 +159,8 @@ export function WaterSourceFields({ objectKey, props, disabled, onCommit }: Wate
         label={t(`${PREFIX}.lastRefilled`)}
         value={dayDraft}
         disabled={disabled}
-        helperText={t(`${PREFIX}.lastRefilledHelp`)}
+        error={dayInFuture}
+        helperText={t(`${PREFIX}.${dayInFuture ? 'lastRefilledFuture' : 'lastRefilledHelp'}`)}
         onChange={(event) => setDayDraft(event.target.value)}
         onBlur={commitDay}
         onKeyDown={(event) => {
@@ -160,7 +171,7 @@ export function WaterSourceFields({ objectKey, props, disabled, onCommit }: Wate
         }}
         slotProps={{
           inputLabel: { shrink: true },
-          htmlInput: { 'data-testid': 'garden-plan-panel-water-source-refilled' },
+          htmlInput: { max: today, 'data-testid': 'garden-plan-panel-water-source-refilled' },
         }}
         sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
       />

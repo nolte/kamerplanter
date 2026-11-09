@@ -22,7 +22,7 @@ import pytest
 from arango import ArangoClient
 
 from app.common.enums import AdminScope, TenantRole
-from app.common.exceptions import PlanValidationError, WriteConflictError
+from app.common.exceptions import ClientEventMismatchError, PlanValidationError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.actuator_repository import ArangoActuatorRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
@@ -285,6 +285,70 @@ class TestRainSkipped:
         assert again.replayed is True and sorted(again.event_keys) == sorted(e["_key"] for e in stored)
         written = [a for a in answers if not isinstance(a, Exception)]
         assert written and all(sorted(a.event_keys) == sorted(again.event_keys) for a in written)
+
+    def test_the_stored_round_answers_a_replay_after_the_zone_changed_and_another_zone_is_a_409(self, db) -> None:
+        zone = _zone(db)
+        data = ZoneRainSkippedInput(client_event_id=uuid.uuid4())
+        service = _service(db)
+        first = service.log_rain_skipped(zone, tenant_key=A, user_key=USER, role=TenantRole.GROWER, data=data)
+        indexed = [i["fields"] for i in db.collection(col.CARE_EVENTS).indexes() if i["type"] == "persistent"]
+        service.replace_locations(zone, tenant_key=A, role=TenantRole.GROWER, location_keys=[])
+        other = service.create_zone("site_a", tenant_key=A, role=TenantRole.GROWER, data=IrrigationZoneInput(name="N"))
+        other_key = other.zone.key or ""
+        service.replace_locations(other_key, tenant_key=A, role=TenantRole.GROWER, location_keys=["bed_1"])
+
+        again = service.log_rain_skipped(zone, tenant_key=A, user_key=USER, role=TenantRole.GROWER, data=data)
+        with pytest.raises(ClientEventMismatchError):
+            service.log_rain_skipped(other_key, tenant_key=A, user_key=USER, role=TenantRole.GROWER, data=data)
+
+        assert ["tenant_key", "client_round_id"] in indexed
+        assert again.replayed is True and sorted(again.event_keys) == sorted(first.event_keys)
+        assert len(db.collection(col.CARE_EVENTS).all()) == 2
+
+
+class TestByDemandWindow:
+    """WP 9.13 review: the day's demand is computed at 06:15 UTC - an early round divides by yesterday's."""
+
+    def _demand(self, db, run: str, day, mm: float) -> None:
+        db.collection(col.IRRIGATION_DEMANDS).insert(
+            {
+                "tenant_key": A,
+                "site_key": "site_a",
+                "run_key": run,
+                "demand_date": day.isoformat(),
+                "net_demand_mm": mm,
+                "area_m2": 1.0,
+            }
+        )
+
+    def test_yesterdays_demand_divides_until_today_is_computed_and_two_runs_take_the_larger(self, db) -> None:
+        zone = _zone(db)
+        for run, bed in (("run_1", "bed_1"), ("run_1b", "bed_1"), ("run_2", "bed_2")):
+            db.collection(col.PLANTING_RUNS).insert({"_key": run, "tenant_key": A, "name": run, "location_key": bed})
+        today = datetime.now(UTC).date()
+        self._demand(db, "run_1", today - timedelta(days=1), 3.0)
+        self._demand(db, "run_2", today - timedelta(days=1), 1.0)
+        self._demand(db, "run_2", today - timedelta(days=3), 50.0)  # older than the window: never read
+
+        early = _service(db).log_watering(
+            zone,
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.GROWER,
+            data=ZoneWateringInput(volume_liters=8, allocation="by_demand"),
+        )
+        self._demand(db, "run_1", today, 2.0)
+        self._demand(db, "run_1b", today, 6.0)  # the second run of bed_1 today: the larger one counts
+        later = _service(db).log_watering(
+            zone,
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.GROWER,
+            data=ZoneWateringInput(volume_liters=7, allocation="by_demand"),
+        )
+
+        assert {s.location_key: s.liters for s in early.shares} == {"bed_1": 6.0, "bed_2": 2.0}
+        assert {s.location_key: s.liters for s in later.shares} == {"bed_1": 6.0, "bed_2": 1.0}
 
 
 class TestStatusReads:

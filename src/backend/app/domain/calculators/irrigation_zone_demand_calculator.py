@@ -27,6 +27,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal
 
 from app.common.enums import IrrigationSystem, IrrigationZoneType
@@ -53,6 +54,8 @@ class BedDemand:
     location_key: str
     net_demand_mm: float
     area_m2: float
+    #: The day the demand was computed for; set by a read over a window of days (``lookback_days``), else ``None``.
+    demand_date: date | None = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +79,24 @@ class ZoneDemand:
 def net_liters(demand: BedDemand) -> float:
     """``net_demand_mm`` x ``area_m2`` (1 mm over 1 m² = 1 L); a negative depth is no demand."""
     return max(demand.net_demand_mm, 0.0) * max(demand.area_m2, 0.0)
+
+
+def newest_demand_per_bed(demands: Iterable[BedDemand]) -> list[BedDemand]:
+    """One demand per bed, by bed key: the newest ``demand_date``; on one day the larger litres (several runs).
+
+    Deterministic whatever order the rows come in: an equal day and equal litres keep the larger depth. A demand
+    without a date counts as the oldest. This is a choice between computed values, never a new value (E-10).
+    """
+    best: dict[str, BedDemand] = {}
+
+    def rank(demand: BedDemand) -> tuple[date, float, float]:
+        return (demand.demand_date or date.min, net_liters(demand), demand.net_demand_mm)
+
+    for demand in demands:
+        current = best.get(demand.location_key)
+        if current is None or rank(demand) > rank(current):
+            best[demand.location_key] = demand
+    return sorted(best.values(), key=lambda item: item.location_key)
 
 
 def effective_efficiency(irrigation_type: IrrigationZoneType, stored: float | None) -> Efficiency:

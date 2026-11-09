@@ -443,6 +443,25 @@ class TestRainSkipped:
         assert other.status_code == 409 and _code(other) == "client_event.payload_mismatch"
         assert len(care.inserted) == 2
 
+    def test_the_same_id_on_another_zone_is_a_409_and_a_changed_zone_still_replays(
+        self, client, zones: FakeZones, care
+    ) -> None:
+        zones.add(IrrigationZone(_key="zone_2", tenant_key=TENANT, site_key=SITE, name="North"))
+        zones.replace_zone_locations("zone_1", ["bed"], tenant_key=TENANT)
+        zones.replace_zone_locations("zone_2", ["bed_2"], tenant_key=TENANT)
+        body = {"client_event_id": "0b6f0e2c-3f5d-4c1a-9a7e-2d4c6b8a0f11"}
+        grower = client(TenantRole.GROWER)
+
+        first = grower.post(self._PATH, json=body)
+        elsewhere = grower.post(f"{_BASE}/irrigation-zones/zone_2/rain-skipped", json=body)
+        zones.replace_zone_locations("zone_1", [], tenant_key=TENANT)  # a fresh round here would be 422 no_beds
+        again = grower.post(self._PATH, json=body)
+
+        assert first.status_code == 201
+        assert elsewhere.status_code == 409 and _code(elsewhere) == "client_event.payload_mismatch"
+        assert again.status_code == 200 and again.json()["event_keys"] == first.json()["event_keys"]
+        assert len(care.inserted) == 1
+
 
 class TestTechnicalCoupling:
     _TECH = (AdminScope.TECHNICAL,)

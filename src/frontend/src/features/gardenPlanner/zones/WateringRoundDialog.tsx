@@ -38,6 +38,7 @@ const ROUND_ERRORS: Record<string, string> = {
   'irrigation_zone.no_bed_demand': 'round.noBedDemand',
   'irrigation_zone.no_beds': 'round.noBeds',
   'client_event.payload_mismatch': 'round.rainConflict',
+  'client_event.round_changed': 'round.rainChanged',
 };
 
 interface Props {

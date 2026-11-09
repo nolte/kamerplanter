@@ -5688,7 +5688,8 @@
             "capacityInvalid": "Gib ein Fassungsvermögen über 0 Litern ein oder lass das Feld leer.",
             "litres": "Liter",
             "lastRefilled": "Zuletzt aufgefüllt",
-            "lastRefilledHelp": "Tag, an dem die Quelle zuletzt aufgefüllt wurde. Leer lassen, wenn unbekannt."
+            "lastRefilledHelp": "Tag, an dem die Quelle zuletzt aufgefüllt wurde. Leer lassen, wenn unbekannt.",
+            "lastRefilledFuture": "Der Tag liegt in der Zukunft. Wähle heute oder einen früheren Tag."
           },
           "lockedHint": "Gesperrt: Die Werte sind schreibgeschützt. Entsperre das Objekt, um es zu ändern.",
           "locked": "Gesperrt",
@@ -5885,6 +5886,9 @@
             },
             "garden_object": {
               "not_plantable": "Auf ein Gartenobjekt lassen sich keine Pflanzen setzen."
+            },
+            "water_source": {
+              "refilled_in_future": "Die letzte Auffüllung der Wasserquelle liegt in der Zukunft. Wähle heute oder einen früheren Tag."
             },
             "batch": {
               "too_many_operations": "Es sind mehr als 500 Änderungen offen. Speichere zwischendurch, sonst nimmt der Server sie nicht an.",
@@ -6355,6 +6359,7 @@
             "rainHelp": "Es hat geregnet, deshalb wird heute nicht gegossen. Für jedes Beet der Zone wird ein Regen-Eintrag ohne Menge gespeichert. Offene Gieß-Aufgaben bleiben offen. Die Notiz oben wird übernommen.",
             "rainSkip": "Regen — übersprungen",
             "rainConflict": "Diese Runde wurde schon mit einer anderen Notiz als übersprungen gespeichert. Schließe den Dialog und sieh im Protokoll nach.",
+            "rainChanged": "Diese Runde wurde schon als übersprungen gespeichert und seither im Protokoll zurückgenommen oder korrigiert. Schließe den Dialog und sieh im Protokoll nach.",
             "rainResultTitle": "Runde als übersprungen gespeichert",
             "rainResultMarker": "Regen-Einträge ohne Menge. Offene Gieß-Aufgaben bleiben offen.",
             "rainResultBeds_one": "Eingetragen für {{count}} Beet: {{beds}}.",

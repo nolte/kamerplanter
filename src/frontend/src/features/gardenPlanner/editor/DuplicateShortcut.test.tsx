@@ -9,6 +9,7 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { pointer, px, setupEditor } from './editorTestKit';
+import { testPlan } from './tools/toolTestKit';
 
 afterEach(() => cleanup());
 
@@ -70,6 +71,39 @@ describe('Ctrl/Cmd+D (GP-FR-025)', () => {
     press(t, t.canvas(), { ctrlKey: true, altKey: true });
 
     expect(t.state().past).toHaveLength(0);
+  });
+
+  it('leaves the key to a select (combobox), its open option list and a spin button', () => {
+    const plan = testPlan();
+    const t = setupEditor({
+      plan: {
+        ...plan,
+        gardenObjects: {
+          ...plan.gardenObjects,
+          ws1: {
+            ...plan.gardenObjects.t1,
+            key: 'ws1',
+            object_type: 'water_source',
+            label: 'Barrel',
+            parent_location_key: null,
+            geometry: { kind: 'point', origin: [17, 17] },
+            bbox: [16.75, 16.75, 17.25, 17.25],
+            props: { object_type: 'water_source', water_source_kind: 'tap' },
+          },
+        },
+      },
+    });
+    t.click(17, 17);
+    const kind = within(screen.getByTestId('garden-plan-panel-water-source')).getByRole('combobox');
+
+    const notPrevented = press(t, kind, { ctrlKey: true });
+    t.after(() => fireEvent.mouseDown(kind));
+    press(t, screen.getByRole('option', { name: 'Cistern' }), { ctrlKey: true });
+    press(t, screen.getByRole('listbox'), { metaKey: true });
+
+    expect(notPrevented).toBe(true);
+    expect(t.state().past).toHaveLength(0);
+    expect(Object.values(t.state().plan!.gardenObjects).filter((o) => o.object_type === 'water_source')).toHaveLength(1);
   });
 
   it('names the shortcut in the item menu entry', () => {

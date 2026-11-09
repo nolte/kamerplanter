@@ -172,6 +172,10 @@ class CareEvent(BaseModel):
     #: The digest of the request that wrote this event (:func:`~app.domain.models.client_event.client_event_digest`);
     #: a replay with another body under the same id is refused.
     client_event_digest: str | None = None
+    #: The client's id of the zone round that wrote this event with its siblings (REQ-053 WP 9.13, "rain -
+    #: skipped"): every event of the round carries the raw id, so a replay finds the stored round whatever the
+    #: zone covers now (sparse index ``(tenant_key, client_round_id)``, bootstrap-only). ``None`` everywhere else.
+    client_round_id: str | None = None
     created_at: datetime | None = None
     created_by: str | None = None
 

@@ -171,11 +171,12 @@ FOR e IN @@events
     RETURN e._key
 """
 
-#: The events a buffered round stored under its derived ids (WP 9.13): one statement, so one snapshot - a reader that
-#: meets a round's commit sees all of its events or none. Served by the same unique index.
-_EVENTS_BY_CLIENT_IDS = """
+#: The events of one replayable zone round (WP 9.13), by the raw id they all carry: one statement, so one snapshot - a
+#: reader that meets a round's commit sees all of its events or none. Served by the sparse
+#: ``(tenant_key, client_round_id)`` index; bounded by ``@limit``.
+_EVENTS_OF_CLIENT_ROUND = """
 FOR e IN @@events
-    FILTER e.tenant_key == @tenant_key AND e.client_event_id IN @client_event_ids
+    FILTER e.tenant_key == @tenant_key AND e.client_round_id == @client_round_id
     SORT e._key
     LIMIT @limit
     RETURN e
@@ -523,17 +524,15 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         key = next(cursor, None)
         return str(key) if key is not None else None
 
-    def find_by_client_event_ids(self, client_event_ids: list[str], *, tenant_key: str) -> list[CareEvent]:
-        self._require_tenant_key(tenant_key, "find_by_client_event_ids")
-        if not client_event_ids:
-            return []
+    def find_client_round(self, client_round_id: str, *, tenant_key: str, limit: int) -> list[CareEvent]:
+        self._require_tenant_key(tenant_key, "find_client_round")
         bind_vars: dict[str, Any] = {
             "@events": col.CARE_EVENTS,
             "tenant_key": tenant_key,
-            "client_event_ids": client_event_ids,
-            "limit": len(client_event_ids),
+            "client_round_id": client_round_id,
+            "limit": limit,
         }
-        cursor = cast("Cursor", self._db.aql.execute(_EVENTS_BY_CLIENT_IDS, bind_vars=bind_vars))
+        cursor = cast("Cursor", self._db.aql.execute(_EVENTS_OF_CLIENT_ROUND, bind_vars=bind_vars))
         return [self._wrapped(doc) for doc in cursor]
 
     def _row(self, row: dict[str, Any]) -> CareEventRow:
