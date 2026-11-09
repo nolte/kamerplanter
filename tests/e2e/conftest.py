@@ -285,6 +285,17 @@ def pytest_configure(config: pytest.Config) -> None:
         "demo user (full mode only; no-op in light mode, where the sole operator already is "
         "platform admin per REQ-027) (#1155)",
     )
+    config.addinivalue_line(
+        "markers",
+        "requires_chrome: the test drives the browser over the Chrome DevTools Protocol (network emulation, "
+        "storage probes); skipped on --browser firefox",
+    )
+    config.addinivalue_line(
+        "markers",
+        "secure_context: start this test's browser with the E2E origin treated as a secure context, "
+        "so the service worker and Cache Storage exist on plain http://frontend:8080 "
+        "(REQ-053 WP 9.15, UI-NFR-012 §5.1.5); Chrome only",
+    )
 
     # Register the feature-axis markers (semantic, cross-cutting to REQ IDs).
     for name, description in KNOWN_FEATURE_MARKERS.items():
@@ -367,6 +378,14 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         for item in items:
             if "requires_auth" in item.keywords:
                 item.add_marker(skip_light)
+
+    if config.getoption("--browser") == "firefox":
+        skip_firefox = pytest.mark.skip(
+            reason="requires Chrome: drives the browser over the DevTools Protocol (running on firefox)"
+        )
+        for item in items:
+            if "requires_chrome" in item.keywords:
+                item.add_marker(skip_firefox)
 
     if config.getoption("--device") != "desktop":
         device = config.getoption("--device")
@@ -500,13 +519,18 @@ def device_profile(request: pytest.FixtureRequest) -> dict:
     return {**DEVICE_PROFILES[name], "name": name}
 
 
+def resolve_base_url(config: pytest.Config) -> str:
+    """The base URL of the application under test - the one place it is resolved.
+
+    ``E2E_BASE_URL`` env var takes precedence (set by docker-compose.e2e.yml), else ``--base-url``.
+    """
+    return os.environ.get("E2E_BASE_URL") or config.getoption("--base-url")
+
+
 @pytest.fixture(scope="session")
 def base_url(request: pytest.FixtureRequest) -> str:
-    """Return the base URL for the application under test.
-
-    ``E2E_BASE_URL`` env var takes precedence (set by docker-compose.e2e.yml).
-    """
-    return os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
+    """Return the base URL for the application under test (:func:`resolve_base_url`)."""
+    return resolve_base_url(request.config)
 
 
 # ── Demo user credentials (shared between seed fixture and auth tests) ────
@@ -955,7 +979,8 @@ def _fresh_access_token(e2e_seed_data: dict, base_url: str) -> str | None:
     The session-scoped seed token expires after the JWT access TTL (15 min) —
     long before late-scheduled tests run, so helpers that reuse it fail with
     'Token has expired'. Full mode: re-login with the demo credentials and
-    cache the token for 10 minutes. Light mode (no seed token): ``None``.
+    cache the token for 10 minutes. Light mode (no seed token): ``None``. A seed with ``email`` and
+    ``password`` re-logs in as that account instead of the demo user.
     """
     if not e2e_seed_data.get("access_token"):
         return None
@@ -965,9 +990,14 @@ def _fresh_access_token(e2e_seed_data: dict, base_url: str) -> str | None:
     if cached and _time.time() - cached[1] < 600:
         return cached[0]
     _post, _ = _api_helpers()
+    # A seed of another account (a test's own, freshly registered one) carries its credentials; the demo
+    # account is the default, never a silent fallback for someone else's seed.
     status, resp = _post(
         f"{base_url.rstrip('/')}/api/v1/auth/login",
-        {"email": DEMO_EMAIL_FULL, "password": DEMO_PASSWORD},
+        {
+            "email": e2e_seed_data.get("email", DEMO_EMAIL_FULL),
+            "password": e2e_seed_data.get("password", DEMO_PASSWORD),
+        },
     )
     token = resp.get("access_token") if status == 200 else None
     if not token:
@@ -1003,13 +1033,44 @@ def _e2e_api_post(
 # the sidebar's scroll container), turning two green tests red.
 
 
-def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) -> webdriver.Remote:
+def secure_context_args(request: pytest.FixtureRequest) -> tuple[str, ...]:
+    """The Chrome switch that makes the E2E origin a secure context, for a ``secure_context`` test.
+
+    A service worker, ``navigator.serviceWorker`` and Cache Storage exist only in a secure context. The stack
+    serves the app on plain ``http://frontend:8080`` (not ``localhost``), where Chrome hides all three, so the
+    offline cases of REQ-053 WP 9.15 (UI-NFR-012 §5.1.5) start their browser with
+    ``--unsafely-treat-insecure-origin-as-secure=<origin>``. Every other test keeps today's insecure context -
+    and with it no service worker - so nothing the worker caches can leak into the rest of the suite.
+    ``https`` and ``localhost`` are secure already and get no switch.
+    """
+    if request.node.get_closest_marker("secure_context") is None:
+        return ()
+    # Firefox first: whatever the origin, a secure_context case drives the worker over CDP (Chrome only).
+    if request.config.getoption("--browser") == "firefox":
+        pytest.skip(
+            "secure_context: the insecure-origin switch and the CDP probes are Chrome's; "
+            "this case runs on the Chrome profiles"
+        )
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(resolve_base_url(request.config))
+    if parts.scheme == "https" or parts.hostname in ("localhost", "127.0.0.1"):
+        return ()
+    return (f"--unsafely-treat-insecure-origin-as-secure={parts.scheme}://{parts.netloc}",)
+
+
+def start_browser_session(
+    request: pytest.FixtureRequest,
+    device_profile: dict,
+    extra_chrome_args: tuple[str, ...] = (),
+) -> webdriver.Remote:
     """Start one configured browser session: driver, device emulation, locale,
     module visibility and (full mode) the demo login.
 
     Shared by the ``browser`` fixture and by tests that need an additional,
     independent session. The caller owns the session and must end it with
-    ``quit_driver``.
+    ``quit_driver``. *extra_chrome_args* are appended to Chrome's switches
+    (``secure_context_args``); empty for every session but the offline cases.
     """
     browser_name = request.config.getoption("--browser")
     remote_url = os.environ.get("SELENIUM_REMOTE_URL")
@@ -1032,6 +1093,8 @@ def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) 
             options.add_argument("--disable-gpu")
             options.add_argument(f"--window-size={win_size}")
             options.add_argument("--lang=de-DE")
+            for argument in extra_chrome_args:
+                options.add_argument(argument)
         driver = webdriver.Remote(
             command_executor=remote_url,
             options=options,
@@ -1065,6 +1128,8 @@ def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) 
         options.add_argument("--disable-gpu")
         options.add_argument("--remote-debugging-port=0")
         options.add_argument(f"--window-size={win_size}")
+        for argument in extra_chrome_args:
+            options.add_argument(argument)
         # Support snap-installed Chromium (Ubuntu)
         chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
         if chromium_snap and not shutil.which("google-chrome"):
@@ -1175,7 +1240,7 @@ def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) 
     # Set German locale in localStorage so i18next picks it up (detection
     # order: localStorage → navigator).  We need to navigate to the origin
     # first so that localStorage is bound to the correct domain.
-    url = os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
+    url = resolve_base_url(request.config)
     driver.get(url)
     driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'de');")
 
@@ -1242,7 +1307,7 @@ def browser(
     The ``--device`` option controls viewport size and mobile emulation
     via Chrome DevTools Protocol.
     """
-    driver = start_browser_session(request, device_profile)
+    driver = start_browser_session(request, device_profile, secure_context_args(request))
     yield driver
     # A session that died under the test must not add a second traceback that
     # hides the first (#1903); it is recorded on the test result instead.
@@ -1872,7 +1937,10 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
     report = outcome.get_result()
     if report.when == "call":
         item._report = report  # type: ignore[attr-defined]
-
+    # A test skipped by a marker (``requires_auth`` in light mode, ``requires_desktop`` on a phone, a
+    # ``pytest.skip`` in a fixture) is skipped in ``setup`` and has no ``call`` phase at all; recorded only on
+    # ``call`` it vanished from the protocol instead of reading SKIP.
+    if report.when == "call" or (report.when == "setup" and report.skipped):
         # ── Protocol recording ────────────────────────────────────
         if _protocol_generator is not None:
             outcome_str = "passed" if not report.failed else "failed"

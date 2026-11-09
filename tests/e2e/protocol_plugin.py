@@ -228,8 +228,9 @@ class ProtocolGenerator:
         xpassed = sum(1 for r in self.results if r.outcome == "xpassed")
         total = len(self.results)
 
-        git_commit = _git("rev-parse", "--short", "HEAD")
-        git_branch = _git("rev-parse", "--abbrev-ref", "HEAD")
+        # The test container has no .git: the runner hands the values in (docker-compose.e2e.yml).
+        git_commit = os.environ.get("E2E_GIT_SHA") or _git("rev-parse", "--short", "HEAD")
+        git_branch = os.environ.get("E2E_GIT_BRANCH") or _git("rev-parse", "--abbrev-ref", "HEAD")
         os_info = f"{platform.system()} {platform.release()}"
         python_version = platform.python_version()
         browser_info = os.environ.get("E2E_BROWSER", "chrome (headless)")

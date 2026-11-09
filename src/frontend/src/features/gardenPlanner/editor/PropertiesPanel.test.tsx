@@ -6,6 +6,8 @@ import type { PlanLocation } from '../model/types';
 import { setupEditor, typeAndBlur } from './editorTestKit';
 import { testPlan } from './tools/toolTestKit';
 import { changeBedStatus, patchSoilProfile, patchSun } from '../bed/bedApi';
+import { listLocationTypes } from '@/api/endpoints/sites';
+import type { LocationType } from '@/api/types';
 
 // The editor writes only through the plan save: any call into the bed page's PATCH path is a defect (#2538).
 vi.mock('../bed/bedApi', async (importOriginal) => ({
@@ -13,6 +15,12 @@ vi.mock('../bed/bedApi', async (importOriginal) => ({
   patchSun: vi.fn(),
   patchSoilProfile: vi.fn(),
   changeBedStatus: vi.fn(),
+}));
+
+// The location-type catalogue (`useLocationTypeNames`): empty unless a case fills it.
+vi.mock('@/api/endpoints/sites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/endpoints/sites')>()),
+  listLocationTypes: vi.fn(async () => []),
 }));
 
 afterEach(() => {
@@ -58,6 +66,16 @@ describe('empty state (GP-UX-049)', () => {
   it('has no accessibility violations', async () => {
     const t = setupEditor();
     await expectNoA11yViolations(t.view.container);
+  });
+});
+
+describe('type line', () => {
+  it("names the bed's type by its catalogue name, not its key", async () => {
+    const bedType = { key: 'bed', name: 'Beet', name_en: 'Bed' } as LocationType;
+    vi.mocked(listLocationTypes).mockResolvedValueOnce([bedType]);
+    const t = setupEditor();
+    t.click(4, 4);
+    expect(await screen.findByText('Type: Bed')).toHaveAttribute('data-testid', 'garden-plan-panel-type');
   });
 });
 

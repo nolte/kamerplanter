@@ -159,6 +159,25 @@ async function database(): Promise<WriteQueueDatabase | null> {
   }
 }
 
+/**
+ * Load the buffer's code (Dexie and `queueDb`) while the network is still there, without opening a database.
+ *
+ * `database()` imports `./queueDb` on its first call, and on a device that never buffered anything that first
+ * call is the first offline capture — when the lazy chunk can no longer be fetched (the worker caches lazy chunks
+ * only on first use, and without a worker nothing serves them at all). The capture then failed as "buffer
+ * unavailable" although IndexedDB was there. A screen that offers buffered writes calls this once online, so the
+ * module is in memory (and in the worker's asset cache) before the connection drops. Resolves `true` once loaded.
+ */
+export async function preloadWriteQueue(): Promise<boolean> {
+  if (!writeQueueAvailable()) return false;
+  try {
+    dbModule ??= await import('./queueDb');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The clearing generation now (`null` = unknown: nothing is written). */
 export function queueGeneration(): number | null {
   try {

@@ -203,6 +203,7 @@ export default function MainLayout() {
                 onClick={handleMenuOpen}
                 sx={{ ml: 1 }}
                 aria-label={t('pages.auth.accountMenu')}
+                data-testid="account-menu-button"
               >
                 <Avatar
                   sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}
@@ -220,7 +221,7 @@ export default function MainLayout() {
               >
                 <Box sx={{ px: 2, py: 1 }}>
                   <Typography variant="subtitle2">{user?.display_name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" data-testid="account-menu-email">
                     {user?.email}
                   </Typography>
                 </Box>
@@ -233,7 +234,7 @@ export default function MainLayout() {
                   <ListItemIcon><PrivacyTipIcon fontSize="small" /></ListItemIcon>
                   {t('pages.auth.privacySettings')}
                 </MenuItem>
-                <MenuItem onClick={handleLogout}>
+                <MenuItem onClick={handleLogout} data-testid="menu-logout">
                   <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
                   {t('pages.auth.logout')}
                 </MenuItem>

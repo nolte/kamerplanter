@@ -108,11 +108,13 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "test nothing the suite uses."
     ),
     "rate_limit_bed_template_import": (
-        "No E2E test imports a bed-template file (grep over tests/e2e finds no call to "
-        "/bed-templates/import, #2749). The import is a deliberate file upload from the template "
-        "panel, never on a bootstrap or navigation path, and its per-tenant budget of ten a minute "
-        "covers the dry run, a recheck after a name collision and the confirm. If a journey ever "
-        "imports a template, this entry is wrong and the limit needs raising."
+        "One E2E case imports a bed-template file: TC-053-092 (test_req053_wave9_export.py, #2756) "
+        "sends exactly three requests per run - the dry run that refuses the taken name, the "
+        "recheck with the proposed name and the confirm - against its tenant's budget of ten a "
+        "minute, and no other test imports a template. The import is a deliberate file upload from "
+        "the template panel, never on a bootstrap or navigation path, so the suite's load does not "
+        "scale with page opens. If a second journey imports a template, this entry is wrong and the "
+        "limit needs raising."
     ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "

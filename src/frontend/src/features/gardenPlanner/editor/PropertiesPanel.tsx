@@ -31,6 +31,7 @@ import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import LockIcon from '@mui/icons-material/Lock';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import type { SunClassThresholds } from '@/api/types';
+import { useLocationTypeNames } from '../bed/useLocationTypeNames';
 import { useSiteThresholds } from '../bed/useSiteThresholds';
 import type { PlanModel } from '../model/planModel';
 import type {
@@ -115,10 +116,20 @@ interface Described {
   subtitle: string;
 }
 
-function describe(plan: PlanModel, ref: SelectionRef, labels: RendererLabels): Described {
+/** The display name of a location type (the catalogue's name), its key while the catalogue is not read yet. */
+function typeNameOf(typeNames: ReadonlyMap<string, string>, typeKey: string | undefined): string {
+  return typeKey ? (typeNames.get(typeKey) ?? typeKey) : '';
+}
+
+function describe(
+  plan: PlanModel,
+  ref: SelectionRef,
+  labels: RendererLabels,
+  typeNames: ReadonlyMap<string, string>,
+): Described {
   if (ref.entity === 'location') {
     const location = plan.locations[ref.key];
-    return { title: location?.name ?? ref.key, subtitle: location?.location_type_key ?? '' };
+    return { title: location?.name ?? ref.key, subtitle: typeNameOf(typeNames, location?.location_type_key) };
   }
   if (ref.entity === 'garden_object') {
     const garden = plan.gardenObjects[ref.key];
@@ -148,10 +159,16 @@ function EntityForm({
   onZOrder,
   bedInfo,
   sunThresholds,
+  typeNames,
 }: Pick<
   PropertiesPanelProps,
   'plan' | 'labels' | 'onCommit' | 'onOpenLocation' | 'onOpenCare' | 'onDuplicate' | 'onDelete' | 'onZOrder' | 'bedInfo'
-> & { entity: PlanEntity; entityKey: string; sunThresholds: Readonly<SunClassThresholds> }) {
+> & {
+  entity: PlanEntity;
+  entityKey: string;
+  sunThresholds: Readonly<SunClassThresholds>;
+  typeNames: ReadonlyMap<string, string>;
+}) {
   const { t } = useTranslation();
   const source = sourceOf(plan, entity, entityKey);
   const geometry: Geometry | null = source?.geometry ?? null;
@@ -222,7 +239,7 @@ function EntityForm({
   const typeLabel =
     entity === 'garden_object'
       ? labels.objectType(plan.gardenObjects[entityKey]?.object_type ?? 'other')
-      : (plan.locations[entityKey]?.location_type_key ?? '');
+      : typeNameOf(typeNames, plan.locations[entityKey]?.location_type_key);
   const slotCount = Object.values(plan.slots).filter((s) => s.location_key === entityKey).length;
   const plantCount = Object.values(plan.plants).filter((p) => {
     const slot = p.slot_key ? plan.slots[p.slot_key] : undefined;
@@ -597,7 +614,10 @@ function StackList({
   labels,
   onSelect,
   onStack,
-}: Pick<PropertiesPanelProps, 'plan' | 'stack' | 'labels' | 'onSelect' | 'onStack'>) {
+  typeNames,
+}: Pick<PropertiesPanelProps, 'plan' | 'stack' | 'labels' | 'onSelect' | 'onStack'> & {
+  typeNames: ReadonlyMap<string, string>;
+}) {
   const { t } = useTranslation();
   const refs = useMemo(() => (stack ? stackRefs(plan, stack.keys) : []), [plan, stack]);
   if (!stack || refs.length < 2) return null;
@@ -611,7 +631,7 @@ function StackList({
       </Typography>
       <List dense={!plants} disablePadding>
         {refs.map((ref, index) => {
-          const info = describe(plan, ref, labels);
+          const info = describe(plan, ref, labels, typeNames);
           return (
             <ListItemButton
               key={`${ref.entity}:${ref.key}`}
@@ -639,12 +659,14 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   const single = selection.length === 1 ? selection[0] : null;
   // The site's sun-class bounds for the tile help texts (GP-FR-164, WP 8.24); the defaults until it is read.
   const sunThresholds = useSiteThresholds(plan.siteKey).sun;
+  // The type's catalogue name instead of its key ("Hochbeet", not "raised_bed").
+  const typeNames = useLocationTypeNames();
 
   let body: ReactNode;
   let title = t(`${PREFIX}.panel.title`);
   // A selection can be ahead of the plan by one render (a deleted object): it shows nothing then.
   if (single !== null && isPlanEntity(single) && sourceOf(plan, single.entity, single.key)) {
-    title = describe(plan, single, labels).title;
+    title = describe(plan, single, labels, typeNames).title;
     body = (
       <EntityForm
         // A new selection starts with fresh drafts and no stale error.
@@ -658,13 +680,14 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         onOpenCare={props.onOpenCare}
         bedInfo={props.bedInfo}
         sunThresholds={sunThresholds}
+        typeNames={typeNames}
         onDuplicate={props.onDuplicate}
         onDelete={props.onDelete}
         onZOrder={props.onZOrder}
       />
     );
   } else if (single !== null && !isPlanEntity(single)) {
-    const info = describe(plan, single, labels);
+    const info = describe(plan, single, labels, typeNames);
     title = info.title;
     body = (
       <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-readonly">
@@ -805,6 +828,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         labels={labels}
         onSelect={onSelect}
         onStack={onStack}
+        typeNames={typeNames}
       />
     </Paper>
   );

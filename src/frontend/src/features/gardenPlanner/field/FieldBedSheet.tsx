@@ -66,6 +66,7 @@ import { photoAsSent, photoForQueue, withGenericName } from '../offline/queuedPh
 // network failure, so the buffer fallback with the same id is reached.
 import { PHOTO_SEND_TIMEOUT_MS, SEND_TIMEOUT_MS } from '../offline/sync';
 import type { QueueEntry, QueuedWrite, StoredPhoto } from '../offline/queueTypes';
+import { preloadOfflineCapture } from '../offline/preloadOfflineCapture';
 import { useWriteQueue } from '../offline/useWriteQueue';
 
 const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
@@ -170,6 +171,19 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
 
   // ── The offline write buffer (WP 9.4) ──
   const bufferOn = queue.available && canBuffer(scope);
+  // The first offline capture must not need a chunk download (`preloadOfflineCapture`): loaded while online, again
+  // after a reconnect when a load failed. `captureReady` is the sheet's signal that an offline capture can work.
+  const [captureReady, setCaptureReady] = useState(false);
+  useEffect(() => {
+    if (!bufferOn || !online) return undefined;
+    let cancelled = false;
+    void preloadOfflineCapture().then((ready) => {
+      if (!cancelled && ready) setCaptureReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bufferOn, online]);
   const target: BufferTarget = {
     scope,
     // A sheet from the cache (lie-fi) buffers like offline: no direct send against a snapshot.
@@ -404,6 +418,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
         },
       }}
       data-testid="field-bed-sheet"
+      data-offline-capture-ready={captureReady ? 'true' : 'false'}
     >
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3, fontSize: '1rem' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -44,6 +44,10 @@ export UID GID
 E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" || { echo "cannot provide E2E_FERNET_KEY" >&2; exit 2; }
 export E2E_FERNET_KEY
 if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::add-mask::$E2E_FERNET_KEY"; fi
+# The test image has no .git; the protocol header reads the commit and branch from here.
+E2E_GIT_SHA="${E2E_GIT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || true)}"
+E2E_GIT_BRANCH="${E2E_GIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)}"
+export E2E_GIT_SHA E2E_GIT_BRANCH
 
 # Determine run mode
 PROFILE="light"

@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 83
+test_count: 97
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -23,8 +23,10 @@ coverage_areas:
   - Welle 8 Teil A — Bodenanalyse, Flächendosis, Bodenverbesserung, Nährstoff-Hinweis ohne Zahl, Historie als CSV, Rotationsmatrix, Folgekultur, Vorschläge
   - Welle 8 Teil B — Mischkultur-Ebene, Standortmerkmale, Erreichbarkeit, Beet-Fotos, CSV-Beetliste/-Import, Frost-Grund im Pflanzenzustand
   - Welle 9 — Renderer-Messung D-01 (Drag-/Zoom-Frametime, große Pläne, Desktop und Mobile CPU 4×)
+  - Welle 9 Teil A — Offline: Service Worker, Plan ohne Verbindung, Puffer und Sync, Konflikt, Abmelden leert den Zwischenspeicher
+  - Welle 9 Teil B — PNG-Export, Vorlagen-Austausch, Parzellenseite im PDF, Standort-Flags, nächste Wasserquelle, Strg+D, Konva-Umschaltung
 generated: "2026-10-11"
-version: "1.10"
+version: "1.12"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -119,6 +121,16 @@ unter „Nicht abgedeckte Welle-8-Zeilen“.
 **Version 1.10 (2026-11-08, WP 9.6 / #2746)** — ein neuer Fall TC-053-083 (Renderer-Messung D-01, GP-NFR-033/034,
 Abschnitt 11); `test_count` 82 → 83, die Abdeckungs-Matrix ist um die abgeleitete Zeile ergänzt. Die Grenzwerte sind
 beratend; der Fall liefert die Messwerte für die Go/No-Go-Entscheidung zu WP 9.7.
+
+**Version 1.11 (2026-11-09, WP 9.15 / #2755)** — sieben neue Fälle TC-053-084 bis TC-053-090: Teil A Offline
+(Abschnitt 12, aus GP-UX-024 und UI-NFR-012); `test_count` 83 → 90, die Abdeckungs-Matrix ist um die abgeleiteten
+Zeilen ergänzt. Bewusst nicht abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-9-Teile“.
+
+**Version 1.12 (2026-11-09, WP 9.16 / #2756)** — sieben neue Fälle TC-053-091 bis TC-053-097: Teil B Export, Vorlagen,
+Standort, Editor und Renderer (Abschnitt 13, aus GP-FR-144, 173, 176, 165, 167, 025/026 und GP-NFR-033/D-01);
+`test_count` 90 → 97, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt. TC-053-047 („Regen —
+übersprungen“) ist seit WP 9.13 in der Oberfläche und jetzt automatisiert (`tests/e2e/test_req053_wave9_export.py`).
+GP-FR-165 und GP-FR-167 sind aus den nicht abgedeckten Welle-8-Zeilen in Abschnitt 13 gewandert.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -1511,6 +1523,10 @@ Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die Matrix führt sie al
 **Nachbedingungen**:
 - Übersprungene Runde protokolliert
 
+**Automatisierung**: `tests/e2e/test_req053_wave9_export.py::test_tc_053_047_rain_skipped_logs_rain_without_amount_and_keeps_tasks_open`
+(seit Version 1.12; die Aktion kam mit WP 9.13). Der Fall prüft zusätzlich: je Beet genau ein Regen-Eintrag ohne Menge
+mit der Notiz der Runde, kein Gieß-Eintrag, eine offene Gieß-Aufgabe bleibt offen.
+
 **Tags**: [req-053, bewaesserung, giessrunde, regen, desktop, gp-fr-117]
 
 ---
@@ -2655,6 +2671,386 @@ sich das Go/No-Go für den zweiten Renderer (WP 9.7) ergibt.
 
 ---
 
+## 12. Neu in Welle 9, Teil A (Offline: Service Worker, Plan ohne Verbindung, Puffer und Sync, Konflikt, Abmelden)
+
+Die Fälle TC-053-084 bis TC-053-090 sind aus REQ-053 GP-UX-024 und UI-NFR-012 R-001/R-002, R-007…R-010, R-021,
+R-025, R-028, R-032, R-055 bis R-060 abgeleitet (WP 9.15, #2755); automatisiert in
+`tests/e2e/test_req053_wave9_offline.py`. „Ohne Verbindung“ heißt: die Seite ist über die Entwicklerwerkzeuge des
+Browsers offline geschaltet, und der Browser meldet selbst „offline“. Der Service Worker existiert nur in einem
+sicheren Kontext; die Testumgebung liefert die App über unverschlüsseltes HTTP aus und startet den Browser für die
+Fälle mit Service Worker deshalb mit diesem Ursprung als „sicher“ behandelt. Feldmodus-Fälle laufen auf dem
+Smartphone (390 × 844), die übrigen auf dem Desktop.
+
+### TC-053-084: Service Worker aktiv und steuernd, Manifest ausgeliefert
+
+**Requirement**: UI-NFR-012 R-001, R-002, R-007, R-059; REQ-053 WP 9.1 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- Garten mit einem Beet
+
+**Testschritte**:
+1. Nutzer öffnet den Gartenplan
+2. Nutzer lädt die Seite neu
+
+**Erwartete Ergebnisse**:
+- Für den ganzen Ursprung ist genau ein Service Worker unter `/sw.js` registriert und aktiviert; nach dem Neuladen steuert er die Seite
+- Das Dokument verweist auf `/manifest.json`; der Browser liest es ohne Fehler, mit Name, Kurzname, Startadresse, Anzeige „standalone“, Theme- und Hintergrundfarbe sowie Symbolen in 192 und 512 px
+- `/sw.js` und `/manifest.json` werden mit „nicht speichern“ ausgeliefert (kein Browser-Cache für das Worker-Skript)
+
+**Nachbedingungen**:
+- Keine
+
+**Tags**: [req-053, welle-9, offline, service-worker, manifest, desktop, ui-nfr-012]
+
+---
+
+### TC-053-085: App-Shell lädt ohne Verbindung aus dem Service Worker
+
+**Requirement**: UI-NFR-012 R-007, R-008, R-010, §5.1.5; REQ-053 WP 9.1 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- Gartenplan einmal mit Verbindung geöffnet und neu geladen (der Service Worker steuert die Seite)
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung
+2. Nutzer lädt die Seite neu
+
+**Erwartete Ergebnisse**:
+- Statt der Fehlerseite des Browsers erscheint die App: im Vollmodus die Anmeldemaske (eine Sitzung lässt sich ohne Verbindung nicht wiederherstellen, R-050 nicht in Welle 9), im Light-Modus der App-Rahmen mit der Verbindungsanzeige
+- Die Seite kam vom Service Worker, der Browser meldet weiterhin „offline“, der Service Worker steuert die Seite
+
+**Nachbedingungen**:
+- Keine
+
+**Tags**: [req-053, welle-9, offline, app-shell, service-worker, desktop, ui-nfr-012]
+
+---
+
+### TC-053-086: Zuletzt geladener Plan ohne Verbindung lesbar — „Stand von …“, schreibgeschützt
+
+**Requirement**: REQ-053 GP-UX-024 (Teil 1); UI-NFR-012 R-057; WP 9.2 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- Garten mit den Beeten „Beet A“ und „Beet B“
+
+**Testschritte**:
+1. Nutzer öffnet den Gartenplan mit Verbindung
+2. Nutzer wechselt mit „Zurück zum Standort“ zur Standortseite
+3. Nutzer verliert die Verbindung und geht mit „Zurück“ des Browsers zum Plan
+4. Die Verbindung kommt zurück
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 3 zeigt der Plan beide Beete schreibgeschützt, mit dem Hinweis „Ohne Verbindung: Du siehst den Stand von <Uhrzeit>.“
+- Der Sperrhinweis nennt den Grund („Ohne Verbindung kannst du den Plan nur ansehen …“); „Export & Import“ wird nicht angeboten
+- Nach Schritt 4 ersetzt der Editor die Ansicht, der Stand-Hinweis verschwindet
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-9, offline, plan-cache, schreibgeschuetzt, desktop, gp-ux-024]
+
+---
+
+### TC-053-087: Feldmodus ohne Verbindung — „Erledigt“ und Notiz gepuffert, mit Verbindung übertragen
+
+**Requirement**: REQ-053 GP-UX-024 (Teil 2); UI-NFR-012 R-021, R-025, R-058, §5.3.4; WP 9.4 (abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- „Beet 1“ mit einer offenen Gieß-Aufgabe; das Beet-Sheet wurde einmal mit Verbindung geöffnet
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung und öffnet das Sheet von „Beet 1“
+2. Nutzer tippt bei der Aufgabe „Erledigt“, dann „Fertig“
+3. Nutzer tippt den Chip „Notiz“, schreibt eine Notiz und speichert
+4. Die Verbindung kommt zurück
+
+**Erwartete Ergebnisse**:
+- Das Sheet zeigt den „Stand von …“-Hinweis und erklärt, dass „Erledigt“, Notizen und Fotos auf dem Gerät gespeichert werden
+- Die Aufgabe zeigt „Wartet auf Übertragung“ und bietet kein zweites „Erledigt“; die App-Leiste zeigt „2 nicht übertragen“; am Server ist noch nichts angekommen
+- Nach Schritt 4 meldet die App „2 Einträge übertragen.“, die Anzeige „nicht übertragen“ verschwindet
+- Am Server ist die Aufgabe erledigt (genau ein Pflegeeintrag), die Notiz genau einmal gespeichert; beide tragen den Zeitpunkt der Erfassung ohne Verbindung, nicht den der Übertragung
+
+**Nachbedingungen**:
+- Aufgabe erledigt, Notiz gespeichert
+
+**Tags**: [req-053, welle-9, offline, puffer, sync, feldmodus, smartphone, gp-ux-024]
+
+---
+
+### TC-053-088: Feldmodus ohne Verbindung — Beet-Foto gepuffert, landet mit Verbindung in der Galerie
+
+**Requirement**: UI-NFR-012 R-058, R-060 (c); REQ-053 GP-FR-051; WP 9.4 (abgeleitet)
+**Gerät**: Smartphone 390 × 844 (nur Vollmodus: Ablage für Anhänge)
+**Priority**: Medium
+**Category**: Offline
+**Preconditions**:
+- „Beet 1“ ohne Foto; das Beet-Sheet wurde einmal mit Verbindung geöffnet
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung und öffnet das Sheet von „Beet 1“
+2. Nutzer tippt „Foto vom Beet“, wählt ein Bild und lädt es hoch
+3. Die Verbindung kommt zurück
+
+**Erwartete Ergebnisse**:
+- Die App meldet „Foto auf dem Gerät gespeichert …“; die App-Leiste zeigt „1 nicht übertragen“; die Galerie am Server ist leer
+- Nach Schritt 3 meldet die App „1 Eintrag übertragen.“; die Galerie des Beets enthält genau ein Foto, und es ist das Titelbild
+
+**Nachbedingungen**:
+- Ein Foto am Beet
+
+**Tags**: [req-053, welle-9, offline, puffer, foto, feldmodus, smartphone, gp-fr-051]
+
+---
+
+### TC-053-089: Gepuffertes „Erledigt“ einer inzwischen geschlossenen Aufgabe — Konflikt-Dialog
+
+**Requirement**: UI-NFR-012 R-028, R-032; REQ-053 WP 9.3, WP 9.4 (abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- „Beet 1“ mit einer offenen Gieß-Aufgabe; das Beet-Sheet wurde einmal mit Verbindung geöffnet
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung, öffnet das Sheet und erledigt die Aufgabe („Erledigt“, „Fertig“)
+2. Auf einem zweiten Gerät wird dieselbe Aufgabe erledigt
+3. Die Verbindung kommt zurück
+4. Nutzer wählt im Konflikt-Dialog beim Eintrag „Verwerfen“
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 3 öffnet sich der Konflikt-Dialog von selbst mit genau einem Eintrag, der die Aufgabe nennt und den Grund „Die Aufgabe ist inzwischen schon erledigt oder übersprungen.“
+- Nach Schritt 4 verschwindet der Eintrag und die Anzeige „nicht übertragen“
+- Am Server ist die Aufgabe genau einmal erledigt — vom zweiten Gerät, nicht ein zweites Mal aus dem Puffer
+
+**Nachbedingungen**:
+- Aufgabe erledigt (vom zweiten Gerät)
+
+**Tags**: [req-053, welle-9, offline, konflikt, feldmodus, smartphone, ui-nfr-012]
+
+---
+
+### TC-053-090: Abmelden leert den Lese-Zwischenspeicher und den Namensraum des Kontos
+
+**Requirement**: UI-NFR-012 R-055, R-056 (a); REQ-053 SR-019, WP 9.1/9.2 (abgeleitet)
+**Gerät**: Desktop (nur Vollmodus: der Light-Modus hat kein Abmelden)
+**Priority**: High
+**Category**: Offline / Datenschutz
+**Preconditions**:
+- Ein eigenes, frisch registriertes Konto (ein Abmelden beendet alle Zugangs-Token des Kontos)
+- Der Service Worker steuert die Seite, der Plan wurde gelesen (liegt im Plan-Zwischenspeicher), der Tab hat seinen Namensraum (Konto und Mandant) beim Service Worker angemeldet
+
+**Testschritte**:
+1. Nutzer öffnet das Konto-Menü und wählt „Abmelden“
+
+**Erwartete Ergebnisse**:
+- Die Anmeldemaske erscheint
+- Der Plan-Zwischenspeicher des Browsers ist gelöscht, der Service Worker kennt keinen Namensraum des Kontos mehr, kein kontobezogener Zwischenspeicher ist übrig
+- Die öffentlichen Zwischenspeicher der App-Shell bleiben (sie enthalten keine Kontodaten)
+
+**Nachbedingungen**:
+- Abgemeldet
+
+**Tags**: [req-053, welle-9, offline, abmelden, datenschutz, desktop, sr-019, ui-nfr-012]
+
+---
+
+## 13. Neu in Welle 9, Teil B (PNG, Vorlagen-Austausch, Parzellenseite, Standort-Flags, Wasserquelle, Strg+D, Renderer)
+
+Die Fälle TC-053-091 bis TC-053-097 sind aus GP-FR-144, GP-FR-173, GP-API-070/071, GP-FR-176, GP-FR-165, GP-FR-167,
+GP-FR-025/026 und GP-NFR-033 mit D-01 abgeleitet (WP 9.16, #2756); automatisiert in
+`tests/e2e/test_req053_wave9_export.py`, zusammen mit TC-053-047 („Regen — übersprungen“, Abschnitt 7). Alle Fälle
+laufen auf dem Desktop (PNG und CSV bietet der Export-Dialog nur abseits des Smartphones an, GP-UX-050).
+
+### TC-053-091: Plan als PNG — Faktor × angepasste Ansicht, 2× vorgewählt, ohne Wasserzeichen
+
+**Requirement**: REQ-053 GP-FR-144; Platzhalter 9 der Welle 9; WP 9.8 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Druck und Export
+**Preconditions**:
+- Garten 20 × 10 m mit zwei Beeten innerhalb der Grenze
+
+**Testschritte**:
+1. Nutzer öffnet „Export & Import“ → „Plan exportieren …“ und wählt PNG
+2. Nutzer lädt herunter
+3. Nutzer öffnet den Dialog erneut, wählt 1× und lädt herunter
+
+**Erwartete Ergebnisse**:
+- Der Dialog steht auf 2×, das Wasserzeichen ist aus, die Größenzeile lautet „Das Bild wird 2400 × 1310 Pixel groß und zeigt den ganzen Plan.“
+- Die Datei heißt `garden-plan-<Standort>-<JJJJMMTT>.png`, ist ein PNG und misst 2400 × 1310 Pixel
+- Bei 1× lauten Größenzeile und Datei 1200 × 655 Pixel — genau die halbe Breite
+
+**Nachbedingungen**:
+- Zwei PNG-Dateien heruntergeladen
+
+**Tags**: [req-053, welle-9, export, png, desktop, gp-fr-144]
+
+---
+
+### TC-053-092: Beetvorlage exportieren und wieder importieren — ohne Kennungen, Namensvorschlag, Kopie
+
+**Requirement**: REQ-053 GP-FR-173, GP-API-070, GP-API-071; WP 9.9 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Vorlagen
+**Preconditions**:
+- Eigene Vorlage „Kräuterbeet <Kennung>“ (Hochbeet 1,6 × 0,8 m, 0,4 m hoch, Reihen 25 cm, Abstand 20 cm); ein Garten
+
+**Testschritte**:
+1. Nutzer wählt im Vorlagen-Werkzeug die Vorlage und wählt „Exportieren“
+2. Nutzer wählt „Importieren“ und dieselbe Datei
+3. Nutzer übernimmt den vorgeschlagenen Namen und wählt „Erneut prüfen“
+4. Nutzer wählt „Importieren“
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 1: Hinweis „Die Vorlage ist als JSON-Datei heruntergeladen – ohne Mandanten-Kennung, Autor und Notizen.“; die Datei enthält nur die Austauschfelder (Format, Name, Typ, Geometrie, Höhe, Layout, Bodenvorgaben), keine Kennung des Mandanten
+- Nach Schritt 2: der vergebene Name wird abgelehnt („Eine Vorlage mit diesem Namen gibt es schon …“), das Namensfeld schlägt einen freien Namen vor
+- Nach Schritt 3: der Prüfbericht nennt den neuen Namen
+- Nach Schritt 4: Hinweis „Die Vorlage ist importiert und ausgewählt.“; die Auswahl zeigt die neue Vorlage; die Vorlagenliste enthält sie neben dem Original, mit gleicher Form, Höhe und gleichem Raster
+
+**Nachbedingungen**:
+- Eine zweite Vorlage mit dem vorgeschlagenen Namen
+
+**Tags**: [req-053, welle-9, vorlagen, export, import, desktop, gp-fr-173]
+
+---
+
+### TC-053-093: PDF mit Parzellenliste nur mit Opt-in, Zuweisungen nur mit eigenem Opt-in
+
+**Requirement**: REQ-053 GP-FR-176, SR-024; Platzhalter 8 der Welle 9; WP 9.10 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Druck und Export
+**Preconditions**:
+- Garten mit zwei Beeten
+
+**Testschritte**:
+1. Nutzer exportiert den Plan als PDF, ohne etwas umzustellen
+2. Nutzer exportiert erneut mit „Parzellenliste als Zusatzseite“
+3. Nutzer exportiert erneut mit Parzellenliste und „Zuweisungen in die Parzellenliste aufnehmen“
+
+**Erwartete Ergebnisse**:
+- Schritt 1: Parzellenliste aus, kein Schalter für Zuweisungen; Datenschutzzeile „Der Export enthält keine Namen von Mitgliedern …“; das PDF enthält die Seite „Gartenplan: <Standort>“ und keine „Parzellenliste: <Standort>“
+- Schritt 2: der Zuweisungs-Schalter erscheint, aus; das PDF enthält beide Seiten; es wurden keine Namen angefordert
+- Schritt 3: die Datenschutzzeile nennt die Namen der zugewiesenen Mitglieder; das PDF enthält die Parzellenseite; nur dieser Export hat Zuweisungen angefordert
+
+**Nachbedingungen**:
+- Drei PDF-Dateien heruntergeladen
+
+**Tags**: [req-053, welle-9, export, pdf, parzellenliste, datenschutz, desktop, gp-fr-176]
+
+---
+
+### TC-053-094: Standort-Flags „Wurzelkonkurrenz“ und „Allelopathie-Risiko“ im Panel und als Chip im Beetkopf
+
+**Requirement**: REQ-053 GP-FR-165; WP 9.11 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Low
+**Category**: Standortmerkmale
+**Preconditions**:
+- Beet ohne Standortmerkmale
+
+**Testschritte**:
+1. Nutzer öffnet die Beetansicht, „Merkmale ändern“, kreuzt beide Flags an und speichert
+2. Nutzer entfernt „Allelopathie-Risiko“ und speichert
+3. Nutzer entfernt „Wurzelkonkurrenz“ und speichert
+
+**Erwartete Ergebnisse**:
+- Die Gruppe „Konkurrenz am Standort“ hat zwei Kontrollkästchen, einen Hinweis („Steht das Beet unter oder neben Bäumen …“) und kein Freitextfeld
+- Nach Schritt 1 ist im Kopf ein neutraler Chip „Wurzelkonkurrenz/Allelopathie-Risiko am Standort gemeldet“; beide Flags sind gespeichert
+- Nach Schritt 2 nennt der Chip nur „Wurzelkonkurrenz“; nach Schritt 3 ist kein Flag gespeichert und kein Chip zu sehen
+
+**Nachbedingungen**:
+- Beet ohne Flags
+
+**Tags**: [req-053, welle-9, standortmerkmale, flags, desktop, gp-fr-165]
+
+---
+
+### TC-053-095: Nächste Wasserquelle in Beetliste, Beetkopf und CSV — ohne Geometrie keine Angabe
+
+**Requirement**: REQ-053 GP-FR-167; WP 9.12 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Low
+**Category**: Bewässerung
+**Preconditions**:
+- Garten 10 × 10 m mit „Beet Nah“ (1…3 × 1…2 m), „Beet Fern“ (6…8 × 6…7 m), einem Wasserhahn bei (5,5 | 1,5) m und „Beet Alt“ ohne Geometrie
+
+**Testschritte**:
+1. Nutzer öffnet den Plan und liest die Beetliste
+2. Nutzer exportiert die Beetliste als CSV mit der Spalte `nearest_water_source_m`
+3. Nutzer öffnet die Beetansicht von „Beet Nah“, dann von „Beet Alt“
+
+**Erwartete Ergebnisse**:
+- Die Spalte „Wasserquelle“ zeigt „2,5 m“, „4,53 m“ und „—“ (Abstand Kante zu Kante in Luftlinie)
+- Die CSV enthält 2.5, 4.528 und eine leere Zelle — nie „0“
+- Der Kopf von „Beet Nah“ zeigt „Nächste Wasserquelle“ mit „2,5 m Luftlinie von der Beetkante“; der Kopf von „Beet Alt“ zeigt keine Angabe
+
+**Nachbedingungen**:
+- Keine
+
+**Tags**: [req-053, welle-9, bewaesserung, wasserquelle, beetliste, csv, desktop, gp-fr-167]
+
+---
+
+### TC-053-096: Strg+D dupliziert das gewählte Beet um einen Rasterschritt nach rechts unten
+
+**Requirement**: REQ-053 GP-FR-025, GP-FR-026, V-05; WP 9.14 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Editor
+**Preconditions**:
+- Garten 10 × 10 m (Raster 10 cm) mit „Beet K“ 2 × 1 m bei (2 | 4), ohne Pflanzpositionen
+
+**Testschritte**:
+1. Nutzer wählt „Beet K“ mit der Tastatur und drückt Strg+D
+2. Nutzer schiebt die Kopie mit Umschalt+Pfeil-unten zehn Rasterschritte nach unten
+3. Nutzer speichert
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 1: eine ungespeicherte Änderung, zwei Beete gezeichnet, die Kopie ist gewählt und liegt bei (2,1 | 3,9) — ein Rasterschritt nach rechts unten; der Browser öffnet keinen Lesezeichen-Dialog
+- Die Kopie überlappt ihr Original noch; zwei Beete derselben Fläche dürfen sich nicht überlappen (V-05), daher Schritt 2
+- Nach Schritt 3 liegt „Beet K (Kopie)“ bei (2,1 | 2,9) mit gleicher Größe und gleichem Typ neben dem unveränderten Original
+
+**Nachbedingungen**:
+- Zwei Beete gespeichert
+
+**Tags**: [req-053, welle-9, editor, duplizieren, tastatur, desktop, gp-fr-025]
+
+---
+
+### TC-053-097: Renderer-Umschaltung — ab 3 000 Objekten zeichnet Konva, darunter SVG
+
+**Requirement**: REQ-053 GP-NFR-033, GP-NFR-034, D-01; WP 9.7 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Performance
+**Preconditions**:
+- Zwei Gärten mit je 30 Beeten: einer mit 99 Pflanzpositionen je Beet (30 + 2 970 = 3 000 Objekte), einer mit 98 (2 970 Objekte)
+
+**Testschritte**:
+1. Nutzer öffnet den ersten Plan
+2. Nutzer öffnet den zweiten Plan
+
+**Erwartete Ergebnisse**:
+- Der erste Plan wird vom Konva-Renderer auf einer Zeichenfläche gezeichnet
+- Der zweite Plan wird als SVG gezeichnet, ohne Zeichenfläche
+
+**Nachbedingungen**:
+- Keine
+
+**Tags**: [req-053, welle-9, renderer, konva, performance, desktop, gp-nfr-033, d-01]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -2736,6 +3132,19 @@ sich das Go/No-Go für den zweiten Renderer (WP 9.7) ergibt.
 | (abgeleitet aus GP-FR-174) | Welle 8 Teil B: CSV-Beetlisten-Import mit Prüfbericht | TC-053-081 |
 | (abgeleitet aus §11.4, GP-FR-162) | Welle 8 Teil B: Frost-Grund im Pflanzenzustand | TC-053-082 |
 | (abgeleitet aus GP-NFR-033/034, D-01) | Welle 9: Renderer-Messung, Drag-/Zoom-Frametime, Desktop und Mobile CPU 4× (beratend) | TC-053-083 |
+| (abgeleitet aus UI-NFR-012 R-001/R-002/R-007/R-059) | Welle 9 Teil A: Service Worker aktiv, Manifest | TC-053-084 |
+| (abgeleitet aus UI-NFR-012 R-007/R-010, §5.1.5) | Welle 9 Teil A: App-Shell ohne Verbindung | TC-053-085 |
+| (abgeleitet aus GP-UX-024, UI-NFR-012 R-057) | Welle 9 Teil A: Plan ohne Verbindung lesbar, „Stand von …“ | TC-053-086 |
+| (abgeleitet aus GP-UX-024, UI-NFR-012 R-021/R-025/R-058) | Welle 9 Teil A: „Erledigt“, Notiz und Foto gepuffert und übertragen | TC-053-087, TC-053-088 |
+| (abgeleitet aus UI-NFR-012 R-028/R-032) | Welle 9 Teil A: Konflikt-Dialog bei inzwischen geschlossener Aufgabe | TC-053-089 |
+| (abgeleitet aus UI-NFR-012 R-055/R-056, SR-019) | Welle 9 Teil A: Abmelden leert Zwischenspeicher und Namensraum | TC-053-090 |
+| (abgeleitet aus GP-FR-144) | Welle 9 Teil B: PNG-Export, Faktor × Ansicht | TC-053-091 |
+| (abgeleitet aus GP-FR-173, GP-API-070/071) | Welle 9 Teil B: Vorlage exportieren und importieren | TC-053-092 |
+| (abgeleitet aus GP-FR-176, SR-024) | Welle 9 Teil B: Parzellenseite im PDF mit Opt-in | TC-053-093 |
+| (abgeleitet aus GP-FR-165) | Welle 9 Teil B: Standort-Flags im Panel und als Chip | TC-053-094 |
+| (abgeleitet aus GP-FR-167) | Welle 9 Teil B: Nächste Wasserquelle in Beetliste, Kopf und CSV | TC-053-095 |
+| (abgeleitet aus GP-FR-025/026, V-05) | Welle 9 Teil B: Strg+D dupliziert (ohne Slot-Kopie, siehe unten) | TC-053-096 |
+| (abgeleitet aus GP-NFR-033, D-01) | Welle 9 Teil B: Renderer-Umschaltung SVG/Konva bei 3 000 Objekten | TC-053-097 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
@@ -2775,12 +3184,21 @@ Testebenen:
 | Zeile | Grund |
 |-------|-------|
 | GP-FR-105 | Täglicher Konsistenz-Job (Celery): läuft ohne Nutzeraktion, kein Auslöser und keine eigene Oberfläche. Beobachtbar wäre nur das nachträgliche Auftauchen von Einträgen mit der Auslöser-Art „Nacherfassung“ in der Historie; das gehört in einen Integrationstest mit Job-Aufruf. |
-| GP-FR-165 | COULD, in Welle 8 ohne Oberfläche (Wurzeldruck/Allelopathie-Flags sind Welle 9). |
-| GP-FR-167 | COULD, nächste Wasserquelle als Beetlisten-Spalte; Welle 9. |
+| GP-FR-165 | COULD, in Welle 8 ohne Oberfläche; seit Welle 9 abgedeckt durch TC-053-094. |
+| GP-FR-167 | COULD, in Welle 8 ohne Oberfläche; seit Welle 9 abgedeckt durch TC-053-095. |
 | Mengen-Obergrenzen (500 Kanten je Antwort, 500 Zeilen je CSV-Import, 50 000 Zeilen je Historien-CSV, Quote 1 MiB) | API-Grenzen, über die Oberfläche nicht herstellbar; Integrationstest. |
 
 Teilweise nicht abgedeckt: der Import aus GP-ACC-031 ist über TC-053-041 für den Weg „Ersetzen“ abgedeckt; die Konfliktfälle der Ersetzungs-/Wiederherstellungsfunktion sowie die Quoten- und
 Prüfregeln der Datei sind kein Browser-Artefakt.
+
+## Nicht abgedeckte Welle-9-Teile
+
+| Teil | Grund |
+|------|-------|
+| GP-FR-025: Slots beim Duplizieren mitkopieren | Bewusst nicht gebaut: die abschließende Batch-Operationsliste hat kein `create_slot` (§32.4 Pkt. 8, entschieden); ein Duplikat beginnt ohne Pflanzpositionen. Der Satz „bei Beeten werden Slots mitkopiert“ widerspricht dieser Entscheidung, die Betreiberentscheidung steht aus (`GP-REQ-wave7-gaps.json`). TC-053-096 legt ein Beet ohne Positionen an und sagt über Slots nichts aus. |
+| GP-FR-176: Mitgliedernamen in der Tabelle der Parzellenseite | Das E2E-Image hat keine Textextraktion für den PDF-Inhalt (der Seiteninhalt sind Glyphen-Nummern einer Teilschrift); TC-053-093 liest die Lesezeichen (Überschriften) und die Anfrage des Dialogs. Die Spalte selbst prüfen die Tests der Druck-Engine serverseitig. |
+| GP-FR-165: Flag-Hinweis im Dialog „Bepflanzen“ | Der Hinweis erscheint erst mit einer gewählten Art; TC-053-094 deckt Panel und Chip ab, die das Issue nennt. |
+| Gefüllter kontobezogener API-Zwischenspeicher des Service Workers (`kp:{Konto}:{Mandant}`) | Das Backend antwortet auf jede `/api/v1/`-Lesung mit `Cache-Control: no-store` (MT-044), und der Service Worker respektiert das (G-W9 c) — die Positivliste wird nie in den Zwischenspeicher geschrieben; die Offline-Lesung kommt aus IndexedDB (TC-053-086). TC-053-090 prüft deshalb den beim Service Worker angemeldeten Namensraum, nicht einen gefüllten Zwischenspeicher. |
 
 ---
 
