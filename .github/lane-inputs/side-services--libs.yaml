@@ -9,9 +9,9 @@ job: libs
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-02'
-measured_at_commit: de1382feedf35c21a464b27ed816b91f6ff8bb89
-replay_seconds: 6
+measured_on: '2026-11-09'
+measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
+replay_seconds: 5
 job_spec_sha256: 1e40e3da4b7e855c1ee6a261c17b7335c51d7e786a521045a9454e8a66e17004
 invocations:
 - command: task deps:sync:kp-vectordb
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 92
+  untracked_reads_dropped: 98
 - command: task test:kp-vectordb
   cwd: .
   recorder: strace -ff -y -z
