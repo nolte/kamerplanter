@@ -289,9 +289,30 @@ export function siteListEntry(scope: CacheScope, limit: number): CacheEntry {
   return { table: 'siteLists', key: `${scopePrefix(scope)}#limit=${limit}`, scope };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * What a table keeps of an answer (wave 9 acceptance #2757, review finding GDPR-004): nothing about a
+ * person and no free text the offline views do not show. The plan's `plan.plan_updated_by_name` (a
+ * member's display name) and the bed summary's `notes` / `description` are blanked HERE, at the one
+ * write every caller goes through (the editor load, the bed plan tab, the refresh after a placed
+ * template), so no caller can forget it. The answer the caller returns to its view is untouched.
+ */
+export function storedProjection(table: PlanCacheTable, data: unknown): unknown {
+  if (!isRecord(data)) return data;
+  if (table === 'plans' && isRecord(data.plan)) {
+    return { ...data, plan: { ...data.plan, plan_updated_by_name: null } };
+  }
+  if (table === 'bedSummaries') return { ...data, notes: null, description: null };
+  return data;
+}
+
 /**
  * Write one answer. `generation` is the clearing generation the read began in (default: now); the
- * write is dropped when a logout, tenant switch or kill switch started since.
+ * write is dropped when a logout, tenant switch or kill switch started since. What is written is the
+ * {@link storedProjection} of `data`.
  */
 export function writeCached(
   entry: CacheEntry,
@@ -299,7 +320,7 @@ export function writeCached(
   now: number = Date.now(),
   generation: number | null = currentGeneration(),
 ): Promise<void> {
-  return writeRecord(entry.table, entry.key, entry.scope, data, now, generation);
+  return writeRecord(entry.table, entry.key, entry.scope, storedProjection(entry.table, data), now, generation);
 }
 
 /** The clearing generation a read begins in; pass it to {@link writeCached} when the answer is in. */

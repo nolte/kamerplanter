@@ -71,7 +71,12 @@ from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
 from app.domain.models.attachment import Attachment
-from app.domain.models.client_event import ClientEventStamp, client_event_digest, is_client_event_conflict
+from app.domain.models.client_event import (
+    ClientEventStamp,
+    client_event_digest,
+    is_client_event_conflict,
+    same_digest,
+)
 from app.domain.services.entitlement_service import EntitlementService
 
 logger = structlog.get_logger()
@@ -358,7 +363,7 @@ class AttachmentService:
         stored = self._repo.find_by_client_event_id(tenant_key=tenant_key, client_event_id=stamp.client_event_id)
         if stored is None:
             return None
-        if stored.client_event_digest != stamp.digest:
+        if not same_digest(stored.client_event_digest, stamp.digest):
             raise ClientEventMismatchError()
         return stored
 
@@ -437,7 +442,7 @@ class AttachmentService:
         """The #1770 dedup handed back the uploader's own record for these bytes: stamp it, or read it as a replay."""
         if own.client_event_id == stamp.client_event_id:
             # A concurrent twin of this very upload created it a moment ago.
-            if own.client_event_digest != stamp.digest:
+            if not same_digest(own.client_event_digest, stamp.digest):
                 raise ClientEventMismatchError()
             return UploadOutcome(own, replayed=True)
         if own.client_event_id is None:

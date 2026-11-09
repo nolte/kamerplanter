@@ -5,7 +5,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.attachments.schemas import ThumbnailUris
 from app.common.enums import WorkflowTargetType
-from app.domain.models.task_completion import TaskCompletionDetails
+from app.domain.models.task_completion import MAX_BATCH_COMPLETION, TaskCompletionDetails
+
+#: The task keys one batch request may carry (#2757, SEC-004): the documented "at most 200 tasks" of
+#: ``POST /tasks/batch/status`` (``MAX_BATCH_COMPLETION``), bounded at the body for every action and for the
+#: delete and assign batches too - before, only ``complete`` was bounded, in the service, after parsing.
+MAX_BATCH_TASK_KEYS = MAX_BATCH_COMPLETION
 
 # ── Checklist ──
 
@@ -416,7 +421,7 @@ class BatchStatusRequest(TaskCompletionDetails):
     task, at most 200 tasks, an unknown or foreign key is a 404 for the whole batch).
     """
 
-    task_keys: list[str] = Field(min_length=1)
+    task_keys: list[str] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
     action: str = Field(description="start, complete, or skip")
     completion_notes: str | None = None
     client_event_id: UUID | None = Field(
@@ -429,11 +434,11 @@ class BatchStatusRequest(TaskCompletionDetails):
 
 
 class BatchDeleteRequest(BaseModel):
-    task_keys: list[str] = Field(min_length=1)
+    task_keys: list[str] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
 
 
 class BatchAssignRequest(BaseModel):
-    task_keys: list[str] = Field(min_length=1)
+    task_keys: list[str] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
     assigned_to_user_key: str
 
 
