@@ -15,6 +15,10 @@ import { useQueuedUndo } from './useQueuedUndo';
 
 type Offer = (entry: QueueEntry, message: string) => void;
 let offer: Offer | null = null;
+// Module-level so the reference is stable across renders (effect-dependency guard, #1564).
+const keepOffer = (value: Offer) => {
+  offer = value;
+};
 
 function Offerer({ onReady }: { onReady: (value: Offer) => void }) {
   const { offerQueuedUndo } = useQueuedUndo(ALICE_A);
@@ -24,13 +28,7 @@ function Offerer({ onReady }: { onReady: (value: Offer) => void }) {
 
 async function offered(): Promise<QueueEntry> {
   const entry = await capture(ALICE_A);
-  renderWithProviders(
-    <Offerer
-      onReady={(value) => {
-        offer = value;
-      }}
-    />,
-  );
+  renderWithProviders(<Offerer onReady={keepOffer} />);
   await waitFor(() => expect(offer).not.toBeNull());
   offer!(entry, 'Notiz auf dem Gerät gespeichert');
   await screen.findByTestId('care-undo');
@@ -64,7 +62,10 @@ describe('useQueuedUndo (#2814)', () => {
   it('closes the toast when the entry runs into a conflict, so it cannot cover the conflict dialog', async () => {
     const entry = await offered();
 
-    await updateEntry(ALICE_A, entry.seq!, { status: 'conflict', conflictCode: 'task.already_closed' });
+    await updateEntry(ALICE_A, entry.seq!, {
+      status: 'conflict',
+      conflictCode: 'task.already_closed',
+    });
 
     await waitFor(() => expect(screen.queryByTestId('care-undo')).toBeNull());
   });
