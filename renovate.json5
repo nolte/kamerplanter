@@ -800,7 +800,8 @@
     // followed the same way (requires-python >=3.15, httptools/uvloop with
     // cp315 wheels, the same PyYAML build settings, side-services.yml on 3.15).
     // The onnxruntime services stay held: onnxruntime 1.31.1 publishes no cp315
-    // wheel. The list below is therefore those three and the E2E image,
+    // wheel. The list below is therefore those three, the inference-service
+    // `.python-version` and the E2E image,
     // enumerated rather than written as
     // "everything but the backend", because Renovate has no negated file match
     // that reads as plainly. Remove an entry when ITS tree is proven on 3.15
@@ -815,6 +816,11 @@
       ],
       matchFileNames: [
         'src/inference-service/Dockerfile',
+        // The pyenv manager reads this file with the same docker `python`
+        // datasource, so without it the routine image branch moved the
+        // inference-service CI interpreter to 3.15 (#2809) and `uv sync`
+        // found no onnxruntime cp315 wheel. #2723 removes both together.
+        'src/inference-service/.python-version',
         'docker/embedding-service/Dockerfile',
         'docker/reranker-service/Dockerfile',
         'tests/e2e/Dockerfile',
