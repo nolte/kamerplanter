@@ -1,10 +1,12 @@
 # SPEC-07 — Spezifikation Offline-Datenschutz
 
 ```
-Package: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
-Requirement IDs: PRIV-500 … PRIV-539
-Depends on: UI-NFR-012 v2.4 (R-055 … R-060), REQ-025 §10 (TTDSG rows), NFR-011 R-41/R-42,
-REQ-053 §32.6 Pkt. 13–16, 03 §7 (deletion while offline)
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Anforderungs-IDs: PRIV-500 … PRIV-539
+Hängt ab von: UI-NFR-012 v2.4 (R-055 … R-060), REQ-025 §10 (TTDSG-Zeilen), NFR-011 R-41/R-42,
+REQ-053 §32.6 Pkt. 13–16, 03 §7 (Löschung offline), 13 (L-11), 15 (DA-07)
+Änderung v1.1: Aktivierungsmodell mit Opt-in und Übergang (§2.1, DEC-29), Szenarienmatrix (§8a),
+TDDDG und DSGVO getrennt geprüft.
 ```
 
 Die Offline-Schicht von REQ-053 Welle 9 ist implementiert und geprüft (P-7-Bericht GDPR-001…006).
@@ -56,11 +58,31 @@ Speicherung ist **unbedingt erforderlich**, um einen vom Nutzer **ausdrücklich 
 **PRIV-500** Die obige Einordnung MUSS die einzige Tabelle in REQ-025 §10 sein (Spec-Änderungs-
 vorschlag: die vorhandenen localStorage-/sessionStorage-Zeilen ergänzen, `redux_state`,
 `i18next`, `theme` entfernen, TTDSG → TDDDG umbenennen). Solange die Tabelle
-gilt, ist kein Einwilligungsbanner erforderlich (TT-003). **[rechtlich LEG-09]**: (a) Ist „Offline-Nutzung" ein ausdrücklich gewünschter Dienst, wenn
-die PWA beim ersten Login ohne ausdrückliches Opt-in cached? Empfehlung: einen ausdrücklichen
-Schalter **„Offline-Modus aktivieren"** pro Gerät ergänzen (Standard **aus** bei Neuinstallationen,
-Standard an bei Installationen, die bereits cachen — der Betreiber entscheidet), der zugleich das
-Kriterium „ausdrücklich gewünscht" klärt; (b) Sind die Aufbewahrungsfristen aus §6 verhältnismäßig?
+gilt, ist kein Einwilligungsbanner erforderlich (TT-003). **[LEGAL_REVIEW_REQUIRED LEG-09]**: (a) Ist
+„Offline-Nutzung“ ein *ausdrücklich gewünschter* Dienst (L-11: „vom Nutzer ausdrücklich gewünschten digitalen
+Dienst“, kumulativ mit „unbedingt erforderlich“), wenn die PWA ohne Opt-in cached? (b) Sind die Fristen aus §6
+verhältnismäßig? TDDDG (Zugriff auf das Endgerät) und DSGVO (Verarbeitung der gespeicherten Daten: Art. 5 Abs. 1
+lit. c, e; Art. 25 Abs. 2) werden **getrennt** geprüft; die Tabelle oben beantwortet die TDDDG-Frage, §4–§6 die
+DSGVO-Frage.
+
+### 2.1 Aktivierungsmodell (DEC-29, ersetzt DEC-21; DA-07)
+
+**PRIV-531** [PROPOSED] Der Offline-Lesecache und der Schreibpuffer DÜRFEN NUR angelegt werden, nachdem die
+Nutzerin/der Nutzer den **Offline-Modus auf diesem Gerät ausdrücklich eingeschaltet** hat (Schalter in den
+Kontoeinstellungen und im Offline-Hinweis der Feldansicht). Default **aus** für **neue und bestehende**
+Installationen. Die App-Shell (Precache, `kp-static-assets`, `kp-runtime-config`) ist davon unabhängig (für den
+gewünschten Dienst „App“ unbedingt erforderlich). Der Schalterzustand ist eine Geräteeinstellung
+(`localStorage kp-offline-mode`, kein API-Payload) und wird im Art.-15-Bundle nicht benötigt.
+
+**PRIV-532** [PROPOSED] **Übergang bestehender Installationen** (beim ersten Start der neuen Version, `09` §8):
+(a) `kp-plan-cache` wird gelöscht; (b) vorhandene Puffer-Einträge werden in einem Übergangsdialog mit „jetzt senden /
+verwerfen“ angezeigt; ohne Entscheidung werden sie nach 7 Tagen mit Hinweis gelöscht; (c) der Offline-Modus steht
+auf aus, bis er eingeschaltet wird; (d) eine frühere Nutzung der PWA gilt **nicht** als Wunsch nach Offline-Lesen oder
+-Puffern (keine stillschweigende Übernahme).
+
+**PRIV-533** Der Schalter MUSS erklären, **welche** Daten gespeichert werden (Kategorien aus §1), **wie lange** (§6)
+und **wie** sie gelöscht werden (§7, §10); das Ausschalten löscht Cache und Puffer dieses Geräts für den Nutzer
+(nach dem Dialog aus PRIV-515).
 
 ---
 
@@ -249,6 +271,18 @@ wenigstens sieht, dass Daten verbleiben.
 **PRIV-526** Die Kiosk-Präferenz (`kp-kiosk-preference`, REQ-021) MUSS die Standardwerte des Modus für
 geteilte Geräte implizieren, sofern der Betreiber sie nicht überschreibt (ein Kiosk ist per Definition geteilt).
 
+### 8a. Szenarienmatrix geteilte Geräte (DA-07)
+
+| Szenario | Risiko | Maßnahme (Anforderung) | Restrisiko |
+|----------|--------|------------------------|------------|
+| Geteiltes Browserprofil (Familie, WG) | Lesecache/Puffer der vorherigen Person lesbar (DevTools) | Offline-Modus Opt-in je Gerät (PRIV-531); Wipe beim Logout abgewartet (PRIV-514); Schlüsselhygiene (PRIV-512); Puffer nur für denselben `user_key` sendbar (PRIV-501) | niedrig; verbleibt bei Verzicht auf Logout → PRIV-525 Anzeige ungesendeter Einträge |
+| Kiosk-Tablet im Schuppen | nie abgemeldet, nie neu geladen | Kiosk ⇒ Shared-Device-Modus (PRIV-526): Idle-Logout, sitzungsgebundener Puffer, TTL 5 min; Sweep bei `visibilitychange` (PRIV-513) | niedrig |
+| Vereins-PC mit gemeinsamem Konto | Zurechnung auf eine gemeinsame Identität; Audit unbrauchbar | organisatorisch: ein Konto je Person (Doku); technisch: Shared-Device-Modus; Hinweis in der Mandanten-UI, wenn ein Konto von mehreren Geräten gleichzeitig genutzt wird (Sessions > n) — PROPOSED, P3 | mittel (organisatorisch) |
+| Mehrere Nutzer nacheinander am selben Gerät | Puffer A sichtbar für B | Puffer je `user_key`; B sieht A nicht (VERIFIED_CODE `owned()`); A-Einträge werden bei Login von B **nicht** gelöscht (A’s Arbeit) außer im Shared-Device-Modus | niedrig |
+| Vergessener Logout | Zugriff mit A’s Sitzung | Idle-Logout nur im Shared-Device-Modus; außerhalb: Refresh-Cookie 30 d (VERIFIED_SPEC) → PRIV-525 sichtbar machen; Betreiber kann Modus installationsweit setzen (PRIV-524) | mittel ohne Modus |
+| Kontowiderruf/Entzug der Mitgliedschaft | Puffer/Cache bleiben | `account.closed`/`membership.ended` (PRIV-520/521), Quarantäne (PRIV-519) | niedrig–mittel (bis 14 d) |
+| Offline-Kontolöschung (Antrag auf Gerät A, Gerät B offline) | B behält Daten | B erkennt beim nächsten Online-Kontakt `account.closed` (Karenz) oder 401 (gelöscht) → Löschung/Quarantäne | niedrig–mittel; dokumentierte Lücke bis 14 d (LEG-10) |
+
 ---
 
 ## 9. Wiederholung (Replay) und Konfliktbehandlung (Datenschutzaspekte)
@@ -301,4 +335,6 @@ diesem Gerät löschen" (= `clearAllOfflineStorage()` für diesen Nutzer).
 | TA-528 | Wiederholung (Replay) nach Schwärzung hebt keine Schwärzung auf; Wiederholung (Replay) durch einen gelöschten Autor wird abgelehnt; Wiederholung (Replay) einer fremden Erledigung → 409. |
 | TA-529 | Der Konfliktdialog zeigt keinen Mitgliedernamen des Gewinners. |
 | TA-530 | Die Geräteseite zeigt Anzahl ungesendeter Einträge, ältestes Alter, Einstellungen, und die Löschschaltfläche funktioniert. |
+| TA-531 | Ohne eingeschalteten Offline-Modus entstehen weder `kp-plan-cache`-Zeilen noch Puffer-Einträge; die App-Shell wird dennoch vorgeladen; Einschalten erzeugt sie, Ausschalten löscht sie nach Dialog. |
+| TA-532 | Übergang: bestehende Installation mit Cache und 3 Puffer-Einträgen → Cache gelöscht, Dialog mit 3 Einträgen, nach 7 Tagen ohne Entscheidung gelöscht (Uhr fixiert), Offline-Modus aus. |
 | E2E | `tests/e2e/test_req053_wave9_offline.py` erweitern: TC „Logout löscht jeden Nutzerschlüssel", TC „Quarantäne bei toter Sitzung", TC „Bereinigung bei Inaktivität im Modus für geteilte Geräte". |

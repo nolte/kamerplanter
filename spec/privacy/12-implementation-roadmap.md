@@ -1,324 +1,227 @@
-# SPEC-12 — Umsetzungs-Roadmap
+# SPEC-12 — Umsetzungs-Roadmap und Umsetzungsreife
 
 ```
-Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
-Nur Issue-Vorschläge — nichts davon wurde auf GitHub angelegt. Titel sind englisch und
-direkt einfügbar; jede Einheit ist unabhängig umsetzbar und benennt ihre Abhängigkeiten.
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Nur Issue-Vorschläge — nichts davon wurde auf GitHub angelegt. Titel sind englisch (GitHub-Regel),
+alles andere deutsch. Jede Einheit nennt Abhängigkeiten, Akzeptanz (TA), Rechtsfragen (LEG) mit dem
+Default, mit dem sie ausgeliefert wird, und ihr Produktionsgate.
+Änderung v1.1: E04/E15-Konflikt aufgelöst (DEC-28), E14 auf Spiegel umgestellt (DEC-26), E18 neu,
+Flags/Gates je Epic, Readiness-Tabelle (§4), Verifikationsaufträge V-nn in E17.
 ```
 
 ---
 
-## 0. Einordnung in die laufende REQ-053-Arbeit
+## 0. Einordnung
 
-- Die REQ-053-Partition vom 2026-11-09 plant **#2770** (Backfill-Tombstone-Kopien,
-  Reminder-`created_by`, v0104-Mandanten-Gate, Einfrieren von `SOURCE_COLLECTIONS`) als
-  nächste Lane nach dem Wave-10-Plan (#2758). **PRIV-E01 unten ist #2770**, mit durch
-  `04` §2–3 geschärfter Akzeptanz; es sollte in dieser Warteschlange bleiben und auf dieses
-  Paket verweisen, statt dupliziert zu werden.
-- **#2517** bleibt das Rechts-Issue; dieses Paket liefert dafür die LEG-Liste und das
-  DSFA-Vorscreening (`11`) als Eingabe, die der DSB braucht. Es blockiert P0/P1-Engineering
-  nicht: Jedes Element wird mit dem dokumentierten Default ausgeliefert und benennt die LEG,
-  die ihn ändern kann.
-- Wave 10 von REQ-053 (Indoor-Grundriss) hat keine Datenschutz-Punkte; die Epics unten bilden
-  eigene Lanes (`feat/priv-<slug>` von `origin/develop`, eigener Worktree, serieller
-  Merge-Zug).
+- **PRIV-E01 = GitHub #2770** (in der REQ-053-Partition vom 2026-11-09 nach #2758 eingeplant). **#2517** bleibt
+  das Rechts-Issue; dieses Paket liefert dafür `11`, `13`, `15` und die LEG-Registry (decision-log §B).
+- Drei Gates (README §Produktionsgates): `engineering_allowed` (Code, Tests, Flag aus) · `deployment_allowed`
+  (ausgerollt, Flag aus) · `processing_allowed` (Flag an). Einschränkende/schutzverstärkende Maßnahmen brauchen
+  keine Rechtsfreigabe; ausweitende oder datenvernichtende stehen hinter Flags (`08` §8a).
+- Lanes `feat/priv-<slug>` von `origin/develop`, eigener Worktree, serieller Merge-Zug.
 
-Prioritätsstufen: **P0** kritische Datenschutz-/Datenintegritäts-Defekte (in der nächsten
-Lane beheben) · **P1** Kern-Lebenszyklus und Zugriffskontrolle · **P2** Aufbewahrung,
-Administration, Offline-Schutzmaßnahmen · **P3** Governance, Monitoring, kontinuierliche
-Compliance.
+Prioritäten: **P0** kritische Defekte · **P1** Kern-Lebenszyklus und Zugriff · **P2** Aufbewahrung, Administration,
+Offline · **P3** Governance, Monitoring, Compliance.
 
 ---
 
-## P0 — Kritische Defekte
+## 1. Epics
 
-### PRIV-E01 · fix(care-events): never copy a tombstone into the care log; one actor rule for confirmations; v0104 gates and source list (= #2770)
+### P0
 
-- **Problem**: `account_of` kopiert `anon_<hash>`-Pseudonyme aus den gesetzlich
-  aufbewahrten Zeilen gelöschter Konten nach `care_events.performed_by_user_key` (v0104 und
-  der tägliche Konsistenz-Job); die Löschregel für Pflegeereignisse erreicht sie nie; die
-  Bestätigungspfade von Task-Queue und MCP speichern `null`, während REST/Benachrichtigung
-  den Aufrufer speichern; Reminder-Zeilen haben kein `created_by`; v0104 schreibt in
-  nicht aktive Mandanten und iteriert eine veränderliche Quellliste.
-- **Scope**: `carry_account_reference` in `domain/models/privacy.py` (PRIV-205), genutzt von
-  `care_event_backfill_mapper.account_of` und `task_completion_engine`; Principal wird auf
-  den Bestätigungspfaden von Task-Queue und MCP übergeben (PRIV-003/119); `created_by =
-  principal` bei Live-Reminder-Ereignissen, `null` beim Backfill (PRIV-214); Korrekturrecht
-  für Systemzeilen (PRIV-215); `display_performer`/Filter behandeln Tombstone-förmige Werte
-  wie den Marker (PRIV-207); v0104: `ActiveTenants`-Gate für die Backfill-Art, eingefrorenes
-  Quell-Tupel, `_DOWN_SCAN` unterscheidet Zeilen migrationsbürtiger Herkunft; einmalige
-  Korrektur bereits kopierter Tombstones → **PRIV-E04** (Migration), falls v0104 irgendwo
-  gelaufen ist (P-6 sagt, es lief am 2026-11-07 in Produktion? — den P-6-Bericht prüfen; die
-  lokale Analyse fand den Backfill gemergt).
-- **Abhängigkeiten**: keine (Konstanten dürfen hier eingeführt und in E03 konsolidiert
-  werden).
-- **Akzeptanz**: TA-002, TA-003/120, TA-121, TA-123, TA-203, TA-801; der Dry-Run-Bericht
-  listet `tombstone_sources_marked`.
-- **Tests**: `test_care_event_backfill_mapper.py` (Tombstone-Fall), der Bestätigungstest über
-  vier Pfade mit Assertion auf den Durchführenden (heute nur Trigger/Kategorie),
-  Unit-Test für das v0104-Mandanten-Gate.
-- **Spec-Verweise**: `01` §4, `03` §4, `04` §2.2/§3.3.
-- **Offene Rechtsfrage**: LEG-07 (blockiert den technischen Fix nicht).
+#### PRIV-E01 · fix(care-events): never copy a tombstone into the care log; one actor rule for confirmations; v0104 gates and source list (= #2770)
+- **Problem**: `account_of` kopiert `anon_<hash>` in `performed_by_user_key` (VERIFIED_CODE); Task-Queue/MCP speichern
+  `null`; Reminder-Zeilen ohne `created_by`; v0104 ohne `ActiveTenants`, veränderliche Quellliste.
+- **Scope**: `carry_account_reference` (PRIV-205), Principal auf allen Bestätigungspfaden (PRIV-003/119), `created_by =
+  principal` live / `null` Backfill (PRIV-214/215), Tombstone-Form im Filter/Rendering (PRIV-207), v0104-Gates und
+  eingefrorene Quellliste, **Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER`** (Default = Bestand, DA-02).
+- **Abhängigkeiten**: keine. **Akzeptanz**: TA-002, TA-120, TA-121, TA-123, TA-203, TA-801. **Gate**: ja (Korrektur).
+- **LEG**: LEG-07 (Schalter macht die Entscheidung ohne Release wirksam).
 
-### PRIV-E02 · fix(privacy): suppress a closed account's display name during the erasure grace
+#### PRIV-E02 · fix(privacy): suppress a closed account's display name during the erasure grace
+- PRIV-104; TA-100, TA-101; Gate ja (einschränkend).
 
-- **Problem**: Nach `request_erasure` wird der Name der betroffenen Person bis zu 90 Tage
-  lang aufgelöst (`is_active` wird von den Anzeige-Joins ignoriert).
-- **Scope**: Anzeige-Joins lesen `is_active`; geschlossen → Zustand `erased` (PRIV-104);
-  die Plattform-Löschvorschau bleibt unberührt.
-- **Abhängigkeiten**: keine (kann dem Resolver vorausgehen; E05 verschiebt es in den
-  Resolver).
-- **Akzeptanz**: TA-100, TA-101.
-- **Spec-Verweise**: `03` §2.2.
+#### PRIV-E03 · refactor(privacy): one definition of marker, tombstone regex (two generations) and `[redacted]`; residue scan; tenant-bound pseudonyms for new rows
+- **Scope**: Konstanten in `domain/models/privacy.py` (PRIV-201), Allowlist-Regex beider Generationen, `is_tombstone`,
+  **`anon2_`-Ableitung für neue Pseudonymisierungen (PRIV-238, DEC-25)**, Art.-15-Suche je `(tenant_key, user_key)`,
+  Residue-Scan für Kontolöschung (PRIV-234).
+- **Akzeptanz**: TA-200, TA-102/208, TA-238. **Gate**: ja (schutzverstärkend). **LEG**: LEG-15 (Verknüpfbarkeit; Default B).
 
-### PRIV-E03 · refactor(privacy): one definition of marker, tombstone regex and `[redacted]`; residue scan for account erasure
+#### PRIV-E04 · chore(migrations): v0107 tombstone copies → marker, plan-audit actor → marker, anonymised attachments' file names; minimal consistency beat
+- **Scope**: `09` §3 mit Phasen `precheck/dry_run/apply/verify` (PRIV-718); Inventaränderungen (`garden_plan_audit` Marker
+  DEC-16; `attachments.clear_fields += original_filename`); `migration_reports` + `--report-out` (PRIV-701/702);
+  **`privacy.consistency` Minimalform** (nur Zähler Bucket 3 + Metrik; DEC-28).
+- **Abhängigkeiten**: E01, E03. **Akzeptanz**: TA-700, TA-701, TA-701a, TA-207, TA-209, TA-202. **Gate**: ja;
+  DEC-16 braucht Betreiberfreigabe (Produktentscheidung, keine Rechtsfrage).
 
-- **Problem**: vier Marker-Kopien, drei Regex-Literale; die Mandantenlöschung hat eine
-  Residuenprüfung, die Kontolöschung keine.
-- **Scope**: Konstanten in `domain/models/privacy.py` (PRIV-201); Guard, der den Drei-Kopien-Pin
-  ersetzt; Residuen-Scan im `erasure_executor`, der `partially_completed` mit `residue`
-  markiert (PRIV-234).
-- **Abhängigkeiten**: keine.
-- **Akzeptanz**: TA-200, TA-102/208.
-- **Spec-Verweise**: `04` §1, §8.
+### P1
 
-### PRIV-E04 · chore(migrations): v0107 — convert copied tombstones to the marker, plan-audit actor to the marker, clear anonymised attachments' file names
+#### PRIV-E05 · feat(identity): attribution registry, single person resolver (`PersonRef`), runtime provenance
+- `AttributionRole`, `RetentionClass`, `review_fields` (PRIV-001, `08` §2.1); Guard R7; `IdentityReferenceService`;
+  `*_kind`-Felder; i18n `enums.personRef.*`; **`DERIVED_FIELDS` + Guard R8 + `derived_from`/`source_ref` (PRIV-609/610)**.
+- Abhängigkeiten: E02, E03. Akzeptanz: TA-001, TA-004…TA-007, TA-030, TA-606. Gate: ja.
 
-- **Problem**: Legacy-Kopien (E01) existieren in Produktionsdaten; der Tombstone in
-  `garden_plan_audit.user_key` hat keine Grundlage (DEC-16); `original_filename` überlebt die
-  Löschung.
-- **Scope**: `09` §3 (v0107), Inventaränderung für `garden_plan_audit` und `attachments`
-  (`clear_fields`), persistierter Dry-Run-Bericht (`09` §2 Minimum: `--report-out`).
-- **Abhängigkeiten**: E01 (Konstanten), E03.
-- **Akzeptanz**: TA-700, TA-701, TA-207, TA-209.
-- **Spec-Verweise**: `04` §4.1/§7, `09` §2–3.
-- **Offene Rechtsfrage**: LEG-15 (Marker vs. Tombstone für das Plan-Audit) — Default Marker.
+#### PRIV-E06 · feat(tenants): former-member name suppression and leave/removal transparency
+- PRIV-112…118, PRIV-134. Abhängigkeiten: E05. Akzeptanz: TA-110…TA-114. Gate: ja (einschränkend). LEG-06 Default 90 d.
 
----
+#### PRIV-E07 · feat(privacy): free-text review queue as a state machine, complete paginated discovery, generic redaction
+- **Scope**: `privacy_review_items` mit Zuständen (`04` §5.1a), Entdeckungs-Cursor am Löschauftrag und
+  `privacy.post_commit_followups` (PRIV-223 neu), `legal_basis_ref` Pflicht bei `keep` (PRIV-225), SLA-Verhalten
+  (PRIV-239) mit Flag `PRIVACY_REVIEW_AUTO_REDACT_ON_SLA` (Default aus), `erasure_completed` am Löschauftrag,
+  generische Schwärzung (PRIV-228…232), Lineage-Vorschläge, `management` darf schwärzen (PRIV-231, Spec-Änderung),
+  `material` in der Schwärzungsmenge (PRIV-213), Frontend `PrivacyReviewPage`, Audit-Aktionen, R-43-Beat, Metriken.
+- **Abhängigkeiten**: E05, E03. **Akzeptanz**: TA-103, TA-205, TA-206, TA-210, TA-211, TA-226, TA-239, TA-305, TA-307,
+  TA-809, TA-810. **Gate**: ja für Warteschlange/Entdeckung/Schwärzung durch Leads; **nein (bis LEG-08)** für die
+  Auto-Schwärzung (Flag).
 
-## P1 — Kern-Datenschutz-Lebenszyklus und Zugriffskontrolle
+#### PRIV-E08 · feat(tenants): `attribution_visibility` with class defaults, purpose permissions, member e-mail restriction, audited name exports
+- PRIV-300…310, PRIV-414; Defaults nach `organization_kind` (DA-04); `MemberInfoResponse.email` nur `management`
+  (Breaking Change dokumentiert); MCP `PersonRef`; `_RBAC`-Kommentare korrigieren.
+- Abhängigkeiten: E05, E09 (Klassifizierung liefert `organization_kind`). Akzeptanz: TA-300…TA-309. Gate: ja (einschränkend).
+  LEG-02, LEG-05, LEG-14.
 
-### PRIV-E05 · feat(identity): attribution registry and the single person resolver (`PersonRef`)
+#### PRIV-E09 · feat(tenants): mandatory tenant classification; field-level statutory retention; PflSchG period anchoring
+- **Scope**: `organization_kind` + `record_keeping` als Pflichtangabe bei Anlage (PRIV-409, 422 `tenant.classification_required`),
+  `undeclared`-Verhalten und Betreiberzähler, v0108 (Bestand `legacy`/`unknown_legacy`), **feldgenaue Zuordnung** in
+  Löschung/Mandanteninventar (PRIV-410), **Fristbeginn 1. Januar des Folgejahres** für PflSchG-Felder (PRIV-412),
+  Hilfsdokumentations-Text (PRIV-413), Reklassifizierungs-Job und PRIV-411 **hinter Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY`**.
+- **Abhängigkeiten**: E05. **Akzeptanz**: TA-122, TA-409, TA-410, TA-412, TA-413, TA-703, TA-404, TA-630. **Gate**:
+  Klassifizierung, Fristbeginn, Hilfsdokumentation: ja; Reklassifizierung/PRIV-411: **nein (bis LEG-03, LEG-17)**.
 
-- **Problem**: keine deklarierte Zuordnungsrolle pro Feld; die Anzeige wird ad hoc aufgelöst;
-  das Backend gibt das deutsche Literal „anonymisiert" aus; das Plan-Audit liefert
-  `null`-Akteure.
-- **Scope**: `AttributionRole`, `RetentionClass`, `review_fields` an den Inventarmodellen
-  (`08` §2.1); Guard R7; `IdentityReferenceService.resolve_display` (`08` §2.3); `*_kind`-Felder
-  in den Antworten von Pflegeereignissen und Plan-Audit; Frontend-i18n `enums.personRef.*`;
-  Deprecation des Literals.
-- **Abhängigkeiten**: E02, E03.
-- **Akzeptanz**: TA-001, TA-004…TA-007, TA-030 (Doku-Prüfskript); PRIV-218 (Plan-Audit-Akteur
-  als `PersonRef`) wird durch TA-005 abgedeckt.
-- **Spec-Verweise**: `01` §4, `08` §2–3.
+#### PRIV-E10 · feat(offline): dead-session quarantine, stable revocation codes, awaited logout wipe, storage-key hygiene
+- PRIV-510…523, PRIV-131. Akzeptanz: TA-131, TA-502, TA-512, TA-514, TA-516, TA-519…TA-521, TA-523, TA-528, TA-803.
+  Gate: ja. LEG-10 Default 14 d.
 
-### PRIV-E06 · feat(tenants): former-member name suppression and leave/removal transparency
+### P2
 
-- **Problem**: Ein ausgetretenes Mitglied bleibt für immer namentlich genannt; beim Austritt
-  gibt es keine Information.
-- **Scope**: `RETENTION_FORMER_MEMBER_NAME_DAYS` (Default 90), abgeleiteter Zustand aus der
-  Austrittszeile des Security-Audits (PRIV-112/114), Filter-/CSV-Verhalten, Texte für
-  Austrittsdialog und Entfernungshinweis DE/EN (PRIV-115), Beitritts-Semantik bei erneutem
-  Beitritt (PRIV-118), Service-Accounts (PRIV-134).
-- **Abhängigkeiten**: E05.
-- **Akzeptanz**: TA-110…TA-114.
-- **Spec-Verweise**: `03` §3.
-- **Offene Rechtsfrage**: LEG-06 (Frist, Umfang von Art. 15).
+#### PRIV-E11 · feat(offline): explicit offline-mode opt-in with transition, configurable device retention, shared-device mode, byte ceilings, device page
+- **Scope**: **Opt-in-Schalter und Übergang (PRIV-531…533, DEC-29)**, Fristen-Settings (PRIV-511), Byte-Grenzen
+  (PRIV-505/509), Shared-Device-Modus (PRIV-524…526) + Szenarienmatrix `07` §8a, Geräteseite (PRIV-530), REQ-025-§10-
+  Tabelle (Spec-Änderung), Client-Migration (`09` §8).
+- Abhängigkeiten: E10. Akzeptanz: TA-500, TA-505, TA-509, TA-511, TA-524, TA-530, TA-531, TA-532. Gate: ja. LEG-09/10.
 
-### PRIV-E07 · feat(privacy): free-text review queue and generic redaction for tenant leads
+#### PRIV-E12 · feat(privacy): attribution removal on leaving a tenant (Art. 21 / 17(1)(c))
+- PRIV-116/118. Abhängigkeiten: E06, E07, E09. Akzeptanz: TA-112, TA-805. Gate: ja (schutzverstärkend). LEG-06.
 
-- **Problem**: Die Löschung lässt inhaltlichen Freitext zurück, der die Person nennt; es gibt
-  keine Liste der betroffenen Zeilen; Schwärzung nur für Pflegeereignisse, nur für Leads,
-  keine UI-Aktion.
-- **Scope**: Collection `privacy_review_items` + Indizes + Mandanteninventar (`08` §3.7);
-  Item-Erzeugung als Post-Commit-Phase der Kontolöschung mit Namens-Token-Markierung,
-  Grenzen, Idempotenz (PRIV-221…223, PRIV-108); `REDACTABLE_FIELDS`; generischer
-  Schwärzungsdienst und Routen (`08` §4.1); Lineage-Vorschläge für Templates/Audit
-  (PRIV-230); `management` darf schwärzen (PRIV-231, Spec-Änderungsvorschlag); `material`
-  und Mess-Strings kommen in die Schwärzungsmenge (PRIV-213, Spec-Änderungsvorschlag);
-  Frontend `PrivacyReviewPage` (Lazy-Chunk), Zusammenfassung, i18n; Datenschutz-Aktionen in
-  `security_audit_log` (`08` §3.8 Teilmenge: `REDACTION_APPLIED`, `REVIEW_DECIDED`);
-  R-43-Beat; Metriken `privacy_review_items_*`.
-- **Abhängigkeiten**: E05 (Registry `review_fields`), E03.
-- **Akzeptanz**: TA-103, TA-205, TA-206, TA-210, TA-211, TA-226 (Überfälligkeits-Metrik),
-  TA-305, TA-307, TA-809.
-- **Spec-Verweise**: `04` §5–6, `08` §3.7/§4.1/§5–6.
-- **Offene Rechtsfrage**: LEG-08 (Modell und SLA) — Default wird ausgeliefert.
+#### PRIV-E13 · feat(retention): rows R-46/R-47/R-48; keyed performer fields; configurable `data_controller`
+- v0109 (`09` §5), Request-Schemas, UI „Ich war es / jemand anderes“, `nutrient_plans.author_*`, `workflow_templates`,
+  Beats mit Grenzen, NFR-011-Zeilen (Spec-Änderung), Art.-15-Quellen, **`data_controller` je Mandant konfigurierbar** (DA-01).
+- Abhängigkeiten: E05. Akzeptanz: TA-702, TA-400…TA-403, TA-603. Gate: ja. **Discovery**: V-11 (THC-Feld), Modellfelder
+  `nutrient_plans`/`propagation` (Feldnamen VERIFIED_CODE, Längen teilweise unbegrenzt).
 
-### PRIV-E08 · feat(tenants): `attribution_visibility` setting, purpose permissions, member e-mail restriction, audited name exports
+#### PRIV-E14 · feat(backup): erasure mirror (tombstones only), bucket object with HMAC chain, restore replay by tombstone match, dump retention — before enabling backups
+- `erasure_mirror` + Beats (`sync`, `purge`), Spiegel-Objekt (Fernet, HMAC-Kette), CLI `privacy_restore_replay` (Abgleich
+  `compute_tombstone_hash` wiederhergestellter `users`, beide Formate), Residue-Scan im Restore, Helm-Precheck
+  `backup.enabled ⇒ privacy.mirror.enabled` (TA-718), Doku `backup-restore.md`, Nightly-Drill.
+- Abhängigkeiten: E03, E07. Akzeptanz: TA-709, TA-710, TA-711, TA-718, TA-804. Gate: `deployment_allowed` für Backups
+  **nein**, bis E14 gemergt; LEG-11 Prüfdatum.
 
-- **Problem**: Jedes Mitglied sieht jeden Durchführenden und die E-Mail jedes Mitglieds; CSV
-  mit Namen für alle; kein Audit von Namensexporten; die beschreibende Berechtigungsmatrix
-  weicht von den Gates ab.
-- **Scope**: `TenantSettings.attribution_visibility` (Default `all_members`),
-  Resolver-Integration (PRIV-300…303); Berechtigungen `attribution.filter|export`,
-  `privacy.review` (PRIV-304); `MemberInfoResponse.email` nur für `management` (PRIV-305,
-  **Breaking Change**, Frontend angepasst); CSV-`R`-Rendering für Nicht-Leads +
-  `ATTRIBUTION_EXPORTED`-Audit (PRIV-307/308); die Zuweisungsspalte im Beetlisten-CSV folgt
-  der Einstellung (PRIV-309); MCP-Tools liefern `PersonRef` (PRIV-310, REQ-033
-  Versionssprung); `inspector = "mcp:<key>"` → `inspected_by_key`; Mandanten-Einstellungs-UI
-  mit der Erklärung zu §26 BDSG/BetrVG; kein Per-Person-Aggregations-Guard (PRIV-403);
-  Kommentare der `_RBAC`-Tabelle an die Gates angepasst (Folgearbeit in `05` §1 vermerkt).
-- **Abhängigkeiten**: E05.
-- **Akzeptanz**: TA-300…TA-309.
-- **Spec-Verweise**: `05`, `06` §5.
-- **Offene Rechtsfrage**: LEG-02, LEG-05 (Default für Organisations-Mandanten), LEG-14.
+### P3
 
-### PRIV-E09 · feat(tenants): `record_keeping` profile — statutory retention only where a duty exists
+#### PRIV-E15 · feat(observability): privacy operations endpoint, full consistency beat, stale alerts, unified escalation, resume job
+- `GET /admin/platform/privacy/operations|consistency`, Vollform `privacy.consistency` (inkl. `undeclared`, Registry-
+  Abdeckung PRIV-609), Metriken, `PRIVACY_OPERATION_ESCALATE_AFTER_ATTEMPTS`, Stale-Alert, verwaiste Mandanten,
+  `privacy.resume_partial_erasures`, R-06-Docstring (W-11).
+- Abhängigkeiten: E04, E07. Akzeptanz: TA-104, TA-105, TA-202, TA-305, TA-717. Gate: ja.
 
-- **Problem**: Die Aufbewahrung nach PflSchG/KCanG und Tombstones gelten für jeden Mandanten.
-- **Scope**: `TenantSettings.record_keeping` (Default `legacy`), v0108, Verzweigung von
-  Löschung/Mandanteninventar nach der Klasse (PRIV-122, PRIV-401), Reklassifizierungs-Job
-  (PRIV-402, `09` §4), Anlage-Ablauf fragt Organisations-Mandanten, Audit-Aktion, Doku
-  (Querverweis auf `compliance-anbauvereinigung.md`).
-- **Abhängigkeiten**: E05.
-- **Akzeptanz**: TA-122, TA-403/703, TA-404.
-- **Spec-Verweise**: `03` §5, `06` §3, `09` §4.
-- **Offene Rechtsfrage**: LEG-03, LEG-04, LEG-17 — der Default `legacy` behält das heutige
-  Verhalten bei, bis entschieden ist; der Schalter existiert, damit die Entscheidung ohne
-  Release angewendet werden kann.
+#### PRIV-E16 · docs(privacy): spec change set and operator documents
+- Änderungen aus `06` §9 (NFR-011, REQ-025, REQ-053, REQ-024/049, REQ-022, REQ-023, Docs); **AVV-Muster, Datenschutz-
+  information je Betriebsmodell, Mustertext Betriebsrat (PRIV-406), Art.-13/14-Vorlagen (PRIV-408)**; Widerspruchs-
+  register-Einträge W-01, W-10, W-13, W-15, W-17, W-22…W-25.
+- Abhängigkeiten: Betreiberfreigabe der DEC; Texte Art. 13/14: **BLOCKED_LEGAL (LEG-12)**. Akzeptanz: `mkdocs build --strict`,
+  Spec-Readiness-Review, Changelog-Zeilen zitieren `spec/privacy`.
 
-### PRIV-E10 · feat(offline): dead-session quarantine, stable revocation codes, awaited logout wipe, storage-key hygiene
+#### PRIV-E17 · docs(privacy): DPIA hand-over, RoPA input, legal verification tasks
+- `11`, `13`, `15` an den DSB; Verifikationsaufträge **V-01…V-11** (`13` §4) abarbeiten (Browserzugang zu EUR-Lex/Curia
+  nötig); RoPA-Export aus `06` §2 (PA-Tabelle) generieren; Entscheidungen in decision-log §B eintragen (Status, Prüfdatum).
+- Gate: BLOCKED_LEGAL (Ergebnis liegt beim DSB).
 
-- **Problem**: Ein anderswo gelöschtes Konto lässt die Queue bis zu 365 d bestehen; der
-  Logout-Wipe wird nicht abgewartet; `kp-sw-state`-Race; `localStorage` behält
-  `user_key`/E-Mail; nur ein generisches 403.
-- **Scope**: Zustand `quarantined` und Dexie v3 (PRIV-510/519, `09` §8); `401 account.closed`
-  bei Refresh/Schreibzugriffen für geschlossene Konten, `403 membership.ended` für gültige
-  Tokens mit erfasstem Austritt (PRIV-520/131); Client-Reaktionen (PRIV-521); abgewarteter
-  Wipe + `replace` (PRIV-514); `KP_CLEAR_DONE`-Handshake (PRIV-516); PRIV-512-Schlüsselliste;
-  Sweep bei `visibilitychange` (PRIV-513); Kill-Switch-Poll (PRIV-523);
-  Guard-Erweiterungen.
-- **Abhängigkeiten**: keine auf E05 (Client- und Auth-Pfade).
-- **Akzeptanz**: TA-131, TA-502, TA-512, TA-514, TA-516, TA-519…TA-521, TA-523, TA-528,
-  TA-803; E2E TC-053-091/092.
-- **Spec-Verweise**: `03` §7, `07` §7.
-- **Offene Rechtsfrage**: LEG-10 (Karenzzeit) — Default 14 d.
+#### PRIV-E18 · refactor(security): domain-separated key for client-event digests (SEC-003) with transition rule
+- Abgeleiteter Schlüssel statt `erasure_tombstone_salt`; Übergang: Digests beider Schlüssel werden für `CLIENT_EVENT_TOMBSTONE_DAYS`
+  akzeptiert. Abhängigkeiten: E03. Akzeptanz: `test_client_event_idempotency.py` erweitert. Gate: ja.
 
 ---
 
-## P2 — Aufbewahrung, Administration und Offline-Schutzmaßnahmen
-
-### PRIV-E11 · feat(offline): configurable device retention, shared-device mode, byte ceilings, device page
-
-- **Scope**: Runtime-Config-Einstellungen und Defaults 90/30 (PRIV-511), 60-Tage-Hinweis,
-  `PLAN_CACHE_MAX_BYTES`, `QUEUE_PHOTO_MAX_BYTES` (PRIV-505/509), Shared-Device-Modus
-  installations- und mandantenweit mit Idle-Logout, sitzungsgebundene Queue, 5-Min-TTL,
-  Login-Banner, Kiosk-Implikation (PRIV-524…526), Offline-Opt-in-Schalter
-  (LEG-09-Empfehlung), Geräteseite (PRIV-530), Doku DE/EN, Korrektur der REQ-025-§10-Tabelle
-  inkl. TDDDG-Umbenennung (Spec-Änderung).
-- **Abhängigkeiten**: E10.
-- **Akzeptanz**: TA-500, TA-505, TA-509, TA-511, TA-524, TA-530; E2E TC-053-093.
-- **Spec-Verweise**: `07` §2, §4–6, §8, §10.
-- **Offene Rechtsfrage**: LEG-09, LEG-10.
-
-### PRIV-E12 · feat(privacy): attribution removal on leaving a tenant (Art. 21 / 17(1)(c))
-
-- **Scope**: `POST /t/{slug}/privacy/attribution-removal` (Step-up), mandantenbezogener
-  Marker-Lauf, der `ANONYMIZE_COLLECTIONS` nach `tenant_key` gefiltert wiederverwendet,
-  Review-Items, Audit-Aktion `ATTRIBUTION_REMOVED`, gesetzliche Ausnahme je
-  `record_keeping`, Text bei erneutem Beitritt (PRIV-116/118).
-- **Abhängigkeiten**: E06, E07, E09.
-- **Akzeptanz**: TA-112, TA-805.
-- **Spec-Verweise**: `03` §3.2.
-- **Offene Rechtsfrage**: LEG-06.
-
-### PRIV-E13 · feat(retention): new rows R-46 (watering/feeding/tank logs), R-47 (closed tasks/comments), R-48 (notifications); keyed performer fields
-
-- **Scope**: Migration v0109 für Schlüssel-Durchführende (`09` §5), Request-Schemas mit
-  `performed_by_label`, UI-Dialoge „Ich war's / jemand anderes", Nährstoffplan-`author_*`,
-  `workflow_templates.created_by_user_key`; Aufbewahrungs-Beats mit Obergrenzen;
-  NFR-011-Zeilen (Spec-Änderungsvorschlag); Art.-15-Manifest-Quellen für die neuen
-  Schlüsselfelder (R2).
-- **Abhängigkeiten**: E05.
-- **Akzeptanz**: TA-702, TA-400…TA-403, TA-603.
-- **Spec-Verweise**: `06` §2.3, `08` §3.4, `09` §5.
-- **Offene Rechtsfrage**: Fristen gemäß NFR-011 v1.29 („Vorschlag, DSB-Prüfung offen").
-
-### PRIV-E14 · feat(backup): erasure replay ledger, bucket mirror, restore replay command, dump retention — before enabling backups
-
-- **Scope**: `erasure_replay_ledger` + R-45-Beat, Mirror-Objekt, CLI
-  `privacy_restore_replay`, Erweiterung von `backup-restore.md`, Helm
-  `backup.retentionDays` Obergrenze 35, Restore-Drill-Test (nightly), Collection
-  `migration_reports` und `--report-out` (`09` §2), falls nicht in E04 erledigt.
-- **Abhängigkeiten**: E03 (Plan-Fingerprint), E07 (Review-Item-Replay).
-- **Akzeptanz**: TA-709…TA-711, TA-804.
-- **Spec-Verweise**: `09` §6, `08` §3.7.
-- **Offene Rechtsfrage**: LEG-11.
-
----
-
-## P3 — Governance, Monitoring, kontinuierliche Compliance
-
-### PRIV-E15 · feat(observability): privacy-operations endpoint, metrics, consistency beat, stale alerts, unified escalation, resume job
-
-- **Scope**: `GET /admin/platform/privacy/operations|consistency`, Beat
-  `privacy.consistency` (PRIV-206), Metriken (`08` §5), gemeinsames
-  `PRIVACY_OPERATION_ESCALATE_AFTER_ATTEMPTS` (PRIV-109), Stale-Alert (PRIV-110), verwaiste
-  Mandanten im Monitoring (PRIV-127), Job `privacy.resume_partial_erasures` (PRIV-717),
-  R-06-Docstring-Korrektur, Grafana-Panel (Doku).
-- **Abhängigkeiten**: E03, E07.
-- **Akzeptanz**: TA-104, TA-105, TA-202, TA-305, TA-717.
-- **Spec-Verweise**: `03` §2.4, `04` §2.2, `08` §4.2/§5–6.
-
-### PRIV-E16 · docs(privacy): spec change set — REQ-025 / NFR-011 / REQ-053 / REQ-024 / REQ-049 / REQ-022 / REQ-023 / user docs
-
-- **Scope**: die Vorschläge aus `06` §9 als versionierte Änderungen mit Changelog-Zeilen:
-  Zuordnungsrollen und Review-Phase in REQ-025 §3.1.3; §10-Tabelle (Schlüssel, TDDDG);
-  NFR-011 R-43…R-48, R-26-Marker, R-25-Formulierung und `material`; REQ-053
-  GP-FR-109-vs-E-16-Widerspruch, GP-NFR-055 Plan-Audit-Marker; REQ-024/REQ-049
-  Einstellungen und E-Mail-Regel, `management` darf schwärzen; REQ-022 Bestätigungen haben
-  keinen Akteur; REQ-023 §5b.1 Zeile zum Backup-Lesezugriff; Docs `privacy.md`
-  DSFA-Satz; Abschnitt „Für Betriebe und Vereine" mit der Betriebsrats-Vorlage (PRIV-406);
-  Versions-/Footer-Drift (REQ-025-Footer 1.5, NFR-011-Footer 1.7, REQ-051-Footer 1.0).
-- **Abhängigkeiten**: Betreiber-Freigabe der DEC-Punkte; keine technischen.
-- **Akzeptanz**: `mkdocs build --strict`; Spec-Readiness-Review; jede Changelog-Zeile zitiert
-  `spec/privacy`.
-- **Offene Rechtsfrage**: der Wortlaut der Art.-13/14-Texte (LEG-12).
-
-### PRIV-E17 · docs(privacy): DPIA hand-over package and RoPA input
-
-- **Scope**: `11` mit der LEG-Liste an den DSB übergeben; die RoPA-Eingabetabelle aus `02`
-  erzeugen (Export-Skript, das aus der Registry ein CSV der Verarbeitungstätigkeiten
-  erzeugt — optionale Automatisierung, P3); Entscheidungen zurück in `decision-log.md`
-  eintragen.
-- **Abhängigkeiten**: E05 (Registry als Quelle).
-- **Akzeptanz**: Decision-Log-Zeilen LEG-01…17 haben einen anderen Status als `open`.
-
----
-
-## Abhängigkeitsgraph
+## 2. Abhängigkeitsgraph
 
 ```mermaid
 flowchart LR
-    E01["P0 E01 (Issue 2770)"] --> E04["P0 E04 v0107"]
-    E03["P0 E03 constants+residue"] --> E04
-    E02["P0 E02 closed-name"] --> E05
-    E03 --> E05["P1 E05 registry+PersonRef"]
-    E05 --> E06["P1 E06 former member"]
-    E05 --> E07["P1 E07 review queue"]
-    E05 --> E08["P1 E08 visibility"]
-    E05 --> E09["P1 E09 record_keeping"]
-    E10["P1 E10 offline revocation"] --> E11["P2 E11 device retention"]
-    E06 --> E12["P2 E12 attribution removal"]
+    E01["P0 E01 (Issue 2770)"] --> E04["P0 E04 v0107 + Konsistenz minimal"]
+    E03["P0 E03 Konstanten, anon2, Residue"] --> E04
+    E02["P0 E02 geschlossener Name"] --> E05
+    E03 --> E05["P1 E05 Registry, PersonRef, Provenienz"]
+    E05 --> E06["P1 E06 ehemalige Mitglieder"]
+    E05 --> E07["P1 E07 Prüf-Zustandsautomat"]
+    E05 --> E09["P1 E09 Klassifizierung, Pflichtfelder"]
+    E09 --> E08["P1 E08 Sichtbarkeit nach Klasse"]
+    E10["P1 E10 Offline-Widerruf"] --> E11["P2 E11 Offline-Opt-in, Fristen"]
+    E06 --> E12["P2 E12 Zurechnungsentfernung"]
     E07 --> E12
     E09 --> E12
-    E05 --> E13["P2 E13 retention rows"]
-    E03 --> E14["P2 E14 backups"]
+    E05 --> E13["P2 E13 Aufbewahrungszeilen"]
+    E03 --> E14["P2 E14 Löschungs-Spiegel"]
     E07 --> E14
-    E03 --> E15["P3 E15 observability"]
+    E04 --> E15["P3 E15 Observability"]
     E07 --> E15
-    E05 --> E17["P3 E17 DPIA/RoPA"]
-    E16["P3 E16 spec changes"]
+    E05 --> E17["P3 E17 DSFA/RoPA/V-nn"]
+    E03 --> E18["P3 E18 Digest-Schlüssel"]
+    E16["P3 E16 Spec-/Doku-Änderungen"]
 ```
 
-Vorgeschlagene Lane-Reihenfolge im seriellen Merge-Zug: E01 → E03 → E02 → E04 → E05 → E10 →
-E07 → E08 → E06 → E09 → E11 → E13 → E15 → E12 → E14 → E16/E17 (Doku kann parallel laufen,
-da sie nur `spec/` und `docs/` berührt).
+Lane-Reihenfolge: E01 → E03 → E02 → E04 → E05 → E10 → E09 → E07 → E08 → E06 → E11 → E13 → E15 → E12 → E14 → E18 →
+E16/E17 (Doku parallel).
 
 ---
 
-## Issue-Template (für jedes Epic bei der Anlage)
+## 3. Defaults je Mandantenklasse (Zusammenfassung; DA-03/DA-04; `08` §3.2)
+
+| Klasse | `record_keeping` | `attribution_visibility` | Offline-Modus (Gerät) | Shared-Device | Admin-Zugriff Betreiber |
+|--------|------------------|--------------------------|-----------------------|---------------|-------------------------|
+| neuer persönlicher Mandant | `none` (L-07) | `all_members` | aus (Opt-in) | aus | Verzeichnisdaten, keine Fachdaten |
+| neuer Verein / Gemeinschaftsgarten (`association`/`community`) | Pflichtangabe (`none` oder `kcang_association`) | `all_members` | aus | aus (Kiosk ⇒ an) | dito |
+| neuer gewerblicher Mandant (`commercial`) | Pflichtangabe (`pflschg_professional` oder `none`) | `leads_and_self` | aus | aus | dito |
+| Bestandsmandant | `legacy` (v0108) | `all_members` | aus (Übergang) | aus | dito |
+| migrierter Legacy-Mandant nach Klassifizierung | gewählter Wert; Reklassifizierung nur mit Flag | nach Klasse, nur auf Antrag der Leitung geändert | — | — | — |
+
+Jeder Default hat einen Test (TA-630); ein Legacy-Default wird **nie** zum Default neuer Mandanten (W-03).
+
+---
+
+## 4. Umsetzungsreife (Readiness)
+
+Status: **READY** (vollständig spezifiziert, keine blockierende Entscheidung) · **READY_WITH_GUARDS** (umsetzbar hinter
+Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rechtsfreigabe) · **BLOCKED_TECHNICAL** ·
+**NEEDS_DISCOVERY**.
+
+| Anforderung / Epic | Status | Blocker | Evidenz | Nächster Schritt |
+|--------------------|--------|---------|---------|------------------|
+| E01 (PRIV-003, 205, 207, 214, 215) | READY | — | VERIFIED_CODE (#2770-Pfade), DA-02 | Lane nach #2758 |
+| E02 (PRIV-104) | READY | — | VERIFIED_CODE (Join ohne `is_active`) | Lane |
+| E03 (PRIV-201, 234, 238) | READY | DEC-25 Betreiberfreigabe (Format) | L-14, L-15; VERIFIED_CODE | Lane |
+| E04 (PRIV-701…704, 718; DEC-16) | READY | DEC-16 Betreiberfreigabe | VERIFIED_CODE (Framework), `09` §2a | Dry-Run auf Prod-Snapshot |
+| E05 (PRIV-001…008, 609, 610) | READY | — | VERIFIED_CODE (Inventarmodelle) | Lane |
+| E06 (PRIV-111…118) | READY | — (LEG-06 Default 90 d, einschränkend) | VERIFIED_CODE (Austritt), DA-02 | Lane |
+| E07 Warteschlange/Entdeckung/Schwärzung | READY | — | DA-05 | Lane |
+| E07 Auto-Schwärzung nach SLA (PRIV-239) | BLOCKED_LEGAL | LEG-08 | DA-05 | Flag bleibt aus |
+| E08 (PRIV-300…310, 414) | READY | — (Breaking Change dokumentiert) | L-09, L-10 (Hinweistext) | Lane nach E09 |
+| E09 Klassifizierung, Fristbeginn, Hilfsdokumentation (PRIV-409, 410, 412, 413) | READY | — | L-01, L-02, L-05, L-07 | Lane |
+| E09 Reklassifizierung / PRIV-411 (Marker für Erntende) | BLOCKED_LEGAL | LEG-03, LEG-17 | L-05 (keine Pflichtangabe), aber Bestandsänderung | Flag aus; DSB-Entscheidung |
+| E10 (PRIV-510…523) | READY | — | VERIFIED_CODE (`07` §1, §7) | Lane |
+| E11 (PRIV-505…533) | READY | — (LEG-09/10 als Prüfdatum) | L-11 | Lane |
+| E12 (PRIV-116, 118) | READY | — | DA-02 | nach E06/E07/E09 |
+| E13 (R-46…R-48, v0109) | NEEDS_DISCOVERY (THC-Feld V-11; Modelle `nutrient_plans`/`propagation` Feldlängen) → sonst READY | V-11 | VERIFIED_CODE teilweise | Discovery-Task vor Lane |
+| E14 (PRIV-707…713) | READY_WITH_GUARDS | `deployment_allowed` Backups erst nach E14; LEG-11 Prüfdatum | L-19 (Backups), kein deutscher Primärbeleg (L-21) | Lane; Betreiber entscheidet Dump-Frist |
+| E15 | READY | — | — | nach E04/E07 |
+| E16 Spec-Änderungen | READY | Betreiberfreigabe je DEC | `14` | Doku-Lane |
+| E16 Art.-13/14-Texte, AVV | BLOCKED_LEGAL | LEG-01, LEG-12 | DA-01 | Rechtsberatung |
+| E17 | BLOCKED_LEGAL | DSB | `11`, `13` | Übergabe |
+| E18 | READY | — | SEC-003 (REQ-053 §32.6 Pkt. 16) | P3 |
+| Kommerzieller SaaS-Betrieb mit gewerblichen Mandanten | BLOCKED_LEGAL (`deployment_allowed`) | LEG-01, LEG-05, LEG-12 | DA-01, DA-04, DA-08 | AVV, Information, DSFA-Entscheidung (DEC-32) |
+| Bestand: Backfill-Zurechnung, Statutory für alle, Offline ohne Opt-in | `processing_allowed = provisorisch` | LEG-07, LEG-03, LEG-09 | `06` §10 | Prüfdatum 2027-01-31 (Vorschlag), Schalter/Flags in E01/E09/E11 |
+
+---
+
+## 5. Issue-Template
 
 ```
 **Spec:** spec/privacy/<doc> §<n>, PRIV-<ids>. Priorität <P0..P3>. Abhängig von: <E..>.
@@ -326,7 +229,7 @@ da sie nur `spec/` und `docs/` berührt).
 ## Scope (in / out)
 ## Akzeptanz (TA-ids)
 ## Tests
-## Offene Rechtsentscheidungen (LEG-ids; der Default, mit dem dieses Issue ausgeliefert wird)
+## Rechtsfragen (LEG-ids; Default, mit dem dieses Issue ausgeliefert wird; Flag/Gate)
 ## Leitplanken: BACKEND.md/FRONTEND.md; `*, tenant_key: str`; Route-Walk + Route-Consumer-Pin + begrenzte Listen für neue Routen;
-Enums additiv mit DE/EN-i18n; Bundle-Budget; kein Prod-Deploy; Branch feat/priv-<slug> von origin/develop in eigenem Worktree.
+Enums additiv mit DE/EN-i18n; Bundle-Budget; kein Prod-Deploy; Branch feat/priv-<slug> von origin/develop im eigenen Worktree.
 ```

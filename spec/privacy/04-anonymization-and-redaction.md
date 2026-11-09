@@ -1,9 +1,11 @@
 # SPEC-04 — Anonymisierung und Schwärzung
 
 ```
-Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
 Anforderungs-IDs: PRIV-200 … PRIV-249
-Hängt ab von: 01 §2 (Vokabular), 02 (Feldinventar), 03 (wann welche Regel greift)
+Hängt ab von: 01 §2 (Vokabular), 02 (Feldinventar), 03 (wann welche Regel greift), 13 (L-14, L-15), 15 (DA-05, DA-06)
+Änderung v1.1: Identifikationsklassen (§1a), mandantengebundene Pseudonyme für neue Zeilen (PRIV-238),
+Prüfwarteschlange als Zustandsautomat ohne ausschließende Obergrenze (§5), `keep` nur mit Rechtsgrundlage.
 ```
 
 ---
@@ -22,6 +24,20 @@ keinen identifizierenden Inhalt enthält; andernfalls „Zurechnung entfernt“ 
 (Tombstone). Der i18n-Schlüssel für die Personendarstellung ist `enums.personRef.erased`,
 mit dem deutschen Anzeigetext „entferntes Mitglied“ statt „anonymisiert“ **[Vorschlag]** — das aktuelle
 Wort verspricht mehr, als die Daten einlösen.
+
+### 1a. Identifikationsklassen (DA-06; Evidenz L-14, L-15)
+
+| Klasse | Definition | Beispiele | Folge |
+|--------|------------|-----------|-------|
+| **direkt identifizierend** | Wert, der ohne Zusatzwissen eine Person benennt oder ein bestehendes Konto adressiert | `display_name`, `email`, roher `users._key` eines bestehenden Kontos | volle Löschpflicht |
+| **pseudonym** | Zurechnung nur mit gesondert gehaltener Zusatzinformation (Salt, Schlüssel); Zeilen bleiben verknüpfbar (WP216: „pseudonymisation is not a method of anonymisation“; EDSA 01/2025: bleibt personenbezogen, auch wenn die Zusatzinformation beim Verantwortlichen gelöscht ist) | `anon_<hash>`, `anon2_<hash>`, `sub_…`-Logpseudonyme, Client-Event-Digest | personenbezogen; nur in der Allowlist; Zweck- und Zugriffsbeschränkung |
+| **effektiv anonym (attributbezogen)** | das Attribut trägt keine Zuordnung mehr; die **Zeile** kann über Inhalt identifizieren | `_anonymized`, `null` | Zeile gilt als anonym erst nach Freitext-Prüfung (§5) |
+| **effektiv anonym (zeilenbezogen)** | kein Attribut erlaubt Herausgreifen, Verknüpfen oder Inferenz mit vernünftigem Aufwand (Erwägungsgrund 26, Bezug) | Mengen-/Datumsaufzeichnung ohne Zurechnung und ohne Freitext | außerhalb der DSGVO |
+
+**PRIV-237** [PROPOSED] Jede Aussage „anonymisiert“ in Code, API oder UI MUSS einer **zeilenbezogenen** Klasse
+entsprechen; attributbezogene Ersetzungen heißen „Zurechnung entfernt“. Zugesagt werden kann: *Zurechnung
+entfernt; Verknüpfbarkeit auf einen Mandanten und eine Aufbewahrungsklasse begrenzt (nach DEC-25)*; nicht
+zugesagt wird „anonym“ für Zeilen mit Freitext.
 
 **PRIV-201** Der Marker und die Tombstone-Regex MÜSSEN jeweils genau eine Definition haben.
 [verifiziert] `_anonymized` ist viermal definiert (`erasure_engine.py:ANONYMIZED_MARKER`,
@@ -46,10 +62,18 @@ reines SHA-256 mit angehängtem Salt, nicht um HMAC, gekürzt auf 64 Bit; die Sc
 (`compute_request_key`, `log_subject`) verwenden HMAC mit einem Zweck-Label. Festgehalten als
 DEC-04; eine künftige Schlüsselrotation braucht eine Re-Keying-Migration (`09` §7) und liegt außerhalb des Umfangs.
 
-**PRIV-203** Neue, von diesem Paket eingeführte Ableitungen (keine ist zwingend erforderlich; z. B. ein
-Schlüssel für Prüfeinträge) MÜSSEN HMAC mit einem Zweck-Label verwenden, nicht `sha256(x + salt)`. Die Wiederverwendung
-von `erasure_tombstone_salt` als Digest-Schlüssel für Client-Events (REQ-053 §32.6 Pkt. 16, SEC-003) wird vermerkt, hier
-aber nicht geändert.
+**PRIV-203** Neue, von diesem Paket eingeführte Ableitungen MÜSSEN HMAC mit Domänentrennung verwenden, nicht
+`sha256(x + salt)`. Die Wiederverwendung von `erasure_tombstone_salt` als Digest-Schlüssel für Client-Events
+(REQ-053 §32.6 Pkt. 16, SEC-003) wird als eigenes Paket E18 (abgeleiteter Schlüssel mit Übergangsregel) geführt.
+
+**PRIV-238** [PROPOSED, DEC-25] **Neue** Pseudonymisierungen (Zeilen, die nach Einführung pseudonymisiert werden)
+MÜSSEN mandantengebunden abgeleitet werden: `anon2_ + HMAC-SHA256(ERASURE_TOMBSTONE_SALT, "tombstone:" ||
+tenant_key || ":" || user_key)[:16]`. Begründung: Der heutige instanzweite Tombstone verknüpft eine gelöschte Person
+über alle Mandanten und Exportarchive hinweg (RISK-19); innerhalb eines Mandanten bleibt die Verknüpfbarkeit (Prüfzweck)
+erhalten. `is_tombstone` und die Allowlist-Regex kennen beide Generationen (`^anon_[0-9a-f]{16}$|^anon2_[0-9a-f]{16}$`);
+die Art.-15-Suche (REQ-025 §3.1.2 Regel 6) prüft je `(tenant_key, user_key)`. Bestandstombstones werden **nicht**
+umgeschrieben (`09` §7). Schlüsselrotation ist für Bestandstombstones nicht möglich (RISK-20) — die Zusicherung lautet
+daher „Zugriffsbeschränkung des Salts“, nicht „Rotierbarkeit“.
 
 ### 2.2 Wo ein Tombstone existieren darf
 
@@ -208,16 +232,63 @@ einer Schwärzung — sie ist eine Löschung im Sinne von Art. 17).
 
 ---
 
-## 5. Freitext-Prüfwarteschlange (Datenschutzverwaltung)
+## 5. Freitext-Prüfwarteschlange als Zustandsautomat (Datenschutzverwaltung; DA-05)
 
 ### 5.1 Warum eine Warteschlange und keine Regel
 
 Automatisches Löschen anhand von Freitext ist verboten (REQ-025 Regel 4) und falsch (der Text ist
 meist die agronomische Aufzeichnung des Mandanten: „gegossen 10 L“, „Blattläuse auf Beet 3“). Reaktives
 manuelles Schwärzen ohne Liste genügt nicht (#2517). Der Mittelweg: Das System
-**findet** Kandidaten, ein Mensch **entscheidet**, die Entscheidung wird **protokolliert**.
+**findet vollständig** alle Kandidaten, ein Mensch **entscheidet** innerhalb einer Frist, nach Fristablauf
+tritt ein **definierter** Zustand ein, und jede Entscheidung ist **protokolliert** (Art. 5 Abs. 2). Eine
+Prüffrist ist **keine** Erlaubnis zur Weiterverarbeitung; ein technisches Verarbeitungslimit DARF NIE Zeilen
+stillschweigend ausschließen.
 
-### 5.2 Anlage von Einträgen
+### 5.1a Zustände
+
+```mermaid
+stateDiagram-v2
+    [*] --> DISCOVERY_PENDING: Löschung committet (Entdeckungs-Cursor am Löschauftrag)
+    DISCOVERY_PENDING --> DISCOVERY_PENDING: nächste Seite (paginiert, idempotent)
+    DISCOVERY_PENDING --> REVIEW_REQUIRED: Eintrag angelegt
+    DISCOVERY_PENDING --> FAILED: Fehler nach n Versuchen
+    REVIEW_REQUIRED --> REDACTION_PENDING: Entscheidung redact / Auto-Schwärzung nach SLA (Flag)
+    REVIEW_REQUIRED --> RETAINED_WITH_LEGAL_BASIS: Entscheidung keep + legal_basis_ref
+    REVIEW_REQUIRED --> VOID: Zeile existiert nicht mehr
+    REDACTION_PENDING --> REDACTED: Schwärzung + Audit geschrieben
+    REDACTION_PENDING --> FAILED: Schreibfehler nach n Versuchen
+    FAILED --> REVIEW_REQUIRED: Wiederholung / manuell
+    REDACTED --> [*]
+    RETAINED_WITH_LEGAL_BASIS --> [*]
+    VOID --> [*]
+```
+
+| Zustand | Bedeutung | Austritt |
+|---------|-----------|----------|
+| `DISCOVERY_PENDING` | Entdeckung der Kandidaten einer Löschung läuft (seitenweise, Cursor `review_discovery_cursor` am `erasure_requests`-Dokument; Namens-Token nur bis Abschluss der Entdeckung im Speicher, danach verworfen) | alle Seiten verarbeitet → `review_discovery_completed_at` gesetzt |
+| `REVIEW_REQUIRED` | Eintrag offen; `due_at = created_at + PRIVACY_REVIEW_SLA_DAYS` | Entscheidung, SLA-Ablauf, Zeile weg |
+| `REDACTION_PENDING` | Schwärzung angeordnet, noch nicht geschrieben (Transaktion, Lineage-Batch) | geschrieben / Fehler |
+| `REDACTED` | Felder geschwärzt, Audit-Zeile vorhanden | — |
+| `RETAINED_WITH_LEGAL_BASIS` | bewusst behalten; `reason_code` **und** `legal_basis_ref` (PA-nn aus `06` §2 oder LEG-nn) Pflicht | — |
+| `VOID` | Zeile existiert nicht mehr (gelöscht, Mandant weg) | — |
+| `FAILED` | wiederholter Fehler; Eskalation (Metrik, Betreiber-Endpunkt) | Wiederholung |
+
+**Löschauftrag-Zustand `ERASURE_COMPLETED`** (neuer Wert neben `completed`/`partially_completed`, `08` §3.9) wird
+erst gesetzt, wenn `review_discovery_completed_at` vorhanden ist und kein Eintrag der Löschung in
+`REVIEW_REQUIRED`, `REDACTION_PENDING` oder `FAILED` steht. Bis dahin bleibt der Auftrag `completed` mit
+`followups_open > 0` (sichtbar in PRIV-110).
+
+### 5.1b SLA-Ablauf
+
+**PRIV-239** [PROPOSED] Nach `PRIVACY_REVIEW_SLA_DAYS` (Default 30; Art. 12 Abs. 3 als Orientierung für die
+Antwortfrist, L-19) ohne Entscheidung: (a) Einträge mit `match_kinds ⊇ {authored, performed, modified}`
+(Schlüsselbezug, kein Schlüsseln auf Freitext) wechseln automatisch nach `REDACTION_PENDING`, **wenn** das Flag
+`PRIVACY_REVIEW_AUTO_REDACT_ON_SLA` gesetzt ist (Default **aus** bis LEG-08); ist es aus, bleiben sie
+`REVIEW_REQUIRED`, werden als überfällig gezählt und an den Betreiber eskaliert (`privacy.review.overdue`); (b)
+reine `name_token`-Treffer eskalieren nur (Menschenentscheidung bleibt). Die Fristüberschreitung wird im Eintrag
+(`overdue_since`) und im Löschauftrag (`followups_overdue`) festgehalten.
+
+### 5.2 Anlage von Einträgen (Entdeckung)
 
 **PRIV-221** Wenn eine Kontolöschung committet (und wenn die Zurechnungsentfernung nach PRIV-116 läuft),
 MUSS die Engine einen `privacy_review_items`-Eintrag pro `(tenant_key, collection,
@@ -236,11 +307,16 @@ wird gelöscht; ein persönlicher Mandant einer anderen Person, in dem die betro
 für diesen Zweck als geteilt. Gesetzliche Zeilen erzeugen nur für `notes` einen Eintrag und nur dort, wo der Mandant
 `record_keeping = none` hat oder die Zeile ihre gesetzliche Frist überschritten hat.
 
-**PRIV-223** Die Anlage von Einträgen MUSS begrenzt sein: höchstens `PRIVACY_REVIEW_ITEMS_MAX_PER_ERASURE`
-(Standard 5 000) pro Löschung; darüber hinaus vermerkt die Engine `review_items_truncated = true`,
-und die Leads des Mandanten sehen ein Banner „Es gibt mehr Zeilen als aufgeführt — Pflegeprotokoll-Suche
-nach Datum nutzen“. Der Namens-Token-Scan MUSS mit derselben begrenzten, seitenweisen AQL wie der Export lesen
-(`test_beat_task_reads_are_paged`).
+**PRIV-223 (neu gefasst, löst W-06)** Die Entdeckung MUSS **vollständig** sein: Sie liest alle Prüf-
+Collections des Mandanten seitenweise (`PRIVACY_REVIEW_DISCOVERY_PAGE_SIZE`, Default 500; `test_beat_task_reads_are_paged`)
+und hält den Fortschritt als Cursor am Löschauftrag (`review_discovery_cursor`), sodass ein Abbruch idempotent
+fortgesetzt wird (`privacy.post_commit_followups`). Es gibt **keine** Obergrenze, die Zeilen ausschließt. Ein
+Schutz vor Laufzeitexplosion ist ausschließlich eine **Eskalationsschwelle** `PRIVACY_REVIEW_ITEMS_ESCALATE_AT`
+(Default 5 000): darüber wird der Betreiber benachrichtigt und die Entdeckung läuft **weiter**; die UI zeigt den
+Fortschritt („Entdeckung läuft: n von m Collections“). Die maximale Entdeckungsdauer ist `PRIVACY_REVIEW_DISCOVERY_MAX_DAYS`
+(Default 2); danach `FAILED` mit Eskalation, nicht Abbruch. Namens-Token werden nur für die Dauer der Entdeckung im
+Arbeitsspeicher des Jobs gehalten (verschlüsselter Zwischenzustand am Löschauftrag, `review_name_tokens_enc`, Fernet;
+gelöscht mit `review_discovery_completed_at`).
 
 ### 5.3 Prüfung und Entscheidung
 
@@ -249,17 +325,19 @@ nach Datum nutzen“. Der Namens-Token-Scan MUSS mit derselben begrenzten, seite
 (rollengeprüften) Lesepfad auf die aktuelle Zeile aufgelöst wird, sodass sie den Live-Text in der eigenen
 Detailansicht der App ansehen.
 
-**PRIV-225** Entscheidungen: `redact` (im Eintrag aufgelistete Felder oder eine Teilmenge) → die generische
-Schwärzung (`§6`); `keep` mit `reason_code ∈ {no_personal_reference, agronomic_record,
-third_party_consent, statutory}` und optionalem `reason_text`; `defer` (bleibt offen). Ein entschiedener
-Eintrag DARF NICHT durch eine spätere Löschung einer *anderen* betroffenen Person, die dieselbe Zeile trifft, wieder geöffnet werden
-— stattdessen wird ein neuer Eintrag angelegt (der Schlüssel enthält `erasure_key`).
+**PRIV-225** Entscheidungen: `redact` (im Eintrag aufgelistete Felder oder eine Teilmenge) → `REDACTION_PENDING`
+→ generische Schwärzung (§6); `keep` → `RETAINED_WITH_LEGAL_BASIS` **nur** mit `reason_code ∈ {no_personal_reference,
+agronomic_record, third_party_consent, statutory, other}` **und** `legal_basis_ref` (PA-nn aus `06` §2 oder LEG-nn;
+`statutory` erfordert einen Verweis auf eine Zeile der feldgenauen Zuordnung `06` §3.2) und optionalem
+`reason_text`; `defer` ist **kein** Zustand (bleibt `REVIEW_REQUIRED`, verlängert das SLA nicht). Ein entschiedener
+Eintrag DARF NICHT durch eine spätere Löschung einer *anderen* betroffenen Person wieder geöffnet werden — es entsteht
+ein neuer Eintrag (Schlüssel enthält `erasure_key`). `reason_text` ist selbst Freitext: nur für Leads sichtbar, mit dem
+Eintrag gelöscht (R-43), nie im Audit.
 
-**PRIV-226** Offene Einträge, die älter als `PRIVACY_REVIEW_SLA_DAYS` (Standard 30) sind, MÜSSEN auf der
-Datenschutzseite des Mandanten als überfällig erscheinen und in der Plattform-Metrik
-`privacy_review_items_open{tenant_kind}`; die Plattformadministration sieht nur Zählwerte (REQ-049 P4).
-**[rechtlich LEG-08]** ob die verantwortliche Stelle (LEG-01) die Entscheidung den Leads des Mandanten überlassen darf
-und ob 30 Tage gegenüber dem „unverzüglich“ aus Art. 17 Abs. 1 vertretbar sind.
+**PRIV-226** Offene Einträge älter als `PRIVACY_REVIEW_SLA_DAYS` MÜSSEN als überfällig erscheinen (Mandantenseite,
+Metriken `privacy_review_items_overdue`, Betreiber-Eskalation) und PRIV-239 auslösen; die Plattformadministration
+sieht Zählwerte (REQ-049 P4). **[LEGAL_REVIEW_REQUIRED LEG-08]**: Darf die Entscheidung den Leads überlassen werden
+(DA-01)? Ist 30 Tage mit „unverzüglich“ vereinbar? Ist die Auto-Schwärzung eigener Zeilen nach SLA angemessen?
 
 **PRIV-227** Einträge und ihre Entscheidungen werden mit dem Mandanten und nach
 `PRIVACY_REVIEW_ITEM_RETENTION_DAYS` (Standard 3 Jahre, abgestimmt auf R-06 als Nachweis der
@@ -404,3 +482,6 @@ Vorlage (`name`), die Location (`name`, Datenlinie `template_key`) und die Audit
 | TA-207 | `garden_plan_audit.user_key` erhält den Marker; ein eingeschleuster Tombstone dort wird gemeldet. |
 | TA-208 | Der Residue-Scan markiert eine Löschung als `partially_completed`, wenn eine eingeschleuste Zeile den echten Schlüssel oder den Tombstone außerhalb der Allowlist behält. |
 | TA-209 | `original_filename` wird bei der Löschung geleert. |
+| TA-237 | Kein Bericht/UI-Text nennt eine Zeile mit nicht leerem Prüffeld „anonymisiert“; Guard auf die i18n-Schlüssel und Berichts-Builder. |
+| TA-238 | Neue Pseudonymisierung erzeugt `anon2_`-Format mandantengebunden; dieselbe Person in zwei Mandanten erhält zwei verschiedene Werte; `is_tombstone` erkennt beide Formate; die Art.-15-Suche findet Zeilen beider Formate. |
+| TA-239 | Zustandsautomat: Entdeckung paginiert und fortsetzbar (Abbruch nach Seite k, Wiederaufnahme liefert identische Menge); kein Eintrag wird durch die Eskalationsschwelle ausgelassen; `keep` ohne `legal_basis_ref` → 422; SLA-Ablauf mit Flag an → `REDACTION_PENDING` nur für Schlüsselbezug, mit Flag aus → überfällig + Eskalation; `ERASURE_COMPLETED` erst bei leerer offener Menge; Namens-Token nach Entdeckung nirgends gespeichert. |

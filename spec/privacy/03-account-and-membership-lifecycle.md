@@ -130,11 +130,12 @@ Fenster, Checkpoint `pre_arango_completed_at` (Speicherphasen werden nicht wiede
 ArangoDB-Plan (alles oder nichts), `partially_completed` mit Backoff, Konfigurationsfehler halten
 an, ohne einen Versuch zu verbrauchen, ein tombstonierter `user_key` bedeutet „committed".
 
-**PRIV-108** [Vorschlag] Die beiden neuen Phasen (Prüfeinträge, Replay-Ledger) MÜSSEN **nach** dem
-Commit der ArangoDB-Transaktion laufen und auf ihren eigenen Keys idempotent sein
-(`privacy_review_items._key = hash(erasure_key, collection, row_key, field)`;
-Ledger-Key = `erasure_key`). Ein Fehler in diesen Phasen DARF die Löschung NICHT zurückrollen (das
-Recht ist erfüllt; die Folgeschritte werden vom nächsten Beat als `post_commit_pending` erneut versucht).
+**PRIV-108** [PROPOSED] Die beiden neuen Phasen (Entdeckung der Prüfeinträge, Löschungs-Spiegel-Eintrag
+`erasure_mirror`, DEC-26) MÜSSEN **nach** dem Commit der ArangoDB-Transaktion laufen und auf ihren eigenen Keys
+idempotent sein (`privacy_review_items._key = hash(erasure_key, collection, row_key)`; Spiegel-Key = `erasure_key`).
+Ein Fehler in diesen Phasen DARF die Löschung NICHT zurückrollen (die Zurechnung ist entfernt); der Auftrag trägt
+`post_commit_pending = true`, der Beat `privacy.post_commit_followups` setzt die Entdeckung am Cursor fort
+(`04` §5.1a). Der Auftrag erreicht `erasure_completed` erst, wenn Entdeckung und alle Prüfeinträge abgeschlossen sind.
 
 **PRIV-109** [Vorschlag] Eskalationsschwellen MÜSSEN für Konto- und Mandantenlöschung identisch sein.
 Heute eskaliert die Kontolöschung bei Versuch 5 (`ERASURE_ESCALATE_AFTER_ATTEMPTS`), die Mandantenlöschung
@@ -241,21 +242,21 @@ care_events(source_ref)`.
 
 ## 5. Löschung von Nutzern mit gesetzlich aufzubewahrenden Datensätzen
 
-**PRIV-121** [verifiziert] Gesetzlich aufzubewahrende Zeilen überleben Konto und Mandant: Key → Tombstone,
+**PRIV-121** [VERIFIED_CODE] Gesetzlich aufzubewahrende Zeilen überleben Konto und Mandant: Key → Tombstone,
 typisierter Anzeigename (`harvester`, `applied_by`, `inspector`, `assessed_by`) geleert;
 `purge_expired_legal_retention_rows` löscht sie erst, wenn der Mandant nicht mehr existiert und
-die Frist (R-16 5 J. ab `harvest_date`, R-17/R-18 3 J.) abgelaufen ist; der Art.-15-Export
-findet sie für eine noch aktive Person über den Tombstone.
+die Frist (R-16 5 J. ab `harvest_date`, R-17/R-18 3 J. ab `applied_at`/`inspected_at`) abgelaufen ist; der
+Art.-15-Export findet sie für eine noch aktive Person über den Tombstone. **Abweichung vom Gesetz:** PflSchG § 11
+Abs. 3 (L-01, VERIFIED_LEGAL) lässt die Frist am 1. Januar des Folgejahres beginnen → PRIV-412 (`06` §3.2).
 
-**PRIV-122** [Vorschlag, DEC-11; **rechtlich LEG-03**] Ein Mandant MUSS angeben, ob eine gesetzliche
-Aufbewahrungspflicht gilt: `Tenant.settings.record_keeping ∈ {legacy, none, pflschg_professional,
-kcang_association, both}`. Standard für bestehende Mandanten: `legacy` = heutiges Verhalten (alle
-gesetzlichen Regeln gelten). Bei `none` werden die vier Collections als `shared_history` behandelt
-(Marker bei Löschung, mit dem Mandanten gelöscht, Prüfeinträge). Begründung: PflSchG §11 bindet
-*berufliche* Anwender und die Dokumentationspflichten des KCanG binden Anbauvereinigungen; ein
-Hobbygarten hat keine Grundlage nach Art. 6(1)(c), einen pseudonymisierten Ernteeintrag fünf Jahre lang
-aufzubewahren, nachdem die Person die Löschung beantragt hat. Der Betreiber bestätigt den Wert; die UI erläutert die
-Konsequenz.
+**PRIV-122** [PROPOSED, DEC-11 aktualisiert; **LEGAL_REVIEW_REQUIRED LEG-03**] Ein Organisationsmandant MUSS bei
+der Anlage klassifiziert werden (PRIV-409: `organization_kind` und `record_keeping ∈ {none, pflschg_professional,
+kcang_association, both}`); ohne Angabe gilt `undeclared` (konservative Aufbewahrung, Hinweis an die Leitung,
+Zählung beim Betreiber). Bestandsmandanten: `legacy` (v0108) = heutiges Verhalten. Persönliche Mandanten: `none`
+(KCanG § 9/§ 10 kennen keine Dokumentationspflicht, L-07). Die Klasse wirkt **feldgenau** (`06` §3.2): nur die einer
+Vorschrift zugeordneten Felder werden unter Art. 6 Abs. 1 lit. c aufbewahrt; z. B. ist die erntende Person nach
+KCanG § 26 keine Pflichtangabe (L-05) → `harvested_by_key` erhält bei Löschung den Marker (PRIV-411, hinter Flag).
+Begründung: PflSchG § 11 trifft berufliche Anwender (L-01, L-02), KCanG § 26 Anbauvereinigungen (L-05).
 
 **PRIV-123** [**rechtlich LEG-04**] Ob der *Name* des Anwenders in einem
 PflSchG-§11-Nachweis für den gesamten Zeitraum lesbar bleiben muss (heute wird er bei der Löschung geleert und nur das

@@ -1,8 +1,10 @@
 # SPEC-02 — Inventar personenbezogener Daten
 
 ```
-Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
 Anforderungs-IDs: PRIV-030 … PRIV-049 (Inventarregeln)
+Änderung v1.1: `erasure_mirror` statt Raw-Key-Ledger, `migration_reports`, Ableitungswege jenseits der statischen
+Prüfung (§5a); Rechtsgrundlagen-Spalten verweisen auf `06` §2 (PA-nn) und `13` (L-nn).
 Quelle der Wahrheit für die Listen: die Code-Inventare, die in REQ-025 §3.1.1 genannt sind; dieses Dokument
 ist eine *Klassifizierung* davon, keine von Hand zu pflegende Kopie (siehe §1).
 ```
@@ -80,7 +82,8 @@ konstruktionsbedingt keinen personenbezogenen Freitext. Geometrie (`garden_objec
 | | `ai_audit_log.user_key`, `ai_conversations.{user_key, title, content}` | AUD/TXT | ja | KI-Funktionen | 6(1)(a) Einwilligungszwecke | selbst | je Einstellung | Audit → Marker; Konversationen gelöscht | Marker | — |
 | | `tenant_erasure_records`, `tenant_export_requests.requested_by_user_key`, `tenant_import_requests.requested_by_user_key`, `import_jobs.uploaded_by` | AUD/ATTR | ja | Nachweis / Betrieb | 6(1)(c)/(b) | `management`, Admin | R-06a / R-40 30 d (nicht implementiert) | → Marker | Marker | — |
 | ⟂ | **neu** `privacy_review_items.{tenant_key, erasure_key, collection, row_key, fields[], match_kinds[], status, decision, decided_by, reason_code, reason_text}` | AUD | ja (`decided_by`; `reason_text` Freitext) | Folgemaßnahme zu Art. 17 | 6(1)(c) | Mandanten-`lead`/`management`; Admin zählt | R-43 3 J nach Entscheidung; mit Mandant | `decided_by` → Marker | Marker | speichert **keinen** Text/Token/Betroffenenschlüssel (PRIV-221) |
-| ⟂ | **neu** `erasure_replay_ledger.{erasure_key, user_key (raw), tombstone, completed_at}` | IDN | **ja, Rohschlüssel** | Löschung nach Wiederherstellung erneut anwenden | 6(1)(c) | keine (nur Job) | R-45 `BACKUP_RETENTION_DAYS + 5` | harte Löschung per Beat | — | LEG-11 |
+| ⟂ | **neu** `erasure_mirror.{kind, tombstone, tenant_key, erasure_key, completed_at, chain_hmac}` (DEC-26; ersetzt das Raw-Key-Ledger aus v1.0) | AUD (pseudonym) | ja — **pseudonymisiert, kein Rohschlüssel** | Löschung nach Wiederherstellung erneut anwenden (Tombstone-Abgleich, `09` §6.2) | Art. 17 Durchsetzung (6(1)(c)) — LEG-11 | keine (nur Restore-Prozess; Bucket-Objekt Fernet-verschlüsselt) | R-45 = R-06 (3 J.) | harte Löschung per Beat; Spiegel-Objekt gefiltert neu geschrieben | — | Spiegel der `erasure_requests`-Tombstones |
+| | **neu** `migration_reports` | — | nein (nur Zähler, Collection-/Feldnamen, Mandanten-/Zeilenschlüssel; Redaktionsfilter PRIV-701) | Betreibernachweis | — | Betreiber | unbegrenzt | — | — | — |
 
 ### 3.3 Pflegeprotokoll und Gartenplan (Verantwortlicher: Mandant)
 
@@ -218,6 +221,22 @@ Propagierungsregel deklariert werden; der Guard R8 prüft, dass jeder Schreiber 
 | `task.completion_notes`, `TaskCompletionDetails.{reason, material}` | `care_events.{reason, material}`; `care_confirmations.notes` | Inhaltskopie | beide in Prüfmengen |
 | Anhang-Bytes | Renditions, geteilte Datensätze (Deduplizierung) | Bytes | Art.-19-Mitteilung (nicht implementiert) |
 | `tenants.slug` (kann aus einem Namen abgeleitet sein) | `kp_active_tenant_slug`, URLs, Logs (`ten_`-Pseudonym) | — | Slug-Umbenennung nicht im Umfang |
+
+### 5a. Ableitungswege, die eine statische Quellcode-Prüfung nicht erfasst (PRIV-609/610; DA-Lineage)
+
+| Weg | Beispiel [VERIFIED_CODE] | Mechanismus | Löschverhalten |
+|-----|---------------------------|-------------|----------------|
+| Direkte Feldkopie | Backfill-Mapper, Task-Completion-Engine | `DERIVED_FIELDS` + Guard R8 + `source_ref` an der Zielzeile | `carry_account_reference`; Löschregel am Ziel |
+| Modelltransformation | `storedProjection` (Plan-Cache), `CareEventView`/`display_performer` | Projektion ohne Persistenz serverseitig; clientseitig TTL | TTL / Wipe (`07`) |
+| Event-Handler | Bestätigung → `care_events(trigger=reminder)` in derselben Transaktion | `source_ref` = `care_confirmations/<key>`; registriert | Löschregel am Ziel |
+| Hintergrundjobs | `care_events.consistency` (täglich), Retention-Beats, Frost-Warnungen (Benachrichtigungen) | registriert; Laufzeit-Provenienz `source_ref`; Benachrichtigungen ohne Mitgliedsnamen | R-48 (Benachrichtigungen) |
+| API-Schreibpfade | `harvested_by_key = event.performed_by_user_key` | registriert (gleiche Rolle) | eigene Regel |
+| Exporte | Art.-15-Bundle, Pflegeereignis-CSV, Plan-JSON/SVG/PDF, Mandantenarchiv, Vorlagen-Austauschdatei (GP-API-070) | flüchtig; Lebensdauerregel (R-05 72 h; Download gehört dem Empfänger; Audit PRIV-308) | Ablauf / außerhalb des Systems (Information in der Datenschutzerklärung) |
+| Benachrichtigungen | `notifications.{title, body, data}` | Texte tragen Aufgaben-/Pflanzennamen, keine Mitgliedsnamen [VERIFIED_CODE Messung REQ-025 Regel 8] | gelöscht bei Löschung; R-48 |
+| Offline-Puffer/-Cache | `kp-write-queue`, `kp-plan-cache` | clientseitig; Opt-in (`07` §2.1); Projektion ohne Namen | TTL, Quarantäne, Übergang |
+| Materialisierte Sichten | TimescaleDB Continuous Aggregates (`sensor_hourly`, `sensor_daily`) | keine Kontoreferenz | `delete_by_tenant` |
+| Audit-Snapshots | `garden_plan_audit.snapshot` (Import), `summary` | `derived_from` (neu) | Blatt-Schwärzung (PRIV-229), R-26 |
+| Spiegel/Backups | `erasure_mirror`, Dumps | Tombstones / vollständige Kopien | R-45; Restore-Replay (`09` §6) |
 
 ---
 

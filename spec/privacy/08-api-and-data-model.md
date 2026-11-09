@@ -1,10 +1,12 @@
 # SPEC-08 — Änderungen an API und Datenmodell
 
 ```
-Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
 Anforderungs-IDs: PRIV-600 … PRIV-649
 Hängt ab von: 01 §3 (Komponenten), 03–07 (Verhalten); Style Guides BACKEND.md / FRONTEND.md;
 NFR-016 (Migrationen), NFR-006 (Fehlerformat)
+Änderung v1.1: `record_keeping`/`organization_kind` ohne Modell-Default (Anlagepfad setzt; W-03), Zustandsautomat
+der Prüfeinträge, `erasure_mirror` statt Raw-Key-Ledger (DEC-26), Feature-Flags (§8a), Laufzeit-Provenienz (§2.4a).
 ```
 
 Jede Änderung unten ist **additiv**, sofern nicht als *inkompatibel (breaking)* markiert; wo Kompatibilität
@@ -151,6 +153,25 @@ ein kontoförmiges Feld aus dem Feld eines anderen Dokuments zuweist (AST: Attri
 Zuweisung innerhalb `domain/engines/*` und `domain/services/*`), ist in `DERIVED_FIELDS`
 oder in einem expliziten Ausschluss mit Begründung aufgeführt.
 
+### 2.4a Laufzeit-Provenienz (ergänzt die statische Registry; `02` §5a)
+
+Eine AST-Prüfung erfasst keine Event-Handler, Celery-Jobs, Exporte, Benachrichtigungen, Offline-Puffer oder
+Audit-Snapshots vollständig. Deshalb:
+
+**PRIV-609** [PROPOSED] Jede **persistierte** abgeleitete Zeile MUSS ihre Herkunft tragen: `source_ref {collection,
+key}` (bei `care_events` vorhanden [VERIFIED_CODE]) bzw. `derived_from: list[{collection, key, field}]` bei Kopien
+von Inhalten (`locations.template_key` existiert; `garden_plan_audit` erhält `derived_from` für `summary`/`snapshot`).
+Der Beat `privacy.consistency` (Vollform) prüft stichprobenartig, dass jedes `(source.collection → derived.collection)`-
+Paar, das in Daten vorkommt, in `DERIVED_FIELDS` registriert ist; ein unregistriertes Paar ist ein Befund.
+
+**PRIV-610** [PROPOSED] **Nicht persistierte** oder **flüchtige** Ableitungen werden in `DERIVED_FIELDS` mit
+`propagation` und einer **Lebensdauerregel** geführt statt mit Laufzeitmarker: Art.-15-Bundle (R-05 72 h),
+Pflegeereignis-CSV (Download, gehört dem Empfänger; Audit PRIV-308), Mandantenarchiv (R-05), Benachrichtigungen
+(R-48; Texte tragen keine Mitgliedsnamen [VERIFIED_CODE]), Offline-Puffer/-Cache (`07`: TTL, Quarantäne,
+Übergang), Audit-Snapshots (`garden_plan_audit.snapshot`, R-26, Blatt-Schwärzung PRIV-229), TimescaleDB-Continuous-
+Aggregates (keine Kontoreferenz [VERIFIED_CODE]). Jede Zeile der Lineage-Tabelle `02` §5/§5a nennt Quelle, Ableitung,
+Löschverhalten.
+
 ### 2.5 Schwärzbare Felder
 
 ```python
@@ -183,16 +204,24 @@ def tombstone_allowed_fields() -> frozenset[tuple[str, str]]:
 ```python
 class AttributionVisibility(StrEnum): ALL_MEMBERS = "all_members"; LEADS_AND_SELF = "leads_and_self"
 class RecordKeeping(StrEnum): LEGACY = "legacy"; NONE = "none"; PFLSCHG_PROFESSIONAL = "pflschg_professional"; KCANG_ASSOCIATION = "kcang_association"; BOTH = "both"
+class OrganizationKind(StrEnum): ASSOCIATION = "association"; COMMERCIAL = "commercial"; COMMUNITY = "community"; OTHER = "other"; UNKNOWN_LEGACY = "unknown_legacy"
 
 class TenantSettings(BaseModel):
     ...  # existing ai_* fields
-    attribution_visibility: AttributionVisibility = AttributionVisibility.ALL_MEMBERS   # PRIV-300
-    record_keeping: RecordKeeping = RecordKeeping.LEGACY                                 # PRIV-122/401
-    shared_device_mode: bool = False                                                    # PRIV-524
+    attribution_visibility: AttributionVisibility | None = None   # None → Default nach Klasse (DA-04), PRIV-300
+    record_keeping: RecordKeeping | None = None                   # None = "undeclared" (PRIV-409); v0108 stempelt Bestand auf LEGACY
+    organization_kind: OrganizationKind | None = None             # Pflichtangabe bei Anlage eines organization-Mandanten (PRIV-409)
+    shared_device_mode: bool = False                              # PRIV-524
 ```
 
-Die Standardwerte entsprechen dem heutigen Verhalten (keine Migration nötig; `extra="allow"` hält gespeicherte
-Dokumente gültig). `PATCH /tenants/{slug}` akzeptiert sie für `lead ∧ management`; Änderungen werden
+**Defaults (löst W-03):** Das Modell trägt für `record_keeping` und `attribution_visibility` **keinen** festen
+Default. Der **Anlagepfad** setzt sie: persönliche Mandanten `record_keeping = none`, `attribution_visibility =
+all_members`; Organisationsmandanten verlangen `organization_kind` und `record_keeping` als Pflichtangabe
+(Formularschritt, 422 ohne Angabe) und erhalten `attribution_visibility` nach Klasse (`commercial` →
+`leads_and_self`, sonst `all_members`). **Bestandsmandanten** werden durch v0108 auf `record_keeping = legacy`,
+`organization_kind = unknown_legacy`, `attribution_visibility = all_members` gestempelt. Ein `None` zur Laufzeit
+(nur Bestand vor v0108 oder manuell gelöscht) wird wie `legacy`/`all_members` gelesen **und** als `undeclared`
+gezählt (PRIV-409). `extra="allow"` hält gespeicherte Dokumente gültig. Jeder Default hat einen Test (TA-630). `PATCH /tenants/{slug}` akzeptiert sie für `lead ∧ management`; Änderungen werden
 auditiert (`TENANT_PRIVACY_SETTING_CHANGED`, alter/neuer Wert in der bestehenden `reason`-freien
 Form → `setting_key`, `old_value`, `new_value` zu `SecurityAuditEntry` als optionale
 Strings hinzufügen, kein Freitext).
@@ -229,7 +258,8 @@ PersonRef` hinzugefügt; `changed_by_name` deprecated (für ein Release erhalten
 ```python
 # collections.py (additive)
 PRIVACY_REVIEW_ITEMS = "privacy_review_items"      # tenant-scoped → TenantErasureEngine.INVENTORY _delete
-ERASURE_REPLAY_LEDGER = "erasure_replay_ledger"    # platform → NOT_TENANT_SCOPED (reason: re-applies erasures after a restore)
+ERASURE_MIRROR = "erasure_mirror"                  # platform → NOT_TENANT_SCOPED (reason: tombstone list for restore replay; no raw keys) — DEC-26
+MIGRATION_REPORTS = "migration_reports"            # platform → NOT_TENANT_SCOPED (operator proof; no personal data)
 ```
 
 ```python
@@ -242,36 +272,45 @@ class PrivacyReviewItem(BaseModel):
     row_key: str
     fields: list[str]                             # review fields present on the row at creation
     match_kinds: list[Literal["authored", "performed", "modified", "name_token", "lineage"]]
-    status: Literal["open", "decided", "void"] = "open"   # void: the row no longer exists
+    status: Literal["DISCOVERY_PENDING", "REVIEW_REQUIRED", "REDACTION_PENDING", "REDACTED",
+                    "RETAINED_WITH_LEGAL_BASIS", "VOID", "FAILED"] = "REVIEW_REQUIRED"   # 04 §5.1a
+    due_at: datetime                              # created_at + PRIVACY_REVIEW_SLA_DAYS
+    overdue_since: datetime | None = None
     decision: Literal["redact", "keep"] | None = None
     redacted_fields: list[str] = Field(default_factory=list)
     reason_code: Literal["no_personal_reference", "agronomic_record", "third_party_consent", "statutory", "other"] | None = None
+    legal_basis_ref: str | None = None            # PA-nn (06 §2) oder LEG-nn; Pflicht bei decision == keep (PRIV-225)
     reason_text: str | None = Field(default=None, max_length=500)
     decided_by: str | None = None                 # account ref, attribution=actor → marker at erasure
     decided_at: datetime | None = None
+    failure_count: int = 0
+    last_error_code: str | None = None
     created_at: datetime
     # never: text, token, subject key, display name
 ```
 
 ```python
-class ErasureReplayLedgerEntry(BaseModel):
-    key: str | None = Field(alias="_key")         # = erasure_key
-    user_key: str                                 # RAW — the only place after erasure; R-45 purge
-    tombstone: str
+class ErasureMirrorEntry(BaseModel):              # DEC-26 — ersetzt ErasureReplayLedgerEntry (v1.0)
+    key: str | None = Field(alias="_key")         # = erasure_key bzw. "ter_<tenant_key>"
+    kind: Literal["account", "tenant"]
+    tombstone: str | None = None                  # account: Pseudonym (beide Formate); NIE der Rohschlüssel
+    tenant_key: str | None = None                 # tenant
     completed_at: datetime
-    plan_fingerprint: str                         # checksum of the plan collections list used
-    expires_at: datetime                          # completed_at + BACKUP_RETENTION_DAYS + 5
+    plan_fingerprint: str
+    chain_hmac: str                               # HMAC-Kette über die Einträge (Integrität des Spiegel-Objekts)
+    expires_at: datetime                          # wie R-06 / R-06a
 ```
 
-Indizes (Migration `vNNNN`): `privacy_review_items(tenant_key, status, created_at)`,
-`(tenant_key, collection, row_key)`, `(erasure_key)`; `erasure_replay_ledger(expires_at)`.
-Kommen beide Collections ins Art.-15-Manifest? — `privacy_review_items` legt nichts über das
-Subjekt offen (ihr Schlüssel ist weg; das Item hat keinen Text) → `EXCLUDED_FROM_DISCLOSURE` mit
-Begründung; `erasure_replay_ledger` wird dem Subjekt gegenüber offengelegt, solange es existiert (es ist deren
-Schlüssel) — aber das Subjekt kann sich nicht anmelden (geschlossen/gelöscht); der Admin-Löschstatus zeigt
-„Ledger-Eintrag vorhanden bis <Datum>". Entscheidung: in `EXCLUDED_FROM_DISCLOSURE` aufführen mit der
-Begründung „Subjekt hat während der Lebensdauer keinen Login; ihre Existenz wird im Löschstatus
-angezeigt". Guard R2 akzeptiert Ausschlüsse mit Begründung [v].
+Am `ErasureRequest` kommen hinzu (additiv): `review_discovery_cursor: str | None`,
+`review_discovery_completed_at: datetime | None`, `review_name_tokens_enc: str | None` (Fernet; gelöscht bei
+Abschluss der Entdeckung), `followups_open: int`, `followups_overdue: int`, `post_commit_pending: bool`;
+`ErasureStatus` erhält den additiven Wert `"erasure_completed"` (`04` §5.1a).
+
+Indizes (Migration `vNNNN`): `privacy_review_items(tenant_key, status, due_at)`, `(tenant_key, collection,
+row_key)`, `(erasure_key, status)`; `erasure_mirror(expires_at)`, `(kind, tombstone)`. Art.-15-Manifest:
+`privacy_review_items` → `EXCLUDED_FROM_DISCLOSURE` (kein Text, kein Schlüssel des Subjekts); `erasure_mirror`
+→ `EXCLUDED_FROM_DISCLOSURE` (nur Pseudonyme; die Existenz des Eintrags zeigt der Admin-Löschstatus). Guard R2
+akzeptiert Ausschlüsse mit Begründung [VERIFIED_CODE].
 
 ### 3.8 Security-Audit (additive Enum-Werte und optionale Felder)
 
@@ -363,8 +402,9 @@ Schlüssel als Label (Kardinalität und Datenschutz); `tenant_kind ∈ {personal
 
 | Task | Zeitplan (UTC) | Tut | Mandanten-Gate |
 |------|----------------|-----|----------------|
-| `privacy.consistency` | täglich 05:20 | PRIV-206-Scans (Tombstones außerhalb der Allowlist, Marker in Tombstone-Feldern), Zähler offener/überfälliger Prüfungen, Metriken | agnostisch (nur lesende Zähler) |
-| `privacy.purge_replay_ledger` (R-45) | 05:25 | löscht `expires_at < now` | agnostisch |
+| `privacy.consistency` | täglich 05:20 | **Minimalform (E04):** PRIV-206-Scans (Tombstones außerhalb der Allowlist, Marker in Tombstone-Feldern) als Zähler + Metrik; **Vollform (E15):** zusätzlich offene/überfällige Prüfungen, `undeclared`-Mandanten, Registry-Abdeckung der Laufzeit-Provenienz (`02` §5a) | agnostisch (nur lesende Zähler) |
+| `privacy.purge_erasure_mirror` (R-45) | 05:25 | löscht `expires_at < now`; schreibt das Spiegel-Objekt gefiltert neu (HMAC-Kette) | agnostisch |
+| `privacy.sync_erasure_mirror` | vor jedem Backup-Dump (CronJob-Reihenfolge) | Spiegel-Objekt im Bucket aktualisieren | agnostisch |
 | `privacy.purge_review_items` (R-43) | 05:30 | löscht entschiedene Items älter als 3 J. | agnostisch |
 | `privacy.post_commit_followups` | 04:05 (nach Löschungen) | wiederholt Prüf-Item-Erzeugung / Ledger für Löschungen, die mit `post_commit_pending` markiert sind | agnostisch |
 | `retention.purge_notifications` (R-48, Vorschlag) | 05:35 | 90 d nach `read_at`, 180 d ungelesen | schreibender Beat → `ActiveTenants` nicht nötig (löscht) |
@@ -384,6 +424,9 @@ Zeilen der NFR-011-§3.1-Tabelle werden im selben PR ergänzt (Guard `test_nfr01
 | `account.closed` | 401 | Refresh / Schreibzugriffe von einem geschlossenen Konto |
 | `membership.ended` | 403 | Mandanten-Schreibzugriff nach Ende der Mitgliedschaft (gültiges Token) |
 | `tenant.record_keeping_downgrade_blocked` | 422 | `record_keeping` gesetzlich → none, solange ein gesetzlicher Purge-Job läuft |
+| `tenant.classification_required` | 422 | Anlage eines Organisationsmandanten ohne `organization_kind`/`record_keeping` (PRIV-409) |
+| `privacy_review.legal_basis_required` | 422 | `keep` ohne `legal_basis_ref` (PRIV-225) |
+| `privacy.feature_disabled` | 409 | datenvernichtende Aktion hinter einem nicht gesetzten Flag (§8a) |
 
 ---
 
@@ -394,11 +437,26 @@ Zeilen der NFR-011-§3.1-Tabelle werden im selben PR ergänzt (Guard `test_nfr01
 | `RETENTION_FORMER_MEMBER_NAME_DAYS` | 90 | 0 / 365 | PRIV-112 |
 | `PRIVACY_OPERATION_ESCALATE_AFTER_ATTEMPTS` | 3 | 1 / 10 | PRIV-109 |
 | `PRIVACY_OPERATION_STALE_ALERT_DAYS` | 14 | 1 / 60 | PRIV-110 |
-| `PRIVACY_REVIEW_ITEMS_MAX_PER_ERASURE` | 5000 | 100 / 50000 | PRIV-223 |
-| `PRIVACY_REVIEW_SLA_DAYS` | 30 | 7 / 90 | PRIV-226 |
+| `PRIVACY_REVIEW_ITEMS_ESCALATE_AT` (nur Eskalation, kein Ausschluss) | 5000 | 100 / 50000 | PRIV-223 |
+| `PRIVACY_REVIEW_DISCOVERY_PAGE_SIZE` | 500 | 50 / 2000 | PRIV-223 |
+| `PRIVACY_REVIEW_DISCOVERY_MAX_DAYS` | 2 | 1 / 7 | PRIV-223 |
+| `PRIVACY_REVIEW_SLA_DAYS` | 30 | 7 / 30 | PRIV-226 (Obergrenze 30: Art. 12 Abs. 3 als Orientierung, L-19) |
 | `PRIVACY_REVIEW_ITEM_RETENTION_YEARS` | 3 | 1 / 3 | R-43 |
 | `BACKUP_RETENTION_DAYS` | 30 (helm `backup.retentionDays`) | 1 / 35 | `09` §6 |
-| `ERASURE_REPLAY_LEDGER_GRACE_DAYS` | 5 | 0 / 10 | R-45 |
+| `OFFLINE_MODE_DEFAULT` | off | — | PRIV-531 |
+
+### 8a. Feature-Flags für gegatete Verarbeitungen (Produktionsgates, `06` §10)
+
+| Flag | Default | Gate | Wirkung bei aus |
+|------|---------|------|-----------------|
+| `PRIVACY_RECORD_KEEPING_RECLASSIFY` | false | LEG-03, LEG-17 | Reklassifizierung (`09` §4) und PRIV-411 werden gespeichert, aber nicht ausgeführt; Zustand `reclassification_pending`; Metrik |
+| `PRIVACY_REVIEW_AUTO_REDACT_ON_SLA` | false | LEG-08 | SLA-Ablauf eskaliert nur (PRIV-239) |
+| `PRIVACY_BACKFILL_COPIES_PERFORMER` | true (Bestand) | LEG-07 | `false`: Backfill/Konsistenz schreiben `performed_by_user_key = null` für Quellen aus Pflichtaufzeichnungen (DA-02) |
+| `privacy.mirror.enabled` (Helm) | false | Voraussetzung für `backup.enabled` | Backup-CronJob wird nicht gerendert, solange der Spiegel nicht aktiviert ist (PRIV-707, TA-718) |
+
+Flags sind **keine** Rechtsentscheidung; sie sind der technische Durchsetzungspunkt der im Decision-Log
+registrierten Entscheidung (Spalte „Durchsetzungspunkt“). Jedes Flag ist in `docs/de/reference/environment-variables.md`
+mit dem zugehörigen LEG dokumentiert.
 | `OFFLINE_QUEUE_PENDING_MAX_DAYS` (runtime-config) | 90 | 7 / 365 | PRIV-511 |
 | `OFFLINE_QUEUE_UNSENDABLE_MAX_DAYS` | 30 | 1 / 90 | PRIV-511 |
 | `OFFLINE_DEAD_SESSION_GRACE_DAYS` | 14 | 0 / 30 | PRIV-511 |

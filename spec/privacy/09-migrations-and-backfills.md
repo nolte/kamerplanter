@@ -1,235 +1,238 @@
 # SPEC-09 — Migrations- und Backfill-Strategie
 
 ```
-Package: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
-Requirement IDs: PRIV-700 … PRIV-739
-Depends on: NFR-016 / ADR-009 (migration framework), 04 §7 (legacy findings), 08 (model)
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Anforderungs-IDs: PRIV-700 … PRIV-739
+Hängt ab von: NFR-016 / ADR-009 (Migrationsframework), 04 §7 (Altbefunde), 08 (Modell), 06 §3 (Pflichtfelder)
+Änderung v1.1: E04/E15-Konflikt aufgelöst (§3), Vor-/Nachprüfungen je Migration (§2a), Backup-Konzept auf
+Tombstone-Spiegel umgestellt (§6, DEC-26), Flags für datenvernichtende Schritte, Behandlung inaktiver Mandanten.
 ```
 
 ---
 
-## 1. Framework-Fakten, auf die sich die Migrationen stützen [verifiziert]
+## 1. Framework-Fakten [VERIFIED_CODE]
 
-- Versionen `app/migrations/versions/vNNNN_<slug>.py`, lückenlos, ein `migration`-Objekt; `up(db,
-  *, dry_run=False) -> MigrationReport` idempotent (M-3), `dry_run` wird beachtet (M-5); das Standard-
-  `down` wirft `IrreversibleMigrationError` (M-6); angewendete Quellen sind durch
-  `test_applied_migration_sources_are_frozen` eingefroren.
-- `MigrationReport {version, name, scanned, changed, dry_run, duration_ms,
-  precondition_unmet, details}`; das CLI gibt nur Zähler aus, `details` erreichen stdout nur
-  über die eigene structlog-Zeile der Migration; **kein Dry-Run-Bericht wird persistiert** — der
-  Betreiber schreibt `.audits/prod-release/*.md` von Hand aus erfassten Logs.
-- Kein Mandanten-Scoping auf Framework-Ebene: jede Migration begrenzt sich selbst; Unique-Indizes beginnen mit
-  `tenant_key`. Läuft beim Start (`run_pending_migrations`), Sperre in `schema_migrations`
-  (`__lock__`, TTL 300 s); eine fehlschlagende Migration ist für den Start fatal (M-4).
-- Reversibilität ist die Ausnahme (v0104 ist über seinen Marker `trigger=backfill` +
-  `source_ref` umkehrbar, ausgenommen Zeilen, die eine Person seither bearbeitet hat).
+- Versionen `app/migrations/versions/vNNNN_<slug>.py`, lückenlos, ein `migration`-Objekt; `up(db, *, dry_run=False)
+  -> MigrationReport` idempotent (M-3), `dry_run` wird beachtet (M-5); Standard-`down` wirft
+  `IrreversibleMigrationError` (M-6); angewendete Quellen sind durch `test_applied_migration_sources_are_frozen`
+  eingefroren.
+- `MigrationReport {version, name, scanned, changed, dry_run, duration_ms, precondition_unmet, details}`; CLI gibt nur
+  Zähler aus; `details` nur über die structlog-Zeile der Migration; **kein Dry-Run-Bericht wird persistiert**.
+- Kein Mandanten-Scoping auf Framework-Ebene; Unique-Indizes beginnen mit `tenant_key`. Start-Migration mit Sperre
+  `schema_migrations/__lock__` (TTL 300 s); Fehler ist startfatal (M-4). `precondition_unmet` hält die Migration
+  ausstehend und stoppt die Schleife.
+- Konsistenz-Job `care_events.consistency` existiert (05:10 UTC, `ActiveTenants`-Gate, Fenster 7 d); ein
+  allgemeiner Datenschutz-Konsistenz-Beat existiert **nicht**.
 - Neueste Version: `v0106_client_event_id_index`.
 
-**PRIV-700** Jede Migration dieses Pakets MUSS idempotent sein (zweiter Lauf `changed == 0`),
-in ihrem AQL mandantengebunden (`FILTER doc.tenant_key == @tenant_key` oder eine Schleife pro Mandant mit
-einmal gelesener Mandantenliste) und beobachtbar (eine structlog-Zeile mit dem `details`-Dict **und**
-ein persistierter Dry-Run-Bericht, §2).
+**PRIV-700** Jede Migration dieses Pakets MUSS idempotent sein (zweiter Lauf `changed == 0`), im AQL
+mandantengebunden (`FILTER doc.tenant_key == @tenant_key` je Mandant, Mandantenliste einmal gelesen), beobachtbar
+(structlog-Zeile mit `details` **und** persistierter Bericht, §2), explizit zu Teilausfällen (§2a) und sicher für
+inaktive Mandanten (§9).
 
 ---
 
-## 2. Dry-Run-Berichte werden persistierte Artefakte
+## 2. Persistierte Dry-Run-Berichte
 
-**PRIV-701** Eine neue Collection `migration_reports` (Plattform, `NOT_TENANT_SCOPED` mit Begründung
-„operator proof of a migration run; no personal data") MUSS jeden `MigrationReport`
-einer Datenschutz-Migration (`dry_run` und real) mit `details` speichern, **nachdem er einen Redaktionsfilter
-durchlaufen hat**: `details` darf nur Zähler, Collection-Namen, Feldnamen, Mandanten-**Schlüssel**
-und Stichproben-**Zeilenschlüssel** (≤ 25 pro Bucket, wie v0104) enthalten — nie Nutzerschlüssel, Namen, Text oder
-Tombstones. Ein Unit-Test parst den Berichts-Builder jeder Datenschutz-Migration und prüft die
-erlaubte Schlüsselmenge.
+**PRIV-701** Collection `migration_reports` (Plattform, `NOT_TENANT_SCOPED`, Begründung „operator proof of a
+migration run; no personal data“) speichert jeden `MigrationReport` einer Datenschutz-Migration (`dry_run` und
+echt) nach einem **Redaktionsfilter**: nur Zähler, Collection-/Feldnamen, Mandanten-**Schlüssel**, Stichproben-
+**Zeilenschlüssel** (≤ 25 je Bucket) — nie Nutzerschlüssel, Namen, Text, Tombstones. Unit-Test prüft den
+erlaubten Schlüsselsatz (TA-701a).
 
-**PRIV-702** Das CLI `upgrade --dry-run --report-out <path>` MUSS die Berichte als JSON schreiben,
-sodass das Dokument `.audits/prod-release` sie wörtlich einbetten kann, statt
-Zahlen aus Logs abzuschreiben.
+**PRIV-702** CLI `upgrade --dry-run --report-out <path>` schreibt die Berichte als JSON für `.audits/prod-release`.
+
+### 2a. Pflichtphasen jeder Datenschutz-Migration
+
+**PRIV-718** Jede Migration MUSS die folgenden Phasen im Bericht ausweisen (`details.phases`):
+
+| Phase | Inhalt | Abbruchregel |
+|-------|--------|--------------|
+| `precheck` | Vorbedingungen: Inventaränderung im selben Build vorhanden (Import-Check der Regel), Indizes vorhanden, Salt gesetzt, betroffene Collections existieren, Anzahl Kandidaten je Mandant gezählt | fehlt eine Vorbedingung → `precondition_unmet` (Migration bleibt ausstehend, kein Teilschreiben) |
+| `dry_run` | identische Logik ohne Schreiben; Bericht persistiert | — |
+| `apply` | je Mandant eine Transaktion; Fortschritt je Mandant im Bericht (`tenants_done`, `tenants_failed`) | Fehler in Mandant X: Transaktion X zurück, Mandant in `tenants_failed`, **Weiterlauf** mit den übrigen; am Ende `changed` = Summe, `status = partial`, Migration gilt als **nicht angewendet** (kein Tracking-Dokument), damit der nächste Start sie erneut versucht — idempotent |
+| `verify` | Nachprüfung durch Zählabfragen (z. B. Rest-Tombstones in korrigierten Feldern = 0 je Mandant) | Rest > 0 → `status = verify_failed`, Migration nicht als angewendet markiert; Betreiberhinweis |
+| `monitor` | Übergabe der Zählabfrage an den Datenschutz-Konsistenz-Beat (§3, `privacy.consistency`), sobald er registriert ist; bis dahin die Nachprüfung durch einen Unit-Test + den Betreiberbericht | — |
+
+Rollback-Grenzen stehen je Migration in §11.
 
 ---
 
-## 3. M-P1 — Kopierte Tombstones korrigieren und den Plan-Audit-Akteur auf den Marker umstellen
+## 3. M-P1 — Kopierte Tombstones korrigieren; Plan-Audit-Akteur auf Marker (E04)
 
-**Migration `v0107_privacy_tombstone_copies`** (umkehrbar: nein — ein Marker lässt sich nicht
-in das Pseudonym zurückverwandeln; die Information ist absichtlich weg).
+**Migration `v0107_privacy_tombstone_copies`** (`kind = privacy_correction`; umkehrbar: nein).
 
-| Schritt | AQL (pro Mandant) | Berichts-Bucket |
-|------|------------------|---------------|
-| 1 | `care_events`, wo `performed_by_user_key =~ TOMBSTONE_REGEX` → `_anonymized` (auch `performed_for_user_key`, `created_by`, `voided_by`, `redacted_by`) | `care_events.tombstone_to_marker{tenant_key: count}` |
+| Schritt | AQL (je Mandant, alle Status außer `deleted`) | Berichts-Bucket |
+|---------|-----------------------------------------------|-----------------|
+| 1 | `care_events`: jedes Feld aus `ACCOUNT_FIELDS` mit `=~ TOMBSTONE_REGEX` → `_anonymized` | `care_events.tombstone_to_marker{tenant_key: count}` |
 | 2 | `garden_plan_audit.user_key =~ TOMBSTONE_REGEX` → `_anonymized` (DEC-16) | `garden_plan_audit.tombstone_to_marker` |
-| 3 | jede andere **nicht auf der Allowlist stehende** Collection mit einem kontoförmigen Feld (Liste zur Laufzeit aus dem Inventar abgeleitet, `tombstone_allowed_fields()` ausgenommen): nur zählen, nicht schreiben | `undeclared_tombstones{collection.field: count}` → Vorbedingung für den Konsistenz-Beat, nicht blind korrigiert |
+| 3 | jede andere **nicht** auf der Allowlist stehende Collection/Feld-Kombination mit kontoförmigem Feld: **nur zählen** | `undeclared_tombstones{collection.field: count}` |
 | 4 | `attachments.created_by == _anonymized AND original_filename != ""` → `""` | `attachments.filename_cleared` |
+| verify | Schritte 1, 2, 4 erneut zählen → muss 0 sein; Schritt 3 wird als Befund gemeldet, nicht korrigiert | `verify.residual` |
 
-**PRIV-703** Vorbedingungen: Die Inventarregel-Änderung für `garden_plan_audit` (Tombstone →
-Marker) MUSS im selben PR gemergt werden; der Konsistenz-Beat (`privacy.consistency`) MUSS so
-registriert sein, dass Bucket 3 nach der Migration weiter überwacht wird.
+**PRIV-703 (neu gefasst, löst W-02)** Vorbedingungen von v0107 sind **ausschließlich**: (a) die Inventaränderung
+`garden_plan_audit` Tombstone → Marker und `attachments.clear_fields += original_filename` im selben Build (Precheck
+importiert die Regel und prüft `replacement_strategy`/`clear_fields`); (b) `TOMBSTONE_REGEX`/Allowlist aus
+`domain/models/privacy.py` (E03). Die **Nachprüfung** erfolgt innerhalb der Migration (`verify`) und durch
+`tests/unit/migrations/versions/test_v0107_*.py`; der Beat `privacy.consistency` ist **keine** Vorbedingung. Der
+Beat wird in **E04 in seiner Minimalform** (nur lesende Zählabfragen des Bucket 3 + Metrik, kein Endpunkt) eingeführt,
+damit Bucket 3 ab dem Folgetag überwacht ist; Metriken-Endpunkt und Operations-Listing bleiben E15. (DEC-28)
 
-**PRIV-704** Der Trockenlauf (Dry-Run) MUSS vor P-8 (dem nächsten REQ-053-Produktionspunkt) gegen einen Produktions-Snapshot ausgeführt
-und sein persistierter Bericht dem Release-Dokument beigefügt werden; der echte Lauf
-ist Teil der normalen Start-Migration.
+**PRIV-704** Trockenlauf gegen einen Produktions-Snapshot vor P-8; Bericht im Release-Dokument.
 
-Erwartete Produktionszahlen (aus dem v0104-Lauf des P-6-Berichts): klein — der Backfill lief am
-2026-11-07; Tombstones existieren nur für Konten, die vor diesem Datum gelöscht wurden und deren
-Behandlungen/Ernten in das R-25-Fenster fielen.
+**Erwartung Produktion:** klein (Backfill lief 2026-11-07, P-6-Bericht).
 
 ---
 
-## 4. M-P2 — Aufzeichnungsprofil und Neuklassifizierung
+## 4. M-P2 — Aufzeichnungsprofil und Klassifizierung (E09)
 
-**Migration `v0108_tenant_record_keeping_default`**: setzt `settings.record_keeping = "legacy"`
-ausdrücklich bei jedem Mandanten, der keinen Wert hat (damit späterer Code „nie gefragt" von „keinen
-erklärt" unterscheiden kann). Umkehrbar (entfernt den Schlüssel, wo er `legacy` entspricht).
+**Migration `v0108_tenant_record_keeping_default`** (`kind = privacy_correction`; umkehrbar: entfernt `legacy`):
+setzt bei jedem bestehenden Mandanten ohne Wert `settings.record_keeping = "legacy"` und `settings.organization_kind =
+"unknown_legacy"`; persönliche Mandanten erhalten `record_keeping = "none"` (L-07). Neue Mandanten erhalten
+**keinen** Default (`undeclared`, PRIV-409) — der Anlagepfad verlangt die Angabe.
 
-**Job (keine Migration): `privacy.reclassify_statutory_rows`** — läuft, wenn sich das `record_keeping` eines Mandanten
-auf `none` ändert (PRIV-402), mandantengebunden, idempotent:
+**Job `privacy.reclassify_statutory_rows`** (läuft bei Wechsel auf `none` oder bei PRIV-411-Anwendung; mandanten-
+gebunden; idempotent; **nur wenn `PRIVACY_RECORD_KEEPING_RECLASSIFY = true`**, sonst `reclassification_pending`):
 
 | Zeilen | Aktion |
-|------|--------|
-| `harvest_batches`, `quality_assessments`, `treatment_applications`, `inspections` mit einem Tombstone in `*_by_key` | → `_anonymized`; `review item` für `notes` (`source_kind = record_keeping_change`) |
-| dieselben Collections mit einem lebenden Schlüssel | jetzt nichts (das Konto existiert); die Löschregeln eines `none`-Mandanten behandeln sie ab jetzt als `shared_history` |
+|--------|--------|
+| `harvest_batches`, `quality_assessments`, `treatment_applications`, `inspections` mit Tombstone in `*_by_key` | → `_anonymized`; Prüfeintrag `notes` (`source_kind = record_keeping_change`) |
+| dieselben mit lebendem Schlüssel | nichts (Konto existiert); künftige Löschregeln behandeln sie nach Klasse |
 
-Bericht: Zähler pro Collection; auditiert `TENANT_RECORD_KEEPING_CHANGED`.
+Bericht: Zähler je Collection; Audit `TENANT_RECORD_KEEPING_CHANGED`. Rollback: keiner.
 
 ---
 
-## 5. M-P3 — Freitext-Ausführendenfelder → verschlüsselt (keyed)
+## 5. M-P3 — Freitext-Ausführendenfelder → Schlüsselfelder (E13)
 
-**Migration `v0109_keyed_performers`** (additives Schema; umkehrbar für die *Kopie* des Feldes,
-nicht für spätere Schreibvorgänge):
+**Migration `v0109_keyed_performers`** (`kind = data_backfill` für die Feldanlage; additiv):
 
 | Collection | Schritt |
-|------------|------|
-| `watering_events`, `watering_logs`, `tank_fill_events`, `maintenance_logs` | `performed_by_user_key = null` hinzufügen, `performed_by_label = performed_by[:80]` (der getippte Text wird zum Dritt-Label — er ist **kein** Schlüssel, REQ-025 Regel 4); `performed_by` für ein Release behalten (deprecated) |
+|------------|---------|
+| `watering_events`, `watering_logs`, `tank_fill_events`, `maintenance_logs` | `performed_by_user_key = null`, `performed_by_label = performed_by[:80]`; `performed_by` ein Release deprecated |
 | `nutrient_plans`, `propagation`-Chargen | `author_user_key = null`, `author_label = author[:80]` |
-| `inspections`, wo `inspector LIKE "mcp:%"` | `inspected_by_key = substring after "mcp:"` **nur wenn** dieser Schlüssel ein aktuelles `users._key` mit `account_type = service` ist; andernfalls `inspected_by_key = null`; `inspector = ""` |
-| `workflow_templates` | `created_by_user_key = null`; `created_by` als Label behalten |
+| `inspections` mit `inspector LIKE "mcp:%"` | `inspected_by_key = <key>` **nur wenn** aktuelles Service-Konto; sonst `null`; `inspector = ""` |
+| `workflow_templates` | `created_by_user_key = null`; `created_by` als Label |
 
-**PRIV-705** Die Migration DARF KEIN Konto aus einem getippten Namen ableiten (REQ-025 §3.1.3 Regel
-4; #1662/#1663 haben gemessen, dass es nie das richtige Konto trifft). Die einzige Ausnahme ist das
-Präfix `mcp:<key>`, das der MCP-Code deterministisch geschrieben hat [verifiziert
-`mcp_server/tools/ipm.py`].
-
-**PRIV-706** Zeilen, deren Label dem **aktuellen Anzeigenamen eines Mitglieds** desselben Mandanten entspricht,
-KÖNNEN als Prüfpunkte (`legacy_unkeyed_name`) aufgelistet werden, damit ein Lead entscheiden kann, das
-Label zu behalten oder zu löschen; die Migration ändert sie nie. Begrenzt durch PRIV-223.
+**PRIV-705** Kein Konto aus einem getippten Namen ableiten (REQ-025 Regel 4; #1662/#1663); Ausnahme nur das
+deterministische Präfix `mcp:` [VERIFIED_CODE]. **PRIV-706** Labels, die einem aktuellen Mitgliedsnamen entsprechen,
+KÖNNEN als Prüfeinträge `legacy_unkeyed_name` gelistet werden; die Migration ändert sie nie.
 
 ---
 
-## 6. Backups und Wiederherstellung
+## 6. Backups und Wiederherstellung (DEC-26 ersetzt das Raw-Key-Ledger aus v1.0)
 
-### 6.1 Fakten [verifiziert]
+### 6.1 Fakten [VERIFIED_CODE / VERIFIED_SPEC]
 
-- Helm-CronJob `arangodb-backup` (`arangodump` → rclone → S3) existiert, **standardmäßig
-  deaktiviert**, `retentionDays: 30`; TimescaleDB und Anhänge werden vom Chart nicht abgedeckt
-  (Doku empfiehlt Snapshots/Versionierung); in Produktion ist kein Backup als laufend
-  dokumentiert (Audit DR-01…04).
-- Die Doku verlangt bei der Wiederherstellung denselben `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT`; NFR-011 §4
-  verlangt den Salt im DR-Backup.
-- **Kein Verfahren wendet Löschungen nach einer Wiederherstellung erneut an**; keine Prüfung von `erasure_requests` bei
-  der Wiederherstellung; Dump-Aufbewahrung vs. Art. 17 ist nicht adressiert.
+- Helm-CronJob `arangodb-backup` (`arangodump` → rclone → S3), standardmäßig **aus**, `retentionDays: 30`;
+  TimescaleDB und Anhänge nicht durch das Chart abgedeckt; kein Backup als laufend dokumentiert (Audit DR-01…04).
+- Doku verlangt beim Restore denselben `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT`; NFR-011 §4 verlangt den Salt im DR-Backup.
+- `erasure_requests` behält nach Abschluss den **Tombstone** der Person (`user_key` pseudonymisiert) für R-06 (3 J.);
+  `tenant_erasure_records` behält den Mandantenschlüssel (`ter_<tenant_key>`) [VERIFIED_CODE].
+- EDSA 01/2022 Rn. 110 (L-19): Löschungen schlagen in Backups erst beim nächsten Zyklus durch; keine deutsche
+  Aufsichtsaussage zu Backups gefunden (L-21) → LEG-11 ohne Primärbeleg.
 
-### 6.2 Anforderungen
+### 6.2 Kernidee: Erkennung wiederhergestellter gelöschter Konten **ohne** Rohschlüssel-Speicher
 
-**PRIV-707** Backups DÜRFEN in Produktion NICHT aktiviert werden, bevor das Wiederholungs-Ledger (Replay-Ledger, §6.3) und
-das Wiederherstellungsverfahren (§6.4) existieren. (Entscheidung des Betreibers; als DEC-13 festgehalten.)
+Nach einem Restore existiert die `users`-Zeile einer bereits gelöschten Person wieder — **mit ihrem rohen Schlüssel**.
+Weil `compute_tombstone_hash(user_key, salt)` deterministisch ist (VERIFIED_CODE), lässt sich für **jede
+wiederhergestellte `users`-Zeile** der Tombstone berechnen und gegen die Liste abgeschlossener Löschanträge
+abgleichen. Der Abgleich braucht nur die **Tombstones** der abgeschlossenen Löschungen — keine Rohschlüssel. Das
+Raw-Key-Ledger aus v1.0 entfällt (W-09; weniger personenbezogene Daten, DEC-26).
 
-**PRIV-708 [rechtlich LEG-11]** Die Dump-Aufbewahrung MUSS ≤ `BACKUP_RETENTION_DAYS` sein (Standard 30,
-Obergrenze 35) und MUSS in der Datenschutzerklärung stehen („Backup-Kopien werden innerhalb von 35
-Tagen gelöscht; nach einer Wiederherstellung werden abgeschlossene Löschungen automatisch erneut angewendet"). Die EDPB-/DSK-
-Position, dass Backups für eine Löschung nicht bearbeitet werden müssen, wenn sie nach kurzem
-Zeitplan gelöscht werden und Löschungen bei der Wiederherstellung erneut angewendet werden, ist die Annahme; die Rechtsberatung bestätigt.
+### 6.3 Löschungs-Spiegel (`erasure_mirror`)
 
-### 6.3 Wiederholungs-Ledger für Löschungen (`08` §3.7)
+**PRIV-709 (neu gefasst)** Bei jedem Abschluss einer Konto- oder Mandantenlöschung MUSS der Betreiber-Dienst einen
+Eintrag in den **Löschungs-Spiegel** schreiben: `{kind: account|tenant, tombstone | tenant_key, erasure_key,
+completed_at, plan_fingerprint}` — **kein Rohschlüssel, kein Name**. Der Spiegel lebt (a) in ArangoDB
+(`erasure_mirror`, Plattform, `NOT_TENANT_SCOPED`) und (b) **append-only** als Objekt `privacy/erasure-mirror.jsonl`
+im Backup-Bucket, verschlüsselt mit dem Fernet-Schlüssel (`FERNET_KEY`, VERIFIED_CODE: vorhanden für OIDC-Secrets),
+mit HMAC-Kette über die Einträge (Integrität). Zugriff: nur der Backup-/Restore-Prozess (Bucket-Policy); Aufbewahrung:
+wie R-06 (3 J.) bzw. R-06a — danach Bereinigung durch `privacy.purge_erasure_mirror` (Objekt wird gefiltert neu
+geschrieben, HMAC-Kette neu). Der Spiegel enthält **pseudonymisierte** Daten (Tombstones) → personenbezogen, aber ohne
+Rohschlüssel; Rechtsgrundlage Art. 17-Durchsetzung (R-45, LEG-11).
 
-**PRIV-709** Bei jeder abgeschlossenen Konto-Löschung MUSS die Engine
-`erasure_replay_ledger {erasure_key, user_key (raw), tombstone, completed_at, plan_fingerprint,
-expires_at = completed_at + BACKUP_RETENTION_DAYS + ERASURE_REPLAY_LEDGER_GRACE_DAYS}` schreiben. Der
-Rohschlüssel ist notwendig, weil jede Löschregel den Rohschlüssel trifft; der Tombstone kann keine
-Zeilen finden. Das Ledger wird von `privacy.purge_replay_ledger` bereinigt; die Aufbewahrung ist R-45.
-Mandanten-Löschungen brauchen kein Ledger: `tenant_erasure_records` (Schlüssel `ter_<tenant_key>`) trägt
-den Mandantenschlüssel bereits und bleibt erhalten.
+**PRIV-710** Der Spiegel MUSS **vor** der Dump-Erstellung aktualisiert sein (Reihenfolge im CronJob: Spiegel-Sync →
+Dump). Verlust des Spiegels: Rückfall auf die im Dump enthaltenen `erasure_requests`/`tenant_erasure_records`
+(decken alle Löschungen **vor** dem Dump) plus den Spiegel-Objektversionen (Bucket-Versionierung); Lücke bleibt für
+Löschungen zwischen Dump und Spiegelverlust → dokumentierte Restrisiko-Zeile (RISK-10) und Pflicht, beide Quellen
+zu vereinigen.
 
-**PRIV-710** Muss das Ledger vom Dump ausgeschlossen werden? — Nein: es muss **im** Dump sein, damit
-eine Wiederherstellung eines älteren Dumps die nach ihm entstandenen Einträge findet... was sie nicht kann (sie
-sind neuer als der Dump). Korrektes Design: das Ledger lebt in ArangoDB **und** wird
-append-only in ein kleines Objekt `privacy/replay-ledger.jsonl` im Backup-Bucket gespiegelt (mit dem Fernet-Schlüssel verschlüsselt)
-bei jedem Abschluss einer Löschung; die Wiederherstellung liest die Spiegelung. Die Spiegelung wird
-vom Bereinigungs-Beat neu geschrieben (gefiltert). Abnahme TA-709.
+### 6.4 Wiederherstellungsverfahren
 
-### 6.4 Wiederherstellungsverfahren (Erweiterung von `docs/de/deployment/backup-restore.md`)
+**PRIV-711 (neu gefasst)** Nach `arangorestore` und **vor** Verkehrsannahme führt der Betreiber
+`python -m app.migrations.privacy_restore_replay --mirror <path>` aus:
+1. Vereinigung der Tombstone-Liste aus dem Spiegel-Objekt (entschlüsselt, HMAC geprüft) und den wiederhergestellten
+   `erasure_requests` (`status = completed`, `user_key =~ TOMBSTONE_REGEX`).
+2. Für **jede** wiederhergestellte `users`-Zeile: `compute_tombstone_hash(_key, salt)` (beide Formate, DEC-25) → Treffer
+   in der Liste ⇒ Konto wurde gelöscht ⇒ `erase_account_now`-Äquivalent erneut ausführen (idempotent; Tombstone
+   deterministisch).
+3. Für jede `tenant_erasure_records`-Zeile `completed` (Spiegel ∪ Dump), deren Mandantenzeile existiert ⇒ Mandanten-
+   löschung erneut ausführen.
+4. Prüfeinträge (idempotente Schlüssel) neu erzeugen; Bericht (Zähler) als `migration_reports`-Eintrag `restore_replay`.
+5. Residue-Scan (`04` §8) über alle Collections; Rest > 0 ⇒ Restore gilt als **nicht abgeschlossen**, Backend bleibt
+   im Wartungsmodus.
 
-**PRIV-711** Nach `arangorestore` und bevor das Backend Verkehr annimmt, MUSS der Betreiber
-`python -m app.migrations.privacy_restore_replay --from-mirror <path>` ausführen, das:
-1. die Ledger-Spiegelung lädt, Einträge überspringt, deren `erasure_key` in den
-   wiederhergestellten `erasure_requests` als `completed` existiert **und** deren Tombstone in `users` erscheint?
-   — die Nutzerzeile ist in einem konsistenten Dump weg; die Prüfung lautet: `users/<user_key>` **existiert** in den wiederhergestellten Daten
-   → der Dump ist älter als die Löschung → das Äquivalent von `erase_account_now` für diesen Schlüssel mit
-   dem Tombstone des Ledgers erneut ausführen (ohnehin deterministisch aus dem Salt);
-2. Mandanten-Löschungen für `tenant_erasure_records` im Status `completed` erneut ausführt, deren Mandantenzeile
-   in den wiederhergestellten Daten existiert;
-3. die Erzeugung von Prüfpunkten wiederholt (Replay) (idempotente Schlüssel) und einen Bericht (Zähler) ausgibt, der als
-   `migration_reports`-Eintrag `restore_replay` persistiert wird.
+**PRIV-712** Restore-Drill (Doku, nightly TA-710) mit präpariertem gelöschtem Konto: nach Replay fehlt der Rohschlüssel
+in jeder Collection; keine Zeile außerhalb der Allowlist trägt den Tombstone.
 
-**PRIV-712** Die Wiederherstellungsübung (Doku §„Restore-Drill") MUSS ein eingeschleustes gelöschtes Konto enthalten
-und TA-710 prüfen: nach Wiederherstellung + Wiederholung (Replay) trägt keine Zeile den Rohschlüssel außerhalb des Ledgers.
+**PRIV-713** Anhänge-Bucket-Versionierung und TimescaleDB-Snapshots folgen derselben Aufbewahrung (≤ 35 d); hart
+gelöschte persönliche Objekte werden durch Lifecycle-Regeln bereinigt (Betreiberpflicht, Doku).
 
-**PRIV-713** Bucket-Versionierung der Anhänge und TimescaleDB-Snapshots MÜSSEN derselben
-Aufbewahrung folgen (≤ 35 d); Objektversionen hart gelöschter persönlicher Dateien (`user_personal`, Schädlings-
-Referenzen) werden durch Lifecycle-Regeln am Bucket bereinigt — dokumentiert, Verantwortung des Betreibers.
-
----
-
-## 7. Salt-Rotation (außerhalb des Umfangs, Einschränkung festgehalten)
-
-**PRIV-714** `ERASURE_TOMBSTONE_SALT` DARF NICHT rotiert werden ohne eine Re-Keying-Migration, die
-jeden Tombstone der Allowlist (`old → new`) in einem Durchgang umschreibt — die Tombstone-Suche nach Art. 15
-und die R-06-Bereinigung hängen vom Determinismus ab. Nicht geplant; die Einschränkung geht in die
-Betriebsdokumentation.
+**PRIV-707** Backups DÜRFEN in Produktion NICHT aktiviert werden, bevor Spiegel (6.3) und Verfahren (6.4) existieren
+(Helm: `backup.enabled` erfordert `privacy.mirror.enabled`; Precheck im Chart). **PRIV-708 [LEG-11]** Dump-Aufbewahrung
+≤ `BACKUP_RETENTION_DAYS` (Standard 30, Obergrenze 35); Datenschutzinformation nennt Frist und Replay.
 
 ---
 
-## 8. Bestehende Offline-Datensätze auf Geräten
+## 7. Salt-Rotation und Re-Keying (Verfahren spezifiziert, nicht geplant)
 
-**PRIV-715** Es gibt keine serverseitige Migration für Gerätedaten. Die Client-Migration
-(Dexie `version(3)` auf `kp-write-queue`) MUSS: Unterstützung für `status = quarantined` hinzufügen, `expiresAt`
-mit den neuen Standardwerten (90/30) **nur vorwärts** neu berechnen (ein Eintrag, der bereits älter als die
-neue Frist ist, wird bei der nächsten Bereinigung mit dem Hinweis gelöscht), und die PRIV-512-Schlüssel beim
-nächsten Logout löschen. Eine Frontend-Release-Notiz teilt den Nutzern mit, dass ungesendete Einträge älter als 90 Tage
-beim nächsten Start entfernt werden.
+**PRIV-714** `ERASURE_TOMBSTONE_SALT` DARF NICHT rotiert werden ohne Re-Keying-Migration. Verfahren (für den Fall):
+(1) neuer Salt als `ERASURE_TOMBSTONE_SALT_NEXT`; (2) Migration `vNNNN_rekey_tombstones`: für jede Allowlist-Zelle
+mit Tombstone **ohne** Kenntnis des Rohschlüssels ist eine Neuberechnung **unmöglich** — daher kann Re-Keying nur
+Tombstones betreffen, deren Rohschlüssel noch existiert (aktive Konten in gelöschten Mandanten); für alle anderen
+bleibt der alte Tombstone gültig und die Allowlist-Regex kennt beide Generationen (`anon_`, `anon2_`, DEC-25); (3) der
+Spiegel (§6.3) wird um die neue Generation ergänzt. Folge: Eine Kompromittierung des Salts ist nicht durch Rotation
+heilbar; Schutz liegt in Zugriffsbeschränkung des Secrets (Betriebsdoku, RISK-20).
+
+---
+
+## 8. Bestehende Offline-Datensätze auf Geräten (DEC-29)
+
+**PRIV-715** Client-Migration (Dexie `version(3)` auf `kp-write-queue`, Versionssprung des Plan-Caches): beim ersten
+Start der neuen Version (a) `kp-plan-cache` vollständig löschen; (b) vorhandene Puffer-Einträge in einen Übergangs-
+dialog „jetzt senden / verwerfen“ geben; ohne Entscheidung werden sie nach 7 Tagen gelöscht (Hinweis mit Anzahl);
+(c) Offline-Modus steht auf **aus**, bis der Nutzer ihn einschaltet (`07` §2.1); (d) `expiresAt` neuer Einträge nach
+den neuen Fristen; (e) PRIV-512-Schlüssel beim nächsten Logout löschen. Release-Notiz informiert.
 
 ---
 
 ## 9. Inaktive Mandanten
 
-**PRIV-716** Datenschutz-Migrationen MÜSSEN Mandanten in jedem Status **außer `deleted`** verarbeiten:
-`suspended`, `pending_deletion`, `orphaned` und `importing` halten personenbezogene Daten, die
-das Recht des Betroffenen aus Art. 17 unabhängig vom Zustand des Mandanten umfasst. (v0104 schreibt in
-nicht aktive Mandanten [verifiziert, #2770 Punkt 4] — für einen *Backfill* ist das ein Defekt; für eine
-*Datenschutzkorrektur* ist es erforderlich. Die beiden Arten MÜSSEN im Docstring der Migration gekennzeichnet werden:
-`kind = "privacy_correction" | "data_backfill"`, und der Guard
-`test_beats_skip_inactive_tenants` erhält ein Geschwister für Migrationen, das prüft, dass ein Backfill
-`ActiveTenants` verwendet und eine Korrektur nicht.)
+**PRIV-716** Datenschutzkorrekturen (`kind = privacy_correction`) verarbeiten Mandanten in **jedem** Status außer
+`deleted` (Art. 17 gilt unabhängig vom Mandantenzustand); Daten-Backfills (`kind = data_backfill`) verwenden
+`ActiveTenants` [VERIFIED_CODE: v0104 tut das nicht → #2770 Pkt. 4]. Guard `test_migration_tenant_gate_kind`
+(TA-704).
 
 ---
 
 ## 10. Teilweise abgeschlossene Löschvorgänge
 
-**PRIV-717** Ein einmaliger Job `privacy.resume_partial_erasures --older-than 30d` MUSS jede
-`partially_completed`-Löschung mit ihren nicht erreichten Schritten und Resten auflisten (heute gibt es keine Liste),
-und sie erneut einplanen, wobei `attempt_count` zurückgesetzt wird, damit das Backoff neu startet; Eskalations-
-Zeilen gehen an den Betriebs-Endpunkt. Es ist ein Job, keine Migration (er kann jederzeit laufen).
+**PRIV-717** Job `privacy.resume_partial_erasures --older-than 30d` listet jede `partially_completed`-Löschung mit
+unerreichten Schritten und Resten und plant sie mit zurückgesetztem `attempt_count` erneut ein; Eskalation an den
+Betriebsendpunkt (E15).
 
 ---
 
-## 11. Rollback-Einschränkungen (pro Migration)
+## 11. Rollback-Einschränkungen
 
-| Migration | Rollback |
-|-----------|----------|
-| v0107 Tombstone-Kopien → Marker | keiner (Information absichtlich zerstört); der Dry-Run-Bericht ist der Nachweis |
-| v0108 Aufzeichnungs-Default | entfernt das ausdrückliche `legacy` |
-| v0109 verschlüsselte Ausführende (keyed performers) | entfernt die neuen Felder, wenn sie alle `null`/Kopien sind; verweigert sonst |
-| Reclassify-Job | keiner (gesetzlich → geteilt ist eine Einbahnstraße) |
-| Wiederherstellungs-Replay | keiner (er wendet Löschungen erneut an) |
+| Migration / Job | Rollback | Teilausfall |
+|-----------------|----------|-------------|
+| v0107 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
+| v0108 | entfernt explizites `legacy`/`unknown_legacy` | idempotent |
+| v0109 | entfernt neue Felder, wenn alle `null`/Kopien | je Collection transaktional |
+| Reklassifizierung | keiner | je Mandant; Zustand `reclassification_pending` bis Erfolg |
+| Restore-Replay | keiner (wendet Löschungen erneut an) | Residue > 0 ⇒ Wartungsmodus bleibt |
 
 ---
 
@@ -237,11 +240,15 @@ Zeilen gehen an den Betriebs-Endpunkt. Es ist ein Job, keine Migration (er kann 
 
 | ID | Kriterium |
 |----|-----------|
-| TA-700 | Jede Datenschutz-Migration: zweiter Lauf `changed == 0`; AQL bindet `tenant_key`; Bericht persistiert nur mit erlaubten Schlüsseln. |
-| TA-701 | v0107-Trockenlauf (Dry-Run) schreibt nichts; echter Lauf wandelt eingeschleuste Tombstones in `care_events` und `garden_plan_audit` um, zählt einen nicht deklarierten Tombstone in einem eingeschleusten nicht auf der Allowlist stehenden Feld, ohne ihn zu ändern, löscht einen eingeschleusten `original_filename`. |
-| TA-702 | v0109 setzt nie einen `*_user_key` aus einem getippten Namen; `mcp:<service-key>` wird nur für ein existierendes Service-Konto abgebildet. |
-| TA-703 | Der Reclassify-Job wandelt Tombstones für einen `none`-Mandanten in Marker um und lässt einen `pflschg_professional`-Mandanten unberührt. |
-| TA-709 | Ledger-Eintrag beim Abschluss geschrieben; Spiegelobjekt aktualisiert; nach `expires_at` bereinigt; Spiegelung gefiltert. |
-| TA-710 | Wiederherstellungsübung: Dump vor einer Löschung erstellt, Löschung abgeschlossen, Wiederherstellung, Wiederholung (Replay) → der Rohschlüssel fehlt in jeder Collection, bis zum Ablauf nur im Ledger vorhanden; Prüfpunkte idempotent neu erzeugt. |
-| TA-716 | Eine Datenschutzkorrektur verarbeitet einen `suspended`-Mandanten; ein Datenbackfill überspringt ihn. |
-| TA-717 | Der Resume-Job listet eingeschleuste `partially_completed`-Löschungen auf und plant sie erneut ein. |
+| TA-700 | Zweiter Lauf `changed == 0`; AQL bindet `tenant_key`; Bericht nur mit erlaubten Schlüsseln; Phasen `precheck/dry_run/apply/verify` im Bericht. |
+| TA-701 | v0107: Dry-Run schreibt nichts; echter Lauf wandelt präparierte Tombstones um, zählt einen nicht deklarierten Tombstone ohne Änderung, leert `original_filename`; `verify.residual = 0`; ein Fehler in Mandant X lässt die übrigen fertig werden und die Migration nicht als angewendet gelten. |
+| TA-701a | Berichtsfilter weist Nutzerschlüssel/Namen in `details` ab. |
+| TA-702 | v0109 setzt nie einen `*_user_key` aus einem Namen; `mcp:<key>` nur für existierendes Service-Konto. |
+| TA-703 | Reklassifizierung wirkt nur mit gesetztem Flag; ohne Flag `reclassification_pending` + Metrik. |
+| TA-704 | Guard: `kind` deklariert; Backfill nutzt `ActiveTenants`, Korrektur nicht. |
+| TA-709 | Spiegel-Eintrag (ohne Rohschlüssel) bei Abschluss; Objekt verschlüsselt, HMAC-Kette gültig; Bereinigung filtert. |
+| TA-710 | Restore-Drill: Dump vor Löschung → Löschung → Restore → Replay erkennt das Konto über den Tombstone-Abgleich → Rohschlüssel in keiner Collection; Residue 0. |
+| TA-711 | Restore-Doku enthält Replay; `mkdocs build --strict`. |
+| TA-716 | Korrektur verarbeitet `suspended`; Backfill überspringt. |
+| TA-717 | Resume-Job listet und plant erneut. |
+| TA-718 | Helm: `backup.enabled=true` ohne `privacy.mirror.enabled` schlägt im Template-Precheck fehl. |

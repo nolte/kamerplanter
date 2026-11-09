@@ -2,8 +2,8 @@
 
 ```
 Paket: spec/privacy (DSGVO-Datenschutzarchitektur und Implementierungsspezifikation)
-Status: Entwurf zur Implementierung — rechtliche Prüfung ausstehend (siehe decision-log.md, LEG-*)
-Version: 1.0
+Status: Entwurf zur Implementierung — rechtliche Prüfung ausstehend (siehe decision-log.md, LEG-*); Produktionsgates je Maßnahme (06 §10)
+Version: 1.1 (Härtung: Evidenzklassen, Löschungs-Spiegel statt Raw-Key-Ledger, Zustandsautomat Prüfung, Offline-Opt-in)
 Datum: 2026-11-09
 Gemessen an: develop 24d1c2988 (nach Fast-Forward; Welle 9 von REQ-053 gemergt)
 Sprache: Deutsch (Spezifikation); Quellcode und GitHub-Texte bleiben englisch
@@ -170,9 +170,9 @@ flowchart TB
 | Komponente | Verantwortet | Verantwortet nicht | Verfeinert in |
 |------------|--------------|--------------------|---------------|
 | **Identity & Membership Lifecycle (IML)** | Kontozustände (`active` → `closed` → `erased`), Mitgliedschaftszustände, die *Zurechnungsrolle* jeder Kontoreferenz (`IdentityReferenceRegistry`), Auflösung des Anzeigenamens für alle API-Antworten (`resolve_display`), die Darstellungszustände `member`, `former_member`, `erased`, `third_party`, `system`, `service_account` | Löschen oder Umschreiben von Zeilen (PLE), Entscheiden, wer einen Namen sehen darf (ACV) | `03-account-and-membership-lifecycle.md`, `08-api-and-data-model.md` §2 |
-| **Privacy Lifecycle Engine (PLE)** | den Löschplan und seine Ausführung, Anonymisierungs- und Pseudonymisierungsregeln, Schwärzung (manuell und kaskadierend), Propagation auf abgeleitete Zeilen, Idempotenz, Wiederholung, Behandlung von Teilausfällen, das Replay-Ledger der Löschungen für Backup-Wiederherstellungen | Aufbewahrungsfristen (REG), UI (PADM) | `03`, `04-anonymization-and-redaction.md`, `09-migrations-and-backfills.md` |
+| **Privacy Lifecycle Engine (PLE)** | den Löschplan und seine Ausführung, Anonymisierungs- und Pseudonymisierungsregeln, Schwärzung (manuell und kaskadierend), Propagation auf abgeleitete Zeilen, Idempotenz, Wiederholung, Behandlung von Teilausfällen, den Löschungs-Spiegel (`erasure_mirror`, Tombstone-Liste ohne Rohschlüssel, DEC-26) für Backup-Wiederherstellungen, den Zustandsautomaten der Freitextprüfung (`04` §5.1a) | Aufbewahrungsfristen (REG), UI (PADM) | `03`, `04-anonymization-and-redaction.md`, `09-migrations-and-backfills.md` |
 | **Lineage & Retention Registry (REG)** | deklarative Metadaten: welches Feld von welchem abgeleitet ist (`DERIVED_FIELDS`), welche Zeilen gesetzlich sind, die Aufbewahrungsober-/-untergrenzen, die Allowlist schwärzbarer Felder, die Collections, in denen Tombstones erlaubt sind; Guard-Skripte, die die Registries vollständig halten | Ausführung (PLE, Beats) | `02-personal-data-inventory.md`, `06-retention-and-legal-basis.md` |
-| **Access Control & Visibility (ACV)** | Rollen-Gates (bestehend), *Sichtbarkeitsregeln* für personenbezogene Zurechnung (Ausführende/Ersteller/Bestätigende), zweckbezogene Berechtigungen (`privacy.review`, `privacy.redact`, `attribution.filter`), die Audit-Zeile für jedes datenschutzrelevante Lesen (Massenexport mit Namen) | Rollendefinitionen (REQ-049) | `05-access-and-visibility.md` |
+| **Access Control & Visibility (ACV)** | Rollen-Gates (bestehend), *Sichtbarkeitsregeln* für personenbezogene Zurechnung (Ausführende/Ersteller/Bestätigende), zweckbezogene Berechtigungen (`privacy.review`, `attribution.filter`, `attribution.export`; Schwärzung läuft unter `privacy.review`, `05` §5), die Audit-Zeile für jedes datenschutzrelevante Lesen (Massenexport mit Namen) | Rollendefinitionen (REQ-049) | `05-access-and-visibility.md` |
 | **Privacy Administration (PADM)** | die Prüfwarteschlange (`privacy_review_items`), die Lead-/Management-UI, um zu sehen, was eine Löschung in ihrem Mandanten hinterlassen hat, und zu entscheiden (schwärzen / mit Begründung behalten), Auskunftsstatus (DSAR), Überwachung unvollständiger Datenschutzvorgänge, Dokumentation von Ausnahmen | die Regeln selbst | `04`, `05`, `08`, `12-implementation-roadmap.md` |
 | **Offline Privacy Layer (OPL)** | alles, was auf dem Endgerät gespeichert wird: Namespaces, Cache-Lebenszyklus, Lebenszyklus des Schreibpuffers, Sitzungsisolation, Behandlung von Widerrufen, Modus für geteilte Geräte | serverseitige Deduplizierung (`client_event_writes.py`, PLE) | `07-offline-privacy.md` |
 
@@ -368,9 +368,9 @@ sequenceDiagram
     PS->>EX: run_erasure_plan(plan, tombstone)
     EX->>EX: edges → documents → ANONYMIZE → PSEUDONYMIZE → users (one txn)
     EX-->>PS: report (reached / unreached steps)
-    PS->>RQ: ★ build review items per shared tenant (04 §5)
-    PS->>PS: ★ erasure_replay_ledger entry (09 §6)
-    PS-->>Q: completed | partially_completed (+ backoff)
+    PS->>RQ: ★ Entdeckung der Prüfeinträge je geteiltem Mandanten (04 §5, paginiert)
+    PS->>PS: ★ erasure_mirror-Eintrag (Tombstone, kein Rohschlüssel, 09 §6)
+    PS-->>Q: completed | partially_completed (+ backoff), erasure_completed nach Abschluss der Prüfung
 ```
 
 ### 6.2 Ende der Mitgliedschaft
@@ -415,7 +415,8 @@ puffert Schreibvorgänge mit einer `client_event_id` und spielt sie FIFO ab; der
 dedupliziert über den eindeutigen Sparse-Index `(tenant_key, client_event_id)` (v0106). ★ Eine
 tote Sitzung (Refresh mit 401/403 abgelehnt) stellt die Queue dieses `user_key` für
 `OFFLINE_DEAD_SESSION_GRACE_DAYS` unter Quarantäne und bereinigt sie dann; ein serverseitiger
-stabiler Fehlercode (`account.erased`, `membership.ended`) löst eine sofortige Bereinigung aus.
+stabiler Fehlercode (`account.closed`, `membership.ended`) löst eine sofortige Bereinigung aus. Cache und
+Puffer entstehen nur nach ausdrücklichem Einschalten des Offline-Modus (`07` §2.1, DEC-29).
 
 ---
 
@@ -428,14 +429,14 @@ stabiler Fehlercode (`account.erased`, `membership.ended`) löst eine sofortige 
 | **Mitglied ↔ Mitglied (innerhalb eines Mandanten)** | Namen von Ausführenden/Erstellern, Freitext, E-Mail-Adressen von Mitgliedern | Rollen-Gates; `performed_by`-Filter für viewer/grower auf die eigene Person beschränkt | Sichtbarkeitsregeln (`05`): Namen ehemaliger Mitglieder unterdrückt, Ausführende vor Nicht-Leads verborgen, wo die Mandanteneinstellung es vorsieht, Mitglieds-E-Mails nur für `management`, CSV mit Namen auditiert |
 | **Mandant ↔ Plattformbetreiber** | Mitgliedschaftslisten, Zähler, Sicherheits-Audit; **keine Domänendaten** (REQ-049 P4, AK-09) | `require_platform_admin` | Die Überwachung von Datenschutzvorgängen legt Zähler und Zustände offen, nie Zeileninhalte |
 | **Verantwortlicher ↔ Auftragsverarbeiter** [rechtlich] | Wer ist Verantwortlicher für die Mitgliedsdaten eines Community-/Gewerbe-Mandanten — die Mandantenorganisation (mit dem Betreiber als Auftragsverarbeiter, Art. 28) oder der Betreiber (gemeinsam, Art. 26)? | in den Specs nirgends behandelt | **LEG-01**; das Paket unterstellt, dass die *Mandantenorganisation Verantwortlicher für Mitgliedsdaten und der Betreiber Auftragsverarbeiter ist*, und kennzeichnet jede Stelle, an der diese Annahme eine Rolle spielt |
-| **Primärspeicher ↔ Backups** | vollständige Kopien | **es existiert kein Backup** (Audit DR-01…04) | Replay-Ledger der Löschungen und Wiederherstellungsverfahren (`09` §6), bevor irgendein Backup eingeführt wird |
+| **Primärspeicher ↔ Backups** | vollständige Kopien | **es existiert kein Backup** (Audit DR-01…04) | Löschungs-Spiegel (Tombstone-Liste, verschlüsselt, HMAC-Kette) und Restore-Replay über Tombstone-Abgleich (`09` §6, DEC-26), bevor irgendein Backup eingeführt wird; Dumps ≤ 35 d |
 
 ---
 
 ## 8. Invarianten der Mandantenisolation
 
 **PRIV-010** Jede von diesem Paket eingeführte neue Collection (`privacy_review_items`,
-`erasure_replay_ledger`, `redaction_log`, falls separat) MUSS `tenant_key` tragen (oder
+`erasure_mirror`, `migration_reports`, `redaction_log`, falls separat) MUSS `tenant_key` tragen (oder
 plattformweit sein und mit Begründung in `TenantErasureEngine.NOT_TENANT_SCOPED` geführt
 werden) und MUSS zu `TenantErasureEngine.INVENTORY` hinzugefügt werden; der Guard
 `tests/unit/guards/test_tenant_erasure_inventory_is_complete.py` erzwingt dies.
@@ -472,7 +473,14 @@ globale Katalogdaten (Arten/Cultivare mit `tenant_has_access`), die keine Kontor
 7. **Jeder Vorgang ist idempotent, fortsetzbar und beobachtbar.** Zustandsdokumente tragen
    `status`, `attempt_count`, `next_attempt_at`; Metriken zählen offene und veraltete Vorgänge.
 8. **Rechtliche Fragen sind sichtbar, nicht unterstellt.** `LEG-nn`-Einträge enthalten den
-   Standardwert, mit dem der Code ausgeliefert wird, und die Alternative.
+   Standardwert, mit dem der Code ausgeliefert wird, die Alternative **und das Produktionsgate**
+   (README §Produktionsgates): Maßnahmen, die Verarbeitung **einschränken**, sind ohne Rechtsfreigabe
+   umsetzbar; Maßnahmen, die Verarbeitung **ausweiten** oder **Daten mit möglicher Aufbewahrungspflicht
+   vernichten**, stehen hinter einem Feature-Flag (`08` §8a), bis die registrierte Entscheidung vorliegt.
+9. **Evidenz vor Behauptung.** Jede Aussage trägt ihre Klasse (`VERIFIED_CODE`, `VERIFIED_SPEC`,
+   `VERIFIED_LEGAL` mit L-nn, `INFERRED`, `PROPOSED`, `OPEN_DECISION`, `LEGAL_REVIEW_REQUIRED`); in den
+   Dokumenten v1.0 entsprechen `[verifiziert]` = VERIFIED_CODE/VERIFIED_SPEC (je nach Bezug), `[Vorschlag]` =
+   PROPOSED, `[rechtlich]` = LEGAL_REVIEW_REQUIRED, `[?]` = INFERRED/unverifiziert.
 
 ---
 

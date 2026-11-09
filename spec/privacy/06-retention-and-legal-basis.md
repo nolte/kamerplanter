@@ -1,278 +1,279 @@
-# SPEC-06 — Matrix zu Aufbewahrung und Rechtsgrundlagen
+# SPEC-06 — Verarbeitungstätigkeiten, Rechtsgrundlagen und Aufbewahrung
 
 ```
-Package: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
-Requirement IDs: PRIV-400 … PRIV-449
-Depends on: NFR-011 (Aufbewahrungsregeln R-nn), REQ-025 §3, 02 (Inventar), 03/04 (Verhalten)
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Anforderungs-IDs: PRIV-400 … PRIV-449
+Hängt ab von: NFR-011 (Aufbewahrungsregeln R-nn), REQ-025 §3, 02 (Inventar), 03/04 (Verhalten),
+13 (Rechtsevidenz L-nn), 15 (Entscheidungsanalysen DA-01…DA-04)
+Änderung v1.1: Rollenmatrix (§1), Verarbeitungstätigkeitenmatrix (§2), feldgenaue Zuordnung der
+Pflichtaufzeichnungen (§3), Evidenzklassen an jeder Rechtsgrundlage, Produktionsgates (§10).
 ```
 
-Jede unten genannte Rechtsgrundlage ist ein **Vorschlag**, sofern sie nicht mit [verifiziert in Spec] markiert ist
-(d. h. NFR-011 oder REQ-025 nennt sie bereits). Alles, was mit **LEG-nn** gekennzeichnet ist, braucht die Freigabe
-durch Rechtsberatung / DSB, bevor es als entschieden gilt. Art. 17(3) wird nur als **Ausnahme von der
-Löschung** verwendet, nie als Grundlage für die Verarbeitung.
+Evidenzklassen: `VERIFIED_CODE` · `VERIFIED_SPEC` · `VERIFIED_LEGAL` (mit L-nn) · `INFERRED` ·
+`PROPOSED` · `OPEN_DECISION` · `LEGAL_REVIEW_REQUIRED` (mit LEG-nn). Eine Rechtsgrundlage ohne
+L-Verweis ist `INFERRED`. **Art. 17 Abs. 3 DSGVO ist eine Ausnahme vom Löschanspruch, keine
+Rechtsgrundlage** — wo NFR-011 „Art. 17(3)“ als Grundlage nennt (R-25), ist das ein zu korrigierender
+Spec-Text (§9, E16).
 
 ---
 
-## 1. Rollen der Verantwortlichen — die Frage, die zuerst kommt
+## 1. Rollenmatrix — wer bestimmt Zwecke und wesentliche Mittel (LEG-01, DA-01)
 
-**LEG-01** Wer ist Verantwortlicher für die Mitgliederdaten eines Gemeinschaftsgartens oder eines
-Gewerbebetriebs, der Kamerplanter nutzt?
+Maßstab: EDSA 07/2020 Rn. 40, 54–55, 81 (L-18, `VERIFIED_LEGAL`): Der Verantwortliche bestimmt Zwecke
+und **wesentliche Mittel** (welche Daten, wie lange, wer hat Zugriff); nicht wesentliche Mittel darf der
+Auftragsverarbeiter festlegen; konvergierende Entscheidungen begründen gemeinsame Verantwortlichkeit.
 
-| Option | Folge für dieses Paket |
-|--------|------------------------|
-| (a) Die **Mandantenorganisation** ist Verantwortlicher, der Plattformbetreiber ist **Auftragsverarbeiter** (Art. 28) | Die Information nach Art. 13/14, die Interessenabwägungen aus §4, die DSFA und die RoPA-Einträge gehören dem Mandanten; der Betreiber stellt die technischen Mittel (Sichtbarkeitseinstellung, Prüfwarteschlange, Export) und einen AVV bereit; die eigene Verantwortlichkeit des Betreibers umfasst Konten, Plattform-Mandant, Sicherheits-Audit, Logs |
-| (b) Betreiber und Mandant sind **gemeinsam Verantwortliche** (Art. 26) | Eine Vereinbarung ist erforderlich; der Betreiber trägt die Interessenabwägungen |
-| (c) Der Betreiber ist alleiniger Verantwortlicher | Jede Regel unten ist die des Betreibers; die Leads des Mandanten handeln im Auftrag des Betreibers |
+| PA | Verarbeitungstätigkeit | Zweck bestimmt von | Wesentliche Mittel heute bestimmt von (VERIFIED_CODE) | Nach Umsetzung E08/E09 | Rolle Betreiber (PROPOSED) | Rolle Mandant | Erforderliche Dokumente |
+|----|------------------------|--------------------|--------------------------------------------------------|------------------------|-----------------------------|---------------|-------------------------|
+| PA-01 | Kontoverwaltung, Authentifizierung, Sitzungen | Betreiber | Betreiber | — | **Verantwortlicher** | — | Datenschutzinformation Plattform (Art. 13) |
+| PA-02 | Sicherheits-Audit, Logs, Monitoring | Betreiber | Betreiber | — | **Verantwortlicher** | — | dito; Art.-30-Eintrag Betreiber |
+| PA-03 | Mitgliederverwaltung des Mandanten (Einladung, Rollen, Scopes, E-Mail-Sichtbarkeit) | Mandant | Betreiber (Datenfelder, 730 d Audit) | Mandant (E-Mail-Sichtbarkeit), Betreiber (Audit) | Auftragsverarbeiter (Mitgliederdaten); Verantwortlicher (Audit) | **Verantwortlicher** | AVV; Datenschutzinformation Mandant (Art. 13); Art.-30-Eintrag Mandant |
+| PA-04 | Pflegeprotokoll mit Zurechnung (`care_events`, Bestätigungen, Plan-Audit) | Mandant (Koordination, Historie) | **Betreiber** (Frist 5 J. fest, Sichtbarkeit fest) → Indiz gegen reine Auftragsverarbeitung | Mandant (`attribution_visibility`, Aufbewahrung innerhalb Grenzen), Betreiber (Grenzen, Verfahren) | Auftragsverarbeiter **nach** E08/E09; bis dahin OPEN_DECISION (Art. 26?) | **Verantwortlicher** | AVV; LIA-1/LIA-2 des Mandanten (Vorlage aus §4); Mustertext Betriebsrat (PRIV-406) |
+| PA-05 | Gesetzliche Aufzeichnungen (PflSchG, KCanG) | Mandant (gesetzliche Pflicht trifft ihn) | Betreiber (Collection-weit für alle) | Mandant (`record_keeping`, `organization_kind`) | Auftragsverarbeiter | **Verantwortlicher** | AVV; Art.-30-Eintrag Mandant; Nachweis der Pflicht (Klassifizierung) |
+| PA-06 | Tagebuch, Freitext, Fotos | Mandant / Nutzer | Betreiber (Aufbewahrung „Lebensdauer“) | unverändert (Inhalt), Prüfwarteschlange (E07) | Auftragsverarbeiter | **Verantwortlicher** | AVV |
+| PA-07a | Betroffenenrechte Konto (Art. 15–21 Selbstbedienung) | Betreiber (Pflicht) | Betreiber | — | **Verantwortlicher** | — | Verfahrensbeschreibung |
+| PA-07b | Betroffenenrechte in Mandantendaten (Prüfwarteschlange, Schwärzung) | Mandant (Pflicht) | Betreiber (Verfahren) | Mandant (Entscheidung), Betreiber (Werkzeug) | Auftragsverarbeiter (Unterstützung Art. 28 Abs. 3 lit. e) | **Verantwortlicher** | AVV mit Unterstützungspflichten |
+| PA-08 | Speicherung auf dem Endgerät (Cache, Puffer, Web Storage) | Betreiber (Dienstgestaltung) | Betreiber | Nutzer (Schalter), Betreiber (Fristen) | **Anbieter des digitalen Dienstes** (TDDDG) und Verantwortlicher für die Gestaltung | — | Datenschutzinformation Plattform §„Daten auf dem Gerät“ |
+| PA-09 | Backups und Wiederherstellung | Betreiber | Betreiber | — | **Verantwortlicher** (eigener Zweck Datensicherheit) | — | Art.-30-Eintrag Betreiber; AVV-Anlage TOM |
+| PA-10 | Sensorik/Aktorik (TimescaleDB, Overrides) | Mandant | Betreiber (Fristen) | — (außerhalb dieses Pakets) | Auftragsverarbeiter | **Verantwortlicher** | DSFA Sensorik (NFR-001 §6.7) |
+| PA-11 | Mandantenexport/-import (REQ-056) | Mandant | Betreiber (Format) | — | Auftragsverarbeiter | **Verantwortlicher** (Empfänger des Archivs) | AVV; LEG-13 |
+| PA-12 | Plattform-Support (Admin-Zugriff auf Mitgliederlisten, Löschvorschau) | Betreiber | Betreiber | — | **Verantwortlicher** | — | Datenschutzinformation Plattform |
 
-Das Paket ist für **(a)** geschrieben (das übliche SaaS-Verständnis) und kennzeichnet jede Stelle, an der die
-Wahl eine Rolle spielt, mit „(controller: tenant)". Die Specs behandeln die Frage heute nirgends
-(REQ-025 §8 verlegt das RoPA „außerhalb der Software"; `data_controller` im Export-Bundle ist
-ein konfigurierter String). Bei einer **selbst betriebenen** Installation fällt (a) zusammen: der Betreiber *ist*
-der Mandant.
+**Selbst gehostete Installation:** Betreiber = Mandant; alle Zeilen kollabieren auf einen Verantwortlichen;
+AVV entfällt, Art.-30-Einträge bleiben.
 
----
-
-## 2. Aufbewahrungsmatrix — Kategorien personenbezogener Daten
-
-Spalten: Zweck · Rechtsgrundlage · Aufbewahrungsauslöser · Frist · Löschverhalten · Gesetzliche
-Aufbewahrungsausnahme · Verantwortliche Rolle (Lesart Verantwortlicher (a)). „Setting" nennt die
-Umgebungsvariable / den Eintrag in `RETENTION_CEILINGS` [verifiziert im Code, sofern nicht anders vermerkt].
-
-### 2.1 Konto- und Sitzungsdaten (controller: operator)
-
-| # | Category | Purpose | Basis | Trigger | Period | Deletion | Exception | Responsible | Status |
-|---|----------|---------|-------|---------|--------|----------|-----------|-------------|--------|
-| R-01 | soft-deleted account | Art. 17 bedienen, mit Sicherheitsfenster gegen irrtümliche Anträge | Art. 6(1)(c)+(b) | Löschantrag | 90 d (`RETENTION_SOFT_DELETE_RETENTION_DAYS`, Obergrenze 90) | Hard-Delete-Plan | — | Betreiber | implementiert [v] |
-| R-02 | unverified accounts | Hygiene | 6(1)(f) | Registrierung | 7 d | Löschen (Dry-Run bis `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED`) | — | Betreiber | implementiert [v] |
-| R-03 | IP in refresh tokens | Sitzungssicherheit | 6(1)(f) [v in Spec] | Token-Ausstellung | 7 d | anonymisieren (IPv4 /24, IPv6 /48) | — | Betreiber | implementiert [v] |
-| R-08…R-11 | token hashes, OAuth state, refresh tokens | Authentifizierung | 6(1)(b) | Ausstellung | 1 h / 24 h / 5 min / eigener Ablauf | Löschen | — | Betreiber | implementiert |
-| — | `last_login_at`, `failed_login_attempts`, `locked_until` | Kontosicherheit | 6(1)(f) | jeder Login | Lebensdauer des Kontos | mit dem Konto | — | Betreiber | implementiert; **keine Frist für `last_login_at`** → nur Überschreiben vorschlagen (ist so) |
-| R-04 / R-04a | consent records + IP | Einwilligung nachweisen (Art. 7(1)) | 6(1)(c) [v in Spec] | Widerruf | 3 J. nach Widerruf / IP 7 d | Löschen; Tombstone bei Löschung | — | Betreiber | implementiert [v] |
-| R-06 | `erasure_requests` | Löschung nachweisen (Art. 5(2)) | 6(1)(c) | Abschluss | 3 J. (`retention_erasure_audit_retention_years`; Docstring sagt „one year" — **Docstring korrigieren**) | Löschen nur, wenn Tombstone vorhanden | — | Betreiber | implementiert [v] |
-| R-38 | `security_audit_log` | Nachweis von Zugriffsänderungen nach Art. 32 | 6(1)(c)/(f) [v in Spec] | `created_at` | 730 d fest | Löschen; Tombstone bei Löschung; bei Mandantenlöschung behalten | — | Betreiber | implementiert [v] |
-| **neu R-44** | Datenschutz-Operations-Audit-Aktionen in `security_audit_log` (`04` §4.2) | Art. 5(2) | 6(1)(c) | `created_at` | 730 d (gleicher Zeilentyp) | gleich | — | Betreiber | **Vorschlag** |
-| **neu R-45** | `erasure_replay_ledger` (roher `user_key` + Löschschlüssel, für Backup-Wiederherstellungen, `09` §6) | Art. 17 nach einer Wiederherstellung durchsetzen | 6(1)(c) (Art. 17 ist die Verpflichtung) | Abschluss der Löschung | `BACKUP_RETENTION_DAYS + 5` (Standard 35) | Hard Delete | — | Betreiber | **Vorschlag, LEG-11** |
-
-### 2.2 Mitgliedschafts- und Mandantendaten
-
-| # | Category | Purpose | Basis | Trigger | Period | Deletion | Exception | Responsible | Status |
-|---|----------|---------|-------|---------|--------|----------|-----------|-------------|--------|
-| — | `memberships` (Rolle, Scopes, `joined_at`) | den Mandanten betreiben | 6(1)(b) (Mitgliedschafts-/Beschäftigungsverhältnis) | Ende der Mitgliedschaft | sofort (Zeile gelöscht) | Löschen | Security-Audit behält alte Rolle 730 d | Mandant | implementiert [v] |
-| **neu** | **Namensdarstellung** ehemaliger Mitglieder (abgeleitet, keine Zeile) | Übergabe, Rechenschaft | 6(1)(f) — Interessenabwägung §4.3 | Ende der Mitgliedschaft | `RETENTION_FORMER_MEMBER_NAME_DAYS` 90 (0–365) | Darstellung wechselt auf `former_member` | — | Mandant | **Vorschlag, LEG-06** |
-| R-12 | invitations (`email`) | Onboarding | 6(1)(b) | Ablauf | 30 d | Löschen | — | Mandant | implementiert |
-| R-01b | Mandant in `pending_deletion` | Irrtumsfenster, Exportfenster nach Art. 20 | 6(1)(b) | Antrag | 90 d (0–90) | Mandanteninventar | gesetzliche Zeilen pseudonymisiert | Mandant (lead ∧ management) | implementiert [v] |
-| R-06a | `tenant_erasure_records` | Nachweis | 6(1)(c) | Abschluss | bis zur letzten gesetzlichen Zeile, ≤ 5 J. | Löschen | — | Betreiber | implementiert |
-| — | **E-Mail** von Mitgliedern in `/members` | Kontakt | 6(1)(b)? Erforderlichkeit zweifelhaft | — | — | — | — | Mandant | **LEG-14**: auf `management` beschränken (PRIV-305) |
-
-### 2.3 Domänenhistorie mit Zuordnung (controller: tenant)
-
-| # | Category | Purpose | Basis | Trigger | Period | Deletion | Exception | Responsible | Status |
-|---|----------|---------|-------|---------|--------|----------|-----------|-------------|--------|
-| R-25 | `care_events` (Ausführende/r, Ersteller/in, Freitext, Fotos) | Beethistorie, Fruchtfolge, Koordination („wer hat zuletzt gegossen") | Inhalt: 6(1)(f) Fruchtfolgehistorie [v in Spec sagt „Art. 17(3) (berechtigtes Interesse: Anbauhistorie)" — umformulieren: Grundlage ist 6(1)(f), 17(3) ist keine Grundlage]; **Zuordnung**: 6(1)(f) Interessenabwägung §4.1 | `performed_at` | 5 J. (Untergrenze = Obergrenze 5, `RETENTION_CARE_EVENT_RETENTION_YEARS`) | nach 5 J.: Kontoreferenzen → Marker, Freitext → `[redacted]`, Fotos gelöscht; `pest_control`/`ipm` warten auf `max(R-25, R-17)` | 17(3)(b) nur für `pest_control`/`ipm` **und nur, wenn LEG-03 zutrifft**; sonst keine | Mandant | implementiert [v]; **Vorschlag**: Zuordnungsunterdrückung für ehemalige Mitglieder, Prüfwarteschlange bei Löschung |
-| — | `watering_events`, `feeding_events`, `watering_logs`, `tank_fill_events`, `maintenance_logs` (Freitext `performed_by`, `notes`) | Betrieb | 6(1)(b)/(f) | — | **keine** [v: nur mit dem Mandanten gelöscht] | — | — | Mandant | **Lücke**: R-46 vorschlagen = an R-25 angleichen (5 J., danach `performed_by`/`notes` geschwärzt); `performed_by` auf ein Schlüsselfeld migrieren (`08` §3.4) |
-| — | `plant_diary_entries` (Autor/in, Text, Fotos, KI-Analyse) | Pflanzenakte | 6(1)(b) (die eigene Dokumentation der Nutzerin / des Nutzers) / 6(1)(f) für den Mandanten | — | keine (Lebensdauer von Pflanze/Mandant) | Marker bei Löschung, Text bleibt + Prüfung | — | Mandant | implementiert [v]; Prüfung **Vorschlag** |
-| — | `task_comments`, `tasks` (Zugewiesene/r, Namen, Notizen) | Koordination | 6(1)(b) | Aufgabe geschlossen | keine | Marker; Prüfung | — | Mandant | Lücke: R-47 vorschlagen — geschlossene Aufgaben/Kommentare 2 J. → Freitext schwärzen (Umfang **LEG-08**) |
-| — | `garden_objects`, `bed_templates`, `locations` (Labels, Namen, Notizen, `created_by`) | Plan | 6(1)(b) | — | Lebensdauer des Plans | Marker bei Löschung; Namen geprüft | — | Mandant | implementiert [v]; Prüfung **Vorschlag** |
-| R-26 | `garden_plan_audit` (Akteur, Zusammenfassung, Snapshot) | Änderungsprotokoll des Plans, Snapshot-Wiederherstellung | 6(1)(f) | `at` | 365 d | Hard Delete; Akteur → **Marker** (DEC-16; heute Tombstone) | — | Mandant | implementiert [v]; DEC-16 **Spec-Änderung** |
-| — | attachments (`created_by`, `caption`, `original_filename`) | Fotos | 6(1)(b) | — | Lebensdauer des übergeordneten Objekts | Marker; `original_filename` geleert (PRIV-211); Beschriftung geprüft | geteilte Bytes bleiben (Hinweis nach Art. 19, AK-OS-09 **nicht implementiert** [v]) | Mandant | teilweise |
-| — | `notifications` (Empfänger/in, Titel, Text, Daten) | Zustellung | 6(1)(b) | gelesen / erstellt | **keine** [v: keine R-Zeile, kein Beat] | nur bei Löschung gelöscht | — | Betreiber | **Lücke**: R-48 vorschlagen = 90 d nach `read_at`, 180 d ungelesen, Hard Delete |
-| R-41 / R-42 | Lesecache / Schreibpuffer des Geräts | Offline-Funktion | 6(1)(b) [v in Spec, „Vorschlag"] | TTL / Erfassung | 15 min / 365 d ausstehend, 90 d nicht sendbar | auf dem Gerät gelöscht | bekannte Lücke (anderes Gerät) | Nutzer/in (eigenes Gerät) / Betreiber für Standardwerte | implementiert [v]; **Vorschlag** kürzere Standardwerte (`07`), **LEG-09/10** |
-
-### 2.4 Gesetzliche Aufzeichnungen (controller: tenant; Anwendbarkeit je Mandant — LEG-03)
-
-| # | Category | Purpose | Basis | Trigger | Period | Deletion | Exception | Responsible | Status |
-|---|----------|---------|-------|---------|--------|----------|-----------|-------------|--------|
-| R-16 | `harvest_batches`, `quality_assessments`, `yield_metrics` | Dokumentation der Anbauvereinigung (KCanG — **Paragraf nirgends zitiert**, REQ-025 L219 „CanG §X", **LEG-17**) | 6(1)(c) **nur für eine Anbauvereinigung**; sonst 6(1)(b)/(f) gewöhnliche Aufzeichnung | `harvest_date` | ≥ 5 J. (Untergrenze 5, keine Obergrenze) | Schlüssel → Tombstone, `harvester`/`assessed_by` bei Löschung geleert; gelöscht, wenn der Mandant weg ist und die Frist abgelaufen | **17(3)(b)** für die Zeile; der *Name* — LEG-04 | Mandant | implementiert [v]; **Vorschlag** Profil `record_keeping` |
-| R-17 | `treatment_applications` (+ Kanten) | PflSchG-§11-Aufzeichnung für **berufliche Anwender** (Art. 67 Reg. (EG) 1107/2009: Mittel, Zeitpunkt, Dosis, Fläche, Kultur; §11(2) PflSchG ergänzt den Anwender) | 6(1)(c) für berufliche Anwender; sonst keine | `applied_at` | ≥ 3 J. | wie R-16 | 17(3)(b); **LEG-04** Lesbarkeit des Namens | Mandant | implementiert [v] |
-| R-18 | `inspections` | PflSchG-§11-Überwachungsaufzeichnung | wie R-17 | `inspected_at` | ≥ 3 J. | wie R-16 | 17(3)(b) | Mandant | implementiert [v] |
-| — | `care_events` mit `category ∈ {pest_control, ipm}` | Spiegel des Obigen im Pflegelog | **keine** gesetzliche Aufzeichnung (REQ-053 §13.2, E-16) | — | `max(R-25, R-17)` | Marker bei Löschung; mit dem Mandanten gelöscht | der „PflSchG-Vorbehalt" der Spec ist eine *Aufbewahrungsuntergrenze*, keine rechtliche Aufzeichnung — **LEG-07** bestätigen | Mandant | implementiert [v] |
-
-### 2.5 Pseudonymisierte Zeilen und Audit-Zeilen (controller: operator / tenant)
-
-| # | Category | Basis | Period | Note |
-|---|----------|-------|--------|------|
-| — | `mcp_audit_log` (`service_account_key`, gekürzte IP) | 6(1)(f) Art. 32 | 90 d (`settings`) | Tombstone bei Löschung |
-| — | `ai_audit_log` | 6(1)(f) | laut Setting | Marker bei Löschung |
-| — | strukturierte Logs (Pseudonyme `sub_…`, `ten_…`) | 6(1)(f) | 30 d Pipeline (NFR-011 Q-R3) | keine Rohschlüssel (Guards) |
-| **neu R-43** | `privacy_review_items` + Entscheidungen | 6(1)(c) Art. 5(2) Nachweis der Löschungs-Nachverfolgung | 3 J. nach Entscheidung; mit dem Mandanten | **Vorschlag** |
+**PRIV-409** [PROPOSED, DA-03/DA-04] Ein Organisationsmandant MUSS bei der Anlage klassifiziert werden:
+`organization_kind ∈ {association, commercial, community, other}` und `record_keeping ∈ {none,
+pflschg_professional, kcang_association, both}`; ohne Angabe ist der Zustand `undeclared`. `undeclared`
+verhält sich bei der Aufbewahrung konservativ (wie `legacy`), erzeugt aber **keinen** Tombstone für
+`harvested_by_key` (§3.2) und zeigt der Leitung bei jeder Anmeldung einen Hinweis, bis die Angabe erfolgt;
+der Betreiber sieht die Zahl `undeclared`-Mandanten (PRIV-110-Endpunkt). Bestehende Mandanten erhalten
+`legacy` durch v0108 (`09` §4). Persönliche Mandanten sind `none` (L-07: kein Dokumentationsrecht/-pflicht
+im Eigenanbau; INFERRED für Zierpflanzen ohnehin).
 
 ---
 
-## 3. Gesetzliche Aufzeichnungspflichten — Anwendbarkeit je Mandant (LEG-03)
+## 2. Verarbeitungstätigkeiten-Matrix (Art. 30-Zuarbeit)
 
-**PRIV-400** Das System DARF NICHT annehmen, dass jeder Mandant an PflSchG §11 oder die
-Dokumentationspflichten des KCanG gebunden ist. [verifiziert] Heute gelten `LEGAL_RETENTION_RULES` für jeden Mandanten,
-jede `treatment_applications`-Zeile eines Hobbygartens wird zu einer pseudonymisierten 3-Jahres-Aufzeichnung,
-nachdem die Autorin / der Autor die Löschung verlangt hat, und der Art.-15-Export einer noch aktiven Person findet sie
-über den Tombstone.
+Spalten: Zweck · Betroffene · Datenkategorien (`02`) · Empfängerkategorien · Rechtsgrundlage (Evidenz) ·
+Erforderlichkeit · Aufbewahrung (R-nn) · Betroffenenrechte (Besonderheiten) · Verantwortlicher ·
+Auftragsverarbeiter-Beteiligung.
 
-**PRIV-401** [DEC-11] `Tenant.settings.record_keeping` (`03` PRIV-122) bestimmt die Klasse der
-vier Collections: `legacy`/`pflschg_professional`/`kcang_association`/`both` → gesetzlich
-(wie heute); `none` → `shared_history`. Standardwerte: bestehende Mandanten `legacy`; neue
-`organization`-Mandanten werden bei der Anlage gefragt (Pflichtauswahl mit Erläuterung); neue `personal`-Mandanten
-`none`. **[rechtlich LEG-03]**: (i) Ist die Pflicht aus PflSchG §11 auf „berufliche
-Anwender" beschränkt (das Paket nimmt ja an); (ii) welche KCanG-Vorschrift trägt die 5-jährige Ernte-
-Dokumentationspflicht und für wen (das Paket nimmt an: nur Anbauvereinigungen); (iii) darf sich der
-Betreiber auf die Selbstauskunft des Mandanten verlassen.
-
-**PRIV-402** Wechselt `record_keeping` von gesetzlich auf `none`, MÜSSEN bestehende pseudonymisierte
-Zeilen durch einen mandantenbezogenen, idempotenten Job neu klassifiziert werden (`09` §4): Tombstones → Marker
-(die Person ist weg; das verknüpfbare Pseudonym hat keine Grundlage mehr), getippte Namen bereits
-geleert, `notes` → Prüfpunkte. Die Änderung wird auditiert (`TENANT_RECORD_KEEPING_CHANGED`).
-Die umgekehrte Änderung ist nur für neue Zeilen erlaubt (ein Marker kann kein Pseudonym werden).
-
----
-
-## 4. Bewertungen des berechtigten Interesses (Art. 6(1)(f)) — Drei-Stufen-Tests
-
-Jeder Test hält fest: (1) berechtigten Zweck, (2) Erforderlichkeit, (3) Interessenabwägung mit den
-Interessen und Rechten der betroffenen Personen, dazu die Schutzmaßnahmen, die das Paket vorsieht. Alle sind **Vorschläge
-für die Interessenabwägung (LIA) des Verantwortlichen**; die Rechtsberatung prüft sie (LEG-02, LEG-06, LEG-07).
-
-### 4.1 LIA-1 — Zuordnung von Ausführenden/Erstellern in gemeinsamen Mandanten (aktuelle Mitglieder)
-
-1. **Zweck**: Koordination gemeinsamer Arbeit (wer hat gegossen, wer hat Beet 3 zuletzt behandelt), Qualität
-   der Aufzeichnung (Korrektur durch die Autorin / den Autor), Rechenschaft innerhalb eines Gemeinschaftsgartens oder eines
-   Betriebs, agronomische Historie (Fruchtfolge braucht *was* und *wann*, nicht *wer*).
-2. **Erforderlichkeit**: Der Zweck *Koordination* braucht den Namen, solange die Person Mitglied ist und
-   die Tätigkeit jung ist; der Zweck *Historie* braucht den Namen überhaupt nicht; der Zweck
-   *Rechenschaft* braucht den Namen für eine begrenzte Zeit.
-3. **Interessenabwägung**: Mitglieder erwarten vernünftigerweise, dass Mitmitglieder sehen, wer was getan hat (ein Aushang
-   im Garten leistet dasselbe); das Risiko ist Profiling (Aktivitätsmuster, Anwesenheitszeiten —
-   REQ-051 §11 und der REQ-055-Review-Hinweis zu Mustern bei Buchungszeiten) und in Betrieben
-   Leistungsbewertung. Schutzmaßnahmen: keine Statistiken je Person (PRIV: Matrixzeile S), Filter
-   nach einer anderen Person nur für Leads/Management (SR-020), Mandanteneinstellung `leads_and_self`
-   (PRIV-300), Namensunterdrückung nach Ende der Mitgliedschaft (PRIV-112), Entfernung der Zuordnung auf
-   Antrag (PRIV-116), keine Zuordnung in Exporten für Nicht-Leads (PRIV-307), Transparenztext
-   im Austrittsdialog und in der Datenschutzerklärung (PRIV-115).
-   **Ergebnis (vorgeschlagen)**: Das Interesse überwiegt für aktuelle Mitglieder unter den Schutzmaßnahmen;
-   es überwiegt **nicht** für die fünfjährige Aufbewahrung des *Namens* — daher Unterdrückung und der
-   Marker am Ende der R-25-Frist. **LEG-02**.
-
-### 4.2 LIA-2 — Übernahme der Ausführenden aus gesetzlichen Zeilen in das Pflegelog (v0104, Konsistenz-Job)
-
-1. **Zweck**: eine vollständige Beethistorie, die auch Ernten und Behandlungen enthält, die eingetragen wurden, bevor es
-   das Pflegelog gab.
-2. **Erforderlichkeit**: Die Historie braucht das *Ereignis*; die *ausführende Person* ist dieselbe betriebliche Tatsache,
-   die das Mitglied eingetragen hat (es war ein `performed_by` an der Quelle, vom Aufrufer gestempelt) — es entsteht
-   keine neue Information, sie wandert aber in einen Speicher mit 5-jähriger Aufbewahrung, einem
-   Filter je Person und einem CSV-Export.
-3. **Vereinbarkeit (Art. 6(4))**: gleicher Verantwortlicher, gleicher Kontext (der Mandant), die Person
-   hat es als „Ich habe das getan" eingetragen, berechtigte Erwartung, dass das Log des Gartens es zeigt; keine
-   sensiblen Daten; die Schutzmaßnahmen von LIA-1 gelten. Pseudonyme/Tombstones DÜRFEN NIE kopiert werden
-   (PRIV-205). **Ergebnis (vorgeschlagen)**: vereinbare Weiterverarbeitung; **LEG-07** bestätigt,
-   und die Datenschutzinformation / der RoPA-Eintrag muss das Pflegelog als Zweck nennen.
-
-### 4.3 LIA-3 — Namen ehemaliger Mitglieder für N Tage
-
-1. **Zweck**: Übergabe („wer hat sich bis letzte Woche um dieses Beet gekümmert?").
-2. **Erforderlichkeit**: kurz; nach der Übergabe der Saison trägt der Name nichts mehr zur Historie bei.
-3. **Interessenabwägung**: Die Person ist gegangen; ihre Erwartung, genannt zu werden, nimmt mit der Zeit ab;
-   Schutzmaßnahmen: N ≤ 365 mit Standard 90, kein Filter/Export durch sie (PRIV-114), Transparenz
-   (PRIV-115), das Security-Audit behält die Tatsache nur für die Plattform-Admin.
-   **LEG-06**: N und ob Leads den Namen länger behalten dürfen (das Paket sagt nein).
-
-### 4.4 LIA-4 — Sentry-Fehlererfassung
-
-[verifiziert in Spec] REQ-025 §9: Ereignis 6(1)(f) „rechtlich zu bestätigen", User-Block nur mit
-Einwilligung. Nicht geändert; als LEG-16 referenziert.
+| PA | Zweck | Betroffene | Datenkategorien | Empfänger | Rechtsgrundlage | Erforderlichkeit | Aufbewahrung | Rechte | Verantw. | AV |
+|----|-------|------------|-----------------|-----------|-----------------|------------------|--------------|--------|----------|----|
+| PA-01 | Konto, Login, Sitzung | Kontoinhaber | IDN, PRO, AUTH | keine (OAuth-Provider bei Föderation: REQ-025 §9) | Art. 6 Abs. 1 lit. b (Nutzungsvertrag) — INFERRED; IP-Sicherheit lit. f (VERIFIED_SPEC REQ-023) | Login ohne Konto unmöglich | R-01…R-11 | Art. 15–21 Selbstbedienung (VERIFIED_CODE) | Betreiber | — |
+| PA-02 | Sicherheit, Nachweis von Zugriffsänderungen | alle Konten | AUD | Plattform-Admin | lit. c (Art. 32) / lit. f — VERIFIED_SPEC NFR-011 R-38 | Nachweis von Rollenänderungen | R-38 730 d; neue Aktionen R-44 | Auskunft (im Bundle), keine Löschung vor Fristende (Tombstone) | Betreiber | — |
+| PA-03 | Mitgliederverwaltung | Mitglieder, Eingeladene | IDN (E-Mail), Rolle | Mitglieder des Mandanten (Verzeichnis), Admin | lit. b (Mitgliedschafts-/Arbeitsverhältnis, Satzung) — INFERRED; E-Mail-Sichtbarkeit für alle: Erforderlichkeit zweifelhaft (LEG-14) | Rollen nötig; E-Mail nur für `management` nötig (PRIV-305) | mit Mitgliedschaft; Einladungen R-12 | Austritt jederzeit; Audit bleibt 730 d | Mandant | Betreiber |
+| PA-04 | Koordination gemeinsamer Arbeit, Beethistorie | Mitglieder, in Labels genannte Dritte | ATTR, TXT, MED, Zeit/Ort | Mitglieder (nach `attribution_visibility`), Leads/Management (Filter/Export) | Inhalt: lit. b (Dienst/Mitgliedschaft) — INFERRED; Zurechnung für Dritte sichtbar: lit. f mit LIA-1 (§4.1) — PROPOSED, LEG-02; Backfill-Kopie: Art. 6 Abs. 4 LIA-2 — LEG-07 | Inhalt ja; Zurechnung für Koordination ja, für Historie nein (§4.1) | R-25 5 J. (Zurechnung → Marker spätestens dann; Unterdrückung ehemaliger Mitglieder PRIV-112) | Widerspruch Art. 21 → PRIV-116 (P2); Berichtigung eigener Zeilen (VERIFIED_CODE); Löschung → Marker + Prüfung | Mandant | Betreiber |
+| PA-05 | Gesetzliche Aufzeichnung | Anwendende, Erntende | ATTR, Fach | Behörde auf Verlangen | **lit. c nur für die in §3.2 zugeordneten Felder und nur bei `pflschg_professional`/`kcang_association`** (L-01, L-05 VERIFIED_LEGAL); sonst lit. b/f | je Feld (§3.2) | R-16/R-17/R-18 mit Fristbeginn nach PRIV-412 | Löschung: Ausnahme Art. 17 Abs. 3 lit. b nur für Pflichtfelder (LEGAL_REVIEW_REQUIRED LEG-04) | Mandant | Betreiber |
+| PA-06 | Pflanzenakte, Freitext, Fotos | Mitglieder, Dritte, abgebildete Personen | TXT, MED | Mitglieder | lit. b — INFERRED; Fotos Dritter: lit. f + Art. 14 (RISK-17) | Freitext ist Zweck des Tagebuchs | Lebensdauer der Pflanze/des Mandanten; Vorschlag R-47 für geschlossene Aufgaben/Kommentare | Löschung → Marker + Prüfwarteschlange (DA-05) | Mandant | Betreiber |
+| PA-07a | Betroffenenrechte Konto | Kontoinhaber | CONS, AUD | — | lit. c (Art. 12–22) | — | R-04, R-05, R-06, R-13 | — | Betreiber | — |
+| PA-07b | Betroffenenrechte Mandantendaten | gelöschte Mitglieder, Leads | AUD (`privacy_review_items`) | Leads/Management | lit. c (Art. 17, Art. 5 Abs. 2) | Nachweis der Erledigung | R-43 3 J. | — | Mandant | Betreiber (Werkzeug) |
+| PA-08 | Offline-Funktion auf dem Gerät | Gerätenutzer | DEV | — (lokal) | TDDDG § 25 Abs. 2 Nr. 2 (L-11) **nur mit ausdrücklichem Einschalten** (DEC-29) — LEG-09; DSGVO lit. b | nur mit Schalter | R-41/R-42 (Fristen `07` §6) — LEG-10 | Löschung lokal; Widerruf → Quarantäne/Löschung (`07` §7) | Betreiber (Gestaltung) / Nutzer | — |
+| PA-09 | Backup/Wiederherstellung | alle | alle Kopien | Backup-Speicher (S3) | lit. f (Datensicherheit, Art. 32) — INFERRED | ja | ≤ 35 d Dumps (DEC-26) | Löschung wird nach Restore erneut angewendet (`09` §6) — LEG-11 | Betreiber | S3-Anbieter als Unter-AV |
+| PA-10 | Sensorik | Haushaltsmitglieder, Beschäftigte | SENS, LOC | Mitglieder | lit. b (VERIFIED_SPEC NFR-011 R-14) | — | R-14/R-15 (nicht klassifizierungsabhängig umgesetzt) | — | Mandant | Betreiber |
+| PA-11 | Mandantenexport/-import | Mitglieder | alle Mandantendaten inkl. GPS | Mandant (Download) | lit. b (Portabilität des Mandanten) — INFERRED, LEG-13 | — | R-05 72 h | — | Mandant | Betreiber |
+| PA-12 | Support/Administration | alle | IDN, AUD | Plattform-Admin | lit. f — INFERRED | Mitgliederlisten für INV-1, Löschvorschau | — | — | Betreiber | — |
 
 ---
 
-## 5. Daten von Beschäftigten und Ehrenamtlichen (LEG-05)
+## 3. Gesetzliche Aufzeichnungspflichten — feldgenau (LEG-03, LEG-04, LEG-17; DA-03)
 
-**Bewertung**
-- Ein gewerblicher Mandant, dessen Grower Beschäftigte sind, verarbeitet Beschäftigtendaten, wenn er
-  `performed_by`-/Bestätigungsidentitäten mit Zeitstempeln speichert und Leads nach Person filtern lässt.
-  Art. 88 DSGVO öffnet nationales Recht; §26(1) BDSG erlaubt eine für das
-  Beschäftigungsverhältnis *erforderliche* Verarbeitung (Hinweis: Der EuGH hat in C-34/21 vom 30. März 2023 die parallele hessische
-  Vorschrift für mit Art. 88 unvereinbar erklärt, soweit sie lediglich Art. 6(1)(b) wiederholt — die
-  fortgesetzte Berufung auf §26 BDSG ist rechtlich unsicher; die Rechtsberatung muss das bewerten). Eine Aufzeichnung darüber,
-  wer welche Aufgabe ausgeführt hat, ist gewöhnlich für die Durchführung der Arbeit *erforderlich* (Aufgaben-
-  koordination, PflSchG-Aufzeichnung für berufliche Anwender); sie für die **Leistungs-
-  bewertung** zu nutzen, ist ein anderer Zweck. §87(1) Nr. 6 BetrVG: Ein System, das *objektiv geeignet* ist,
-  Verhalten oder Leistung zu überwachen, unterliegt der Mitbestimmung, sofern ein Betriebsrat
-  besteht — der Filter je Person und ein CSV-Export je Person machen das Pflegelog geeignet. Diese
-  Pflicht trifft den **Arbeitgeber (Mandant)**, nicht die Plattform; die Plattform muss die
-  Funktion beschreibbar und abschaltbar machen.
-- **Ehrenamtliche und Vereinsmitglieder** sind keine „Beschäftigten" (§26(8) BDSG); §26 BDSG und
-  BetrVG gelten nicht. Die Grundlage ist 6(1)(b) (Mitgliedschaftsverhältnis, Satzung) und 6(1)(f)
-  (LIA-1). Das Paket wendet Arbeitsrecht auf sie **nicht** an.
-- Die **fünfjährige Aufbewahrung von Bestätigungen** ist nicht, was sie scheint: `care_confirmations` haben keine
-  Akteurin / keinen Akteur und keine Aufbewahrungszeile [verifiziert]; die 5 Jahre sind R-25 am abgeleiteten Pflegeereignis. Das
-  Ergebnis von LIA-1 (kein Name nach der Frist / nach Ende der Mitgliedschaft) gilt.
+### 3.1 Anwendbarkeit je Mandant
 
-**Erforderliche technische Einschränkungen (PRIV-403 … PRIV-407)**
+**PRIV-400** Das System DARF NICHT annehmen, dass jeder Mandant an PflSchG § 11 oder KCanG § 26 gebunden
+ist. [VERIFIED_CODE] Heute gelten `LEGAL_RETENTION_RULES` für jeden Mandanten. [VERIFIED_LEGAL L-02]
+Beruflicher Anwender ist, wer „im Zuge ihrer beruflichen Tätigkeit“ anwendet; [L-05] § 26 trifft nur
+Anbauvereinigungen; [L-07] der private Eigenanbau kennt keine Dokumentationspflicht.
 
-- **PRIV-403** Kein Endpunkt, Export oder keine UI DARF Aktivität je Person aggregieren (Zählungen, Zeit-
-  reihen, Ranglisten). Ein künftiges „Statistik"-Feature MUSS eine eigene LIA tragen und für Beschäftigten-
-  Mandanten einen Betriebsrat-Hinweis.
-- **PRIV-404** `attribution_visibility = leads_and_self` MUSS verfügbar sein (PRIV-300) und
-  als Standard für nach der Änderung angelegte Organisations-Mandanten empfohlen werden (Betreiberentscheidung).
-- **PRIV-405** Der Filter je Person und der Namensexport MÜSSEN protokolliert werden (PRIV-308), damit der
-  Arbeitgeber dem Betriebsrat zeigen kann, wie die Funktion genutzt wird; das Log ist für das `management`
-  des Mandanten lesbar (Zählungen je Akteur, 90 Tage) — **Vorschlag**, nur Zählungen.
-- **PRIV-406** Die Datenschutzdokumentation (Docs `privacy.md`, DE/EN) MUSS einen Abschnitt
-  „Für Betriebe und Vereine" enthalten, der erklärt: was darüber gespeichert wird, wer was getan hat, wer es sieht,
-  wie lange, die Einstellung, und dass eine Betriebsvereinbarung erforderlich sein kann — ein Mustertext,
-  den der Mandant seinem Betriebsrat aushändigen kann (Produktlieferobjekt, `12`).
-- **PRIV-407** Nichts im Pfad der Aufgabenerledigung oder Bestätigung DARF *Dauer* oder
-  *Geschwindigkeit* der Arbeit über `performed_at` hinaus aufzeichnen (keine Start-/Stopp-Zeitstempel).
+**PRIV-401** [DEC-11 aktualisiert] `Tenant.settings.record_keeping` bestimmt die Klasse **je Feld** (§3.2):
+`pflschg_professional` / `kcang_association` / `both` → Pflichtfelder unter lit. c; `none` → keine
+Statutory-Klasse; `legacy` (nur Bestand, v0108) → heutiges Verhalten; `undeclared` → PRIV-409. Der Wechsel
+auf `none` löst den Reklassifizierungs-Job aus (`09` §4), der hinter dem Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY`
+steht (Gate §10).
 
----
+**PRIV-402** Wechselt `record_keeping` von gesetzlich auf `none`, MÜSSEN pseudonymisierte Zeilen neu
+klassifiziert werden (Tombstone → Marker, `notes` → Prüfung), auditiert (`TENANT_RECORD_KEEPING_CHANGED`);
+die Rückrichtung gilt nur für neue Zeilen. Solange das Flag aus ist, wird der Wechsel gespeichert, der Job
+aber nicht ausgeführt (Zustand `reclassification_pending`, Metrik).
 
-## 6. Prüfungen der Zweckbindung (Art. 5(1)(b))
+### 3.2 Feldgenaue Zuordnung: Vorschrift → Pflichtangabe → Anwendungsfeld → Aufbewahrungsregel
 
-| Flow | Original purpose | Secondary use | Verdict |
-|------|------------------|---------------|---------|
-| `treatment_applications.applied_by_key` → `care_events.performed_by_user_key` | PflSchG-Aufzeichnung | Beethistorie, Filter, CSV | vereinbar unter LIA-2 (LEG-07); Tombstones nie |
-| `harvest_batches.harvested_by_key` ← Task-Completion-Engine (`harvested_by_key = event.performed_by_user_key`) | Pflegelog | gesetzliche Aufzeichnung | dieselbe Tatsache, derselbe Moment; in Ordnung — aber die inhaltlichen Anforderungen an die *Aufzeichnung* (LEG-04) müssen aus der Erledigung erfüllt werden (heute schreibt eine Erledigung keine `treatment_applications`-Zeile [verifiziert], die §11-Aufzeichnung wird also **nicht** vom Aufgabenpfad erzeugt — REQ-053 §13.2 bestätigt, dass der IPM-Endpunkt der Nachweis ist) |
-| `bed_templates.name` → `Location.name` → `garden_plan_audit.summary` → SVG/PDF/JSON | Plan | Export/Druck | Inhalt, keine Zuordnung; Lineage registriert (PRIV-230) |
-| `users.display_name` → jede API-Darstellung | Identifikation | Aktivitätsanzeige | Schutzmaßnahmen von LIA-1 |
-| `security_audit_log` | Art. 32 | — | keine Sekundärnutzung erlaubt (REQ-049 „no surveillance") |
-| Gerätecache (`kp-plan-cache`) | Offline-Lesen | — | minimiert ([verifiziert] keine Namen, Notizen, Zuweisungen) |
+**PRIV-410** Art. 6 Abs. 1 lit. c und die Ausnahme Art. 17 Abs. 3 lit. b DÜRFEN NUR für Felder geltend gemacht
+werden, die in dieser Tabelle einer Vorschrift zugeordnet sind. Alle anderen Felder derselben Zeile folgen
+den Regeln für `shared_history` (Marker, Prüfung) bzw. den gewöhnlichen Fristen.
 
----
+| Vorschrift (Evidenz) | Pflichtangabe | Anwendungsfeld (VERIFIED_CODE) | Adressat | Frist / Beginn | Regel |
+|---|---|---|---|---|---|
+| KCanG § 26 Abs. 1 Nr. 3, Abs. 2 (L-05) | Mengen des angebauten Cannabis in Gramm | `harvest_batches.{Mengenfeld(er), harvest_date, cultivar/strain}`; `yield_metrics` (ohne Nutzerfeld) | Anbauvereinigung | 5 Jahre; Beginn in § 26 nicht geregelt → INFERRED: Entstehung der Aufzeichnung; LEG-17 | R-16 (Pflichtfelder) |
+| KCanG § 26 Abs. 1 Nr. 5 lit. b (L-05) | durchschnittlicher THC-Gehalt des **weitergegebenen** Cannabis | `quality_assessments` — **[?]** ob ein THC-Feld existiert (V-11); Weitergabe-Entität existiert nicht | Anbauvereinigung | 5 Jahre | R-16 nur, falls das Feld den THC-Wert der weitergegebenen Charge belegt |
+| KCanG § 26 Abs. 1 Nr. 5–7 (L-05) | Name/Vorname/Geburtsjahr der **Empfänger**, Transportbegleitende | **keine Entität in Kamerplanter** | Anbauvereinigung | 5 Jahre | außerhalb der Anwendung (Hinweis in Doku: Kamerplanter ist kein Weitergabe-Register) |
+| KCanG § 26 (L-05) | — | `harvest_batches.harvested_by_key`, `harvester`, `quality_assessments.assessed_by_key/assessed_by` | — | **keine Pflichtangabe** | **PRIV-411**: bei Löschung Marker (nicht Tombstone) in Mandanten mit `kcang_association`; `harvester` geleert; `notes` → Prüfung |
+| KCanG § 16 Abs. 3 (L-06) | Selbstauskunft der Mitglieder | keine Entität | Anbauvereinigung | 3 Jahre | außerhalb |
+| KCanG § 9, § 10 (L-07) | — | — | privater Eigenanbau | **keine Pflicht** | persönliche Mandanten: `none` |
+| PflSchG § 11 Abs. 2 S. 2 (L-01) | Zusammenführung der Aufzeichnungen „unter Angabe des jeweiligen Anwenders“ | `treatment_applications.applied_by_key` (+ lesbarer Bezug: heute `applied_by`, bei Löschung geleert) | Leiter eines gärtnerischen Betriebs (beruflich) | Frist nach Art. 67 VO 1107/2009 (L-03, UNVERIFIED_AT_SOURCE; NFR-011: 3 Jahre VERIFIED_SPEC); **Beginn 1. Januar des Folgejahres** (§ 11 Abs. 3, VERIFIED_LEGAL) | R-17 (Pflichtfeld); **LEG-04**: Pseudonym vs. lesbarer Name |
+| VO 1107/2009 Art. 67 Abs. 1 (L-03) / DVO 2023/564 Art. 2 (L-04) | Mittel, Zeitpunkt, Dosis, Fläche, Kultur (VERIFIED_SPEC NFR-011 R-17; Wortlaut nicht verifiziert) | `treatment_applications.{product/treatment_key, applied_at, dosage, location/area, crop/plant}` | berufliche Verwender | wie oben | R-17 (Pflichtfelder) |
+| PflSchG § 11 / VO 1107/2009 (L-01/L-03) | — | `treatment_applications.notes` | — | **keine Pflichtangabe** | `notes` → Prüfung bei Löschung |
+| PflSchG (Inspektionen) | **kein Fundstellennachweis** im Register für eine Pflicht, Überwachungsaufzeichnungen zu führen (NFR-011 R-18 nennt „PflSchG § 11“; § 11 selbst nennt Inspektionen nicht) | `inspections.*` | — | — | **PRIV-413**: R-18 gilt bis V-04/V-06 als `VERIFIED_SPEC` ohne rechtlichen Beleg; Klassifizierung `shared_history`, sofern LEG-03 keine Vorschrift benennt (LEGAL_REVIEW_REQUIRED) |
+| `care_events` mit `category ∈ {pest_control, ipm}` | — | — | — | — | keine Pflichtaufzeichnung (VERIFIED_SPEC REQ-053 §13.2, E-16); der „PflSchG-Vorbehalt“ in R-25 ist eine Aufbewahrungsuntergrenze, keine Rechtsgrundlage (LEG-07) |
 
-## 7. Informationspflichten (Art. 13/14) — Eingaben, die das Paket liefert
+**PRIV-412** [PROPOSED, VERIFIED_LEGAL L-01 Abs. 3] Die Aufbewahrungsfrist der PflSchG-Pflichtfelder MUSS ab
+dem **1. Januar des auf die Aufzeichnung folgenden Jahres** gerechnet werden, nicht ab `applied_at`.
+[VERIFIED_CODE] `LEGAL_RETENTION_RULES` rechnen heute ab `applied_at`/`inspected_at`; `retention_service.
+care_event_pflschg_cutoff` entsprechend. Die Korrektur **verlängert** die Aufbewahrung (bis zu 364 Tage) und
+ist ohne Rechtsfreigabe umsetzbar (schutzverstärkend für die Pflicht; nicht datenvernichtend). TA-412.
 
-**PRIV-408** Der Text der Datenschutzerklärung (Betreiber, `GET /privacy/policy`) und die mandantenseitigen
-Docs MÜSSEN nennen: das Pflegelog und seine Zuordnung; die Unterdrückung für ehemalige Mitglieder; die Prüfwarteschlange
-(ein Lead kann Zeilen sehen, die die Person geschrieben hat); die Offline-Speicherung auf dem Gerät (REQ-025 §10
-Zeilen); Namen Dritter in `performed_by_label` (Art. 14 — der Mandant informiert den Dritten;
-der UI-Hinweis „keine vollständigen Namen" [verifiziert SR-006] bleibt); Fotos, die
-Personen zeigen (REQ-053 §32.5 Pkt. 12 offen). **LEG-12** deckt die Formulierung ab.
+**PRIV-413** `treatment_applications` gilt bis zur Erledigung von V-04/V-06 als **Hilfsdokumentation**: Die
+Anwendung DARF NICHT behaupten, die Zeile sei eine vollständige Aufzeichnung nach DVO 2023/564 (Doku-Text
+„unterstützt die Aufzeichnung“ statt „ist der Nachweis“); REQ-053 §13.2 („`treatment_applications` bleibt der
+Nachweis“) ist entsprechend zu präzisieren (E16, W-13).
+
+**PRIV-411** [PROPOSED, DA-03] In Mandanten mit `kcang_association` (ohne `pflschg_professional`) erhält
+`harvested_by_key`/`assessed_by_key` bei Kontolöschung den **Marker**, nicht den Tombstone; die Mengen-/Datums-
+felder bleiben 5 Jahre. **Gate:** Änderung gegenüber Bestand (REQ-025 §3.1.3 Regel 2) → Flag
+`PRIVACY_RECORD_KEEPING_RECLASSIFY`, bis LEG-03/LEG-17 entschieden; bis dahin gilt für `kcang_association`
+der Bestand (Tombstone).
 
 ---
 
-## 8. Fristen, die eine rechtliche Freigabe erfordern (Zusammenfassung der Markierungen)
+## 4. Interessenabwägungen (Art. 6 Abs. 1 lit. f) — dreistufig (Prüfschema nach EDSA 1/2024, L-22 INFERRED)
 
-| Period / basis | Where | Flag |
-|----------------|-------|------|
-| 5 J. Aufbewahrung von Pflegeereignissen als 6(1)(f) (Fruchtfolge) | R-25 | LEG-02 |
-| 90 d Name ehemaliger Mitglieder | PRIV-112 | LEG-06 |
-| gesetzliche Anwendbarkeit je Mandant; KCanG-Paragraf; Lesbarkeit des Namens nach PflSchG | §3 | LEG-03, LEG-04, LEG-17 |
-| Zweckvereinbarkeit des Backfills | LIA-2 | LEG-07 |
-| Prüfmodell für Freitext und 30-Tage-SLA | `04` §5 | LEG-08 |
-| TDDDG-Einordnung von IndexedDB/Cache Storage | `07` §2 | LEG-09 |
-| Offline-Puffer 90/30 d, tote Sitzung 14 d | `07` §6–7 | LEG-10 |
-| Backups 30 d + Replay-Ledger 35 d | `09` §6 | LEG-11 |
-| DSFA-Schwelle, RoPA, Texte nach Art. 13/14 | `11` | LEG-12 |
-| Mandantenarchiv verlässt die Installation | REQ-056 §8 | LEG-13 |
-| Sichtbarkeit der Mitglieder-E-Mail | PRIV-305 | LEG-14 |
-| deterministische Tombstones | `04` §2.3 | LEG-15 |
-| Benachrichtigungen 90/180 d; Gieß-/Düngelogs 5 J.; geschlossene Aufgaben 2 J. | §2.3 neue Zeilen | LEG-08 (Umfang), DSB gemäß NFR-011 v1.29 („Vorschlag, DSB-Prüfung offen") |
+Jede LIA hält fest: (1) berechtigter Zweck, (2) Erforderlichkeit, (3) Abwägung einschließlich vernünftiger
+Erwartungen und Schutzmaßnahmen. Alle LIAs sind **Vorlagen für den Verantwortlichen** (DA-01: der Mandant);
+die Rechtsberatung prüft sie (LEG-02, LEG-06, LEG-07).
+
+### 4.1 LIA-1 — Sichtbarkeit der Zurechnung für andere Mitglieder (aktuelle Mitglieder)
+
+1. **Zweck**: Koordination gemeinsamer Arbeit (wer hat gegossen/behandelt), Korrektur eigener Zeilen,
+   Rechenschaft innerhalb von Gemeinschaftsgarten oder Betrieb. Die agronomische Historie braucht *was/wann*,
+   nicht *wer* (PRIV-004).
+2. **Erforderlichkeit**: Für Koordination während der aktiven Mitgliedschaft; nicht für die Historie; für
+   Rechenschaft zeitlich begrenzt. Mildere Mittel: `leads_and_self`, Unterdrückung nach Austritt, Marker nach R-25.
+3. **Abwägung**: vernünftige Erwartung (Aushang im Garten) vs. Profiling-Risiko (Anwesenheitsmuster,
+   Leistungsbewertung in Betrieben — DSK-Liste Nr. 8, L-17). Schutzmaßnahmen: keine Aggregation (PRIV-403),
+   Filter nur Lead/Management (SR-020, VERIFIED_CODE), `attribution_visibility` (PRIV-300) mit Klassen-
+   Defaults (DA-04), Namensunterdrückung ehemaliger Mitglieder (PRIV-112), Widerspruch (PRIV-116), kein Name
+   in Exporten für Nicht-Leads (PRIV-307), Transparenz (PRIV-115, PRIV-408).
+   **Ergebnis (PROPOSED)**: trägt für aktuelle Mitglieder unter den Maßnahmen; trägt **nicht** für die
+   fünfjährige Aufbewahrung des Namens → Marker/Unterdrückung. LEG-02.
+
+### 4.2 LIA-2 — Übernahme der Zurechnung aus gesetzlichen Zeilen ins Pflegeprotokoll (Art. 6 Abs. 4)
+
+1. **Zweck**: vollständige Beethistorie einschließlich Ernten/Behandlungen vor Einführung des Protokolls.
+2. **Erforderlichkeit**: Das Ereignis ist nötig, die Zurechnung nicht (Historie); sie wird jedoch nicht neu
+   erhoben, sondern aus einem vom Mitglied selbst gesetzten `performed_by` übernommen.
+3. **Vereinbarkeitsprüfung (Art. 6 Abs. 4 lit. a–e, Bezug)**: Zusammenhang (gleicher Mandant, gleiche Tätigkeit),
+   Erhebungskontext (Mitglied trug „ich habe“ ein), Art der Daten (nicht sensibel), Folgen (längere Frist,
+   Filter, CSV), Garantien (Allowlist, keine Pseudonyme, LIA-1-Maßnahmen). **Ergebnis (PROPOSED)**: vereinbar;
+   **Alternative** ohne Zurechnung per Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER` (DA-02). LEG-07.
+
+### 4.3 LIA-3 — Name ehemaliger Mitglieder für N Tage
+
+1. Übergabe-Zweck; 2. kurz (Saisonübergabe); 3. abnehmende Erwartung; Maßnahmen: N ≤ 365, Default 90, kein
+Filter/Export, Transparenz. LEG-06.
+
+### 4.4 LIA-4 — Sentry
+
+[VERIFIED_SPEC REQ-025 §9] „rechtlich zu bestätigen“; unverändert; LEG-16.
 
 ---
 
-## 9. Erforderliche Spec-Änderungen (Vorschläge, nicht angewendet)
+## 5. Beschäftigte, Auftragnehmende, Ehrenamtliche, Vereins- und Haushaltsmitglieder (LEG-05; DA-04)
 
-| Spec | Change |
-|------|--------|
-| NFR-011 | neue Zeilen R-43 (Prüfpunkte), R-44 (Datenschutzaktionen im Security-Audit), R-45 (Replay-Ledger), R-46 (Gieß-/Dünge-/Tanklogs), R-47 (geschlossene Aufgaben/Kommentare), R-48 (Benachrichtigungen); R-26 Akteur → Marker; Formulierung der R-25-Grundlage „6(1)(f); Art. 17(3) ist die Löschungsausnahme"; `care_events.material` in der Schwärzungsmenge von R-25; §3.1 Beat-Tabellenzeilen für die neuen Tasks |
-| REQ-025 | §3.1.3: Zuordnungsrollen und die Prüfwarteschlange als Phase 2.6; §10 Zeilen für `kp_local_data_owner`, `kp-garden-field-mode`, `kp.emailChange.address`, `kp.stepUp.*`, `kamerplanter:consent:v1` (heute fehlend [verifiziert]); die veralteten Zeilen `i18next`/`theme`/`redux_state` korrigieren (Schlüssel sind `kamerplanter-lang`, `kamerplanter-theme`; kein `redux_state`); Fußzeilenversion 1.5 → aktuell |
-| REQ-053 | Feldsatz GP-FR-109 + `material`; GP-NFR-055 `garden_plan_audit` Marker; der Widerspruch „DSGVO-Kaskade kann Freitexte ersetzen" (GP-FR-109) vs. „kein Freitextfeld wird bei der Kaskade geleert" (E-16) zugunsten von E-16 + Prüfwarteschlange aufgelöst |
-| REQ-024 / REQ-049 | Einstellungen `attribution_visibility`, `record_keeping`; E-Mail nur für `management`; `management` darf schwärzen |
-| REQ-022 | festhalten, dass Bestätigungen keine Akteurin / keinen Akteur und keine eigene Aufbewahrung haben; das abgeleitete Pflegeereignis trägt beides |
-| REQ-023 §5b.1 | „Backup-System → Cross-Tenant Read-Access" entfernen oder mit REQ-049 P4 in Einklang bringen |
-| docs `privacy.md` | „eine DSFA wurde durchgeführt" entfernen, bis es eine gibt (ADR-003 sagt offen) |
+Rechtsrahmen je Gruppe, Default der Sichtbarkeit und organisatorische Pflichten des Mandanten: Tabelle in
+DA-04 Pkt. 7 (normativ hier übernommen). Technische Einschränkungen:
+
+- **PRIV-403** Kein Endpunkt, Export oder keine UI DARF Aktivität je Person aggregieren (Zähler, Zeitreihen,
+  Ranglisten); Guard TA-309.
+- **PRIV-404** `attribution_visibility = leads_and_self` MUSS verfügbar sein und ist Default für
+  `organization_kind ∈ {commercial}` und für Auftragnehmende; `all_members` für `association`, `community`,
+  `personal` (DA-04).
+- **PRIV-405** Personenfilter und Namensexport werden auditiert (`ATTRIBUTION_FILTER_USED`,
+  `ATTRIBUTION_EXPORTED`); `management` sieht Zähler je Akteur (90 d).
+- **PRIV-406** Doku-Abschnitt „Für Betriebe und Vereine“ mit Mustertext für Betriebsrat/Information (E16).
+- **PRIV-407** Keine Dauer-/Geschwindigkeitsmessung über `performed_at` hinaus.
+- **PRIV-414** [PROPOSED] Der Hinweistext zu `attribution_visibility` (PRIV-301) MUSS die Evidenz nennen:
+  „§ 26 BDSG gilt nur für Beschäftigte i. S. v. § 26 Abs. 8; für Vereinsmitglieder gilt er nicht“ (L-09).
+
+---
+
+## 6. Zweckbindung (Art. 5 Abs. 1 lit. b) — Prüfung der Flüsse
+
+| Fluss | Ursprünglicher Zweck | Zweitnutzung | Bewertung |
+|-------|----------------------|--------------|-----------|
+| `treatment_applications.applied_by_key` → `care_events.performed_by_user_key` | Pflichtaufzeichnung (PA-05) | Beethistorie, Filter, CSV (PA-04) | LIA-2 (LEG-07); Pseudonyme nie (PRIV-205); Schalter DA-02 |
+| `care_events.performed_by_user_key` (Erledigung) → `harvest_batches.harvested_by_key` | Protokoll | Ernteaufzeichnung | gleiche Tatsache; `harvested_by_key` ist **keine** KCanG-Pflichtangabe (§3.2) → kein lit.-c-Zweck entsteht |
+| `bed_templates.name` → `locations.name` → `garden_plan_audit.summary` → Exporte | Plan | Export/Druck | Inhalt; Datenlinie (PRIV-230) |
+| `users.display_name` → Darstellungen | Identifikation | Aktivitätsanzeige | LIA-1 |
+| `security_audit_log` | Art. 32 | — | keine Zweitnutzung (REQ-049) |
+| Gerätecache | Offline-Lesen | — | minimiert (VERIFIED_CODE `storedProjection`) |
+
+---
+
+## 7. Informationspflichten (Art. 13/14)
+
+**PRIV-408** Die Datenschutzinformation des Betreibers (Plattform) und die **Vorlage** für die Information des
+Mandanten (Art. 13 gegenüber Mitgliedern, Art. 14 gegenüber in Labels genannten Dritten und abgebildeten Personen)
+MÜSSEN enthalten: Pflegeprotokoll und Zurechnung, Sichtbarkeitsregel des Mandanten, Unterdrückung ehemaliger
+Mitglieder, Prüfwarteschlange, Gerätespeicher (REQ-025 §10), Backups (≤ 35 d, Replay), Rechtsgrundlagen je PA
+(§2). Wortlaute: LEG-12 (E16).
+
+---
+
+## 8. Aufbewahrungsmatrix (Kurzform; Evidenz je Zeile)
+
+| # | Kategorie | Frist | Auslöser | Grundlage (Evidenz) | Status |
+|---|-----------|-------|----------|---------------------|--------|
+| R-01 | geschlossene Konten | 90 d | Antrag | lit. c (Art. 17) — INFERRED | VERIFIED_CODE |
+| R-03 | IP in Refresh-Tokens | 7 d | Ausstellung | lit. f — VERIFIED_SPEC REQ-023 | VERIFIED_CODE |
+| R-04/04a | Einwilligungen (+IP) | 3 J. nach Widerruf / 7 d | Widerruf | Art. 7 Abs. 1 — VERIFIED_SPEC | VERIFIED_CODE |
+| R-06 | `erasure_requests` | 3 J. | Abschluss | Art. 5 Abs. 2 — INFERRED | VERIFIED_CODE (Docstring „one year“ falsch, W-11) |
+| R-16 | Ernte-Pflichtfelder (§3.2) | ≥ 5 J. | `harvest_date` | lit. c **nur `kcang_association`** (L-05) | VERIFIED_CODE (Collection-weit → PRIV-410/411) |
+| R-17 | PflSchG-Pflichtfelder | 3 J. (VERIFIED_SPEC) ab **1.1. Folgejahr** (L-01) | Aufzeichnung | lit. c nur `pflschg_professional` | PRIV-412 Korrektur |
+| R-18 | Inspektionen | 3 J. | `inspected_at` | **ohne Beleg** (PRIV-413) | LEGAL_REVIEW_REQUIRED |
+| R-25 | `care_events` | 5 J. | `performed_at` | Inhalt lit. b, Zurechnung lit. f (DA-02); „Art. 17(3)“ in NFR-011 ist zu korrigieren | VERIFIED_CODE |
+| R-26 | `garden_plan_audit` | 365 d | `at` | lit. f — INFERRED | VERIFIED_CODE; Akteur → Marker (DEC-16) |
+| R-38 | `security_audit_log` | 730 d | `created_at` | Art. 32 — VERIFIED_SPEC | VERIFIED_CODE |
+| R-41/R-42 | Gerätecache/-puffer | 15 min / 90 d, 30 d (PROPOSED) | TTL/Erfassung | TDDDG § 25 Abs. 2 Nr. 2 (L-11) mit Schalter | PROPOSED, LEG-09/10 |
+| R-43 | `privacy_review_items` | 3 J. nach Entscheidung | Entscheidung | Art. 5 Abs. 2 | PROPOSED |
+| R-44 | Datenschutzaktionen im Security-Audit | 730 d | `created_at` | Art. 5 Abs. 2 | PROPOSED |
+| R-45 | **Löschungs-Spiegel** (`erasure_mirror`: Tombstone-Liste, keine Rohschlüssel; DEC-26) | wie R-06 (3 J.) | Abschluss | Art. 17 Durchsetzung nach Restore | PROPOSED, LEG-11 |
+| R-46 | Gieß-/Dünge-/Tankprotokolle | 5 J. (an R-25 angleichen) | Zeitpunkt | lit. b | PROPOSED |
+| R-47 | geschlossene Aufgaben/Kommentare | 2 J. | Abschluss | lit. b | PROPOSED, DSB |
+| R-48 | Benachrichtigungen | 90 d gelesen / 180 d ungelesen | `read_at`/`created_at` | lit. b | PROPOSED, DSB |
+| — | Backup-Dumps | ≤ 35 d | Erstellung | lit. f (Art. 32) | PROPOSED, LEG-11 |
+
+---
+
+## 9. Erforderliche Spec-Änderungen (Vorschläge, nicht angewendet; E16)
+
+| Spec | Änderung |
+|------|----------|
+| NFR-011 | R-16/R-17 **feldgenau** (§3.2) statt Collection-weit; R-17 Fristbeginn 1.1. Folgejahr (L-01); R-18 Fundstelle nachliefern oder Klasse ändern; R-25 Grundlage „lit. b/f; Art. 17 Abs. 3 ist Ausnahme“; R-26 Akteur → Marker; neue Zeilen R-43…R-48; `care_events.material` in R-25; §3.1 Beat-Tabelle |
+| REQ-025 | §3.1.3 Regel 2 feldgenau (Tombstone nur für Pflichtfelder gem. Profil); Zurechnungsrollen; Prüfwarteschlange Phase 2.6; §10 Tabelle (Schlüssel, TDDDG, Schalter); „CanG §X“ → § 26 KCanG (L-05) mit dem Hinweis, dass die erntende Person keine Pflichtangabe ist; Footer-Version |
+| REQ-053 | §13.2 „`treatment_applications` bleibt der Nachweis“ → „unterstützt die Aufzeichnung“ (PRIV-413); GP-FR-109 Feldsatz + `material`; GP-NFR-055 Plan-Audit Marker; GP-FR-109 vs. E-16 (W-01) |
+| REQ-024 / REQ-049 | `organization_kind`, `record_keeping`, `attribution_visibility`; E-Mail nur `management`; `management` darf schwärzen |
+| REQ-022 | Bestätigungen ohne Akteur und ohne eigene Aufbewahrung |
+| REQ-023 §5b.1 | „Backup-System → Cross-Tenant Read-Access“ mit REQ-049 P4 in Einklang bringen |
+| docs `privacy.md`, `compliance-anbauvereinigung.md` | DSFA-Satz entfernen (W-10); KCanG-Hinweis: Kamerplanter ist kein Weitergabe-Register nach § 26 Abs. 1 Nr. 5–7 |
+
+---
+
+## 10. Produktionsgates für Verarbeitungen dieses Dokuments
+
+Definitionen (README §„Produktionsgates“): `engineering_allowed` (Code mit Testdaten/Flag aus) ·
+`deployment_allowed` (ausrollbar, Flag aus) · `processing_allowed` (Flag an / Verarbeitung aktiv) mit den
+Werten `ja` · `nein (bis LEG-nn)` · `provisorisch (Bestand, Prüfdatum)`.
+
+| Maßnahme | Art | Gate | Durchsetzungspunkt |
+|----------|-----|------|--------------------|
+| Fristbeginn PflSchG 1.1. Folgejahr (PRIV-412) | schutzverstärkend für die Pflicht | ja | Code |
+| `harvested_by_key` Tombstone → Marker für `kcang_association` (PRIV-411) | datenvernichtend / Bestandsänderung | nein (bis LEG-03, LEG-17) | Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY` (Default aus) |
+| Reklassifizierung `legacy → none` (PRIV-402) | datenvernichtend | nein (bis LEG-03) | dasselbe Flag |
+| Backfill kopiert Zurechnung (LIA-2) | Bestand | provisorisch (Prüfdatum = LEG-07) | Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER` (Default = Bestand) |
+| `attribution_visibility`-Defaults (DA-04) | einschränkend | ja | Code/Setting |
+| E-Mail nur `management` (PRIV-305) | einschränkend | ja (Breaking Change dokumentiert) | Code |
+| Prüfwarteschlange, Entdeckung (DA-05) | schutzverstärkend | ja | Code |
+| Auto-Schwärzung nach SLA (DA-05) | datenvernichtend (fremde Historie) | nein (bis LEG-08) | Flag `PRIVACY_REVIEW_AUTO_REDACT_ON_SLA` (Default aus) |
+| Kommerzieller SaaS-Betrieb mit gewerblichen Mandanten | Betriebsmodell | `deployment_allowed` nein (bis LEG-01, LEG-05, LEG-12: AVV, Information, DSFA-Entscheidung) | Betreiber-Checkliste (DEC-32) |
+| Backups aktivieren | Infrastruktur | `deployment_allowed` nein (bis Spiegel + Restore-Replay vorhanden; LEG-11 Prüfdatum) | Helm `backup.enabled` nur mit `privacy.mirror.enabled` (DEC-26) |

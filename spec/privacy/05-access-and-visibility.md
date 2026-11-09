@@ -1,9 +1,11 @@
 # SPEC-05 — Zugriffs- und Sichtbarkeitsmatrix
 
 ```
-Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
 Anforderungs-IDs: PRIV-300 … PRIV-339
-Abhängig von: REQ-049 (Rollen), REQ-024 (Mandanten), 01 §4 (Zurechnungsrollen), 03 §3 (ehemalige Mitglieder)
+Abhängig von: REQ-049 (Rollen), REQ-024 (Mandanten), 01 §4 (Zurechnungsrollen), 03 §3 (ehemalige Mitglieder),
+06 §5 / 15 DA-04 (Personengruppen), 13 (L-09, L-10)
+Änderung v1.1: Defaults der Sichtbarkeit je Mandantenklasse, Rollennamen vereinheitlicht (W-12), Legende PRIV-316.
 ```
 
 Eine Einschränkung des **Filterns** ist keine Einschränkung der **Sichtbarkeit** (#2517): heute sieht jedes
@@ -61,8 +63,11 @@ Darstellungszustände einer Identität (aus `01` §4.3): `member` (Name angezeig
 
 Legende: **N** = Name angezeigt; **R** = nur Rolle/Beziehung („ein Mitglied", „ein Lead"), kein Name;
 **–** = nichts / kein Zugriff; **eigene** = nur die eigenen Zeilen des Akteurs; **S** = Selbstbedienung;
-**!** = auditierter Lesezugriff (Security-Audit-Zeile, PRIV-330); **(t)** = abhängig von der Mandanten-
-einstellung `attribution_visibility` (§4); **[v]** heute verifiziert; **[V]** Vorschlag.
+**!** = auditierter Lesezugriff (Security-Audit-Zeile, PRIV-316); **(t)** = abhängig von der Mandanten-
+einstellung `attribution_visibility` (§4; Default je Mandantenklasse, DA-04); **[v]** heute verifiziert
+(VERIFIED_CODE); **[V]** Vorschlag (PROPOSED). Rollenbezeichner: `viewer`/`grower`/`lead` (Rang) und
+`management`/`technical` (Scope) sind die einzigen Rollennamen des Codes (REQ-049); „Mandantenadministrator“
+ist in diesem Paket nur die Kurzform für `lead ∧ management` und erscheint nicht in API oder Code (W-12).
 
 | Dimension | Anonym | Viewer | Grower | Lead | Management | Lead ∧ Management | Plattformbetreiber | Service-Account |
 |-----------|--------|--------|--------|------|------------|-------------------|--------------------|-----------------|
@@ -112,13 +117,14 @@ within a tenant"). Bei `leads_and_self` werden die Dimensionen P/C/K/M für View
 Grower als **R** dargestellt, außer die Zeile ist ihre eigene (`eigene` → N). Leads und `management` sehen für
 aktuelle Mitglieder immer N.
 
-**PRIV-301** Die Einstellung DARF NUR von `lead ∧ management` geändert werden können, mit dem in der UI angezeigten Grund:
-„In Organisationen mit Beschäftigten kann das Gesetz verlangen, dass die Aktivität einzelner
-Beschäftigter nicht für alle Kolleginnen und Kollegen sichtbar ist (Art. 88 DSGVO, §26 BDSG, §87(1) Nr. 6 BetrVG)."
-**[rechtlich LEG-05]** ob der Standard für einen Organisationsmandanten stattdessen `leads_and_self` sein sollte.
-Das Paket empfiehlt: Standard `all_members` für `personal`, **`leads_and_self` für
-`organization`**, die nach der Änderung angelegt werden, `all_members` für bestehende Mandanten (keine stille
-Verhaltensänderung) — der Betreiber entscheidet.
+**PRIV-301** Die Einstellung DARF NUR von `lead ∧ management` geändert werden können, mit dem in der UI angezeigten
+Grund: „In Betrieben mit Beschäftigten kann das Gesetz verlangen, dass die Aktivität einzelner Beschäftigter nicht für
+alle Kolleginnen und Kollegen sichtbar ist (Art. 88 DSGVO, § 26 BDSG, § 87 Abs. 1 Nr. 6 BetrVG); für Vereinsmitglieder
+und Ehrenamtliche gilt § 26 BDSG nicht (§ 26 Abs. 8 BDSG)“ (L-09, L-10; PRIV-414). **Defaults nach Mandantenklasse
+(DA-04, löst die v1.0-Formulierung ab):** `personal` → `all_members`; `organization_kind = commercial` →
+`leads_and_self`; `association`/`community`/`other` → `all_members`; Bestandsmandanten (`unknown_legacy`) →
+`all_members` (keine stille Änderung). **[LEGAL_REVIEW_REQUIRED LEG-05]** ob `leads_and_self` für gewerbliche
+Mandanten verpflichtend sein muss.
 
 **PRIV-302** Die Einstellung MUSS Teil des Mandantenexports (REQ-056) und des Abschnitts zum persönlichen Mandanten
 im Art.-15-Bündel sein (dort ist sie die eigene Einstellung der Person).
