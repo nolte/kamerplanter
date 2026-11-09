@@ -140,7 +140,7 @@ Ein Fehler in diesen Phasen DARF die Löschung NICHT zurückrollen (die Zurechnu
 **PRIV-109** [Vorschlag] Eskalationsschwellen MÜSSEN für Konto- und Mandantenlöschung identisch sein.
 Heute eskaliert die Kontolöschung bei Versuch 5 (`ERASURE_ESCALATE_AFTER_ATTEMPTS`), die Mandantenlöschung
 bei 3 (`TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS`). Empfehlung: 3 für beide,
-eine Einstellung `PRIVACY_OPERATION_ESCALATE_AFTER_ATTEMPTS`. Abnahme: TA-108.
+eine Einstellung `PRIVACY_OPERATION_ESCALATE_AFTER_ATTEMPTS`. Abnahme: TA-105.
 
 **PRIV-110** [Vorschlag] Eine Löschung, die länger als
 `PRIVACY_OPERATION_STALE_ALERT_DAYS` (Standard 14) in `partially_completed` verbleibt, MUSS als Metrik
@@ -283,8 +283,8 @@ zuerst deaktiviert, dann gelöscht, `client_event_tombstones`), gesetzlich aufzu
 am längsten aufzubewahrenden gesetzlichen Zeile oder 5 Jahre (R-06a).
 
 **PRIV-126** [Vorschlag] Die neuen Collections `privacy_review_items` und (falls separat)
-`redaction_log` MÜSSEN in `TenantErasureEngine.INVENTORY` als `_delete` stehen. Das Replay-Ledger
-ist plattformweit (`NOT_TENANT_SCOPED` mit Begründung).
+`redaction_log` MÜSSEN in `TenantErasureEngine.INVENTORY` als `_delete` stehen. Der Löschungs-Spiegel
+`erasure_mirror` und `migration_reports` sind plattformweit (`NOT_TENANT_SCOPED` mit Begründung, DEC-26).
 
 **PRIV-127** [Vorschlag] Verwaiste Mandanten (`orphaned`, REQ-024 AK-65) MÜSSEN in die
 Überwachung der Datenschutzvorgänge (PRIV-110) einbezogen werden, weil ihr Karenzzeit-Timer läuft, ohne dass ein Mitglied

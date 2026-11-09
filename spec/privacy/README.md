@@ -21,7 +21,7 @@ Es baut auf REQ-025, NFR-011, REQ-023/024/049, REQ-053 und UI-NFR-012 auf und ä
 
 | # | Dokument | Inhalt | IDs |
 |---|----------|--------|-----|
-| 01 | [`01-privacy-architecture.md`](01-privacy-architecture.md) | Vokabular, Komponenten, Datenflüsse, Vertrauensgrenzen, Identitätstrennung, Prinzipien | PRIV-001…012 |
+| 01 | [`01-privacy-architecture.md`](01-privacy-architecture.md) | Vokabular, Komponenten, Datenflüsse, Vertrauensgrenzen, Identitätstrennung, Prinzipien | PRIV-001…012 (Bereich 001–029) |
 | 02 | [`02-personal-data-inventory.md`](02-personal-data-inventory.md) | feldgenaues Inventar mit Lebenszyklus; Ableitungswege (§5/§5a); nicht existierende Felder | PRIV-030…031 |
 | 03 | [`03-account-and-membership-lifecycle.md`](03-account-and-membership-lifecycle.md) | Kontolöschung, Mitgliedschaftsende, Mandantenlöschung, Wiedereintritt, Offline, Pflichtaufzeichnungen, Teilausfall | PRIV-100…134 |
 | 04 | [`04-anonymization-and-redaction.md`](04-anonymization-and-redaction.md) | Identifikationsklassen, Marker/Tombstone (zwei Generationen), Zustandsautomat der Freitextprüfung, generische Schwärzung, Verifikation | PRIV-200…239 |

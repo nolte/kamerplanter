@@ -38,7 +38,7 @@ darauf auf und ersetzt sie nicht:
 | Ablauf der Kontolöschung | `PrivacyService.request_erasure` / `erase_account` / `_finalize_erasure` in `domain/services/privacy_service.py`; API `api/v1/privacy/router.py` | implementiert: Step-up, sofortiges Soft-Close, Hard-Delete nach 90 Tagen (R-01), Claim/Retry, Zustand `partially_completed`, kein Abbruch |
 | Aufbewahrung (NFR-011) | ein Celery-Beat-Task pro Kategorie in `app/tasks/retention_tasks.py`; Obergrenzen/Untergrenzen in `app/config/settings.py` (`RETENTION_CEILINGS`) | implementiert für R-01…R-07, R-16…R-18 (nur gelöschte Mandanten), R-25, R-26, R-38; R-14/R-15/R-19…R-21/R-27…R-40 nicht implementiert |
 | Einwilligung | `ConsentEngine.PURPOSES` (`domain/engines/consent_engine.py`), `ConsentGuard` (`domain/guards/consent_guard.py`) | implementiert, Guard auf Service-Ebene, keine Middleware |
-| Zwei Ersatzformen für eine gelöschte betroffene Person | Marker `_anonymized` (`ANONYMIZED_MARKER`) für Zeilen geteilter Mandanten; Tombstone `anon_<16hex>` (`compute_tombstone_hash`, `sha256(user_key + ERASURE_TOMBSTONE_SALT)[:16]`) für gesetzliche und Audit-Zeilen | implementiert; die Marker-Konstante ist viermal kopiert (`erasure_engine.py`, `models/care_event.py`, `attachment_repository.py`, `tenant_export_engine.py:ANONYMIZED_ACCOUNT`), der Tombstone-Regex zweimal als Literal |
+| Zwei Ersatzformen für eine gelöschte betroffene Person | Marker `_anonymized` (`ANONYMIZED_MARKER`) für Zeilen geteilter Mandanten; Tombstone `anon_<16hex>` (`compute_tombstone_hash`, `sha256(user_key + ERASURE_TOMBSTONE_SALT)[:16]`) für gesetzliche und Audit-Zeilen | implementiert; die Marker-Konstante ist viermal kopiert (`erasure_engine.py`, `models/care_event.py`, `attachment_repository.py`, `tenant_export_engine.py:ANONYMIZED_ACCOUNT`), der Tombstone-Regex dreimal als Literal; je eine weitere eingefrorene Kopie in `v0107_care_event_tombstone_performer.py` (bleibt, NFR-016 M-7; `04` §1) |
 | Pflegeprotokoll (REQ-053 §13) | `domain/models/care_event.py`, `domain/services/care_event_service.py`, `care_event_repository.py`; rollenabhängiger `performed_by`-Filter (`MembershipEngine.can_filter_care_log_by_member`); Schwärzung nur durch lead `POST /care-events/{key}/redact` | implementiert (WP 4.3, 8.1, 8.3, 9.3) |
 | Offline (REQ-053 Welle 9, UI-NFR-012 v2.4) | `src/frontend/src/sw.ts`, `pwa/cachePolicy.ts`, `features/gardenPlanner/offline/{db,queueDb,queue,sync,retention}.ts`, `pwa/offlineData.ts` | implementiert: IndexedDB `kp-plan-cache` / `kp-write-queue`, Cache Storage `kp:{user}:{tenant}` (latent, das Backend sendet `no-store`), Kill-Switch `PWA_CACHING_ENABLED`, Replay-Idempotenz `client_event_id` (v0106) |
 
@@ -403,7 +403,7 @@ sequenceDiagram
     participant A as garden_plan_audit / security_audit_log
 
     PLE->>RQ: ein Eintrag je (Mandant, Collection, Schlüssel, Feld), in dem die gelöschte betroffene Person Inhalte verfasst hat<br/>oder in dem Namenstokens der betroffenen Person vorkommen (04 §5.2) — kein Snippet gespeichert
-    L->>RQ: GET /t/T/privacy/review?status=open
+    L->>RQ: GET /t/T/privacy/review?status=review_required
     L->>RS: POST /t/T/privacy/review/{item}/decide {decision: redact|keep, reason}
     RS->>RS: redact field (allowlist REDACTABLE_FIELDS) or record keep-reason
     RS->>A: Audit-Zeile (nur Kategorie, nie der Text)

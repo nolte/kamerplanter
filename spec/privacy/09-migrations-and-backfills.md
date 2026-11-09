@@ -152,8 +152,9 @@ Raw-Key-Ledger aus v1.0 entfällt (W-09; weniger personenbezogene Daten, DEC-26)
 ### 6.3 Löschungs-Spiegel (`erasure_mirror`)
 
 **PRIV-709 (neu gefasst)** Bei jedem Abschluss einer Konto- oder Mandantenlöschung MUSS der Betreiber-Dienst einen
-Eintrag in den **Löschungs-Spiegel** schreiben: `{kind: account|tenant, tombstone | tenant_key, erasure_key,
-completed_at, plan_fingerprint}` — **kein Rohschlüssel, kein Name**. Der Spiegel lebt (a) in ArangoDB
+Eintrag in den **Löschungs-Spiegel** schreiben: `{kind: account|tenant, tombstone (instanzweit, = erasure_requests.user_key),
+tenant_tombstones[] (mandantengebundene anon2_-Werte, PRIV-238) | tenant_key, erasure_key, completed_at,
+plan_fingerprint}` — **kein Rohschlüssel, kein Name**. Der Spiegel lebt (a) in ArangoDB
 (`erasure_mirror`, Plattform, `NOT_TENANT_SCOPED`) und (b) **append-only** als Objekt `privacy/erasure-mirror.jsonl`
 im Backup-Bucket, verschlüsselt mit dem Fernet-Schlüssel (`FERNET_KEY`, VERIFIED_CODE: vorhanden für OIDC-Secrets),
 mit HMAC-Kette über die Einträge (Integrität). Zugriff: nur der Backup-/Restore-Prozess (Bucket-Policy); Aufbewahrung:
@@ -173,9 +174,11 @@ zu vereinigen.
 `python -m app.migrations.privacy_restore_replay --mirror <path>` aus:
 1. Vereinigung der Tombstone-Liste aus dem Spiegel-Objekt (entschlüsselt, HMAC geprüft) und den wiederhergestellten
    `erasure_requests` (`status = completed`, `user_key =~ TOMBSTONE_REGEX`).
-2. Für **jede** wiederhergestellte `users`-Zeile: `compute_tombstone_hash(_key, salt)` (beide Formate, DEC-25) → Treffer
-   in der Liste ⇒ Konto wurde gelöscht ⇒ `erase_account_now`-Äquivalent erneut ausführen (idempotent; Tombstone
-   deterministisch).
+2. Für **jede** wiederhergestellte `users`-Zeile: instanzweiter `compute_tombstone_hash(_key, salt)` → Treffer in der
+   Liste ⇒ Konto wurde gelöscht ⇒ `erase_account_now`-Äquivalent erneut ausführen (idempotent; der instanzweite
+   Tombstone existiert für jede Löschung genau einmal, PRIV-238). Die mandantengebundenen `anon2_`-Werte werden
+   dabei aus den wiederhergestellten Mitgliedschaften neu abgeleitet und gegen `tenant_tombstones` geprüft
+   (Residue-Scan, Schritt 4) — sie sind nie der Schlüssel des Abgleichs.
 3. Für jede `tenant_erasure_records`-Zeile `completed` (Spiegel ∪ Dump), deren Mandantenzeile existiert ⇒ Mandanten-
    löschung erneut ausführen.
 4. Prüfeinträge (idempotente Schlüssel) neu erzeugen; Bericht (Zähler) als `migration_reports`-Eintrag `restore_replay`.

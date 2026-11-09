@@ -40,14 +40,16 @@ entfernt; Verknüpfbarkeit auf einen Mandanten und eine Aufbewahrungsklasse begr
 zugesagt wird „anonym“ für Zeilen mit Freitext.
 
 **PRIV-201** Der Marker und die Tombstone-Regex MÜSSEN jeweils genau eine Definition haben.
-[verifiziert] `_anonymized` ist viermal definiert (`erasure_engine.py:ANONYMIZED_MARKER`,
-`models/care_event.py:ANONYMIZED_MARKER`, `attachment_repository.py:ANONYMIZED_MARKER`,
-`tenant_export_engine.py:ANONYMIZED_ACCOUNT`), die Regex `^anon_[0-9a-f]{16}$` dreimal
-(`erasure_engine.TOMBSTONE_FULLMATCH_REGEX`, `tenant_erasure_executor._TOMBSTONE_REGEX`,
-`tenant_export_engine._TOMBSTONE`). Beide nach `domain/models/privacy.py` verschieben (die Domänenschicht
-darf es aus jeder anderen Schicht importieren); der bestehende Test
-`test_garden_plan_retention.py`, der drei Kopien als gleich festschreibt, wird zu einem Guard, dass es
-nur eine gibt. Abnahme: TA-200.
+[VERIFIED_CODE, develop 343afbb97] `_anonymized` ist viermal im Anwendungscode definiert
+(`erasure_engine.py:ANONYMIZED_MARKER`, `models/care_event.py:ANONYMIZED_MARKER`,
+`attachment_repository.py:ANONYMIZED_MARKER`, `tenant_export_engine.py:ANONYMIZED_ACCOUNT`) plus einmal
+eingefroren in `migrations/versions/v0107_care_event_tombstone_performer.py:_MARKER`; die Regex
+`^anon_[0-9a-f]{16}$` dreimal im Anwendungscode (`erasure_engine.TOMBSTONE_FULLMATCH_REGEX`,
+`tenant_erasure_executor._TOMBSTONE_REGEX`, `tenant_export_engine._TOMBSTONE`) plus einmal eingefroren in
+v0107 (`_TOMBSTONE_REGEX`). Die Anwendungskopien nach `domain/models/privacy.py` verschieben (die Domänenschicht
+darf es aus jeder anderen Schicht importieren); die Migrationskopien bleiben (NFR-016 M-7) und sind vom Guard
+ausgenommen. Der bestehende Test `test_garden_plan_retention.py`, der drei Kopien als gleich festschreibt, wird zu
+einem Guard, dass es im Anwendungscode nur eine gibt. Abnahme: TA-200.
 
 ---
 
@@ -66,9 +68,14 @@ DEC-04; eine künftige Schlüsselrotation braucht eine Re-Keying-Migration (`09`
 `sha256(x + salt)`. Die Wiederverwendung von `erasure_tombstone_salt` als Digest-Schlüssel für Client-Events
 (REQ-053 §32.6 Pkt. 16, SEC-003) wird als eigenes Paket E18 (abgeleiteter Schlüssel mit Übergangsregel) geführt.
 
-**PRIV-238** [PROPOSED, DEC-25] **Neue** Pseudonymisierungen (Zeilen, die nach Einführung pseudonymisiert werden)
-MÜSSEN mandantengebunden abgeleitet werden: `anon2_ + HMAC-SHA256(ERASURE_TOMBSTONE_SALT, "tombstone:" ||
-tenant_key || ":" || user_key)[:16]`. Begründung: Der heutige instanzweite Tombstone verknüpft eine gelöschte Person
+**PRIV-238** [PROPOSED, DEC-25] **Neue** Pseudonymisierungen in **mandantenbezogenen** Zeilen (die gesetzlichen
+Collections `harvest_batches`, `quality_assessments`, `treatment_applications`, `inspections` und jede weitere
+Allowlist-Zeile mit `tenant_key`) MÜSSEN mandantengebunden abgeleitet werden: `anon2_ + HMAC-SHA256(ERASURE_TOMBSTONE_SALT,
+"tombstone:" || tenant_key || ":" || user_key)[:16]`. **Plattformweite** Audit-Zeilen ohne `tenant_key`
+(`erasure_requests.user_key`, `security_audit_log`, `consent_records`, `mcp_audit_log`) behalten den instanzweiten
+Tombstone `anon_` — pro Löschung existiert damit genau **ein** instanzweiter Tombstone (= `erasure_requests.user_key`),
+auf den sich Art.-15-Suche, Spiegel und Restore-Abgleich stützen (`09` §6), und null bis n mandantengebundene.
+Begründung: Der heutige instanzweite Tombstone verknüpft eine gelöschte Person
 über alle Mandanten und Exportarchive hinweg (RISK-19); innerhalb eines Mandanten bleibt die Verknüpfbarkeit (Prüfzweck)
 erhalten. `is_tombstone` und die Allowlist-Regex kennen beide Generationen (`^anon_[0-9a-f]{16}$|^anon2_[0-9a-f]{16}$`);
 die Art.-15-Suche (REQ-025 §3.1.2 Regel 6) prüft je `(tenant_key, user_key)`. Bestandstombstones werden **nicht**
@@ -267,7 +274,7 @@ stateDiagram-v2
 
 | Zustand | Bedeutung | Austritt |
 |---------|-----------|----------|
-| `DISCOVERY_PENDING` | Entdeckung der Kandidaten einer Löschung läuft (seitenweise, Cursor `review_discovery_cursor` am `erasure_requests`-Dokument; Namens-Token nur bis Abschluss der Entdeckung im Speicher, danach verworfen) | alle Seiten verarbeitet → `review_discovery_completed_at` gesetzt |
+| `DISCOVERY_PENDING` | **Zustand des Löschauftrags, nicht des Eintrags** (im Diagramm der Vollständigkeit halber): Entdeckung der Kandidaten einer Löschung läuft (seitenweise, Cursor `review_discovery_cursor` am `erasure_requests`-Dokument; Einträge entstehen direkt in `REVIEW_REQUIRED`; Namens-Token nur bis Abschluss der Entdeckung im Speicher, danach verworfen) | alle Seiten verarbeitet → `review_discovery_completed_at` gesetzt |
 | `REVIEW_REQUIRED` | Eintrag offen; `due_at = created_at + PRIVACY_REVIEW_SLA_DAYS` | Entscheidung, SLA-Ablauf, Zeile weg |
 | `REDACTION_PENDING` | Schwärzung angeordnet, noch nicht geschrieben (Transaktion, Lineage-Batch) | geschrieben / Fehler |
 | `REDACTED` | Felder geschwärzt, Audit-Zeile vorhanden | — |
@@ -300,7 +307,9 @@ mindestens ein nicht leeres Prüffeld hat, **oder** (b) — nur wenn die betroff
 der Anzeigename, an Leerraum getrennt, Tokens mit ≥ 3 Buchstaben, Substring-Vergleich ohne Beachtung der Groß-/Kleinschreibung,
 berechnet **bevor** die Nutzerzeile gelöscht wird und danach verworfen; der lokale Teil der E-Mail-Adresse wird
 **nicht** verwendet (zu viele Fehltreffer, und er ist selbst personenbezogen und entsprechend
-zu behandeln). Der Eintrag speichert `match_kinds ∈ {authored, performed, name_token}` und die Feld­namen —
+zu behandeln). Der Eintrag speichert `match_kinds ⊆ {authored, performed, modified, name_token, lineage}`
+(`authored` = `created_by`, `performed` = Durchführenden-Feld, `modified` = `updated_by`/`redacted_by`-artige Felder,
+`name_token` = Freitexttreffer, `lineage` = über eine Vorlage abgeleitete Zeile, PRIV-230) und die Feld­namen —
 **niemals den Text, niemals den Token, niemals den Schlüssel der betroffenen Person** (der `erasure_key` des Eintrags verweist auf den Anfrage-Datensatz,
 dessen `user_key` der Tombstone ist).
 
@@ -323,7 +332,7 @@ gelöscht mit `review_discovery_completed_at`).
 ### 5.3 Prüfung und Entscheidung
 
 **PRIV-224** Leads und `management` des Mandanten MÜSSEN die Warteschlange sehen
-(`GET /t/{slug}/privacy/review?status=open|decided`, `08` §5), wobei jeder Eintrag über den normalen
+(`GET /t/{slug}/privacy/review?status=review_required|…`, Zustandsnamen aus §5.1a, `08` §4.1), wobei jeder Eintrag über den normalen
 (rollengeprüften) Lesepfad auf die aktuelle Zeile aufgelöst wird, sodass sie den Live-Text in der eigenen
 Detailansicht der App ansehen.
 
@@ -342,7 +351,7 @@ sieht Zählwerte (REQ-049 P4). **[LEGAL_REVIEW_REQUIRED LEG-08]**: Darf die Ents
 (DA-01)? Ist 30 Tage mit „unverzüglich“ vereinbar? Ist die Auto-Schwärzung eigener Zeilen nach SLA angemessen?
 
 **PRIV-227** Einträge und ihre Entscheidungen werden mit dem Mandanten und nach
-`PRIVACY_REVIEW_ITEM_RETENTION_DAYS` (Standard 3 Jahre, abgestimmt auf R-06 als Nachweis der
+`PRIVACY_REVIEW_ITEM_RETENTION_YEARS` (Standard 3, abgestimmt auf R-06 als Nachweis der
 Nachverfolgung der Löschung) gelöscht — NFR-011 braucht eine Zeile `R-43` (Spec-Änderungsvorschlag, `06`).
 
 ---
@@ -388,7 +397,7 @@ Datenrechte hat.
 |--------|-----------|
 | `care_events.performed_by_user_key =~ ^anon_[0-9a-f]{16}$` (vor #2839 von v0104 / Konsistenz-Job kopiert; Bestand durch v0107 korrigiert — der Befund bleibt als Regressionswächter) | → `_anonymized`; Anzahl pro Mandant |
 | `garden_plan_audit.user_key`-Tombstones (nach DEC-16) | → `_anonymized` |
-| vor #1669/#1663 geschriebene Zeilen mit `*_by_key = null` und eingetipptem Anzeigenamen (`harvester`, `applied_by`, `inspector`, `assessed_by`) | **nicht** automatisch korrigierbar (REQ-025: ein Name ist kein Schlüssel); den Leads des Mandanten **einmalig** als Prüfeinträge aufgelistet, mit `match_kind = legacy_unkeyed_name`, begrenzt durch PRIV-223 |
+| vor #1669/#1663 geschriebene Zeilen mit `*_by_key = null` und eingetipptem Anzeigenamen (`harvester`, `applied_by`, `inspector`, `assessed_by`) | **nicht** automatisch korrigierbar (REQ-025: ein Name ist kein Schlüssel); den Leads des Mandanten **einmalig** als Prüfeinträge aufgelistet, mit `source_kind = legacy_unkeyed_name` und `match_kinds = [name_token]`, paginiert nach PRIV-223 |
 | `attachments.original_filename` von Zeilen mit `created_by = _anonymized` | → `""` |
 | `tenant_export_engine.ANONYMIZED_ACCOUNT` / drei Regex-Kopien | Code-Konsolidierung, keine Datenänderung |
 
@@ -436,12 +445,12 @@ Neu: ein Prüfeintrag (kein Text, kein Name):
 ```json
 {"_key":"rvw_9c…","tenant_key":"t_garden","erasure_key":"erq_…","collection":"care_events",
  "row_key":"ce_1","fields":["summary"],"match_kinds":["performed","name_token"],
- "status":"open","created_at":"2026-12-01T04:12:00Z"}
+ "status":"REVIEW_REQUIRED","due_at":"2026-12-31T04:12:00Z","created_at":"2026-12-01T04:12:00Z"}
 ```
 
 Der Lead entscheidet `redact` → Zeile: `"summary":"[redacted]"`, `redacted_at/by/reason` gesetzt,
 `garden_plan_audit`-Zeile `{op:"redact", entity:"care_event", summary:"watering"}`; Eintrag
-`status:"decided", decision:"redact", decided_by:"u_lead"`.
+`status:"REDACTED", decision:"redact", decided_by:"u_lead"` (über `REDACTION_PENDING`, §5.1a).
 
 API-Darstellung der Zeile für eine Grower-Rolle, vorher und nachher: `performed_by: null`,
 `performed_by_kind: "erased"` (heute: `performed_by: "anonymisiert"`).

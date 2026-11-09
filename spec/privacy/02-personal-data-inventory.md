@@ -73,7 +73,7 @@ konstruktionsbedingt keinen personenbezogenen Freitext. Geometrie (`garden_objec
 
 | ⟂ | Entität.Feld | Kat | Personenbezogen? | Zweck | Rechtsgrundlage | Sichtbarkeit | Aufbewahrung | Löschung | Anonymisierung | Herkunft |
 |---|--------------|-----|-------------|---------|-------------|------------|-----------|---------|---------------|---------|
-| ⟂ | `erasure_requests.{user_key, status, step_up, requested_by_subject, members_notified_at, …}` | CONS/AUD | ja → pseudonymisiert | Nachweis Art. 5(2) | 6(1)(c) | selbst (Status), Plattform-Admin | R-06 3 J | `user_key` → Tombstone | Tombstone | `erasure_replay_ledger` (neu, `09` §6) |
+| ⟂ | `erasure_requests.{user_key, status, step_up, requested_by_subject, members_notified_at, …}` | CONS/AUD | ja → pseudonymisiert | Nachweis Art. 5(2) | 6(1)(c) | selbst (Status), Plattform-Admin | R-06 3 J | `user_key` → Tombstone | Tombstone | `erasure_mirror` (Tombstone, kein Rohschlüssel; `09` §6) |
 | | `data_export_requests`, Export-Bündel `privacy/exports/<user_key>/<key>.json` [v nur Objektschlüssel mit einem Benutzerschlüssel] | CONS | ja | Art. 15/20 | 6(1)(c) | selbst | R-05 72 h | gelöscht | — | — |
 | | `processing_restrictions`, `email_change_requests` | CONS | ja | Art. 18/16 | 6(1)(c) | selbst | R-13 unbegrenzt / R-07 | gelöscht | — | — |
 | ⟂ | `consent_records.{user_key, purpose, granted, ip, user_agent, revoked_at}` | CONS | ja | Art. 7(1) | 6(1)(c) | selbst, Plattform-Admin | R-04 3 J nach Widerruf; IP 7 d | `user_key` → Tombstone, `user_agent` geleert | Tombstone | — |

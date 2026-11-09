@@ -80,7 +80,8 @@ Regel erreicht, hat genau eine. Der Unit-Test `test_privacy_engines.py` erhält 
 ```python
 # domain/models/privacy.py
 ANONYMIZED_MARKER = "_anonymized"
-TOMBSTONE_PATTERN = re.compile(r"^anon_[0-9a-f]{16}$")
+TOMBSTONE_REGEX = r"^anon_[0-9a-f]{16}$|^anon2_[0-9a-f]{16}$"   # beide Generationen (PRIV-238, W-08); in 09 unter demselben Namen
+TOMBSTONE_PATTERN = re.compile(TOMBSTONE_REGEX)
 REDACTED = "[redacted]"
 
 def is_tombstone(value: str | None) -> bool: ...
@@ -97,7 +98,8 @@ Aufrufstellen, die umzuhängen sind [verifiziert]: `erasure_engine.py` (definier
 ruft es bereits `ErasureEngine.is_tombstone` → Marker), `domain/engines/task_completion_engine.py`
 (`harvested_by_key = event.performed_by_user_key`). Der Test
 `test_garden_plan_retention.py` (pinnt drei Kopien als gleich) wird zu einem Guard, der prüft, dass die Namen
-importiert und nicht neu definiert werden (AST-Scan auf ein zweites Literal `"_anonymized"` in `app/`).
+importiert und nicht neu definiert werden (AST-Scan auf ein zweites Literal `"_anonymized"` in `app/`, **ohne**
+`app/migrations/versions/` — eingefrorene Migrationen wie v0107 kopieren die Konstanten absichtlich, NFR-016 M-7).
 
 ### 2.3 PersonRef und der Resolver
 
@@ -272,8 +274,9 @@ class PrivacyReviewItem(BaseModel):
     row_key: str
     fields: list[str]                             # review fields present on the row at creation
     match_kinds: list[Literal["authored", "performed", "modified", "name_token", "lineage"]]
-    status: Literal["DISCOVERY_PENDING", "REVIEW_REQUIRED", "REDACTION_PENDING", "REDACTED",
-                    "RETAINED_WITH_LEGAL_BASIS", "VOID", "FAILED"] = "REVIEW_REQUIRED"   # 04 §5.1a
+    status: Literal["REVIEW_REQUIRED", "REDACTION_PENDING", "REDACTED",
+                    "RETAINED_WITH_LEGAL_BASIS", "VOID", "FAILED"] = "REVIEW_REQUIRED"   # 04 §5.1a; DISCOVERY_PENDING
+                                                  # ist ein Zustand des Löschauftrags (review_discovery_cursor), kein Item-Zustand
     due_at: datetime                              # created_at + PRIVACY_REVIEW_SLA_DAYS
     overdue_since: datetime | None = None
     decision: Literal["redact", "keep"] | None = None
@@ -293,7 +296,8 @@ class PrivacyReviewItem(BaseModel):
 class ErasureMirrorEntry(BaseModel):              # DEC-26 — ersetzt ErasureReplayLedgerEntry (v1.0)
     key: str | None = Field(alias="_key")         # = erasure_key bzw. "ter_<tenant_key>"
     kind: Literal["account", "tenant"]
-    tombstone: str | None = None                  # account: Pseudonym (beide Formate); NIE der Rohschlüssel
+    tombstone: str | None = None                  # account: instanzweiter Tombstone (`anon_`, = erasure_requests.user_key); NIE der Rohschlüssel
+    tenant_tombstones: list[str] = Field(default_factory=list)  # account: mandantengebundene `anon2_`-Werte (PRIV-238), für den Residue-Scan nach Restore
     tenant_key: str | None = None                 # tenant
     completed_at: datetime
     plan_fingerprint: str
@@ -341,7 +345,7 @@ class SecurityAuditEntry(BaseModel):
 
 | Methode & Pfad | Gate | Body / Query | Antwort | Spec |
 |----------------|------|--------------|---------|------|
-| `GET /t/{slug}/privacy/review` | `privacy.review` (lead ∨ management) | `status=open\|decided\|void`, `collection`, cursor, `limit ≤ 200` | `{items: PrivacyReviewItemResponse[], next_cursor, counts: {open, overdue}}`; jedes Item trägt eine **aufgelöste Zeilenvorschau**, geholt über den normalen Leseweg (`detail_url`, aktuelle `fields`-Werte) — die Vorschau wird berechnet, nie gespeichert | PRIV-224 |
+| `GET /t/{slug}/privacy/review` | `privacy.review` (lead ∨ management) | `status=review_required\|redaction_pending\|redacted\|retained_with_legal_basis\|void\|failed` (Mehrfachauswahl, Default `review_required`; Zustandsnamen aus `04` §5.1a in Kleinschreibung), `collection`, cursor, `limit ≤ 200` | `{items: PrivacyReviewItemResponse[], next_cursor, counts: {review_required, overdue}}`; jedes Item trägt eine **aufgelöste Zeilenvorschau**, geholt über den normalen Leseweg (`detail_url`, aktuelle `fields`-Werte) — die Vorschau wird berechnet, nie gespeichert | PRIV-224 |
 | `POST /t/{slug}/privacy/review/{item_key}/decide` | `privacy.review` | `{decision: redact\|keep, fields?: [], reason_code, reason_text?}` | Item | PRIV-225 |
 | `POST /t/{slug}/privacy/redactions` | `privacy.review` | `{collection, key, fields[], reason_code, reason_text?, review_item_key?}` | `{redacted_fields, audit_key}`; 422 `redaction.field_not_redactable`; idempotent 200 | PRIV-228 |
 | `GET /t/{slug}/privacy/review/suggestions?item={key}` | `privacy.review` | — | Lineage-Batch (Standorte aus einer Vorlage, Audit-Zusammenfassungen) | PRIV-230 |
@@ -353,7 +357,7 @@ class SecurityAuditEntry(BaseModel):
 
 | Methode & Pfad | Antwort |
 |----------------|---------|
-| `GET /admin/platform/privacy/operations?kind=account_erasure\|tenant_erasure\|export\|migration&status=…` | Liste von Operations-Zustandsdokumenten (Schlüssel, Status, attempt_count, next_attempt_at, Rest-Zähler, `review_items_created`, `ledger_present_until`); **keine Mandantennamen außer dem Schlüssel, kein Zeileninhalt** |
+| `GET /admin/platform/privacy/operations?kind=account_erasure\|tenant_erasure\|export\|migration&status=…` | Liste von Operations-Zustandsdokumenten (Schlüssel, Status, attempt_count, next_attempt_at, Rest-Zähler, `review_items_created`, `mirror_present_until`); **keine Mandantennamen außer dem Schlüssel, kein Zeileninhalt** |
 | `GET /admin/platform/privacy/consistency` | letzter `privacy.consistency`-Lauf: Tombstones außerhalb der Allowlist pro Collection, Marker in Tombstone-Feldern, offene Prüf-Items pro Mandant (Zähler), überfällig |
 
 ### 4.3 Geänderte Antworten (additiv)
@@ -389,12 +393,12 @@ class SecurityAuditEntry(BaseModel):
 **PRIV-607** Prometheus-Metriken (`app/observability/privacy_metrics.py`, neu):
 `privacy_operations_open{kind,status}` (Gauge, von jedem Beat gesetzt), `privacy_review_items_open{tenant_kind}`,
 `privacy_review_items_overdue`, `privacy_consistency_findings{kind}`,
-`privacy_erasure_duration_seconds` (Histogramm), `privacy_replay_ledger_entries`. Kein Mandanten-
+`privacy_erasure_duration_seconds` (Histogramm), `privacy_erasure_mirror_entries`. Kein Mandanten-
 Schlüssel als Label (Kardinalität und Datenschutz); `tenant_kind ∈ {personal, organization}`.
 
 **PRIV-608** Structlog-Ereignisse behalten die Pseudonyme `sub_…`/`ten_…` (Guards existieren); neue Ereignisse:
 `privacy.review_items_created`, `privacy.redaction_applied` (nur Kategorie),
-`privacy.consistency.completed`, `privacy.ledger_purged`.
+`privacy.consistency.completed`, `privacy.mirror_purged`.
 
 ---
 
@@ -406,7 +410,7 @@ Schlüssel als Label (Kardinalität und Datenschutz); `tenant_kind ∈ {personal
 | `privacy.purge_erasure_mirror` (R-45) | 05:25 | löscht `expires_at < now`; schreibt das Spiegel-Objekt gefiltert neu (HMAC-Kette) | agnostisch |
 | `privacy.sync_erasure_mirror` | vor jedem Backup-Dump (CronJob-Reihenfolge) | Spiegel-Objekt im Bucket aktualisieren | agnostisch |
 | `privacy.purge_review_items` (R-43) | 05:30 | löscht entschiedene Items älter als 3 J. | agnostisch |
-| `privacy.post_commit_followups` | 04:05 (nach Löschungen) | wiederholt Prüf-Item-Erzeugung / Ledger für Löschungen, die mit `post_commit_pending` markiert sind | agnostisch |
+| `privacy.post_commit_followups` | 04:05 (nach Löschungen) | wiederholt Prüf-Item-Entdeckung / Spiegel-Eintrag für Löschungen, die mit `post_commit_pending` markiert sind | agnostisch |
 | `retention.purge_notifications` (R-48, Vorschlag) | 05:35 | 90 d nach `read_at`, 180 d ungelesen | schreibender Beat → `ActiveTenants` nicht nötig (löscht) |
 
 Zeilen der NFR-011-§3.1-Tabelle werden im selben PR ergänzt (Guard `test_nfr011_task_table_matches_the_beat`).
@@ -444,6 +448,13 @@ Zeilen der NFR-011-§3.1-Tabelle werden im selben PR ergänzt (Guard `test_nfr01
 | `PRIVACY_REVIEW_ITEM_RETENTION_YEARS` | 3 | 1 / 3 | R-43 |
 | `BACKUP_RETENTION_DAYS` | 30 (helm `backup.retentionDays`) | 1 / 35 | `09` §6 |
 | `OFFLINE_MODE_DEFAULT` | off | — | PRIV-531 |
+| `OFFLINE_QUEUE_PENDING_MAX_DAYS` (runtime-config) | 90 | 7 / 365 | PRIV-511 |
+| `OFFLINE_QUEUE_UNSENDABLE_MAX_DAYS` | 30 | 1 / 90 | PRIV-511 |
+| `OFFLINE_DEAD_SESSION_GRACE_DAYS` | 14 | 0 / 30 | PRIV-511 |
+| `OFFLINE_SHARED_DEVICE_MODE` | false | — | PRIV-524 |
+| `SHARED_DEVICE_IDLE_MINUTES` | 15 | 1 / 120 | PRIV-524 |
+| `PLAN_CACHE_MAX_BYTES` | 20 MB | — | PRIV-505 |
+| `QUEUE_PHOTO_MAX_BYTES` | 100 MB | — | PRIV-509 |
 
 ### 8a. Feature-Flags für gegatete Verarbeitungen (Produktionsgates, `06` §10)
 
@@ -457,15 +468,8 @@ Zeilen der NFR-011-§3.1-Tabelle werden im selben PR ergänzt (Guard `test_nfr01
 Flags sind **keine** Rechtsentscheidung; sie sind der technische Durchsetzungspunkt der im Decision-Log
 registrierten Entscheidung (Spalte „Durchsetzungspunkt“). Jedes Flag ist in `docs/de/reference/environment-variables.md`
 mit dem zugehörigen LEG dokumentiert.
-| `OFFLINE_QUEUE_PENDING_MAX_DAYS` (runtime-config) | 90 | 7 / 365 | PRIV-511 |
-| `OFFLINE_QUEUE_UNSENDABLE_MAX_DAYS` | 30 | 1 / 90 | PRIV-511 |
-| `OFFLINE_DEAD_SESSION_GRACE_DAYS` | 14 | 0 / 30 | PRIV-511 |
-| `OFFLINE_SHARED_DEVICE_MODE` | false | — | PRIV-524 |
-| `SHARED_DEVICE_IDLE_MINUTES` | 15 | 1 / 120 | PRIV-524 |
-| `PLAN_CACHE_MAX_BYTES` | 20 MB | — | PRIV-505 |
-| `QUEUE_PHOTO_MAX_BYTES` | 100 MB | — | PRIV-509 |
 
-Alle werden zu `RETENTION_CEILINGS` / `test_retention_ceilings.py` und
+Alle Einstellungen der §8-Tabelle werden zu `RETENTION_CEILINGS` / `test_retention_ceilings.py` und
 `docs/de/reference/environment-variables.md` (DE/EN) hinzugefügt.
 
 ---

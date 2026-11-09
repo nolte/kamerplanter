@@ -212,7 +212,7 @@ Abs. 4, veröffentlicht, Bindungswirkung umstritten → als Leitlinie behandelt)
 - URL: https://www.edpb.europa.eu/system/files/2023-04/edpb_guidelines_202201_data_subject_rights_access_v2_en.pdf (PDF, Text extrahiert)
 - Wortlaut (EN), Rn. 110: > Archived personal data needs to be distinguished from back-up data that is personal data stored solely for the purpose of restoring the data in the case of a data loss event. […] A decrease in data in the live system (e.g. erasure after the retention period of some data came to an end or following an erasure request) will in some cases only be overwritten in the back-up data at the time of the subsequent back-up. […]
   Zur Frist: > The request must be fulfilled as soon as possible and in any event within one month of receipt of the request […]
-- Verwendung: DA-? Backups (`09` §6): Der EDSA erkennt an, dass Backup-Daten eine Löschung erst mit dem nächsten
+- Verwendung: Backups (`09` §6, LEG-11; keine eigene Entscheidungsanalyse — die Analyse steht in `09` §6.2): Der EDSA erkennt an, dass Backup-Daten eine Löschung erst mit dem nächsten
   Backup-Zyklus nachvollziehen; das Paket leitet daraus **keine** Erlaubnis ab, Löschungen in Backups dauerhaft zu
   unterlassen, sondern die Pflicht, den Zyklus kurz zu halten und Löschungen nach einem Restore erneut anzuwenden (LEG-11).
 

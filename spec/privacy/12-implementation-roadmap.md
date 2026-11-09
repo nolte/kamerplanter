@@ -37,7 +37,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
   Bestand per v0107 korrigiert, `created_by = user_key` auf Live-Bestätigungen (`care_reminder_service.py`),
   `created_by = None` im Backfill (`map_document(created_by=…)`), `SkipReason.INACTIVE_TENANT`.
 - **Offen**: Task-Queue (`record_care_task_completion`) und MCP (`ConfirmCareTask`) speichern weiterhin `null`
-  (PRIV-003/119; #2839 Punkt 2, an #2517 übergeben — Betreiberentscheidung, ob vor LEG-05 umgesetzt); Tombstone-Form
+  (PRIV-003/119; #2770 Punkt 2, in #2839 „Changes“ Nr. 2 an #2517 übergeben — Betreiberentscheidung, ob vor LEG-05 umgesetzt); Tombstone-Form
   im `performed_by`-Filter → 422 und im Rendering (PRIV-207); **Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER`**
   (Default = Bestand, DA-02); `carry_account_reference` für die übrigen Kopierstellen (`task_completion_engine`,
   `garden_plan_audit`) folgt in E03/E05.
