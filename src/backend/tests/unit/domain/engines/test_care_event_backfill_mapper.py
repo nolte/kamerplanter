@@ -25,6 +25,7 @@ from app.domain.engines.care_event_backfill_mapper import (
     resolve_anchor,
     window_start,
 )
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.models.care_event import CARE_EVENT_CATEGORIES
 from app.domain.services.retention_service import RetentionService
 
@@ -67,6 +68,14 @@ class TestResolveAnchor:
         assert resolve_anchor(_row(doc={"tenant_key": T2})) is SkipReason.TENANT_MISMATCH
         # and the same document under the matching stamp resolves, so the first result is the tenant rule
         assert isinstance(resolve_anchor(_row(doc={"tenant_key": T1})), BedAnchor)
+
+    def test_a_bed_of_a_tenant_that_is_not_active_is_never_written(self) -> None:
+        # #2770: v0104 wrote into suspended / pending-deletion tenants; the scan now says which tenant is not active
+        inactive = _location() | {"site_tenant_active": False}
+        assert resolve_anchor(_row(locations=[inactive])) is SkipReason.INACTIVE_TENANT
+        # an active tenant, and a tenant the scan found no document for (the caller's own gate decides), resolve
+        assert isinstance(resolve_anchor(_row(locations=[_location() | {"site_tenant_active": True}])), BedAnchor)
+        assert isinstance(resolve_anchor(_row(locations=[_location() | {"site_tenant_active": None}])), BedAnchor)
 
     def test_a_document_without_a_tenant_is_never_written(self) -> None:
         assert resolve_anchor(_row(doc={"tenant_key": ""})) is SkipReason.TENANT_MISMATCH
@@ -183,6 +192,27 @@ class TestAccount:
     @pytest.mark.parametrize("raw", [None, "", "  "])
     def test_a_blank_account_reference_is_none(self, raw: object) -> None:
         assert account_of({"applied_by_key": raw}, TREATMENT_APPLICATIONS) is None
+
+    def test_an_erased_accounts_tombstone_becomes_the_marker_not_the_pseudonym(self) -> None:
+        # #2770: the erasure leaves ``anon_<16hex>`` in the source; the care log carries ``_anonymized`` (GP-NFR-055)
+        tombstone = ErasureEngine.compute_tombstone_hash("u1", "x" * 32)
+        assert ErasureEngine.is_tombstone(tombstone)
+
+        assert account_of({"harvested_by_key": tombstone}, HARVEST_BATCHES) == ANONYMIZED_MARKER
+        assert account_of({"applied_by_key": tombstone}, TREATMENT_APPLICATIONS) == ANONYMIZED_MARKER
+        # counter-case: a real account key and a near miss of the shape pass through unchanged
+        assert account_of({"applied_by_key": "u1"}, TREATMENT_APPLICATIONS) == "u1"
+        assert account_of({"applied_by_key": "anon_123"}, TREATMENT_APPLICATIONS) == "anon_123"
+
+    def test_a_mapped_event_of_an_erased_account_carries_the_marker(self) -> None:
+        tombstone = ErasureEngine.compute_tombstone_hash("u1", "x" * 32)
+        anchor = BedAnchor(tenant_key=T1, site_key="S1", location_key="L1", plant_keys=("p1",))
+
+        event = map_document(
+            HARVEST_BATCHES, {"_key": "h1", "harvested_by_key": tombstone, "wet_weight_g": 10}, anchor, WHEN
+        )
+
+        assert event.performed_by_user_key == ANONYMIZED_MARKER
 
 
 class TestMapDocument:

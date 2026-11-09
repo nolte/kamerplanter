@@ -127,6 +127,8 @@ def test_one_confirmation_writes_exactly_one_event_in_the_plants_bed() -> None:
     assert (event.tenant_key, event.site_key, event.location_key, event.plant_keys) == (OWN, "S1", "L1", ["plant-1"])
     assert event.source_ref == {"collection": "care_confirmations", "key": "conf-1"}
     assert event.performed_by_user_key == "u1"
+    # #2770: the confirming caller recorded the line, so the owner check of a correction finds them (GP-NFR-054)
+    assert event.created_by == "u1"
     assert event.performed_at == repo.confirmations[0].confirmed_at
 
 

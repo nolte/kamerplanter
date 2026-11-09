@@ -18,7 +18,9 @@ from app.data_access.arango import collections as col
 from app.domain.engines.care_event_backfill_mapper import TIME_FIELDS, action_filter
 
 #: The documents inside the window with everything the mapper needs: every reference resolved to its location, every
-#: location to its site and the site's tenant, and whether a line for the document exists already. The references of
+#: location to its site and the site's tenant (``site_tenant_active``: ``false`` for a stored tenant that is not
+#: ``active``, ``null`` when no tenant document is found — the callers' own gate decides that case), and whether a
+#: line for the document exists already. The references of
 #: the four shapes: ``plant_key`` (feeding, treatment, harvest), ``plant_keys`` (feeding, watering alias) and
 #: ``slot_keys`` (watering). A key is a plant when a plant has it, otherwise a slot.
 SCAN_AQL = """
@@ -52,12 +54,16 @@ FOR d IN @@source
     FOR lk IN location_keys
       LET l = DOCUMENT(@locations, lk)
       LET site = l == null OR l.site_key == null OR l.site_key == "" ? null : DOCUMENT(@sites, l.site_key)
+      LET tenant = site == null OR site.tenant_key == null ? null : DOCUMENT(@tenants, site.tenant_key)
       RETURN {
         key: lk,
         found: l != null,
         site_key: l == null ? null : l.site_key,
         site_found: site != null,
-        site_tenant: site == null ? null : site.tenant_key
+        site_tenant: site == null ? null : site.tenant_key,
+        site_tenant_active: tenant == null
+          ? null
+          : (tenant.status == "active" OR (tenant.status == null AND tenant.is_active != false))
       }
   )
   LET document_tenant = d.tenant_key != null
@@ -92,6 +98,7 @@ def scan_candidates(
         "slots": col.SLOTS,
         "locations": col.LOCATIONS,
         "sites": col.SITES,
+        "tenants": col.TENANTS,
     }
     return cast(
         Cursor,

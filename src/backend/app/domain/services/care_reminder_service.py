@@ -952,6 +952,8 @@ class CareReminderService:
                     performed_at,
                     trigger=TRIGGER_REMINDER,
                     performed_by_user_key=user_key or None,
+                    # The confirming caller recorded the line and may correct it (GP-NFR-054, GP-API-036).
+                    created_by=user_key or None,
                     quantity=volume_liters,
                     unit="l" if volume_liters else None,
                 )
