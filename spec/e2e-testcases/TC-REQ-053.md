@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 83
+test_count: 90
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -23,8 +23,9 @@ coverage_areas:
   - Welle 8 Teil A — Bodenanalyse, Flächendosis, Bodenverbesserung, Nährstoff-Hinweis ohne Zahl, Historie als CSV, Rotationsmatrix, Folgekultur, Vorschläge
   - Welle 8 Teil B — Mischkultur-Ebene, Standortmerkmale, Erreichbarkeit, Beet-Fotos, CSV-Beetliste/-Import, Frost-Grund im Pflanzenzustand
   - Welle 9 — Renderer-Messung D-01 (Drag-/Zoom-Frametime, große Pläne, Desktop und Mobile CPU 4×)
+  - Welle 9 Teil A — Offline: Service Worker, Plan ohne Verbindung, Puffer und Sync, Konflikt, Abmelden leert den Zwischenspeicher
 generated: "2026-10-11"
-version: "1.10"
+version: "1.11"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -119,6 +120,10 @@ unter „Nicht abgedeckte Welle-8-Zeilen“.
 **Version 1.10 (2026-11-08, WP 9.6 / #2746)** — ein neuer Fall TC-053-083 (Renderer-Messung D-01, GP-NFR-033/034,
 Abschnitt 11); `test_count` 82 → 83, die Abdeckungs-Matrix ist um die abgeleitete Zeile ergänzt. Die Grenzwerte sind
 beratend; der Fall liefert die Messwerte für die Go/No-Go-Entscheidung zu WP 9.7.
+
+**Version 1.11 (2026-11-09, WP 9.15 / #2755)** — sieben neue Fälle TC-053-084 bis TC-053-090: Teil A Offline
+(Abschnitt 12, aus GP-UX-024 und UI-NFR-012); `test_count` 83 → 90, die Abdeckungs-Matrix ist um die abgeleiteten
+Zeilen ergänzt. Bewusst nicht abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-9-Teile“.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -2655,6 +2660,197 @@ sich das Go/No-Go für den zweiten Renderer (WP 9.7) ergibt.
 
 ---
 
+## 12. Neu in Welle 9, Teil A (Offline: Service Worker, Plan ohne Verbindung, Puffer und Sync, Konflikt, Abmelden)
+
+Die Fälle TC-053-084 bis TC-053-090 sind aus REQ-053 GP-UX-024 und UI-NFR-012 R-001/R-002, R-007…R-010, R-021,
+R-025, R-028, R-032, R-055 bis R-060 abgeleitet (WP 9.15, #2755); automatisiert in
+`tests/e2e/test_req053_wave9_offline.py`. „Ohne Verbindung“ heißt: die Seite ist über die Entwicklerwerkzeuge des
+Browsers offline geschaltet, und der Browser meldet selbst „offline“. Der Service Worker existiert nur in einem
+sicheren Kontext; die Testumgebung liefert die App über unverschlüsseltes HTTP aus und startet den Browser für die
+Fälle mit Service Worker deshalb mit diesem Ursprung als „sicher“ behandelt. Feldmodus-Fälle laufen auf dem
+Smartphone (390 × 844), die übrigen auf dem Desktop.
+
+### TC-053-084: Service Worker aktiv und steuernd, Manifest ausgeliefert
+
+**Requirement**: UI-NFR-012 R-001, R-002, R-007, R-059; REQ-053 WP 9.1 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- Garten mit einem Beet
+
+**Testschritte**:
+1. Nutzer öffnet den Gartenplan
+2. Nutzer lädt die Seite neu
+
+**Erwartete Ergebnisse**:
+- Für den ganzen Ursprung ist genau ein Service Worker unter `/sw.js` registriert und aktiviert; nach dem Neuladen steuert er die Seite
+- Das Dokument verweist auf `/manifest.json`; der Browser liest es ohne Fehler, mit Name, Kurzname, Startadresse, Anzeige „standalone“, Theme- und Hintergrundfarbe sowie Symbolen in 192 und 512 px
+- `/sw.js` und `/manifest.json` werden mit „nicht speichern“ ausgeliefert (kein Browser-Cache für das Worker-Skript)
+
+**Nachbedingungen**:
+- Keine
+
+**Tags**: [req-053, welle-9, offline, service-worker, manifest, desktop, ui-nfr-012]
+
+---
+
+### TC-053-085: App-Shell lädt ohne Verbindung aus dem Service Worker
+
+**Requirement**: UI-NFR-012 R-007, R-008, R-010, §5.1.5; REQ-053 WP 9.1 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- Gartenplan einmal mit Verbindung geöffnet und neu geladen (der Service Worker steuert die Seite)
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung
+2. Nutzer lädt die Seite neu
+
+**Erwartete Ergebnisse**:
+- Statt der Fehlerseite des Browsers erscheint die App: im Vollmodus die Anmeldemaske (eine Sitzung lässt sich ohne Verbindung nicht wiederherstellen, R-050 nicht in Welle 9), im Light-Modus der App-Rahmen mit der Verbindungsanzeige
+- Die Seite kam vom Service Worker, der Browser meldet weiterhin „offline“, der Service Worker steuert die Seite
+
+**Nachbedingungen**:
+- Keine
+
+**Tags**: [req-053, welle-9, offline, app-shell, service-worker, desktop, ui-nfr-012]
+
+---
+
+### TC-053-086: Zuletzt geladener Plan ohne Verbindung lesbar — „Stand von …“, schreibgeschützt
+
+**Requirement**: REQ-053 GP-UX-024 (Teil 1); UI-NFR-012 R-057; WP 9.2 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- Garten mit den Beeten „Beet A“ und „Beet B“
+
+**Testschritte**:
+1. Nutzer öffnet den Gartenplan mit Verbindung
+2. Nutzer wechselt mit „Zurück zum Standort“ zur Standortseite
+3. Nutzer verliert die Verbindung und geht mit „Zurück“ des Browsers zum Plan
+4. Die Verbindung kommt zurück
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 3 zeigt der Plan beide Beete schreibgeschützt, mit dem Hinweis „Ohne Verbindung: Du siehst den Stand von <Uhrzeit>.“
+- Der Sperrhinweis nennt den Grund („Ohne Verbindung kannst du den Plan nur ansehen …“); „Export & Import“ wird nicht angeboten
+- Nach Schritt 4 ersetzt der Editor die Ansicht, der Stand-Hinweis verschwindet
+
+**Nachbedingungen**:
+- Nichts geändert
+
+**Tags**: [req-053, welle-9, offline, plan-cache, schreibgeschuetzt, desktop, gp-ux-024]
+
+---
+
+### TC-053-087: Feldmodus ohne Verbindung — „Erledigt“ und Notiz gepuffert, mit Verbindung übertragen
+
+**Requirement**: REQ-053 GP-UX-024 (Teil 2); UI-NFR-012 R-021, R-025, R-058, §5.3.4; WP 9.4 (abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- „Beet 1“ mit einer offenen Gieß-Aufgabe; das Beet-Sheet wurde einmal mit Verbindung geöffnet
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung und öffnet das Sheet von „Beet 1“
+2. Nutzer tippt bei der Aufgabe „Erledigt“, dann „Fertig“
+3. Nutzer tippt den Chip „Notiz“, schreibt eine Notiz und speichert
+4. Die Verbindung kommt zurück
+
+**Erwartete Ergebnisse**:
+- Das Sheet zeigt den „Stand von …“-Hinweis und erklärt, dass „Erledigt“, Notizen und Fotos auf dem Gerät gespeichert werden
+- Die Aufgabe zeigt „Wartet auf Übertragung“ und bietet kein zweites „Erledigt“; die App-Leiste zeigt „2 nicht übertragen“; am Server ist noch nichts angekommen
+- Nach Schritt 4 meldet die App „2 Einträge übertragen.“, die Anzeige „nicht übertragen“ verschwindet
+- Am Server ist die Aufgabe erledigt (genau ein Pflegeeintrag), die Notiz genau einmal gespeichert; beide tragen den Zeitpunkt der Erfassung ohne Verbindung, nicht den der Übertragung
+
+**Nachbedingungen**:
+- Aufgabe erledigt, Notiz gespeichert
+
+**Tags**: [req-053, welle-9, offline, puffer, sync, feldmodus, smartphone, gp-ux-024]
+
+---
+
+### TC-053-088: Feldmodus ohne Verbindung — Beet-Foto gepuffert, landet mit Verbindung in der Galerie
+
+**Requirement**: UI-NFR-012 R-058, R-060 (c); REQ-053 GP-FR-051; WP 9.4 (abgeleitet)
+**Gerät**: Smartphone 390 × 844 (nur Vollmodus: Ablage für Anhänge)
+**Priority**: Medium
+**Category**: Offline
+**Preconditions**:
+- „Beet 1“ ohne Foto; das Beet-Sheet wurde einmal mit Verbindung geöffnet
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung und öffnet das Sheet von „Beet 1“
+2. Nutzer tippt „Foto vom Beet“, wählt ein Bild und lädt es hoch
+3. Die Verbindung kommt zurück
+
+**Erwartete Ergebnisse**:
+- Die App meldet „Foto auf dem Gerät gespeichert …“; die App-Leiste zeigt „1 nicht übertragen“; die Galerie am Server ist leer
+- Nach Schritt 3 meldet die App „1 Eintrag übertragen.“; die Galerie des Beets enthält genau ein Foto, und es ist das Titelbild
+
+**Nachbedingungen**:
+- Ein Foto am Beet
+
+**Tags**: [req-053, welle-9, offline, puffer, foto, feldmodus, smartphone, gp-fr-051]
+
+---
+
+### TC-053-089: Gepuffertes „Erledigt“ einer inzwischen geschlossenen Aufgabe — Konflikt-Dialog
+
+**Requirement**: UI-NFR-012 R-028, R-032; REQ-053 WP 9.3, WP 9.4 (abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: High
+**Category**: Offline
+**Preconditions**:
+- „Beet 1“ mit einer offenen Gieß-Aufgabe; das Beet-Sheet wurde einmal mit Verbindung geöffnet
+
+**Testschritte**:
+1. Nutzer verliert die Verbindung, öffnet das Sheet und erledigt die Aufgabe („Erledigt“, „Fertig“)
+2. Auf einem zweiten Gerät wird dieselbe Aufgabe erledigt
+3. Die Verbindung kommt zurück
+4. Nutzer wählt im Konflikt-Dialog beim Eintrag „Verwerfen“
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 3 öffnet sich der Konflikt-Dialog von selbst mit genau einem Eintrag, der die Aufgabe nennt und den Grund „Die Aufgabe ist inzwischen schon erledigt oder übersprungen.“
+- Nach Schritt 4 verschwindet der Eintrag und die Anzeige „nicht übertragen“
+- Am Server ist die Aufgabe genau einmal erledigt — vom zweiten Gerät, nicht ein zweites Mal aus dem Puffer
+
+**Nachbedingungen**:
+- Aufgabe erledigt (vom zweiten Gerät)
+
+**Tags**: [req-053, welle-9, offline, konflikt, feldmodus, smartphone, ui-nfr-012]
+
+---
+
+### TC-053-090: Abmelden leert den Lese-Zwischenspeicher und den Namensraum des Kontos
+
+**Requirement**: UI-NFR-012 R-055, R-056 (a); REQ-053 SR-019, WP 9.1/9.2 (abgeleitet)
+**Gerät**: Desktop (nur Vollmodus: der Light-Modus hat kein Abmelden)
+**Priority**: High
+**Category**: Offline / Datenschutz
+**Preconditions**:
+- Ein eigenes, frisch registriertes Konto (ein Abmelden beendet alle Zugangs-Token des Kontos)
+- Der Service Worker steuert die Seite, der Plan wurde gelesen (liegt im Plan-Zwischenspeicher), der Tab hat seinen Namensraum (Konto und Mandant) beim Service Worker angemeldet
+
+**Testschritte**:
+1. Nutzer öffnet das Konto-Menü und wählt „Abmelden“
+
+**Erwartete Ergebnisse**:
+- Die Anmeldemaske erscheint
+- Der Plan-Zwischenspeicher des Browsers ist gelöscht, der Service Worker kennt keinen Namensraum des Kontos mehr, kein kontobezogener Zwischenspeicher ist übrig
+- Die öffentlichen Zwischenspeicher der App-Shell bleiben (sie enthalten keine Kontodaten)
+
+**Nachbedingungen**:
+- Abgemeldet
+
+**Tags**: [req-053, welle-9, offline, abmelden, datenschutz, desktop, sr-019, ui-nfr-012]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -2736,6 +2932,12 @@ sich das Go/No-Go für den zweiten Renderer (WP 9.7) ergibt.
 | (abgeleitet aus GP-FR-174) | Welle 8 Teil B: CSV-Beetlisten-Import mit Prüfbericht | TC-053-081 |
 | (abgeleitet aus §11.4, GP-FR-162) | Welle 8 Teil B: Frost-Grund im Pflanzenzustand | TC-053-082 |
 | (abgeleitet aus GP-NFR-033/034, D-01) | Welle 9: Renderer-Messung, Drag-/Zoom-Frametime, Desktop und Mobile CPU 4× (beratend) | TC-053-083 |
+| (abgeleitet aus UI-NFR-012 R-001/R-002/R-007/R-059) | Welle 9 Teil A: Service Worker aktiv, Manifest | TC-053-084 |
+| (abgeleitet aus UI-NFR-012 R-007/R-010, §5.1.5) | Welle 9 Teil A: App-Shell ohne Verbindung | TC-053-085 |
+| (abgeleitet aus GP-UX-024, UI-NFR-012 R-057) | Welle 9 Teil A: Plan ohne Verbindung lesbar, „Stand von …“ | TC-053-086 |
+| (abgeleitet aus GP-UX-024, UI-NFR-012 R-021/R-025/R-058) | Welle 9 Teil A: „Erledigt“, Notiz und Foto gepuffert und übertragen | TC-053-087, TC-053-088 |
+| (abgeleitet aus UI-NFR-012 R-028/R-032) | Welle 9 Teil A: Konflikt-Dialog bei inzwischen geschlossener Aufgabe | TC-053-089 |
+| (abgeleitet aus UI-NFR-012 R-055/R-056, SR-019) | Welle 9 Teil A: Abmelden leert Zwischenspeicher und Namensraum | TC-053-090 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
@@ -2781,6 +2983,12 @@ Testebenen:
 
 Teilweise nicht abgedeckt: der Import aus GP-ACC-031 ist über TC-053-041 für den Weg „Ersetzen“ abgedeckt; die Konfliktfälle der Ersetzungs-/Wiederherstellungsfunktion sowie die Quoten- und
 Prüfregeln der Datei sind kein Browser-Artefakt.
+
+## Nicht abgedeckte Welle-9-Teile
+
+| Teil | Grund |
+|------|-------|
+| Gefüllter kontobezogener API-Zwischenspeicher des Service Workers (`kp:{Konto}:{Mandant}`) | Das Backend antwortet auf jede `/api/v1/`-Lesung mit `Cache-Control: no-store` (MT-044), und der Service Worker respektiert das (G-W9 c) — die Positivliste wird nie in den Zwischenspeicher geschrieben; die Offline-Lesung kommt aus IndexedDB (TC-053-086). TC-053-090 prüft deshalb den beim Service Worker angemeldeten Namensraum, nicht einen gefüllten Zwischenspeicher. |
 
 ---
 

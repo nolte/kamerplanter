@@ -68,10 +68,22 @@ import { PHOTO_SEND_TIMEOUT_MS, SEND_TIMEOUT_MS } from '../offline/sync';
 import type { QueueEntry, QueuedWrite, StoredPhoto } from '../offline/queueTypes';
 import { useWriteQueue } from '../offline/useWriteQueue';
 
-const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
+const loadCareLogDialog = () => import('../care/CareLogDialog');
+const loadPhotoUploadDialog = () => import('@/components/photos/PlantPhotoUploadDialog');
+const CareLogDialog = lazy(loadCareLogDialog);
 const PlantingDialog = lazy(() => import('../planting/PlantingDialog'));
 const PositionCorrectionDialog = lazy(() => import('../planting/PositionCorrectionDialog'));
-const PlantPhotoUploadDialog = lazy(() => import('@/components/photos/PlantPhotoUploadDialog'));
+const PlantPhotoUploadDialog = lazy(loadPhotoUploadDialog);
+
+/**
+ * The dialogs of the two bufferable actions besides "Done" (the note, the photo) are lazy chunks. Offline a chunk
+ * that was never loaded cannot be fetched (the worker caches lazy chunks only on first use), and the sheet fell
+ * into the error page on the first offline note. Loaded once while the buffer is usable and the device online.
+ */
+function preloadBufferedDialogs(): void {
+  void loadCareLogDialog().catch(() => undefined);
+  void loadPhotoUploadDialog().catch(() => undefined);
+}
 
 /** Offline with the buffer, only the note chip works (the other chips need the server). */
 const BUFFERED_CHIPS: ReadonlySet<QuickChipId> = new Set<QuickChipId>(['note']);
@@ -170,6 +182,9 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
 
   // ── The offline write buffer (WP 9.4) ──
   const bufferOn = queue.available && canBuffer(scope);
+  useEffect(() => {
+    if (bufferOn && online) preloadBufferedDialogs();
+  }, [bufferOn, online]);
   const target: BufferTarget = {
     scope,
     // A sheet from the cache (lie-fi) buffers like offline: no direct send against a snapshot.

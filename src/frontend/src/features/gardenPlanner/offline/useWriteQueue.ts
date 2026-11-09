@@ -5,7 +5,14 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CacheScope } from './planCache';
-import { QUEUE_CAPACITY, listEntries, onQueueChange, totalEntries, writeQueueAvailable } from './queue';
+import {
+  QUEUE_CAPACITY,
+  listEntries,
+  onQueueChange,
+  preloadWriteQueue,
+  totalEntries,
+  writeQueueAvailable,
+} from './queue';
 import type { QueueEntry } from './queueTypes';
 
 export interface WriteQueueState {
@@ -32,6 +39,10 @@ export function useWriteQueue(scope: CacheScope | null): WriteQueueState {
   const reload = useCallback(() => setTick((value) => value + 1), []);
 
   useEffect(() => onQueueChange(reload), [reload]);
+  // The first offline capture must not need a chunk download (see `preloadWriteQueue`).
+  useEffect(() => {
+    if (key !== null) void preloadWriteQueue();
+  }, [key]);
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') reload();

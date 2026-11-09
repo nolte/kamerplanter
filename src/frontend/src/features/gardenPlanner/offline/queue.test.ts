@@ -27,6 +27,7 @@ import {
   keepEntry,
   listEntries,
   newClientEventId,
+  preloadWriteQueue,
   resetWriteQueueForTests,
   retryEntry,
   updateEntry,
@@ -278,6 +279,16 @@ describe('database and kill switch', () => {
     await capture(ALICE_A);
     expect((await indexedDB.databases()).map((database) => database.name)).toContain(WRITE_QUEUE_DB_NAME);
     expect(APP_DATABASE_NAMES).toContain(WRITE_QUEUE_DB_NAME);
+  });
+
+  it('loads its code ahead of the first offline capture (#2755)', async () => {
+    // The first capture of a device that never buffered must not need a chunk download once offline.
+    expect(await preloadWriteQueue()).toBe(true);
+  });
+
+  it('loads nothing with PWA_CACHING_ENABLED=false', async () => {
+    (window as { __RUNTIME_CONFIG__?: unknown }).__RUNTIME_CONFIG__ = { PWA_CACHING_ENABLED: 'false' };
+    expect(await preloadWriteQueue()).toBe(false);
   });
 
   it('is off with PWA_CACHING_ENABLED=false: nothing is buffered', async () => {

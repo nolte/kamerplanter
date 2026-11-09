@@ -285,6 +285,12 @@ def pytest_configure(config: pytest.Config) -> None:
         "demo user (full mode only; no-op in light mode, where the sole operator already is "
         "platform admin per REQ-027) (#1155)",
     )
+    config.addinivalue_line(
+        "markers",
+        "secure_context: start this test's browser with the E2E origin treated as a secure context, "
+        "so the service worker and Cache Storage exist on plain http://frontend:8080 "
+        "(REQ-053 WP 9.15, UI-NFR-012 §5.1.5); Chrome only",
+    )
 
     # Register the feature-axis markers (semantic, cross-cutting to REQ IDs).
     for name, description in KNOWN_FEATURE_MARKERS.items():
@@ -1003,13 +1009,43 @@ def _e2e_api_post(
 # the sidebar's scroll container), turning two green tests red.
 
 
-def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) -> webdriver.Remote:
+def secure_context_args(request: pytest.FixtureRequest) -> tuple[str, ...]:
+    """The Chrome switch that makes the E2E origin a secure context, for a ``secure_context`` test.
+
+    A service worker, ``navigator.serviceWorker`` and Cache Storage exist only in a secure context. The stack
+    serves the app on plain ``http://frontend:8080`` (not ``localhost``), where Chrome hides all three, so the
+    offline cases of REQ-053 WP 9.15 (UI-NFR-012 §5.1.5) start their browser with
+    ``--unsafely-treat-insecure-origin-as-secure=<origin>``. Every other test keeps today's insecure context -
+    and with it no service worker - so nothing the worker caches can leak into the rest of the suite.
+    ``https`` and ``localhost`` are secure already and get no switch.
+    """
+    if request.node.get_closest_marker("secure_context") is None:
+        return ()
+    from urllib.parse import urlsplit
+
+    url = os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
+    parts = urlsplit(url)
+    if parts.scheme == "https" or parts.hostname in ("localhost", "127.0.0.1"):
+        return ()
+    if request.config.getoption("--browser") == "firefox":
+        pytest.skip(
+            "secure_context: the insecure-origin switch is Chrome's; this case runs on the Chrome profiles"
+        )
+    return (f"--unsafely-treat-insecure-origin-as-secure={parts.scheme}://{parts.netloc}",)
+
+
+def start_browser_session(
+    request: pytest.FixtureRequest,
+    device_profile: dict,
+    extra_chrome_args: tuple[str, ...] = (),
+) -> webdriver.Remote:
     """Start one configured browser session: driver, device emulation, locale,
     module visibility and (full mode) the demo login.
 
     Shared by the ``browser`` fixture and by tests that need an additional,
     independent session. The caller owns the session and must end it with
-    ``quit_driver``.
+    ``quit_driver``. *extra_chrome_args* are appended to Chrome's switches
+    (``secure_context_args``); empty for every session but the offline cases.
     """
     browser_name = request.config.getoption("--browser")
     remote_url = os.environ.get("SELENIUM_REMOTE_URL")
@@ -1032,6 +1068,8 @@ def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) 
             options.add_argument("--disable-gpu")
             options.add_argument(f"--window-size={win_size}")
             options.add_argument("--lang=de-DE")
+            for argument in extra_chrome_args:
+                options.add_argument(argument)
         driver = webdriver.Remote(
             command_executor=remote_url,
             options=options,
@@ -1065,6 +1103,8 @@ def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) 
         options.add_argument("--disable-gpu")
         options.add_argument("--remote-debugging-port=0")
         options.add_argument(f"--window-size={win_size}")
+        for argument in extra_chrome_args:
+            options.add_argument(argument)
         # Support snap-installed Chromium (Ubuntu)
         chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
         if chromium_snap and not shutil.which("google-chrome"):
@@ -1242,7 +1282,7 @@ def browser(
     The ``--device`` option controls viewport size and mobile emulation
     via Chrome DevTools Protocol.
     """
-    driver = start_browser_session(request, device_profile)
+    driver = start_browser_session(request, device_profile, secure_context_args(request))
     yield driver
     # A session that died under the test must not add a second traceback that
     # hides the first (#1903); it is recorded on the test result instead.
