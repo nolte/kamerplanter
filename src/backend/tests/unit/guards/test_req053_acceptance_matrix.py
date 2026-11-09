@@ -226,7 +226,7 @@ def test_the_e2e_tc_column_reads_the_function_that_names_the_row(matrix, tmp_pat
     probe.parent.mkdir(parents=True)
     probe.write_text(
         '"""UI-NFR-012 offline suite."""\n\n'
-        'def test_tc_053_084_worker(driver):\n    """R-007, GP-UX-024."""\n\n\n'
+        'def test_tc_053_084_worker(driver):\n    """UI-NFR-012 R-007; REQ-053 GP-UX-024."""\n\n\n'
         'def _helper():\n    return "GP-FR-144"\n\n\n'
         'def test_tc_053_091_png(driver):\n    """GP-FR-144."""\n',
         encoding="utf-8",
@@ -237,3 +237,59 @@ def test_the_e2e_tc_column_reads_the_function_that_names_the_row(matrix, tmp_pat
         "GP-UX-024": {"084"},
         "GP-FR-144": {"091"},
     }
+
+
+def test_a_ui_nfr_id_counts_only_in_the_scope_of_its_prefix(matrix) -> None:
+    # #2817 review: an R-id after another document prefix, or after the end of the sentence, is no claim.
+    text = (
+        "UI-NFR-012 R-021 and R-022 (see REQ-053 R-023). NFR-011 R-024 is retention.\n"
+        "UI-NFR-012: R-025, R-026/027\n"
+        "\n"
+        "R-028 stands alone in another paragraph.\n"
+    )
+    assert matrix.uinfr_ids(text) == {f"UI-NFR-012 R-{n}" for n in ("021", "022", "025", "026", "027")}
+
+
+def test_a_reversed_or_too_wide_range_is_reported_not_dropped(matrix, tmp_path, monkeypatch) -> None:
+    probe = tmp_path / "src" / "frontend" / "src" / "a.test.ts"
+    probe.parent.mkdir(parents=True)
+    probe.write_text("// UI-NFR-012 R-050…R-010 and R-001…R-060, R-021…R-023\n", encoding="utf-8")
+    monkeypatch.setattr(matrix, "ROOT", tmp_path)
+    ids, bad = matrix.uinfr_claims(probe.read_text(encoding="utf-8"))
+    assert ids == {"UI-NFR-012 R-021", "UI-NFR-012 R-022", "UI-NFR-012 R-023"}
+    assert bad == ["R-050…R-010", "R-001…R-060"]
+    errors = matrix.uinfr_range_problems()
+    assert len(errors) == 2 and all("src/frontend/src/a.test.ts" in e for e in errors)
+
+
+def test_a_claimed_ui_nfr_id_outside_the_document_is_reported(matrix) -> None:
+    rows = {"UI-NFR-012 R-057": "MUSS"}
+    found = {"UI-NFR-012 R-057": {"frontend": {"a.ts"}}, "UI-NFR-012 R-570": {"frontend": {"b.ts"}}}
+    assert matrix.stray_uinfr(rows, found) == [
+        "UI-NFR-012 R-570: referenced by b.ts but not a requirement of UI-NFR-012"
+    ]
+
+
+def test_no_test_claims_a_ui_nfr_id_the_document_does_not_have(matrix) -> None:
+    assert matrix.stray_uinfr(matrix.uinfr_rows(), matrix.scan_uinfr_rows()) == []
+    assert matrix.uinfr_range_problems() == []
+
+
+def test_a_wave9_ui_nfr_row_outside_the_document_names_its_list(matrix) -> None:
+    errors = matrix.wave9_problems({}, {}, {})
+    assert "UI-NFR-012 R-057: listed in WAVE9_UINFR_ROWS but not a requirement of UI-NFR-012" in errors
+    assert "GP-FR-144: listed in WAVE9_ROWS but not a row of the spec" in errors
+
+
+def test_an_e2e_body_ends_at_the_next_top_level_line(matrix, tmp_path, monkeypatch) -> None:
+    probe = tmp_path / "tests" / "e2e" / "test_probe.py"
+    probe.parent.mkdir(parents=True)
+    probe.write_text(
+        "def test_tc_053_084_worker(\n    driver,\n) -> None:\n    '''GP-UX-024.'''\n\n\n"
+        "HELPER_ROWS = ('GP-FR-144',)\n\n\n"
+        "@pytest.mark.slow\nasync def helper():\n    return 'GP-FR-173'\n\n\n"
+        "class Page:\n    ROW = 'GP-FR-176'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(matrix, "ROOT", tmp_path)
+    assert matrix.scan_e2e_tcs() == {"GP-UX-024": {"084"}}

@@ -47,6 +47,7 @@ import argparse
 import json
 import re
 import sys
+from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -79,6 +80,27 @@ _UINFR_RANGE = re.compile(r"(?<![\w-])R-(\d{3})\s*(?:…|\.\.\.|–|—)\s*R-(\d
 _UINFR_ID = re.compile(r"(?<![\w-])R-(\d{3}[a-f]?)(?![\w])((?:/\d{3}(?!\d))*)")
 _NAMES_UINFR = re.compile(r"(?<![\w-])UI-NFR-012(?!\d)")
 _E2E_TC_FUNCTION = re.compile(r"^def test_tc_053_(\d{3})\w*\(", re.MULTILINE)
+#: The end of a top-level block: the next line that starts at column 0 (``def``, ``async def``, ``class``, a
+#: decorator, a constant, a comment) - a function body is indented.
+_TOP_LEVEL_LINE = re.compile(r"\n(?=[^\s])")
+#: The end of a function signature: the ``:`` that closes ``def …(…) -> T:`` at the end of a line.
+_SIGNATURE_END = re.compile(r"\)[^\n:]*:[ \t]*(?:#[^\n]*)?\n")
+#: Where the scope of a ``UI-NFR-012`` prefix ends: another document prefix (``REQ-053``, ``NFR-011``, another
+#: UI-NFR, a ``GP-``/``SR-`` id), a blank (comment) line, the end of a docstring or block comment, or the end of
+#: a sentence. Only the R-ids between the prefix and that end belong to UI-NFR-012.
+_UINFR_SCOPE_END = re.compile(
+    r"(?<![\w-])(?:REQ-\d{3}|(?<!UI-)NFR-\d{3}|UI-NFR-(?!012(?!\d))\d{3}|GP-[A-Z]+-\d{3}|SR-\d{3})"
+    r"|\n[ \t]*(?:\*|#|//)?[ \t]*\n|\"\"\"|\*/|\.(?=\s)"
+)
+#: The widest range ``R-aaa…R-bbb`` that is read as a range; a wider or reversed one is reported, not dropped.
+_UINFR_RANGE_MAX = 30
+
+
+@cache
+def _read(path: Path) -> str:
+    """One read per file and run: the scans of all four matrices share it (a test that writes a probe uses a
+    fresh ``tmp_path``, so a cached file is never rewritten under the same path)."""
+    return path.read_text(encoding="utf-8", errors="replace")
 
 #: The SHOULD rows of wave 7 (plan section 3 "Welle 7", WP 7.1-7.24; spec section 34 row 7), with the part a row
 #: contributes when only part of it is SHOULD. Not here, with the plan's reason: GP-FR-161-168 (wave 8 per section
@@ -244,7 +266,7 @@ def spec_ids() -> dict[str, str]:
     (spec,) = sorted(ROOT.glob(SPEC_GLOB))
     return {
         m.group(1): m.group(2).split(",")[0].strip()
-        for m in _SPEC_ID.finditer(spec.read_text(encoding="utf-8"))
+        for m in _SPEC_ID.finditer(_read(spec))
     }
 
 
@@ -285,7 +307,7 @@ def scan() -> dict[str, dict[str, set[str]]]:
             if tier is None:
                 continue
             for match in _TEST_ID.finditer(
-                path.read_text(encoding="utf-8", errors="replace")
+                _read(path)
             ):
                 number = match.group(1) or match.group(2)
                 found.setdefault(number, {}).setdefault(tier, set()).add(rel.as_posix())
@@ -371,7 +393,7 @@ def spec_rows() -> dict[str, str]:
     """``{row id: priority}`` for every GP-FR / GP-UX / GP-API / GP-NFR table row (``API`` for the API rows)."""
     (spec,) = sorted(ROOT.glob(SPEC_GLOB))
     rows: dict[str, str] = {}
-    for match in _SPEC_ROW.finditer(spec.read_text(encoding="utf-8")):
+    for match in _SPEC_ROW.finditer(_read(spec)):
         kind, number, cell = match.groups()
         row = f"GP-{kind}-{number}"
         if row not in rows:
@@ -401,7 +423,7 @@ def scan_rows() -> dict[str, dict[str, set[str]]]:
     """``{row id: {tier: {file, ...}}}`` - the GP-FR / GP-API / GP-UX / GP-NFR ids of the tests (``a/b`` expanded)."""
     found: dict[str, dict[str, set[str]]] = {}
     for rel, tier in _test_files():
-        text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+        text = _read(ROOT / rel)
         for match in _TEST_ROW.finditer(text):
             kind, first, rest = match.groups()
             for number in [first, *filter(None, rest.split("/"))]:
@@ -528,7 +550,11 @@ def _wave_problems(
 ) -> list[str]:
     gaps_file = f"GP-REQ-wave{wave}-gaps.json"
     out = [
-        f"{r}: listed in WAVE{wave}_ROWS but not a row of the spec"
+        (
+            f"{r}: listed in WAVE{wave}_UINFR_ROWS but not a requirement of UI-NFR-012"
+            if r.startswith(f"{UINFR} ")
+            else f"{r}: listed in WAVE{wave}_ROWS but not a row of the spec"
+        )
         for r in wave_rows
         if r not in rows
     ]
@@ -580,34 +606,79 @@ def uinfr_rows() -> dict[str, str]:
     """``{"UI-NFR-012 R-nnn": priority}`` for every requirement row of UI-NFR-012 (``MUSS`` / ``SOLL`` / ``KANN``)."""
     (spec,) = sorted(ROOT.glob(UINFR_GLOB))
     rows: dict[str, str] = {}
-    for match in _UINFR_ROW.finditer(spec.read_text(encoding="utf-8")):
+    for match in _UINFR_ROW.finditer(_read(spec)):
         rows.setdefault(f"{UINFR} {match.group(1)}", match.group(2))
     return rows
 
 
-def uinfr_ids(text: str) -> set[str]:
-    """The UI-NFR-012 ids a text claims: single ids, the ``/nnn`` shorthand and ranges, as ``UI-NFR-012 R-nnn``.
+def _uinfr_segments(text: str) -> list[str]:
+    """The text after each ``UI-NFR-012`` up to the end of its scope (:data:`_UINFR_SCOPE_END`)."""
+    segments: list[str] = []
+    for match in _NAMES_UINFR.finditer(text):
+        end = _UINFR_SCOPE_END.search(text, match.end())
+        segments.append(text[match.end() : end.start() if end else len(text)])
+    return segments
 
-    Only a text that names ``UI-NFR-012`` claims anything; the bare ``R-nnn`` of another document is no claim.
+
+def uinfr_claims(text: str) -> tuple[set[str], list[str]]:
+    """The UI-NFR-012 ids a text claims, and the ranges it could not read.
+
+    An ``R-nnn`` counts only inside the scope of a ``UI-NFR-012`` prefix (same sentence, before another document
+    prefix such as ``REQ-053 R-…``): single ids, the ``/nnn`` shorthand and ranges ``R-021…R-027``. A range wider
+    than :data:`_UINFR_RANGE_MAX` or reversed is returned as a problem.
     """
-    if not _NAMES_UINFR.search(text):
-        return set()
     ids: set[str] = set()
-    for match in _UINFR_RANGE.finditer(text):
-        first, last = int(match.group(1)), int(match.group(2))
-        if first <= last <= first + 30:
-            ids.update(f"{UINFR} R-{n:03d}" for n in range(first, last + 1))
-    for match in _UINFR_ID.finditer(text):
-        first, rest = match.groups()
-        ids.update(f"{UINFR} R-{n}" for n in [first, *filter(None, rest.split("/"))])
-    return ids
+    bad: list[str] = []
+    for segment in _uinfr_segments(text):
+        for match in _UINFR_RANGE.finditer(segment):
+            first, last = int(match.group(1)), int(match.group(2))
+            if first <= last <= first + _UINFR_RANGE_MAX:
+                ids.update(f"{UINFR} R-{n:03d}" for n in range(first, last + 1))
+            else:
+                bad.append(match.group(0))
+        # The ends of a range are read with the range (an unreadable range claims nothing).
+        segment = _UINFR_RANGE.sub(" ", segment)
+        for match in _UINFR_ID.finditer(segment):
+            first, rest = match.groups()
+            ids.update(f"{UINFR} R-{n}" for n in [first, *filter(None, rest.split("/"))])
+    return ids, bad
+
+
+def uinfr_ids(text: str) -> set[str]:
+    """The UI-NFR-012 ids a text claims (see :func:`uinfr_claims`)."""
+    return uinfr_claims(text)[0]
+
+
+def uinfr_range_problems() -> list[str]:
+    """Every range a test writes that is no readable UI-NFR-012 range (reversed, or wider than the limit)."""
+    out: list[str] = []
+    for rel, _tier_name in _test_files():
+        for bad in uinfr_claims(_read(ROOT / rel))[1]:
+            out.append(
+                f"{rel.as_posix()}: UI-NFR-012 range {bad!r} is reversed or wider than {_UINFR_RANGE_MAX} - "
+                "name the ids instead"
+            )
+    return out
+
+
+def stray_uinfr(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+) -> list[str]:
+    """UI-NFR-012 ids a test claims that are no requirement of UI-NFR-012 (a typo or a retired id)."""
+    return [
+        f"{r}: referenced by {', '.join(sorted(f for files in found[r].values() for f in files))}"
+        " but not a requirement of UI-NFR-012"
+        for r in sorted(found)
+        if r.startswith(f"{UINFR} ") and r not in rows
+    ]
 
 
 def scan_uinfr_rows() -> dict[str, dict[str, set[str]]]:
     """``{"UI-NFR-012 R-nnn": {tier: {file, ...}}}`` - the UI-NFR-012 ids the tests claim."""
     found: dict[str, dict[str, set[str]]] = {}
     for rel, tier in _test_files():
-        for row in uinfr_ids((ROOT / rel).read_text(encoding="utf-8", errors="replace")):
+        for row in uinfr_ids(_read(ROOT / rel)):
             found.setdefault(row, {}).setdefault(tier, set()).add(rel.as_posix())
     return found
 
@@ -615,26 +686,27 @@ def scan_uinfr_rows() -> dict[str, dict[str, set[str]]]:
 def scan_e2e_tcs() -> dict[str, set[str]]:
     """``{row id: {"084", ...}}`` - the TC-053 number of each E2E test function whose body names the row.
 
-    A body runs from ``def test_tc_053_nnn_...(`` to the next top-level ``def`` (or the end of the file). A UI-NFR-012
-    id counts when the FILE names UI-NFR-012 (the function bodies abbreviate it).
+    A body runs from the end of the signature of ``def test_tc_053_nnn_...(`` to the next line at column 0 (``def``,
+    ``class``, a decorator, a constant, a comment) or the end of the file. A UI-NFR-012 id counts in the scope of a
+    ``UI-NFR-012`` prefix inside the body, like everywhere else.
     """
     tcs: dict[str, set[str]] = {}
     for rel, tier in _test_files():
         if tier != "e2e" or rel.suffix != ".py":
             continue
-        text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
-        names_uinfr = _NAMES_UINFR.search(text) is not None
+        text = _read(ROOT / rel)
         starts = list(_E2E_TC_FUNCTION.finditer(text))
         for match in starts:
-            end = text.find("\ndef ", match.end())
-            body = text[match.start() : end if end != -1 else len(text)]
+            # The signature may close at column 0 (``) -> None:``); the body starts after it.
+            header_end = _SIGNATURE_END.search(text, match.end())
+            end = _TOP_LEVEL_LINE.search(text, header_end.end() if header_end else match.end())
+            body = text[match.start() : end.start() if end else len(text)]
             rows = {
                 f"GP-{kind}-{number}"
                 for kind, first, rest in _TEST_ROW.findall(body)
                 for number in [first, *filter(None, rest.split("/"))]
             }
-            if names_uinfr:
-                rows |= uinfr_ids(f"{UINFR}\n{body}")
+            rows |= uinfr_ids(body)
             for row in rows:
                 tcs.setdefault(row, set()).add(match.group(1))
     return tcs
@@ -728,6 +800,8 @@ def main() -> int:
         + wave8_problems(rows, found_rows, wave8_gaps)
         + wave9_problems(rows9, found9, wave9_gaps)
         + stray_rows(rows, found_rows)
+        + stray_uinfr(uinfr_rows(), scan_uinfr_rows())
+        + uinfr_range_problems()
     )
     for path, text in outputs:
         if args.write:
