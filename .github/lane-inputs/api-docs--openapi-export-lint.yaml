@@ -9,17 +9,17 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-06'
-measured_at_commit: d30d5c19c4c83e7519860cb7196a1b7a189e7cf1
+measured_on: '2026-11-09'
+measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
 replay_seconds: 37
-job_spec_sha256: a8fee35a64ce591bfe2ab46e0f3a4a3c3d81c6c8b1616254af937c1d63bfa9e1
+job_spec_sha256: f1e131a7c1a3d703664ca95c9a95e050c3732097fcae30f507e17a48dc432095
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 3222
+  untracked_reads_dropped: 3245
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -434,7 +434,9 @@ reads:
 - src/backend/app/common/async_bridge.py
 - src/backend/app/common/auth.py
 - src/backend/app/common/body_limit.py
+- src/backend/app/common/csv_download.py
 - src/backend/app/common/csv_export.py
+- src/backend/app/common/csv_import.py
 - src/backend/app/common/datetimes.py
 - src/backend/app/common/decoys.py
 - src/backend/app/common/dependencies.py
@@ -442,6 +444,7 @@ reads:
 - src/backend/app/common/error_handlers.py
 - src/backend/app/common/error_ids.py
 - src/backend/app/common/exceptions.py
+- src/backend/app/common/gc_policy.py
 - src/backend/app/common/held_count.py
 - src/backend/app/common/image_bounds.py
 - src/backend/app/common/keyed_lock.py
@@ -483,11 +486,13 @@ reads:
 - src/backend/app/data_access/arango/care_event_gap_repository.py
 - src/backend/app/data_access/arango/care_event_repository.py
 - src/backend/app/data_access/arango/care_reminder_repository.py
+- src/backend/app/data_access/arango/client_event_tombstones.py
 - src/backend/app/data_access/arango/collection_entity_names.py
 - src/backend/app/data_access/arango/collections.py
 - src/backend/app/data_access/arango/conflicts.py
 - src/backend/app/data_access/arango/connection.py
 - src/backend/app/data_access/arango/consent_repository.py
+- src/backend/app/data_access/arango/document_reads.py
 - src/backend/app/data_access/arango/enrichment_repository.py
 - src/backend/app/data_access/arango/erasure_executor.py
 - src/backend/app/data_access/arango/feeding_repository.py
@@ -497,6 +502,7 @@ reads:
 - src/backend/app/data_access/arango/glossary_repository.py
 - src/backend/app/data_access/arango/graph_edges.py
 - src/backend/app/data_access/arango/graph_repository.py
+- src/backend/app/data_access/arango/guarded_update.py
 - src/backend/app/data_access/arango/hardiness_zone_repository.py
 - src/backend/app/data_access/arango/harvest_repository.py
 - src/backend/app/data_access/arango/inventree_repository.py
@@ -579,9 +585,12 @@ reads:
 - src/backend/app/domain/__init__.py
 - src/backend/app/domain/calculators/
 - src/backend/app/domain/calculators/__init__.py
+- src/backend/app/domain/calculators/area_dose_calculator.py
+- src/backend/app/domain/calculators/bed_row_placement_calculator.py
 - src/backend/app/domain/calculators/drying_calculator.py
 - src/backend/app/domain/calculators/gdd_calculator.py
 - src/backend/app/domain/calculators/geometry_calculator.py
+- src/backend/app/domain/calculators/geometry_distance.py
 - src/backend/app/domain/calculators/image_preprocessor.py
 - src/backend/app/domain/calculators/image_tiler.py
 - src/backend/app/domain/calculators/irrigation_zone_consumption_calculator.py
@@ -611,6 +620,7 @@ reads:
 - src/backend/app/domain/engines/aquaponics_engine.py
 - src/backend/app/domain/engines/area_dosing_engine.py
 - src/backend/app/domain/engines/bed_frost_engine.py
+- src/backend/app/domain/engines/bed_list_csv_engine.py
 - src/backend/app/domain/engines/calendar_aggregation_engine.py
 - src/backend/app/domain/engines/care_event_backfill_mapper.py
 - src/backend/app/domain/engines/care_event_csv_engine.py
@@ -652,6 +662,7 @@ reads:
 - src/backend/app/domain/engines/notification_channel_registry.py
 - src/backend/app/domain/engines/notification_engine.py
 - src/backend/app/domain/engines/nutrient_engine.py
+- src/backend/app/domain/engines/nutrient_hint_engine.py
 - src/backend/app/domain/engines/nutrient_plan_engine.py
 - src/backend/app/domain/engines/oauth_engine.py
 - src/backend/app/domain/engines/onboarding_engine.py
@@ -664,6 +675,7 @@ reads:
 - src/backend/app/domain/engines/phase_sequence_resolver.py
 - src/backend/app/domain/engines/phase_transition_engine.py
 - src/backend/app/domain/engines/photo_quality_assessor.py
+- src/backend/app/domain/engines/plan_schema_migration.py
 - src/backend/app/domain/engines/plan_svg_engine.py
 - src/backend/app/domain/engines/plan_underlay_engine.py
 - src/backend/app/domain/engines/planting_run_engine.py
@@ -683,6 +695,7 @@ reads:
 - src/backend/app/domain/engines/site_conditions_merge.py
 - src/backend/app/domain/engines/slot_reservation_engine.py
 - src/backend/app/domain/engines/soil_analysis_engine.py
+- src/backend/app/domain/engines/soil_salinity_hint.py
 - src/backend/app/domain/engines/sowing_calendar_engine.py
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
@@ -824,12 +837,16 @@ reads:
 - src/backend/app/domain/models/aquaponik.py
 - src/backend/app/domain/models/attachment.py
 - src/backend/app/domain/models/auth.py
+- src/backend/app/domain/models/bed_csv_import.py
+- src/backend/app/domain/models/bed_list_export.py
 - src/backend/app/domain/models/bed_template.py
+- src/backend/app/domain/models/bed_template_exchange.py
 - src/backend/app/domain/models/beneficial.py
 - src/backend/app/domain/models/botanical_family.py
 - src/backend/app/domain/models/calendar.py
 - src/backend/app/domain/models/care_event.py
 - src/backend/app/domain/models/care_reminder.py
+- src/backend/app/domain/models/client_event.py
 - src/backend/app/domain/models/diagnosis.py
 - src/backend/app/domain/models/enrichment.py
 - src/backend/app/domain/models/feeding_event.py
@@ -860,6 +877,7 @@ reads:
 - src/backend/app/domain/models/membership.py
 - src/backend/app/domain/models/mode_switch.py
 - src/backend/app/domain/models/notification.py
+- src/backend/app/domain/models/nutrient_hint.py
 - src/backend/app/domain/models/nutrient_plan.py
 - src/backend/app/domain/models/observation.py
 - src/backend/app/domain/models/oidc_config.py
@@ -920,13 +938,16 @@ reads:
 - src/backend/app/domain/services/aquaponik_service.py
 - src/backend/app/domain/services/attachment_service.py
 - src/backend/app/domain/services/auth_service.py
+- src/backend/app/domain/services/bed_csv_import_service.py
 - src/backend/app/domain/services/bed_history_service.py
+- src/backend/app/domain/services/bed_list_labels.py
 - src/backend/app/domain/services/bed_rotation_service.py
 - src/backend/app/domain/services/bed_template_service.py
 - src/backend/app/domain/services/calendar_service.py
 - src/backend/app/domain/services/care_event_service.py
 - src/backend/app/domain/services/care_reminder_service.py
 - src/backend/app/domain/services/catalogue_authorization.py
+- src/backend/app/domain/services/client_event_writes.py
 - src/backend/app/domain/services/climate_normal_fetcher.py
 - src/backend/app/domain/services/companion_edge_service.py
 - src/backend/app/domain/services/companion_overlay_service.py
@@ -971,6 +992,7 @@ reads:
 - src/backend/app/domain/services/mode_switch_service.py
 - src/backend/app/domain/services/notification_propagation_service.py
 - src/backend/app/domain/services/notification_service.py
+- src/backend/app/domain/services/nutrient_hint_service.py
 - src/backend/app/domain/services/nutrient_plan_service.py
 - src/backend/app/domain/services/observation_service.py
 - src/backend/app/domain/services/oidc_provider_admin_service.py
@@ -1004,6 +1026,7 @@ reads:
 - src/backend/app/domain/services/sensor_service.py
 - src/backend/app/domain/services/singleton_document.py
 - src/backend/app/domain/services/site_service.py
+- src/backend/app/domain/services/slot_occupancy.py
 - src/backend/app/domain/services/soil_analysis_service.py
 - src/backend/app/domain/services/species_service.py
 - src/backend/app/domain/services/species_visibility.py
