@@ -1,7 +1,7 @@
 # SPEC-06 — Verarbeitungstätigkeiten, Rechtsgrundlagen und Aufbewahrung
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-400 … PRIV-449
 Hängt ab von: NFR-011 (Aufbewahrungsregeln R-nn), REQ-025 §3, 02 (Inventar), 03/04 (Verhalten),
 13 (Rechtsevidenz L-nn), 15 (Entscheidungsanalysen DA-01…DA-04)
@@ -48,7 +48,7 @@ pflschg_professional, kcang_association, both}`; ohne Angabe ist der Zustand `un
 verhält sich bei der Aufbewahrung konservativ (wie `legacy`), erzeugt aber **keinen** Tombstone für
 `harvested_by_key` (§3.2) und zeigt der Leitung bei jeder Anmeldung einen Hinweis, bis die Angabe erfolgt;
 der Betreiber sieht die Zahl `undeclared`-Mandanten (PRIV-110-Endpunkt). Bestehende Mandanten erhalten
-`legacy` durch v0108 (`09` §4). Persönliche Mandanten sind `none` (L-07: kein Dokumentationsrecht/-pflicht
+`legacy` durch v0109 (`09` §4). Persönliche Mandanten sind `none` (L-07: kein Dokumentationsrecht/-pflicht
 im Eigenanbau; INFERRED für Zierpflanzen ohnehin).
 
 ---
@@ -88,7 +88,7 @@ Anbauvereinigungen; [L-07] der private Eigenanbau kennt keine Dokumentationspfli
 
 **PRIV-401** [DEC-11 aktualisiert] `Tenant.settings.record_keeping` bestimmt die Klasse **je Feld** (§3.2):
 `pflschg_professional` / `kcang_association` / `both` → Pflichtfelder unter lit. c; `none` → keine
-Statutory-Klasse; `legacy` (nur Bestand, v0108) → heutiges Verhalten; `undeclared` → PRIV-409. Der Wechsel
+Statutory-Klasse; `legacy` (nur Bestand, v0109) → heutiges Verhalten; `undeclared` → PRIV-409. Der Wechsel
 auf `none` löst den Reklassifizierungs-Job aus (`09` §4), der hinter dem Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY`
 steht (Gate §10).
 

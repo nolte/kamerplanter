@@ -1,7 +1,7 @@
 # SPEC-07 — Spezifikation Offline-Datenschutz
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-500 … PRIV-539
 Hängt ab von: UI-NFR-012 v2.4 (R-055 … R-060), REQ-025 §10 (TTDSG-Zeilen), NFR-011 R-41/R-42,
 REQ-053 §32.6 Pkt. 13–16, 03 §7 (Löschung offline), 13 (L-11), 15 (DA-07)

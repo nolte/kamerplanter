@@ -1,7 +1,7 @@
 # SPEC-03 — Lebenszyklus von Konto und Mitgliedschaft
 
 ```
-Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-100 … PRIV-139
 Abhängig von: 01 (Vokabular, Komponenten), 04 (Bedeutung von Marker/Tombstone), 06 (Fristen)
 ```
@@ -116,7 +116,7 @@ Vertrag; `02` listet jedes Feld):
 | `security_audit_log.actor/target`, `erasure_requests.user_key`, `consent_records.user_key`, `mcp_audit_log.service_account_key` | Tombstone | unverändert | `06` |
 | `ai_audit_log.user_key` | Marker | unverändert | — |
 | `tenants.owner_user_key` einer fortbestehenden Organisation | Marker (REQ-056 §9.1 Übergabe geplant, nicht implementiert) | unverändert, bis REQ-056 umgesetzt ist | — |
-| `care_events`-Zeilen, deren `performed_by_user_key` den **Tombstone** der betroffenen Person enthält (kopiert durch v0104/Konsistenzjob) | unberührt — die Regel trifft nur den echten Key | erfasst: `04` §3.3 verbietet hier Tombstones; Migration `09` §3 korrigiert Altkopien | #2770 |
+| `care_events`-Zeilen, deren `performed_by_user_key` den **Tombstone** der betroffenen Person enthält (kopiert durch v0104/Konsistenzjob **vor #2839**) | seit #2839: Bestand durch v0107 auf den Marker gesetzt, Neuschreiben durch `account_of` verhindert (VERIFIED_CODE); die Löschregel selbst trifft weiterhin nur den echten Key | erfasst: `04` §3.3 verbietet hier Tombstones; Migration `09` §3 korrigiert Altkopien | #2770 |
 | Gerätespeicher auf den Geräten der betroffenen Person | dieses Gerät geleert (`AccountSettingsPage` → `clearOfflineData({discardWriteQueueOf})`); andere Geräte behalten die Schreibwarteschlange 90/365 Tage | Quarantäne toter Sitzungen `07` §7 | `07` |
 
 **PRIV-106** [Vorschlag] Der Löschbericht (`erasure_requests`-Collection, Listen und Zähler)
@@ -225,10 +225,10 @@ aktion der handelnde Nutzer; bei einem Celery-Job **niemand** (`null`).
 | Pfad | Heute | Erforderlich | Issue |
 |------|-------|--------------|-------|
 | REST `POST /plants/{key}/confirm`, Benachrichtigungsaktion | Aufrufer gespeichert | unverändert | — |
-| Abschluss über Aufgabenwarteschlange → `record_care_task_completion` | `performed_by_user_key = null` (`_bed_event_for` ohne `user_key` aufgerufen) | Aufrufer (`ctx.user_key` verfügbar in `tasks/tenant_router.py`) | #2770 Punkt 2 |
-| MCP `ConfirmCareTask` | `null` | Service-Account-Key (`account_type: service`), dargestellt als `service_account` | #2770 Punkt 2 |
-| Live-Erinnerungs-/Bestätigungszeilen via `map_document` | `created_by = None` → `created_by_me` false, Autor kann nicht korrigieren | `created_by = performed_by_user_key` auf **Live**-Pfaden; Backfill und Konsistenzjob behalten `null` (Systemherkunft) | #2770 Punkt 3 |
-| Backfill/Konsistenz `account_of` | kopiert jeden nicht leeren String inkl. Tombstones | kopiert nur einen Wert, der ein aktueller `users._key` ist, *oder* schreibt `_anonymized` für einen Tombstone/Marker; niemals ein Label | #2770 Punkt 1, `04` §3.3 |
+| Abschluss über Aufgabenwarteschlange → `record_care_task_completion` | `performed_by_user_key = null` (`_bed_event_for` ohne `user_key` aufgerufen) | Aufrufer (`ctx.user_key` verfügbar in `tasks/tenant_router.py`) | #2770 Punkt 2 → in #2839 bewusst nicht geändert, an **#2517** übergeben (E01-Rest) |
+| MCP `ConfirmCareTask` | `null` | Service-Account-Key (`account_type: service`), dargestellt als `service_account` | #2770 Punkt 2 → #2517 (E01-Rest) |
+| Live-Erinnerungs-/Bestätigungszeilen via `map_document` | **behoben #2839** (VERIFIED_CODE): `created_by = user_key` in `care_reminder_service.py`; Backfill übergibt `None` | `created_by = performed_by_user_key` auf **Live**-Pfaden; Backfill und Konsistenzjob behalten `null` (Systemherkunft) | #2770 Punkt 3 |
+| Backfill/Konsistenz `account_of` | **behoben #2839** (VERIFIED_CODE): Tombstone → `_anonymized` über `ErasureEngine.is_tombstone`; Bestand durch v0107 korrigiert; `anon2_` (E03) noch nicht erkannt | kopiert nur einen Wert, der ein aktueller `users._key` ist, *oder* schreibt `_anonymized` für einen Tombstone/Marker; niemals ein Label | #2770 Punkt 1, `04` §3.3 |
 
 ### 4.3 `confirmed_by`
 
@@ -252,7 +252,7 @@ Abs. 3 (L-01, VERIFIED_LEGAL) lässt die Frist am 1. Januar des Folgejahres begi
 **PRIV-122** [PROPOSED, DEC-11 aktualisiert; **LEGAL_REVIEW_REQUIRED LEG-03**] Ein Organisationsmandant MUSS bei
 der Anlage klassifiziert werden (PRIV-409: `organization_kind` und `record_keeping ∈ {none, pflschg_professional,
 kcang_association, both}`); ohne Angabe gilt `undeclared` (konservative Aufbewahrung, Hinweis an die Leitung,
-Zählung beim Betreiber). Bestandsmandanten: `legacy` (v0108) = heutiges Verhalten. Persönliche Mandanten: `none`
+Zählung beim Betreiber). Bestandsmandanten: `legacy` (v0109) = heutiges Verhalten. Persönliche Mandanten: `none`
 (KCanG § 9/§ 10 kennen keine Dokumentationspflicht, L-07). Die Klasse wirkt **feldgenau** (`06` §3.2): nur die einer
 Vorschrift zugeordneten Felder werden unter Art. 6 Abs. 1 lit. c aufbewahrt; z. B. ist die erntende Person nach
 KCanG § 26 keine Pflichtangabe (L-05) → `harvested_by_key` erhält bei Löschung den Marker (PRIV-411, hinter Flag).

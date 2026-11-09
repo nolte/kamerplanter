@@ -1,7 +1,7 @@
 # SPEC-10 — Test- und Abnahmestrategie
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Änderung v1.1: TA-237…239 (Identifikationsklassen, Pseudonymformat, Zustandsautomat), TA-409…413 (Klassifizierung,
 Pflichtfelder, Fristbeginn), TA-531/532 (Offline-Opt-in), TA-630…632 (Defaults, Flags, Gates), TA-709/710/718
 (Spiegel statt Ledger), TA-810.
@@ -37,7 +37,7 @@ TA-5xx → 07, TA-6xx → 08, TA-7xx → 09, TA-8xx → übergreifende Negativte
 | TA | Typ | Test | Pfad (neu oder erweitert) |
 |----|-----|------|---------------------------|
 | TA-001 | Guard | R7: jede `AnonymizationRule`/`PseudonymizationRule` hat `attribution`; jedes kontoförmige Feld hat genau eine; eingebrachte Regel ohne Attribution schlägt fehl | `scripts/check_privacy_inventory.py`, `tests/unit/domain/engines/test_privacy_engines.py` |
-| TA-002 | Unit | Mapper kopiert nie über Rollen hinweg: eine Quelle mit nur `created_by` ergibt `performed_by_user_key = None` | `tests/unit/domain/engines/test_care_event_backfill_mapper.py` |
+| TA-002 | Unit | Mapper kopiert nie über Rollen hinweg: eine Quelle mit nur `created_by` ergibt `performed_by_user_key = None` | `tests/unit/domain/engines/test_care_event_backfill_mapper.py` (existiert seit #2839 für Tombstone → Marker inkl. Near-Miss; Rollen-Fall ergänzen) |
 | TA-003 | Unit + API | Bestätigungsakteur = Aufrufer auf allen vier Eintrittspfaden (Detail: TA-120) | siehe TA-120 |
 | TA-004 | Komponente + Unit | jeder Leser (Pflegeprotokoll, Plan-Audit, Tagebuch, CSV) stellt `null`, Marker und fehlendes Konto über `PersonRef` identisch dar; ein eingebrachter roher Schlüssel im Antwortfeld schlägt fehl | `src/frontend/src/features/**/PersonRef.test.tsx`, `tests/unit/domain/services/test_identity_reference_service.py` |
 | TA-005 | Guard | einziger Resolver: AST-Scan findet kein `DOCUMENT(CONCAT(@users`, dessen Ergebnis ein Antwortfeld erreicht, außer über `IdentityReferenceService`; eingebrachter direkter Join schlägt fehl | `tests/unit/guards/test_person_display_goes_through_the_resolver.py` |
@@ -176,7 +176,7 @@ TA-5xx → 07, TA-6xx → 08, TA-7xx → 09, TA-8xx → übergreifende Negativte
 
 | TA | Typ | Test | Pfad |
 |----|-----|------|------|
-| TA-700…TA-703, TA-716, TA-717 | Unit + Integration | wie in `09` §12 aufgeführt | `tests/unit/migrations/versions/test_v0107_*.py`, `tests/integration/migrations/` |
+| TA-700…TA-703, TA-716, TA-717 | Unit + Integration | wie in `09` §12 aufgeführt | `tests/unit/migrations/versions/test_v0108_*.py`, `tests/integration/migrations/` |
 | TA-701a | Unit | Berichts-Schwärzungsfilter: ein eingebrachter Nutzerschlüssel / Name in `details` wird abgelehnt | `tests/unit/migrations/test_migration_report_redaction.py` |
 | TA-704 | Guard | Privacy-Migrationen deklarieren `kind`; ein `data_backfill` nutzt `ActiveTenants`, eine `privacy_correction` nicht | `tests/unit/guards/test_migration_tenant_gate_kind.py` |
 

@@ -1,7 +1,7 @@
 # SPEC-04 — Anonymisierung und Schwärzung
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-200 … PRIV-249
 Hängt ab von: 01 §2 (Vokabular), 02 (Feldinventar), 03 (wann welche Regel greift), 13 (L-14, L-15), 15 (DA-05, DA-06)
 Änderung v1.1: Identifikationsklassen (§1a), mandantengebundene Pseudonyme für neue Zeilen (PRIV-238),
@@ -92,8 +92,10 @@ Inventar abgeleitet wird (keine zweite Liste): jede Collection/jedes Feld, das e
 MUSS den Wert durch eine Funktion `carry_account_reference(value) -> str | None` leiten:
 ein aktuell geformter Schlüssel wird unverändert zurückgegeben; ein Tombstone oder der Marker wird zu `_anonymized`,
 wenn das Ziel ein Marker-Feld ist, und zu `null`, wenn das Ziel ein Tombstone-Feld ist (ein
-Pseudonym darf nie aus einer Kopie neu erzeugt werden). [verifizierter Defekt] `account_of` in
-`care_event_backfill_mapper.py` akzeptiert jeden nicht leeren String (#2770 Punkt 1).
+Pseudonym darf nie aus einer Kopie neu erzeugt werden). [VERIFIED_CODE, behoben #2839] `account_of` in
+`care_event_backfill_mapper.py` bildet einen Tombstone über `ErasureEngine.is_tombstone` auf `_anonymized` ab
+(#2770 Punkt 1); `carry_account_reference` verallgemeinert das auf alle Kopierstellen (`task_completion_engine`,
+Plan-Audit) und auf die zweite Generation `anon2_` (PRIV-238).
 
 **PRIV-206** Eine Konsistenzprüfung (`privacy.consistency`, neuer Beat, `08` §6) MUSS jeden
 tombstone-förmigen Wert außerhalb der Allowlist und jeden Marker in einem Tombstone-Feld melden, pro
@@ -384,7 +386,7 @@ Datenrechte hat.
 
 | Befund | Korrektur |
 |--------|-----------|
-| `care_events.performed_by_user_key =~ ^anon_[0-9a-f]{16}$` (von v0104 / Konsistenz-Job aus gelöschten gesetzlichen Zeilen kopiert) | → `_anonymized`; Anzahl pro Mandant |
+| `care_events.performed_by_user_key =~ ^anon_[0-9a-f]{16}$` (vor #2839 von v0104 / Konsistenz-Job kopiert; Bestand durch v0107 korrigiert — der Befund bleibt als Regressionswächter) | → `_anonymized`; Anzahl pro Mandant |
 | `garden_plan_audit.user_key`-Tombstones (nach DEC-16) | → `_anonymized` |
 | vor #1669/#1663 geschriebene Zeilen mit `*_by_key = null` und eingetipptem Anzeigenamen (`harvester`, `applied_by`, `inspector`, `assessed_by`) | **nicht** automatisch korrigierbar (REQ-025: ein Name ist kein Schlüssel); den Leads des Mandanten **einmalig** als Prüfeinträge aufgelistet, mit `match_kind = legacy_unkeyed_name`, begrenzt durch PRIV-223 |
 | `attachments.original_filename` von Zeilen mit `created_by = _anonymized` | → `""` |

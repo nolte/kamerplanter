@@ -2,7 +2,7 @@
 
 ```
 Ablageort: spec/privacy/ (DEC-01) · Sprache: Deutsch (DEC-23); Issue-Titel, Code und GitHub-Texte englisch
-Version: 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988 (Branch docs/privacy-spec-package)
+Version: 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97) (Branch docs/privacy-spec-package)
 Status: umsetzungsreif für die in 12 §4 als READY/READY_WITH_GUARDS geführten Anforderungen; produktive
 Verarbeitung gegateter Maßnahmen erst nach registrierter Rechtsentscheidung (decision-log §B)
 Verantwortlich: Engineering (Erstellung) · DSB / Rechtsberatung (LEG) · Betreiber (DEC, Gates)
@@ -29,12 +29,12 @@ Es baut auf REQ-025, NFR-011, REQ-023/024/049, REQ-053 und UI-NFR-012 auf und ä
 | 06 | [`06-retention-and-legal-basis.md`](06-retention-and-legal-basis.md) | Rollenmatrix (PA-nn), Verarbeitungstätigkeiten-Matrix, **feldgenaue Pflichtaufzeichnungen**, LIAs, Beschäftigte/Ehrenamt, Aufbewahrung, Produktionsgates | PRIV-400…414 |
 | 07 | [`07-offline-privacy.md`](07-offline-privacy.md) | Gerätespeicher, TDDDG/DSGVO getrennt, **Opt-in und Übergang**, Fristen, Widerruf, Shared-Device-Szenarien | PRIV-500…533 |
 | 08 | [`08-api-and-data-model.md`](08-api-and-data-model.md) | Registry, `PersonRef`, Laufzeit-Provenienz, Collections (`erasure_mirror`), Defaults ohne Modell-Default, Routen, **Feature-Flags** | PRIV-600…610 |
-| 09 | [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) | Migrationsphasen, v0107–v0109, Reklassifizierung (Flag), **Löschungs-Spiegel und Restore-Replay**, Re-Keying, Geräte-Migration | PRIV-700…718 |
+| 09 | [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) | Migrationsphasen, v0108–v0110, Reklassifizierung (Flag), **Löschungs-Spiegel und Restore-Replay**, Re-Keying, Geräte-Migration | PRIV-700…718 |
 | 10 | [`10-testing-and-acceptance.md`](10-testing-and-acceptance.md) | TA-Matrix, Negativtests „kann nicht wieder auftauchen“, Gates | TA-001…TA-810 |
 | 11 | [`11-dpia-pre-screening.md`](11-dpia-pre-screening.md) | Verarbeitungsvorgänge, Risikoregister RISK-01…20, **begründete Art.-35-Bewertung je Betriebsmodell** | — |
 | 12 | [`12-implementation-roadmap.md`](12-implementation-roadmap.md) | Epics E01…E18, Defaults je Klasse, **Readiness-Tabelle** | — |
 | 13 | [`13-legal-evidence-register.md`](13-legal-evidence-register.md) | **Rechtsevidenzregister** L-nn mit Wortlaut, URL, Fassung, Prüfdatum; Verifikationsaufträge V-nn | L-01…L-22, V-01…V-11 |
-| 14 | [`14-contradiction-register.md`](14-contradiction-register.md) | **Widerspruchsregister** W-01…W-25 mit Auflösung und Test | — |
+| 14 | [`14-contradiction-register.md`](14-contradiction-register.md) | **Widerspruchsregister** W-01…W-26 mit Auflösung und Test | — |
 | 15 | [`15-decision-analyses.md`](15-decision-analyses.md) | **Entscheidungsanalysen** DA-01…DA-08 (Rollen, Rechtsgrundlagen, KCanG/PflSchG, Beschäftigte, Freitext, Pseudonymisierung, Offline/TDDDG, DSFA) | — |
 | — | [`decision-log.md`](decision-log.md) | **Entscheidungsregistry**: DEC-01…34, LEG-01…19 mit Scope, PA, Owner, Gate, Durchsetzungspunkt, Prüfdatum | — |
 
@@ -90,7 +90,7 @@ Klassifizierung (`08` §2, TA-001/030/606).
 
 ## Umsetzungsreihenfolge
 
-P0: E01 (= #2770) → E03 → E02 → E04. P1: E05 → E10 → E09 → E07 → E08 → E06. P2: E11 → E13 → E12 → E14.
+P0: E01-Rest (#2770 wurde durch #2839 geschlossen; offen: Principal auf Queue/MCP, Filter, Schalter) → E03 → E02 → E04. P1: E05 → E10 → E09 → E07 → E08 → E06. P2: E11 → E13 → E12 → E14.
 P3: E15, E18, E16, E17. Readiness je Epic: `12` §4. Nichts aus diesem Paket wurde implementiert, kein
 Anwendungsverhalten geändert, kein GitHub-Issue angelegt oder geschlossen.
 

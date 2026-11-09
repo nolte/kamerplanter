@@ -5,7 +5,7 @@ Paket: spec/privacy (DSGVO-Datenschutzarchitektur und Implementierungsspezifikat
 Status: Entwurf zur Implementierung — rechtliche Prüfung ausstehend (siehe decision-log.md, LEG-*); Produktionsgates je Maßnahme (06 §10)
 Version: 1.1 (Härtung: Evidenzklassen, Löschungs-Spiegel statt Raw-Key-Ledger, Zustandsautomat Prüfung, Offline-Opt-in)
 Datum: 2026-11-09
-Gemessen an: develop 24d1c2988 (nach Fast-Forward; Welle 9 von REQ-053 gemergt)
+Gemessen an: develop 24d1c2988 (nach Fast-Forward; Welle 9 von REQ-053 gemergt); Nachtrag #2839 (develop 343afbb97, 2026-11-09)
 Sprache: Deutsch (Spezifikation); Quellcode und GitHub-Texte bleiben englisch
 Anforderungs-IDs: PRIV-001 … PRIV-029 (dieses Dokument)
 ```
@@ -52,8 +52,9 @@ Komponente:
    `users._key` in ca. 30 Feldern ohne deklarierte Zurechnungsrolle; Anzeigenamen werden ad hoc
    durch AQL-`DOCUMENT()`-Joins aufgelöst; ein gelöschter Akteur erscheint an einer Stelle als
    hartcodierter deutscher String `"anonymisiert"` und an einer anderen als `null`. Ein
-   Pseudonym (`anon_…`) kann aus einer gesetzlichen Zeile in das Pflegeprotokoll
-   durchsickern (#2770 Punkt 1).
+   Pseudonym (`anon_…`) konnte bis #2839 aus einer gesetzlichen Zeile in das Pflegeprotokoll
+   durchsickern (#2770 Punkt 1; seit #2839 Marker, Bestand durch v0107 korrigiert) — die
+   übrigen Kopierstellen sind nicht abgesichert (PRIV-205).
 2. **Die Löschung endet am Schlüssel.** Die Kontolöschung leert nie Freitext von Inhalten
    (Tagebuchtext, `summary`/`material` von Pflegeereignissen, Namen von Beetvorlagen,
    Standortnamen, Audit-Zusammenfassungen, Bildunterschriften, ursprüngliche Dateinamen).
@@ -234,7 +235,8 @@ Task-Queue-Brücke (`care_reminder_service.record_care_task_completion`, aufgeru
 `api/v1/tasks/tenant_router.py` ohne Benutzer) und MCP (`mcp_server/tools/care.py`) speichern
 `null`. Die Regel lautet: `performed_by_user_key = authentifizierter Principal` (ein
 Service-Account ist ein Principal und wird als `service_account` dargestellt);
-`created_by = authentifizierter Principal`. (#2770 Punkt 2; die rechtliche
+`created_by = authentifizierter Principal`. (#2770 Punkt 2, in #2839 bewusst nicht geändert und an #2517
+übergeben; die rechtliche
 Sichtbarkeitsentscheidung in LEG-05 ändert nicht, *was* gespeichert wird, nur, *wer es sieht*.)
 
 ### 4.2 Erforderliche und optionale Zurechnung

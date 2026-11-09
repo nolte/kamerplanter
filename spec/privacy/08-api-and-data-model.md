@@ -1,7 +1,7 @@
 # SPEC-08 — Änderungen an API und Datenmodell
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-600 … PRIV-649
 Hängt ab von: 01 §3 (Komponenten), 03–07 (Verhalten); Style Guides BACKEND.md / FRONTEND.md;
 NFR-016 (Migrationen), NFR-006 (Fehlerformat)
@@ -93,8 +93,8 @@ Aufrufstellen, die umzuhängen sind [verifiziert]: `erasure_engine.py` (definier
 (`ANONYMIZED_MARKER`, `REDACTED`), `data_access/arango/attachment_repository.py`,
 `domain/engines/tenant_export_engine.py` (`ANONYMIZED_ACCOUNT`, `_TOMBSTONE`),
 `data_access/arango/tenant_erasure_executor.py` (`_TOMBSTONE_REGEX`),
-`domain/engines/care_event_backfill_mapper.py` (`account_of` → nutzt
-`carry_account_reference`), `domain/engines/task_completion_engine.py`
+`domain/engines/care_event_backfill_mapper.py` (`account_of` → nutzt `carry_account_reference`; seit #2839
+ruft es bereits `ErasureEngine.is_tombstone` → Marker), `domain/engines/task_completion_engine.py`
 (`harvested_by_key = event.performed_by_user_key`). Der Test
 `test_garden_plan_retention.py` (pinnt drei Kopien als gleich) wird zu einem Guard, der prüft, dass die Namen
 importiert und nicht neu definiert werden (AST-Scan auf ein zweites Literal `"_anonymized"` in `app/`).
@@ -209,7 +209,7 @@ class OrganizationKind(StrEnum): ASSOCIATION = "association"; COMMERCIAL = "comm
 class TenantSettings(BaseModel):
     ...  # existing ai_* fields
     attribution_visibility: AttributionVisibility | None = None   # None → Default nach Klasse (DA-04), PRIV-300
-    record_keeping: RecordKeeping | None = None                   # None = "undeclared" (PRIV-409); v0108 stempelt Bestand auf LEGACY
+    record_keeping: RecordKeeping | None = None                   # None = "undeclared" (PRIV-409); v0109 stempelt Bestand auf LEGACY
     organization_kind: OrganizationKind | None = None             # Pflichtangabe bei Anlage eines organization-Mandanten (PRIV-409)
     shared_device_mode: bool = False                              # PRIV-524
 ```
@@ -218,9 +218,9 @@ class TenantSettings(BaseModel):
 Default. Der **Anlagepfad** setzt sie: persönliche Mandanten `record_keeping = none`, `attribution_visibility =
 all_members`; Organisationsmandanten verlangen `organization_kind` und `record_keeping` als Pflichtangabe
 (Formularschritt, 422 ohne Angabe) und erhalten `attribution_visibility` nach Klasse (`commercial` →
-`leads_and_self`, sonst `all_members`). **Bestandsmandanten** werden durch v0108 auf `record_keeping = legacy`,
+`leads_and_self`, sonst `all_members`). **Bestandsmandanten** werden durch v0109 auf `record_keeping = legacy`,
 `organization_kind = unknown_legacy`, `attribution_visibility = all_members` gestempelt. Ein `None` zur Laufzeit
-(nur Bestand vor v0108 oder manuell gelöscht) wird wie `legacy`/`all_members` gelesen **und** als `undeclared`
+(nur Bestand vor v0109 oder manuell gelöscht) wird wie `legacy`/`all_members` gelesen **und** als `undeclared`
 gezählt (PRIV-409). `extra="allow"` hält gespeicherte Dokumente gültig. Jeder Default hat einen Test (TA-630). `PATCH /tenants/{slug}` akzeptiert sie für `lead ∧ management`; Änderungen werden
 auditiert (`TENANT_PRIVACY_SETTING_CHANGED`, alter/neuer Wert in der bestehenden `reason`-freien
 Form → `setting_key`, `old_value`, `new_value` zu `SecurityAuditEntry` als optionale

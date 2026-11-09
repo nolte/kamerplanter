@@ -83,8 +83,8 @@ Art. 6 Abs. 1 lit. f zu und führte LIA-1…LIA-3.
 **2 Verifizierte Fakten.** Pflegeereignisse entstehen durch Handlungen der Mitglieder im Dienst, den sie
 nutzen (VERIFIED_CODE: `CareEventService.create/log`, `CompletionActor`). Die Zurechnung wird aus dem
 Token gestempelt (GP-NFR-054, VERIFIED_CODE). Die Aufbewahrung der Zurechnung beträgt 5 Jahre (R-25,
-VERIFIED_CODE). Der Backfill kopiert `applied_by_key`/`harvested_by_key` in `performed_by_user_key`
-(VERIFIED_CODE, `care_event_backfill_mapper.account_of`).
+VERIFIED_CODE). Der Backfill kopiert `applied_by_key`/`harvested_by_key` in `performed_by_user_key`; seit #2839
+wird ein Tombstone dabei zum Marker (VERIFIED_CODE, `care_event_backfill_mapper.account_of`).
 
 **3 Rechtsvorschriften.** Art. 5 Abs. 1 lit. b, c, e; Art. 6 Abs. 1 lit. b, f; Art. 6 Abs. 4; Art. 17 Abs. 3
 (L-12, nur Bezug). EDSA 1/2024 Prüfschema (L-22, VERIFIED_META). **Art. 17 Abs. 3 ist eine Ausnahme vom

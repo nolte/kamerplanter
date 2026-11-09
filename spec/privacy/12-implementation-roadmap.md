@@ -1,7 +1,7 @@
 # SPEC-12 — Umsetzungs-Roadmap und Umsetzungsreife
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Nur Issue-Vorschläge — nichts davon wurde auf GitHub angelegt. Titel sind englisch (GitHub-Regel),
 alles andere deutsch. Jede Einheit nennt Abhängigkeiten, Akzeptanz (TA), Rechtsfragen (LEG) mit dem
 Default, mit dem sie ausgeliefert wird, und ihr Produktionsgate.
@@ -13,8 +13,11 @@ Flags/Gates je Epic, Readiness-Tabelle (§4), Verifikationsaufträge V-nn in E17
 
 ## 0. Einordnung
 
-- **PRIV-E01 = GitHub #2770** (in der REQ-053-Partition vom 2026-11-09 nach #2758 eingeplant). **#2517** bleibt
-  das Rechts-Issue; dieses Paket liefert dafür `11`, `13`, `15` und die LEG-Registry (decision-log §B).
+- **PRIV-E01 = GitHub #2770, geschlossen durch PR #2839 (2026-11-09, develop 343afbb97)**: Punkte 1 (Tombstone →
+  Marker im Mapper + Migration `v0107_care_event_tombstone_performer`), 3 (`created_by` auf Live-Bestätigungen),
+  4 (`INACTIVE_TENANT`-Skip) und 5 (v0104-Quellliste: mit Begründung geschlossen) sind umgesetzt; Punkt 2 (Principal
+  auf Queue-/MCP-Pfaden) wurde bewusst nicht geändert und an **#2517** übergeben. E01 unten beschreibt den **Rest**.
+  #2517 bleibt das Rechts-Issue; dieses Paket liefert dafür `11`, `13`, `15` und die LEG-Registry (decision-log §B).
 - Drei Gates (README §Produktionsgates): `engineering_allowed` (Code, Tests, Flag aus) · `deployment_allowed`
   (ausgerollt, Flag aus) · `processing_allowed` (Flag an). Einschränkende/schutzverstärkende Maßnahmen brauchen
   keine Rechtsfreigabe; ausweitende oder datenvernichtende stehen hinter Flags (`08` §8a).
@@ -29,14 +32,17 @@ Offline · **P3** Governance, Monitoring, Compliance.
 
 ### P0
 
-#### PRIV-E01 · fix(care-events): never copy a tombstone into the care log; one actor rule for confirmations; v0104 gates and source list (= #2770)
-- **Problem**: `account_of` kopiert `anon_<hash>` in `performed_by_user_key` (VERIFIED_CODE); Task-Queue/MCP speichern
-  `null`; Reminder-Zeilen ohne `created_by`; v0104 ohne `ActiveTenants`, veränderliche Quellliste.
-- **Scope**: `carry_account_reference` (PRIV-205), Principal auf allen Bestätigungspfaden (PRIV-003/119), `created_by =
-  principal` live / `null` Backfill (PRIV-214/215), Tombstone-Form im Filter/Rendering (PRIV-207), v0104-Gates und
-  eingefrorene Quellliste, **Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER`** (Default = Bestand, DA-02).
-- **Abhängigkeiten**: keine. **Akzeptanz**: TA-002, TA-120, TA-121, TA-123, TA-203, TA-801. **Gate**: ja (Korrektur).
-- **LEG**: LEG-07 (Schalter macht die Entscheidung ohne Release wirksam).
+#### PRIV-E01 (Rest) · fix(care-events): one actor rule for confirmations; tombstone shape in filters; backfill-attribution switch (#2770 → #2839 gemergt; Rest aus #2517)
+- **Erledigt durch #2839 (VERIFIED_CODE)**: `account_of` → Marker für Tombstones (`ErasureEngine.is_tombstone`),
+  Bestand per v0107 korrigiert, `created_by = user_key` auf Live-Bestätigungen (`care_reminder_service.py`),
+  `created_by = None` im Backfill (`map_document(created_by=…)`), `SkipReason.INACTIVE_TENANT`.
+- **Offen**: Task-Queue (`record_care_task_completion`) und MCP (`ConfirmCareTask`) speichern weiterhin `null`
+  (PRIV-003/119; #2839 Punkt 2, an #2517 übergeben — Betreiberentscheidung, ob vor LEG-05 umgesetzt); Tombstone-Form
+  im `performed_by`-Filter → 422 und im Rendering (PRIV-207); **Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER`**
+  (Default = Bestand, DA-02); `carry_account_reference` für die übrigen Kopierstellen (`task_completion_engine`,
+  `garden_plan_audit`) folgt in E03/E05.
+- **Abhängigkeiten**: keine. **Akzeptanz**: TA-002 (Rollen-Fall ergänzen), TA-120, TA-123, TA-203, TA-801. **Gate**: ja.
+- **LEG**: LEG-07 (Schalter macht die Entscheidung ohne Release wirksam); LEG-05 ändert nur Sichtbarkeit.
 
 #### PRIV-E02 · fix(privacy): suppress a closed account's display name during the erasure grace
 - PRIV-104; TA-100, TA-101; Gate ja (einschränkend).
@@ -47,8 +53,9 @@ Offline · **P3** Governance, Monitoring, Compliance.
   Residue-Scan für Kontolöschung (PRIV-234).
 - **Akzeptanz**: TA-200, TA-102/208, TA-238. **Gate**: ja (schutzverstärkend). **LEG**: LEG-15 (Verknüpfbarkeit; Default B).
 
-#### PRIV-E04 · chore(migrations): v0107 tombstone copies → marker, plan-audit actor → marker, anonymised attachments' file names; minimal consistency beat
-- **Scope**: `09` §3 mit Phasen `precheck/dry_run/apply/verify` (PRIV-718); Inventaränderungen (`garden_plan_audit` Marker
+#### PRIV-E04 · chore(migrations): v0108 tombstone copies → marker, plan-audit actor → marker, anonymised attachments' file names; minimal consistency beat
+- **Scope**: `09` §3 (Rest nach v0107/#2839: `created_by`, `anon2_`, Plan-Audit, Dateinamen) mit Phasen
+  `precheck/dry_run/apply/verify` (PRIV-718); Inventaränderungen (`garden_plan_audit` Marker
   DEC-16; `attachments.clear_fields += original_filename`); `migration_reports` + `--report-out` (PRIV-701/702);
   **`privacy.consistency` Minimalform** (nur Zähler Bucket 3 + Metrik; DEC-28).
 - **Abhängigkeiten**: E01, E03. **Akzeptanz**: TA-700, TA-701, TA-701a, TA-207, TA-209, TA-202. **Gate**: ja;
@@ -82,7 +89,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
 
 #### PRIV-E09 · feat(tenants): mandatory tenant classification; field-level statutory retention; PflSchG period anchoring
 - **Scope**: `organization_kind` + `record_keeping` als Pflichtangabe bei Anlage (PRIV-409, 422 `tenant.classification_required`),
-  `undeclared`-Verhalten und Betreiberzähler, v0108 (Bestand `legacy`/`unknown_legacy`), **feldgenaue Zuordnung** in
+  `undeclared`-Verhalten und Betreiberzähler, v0109 (Bestand `legacy`/`unknown_legacy`), **feldgenaue Zuordnung** in
   Löschung/Mandanteninventar (PRIV-410), **Fristbeginn 1. Januar des Folgejahres** für PflSchG-Felder (PRIV-412),
   Hilfsdokumentations-Text (PRIV-413), Reklassifizierungs-Job und PRIV-411 **hinter Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY`**.
 - **Abhängigkeiten**: E05. **Akzeptanz**: TA-122, TA-409, TA-410, TA-412, TA-413, TA-703, TA-404, TA-630. **Gate**:
@@ -104,7 +111,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
 - PRIV-116/118. Abhängigkeiten: E06, E07, E09. Akzeptanz: TA-112, TA-805. Gate: ja (schutzverstärkend). LEG-06.
 
 #### PRIV-E13 · feat(retention): rows R-46/R-47/R-48; keyed performer fields; configurable `data_controller`
-- v0109 (`09` §5), Request-Schemas, UI „Ich war es / jemand anderes“, `nutrient_plans.author_*`, `workflow_templates`,
+- v0110 (`09` §5), Request-Schemas, UI „Ich war es / jemand anderes“, `nutrient_plans.author_*`, `workflow_templates`,
   Beats mit Grenzen, NFR-011-Zeilen (Spec-Änderung), Art.-15-Quellen, **`data_controller` je Mandant konfigurierbar** (DA-01).
 - Abhängigkeiten: E05. Akzeptanz: TA-702, TA-400…TA-403, TA-603. Gate: ja. **Discovery**: V-11 (THC-Feld), Modellfelder
   `nutrient_plans`/`propagation` (Feldnamen VERIFIED_CODE, Längen teilweise unbegrenzt).
@@ -146,7 +153,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
 
 ```mermaid
 flowchart LR
-    E01["P0 E01 (Issue 2770)"] --> E04["P0 E04 v0107 + Konsistenz minimal"]
+    E01["P0 E01 Rest (2770 durch 2839 gemergt)"] --> E04["P0 E04 v0108 + Konsistenz minimal"]
     E03["P0 E03 Konstanten, anon2, Residue"] --> E04
     E02["P0 E02 geschlossener Name"] --> E05
     E03 --> E05["P1 E05 Registry, PersonRef, Provenienz"]
@@ -180,7 +187,7 @@ E16/E17 (Doku parallel).
 | neuer persönlicher Mandant | `none` (L-07) | `all_members` | aus (Opt-in) | aus | Verzeichnisdaten, keine Fachdaten |
 | neuer Verein / Gemeinschaftsgarten (`association`/`community`) | Pflichtangabe (`none` oder `kcang_association`) | `all_members` | aus | aus (Kiosk ⇒ an) | dito |
 | neuer gewerblicher Mandant (`commercial`) | Pflichtangabe (`pflschg_professional` oder `none`) | `leads_and_self` | aus | aus | dito |
-| Bestandsmandant | `legacy` (v0108) | `all_members` | aus (Übergang) | aus | dito |
+| Bestandsmandant | `legacy` (v0109) | `all_members` | aus (Übergang) | aus | dito |
 | migrierter Legacy-Mandant nach Klassifizierung | gewählter Wert; Reklassifizierung nur mit Flag | nach Klasse, nur auf Antrag der Leitung geändert | — | — | — |
 
 Jeder Default hat einen Test (TA-630); ein Legacy-Default wird **nie** zum Default neuer Mandanten (W-03).
@@ -195,7 +202,8 @@ Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rech
 
 | Anforderung / Epic | Status | Blocker | Evidenz | Nächster Schritt |
 |--------------------|--------|---------|---------|------------------|
-| E01 (PRIV-003, 205, 207, 214, 215) | READY | — | VERIFIED_CODE (#2770-Pfade), DA-02 | Lane nach #2758 |
+| E01 erledigt (PRIV-205 für `account_of`, PRIV-214, PRIV-215) | DONE (#2839, develop 343afbb97) | — | VERIFIED_CODE: `care_event_backfill_mapper.account_of`, `v0107_care_event_tombstone_performer.py`, `care_reminder_service.py` | TA-002/TA-121 gegen den gemergten Code pinnen |
+| E01 Rest (PRIV-003/119 Principal Queue/MCP, PRIV-207 Filter, Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER`) | READY | PRIV-003 in #2517 geparkt — Betreiber entscheidet, ob vor LEG-05 | DA-02; `03` §4 | kleine Lane oder mit E04 |
 | E02 (PRIV-104) | READY | — | VERIFIED_CODE (Join ohne `is_active`) | Lane |
 | E03 (PRIV-201, 234, 238) | READY | DEC-25 Betreiberfreigabe (Format) | L-14, L-15; VERIFIED_CODE | Lane |
 | E04 (PRIV-701…704, 718; DEC-16) | READY | DEC-16 Betreiberfreigabe | VERIFIED_CODE (Framework), `09` §2a | Dry-Run auf Prod-Snapshot |
@@ -209,7 +217,7 @@ Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rech
 | E10 (PRIV-510…523) | READY | — | VERIFIED_CODE (`07` §1, §7) | Lane |
 | E11 (PRIV-505…533) | READY | — (LEG-09/10 als Prüfdatum) | L-11 | Lane |
 | E12 (PRIV-116, 118) | READY | — | DA-02 | nach E06/E07/E09 |
-| E13 (R-46…R-48, v0109) | NEEDS_DISCOVERY (THC-Feld V-11; Modelle `nutrient_plans`/`propagation` Feldlängen) → sonst READY | V-11 | VERIFIED_CODE teilweise | Discovery-Task vor Lane |
+| E13 (R-46…R-48, v0110) | NEEDS_DISCOVERY (THC-Feld V-11; Modelle `nutrient_plans`/`propagation` Feldlängen) → sonst READY | V-11 | VERIFIED_CODE teilweise | Discovery-Task vor Lane |
 | E14 (PRIV-707…713) | READY_WITH_GUARDS | `deployment_allowed` Backups erst nach E14; LEG-11 Prüfdatum | L-19 (Backups), kein deutscher Primärbeleg (L-21) | Lane; Betreiber entscheidet Dump-Frist |
 | E15 | READY | — | — | nach E04/E07 |
 | E16 Spec-Änderungen | READY | Betreiberfreigabe je DEC | `14` | Doku-Lane |

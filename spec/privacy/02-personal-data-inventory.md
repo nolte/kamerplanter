@@ -1,7 +1,7 @@
 # SPEC-02 — Inventar personenbezogener Daten
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-030 … PRIV-049 (Inventarregeln)
 Änderung v1.1: `erasure_mirror` statt Raw-Key-Ledger, `migration_reports`, Ableitungswege jenseits der statischen
 Prüfung (§5a); Rechtsgrundlagen-Spalten verweisen auf `06` §2 (PA-nn) und `13` (L-nn).
@@ -242,7 +242,8 @@ Propagierungsregel deklariert werden; der Guard R8 prüft, dass jeder Schreiber 
 
 ## 6. Durch das Inventar gefundene Lücken (Faktenliste; Lösung in `04`–`09`, `12`)
 
-1. Tombstones in `care_events.performed_by_user_key` über `account_of` erreichbar (#2770).
+1. Tombstones in `care_events.performed_by_user_key` über `account_of` erreichbar (#2770) — **behoben #2839**
+   (Mapper + v0107, VERIFIED_CODE); die übrigen Kopierstellen (`task_completion_engine`, `garden_plan_audit`) offen.
 2. Freitext wird bei der Löschung nie geleert oder aufgelistet; Schwärzung nur für Pflegeereignisse, nur lead,
    keine UI-Aktion über einen Chip hinaus; keine Liste betroffener Zeilen.
 3. `care_events.material`, Messwert-Strings außerhalb der Schwärzungsmenge.

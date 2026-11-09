@@ -1,7 +1,7 @@
 # SPEC-09 — Migrations- und Backfill-Strategie
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-700 … PRIV-739
 Hängt ab von: NFR-016 / ADR-009 (Migrationsframework), 04 §7 (Altbefunde), 08 (Modell), 06 §3 (Pflichtfelder)
 Änderung v1.1: E04/E15-Konflikt aufgelöst (§3), Vor-/Nachprüfungen je Migration (§2a), Backup-Konzept auf
@@ -23,7 +23,11 @@ Tombstone-Spiegel umgestellt (§6, DEC-26), Flags für datenvernichtende Schritt
   ausstehend und stoppt die Schleife.
 - Konsistenz-Job `care_events.consistency` existiert (05:10 UTC, `ActiveTenants`-Gate, Fenster 7 d); ein
   allgemeiner Datenschutz-Konsistenz-Beat existiert **nicht**.
-- Neueste Version: `v0106_client_event_id_index`.
+- Neueste Version: `v0107_care_event_tombstone_performer` (#2839, gemergt 2026-11-09, VERIFIED_CODE): ersetzt
+  Tombstones in `care_events.performed_by_user_key` durch `_anonymized` (eingefrorene Regex `^anon_[0-9a-f]{16}$`,
+  nur dieses Feld, nur diese Generation), Dry-Run zählt, irreversibel, kein persistierter Bericht. Seit #2839 bildet
+  `care_event_backfill_mapper.account_of` einen Tombstone auf den Marker ab, und der Mapper überspringt Beete
+  inaktiver Mandanten (`SkipReason.INACTIVE_TENANT`); v0104 selbst ist unverändert (NFR-016 M-7).
 
 **PRIV-700** Jede Migration dieses Pakets MUSS idempotent sein (zweiter Lauf `changed == 0`), im AQL
 mandantengebunden (`FILTER doc.tenant_key == @tenant_key` je Mandant, Mandantenliste einmal gelesen), beobachtbar
@@ -60,21 +64,26 @@ Rollback-Grenzen stehen je Migration in §11.
 
 ## 3. M-P1 — Kopierte Tombstones korrigieren; Plan-Audit-Akteur auf Marker (E04)
 
-**Migration `v0107_privacy_tombstone_copies`** (`kind = privacy_correction`; umkehrbar: nein).
+**Stand (#2839, VERIFIED_CODE):** `v0107_care_event_tombstone_performer` hat Schritt 1 für `performed_by_user_key`
+(Generation `anon_`) bereits ausgeführt. Offen bleiben `created_by`-Tombstones, die zweite Generation `anon2_`
+(E03), Schritte 2–4, `verify` und der persistierte Bericht. Die Nummer dieser Migration ist von v0107 auf v0108
+verschoben (W-26).
+
+**Migration `v0108_privacy_tombstone_copies`** (`kind = privacy_correction`; umkehrbar: nein).
 
 | Schritt | AQL (je Mandant, alle Status außer `deleted`) | Berichts-Bucket |
 |---------|-----------------------------------------------|-----------------|
-| 1 | `care_events`: jedes Feld aus `ACCOUNT_FIELDS` mit `=~ TOMBSTONE_REGEX` → `_anonymized` | `care_events.tombstone_to_marker{tenant_key: count}` |
+| 1 | `care_events`: `performed_by_user_key` **und** `created_by` mit `=~ TOMBSTONE_REGEX` (beide Generationen) → `_anonymized` — Rest nach v0107 (#2839), das nur `performed_by_user_key` der Generation `anon_` erfasst | `care_events.tombstone_to_marker{tenant_key: count}` |
 | 2 | `garden_plan_audit.user_key =~ TOMBSTONE_REGEX` → `_anonymized` (DEC-16) | `garden_plan_audit.tombstone_to_marker` |
 | 3 | jede andere **nicht** auf der Allowlist stehende Collection/Feld-Kombination mit kontoförmigem Feld: **nur zählen** | `undeclared_tombstones{collection.field: count}` |
 | 4 | `attachments.created_by == _anonymized AND original_filename != ""` → `""` | `attachments.filename_cleared` |
 | verify | Schritte 1, 2, 4 erneut zählen → muss 0 sein; Schritt 3 wird als Befund gemeldet, nicht korrigiert | `verify.residual` |
 
-**PRIV-703 (neu gefasst, löst W-02)** Vorbedingungen von v0107 sind **ausschließlich**: (a) die Inventaränderung
+**PRIV-703 (neu gefasst, löst W-02)** Vorbedingungen von v0108 sind **ausschließlich**: (a) die Inventaränderung
 `garden_plan_audit` Tombstone → Marker und `attachments.clear_fields += original_filename` im selben Build (Precheck
 importiert die Regel und prüft `replacement_strategy`/`clear_fields`); (b) `TOMBSTONE_REGEX`/Allowlist aus
 `domain/models/privacy.py` (E03). Die **Nachprüfung** erfolgt innerhalb der Migration (`verify`) und durch
-`tests/unit/migrations/versions/test_v0107_*.py`; der Beat `privacy.consistency` ist **keine** Vorbedingung. Der
+`tests/unit/migrations/versions/test_v0108_*.py`; der Beat `privacy.consistency` ist **keine** Vorbedingung. Der
 Beat wird in **E04 in seiner Minimalform** (nur lesende Zählabfragen des Bucket 3 + Metrik, kein Endpunkt) eingeführt,
 damit Bucket 3 ab dem Folgetag überwacht ist; Metriken-Endpunkt und Operations-Listing bleiben E15. (DEC-28)
 
@@ -86,7 +95,7 @@ damit Bucket 3 ab dem Folgetag überwacht ist; Metriken-Endpunkt und Operations-
 
 ## 4. M-P2 — Aufzeichnungsprofil und Klassifizierung (E09)
 
-**Migration `v0108_tenant_record_keeping_default`** (`kind = privacy_correction`; umkehrbar: entfernt `legacy`):
+**Migration `v0109_tenant_record_keeping_default`** (`kind = privacy_correction`; umkehrbar: entfernt `legacy`):
 setzt bei jedem bestehenden Mandanten ohne Wert `settings.record_keeping = "legacy"` und `settings.organization_kind =
 "unknown_legacy"`; persönliche Mandanten erhalten `record_keeping = "none"` (L-07). Neue Mandanten erhalten
 **keinen** Default (`undeclared`, PRIV-409) — der Anlagepfad verlangt die Angabe.
@@ -105,7 +114,7 @@ Bericht: Zähler je Collection; Audit `TENANT_RECORD_KEEPING_CHANGED`. Rollback:
 
 ## 5. M-P3 — Freitext-Ausführendenfelder → Schlüsselfelder (E13)
 
-**Migration `v0109_keyed_performers`** (`kind = data_backfill` für die Feldanlage; additiv):
+**Migration `v0110_keyed_performers`** (`kind = data_backfill` für die Feldanlage; additiv):
 
 | Collection | Schritt |
 |------------|---------|
@@ -211,7 +220,8 @@ den neuen Fristen; (e) PRIV-512-Schlüssel beim nächsten Logout löschen. Relea
 
 **PRIV-716** Datenschutzkorrekturen (`kind = privacy_correction`) verarbeiten Mandanten in **jedem** Status außer
 `deleted` (Art. 17 gilt unabhängig vom Mandantenzustand); Daten-Backfills (`kind = data_backfill`) verwenden
-`ActiveTenants` [VERIFIED_CODE: v0104 tut das nicht → #2770 Pkt. 4]. Guard `test_migration_tenant_gate_kind`
+`ActiveTenants` [VERIFIED_CODE: seit #2839 überspringt der gemeinsame Mapper Beete inaktiver Mandanten
+(`SkipReason.INACTIVE_TENANT`, Scan liefert `site_tenant_active`); v0104 selbst bleibt unverändert, NFR-016 M-7]. Guard `test_migration_tenant_gate_kind`
 (TA-704).
 
 ---
@@ -228,9 +238,9 @@ Betriebsendpunkt (E15).
 
 | Migration / Job | Rollback | Teilausfall |
 |-----------------|----------|-------------|
-| v0107 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
-| v0108 | entfernt explizites `legacy`/`unknown_legacy` | idempotent |
-| v0109 | entfernt neue Felder, wenn alle `null`/Kopien | je Collection transaktional |
+| v0108 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
+| v0109 | entfernt explizites `legacy`/`unknown_legacy` | idempotent |
+| v0110 | entfernt neue Felder, wenn alle `null`/Kopien | je Collection transaktional |
 | Reklassifizierung | keiner | je Mandant; Zustand `reclassification_pending` bis Erfolg |
 | Restore-Replay | keiner (wendet Löschungen erneut an) | Residue > 0 ⇒ Wartungsmodus bleibt |
 
@@ -241,9 +251,9 @@ Betriebsendpunkt (E15).
 | ID | Kriterium |
 |----|-----------|
 | TA-700 | Zweiter Lauf `changed == 0`; AQL bindet `tenant_key`; Bericht nur mit erlaubten Schlüsseln; Phasen `precheck/dry_run/apply/verify` im Bericht. |
-| TA-701 | v0107: Dry-Run schreibt nichts; echter Lauf wandelt präparierte Tombstones um, zählt einen nicht deklarierten Tombstone ohne Änderung, leert `original_filename`; `verify.residual = 0`; ein Fehler in Mandant X lässt die übrigen fertig werden und die Migration nicht als angewendet gelten. |
+| TA-701 | v0108: Dry-Run schreibt nichts; echter Lauf wandelt präparierte Tombstones um, zählt einen nicht deklarierten Tombstone ohne Änderung, leert `original_filename`; `verify.residual = 0`; ein Fehler in Mandant X lässt die übrigen fertig werden und die Migration nicht als angewendet gelten. |
 | TA-701a | Berichtsfilter weist Nutzerschlüssel/Namen in `details` ab. |
-| TA-702 | v0109 setzt nie einen `*_user_key` aus einem Namen; `mcp:<key>` nur für existierendes Service-Konto. |
+| TA-702 | v0110 setzt nie einen `*_user_key` aus einem Namen; `mcp:<key>` nur für existierendes Service-Konto. |
 | TA-703 | Reklassifizierung wirkt nur mit gesetztem Flag; ohne Flag `reclassification_pending` + Metrik. |
 | TA-704 | Guard: `kind` deklariert; Backfill nutzt `ActiveTenants`, Korrektur nicht. |
 | TA-709 | Spiegel-Eintrag (ohne Rohschlüssel) bei Abschluss; Objekt verschlüsselt, HMAC-Kette gültig; Bereinigung filtert. |

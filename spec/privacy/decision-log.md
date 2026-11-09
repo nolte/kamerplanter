@@ -57,7 +57,7 @@ rückwirkend abgeschaltet, aber der Schalter zur Umsetzung der Entscheidung wird
 | **DEC-27** | Prüfwarteschlange | Obergrenze + Banner (v1.0) · Zustandsautomat ohne Ausschluss | **Zustandsautomat, paginierte Entdeckung, nur Eskalationsschwelle, `keep` nur mit Rechtsgrundlage, SLA-Aktion hinter Flag** | Art. 5 Abs. 2; Art. 17 Abs. 1; W-05/W-06 | LEG-08 | `04` §5, `08`, E07 | proposed |
 | **DEC-28** | E04/E15-Konflikt | Beat als Vorbedingung (v1.0) · Nachprüfung in der Migration + Minimal-Beat in E04 | **Migration verifiziert selbst; Minimal-Beat in E04; Vollform E15** | W-02 | nein | `09` §3, `12` | proposed |
 | **DEC-29** | Offline-Aktivierung | implizit · Opt-in nur neu · **Opt-in für alle mit Übergang** | **Opt-in für alle; Bestand: Cache löschen, Puffer-Dialog 7 d** | L-11 kumulativ „ausdrücklich gewünscht“ + „unbedingt erforderlich“; W-04 | LEG-09 | `07` §2.1, `09` §8, E11 | proposed (ersetzt DEC-21) |
-| **DEC-30** | Mandantenklassifizierung | Modell-Default `legacy` (v1.0) · Pflichtangabe bei Anlage | **`organization_kind` + `record_keeping` Pflicht bei Anlage; kein Modell-Default; Bestand `legacy` per v0108; `undeclared`-Verhalten** | W-03; DA-03/DA-04 | LEG-03 (Verlass auf Selbstauskunft) | `06` PRIV-409, `08` §3.2, E09 | proposed |
+| **DEC-30** | Mandantenklassifizierung | Modell-Default `legacy` (v1.0) · Pflichtangabe bei Anlage | **`organization_kind` + `record_keeping` Pflicht bei Anlage; kein Modell-Default; Bestand `legacy` per v0109; `undeclared`-Verhalten** | W-03; DA-03/DA-04 | LEG-03 (Verlass auf Selbstauskunft) | `06` PRIV-409, `08` §3.2, E09 | proposed |
 | **DEC-31** | PflSchG-Fristbeginn | `applied_at` (Code) · 1. Januar Folgejahr | **1. Januar des Folgejahres (PRIV-412)** | L-01 Abs. 3 VERIFIED_LEGAL; W-16 | nein (gesetzlich eindeutig; Länge weiterhin V-04) | `06` §3.2, E09 | proposed |
 | **DEC-32** | Produktionsgates | „LEG blockiert nie“ (v1.0) · drei Gates + Flags + Betreiber-Checkliste | **drei Gates; Flags `08` §8a; Checkliste für kommerziellen SaaS-Betrieb (AVV, Information, DSFA-Entscheidung)** | W-07 | — | README, `06` §10, hier | proposed |
 | **DEC-33** | Evidenzklassen | implizite Marker · explizite Klassen + Register | **sieben Klassen; Register `13` mit L-nn/V-nn; keine MUSS-Anforderung auf unverifizierter Rechtsquelle** | Aufgabe §2 | — | README, `13`, alle | proposed |
@@ -108,6 +108,7 @@ allgemeine Auslöser: Änderung des Betriebsmodells, Gesetzesänderung (KCanG-Ev
 | 2026-10-04 | INV-1 beim Antrag; persönlicher Garten im Art.-15-Bündel; Freitext Dritter unmaskiert | REQ-025 v1.32/1.33 |
 | 2026-09-26 | persönlicher Mandant bei Kontolöschung vollständig gelöscht | REQ-025 Q-E1/Q-E5 |
 | 2026-11-09 | REQ-053-Partition: #2770 nach #2758; #2517 Rechts-Hold | Partitions-Artefakt |
+| 2026-11-09 | PR #2839 gemergt (schließt #2770): `account_of` Tombstone → Marker, Migration v0107, `created_by` auf Live-Bestätigungen, `INACTIVE_TENANT`-Skip; Punkt 2 (Principal auf Queue/MCP) an #2517 übergeben; v0104 unverändert (NFR-016 M-7) | PR #2839, develop 343afbb97 |
 | 2026-11-09 | Paketsprache Deutsch | DEC-23 |
 
 ---

@@ -1,7 +1,7 @@
 # SPEC-05 — Zugriffs- und Sichtbarkeitsmatrix
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
 Anforderungs-IDs: PRIV-300 … PRIV-339
 Abhängig von: REQ-049 (Rollen), REQ-024 (Mandanten), 01 §4 (Zurechnungsrollen), 03 §3 (ehemalige Mitglieder),
 06 §5 / 15 DA-04 (Personengruppen), 13 (L-09, L-10)
