@@ -93,7 +93,14 @@ describe('bed view offline (WP 9.2)', () => {
   it('writes the summary into the cache after an online read', async () => {
     server.use(http.get(`${BASE}/locations/:key/summary`, () => HttpResponse.json(bedSummary())));
     renderPage();
-    await waitFor(async () => expect((await readCached(bedSummaryEntry(SCOPE, 'loc_b03')))?.data).toEqual(bedSummary()));
+    // Without the free text the offline view does not show (#2757 GDPR-004, `storedProjection`).
+    await waitFor(async () =>
+      expect((await readCached(bedSummaryEntry(SCOPE, 'loc_b03')))?.data).toEqual({
+        ...bedSummary(),
+        notes: null,
+        description: null,
+      }),
+    );
   });
 
   /** Back online: the summary answers; the rest of the location page is not this test's business. */

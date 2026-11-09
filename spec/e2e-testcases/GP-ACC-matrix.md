@@ -7,7 +7,7 @@ Source of the ids: `spec/req/REQ-053_*.md` section 30. Source of the tests: the 
 that a test claims the criterion; whether it proves it completely stays a review question.
 Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an issue.
 
-**63 of 64 criteria covered, 1 listed as gap.**
+**64 of 64 criteria covered, 0 listed as gap.**
 
 | GP-ACC | Level | Tiers | Tests |
 |---|---|---|---|
@@ -74,4 +74,4 @@ Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an 
 | GP-ACC-061 | I | integration | `src/backend/tests/integration/test_site_delete_cascade.py` |
 | GP-ACC-062 | I | api, integration | `src/backend/tests/api/test_bed_template_exchange_api.py`<br>`src/backend/tests/integration/test_garden_plan_tenant_isolation.py` |
 | GP-ACC-063 | I | api, integration | `src/backend/tests/api/test_bed_template_exchange_api.py`<br>`src/backend/tests/integration/test_garden_plan_tenant_isolation.py` |
-| GP-ACC-064 | I | **GAP** | planned: parcel list page in the garden plan PDF (parcel_list on GP-API-007), WP 9.10 not implemented yet (#2750) |
+| GP-ACC-064 | I | api | `src/backend/tests/api/test_garden_plan_export_api.py` |
