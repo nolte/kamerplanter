@@ -4,6 +4,7 @@
  */
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
@@ -54,6 +55,29 @@ function renderList(onSelectBed = vi.fn()) {
 afterEach(() => cleanup());
 
 describe('BedListSection', () => {
+  it('fetches the beds again when the reload token changes, e.g. after a save (#2813)', async () => {
+    const seen: URLSearchParams[] = [];
+    useBackend(BEDS, seen);
+    function SavingHarness() {
+      const [revision, setRevision] = useState(4);
+      return (
+        <>
+          <button type="button" onClick={() => setRevision((r) => r + 1)}>
+            save
+          </button>
+          <BedListSection siteKey="site_1" reloadToken={`load-1#${revision}`} onSelectBed={vi.fn()} />
+        </>
+      );
+    }
+    const store = createTestStore({ ...tenantState('grower'), ...authState() });
+    renderWithProviders(<SavingHarness />, { store });
+    await waitFor(() => expect(seen).toHaveLength(1));
+
+    await userEvent.click(screen.getByRole('button', { name: 'save' }));
+
+    await waitFor(() => expect(seen).toHaveLength(2));
+  });
+
   it('asks for the beds of the site and shows the counters (GP-API-011)', async () => {
     const seen: URLSearchParams[] = [];
     useBackend(BEDS, seen);

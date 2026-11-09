@@ -209,6 +209,24 @@ class PlanExportDialog(BedListExportDialog):
 class Wave9PlanPage(GardenPlanPage):
     """The plan editor's wave 9 parts."""
 
+    # ── Bed list under the plan (#2813) ────────────────────────────────
+
+    def bed_list_names(self) -> set[str]:
+        """The bed names the list under the plan shows (table or cards, whichever is displayed)."""
+        links = self.driver.find_elements(
+            By.CSS_SELECTOR, '[data-testid="bed-list-section"] [data-testid^="bed-list-link-"]'
+        )
+        return {link.text.strip() for link in links if link.is_displayed() and link.text.strip()}
+
+    def wait_for_bed_list_names(self, expected: set[str], what: str, timeout: int = 15) -> None:
+        """Wait until the bed list shows exactly *expected* - it must follow a save without a reload."""
+        try:
+            self.poll(timeout).until(lambda _d: self.bed_list_names() == expected)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the bed list shows {sorted(self.bed_list_names())}, expected {sorted(expected)}"
+            ) from exc
+
     # ── Template exchange (GP-FR-173, WP 9.9) ──────────────────────────
 
     TEMPLATE_SELECT = _tid("garden-plan-template-select")
