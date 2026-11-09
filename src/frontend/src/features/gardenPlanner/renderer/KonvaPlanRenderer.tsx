@@ -131,6 +131,9 @@ const Root = styled('div')({
   touchAction: 'none',
   userSelect: 'none',
   WebkitTouchCallout: 'none',
+  // The overlays draw text in metres (viewBox): an inherited letter spacing would count in metres too (#2764).
+  letterSpacing: 'normal',
+  wordSpacing: 'normal',
 });
 
 const Layered = styled('div')({ position: 'absolute', inset: 0, pointerEvents: 'none' });

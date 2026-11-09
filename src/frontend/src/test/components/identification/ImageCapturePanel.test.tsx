@@ -178,6 +178,14 @@ describe('ImageCapturePanel', () => {
     expect(screen.getByTestId('capture-mobile-camera')).toBeInTheDocument();
   });
 
+  it('leaves the identification tips out when the caller turns them off (bed photo, #2764)', () => {
+    renderWithProviders(
+      <ImageCapturePanel onImageReady={vi.fn()} level="beginner" photoTips={false} />,
+    );
+    expect(screen.queryByText('Tips for better results')).not.toBeInTheDocument();
+    expect(screen.getByTestId('capture-mobile-camera')).toBeInTheDocument();
+  });
+
   it('captures a webcam still, normalizes it, stops the stream and emits', async () => {
     const stop = vi.fn();
     const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] });

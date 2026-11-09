@@ -34,6 +34,14 @@ const ALERT_SEVERITY: Record<RotationSeverity, 'success' | 'info' | 'warning' | 
   CRITICAL: 'error',
 };
 
+/** The heading of a species' hints: a noun per strength ("kritischer Hinweis", not "Hinweis kritisch", #2764). */
+const SEVERITY_HEADING_KEY: Record<RotationSeverity, string> = {
+  OK: 'pages.bed.planting.hints.severity.OK',
+  INFO: 'pages.bed.planting.hints.severity.INFO',
+  WARNING: 'pages.bed.planting.hints.severity.WARNING',
+  CRITICAL: 'pages.bed.planting.hints.severity.CRITICAL',
+};
+
 export const MAX_OVERRIDE_REASON = 500;
 
 /** The terms the hints use (GP-UX-011): rotation, its pause, the neighbours and the perennial-crop exemption. */
@@ -77,10 +85,11 @@ function findingText(
   const named = family !== '';
   switch (finding.code) {
     case 'rotation.pause_not_elapsed':
+      // Plural forms for both numbers: "vor 1 Jahr", "in diesem Jahr" for 0, "1 Jahr" pause (#2764).
       return t(named ? 'pages.bed.planting.hints.pauseNotElapsed' : 'pages.bed.planting.hints.pauseNotElapsedUnnamed', {
         family,
-        years: finding.years_since ?? 0,
-        pause: finding.pause_years ?? 0,
+        count: finding.years_since ?? 0,
+        pause: t('pages.bed.planting.hints.pauseYears', { count: finding.pause_years ?? 0 }),
         source: t(`pages.bed.planting.hints.pauseSource.${finding.pause_source ?? 'default'}`),
       });
     case 'rotation.pest_risk':
@@ -176,7 +185,7 @@ export default function HintsPanel({
         <Typography variant="subtitle2" component="div">
           {t('pages.bed.planting.hints.forSpecies', {
             name,
-            strength: t(`enums.rotationSeverity.${data.severity}`),
+            strength: t(SEVERITY_HEADING_KEY[data.severity]),
           })}
         </Typography>
         <Box component="ul" sx={{ m: 0, pl: 2 }}>

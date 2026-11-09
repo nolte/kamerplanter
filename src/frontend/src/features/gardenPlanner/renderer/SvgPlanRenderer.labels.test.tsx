@@ -167,3 +167,23 @@ describe('TC-053-040 - zoom and names in the overview (GP-NFR-067, GP-UX-047)', 
     expect(sized.map((node) => node.closest('[data-plan-key]')?.getAttribute('data-plan-key'))).toEqual(['bed12']);
   });
 });
+
+describe('SvgPlanRenderer - label spacing (#2764)', () => {
+  it('sets its own letter and word spacing, so the page type cannot space the labels in metres', () => {
+    const view = render(
+      <div style={{ letterSpacing: '0.15px', wordSpacing: '0.15px' }}>
+        {wrap(
+          new SvgPlanRenderer().render(
+            normalizePlan(planResponse({ plan: null, locations: [L_SHAPE], garden_objects: [] })),
+            viewportAt(0, 10, 100),
+            NO_SELECTION,
+            options(),
+          ),
+        )}
+      </div>,
+    );
+    const svg = view.container.querySelector('svg') as SVGSVGElement;
+    expect(getComputedStyle(svg).letterSpacing).toBe('normal');
+    expect(getComputedStyle(svg).wordSpacing).toBe('normal');
+  });
+});

@@ -13,6 +13,7 @@ import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
 import OpenWithIcon from '@mui/icons-material/OpenWith';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { phaseColor } from '../planting/phaseColors';
+import { phaseLabel } from '../planting/phaseLabel';
 import type { PlantStateWire } from '../planting/plantStateApi';
 import type { FieldPlantGroup } from './fieldPlants';
 
@@ -71,7 +72,8 @@ export default function FieldPlantSection({
               data-testid={`field-plant-group-${group.id}`}
               sx={{ border: 2, borderColor: 'divider', borderRadius: 1, p: 1.5 }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              {/* The toggle moves below the name before a short name has to break mid-word at 390 px (#2764). */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5 }}>
                 <Box
                   aria-hidden="true"
                   sx={{
@@ -85,8 +87,8 @@ export default function FieldPlantSection({
                     borderColor: 'text.primary',
                   }}
                 />
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography variant="body1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
+                <Box sx={{ flex: '1 1 10rem', minWidth: 0 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 700, overflowWrap: 'break-word', hyphens: 'auto' }}>
                     {t('pages.gardenPlan.field.plants.group', {
                       species: group.cultivar ? `${group.species} '${group.cultivar}'` : group.species,
                       count: group.plants.length,
@@ -94,7 +96,7 @@ export default function FieldPlantSection({
                   </Typography>
                   <Typography variant="body1">
                     {group.phaseName
-                      ? t('pages.gardenPlan.field.plants.phase', { phase: group.phaseName })
+                      ? t('pages.gardenPlan.field.plants.phase', { phase: phaseLabel(t, group.phaseName) })
                       : t('pages.gardenPlan.field.plants.noPhase')}
                   </Typography>
                 </Box>
@@ -104,7 +106,7 @@ export default function FieldPlantSection({
                   onClick={() => setOpenGroup(expanded ? null : group.id)}
                   aria-expanded={expanded}
                   aria-controls={listId}
-                  sx={{ minHeight: KIOSK_TOUCH_TARGET, minWidth: KIOSK_TOUCH_TARGET, flexShrink: 0, borderWidth: 2 }}
+                  sx={{ minHeight: KIOSK_TOUCH_TARGET, minWidth: KIOSK_TOUCH_TARGET, flexShrink: 0, borderWidth: 2, ml: 'auto' }}
                   data-testid={`field-plant-group-toggle-${group.id}`}
                 >
                   {expanded ? t('pages.gardenPlan.field.plants.hide') : t('pages.gardenPlan.field.plants.show')}

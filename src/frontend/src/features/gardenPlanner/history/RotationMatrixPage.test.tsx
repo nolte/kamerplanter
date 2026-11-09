@@ -155,6 +155,27 @@ describe('RotationMatrixPage - table semantics and marks', () => {
     expect(screen.queryByTestId('rotation-matrix-table')).toBeNull();
   });
 
+  it('keeps every hidden text inside the scroll container, so the table scrolls there and not the page (#2764)', async () => {
+    // Beds with empty years: each empty cell carries a visually hidden "nothing recorded".
+    useMatrix([bed('loc_a', 'Raised bed 1', { cells: cells() }), bed('loc_b', 'Herb spiral')]);
+    renderPage();
+
+    const region = await screen.findByTestId('matrix-scroll');
+    expect(getComputedStyle(region).position).toBe('relative');
+    const hidden = [...region.querySelectorAll<HTMLElement>('*')].filter(
+      (element) => getComputedStyle(element).position === 'absolute',
+    );
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const element of hidden) {
+      // A positioned ancestor inside the container clips it; with none, the page grows by its offset (3596 px).
+      let anchor: HTMLElement | null = element.parentElement;
+      while (anchor && anchor !== region && getComputedStyle(anchor).position === 'static') anchor = anchor.parentElement;
+      expect(anchor === region || region.contains(anchor)).toBe(true);
+      // One pixel, never a share of the containing block (`sx={{ width: 1 }}` is 100 %).
+      expect(getComputedStyle(element).width).toBe('1px');
+    }
+  });
+
   it('has no critical accessibility violation', async () => {
     useMatrix([bed('loc_a', 'Raised bed 1'), bed('loc_b', 'Herb spiral')]);
     const { container } = renderPage();

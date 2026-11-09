@@ -603,6 +603,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             upload={uploadBedPhoto}
             title={t('pages.bed.photos.uploadTitle', { bed: bed.name })}
             errorMessage={bedPhotoError}
+            photoTips={false}
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}
             onUploaded={() => {

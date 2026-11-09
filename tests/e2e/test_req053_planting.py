@@ -279,9 +279,9 @@ def test_tc_053_018_rotation_hint_before_layout_and_plant_anyway_needs_a_reason(
     assert severity in ("warning", "error"), (
         f"TC-053-018: a pause not elapsed is a warning, the hint is {severity!r}: {hint!r}"
     )
-    for fragment in ("Brassicaceae", "vor 1 Jahr(en)", "Anbaupause beträgt 4 Jahre"):
+    for fragment in ("Brassicaceae", "vor 1 Jahr in diesem Beet", "Anbaupause beträgt 4 Jahre"):
         assert fragment in hint, f"TC-053-018: the hint must name {fragment!r}: {hint!r}"
-    assert re.search(r"Hinweis (Warnung|kritisch)", hint), (
+    assert re.search(r": (Warnung|kritischer Hinweis)", hint), (
         f"TC-053-018: the hint must name its strength: {hint!r}"
     )
     assert dialog.hints_precede_layout(), "TC-053-018: the hint must come before the layout"

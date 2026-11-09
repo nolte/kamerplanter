@@ -4,11 +4,13 @@
  */
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
+import { server } from '@/test/mocks/server';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import CareHistoryPage from './CareHistoryPage';
-import { careLine, useHistoryBackend } from './historyTestKit';
+import { BASE, careLine, useHistoryBackend } from './historyTestKit';
 
 function renderPage(role: 'viewer' | 'grower' | 'lead' = 'grower') {
   return renderWithProviders(<CareHistoryPage />, {
@@ -45,6 +47,29 @@ describe('CareHistoryPage', () => {
     // the bed name arrives from its own request
     await waitFor(() => expect(within(list).getAllByText('Raised bed 3').length).toBeGreaterThan(0));
     expect(within(list).getAllByText('Herb spiral').length).toBeGreaterThan(0);
+  });
+
+  it('names the bed of an entry whose site lies beyond the first page of sites (#2764 item 8)', async () => {
+    useHistoryBackend({ careEvents: [careLine('late', { summary: 'Watered late', location_key: 'loc_late' })] });
+    const sites = Array.from({ length: 201 }, (_, index) => ({ key: `site_${index}`, name: `Site ${index}` }));
+    server.use(
+      http.get(`${BASE}/sites`, ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        const offset = Number(params.get('offset') ?? 0);
+        return HttpResponse.json(sites.slice(offset, offset + Number(params.get('limit') ?? 50)));
+      }),
+      http.get(`${BASE}/locations`, ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get('site_key') === 'site_200'
+            ? [{ key: 'loc_late', name: 'Late bed', site_key: 'site_200', location_type_key: 'raised_bed' }]
+            : [],
+        ),
+      ),
+    );
+    renderPage();
+
+    const list = await screen.findByTestId('care-history-list');
+    await waitFor(() => expect(within(list).getByText('Late bed')).toBeInTheDocument());
   });
 
   it('pages on with "Load more"', async () => {

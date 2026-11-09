@@ -21,6 +21,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import BedHeader from './BedHeader';
+import { usePreviousYear } from '../history/usePreviousYear';
 import CachedDataBanner from '../offline/CachedDataBanner';
 import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
@@ -84,6 +85,9 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
   const [siteOpen, setSiteOpen] = useState(false);
   const [plantingVersion, setPlantingVersion] = useState(0);
   const rotationBadge = useRotationBadge(summary.key, plantingVersion);
+  // A planting or a filled-in / taken-back year changes what the head says about the previous year (#2764).
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const previousYear = usePreviousYear(summary.key, year - 1, plantingVersion + historyVersion);
   // The site's sun-class and reach thresholds (GP-FR-164/166, WP 8.24); the defaults until it is read.
   const thresholds = useSiteThresholds(summary.site_key);
 
@@ -122,7 +126,14 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
       case 'history':
         return (
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
-            <BedHistoryTab key={summary.key} bed={summary} onChanged={() => void onReload()} />
+            <BedHistoryTab
+              key={summary.key}
+              bed={summary}
+              onChanged={() => {
+                setHistoryVersion((value) => value + 1);
+                void onReload();
+              }}
+            />
           </Suspense>
         );
       case 'photos':
@@ -189,6 +200,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
         onChangeSite={canEdit ? () => setSiteOpen(true) : null}
         rotationReasons={rotationBadge?.reasons}
         reachThresholds={thresholds.reach}
+        previousYear={previousYear}
       />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

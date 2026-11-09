@@ -49,6 +49,10 @@ NOT_APPLICABLE_DISABLED = "rotation.not_applicable.disabled"
 PauseSource = Literal["species", "family", "default"]
 HistorySource = Literal["plant", "backfill"]
 
+#: The order of the entries of one year, earliest in the season first (#2764): a spring pre-crop before the main
+#: crop it preceded, an autumn follow-up after it. A plant carries no season; it reads as the main season.
+SEASON_ORDER: dict[str | None, int] = {"spring": 0, "main": 1, None: 1, "autumn": 2}
+
 
 class FamilySource(Protocol):
     """The one read the bed-level check needs of the botanical-family catalogue (a global catalogue)."""
@@ -495,6 +499,8 @@ class CropRotationValidator:
     ) -> tuple[list[HistoryEntry], date | None]:
         """Every family-year of the bed since ``from_year``, from ``rotation_reset_at`` on (GP-FR-131).
 
+        Newest year first; within a year by :data:`SEASON_ORDER` (spring, main, autumn), so every view that groups
+        these rows by year - the bed's timeline and the site rotation matrix - lists a year chronologically.
         Plants count for every year they stood (a plant put in last spring and still there occupies this year too);
         a green manure counts with its family; a mixed bed contributes every family of the year. A backfill counts
         for its calendar year. Duplicates (ten tomato plants in one year) collapse into one entry.
@@ -529,7 +535,10 @@ class CropRotationValidator:
             )
             found[(row.event_key,)] = entry
         entries = [e for e in found.values() if e.year >= from_year]
-        ordered = sorted(entries, key=lambda e: (-e.year, e.family_key or "", e.species_key or "", e.source))
+        ordered = sorted(
+            entries,
+            key=lambda e: (-e.year, SEASON_ORDER.get(e.season, 1), e.family_key or "", e.species_key or "", e.source),
+        )
         return ordered, reset_at
 
     def validate_planting_in_location(
