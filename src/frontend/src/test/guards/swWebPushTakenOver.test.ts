@@ -14,6 +14,8 @@ import {
  * missing, every push would arrive at a worker that ignores it — silently, because nothing in the
  * app fails. Both workers must never coexist: the build emits `/sw.js` from `src/sw.ts`, and a
  * `public/sw.js` would be copied over it (or beside it under another name).
+ *
+ * UI-NFR-012 R-011: the one worker is built by `vite-plugin-pwa` in `injectManifest` mode from `src/sw.ts`.
  */
 
 const root = process.cwd();

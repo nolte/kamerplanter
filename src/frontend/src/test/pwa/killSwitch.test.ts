@@ -14,6 +14,8 @@ import { runtimeConfigDisablesCaching } from '@/pwa/cachePolicy';
  *
  * And the deployment writes the key: the image entrypoint, the dev entrypoint and the Helm init
  * container all render it with the default `true`.
+ *
+ * UI-NFR-012 R-059 (kill switch).
  */
 
 const root = process.cwd();

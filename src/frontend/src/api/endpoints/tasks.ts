@@ -428,35 +428,70 @@ export async function reopenTask(key: string): Promise<TaskItem> {
 
 // -- Batch Operations --
 
+/**
+ * Task keys one batch request may carry: the backend refuses a longer `task_keys` with 422
+ * (`MAX_BATCH_TASK_KEYS` in `src/backend/app/api/v1/tasks/schemas.py`, = `MAX_BATCH_COMPLETION`, #2757 SEC-004).
+ * A larger selection ("select all" on the task queue) is sent in blocks of this size, one after another, and the
+ * per-key results are merged.
+ */
+export const MAX_BATCH_TASK_KEYS = 200;
+
+/** Split `keys` into blocks of at most {@link MAX_BATCH_TASK_KEYS}. */
+export function chunkTaskKeys(keys: readonly string[]): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < keys.length; i += MAX_BATCH_TASK_KEYS)
+    chunks.push(keys.slice(i, i + MAX_BATCH_TASK_KEYS));
+  return chunks;
+}
+
+/**
+ * Send one batch per block, sequentially, and merge the per-key results in key order.
+ * Each caller keeps its literal `client.post` path so the endpoint join
+ * (`test_frontend_endpoints_are_served.py`) can resolve the call site.
+ */
+async function sendInChunks(
+  taskKeys: readonly string[],
+  send: (chunk: string[]) => Promise<{ data: BatchResponse }>,
+): Promise<BatchResponse> {
+  const merged: BatchResponse = { succeeded: [], failed: [] };
+  for (const chunk of chunkTaskKeys(taskKeys)) {
+    const { data } = await send(chunk);
+    merged.succeeded.push(...data.succeeded);
+    merged.failed.push(...data.failed);
+  }
+  return merged;
+}
+
 export async function batchStatusChange(
   taskKeys: string[],
   action: 'start' | 'complete' | 'skip',
   completionNotes?: string,
 ): Promise<BatchResponse> {
-  const { data } = await client.post<BatchResponse>(
-    `${BASE}/batch/status`,
-    { task_keys: taskKeys, action, completion_notes: completionNotes },
+  return sendInChunks(taskKeys, (chunk) =>
+    client.post<BatchResponse>(`${BASE}/batch/status`, {
+      task_keys: chunk,
+      action,
+      completion_notes: completionNotes,
+    }),
   );
-  return data;
 }
 
 export async function batchDelete(taskKeys: string[]): Promise<BatchResponse> {
-  const { data } = await client.post<BatchResponse>(
-    `${BASE}/batch/delete`,
-    { task_keys: taskKeys },
+  return sendInChunks(taskKeys, (chunk) =>
+    client.post<BatchResponse>(`${BASE}/batch/delete`, { task_keys: chunk }),
   );
-  return data;
 }
 
 export async function batchAssign(
   taskKeys: string[],
   assignedToUserKey: string,
 ): Promise<BatchResponse> {
-  const { data } = await client.post<BatchResponse>(
-    `${BASE}/batch/assign`,
-    { task_keys: taskKeys, assigned_to_user_key: assignedToUserKey },
+  return sendInChunks(taskKeys, (chunk) =>
+    client.post<BatchResponse>(`${BASE}/batch/assign`, {
+      task_keys: chunk,
+      assigned_to_user_key: assignedToUserKey,
+    }),
   );
-  return data;
 }
 
 // -- Comments --

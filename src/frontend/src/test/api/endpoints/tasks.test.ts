@@ -364,7 +364,7 @@ describe('tasks endpoints — HST, clone, batch, comments, audit', () => {
   });
 
   it('batchStatusChange posts keys, action and notes', async () => {
-    client.post.mockResolvedValue({ data: { succeeded: 1 } });
+    client.post.mockResolvedValue({ data: { succeeded: ['a', 'b'], failed: [] } });
     await tasks.batchStatusChange(['a', 'b'], 'complete', 'all done');
     expect(client.post).toHaveBeenCalledWith('/tasks/batch/status', {
       task_keys: ['a', 'b'],
@@ -374,7 +374,7 @@ describe('tasks endpoints — HST, clone, batch, comments, audit', () => {
   });
 
   it('batchDelete posts task keys', async () => {
-    client.post.mockResolvedValue({ data: { succeeded: 2 } });
+    client.post.mockResolvedValue({ data: { succeeded: ['a', 'b'], failed: [] } });
     await tasks.batchDelete(['a', 'b']);
     expect(client.post).toHaveBeenCalledWith('/tasks/batch/delete', {
       task_keys: ['a', 'b'],
@@ -382,11 +382,51 @@ describe('tasks endpoints — HST, clone, batch, comments, audit', () => {
   });
 
   it('batchAssign posts keys and assignee', async () => {
-    client.post.mockResolvedValue({ data: { succeeded: 1 } });
+    client.post.mockResolvedValue({ data: { succeeded: ['a'], failed: [] } });
     await tasks.batchAssign(['a'], 'u1');
     expect(client.post).toHaveBeenCalledWith('/tasks/batch/assign', {
       task_keys: ['a'],
       assigned_to_user_key: 'u1',
+    });
+  });
+
+  describe('batches larger than the backend bound (#2757 SEC-004)', () => {
+    const keys = Array.from({ length: 450 }, (_, i) => `t${i}`);
+    const answerPerChunk = () =>
+      client.post.mockImplementation((_path: string, body: { task_keys: string[] }) =>
+        Promise.resolve({
+          data: {
+            succeeded: body.task_keys.slice(1),
+            failed: [{ key: body.task_keys[0], error: 'x' }],
+          },
+        }),
+      );
+
+    it.each([
+      ['batchStatusChange', '/tasks/batch/status', () => tasks.batchStatusChange(keys, 'skip')],
+      ['batchDelete', '/tasks/batch/delete', () => tasks.batchDelete(keys)],
+      ['batchAssign', '/tasks/batch/assign', () => tasks.batchAssign(keys, 'u1')],
+    ])(
+      '%s sends 450 keys as 3 requests of at most 200 and merges the results',
+      async (_name, path, call) => {
+        answerPerChunk();
+        const result = await call();
+        expect(client.post).toHaveBeenCalledTimes(3);
+        const sizes = client.post.mock.calls.map(([p, body]) => {
+          expect(p).toBe(path);
+          return (body as { task_keys: string[] }).task_keys.length;
+        });
+        expect(sizes).toEqual([200, 200, 50]);
+        expect(Math.max(...sizes)).toBeLessThanOrEqual(tasks.MAX_BATCH_TASK_KEYS);
+        expect(result.failed.map((f) => f.key)).toEqual(['t0', 't200', 't400']);
+        expect(result.succeeded).toHaveLength(447);
+        expect(result.succeeded[0]).toBe('t1');
+      },
+    );
+
+    it('the bound is the backend MAX_BATCH_TASK_KEYS (200)', () => {
+      expect(tasks.MAX_BATCH_TASK_KEYS).toBe(200);
+      expect(tasks.chunkTaskKeys([])).toEqual([]);
     });
   });
 

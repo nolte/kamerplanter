@@ -170,12 +170,67 @@ Field mode is made for the phone at the bed: large buttons (at least 64 pixels),
 - **Quick log:** **Watered**, **Sown** and **Weeded/Mulched** save a care entry with one tap. **Harvested** and **Note** open the short form (quantity or text; for the note you can use your keyboard's voice input). **Planted** opens the planting dialog with **I have planted already** switched on; the plants are created at once. This needs a bed that is drawn on the plan.
 - After **Done** and after every quick log entry you see **Undo** for eight seconds. It takes the entry back.
 - **Show plants** lists the single plants of a group. **Correct position** moves a plant with the arrows in 10 cm steps; you can drag the marker only after holding it for half a second. **Photo** takes a picture for the plant's gallery.
-- **Photo of the bed** takes a picture for the gallery of the whole bed (see [Photos of the bed](locations-substrates.md#photos-of-the-bed)). The first photo of a bed becomes its cover photo. Without a connection the button is locked.
+- **Photo of the bed** takes a picture for the gallery of the whole bed (see [Photos of the bed](locations-substrates.md#photos-of-the-bed)). The first photo of a bed becomes its cover photo. Without a connection Kamerplanter keeps the photo on your device and uploads it as soon as you are back online (see [What works offline](#what-works-offline)).
 
 Deleting, clearing a bed, export and import are not available in field mode; switch to planning mode for them. With the "viewer" role you see tasks and plants read-only. Your browser, not your account, remembers the tenant, site, tab and map view; if someone else signs in on the device, field mode starts fresh for them. If a remembered map view would show hardly any of the plan on the current screen – after turning the phone, for example – the map opens on the whole plan.
 
+Without a connection field mode keeps **Done**, the **Note** and photos on your device and sends them as soon as you are back online; the other quick log buttons need a connection. What exactly works offline is described under [What works offline](#what-works-offline).
+
 !!! warning "Not yet implemented"
-    Without a connection field mode shows a notice and locks **Done** and the quick log; entries are not yet stored on the device and sent later. **Planted** has no **Undo**. GPS help and the QR code on the bed follow later. The "last watered" layer exists only in planning mode. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+    **Planted** will get an **Undo**. GPS help and the QR code on the bed will follow later. The "last watered" layer will exist only in planning mode. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+
+## What works offline {#what-works-offline}
+
+In the garden the network is often weak. Kamerplanter therefore remembers on your device what you loaded last, and keeps what you capture in field mode without a connection. The bar at the top always shows whether you are **Online** or **Offline**.
+
+### Reading offline
+
+Without a connection Kamerplanter shows you the last loaded state of these pages:
+
+- the garden plan of a site,
+- the site list,
+- in field mode the list of your beds and the bed sheet with tasks and plants,
+- the bed view with the bed head and the **Plan** tab; the other tabs, such as the master data under **Details**, need a connection.
+
+A banner tells you how old the data is: "Offline: you are looking at the state as of 14:05." A state is remembered for at most 15 minutes. If you have not opened a page with a connection within that time, Kamerplanter shows a notice instead of the data, for example "This plan is not available offline". Open the page once with a connection then.
+
+Without a connection you can only look at the plan: drawing, moving and relocating are locked, unsaved changes are kept. On the bed, status, sun, soil, rotation and photos are locked until the connection is back.
+
+### Capturing offline
+
+In field mode you can capture three things without a connection:
+
+- **Done** for a task,
+- a **Note** from the quick log,
+- a **Photo of the bed** and the **Photo** of a plant.
+
+Kamerplanter stores each entry on your device with the time you captured it. As soon as you are back online, the app sends the entries in order, the oldest first, and shows the progress ("Sending 2/5 entries …"), then something like "5 entries sent." An entry arrives only once, even if the app sends it again after a dropped connection. **Undo** takes an entry back out within the eight seconds after it.
+
+- Per account your device keeps at most 500 entries. When the store is full, the app tells you and takes nothing more until you have been online.
+- Before storing a photo, the app scales it down to at most 1,920 pixels on the longer side and stores it without location (GPS) and camera data.
+- While entries are waiting, the bar at the top shows how many, for example **"3 not sent"**. If sending fails, the app tries again with a growing pause. After five attempts, when the server refuses the entry, or when the task has been completed or deleted in the meantime, it no longer sends the entry by itself and tells you so. A tap on the count opens **Entries not sent**: there you choose per entry between **Try again**, **Keep** (the entry stays on the device for reading and is not sent again) and **Discard**.
+- What is not sent, the device deletes by itself at some point: waiting entries older than one year are no longer accepted by the server; entries not sent and kept entries disappear 90 days after capture. The app tells you how many there were.
+
+### Online only
+
+**Watered**, **Sown**, **Weeded/Mulched**, **Harvested** and **Planted**, **Correct position**, sun and site features, all drawing and moving on the plan, deleting, export, import and bed templates need a connection. Without a connection these buttons are locked; nothing gets lost.
+
+### Reload once the first time
+
+When you open Kamerplanter on a device for the first time, or after you have cleared the site data, reload the page once while you still have a connection. Only then does your browser have everything that capturing offline needs.
+
+### Signing out and switching gardens
+
+When you sign out, Kamerplanter deletes the remembered state on this device. If you still have entries that are not sent, the app asks first: **Send now**, **Discard and sign out** or **Cancel**. Without a connection **Send now** does not work; the dialog tells you why. When you switch to another garden, Kamerplanter deletes the remembered state as well; your entries of the previous garden that are not sent stay on the device and are sent as soon as you return there. What exactly is on your device and when it is deleted is described under [Data on your device](privacy.md#data-on-your-device).
+
+## Kamerplanter on the home screen {#home-screen}
+
+You can put Kamerplanter on the home screen of your phone or into the app list of your computer like an app. It then opens in its own window without an address bar. Kamerplanter shows no install prompt of its own; you use your browser's menu:
+
+- **Chrome or Edge** (Android, Windows, macOS, Linux): menu → **Install app** or **Add to home screen**.
+- **Safari on iPhone and iPad:** **Share** → **Add to Home Screen**.
+
+When there is a new version, the banner **New version available** appears at the bottom. **Update now** loads it in all open windows; with **Later** you keep working for now.
 
 ## Layers and site conditions {#layers-and-site-conditions}
 
@@ -241,11 +296,11 @@ Click **Manage irrigation zones** to open the zone area.
 
 **Log a watering round.** When you have watered a whole zone, **Log watering round** opens a dialog: you enter the **total amount in litres** (more than 0, at most 100,000) and choose the **distribution**: **By bed area** (each bed gets a share by its area; beds without an area are left out) or **Equal parts**. Kamerplanter writes one watering entry per bed into the care log. The amount is divided, not measured; the log marks it that way.
 
-!!! note "Partially available: watering round"
-    The watering round divides the amount by bed area or into equal parts. A distribution by the beds' water demand and the action "Rain - skipped" will come later. Until then, record a rainy day per bed with **Log care** and the type **Rainfall**. <!-- REQ-053 GP-FR-117 -->
+A third **distribution** is **By demand**: each bed gets a share by its calculated water demand on that day; beds without a demand are left out.
 
-!!! info "API only: water source details"
-    The zone state shows how long the water source lasts only when the water source has a capacity in litres. You do not enter the kind, capacity and last refill of a water source in the editor but through the API (properties of the garden object). <!-- REQ-053 GP-FR-111 -->
+**Rain — skipped.** When it has rained and you skip the round, tap **Rain — skipped** in the same dialog. Kamerplanter then writes one rain entry without an amount per bed of the zone into the care log. Open watering tasks stay open, and the entry does not count as a watered amount. <!-- REQ-053 GP-FR-117 -->
+
+**Water source.** When you select a garden object of type water source on the plan, you enter the **Kind of water source**, the **Capacity** in litres (for a rain barrel or cistern) and the day **Last refilled** in the properties area. The zone state shows how long the water source lasts only with a capacity. <!-- REQ-053 GP-FR-111 -->
 
 !!! info "API only: technical coupling"
     Only members with the `technical` admin scope maintain the coupling of a zone to an actuator or to a Home Assistant entity for the flow, and only through the API. Restoring a backup never takes these links over. See [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
@@ -256,7 +311,8 @@ A bed template fixes shape, dimensions, bed type and height of a bed so you do n
 
 - **Place:** **From template** in the toolbar, see [Working faster in the garden plan](#plan-comfort).
 - **Save:** Select exactly one bed and click **Save as template**. Plants, tasks and notes are not part of it. A garden can have up to 200 own templates; when the limit is reached, delete one you no longer need first.
-- **Roles:** Growers and the lead create templates; only the lead may delete.
+- **Share:** In the **Bed from template** area, **Export** downloads the chosen template as a JSON file, without your garden's key, without author and without notes. That is how you pass a template on to other gardens. **Import** takes such a file (at most 256 KB) and checks it first: the check report shows name, shape, height and planting grid, and which fields of the file are skipped. If the name exists already, Kamerplanter proposes a free one. Nothing is saved until you confirm **Import**. Kamerplanter reads files of the current and the previous version; export an older file again.
+- **Roles:** Growers and the lead create and import templates; only the lead may delete.
 
 ## Underlay for tracing {#underlay}
 
@@ -293,7 +349,11 @@ What happened on a single bed is in its history: the crop rotation timeline and 
 
 On the garden plan page, **Export & import** opens two dialogs.
 
-**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers (for the PDF also **Bed list as a second page**); a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments (the bed list as CSV can include them on request, see below).
+**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic), a PNG (image) and a backup (JSON). You choose paper, orientation, scale and layers (for the PDF also **Bed list as a second page**); a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments (the parcel list in the PDF and the bed list as CSV can include them on request, see below).
+
+**Parcel list in the PDF.** With **Parcel list as an extra page** the PDF gets one more page, for the board or the landlord, for example: every bed with a running number in plan order and its name, plus area and irrigation zone. Only when the parcel list is on does the dialog offer **Include assignments in the parcel list**. That adds a column with the names of the members a bed is assigned to; those are personal data, so pass the PDF on only to people who may see them. Notes and account data are never in it. <!-- REQ-053 GP-FR-176 -->
+
+**PNG (image)** is made by your browser from the plan, without the server: the whole plan as an image, for sharing in messages or pasting into documents. It shows the layers you have switched on in the plan. You choose the **Resolution** 1×, 2× or 4×; 2× is preselected. 1× is at most 1,200 pixels on the longer side, 2× and 4× are sharper and the file gets bigger. The dialog tells you the size in pixels beforehand. If the image would be larger than your browser can draw, Kamerplanter takes the largest possible resolution and tells you so. The **Watermark "Kamerplanter · date"** in the bottom right corner is an option and starts off. PNG is not available on a phone. <!-- REQ-053 GP-FR-144 -->
 
 **Bed list (CSV)** outputs the beds of the site as a table, one line per bed, for further work in your spreadsheet. Name, type, area, status, soil texture, irrigation zone and active plants are preselected; you can also tick site conditions such as sun exposure, frost risk or slope. Choose at least one column. The **Excel variant** separates columns with a semicolon and writes numbers with a decimal comma so the file opens straight as a table in a German-language Excel. The **Include assignments** switch is off: without it no member names are in the file. If you switch it on, a column with the names of the assigned members is added; this is personal data, so share the file only with people who may see it. Notes and account data are never included. The header row uses fixed English column ids (for example `name`, `area_m2`, `frost_risk`, `assigned_to`), and fields with fixed values such as status, soil texture or frost risk appear as their value code (for example `active`, `loam`, `high`); type and irrigation zone appear with their names. That way the file has the same layout whatever your language setting. A file holds at most 2,000 beds; with more, the dialog shows a message. Like SVG, the bed list is not offered on a phone; use a larger screen.
 
@@ -354,7 +414,9 @@ This section is for everyone who creates the plan through the API or operates an
 
 - **Create the first plan:** `PUT /sites/{key}/plan/boundary` with the garden boundary (rectangle or polygon), optionally `north_angle_deg`. The first call creates the plan.
 - **Read the plan:** `GET /sites/{key}/plan`. **Read the change log:** `GET /sites/{key}/plan/audit`.
-- **PDF with underlay:** `GET /print/garden-plan/{site_key}?underlay=true`.
+- **PDF with underlay:** `GET /print/garden-plan/{site_key}?underlay=true`. The parcel list is requested with `parcel_list=true`, the names of the assignments additionally with `include_assignment=true`.
+- **Exchange a bed template:** `GET /bed-templates/{key}/export` and `POST /bed-templates/import` (with `dry_run`).
+- **Kill switch for offline work:** With `PWA_CACHING_ENABLED=false` the app unregisters its service worker (the browser's background program for offline use and push) on the next page load and deletes the remembered state **and the offline entries that are not sent yet** on every device. Use it only when offline work itself causes trouble; tell your users beforehand to go online and send their entries. See [Environment variables](../reference/environment-variables.md).
 - **Bed list via API:** `POST /beds/import-csv` under `/sites/{key}` with the CSV file as the raw body (`dry_run` defaults to `true`). Routes, report fields and error codes are in the [API reference](../reference/api-reference.md#create-beds-from-a-csv-bed-list).
 - **Rate limits** and retention are listed under [Environment Variables](../reference/environment-variables.md).
 - Structure, batch interface and backup format are described in [Garden Plan: Geometry and Interfaces](../architecture/garden-plan.md); the routes and error codes are in the [API Reference](../reference/api-reference.md#garden-plan-pdf-svg-json-backup).

@@ -415,6 +415,34 @@ Your data export includes all stored attachments as a ZIP archive. The archive c
 
 ---
 
+## Data on Your Device {#data-on-your-device}
+
+So that you can work in the garden without a network (see [What works offline](garden-plan.md#what-works-offline)), Kamerplanter keeps some data in your browser, in its own database (IndexedDB) and in the app's cache. None of it goes to third parties, and there is no function that exports this data from the browser.
+
+**What is on your device:**
+
+| What | Content | How long |
+|------|---------|----------|
+| Remembered state | Garden plan, site list, bed list, bed head and bed sheet, as you loaded them last. Without member names, without assignments and without notes and descriptions of beds and garden objects. | Usable for at most 15 minutes; the app deletes older states on the next start or read. |
+| Offline entries | What you capture in field mode without a connection: done, notes, photos, each with its time, your account and the garden. Photos are scaled down to at most 1,920 pixels and carry no location or camera data (EXIF/GPS). | Until they are sent. Waiting entries older than one year, and entries not sent or kept 90 days after capture, are deleted by the app on the next start; it tells you how many there were. |
+| App files | The app's program files, language files and icons, so that it starts without a network. | Until a new version replaces them. Contains no personal data. |
+
+**When Kamerplanter deletes this data:**
+
+- **Signing out:** the remembered state is deleted. Offline entries that are not sent yet are deleted after you confirm ("Discard and sign out"); you can send them first.
+- **Choosing another garden:** the remembered state is deleted. Your offline entries of the previous garden stay on the device and are sent when you return there.
+- **Session expired:** if the server refuses your sign-in, the app deletes the remembered state. Your offline entries are kept and are sent only when you sign in again with the same account in the same garden.
+- **Deleting your account on this device:** the remembered state and your offline entries are deleted.
+- **Clearing site data in the browser:** everything is gone, including entries that are not sent yet.
+
+!!! warning "Shared device: always sign out"
+    The offline entries are stored unencrypted in your browser profile. Other people do not see them in Kamerplanter and cannot send them; but anyone using your browser profile can read them with the browser's developer tools. On a device that others use too, always sign out explicitly.
+
+!!! note "Account deleted on another device"
+    If you delete your account on another device, this device only learns that your sign-in is no longer valid. Offline entries that are still here then stay until their period ends (90 days or one year) or until you clear the site data. The same applies to entries of a garden you were removed from. <!-- REQ-025 §10, NFR-011 §2.1, UI-NFR-012 R-060 -->
+
+---
+
 ## Data Retention and Retention Periods
 
 Kamerplanter stores different data categories with different retention periods:

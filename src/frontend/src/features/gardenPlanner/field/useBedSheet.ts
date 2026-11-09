@@ -26,30 +26,8 @@ export type BedSheetState =
 interface SheetData {
   tasks: CareTask[];
   plants: PlantStateWire[] | null;
-  /** Both reads answered and none was aborted; never stored. */
+  /** Both reads answered and none was aborted; read by `storedProjection('bedSheets')`, never stored. */
   complete?: boolean;
-}
-
-/** A task as the offline sheet keeps it: nothing about a person. */
-export function storableTask(task: CareTask): CareTask {
-  return {
-    ...task,
-    assigned_to_user_key: null,
-    completion_notes: null,
-    photo_refs: [],
-    difficulty_rating: null,
-    quality_rating: null,
-    actual_duration_minutes: null,
-  };
-}
-
-/** What goes into the plan cache: the complete answer without person-related fields, or nothing. */
-export function storableSheet(data: SheetData): SheetData | undefined {
-  if (!data.complete || data.plants === null) return undefined;
-  return {
-    tasks: data.tasks.map(storableTask),
-    plants: data.plants.map((plant) => ({ ...plant, cover_photo_ref: null })),
-  };
 }
 
 export interface BedSheet {
@@ -81,7 +59,8 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
         }),
       ]);
       return { tasks, plants, complete: complete && !controller.signal.aborted };
-    }, { toStored: storableSheet })
+      // The cache stores only a complete answer, stripped of person data (`storedProjection('bedSheets')`).
+    })
       .then(({ data, cachedAt }) => {
         if (!controller.signal.aborted) {
           setLoaded({ bedKey, attempt, state: { status: 'ready', tasks: data.tasks, plants: data.plants, cachedAt } });

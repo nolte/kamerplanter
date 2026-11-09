@@ -16,8 +16,9 @@ Both places that configure the frontend's nginx are scanned by ONE detector,
 security-header snippet, in the chart it repeats ``X-Content-Type-Options``,
 ``X-Frame-Options`` and ``Referrer-Policy`` and carries the image snippet's CSP
 verbatim (#2786 review). The snippet's CSP must name ``worker-src 'self'`` and
-nothing broader. ``/manifest.json`` is served as ``application/manifest+json``
-through a ``types`` block — ``default_type`` is ineffective there, because the
+``manifest-src 'self'`` and nothing broader (UI-NFR-012 R-059; the ``manifest-src`` half was added by the wave-9
+acceptance, #2757, which UI-NFR-012 section 5.5 named as missing). ``/manifest.json`` is served as
+``application/manifest+json`` through a ``types`` block — ``default_type`` is ineffective there, because the
 global ``mime.types`` already maps ``.json``.
 
 **Not seen**: an Ingress or CDN in front of nginx that adds its own caching —
@@ -110,8 +111,9 @@ def _csp_findings(snippet: str, where: str) -> list[str]:
     if len(policies) != 1:
         return [f"{where}: expected exactly one Content-Security-Policy, found {len(policies)}"]
     directives = {d.strip().split()[0]: d.strip().split()[1:] for d in policies[0].split(";") if d.strip()}
-    if directives.get("worker-src") != ["'self'"]:
-        findings.append(f"{where}: worker-src is {directives.get('worker-src')!r}, expected only 'self'")
+    for directive in ("worker-src", "manifest-src"):
+        if directives.get(directive) != ["'self'"]:
+            findings.append(f"{where}: {directive} is {directives.get(directive)!r}, expected only 'self'")
     return findings
 
 
@@ -220,6 +222,8 @@ def test_the_chart_csp_drift_is_seen() -> None:
         ("missing", "worker-src 'self'; ", ""),
         ("blob-worker", "worker-src 'self';", "worker-src 'self' blob:;"),
         ("wildcard-worker", "worker-src 'self';", "worker-src *;"),
+        ("missing-manifest", "; manifest-src 'self'", ""),
+        ("wildcard-manifest", "manifest-src 'self'", "manifest-src *"),
     ],
 )
 def test_the_csp_detector_sees_each_regression(mutation: str, old: str, new: str) -> None:

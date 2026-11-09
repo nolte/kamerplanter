@@ -1,0 +1,22 @@
+{
+  "GP-FR-025": {
+    "partial": true,
+    "reason": "`Ctrl/Cmd+D`, the menu entry and multi-duplicate are tested (frontend, E2E TC-053-096). Two parts stay open for the operator (#2759): (a) a duplicated bed starts without slots, because the closed batch operation list has no `create_slot` (§32.4 item 8; the sentence \"bei Beeten werden Slots mitkopiert\" stays unmet, `GP-REQ-wave7-gaps.json`); (b) the copy lands one grid step beside the original and overlaps it, so saving it unmoved is refused with 422 `bed.overlap` (V-05) and the live validation does not warn - question 14 of #2759 (offset by the bed's own width, or a client-side V-05 hint)",
+    "issue": 2759
+  },
+  "UI-NFR-012 R-009": {
+    "partial": true,
+    "reason": "The allowlisted API reads are the worker's network-first route and every other `/api/` request is network-only (`swCacheAllowlist.test.ts`). The worker's API cache `kp:{user_key}:{tenant_key}` is never filled: the backend answers every `/api/v1/` read with `Cache-Control: no-store` (MT-044) and the worker honours it (R-057), so offline reads come from IndexedDB (WP 9.2) - operator question 13 of #2759 (default: `no-store` stays). TC-053-090 checks the namespace, not a filled cache",
+    "issue": 2759
+  },
+  "UI-NFR-012 R-020": {
+    "partial": true,
+    "reason": "Offline readable in wave 9: the site list, the last loaded plan per site, the bed list, the bed summary and the field-mode bed sheet (`SiteListPageOffline.test.tsx`, `planCache.test.ts`, E2E TC-053-086). Not cached: the plant master data the row names (species, cultivars) - the rest of UI-NFR-012 phase 2 is its own strand (operator question 4 of #2759, UI-NFR-012 section 2.3)",
+    "issue": 2759
+  },
+  "UI-NFR-012 R-060": {
+    "partial": true,
+    "reason": "Retention 365 / 90 days with a notice, the photo re-encoding on the device and the clearing on account erasure on this device are tested (`queue.test.ts`, `queuedPhoto.test.ts`, `unsyncedWritesBeforeSessionChange.test.tsx`, E2E TC-053-088). Open by the rule itself: an account erased on ANOTHER device leaves this device's entries until the period ends (a refused refresh cannot tell an erased account from a revoked session), and entries of a revoked membership or a deleted tenant end as `failed` and wait 90 days instead of being discarded at once (review GDPR-002 / GDPR-006 of #2757). Both periods are placeholder defaults of #2759 (REQ-053 §32.6 item 14); the TTDSG classification of the on-device storage is with the legal review (#2517)",
+    "issue": 2759
+  }
+}

@@ -11,6 +11,8 @@ import { ByteLedger, NamespaceRegistry } from '@/pwa/namespaceRegistry';
  * deletes a cache another live tab uses; a logout ends that user's namespace in every tab; and a
  * write that lands after its namespace ended is undone. Driven through the plugin and registry the
  * worker uses (`src/sw.ts` wires exactly these — pinned in swCacheAllowlist.test.ts).
+ *
+ * UI-NFR-012 R-055 (namespace from `user_key` and `tenant_key`, keys from the app by `postMessage`).
  */
 
 const A_X = namespaceCacheName('user_a', 'tenant_x') as string;

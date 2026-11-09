@@ -38,6 +38,7 @@ from app.domain.models.client_event import (
     batch_item_client_event_id,
     client_event_digest,
     is_client_event_conflict,
+    same_digest,
 )
 from app.domain.models.task import (
     ChecklistItem,
@@ -1459,7 +1460,7 @@ class TaskService:
             key = task_of.get(holder.completion_client_event_id or "")
             if key is None:
                 continue
-            if holder.key != key or holder.completion_client_event_digest != stamps[key].digest:
+            if holder.key != key or not same_digest(holder.completion_client_event_digest, stamps[key].digest):
                 raise ClientEventMismatchError()
             found[key] = holder
         return found
@@ -2413,6 +2414,9 @@ class TaskService:
         client_event_id: UUID | None = None,
     ) -> tuple[list[str], list[dict[str, str]]]:
         keys = list(dict.fromkeys(task_keys))
+        # Kept beside the body bound (`MAX_BATCH_TASK_KEYS` in `api/v1/tasks/schemas.py`, #2757 SEC-004): the body
+        # bound is the trust boundary and counts before the de-duplication; this one bounds what the domain writes in
+        # ONE transaction (one care event per task) for every caller of the service, not only the HTTP route.
         if len(keys) > MAX_BATCH_COMPLETION:
             raise ValidationError(
                 f"A batch completes at most {MAX_BATCH_COMPLETION} tasks.",

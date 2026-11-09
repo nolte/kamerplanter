@@ -2,6 +2,6 @@
   "GP-FR-025": {
     "partial": true,
     "reason": "Duplicate with offset through the panel, the item menu and `Ctrl/Cmd+D` (WP 9.14, #2754: one handler in `useEditorShortcuts.ts`, the menu entry names the key) and multi-duplicate (the SHOULD part) are tested. Not met by decision: a duplicated bed starts without slots, because the closed batch operation list has no `create_slot` (`duplicate.ts`; §32.4 item 8, #2466 item 8: no `create_slot`, the panel offers a layout instead). The sentence \"bei Beeten werden Slots mitkopiert\" of GP-FR-025 stays unmet until that decision changes",
-    "issue": 2754
+    "issue": 2759
   }
 }

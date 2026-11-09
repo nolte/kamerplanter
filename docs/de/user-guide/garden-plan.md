@@ -170,12 +170,67 @@ Der Feldmodus ist für das Smartphone im Beet gedacht: große Schaltflächen (mi
 - **Schnellprotokoll:** **Gegossen**, **Gesät** und **Gejätet/Gemulcht** speichern mit einem Tipp einen Pflegeeintrag. **Geerntet** und **Notiz** öffnen das kurze Formular (Menge bzw. Text; für die Notiz kannst du die Spracheingabe deiner Tastatur nutzen). **Gepflanzt** öffnet den Pflanzdialog mit eingeschaltetem **Ich habe schon gepflanzt**; die Pflanzen entstehen sofort. Das geht nur bei einem Beet, das im Plan eingezeichnet ist.
 - Nach **Erledigt** und nach jedem Schnellprotokoll siehst du acht Sekunden lang **Rückgängig**. Damit nimmst du den Eintrag zurück.
 - **Pflanzen zeigen** listet die einzelnen Pflanzen einer Gruppe. **Position korrigieren** verschiebt eine Pflanze mit den Pfeilen in 10-cm-Schritten; ziehen kannst du den Marker erst, nachdem du ihn eine halbe Sekunde gehalten hast. **Foto** nimmt ein Bild für die Galerie der Pflanze auf.
-- **Foto vom Beet** nimmt ein Bild für die Galerie des ganzen Beets auf (siehe [Fotos des Beets](locations-substrates.md#fotos-des-beets)). Das erste Foto eines Beets wird sein Titelfoto. Ohne Verbindung ist die Schaltfläche gesperrt.
+- **Foto vom Beet** nimmt ein Bild für die Galerie des ganzen Beets auf (siehe [Fotos des Beets](locations-substrates.md#fotos-des-beets)). Das erste Foto eines Beets wird sein Titelfoto. Ohne Verbindung speichert Kamerplanter das Foto auf deinem Gerät und lädt es hoch, sobald du wieder online bist (siehe [Was geht ohne Netz](#was-geht-ohne-netz)).
 
 Löschen, Beet räumen, Export und Import gibt es im Feldmodus nicht – dafür wechselst du in den Planungsmodus. Wer die Rolle „viewer" hat, sieht Aufgaben und Pflanzen nur lesend. Dein Browser merkt sich Mandant, Standort, Tab und Kartenausschnitt, nicht dein Konto; meldet sich jemand anderes auf dem Gerät an, beginnt der Feldmodus für diese Person neu. Zeigt ein gemerkter Kartenausschnitt auf dem aktuellen Bildschirm kaum noch etwas vom Plan – etwa nach dem Drehen des Smartphones –, öffnet die Karte mit dem ganzen Plan.
 
+Ohne Verbindung speichert der Feldmodus **Erledigt**, die **Notiz** und Fotos auf deinem Gerät und sendet sie, sobald du wieder online bist; die übrigen Knöpfe des Schnellprotokolls brauchen eine Verbindung. Was genau ohne Netz geht, steht unter [Was geht ohne Netz](#was-geht-ohne-netz).
+
 !!! warning "Noch nicht implementiert"
-    Ohne Verbindung zeigt der Feldmodus einen Hinweis und sperrt **Erledigt** und das Schnellprotokoll; Einträge werden noch nicht zwischengespeichert und später gesendet. Für **Gepflanzt** gibt es kein **Rückgängig**. Die Hilfe per GPS und der QR-Code am Beet folgen später. Die Ebene „Zuletzt gegossen" gibt es nur im Planungsmodus. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+    Für **Gepflanzt** wird es ein **Rückgängig** geben. Die Hilfe per GPS und der QR-Code am Beet folgen später. Die Ebene „Zuletzt gegossen" wird es nur im Planungsmodus geben. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+
+## Was geht ohne Netz {#was-geht-ohne-netz}
+
+Im Garten ist das Netz oft schwach. Kamerplanter merkt sich deshalb auf deinem Gerät, was du zuletzt geladen hast, und hebt auf, was du im Feldmodus ohne Verbindung erfasst. Oben in der Leiste siehst du jederzeit, ob du **Online** oder **Offline** bist.
+
+### Lesen ohne Netz
+
+Ohne Verbindung zeigt Kamerplanter dir den zuletzt geladenen Stand dieser Seiten:
+
+- den Gartenplan eines Standorts,
+- die Standortliste,
+- im Feldmodus die Liste deiner Beete und das Beet-Blatt mit Aufgaben und Pflanzen,
+- die Beetansicht mit dem Kopf des Beets und dem Tab **Plan**; die übrigen Tabs, etwa die Stammdaten unter **Details**, brauchen eine Verbindung.
+
+Ein Banner sagt dir, von wann die Daten sind: „Ohne Verbindung: Du siehst den Stand von 14:05." Gemerkt wird ein Stand höchstens 15 Minuten lang. Hast du eine Seite in dieser Zeit nicht mit Verbindung geöffnet, zeigt Kamerplanter einen Hinweis statt der Daten, zum Beispiel „Dieser Plan ist ohne Verbindung nicht verfügbar". Öffne die Seite dann einmal mit Verbindung.
+
+Ohne Verbindung kannst du den Plan nur ansehen: Zeichnen, Verschieben und Umsetzen sind gesperrt, ungespeicherte Änderungen bleiben erhalten. Am Beet sind Status, Sonne, Boden, Fruchtfolge und Fotos gesperrt, bis die Verbindung zurück ist.
+
+### Erfassen ohne Netz
+
+Im Feldmodus kannst du ohne Verbindung drei Dinge erfassen:
+
+- **Erledigt** für eine Aufgabe,
+- eine **Notiz** aus dem Schnellprotokoll,
+- ein **Foto vom Beet** und das **Foto** einer Pflanze.
+
+Kamerplanter speichert jeden Eintrag mit dem Zeitpunkt, zu dem du ihn erfasst hast, auf deinem Gerät. Sobald du wieder online bist, sendet die App die Einträge der Reihe nach, den ältesten zuerst, und zeigt den Fortschritt („Übertrage 2/5 Einträge …"), danach etwa „5 Einträge übertragen." Ein Eintrag kommt nur einmal an, auch wenn die App ihn nach einer abgerissenen Verbindung erneut sendet. **Rückgängig** nimmt einen Eintrag in den acht Sekunden danach wieder heraus.
+
+- Pro Konto hebt dein Gerät höchstens 500 Einträge auf. Ist der Speicher voll, sagt dir die App das und nimmt nichts mehr an, bis du online warst.
+- Fotos verkleinert die App vor dem Speichern auf höchstens 1 920 Pixel an der längeren Seite und speichert sie ohne Standortdaten (GPS) und Kameradaten.
+- Solange Einträge warten, zeigt die Leiste oben, wie viele es sind, etwa **„3 nicht übertragen"**. Klappt das Senden nicht, versucht die App es mit wachsendem Abstand erneut. Nach fünf Versuchen, wenn der Server den Eintrag ablehnt oder wenn die Aufgabe inzwischen erledigt oder gelöscht ist, sendet sie ihn nicht mehr von selbst und sagt es dir. Ein Tipp auf die Anzeige öffnet **Nicht übertragene Einträge**: Dort entscheidest du je Eintrag zwischen **Erneut versuchen**, **Behalten** (der Eintrag bleibt zum Nachlesen auf dem Gerät und wird nicht noch einmal gesendet) und **Verwerfen**.
+- Was nicht übertragen wird, löscht das Gerät irgendwann selbst: Wartende Einträge, die älter als ein Jahr sind, nimmt der Server nicht mehr an; nicht übertragene und behaltene Einträge verschwinden 90 Tage nach dem Erfassen. Die App sagt dir, wie viele es waren.
+
+### Nur mit Verbindung
+
+**Gegossen**, **Gesät**, **Gejätet/Gemulcht**, **Geerntet** und **Gepflanzt**, **Position korrigieren**, Sonne und Standortmerkmale, alles Zeichnen und Verschieben im Plan, Löschen, Export, Import und Beetvorlagen brauchen eine Verbindung. Ohne Verbindung sind diese Knöpfe gesperrt; nichts geht dabei verloren.
+
+### Beim ersten Mal einmal neu laden
+
+Öffnest du Kamerplanter auf einem Gerät zum ersten Mal oder nachdem du die Websitedaten gelöscht hast, lade die Seite einmal neu, solange du noch Verbindung hast. Erst danach hat dein Browser alles beisammen, was das Erfassen ohne Netz braucht.
+
+### Abmelden und Garten wechseln
+
+Meldest du dich ab, löscht Kamerplanter den gemerkten Stand auf diesem Gerät. Hast du noch Einträge, die nicht übertragen sind, fragt die App vorher nach: **Jetzt übertragen**, **Verwerfen und abmelden** oder **Abbrechen**. Ohne Verbindung geht **Jetzt übertragen** nicht; der Dialog sagt dir dann, warum. Wechselst du in einen anderen Garten, löscht Kamerplanter den gemerkten Stand ebenfalls; deine nicht übertragenen Einträge des bisherigen Gartens bleiben auf dem Gerät und werden gesendet, sobald du dorthin zurückkehrst. Was genau auf deinem Gerät liegt und wann es gelöscht wird, steht unter [Daten auf deinem Gerät](privacy.md#daten-auf-deinem-geraet).
+
+## Kamerplanter auf dem Startbildschirm {#startbildschirm}
+
+Du kannst Kamerplanter wie eine App auf den Startbildschirm deines Smartphones oder in die App-Liste deines Rechners legen. Sie öffnet sich dann in einem eigenen Fenster ohne Adressleiste. Kamerplanter blendet dafür keinen eigenen Hinweis ein; du nutzt das Menü deines Browsers:
+
+- **Chrome oder Edge** (Android, Windows, macOS, Linux): Menü → **App installieren** bzw. **Zum Startbildschirm hinzufügen**.
+- **Safari auf iPhone und iPad:** **Teilen** → **Zum Home-Bildschirm**.
+
+Gibt es eine neue Version, erscheint unten das Banner **Neue Version verfügbar**. **Jetzt aktualisieren** lädt sie in allen offenen Fenstern; mit **Später** arbeitest du erst einmal weiter.
 
 ## Ebenen und Standortbedingungen {#ebenen-und-standortbedingungen}
 
@@ -241,11 +296,11 @@ Klicke auf **Bewässerungszonen verwalten**, um den Zonen-Bereich zu öffnen.
 
 **Gießrunde protokollieren.** Wenn du eine ganze Zone gegossen hast, öffnet **Gießrunde protokollieren** einen Dialog: Du gibst die **Gesamtmenge in Litern** an (größer als 0, höchstens 100 000) und wählst die **Verteilung**: **Nach Beetfläche** (jedes Beet bekommt einen Anteil nach seiner Fläche; Beete ohne Fläche bleiben außen vor) oder **Zu gleichen Teilen**. Kamerplanter schreibt für jedes Beet einen Gießeintrag ins Pflegeprotokoll. Die Menge ist verteilt, nicht gemessen; das Protokoll kennzeichnet das so.
 
-!!! note "Teilweise verfügbar: Gießrunde"
-    Die Gießrunde verteilt die Menge nach Beetfläche oder zu gleichen Teilen. Eine Verteilung nach dem Wasserbedarf der Beete und die Aktion „Regen — übersprungen" wird die Gießrunde erst später anbieten. Einen Regentag hältst du bis dahin je Beet mit **Pflege protokollieren** und der Art **Niederschlag** fest. <!-- REQ-053 GP-FR-117 -->
+Als dritte **Verteilung** gibt es **Nach Bedarf**: Jedes Beet bekommt einen Anteil nach seinem berechneten Wasserbedarf an diesem Tag; Beete ohne Bedarf bleiben außen vor.
 
-!!! info "Nur über API: Angaben der Wasserquelle"
-    Wie lange die Wasserquelle reicht, zeigt der Stand der Zone nur, wenn die Wasserquelle ein Fassungsvermögen in Litern hat. Art, Fassungsvermögen und letztes Auffüllen einer Wasserquelle trägst du nicht im Editor ein, sondern über die API (Eigenschaften des Gartenobjekts). <!-- REQ-053 GP-FR-111 -->
+**Regen — übersprungen.** Hat es geregnet und du lässt die Runde ausfallen, tippst du im selben Dialog auf **Regen — übersprungen**. Kamerplanter schreibt dann für jedes Beet der Zone einen Regen-Eintrag ohne Menge ins Pflegeprotokoll. Offene Gieß-Aufgaben bleiben offen, und der Eintrag zählt nicht als gegossene Menge. <!-- REQ-053 GP-FR-117 -->
+
+**Wasserquelle.** Wählst du im Plan ein Gartenobjekt vom Typ Wasserquelle, trägst du im Eigenschaften-Bereich die **Art der Wasserquelle**, das **Fassungsvermögen** in Litern (für Regentonne oder Zisterne) und den Tag **Zuletzt aufgefüllt** ein. Wie lange die Wasserquelle reicht, zeigt der Stand der Zone nur mit einem Fassungsvermögen. <!-- REQ-053 GP-FR-111 -->
 
 !!! info "Nur über API: Technische Kopplung"
     Die Kopplung einer Zone an einen Aktor oder an eine Home-Assistant-Entität für den Durchfluss pflegen nur Mitglieder mit dem Verwaltungsbereich `technical`, und zwar über die API. Beim Zurückspielen einer Sicherung werden diese Verknüpfungen nie übernommen. Siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster).
@@ -256,7 +311,8 @@ Eine Beetvorlage legt Form, Maße, Beettyp und Höhe eines Beets fest, damit du 
 
 - **Platzieren:** **Aus Vorlage** in der Werkzeugleiste, siehe [Im Gartenplan schneller arbeiten](#plan-komfort).
 - **Speichern:** Wähle genau ein Beet und klicke auf **Als Vorlage speichern**. Pflanzen, Aufgaben und Notizen gehören nicht dazu. Ein Garten kann bis zu 200 eigene Vorlagen haben; ist die Grenze erreicht, löschst du erst eine nicht mehr benötigte.
-- **Rollen:** Vorlagen legen Gärtner und die Leitung an; löschen darf nur die Leitung.
+- **Teilen:** Im Bereich **Beet aus Vorlage** lädt **Exportieren** die gewählte Vorlage als JSON-Datei herunter, ohne Kennung deines Gartens, ohne Autor und ohne Notizen. So gibst du eine Vorlage an andere Gärten weiter. **Importieren** nimmt eine solche Datei (höchstens 256 KB) und prüft sie zuerst: Der Prüfbericht zeigt Name, Form, Höhe und Pflanzraster und welche Felder der Datei übergangen werden. Gibt es den Namen schon, schlägt Kamerplanter einen freien vor. Gespeichert wird erst, wenn du **Importieren** bestätigst. Kamerplanter liest Dateien der aktuellen und der vorigen Version; eine ältere Datei exportierst du neu.
+- **Rollen:** Vorlagen legen und importieren Gärtner und die Leitung; löschen darf nur die Leitung.
 
 ## Unterlage zum Abzeichnen {#unterlage}
 
@@ -293,7 +349,11 @@ Was an einem einzelnen Beet geschah, steht in dessen Historie: den Zeitstrahl de
 
 Auf der Gartenplan-Seite öffnet **Export & Import** zwei Dialoge.
 
-**Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen (beim PDF zusätzlich **Beetliste als zweite Seite**); eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen (die Beetliste als CSV kann sie auf Wunsch enthalten, siehe unten).
+**Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik), als PNG (Bild) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen (beim PDF zusätzlich **Beetliste als zweite Seite**); eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen (die Parzellenliste im PDF und die Beetliste als CSV können sie auf Wunsch enthalten, siehe unten).
+
+**Parzellenliste im PDF.** Mit **Parzellenliste als Zusatzseite** bekommt das PDF eine weitere Seite, etwa für den Vorstand oder den Verpächter: jedes Beet mit laufender Nummer in Plan-Reihenfolge und Name, dazu Fläche und Bewässerungszone. Erst wenn die Parzellenliste an ist, bietet der Dialog **Zuweisungen in die Parzellenliste aufnehmen** an. Das fügt eine Spalte mit den Namen der Mitglieder hinzu, denen ein Beet zugewiesen ist; das sind personenbezogene Daten, gib das PDF dann nur an Personen weiter, die sie sehen dürfen. Notizen und Kontodaten stehen nie darin. <!-- REQ-053 GP-FR-176 -->
+
+**PNG (Bild)** erstellt dein Browser aus dem Plan, ohne den Server: der ganze Plan als Bild, zum Teilen in Nachrichten oder zum Einfügen in Dokumente. Er zeigt die Ebenen, die du im Plan eingeschaltet hast. Du wählst die **Auflösung** 1×, 2× oder 4×; vorgewählt ist 2×. 1× ist an der längeren Seite höchstens 1 200 Pixel groß, 2× und 4× sind schärfer, die Datei wird größer. Der Dialog nennt dir vorher die Größe in Pixeln. Wäre das Bild größer, als dein Browser zeichnen kann, nimmt Kamerplanter die größte mögliche Auflösung und sagt es dir. Das **Wasserzeichen „Kamerplanter · Datum"** in der rechten unteren Ecke ist eine Option und zu Beginn aus. Auf dem Handy gibt es PNG nicht. <!-- REQ-053 GP-FR-144 -->
 
 **Beetliste (CSV)** gibt die Beete des Standorts als Tabelle aus, eine Zeile pro Beet, zum Weiterverarbeiten in deiner Tabellenkalkulation. Vorgewählt sind Name, Typ, Fläche, Status, Bodenart, Bewässerungszone und aktive Pflanzen; zusätzlich kannst du Standortmerkmale wie Sonneneinstrahlung, Frostrisiko oder Hangneigung ankreuzen. Wähle mindestens eine Spalte. Die **Excel-Variante** trennt die Spalten mit Semikolon und schreibt Zahlen mit Dezimalkomma, damit die Datei in deutschsprachigem Excel direkt als Tabelle aufgeht. Der Schalter **Zuweisungen einschließen** ist aus: Ohne ihn stehen keine Namen von Mitgliedern in der Datei. Schaltest du ihn ein, kommt eine Spalte mit den Namen der zugewiesenen Mitglieder dazu; das sind personenbezogene Daten, gib die Datei nur an Personen weiter, die sie sehen dürfen. Notizen und Kontodaten sind nie enthalten. Die Kopfzeile der Datei verwendet feste englische Spaltenkennungen (zum Beispiel `name`, `area_m2`, `frost_risk`, `assigned_to`), und Felder mit festen Werten wie Status, Bodenart oder Frostrisiko stehen als Kennwert in der Datei (zum Beispiel `active`, `loam`, `high`); Typ und Bewässerungszone erscheinen mit ihrem Namen. So bleibt die Datei unabhängig von der Spracheinstellung gleich aufgebaut. Eine Datei hat höchstens 2 000 Beete; bei mehr zeigt der Dialog eine Meldung. Auf dem Handy gibt es die Beetliste wie SVG nicht, nutze dafür einen größeren Bildschirm.
 
@@ -354,7 +414,9 @@ Dieser Abschnitt ist für alle, die den Plan über die API anlegen oder eine Ins
 
 - **Ersten Plan anlegen:** `PUT /sites/{key}/plan/boundary` mit der Gartengrenze (Rechteck oder Vieleck), optional `north_angle_deg`. Der erste Aufruf legt den Plan an.
 - **Plan lesen:** `GET /sites/{key}/plan`. **Änderungsprotokoll lesen:** `GET /sites/{key}/plan/audit`.
-- **PDF mit Unterlage:** `GET /print/garden-plan/{site_key}?underlay=true`.
+- **PDF mit Unterlage:** `GET /print/garden-plan/{site_key}?underlay=true`. Die Parzellenliste fordert `parcel_list=true` an, die Namen der Zuweisungen zusätzlich `include_assignment=true`.
+- **Beetvorlage austauschen:** `GET /bed-templates/{key}/export` und `POST /bed-templates/import` (mit `dry_run`).
+- **Notschalter für das Offline-Arbeiten:** Mit `PWA_CACHING_ENABLED=false` meldet die App ihren Service Worker (das Hintergrundprogramm des Browsers für Offline-Betrieb und Push) beim nächsten Seitenaufruf ab und löscht den gemerkten Stand **und die noch nicht übertragenen Offline-Einträge** auf jedem Gerät. Nutze ihn nur, wenn das Offline-Arbeiten selbst Probleme macht; sag deinen Nutzern vorher, dass sie online gehen und ihre Einträge übertragen sollen. Siehe [Umgebungsvariablen](../reference/environment-variables.md).
 - **Beetliste per API:** `POST /beds/import-csv` unter `/sites/{key}` mit der CSV-Datei als rohem Body (`dry_run` standardmäßig `true`). Routen, Berichtsfelder und Fehlercodes stehen in der [API-Referenz](../reference/api-reference.md#beetliste-aus-csv-importieren).
 - **Geschwindigkeitsgrenzen** und Aufbewahrung stehen unter [Umgebungsvariablen](../reference/environment-variables.md).
 - Aufbau, Stapel-Schnittstelle und Sicherungsformat sind unter [Gartenplan: Geometrie und Schnittstellen](../architecture/garden-plan.md) beschrieben; die Routen und Fehlercodes unter [API-Referenz](../reference/api-reference.md#gartenplan-pdf-svg-json-sicherung).

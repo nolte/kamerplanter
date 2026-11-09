@@ -100,7 +100,7 @@ describe('evaluateBudget', () => {
     expect(checks.find((c) => c.requirement === 'REQ-053 WP 2.3')).toBeUndefined();
   });
 
-  it('budgets the Konva renderer chunk on its own at 200 KB (REQ-053 WP 9.7) without touching the route budget', () => {
+  it('budgets the Konva renderer chunk on its own at 200 KB (REQ-053 WP 9.7, GP-NFR-003) without touching the route budget', () => {
     const base = { initialJsBytes: 400 * KB, initialCssBytes: 1 * KB, dashboardBytes: 3 * KB, gardenPlannerBytes: 110 * KB };
     const within = evaluateBudget({ ...base, konvaRendererBytes: 190 * KB, budget });
     expect(within.failed).toBe(false);

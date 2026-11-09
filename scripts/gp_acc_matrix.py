@@ -30,6 +30,14 @@ WP 8.1-8.29; spec section 34 row 8), listed in :data:`WAVE8_ROWS`. Wave 8 also c
 migration, consistency job, INP profile, import schema compatibility), so a test claims ``GP-NFR-nnn`` the same way.
 Output ``spec/e2e-testcases/GP-REQ-wave8-matrix.md``; honest gaps in ``GP-REQ-wave8-gaps.json``.
 
+Wave 9 (WP 9.17, #2757) adds a fourth matrix: the GP-FR / GP-UX / GP-NFR / GP-API rows of wave 9 (:data:`WAVE9_ROWS`,
+plan section 3 "Welle 9", WP 9.1-9.16) and the UI-NFR-012 requirements wave 9 implements (:data:`WAVE9_UINFR_ROWS`,
+UI-NFR-012 v2.3 section 2.3). A UI-NFR-012 id (``R-057``) is no unique string in the repo - the REQ documents have
+R-ids of their own - so a test claims one only in a file that names ``UI-NFR-012`` somewhere; a range written
+``R-021…R-027`` (or with ``...``/``–``/``—``) claims every number in it. The matrix adds an "E2E TC" column: the
+``TC-053-nnn`` of each E2E test function (``def test_tc_053_nnn_...``) whose body names the row.
+Output ``spec/e2e-testcases/GP-REQ-wave9-matrix.md``; honest gaps in ``GP-REQ-wave9-gaps.json``.
+
 Usage: ``python3 scripts/gp_acc_matrix.py [--write | --check]`` (default ``--check``).
 """
 
@@ -39,6 +47,7 @@ import argparse
 import json
 import re
 import sys
+from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -60,6 +69,38 @@ _TEST_ROW = re.compile(r"(?<![\w-])GP-(FR|API|UX|NFR)-(\d{3})(?!\d)((?:/\d{3}(?!
 
 WAVE8_MATRIX = ROOT / "spec/e2e-testcases/GP-REQ-wave8-matrix.md"
 WAVE8_GAPS = ROOT / "spec/e2e-testcases/GP-REQ-wave8-gaps.json"
+
+WAVE9_MATRIX = ROOT / "spec/e2e-testcases/GP-REQ-wave9-matrix.md"
+WAVE9_GAPS = ROOT / "spec/e2e-testcases/GP-REQ-wave9-gaps.json"
+UINFR_GLOB = "spec/ui-nfr/UI-NFR-012_*.md"
+#: The prefix a UI-NFR-012 row carries in the wave-9 matrix and its gap file (``UI-NFR-012 R-057``).
+UINFR = "UI-NFR-012"
+_UINFR_ROW = re.compile(r"^\| (R-\d{3}[a-f]?) \|.*\| (MUSS|SOLL|KANN) \|[ \t]*$", re.MULTILINE)
+_UINFR_RANGE = re.compile(r"(?<![\w-])R-(\d{3})\s*(?:…|\.\.\.|–|—)\s*R-(\d{3})(?![\d])")
+_UINFR_ID = re.compile(r"(?<![\w-])R-(\d{3}[a-f]?)(?![\w])((?:/\d{3}(?!\d))*)")
+_NAMES_UINFR = re.compile(r"(?<![\w-])UI-NFR-012(?!\d)")
+_E2E_TC_FUNCTION = re.compile(r"^def test_tc_053_(\d{3})\w*\(", re.MULTILINE)
+#: The end of a top-level block: the next line that starts at column 0 (``def``, ``async def``, ``class``, a
+#: decorator, a constant, a comment) - a function body is indented.
+_TOP_LEVEL_LINE = re.compile(r"\n(?=[^\s])")
+#: The end of a function signature: the ``:`` that closes ``def …(…) -> T:`` at the end of a line.
+_SIGNATURE_END = re.compile(r"\)[^\n:]*:[ \t]*(?:#[^\n]*)?\n")
+#: Where the scope of a ``UI-NFR-012`` prefix ends: another document prefix (``REQ-053``, ``NFR-011``, another
+#: UI-NFR, a ``GP-``/``SR-`` id), a blank (comment) line, the end of a docstring or block comment, or the end of
+#: a sentence. Only the R-ids between the prefix and that end belong to UI-NFR-012.
+_UINFR_SCOPE_END = re.compile(
+    r"(?<![\w-])(?:REQ-\d{3}|(?<!UI-)NFR-\d{3}|UI-NFR-(?!012(?!\d))\d{3}|GP-[A-Z]+-\d{3}|SR-\d{3})"
+    r"|\n[ \t]*(?:\*|#|//)?[ \t]*\n|\"\"\"|\*/|\.(?=\s)"
+)
+#: The widest range ``R-aaa…R-bbb`` that is read as a range; a wider or reversed one is reported, not dropped.
+_UINFR_RANGE_MAX = 30
+
+
+@cache
+def _read(path: Path) -> str:
+    """One read per file and run: the scans of all four matrices share it (a test that writes a probe uses a
+    fresh ``tmp_path``, so a cached file is never rewritten under the same path)."""
+    return path.read_text(encoding="utf-8", errors="replace")
 
 #: The SHOULD rows of wave 7 (plan section 3 "Welle 7", WP 7.1-7.24; spec section 34 row 7), with the part a row
 #: contributes when only part of it is SHOULD. Not here, with the plan's reason: GP-FR-161-168 (wave 8 per section
@@ -151,12 +192,81 @@ WAVE8_ROWS: dict[str, str] = {
 }
 
 
+#: The REQ-053 rows of wave 9, with the part a row contributes when only part of it is wave 9. The rule of wave 8: a
+#: row is here when a work package of plan section 3 "Welle 9" (WP 9.1-9.16) names it as its deliverable. Not here,
+#: because no wave-9 package delivers them: Anhang A 60-63 (operator question 1 of #2759, own strand), GP-FR-018/146
+#: (GeoJSON, WON'T per E-06), the indoor rows GP-FR-180-183 (wave 10). The rain-skipped route of WP 9.13 has no
+#: GP-API row of its own (it is GP-FR-117); it is claimed through GP-FR-117.
+WAVE9_ROWS: dict[str, str] = {
+    "GP-UX-024": "offline read of plan, site list, bed summary and bed sheet; buffer for done / note / photo (WP 9.2, 9.4)",
+    "GP-FR-025": "wave-9 part: `Ctrl/Cmd+D` duplicate through one handler, menu entry names the key (WP 9.14)",
+    "GP-FR-111": "wave-9 part: water source fields in the properties panel (WP 9.14)",
+    "GP-FR-117": "wave-9 part: 'Regen - übersprungen' and `by_demand` (WP 9.13)",
+    "GP-FR-144": "PNG export from the SVG in 1x / 2x / 4x, watermark off by default (WP 9.8)",
+    "GP-FR-165": "site flags root_competition / allelopathy_risk as a choice, no calculation (WP 9.11)",
+    "GP-FR-167": "nearest_water_source_m in summary, bed list and CSV (WP 9.12)",
+    "GP-FR-173": "bed template exchange as JSON without tenant keys (WP 9.9)",
+    "GP-FR-176": "parcel list page in the PDF, assignment only with opt-in (WP 9.10)",
+    "GP-NFR-003": "wave-9 part: the Konva renderer as its own lazy chunk, budget 200 KB gzip (WP 9.7)",
+    "GP-NFR-033": "wave-9 part: drag frame-time measurement (D-01) and the Konva switch at 3 000 objects (WP 9.6, 9.7)",
+    "GP-NFR-034": "wave-9 part: zoom / pan frame-time measurement (WP 9.6)",
+    "GP-API-007": "wave-9 part: `parcel_list` with `include_assignment` opt-in (WP 9.10)",
+    "GP-API-053": "wave-9 part: allocation `by_demand` (WP 9.13)",
+    "GP-API-070": "export a bed template (WP 9.9)",
+    "GP-API-071": "import a bed template with dry run (WP 9.9)",
+}
+
+#: The UI-NFR-012 requirements wave 9 implements (UI-NFR-012 v2.3 section 2.3: phase 1 plus the garden-plan buffer),
+#: keyed ``UI-NFR-012 R-nnn``. Not here, with the reason of section 2.3 / REQ-053 section 32.6: R-003-R-006 (start URL
+#: per device, install UI, push is older than wave 9; operator question 6), R-015 in full and R-020a-f (the buffer
+#: carries done / note / photo only, R-058), R-029-R-031 (version stamps and the side-by-side dialog), R-034-R-042
+#: (indicator details, offline gating of the whole app), R-046/R-047 (per-photo progress, 200 MB), R-048-R-051 and
+#: R-049a/b (token persistence, question 7), R-053 (generic interceptor, replaced by R-058), R-054.
+WAVE9_UINFR_ROWS: dict[str, str] = {
+    f"{UINFR} R-001": "installable: manifest link and service worker (no install-prompt UI, #2759 question 6)",
+    f"{UINFR} R-002": "manifest fields",
+    f"{UINFR} R-007": "service worker registered and controlling",
+    f"{UINFR} R-008": "Cache-First for static assets",
+    f"{UINFR} R-009": "Network-First for the allowlisted API reads",
+    f"{UINFR} R-010": "precache of the app shell",
+    f"{UINFR} R-011": "vite-plugin-pwa (Workbox, injectManifest, one worker at /sw.js)",
+    f"{UINFR} R-012": "API cache TTL 15 min (service worker and IndexedDB)",
+    f"{UINFR} R-013": "API cache cap 50 MB",
+    f"{UINFR} R-014": "update banner, no automatic skipWaiting",
+    f"{UINFR} R-016": "offline entries in IndexedDB",
+    f"{UINFR} R-017": "entry metadata: capture time, status, user, tenant",
+    f"{UINFR} R-018": "entries survive a restart",
+    f"{UINFR} R-019": "cap of 500 entries per user",
+    f"{UINFR} R-020": "wave-9 part: site list and plan readable offline",
+    f"{UINFR} R-021": "automatic sync on reconnect",
+    f"{UINFR} R-022": "Background Sync where available, else on start / focus",
+    f"{UINFR} R-023": "FIFO",
+    f"{UINFR} R-024": "sync progress",
+    f"{UINFR} R-025": "result snackbar",
+    f"{UINFR} R-026": "exponential backoff 1 s to 60 s",
+    f"{UINFR} R-027": "`failed` after 5 attempts, retry",
+    f"{UINFR} R-028": "conflict from the server codes of WP 9.3 (409 / 404)",
+    f"{UINFR} R-032": "simplified conflict dialog keep / discard",
+    f"{UINFR} R-033": "connectivity indicator in the app shell",
+    f"{UINFR} R-043": "photo as a blob in IndexedDB",
+    f"{UINFR} R-044": "photo re-encoded on the device (1920 px, JPEG 80)",
+    f"{UINFR} R-045": "photos uploaded one after another",
+    f"{UINFR} R-052": "offlineSlice",
+    f"{UINFR} R-055": "namespace user_key + tenant_key, no API data in localStorage",
+    f"{UINFR} R-056": "clearing on logout / tenant switch / kill switch; buffer rules (b)-(d)",
+    f"{UINFR} R-057": "read allowlist, no-store honoured",
+    f"{UINFR} R-058": "write allowlist done / note / photo, idempotent replay",
+    f"{UINFR} R-059": "delivery of /sw.js and manifest no-store, CSP, kill switch",
+    f"{UINFR} R-060": "data on the device: retention 365 / 90 days, photo re-encoding",
+}
+
+
 def spec_ids() -> dict[str, str]:
     """``{id: level}`` for every acceptance criterion of the spec (``I``/``E``/``U`` ...)."""
     (spec,) = sorted(ROOT.glob(SPEC_GLOB))
     return {
         m.group(1): m.group(2).split(",")[0].strip()
-        for m in _SPEC_ID.finditer(spec.read_text(encoding="utf-8"))
+        for m in _SPEC_ID.finditer(_read(spec))
     }
 
 
@@ -197,7 +307,7 @@ def scan() -> dict[str, dict[str, set[str]]]:
             if tier is None:
                 continue
             for match in _TEST_ID.finditer(
-                path.read_text(encoding="utf-8", errors="replace")
+                _read(path)
             ):
                 number = match.group(1) or match.group(2)
                 found.setdefault(number, {}).setdefault(tier, set()).add(rel.as_posix())
@@ -283,7 +393,7 @@ def spec_rows() -> dict[str, str]:
     """``{row id: priority}`` for every GP-FR / GP-UX / GP-API / GP-NFR table row (``API`` for the API rows)."""
     (spec,) = sorted(ROOT.glob(SPEC_GLOB))
     rows: dict[str, str] = {}
-    for match in _SPEC_ROW.finditer(spec.read_text(encoding="utf-8")):
+    for match in _SPEC_ROW.finditer(_read(spec)):
         kind, number, cell = match.groups()
         row = f"GP-{kind}-{number}"
         if row not in rows:
@@ -313,7 +423,7 @@ def scan_rows() -> dict[str, dict[str, set[str]]]:
     """``{row id: {tier: {file, ...}}}`` - the GP-FR / GP-API / GP-UX / GP-NFR ids of the tests (``a/b`` expanded)."""
     found: dict[str, dict[str, set[str]]] = {}
     for rel, tier in _test_files():
-        text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+        text = _read(ROOT / rel)
         for match in _TEST_ROW.finditer(text):
             kind, first, rest = match.groups()
             for number in [first, *filter(None, rest.split("/"))]:
@@ -342,6 +452,7 @@ def _render_wave(
     rows: dict[str, str],
     found: dict[str, dict[str, set[str]]],
     gaps: dict[str, dict[str, object]],
+    tcs: dict[str, set[str]] | None = None,
 ) -> str:
     lines = list(header)
     covered = [r for r in wave_rows if r in found]
@@ -353,9 +464,11 @@ def _render_wave(
             f" gap; {len(uncovered)} without a test.**"
         ),
         "",
-        "| Row | Prio | Scope | Tiers | Tests |",
-        "|---|---|---|---|---|",
     ]
+    if tcs is None:
+        lines += ["| Row | Prio | Scope | Tiers | Tests |", "|---|---|---|---|---|"]
+    else:
+        lines += ["| Row | Prio | Scope | Tiers | E2E TC | Tests |", "|---|---|---|---|---|---|"]
     for row, scope in wave_rows.items():
         tiers = found.get(row, {})
         gap = gaps.get(row, {})
@@ -372,9 +485,15 @@ def _render_wave(
         else:
             tier_cell = "**GAP**"
             files = f"{gap.get('reason', 'no test')} (#{gap.get('issue', '?')})"
-        lines.append(
-            f"| {row} | {rows.get(row, '?')} | {scope} | {tier_cell} | {files} |"
-        )
+        if tcs is None:
+            lines.append(
+                f"| {row} | {rows.get(row, '?')} | {scope} | {tier_cell} | {files} |"
+            )
+        else:
+            tc_cell = ", ".join(f"TC-053-{n}" for n in sorted(tcs.get(row, set()))) or "-"
+            lines.append(
+                f"| {row} | {rows.get(row, '?')} | {scope} | {tier_cell} | {tc_cell} | {files} |"
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -431,7 +550,11 @@ def _wave_problems(
 ) -> list[str]:
     gaps_file = f"GP-REQ-wave{wave}-gaps.json"
     out = [
-        f"{r}: listed in WAVE{wave}_ROWS but not a row of the spec"
+        (
+            f"{r}: listed in WAVE{wave}_UINFR_ROWS but not a requirement of UI-NFR-012"
+            if r.startswith(f"{UINFR} ")
+            else f"{r}: listed in WAVE{wave}_ROWS but not a row of the spec"
+        )
         for r in wave_rows
         if r not in rows
     ]
@@ -479,6 +602,169 @@ def wave8_problems(
     return _wave_problems("8", WAVE8_ROWS, rows, found, gaps)
 
 
+def uinfr_rows() -> dict[str, str]:
+    """``{"UI-NFR-012 R-nnn": priority}`` for every requirement row of UI-NFR-012 (``MUSS`` / ``SOLL`` / ``KANN``)."""
+    (spec,) = sorted(ROOT.glob(UINFR_GLOB))
+    rows: dict[str, str] = {}
+    for match in _UINFR_ROW.finditer(_read(spec)):
+        rows.setdefault(f"{UINFR} {match.group(1)}", match.group(2))
+    return rows
+
+
+def _uinfr_segments(text: str) -> list[str]:
+    """The text after each ``UI-NFR-012`` up to the end of its scope (:data:`_UINFR_SCOPE_END`)."""
+    segments: list[str] = []
+    for match in _NAMES_UINFR.finditer(text):
+        end = _UINFR_SCOPE_END.search(text, match.end())
+        segments.append(text[match.end() : end.start() if end else len(text)])
+    return segments
+
+
+def uinfr_claims(text: str) -> tuple[set[str], list[str]]:
+    """The UI-NFR-012 ids a text claims, and the ranges it could not read.
+
+    An ``R-nnn`` counts only inside the scope of a ``UI-NFR-012`` prefix (same sentence, before another document
+    prefix such as ``REQ-053 R-…``): single ids, the ``/nnn`` shorthand and ranges ``R-021…R-027``. A range wider
+    than :data:`_UINFR_RANGE_MAX` or reversed is returned as a problem.
+    """
+    ids: set[str] = set()
+    bad: list[str] = []
+    for segment in _uinfr_segments(text):
+        for match in _UINFR_RANGE.finditer(segment):
+            first, last = int(match.group(1)), int(match.group(2))
+            if first <= last <= first + _UINFR_RANGE_MAX:
+                ids.update(f"{UINFR} R-{n:03d}" for n in range(first, last + 1))
+            else:
+                bad.append(match.group(0))
+        # The ends of a range are read with the range (an unreadable range claims nothing).
+        segment = _UINFR_RANGE.sub(" ", segment)
+        for match in _UINFR_ID.finditer(segment):
+            first, rest = match.groups()
+            ids.update(f"{UINFR} R-{n}" for n in [first, *filter(None, rest.split("/"))])
+    return ids, bad
+
+
+def uinfr_ids(text: str) -> set[str]:
+    """The UI-NFR-012 ids a text claims (see :func:`uinfr_claims`)."""
+    return uinfr_claims(text)[0]
+
+
+def uinfr_range_problems() -> list[str]:
+    """Every range a test writes that is no readable UI-NFR-012 range (reversed, or wider than the limit)."""
+    out: list[str] = []
+    for rel, _tier_name in _test_files():
+        for bad in uinfr_claims(_read(ROOT / rel))[1]:
+            out.append(
+                f"{rel.as_posix()}: UI-NFR-012 range {bad!r} is reversed or wider than {_UINFR_RANGE_MAX} - "
+                "name the ids instead"
+            )
+    return out
+
+
+def stray_uinfr(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+) -> list[str]:
+    """UI-NFR-012 ids a test claims that are no requirement of UI-NFR-012 (a typo or a retired id)."""
+    return [
+        f"{r}: referenced by {', '.join(sorted(f for files in found[r].values() for f in files))}"
+        " but not a requirement of UI-NFR-012"
+        for r in sorted(found)
+        if r.startswith(f"{UINFR} ") and r not in rows
+    ]
+
+
+def scan_uinfr_rows() -> dict[str, dict[str, set[str]]]:
+    """``{"UI-NFR-012 R-nnn": {tier: {file, ...}}}`` - the UI-NFR-012 ids the tests claim."""
+    found: dict[str, dict[str, set[str]]] = {}
+    for rel, tier in _test_files():
+        for row in uinfr_ids(_read(ROOT / rel)):
+            found.setdefault(row, {}).setdefault(tier, set()).add(rel.as_posix())
+    return found
+
+
+def scan_e2e_tcs() -> dict[str, set[str]]:
+    """``{row id: {"084", ...}}`` - the TC-053 number of each E2E test function whose body names the row.
+
+    A body runs from the end of the signature of ``def test_tc_053_nnn_...(`` to the next line at column 0 (``def``,
+    ``class``, a decorator, a constant, a comment) or the end of the file. A UI-NFR-012 id counts in the scope of a
+    ``UI-NFR-012`` prefix inside the body, like everywhere else.
+    """
+    tcs: dict[str, set[str]] = {}
+    for rel, tier in _test_files():
+        if tier != "e2e" or rel.suffix != ".py":
+            continue
+        text = _read(ROOT / rel)
+        starts = list(_E2E_TC_FUNCTION.finditer(text))
+        for match in starts:
+            # The signature may close at column 0 (``) -> None:``); the body starts after it.
+            header_end = _SIGNATURE_END.search(text, match.end())
+            end = _TOP_LEVEL_LINE.search(text, header_end.end() if header_end else match.end())
+            body = text[match.start() : end.start() if end else len(text)]
+            rows = {
+                f"GP-{kind}-{number}"
+                for kind, first, rest in _TEST_ROW.findall(body)
+                for number in [first, *filter(None, rest.split("/"))]
+            }
+            rows |= uinfr_ids(body)
+            for row in rows:
+                tcs.setdefault(row, set()).add(match.group(1))
+    return tcs
+
+
+def wave9_rows() -> dict[str, str]:
+    """The rows of the wave-9 matrix in order: the REQ-053 rows, then the UI-NFR-012 rows."""
+    return {**WAVE9_ROWS, **WAVE9_UINFR_ROWS}
+
+
+def wave9_spec_rows() -> dict[str, str]:
+    """The priority of every REQ-053 row and every UI-NFR-012 row - what a wave-9 row is checked against."""
+    return {**spec_rows(), **uinfr_rows()}
+
+
+def scan_wave9() -> dict[str, dict[str, set[str]]]:
+    """The REQ-053 claims and the UI-NFR-012 claims of the tests in one map."""
+    return {**scan_rows(), **scan_uinfr_rows()}
+
+
+def load_wave9_gaps() -> dict[str, dict[str, object]]:
+    return _load_gaps(WAVE9_GAPS)
+
+
+def render_wave9(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+    tcs: dict[str, set[str]],
+) -> str:
+    header = [
+        "# REQ-053 wave 9 requirement matrix GP-FR / GP-UX / GP-NFR / GP-API and UI-NFR-012 <-> test",
+        "",
+        "<!-- GENERATED by scripts/gp_acc_matrix.py --write from the tests - do not edit by hand. -->",
+        "",
+        "The rows are the REQ-053 rows of wave 9 (`WAVE9_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3",
+        '"Welle 9", WP 9.1-9.16, spec section 34) and the UI-NFR-012 requirements wave 9 implements',
+        "(`WAVE9_UINFR_ROWS`, UI-NFR-012 v2.3 section 2.3); the priority is read from the spec tables (`API` for an",
+        "API row, `MUSS`/`SOLL` for UI-NFR-012). A test claims a REQ-053 row by carrying its id (`GP-FR-144`, or the",
+        "shorthand `GP-API-070/071`); it claims a UI-NFR-012 row by carrying `R-nnn` (or a range `R-021…R-027`) in",
+        "a file that names UI-NFR-012. **E2E TC** lists the `TC-053-nnn` E2E functions whose body names the row.",
+        "**Limit of the method:** a row counts as covered when a test file names its id; that is a claim, not proof",
+        "the test exercises the row - whether it does stays a review question.",
+        "Honest gaps are listed in `GP-REQ-wave9-gaps.json` with a reason and an issue: **GAP** (no test) or",
+        "**partial** (the tests leave the named part unproven).",
+        "",
+    ]
+    return _render_wave(header, "9", wave9_rows(), rows, found, gaps, tcs)
+
+
+def wave9_problems(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+) -> list[str]:
+    return _wave_problems("9", wave9_rows(), rows, found, gaps)
+
+
 def stray_rows(
     rows: dict[str, str],
     found: dict[str, dict[str, set[str]]],
@@ -501,16 +787,21 @@ def main() -> int:
     ids, found, gaps = spec_ids(), scan(), load_gaps()
     rows, found_rows = spec_rows(), scan_rows()
     wave7_gaps, wave8_gaps = load_wave7_gaps(), load_wave8_gaps()
+    rows9, found9, wave9_gaps = wave9_spec_rows(), scan_wave9(), load_wave9_gaps()
     outputs = (
         (MATRIX, render(ids, found, gaps)),
         (WAVE7_MATRIX, render_wave7(rows, found_rows, wave7_gaps)),
         (WAVE8_MATRIX, render_wave8(rows, found_rows, wave8_gaps)),
+        (WAVE9_MATRIX, render_wave9(rows9, found9, wave9_gaps, scan_e2e_tcs())),
     )
     errors = (
         problems(ids, found, gaps)
         + wave7_problems(rows, found_rows, wave7_gaps)
         + wave8_problems(rows, found_rows, wave8_gaps)
+        + wave9_problems(rows9, found9, wave9_gaps)
         + stray_rows(rows, found_rows)
+        + stray_uinfr(uinfr_rows(), scan_uinfr_rows())
+        + uinfr_range_problems()
     )
     for path, text in outputs:
         if args.write:

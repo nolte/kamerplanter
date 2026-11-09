@@ -30,6 +30,7 @@ import BedView from '../bed/BedView';
 import { bedListItem, bedSummary } from '../bed/bedTestKit';
 import { careTask } from '../care/careTestKit';
 import { applyAction, selectGardenPlanState } from '../state/gardenPlanSlice';
+// A bed sheet is seeded with `complete: true`: `storedProjection('bedSheets')` stores only a complete answer.
 import { bedListEntry, bedSheetEntry, planEntry, readCached, writeCached, type CacheScope } from './planCache';
 
 const BASE = '/api/v1/t/:tenant';
@@ -335,7 +336,7 @@ describe('field-mode bed sheet', () => {
     await writeCached(planEntry(SCOPE, 'site_1'), PLAN, CACHED_AT);
     await writeCached(
       bedSheetEntry(SCOPE, 'loc_b03'),
-      { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [] },
+      { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [], complete: true },
       CACHED_AT,
     );
     setOnline(false);
@@ -357,7 +358,7 @@ describe('field-mode bed sheet', () => {
     await emptyWriteQueue();
     await writeCached(
       bedSheetEntry(SCOPE, 'loc_b03'),
-      { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [] },
+      { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [], complete: true },
       CACHED_AT,
     );
     let reads = 0;
@@ -437,14 +438,14 @@ describe('field-mode bed sheet', () => {
   });
 
   it('never writes a partial sheet over a good one (plant states failed)', async () => {
-    await writeCached(bedSheetEntry(SCOPE, 'loc_b03'), { tasks: [], plants: [{ plant_key: 'pl_good' }] }, CACHED_AT);
+    await writeCached(bedSheetEntry(SCOPE, 'loc_b03'), { tasks: [], plants: [{ plant_key: 'pl_good' }], complete: true }, CACHED_AT);
     server.use(http.get(`${BASE}/locations/:key/plant-states`, () => HttpResponse.json({}, { status: 500 })));
     renderPlan('field');
     const sheet = await openBed('Raised bed 3');
     await within(sheet).findByText('Live task');
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect((await readCached<{ plants: { plant_key: string }[] }>(bedSheetEntry(SCOPE, 'loc_b03')))?.data.plants).toEqual([
-      { plant_key: 'pl_good' },
+      { plant_key: 'pl_good', cover_photo_ref: null },
     ]);
   });
 
@@ -453,7 +454,7 @@ describe('field-mode bed sheet', () => {
     await writeCached(planEntry(SCOPE, 'site_1'), PLAN, CACHED_AT);
     await writeCached(
       bedSheetEntry(SCOPE, 'loc_b03'),
-      { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [] },
+      { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [], complete: true },
       CACHED_AT,
     );
     setOnline(false);
