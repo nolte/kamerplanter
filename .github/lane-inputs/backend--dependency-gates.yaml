@@ -9,9 +9,9 @@ job: dependency-gates
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-06'
-measured_at_commit: d30d5c19c4c83e7519860cb7196a1b7a189e7cf1
-replay_seconds: 13
+measured_on: '2026-11-09'
+measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
+replay_seconds: 12
 job_spec_sha256: 9393fcfe1bdaf68c440cd3975158ec35d7b4a5f7d584aa885c7d9d7599cb77fe
 invocations:
 - command: task deps:check
@@ -20,7 +20,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 5
+  untracked_reads_dropped: 1
 - command: uv sync --locked --no-install-project
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -34,7 +34,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 142
+  untracked_reads_dropped: 146
 - command: uv export --locked --no-emit-project --format requirements.txt -o /tmp/lane-inputs-scratch/requirements.txt
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -126,6 +126,7 @@ reads:
 - src/backend/app/domain/__init__.py
 - src/backend/app/domain/calculators/
 - src/backend/app/domain/calculators/__init__.py
+- src/backend/app/domain/calculators/area_dose_calculator.py
 - src/backend/app/domain/calculators/geometry_calculator.py
 - src/backend/app/domain/calculators/image_tiler.py
 - src/backend/app/domain/calculators/irrigation_zone_consumption_calculator.py
@@ -174,6 +175,7 @@ reads:
 - src/backend/app/domain/models/__init__.py
 - src/backend/app/domain/models/attachment.py
 - src/backend/app/domain/models/care_event.py
+- src/backend/app/domain/models/client_event.py
 - src/backend/app/domain/models/enrichment.py
 - src/backend/app/domain/models/fertilizer.py
 - src/backend/app/domain/models/garden_object.py
@@ -183,6 +185,7 @@ reads:
 - src/backend/app/domain/models/irrigation_zone.py
 - src/backend/app/domain/models/legal_retention.py
 - src/backend/app/domain/models/membership.py
+- src/backend/app/domain/models/nutrient_hint.py
 - src/backend/app/domain/models/pest_taxonomy.py
 - src/backend/app/domain/models/plan.py
 - src/backend/app/domain/models/privacy.py
@@ -198,6 +201,7 @@ reads:
 - src/backend/app/domain/services/ai_call_budget.py
 - src/backend/app/domain/services/attachment_service.py
 - src/backend/app/domain/services/care_event_service.py
+- src/backend/app/domain/services/client_event_writes.py
 - src/backend/app/domain/services/entitlement_service.py
 - src/backend/app/domain/services/ha_entity_grant_service.py
 - src/backend/app/domain/services/identification_registry.py
