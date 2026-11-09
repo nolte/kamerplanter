@@ -36,8 +36,3 @@ export function preloadOfflineCapture(): Promise<boolean> {
   );
   return loaded;
 }
-
-/** Tests only: forget a finished preload. */
-export function resetOfflineCapturePreloadForTests(): void {
-  loaded = null;
-}
