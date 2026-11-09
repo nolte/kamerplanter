@@ -5,7 +5,7 @@
  * gone cannot happen through this button.
  */
 import { useCallback, useMemo, type ReactNode } from 'react';
-import { useSnackbar } from 'notistack';
+import { useSnackbar, type SnackbarKey } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import { useApiError } from '@/hooks/useApiError';
@@ -27,7 +27,7 @@ export function useUndoSnackbar() {
   const { handleError } = useApiError();
 
   const offerUndo = useCallback(
-    ({ message, undo, onUndone }: UndoRequest) => {
+    ({ message, undo, onUndone }: UndoRequest): SnackbarKey =>
       enqueueSnackbar(message, {
         variant: 'success',
         autoHideDuration: UNDO_SNACKBAR_MS,
@@ -45,10 +45,12 @@ export function useUndoSnackbar() {
             {t('pages.bed.care.undo.action')}
           </Button>
         ),
-      });
-    },
+      }),
     [closeSnackbar, enqueueSnackbar, handleError, t],
   );
 
-  return useMemo(() => ({ offerUndo }), [offerUndo]);
+  /** Takes an offer back before its time is up — the action it undoes is no longer undoable (#2814). */
+  const withdraw = useCallback((key: SnackbarKey) => closeSnackbar(key), [closeSnackbar]);
+
+  return useMemo(() => ({ offerUndo, withdraw }), [offerUndo, withdraw]);
 }

@@ -60,12 +60,13 @@ import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import { useCacheScope } from '../offline/useCacheScope';
 import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import { canBuffer, sendOrBuffer, type BufferTarget } from '../offline/bufferedWrite';
-import { QUEUE_CAPACITY, discardEntry, isPerformedTooOld, isQueueFull } from '../offline/queue';
+import { QUEUE_CAPACITY, isPerformedTooOld, isQueueFull } from '../offline/queue';
 import { photoAsSent, photoForQueue, withGenericName } from '../offline/queuedPhoto';
+import { useQueuedUndo } from '../offline/useQueuedUndo';
 // The direct send carries the same per-request timeouts as the sync (review B2): a hanging request ends as a
 // network failure, so the buffer fallback with the same id is reached.
 import { PHOTO_SEND_TIMEOUT_MS, SEND_TIMEOUT_MS } from '../offline/sync';
-import type { QueueEntry, QueuedWrite, StoredPhoto } from '../offline/queueTypes';
+import type { QueuedWrite, StoredPhoto } from '../offline/queueTypes';
 import { preloadOfflineCapture } from '../offline/preloadOfflineCapture';
 import { useWriteQueue } from '../offline/useWriteQueue';
 
@@ -111,6 +112,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const notification = useNotification();
   const { offerUndo } = useUndoSnackbar();
   const scope = useCacheScope();
+  const { offerQueuedUndo } = useQueuedUndo(scope);
   const sheet = useBedSheet(bed.key, scope);
   const queue = useWriteQueue(scope);
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -246,19 +248,6 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
   const bufferedLocked = bufferOn
     ? saving || (!sendDirect && queue.full) || (online && fromCache && sheet.reloading)
     : writesLocked;
-
-  /** "Undo" of a buffered entry: it leaves the buffer (refused once a sync has it on the way). */
-  const offerQueuedUndo = (entry: QueueEntry, message: string) => {
-    offerUndo({
-      message,
-      undo: async () => {
-        if (!scope || !(await discardEntry(scope, entry.id))) {
-          throw new Error(t('pages.gardenPlan.field.buffer.undoTooLate'));
-        }
-      },
-      onUndone: () => undefined,
-    });
-  };
 
   const bufferError = (error: unknown) => {
     if (isQueueFull(error)) notification.warning(t('pages.gardenPlan.field.buffer.full', { max: QUEUE_CAPACITY }));
