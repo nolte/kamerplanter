@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
 import { normalizePlan } from '../model/planModel';
-import { fitViewport, focusViewport, planContentBounds } from './fitViewport';
+import { fillViewport, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 
 describe('planContentBounds', () => {
   it('is the box around the boundary, the beds and the garden objects', () => {
@@ -99,5 +99,27 @@ describe('focusViewport (GP-ACC-016)', () => {
 
   it('caps the zoom for a tiny box', () => {
     expect(focusViewport([0, 0, 0.01, 0.01], 800, 600, 1).pxPerM).toBe(200);
+  });
+});
+
+describe('fillViewport (GP-UX-067: the canvas takes the room it is given)', () => {
+  it('is exactly the given size, at the zoom fitViewport chooses, with the plan in the middle', () => {
+    const viewport = fillViewport([0, 0, 10, 5], 1000, 500);
+    const fitted = fitViewport([0, 0, 10, 5], 1000, 500);
+    expect(viewport.widthPx).toBe(1000);
+    expect(viewport.heightPx).toBe(500);
+    expect(viewport.pxPerM).toBe(fitted.pxPerM);
+    // The centre of the box lands on the centre of the canvas.
+    const centreX = (5 - viewport.originM[0]) * viewport.pxPerM;
+    const centreY = (viewport.originM[1] - 2.5) * viewport.pxPerM;
+    expect(centreX).toBeCloseTo(500, 6);
+    expect(centreY).toBeCloseTo(250, 6);
+  });
+
+  it('keeps a tall plan centred horizontally in a wide canvas', () => {
+    const viewport = fillViewport([0, 0, 2, 20], 800, 400);
+    expect(viewport.widthPx).toBe(800);
+    expect(viewport.heightPx).toBe(400);
+    expect((1 - viewport.originM[0]) * viewport.pxPerM).toBeCloseTo(400, 6);
   });
 });

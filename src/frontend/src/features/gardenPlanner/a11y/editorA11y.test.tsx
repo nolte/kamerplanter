@@ -147,6 +147,7 @@ describe('single-key shortcuts (WCAG 2.1.4, GP-UX-045)', () => {
 
   it('can be switched off, and the button still opens the help', () => {
     const t = setup();
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
     fireEvent.click(screen.getByTestId('garden-plan-keyboard-help-button'));
     const help = screen.getByTestId('garden-plan-keyboard-help');
     fireEvent.click(within(help).getByRole('switch', { name: 'Single-key shortcuts' }));
@@ -176,6 +177,7 @@ describe('single-key shortcuts of the view (WP 2.5) share the switch', () => {
 
   it('lists the view shortcuts in the key help', () => {
     setup();
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
     fireEvent.click(screen.getByTestId('garden-plan-keyboard-help-button'));
     const help = screen.getByTestId('garden-plan-keyboard-help');
     for (const key of ['?', 'G', '0', '+ / −', 'Ctrl + Z', 'Ctrl + Shift + Z / Ctrl + Y', 'Ctrl + S']) {
@@ -193,7 +195,7 @@ describe('skip link to the properties panel (WP 2.6)', () => {
 
   it('shows the same selection in the list and in the panel', () => {
     const t = setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     t.select('solo');
     const row = screen.getByTestId('garden-plan-list-details');
     expect(row).toBeInTheDocument();
@@ -213,7 +215,7 @@ describe('list view (GP-NFR-023, GP-ACC-032)', () => {
 
   it('shows every object with name, type, position and size', () => {
     setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     const row = screen.getByTestId('garden-plan-list-row-b1');
     expect(row).toHaveTextContent('Bed 1');
     expect(row).toHaveTextContent('x 3 m, y 3 m');
@@ -223,7 +225,7 @@ describe('list view (GP-NFR-023, GP-ACC-032)', () => {
 
   it('selects, reads the values, moves with buttons and with numbers, and keeps the focus', () => {
     const t = setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     fireEvent.click(
       within(screen.getByTestId('garden-plan-list-row-solo')).getByRole('button', { name: /Solo/ }),
     );
@@ -249,7 +251,7 @@ describe('list view (GP-NFR-023, GP-ACC-032)', () => {
 
   it('walks the rows with the arrow keys as one tab stop', () => {
     setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     const rowButtons = Array.from(document.querySelectorAll<HTMLElement>('button[data-list-key]'));
     expect(rowButtons.filter((b) => b.tabIndex === 0)).toHaveLength(1);
     rowButtons[0].focus();
@@ -263,7 +265,7 @@ describe('list view (GP-NFR-023, GP-ACC-032)', () => {
 
   it('deletes through the confirmation and hands the focus to the next row, never the body', () => {
     const t = setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     fireEvent.click(
       within(screen.getByTestId('garden-plan-list-row-b1')).getByRole('button', { name: /Bed 1/ }),
     );
@@ -280,7 +282,7 @@ describe('list view (GP-NFR-023, GP-ACC-032)', () => {
 
   it('returns the focus to where it was when the delete is cancelled', () => {
     setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     fireEvent.click(
       within(screen.getByTestId('garden-plan-list-row-solo')).getByRole('button', { name: /Solo/ }),
     );
@@ -294,7 +296,7 @@ describe('list view (GP-NFR-023, GP-ACC-032)', () => {
 
   it('does not offer to move a locked object', () => {
     setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     fireEvent.click(
       within(screen.getByTestId('garden-plan-list-row-lock')).getByRole('button', {
         name: /Locked/,
@@ -338,7 +340,7 @@ describe('accessibility (GP-ACC-032)', () => {
 
   it('has no violations on the list view with a row opened', async () => {
     setup();
-    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     fireEvent.click(
       within(screen.getByTestId('garden-plan-list-row-b1')).getByRole('button', { name: /Bed 1/ }),
     );

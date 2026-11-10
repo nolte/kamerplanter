@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import type { LocationType } from '@/api/types';
-import { pointer, px, setupEditor } from './editorTestKit';
+import { chooseOverflowEntry, pointer, px, setupEditor } from './editorTestKit';
 
 const listLocationTypes = vi.hoisted(() => vi.fn());
 // `getSite` feeds the sun-tile thresholds of the properties panel (WP 8.24); unread here, so the defaults apply.
@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 const open = (t: ReturnType<typeof setupEditor>) =>
-  t.after(() => fireEvent.click(screen.getByTestId('garden-plan-add-with-dimensions')));
+  t.after(() => chooseOverflowEntry('garden-plan-add-with-dimensions'));
 const set = (id: string, value: string) =>
   fireEvent.change(screen.getByTestId(id), { target: { value } });
 

@@ -77,6 +77,7 @@ describe('an underlay dialog that cannot be shown', () => {
   it('opens the real dialog while the chunk is there', async () => {
     usePlan();
     renderRoute();
+    fireEvent.click(await screen.findByTestId('garden-plan-overflow'));
     fireEvent.click(await screen.findByTestId('garden-plan-underlay-open'));
     expect(await screen.findByTestId('garden-plan-underlay-dialog')).toBeInTheDocument();
   });
@@ -89,6 +90,7 @@ describe('an underlay dialog that cannot be shown', () => {
       const reload = vi.fn();
       vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload });
       renderRoute();
+      fireEvent.click(await screen.findByTestId('garden-plan-overflow'));
       fireEvent.click(await screen.findByTestId('garden-plan-underlay-open'));
 
       const fallback = await screen.findByTestId('garden-plan-underlay-error');

@@ -27,6 +27,12 @@
  * list. The editor stays mounted behind the Beete tab - hidden, not unmounted - so its own state (tool options,
  * open panels) survives a switch just like the slice (unsaved operations, undo history, selection) and the route's
  * viewport. A tab switch only changes `tab`, which the unsaved-changes guard lets through; leaving the route asks.
+ *
+ * Workspace (WP 10.3, §17.3, GP-UX-063/067): with the editor on screen there is one header bar - the editor's - and it
+ * carries back, the tabs, field mode and export/import (in its overflow); the page header shows only the title
+ * ("Verhältnis zu Shell und Seitenkopf", UI-NFR-021). The canvas reports the room it has and the plan is fitted into
+ * exactly that (`fillViewport`). A plan the editor cannot show (loading, error, empty, read-only) keeps the page
+ * header actions and a tab row of its own.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -34,13 +40,14 @@ import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import EmptyState from '@/components/common/EmptyState';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -66,18 +73,20 @@ import {
 import type { PlanModel } from '../model/planModel';
 import { usePlanRenderer } from '../renderer/createRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
-import { GardenPlanEditor, type EditorView } from '../editor/GardenPlanEditor';
+import { GardenPlanEditor, type EditorTabs, type EditorView } from '../editor/GardenPlanEditor';
+import { PlanViewTabs, type HeaderNav } from '../editor/EditorHeaderBar';
+import type { CanvasAreaSize } from '../editor/useCanvasArea';
 import { EDITOR_SIDEBAR_RESERVE_PX } from '../editor/layout';
 import { EDITOR_ANCHORS } from '../editor/anchors';
 import type { BoundingBox, Point } from '../model/types';
 import { zoomAround } from '../model/units';
 import BedListSection from '../bed/BedListSection';
 import { bedListReloadToken } from '../bed/bedListReload';
-import { PlanIoMenu } from '../io/PlanIoMenu';
+import { PlanIoMenu, usePlanIo } from '../io/PlanIoMenu';
 import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
-import { EMPTY_PLAN_BOUNDS, fitViewport, focusViewport, planContentBounds } from './fitViewport';
+import { EMPTY_PLAN_BOUNDS, fillViewport, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
 import { isTabOnlyChange, planTabSearch, resolvePlanTab, type PlanTab } from './planTab';
@@ -106,6 +115,11 @@ const TAB_ID: Record<PlanTab, string> = {
 };
 const EDITOR_PANEL_ID = 'garden-plan-tabpanel-editor';
 const BEDS_PANEL_ID = 'garden-plan-tabpanel-beds';
+const TAB_ICON: Record<PlanTab, React.ReactNode> = {
+  plan: <MapOutlinedIcon fontSize="small" />,
+  list: <ViewListOutlinedIcon fontSize="small" />,
+  beds: <GridViewOutlinedIcon fontSize="small" />,
+};
 
 /**
  * Which opened plan the renderer is chosen for (D-01, `usePlanRenderer`): the site and the load that brought the
@@ -251,11 +265,21 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   const [firstBedSite, setFirstBedSite] = useState<string | null>(null);
   const startingFirstBed = key !== undefined && firstBedSite === key;
   const bounds = contentBounds ?? (startingFirstBed ? EMPTY_PLAN_BOUNDS : null);
+  // The room the editor's canvas has (GP-UX-067): the plan is fitted into exactly that. Until the canvas has been
+  // measured (and where nothing is laid out) the drawing takes the width and a share of the window height.
+  const [canvasSize, setCanvasSize] = useState<CanvasAreaSize | null>(null);
   const fitted = useMemo(() => {
     if (bounds === null) return null;
+    if (canvasSize !== null) {
+      return fillViewport(
+        bounds,
+        Math.max(1, canvasSize.widthPx - CANVAS_BORDER_PX),
+        Math.max(1, canvasSize.heightPx - CANVAS_BORDER_PX),
+      );
+    }
     const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
     return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX - (sidebarBeside ? EDITOR_SIDEBAR_RESERVE_PX : 0)), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
-  }, [bounds, canvasWidth, sidebarBeside]);
+  }, [bounds, canvasSize, canvasWidth, sidebarBeside]);
 
   // The user's view: pan and zoom replace the fitted view until "fit to area" (or another load)
   // drops them. It belongs to one site and one load, so neither needs an effect to reset it.
@@ -339,11 +363,56 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     canvas?.focus({ preventScroll: true });
   }, [tab]);
 
+  const ioProps = {
+    siteKey: key ?? '',
+    siteName: plan?.siteName ?? '',
+    canImport: canDelete,
+    dirty,
+    onImported: load,
+    onBedsImported: loadAndSelectBeds,
+    selection: ioSelection,
+    bedNames,
+  };
+  // Export and import of the editor's overflow (GP-UX-050/051); they need the server.
+  const io = usePlanIo(ioProps);
+  const siteHref = `/standorte/sites/${key ?? ''}`;
+  const openFieldMode = useCallback(() => navigate(fieldHref), [navigate, fieldHref]);
+  const headerNav = useMemo<HeaderNav>(
+    () => ({
+      backHref: siteHref,
+      siteName: plan?.siteName ?? t('pages.gardenPlan.title'),
+      fieldHref,
+      onFieldMode: openFieldMode,
+      ioItems: key && serverReachable ? io.items : undefined,
+    }),
+    [siteHref, plan?.siteName, t, fieldHref, openFieldMode, key, serverReachable, io.items],
+  );
+  // Whether the tabs stand in the editor's header bar or in its overflow (GP-UX-063 step 4): the "Beete" panel is
+  // named by its tab only while that tab is on screen.
+  const [tabsInline, setTabsInline] = useState(true);
+  const editorTabs = useMemo<EditorTabs>(
+    () => ({
+      value: tab,
+      label: t('pages.gardenPlan.tabs.label'),
+      items: (['plan', 'list', 'beds'] as const).map((value) => ({
+        value,
+        label: t(`pages.gardenPlan.tabs.${value}`),
+        icon: TAB_ICON[value],
+        id: TAB_ID[value],
+        controls: value === 'beds' ? BEDS_PANEL_ID : EDITOR_PANEL_ID,
+      })),
+      onChange: (next: string) => selectTab(resolvePlanTab(next)),
+      panelId: EDITOR_PANEL_ID,
+      onInlineChange: setTabsInline,
+    }),
+    [tab, t, selectTab],
+  );
+
   const backLink = (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
       <Button
         component={RouterLink}
-        to={`/standorte/sites/${key ?? ''}`}
+        to={siteHref}
         startIcon={<ArrowBackIcon />}
         data-testid="garden-plan-back-link"
         sx={{ minHeight: 44 }}
@@ -360,22 +429,14 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       >
         {t('pages.gardenPlan.field.toField')}
       </Button>
-      {key && serverReachable && (
-        <PlanIoMenu
-          siteKey={key}
-          siteName={plan?.siteName ?? ''}
-          canImport={canDelete}
-          dirty={dirty}
-          onImported={load}
-          onBedsImported={loadAndSelectBeds}
-          selection={ioSelection}
-          bedNames={bedNames}
-        />
-      )}
+      {key && serverReachable && <PlanIoMenu {...ioProps} siteKey={key} />}
     </Box>
   );
 
   let content: React.ReactNode;
+  // The editor brings the one header bar (back, tabs, field mode, export/import); every other state keeps the page
+  // header actions and a tab row of its own.
+  let editorShown = false;
   if (loadStatus === 'error' && offlineMiss) {
     content = <OfflineCacheMiss subject="plan" testId="garden-plan-offline-miss" onRetry={load} />;
   } else if (loadStatus === 'error' && loadError) {
@@ -414,6 +475,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       <ReadOnlyPlanView plan={plan} viewport={viewport} renderer={renderer} labels={labels} reason={readOnlyReason} />
     );
   } else {
+    editorShown = true;
     content = (
       <>
         {!online && (
@@ -435,6 +497,10 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           initialAddOpen={startingFirstBed && contentBounds === null}
           view={tab === 'list' ? 'list' : 'plan'}
           onViewChange={onEditorView}
+          nav={headerNav}
+          tabs={editorTabs}
+          contentHidden={tab === 'beds'}
+          onCanvasSize={setCanvasSize}
         />
       </>
     );
@@ -444,46 +510,34 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   const showTabs = plan !== null;
   const editorTab: PlanTab = tab === 'list' ? 'list' : 'plan';
   const bedsShown = showTabs && tab === 'beds';
+  // With the editor the tab panel of Plan and Liste is the editor's content; otherwise it is the box below.
+  const ownPanel = showTabs && !editorShown;
+  const bedsLabelled = !editorShown || tabsInline;
 
   return (
     <Box data-testid="garden-plan-page">
-      <PageTitle title={plan?.siteName ?? t('pages.gardenPlan.title')} action={backLink} />
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t('pages.gardenPlan.intro')}
-      </Typography>
+      {/* On the editor the header bar carries the actions; the page header shows only the title (§17.3). */}
+      <PageTitle title={plan?.siteName ?? t('pages.gardenPlan.title')} action={editorShown ? undefined : backLink} />
+      {/* The editor gives the canvas the height the intro would take (GP-UX-067); every other state explains. */}
+      {!editorShown && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.gardenPlan.intro')}
+        </Typography>
+      )}
       {/* Unsaved changes (GP-NFR-005): a reload, a closed tab or a route change asks first - a tab switch does
           not (GP-UX-065), it keeps the editor mounted. */}
       <UnsavedChangesGuard dirty={dirty} allowNavigation={isTabOnlyChange} />
       {cachedAt !== null && plan !== null && loadStatus === 'ready' && <CachedDataBanner cachedAt={cachedAt} />}
-      {showTabs && (
+      {ownPanel && (
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs
-            value={tab}
-            onChange={(_event, next: PlanTab) => selectTab(next)}
-            aria-label={t('pages.gardenPlan.tabs.label')}
-            variant="scrollable"
-            scrollButtons={false}
-            data-testid="garden-plan-tabs"
-          >
-            {(['plan', 'list', 'beds'] as const).map((value) => (
-              <Tab
-                key={value}
-                value={value}
-                label={t(`pages.gardenPlan.tabs.${value}`)}
-                id={TAB_ID[value]}
-                aria-controls={value === 'beds' ? BEDS_PANEL_ID : EDITOR_PANEL_ID}
-                data-testid={TAB_ID[value]}
-                sx={{ minHeight: 48 }}
-              />
-            ))}
-          </Tabs>
+          <PlanViewTabs tabs={editorTabs} />
         </Box>
       )}
       {/* The measured box exists in every state, so the first drawing already fits the width. Behind the Beete tab
-          it is hidden, not unmounted: a hidden box measures 0 px, which the width hook ignores. */}
+          the editor hides its own content and keeps its header bar; any other content is hidden here. */}
       <Box
         ref={canvasRef}
-        {...(showTabs
+        {...(ownPanel
           ? {
               id: EDITOR_PANEL_ID,
               role: 'tabpanel',
@@ -499,9 +553,10 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
         <Box
           id={BEDS_PANEL_ID}
           role="tabpanel"
-          aria-labelledby={TAB_ID.beds}
+          {...(bedsLabelled ? { 'aria-labelledby': TAB_ID.beds } : { 'aria-label': t('pages.gardenPlan.tabs.beds') })}
           hidden={!bedsShown}
           data-testid={BEDS_PANEL_ID}
+          sx={{ mt: editorShown ? 1 : 0 }}
         >
           {/* Mounted on every tab, as under the plan before: it keeps its filters and follows every load and save
               (#2813), so the tab always shows the saved state. */}
@@ -518,6 +573,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           )}
         </Box>
       )}
+      {io.dialogs}
     </Box>
   );
 }

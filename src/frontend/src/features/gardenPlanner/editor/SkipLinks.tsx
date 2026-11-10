@@ -31,9 +31,11 @@ const linkSx = {
   color: 'primary.main',
   border: 2,
   borderColor: 'primary.main',
-  // Off-screen, not display:none: it has to be focusable (WCAG 2.4.1).
-  transform: 'translateY(-300%)',
-  '&:focus': { transform: 'none' },
+  // Hidden, not display:none: it has to be focusable (WCAG 2.4.1). Clipped in place rather than moved above the
+  // editor: since the header bar opens the editor (§17.3), a link moved up would peek out under the app bar.
+  clipPath: 'inset(50%)',
+  pointerEvents: 'none',
+  '&:focus': { clipPath: 'none', pointerEvents: 'auto' },
 } as const;
 
 export function SkipLinks({ listShown, panelAvailable, onToList, onToPlan, onToPanel }: SkipLinksProps) {

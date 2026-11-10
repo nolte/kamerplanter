@@ -575,7 +575,8 @@ def test_tc_053_009_list_view_reaches_every_object_and_passes_axe(
     plan_violations = run_axe(plan.driver, context=editor)
     screenshot("053_009_01_plan_view", "Kartenansicht vor dem Wechsel zur Liste")
 
-    plan.show_list()
+    plan.open_tab("list")
+    plan.wait_for_element(plan.LIST)
     expected = {**garden.beds, **garden.objects}
     listed = plan.list_keys()
     assert sorted(listed) == sorted(expected.values()), (
@@ -607,12 +608,14 @@ def test_tc_053_009_list_view_reaches_every_object_and_passes_axe(
     list_violations = run_axe(plan.driver, context=editor)
     screenshot("053_009_03_row_selected", "Listeneintrag per Tastatur gewählt, Details offen")
 
-    plan.show_plan()
+    plan.open_tab("plan")
+    plan.wait_for_element(plan.SVG)
     plan.wait_for_selected(second, True, "TC-053-009: the list selection marks the plan object")
 
     other = next(key for key in garden.beds.values() if key != second)
     plan.select_with_keyboard(other)
-    plan.show_list()
+    plan.open_tab("list")
+    plan.wait_for_element(plan.LIST)
     assert plan.is_row_selected(other) and not plan.is_row_selected(second), (
         "TC-053-009: a selection on the plan marks its row in the list (and only that row)"
     )

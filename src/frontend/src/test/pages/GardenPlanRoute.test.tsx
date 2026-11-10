@@ -304,7 +304,8 @@ describe('GardenPlanRoute', () => {
     );
     const { store } = renderRoute(undefined, tenantState('lead'));
     await screen.findByTestId('garden-plan-canvas');
-    fireEvent.click(screen.getByTestId('garden-plan-io-menu'));
+    // With the editor on screen export and import are entries of the header bar's overflow (WP 10.3).
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
     fireEvent.click(await screen.findByTestId('garden-plan-io-csv'));
     const user = userEvent.setup();
     await user.upload(

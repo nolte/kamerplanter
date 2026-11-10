@@ -125,7 +125,8 @@ describe('garden plan tabs: URL state (GP-UX-064, AC-7, AC-12)', () => {
     expect(await screen.findByTestId('garden-plan-list')).toBeInTheDocument();
     expectTab('list');
     expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
-    expect(screen.getByTestId('garden-plan-view-list')).toBeChecked();
+    // The tab is the one way into the list: the editor's former list switch is gone (WP 10.3).
+    expect(screen.queryByTestId('garden-plan-view-list')).toBeNull();
   });
 
   it('pushes a history entry per switch, so "Back" returns to the previous tab; ?mode stays', async () => {
@@ -155,16 +156,16 @@ describe('garden plan tabs: URL state (GP-UX-064, AC-7, AC-12)', () => {
     expectTab('plan');
   });
 
-  it('lets the editor\'s own list switch move the tab, both ways', async () => {
+  it('lets the editor\'s own skip links move the tab, both ways', async () => {
     usePlan();
     useBeds();
     const { router } = renderRoute();
     await screen.findByTestId('garden-plan-canvas');
-    fireEvent.click(screen.getByTestId('garden-plan-view-list'));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
     await waitFor(() => expect(tabParam(router)).toBe('list'));
     expect(await screen.findByTestId('garden-plan-list')).toBeInTheDocument();
     expectTab('list');
-    fireEvent.click(screen.getByTestId('garden-plan-view-list'));
+    fireEvent.click(screen.getByTestId('garden-plan-skip-plan'));
     await waitFor(() => expect(tabParam(router)).toBe('plan'));
     expect(await screen.findByTestId('garden-plan-canvas')).toBeInTheDocument();
   });

@@ -5317,6 +5317,10 @@
       "title": "Gartenplan",
       "intro": "Dein Garten von oben: Beete und Gartenobjekte im richtigen Maßstab.",
       "backToSite": "Zurück zum Standort",
+      "header": {
+        "label": "Kopfleiste des Gartenplans",
+        "backTo": "Zurück zu {{name}}"
+      },
       "open": "Gartenplan öffnen",
       "openHint": "Beete und Gartenobjekte dieses Standorts als Plan ansehen.",
       "tabs": {
@@ -5551,7 +5555,6 @@
           "panel": "Zum Eigenschaftenpanel springen"
         },
         "list": {
-          "switch": "Als Liste anzeigen",
           "heading": "Plan als Liste",
           "intro": "Die Objekte von {{name}}: Bereiche, Beete und Gartenobjekte. Wähle eines aus, um seine Werte zu lesen, es zu verschieben oder zu löschen.",
           "empty": "Auf dem Plan gibt es noch nichts. Nutze „Mit Maßen hinzufügen“ oder zeichne in der Planansicht ein Beet.",

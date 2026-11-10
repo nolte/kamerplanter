@@ -14,6 +14,7 @@ import i18n from '@/i18n/i18n';
 import { ThemeContextProvider } from '@/theme';
 import { EditorToolbar } from './EditorToolbar';
 import { ViewBar } from './ViewBar';
+import { ZoomOverlay } from './ZoomOverlay';
 
 const words = (text: string): string[] => {
   let previous: string;
@@ -54,17 +55,19 @@ function renderBars() {
         onGridVisible={() => undefined}
         snapEnabled
         onSnapEnabled={() => undefined}
-        pxPerM={40}
-        minPxPerM={10}
-        onZoomIn={() => undefined}
-        onZoomOut={() => undefined}
-        onFit={() => undefined}
         unit="cm"
         onUnit={() => undefined}
         northAngleDeg={0}
         layerToggles={[
           { id: 'zones', label: 'Show irrigation zones', hint: 'hint', icon: <svg aria-hidden="true" />, visible: false },
         ]}
+      />
+      <ZoomOverlay
+        pxPerM={40}
+        minPxPerM={10}
+        onZoomIn={() => undefined}
+        onZoomOut={() => undefined}
+        onFit={() => undefined}
       />
       <EditorToolbar
         tool="select"

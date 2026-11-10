@@ -8,7 +8,7 @@
  */
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { pointer, px, setupEditor } from './editorTestKit';
+import { chooseOverflowEntry, pointer, px, setupEditor } from './editorTestKit';
 import { testPlan } from './tools/toolTestKit';
 
 afterEach(() => cleanup());
@@ -120,7 +120,7 @@ describe('Ctrl/Cmd+D (GP-FR-025)', () => {
 
   it('is listed in the keyboard help', () => {
     const t = setupEditor();
-    t.after(() => fireEvent.click(screen.getByRole('button', { name: /Keyboard help/ })));
+    t.after(() => chooseOverflowEntry('garden-plan-keyboard-help-button'));
 
     const help = screen.getByTestId('garden-plan-keyboard-help');
     expect(help).toHaveTextContent('Ctrl + D / Cmd + D');

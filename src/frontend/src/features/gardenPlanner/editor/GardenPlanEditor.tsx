@@ -8,6 +8,12 @@
  * layer (WP 2.6). Saving, the conflict dialog and undo/redo (WP 2.8: `SaveBar`, `ConflictDialog`,
  * `useEditorShortcuts`) are mounted here; the list view and full keyboard (WP 2.7) plug into the
  * seams marked in `useEditorTools`.
+ *
+ * Wave 10 (§17.3, WP 10.3): the editor is the content of the workspace frame `EditorWorkspace`. Above the plan
+ * there is one header bar (`EditorHeaderBar`: back, save group, tabs, field mode, panel switch, overflow "⋮"),
+ * the canvas takes the rest of the viewport height (`useCanvasArea`, GP-UX-067) and zoom, scale bar and mini-map
+ * are overlays on it. The list switch is gone: the tabs Plan · Liste of the route are the one way between the two
+ * views (GP-UX-064).
  */
 import {
   lazy,
@@ -26,9 +32,9 @@ import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
+import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
+import SelectAllIcon from '@mui/icons-material/SelectAll';
 import ImageIcon from '@mui/icons-material/Image';
 import LayersIcon from '@mui/icons-material/Layers';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
@@ -86,7 +92,8 @@ import { ALIGN_MODES, DISTRIBUTE_AXES } from './AlignMenu';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import { DimensionLabels, type DimensionItem } from './DimensionLabels';
 import { ConflictDialog } from './ConflictDialog';
-import { EditorHeaderActions } from './EditorHeaderActions';
+import { EditorHeaderBar, type HeaderNav, type HeaderTabs } from './EditorHeaderBar';
+import { EditorWorkspace } from './EditorWorkspace';
 import { EditorOverlay } from './EditorOverlay';
 import { LiveMoveLayer } from './LiveMoveLayer';
 import { usePendingZoom } from './usePendingZoom';
@@ -100,7 +107,7 @@ import { NewTypeSelect } from './NewTypeSelect';
 import { PlanListView } from './PlanListView';
 import { buildTree, neighbourKey } from './planTree';
 import { PropertiesPanel } from './PropertiesPanel';
-import { SaveBar } from './SaveBar';
+import { SaveMessages, UndoRedoButtons } from './SaveBar';
 import { ScaleBar } from './ScaleBar';
 import { SkipLinks } from './SkipLinks';
 import { SnapMarker, type SnapMark } from './SnapMarker';
@@ -110,6 +117,9 @@ import { useBedTemplates } from '../templates/useBedTemplates';
 import { TouchBar } from './TouchBar';
 import { TouchOverlay } from './TouchOverlay';
 import { ViewBar, type LayerToggle } from './ViewBar';
+import { ZoomOverlay } from './ZoomOverlay';
+import { useAutoSave } from './useAutoSave';
+import { useCanvasArea, type CanvasAreaSize } from './useCanvasArea';
 import { BedZoneInfo } from '../zones/BedZoneInfo';
 import { useUnderlay } from '../underlay/useUnderlay';
 import { useIrrigationZones, useLastWatered } from '../zones/useZoneData';
@@ -176,8 +186,23 @@ export interface GardenPlanEditorProps {
    * Without it the editor keeps the choice itself.
    */
   view?: EditorView;
-  /** The editor's own controls (the list switch, the skip links) ask for the other view. */
+  /** The editor's own controls (the skip links) ask for the other view. */
   onViewChange?: (view: EditorView) => void;
+  /** Back, field mode and export/import of the header bar (§17.3, GP-UX-063); only the route knows them. */
+  nav?: HeaderNav;
+  /** The route's tabs Plan · Liste · Beete, shown in the header bar (GP-UX-064); `panelId` names the content. */
+  tabs?: EditorTabs;
+  /** The tab "Beete" is open: the header bar stays, the rest is hidden but stays mounted (GP-UX-065). */
+  contentHidden?: boolean;
+  /** The room the canvas has (GP-UX-067); the route fits the plan into it. Not called where nothing is laid out. */
+  onCanvasSize?: (size: CanvasAreaSize) => void;
+}
+
+/** The route's tabs as the header bar shows them, plus the panel the editor content is for Plan and Liste. */
+export interface EditorTabs extends HeaderTabs {
+  panelId: string;
+  /** Whether the tabs are in the bar or in its overflow, so the route can name the "Beete" panel. */
+  onInlineChange?: (inline: boolean) => void;
 }
 
 /** The two surfaces of the editor: the drawing, or the same plan as a list (GP-NFR-023). */
@@ -290,6 +315,10 @@ export function GardenPlanEditor({
   initialAddOpen = false,
   view: viewProp,
   onViewChange,
+  nav,
+  tabs,
+  contentHidden = false,
+  onCanvasSize,
 }: GardenPlanEditorProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -318,11 +347,14 @@ export function GardenPlanEditor({
   // The irrigation layers (WP 7.6 / 7.7): zones come with the plan; the endpoint is read once the panel opens.
   const [zonesOpen, setZonesOpen] = useState(false);
   const [layerRefresh, setLayerRefresh] = useState(0);
+  // The overflow "⋮" opens the keyboard help and the underlay; their dialogs give the focus back to it (WCAG 2.4.3).
+  const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
   const zonesButtonRef = useRef<HTMLButtonElement | null>(null);
   const zonesWereOpen = useRef(false);
   // Closing the panel returns the focus to the button that opened it (WCAG 2.4.3).
   useEffect(() => {
-    if (!zonesOpen && zonesWereOpen.current) zonesButtonRef.current?.focus();
+    // The switch may be in the overflow on a narrow bar: the focus goes back to "⋮" then.
+    if (!zonesOpen && zonesWereOpen.current) (zonesButtonRef.current ?? overflowButtonRef.current)?.focus();
     zonesWereOpen.current = zonesOpen;
   }, [zonesOpen]);
   const nowMs = useWateringNow();
@@ -337,10 +369,9 @@ export function GardenPlanEditor({
   });
   // The underlay (GP-FR-033): shown per user; its switch is listed only while the site has a picture.
   const [underlayOpen, setUnderlayOpen] = useState(false);
-  const underlayButtonRef = useRef<HTMLButtonElement | null>(null);
   const underlayWasOpen = useRef(false);
   useEffect(() => {
-    if (!underlayOpen && underlayWasOpen.current) underlayButtonRef.current?.focus();
+    if (!underlayOpen && underlayWasOpen.current) overflowButtonRef.current?.focus();
     underlayWasOpen.current = underlayOpen;
   }, [underlayOpen]);
   const underlayState = useUnderlay(plan, layerPrefs.underlay);
@@ -477,7 +508,21 @@ export function GardenPlanEditor({
   );
   const [helpOpen, setHelpOpen] = useState(false);
   const shortcuts = useSingleKeyShortcuts();
+  // Auto-save lives as long as the editor (GP-UX-004): the header bar shows its switch inline or in the overflow.
+  const autoSave = useAutoSave();
+  const helpWasOpen = useRef(false);
+  useEffect(() => {
+    if (!helpOpen && helpWasOpen.current) overflowButtonRef.current?.focus();
+    helpWasOpen.current = helpOpen;
+  }, [helpOpen]);
   const dockRef = useRef<HTMLDivElement | null>(null);
+  // The bars docked at the bottom on phones: the canvas keeps clear of them (the sheet above them may cover it).
+  const dockBarsRef = useRef<HTMLDivElement | null>(null);
+  const canvasAreaRef = useRef<HTMLDivElement | null>(null);
+  const canvasArea = useCanvasArea(canvasAreaRef, dockBarsRef);
+  useEffect(() => {
+    if (canvasArea) onCanvasSize?.(canvasArea);
+  }, [canvasArea, onCanvasSize]);
   // The phone's "pan the selection above the sheet" waits for the release when a pointer holds a gesture: a view
   // that moves under a pressed object would turn the press into a drag by the pan (GP-UX-052). The release bumps
   // `panAfterRelease`, so the pan runs after the render that shows where the selection now is.
@@ -1172,8 +1217,23 @@ export function GardenPlanEditor({
     t,
   ]);
 
-  const headerExtraItems = useMemo<MenuAction[]>(
+  // The rare actions of the header bar's overflow (§17.3 target picture; GP-UX-046/052). Entries that stand in for
+  // a former button keep its test id (GP-UX-070). "Add with dimensions" moves into the tool bar's menus with WP 10.4.
+  const overflowItems = useMemo<MenuAction[]>(
     () => [
+      {
+        id: 'addWithDimensions',
+        label: t(`${PREFIX}.addWithDimensions.open`),
+        icon: <AddBoxOutlinedIcon fontSize="small" />,
+        onClick: () => setAddOpen(true),
+        testId: 'garden-plan-add-with-dimensions',
+      },
+      {
+        id: 'selectAll',
+        label: t(`${PREFIX}.contextMenu.selectAll`),
+        icon: <SelectAllIcon fontSize="small" />,
+        onClick: doSelectAll,
+      },
       {
         id: 'multiDuplicate',
         label: t(`${PREFIX}.contextMenu.multiDuplicate`),
@@ -1181,8 +1241,23 @@ export function GardenPlanEditor({
         onClick: () => setMultiOpen(true),
         disabled: !selection.some(isPlanEntity),
       },
+      {
+        id: 'underlay',
+        label: t(`${UNDERLAY}.open`),
+        icon: <ImageIcon fontSize="small" />,
+        onClick: () => setUnderlayOpen(true),
+        testId: 'garden-plan-underlay-open',
+        separated: true,
+      },
+      {
+        id: 'keyboardHelp',
+        label: t(`${PREFIX}.keyboard.open`),
+        icon: <KeyboardIcon fontSize="small" />,
+        onClick: openHelp,
+        testId: 'garden-plan-keyboard-help-button',
+      },
     ],
-    [selection, t],
+    [doSelectAll, openHelp, selection, t],
   );
 
   /** Right click (mouse and pen): the object under the pointer, in a menu at the pointer (GP-FR-027). */
@@ -1401,19 +1476,6 @@ export function GardenPlanEditor({
   );
 
   const centerPx: Point = [viewport.widthPx / 2, viewport.heightPx / 2];
-  const touchBar = touchUi ? (
-    <TouchBar
-      tool={tool}
-      drawShape={drawShape}
-      draftPoints={tools.draftPoints}
-      onPlacePoint={() => tools.placePointAt(centerPx)}
-      onUndoPoint={tools.undoPoint}
-      onFinish={tools.finishDraw}
-      onCancel={tools.cancel}
-      multiSelect={multiSelect}
-      onMultiSelect={setMultiSelect}
-    />
-  ) : null;
 
   const bedInfo = useCallback(
     (bedKey: string) => (
@@ -1465,11 +1527,6 @@ export function GardenPlanEditor({
       onGridVisible={setGridVisible}
       snapEnabled={snapEnabled}
       onSnapEnabled={setSnapEnabled}
-      pxPerM={pxPerM}
-      minPxPerM={minPxPerM}
-      onZoomIn={zoomIn}
-      onZoomOut={zoomOut}
-      onFit={fit}
       unit={unit}
       onUnit={setUnit}
       northAngleDeg={northAngleDeg}
@@ -1610,7 +1667,9 @@ export function GardenPlanEditor({
         borderColor: 'divider',
         borderRadius: 1,
         bgcolor: 'background.paper',
-        flexShrink: 0,
+        boxSizing: 'border-box',
+        // The area has its height once measured (GP-UX-067); the canvas fills it, the plan is fitted into it.
+        height: canvasArea ? '100%' : undefined,
         '&:focus-visible': {
           outline: 3,
           outlineStyle: 'solid',
@@ -1684,6 +1743,7 @@ export function GardenPlanEditor({
           )}
         </LiveMoveLayer>
       </Box>
+      {/* Overlays in the corners of the canvas (GP-UX-067): they take no row of their own. */}
       <ScaleBar pxPerM={pxPerM} />
       {showMiniMap && extent && (
         <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} />
@@ -1697,79 +1757,67 @@ export function GardenPlanEditor({
     </Box>
   );
 
-  return (
-    <Box
-      data-testid="garden-plan-editor"
-      onKeyDown={onShortcut}
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1,
-        // GP-NFR-026: no motion for people who ask for none (ripples, tooltips, dialogs, ghost fading).
-        '@media (prefers-reduced-motion: reduce)': {
-          '& *, & *::before, & *::after': {
-            transition: 'none !important',
-            animation: 'none !important',
-            scrollBehavior: 'auto !important',
-          },
-        },
-      }}
-    >
-      <SkipLinks
-        listShown={listShown}
-        panelAvailable={!toolbarBelow || sheetOpen}
-        onToList={showList}
-        onToPlan={showPlan}
-        onToPanel={focusPanelRegion}
-      />
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-        <FormControlLabel
-          sx={{ m: 0, minHeight: 44 }}
-          control={
-            <Switch
-              checked={listShown}
-              onChange={(event) => (event.target.checked ? showList() : showPlan())}
-              slotProps={{ input: { 'data-testid': 'garden-plan-view-list' } as object }}
-            />
-          }
-          label={t(`${PREFIX}.list.switch`)}
-        />
-        <Button
-          startIcon={<KeyboardIcon />}
-          onClick={openHelp}
-          sx={{ minHeight: 44 }}
-          data-testid="garden-plan-keyboard-help-button"
-        >
-          {t(`${PREFIX}.keyboard.open`)}
-        </Button>
-        <Button
-          ref={zonesButtonRef}
-          startIcon={<WaterDropIcon />}
-          onClick={() => setZonesOpen((open) => !open)}
-          aria-expanded={zonesOpen}
-          aria-controls="garden-plan-zone-panel-region"
-          sx={{ minHeight: 44 }}
-          data-testid="garden-plan-zones-open"
-        >
-          {t(`${ZONES}.open`)}
-        </Button>
-        <Button
-          ref={underlayButtonRef}
-          startIcon={<ImageIcon />}
-          onClick={() => setUnderlayOpen(true)}
-          aria-haspopup="dialog"
-          sx={{ minHeight: 44 }}
-          data-testid="garden-plan-underlay-open"
-        >
-          {t(`${UNDERLAY}.open`)}
-        </Button>
-      </Box>
-      <SaveBar />
-      <EditorHeaderActions
-        onAddWithDimensions={() => setAddOpen(true)}
-        onSelectAll={doSelectAll}
-        extraItems={headerExtraItems}
-      />
+  // Below md undo and redo stand in the TouchBar while it is on screen (GP-UX-052/063); otherwise in the header bar.
+  const undoInTouchBar = toolbarBelow && !listShown && !contentHidden;
+  const touchBar = touchUi ? (
+    <TouchBar
+      tool={tool}
+      drawShape={drawShape}
+      draftPoints={tools.draftPoints}
+      onPlacePoint={() => tools.placePointAt(centerPx)}
+      onUndoPoint={tools.undoPoint}
+      onFinish={tools.finishDraw}
+      onCancel={tools.cancel}
+      multiSelect={multiSelect}
+      onMultiSelect={setMultiSelect}
+      leading={undoInTouchBar ? <UndoRedoButtons /> : undefined}
+    />
+  ) : null;
+
+  // The panel switch of the header bar (GP-UX-068); until WP 10.5 brings the panel tabs it opens the zone panel.
+  const toggleZones = useCallback(() => setZonesOpen((open) => !open), []);
+  const zonesToggle = useMemo(
+    () => ({
+      label: t(`${ZONES}.open`),
+      icon: <WaterDropIcon />,
+      expanded: zonesOpen,
+      controls: 'garden-plan-zone-panel-region',
+      onToggle: toggleZones,
+      testId: 'garden-plan-zones-open',
+    }),
+    [t, zonesOpen, toggleZones],
+  );
+  // While the tabs are in the overflow the content panel is named by its tab's label instead of the tab element.
+  const [tabsInline, setTabsInline] = useState(true);
+  const tabsInlineChanged = tabs?.onInlineChange;
+  const onTabsInline = useCallback(
+    (inline: boolean) => {
+      setTabsInline(inline);
+      tabsInlineChanged?.(inline);
+    },
+    [tabsInlineChanged],
+  );
+
+  const header = (
+    <EditorHeaderBar
+      autoSave={autoSave}
+      narrow={toolbarBelow}
+      undoRedo={!undoInTouchBar}
+      nav={nav}
+      tabs={tabs}
+      onTabsInline={onTabsInline}
+      panelToggle={zonesToggle}
+      panelButtonRef={zonesButtonRef}
+      overflowItems={overflowItems}
+      overflowButtonRef={overflowButtonRef}
+    />
+  );
+
+  const above = (
+    <>
+      <SaveMessages autoSave={autoSave} />
+      {/* Until WP 10.5 (panel tabs "Ansicht" and "Ebenen") the view row and the legend stay above the plan, and until
+          WP 10.4 (vertical tool bar) the tool bar does; zoom, scale bar and mini-map are overlays already. */}
       {!listShown && viewBar}
       {!listShown && (
         <ZoneLegend
@@ -1871,49 +1919,48 @@ export function GardenPlanEditor({
           {t(`${PREFIX}.tooSmall`)}
         </Alert>
       )}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-        {listShown ? (
-          <Box ref={listRef} sx={{ flex: 1, minWidth: 0 }}>
-            <PlanListView
-              plan={plan}
-              labels={labels}
-              selection={selection}
-              stepM={gridStepM}
-              onSelect={onListSelect}
-              onMove={keyboard.moveSelection}
-              onRequestDelete={requestDelete}
-            />
-          </Box>
-        ) : (
-          canvasSurface
-        )}
-        {!toolbarBelow && panel('sidebar')}
-      </Box>
-      {underlayOpen && (
-        // A dialog chunk that cannot load (or a dialog that fails to render) says so in place; the plan stays
-        // usable. As for the zone panel, the fallback offers the reload, not a retry that would fail the same way.
-        <ErrorBoundary
-          title={t(`${UNDERLAY}.chunkFailedTitle`)}
-          hint={t(`${UNDERLAY}.chunkFailedHint`)}
-          reloadLabel={t('common.appError.reloadPage')}
-          testId="garden-plan-underlay-error"
-          boundaryName="garden-plan-underlay-dialog"
+    </>
+  );
+
+  const body = (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', minWidth: 0 }}>
+      {listShown ? (
+        <Box ref={listRef} sx={{ flex: 1, minWidth: 0 }}>
+          <PlanListView
+            plan={plan}
+            labels={labels}
+            selection={selection}
+            stepM={gridStepM}
+            onSelect={onListSelect}
+            onMove={keyboard.moveSelection}
+            onRequestDelete={requestDelete}
+          />
+        </Box>
+      ) : (
+        // The canvas area: the rest of the viewport height, at least 400 px (GP-UX-067); the zoom sits on it.
+        <Box
+          ref={canvasAreaRef}
+          data-testid="garden-plan-canvas-area"
+          // A measured value that changes with every resize: an inline style, not one generated class per pixel.
+          style={canvasArea ? { height: canvasArea.heightPx } : undefined}
+          sx={{ position: 'relative', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}
         >
-          <Suspense fallback={null}>
-            <UnderlayDialog
-              open
-              siteKey={plan.siteKey}
-              underlay={underlayState.underlay}
-              onSaved={(next) => {
-                underlayState.set(next);
-                // A user who hid the layer earlier sees what they just saved.
-                if (next !== null) setLayer('underlay', true);
-              }}
-              onClose={() => setUnderlayOpen(false)}
-            />
-          </Suspense>
-        </ErrorBoundary>
+          {canvasSurface}
+          <ZoomOverlay
+            pxPerM={pxPerM}
+            minPxPerM={minPxPerM}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onFit={fit}
+          />
+        </Box>
       )}
+      {!toolbarBelow && panel('sidebar')}
+    </Box>
+  );
+
+  const below = (
+    <>
       <Box id="garden-plan-zone-panel-region">
         {zonesOpen && (
           // A chunk that cannot load (typically gone after a deploy) stays rejected for the life of the page:
@@ -1959,9 +2006,41 @@ export function GardenPlanEditor({
               {panel('sheet')}
             </Box>
           )}
-          {!listShown && touchBar}
-          {!listShown && toolbar}
+          <Box ref={dockBarsRef} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {!listShown && touchBar}
+            {!listShown && toolbar}
+          </Box>
         </Box>
+      )}
+    </>
+  );
+
+  const overlays = (
+    <>
+      {underlayOpen && (
+        // A dialog chunk that cannot load (or a dialog that fails to render) says so in place; the plan stays
+        // usable. As for the zone panel, the fallback offers the reload, not a retry that would fail the same way.
+        <ErrorBoundary
+          title={t(`${UNDERLAY}.chunkFailedTitle`)}
+          hint={t(`${UNDERLAY}.chunkFailedHint`)}
+          reloadLabel={t('common.appError.reloadPage')}
+          testId="garden-plan-underlay-error"
+          boundaryName="garden-plan-underlay-dialog"
+        >
+          <Suspense fallback={null}>
+            <UnderlayDialog
+              open
+              siteKey={plan.siteKey}
+              underlay={underlayState.underlay}
+              onSaved={(next) => {
+                underlayState.set(next);
+                // A user who hid the layer earlier sees what they just saved.
+                if (next !== null) setLayer('underlay', true);
+              }}
+              onClose={() => setUnderlayOpen(false)}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
       <LiveRegion message={announcement} />
       <KeyboardHelp
@@ -2018,7 +2097,37 @@ export function GardenPlanEditor({
         onConfirm={confirmDelete}
         onCancel={() => setPendingDelete(null)}
       />
-    </Box>
+    </>
+  );
+
+  return (
+    <EditorWorkspace
+      onKeyDown={onShortcut}
+      contentHidden={contentHidden}
+      panel={
+        tabs
+          ? {
+              id: tabs.panelId,
+              labelledBy: tabsInline ? tabs.items.find((item) => item.value === tabs.value)?.id : undefined,
+              label: tabs.items.find((item) => item.value === tabs.value)?.label,
+            }
+          : undefined
+      }
+      skipLinks={
+        <SkipLinks
+          listShown={listShown}
+          panelAvailable={!toolbarBelow || sheetOpen}
+          onToList={showList}
+          onToPlan={showPlan}
+          onToPanel={focusPanelRegion}
+        />
+      }
+      header={header}
+      above={above}
+      body={body}
+      below={below}
+      overlays={overlays}
+    />
   );
 }
 

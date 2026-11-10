@@ -5316,6 +5316,10 @@
       "title": "Garden plan",
       "intro": "Your garden from above: beds and garden objects to scale.",
       "backToSite": "Back to site",
+      "header": {
+        "label": "Garden plan header",
+        "backTo": "Back to {{name}}"
+      },
       "open": "Open garden plan",
       "openHint": "See the beds and garden objects of this site as a plan.",
       "tabs": {
@@ -5550,7 +5554,6 @@
           "panel": "Skip to the properties panel"
         },
         "list": {
-          "switch": "Show as list",
           "heading": "Plan as list",
           "intro": "The objects of {{name}}: areas, beds and garden objects. Select one to read its values, move it or delete it.",
           "empty": "There is nothing on the plan yet. Use “Add with dimensions” or draw a bed in the plan view.",
