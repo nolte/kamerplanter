@@ -209,10 +209,11 @@ class PlanExportDialog(BedListExportDialog):
 class Wave9PlanPage(GardenPlanPage):
     """The plan editor's wave 9 parts."""
 
-    # ── Bed list under the plan (#2813) ────────────────────────────────
+    # ── Bed list, tab "Beete" (#2813; WP 10.2 moved it from under the plan into the tab) ──
 
     def bed_list_names(self) -> set[str]:
-        """The bed names the list under the plan shows (table or cards, whichever is displayed)."""
+        """The bed names the tab "Beete" shows (table or cards, whichever is displayed); opens the tab first."""
+        self.open_tab("beds")
         links = self.driver.find_elements(
             By.CSS_SELECTOR, '[data-testid="bed-list-section"] [data-testid^="bed-list-link-"]'
         )
@@ -397,6 +398,7 @@ class Wave9PlanPage(GardenPlanPage):
 
     def bed_list_cell(self, bed_key: str, column: str, what: str) -> str:
         """The text of *column* in the bed list row of *bed_key* (desktop table); loud when the row is missing."""
+        self.open_tab("beds")
         link = _tid(f"bed-list-link-{bed_key}")
         try:
             self.wait_for_element(link)
@@ -418,6 +420,7 @@ class Wave9PlanPage(GardenPlanPage):
 
     def has_bed_list_column(self, column: str) -> bool:
         """Whether the bed list's header carries *column* (``sort-<id>``), read after a row is on screen."""
+        self.open_tab("beds")
         self.wait_for_element(self.BED_LIST_ROWS)
         return self.is_present(
             (By.CSS_SELECTOR, f"[data-table-section='bed-list'] [data-testid='sort-{column}']")

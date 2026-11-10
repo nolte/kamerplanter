@@ -21,6 +21,12 @@
  * Field mode (WP 5.1, GP-UX-020) is the default on xs and `?mode=field` everywhere; `?mode=plan` forces
  * planning mode. Field mode is its own lazy chunk (`field/FieldModeView`), so the route budget only carries
  * the switch. The route still chooses the renderer for it.
+ *
+ * Tabs (WP 10.2, GP-UX-064/065): planning mode shows Plan · Liste · Beete, the open one in `?tab=` next to `?mode=`
+ * (field mode has no tabs and ignores the parameter). Plan and Liste are the editor's two views; Beete is the bed
+ * list. The editor stays mounted behind the Beete tab - hidden, not unmounted - so its own state (tool options,
+ * open panels) survives a switch just like the slice (unsaved operations, undo history, selection) and the route's
+ * viewport. A tab switch only changes `tab`, which the unsaved-changes guard lets through; leaving the route asks.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -28,6 +34,8 @@ import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -58,7 +66,7 @@ import {
 import type { PlanModel } from '../model/planModel';
 import { usePlanRenderer } from '../renderer/createRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
-import { GardenPlanEditor } from '../editor/GardenPlanEditor';
+import { GardenPlanEditor, type EditorView } from '../editor/GardenPlanEditor';
 import { EDITOR_SIDEBAR_RESERVE_PX } from '../editor/layout';
 import { EDITOR_ANCHORS } from '../editor/anchors';
 import type { BoundingBox, Point } from '../model/types';
@@ -72,6 +80,7 @@ import { boundingBox } from '../model/geometry';
 import { EMPTY_PLAN_BOUNDS, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
+import { isTabOnlyChange, planTabSearch, resolvePlanTab, type PlanTab } from './planTab';
 import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import ReadOnlyPlanView from '../offline/ReadOnlyPlanView';
@@ -88,6 +97,15 @@ registerLazySlice(gardenPlanSlice);
 const MAX_HEIGHT_SHARE = 0.7;
 /** Both sides of the 1px canvas border; the drawing must fit inside it or the box scrolls sideways. */
 const CANVAS_BORDER_PX = 2;
+
+/** The ids that tie the tabs to their panels (WAI-ARIA "Tabs"); Plan and Liste share the editor's panel. */
+const TAB_ID: Record<PlanTab, string> = {
+  plan: 'garden-plan-tab-plan',
+  list: 'garden-plan-tab-list',
+  beds: 'garden-plan-tab-beds',
+};
+const EDITOR_PANEL_ID = 'garden-plan-tabpanel-editor';
+const BEDS_PANEL_ID = 'garden-plan-tabpanel-beds';
 
 /**
  * Which opened plan the renderer is chosen for (D-01, `usePlanRenderer`): the site and the load that brought the
@@ -135,6 +153,14 @@ function FieldModeRoute({ siteKey, planningHref }: { siteKey: string; planningHr
 /** Planning mode: the editor with its tools, the bed list and import/export. */
 function PlanningPage({ fieldHref }: { fieldHref: string }) {
   const { key } = useParams<{ key: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = resolvePlanTab(searchParams.get('tab'));
+  // Every switch is a history entry, so "Back" returns to the previous tab (GP-UX-064).
+  const selectTab = useCallback(
+    (next: PlanTab) => setSearchParams((previous) => planTabSearch(previous, next)),
+    [setSearchParams],
+  );
+  const onEditorView = useCallback((next: EditorView) => selectTab(next), [selectTab]);
   const { t } = useTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -280,9 +306,11 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   );
   const onFit = useCallback(() => setView(null), []);
 
-  // GP-ACC-016: a row of the bed list selects the bed and brings its bounding box into view.
+  // GP-ACC-016, GP-FR-042: a row of the bed list opens the plan, selects the bed and brings its bounding box into
+  // view. The canvas is shown one navigation later, so scrolling to it and focusing it wait for that render.
   const fittedWidth = fitted?.widthPx ?? 0;
   const fittedHeight = fitted?.heightPx ?? 0;
+  const revealCanvas = useRef(false);
   const onSelectBed = useCallback(
     (bed: BedListItem) => {
       const placed = plan?.locations[bed.key];
@@ -293,14 +321,23 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
         return;
       }
       dispatch(setSelection([{ entity: 'location', key: bed.key }]));
+      revealCanvas.current = true;
+      selectTab('plan');
       if (fittedWidth === 0) return;
       const bounds = placed.bbox ?? boundingBox(geometry);
       const next = focusViewport(bounds, fittedWidth, fittedHeight, minPxPerM);
       setView({ siteKey: key, requestId: loadRequestId, ...next });
-      document.getElementById(EDITOR_ANCHORS.canvas)?.scrollIntoView?.({ block: 'nearest' });
     },
-    [dispatch, plan, fittedWidth, fittedHeight, minPxPerM, key, loadRequestId, notification, t],
+    [dispatch, plan, fittedWidth, fittedHeight, minPxPerM, key, loadRequestId, notification, t, selectTab],
   );
+  useEffect(() => {
+    if (!revealCanvas.current || tab !== 'plan') return;
+    revealCanvas.current = false;
+    const canvas = document.getElementById(EDITOR_ANCHORS.canvas);
+    canvas?.scrollIntoView?.({ block: 'nearest' });
+    // The row that was clicked is hidden now; the focus follows the bed onto the plan (WCAG 2.4.3).
+    canvas?.focus({ preventScroll: true });
+  }, [tab]);
 
   const backLink = (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -396,10 +433,17 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           onFit={onFit}
           minPxPerM={minPxPerM}
           initialAddOpen={startingFirstBed && contentBounds === null}
+          view={tab === 'list' ? 'list' : 'plan'}
+          onViewChange={onEditorView}
         />
       </>
     );
   }
+
+  // The tabs belong to a loaded plan; while the first load runs or fails there is nothing to switch between.
+  const showTabs = plan !== null;
+  const editorTab: PlanTab = tab === 'list' ? 'list' : 'plan';
+  const bedsShown = showTabs && tab === 'beds';
 
   return (
     <Box data-testid="garden-plan-page">
@@ -407,17 +451,72 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.gardenPlan.intro')}
       </Typography>
-      {/* Unsaved changes (GP-NFR-005): a reload, a closed tab or a route change asks first. */}
-      <UnsavedChangesGuard dirty={dirty} />
+      {/* Unsaved changes (GP-NFR-005): a reload, a closed tab or a route change asks first - a tab switch does
+          not (GP-UX-065), it keeps the editor mounted. */}
+      <UnsavedChangesGuard dirty={dirty} allowNavigation={isTabOnlyChange} />
       {cachedAt !== null && plan !== null && loadStatus === 'ready' && <CachedDataBanner cachedAt={cachedAt} />}
-      {/* The measured box exists in every state, so the first drawing already fits the width. */}
-      <Box ref={canvasRef}>{content}</Box>
-      {key && plan !== null && serverReachable && (
-        <BedListSection
-          siteKey={key}
-          reloadToken={bedListReloadToken(loadRequestId, plan.revision)}
-          onSelectBed={onSelectBed}
-        />
+      {showTabs && (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+          <Tabs
+            value={tab}
+            onChange={(_event, next: PlanTab) => selectTab(next)}
+            aria-label={t('pages.gardenPlan.tabs.label')}
+            variant="scrollable"
+            scrollButtons={false}
+            data-testid="garden-plan-tabs"
+          >
+            {(['plan', 'list', 'beds'] as const).map((value) => (
+              <Tab
+                key={value}
+                value={value}
+                label={t(`pages.gardenPlan.tabs.${value}`)}
+                id={TAB_ID[value]}
+                aria-controls={value === 'beds' ? BEDS_PANEL_ID : EDITOR_PANEL_ID}
+                data-testid={TAB_ID[value]}
+                sx={{ minHeight: 48 }}
+              />
+            ))}
+          </Tabs>
+        </Box>
+      )}
+      {/* The measured box exists in every state, so the first drawing already fits the width. Behind the Beete tab
+          it is hidden, not unmounted: a hidden box measures 0 px, which the width hook ignores. */}
+      <Box
+        ref={canvasRef}
+        {...(showTabs
+          ? {
+              id: EDITOR_PANEL_ID,
+              role: 'tabpanel',
+              'aria-labelledby': TAB_ID[editorTab],
+              hidden: bedsShown,
+              'data-testid': EDITOR_PANEL_ID,
+            }
+          : {})}
+      >
+        {content}
+      </Box>
+      {plan !== null && (
+        <Box
+          id={BEDS_PANEL_ID}
+          role="tabpanel"
+          aria-labelledby={TAB_ID.beds}
+          hidden={!bedsShown}
+          data-testid={BEDS_PANEL_ID}
+        >
+          {/* Mounted on every tab, as under the plan before: it keeps its filters and follows every load and save
+              (#2813), so the tab always shows the saved state. */}
+          {key && serverReachable ? (
+            <BedListSection
+              siteKey={key}
+              reloadToken={bedListReloadToken(loadRequestId, plan.revision)}
+              onSelectBed={onSelectBed}
+            />
+          ) : (
+            <Alert severity="info" role="status" data-testid="garden-plan-beds-offline">
+              {t('pages.gardenPlan.tabs.bedsOffline')}
+            </Alert>
+          )}
+        </Box>
       )}
     </Box>
   );

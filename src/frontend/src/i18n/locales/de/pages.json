@@ -5319,6 +5319,13 @@
       "backToSite": "Zurück zum Standort",
       "open": "Gartenplan öffnen",
       "openHint": "Beete und Gartenobjekte dieses Standorts als Plan ansehen.",
+      "tabs": {
+        "label": "Ansicht des Gartenplans",
+        "plan": "Plan",
+        "list": "Liste",
+        "beds": "Beete",
+        "bedsOffline": "Die Beetliste braucht eine Verbindung zum Server. Sobald du wieder online bist, siehst du hier deine Beete."
+      },
       "empty": {
         "title": "Noch kein Gartenplan",
         "description": "Für diesen Standort ist noch kein Plan angelegt. Beete legen Mitglieder mit der Rolle Gärtner oder Leitung an; sobald es das erste gibt, siehst du hier deine Beete und Gartenobjekte von oben.",

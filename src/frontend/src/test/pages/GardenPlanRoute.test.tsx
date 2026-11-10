@@ -121,7 +121,8 @@ describe('GardenPlanRoute', () => {
         ]),
       ),
     );
-    const { store, container } = renderRoute();
+    // The bed list is the tab "Beete" (GP-UX-064); a row opens the plan again.
+    const { store, container } = renderRoute('/standorte/sites/site_1/plan?tab=beds');
     await screen.findByTestId('garden-plan-canvas');
     const level = () => screen.getByTestId('garden-plan-zoom-level').textContent;
     const fitted = level();
@@ -154,7 +155,7 @@ describe('GardenPlanRoute', () => {
         HttpResponse.json([bedListItem('loc_x', { name: 'Stock bed', geometry: null, bbox: null })]),
       ),
     );
-    const { store } = renderRoute();
+    const { store } = renderRoute('/standorte/sites/site_1/plan?tab=beds');
     await screen.findByTestId('garden-plan-canvas');
     fireEvent.click((await screen.findByText('Stock bed')).closest('tr')!);
     expect(await screen.findByText('"Stock bed" is not drawn on the garden plan yet.')).toBeInTheDocument();

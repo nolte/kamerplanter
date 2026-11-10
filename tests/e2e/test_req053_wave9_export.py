@@ -623,7 +623,7 @@ def test_tc_053_096_ctrl_d_duplicates_the_selected_bed(
     selected and drawn one grid step down-right at (2.1, 3.9). A copy one grid step away still overlaps its original,
     and two beds of one parent may not overlap (V-05, ``bed.overlap``) - so, as a gardener does, the copy is moved
     clear with Shift+Arrow-Down (10 grid steps) before "Speichern". Saved, the server holds "Beet K (Kopie)" at
-    (2.1, 2.9) with the same size and type beside the unchanged original, and the bed list under the plan shows both
+    (2.1, 2.9) with the same size and type beside the unchanged original, and the tab "Beete" shows both
     without a reload (#2813). Breaks if Ctrl+D does nothing, opens the
     browser's bookmark dialog instead, duplicates twice, does not select the copy, or the copy differs.
     """
@@ -663,7 +663,7 @@ def test_tc_053_096_ctrl_d_duplicates_the_selected_bed(
         "geometry"
     ]
     assert copy["location_type_key"] == original["location_type_key"], copy
-    # #2813: the bed list under the plan follows the save without a reload
+    # #2813: the bed list (tab "Beete", WP 10.2) follows the save without a reload
     plan.wait_for_bed_list_names(
         {"Beet K", "Beet K (Kopie)"}, "TC-053-096: the bed list after saving"
     )
