@@ -85,6 +85,18 @@ export function fillViewport(bounds: BoundingBox, widthPx: number, heightPx: num
 }
 
 /**
+ * The view of a canvas of `widthPx` x `heightPx` whose plan is fitted into `fitWidthPx` (REQ-053 §17.3, WP 10.5):
+ * a side panel that a selection docked beside the canvas still counts as room of the plan, so the zoom and the
+ * top-left corner stay where they were before the panel opened, and the panel only covers the right edge of the
+ * fitted view. Without a reserve (`fitWidthPx` = `widthPx`) it is `fillViewport`.
+ */
+export function fitIntoCanvas(bounds: BoundingBox, widthPx: number, heightPx: number, fitWidthPx = widthPx): Viewport {
+  const filled = fillViewport(bounds, Math.max(widthPx, fitWidthPx), heightPx);
+  const width = Math.max(1, Math.round(widthPx));
+  return filled.widthPx === width ? filled : { ...filled, widthPx: width };
+}
+
+/**
  * The pan and zoom that bring `bounds` into the middle of a canvas that already has its size
  * (GP-ACC-016: a bed chosen in the list is in view, its whole bounding box visible). The zoom is the
  * largest that shows the box plus a margin, never below `minPxPerM` (the zoom that fits the whole

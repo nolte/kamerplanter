@@ -5694,7 +5694,6 @@
         },
         "panel": {
           "title": "Properties",
-          "close": "Close properties",
           "name": "Name",
           "label": "Label",
           "type": "Type: {{type}}",
@@ -5830,7 +5829,6 @@
         },
         "snap": {
           "toggle": "Snap to grid",
-          "short": "Snap",
           "hint": "Snap to the grid and to the corners and edges of other objects. Hold Alt to switch snapping off briefly."
         },
         "zoom": {
@@ -6410,6 +6408,22 @@
           "listItem": "{{status}}: {{pair}}. {{detail}}",
           "speciesTruncated": "A slot holds more than {{count}} species; the verdict covers only the first {{count}}.",
           "unnamedSpecies": "Unnamed species"
+        },
+        "sidePanel": {
+          "toggle": "Side panel",
+          "toggleMenu": "Show or hide side panel",
+          "region": "Side panel",
+          "tabs": "Side panel sections",
+          "tab": {
+            "properties": "Properties",
+            "view": "View",
+            "layers": "Layers",
+            "zones": "Zones"
+          },
+          "close": "Close side panel",
+          "expand": "Expand to full height",
+          "shrink": "Shrink to half height",
+          "legendShown": "Show legend"
         }
       },
       "io": {

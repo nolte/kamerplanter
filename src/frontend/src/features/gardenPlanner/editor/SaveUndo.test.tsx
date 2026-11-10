@@ -13,7 +13,7 @@ import { planResponse, bed } from '@/test/gardenPlanFixtures';
 import type { Geometry, PlanBatchResponse, PlanOperation } from '../model/types';
 import * as api from '../api/gardenPlan';
 import { applyAction } from '../state/gardenPlanSlice';
-import { setupEditor } from './editorTestKit';
+import { openPanelTab, setupEditor } from './editorTestKit';
 
 vi.mock('../api/gardenPlan', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api/gardenPlan')>()),
@@ -517,6 +517,7 @@ describe('layer switch (GP-FR-031)', () => {
 
   it('remembers the grid switch in localStorage', () => {
     const t = setupEditor({ plan: plan() });
+    openPanelTab('view'); // the grid switch is in the side panel's tab "Ansicht" (WP 10.5)
     const toggle = screen.getByTestId('garden-plan-grid-toggle');
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     t.after(() => fireEvent.click(toggle));
@@ -534,6 +535,7 @@ describe('layer switch (GP-FR-031)', () => {
     });
     cleanup();
     setupEditor({ plan: plan() });
+    openPanelTab('view');
     expect(screen.getByTestId('garden-plan-grid-toggle')).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -545,6 +547,7 @@ describe('layer switch (GP-FR-031)', () => {
       throw new Error('blocked');
     });
     const t = setupEditor({ plan: plan() });
+    openPanelTab('view'); // the grid switch is in the side panel's tab "Ansicht" (WP 10.5)
     const toggle = screen.getByTestId('garden-plan-grid-toggle');
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     t.after(() => fireEvent.click(toggle));

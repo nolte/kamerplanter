@@ -70,9 +70,11 @@ export interface HeaderNav {
   ioItems?: readonly MenuAction[];
 }
 
-/** The panel switch of the bar (GP-UX-068); until WP 10.5 it is the switch of the irrigation zone panel. */
+/** The switch of the side panel (GP-UX-068, WP 10.5): `aria-expanded` and `aria-controls` on the panel. */
 export interface HeaderPanelToggle {
   label: string;
+  /** The text of its overflow entry (GP-UX-063 step 3: "Seitenpanel ein-/ausblenden"); defaults to `label`. */
+  menuLabel?: string;
   icon: ReactNode;
   expanded: boolean;
   controls: string;
@@ -194,7 +196,7 @@ export function EditorHeaderBar({
     if (panelToggle && !inline.panel) {
       moved.push({
         id: 'panel',
-        label: panelToggle.label,
+        label: panelToggle.menuLabel ?? panelToggle.label,
         icon: panelToggle.icon,
         kind: 'checkbox',
         checked: panelToggle.expanded,

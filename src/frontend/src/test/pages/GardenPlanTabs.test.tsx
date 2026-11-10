@@ -191,8 +191,10 @@ describe('garden plan tabs: nothing is lost on a switch (GP-UX-065, AC-8, AC-16)
     fireEvent.click(screen.getByTestId('garden-plan-zoom-in'));
     const zoom = screen.getByTestId('garden-plan-zoom-level').textContent;
     // State the editor keeps itself, outside the slice: it survives only because the editor stays mounted.
-    fireEvent.click(screen.getByTestId('garden-plan-zones-open'));
-    expect(screen.getByTestId('garden-plan-zones-open')).toHaveAttribute('aria-expanded', 'true');
+    // The side panel, opened by the user on its tab "Ansicht" (WP 10.5): it stays open across selecting.
+    fireEvent.click(screen.getByTestId('garden-plan-panel-toggle'));
+    expect(screen.getByTestId('garden-plan-panel-toggle')).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByTestId('garden-plan-side-panel-tab-layers'));
     act(() => {
       store.dispatch(applyAction([MOVE]));
       store.dispatch(setSelection([{ entity: 'location', key: 'loc_a' }]));
@@ -211,7 +213,9 @@ describe('garden plan tabs: nothing is lost on a switch (GP-UX-065, AC-8, AC-16)
     expect(store.getState().gardenPlan?.past).toHaveLength(1);
     expect(store.getState().gardenPlan?.selection).toEqual([{ entity: 'location', key: 'loc_a' }]);
     expect(screen.getByTestId('garden-plan-zoom-level').textContent).toBe(zoom);
-    expect(screen.getByTestId('garden-plan-zones-open')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('garden-plan-panel-toggle')).toHaveAttribute('aria-expanded', 'true');
+    // The selection made while the panel was open switched it to the properties of the bed.
+    expect(screen.getByTestId('garden-plan-side-panel-tab-properties')).toHaveAttribute('aria-selected', 'true');
 
     // "Back" between tabs does not ask either ...
     await act(async () => {

@@ -15,6 +15,14 @@ import { rootReducer } from '@/store/rootReducer';
 import { ThemeContextProvider } from '@/theme';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import { server } from '@/test/mocks/server';
+import { chooseOverflowEntry, openPanelTab } from '@/features/gardenPlanner/editor/editorTestKit';
+
+/** The layer switches, the filter and the legend are in the side panel's tab "Ebenen" (WP 10.5): show it, then find. */
+async function inLayersTab(testId: string): Promise<HTMLElement> {
+  await screen.findByTestId('garden-plan-canvas');
+  openPanelTab('layers');
+  return screen.getByTestId(testId);
+}
 
 const chunk = vi.hoisted(() => ({ fail: false }));
 
@@ -80,7 +88,7 @@ describe('the last-watered layer over midnight', () => {
     vi.setSystemTime(new Date('2026-10-30T23:59:30Z'));
     usePlan('2026-10-27T10:00:00Z');
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-lastWatered'));
+    fireEvent.click(await inLayersTab('garden-plan-layer-lastWatered'));
     const cls = () => container.querySelector('[data-watered-bed="loc_a"]')?.getAttribute('data-watered-class');
     // 27th to 30th: three days since.
     expect(cls()).toBe('d2_3');
@@ -97,7 +105,8 @@ describe('a zone panel chunk that cannot load', () => {
   it('loads the real panel while the chunk is there', async () => {
     usePlan(new Date().toISOString());
     renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-zones-open'));
+    await screen.findByTestId('garden-plan-canvas');
+    chooseOverflowEntry('garden-plan-zones-open');
     expect(await screen.findByTestId('garden-plan-zone-panel')).toBeInTheDocument();
   });
 
@@ -107,7 +116,8 @@ describe('a zone panel chunk that cannot load', () => {
     const reload = vi.fn();
     vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload });
     renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-zones-open'));
+    await screen.findByTestId('garden-plan-canvas');
+    chooseOverflowEntry('garden-plan-zones-open');
     const fallback = await screen.findByTestId('garden-plan-zone-panel-error');
     expect(fallback).toHaveTextContent('The zones area could not be loaded');
     expect(fallback).toHaveTextContent('Save your plan, then reload the page');

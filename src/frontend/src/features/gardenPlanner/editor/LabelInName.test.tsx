@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import i18n from '@/i18n/i18n';
 import { ThemeContextProvider } from '@/theme';
 import { EditorToolbar } from './EditorToolbar';
+import { LayersTab } from './LayersTab';
 import { ViewBar } from './ViewBar';
 import { ZoomOverlay } from './ZoomOverlay';
 
@@ -58,9 +59,13 @@ function renderBars() {
         unit="cm"
         onUnit={() => undefined}
         northAngleDeg={0}
+      />
+      <LayersTab
         layerToggles={[
           { id: 'zones', label: 'Show irrigation zones', hint: 'hint', icon: <svg aria-hidden="true" />, visible: false },
         ]}
+        onLayer={() => undefined}
+        legend={null}
       />
       <ZoomOverlay
         pxPerM={40}

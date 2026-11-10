@@ -18,6 +18,7 @@ import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import { authState, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import type { IrrigationZone } from '@/features/gardenPlanner/zones/zoneTypes';
+import { chooseOverflowEntry, openPanelTab } from '@/features/gardenPlanner/editor/editorTestKit';
 
 const PLAN_URL = '/api/v1/t/:tenant/sites/:key/plan';
 const DAY_MS = 86_400_000;
@@ -89,7 +90,10 @@ describe('irrigation layers in the plan', () => {
   it('start hidden, with a toggle each that names what it shows', async () => {
     usePlanWithZone();
     const { container } = renderRoute();
-    const zones = await screen.findByTestId('garden-plan-layer-zones');
+    await screen.findByTestId('garden-plan-canvas');
+    // The layer switches are in the side panel's tab "Ebenen" (WP 10.5).
+    openPanelTab('layers');
+    const zones = screen.getByTestId('garden-plan-layer-zones');
     expect(zones).toHaveAttribute('aria-label', 'Show irrigation zones');
     expect(zones).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByTestId('garden-plan-layer-lastWatered')).toHaveAttribute('aria-label', 'Show last watered');
@@ -100,7 +104,9 @@ describe('irrigation layers in the plan', () => {
   it('draws the zone over its bed, lists it in the legend and remembers the switch', async () => {
     usePlanWithZone();
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-zones'));
+    await screen.findByTestId('garden-plan-canvas');
+    openPanelTab('layers');
+    fireEvent.click(screen.getByTestId('garden-plan-layer-zones'));
     expect(container.querySelector('[data-zone-key="z1"][data-zone-bed="loc_a"]')).not.toBeNull();
     expect(container.querySelector('[data-zone-bed="loc_b"]')).toBeNull();
     expect(screen.getByTestId('garden-plan-legend-zones')).toHaveTextContent('Drip line, Drip irrigation');
@@ -110,7 +116,9 @@ describe('irrigation layers in the plan', () => {
   it('draws days since the last watering per bed and never claims a need', async () => {
     usePlanWithZone();
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-lastWatered'));
+    await screen.findByTestId('garden-plan-canvas');
+    openPanelTab('layers');
+    fireEvent.click(screen.getByTestId('garden-plan-layer-lastWatered'));
     const layer = container.querySelector('[data-testid="garden-plan-watered-layer"]') as SVGElement;
     expect(layer.querySelector('[data-watered-bed="loc_a"]')?.getAttribute('data-watered-class')).toBe('d2_3');
     expect(layer.querySelector('[data-watered-bed="loc_b"]')).toBeNull();
@@ -136,10 +144,14 @@ describe('irrigation layers in the plan', () => {
   it('opens the zone panel as a chunk of its own and lists the zone', async () => {
     usePlanWithZone();
     renderRoute();
-    const open = await screen.findByTestId('garden-plan-zones-open');
-    expect(open).toHaveAttribute('aria-expanded', 'false');
-    await userEvent.setup().click(open);
-    expect(open).toHaveAttribute('aria-expanded', 'true');
+    await screen.findByTestId('garden-plan-canvas');
+    // The zones are the side panel's tab "Zonen"; the overflow entry with the former button's test id opens it.
+    const toggle = screen.getByTestId('garden-plan-panel-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('garden-plan-zone-panel')).toBeNull();
+    chooseOverflowEntry('garden-plan-zones-open');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('garden-plan-side-panel-tab-zones')).toHaveAttribute('aria-selected', 'true');
     const row = await screen.findByTestId('garden-plan-zone-row-z1');
     expect(row).toHaveTextContent('Drip line');
     await waitFor(() => expect(screen.getByTestId('garden-plan-zone-panel')).toBeInTheDocument());
@@ -154,8 +166,8 @@ describe('irrigation layers in the plan', () => {
     );
     renderRoute();
     const user = userEvent.setup();
-    const open = await screen.findByTestId('garden-plan-zones-open');
-    await user.click(open);
+    await screen.findByTestId('garden-plan-canvas');
+    chooseOverflowEntry('garden-plan-zones-open');
     const title = await screen.findByRole('heading', { level: 3, name: 'Irrigation zones' });
     await waitFor(() => expect(title).toHaveFocus());
     // A member without write rights here: the zone opens as its status with a way back to the list.
@@ -167,7 +179,9 @@ describe('irrigation layers in the plan', () => {
     expect(title).toHaveFocus();
     await user.click(screen.getByTestId('garden-plan-zone-panel-close'));
     await waitFor(() => expect(screen.queryByTestId('garden-plan-zone-panel')).toBeNull());
-    expect(open).toHaveFocus();
+    // The close button collapses the side panel; the focus goes back to its switch.
+    await waitFor(() => expect(screen.getByTestId('garden-plan-panel-toggle')).toHaveFocus());
+    expect(screen.getByTestId('garden-plan-panel-toggle')).toHaveAttribute('aria-expanded', 'false');
   });
 });
 
@@ -242,14 +256,18 @@ describe('what a zone change reads again', () => {
     const counter = countPlanReads();
     const { container } = renderRoute('grower');
     const user = userEvent.setup();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-zones'));
+    await screen.findByTestId('garden-plan-canvas');
+    openPanelTab('layers');
+    fireEvent.click(screen.getByTestId('garden-plan-layer-zones'));
     const before = counter.reads();
-    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    chooseOverflowEntry('garden-plan-zones-open');
     await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
     await user.clear(screen.getByTestId('garden-plan-zone-name'));
     await user.type(screen.getByTestId('garden-plan-zone-name'), 'Back line');
     await user.click(screen.getByTestId('garden-plan-zone-save'));
-    // The legend follows the reloaded zone list ...
+    // The legend (tab "Ebenen") follows the reloaded zone list ...
+    await screen.findByText('Zone Back line saved.');
+    openPanelTab('layers');
     await waitFor(() => expect(screen.getByTestId('garden-plan-legend-zones')).toHaveTextContent('Back line'));
     expect(container.querySelector('[data-zone-key="z1"][data-zone-bed="loc_a"]')).not.toBeNull();
     // ... and the plan was not read again for it: nothing of the plan's last-watered data depends on a zone.
@@ -261,11 +279,13 @@ describe('what a zone change reads again', () => {
     const counter = countPlanReads();
     const { container } = renderRoute('grower');
     const user = userEvent.setup();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-lastWatered'));
+    await screen.findByTestId('garden-plan-canvas');
+    openPanelTab('layers');
+    fireEvent.click(screen.getByTestId('garden-plan-layer-lastWatered'));
     const layer = () => container.querySelector('[data-watered-bed="loc_a"]');
     expect(layer()?.getAttribute('data-watered-class')).toBe('d2_3');
     const before = counter.reads();
-    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    chooseOverflowEntry('garden-plan-zones-open');
     await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
     await user.click(await screen.findByTestId('garden-plan-zone-round-open'));
     await user.type(screen.getByTestId('garden-plan-round-volume'), '5');
@@ -318,8 +338,10 @@ describe('a zone reload that is still pending when the panel closes', () => {
     );
     const { container } = renderRoute('grower');
     const user = userEvent.setup();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-zones'));
-    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    await screen.findByTestId('garden-plan-canvas');
+    openPanelTab('layers');
+    fireEvent.click(screen.getByTestId('garden-plan-layer-zones'));
+    chooseOverflowEntry('garden-plan-zones-open');
     await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
     await user.clear(await screen.findByTestId('garden-plan-zone-name'));
     await user.type(screen.getByTestId('garden-plan-zone-name'), 'Back line');
@@ -330,6 +352,7 @@ describe('a zone reload that is still pending when the panel closes', () => {
     await waitFor(() => expect(screen.queryByTestId('garden-plan-zone-panel')).toBeNull());
     release();
     await waitFor(() => expect(container.querySelector('[data-zone-key="z1"][data-zone-bed="loc_b"]')).not.toBeNull());
+    openPanelTab('layers');
     expect(screen.getByTestId('garden-plan-legend-zones')).toHaveTextContent('Back line');
     const node = container.querySelector('[data-plan-key="loc_b"]') as SVGElement;
     node.focus();

@@ -85,7 +85,15 @@ class GardenPlanPage(BasePage):
     GHOST = _tid("garden-plan-ghost")
     DIMENSION = _tid("garden-plan-dimension")
 
-    # ── Properties panel (WP 2.6) ──────────────────────────────────────
+    # ── Side panel (WP 10.5, GP-UX-068) ────────────────────────────────
+    # Tabs Eigenschaften / Ansicht / Ebenen / Zonen; collapsed it is not on screen at all (AC-5). A new selection
+    # opens it on "properties"; its switch stands in the header bar (overflow entry ``garden-plan-menu-panel`` on a
+    # narrow bar). Layer switches and the legend live in "layers", grid, snap, unit and compass in "view".
+    SIDE_PANEL = _tid("garden-plan-side-panel")
+    PANEL_TOGGLE = _tid("garden-plan-panel-toggle")
+    SIDE_PANEL_TABS = ("properties", "view", "layers", "zones")
+
+    # ── Properties panel (WP 2.6; since WP 10.5 the side panel's tab "properties") ──
     PANEL = _tid("garden-plan-panel")
     PANEL_EMPTY = _tid("garden-plan-panel-empty")
     PANEL_FORM = _tid("garden-plan-panel-form")
@@ -134,6 +142,7 @@ class GardenPlanPage(BasePage):
     MINIMAP = _tid("garden-plan-minimap")
     MINIMAP_VIEWPORT = _tid("garden-plan-minimap-viewport")
 
+    # The overflow entry that opens the side panel on its tab "zones" (WP 10.5; the zone button before).
     ZONES_OPEN = _tid("garden-plan-zones-open")
     ZONE_PANEL = _tid("garden-plan-zone-panel")
     ZONE_NEW = _tid("garden-plan-zone-new")
@@ -267,6 +276,49 @@ class GardenPlanPage(BasePage):
         query = urlparse(self.driver.current_url).query
         value = parse_qs(query).get("tab", ["plan"])[0]
         return value if value in ("plan", "list", "beds") else "plan"
+
+    def is_side_panel_open(self) -> bool:
+        """The side panel is on screen (docked, drawer or bottom sheet); collapsed it is not rendered."""
+        return any(
+            element.is_displayed() for element in self.driver.find_elements(*self.SIDE_PANEL)
+        )
+
+    def open_side_panel_tab(self, tab: str) -> None:
+        """Show the side panel's tab *tab* (``properties``, ``view``, ``layers`` or ``zones``), opening the panel first.
+
+        A no-op when the tab is already showing. The panel switch is in the header bar or, on a narrow bar, the
+        overflow entry ``garden-plan-menu-panel`` (GP-UX-063 step 3). The tabs follow the WAI-ARIA tabs pattern, so the
+        chosen one carries ``aria-selected="true"``.
+        """
+        if tab not in self.SIDE_PANEL_TABS:
+            raise AssertionError(
+                f"unknown side panel tab {tab!r}; expected one of {self.SIDE_PANEL_TABS}"
+            )
+        if not self.is_side_panel_open():
+            self.wait_for_element(self.HEADER_BAR)
+            if self._inline(self.PANEL_TOGGLE):
+                self.wait_and_click(self.PANEL_TOGGLE)
+            else:
+                self._click_overflow_entry(_tid("garden-plan-menu-panel"), "the side panel switch")
+            try:
+                self.poll().until(lambda _d: self.is_side_panel_open())
+            except TimeoutException as exc:
+                raise AssertionError("the side panel did not open from its switch") from exc
+        locator = _tid(f"garden-plan-side-panel-tab-{tab}")
+        element = self.wait_for_element_clickable(locator)
+        if element.get_attribute("aria-selected") == "true":
+            return
+        self.click_coordinate_free(element)
+        try:
+            self.poll().until(
+                lambda _d: (
+                    self.driver.find_element(*locator).get_attribute("aria-selected") == "true"
+                )
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"the side panel tab {tab!r} did not become the selected one"
+            ) from exc
 
     def _inline(self, locator: tuple[str, str]) -> bool:
         """The control is in the header bar itself (not moved into the overflow) and displayed."""
@@ -955,6 +1007,10 @@ class GardenPlanPage(BasePage):
 
     def panel_field(self, field_id: str) -> float:
         """A numeric panel field (x, y, width, length, rotation) as a float; loud if absent."""
+        self.open_side_panel_tab("properties")
+        return self._panel_field_value(field_id)
+
+    def _panel_field_value(self, field_id: str) -> float:
         element = self.wait_for_element(self._field_locator(field_id))
         raw = element.get_attribute("value")
         try:
@@ -963,29 +1019,50 @@ class GardenPlanPage(BasePage):
             raise AssertionError(f"panel field {field_id!r} holds no number: {raw!r}") from exc
 
     def wait_for_panel_field(self, field_id: str, expected: float, what: str) -> None:
+        self.open_side_panel_tab("properties")
         try:
-            self.poll().until(lambda _d: abs(self.panel_field(field_id) - expected) < 1e-6)
+            self.poll().until(lambda _d: abs(self._panel_field_value(field_id) - expected) < 1e-6)
         except TimeoutException as exc:
             raise AssertionError(
                 f"{what}: panel field {field_id!r} should read {expected}, it reads "
-                f"{self.panel_field(field_id)}"
+                f"{self._panel_field_value(field_id)}"
             ) from exc
 
     def set_panel_field(self, field_id: str, value: float) -> None:
         """Type *value* into a panel field and commit it with Enter (one undo step)."""
+        self.open_side_panel_tab("properties")
         element = self.wait_for_element_clickable(self._field_locator(field_id))
         self.clear_and_fill(element, f"{value:g}")
         element.send_keys(Keys.ENTER)
         self.wait_for_panel_field(field_id, value, f"committing {field_id}={value}")
 
     def panel_name(self) -> str:
+        self.open_side_panel_tab("properties")
         return self.wait_for_element(self.PANEL_NAME).get_attribute("value") or ""
 
     def wait_for_panel_empty(self, what: str) -> None:
-        self.wait_for_settled({"empty": self.PANEL_EMPTY}, what, require_no_skeleton=False)
+        """The properties show nothing selected any more (GP-UX-068).
+
+        A panel the selection opened collapses with the deselect; one the user opened stays and shows its empty
+        state. Either way the form of the former selection is gone.
+        """
+
+        def settled(_driver: object) -> bool:
+            if self.is_present(self.PANEL_FORM):
+                return False
+            return not self.is_side_panel_open() or self.is_present(self.PANEL_EMPTY)
+
+        try:
+            self.poll().until(settled)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the properties still show a selection (form present: "
+                f"{self.is_present(self.PANEL_FORM)}, panel open: {self.is_side_panel_open()})"
+            ) from exc
 
     def panel_testids(self) -> set[str]:
         """Every ``data-testid`` inside the properties panel (the panel's hook set)."""
+        self.open_side_panel_tab("properties")
         panel = self.wait_for_element(self.PANEL)
         self.wait_for_element(self.PANEL_FORM)
         ids = self.driver.execute_script(
@@ -1146,6 +1223,8 @@ class GardenPlanPage(BasePage):
         return _tid(f"garden-plan-layer-{layer_id}")
 
     def is_layer_on(self, layer_id: str) -> bool:
+        """The state of a layer switch; the switches live in the side panel's tab "layers" (WP 10.5)."""
+        self.open_side_panel_tab("layers")
         pressed = self.wait_for_element(self._layer_toggle(layer_id)).get_attribute("aria-pressed")
         if pressed not in ("true", "false"):
             raise AssertionError(f"layer toggle {layer_id!r} carries no aria-pressed: {pressed!r}")
@@ -1166,6 +1245,12 @@ class GardenPlanPage(BasePage):
             raise AssertionError(
                 f"layer {layer_id!r} did not switch {'on' if visible else 'off'}"
             ) from exc
+
+    def legend_section(self, locator: tuple[str, str]) -> str:
+        """The text of a section of the layer legend (``garden-plan-legend-<layer>``), in the tab "layers"."""
+        self.open_side_panel_tab("layers")
+        self.wait_for_element(locator)
+        return self.text_of(locator)
 
     def zone_layer_beds(self, zone_key: str) -> set[str]:
         """The beds the zone layer hatches for *zone_key*; loud when the layer is not drawn at all."""
@@ -1220,25 +1305,20 @@ class GardenPlanPage(BasePage):
     # ── Wave 7: irrigation zones (GP-FR-110 / 117) ─────────────────────
 
     def open_zone_panel(self) -> None:
-        """Open the zone panel (its own lazy chunk) and return once it rendered.
+        """Open the side panel on its tab "zones" (the zone panel, its own lazy chunk) and return once it rendered.
 
-        The switch stands in the header bar; on a narrow bar it is the overflow entry ``garden-plan-menu-panel``
-        (GP-UX-063 step 3), which says its state with ``aria-checked`` instead.
+        The overflow entry ``garden-plan-zones-open`` (the former zone button, test id kept, GP-UX-070) opens the panel
+        on that tab in one step; the panel switch then says ``aria-expanded="true"`` while it is in the bar.
         """
         self.wait_for_element(self.HEADER_BAR)
-        if not self._inline(self.ZONES_OPEN):
-            self._click_overflow_entry(_tid("garden-plan-menu-panel"), "the zone panel switch")
-            self.wait_for_settled(
-                {"panel": self.ZONE_PANEL}, "zone panel", require_no_skeleton=False
-            )
-            return
-        self.wait_and_click(self.ZONES_OPEN)
+        self._click_overflow_entry(self.ZONES_OPEN, "the irrigation zones entry")
         self.wait_for_settled({"panel": self.ZONE_PANEL}, "zone panel", require_no_skeleton=False)
-        expanded = self.wait_for_element(self.ZONES_OPEN).get_attribute("aria-expanded")
-        if expanded != "true":
-            raise AssertionError(
-                f"the zone panel rendered, but its button says aria-expanded={expanded!r}"
-            )
+        if self._inline(self.PANEL_TOGGLE):
+            expanded = self.wait_for_element(self.PANEL_TOGGLE).get_attribute("aria-expanded")
+            if expanded != "true":
+                raise AssertionError(
+                    f"the zone panel rendered, but the panel switch says aria-expanded={expanded!r}"
+                )
 
     def start_new_zone(self, name: str) -> None:
         self.wait_and_click(self.ZONE_NEW)
@@ -2176,9 +2256,11 @@ class GardenPlanPage(BasePage):
             ) from exc
 
     def is_attention_filter_usable(self) -> bool:
+        self.open_side_panel_tab("layers")
         return self.wait_for_element(self.ATTENTION_FILTER).get_attribute("aria-disabled") != "true"
 
     def is_attention_filter_on(self) -> bool:
+        self.open_side_panel_tab("layers")
         return self.wait_for_element(self.ATTENTION_FILTER).get_attribute("aria-pressed") == "true"
 
     def attention_filter_hint(self) -> str:
@@ -2216,8 +2298,9 @@ class GardenPlanPage(BasePage):
         }
 
     def has_layer_toggle(self, layer_id: str) -> bool:
-        """Whether the view bar lists a switch for *layer_id* (the underlay's only while the site has a picture)."""
+        """Whether the tab "layers" lists a switch for *layer_id* (the underlay's only while the site has a picture)."""
         self.wait_for_element(self.SVG)
+        self.open_side_panel_tab("layers")
         return self.is_present(self._layer_toggle(layer_id))
 
     def wait_for_sun_layer(self, expected: dict[str, str], what: str) -> None:
@@ -2363,6 +2446,7 @@ class GardenPlanPage(BasePage):
 
     def companion_legend_rows(self) -> dict[str, dict[str, str]]:
         """status -> ``{text, dash}`` of the companion part of the layer legend."""
+        self.open_side_panel_tab("layers")
         legend = self.wait_for_element(self.LEGEND_COMPANION)
         rows = self.driver.execute_script(
             "return Array.from(arguments[0].querySelectorAll('[data-legend-companion]')).map(function (li) {"

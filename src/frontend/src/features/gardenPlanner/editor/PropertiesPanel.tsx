@@ -1,6 +1,8 @@
 /**
  * The properties panel (REQ-053 GP-FR-024/156, GP-UX-033/034/049/052/053/054, WP 2.6): the values of
- * the selection, editable, as a sidebar on desktop and as the content of a bottom sheet on phones.
+ * the selection, editable. Since wave 10 it is the content of the side panel's tab "Eigenschaften" (§17.3,
+ * GP-UX-068, WP 10.5): docked or a drawer from md up, a bottom sheet below (`SidePanel`), which also brings the
+ * close button.
  * Every edit is a `PlanOperation` handed to the editor; a number field commits on blur or Enter as
  * ONE undo step (GP-FR-155). Locked objects show their values but take no input (GP-FR-156). The
  * live validation (containment, simple polygon) marks the field red and explains it before anything
@@ -17,13 +19,11 @@ import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import FlipToBackIcon from '@mui/icons-material/FlipToBack';
@@ -43,8 +43,6 @@ import type {
 } from '../model/types';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
-import { EDITOR_ANCHORS } from './anchors';
-import { PANEL_WIDTH_PX } from './layout';
 import { NumberField } from './NumberField';
 import { WaterSourceFields } from './WaterSourceFields';
 import { insertVertex, removeVertex } from './tools/geometryEdit';
@@ -90,12 +88,11 @@ export interface PropertiesPanelProps {
   selection: SelectionRef[];
   stack: SelectionStack | null;
   labels: RendererLabels;
-  /** Sidebar on desktop, content of the bottom sheet on phones. */
+  /** In the side panel beside or over the canvas (md up), or in the bottom sheet (below md); `data-layout`. */
   layout: 'sidebar' | 'sheet';
   onCommit: (ops: PlanOperation[], label: ActionLabel) => void;
   onSelect: (selection: SelectionRef[]) => void;
   onStack: (stack: SelectionStack | null) => void;
-  onClose?: () => void;
   /** Opens the item menu anchored at the "⋯" button (GP-UX-040). */
   onMore: (anchor: HTMLElement) => void;
   onDuplicate: () => void;
@@ -653,7 +650,7 @@ function StackList({
 }
 
 export function PropertiesPanel(props: PropertiesPanelProps) {
-  const { plan, selection, labels, layout, onClose, onMore, onSelect, onStack, onDrawBed } = props;
+  const { plan, selection, labels, layout, onMore, onSelect, onStack, onDrawBed } = props;
   const { t } = useTranslation();
   const entities = selection.filter(isPlanEntity);
   const single = selection.length === 1 ? selection[0] : null;
@@ -767,24 +764,12 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   }
 
   return (
-    <Paper
-      variant="outlined"
+    <Box
       component="section"
-      id={EDITOR_ANCHORS.panel}
-      tabIndex={-1} // the skip link "To the properties panel" focuses the region itself
       aria-label={t(`${PREFIX}.panel.region`)}
       data-testid="garden-plan-panel"
       data-layout={layout}
-      sx={{
-        p: 1.5,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1.5,
-        overflowY: 'auto',
-        ...(layout === 'sidebar'
-          ? { width: PANEL_WIDTH_PX, flexShrink: 0, alignSelf: 'flex-start', maxHeight: '80vh' }
-          : {}),
-      }}
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Typography
@@ -808,18 +793,6 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
             </IconButton>
           </Tooltip>
         )}
-        {layout === 'sheet' && onClose && (
-          <Tooltip title={t(`${PREFIX}.panel.close`)}>
-            <IconButton
-              aria-label={t(`${PREFIX}.panel.close`)}
-              onClick={onClose}
-              sx={{ width: 48, height: 48 }}
-              data-testid="garden-plan-panel-close"
-            >
-              <CloseIcon />
-            </IconButton>
-          </Tooltip>
-        )}
       </Box>
       {body}
       <StackList
@@ -830,6 +803,6 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         onStack={onStack}
         typeNames={typeNames}
       />
-    </Paper>
+    </Box>
   );
 }

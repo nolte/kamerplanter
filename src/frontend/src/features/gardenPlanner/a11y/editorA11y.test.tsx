@@ -187,10 +187,18 @@ describe('single-key shortcuts of the view (WP 2.5) share the switch', () => {
 });
 
 describe('skip link to the properties panel (WP 2.6)', () => {
-  it('is offered with the panel and focuses it', () => {
+  it('is offered with the panel collapsed and then aims at the panel switch (GP-UX-068)', () => {
     setup();
+    expect(screen.queryByTestId('garden-plan-side-panel')).toBeNull();
     fireEvent.click(screen.getByTestId('garden-plan-skip-panel'));
-    expect(document.activeElement).toBe(screen.getByTestId('garden-plan-panel'));
+    expect(document.activeElement).toBe(screen.getByTestId('garden-plan-panel-toggle'));
+  });
+
+  it('focuses the open panel itself', () => {
+    const t = setup();
+    t.select('solo');
+    fireEvent.click(screen.getByTestId('garden-plan-skip-panel'));
+    expect(document.activeElement).toBe(screen.getByTestId('garden-plan-side-panel'));
   });
 
   it('shows the same selection in the list and in the panel', () => {
