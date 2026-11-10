@@ -86,6 +86,12 @@ interface PlantingDialogProps {
   /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
   initialAlreadyPlanted?: boolean;
   /**
+   * "Replant" on a failed slot (REQ-053 §11.3 "ausgefallen", W-015): entry 1 starts with this crop, the species'
+   * spacings prefilled as on a manual choice. The grower can change all of it.
+   */
+  initialSpeciesKey?: string | null;
+  initialCultivarKey?: string | null;
+  /**
    * Minimum edge in px of the dialog's own controls (add entry, switches, date, actions); field mode passes
    * the kiosk target (64 px, GP-UX-020). The entry cards keep their own sizes.
    */
@@ -96,6 +102,23 @@ function todayText(): string {
   const now = new Date();
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** `form` with a chosen species: the cultivar and the species' prefill of spacings and layout. */
+function withSpecies(
+  form: EntryFormState,
+  speciesKey: string | null,
+  cultivarKey: string | null,
+  prefill: Prefill | null,
+): EntryFormState {
+  return {
+    ...form,
+    speciesKey,
+    cultivarKey,
+    spacing: prefill?.spacing ?? '',
+    rowSpacing: prefill?.rowSpacing ?? '',
+    layout: prefill?.layout && form.layout === 'grid' ? prefill.layout : form.layout,
+  };
 }
 
 /** Entries 2..n take layout, row spacing, direction and margins of entry 1 when the rows alternate. */
@@ -136,6 +159,8 @@ export default function PlantingDialog({
   onClose,
   onPlanted,
   initialAlreadyPlanted = false,
+  initialSpeciesKey = null,
+  initialCultivarKey = null,
   touchTarget = 48,
 }: PlantingDialogProps) {
   const { t } = useTranslation();
@@ -164,7 +189,21 @@ export default function PlantingDialog({
     let cancelled = false;
     listAllSpecies()
       .then((response) => {
-        if (!cancelled) setCatalogue({ status: 'ready', items: response.items });
+        if (cancelled) return;
+        setCatalogue({ status: 'ready', items: response.items });
+        // "Replant" (W-015): entry 1 starts with the failed slot's crop, prefilled as a manual choice would be.
+        const chosen = initialSpeciesKey ? response.items.find((item) => item.key === initialSpeciesKey) : undefined;
+        if (chosen) {
+          const prefill = prefillFor(chosen, readLastUsed(chosen.key));
+          setPrefills((current) => ({ ...current, e1: prefill }));
+          setForms((current) =>
+            current.map((form) =>
+              form.id === 'e1' && form.speciesKey === null
+                ? withSpecies(form, chosen.key, initialCultivarKey, prefill)
+                : form,
+            ),
+          );
+        }
       })
       .catch(() => {
         if (!cancelled) setCatalogue({ status: 'error' });
@@ -182,7 +221,7 @@ export default function PlantingDialog({
     return () => {
       cancelled = true;
     };
-  }, [bedKey]);
+  }, [bedKey, initialSpeciesKey, initialCultivarKey]);
 
   const species = useMemo(() => (catalogue.status === 'ready' ? catalogue.items : []), [catalogue]);
   const speciesByKey = useMemo(() => new Map(species.map((s) => [s.key, s])), [species]);
@@ -303,20 +342,7 @@ export default function PlantingDialog({
       const chosen = key ? (speciesByKey.get(key) ?? null) : null;
       const prefill = key ? prefillFor(chosen, readLastUsed(key)) : null;
       setPrefills((current) => ({ ...current, [id]: prefill }));
-      setForms((current) =>
-        current.map((form) =>
-          form.id === id
-            ? {
-                ...form,
-                speciesKey: key,
-                cultivarKey: null,
-                spacing: prefill?.spacing ?? '',
-                rowSpacing: prefill?.rowSpacing ?? '',
-                layout: prefill?.layout && form.layout === 'grid' ? prefill.layout : form.layout,
-              }
-            : form,
-        ),
-      );
+      setForms((current) => current.map((form) => (form.id === id ? withSpecies(form, key, null, prefill) : form)));
     },
     [speciesByKey],
   );

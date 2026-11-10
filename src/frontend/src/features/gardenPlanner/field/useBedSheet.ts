@@ -16,7 +16,7 @@ import { parseApiError } from '@/api/errors';
 import { getBedQueue } from '../care/careApi';
 import type { CareTask } from '../care/careTypes';
 import { bedSheetEntry, isOfflineCacheMiss, readThrough, type CacheScope } from '../offline/planCache';
-import { listPlantStates, type PlantStateWire } from '../planting/plantStateApi';
+import { isPlantEntry, listPlantStates, type PlantStateWire } from '../planting/plantStateApi';
 
 export type BedSheetState =
   | { status: 'loading' }
@@ -53,10 +53,13 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
         // A bounded read (review B1): a request that never answers must end, so `reloading` ends and the lie-fi
         // lock of the sheet lifts; the timeout counts as a network failure (the cache answers, the retry goes on).
         getBedQueue(bedKey, { timeout: SHEET_READ_TIMEOUT_MS }),
-        listPlantStates(bedKey, controller.signal, SHEET_READ_TIMEOUT_MS).catch((): null => {
-          complete = false;
-          return null;
-        }),
+        // The sheet lists standing plants: a sown slot (W-015) is not one.
+        listPlantStates(bedKey, controller.signal, SHEET_READ_TIMEOUT_MS)
+          .then((entries) => entries.filter(isPlantEntry))
+          .catch((): null => {
+            complete = false;
+            return null;
+          }),
       ]);
       return { tasks, plants, complete: complete && !controller.signal.aborted };
       // The cache stores only a complete answer, stripped of person data (`storedProjection('bedSheets')`).

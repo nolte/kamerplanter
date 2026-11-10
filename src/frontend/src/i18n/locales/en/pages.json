@@ -6817,6 +6817,7 @@
           "phaseOpen": "Phase: {{phase}} · {{elapsed}} days so far",
           "nextPhase": "Next phase expected {{date}}",
           "age": "Planted on {{date}} · {{days}} days",
+          "sownAge": "Sown on {{date}} · {{days}} days",
           "position": "Position {{slot}}",
           "watered": "Last watered: {{date}}",
           "fed": "Last fed: {{date}}",
@@ -7723,7 +7724,18 @@
           "finished_other": "{{count}} plants are harvested or removed and are in the history.",
           "from": "from {{date}}",
           "correct": "Correct position",
-          "transplant": "Transplant to …"
+          "transplant": "Transplant to …",
+          "sow": "Record sowing",
+          "sown_one": "Sown ({{count}})",
+          "sown_other": "Sown ({{count}})",
+          "sownHelp": "Rows and areas you sowed directly: once the seedlings are up, thin them out - they then become plants you can care for one by one.",
+          "sownOn": "sown on {{date}}",
+          "thin": "Thin out",
+          "failed_one": "Failed ({{count}})",
+          "failed_other": "Failed ({{count}})",
+          "failedHelp": "A plant died here. The spot is free - \"Replant\" opens the planting dialog with the same crop.",
+          "failedOn": "failed on {{date}}",
+          "replant": "Replant"
         },
         "dialog": {
           "title": "Plant: {{bed}}",
@@ -7927,6 +7939,41 @@
             "too_sunny": "The bed is too sunny. Scorch and drought stress are likely."
           },
           "summary": "{{name}}: site {{fit}}"
+        },
+        "sowing": {
+          "title": "Sow {{species}} · {{slot}}",
+          "help": "Direct sowing does not create single plants yet. The row or area is marked as \"sown\" until you thin it out.",
+          "date": "Sown on",
+          "dateHelper": "The day you sowed - at most a year back, not in the future.",
+          "dateInvalid": "Choose a day between today and a year ago.",
+          "submit": "Save as sown",
+          "done": "{{slot}} is recorded as sown."
+        },
+        "thinning": {
+          "title": "Thin out {{species}} · {{slot}}",
+          "help": "Thinning out means pulling surplus seedlings so the rest have room. The seedlings left standing are recorded as plants, and the row no longer counts as \"sown\".",
+          "sownOn": "Sown on {{date}}",
+          "measureLength": "Row length: {{length}} m",
+          "measureArea": "Area: {{area}} m²",
+          "noSpacing": "This planting has no spacing after thinning on record. Enter the spacing you thinned to - or the number of plants left standing.",
+          "spacing": "Spacing after thinning (cm)",
+          "spacingFromRun": "Taken from the planting plan. Change it if you thinned closer or wider.",
+          "spacingHelper": "Distance between the plants that stay - for example from the seed packet.",
+          "spacingInvalid": "Enter a spacing above 0 and at most {{max}} cm.",
+          "count": "Plants left standing (optional)",
+          "countComputed": "Leave empty to use the calculated number: {{count}}.",
+          "countHelper": "Leave empty to calculate the number from the spacing and the row length or area.",
+          "countInvalid": "Enter a whole number between 1 and {{max}}.",
+          "plantedOn": "Thinned on",
+          "plantedOnHelper": "From this day on the plants count as planted.",
+          "plantedOnInvalid": "Choose a day between the sowing and today.",
+          "missing": "Enter the spacing after thinning or the number of plants.",
+          "tooMany": "{{count}} plants are more than can be recorded at once (at most {{max}}). Enter a wider spacing or the actual number.",
+          "result_one": "{{count}} plant will be recorded.",
+          "result_other": "{{count}} plants will be recorded.",
+          "submit": "Thin out",
+          "done_one": "Thinned out: {{count}} plant recorded.",
+          "done_other": "Thinned out: {{count}} plants recorded."
         }
       },
       "photos": {

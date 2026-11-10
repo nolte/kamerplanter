@@ -335,9 +335,14 @@ class TestTheRouteOperand:
         +1: "rain - skipped" of a watering round (REQ-053 WP 9.13, #2753, GP-FR-117): ``POST /t/{slug}/
         irrigation-zones/{key}/rain-skipped``. The watering-round dialog (``features/gardenPlanner/zones/zonesApi.ts``,
         ``logZoneRainSkipped``) consumes it in the same change.
+
+        +3: sowing and thinning a row or zone (REQ-053 WP 10.9, #2830, Anhang A 60): ``PUT /t/{slug}/slots/{key}/
+        sowing``, ``GET …/slots/{key}/thinning`` and ``POST …/slots/{key}/thinning``. The planting tab
+        (``features/gardenPlanner/planting/plantingApi.ts``: ``sowSlot``, ``getThinningPlan``, ``thinSlot``) consumes
+        all three in the same change.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 904
+        assert len(checker.collect_operations(app)) == 907
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

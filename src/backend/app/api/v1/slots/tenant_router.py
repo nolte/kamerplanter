@@ -1,10 +1,21 @@
+from dataclasses import asdict
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.api.mapping import to_response
-from app.api.v1.slots.schemas import ManualAdjacencyRequest, SlotCreate, SlotPatch, SlotResponse
+from app.api.v1.auth.router import limiter, user_rate_limit_key
+from app.api.v1.slots.schemas import (
+    ManualAdjacencyRequest,
+    SlotCreate,
+    SlotPatch,
+    SlotResponse,
+    SlotSowingRequest,
+    SlotThinningPlanResponse,
+    SlotThinningRequest,
+    SlotThinningResponse,
+)
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import (
     get_adjacency_dispatch,
@@ -12,8 +23,15 @@ from app.common.dependencies import (
     get_garden_resource_service,
     get_planting_reservation_service,
     get_site_service,
+    get_slot_thinning_service,
 )
-from app.common.openapi_responses import FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
+from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    VALIDATION_RESPONSE,
+)
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.site import Slot
 from app.domain.models.tenant_context import TenantContext
@@ -21,6 +39,7 @@ from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencySe
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.site_service import SiteService
+from app.domain.services.slot_thinning_service import SlotThinningService
 
 logger = structlog.get_logger()
 
@@ -175,3 +194,68 @@ def remove_manual_adjacency(
 ) -> None:
     """Remove a manual neighbourhood. A neighbourhood the geometry derives stays (and is re-derived if gone)."""
     service.remove_manual_edge(key, other_key, tenant_key=ctx.tenant_key, role=ctx.role)
+
+
+# ── Sowing and thinning a row/zone slot (REQ-053 §11.3 "gesät", Anhang A 60, W-015) ──
+
+
+@router.put(
+    "/{key}/sowing",
+    response_model=SlotResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+def sow_slot(
+    key: Annotated[str, Path(description="Document key of the row or zone slot.")],
+    body: SlotSowingRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
+    service: SlotThinningService = Depends(get_slot_thinning_service),
+) -> SlotResponse:
+    """Record the direct sowing of a `row`/`zone` slot a live run of the tenant reserves (grower and up).
+
+    The slot shows as *sown* until it is thinned. 422 `slot.not_sowable` for a position slot, `thinning.no_run` when no
+    run reserves it, `slot.sown_in_future` / `slot.sown_too_long_ago` for the day; 409 `slot.occupied` when plants
+    stand in it.
+    """
+    slot = service.mark_sown(key, tenant_key=ctx.tenant_key, role=ctx.role, sown_at=body.sown_at)
+    return to_response(slot, SlotResponse)
+
+
+@router.get("/{key}/thinning", response_model=SlotThinningPlanResponse, responses=VALIDATION_RESPONSE)
+def get_thinning_plan(
+    key: Annotated[str, Path(description="Document key of the sown row or zone slot.")],
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: SlotThinningService = Depends(get_slot_thinning_service),
+) -> SlotThinningPlanResponse:
+    """What thinning the sown slot would do (all roles): the run's spacing and the plant count it gives.
+
+    `thinning_to_cm` and `suggested_count` are `null` when the run has no spacing — the grower enters one, there is
+    no default. 422 `slot.not_sown` for a slot that is not sown.
+    """
+    plan = service.plan_thinning(key, tenant_key=ctx.tenant_key)
+    return SlotThinningPlanResponse(**asdict(plan))
+
+
+@router.post(
+    "/{key}/thinning",
+    response_model=SlotThinningResponse,
+    status_code=201,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_bed_actions, key_func=user_rate_limit_key)
+def thin_slot(
+    request: Request,
+    key: Annotated[str, Path(description="Document key of the sown row or zone slot.")],
+    body: SlotThinningRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
+    service: SlotThinningService = Depends(get_slot_thinning_service),
+) -> SlotThinningResponse:
+    """Thin the sown slot into plants of its run (grower and up): `sown_at` is cleared, a `thinning` event logged.
+
+    The count is `count`, else the slot's length (row) or area (zone) divided by `thinning_to_cm` — the request's,
+    else the run's. Without either: 422 `thinning.spacing_required`. At most 500 plants (422 `plan.quota_exceeded`);
+    409 when plants stand in the slot or it changed meanwhile.
+    """
+    outcome = service.thin_slot(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, request=body)
+    return SlotThinningResponse(
+        plant_keys=outcome.plant_keys, instance_ids=outcome.instance_ids, care_event_key=outcome.care_event_key
+    )

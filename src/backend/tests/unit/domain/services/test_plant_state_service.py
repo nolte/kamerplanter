@@ -15,7 +15,12 @@ import pytest
 from app.common.enums import FrostRisk
 from app.common.exceptions import NotFoundError
 from app.domain.calculators.plant_state_calculator import OpenTask
-from app.domain.interfaces.plant_state_repository import IPlantStateRepository, NextTask, PlantStateSource
+from app.domain.interfaces.plant_state_repository import (
+    IPlantStateRepository,
+    NextTask,
+    PlantStateSource,
+    SownSlotSource,
+)
 from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
 from app.domain.models.site import Microclimate, SiteConditions
 from app.domain.models.weather import WeatherForecast
@@ -26,9 +31,15 @@ NOW = datetime(2026, 6, 10, 12, 0, tzinfo=UTC)
 
 
 class RecordingRepo(IPlantStateRepository):
-    def __init__(self, rows: list[PlantStateSource]) -> None:
+    def __init__(self, rows: list[PlantStateSource], sown: list[SownSlotSource] | None = None) -> None:
         self.rows = rows
+        self.sown = sown or []
         self.calls: list[tuple[str, str, int, int]] = []
+        self.sown_calls: list[tuple[str, str]] = []
+
+    def list_sown_slots(self, location_key: str, *, tenant_key: str) -> list[SownSlotSource]:
+        self.sown_calls.append((location_key, tenant_key))
+        return self.sown
 
     def list_bed_plants(
         self, location_key: str, *, tenant_key: str, now: datetime, offset: int, limit: int
@@ -203,3 +214,55 @@ class TestFrostReason:
         service._repo.rows = []  # type: ignore[attr-defined]
         assert service.list_plant_states("bed", tenant_key=TENANT, now=NOW) == []
         assert source is not None and source.calls == []
+
+
+def sown(slot_key: str, **overrides: object) -> SownSlotSource:
+    fields: dict[str, object] = {
+        "slot_key": slot_key,
+        "slot_id": f"BED_{slot_key.upper()}",
+        "sown_at": date(2026, 4, 12),
+        "species_key": "carrot",
+        "run_key": "run_1",
+    }
+    fields.update(overrides)
+    return SownSlotSource(**fields)  # type: ignore[arg-type]
+
+
+class TestSownSlots:
+    """§11.3 "gesät" (W-015): a sown row or zone without plants is an entry of its own, ahead of the plants."""
+
+    def _service(self, rows: list[PlantStateSource], slots: list[SownSlotSource]):
+        sites = FakeSites(make_site())
+        plan = FakePlanRepo(sites)
+        plan.locations["bed"] = make_location("bed")
+        repo = RecordingRepo(rows, slots)
+        return PlantStateService(sites, repo), repo
+
+    def test_a_sown_slot_is_reported_with_lifecycle_sown(self) -> None:
+        service, repo = self._service([row()], [sown("r1")])
+        entries = service.list_plant_states("bed", tenant_key=TENANT, now=NOW)
+        assert [entry.state.lifecycle for entry in entries] == ["sown", "active"]
+        assert isinstance(entries[0].source, SownSlotSource)
+        assert entries[0].state.attention == ()
+        assert entries[0].state.phase_key is None
+        assert repo.sown_calls == [("bed", TENANT)]
+
+    def test_the_window_runs_over_the_sown_slots_then_the_plants(self) -> None:
+        service, repo = self._service([row()], [sown("r1"), sown("r2"), sown("r3")])
+        first = service.list_plant_states("bed", tenant_key=TENANT, offset=0, limit=2, now=NOW)
+        assert [entry.source.slot_key for entry in first] == ["r1", "r2"]  # type: ignore[union-attr]
+        assert repo.calls == []  # the window is full of sown slots: no plant read
+        service.list_plant_states("bed", tenant_key=TENANT, offset=2, limit=2, now=NOW)
+        # one sown slot is left in this window, so the plants start at 0 with one place left
+        assert repo.calls == [("bed", TENANT, 0, 1)]
+        service.list_plant_states("bed", tenant_key=TENANT, offset=6, limit=2, now=NOW)
+        assert repo.calls[-1] == ("bed", TENANT, 3, 2)
+
+    def test_a_foreign_bed_reads_no_sown_slot(self) -> None:
+        sites = FakeSites(make_site(), make_site(tenant=OTHER_TENANT).model_copy(update={"key": "site_foreign"}))
+        plan = FakePlanRepo(sites)
+        plan.locations["alien"] = make_location("alien").model_copy(update={"site_key": "site_foreign"})
+        repo = RecordingRepo([], [sown("r1")])
+        with pytest.raises(NotFoundError):
+            PlantStateService(sites, repo).list_plant_states("alien", tenant_key=TENANT, now=NOW)
+        assert repo.sown_calls == []

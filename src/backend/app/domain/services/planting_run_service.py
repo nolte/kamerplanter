@@ -129,6 +129,24 @@ class PlantingRunService:
 
         return "", ""
 
+    def initial_phase_of(self, species_key: str) -> tuple[str, str]:
+        """``(phase_key, phase_name)`` a new plant of the species starts in; ``("", "")`` without phase data.
+
+        The rule of :meth:`create_plants`, for a caller that creates plants of a run itself (thinning, W-015)."""
+        return self._resolve_initial_phase(species_key)
+
+    def care_profile_bootstrap(self, plants: list[PlantInstance]) -> None:
+        """REQ-022 — the care profile of each stored plant, best-effort per plant as :meth:`create_plants` does.
+
+        For a caller that stores plants of a run itself (thinning, W-015); ``plants`` carry their stored keys."""
+        if self._care_profile_bootstrap is None:
+            return
+        for plant in plants:
+            try:
+                self._care_profile_bootstrap(plant)
+            except Exception:  # noqa: BLE001
+                logger.error("care_profile_bootstrap_failed", plant_key=plant.key, exc_info=True)
+
     # ── Run CRUD ──────────────────────────────────────────────────────
 
     def list_runs(

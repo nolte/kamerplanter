@@ -561,6 +561,9 @@ class _StateRows(IPlantStateRepository):
         self.bed_calls.append((location_key, tenant_key, offset, limit))
         return self.rows.get(location_key, [])[offset : offset + limit]
 
+    def list_sown_slots(self, location_key, *, tenant_key):
+        return []
+
     def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
         self.calls.append((tuple(bed_keys), tenant_key, offset, limit))
         everything = sorted((row for bed in bed_keys for row in self.rows.get(bed, [])), key=lambda row: row.plant_key)

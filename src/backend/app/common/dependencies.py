@@ -132,6 +132,7 @@ from app.domain.services.post_harvest_service import PostHarvestService
 from app.domain.services.propagation_service import PropagationService
 from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.domain.services.site_service import SiteService
+from app.domain.services.slot_thinning_service import SlotThinningService
 from app.domain.services.soil_analysis_service import SoilAnalysisService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
@@ -982,6 +983,18 @@ def get_planting_run_service() -> PlantingRunService:
         # REQ-053 WP 3.2 — the layout of a run on a bed, planned slots at create-plants, quick planting.
         reservations=get_planting_reservation_service(),
         reservation_repo=get_planting_reservation_repo(),
+    )
+
+
+def get_slot_thinning_service() -> SlotThinningService:
+    """REQ-053 W-015 — sowing a row/zone slot and thinning it into plants of its run."""
+    return SlotThinningService(
+        get_site_repo(),
+        get_planting_reservation_repo(),
+        get_planting_run_repo(),
+        get_planting_run_service(),
+        get_care_event_service(),
+        get_species_repo(),
     )
 
 

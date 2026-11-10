@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from datetime import date
 
 from app.domain.engines.slot_reservation_engine import ActivePlant, Reservation
 from app.domain.models.planting_reservation import (
@@ -13,6 +14,8 @@ from app.domain.models.planting_reservation import (
     ReservationReads,
     ReservationWrite,
     RunSlotsWrite,
+    SlotThinningOutcome,
+    SlotThinningWrite,
 )
 
 
@@ -89,3 +92,18 @@ class IPlantingReservationRepository(ABC):
     @abstractmethod
     def quick_plant(self, write: QuickPlantWrite) -> QuickPlantOutcome:
         """Run, entry, slots, plants and their edges in one transaction (GP-API-017)."""
+
+    @abstractmethod
+    def mark_slot_sown(self, location_key: str, slot_key: str, *, sown_at: date, tenant_key: str) -> bool:
+        """Set ``sown_at`` of a slot of the bed under the bed's lock; ``False`` when the slot is gone, archived, or one
+        of the tenant's plants stands in it (the caller answers 409)."""
+
+    @abstractmethod
+    def thin_sown_slot(self, write: SlotThinningWrite) -> SlotThinningOutcome:
+        """The plants of a thinned slot, its cleared ``sown_at`` and the ``thinning`` event in one transaction.
+
+        Raises:
+            NotFoundError: the bed is gone.
+            WriteConflictError: the slot is no longer sown on ``write.sown_at``, has a plant standing, was archived,
+                or another writer of the bed was faster.
+        """

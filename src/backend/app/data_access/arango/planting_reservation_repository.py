@@ -13,6 +13,7 @@ between the service's read and this write cannot slip through.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Any, cast
@@ -43,11 +44,14 @@ from app.domain.models.planting_reservation import (
     MixedRunsOutcome,
     MixedRunsWrite,
     PlantingRow,
+    QuickPlantedPlant,
     QuickPlantOutcome,
     QuickPlantWrite,
     ReservationReads,
     ReservationWrite,
     RunSlotsWrite,
+    SlotThinningOutcome,
+    SlotThinningWrite,
 )
 
 logger = structlog.get_logger()
@@ -116,6 +120,25 @@ _QUICK_WRITE = (
     col.PHASE_HISTORIES,
     col.PHASE_HISTORY_EDGE,
 )
+#: Thinning a sown slot: its plants with their edges and histories, the slot, the run and the ``thinning`` event.
+_THIN_WRITE = tuple(
+    dict.fromkeys(
+        (
+            col.LOCATIONS,
+            col.SLOTS,
+            col.PLANT_INSTANCES,
+            col.PLACED_IN,
+            col.RUN_CONTAINS,
+            col.PHASE_HISTORIES,
+            col.PHASE_HISTORY_EDGE,
+            col.PLANTING_RUNS,
+            *CARE_EVENT_WRITE_COLLECTIONS,
+        )
+    )
+)
+#: Sowing a slot writes the slot's ``sown_at`` under the bed's lock.
+_SOW_WRITE = (col.LOCATIONS, col.SLOTS)
+_SOW_READ = (col.PLACED_IN, col.PLANT_INSTANCES)
 
 # ── Queries ──────────────────────────────────────────────────────────────────
 
@@ -135,6 +158,50 @@ FOR e IN @@edges
         planned_from: e.planned_from,
         planned_until: e.planned_until
     }
+"""
+
+#: Sets ``sown_at`` on an unarchived slot of the bed in which none of the tenant's plants stands.
+_MARK_SLOT_SOWN = """
+FOR s IN @@slots
+    FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null
+    LET standing = (
+        FOR e IN @@placed_in
+            FILTER e._to == s._id
+            LET plant = DOCUMENT(e._from)
+            FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+            LIMIT 1
+            RETURN 1
+    )
+    FILTER LENGTH(standing) == 0
+    UPDATE s WITH {sown_at: @sown_at, updated_at: @now} IN @@slots
+    RETURN NEW._key
+"""
+
+#: Clears ``sown_at`` and sets the occupancy of the slot thinned — only while it is still sown on the day read and
+#: none of the tenant's plants stands in it.
+_CLEAR_SOWN_SLOT = """
+FOR s IN @@slots
+    FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.sown_at == @sown_at
+    LET standing = (
+        FOR e IN @@placed_in
+            FILTER e._to == s._id
+            LET plant = DOCUMENT(e._from)
+            FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+            LIMIT 1
+            RETURN 1
+    )
+    FILTER LENGTH(standing) == 0
+    UPDATE s WITH {sown_at: null, currently_occupied: true, updated_at: @now} IN @@slots
+    RETURN NEW._key
+"""
+
+#: Adds the thinned plants to the run's count and, for a run still ``planned``, starts it.
+_COUNT_THINNED_PLANTS = """
+FOR r IN @@runs
+    FILTER r._key == @key AND r.tenant_key == @tenant_key AND r.status IN @live
+    UPDATE r WITH MERGE({actual_quantity: (r.actual_quantity || 0) + @added, updated_at: @now}, @activation)
+        IN @@runs
+    RETURN NEW._key
 """
 
 #: The reservations of one run, in the order ``create-plants`` consumes them.
@@ -328,7 +395,9 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         species_key: e.planned_species_key,
                         sequence: e.sequence,
                         planned_from: e.planned_from,
-                        planned_until: e.planned_until
+                        planned_until: e.planned_until,
+                        slot_role: s.slot_role,
+                        sown_at: s.sown_at
                     }
             """,
                 bind_vars={
@@ -345,12 +414,14 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 state=STATE_PLANNED,
                 slot_key=row["slot_key"],
                 slot_id=row["slot_id"],
-                species_key=row.get("species_key") or "",
+                species_key=row["species_key"] or "",
                 run_key=row["run_key"],
-                entry_key=row.get("entry_key"),
-                sequence=row.get("sequence"),
-                planned_from=_date(row.get("planned_from")),
-                planned_until=_date(row.get("planned_until")),
+                entry_key=row["entry_key"],
+                sequence=row["sequence"],
+                planned_from=_date(row["planned_from"]),
+                planned_until=_date(row["planned_until"]),
+                slot_role=row["slot_role"] or "position",
+                sown_at=_date(row["sown_at"]),
             )
             for row in cursor
         ]
@@ -880,7 +951,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 {"_from": entry_id, "_to": f"{col.SPECIES}/{write.entry.species_key}", "created_at": now}
             )
 
-            plant_keys = self._insert_plants(txn, write, run_id, slot_keys, now)
+            plant_keys = self._insert_plants(txn, write.plants, run_id, slot_keys, now)
             if write.run_history is not None:
                 self._insert_history(txn, write.run_history, run_key, now)
         return QuickPlantOutcome(
@@ -891,14 +962,114 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             created_at=datetime.fromisoformat(now),
         )
 
+    # ── Sowing and thinning a row/zone slot (REQ-053 §11.3 "gesät", W-015) ──
+
+    def mark_slot_sown(self, location_key: str, slot_key: str, *, sown_at: date, tenant_key: str) -> bool:
+        if not tenant_key:
+            raise ValueError("mark_slot_sown needs a tenant_key (an empty tenant is no tenant, #2107).")
+        with stream_transaction(self._db, write=_SOW_WRITE, read=_SOW_READ, entity="slot_sowing") as txn:
+            now = _now()
+            self._lock_location(txn, location_key, now)
+            touched = list(
+                txn.aql.execute(
+                    _MARK_SLOT_SOWN,
+                    bind_vars={
+                        "@slots": col.SLOTS,
+                        "@placed_in": col.PLACED_IN,
+                        "key": slot_key,
+                        "location_key": location_key,
+                        "tenant_key": tenant_key,
+                        "sown_at": sown_at.isoformat(),
+                        "now": now,
+                    },
+                )
+            )
+        return bool(touched)
+
+    def thin_sown_slot(self, write: SlotThinningWrite) -> SlotThinningOutcome:
+        if not write.tenant_key:
+            raise ValueError("thin_sown_slot needs a tenant_key (an empty tenant is no tenant, #2107).")
+        with stream_transaction(
+            self._db,
+            write=_THIN_WRITE,
+            entity="slot_thinning",
+            time_budget_seconds=write.time_budget_seconds,
+        ) as txn:
+            now = _now()
+            self._lock_location(txn, write.location_key, now)
+            # Re-read after the lock: the slot must still be the sown, plantless slot the service read.
+            cleared = list(
+                txn.aql.execute(
+                    _CLEAR_SOWN_SLOT,
+                    bind_vars={
+                        "@slots": col.SLOTS,
+                        "@placed_in": col.PLACED_IN,
+                        "key": write.slot_key,
+                        "location_key": write.location_key,
+                        "tenant_key": write.tenant_key,
+                        "sown_at": write.sown_at.isoformat(),
+                        "now": now,
+                    },
+                )
+            )
+            if not cleared:
+                raise WriteConflictError("slots", "the slot was thinned, re-sown or removed concurrently")
+            run_id = f"{col.PLANTING_RUNS}/{write.run_key}"
+            plant_keys = self._insert_plants(txn, write.plants, run_id, [write.slot_key], now)
+            activation: dict[str, Any] = (
+                {
+                    "status": "active",
+                    "started_at": now,
+                    "current_phase_key": write.run_phase_key,
+                    "current_phase_started_at": now,
+                }
+                if write.activate_run
+                else {}
+            )
+            runs = list(
+                txn.aql.execute(
+                    _COUNT_THINNED_PLANTS,
+                    bind_vars={
+                        "@runs": col.PLANTING_RUNS,
+                        "key": write.run_key,
+                        "tenant_key": write.tenant_key,
+                        "added": len(plant_keys),
+                        "live": _LIVE_STATUSES,
+                        "activation": activation,
+                        "now": now,
+                    },
+                )
+            )
+            if not runs:
+                raise WriteConflictError("planting_runs", "the run of the sown slot ended concurrently")
+            if write.activate_run and write.run_history is not None:
+                self._insert_history(txn, write.run_history, write.run_key, now)
+            # A copy, so the caller's write set keeps the event as it was handed in.
+            event = copy.copy(write.event)
+            event.plant_keys = plant_keys[:MAX_PLANTS_PER_EVENT]
+            stored = write_care_event(txn, event, now)
+        logger.info(
+            "slot_thinning.done", location_key=write.location_key, slot_key=write.slot_key, plants=len(plant_keys)
+        )
+        return SlotThinningOutcome(
+            plant_keys=plant_keys,
+            instance_ids=[item.plant.instance_id for item in write.plants],
+            care_event_key=stored["_key"],
+        )
+
     def _insert_plants(
-        self, txn: StreamTransaction, write: QuickPlantWrite, run_id: str, slot_keys: list[str], now: str
+        self,
+        txn: StreamTransaction,
+        drafts: list[QuickPlantedPlant],
+        run_id: str,
+        slot_keys: list[str],
+        now: str,
     ) -> list[str]:
         plants = txn.collection(col.PLANT_INSTANCES)
         placed_in = txn.collection(col.PLACED_IN)
         run_contains = txn.collection(col.RUN_CONTAINS)
         keys: list[str] = []
-        for item in write.plants:
+        for item in drafts:
             slot_key = slot_keys[item.slot_index] if item.slot_index is not None else None
             doc = _insert_doc(item.plant, now)
             if slot_key is not None:

@@ -30,7 +30,7 @@ import json
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -44,6 +44,7 @@ from structlog.testing import capture_logs
 from app.api.v1.auth.router import limiter
 from app.api.v1.tenant_scoped.router import tenant_scoped_router
 from app.common.auth import get_current_tenant, get_is_platform_admin
+from app.common.datetimes import today_utc
 from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
@@ -65,6 +66,7 @@ from app.common.dependencies import (
     get_planting_run_service,
     get_rotation_matrix_service,
     get_site_service,
+    get_slot_thinning_service,
     get_soil_analysis_service,
     get_task_service,
 )
@@ -137,6 +139,7 @@ from app.domain.services.planting_reservation_service import PlantingReservation
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.domain.services.site_service import SiteService
+from app.domain.services.slot_thinning_service import SlotThinningService
 from app.domain.services.soil_analysis_service import SoilAnalysisService
 from app.domain.services.task_service import TaskService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -170,8 +173,15 @@ B_SECRETS = (
     "ev_b",
     "sugg_b",
     "Bobs Gießvorschlag",
+    # REQ-053 W-015 (#2830): the sown and the sowable row of the bed, their run and its entry.
+    "sown_b",
+    "sowable_b",
+    "sowrun_b",
+    "sowentry_b",
     B,
 )
+#: The sowing day the ``sow_slot`` case sends: inside the year the route accepts, whenever the tier runs.
+_SOWING_DAY = (today_utc() - timedelta(days=3)).isoformat()
 _BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 20, "length_m": 20, "rotation_deg": 0}
 _RECT = {"kind": "rect", "origin": [1, 1], "width_m": 2, "length_m": 1, "rotation_deg": 0}
 _UNDERLAY = {
@@ -227,6 +237,14 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.TASKS,
             # #2709: a masterdata grant the species-visibility cases write and revoke.
             col.TENANT_HAS_ACCESS,
+            # REQ-053 W-015 (#2830): the run that reserves the sown rows, and what thinning writes.
+            col.PLANTING_RUNS,
+            col.PLANTING_RUN_ENTRIES,
+            col.RUN_PLANNED_AT,
+            col.PLACED_IN,
+            col.RUN_CONTAINS,
+            col.PHASE_HISTORIES,
+            col.PHASE_HISTORY_EDGE,
             *_BATCH_WRITE,
             *_SLOT_BATCH_WRITE,
             *_CLEAR_WRITE,
@@ -483,6 +501,54 @@ def db(database):
                 "entity_key": f"bed_{suffix}",
             }
         )
+    # REQ-053 W-015 (#2830): per tenant a sown row and a sowable row, both reserved by a planned run whose entry
+    # names the spacing after thinning - what the sowing and thinning routes need for the owner's positive control.
+    sown_at = (today_utc() - timedelta(days=10)).isoformat()
+    for suffix, tenant in (("a", A), ("b", B)):
+        for slot_key, y, sown in ((f"sown_{suffix}", 0.3, sown_at), (f"sowable_{suffix}", 0.7, None)):
+            database.collection(col.SLOTS).insert(
+                _slot(slot_key, f"bed_{suffix}")
+                | {
+                    "slot_role": "row",
+                    "geometry": {"kind": "polyline", "points": [[0.2, y], [1.4, y]], "width_m": 0.05},
+                    "sown_at": sown,
+                }
+            )
+            database.collection(col.HAS_SLOT).insert(
+                {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/{slot_key}"}
+            )
+        database.collection(col.PLANTING_RUNS).insert(
+            {
+                "_key": f"sowrun_{suffix}",
+                "tenant_key": tenant,
+                "name": "Direct sowing",
+                "run_type": "monoculture",
+                "status": "planned",
+                "location_key": f"bed_{suffix}",
+            }
+        )
+        database.collection(col.PLANTING_RUN_ENTRIES).insert(
+            {
+                "_key": f"sowentry_{suffix}",
+                "run_key": f"sowrun_{suffix}",
+                "tenant_key": tenant,
+                "species_key": "sp",
+                "quantity": 1,
+                "id_prefix": "SOW",
+                "thinning_to_cm": 5.0,
+            }
+        )
+        for sequence, slot_key in enumerate((f"sown_{suffix}", f"sowable_{suffix}"), start=1):
+            database.collection(col.RUN_PLANNED_AT).insert(
+                {
+                    "_from": f"{col.PLANTING_RUNS}/sowrun_{suffix}",
+                    "_to": f"{col.SLOTS}/{slot_key}",
+                    "entry_key": f"sowentry_{suffix}",
+                    "planned_species_key": "sp",
+                    "sequence": sequence,
+                    "planned_from": sown_at,
+                }
+            )
     return database
 
 
@@ -624,6 +690,22 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         ArangoIrrigationZoneRepository(db),
     )
     plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
+    # REQ-053 W-015 (#2830): sowing and thinning, over the real repositories and the real run service.
+    thinning: Any = SlotThinningService(
+        ArangoSiteRepository(db),
+        ArangoPlantingReservationRepository(db),
+        ArangoPlantingRunRepository(db),
+        runs,
+        CareEventService(
+            ArangoCareEventRepository(db),
+            ArangoSiteRepository(db),
+            FakeMemberships(),
+            FakeFertilizers(),
+            FakeAttachmentRepo(),
+            FakeAttachmentService(),
+        ),
+        ArangoSpeciesRepository(db),
+    )
     zones: Any = IrrigationZoneService(
         ArangoIrrigationZoneRepository(db),
         ArangoSiteRepository(db),
@@ -651,6 +733,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         templates = _Unscoped(templates)
         zones = _Unscoped(zones)
         plant_states = _Unscoped(plant_states)
+        thinning = _Unscoped(thinning)
         adjacency = _Unscoped(adjacency)
         rotation = _Unscoped(rotation)
         matrix = _Unscoped(matrix)
@@ -685,6 +768,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_soil_analysis_service] = lambda: soil
     app.dependency_overrides[get_companion_overlay_service] = lambda: companions
     app.dependency_overrides[get_plant_state_service] = lambda: plant_states
+    app.dependency_overrides[get_slot_thinning_service] = lambda: thinning
     app.dependency_overrides[get_bed_history_service] = lambda: history
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
@@ -1042,6 +1126,10 @@ CASES: tuple[Case, ...] = (
         writes=True,
     ),
     Case("remove_manual_adjacency", "DELETE", "/slots/slot_b/adjacent/slot2_b", owner_status=204, writes=True),
+    # REQ-053 W-015 (#2830): sowing a reserved row, and thinning a sown one into plants of its run.
+    Case("sow_slot", "PUT", "/slots/sowable_b/sowing", {"sown_at": _SOWING_DAY}, writes=True),
+    Case("get_thinning_plan", "GET", "/slots/sown_b/thinning"),
+    Case("thin_slot", "POST", "/slots/sown_b/thinning", {}, owner_status=201, writes=True),
     # REQ-053 WP 7.1, GP-API-050/051: the irrigation zones of a site and the beds they cover.
     Case("list_irrigation_zones", "GET", "/sites/site_b/irrigation-zones"),
     Case(
@@ -1116,6 +1204,8 @@ _ABSENT = {
     "att_b": "att_gone",
     "snap_b": "snap_gone",
     "sugg_b": "sugg_gone",
+    "sown_b": "sown_gone",
+    "sowable_b": "sowable_gone",
 }
 
 
@@ -1338,6 +1428,20 @@ _MIXED = next(case for case in CASES if case.name == "create_mixed_culture")
 
 class TestAMixedCultureIsOneTransaction:
     """#2463: every run of the request, with its entry, slots and reservations, or nothing at all."""
+
+    @pytest.fixture(autouse=True)
+    def _without_the_sowing_runs(self, db) -> None:
+        """The fixture's sowing runs and rows (W-015, #2830) are not this class's subject: it counts what one request
+        wrote."""
+        for name in (col.RUN_PLANNED_AT, col.PLANTING_RUN_ENTRIES, col.PLANTING_RUNS):
+            db.collection(name).truncate()
+        for suffix in ("a", "b"):
+            for key in (f"sown_{suffix}", f"sowable_{suffix}"):
+                db.collection(col.SLOTS).delete(key)
+                db.aql.execute(
+                    "FOR e IN @@edges FILTER e._to == @id REMOVE e IN @@edges",
+                    bind_vars={"@edges": col.HAS_SLOT, "id": f"{col.SLOTS}/{key}"},
+                )
 
     def _post(self, db, body: dict[str, Any], *, role: TenantRole = TenantRole.GROWER):
         client = _client(db, tenant=B, role=role)

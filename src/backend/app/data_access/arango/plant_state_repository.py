@@ -26,7 +26,13 @@ from arango.database import StandardDatabase
 from app.data_access.arango import collections as col
 from app.domain.calculators.overdue_calculator import utc_day
 from app.domain.calculators.plant_state_calculator import OpenTask
-from app.domain.interfaces.plant_state_repository import IPlantStateRepository, NextTask, PlantStateSource
+from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
+from app.domain.interfaces.plant_state_repository import (
+    IPlantStateRepository,
+    NextTask,
+    PlantStateSource,
+    SownSlotSource,
+)
 
 #: Statuses of a task that is still to do. Suggestions (``suggested = true``) are proposals, not work.
 _OPEN_TASK_STATUSES = ("pending", "in_progress")
@@ -45,8 +51,54 @@ _STANDING_HARVEST_TYPES = ("partial", "continuous")
 #: The largest window a read answers — the API's pagination ceiling (``get_pagination``, ``le=200``). A larger
 #: ``limit`` is refused, not clamped: a clamped window comes back short and a pager reads that as the end.
 MAX_STATE_WINDOW = 200
+#: The most sown slots one bed reports: the slots a bed holds at most (GP-NFR-017).
+MAX_SOWN_SLOTS = 2_000
 #: Bed keys bound into one plant statement; a longer list is read in chunks and merged in plant-key order.
 BED_KEYS_PER_STATEMENT = 500
+
+
+#: The bed's sown slots without a standing plant of the tenant, with the crop of their live reservation (W-015).
+#: A slot carries no tenant (E-01): the plants and the reserving run are filtered on it, the bed was resolved first.
+_SOWN_SLOTS = """
+FOR s IN @@slots
+    FILTER s.location_key == @location_key AND s.archived_at == null AND s.sown_at != null
+    LET standing = (
+        FOR e IN @@placed_in
+            FILTER e._to == s._id
+            LET plant = DOCUMENT(e._from)
+            FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+            LIMIT 1
+            RETURN 1
+    )
+    FILTER LENGTH(standing) == 0
+    LET reservation = FIRST(
+        FOR e IN @@planned_at
+            FILTER e._to == s._id
+            LET run = DOCUMENT(e._from)
+            FILTER run != null AND run.tenant_key == @tenant_key AND run.status IN @live
+            SORT e.planned_from ASC, run._key ASC
+            LIMIT 1
+            RETURN {run_key: run._key, entry_key: e.entry_key, species_key: e.planned_species_key}
+    )
+    FILTER reservation != null
+    SORT s._key ASC
+    LIMIT @max
+    LET entry = reservation.entry_key == null ? null : DOCUMENT(@entries, reservation.entry_key)
+    LET species = reservation.species_key == null ? null : DOCUMENT(@species, reservation.species_key)
+    LET cultivar = entry == null OR entry.cultivar_key == null ? null : DOCUMENT(@cultivars, entry.cultivar_key)
+    RETURN {
+        slot_key: s._key,
+        slot_id: s.slot_id,
+        sown_at: s.sown_at,
+        run_key: reservation.run_key,
+        entry_key: reservation.entry_key,
+        species_key: reservation.species_key,
+        cultivar_key: entry == null ? null : entry.cultivar_key,
+        species_name: species == null ? null : FIRST(species.common_names),
+        scientific_name: species == null ? null : species.scientific_name,
+        cultivar_name: cultivar == null ? null : cultivar.name
+    }
+"""
 
 
 def _date(value: Any) -> date | None:
@@ -113,6 +165,40 @@ class ArangoPlantStateRepository(IPlantStateRepository):
         if not bed_keys:
             return []
         return self._read(sorted(set(bed_keys)), tenant_key, now, offset, limit)
+
+    def list_sown_slots(self, location_key: str, *, tenant_key: str) -> list[SownSlotSource]:
+        if not tenant_key:
+            raise ValueError("list_sown_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
+        bind_vars: dict[str, Any] = {
+            "@slots": col.SLOTS,
+            "@placed_in": col.PLACED_IN,
+            "@planned_at": col.RUN_PLANNED_AT,
+            "entries": col.PLANTING_RUN_ENTRIES,
+            "species": col.SPECIES,
+            "cultivars": col.CULTIVARS,
+            "location_key": location_key,
+            "tenant_key": tenant_key,
+            "live": sorted(LIVE_RUN_STATUSES),
+            "max": MAX_SOWN_SLOTS,
+        }
+        cursor = cast("Cursor", self._db.aql.execute(_SOWN_SLOTS, bind_vars=bind_vars))
+        rows: list[dict[str, Any]] = list(cursor)
+        return [
+            SownSlotSource(
+                slot_key=row["slot_key"],
+                slot_id=row["slot_id"],
+                sown_at=sown_at,
+                species_key=row["species_key"] or "",
+                run_key=row["run_key"],
+                entry_key=row["entry_key"],
+                cultivar_key=row["cultivar_key"],
+                species_name=row["species_name"],
+                scientific_name=row["scientific_name"],
+                cultivar_name=row["cultivar_name"],
+            )
+            for row in rows
+            if (sown_at := _date(row["sown_at"])) is not None
+        ]
 
     def _read(
         self, bed_keys: list[str], tenant_key: str, now: datetime, offset: int, limit: int

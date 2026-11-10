@@ -134,7 +134,8 @@ export function usePlantStateText(): PlantStateText {
             0,
             Math.floor((Date.now() - Date.parse(`${view.planted_on.slice(0, 10)}T00:00:00Z`)) / 86_400_000),
           );
-          lines.push({ key: 'age', text: t(`${PREFIX}.info.age`, { date: planted, days }) });
+          const ageKey = view.kind === 'sown' ? 'sownAge' : 'age';
+          lines.push({ key: 'age', text: t(`${PREFIX}.info.${ageKey}`, { date: planted, days }) });
         }
         if (view.slot_id) lines.push({ key: 'position', text: t(`${PREFIX}.info.position`, { slot: view.slot_id }) });
         const watered = day(view.last_care.watering);

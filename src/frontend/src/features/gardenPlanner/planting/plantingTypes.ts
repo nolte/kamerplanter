@@ -102,6 +102,51 @@ export interface PlantingItem {
   termination_type?: string | null;
   planned_from?: string | null;
   reason?: string | null;
+  /** Role of the slot of a planned position (`row`/`zone` can be sown, W-015). */
+  slot_role?: SlotRole | null;
+  /** Day a planned row or zone was sown (§11.3 "gesät"); `null` when not sown. */
+  sown_at?: string | null;
+}
+
+/** A slot whose newest plant failed (§11.3 "ausgefallen"): free for a replant of the same crop. */
+export interface FailedPlanting {
+  slotKey: string;
+  slotId: string;
+  speciesKey: string;
+  cultivarKey: string | null;
+  removedOn: string | null;
+}
+
+/** `GET /slots/{key}/thinning`: what thinning the sown slot would do (REQ-053 §11.3, W-015). */
+export interface ThinningPlan {
+  slot_key: string;
+  slot_id: string;
+  slot_role: SlotRole;
+  sown_at: string;
+  run_key: string;
+  entry_key: string;
+  species_key: string;
+  cultivar_key?: string | null;
+  /** `length` (m) for a row, `area` (m²) for a zone; `null` without a geometry. */
+  measure_kind?: 'length' | 'area' | null;
+  measure_value?: number | null;
+  /** The run's spacing after thinning; `null` when the run has none - the grower enters one (no default). */
+  thinning_to_cm?: number | null;
+  suggested_count?: number | null;
+  max_count: number;
+}
+
+/** Body of `POST /slots/{key}/thinning`: a spacing, or the count of seedlings left standing. */
+export interface ThinningBody {
+  thinning_to_cm?: number | null;
+  count?: number | null;
+  planted_on?: string | null;
+}
+
+export interface ThinningResult {
+  plant_keys: string[];
+  instance_ids: string[];
+  care_event_key: string;
 }
 
 export interface QuickPlantingBody {
