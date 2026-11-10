@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 from app.common.enums import CycleType, SubstrateType, TerminationCause, TerminationType
+from app.domain.models.site import MAX_CONTAINER_VOLUME_L
 
 
 class PlantInstance(BaseModel):
@@ -71,7 +72,7 @@ class PlantInstance(BaseModel):
     container_volume_liters: float | None = Field(
         default=None,
         ge=0.1,
-        le=500,
+        le=MAX_CONTAINER_VOLUME_L,
         description="Actual container/pot volume in liters for this plant instance",
     )
     substrate_type_override: SubstrateType | None = Field(

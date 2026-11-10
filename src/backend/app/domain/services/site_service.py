@@ -31,6 +31,8 @@ logger = structlog.get_logger(__name__)
 #: location (GP-ACC-035), which is left unwritten then too. The one ``site_conditions`` write is
 #: the ``frost_exposed`` mirror, a merge of ``microclimate.frost_risk`` alone.
 LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
+    # REQ-053 WP 10.11 (W-016): written by ``PATCH /locations`` only; the PUT body does not carry them.
+    "adjacency_factor",
     "bbox",
     "bed_status",
     # REQ-053 WP 8.18: the bed's photos are written by ``LocationPhotoService`` only; an edit never resets them.
@@ -39,6 +41,7 @@ LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "geometry",
     "height_m",
     "irrigation_zone_key",
+    "lighting",
     "locked",
     "notes",
     "photo_refs",

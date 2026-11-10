@@ -4,7 +4,8 @@ Two slots of one bed are neighbours when the distance of their **centres** does 
 
 ``adjacency_factor × max(spacing_a, row_spacing_a, spacing_b, row_spacing_b)``
 
-(default factor 1.5: the diagonal ``√2`` is in, the next triangular neighbour ``1.73`` is out). The row
+(default factor 1.5: the diagonal ``√2`` is in, the next triangular neighbour ``1.73`` is out; a location's own
+factor overrides its site's, :func:`effective_adjacency_factor`). The row
 spacing takes part on purpose: without it alternating rows would never touch. When **both** slots carry a
 known ``mature_width_cm`` the interaction radius ``(w_a + w_b) / 2 × f`` replaces the spacing rule, with
 ``f = 1.2`` for herbs and ``f = 2.0`` as soon as one of the two is a tree or shrub (root reach 2–3 × crown
@@ -27,6 +28,7 @@ from dataclasses import dataclass
 from app.common.enums import GrowthHabit, SlotRole
 from app.domain.calculators.geometry_calculator import centroid
 from app.domain.models.geometry import Geometry
+from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR
 
 #: Above this many point slots in one bed, only zones and rows are linked (GP-FR-130 "Kantenlimit").
 POINT_SLOT_LIMIT = 200
@@ -42,6 +44,19 @@ DEFAULT_SPACING_CM = 30.0
 WOODY_HABITS: frozenset[GrowthHabit] = frozenset({GrowthHabit.TREE, GrowthHabit.SHRUB})
 
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")  # a decimal comma is normalised before the search
+
+
+def effective_adjacency_factor(location_factor: float | None, site_factor: float | None) -> float:
+    """The factor a bed's derivation uses (GP-FR-130, W-016.8): the location's own, else the site's, else 1.5.
+
+    A tent may overlap its plants on purpose (SCROG), so its own factor wins over the site-wide one; a location
+    without one follows its site, and a site without a plan the default.
+    """
+    if location_factor is not None:
+        return location_factor
+    if site_factor is not None:
+        return site_factor
+    return DEFAULT_ADJACENCY_FACTOR
 
 
 def lower_bound_cm(value: str | float | None) -> float | None:

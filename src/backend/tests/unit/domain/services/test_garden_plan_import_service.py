@@ -15,7 +15,7 @@ import pytest
 
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
-from app.domain.models.site import SiteConditions, SitePlan, Slot
+from app.domain.models.site import LocationLighting, SiteConditions, SitePlan, Slot
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -326,6 +326,37 @@ class TestReferencesAndFields:
         assert report.applied
         restored = self._restored_beet_1(repo)
         assert (restored.rotation_exempt, restored.rotation_enabled) == (exempt, enabled)
+
+    def test_the_tent_rules_survive_a_restore_from_their_own_backup(self, rig, repo) -> None:
+        """WP 10.11 (W-016): the location's own factor and its lighting are in the file and come back from it."""
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"adjacency_factor": 2.0, "lighting": LocationLighting(lamp_height_cm=180, canopy_distance_cm=40)}
+        )
+        document = rig.file()
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]
+        assert exported["adjacency_factor"] == 2.0
+        assert exported["lighting"]["lamp_height_cm"] == 180.0
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
+        assert restored.adjacency_factor == 2.0
+        assert restored.lighting == LocationLighting(lamp_height_cm=180, canopy_distance_cm=40)
+
+    def test_a_file_without_the_tent_rules_restores_none(self, rig, repo) -> None:
+        """A file written before WP 10.11 lacks both keys: the restored location follows its site, without lighting."""
+        repo.locations["b1"] = repo.locations["b1"].model_copy(update={"adjacency_factor": 2.0})
+        document = rig.file()
+        for item in document["locations"]:
+            item.pop("adjacency_factor", None)
+            item.pop("lighting", None)
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
+        assert (restored.adjacency_factor, restored.lighting) == (None, None)
 
     @pytest.mark.parametrize(("exempt", "enabled"), [(True, None), (False, True)])
     def test_a_file_without_the_rotation_switches_keeps_the_type_default(self, rig, repo, exempt, enabled) -> None:

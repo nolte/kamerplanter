@@ -56,9 +56,17 @@ _HARDINESS_ZONE_PATTERN = re.compile(r"^\d{1,2}[ab]$")
 
 #: Snap grid of a new plan, 10 cm (GP-FR-011).
 DEFAULT_GRID_M = 0.10
+#: Largest pot volume an input may name, in litres (W-016, #2832 SEC-003) - the bound
+#: ``PlantInstance.container_volume_liters`` has carried since REQ-034: a 500 l tub is already a planter, not a pot.
+#: Applied to the INPUT schemas only (``MixedCultureRunCreate``, ``SlotBatchItem``): ``Slot.container_volume_l`` has
+#: been stored without an upper bound since WP 1.7, and a read model with this bound would 500 on such a document.
+MAX_CONTAINER_VOLUME_L = 500.0
 #: Neighbourhood factor for ``adjacent_to`` derivation (GP-FR-130): 1.5 × the larger
 #: spacing — the diagonal (√2) is a neighbour, the next-but-one triangle neighbour (1.73) is not.
 DEFAULT_ADJACENCY_FACTOR = 1.5
+#: Upper bound of a neighbourhood factor, the site's and a location's alike (GP-FR-130, W-016.8): above 10 × the
+#: spacing every slot of any realistic bed is everybody's neighbour, and the derivation's edge count explodes.
+MAX_ADJACENCY_FACTOR = 10.0
 #: Grid pitch assumed for a legacy slot grid (REQ-053 §9.2a): 0.30 m, an 11-litre pot.
 #: Migration v0093 reads ``Location.pitch_m`` and falls back to this value; the model
 #: default is that same assumption, written down once more because the migration
@@ -181,7 +189,7 @@ class SitePlan(BaseModel):
     #: opposite sense of ``rotation_deg``; convert with named helpers, never ad hoc.
     north_angle_deg: float = 0.0
     default_grid_m: float = Field(default=DEFAULT_GRID_M, gt=0, le=10.0)
-    adjacency_factor: float = Field(default=DEFAULT_ADJACENCY_FACTOR, gt=0, le=10.0)
+    adjacency_factor: float = Field(default=DEFAULT_ADJACENCY_FACTOR, gt=0, le=MAX_ADJACENCY_FACTOR)
     plan_revision: int = Field(default=0, ge=0)
     plan_updated_at: datetime | None = None
     #: Account key of the last structural change; the account erasure replaces it (GP-NFR-055, ``ErasureEngine``).
@@ -468,7 +476,8 @@ class Slot(BaseModel):
     #: 1-based rank within the location (§20.5 ``R2P05 → 11``), for stable ordering.
     sequence: int | None = Field(default=None, ge=1)
     geometry_source: GeometrySource | None = None
-    #: Pot volume in litres (W-016): in a tent the pot, not the spacing, limits the plant.
+    #: Pot volume in litres (W-016): in a tent the pot, not the spacing, limits the plant. No upper bound here: this is
+    #: the read model of stored slots, unbounded since WP 1.7; the inputs carry ``le=MAX_CONTAINER_VOLUME_L``.
     container_volume_l: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     #: Direct sowing recorded on a ``row``/``zone`` slot before plants exist (§11.3 "gesät").
     sown_at: date | None = None
@@ -504,6 +513,55 @@ class Slot(BaseModel):
                     f"A slot with role {self.slot_role} needs a {required} geometry, got {self.geometry.kind}."
                 )
         return self
+
+
+#: Highest mounting height of a fixture above the floor of its location, in centimetres (W-016.2/3). A physical
+#: sanity bound, no agronomic value: a grow tent is at most about 2.5 m tall, a greenhouse's high-bay fixtures hang at
+#: 4-8 m, and 10 m keeps every real mounting while refusing a value typed in millimetres or metres-as-centimetres.
+MAX_LAMP_HEIGHT_CM = 1000.0
+
+
+class LocationLighting(BaseModel):
+    """The artificial light of a tent, shelf level or room (REQ-053 §9.2a, W-016.2/3), **prepared, not computed**.
+
+    Kamerplanter computes nothing from these fields yet - there is no PPFD distribution (§9.2a "Vorbereitung, keine
+    Berechnung"); they are stored so a later light model has its inputs. ``lamp_height_cm`` is the fixture's height
+    above the floor of the location, ``canopy_distance_cm`` the gap between the fixture and the top of the canopy,
+    so the gap can never exceed the height. ``fixture_geometry`` is the fixture's footprint in the location's bed
+    frame (§9.2) and must enclose an area. Every field is optional; nothing is defaulted (E-10). The numbers are
+    strict (a JSON number, never ``"180"`` or ``true``), so migration v0108 can tell a readable stored value from an
+    unreadable one.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    lamp_height_cm: float | None = Field(default=None, gt=0, le=MAX_LAMP_HEIGHT_CM, allow_inf_nan=False, strict=True)
+    canopy_distance_cm: float | None = Field(
+        default=None, ge=0, le=MAX_LAMP_HEIGHT_CM, allow_inf_nan=False, strict=True
+    )
+    fixture_geometry: BedFrameGeometry | None = None
+
+    @field_validator("fixture_geometry")
+    @classmethod
+    def validate_fixture_kind(cls, value: Geometry | None) -> Geometry | None:
+        if value is not None and value.kind not in AREA_KINDS:
+            raise ValueError(f"A fixture footprint must enclose an area (rect, circle, polygon), got {value.kind}.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_canopy_below_lamp(self) -> Self:
+        """The canopy stands below the fixture: its distance to the fixture cannot exceed the fixture's height."""
+        if (
+            self.lamp_height_cm is not None
+            and self.canopy_distance_cm is not None
+            and self.canopy_distance_cm > self.lamp_height_cm
+        ):
+            raise ValueError("canopy_distance_cm must not exceed lamp_height_cm.")
+        return self
+
+    @property
+    def is_empty(self) -> bool:
+        return self.lamp_height_cm is None and self.canopy_distance_cm is None and self.fixture_geometry is None
 
 
 #: Photos one bed may carry (REQ-053 GP-FR-051, WP 8.18). The closest precedent is the plant gallery's default
@@ -587,6 +645,14 @@ class Location(BaseModel):
     #: Per-bed crop-rotation switch (GP-FR-137 "je Beet einschaltbar", #2544), additive: ``None`` = the type default
     #: (off for ``planter``/``tent``/``shelf``, on for every other type), ``True`` = on, ``False`` = off.
     rotation_enabled: bool | None = None
+    #: The neighbourhood factor of this location's slots (W-016.8, SCROG overlap in a tent): set, it overrides the
+    #: site's ``plan.adjacency_factor``; ``None`` = the site's (GP-FR-130). Same bounds as the site's field.
+    adjacency_factor: float | None = Field(
+        default=None, gt=0, le=MAX_ADJACENCY_FACTOR, allow_inf_nan=False, strict=True
+    )
+    #: Lamp height, canopy distance and fixture footprint (W-016.2/3) - prepared for a light model, read by nothing
+    #: yet. ``None`` = nothing entered; an object without any value is stored as ``None``.
+    lighting: LocationLighting | None = None
     #: The bed's photos (REQ-053 GP-FR-051, WP 8.18): ids of ``location`` attachments of the site's tenant, newest
     #: first, without repeats. Written only by ``LocationPhotoService`` (never by an edit body, a plan batch or the
     #: plan's JSON file); presentation, so not part of the plan revision and never in the plan export.
@@ -613,6 +679,12 @@ class Location(BaseModel):
     @classmethod
     def _stored_profile_without_ec_method(cls, value: object) -> object:
         return with_legacy_ec_method(value)
+
+    @field_validator("lighting")
+    @classmethod
+    def _empty_lighting_is_none(cls, value: LocationLighting | None) -> LocationLighting | None:
+        """``{}`` and an object of ``null`` values say "nothing entered", like ``None`` - one stored shape for it."""
+        return None if value is not None and value.is_empty else value
 
     @field_validator("lights_on", "lights_off")
     @classmethod

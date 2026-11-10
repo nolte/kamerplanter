@@ -19,6 +19,11 @@ from app.domain.models.garden_plan import (
     TaskCounter,
 )
 from app.domain.models.site import Location, SiteUnderlay, Slot
+from app.domain.models.tent_hint import PlantPhotoperiod
+
+#: Plants one photoperiod read considers (W-016.6). A tent holds a few dozen at most; the bound keeps a mis-typed
+#: location of thousands of plants from turning a summary into a scan.
+MAX_PHOTOPERIOD_PLANTS = 500
 
 
 @dataclass
@@ -114,6 +119,27 @@ class IGardenPlanRepository(ABC):
     @abstractmethod
     def bed_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
         """``location_type_key`` → ``is_bed`` for the keys that resolve; an unknown key is absent."""
+
+    @abstractmethod
+    def layout_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
+        """``location_type_key`` → ``supports_layout`` (W-016.1) for the keys that resolve; an unknown key is absent.
+
+        A type flagged ``is_bed`` reads ``True`` even where a stored document lacks ``supports_layout`` (the model's
+        rule, ``LocationType._a_bed_supports_a_layout``).
+        """
+
+    @abstractmethod
+    def load_location_photoperiods(self, location_key: str, *, tenant_key: str) -> list[PlantPhotoperiod]:
+        """The tenant's standing plants in the location with the photoperiod their current phase asks for (W-016.6).
+
+        A plant stands in the location by its ``location_key`` or, without one, by its slot's (the plan's rule). The
+        photoperiod is the ``photoperiod_hours`` of the requirement profile of the plant's current phase (REQ-003):
+        a legacy growth phase directly (its key is the plant's ``current_phase_key`` - the id wins); a phase-sequence
+        entry through the growth phase of the same name in the species' lifecycle, only when exactly one has that
+        name. Two, none, or no profile - ``None``, never a guess or a default (E-10). Each plant carries its phase's
+        machine name (``phase_code``) and its display name. At most :data:`MAX_PHOTOPERIOD_PLANTS` plants, ordered
+        by key; the caller resolved the location under the tenant first.
+        """
 
     @abstractmethod
     def count_active_plants(self, location_keys: list[str], *, tenant_key: str) -> int:

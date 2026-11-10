@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach, path_access), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity), GP-FR-167 (edge_distance, nearest_water_source, is_water_source)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach, path_access), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity), GP-FR-167 (edge_distance, nearest_water_source, is_water_source), §9.2a W-016.5 (container_volume)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -65,7 +65,8 @@
     "unit_identity": "input.value, input.unit (g_per_m2 | l_per_m2) -> expected {kg_per_ha} for g_per_m2 (1 g/m2 = 10 kg/ha) or {mm} for l_per_m2 (1 L/m2 = 1 mm layer), unrounded (area_dose_calculator.g_per_m2_to_kg_per_ha, l_per_m2_to_mm / model/areaDose.ts, review U-001, WP 8.9)",
     "edge_distance": "input.a, input.b (rect | circle | polygon | polyline | point, plan frame) -> expected number (m): the shortest edge-to-edge distance between the two shapes, 0 when they touch, overlap or one contains the other (also a point inside an area). Rotation is applied about the anchor; a circle is exact (centre distance minus radius); a polyline counts with its stroke (a band of width_m around the centre line, round ends); a point is the point itself. Exact, no tolerance; rounded to 0.001 m like every stored length - geometry_distance.edge_distance_m / model/geometryDistance.ts edgeDistanceM (REQ-053 GP-FR-167, WP 9.12; the primitive GP-FR-130 path access consumes)",
     "nearest_water_source": "input.bed (rect | circle | polygon, plan frame, or null), input.sources (list of water-source geometries, plan frame) -> expected number (m) | null: the smallest edge_distance from the bed to any source, rounded to 0.001 m; null without a bed geometry or without a source. Which objects are sources (object_type water_source, not off_site) is decided by the caller - geometry_distance.nearest_water_source_m / model/geometryDistance.ts nearestWaterSourceM (REQ-053 GP-FR-167, WP 9.12)",
-    "is_water_source": "input.object_type (garden object class), input.off_site (boolean) -> expected boolean: whether nearest_water_source measures to the object - class water_source and not off_site scenery (the neighbour's tap behind the fence is not the garden's water) - geometry_distance.is_water_source / model/geometryDistance.ts isWaterSource (REQ-053 GP-FR-167, WP 9.12)"
+    "is_water_source": "input.object_type (garden object class), input.off_site (boolean) -> expected boolean: whether nearest_water_source measures to the object - class water_source and not off_site scenery (the neighbour's tap behind the fence is not the garden's water) - geometry_distance.is_water_source / model/geometryDistance.ts isWaterSource (REQ-053 GP-FR-167, WP 9.12)",
+    "container_volume": "input.container_volume_l (litres | null), input.recommended_container_volume_l (Steckbrief range string | number | null), optional input.phase_code (machine phase name) and input.irrigation_system (Location.irrigation_system) -> expected {volume_below: boolean, recommended_l: number | null}: the recommendation is the leading number of the string (decimal comma allowed, anything after it ignored), a non-positive or unreadable one is no recommendation; volume_below is true only when both are known, the phase is no young phase (germination, seedling, rooting, establishment, pup_establishment, bulbil_establishment), the irrigation system is not pot-free (hydro, nft) and the pot is strictly smaller (container_volume_calculator.check_container_volume / planting/plantingLogic.ts containerCheck, REQ-053 §9.2a W-016.5)"
   },
   "cases": [
     {
@@ -5809,6 +5810,153 @@
       "spec": "GP-FR-167: another class off site is no water source either",
       "input": {"object_type": "lamp", "off_site": true},
       "expected": false
+    },
+    {
+      "id": "container-volume-below-range",
+      "operation": "container_volume",
+      "spec": "W-016.5: a 3 l pot under a 5-10 l recommendation warns",
+      "input": {"container_volume_l": 3, "recommended_container_volume_l": "5-10"},
+      "expected": {"volume_below": true, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-equal-lower-bound",
+      "operation": "container_volume",
+      "spec": "W-016.5: exactly the recommended volume is fine (strictly below only)",
+      "input": {"container_volume_l": 5, "recommended_container_volume_l": "5-10"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-above-range",
+      "operation": "container_volume",
+      "spec": "W-016.5: a pot above the range is fine",
+      "input": {"container_volume_l": 12, "recommended_container_volume_l": "5-10"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-double-dash",
+      "operation": "container_volume",
+      "spec": "W-016.5: the seed's double-dash range reads its lower value",
+      "input": {"container_volume_l": 2.5, "recommended_container_volume_l": "3--5"},
+      "expected": {"volume_below": true, "recommended_l": 3}
+    },
+    {
+      "id": "container-volume-single-value",
+      "operation": "container_volume",
+      "spec": "W-016.5: a single value is the recommendation",
+      "input": {"container_volume_l": 4, "recommended_container_volume_l": "5"},
+      "expected": {"volume_below": true, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-decimal-comma",
+      "operation": "container_volume",
+      "spec": "W-016.5: a decimal comma is a decimal point",
+      "input": {"container_volume_l": 1.2, "recommended_container_volume_l": "1,5-3"},
+      "expected": {"volume_below": true, "recommended_l": 1.5}
+    },
+    {
+      "id": "container-volume-trailing-unit",
+      "operation": "container_volume",
+      "spec": "W-016.5: text after the leading number is ignored",
+      "input": {"container_volume_l": 8, "recommended_container_volume_l": "10-20 L"},
+      "expected": {"volume_below": true, "recommended_l": 10}
+    },
+    {
+      "id": "container-volume-zero-recommendation",
+      "operation": "container_volume",
+      "spec": "E-10: a recommendation of 0 is no recommendation, no warning",
+      "input": {"container_volume_l": 1, "recommended_container_volume_l": "0"},
+      "expected": {"volume_below": false, "recommended_l": null}
+    },
+    {
+      "id": "container-volume-unreadable-recommendation",
+      "operation": "container_volume",
+      "spec": "E-10: a string that does not start with a number is no recommendation",
+      "input": {"container_volume_l": 1, "recommended_container_volume_l": "ca. 5"},
+      "expected": {"volume_below": false, "recommended_l": null}
+    },
+    {
+      "id": "container-volume-no-recommendation",
+      "operation": "container_volume",
+      "spec": "E-10: a species without a recommendation gives no warning",
+      "input": {"container_volume_l": 1, "recommended_container_volume_l": null},
+      "expected": {"volume_below": false, "recommended_l": null}
+    },
+    {
+      "id": "container-volume-no-pot",
+      "operation": "container_volume",
+      "spec": "W-016.5: without a pot volume there is nothing to compare",
+      "input": {"container_volume_l": null, "recommended_container_volume_l": "5-10"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-numeric-recommendation",
+      "operation": "container_volume",
+      "spec": "W-016.5: a recommendation stored as a number reads as that number",
+      "input": {"container_volume_l": 6, "recommended_container_volume_l": 7},
+      "expected": {"volume_below": true, "recommended_l": 7}
+    },
+    {
+      "id": "container-volume-young-phase-seedling",
+      "operation": "container_volume",
+      "spec": "W-016.5: a seedling is potted up later - no warning in a young phase",
+      "input": {"container_volume_l": 0.5, "recommended_container_volume_l": "5-10", "phase_code": "seedling"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-young-phase-germination",
+      "operation": "container_volume",
+      "spec": "W-016.5: a germinating seed is no potted plant yet - no warning",
+      "input": {"container_volume_l": 0.2, "recommended_container_volume_l": "5-10", "phase_code": "germination"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-young-phase-rooting",
+      "operation": "container_volume",
+      "spec": "W-016.5: a rooting cutting is potted up later - no warning",
+      "input": {"container_volume_l": 0.5, "recommended_container_volume_l": "5-10", "phase_code": "rooting"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-young-phase-establishment",
+      "operation": "container_volume",
+      "spec": "W-016.5: the establishment of a runner, division or cutting is a young phase - no warning",
+      "input": {"container_volume_l": 0.5, "recommended_container_volume_l": "5-10", "phase_code": "establishment"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-grown-phase",
+      "operation": "container_volume",
+      "spec": "W-016.5: a plant in a grown phase is checked",
+      "input": {"container_volume_l": 3, "recommended_container_volume_l": "5-10", "phase_code": "vegetative"},
+      "expected": {"volume_below": true, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-hydro",
+      "operation": "container_volume",
+      "spec": "W-016.5: in a hydroponic system the roots grow in the solution - no pot warning",
+      "input": {"container_volume_l": 3, "recommended_container_volume_l": "5-10", "irrigation_system": "hydro"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-nft",
+      "operation": "container_volume",
+      "spec": "W-016.5: in an NFT channel there is no pot - no pot warning",
+      "input": {"container_volume_l": 3, "recommended_container_volume_l": "5-10", "irrigation_system": "nft"},
+      "expected": {"volume_below": false, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-ebb-flow",
+      "operation": "container_volume",
+      "spec": "W-016.5: ebb and flow keeps pots of substrate - checked like soil",
+      "input": {"container_volume_l": 3, "recommended_container_volume_l": "5-10", "irrigation_system": "ebb_flow"},
+      "expected": {"volume_below": true, "recommended_l": 5}
+    },
+    {
+      "id": "container-volume-drip",
+      "operation": "container_volume",
+      "spec": "W-016.5: a drip-fed pot is checked",
+      "input": {"container_volume_l": 3, "recommended_container_volume_l": "5-10", "irrigation_system": "drip"},
+      "expected": {"volume_below": true, "recommended_l": 5}
     }
   ]
 }

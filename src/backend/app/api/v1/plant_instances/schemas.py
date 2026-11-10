@@ -4,6 +4,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 from app.common.enums import CycleType, SubstrateType, TerminationCause, TerminationType
+from app.domain.models.site import MAX_CONTAINER_VOLUME_L
 
 #: A caller-supplied document key. ``min_length=1`` because ``""`` is not a key:
 #: it resolves to nothing, and before this constraint existed it was *also* not
@@ -38,7 +39,7 @@ class PlantCreate(BaseModel):
     plant_name: str | None = None
     planted_on: date
     current_phase_key: OptionalReferenceKey = None
-    container_volume_liters: float | None = Field(default=None, ge=0.1, le=500)
+    container_volume_liters: float | None = Field(default=None, ge=0.1, le=MAX_CONTAINER_VOLUME_L)
     substrate_type_override: SubstrateType | None = None
     # ADR-006 E1 — per-instance cultivation cycle override; None = "same as the species".
     cultivation_cycle_type: CycleType | None = None
@@ -84,7 +85,7 @@ class PlantPatch(BaseModel):
     substrate_key: OptionalReferenceKey = None
     plant_name: str | None = None
     planted_on: date | None = None
-    container_volume_liters: float | None = Field(default=None, ge=0.1, le=500)
+    container_volume_liters: float | None = Field(default=None, ge=0.1, le=MAX_CONTAINER_VOLUME_L)
     substrate_type_override: SubstrateType | None = None
     cultivation_cycle_type: CycleType | None = None
 

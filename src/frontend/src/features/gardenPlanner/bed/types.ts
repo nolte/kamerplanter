@@ -12,6 +12,7 @@ import type {
   SunExposure,
   WindExposure,
 } from '../model/types';
+import type { IrrigationSystem, LocationLighting } from '@/api/types';
 import type { PathAccessClass } from '../model/reach';
 
 /** Stored heat of a wall or building at a bed (`HeatRetention` of the backend, GP-FR-162). */
@@ -158,6 +159,8 @@ export interface BedListItem {
   bbox?: [number, number, number, number] | null;
   bed_status: BedStatus;
   sun_exposure: SunExposure;
+  /** The location's irrigation system; `hydro`/`nft` lift the pot-volume warning (W-016.5). */
+  irrigation_system?: IrrigationSystem;
   site_conditions?: SiteConditionsSlice | null;
   /** Carried by the location document; only the drainage is read on a listing (GP-FR-161). */
   soil_profile?: SoilProfile | null;
@@ -235,6 +238,39 @@ export interface BedSummary extends BedListItem {
   description?: string | null;
   /** GP-FR-125: only on a bed; `null` for every other location. */
   nutrient_hint?: NutrientHint | null;
+  /** W-016.1: the location's type carries a slot layout (beds, tents, shelves). Absent from an older backend. */
+  supports_layout?: boolean;
+  /** W-016.6: light-schedule hints of a tent or shelf level; empty elsewhere. */
+  tent_hints?: TentHint[];
+  /** W-016.8: the location's own neighbourhood factor; `null` = the site's. */
+  adjacency_factor?: number | null;
+  /** W-016.2/3: lamp height, canopy distance, fixture footprint. */
+  lighting?: LocationLighting | null;
+}
+
+export type TentHintCode = 'tent.photoperiod_conflict' | 'tent.photoperiod_unknown';
+
+/** Plants of one light schedule that ask for the same photoperiod. */
+export interface PhotoperiodGroup {
+  photoperiod_hours: number;
+  plant_count: number;
+  phase_names: string[];
+}
+
+/** A light-schedule hint of a tent or shelf level (V-23): a hint, never an error. */
+export interface TentHint {
+  code: TentHintCode;
+  severity: 'info' | 'warning';
+  groups: PhotoperiodGroup[];
+  unknown_plant_count: number;
+  /** The first five plants (by name) whose photoperiod is unknown; absent from an older backend. */
+  unknown_plant_names?: string[];
+}
+
+/** Body of `PATCH /locations/{key}` for the tent rules; a key absent stays as stored, `null` clears it. */
+export interface TentRulesPatch {
+  adjacency_factor?: number | null;
+  lighting?: LocationLighting | null;
 }
 
 /** The document `PATCH /locations/{key}` and `POST /locations/{key}/status` answer with. */

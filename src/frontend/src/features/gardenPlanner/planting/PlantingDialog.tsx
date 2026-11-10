@@ -21,7 +21,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import { listAllSpecies } from '@/api/endpoints/species';
-import type { Species } from '@/api/types';
+import type { IrrigationSystem, Species } from '@/api/types';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useApiError } from '@/hooks/useApiError';
 import { useServerFavorites } from '@/hooks/useServerFavorites';
@@ -79,6 +79,8 @@ interface PlantingDialogProps {
    * computed from it and no part of `site_fit` or the axis hints.
    */
   siteFlags?: readonly SiteFlag[];
+  /** The bed's irrigation system: `hydro`/`nft` lift the pot-volume warning (W-016.5). */
+  irrigationSystem?: IrrigationSystem | null;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
   /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
@@ -130,6 +132,7 @@ export default function PlantingDialog({
   sunExposure = 'unknown',
   bedSite,
   siteFlags,
+  irrigationSystem = null,
   onClose,
   onPlanted,
   initialAlreadyPlanted = false,
@@ -473,6 +476,7 @@ export default function PlantingDialog({
                     total={effective.length}
                     form={form}
                     species={speciesByKey.get(form.speciesKey ?? '') ?? null}
+                    irrigationSystem={irrigationSystem}
                     allSpecies={species}
                     favorites={favorites}
                     errors={showErrors ? errorsByEntry[form.id] : {}}

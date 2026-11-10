@@ -149,3 +149,23 @@ def is_rest_phase(name: str) -> bool:
 def is_productive_phase(name: str) -> bool:
     """True if the phase is a productive/harvestable period."""
     return core_phase(name) in _PRODUCTIVE_CORE
+
+
+# Core phases of a young plant that is still establishing: a seed germinating, a seedling, a cutting or offset
+# rooting. Such a plant is not triggered by day length and is not yet in its final pot (W-016.5/6, #2832).
+_YOUNG_CORE: frozenset[str] = frozenset({"germination", "rooting", "seedling"})
+
+#: Every phase name (core and extended) whose core role is a young, establishing plant: ``germination``,
+#: ``seedling``, ``rooting`` and the extended ``establishment`` (rooting of a runner, division or cutting),
+#: ``pup_establishment`` (a rooting offset) and ``bulbil_establishment``. The tent photoperiod hint leaves these plants
+#: out (they are not light-triggered), and so does the pot-volume warning (they are potted up later). The frontend's
+#: ``YOUNG_PHASE_NAMES`` in ``features/gardenPlanner/planting/plantingLogic.ts`` is the same list.
+YOUNG_PHASE_NAMES: frozenset[str] = frozenset(
+    {name for name in CORE_PHASES if name in _YOUNG_CORE}
+    | {name for name, core in _EXTENDED_TO_CORE.items() if core in _YOUNG_CORE}
+)
+
+
+def is_young_phase(name: str | None) -> bool:
+    """True for the phase of a young, establishing plant (:data:`YOUNG_PHASE_NAMES`); ``None`` is not young."""
+    return name is not None and core_phase(name) in _YOUNG_CORE

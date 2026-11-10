@@ -36,7 +36,7 @@ from app.domain.models.garden_object import GardenObjectProps
 from app.domain.models.garden_plan import MAX_PLAN_OBJECTS_PER_SITE, MAX_PLAN_ZONES, MAX_SLOTS_PER_SITE
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.irrigation_zone import COLOR_PATTERN, DEFAULT_ZONE_COLOR
-from app.domain.models.site import SiteConditions, SoilProfile
+from app.domain.models.site import LocationLighting, SiteConditions, SoilProfile
 
 SCHEMA_VERSION = "1"
 
@@ -100,6 +100,11 @@ class ExportLocation(_ExportModel):
     #: Both ``true`` is refused by the import (``import.rotation_exempt_and_enabled``), as the PATCH refuses it.
     rotation_exempt: StrictBool = False
     rotation_enabled: StrictBool | None = None
+    #: The tent rules of the location (W-016, WP 10.11), additive inside ``schema_version "1"``: its own
+    #: neighbourhood factor and its lighting. A file written before lacks both keys; the restored location then
+    #: follows the site's factor and has no lighting (``null``), the stored default.
+    adjacency_factor: float | None = None
+    lighting: LocationLighting | None = None
 
 
 class ExportSlot(_ExportModel):

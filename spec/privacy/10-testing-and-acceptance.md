@@ -176,7 +176,7 @@ TA-5xx → 07, TA-6xx → 08, TA-7xx → 09, TA-8xx → übergreifende Negativte
 
 | TA | Typ | Test | Pfad |
 |----|-----|------|------|
-| TA-700…TA-703, TA-716, TA-717 | Unit + Integration | wie in `09` §12 aufgeführt | `tests/unit/migrations/versions/test_v0108_*.py`, `tests/integration/migrations/` |
+| TA-700…TA-703, TA-716, TA-717 | Unit + Integration | wie in `09` §12 aufgeführt | `tests/unit/migrations/versions/test_v0109_*.py`, `tests/integration/migrations/` |
 | TA-701a | Unit | Berichts-Schwärzungsfilter: ein eingebrachter Nutzerschlüssel / Name in `details` wird abgelehnt | `tests/unit/migrations/test_migration_report_redaction.py` |
 | TA-704 | Guard | Privacy-Migrationen deklarieren `kind`; ein `data_backfill` nutzt `ActiveTenants`, eine `privacy_correction` nicht | `tests/unit/guards/test_migration_tenant_gate_kind.py` |
 

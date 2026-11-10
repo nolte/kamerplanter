@@ -7960,6 +7960,43 @@
         "removeTitle": "Foto vom Beet entfernen?",
         "removeMessage": "Das Foto verschwindet aus der Galerie des Beets. Wird es nirgends sonst verwendet, wird es endgültig gelöscht – das lässt sich nicht rückgängig machen.",
         "removed": "Foto entfernt."
+      },
+      "tentRules": {
+        "title": "Zelt-Regeln",
+        "intro": "Diese Werte gelten nur für diesen Standort und überschreiben die Einstellungen des Gartens.",
+        "introReadOnly": "Diese Werte gelten nur für diesen Standort. Ändern können sie Mitglieder ab der Rolle Gärtner.",
+        "adjacencyFactor": "Nachbarschaftsfaktor",
+        "adjacencyFactorHelper": "Bis zu welchem Abstand zwei Pflanzplätze als Nachbarn gelten, als Vielfaches des Pflanzabstands. Leer lassen, um den Wert des Gartens zu übernehmen. Wenn Pflanzen bewusst ineinander wachsen (z. B. unter einem Netz), höher setzen.",
+        "adjacencyFactorPlaceholder": "Wert des Gartens",
+        "lighting": "Beleuchtung",
+        "lightingIntro": "Wird gespeichert, damit später die Lichtverteilung berechnet werden kann. Kamerplanter rechnet daraus noch nichts.",
+        "lampHeight": "Höhe der Lampe",
+        "lampHeightHelper": "Höhe der Leuchte über dem Boden des Zelts oder der Ebene.",
+        "canopyDistance": "Abstand zu den Pflanzen",
+        "canopyDistanceHelper": "Abstand zwischen Leuchte und den obersten Blättern. Er kann nicht größer sein als die Höhe der Lampe.",
+        "saved": "Zelt-Regeln gespeichert.",
+        "errors": {
+          "factorRange": "Gib einen Wert größer als 0 und höchstens 10 ein.",
+          "lampRange": "Gib eine Höhe größer als 0 und höchstens 1000 cm ein.",
+          "canopyRange": "Gib einen Abstand von 0 bis 1000 cm ein.",
+          "canopyAboveLamp": "Der Abstand zu den Pflanzen kann nicht größer sein als die Höhe der Lampe."
+        },
+        "hints": {
+          "conflictTitle": "Unterschiedlicher Lichtbedarf unter einer Lampe",
+          "conflict": "Laut hinterlegten Phasenprofilen brauchen die Pflanzen hier in ihrer aktuellen Phase unterschiedlich lange Lichttage: {{groups}}. Eine Lampe hat nur einen Zeitplan. Prüfe die Werte für deine Sorten. Stimmen sie, stelle Pflanzen mit gleichem Lichtbedarf zusammen oder gib jeder Gruppe eine eigene Ebene mit eigener Lampe. Sämlinge und Stecklinge zählen hier nicht mit.",
+          "group_one": "{{hours}} Stunden Licht für {{count}} Pflanze ({{phases}})",
+          "group_other": "{{hours}} Stunden Licht für {{count}} Pflanzen ({{phases}})",
+          "groupNoPhase_one": "{{hours}} Stunden Licht für {{count}} Pflanze",
+          "groupNoPhase_other": "{{hours}} Stunden Licht für {{count}} Pflanzen",
+          "unknownTitle": "Lichtbedarf nicht für alle Pflanzen bekannt",
+          "photoperiodUnknown_one": "Für {{count}} Pflanze ist zur aktuellen Phase keine Lichtdauer hinterlegt. Ob sie zum Zeitplan der Lampe passt, lässt sich nicht prüfen.",
+          "photoperiodUnknown_other": "Für {{count}} Pflanzen ist zur aktuellen Phase keine Lichtdauer hinterlegt. Ob sie zum Zeitplan der Lampe passen, lässt sich nicht prüfen.",
+          "alsoUnknown_one": "Für {{count}} weitere Pflanze ist keine Lichtdauer hinterlegt; sie ist nicht mitgezählt.",
+          "alsoUnknown_other": "Für {{count}} weitere Pflanzen ist keine Lichtdauer hinterlegt; sie sind nicht mitgezählt.",
+          "unknownPlants": "Betroffen: {{names}}.",
+          "unknownPlantsMore_one": "Betroffen: {{names}} und {{count}} weitere.",
+          "unknownPlantsMore_other": "Betroffen: {{names}} und {{count}} weitere."
+        }
       }
     },
     "rotationMatrix": {

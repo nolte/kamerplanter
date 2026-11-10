@@ -290,12 +290,46 @@ export interface ContainerCheck {
   recommendedL: number | null;
 }
 
+/**
+ * Phases of a young, establishing plant: it is potted up later, so its pot is not judged (W-016.5). The same list as
+ * `YOUNG_PHASE_NAMES` of the backend's `phase_role_map.py`; the shared vectors pin both.
+ */
+export const YOUNG_PHASE_NAMES: ReadonlySet<string> = new Set([
+  'germination',
+  'seedling',
+  'rooting',
+  'establishment',
+  'pup_establishment',
+  'bulbil_establishment',
+]);
+
+/** `irrigation_system` values whose roots grow in the solution, not in a pot (the backend's set, W-016.5). */
+export const POT_FREE_IRRIGATION_SYSTEMS: ReadonlySet<string> = new Set(['hydro', 'nft']);
+
+export interface ContainerContext {
+  /** Machine name of the plant's phase; absent for a planned run, which has none yet. */
+  phaseCode?: string | null;
+  /** The bed's `irrigation_system`. */
+  irrigationSystem?: string | null;
+}
+
+/** Whether a pot volume can be judged at all: not for a young plant, not in a hydroponic system without pots. */
+export function potVolumeApplies(context: ContainerContext): boolean {
+  const young = context.phaseCode != null && YOUNG_PHASE_NAMES.has(context.phaseCode);
+  const potFree = context.irrigationSystem != null && POT_FREE_IRRIGATION_SYSTEMS.has(context.irrigationSystem);
+  return !young && !potFree;
+}
+
 /** W-016.5: warn when the pot volume the user names is below the Steckbrief recommendation. */
-export function containerCheck(volumeText: string, species: Species | null): ContainerCheck {
+export function containerCheck(
+  volumeText: string,
+  species: Species | null,
+  context: ContainerContext = {},
+): ContainerCheck {
   const recommendedL = parseLowerBound(species?.recommended_container_volume_l);
   const volume = numberOrNull(volumeText);
   return {
-    volumeBelow: volume !== null && recommendedL !== null && volume < recommendedL,
+    volumeBelow: volume !== null && recommendedL !== null && potVolumeApplies(context) && volume < recommendedL,
     recommendedL,
   };
 }

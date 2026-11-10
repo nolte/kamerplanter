@@ -252,7 +252,7 @@ Abs. 3 (L-01, VERIFIED_LEGAL) lässt die Frist am 1. Januar des Folgejahres begi
 **PRIV-122** [PROPOSED, DEC-11 aktualisiert; **LEGAL_REVIEW_REQUIRED LEG-03**] Ein Organisationsmandant MUSS bei
 der Anlage klassifiziert werden (PRIV-409: `organization_kind` und `record_keeping ∈ {none, pflschg_professional,
 kcang_association, both}`); ohne Angabe gilt `undeclared` (konservative Aufbewahrung, Hinweis an die Leitung,
-Zählung beim Betreiber). Bestandsmandanten: `legacy` (v0109) = heutiges Verhalten. Persönliche Mandanten: `none`
+Zählung beim Betreiber). Bestandsmandanten: `legacy` (v0110) = heutiges Verhalten. Persönliche Mandanten: `none`
 (KCanG § 9/§ 10 kennen keine Dokumentationspflicht, L-07). Die Klasse wirkt **feldgenau** (`06` §3.2): nur die einer
 Vorschrift zugeordneten Felder werden unter Art. 6 Abs. 1 lit. c aufbewahrt; z. B. ist die erntende Person nach
 KCanG § 26 keine Pflichtangabe (L-05) → `harvested_by_key` erhält bei Löschung den Marker (PRIV-411, hinter Flag).

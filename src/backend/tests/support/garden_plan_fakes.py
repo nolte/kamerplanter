@@ -31,6 +31,7 @@ from app.domain.models.garden_plan import (
 from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
 from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot, SunProfile
+from app.domain.models.tent_hint import PlantPhotoperiod
 
 TENANT = "ten_own"
 OTHER_TENANT = "ten_other"
@@ -156,6 +157,12 @@ class FakePlanRepo(IGardenPlanRepository):
         self.slots: list[Slot] = []
         self.plants: list[PlantShortInfo] = []
         self.bed_types = {"bed": True, "raised_bed": True, "greenhouse": False}
+        #: ``supports_layout`` per type (W-016.1): every bed type plus tent and shelf.
+        self.layout_types = {"bed": True, "raised_bed": True, "greenhouse": False, "tent": True, "shelf": True}
+        #: The plants of a location with the photoperiod of their phase (W-016.6), by location key.
+        self.photoperiods: dict[str, list[PlantPhotoperiod]] = {}
+        #: The location keys of every ``load_location_photoperiods`` read.
+        self.photoperiod_reads: list[str] = []
         self.active_plants = 0
         #: Locations in which a plant stands (the import's V-09 set); ``active_plants`` stays the delete-check count.
         self.planted: set[str] = set()
@@ -242,6 +249,17 @@ class FakePlanRepo(IGardenPlanRepository):
 
     def bed_type_flags(self, location_type_keys):
         return {key: self.bed_types[key] for key in location_type_keys if key in self.bed_types}
+
+    def layout_type_flags(self, location_type_keys):
+        return {key: self.layout_types[key] for key in location_type_keys if key in self.layout_types}
+
+    def load_location_photoperiods(self, location_key, *, tenant_key):
+        self.photoperiod_reads.append(location_key)
+        location = self.locations.get(location_key)
+        site = self._sites.get_site_by_key(location.site_key) if location is not None else None
+        if site is None or not tenant_key or site.tenant_key != tenant_key:
+            return []
+        return list(self.photoperiods.get(location_key, []))
 
     def location_type_names(self, location_type_keys):
         self.label_reads.append("type_names")

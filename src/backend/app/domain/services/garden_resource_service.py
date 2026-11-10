@@ -65,6 +65,7 @@ from app.domain.engines.garden_plan_engine import (
 )
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_site_parts
+from app.domain.engines.tent_rules_engine import has_own_light_schedule, photoperiod_hints
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, SoilProfileEdit
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -93,6 +94,7 @@ from app.domain.models.garden_plan import (
 from app.domain.models.geometry import Geometry
 from app.domain.models.nutrient_hint import NutrientHint
 from app.domain.models.site import Location, Site, Slot
+from app.domain.models.tent_hint import TentHint
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.bed_list_labels import bed_assignee_names, irrigation_zone_names, require_bed_list_size
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -134,6 +136,8 @@ _PATCH_COLUMNS: tuple[str, ...] = (
     "frost_exposed",
     "rotation_exempt",
     "rotation_enabled",
+    "adjacency_factor",
+    "lighting",
 )
 
 
@@ -362,8 +366,17 @@ class GardenResourceService:
     def get_summary(self, key: LocationKey, *, tenant_key: str) -> BedSummaryView:
         location = self._owned_location(key, tenant_key=tenant_key)
         counters = self._plan.load_bed_counters([key], tenant_key=tenant_key).get(key, BedCounters())
-        flags = self._plan.bed_type_flags([location.location_type_key]) if location.location_type_key else {}
-        is_bed = flags.get(location.location_type_key, False)
+        type_key = location.location_type_key
+        flags = self._plan.bed_type_flags([type_key]) if type_key else {}
+        is_bed = flags.get(type_key, False)
+        layout_flags: dict[str, bool] = self._plan.layout_type_flags([type_key]) if type_key else {}
+        supports_layout = layout_flags.get(type_key, False)
+        tent_hints: list[TentHint] = []
+        lamp_height_cm = location.lighting.lamp_height_cm if location.lighting is not None else None
+        if has_own_light_schedule(type_key, lamp_height_cm) and counters.active_plant_count >= 2:
+            # W-016.6 (V-23): read only where one light schedule serves several plants - a tent, a lit shelf level.
+            plants = self._plan.load_location_photoperiods(key, tenant_key=tenant_key)
+            tent_hints = photoperiod_hints(type_key, plants, lamp_height_cm=lamp_height_cm)
         hint: NutrientHint | None = None
         provider = self._nutrient_hint
         if is_bed and provider is not None:
@@ -384,6 +397,8 @@ class GardenResourceService:
             nutrient_hint=hint,
             nearest_water_source_m=water,
             path_access=access,
+            supports_layout=supports_layout,
+            tent_hints=tent_hints,
         )
 
     # ── GP-API-010: PATCH /locations/{key} ────────────────────────────────────
@@ -445,6 +460,9 @@ class GardenResourceService:
             self._write_status(location, target_status, patch.status_reason, tenant_key=tenant_key, user_key=user_key)
         if fields or soil is not None:
             self._plan.update_location_fields(key, fields, soil=soil)
+        if "adjacency_factor" in fields:
+            # W-016.8: the location's own factor decides its slots' neighbourhood from now on (GP-FR-130).
+            self._recompute_adjacency(key)
 
         stored = self._owned_location(key, tenant_key=tenant_key)
         site = self._owned_site(stored.site_key, tenant_key=tenant_key)
@@ -624,6 +642,10 @@ class GardenResourceService:
             # Only the sent parts, merged into the stored value by the repository (#2569): the whole value read
             # above would revert a sun profile the plan batch wrote after this read.
             changes["site_conditions"] = sent_site_parts(now["site_conditions"], patch.site_conditions)
+        lighting = changes.get("lighting")
+        if isinstance(lighting, dict):
+            # Replaced whole (``merge=False``), which keeps a nested ``null``: only the values set are stored (W-016).
+            changes["lighting"] = {name: value for name, value in lighting.items() if value is not None}
         return changes
 
     # ── GP-API-018: the status transition ─────────────────────────────────────
@@ -1106,5 +1128,5 @@ class GardenResourceService:
             raise PlanValidationError(findings)
 
     def _recompute_adjacency(self, location_key: str) -> None:
-        """The adjacency recompute a slot change triggers (GP-API-014, GP-NFR-016)."""
+        """The adjacency recompute a slot change or a changed location factor triggers (GP-API-014, GP-NFR-016)."""
         request_adjacency_recompute(self._dispatch_adjacency, location_key)

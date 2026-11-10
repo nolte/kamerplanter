@@ -652,6 +652,48 @@ describe('LocationDetailPage', () => {
       expect(screen.getByTestId('create-slot-button')).toBeTruthy();
     });
 
+    it('shows the tent rules and the light-schedule hint on a tent page (REQ-053 W-016)', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+          HttpResponse.json({
+            ...summary,
+            is_bed: false,
+            location_type_key: 'tent',
+            supports_layout: true,
+            adjacency_factor: 2,
+            tent_hints: [
+              {
+                code: 'tent.photoperiod_conflict',
+                severity: 'warning',
+                groups: [
+                  { photoperiod_hours: 18, plant_count: 1, phase_names: ['Wachstum'] },
+                  { photoperiod_hours: 12, plant_count: 1, phase_names: ['Blüte'] },
+                ],
+                unknown_plant_count: 0,
+              },
+            ],
+          }),
+        ),
+      );
+      renderPage();
+      expect(await screen.findByTestId('tent-rules-section')).toBeTruthy();
+      expect(screen.getByTestId('tent-hint-photoperiod-conflict')).toHaveTextContent('18 Stunden Licht für 1 Pflanze (Wachstum)');
+      expect(screen.getByRole('spinbutton', { name: 'Nachbarschaftsfaktor' })).toHaveValue(2);
+    });
+
+    it('shows no tent rules for a location without a layout', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+          HttpResponse.json({ ...summary, is_bed: false, supports_layout: false, tent_hints: [] }),
+        ),
+      );
+      renderPage();
+      expect(await screen.findByText('Run Alpha')).toBeTruthy();
+      expect(screen.queryByTestId('tent-rules-section')).toBeNull();
+    });
+
     it('opens a bed on its plan tab by default', async () => {
       useFullLocation();
       server.use(

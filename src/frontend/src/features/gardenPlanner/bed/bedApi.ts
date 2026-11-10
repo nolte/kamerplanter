@@ -7,6 +7,7 @@ import type {
   SiteConditionsPatch,
   SoilProfile,
   SunProfilePatch,
+  TentRulesPatch,
 } from './types';
 import type { SoilAnalysesResponse, SoilAnalysisBody } from './soilAnalysisTypes';
 
@@ -95,6 +96,15 @@ export async function patchRotationSwitch(
     ...(change.rotationEnabled !== undefined ? { rotation_enabled: change.rotationEnabled } : {}),
     ...(change.rotationExempt !== undefined ? { rotation_exempt: change.rotationExempt } : {}),
   });
+  return data;
+}
+
+/**
+ * W-016 (WP 10.11): the location's own neighbourhood factor and its lighting. Only the keys sent are changed; the
+ * lighting is replaced whole, and `null` clears either. A value the server refuses is a 422; the caller shows it.
+ */
+export async function patchTentRules(key: string, patch: TentRulesPatch): Promise<BedPatchResult> {
+  const { data } = await tenantClient.patch<BedPatchResult>(`${LOCATIONS}/${key}`, patch);
   return data;
 }
 

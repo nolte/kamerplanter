@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
 
@@ -13,6 +14,7 @@ from app.domain.models.planting_run import (
     RUN_SOURCES,
     check_row_assignment,
 )
+from app.domain.models.site import MAX_CONTAINER_VOLUME_L
 from app.domain.services.planting_reservation_service import MAX_RESERVED_SLOTS
 
 #: A mixed culture has at most this many species (one run each).
@@ -208,7 +210,11 @@ class MixedCultureRunCreate(BaseModel):
         description="Bed-frame points of a `free` entry (m); each becomes a reserved position of the run.",
     )
     container_volume_l: float | None = Field(
-        default=None, gt=0, allow_inf_nan=False, description="Pot volume of the freely placed positions, in litres."
+        default=None,
+        gt=0,
+        le=MAX_CONTAINER_VOLUME_L,
+        allow_inf_nan=False,
+        description="Pot volume of the freely placed positions, in litres (at most 500).",
     )
 
     @model_validator(mode="after")
@@ -298,6 +304,32 @@ class MixedCultureCreate(BaseModel):
         return self
 
 
+class ContainerVolumeWarningResponse(BaseModel):
+    """A run whose pot is below its species' recommended volume (W-016.5): a warning, the run is created anyway."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "code": "container.volume_below_recommendation",
+                    "run_index": 0,
+                    "species_key": "412",
+                    "container_volume_l": 7.5,
+                    "recommended_container_volume_l": 11.0,
+                }
+            ]
+        }
+    )
+
+    code: Literal["container.volume_below_recommendation"] = "container.volume_below_recommendation"
+    #: Position of the run in the request's `runs`.
+    run_index: int = Field(ge=0)
+    species_key: str
+    container_volume_l: float
+    #: Lower value of the species' `recommended_container_volume_l` range, in litres.
+    recommended_container_volume_l: float
+
+
 class MixedCultureResponse(BaseModel):
     """The runs a mixed-culture request created, in the order of the request."""
 
@@ -328,6 +360,8 @@ class MixedCultureResponse(BaseModel):
     )
 
     runs: list[PlantingRunResponse]
+    #: W-016.5: runs whose `container_volume_l` is below their species' recommendation; they are created anyway.
+    warnings: list[ContainerVolumeWarningResponse] = Field(default_factory=list)
 
 
 class PlantingRunUpdate(BaseModel):
