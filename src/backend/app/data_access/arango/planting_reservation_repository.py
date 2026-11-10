@@ -23,7 +23,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
 
-from app.common.exceptions import NotFoundError, WriteConflictError
+from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.query_builder import aql_field
@@ -138,6 +138,10 @@ _THIN_WRITE = tuple(
 )
 #: Sowing a slot writes the slot's ``sown_at`` under the bed's lock.
 _SOW_WRITE = (col.LOCATIONS, col.SLOTS)
+#: The slot roles that can be sown (§11.3): a position slot holds one planted plant, never sown seed.
+_SOWABLE_ROLES = ("row", "zone")
+#: Thinning re-reads the reservation it was decided on.
+_THIN_READ = (col.RUN_PLANNED_AT,)
 _SOW_READ = (col.PLACED_IN, col.PLANT_INSTANCES)
 
 # ── Queries ──────────────────────────────────────────────────────────────────
@@ -160,10 +164,10 @@ FOR e IN @@edges
     }
 """
 
-#: Sets ``sown_at`` on an unarchived slot of the bed in which none of the tenant's plants stands.
+#: Sets ``sown_at`` on an unarchived row or zone slot of the bed in which none of the tenant's plants stands.
 _MARK_SLOT_SOWN = """
 FOR s IN @@slots
-    FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null
+    FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.slot_role IN @roles
     LET standing = (
         FOR e IN @@placed_in
             FILTER e._to == s._id
@@ -195,13 +199,25 @@ FOR s IN @@slots
     RETURN NEW._key
 """
 
-#: Adds the thinned plants to the run's count and, for a run still ``planned``, starts it.
+#: Adds the thinned plants to the run's count and starts the run only if it is still ``planned`` (decided here, on the
+#: run as the transaction sees it, not on the service's earlier read); ``started`` reports whether it did.
 _COUNT_THINNED_PLANTS = """
 FOR r IN @@runs
     FILTER r._key == @key AND r.tenant_key == @tenant_key AND r.status IN @live
-    UPDATE r WITH MERGE({actual_quantity: (r.actual_quantity || 0) + @added, updated_at: @now}, @activation)
-        IN @@runs
-    RETURN NEW._key
+    UPDATE r WITH MERGE(
+        {actual_quantity: (r.actual_quantity || 0) + @added, updated_at: @now},
+        @activate AND r.status == "planned" ? @activation : {}
+    ) IN @@runs
+    RETURN {key: NEW._key, started: @activate AND OLD.status == "planned"}
+"""
+
+#: The reservation the thinning was decided on, re-read after the bed lock: the run still reserves the slot for the
+#: same entry.
+_RESERVATION_STILL_HELD = """
+FOR e IN @@edges
+    FILTER e._from == @run_id AND e._to == @slot_id AND (e.entry_key == null ? "" : e.entry_key) == @entry_key
+    LIMIT 1
+    RETURN 1
 """
 
 #: The reservations of one run, in the order ``create-plants`` consumes them.
@@ -980,6 +996,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         "location_key": location_key,
                         "tenant_key": tenant_key,
                         "sown_at": sown_at.isoformat(),
+                        "roles": list(_SOWABLE_ROLES),
                         "now": now,
                     },
                 )
@@ -989,14 +1006,40 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
     def thin_sown_slot(self, write: SlotThinningWrite) -> SlotThinningOutcome:
         if not write.tenant_key:
             raise ValueError("thin_sown_slot needs a tenant_key (an empty tenant is no tenant, #2107).")
+        try:
+            return self._thin_sown_slot(write)
+        except (DuplicateError, WriteConflictError) as exc:
+            # An instance id taken since the service read the bed's ids (unique per tenant, #2065) reaches us as 1210
+            # or, depending on how far the winner got, as 1200: the request lost a race, it is not a bad request -
+            # 409, and the transaction wrote nothing (#1458).
+            if isinstance(exc, WriteConflictError):
+                raise
+            raise WriteConflictError("plant_instances", "an instance id was taken concurrently") from None
+
+    def _thin_sown_slot(self, write: SlotThinningWrite) -> SlotThinningOutcome:
         with stream_transaction(
             self._db,
             write=_THIN_WRITE,
+            read=_THIN_READ,
             entity="slot_thinning",
             time_budget_seconds=write.time_budget_seconds,
         ) as txn:
             now = _now()
             self._lock_location(txn, write.location_key, now)
+            run_id = f"{col.PLANTING_RUNS}/{write.run_key}"
+            held = list(
+                txn.aql.execute(
+                    _RESERVATION_STILL_HELD,
+                    bind_vars={
+                        "@edges": col.RUN_PLANNED_AT,
+                        "run_id": run_id,
+                        "slot_id": f"{col.SLOTS}/{write.slot_key}",
+                        "entry_key": write.entry_key,
+                    },
+                )
+            )
+            if not held:
+                raise WriteConflictError("run_planned_at", "the reservation of the slot was released concurrently")
             # Re-read after the lock: the slot must still be the sown, plantless slot the service read.
             cleared = list(
                 txn.aql.execute(
@@ -1014,19 +1057,14 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             )
             if not cleared:
                 raise WriteConflictError("slots", "the slot was thinned, re-sown or removed concurrently")
-            run_id = f"{col.PLANTING_RUNS}/{write.run_key}"
             plant_keys = self._insert_plants(txn, write.plants, run_id, [write.slot_key], now)
-            activation: dict[str, Any] = (
-                {
-                    "status": "active",
-                    "started_at": now,
-                    "current_phase_key": write.run_phase_key,
-                    "current_phase_started_at": now,
-                }
-                if write.activate_run
-                else {}
-            )
-            runs = list(
+            activation: dict[str, Any] = {
+                "status": "active",
+                "started_at": now,
+                "current_phase_key": write.run_phase_key,
+                "current_phase_started_at": write.phase_started_at.isoformat(),
+            }
+            runs: list[dict[str, Any]] = list(
                 txn.aql.execute(
                     _COUNT_THINNED_PLANTS,
                     bind_vars={
@@ -1036,25 +1074,32 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         "added": len(plant_keys),
                         "live": _LIVE_STATUSES,
                         "activation": activation,
+                        "activate": write.activate_run,
                         "now": now,
                     },
                 )
             )
             if not runs:
                 raise WriteConflictError("planting_runs", "the run of the sown slot ended concurrently")
-            if write.activate_run and write.run_history is not None:
+            started = bool(runs[0]["started"])
+            if started and write.run_history is not None:
                 self._insert_history(txn, write.run_history, write.run_key, now)
             # A copy, so the caller's write set keeps the event as it was handed in.
             event = copy.copy(write.event)
             event.plant_keys = plant_keys[:MAX_PLANTS_PER_EVENT]
             stored = write_care_event(txn, event, now)
         logger.info(
-            "slot_thinning.done", location_key=write.location_key, slot_key=write.slot_key, plants=len(plant_keys)
+            "slot_thinning.done",
+            location_key=write.location_key,
+            slot_key=write.slot_key,
+            plants=len(plant_keys),
+            run_started=started,
         )
         return SlotThinningOutcome(
             plant_keys=plant_keys,
             instance_ids=[item.plant.instance_id for item in write.plants],
             care_event_key=stored["_key"],
+            run_started=started,
         )
 
     def _insert_plants(

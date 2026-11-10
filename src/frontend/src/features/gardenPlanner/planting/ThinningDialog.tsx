@@ -27,7 +27,7 @@ import { parseApiError } from '@/api/errors';
 import { useApiError } from '@/hooks/useApiError';
 import { getThinningPlan, thinSlot } from './plantingApi';
 import type { ThinningPlan, ThinningResult } from './plantingTypes';
-import { MAX_THINNING_SPACING_CM, parseDecimal, thinningCount } from './thinningLogic';
+import { MAX_THINNING_SPACING_CM, parseDecimal, spacingExceedsSlot, thinningCount } from './thinningLogic';
 
 interface ThinningDialogProps {
   slotKey: string;
@@ -89,6 +89,16 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
       ? thinningCount(plan.measure_kind, plan.measure_value, spacingValue)
       : null;
   const maxCount = plan?.max_count ?? 0;
+  // One spacing longer than the row (wider than the zone): one seedling stays - allowed, but said (A4).
+  const singleSeedling =
+    plan?.measure_kind != null &&
+    plan.measure_value != null &&
+    spacingValue !== null &&
+    spacingValue > 0 &&
+    countValue === null &&
+    spacingExceedsSlot(plan.measure_kind, plan.measure_value, spacingValue);
+  // A zone's count assumes a square grid of the spacing: a guide value, not a measurement (A5).
+  const zoneEstimate = plan?.measure_kind === 'area' && countValue === null;
   const spacingInvalid =
     spacing.trim() !== '' && (spacingValue === null || spacingValue <= 0 || spacingValue > MAX_THINNING_SPACING_CM);
   const countInvalid =
@@ -225,10 +235,28 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
                 {t('pages.bed.planting.thinning.tooMany', { count: effectiveCount ?? 0, max: maxCount })}
               </Alert>
             ) : null}
+            {singleSeedling && !spacingInvalid ? (
+              <Alert severity="info" data-testid="thinning-single-seedling">
+                {t(
+                  plan.measure_kind === 'area'
+                    ? 'pages.bed.planting.thinning.singleSeedlingZone'
+                    : 'pages.bed.planting.thinning.singleSeedlingRow',
+                )}
+              </Alert>
+            ) : null}
             {effectiveCount !== null && !tooMany ? (
-              <Typography variant="subtitle2" data-testid="thinning-result" aria-live="polite">
-                {t('pages.bed.planting.thinning.result', { count: effectiveCount })}
-              </Typography>
+              <Box aria-live="polite">
+                <Typography variant="subtitle2" data-testid="thinning-result">
+                  {t(zoneEstimate ? 'pages.bed.planting.thinning.resultEstimate' : 'pages.bed.planting.thinning.result', {
+                    count: effectiveCount,
+                  })}
+                </Typography>
+                {zoneEstimate ? (
+                  <Typography variant="body2" color="text.secondary" data-testid="thinning-estimate-note">
+                    {t('pages.bed.planting.thinning.estimateNote')}
+                  </Typography>
+                ) : null}
+              </Box>
             ) : null}
           </>
         ) : null}

@@ -169,3 +169,18 @@ YOUNG_PHASE_NAMES: frozenset[str] = frozenset(
 def is_young_phase(name: str | None) -> bool:
     """True for the phase of a young, establishing plant (:data:`YOUNG_PHASE_NAMES`); ``None`` is not young."""
     return name is not None and core_phase(name) in _YOUNG_CORE
+
+
+def thinned_start_index(names: list[str]) -> int | None:
+    """The phase a thinned seedling starts in (REQ-053 §11.3, W-015), as an index into ``names`` (sequence order).
+
+    Thinning happens after emergence, so the plant does not start in germination: the first phase whose core role is
+    ``seedling``; without one, the first phase that is not ``germination``; with germination only, that phase.
+    ``None`` for an empty list.
+    """
+    if not names:
+        return None
+    roles = [core_phase(name) for name in names]
+    if "seedling" in roles:
+        return roles.index("seedling")
+    return next((index for index, role in enumerate(roles) if role != "germination"), 0)

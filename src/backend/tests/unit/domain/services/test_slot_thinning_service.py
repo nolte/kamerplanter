@@ -9,9 +9,11 @@ the write set handed to the repository. The transaction itself is proven against
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, time, timedelta
+from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from app.common.datetimes import today_utc
 from app.common.enums import PlantingRunStatus, SlotRole, TenantRole
@@ -62,7 +64,8 @@ class TestThinning:
         assert {item.plant.tenant_key for item in write.plants} == {TENANT}
         assert write.event.category == "thinning"
         assert write.event.trigger == "system"
-        assert write.activate_run is True
+        assert world.runs.runs[world.run_key].status is PlantingRunStatus.ACTIVE
+        assert outcome.run_started is True
         slot = next(slot for slot in world.plan.slots if slot.key == "row1")
         assert slot.sown_at is None
 
@@ -72,8 +75,7 @@ class TestThinning:
 
     def test_an_active_run_is_not_started_again(self) -> None:
         world = sown_world(run_status=PlantingRunStatus.ACTIVE)
-        thin(world)
-        assert world.repo.thinning_writes[0].activate_run is False
+        assert thin(world).run_started is False
 
     def test_the_growers_spacing_replaces_the_runs(self) -> None:
         assert len(thin(sown_world(), thinning_to_cm=10.0).plant_keys) == 12
@@ -139,6 +141,77 @@ class TestThinning:
     def test_a_planting_day_before_the_sowing_is_refused(self) -> None:
         with pytest.raises(PlanValidationError):
             thin(sown_world(), planted_on=today_utc() - timedelta(days=60))
+
+
+class TestPhaseAndDays:
+    """Agrobiology review of WP 10.9: the seedling phase from the thinning day; days and spacing within bounds."""
+
+    def _with_phases(self, world, *names: str) -> None:
+        phases = [SimpleNamespace(key=f"gp_{name}", name=name, sequence_order=i) for i, name in enumerate(names)]
+        world.service._phase_repo = SimpleNamespace(
+            get_lifecycle_by_species=lambda species_key: SimpleNamespace(key="lc"),
+            get_phases_by_lifecycle=lambda key: list(reversed(phases)),
+        )
+
+    def test_thinned_plants_start_as_seedlings_on_the_thinning_day(self) -> None:
+        world = sown_world()
+        self._with_phases(world, "germination", "seedling", "vegetative")
+        day = today_utc() - timedelta(days=2)
+        thin(world, planted_on=day)
+        (write,) = world.repo.thinning_writes
+        assert {item.plant.current_phase_key for item in write.plants} == {"gp_seedling"}
+        started = datetime.combine(day, time.min, tzinfo=UTC)
+        assert {item.plant.current_phase_started_at for item in write.plants} == {started}
+        assert {item.history.entered_at for item in write.plants if item.history} == {started}
+        assert write.run_phase_key == "gp_seedling"
+
+    def test_without_a_seedling_phase_the_first_after_germination(self) -> None:
+        world = sown_world()
+        self._with_phases(world, "germination", "vegetative")
+        thin(world)
+        assert {item.plant.current_phase_key for item in world.repo.thinning_writes[0].plants} == {"gp_vegetative"}
+
+    def test_a_thinning_day_in_the_future_is_refused(self) -> None:
+        world = sown_world()
+        with pytest.raises(PlanValidationError) as caught:
+            thin(world, planted_on=today_utc() + timedelta(days=1))
+        assert caught.value.details[0]["code"] == "thinning.planted_in_future"
+        assert world.repo.thinning_writes == []
+
+    def test_a_run_spacing_wider_than_thinning_takes_is_refused(self) -> None:
+        world = sown_world(thinning_to_cm=300.0)
+        with pytest.raises(PlanValidationError) as caught:
+            thin(world)
+        assert caught.value.details[0]["code"] == "thinning.spacing_out_of_range"
+
+    def test_a_request_spacing_above_200_cm_is_invalid(self) -> None:
+        with pytest.raises(ValidationError):
+            SlotThinningInput(thinning_to_cm=250.0)
+
+    def test_a_sowing_two_years_back_is_taken_older_is_not(self) -> None:
+        world = sown_world()
+        world.plan.slots[0] = world.plan.slots[0].model_copy(update={"sown_at": None})
+        world.thinning.mark_sown(
+            "row1", tenant_key=TENANT, role=TenantRole.GROWER, sown_at=today_utc() - timedelta(days=730)
+        )
+        world.plan.slots[0] = world.plan.slots[0].model_copy(update={"sown_at": None})
+        with pytest.raises(PlanValidationError):
+            world.thinning.mark_sown(
+                "row1", tenant_key=TENANT, role=TenantRole.GROWER, sown_at=today_utc() - timedelta(days=731)
+            )
+
+    def test_a_reservation_released_meanwhile_is_a_conflict(self) -> None:
+        world = sown_world()
+        original = world.repo.thin_sown_slot
+
+        def released_first(write):
+            world.repo.reservations.clear()
+            return original(write)
+
+        world.repo.thin_sown_slot = released_first
+        with pytest.raises(PlanError) as caught:
+            thin(world)
+        assert caught.value.status_code == 409
 
 
 class TestSowing:

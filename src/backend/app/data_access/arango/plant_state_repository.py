@@ -84,8 +84,13 @@ FOR s IN @@slots
     SORT s._key ASC
     LIMIT @max
     LET entry = reservation.entry_key == null ? null : DOCUMENT(@entries, reservation.entry_key)
-    LET species = reservation.species_key == null ? null : DOCUMENT(@species, reservation.species_key)
-    LET cultivar = entry == null OR entry.cultivar_key == null ? null : DOCUMENT(@cultivars, entry.cultivar_key)
+    LET stored_species = reservation.species_key == null ? null : DOCUMENT(@species, reservation.species_key)
+    // Names only of a species the tenant may read (global or its own, the hybrid union): a legacy entry may still
+    // name another tenant's private species (#1963), and the answer must not carry its names.
+    LET species = stored_species != null AND stored_species.tenant_key IN [null, "", @tenant_key]
+        ? stored_species : null
+    LET cultivar = species == null OR entry == null OR entry.cultivar_key == null
+        ? null : DOCUMENT(@cultivars, entry.cultivar_key)
     RETURN {
         slot_key: s._key,
         slot_id: s.slot_id,

@@ -276,6 +276,10 @@ class QuickPlantingResult:
 
 # ── Thinning a sown row or zone (REQ-053 §11.3 "gesät", §12 ``thinning``, W-015) ──
 
+#: The widest spacing a sown crop is thinned to (cm). Thinning is for direct-sown vegetables and herbs; anything
+#: spaced wider is planted, not thinned (agrobiology review of WP 10.9). The run entry itself takes up to 1 500 cm.
+MAX_THINNING_SPACING_CM = 200.0
+
 
 class SlotThinningInput(BaseModel):
     """What the grower says when thinning a sown slot (``POST /slots/{key}/thinning``).
@@ -287,7 +291,7 @@ class SlotThinningInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_SPACING_CM)
+    thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_THINNING_SPACING_CM)
     count: int | None = Field(default=None, ge=1, le=QUICK_PLANTING_MAX_QUANTITY)
     planted_on: date | None = None
 
@@ -321,20 +325,26 @@ class SlotThinningWrite:
     """The plants a thinned slot gets, its cleared ``sown_at`` and the ``thinning`` care event — one transaction.
 
     ``sown_at`` is the day the service read: a slot thinned or re-sown in between no longer matches and the write
-    is refused (409). ``activate_run`` is set when the run was still ``planned``: the run turns ``active``.
+    is refused (409), and so is a slot whose reservation by ``run_key`` / ``entry_key`` was released meanwhile. A run
+    still ``planned`` when the transaction reaches it turns ``active`` with ``run_phase_key`` and ``run_history``.
     """
 
     location_key: str
     slot_key: str
     sown_at: date
     run_key: str
+    entry_key: str
     tenant_key: str
     plants: list[QuickPlantedPlant]
     #: The ``thinning`` event without its plants — the repository names the ones it created.
     event: CareEvent
+    #: When the plants' (and a started run's) phase began: the thinning day.
+    phase_started_at: datetime
     run_history: PhaseHistory | None = None
     run_phase_key: str | None = None
-    activate_run: bool = False
+    #: Start the run if it is still ``planned`` when the transaction reaches it (decided there, not on the service's
+    #: read); ``False`` leaves the run's status alone.
+    activate_run: bool = True
     time_budget_seconds: float = RESERVATION_TIME_BUDGET_SECONDS
 
 
@@ -343,3 +353,5 @@ class SlotThinningOutcome:
     plant_keys: list[str]
     instance_ids: list[str]
     care_event_key: str
+    #: The run was still ``planned`` and the thinning started it.
+    run_started: bool = False

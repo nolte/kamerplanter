@@ -204,7 +204,9 @@ def remove_manual_adjacency(
     response_model=SlotResponse,
     responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
 )
+@limiter.limit(settings.rate_limit_bed_actions, key_func=user_rate_limit_key)
 def sow_slot(
+    request: Request,
     key: Annotated[str, Path(description="Document key of the row or zone slot.")],
     body: SlotSowingRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
@@ -213,8 +215,8 @@ def sow_slot(
     """Record the direct sowing of a `row`/`zone` slot a live run of the tenant reserves (grower and up).
 
     The slot shows as *sown* until it is thinned. 422 `slot.not_sowable` for a position slot, `thinning.no_run` when no
-    run reserves it, `slot.sown_in_future` / `slot.sown_too_long_ago` for the day; 409 `slot.occupied` when plants
-    stand in it.
+    run reserves it, `slot.sown_in_future` / `slot.sown_too_long_ago` (more than 730 days back) for the day;
+    409 `slot.occupied` when plants stand in it.
     """
     slot = service.mark_sown(key, tenant_key=ctx.tenant_key, role=ctx.role, sown_at=body.sown_at)
     return to_response(slot, SlotResponse)
@@ -252,8 +254,10 @@ def thin_slot(
     """Thin the sown slot into plants of its run (grower and up): `sown_at` is cleared, a `thinning` event logged.
 
     The count is `count`, else the slot's length (row) or area (zone) divided by `thinning_to_cm` — the request's,
-    else the run's. Without either: 422 `thinning.spacing_required`. At most 500 plants (422 `plan.quota_exceeded`);
-    409 when plants stand in the slot or it changed meanwhile.
+    else the run's (at most 200 cm, else 422 `thinning.spacing_out_of_range`). Without either: 422
+    `thinning.spacing_required`; a thinning day in the future is 422 `thinning.planted_in_future`. At most 500 plants
+    (422 `plan.quota_exceeded`); 409 when plants stand in the slot, its reservation was released or it changed
+    meanwhile.
     """
     outcome = service.thin_slot(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, request=body)
     return SlotThinningResponse(

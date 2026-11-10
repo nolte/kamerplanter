@@ -7,6 +7,7 @@ from app.domain.engines.phase_role_map import (
     ec_phase,
     is_productive_phase,
     is_rest_phase,
+    thinned_start_index,
 )
 
 
@@ -68,3 +69,28 @@ def test_ec_phase_always_returns_a_valid_phase_name() -> None:
 
 def test_ec_phase_defaults_an_unknown_phase_to_vegetative() -> None:
     assert ec_phase("some_unknown_phase") == "vegetative"
+
+
+class TestThinnedStartIndex:
+    """REQ-053 W-015: a thinned seedling has emerged - it starts after germination, at the seedling phase."""
+
+    def test_the_seedling_phase_wins(self) -> None:
+        assert thinned_start_index(["germination", "seedling", "vegetative"]) == 1
+
+    def test_an_extended_seedling_role_counts(self) -> None:
+        assert thinned_start_index(["germination", "establishment", "vegetative"]) == 1
+
+    def test_the_seedling_phase_wins_over_an_earlier_rooting_phase(self) -> None:
+        assert thinned_start_index(["germination", "rooting", "seedling", "vegetative"]) == 2
+
+    def test_without_a_seedling_phase_the_first_after_germination(self) -> None:
+        assert thinned_start_index(["germination", "vegetative", "flowering"]) == 1
+
+    def test_without_germination_the_first_phase(self) -> None:
+        assert thinned_start_index(["vegetative", "flowering"]) == 0
+
+    def test_germination_only_stays_there(self) -> None:
+        assert thinned_start_index(["germination"]) == 0
+
+    def test_no_phases_no_index(self) -> None:
+        assert thinned_start_index([]) is None

@@ -128,6 +128,7 @@ def world(database):
         thinning=SlotThinningService(sites, reservation_repo, run_repo, runs, care, ArangoSpeciesRepository(db)),
         states=PlantStateService(sites, ArangoPlantStateRepository(db)),
         reservations=reservations,
+        reservation_repo=reservation_repo,
     )
 
 
@@ -201,3 +202,103 @@ def test_another_tenant_reaches_neither_the_slot_nor_its_sown_state(world) -> No
     # the read below the service filters on the reserving run's tenant as well
     assert ArangoPlantStateRepository(world.db).list_sown_slots("bed", tenant_key=B) == []
     assert list(world.db.collection(col.PLANT_INSTANCES).all()) == []
+
+
+def _thin(world):
+    return world.thinning.thin_slot(
+        "row1", tenant_key=A, user_key=USER, role=TenantRole.GROWER, request=SlotThinningInput()
+    )
+
+
+def _before_the_write(world, monkeypatch, step) -> None:
+    """Run ``step`` after the service decided and before the transaction: what a concurrent writer does."""
+    original = world.reservation_repo.thin_sown_slot
+
+    def racing(write):
+        step()
+        return original(write)
+
+    monkeypatch.setattr(world.reservation_repo, "thin_sown_slot", racing)
+
+
+def test_a_reservation_released_between_read_and_write_is_a_conflict(world, monkeypatch) -> None:
+    """SEC-001: the transaction re-reads the run's reservation of the slot after the bed lock."""
+    sow(world)
+    _before_the_write(world, monkeypatch, lambda: world.db.collection(col.RUN_PLANNED_AT).truncate())
+
+    with pytest.raises(PlanError) as caught:
+        _thin(world)
+
+    assert caught.value.status_code == 409
+    assert list(world.db.collection(col.PLANT_INSTANCES).all()) == []
+    assert world.db.collection(col.SLOTS).get("row1")["sown_at"] is not None
+
+
+def test_a_run_started_meanwhile_is_not_started_again(world, monkeypatch) -> None:
+    """SEC-002: the activation is decided on the run the transaction sees, and only then a run phase row is written."""
+    sow(world)
+
+    def start_run() -> None:
+        world.db.collection(col.PLANTING_RUNS).update({"_key": world.run_key, "status": "active"})
+
+    _before_the_write(world, monkeypatch, start_run)
+
+    outcome = _thin(world)
+
+    assert outcome.run_started is False
+    run = world.db.collection(col.PLANTING_RUNS).get(world.run_key)
+    assert run.get("started_at") is None  # the started run is not re-stamped
+    owners = {row["plant_instance_key"] for row in world.db.collection(col.PHASE_HISTORIES).all()}
+    assert world.run_key not in owners
+
+
+def test_a_planned_run_is_started_once(world) -> None:
+    sow(world)
+    outcome = _thin(world)
+    assert outcome.run_started is True
+    run = world.db.collection(col.PLANTING_RUNS).get(world.run_key)
+    assert run["status"] == "active"
+
+
+def test_an_instance_id_taken_meanwhile_is_a_conflict_not_a_500(world, monkeypatch) -> None:
+    """SEC-003: the per-tenant unique instance id, taken after the ids were chosen, answers 409 and writes nothing."""
+    sow(world)
+
+    def take_the_first_id() -> None:
+        world.db.collection(col.PLANT_INSTANCES).insert(
+            {"_key": "squatter", "tenant_key": A, "instance_id": "bed_DAU_01", "species_key": "sp_carrot"}
+        )
+
+    _before_the_write(world, monkeypatch, take_the_first_id)
+
+    with pytest.raises(PlanError) as caught:
+        _thin(world)
+
+    assert caught.value.status_code == 409
+    assert [p["_key"] for p in world.db.collection(col.PLANT_INSTANCES).all()] == ["squatter"]
+    assert world.db.collection(col.SLOTS).get("row1")["sown_at"] is not None
+
+
+def test_a_foreign_private_species_lends_the_sown_slot_no_name(world) -> None:
+    """SEC-005: the sown entry names only a species the tenant may read (global or its own)."""
+    world.db.collection(col.SPECIES).insert(
+        {"_key": "sp_secret", "scientific_name": "Secretus privatus", "common_names": ["Secret"], "tenant_key": B}
+    )
+    world.db.aql.execute(
+        "FOR e IN @@edges UPDATE e WITH {planned_species_key: 'sp_secret'} IN @@edges",
+        bind_vars={"@edges": col.RUN_PLANNED_AT},
+    )
+    sow(world)
+
+    (sown,) = ArangoPlantStateRepository(world.db).list_sown_slots("bed", tenant_key=A)
+
+    assert sown.species_key == "sp_secret"
+    assert (sown.species_name, sown.scientific_name, sown.cultivar_name) == (None, None, None)
+
+
+def test_a_position_slot_is_never_marked_sown_by_the_repository(world) -> None:
+    """SEC-006: the write itself is limited to rows and zones, not only the service's check."""
+    world.db.collection(col.SLOTS).update({"_key": "row1", "slot_role": "position"})
+
+    assert not world.reservation_repo.mark_slot_sown("bed", "row1", sown_at=today_utc(), tenant_key=A)
+    assert world.db.collection(col.SLOTS).get("row1").get("sown_at") is None

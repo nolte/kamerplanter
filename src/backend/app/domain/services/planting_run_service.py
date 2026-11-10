@@ -21,6 +21,7 @@ from app.domain.calculators.planting_layout_calculator import check_disjoint_row
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.phase_role_map import thinned_start_index
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
 from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
@@ -129,11 +130,33 @@ class PlantingRunService:
 
         return "", ""
 
-    def initial_phase_of(self, species_key: str) -> tuple[str, str]:
-        """``(phase_key, phase_name)`` a new plant of the species starts in; ``("", "")`` without phase data.
+    def thinning_phase_of(self, species_key: str) -> tuple[str, str]:
+        """``(phase_key, phase_name)`` a thinned seedling of the species starts in; ``("", "")`` without phase data.
 
-        The rule of :meth:`create_plants`, for a caller that creates plants of a run itself (thinning, W-015)."""
-        return self._resolve_initial_phase(species_key)
+        Same sources as :meth:`_resolve_initial_phase` (phase sequence first, lifecycle second), but not the first
+        phase: thinning follows emergence, so :func:`~app.domain.engines.phase_role_map.thinned_start_index` picks
+        the seedling phase (W-015)."""
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                entries = sorted(
+                    self._phase_seq_repo.get_entries_for_sequence(seq.key or ""), key=lambda e: e.sequence_order
+                )
+                if entries:
+                    definitions = [self._phase_seq_repo.get_definition_by_key(e.phase_definition_key) for e in entries]
+                    names = [d.name if d else "" for d in definitions]
+                    index = thinned_start_index(names) or 0
+                    return entries[index].key or "", names[index]
+        if self._phase_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle:
+                phases = sorted(
+                    self._phase_repo.get_phases_by_lifecycle(lifecycle.key or ""), key=lambda gp: gp.sequence_order
+                )
+                if phases:
+                    index = thinned_start_index([gp.name for gp in phases]) or 0
+                    return phases[index].key or "", phases[index].name
+        return "", ""
 
     def care_profile_bootstrap(self, plants: list[PlantInstance]) -> None:
         """REQ-022 — the care profile of each stored plant, best-effort per plant as :meth:`create_plants` does.

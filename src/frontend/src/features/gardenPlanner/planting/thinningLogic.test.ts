@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { PlantingItem } from './plantingTypes';
-import { failedSlots, isSowable, parseDecimal, thinningCount } from './thinningLogic';
+import { failedSlots, isSowable, parseDecimal, spacingExceedsSlot, thinningCount } from './thinningLogic';
 
 describe('thinningCount', () => {
   it('holds one plant per spacing along a row', () => {
@@ -27,6 +27,15 @@ describe('thinningCount', () => {
     expect(thinningCount('length', 1.0, 0)).toBeNull();
     expect(thinningCount('length', 1.0, -5)).toBeNull();
     expect(thinningCount('length', 1.0, Number.NaN)).toBeNull();
+  });
+});
+
+describe('spacingExceedsSlot', () => {
+  it('tells when one spacing is longer than the row or wider than the zone', () => {
+    expect(spacingExceedsSlot('length', 0.3, 40)).toBe(true);
+    expect(spacingExceedsSlot('length', 1.2, 5)).toBe(false);
+    expect(spacingExceedsSlot('area', 0.04, 25)).toBe(true);
+    expect(spacingExceedsSlot('area', 1.0, 10)).toBe(false);
   });
 });
 
@@ -79,8 +88,8 @@ describe('failedSlots', () => {
     ]);
   });
 
-  it('counts senesced as failed, a harvest not', () => {
-    expect(failedSlots([died('s1', '2026-06-01', { termination_type: 'senesced' })])).toHaveLength(1);
+  it('offers a replant only after a plant died - not after it senesced or was harvested', () => {
+    expect(failedSlots([died('s1', '2026-06-01', { termination_type: 'senesced' })])).toEqual([]);
     expect(failedSlots([died('s1', '2026-06-01', { state: 'harvested', termination_type: 'harvested' })])).toEqual([]);
   });
 

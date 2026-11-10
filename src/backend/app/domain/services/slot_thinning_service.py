@@ -20,12 +20,12 @@ grower role (403 for a viewer), checked here as well as at the route.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 
 import structlog
 
 from app.common.datetimes import today_utc
-from app.common.enums import PlantingRunStatus, TenantRole
+from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, WriteConflictError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.calculators.thinning_calculator import SOWABLE_ROLES, sown_measure, thinning_count
@@ -40,6 +40,7 @@ from app.domain.models.care_event import CareEventInput, CareEventOrigin
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import (
+    MAX_THINNING_SPACING_CM,
     QUICK_PLANTING_MAX_QUANTITY,
     QuickPlantedPlant,
     SlotThinningInput,
@@ -58,8 +59,9 @@ logger = structlog.get_logger()
 
 #: The summary of the ``thinning`` care event; data, not prose (no user text).
 THINNING_SUMMARY = "Thinned slot {slot_id} to {count} plants"
-#: A sowing day may lie this many days back: a sowing of last season is no sowing of this slot's crop.
-MAX_SOWING_AGE_DAYS = 365
+#: A sowing day may lie this many days back: two years cover an overwintering or biennial direct sowing recorded late
+#: (agrobiology review of WP 10.9); older is no sowing of this slot's crop.
+MAX_SOWING_AGE_DAYS = 730
 
 ERROR_NOT_SOWABLE = "slot.not_sowable"
 ERROR_NOT_SOWN = "slot.not_sown"
@@ -70,6 +72,8 @@ ERROR_NO_MEASURE = "thinning.no_measure"
 ERROR_TOO_MANY = "plan.quota_exceeded"
 ERROR_SOWN_IN_FUTURE = "slot.sown_in_future"
 ERROR_SOWN_TOO_LONG_AGO = "slot.sown_too_long_ago"
+ERROR_PLANTED_IN_FUTURE = "thinning.planted_in_future"
+ERROR_SPACING_RANGE = "thinning.spacing_out_of_range"
 
 
 class SlotThinningService:
@@ -100,7 +104,7 @@ class SlotThinningService:
             ForbiddenError: a viewer (403).
             NotFoundError: the slot is not the tenant's (404).
             PlanError: the slot is a position (422 ``slot.not_sowable``), plants stand in it (409 ``slot.occupied``).
-            PlanValidationError: the day lies in the future or more than a year back (422).
+            PlanValidationError: the day lies in the future or more than two years back (422).
         """
         self._require_editor(role)
         slot, location = resolve_owned_slot(self._sites, slot_key, tenant_key)
@@ -175,13 +179,18 @@ class SlotThinningService:
         reservation = self._live_reservation(slot, tenant_key)
         run, entry = self._run_and_entry(reservation, tenant_key)
         count = self._count_of(slot, entry, request)
-        planted_on = request.planted_on or today_utc()
+        today = today_utc()
+        planted_on = request.planted_on or today
         if planted_on < sown_at:
             raise PlanValidationError([(None, "planted_on", "thinning.before_sowing", {})])
+        if planted_on > today:
+            raise PlanValidationError([(None, "planted_on", ERROR_PLANTED_IN_FUTURE, {})])
 
         now = datetime.now(UTC)
         location_key = location.key or slot.location_key
-        phase_key, phase_name = self._run_service.initial_phase_of(entry.species_key)
+        # The seedlings left standing have emerged: they start in the phase after germination, on the thinning day.
+        phase_key, phase_name = self._run_service.thinning_phase_of(entry.species_key)
+        phase_started_at = datetime.combine(planted_on, time.min, tzinfo=UTC)
         # The plants to store: ids of the entry's prefix free at the bed, the run's crop, the first phase.
         existing = self._runs.get_existing_ids_at_location(location_key)
         sized = PlantingRunEntry(
@@ -198,12 +207,12 @@ class SlotThinningService:
                 slot_key=slot.key,
                 planted_on=planted_on,
                 current_phase_key=phase_key or None,
-                current_phase_started_at=now,
+                current_phase_started_at=phase_started_at,
             )
             for spec in self._engine.generate_plant_ids(location_key, [sized], existing)
         ]
         drafts = [
-            QuickPlantedPlant(plant=plant, slot_index=0, history=_history_of(phase_key, phase_name, now))
+            QuickPlantedPlant(plant=plant, slot_index=0, history=_history_of(phase_key, phase_name, phase_started_at))
             for plant in plants
         ]
         event = self._care_events.build_event(
@@ -218,7 +227,6 @@ class SlotThinningService:
             role=role,
             origin=CareEventOrigin(trigger="system"),
         )
-        activate = run.status is PlantingRunStatus.PLANNED
         try:
             outcome = self._reservations.thin_sown_slot(
                 SlotThinningWrite(
@@ -226,12 +234,13 @@ class SlotThinningService:
                     slot_key=slot.key or slot_key,
                     sown_at=sown_at,
                     run_key=reservation.run_key,
+                    entry_key=reservation.entry_key,
                     tenant_key=tenant_key,
                     plants=drafts,
                     event=event,
-                    run_history=_history_of(phase_key, phase_name, now) if activate else None,
+                    phase_started_at=phase_started_at,
+                    run_history=_history_of(phase_key, phase_name, phase_started_at),
                     run_phase_key=phase_key or None,
-                    activate_run=activate,
                 )
             )
         except WriteConflictError:
@@ -245,7 +254,7 @@ class SlotThinningService:
             slot_key=slot.key or slot_key,
             run_key=reservation.run_key,
             plants=len(outcome.plant_keys),
-            run_started=activate,
+            run_started=outcome.run_started,
         )
         return outcome
 
@@ -314,6 +323,10 @@ class SlotThinningService:
             spacing = request.thinning_to_cm if request.thinning_to_cm is not None else entry.thinning_to_cm
             if spacing is None:
                 raise PlanValidationError([(None, "thinning_to_cm", ERROR_SPACING_REQUIRED, {})])
+            if not 0 < spacing <= MAX_THINNING_SPACING_CM:
+                raise PlanValidationError(
+                    [(None, "thinning_to_cm", ERROR_SPACING_RANGE, {"max": MAX_THINNING_SPACING_CM})]
+                )
             measure = sown_measure(slot.slot_role, slot.geometry)
             if measure is None:
                 raise PlanValidationError([(None, "count", ERROR_NO_MEASURE, {})])

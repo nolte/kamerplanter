@@ -103,6 +103,44 @@ describe('ThinningDialog', () => {
     expect(posts).toEqual([{ count: 7, planted_on: expect.any(String) }]);
   });
 
+  it('marks the count of a zone as a guide value (square grid)', async () => {
+    useBackend(plan({ slot_role: 'zone', measure_kind: 'area', measure_value: 0.5, thinning_to_cm: 10, suggested_count: 50 }));
+    renderDialog();
+    expect(await screen.findByTestId('thinning-result')).toHaveTextContent('Guide value: 50 plants');
+    expect(screen.getByTestId('thinning-estimate-note')).toHaveTextContent('square grid');
+  });
+
+  it('a row count is not called a guide value', async () => {
+    useBackend(plan());
+    renderDialog();
+    expect(await screen.findByTestId('thinning-result')).not.toHaveTextContent('Guide value');
+    expect(screen.queryByTestId('thinning-estimate-note')).toBeNull();
+  });
+
+  it('says so when one spacing is longer than the row', async () => {
+    useBackend(plan({ measure_value: 0.3 }));
+    const user = userEvent.setup();
+    renderDialog();
+    const spacing = await screen.findByTestId('thinning-spacing');
+    expect(screen.queryByTestId('thinning-single-seedling')).toBeNull();
+    await user.clear(spacing);
+    await user.type(spacing, '40');
+    expect(screen.getByTestId('thinning-single-seedling')).toBeInTheDocument();
+    expect(screen.getByTestId('thinning-result')).toHaveTextContent('1 plant');
+  });
+
+  it('refuses a spacing above 200 cm and sends nothing', async () => {
+    const posts = useBackend(plan());
+    const user = userEvent.setup();
+    renderDialog();
+    const spacing = await screen.findByTestId('thinning-spacing');
+    await user.clear(spacing);
+    await user.type(spacing, '250');
+    await user.click(screen.getByTestId('thinning-submit'));
+    expect(screen.getByText(/at most 200 cm/)).toBeInTheDocument();
+    expect(posts).toEqual([]);
+  });
+
   it('has no accessibility violations', async () => {
     useBackend(plan());
     renderDialog();

@@ -7974,7 +7974,12 @@
           "result_other": "Es werden {{count}} Pflanzen erfasst.",
           "submit": "Vereinzeln",
           "done_one": "Vereinzelt: {{count}} Pflanze erfasst.",
-          "done_other": "Vereinzelt: {{count}} Pflanzen erfasst."
+          "done_other": "Vereinzelt: {{count}} Pflanzen erfasst.",
+          "singleSeedlingRow": "Der Abstand ist länger als die Reihe – es bleibt nur ein Sämling stehen. Prüfe, ob der Abstand stimmt.",
+          "singleSeedlingZone": "Der Abstand ist größer als die Fläche – es bleibt nur ein Sämling stehen. Prüfe, ob der Abstand stimmt.",
+          "resultEstimate_one": "Richtwert: {{count}} Pflanze wird erfasst.",
+          "resultEstimate_other": "Richtwert: {{count}} Pflanzen werden erfasst.",
+          "estimateNote": "Bei einer Fläche ist die Anzahl ein Richtwert, berechnet unter der Annahme, dass die Sämlinge in einem gleichmäßigen Quadratraster im angegebenen Abstand stehen. Weicht das ab, gib die tatsächliche Anzahl ein."
         }
       },
       "photos": {

@@ -13,7 +13,8 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.enums import PlantingRunStatus
+from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.slot_reservation_engine import (
     LIVE_RUN_STATUSES,
@@ -241,8 +242,19 @@ class FakeReservationRepo(IPlantingReservationRepository):
 
     def thin_sown_slot(self, write: SlotThinningWrite) -> SlotThinningOutcome:
         """Apply the write as the Arango transaction does: the slot loses ``sown_at``, the plants stand in it."""
+        if not any(
+            r.slot_key == write.slot_key and r.run_key == write.run_key and r.entry_key == write.entry_key
+            for r in self.reservations
+        ):
+            raise WriteConflictError("run_planned_at", "the reservation of the slot was released concurrently")
         self.thinning_writes.append(write)
         self._plan.care_events.append(write.event)
+        started = False
+        if self.run_sink is not None and write.run_key in self.run_sink.runs:
+            run = self.run_sink.runs[write.run_key]
+            started = run.status == "planned"
+            if started:
+                self.run_sink.runs[write.run_key] = run.model_copy(update={"status": PlantingRunStatus.ACTIVE})
         keys: list[str] = []
         for index, slot in enumerate(self._plan.slots):
             if slot.key == write.slot_key:
@@ -255,7 +267,10 @@ class FakeReservationRepo(IPlantingReservationRepository):
                 ActivePlant(slot_key=write.slot_key, plant_key=key, run_key=write.run_key, expected_end=None)
             )
         return SlotThinningOutcome(
-            plant_keys=keys, instance_ids=[item.plant.instance_id for item in write.plants], care_event_key="ce_thin"
+            plant_keys=keys,
+            instance_ids=[item.plant.instance_id for item in write.plants],
+            care_event_key="ce_thin",
+            run_started=started,
         )
 
 

@@ -13,10 +13,19 @@ import type { FailedPlanting, PlantingItem } from './plantingTypes';
 
 /** Decimals a quotient is rounded to before the floor (1.0 m / 10 cm is 10 plants, not 9). */
 const FLOOR_DECIMALS = 6;
-/** The largest spacing a run entry takes (cm, `MAX_SPACING_CM`). */
-export const MAX_THINNING_SPACING_CM = 1500;
-/** `termination_type` values that count as a failure (§11.3 "ausgefallen"), as in `model/plantState.ts`. */
-const FAILED_TERMINATIONS: ReadonlySet<string> = new Set(['died', 'senesced']);
+/** The widest spacing a sown crop is thinned to (cm, `MAX_THINNING_SPACING_CM` of the server). */
+export const MAX_THINNING_SPACING_CM = 200;
+/**
+ * A slot is offered for a replant only when its plant died. A senesced plant ended its natural life (an annual at the
+ * end of its season): that is no failure to make good (agrobiology review of WP 10.9).
+ */
+const REPLANT_TERMINATIONS: ReadonlySet<string> = new Set(['died']);
+
+/** Whether a single spacing is longer than the row or wider than the zone: then one seedling stays. */
+export function spacingExceedsSlot(kind: 'length' | 'area', value: number, spacingCm: number): boolean {
+  const spacingM = spacingCm / 100;
+  return kind === 'length' ? spacingM > value : spacingM * spacingM > value;
+}
 
 export function thinningCount(kind: 'length' | 'area', value: number, spacingCm: number): number | null {
   if (!(spacingCm > 0) || !(value > 0)) return null;
@@ -40,7 +49,7 @@ export function isSowable(item: PlantingItem): boolean {
 }
 
 /**
- * The failed slots of a bed (§11.3 "ausgefallen"): a slot whose newest plant died or senesced and in which nothing
+ * The failed slots of a bed (§11.3 "ausgefallen"): a slot whose newest plant died and in which nothing
  * stands or is planned now — the slot is free for a replant. One line per slot, the newest failure.
  */
 export function failedSlots(items: readonly PlantingItem[]): FailedPlanting[] {
@@ -58,7 +67,7 @@ export function failedSlots(items: readonly PlantingItem[]): FailedPlanting[] {
     if (!current || (item.removed_on ?? '') > (current.removed_on ?? '')) newest.set(item.slot_key, item);
   }
   return [...newest.values()]
-    .filter((item) => item.termination_type != null && FAILED_TERMINATIONS.has(item.termination_type))
+    .filter((item) => item.termination_type != null && REPLANT_TERMINATIONS.has(item.termination_type))
     .map((item) => ({
       slotKey: item.slot_key as string,
       slotId: item.slot_id ?? '',
