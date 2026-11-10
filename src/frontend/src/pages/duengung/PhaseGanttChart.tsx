@@ -13,6 +13,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
 import type { NutrientPlanPhaseEntry, Fertilizer, PhaseName } from '@/api/types';
 import { MONTH_WEEK_SPANS, getShortMonthName } from '@/utils/weekCalculation';
+import type { Translate } from '@/i18n/translate';
 
 /** Map week number (1-52) → month index for boundary detection. */
 const weekToMonth = new Map<number, number>();
@@ -480,7 +481,7 @@ function PhaseRow({
   labelWidth: number;
   onToggle: (key: string) => void;
   getFertilizerName: (key: string) => string;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   theme: Theme;
   weekOffset?: number;
   weekLabel?: string;
@@ -709,7 +710,7 @@ function ChannelSubRow({
   totalWeeks: number;
   labelWidth: number;
   getFertilizerName: (key: string) => string;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   theme: Theme;
   weekOffset?: number;
   monthSnap?: boolean;

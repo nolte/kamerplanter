@@ -30,6 +30,7 @@ import type {
   SpeciesPhaseTimeline,
 } from '@/api/types';
 import type { RunNutrientData, ChannelGroup } from '@/hooks/useRunNutrientData';
+import type { Translate } from '@/i18n/translate';
 
 interface PlantingRunDetailsTabProps {
   run: PlantingRun;
@@ -71,7 +72,7 @@ function ChannelCard({
   dosageMode: 'per_liter' | 'total';
   volumeLiters: number;
   volumeLabel: string;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
 }) {
   return (
     <Card variant="outlined" sx={{ flex: '1 1 300px' }}>

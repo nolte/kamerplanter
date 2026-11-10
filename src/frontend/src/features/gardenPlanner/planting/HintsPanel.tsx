@@ -15,6 +15,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import type { Translate } from '@/i18n/translate';
 import type { HintState, MixPair } from './useBedHints';
 import SiteAxisHints from './SiteAxisHints';
 import SiteFitHint from './SiteFitHint';
@@ -77,7 +78,7 @@ interface HintsPanelProps {
 
 function findingText(
   finding: RotationFinding,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: Translate,
 ): string {
   // The server names the family (`family_name`). A family without a name is left out of the sentence: the database
   // key is never shown to the grower as if it were a name.
@@ -106,7 +107,7 @@ function findingText(
 function neighbourText(
   hint: NeighbourHint,
   names: ReadonlyMap<string, string>,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: Translate,
 ): string {
   const name = names.get(hint.species_key) ?? hint.species_key;
   if (hint.code === 'companion.incompatible') {

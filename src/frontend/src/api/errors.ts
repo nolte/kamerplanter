@@ -1,3 +1,4 @@
+import type { Translate } from '@/i18n/translate';
 import type { ApiErrorResponse, ApiErrorDetail } from './types';
 
 export class ApiError extends Error {
@@ -200,8 +201,6 @@ const STEP_UP_REAUTH_CALLBACK_ERROR_KEYS: Readonly<Record<string, string>> = {
 export function normalizeStepUpReauthCallbackError(code: string | null | undefined): string {
   return code && Object.prototype.hasOwnProperty.call(STEP_UP_REAUTH_CALLBACK_ERROR_KEYS, code) ? code : 'step_up_failed';
 }
-
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /**
  * The message a step-up surface shows for a failed confirmation.

@@ -154,7 +154,11 @@ export default function SiteConditionsFields({
   const sides = value.access_sides ?? [];
   const flags = value.flags ?? [];
   const labelled = <T extends string>(values: readonly T[], enumName: string) =>
-    values.map((option) => ({ value: option, label: t(`enums.${enumName}.${option}`) }));
+    values.map((option) => {
+      // Widened to `string`: i18next 27 rejects a key whose type still holds the generic `T`.
+      const key: string = `enums.${enumName}.${option}`;
+      return { value: option, label: t(key) };
+    });
   const coldHelpId = `${name}-cold-help`;
 
   return (

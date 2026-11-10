@@ -22,6 +22,7 @@ import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import type { Fertilizer, FertilizerDosage } from '@/api/types';
+import type { Translate } from '@/i18n/translate';
 
 export interface DosageEntry {
   fertilizer_key: string;
@@ -213,7 +214,7 @@ interface AddDialogProps {
   onClose: () => void;
   onSave: (data: DosageEntry[]) => void;
   fullScreen: boolean;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
   fertilizers: Fertilizer[];
   existingFertilizerKeys: string[];
 }
