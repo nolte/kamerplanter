@@ -53,7 +53,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
   Residue-Scan für Kontolöschung (PRIV-234).
 - **Akzeptanz**: TA-200, TA-102/208, TA-238. **Gate**: ja (schutzverstärkend). **LEG**: LEG-15 (Verknüpfbarkeit; Default B).
 
-#### PRIV-E04 · chore(migrations): v0108 tombstone copies → marker, plan-audit actor → marker, anonymised attachments' file names; minimal consistency beat
+#### PRIV-E04 · chore(migrations): v0109 tombstone copies → marker, plan-audit actor → marker, anonymised attachments' file names; minimal consistency beat
 - **Scope**: `09` §3 (Rest nach v0107/#2839: `created_by`, `anon2_`, Plan-Audit, Dateinamen) mit Phasen
   `precheck/dry_run/apply/verify` (PRIV-718); Inventaränderungen (`garden_plan_audit` Marker
   DEC-16; `attachments.clear_fields += original_filename`); `migration_reports` + `--report-out` (PRIV-701/702);
@@ -89,7 +89,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
 
 #### PRIV-E09 · feat(tenants): mandatory tenant classification; field-level statutory retention; PflSchG period anchoring
 - **Scope**: `organization_kind` + `record_keeping` als Pflichtangabe bei Anlage (PRIV-409, 422 `tenant.classification_required`),
-  `undeclared`-Verhalten und Betreiberzähler, v0109 (Bestand `legacy`/`unknown_legacy`), **feldgenaue Zuordnung** in
+  `undeclared`-Verhalten und Betreiberzähler, v0110 (Bestand `legacy`/`unknown_legacy`), **feldgenaue Zuordnung** in
   Löschung/Mandanteninventar (PRIV-410), **Fristbeginn 1. Januar des Folgejahres** für PflSchG-Felder (PRIV-412),
   Hilfsdokumentations-Text (PRIV-413), Reklassifizierungs-Job und PRIV-411 **hinter Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY`**.
 - **Abhängigkeiten**: E05. **Akzeptanz**: TA-122, TA-409, TA-410, TA-412, TA-413, TA-703, TA-404, TA-630. **Gate**:
@@ -111,7 +111,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
 - PRIV-116/118. Abhängigkeiten: E06, E07, E09. Akzeptanz: TA-112, TA-805. Gate: ja (schutzverstärkend). LEG-06.
 
 #### PRIV-E13 · feat(retention): rows R-46/R-47/R-48; keyed performer fields; configurable `data_controller`
-- v0110 (`09` §5), Request-Schemas, UI „Ich war es / jemand anderes“, `nutrient_plans.author_*`, `workflow_templates`,
+- v0111 (`09` §5), Request-Schemas, UI „Ich war es / jemand anderes“, `nutrient_plans.author_*`, `workflow_templates`,
   Beats mit Grenzen, NFR-011-Zeilen (Spec-Änderung), Art.-15-Quellen, **`data_controller` je Mandant konfigurierbar** (DA-01).
 - Abhängigkeiten: E05. Akzeptanz: TA-702, TA-400…TA-403, TA-603. Gate: ja. **Discovery**: V-11 (THC-Feld), Modellfelder
   `nutrient_plans`/`propagation` (Feldnamen VERIFIED_CODE, Längen teilweise unbegrenzt).
@@ -153,7 +153,7 @@ Offline · **P3** Governance, Monitoring, Compliance.
 
 ```mermaid
 flowchart LR
-    E01["P0 E01 Rest (2770 durch 2839 gemergt)"] --> E04["P0 E04 v0108 + Konsistenz minimal"]
+    E01["P0 E01 Rest (2770 durch 2839 gemergt)"] --> E04["P0 E04 v0109 + Konsistenz minimal"]
     E03["P0 E03 Konstanten, anon2, Residue"] --> E04
     E02["P0 E02 geschlossener Name"] --> E05
     E03 --> E05["P1 E05 Registry, PersonRef, Provenienz"]
@@ -187,7 +187,7 @@ E16/E17 (Doku parallel).
 | neuer persönlicher Mandant | `none` (L-07) | `all_members` | aus (Opt-in) | aus | Verzeichnisdaten, keine Fachdaten |
 | neuer Verein / Gemeinschaftsgarten (`association`/`community`) | Pflichtangabe (`none` oder `kcang_association`) | `all_members` | aus | aus (Kiosk ⇒ an) | dito |
 | neuer gewerblicher Mandant (`commercial`) | Pflichtangabe (`pflschg_professional` oder `none`) | `leads_and_self` | aus | aus | dito |
-| Bestandsmandant | `legacy` (v0109) | `all_members` | aus (Übergang) | aus | dito |
+| Bestandsmandant | `legacy` (v0110) | `all_members` | aus (Übergang) | aus | dito |
 | migrierter Legacy-Mandant nach Klassifizierung | gewählter Wert; Reklassifizierung nur mit Flag | nach Klasse, nur auf Antrag der Leitung geändert | — | — | — |
 
 Jeder Default hat einen Test (TA-630); ein Legacy-Default wird **nie** zum Default neuer Mandanten (W-03).
@@ -217,7 +217,7 @@ Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rech
 | E10 (PRIV-510…523) | READY | — | VERIFIED_CODE (`07` §1, §7) | Lane |
 | E11 (PRIV-505…533) | READY | — (LEG-09/10 als Prüfdatum) | L-11 | Lane |
 | E12 (PRIV-116, 118) | READY | — | DA-02 | nach E06/E07/E09 |
-| E13 (R-46…R-48, v0110) | NEEDS_DISCOVERY (THC-Feld V-11; Modelle `nutrient_plans`/`propagation` Feldlängen) → sonst READY | V-11 | VERIFIED_CODE teilweise | Discovery-Task vor Lane |
+| E13 (R-46…R-48, v0111) | NEEDS_DISCOVERY (THC-Feld V-11; Modelle `nutrient_plans`/`propagation` Feldlängen) → sonst READY | V-11 | VERIFIED_CODE teilweise | Discovery-Task vor Lane |
 | E14 (PRIV-707…713) | READY_WITH_GUARDS | `deployment_allowed` Backups erst nach E14; LEG-11 Prüfdatum | L-19 (Backups), kein deutscher Primärbeleg (L-21) | Lane; Betreiber entscheidet Dump-Frist |
 | E15 | READY | — | — | nach E04/E07 |
 | E16 Spec-Änderungen | READY | Betreiberfreigabe je DEC | `14` | Doku-Lane |

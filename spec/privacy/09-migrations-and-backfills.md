@@ -67,9 +67,9 @@ Rollback-Grenzen stehen je Migration in §11.
 **Stand (#2839, VERIFIED_CODE):** `v0107_care_event_tombstone_performer` hat Schritt 1 für `performed_by_user_key`
 (Generation `anon_`) bereits ausgeführt. Offen bleiben `created_by`-Tombstones, die zweite Generation `anon2_`
 (E03), Schritte 2–4, `verify` und der persistierte Bericht. Die Nummer dieser Migration ist von v0107 auf v0108
-verschoben (W-26).
+(W-26) und danach auf v0109 verschoben (W-27).
 
-**Migration `v0108_privacy_tombstone_copies`** (`kind = privacy_correction`; umkehrbar: nein).
+**Migration `v0109_privacy_tombstone_copies`** (`kind = privacy_correction`; umkehrbar: nein).
 
 | Schritt | AQL (je Mandant, alle Status außer `deleted`) | Berichts-Bucket |
 |---------|-----------------------------------------------|-----------------|
@@ -79,11 +79,11 @@ verschoben (W-26).
 | 4 | `attachments.created_by == _anonymized AND original_filename != ""` → `""` | `attachments.filename_cleared` |
 | verify | Schritte 1, 2, 4 erneut zählen → muss 0 sein; Schritt 3 wird als Befund gemeldet, nicht korrigiert | `verify.residual` |
 
-**PRIV-703 (neu gefasst, löst W-02)** Vorbedingungen von v0108 sind **ausschließlich**: (a) die Inventaränderung
+**PRIV-703 (neu gefasst, löst W-02)** Vorbedingungen von v0109 sind **ausschließlich**: (a) die Inventaränderung
 `garden_plan_audit` Tombstone → Marker und `attachments.clear_fields += original_filename` im selben Build (Precheck
 importiert die Regel und prüft `replacement_strategy`/`clear_fields`); (b) `TOMBSTONE_REGEX`/Allowlist aus
 `domain/models/privacy.py` (E03). Die **Nachprüfung** erfolgt innerhalb der Migration (`verify`) und durch
-`tests/unit/migrations/versions/test_v0108_*.py`; der Beat `privacy.consistency` ist **keine** Vorbedingung. Der
+`tests/unit/migrations/versions/test_v0109_*.py`; der Beat `privacy.consistency` ist **keine** Vorbedingung. Der
 Beat wird in **E04 in seiner Minimalform** (nur lesende Zählabfragen des Bucket 3 + Metrik, kein Endpunkt) eingeführt,
 damit Bucket 3 ab dem Folgetag überwacht ist; Metriken-Endpunkt und Operations-Listing bleiben E15. (DEC-28)
 
@@ -95,7 +95,7 @@ damit Bucket 3 ab dem Folgetag überwacht ist; Metriken-Endpunkt und Operations-
 
 ## 4. M-P2 — Aufzeichnungsprofil und Klassifizierung (E09)
 
-**Migration `v0109_tenant_record_keeping_default`** (`kind = privacy_correction`; umkehrbar: entfernt `legacy`):
+**Migration `v0110_tenant_record_keeping_default`** (`kind = privacy_correction`; umkehrbar: entfernt `legacy`):
 setzt bei jedem bestehenden Mandanten ohne Wert `settings.record_keeping = "legacy"` und `settings.organization_kind =
 "unknown_legacy"`; persönliche Mandanten erhalten `record_keeping = "none"` (L-07). Neue Mandanten erhalten
 **keinen** Default (`undeclared`, PRIV-409) — der Anlagepfad verlangt die Angabe.
@@ -114,7 +114,7 @@ Bericht: Zähler je Collection; Audit `TENANT_RECORD_KEEPING_CHANGED`. Rollback:
 
 ## 5. M-P3 — Freitext-Ausführendenfelder → Schlüsselfelder (E13)
 
-**Migration `v0110_keyed_performers`** (`kind = data_backfill` für die Feldanlage; additiv):
+**Migration `v0111_keyed_performers`** (`kind = data_backfill` für die Feldanlage; additiv):
 
 | Collection | Schritt |
 |------------|---------|
@@ -241,9 +241,9 @@ Betriebsendpunkt (E15).
 
 | Migration / Job | Rollback | Teilausfall |
 |-----------------|----------|-------------|
-| v0108 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
-| v0109 | entfernt explizites `legacy`/`unknown_legacy` | idempotent |
-| v0110 | entfernt neue Felder, wenn alle `null`/Kopien | je Collection transaktional |
+| v0109 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
+| v0110 | entfernt explizites `legacy`/`unknown_legacy` | idempotent |
+| v0111 | entfernt neue Felder, wenn alle `null`/Kopien | je Collection transaktional |
 | Reklassifizierung | keiner | je Mandant; Zustand `reclassification_pending` bis Erfolg |
 | Restore-Replay | keiner (wendet Löschungen erneut an) | Residue > 0 ⇒ Wartungsmodus bleibt |
 
@@ -254,9 +254,9 @@ Betriebsendpunkt (E15).
 | ID | Kriterium |
 |----|-----------|
 | TA-700 | Zweiter Lauf `changed == 0`; AQL bindet `tenant_key`; Bericht nur mit erlaubten Schlüsseln; Phasen `precheck/dry_run/apply/verify` im Bericht. |
-| TA-701 | v0108: Dry-Run schreibt nichts; echter Lauf wandelt präparierte Tombstones um, zählt einen nicht deklarierten Tombstone ohne Änderung, leert `original_filename`; `verify.residual = 0`; ein Fehler in Mandant X lässt die übrigen fertig werden und die Migration nicht als angewendet gelten. |
+| TA-701 | v0109: Dry-Run schreibt nichts; echter Lauf wandelt präparierte Tombstones um, zählt einen nicht deklarierten Tombstone ohne Änderung, leert `original_filename`; `verify.residual = 0`; ein Fehler in Mandant X lässt die übrigen fertig werden und die Migration nicht als angewendet gelten. |
 | TA-701a | Berichtsfilter weist Nutzerschlüssel/Namen in `details` ab. |
-| TA-702 | v0110 setzt nie einen `*_user_key` aus einem Namen; `mcp:<key>` nur für existierendes Service-Konto. |
+| TA-702 | v0111 setzt nie einen `*_user_key` aus einem Namen; `mcp:<key>` nur für existierendes Service-Konto. |
 | TA-703 | Reklassifizierung wirkt nur mit gesetztem Flag; ohne Flag `reclassification_pending` + Metrik. |
 | TA-704 | Guard: `kind` deklariert; Backfill nutzt `ActiveTenants`, Korrektur nicht. |
 | TA-709 | Spiegel-Eintrag (ohne Rohschlüssel) bei Abschluss; Objekt verschlüsselt, HMAC-Kette gültig; Bereinigung filtert. |

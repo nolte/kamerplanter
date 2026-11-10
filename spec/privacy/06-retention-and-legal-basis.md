@@ -48,7 +48,7 @@ pflschg_professional, kcang_association, both}`; ohne Angabe ist der Zustand `un
 verhält sich bei der Aufbewahrung konservativ (wie `legacy`), erzeugt aber **keinen** Tombstone für
 `harvested_by_key` (§3.2) und zeigt der Leitung bei jeder Anmeldung einen Hinweis, bis die Angabe erfolgt;
 der Betreiber sieht die Zahl `undeclared`-Mandanten (PRIV-110-Endpunkt). Bestehende Mandanten erhalten
-`legacy` durch v0109 (`09` §4). Persönliche Mandanten sind `none` (L-07: kein Dokumentationsrecht/-pflicht
+`legacy` durch v0110 (`09` §4). Persönliche Mandanten sind `none` (L-07: kein Dokumentationsrecht/-pflicht
 im Eigenanbau; INFERRED für Zierpflanzen ohnehin).
 
 ---
@@ -88,7 +88,7 @@ Anbauvereinigungen; [L-07] der private Eigenanbau kennt keine Dokumentationspfli
 
 **PRIV-401** [DEC-11 aktualisiert] `Tenant.settings.record_keeping` bestimmt die Klasse **je Feld** (§3.2):
 `pflschg_professional` / `kcang_association` / `both` → Pflichtfelder unter lit. c; `none` → keine
-Statutory-Klasse; `legacy` (nur Bestand, v0109) → heutiges Verhalten; `undeclared` → PRIV-409. Der Wechsel
+Statutory-Klasse; `legacy` (nur Bestand, v0110) → heutiges Verhalten; `undeclared` → PRIV-409. Der Wechsel
 auf `none` löst den Reklassifizierungs-Job aus (`09` §4), der hinter dem Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY`
 steht (Gate §10).
 

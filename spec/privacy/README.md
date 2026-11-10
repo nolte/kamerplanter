@@ -29,7 +29,7 @@ Es baut auf REQ-025, NFR-011, REQ-023/024/049, REQ-053 und UI-NFR-012 auf und ä
 | 06 | [`06-retention-and-legal-basis.md`](06-retention-and-legal-basis.md) | Rollenmatrix (PA-nn), Verarbeitungstätigkeiten-Matrix, **feldgenaue Pflichtaufzeichnungen**, LIAs, Beschäftigte/Ehrenamt, Aufbewahrung, Produktionsgates | PRIV-400…414 |
 | 07 | [`07-offline-privacy.md`](07-offline-privacy.md) | Gerätespeicher, TDDDG/DSGVO getrennt, **Opt-in und Übergang**, Fristen, Widerruf, Shared-Device-Szenarien | PRIV-500…533 |
 | 08 | [`08-api-and-data-model.md`](08-api-and-data-model.md) | Registry, `PersonRef`, Laufzeit-Provenienz, Collections (`erasure_mirror`), Defaults ohne Modell-Default, Routen, **Feature-Flags** | PRIV-600…610 |
-| 09 | [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) | Migrationsphasen, v0108–v0110, Reklassifizierung (Flag), **Löschungs-Spiegel und Restore-Replay**, Re-Keying, Geräte-Migration | PRIV-700…718 |
+| 09 | [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) | Migrationsphasen, v0109–v0111, Reklassifizierung (Flag), **Löschungs-Spiegel und Restore-Replay**, Re-Keying, Geräte-Migration | PRIV-700…718 |
 | 10 | [`10-testing-and-acceptance.md`](10-testing-and-acceptance.md) | TA-Matrix, Negativtests „kann nicht wieder auftauchen“, Gates | TA-001…TA-810 |
 | 11 | [`11-dpia-pre-screening.md`](11-dpia-pre-screening.md) | Verarbeitungsvorgänge, Risikoregister RISK-01…20, **begründete Art.-35-Bewertung je Betriebsmodell** | — |
 | 12 | [`12-implementation-roadmap.md`](12-implementation-roadmap.md) | Epics E01…E18, Defaults je Klasse, **Readiness-Tabelle** | — |
