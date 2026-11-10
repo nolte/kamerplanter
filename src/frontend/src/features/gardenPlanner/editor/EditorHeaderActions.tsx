@@ -1,68 +1,53 @@
 /**
- * The actions row above the plan (REQ-053 GP-UX-046/052): "Add with dimensions" and the "⋯"
- * overflow menu. The overflow holds what has no room on a phone - "select all" now; grid, zoom
- * steps, export and the other work packages' entries join through `extraItems` (every entry is at
- * least 48 px). Save status and undo/redo are NOT in here: they stay visible on every width.
+ * The overflow "⋮" at the end of the editor header bar (REQ-053 §17.3, GP-UX-052/063, UI-NFR-021 R-017…R-020):
+ * the rare actions (keyboard help, underlay, select all, export and import, …) and every header control the bar
+ * moved out for lack of room, in the bar's order. The button carries `aria-label`, `aria-haspopup="menu"`,
+ * `aria-expanded` and `aria-controls`; every entry has an icon and a text and is at least 48 px high (the menu is
+ * `ContextMenu`, so arrow keys, Home/End and Esc work as in every MUI menu). "Save" is never in here.
  */
-import { useState } from 'react';
+import { useId, useState, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 
 const PREFIX = 'pages.gardenPlan.editor';
 
 interface EditorHeaderActionsProps {
-  onAddWithDimensions: () => void;
-  onSelectAll: () => void;
-  extraItems?: readonly MenuAction[];
+  actions: readonly MenuAction[];
+  /** The button, so a dialog opened from an entry can give the focus back to it when it closes (WCAG 2.4.3). */
+  buttonRef?: Ref<HTMLButtonElement>;
 }
 
-export function EditorHeaderActions({
-  onAddWithDimensions,
-  onSelectAll,
-  extraItems = [],
-}: EditorHeaderActionsProps) {
+export function EditorHeaderActions({ actions, buttonRef }: EditorHeaderActionsProps) {
   const { t } = useTranslation();
+  const menuId = useId();
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
-  const actions: MenuAction[] = [
-    { id: 'selectAll', label: t(`${PREFIX}.contextMenu.selectAll`), onClick: onSelectAll },
-    ...extraItems,
-  ];
+  const label = t(`${PREFIX}.contextMenu.overflow`);
   return (
-    <Box
-      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-      data-testid="garden-plan-header-actions"
-    >
-      <Button
-        startIcon={<AddBoxOutlinedIcon />}
-        onClick={onAddWithDimensions}
-        sx={{ minHeight: 48 }}
-        data-testid="garden-plan-add-with-dimensions"
-      >
-        {t(`${PREFIX}.addWithDimensions.open`)}
-      </Button>
-      <Box sx={{ flexGrow: 1 }} />
-      <Tooltip title={t(`${PREFIX}.contextMenu.overflow`)}>
+    <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }} data-testid="garden-plan-header-actions">
+      <Tooltip title={label}>
         <IconButton
-          aria-label={t(`${PREFIX}.contextMenu.overflow`)}
+          ref={buttonRef}
+          aria-label={label}
           aria-haspopup="menu"
+          aria-expanded={anchor !== null}
+          aria-controls={anchor !== null ? menuId : undefined}
           onClick={(event) => setAnchor({ kind: 'element', element: event.currentTarget })}
           sx={{ width: 48, height: 48 }}
           data-testid="garden-plan-overflow"
         >
-          <MoreHorizIcon />
+          <MoreVertIcon />
         </IconButton>
       </Tooltip>
       <ContextMenu
+        id={menuId}
         anchor={anchor}
         actions={actions}
         onClose={() => setAnchor(null)}
-        label={t(`${PREFIX}.contextMenu.overflow`)}
+        label={label}
         testId="garden-plan-overflow-menu"
       />
     </Box>

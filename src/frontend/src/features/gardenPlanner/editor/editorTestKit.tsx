@@ -130,6 +130,15 @@ export function setupEditor(options: SetupOptions = {}) {
   return { store, state, view, rerender, canvas, after, click, selected, renderer, onPan, onZoom };
 }
 
+/**
+ * Choose an entry of the header bar's overflow "⋮" (REQ-053 §17.3, GP-UX-063): keyboard help, underlay, "add with
+ * dimensions", select all and the other rare actions live there since WP 10.3. `testId` is the entry's test id.
+ */
+export function chooseOverflowEntry(testId: string): void {
+  fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+  fireEvent.click(screen.getByTestId(testId));
+}
+
 /** Type into a panel field and leave it: the value is committed on blur. */
 export function typeAndBlur(element: HTMLElement, value: string): void {
   fireEvent.change(element, { target: { value } });

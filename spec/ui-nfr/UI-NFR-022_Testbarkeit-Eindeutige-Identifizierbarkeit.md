@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.9
+Version: 1.10
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-10
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.10 | 2026-11-10 | §2.5.1: Editor-Kopfleiste und Arbeitsflächen-Rahmen des Gartenplans (REQ-053 §17.3, GP-UX-063/067/070, WP 10.3, Issue #2824) registriert: `garden-plan-header-bar` (die eine Kopfleiste, mit `data-overflow-level`), die Überlauf-Einträge `garden-plan-menu-autosave`, `garden-plan-menu-tab-<tab>`, `garden-plan-menu-field-mode`, `garden-plan-menu-panel`, `garden-plan-menu-selectAll` (bisher ohne Registrierung), die Zoom-Überlagerung `garden-plan-zoom-overlay`, der Zeichenflächen-Bereich `garden-plan-canvas-area` und der Zähler `garden-plan-save-status-count` des kompakten Speicher-Status. Keine bestehende Kennung umbenannt (R-021): Tastaturhilfe, Unterlage, „Mit Maßen hinzufügen“ und die Export-/Import-Einträge stehen jetzt im Überlauf `garden-plan-overflow-menu` und behalten ihre Kennungen; entfallen ist allein der Listen-Schalter `garden-plan-view-list` (der Tab „Liste“ ersetzt ihn), die Page Objects nutzen im selben Pull Request `open_tab(...)` und öffnen den Überlauf, wo ein Bedienelement dorthin gewandert ist. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.9 | 2026-11-10 | §2.5.1: Tabs Plan · Liste · Beete der Plan-Route (REQ-053 §17.3, GP-UX-064/070, WP 10.2, Issue #2823) registriert: `garden-plan-tabs` (Tab-Leiste), `garden-plan-tab-<tab>` mit `<tab>` ∈ `plan`, `list`, `beds` (der Wert von `?tab=`), die Tab-Panels `garden-plan-tabpanel-editor` (Editor für Plan und Liste) und `garden-plan-tabpanel-beds` (Beetliste) sowie der Hinweis `garden-plan-beds-offline` im Tab „Beete“ ohne Serververbindung. Keine bestehende Kennung umbenannt (R-021); die Page Objects der Beetliste öffnen den Tab „Beete“ im selben Pull Request. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.8 | 2026-10-30 | §2.5.1: Ebene Pflanzenzustand des Gartenplans (REQ-053 GP-UX-061, Issue #2488) registriert: Ebenen-Schalter `garden-plan-layer-plantState`, der abhängige Filter-Schalter `garden-plan-attention-filter` („Nur Pflanzen mit Handlungsbedarf zeigen“, gesperrt solange die Ebene aus ist) und der Legendenabschnitt `garden-plan-legend-plantState` in `garden-plan-layer-legend`. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.7 | 2026-10-30 | §2.5.1: Standortbedingungs-Ebenen des Gartenplans (REQ-053 GP-FR-169, Issue #2487) registriert: Ebenen-Schalter `garden-plan-layer-sun`, `garden-plan-layer-moisture`, `garden-plan-layer-frost`; die dekorativen Überlagerungen `garden-plan-sun-layer`, `garden-plan-moisture-layer`, `garden-plan-frost-layer`; die Legendenabschnitte `garden-plan-legend-sun`, `garden-plan-legend-moisture`, `garden-plan-legend-frost` in `garden-plan-layer-legend`; dazu `bed-header-drainage` (Drainage im Kopf der Beetansicht, GP-FR-047). Zusammen mit der Verwendung im selben Pull Request (R-020). |
@@ -217,6 +218,12 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-tabpanel-editor` | Tab-Panel des Editors; gehört zu „Plan“ und „Liste“ (der Editor zeigt Zeichenfläche bzw. `garden-plan-list`), hinter „Beete“ ausgeblendet, nicht entfernt |
 | `garden-plan-tabpanel-beds` | Tab-Panel „Beete“ mit der Beetliste (`bed-list-section`, unverändert) |
 | `garden-plan-beds-offline` | Hinweis im Tab „Beete“, solange die Beetliste ohne Serververbindung nicht geladen werden kann |
+| `garden-plan-header-bar` | Die eine Editor-Kopfleiste (WP 10.3, GP-UX-063): Zurück, Speichern-Gruppe, Tabs, Feldmodus, Panel-Umschalter, Überlauf; `data-overflow-level` (0–4) nennt, wie viele Schritte der Verlagerungsreihenfolge im Überlauf stehen |
+| `garden-plan-overflow` / `garden-plan-overflow-menu` | Überlauf „⋮“ der Kopfleiste und sein Menü (Kennungen bestehen seit Welle 2, ab WP 10.3 am Ende der Kopfleiste) |
+| `garden-plan-menu-<id>` | Eintrag im Überlauf „⋮“, wenn ein Bedienelement der Kopfleiste dorthin wandert: `autosave` (Schritt 1, `menuitemcheckbox`), `tab-<tab>` mit `<tab>` ∈ `plan`, `list`, `beds` (Schritt 4, `menuitemradio`, der aktive mit `aria-checked="true"`), `field-mode` (Schritt 2), `panel` (Schritt 3, Panel-Umschalter); dazu die seltenen Aktionen `selectAll` und `multiDuplicate`. Einträge, die eine frühere Schaltfläche ersetzen, behalten deren Kennung: `garden-plan-add-with-dimensions`, `garden-plan-underlay-open`, `garden-plan-keyboard-help-button`, `garden-plan-io-export` / `-import` / `-csv` / `-season` |
+| `garden-plan-save-status-count` | Zähler der ungespeicherten Änderungen im kompakten Speicher-Status unter md (der Wortlaut steht für Screenreader in `garden-plan-save-status`) |
+| `garden-plan-canvas-area` | Bereich der Zeichenfläche auf Viewport-Höhe (GP-UX-067, mindestens 400 px); trägt `garden-plan-canvas` und die Overlays |
+| `garden-plan-zoom-overlay` | Zoom −/%/+ und „An Fläche anpassen“ als Overlay oben rechts auf der Zeichenfläche (Kennungen `garden-plan-zoom-*` unverändert) |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
 

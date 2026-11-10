@@ -66,6 +66,25 @@ export function fitViewport(bounds: BoundingBox, widthPx: number, maxHeightPx: n
 }
 
 /**
+ * A viewport of exactly `widthPx` x `heightPx` that shows `bounds` completely and centred (REQ-053 §17.3, GP-UX-067):
+ * the canvas takes the room it is given - the rest of the viewport height under the header bar - and the plan sits
+ * in its middle at the zoom `fitViewport` would choose for the same box.
+ */
+export function fillViewport(bounds: BoundingBox, widthPx: number, heightPx: number): Viewport {
+  const { pxPerM } = fitViewport(bounds, widthPx, heightPx);
+  const width = Math.max(1, Math.round(widthPx));
+  const height = Math.max(1, Math.round(heightPx));
+  const [minX, minY, maxX, maxY] = bounds;
+  // The middle of the box lands on the middle of the canvas; screen y points down, model y up.
+  return {
+    originM: [(minX + maxX) / 2 - width / 2 / pxPerM, (minY + maxY) / 2 + height / 2 / pxPerM],
+    pxPerM,
+    widthPx: width,
+    heightPx: height,
+  };
+}
+
+/**
  * The pan and zoom that bring `bounds` into the middle of a canvas that already has its size
  * (GP-ACC-016: a bed chosen in the list is in view, its whole bounding box visible). The zoom is the
  * largest that shows the box plus a margin, never below `minPxPerM` (the zoom that fits the whole

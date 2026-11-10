@@ -3,8 +3,11 @@
  * the bar offers "set point · undo · finish · cancel" (each at least 48 px) - the crosshair in the
  * middle of the plan marks where "set point" puts the point, and two fingers pan the plan under
  * it. With the select tool it offers the multi-select switch: while on, every tap adds or removes
- * an object and a drag on empty ground draws a selection frame (otherwise it pans).
+ * an object and a drag on empty ground draws a selection frame (otherwise it pans). Below md it also carries
+ * undo and redo at its start (`leading`, REQ-053 §17.3 GP-UX-052/063): the header bar there keeps only
+ * "back", the save status, "Save" and its overflow.
  */
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
@@ -31,6 +34,8 @@ interface TouchBarProps {
   onCancel: () => void;
   multiSelect: boolean;
   onMultiSelect: (on: boolean) => void;
+  /** Controls at the start of the bar, whatever the tool: undo and redo below md. */
+  leading?: ReactNode;
 }
 
 const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
@@ -45,12 +50,13 @@ export function TouchBar({
   onCancel,
   multiSelect,
   onMultiSelect,
+  leading,
 }: TouchBarProps) {
   const { t } = useTranslation();
   const drawing = tool === 'bed' || tool === 'garden_object';
   const pointShape = drawShape === 'polygon' || drawShape === 'polyline';
   const minPoints = drawShape === 'polygon' ? 3 : 2;
-  if (!drawing && tool !== 'select') return null;
+  if (!drawing && tool !== 'select' && !leading) return null;
 
   return (
     <Paper
@@ -67,6 +73,7 @@ export function TouchBar({
         bgcolor: 'background.paper',
       }}
     >
+      {leading}
       {drawing && (
         <>
           <Button

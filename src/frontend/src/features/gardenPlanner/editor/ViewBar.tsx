@@ -1,32 +1,23 @@
 /**
- * The header row of the plan editor (REQ-053 WP 2.5): grid step, grid and snap switches, zoom
- * with "fit to area", the length unit and the compass. A row of its own above the tool bar so
- * that the tool bar stays untouched (GP-FR-154: the grid step belongs in the header).
+ * The view row of the plan editor (REQ-053 WP 2.5): grid step, grid and snap switches, the layer switches, the
+ * length unit and the compass (GP-FR-154: the grid step belongs in the header). Zoom and "fit to area" left it in
+ * wave 10: they are an overlay on the canvas (`ZoomOverlay`, §17.3 GP-UX-067). The rest moves into the panel tab
+ * "Ansicht" with WP 10.5 (GP-UX-068); until then it is its own row under the header bar.
  */
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import type { Theme } from '@mui/material/styles';
 import { useId, type ReactNode } from 'react';
-import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import { visuallyHidden } from '@mui/utils';
-import AddIcon from '@mui/icons-material/Add';
-import FitScreenIcon from '@mui/icons-material/FitScreen';
 import GridOnIcon from '@mui/icons-material/GridOn';
-import RemoveIcon from '@mui/icons-material/Remove';
 import StraightenIcon from '@mui/icons-material/Straighten';
-import {
-  GRID_STEPS_M,
-  gridStepLabel,
-  pxPerMToPercent,
-  type LengthUnit,
-} from '../model/units';
+import { GRID_STEPS_M, gridStepLabel, type LengthUnit } from '../model/units';
 import { Compass } from './Compass';
 
 const PREFIX = 'pages.gardenPlan.editor';
@@ -68,11 +59,6 @@ export interface ViewBarProps {
   onGridVisible: (visible: boolean) => void;
   snapEnabled: boolean;
   onSnapEnabled: (enabled: boolean) => void;
-  pxPerM: number;
-  minPxPerM: number;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onFit: () => void;
   unit: LengthUnit;
   onUnit: (unit: LengthUnit) => void;
   northAngleDeg: number;
@@ -90,8 +76,6 @@ const disabledLookSx = (theme: Theme) => ({ color: theme.palette.action.disabled
 export function ViewBar(props: ViewBarProps) {
   const { t, i18n } = useTranslation();
   const attentionHintId = useId();
-  const percent = pxPerMToPercent(props.pxPerM);
-  const atMin = props.pxPerM <= props.minPxPerM + 1e-6;
   return (
     <Paper
       variant="outlined"
@@ -195,56 +179,6 @@ export function ViewBar(props: ViewBarProps) {
           </Box>
         </>
       )}
-
-      <Divider orientation="vertical" flexItem sx={dividerSx} />
-
-      <Box role="group" aria-label={t(`${PREFIX}.zoom.label`)} sx={{ display: 'flex', alignItems: 'center' }}>
-        <Tooltip title={t(`${PREFIX}.zoom.outHint`)}>
-          <span>
-            <IconButton
-              onClick={props.onZoomOut}
-              disabled={atMin}
-              aria-label={t(`${PREFIX}.zoom.out`)}
-              aria-keyshortcuts="-"
-              data-testid="garden-plan-zoom-out"
-              sx={buttonSx}
-            >
-              <RemoveIcon />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Box
-          component="span"
-          role="status"
-          aria-label={t(`${PREFIX}.zoom.level`, { percent })}
-          data-testid="garden-plan-zoom-level"
-          sx={{ minWidth: 52, textAlign: 'center', typography: 'body2' }}
-        >
-          {percent} %
-        </Box>
-        <Tooltip title={t(`${PREFIX}.zoom.inHint`)}>
-          <IconButton
-            onClick={props.onZoomIn}
-            aria-label={t(`${PREFIX}.zoom.in`)}
-            aria-keyshortcuts="+"
-            data-testid="garden-plan-zoom-in"
-            sx={buttonSx}
-          >
-            <AddIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={t(`${PREFIX}.zoom.fitHint`)}>
-          <Button
-            onClick={props.onFit}
-            startIcon={<FitScreenIcon />}
-            aria-keyshortcuts="0"
-            data-testid="garden-plan-zoom-fit"
-            sx={buttonSx}
-          >
-            {t(`${PREFIX}.zoom.fit`)}
-          </Button>
-        </Tooltip>
-      </Box>
 
       <Divider orientation="vertical" flexItem sx={dividerSx} />
 

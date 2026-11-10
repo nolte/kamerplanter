@@ -29,6 +29,7 @@ field, ``aria-pressed``) and fails loudly when the effect never arrives
 from __future__ import annotations
 
 import re
+from urllib.parse import parse_qs, urlparse
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -90,14 +91,19 @@ class GardenPlanPage(BasePage):
     PANEL_FORM = _tid("garden-plan-panel-form")
     PANEL_NAME = _tid("garden-plan-panel-name")
 
-    # ── List view (WP 2.7) ─────────────────────────────────────────────
-    VIEW_LIST_SWITCH = _tid("garden-plan-view-list")
+    # ── List view (WP 2.7; since WP 10.3 reached only through the tab "Liste") ──
     LIST = _tid("garden-plan-list")
     LIST_DETAILS = _tid("garden-plan-list-details")
 
     # ── Tabs Plan · Liste · Beete (WP 10.2, GP-UX-064) ─────────────────
     TABS = _tid("garden-plan-tabs")
     EDITOR_TABPANEL = _tid("garden-plan-tabpanel-editor")
+
+    # ── Editor header bar (WP 10.3, GP-UX-063) ─────────────────────────
+    # One line on every width: what does not fit moves into the overflow "⋮" (OVERFLOW below), where an entry
+    # carries ``garden-plan-menu-<id>`` - or the test id of the button it replaced (keyboard help, underlay,
+    # "add with dimensions", the export/import entries).
+    HEADER_BAR = _tid("garden-plan-header-bar")
     BEDS_TABPANEL = _tid("garden-plan-tabpanel-beds")
 
     # ── Dialogs ────────────────────────────────────────────────────────
@@ -230,6 +236,17 @@ class GardenPlanPage(BasePage):
         unsaved changes stay and no leave prompt appears (GP-UX-065).
         """
         locator = _tid(f"garden-plan-tab-{name}")
+        self.wait_for_element(self.HEADER_BAR)
+        if not self._inline(locator):
+            # Below md (and on a narrow bar) the tabs are three entries of the overflow (GP-UX-063 step 4).
+            self._click_overflow_entry(_tid(f"garden-plan-menu-tab-{name}"), f"the tab {name!r}")
+            try:
+                self.poll().until(lambda _d: self.current_tab() == name)
+            except TimeoutException as exc:
+                raise AssertionError(
+                    f"the plan tab {name!r} did not open from the overflow"
+                ) from exc
+            return
         tab = self.wait_for_element_clickable(locator)
         if tab.get_attribute("aria-selected") == "true":
             return
@@ -242,6 +259,30 @@ class GardenPlanPage(BasePage):
             )
         except TimeoutException as exc:
             raise AssertionError(f"the plan tab {name!r} did not become the selected one") from exc
+
+    def current_tab(self) -> str:
+        """The open tab as the URL holds it (``?tab=``; missing or unknown means ``plan``, GP-UX-064)."""
+        query = urlparse(self.driver.current_url).query
+        value = parse_qs(query).get("tab", ["plan"])[0]
+        return value if value in ("plan", "list", "beds") else "plan"
+
+    def _inline(self, locator: tuple[str, str]) -> bool:
+        """The control is in the header bar itself (not moved into the overflow) and displayed."""
+        return any(element.is_displayed() for element in self.driver.find_elements(*locator))
+
+    def _click_overflow_entry(self, entry: tuple[str, str], what: str) -> None:
+        """Open the header bar's overflow "⋮" and choose *entry*; fail loudly when it is missing or disabled."""
+        self._open_menu(self.OVERFLOW, self.OVERFLOW_MENU, "the overflow menu")
+        selector = f"[data-testid='garden-plan-overflow-menu'] {entry[1]}"
+        try:
+            item = self.wait_for_element_clickable((By.CSS_SELECTOR, selector))
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the overflow has no entry {entry[1]}") from exc
+        if item.get_attribute("aria-disabled") == "true":
+            reason = " ".join((item.get_attribute("textContent") or "").split())
+            raise AssertionError(f"{what}: the overflow entry is disabled ({reason!r})")
+        self.click_menu_option(item)
+        self.wait_for_element_hidden(self.OVERFLOW_MENU)
 
     def wait_for_pending(self, expected: int, what: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         try:
@@ -971,22 +1012,6 @@ class GardenPlanPage(BasePage):
 
     # ── List view ──────────────────────────────────────────────────────
 
-    def _switch_list(self, on: bool) -> None:
-        switch = self.wait_for_element(self.VIEW_LIST_SWITCH)
-        if switch.is_selected() is on:
-            raise AssertionError(f"list view switch is already {'on' if on else 'off'}")
-        # A checkbox: Space on the focused input is the keyboard activation (§C).
-        self.driver.execute_script("arguments[0].focus();", switch)
-        self.press(Keys.SPACE)
-        target = self.LIST if on else self.SVG
-        self.wait_for_element(target)
-
-    def show_list(self) -> None:
-        self._switch_list(True)
-
-    def show_plan(self) -> None:
-        self._switch_list(False)
-
     def list_row_button(self, key: str):
         return self.wait_for_element(
             (By.CSS_SELECTOR, f"[data-testid='garden-plan-list'] button[data-list-key='{key}']")
@@ -1193,7 +1218,18 @@ class GardenPlanPage(BasePage):
     # ── Wave 7: irrigation zones (GP-FR-110 / 117) ─────────────────────
 
     def open_zone_panel(self) -> None:
-        """Open the zone panel (its own lazy chunk) and return once it rendered."""
+        """Open the zone panel (its own lazy chunk) and return once it rendered.
+
+        The switch stands in the header bar; on a narrow bar it is the overflow entry ``garden-plan-menu-panel``
+        (GP-UX-063 step 3), which says its state with ``aria-checked`` instead.
+        """
+        self.wait_for_element(self.HEADER_BAR)
+        if not self._inline(self.ZONES_OPEN):
+            self._click_overflow_entry(_tid("garden-plan-menu-panel"), "the zone panel switch")
+            self.wait_for_settled(
+                {"panel": self.ZONE_PANEL}, "zone panel", require_no_skeleton=False
+            )
+            return
         self.wait_and_click(self.ZONES_OPEN)
         self.wait_for_settled({"panel": self.ZONE_PANEL}, "zone panel", require_no_skeleton=False)
         expanded = self.wait_for_element(self.ZONES_OPEN).get_attribute("aria-expanded")
@@ -1338,7 +1374,8 @@ class GardenPlanPage(BasePage):
         self.wait_for_text(self.INFO, placed_text, "placing a template")
 
     def open_add_with_dimensions(self) -> None:
-        self.wait_and_click(self.ADD_WITH_DIMENSIONS)
+        """'⋮' -> 'Mit Maßen hinzufügen' (an overflow entry since WP 10.3, its test id kept)."""
+        self._click_overflow_entry(self.ADD_WITH_DIMENSIONS, "'Mit Maßen hinzufügen'")
         self.wait_for_element(self.ADD_DIALOG)
 
     def pick_standard_size(self, template_key: str) -> None:
@@ -1426,8 +1463,19 @@ class GardenPlanPage(BasePage):
         markers = self.driver.find_elements(*self.SNAP_MARKER)
         return markers[0].get_attribute("data-kind") if markers else None
 
+    #: The auto-save switch once the header bar moved it into the overflow (GP-UX-063 step 1).
+    AUTOSAVE_ENTRY = _tid("garden-plan-menu-autosave")
+
     def is_autosave_on(self) -> bool:
-        return self.wait_for_element(self.AUTOSAVE).is_selected()
+        self.wait_for_element(self.HEADER_BAR)
+        if self.is_present(self.AUTOSAVE):
+            return self.wait_for_element(self.AUTOSAVE).is_selected()
+        # In the overflow: the entry is a menuitemcheckbox; open the menu, read it, close it again.
+        self._open_menu(self.OVERFLOW, self.OVERFLOW_MENU, "the overflow menu")
+        checked = self.wait_for_element(self.AUTOSAVE_ENTRY).get_attribute("aria-checked") == "true"
+        self.press(Keys.ESCAPE)
+        self.wait_for_element_hidden(self.OVERFLOW_MENU)
+        return checked
 
     def enable_autosave(self) -> None:
         """Switch auto-save on with the keyboard (focus + Space on the switch input) and verify it."""
@@ -1435,6 +1483,13 @@ class GardenPlanPage(BasePage):
             raise AssertionError(
                 "auto-save is already on; a fresh browser session starts with it off"
             )
+        if not self.is_present(self.AUTOSAVE):
+            self._click_overflow_entry(self.AUTOSAVE_ENTRY, "the auto-save switch")
+            try:
+                self.poll().until(lambda _d: self.is_autosave_on())
+            except TimeoutException as exc:
+                raise AssertionError("the auto-save entry did not turn auto-save on") from exc
+            return
         switch = self.wait_for_element(self.AUTOSAVE)
         self.driver.execute_script("arguments[0].focus();", switch)
         self.press(Keys.SPACE)
@@ -1588,13 +1643,20 @@ class GardenPlanPage(BasePage):
     # ── Generic dialog plumbing ────────────────────────────────────────
 
     def _open_io_entry(self, entry: tuple[str, str], dialog: tuple[str, str], what: str) -> None:
-        """'Export & Import' -> *entry*; return once *dialog* (a lazy chunk) is on screen."""
-        self._open_menu(self.IO_MENU, entry, "the 'Export & Import' menu")
-        item = self.wait_for_element(entry)
-        if item.get_attribute("aria-disabled") == "true":
-            reason = " ".join((item.get_attribute("textContent") or "").split())
-            raise AssertionError(f"{what}: the menu entry is disabled ({reason!r})")
-        self.click_menu_option(item)
+        """'Export & Import' -> *entry*; return once *dialog* (a lazy chunk) is on screen.
+
+        With the editor on screen the entries are in the header bar's overflow "⋮" (WP 10.3); a plan without the
+        editor (an empty one) still has the 'Export & Import' button in the page header.
+        """
+        if self.is_present(self.IO_MENU):
+            self._open_menu(self.IO_MENU, entry, "the 'Export & Import' menu")
+            item = self.wait_for_element(entry)
+            if item.get_attribute("aria-disabled") == "true":
+                reason = " ".join((item.get_attribute("textContent") or "").split())
+                raise AssertionError(f"{what}: the menu entry is disabled ({reason!r})")
+            self.click_menu_option(item)
+        else:
+            self._click_overflow_entry(entry, what)
         try:
             self.wait_for_element_visible(dialog)
         except TimeoutException as exc:
@@ -1953,7 +2015,8 @@ class GardenPlanPage(BasePage):
     # ── Underlay (GP-FR-033) ───────────────────────────────────────────
 
     def open_underlay(self) -> None:
-        self.wait_and_click(self.UNDERLAY_OPEN)
+        """'⋮' -> 'Unterlage' (an overflow entry since WP 10.3, its test id kept)."""
+        self._click_overflow_entry(self.UNDERLAY_OPEN, "'Unterlage'")
         try:
             self.wait_for_element_visible(self.UNDERLAY_DIALOG)
         except TimeoutException as exc:
