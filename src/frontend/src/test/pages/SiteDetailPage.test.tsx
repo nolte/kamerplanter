@@ -313,8 +313,26 @@ describe('SiteDetailPage', () => {
       await user.click(screen.getByTestId('form-submit-button'));
 
       await waitFor(() => expect(bodies).toHaveLength(1));
-      expect(bodies[0].reach_thresholds).toEqual({ both_sides_m: 1.2, one_side_m: 0.8 });
+      expect(bodies[0].reach_thresholds).toEqual({ both_sides_m: 1.2, one_side_m: 0.8, path_access_max_distance_m: 0.3 });
       expect(bodies[0].sun_class_thresholds).toBeNull();
+    });
+
+    it('sends a changed path distance and explains it next to the field (#2703)', async () => {
+      useSite();
+      useSiteSensors();
+      const bodies = capturePut();
+      const user = userEvent.setup();
+      renderPage();
+
+      await screen.findByTestId('site-thresholds-section');
+      expect(screen.getByText(i18n.t('pages.sites.thresholds.pathDistanceHelper'))).toBeInTheDocument();
+      await waitFor(() => expect(input('reach_thresholds.path_access_max_distance_m').value).toBe('0.3'));
+      await user.clear(input('reach_thresholds.path_access_max_distance_m'));
+      await user.type(input('reach_thresholds.path_access_max_distance_m'), '0.5');
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0].reach_thresholds).toEqual({ both_sides_m: 1.2, one_side_m: 0.6, path_access_max_distance_m: 0.5 });
     });
 
     it('refuses sun-class bounds that are not descending and sends nothing', async () => {

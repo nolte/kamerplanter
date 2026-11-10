@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity), GP-FR-167 (edge_distance, nearest_water_source, is_water_source)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach, path_access), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity), GP-FR-167 (edge_distance, nearest_water_source, is_water_source)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -58,7 +58,8 @@
     "place_geometry": "input.geometry (bed template default_geometry in the bed frame: rect | circle | polygon), input.origin [x, y], input.rotation_deg -> expected the plan-frame geometry: the anchor (rect origin, circle centre, first polygon vertex) at origin, rotation_deg = (own + requested) folded into [0, 360) and rounded to 0.001; a circle carries no rotation (template_placement_calculator.place_geometry / templates/placeGeometry.ts placeGeometry, REQ-053 GP-FR-044, #2536)",
     "label_anchor": "input.geometry (rect | circle | polygon | polyline | point, plan frame) -> expected {point: [x, y], width_m}: the centre of the object's horizontal label and the widest label centred there that stays inside the shape - rect/circle: centre (room = horizontal chord / diameter); polygon: pole of inaccessibility (polylabel quadtree to 0.01 m in the local frame, seeded with the area centroid, cells in the total order potential desc, x asc, y asc, insertion; start cell size max(shorter box side, longer box side / 64, 0.01), a cell is refined only while min(potential, shorter box side / 2) - best distance > 0.01; a non-finite vertex yields the first vertex), room = 2 x min(reach left, reach right) along the chord y = point_y (edges half-open in y); polyline: point at half its length, room = bbox width incl. stroke; point: the point, room 0. Rounded to 0.001 (label_anchor_calculator.label_anchor / model/labelAnchor.ts labelAnchor, REQ-053 GP-UX-047, GP-FR-003, #2490) - the PDF writer and the editor place names on this point",
     "label_truncate": "input.text (an object name), input.max_chars (integer >= 1) -> expected string: whitespace runs collapse to one space; a name longer than max_chars is cut to max(1, max_chars - 1) characters, trailing spaces dropped, and \"\u2026\" appended. Characters are Unicode code points (Python len), never UTF-16 code units: a character outside the BMP counts once and is never split (plan_svg_engine._truncate / model/labelAnchor.ts truncateLabel, REQ-053 GP-UX-047, GP-FR-003, #2490 SCR-004)",
-    "reach": "input.geometry (rect | circle | polygon | polyline | point, plan frame, or null), input.access_sides (list of N | E | S | W, or null), optional input.both_sides_m (default 1.2) and input.one_side_m (default 0.6) -> expected {hint, reason (too_wide | within_reach | width_unknown), access (both | one | unknown), threshold_m, width_m}: access is both when the list holds an opposite pair (N + S or E + W), one for any other non-empty list (two adjacent sides are one), unknown for an empty or missing list, which takes the one-side threshold; width = min(width_m, length_m) of a rect, the diameter of a circle, the minimum caliper width of a convex polygon (over all edges the largest vertex distance from the edge line), null for a concave polygon, a polyline, a point or no geometry; width rounded to 0.001 m, hint (bed.reach_too_wide) only when width > threshold, never an error - reach_calculator.assess / model/reach.ts assessReach (GP-FR-166, WP 8.23; thresholds confirmed O-17)",
+    "reach": "input.geometry (rect | circle | polygon | polyline | point, plan frame, or null), input.access_sides (list of N | E | S | W, or null), optional input.both_sides_m (default 1.2) and input.one_side_m (default 0.6) -> expected {hint, reason (too_wide | within_reach | width_unknown), access (both | one | unknown), threshold_m, width_m}: access is both when the list holds an opposite pair (N + S or E + W), one for any other non-empty list (two adjacent sides are one), unknown for an empty or missing list, which takes the one-side threshold; width = min(width_m, length_m) of a rect, the diameter of a circle, the minimum caliper width of a convex polygon (over all edges the largest vertex distance from the edge line), null for a concave polygon, a polyline, a point or no geometry; width rounded to 0.001 m, hint (bed.reach_too_wide) only when width > threshold, never an error - reach_calculator.assess / model/reach.ts assessReach (GP-FR-166, WP 8.23; thresholds confirmed O-17). Optional input.paths (list of path geometries, plan frame) with optional input.path_access_max_distance_m (default 0.3) first run path_access on input.geometry; its class joins the manual one, the stronger wins (both > one > unknown/none) - a manual side and a path are never joined to both (#2703)",
+    "path_access": "input.bed (rect | circle | polygon | polyline | point, plan frame, or null), input.paths (list of path geometries, plan frame), optional input.max_distance_m (default 0.3, the per-site ReachThresholds.path_access_max_distance_m) -> expected {access (both | one | none), edges (ascending indices of the reached bed edges; edge i runs from vertex i to i + 1 of the resolved shape, a rect's local corners (0,0), (w,0), (w,l), (0,l))}: a path reaches an edge of a rect or convex polygon bed when its edge-to-edge distance (edge_distance) to the strip outward of that edge - max_distance_m deep, shortened by 0.01 m at both ends so a path past a corner reaches no side - rounds to 0 m; both when two reached edges are antiparallel and the bed measured from each is exactly its (rounded) width, one for any other reached edge, none for no reached edge. A circle has no edges: a path within max_distance_m (edge to edge) is one, never both; a concave polygon, a polyline or a point likewise. Never an error - reach_calculator.path_access / model/reach.ts pathAccess (GP-FR-166, #2703, operator decision 2026-11-09)",
     "area_dose": "input.quantity (rate per m2 | null), input.unit (care unit | null), input.area_m2 (bed area | null) -> expected {quantity_total, quantity_total_unit, display_total}: for g_per_m2 / l_per_m2 the total is quantity x area_m2 rounded to 0.001 with unit g / l, display_total the same total in whole grams or litres to 0.1; any other unit, no quantity or area_m2 <= 0 or null -> all three null, never 0. Rounding half up on the exact binary value (area_dose_calculator.quantity_total, display_total / model/areaDose.ts areaDoseTotal, REQ-053 GP-FR-123, WP 8.9)",
     "nitrogen_approximation": "input.rate_g_per_m2, input.n_percent (product N % on the label | null) -> expected {g_n_per_m2, kg_n_per_ha} | null: g N/m2 = rate x N % / 100 rounded to 0.1, kg N/ha = the unrounded g N/m2 x 10 rounded to whole kg; null when the rate is <= 0 or the N % is missing, <= 0 or > 100. An approximation of the product N, labelled as such; no threshold, no seasonal warning (R-004 open) (area_dose_calculator.nitrogen_approximation / model/areaDose.ts nitrogenApproximation, WP 8.9)",
     "unit_identity": "input.value, input.unit (g_per_m2 | l_per_m2) -> expected {kg_per_ha} for g_per_m2 (1 g/m2 = 10 kg/ha) or {mm} for l_per_m2 (1 L/m2 = 1 mm layer), unrounded (area_dose_calculator.g_per_m2_to_kg_per_ha, l_per_m2_to_mm / model/areaDose.ts, review U-001, WP 8.9)",
@@ -5276,6 +5277,188 @@
       "spec": "GP-FR-166: non-default one-side threshold 0.8 m also applies to unknown access: 0.9 m bed -> hint",
       "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 0.9, "length_m": 2.0, "rotation_deg": 0.0}, "access_sides": [], "one_side_m": 0.8, "both_sides_m": 1.5},
       "expected": {"hint": true, "reason": "too_wide", "access": "unknown", "threshold_m": 0.8, "width_m": 0.9}
+    },
+    {
+      "id": "reach-rect-1-3-path-one-long-side",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): #2703 acceptance: 1.3 m bed, no manual access, a path along one long side -> one-sided access, 0.6 m -> hint",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "access_sides": [], "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}]},
+      "expected": {"hint": true, "reason": "too_wide", "access": "one", "threshold_m": 0.6, "width_m": 1.3}
+    },
+    {
+      "id": "reach-rect-1-2-paths-both-long-sides",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): #2703 acceptance: 1.2 m bed with paths along both long sides (0.2 m and 0.3 m away) -> both, 1.2 m -> no hint",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.2, "rotation_deg": 0.0}, "access_sides": [], "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.7], [6.0, 2.7]], "width_m": 0.4}]},
+      "expected": {"hint": false, "reason": "within_reach", "access": "both", "threshold_m": 1.2, "width_m": 1.2}
+    },
+    {
+      "id": "reach-rect-1-3-paths-both-long-sides",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): 1.3 m bed with paths along both long sides: both sides, but 1.3 m > 1.2 m -> hint",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "access_sides": [], "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.8], [6.0, 2.8]], "width_m": 0.4}]},
+      "expected": {"hint": true, "reason": "too_wide", "access": "both", "threshold_m": 1.2, "width_m": 1.3}
+    },
+    {
+      "id": "reach-rect-1-2-path-beyond-distance",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): #2703 acceptance: the second path is 0.4 m away, farther than the default 0.3 m -> no access from it, one side -> hint",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.2, "rotation_deg": 0.0}, "access_sides": [], "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.8], [6.0, 2.8]], "width_m": 0.4}]},
+      "expected": {"hint": true, "reason": "too_wide", "access": "one", "threshold_m": 0.6, "width_m": 1.2}
+    },
+    {
+      "id": "reach-rect-1-2-path-configured-distance",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): the same paths with the site distance 0.5 m: the far path reaches -> both, no hint",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.2, "rotation_deg": 0.0}, "access_sides": [], "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.8], [6.0, 2.8]], "width_m": 0.4}], "path_access_max_distance_m": 0.5},
+      "expected": {"hint": false, "reason": "within_reach", "access": "both", "threshold_m": 1.2, "width_m": 1.2}
+    },
+    {
+      "id": "reach-manual-both-beats-path-one",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): the stronger source wins: manual N + S (both) and one path (one) -> both",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.2, "rotation_deg": 0.0}, "access_sides": ["N", "S"], "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}]},
+      "expected": {"hint": false, "reason": "within_reach", "access": "both", "threshold_m": 1.2, "width_m": 1.2}
+    },
+    {
+      "id": "reach-manual-one-path-opposite-stays-one",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): a manual side and a path are not joined to both (the compass sides are not matched against the geometry): manual N + path on the south long side -> one -> hint",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.2, "rotation_deg": 0.0}, "access_sides": ["N"], "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}]},
+      "expected": {"hint": true, "reason": "too_wide", "access": "one", "threshold_m": 0.6, "width_m": 1.2}
+    },
+    {
+      "id": "reach-no-path-keeps-unknown",
+      "operation": "reach",
+      "spec": "GP-FR-166 (#2703): paths that reach nothing leave the manual class as it is: no manual access, a far path -> unknown",
+      "input": {"geometry": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "access_sides": [], "paths": [{"kind": "polyline", "points": [[0.0, 2.9], [6.0, 2.9]], "width_m": 0.4}]},
+      "expected": {"hint": true, "reason": "too_wide", "access": "unknown", "threshold_m": 0.6, "width_m": 1.3}
+    },
+    {
+      "id": "path-access-rect-one-long-side",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a 0.4 m path 0.2 m beside one long side of a 1.3 x 4 m bed reaches that edge (edge 0, the bottom long side) -> one",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}]},
+      "expected": {"access": "one", "edges": [0]}
+    },
+    {
+      "id": "path-access-rect-both-long-sides",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): paths beside both long sides (0.2 m and exactly 0.3 m away: at the distance still reaches) -> both, edges 0 and 2",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.8], [6.0, 2.8]], "width_m": 0.4}]},
+      "expected": {"access": "both", "edges": [0, 2]}
+    },
+    {
+      "id": "path-access-rect-beyond-distance",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a path 0.301 m away is farther than the default 0.3 m -> no access from it; only the near path counts",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.901], [6.0, 2.901]], "width_m": 0.4}]},
+      "expected": {"access": "one", "edges": [0]}
+    },
+    {
+      "id": "path-access-rect-only-far-path",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): the only path is 0.4 m away -> none",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[0.0, 2.9], [6.0, 2.9]], "width_m": 0.4}]},
+      "expected": {"access": "none", "edges": []}
+    },
+    {
+      "id": "path-access-configured-distance",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): the site configures 0.5 m: the path 0.4 m away now reaches the top edge",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[0.0, 2.9], [6.0, 2.9]], "width_m": 0.4}], "max_distance_m": 0.5},
+      "expected": {"access": "one", "edges": [2]}
+    },
+    {
+      "id": "path-access-configured-zero-touching",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a distance of 0 m: only a path that touches the edge reaches it (the east path touches the short end)",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[5.2, 0.0], [5.2, 3.5]], "width_m": 0.4}], "max_distance_m": 0.0},
+      "expected": {"access": "one", "edges": [1]}
+    },
+    {
+      "id": "path-access-short-end-not-long-sides",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a path running past the short end comes within 0 m of the corners of both long sides; the strips are inset at the corners, so it reaches only the short end (edge 1)",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[5.2, 0.0], [5.2, 3.5]], "width_m": 0.4}]},
+      "expected": {"access": "one", "edges": [1]}
+    },
+    {
+      "id": "path-access-both-short-ends",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): paths at both short ends are two opposite edges but not across the width (the bed measured from them is 4 m) -> one",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[5.2, 0.0], [5.2, 3.5]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.8, 0.0], [0.8, 3.5]], "width_m": 0.4}]},
+      "expected": {"access": "one", "edges": [1, 3]}
+    },
+    {
+      "id": "path-access-corner-only",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a path 0.183 m from the bed but only diagonally off its corner runs alongside no edge -> none",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[5.2, 0.8], [6.0, 0.0]], "width_m": 0.2}]},
+      "expected": {"access": "none", "edges": []}
+    },
+    {
+      "id": "path-access-polygon-path",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a path drawn as a polygon (paved area) 0.1 m beside the bottom long side reaches it",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polygon", "points": [[1.5, 0.3], [4.5, 0.3], [4.5, 0.9], [1.5, 0.9]]}]},
+      "expected": {"access": "one", "edges": [0]}
+    },
+    {
+      "id": "path-access-rotated-rect-both",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a 4 x 1.2 m bed rotated 30 deg with a path 0.2 m beside each long side (path ends rounded to 0.001 m) -> both",
+      "input": {"bed": {"kind": "rect", "origin": [5.0, 5.0], "width_m": 4.0, "length_m": 1.2, "rotation_deg": 30.0}, "paths": [{"kind": "polyline", "points": [[4.334, 4.154], [9.53, 7.154]], "width_m": 0.4}, {"kind": "polyline", "points": [[3.334, 5.886], [8.53, 8.886]], "width_m": 0.4}]},
+      "expected": {"access": "both", "edges": [0, 2]}
+    },
+    {
+      "id": "path-access-square-both",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a square bed 1.3 x 1.3 m: both pairs span the width, paths on two opposite sides -> both",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 1.3, "length_m": 1.3, "rotation_deg": 0.0}, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.8], [6.0, 2.8]], "width_m": 0.4}]},
+      "expected": {"access": "both", "edges": [0, 2]}
+    },
+    {
+      "id": "path-access-convex-polygon-both",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a convex hexagon bed with parallel bottom and top edges 1.2 m apart (its minimum width): paths beside both -> both, edges 0 and 3",
+      "input": {"bed": {"kind": "polygon", "points": [[1.0, 1.0], [4.0, 1.0], [4.5, 1.6], [4.0, 2.2], [1.0, 2.2], [0.5, 1.6]]}, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}, {"kind": "polyline", "points": [[0.0, 2.7], [6.0, 2.7]], "width_m": 0.4}]},
+      "expected": {"access": "both", "edges": [0, 3]}
+    },
+    {
+      "id": "path-access-clockwise-polygon",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a rectangular polygon bed listed clockwise: the outward side is found from the winding; the bottom path reaches edge 3 ((5, 1) -> (1, 1))",
+      "input": {"bed": {"kind": "polygon", "points": [[1.0, 1.0], [1.0, 2.3], [5.0, 2.3], [5.0, 1.0]]}, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}]},
+      "expected": {"access": "one", "edges": [3]}
+    },
+    {
+      "id": "path-access-circle-near",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a circle bed (diameter 1.3 m) has no edges here: a path 0.15 m away is one-sided access, never both",
+      "input": {"bed": {"kind": "circle", "origin": [3.0, 3.0], "radius_m": 0.65}, "paths": [{"kind": "polyline", "points": [[1.0, 2.0], [5.0, 2.0]], "width_m": 0.4}, {"kind": "polyline", "points": [[1.0, 4.0], [5.0, 4.0]], "width_m": 0.4}]},
+      "expected": {"access": "one", "edges": []}
+    },
+    {
+      "id": "path-access-circle-far",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a circle bed with a path 0.65 m away -> none",
+      "input": {"bed": {"kind": "circle", "origin": [3.0, 3.0], "radius_m": 0.65}, "paths": [{"kind": "polyline", "points": [[1.0, 1.5], [5.0, 1.5]], "width_m": 0.4}]},
+      "expected": {"access": "none", "edges": []}
+    },
+    {
+      "id": "path-access-no-paths",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a site without paths -> none",
+      "input": {"bed": {"kind": "rect", "origin": [1.0, 1.0], "width_m": 4.0, "length_m": 1.3, "rotation_deg": 0.0}, "paths": []},
+      "expected": {"access": "none", "edges": []}
+    },
+    {
+      "id": "path-access-no-bed-geometry",
+      "operation": "path_access",
+      "spec": "GP-FR-166 (#2703): a bed without geometry -> none, never an error",
+      "input": {"bed": null, "paths": [{"kind": "polyline", "points": [[0.0, 0.6], [6.0, 0.6]], "width_m": 0.4}]},
+      "expected": {"access": "none", "edges": []}
     },
     {
       "id": "area-dose-g-bed-3x1.2",

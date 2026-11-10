@@ -131,6 +131,18 @@ def raw_edge_distance_m(a: Geometry, b: Geometry) -> float:
     return max(0.0, _core_distance(core_a, core_b) - core_a.inflation_m - core_b.inflation_m)
 
 
+def raw_distance_to_ring_m(geometry: Geometry, ring: tuple[Point2D, ...]) -> float:
+    """:func:`raw_edge_distance_m` from ``geometry`` to a vertex ring given in the same frame, unrounded.
+
+    The ring is a derived area that is no stored geometry (GP-FR-166: the strip beside a bed edge a path must reach,
+    :mod:`reach_calculator`); three or more vertices take part like a polygon - outline and interior, no inflation.
+    Two vertices are a segment, one is a point.
+    """
+    core = _core(geometry)
+    other = _Core(ring, closed=len(ring) >= 3, inflation_m=0.0)
+    return max(0.0, _core_distance(core, other) - core.inflation_m)
+
+
 def edge_distance_m(a: Geometry, b: Geometry) -> float:
     """The shortest outline-to-outline distance of ``a`` and ``b`` in metres, 0 when they touch, overlap or nest.
 

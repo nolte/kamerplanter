@@ -33,7 +33,7 @@ from app.common.enums import (
 )
 from app.domain.calculators.geometry_calculator import BoundingBox, area_m2, bounding_box
 from app.domain.calculators.orientation_calculator import orientation_from_aspect
-from app.domain.calculators.reach_calculator import REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
+from app.domain.calculators.reach_calculator import PATH_ACCESS_MAX_DISTANCE_M, REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
 from app.domain.models.geometry import (
     AREA_KINDS,
     FULL_TURN_DEG,
@@ -317,11 +317,15 @@ DEFAULT_SUN_REFERENCE_MONTH = 6
 DEFAULT_SUN_REFERENCE_DAY = 21
 #: Upper bound of a reach threshold, metres: a bed frame is at most this wide (V-01).
 MAX_REACH_THRESHOLD_M = MAX_DIMENSION_M
+#: Upper bound of the path-access distance, metres (#2703): a path more than a step away from the bed edge is no
+#: place to tend it from; the bound keeps a typo (30 instead of 0.3) from making every path reach every bed.
+MAX_PATH_ACCESS_DISTANCE_M = 1.0
 #: A leap year, so 29 February is a valid reference day.
 _REFERENCE_YEAR = 2000
 
 _PositiveHours = Annotated[float, AllowInfNan(False), Field(gt=0, le=24.0)]
 _PositiveMetres = Annotated[float, AllowInfNan(False), Field(gt=0, le=MAX_REACH_THRESHOLD_M)]
+_PathDistanceMetres = Annotated[float, AllowInfNan(False), Field(ge=0, le=MAX_PATH_ACCESS_DISTANCE_M)]
 
 
 class SunClassThresholds(BaseModel):
@@ -364,10 +368,16 @@ class ReachThresholds(BaseModel):
     ``both_sides_m`` applies with access from two opposite sides, ``one_side_m`` with access from one side and
     when the access is unknown (``app.domain.calculators.reach_calculator``). One side never reaches farther
     than two, so ``one_side_m`` may not exceed ``both_sides_m``.
+
+    ``path_access_max_distance_m`` (#2703, operator decision 2026-11-09) is how close a ``path`` object must come to
+    a bed edge, edge to edge, to make that side reachable (``reach_calculator.path_access``): 0.3 m by default, 0 m
+    (only a touching path) up to :data:`MAX_PATH_ACCESS_DISTANCE_M`. A stored threshold set without it reads the
+    default, so no stored document needs a backfill.
     """
 
     both_sides_m: _PositiveMetres = REACH_BOTH_SIDES_M
     one_side_m: _PositiveMetres = REACH_ONE_SIDE_M
+    path_access_max_distance_m: _PathDistanceMetres = PATH_ACCESS_MAX_DISTANCE_M
 
     @model_validator(mode="after")
     def validate_order(self) -> Self:
@@ -695,7 +705,7 @@ class Site(BaseModel):
 
     @property
     def effective_reach_thresholds(self) -> ReachThresholds:
-        """The site's reach thresholds, 1.2 / 0.6 m where none are stored."""
+        """The site's reach thresholds, 1.2 / 0.6 m and a 0.3 m path distance where none are stored."""
         return self.reach_thresholds or ReachThresholds()
 
     @field_validator("gps_coordinates")

@@ -31,7 +31,7 @@ _CUSTOM_SUN = {
     "reference_month": 7,
     "reference_day": 1,
 }
-_CUSTOM_REACH = {"both_sides_m": 1.4, "one_side_m": 0.7}
+_CUSTOM_REACH = {"both_sides_m": 1.4, "one_side_m": 0.7, "path_access_max_distance_m": 0.5}
 
 
 class _Repo(_RecordingRepo):
@@ -116,6 +116,13 @@ class TestWritingThem:
 
         assert response.json()["reach_thresholds"] == _DEFAULT_REACH
 
+    def test_thresholds_sent_without_the_path_distance_take_its_default(self, client: TestClient) -> None:
+        """A client from before #2703 sends only the two reach values: the path distance is the 0.3 m default."""
+        response = _put(client, reach_thresholds={"both_sides_m": 1.4, "one_side_m": 0.7})
+
+        assert response.status_code == 200
+        assert response.json()["reach_thresholds"]["path_access_max_distance_m"] == 0.3
+
     def test_a_create_takes_them(self, client: TestClient) -> None:
         response = client.post(
             f"{_BASE}/sites", json={"name": "Neu", "type": "outdoor", "reach_thresholds": _CUSTOM_REACH}
@@ -137,6 +144,10 @@ _REFUSED = [
     pytest.param({"reach_thresholds": {"both_sides_m": 0}}, id="reach-both-zero"),
     pytest.param({"reach_thresholds": {"one_side_m": -0.6}}, id="reach-one-negative"),
     pytest.param({"reach_thresholds": {"both_sides_m": 1.0, "one_side_m": 1.2}}, id="reach-one-above-both"),
+    # #2703: the path distance is 0 m (touching) up to 1 m.
+    pytest.param({"reach_thresholds": {"path_access_max_distance_m": -0.1}}, id="path-distance-negative"),
+    pytest.param({"reach_thresholds": {"path_access_max_distance_m": 30}}, id="path-distance-above-bound"),
+    pytest.param({"reach_thresholds": {"path_access_max_distance_m": "0.3m"}}, id="path-distance-no-number"),
     pytest.param({"sun_class_thresholds": {"full_sun_min_hours": 0}}, id="sun-full-zero"),
     pytest.param({"sun_class_thresholds": {"shade_min_hours": -1}}, id="sun-shade-negative"),
     pytest.param({"sun_class_thresholds": {"partial_shade_min_hours": 0}}, id="sun-partial-zero"),

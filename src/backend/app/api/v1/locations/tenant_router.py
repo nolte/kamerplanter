@@ -329,6 +329,8 @@ def get_location_summary(
     reason codes, never a number. Thresholds without a source take no part (E-10).
     `nearest_water_source_m` (GP-FR-167) is the distance in metres from the bed's edge to the nearest water source of
     its site; `null` for a location that is no bed, without a geometry or without a water source.
+    `path_access` (GP-FR-166) is the access the site's paths give the bed (`both` | `one` | `none`, within the site's
+    `reach_thresholds.path_access_max_distance_m`); `null` for a location that is no bed or has no geometry.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
     counters = view.counters
@@ -345,6 +347,7 @@ def get_location_summary(
         last_care_at=counters.last_care_at,
         nutrient_hint=NutrientHintResponse.from_hint(view.nutrient_hint),
         nearest_water_source_m=view.nearest_water_source_m,
+        path_access=view.path_access,
     )
 
 

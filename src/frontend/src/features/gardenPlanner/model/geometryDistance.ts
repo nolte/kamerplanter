@@ -85,6 +85,17 @@ export function rawEdgeDistanceM(a: Geometry, b: Geometry): number {
   return Math.max(0, coreDistance(coreA, coreB) - coreA.inflationM - coreB.inflationM);
 }
 
+/**
+ * {@link rawEdgeDistanceM} from `geometry` to a vertex ring in the same frame, unrounded (port of
+ * `geometry_distance.raw_distance_to_ring_m`): the ring is a derived area, no stored geometry (the strip beside a
+ * bed edge a path must reach, `reach.ts`). Three or more vertices take part like a polygon; two are a segment.
+ */
+export function rawDistanceToRingM(geometry: Geometry, ring: readonly Point[]): number {
+  const core = coreOf(geometry);
+  const other: Core = { vertices: [...ring], closed: ring.length >= 3, inflationM: 0 };
+  return Math.max(0, coreDistance(core, other) - core.inflationM);
+}
+
 /** The shortest outline-to-outline distance of `a` and `b` in metres (same frame), rounded to 0.001 m. */
 export function edgeDistanceM(a: Geometry, b: Geometry): number {
   return roundLength(rawEdgeDistanceM(a, b));

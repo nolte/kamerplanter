@@ -35,7 +35,7 @@ import structlog
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.datetimes import ensure_aware_utc
-from app.common.enums import BedStatus, FrostRisk, TenantRole
+from app.common.enums import BedStatus, FrostRisk, GardenObjectType, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
 from app.domain.calculators.geometry_distance import (
@@ -45,6 +45,7 @@ from app.domain.calculators.geometry_distance import (
     water_source_geometries,
 )
 from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
+from app.domain.calculators.reach_calculator import path_access
 from app.domain.engines.bed_list_csv_engine import (
     ASSIGNMENT_COLUMN,
     COLUMN_ACTIVE_PLANTS,
@@ -220,6 +221,24 @@ class GardenResourceService:
         )
         return water_source_geometries(objects)
 
+    def _path_access(self, location: Location, *, tenant_key: str) -> str:
+        """The access the site's paths give the bed (GP-FR-166, #2703): ``both`` | ``one`` | ``none``.
+
+        The paths are the site's on-site ``path`` objects, read through the same tenant-anchored object query as the
+        water sources (``off_site`` scenery - the neighbour's path behind the fence - is no place to tend a bed from);
+        the distance is the site's ``path_access_max_distance_m``. The caller resolved the location's ownership, and
+        the site read is anchored on the tenant once more. Bounded by the plan quota of a site.
+        """
+        site = self._owned_site(location.site_key, tenant_key=tenant_key)
+        objects = self._objects.get_garden_objects_by_site(
+            location.site_key,
+            tenant_key=tenant_key,
+            object_type=GardenObjectType.PATH,
+            on_site_only=True,
+        )
+        distance = site.effective_reach_thresholds.path_access_max_distance_m
+        return path_access(location.geometry, [item.geometry for item in objects], max_distance_m=distance).access
+
     # ── GP-API-011: the bed list ──────────────────────────────────────────────
 
     def list_beds(
@@ -351,10 +370,12 @@ class GardenResourceService:
             hints: NutrientHintService = provider()
             hint = hints.assess(location, counters.species_keys, tenant_key=tenant_key)
         water: float | None = None
+        access: str | None = None
         if is_bed and location.geometry is not None:  # GP-FR-167 is a bed's value, as the nutrient hint
             water = nearest_water_source_m(
                 location.geometry, self._water_sources(location.site_key, tenant_key=tenant_key)
             )
+            access = self._path_access(location, tenant_key=tenant_key)  # GP-FR-166, #2703
         return BedSummaryView(
             location=location,
             counters=counters,
@@ -362,6 +383,7 @@ class GardenResourceService:
             is_bed=is_bed,
             nutrient_hint=hint,
             nearest_water_source_m=water,
+            path_access=access,
         )
 
     # ── GP-API-010: PATCH /locations/{key} ────────────────────────────────────

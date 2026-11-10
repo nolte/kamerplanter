@@ -537,6 +537,9 @@ class BedSummaryView:
     #: GP-FR-167 (WP 9.12): metres from the bed's edge to the nearest water source of its site, derived and
     #: read-only; ``None`` for a location that is no bed, without a geometry or without a water source.
     nearest_water_source_m: float | None = None
+    #: GP-FR-166 (#2703): the access the site's paths give the bed (``reach_calculator.path_access``): ``both`` |
+    #: ``one`` | ``none``; ``None`` for a location that is no bed or has no geometry.
+    path_access: str | None = None
 
 
 # ── Read model (GP-API-001) ───────────────────────────────────────────────────

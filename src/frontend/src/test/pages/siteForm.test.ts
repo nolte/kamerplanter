@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { SiteType } from '@/api/types';
+import type { ReachThresholds, SiteType } from '@/api/types';
 import {
   SITE_TYPE_VALUES,
   WEATHER_RELEVANT_SITE_TYPES,
@@ -157,8 +157,26 @@ describe('siteForm — garden-planning thresholds (REQ-053 WP 8.24)', () => {
         reference_month: 6,
         reference_day: 21,
       },
-      reach_thresholds: { both_sides_m: 1.2, one_side_m: 0.6 },
+      reach_thresholds: { both_sides_m: 1.2, one_side_m: 0.6, path_access_max_distance_m: 0.3 },
     });
+  });
+
+  it('fills the path distance a backend before #2703 does not send with its 0.3 m default', () => {
+    const fields = thresholdsToFields({
+      sun_class_thresholds: undefined,
+      reach_thresholds: { both_sides_m: 1.4, one_side_m: 0.7 } as ReachThresholds,
+    });
+    expect(fields.reach_thresholds).toEqual({ both_sides_m: 1.4, one_side_m: 0.7, path_access_max_distance_m: 0.3 });
+  });
+
+  it.each([0, 0.3, 1])('accepts a path distance of %s m', async (value) => {
+    const result = await runResolver(buildSiteResolver(identityT), reach({ path_access_max_distance_m: value }));
+    expect(result.errors).toEqual({});
+  });
+
+  it.each([-0.1, 1.01, 30])('refuses a path distance of %s m (0 to 1 m)', async (value) => {
+    const result = await runResolver(buildSiteResolver(identityT), reach({ path_access_max_distance_m: value }));
+    expect(result.errors.reach_thresholds?.path_access_max_distance_m).toBeTruthy();
   });
 
   it('accepts the defaults and other descending bounds', async () => {
@@ -215,10 +233,10 @@ describe('siteForm — garden-planning thresholds (REQ-053 WP 8.24)', () => {
   it('sends only the part that changed; an unchanged part keeps what is stored (null)', () => {
     const site = thresholdsToFields(null);
     expect(thresholdsToPayload(site, null)).toEqual({ sun_class_thresholds: null, reach_thresholds: null });
-    const changed = { ...site, reach_thresholds: { both_sides_m: 1.5, one_side_m: 0.6 } };
+    const changed = { ...site, reach_thresholds: { both_sides_m: 1.5, one_side_m: 0.6, path_access_max_distance_m: 0.3 } };
     expect(thresholdsToPayload(changed, null)).toEqual({
       sun_class_thresholds: null,
-      reach_thresholds: { both_sides_m: 1.5, one_side_m: 0.6 },
+      reach_thresholds: { both_sides_m: 1.5, one_side_m: 0.6, path_access_max_distance_m: 0.3 },
     });
   });
 });

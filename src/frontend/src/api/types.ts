@@ -577,6 +577,8 @@ export interface SunClassThresholds {
 export interface ReachThresholds {
   both_sides_m: number;
   one_side_m: number;
+  /** How close a `path` object must come to a bed edge to make that side reachable, 0-1 m (#2703; default 0.3). */
+  path_access_max_distance_m: number;
 }
 
 export interface Site {

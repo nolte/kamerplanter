@@ -14,11 +14,6 @@
     "reason": "Beds x years with a list of families per season, `nutrient_demand` and `plan_role` is tested (same expression as `/rotation`). Not implemented: the future columns \"aus `CropRotationPlan`\" - there is no store for it (no model, no repository; only REQ-002 and v0096 name the collection), so the matrix ends at the current year (#2643 addendum A, recommendation: planned runs as the source)",
     "issue": 2643
   },
-  "GP-FR-166": {
-    "partial": true,
-    "reason": "The hint from the shortest side against the site thresholds (1.2 m two-sided, 0.6 m one-sided) with access from `access_sides` is tested (Python and TS against the `reach` vectors, API, E2E TC-053-076). Not implemented: access derived from an adjacent `path` object (\"kein Weg angrenzt\") - no bed-to-object edge-distance rule exists (`adjacency_engine` compares slot centres), so a bed without `access_sides` counts as having no access",
-    "issue": 2703
-  },
   "GP-FR-168": {
     "partial": true,
     "reason": "Slope and aspect per bed and the orientation derived from `aspect_deg` (8 directions) are tested. Not implemented: \"vom Site-Wert geerbt\" - the site has no terrain field and #2643 question 4 decided per bed only, no inheritance; the row text still names the inheritance",
