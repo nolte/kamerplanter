@@ -12,6 +12,7 @@ import type {
   SunExposure,
   WindExposure,
 } from '../model/types';
+import type { PathAccessClass } from '../model/reach';
 
 /** Stored heat of a wall or building at a bed (`HeatRetention` of the backend, GP-FR-162). */
 export type HeatRetention = 'none' | 'wall' | 'building' | 'unknown';
@@ -212,6 +213,12 @@ export interface NutrientHint {
 
 export interface BedSummary extends BedListItem {
   is_bed: boolean;
+  /**
+   * GP-FR-166 (#2703): the access the site's paths give the bed, derived on the server
+   * (`reach_calculator.path_access`, within the site's `path_access_max_distance_m`): `both` | `one` | `none`; `null`
+   * (or absent, an older backend) for a location that is no bed or has no geometry. Joins `access_sides`.
+   */
+  path_access?: PathAccessClass | null;
   season_state: string;
   active_plant_count: number;
   species_keys: string[];

@@ -2,8 +2,9 @@
  * The head of the bed view (REQ-053 GP-FR-047, GP-FR-077): area, type, status, soil, sun, active
  * plants, open tasks, last care, next due date, assignment and the previous year; the drainage only while it
  * is known. It reads the summary only and owns no state. A bed wider than its access reaches gets the
- * `bed.reach_too_wide` hint (GP-FR-166): a badge, never an error, shown only while it applies. The cover photo
- * (GP-FR-051) leads the head while the bed has one: full width on a phone, beside the facts from `sm`.
+ * `bed.reach_too_wide` hint (GP-FR-166): a badge, never an error, shown only while it applies. Its access is the
+ * stronger of the recorded `access_sides` and the server-derived `path_access` (paths beside the bed, #2703).
+ * The cover photo (GP-FR-051) leads the head while the bed has one: full width on a phone, beside the facts from `sm`.
  * The nutrient hint (GP-FR-125, WP 8.10) is shown only while it says something: "Düngebedarf wahrscheinlich" for
  * `likely_deficit`, "Düngung prüfen" for `check`, each with its reasons - never a number. `ok` and
  * `insufficient_data` show nothing (until a threshold has a source every bed is `insufficient_data`, E-10).
@@ -65,8 +66,8 @@ interface BedHeaderProps {
   onChangeSite?: (() => void) | null;
   /** Reasons given when a planting went ahead despite a crop-rotation hint (GP-FR-132); empty = no badge. */
   rotationReasons?: readonly string[];
-  /** The site's reach thresholds (GP-FR-166, WP 8.24); absent = 1.2 / 0.6 m. */
-  reachThresholds?: Readonly<ReachThresholds>;
+  /** The site's reach thresholds (GP-FR-166, WP 8.24); absent = 1.2 / 0.6 m. The path distance acts on the server. */
+  reachThresholds?: Readonly<Pick<ReachThresholds, 'both_sides_m' | 'one_side_m'>>;
   /** What stood in the bed in `year - 1`, from the bed's rotation timeline (GP-FR-077, #2764). */
   previousYear: PreviousYearState;
 }
@@ -190,9 +191,11 @@ export default function BedHeader({
   const siteLine = siteConditionsLine(t, summary.site_conditions);
   const accessSides = summary.site_conditions?.access_sides;
   const flagsLine = siteFlagsLine(t, summary.site_conditions?.flags);
+  const pathAccess = summary.path_access ?? null;
   const reach = useMemo(
-    () => assessReach(summary.geometry, accessSides, reachOptions(reachThresholds)),
-    [summary.geometry, accessSides, reachThresholds],
+    () =>
+      assessReach(summary.geometry, accessSides, { ...reachOptions(reachThresholds), pathAccess }),
+    [summary.geometry, accessSides, reachThresholds, pathAccess],
   );
   const waterText = waterSourceText(t, language, summary.nearest_water_source_m, 'header');
   const nutrientHint = shownNutrientHint(summary.nutrient_hint);

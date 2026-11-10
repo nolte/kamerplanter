@@ -391,6 +391,7 @@ class BedSummaryResponse(LocationResponse):
                     "open_task_count": 2,
                     "last_care_at": "2026-06-14T18:30:00Z",
                     "nearest_water_source_m": 3.5,
+                    "path_access": "one",
                 }
             ]
         }
@@ -411,6 +412,12 @@ class BedSummaryResponse(LocationResponse):
     #: edge in the plan frame, 0 when the source lies on or inside it); `null` for a location that is no bed, without a
     #: geometry or without a water source.
     nearest_water_source_m: float | None = Field(default=None, ge=0)
+    #: GP-FR-166 (#2703): derived, read-only - the access the site's paths give the bed: `both` when paths run along
+    #: two opposite edges across its width, `one` when a path runs along an edge, `none` without; a path counts when it
+    #: comes within the site's `reach_thresholds.path_access_max_distance_m` (default 0.3 m) of the edge. Joins
+    #: `site_conditions.access_sides` for the `bed.reach_too_wide` hint (the stronger wins). `null` for a location that
+    #: is no bed or has no geometry.
+    path_access: Literal["both", "one", "none"] | None = None
 
 
 class LocationTreeNode(BaseModel):

@@ -1,7 +1,8 @@
 /**
  * The garden-planning thresholds of a site (REQ-053 GP-FR-164/166, WP 8.24): where the sun classes begin, the day
- * they refer to, and how wide a bed may be before it is out of reach. Part of the site edit form; the values feed
- * the help texts of the sun tiles and the `bed.reach_too_wide` hint. Nothing is computed from them beyond that.
+ * they refer to, how wide a bed may be before it is out of reach, and how close a path must come to a bed edge to
+ * give access from that side (#2703). Part of the site edit form; the values feed the help texts of the sun tiles
+ * and the `bed.reach_too_wide` hint. Nothing is computed from them beyond that.
  */
 import { useTranslation } from 'react-i18next';
 import Card from '@mui/material/Card';
@@ -11,7 +12,7 @@ import Typography from '@mui/material/Typography';
 import type { Control } from 'react-hook-form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
-import type { SiteFormData } from './siteForm';
+import { MAX_PATH_ACCESS_DISTANCE_M, type SiteFormData } from './siteForm';
 
 const PREFIX = 'pages.sites.thresholds';
 
@@ -125,6 +126,20 @@ export default function SiteThresholdsSection({ control, onResetDefaults }: Site
             label={t(`${PREFIX}.oneSide`)}
             helperText={t(`${PREFIX}.oneSideHelper`)}
             min={0}
+            step="any"
+            inputMode="decimal"
+            suffix="m"
+            required
+          />
+        </FormRow>
+        <FormRow>
+          <FormNumberField
+            name="reach_thresholds.path_access_max_distance_m"
+            control={control}
+            label={t(`${PREFIX}.pathDistance`)}
+            helperText={t(`${PREFIX}.pathDistanceHelper`)}
+            min={0}
+            max={MAX_PATH_ACCESS_DISTANCE_M}
             step="any"
             inputMode="decimal"
             suffix="m"

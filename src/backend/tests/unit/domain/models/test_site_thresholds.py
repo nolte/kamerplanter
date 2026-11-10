@@ -12,8 +12,14 @@ import pytest
 from pydantic import ValidationError
 
 from app.common.enums import Orientation
-from app.domain.calculators.reach_calculator import REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
-from app.domain.models.site import Location, ReachThresholds, Site, SunClassThresholds
+from app.domain.calculators.reach_calculator import PATH_ACCESS_MAX_DISTANCE_M, REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
+from app.domain.models.site import (
+    MAX_PATH_ACCESS_DISTANCE_M,
+    Location,
+    ReachThresholds,
+    Site,
+    SunClassThresholds,
+)
 
 
 class TestSunClassThresholds:
@@ -81,6 +87,19 @@ class TestReachThresholds:
     def test_equal_thresholds_are_taken(self) -> None:
         assert ReachThresholds(both_sides_m=0.8, one_side_m=0.8).one_side_m == 0.8
 
+    def test_the_path_distance_defaults_to_the_decided_0_3_m(self) -> None:
+        """#2703, operator decision 2026-11-09: a path within 0.3 m of a bed edge makes that side reachable."""
+        assert ReachThresholds().path_access_max_distance_m == PATH_ACCESS_MAX_DISTANCE_M == 0.3
+
+    @pytest.mark.parametrize("value", [0, 0.5, MAX_PATH_ACCESS_DISTANCE_M])
+    def test_a_path_distance_within_bounds_is_taken(self, value: float) -> None:
+        assert ReachThresholds(path_access_max_distance_m=value).path_access_max_distance_m == value
+
+    @pytest.mark.parametrize("value", [-0.1, MAX_PATH_ACCESS_DISTANCE_M + 0.001, 30, math.nan, math.inf])
+    def test_a_path_distance_out_of_bounds_is_refused(self, value: float) -> None:
+        with pytest.raises(ValidationError):
+            ReachThresholds(path_access_max_distance_m=value)
+
 
 class TestTheSiteCarriesThem:
     def test_a_stored_site_without_them_stays_valid_and_reads_the_defaults(self) -> None:
@@ -100,6 +119,14 @@ class TestTheSiteCarriesThem:
 
         assert site.effective_sun_class_thresholds.full_sun_min_hours == 7
         assert site.effective_reach_thresholds.both_sides_m == 1.5
+
+    def test_stored_thresholds_from_before_the_path_distance_read_its_default(self) -> None:
+        """Thresholds stored by WP 8.24 lack ``path_access_max_distance_m`` (#2703): the model default applies."""
+        site = Site.model_validate(
+            {"_key": "s1", "name": "Garten", "reach_thresholds": {"both_sides_m": 1.5, "one_side_m": 0.8}}
+        )
+
+        assert site.effective_reach_thresholds.path_access_max_distance_m == 0.3
 
 
 def _bed(**fields: object) -> Location:

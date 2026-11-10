@@ -189,6 +189,36 @@ class TestTheBedList:
         assert plain[0]["nearest_water_source_m"] is None
 
 
+class TestTheSummaryPathAccess:
+    """GP-FR-166 (#2703): the summary carries the access the site's paths give the bed (x 1..3, y 1..2)."""
+
+    @staticmethod
+    def _path(key: str, y: float) -> GardenObject:
+        return GardenObject(
+            _key=key,
+            site_key=SITE,
+            object_type=GardenObjectType.PATH,
+            geometry={"kind": "polyline", "points": [[0.0, y], [4.0, y]], "width_m": 0.2},
+            props={},
+        )
+
+    def test_paths_along_both_long_sides_answer_both(self, client, repo) -> None:
+        repo.objects["south"] = self._path("south", 0.7)
+        repo.objects["north"] = self._path("north", 2.3)
+
+        summary = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed/summary").json()
+
+        assert summary["path_access"] == "both"
+
+    def test_without_a_path_it_is_none(self, client) -> None:
+        summary = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed/summary").json()
+
+        assert summary["path_access"] == "none"
+
+    def test_a_foreign_bed_is_a_404(self, client) -> None:
+        assert client().get(f"{_FOREIGN}/locations/bed/summary").status_code == 404
+
+
 class TestTheBedListAsCsv:
     """GP-FR-145/175, GP-API-068 (WP 8.25, #2668): ``format=csv`` on the bed list - columns, opt-in, hardening."""
 

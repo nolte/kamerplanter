@@ -43,7 +43,7 @@ from app.domain.models.garden_plan import (
     SlotBatchRequest,
     SlotPatch,
 )
-from app.domain.models.site import Microclimate, SiteConditions, Slot
+from app.domain.models.site import Microclimate, ReachThresholds, SiteConditions, Slot
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from tests.support.garden_plan_fakes import (
@@ -433,8 +433,8 @@ class TestTheSummaryWaterSource:
 
         service.get_summary("bed", tenant_key=TENANT)
 
-        assert spy.reads == [(SITE, TENANT)]
-        assert spy.narrowing == [(GardenObjectType.WATER_SOURCE, True)]
+        assert spy.reads == [(SITE, TENANT), (SITE, TENANT)]
+        assert spy.narrowing == [(GardenObjectType.WATER_SOURCE, True), (GardenObjectType.PATH, True)]
 
     def test_a_location_that_is_no_bed_has_no_distance_and_reads_no_objects(self, world) -> None:
         service, repo, _ = world
@@ -455,6 +455,68 @@ class TestTheSummaryWaterSource:
 
         assert service.get_summary("tent", tenant_key=TENANT).nearest_water_source_m is None
         assert spy.reads == []
+
+
+def path(key: str, y: float, *, site: str = SITE, off_site: bool = False) -> GardenObject:
+    """A 0.2 m wide path running along x 0..4 at height ``y`` (the band is ``y`` +- 0.1)."""
+    return GardenObject(
+        _key=key,
+        site_key=site,
+        object_type=GardenObjectType.PATH,
+        geometry={"kind": "polyline", "points": [[0.0, y], [4.0, y]], "width_m": 0.2},
+        props={},
+        off_site=off_site,
+    )
+
+
+class TestTheSummaryPathAccess:
+    """GP-FR-166 (#2703): the bed spans x 1..3, y 1..2; a path within the site's distance of an edge reaches it."""
+
+    def test_without_a_path_there_is_no_path_access(self, world) -> None:
+        service, _, _ = world
+        assert service.get_summary("bed", tenant_key=TENANT).path_access == "none"
+
+    def test_a_path_along_one_long_side_is_one_sided_access(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["south"] = path("south", 0.7)  # band 0.6..0.8, 0.2 m below the bed
+
+        assert service.get_summary("bed", tenant_key=TENANT).path_access == "one"
+
+    def test_paths_along_both_long_sides_are_access_from_both(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["south"] = path("south", 0.7)
+        repo.objects["north"] = path("north", 2.4)  # band 2.3..2.5, exactly 0.3 m above the bed
+
+        assert service.get_summary("bed", tenant_key=TENANT).path_access == "both"
+
+    def test_a_path_beyond_the_default_distance_gives_no_access(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["north"] = path("north", 2.5)  # 0.4 m above the bed
+
+        assert service.get_summary("bed", tenant_key=TENANT).path_access == "none"
+
+    def test_the_site_distance_applies(self, world) -> None:
+        service, repo, site = world
+        site.reach_thresholds = ReachThresholds(path_access_max_distance_m=0.5)
+        repo.objects["north"] = path("north", 2.5)
+
+        assert service.get_summary("bed", tenant_key=TENANT).path_access == "one"
+
+    def test_off_site_paths_and_another_sites_paths_do_not_count(self, world) -> None:
+        service, repo, _ = world
+        repo.objects["neighbour"] = path("neighbour", 0.7, off_site=True)
+        repo.objects["elsewhere"] = path("elsewhere", 2.4, site="site_foreign")
+
+        assert service.get_summary("bed", tenant_key=TENANT).path_access == "none"
+
+    def test_a_location_that_is_no_bed_or_has_no_geometry_carries_none(self, world) -> None:
+        service, repo, _ = world
+        repo.locations["house"] = make_location("house", geometry=rect(1, 1, 2, 1), location_type_key="greenhouse")
+        repo.locations["unplaced"] = make_location("unplaced")
+        repo.objects["south"] = path("south", 0.7)
+
+        assert service.get_summary("house", tenant_key=TENANT).path_access is None
+        assert service.get_summary("unplaced", tenant_key=TENANT).path_access is None
 
 
 # ── GP-API-010: PATCH /locations/{key} ─────────────────────────────────────────────────────────────

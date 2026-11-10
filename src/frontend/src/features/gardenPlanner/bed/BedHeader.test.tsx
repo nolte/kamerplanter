@@ -19,7 +19,11 @@ afterEach(() => cleanup());
 
 const NOT_READ: PreviousYearState = { status: 'loading' };
 
-function renderHeader(summary: BedSummary, reachThresholds?: ReachThresholds, previousYear = NOT_READ) {
+function renderHeader(
+  summary: BedSummary,
+  reachThresholds?: Pick<ReachThresholds, 'both_sides_m' | 'one_side_m'>,
+  previousYear = NOT_READ,
+) {
   return renderWithProviders(
     <BedHeader
       summary={summary}
@@ -79,7 +83,7 @@ describe('BedHeader reach hint (GP-FR-166)', () => {
     const reach = await screen.findByTestId('bed-header-reach');
     expect(within(reach).getByTestId('bed-reach-badge')).toHaveTextContent('Bed too wide');
     expect(within(reach).getByTestId('bed-reach-detail')).toHaveTextContent(
-      '1.3 m wide – the access sides are not recorded, so the one-side value applies (0.6 m).',
+      '1.3 m wide – the access sides are not recorded and no path runs beside it, so the one-side value applies (0.6 m).',
     );
     await expectNoA11yViolations(view.container);
   });
@@ -116,6 +120,62 @@ describe('BedHeader reach hint (GP-FR-166)', () => {
   });
 });
 
+describe('BedHeader reach hint with access from paths (GP-FR-166, #2703)', () => {
+  const rect = (width: number) => ({
+    kind: 'rect' as const,
+    origin: [1, 1] as [number, number],
+    width_m: width,
+    length_m: 4,
+    rotation_deg: 0,
+  });
+
+  it('shows the hint for a 1.3 m bed with a path along one long side, from one side', async () => {
+    renderHeader({
+      ...bedSummary(),
+      geometry: rect(1.3),
+      site_conditions: { access_sides: [] },
+      path_access: 'one',
+    });
+    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
+      '1.3 m wide – from one side you reach up to 0.6 m.',
+    );
+  });
+
+  it('shows no hint for a 1.2 m bed with paths along both long sides', async () => {
+    renderHeader({
+      ...bedSummary(),
+      geometry: rect(1.2),
+      site_conditions: { access_sides: [] },
+      path_access: 'both',
+    });
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-reach')).toBeNull();
+  });
+
+  it('keeps the recorded opposite pair when the paths give less', async () => {
+    renderHeader({
+      ...bedSummary(),
+      geometry: rect(1.2),
+      site_conditions: { access_sides: ['N', 'S'] },
+      path_access: 'none',
+    });
+    await screen.findByTestId('bed-header');
+    expect(screen.queryByTestId('bed-header-reach')).toBeNull();
+  });
+
+  it('treats an absent path access (older backend) as no path', async () => {
+    renderHeader({
+      ...bedSummary(),
+      geometry: rect(1.2),
+      site_conditions: { access_sides: [] },
+      path_access: undefined,
+    });
+    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
+      'no path runs beside it',
+    );
+  });
+});
+
 describe('BedHeader reach hint with the site thresholds (GP-FR-166, WP 8.24)', () => {
   const rect = (width: number) => ({
     kind: 'rect' as const,
@@ -140,7 +200,7 @@ describe('BedHeader reach hint with the site thresholds (GP-FR-166, WP 8.24)', (
       { both_sides_m: 1.2, one_side_m: 0.8 },
     );
     expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
-      '0.9 m wide – the access sides are not recorded, so the one-side value applies (0.8 m).',
+      '0.9 m wide – the access sides are not recorded and no path runs beside it, so the one-side value applies (0.8 m).',
     );
   });
 

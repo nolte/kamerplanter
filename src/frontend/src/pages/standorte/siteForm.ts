@@ -63,6 +63,9 @@ const MAX_REACH_M = 1000;
 const sunHours = z.number().gt(0).max(MAX_SUN_HOURS);
 /** A reach threshold in metres: more than 0 (GP-FR-166). */
 const reachMetres = z.number().gt(0).max(MAX_REACH_M);
+/** How close a path must come to a bed edge, metres: 0 (touching) up to 1 m (#2703, `MAX_PATH_ACCESS_DISTANCE_M`). */
+export const MAX_PATH_ACCESS_DISTANCE_M = 1;
+const pathDistanceMetres = z.number().min(0).max(MAX_PATH_ACCESS_DISTANCE_M);
 
 export const siteFormSchema = z.object({
   name: z.string().min(1),
@@ -83,6 +86,7 @@ export const siteFormSchema = z.object({
   reach_thresholds: z.object({
     both_sides_m: reachMetres,
     one_side_m: reachMetres,
+    path_access_max_distance_m: pathDistanceMetres,
   }),
 });
 
@@ -180,7 +184,8 @@ export function thresholdsToFields(
 ): Pick<SiteFormData, 'sun_class_thresholds' | 'reach_thresholds'> {
   return {
     sun_class_thresholds: { ...(site?.sun_class_thresholds ?? DEFAULT_SUN_CLASS_THRESHOLDS) },
-    reach_thresholds: { ...(site?.reach_thresholds ?? DEFAULT_REACH_THRESHOLDS) },
+    // Merged over the defaults: a backend before #2703 sends no path distance.
+    reach_thresholds: { ...DEFAULT_REACH_THRESHOLDS, ...site?.reach_thresholds },
   };
 }
 
