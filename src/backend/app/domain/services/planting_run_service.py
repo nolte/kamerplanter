@@ -365,14 +365,14 @@ class PlantingRunService:
                 irrigation_system=irrigation_system,
             )
             if check.volume_below and check.recommended_l is not None:
-                warnings.append(
+                warnings += [
                     ContainerVolumeWarning(
                         run_index=index,
                         species_key=draft.entry.species_key,
                         container_volume_l=volume,
                         recommended_l=check.recommended_l,
                     )
-                )
+                ]
         return warnings
 
     def _stamp_mixed_draft(self, draft: MixedRunDraft, location_key: str, tenant_key: str) -> None:
