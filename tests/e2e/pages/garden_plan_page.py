@@ -95,6 +95,11 @@ class GardenPlanPage(BasePage):
     LIST = _tid("garden-plan-list")
     LIST_DETAILS = _tid("garden-plan-list-details")
 
+    # ── Tabs Plan · Liste · Beete (WP 10.2, GP-UX-064) ─────────────────
+    TABS = _tid("garden-plan-tabs")
+    EDITOR_TABPANEL = _tid("garden-plan-tabpanel-editor")
+    BEDS_TABPANEL = _tid("garden-plan-tabpanel-beds")
+
     # ── Dialogs ────────────────────────────────────────────────────────
     CONFLICT_DIALOG = _tid("plan-conflict-dialog")
     CONFLICT_RELOAD = _tid("plan-conflict-reload")
@@ -217,6 +222,26 @@ class GardenPlanPage(BasePage):
 
     def save_status_text(self) -> str:
         return (self.wait_for_element(self.SAVE_STATUS).get_attribute("textContent") or "").strip()
+
+    def open_tab(self, name: str) -> None:
+        """Switch to the tab *name* (``plan``, ``list`` or ``beds``) and wait until it is the selected one.
+
+        A no-op when it already is. The tab is a ``click``-activated button; the switch only changes ``?tab=``, so
+        unsaved changes stay and no leave prompt appears (GP-UX-065).
+        """
+        locator = _tid(f"garden-plan-tab-{name}")
+        tab = self.wait_for_element_clickable(locator)
+        if tab.get_attribute("aria-selected") == "true":
+            return
+        self.click_coordinate_free(tab)
+        try:
+            self.poll().until(
+                lambda _d: (
+                    self.driver.find_element(*locator).get_attribute("aria-selected") == "true"
+                )
+            )
+        except TimeoutException as exc:
+            raise AssertionError(f"the plan tab {name!r} did not become the selected one") from exc
 
     def wait_for_pending(self, expected: int, what: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         try:

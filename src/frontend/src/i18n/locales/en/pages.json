@@ -5318,6 +5318,13 @@
       "backToSite": "Back to site",
       "open": "Open garden plan",
       "openHint": "See the beds and garden objects of this site as a plan.",
+      "tabs": {
+        "label": "Garden plan view",
+        "plan": "Plan",
+        "list": "List",
+        "beds": "Beds",
+        "bedsOffline": "The bed list needs a connection to the server. As soon as you are back online, you will see your beds here."
+      },
       "empty": {
         "title": "No garden plan yet",
         "description": "No plan has been created for this site yet. Members with the grower or lead role create the beds; once the first one exists, you will see your beds and garden objects from above here.",

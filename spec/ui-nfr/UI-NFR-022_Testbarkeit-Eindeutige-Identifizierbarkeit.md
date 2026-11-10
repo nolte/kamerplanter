@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.8
+Version: 1.9
 Autor: Business Analyst - Agrotech
-Datum: 2026-10-30
+Datum: 2026-11-10
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-005, UI-NFR-008, UI-NFR-017]
 Betroffene Module: [Frontend, Mobile]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.9 | 2026-11-10 | §2.5.1: Tabs Plan · Liste · Beete der Plan-Route (REQ-053 §17.3, GP-UX-064/070, WP 10.2, Issue #2823) registriert: `garden-plan-tabs` (Tab-Leiste), `garden-plan-tab-<tab>` mit `<tab>` ∈ `plan`, `list`, `beds` (der Wert von `?tab=`), die Tab-Panels `garden-plan-tabpanel-editor` (Editor für Plan und Liste) und `garden-plan-tabpanel-beds` (Beetliste) sowie der Hinweis `garden-plan-beds-offline` im Tab „Beete“ ohne Serververbindung. Keine bestehende Kennung umbenannt (R-021); die Page Objects der Beetliste öffnen den Tab „Beete“ im selben Pull Request. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.8 | 2026-10-30 | §2.5.1: Ebene Pflanzenzustand des Gartenplans (REQ-053 GP-UX-061, Issue #2488) registriert: Ebenen-Schalter `garden-plan-layer-plantState`, der abhängige Filter-Schalter `garden-plan-attention-filter` („Nur Pflanzen mit Handlungsbedarf zeigen“, gesperrt solange die Ebene aus ist) und der Legendenabschnitt `garden-plan-legend-plantState` in `garden-plan-layer-legend`. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.7 | 2026-10-30 | §2.5.1: Standortbedingungs-Ebenen des Gartenplans (REQ-053 GP-FR-169, Issue #2487) registriert: Ebenen-Schalter `garden-plan-layer-sun`, `garden-plan-layer-moisture`, `garden-plan-layer-frost`; die dekorativen Überlagerungen `garden-plan-sun-layer`, `garden-plan-moisture-layer`, `garden-plan-frost-layer`; die Legendenabschnitte `garden-plan-legend-sun`, `garden-plan-legend-moisture`, `garden-plan-legend-frost` in `garden-plan-layer-legend`; dazu `bed-header-drainage` (Drainage im Kopf der Beetansicht, GP-FR-047). Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.6 | 2026-10-30 | §2.5.1: Sonnenprofil im Eigenschaften-Feld des Gartenplan-Editors (REQ-053 GP-FR-158/159, Issue #2538) registriert: `garden-plan-panel-sun-profile` mit denselben Suffixen wie `bed-view-sun-profile` (`-window`, `-window-<wert>`, `-window-<wert>-input`, `-hours`, `-foliage`), zusammen mit der Verwendung im selben Pull Request (R-020). |
@@ -206,6 +207,16 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-autosave-paused` | Hinweis, dass Auto-Save bei Konflikt oder abgelehntem Speichern pausiert |
 | `garden-plan-multi-dialog` / `-count` / `-direction` / `-spacing` / `-scheme` / `-start` / `-preview` / `-error` / `-submit` / `-cancel` | Dialog „Mehrfach duplizieren" |
 | `garden-plan-info` | Bestätigung (Erfolgsmeldung) des Editors, z. B. „Vorlage gespeichert" |
+
+**Gartenplan-Editor, REQ-053 Welle 10 (Editor-Arbeitsfläche §17.3, GP-UX-070):**
+
+| `data-testid` | Element |
+|---|---|
+| `garden-plan-tabs` | Tab-Leiste Plan · Liste · Beete über dem Editor (`role="tablist"`, nur im Planungsmodus, WP 10.2) |
+| `garden-plan-tab-<tab>` | Ein Tab, geschlüsselt über den Wert des Query-Parameters `tab`: `plan`, `list`, `beds` (der URL-Wert bleibt `beds` auch dort, wo der Tab „Pflanzplätze“ heißt, GP-FR-183) |
+| `garden-plan-tabpanel-editor` | Tab-Panel des Editors; gehört zu „Plan“ und „Liste“ (der Editor zeigt Zeichenfläche bzw. `garden-plan-list`), hinter „Beete“ ausgeblendet, nicht entfernt |
+| `garden-plan-tabpanel-beds` | Tab-Panel „Beete“ mit der Beetliste (`bed-list-section`, unverändert) |
+| `garden-plan-beds-offline` | Hinweis im Tab „Beete“, solange die Beetliste ohne Serververbindung nicht geladen werden kann |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
 

@@ -207,7 +207,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
   ];
 
   return (
-    <Box component="section" aria-labelledby="bed-list-heading" sx={{ mt: 3 }} data-testid="bed-list-section">
+    <Box component="section" aria-labelledby="bed-list-heading" data-testid="bed-list-section">
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 1 }}>
         <Typography id="bed-list-heading" variant="h6" component="h2" sx={{ flexGrow: 1 }}>
           {t('pages.bed.list.title')}

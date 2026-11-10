@@ -1,16 +1,27 @@
-import { useEffect, useState } from 'react';
-import { useBlocker } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useBlocker, type BlockerFunction, type Location } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 interface UnsavedChangesGuardProps {
   dirty: boolean;
+  /**
+   * A navigation this returns `true` for passes without the question although there are unsaved changes - one
+   * that keeps the page and its state mounted, such as a tab kept in the query string (REQ-053 GP-UX-065).
+   * Leaving the page still asks. Pass a stable function (`useCallback` or module scope).
+   */
+  allowNavigation?: (current: Location, next: Location) => boolean;
 }
 
-export default function UnsavedChangesGuard({ dirty }: UnsavedChangesGuardProps) {
+export default function UnsavedChangesGuard({ dirty, allowNavigation }: UnsavedChangesGuardProps) {
   const { t } = useTranslation();
 
-  const blocker = useBlocker(dirty);
+  const shouldBlock = useCallback<BlockerFunction>(
+    ({ currentLocation, nextLocation }) =>
+      dirty && !(allowNavigation?.(currentLocation, nextLocation) ?? false),
+    [dirty, allowNavigation],
+  );
+  const blocker = useBlocker(allowNavigation ? shouldBlock : dirty);
 
   // Every blocked navigation gets its own dialog instance, keyed by the
   // attempted location. Re-opening the previous instance while its closing

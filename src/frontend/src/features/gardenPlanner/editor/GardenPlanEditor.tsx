@@ -171,7 +171,17 @@ export interface GardenPlanEditorProps {
   onOpenCare?: (locationKey: string) => void;
   /** Open "add with dimensions" when the editor mounts: the empty plan's "add the first bed" (#2617). */
   initialAddOpen?: boolean;
+  /**
+   * Plan or list (GP-NFR-023), when the route owns it: the tabs Plan · Liste keep it in the URL (GP-UX-064).
+   * Without it the editor keeps the choice itself.
+   */
+  view?: EditorView;
+  /** The editor's own controls (the list switch, the skip links) ask for the other view. */
+  onViewChange?: (view: EditorView) => void;
 }
+
+/** The two surfaces of the editor: the drawing, or the same plan as a list (GP-NFR-023). */
+export type EditorView = 'plan' | 'list';
 
 /** The companion line the event hit (`data-companion-edge`, drawn by the renderer's companion layer), or `null`. */
 function companionEdgeOf(event: { target: EventTarget | null }): string | null {
@@ -278,6 +288,8 @@ export function GardenPlanEditor({
   onOpenLocation,
   onOpenCare,
   initialAddOpen = false,
+  view: viewProp,
+  onViewChange,
 }: GardenPlanEditorProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -454,7 +466,15 @@ export function GardenPlanEditor({
   const [multiOpen, setMultiOpen] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
   const deleteTexts = useDeleteTexts(pendingDelete, plan, labels);
-  const [view, setView] = useState<'plan' | 'list'>('plan');
+  const [ownView, setOwnView] = useState<EditorView>('plan');
+  const view = viewProp ?? ownView;
+  const changeView = useCallback(
+    (next: EditorView) => {
+      if (onViewChange) onViewChange(next);
+      else setOwnView(next);
+    },
+    [onViewChange],
+  );
   const [helpOpen, setHelpOpen] = useState(false);
   const shortcuts = useSingleKeyShortcuts();
   const dockRef = useRef<HTMLDivElement | null>(null);
@@ -506,6 +526,9 @@ export function GardenPlanEditor({
   useEffect(() => {
     const request = pendingFocus.current;
     if (request === null) return;
+    // A surface asked for that is not shown yet waits for the render that shows it: with a route-owned view
+    // (the tabs, GP-UX-064) the switch arrives one navigation later.
+    if ((request === 'plan' || request === 'list') && request !== view) return;
     pendingFocus.current = null;
     const surface =
       view === 'plan'
@@ -1209,12 +1232,12 @@ export function GardenPlanEditor({
   );
   const showList = useCallback(() => {
     pendingFocus.current = 'list';
-    setView('list');
-  }, []);
+    changeView('list');
+  }, [changeView]);
   const showPlan = useCallback(() => {
     pendingFocus.current = 'plan';
-    setView('plan');
-  }, []);
+    changeView('plan');
+  }, [changeView]);
   // Buttons that disappear once they have acted must not take the focus with them.
   const thenFocusPlan = useCallback(
     (action: () => void) => () => {
