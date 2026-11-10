@@ -23,8 +23,18 @@ TEST_DATABASE = run_database_name("rotation_history")
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 # LOCATIONS + SITES: a care-event void derives the bed's soil profile in its transaction, which declares both (#2706).
-_DOCUMENTS = [col.SLOTS, col.PLANT_INSTANCES, col.PLANTING_RUNS, col.CARE_EVENTS, col.LOCATIONS, col.SITES]
-_EDGES = [col.RUN_CONTAINS, col.CARE_EVENT_AT, col.CARE_EVENT_FOR, col.TASK_LOGGED_AS]
+# FEEDING_EVENTS + FED_BY + FEEDING_USED: a void withdraws the feeding event its care entry owns, so its
+# transaction declares them (#2833).
+_DOCUMENTS = [
+    col.SLOTS,
+    col.PLANT_INSTANCES,
+    col.PLANTING_RUNS,
+    col.CARE_EVENTS,
+    col.LOCATIONS,
+    col.SITES,
+    col.FEEDING_EVENTS,
+]
+_EDGES = [col.RUN_CONTAINS, col.CARE_EVENT_AT, col.CARE_EVENT_FOR, col.TASK_LOGGED_AS, col.FED_BY, col.FEEDING_USED]
 TENANT = "ten_own"
 OTHER = "ten_other"
 
