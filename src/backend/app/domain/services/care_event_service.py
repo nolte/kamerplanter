@@ -48,6 +48,7 @@ from app.common.exceptions import (
 )
 from app.domain.calculators.area_dose_calculator import AREA_UNITS, quantity_total
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.task_completion_engine import TaskCompletionEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.care_event_repository import (
     CareEventFilter,
@@ -62,6 +63,7 @@ from app.domain.models.care_event import (
     BACKFILL_YEAR_WINDOW_DAYS,
     FUTURE_TOLERANCE_MINUTES,
     MAX_AGE_DAYS,
+    MAX_PLANTS_PER_EVENT,
     SERVER_ONLY_CATEGORIES,
     UNDO_REASON,
     UNDO_WINDOW_MINUTES,
@@ -72,9 +74,11 @@ from app.domain.models.care_event import (
     CareEventView,
     LoggedCareEvent,
     display_performer,
+    owns_its_source_document,
 )
 from app.domain.models.client_event import ClientEventStamp, client_event_digest, same_digest
 from app.domain.models.site import Location
+from app.domain.models.task_completion import DomainDocument
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.client_event_writes import insert_or_read_winner
 from app.domain.services.location_ownership import resolve_owned_location
@@ -97,6 +101,8 @@ ERROR_IMMUTABLE = "care_event.immutable"
 ERROR_SEQUENCE = "care_event.sequence"
 ERROR_SERVER_ONLY = "care_event.category_server_only"
 ERROR_AREA_DOSE_NOT_POSITIVE = "care_event.area_dose_not_positive"
+#: A whole-bed dose would be attributed to more plants than one event may name (``MAX_PLANTS_PER_EVENT``, #2833).
+ERROR_TOO_MANY_PLANTS = "care_event.too_many_plants"
 
 #: Categories whose area unit is a dose of a product or a material (GP-FR-123/124): a rate of 0 per m² is no dose
 #: and would store a total of 0, so it is refused. Watering and rainfall keep 0 L/m² (a dry measurement).
@@ -228,6 +234,9 @@ class CareEventService:
         self._fertilizers = fertilizer_repo
         self._attachment_repo = attachment_repo
         self._attachments = attachment_service
+        # The rules of what a dose writes beside its log line (§12.1): the same engine the task completion builds
+        # its documents with, so a care-log amendment and a completed amendment task store the same feeding event.
+        self._specialist_documents = TaskCompletionEngine(fertilizer_repo)
 
     # ── Roles ────────────────────────────────────────────────────────────────
 
@@ -573,8 +582,9 @@ class CareEventService:
             logger.info("care_event.replayed", event_key=stored.event.key)
             return LoggedCareEvent(stored, replayed=True)
         event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, stamp=stamp)
+        feeding = self._amendment_feeding(event, tenant_key=tenant_key)
         outcome = insert_or_read_winner(
-            lambda: self._repo.insert(event, tenant_key=tenant_key),
+            lambda: self._store(event, feeding, tenant_key=tenant_key),
             lambda: self._replayed(stamp, tenant_key=tenant_key, user_key=user_key),
         )
         if outcome.replayed is not None:
@@ -593,11 +603,52 @@ class CareEventService:
         role: TenantRole,
         origin: CareEventOrigin | None = None,
     ) -> CareEventView:
-        """Store a care event (GP-API-033); the performer is the caller (GP-NFR-054)."""
+        """Store a care event (GP-API-033); the performer is the caller (GP-NFR-054).
+
+        Only a client's entry (``origin is None``) writes the feeding event of a nutrient amendment: a server caller
+        records a deed whose document is its own business and names it through ``origin.source_ref`` (#2833).
+        """
         event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, origin=origin)
-        stored = self._repo.insert(event, tenant_key=tenant_key)
+        feeding = self._amendment_feeding(event, tenant_key=tenant_key) if origin is None else None
+        stored = self._store(event, feeding, tenant_key=tenant_key)
         self._record_created(stored)
         return self._stored_view(stored.key or "", tenant_key=tenant_key, user_key=user_key)
+
+    def _amendment_feeding(self, event: CareEvent, *, tenant_key: str) -> DomainDocument | None:
+        """The ``feeding_event`` a care-log nutrient amendment writes beside its line (§12.1, W-007; #2833).
+
+        Built by :meth:`TaskCompletionEngine.feeding_document`, the builder the task completion uses, so both ways
+        of recording a compost, manure or horn-shavings dose store the same document. The plants are the event's
+        own, else the plants standing in the bed (a whole-bed dose is every plant's) - the completion's rule.
+        This runs only on a client's :meth:`create` / :meth:`log` and on the correction of a client's entry; the
+        completion builds its event with :meth:`build_event` and its document itself, so one action writes exactly
+        one feeding event.
+
+        Raises:
+            PlanError: 422 ``care_event.too_many_plants`` - more plants stand in the bed than one event may name
+                (``MAX_PLANTS_PER_EVENT``, the bound a client's ``plant_keys`` has); never a silently cut list.
+        """
+        if not TaskCompletionEngine.logged_amendment_wants_feeding_event(event):
+            return None
+        plants = list(event.plant_keys)
+        if not plants:
+            subtree = _subtree(self._sites.get_locations_by_site(event.site_key), event.location_key)
+            plants = self._repo.plant_keys_standing_in(subtree, tenant_key=tenant_key, limit=MAX_PLANTS_PER_EVENT + 1)
+            if len(plants) > MAX_PLANTS_PER_EVENT:
+                raise PlanError(
+                    ERROR_TOO_MANY_PLANTS,
+                    f"More than {MAX_PLANTS_PER_EVENT} plants stand in this bed; name the plants the dose is for.",
+                    status_code=422,
+                    field="plant_keys",
+                    limit=MAX_PLANTS_PER_EVENT,
+                )
+        return self._specialist_documents.feeding_document(event, plant_keys=plants, task_key=None)
+
+    def _store(self, event: CareEvent, feeding: DomainDocument | None, *, tenant_key: str) -> CareEvent:
+        """Insert the event; with a ``feeding`` document both in one transaction, the event pointing at it."""
+        if feeding is None:
+            return self._repo.insert(event, tenant_key=tenant_key)
+        return self._repo.insert_with_feeding_event(event, feeding, tenant_key=tenant_key)
 
     @staticmethod
     def _record_created(event: CareEvent) -> None:
@@ -674,14 +725,28 @@ class CareEventService:
         # alone keeps the predecessor's mark; a changed quantity is the person's own (measured) statement.
         if event.quantity == predecessor.quantity and event.unit == predecessor.unit:
             event.allocation = predecessor.allocation
-        stored = self._repo.supersede(key, event, tenant_key=tenant_key)
+        # A client's entry owns its amendment's feeding event (#2833): the repository withdraws the predecessor's,
+        # and a correction that is still a nutrient amendment writes its own for the corrected dose. A line that
+        # mirrors another writer's document (backfill, task, reconciliation) writes none.
+        feeding = (
+            self._amendment_feeding(event, tenant_key=tenant_key)
+            if owns_its_source_document(predecessor.trigger)
+            else None
+        )
+        if feeding is None:
+            stored = self._repo.supersede(key, event, tenant_key=tenant_key)
+        else:
+            stored = self._repo.supersede_with_feeding_event(key, event, feeding, tenant_key=tenant_key)
         self._record_created(stored)
         return self._stored_view(stored.key or "", tenant_key=tenant_key, user_key=user_key)
 
     # ── Void ─────────────────────────────────────────────────────────────────
 
     def void(self, key: str, *, reason: str, tenant_key: str, user_key: str, role: TenantRole) -> CareEventView:
-        """Cancel an entry (GP-API-037): ``voided_at`` / ``voided_by`` / ``void_reason``, nothing else changes.
+        """Cancel an entry (GP-API-037): ``voided_at`` / ``voided_by`` / ``void_reason``.
+
+        A client's nutrient amendment takes its feeding event with it (the repository withdraws it in the same
+        transaction, #2833): a cancelled dose stops counting in the fertiliser balance.
 
         The lead may cancel any entry. A grower may take back their *own* entry within ten minutes of
         ``created_at`` with ``reason = "undo"`` (the field-mode snackbar, GP-FR-149) and nothing else.

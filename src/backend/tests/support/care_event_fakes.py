@@ -22,8 +22,10 @@ from app.domain.models.care_event import (
     FREE_TEXT_FIELDS,
     REDACTED,
     CareEvent,
+    owns_its_source_document,
 )
 from app.domain.models.membership import Membership
+from app.domain.models.task_completion import DomainDocument
 from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT, USER
 
 NAMES = {USER: "Sabine", "u_tom": "Tom", "u_lead": "Lena"}
@@ -35,6 +37,12 @@ class FakeCareEventRepo(ICareEventRepository):
         #: ``plant_key`` → (tenant, location) of the plants that exist.
         self.plants: dict[str, tuple[str, str]] = {}
         self.inserted: list[CareEvent] = []
+        #: The ``feeding_events`` documents written beside an event (``insert_with_feeding_event``, #2833).
+        self.feedings: list[DomainDocument] = []
+        #: Keys (``fe_<n>``) of the feeding events a void or a correction withdrew again.
+        self.withdrawn: list[str] = []
+        #: The ``limit`` each ``plant_keys_standing_in`` read was bounded by.
+        self.standing_limits: list[int] = []
         self.audit: list[dict] = []
         self.photos_held: dict[str, list[str]] = {}
         self._next = 0
@@ -126,7 +134,36 @@ class FakeCareEventRepo(ICareEventRepository):
             if key in self.plants and self.plants[key][0] == tenant_key and self.plants[key][1] in location_keys
         }
 
+    def plant_keys_standing_in(self, location_keys, *, tenant_key, limit):
+        self.standing_limits.append(limit)
+        return sorted(
+            key for key, (tenant, location) in self.plants.items() if tenant == tenant_key and location in location_keys
+        )[:limit]
+
+    def live_feedings(self) -> list[str]:
+        """The keys of the feeding events written and not withdrawn."""
+        return [f"fe_{n}" for n in range(1, len(self.feedings) + 1) if f"fe_{n}" not in self.withdrawn]
+
+    def _withdraw_owned(self, event: CareEvent) -> None:
+        reference = event.source_ref or {}
+        if owns_its_source_document(event.trigger) and reference.get("collection") == "feeding_events":
+            key = str(reference.get("key"))
+            if key not in self.withdrawn:  # a second withdrawal is no error, and no second effect
+                self.withdrawn.append(key)
+
     # writes --------------------------------------------------------------
+    def insert_with_feeding_event(self, event, feeding, *, tenant_key):
+        assert event.tenant_key == tenant_key and feeding.document["tenant_key"] == tenant_key
+        assert feeding.collection == "feeding_events"
+        if event.source_ref is not None:
+            raise ValueError("insert_with_feeding_event: the event names a source document already.")
+        if event.client_event_id and self.find_key_by_client_event_id(event.client_event_id, tenant_key=tenant_key):
+            # one transaction: the refused event takes its feeding event with it
+            raise DuplicateError("care_events", "client_event_id", event.client_event_id)
+        self.feedings.append(feeding)
+        reference = {"collection": "feeding_events", "key": f"fe_{len(self.feedings)}"}
+        return self.insert(event.model_copy(update={"source_ref": reference}), tenant_key=tenant_key)
+
     def insert(self, event, *, tenant_key):
         assert event.tenant_key == tenant_key
         if event.client_event_id and self.find_key_by_client_event_id(event.client_event_id, tenant_key=tenant_key):
@@ -170,16 +207,29 @@ class FakeCareEventRepo(ICareEventRepository):
         if old is None:
             raise NotFoundError("CareEvent", predecessor_key)
         self._refuse_if_closed(old)
+        self._withdraw_owned(old)
         self.inserted.append(event)
         stored = self._store(event)
         self.events[predecessor_key] = old.model_copy(update={"superseded_by_key": stored.key})
         return stored
+
+    def supersede_with_feeding_event(self, predecessor_key, event, feeding, *, tenant_key):
+        assert feeding.document["tenant_key"] == tenant_key and feeding.collection == "feeding_events"
+        old = self.get(predecessor_key, tenant_key=tenant_key)
+        if old is None:
+            raise NotFoundError("CareEvent", predecessor_key)
+        self._refuse_if_closed(old)  # refused before anything is written: one transaction
+        self.feedings.append(feeding)
+        reference = {"collection": "feeding_events", "key": f"fe_{len(self.feedings)}"}
+        successor = event.model_copy(update={"source_ref": reference})
+        return self.supersede(predecessor_key, successor, tenant_key=tenant_key)
 
     def void(self, key, *, tenant_key, voided_by, reason, at):
         event = self.get(key, tenant_key=tenant_key)
         if event is None:
             raise NotFoundError("CareEvent", key)
         self._refuse_if_closed(event)
+        self._withdraw_owned(event)
         voided = event.model_copy(update={"voided_at": at, "voided_by": voided_by, "void_reason": reason})
         self.events[key] = voided
         return voided

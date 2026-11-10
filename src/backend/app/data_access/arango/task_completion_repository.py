@@ -22,14 +22,18 @@ from app.data_access.arango.care_event_repository import (
     CARE_EVENT_WRITE_COLLECTIONS,
     SOIL_PROFILE_READ_COLLECTIONS,
     SOIL_PROFILE_WRITE_COLLECTIONS,
+    WITHDRAWABLE_DOCUMENTS,
+    plant_keys_standing_in,
     profile_locations,
     rederive_soil_profile,
+    withdraw_domain_document,
     write_care_event,
+    write_domain_document,
 )
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.models.care_event import CareEvent
-from app.domain.models.task_completion import CompletedTask, CompletionWrite, DomainDocument, UndoWrite
+from app.domain.models.task_completion import CompletedTask, CompletionWrite, UndoWrite
 
 logger = structlog.get_logger()
 
@@ -59,14 +63,6 @@ _COMPLETION_WRITE: tuple[str, ...] = (
 )
 _UNDO_WRITE: tuple[str, ...] = (col.TASKS, col.CARE_EVENTS, *_DOMAIN_WRITE, *SOIL_PROFILE_WRITE_COLLECTIONS)
 
-#: The documents a completion writes, with the edges that hang off them: ``(edge collection, direction)`` where
-#: ``out`` means the document is the edge's ``_from``. What the withdrawal of a completion removes with the document.
-_WITHDRAWABLE: dict[str, tuple[tuple[str, str], ...]] = {
-    col.WATERING_EVENTS: ((col.WATERED_PLANT, "out"),),
-    col.FEEDING_EVENTS: ((col.FEEDING_USED, "out"), (col.FED_BY, "in")),
-    col.HARVEST_BATCHES: ((col.HARVESTED_AS, "in"),),
-}
-
 #: Records that hang off a harvest batch; a batch that has one is no longer the bare result of the completion.
 _HARVEST_DEPENDENTS: tuple[tuple[str, str], ...] = (
     (col.QUALITY_ASSESSMENTS, "batch_key"),
@@ -81,11 +77,6 @@ _UNDO_READ: tuple[str, ...] = (
 #: ``void_reason`` of a line a re-completion replaces (the task was reopened without an undo).
 REOPENED_REASON = "reopened"
 
-_OWNED_DOCUMENT_ID = (
-    'LET d = DOCUMENT(CONCAT(@collection, "/", @key)) FILTER d != null AND d.tenant_key == @tenant_key RETURN d._id'
-)
-_REMOVE_EDGES_FROM = "FOR e IN @@edge FILTER e._from == @id REMOVE e IN @@edge"
-_REMOVE_EDGES_TO = "FOR e IN @@edge FILTER e._to == @id REMOVE e IN @@edge"
 _DEPENDENT_BY_BATCH_KEY = "FOR d IN @@collection FILTER d.batch_key == @key LIMIT 1 RETURN 1"
 _DEPENDENT_BY_HARVEST_BATCH_KEY = "FOR d IN @@collection FILTER d.harvest_batch_key == @key LIMIT 1 RETURN 1"
 
@@ -136,21 +127,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
 
     def plants_in_locations(self, location_keys: list[str], *, tenant_key: str) -> list[str]:
         self._require_tenant(tenant_key, "plants_in_locations")
-        if not location_keys:
-            return []
-        cursor = cast(
-            "Cursor",
-            self._db.aql.execute(
-                """
-            FOR p IN @@plants
-                FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys AND p.removed_on == null
-                SORT p._key
-                RETURN p._key
-            """,
-                bind_vars={"@plants": col.PLANT_INSTANCES, "location_keys": location_keys, "tenant_key": tenant_key},
-            ),
-        )
-        return [str(key) for key in cursor]
+        return plant_keys_standing_in(self._db, location_keys, tenant_key=tenant_key)
 
     def task_event(self, task_key: str, *, tenant_key: str) -> CareEvent | None:
         self._require_tenant(tenant_key, "task_event")
@@ -186,16 +163,6 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
             raise TaskMissingError(key)  # deleted since the service read it, or another tenant's (WP 9.3)
         return str(status)
 
-    @staticmethod
-    def _insert_domain(txn: StreamTransaction, domain: DomainDocument, now: str) -> dict[str, str]:
-        stored = txn.collection(domain.collection).insert(domain.document, return_new=True)["new"]
-        own_id = f"{domain.collection}/{stored['_key']}"
-        for edge, other_id, attributes in domain.edges_out:
-            txn.collection(edge).insert({"_from": own_id, "_to": other_id, "created_at": now, **attributes})
-        for edge, other_id, attributes in domain.edges_in:
-            txn.collection(edge).insert({"_from": other_id, "_to": own_id, "created_at": now, **attributes})
-        return {"collection": domain.collection, "key": str(stored["_key"])}
-
     def complete(self, writes: Sequence[CompletionWrite], *, tenant_key: str) -> list[CompletedTask]:
         self._require_tenant(tenant_key, "complete")
         completed: list[CompletedTask] = []
@@ -228,7 +195,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                         beds.update(profile_locations([earlier]))
                 reference: dict[str, str] | None = None
                 if write.domain is not None:
-                    reference = self._insert_domain(txn, write.domain, now)
+                    reference = write_domain_document(txn, write.domain, now)
                 event_key: str | None = None
                 if write.event is not None:
                     if write.event.tenant_key != tenant_key:
@@ -340,7 +307,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
         """
         reference = event.get("source_ref") or {}
         collection, doc_key = reference.get("collection"), reference.get("key")
-        withdraw_document = collection in _WITHDRAWABLE and bool(doc_key)
+        withdraw_document = collection in WITHDRAWABLE_DOCUMENTS and bool(doc_key)
         if withdraw_document and collection == col.HARVEST_BATCHES and cls._has_dependents(txn, str(doc_key)):
             if strict:
                 raise PlanError(
@@ -358,29 +325,10 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                 "void_reason": reason,
             }
         )
-        if not withdraw_document:
-            return
-        document = cast(
-            "dict[str, Any] | None",
-            next(
-                iter(
-                    txn.aql.execute(
-                        _OWNED_DOCUMENT_ID,
-                        bind_vars={"collection": collection, "key": doc_key, "tenant_key": tenant_key},
-                    )
-                ),
-                None,
-            ),
-        )
-        if document is None:
-            return
-        document_id = f"{collection}/{doc_key}"
-        for edge, direction in _WITHDRAWABLE[str(collection)]:
-            if direction == "out":
-                txn.aql.execute(_REMOVE_EDGES_FROM, bind_vars={"@edge": edge, "id": document_id})
-            else:
-                txn.aql.execute(_REMOVE_EDGES_TO, bind_vars={"@edge": edge, "id": document_id})
-        txn.collection(str(collection)).delete(str(doc_key))
+        if withdraw_document:
+            # The one inverse of ``write_domain_document``, shared with the void and the correction of a care-log
+            # entry (#2833); a document withdrawn before is left alone, never a second delete.
+            withdraw_domain_document(txn, reference, tenant_key=tenant_key)
 
     @staticmethod
     def _has_dependents(txn: StreamTransaction, batch_key: str) -> bool:

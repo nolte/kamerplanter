@@ -240,6 +240,51 @@ class TestFeeding:
         )
 
 
+class TestTheSharedFeedingBuilder:
+    """#2833: one builder for the completion and the care-log entry of a nutrient amendment (W-007)."""
+
+    def test_the_completion_builds_its_feeding_event_through_the_shared_builder(self):
+        logged = event("soil_amendment", material="manure", quantity=4, unit="kg")
+
+        by_completion = ENGINE.domain_document(task(TaskCategory.SOIL_AMENDMENT), logged, plant_keys=["p1"], now=WHEN)
+        by_builder = ENGINE.feeding_document(logged, plant_keys=["p1"], task_key="t1", now=WHEN)
+
+        assert by_completion == by_builder
+
+    def test_a_care_log_entry_has_no_task(self):
+        doc = ENGINE.feeding_document(
+            event("soil_amendment", material="horn_shavings", quantity=100, unit="g", trigger="manual", task_key=None),
+            plant_keys=[],
+            task_key=None,
+            now=WHEN,
+        )
+
+        parsed = FeedingEvent.model_validate(doc.document)
+        assert parsed.task_key is None
+        assert (parsed.material, parsed.dose_quantity, parsed.dose_unit) == ("horn_shavings", 100, "g")
+        assert doc.document["created_at"] == WHEN.isoformat()
+
+    @pytest.mark.parametrize(
+        ("category", "material", "quantity", "logged_writes", "completion_writes"),
+        [
+            ("soil_amendment", "compost", 2, True, True),
+            ("soil_amendment", "manure", 2, True, True),
+            ("soil_amendment", "horn_shavings", 2, True, True),
+            ("soil_amendment", "compost", None, False, False),
+            ("soil_amendment", "sand", 2, False, False),
+            ("soil_amendment", None, 2, False, False),
+            # a direct feeding line keeps the feeding form; only its completion writes the document (§12.1)
+            ("feeding", None, 2, False, True),
+            ("mulching", "compost", 2, False, False),
+        ],
+    )
+    def test_which_line_writes_a_feeding_event(self, category, material, quantity, logged_writes, completion_writes):
+        line = event(category, material=material, quantity=quantity, unit="kg" if quantity else None)
+
+        assert TaskCompletionEngine.logged_amendment_wants_feeding_event(line) is logged_writes
+        assert TaskCompletionEngine.wants_feeding_event(line) is completion_writes
+
+
 class TestHarvest:
     def test_one_plant_gets_its_own_batch_with_the_weight(self):
         doc = ENGINE.domain_document(

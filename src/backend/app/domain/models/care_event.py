@@ -47,6 +47,18 @@ CATEGORY_BED_STATUS_CHANGE = "bed_status_change"
 #: What the client writes (GP-FR-100, §20.10); every other trigger is set by the server.
 CLIENT_TRIGGERS: frozenset[str] = frozenset({"manual", "observation"})
 
+
+def owns_its_source_document(trigger: str | None) -> bool:
+    """Whether a line of ``trigger`` wrote the specialist document its ``source_ref`` names (#2833).
+
+    A care-log entry (a client trigger) stores its nutrient amendment's ``feeding_event`` itself, so cancelling or
+    correcting the entry takes that document back with it. Every other line points at a document another writer
+    owns: the backfill and the consistency job mirror a feeding, watering or harvest recorded on its own form, a
+    reminder its confirmation, and the task completion's document is withdrawn by reopening the task.
+    """
+    return trigger in CLIENT_TRIGGERS
+
+
 #: Categories only server code writes: the bed-status route, slot corrections, the plant/removal derivations,
 #: clearing (WP 3.2) and the backfill (WP 3.4). ``POST /care-events`` refuses them — a client-made
 #: ``bed_status_change`` would bypass the status machine (V-10), a client-made ``planting`` would forge the

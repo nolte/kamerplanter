@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.domain.models.care_event import CareEvent
+from app.domain.models.task_completion import DomainDocument
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,23 @@ class ICareEventRepository(ABC):
         """
 
     @abstractmethod
+    def plant_keys_standing_in(self, location_keys: list[str], *, tenant_key: str, limit: int) -> list[str]:
+        """The tenant's plants standing in one of ``location_keys`` (not removed), sorted by key, at most ``limit``.
+
+        Whom a dose on the whole bed is attributed to (a care-log entry without ``plant_keys``, #2833). The read is
+        bounded: a caller that refuses an oversized bed asks for one more key than it accepts.
+        """
+
+    @abstractmethod
+    def insert_with_feeding_event(self, event: CareEvent, feeding: DomainDocument, *, tenant_key: str) -> CareEvent:
+        """Store ``feeding`` (a ``feeding_events`` document with its edges) and the event in ONE transaction.
+
+        The event's ``source_ref`` points at the stored feeding event; a refused event insert stores neither
+        (W-007, #2833). ``tenant_key`` must be the event's and the document's own; an event that names a source
+        document already is refused (``ValueError``) - a server caller's reference is never replaced.
+        """
+
+    @abstractmethod
     def insert_many(self, events: list[CareEvent], *, tenant_key: str) -> list[CareEvent]:
         """Store every event with its edges in ONE transaction - all or none (a zone's watering round, WP 7.3).
 
@@ -123,14 +141,30 @@ class ICareEventRepository(ABC):
     def supersede(self, predecessor_key: str, event: CareEvent, *, tenant_key: str) -> CareEvent:
         """In one transaction: store ``event`` and set ``superseded_by_key`` on its predecessor (V-13).
 
+        The specialist document the predecessor wrote itself (a care-log amendment's ``feeding_event``, #2833) is
+        withdrawn in the same transaction; a document the predecessor only mirrors stays.
+
         Raises:
             NotFoundError: the predecessor is gone or not the tenant's.
             PlanError: ``care_event.sequence`` — the predecessor is superseded or voided already.
         """
 
     @abstractmethod
+    def supersede_with_feeding_event(
+        self, predecessor_key: str, event: CareEvent, feeding: DomainDocument, *, tenant_key: str
+    ) -> CareEvent:
+        """:meth:`supersede`, and the correction's own ``feeding_event`` stored in the same transaction (#2833).
+
+        The predecessor's own document is withdrawn, ``feeding`` is written and the successor's ``source_ref``
+        names it: a corrected dose replaces the old one in the fertiliser balance instead of adding to it.
+        """
+
+    @abstractmethod
     def void(self, key: str, *, tenant_key: str, voided_by: str, reason: str, at: datetime) -> CareEvent:
-        """Mark the event voided (``voided_at``, ``voided_by``, ``void_reason``); nothing else changes.
+        """Mark the event voided (``voided_at``, ``voided_by``, ``void_reason``).
+
+        Besides the three columns only the specialist document the event wrote itself (a care-log amendment's
+        ``feeding_event``, #2833) changes: it is withdrawn with its edges in the same transaction.
 
         Raises:
             NotFoundError: the event is gone or not the tenant's.

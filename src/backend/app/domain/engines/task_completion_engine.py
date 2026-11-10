@@ -120,12 +120,29 @@ class TaskCompletionEngine:
     # ── Specialist document ──────────────────────────────────────────────────
 
     @staticmethod
+    def is_nutrient_amendment(event: CareEvent) -> bool:
+        """A ``soil_amendment`` with a material of :data:`NUTRIENT_MATERIALS` (§12.1, W-007)."""
+        return event.category == TaskCategory.SOIL_AMENDMENT.value and (event.material or "") in NUTRIENT_MATERIALS
+
+    @staticmethod
     def wants_feeding_event(event: CareEvent) -> bool:
+        """Whether a task completion logging ``event`` writes a ``feeding_event`` beside it (§12.1)."""
         if event.quantity is None:
             return False
         if event.category == TaskCategory.FEEDING.value:
             return True
-        return event.category == TaskCategory.SOIL_AMENDMENT.value and (event.material or "") in NUTRIENT_MATERIALS
+        return TaskCompletionEngine.is_nutrient_amendment(event)
+
+    @staticmethod
+    def logged_amendment_wants_feeding_event(event: CareEvent) -> bool:
+        """Whether a care-log entry made without a task (``POST /care-events``) writes a ``feeding_event`` (W-007).
+
+        The same rule as a completion's, narrowed to the nutrient amendment: §12.1 makes the compost, manure or horn
+        shavings dose an input of the fertiliser balance whichever way it is recorded (#2833). A direct ``feeding``
+        line, a watering or a harvest stays the care event alone - their specialist documents keep their own forms
+        (the feeding / watering endpoints, the harvest form with the Karenz gate).
+        """
+        return TaskCompletionEngine.is_nutrient_amendment(event) and TaskCompletionEngine.wants_feeding_event(event)
 
     def domain_document(
         self,
@@ -145,7 +162,7 @@ class TaskCompletionEngine:
         if category == TaskCategory.WATERING.value:
             return self._watering(task, event, plant_keys, stamp)
         if self.wants_feeding_event(event):
-            return self._feeding(task, event, plant_keys, stamp)
+            return self.feeding_document(event, plant_keys=plant_keys, task_key=task.key, now=now)
         if category == TaskCategory.HARVEST.value:
             return self._harvest(event, plant_keys, stamp)
         return None
@@ -172,7 +189,21 @@ class TaskCompletionEngine:
             edges_out=tuple((WATERED_PLANT, _doc_id(PLANT_INSTANCES, key), {}) for key in plant_keys),
         )
 
-    def _feeding(self, task: Task, event: CareEvent, plant_keys: list[str], stamp: str) -> DomainDocument:
+    def feeding_document(
+        self,
+        event: CareEvent,
+        *,
+        plant_keys: list[str],
+        task_key: str | None,
+        now: datetime | None = None,
+    ) -> DomainDocument:
+        """The ``feeding_event`` ``event`` is the log line of - the one builder for both ways a dose is recorded.
+
+        The task completion passes its task (``task_key``); a care-log entry without a task passes ``None``
+        (:meth:`logged_amendment_wants_feeding_event`, #2833). The caller stores the document and points the care
+        event's ``source_ref`` at it in the same transaction.
+        """
+        stamp = (now or datetime.now(UTC)).isoformat()
         # What a dose means (the GP-FR-100 reading: ``quantity`` is the amount of the *product*):
         #   * ``l`` / ``l_per_m2`` of a feeding — the applied liquid (the nettle tea of GP-ACC-024): its litres are
         #     the applied volume and the product's ``ml_applied`` at once;
@@ -203,7 +234,7 @@ class TaskCompletionEngine:
             fertilizers_used=used,
             location_key=event.location_key,
             plant_keys=list(plant_keys),
-            task_key=task.key,
+            task_key=task_key,
             product_key=product_key,
             material=event.material,
             dose_quantity=event.quantity,
