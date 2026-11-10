@@ -11,6 +11,7 @@ import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import type { NutrientPlanUsage, PhaseName } from '@/api/types';
+import type { Translate } from '@/i18n/translate';
 
 const PHASE_COLORS: Record<string, string> = {
   germination: '#8D6E63',
@@ -185,7 +186,7 @@ function UsageRow({
   totalWeeks: number;
   labelWidth: number;
   theme: Theme;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   onNavigate: () => void;
 }) {
   const segmentMap = useMemo(() => {

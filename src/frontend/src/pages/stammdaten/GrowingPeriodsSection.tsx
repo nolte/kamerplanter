@@ -25,6 +25,7 @@ import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import EmptyState from '@/components/common/EmptyState';
 import * as api from '@/api/endpoints/species';
 import type { GrowingPeriod, HarvestPattern, PropagationConfig, Species } from '@/api/types';
+import type { Translate } from '@/i18n/translate';
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const CELL_MIN_W = 40;
@@ -625,7 +626,7 @@ interface PeriodGanttRowsProps {
   labelWidth: number;
   currentMonth: number;
   theme: Theme;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onChange: (index: number, period: GrowingPeriod) => void;
@@ -885,7 +886,7 @@ interface BarRowProps {
   labelWidth: number;
   currentMonth: number;
   theme: Theme;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   dragState: DragState | null;
   onDragStart: (state: DragState) => void;
   onDragMove: (

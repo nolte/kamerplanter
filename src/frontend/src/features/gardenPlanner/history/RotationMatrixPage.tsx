@@ -25,6 +25,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import type { Translate } from '@/i18n/translate';
 import { useUndoSnackbar } from '../care/useUndoSnackbar';
 import BackfillDialog from './BackfillDialog';
 import { cancelBackfill } from './historyApi';
@@ -57,7 +58,7 @@ function Swatch({ mark }: { mark: FamilyMark | undefined }) {
   );
 }
 
-function demandText(planting: RotationPlanting, t: (key: string, options?: Record<string, unknown>) => string): string | null {
+function demandText(planting: RotationPlanting, t: Translate): string | null {
   return planting.nutrient_demand
     ? t(`enums.nutrientDemandLevel.${planting.nutrient_demand}`, { defaultValue: planting.nutrient_demand })
     : null;
@@ -70,7 +71,7 @@ function PlantingEntry({
 }: {
   planting: RotationPlanting;
   mark: FamilyMark | undefined;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
 }) {
   const fallow = planting.plan_role === 'fallow';
   const greenManure = planting.plan_role === 'green_manure';
@@ -98,7 +99,7 @@ function PlantingEntry({
 function summarize(
   year: RotationYear,
   marks: ReadonlyMap<string, FamilyMark>,
-  t: (key: string, options?: Record<string, unknown>) => string,
+  t: Translate,
 ): string {
   if (year.plantings.length === 0) return t('pages.rotationMatrix.cellEmpty');
   return year.plantings

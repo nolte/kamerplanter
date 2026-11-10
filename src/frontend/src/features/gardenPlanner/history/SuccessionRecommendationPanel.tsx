@@ -10,15 +10,14 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import type { Translate } from '@/i18n/translate';
 import PlannerGlossary from '../glossary/PlannerGlossary';
 import type { SuccessionFamily, SuccessionRecommendation, SuccessionSpecies } from './historyTypes';
 import type { SuccessionState } from './useSuccessionRecommendation';
 
-type T = (key: string, options?: Record<string, unknown>) => string;
-
 const REASON_KEYS = ['nitrogen_fixation', 'soil_structure', 'biofumigation', 'pest_break'];
 
-function demandText(value: string | null, t: T): string | null {
+function demandText(value: string | null, t: Translate): string | null {
   return value ? t(`enums.nutrientDemandLevel.${value}`, { defaultValue: value }) : null;
 }
 
@@ -26,7 +25,7 @@ function speciesLabel(species: SuccessionSpecies): string {
   return species.common_name ? `${species.common_name} (${species.scientific_name})` : species.scientific_name;
 }
 
-function FamilyEntry({ family, t }: { family: SuccessionFamily; t: T }) {
+function FamilyEntry({ family, t }: { family: SuccessionFamily; t: Translate }) {
   const reason =
     family.benefit_reason && REASON_KEYS.includes(family.benefit_reason)
       ? t(`pages.bed.history.succession.reasons.${family.benefit_reason}`)
@@ -69,7 +68,7 @@ function FamilyEntry({ family, t }: { family: SuccessionFamily; t: T }) {
   );
 }
 
-function Body({ recommendation, t }: { recommendation: SuccessionRecommendation; t: T }) {
+function Body({ recommendation, t }: { recommendation: SuccessionRecommendation; t: Translate }) {
   const { previous, target } = recommendation;
   const basis =
     previous && target
@@ -155,7 +154,7 @@ export default function SuccessionRecommendationPanel({ state, onRetry }: { stat
           {t('pages.bed.history.succession.loadFailed')}
         </Alert>
       )}
-      {state.status === 'ready' && <Body recommendation={state.recommendation} t={t as T} />}
+      {state.status === 'ready' && <Body recommendation={state.recommendation} t={t} />}
     </Box>
   );
 }
