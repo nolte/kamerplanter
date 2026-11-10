@@ -196,8 +196,8 @@ describe('one header bar (GP-UX-063, AC-3)', () => {
     expect(button).toHaveAccessibleName('More');
     const entries = openOverflow();
     expect(button).toHaveAttribute('aria-expanded', 'true');
+    // "Add with dimensions" is in the tool bar's sub-menus since WP 10.4; "Save as template" needs one selected bed.
     expect(entries).toEqual([
-      'garden-plan-add-with-dimensions',
       'garden-plan-menu-selectAll',
       'garden-plan-menu-multiDuplicate',
       'garden-plan-underlay-open',

@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.10
+Version: 1.11
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-10
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.11 | 2026-11-10 | §2.5.1: Vertikale Werkzeug-Leiste des Gartenplans (REQ-053 §17.3, GP-UX-066/069/070, WP 10.4, Issue #2825) registriert: die Untermenü-Knöpfe `garden-plan-tool-bed-menu` und `garden-plan-tool-garden_object-menu` mit ihren Menüs `garden-plan-tool-bed-submenu` / `garden-plan-tool-garden_object-submenu`, der neue Eintrag `garden-plan-add-with-dimensions-object` (Untermenü „Gartenobjekt“) und die Auswahlgruppe `garden-plan-selection-group`. Keine bestehende Kennung umbenannt (R-021): `garden-plan-toolbar` ist jetzt die Leiste links der Zeichenfläche (ab md, `aria-orientation="vertical"`, unter md unten angedockt), `garden-plan-tool-template` und `garden-plan-add-with-dimensions` sind Einträge im Untermenü „Beet“ (Letzterer im Tab „Liste“ weiter im Überlauf), `garden-plan-save-template-button` ist ein Überlauf-Eintrag nur bei genau einem gewählten Beet, `garden-plan-angle-<step>`, `garden-plan-align-button` und `garden-plan-delete-button` stehen in der Auswahlgruppe und existieren nur bei Auswahl. Die Page Objects öffnen im selben Pull Request das Untermenü „Beet“. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.10 | 2026-11-10 | §2.5.1: Editor-Kopfleiste und Arbeitsflächen-Rahmen des Gartenplans (REQ-053 §17.3, GP-UX-063/067/070, WP 10.3, Issue #2824) registriert: `garden-plan-header-bar` (die eine Kopfleiste, mit `data-overflow-level`), die Überlauf-Einträge `garden-plan-menu-autosave`, `garden-plan-menu-tab-<tab>`, `garden-plan-menu-field-mode`, `garden-plan-menu-panel`, `garden-plan-menu-selectAll` (bisher ohne Registrierung), die Zoom-Überlagerung `garden-plan-zoom-overlay`, der Zeichenflächen-Bereich `garden-plan-canvas-area` und der Zähler `garden-plan-save-status-count` des kompakten Speicher-Status. Keine bestehende Kennung umbenannt (R-021): Tastaturhilfe, Unterlage, „Mit Maßen hinzufügen“ und die Export-/Import-Einträge stehen jetzt im Überlauf `garden-plan-overflow-menu` und behalten ihre Kennungen; entfallen ist allein der Listen-Schalter `garden-plan-view-list` (der Tab „Liste“ ersetzt ihn), die Page Objects nutzen im selben Pull Request `open_tab(...)` und öffnen den Überlauf, wo ein Bedienelement dorthin gewandert ist. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.9 | 2026-11-10 | §2.5.1: Tabs Plan · Liste · Beete der Plan-Route (REQ-053 §17.3, GP-UX-064/070, WP 10.2, Issue #2823) registriert: `garden-plan-tabs` (Tab-Leiste), `garden-plan-tab-<tab>` mit `<tab>` ∈ `plan`, `list`, `beds` (der Wert von `?tab=`), die Tab-Panels `garden-plan-tabpanel-editor` (Editor für Plan und Liste) und `garden-plan-tabpanel-beds` (Beetliste) sowie der Hinweis `garden-plan-beds-offline` im Tab „Beete“ ohne Serververbindung. Keine bestehende Kennung umbenannt (R-021); die Page Objects der Beetliste öffnen den Tab „Beete“ im selben Pull Request. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.8 | 2026-10-30 | §2.5.1: Ebene Pflanzenzustand des Gartenplans (REQ-053 GP-UX-061, Issue #2488) registriert: Ebenen-Schalter `garden-plan-layer-plantState`, der abhängige Filter-Schalter `garden-plan-attention-filter` („Nur Pflanzen mit Handlungsbedarf zeigen“, gesperrt solange die Ebene aus ist) und der Legendenabschnitt `garden-plan-legend-plantState` in `garden-plan-layer-legend`. Zusammen mit der Verwendung im selben Pull Request (R-020). |
@@ -191,10 +192,10 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 
 | `data-testid` | Element |
 |---|---|
-| `garden-plan-tool-template` | Werkzeug „Beet aus Vorlage" in der Werkzeugleiste |
+| `garden-plan-tool-template` | „Aus Vorlage“ (Beet aus Vorlage); ab WP 10.4 Eintrag im Untermenü „Beet“ der Werkzeug-Leiste (`menuitemcheckbox`) |
 | `garden-plan-template-panel` / `-select` / `-rotate` / `-place-center` / `-close` / `-hint` / `-failed` | Leiste unter der Werkzeugleiste: Vorlagenwahl, Drehen um 90°, in die Bildmitte setzen, beenden, Hinweis, Ladefehler |
 | `garden-plan-template-ghost` | Umriss der Vorlage unter dem Zeiger (SVG-Overlay) |
-| `garden-plan-save-template-button` | „Als Vorlage speichern" aus dem gewählten Beet |
+| `garden-plan-save-template-button` | „Als Vorlage speichern" aus dem gewählten Beet; ab WP 10.4 Eintrag im Überlauf „⋮“, nur bei genau einem gewählten Beet |
 | `garden-plan-template-save-dialog` / `-name` / `-submit` / `-cancel` / `-error` | Dialog „Als Vorlage speichern" |
 | `garden-plan-add-standard-sizes` | Schnellwahl der Standardgrößen im Dialog „Mit Maßen hinzufügen" |
 | `garden-plan-add-standard-<template_key>` | Eine Standardgröße, geschlüsselt über den `_key` der System-Vorlage (z. B. `sys_raised_bed_2x1x0_8`) |
@@ -224,6 +225,11 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-save-status-count` | Zähler der ungespeicherten Änderungen im kompakten Speicher-Status unter md (der Wortlaut steht für Screenreader in `garden-plan-save-status`) |
 | `garden-plan-canvas-area` | Bereich der Zeichenfläche auf Viewport-Höhe (GP-UX-067, mindestens 400 px); trägt `garden-plan-canvas` und die Overlays |
 | `garden-plan-zoom-overlay` | Zoom −/%/+ und „An Fläche anpassen“ als Overlay oben rechts auf der Zeichenfläche (Kennungen `garden-plan-zoom-*` unverändert) |
+| `garden-plan-toolbar` | Die Werkzeug-Leiste (Kennung unverändert): ab WP 10.4 vertikal links der Zeichenfläche (ab md, `aria-orientation="vertical"`), unter md unten angedockt neben der `TouchBar` (`aria-orientation="horizontal"`); `data-orientation` nennt die Form |
+| `garden-plan-tool-<tool>-menu` | Knopf, der das Untermenü eines Werkzeugs öffnet (`aria-haspopup="menu"`), `<tool>` ∈ `bed`, `garden_object` (WP 10.4, GP-UX-001: höchstens zwei Ebenen) |
+| `garden-plan-tool-<tool>-submenu` | Das Untermenü dazu: „Beet“ mit `garden-plan-tool-template` und `garden-plan-add-with-dimensions`, „Gartenobjekt“ mit `garden-plan-add-with-dimensions-object` |
+| `garden-plan-add-with-dimensions-object` | „Mit Maßen hinzufügen“ im Untermenü „Gartenobjekt“ (öffnet `garden-plan-add-dialog` mit Art „Gartenobjekt“) |
+| `garden-plan-selection-group` | Auswahlgruppe der Werkzeug-Leiste (GP-UX-066, AC-4): Drehraster `garden-plan-angle-<step>`, `garden-plan-align-button`, `garden-plan-delete-button`; nur gerendert, solange eine Auswahl besteht |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
 

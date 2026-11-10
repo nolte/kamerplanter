@@ -41,7 +41,8 @@ import { failureHint, failureTitle, findingLines, knownCodeText } from './saveMe
 import type { AutoSave } from './useAutoSave';
 
 const PREFIX = 'pages.gardenPlan.editor.save';
-const TARGET_PX = 44;
+// UI-NFR-001 R-011: below md undo and redo are touch targets in the TouchBar (AC-9), the header bar keeps the same size.
+const TARGET_PX = 48;
 
 type Refusal = Exclude<PlanSaveFailure, { kind: 'conflict' }>;
 

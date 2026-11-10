@@ -5377,7 +5377,9 @@
           "label": "Garden plan tools",
           "tools": "Tool",
           "shapes": "Shape",
-          "angleStep": "Rotation step"
+          "angleStep": "Rotation step",
+          "selection": "Edit selection",
+          "rotate": "Rotate"
         },
         "tools": {
           "select": {
@@ -5393,12 +5395,18 @@
           "bed": {
             "label": "Draw bed",
             "hint": "Draw a new bed on the plan",
-            "short": "Bed"
+            "short": "Bed",
+            "more": "Open more bed tools",
+            "menu": "Bed tools",
+            "dimensionsHint": "Add a bed by its dimensions instead of drawing it"
           },
           "garden_object": {
             "label": "Object: draw garden object",
             "hint": "Draw a garden object such as a path, fence or tree",
-            "short": "Object"
+            "short": "Object",
+            "more": "Open more object tools",
+            "menu": "Object tools",
+            "dimensionsHint": "Add a garden object by its dimensions instead of drawing it"
           }
         },
         "shapes": {
@@ -5961,7 +5969,8 @@
           "distribute": {
             "horizontal": "Distribute horizontally",
             "vertical": "Distribute vertically"
-          }
+          },
+          "hint": "Align the selection to each other or distribute it evenly"
         },
         "miniMap": {
           "label": "Overview map of the garden with the visible section",

@@ -5378,7 +5378,9 @@
           "label": "Werkzeuge des Gartenplans",
           "tools": "Werkzeug",
           "shapes": "Form",
-          "angleStep": "Drehraster"
+          "angleStep": "Drehraster",
+          "selection": "Auswahl bearbeiten",
+          "rotate": "Drehen"
         },
         "tools": {
           "select": {
@@ -5394,12 +5396,18 @@
           "bed": {
             "label": "Beet zeichnen",
             "hint": "Ein neues Beet auf dem Plan zeichnen",
-            "short": "Beet"
+            "short": "Beet",
+            "more": "Weitere Beet-Werkzeuge öffnen",
+            "menu": "Beet-Werkzeuge",
+            "dimensionsHint": "Ein Beet über Maße statt per Zeichnen anlegen"
           },
           "garden_object": {
             "label": "Objekt: Gartenobjekt zeichnen",
             "hint": "Ein Gartenobjekt wie Weg, Zaun oder Baum zeichnen",
-            "short": "Objekt"
+            "short": "Objekt",
+            "more": "Weitere Objekt-Werkzeuge öffnen",
+            "menu": "Objekt-Werkzeuge",
+            "dimensionsHint": "Ein Gartenobjekt über Maße statt per Zeichnen anlegen"
           }
         },
         "shapes": {
@@ -5962,7 +5970,8 @@
           "distribute": {
             "horizontal": "Horizontal gleichmäßig verteilen",
             "vertical": "Vertikal gleichmäßig verteilen"
-          }
+          },
+          "hint": "Die Auswahl aneinander ausrichten oder gleichmäßig verteilen"
         },
         "miniMap": {
           "label": "Übersichtskarte des Gartens mit dem sichtbaren Ausschnitt",
