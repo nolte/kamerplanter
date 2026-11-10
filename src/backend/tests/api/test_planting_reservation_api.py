@@ -679,6 +679,41 @@ class TestMixedCulture:
         assert response.status_code == 201, response.text
         assert len(world.repo.mixed_writes[0].runs[0].slots) == 1
 
+    def test_a_pot_below_the_recommendation_is_created_with_a_warning(self, client, world) -> None:
+        """W-016.5: the server warns on the pot the dialog warns on - and creates the run anyway."""
+        world.species["sp_tomato"].recommended_container_volume_l = "15-25"
+
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", "12"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["warnings"] == [
+            {
+                "code": "container.volume_below_recommendation",
+                "run_index": 0,
+                "species_key": "sp_tomato",
+                "container_volume_l": 12.0,
+                "recommended_container_volume_l": 15.0,
+            }
+        ]
+        assert len(world.repo.mixed_writes) == 1
+
+    @pytest.mark.parametrize(("recommended", "volume"), [("5-10", "12"), (None, "1"), ("15-25", "null")])
+    def test_no_warning_without_a_pot_below_a_known_recommendation(self, client, world, recommended, volume) -> None:
+        world.species["sp_tomato"].recommended_container_volume_l = recommended
+
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", volume),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["warnings"] == []
+
     def test_a_foreign_species_is_422_reference_not_found(self, client, world) -> None:
         body = self.body()
         body["runs"][1]["entry"]["species_key"] = "sp_foreign"

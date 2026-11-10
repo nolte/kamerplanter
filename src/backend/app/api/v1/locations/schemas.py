@@ -42,7 +42,8 @@ from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.nutrient_hint import NUTRIENT_HINT_REASONS, NutrientHint, NutrientHintReason
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
-from app.domain.models.site import MAX_PHOTO_REF_LENGTH, MAX_PHOTOS_PER_LOCATION, SiteConditions
+from app.domain.models.site import MAX_PHOTO_REF_LENGTH, MAX_PHOTOS_PER_LOCATION, LocationLighting, SiteConditions
+from app.domain.models.tent_hint import TentHint, TentHintCode, TentHintSeverity
 from app.domain.services.bed_history_service import BedHistoryItem
 from app.domain.services.plant_state_service import PlantStateEntry
 
@@ -146,6 +147,11 @@ class LocationResponse(BaseModel):
     rotation_exempt: bool = False
     #: Per-bed rotation switch (#2544): ``null`` = type default (off for planter/tent/shelf), ``true`` on, ``false`` off
     rotation_enabled: bool | None = None
+    #: The location's own neighbourhood factor (W-016.8); `null` = the site's `plan.adjacency_factor` applies.
+    adjacency_factor: float | None = None
+    #: Lamp height, canopy distance, fixture footprint (W-016.2/3): stored for a later light model, computed with by
+    #: nothing yet. `null` = nothing entered.
+    lighting: LocationLighting | None = None
     #: The bed's cover photo (REQ-053 GP-FR-051, WP 8.18): an attachment id, served by ``GET /attachments/{id}``
     #: and its thumbnails. ``null`` without one; the gallery itself is ``GET /locations/{key}/photos``.
     cover_photo_ref: str | None = None
@@ -368,6 +374,65 @@ class NutrientHintResponse(BaseModel):
         )
 
 
+class PhotoperiodGroupResponse(BaseModel):
+    """Plants of one light schedule that ask for the same photoperiod (W-016.6)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"photoperiod_hours": 18.0, "plant_count": 2, "phase_names": ["Vegetative"]}]}
+    )
+
+    photoperiod_hours: float = Field(ge=0, le=24)
+    plant_count: int = Field(ge=1)
+    #: Display names of the phases these plants are in (sorted); empty when no phase name resolves.
+    phase_names: list[str] = Field(default_factory=list)
+
+
+class TentHintResponse(BaseModel):
+    """A light-schedule hint of a tent or shelf level (REQ-053 §9.2a, W-016.6, V-23): a hint, never an error.
+
+    `tent.photoperiod_conflict` (`warning`): the plants ask for different photoperiods (from the requirement profile of
+    their current phase). `tent.photoperiod_unknown` (`info`): at least one plant's phase names no photoperiod, so the
+    check could not judge it - nothing is assumed (E-10).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "code": "tent.photoperiod_conflict",
+                    "severity": "warning",
+                    "groups": [
+                        {"photoperiod_hours": 18.0, "plant_count": 2, "phase_names": ["Vegetative"]},
+                        {"photoperiod_hours": 12.0, "plant_count": 1, "phase_names": ["Flowering"]},
+                    ],
+                    "unknown_plant_count": 0,
+                }
+            ]
+        }
+    )
+
+    code: TentHintCode
+    severity: TentHintSeverity
+    groups: list[PhotoperiodGroupResponse] = Field(default_factory=list)
+    unknown_plant_count: int = Field(default=0, ge=0)
+
+    @classmethod
+    def from_hint(cls, hint: TentHint) -> TentHintResponse:
+        return cls(
+            code=hint.code,
+            severity=hint.severity,
+            groups=[
+                PhotoperiodGroupResponse(
+                    photoperiod_hours=group.photoperiod_hours,
+                    plant_count=group.plant_count,
+                    phase_names=list(group.phase_names),
+                )
+                for group in hint.groups
+            ],
+            unknown_plant_count=hint.unknown_plant_count,
+        )
+
+
 class BedSummaryResponse(LocationResponse):
     """The head of the bed view (GP-API-012, GP-FR-047)."""
 
@@ -418,6 +483,10 @@ class BedSummaryResponse(LocationResponse):
     #: `site_conditions.access_sides` for the `bed.reach_too_wide` hint (the stronger wins). `null` for a location that
     #: is no bed or has no geometry.
     path_access: Literal["both", "one", "none"] | None = None
+    #: W-016.1: the location's type may carry a slot layout - every bed type, `tent` and `shelf`.
+    supports_layout: bool = False
+    #: W-016.6 (V-23): light-schedule hints of a tent or shelf level with two or more plants; empty elsewhere.
+    tent_hints: list[TentHintResponse] = Field(default_factory=list)
 
 
 class LocationTreeNode(BaseModel):

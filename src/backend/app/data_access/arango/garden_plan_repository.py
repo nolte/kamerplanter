@@ -52,7 +52,12 @@ from app.data_access.arango.watering_queries import last_waterings
 from app.domain.calculators.overdue_calculator import start_of_utc_day
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
-from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData, SoilProfileEdit
+from app.domain.interfaces.garden_plan_repository import (
+    MAX_PHOTOPERIOD_PLANTS,
+    IGardenPlanRepository,
+    PlanReadData,
+    SoilProfileEdit,
+)
 from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
@@ -70,6 +75,7 @@ from app.domain.models.garden_plan import (
 )
 from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
 from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, SiteUnderlay, Slot
+from app.domain.models.tent_hint import PlantPhotoperiod
 
 logger = structlog.get_logger()
 
@@ -202,6 +208,14 @@ def _write_soil(txn: StreamTransaction, location_key: str, soil: SoilProfileEdit
         check_last_analysis_at=soil.check_last_analysis_at,
         expected_last_analysis_at=soil.expected_last_analysis_at,
     )
+
+
+def _photoperiod_or_none(value: object) -> float | None:
+    """A stored ``photoperiod_hours`` as a number of hours in ``0..24``; anything else is unknown (E-10)."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    hours = float(value)
+    return hours if 0.0 <= hours <= 24.0 else None
 
 
 class ArangoGardenPlanRepository(IGardenPlanRepository):
@@ -543,6 +557,94 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             ),
         )
         return {row["key"]: row["is_bed"] for row in cursor}
+
+    def layout_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
+        if not location_type_keys:
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR t IN @@col
+                    FILTER t._key IN @keys
+                    RETURN {key: t._key, supports_layout: t.supports_layout == true OR t.is_bed == true}
+                """,
+                bind_vars={"@col": col.LOCATION_TYPES, "keys": sorted(set(location_type_keys))},
+            ),
+        )
+        return {row["key"]: row["supports_layout"] for row in cursor}
+
+    def load_location_photoperiods(self, location_key: str, *, tenant_key: str) -> list[PlantPhotoperiod]:
+        if not tenant_key:
+            raise ValueError("load_location_photoperiods needs a tenant_key (an empty tenant is no tenant, #2107).")
+        # The plants are the tenant's (filtered on their own stamp); species, phases and profiles are catalogue
+        # documents reached from them, and only a number and a phase name leave the query (no free text).
+        bind_vars: dict[str, Any] = {
+            "@plants": col.PLANT_INSTANCES,
+            "@has_lifecycle": col.HAS_LIFECYCLE,
+            "@consists_of": col.CONSISTS_OF,
+            "@requires_profile": col.REQUIRES_PROFILE,
+            "slots": col.SLOTS,
+            "entries": col.PHASE_SEQUENCE_ENTRIES,
+            "definitions": col.PHASE_DEFINITIONS,
+            "phases": col.GROWTH_PHASES,
+            "species": col.SPECIES,
+            "tenant_key": tenant_key,
+            "location": location_key,
+            "limit": MAX_PHOTOPERIOD_PLANTS,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR p IN @@plants
+                    FILTER p.tenant_key == @tenant_key AND p.removed_on == null
+                        AND (p.location_key == @location OR (p.location_key == null AND p.slot_key != null))
+                    LET slot = p.location_key == null ? DOCUMENT(@slots, p.slot_key) : null
+                    FILTER p.location_key == @location OR (slot != null AND slot.location_key == @location)
+                    SORT p._key ASC
+                    LIMIT @limit
+                    LET entry = p.current_phase_key == null ? null : DOCUMENT(@entries, p.current_phase_key)
+                    LET definition = entry == null ? null : DOCUMENT(@definitions, entry.phase_definition_key)
+                    LET legacy = (p.current_phase_key == null OR entry != null)
+                        ? null
+                        : DOCUMENT(@phases, p.current_phase_key)
+                    LET phase_name = entry != null
+                        ? (definition == null ? null : definition.name)
+                        : (legacy == null ? null : legacy.name)
+                    LET growth_phase = legacy != null ? legacy : (phase_name == null ? null : FIRST(
+                        FOR lifecycle IN 1..1 OUTBOUND CONCAT(@species, "/", p.species_key) @@has_lifecycle
+                            FOR candidate IN 1..1 OUTBOUND lifecycle @@consists_of
+                                FILTER candidate.name == phase_name
+                                SORT candidate._key ASC
+                                LIMIT 1
+                                RETURN candidate
+                    ))
+                    LET profile = growth_phase == null ? null : FIRST(
+                        FOR requirement IN 1..1 OUTBOUND growth_phase @@requires_profile
+                            SORT requirement._key ASC
+                            LIMIT 1
+                            RETURN requirement
+                    )
+                    RETURN {
+                        plant_key: p._key,
+                        phase_name: entry != null
+                            ? (definition == null ? null : (definition.display_name || definition.name))
+                            : (legacy == null ? null : (legacy.display_name || legacy.name)),
+                        photoperiod_hours: profile == null ? null : profile.photoperiod_hours
+                    }
+                """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [
+            PlantPhotoperiod(
+                plant_key=str(row["plant_key"]),
+                phase_name=row["phase_name"] if isinstance(row["phase_name"], str) and row["phase_name"] else None,
+                photoperiod_hours=_photoperiod_or_none(row["photoperiod_hours"]),
+            )
+            for row in cursor
+        ]
 
     def count_active_plants(self, location_keys: list[str], *, tenant_key: str) -> int:
         if not tenant_key:

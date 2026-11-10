@@ -16,6 +16,7 @@ from app.common.exceptions import (
 )
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
+from app.domain.calculators.container_volume_calculator import check_container_volume
 from app.domain.calculators.planting_layout_calculator import check_disjoint_row_assignments
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
@@ -33,6 +34,7 @@ from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import (
     QUICK_PLANTING_MAX_QUANTITY,
+    ContainerVolumeWarning,
     MixedRunDraft,
     MixedRunSlot,
     MixedRunsWrite,
@@ -310,6 +312,41 @@ class PlantingRunService:
             MixedRunsWrite(location_key=location_key, runs=writes), tenant_key=tenant_key
         )
         return [self._repo.get_or_raise(run_key) for run_key in outcome.run_keys]
+
+    def container_volume_warnings(
+        self, drafts: list[MixedRunDraft], *, tenant_key: str
+    ) -> list[ContainerVolumeWarning]:
+        """W-016.5: the runs whose pot is below their species' recommended volume - warnings, never a refusal.
+
+        The server's half of the planting dialog's ``containerCheck`` (one rule, ``container_volume_calculator``).
+        Runs without a pot volume, and species without a recommendation, give no warning: nothing is assumed (E-10).
+        Called after :meth:`create_mixed_culture` stored the runs, so the species were checked readable there; one
+        that is no longer readable now is skipped rather than turning a stored planting into an error.
+        """
+        if not tenant_key:
+            raise ValueError("container_volume_warnings is tenant-scoped and requires a non-empty tenant_key.")
+        if self._species_resolver is None:
+            return []
+        warnings: list[ContainerVolumeWarning] = []
+        for index, draft in enumerate(drafts):
+            volume = draft.container_volume_l
+            if volume is None:
+                continue
+            try:
+                species = self._species_resolver(draft.entry.species_key, tenant_key=tenant_key)
+            except NotFoundError:
+                continue
+            check = check_container_volume(volume, getattr(species, "recommended_container_volume_l", None))
+            if check.volume_below and check.recommended_l is not None:
+                warnings.append(
+                    ContainerVolumeWarning(
+                        run_index=index,
+                        species_key=draft.entry.species_key,
+                        container_volume_l=volume,
+                        recommended_l=check.recommended_l,
+                    )
+                )
+        return warnings
 
     def _stamp_mixed_draft(self, draft: MixedRunDraft, location_key: str, tenant_key: str) -> None:
         """The run and entry of one species as the transaction stores them, after the reference checks.

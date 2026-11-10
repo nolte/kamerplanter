@@ -7959,6 +7959,40 @@
         "removeTitle": "Remove the photo from the bed?",
         "removeMessage": "The photo disappears from the bed's gallery. If nothing else uses it, it is deleted for good - this cannot be undone.",
         "removed": "Photo removed."
+      },
+      "tentRules": {
+        "title": "Tent rules",
+        "intro": "These values apply to this location only and override the garden's settings.",
+        "introReadOnly": "These values apply to this location only. Members from the grower role up can change them.",
+        "adjacencyFactor": "Neighbourhood factor",
+        "adjacencyFactorHelper": "Up to which distance two plant spots count as neighbours, as a multiple of the plant spacing. Leave empty to use the garden's value. Raise it when plants are meant to grow into each other (e.g. under a net).",
+        "adjacencyFactorPlaceholder": "Garden's value",
+        "lighting": "Lighting",
+        "lightingIntro": "Stored so the light distribution can be calculated later. Kamerplanter does not calculate anything from it yet.",
+        "lampHeight": "Lamp height",
+        "lampHeightHelper": "Height of the fixture above the floor of the tent or shelf level.",
+        "canopyDistance": "Distance to the plants",
+        "canopyDistanceHelper": "Distance between the fixture and the topmost leaves. It cannot be larger than the lamp height.",
+        "saved": "Tent rules saved.",
+        "errors": {
+          "factorRange": "Enter a value above 0 and at most 10.",
+          "lampRange": "Enter a height above 0 and at most 1000 cm.",
+          "canopyRange": "Enter a distance from 0 to 1000 cm.",
+          "canopyAboveLamp": "The distance to the plants cannot be larger than the lamp height."
+        },
+        "hints": {
+          "conflictTitle": "Different light needs under one lamp",
+          "conflict": "In their current phase the plants here need light days of different length: {{groups}}. A lamp has only one schedule. Group plants with the same light needs, or give each group its own level with its own lamp.",
+          "group_one": "{{hours}} hours of light for {{count}} plant ({{phases}})",
+          "group_other": "{{hours}} hours of light for {{count}} plants ({{phases}})",
+          "groupNoPhase_one": "{{hours}} hours of light for {{count}} plant",
+          "groupNoPhase_other": "{{hours}} hours of light for {{count}} plants",
+          "unknownTitle": "Light needs not known for every plant",
+          "photoperiodUnknown_one": "For {{count}} plant no light duration is recorded for its current phase. Whether it fits the lamp's schedule cannot be checked.",
+          "photoperiodUnknown_other": "For {{count}} plants no light duration is recorded for their current phase. Whether they fit the lamp's schedule cannot be checked.",
+          "alsoUnknown_one": "For {{count}} more plant no light duration is recorded; it is not counted.",
+          "alsoUnknown_other": "For {{count}} more plants no light duration is recorded; they are not counted."
+        }
       }
     },
     "rotationMatrix": {

@@ -52,6 +52,7 @@ from app.api.v1.locations.schemas import (
     SuccessionHeldBackResponse,
     SuccessionRecommendationResponse,
     SuccessionSpeciesResponse,
+    TentHintResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
     rotation_year_responses,
@@ -331,6 +332,10 @@ def get_location_summary(
     its site; `null` for a location that is no bed, without a geometry or without a water source.
     `path_access` (GP-FR-166) is the access the site's paths give the bed (`both` | `one` | `none`, within the site's
     `reach_thresholds.path_access_max_distance_m`); `null` for a location that is no bed or has no geometry.
+    `supports_layout` (W-016.1) says whether the location's type carries a slot layout (beds, tents, shelves).
+    `tent_hints` (W-016.6, V-23) are hints of a tent or shelf level with two or more plants - never an error:
+    `tent.photoperiod_conflict` when their current phases ask for different photoperiods, `tent.photoperiod_unknown`
+    when a phase names none.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
     counters = view.counters
@@ -348,6 +353,8 @@ def get_location_summary(
         nutrient_hint=NutrientHintResponse.from_hint(view.nutrient_hint),
         nearest_water_source_m=view.nearest_water_source_m,
         path_access=view.path_access,
+        supports_layout=view.supports_layout,
+        tent_hints=[TentHintResponse.from_hint(hint) for hint in view.tent_hints],
     )
 
 

@@ -24,7 +24,18 @@ from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.nutrient_hint import NutrientHint
-from app.domain.models.site import Location, Microclimate, SiteConditions, SitePlan, Slot, SoilProfile, SunProfile
+from app.domain.models.site import (
+    MAX_ADJACENCY_FACTOR,
+    Location,
+    LocationLighting,
+    Microclimate,
+    SiteConditions,
+    SitePlan,
+    Slot,
+    SoilProfile,
+    SunProfile,
+)
+from app.domain.models.tent_hint import TentHint
 
 if TYPE_CHECKING:
     from app.domain.models.irrigation_zone import IrrigationZone
@@ -417,7 +428,8 @@ class SiteConditionsPatch(SiteConditions):
 
 class LocationPatch(_Strict):
     """``PATCH /locations/{key}`` (GP-API-010): only the fields present are changed; an explicit ``null`` clears
-    the ones that can be cleared (description, notes, height, irrigation zone, soil profile, rotation switch)."""
+    the ones that can be cleared (description, notes, height, irrigation zone, soil profile, rotation switch,
+    adjacency factor, lighting)."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=1000)
@@ -440,6 +452,13 @@ class LocationPatch(_Strict):
     #: Per-bed crop-rotation switch (GP-FR-137, #2544): ``true`` on, ``false`` off, ``null`` back to the type default.
     #: Together with ``rotation_exempt = true`` (sent or stored) it is 422 ``patch.rotation_exempt_and_enabled``.
     rotation_enabled: bool | None = None
+    #: The location's own neighbourhood factor (W-016.8); ``null`` = back to the site's. A change re-derives the
+    #: ``adjacent_to`` edges of the location's slots.
+    adjacency_factor: float | None = Field(
+        default=None, gt=0, le=MAX_ADJACENCY_FACTOR, allow_inf_nan=False, strict=True
+    )
+    #: Lamp height, canopy distance, fixture footprint (W-016.2/3), replaced whole; ``null`` clears it.
+    lighting: LocationLighting | None = None
 
     @model_validator(mode="after")
     def _only_clearable_fields_take_null(self) -> Self:
@@ -540,6 +559,10 @@ class BedSummaryView:
     #: GP-FR-166 (#2703): the access the site's paths give the bed (``reach_calculator.path_access``): ``both`` |
     #: ``one`` | ``none``; ``None`` for a location that is no bed or has no geometry.
     path_access: str | None = None
+    #: W-016.1: the location's type may carry a slot layout (every bed type, ``tent``, ``shelf``).
+    supports_layout: bool = False
+    #: W-016.6 (V-23): the light-schedule hints of a tent or shelf level; empty for every other location.
+    tent_hints: list[TentHint] = field(default_factory=list)
 
 
 # ── Read model (GP-API-001) ───────────────────────────────────────────────────

@@ -47,6 +47,9 @@ class _Repo:
             pitch_m=0.25,
             rotation_exempt=True,
             rotation_enabled=False,
+            # WP 10.11 (W-016): PATCH-only, a PUT must keep them.
+            adjacency_factor=2.0,
+            lighting={"lamp_height_cm": 180.0, "canopy_distance_cm": 40.0},
         )
         self.slot = Slot(
             _key="slot_1",

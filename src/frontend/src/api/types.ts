@@ -667,8 +667,20 @@ export interface Location {
   use_dynamic_sunrise: boolean;
   frost_exposed: boolean | null;
   tank_key: string | null;
+  /** W-016.8: the location's own neighbourhood factor; `null` = the site's applies. Absent from an older backend. */
+  adjacency_factor?: number | null;
+  /** W-016.2/3: lamp height, canopy distance, fixture footprint - stored for a later light model. */
+  lighting?: LocationLighting | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** The artificial light of a tent or shelf level (W-016.2/3); every value optional, nothing computed from it yet. */
+export interface LocationLighting {
+  lamp_height_cm?: number | null;
+  canopy_distance_cm?: number | null;
+  /** The fixture's footprint in the location's bed frame (rect, circle or polygon); set through the API only. */
+  fixture_geometry?: Record<string, unknown> | null;
 }
 
 export interface LocationCreate {
@@ -1685,8 +1697,19 @@ export interface MixedCultureCreate {
   source?: string | null;
 }
 
+/** W-016.5: a run whose pot lies below its species' recommended volume - created anyway. */
+export interface ContainerVolumeWarning {
+  code: 'container.volume_below_recommendation';
+  run_index: number;
+  species_key: string;
+  container_volume_l: number;
+  recommended_container_volume_l: number;
+}
+
 export interface MixedCultureResponse {
   runs: PlantingRun[];
+  /** Absent from an older backend. */
+  warnings?: ContainerVolumeWarning[];
 }
 
 export interface PlantingRunUpdate {

@@ -363,4 +363,6 @@ def build_world() -> SimpleNamespace:
         slot_updates=updates,
         reservations=reservations,
         care_repo=care_repo,
+        #: The species the resolver answers, by key (a test sets e.g. ``recommended_container_volume_l`` on one).
+        species=species,
     )

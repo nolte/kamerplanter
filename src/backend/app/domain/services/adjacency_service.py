@@ -28,6 +28,7 @@ from app.domain.engines.adjacency_engine import (
     WOODY_HABITS,
     AdjacencyNode,
     derive_adjacency,
+    effective_adjacency_factor,
     lower_bound_cm,
 )
 from app.domain.engines.membership_engine import MembershipEngine
@@ -39,7 +40,7 @@ from app.domain.interfaces.graph_repository import (
 )
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_plan import SlotSpeciesHint
-from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, Slot
+from app.domain.models.site import Slot
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 
 logger = structlog.get_logger()
@@ -120,7 +121,8 @@ class AdjacencyService:
         """Re-derive the ``adjacent_to`` edges among the slots of one bed; manual edges stay."""
         location = resolve_owned_location(self._sites, location_key, tenant_key)
         site = self._sites.get_site_by_key(location.site_key)
-        factor = site.plan.adjacency_factor if site is not None and site.plan is not None else DEFAULT_ADJACENCY_FACTOR
+        site_factor = site.plan.adjacency_factor if site is not None and site.plan is not None else None
+        factor = effective_adjacency_factor(location.adjacency_factor, site_factor)
         slots = self._plan.load_active_slots(
             location.site_key, [location_key], tenant_key=tenant_key, include_archived=True
         )

@@ -788,6 +788,8 @@ class GardenPlanImportService:
             "z_order": item.z_order,
             "rotation_exempt": item.rotation_exempt,
             "rotation_enabled": item.rotation_enabled,
+            "adjacency_factor": item.adjacency_factor,
+            "lighting": item.lighting,
         }
         if item.pitch_m is not None:
             fields["pitch_m"] = item.pitch_m

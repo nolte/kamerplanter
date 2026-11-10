@@ -42,6 +42,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
@@ -54,6 +55,7 @@ import type { ChipProps } from '@mui/material/Chip';
 import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
 import { getBedSummary } from '@/features/gardenPlanner/bed/bedApi';
+import TentRulesSection from '@/features/gardenPlanner/bed/TentRulesSection';
 import type { BedSummary } from '@/features/gardenPlanner/bed/types';
 import OfflineCacheMiss from '@/features/gardenPlanner/offline/OfflineCacheMiss';
 import { bedSummaryEntry, isOfflineCacheMiss, readThrough } from '@/features/gardenPlanner/offline/planCache';
@@ -113,7 +115,8 @@ export default function LocationDetailPage() {
   const notification = useNotification();
   // Deleting is lead-only backend-side (REQ-049 §2.3), so a grower must not be
   // offered a control that can only answer 403 (#1467).
-  const { canDelete } = useTenantPermissions();
+  const { canDelete, canEdit } = useTenantPermissions();
+  const online = useOnlineStatus();
   const { handleError } = useApiError();
   // Issue #587: sensor UI is gated behind the smart-home toggle.
   const { isSmartHomeEnabled } = useSmartHomeEnabled();
@@ -517,6 +520,19 @@ export default function LocationDetailPage() {
         <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Form>
+
+      {/* REQ-053 W-016: the location's own neighbourhood factor, its lighting and the light-schedule hints */}
+      {key && bedSummary && (
+        <TentRulesSection
+          locationKey={key}
+          supportsLayout={bedSummary.supports_layout === true}
+          adjacencyFactor={bedSummary.adjacency_factor}
+          lighting={bedSummary.lighting}
+          hints={bedSummary.tent_hints}
+          canEdit={canEdit && online && summaryCachedAt === null}
+          onSaved={() => void loadBedSummary()}
+        />
+      )}
 
       {/* Assigned Tank */}
       <Box sx={{ mt: 3, maxWidth: 600 }}>

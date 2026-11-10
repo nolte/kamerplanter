@@ -172,6 +172,20 @@ class MixedRunDraft:
 
 
 @dataclass(frozen=True)
+class ContainerVolumeWarning:
+    """A run of a mixed culture whose pot is below its species' recommendation (W-016.5) - a warning, never a refusal.
+
+    ``run_index`` is the position of the run in the request; ``recommended_l`` the lower value of the species'
+    ``recommended_container_volume_l`` (``container_volume_calculator``).
+    """
+
+    run_index: int
+    species_key: str
+    container_volume_l: float
+    recommended_l: float
+
+
+@dataclass(frozen=True)
 class MixedRunSlot:
     """A slot a run of a mixed culture reserves, with the ``sequence`` of its reservation edge."""
 

@@ -21,6 +21,7 @@ from app.api.v1.planting_runs.schemas import (
     BatchRemoveResponse,
     BatchUpdatePhaseDatesRequest,
     BatchUpdatePhaseDatesResponse,
+    ContainerVolumeWarningResponse,
     DetachPlantRequest,
     DetachPlantResponse,
     EntryCreate,
@@ -185,10 +186,25 @@ def create_mixed_culture(
     overlap answer `422 layout.row_assignment_overlap` before anything is computed or written. The row index
     (0-based) refers to the entry's own row grid; entries with different row spacing, direction or margins can
     still place plants close together although their index sets are disjoint.
+
+    `warnings` lists the runs whose `container_volume_l` lies below the lower value of their species'
+    `recommended_container_volume_l` (W-016.5, `container.volume_below_recommendation`); they are created anyway.
     """
     drafts = [_mixed_draft(body, item, ctx.tenant_key) for item in body.runs]
     created = service.create_mixed_culture(body.location_key, drafts, tenant_key=ctx.tenant_key, role=ctx.role)
-    return MixedCultureResponse(runs=[_run_response(run) for run in created])
+    warnings = service.container_volume_warnings(drafts, tenant_key=ctx.tenant_key)
+    return MixedCultureResponse(
+        runs=[_run_response(run) for run in created],
+        warnings=[
+            ContainerVolumeWarningResponse(
+                run_index=warning.run_index,
+                species_key=warning.species_key,
+                container_volume_l=warning.container_volume_l,
+                recommended_container_volume_l=warning.recommended_l,
+            )
+            for warning in warnings
+        ],
+    )
 
 
 @router.get("/{key}", response_model=PlantingRunResponse)
