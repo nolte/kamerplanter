@@ -40,8 +40,10 @@ _DOCUMENTS = (
     col.TASKS,
     col.USERS,
     col.GARDEN_PLAN_AUDIT,
+    # a void or a correction withdraws a care-log amendment's feeding event in its transaction (#2833)
+    col.FEEDING_EVENTS,
 )
-_EDGES = (col.CARE_EVENT_AT, col.CARE_EVENT_FOR, col.TASK_LOGGED_AS)
+_EDGES = (col.CARE_EVENT_AT, col.CARE_EVENT_FOR, col.TASK_LOGGED_AS, col.FED_BY, col.FEEDING_USED)
 
 
 @pytest.fixture(scope="module")

@@ -53,6 +53,7 @@ from app.domain.models.care_event import (
     REDACTED,
     UNDO_REASON,
     CareEvent,
+    owns_its_source_document,
 )
 from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.site import SoilProfile
@@ -69,16 +70,44 @@ CARE_EVENT_WRITE_COLLECTIONS: tuple[str, ...] = (
 )
 
 #: The plants standing in a set of locations (not removed), by key: whom a dose on the whole bed is attributed to.
-#: Read by :func:`plant_keys_standing_in` only.
-PLANTS_STANDING_IN_AQL = """
+#: Read by :func:`plant_keys_standing_in` only; the bounded form serves a caller that refuses an oversized bed.
+_PLANTS_STANDING_IN = """
 FOR p IN @@plants
     FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys AND p.removed_on == null
     SORT p._key
-    RETURN p._key
 """
+PLANTS_STANDING_IN_AQL = _PLANTS_STANDING_IN + "    RETURN p._key\n"
+PLANTS_STANDING_IN_BOUNDED_AQL = _PLANTS_STANDING_IN + "    LIMIT @limit\n    RETURN p._key\n"
 
 #: Collections the ``feeding_event`` of a care-log entry and its edges are written into (#2833).
 FEEDING_EVENT_WRITE_COLLECTIONS: tuple[str, ...] = (col.FEEDING_EVENTS, col.FED_BY, col.FEEDING_USED)
+
+#: The specialist documents a care line can be the record of, with the edges that hang off them:
+#: ``(edge collection, direction)`` where ``out`` means the document is the edge's ``_from``. What withdrawing the
+#: line removes with the document - the undo of a task completion and the void or correction of a care-log entry.
+WITHDRAWABLE_DOCUMENTS: dict[str, tuple[tuple[str, str], ...]] = {
+    col.WATERING_EVENTS: ((col.WATERED_PLANT, "out"),),
+    col.FEEDING_EVENTS: ((col.FEEDING_USED, "out"), (col.FED_BY, "in")),
+    col.HARVEST_BATCHES: ((col.HARVESTED_AS, "in"),),
+}
+
+#: What a transaction calling :func:`withdraw_domain_document` declares for writing: every document and edge above.
+WITHDRAWABLE_WRITE_COLLECTIONS: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        name for document, edges in WITHDRAWABLE_DOCUMENTS.items() for name in (document, *(e for e, _ in edges))
+    )
+)
+
+#: The specialist documents a care-log entry writes itself (#2833): only these are withdrawn with its void or
+#: correction, so a care-log transaction declares no more than :data:`FEEDING_EVENT_WRITE_COLLECTIONS`. A harvest
+#: batch (with its follow-up records) or a watering row is the task completion's, withdrawn by reopening the task.
+CARE_LOG_DOCUMENTS: frozenset[str] = frozenset({col.FEEDING_EVENTS})
+
+_OWNED_DOCUMENT_ID = (
+    'LET d = DOCUMENT(CONCAT(@collection, "/", @key)) FILTER d != null AND d.tenant_key == @tenant_key RETURN d._id'
+)
+_REMOVE_EDGES_FROM = "FOR e IN @@edge FILTER e._from == @id REMOVE e IN @@edge"
+_REMOVE_EDGES_TO = "FOR e IN @@edge FILTER e._to == @id REMOVE e IN @@edge"
 
 #: What the re-derivation of a bed's profile touches besides the care events: it writes ``locations`` and reads
 #: ``sites`` (a bed belongs to its site's tenant). A transaction calling :func:`rederive_soil_profile` declares both.
@@ -259,21 +288,80 @@ def write_care_event(
     return cast("dict[str, Any]", stored)
 
 
-def plant_keys_standing_in(db: StandardDatabase, location_keys: list[str], *, tenant_key: str) -> list[str]:
+def plant_keys_standing_in(
+    db: StandardDatabase, location_keys: list[str], *, tenant_key: str, limit: int | None = None
+) -> list[str]:
     """The tenant's plants standing in ``location_keys`` (not removed), sorted: whom a whole-bed dose is attributed to.
 
     One read for the task completion and the care-log entry (#2833), so the attribution cannot drift between them.
+    ``limit`` bounds the read (the first ``limit`` keys); a caller that must refuse an oversized bed asks for one
+    more than it accepts and counts.
     """
     if not location_keys:
         return []
-    cursor = cast(
-        "Cursor",
-        db.aql.execute(
-            PLANTS_STANDING_IN_AQL,
-            bind_vars={"@plants": col.PLANT_INSTANCES, "location_keys": location_keys, "tenant_key": tenant_key},
-        ),
-    )
+    bind_vars: dict[str, Any] = {
+        "@plants": col.PLANT_INSTANCES,
+        "location_keys": location_keys,
+        "tenant_key": tenant_key,
+    }
+    query = PLANTS_STANDING_IN_AQL
+    if limit is not None:
+        query = PLANTS_STANDING_IN_BOUNDED_AQL
+        bind_vars["limit"] = limit
+    cursor = cast("Cursor", db.aql.execute(query, bind_vars=bind_vars))
     return [str(key) for key in cursor]
+
+
+def owned_domain_reference(event: dict[str, Any]) -> dict[str, str] | None:
+    """The ``source_ref`` of a stored line when the line wrote that document itself, else ``None`` (#2833).
+
+    Only such a document is withdrawn with the line's void or correction
+    (:func:`~app.domain.models.care_event.owns_its_source_document`, :data:`CARE_LOG_DOCUMENTS`); a backfilled or
+    reconciled line mirrors a document that stays.
+    """
+    reference = event.get("source_ref")
+    if not isinstance(reference, dict) or not owns_its_source_document(event.get("trigger")):
+        return None
+    if reference.get("collection") not in CARE_LOG_DOCUMENTS or not reference.get("key"):
+        return None
+    return {"collection": str(reference["collection"]), "key": str(reference["key"])}
+
+
+def withdraw_domain_document(txn: StreamTransaction, reference: dict[str, Any], *, tenant_key: str) -> bool:
+    """Remove the specialist document ``reference`` names and its edges, inside the caller's transaction.
+
+    The inverse of :func:`write_domain_document`, shared by the undo of a task completion and the void or
+    correction of a care-log entry. Tolerant by design: a reference outside :data:`WITHDRAWABLE_DOCUMENTS`, a
+    document that is gone already (withdrawn before) or another tenant's is left alone and answers ``False`` - a
+    second withdrawal of the same document is never an error. The caller declares
+    :data:`WITHDRAWABLE_WRITE_COLLECTIONS` for writing; whether a harvest batch with follow-up records may go is the
+    caller's decision, made before.
+    """
+    collection, doc_key = reference.get("collection"), reference.get("key")
+    if collection not in WITHDRAWABLE_DOCUMENTS or not doc_key:
+        return False
+    document = next(
+        iter(
+            cast(
+                "Cursor",
+                txn.aql.execute(
+                    _OWNED_DOCUMENT_ID,
+                    bind_vars={"collection": collection, "key": doc_key, "tenant_key": tenant_key},
+                ),
+            )
+        ),
+        None,
+    )
+    if document is None:
+        return False
+    document_id = f"{collection}/{doc_key}"
+    for edge, direction in WITHDRAWABLE_DOCUMENTS[str(collection)]:
+        if direction == "out":
+            txn.aql.execute(_REMOVE_EDGES_FROM, bind_vars={"@edge": edge, "id": document_id})
+        else:
+            txn.aql.execute(_REMOVE_EDGES_TO, bind_vars={"@edge": edge, "id": document_id})
+    txn.collection(str(collection)).delete(str(doc_key))
+    return True
 
 
 def write_domain_document(txn: StreamTransaction, domain: DomainDocument, now: str) -> dict[str, str]:
@@ -703,9 +791,9 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         )
         return {str(key) for key in cursor}
 
-    def plant_keys_standing_in(self, location_keys: list[str], *, tenant_key: str) -> list[str]:
+    def plant_keys_standing_in(self, location_keys: list[str], *, tenant_key: str, limit: int) -> list[str]:
         self._require_tenant_key(tenant_key, "plant_keys_standing_in")
-        return plant_keys_standing_in(self._db, location_keys, tenant_key=tenant_key)
+        return plant_keys_standing_in(self._db, location_keys, tenant_key=tenant_key, limit=limit)
 
     # ── Writes ────────────────────────────────────────────────────────────
 
@@ -727,6 +815,9 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
             raise ValueError("insert_with_feeding_event: a document belongs to another tenant than the one it writes.")
         if feeding.collection != col.FEEDING_EVENTS:
             raise ValueError("insert_with_feeding_event: the specialist document is not a feeding event.")
+        if event.source_ref is not None:
+            # A line names exactly one document: a server caller's own reference is never replaced by this one.
+            raise ValueError("insert_with_feeding_event: the event names a source document already.")
         with stream_transaction(
             self._db,
             write=(*write_collections_for([event]), *FEEDING_EVENT_WRITE_COLLECTIONS),
@@ -814,13 +905,36 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
 
     def supersede(self, predecessor_key: str, event: CareEvent, *, tenant_key: str) -> CareEvent:
         self._require_tenant_key(tenant_key, "supersede")
+        return self._write_supersession(predecessor_key, event, None, tenant_key=tenant_key)
+
+    def supersede_with_feeding_event(
+        self, predecessor_key: str, event: CareEvent, feeding: DomainDocument, *, tenant_key: str
+    ) -> CareEvent:
+        self._require_tenant_key(tenant_key, "supersede_with_feeding_event")
+        if feeding.document.get("tenant_key") != tenant_key:
+            raise ValueError("supersede_with_feeding_event: the feeding event belongs to another tenant.")
+        if feeding.collection != col.FEEDING_EVENTS:
+            raise ValueError("supersede_with_feeding_event: the specialist document is not a feeding event.")
+        return self._write_supersession(predecessor_key, event, feeding, tenant_key=tenant_key)
+
+    def _write_supersession(
+        self, predecessor_key: str, event: CareEvent, feeding: DomainDocument | None, *, tenant_key: str
+    ) -> CareEvent:
+        """The correction in one transaction: the predecessor's own document goes, the successor's (if any) comes.
+
+        A care-log entry's ``feeding_event`` describes the dose the entry stated; a correction that changes the dose,
+        the material or the category must not leave the old one counting in the fertiliser balance (#2833).
+        """
         if event.tenant_key != tenant_key:
             raise ValueError("supersede: the event belongs to another tenant than the one it is written under.")
+        if event.source_ref is not None:
+            raise ValueError("supersede: a correction names its source document through the feeding event only.")
         # Replacing a soil analysis (by anything) or writing one derives the bed's profile again (#2706); the
-        # transaction always declares what that touches, so no read before it decides the declaration.
+        # transaction always declares what that touches, so no read before it decides the declaration. The same
+        # holds for the specialist document a care-log entry wrote (withdrawn) and the correction's (written).
         with stream_transaction(
             self._db,
-            write=SOIL_ANALYSIS_WRITE_COLLECTIONS,
+            write=(*SOIL_ANALYSIS_WRITE_COLLECTIONS, *FEEDING_EVENT_WRITE_COLLECTIONS),
             read=SOIL_PROFILE_READ_COLLECTIONS,
             entity="care_event",
         ) as txn:
@@ -833,7 +947,13 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
                     status_code=422,
                     field="supersedes_key",
                 )
-            stored = write_care_event(txn, event, _now(), link_task=False)
+            now = _now()
+            owned = owned_domain_reference(predecessor)
+            if owned is not None:
+                withdraw_domain_document(txn, owned, tenant_key=tenant_key)
+            if feeding is not None:
+                event = event.model_copy(update={"source_ref": write_domain_document(txn, feeding, now)})
+            stored = write_care_event(txn, event, now, link_task=False)
             txn.collection(col.CARE_EVENTS).update({"_key": predecessor_key, "superseded_by_key": stored["_key"]})
             # A correction that drops a parameter or moves ``performed_at`` earlier must not leave the predecessor's
             # value or its later ``last_analysis_at`` behind: the profile is derived from the open analyses again.
@@ -843,10 +963,11 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
 
     def void(self, key: str, *, tenant_key: str, voided_by: str, reason: str, at: datetime) -> CareEvent:
         self._require_tenant_key(tenant_key, "void")
-        # A voided soil analysis takes its values out of the bed's profile (#2706).
+        # A voided soil analysis takes its values out of the bed's profile (#2706); a voided care-log amendment
+        # takes its feeding event out of the fertiliser balance (#2833) - the snackbar undo is its only way back.
         with stream_transaction(
             self._db,
-            write=(col.CARE_EVENTS, *SOIL_PROFILE_WRITE_COLLECTIONS),
+            write=(col.CARE_EVENTS, *FEEDING_EVENT_WRITE_COLLECTIONS, *SOIL_PROFILE_WRITE_COLLECTIONS),
             read=SOIL_PROFILE_READ_COLLECTIONS,
             entity="care_event",
         ) as txn:
@@ -861,6 +982,9 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
                 },
                 return_new=True,
             )["new"]
+            owned = owned_domain_reference(current)
+            if owned is not None:
+                withdraw_domain_document(txn, owned, tenant_key=tenant_key)
             for location_key in profile_locations([current]):
                 rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         return self._wrapped(updated)

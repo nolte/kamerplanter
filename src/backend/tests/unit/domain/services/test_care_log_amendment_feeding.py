@@ -11,6 +11,12 @@ it; the completion writes exactly one and the care-log way none on top; both bui
 dose; the rules that keep a line without a specialist document (no quantity, no nutrient material, a direct
 ``feeding``) hold; and a replayed buffered write does not write a second feeding event. That each way stores exactly
 one ``feeding_events`` row in a real database is ``tests/integration/test_care_log_amendment_feeding.py``.
+
+Taking the entry back (security review of the first commit): the service decides which way a void or a correction
+goes - a correction of a client's entry writes its own feeding event for the corrected dose, a line mirroring another
+writer's document writes none, a server caller's ``origin`` never gets one, a whole bed beyond
+``MAX_PLANTS_PER_EVENT`` is refused. That the document and its edges really go is the integration tier's (the fake
+only records which key a void or a correction withdrew).
 """
 
 from __future__ import annotations
@@ -21,11 +27,17 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.common.enums import TaskCategory, TenantRole
-from app.common.exceptions import PlanValidationError
+from app.common.exceptions import PlanError, PlanValidationError
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.task_completion_engine import NUTRIENT_MATERIALS
-from app.domain.models.care_event import CareEventInput
+from app.domain.models.care_event import (
+    MAX_PLANTS_PER_EVENT,
+    CareEvent,
+    CareEventCorrection,
+    CareEventInput,
+    CareEventOrigin,
+)
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.task_completion import CompletionActor, TaskCompletionDetails
 from app.domain.services.care_event_service import CareEventService
@@ -39,6 +51,7 @@ from tests.support.care_event_fakes import (
 )
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
+    SITE,
     TENANT,
     USER,
     FakePlanRepo,
@@ -226,3 +239,169 @@ class TestTheTaskWay:
         assert comparable(by_log.document) == comparable(by_task.document)
         assert by_log.edges_in == by_task.edges_in and by_log.edges_out == by_task.edges_out
         assert by_task.document["task_key"] == "t_amend" and "task_key" not in by_log.document
+
+
+def correction(**overrides) -> CareEventCorrection:
+    data = {
+        "category": "soil_amendment",
+        "summary": "Compost spread",
+        "performed_at": WHEN,
+        "material": "compost",
+        "quantity": 3,
+        "unit": "g_per_m2",
+    }
+    return CareEventCorrection(**{**data, **overrides})
+
+
+def mirrored_line(repo: FakeCareEventRepo, trigger: str) -> CareEvent:
+    """A compost line that points at a feeding event another writer stored (backfill, task, reconciliation)."""
+    return repo.insert(
+        CareEvent(
+            tenant_key=TENANT,
+            site_key=SITE,
+            location_key="bed",
+            category="soil_amendment",
+            summary="Compost spread",
+            performed_at=WHEN,
+            material="compost",
+            quantity=3,
+            unit="g_per_m2",
+            trigger=trigger,
+            task_key="t_amend" if trigger == "task" else None,
+            source_ref={"collection": "feeding_events", "key": "fe_elsewhere"},
+            created_by=USER,
+        ),
+        tenant_key=TENANT,
+    )
+
+
+class TestTakingTheEntryBack:
+    def test_undoing_a_logged_amendment_withdraws_its_feeding_event(self, world):
+        care, repo, *_ = world
+        logged = log(care, amendment())
+        assert repo.live_feedings() == ["fe_1"]  # positive control: the dose counted before the undo
+
+        care.void(logged.view.event.key, reason="undo", tenant_key=TENANT, user_key=USER, role=GROWER)
+
+        assert repo.live_feedings() == []
+        assert repo.events[logged.view.event.key].voided_at is not None
+
+    def test_voiding_a_line_without_a_feeding_event_withdraws_nothing(self, world):
+        care, repo, *_ = world
+        logged = log(care, amendment(material="sand"))
+
+        care.void(logged.view.event.key, reason="undo", tenant_key=TENANT, user_key=USER, role=GROWER)
+
+        assert repo.withdrawn == []
+
+    @pytest.mark.parametrize("trigger", ["backfill", "task", "system"])
+    def test_voiding_a_line_that_mirrors_another_writers_document_leaves_it(self, world, trigger):
+        care, repo, *_ = world
+        line = mirrored_line(repo, trigger)
+
+        care.void(line.key, reason="wrong bed", tenant_key=TENANT, user_key=USER, role=TenantRole.LEAD)
+
+        assert repo.withdrawn == []
+
+
+class TestCorrectingTheEntry:
+    def test_a_corrected_dose_replaces_the_feeding_event(self, world):
+        care, repo, *_ = world
+        logged = log(care, amendment())
+
+        view = care.supersede(
+            logged.view.event.key, correction(quantity=5), tenant_key=TENANT, user_key=USER, role=GROWER
+        )
+
+        assert repo.live_feedings() == ["fe_2"]
+        assert FeedingEvent.model_validate(repo.feedings[1].document).dose_quantity == 5
+        assert repo.events[view.event.key].source_ref == {"collection": "feeding_events", "key": "fe_2"}
+
+    def test_a_correction_that_is_no_nutrient_amendment_keeps_no_feeding_event(self, world):
+        care, repo, *_ = world
+        logged = log(care, amendment())
+
+        view = care.supersede(
+            logged.view.event.key,
+            correction(category="mulching", unit="cm", quantity=5),
+            tenant_key=TENANT,
+            user_key=USER,
+            role=GROWER,
+        )
+
+        assert repo.live_feedings() == []
+        assert len(repo.feedings) == 1  # nothing new written
+        assert repo.events[view.event.key].source_ref is None
+
+    def test_a_correction_that_turns_a_plain_line_into_an_amendment_writes_one(self, world):
+        care, repo, *_ = world
+        logged = log(care, amendment(material="sand"))
+
+        view = care.supersede(logged.view.event.key, correction(), tenant_key=TENANT, user_key=USER, role=GROWER)
+
+        assert repo.live_feedings() == ["fe_1"]
+        assert repo.events[view.event.key].source_ref == {"collection": "feeding_events", "key": "fe_1"}
+
+    def test_correcting_a_line_that_mirrors_another_writers_document_writes_none(self, world):
+        care, repo, *_ = world
+        line = mirrored_line(repo, "backfill")
+
+        view = care.supersede(line.key, correction(quantity=5), tenant_key=TENANT, user_key=USER, role=TenantRole.LEAD)
+
+        assert repo.feedings == [] and repo.withdrawn == []
+        assert repo.events[view.event.key].source_ref is None
+
+
+class TestAServerCaller:
+    def test_an_origin_keeps_its_own_source_ref_and_writes_no_feeding_event(self, world):
+        care, repo, *_ = world
+        reference = {"collection": "feeding_events", "key": "fe_written_by_the_caller"}
+
+        view = care.create(
+            amendment(),
+            tenant_key=TENANT,
+            user_key=USER,
+            role=GROWER,
+            origin=CareEventOrigin(trigger="system", source_ref=reference),
+        )
+
+        assert repo.feedings == []
+        assert repo.events[view.event.key].source_ref == reference
+
+
+class TestTheBedBound:
+    def _fill(self, repo: FakeCareEventRepo, count: int) -> None:
+        repo.plants = {f"pi_{n:04d}": (TENANT, "bed") for n in range(count)}
+
+    def test_a_bed_with_more_plants_than_one_event_names_is_refused_with_422(self, world):
+        care, repo, *_ = world
+        self._fill(repo, MAX_PLANTS_PER_EVENT + 1)
+
+        with pytest.raises(PlanError) as exc:
+            log(care, amendment())
+
+        assert (exc.value.status_code, exc.value.error_code) == (422, "care_event.too_many_plants")
+        assert exc.value.details[0]["field"] == "plant_keys"
+        assert exc.value.details[0]["limit"] == MAX_PLANTS_PER_EVENT
+        assert repo.feedings == [] and repo.events == {}
+        # the read is bounded: one key more than the cap is enough to decide
+        assert repo.standing_limits == [MAX_PLANTS_PER_EVENT + 1]
+
+    def test_a_bed_with_exactly_the_bound_is_attributed_to_every_plant(self, world):
+        care, repo, *_ = world
+        self._fill(repo, MAX_PLANTS_PER_EVENT)
+
+        log(care, amendment())
+
+        assert len(FeedingEvent.model_validate(repo.feedings[0].document).plant_keys) == MAX_PLANTS_PER_EVENT
+
+    def test_a_correction_to_an_oversized_bed_is_refused_and_keeps_the_old_dose(self, world):
+        care, repo, *_ = world
+        logged = log(care, amendment())
+        self._fill(repo, MAX_PLANTS_PER_EVENT + 1)
+
+        with pytest.raises(PlanError):
+            care.supersede(logged.view.event.key, correction(quantity=5), tenant_key=TENANT, user_key=USER, role=GROWER)
+
+        assert repo.live_feedings() == ["fe_1"]
+        assert repo.events[logged.view.event.key].superseded_by_key is None

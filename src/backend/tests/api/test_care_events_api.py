@@ -22,6 +22,7 @@ from app.common.auth import get_current_user
 from app.common.dependencies import get_care_event_service, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
+from app.domain.models.care_event import MAX_PLANTS_PER_EVENT
 from app.domain.models.user import User
 from app.domain.services.care_event_service import CareEventService
 from tests.support.care_event_fakes import (
@@ -186,6 +187,22 @@ class TestLogging:
         detail = response.json()["details"][0]
         assert (detail["code"], detail["field"]) == ("care_event.area_dose_not_positive", "quantity")
         assert world.repo.inserted == []
+
+    def test_a_whole_bed_amendment_on_an_oversized_bed_answers_422_with_its_code(self, client, world) -> None:
+        world.repo.plants = {f"pi_{n:04d}": (TENANT, "bed") for n in range(MAX_PLANTS_PER_EVENT + 1)}
+
+        response = client().post(
+            _OWN, json=body(category="soil_amendment", material="compost", quantity=3, unit="g_per_m2")
+        )
+
+        assert response.status_code == 422
+        detail = response.json()["details"][0]
+        assert (detail["code"], detail["field"], detail["limit"]) == (
+            "care_event.too_many_plants",
+            "plant_keys",
+            MAX_PLANTS_PER_EVENT,
+        )
+        assert world.repo.inserted == [] and world.repo.feedings == []
 
     @pytest.mark.parametrize("literal", ["Infinity", "-Infinity", "NaN"])
     def test_a_quantity_that_is_no_finite_number_answers_422(self, client, world, literal) -> None:
