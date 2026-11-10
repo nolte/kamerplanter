@@ -12,7 +12,7 @@ import type {
   SunExposure,
   WindExposure,
 } from '../model/types';
-import type { LocationLighting } from '@/api/types';
+import type { IrrigationSystem, LocationLighting } from '@/api/types';
 import type { PathAccessClass } from '../model/reach';
 
 /** Stored heat of a wall or building at a bed (`HeatRetention` of the backend, GP-FR-162). */
@@ -159,6 +159,8 @@ export interface BedListItem {
   bbox?: [number, number, number, number] | null;
   bed_status: BedStatus;
   sun_exposure: SunExposure;
+  /** The location's irrigation system; `hydro`/`nft` lift the pot-volume warning (W-016.5). */
+  irrigation_system?: IrrigationSystem;
   site_conditions?: SiteConditionsSlice | null;
   /** Carried by the location document; only the drainage is read on a listing (GP-FR-161). */
   soil_profile?: SoilProfile | null;
@@ -261,6 +263,8 @@ export interface TentHint {
   severity: 'info' | 'warning';
   groups: PhotoperiodGroup[];
   unknown_plant_count: number;
+  /** The first five plants (by name) whose photoperiod is unknown; absent from an older backend. */
+  unknown_plant_names?: string[];
 }
 
 /** Body of `PATCH /locations/{key}` for the tent rules; a key absent stays as stored, `null` clears it. */

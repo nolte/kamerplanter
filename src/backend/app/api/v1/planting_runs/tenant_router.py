@@ -189,10 +189,12 @@ def create_mixed_culture(
 
     `warnings` lists the runs whose `container_volume_l` lies below the lower value of their species'
     `recommended_container_volume_l` (W-016.5, `container.volume_below_recommendation`); they are created anyway.
+    A bed whose `irrigation_system` is `hydro` or `nft` gets no pot warning (the roots grow in the solution). The
+    warnings never fail the request: the runs are stored first, a failure while reading them answers `warnings: []`.
     """
     drafts = [_mixed_draft(body, item, ctx.tenant_key) for item in body.runs]
     created = service.create_mixed_culture(body.location_key, drafts, tenant_key=ctx.tenant_key, role=ctx.role)
-    warnings = service.container_volume_warnings(drafts, tenant_key=ctx.tenant_key)
+    warnings = service.container_volume_warnings(body.location_key, drafts, tenant_key=ctx.tenant_key)
     return MixedCultureResponse(
         runs=[_run_response(run) for run in created],
         warnings=[

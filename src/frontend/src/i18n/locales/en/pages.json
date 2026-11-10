@@ -7982,7 +7982,7 @@
         },
         "hints": {
           "conflictTitle": "Different light needs under one lamp",
-          "conflict": "In their current phase the plants here need light days of different length: {{groups}}. A lamp has only one schedule. Group plants with the same light needs, or give each group its own level with its own lamp.",
+          "conflict": "According to the stored phase profiles, the plants here need light days of different length in their current phase: {{groups}}. A lamp has only one schedule. Check the values for your varieties. If they are right, group plants with the same light needs, or give each group its own level with its own lamp. Seedlings and cuttings are not counted here.",
           "group_one": "{{hours}} hours of light for {{count}} plant ({{phases}})",
           "group_other": "{{hours}} hours of light for {{count}} plants ({{phases}})",
           "groupNoPhase_one": "{{hours}} hours of light for {{count}} plant",
@@ -7991,7 +7991,10 @@
           "photoperiodUnknown_one": "For {{count}} plant no light duration is recorded for its current phase. Whether it fits the lamp's schedule cannot be checked.",
           "photoperiodUnknown_other": "For {{count}} plants no light duration is recorded for their current phase. Whether they fit the lamp's schedule cannot be checked.",
           "alsoUnknown_one": "For {{count}} more plant no light duration is recorded; it is not counted.",
-          "alsoUnknown_other": "For {{count}} more plants no light duration is recorded; they are not counted."
+          "alsoUnknown_other": "For {{count}} more plants no light duration is recorded; they are not counted.",
+          "unknownPlants": "Affected: {{names}}.",
+          "unknownPlantsMore_one": "Affected: {{names}} and {{count}} more.",
+          "unknownPlantsMore_other": "Affected: {{names}} and {{count}} more."
         }
       }
     },

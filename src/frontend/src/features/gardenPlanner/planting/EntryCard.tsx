@@ -23,7 +23,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { Species } from '@/api/types';
+import type { IrrigationSystem, Species } from '@/api/types';
 import { TRIANGULAR_ROW_FACTOR, type RowDirection } from '../model/layout';
 import { MARKER_SHAPES } from './LayoutCanvas';
 import SpeciesPicker from './SpeciesPicker';
@@ -46,6 +46,8 @@ interface EntryCardProps {
   total: number;
   form: EntryFormState;
   species: Species | null;
+  /** The bed's irrigation system: in `hydro`/`nft` the roots grow in the solution and no pot is judged (W-016.5). */
+  irrigationSystem?: IrrigationSystem | null;
   allSpecies: readonly Species[];
   favorites: ReadonlySet<string>;
   errors: EntryErrors;
@@ -88,6 +90,7 @@ export default function EntryCard({
   total,
   form,
   species,
+  irrigationSystem = null,
   allSpecies,
   favorites,
   errors,
@@ -106,7 +109,11 @@ export default function EntryCard({
   const cultivars = useCultivars(form.speciesKey);
   const [moreOpen, setMoreOpen] = useState(false);
   const rowLayout = ROW_STRATEGIES.includes(form.layout);
-  const container = useMemo(() => containerCheck(form.containerVolume, species), [form.containerVolume, species]);
+  // A planned run has no phase yet: only the bed's irrigation system can lift the check (the backend's same rule).
+  const container = useMemo(
+    () => containerCheck(form.containerVolume, species, { irrigationSystem }),
+    [form.containerVolume, species, irrigationSystem],
+  );
   const errorText = (code: string | undefined) => (code ? t(`pages.bed.planting.errors.${code}`) : undefined);
   const testPrefix = `planting-entry-${index}`;
   const shapeName = ENTRY_SHAPE_NAMES[index % ENTRY_SHAPE_NAMES.length];

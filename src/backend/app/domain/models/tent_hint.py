@@ -19,6 +19,10 @@ HINT_PHOTOPERIOD_CONFLICT: TentHintCode = "tent.photoperiod_conflict"
 HINT_PHOTOPERIOD_UNKNOWN: TentHintCode = "tent.photoperiod_unknown"
 
 
+#: Unknown plants a ``tent.photoperiod_unknown`` hint names; the rest is only counted (``unknown_plant_count``).
+MAX_NAMED_UNKNOWN_PLANTS = 5
+
+
 @dataclass(frozen=True)
 class PlantPhotoperiod:
     """A standing plant of the location with the photoperiod its current phase asks for (``None`` = unknown)."""
@@ -27,6 +31,10 @@ class PlantPhotoperiod:
     #: Display name of the current phase; ``None`` when the plant has none or it does not resolve.
     phase_name: str | None
     photoperiod_hours: float | None
+    #: Machine name of the current phase (``seedling``, ``flowering``, ...); decides whether the plant is young.
+    phase_code: str | None = None
+    #: What the grower calls the plant (its name, else its id); shown when its photoperiod is unknown.
+    display_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -46,3 +54,5 @@ class TentHint:
     groups: tuple[PhotoperiodGroup, ...]
     #: Plants whose phase names no photoperiod.
     unknown_plant_count: int
+    #: The first :data:`MAX_NAMED_UNKNOWN_PLANTS` of them by name, so the hint can say which plants it could not judge.
+    unknown_plant_names: tuple[str, ...] = ()

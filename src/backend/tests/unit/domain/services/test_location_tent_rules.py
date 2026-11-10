@@ -215,8 +215,19 @@ def _tent_summary(service: GardenResourceService, repo: FakePlanRepo, plants: li
     return service.get_summary("tent", tenant_key=TENANT)
 
 
-def _plant(key: str, phase: str | None, hours: float | None) -> PlantPhotoperiod:
-    return PlantPhotoperiod(plant_key=key, phase_name=phase, photoperiod_hours=hours)
+def _plant(key: str, phase: str | None, hours: float | None, code: str | None = None) -> PlantPhotoperiod:
+    return PlantPhotoperiod(
+        plant_key=key, phase_name=phase, photoperiod_hours=hours, phase_code=code, display_name=f"Plant {key}"
+    )
+
+
+def _shelf(repo: FakePlanRepo, lighting: LocationLighting | None) -> None:
+    repo.locations["shelf"] = make_location(
+        "shelf", name="Regal", geometry=rect(1, 4, 1, 0.4), location_type_key="shelf", lighting=lighting
+    )
+    repo.layout_types["shelf"] = True
+    repo.counters["shelf"] = BedCounters(active_plant_count=2)
+    repo.photoperiods["shelf"] = [_plant("p1", "Vegetative", 18), _plant("p2", "Flowering", 12)]
 
 
 class TestPhotoperiodHintInTheSummary:
@@ -286,3 +297,50 @@ class TestPhotoperiodHintInTheSummary:
 
         assert repo.photoperiod_reads == ["tent"]
         assert repo.locations["tent"].site_key == SITE
+
+    def test_young_plants_take_no_part(self, world) -> None:
+        service, repo = world
+
+        view = _tent_summary(
+            service,
+            repo,
+            [_plant("p1", "Flowering", 12, "flowering"), _plant("p2", "Seedling", 18, "seedling")],
+        )
+
+        assert view.tent_hints == []
+
+    def test_the_unknown_hint_names_the_plants(self, world) -> None:
+        service, repo = world
+
+        view = _tent_summary(service, repo, [_plant("p1", "Vegetative", 18), _plant("p2", "Flowering", None)])
+
+        (hint,) = view.tent_hints
+        assert hint.unknown_plant_names == ("Plant p2",)
+
+
+class TestPhotoperiodHintOnAShelf:
+    def test_a_shelf_level_with_its_own_lamp_gets_the_hint(self, world) -> None:
+        service, repo = world
+        _shelf(repo, LocationLighting(lamp_height_cm=40.0))
+
+        view = service.get_summary("shelf", tenant_key=TENANT)
+
+        assert [hint.code for hint in view.tent_hints] == [HINT_PHOTOPERIOD_CONFLICT]
+        assert repo.photoperiod_reads == ["shelf"]
+
+    def test_an_unlit_shelf_takes_its_light_from_the_day(self, world) -> None:
+        service, repo = world
+        _shelf(repo, None)
+
+        view = service.get_summary("shelf", tenant_key=TENANT)
+
+        assert view.tent_hints == []
+        assert repo.photoperiod_reads == []
+
+    def test_a_canopy_distance_alone_is_no_lamp(self, world) -> None:
+        service, repo = world
+        _shelf(repo, LocationLighting(canopy_distance_cm=20.0))
+
+        view = service.get_summary("shelf", tenant_key=TENANT)
+
+        assert view.tent_hints == []

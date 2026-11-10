@@ -14,6 +14,7 @@ from app.domain.models.planting_run import (
     RUN_SOURCES,
     check_row_assignment,
 )
+from app.domain.models.site import MAX_CONTAINER_VOLUME_L
 from app.domain.services.planting_reservation_service import MAX_RESERVED_SLOTS
 
 #: A mixed culture has at most this many species (one run each).
@@ -209,7 +210,11 @@ class MixedCultureRunCreate(BaseModel):
         description="Bed-frame points of a `free` entry (m); each becomes a reserved position of the run.",
     )
     container_volume_l: float | None = Field(
-        default=None, gt=0, allow_inf_nan=False, description="Pot volume of the freely placed positions, in litres."
+        default=None,
+        gt=0,
+        le=MAX_CONTAINER_VOLUME_L,
+        allow_inf_nan=False,
+        description="Pot volume of the freely placed positions, in litres (at most 500).",
     )
 
     @model_validator(mode="after")

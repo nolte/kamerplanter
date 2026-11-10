@@ -65,7 +65,7 @@ from app.domain.engines.garden_plan_engine import (
 )
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_site_parts
-from app.domain.engines.tent_rules_engine import PHOTOPERIOD_SHARED_LOCATION_TYPES, photoperiod_hints
+from app.domain.engines.tent_rules_engine import has_own_light_schedule, photoperiod_hints
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, SoilProfileEdit
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -372,10 +372,11 @@ class GardenResourceService:
         layout_flags: dict[str, bool] = self._plan.layout_type_flags([type_key]) if type_key else {}
         supports_layout = layout_flags.get(type_key, False)
         tent_hints: list[TentHint] = []
-        if type_key in PHOTOPERIOD_SHARED_LOCATION_TYPES and counters.active_plant_count >= 2:
-            # W-016.6 (V-23): read only where one light schedule serves several plants.
+        lamp_height_cm = location.lighting.lamp_height_cm if location.lighting is not None else None
+        if has_own_light_schedule(type_key, lamp_height_cm) and counters.active_plant_count >= 2:
+            # W-016.6 (V-23): read only where one light schedule serves several plants - a tent, a lit shelf level.
             plants = self._plan.load_location_photoperiods(key, tenant_key=tenant_key)
-            tent_hints = photoperiod_hints(type_key, plants)
+            tent_hints = photoperiod_hints(type_key, plants, lamp_height_cm=lamp_height_cm)
         hint: NutrientHint | None = None
         provider = self._nutrient_hint
         if is_bed and provider is not None:

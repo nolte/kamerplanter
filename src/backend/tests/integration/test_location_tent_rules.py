@@ -5,7 +5,10 @@ What no double decides, measured here:
 * the photoperiod read: a legacy growth phase reaches its requirement profile directly, a phase-sequence entry through
   the growth phase of the same name in the species' lifecycle; a phase without a profile is unknown; a plant placed
   only through a slot counts; another tenant's, a removed and another location's plant do not;
-* the summary's hint appears with two photoperiods and disappears once they agree;
+* the photoperiod read is anchored at the location's slots, carries each plant's phase code and name, and leaves an
+  ambiguous or missing name bridge unknown while a legacy phase id still wins;
+* the summary's hint appears with two photoperiods and disappears once they agree; a young plant takes no part, and
+  a shelf level counts only with its own lamp;
 * ``layout_type_flags`` reads ``supports_layout`` and lets ``is_bed`` imply it;
 * a location's own ``adjacency_factor`` decides the derived neighbourhood of its slots;
 * ``lighting`` is stored replaced whole, without the ``null`` keys of the PATCH, and ``null`` removes it.
@@ -207,6 +210,48 @@ class TestPhotoperiodRead:
 
         assert [row.plant_key for row in repo.load_location_photoperiods("tent", tenant_key=A)] == ["p_own"]
 
+    def test_a_plant_in_a_slot_of_another_location_is_not_read(self, db, repo) -> None:
+        db.collection(col.SLOTS).insert({"_key": "s_other", "slot_id": "TENT2_1", "location_key": "tent_2"})
+        _plant(db, "p_other_slot", phase="gp_flower", location=None, slot_key="s_other")
+        _plant(db, "p_here", phase="gp_veg")
+
+        assert [row.plant_key for row in repo.load_location_photoperiods("tent", tenant_key=A)] == ["p_here"]
+
+    def test_each_plant_carries_its_phase_code_and_its_name(self, db, repo) -> None:
+        _plant(db, "p_named", phase="pse_flowering", plant_name="Gelato #3")
+        _plant(db, "p_unnamed", phase="gp_seedling")
+
+        rows = {row.plant_key: row for row in repo.load_location_photoperiods("tent", tenant_key=A)}
+
+        assert (rows["p_named"].phase_code, rows["p_named"].display_name) == ("flowering", "Gelato #3")
+        assert (rows["p_unnamed"].phase_code, rows["p_unnamed"].display_name) == ("seedling", "P_UNNAMED")
+
+    def test_an_ambiguous_name_bridge_is_unknown_and_the_legacy_id_still_wins(self, db, repo) -> None:
+        """Two growth phases named ``flowering`` in the species' lifecycles: the sequence plant is not guessed."""
+        db.collection(col.LIFECYCLE_CONFIGS).insert({"_key": "lc_cannabis_auto", "species_key": "sp_cannabis"})
+        db.collection(col.HAS_LIFECYCLE).insert(
+            {"_from": f"{col.SPECIES}/sp_cannabis", "_to": f"{col.LIFECYCLE_CONFIGS}/lc_cannabis_auto"}
+        )
+        _phase(db, "gp_flower_auto", "flowering", "lc_cannabis_auto", hours=18.0)
+        _plant(db, "p_sequence", phase="pse_flowering")
+        _plant(db, "p_legacy", phase="gp_flower")
+
+        rows = {row.plant_key: row for row in repo.load_location_photoperiods("tent", tenant_key=A)}
+
+        assert rows["p_sequence"].photoperiod_hours is None
+        assert rows["p_legacy"].photoperiod_hours == 12.0
+
+    def test_a_sequence_phase_without_a_growth_phase_of_its_name_is_unknown(self, db, repo) -> None:
+        db.collection(col.PHASE_DEFINITIONS).insert({"_key": "pd_ripening", "name": "ripening"})
+        db.collection(col.PHASE_SEQUENCE_ENTRIES).insert(
+            {"_key": "pse_ripening", "phase_definition_key": "pd_ripening", "sequence_order": 4}
+        )
+        _plant(db, "p_ripening", phase="pse_ripening")
+
+        (row,) = repo.load_location_photoperiods("tent", tenant_key=A)
+
+        assert (row.phase_code, row.photoperiod_hours) == ("ripening", None)
+
     def test_an_empty_tenant_is_refused(self, repo) -> None:
         with pytest.raises(ValueError):
             repo.load_location_photoperiods("tent", tenant_key="")
@@ -225,6 +270,26 @@ class TestSummaryHint:
         db.collection(col.PLANT_INSTANCES).update({"_key": "p1", "current_phase_key": "gp_flower"})
 
         assert service.get_summary("tent", tenant_key=A).tent_hints == []
+
+    def test_a_young_plant_takes_no_part(self, db, service) -> None:
+        _plant(db, "p1", phase="gp_flower")
+        _plant(db, "p2", phase="gp_veg")
+        db.collection(col.GROWTH_PHASES).update({"_key": "gp_veg", "name": "seedling"})
+
+        assert service.get_summary("tent", tenant_key=A).tent_hints == []
+
+    def test_a_shelf_level_counts_only_with_its_own_lamp(self, db, service) -> None:
+        db.collection(col.LOCATION_TYPES).insert({"_key": "shelf", "name": "shelf", "supports_layout": True})
+        db.collection(col.LOCATIONS).insert(_location("shelf_lit", "site_a", "shelf", lighting={"lamp_height_cm": 40}))
+        db.collection(col.LOCATIONS).insert(_location("shelf_dark", "site_a", "shelf"))
+        for location in ("shelf_lit", "shelf_dark"):
+            _plant(db, f"{location}_1", phase="gp_veg", location=location)
+            _plant(db, f"{location}_2", phase="gp_flower", location=location)
+
+        assert [h.code for h in service.get_summary("shelf_lit", tenant_key=A).tent_hints] == [
+            HINT_PHOTOPERIOD_CONFLICT
+        ]
+        assert service.get_summary("shelf_dark", tenant_key=A).tent_hints == []
 
 
 def test_layout_type_flags_read_supports_layout_and_beds(repo) -> None:

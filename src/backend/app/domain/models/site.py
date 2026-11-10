@@ -56,6 +56,11 @@ _HARDINESS_ZONE_PATTERN = re.compile(r"^\d{1,2}[ab]$")
 
 #: Snap grid of a new plan, 10 cm (GP-FR-011).
 DEFAULT_GRID_M = 0.10
+#: Largest pot volume an input may name, in litres (W-016, #2832 SEC-003) - the bound
+#: ``PlantInstance.container_volume_liters`` has carried since REQ-034: a 500 l tub is already a planter, not a pot.
+#: Applied to the INPUT schemas only (``MixedCultureRunCreate``, ``SlotBatchItem``): ``Slot.container_volume_l`` has
+#: been stored without an upper bound since WP 1.7, and a read model with this bound would 500 on such a document.
+MAX_CONTAINER_VOLUME_L = 500.0
 #: Neighbourhood factor for ``adjacent_to`` derivation (GP-FR-130): 1.5 × the larger
 #: spacing — the diagonal (√2) is a neighbour, the next-but-one triangle neighbour (1.73) is not.
 DEFAULT_ADJACENCY_FACTOR = 1.5
@@ -471,7 +476,8 @@ class Slot(BaseModel):
     #: 1-based rank within the location (§20.5 ``R2P05 → 11``), for stable ordering.
     sequence: int | None = Field(default=None, ge=1)
     geometry_source: GeometrySource | None = None
-    #: Pot volume in litres (W-016): in a tent the pot, not the spacing, limits the plant.
+    #: Pot volume in litres (W-016): in a tent the pot, not the spacing, limits the plant. No upper bound here: this is
+    #: the read model of stored slots, unbounded since WP 1.7; the inputs carry ``le=MAX_CONTAINER_VOLUME_L``.
     container_volume_l: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     #: Direct sowing recorded on a ``row``/``zone`` slot before plants exist (§11.3 "gesät").
     sown_at: date | None = None

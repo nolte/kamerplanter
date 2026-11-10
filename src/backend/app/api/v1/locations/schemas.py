@@ -43,7 +43,7 @@ from app.domain.models.nutrient_hint import NUTRIENT_HINT_REASONS, NutrientHint,
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
 from app.domain.models.site import MAX_PHOTO_REF_LENGTH, MAX_PHOTOS_PER_LOCATION, LocationLighting, SiteConditions
-from app.domain.models.tent_hint import TentHint, TentHintCode, TentHintSeverity
+from app.domain.models.tent_hint import MAX_NAMED_UNKNOWN_PLANTS, TentHint, TentHintCode, TentHintSeverity
 from app.domain.services.bed_history_service import BedHistoryItem
 from app.domain.services.plant_state_service import PlantStateEntry
 
@@ -390,9 +390,12 @@ class PhotoperiodGroupResponse(BaseModel):
 class TentHintResponse(BaseModel):
     """A light-schedule hint of a tent or shelf level (REQ-053 §9.2a, W-016.6, V-23): a hint, never an error.
 
-    `tent.photoperiod_conflict` (`warning`): the plants ask for different photoperiods (from the requirement profile of
-    their current phase). `tent.photoperiod_unknown` (`info`): at least one plant's phase names no photoperiod, so the
-    check could not judge it - nothing is assumed (E-10).
+    `tent.photoperiod_conflict` (`warning`): according to the stored phase profiles (the requirement profile of their
+    current phase), the plants ask for photoperiods at least one hour apart. A stored photoperiod may be a default
+    rather than a sourced value, so this is never stated as fact. Plants in a young phase (germination, seedling,
+    rooting, establishment) take no part. `tent.photoperiod_unknown` (`info`): at least one plant's phase names no
+    photoperiod, so the check could not judge it - nothing is assumed (E-10); `unknown_plant_names` names the first
+    five of them.
     """
 
     model_config = ConfigDict(
@@ -406,6 +409,7 @@ class TentHintResponse(BaseModel):
                         {"photoperiod_hours": 12.0, "plant_count": 1, "phase_names": ["Flowering"]},
                     ],
                     "unknown_plant_count": 0,
+                    "unknown_plant_names": [],
                 }
             ]
         }
@@ -415,6 +419,8 @@ class TentHintResponse(BaseModel):
     severity: TentHintSeverity
     groups: list[PhotoperiodGroupResponse] = Field(default_factory=list)
     unknown_plant_count: int = Field(default=0, ge=0)
+    #: The first five plants (by name) whose photoperiod is unknown; `unknown_plant_count` counts all of them.
+    unknown_plant_names: list[str] = Field(default_factory=list, max_length=MAX_NAMED_UNKNOWN_PLANTS)
 
     @classmethod
     def from_hint(cls, hint: TentHint) -> TentHintResponse:
@@ -430,6 +436,7 @@ class TentHintResponse(BaseModel):
                 for group in hint.groups
             ],
             unknown_plant_count=hint.unknown_plant_count,
+            unknown_plant_names=list(hint.unknown_plant_names),
         )
 
 

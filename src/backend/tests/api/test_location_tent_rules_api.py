@@ -167,6 +167,7 @@ class TestSummary:
                     {"photoperiod_hours": 12.0, "plant_count": 1, "phase_names": ["Flowering"]},
                 ],
                 "unknown_plant_count": 0,
+                "unknown_plant_names": [],
             }
         ]
 

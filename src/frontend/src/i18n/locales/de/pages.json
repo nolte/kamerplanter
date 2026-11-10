@@ -7983,7 +7983,7 @@
         },
         "hints": {
           "conflictTitle": "Unterschiedlicher Lichtbedarf unter einer Lampe",
-          "conflict": "Die Pflanzen hier brauchen in ihrer aktuellen Phase unterschiedlich lange Lichttage: {{groups}}. Eine Lampe hat nur einen Zeitplan. Stelle Pflanzen mit gleichem Lichtbedarf zusammen oder gib jeder Gruppe eine eigene Ebene mit eigener Lampe.",
+          "conflict": "Laut hinterlegten Phasenprofilen brauchen die Pflanzen hier in ihrer aktuellen Phase unterschiedlich lange Lichttage: {{groups}}. Eine Lampe hat nur einen Zeitplan. Prüfe die Werte für deine Sorten. Stimmen sie, stelle Pflanzen mit gleichem Lichtbedarf zusammen oder gib jeder Gruppe eine eigene Ebene mit eigener Lampe. Sämlinge und Stecklinge zählen hier nicht mit.",
           "group_one": "{{hours}} Stunden Licht für {{count}} Pflanze ({{phases}})",
           "group_other": "{{hours}} Stunden Licht für {{count}} Pflanzen ({{phases}})",
           "groupNoPhase_one": "{{hours}} Stunden Licht für {{count}} Pflanze",
@@ -7992,7 +7992,10 @@
           "photoperiodUnknown_one": "Für {{count}} Pflanze ist zur aktuellen Phase keine Lichtdauer hinterlegt. Ob sie zum Zeitplan der Lampe passt, lässt sich nicht prüfen.",
           "photoperiodUnknown_other": "Für {{count}} Pflanzen ist zur aktuellen Phase keine Lichtdauer hinterlegt. Ob sie zum Zeitplan der Lampe passen, lässt sich nicht prüfen.",
           "alsoUnknown_one": "Für {{count}} weitere Pflanze ist keine Lichtdauer hinterlegt; sie ist nicht mitgezählt.",
-          "alsoUnknown_other": "Für {{count}} weitere Pflanzen ist keine Lichtdauer hinterlegt; sie sind nicht mitgezählt."
+          "alsoUnknown_other": "Für {{count}} weitere Pflanzen ist keine Lichtdauer hinterlegt; sie sind nicht mitgezählt.",
+          "unknownPlants": "Betroffen: {{names}}.",
+          "unknownPlantsMore_one": "Betroffen: {{names}} und {{count}} weitere.",
+          "unknownPlantsMore_other": "Betroffen: {{names}} und {{count}} weitere."
         }
       }
     },

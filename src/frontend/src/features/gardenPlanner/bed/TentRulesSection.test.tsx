@@ -60,6 +60,7 @@ describe('TentRulesSection', () => {
 
     const alert = screen.getByTestId('tent-hint-photoperiod-conflict');
     expect(alert).toHaveTextContent('Different light needs under one lamp');
+    expect(alert).toHaveTextContent('According to the stored phase profiles');
     expect(alert).toHaveTextContent('18 hours of light for 2 plants (Vegetative); 12 hours of light for 1 plant');
     expect(alert).toHaveTextContent('For 1 more plant no light duration is recorded');
     expect(alert).not.toHaveTextContent('tent.photoperiod_conflict');
@@ -73,6 +74,40 @@ describe('TentRulesSection', () => {
     expect(screen.getByTestId('tent-hint-photoperiod-unknown')).toHaveTextContent(
       'For 2 plants no light duration is recorded for their current phase.',
     );
+  });
+
+  it('names the plants whose light needs are unknown, the first five and how many more', () => {
+    renderSection({
+      hints: [
+        {
+          code: 'tent.photoperiod_unknown',
+          severity: 'info',
+          groups: [],
+          unknown_plant_count: 7,
+          unknown_plant_names: ['Basil', 'Chili', 'Gelato', 'Mint', 'Thyme'],
+        },
+      ],
+    });
+
+    expect(screen.getByTestId('tent-hint-unknown-plants')).toHaveTextContent(
+      'Affected: Basil, Chili, Gelato, Mint, Thyme and 2 more.',
+    );
+  });
+
+  it('names all unknown plants when they fit', () => {
+    renderSection({
+      hints: [
+        {
+          code: 'tent.photoperiod_unknown',
+          severity: 'info',
+          groups: [],
+          unknown_plant_count: 2,
+          unknown_plant_names: ['Basil', 'Chili'],
+        },
+      ],
+    });
+
+    expect(screen.getByTestId('tent-hint-unknown-plants')).toHaveTextContent('Affected: Basil, Chili.');
   });
 
   it('writes the factor and the lighting in one PATCH and keeps a stored fixture footprint', async () => {

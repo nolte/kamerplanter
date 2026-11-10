@@ -282,6 +282,7 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             sunExposure={bed.sun_exposure}
             bedSite={bedSite}
             siteFlags={bed.site_conditions?.flags}
+            irrigationSystem={bed.irrigation_system ?? null}
             onClose={() => setPlanting(false)}
             onPlanted={onPlanted}
           />

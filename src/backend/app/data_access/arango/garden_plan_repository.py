@@ -61,6 +61,7 @@ from app.domain.interfaces.garden_plan_repository import (
 from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
+    MAX_SLOTS_PER_SITE,
     BedCounters,
     PlanAuditEntry,
     PlanAuditRecord,
@@ -208,6 +209,11 @@ def _write_soil(txn: StreamTransaction, location_key: str, soil: SoilProfileEdit
         check_last_analysis_at=soil.check_last_analysis_at,
         expected_last_analysis_at=soil.expected_last_analysis_at,
     )
+
+
+def _text_or_none(value: object) -> str | None:
+    """A stored text that is a non-empty string; anything else reads as absent."""
+    return value if isinstance(value, str) and value else None
 
 
 def _photoperiod_or_none(value: object) -> float | None:
@@ -577,14 +583,16 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
     def load_location_photoperiods(self, location_key: str, *, tenant_key: str) -> list[PlantPhotoperiod]:
         if not tenant_key:
             raise ValueError("load_location_photoperiods needs a tenant_key (an empty tenant is no tenant, #2107).")
-        # The plants are the tenant's (filtered on their own stamp); species, phases and profiles are catalogue
-        # documents reached from them, and only a number and a phase name leave the query (no free text).
+        # Anchored at the location (#2832 SEC-002): first the location's slots (``slots.location_key`` leads two
+        # persistent indexes), then the tenant's plants standing there by ``location_key`` or by one of those slots,
+        # so ``LIMIT`` cuts a small set. The plants are filtered on their own ``tenant_key`` stamp (a slot carries
+        # none); species, phases and profiles are catalogue documents reached from them.
         bind_vars: dict[str, Any] = {
             "@plants": col.PLANT_INSTANCES,
+            "@slots": col.SLOTS,
             "@has_lifecycle": col.HAS_LIFECYCLE,
             "@consists_of": col.CONSISTS_OF,
             "@requires_profile": col.REQUIRES_PROFILE,
-            "slots": col.SLOTS,
             "entries": col.PHASE_SEQUENCE_ENTRIES,
             "definitions": col.PHASE_DEFINITIONS,
             "phases": col.GROWTH_PHASES,
@@ -592,16 +600,21 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             "tenant_key": tenant_key,
             "location": location_key,
             "limit": MAX_PHOTOPERIOD_PLANTS,
+            "slot_limit": MAX_SLOTS_PER_SITE,
         }
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
                 """
+                LET location_slots = (
+                    FOR s IN @@slots
+                        FILTER s.location_key == @location
+                        LIMIT @slot_limit
+                        RETURN s._key
+                )
                 FOR p IN @@plants
                     FILTER p.tenant_key == @tenant_key AND p.removed_on == null
-                        AND (p.location_key == @location OR (p.location_key == null AND p.slot_key != null))
-                    LET slot = p.location_key == null ? DOCUMENT(@slots, p.slot_key) : null
-                    FILTER p.location_key == @location OR (slot != null AND slot.location_key == @location)
+                    FILTER p.location_key == @location OR (p.location_key == null AND p.slot_key IN location_slots)
                     SORT p._key ASC
                     LIMIT @limit
                     LET entry = p.current_phase_key == null ? null : DOCUMENT(@entries, p.current_phase_key)
@@ -609,17 +622,20 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     LET legacy = (p.current_phase_key == null OR entry != null)
                         ? null
                         : DOCUMENT(@phases, p.current_phase_key)
-                    LET phase_name = entry != null
+                    LET phase_code = entry != null
                         ? (definition == null ? null : definition.name)
                         : (legacy == null ? null : legacy.name)
-                    LET growth_phase = legacy != null ? legacy : (phase_name == null ? null : FIRST(
+                    // A legacy growth phase is the plant's own key: the id wins. A sequence entry carries no growth
+                    // phase id, only its definition's name - bridged to the growth phase of that name in the
+                    // species' lifecycle, and only when exactly one matches. Two or none: unknown, never guessed.
+                    LET candidates = (legacy != null OR phase_code == null) ? [] : (
                         FOR lifecycle IN 1..1 OUTBOUND CONCAT(@species, "/", p.species_key) @@has_lifecycle
                             FOR candidate IN 1..1 OUTBOUND lifecycle @@consists_of
-                                FILTER candidate.name == phase_name
-                                SORT candidate._key ASC
-                                LIMIT 1
+                                FILTER candidate.name == phase_code
+                                LIMIT 2
                                 RETURN candidate
-                    ))
+                    )
+                    LET growth_phase = legacy != null ? legacy : (LENGTH(candidates) == 1 ? candidates[0] : null)
                     LET profile = growth_phase == null ? null : FIRST(
                         FOR requirement IN 1..1 OUTBOUND growth_phase @@requires_profile
                             SORT requirement._key ASC
@@ -628,6 +644,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     )
                     RETURN {
                         plant_key: p._key,
+                        display_name: p.plant_name || p.instance_id || p._key,
+                        phase_code: phase_code,
                         phase_name: entry != null
                             ? (definition == null ? null : (definition.display_name || definition.name))
                             : (legacy == null ? null : (legacy.display_name || legacy.name)),
@@ -640,8 +658,10 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         return [
             PlantPhotoperiod(
                 plant_key=str(row["plant_key"]),
-                phase_name=row["phase_name"] if isinstance(row["phase_name"], str) and row["phase_name"] else None,
+                phase_name=_text_or_none(row["phase_name"]),
                 photoperiod_hours=_photoperiod_or_none(row["photoperiod_hours"]),
+                phase_code=_text_or_none(row["phase_code"]),
+                display_name=_text_or_none(row["display_name"]) or str(row["plant_key"]),
             )
             for row in cursor
         ]

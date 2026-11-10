@@ -9,6 +9,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { getActiveTenantSlug } from '@/api/client';
+import type { IrrigationSystem } from '@/api/types';
 import { server } from '@/test/mocks/server';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import PlantingDialog from './PlantingDialog';
@@ -34,6 +35,7 @@ function renderDialog(
   sunExposure: SunExposure = 'unknown',
   bedSite?: BedSiteFeatures,
   siteFlags?: readonly SiteFlag[],
+  irrigationSystem?: IrrigationSystem,
 ) {
   const view = renderWithProviders(
     <PlantingDialog
@@ -43,6 +45,7 @@ function renderDialog(
       sunExposure={sunExposure}
       bedSite={bedSite}
       siteFlags={siteFlags}
+      irrigationSystem={irrigationSystem}
       onClose={onClose}
       onPlanted={onPlanted}
     />,
@@ -891,6 +894,18 @@ describe('pot volume (W-016.5)', () => {
     expect(await screen.findByTestId('planting-entry-0-container-warning')).toHaveTextContent('smaller than the recommended 5 l');
     await user.clear(volume);
     await user.type(volume, '8');
+    expect(screen.queryByTestId('planting-entry-0-container-warning')).toBeNull();
+  });
+
+  it.each(['hydro', 'nft'] as const)('gives no pot warning on a %s bed, where the roots grow in the solution', async (system) => {
+    usePlantingBackend({ species: [species('sp_basil', 'Basil', { spacing_cm: '20', recommended_container_volume_l: '5-10' })] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), 'unknown', undefined, undefined, system);
+    await choose(user, 0, 'Basil');
+    await user.click(screen.getByTestId('planting-entry-0-more'));
+
+    await user.type(await screen.findByTestId('planting-entry-0-container'), '3');
+
     expect(screen.queryByTestId('planting-entry-0-container-warning')).toBeNull();
   });
 });

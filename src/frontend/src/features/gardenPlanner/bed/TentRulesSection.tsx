@@ -63,6 +63,14 @@ function TentHintAlert({ hint }: { hint: TentHint }) {
           count: hint.unknown_plant_count,
         })
       : '';
+  const names = hint.unknown_plant_names ?? [];
+  const more = hint.unknown_plant_count - names.length;
+  const affected =
+    names.length === 0
+      ? ''
+      : more > 0
+        ? t('pages.bed.tentRules.hints.unknownPlantsMore', { names: names.join(', '), count: more })
+        : t('pages.bed.tentRules.hints.unknownPlants', { names: names.join(', ') });
   return (
     <Alert
       severity={hint.severity}
@@ -78,6 +86,11 @@ function TentHintAlert({ hint }: { hint: TentHint }) {
         </Typography>
       )}
       {unknown && <Typography variant="body2">{unknown}</Typography>}
+      {affected && (
+        <Typography variant="body2" data-testid="tent-hint-unknown-plants">
+          {affected}
+        </Typography>
+      )}
     </Alert>
   );
 }

@@ -26,6 +26,7 @@ from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.nutrient_hint import NutrientHint
 from app.domain.models.site import (
     MAX_ADJACENCY_FACTOR,
+    MAX_CONTAINER_VOLUME_L,
     Location,
     LocationLighting,
     Microclimate,
@@ -512,7 +513,7 @@ class SlotBatchItem(_Strict):
     row_index: int | None = Field(default=None, ge=0)
     sequence: int | None = Field(default=None, ge=1)
     geometry_source: GeometrySource = GeometrySource.EDITOR
-    container_volume_l: float | None = Field(default=None, gt=0)
+    container_volume_l: float | None = Field(default=None, gt=0, le=MAX_CONTAINER_VOLUME_L)
     planned_spacing_cm: float | None = Field(default=None, gt=0)
 
 

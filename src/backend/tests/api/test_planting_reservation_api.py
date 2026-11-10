@@ -714,6 +714,68 @@ class TestMixedCulture:
         assert response.status_code == 201, response.text
         assert response.json()["warnings"] == []
 
+    @pytest.mark.parametrize("system", ["hydro", "nft"])
+    def test_a_bed_without_pots_gets_no_pot_warning(self, client, world, system) -> None:
+        """The roots grow in the solution: a pot volume says nothing there (agrobiology review of #2832)."""
+        world.species["sp_tomato"].recommended_container_volume_l = "15-25"
+        world.plan.locations["bed"] = world.plan.locations["bed"].model_copy(update={"irrigation_system": system})
+
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", "12"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["warnings"] == []
+
+    def test_ebb_and_flow_keeps_pots_and_is_warned(self, client, world) -> None:
+        world.species["sp_tomato"].recommended_container_volume_l = "15-25"
+        world.plan.locations["bed"] = world.plan.locations["bed"].model_copy(update={"irrigation_system": "ebb_flow"})
+
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", "12"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert [w["code"] for w in response.json()["warnings"]] == ["container.volume_below_recommendation"]
+
+    def test_a_failing_warning_read_never_fails_the_stored_planting(self, client, world) -> None:
+        """The runs are stored before the warnings are read; an error there answers 201 with no warnings."""
+
+        class _Unreadable:
+            green_manure_suitable = False
+            scientific_name = "Solanum lycopersicum"
+
+            @property
+            def recommended_container_volume_l(self) -> str:
+                raise RuntimeError("store hiccup")
+
+        world.species["sp_tomato"] = _Unreadable()
+
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", "12"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["warnings"] == []
+        assert len(world.repo.mixed_writes) == 1
+
+    @pytest.mark.parametrize(("volume", "status"), [("500", 201), ("500.5", 422)])
+    def test_the_pot_volume_has_the_plant_instance_bound(self, client, world, volume, status) -> None:
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", volume),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == status, response.text
+        assert len(world.repo.mixed_writes) == (1 if status == 201 else 0)
+
     def test_a_foreign_species_is_422_reference_not_found(self, client, world) -> None:
         body = self.body()
         body["runs"][1]["entry"]["species_key"] = "sp_foreign"

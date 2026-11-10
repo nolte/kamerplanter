@@ -19,6 +19,11 @@ describe('container volume vectors', () => {
         'container-volume-equal-lower-bound',
         'container-volume-no-recommendation',
         'container-volume-zero-recommendation',
+        'container-volume-young-phase-seedling',
+        'container-volume-young-phase-rooting',
+        'container-volume-hydro',
+        'container-volume-nft',
+        'container-volume-ebb-flow',
       ]),
     );
   });
@@ -27,9 +32,14 @@ describe('container volume vectors', () => {
     const input = vector.input as {
       container_volume_l: number | null;
       recommended_container_volume_l: string | number | null;
+      phase_code?: string;
+      irrigation_system?: string;
     };
     const species = { recommended_container_volume_l: input.recommended_container_volume_l } as unknown as Species;
-    const check = containerCheck(input.container_volume_l === null ? '' : String(input.container_volume_l), species);
+    const check = containerCheck(input.container_volume_l === null ? '' : String(input.container_volume_l), species, {
+      phaseCode: input.phase_code ?? null,
+      irrigationSystem: input.irrigation_system ?? null,
+    });
     expect({ volume_below: check.volumeBelow, recommended_l: check.recommendedL }).toEqual(vector.expected);
   });
 });
