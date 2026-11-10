@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { AttentionCode, Lifecycle } from '../model/plantState';
 import { formatBedDate } from '../bed/bedFormat';
 import type { PlantMarkerState } from '../renderer/types';
+import { phaseLabel } from './phaseLabel';
 import type { PlantStateView } from './usePlantStates';
 
 const PREFIX = 'pages.gardenPlan.plantState';
@@ -91,7 +92,7 @@ export function usePlantStateText(): PlantStateText {
     const ariaLabel = (view: PlantStateView) =>
       [
         name(view),
-        view.phase?.name,
+        view.phase?.name ? phaseLabel(t, view.phase.name) : null,
         view.visual.lifecycle === 'active' ? null : lifecycle(view.visual.lifecycle),
         ...reasons(view),
       ]
@@ -118,11 +119,11 @@ export function usePlantStateText(): PlantStateText {
             text:
               progress.typical_d !== null
                 ? t(`${PREFIX}.info.phase`, {
-                    phase: view.phase.name,
+                    phase: phaseLabel(t, view.phase.name),
                     elapsed: progress.elapsed_d,
                     typical: progress.typical_d,
                   })
-                : t(`${PREFIX}.info.phaseOpen`, { phase: view.phase.name, elapsed: progress.elapsed_d }),
+                : t(`${PREFIX}.info.phaseOpen`, { phase: phaseLabel(t, view.phase.name), elapsed: progress.elapsed_d }),
           });
           const eta = day(progress.next_phase_eta);
           if (eta) lines.push({ key: 'eta', text: t(`${PREFIX}.info.nextPhase`, { date: eta }) });

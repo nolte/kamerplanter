@@ -262,8 +262,9 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
           {geometry && location
             ? t('pages.bed.plan.summary', {
                 size: labels.size(geometry, location.area_m2),
-                slots: slotCount,
-                plants: plantCount,
+                // Each count with its own plural form ("1 Platz · 1 Pflanze", #2764).
+                slots: t('pages.bed.plan.slotCount', { count: slotCount }),
+                plants: t('pages.bed.header.plantCount', { count: plantCount }),
               })
             : t('pages.bed.plan.loading')}
         </Typography>

@@ -186,8 +186,8 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     await choose(user, 0, 'Tomato');
 
     const panel = await screen.findByTestId('planting-hint-sp_tomato');
-    expect(panel).toHaveTextContent('critical');
-    expect(panel).toHaveTextContent('The family Solanaceae stood in this bed 1 year(s) ago');
+    expect(panel).toHaveTextContent('): critical hint');
+    expect(panel).toHaveTextContent('The family Solanaceae stood in this bed 1 year ago.');
     expect(panel).toHaveTextContent('rotation pause is 4 years (value of the family)');
     // The hint comes before the entry's layout field in the document.
     const layout = screen.getByTestId('planting-entry-0-layout');
@@ -237,12 +237,12 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     await choose(user, 0, 'Cauliflower');
 
     const panel = await screen.findByTestId('planting-hint-sp_cauli');
-    expect(panel).toHaveTextContent('The family Brassicaceae stood in this bed 1 year(s) ago');
+    expect(panel).toHaveTextContent('The family Brassicaceae stood in this bed 1 year ago');
     expect(panel).not.toHaveTextContent('5504');
   });
 
   it.each([
-    ['rotation.pause_not_elapsed', 'The same family stood in this bed 1 year(s) ago'],
+    ['rotation.pause_not_elapsed', 'The same family stood in this bed 1 year ago'],
     ['rotation.pest_risk', 'High pest risk with a family that stood here recently'],
   ])('leaves the family out of the %s sentence when it has no name and never shows the key', async (code, text) => {
     // The catalogue knows the name of the family, but the server sent none: the client does not look it up.
@@ -261,6 +261,37 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     expect(panel).toHaveTextContent(text);
     expect(panel).not.toHaveTextContent('5504');
     expect(panel).not.toHaveTextContent('Brassicaceae');
+  });
+
+  it('words a family of this year and a pause of one year with their plural forms, never "0 year(s)" (#2764)', async () => {
+    const cauliflower = species('sp_cauli', 'Cauliflower', { spacing_cm: '50' });
+    const thisYear = hint({
+      species_key: 'sp_cauli',
+      severity: 'WARNING',
+      rotation: [
+        {
+          severity: 'WARNING',
+          code: 'rotation.pause_not_elapsed',
+          message: 'english server text',
+          family_key: '5504',
+          family_name: 'Brassicaceae',
+          years_since: 0,
+          pause_years: 1,
+          pause_source: 'species',
+        },
+      ],
+    });
+    usePlantingBackend({ species: [cauliflower], hints: { sp_cauli: thisYear } });
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Cauliflower');
+
+    const panel = await screen.findByTestId('planting-hint-sp_cauli');
+    expect(panel).toHaveTextContent('): warning');
+    expect(panel).toHaveTextContent(
+      'The family Brassicaceae already stands in this bed this year. The rotation pause is 1 year (value of the species).',
+    );
+    expect(panel).not.toHaveTextContent('(s)');
   });
 
   it('plants nothing until "Plant anyway" is confirmed with a reason, then stores the reason on the run', async () => {

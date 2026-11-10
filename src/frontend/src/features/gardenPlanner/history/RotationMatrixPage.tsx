@@ -20,6 +20,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
+import { visuallyHidden } from '@mui/utils';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
@@ -33,14 +34,6 @@ import { useRotationMatrix } from './useRotationMatrix';
 
 const MIN_CELL_WIDTH = 104;
 const BED_COLUMN_WIDTH = 132;
-const visuallyHidden = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
-} as const;
 
 function Swatch({ mark }: { mark: FamilyMark | undefined }) {
   return (
@@ -183,6 +176,10 @@ function RotationMatrixView({ siteKey: key }: { siteKey: string }) {
           aria-label={t('pages.rotationMatrix.regionLabel')}
           data-testid="matrix-scroll"
           sx={{
+            // The table scrolls inside its container, never the page (#2764): the container is the containing block of
+            // the visually hidden texts in the cells, so none of them can reach past it into the page.
+            position: 'relative',
+            maxWidth: '100%',
             maxHeight: '70vh',
             border: 1,
             borderColor: 'divider',
@@ -191,7 +188,7 @@ function RotationMatrixView({ siteKey: key }: { siteKey: string }) {
           }}
         >
           <Table stickyHeader size="small" data-testid="rotation-matrix-table" sx={{ minWidth: BED_COLUMN_WIDTH + matrix.columns.length * MIN_CELL_WIDTH }}>
-            <caption style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+            <caption style={visuallyHidden}>
               {t('pages.rotationMatrix.caption')}
             </caption>
             <TableHead>

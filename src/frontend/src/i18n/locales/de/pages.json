@@ -316,7 +316,7 @@
       "rateLimitReached": "Tageslimit für die Bilderkennung erreicht. Morgen steht die Funktion wieder zur Verfügung.",
       "notConfigured": "Die Bilderkennung ist nicht eingerichtet. Der Administrator muss dafür einen Zugang (z. B. Pl@ntNet) konfigurieren.",
       "imageTooLarge": "Das Bild ist zu groß (max. 5 MB). Bitte wähle ein kleineres Foto.",
-      "unsupportedFormat": "Nicht unterstütztes Bildformat. Erlaubt sind JPEG und PNG.",
+      "unsupportedFormat": "Nicht unterstütztes Bildformat. Erlaubt sind JPEG, PNG und WebP.",
       "consentRequired": "Für die Bilderkennung ist deine Einwilligung erforderlich.",
       "organLabel": "Was ist auf dem Foto zu sehen?",
       "consentTitle": "Bilderkennung aktivieren",
@@ -2125,7 +2125,7 @@
       "fileTooLarge": "Die Bilddatei ist zu groß. Bitte wähle ein kleineres Foto (maximal 20 MB).",
       "retake": "Anderes Foto wählen",
       "previewAlt": "Vorschau des ausgewählten Fotos",
-      "previewHint": "Gefällt das Foto? Tippe auf 'Foto speichern' - oder wähle ein anderes.",
+      "previewHint": "Gefällt das Foto? Tippe auf „Foto speichern“ – oder wähle ein anderes.",
       "thumbAlt": "Pflanzenfoto",
       "imageError": "Bild konnte nicht geladen werden",
       "imageLoading": "Bild wird geladen",
@@ -7029,15 +7029,15 @@
           "hint": "Liegt das Beet in einer Senke oder an einer kalten Stelle? „Hoch“ nennt die Frost-Frühwarnung immer, „Gering“ nie."
         },
         "coldAirPocket": {
-          "label": "Kaltluftsee",
+          "label": "Kaltluftsenke",
           "help": "Kalte Luft sammelt sich hier nachts, etwa in einer Senke. Nur ein Vermerk."
         },
         "heat": {
-          "title": "Gespeicherte Wärme",
+          "title": "Wärmespeicher",
           "hint": "Eine Wand oder ein Gebäude gibt nachts Wärme zurück."
         },
         "wind": {
-          "title": "Wind",
+          "title": "Windlage",
           "hint": "Wie stark trifft der Wind das Beet? Bei „Windausgesetzt“ weist der Pflanzdialog auf Arten hin, die eine Stütze brauchen."
         },
         "slope": {
@@ -7063,7 +7063,7 @@
         "summary": {
           "frost": "Frostrisiko: {{value}}",
           "heat": "Wärmespeicher: {{value}}",
-          "wind": "Wind: {{value}}",
+          "wind": "Windlage: {{value}}",
           "slope": "Hang {{value, number}}°",
           "aspect": "Ausrichtung {{value, number}}°",
           "access": "Zugang: {{value}}",
@@ -7143,7 +7143,9 @@
         "none": "Keine",
         "unknown": "Nicht angegeben",
         "year": "Saison",
-        "previousYear": "Vorjahr ({{year}}): Die Anbauhistorie dieses Beets steht hier, sobald sie erfasst wird.",
+        "previousYear": "Vorjahr ({{year}}): {{entries}}",
+        "previousYearLoading": "wird geladen …",
+        "previousYearUnavailable": "gerade nicht abrufbar – die Historie des Beets zeigt die Jahre.",
         "rotationHint": "Fruchtfolge-Hinweis",
         "rotationReason": "Trotzdem gepflanzt: {{reason}}",
         "changeSun": "Sonne ändern",
@@ -7151,12 +7153,12 @@
         "changeSite": "Merkmale ändern",
         "reach": "Erreichbarkeit",
         "reachHint": "Beet zu breit",
-        "reachDetail_both": "{{width}} m breit – von zwei gegenüberliegenden Seiten erreichst du bis {{threshold}} m. Die Beetmitte erreichst du nur, wenn du ins Beet trittst.",
-        "reachDetail_one": "{{width}} m breit – von einer Seite erreichst du bis {{threshold}} m. Die hintere Hälfte erreichst du nur, wenn du ins Beet trittst.",
+        "reachDetail_both": "{{width}} m breit – von zwei gegenüberliegenden Seiten erreichst du bis {{threshold}} m. Die Beetmitte erreichst du nur, wenn du ins Beet trittst.",
+        "reachDetail_one": "{{width}} m breit – von einer Seite erreichst du bis {{threshold}} m. Die hintere Hälfte erreichst du nur, wenn du ins Beet trittst.",
         "waterSource": "Nächste Wasserquelle",
         "waterSourceDistance": "{{distance}} m Luftlinie von der Beetkante",
         "waterSourceAtBed": "Direkt am Beet",
-        "reachDetail_unknown": "{{width}} m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang ({{threshold}} m). Trage unter „Merkmale ändern“ ein, von welchen Seiten du an das Beet kommst.",
+        "reachDetail_unknown": "{{width}} m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang ({{threshold}} m). Trage unter „Merkmale ändern“ ein, von welchen Seiten du an das Beet kommst.",
         "nutrient": {
           "label": "Nährstoffe",
           "saltLabel": "Salzgehalt",
@@ -7343,7 +7345,9 @@
       },
       "plan": {
         "openGarden": "Im Gartenplan öffnen",
-        "summary": "{{size}} · {{slots}} Plätze · {{plants}} Pflanzen",
+        "summary": "{{size}} · {{slots}} · {{plants}}",
+        "slotCount_one": "{{count}} Platz",
+        "slotCount_other": "{{count}} Plätze",
         "loading": "Beet wird geladen …",
         "notPlaced": {
           "title": "Dieses Beet ist noch nicht im Gartenplan",
@@ -7831,9 +7835,21 @@
           "unavailable": "{{name}}: Die Fruchtfolge konnte nicht geprüft werden ({{message}}). Das ist kein grünes Licht.",
           "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal, Dauerkultur oder für dieses Beet ausgeschaltet).",
           "allClear": "{{name}}: Kein Hinweis zu Fruchtfolge oder Nachbarn.",
-          "forSpecies": "{{name}}: Hinweis {{strength}}",
-          "pauseNotElapsed": "Die Familie {{family}} stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",
-          "pauseNotElapsedUnnamed": "Eine Pflanze derselben Familie stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",
+          "forSpecies": "{{name}}: {{strength}}",
+          "severity": {
+            "OK": "unauffällig",
+            "INFO": "Hinweis",
+            "WARNING": "Warnung",
+            "CRITICAL": "kritischer Hinweis"
+          },
+          "pauseNotElapsed_zero": "Die Familie {{family}} steht in diesem Jahr schon in diesem Beet. Die Anbaupause beträgt {{pause}} ({{source}}).",
+          "pauseNotElapsed_one": "Die Familie {{family}} stand vor {{count}} Jahr in diesem Beet. Die Anbaupause beträgt {{pause}} ({{source}}).",
+          "pauseNotElapsed_other": "Die Familie {{family}} stand vor {{count}} Jahren in diesem Beet. Die Anbaupause beträgt {{pause}} ({{source}}).",
+          "pauseNotElapsedUnnamed_zero": "Eine Pflanze derselben Familie steht in diesem Jahr schon in diesem Beet. Die Anbaupause beträgt {{pause}} ({{source}}).",
+          "pauseNotElapsedUnnamed_one": "Eine Pflanze derselben Familie stand vor {{count}} Jahr in diesem Beet. Die Anbaupause beträgt {{pause}} ({{source}}).",
+          "pauseNotElapsedUnnamed_other": "Eine Pflanze derselben Familie stand vor {{count}} Jahren in diesem Beet. Die Anbaupause beträgt {{pause}} ({{source}}).",
+          "pauseYears_one": "{{count}} Jahr",
+          "pauseYears_other": "{{count}} Jahre",
           "pauseSource": {
             "species": "Wert der Art",
             "family": "Wert der Familie",

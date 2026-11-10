@@ -31,7 +31,7 @@ test follows the product and says so in its docstring. Corrections, in short:
               species is chicory (no relation to the tomato; the sunflower is incompatible through the enrichment). The cluster stage needs the fit zoom of a
               large garden (200 x 200 m), where 30 cm spacing falls below the 10 px marker threshold.
   TC-053-073  The features live in the bed view ("Merkmale ändern" -> "Standortmerkmale: <Beet>"), not in the editor's
-              properties panel. The cold-air pocket is called "Kaltluftsee"; the aspect is entered and shown as
+              properties panel. The cold-air pocket is "Kaltluftsenke" as in the spec (#2764); the aspect is entered and shown as
               degrees ("Ausrichtung 200°") - nothing is derived (§29), so no "Süd-Südwest"; access sides are four
               toggles N/E/S/W ("beidseitig" = Ost + West); the head shows "Frostrisiko: Hoch" as text (no
               snowflake) and the drainage as its own fact; the water regime is not part of the head.
@@ -466,14 +466,14 @@ def test_tc_053_073_site_features_are_choices_stored_and_shown_in_the_bed_head(
 
     Precondition (API): "Beet 1" (2 x 1 m) with drainage "Gut" and no site features. In the dialog: every chip group
     has a title and a help text and holds only radios (frost, wind) or checkboxes (access) - no free text; the slope
-    field is empty (nothing inherited from the site). Chosen: frost "Hoch", "Kaltluftsee" on, wind "Windausgesetzt",
+    field is empty (nothing inherited from the site). Chosen: frost "Hoch", "Kaltluftsenke" on, wind "Windausgesetzt",
     slope 8, aspect 200, access Ost + West; saved. The server holds exactly these values; after a reload the head reads
-    "Frostrisiko: Hoch · Kaltluftsee · Wind: Windausgesetzt · Hang 8° · Ausrichtung 200° · Zugang: Ost, West" and the
+    "Frostrisiko: Hoch · Kaltluftsenke · Windlage: Windausgesetzt · Hang 8° · Ausrichtung 200° · Zugang: Ost, West" and the
     drainage "Gut", and the reopened dialog shows the same choices. Frost set back to "Normal" is stored and shown.
     Breaks if a choice is not stored or stored as something else, if the head or the dialog shows another value after
     the reload, or if a slope appears without an entry.
 
-    Spec corrections: the dialog sits in the bed view, not the editor panel; "Kaltluftsee"; the aspect is shown as
+    Spec corrections: the dialog sits in the bed view, not the editor panel; the aspect is shown as
     degrees (nothing is derived); access = four toggles ("beidseitig" = Ost + West); the head shows the frost risk as
     text (no snowflake) and the drainage, not the water regime.
     """
@@ -524,7 +524,7 @@ def test_tc_053_073_site_features_are_choices_stored_and_shown_in_the_bed_head(
     dialog.toggle("access", "W")
     screenshot(
         "053_073_01_dialog",
-        "Standortmerkmale: Frost hoch, Kaltluftsee, windausgesetzt, 8°, 200°, Ost+West",
+        "Standortmerkmale: Frost hoch, Kaltluftsenke, windausgesetzt, 8°, 200°, Ost+West",
     )
     dialog.save_and_wait_closed("TC-053-073: saving the site features")
 
@@ -547,8 +547,8 @@ def test_tc_053_073_site_features_are_choices_stored_and_shown_in_the_bed_head(
     )
     for fragment in (
         "Frostrisiko: Hoch",
-        "Kaltluftsee",
-        "Wind: Windausgesetzt",
+        "Kaltluftsenke",
+        "Windlage: Windausgesetzt",
         "Hang 8°",
         "Ausrichtung 200°",
         "Zugang: Ost, West",

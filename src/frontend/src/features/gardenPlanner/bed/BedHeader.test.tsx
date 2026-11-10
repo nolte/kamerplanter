@@ -12,14 +12,19 @@ import BedHeader from './BedHeader';
 import { bedSummary } from './bedTestKit';
 import type { BedSummary, NutrientHint } from './types';
 import type { ReachThresholds } from '@/api/types';
+import { FABACEAE, SOLANACEAE, year as rotationYear } from '../history/historyTestKit';
+import type { PreviousYearState } from '../history/usePreviousYear';
 
 afterEach(() => cleanup());
 
-function renderHeader(summary: BedSummary, reachThresholds?: ReachThresholds) {
+const NOT_READ: PreviousYearState = { status: 'loading' };
+
+function renderHeader(summary: BedSummary, reachThresholds?: ReachThresholds, previousYear = NOT_READ) {
   return renderWithProviders(
     <BedHeader
       summary={summary}
       reachThresholds={reachThresholds}
+      previousYear={previousYear}
       typeName="Raised bed"
       assignees={[]}
       year={2026}
@@ -87,9 +92,11 @@ describe('BedHeader reach hint (GP-FR-166)', () => {
 
   it('names the two-side value when a bed with an opposite pair is still too wide', async () => {
     renderHeader({ ...bedSummary(), geometry: rect(1.3), site_conditions: { access_sides: ['E', 'W'] } });
-    expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent(
-      'from two opposite sides you reach up to 1.2 m',
-    );
+    const detail = await screen.findByTestId('bed-reach-detail');
+    expect(detail).toHaveTextContent('from two opposite sides you reach up to 1.2 m');
+    // A number never wraps away from its unit ("(0,6" / "m)", #2764).
+    expect(detail.textContent).toContain('1.3 m wide');
+    expect(detail.textContent).toContain('1.2 m');
   });
 
   it('keeps the millimetre that makes a bed too wide visible', async () => {
@@ -324,6 +331,7 @@ describe('BedHeader site flags (GP-FR-165, WP 9.11)', () => {
         onYearChange={() => undefined}
         onChangeStatus={null}
         onChangeSite={() => undefined}
+        previousYear={NOT_READ}
       />,
     );
     expect(await screen.findByTestId('bed-header-site')).toHaveTextContent('Not set');
@@ -367,5 +375,57 @@ describe('BedHeader nearest water source (GP-FR-167, WP 9.12)', () => {
     renderHeader(bedSummary());
     await screen.findByTestId('bed-header');
     expect(screen.queryByTestId('bed-header-water-source')).toBeNull();
+  });
+});
+
+describe('BedHeader area (#2764 item 5)', () => {
+  it('says "Not set" for a bed without an area instead of "0 m²"', async () => {
+    renderHeader(bedSummary({ area_m2: 0 }));
+    const area = await screen.findByTestId('bed-header-area');
+    expect(area).toHaveTextContent('Not set');
+    expect(area).not.toHaveTextContent('0 m²');
+  });
+});
+
+describe('BedHeader previous year (GP-FR-077, #2764 item 1)', () => {
+  it('names what the rotation timeline holds for the previous year, not a placeholder', async () => {
+    renderHeader(
+      bedSummary(),
+      undefined,
+      {
+        status: 'ready',
+        entry: rotationYear(2025, [
+          { ...FABACEAE, season: 'spring', source: 'backfill', care_event_key: 'ce_1' },
+          { ...SOLANACEAE, season: 'main', source: 'backfill', care_event_key: 'ce_2' },
+        ]),
+      },
+    );
+    const line = await screen.findByTestId('bed-header-previous-year');
+    expect(line).toHaveTextContent(
+      'Previous year (2025): Fabaceae (Light Feeder, Spring); Solanaceae (Heavy Feeder, Main season)',
+    );
+    expect(line).not.toHaveTextContent('once it has been recorded');
+  });
+
+  it('says "nothing recorded" for an empty year, and why it cannot say more while loading or after an error', async () => {
+    renderHeader(bedSummary(), undefined, { status: 'ready', entry: rotationYear(2025) });
+    expect(await screen.findByTestId('bed-header-previous-year')).toHaveTextContent('Previous year (2025): Nothing recorded');
+    cleanup();
+
+    renderHeader(bedSummary(), undefined, { status: 'error' });
+    expect(await screen.findByTestId('bed-header-previous-year')).toHaveTextContent('cannot be read right now');
+  });
+
+  it('words fallow and green manure as the timeline does', async () => {
+    renderHeader(bedSummary(), undefined, {
+      status: 'ready',
+      entry: rotationYear(2025, [
+        { ...SOLANACEAE, plan_role: 'fallow', family_key: null, family_name: null, nutrient_demand: null },
+        { ...FABACEAE, plan_role: 'green_manure' },
+      ]),
+    });
+    expect(await screen.findByTestId('bed-header-previous-year')).toHaveTextContent(
+      'Previous year (2025): Fallow; Fabaceae · Green manure (Light Feeder)',
+    );
   });
 });

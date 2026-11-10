@@ -110,12 +110,12 @@ class SiteConditionsDialog(BasePage):
     def set_cold_air_pocket(self, on: bool) -> None:
         switch = self.wait_for_element(_tid(f"{self.PREFIX}-cold-air"))
         if switch.is_selected() is on:
-            raise AssertionError(f"'Kaltluftsee' is already {'on' if on else 'off'}")
+            raise AssertionError(f"'Kaltluftsenke' is already {'on' if on else 'off'}")
         press_space_on(self, switch, "the cold-air switch")
         try:
             self.poll().until(lambda _d: switch.is_selected() is on)
         except TimeoutException as exc:
-            raise AssertionError("the 'Kaltluftsee' switch did not flip") from exc
+            raise AssertionError("the 'Kaltluftsenke' switch did not flip") from exc
 
     def degrees(self, field: str) -> str:
         """The text of the slope (``slope``) or aspect (``aspect``) field."""

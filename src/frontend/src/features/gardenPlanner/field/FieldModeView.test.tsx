@@ -317,6 +317,8 @@ describe('bed sheet', () => {
     const sheet = await openBed('Raised bed 1');
     const chip = within(sheet).getByTestId('field-chip-weeding');
     expect(chip).toHaveTextContent('Weeded/Mulched');
+    // The label may wrap after the slash at 390 px instead of running out of its frame (#2764).
+    expect(chip.querySelector('wbr')).not.toBeNull();
     await user.click(chip);
     await waitFor(() => expect(seen.some((entry) => entry.url === '/care-events')).toBe(true));
     const body = seen.find((entry) => entry.url === '/care-events')?.body as Record<string, unknown>;

@@ -12,7 +12,7 @@ import { authState, createTestStore, renderWithProviders, tenantState } from '@/
 import { server } from '@/test/mocks/server';
 import BedView from './BedView';
 import { careTask, useCareBackend } from '../care/careTestKit';
-import { careItem, timeline, useHistoryBackend, year } from '../history/historyTestKit';
+import { careItem, FABACEAE, SOLANACEAE, timeline, useHistoryBackend, year } from '../history/historyTestKit';
 import { bedSummary } from './bedTestKit';
 import { soilAnalyses } from './soilAnalysisTestKit';
 import type { BedSummary } from './types';
@@ -95,7 +95,7 @@ describe('BedView', () => {
     const { container } = renderBed(bedSummary(), '/standorte/locations/loc_b03');
     expect(await screen.findByTestId('bed-plan-canvas')).toBeInTheDocument();
     // Only this bed's places are counted; the neighbouring bed is not part of the view.
-    expect(screen.getByTestId('bed-plan-dimensions')).toHaveTextContent('2 places · 1 plants');
+    expect(screen.getByTestId('bed-plan-dimensions')).toHaveTextContent(/· 2 places · 1 plant$/);
     expect(container.querySelector('[data-plan-key="loc_b03"]')).not.toBeNull();
     expect(container.querySelector('[data-plan-key="loc_other"]')).toBeNull();
     expect(screen.getByRole('tab', { name: 'Plan' })).toHaveAttribute('aria-selected', 'true');
@@ -722,6 +722,35 @@ describe('BedView', () => {
     renderBed(bedSummary(), '/standorte/locations/loc_b03?year=1900#soil');
     const current = new Date().getFullYear();
     expect(await screen.findByTestId('bed-header-previous-year')).toHaveTextContent(`(${current - 1})`);
+  });
+
+  it('names the previous year from the rotation timeline the history and the matrix read (#2764)', async () => {
+    useBackend();
+    const current = new Date().getFullYear();
+    const { seen } = useHistoryBackend({
+      timeline: timeline([
+        year(current),
+        year(current - 1, [{ ...SOLANACEAE, season: 'main', source: 'backfill', care_event_key: 'ce_1' }]),
+        year(current - 2),
+        year(current - 3, [FABACEAE]),
+      ]),
+    });
+    const user = userEvent.setup();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+    const line = await screen.findByTestId('bed-header-previous-year');
+    await waitFor(() =>
+      expect(line).toHaveTextContent(`Previous year (${current - 1}): Solanaceae (Heavy Feeder, Main season)`),
+    );
+    // The longest look-back, so every offered season finds its previous year in the answer.
+    expect(seen.find((request) => request.path === '/locations/loc_b03/rotation')?.params).toEqual({ years: '10' });
+
+    await user.click(within(screen.getByTestId('bed-header-season')).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: String(current - 2) }));
+    await waitFor(() =>
+      expect(screen.getByTestId('bed-header-previous-year')).toHaveTextContent(
+        `Previous year (${current - 3}): Fabaceae (Light Feeder)`,
+      ),
+    );
   });
 
   it('has no critical accessibility violations on the plan and the soil tab (GP-NFR-028)', async () => {

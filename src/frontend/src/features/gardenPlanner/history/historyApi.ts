@@ -116,9 +116,22 @@ export async function listBedPlantOptions(bedKey: string): Promise<FilterOption[
   });
 }
 
-/** Every bed of every site, to filter the tenant-wide history by bed. */
+/** Sites per request (the server's page limit). */
+const SITE_PAGE = 200;
+/** A ceiling for the paging loop: 50 pages are 10 000 sites. */
+const MAX_SITE_PAGES = 50;
+
+/**
+ * Every bed of every site, to filter the tenant-wide history by bed and to name the bed of each entry. The sites are
+ * read page by page: with only the first 200 the beds of every later site had no name in the list (#2764).
+ */
 export async function listAllBedOptions(): Promise<FilterOption[]> {
-  const sites = await listSites(0, 200);
+  const sites: Awaited<ReturnType<typeof listSites>> = [];
+  for (let page = 0; page < MAX_SITE_PAGES; page += 1) {
+    const batch = await listSites(page * SITE_PAGE, SITE_PAGE);
+    sites.push(...batch);
+    if (batch.length < SITE_PAGE) break;
+  }
   const perSite = await Promise.all(sites.map((site) => listBeds(site.key).catch(() => [])));
   return perSite.flat().map((bed) => ({ key: bed.key, label: bed.name }));
 }
