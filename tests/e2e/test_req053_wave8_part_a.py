@@ -953,11 +953,11 @@ def test_tc_053_068_rotation_matrix_lists_beds_by_year_and_backfills_from_a_cell
         for row in server["beds"]
         for cell in row["cells"]
     }
-    # The order inside a cell is the server's (the spec names no order; the matrix lists main before spring
-    # today - reported in #2764); the browser must show exactly that order.
+    # The order inside a cell is the server's, chronological since #2764: spring (pre-crop) before the main
+    # season; the browser must show exactly that order.
     pair_seasons = seasons[(bed_1, year - 1)]
-    assert sorted(pair_seasons) == ["main", "spring"], (
-        f"the arrangement needs a pre-crop and a main crop in Beet 1/{year - 1}: {pair_seasons}"
+    assert pair_seasons == ["spring", "main"], (
+        f"TC-053-068: the server lists the pre-crop before the main crop in Beet 1/{year - 1}: {pair_seasons}"
     )
     pair_families = cells[(bed_1, year - 1)]
     assert len(pair_families) == 2 and len(set(pair_families)) == 2, (

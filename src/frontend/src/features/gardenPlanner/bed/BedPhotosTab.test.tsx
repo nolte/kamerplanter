@@ -15,9 +15,10 @@ import type { BedPhoto, BedPhotoGallery } from './bedPhotoApi';
 
 // The capture panel relies on canvas/getUserMedia (not in jsdom): a button that hands a file to the dialog.
 vi.mock('@/components/identification/ImageCapturePanel', () => ({
-  default: ({ onImageReady }: { onImageReady: (file: File, url: string) => void }) => (
+  default: ({ onImageReady, photoTips = true }: { onImageReady: (file: File, url: string) => void; photoTips?: boolean }) => (
     <button
       type="button"
+      data-photo-tips={String(photoTips)}
       data-testid="mock-pick-image"
       onClick={() => onImageReady(new File([new Uint8Array([1, 2, 3])], 'bed.jpg', { type: 'image/jpeg' }), 'blob:preview')}
     >
@@ -177,6 +178,8 @@ describe('BedPhotosTab (GP-FR-051)', () => {
     await user.click(await screen.findByTestId('bed-photos-add'));
     const dialog = await screen.findByTestId('plant-photo-upload-dialog');
     expect(within(dialog).getByText('Add a photo to Raised bed 3')).toBeInTheDocument();
+    // The identification tips ("a single leaf") do not fit a photo of the whole bed (#2764).
+    expect(within(dialog).getByTestId('mock-pick-image')).toHaveAttribute('data-photo-tips', 'false');
     await user.click(within(dialog).getByTestId('mock-pick-image'));
     await user.click(within(dialog).getByTestId('plant-photo-upload-confirm'));
     expect(await screen.findByTestId('bed-photo-p_new')).toBeInTheDocument();

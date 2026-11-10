@@ -1,6 +1,7 @@
 /**
  * Loads the planting timeline of a bed (`GET /locations/{key}/rotation`, REQ-053 GP-API-039). The
- * server chooses the look-back (`max(pause of the families involved, 5)` years, at most ten).
+ * server chooses the look-back (`max(pause of the families involved, 5)` years, at most ten) unless the
+ * caller names `years`. A new `version` fetches again (a year was filled in or a planting changed elsewhere).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { parseApiError } from '@/api/errors';
@@ -12,13 +13,13 @@ export type TimelineState =
   | { status: 'error'; message: string }
   | { status: 'ready'; timeline: RotationTimeline };
 
-export function useRotationTimeline(bedKey: string) {
+export function useRotationTimeline(bedKey: string, years?: number, version = 0) {
   const [state, setState] = useState<TimelineState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    getRotationTimeline(bedKey)
+    getRotationTimeline(bedKey, years)
       .then((timeline) => {
         if (!cancelled) setState({ status: 'ready', timeline });
       })
@@ -28,7 +29,7 @@ export function useRotationTimeline(bedKey: string) {
     return () => {
       cancelled = true;
     };
-  }, [bedKey, attempt]);
+  }, [bedKey, years, version, attempt]);
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
   return useMemo(() => ({ state, reload }), [state, reload]);

@@ -73,3 +73,28 @@ export function parameterHistory(response: SoilAnalysesResponse, parameter: Char
     .sort((a, b) => a.time - b.time || a.method.localeCompare(b.method));
   return { parameter, lines, changes, rows };
 }
+
+/** Share of the time span kept free left and right of the outermost values, so no dot sits on the chart edge. */
+const EDGE_SHARE = 0.05;
+/** The padding of a history whose values share one day (a span of 0 has no share). */
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The time axis of a history: its values plus a margin on both sides (#2764). Without it the newest value - often
+ * the first of a new method - sits on the right edge, half a dot, with the method-change mark on top of it.
+ */
+export function timeDomain(history: ParameterHistory): [number, number] {
+  const times = history.rows.map((row) => row.time);
+  const first = Math.min(...times);
+  const last = Math.max(...times);
+  const pad = last > first ? (last - first) * EDGE_SHARE : ONE_DAY_MS;
+  return [first - pad, last + pad];
+}
+
+/**
+ * Which side of a method-change line its label goes (#2764): to the right of the line in the left half of the axis,
+ * to the left of it in the right half - a change near the right edge would otherwise cut "Methodenwechsel" to "M".
+ */
+export function changeLabelPosition(time: number, domain: readonly [number, number]): 'insideTopLeft' | 'insideTopRight' {
+  return time > (domain[0] + domain[1]) / 2 ? 'insideTopRight' : 'insideTopLeft';
+}

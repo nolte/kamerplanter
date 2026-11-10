@@ -304,6 +304,7 @@ export default function BedPhotosTab({ bedKey, bedName, coverPhotoRef, canEdit, 
             upload={upload}
             title={t('pages.bed.photos.uploadTitle', { bed: bedName })}
             errorMessage={uploadError}
+            photoTips={false}
             onClose={() => setUploadOpen(false)}
             onUploaded={() => notification.success(t('pages.bed.photos.added'))}
           />

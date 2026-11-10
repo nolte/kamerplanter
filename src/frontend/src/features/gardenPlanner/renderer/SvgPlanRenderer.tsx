@@ -115,6 +115,10 @@ const Canvas = styled('svg')(({ theme }) => ({
   touchAction: 'none',
   userSelect: 'none',
   WebkitTouchCallout: 'none',
+  // The drawing is in metres (viewBox), so an inherited letter or word spacing - the page's body type carries
+  // 0.15 px - counts in metres too: "B e e t 1", labels running out of the plan (#2764). The plan sets its own.
+  letterSpacing: 'normal',
+  wordSpacing: 'normal',
   '& .gp-obj': { outline: 'none' },
   '& .gp-obj:focus-visible .gp-shape': {
     stroke: theme.palette.primary.main,

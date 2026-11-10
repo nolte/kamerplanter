@@ -3,6 +3,7 @@
  * Gesät · Gejätet/Gemulcht · Gepflanzt · Notiz. Each one is a 64 px touch target with its icon and its
  * name; the sheet decides what a tap does (one tap = one `care_event`, or the short form / shortcut).
  */
+import { Fragment, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -22,6 +23,21 @@ interface QuickProtocolChipsProps {
   /** "Planted" needs a drawn bed (the planting dialog lays the plants out on its geometry). */
   plantingAvailable: boolean;
   onChip: (chip: QuickChip) => void;
+}
+
+/** A label with a line-break opportunity after each "/" (`<wbr>` adds no text: the label reads as it is written). */
+function breakAfterSlash(label: string): ReactNode {
+  const parts = label.split('/');
+  return parts.map((part, index) => (
+    <Fragment key={index}>
+      {part}
+      {index < parts.length - 1 && (
+        <>
+          /<wbr />
+        </>
+      )}
+    </Fragment>
+  ));
 }
 
 export default function QuickProtocolChips({ disabled, onlyChips, plantingAvailable, onChip }: QuickProtocolChipsProps) {
@@ -56,11 +72,15 @@ export default function QuickProtocolChips({ disabled, onlyChips, plantingAvaila
                 fontSize: '1rem',
                 borderWidth: 2,
                 textTransform: 'none',
+                // At 390 px a label like "Gejätet/Gemulcht" must wrap inside its frame, not run out of it (#2764).
+                minWidth: 0,
+                textAlign: 'left',
+                lineHeight: 1.25,
                 '& .MuiButton-startIcon > *:nth-of-type(1)': { fontSize: FIELD_ICON_PX },
               }}
               data-testid={`field-chip-${chip.id}`}
             >
-              {t(`pages.gardenPlan.field.quick.chips.${chip.id}`)}
+              <span>{breakAfterSlash(t(`pages.gardenPlan.field.quick.chips.${chip.id}`))}</span>
             </Button>
           );
         })}

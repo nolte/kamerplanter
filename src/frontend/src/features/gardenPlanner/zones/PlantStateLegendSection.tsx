@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { phaseColor } from '../planting/phaseColors';
+import { phaseLabel } from '../planting/phaseLabel';
 import { PlantStateLegendItems } from '../planting/PlantStateLegendItems';
 
 const PREFIX = 'pages.gardenPlan.editor.zones.legend';
@@ -18,18 +19,13 @@ interface Props {
   phases: readonly string[];
 }
 
-/** `enums.phaseName.<name>` for a known phase name ("Flowering" and "flowering" alike), else the stored name. */
-function phaseKeyOf(name: string): string {
-  return name.trim().toLowerCase().replace(/[\s-]+/g, '_');
-}
-
 export default function PlantStateLegendSection({ phases }: Props) {
   const { t, i18n } = useTranslation();
   // Sorted by what the reader sees, in the active language ("Blüte" before "Keimung", "Flowering" before "Germination").
   const entries = useMemo(() => {
     const collator = new Intl.Collator(i18n.resolvedLanguage ?? i18n.language);
     return [...new Set(phases)]
-      .map((name) => ({ name, label: t(`enums.phaseName.${phaseKeyOf(name)}`, { defaultValue: name }) }))
+      .map((name) => ({ name, label: phaseLabel(t, name) }))
       .sort((a, b) => collator.compare(a.label, b.label));
   }, [phases, t, i18n.resolvedLanguage, i18n.language]);
   return (

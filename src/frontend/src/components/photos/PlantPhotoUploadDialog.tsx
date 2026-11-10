@@ -46,6 +46,8 @@ type PlantPhotoUploadDialogProps = UploadTarget & {
    * mode passes the kiosk target (64 px, REQ-053 GP-UX-020). Unset keeps the regular sizes.
    */
   touchTarget?: number;
+  /** The identification photo tips of the capture panel; a bed photo turns them off (#2764). Default on. */
+  photoTips?: boolean;
 };
 
 /**
@@ -70,6 +72,7 @@ export default function PlantPhotoUploadDialog({
   touchTarget,
   title,
   errorMessage,
+  photoTips = true,
 }: PlantPhotoUploadDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -196,6 +199,7 @@ export default function PlantPhotoUploadDialog({
             level={level}
             disabled={uploading}
             normalizeOptions={GALLERY_NORMALIZE_OPTIONS}
+            photoTips={photoTips}
           />
         ) : (
           <Box sx={{ textAlign: 'center' }}>

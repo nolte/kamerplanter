@@ -15,6 +15,9 @@
  * chip naming exactly the flags set, shown only while one is - a note, never a rating.
  * The distance to the nearest water source (GP-FR-167, WP 9.12) is derived on the server, edge to edge in a straight
  * line; it is shown only while the site has a water source and the bed a geometry - "no source" is not "0 m".
+ * The previous year (GP-FR-077) names what stood in the bed the year before the season shown, read from the bed's
+ * rotation timeline - the source of the history timeline and the site rotation matrix (#2764). A bed without an area
+ * says "not set", never "0 m²".
  */
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +35,8 @@ import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import { assessReach, type ReachAccess } from '../model/reach';
 import { DEFAULT_REACH_THRESHOLDS, reachOptions } from '../model/siteThresholds';
 import type { ReachThresholds } from '@/api/types';
+import type { RotationPlanting } from '../history/historyTypes';
+import type { PreviousYearState } from '../history/usePreviousYear';
 import BedCoverPhoto from './BedCoverPhoto';
 import type { BedAssignee, BedSummary, NutrientHint, NutrientHintConfidence, NutrientHintReason } from './types';
 import {
@@ -63,6 +68,33 @@ interface BedHeaderProps {
   rotationReasons?: readonly string[];
   /** The site's reach thresholds (GP-FR-166, WP 8.24); absent = 1.2 / 0.6 m. The path distance acts on the server. */
   reachThresholds?: Readonly<Pick<ReachThresholds, 'both_sides_m' | 'one_side_m'>>;
+  /** What stood in the bed in `year - 1`, from the bed's rotation timeline (GP-FR-077, #2764). */
+  previousYear: PreviousYearState;
+}
+
+type Translate = ReturnType<typeof useTranslation>['t'];
+
+/** One entry of the previous year as the timeline words it: family (or fallow), green manure, feeder class, season. */
+function previousPlantingText(t: Translate, planting: RotationPlanting): string {
+  if (planting.plan_role === 'fallow') return t('pages.bed.history.timeline.fallow');
+  const family = planting.family_name ?? planting.family_key ?? t('pages.bed.header.unknown');
+  const name =
+    planting.plan_role === 'green_manure' ? `${family} · ${t('pages.bed.history.timeline.greenManure')}` : family;
+  const details = [
+    planting.nutrient_demand
+      ? t(`enums.nutrientDemandLevel.${planting.nutrient_demand}`, { defaultValue: planting.nutrient_demand })
+      : null,
+    planting.season ? t(`pages.bed.history.timeline.seasons.${planting.season}`) : null,
+  ].filter(Boolean);
+  return details.length > 0 ? `${name} (${details.join(', ')})` : name;
+}
+
+/** The previous year in words: its entries, "nothing recorded", or why it cannot be said right now. */
+function previousYearContent(t: Translate, state: PreviousYearState): string {
+  if (state.status === 'loading') return t('pages.bed.header.previousYearLoading');
+  if (state.status === 'error') return t('pages.bed.header.previousYearUnavailable');
+  if (state.entry === null || state.entry.plantings.length === 0) return t('pages.bed.history.timeline.nothingRecorded');
+  return state.entry.plantings.map((planting) => previousPlantingText(t, planting)).join('; ');
 }
 
 /** One literal key per access class, so the i18n key checks see every key that is used. */
@@ -142,6 +174,7 @@ export default function BedHeader({
   onChangeSite = null,
   rotationReasons = [],
   reachThresholds = DEFAULT_REACH_THRESHOLDS,
+  previousYear,
 }: BedHeaderProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
@@ -193,7 +226,7 @@ export default function BedHeader({
               alignItems: 'start',
             }}>
             <Fact label={t('pages.bed.header.area')} testId="bed-header-area">
-              {area} m²
+              {summary.area_m2 > 0 ? `${area} m²` : notSet}
             </Fact>
             <Fact label={t('pages.bed.header.type')} testId="bed-header-type">
               {typeName || notSet}
@@ -405,8 +438,14 @@ export default function BedHeader({
               </MenuItem>
             ))}
           </TextField>
-          <Typography variant="body2" color="text.secondary" data-testid="bed-header-previous-year">
-            {t('pages.bed.header.previousYear', { year: year - 1 })}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            data-testid="bed-header-previous-year"
+            data-state={previousYear.status}
+            sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
+          >
+            {t('pages.bed.header.previousYear', { year: year - 1, entries: previousYearContent(t, previousYear) })}
           </Typography>
         </Box>
       </CardContent>

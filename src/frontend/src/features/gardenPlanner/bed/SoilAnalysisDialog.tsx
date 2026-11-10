@@ -285,20 +285,27 @@ function MeasurementRowFields({
       <Box component="legend" sx={{ px: 0.5, typography: 'caption', color: 'text.secondary' }}>
         {t(`${PREFIX}.valueN`, { n: position })}
       </Box>
-      {/* Phone: parameter and method full width, value + unit side by side; from sm one row of four fields. */}
+      {/* Phone: parameter and method full width, value + unit side by side. From sm the parameter has a row of its
+          own and value, unit and method share the next: four fields in one row cut "EC (Leitfähigkeit)" and
+          "mg/100 g Boden" short (#2764). */}
       <Box
         sx={{
           display: 'grid',
           gap: 2,
           alignItems: 'start',
-          gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr)) auto' },
+          gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr)) auto' },
           '& > .MuiTextField-root': { gridColumn: { xs: 'span 2', sm: 'auto' } },
-          '& > .soil-value, & > .soil-unit': { gridColumn: { xs: 'span 1', sm: 'auto' } },
-          '& > .soil-class': { gridColumn: { xs: 'span 2', sm: '1 / span 4' } },
+          '& > .soil-parameter': { gridColumn: { xs: 'span 2', sm: '1 / span 3' }, gridRow: { sm: 1 } },
+          '& > .soil-value': { gridColumn: { xs: 'span 1', sm: 1 }, gridRow: { sm: 2 } },
+          '& > .soil-unit': { gridColumn: { xs: 'span 1', sm: 2 }, gridRow: { sm: 2 } },
+          '& > .soil-method': { gridColumn: { xs: 'span 2', sm: 3 }, gridRow: { sm: 2 } },
+          '& > .soil-class': { gridColumn: { xs: 'span 2', sm: '1 / span 3' }, gridRow: { sm: 3 } },
+          '& > .soil-remove': { gridColumn: { xs: 'span 2', sm: 4 }, gridRow: { sm: 1 } },
         }}
       >
         <TextField
           select
+          className="soil-parameter"
           autoFocus={autoFocus}
           label={t(`${PREFIX}.parameter`)}
           value={row.parameter}
@@ -350,6 +357,7 @@ function MeasurementRowFields({
         </TextField>
         <TextField
           select
+          className="soil-method"
           label={t(`${PREFIX}.method`)}
           value={row.method}
           onChange={(event) => {
@@ -397,6 +405,7 @@ function MeasurementRowFields({
         )}
         {removable && (
           <Button
+            className="soil-remove"
             onClick={onRemove}
             color="inherit"
             aria-label={t(`${PREFIX}.removeValue`, { n: position })}
@@ -404,7 +413,6 @@ function MeasurementRowFields({
             sx={{
               minWidth: 48,
               minHeight: 48,
-              gridColumn: { xs: 'span 2', sm: 'auto' },
               justifySelf: { xs: 'end', sm: 'center' },
               '& .MuiButton-startIcon': { mr: { xs: 1, sm: 0 }, ml: { xs: -0.5, sm: 0 } },
             }}

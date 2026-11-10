@@ -280,6 +280,23 @@ class TestBackfill:
         assert entry.event_key == "ce_1"
         assert result.rotation.findings[0].code == "rotation.pause_not_elapsed"
 
+    def test_the_entries_of_one_year_run_from_spring_to_autumn(self, world) -> None:
+        """#2764 (TC-053-068): a spring pre-crop before the main crop it preceded, whatever the family names."""
+        service, *_ = world
+        backfill(service, year=THIS_YEAR - 1, family_key="fabace", season="autumn")
+        backfill(service, year=THIS_YEAR - 1, family_key="brassica", season="main")
+        backfill(service, year=THIS_YEAR - 1, family_key="solanum", season="spring")
+        backfill(service, year=THIS_YEAR - 2, family_key="brassica", season="spring")
+
+        timeline = service.rotation_timeline("bed", tenant_key=TENANT, years=5)
+
+        assert [(entry.year, entry.season, entry.family_key) for entry in timeline.entries] == [
+            (THIS_YEAR - 1, "spring", "solanum"),
+            (THIS_YEAR - 1, "main", "brassica"),
+            (THIS_YEAR - 1, "autumn", "fabace"),
+            (THIS_YEAR - 2, "spring", "brassica"),
+        ]
+
 
 class TestACorrectedBackfillStaysHistory:
     def test_superseding_a_backfilled_year_keeps_its_rotation_entry(self, world) -> None:

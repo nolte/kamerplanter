@@ -23,7 +23,7 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import { visuallyHidden } from '@mui/utils';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { parameterHistory, type ParameterHistory } from './soilAnalysisChartData';
+import { changeLabelPosition, parameterHistory, timeDomain, type ParameterHistory } from './soilAnalysisChartData';
 import { CHART_PARAMETERS, type SoilAnalysesResponse } from './soilAnalysisTypes';
 
 const PREFIX = 'pages.bed.soil.history';
@@ -93,6 +93,7 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
   const unitLabel = (unit: string) => t(`enums.soilUnit.${unit}`, { defaultValue: unit });
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language);
   const number = (value: number) => value.toLocaleString(i18n.language, { maximumFractionDigits: 3 });
+  const domain = timeDomain(history);
 
   const table = (
     <TableContainer component={Paper} variant="outlined">
@@ -146,7 +147,7 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
                 <XAxis
                   type="number"
                   dataKey="time"
-                  domain={['dataMin', 'dataMax']}
+                  domain={domain}
                   scale="time"
                   tickFormatter={date}
                   stroke={theme.palette.text.secondary}
@@ -166,7 +167,12 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
                     x={time}
                     stroke={theme.palette.warning.main}
                     strokeDasharray="4 4"
-                    label={{ value: t(`${PREFIX}.methodChange`), position: 'insideTopLeft', fill: theme.palette.text.secondary, fontSize: 12 }}
+                    label={{
+                      value: t(`${PREFIX}.methodChange`),
+                      position: changeLabelPosition(time, domain),
+                      fill: theme.palette.text.secondary,
+                      fontSize: 12,
+                    }}
                   />
                 ))}
                 {history.lines.map((line, index) => (
