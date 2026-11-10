@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { captureHandledError } from '@/observability/errorTracking';
 import type { PlantMarkerState } from '../renderer/types';
-import { listPlantStates, type PlantStateWire } from './plantStateApi';
+import { listPlantStates, stateKeyOf, type PlantStateEntryWire } from './plantStateApi';
 import { stateInstant, usePlantStateClock } from './plantStateClock';
 import { usePlantStateText } from './usePlantStateText';
 import { viewsOf } from './usePlantStates';
@@ -13,7 +13,7 @@ import { viewsOf } from './usePlantStates';
 interface BedCache {
   siteKey: string;
   generation: number;
-  beds: Readonly<Record<string, readonly PlantStateWire[]>>;
+  beds: Readonly<Record<string, readonly PlantStateEntryWire[]>>;
 }
 
 export interface UsePlanPlantStates {
@@ -32,7 +32,7 @@ export const PLANT_STATE_CONCURRENCY = 4;
 
 const NO_STATES: Readonly<Record<string, PlantMarkerState>> = {};
 const NO_NAMES: Readonly<Record<string, string>> = {};
-const NO_BEDS: Readonly<Record<string, readonly PlantStateWire[]>> = {};
+const NO_BEDS: Readonly<Record<string, readonly PlantStateEntryWire[]>> = {};
 
 /**
  * The plant states of the overview plan (REQ-053 GP-UX-061, #2488): no route of its own - the bed answer
@@ -145,7 +145,7 @@ export function usePlanPlantStates(
   const states = useMemo(
     () =>
       views && views.length > 0
-        ? Object.fromEntries(views.map((view): [string, PlantMarkerState] => [view.plant_key, text.marker(view)]))
+        ? Object.fromEntries(views.map((view): [string, PlantMarkerState] => [stateKeyOf(view), text.marker(view)]))
         : NO_STATES,
     [views, text],
   );

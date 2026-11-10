@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computePlantState, type PhaseFacts, type PlantVisualState } from '../model/plantState';
-import { listPlantStates, type PlantStateWire } from './plantStateApi';
+import { listPlantStates, stateKeyOf, type PlantStateEntryWire } from './plantStateApi';
 import { stateInstant, usePlantStateClock } from './plantStateClock';
 
-/** A plant of the answer with the state the port computed at the current instant (GP-FR-192). */
-export interface PlantStateView extends PlantStateWire {
-  visual: PlantVisualState;
-}
+/** A plant (or sown slot) of the answer with the state the port computed at the current instant (GP-FR-192). */
+export type PlantStateView = PlantStateEntryWire & { visual: PlantVisualState };
 
-export function visualOf(wire: PlantStateWire, now: string): PlantVisualState {
+export function visualOf(wire: PlantStateEntryWire, now: string): PlantVisualState {
   const phase: PhaseFacts | null = wire.inputs.phase
     ? {
         key: wire.inputs.phase.key,
@@ -19,7 +17,7 @@ export function visualOf(wire: PlantStateWire, now: string): PlantVisualState {
       }
     : null;
   return computePlantState(
-    { kind: 'plant', removed_on: null, termination_type: null },
+    { kind: wire.kind ?? 'plant', removed_on: null, termination_type: null },
     phase,
     wire.inputs.open_tasks.map((task) => ({ category: task.category, due: task.due ?? null })),
     {
@@ -31,10 +29,10 @@ export function visualOf(wire: PlantStateWire, now: string): PlantVisualState {
   );
 }
 
-/** The answer of one bed as views by plant key, computed for the instant `now`. */
-export function viewsOf(items: readonly PlantStateWire[], now: string): Record<string, PlantStateView> {
+/** The answer of one bed as views by plant key (a sown slot by its slot key), computed for the instant `now`. */
+export function viewsOf(items: readonly PlantStateEntryWire[], now: string): Record<string, PlantStateView> {
   return Object.fromEntries(
-    items.map((wire): [string, PlantStateView] => [wire.plant_key, { ...wire, visual: visualOf(wire, now) }]),
+    items.map((wire): [string, PlantStateView] => [stateKeyOf(wire), { ...wire, visual: visualOf(wire, now) }]),
   );
 }
 
@@ -53,7 +51,7 @@ export interface UsePlantStates {
  * shows without a request. Hovering reads this state and never requests anything.
  */
 export function usePlantStates(bedKey: string | null, enabled = true): UsePlantStates {
-  const [wires, setWires] = useState<{ bedKey: string; items: PlantStateWire[]; loadedAt: number } | null>(null);
+  const [wires, setWires] = useState<{ bedKey: string; items: PlantStateEntryWire[]; loadedAt: number } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   const day = usePlantStateClock(enabled, refresh);

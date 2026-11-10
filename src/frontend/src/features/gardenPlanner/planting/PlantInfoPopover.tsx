@@ -15,6 +15,7 @@ import Link from '@mui/material/Link';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import { PLANT_INFO_ID } from '../renderer/plantMarkerStyle';
+import { stateKeyOf } from './plantStateApi';
 import { usePlantStateText } from './usePlantStateText';
 import type { PlantStateView } from './usePlantStates';
 
@@ -100,7 +101,7 @@ export default function PlantInfoPopover({ view, container, onPointerEnter, onPo
 
   useLayoutEffect(() => {
     if (!container || !bubble.current) return;
-    const marker = container.querySelector<SVGGraphicsElement>(`[data-plan-key="${CSS.escape(view.plant_key)}"]`);
+    const marker = container.querySelector<SVGGraphicsElement>(`[data-plan-key="${CSS.escape(stateKeyOf(view))}"]`);
     if (!marker) return;
     setPosition(place(marker.getBoundingClientRect(), container.getBoundingClientRect(), bubble.current.offsetHeight));
   }, [container, view]);
@@ -119,15 +120,17 @@ export default function PlantInfoPopover({ view, container, onPointerEnter, onPo
       style={position}
     >
       <PlantInfoContent view={view} />
-      <Link
-        component={RouterLink}
-        to={plantDetailPath(view.plant_key)}
-        variant="body2"
-        sx={{ display: 'inline-block', mt: 0.5, py: 0.5 }}
-        data-testid="plant-info-details"
-      >
-        {t('pages.gardenPlan.plantState.info.details')}
-      </Link>
+      {view.plant_key ? (
+        <Link
+          component={RouterLink}
+          to={plantDetailPath(view.plant_key)}
+          variant="body2"
+          sx={{ display: 'inline-block', mt: 0.5, py: 0.5 }}
+          data-testid="plant-info-details"
+        >
+          {t('pages.gardenPlan.plantState.info.details')}
+        </Link>
+      ) : null}
     </Paper>
   );
 }

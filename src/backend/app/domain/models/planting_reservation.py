@@ -101,6 +101,9 @@ class PlantingRow:
     termination_type: str | None = None
     planned_from: date | None = None
     planned_until: date | None = None
+    #: The slot's role and sowing day, on a planned position only (§11.3 "gesät", W-015).
+    slot_role: str | None = None
+    sown_at: date | None = None
 
 
 @dataclass(frozen=True)
@@ -269,3 +272,86 @@ class QuickPlantingResult:
     instance_ids: list[str]
     #: Hints that never block: ``layout.bed_without_geometry``, ``layout.capacity_exceeded`` …
     warnings: list[str] = field(default_factory=list)
+
+
+# ── Thinning a sown row or zone (REQ-053 §11.3 "gesät", §12 ``thinning``, W-015) ──
+
+#: The widest spacing a sown crop is thinned to (cm). Thinning is for direct-sown vegetables and herbs; anything
+#: spaced wider is planted, not thinned (agrobiology review of WP 10.9). The run entry itself takes up to 1 500 cm.
+MAX_THINNING_SPACING_CM = 200.0
+
+
+class SlotThinningInput(BaseModel):
+    """What the grower says when thinning a sown slot (``POST /slots/{key}/thinning``).
+
+    The count follows from the slot's measure and ``thinning_to_cm``: the run's value unless the grower enters
+    one here. ``count`` overrides the computed number (the seedlings actually left standing). Neither field has a
+    default — without a spacing on the run or in the request and without a count the request is refused (E-10).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_THINNING_SPACING_CM)
+    count: int | None = Field(default=None, ge=1, le=QUICK_PLANTING_MAX_QUANTITY)
+    planted_on: date | None = None
+
+
+@dataclass(frozen=True)
+class SlotThinningPlan:
+    """What thinning a sown slot would do, read before the grower confirms (``GET /slots/{key}/thinning``).
+
+    ``thinning_to_cm`` is the run entry's value, ``None`` when the run has none (the grower must enter it).
+    ``suggested_count`` is :func:`~app.domain.calculators.thinning_calculator.thinning_count` for that value, ``None``
+    without a value or without a measure.
+    """
+
+    slot_key: str
+    slot_id: str
+    slot_role: str
+    sown_at: date
+    run_key: str
+    entry_key: str
+    species_key: str
+    cultivar_key: str | None
+    measure_kind: str | None
+    measure_value: float | None
+    thinning_to_cm: float | None
+    suggested_count: int | None
+    max_count: int = QUICK_PLANTING_MAX_QUANTITY
+
+
+@dataclass(frozen=True)
+class SlotThinningWrite:
+    """The plants a thinned slot gets, its cleared ``sown_at`` and the ``thinning`` care event — one transaction.
+
+    ``sown_at`` is the day the service read: a slot thinned or re-sown in between no longer matches and the write
+    is refused (409), and so is a slot whose reservation by ``run_key`` / ``entry_key`` was released meanwhile. A run
+    still ``planned`` when the transaction reaches it turns ``active`` with ``run_phase_key`` and ``run_history``.
+    """
+
+    location_key: str
+    slot_key: str
+    sown_at: date
+    run_key: str
+    entry_key: str
+    tenant_key: str
+    plants: list[QuickPlantedPlant]
+    #: The ``thinning`` event without its plants — the repository names the ones it created.
+    event: CareEvent
+    #: When the plants' (and a started run's) phase began: the thinning day.
+    phase_started_at: datetime
+    run_history: PhaseHistory | None = None
+    run_phase_key: str | None = None
+    #: Start the run if it is still ``planned`` when the transaction reaches it (decided there, not on the service's
+    #: read); ``False`` leaves the run's status alone.
+    activate_run: bool = True
+    time_budget_seconds: float = RESERVATION_TIME_BUDGET_SECONDS
+
+
+@dataclass(frozen=True)
+class SlotThinningOutcome:
+    plant_keys: list[str]
+    instance_ids: list[str]
+    care_event_key: str
+    #: The run was still ``planned`` and the thinning started it.
+    run_started: bool = False

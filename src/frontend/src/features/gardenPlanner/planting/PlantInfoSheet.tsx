@@ -62,9 +62,11 @@ export default function PlantInfoSheet({ view, onClose }: PlantInfoSheetProps) {
             </Box>
           </Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-end' }}>
-            <Button component={RouterLink} to={plantDetailPath(view.plant_key)} sx={{ minHeight: 44, minWidth: 44 }}>
-              {t('pages.gardenPlan.plantState.info.details')}
-            </Button>
+            {view.plant_key ? (
+              <Button component={RouterLink} to={plantDetailPath(view.plant_key)} sx={{ minHeight: 44, minWidth: 44 }}>
+                {t('pages.gardenPlan.plantState.info.details')}
+              </Button>
+            ) : null}
             <Button onClick={onClose} variant="contained" sx={{ minHeight: 44, minWidth: 44 }} autoFocus>
               {t('pages.gardenPlan.plantState.info.close')}
             </Button>

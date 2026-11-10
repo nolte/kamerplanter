@@ -2,6 +2,10 @@
  * The "Planting" tab of the bed view (REQ-053 §11.1, §11.3, GP-FR-066/068/069): what is planned and what
  * stands in the bed, the "Plant" button that opens the planting dialog, and the two actions on a
  * standing plant - "Correct position" and "Transplant to …". The dialog is a separate chunk.
+ *
+ * Direct sowing (§11.3, W-015): a planned row or zone can be recorded as sown; a sown one is listed as "Sown" with
+ * "Thin out", which turns it into plants. A slot whose plant failed (died, senesced) offers "Replant": the planting
+ * dialog opens with that crop.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,10 +30,20 @@ import type { BedSummary } from '../bed/types';
 import PlantActionHost, { type PlantActionTarget } from './PlantActionHost';
 import { plantDetailPath } from './PlantInfoPopover';
 import { listPlantings } from './plantingApi';
-import type { PlantingItem } from './plantingTypes';
+import type { FailedPlanting, PlantingItem, ThinningResult } from './plantingTypes';
 import type { PlantedResult } from './PlantingDialog';
+import { failedSlots, isSowable } from './thinningLogic';
 
 const PlantingDialog = lazy(() => import('./PlantingDialog'));
+const SowingDialog = lazy(() => import('./SowingDialog'));
+const ThinningDialog = lazy(() => import('./ThinningDialog'));
+
+/** The sown or sowable slot a dialog was opened for. */
+interface SlotTarget {
+  slotKey: string;
+  slotLabel: string;
+  speciesName: string;
+}
 
 interface BedPlantingTabProps {
   bed: BedSummary;
@@ -84,6 +98,9 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
   const [state, setState] = useState<ListState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [planting, setPlanting] = useState(false);
+  const [replant, setReplant] = useState<FailedPlanting | null>(null);
+  const [sowTarget, setSowTarget] = useState<SlotTarget | null>(null);
+  const [thinTarget, setThinTarget] = useState<SlotTarget | null>(null);
   const [target, setTarget] = useState<PlantActionTarget | null>(null);
 
   useEffect(() => {
@@ -107,7 +124,9 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
   }, [onChanged]);
 
   const items = useMemo(() => (state.status === 'ready' ? state.items : []), [state]);
-  const planned = items.filter((item) => item.state === 'planned');
+  const planned = items.filter((item) => item.state === 'planned' && !item.sown_at);
+  const sown = items.filter((item) => item.state === 'planned' && Boolean(item.sown_at));
+  const failed = useMemo(() => failedSlots(items), [items]);
   const active = items.filter((item) => item.state === 'active');
   const finished = items.filter((item) => item.state === 'harvested' || item.state === 'historical');
   const names = useSpeciesNames(useMemo(() => items.map((item) => item.species_key), [items]));
@@ -121,11 +140,30 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
 
   const onPlanted = (result: PlantedResult) => {
     setPlanting(false);
+    setReplant(null);
     notification.success(
       t(result.quick ? 'pages.bed.planting.recorded' : 'pages.bed.planting.planned', { count: result.plantCount }),
     );
     reload();
   };
+
+  const onSown = () => {
+    if (sowTarget) notification.success(t('pages.bed.planting.sowing.done', { slot: sowTarget.slotLabel }));
+    setSowTarget(null);
+    reload();
+  };
+
+  const onThinned = (result: ThinningResult) => {
+    notification.success(t('pages.bed.planting.thinning.done', { count: result.plant_keys.length }));
+    setThinTarget(null);
+    reload();
+  };
+
+  const slotTarget = (item: PlantingItem): SlotTarget => ({
+    slotKey: item.slot_key ?? '',
+    slotLabel: item.slot_id ?? '',
+    speciesName: nameOf(item.species_key),
+  });
 
   return (
     <Box data-testid="bed-planting-tab" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -182,19 +220,80 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             </Typography>
             <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {planned.map((item) => (
-                <li key={`${item.slot_key}-${item.run_key}`} data-testid={`planting-planned-${item.slot_key}`}>
-                  <Link
-                    component={RouterLink}
-                    to={speciesDetailPath(item.species_key)}
-                    sx={ROW_LINK_SX}
-                    data-testid={`plant-link-planned-${item.slot_key}`}
-                  >
-                    {nameOf(item.species_key)}
-                  </Link>
-                  {' · '}
-                  {item.slot_id}
-                  {item.planned_from ? ` · ${t('pages.bed.planting.tab.from', { date: dateText(item.planned_from) })}` : ''}
-                </li>
+                <Box
+                  component="li"
+                  key={`${item.slot_key}-${item.run_key}`}
+                  data-testid={`planting-planned-${item.slot_key}`}
+                  sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+                >
+                  <span>
+                    <Link
+                      component={RouterLink}
+                      to={speciesDetailPath(item.species_key)}
+                      sx={ROW_LINK_SX}
+                      data-testid={`plant-link-planned-${item.slot_key}`}
+                    >
+                      {nameOf(item.species_key)}
+                    </Link>
+                    {' · '}
+                    {item.slot_id}
+                    {item.planned_from ? ` · ${t('pages.bed.planting.tab.from', { date: dateText(item.planned_from) })}` : ''}
+                  </span>
+                  {canEdit && !retired && item.slot_key && isSowable(item) ? (
+                    <Button
+                      size="small"
+                      onClick={() => setSowTarget(slotTarget(item))}
+                      sx={{ minHeight: 44 }}
+                      data-testid={`planting-sow-${item.slot_key}`}
+                    >
+                      {t('pages.bed.planting.tab.sow')}
+                    </Button>
+                  ) : null}
+                </Box>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {sown.length > 0 ? (
+        <Card variant="outlined" component="section" aria-label={t('pages.bed.planting.tab.sown', { count: sown.length })} data-testid="bed-planting-sown">
+          <CardContent>
+            <Typography variant="subtitle1" component="h3" gutterBottom>
+              {t('pages.bed.planting.tab.sown', { count: sown.length })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {t('pages.bed.planting.tab.sownHelp')}
+            </Typography>
+            <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {sown.map((item) => (
+                <Box
+                  component="li"
+                  key={`${item.slot_key}-${item.run_key}`}
+                  data-testid={`planting-sown-${item.slot_key}`}
+                  sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+                >
+                  <span>
+                    <Link component={RouterLink} to={speciesDetailPath(item.species_key)} sx={ROW_LINK_SX}>
+                      {nameOf(item.species_key)}
+                    </Link>
+                    {' · '}
+                    {item.slot_id}
+                    {' · '}
+                    {t('pages.bed.planting.tab.sownOn', { date: dateText(item.sown_at) })}
+                  </span>
+                  {canEdit && !retired && item.slot_key ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setThinTarget(slotTarget(item))}
+                      sx={{ minHeight: 44 }}
+                      data-testid={`planting-thin-${item.slot_key}`}
+                    >
+                      {t('pages.bed.planting.tab.thin')}
+                    </Button>
+                  ) : null}
+                </Box>
               ))}
             </Box>
           </CardContent>
@@ -267,13 +366,55 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
         </Card>
       ) : null}
 
+      {failed.length > 0 ? (
+        <Card variant="outlined" component="section" aria-label={t('pages.bed.planting.tab.failed', { count: failed.length })} data-testid="bed-planting-failed">
+          <CardContent>
+            <Typography variant="subtitle1" component="h3" gutterBottom>
+              {t('pages.bed.planting.tab.failed', { count: failed.length })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {t('pages.bed.planting.tab.failedHelp')}
+            </Typography>
+            <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {failed.map((slot) => (
+                <Box
+                  component="li"
+                  key={slot.slotKey}
+                  data-testid={`planting-failed-${slot.slotKey}`}
+                  sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}
+                >
+                  <span>
+                    {nameOf(slot.speciesKey)}
+                    {' · '}
+                    {slot.slotId}
+                    {slot.removedOn ? ` · ${t('pages.bed.planting.tab.failedOn', { date: dateText(slot.removedOn) })}` : ''}
+                  </span>
+                  {canPlant ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      onClick={() => setReplant(slot)}
+                      sx={{ minHeight: 44 }}
+                      data-testid={`planting-replant-${slot.slotKey}`}
+                    >
+                      {t('pages.bed.planting.tab.replant')}
+                    </Button>
+                  ) : null}
+                </Box>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {finished.length > 0 ? (
         <Typography variant="body2" color="text.secondary" data-testid="bed-planting-finished">
           {t('pages.bed.planting.tab.finished', { count: finished.length })}
         </Typography>
       ) : null}
 
-      {planting && bed.geometry ? (
+      {(planting || replant) && bed.geometry ? (
         <Suspense fallback={null}>
           <PlantingDialog
             bedKey={bed.key}
@@ -283,9 +424,24 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             bedSite={bedSite}
             siteFlags={bed.site_conditions?.flags}
             irrigationSystem={bed.irrigation_system ?? null}
-            onClose={() => setPlanting(false)}
+            initialSpeciesKey={replant?.speciesKey ?? null}
+            initialCultivarKey={replant?.cultivarKey ?? null}
+            onClose={() => {
+              setPlanting(false);
+              setReplant(null);
+            }}
             onPlanted={onPlanted}
           />
+        </Suspense>
+      ) : null}
+      {sowTarget ? (
+        <Suspense fallback={null}>
+          <SowingDialog {...sowTarget} onClose={() => setSowTarget(null)} onSown={onSown} />
+        </Suspense>
+      ) : null}
+      {thinTarget ? (
+        <Suspense fallback={null}>
+          <ThinningDialog {...thinTarget} onClose={() => setThinTarget(null)} onThinned={onThinned} />
         </Suspense>
       ) : null}
       <PlantActionHost bed={bed} target={target} onClose={() => setTarget(null)} onChanged={reload} />

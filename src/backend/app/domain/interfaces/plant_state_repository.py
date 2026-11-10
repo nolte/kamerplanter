@@ -57,6 +57,26 @@ class PlantStateSource:
     cover_photo_ref: str | None = None
 
 
+@dataclass(frozen=True)
+class SownSlotSource:
+    """A sown ``row``/``zone`` slot of the bed in which no plant stands yet (§11.3 "gesät", W-015).
+
+    The species is the one the slot's live reservation plans (the tenant's run); a sown slot without a live
+    reservation of the tenant is not reported — nothing would name its crop.
+    """
+
+    slot_key: str
+    slot_id: str
+    sown_at: date
+    species_key: str
+    run_key: str
+    entry_key: str | None = None
+    cultivar_key: str | None = None
+    species_name: str | None = None
+    scientific_name: str | None = None
+    cultivar_name: str | None = None
+
+
 class IPlantStateRepository(ABC):
     @abstractmethod
     def list_bed_plants(
@@ -70,3 +90,9 @@ class IPlantStateRepository(ABC):
     ) -> list[PlantStateSource]:
         """A window of the tenant's standing plants in any of the beds, ordered by plant key, with the same facts as
         :meth:`list_bed_plants` — one window for many beds, so a site costs a fixed number of statements per page."""
+
+    @abstractmethod
+    def list_sown_slots(self, location_key: str, *, tenant_key: str) -> list[SownSlotSource]:
+        """The bed's sown, plantless slots reserved by a live run of the tenant, ordered by slot key.
+
+        Bounded by the slots a bed holds (GP-NFR-017); the caller has resolved the bed under the tenant."""

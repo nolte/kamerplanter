@@ -11,6 +11,9 @@ import type {
   QuickPlantingBody,
   QuickPlantingResponse,
   SlotRecord,
+  ThinningBody,
+  ThinningPlan,
+  ThinningResult,
   ValidatePlantingResponse,
 } from './plantingTypes';
 
@@ -94,6 +97,24 @@ export async function correctSlotPosition(
   geometry: BedFrameGeometry,
 ): Promise<void> {
   await tenantClient.patch(`/slots/${slotKey}`, { geometry });
+}
+
+/** REQ-053 W-015: record the direct sowing of a reserved row or zone (`YYYY-MM-DD`). */
+export async function sowSlot(slotKey: string, sownAt: string): Promise<SlotRecord> {
+  const { data } = await tenantClient.put<SlotRecord>(`/slots/${slotKey}/sowing`, { sown_at: sownAt });
+  return data;
+}
+
+/** REQ-053 W-015: the run's thinning spacing and the plant count it gives, before the grower confirms. */
+export async function getThinningPlan(slotKey: string): Promise<ThinningPlan> {
+  const { data } = await tenantClient.get<ThinningPlan>(`/slots/${slotKey}/thinning`);
+  return data;
+}
+
+/** REQ-053 W-015: thin the sown slot into plants of its run; the server clears `sown_at` and logs `thinning`. */
+export async function thinSlot(slotKey: string, body: ThinningBody): Promise<ThinningResult> {
+  const { data } = await tenantClient.post<ThinningResult>(`/slots/${slotKey}/thinning`, body);
+  return data;
 }
 
 /** The runs of a bed (any status), to find the ones planted despite a crop-rotation hint. */

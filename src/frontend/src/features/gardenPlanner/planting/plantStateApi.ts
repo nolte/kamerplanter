@@ -31,6 +31,8 @@ export interface PlantStateInputs {
 
 /** One plant of the answer; only the fields of the plant info (no notes, no user names). */
 export interface PlantStateWire {
+  /** Absent on an older server: a plant. */
+  kind?: 'plant';
   plant_key: string;
   slot_key?: string | null;
   slot_id?: string | null;
@@ -51,20 +53,42 @@ export interface PlantStateWire {
   inputs: PlantStateInputs;
 }
 
+/**
+ * A sown row or zone without plants yet (REQ-053 §11.3, W-015): no plant, `instance_id` is the slot's id and
+ * `planted_on` the sowing day; no phase, care or reason that needs attention.
+ */
+export interface SownStateWire extends Omit<PlantStateWire, 'kind' | 'plant_key'> {
+  kind: 'sown';
+  plant_key: null;
+}
+
+/** One entry of the answer: a standing plant or a sown slot (the sown slots come first). */
+export type PlantStateEntryWire = PlantStateWire | SownStateWire;
+
+/** Whether the entry is a standing plant (the field sheet and the plant actions take plants only). */
+export function isPlantEntry(entry: PlantStateEntryWire): entry is PlantStateWire {
+  return entry.kind !== 'sown';
+}
+
+/** The key of an entry on the plan: the plant's, or for a sown slot the slot's (the marker of a plantless slot). */
+export function stateKeyOf(wire: Pick<PlantStateEntryWire, 'kind' | 'plant_key' | 'slot_key'>): string {
+  return (wire.kind === 'sown' ? wire.slot_key : wire.plant_key) ?? '';
+}
+
 /** The server answers at most 200 plants per page (the shared pagination bound). */
 export const PLANT_STATES_PAGE_SIZE = 200;
 /** A bed holds at most 2 000 slots (GP-NFR-017): the page loop stops there even if a server never answers short. */
 const MAX_PAGES = 10;
 
-/** All standing plants of the bed: pages of 200 until one comes back shorter. */
+/** All entries of the bed (sown slots, then standing plants): pages of 200 until one comes back shorter. */
 export async function listPlantStates(
   bedKey: string,
   signal?: AbortSignal,
   timeout?: number,
-): Promise<PlantStateWire[]> {
-  const all: PlantStateWire[] = [];
+): Promise<PlantStateEntryWire[]> {
+  const all: PlantStateEntryWire[] = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const { data } = await tenantClient.get<PlantStateWire[]>(`/locations/${bedKey}/plant-states`, {
+    const { data } = await tenantClient.get<PlantStateEntryWire[]>(`/locations/${bedKey}/plant-states`, {
       params: { offset: page * PLANT_STATES_PAGE_SIZE, limit: PLANT_STATES_PAGE_SIZE },
       signal,
       ...(timeout ? { timeout } : {}),

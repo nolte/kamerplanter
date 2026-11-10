@@ -58,6 +58,8 @@ _READERS: dict[str, tuple[str, str]] = {
     "app/domain/services/planting_run_service.py:PlantingRunService.create_run": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService._stamp_mixed_draft": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService.get_phase_timeline": (_RESOLVES, ""),
+    # REQ-053 W-015 (#2830): thinning stamps plants with the reserving entry's species and reads its phase data.
+    "app/domain/services/slot_thinning_service.py:SlotThinningService._run_and_entry": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService.update_entry": (_RESOLVES, ""),
     "app/domain/services/propagation_service.py:PropagationService._require_event_references": (_RESOLVES, ""),
     "app/domain/services/succession_plan_service.py:SuccessionPlanService.create_plan": (_RESOLVES, ""),

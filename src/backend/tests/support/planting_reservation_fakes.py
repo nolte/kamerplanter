@@ -13,7 +13,8 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.enums import PlantingRunStatus
+from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.slot_reservation_engine import (
     LIVE_RUN_STATUSES,
@@ -33,6 +34,8 @@ from app.domain.models.planting_reservation import (
     ReservationReads,
     ReservationWrite,
     RunSlotsWrite,
+    SlotThinningOutcome,
+    SlotThinningWrite,
 )
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.care_event_service import CareEventService
@@ -89,6 +92,8 @@ class FakeReservationRepo(IPlantingReservationRepository):
         self.clear_writes: list[ClearBedWrite] = []
         self.quick_writes: list[QuickPlantWrite] = []
         self.mixed_writes: list[MixedRunsWrite] = []
+        self.sowings: list[tuple[str, str]] = []
+        self.thinning_writes: list[SlotThinningWrite] = []
         #: Where ``create_mixed_runs`` stores the runs it was handed (the world's run double), if wired.
         self.run_sink = None
         self.clear_outcome = ClearBedOutcome(
@@ -223,6 +228,49 @@ class FakeReservationRepo(IPlantingReservationRepository):
             created_slot_keys=slot_keys,
             plant_keys=[f"pi_{self._next}_{i}" for i in range(len(write.plants))],
             created_at=datetime.now(UTC),
+        )
+
+    def mark_slot_sown(self, location_key, slot_key, *, sown_at, tenant_key) -> bool:
+        if any(p.slot_key == slot_key for p in self.plants):
+            return False
+        for index, slot in enumerate(self._plan.slots):
+            if slot.key == slot_key and slot.location_key == location_key and slot.archived_at is None:
+                self._plan.slots[index] = slot.model_copy(update={"sown_at": sown_at})
+                self.sowings.append((slot_key, sown_at.isoformat()))
+                return True
+        return False
+
+    def thin_sown_slot(self, write: SlotThinningWrite) -> SlotThinningOutcome:
+        """Apply the write as the Arango transaction does: the slot loses ``sown_at``, the plants stand in it."""
+        if not any(
+            r.slot_key == write.slot_key and r.run_key == write.run_key and r.entry_key == write.entry_key
+            for r in self.reservations
+        ):
+            raise WriteConflictError("run_planned_at", "the reservation of the slot was released concurrently")
+        self.thinning_writes.append(write)
+        self._plan.care_events.append(write.event)
+        started = False
+        if self.run_sink is not None and write.run_key in self.run_sink.runs:
+            run = self.run_sink.runs[write.run_key]
+            started = run.status == "planned"
+            if started:
+                self.run_sink.runs[write.run_key] = run.model_copy(update={"status": PlantingRunStatus.ACTIVE})
+        keys: list[str] = []
+        for index, slot in enumerate(self._plan.slots):
+            if slot.key == write.slot_key:
+                self._plan.slots[index] = slot.model_copy(update={"sown_at": None, "currently_occupied": True})
+        for _item in write.plants:
+            self._next += 1
+            key = f"pi_{self._next}"
+            keys.append(key)
+            self.plants.append(
+                ActivePlant(slot_key=write.slot_key, plant_key=key, run_key=write.run_key, expected_end=None)
+            )
+        return SlotThinningOutcome(
+            plant_keys=keys,
+            instance_ids=[item.plant.instance_id for item in write.plants],
+            care_event_key="ce_thin",
+            run_started=started,
         )
 
 

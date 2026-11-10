@@ -329,3 +329,85 @@ describe('Transplant to … (GP-FR-069)', () => {
     await waitFor(() => expect(screen.queryByTestId('transplant-dialog')).toBeNull());
   });
 });
+
+describe('Sown, thinned out, failed (REQ-053 §11.3, W-015)', () => {
+  const ROW: PlantingItem = {
+    state: 'planned', slot_key: 'r1', slot_id: 'BED_R01', species_key: 'sp_tomato', run_key: 'run_c', slot_role: 'row',
+  };
+  const SOWN: PlantingItem = { ...ROW, slot_key: 'r2', slot_id: 'BED_R02', sown_at: '2026-04-12' };
+  const FAILED: PlantingItem = {
+    state: 'historical', slot_key: 's7', slot_id: 'BED_007', species_key: 'sp_tomato', cultivar_key: null,
+    plant_key: 'pl_dead', instance_id: 'TOM-7', removed_on: '2026-06-01', termination_type: 'died',
+  };
+
+  it('lists a sown row apart from the planned ones and offers "Thin out" there', async () => {
+    useTabBackend([ROW, SOWN]);
+    server.use(
+      http.get(`${BASE}/slots/:key/thinning`, () =>
+        HttpResponse.json({
+          slot_key: 'r2', slot_id: 'BED_R02', slot_role: 'row', sown_at: '2026-04-12', run_key: 'run_c',
+          entry_key: 'e1', species_key: 'sp_tomato', measure_kind: 'length', measure_value: 1.2,
+          thinning_to_cm: 5, suggested_count: 24, max_count: 500,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderTab();
+
+    const sown = await screen.findByTestId('bed-planting-sown');
+    await waitFor(() => expect(within(sown).getByTestId('planting-sown-r2')).toHaveTextContent('Tomato · BED_R02 · sown on'));
+    expect(within(screen.getByTestId('bed-planting-planned')).queryByTestId('planting-planned-r2')).toBeNull();
+    await user.click(within(sown).getByTestId('planting-thin-r2'));
+    expect(await screen.findByTestId('thinning-dialog')).toBeInTheDocument();
+  });
+
+  it('offers "Record sowing" on a planned row and sends the day', async () => {
+    useTabBackend([ROW]);
+    const puts: unknown[] = [];
+    server.use(
+      http.put(`${BASE}/slots/:key/sowing`, async ({ request, params }) => {
+        puts.push({ key: params.key, body: await request.json() });
+        return HttpResponse.json({ key: 'r1', slot_id: 'BED_R01', location_key: 'loc_b03' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(await screen.findByTestId('planting-sow-r1'));
+    await user.click(await screen.findByTestId('sowing-submit'));
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({ key: 'r1', body: { sown_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) } });
+  });
+
+  it('gives a viewer the sown row without the actions', async () => {
+    useTabBackend([ROW, SOWN, FAILED]);
+    renderTab('viewer');
+    await screen.findByTestId('bed-planting-sown');
+    expect(screen.queryByTestId('planting-thin-r2')).toBeNull();
+    expect(screen.queryByTestId('planting-sow-r1')).toBeNull();
+    expect(screen.queryByTestId('planting-replant-s7')).toBeNull();
+    expect(screen.getByTestId('planting-failed-s7')).toBeInTheDocument();
+  });
+
+  it('offers "Replant" on a failed slot; the planting dialog opens with that crop', async () => {
+    useTabBackend([FAILED]);
+    server.use(
+      http.get('/api/v1/species', () =>
+        HttpResponse.json({ items: [species('sp_tomato', 'Tomato', { spacing_cm: '60' })], total: 1, offset: 0, limit: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderTab();
+
+    const failed = await screen.findByTestId('bed-planting-failed');
+    await waitFor(() => expect(within(failed).getByTestId('planting-failed-s7')).toHaveTextContent('Tomato · BED_007'));
+    await user.click(within(failed).getByTestId('planting-replant-s7'));
+
+    expect(await screen.findByTestId('planting-dialog')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('planting-entry-0-spacing')).toHaveValue('60'));
+    expect(within(screen.getByTestId('planting-entry-0')).getByRole('combobox', { name: /^Species/ })).toHaveValue(
+      'Tomato (Tomato scientificus)',
+    );
+  });
+});

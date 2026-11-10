@@ -114,6 +114,10 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
         _ECHO,
         "compares the plant's species key with the entries' keys",
     ),
+    (_ENTRY, "app/domain/services/slot_thinning_service.py:SlotThinningService._run_and_entry"): (
+        _RESOLVES,
+        "thinning (W-015) resolves the reserving entry's species under the tenant before stamping plants with it",
+    ),
     (_ENTRY, "app/data_access/arango/planting_run_repository.py:ArangoPlantingRunRepository.delete"): (
         _ECHO,
         "removes the entries with the run",

@@ -29,7 +29,7 @@ from app.common.enums import (
     TerminationType,
 )
 from app.config.constants import MAX_ROTATION_WINDOW_YEARS
-from app.domain.calculators.plant_state_calculator import AttentionCode, Lifecycle
+from app.domain.calculators.plant_state_calculator import AttentionCode, Lifecycle, PlantVisualState
 from app.domain.calculators.plant_state_inputs import phase_facts
 from app.domain.calculators.planting_layout_calculator import (
     MAX_LAYOUT_POSITIONS,
@@ -45,7 +45,7 @@ from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, M
 from app.domain.models.site import MAX_PHOTO_REF_LENGTH, MAX_PHOTOS_PER_LOCATION, LocationLighting, SiteConditions
 from app.domain.models.tent_hint import MAX_NAMED_UNKNOWN_PLANTS, TentHint, TentHintCode, TentHintSeverity
 from app.domain.services.bed_history_service import BedHistoryItem
-from app.domain.services.plant_state_service import PlantStateEntry
+from app.domain.services.plant_state_service import PlantStateEntry, SownSlotSource
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
 
@@ -738,6 +738,12 @@ class PlantingItemResponse(BaseModel):
     termination_type: str | None = None
     planned_from: date | None = None
     planned_until: date | None = None
+    slot_role: SlotRole | None = Field(
+        default=None, description="Role of the slot of a planned position (`position`, `row`, `zone`)."
+    )
+    sown_at: date | None = Field(
+        default=None, description="Day a planned `row`/`zone` slot was sown (§11.3 sown); `null` when not sown."
+    )
 
     @classmethod
     def from_row(cls, row: PlantingRow) -> PlantingItemResponse:
@@ -757,6 +763,8 @@ class PlantingItemResponse(BaseModel):
             termination_type=row.termination_type,
             planned_from=row.planned_from,
             planned_until=row.planned_until,
+            slot_role=row.slot_role,
+            sown_at=row.sown_at,
         )
 
 
@@ -1338,7 +1346,9 @@ class PlantStateInputsResponse(BaseModel):
 class PlantStateResponse(BaseModel):
     """One standing plant of a bed with its visual state and the facts of the info bubble (GP-FR-190, GP-API-054).
 
-    Only the fields of the plant info: no notes, no user names (SR-006/SR-020).
+    Only the fields of the plant info: no notes, no user names (SR-006/SR-020). A sown ``row``/``zone`` slot without
+    plants yet (§11.3, W-015) is an entry too: ``kind = sown``, ``plant_key`` ``null``, ``instance_id`` the slot's id,
+    ``planted_on`` the sowing day, lifecycle ``sown``.
     """
 
     model_config = ConfigDict(
@@ -1372,7 +1382,8 @@ class PlantStateResponse(BaseModel):
         }
     )
 
-    plant_key: str
+    kind: Literal["plant", "sown"] = Field(default="plant", description="`sown`: a sown slot without plants yet.")
+    plant_key: str | None = None
     slot_key: str | None = None
     slot_id: str | None = None
     instance_id: str
@@ -1393,6 +1404,8 @@ class PlantStateResponse(BaseModel):
 
     @classmethod
     def from_entry(cls, entry: PlantStateEntry) -> PlantStateResponse:
+        if isinstance(entry.source, SownSlotSource):
+            return cls._from_sown(entry.source, entry.state)
         source, state = entry.source, entry.state
         phase = phase_facts(source)
         progress = state.phase_progress
@@ -1446,6 +1459,27 @@ class PlantStateResponse(BaseModel):
                     is_terminal=phase.is_terminal,
                 ),
             ),
+        )
+
+    @classmethod
+    def _from_sown(cls, source: SownSlotSource, state: PlantVisualState) -> PlantStateResponse:
+        """A sown slot: no plant, no phase, no care, no reason that needs attention."""
+        return cls(
+            kind="sown",
+            plant_key=None,
+            slot_key=source.slot_key,
+            slot_id=source.slot_id,
+            instance_id=source.slot_id,
+            species_key=source.species_key,
+            species_name=source.species_name,
+            scientific_name=source.scientific_name,
+            cultivar_name=source.cultivar_name,
+            planted_on=source.sown_at,
+            lifecycle=state.lifecycle,
+            last_care=PlantLastCareResponse(),
+            attention=[],
+            harvest=PlantHarvestResponse(ready=False),
+            inputs=PlantStateInputsResponse(open_tasks=[], open_findings=0, frost_risk=False, harvest_batches=0),
         )
 
 
