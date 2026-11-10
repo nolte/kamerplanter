@@ -56,6 +56,7 @@ from app.domain.models.care_event import (
 )
 from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.site import SoilProfile
+from app.domain.models.task_completion import DomainDocument
 
 logger = structlog.get_logger()
 
@@ -66,6 +67,18 @@ CARE_EVENT_WRITE_COLLECTIONS: tuple[str, ...] = (
     col.CARE_EVENT_FOR,
     col.TASK_LOGGED_AS,
 )
+
+#: The plants standing in a set of locations (not removed), by key: whom a dose on the whole bed is attributed to.
+#: Read by :func:`plant_keys_standing_in` only.
+PLANTS_STANDING_IN_AQL = """
+FOR p IN @@plants
+    FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys AND p.removed_on == null
+    SORT p._key
+    RETURN p._key
+"""
+
+#: Collections the ``feeding_event`` of a care-log entry and its edges are written into (#2833).
+FEEDING_EVENT_WRITE_COLLECTIONS: tuple[str, ...] = (col.FEEDING_EVENTS, col.FED_BY, col.FEEDING_USED)
 
 #: What the re-derivation of a bed's profile touches besides the care events: it writes ``locations`` and reads
 #: ``sites`` (a bed belongs to its site's tenant). A transaction calling :func:`rederive_soil_profile` declares both.
@@ -244,6 +257,40 @@ def write_care_event(
             {"_from": f"{col.TASKS}/{event.task_key}", "_to": event_id, "created_at": now}
         )
     return cast("dict[str, Any]", stored)
+
+
+def plant_keys_standing_in(db: StandardDatabase, location_keys: list[str], *, tenant_key: str) -> list[str]:
+    """The tenant's plants standing in ``location_keys`` (not removed), sorted: whom a whole-bed dose is attributed to.
+
+    One read for the task completion and the care-log entry (#2833), so the attribution cannot drift between them.
+    """
+    if not location_keys:
+        return []
+    cursor = cast(
+        "Cursor",
+        db.aql.execute(
+            PLANTS_STANDING_IN_AQL,
+            bind_vars={"@plants": col.PLANT_INSTANCES, "location_keys": location_keys, "tenant_key": tenant_key},
+        ),
+    )
+    return [str(key) for key in cursor]
+
+
+def write_domain_document(txn: StreamTransaction, domain: DomainDocument, now: str) -> dict[str, str]:
+    """Insert a specialist document (§12.1) and its edges inside the caller's transaction; returns its reference.
+
+    The one writer of the documents a care event is the line of: the task completion (WP 4.3) and the care-log
+    entry of a nutrient amendment (#2833) both call it, then store the event with ``source_ref`` set to the
+    returned ``{"collection", "key"}`` - the reference the consistency job (GP-FR-105) reads as "already logged".
+    The caller declares ``domain.collection`` and the edge collections for writing.
+    """
+    stored = txn.collection(domain.collection).insert(domain.document, return_new=True)["new"]
+    own_id = f"{domain.collection}/{stored['_key']}"
+    for edge, other_id, attributes in domain.edges_out:
+        txn.collection(edge).insert({"_from": own_id, "_to": other_id, "created_at": now, **attributes})
+    for edge, other_id, attributes in domain.edges_in:
+        txn.collection(edge).insert({"_from": other_id, "_to": own_id, "created_at": now, **attributes})
+    return {"collection": domain.collection, "key": str(stored["_key"])}
 
 
 def _analyses(txn: StreamTransaction, location_key: str, tenant_key: str, *, open_ones: bool) -> list[AnalysisEvent]:
@@ -656,6 +703,10 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         )
         return {str(key) for key in cursor}
 
+    def plant_keys_standing_in(self, location_keys: list[str], *, tenant_key: str) -> list[str]:
+        self._require_tenant_key(tenant_key, "plant_keys_standing_in")
+        return plant_keys_standing_in(self._db, location_keys, tenant_key=tenant_key)
+
     # ── Writes ────────────────────────────────────────────────────────────
 
     def insert(self, event: CareEvent, *, tenant_key: str) -> CareEvent:
@@ -666,6 +717,27 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
             self._db, write=write_collections_for([event]), read=read_collections_for([event]), entity="care_event"
         ) as txn:
             stored = write_care_event(txn, event, _now())
+            for location_key in profile_locations([event]):
+                rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
+        return self._wrapped(stored)
+
+    def insert_with_feeding_event(self, event: CareEvent, feeding: DomainDocument, *, tenant_key: str) -> CareEvent:
+        self._require_tenant_key(tenant_key, "insert_with_feeding_event")
+        if event.tenant_key != tenant_key or feeding.document.get("tenant_key") != tenant_key:
+            raise ValueError("insert_with_feeding_event: a document belongs to another tenant than the one it writes.")
+        if feeding.collection != col.FEEDING_EVENTS:
+            raise ValueError("insert_with_feeding_event: the specialist document is not a feeding event.")
+        with stream_transaction(
+            self._db,
+            write=(*write_collections_for([event]), *FEEDING_EVENT_WRITE_COLLECTIONS),
+            read=read_collections_for([event]),
+            entity="care_event",
+        ) as txn:
+            now = _now()
+            # The feeding event first: the care event points at it. A refused care-event insert (the client-event
+            # index of a replay) aborts the transaction, so no feeding event is left behind without its line.
+            reference = write_domain_document(txn, feeding, now)
+            stored = write_care_event(txn, event.model_copy(update={"source_ref": reference}), now)
             for location_key in profile_locations([event]):
                 rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
         return self._wrapped(stored)

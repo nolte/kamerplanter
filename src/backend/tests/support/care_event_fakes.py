@@ -24,6 +24,7 @@ from app.domain.models.care_event import (
     CareEvent,
 )
 from app.domain.models.membership import Membership
+from app.domain.models.task_completion import DomainDocument
 from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT, USER
 
 NAMES = {USER: "Sabine", "u_tom": "Tom", "u_lead": "Lena"}
@@ -35,6 +36,8 @@ class FakeCareEventRepo(ICareEventRepository):
         #: ``plant_key`` → (tenant, location) of the plants that exist.
         self.plants: dict[str, tuple[str, str]] = {}
         self.inserted: list[CareEvent] = []
+        #: The ``feeding_events`` documents written beside an event (``insert_with_feeding_event``, #2833).
+        self.feedings: list[DomainDocument] = []
         self.audit: list[dict] = []
         self.photos_held: dict[str, list[str]] = {}
         self._next = 0
@@ -126,7 +129,22 @@ class FakeCareEventRepo(ICareEventRepository):
             if key in self.plants and self.plants[key][0] == tenant_key and self.plants[key][1] in location_keys
         }
 
+    def plant_keys_standing_in(self, location_keys, *, tenant_key):
+        return sorted(
+            key for key, (tenant, location) in self.plants.items() if tenant == tenant_key and location in location_keys
+        )
+
     # writes --------------------------------------------------------------
+    def insert_with_feeding_event(self, event, feeding, *, tenant_key):
+        assert event.tenant_key == tenant_key and feeding.document["tenant_key"] == tenant_key
+        assert feeding.collection == "feeding_events"
+        if event.client_event_id and self.find_key_by_client_event_id(event.client_event_id, tenant_key=tenant_key):
+            # one transaction: the refused event takes its feeding event with it
+            raise DuplicateError("care_events", "client_event_id", event.client_event_id)
+        self.feedings.append(feeding)
+        reference = {"collection": "feeding_events", "key": f"fe_{len(self.feedings)}"}
+        return self.insert(event.model_copy(update={"source_ref": reference}), tenant_key=tenant_key)
+
     def insert(self, event, *, tenant_key):
         assert event.tenant_key == tenant_key
         if event.client_event_id and self.find_key_by_client_event_id(event.client_event_id, tenant_key=tenant_key):

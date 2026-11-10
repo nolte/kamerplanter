@@ -3,7 +3,15 @@
  * growing medium and its type; an unknown context hides nothing.
  */
 import { describe, expect, it } from 'vitest';
-import { categoriesFor, categoryFitsContext, formKindOf, materialsFor, showsLimingHint, taskTarget } from './careCategories';
+import {
+  BED_CARE_CATEGORIES,
+  categoriesFor,
+  categoryFitsContext,
+  formKindOf,
+  materialsFor,
+  showsLimingHint,
+  taskTarget,
+} from './careCategories';
 
 describe('categoryFitsContext (F-03)', () => {
   it.each(['flush', 'ec_check', 'ph_adjustment'])('%s is offered on a substrate bed and hidden on native soil', (category) => {
@@ -47,6 +55,31 @@ describe('categoriesFor', () => {
     expect(offered).toContain('hilling');
     expect(offered).not.toContain('flush');
     expect(offered).not.toContain('ventilating');
+  });
+});
+
+describe('categories with a dedicated way (Anhang A 61, #2833)', () => {
+  const contexts = [
+    {},
+    { growingMedium: 'native_soil' as const, locationTypeKey: 'raised_bed' },
+    { growingMedium: 'potting_mix' as const, locationTypeKey: 'greenhouse_bed' },
+  ];
+
+  it.each(['clearing', 'soil_analysis'])('%s is neither a bed task nor a care log line', (category) => {
+    expect(BED_CARE_CATEGORIES as readonly string[]).not.toContain(category);
+    for (const context of contexts) {
+      expect(categoriesFor(context, 'task')).not.toContain(category);
+      expect(categoriesFor(context, 'log')).not.toContain(category);
+    }
+  });
+
+  it('offers the soil amendment both as a task and as a log line, with the nutrient materials', () => {
+    for (const context of contexts) {
+      expect(categoriesFor(context, 'task')).toContain('soil_amendment');
+      expect(categoriesFor(context, 'log')).toContain('soil_amendment');
+    }
+    expect(formKindOf('soil_amendment')).toBe('amendment');
+    expect(materialsFor('soil_amendment')).toEqual(expect.arrayContaining(['compost', 'manure', 'horn_shavings']));
   });
 });
 

@@ -48,6 +48,7 @@ from app.common.exceptions import (
 )
 from app.domain.calculators.area_dose_calculator import AREA_UNITS, quantity_total
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.task_completion_engine import TaskCompletionEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.care_event_repository import (
     CareEventFilter,
@@ -75,6 +76,7 @@ from app.domain.models.care_event import (
 )
 from app.domain.models.client_event import ClientEventStamp, client_event_digest, same_digest
 from app.domain.models.site import Location
+from app.domain.models.task_completion import DomainDocument
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.client_event_writes import insert_or_read_winner
 from app.domain.services.location_ownership import resolve_owned_location
@@ -228,6 +230,9 @@ class CareEventService:
         self._fertilizers = fertilizer_repo
         self._attachment_repo = attachment_repo
         self._attachments = attachment_service
+        # The rules of what a dose writes beside its log line (§12.1): the same engine the task completion builds
+        # its documents with, so a care-log amendment and a completed amendment task store the same feeding event.
+        self._specialist_documents = TaskCompletionEngine(fertilizer_repo)
 
     # ── Roles ────────────────────────────────────────────────────────────────
 
@@ -573,8 +578,9 @@ class CareEventService:
             logger.info("care_event.replayed", event_key=stored.event.key)
             return LoggedCareEvent(stored, replayed=True)
         event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, stamp=stamp)
+        feeding = self._amendment_feeding(event, tenant_key=tenant_key)
         outcome = insert_or_read_winner(
-            lambda: self._repo.insert(event, tenant_key=tenant_key),
+            lambda: self._store(event, feeding, tenant_key=tenant_key),
             lambda: self._replayed(stamp, tenant_key=tenant_key, user_key=user_key),
         )
         if outcome.replayed is not None:
@@ -595,9 +601,32 @@ class CareEventService:
     ) -> CareEventView:
         """Store a care event (GP-API-033); the performer is the caller (GP-NFR-054)."""
         event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, origin=origin)
-        stored = self._repo.insert(event, tenant_key=tenant_key)
+        stored = self._store(event, self._amendment_feeding(event, tenant_key=tenant_key), tenant_key=tenant_key)
         self._record_created(stored)
         return self._stored_view(stored.key or "", tenant_key=tenant_key, user_key=user_key)
+
+    def _amendment_feeding(self, event: CareEvent, *, tenant_key: str) -> DomainDocument | None:
+        """The ``feeding_event`` a care-log nutrient amendment writes beside its line (§12.1, W-007; #2833).
+
+        Built by :meth:`TaskCompletionEngine.feeding_document`, the builder the task completion uses, so both ways
+        of recording a compost, manure or horn-shavings dose store the same document. The plants are the event's
+        own, else the plants standing in the bed (a whole-bed dose is every plant's) - the completion's rule.
+        This runs only on :meth:`create` / :meth:`log`; the completion builds its event with :meth:`build_event`
+        and its document itself, so one action writes exactly one feeding event.
+        """
+        if not TaskCompletionEngine.logged_amendment_wants_feeding_event(event):
+            return None
+        plants = list(event.plant_keys)
+        if not plants:
+            subtree = _subtree(self._sites.get_locations_by_site(event.site_key), event.location_key)
+            plants = self._repo.plant_keys_standing_in(subtree, tenant_key=tenant_key)
+        return self._specialist_documents.feeding_document(event, plant_keys=plants, task_key=None)
+
+    def _store(self, event: CareEvent, feeding: DomainDocument | None, *, tenant_key: str) -> CareEvent:
+        """Insert the event; with a ``feeding`` document both in one transaction, the event pointing at it."""
+        if feeding is None:
+            return self._repo.insert(event, tenant_key=tenant_key)
+        return self._repo.insert_with_feeding_event(event, feeding, tenant_key=tenant_key)
 
     @staticmethod
     def _record_created(event: CareEvent) -> None:
