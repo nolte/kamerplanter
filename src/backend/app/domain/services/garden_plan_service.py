@@ -112,7 +112,7 @@ from app.domain.models.geometry import (
     point_index_of,
     round_length,
 )
-from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot
+from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot, default_grid_m_for
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.location_photo_service import LocationPhotoDiscard, release_location_photos
 from app.domain.services.site_service import place_in_tree
@@ -354,6 +354,8 @@ class GardenPlanService:
         return GardenPlanView.model_construct(
             site_key=site_key,
             site_name=site.name,
+            site_type=site.type,
+            site_default_grid_m=default_grid_m_for(site.type),
             plan_revision=self._revision_of(site),
             plan=site.plan,
             plan_updated_by_name=data.plan_updated_by_name,
@@ -1378,12 +1380,25 @@ class GardenPlanService:
             object_deletes=sorted(work.deleted_objects),
             boundary=changes.boundary if changes is not None else None,
             north_angle_deg=changes.north_angle_deg if changes is not None else None,
-            default_grid_m=changes.default_grid_m if changes is not None else None,
+            default_grid_m=self._grid_to_write(site, changes),
             adjacency_factor=changes.adjacency_factor if changes is not None else None,
             total_area_m2=area_m2(changes.boundary) if changes is not None else None,
             audit=audit,
             time_budget_seconds=max(remaining, 0.5),
         )
+
+    @staticmethod
+    def _grid_to_write(site: Site, changes: SetBoundaryOp | None) -> float | None:
+        """The snap grid the write stores: the batch's own, else the site type's default for a site's first plan.
+
+        ``None`` keeps the stored grid. A site without a plan gets its plan created by this write, and it starts on
+        the grid of its type (5 cm indoor, GP-FR-182) instead of the repository's garden fallback.
+        """
+        if changes is not None and changes.default_grid_m is not None:
+            return changes.default_grid_m
+        if site.plan is None:
+            return default_grid_m_for(site.type)
+        return None
 
     @staticmethod
     def _result(work: _Work, write: PlanBatchWrite, revision: int, key_map: dict[str, str]) -> PlanBatchResult:

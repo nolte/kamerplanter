@@ -143,6 +143,7 @@ import { useBedTypes } from './useBedTypes';
 import { useEditorKeyboard } from './useEditorKeyboard';
 import { useEditorShortcuts } from './useEditorShortcuts';
 import { TOGGLE_LAYERS, type LayerId } from './layers';
+import { isIndoorPlanSite } from '../model/siteKind';
 import { useLayerPrefs } from './useLayerPrefs';
 import { useAttentionFilter } from './useAttentionFilter';
 import { companionBedKeys, useCompanionEdges } from './useCompanionEdges';
@@ -194,6 +195,8 @@ export interface GardenPlanEditorProps {
   onOpenCare?: (locationKey: string) => void;
   /** Open "add with dimensions" when the editor mounts: the empty plan's "add the first bed" (#2617). */
   initialAddOpen?: boolean;
+  /** Open the underlay dialog when the editor mounts: the empty indoor plan's "photo as a template" (WP 10.8). */
+  initialUnderlayOpen?: boolean;
   /**
    * Plan or list (GP-NFR-023), when the route owns it: the tabs Plan · Liste keep it in the URL (GP-UX-064).
    * Without it the editor keeps the choice itself.
@@ -327,6 +330,7 @@ export function GardenPlanEditor({
   onOpenLocation,
   onOpenCare,
   initialAddOpen = false,
+  initialUnderlayOpen = false,
   view: viewProp,
   onViewChange,
   nav,
@@ -366,7 +370,10 @@ export function GardenPlanEditor({
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
   const [notice, setNotice] = useState<string | null>(null);
-  const [gridStepM, setGridStepM] = useState(() => nearestGridStep(plan.settings?.default_grid_m));
+  // A plan without a stored grid starts on its site type's (5 cm indoor, GP-FR-182, WP 10.8).
+  const [gridStepM, setGridStepM] = useState(() =>
+    nearestGridStep(plan.settings?.default_grid_m ?? plan.defaultGridM),
+  );
   // The grid switch is a per-user layer choice kept in localStorage (GP-FR-031).
   const { prefs: layerPrefs, setLayer } = useLayerPrefs();
   const gridVisible = layerPrefs.grid;
@@ -401,7 +408,7 @@ export function GardenPlanEditor({
     nowMs,
   });
   // The underlay (GP-FR-033): shown per user; its switch is listed only while the site has a picture.
-  const [underlayOpen, setUnderlayOpen] = useState(false);
+  const [underlayOpen, setUnderlayOpen] = useState(initialUnderlayOpen);
   const underlayWasOpen = useRef(false);
   useEffect(() => {
     if (!underlayOpen && underlayWasOpen.current) overflowButtonRef.current?.focus();
@@ -501,10 +508,14 @@ export function GardenPlanEditor({
   const [companionPinned, setCompanionPinned] = useState<string | null>(null);
   const closeCompanionInfo = useCallback(() => setCompanionPinned(null), []);
   const hasUnderlay = underlayState.underlay !== null;
+  // An indoor plan has no frost (GP-FR-182, WP 10.8): its layer is neither offered, drawn nor in the legend.
+  const indoor = isIndoorPlanSite(plan.siteType);
+  const frostShown = layerPrefs.frost && !indoor;
   const layerToggles = useMemo<LayerToggle[]>(
     () =>
       (TOGGLE_LAYERS as readonly Exclude<LayerId, 'grid'>[])
         .filter((id) => id !== 'underlay' || hasUnderlay)
+        .filter((id) => id !== 'frost' || !indoor)
         .map((id) => ({
         id,
         label: t(`${ZONES}.layers.${id}`),
@@ -512,7 +523,7 @@ export function GardenPlanEditor({
         icon: LAYER_ICONS[id],
         visible: layerPrefs[id],
       })),
-    [layerPrefs, t, hasUnderlay],
+    [layerPrefs, t, hasUnderlay, indoor],
   );
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [snapMark, setSnapMark] = useState<SnapMark | null>(null);
@@ -976,7 +987,7 @@ export function GardenPlanEditor({
   // ── Actions of the panel, the item menu and the overflow ──────────────────
 
   const duplicate = useCallback(() => {
-    const step = plan.settings?.default_grid_m ?? 0.1;
+    const step = plan.settings?.default_grid_m ?? plan.defaultGridM ?? 0.1;
     const outcome = duplicateSelection(plan, selection, step, (name) =>
       t(`${PREFIX}.duplicate.name`, { name }),
     );
@@ -1422,7 +1433,7 @@ export function GardenPlanEditor({
         ...zoneLayers,
         sunLayer: layerPrefs.sun,
         moistureLayer: layerPrefs.moisture,
-        frostLayer: layerPrefs.frost,
+        frostLayer: frostShown,
         ...(plantStateLayer ? { plantStateLayer, phaseColors } : {}),
         ...(companionLayer ? { companionLayer } : {}),
       }),
@@ -1438,7 +1449,7 @@ export function GardenPlanEditor({
       underlayState.entry,
       layerPrefs.sun,
       layerPrefs.moisture,
-      layerPrefs.frost,
+      frostShown,
       plantStateLayer,
       phaseColors,
       companionLayer,
@@ -1660,7 +1671,7 @@ export function GardenPlanEditor({
               showLastWatered={layerPrefs.lastWatered}
               showSun={layerPrefs.sun}
               showMoisture={layerPrefs.moisture}
-              showFrost={layerPrefs.frost}
+              showFrost={frostShown}
               showPlantState={plantStateOn}
               phases={legendPhases}
               showCompanion={companionOn}

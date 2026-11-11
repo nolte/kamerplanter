@@ -11,14 +11,14 @@ vi.mock('@/api/endpoints/sites', () => ({
   getSite: () => Promise.reject(new Error('the site is not read in this test')),
 }));
 
-const type = (key: string, name: string, is_bed = true): LocationType => ({
+const type = (key: string, name: string, is_bed = true, supports_layout = is_bed): LocationType => ({
   key,
   name,
   name_en: name,
   icon: null,
   is_indoor: false,
   is_bed,
-  supports_layout: true,
+  supports_layout,
   is_system: true,
   sort_order: 0,
   description: null,
@@ -28,7 +28,9 @@ beforeEach(() => {
   listLocationTypes.mockResolvedValue([
     type('bed', 'Bed'),
     type('raised_bed', 'Raised bed'),
-    type('tent', 'Tent', false),
+    // A tent is no bed but carries a layout (W-016.1); a greenhouse carries none.
+    type('tent', 'Tent', false, true),
+    type('greenhouse', 'Greenhouse', false),
   ]);
 });
 afterEach(() => {
@@ -76,13 +78,15 @@ describe('add with dimensions (GP-UX-046)', () => {
     expect(t.state().plan!.locations[key].geometry).toMatchObject({ width_m: 3 });
   });
 
-  it('offers only bed types for a bed and uses the chosen one', async () => {
+  it('offers the layout-capable types for a bed and uses the chosen one (G-W10 e, WP 10.8)', async () => {
     const t = setupEditor();
     open(t);
     await waitFor(() => expect(listLocationTypes).toHaveBeenCalled());
     fireEvent.mouseDown(await screen.findByRole('combobox', { name: 'Bed type' }));
     expect(screen.getByRole('option', { name: 'Raised bed' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Tent' })).toBeNull();
+    // `supports_layout`, not `is_bed` (useBedTypes): a tent or shelf is a planting spot of an indoor plan.
+    expect(screen.getByRole('option', { name: 'Tent' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Greenhouse' })).toBeNull();
     fireEvent.click(screen.getByRole('option', { name: 'Raised bed' }));
     set('garden-plan-add-x', '14');
     set('garden-plan-add-y', '14');

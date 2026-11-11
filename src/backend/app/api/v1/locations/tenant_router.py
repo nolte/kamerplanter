@@ -152,6 +152,13 @@ def list_locations(
         None, description="Only locations whose type is (true) or is not (false) a bed; adds the counters (GP-API-011)."
     ),
     bed_status: BedStatus | None = Query(None, description="Only beds in this status; adds the counters (GP-API-011)."),
+    supports_layout: bool | None = Query(
+        None,
+        description=(
+            "Only locations whose type can (true) or cannot (false) carry a slot layout - every bed type plus tent "
+            "and shelf (W-016.1), the planting spots of an indoor plan (GP-FR-183); adds the counters. JSON only."
+        ),
+    ),
     export_format: Literal["json", "csv"] = Query(
         "json", alias="format", description="`csv` downloads the bed list as a file (GP-FR-145) instead of JSON."
     ),
@@ -186,10 +193,12 @@ def list_locations(
 ) -> list[BedListItemResponse] | Response:
     """List a site's locations, or the children of a parent location.
 
-    With ``is_bed`` or ``bed_status`` the rows carry ``active_plant_count``, ``open_task_count`` and
-    ``next_due_at`` (GP-API-011). When beds are listed (``is_bed=true`` or ``bed_status``) they also carry
-    ``nearest_water_source_m`` (GP-FR-167): metres from the bed's edge to the nearest water source of the site,
-    ``null`` without a geometry or without a water source.
+    With ``is_bed``, ``bed_status`` or ``supports_layout`` the rows carry ``active_plant_count``,
+    ``open_task_count`` and ``next_due_at`` (GP-API-011). ``supports_layout=true`` lists every location that can
+    carry a slot layout - beds, tents, shelves: the planting spots of an indoor plan (GP-FR-183). When beds are
+    listed (``is_bed=true`` or ``bed_status``) they also carry ``nearest_water_source_m`` (GP-FR-167): metres from
+    the bed's edge to the nearest water source of the site, ``null`` without a geometry or without a water source; a
+    ``supports_layout`` listing carries it on its bed rows only.
 
     ``format=csv`` (GP-FR-145/175) downloads the **beds** of the site (types with ``is_bed``; ``is_bed=false`` is
     422 ``export.beds_only``), sorted by name: UTF-8 with BOM, RFC 4180 quoting, cells that look like a formula
@@ -218,8 +227,14 @@ def list_locations(
             delimiter=delimiter,
             filename_stem="bed-list",
         )
-    if is_bed is not None or bed_status is not None:
-        rows = resources.list_beds(site_key, tenant_key=ctx.tenant_key, is_bed=is_bed, bed_status=bed_status)
+    if is_bed is not None or bed_status is not None or supports_layout is not None:
+        rows = resources.list_beds(
+            site_key,
+            tenant_key=ctx.tenant_key,
+            is_bed=is_bed,
+            bed_status=bed_status,
+            supports_layout=supports_layout,
+        )
         if parent_location_key:
             rows = [row for row in rows if row.location.parent_location_key == parent_location_key]
         return [

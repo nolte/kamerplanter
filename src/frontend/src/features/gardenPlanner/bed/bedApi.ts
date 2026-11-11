@@ -18,6 +18,18 @@ import type { SoilAnalysesResponse, SoilAnalysisBody } from './soilAnalysisTypes
 
 const LOCATIONS = '/locations';
 
+/**
+ * GP-API-011 with `supports_layout` (WP 10.8, GP-FR-183, G-W10 e): every location of a site that can carry a slot
+ * layout - the beds and, indoors, tents and shelves (the "Pflanzplätze") - with the same counters as `listBeds`.
+ * A bed is still a bed: every `is_bed` type supports a layout, so a garden lists the same beds as before.
+ */
+export async function listLayoutLocations(siteKey: string): Promise<BedListItem[]> {
+  const { data } = await tenantClient.get<BedListItem[]>(LOCATIONS, {
+    params: { site_key: siteKey, supports_layout: true },
+  });
+  return data;
+}
+
 /** GP-API-011: the beds of a site with `active_plant_count`, `open_task_count` and `next_due_at`. */
 export async function listBeds(siteKey: string, status?: BedStatus): Promise<BedListItem[]> {
   const { data } = await tenantClient.get<BedListItem[]>(LOCATIONS, {

@@ -7,6 +7,10 @@
  * flags (root competition, allelopathy) two more - a note only, no value is derived from them. All of it is
  * entered by hand; nothing is derived (§29). The component only reports what changed, per part; the caller
  * stores it with `PATCH /locations/{key}` (merged per key by the server). `touchTarget` is 48 px by default.
+ *
+ * On an indoor site (`indoor`, `windowsill`, `grow_tent` - GP-FR-182, WP 10.8) the weather, frost and wind features
+ * are hidden: frost risk, cold-air pocket, stored heat and wind. Slope, aspect, access sides and the competition
+ * flags stay. A stored value of a hidden feature is kept as it is - hiding never writes.
  */
 import { useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +19,8 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import type { SiteType } from '@/api/types';
+import { isIndoorPlanSite } from '../model/siteKind';
 import type { FrostRisk, WindExposure } from '../model/types';
 import ChipChoice from './ChipChoice';
 import type { AccessSide, HeatRetention, SiteConditionsPatch, SiteConditionsSlice, SiteFlag } from './types';
@@ -125,6 +131,8 @@ export interface SiteConditionsFieldsProps {
   testId?: string;
   /** A degrees field is invalid (or valid again); the caller may refuse to save meanwhile. */
   onValidityChange?: (valid: boolean) => void;
+  /** The type of the bed's site; an indoor type hides weather, frost and wind (GP-FR-182). Unknown = shown. */
+  siteType?: SiteType | null;
 }
 
 export default function SiteConditionsFields({
@@ -134,7 +142,9 @@ export default function SiteConditionsFields({
   touchTarget = 48,
   testId = 'bed-view-site-conditions',
   onValidityChange,
+  siteType = null,
 }: SiteConditionsFieldsProps) {
+  const outdoor = !isIndoorPlanSite(siteType);
   const { t } = useTranslation();
   const name = useId();
   const [valid, setValid] = useState({ slope: true, aspect: true });
@@ -163,56 +173,60 @@ export default function SiteConditionsFields({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }} data-testid={testId}>
-      <ChipChoice
-        title={t('pages.gardenPlan.siteConditions.frost.title')}
-        hint={t('pages.gardenPlan.siteConditions.frost.hint')}
-        options={labelled(FROST_RISK_VALUES, 'frostRisk')}
-        value={[risk]}
-        mode="single"
-        onToggle={(option) => onChange({ microclimate: { frost_risk: option } })}
-        disabled={disabled}
-        touchTarget={touchTarget}
-        testId={`${testId}-frost`}
-      />
-      <Box>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={value.microclimate?.cold_air_pocket === true}
-              disabled={disabled}
-              onChange={(event) => onChange({ microclimate: { cold_air_pocket: event.target.checked } })}
-              slotProps={{ input: { 'aria-describedby': coldHelpId, 'data-testid': `${testId}-cold-air` } as object }}
+      {outdoor && (
+        <>
+          <ChipChoice
+            title={t('pages.gardenPlan.siteConditions.frost.title')}
+            hint={t('pages.gardenPlan.siteConditions.frost.hint')}
+            options={labelled(FROST_RISK_VALUES, 'frostRisk')}
+            value={[risk]}
+            mode="single"
+            onToggle={(option) => onChange({ microclimate: { frost_risk: option } })}
+            disabled={disabled}
+            touchTarget={touchTarget}
+            testId={`${testId}-frost`}
+          />
+          <Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={value.microclimate?.cold_air_pocket === true}
+                  disabled={disabled}
+                  onChange={(event) => onChange({ microclimate: { cold_air_pocket: event.target.checked } })}
+                  slotProps={{ input: { 'aria-describedby': coldHelpId, 'data-testid': `${testId}-cold-air` } as object }}
+                />
+              }
+              label={t('pages.gardenPlan.siteConditions.coldAirPocket.label')}
+              sx={{ minHeight: touchTarget, ml: 0 }}
             />
-          }
-          label={t('pages.gardenPlan.siteConditions.coldAirPocket.label')}
-          sx={{ minHeight: touchTarget, ml: 0 }}
-        />
-        <Typography id={coldHelpId} variant="caption" color="text.secondary" component="p">
-          {t('pages.gardenPlan.siteConditions.coldAirPocket.help')}
-        </Typography>
-      </Box>
-      <ChipChoice
-        title={t('pages.gardenPlan.siteConditions.heat.title')}
-        hint={t('pages.gardenPlan.siteConditions.heat.hint')}
-        options={labelled(HEAT_RETENTION_VALUES, 'heatRetention')}
-        value={[heat]}
-        mode="single"
-        onToggle={(option) => onChange({ microclimate: { heat_retention: option } })}
-        disabled={disabled}
-        touchTarget={touchTarget}
-        testId={`${testId}-heat`}
-      />
-      <ChipChoice
-        title={t('pages.gardenPlan.siteConditions.wind.title')}
-        hint={t('pages.gardenPlan.siteConditions.wind.hint')}
-        options={labelled(WIND_EXPOSURE_VALUES, 'windExposure')}
-        value={[wind]}
-        mode="single"
-        onToggle={(option) => onChange({ wind_exposure: option })}
-        disabled={disabled}
-        touchTarget={touchTarget}
-        testId={`${testId}-wind`}
-      />
+            <Typography id={coldHelpId} variant="caption" color="text.secondary" component="p">
+              {t('pages.gardenPlan.siteConditions.coldAirPocket.help')}
+            </Typography>
+          </Box>
+          <ChipChoice
+            title={t('pages.gardenPlan.siteConditions.heat.title')}
+            hint={t('pages.gardenPlan.siteConditions.heat.hint')}
+            options={labelled(HEAT_RETENTION_VALUES, 'heatRetention')}
+            value={[heat]}
+            mode="single"
+            onToggle={(option) => onChange({ microclimate: { heat_retention: option } })}
+            disabled={disabled}
+            touchTarget={touchTarget}
+            testId={`${testId}-heat`}
+          />
+          <ChipChoice
+            title={t('pages.gardenPlan.siteConditions.wind.title')}
+            hint={t('pages.gardenPlan.siteConditions.wind.hint')}
+            options={labelled(WIND_EXPOSURE_VALUES, 'windExposure')}
+            value={[wind]}
+            mode="single"
+            onToggle={(option) => onChange({ wind_exposure: option })}
+            disabled={disabled}
+            touchTarget={touchTarget}
+            testId={`${testId}-wind`}
+          />
+        </>
+      )}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
         <DegreesField
           label={t('pages.gardenPlan.siteConditions.slope.label')}

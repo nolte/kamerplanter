@@ -78,13 +78,14 @@ describe('BedListSection', () => {
     await waitFor(() => expect(seen).toHaveLength(2));
   });
 
-  it('asks for the beds of the site and shows the counters (GP-API-011)', async () => {
+  it('asks for the layout-capable locations of the site and shows the counters (GP-API-011, WP 10.8)', async () => {
     const seen: URLSearchParams[] = [];
     useBackend(BEDS, seen);
     renderList();
     const row = (await screen.findByText('Tomato bed')).closest('tr')!;
     expect(seen[0].get('site_key')).toBe('site_1');
-    expect(seen[0].get('is_bed')).toBe('true');
+    // G-W10 e: the list means "can carry a layout" - every bed type does, so a garden of beds lists the same rows.
+    expect(seen[0].get('supports_layout')).toBe('true');
     expect(within(row).getByText('3 (1 overdue)')).toBeInTheDocument();
     expect(within(row).getByText('6')).toBeInTheDocument();
     expect(within(row).getByText('Active')).toBeInTheDocument();
@@ -198,5 +199,41 @@ describe('BedListSection nearest water source column (GP-FR-167, WP 9.12)', () =
     renderList();
     await screen.findByText('Tomato bed');
     expect(screen.queryByRole('columnheader', { name: /Water source/ })).toBeNull();
+  });
+});
+
+describe('BedListSection: planting spots (REQ-053 WP 10.8, GP-FR-183, G-W10 e)', () => {
+  const SPOTS = [
+    bedListItem('bed_1', { name: 'Raised bed' }),
+    bedListItem('tent_1', { name: 'Grow tent 80', location_type_key: 'tent' }),
+    bedListItem('shelf_1', { name: 'Herb shelf', location_type_key: 'shelf' }),
+  ];
+
+  it('loads every location that can carry a layout, not only the beds', async () => {
+    const seen: URLSearchParams[] = [];
+    useBackend(SPOTS, seen);
+    renderList();
+
+    expect(await screen.findByText('Grow tent 80')).toBeInTheDocument();
+    expect(screen.getByText('Herb shelf')).toBeInTheDocument();
+    expect(seen[0].get('supports_layout')).toBe('true');
+    expect(seen[0].has('is_bed')).toBe(false);
+  });
+
+  it('is titled "Planting spots" on an indoor plan', async () => {
+    useBackend(SPOTS);
+    const store = createTestStore({ ...tenantState('grower'), ...authState() });
+    renderWithProviders(<BedListSection siteKey="site_1" reloadToken="r1" onSelectBed={vi.fn()} indoor />, { store });
+
+    expect(await screen.findByRole('heading', { name: 'Planting spots' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Beds' })).toBeNull();
+  });
+
+  it('keeps the title "Beds" in a garden - a bed is still a bed', async () => {
+    useBackend();
+    renderList();
+
+    expect(await screen.findByRole('heading', { name: 'Beds' })).toBeInTheDocument();
+    expect(await screen.findByText('Tomato bed')).toBeInTheDocument();
   });
 });

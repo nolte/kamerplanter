@@ -5327,6 +5327,7 @@
         "plan": "Plan",
         "list": "List",
         "beds": "Beds",
+        "plantingSpots": "Planting spots",
         "bedsOffline": "The bed list needs a connection to the server. As soon as you are back online, you will see your beds here."
       },
       "empty": {
@@ -5334,6 +5335,13 @@
         "description": "No plan has been created for this site yet. Members with the grower or lead role create the beds; once the first one exists, you will see your beds and garden objects from above here.",
         "descriptionCanEdit": "No plan has been created for this site yet. As the next step, add the first bed with its dimensions - after that you can draw further beds and garden objects right on the plan.",
         "addFirstBed": "Add the first bed"
+      },
+      "emptyIndoor": {
+        "title": "No flat plan yet",
+        "description": "Draw the outline of your flat or load a photo as a template. Members with the grower or lead role do this; afterwards you see rooms, windowsills, shelves and tents from above here.",
+        "descriptionCanEdit": "Draw the outline of your flat or load a photo as a template. You can calibrate a photo or sketch of the floor plan to real dimensions with two points and draw on top of it; the grid is set to 5 cm.",
+        "draw": "Draw the floor plan",
+        "underlay": "Load a photo as a template"
       },
       "renderer": {
         "canvas": "Garden plan",
@@ -7109,6 +7117,7 @@
       },
       "siteConditions": {
         "hint": "Record what you observe at the bed. Kamerplanter computes nothing from it; the values feed the planting hints and the frost early warning.",
+        "hintIndoor": "Record what you observe at this spot. Kamerplanter calculates nothing from it; the details feed into hints when planting. Weather, frost and wind play no part indoors and are therefore hidden.",
         "frost": {
           "title": "Frost risk",
           "hint": "Is the bed in a hollow or a cold spot? The frost early warning always names \"High\" and never \"Low\"."
@@ -7470,6 +7479,12 @@
         "notPlaced": "\"{{name}}\" is not drawn on the garden plan yet.",
         "batchOpen": "Complete tasks on several beds",
         "careLink": "{{tasks}}: open the care tab of {{name}}"
+      },
+      "listIndoor": {
+        "title": "Planting spots",
+        "hint": "This lists every place your plants stand on: beds, tents and shelves. Choose a row to highlight the spot on the plan. The name opens it.",
+        "empty": "No planting spots yet",
+        "emptyDescription": "Draw a tent, a shelf or a bed on the plan and it appears here."
       },
       "care": {
         "sections": {

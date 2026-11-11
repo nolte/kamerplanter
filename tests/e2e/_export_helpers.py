@@ -21,8 +21,8 @@ ARRANGEMENTS (the application's own routes, `test-pyramid-foundation` §"Arrange
 * :func:`create_bed_template` / :func:`bed_templates` - ``POST`` / ``GET /bed-templates`` (GP-FR-044).
 * :func:`complete_task_via_api` - ``POST /tasks/{key}/complete`` with an empty body: "someone closed the task
   meanwhile" (WP 9.3's ``409 task.already_closed`` precondition).
-* :func:`bed_list_rows` - ``GET /locations?site_key=&is_bed=true``: what the bed list reads, with
-  ``nearest_water_source_m``.
+* :func:`bed_list_rows` - ``GET /locations?site_key=&supports_layout=true``: what the bed list reads since WP 10.8
+  (beds, plus tents and shelves - the same rows on a garden of beds), with ``nearest_water_source_m``.
 """
 
 from __future__ import annotations
@@ -260,8 +260,10 @@ def add_water_source(
 
 
 def bed_list_rows(base_url: str, seed: dict, site_key: str) -> dict[str, dict]:
-    """``GET /locations?site_key=&is_bed=true`` by bed key - the rows the bed list and its water column read."""
-    body = tenant_get(base_url, seed, f"/locations?site_key={site_key}&is_bed=true&limit=200")
+    """``GET /locations?site_key=&supports_layout=true`` by key - the rows the bed list and its water column read."""
+    body = tenant_get(
+        base_url, seed, f"/locations?site_key={site_key}&supports_layout=true&limit=200"
+    )
     rows = body.get("items") if isinstance(body, dict) else body
     if not isinstance(rows, list):
         raise AssertionError(f"the bed list of {site_key!r} is not a list: {body!r}")

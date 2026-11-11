@@ -64,6 +64,8 @@ interface BedHeaderProps {
   onChangeSun?: (() => void) | null;
   /** `null` hides the control (a viewer cannot change the site conditions, GP-FR-162/163/168). */
   onChangeSite?: (() => void) | null;
+  /** `false` on an indoor site (GP-FR-182, WP 10.8): weather, frost and wind are left out of the site line. */
+  outdoorConditions?: boolean;
   /** Reasons given when a planting went ahead despite a crop-rotation hint (GP-FR-132); empty = no badge. */
   rotationReasons?: readonly string[];
   /** The site's reach thresholds (GP-FR-166, WP 8.24); absent = 1.2 / 0.6 m. The path distance acts on the server. */
@@ -172,6 +174,7 @@ export default function BedHeader({
   onChangeStatus,
   onChangeSun = null,
   onChangeSite = null,
+  outdoorConditions = true,
   rotationReasons = [],
   reachThresholds = DEFAULT_REACH_THRESHOLDS,
   previousYear,
@@ -188,7 +191,7 @@ export default function BedHeader({
   const overdue = isOverdue(summary.next_due_at);
   const notSet = t('pages.bed.header.unknown');
   const sunLine = sunProfileLine(t, summary.site_conditions?.sun_profile);
-  const siteLine = siteConditionsLine(t, summary.site_conditions);
+  const siteLine = siteConditionsLine(t, summary.site_conditions, outdoorConditions);
   const accessSides = summary.site_conditions?.access_sides;
   const flagsLine = siteFlagsLine(t, summary.site_conditions?.flags);
   const pathAccess = summary.path_access ?? null;

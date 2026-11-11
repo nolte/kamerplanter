@@ -9,6 +9,7 @@
  * Lengths are metres, angles degrees counter-clockwise about +x (§9.2).
  */
 
+import type { SiteType } from '@/api/types';
 import type { PlanZone } from '../zones/zoneTypes';
 
 /** The only plan DTO version this client reads (GP-API-001 `schema_version`). */
@@ -347,6 +348,13 @@ export interface GardenPlanResponse {
   schema_version: string;
   site_key: string;
   site_name: string;
+  /**
+   * The site's type (WP 10.8): `indoor`, `windowsill` and `grow_tent` make the plan an indoor plan (GP-FR-182).
+   * Absent in a plan cached before the server sent it; read as a garden plan then.
+   */
+  site_type?: SiteType;
+  /** The snap grid a new plan of this site starts with: 0.05 indoor, 0.1 otherwise; `plan.default_grid_m` wins. */
+  site_default_grid_m?: number;
   plan_revision: number;
   /** Absent = a site without a garden plan (§20.2). */
   plan?: PlanSettings | null;

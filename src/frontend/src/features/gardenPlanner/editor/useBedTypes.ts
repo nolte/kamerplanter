@@ -1,6 +1,6 @@
 /**
- * The bed types the user can pick for a new bed (REQ-053 GP-FR-040: location types flagged
- * `is_bed`). Loaded on demand - only while a bed is about to be created - so the editor makes no
+ * The types the user can pick for a new bed or planting spot: the location types that can carry a slot layout
+ * (REQ-053 GP-FR-040, §9.2a `supports_layout` - every bed type plus tent and shelf, WP 10.8 G-W10 e). Loaded on demand - only while a bed is about to be created - so the editor makes no
  * request of its own otherwise. A failed request leaves the list empty; the draw tool then keeps
  * the plan's most common bed type.
  */
@@ -16,7 +16,7 @@ export function useBedTypes(enabled: boolean): LocationType[] {
     sitesApi
       .listLocationTypes()
       .then((all) => {
-        if (!cancelled) setTypes(all.filter((type) => type.is_bed));
+        if (!cancelled) setTypes(all.filter((type) => type.supports_layout));
       })
       .catch(() => {
         if (!cancelled) setTypes([]);

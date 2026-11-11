@@ -23,6 +23,7 @@ from app.common.enums import (
     FlowRateSource,
     FrostRisk,
     IrrigationZoneType,
+    SiteType,
     SlotRole,
     SoilDrainage,
     SoilTexture,
@@ -490,6 +491,8 @@ class GardenPlanResponse(BaseModel):
                     "schema_version": "1",
                     "site_key": "site_7f3a",
                     "site_name": "Vegetable garden",
+                    "site_type": "outdoor",
+                    "site_default_grid_m": 0.1,
                     "plan_revision": 42,
                     "plan": {"north_angle_deg": 15.0, "default_grid_m": 0.1, "adjacency_factor": 1.5},
                     "locations": [],
@@ -507,6 +510,16 @@ class GardenPlanResponse(BaseModel):
     schema_version: str
     site_key: str
     site_name: str
+    #: No default either: the client tells an indoor plan by it (GP-FR-182), so it is always on the wire.
+    site_type: SiteType = Field(
+        description="The site's type; `indoor`, `windowsill` and `grow_tent` make the plan an indoor plan (§9.8)."
+    )
+    site_default_grid_m: float = Field(
+        description=(
+            "The snap grid a new plan of this site starts with: 0.05 indoor, 0.1 otherwise (GP-FR-011/182). "
+            "A stored `plan.default_grid_m` wins."
+        )
+    )
     plan_revision: int = 0
     #: ``null`` = a site without a garden plan (§20.2).
     plan: PlanSettingsResponse | None = None

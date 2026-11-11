@@ -13,6 +13,7 @@ import { installRecordingCanvas, uninstallRecordingCanvas } from '@/features/gar
 import { rootReducer } from '@/store/rootReducer';
 import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
+import type { SiteType } from '@/api/types';
 import type { GardenPlanResponse } from '@/features/gardenPlanner/model/types';
 import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
 import { createStoreWithModuleOverrides, renderWithProviders, tenantState } from '@/test/helpers';
@@ -255,6 +256,86 @@ describe('GardenPlanRoute', () => {
       expect(screen.queryByTestId('garden-plan-empty-add-bed')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Add the first bed' })).toBeNull();
       expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
+    });
+  });
+
+  describe('indoor plan (REQ-053 WP 10.8, GP-FR-182/183, GP-UX-049/064)', () => {
+    const INDOOR = ['indoor', 'windowsill', 'grow_tent'] as const;
+    const GARDEN = ['outdoor', 'greenhouse', 'balcony'] as const;
+    const emptyOf = (site_type: SiteType) =>
+      planResponse({ site_type, plan: null, locations: [], garden_objects: [], slots: [], plants: [] });
+
+    it.each(INDOOR)('invites a grower to draw the flat or load a photo on a %s site', async (siteType) => {
+      usePlan(emptyOf(siteType));
+      renderRoute(undefined, tenantState('grower'));
+      const empty = await screen.findByTestId('garden-plan-empty');
+
+      expect(empty).toHaveAttribute('data-plan-kind', 'indoor');
+      expect(screen.getByText('No flat plan yet')).toBeInTheDocument();
+      expect(screen.getByText(/Draw the outline of your flat or load a photo as a template/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Draw the floor plan' })).toHaveAttribute('data-testid', 'garden-plan-empty-draw');
+      expect(screen.getByRole('button', { name: 'Load a photo as a template' })).toHaveAttribute(
+        'data-testid',
+        'garden-plan-empty-underlay',
+      );
+      expect(screen.queryByTestId('garden-plan-empty-add-bed')).toBeNull();
+    });
+
+    it.each(GARDEN)('keeps the garden empty state on a %s site (counter-check)', async (siteType) => {
+      usePlan(emptyOf(siteType));
+      renderRoute(undefined, tenantState('grower'));
+      expect(await screen.findByTestId('garden-plan-empty')).toHaveAttribute('data-plan-kind', 'garden');
+      expect(screen.getByTestId('garden-plan-empty-add-bed')).toBeInTheDocument();
+      expect(screen.queryByTestId('garden-plan-empty-draw')).toBeNull();
+      expect(screen.queryByTestId('garden-plan-empty-underlay')).toBeNull();
+    });
+
+    it('shows a viewer the indoor text without an action', async () => {
+      usePlan(emptyOf('indoor'));
+      renderRoute(undefined, tenantState('viewer'));
+      await screen.findByTestId('garden-plan-empty');
+      expect(screen.getByText(/Members with the grower or lead role do this/)).toBeInTheDocument();
+      expect(screen.queryByTestId('garden-plan-empty-draw')).toBeNull();
+      expect(screen.queryByTestId('garden-plan-empty-underlay')).toBeNull();
+    });
+
+    it('"Draw the floor plan" opens the editor on the 5 cm grid, without a dialog', async () => {
+      usePlan({ ...emptyOf('indoor'), site_default_grid_m: 0.05 });
+      renderRoute(undefined, tenantState('grower'));
+      fireEvent.click(await screen.findByTestId('garden-plan-empty-draw'));
+
+      expect(await screen.findByTestId('garden-plan-canvas')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByTestId('garden-plan-empty')).toBeNull();
+    });
+
+    it('"Load a photo as a template" opens the editor with the underlay dialog', async () => {
+      usePlan(emptyOf('windowsill'));
+      renderRoute(undefined, tenantState('grower'));
+      fireEvent.click(await screen.findByTestId('garden-plan-empty-underlay'));
+
+      expect(await screen.findByTestId('garden-plan-underlay-dialog')).toBeInTheDocument();
+      expect(screen.getByTestId('garden-plan-editor')).toBeInTheDocument();
+    });
+
+    it.each(INDOOR)('names the bed tab "Planting spots" on a %s plan; the URL value stays beds', async (siteType) => {
+      usePlan(planResponse({ site_type: siteType }));
+      server.use(http.get('/api/v1/t/:tenant/locations', () => HttpResponse.json([])));
+      renderRoute('/standorte/sites/site_1/plan?tab=beds');
+      await screen.findByTestId('garden-plan-canvas');
+
+      expect(screen.getByTestId('garden-plan-tab-beds')).toHaveTextContent('Planting spots');
+      expect(await screen.findByRole('heading', { name: 'Planting spots' })).toBeInTheDocument();
+    });
+
+    it.each(GARDEN)('keeps the bed tab "Beds" on a %s plan (counter-check)', async (siteType) => {
+      usePlan(planResponse({ site_type: siteType }));
+      server.use(http.get('/api/v1/t/:tenant/locations', () => HttpResponse.json([])));
+      renderRoute('/standorte/sites/site_1/plan?tab=beds');
+      await screen.findByTestId('garden-plan-canvas');
+
+      expect(screen.getByTestId('garden-plan-tab-beds')).toHaveTextContent('Beds');
+      expect(await screen.findByRole('heading', { name: 'Beds' })).toBeInTheDocument();
     });
   });
 
