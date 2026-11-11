@@ -14,14 +14,22 @@ Der Gartenplan zeigt deinen Garten von oben: Beete und Gartenobjekte wie Wege, Z
 
 Öffne unter **Standorte** den Standort und klicke auf **Gartenplan öffnen**. Die Seite trägt die Adresse `/standorte/sites/<Schlüssel>/plan`. Auf einem schmalen Bildschirm (unter 600 Pixel Breite) öffnet sie direkt im [Feldmodus](#feldmodus-im-garten); sonst startet der Planungsmodus. Über **Feldmodus** bzw. **Planungsmodus** oben auf der Seite wechselst du jederzeit.
 
-Der Planungsmodus zeigt links oder oben die Werkzeugleiste, in der Mitte den Plan, rechts das Eigenschaften-Feld und unter dem Plan die [Beetliste](#beetliste-im-gartenplan). Mit der Schaltfläche **Als Liste anzeigen** wechselst du zur Listenansicht desselben Plans, die ohne Maus und Zeichenfläche auskommt.
+Der Planungsmodus ist eine Arbeitsfläche wie in einem Zeichenprogramm. Die Zeichenfläche bekommt so viel Platz wie möglich:
+
+- **Kopfleiste:** Eine einzige Zeile über dem Plan. Sie enthält **Zurück** zum Standort, **Rückgängig** und **Wiederholen**, den Speicher-Stand mit **Speichern**, die Tabs **Plan**, **Liste** und **Beete**, den Wechsel in den Feldmodus und den Schalter für das Seitenpanel. Seltene Aktionen liegen im Menü **⋮** (Mehr): Tastaturhilfe, Unterlage, Alles auswählen, Export und Import und, wenn genau ein Beet gewählt ist, **Als Vorlage speichern**. Wird das Fenster schmaler, wandern zuerst der Schalter **Automatisch speichern**, dann der Feldmodus-Wechsel, der Panel-Schalter und zuletzt die Tabs ins Menü. **Speichern** bleibt immer sichtbar.
+- **Tabs Plan · Liste · Beete:** **Plan** zeigt die Zeichenfläche, **Liste** denselben Plan als Liste (ohne Maus und Zeichenfläche bedienbar), **Beete** die [Beetliste](#beetliste-im-gartenplan). Der gewählte Tab steht in der Adresse (`?tab=plan`, `list` oder `beds`). Ein Link öffnet also direkt den richtigen Tab, und **Zurück** im Browser führt zum vorigen Tab. Beim Wechsel zwischen den Tabs bleiben ungespeicherte Änderungen, Auswahl und Ausschnitt erhalten, und es kommt keine Rückfrage.
+- **Werkzeug-Leiste:** links neben der Zeichenfläche, senkrecht (siehe [Werkzeuge und Formen](#werkzeuge-und-formen)).
+- **Zeichenfläche:** füllt die Höhe des Fensters. Zoom, **Anpassen**, Maßstabsbalken und die Übersichtskarte liegen in den Ecken über dem Plan.
+- **Seitenpanel:** rechts, mit den Tabs **Eigenschaften**, **Ansicht**, **Ebenen** und **Zonen** (siehe [Eigenschaften, Seitenpanel und Listenansicht](#eigenschaften-und-listenansicht)). Ohne Auswahl ist es eingeklappt und nimmt keinen Platz weg.
+
+**Auf Tablet und Telefon.** Ab 1024 Pixel Breite steht das Seitenpanel neben dem Plan. Zwischen 768 und 1023 Pixeln legt es sich als Schublade von rechts über den Plan. Unter 768 Pixeln wird die Werkzeug-Leiste zur Leiste unter dem Plan, und das Seitenpanel öffnet sich als Blatt von unten (halbe oder volle Höhe). In der Kopfleiste bleiben dann nur **Zurück**, der Speicher-Stand, **Speichern** und **⋮**; **Rückgängig** und **Wiederholen** stehen in der Leiste unter dem Plan. Mit einem Touchscreen siehst du die Touch-Leiste (Punkt setzen, Mehrfachauswahl) auf jeder Breite. <!-- REQ-053 GP-UX-063, GP-UX-064, GP-UX-065, GP-UX-067, GP-UX-068, GP-UX-069 -->
 
 ### Die Gartengrenze {#die-gartengrenze}
 
 Jeder Plan hat eine Gartengrenze: den Umriss deines Gartens als Rechteck oder Vieleck. Beete und Gartenobjekte müssen ganz innerhalb liegen. Ein Standort ohne Grenze und ohne eingezeichnete Objekte zeigt statt des Editors den Hinweis **Noch kein Gartenplan**.
 
 !!! note "Teilweise verfügbar: Gartengrenze"
-    Die Oberfläche hat noch kein Werkzeug, mit dem du die Gartengrenze zeichnest. Den ersten Plan legst du über die Programmierschnittstelle an (siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster)) oder du spielst eine Sicherung ein (siehe [Plan exportieren und Sicherung einspielen](#plan-export-import)). Ist die Grenze einmal da, ändert sich nur noch ihre Nordrichtung im Editor: Das Kompass-Feld stellt ein, wo geografisch Norden auf dem Plan liegt. <!-- REQ-053 GP-FR-013, GP-FR-015 -->
+    Die Oberfläche hat noch kein Werkzeug, mit dem du die Gartengrenze zeichnest. Den ersten Plan legst du über die Programmierschnittstelle an (siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster)) oder du spielst eine Sicherung ein (siehe [Plan exportieren und Sicherung einspielen](#plan-export-import)). Ist die Grenze einmal da, ändert sich nur noch ihre Nordrichtung im Editor: Das Kompass-Feld stellt ein, wo geografisch Norden auf dem Plan liegt. Auch **Grundriss zeichnen** im leeren [Wohnungsplan](#wohnungsplan) öffnet nur die leere Zeichenfläche; einen Umriss zeichnest du dort noch nicht. <!-- REQ-053 GP-FR-013, GP-FR-015, GP-FR-182 -->
 
 ### Wer darf was {#wer-darf-was}
 
@@ -45,17 +53,21 @@ Deine Rolle gilt immer für den Garten (Mandanten), in dem du gerade arbeitest.
 
 ## Zeichnen und bearbeiten
 
-### Werkzeuge und Formen
+### Werkzeuge und Formen {#werkzeuge-und-formen}
 
-Die Werkzeugleiste bietet vier Werkzeuge und die Vorlagenwahl:
+Die Werkzeug-Leiste links neben dem Plan bietet vier Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
 
 | Werkzeug | Was es tut |
 |----------|-----------|
 | **Auswählen** | Klicken wählt ein Objekt, ein Rahmen wählt mehrere, mit der Umschalttaste fügst du Objekte hinzu. Gewählte Objekte verschiebst du durch Ziehen. |
 | **Ansicht verschieben** | Zieht die Ansicht, ohne etwas zu ändern. |
-| **Beet zeichnen** | Zeichnet ein neues Beet. |
-| **Objekt: Gartenobjekt zeichnen** | Zeichnet ein Gartenobjekt wie Weg, Zaun oder Baum. |
-| **Aus Vorlage** | Setzt ein Beet aus einer [Vorlage](#beetvorlagen). |
+| **Beet zeichnen** ▸ | Zeichnet ein neues Beet. Das kleine Menü daneben bietet **Aus Vorlage** (ein Beet aus einer [Vorlage](#beetvorlagen) setzen) und **Mit Maßen hinzufügen**. |
+| **Objekt: Gartenobjekt zeichnen** ▸ | Zeichnet ein Gartenobjekt wie Weg, Zaun, Baum, Rankhilfe, Kompost oder im Wohnungsplan Fenster, Tür, Möbel und Lampe. Das Menü daneben bietet **Mit Maßen hinzufügen**. |
+
+Unter den Werkzeugen erscheint die **Auswahlgruppe** nur, solange etwas gewählt ist: **Drehraster** (15°, 45°, 90°), **Ausrichten** und **Löschen**.
+
+!!! note "Teilweise verfügbar: Werkzeuge"
+    Vier weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Bereich**, **Pflanze setzen**, **Messen** und **Beschriftung**. Bis dahin legst du Bereiche über die Programmierschnittstelle oder eine Sicherung an und bepflanzt Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, #2868 -->
 
 Als **Form** wählst du Rechteck, Kreis, Vieleck oder Linie. Das Rechteck ziehst du auf (mit der Umschalttaste wird es ein Quadrat), den Kreis ziehst du vom Mittelpunkt nach außen. Beim Vieleck und bei der Linie klickst du Punkt für Punkt; mit **Fertig**, der Eingabetaste oder einem Klick auf den ersten Punkt schließt du das Vieleck, die Linie beendest du mit **Fertig** oder der Eingabetaste. Die Rücktaste nimmt den letzten Punkt zurück, **Esc** verwirft die Form.
 
@@ -83,7 +95,7 @@ Die Maße des gewählten Objekts stehen außerhalb über seiner Oberkante und we
 
 ### Mit der Tastatur
 
-Der Plan ist ohne Maus bedienbar. Die Schaltfläche **Tastaturhilfe** (oder die Taste **?**) listet alle Tasten. Die wichtigsten:
+Der Plan ist ohne Maus bedienbar. **Tastaturhilfe** im Menü **⋮** (oder die Taste **?**) listet alle Tasten. Die wichtigsten:
 
 | Taste | Wirkung |
 |-------|---------|
@@ -104,18 +116,33 @@ Tab verlässt den Plan; alle Objekte und Aktionen erreichst du in der Listenansi
 
 ### Raster, Einrasten, Zoom und Kompass
 
-- **Raster:** Die Rasterstufen sind 1 cm, 5 cm, 10 cm, 25 cm, 50 cm und 1 m. Bei kleinem Zoom zeichnet der Plan nur die Stufen, deren Linien weit genug auseinander liegen. Mit **Raster anzeigen** (oder **G**) blendest du die Linien aus; das Einrasten bleibt davon unberührt.
+Raster, Einrasten, Längeneinheit und Kompass findest du im Seitenpanel im Tab **Ansicht**. Zoom und **Anpassen** liegen oben rechts auf der Zeichenfläche.
+
+- **Raster:** Die Rasterstufen sind 1 cm, 5 cm, 10 cm, 25 cm, 50 cm und 1 m; ein neuer Gartenplan beginnt mit 10 cm, ein Wohnungsplan mit 5 cm. Bei kleinem Zoom zeichnet der Plan nur die Stufen, deren Linien weit genug auseinander liegen. Mit **Raster anzeigen** (oder **G**) blendest du die Linien aus; das Einrasten bleibt davon unberührt.
 - **Einrasten:** Der Schalter **Einrasten** lässt Objekte beim Verschieben, Zeichnen und Ziehen der Griffe am Raster und an Ecken und Kanten anderer Objekte einrasten.
 - **Längeneinheit:** Du wählst Meter oder Zentimeter für alle Maßangaben im Editor. Gespeichert wird immer in Metern.
 - **Zoom:** Die festen Stufen sind 25, 50, 100, 200 und 400 Prozent; **Anpassen** zeigt den ganzen Plan. Der Maßstabsbalken zeigt, wie lang eine Strecke auf dem Plan ist.
 - **Kompass:** Stelle den **Nordwinkel** ein, damit der Plan weiß, wo geografisch Norden liegt: durch Drehen des Zifferblatts, mit den Pfeiltasten oder durch Eintippen (0 bis unter 360 Grad im Uhrzeigersinn; 0 heißt: Norden ist oben). Der Kompass im Handy liefert magnetisch Nord; Kamerplanter übernimmt ihn deshalb nie automatisch.
 - **Übersichtskarte:** siehe [Im Gartenplan schneller arbeiten](#plan-komfort).
 
-### Eigenschaften und Listenansicht
+### Eigenschaften, Seitenpanel und Listenansicht {#eigenschaften-und-listenansicht}
 
-Das **Eigenschaften**-Feld zeigt zum gewählten Beet oder Objekt Name, Typ, Position (x nach rechts, y nach oben, in Metern), Maße und Drehung gegen den Uhrzeigersinn. Du änderst die Werte direkt; über **Sperren** schützt du ein Objekt vor versehentlichem Verschieben. Bei einem Beet findest du hier auch **Bepflanzen**, die Sonnen-Kacheln und die Zahl der offenen und überfälligen Aufgaben mit einem Sprung zum Pflege-Tab. Bei einem Vieleck listet das Feld die Punkte.
+Das **Seitenpanel** hat vier Tabs:
 
-Die Listenansicht zeigt dieselben Objekte als Liste mit Bereichen, Beeten und Gartenobjekten. Zu jedem Eintrag gibt es Verschieben-Schaltflächen, die Eingabe einer Zielposition und Löschen. Sie ist die Alternative für Bildschirmleser und für alle, die nicht zeichnen wollen.
+| Tab | Inhalt |
+|-----|--------|
+| **Eigenschaften** | Das gewählte Beet oder Objekt (siehe unten). |
+| **Ansicht** | Rasterstufe, Raster, Einrasten, Längeneinheit und Kompass. |
+| **Ebenen** | Die [Ebenen](#ebenen-und-standortbedingungen) mit ihren Schaltern, der Filter für Handlungsbedarf, die Legende und die Zonenlegende. |
+| **Zonen** | Die [Bewässerungszonen](#bewasserungszonen) verwalten. |
+
+Wählst du etwas aus, öffnet sich das Panel auf **Eigenschaften**. Hebst du die Auswahl auf, klappt es wieder ein, wenn es sich durch die Auswahl geöffnet hatte. Hast du es selbst über den Panel-Schalter in der Kopfleiste geöffnet, bleibt es offen; hast du es selbst geschlossen, bleibt es zu, bis du es öffnest oder etwas Neues wählst. Ohne Auswahl öffnet es auf dem zuletzt benutzten Tab, beim ersten Mal auf **Ansicht**. Die Tabs erreichst du auch mit der Tastatur: Pfeiltasten wechseln den Tab.
+
+Der Tab **Eigenschaften** zeigt zum gewählten Beet oder Objekt Name, Typ, Position (x nach rechts, y nach oben, in Metern), Maße und Drehung gegen den Uhrzeigersinn. Du änderst die Werte direkt; über **Sperren** schützt du ein Objekt vor versehentlichem Verschieben. Bei einem Beet findest du hier auch **Bepflanzen**, die Sonnen-Kacheln und die Zahl der offenen und überfälligen Aufgaben mit einem Sprung zum Pflege-Tab. Bei einem Vieleck listet das Feld die Punkte.
+
+Bei einem Gartenobjekt zeigt der Tab die **Objekteigenschaften** seiner Art: bei einer **Rankhilfe** die Höhe, bei einem **Fenster** Brüstungshöhe, Verglasung und die Himmelsrichtung, die Kamerplanter aus der Lage in der Wand und dem Nordwinkel ableitet (nur lesend), bei einer **Tür** die Öffnungsrichtung, bei einer **Lampe** Art, Montagehöhe und einen Referenzwert für die Lichtstärke (Kamerplanter rechnet daraus noch nichts). Der Schalter **Außerhalb des Grundstücks** markiert ein Objekt wie Nachbars Baum: Es darf über die Gartengrenze hinausragen und wird als Kulisse gezeichnet. Ausschalten geht nur, wenn das Objekt ganz im Garten liegt. Die Objekt-Legende im Tab **Ebenen** erklärt die Zeichen aller Objektarten auf dem Plan. Bei **Kompost**, **Wasserquelle** und **Lager** gibt es außerdem den Abschnitt [Aufgaben](#aufgaben-an-gartenobjekten). <!-- REQ-053 GP-FR-180 -->
+
+Der Tab **Liste** zeigt dieselben Objekte als Liste mit Bereichen, Beeten und Gartenobjekten. Zu jedem Eintrag gibt es Verschieben-Schaltflächen, die Eingabe einer Zielposition und Löschen. Sie ist die Alternative für Bildschirmleser und für alle, die nicht zeichnen wollen.
 
 ## Im Gartenplan schneller arbeiten {#plan-komfort}
 
@@ -139,7 +166,7 @@ Dieser Abschnitt beschreibt die Hilfen, die dir im Planungsmodus Handarbeit abne
 
 ## Speichern, Konflikte und Rückgängig
 
-Änderungen im Editor werden zuerst nur lokal angewandt. Die Leiste über dem Plan zeigt den Stand: **Ungespeicherte Änderungen (n)**, **Speichern …**, **Gespeichert**, **Konflikt** oder **Speichern fehlgeschlagen**. **Speichern** (oder **Strg + S**) schickt alle offenen Änderungen in einem Schritt zum Server: Entweder werden alle übernommen oder keine. Der Schalter **Automatisch speichern** erledigt das für dich, siehe unten.
+Änderungen im Editor werden zuerst nur lokal angewandt. Die Kopfleiste zeigt den Stand (auf schmalen Bildschirmen als Zeichen mit Zähler): **Ungespeicherte Änderungen (n)**, **Speichern …**, **Gespeichert**, **Konflikt** oder **Speichern fehlgeschlagen**. **Speichern** (oder **Strg + S**) schickt alle offenen Änderungen in einem Schritt zum Server: Entweder werden alle übernommen oder keine. Der Schalter **Automatisch speichern** erledigt das für dich, siehe unten.
 
 - **Rückgängig und Wiederholen** (Strg + Z, Strg + Umschalt + Z) gelten für die letzten 100 Schritte. Der Verlauf gilt nur für diese Sitzung: Lädst du die Seite neu, ist er weg.
 - **Konflikt:** Hat jemand anderes den Plan gespeichert, während du daran gearbeitet hast, nimmt der Server deine Änderungen nicht an. Ein Dialog nennt, wer zuletzt geändert hat. Du kannst deine Änderungen vorher als Kopie (JSON) herunterladen und dann **Neu laden**. Beim Neuladen gehen deine ungespeicherten Änderungen und der Rückgängig-Verlauf verloren.
@@ -152,11 +179,45 @@ Wähle ein Beet und klicke im Eigenschaften-Feld auf **Bepflanzen**. Es öffnet 
 
 Pflanzen erscheinen auf dem Plan als Marker. Die Zustandsebene beschreibt der Abschnitt [Pflanzenzustand und Filter](#pflanzenzustand-und-filter).
 
+**Rankhilfe.** Braucht eine Art eine Rankhilfe (etwa Erbse oder Stangenbohne), sagt dir der Pflanzdialog, welche Rankhilfen im Beet oder an seinem Rand eingezeichnet sind, mit ihrer Höhe. Ist keine eingezeichnet, weist er darauf hin; pflanzen kannst du trotzdem. Bei Arten ohne diese Angabe erscheint kein Hinweis. <!-- REQ-053 W-005 -->
+
+### Säen, vereinzeln und nachpflanzen {#saen-vereinzeln-nachpflanzen}
+
+Im Tab **Pflanzung** der Beetansicht gilt für Reihen und Flächen, die du direkt säst:
+
+1. **Als gesät erfassen:** An einer geplanten Reihe oder Fläche erfasst du den Tag der Aussaat (höchstens ein Jahr zurück, nicht in der Zukunft). Es entstehen noch keine einzelnen Pflanzen; die Reihe steht unter **Gesät** mit ihrem Datum, und der Pflanzenzustand zeigt sie mit Saatpunkten.
+2. **Vereinzeln:** Sobald die Sämlinge stehen, ziehst du die überzähligen heraus und tippst auf **Vereinzeln**. Der Dialog nimmt den Abstand aus dem Anbauplan, den du ändern kannst, und berechnet daraus mit der Reihenlänge oder Fläche die Zahl der Pflanzen. Fehlt ein Abstand, fragt er nach dem Abstand oder direkt nach der Zahl der stehen gebliebenen Pflanzen; Kamerplanter setzt keinen Wert von selbst ein. Danach sind die Pflanzen einzeln erfasst, die Reihe gilt nicht mehr als gesät, und das Pflegeprotokoll erhält einen Eintrag „Vereinzeln“.
+3. **Nachpflanzen:** Ist eine Pflanze eingegangen (beim Entfernen als „eingegangen“ erfasst, nicht „abgestorben (planmäßig)“), steht ihr Platz unter **Ausgefallen**. **Nachpflanzen** öffnet den Bepflanzen-Dialog mit derselben Kultur und ihrem Abstand. Eine Pflanze, die am Ende ihrer Zeit abgeräumt wurde, gilt nicht als ausgefallen und bekommt kein **Nachpflanzen**.
+
+!!! note "Teilweise verfügbar: Säen und Nachpflanzen"
+    Gesäte Reihen und Flächen erscheinen im Tab **Pflanzung**, im Pflanzenzustand und in der Legende, aber noch nicht als Linie oder Fläche auf der Zeichenfläche und nicht im PDF oder in der SVG. Beim Nachpflanzen derselben Kultur warnt der Fruchtfolge-Hinweis derzeit vor der eingegangenen Pflanze selbst; prüfe den Hinweis dann mit Augenmaß. <!-- REQ-053 W-015, §11.3, #2888 -->
+
 ## Beetliste im Gartenplan {#beetliste-im-gartenplan}
 
-Unter dem Plan auf der Gartenplan-Seite listet eine Tabelle deine Beete: Name (als Link zur Beetansicht), Typ, Fläche, Status, Zuständige, Pflanzen, offene Aufgaben (mit überfälligen) und nächste Fälligkeit. Stillgelegte Beete sind standardmäßig ausgeblendet. Der Schalter **Meine Beete** filtert auf deine Beete und setzt voraus, dass dir Beete zugewiesen sind.
+Der Tab **Beete** (im Wohnungsplan **Pflanzplätze**) listet in einer Tabelle deine Beete: Name (als Link zur Beetansicht), Typ, Fläche, Status, Zuständige, Pflanzen, offene Aufgaben (mit überfälligen) und nächste Fälligkeit. Stillgelegte Beete sind standardmäßig ausgeblendet. Der Schalter **Meine Beete** filtert auf deine Beete und setzt voraus, dass dir Beete zugewiesen sind.
 
-Klickst du auf eine Zeile oder drückst die Eingabetaste, wird das Beet im Plan ausgewählt und die Ansicht zoomt darauf. Die Zahl in der Spalte „Offene Aufgaben" ist ein Link zum Pflege-Tab des Beets. Ab der Rolle „grower" findest du über der Tabelle die Schaltfläche **Aufgaben auf mehreren Beeten erledigen** (siehe [Pflege am Beet](locations-substrates.md#pflege-am-beet)).
+Klickst du auf eine Zeile oder drückst die Eingabetaste, wechselt die Seite in den Tab **Plan**, das Beet ist ausgewählt und die Ansicht zoomt darauf. Nach jedem Speichern zeigt die Liste den gespeicherten Stand. Die Zahl in der Spalte „Offene Aufgaben" ist ein Link zum Pflege-Tab des Beets. Ab der Rolle „grower" findest du über der Tabelle die Schaltfläche **Aufgaben auf mehreren Beeten erledigen** (siehe [Pflege am Beet](locations-substrates.md#pflege-am-beet)).
+
+## Aufgaben an Gartenobjekten {#aufgaben-an-gartenobjekten}
+
+Auch ein Kompost, eine Wasserquelle oder ein Lager braucht Arbeit: den Kompost umsetzen, die Regentonne winterfest machen, den Schuppen aufräumen. Wählst du ein solches Objekt im Plan, zeigt der Tab **Eigenschaften** den Abschnitt **Aufgaben** mit den offenen Aufgaben des Objekts, nach Fälligkeit sortiert. **Aufgabe anlegen** öffnet den Aufgaben-Dialog mit dem Objekt als Ziel; zur Wahl stehen die Arten, die zu einem Objekt passen: Wartung, Reinigung, Beobachtung, Abdecken und Aufdecken. Aufgaben „für jede Pflanze“ gibt es hier nicht, weil ein Objekt keine Pflanzen trägt. Andere Objekte wie Weg, Zaun oder Rankhilfe bekommen keine Aufgaben. Ein Objekt muss gespeichert sein, bevor es Aufgaben bekommt, und ohne Verbindung kannst du keine anlegen. Anlegen dürfen Mitglieder ab der Rolle „grower“. <!-- REQ-053 R-7.2, W-008 -->
+
+## Wohnungsplan: Fensterbank, Regal und Zelt {#wohnungsplan}
+
+Für einen Standort in der Wohnung (Standort-Art Innenraum, Fensterbank oder Growzelt) ist der Gartenplan ein **Wohnungsplan**. Du zeichnest und planst mit denselben Werkzeugen wie im Garten; einiges ist auf drinnen eingestellt:
+
+- **Leerer Plan:** Statt „Noch kein Gartenplan“ steht **Noch kein Wohnungsplan** mit zwei Wegen: **Grundriss zeichnen** öffnet die leere Zeichenfläche, **Foto als Vorlage laden** öffnet sie mit dem Dialog für die [Unterlage](#unterlage). Ein Foto oder eine Skizze des Grundrisses, mit zwei Punkten auf echte Maße geeicht, ist der bequemste Einstieg.
+- **Raster:** Ein neuer Wohnungsplan beginnt mit 5 cm statt 10 cm.
+- **Objekte drinnen:** Unter **Gartenobjekt** findest du **Fenster** (als Linie in der Wand), **Tür**, **Möbel** (Fensterbank, Regal, Tisch) und **Lampe**. Ihre Eigenschaften stehen unter [Eigenschaften, Seitenpanel und Listenansicht](#eigenschaften-und-listenansicht).
+- **Was drinnen fehlt:** Frost, Kaltluft, Wärmespeicher und Wind blendet Kamerplanter für Innenräume aus, ebenso die Frost-Ebene. Gespeicherte Werte bleiben erhalten.
+- **Pflanzplätze:** Der Tab **Beete** heißt hier **Pflanzplätze** (in der Adresse bleibt `tab=beds`) und listet alles, worin du Pflanzen anordnen kannst: Zelte und Regale ebenso wie Kübel und Pflanzkästen. Ein Raum selbst ist kein Pflanzplatz.
+
+**Sonne aus dem Fenster vorschlagen.** Ein Fenster kennt seine Himmelsrichtung, sobald es in der Wand liegt: Kamerplanter leitet sie aus der Lage im Plan und dem Nordwinkel ab und zeigt sie bei den Eigenschaften des Fensters, etwa „Südost, 135°“. Wählst du einen Pflanzplatz, bietet sein Sonnenabschnitt **Aus Fenster vorschlagen**. Ein Dialog zeigt die Fenster im Umkreis (Standard 1,5 m; den Umkreis stellst du je Standort ein), den vorgeschlagenen Wert für **Sonne am Beet** (morgens, mittags, nachmittags, ganztägig oder wechselnd) und Hinweise, etwa dass Verschattung durch Nachbarhäuser oder Bäume nicht berücksichtigt ist. Fenster zur sonnenabgewandten Seite bringen nur diffuses Licht und zählen nicht. **Abbrechen** ändert nichts. Erst **Übernehmen** schreibt den Wert; steht schon ein Wert da, heißt die Schaltfläche **Ersetzen**, und der Dialog sagt dir vorher, was ersetzt wird. Stunden und Laubschatten bleiben unverändert. Ohne GPS-Koordinaten des Standorts nimmt Kamerplanter die Nordhalbkugel an; zwischen den Wendekreisen gibt es keinen Vorschlag. <!-- REQ-053 GP-FR-180, GP-FR-181, GP-FR-182, GP-FR-183 -->
+
+**Zelt-Regeln.** Auf der Seite eines Zelts oder Regals trägst du unter **Zelt-Regeln** einen eigenen **Nachbarschaftsfaktor** ein (er überschreibt den Wert des Gartens, etwa wenn Pflanzen bewusst ineinander wachsen) und die **Beleuchtung**: Höhe der Lampe und Abstand zu den Pflanzen. Kamerplanter speichert die Beleuchtung für eine spätere Lichtberechnung und rechnet daraus noch nichts. Stehen im selben Zelt Pflanzen, die laut ihren Phasenprofilen in ihrer aktuellen Phase unterschiedlich lange Lichttage brauchen, warnt die Seite: Eine Lampe hat nur einen Zeitplan. Ist für eine Phase keine Lichtdauer hinterlegt, sagt die Seite das, statt zu raten. Beim Bepflanzen warnt der Dialog, wenn ein Topf kleiner ist als das empfohlene Topfvolumen der Art. <!-- REQ-053 W-016 -->
+
+!!! note "Teilweise verfügbar: Wohnungsplan"
+    Einen Umriss der Wohnung zeichnest du noch nicht als eigene Grenze; nutze die Unterlage und zeichne Räume, Fensterbänke und Regale als Pflanzplätze oder Objekte. Die Warnung zum Lichtbedarf nennt die Phasen derzeit mit ihrem englischen Namen. Einige Beschriftungen sprechen drinnen noch vom „Garten“. <!-- REQ-053 GP-FR-182, #2890, #2889 -->
 
 ## Feldmodus im Garten {#feldmodus-im-garten}
 
@@ -234,7 +295,7 @@ Gibt es eine neue Version, erscheint unten das Banner **Neue Version verfügbar*
 
 ## Ebenen und Standortbedingungen {#ebenen-und-standortbedingungen}
 
-Ebenen blendest du in der Gruppe **Ebenen** der Ansichtsleiste ein und aus. Deine Wahl merkt sich der Browser; sie gilt nur für dich. Das Raster ist keine Ebene dieser Gruppe: Es hat einen eigenen Schalter **Raster anzeigen** in der Gruppe **Raster und Einrasten** (zu Beginn an, Taste **G**), siehe [Raster, Einrasten, Zoom und Kompass](#raster-einrasten-zoom-und-kompass).
+Ebenen blendest du im Seitenpanel im Tab **Ebenen** ein und aus; jeder Schalter trägt seinen Namen. Deine Wahl merkt sich der Browser; sie gilt nur für dich. Das Raster ist keine Ebene dieser Gruppe: Es hat einen eigenen Schalter **Raster anzeigen** im Tab **Ansicht** (zu Beginn an, Taste **G**), siehe [Raster, Einrasten, Zoom und Kompass](#raster-einrasten-zoom-und-kompass).
 
 | Ebene | Zeigt | Zu Beginn |
 |-------|-------|-----------|
@@ -247,7 +308,7 @@ Ebenen blendest du in der Gruppe **Ebenen** der Ansichtsleiste ein und aus. Dein
 | **Pflanzenzustand anzeigen** | Phase, Ring und Zeichen jeder Pflanze | aus |
 | **Mischkultur anzeigen** | Linien zwischen benachbarten Pflanzen: gute, schlechte oder unbekannte Nachbarschaft | aus |
 
-Die Legende unter der Ansichtsleiste erklärt jede eingeschaltete Ebene. Die Schraffur der Zonen und der Zustandsebenen unterscheidet sich im Muster, nicht nur in der Farbe.
+Die Legende im Tab **Ebenen** erklärt jede eingeschaltete Ebene; sie erscheint, sobald mindestens eine Ebene an ist. Im Wohnungsplan gibt es keine Frost-Ebene. Die Schraffur der Zonen und der Zustandsebenen unterscheidet sich im Muster, nicht nur in der Farbe.
 
 Die Ebene **Zuletzt gegossen** zeigt nur den Abstand zum letzten erfassten Gießen in vier Stufen (0 bis 1, 2 bis 3, 4 bis 7, mehr als 7 Tage). Ob ein Beet Wasser braucht, sagt sie nicht. Ein Beet ohne erfasstes Gießen bleibt ohne Schraffur.
 
@@ -255,20 +316,20 @@ Die Ebene **Zuletzt gegossen** zeigt nur den Abstand zum letzten erfassten Gieß
 
 Die Werte pflegst du am Beet: Sonne, Sonnenzeit und Laubschatten in den Sonnen-Kacheln (siehe [Sonne und Schatten am Beet](locations-substrates.md#sonne-und-schatten-am-beet)), die Drainage im Bodenprofil. Die Ebenen zeigen diese Angaben auf dem ganzen Plan.
 
-**Ebenen Sonnenfenster, Drainage und Frostrisiko im Gartenplan.** In der Ebenen-Gruppe der Ansichtsleiste blendest du drei weitere Ebenen ein: **Sonnenfenster anzeigen** (wann die direkte Sonne das Beet erreicht), **Drainage anzeigen** (schlecht, mittel, gut) und **Frostrisiko anzeigen** (gering, normal, hoch). Jeder Wert hat ein eigenes Muster, du erkennst ihn also auch ohne Farbe. Das Muster siehst du immer; sobald du so weit hineinzoomst, dass die Beetnamen erscheinen, kommt am unteren Beetrand ein kleines Symbol für den Wert dazu, sofern das Beet dafür Platz hat; die Legende unter der Ansichtsleiste erklärt jede eingeschaltete Ebene. Ein Beet ohne erfassten Wert bleibt ohne Muster. Alle drei Ebenen sind zu Beginn aus, und deine Wahl merkt sich der Browser für dich. Die Frost-Ebene zeigt das gespeicherte Frostrisiko; maßgeblich für die Überwinterung bleibt die Frostexposition. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
+**Ebenen Sonnenfenster, Drainage und Frostrisiko im Gartenplan.** Im Tab **Ebenen** blendest du drei weitere Ebenen ein: **Sonnenfenster anzeigen** (wann die direkte Sonne das Beet erreicht), **Drainage anzeigen** (schlecht, mittel, gut) und **Frostrisiko anzeigen** (gering, normal, hoch). Jeder Wert hat ein eigenes Muster, du erkennst ihn also auch ohne Farbe. Das Muster siehst du immer; sobald du so weit hineinzoomst, dass die Beetnamen erscheinen, kommt am unteren Beetrand ein kleines Symbol für den Wert dazu, sofern das Beet dafür Platz hat; die Legende im Tab **Ebenen** erklärt jede eingeschaltete Ebene. Ein Beet ohne erfassten Wert bleibt ohne Muster. Alle drei Ebenen sind zu Beginn aus, und deine Wahl merkt sich der Browser für dich. Die Frost-Ebene zeigt das gespeicherte Frostrisiko; maßgeblich für die Überwinterung bleibt die Frostexposition. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
 
 ### Pflanzenzustand und Filter {#pflanzenzustand-und-filter}
 
 Was Scheibe, Ring und Zeichen an einer Pflanze bedeuten, steht unter [Pflanzenzustand und Pflanzen-Info](locations-substrates.md#pflanzenzustand). Im Gartenplan gilt für die Ebene:
 
-**Ebene Pflanzenzustand und Filter im Gartenplan.** Mit **Pflanzenzustand anzeigen** in derselben Ebenen-Gruppe siehst du den Zustand deiner Pflanzen, ohne ein Beet zu öffnen. Zoomst du nah genug an ein Beet, dass die einzelnen Pflanzen erscheinen, trägt jede Pflanze Scheibe, Ring und Zeichen wie im Tab **Plan** des Beets: Die Farbe zeigt die Wachstumsphase, der Ring den Stand der Pflanzung, das Zeichen oben rechts den dringendsten Handlungsbedarf. Weiter herausgezoomt fasst jedes Beet seine Pflanzen zu einem Kreis mit Zahl zusammen; hast du ein Beet vorher schon nah genug gesehen, kennt Kamerplanter seine Zustände: Dann zeigt der Kreis das dringendste Zeichen, und der Vorleser nennt die Zahl aller Pflanzen des Beets und wie viele davon Handlungsbedarf haben. Daneben liegt der Schalter **Nur Pflanzen mit Handlungsbedarf zeigen**: Er blendet alle Pflanzen aus, deren Zustand bekannt ist und die kein Zeichen tragen. Eine Pflanze, deren Zustand noch nicht geladen ist, bleibt sichtbar. Der Kreis eines Beets zeigt dann nur die Pflanzen, die übrig bleiben, und verschwindet erst, wenn alle Zustände des Beets bekannt sind und keine Pflanze Handlungsbedarf hat; das Beet selbst bleibt sichtbar, und der Vorleser nennt weiter die Zahl aller Pflanzen. Solange die Ebene aus ist, ist der Schalter gesperrt; du erreichst ihn trotzdem mit der Tabulatortaste, und der Vorleser sagt dir, warum er gesperrt ist. Die Legende unter der Ansichtsleiste erklärt Ringe und Zeichen und listet die Farben der Wachstumsphasen der Pflanzen, deren Zustände geladen sind, alphabetisch in deiner Sprache. Kamerplanter lädt die Zustände nur, solange die Ebene an ist, und nur für die Beete, die du gerade nah genug siehst, höchstens vier Beete gleichzeitig. Jedes Beet lädt einmal und neu, wenn du zum Tab zurückkehrst, den Plan speicherst oder eine neuere Fassung des Plans lädt, und nachdem du im Bewässerungsbereich eine Zone geändert oder eine Gießrunde erfasst hast. Die Ebene und der Filter sind zu Beginn aus; deine Wahl merkt sich der Browser. Die Info-Blase beim Überfahren einer Pflanze bleibt dem Tab **Plan** des Beets vorbehalten. <!-- REQ-053 GP-UX-061, GP-UX-060 -->
+**Ebene Pflanzenzustand und Filter im Gartenplan.** Mit **Pflanzenzustand anzeigen** im selben Tab siehst du den Zustand deiner Pflanzen, ohne ein Beet zu öffnen. Zoomst du nah genug an ein Beet, dass die einzelnen Pflanzen erscheinen, trägt jede Pflanze Scheibe, Ring und Zeichen wie im Tab **Plan** des Beets: Die Farbe zeigt die Wachstumsphase, der Ring den Stand der Pflanzung, das Zeichen oben rechts den dringendsten Handlungsbedarf. Weiter herausgezoomt fasst jedes Beet seine Pflanzen zu einem Kreis mit Zahl zusammen; hast du ein Beet vorher schon nah genug gesehen, kennt Kamerplanter seine Zustände: Dann zeigt der Kreis das dringendste Zeichen, und der Vorleser nennt die Zahl aller Pflanzen des Beets und wie viele davon Handlungsbedarf haben. Daneben liegt der Schalter **Nur Pflanzen mit Handlungsbedarf zeigen**: Er blendet alle Pflanzen aus, deren Zustand bekannt ist und die kein Zeichen tragen. Eine Pflanze, deren Zustand noch nicht geladen ist, bleibt sichtbar. Der Kreis eines Beets zeigt dann nur die Pflanzen, die übrig bleiben, und verschwindet erst, wenn alle Zustände des Beets bekannt sind und keine Pflanze Handlungsbedarf hat; das Beet selbst bleibt sichtbar, und der Vorleser nennt weiter die Zahl aller Pflanzen. Solange die Ebene aus ist, ist der Schalter gesperrt; du erreichst ihn trotzdem mit der Tabulatortaste, und der Vorleser sagt dir, warum er gesperrt ist. Die Legende im Tab **Ebenen** erklärt Ringe und Zeichen und listet die Farben der Wachstumsphasen der Pflanzen, deren Zustände geladen sind, alphabetisch in deiner Sprache. Kamerplanter lädt die Zustände nur, solange die Ebene an ist, und nur für die Beete, die du gerade nah genug siehst, höchstens vier Beete gleichzeitig. Jedes Beet lädt einmal und neu, wenn du zum Tab zurückkehrst, den Plan speicherst oder eine neuere Fassung des Plans lädt, und nachdem du im Bewässerungsbereich eine Zone geändert oder eine Gießrunde erfasst hast. Die Ebene und der Filter sind zu Beginn aus; deine Wahl merkt sich der Browser. Die Info-Blase beim Überfahren einer Pflanze bleibt dem Tab **Plan** des Beets vorbehalten. <!-- REQ-053 GP-UX-061, GP-UX-060 -->
 
 !!! note "Teilweise verfügbar: Pflanzenzustand"
     **Frostgefahr** erscheint noch nicht als Zeichen, auch wenn die Ebene **Frostrisiko** den gespeicherten Wert zeigt. **Fälliges Gießen** entsteht bisher nur aus einer Gießaufgabe, die heute fällig ist, nicht aus dem Bewässerungsbedarf. <!-- REQ-053 GP-UX-060, GP-FR-190 -->
 
 ### Mischkultur auf dem Plan {#mischkultur-auf-dem-plan}
 
-**Ebene Mischkultur im Gartenplan.** Mit **Mischkultur anzeigen** in der Ebenen-Gruppe siehst du, ob benachbarte Pflanzen sich vertragen. Zwischen zwei benachbarten belegten Plätzen eines Beets zieht der Plan eine Linie. Der Platz kann eine stehende Pflanze tragen oder eine Art, die eine laufende Pflanzung dort vorsieht. Die Art der Linie sagt, was bekannt ist:
+**Ebene Mischkultur im Gartenplan.** Mit **Mischkultur anzeigen** im Tab **Ebenen** siehst du, ob benachbarte Pflanzen sich vertragen. Zwischen zwei benachbarten belegten Plätzen eines Beets zieht der Plan eine Linie. Der Platz kann eine stehende Pflanze tragen oder eine Art, die eine laufende Pflanzung dort vorsieht. Die Art der Linie sagt, was bekannt ist:
 
 | Linie | Bedeutung |
 |-------|-----------|
@@ -286,7 +347,7 @@ Die Linien erscheinen erst, wenn du so nah an ein Beet zoomst, dass die einzelne
 
 Eine **Bewässerungszone** fasst Beete eines Standorts zusammen, die gemeinsam gegossen werden, etwa an einem Tropfschlauch oder unter einem Regner. Ein Beet gehört zu höchstens einer Zone. Der Standort kann bis zu 500 Zonen haben.
 
-Klicke auf **Bewässerungszonen verwalten**, um den Zonen-Bereich zu öffnen.
+Die Zonen verwaltest du im Seitenpanel im Tab **Zonen**; **Bewässerungszonen verwalten** im Menü **⋮** öffnet ihn direkt.
 
 1. **Zone anlegen:** Klicke auf **Neue Zone**. Gib einen Namen ein, wähle die **Art der Bewässerung** (Von Hand, Tropfbewässerung, Regner, Perlschlauch oder Staubewässerung) und eine Farbe. Optional trägst du eine Wasserquelle (ein Gartenobjekt vom Typ Wasserquelle), den Durchfluss in Litern pro Minute und einen Hinweis zum Zeitplan ein.
 2. **Beete zuordnen:** Hake die Beete an oder übernimm die Auswahl vom Plan mit **Auswahl vom Plan übernehmen**. Ein Beet, das schon in einer anderen Zone liegt, wechselt in diese; die Oberfläche sagt es dir. Beete und Wasserquellen, die du noch nicht gespeichert hast, stehen erst nach dem Speichern des Plans zur Auswahl.
@@ -318,7 +379,7 @@ Eine Beetvorlage legt Form, Maße, Beettyp und Höhe eines Beets fest, damit du 
 
 Mit einer **Unterlage** legst du ein Foto, eine Skizze oder ein Luftbild unter den Plan und zeichnest die Beete darauf ab.
 
-1. Klicke auf **Unterlage** und wähle ein Bild (JPEG, PNG oder WebP). Der Plan braucht dafür schon eine Gartengrenze.
+1. Wähle im Menü **⋮** den Eintrag **Unterlage** und wähle ein Bild (JPEG, PNG oder WebP). Der Plan braucht dafür schon eine Gartengrenze.
 2. **Eichen:** Klicke im Bild zwei Punkte an, deren Abstand du kennst, und gib den Abstand in Metern an. Daraus rechnet Kamerplanter den Maßstab (Pixel pro Meter).
 3. **Lage:** Lege fest, wo die obere linke Ecke des Bildes auf dem Plan liegt, drehe das Bild bei Bedarf gegen den Uhrzeigersinn und stelle die Deckkraft ein.
 4. **Speichern.** Mit **Unterlage entfernen** löschst du Bild und Eichung wieder; du müsstest beides neu anlegen.
@@ -347,7 +408,7 @@ Was an einem einzelnen Beet geschah, steht in dessen Historie: den Zeitstrahl de
 
 ## Plan exportieren und Sicherung einspielen {#plan-export-import}
 
-Auf der Gartenplan-Seite öffnet **Export & Import** zwei Dialoge.
+Auf der Gartenplan-Seite öffnen **Plan exportieren …** und **Sicherung einspielen …** im Menü **⋮** zwei Dialoge.
 
 **Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik), als PNG (Bild) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen (beim PDF zusätzlich **Beetliste als zweite Seite**); eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen (die Parzellenliste im PDF und die Beetliste als CSV können sie auf Wunsch enthalten, siehe unten).
 
@@ -376,13 +437,13 @@ Spielst du dieselbe Datei mehrmals mit *Hinzufügen* ein, legt jede Runde ihre B
 !!! warning "Beete mit aktiven Pflanzen"
     Ein Beet, in dem eine Pflanze steht, wird nie gelöscht. Solange es solche Beete gibt, weist *Ersetzen* die Datei ab. Wählst du die Option, diese Beete zu behalten, bleiben sie samt den Standorten darüber bestehen, und der Rest wird ersetzt.
 
-**Neue Saison aus dem Vorjahr:** Im Menü **Export & Import** legt **Neue Saison aus dem Vorjahr …** für jedes Beet ohne aktive Pflanzen die Plätze des Vorjahres als freie Slots neu an (nur die Leitung, im selben Standort). Du gibst das Jahr der neuen Saison an; die Plätze stammen aus Abschlüssen des Jahres davor. Zuerst prüft Kamerplanter und zeigt je Beet, was passiert: Beete mit aktiven Pflanzen und stillgelegte Beete werden übersprungen und stehen im Bericht, ebenso ein Beet, das mit den neuen Plätzen über 2 000 Slots käme. Plätze, die schon als freier Slot da sind, werden nicht doppelt angelegt. Zonen, Pflanzen, Anbaudurchläufe und die Historie bleiben unverändert; Fruchtfolge- und Mischkultur-Hinweise nutzen weiter die Belegung des Vorjahres. Mit **„Hier stand …“ anzeigen** blendest du je Beet die Pflanzenfamilie des Vorjahres ein, nur zur Orientierung. Erst **Freie Slots anlegen** schreibt, in einem Schritt mit Eintrag im Änderungsprotokoll; hat sich der Plan seit der Prüfung geändert, prüfst du erneut. <!-- REQ-053 GP-FR-171 -->
+**Neue Saison aus dem Vorjahr:** Im Menü **⋮** legt **Neue Saison aus dem Vorjahr …** für jedes Beet ohne aktive Pflanzen die Plätze des Vorjahres als freie Slots neu an (nur die Leitung, im selben Standort). Du gibst das Jahr der neuen Saison an; die Plätze stammen aus Abschlüssen des Jahres davor. Zuerst prüft Kamerplanter und zeigt je Beet, was passiert: Beete mit aktiven Pflanzen und stillgelegte Beete werden übersprungen und stehen im Bericht, ebenso ein Beet, das mit den neuen Plätzen über 2 000 Slots käme. Plätze, die schon als freier Slot da sind, werden nicht doppelt angelegt. Zonen, Pflanzen, Anbaudurchläufe und die Historie bleiben unverändert; Fruchtfolge- und Mischkultur-Hinweise nutzen weiter die Belegung des Vorjahres. Mit **„Hier stand …“ anzeigen** blendest du je Beet die Pflanzenfamilie des Vorjahres ein, nur zur Orientierung. Erst **Freie Slots anlegen** schreibt, in einem Schritt mit Eintrag im Änderungsprotokoll; hat sich der Plan seit der Prüfung geändert, prüfst du erneut. <!-- REQ-053 GP-FR-171 -->
 
 Alle Schlüssel werden beim Einspielen neu vergeben. Verknüpfungen zu Home Assistant und zu Aktoren übernimmt Kamerplanter nie; die richtest du danach neu ein. Wer gerade ungespeicherte Änderungen am Plan hat, speichert oder verwirft sie zuerst. Im Feldmodus sind Export und Import ausgeblendet.
 
 ## Beetliste aus einer CSV-Datei importieren {#beetliste-csv-import}
 
-Hast du deine Beete schon in einer Tabelle, legst du sie mit einer CSV-Datei (Tabelle als Textdatei, eine Zeile pro Beet) auf einen Schlag im Gartenplan an. Das darf nur die Leitung. Du öffnest den Import im Menü **Export & Import** mit **Beetliste importieren (CSV) …** oder über den Link im ersten Schritt des Sicherung-Imports.
+Hast du deine Beete schon in einer Tabelle, legst du sie mit einer CSV-Datei (Tabelle als Textdatei, eine Zeile pro Beet) auf einen Schlag im Gartenplan an. Das darf nur die Leitung. Du öffnest den Import im Menü **⋮** mit **Beetliste importieren (CSV) …** oder über den Link im ersten Schritt des Sicherung-Imports.
 
 1. **Datei wählen:** Wähle deine CSV-Datei. Mit **Beispieldatei herunterladen** bekommst du eine Vorlage, die du in deiner Tabellenkalkulation ausfüllst. Kamerplanter prüft die Datei sofort, schreibt aber noch nichts.
 2. **Prüfbericht:** Du siehst, wie viele Zeilen gültig sind, welche Beete (Name, Größe, Sonne) angelegt würden, welche Zeilen Fehler haben und welche Spalten der Import nicht kennt und übergeht. Fehler und Hinweise nennen Zeile und Spalte. Zeilen mit einem Fehler werden übersprungen, die übrigen kannst du trotzdem übernehmen. Ist keine Zeile gültig, korrigierst du die Datei und wählst sie erneut.
