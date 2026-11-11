@@ -286,6 +286,82 @@ describe('move order of the header bar (GP-UX-063)', () => {
   });
 });
 
+/**
+ * At md beside the app navigation even the bar with everything moved out was wider than the viewport (#2879): the
+ * back link held the whole site name and nothing in the bar could shrink. jsdom lays nothing out, so these tests pin
+ * the CSS that lets the name give way (computed styles) and the step that makes the status compact; that the bar
+ * then really fits at 820 px is TC-053-102 in a browser.
+ */
+describe('the bar fits once nothing is left to move (#2879)', () => {
+  const backLink = () => within(screen.getByTestId('garden-plan-header-bar')).getByTestId('garden-plan-back-link');
+  const backLinkName = () => screen.getByTestId('garden-plan-back-link-name');
+
+  it('truncates the site name with an ellipsis and keeps the full name in the accessible name', async () => {
+    usePlanAndBeds();
+    renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    const name = getComputedStyle(backLinkName());
+    expect(name.textOverflow).toBe('ellipsis');
+    expect(name.whiteSpace).toBe('nowrap');
+    expect(name.overflow).toBe('hidden');
+    // Without `min-width: 0` a flex item cannot get narrower than its text.
+    expect(name.minWidth).toBe('0px');
+    expect(backLinkName()).toHaveTextContent('Vegetable garden');
+    expect(backLink()).toHaveAccessibleName('Back to Vegetable garden');
+    // The arrow stays a 48 px target however far the name gives way.
+    expect(getComputedStyle(backLink()).minWidth).toBe('48px');
+  });
+
+  it('names the whole site in the tooltip of the back link', async () => {
+    usePlanAndBeds();
+    renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    fireEvent.mouseOver(backLink());
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Back to Vegetable garden');
+  });
+
+  it('lets the name give way only after every control moved out, in the order of GP-UX-063', async () => {
+    usePlanAndBeds();
+    renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    // A bar that fits moves nothing and squeezes nothing.
+    expect(screen.getByTestId('garden-plan-header-bar')).toHaveAttribute('data-overflow-level', '0');
+    expect(getComputedStyle(backLink()).flexShrink).toBe('0');
+  });
+
+  it('shrinks the name once the tabs are in the overflow, the save status keeps its words while that suffices', async () => {
+    restores.push(stubHeaderWidths(600, [1300, 1150, 980, 800, 560]));
+    usePlanAndBeds();
+    renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    const bar = screen.getByTestId('garden-plan-header-bar');
+    await waitFor(() => expect(bar).toHaveAttribute('data-overflow-level', '4'));
+    expect(getComputedStyle(backLink()).flexShrink).toBe('1');
+    expect(backLink()).toHaveAccessibleName('Back to Vegetable garden');
+    const status = within(bar).getByTestId('garden-plan-save-status');
+    expect(within(status).getByText('Saved')).toBeVisible();
+    expect(getComputedStyle(within(status).getByText('Saved')).position).not.toBe('absolute');
+  });
+
+  it('makes the save status compact as the last step and keeps "Save" in the bar', async () => {
+    // Even with the name at its 48 px floor the bar is too narrow: the status becomes an icon, as below md.
+    restores.push(stubHeaderWidths(500, [1300, 1150, 980, 800, 560, 480]));
+    usePlanAndBeds();
+    renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    const bar = screen.getByTestId('garden-plan-header-bar');
+    await waitFor(() => expect(bar).toHaveAttribute('data-overflow-level', '5'));
+    const status = within(bar).getByTestId('garden-plan-save-status');
+    // The words stay for screen readers (visually hidden), the eye reads the icon.
+    expect(status).toHaveTextContent('Saved');
+    expect(getComputedStyle(within(status).getByText('Saved')).position).toBe('absolute');
+    expect(within(bar).getByTestId('garden-plan-save')).toBeVisible();
+    expect(within(bar).getByTestId('garden-plan-undo')).toBeInTheDocument();
+    expect(within(bar).getByTestId('garden-plan-overflow')).toBeInTheDocument();
+    expect(backLink()).toHaveAccessibleName('Back to Vegetable garden');
+  });
+});
+
 describe('below md (GP-UX-063, AC-15)', () => {
   it('shows only back (an icon), the compact save status, "Save" and "⋮"; the rest is in the overflow', async () => {
     restores.push(stubBelowMd());
@@ -293,7 +369,7 @@ describe('below md (GP-UX-063, AC-15)', () => {
     const { router } = renderRoute();
     await screen.findByTestId('garden-plan-canvas');
     const bar = screen.getByTestId('garden-plan-header-bar');
-    expect(bar).toHaveAttribute('data-overflow-level', '4');
+    expect(bar).toHaveAttribute('data-overflow-level', '5');
     const back = within(bar).getByTestId('garden-plan-back-link');
     expect(back).toHaveAccessibleName('Back to Vegetable garden');
     expect(back).toHaveTextContent('');

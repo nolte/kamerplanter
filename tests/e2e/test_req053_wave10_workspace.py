@@ -461,10 +461,6 @@ def test_tc_053_101_desktop_1366_canvas_height_one_header_rail_left_panel_docked
 # ── TC-053-102 ──────────────────────────────────────────────────────────────
 
 
-@pytest.mark.xfail(
-    reason="#2879: editor header overflows at md (820 px) and scrolls the page sideways",
-    strict=False,
-)
 def test_tc_053_102_tablet_820_panel_is_a_drawer_over_the_canvas(
     plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
