@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 108
+test_count: 115
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -26,8 +26,9 @@ coverage_areas:
   - Welle 9 Teil A — Offline: Service Worker, Plan ohne Verbindung, Puffer und Sync, Konflikt, Abmelden leert den Zwischenspeicher
   - Welle 9 Teil B — PNG-Export, Vorlagen-Austausch, Parzellenseite im PDF, Standort-Flags, nächste Wasserquelle, Strg+D, Konva-Umschaltung
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
+  - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.13"
+version: "1.14"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -3455,6 +3456,253 @@ heutigen Stand der Werkzeug-Leiste als AC-2 erfüllt festschriebe, würde das Kr
 
 ---
 
+## 15. Neu in Welle 10, Teil B (Saatzustand, Vereinzeln, Nachpflanzen, Aufgaben an Objekten, Rankhilfe, Zelt-Regeln, Pflegekatalog)
+
+Die Fälle TC-053-109 bis TC-053-115 sind aus den Domänen-Resten der Welle 10 abgeleitet (Anhang A 60–63, WP 10.9–10.12;
+REQ-053 §11.3 W-015, §9.5 W-005, R-7.2 W-008, §9.2a W-016.6, §12.1 W-007) und in
+`tests/e2e/test_req053_wave10_domain.py` automatisiert (WP 10.14, #2835). Jeder Fall legt seinen eigenen Garten oder
+seine eigene Indoor-Site über die Anwendung an; kein Fall berührt einen Plan, den ein anderer liest.
+
+**Agronomische Werte kommen aus dem Katalog, nicht aus dem Testfall** (G-W10 d): der Abstand nach dem Vereinzeln ist
+die Untergrenze des Steckbrief-Abstands der Art (dieselbe Regel, mit der der Bepflanzen-Dialog vorbelegt), die erwartete
+Pflanzenzahl ist die des Servers; die Lichtdauer ist der Wert `photoperiod_hours` des Phasenprofils. Getippt werden nur
+Beobachtungen des Nutzers (Anzahl stehen gebliebener Pflanzen, Menge Kompost).
+
+**Zuordnung der Kriterien.**
+
+| Kriterium | Testfälle | Bemerkung |
+|-----------|-----------|-----------|
+| §11.3 „gesät“, Vereinzeln (W-015) | TC-053-109, TC-053-110 | Abstand aus dem Anbauplan; ohne Abstand fragt der Dialog (E-10) |
+| §11.3 „ausgefallen“, Nachpflanzen (W-015) | TC-053-111 | nur `died`; `senesced` bewusst nicht (siehe unten) |
+| R-7.2 Aufgaben an Objekten (W-008) | TC-053-112 | Kompost; Rankhilfe ohne Abschnitt; die Ablehnung an einer Bank prüft der API-Test |
+| §9.5 Rankhilfe im Pflanzdialog (W-005) | TC-053-113 | vorhanden, fehlt, Art ohne Kennzeichen |
+| §9.2a Photoperiode-Hinweis (W-016.6) | TC-053-114 | Konflikt und Gegenprobe |
+| §12.1 Bodenverbesserung im Pflegeeintrag (W-007) | TC-053-115; TC-053-064 | Weg über die Aufgabe bleibt TC-053-064 |
+
+### TC-053-109: Direktsaat — Reihe als gesät erfassen und mit dem Abstand aus dem Anbauplan vereinzeln
+
+**Requirement**: REQ-053 §11.3 „gesät“, §12 `thinning` (W-015, Anhang A 60); WP 10.9 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Happy Path
+**Preconditions**:
+- Garten mit „Beet 1“ (3 × 1,2 m) und einer Saatreihe von 1,0 m Länge
+- Ein geplanter Möhren-Anbau reserviert die Reihe; sein Abstand nach dem Vereinzeln ist der Steckbrief-Abstand der Möhre
+  (Untergrenze von `spacing_cm`)
+
+**Testschritte**:
+1. Nutzer öffnet im Beet den Tab „Bepflanzung“ und wählt bei der geplanten Reihe „Als gesät erfassen“
+2. Nutzer übernimmt das vorgeschlagene Datum (heute) und wählt „Als gesät speichern“
+3. Nutzer wählt bei der Reihe unter „Gesät“ die Aktion „Vereinzeln“
+4. Nutzer liest Abstand und Anzahl und wählt „Vereinzeln“
+
+**Erwartete Ergebnisse**:
+- Die geplante Reihe bietet „Als gesät erfassen“; das Datum steht auf heute
+- Nach dem Speichern steht die Reihe unter „Gesät (1)“ mit „gesät am …“ und bietet nicht mehr „Als gesät erfassen“
+- Der Vereinzeln-Dialog nennt „Gesät am …“ und die Reihenlänge, übernimmt den Abstand aus dem Anbauplan und fragt nicht
+  nach einem Abstand
+- Die angezeigte Anzahl („Es werden n Pflanzen erfasst.“) ist die Anzahl, die der Server aus Reihenlänge und Abstand
+  berechnet
+- Danach gibt es keine gesäte Reihe mehr; „Im Beet (n)“ zeigt genau diese n Möhren in der Reihe; ein Pflegeeintrag
+  „Vereinzeln“ nennt genau diese Pflanzen
+
+**Nachbedingungen**:
+- n Pflanzen im Beet, Reihe nicht mehr gesät
+
+**Tags**: [req-053, welle-10, saatzustand, vereinzeln, direktsaat, desktop, w-015]
+
+---
+
+### TC-053-110: Vereinzeln ohne hinterlegten Abstand — Dialog fragt, nimmt die Anzahl des Nutzers
+
+**Requirement**: REQ-053 §11.3, W-015; E-10 („kein Default“); WP 10.9 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Validierung
+**Preconditions**:
+- Gesäte Reihe (gesät heute) in „Beet 1“, reserviert von einem Möhren-Anbau ohne Abstand nach dem Vereinzeln (so legt
+  der Bepflanzen-Dialog einen Anbau an — er hat kein Feld dafür)
+
+**Testschritte**:
+1. Nutzer wählt bei der gesäten Reihe „Vereinzeln“
+2. Nutzer wählt „Vereinzeln“, ohne etwas einzutragen
+3. Nutzer trägt bei „Anzahl stehen gebliebener Pflanzen“ 3 ein und wählt „Vereinzeln“
+
+**Erwartete Ergebnisse**:
+- Der Dialog sagt, dass für diesen Anbau kein Abstand hinterlegt ist; das Abstandsfeld ist leer; eine Anzahl wird nicht
+  angezeigt
+- Nach Schritt 2 erscheint die Warnung „Gib den Abstand nach dem Vereinzeln oder die Anzahl der Pflanzen ein.“; der
+  Dialog bleibt offen, die Reihe bleibt gesät, es entsteht keine Pflanze
+- Nach Schritt 3 zeigt der Dialog „Es werden 3 Pflanzen erfasst.“; danach stehen genau 3 Pflanzen in der Reihe, die
+  Reihe ist nicht mehr gesät
+
+**Nachbedingungen**:
+- 3 Pflanzen im Beet
+
+**Tags**: [req-053, welle-10, vereinzeln, e-10, validierung, desktop, w-015]
+
+---
+
+### TC-053-111: Ausgefallener Platz — „Nachpflanzen“ öffnet den Bepflanzen-Dialog mit derselben Kultur
+
+**Requirement**: REQ-053 §11.3 „ausgefallen“ (W-015, Anhang A 60); WP 10.9 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- „Beet 1“ mit zwei Salatpflanzen auf zwei Pflanzplätzen; die eine ist eingegangen (`died`), die andere hat ihre
+  Saison natürlich beendet (`senesced`)
+
+**Testschritte**:
+1. Nutzer öffnet den Tab „Bepflanzung“
+2. Nutzer wählt beim ausgefallenen Platz „Nachpflanzen“
+3. Nutzer wählt Reihen, 2 Pflanzen, bestätigt den Fruchtfolge-Hinweis mit „Trotzdem pflanzen“ und einer Begründung und
+   bepflanzt
+
+**Erwartete Ergebnisse**:
+- Unter „Ausgefallen (1)“ steht genau der Platz der eingegangenen Pflanze mit „ausgefallen am …“ und „Nachpflanzen“;
+  der Platz der natürlich beendeten Pflanze steht dort nicht
+- Der Bepflanzen-Dialog öffnet mit dem Salat als Art und dem Steckbrief-Abstand des Salats als Pflanzabstand
+- Der Dialog zeigt den Fruchtfolge-Hinweis „… steht in diesem Jahr schon in diesem Beet …“ (der ausgefallene Salat
+  zählt mit — siehe Hinweis unten)
+- Nach dem Bepflanzen sind 2 Salat-Positionen geplant
+
+**Hinweis**: Die Spec-Tabelle §11.3 nennt `termination_type ∈ {died, senesced}` für „ausgefallen“; gebaut ist nach dem
+Agrobiologie-Review von WP 10.9 nur `died` (`thinningLogic.ts`, `REPLANT_TERMINATIONS`). Der Fall prüft das gebaute
+Verhalten; die Spec-Zeile ist in WP 10.15 nachzuziehen. Dass die Nachpflanzung derselben Kultur in derselben Saison den
+Fruchtfolge-Hinweis gegen die eigene ausgefallene Pflanze auslöst, ist beobachtet und als Frage an die Abnahme gemeldet.
+
+**Nachbedingungen**:
+- Ein neuer geplanter Salat-Anbau mit 2 Positionen
+
+**Tags**: [req-053, welle-10, ausgefallen, nachpflanzen, bepflanzen, desktop, w-015]
+
+---
+
+### TC-053-112: Aufgabe an einem Komposthaufen — aus dem Seitenpanel anlegen und sehen
+
+**Requirement**: REQ-053 R-7.2 (W-008, Anhang A 62); WP 10.10 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- Garten mit einem Gartenobjekt „Komposthaufen“ (Kompost) und einem „Rankgitter“ (Rankhilfe, 1,8 m)
+
+**Testschritte**:
+1. Nutzer wählt im Plan den Komposthaufen mit der Tastatur
+2. Nutzer wählt im Panel-Abschnitt „Aufgaben“ die Aktion „Aufgabe anlegen“ und öffnet die Kategorienliste
+3. Nutzer wählt „Wartung“, gibt den Namen „Kompost umsetzen“ ein und wählt „Aufgabe anlegen“
+4. Nutzer wählt das Rankgitter
+
+**Erwartete Ergebnisse**:
+- Der Abschnitt „Aufgaben“ sagt „Für dieses Objekt sind keine Aufgaben offen.“
+- Der Dialog heißt „Neue Aufgabe für Komposthaufen“, bietet genau die Kategorien Wartung, Reinigung,
+  Beobachtung, Abdecken, Aufdecken (in dieser Reihenfolge), keine Wahl „Gilt für“ (Beet / jede Pflanze) und den Hinweis
+  „Die Aufgabe gilt für dieses Objekt …“
+- Nach dem Anlegen listet der Abschnitt genau diese Aufgabe; gespeichert ist sie am Komposthaufen
+- Das Rankgitter zeigt seine Eigenschaften, aber keinen Abschnitt „Aufgaben“
+
+**Hinweis**: Der Dialog lebt im Abschnitt des Seitenpanels. Wechselt das Panel seine Darstellung über einen Breakpoint
+(beobachtet beim Bildschirmfoto mit Vollseiten-Aufnahme, die den Viewport kurz verkleinert), wird der Abschnitt neu
+aufgebaut und der offene Dialog geht ohne Rückfrage verloren. Der Testfall macht deshalb bei offenem Dialog kein
+Bildschirmfoto; der Befund ist gemeldet.
+
+**Nachbedingungen**:
+- Eine offene Aufgabe am Komposthaufen
+
+**Tags**: [req-053, welle-10, gartenobjekt, kompost, aufgaben, seitenpanel, desktop, r-7-2, w-008]
+
+---
+
+### TC-053-113: Rankhilfe-Hinweis im Bepflanzen-Dialog — vorhanden, fehlt, nicht nötig
+
+**Requirement**: REQ-053 §9.5 Rankhilfe (W-005, Anhang A 62); G-W10 d; WP 10.10 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Hinweis
+**Preconditions**:
+- Garten mit „Beet A“ und „Beet B“; in Beet A steht die Rankhilfe „Erbsenzaun“ (1,8 m hoch), Beet B hat keine
+- Laut Katalog braucht die Erbse eine Rankhilfe (`support_required`), die Möhre nicht
+
+**Testschritte**:
+1. Nutzer öffnet in Beet A „Bepflanzen“ und wählt die Erbse
+2. Nutzer wechselt die Art zur Möhre
+3. Nutzer öffnet in Beet B „Bepflanzen“ und wählt die Erbse
+
+**Erwartete Ergebnisse**:
+- Für die Erbse in Beet A: „Erbse braucht eine Rankhilfe. Im Beet steht diese:“ mit genau „Erbsenzaun (1,8 m hoch)“
+- Für die Möhre erscheint kein Rankhilfe-Hinweis
+- Für die Erbse in Beet B: „… braucht eine Rankhilfe, aber in diesem Beet ist keine eingezeichnet …“ und „Pflanzen
+  kannst du trotzdem.“ — der Hinweis blockiert nicht
+
+**Nachbedingungen**:
+- Keine Änderung
+
+**Tags**: [req-053, welle-10, rankhilfe, bepflanzen, hinweis, desktop, w-005]
+
+---
+
+### TC-053-114: Zelt — Hinweis auf unterschiedlichen Lichtbedarf unter einer Lampe
+
+**Requirement**: REQ-053 §9.2a (W-016.6, V-23 — Hinweis, nie Fehler, Anhang A 63); WP 10.11 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Hinweis
+**Preconditions**:
+- Indoor-Site mit „Zelt A“ und „Zelt B“
+- Aus dem Phasenprofil der Hanf-Phasen (ohne Jungpflanzen-Phasen) die Phase mit der längsten und die mit der kürzesten
+  Lichtdauer (mindestens 1 Stunde auseinander)
+- In Zelt A je eine Pflanze in jeder der beiden Phasen; in Zelt B zwei Pflanzen in der Phase mit der längsten Lichtdauer
+
+**Testschritte**:
+1. Nutzer öffnet die Standortseite von Zelt A und liest die Zelt-Regeln
+2. Nutzer öffnet die Standortseite von Zelt B
+
+**Erwartete Ergebnisse**:
+- Zelt A zeigt „Unterschiedlicher Lichtbedarf unter einer Lampe“ und nennt beide Gruppen mit ihrer Lichtdauer aus dem
+  Phasenprofil, z. B. „18 Stunden Licht für 1 Pflanze (…)“ und „12 Stunden Licht für 1 Pflanze (…)“
+- Zelt B zeigt keinen Lichtbedarf-Hinweis
+
+**Hinweis**: Die Phasenbezeichnung in der Klammer erscheint in der deutschen Oberfläche englisch („Vegetative“,
+„Flowering“), während die Pflanzentabelle derselben Seite „Vegetativ“/„Blüte“ zeigt; gemeldet, nicht Teil der
+Prüfung.
+
+**Nachbedingungen**:
+- Keine Änderung
+
+**Tags**: [req-053, welle-10, zelt, photoperiode, hinweis, indoor, desktop, w-016]
+
+---
+
+### TC-053-115: Bodenverbesserung mit Kompost über „Pflege protokollieren“ — genau ein Düngeereignis
+
+**Requirement**: REQ-053 §12.1 (W-007, Anhang A 61); WP 10.12 (abgeleitet); Weg über die Aufgabe: TC-053-064
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Happy Path
+**Preconditions**:
+- „Beet 1“ mit einer Salatpflanze ohne Düngeereignis
+
+**Testschritte**:
+1. Nutzer öffnet im Tab „Pflege“ „Pflege protokollieren“, wählt „Bodenverbesserung“, Material „Kompost“, 2 Liter, und
+   speichert
+2. Nutzer öffnet das entstandene Düngeereignis
+3. Nutzer protokolliert ebenso eine Bodenverbesserung mit „Sand“, 5 Liter
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 1 gibt es genau einen Pflegeeintrag „Bodenverbesserung“ (Kompost), und genau ein Düngeereignis nennt die
+  Salatpflanze; der Pflegeeintrag verweist auf dieses Ereignis
+- Das Düngeereignis zeigt die Pflanze und die Anwendungsart „Aufstreuen“
+- Sand ist keine Nährstoff-Bodenverbesserung: der zweite Eintrag wird gespeichert, ein weiteres Düngeereignis entsteht
+  nicht
+
+**Nachbedingungen**:
+- Zwei Pflegeeinträge, ein Düngeereignis
+
+**Tags**: [req-053, welle-10, pflege, bodenverbesserung, kompost, duengung, desktop, w-007]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -3560,6 +3808,13 @@ heutigen Stand der Werkzeug-Leiste als AC-2 erfüllt festschriebe, würde das Kr
 | (abgeleitet aus GP-FR-182, GP-UX-049, GP-FR-180) | Welle 10 Teil A: Indoor-Leerzustand, Grundriss zeichnen, Fenster einzeichnen | TC-053-106 |
 | (abgeleitet aus GP-FR-181) | Welle 10 Teil A: Fenster-Vorschlag mit Vorschau, Abbrechen, Bestätigen | TC-053-107 |
 | (abgeleitet aus GP-FR-183, GP-FR-182, AC-13) | Welle 10 Teil A: Tab und Liste „Pflanzplätze“, keine Frost-Ebene | TC-053-108 |
+| (abgeleitet aus §11.3, W-015) | Welle 10 Teil B: Reihe gesät, Vereinzeln mit Abstand aus dem Anbauplan | TC-053-109 |
+| (abgeleitet aus §11.3, W-015, E-10) | Welle 10 Teil B: Vereinzeln ohne Abstand fragt, nimmt die Anzahl | TC-053-110 |
+| (abgeleitet aus §11.3, W-015) | Welle 10 Teil B: ausgefallener Platz, „Nachpflanzen“ mit derselben Kultur | TC-053-111 |
+| (abgeleitet aus R-7.2, W-008) | Welle 10 Teil B: Aufgabe an einem Komposthaufen aus dem Seitenpanel | TC-053-112 |
+| (abgeleitet aus §9.5, W-005) | Welle 10 Teil B: Rankhilfe-Hinweis im Bepflanzen-Dialog | TC-053-113 |
+| (abgeleitet aus §9.2a, W-016.6) | Welle 10 Teil B: Zelt-Hinweis unterschiedlicher Lichtbedarf | TC-053-114 |
+| (abgeleitet aus §12.1, W-007) | Welle 10 Teil B: Kompost im Pflegeeintrag schreibt ein Düngeereignis | TC-053-115 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
@@ -3629,6 +3884,18 @@ Prüfregeln der Datei sind kein Browser-Artefakt.
 | AC-16: Ausschnitt (Pan) nach dem Tab-Wechsel | vitest; TC-053-099 prüft Auswahl und Zoomstufe. |
 | GP-FR-183: Raum-Hierarchie Wohnung → Raum → Fensterbank/Regal → Topf | COULD, nicht gebaut; TC-053-108 prüft Tab und Liste „Pflanzplätze“. |
 | GP-FR-180: Tür und Rankhilfe im Panel | Gleiches Muster wie Fenster und Lampe (WP 10.6, PATCH-Roundtrip je Typ als vitest); TC-053-105 automatisiert Fenster, Lampe und den Schalter „Außerhalb des Grundstücks“. |
+
+## Nicht abgedeckte Welle-10-Teile (Teil B)
+
+| Teil | Grund |
+|------|-------|
+| W-015: Zustand „gesät“ als Saatpunkt-Muster auf dem Plan | Der Pflanzenzustand-Rechner und seine Port-Gleichheit sind Unit-/vitest-Sache (`usePlantStates.test.ts`); TC-053-109 prüft die Bepflanzungsliste. |
+| W-015: Vereinzeln einer Fläche (Zone, Richtwert) | Gleiche Route wie die Reihe, Rechnung als vitest/Unit (`thinningLogic.test.ts`, `test_thinning_calculator.py`); TC-053-109/110 prüfen die Reihe. |
+| W-008: Aufgabe an Wasserquelle und Lager, Ablehnung an Bank/Rankhilfe | Gleicher Abschnitt wie beim Kompost; die 201/422-Grenze prüft der API-Test (`test_tasks_on_beds_router.py`). |
+| W-016.8 Nachbarschaftsfaktor je Location, W-016.2/3 Beleuchtungsfelder | Integrationstest (Faktor wirkt in der Nachbarschaft); die Beleuchtungsfelder sind gewollt ohne Konsumenten (keine sichtbare Wirkung außer dem Speichern). |
+| W-016.5 Topfvolumen-Warnung des Backends | Antwort von `POST /planting-runs/mixed-culture` (`warnings[]`), Parität per Testvektoren; die Frontend-Prüfung im Dialog ist älter und bleibt vitest. |
+| W-016.6 Hinweis „Lichtdauer nicht für alle Pflanzen bekannt“ | Braucht eine Phase ohne Lichtdauer im Seed-Katalog; Unit-/API-Test (`test_location_tent_rules_api.py`). |
+| W-007: Korrektur und Stornierung des Pflegeeintrags ziehen das Düngeereignis zurück | Integrationstest des Folge-Commits zu #2833; die Rückgängig-Snackbar ist ein 8-s-Fenster ohne stabile E2E-Bedingung. |
 
 ---
 

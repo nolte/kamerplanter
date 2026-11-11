@@ -1394,3 +1394,290 @@ def store_frost_forecast(
         what=f"the forecast for site {site_key}",
         reason_no_route="A forecast has no API route",
     )
+
+
+# ── Wave 10 part B: sown/thinned/failed slots, phases, object tasks, feeding (WP 10.14) ──
+#
+# The domain cases of wave 10 arrange their preconditions through the routes the product's own dialogs and pages
+# call - no direct database write:
+#
+# * ``POST /locations/{key}/slots/batch`` + ``POST /planting-runs`` + ``POST …/plan-slots`` reserve a ``row`` slot for a
+#   planned run (GP-API-015/021), the state the planting dialog leaves behind before direct sowing; the run entry's
+#   ``thinning_to_cm`` is the run's own field (``EntryCreate``), filled from the species data or left empty (E-10);
+# * ``POST /plant-instances/{key}/remove`` with ``termination_type = died`` records a failed plant (REQ-003 E5), the
+#   way the plant page's "Entfernen" dialog does;
+# * ``POST /plant-instances`` with ``current_phase_key`` creates a plant in a given phase, as the plant form does;
+#   the phase and its photoperiod come from the species' lifecycle (``GET /species/{key}/lifecycle``,
+#   ``GET /growth-phases``, ``GET /profiles/requirements/{phase}``) - the test never invents a photoperiod.
+
+
+def lower_bound_cm(value: object) -> float | None:
+    """The leading number of a species distance (``"5--8"`` -> 5.0, ``"7,5"`` -> 7.5); ``None`` without one.
+
+    The rule of the planting dialog's prefill (``plantingLogic.ts::parseLowerBound``): the Steckbrief value a grower
+    starts from. A non-positive or missing value is no value - never replaced by a default (E-10).
+    """
+    if isinstance(value, int | float):
+        return float(value) if value > 0 else None
+    if not isinstance(value, str):
+        return None
+    head = value.strip()
+    digits = ""
+    for char in head:
+        if char.isdigit() or (char in ".," and digits and "." not in digits):
+            digits += "." if char == "," else char
+            continue
+        break
+    try:
+        parsed = float(digits.rstrip("."))
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
+
+
+@dataclass(frozen=True)
+class ReservedRow:
+    """A ``row`` slot of a bed reserved by a planned run (not sown yet): what the planting tab lists as "Geplant"."""
+
+    slot_key: str
+    slot_id: str
+    run_key: str
+    entry_key: str
+
+
+def reserved_row(
+    base_url: str,
+    seed: dict,
+    *,
+    bed_key: str,
+    species_key: str,
+    id_prefix: str,
+    points: tuple[tuple[float, float], ...],
+    thinning_to_cm: float | None,
+) -> ReservedRow:
+    """A ``row`` slot along *points* (bed frame, metres) reserved by a planned monoculture run of *species_key*.
+
+    *thinning_to_cm* is the run entry's spacing after thinning - the caller passes the species' value or ``None``
+    (then the thinning dialog must ask for it, E-10). Loud on every refusal and on a reservation that did not land.
+    """
+    tag = unique_tag().upper()
+    slot_id = f"S{tag}_R01"
+    created = _tenant_post(
+        base_url,
+        seed,
+        f"/locations/{bed_key}/slots/batch",
+        {
+            "mode": "append",
+            "slots": [
+                {
+                    "slot_id": slot_id,
+                    "slot_role": "row",
+                    "geometry": {
+                        "kind": "polyline",
+                        "points": [[float(x), float(y)] for x, y in points],
+                        "width_m": 0.05,
+                    },
+                    "capacity_plants": 1,
+                    "sequence": 1,
+                }
+            ],
+        },
+    )
+    slot_keys = list(created.get("created_keys") or [])
+    if len(slot_keys) != 1:
+        raise AssertionError(f"Self-provisioning failed: asked for one row slot, got {created!r}")
+    entry: dict = {"layout_strategy": "free"}
+    if thinning_to_cm is not None:
+        entry["thinning_to_cm"] = float(thinning_to_cm)
+    run = _tenant_post(
+        base_url,
+        seed,
+        "/planting-runs",
+        run_payload(
+            bed_key=bed_key,
+            species_key=species_key,
+            id_prefix=id_prefix,
+            quantity=1,
+            name=f"E2E-GP-run-{unique_tag()}",
+            entry=entry,
+        ),
+        expected=(201,),
+    )
+    run_key = run["key"]
+    entries = tenant_get(base_url, seed, f"/planting-runs/{run_key}/entries")
+    if not isinstance(entries, list) or len(entries) != 1:
+        raise AssertionError(f"Self-provisioning failed: run {run_key!r} has entries {entries!r}")
+    stored_spacing = entries[0].get("thinning_to_cm")
+    if stored_spacing != (None if thinning_to_cm is None else float(thinning_to_cm)):
+        raise AssertionError(
+            f"Self-provisioning failed: the run entry stores thinning_to_cm={stored_spacing!r}, "
+            f"asked for {thinning_to_cm!r}"
+        )
+    _tenant_post(
+        base_url,
+        seed,
+        f"/planting-runs/{run_key}/plan-slots",
+        {"entry_key": entries[0]["key"], "slot_keys": slot_keys},
+    )
+    planned = [
+        item
+        for item in plantings(base_url, seed, bed_key, "planned")
+        if item.get("slot_key") == slot_keys[0]
+    ]
+    if len(planned) != 1 or planned[0].get("sown_at"):
+        raise AssertionError(
+            f"Self-provisioning failed: the row {slot_keys[0]!r} should be planned and not sown: {planned!r}"
+        )
+    return ReservedRow(
+        slot_key=slot_keys[0], slot_id=slot_id, run_key=run_key, entry_key=entries[0]["key"]
+    )
+
+
+def thinning_plan(base_url: str, seed: dict, slot_key: str) -> dict:
+    """``GET /slots/{key}/thinning``: the server's spacing, measure and suggested count of a sown slot."""
+    body = tenant_get(base_url, seed, f"/slots/{slot_key}/thinning")
+    if not isinstance(body, dict):
+        raise AssertionError(f"the thinning plan of {slot_key!r} is not an object: {body!r}")
+    return body
+
+
+def stored_slot(base_url: str, seed: dict, bed_key: str, slot_key: str) -> dict:
+    """The live slot *slot_key* of *bed_key* as the server holds it; loud when it is not listed."""
+    for slot in bed_slots(base_url, seed, bed_key):
+        if slot.get("key") == slot_key:
+            return slot
+    raise AssertionError(f"slot {slot_key!r} is not a live slot of bed {bed_key!r}")
+
+
+def remove_plant(base_url: str, seed: dict, plant_key: str, termination_type: str) -> dict:
+    """``POST /plant-instances/{key}/remove`` with *termination_type* (``died``, ``senesced``, ...), REQ-003 E5."""
+    removed = _tenant_post(
+        base_url,
+        seed,
+        f"/plant-instances/{plant_key}/remove",
+        {"termination_type": termination_type},
+    )
+    if removed.get("termination_type") != termination_type or not removed.get("removed_on"):
+        raise AssertionError(
+            f"Self-provisioning failed: plant {plant_key!r} is not recorded as {termination_type}: {removed!r}"
+        )
+    return removed
+
+
+def sow_slot(base_url: str, seed: dict, slot_key: str, sown_at: date) -> dict:
+    """``PUT /slots/{key}/sowing``: record the direct sowing of a reserved row or zone (what the sowing dialog sends)."""
+    status, body = tenant_request(
+        base_url, seed, "PUT", f"/slots/{slot_key}/sowing", {"sown_at": sown_at.isoformat()}
+    )
+    _require(status, body, (200,), f"PUT /slots/{slot_key}/sowing")
+    if not isinstance(body, dict) or body.get("sown_at") != sown_at.isoformat():
+        raise AssertionError(f"Self-provisioning failed: slot {slot_key!r} is not sown: {body!r}")
+    return body
+
+
+@dataclass(frozen=True)
+class PhasePhotoperiod:
+    """One entry of a species' phase sequence with the photoperiod of its phase profile (REQ-003).
+
+    ``key`` is the sequence entry - what a plant's ``current_phase_key`` holds; ``name`` the phase definition's
+    machine name, by which the entry is bridged to the growth phase whose requirement profile carries the photoperiod.
+    """
+
+    key: str
+    name: str
+    photoperiod_hours: float
+
+
+def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[PhasePhotoperiod]:
+    """The phase-sequence entries of *species_key* with the ``photoperiod_hours`` of their phase profile.
+
+    Read from the global catalogue along the path the tent hint reads (``load_location_photoperiods``): the sequence
+    entry's phase definition name, the growth phase of exactly that name in the species' lifecycle, its requirement
+    profile. An entry with no or two matching growth phases, or without a photoperiod, is left out - never given a
+    default (E-10).
+    """
+    api, token = _global_api(base_url, seed)
+    status, sequence = _api_request(f"{api}/species/{species_key}/phase-sequence", "GET", token)
+    _require(status, sequence, (200,), f"GET /species/{species_key}/phase-sequence")
+    status, lifecycle = _api_request(f"{api}/species/{species_key}/lifecycle", "GET", token)
+    _require(status, lifecycle, (200,), f"GET /species/{species_key}/lifecycle")
+    status, phases = _api_request(
+        f"{api}/growth-phases?lifecycle_key={lifecycle['key']}", "GET", token
+    )
+    _require(status, phases, (200,), f"GET /growth-phases?lifecycle_key={lifecycle['key']}")
+    by_name: dict[str, list[dict]] = {}
+    for phase in phases:
+        by_name.setdefault(str(phase["name"]), []).append(phase)
+    found: list[PhasePhotoperiod] = []
+    for entry in (sequence or {}).get("entries") or []:
+        name = str((entry.get("phase_definition") or {}).get("name") or "")
+        matches = by_name.get(name) or []
+        if len(matches) != 1:
+            continue
+        status, profile = _api_request(
+            f"{api}/profiles/requirements/{matches[0]['key']}", "GET", token
+        )
+        if status == 404:
+            continue
+        _require(status, profile, (200,), f"GET /profiles/requirements/{matches[0]['key']}")
+        hours = profile.get("photoperiod_hours")
+        if hours is None:
+            continue
+        found.append(
+            PhasePhotoperiod(key=str(entry["key"]), name=name, photoperiod_hours=float(hours))
+        )
+    return found
+
+
+def create_plant_in_phase(
+    base_url: str,
+    seed: dict,
+    *,
+    site_key: str,
+    location_key: str,
+    species_key: str,
+    phase_key: str,
+    name: str,
+) -> str:
+    """``POST /plant-instances``: a plant standing in *location_key* whose current phase is *phase_key*."""
+    plant = _tenant_post(
+        base_url,
+        seed,
+        "/plant-instances",
+        {
+            "instance_id": f"E2E-{unique_tag().upper()}",
+            "species_key": species_key,
+            "site_key": site_key,
+            "location_key": location_key,
+            "plant_name": name,
+            "planted_on": utc_today().isoformat(),
+            "current_phase_key": phase_key,
+        },
+        expected=(201,),
+    )
+    if plant.get("current_phase_key") != phase_key or plant.get("location_key") != location_key:
+        raise AssertionError(
+            f"Self-provisioning failed: plant {name!r} should stand in {location_key!r} in phase "
+            f"{phase_key!r}: {plant!r}"
+        )
+    return plant["key"]
+
+
+def object_tasks(base_url: str, seed: dict, object_key: str) -> list[dict]:
+    """``GET /tasks`` of the garden object *object_key* (``entity_type = garden_object``), every status."""
+    body = tenant_get(
+        base_url,
+        seed,
+        f"/tasks?entity_type=garden_object&entity_key={object_key}&limit=100",
+    )
+    if not isinstance(body, list):
+        raise AssertionError(f"the tasks of object {object_key!r} are not a list: {body!r}")
+    return body
+
+
+def plant_feeding_events(base_url: str, seed: dict, plant_key: str) -> list[dict]:
+    """``GET /feeding-events/plant/{key}``: every feeding event that names the plant."""
+    body = tenant_get(base_url, seed, f"/feeding-events/plant/{plant_key}")
+    if not isinstance(body, list):
+        raise AssertionError(f"the feeding events of {plant_key!r} are not a list: {body!r}")
+    return body

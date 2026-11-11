@@ -166,6 +166,45 @@ def choose_from_native_select(page: BasePage, testid: str, value: str) -> None:
     page.poll().until(lambda _d: native.get_attribute("value") == value)
 
 
+def native_select_values(page: BasePage, testid: str) -> list[str]:
+    """Open the MUI select whose hidden native input carries *testid*, read its options' values, close it again.
+
+    The values are the options' ``data-value`` (the enum values the form sends), in the order shown. Loud when the
+    menu opens no option - "offers nothing" and "never opened" must not read alike - and when an option carries no
+    value. The menu is closed with Escape on the listbox itself (``close_mui_dropdown``), never on ``<body>``.
+    """
+    native = page.wait_for_element(_tid(testid))
+    trigger = page.driver.execute_script(
+        "return arguments[0].closest('.MuiInputBase-root').querySelector(\"[role='combobox']\");",
+        native,
+    )
+    if trigger is None:
+        raise AssertionError(f"the select {testid!r} has no combobox")
+    page.scroll_into_view(trigger)
+    page.dispatch_menu_trigger_open(trigger)
+    page._settle_listbox()
+    options = page.driver.find_elements(*OPTIONS)
+    if not options:
+        raise AssertionError(f"the select {testid!r} opened no option")
+    values = [option.get_attribute("data-value") for option in options]
+    # Closed by choosing the option already selected: no change, and no Escape that could reach a surrounding dialog
+    # (an Escape on the menu inside a MUI Dialog closed the dialog as well, observed in the WP 10.14 run).
+    current = native.get_attribute("value") or ""
+    selected = next((o for o in options if o.get_attribute("data-value") == current), None)
+    if selected is None:
+        raise AssertionError(
+            f"the select {testid!r} holds {current!r}, which none of its options {values} carries"
+        )
+    page.click_menu_option(selected)
+    if not page._wait_options_gone(5):
+        raise AssertionError(f"the menu of the select {testid!r} did not close")
+    if (native.get_attribute("value") or "") != current:
+        raise AssertionError(f"closing the select {testid!r} changed its value from {current!r}")
+    if any(not value for value in values):
+        raise AssertionError(f"an option of the select {testid!r} carries no data-value: {values}")
+    return [str(value) for value in values]
+
+
 # ── Pflege tab ──────────────────────────────────────────────────────────────
 
 
