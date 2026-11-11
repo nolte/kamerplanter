@@ -39,6 +39,7 @@ def _site_response(site: Site, service: SiteService) -> SiteResponse:
         SiteResponse,
         sun_class_thresholds=site.effective_sun_class_thresholds,
         reach_thresholds=site.effective_reach_thresholds,
+        window_thresholds=site.effective_window_thresholds,
         water_config_warnings=[
             WaterSourceWarningSchema(code=w.code, message=w.message, severity=w.severity) for w in warnings
         ],

@@ -24,7 +24,7 @@ import { loadVectors, type VectorCase } from '@/test/gardenPlanVectors';
  * cases inline would certify nothing.
  */
 const ALL_VECTORS = loadVectors();
-/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3); `plant_state` runs in `plantState.vectors.test.ts`; `site_fit` and `site_fit_axes` run in `siteFit.vectors.test.ts`; `overdue` runs in `overdue.vectors.test.ts`; `phase_color` runs in `planting/phaseColors.vectors.test.ts`; `place_geometry` runs in `templates/placeGeometry.vectors.test.ts`; `label_anchor` and `label_truncate` run in `labelAnchor.vectors.test.ts`; `reach` and `path_access` run in `reach.vectors.test.ts`; `area_dose`, `nitrogen_approximation` and `unit_identity` run in `areaDose.vectors.test.ts`; `edge_distance`, `nearest_water_source` and `is_water_source` run in `geometryDistance.vectors.test.ts`; `container_volume` runs in `planting/containerCheck.vectors.test.ts`. */
+/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3); `plant_state` runs in `plantState.vectors.test.ts`; `site_fit` and `site_fit_axes` run in `siteFit.vectors.test.ts`; `overdue` runs in `overdue.vectors.test.ts`; `phase_color` runs in `planting/phaseColors.vectors.test.ts`; `place_geometry` runs in `templates/placeGeometry.vectors.test.ts`; `label_anchor` and `label_truncate` run in `labelAnchor.vectors.test.ts`; `reach` and `path_access` run in `reach.vectors.test.ts`; `area_dose`, `nitrogen_approximation` and `unit_identity` run in `areaDose.vectors.test.ts`; `edge_distance`, `nearest_water_source` and `is_water_source` run in `geometryDistance.vectors.test.ts`; `container_volume` runs in `planting/containerCheck.vectors.test.ts`; `window_facing` and `window_sun_window` run in `windowOrientation.vectors.test.ts`. */
 const LAYOUT_OPERATIONS = new Set([
   'layout',
   'layout_error',
@@ -46,6 +46,8 @@ const LAYOUT_OPERATIONS = new Set([
   'nearest_water_source',
   'is_water_source',
   'container_volume',
+  'window_facing',
+  'window_sun_window',
 ]);
 const VECTORS = {
   ...ALL_VECTORS,

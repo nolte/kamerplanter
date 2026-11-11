@@ -210,12 +210,15 @@ describe('window (GP-FR-180)', () => {
     expect(screen.getByText('Enter a sill height between 0 and 1,000 m, or leave the field empty.')).toBeInTheDocument();
   });
 
-  it('shows the derived orientation read-only and says it is not available yet', () => {
+  it('shows the derived orientation read-only (GP-FR-181, WP 10.7)', () => {
+    // The window (2,15)-(3,15) lies inside the outline, in no outer wall: the outside is taken from the drawing
+    // direction (left of +x is +y, north) and the panel says so.
     select('win');
 
     const orientation = screen.getByTestId('garden-plan-panel-window-orientation');
-    expect(orientation).toHaveAttribute('data-available', 'false');
-    expect(orientation).toHaveTextContent('Orientation: not available yet');
+    expect(orientation).toHaveAttribute('data-available', 'true');
+    expect(orientation).toHaveTextContent('Orientation: North, 0°');
+    expect(screen.getByTestId('garden-plan-panel-window-orientation-convention')).toBeInTheDocument();
     expect(within(orientation).queryByRole('textbox')).not.toBeInTheDocument();
   });
 

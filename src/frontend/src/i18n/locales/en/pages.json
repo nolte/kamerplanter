@@ -1954,8 +1954,8 @@
         "noWaterConfig": "No water source configured"
       },
       "thresholds": {
-        "title": "Garden planning: sun and reach",
-        "intro": "These values apply to every bed of the site. The sun classes appear as help text when you pick the sun, and the reach decides the \"Bed too wide\" hint. Kamerplanter computes nothing more from them. All fields are required; \"Reset to defaults\" restores them.",
+        "title": "Garden planning: sun, reach and windows",
+        "intro": "These values apply to every bed and planting spot of the site. The sun classes appear as help text when you choose the sun, the reach drives the hint “bed too wide”, the window radius the action “Suggest from windows”. Kamerplanter computes nothing else from them. All fields are required; “Defaults” resets them.",
         "sunTitle": "Sun classes",
         "sunHint": "Hours of direct sun on the reference day at which a class begins. Default from the Royal Horticultural Society: full sun above 6 h, partial shade from 3 h, shade from 2 h, deep shade below, on 21 June.",
         "hoursUnit": "h",
@@ -1981,7 +1981,11 @@
         "partialBelowFull": "Partial shade must be below the full-sun value.",
         "shadeBelowPartial": "Shade must be below the partial-shade value.",
         "noSuchDay": "This day does not exist. Check day and month.",
-        "oneAboveBoth": "From one side you do not reach farther than from two sides."
+        "oneAboveBoth": "From one side you do not reach farther than from two sides.",
+        "windowTitle": "Windows",
+        "windowHint": "“Suggest from windows” only counts windows this close to a planting spot, measured from the window line to the edge of the spot.",
+        "windowRadius": "Radius around a window",
+        "windowRadiusHelper": "In metres, more than 0 and at most 10 m. Farther into the room much less light arrives. Default: 1.5 m."
       }
     },
     "locations": {
@@ -5729,7 +5733,9 @@
               "glazingHelp": "Single glazing lets more cold reach the plants on the windowsill than double or multiple glazing.",
               "orientation": "Orientation: {{value}}",
               "orientationNone": "not available yet",
-              "orientationHelp": "Derived from the window's position in the wall and the plan's north direction, not entered by hand."
+              "orientationHelp": "Derived from the window's position in the wall and the plan's north direction, not entered by hand.",
+              "orientationValue": "{{direction}}, {{azimuth}}°",
+              "orientationConvention": "The plan has no outline that tells inside from outside. Assumed: outside is to the left of the direction you drew the window in. Draw the floor plan as an outline to be sure of the direction."
             },
             "door": {
               "swing": "Swing direction",
@@ -7005,6 +7011,43 @@
           "save": "Save",
           "cancel": "Cancel",
           "saved": "Sun and shade saved."
+        },
+        "fromWindow": {
+          "action": "Suggest from windows",
+          "actionHint": "Suggests the time of day with direct sun from the windows within {{radius}} m. Nothing is taken over until you confirm.",
+          "title": "Suggest the sun from windows",
+          "suggested": "Suggestion: {{value}}",
+          "current": "Currently recorded: {{value}}",
+          "unchanged": "The suggestion matches the recorded value. There is nothing to take over.",
+          "replaceWarning": "This replaces the recorded value “{{current}}” with “{{value}}”. Hours and leaf shade stay unchanged.",
+          "noneTitle": "No suggestion possible",
+          "reason": {
+            "notPlaced": "This planting spot is not on the plan yet. Draw it so the distance to the windows can be measured.",
+            "noWindow": "There is no window within {{radius}} m. Draw the windows into the walls or widen the radius in the site settings.",
+            "diffuseOnly": "The nearby windows face away from the sun. Only diffuse light arrives there, no direct sun.",
+            "tropics": "The site lies between the tropics. There the sun stands in the north part of the year and in the south the other part, so the window direction says nothing about the time of day."
+          },
+          "windowsTitle_one": "{{count}} window within {{radius}} m",
+          "windowsTitle_other": "{{count}} windows within {{radius}} m",
+          "windowUnnamed": "Unnamed window",
+          "windowLine": "{{direction}}, {{azimuth}}° · {{distance}} m away · {{contribution}}",
+          "noDirectSun": "no direct sun",
+          "byConvention": "(outside taken from the drawing direction)",
+          "hintsTitle": "Please note",
+          "hints": {
+            "hemisphere_assumed": "The site has no GPS coordinates. The northern hemisphere is assumed.",
+            "tropics": "Between the tropics there is no suggestion.",
+            "no_window": "There is no window with a recognisable direction within {{radius}} m.",
+            "diffuse_light_only": "A window facing away from the sun (north in the northern hemisphere) brings diffuse light only and does not count.",
+            "shading_not_considered": "Shade from neighbouring buildings, trees, balconies or the storey is not taken into account.",
+            "season": "In winter the sun stands lower and shines for a shorter time. The suggestion names the direction, not the season.",
+            "window_distance": "Just a few metres from the window much less light arrives.",
+            "glazing": "Glass, curtains and sun protection hold back part of the light."
+          },
+          "apply": "Take over",
+          "replace": "Replace",
+          "cancel": "Cancel",
+          "close": "Close"
         }
       },
       "field": {

@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import SiteType
 from app.domain.models.geometry import Geometry
-from app.domain.models.site import HardinessZoneSource, ReachThresholds, SunClassThresholds
+from app.domain.models.site import HardinessZoneSource, ReachThresholds, SunClassThresholds, WindowThresholds
 
 # ── Water config schemas ──────────────────────────────────────────────
 
@@ -78,6 +78,12 @@ class ReachThresholdsIn(ReachThresholds):
     model_config = ConfigDict(extra="forbid")
 
 
+class WindowThresholdsIn(WindowThresholds):
+    """The request form: a misspelt key is a 422 instead of a silently dropped value that resets the stored one."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"suggestion_radius_m": 1.5}]})
+
+
 class SiteCreate(BaseModel):
     name: str
     type: SiteType = SiteType.INDOOR
@@ -97,6 +103,8 @@ class SiteCreate(BaseModel):
     # the two-side one. Omitted (``null``) = keep the stored value on an edit, the defaults on create.
     sun_class_thresholds: SunClassThresholdsIn | None = None
     reach_thresholds: ReachThresholdsIn | None = None
+    # REQ-053 GP-FR-181 (WP 10.7): the radius around a window for the sun-window suggestion; same rules as above.
+    window_thresholds: WindowThresholdsIn | None = None
 
 
 class SiteResponse(BaseModel):
@@ -122,5 +130,6 @@ class SiteResponse(BaseModel):
     #: The effective values: what is stored, the defaults where nothing is (GP-FR-164/166).
     sun_class_thresholds: SunClassThresholds = Field(default_factory=SunClassThresholds)
     reach_thresholds: ReachThresholds = Field(default_factory=ReachThresholds)
+    window_thresholds: WindowThresholds = Field(default_factory=WindowThresholds)
     created_at: datetime | None = None
     updated_at: datetime | None = None

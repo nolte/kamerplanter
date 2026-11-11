@@ -1,4 +1,6 @@
-"""Site settings ``sun_class_thresholds`` and ``reach_thresholds`` through the API (REQ-053 WP 8.24, #2667).
+"""Site settings ``sun_class_thresholds``, ``reach_thresholds`` and ``window_thresholds`` through the API.
+
+REQ-053 WP 8.24 (#2667) and WP 10.7 (#2828, the window radius of GP-FR-181).
 
 The deployed ``app.main`` app, the real ``SiteService`` and a repository double that keeps what each write would
 store - the path a client takes. Covers GP-FR-164 (sun-class bounds, reference day), GP-FR-166 (reach) and the
@@ -15,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_site_service, get_tenant_service
-from app.domain.models.site import ReachThresholds, SiteConditions, SunClassThresholds
+from app.domain.models.site import ReachThresholds, SiteConditions, SunClassThresholds, WindowThresholds
 from app.domain.models.user import User
 from app.domain.services.site_service import SiteService
 from tests.api.test_location_and_slot_references_api import _Tenants
@@ -32,6 +34,8 @@ _CUSTOM_SUN = {
     "reference_day": 1,
 }
 _CUSTOM_REACH = {"both_sides_m": 1.4, "one_side_m": 0.7, "path_access_max_distance_m": 0.5}
+_DEFAULT_WINDOW = {"suggestion_radius_m": 1.5}
+_CUSTOM_WINDOW = {"suggestion_radius_m": 2.5}
 
 
 class _Repo(_RecordingRepo):
@@ -174,6 +178,66 @@ class TestRefusedValues:
         response = client.post(f"{_BASE}/sites", json={"name": "Neu", "type": "outdoor", **fields})
 
         assert response.status_code == 422
+
+
+class TestTheWindowRadius:
+    """GP-FR-181 (WP 10.7): the radius around a window within which a location takes it into account."""
+
+    def test_a_site_without_a_stored_radius_answers_with_1_5_m(self, client: TestClient) -> None:
+        body = client.get(f"{_BASE}/sites/site_own").json()
+
+        assert body["window_thresholds"] == _DEFAULT_WINDOW
+        assert WindowThresholds().model_dump() == _DEFAULT_WINDOW
+
+    def test_an_edit_stores_and_answers_the_radius(self, client: TestClient, repo: _Repo) -> None:
+        response = _put(client, window_thresholds=_CUSTOM_WINDOW)
+
+        assert response.status_code == 200
+        assert response.json()["window_thresholds"] == _CUSTOM_WINDOW
+        assert repo.written["site"].window_thresholds == WindowThresholds(**_CUSTOM_WINDOW)
+        assert client.get(f"{_BASE}/sites/site_own").json()["window_thresholds"] == _CUSTOM_WINDOW
+
+    def test_an_edit_that_does_not_send_it_keeps_the_stored_radius(self, client: TestClient, repo: _Repo) -> None:
+        _put(client, window_thresholds=_CUSTOM_WINDOW)
+
+        response = _put(client, name="Wohnung", reach_thresholds=_CUSTOM_REACH)
+
+        assert response.status_code == 200
+        assert repo.written["site"].window_thresholds == WindowThresholds(**_CUSTOM_WINDOW)
+        assert response.json()["window_thresholds"] == _CUSTOM_WINDOW
+
+    @pytest.mark.parametrize("radius", [0.01, 10.0])
+    def test_the_bounds_are_taken(self, client: TestClient, radius: float) -> None:
+        response = _put(client, window_thresholds={"suggestion_radius_m": radius})
+
+        assert response.status_code == 200
+        assert response.json()["window_thresholds"]["suggestion_radius_m"] == radius
+
+    def test_a_create_takes_it(self, client: TestClient) -> None:
+        response = client.post(
+            f"{_BASE}/sites", json={"name": "Wohnung", "type": "indoor", "window_thresholds": _CUSTOM_WINDOW}
+        )
+
+        assert response.status_code == 201
+        assert response.json()["window_thresholds"] == _CUSTOM_WINDOW
+
+    @pytest.mark.parametrize(
+        "window",
+        [
+            pytest.param({"suggestion_radius_m": 0}, id="zero"),
+            pytest.param({"suggestion_radius_m": -1.5}, id="negative"),
+            pytest.param({"suggestion_radius_m": 10.5}, id="above-bound"),
+            pytest.param({"suggestion_radius_m": "1.5m"}, id="no-number"),
+            pytest.param({"suggestion_radius": 1.5}, id="misspelt-key"),
+        ],
+    )
+    def test_an_invalid_radius_is_422_and_writes_nothing(
+        self, client: TestClient, repo: _Repo, window: dict[str, Any]
+    ) -> None:
+        response = _put(client, window_thresholds=window)
+
+        assert response.status_code == 422
+        assert "site" not in repo.written
 
 
 class TestOrientationOnALocationEdit:

@@ -346,6 +346,7 @@ export default function SiteDetailPage() {
               const defaults = thresholdsToFields(null);
               setValue('sun_class_thresholds', defaults.sun_class_thresholds, { shouldDirty: true, shouldValidate: true });
               setValue('reach_thresholds', defaults.reach_thresholds, { shouldDirty: true, shouldValidate: true });
+              setValue('window_thresholds', defaults.window_thresholds, { shouldDirty: true, shouldValidate: true });
             }}
           />
         )}

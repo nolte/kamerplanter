@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { TFunction } from 'i18next';
-import type { ReachThresholds, Site, SiteType, SunClassThresholds } from '@/api/types';
+import type { ReachThresholds, Site, SiteType, SunClassThresholds, WindowThresholds } from '@/api/types';
 import {
   DEFAULT_REACH_THRESHOLDS,
   DEFAULT_SUN_CLASS_THRESHOLDS,
+  DEFAULT_WINDOW_THRESHOLDS,
 } from '@/features/gardenPlanner/model/siteThresholds';
 
 /**
@@ -66,6 +67,9 @@ const reachMetres = z.number().gt(0).max(MAX_REACH_M);
 /** How close a path must come to a bed edge, metres: 0 (touching) up to 1 m (#2703, `MAX_PATH_ACCESS_DISTANCE_M`). */
 export const MAX_PATH_ACCESS_DISTANCE_M = 1;
 const pathDistanceMetres = z.number().min(0).max(MAX_PATH_ACCESS_DISTANCE_M);
+/** The radius around a window for the sun-window suggestion, metres: more than 0 up to 10 m (GP-FR-181, WP 10.7). */
+export const MAX_WINDOW_SUGGESTION_RADIUS_M = 10;
+const windowRadiusMetres = z.number().gt(0).max(MAX_WINDOW_SUGGESTION_RADIUS_M);
 
 export const siteFormSchema = z.object({
   name: z.string().min(1),
@@ -87,6 +91,9 @@ export const siteFormSchema = z.object({
     both_sides_m: reachMetres,
     one_side_m: reachMetres,
     path_access_max_distance_m: pathDistanceMetres,
+  }),
+  window_thresholds: z.object({
+    suggestion_radius_m: windowRadiusMetres,
   }),
 });
 
@@ -179,13 +186,15 @@ export function isDayOfYear(month: number, day: number): boolean {
 }
 
 /** The form values of the thresholds from what the site answered; the defaults where it sent none. */
-export function thresholdsToFields(
-  site: Pick<Site, 'sun_class_thresholds' | 'reach_thresholds'> | null | undefined,
-): Pick<SiteFormData, 'sun_class_thresholds' | 'reach_thresholds'> {
+type ThresholdFields = Pick<SiteFormData, 'sun_class_thresholds' | 'reach_thresholds' | 'window_thresholds'>;
+type SiteThresholdValues = Pick<Site, 'sun_class_thresholds' | 'reach_thresholds' | 'window_thresholds'>;
+
+export function thresholdsToFields(site: SiteThresholdValues | null | undefined): ThresholdFields {
   return {
     sun_class_thresholds: { ...(site?.sun_class_thresholds ?? DEFAULT_SUN_CLASS_THRESHOLDS) },
     // Merged over the defaults: a backend before #2703 sends no path distance.
     reach_thresholds: { ...DEFAULT_REACH_THRESHOLDS, ...site?.reach_thresholds },
+    window_thresholds: { ...(site?.window_thresholds ?? DEFAULT_WINDOW_THRESHOLDS) },
   };
 }
 
@@ -198,15 +207,20 @@ function sameValues<T extends object>(a: T, b: T): boolean {
  * (the server stores nothing for a site that never had them, so a later change of the defaults reaches it).
  */
 export function thresholdsToPayload(
-  data: Pick<SiteFormData, 'sun_class_thresholds' | 'reach_thresholds'>,
-  site: Pick<Site, 'sun_class_thresholds' | 'reach_thresholds'> | null | undefined,
-): { sun_class_thresholds: SunClassThresholds | null; reach_thresholds: ReachThresholds | null } {
+  data: ThresholdFields,
+  site: SiteThresholdValues | null | undefined,
+): {
+  sun_class_thresholds: SunClassThresholds | null;
+  reach_thresholds: ReachThresholds | null;
+  window_thresholds: WindowThresholds | null;
+} {
   const before = thresholdsToFields(site);
   return {
     sun_class_thresholds: sameValues(data.sun_class_thresholds, before.sun_class_thresholds)
       ? null
       : data.sun_class_thresholds,
     reach_thresholds: sameValues(data.reach_thresholds, before.reach_thresholds) ? null : data.reach_thresholds,
+    window_thresholds: sameValues(data.window_thresholds, before.window_thresholds) ? null : data.window_thresholds,
   };
 }
 

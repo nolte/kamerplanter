@@ -35,6 +35,7 @@ from app.common.enums import (
 from app.domain.calculators.geometry_calculator import BoundingBox, area_m2, bounding_box
 from app.domain.calculators.orientation_calculator import orientation_from_aspect
 from app.domain.calculators.reach_calculator import PATH_ACCESS_MAX_DISTANCE_M, REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
+from app.domain.calculators.window_orientation import DEFAULT_WINDOW_SUGGESTION_RADIUS_M
 from app.domain.models.geometry import (
     AREA_KINDS,
     FULL_TURN_DEG,
@@ -342,12 +343,16 @@ MAX_REACH_THRESHOLD_M = MAX_DIMENSION_M
 #: Upper bound of the path-access distance, metres (#2703): a path more than a step away from the bed edge is no
 #: place to tend it from; the bound keeps a typo (30 instead of 0.3) from making every path reach every bed.
 MAX_PATH_ACCESS_DISTANCE_M = 1.0
+#: Upper bound of the window radius, metres (GP-FR-181): beyond a few metres into a room a window's direction says
+#: nothing about the sun a plant gets; the bound keeps a typo (150 instead of 1.5) from tying every bed to every window.
+MAX_WINDOW_SUGGESTION_RADIUS_M = 10.0
 #: A leap year, so 29 February is a valid reference day.
 _REFERENCE_YEAR = 2000
 
 _PositiveHours = Annotated[float, AllowInfNan(False), Field(gt=0, le=24.0)]
 _PositiveMetres = Annotated[float, AllowInfNan(False), Field(gt=0, le=MAX_REACH_THRESHOLD_M)]
 _PathDistanceMetres = Annotated[float, AllowInfNan(False), Field(ge=0, le=MAX_PATH_ACCESS_DISTANCE_M)]
+_WindowRadiusMetres = Annotated[float, AllowInfNan(False), Field(gt=0, le=MAX_WINDOW_SUGGESTION_RADIUS_M)]
 
 
 class SunClassThresholds(BaseModel):
@@ -406,6 +411,20 @@ class ReachThresholds(BaseModel):
         if self.one_side_m > self.both_sides_m:
             raise ValueError("one_side_m must not exceed both_sides_m.")
         return self
+
+
+class WindowThresholds(BaseModel):
+    """How close a window must be to a location to suggest its sun window (REQ-053 GP-FR-181, WP 10.7), in metres.
+
+    ``suggestion_radius_m`` is the edge-to-edge distance between the window line and the location's shape within
+    which the action "Aus Fenster vorschlagen" takes the window into account: 1.5 m by default, more than 0 up to
+    :data:`MAX_WINDOW_SUGGESTION_RADIUS_M`. A site without stored values reads the default, so no stored document
+    needs a backfill.
+    """
+
+    model_config = {"json_schema_extra": {"examples": [{"suggestion_radius_m": 1.5}]}}
+
+    suggestion_radius_m: _WindowRadiusMetres = DEFAULT_WINDOW_SUGGESTION_RADIUS_M
 
 
 class Microclimate(BaseModel):
@@ -779,6 +798,8 @@ class Site(BaseModel):
     #: Stored only once somebody sets them; a site edit that does not send them keeps the stored value.
     sun_class_thresholds: SunClassThresholds | None = None
     reach_thresholds: ReachThresholds | None = None
+    #: GP-FR-181 (WP 10.7) - ``None`` = the 1.5 m default.
+    window_thresholds: WindowThresholds | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -793,6 +814,11 @@ class Site(BaseModel):
     def effective_reach_thresholds(self) -> ReachThresholds:
         """The site's reach thresholds, 1.2 / 0.6 m and a 0.3 m path distance where none are stored."""
         return self.reach_thresholds or ReachThresholds()
+
+    @property
+    def effective_window_thresholds(self) -> WindowThresholds:
+        """The site's window radius, 1.5 m where none is stored."""
+        return self.window_thresholds or WindowThresholds()
 
     @field_validator("gps_coordinates")
     @classmethod

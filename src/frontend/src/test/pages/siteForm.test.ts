@@ -149,7 +149,7 @@ describe('siteForm — garden-planning thresholds (REQ-053 WP 8.24)', () => {
     reach_thresholds: { ...baseForm.reach_thresholds, ...patch },
   });
 
-  it('starts from the RHS sun classes on 21 June and the reach 1.2 / 0.6 m', () => {
+  it('starts from the RHS sun classes on 21 June, the reach 1.2 / 0.6 m and the window radius 1.5 m', () => {
     expect(thresholdsToFields(null)).toEqual({
       sun_class_thresholds: {
         full_sun_min_hours: 6,
@@ -159,7 +159,20 @@ describe('siteForm — garden-planning thresholds (REQ-053 WP 8.24)', () => {
         reference_day: 21,
       },
       reach_thresholds: { both_sides_m: 1.2, one_side_m: 0.6, path_access_max_distance_m: 0.3 },
+      window_thresholds: { suggestion_radius_m: 1.5 },
     });
+  });
+
+  it.each([0.1, 1.5, 10])('accepts a window radius of %s m (GP-FR-181)', async (value) => {
+    const data = { ...baseForm, window_thresholds: { suggestion_radius_m: value } };
+    const result = await runResolver(buildSiteResolver(identityT), data);
+    expect(result.errors).toEqual({});
+  });
+
+  it.each([0, -1, 10.5])('refuses a window radius of %s m (GP-FR-181)', async (value) => {
+    const data = { ...baseForm, window_thresholds: { suggestion_radius_m: value } };
+    const result = await runResolver(buildSiteResolver(identityT), data);
+    expect(result.errors.window_thresholds?.suggestion_radius_m).toBeTruthy();
   });
 
   it('fills the path distance a backend before #2703 does not send with its 0.3 m default', () => {
@@ -233,12 +246,19 @@ describe('siteForm — garden-planning thresholds (REQ-053 WP 8.24)', () => {
 
   it('sends only the part that changed; an unchanged part keeps what is stored (null)', () => {
     const site = thresholdsToFields(null);
-    expect(thresholdsToPayload(site, null)).toEqual({ sun_class_thresholds: null, reach_thresholds: null });
+    expect(thresholdsToPayload(site, null)).toEqual({
+      sun_class_thresholds: null,
+      reach_thresholds: null,
+      window_thresholds: null,
+    });
     const changed = { ...site, reach_thresholds: { both_sides_m: 1.5, one_side_m: 0.6, path_access_max_distance_m: 0.3 } };
     expect(thresholdsToPayload(changed, null)).toEqual({
       sun_class_thresholds: null,
       reach_thresholds: { both_sides_m: 1.5, one_side_m: 0.6, path_access_max_distance_m: 0.3 },
+      window_thresholds: null,
     });
+    const window = { ...site, window_thresholds: { suggestion_radius_m: 2 } };
+    expect(thresholdsToPayload(window, null)).toMatchObject({ window_thresholds: { suggestion_radius_m: 2 } });
   });
 });
 

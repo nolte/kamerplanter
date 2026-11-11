@@ -19,6 +19,7 @@ from app.domain.models.site import (
     ReachThresholds,
     Site,
     SunClassThresholds,
+    WindowThresholds,
 )
 
 
@@ -127,6 +128,21 @@ class TestTheSiteCarriesThem:
         )
 
         assert site.effective_reach_thresholds.path_access_max_distance_m == 0.3
+
+
+class TestWindowThresholds:
+    """GP-FR-181 (WP 10.7): 1.5 m by default, more than 0 up to 10 m; a site without it reads the default."""
+
+    def test_the_default_is_1_5_m_and_a_stored_site_without_it_reads_it(self) -> None:
+        site = Site.model_validate({"_key": "s1", "name": "Wohnung", "type": "indoor"})
+
+        assert site.window_thresholds is None
+        assert site.effective_window_thresholds.suggestion_radius_m == 1.5
+
+    @pytest.mark.parametrize("value", [0, -0.1, 10.01, math.nan, math.inf])
+    def test_a_radius_out_of_range_is_refused(self, value: float) -> None:
+        with pytest.raises(ValidationError):
+            WindowThresholds(suggestion_radius_m=value)
 
 
 def _bed(**fields: object) -> Location:

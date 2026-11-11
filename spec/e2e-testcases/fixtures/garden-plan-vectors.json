@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach, path_access), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity), GP-FR-167 (edge_distance, nearest_water_source, is_water_source), §9.2a W-016.5 (container_volume)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry), GP-UX-047/GP-FR-003 (label_anchor), GP-FR-166 (reach, path_access), GP-FR-123 (area_dose, nitrogen_approximation, unit_identity), GP-FR-167 (edge_distance, nearest_water_source, is_water_source), §9.2a W-016.5 (container_volume), GP-FR-181 (window_facing, window_sun_window)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -14,7 +14,7 @@
   ],
   "units": {
     "length": "m",
-    "angle": "deg (counter-clockwise about +x)",
+    "angle": "deg (counter-clockwise about +x); window_facing / window_sun_window use compass azimuths (clockwise from north)",
     "area": "m2"
   },
   "default_tolerance": 0.001,
@@ -66,7 +66,9 @@
     "edge_distance": "input.a, input.b (rect | circle | polygon | polyline | point, plan frame) -> expected number (m): the shortest edge-to-edge distance between the two shapes, 0 when they touch, overlap or one contains the other (also a point inside an area). Rotation is applied about the anchor; a circle is exact (centre distance minus radius); a polyline counts with its stroke (a band of width_m around the centre line, round ends); a point is the point itself. Exact, no tolerance; rounded to 0.001 m like every stored length - geometry_distance.edge_distance_m / model/geometryDistance.ts edgeDistanceM (REQ-053 GP-FR-167, WP 9.12; the primitive GP-FR-130 path access consumes)",
     "nearest_water_source": "input.bed (rect | circle | polygon, plan frame, or null), input.sources (list of water-source geometries, plan frame) -> expected number (m) | null: the smallest edge_distance from the bed to any source, rounded to 0.001 m; null without a bed geometry or without a source. Which objects are sources (object_type water_source, not off_site) is decided by the caller - geometry_distance.nearest_water_source_m / model/geometryDistance.ts nearestWaterSourceM (REQ-053 GP-FR-167, WP 9.12)",
     "is_water_source": "input.object_type (garden object class), input.off_site (boolean) -> expected boolean: whether nearest_water_source measures to the object - class water_source and not off_site scenery (the neighbour's tap behind the fence is not the garden's water) - geometry_distance.is_water_source / model/geometryDistance.ts isWaterSource (REQ-053 GP-FR-167, WP 9.12)",
-    "container_volume": "input.container_volume_l (litres | null), input.recommended_container_volume_l (Steckbrief range string | number | null), optional input.phase_code (machine phase name) and input.irrigation_system (Location.irrigation_system) -> expected {volume_below: boolean, recommended_l: number | null}: the recommendation is the leading number of the string (decimal comma allowed, anything after it ignored), a non-positive or unreadable one is no recommendation; volume_below is true only when both are known, the phase is no young phase (germination, seedling, rooting, establishment, pup_establishment, bulbil_establishment), the irrigation system is not pot-free (hydro, nft) and the pot is strictly smaller (container_volume_calculator.check_container_volume / planting/plantingLogic.ts containerCheck, REQ-053 §9.2a W-016.5)"
+    "container_volume": "input.container_volume_l (litres | null), input.recommended_container_volume_l (Steckbrief range string | number | null), optional input.phase_code (machine phase name) and input.irrigation_system (Location.irrigation_system) -> expected {volume_below: boolean, recommended_l: number | null}: the recommendation is the leading number of the string (decimal comma allowed, anything after it ignored), a non-positive or unreadable one is no recommendation; volume_below is true only when both are known, the phase is no young phase (germination, seedling, rooting, establishment, pup_establishment, bulbil_establishment), the irrigation system is not pot-free (hydro, nft) and the pot is strictly smaller (container_volume_calculator.check_container_volume / planting/plantingLogic.ts containerCheck, REQ-053 §9.2a W-016.5)",
+    "window_facing": "input.window (the window's geometry, plan frame), input.north_angle_deg (compass azimuth of north on the plan, GP-FR-015), input.boundary (the site outline, rect | circle | polygon | null) -> expected {azimuth_deg, orientation, basis} | null: the compass azimuth (0 = north, clockwise, rounded to 0.1 deg like north_angle_deg, [0, 360)) of the window's outward normal and its 8-sector orientation (orientation_calculator.orientation_from_aspect, half-open). The wall direction is the chord from the first to the last vertex of the polyline; any other shape, or a chord of length 0, gives null. Outside is found by probing 0.5 m from the chord midpoint along both normals: when exactly one probe lies inside the boundary, the other side is outside (basis 'boundary'); without a boundary, or when both or neither probe lies inside, the convention is that outside is LEFT of the drawing direction - walls traced clockwise on screen keep the room on their right (basis 'drawing_direction'). window_orientation.window_facing / model/windowOrientation.ts windowFacing (REQ-053 GP-FR-181, WP 10.7)",
+    "window_sun_window": "input.azimuths (compass azimuths of the windows within the radius, deg), input.latitude (Site.gps_coordinates[0] | null) -> expected {sun_window: morning | midday | afternoon | all_day | mixed | null, hints: [code]}: no latitude assumes the northern hemisphere (hint hemisphere_assumed); |latitude| < 23.5 gives null (hint tropics); latitude < 0 maps a -> (180 - a) mod 360 first. Each azimuth falls into its orientation_from_aspect sector: north contributes nothing (hint diffuse_light_only), northeast/east/southeast morning, south midday, southwest/west/northwest afternoon. No azimuth: null (hint no_window). The set of contributions: empty -> null, one value -> that value, morning + midday + afternoon -> all_day, any other two or more -> mixed; no distance weighting, a single window is never all_day. A suggestion carries the caveats shading_not_considered, season, window_distance, glazing. Hints are in this order: hemisphere_assumed, tropics, no_window, diffuse_light_only, shading_not_considered, season, window_distance, glazing. window_orientation.suggest_sun_window / model/windowOrientation.ts suggestSunWindow (REQ-053 GP-FR-181, WP 10.7, agrobiology review 2026-11-11)"
   },
   "cases": [
     {
@@ -5957,6 +5959,433 @@
       "spec": "W-016.5: a drip-fed pot is checked",
       "input": {"container_volume_l": 3, "recommended_container_volume_l": "5-10", "irrigation_system": "drip"},
       "expected": {"volume_below": true, "recommended_l": 5}
+    },
+    {
+      "id": "window-facing-top-wall-north",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: window in the top wall of a 10 x 8 m outline, north = +y: the outward normal points +y - north 0",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-top-wall-reversed",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: the same window drawn right to left - with an outline the drawing direction does not matter",
+      "input": {"window": {"kind": "polyline", "points": [[4, 8], [2, 8]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-bottom-wall-south",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: bottom wall, outward -y - south 180",
+      "input": {"window": {"kind": "polyline", "points": [[2, 0], [4, 0]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 180.0, "orientation": "south", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-right-wall-east",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: right wall, outward +x - east 90",
+      "input": {"window": {"kind": "polyline", "points": [[10, 2], [10, 4]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 90.0, "orientation": "east", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-left-wall-west",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: left wall, outward -x - west 270",
+      "input": {"window": {"kind": "polyline", "points": [[0, 4], [0, 2]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 270.0, "orientation": "west", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-north-angle-90",
+      "operation": "window_facing",
+      "spec": "GP-FR-015/181: north_angle_deg 90 puts north on +x; the bottom wall (outward -y) then faces east",
+      "input": {"window": {"kind": "polyline", "points": [[2, 0], [4, 0]], "width_m": 0.1}, "north_angle_deg": 90, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 90.0, "orientation": "east", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-north-angle-45",
+      "operation": "window_facing",
+      "spec": "GP-FR-015/181: north turned 45 deg clockwise; the top wall (outward +y) faces northwest 315",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 45, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 315.0, "orientation": "northwest", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-north-angle-135",
+      "operation": "window_facing",
+      "spec": "GP-FR-015/181: north turned 135 deg clockwise; the top wall faces southwest 225",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 135, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 225.0, "orientation": "southwest", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-rotation-onto-sector-start-north",
+      "operation": "window_facing",
+      "spec": "GP-FR-181 half-open sectors after the rotation: the top wall at north_angle_deg 22.5 faces 337.5 - the start of north",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 22.5, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 337.5, "orientation": "north", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-rotation-onto-sector-start-northeast",
+      "operation": "window_facing",
+      "spec": "GP-FR-181 half-open sectors after the rotation: the top wall at north_angle_deg 337.5 faces 22.5 - the start of northeast",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 337.5, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 22.5, "orientation": "northeast", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-north-angle-359-9",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: north_angle_deg 359.9, the top wall faces 0.1 - north; the azimuth is rounded to 0.1 deg",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 359.9, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 0.1, "orientation": "north", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-diagonal-wall",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: a window in the diagonal edge of a triangular outline (room below the diagonal) faces up-left - northwest 315",
+      "input": {"window": {"kind": "polyline", "points": [[2, 2], [4, 4]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "polygon", "points": [[0, 0], [10, 0], [10, 10]]}},
+      "expected": {"azimuth_deg": 315.0, "orientation": "northwest", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-drawn-on-inner-wall-face",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: a window drawn 0.3 m inside the outline (on the inner wall face) still finds the outside within the 0.5 m probe",
+      "input": {"window": {"kind": "polyline", "points": [[2, 7.7], [4, 7.7]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-polyline-chord",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: a window of three vertices runs along the chord from its first to its last vertex",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [3, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north", "basis": "boundary"}
+    },
+    {
+      "id": "window-facing-no-boundary-convention",
+      "operation": "window_facing",
+      "spec": "GP-FR-181 convention without an outline: outside is LEFT of the drawing direction (walls traced clockwise on screen, room on the right) - drawn +x, faces +y north",
+      "input": {"window": {"kind": "polyline", "points": [[2, 8], [4, 8]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": null},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north", "basis": "drawing_direction"}
+    },
+    {
+      "id": "window-facing-no-boundary-convention-reversed",
+      "operation": "window_facing",
+      "spec": "GP-FR-181 convention without an outline: drawn -x, the left side is -y - south; the drawing direction decides",
+      "input": {"window": {"kind": "polyline", "points": [[4, 8], [2, 8]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": null},
+      "expected": {"azimuth_deg": 180.0, "orientation": "south", "basis": "drawing_direction"}
+    },
+    {
+      "id": "window-facing-inner-wall-falls-back",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: a window inside the outline (an inner wall, both probes inside) has no outside - the drawing-direction convention applies: drawn +y, left is -x west",
+      "input": {"window": {"kind": "polyline", "points": [[5, 2], [5, 4]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 270.0, "orientation": "west", "basis": "drawing_direction"}
+    },
+    {
+      "id": "window-facing-outside-boundary-falls-back",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: a window beyond the outline (both probes outside) falls back to the convention as well",
+      "input": {"window": {"kind": "polyline", "points": [[12, 2], [12, 4]], "width_m": 0.1}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": {"azimuth_deg": 270.0, "orientation": "west", "basis": "drawing_direction"}
+    },
+    {
+      "id": "window-facing-not-a-line",
+      "operation": "window_facing",
+      "spec": "GP-FR-181: a window is a line in the wall; any other shape has no wall direction - null",
+      "input": {"window": {"kind": "rect", "origin": [2, 7.9], "width_m": 2, "length_m": 0.2}, "north_angle_deg": 0, "boundary": {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 8}},
+      "expected": null
+    },
+    {
+      "id": "window-sun-north",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: a north window gets no direct sun - no suggestion, diffuse light only",
+      "input": {"azimuths": [0], "latitude": 50.0},
+      "expected": {"sun_window": null, "hints": ["diffuse_light_only"]}
+    },
+    {
+      "id": "window-sun-northeast",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: northeast - morning",
+      "input": {"azimuths": [45], "latitude": 50.0},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-east",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: east - morning",
+      "input": {"azimuths": [90], "latitude": 50.0},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southeast",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: southeast - morning",
+      "input": {"azimuths": [135], "latitude": 50.0},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-south",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: south - midday",
+      "input": {"azimuths": [180], "latitude": 50.0},
+      "expected": {"sun_window": "midday", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southwest",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: southwest - afternoon",
+      "input": {"azimuths": [225], "latitude": 50.0},
+      "expected": {"sun_window": "afternoon", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-west",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: west - afternoon",
+      "input": {"azimuths": [270], "latitude": 50.0},
+      "expected": {"sun_window": "afternoon", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-northwest",
+      "operation": "window_sun_window",
+      "spec": "GP-FR-181 table: northwest - afternoon",
+      "input": {"azimuths": [315], "latitude": 50.0},
+      "expected": {"sun_window": "afternoon", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-boundary-22-5",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 22.5 starts northeast - morning",
+      "input": {"azimuths": [22.5], "latitude": 50.0},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-boundary-22-4",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 22.4 is still north - no suggestion",
+      "input": {"azimuths": [22.4], "latitude": 50.0},
+      "expected": {"sun_window": null, "hints": ["diffuse_light_only"]}
+    },
+    {
+      "id": "window-sun-boundary-337-5",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 337.5 starts north - no suggestion",
+      "input": {"azimuths": [337.5], "latitude": 50.0},
+      "expected": {"sun_window": null, "hints": ["diffuse_light_only"]}
+    },
+    {
+      "id": "window-sun-boundary-337-4",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 337.4 is still northwest - afternoon",
+      "input": {"azimuths": [337.4], "latitude": 50.0},
+      "expected": {"sun_window": "afternoon", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-boundary-157-5",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 157.5 starts south - midday",
+      "input": {"azimuths": [157.5], "latitude": 50.0},
+      "expected": {"sun_window": "midday", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-boundary-157-4",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 157.4 is still southeast - morning",
+      "input": {"azimuths": [157.4], "latitude": 50.0},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-boundary-202-5",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 202.5 starts southwest - afternoon",
+      "input": {"azimuths": [202.5], "latitude": 50.0},
+      "expected": {"sun_window": "afternoon", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-boundary-202-4",
+      "operation": "window_sun_window",
+      "spec": "half-open sectors: 202.4 is still south - midday",
+      "input": {"azimuths": [202.4], "latitude": 50.0},
+      "expected": {"sun_window": "midday", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southern-north-window",
+      "operation": "window_sun_window",
+      "spec": "southern hemisphere: a north window (0) maps to 180 - midday",
+      "input": {"azimuths": [0], "latitude": -33.9},
+      "expected": {"sun_window": "midday", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southern-south-window",
+      "operation": "window_sun_window",
+      "spec": "southern hemisphere: a south window (180) maps to 0 - no suggestion, diffuse light only",
+      "input": {"azimuths": [180], "latitude": -33.9},
+      "expected": {"sun_window": null, "hints": ["diffuse_light_only"]}
+    },
+    {
+      "id": "window-sun-southern-east-window",
+      "operation": "window_sun_window",
+      "spec": "southern hemisphere: east (90) stays 90 - morning",
+      "input": {"azimuths": [90], "latitude": -33.9},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southern-west-window",
+      "operation": "window_sun_window",
+      "spec": "southern hemisphere: west (270) maps to 270 - afternoon",
+      "input": {"azimuths": [270], "latitude": -33.9},
+      "expected": {"sun_window": "afternoon", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southern-northeast-window",
+      "operation": "window_sun_window",
+      "spec": "southern hemisphere: northeast (45) maps to 135 - morning",
+      "input": {"azimuths": [45], "latitude": -33.9},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southern-northwest-window",
+      "operation": "window_sun_window",
+      "spec": "southern hemisphere: northwest (315) maps to 225 - afternoon",
+      "input": {"azimuths": [315], "latitude": -33.9},
+      "expected": {"sun_window": "afternoon", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-southern-boundary-mirrors",
+      "operation": "window_sun_window",
+      "spec": "southern hemisphere: 22.5 maps to 157.5, the start of south - midday (the mirror moves a half-open boundary to the other side)",
+      "input": {"azimuths": [22.5], "latitude": -33.9},
+      "expected": {"sun_window": "midday", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-tropics-north",
+      "operation": "window_sun_window",
+      "spec": "|latitude| < 23.5: the sun stands high in both directions over the year - no suggestion, a hint",
+      "input": {"azimuths": [180], "latitude": 10.0},
+      "expected": {"sun_window": null, "hints": ["tropics"]}
+    },
+    {
+      "id": "window-sun-tropics-equator",
+      "operation": "window_sun_window",
+      "spec": "latitude 0 is tropical",
+      "input": {"azimuths": [180], "latitude": 0.0},
+      "expected": {"sun_window": null, "hints": ["tropics"]}
+    },
+    {
+      "id": "window-sun-tropics-south-edge",
+      "operation": "window_sun_window",
+      "spec": "latitude -23.4 is still tropical",
+      "input": {"azimuths": [0], "latitude": -23.4},
+      "expected": {"sun_window": null, "hints": ["tropics"]}
+    },
+    {
+      "id": "window-sun-tropic-of-cancer",
+      "operation": "window_sun_window",
+      "spec": "latitude 23.5 is not tropical (|latitude| < 23.5 is) - south gives midday",
+      "input": {"azimuths": [180], "latitude": 23.5},
+      "expected": {"sun_window": "midday", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-tropic-of-capricorn",
+      "operation": "window_sun_window",
+      "spec": "latitude -23.5 is not tropical - southern hemisphere, a north window gives midday",
+      "input": {"azimuths": [0], "latitude": -23.5},
+      "expected": {"sun_window": "midday", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-no-latitude-south",
+      "operation": "window_sun_window",
+      "spec": "without a latitude the northern hemisphere is assumed and said",
+      "input": {"azimuths": [180], "latitude": null},
+      "expected": {"sun_window": "midday", "hints": ["hemisphere_assumed", "shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-no-latitude-north",
+      "operation": "window_sun_window",
+      "spec": "without a latitude a north window is still north - no suggestion",
+      "input": {"azimuths": [0], "latitude": null},
+      "expected": {"sun_window": null, "hints": ["hemisphere_assumed", "diffuse_light_only"]}
+    },
+    {
+      "id": "window-sun-no-latitude-no-window",
+      "operation": "window_sun_window",
+      "spec": "without a latitude and without a window: both hints, no suggestion",
+      "input": {"azimuths": [], "latitude": null},
+      "expected": {"sun_window": null, "hints": ["hemisphere_assumed", "no_window"]}
+    },
+    {
+      "id": "window-sun-combo-none",
+      "operation": "window_sun_window",
+      "spec": "no window within the radius - no suggestion",
+      "input": {"azimuths": [], "latitude": 50.0},
+      "expected": {"sun_window": null, "hints": ["no_window"]}
+    },
+    {
+      "id": "window-sun-combo-two-mornings",
+      "operation": "window_sun_window",
+      "spec": "two windows of the same value give that value",
+      "input": {"azimuths": [45, 135], "latitude": 50.0},
+      "expected": {"sun_window": "morning", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-morning-midday",
+      "operation": "window_sun_window",
+      "spec": "morning + midday - mixed",
+      "input": {"azimuths": [90, 180], "latitude": 50.0},
+      "expected": {"sun_window": "mixed", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-morning-afternoon",
+      "operation": "window_sun_window",
+      "spec": "morning + afternoon - mixed (not all_day: midday is missing)",
+      "input": {"azimuths": [90, 270], "latitude": 50.0},
+      "expected": {"sun_window": "mixed", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-midday-afternoon",
+      "operation": "window_sun_window",
+      "spec": "midday + afternoon - mixed",
+      "input": {"azimuths": [180, 270], "latitude": 50.0},
+      "expected": {"sun_window": "mixed", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-all-three",
+      "operation": "window_sun_window",
+      "spec": "morning, midday and afternoon all present - all_day",
+      "input": {"azimuths": [90, 180, 270], "latitude": 50.0},
+      "expected": {"sun_window": "all_day", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-all-three-intercardinal",
+      "operation": "window_sun_window",
+      "spec": "southeast, south and southwest - all_day",
+      "input": {"azimuths": [135, 180, 225], "latitude": 50.0},
+      "expected": {"sun_window": "all_day", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-north-dropped",
+      "operation": "window_sun_window",
+      "spec": "a north window drops out; east alone gives morning, the diffuse hint stays",
+      "input": {"azimuths": [0, 90], "latitude": 50.0},
+      "expected": {"sun_window": "morning", "hints": ["diffuse_light_only", "shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-four-walls",
+      "operation": "window_sun_window",
+      "spec": "windows on all four walls: north drops out, the other three give all_day",
+      "input": {"azimuths": [0, 90, 180, 270], "latitude": 50.0},
+      "expected": {"sun_window": "all_day", "hints": ["diffuse_light_only", "shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "window-sun-combo-only-north",
+      "operation": "window_sun_window",
+      "spec": "two north windows - no suggestion",
+      "input": {"azimuths": [0, 350], "latitude": 50.0},
+      "expected": {"sun_window": null, "hints": ["diffuse_light_only"]}
+    },
+    {
+      "id": "window-sun-combo-duplicate-values",
+      "operation": "window_sun_window",
+      "spec": "three windows, two values - mixed; no distance weighting",
+      "input": {"azimuths": [90, 100, 180], "latitude": 50.0},
+      "expected": {"sun_window": "mixed", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
     }
   ]
 }

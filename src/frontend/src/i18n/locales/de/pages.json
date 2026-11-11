@@ -1954,8 +1954,8 @@
         "noWaterConfig": "Keine Wasserquelle konfiguriert"
       },
       "thresholds": {
-        "title": "Gartenplanung: Sonne und Erreichbarkeit",
-        "intro": "Diese Werte gelten für alle Beete des Standorts. Die Sonnenklassen erscheinen als Hilfetext bei der Sonnenwahl, die Reichweite bestimmt den Hinweis „Beet zu breit“. Kamerplanter berechnet daraus nichts weiter. Alle Felder sind Pflichtfelder; „Standardwerte“ setzt sie zurück.",
+        "title": "Gartenplanung: Sonne, Erreichbarkeit und Fenster",
+        "intro": "Diese Werte gelten für alle Beete und Pflanzplätze des Standorts. Die Sonnenklassen erscheinen als Hilfetext bei der Sonnenwahl, die Reichweite bestimmt den Hinweis „Beet zu breit“, der Fenster-Umkreis den Vorschlag „Aus Fenster vorschlagen“. Kamerplanter berechnet daraus nichts weiter. Alle Felder sind Pflichtfelder; „Standardwerte“ setzt sie zurück.",
         "sunTitle": "Sonnenklassen",
         "sunHint": "Stunden direkter Sonne am Stichtag, ab denen eine Klasse beginnt. Standard nach der Royal Horticultural Society: Volle Sonne über 6 h, Halbschatten ab 3 h, Schatten ab 2 h, darunter Tiefschatten, am 21. Juni.",
         "hoursUnit": "h",
@@ -1981,7 +1981,11 @@
         "partialBelowFull": "Halbschatten muss unter dem Wert für volle Sonne liegen.",
         "shadeBelowPartial": "Schatten muss unter dem Wert für Halbschatten liegen.",
         "noSuchDay": "Diesen Tag gibt es nicht. Prüfe Tag und Monat.",
-        "oneAboveBoth": "Von einer Seite reichst du nicht weiter als von zwei Seiten."
+        "oneAboveBoth": "Von einer Seite reichst du nicht weiter als von zwei Seiten.",
+        "windowTitle": "Fenster",
+        "windowHint": "Für „Aus Fenster vorschlagen“ zählen nur Fenster, die so nah an einem Pflanzplatz liegen. Gemessen wird von der Fensterlinie bis zum Rand des Pflanzplatzes.",
+        "windowRadius": "Umkreis um ein Fenster",
+        "windowRadiusHelper": "In Metern, mehr als 0 und höchstens 10 m. Weiter im Raum kommt deutlich weniger Licht an. Standard: 1,5 m."
       }
     },
     "locations": {
@@ -5730,7 +5734,9 @@
               "glazingHelp": "Einfachglas lässt mehr Kälte an die Pflanzen auf der Fensterbank als Doppel- oder Mehrfachglas.",
               "orientation": "Himmelsrichtung: {{value}}",
               "orientationNone": "noch nicht verfügbar",
-              "orientationHelp": "Wird aus der Lage des Fensters in der Wand und der Nordrichtung des Plans abgeleitet und nicht von Hand eingetragen."
+              "orientationHelp": "Wird aus der Lage des Fensters in der Wand und der Nordrichtung des Plans abgeleitet und nicht von Hand eingetragen.",
+              "orientationValue": "{{direction}}, {{azimuth}}°",
+              "orientationConvention": "Der Plan hat keinen Umriss, der innen und außen trennt. Angenommen wird: Außen liegt links der Richtung, in der du das Fenster gezeichnet hast. Zeichne den Grundriss als Umriss, dann stimmt die Richtung sicher."
             },
             "door": {
               "swing": "Öffnungsrichtung",
@@ -7006,6 +7012,43 @@
           "save": "Speichern",
           "cancel": "Abbrechen",
           "saved": "Sonne und Schatten gespeichert."
+        },
+        "fromWindow": {
+          "action": "Aus Fenster vorschlagen",
+          "actionHint": "Schlägt die Tageszeit mit direkter Sonne aus den Fenstern im Umkreis von {{radius}} m vor. Übernommen wird erst, wenn du bestätigst.",
+          "title": "Sonne aus Fenstern vorschlagen",
+          "suggested": "Vorschlag: {{value}}",
+          "current": "Eingetragen ist: {{value}}",
+          "unchanged": "Der Vorschlag entspricht dem eingetragenen Wert. Es gibt nichts zu übernehmen.",
+          "replaceWarning": "Das ersetzt den eingetragenen Wert „{{current}}“ durch „{{value}}“. Stunden und Laubschatten bleiben unverändert.",
+          "noneTitle": "Kein Vorschlag möglich",
+          "reason": {
+            "notPlaced": "Dieser Pflanzplatz liegt noch nicht auf dem Plan. Zeichne ihn ein, damit der Abstand zu den Fenstern gemessen werden kann.",
+            "noWindow": "Im Umkreis von {{radius}} m liegt kein Fenster. Zeichne die Fenster in die Wände ein oder vergrößere den Umkreis in den Standorteinstellungen.",
+            "diffuseOnly": "Die Fenster in der Nähe zeigen zur sonnenabgewandten Seite. Dort kommt nur diffuses Licht an, keine direkte Sonne.",
+            "tropics": "Der Standort liegt zwischen den Wendekreisen. Dort steht die Sonne im Lauf des Jahres mal im Norden, mal im Süden, deshalb sagt die Fensterrichtung nichts über die Tageszeit."
+          },
+          "windowsTitle_one": "{{count}} Fenster im Umkreis von {{radius}} m",
+          "windowsTitle_other": "{{count}} Fenster im Umkreis von {{radius}} m",
+          "windowUnnamed": "Fenster ohne Namen",
+          "windowLine": "{{direction}}, {{azimuth}}° · {{distance}} m entfernt · {{contribution}}",
+          "noDirectSun": "keine direkte Sonne",
+          "byConvention": "(Außenseite aus der Zeichenrichtung angenommen)",
+          "hintsTitle": "Bitte beachten",
+          "hints": {
+            "hemisphere_assumed": "Für den Standort sind keine GPS-Koordinaten eingetragen. Angenommen wird die Nordhalbkugel.",
+            "tropics": "Zwischen den Wendekreisen gibt es keinen Vorschlag.",
+            "no_window": "Im Umkreis von {{radius}} m liegt kein Fenster mit erkennbarer Richtung.",
+            "diffuse_light_only": "Ein Fenster zur sonnenabgewandten Seite (auf der Nordhalbkugel: Norden) bringt nur diffuses Licht und zählt nicht mit.",
+            "shading_not_considered": "Verschattung durch Nachbarhäuser, Bäume, Balkone oder das Stockwerk ist nicht berücksichtigt.",
+            "season": "Im Winter steht die Sonne tiefer und scheint kürzer. Der Vorschlag nennt die Richtung, nicht die Jahreszeit.",
+            "window_distance": "Schon wenige Meter vom Fenster entfernt kommt deutlich weniger Licht an.",
+            "glazing": "Glas, Gardinen und Sonnenschutz halten einen Teil des Lichts zurück."
+          },
+          "apply": "Übernehmen",
+          "replace": "Ersetzen",
+          "cancel": "Abbrechen",
+          "close": "Schließen"
         }
       },
       "field": {
