@@ -118,13 +118,20 @@ der jeweiligen Version (`minimumReleaseAge: '3 days'`, §3.4). Ausgenommen sind 
 Security-Fixes aus Vulnerability-Alerts und die Gruppe `uv toolchain`, die sonst
 zerfiele (§3.4, #1762).
 
-**MUSS**: Es gibt **kein** Zeitfenster für die PR-Erstellung, und es soll keins geben
-(#1566, Betreiberentscheidung 2026-09-21). `renovate.json5` setzt weder `schedule` noch
-`timezone` — `grep -c "schedule" renovate.json5` liefert 0. Der Grund steht in §3.5: unter
-`required_status_checks.strict: true` ist nicht der Zeitpunkt der Engpass, sondern die
-Warteschlangenlänge. Ein Wochenfenster würde die Bumps nur bündeln und keinen einzigen
-CI-Zyklus sparen. Wer die Spalte wieder einführen will, misst vorher, welchen Zyklus sie
-spart.
+**MUSS**: Renovate eröffnet neue Branches und PRs **nur montags** (Zeitzone
+`Europe/Berlin`): `schedule: ['* * * * 1']`, `timezone: 'Europe/Berlin'` in
+`renovate.json5` (Betreiberentscheidung 2026-11-11). Die Updates einer Woche werden so
+gesammelt und kommen gruppiert (§3.3) an einem Tag, statt täglich einzeln. Das Fenster
+begrenzt nur das **Eröffnen**: Bereits offene Branches rebased Renovate weiterhin jederzeit
+(Default `updateNotScheduled: true`), und das Automerge (§3.4) wartet nicht auf den
+Montag (Default `automergeSchedule: 'at any time'`). Was `prConcurrentLimit` /
+`prHourlyLimit` (§3.5) am Montag zurückhalten, wartet bis zum nächsten Montag.
+
+Bis 2026-11-11 galt das Gegenteil: kein Zeitfenster (#1566, Betreiberentscheidung
+2026-09-21), mit der Begründung, dass unter `required_status_checks.strict: true` die
+Warteschlangenlänge und nicht der Zeitpunkt der Engpass sei. Diese Begründung bleibt
+richtig, denn das Fenster spart keinen CI-Zyklus. Der Betreiber hat das Bündeln auf einen
+festen Wochentag trotzdem höher gewichtet.
 
 **MUSS**: Security-relevante Updates (CVE Critical/High) werden nicht zurückgehalten.
 Renovate nimmt Vulnerability-Alert-PRs von den Warteschlangen-Grenzen, von der
@@ -287,12 +294,12 @@ Jede trägt in der Datei den Vorfall, der sie ausgelöst hat.
 
 #### Was diese Konfiguration bewusst **nicht** setzt
 
-Sieben Keys, die eine naheliegende Renovate-Konfiguration hätte, kommen in
-`renovate.json5` nicht vor. Die Messung, nachrechenbar in einer Zeile — sie gibt für
-jeden Key **0** aus:
+Fünf Keys, die eine naheliegende Renovate-Konfiguration hätte, kommen in
+`renovate.json5` nicht vor (`schedule` / `timezone` sind seit 2026-11-11 gesetzt, §2.2).
+Die Messung, nachrechenbar in einer Zeile — sie gibt für jeden Key **0** aus:
 
 ```bash
-for k in branchPrefix schedule timezone commitMessagePrefix \
+for k in branchPrefix commitMessagePrefix \
          dependencyDashboardTitle lockFileMaintenance prHourlyLimit; do
   printf '%-26s %s\n' "$k" "$(grep -c "$k" renovate.json5)"
 done
@@ -306,7 +313,6 @@ gesetzter Key.
 |---|---|---|
 | `branchPrefix` | Renovates Default `renovate/` | `git ls-remote --heads origin 'refs/heads/renovate/*'` liefert Branches, `'refs/heads/deps/*'` keine |
 | `commitMessagePrefix` | Semantic Commits aus dem Preset → `chore(deps): …` | `git log origin/develop --format='%s' \| grep -c '^chore(deps)'` |
-| `schedule` / `timezone` | Kein Zeitfenster. Renovate läuft auf der Kadenz der App; die Menge offener PRs wird über die Limits gesteuert, nicht über die Uhrzeit. | Erstellzeitpunkte der `renovate/`-Branches |
 | `prHourlyLimit`, `prConcurrentLimit` | Werte aus dem geteilten Preset, nicht aus diesem Repository | Preset-Inhalt zum gepinnten Tag abrufen (Kommando oben) |
 | `lockFileMaintenance` | Keine geplante Lock-Wartung. Locks werden im selben PR wie die Range regeneriert (§6.1), nicht in einem eigenen Wartungslauf. | `grep -c lockFileMaintenance renovate.json5` → 0 |
 | `dependencyDashboardTitle` | Default-Titel; das Dashboard selbst kommt über `:dependencyDashboard` aus dem Preset | Issue #12 im Repository |
@@ -522,9 +528,10 @@ wirksam, wie es klingt: bei vollem Kontingent hielt Renovate den CVE-tragenden
 `transformers`-Bump (#1480) als „Rate-Limited" zurück, weil er als normaler Bump und
 nicht über einen Alert kam.
 
-**MUSS**: Ein Zeitfenster (`schedule`) gibt es nicht und soll es nicht geben — die
-Entscheidung und ihre Begründung stehen in §2.2. Hier zählt nur die Folge: die
-Steuergröße dieses Abschnitts ist die Warteschlangenlänge, nicht die Uhrzeit.
+**MUSS**: Das Montagsfenster (§2.2) begrenzt nur, **wann** Renovate eröffnet; die
+Grenzen dieses Abschnitts gelten innerhalb des Fensters weiter. Vulnerability-Alert-PRs
+sind auch vom Fenster ausgenommen (`vulnerabilityAlerts.schedule: []`) und werden sofort
+eröffnet.
 
 ---
 
