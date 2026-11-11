@@ -419,11 +419,11 @@ describe('accessibility', () => {
     await expectNoA11yViolations(t.view.container);
   });
 
-  it('every control of the bar has a name and a 44 px target', () => {
+  it('every control of the bar has a name and a 48 px target', () => {
     setup();
     for (const id of ['zoom-in', 'zoom-out', 'zoom-fit']) {
       const button = screen.getByTestId(`garden-plan-${id}`);
-      expect(button).toHaveStyle({ minHeight: '44px', minWidth: '44px' });
+      expect(button).toHaveStyle({ minHeight: '48px', minWidth: '48px' });
     }
     // The view settings are full-width rows of the tab "Ansicht" (WP 10.5): 48 px high (UI-NFR-001 R-011).
     openPanelTab('view');

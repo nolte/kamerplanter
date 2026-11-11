@@ -2,7 +2,7 @@
  * Zoom −/%/+ and "fit to area" as an overlay in the top right corner of the canvas (REQ-053 §17.3, GP-UX-067,
  * GP-FR-009/150): no row of their own above the plan. The overlay is a sibling of the canvas region inside the
  * canvas area, not a child of it, so a press on a button never reaches the canvas gestures and the canvas keys.
- * Targets stay 44 px (GP-UX-008); the test ids are the ones the zoom had in the view row (GP-UX-070).
+ * Targets are 48 px like the rail and the header; the test ids are the ones the zoom had in the view row (GP-UX-070).
  */
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -16,7 +16,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import { pxPerMToPercent } from '../model/units';
 
 const PREFIX = 'pages.gardenPlan.editor';
-const TARGET_PX = 44;
+const TARGET_PX = 48;
 const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 
 export interface ZoomOverlayProps {
