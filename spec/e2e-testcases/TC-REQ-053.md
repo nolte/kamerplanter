@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 97
+test_count: 108
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -25,8 +25,9 @@ coverage_areas:
   - Welle 9 — Renderer-Messung D-01 (Drag-/Zoom-Frametime, große Pläne, Desktop und Mobile CPU 4×)
   - Welle 9 Teil A — Offline: Service Worker, Plan ohne Verbindung, Puffer und Sync, Konflikt, Abmelden leert den Zwischenspeicher
   - Welle 9 Teil B — PNG-Export, Vorlagen-Austausch, Parzellenseite im PDF, Standort-Flags, nächste Wasserquelle, Strg+D, Konva-Umschaltung
+  - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
 generated: "2026-10-11"
-version: "1.12"
+version: "1.13"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -131,6 +132,15 @@ Standort, Editor und Renderer (Abschnitt 13, aus GP-FR-144, 173, 176, 165, 167, 
 `test_count` 90 → 97, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt. TC-053-047 („Regen —
 übersprungen“) ist seit WP 9.13 in der Oberfläche und jetzt automatisiert (`tests/e2e/test_req053_wave9_export.py`).
 GP-FR-165 und GP-FR-167 sind aus den nicht abgedeckten Welle-8-Zeilen in Abschnitt 13 gewandert.
+
+**Version 1.13 (2026-11-11, WP 10.13 / #2834)** — elf neue Fälle TC-053-098 bis TC-053-108: Welle 10 Teil A,
+Editor-Arbeitsfläche und Indoor-Plan (Abschnitt 14, aus den Akzeptanzkriterien AC-1…AC-11 der Arbeitsfläche §17.3 mit
+AC-12, AC-15, AC-16, AC-17 sowie GP-FR-180…183); `test_count` 97 → 108. TC-053-103 (AC-2) ist **blockiert durch #2868**
+und hat keinen ausführbaren Test. Bereits abgedeckte Teile werden nicht wiederholt, sondern verwiesen: der
+Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7) in TC-053-012, die bestehenden
+Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
+Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
+abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -3051,6 +3061,400 @@ laufen auf dem Desktop (PNG und CSV bietet der Export-Dialog nur abseits des Sma
 
 ---
 
+## 14. Neu in Welle 10, Teil A (Editor-Arbeitsfläche, drei Breiten, Objekteigenschaften, Indoor-Plan)
+
+Die Fälle TC-053-098 bis TC-053-108 sind aus den Akzeptanzkriterien der Editor-Arbeitsfläche (REQ-053 §17.3, AC-1…AC-11,
+dazu AC-12, AC-15, AC-16 und AC-17) und aus den Indoor-Zeilen GP-FR-180…183 (§9.8) abgeleitet (WP 10.13, #2834);
+automatisiert in `tests/e2e/test_req053_wave10_workspace.py`. Jeder Fall legt seine eigene Site über die Anwendung an
+(Indoor-Site, Fenster, Pflanzplätze), sodass kein Fall einen Plan berührt, den ein anderer liest.
+
+Die Fälle zu den drei Breiten setzen das Browserfenster selbst auf genau die genannte Größe (CSS-Pixel des Viewports):
+Desktop 1366 × 768 (≥ lg, Panel angedockt), Tablet 820 × 1180 (md, Panel als Drawer), Smartphone 390 × 844 (unter md,
+`TouchBar` und Bottom Sheet). Maßgeblich sind die Breakpoints des App-Themes (`theme/tokens.ts`): md ab 768 px, lg ab
+1024 px — 1024 × 768 ist damit bereits lg mit angedocktem Panel. Gemessen wird bei 100 % Browser-Zoom im echten
+App-Shell (App-Bar, Brotkrumen, Seitentitel); den Warnhinweis des Light-Modus hat der Nutzer vorher geschlossen (er
+erscheint nur im Light-Modus auf einem nicht privaten Host und gehört nicht zur App-Shell aus §17.3).
+
+**Zuordnung der Kriterien.** Wo ein Kriterium schon durch einen bestehenden Fall abgedeckt ist, steht hier der Verweis
+statt eines zweiten Falls.
+
+| Kriterium | Testfälle | Bemerkung |
+|-----------|-----------|-----------|
+| AC-1 | TC-053-101 | Zeichenfläche ≥ 60 % der Höhe bei 1366 × 768, Kopfleiste auf einer Zeile |
+| AC-2 | TC-053-103 | **blockiert durch #2868** — die Werkzeuge Fläche, Pflanze setzen, Messen und Beschriftung sind nicht gebaut; kein ausführbarer Test |
+| AC-3 | TC-053-101 | E2E-Teil: genau eine Kopfleiste, Werkzeuge in einer vertikalen Leiste; „Seitenkopf ohne eigene Aktionen“ prüft vitest |
+| AC-4 | TC-053-100 | Teil: Drehen, Ausrichten, Löschen nur bei Auswahl; „Als Vorlage speichern“ nur bei genau einem Beet prüft vitest |
+| AC-5 | TC-053-100, TC-053-101 | keine reservierte Breite, Umschalter mit `aria-expanded`/`aria-controls`, Panel-Tabs per Tastatur |
+| AC-6 | TC-053-100 | Ebenen-Schalter mit sichtbarer Textbeschriftung neben der Legende |
+| AC-7 | TC-053-098; TC-053-012 | Deep-Link, „Zurück“, Zeile → Plan mit Auswahl; die Hervorhebung im Ausschnitt bleibt TC-053-012 |
+| AC-8 | TC-053-099; TC-053-007 | kein Dialog beim Tab-Wechsel, Änderung bleibt; der Verlassen-Dialog selbst bleibt TC-053-007 |
+| AC-9 | TC-053-104; TC-053-032, TC-053-033 | `TouchBar`, Bottom Sheet, Touch-Ziele ≥ 48 px; die bestehenden Touch-Fälle bleiben unverändert |
+| AC-10 | — | CI-Kriterium: alle Unit- und E2E-Suiten grün; die Fälle dieses Abschnitts nutzen nur bestehende oder in UI-NFR-022 §2.5.1 registrierte Kennungen |
+| AC-11 | — | Dokumentkriterium, erfüllt mit REQ-053 v1.16 (WP 10.1, #2822); kein Browser-Artefakt |
+| AC-12 | TC-053-098 | unbekannter `tab`-Wert, Feldmodus ohne Tab-Leiste |
+| AC-13 | TC-053-108 | Teil: Tab „Pflanzplätze“ bei URL-Wert `beds`; „Beete lädt nach Speichern neu“ prüft vitest und Welle 9 (#2813) |
+| AC-14 | TC-053-101 | Teil: Zoom-Steuerung liegt innerhalb der Zeichenfläche |
+| AC-15 | TC-053-104 | Teil: Tabs und Panel-Umschalter im Überlauf, Einträge ≥ 48 px mit Text, Undo/Redo in der `TouchBar` |
+| AC-16 | TC-053-099 | Auswahl und Zoomstufe; der Ausschnitt (Pan) prüft vitest |
+| AC-17 | TC-053-100 | Zustandsregel GP-UX-068 vollständig |
+| GP-FR-180 | TC-053-105, TC-053-106; TC-053-044 | Eigenschaften, Legende, Zeichnen über das Werkzeug „Gartenobjekt“ |
+| GP-FR-181 | TC-053-107; TC-053-105, TC-053-106 | Vorschlag mit Bestätigung; abgeleitete Himmelsrichtung im Panel |
+| GP-FR-182 | TC-053-106, TC-053-108 | Leerzustand, Route, keine Frost-Ebene |
+| GP-FR-183 | TC-053-108 | Teil: Tab und Liste „Pflanzplätze“; die Raum-Hierarchie (COULD) ist nicht gebaut |
+
+### TC-053-098: Tabs Plan · Liste · Beete — Deep-Link, „Zurück“, unbekannter Wert, Feldmodus ohne Tabs
+
+**Requirement**: REQ-053 §17.3 GP-UX-064 — AC-7, AC-12
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Navigation
+**Preconditions**:
+- Garten 10 × 10 m mit zwei Beeten „Beet A“ und „Beet B“
+
+**Testschritte**:
+1. Nutzer öffnet den Plan über einen Link mit `?tab=beds`
+2. Nutzer wählt den Tab „Liste“, danach den Tab „Plan“
+3. Nutzer geht mit „Zurück“ des Browsers zweimal zurück
+4. Nutzer wählt im Tab „Beete“ die Zeile von Beet B mit der Tastatur (Enter)
+5. Nutzer öffnet den Plan über einen Link mit `?tab=xyz`
+6. Nutzer öffnet den Plan über einen Link mit `?mode=field&tab=beds`
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 1 ist „Beete“ der aktive Tab (`garden-plan-tab-beds`), die Beetliste zeigt Beet A und Beet B, die
+  Zeichenfläche ist ausgeblendet
+- Jeder Tab-Wechsel steht in der URL (`tab=list`, dann `tab=plan`)
+- „Zurück“ führt zuerst zum Tab „Liste“, dann zum Tab „Beete“ — ohne Ungespeichert-Dialog
+- Nach Schritt 4 ist der Tab „Plan“ aktiv und Beet B auf dem Plan ausgewählt
+- Mit `?tab=xyz` zeigt die Route den Tab „Plan“
+- Im Feldmodus gibt es keine Tab-Leiste; der Feldmodus zeigt seine eigene Beetliste
+
+**Nachbedingungen**:
+- Keine Änderung gespeichert
+
+**Tags**: [req-053, welle-10, arbeitsflaeche, tabs, url-zustand, desktop, ac-7, ac-12, gp-ux-064]
+
+---
+
+### TC-053-099: Tab-Wechsel verliert nichts — ungespeicherte Änderung, Auswahl und Zoom bleiben, kein Dialog
+
+**Requirement**: REQ-053 §17.3 GP-UX-065 — AC-8, AC-16 (Verlassen-Dialog: TC-053-007)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Navigation
+**Preconditions**:
+- Garten 10 × 10 m mit einem Beet „Beet A“, Plan gespeichert
+
+**Testschritte**:
+1. Nutzer wählt Beet A mit der Tastatur und verschiebt es mit Pfeil rechts um einen Rasterschritt, ohne zu speichern
+2. Nutzer wechselt zum Tab „Liste“, dann zum Tab „Beete“, dann zurück zum Tab „Plan“
+3. Nutzer klickt in der Hauptnavigation auf „Dashboard“ und wählt im Dialog „Abbrechen“
+
+**Erwartete Ergebnisse**:
+- Nach jedem Tab-Wechsel zeigt die Kopfzeile „Ungespeicherte Änderungen (1)“; kein Ungespeichert-Dialog erscheint
+- Zurück im Tab „Plan“ ist Beet A weiterhin ausgewählt, die Zoomstufe ist unverändert, und das Beet steht an der
+  verschobenen Position
+- Beim Verlassen der Route erscheint der Ungespeichert-Dialog; „Abbrechen“ lässt den Nutzer im Plan, die Änderung
+  bleibt erhalten
+
+**Nachbedingungen**:
+- Gespeicherter Stand unverändert (die Änderung bleibt ungespeichert)
+
+**Tags**: [req-053, welle-10, arbeitsflaeche, tabs, guard-dialog, desktop, ac-8, ac-16, gp-ux-065]
+
+---
+
+### TC-053-100: Seitenpanel — keine reservierte Breite, Umschalter, Zustandsregel, Panel-Tabs per Tastatur
+
+**Requirement**: REQ-053 §17.3 GP-UX-068, GP-UX-066 — AC-4 (Teil), AC-5, AC-6, AC-17
+**Gerät**: Desktop (≥ lg, Panel angedockt)
+**Priority**: High
+**Category**: Bedienung
+**Preconditions**:
+- Garten 10 × 10 m mit einem Beet „Beet A“
+
+**Testschritte**:
+1. Nutzer öffnet den Plan, ohne etwas auszuwählen
+2. Nutzer wählt Beet A mit der Tastatur
+3. Nutzer hebt die Auswahl mit Esc auf
+4. Nutzer öffnet das Panel mit dem Umschalter in der Kopfleiste
+5. Nutzer wählt den Panel-Tab „Ebenen“
+6. Nutzer wählt Beet A und hebt die Auswahl mit Esc wieder auf
+7. Nutzer schließt das Panel mit dem Umschalter und öffnet es wieder
+8. Nutzer drückt im aktiven Panel-Tab Pfeil rechts, dann Pos1, dann Ende
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 1: kein Seitenpanel, die Zeichenfläche reicht bis an den rechten Rand der Kopfleiste; der Umschalter
+  trägt `aria-expanded="false"` und `aria-controls`; Drehen, Ausrichten und Löschen (Auswahlgruppe) sind nicht da
+- Nach Schritt 2: das Panel öffnet auf „Eigenschaften“, der Umschalter trägt `aria-expanded="true"` und zeigt mit
+  `aria-controls` auf das Panel; die Auswahlgruppe ist da
+- Nach Schritt 3: das Panel klappt ein — die Auswahl hatte es geöffnet
+- Nach Schritt 4: das Panel öffnet auf „Ansicht“ (erstes Öffnen ohne Auswahl)
+- Nach Schritt 5: jeder Ebenen-Schalter trägt eine sichtbare Textbeschriftung; die Legende steht im selben Tab
+- Nach Schritt 6: das Panel wechselt auf „Eigenschaften“ und bleibt nach Esc offen (der Nutzer hatte es geöffnet)
+- Nach Schritt 7: das Panel ist zu; wieder geöffnet zeigt es „Ebenen“, den zuletzt benutzten Tab
+- Nach Schritt 8: die Panel-Tabs folgen dem WAI-ARIA-Muster „Tabs“ (`role="tab"`, `aria-selected`, `aria-controls` auf
+  ein `tabpanel` mit `aria-labelledby`, nur der aktive Tab ist Tab-Stopp); Pfeil rechts wählt den nächsten Tab
+  („Zonen“), Pos1 „Eigenschaften“, Ende wieder „Zonen“
+
+**Nachbedingungen**:
+- Keine Änderung am Plan
+
+**Tags**: [req-053, welle-10, arbeitsflaeche, seitenpanel, a11y, desktop, ac-4, ac-5, ac-6, ac-17, gp-ux-068]
+
+---
+
+### TC-053-101: Desktop 1366 × 768 — Zeichenfläche ≥ 60 % der Höhe, eine Kopfleiste, Werkzeuge links, Panel angedockt
+
+**Requirement**: REQ-053 §17.3 GP-UX-063, GP-UX-066, GP-UX-067, GP-UX-069 — AC-1, AC-3 (E2E-Teil), AC-5 (Breite),
+AC-14 (Teil)
+**Gerät**: Desktop 1366 × 768
+**Priority**: High
+**Category**: Layout
+**Preconditions**:
+- Garten 10 × 10 m mit einem Beet „Beet A“
+
+**Testschritte**:
+1. Nutzer öffnet den Plan bei 1366 × 768, ohne etwas auszuwählen
+2. Nutzer betrachtet Zeichenfläche, Kopfleiste und Werkzeug-Leiste
+3. Nutzer wählt Beet A mit der Tastatur
+
+**Erwartete Ergebnisse**:
+- Die Zeichenfläche (`garden-plan-canvas`) ist mindestens 60 % der Viewport-Höhe hoch (≥ 460,8 px)
+- Es gibt genau eine Editor-Kopfleiste, und alle ihre Bedienelemente liegen auf einer Zeile
+- Die Werkzeuge stehen in einer vertikalen Leiste links der Zeichenfläche; eine `TouchBar` gibt es nicht
+- Die Zoom-Steuerung liegt innerhalb der Zeichenfläche
+- Ohne Auswahl reserviert das Panel keine Breite; die Seite scrollt nicht horizontal
+- Nach Schritt 3 steht das Panel angedockt rechts neben der Zeichenfläche, ganz im Viewport
+- Screenshot-Checkpoints ohne und mit Auswahl
+
+**Nachbedingungen**:
+- Keine Änderung am Plan
+
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, desktop-1366, ac-1, ac-3, ac-5, ac-14, gp-ux-067, gp-ux-069]
+
+---
+
+### TC-053-102: Tablet 820 × 1180 — Panel als Drawer über der Zeichenfläche, Werkzeuge links, kein horizontales Scrollen
+
+**Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-068
+**Gerät**: Tablet 820 × 1180 (md, 768–1023 px)
+**Priority**: Medium
+**Category**: Layout
+**Preconditions**:
+- Garten 10 × 10 m mit einem Beet „Beet A“
+
+**Testschritte**:
+1. Nutzer öffnet den Plan bei 820 × 1180
+2. Nutzer öffnet das Seitenpanel mit dem Umschalter (in der Kopfleiste oder im Überlauf)
+
+**Erwartete Ergebnisse**:
+- Die Werkzeuge stehen in der vertikalen Leiste links der Zeichenfläche; die Kopfleiste liegt auf einer Zeile
+- Das Panel öffnet als Drawer, der über dem rechten Rand der Zeichenfläche liegt; die Zeichenfläche wird dabei nicht
+  schmaler
+- Die Seite scrollt weder vor noch nach dem Öffnen horizontal
+- Screenshot-Checkpoints ohne und mit Panel
+
+**Nachbedingungen**:
+- Keine Änderung am Plan
+
+**Hinweis**: Dieser Fall prüft das Layout der Breite md. Er ist **nicht** der Nachweis von AC-2 („jede
+Editor-Funktion erreichbar“), siehe TC-053-103.
+
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-820, drawer, gp-ux-069]
+
+---
+
+### TC-053-103: Jede Editor-Funktion bei 1024 × 768 erreichbar, ohne horizontales Scrollen (blockiert durch #2868)
+
+**Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-001 — AC-2
+**Status**: **blockiert durch #2868** — die Werkzeuge Fläche, Pflanze setzen, Messen und Beschriftung aus GP-UX-001
+sind im Code getypt, aber nicht gebaut. Für diesen Fall gibt es **keinen ausführbaren Test**: ein Test, der den
+heutigen Stand der Werkzeug-Leiste als AC-2 erfüllt festschriebe, würde das Kriterium falsch bestätigen.
+**Gerät**: 1024 × 768 (nach den Theme-Breakpoints bereits lg, Panel angedockt)
+**Priority**: High
+**Category**: Layout
+**Preconditions**:
+- Garten 10 × 10 m mit einem Beet „Beet A“; #2868 ist umgesetzt
+
+**Testschritte**:
+1. Nutzer öffnet den Plan bei 1024 × 768
+2. Nutzer erreicht nacheinander jedes Werkzeug aus GP-UX-001 (Auswahl, Hand/Pan, Beet, Bereich, Gartenobjekt mit
+   Untermenü, Pflanze setzen, Messen, Text/Label) samt der Untermenü-Einträge
+3. Nutzer erreicht jeden der vier Panel-Tabs und jeden Eintrag des Überlaufs „⋮“
+
+**Erwartete Ergebnisse**:
+- Jede genannte Funktion ist erreichbar und bedienbar
+- Die Seitenbreite übersteigt zu keinem Zeitpunkt die Viewport-Breite (kein horizontales Scrollen)
+- Screenshot-Checkpoint mit der vollständigen Werkzeug-Leiste
+
+**Nachbedingungen**:
+- Keine Änderung am Plan
+
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, blockiert, ac-2, gp-ux-001, gp-ux-069]
+
+---
+
+### TC-053-104: Smartphone 390 × 844 — TouchBar, Werkzeug-Leiste unten, Bottom Sheet, Kopfleiste mit Überlauf
+
+**Requirement**: REQ-053 §17.3 GP-UX-063, GP-UX-069, GP-UX-052, §9.7 — AC-9, AC-15 (Teil)
+**Gerät**: Smartphone 390 × 844, Planungsmodus (`?mode=plan`)
+**Priority**: High
+**Category**: Layout
+**Preconditions**:
+- Garten 10 × 10 m mit einem Beet „Beet A“
+
+**Testschritte**:
+1. Nutzer öffnet den Plan im Planungsmodus bei 390 × 844
+2. Nutzer öffnet den Überlauf „⋮“ und wählt „Liste“, danach über den Überlauf wieder „Plan“
+3. Nutzer wählt Beet A mit der Tastatur
+
+**Erwartete Ergebnisse**:
+- `TouchBar` und Werkzeug-Leiste stehen unten, unter der Zeichenfläche; die Werkzeug-Leiste ist waagerecht
+- Undo/Redo stehen in der `TouchBar`
+- Die Kopfleiste liegt auf einer Zeile; die Tabs Plan · Liste · Beete und der Panel-Umschalter stehen nicht in ihr,
+  sondern im Überlauf — jeder dieser Einträge ist mindestens 48 px hoch und mit Text beschriftet
+- Jede Schaltfläche in `TouchBar` und Werkzeug-Leiste ist mindestens 48 × 48 px groß
+- Nach Schritt 3 öffnet das Panel als Bottom Sheet über den Leisten
+- Die Seite scrollt nicht horizontal
+- Screenshot-Checkpoints ohne Auswahl, mit offenem Überlauf und mit Bottom Sheet
+
+**Nachbedingungen**:
+- Keine Änderung am Plan
+
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, smartphone-390, touchbar, bottom-sheet, ac-9, ac-15, gp-ux-069]
+
+---
+
+### TC-053-105: Objekteigenschaften — Fenster und Lampe bearbeiten und speichern, Objekt-Legende, „Außerhalb des Grundstücks“
+
+**Requirement**: REQ-053 §9.8 GP-FR-180, §9.5 (`off_site`, V-03); WP 10.6 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Indoor
+**Preconditions**:
+- Indoor-Site „Wohnung“, Grundriss 6 × 4 m, Nordrichtung 0°
+- Ein Fenster als Linie an der Südwand (innen an der Wand), eine Deckenleuchte (60 × 60 cm, Montagehöhe 2,5 m) im
+  Raum, ein Balkonkasten (Möbel), der über die Grenze ragt und als „Außerhalb des Grundstücks“ markiert ist
+
+**Testschritte**:
+1. Nutzer wählt das Fenster, trägt die Brüstungshöhe 0,9 m ein und wählt die Verglasung „Doppel- oder
+   Mehrfachverglasung“
+2. Nutzer wählt die Lampe, stellt die Art auf „Pflanzenlampe“, die Montagehöhe auf 1,8 m, die Referenz-PPFD auf 400
+   und schaltet „Außerhalb des Grundstücks“ ein
+3. Nutzer speichert
+4. Nutzer wählt den Balkonkasten und schaltet „Außerhalb des Grundstücks“ aus
+5. Nutzer öffnet den Panel-Tab „Ebenen“
+
+**Erwartete Ergebnisse**:
+- Das Fenster zeigt die Himmelsrichtung „Süd, 180°“ nur lesend
+- Nach dem Speichern trägt das Fenster Brüstungshöhe 0,9 m und Doppelverglasung, die Lampe „Pflanzenlampe“, 1,8 m,
+  400 µmol/m²/s und „außerhalb des Grundstücks“
+- Das Ausschalten beim Balkonkasten wird abgelehnt: ein Hinweis sagt, dass das Objekt aus der Grenze ragt; der
+  Schalter bleibt an, es entsteht keine ungespeicherte Änderung
+- Die Objekt-Legende im Tab „Ebenen“ nennt Fenster, Lampe und Möbel
+
+**Nachbedingungen**:
+- Fenster und Lampe mit den neuen Eigenschaften gespeichert; Balkonkasten unverändert
+
+**Tags**: [req-053, welle-10, indoor, objekteigenschaften, fenster, lampe, off-site, desktop, gp-fr-180]
+
+---
+
+### TC-053-106: Indoor-Plan ohne Inhalt — Leerzustand, „Grundriss zeichnen“, Fenster einzeichnen
+
+**Requirement**: REQ-053 §9.8 GP-FR-182, GP-UX-049, GP-FR-180, GP-FR-181 (Himmelsrichtung), GP-UX-064 (Tabname)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Indoor
+**Preconditions**:
+- Eine Indoor-Site ohne Plan; zum Vergleich eine Outdoor-Site ohne Plan
+
+**Testschritte**:
+1. Nutzer öffnet den Plan der Outdoor-Site
+2. Nutzer öffnet den Plan der Indoor-Site
+3. Nutzer wählt „Grundriss zeichnen“
+4. Nutzer wählt das Werkzeug „Gartenobjekt“, den Typ „Fenster“ und die Form „Linie“, setzt zwei Punkte von rechts
+   nach links (6,0 | 5,0 m → 3,0 | 5,0 m) und wählt „Fertig“
+5. Nutzer speichert
+
+**Erwartete Ergebnisse**:
+- Die Outdoor-Site zeigt den Garten-Leerzustand mit „Erstes Beet anlegen“
+- Die Indoor-Site zeigt den Indoor-Leerzustand: „Zeichne die Umrisse deiner Wohnung oder lade ein Foto als Vorlage“,
+  mit den Handlungen „Grundriss zeichnen“ und „Foto als Vorlage laden“ und ohne „Erstes Beet anlegen“
+- Nach Schritt 3 erscheint der Editor; der Tab für die Beetliste heißt „Pflanzplätze“
+- Nach Schritt 4 ist das Fenster ausgewählt; das Panel zeigt die Himmelsrichtung „Süd, 180°“ und den Hinweis, dass die
+  Außenseite aus der Zeichenrichtung angenommen wurde (der Plan hat keinen Umriss)
+- Nach dem Speichern hält der Plan genau ein Gartenobjekt: das Fenster als Linie mit den gesetzten Endpunkten
+
+**Nachbedingungen**:
+- Der Indoor-Plan enthält ein Fenster
+
+**Tags**: [req-053, welle-10, indoor, leerzustand, zeichnen, fenster, desktop, gp-fr-182, gp-ux-049, gp-fr-180]
+
+---
+
+### TC-053-107: „Aus Fenster vorschlagen“ — Vorschau, Abbrechen ändert nichts, Bestätigen ändert nur das Sonnenfenster
+
+**Requirement**: REQ-053 §9.8 GP-FR-181; G-W10 c („nie automatisch überschreiben“); WP 10.7 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: High
+**Category**: Indoor
+**Preconditions**:
+- Indoor-Site, Grundriss 6 × 4 m, Nordrichtung 0°, ohne GPS-Koordinaten
+- Ein Fenster als Linie an der Südwand; ein Zelt 1,2 × 1,2 m, 25 cm vom Fenster entfernt
+- Am Zelt: Sonnenklasse „Halbschatten“, Sonnenstunden im Sommer 4, Sonnenfenster unbekannt
+
+**Testschritte**:
+1. Nutzer wählt das Zelt und wählt „Aus Fenster vorschlagen“
+2. Nutzer liest die Vorschau und wählt „Abbrechen“
+3. Nutzer wählt erneut „Aus Fenster vorschlagen“ und dann „Übernehmen“
+4. Nutzer speichert
+
+**Erwartete Ergebnisse**:
+- Die Vorschau nennt „Vorschlag: Mittags“ und „Eingetragen ist: Unbekannt“, listet das Fenster mit der Richtung Süd und
+  weist darauf hin, dass ohne GPS-Koordinaten die Nordhalbkugel angenommen wird
+- Nach „Abbrechen“ ist der Dialog zu, es gibt keine ungespeicherte Änderung, und der gespeicherte Stand des Zelts ist
+  unverändert
+- Nach „Übernehmen“ zeigt die Kopfzeile eine ungespeicherte Änderung
+- Nach dem Speichern trägt das Zelt das Sonnenfenster „Mittags“; Sonnenstunden (4), Laubschatten (aus) und die
+  Sonnenklasse „Halbschatten“ sind unverändert
+
+**Nachbedingungen**:
+- Sonnenfenster des Zelts „Mittags“
+
+**Tags**: [req-053, welle-10, indoor, fenster, sonnenfenster, vorschlag, desktop, gp-fr-181]
+
+---
+
+### TC-053-108: Indoor-Plan — Tab und Liste „Pflanzplätze“ mit Zelt und Regal, keine Frost-Ebene
+
+**Requirement**: REQ-053 §9.8 GP-FR-183, GP-FR-182, §17.3 GP-UX-064 — AC-13 (Teil)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Indoor
+**Preconditions**:
+- Indoor-Site mit einem Zelt, einem Regal und einem Zimmer (das Zimmer trägt keine Pflanzplätze)
+- Zum Vergleich ein Garten mit einem Hochbeet
+
+**Testschritte**:
+1. Nutzer öffnet den Indoor-Plan und liest die Tabs
+2. Nutzer wählt den Tab für die Beetliste
+3. Nutzer wechselt zum Tab „Plan“ und öffnet den Panel-Tab „Ebenen“
+4. Nutzer öffnet den Garten und wiederholt Schritt 1 und 3
+
+**Erwartete Ergebnisse**:
+- Im Indoor-Plan heißt der Tab „Pflanzplätze“; gewählt steht in der URL `tab=beds`
+- Die Liste ist mit „Pflanzplätze“ überschrieben und enthält genau das Zelt und das Regal, nicht das Zimmer
+- Der Tab „Ebenen“ des Indoor-Plans bietet die Ebene „Sonne“, aber keine Ebene „Frost“
+- Im Garten heißt derselbe Tab „Beete“, und der Tab „Ebenen“ bietet die Ebene „Frost“
+
+**Nachbedingungen**:
+- Keine Änderung
+
+**Tags**: [req-053, welle-10, indoor, pflanzplaetze, beetliste, ebenen, desktop, gp-fr-183, gp-fr-182, ac-13]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -3145,6 +3549,17 @@ laufen auf dem Desktop (PNG und CSV bietet der Export-Dialog nur abseits des Sma
 | (abgeleitet aus GP-FR-167) | Welle 9 Teil B: Nächste Wasserquelle in Beetliste, Kopf und CSV | TC-053-095 |
 | (abgeleitet aus GP-FR-025/026, V-05) | Welle 9 Teil B: Strg+D dupliziert (ohne Slot-Kopie, siehe unten) | TC-053-096 |
 | (abgeleitet aus GP-NFR-033, D-01) | Welle 9 Teil B: Renderer-Umschaltung SVG/Konva bei 3 000 Objekten | TC-053-097 |
+| (abgeleitet aus AC-7, AC-12, GP-UX-064) | Welle 10 Teil A: Tabs mit URL-Zustand, Deep-Link, „Zurück“, Feldmodus ohne Tabs | TC-053-098 |
+| (abgeleitet aus AC-8, AC-16, GP-UX-065) | Welle 10 Teil A: Tab-Wechsel behält Änderung, Auswahl und Zoom, kein Dialog (Verlassen: TC-053-007) | TC-053-099 |
+| (abgeleitet aus AC-4, AC-5, AC-6, AC-17, GP-UX-068) | Welle 10 Teil A: Seitenpanel, Zustandsregel, Panel-Tabs per Tastatur | TC-053-100 |
+| (abgeleitet aus AC-1, AC-3, AC-14, GP-UX-067/069) | Welle 10 Teil A: Desktop 1366 × 768, Zeichenfläche ≥ 60 %, Panel angedockt | TC-053-101 |
+| (abgeleitet aus GP-UX-069) | Welle 10 Teil A: Tablet 820 × 1180 (md), Panel als Drawer | TC-053-102 |
+| (abgeleitet aus AC-2, GP-UX-001/069) | Welle 10 Teil A: jede Editor-Funktion bei 1024 px — **blockiert durch #2868**, kein Test | TC-053-103 |
+| (abgeleitet aus AC-9, AC-15, GP-UX-063/069) | Welle 10 Teil A: Smartphone 390 × 844, `TouchBar`, Bottom Sheet, Überlauf | TC-053-104 |
+| (abgeleitet aus GP-FR-180, §9.5) | Welle 10 Teil A: Fenster- und Lampen-Eigenschaften, Objekt-Legende, „Außerhalb des Grundstücks“ | TC-053-105 |
+| (abgeleitet aus GP-FR-182, GP-UX-049, GP-FR-180) | Welle 10 Teil A: Indoor-Leerzustand, Grundriss zeichnen, Fenster einzeichnen | TC-053-106 |
+| (abgeleitet aus GP-FR-181) | Welle 10 Teil A: Fenster-Vorschlag mit Vorschau, Abbrechen, Bestätigen | TC-053-107 |
+| (abgeleitet aus GP-FR-183, GP-FR-182, AC-13) | Welle 10 Teil A: Tab und Liste „Pflanzplätze“, keine Frost-Ebene | TC-053-108 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 
@@ -3199,6 +3614,21 @@ Prüfregeln der Datei sind kein Browser-Artefakt.
 | GP-FR-176: Mitgliedernamen in der Tabelle der Parzellenseite | Das E2E-Image hat keine Textextraktion für den PDF-Inhalt (der Seiteninhalt sind Glyphen-Nummern einer Teilschrift); TC-053-093 liest die Lesezeichen (Überschriften) und die Anfrage des Dialogs. Die Spalte selbst prüfen die Tests der Druck-Engine serverseitig. |
 | GP-FR-165: Flag-Hinweis im Dialog „Bepflanzen“ | Der Hinweis erscheint erst mit einer gewählten Art; TC-053-094 deckt Panel und Chip ab, die das Issue nennt. |
 | Gefüllter kontobezogener API-Zwischenspeicher des Service Workers (`kp:{Konto}:{Mandant}`) | Das Backend antwortet auf jede `/api/v1/`-Lesung mit `Cache-Control: no-store` (MT-044), und der Service Worker respektiert das (G-W9 c) — die Positivliste wird nie in den Zwischenspeicher geschrieben; die Offline-Lesung kommt aus IndexedDB (TC-053-086). TC-053-090 prüft deshalb den beim Service Worker angemeldeten Namensraum, nicht einen gefüllten Zwischenspeicher. |
+
+
+## Nicht abgedeckte Welle-10-Teile (Teil A)
+
+| Teil | Grund |
+|------|-------|
+| AC-2: jede Editor-Funktion bei 1024 × 768 | **Blockiert durch #2868**: die Werkzeuge Fläche, Pflanze setzen, Messen und Beschriftung aus GP-UX-001 sind getypt, aber nicht gebaut. TC-053-103 beschreibt den Fall ohne ausführbaren Test; TC-053-102 prüft bei 820 px (md) nur das Layout (Drawer, kein horizontales Scrollen) und nicht die Vollständigkeit der Werkzeuge. |
+| AC-3: Seitenkopf der Route ohne eigene Aktionen | vitest (`EditorWorkspace`/`GardenPlanRoute`); TC-053-101 prüft die eine Kopfleiste und die vertikale Werkzeug-Leiste. |
+| AC-4: „Als Vorlage speichern“ nur bei genau einem ausgewählten Beet | vitest; TC-053-100 prüft die Auswahlgruppe (nur bei Auswahl). |
+| AC-10, AC-11 | AC-10 ist ein CI-Kriterium (alle Suiten grün), AC-11 ein Dokumentkriterium (REQ-053 v1.16); keines hat ein eigenes Browser-Artefakt. |
+| AC-13: Tab „Beete“ lädt nach dem Speichern neu | vitest und der Welle-9-Fall der Beetliste (#2813); TC-053-108 prüft nur die Benennung „Pflanzplätze“. |
+| AC-14: Höhe der Zeichenfläche mit und ohne Mini-Map gleich | vitest; TC-053-101 prüft nur, dass die Zoom-Steuerung innerhalb der Zeichenfläche liegt. |
+| AC-16: Ausschnitt (Pan) nach dem Tab-Wechsel | vitest; TC-053-099 prüft Auswahl und Zoomstufe. |
+| GP-FR-183: Raum-Hierarchie Wohnung → Raum → Fensterbank/Regal → Topf | COULD, nicht gebaut; TC-053-108 prüft Tab und Liste „Pflanzplätze“. |
+| GP-FR-180: Tür und Rankhilfe im Panel | Gleiches Muster wie Fenster und Lampe (WP 10.6, PATCH-Roundtrip je Typ als vitest); TC-053-105 automatisiert Fenster, Lampe und den Schalter „Außerhalb des Grundstücks“. |
 
 ---
 
