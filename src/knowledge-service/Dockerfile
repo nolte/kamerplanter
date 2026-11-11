@@ -1,7 +1,7 @@
 # Multi-target image — dev and prod share one base stage.
 #   prod (default, built by CI):   docker build .
 #   dev  (built by skaffold):      docker build --target dev .
-FROM python:3.15-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0 AS base
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-knowledge-service" \
       org.opencontainers.image.description="Standalone RAG/LLM service answering plant-domain questions over Kamerplanter's knowledge base" \
