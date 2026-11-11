@@ -24,6 +24,19 @@ MAX_NAMED_UNKNOWN_PLANTS = 5
 
 
 @dataclass(frozen=True)
+class PhaseLabel:
+    """A phase as the hint names it: its machine name and both catalogue display names (#2889).
+
+    The server words nothing here: the client picks the name for its UI language (German, else its own phase
+    translation of ``code``, else English, else ``code``). An empty display name means the catalogue holds none.
+    """
+
+    code: str
+    display_name: str = ""
+    display_name_de: str = ""
+
+
+@dataclass(frozen=True)
 class PlantPhotoperiod:
     """A standing plant of the location with the photoperiod its current phase asks for (``None`` = unknown)."""
 
@@ -35,6 +48,8 @@ class PlantPhotoperiod:
     phase_code: str | None = None
     #: What the grower calls the plant (its name, else its id); shown when its photoperiod is unknown.
     display_name: str = ""
+    #: The current phase with both display names; ``None`` when the plant has no phase that resolves.
+    phase_label: PhaseLabel | None = None
 
 
 @dataclass(frozen=True)
@@ -43,7 +58,10 @@ class PhotoperiodGroup:
 
     photoperiod_hours: float
     plant_count: int
+    #: Display names as the server falls back (English, else the machine name) - kept for older clients.
     phase_names: tuple[str, ...]
+    #: The phases of these plants, one per machine name, sorted by it - what a client words in its language.
+    phases: tuple[PhaseLabel, ...] = ()
 
 
 @dataclass(frozen=True)

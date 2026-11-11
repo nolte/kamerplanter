@@ -75,6 +75,8 @@ type FormData = z.infer<typeof schema>;
 interface PhaseOptionSource {
   key: string;
   displayName: string | null;
+  /** German catalogue name of a phase definition (sequence path only; legacy growth phases have none). */
+  displayNameDe?: string | null;
   name: string;
 }
 
@@ -122,7 +124,7 @@ export default function PlantInstanceCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const { isFavorite, toggleFavorite } = useSowingFavorites();
@@ -323,6 +325,7 @@ export default function PlantInstanceCreateDialog({
             .map((entry) => ({
               key: entry.key,
               displayName: entry.phase_definition?.display_name || null,
+              displayNameDe: entry.phase_definition?.display_name_de || null,
               name: entry.phase_definition?.name ?? entry.key,
             }));
         }
@@ -360,9 +363,16 @@ export default function PlantInstanceCreateDialog({
     () =>
       phaseOptionSources.map((src) => ({
         value: src.key,
-        label: src.displayName || t(`enums.phaseName.${src.name}`, { defaultValue: src.name }),
+        // German UI: the catalogue's German name first (#2889 class sweep), else the enum translation of the
+        // internal name, which a legacy English `display_name` must not mask.
+        label: i18n.language.startsWith('de')
+          ? src.displayNameDe ||
+            t(`enums.phaseName.${src.name}`, { defaultValue: '' }) ||
+            src.displayName ||
+            src.name
+          : src.displayName || t(`enums.phaseName.${src.name}`, { defaultValue: src.name }),
       })),
-    [phaseOptionSources, t],
+    [phaseOptionSources, t, i18n.language],
   );
 
   // Keep the per-instance cultivation-cycle override consistent with the gate: a

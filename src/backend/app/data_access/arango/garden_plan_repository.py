@@ -76,7 +76,7 @@ from app.domain.models.garden_plan import (
 )
 from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
 from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, SiteUnderlay, Slot
-from app.domain.models.tent_hint import PlantPhotoperiod
+from app.domain.models.tent_hint import PhaseLabel, PlantPhotoperiod
 
 logger = structlog.get_logger()
 
@@ -214,6 +214,18 @@ def _write_soil(txn: StreamTransaction, location_key: str, soil: SoilProfileEdit
 def _text_or_none(value: object) -> str | None:
     """A stored text that is a non-empty string; anything else reads as absent."""
     return value if isinstance(value, str) and value else None
+
+
+def _phase_label_or_none(row: dict[str, Any]) -> PhaseLabel | None:
+    """The plant's phase with both display names; ``None`` without a phase code (no phase, or it does not resolve)."""
+    code = _text_or_none(row.get("phase_code"))
+    if code is None:
+        return None
+    return PhaseLabel(
+        code=code,
+        display_name=_text_or_none(row.get("phase_display_name")) or "",
+        display_name_de=_text_or_none(row.get("phase_display_name_de")) or "",
+    )
 
 
 def _photoperiod_or_none(value: object) -> float | None:
@@ -649,6 +661,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                         phase_name: entry != null
                             ? (definition == null ? null : (definition.display_name || definition.name))
                             : (legacy == null ? null : (legacy.display_name || legacy.name)),
+                        // Both catalogue names, unresolved: the client words the phase in its own language (#2889).
+                        phase_display_name: entry != null
+                            ? (definition == null ? null : definition.display_name)
+                            : (legacy == null ? null : legacy.display_name),
+                        phase_display_name_de: entry != null
+                            ? (definition == null ? null : definition.display_name_de)
+                            : (legacy == null ? null : legacy.display_name_de),
                         photoperiod_hours: profile == null ? null : profile.photoperiod_hours
                     }
                 """,
@@ -662,6 +681,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 photoperiod_hours=_photoperiod_or_none(row["photoperiod_hours"]),
                 phase_code=_text_or_none(row["phase_code"]),
                 display_name=_text_or_none(row["display_name"]) or str(row["plant_key"]),
+                phase_label=_phase_label_or_none(row),
             )
             for row in cursor
         ]

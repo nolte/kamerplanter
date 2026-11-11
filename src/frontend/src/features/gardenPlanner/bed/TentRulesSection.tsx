@@ -33,6 +33,7 @@ import {
   tentRulesToForm,
   type TentRulesFormData,
 } from './tentRulesForm';
+import { groupPhaseLabels } from './tentPhaseLabel';
 import type { PhotoperiodGroup, TentHint } from './types';
 
 interface TentRulesSectionProps {
@@ -50,12 +51,14 @@ interface TentRulesSectionProps {
 function TentHintAlert({ hint }: { hint: TentHint }) {
   const { t, i18n } = useTranslation();
   const hoursFormat = useMemo(() => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }), [i18n.language]);
-  const group = (item: PhotoperiodGroup) =>
-    t(item.phase_names.length > 0 ? 'pages.bed.tentRules.hints.group' : 'pages.bed.tentRules.hints.groupNoPhase', {
+  const group = (item: PhotoperiodGroup) => {
+    const phases = groupPhaseLabels(t, i18n, item);
+    return t(phases.length > 0 ? 'pages.bed.tentRules.hints.group' : 'pages.bed.tentRules.hints.groupNoPhase', {
       hours: hoursFormat.format(item.photoperiod_hours),
       count: item.plant_count,
-      phases: item.phase_names.join(', '),
+      phases: phases.join(', '),
     });
+  };
   const conflict = hint.code === 'tent.photoperiod_conflict';
   const unknown =
     hint.unknown_plant_count > 0

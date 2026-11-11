@@ -2,10 +2,11 @@
  * The tent rules of a location (REQ-053 WP 10.11, W-016): the light-schedule hints in words, the location's own
  * neighbourhood factor and its lighting, written through `PATCH /locations/{key}`.
  */
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import i18n from '@/i18n/i18n';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { renderWithProviders } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
@@ -53,6 +54,88 @@ const CONFLICT: TentHint = {
 };
 
 afterEach(() => cleanup());
+
+/** #2889: the phase in the hint is worded in the UI language, never the English name the server falls back to. */
+describe('TentRulesSection phase names', () => {
+  const initialLanguage = i18n.language;
+
+  afterEach(async () => {
+    cleanup();
+    await act(() => i18n.changeLanguage(initialLanguage));
+  });
+
+  const LOCALISED: TentHint = {
+    code: 'tent.photoperiod_conflict',
+    severity: 'warning',
+    groups: [
+      {
+        photoperiod_hours: 18,
+        plant_count: 2,
+        phase_names: ['Vegetative'],
+        phases: [{ code: 'vegetative', display_name: 'Vegetative', display_name_de: 'Vegetative Phase' }],
+      },
+      {
+        photoperiod_hours: 12,
+        plant_count: 1,
+        phase_names: ['Flowering'],
+        phases: [{ code: 'flowering', display_name: 'Flowering', display_name_de: 'Blüte' }],
+      },
+    ],
+    unknown_plant_count: 0,
+  };
+
+  it('names the phases in German in the German UI', async () => {
+    await act(() => i18n.changeLanguage('de'));
+    renderSection({ hints: [LOCALISED] });
+
+    const alert = screen.getByTestId('tent-hint-photoperiod-conflict');
+    expect(alert).toHaveTextContent(
+      '18 Stunden Licht für 2 Pflanzen (Vegetative Phase); 12 Stunden Licht für 1 Pflanze (Blüte)',
+    );
+    expect(alert).not.toHaveTextContent('Flowering');
+  });
+
+  it('names the phases in English in the English UI', async () => {
+    await act(() => i18n.changeLanguage('en'));
+    renderSection({ hints: [LOCALISED] });
+
+    expect(screen.getByTestId('tent-hint-photoperiod-conflict')).toHaveTextContent(
+      '18 hours of light for 2 plants (Vegetative); 12 hours of light for 1 plant (Flowering)',
+    );
+  });
+
+  it('falls back to the app translation of the code, then the English name, then the code', async () => {
+    await act(() => i18n.changeLanguage('de'));
+    renderSection({
+      hints: [
+        {
+          code: 'tent.photoperiod_conflict',
+          severity: 'warning',
+          groups: [
+            {
+              photoperiod_hours: 18,
+              plant_count: 3,
+              phase_names: ['Bud swell', 'Vegetative', 'zz_custom'],
+              phases: [
+                // a legacy growth phase: no German catalogue name
+                { code: 'bud_swell', display_name: 'Bud swell', display_name_de: '' },
+                { code: 'vegetative', display_name: 'Vegetative', display_name_de: '' },
+                { code: 'zz_custom', display_name: '', display_name_de: '' },
+              ],
+            },
+            // an older backend sends no `phases`
+            { photoperiod_hours: 12, plant_count: 1, phase_names: ['Flowering'] },
+          ],
+          unknown_plant_count: 0,
+        },
+      ],
+    });
+
+    expect(screen.getByTestId('tent-hint-photoperiod-conflict')).toHaveTextContent(
+      '18 Stunden Licht für 3 Pflanzen (Bud swell, Vegetativ, zz_custom); 12 Stunden Licht für 1 Pflanze (Blüte)',
+    );
+  });
+});
 
 describe('TentRulesSection', () => {
   it('describes a photoperiod conflict in words, without its code', () => {

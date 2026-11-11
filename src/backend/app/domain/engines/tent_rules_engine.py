@@ -25,6 +25,7 @@ from app.domain.models.tent_hint import (
     HINT_PHOTOPERIOD_CONFLICT,
     HINT_PHOTOPERIOD_UNKNOWN,
     MAX_NAMED_UNKNOWN_PLANTS,
+    PhaseLabel,
     PhotoperiodGroup,
     PlantPhotoperiod,
     TentHint,
@@ -85,9 +86,34 @@ def photoperiod_groups(plants: list[PlantPhotoperiod]) -> tuple[PhotoperiodGroup
             photoperiod_hours=anchor,
             plant_count=len(group),
             phase_names=tuple(sorted({member.phase_name for member in group if member.phase_name})),
+            phases=_phase_labels(group),
         )
         for anchor, group in zip(anchors, members, strict=True)
     )
+
+
+def _phase_labels(plants: list[PlantPhotoperiod]) -> tuple[PhaseLabel, ...]:
+    """One label per phase code, sorted by it; a display name one plant's phase lacks is taken from another's.
+
+    A legacy growth phase and a sequence entry of the same name are one phase: the legacy one carries no German name,
+    the phase definition does, and the hint names the phase once (#2889).
+    """
+    merged: dict[str, PhaseLabel] = {}
+    for plant in plants:
+        label = plant.phase_label
+        if label is None or not label.code:
+            continue
+        known = merged.get(label.code)
+        merged[label.code] = (
+            label
+            if known is None
+            else PhaseLabel(
+                code=label.code,
+                display_name=known.display_name or label.display_name,
+                display_name_de=known.display_name_de or label.display_name_de,
+            )
+        )
+    return tuple(merged[code] for code in sorted(merged))
 
 
 def _unknown_names(plants: list[PlantPhotoperiod]) -> tuple[str, ...]:
