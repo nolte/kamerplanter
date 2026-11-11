@@ -143,6 +143,16 @@ class BedViewPage(BasePage):
     # ── Photos tab (WP 8.18, GP-FR-051): the section renders once the gallery answered ─
     PHOTOS_TAB = _tid("bed-photos")
 
+    # ── Planting tab, wave 10: sown, failed (WP 10.9, §11.3 W-015) ──────
+    SOWN_LIST = _tid("bed-planting-sown")
+    FAILED_LIST = _tid("bed-planting-failed")
+
+    # ── Tent rules (WP 10.11, W-016) ───────────────────────────────────
+    #: Rendered on the page of every location whose type carries a slot layout (bed: "Details" tab; tent, shelf).
+    TENT_RULES = _tid("tent-rules-section")
+    PHOTOPERIOD_CONFLICT = _tid("tent-hint-photoperiod-conflict")
+    PHOTOPERIOD_UNKNOWN = _tid("tent-hint-photoperiod-unknown")
+
     # ── Head: nutrient and salt hint (WP 8.10, GP-FR-125) ──────────────
     HEADER = _tid("bed-header")
     HEADER_PLANTS = _tid("bed-header-plants")
@@ -344,6 +354,113 @@ class BedViewPage(BasePage):
                 f"{what}: expected {planned} planned position(s) and {active} plant(s), the "
                 f"planting tab lists {_counts()}"
             ) from exc
+
+    # ── Planting tab, wave 10: sow, thin out, replant (§11.3, W-015) ───
+
+    def sown_slot_keys(self) -> list[str]:
+        """Slot keys of the "Gesät" list, in the order shown (empty when the list is absent)."""
+        return self._row_keys("planting-sown-")
+
+    def failed_slot_keys(self) -> list[str]:
+        """Slot keys of the "Ausgefallen" list, in the order shown (empty when the list is absent)."""
+        return self._row_keys("planting-failed-")
+
+    def row_text(self, testid: str) -> str:
+        """The text of the planting-tab row *testid* (``planting-sown-<slot>``); loud when it is not listed."""
+        try:
+            row = self.wait_for_element(_tid(testid))
+        except TimeoutException as exc:
+            raise AssertionError(f"the planting tab lists no row {testid!r}") from exc
+        return " ".join((row.get_attribute("textContent") or "").split())
+
+    def has_row_action(self, testid: str) -> bool:
+        """Whether the action *testid* (``planting-sow-<slot>``) is offered now; read after the tab settled."""
+        self.wait_for_element(self.PLANTING_TAB)
+        return self.is_present(_tid(testid))
+
+    def wait_for_slot_lists(
+        self, slot_key: str, *, planned: bool, sown: bool, failed: bool, what: str
+    ) -> None:
+        """Wait until *slot_key* is in exactly the lists named true (Geplant / Gesät / Ausgefallen)."""
+
+        def _where() -> tuple[bool, bool, bool]:
+            return (
+                slot_key in self.planned_slot_keys(),
+                slot_key in self.sown_slot_keys(),
+                slot_key in self.failed_slot_keys(),
+            )
+
+        try:
+            self.poll().until(lambda _d: _where() == (planned, sown, failed))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: slot {slot_key} should be (planned, sown, failed) = {(planned, sown, failed)}, "
+                f"the planting tab shows {_where()}"
+            ) from exc
+
+    def open_sowing_dialog(self, slot_key: str) -> SowingDialog:
+        """ "Als gesät erfassen" on the planned row *slot_key*."""
+        self.wait_and_click_coordinate_free(_tid(f"planting-sow-{slot_key}"))
+        dialog = SowingDialog(self.driver, self.base_url)
+        dialog.wait_for_element_visible(dialog.DIALOG)
+        return dialog
+
+    def open_thinning_dialog(self, slot_key: str) -> ThinningDialog:
+        """ "Vereinzeln" on the sown row *slot_key*; returns once the dialog read the server's thinning plan."""
+        self.wait_and_click_coordinate_free(_tid(f"planting-thin-{slot_key}"))
+        dialog = ThinningDialog(self.driver, self.base_url)
+        dialog.wait_until_loaded()
+        return dialog
+
+    def open_replant_dialog(self, slot_key: str) -> PlantingDialog:
+        """ "Nachpflanzen" on the failed slot *slot_key*: the planting dialog, its catalogue loaded."""
+        self.wait_and_click_coordinate_free(_tid(f"planting-replant-{slot_key}"))
+        dialog = PlantingDialog(self.driver, self.base_url)
+        dialog.wait_until_ready()
+        return dialog
+
+    # ── Tent rules: light-schedule hints of a tent (W-016.6) ───────────
+
+    def open_tent_rules(self, location_key: str) -> BedViewPage:
+        """Open the location page of *location_key* and return once its tent rules section rendered.
+
+        A tent of an indoor plan is no bed (``is_bed`` false), so its page is the plain location page; a bed shows
+        the same section on its "Details" tab. The section renders with the location summary, which carries the
+        hints - so it is the anchor for reading them, and a page without it (an error surface) fails here.
+        """
+        self.navigate(self.PATH.format(key=location_key))
+        try:
+            self.wait_for_element_visible(self.TENT_RULES)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"the location page of {location_key} shows no tent rules section"
+            ) from exc
+        return self
+
+    def photoperiod_conflict_text(self, what: str) -> str:
+        """The text of the "Unterschiedlicher Lichtbedarf" hint; loud when the details tab shows none."""
+        self.wait_for_element(self.TENT_RULES)
+        try:
+            hint = self.wait_for_element_visible(self.PHOTOPERIOD_CONFLICT)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the tent rules show no photoperiod conflict hint"
+            ) from exc
+        return " ".join((hint.get_attribute("textContent") or "").split())
+
+    def tent_hint_ids(self) -> set[str]:
+        """The test ids of the light-schedule hints shown now; read after the tent rules section rendered.
+
+        The hints come with the bed summary that also renders the section, so an empty set after the section is
+        "no hint", not "not yet".
+        """
+        section = self.wait_for_element_visible(self.TENT_RULES)
+        return {
+            hint.get_attribute("data-testid") or ""
+            for hint in section.find_elements(
+                By.CSS_SELECTOR, "[data-testid^='tent-hint-photoperiod-']"
+            )
+        }
 
     def open_position_dialog(self, plant_key: str) -> PositionDialog:
         """Click "Position korrigieren" of *plant_key*; the caller reads which branch loaded."""
@@ -893,6 +1010,69 @@ class PlantingDialog(BasePage):
         reason = self.wait_for_element(self.OVERRIDE_REASON)
         return reason.get_attribute("aria-invalid") == "true"
 
+    # ── Trellis hint (W-005, WP 10.10) ─────────────────────────────────
+
+    def wait_for_support_hint(self, species_key: str, what: str) -> dict:
+        """Wait until the trellis hint of *species_key* settled (not ``loading``); return what it says.
+
+        ``{"state": present|missing|unavailable, "count": data-trellis-count or None, "text": ..., "trellises":
+        {key: text}}``. Loud when the hint never appears or never leaves ``loading``.
+        """
+        locator = _tid(f"planting-support-{species_key}")
+
+        def _settled(_d: object):
+            found = self.driver.find_elements(*locator)
+            if found and found[0].get_attribute("data-state") not in (None, "", "loading"):
+                return found[0]
+            return False
+
+        try:
+            hint = self.poll().until(_settled)
+        except TimeoutException as exc:
+            states = [e.get_attribute("data-state") for e in self.driver.find_elements(*locator)]
+            raise AssertionError(
+                f"{what}: no settled trellis hint for species {species_key!r} (states seen: {states})"
+            ) from exc
+        prefix = "planting-support-trellis-"
+        trellises = {
+            (item.get_attribute("data-testid") or "")[len(prefix) :]: " ".join(
+                (item.get_attribute("textContent") or "").split()
+            )
+            for item in hint.find_elements(By.CSS_SELECTOR, f"[data-testid^='{prefix}']")
+        }
+        return {
+            "state": hint.get_attribute("data-state"),
+            "count": hint.get_attribute("data-trellis-count"),
+            "text": " ".join((hint.get_attribute("textContent") or "").split()),
+            "trellises": trellises,
+        }
+
+    def has_support_hint(self, species_key: str) -> bool:
+        """Whether a trellis hint of *species_key* is rendered now; read after :meth:`wait_for_hint` anchored it."""
+        return self.is_present(_tid(f"planting-support-{species_key}"))
+
+    def species_value(self, index: int = 0) -> str:
+        """The committed text of entry *index*'s species picker (``""`` when none is chosen)."""
+        field = self.wait_for_element(
+            (By.CSS_SELECTOR, f"[data-testid='planting-entry-{index}-species'] input")
+        )
+        return field.get_attribute("value") or ""
+
+    def wait_for_species_value(self, suffix: str, what: str, index: int = 0) -> str:
+        """Wait until entry *index*'s species picker holds a choice ending in *suffix*; return it."""
+        try:
+            self.poll().until(lambda _d: self.species_value(index).endswith(suffix))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: entry {index} should hold a species ending in {suffix!r}, it holds "
+                f"{self.species_value(index)!r}"
+            ) from exc
+        return self.species_value(index)
+
+    def field_value(self, part: str, index: int = 0) -> str:
+        """The value of an entry field (``spacing``, ``row-spacing``)."""
+        return self.wait_for_element(self._entry(index, part)).get_attribute("value") or ""
+
     # ── Submit ─────────────────────────────────────────────────────────
 
     def submit_button_text(self) -> str:
@@ -924,6 +1104,109 @@ class PlantingDialog(BasePage):
 
     def is_open(self) -> bool:
         return bool(self.driver.find_elements(*self.DIALOG))
+
+
+class SowingDialog(BasePage):
+    """ "Als gesät erfassen" of a planned row or zone (``SowingDialog``, W-015)."""
+
+    DIALOG = _tid("sowing-dialog")
+    DATE = _tid("sowing-date")
+    SUBMIT = _tid("sowing-submit")
+
+    def date_value(self) -> str:
+        return self.wait_for_element(self.DATE).get_attribute("value") or ""
+
+    def submit_and_wait_closed(self, what: str) -> None:
+        """ "Als gesät speichern"; the dialog closes only once the server stored the sowing day."""
+        self.wait_and_click_coordinate_free(self.SUBMIT)
+        try:
+            self.wait_for_element_hidden(self.DIALOG)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the sowing dialog did not close after the submit"
+            ) from exc
+
+
+class ThinningDialog(BasePage):
+    """ "Vereinzeln" of a sown row or zone (``ThinningDialog``, W-015): the server's plan, spacing, count, result."""
+
+    DIALOG = _tid("thinning-dialog")
+    FACTS = _tid("thinning-facts")
+    NO_SPACING = _tid("thinning-no-spacing")
+    SPACING = _tid("thinning-spacing")
+    COUNT = _tid("thinning-count")
+    PLANTED_ON = _tid("thinning-planted-on")
+    MISSING = _tid("thinning-missing")
+    RESULT = _tid("thinning-result")
+    SUBMIT = _tid("thinning-submit")
+
+    def wait_until_loaded(self) -> None:
+        """The dialog is open and shows the facts of the server's thinning plan (not the skeleton, not an error)."""
+        self.wait_for_element_visible(self.DIALOG)
+        try:
+            self.wait_for_element_visible(self.FACTS)
+        except TimeoutException as exc:
+            text = " ".join(
+                (self.wait_for_element(self.DIALOG).get_attribute("textContent") or "").split()
+            )
+            raise AssertionError(
+                f"the thinning dialog never showed its plan; it reads {text[:300]!r}"
+            ) from exc
+
+    def facts_text(self) -> str:
+        return " ".join(
+            (self.wait_for_element_visible(self.FACTS).get_attribute("textContent") or "").split()
+        )
+
+    def spacing_value(self) -> str:
+        return self.wait_for_element(self.SPACING).get_attribute("value") or ""
+
+    def has(self, locator: tuple[str, str]) -> bool:
+        """Whether *locator* (``NO_SPACING``, ``MISSING``, ``RESULT``) is rendered now; read after the plan loaded."""
+        self.wait_for_element_visible(self.FACTS)
+        return self.is_present(locator)
+
+    def result_count(self, what: str) -> int:
+        """The plant count the result line names ("Es werden 20 Pflanzen erfasst."); loud without a line or number."""
+        try:
+            line = " ".join((self.wait_for_element_visible(self.RESULT).text or "").split())
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the thinning dialog shows no result line") from exc
+        match = re.search(r"(\d+) Pflanzen?(?: wird| werden)? erfasst", line)
+        if match is None:
+            raise AssertionError(f"{what}: the result line names no plant count: {line!r}")
+        return int(match.group(1))
+
+    def set_count(self, count: int) -> None:
+        field = self.wait_for_element_clickable(self.COUNT)
+        self.clear_and_fill(field, str(count))
+        self.poll().until(lambda _d: (field.get_attribute("value") or "") == str(count))
+
+    def submit_expecting_missing(self, what: str) -> str:
+        """Press "Vereinzeln" without spacing and count: the "missing" warning appears and the dialog stays open."""
+        self.wait_and_click_coordinate_free(self.SUBMIT)
+        try:
+            warning = self.wait_for_element_visible(self.MISSING)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: submitting without spacing and count shows no warning"
+            ) from exc
+        if not self.is_present(self.DIALOG):
+            raise AssertionError(f"{what}: the dialog closed although nothing was entered")
+        return " ".join((warning.text or "").split())
+
+    def submit_and_wait_closed(self, what: str) -> None:
+        """ "Vereinzeln"; the dialog closes only once the server created the plants."""
+        self.wait_and_click_coordinate_free(self.SUBMIT)
+        try:
+            self.wait_for_element_hidden(self.DIALOG)
+        except TimeoutException as exc:
+            text = " ".join(
+                (self.wait_for_element(self.DIALOG).get_attribute("textContent") or "").split()
+            )
+            raise AssertionError(
+                f"{what}: the thinning dialog did not close after the submit; it reads {text[:300]!r}"
+            ) from exc
 
 
 class PositionDialog(BasePage):

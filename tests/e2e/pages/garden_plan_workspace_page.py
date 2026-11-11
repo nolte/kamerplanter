@@ -27,7 +27,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 from .base_page import DEFAULT_TIMEOUT
-from .bed_care_page import choose_from_native_select
+from .bed_care_page import choose_from_native_select, native_select_values
 from .field_mode_page import FieldModePage
 from .garden_plan_page import GardenPlanPage, ScreenPoint
 
@@ -670,6 +670,130 @@ class WorkspacePlanPage(GardenPlanPage):
         self.wait_and_click_coordinate_free(self.SUGGEST_APPLY)
         self.wait_for_element_hidden(self.SUGGEST_DIALOG)
         self.wait_for_pending(before + 1, "applying the window suggestion")
+
+    # ── Tasks on garden objects (R-7.2, W-008; WP 10.10, E2E WP 10.14) ─
+
+    OBJECT_TASKS = _tid("garden-plan-panel-object-tasks")
+    OBJECT_TASKS_EMPTY = _tid("garden-plan-panel-object-tasks-empty")
+    OBJECT_TASKS_LIST = _tid("garden-plan-panel-object-tasks-list")
+    OBJECT_TASKS_ERROR = _tid("garden-plan-panel-object-tasks-error")
+    OBJECT_TASK_ADD = _tid("garden-plan-panel-object-task-add")
+    OBJECT_TASK_ROW_PREFIX = "garden-plan-panel-object-task-"
+    TASK_DIALOG = _tid("care-task-dialog")
+    TASK_DIALOG_TITLE = (By.CSS_SELECTOR, "[data-testid='care-task-dialog'] h2")
+    TASK_NAME = _tid("care-task-name")
+    TASK_SUBMIT = _tid("care-task-submit")
+    TASK_OBJECT_HINT = _tid("care-task-object-hint")
+    TASK_SCOPE_BED = _tid("care-task-scope-bed")
+    TASK_SCOPE_PLANTS = _tid("care-task-scope-plants")
+
+    def wait_for_object_tasks(self, object_type: str, what: str) -> str:
+        """Wait until the "Aufgaben" section of a *object_type* object finished loading: ``"empty"`` or ``"list"``.
+
+        The section renders at once with a loading line; settled is the empty text or the list - an error surface
+        is a loud failure with its text, never read as "no task".
+        """
+        section = (
+            By.CSS_SELECTOR,
+            f"[data-testid='garden-plan-panel-object-tasks'][data-object-type='{object_type}']",
+        )
+        try:
+            self.wait_for_element_visible(section)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the panel shows no task section for a {object_type}"
+            ) from exc
+
+        def _settled(_d: object) -> str | bool:
+            if self.is_present(self.OBJECT_TASKS_ERROR):
+                return "error"
+            if self.is_present(self.OBJECT_TASKS_LIST):
+                return "list"
+            if self.is_present(self.OBJECT_TASKS_EMPTY):
+                return "empty"
+            return False
+
+        try:
+            state = self.poll().until(_settled)
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the task section never finished loading") from exc
+        if state == "error":
+            text = " ".join((self.wait_for_element(self.OBJECT_TASKS_ERROR).text or "").split())
+            raise AssertionError(f"{what}: the task section shows an error: {text!r}")
+        return str(state)
+
+    def has_object_tasks_section(self) -> bool:
+        """Whether the panel holds a task section now (read after the object's properties anchored)."""
+        return self.is_present(self.OBJECT_TASKS)
+
+    def object_task_rows(self) -> dict[str, str]:
+        """``{task key: visible text}`` of the rows the section lists; loud when the list is not shown."""
+        listing = self.wait_for_element_visible(self.OBJECT_TASKS_LIST)
+        rows = {}
+        for row in listing.find_elements(
+            By.CSS_SELECTOR, f"li[data-testid^='{self.OBJECT_TASK_ROW_PREFIX}']"
+        ):
+            key = (row.get_attribute("data-testid") or "")[len(self.OBJECT_TASK_ROW_PREFIX) :]
+            rows[key] = " ".join((row.get_attribute("textContent") or "").split())
+        if not rows:
+            raise AssertionError("the object's task list is shown without a row")
+        return rows
+
+    def open_object_task_dialog(self) -> None:
+        """ "Aufgabe anlegen" in the section: waits for the task dialog bound to a garden object."""
+        self.wait_and_click_coordinate_free(self.OBJECT_TASK_ADD)
+        dialog = self.wait_for_element_visible(self.TASK_DIALOG)
+        target = dialog.get_attribute("data-target")
+        if target != "garden_object":
+            raise AssertionError(
+                f"the task dialog opened for {target!r}, not for the garden object"
+            )
+
+    def task_dialog_title(self) -> str:
+        return " ".join((self.wait_for_element_visible(self.TASK_DIALOG_TITLE).text or "").split())
+
+    def task_dialog_categories(self) -> list[str]:
+        """The category values the open task dialog offers, in the order shown."""
+        return native_select_values(self, "care-task-category")
+
+    def task_dialog_has_scope_choice(self) -> bool:
+        """Whether the open task dialog offers "Gilt für" (bed / every plant); read after the dialog settled."""
+        self.wait_for_element_visible(self.TASK_DIALOG)
+        return self.is_present(self.TASK_SCOPE_BED) or self.is_present(self.TASK_SCOPE_PLANTS)
+
+    def task_dialog_object_hint(self) -> str:
+        return " ".join((self.wait_for_element_visible(self.TASK_OBJECT_HINT).text or "").split())
+
+    def submit_object_task(self, category: str, name: str, what: str) -> str:
+        """Pick *category*, type *name*, submit; return the key of the row the section then lists for *name*.
+
+        The dialog closes only on a fulfilled create, and the section reloads its list after it: the new row is the
+        proof the server accepted the task.
+        """
+        choose_from_native_select(self, "care-task-category", category)
+        field = self.wait_for_element_clickable(self.TASK_NAME)
+        self.clear_and_fill(field, name)
+        self.poll().until(lambda _d: (field.get_attribute("value") or "") == name)
+        self.wait_and_click_coordinate_free(self.TASK_SUBMIT)
+        try:
+            self.wait_for_element_hidden(self.TASK_DIALOG)
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the task dialog did not close after the submit") from exc
+
+        def _row(_d: object) -> str | bool:
+            if not self.is_present(self.OBJECT_TASKS_LIST):
+                return False
+            for key, text in self.object_task_rows().items():
+                if name in text:
+                    return key
+            return False
+
+        try:
+            return str(self.poll().until(_row))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the section lists no task named {name!r} after the create"
+            ) from exc
 
 
 __all__ = ["WorkspacePlanPage"]
