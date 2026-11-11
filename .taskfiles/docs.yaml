@@ -30,13 +30,13 @@ tasks:
       into hash-checking mode as soon as one hash is present, so a stale .txt
       fails the install loudly rather than resolving something else.
 
-      The two flags are MEASURED, not stylistic. The release lane installs the
-      set twice: once on the runner (Python 3.14) and once inside
-      `mhausenblas/mkdocs-deploy-gh-pages`, whose image is
-      `squidfunk/mkdocs-material:9.0.6` — Alpine, CPython 3.11.0. `--universal`
-      emits one file valid for both, including the musllinux wheel hashes the
-      musl container needs; `--python-version 3.11` keeps the resolve inside the
-      older interpreter.
+      `--python-version 3.14` is the interpreter every consumer installs into:
+      `task docs:venv`, the `docs-requirements.yml` lane and the release lane,
+      which builds and deploys on the runner since gh-plumbing v2.2.1. Until
+      then the release lane installed the set a second time inside
+      `squidfunk/mkdocs-material:9.0.6` (CPython 3.11.0), and the resolve was
+      held at 3.11 — which kept pymdown-extensions 13 (Python >=3.11.5) out
+      (#2908). `--universal` keeps one file valid across platforms.
 
       uv is pinned to [tool.uv].required-version of the backend, the same value
       every other lock in this repository is produced with.
@@ -53,7 +53,7 @@ tasks:
     cmds:
       - >-
         uvx --from 'uv{{.UV_SPEC}}' uv pip compile docs/requirements.in
-        --universal --python-version 3.11 --generate-hashes
+        --universal --python-version 3.14 --generate-hashes
         -o docs/requirements.txt
 
   docs:venv:

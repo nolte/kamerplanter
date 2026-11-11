@@ -126,7 +126,26 @@
   minimumReleaseAgeBehaviour: 'timestamp-optional',
   vulnerabilityAlerts: {
     minimumReleaseAge: null,
+    // Security fixes are not held for the Monday window below. Renovate's
+    // default for `vulnerabilityAlerts` is already `schedule: []`; restated so
+    // the exemption does not rest on a default (NFR-009 §2.2).
+    schedule: [],
   },
+  // ── Monday window: updates are collected and opened on Mondays only ─────────
+  // Operator decision 2026-11-11 (repository owner), superseding the "no
+  // schedule" decision of 2026-09-21 (#1566): Renovate opens NEW branches and
+  // pull requests only on Mondays (Europe/Berlin), so a week's bumps arrive
+  // together and grouped instead of trickling in daily. What the window does
+  // NOT stop, by Renovate's own defaults: `updateNotScheduled: true` keeps
+  // rebasing and updating branches that are already open, and
+  // `automergeSchedule` ('at any time') keeps merging them once CI is green —
+  // a Monday PR that has to wait for the serial train still lands on Tuesday.
+  // The preset's pull-request limits still apply inside the window; whatever
+  // they hold back waits for the next Monday.
+  timezone: 'Europe/Berlin',
+  schedule: [
+    '* * * * 1',
+  ],
   // ── Helm dev values also carry a third-party pin (#1027) ─────────────────────
   // The built-in `helm-values` manager only matches `values.yaml` by default, so
   // `helm/kamerplanter/values-dev*.yaml` — which pin `timescale/timescaledb` for
