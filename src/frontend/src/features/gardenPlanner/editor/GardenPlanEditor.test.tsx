@@ -310,6 +310,9 @@ describe('handles (GP-FR-022, GP-UX-048)', () => {
     expect(screen.queryByTestId('garden-plan-handles')).toBeNull();
     t.click(4, 4); // b1 is 80 px
     expect(screen.getByTestId('garden-plan-too-small')).toBeInTheDocument();
+    // An overlay on the canvas area, not a row above it: no layout height (AC-1, GP-UX-067).
+    expect(within(screen.getByTestId('garden-plan-canvas-area')).getByTestId('garden-plan-too-small')).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-too-small')).toHaveAttribute('role', 'status');
   });
 
   it('refuses a resize that strands the children', () => {

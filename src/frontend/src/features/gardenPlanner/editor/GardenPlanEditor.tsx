@@ -2060,22 +2060,6 @@ export function GardenPlanEditor({
           {info}
         </Alert>
       )}
-      {!listShown && singleTooSmall && (
-        <Alert
-          severity="info"
-          role="status"
-          data-testid="garden-plan-too-small"
-          action={
-            zoomToEdit ? (
-              <Button color="inherit" size="small" onClick={onZoomToEdit} data-testid="garden-plan-zoom-to-edit">
-                {t(`${PREFIX}.zoomToEdit`)}
-              </Button>
-            ) : undefined
-          }
-        >
-          {t(`${PREFIX}.tooSmall`)}
-        </Alert>
-      )}
     </>
   );
 
@@ -2115,6 +2099,36 @@ export function GardenPlanEditor({
               sx={{ position: 'relative', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}
             >
               {canvasSurface}
+              {!listShown && singleTooSmall && (
+                // An overlay on the canvas, not a row above it: it takes no layout height (AC-1, GP-UX-067). The
+                // wrapper lets pointer events through to the canvas; only the alert itself takes them (its button).
+                <Box
+                  sx={{ position: 'absolute', left: 8, right: 8, bottom: 48, zIndex: 1, pointerEvents: 'none' }}
+                >
+                  <Alert
+                    severity="info"
+                    role="status"
+                    aria-live="polite"
+                    data-testid="garden-plan-too-small"
+                    sx={{ maxWidth: 520, pointerEvents: 'auto', boxShadow: 2, py: 0 }}
+                    action={
+                      zoomToEdit ? (
+                        <Button
+                          color="inherit"
+                          size="small"
+                          onClick={onZoomToEdit}
+                          data-testid="garden-plan-zoom-to-edit"
+                          sx={{ minHeight: 48 }}
+                        >
+                          {t(`${PREFIX}.zoomToEdit`)}
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    {t(`${PREFIX}.tooSmall`)}
+                  </Alert>
+                </Box>
+              )}
               <ZoomOverlay
                 pxPerM={pxPerM}
                 minPxPerM={minPxPerM}
