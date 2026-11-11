@@ -33,8 +33,9 @@ type AttentionCode = Literal["problem", "frost", "overdue", "water", "harvest"]
 LIFECYCLES: tuple[Lifecycle, ...] = ("planned", "sown", "active", "harvesting", "failed", "historic")
 #: Reasons that need attention, highest priority first (GP-UX-060).
 ATTENTION_PRIORITY: tuple[AttentionCode, ...] = ("problem", "frost", "overdue", "water", "harvest")
-#: ``termination_type`` values that count as a failure (§11.3 "ausgefallen").
-FAILED_TERMINATIONS = frozenset({"died", "senesced"})
+#: ``termination_type`` values that count as a failure (§11.3 "ausgefallen"): only an unplanned loss.
+#: ``senesced`` is the natural end of the crop and lands in ``historic`` like ``harvested``/``cancelled``.
+FAILED_TERMINATIONS = frozenset({"died"})
 #: Task category of a watering task: due today it is the reason ``water``.
 WATERING_CATEGORY = "watering"
 
