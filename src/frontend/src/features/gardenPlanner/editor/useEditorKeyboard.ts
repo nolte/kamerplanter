@@ -1,7 +1,8 @@
 /**
  * Keyboard operation of the plan canvas beyond what the tools bring (REQ-053 GP-NFR-020/068,
  * GP-UX-045, GP-ACC-008): with something selected the arrow keys move it by one grid step of the editor's grid (the same step the snap uses;
- * Shift: ten steps); with nothing selected - or with another tool - they scroll the view.
+ * Shift: ten steps); with nothing selected - or with another tool - they scroll the view (Shift: ten times as far,
+ * GP-FR-010). Space is not handled here: held down it is the pan modifier of the pointer (`useEditorTools`).
  * PageDown/PageUp walk the focus from object to object, `?` opens the key help (a single printable
  * key, so it follows the setting of WCAG 2.1.4). Everything that changes the plan goes out as
  * `PlanOperation`s through `onCommit`; the hook never touches the store.
@@ -15,13 +16,15 @@ import {
 import type { PlanModel } from '../model/planModel';
 import type { PlanOperation, Point } from '../model/types';
 import type { PlanTool, SelectionRef } from '../state/gardenPlanSlice';
+import { isTextEntry } from './keyTargets';
 import { isPlanEntity } from './tools/hierarchy';
 import { moveOperations } from './tools/keyboardMove';
 import type { ActionLabel } from './tools/machineTypes';
 
-/** Pixels the view scrolls per arrow press (Shift: four times that). */
+/** Pixels the view scrolls per arrow press (Shift: {@link COARSE} times that). */
 export const SCROLL_STEP_PX = 40;
-const COARSE = 10;
+/** Shift + arrow does this many steps at once - of the grid when it moves the selection, of the scroll otherwise. */
+export const COARSE = 10;
 
 const DIRECTIONS: Record<string, Point> = {
   ArrowLeft: [-1, 0],
@@ -42,13 +45,6 @@ export interface EditorKeyboardOptions {
   onNotice: (code: string | null) => void;
   onPan: (dxPx: number, dyPx: number) => void;
   onHelp: () => void;
-}
-
-function isTextEntry(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)
-  );
 }
 
 /** The focusable plan objects in the DOM, in reading order. */
@@ -86,7 +82,7 @@ export function useEditorKeyboard(options: EditorKeyboardOptions) {
           const step = stepM * (event.shiftKey ? COARSE : 1);
           moveSelection([direction[0] * step, direction[1] * step]);
         } else {
-          const px = SCROLL_STEP_PX * (event.shiftKey ? 4 : 1);
+          const px = SCROLL_STEP_PX * (event.shiftKey ? COARSE : 1);
           // Arrow right shows what lies to the right: the plan slides left (see `onPan`).
           onPan(-direction[0] * px + 0, direction[1] * px + 0); // `+ 0`: no negative zero
         }

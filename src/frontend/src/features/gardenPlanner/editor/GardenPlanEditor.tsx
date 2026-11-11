@@ -278,8 +278,9 @@ interface TemplateMode {
   rotationDeg: number;
 }
 
-function cursorOf(tool: PlanTool): string {
-  if (tool === 'pan') return 'grab';
+/** `panModifier`: Space is held on the canvas, a drag pans whatever the tool (GP-FR-010). */
+function cursorOf(tool: PlanTool, panModifier: boolean): string {
+  if (tool === 'pan' || panModifier) return 'grab';
   if (tool === 'bed' || tool === 'garden_object') return 'crosshair';
   return 'default';
 }
@@ -810,12 +811,18 @@ export function GardenPlanEditor({
     onPointerCancel: toolPointerCancel,
   } = tools.containerProps;
   const toolHandleDragging = tools.handleDragging;
+  // While Space is held a press pans (GP-FR-010): no snap marker or template ghost follows the pointer.
+  const spaceHeld = tools.panModifier;
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerMove(event);
       if (companionOn) {
         const edge = event.buttons === 0 ? companionEdgeOf(event) : null;
         setCompanionHover((previous) => (previous === edge ? previous : edge));
+      }
+      if (spaceHeld) {
+        setSnapMark((previous) => (previous === null ? previous : null));
+        return;
       }
       const snapping = (drawTool || templateTool || toolHandleDragging) && snapEnabled && !event.altKey;
       if (!templateTool && !snapping) {
@@ -868,6 +875,7 @@ export function GardenPlanEditor({
       renderer,
       snapEnabled,
       snapPoint,
+      spaceHeld,
       templateTool,
       toolHandleDragging,
       toolPointerMove,
@@ -1742,9 +1750,18 @@ export function GardenPlanEditor({
   // handed to the tools at all.
   // The template tool takes the press the same way: the click that follows places the template, so no
   // gesture (selection, marquee, pan) may start under it.
+  // With Space held (GP-FR-010) every press goes to the tools, which pan; the click that follows it places, opens and
+  // pins nothing.
   const touchPointerDown = touch.containerProps.onPointerDown;
+  const spacePanPress = useRef(false);
+  const panModifier = tools.panModifier;
   const onCanvasPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
+      spacePanPress.current = panModifier && event.button === 0 && event.pointerType !== 'touch';
+      if (spacePanPress.current) {
+        touchPointerDown(event);
+        return;
+      }
       if (templateTool && event.button === 0) return;
       if (onOpenCare && tool === 'select' && event.button === 0 && badgeKeyOf(event) !== null) return;
       // A mouse press on a companion line opens its card on the click that follows, like the task badge: no gesture
@@ -1760,10 +1777,11 @@ export function GardenPlanEditor({
       }
       touchPointerDown(event);
     },
-    [companionOn, onOpenCare, templateTool, tool, touchPointerDown],
+    [companionOn, onOpenCare, panModifier, templateTool, tool, touchPointerDown],
   );
   const onCanvasClick = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
+      if (spacePanPress.current) return;
       if (templateTool) {
         const box = event.currentTarget.getBoundingClientRect();
         const pointM = renderer.toModel([
@@ -1863,7 +1881,7 @@ export function GardenPlanEditor({
         overflow: 'hidden',
         touchAction: 'none',
         userSelect: 'none',
-        cursor: cursorOf(tool),
+        cursor: cursorOf(tool, tools.panModifier),
         border: 1,
         borderColor: 'divider',
         borderRadius: 1,

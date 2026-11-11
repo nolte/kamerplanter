@@ -5641,7 +5641,11 @@
             },
             "shiftArrows": {
               "keys": "Shift + arrow keys",
-              "does": "Ten steps at once (or scroll faster)."
+              "does": "Ten grid steps at once; without a selection they scroll ten times as far."
+            },
+            "spaceDrag": {
+              "keys": "Space + drag",
+              "does": "Moves the view in every tool while you hold Space (like the middle mouse button). The selection stays, nothing is drawn."
             },
             "scroll": {
               "keys": "Tab",

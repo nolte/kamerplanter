@@ -6,6 +6,9 @@
  *
  * One pointer drives a gesture at a time (a second finger is ignored here; pinch is WP 2.5/2.6).
  * Mouse, pen and touch are the same events (Pointer Events).
+ *
+ * A press pans instead of using the tool (GP-FR-010) when it is the middle button, or the primary button of a mouse or
+ * pen while Space is held on the canvas. Both are a temporary override: the tool in the store never changes.
  */
 import {
   useCallback,
@@ -16,6 +19,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { isPanModifierTarget } from '../keyTargets';
 import { roundLength } from '../../model/geometry';
 import type { PlanModel } from '../../model/planModel';
 import type { GardenObjectType, PlanOperation, Point } from '../../model/types';
@@ -147,6 +151,11 @@ export interface EditorTools {
   liveMove: LiveMoveStore;
   /** A pointer holds a gesture right now (press, move, draw, pan): the view must not move under it. */
   isPointerDown: () => boolean;
+  /**
+   * Space is held on the canvas (GP-FR-010): a primary-button press of a mouse or pen pans, whatever the tool. The
+   * canvas shows the grab cursor meanwhile.
+   */
+  panModifier: boolean;
   containerProps: {
     onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
     onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -302,6 +311,37 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     pressOrigin.current = null;
   }, []);
   useEffect(() => endPress, [endPress]);
+  // Space as the pan modifier (GP-FR-010): held from its keydown on the canvas until its keyup anywhere or until the
+  // window loses the focus (the keyup then never arrives). `spaceUsed`: a press panned while it was held.
+  const [panModifier, setPanModifier] = useState(false);
+  const spaceHeld = useRef(false);
+  const spaceUsed = useRef(false);
+  const spaceListeners = useRef<(() => void) | null>(null);
+  const releaseSpace = useCallback(() => {
+    spaceListeners.current?.();
+    spaceListeners.current = null;
+    spaceHeld.current = false;
+    setPanModifier(false);
+  }, []);
+  const holdSpace = useCallback(() => {
+    spaceHeld.current = true;
+    spaceUsed.current = false;
+    setPanModifier(true);
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== ' ') return;
+      // A Space that panned is no activation: a focused plan object leaves a handled release alone.
+      if (spaceUsed.current) event.preventDefault();
+      releaseSpace();
+    };
+    // Capture: the release is seen before the element it happens on, and also where the canvas has no focus anymore.
+    window.addEventListener('keyup', onKeyUp, { capture: true });
+    window.addEventListener('blur', releaseSpace);
+    spaceListeners.current = () => {
+      window.removeEventListener('keyup', onKeyUp, { capture: true });
+      window.removeEventListener('blur', releaseSpace);
+    };
+  }, [releaseSpace]);
+  useEffect(() => () => spaceListeners.current?.(), []);
   // What was last handed to React: a move-only step is compared against it, not against the live state.
   const committed = useRef<Machines>(stored);
   const liveMove = useMemo(() => createLiveMoveStore(), []);
@@ -385,7 +425,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       window.addEventListener('scroll', origin.onScroll, { capture: true, passive: true });
       const sample = sampleOf(event, o.additive, origin.point);
       const env = envOf(o);
-      const kind = event.button === 1 ? 'pan' : toolKind(o.tool);
+      // The middle button and Space + primary button pan in every tool; a finger keeps its own gestures.
+      const spacePan = spaceHeld.current && event.button === 0 && event.pointerType !== 'touch';
+      if (spacePan) spaceUsed.current = true;
+      const kind = event.button === 1 || spacePan ? 'pan' : toolKind(o.tool);
       try {
         event.currentTarget.setPointerCapture?.(event.pointerId);
       } catch {
@@ -577,6 +620,13 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)
       )
         return;
+      if (event.key === ' ' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        // Space on a control (a zoom button, a menu item) or in a contenteditable stays theirs.
+        if (!isPanModifierTarget(event.target, event.currentTarget)) return;
+        event.preventDefault(); // the page must not scroll - on the key repeat neither
+        if (!spaceHeld.current) holdSpace();
+        return;
+      }
       if (event.key === 'Escape') {
         cancel();
       } else if (event.key === 'Enter' && m.draw.kind === 'points') {
@@ -599,7 +649,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         }
       }
     },
-    [cancel, current, deleteVertex, finishDraw, pickedVertex, update],
+    [cancel, current, deleteVertex, finishDraw, holdSpace, pickedVertex, update],
   );
 
   const isPointerDown = useCallback(() => current().pointerId !== null, [current]);
@@ -684,6 +734,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     () => ({
       liveMove,
       isPointerDown,
+      panModifier,
       containerProps: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onKeyDown },
       overlay,
       handles,
@@ -702,6 +753,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     [
       liveMove,
       isPointerDown,
+      panModifier,
       onPointerDown,
       onPointerMove,
       onPointerUp,

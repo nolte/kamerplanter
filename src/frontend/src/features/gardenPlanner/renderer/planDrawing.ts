@@ -183,10 +183,30 @@ export function clusterAriaLabel(cluster: SceneCluster, labels: RendererLabels):
     : labels.cluster({ count: cluster.count });
 }
 
-/** Enter or Space on a focused plan object activates it (GP-NFR-068). */
+/**
+ * Enter or Space on a focused plan object activates it (GP-NFR-068). Enter acts on the press; Space acts on the
+ * release, like a native button, because Space held down is also the editor's pan modifier (GP-FR-010): the press
+ * only keeps the page from scrolling, see {@link activationKeyUp}.
+ */
 export function activationKeys(onActivateKey: ((key: string) => void) | undefined, key: string) {
   return (event: KeyboardEvent<SVGGElement>) => {
-    if (onActivateKey && (event.key === 'Enter' || event.key === ' ')) {
+    if (!onActivateKey) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      onActivateKey(key);
+    } else if (event.key === ' ') {
+      event.preventDefault();
+    }
+  };
+}
+
+/**
+ * The release of Space activates a focused plan object - unless the editor already handled it (marked by
+ * `preventDefault`): a Space that served as the pan modifier of a drag selects nothing (GP-FR-010).
+ */
+export function activationKeyUp(onActivateKey: ((key: string) => void) | undefined, key: string) {
+  return (event: KeyboardEvent<SVGGElement>) => {
+    if (onActivateKey && event.key === ' ' && !event.defaultPrevented) {
       event.preventDefault();
       onActivateKey(key);
     }
