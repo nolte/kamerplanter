@@ -1,23 +1,32 @@
 /**
- * The tool bar of the garden plan editor (REQ-053 GP-UX-001/010, WP 2.4): select, pan, bed and
- * garden object tools, the shape of what is drawn, the rotate-snap step and the actions that need
- * a button because they have no gesture on touch (finish, cancel, delete, polygon points). On
- * desktop it sits above the plan, on xs it sticks to the bottom edge where the thumb is. Every
- * target is at least 44 px; every tool has a tooltip with its verb.
+ * The tool bar of the garden plan editor (REQ-053 GP-UX-001/010/066, §17.3; WP 2.4, WP 10.4).
+ *
+ * From md up it is a vertical rail left of the canvas (`orientation="vertical"`); below md the same tree is the bar
+ * docked at the bottom edge next to the `TouchBar` (`orientation="horizontal"`, GP-UX-069). Top level: the tools of
+ * GP-UX-001 that exist - select, pan ("Verschieben"), bed and garden object; bed and garden object open a sub-menu
+ * (at most two levels) with "From template" (bed only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
+ * the options of the tool that is on (shape, finish / cancel a drawing, polygon points) and the **selection group**
+ * (rotate step, align, delete) - rendered only while something is selected, never as disabled buttons (AC-4).
+ *
+ * The bar is one tab stop with a roving tabindex (arrow keys of its orientation, Home/End). Every target is at least
+ * 48 px (UI-NFR-001 R-011); every control has a tooltip that names its verb (GP-UX-010), and on wide screens (xl,
+ * 1440 px up) the rail shows the tools' short text as well - below that the canvas needs the width more.
  */
-import { useMemo, type ReactElement } from 'react';
+import { useMemo, useRef, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Paper from '@mui/material/Paper';
 import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import CropSquareIcon from '@mui/icons-material/CropSquare';
-import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import NearMeIcon from '@mui/icons-material/NearMe';
 import PanToolIcon from '@mui/icons-material/PanTool';
 import ParkIcon from '@mui/icons-material/Park';
@@ -27,42 +36,28 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import YardIcon from '@mui/icons-material/Yard';
 import type { PlanTool } from '../state/gardenPlanSlice';
 import { AlignMenu } from './AlignMenu';
+import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
+import type { DimensionTarget } from './tools/addDimensions';
 import type { AlignMode, DistributeAxis } from './tools/align';
 import type { DrawShape } from './tools/drawMachine';
+import { useRovingToolbar, type ToolbarOrientation } from './useRovingToolbar';
 
-const TARGET_PX = 44;
+const TARGET_PX = 48;
+const PREFIX = 'pages.gardenPlan.editor';
 
-/** The tools in the bar; the rest of `PlanTool` arrives with later work packages. */
+/** The tools in the bar; the rest of `PlanTool` (area, plant, measure, label) arrives with later work packages. */
 export type EditorTool = Extract<PlanTool, 'select' | 'pan' | 'bed' | 'garden_object'>;
+/** The tools that open a sub-menu (GP-UX-001: at most two levels). */
+type MenuTool = Extract<EditorTool, 'bed' | 'garden_object'>;
 
 export const ANGLE_STEPS = [15, 45, 90] as const;
 export type AngleStep = (typeof ANGLE_STEPS)[number];
 
-interface EditorToolbarProps {
-  tool: PlanTool;
-  onTool: (tool: EditorTool) => void;
-  drawShape: DrawShape;
-  onDrawShape: (shape: DrawShape) => void;
+/** The selection group of the bar (GP-UX-066): present only while something is selected. */
+export interface ToolbarSelectionGroup {
   angleStep: AngleStep;
   onAngleStep: (step: AngleStep) => void;
-  /** Points placed so far by a polygon or polyline being drawn. */
-  draftPoints: number;
-  onFinishDraw: () => void;
-  onCancelDraw: () => void;
-  /** A location or garden object is selected. */
-  canDelete: boolean;
   onDelete: () => void;
-  /** A polygon/polyline point is picked (GP-FR-023). */
-  vertexPicked: boolean;
-  canDeleteVertex: boolean;
-  onDeleteVertex: () => void;
-  onInsertVertex: () => void;
-  /** "Bed > From template" (GP-FR-044): the template tool is on. Absent = the tool is not offered. */
-  templateActive?: boolean;
-  onTemplate?: () => void;
-  /** One bed is selected and may become a template. */
-  canSaveTemplate?: boolean;
-  onSaveTemplate?: () => void;
   /** Align / distribute the selection (GP-FR-029); absent = not offered. */
   align?: {
     canAlign: boolean;
@@ -72,6 +67,31 @@ interface EditorToolbarProps {
   };
 }
 
+interface EditorToolbarProps {
+  /** `vertical`: the rail left of the canvas (md up); `horizontal`: the bar docked at the bottom (below md). */
+  orientation: ToolbarOrientation;
+  tool: PlanTool;
+  onTool: (tool: EditorTool) => void;
+  drawShape: DrawShape;
+  onDrawShape: (shape: DrawShape) => void;
+  /** Points placed so far by a polygon or polyline being drawn. */
+  draftPoints: number;
+  onFinishDraw: () => void;
+  onCancelDraw: () => void;
+  /** A polygon/polyline point is picked (GP-FR-023). */
+  vertexPicked: boolean;
+  canDeleteVertex: boolean;
+  onDeleteVertex: () => void;
+  onInsertVertex: () => void;
+  /** "Bed ▸ From template" (GP-FR-044): the template tool is on. Absent = the entry is not offered. */
+  templateActive?: boolean;
+  onTemplate?: () => void;
+  /** "Bed ▸ / Garden object ▸ Add with dimensions" (GP-UX-046); absent = not offered. */
+  onAddWithDimensions?: (target: DimensionTarget) => void;
+  /** The selection group; `null` while nothing is selected - then it is not rendered at all (AC-4). */
+  selectionGroup: ToolbarSelectionGroup | null;
+}
+
 const SHAPES: { shape: DrawShape; icon: ReactElement }[] = [
   { shape: 'rect', icon: <CropSquareIcon /> },
   { shape: 'circle', icon: <RadioButtonUncheckedIcon /> },
@@ -79,244 +99,319 @@ const SHAPES: { shape: DrawShape; icon: ReactElement }[] = [
   { shape: 'polyline', icon: <TimelineIcon /> },
 ];
 
+const TOOLS: { tool: EditorTool; icon: ReactElement }[] = [
+  { tool: 'select', icon: <NearMeIcon /> },
+  { tool: 'pan', icon: <PanToolIcon /> },
+  { tool: 'bed', icon: <YardIcon /> },
+  { tool: 'garden_object', icon: <ParkIcon /> },
+];
+
 const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 
 export function EditorToolbar(props: EditorToolbarProps) {
   const { t } = useTranslation();
-  const tools = useMemo(
-    () => [
-      { tool: 'select' as const, icon: <NearMeIcon /> },
-      { tool: 'pan' as const, icon: <PanToolIcon /> },
-      { tool: 'bed' as const, icon: <YardIcon /> },
-      { tool: 'garden_object' as const, icon: <ParkIcon /> },
-    ],
-    [],
-  );
+  const { orientation, onTemplate, templateActive, onAddWithDimensions } = props;
+  const vertical = orientation === 'vertical';
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const roving = useRovingToolbar(barRef, orientation);
+  // The tool keeps its menu while the menu fades out; `anchor` is null once it is closed.
+  const [menu, setMenu] = useState<{ tool: MenuTool; anchor: MenuAnchor | null } | null>(null);
+
+  const menuActions = useMemo<MenuAction[]>(() => {
+    if (!menu) return [];
+    const actions: MenuAction[] = [];
+    if (menu.tool === 'bed' && onTemplate) {
+      actions.push({
+        id: 'template',
+        label: t(`${PREFIX}.templates.tool.short`),
+        secondary: t(`${PREFIX}.templates.tool.hint`),
+        icon: <DashboardCustomizeOutlinedIcon fontSize="small" />,
+        onClick: onTemplate,
+        kind: 'checkbox',
+        checked: templateActive === true,
+        testId: 'garden-plan-tool-template',
+      });
+    }
+    if (onAddWithDimensions) {
+      const target: DimensionTarget = menu.tool === 'bed' ? 'bed' : 'garden_object';
+      actions.push({
+        id: 'addWithDimensions',
+        label: t(`${PREFIX}.addWithDimensions.open`),
+        secondary: t(`${PREFIX}.tools.${menu.tool}.dimensionsHint`),
+        icon: <AddBoxOutlinedIcon fontSize="small" />,
+        onClick: () => onAddWithDimensions(target),
+        // The bed entry keeps the test id of the former button (GP-UX-070); the object entry is new.
+        testId: menu.tool === 'bed' ? 'garden-plan-add-with-dimensions' : 'garden-plan-add-with-dimensions-object',
+      });
+    }
+    return actions;
+  }, [menu, onAddWithDimensions, onTemplate, t, templateActive]);
+
+  const hasMenu = (tool: EditorTool): tool is MenuTool =>
+    (tool === 'bed' && (onTemplate !== undefined || onAddWithDimensions !== undefined)) ||
+    (tool === 'garden_object' && onAddWithDimensions !== undefined);
+
   const drawing = props.tool === 'bed' || props.tool === 'garden_object';
   // A bed is an area; only a garden object can be a line.
-  const shapes = SHAPES.filter(
-    (entry) => props.tool === 'garden_object' || entry.shape !== 'polyline',
-  );
+  const shapes = SHAPES.filter((entry) => props.tool === 'garden_object' || entry.shape !== 'polyline');
   const pointShape = props.drawShape === 'polygon' || props.drawShape === 'polyline';
   const minPoints = props.drawShape === 'polygon' ? 3 : 2;
   const finishReady = props.draftPoints >= minPoints;
-  const prefix = 'pages.gardenPlan.editor';
+  const group = props.selectionGroup;
+
+  // The rail shows the tools' short text on wide screens (xl); the bar docked below md stays with icons (its row is
+  // short). Below xl the rail is two 48 px targets wide: the canvas next to a docked panel needs the width more.
+  const shortSx = { display: { xs: 'none', xl: vertical ? 'inline' : 'none' }, ml: 0.75 } as const;
+  // Actions with text (align, delete): an icon on the narrow rail, the text from xl up, and always on the docked bar.
+  const actionTextSx = vertical ? ({ display: { xs: 'none', xl: 'inline' }, ml: 0.75 } as const) : { ml: 0.75 };
+  const tooltipPlacement = vertical ? 'right' : 'top';
+  const stackSx = vertical
+    ? ({ display: 'flex', flexDirection: 'column', gap: 0.5 } as const)
+    : ({ display: 'flex', alignItems: 'center', gap: 0.5 } as const);
+  const wrapSx = { display: 'flex', gap: 0.5, flexWrap: 'wrap' } as const;
+  const divider = (
+    <Divider orientation={vertical ? 'horizontal' : 'vertical'} flexItem sx={vertical ? { my: 0.25 } : undefined} />
+  );
 
   return (
     <Paper
+      ref={barRef}
       variant="outlined"
       role="toolbar"
-      aria-label={t(`${prefix}.toolbar.label`)}
+      aria-orientation={orientation}
+      aria-label={t(`${PREFIX}.toolbar.label`)}
       data-testid="garden-plan-toolbar"
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        p: 0.5,
-        // Wrap instead of scrolling sideways: a control scrolled out of sight cannot be used.
-        flexWrap: 'wrap',
-        // Thumb reach: the bar docks to the bottom of the screen on phones. The editor puts it
-        // after the canvas in the DOM there, so the tab order matches what is on screen (WCAG 2.4.3).
-        position: { xs: 'sticky', md: 'static' },
-        bottom: 0,
-        zIndex: 2,
-        bgcolor: 'background.paper',
-      }}
+      data-orientation={orientation}
+      onKeyDown={roving.onKeyDown}
+      onFocus={roving.onFocus}
+      sx={
+        vertical
+          ? {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 0.5,
+              p: 0.5,
+              // Two 48 px targets side by side (a tool and its sub-menu); the short texts need more from xl up.
+              width: { xs: 112, xl: 176 },
+              flex: 'none',
+              height: '100%',
+              boxSizing: 'border-box',
+              // The rail never pushes the page: a long selection group scrolls inside it.
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              bgcolor: 'background.paper',
+            }
+          : {
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              p: 0.5,
+              // Wrap instead of scrolling sideways: a control scrolled out of sight cannot be used.
+              flexWrap: 'wrap',
+              bgcolor: 'background.paper',
+            }
+      }
     >
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        // While the template tool is on no other tool is: clicking "Select" must register as a change.
-        value={props.templateActive ? null : props.tool}
-        aria-label={t(`${prefix}.toolbar.tools`)}
-        onChange={(_event, next: EditorTool | null) => {
-          if (next) props.onTool(next);
-        }}
-      >
-        {tools.map(({ tool, icon }) => (
-          <Tooltip key={tool} title={t(`${prefix}.tools.${tool}.hint`)}>
-            <ToggleButton
-              value={tool}
-              aria-label={t(`${prefix}.tools.${tool}.label`)}
-              data-testid={`garden-plan-tool-${tool}`}
-              sx={buttonSx}
-            >
-              {icon}
-              <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' }, ml: 0.75 }}>
-                {t(`${prefix}.tools.${tool}.short`)}
-              </Box>
-            </ToggleButton>
-          </Tooltip>
-        ))}
-      </ToggleButtonGroup>
-
-      {props.onTemplate && (
-        <Tooltip title={t(`${prefix}.templates.tool.hint`)}>
-          <ToggleButton
-            value="template"
-            size="small"
-            selected={props.templateActive === true}
-            onChange={props.onTemplate}
-            aria-label={t(`${prefix}.templates.tool.label`)}
-            data-testid="garden-plan-tool-template"
-            sx={buttonSx}
-          >
-            <DashboardCustomizeOutlinedIcon />
-            <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' }, ml: 0.75 }}>
-              {t(`${prefix}.templates.tool.short`)}
+      <Box role="group" aria-label={t(`${PREFIX}.toolbar.tools`)} sx={stackSx}>
+        {TOOLS.map(({ tool, icon }) => {
+          // While the template tool is on no other tool is: clicking "Select" must register as a change.
+          const pressed = !templateActive && props.tool === tool;
+          const menuOpen = menu?.tool === tool && menu.anchor !== null;
+          return (
+            <Box key={tool} sx={{ display: 'flex', gap: 0.5 }}>
+              <Tooltip title={t(`${PREFIX}.tools.${tool}.hint`)} placement={tooltipPlacement}>
+                <ToggleButton
+                  value={tool}
+                  size="small"
+                  selected={pressed}
+                  onChange={() => props.onTool(tool)}
+                  aria-label={t(`${PREFIX}.tools.${tool}.label`)}
+                  data-testid={`garden-plan-tool-${tool}`}
+                  sx={{
+                    ...buttonSx,
+                    flex: 1,
+                    justifyContent: vertical ? { xs: 'center', xl: 'flex-start' } : 'center',
+                  }}
+                >
+                  {icon}
+                  <Box component="span" sx={shortSx}>
+                    {t(`${PREFIX}.tools.${tool}.short`)}
+                  </Box>
+                </ToggleButton>
+              </Tooltip>
+              {hasMenu(tool) && (
+                <Tooltip title={t(`${PREFIX}.tools.${tool}.more`)} placement={tooltipPlacement}>
+                  <Button
+                    size="small"
+                    color="inherit"
+                    aria-label={t(`${PREFIX}.tools.${tool}.more`)}
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    aria-controls={menuOpen ? `garden-plan-tool-${tool}-submenu-list` : undefined}
+                    onClick={(event) => setMenu({ tool, anchor: { kind: 'element', element: event.currentTarget } })}
+                    data-testid={`garden-plan-tool-${tool}-menu`}
+                    sx={{ ...buttonSx, p: 0, flex: 'none' }}
+                  >
+                    {vertical ? <ArrowRightIcon /> : <ArrowDropUpIcon />}
+                  </Button>
+                </Tooltip>
+              )}
             </Box>
-          </ToggleButton>
-        </Tooltip>
-      )}
+          );
+        })}
+      </Box>
 
       {drawing && (
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={props.drawShape}
-          aria-label={t(`${prefix}.toolbar.shapes`)}
-          onChange={(_event, next: DrawShape | null) => {
-            if (next) props.onDrawShape(next);
-          }}
-        >
-          {shapes.map(({ shape, icon }) => (
-            <Tooltip key={shape} title={t(`${prefix}.shapes.${shape}.hint`)}>
-              <ToggleButton
-                value={shape}
-                aria-label={t(`${prefix}.shapes.${shape}.label`)}
-                data-testid={`garden-plan-shape-${shape}`}
-                sx={buttonSx}
-              >
-                {icon}
-              </ToggleButton>
-            </Tooltip>
-          ))}
-        </ToggleButtonGroup>
-      )}
-
-      {props.tool === 'select' && (
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={props.angleStep}
-          aria-label={t(`${prefix}.toolbar.angleStep`)}
-          onChange={(_event, next: AngleStep | null) => {
-            if (next) props.onAngleStep(next);
-          }}
-        >
-          {ANGLE_STEPS.map((step) => (
-            <Tooltip key={step} title={t(`${prefix}.angleStep.hint`, { step })}>
-              <ToggleButton
-                value={step}
-                aria-label={t(`${prefix}.angleStep.label`, { step })}
-                data-testid={`garden-plan-angle-${step}`}
-                sx={{ ...buttonSx, px: 1 }}
-              >
-                {step}°
-              </ToggleButton>
-            </Tooltip>
-          ))}
-        </ToggleButtonGroup>
+        <>
+          {divider}
+          <Box role="group" aria-label={t(`${PREFIX}.toolbar.shapes`)} sx={wrapSx}>
+            {shapes.map(({ shape, icon }) => (
+              <Tooltip key={shape} title={t(`${PREFIX}.shapes.${shape}.hint`)} placement={tooltipPlacement}>
+                <ToggleButton
+                  value={shape}
+                  size="small"
+                  selected={props.drawShape === shape}
+                  onChange={() => props.onDrawShape(shape)}
+                  aria-label={t(`${PREFIX}.shapes.${shape}.label`)}
+                  data-testid={`garden-plan-shape-${shape}`}
+                  sx={buttonSx}
+                >
+                  {icon}
+                </ToggleButton>
+              </Tooltip>
+            ))}
+          </Box>
+        </>
       )}
 
       {drawing && pointShape && (
-        <>
-          <Divider orientation="vertical" flexItem />
-          <Tooltip
-            title={
-              finishReady
-                ? t(`${prefix}.draw.finishHint`)
-                : t(`${prefix}.draw.finishDisabled`, { count: minPoints })
-            }
-          >
-            <span>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={props.onFinishDraw}
-                disabled={!finishReady}
-                data-testid="garden-plan-draw-finish"
-                sx={buttonSx}
-              >
-                {t(`${prefix}.draw.finish`)}
-              </Button>
-            </span>
-          </Tooltip>
-        </>
+        <Tooltip
+          title={
+            finishReady ? t(`${PREFIX}.draw.finishHint`) : t(`${PREFIX}.draw.finishDisabled`, { count: minPoints })
+          }
+          placement={tooltipPlacement}
+        >
+          <Box component="span" sx={{ display: vertical ? 'block' : 'inline-block' }}>
+            <Button
+              variant="contained"
+              size="small"
+              fullWidth={vertical}
+              onClick={props.onFinishDraw}
+              disabled={!finishReady}
+              data-testid="garden-plan-draw-finish"
+              sx={buttonSx}
+            >
+              {t(`${PREFIX}.draw.finish`)}
+            </Button>
+          </Box>
+        </Tooltip>
       )}
       {props.draftPoints > 0 && (
         <Button
           size="small"
+          fullWidth={vertical}
           onClick={props.onCancelDraw}
           data-testid="garden-plan-draw-cancel"
           sx={buttonSx}
         >
-          {t(`${prefix}.draw.cancel`)}
+          {t(`${PREFIX}.draw.cancel`)}
         </Button>
       )}
 
       {props.vertexPicked && (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Box sx={stackSx}>
           <Button
             size="small"
+            fullWidth={vertical}
             onClick={props.onInsertVertex}
             data-testid="garden-plan-vertex-insert"
             sx={buttonSx}
           >
-            {t(`${prefix}.vertex.insert`)}
+            {t(`${PREFIX}.vertex.insert`)}
           </Button>
           <Button
             size="small"
+            fullWidth={vertical}
             onClick={props.onDeleteVertex}
             disabled={!props.canDeleteVertex}
             data-testid="garden-plan-vertex-delete"
             sx={buttonSx}
           >
-            {t(`${prefix}.vertex.delete`)}
+            {t(`${PREFIX}.vertex.delete`)}
           </Button>
         </Box>
       )}
 
-      <Box sx={{ flexGrow: 1 }} />
-      {props.align && (
-        <AlignMenu
-          canAlign={props.align.canAlign}
-          canDistribute={props.align.canDistribute}
-          onAlign={props.align.onAlign}
-          onDistribute={props.align.onDistribute}
-        />
-      )}
-      {props.onSaveTemplate && (
-        <Tooltip title={t(`${prefix}.templates.save.hint`)}>
-          <span>
-            <Button
-              size="small"
-              startIcon={<BookmarkAddOutlinedIcon />}
-              onClick={props.onSaveTemplate}
-              disabled={!props.canSaveTemplate}
-              data-testid="garden-plan-save-template-button"
-              sx={buttonSx}
-            >
-              {t(`${prefix}.templates.save.button`)}
-            </Button>
-          </span>
-        </Tooltip>
-      )}
-      <Tooltip title={t(`${prefix}.delete.hint`)}>
-        <span>
-          <Button
-            size="small"
-            color="error"
-            startIcon={<DeleteOutlinedIcon />}
-            onClick={props.onDelete}
-            disabled={!props.canDelete}
-            data-testid="garden-plan-delete-button"
-            sx={buttonSx}
+      {group && (
+        <>
+          {vertical ? divider : <Box sx={{ flexGrow: 1 }} />}
+          <Box
+            role="group"
+            aria-label={t(`${PREFIX}.toolbar.selection`)}
+            data-testid="garden-plan-selection-group"
+            sx={vertical ? stackSx : { display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
           >
-            {t(`${prefix}.delete.label`)}
-          </Button>
-        </span>
-      </Tooltip>
+            {vertical && (
+              <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }} aria-hidden>
+                {t(`${PREFIX}.toolbar.rotate`)}
+              </Typography>
+            )}
+            <Box role="group" aria-label={t(`${PREFIX}.toolbar.angleStep`)} sx={wrapSx}>
+              {ANGLE_STEPS.map((step) => (
+                <Tooltip key={step} title={t(`${PREFIX}.angleStep.hint`, { step })} placement={tooltipPlacement}>
+                  <ToggleButton
+                    value={step}
+                    size="small"
+                    selected={group.angleStep === step}
+                    onChange={() => group.onAngleStep(step)}
+                    aria-label={t(`${PREFIX}.angleStep.label`, { step })}
+                    data-testid={`garden-plan-angle-${step}`}
+                    sx={{ ...buttonSx, px: 1 }}
+                  >
+                    {step}°
+                  </ToggleButton>
+                </Tooltip>
+              ))}
+            </Box>
+            {group.align && (
+              <AlignMenu
+                canAlign={group.align.canAlign}
+                canDistribute={group.align.canDistribute}
+                onAlign={group.align.onAlign}
+                onDistribute={group.align.onDistribute}
+                fullWidth={vertical}
+                textSx={actionTextSx}
+                tooltipPlacement={tooltipPlacement}
+              />
+            )}
+            <Tooltip title={t(`${PREFIX}.delete.hint`)} placement={tooltipPlacement}>
+              <Button
+                size="small"
+                color="error"
+                fullWidth={vertical}
+                onClick={group.onDelete}
+                aria-label={t(`${PREFIX}.delete.label`)}
+                data-testid="garden-plan-delete-button"
+                sx={buttonSx}
+              >
+                <DeleteOutlinedIcon />
+                <Box component="span" sx={actionTextSx}>
+                  {t(`${PREFIX}.delete.label`)}
+                </Box>
+              </Button>
+            </Tooltip>
+          </Box>
+        </>
+      )}
+
+      <ContextMenu
+        anchor={menu?.anchor ?? null}
+        actions={menuActions}
+        onClose={() => setMenu((previous) => (previous ? { ...previous, anchor: null } : previous))}
+        label={menu ? t(`${PREFIX}.tools.${menu.tool}.menu`) : t(`${PREFIX}.toolbar.label`)}
+        testId={menu ? `garden-plan-tool-${menu.tool}-submenu` : undefined}
+        id={menu ? `garden-plan-tool-${menu.tool}-submenu-list` : undefined}
+      />
     </Paper>
   );
 }

@@ -84,12 +84,12 @@ function setup(plan: PlanModel = testPlan(), onPan = vi.fn()) {
 afterEach(() => cleanup());
 
 describe('toolbar', () => {
-  it('offers the tools with 44 px targets, named, and marks the active one', () => {
+  it('offers the tools with 48 px targets, named, and marks the active one', () => {
     setup();
     const toolbar = screen.getByRole('toolbar', { name: 'Garden plan tools' });
     for (const tool of ['select', 'pan', 'bed', 'garden_object']) {
       const button = within(toolbar).getByTestId(`garden-plan-tool-${tool}`);
-      expect(button).toHaveStyle({ minHeight: '44px', minWidth: '44px' });
+      expect(button).toHaveStyle({ minHeight: '48px', minWidth: '48px' });
     }
     expect(screen.getByTestId('garden-plan-tool-select')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Draw bed' })).toBeInTheDocument();

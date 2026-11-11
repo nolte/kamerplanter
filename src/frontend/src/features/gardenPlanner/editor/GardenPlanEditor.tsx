@@ -97,7 +97,7 @@ import { EditorWorkspace } from './EditorWorkspace';
 import { EditorOverlay } from './EditorOverlay';
 import { LiveMoveLayer } from './LiveMoveLayer';
 import { usePendingZoom } from './usePendingZoom';
-import { EditorToolbar, type AngleStep, type EditorTool } from './EditorToolbar';
+import { EditorToolbar, type AngleStep, type EditorTool, type ToolbarSelectionGroup } from './EditorToolbar';
 import { Grid } from './Grid';
 import { MiniMap } from './MiniMap';
 import { miniMapVisible, panToCentre } from './miniMap';
@@ -136,6 +136,7 @@ import { useAttentionFilter } from './useAttentionFilter';
 import { companionBedKeys, useCompanionEdges } from './useCompanionEdges';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
+import type { DimensionTarget } from './tools/addDimensions';
 import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
 import {
   alignAvailability,
@@ -490,6 +491,8 @@ export function GardenPlanEditor({
   const [objectType, setObjectType] = useState<GardenObjectType>('other');
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
   const [addOpen, setAddOpen] = useState(initialAddOpen);
+  // The sub-menu of "Bed" or "Garden object" that opened "Add with dimensions" (GP-UX-046, WP 10.4).
+  const [addTarget, setAddTarget] = useState<DimensionTarget>('bed');
   const [templateMode, setTemplateMode] = useState<TemplateMode | null>(null);
   const [placing, setPlacing] = useState(false);
   const [ghostPoint, setGhostPoint] = useState<Point | null>(null);
@@ -1217,17 +1220,39 @@ export function GardenPlanEditor({
     t,
   ]);
 
-  // The rare actions of the header bar's overflow (§17.3 target picture; GP-UX-046/052). Entries that stand in for
-  // a former button keep its test id (GP-UX-070). "Add with dimensions" moves into the tool bar's menus with WP 10.4.
+  const openAddWithDimensions = useCallback((target: DimensionTarget) => {
+    setAddTarget(target);
+    setAddOpen(true);
+  }, []);
+
+  // The rare actions of the header bar's overflow (§17.3 target picture; GP-UX-046/052/066). Entries that stand in for
+  // a former button keep its test id (GP-UX-070). "Add with dimensions" lives in the sub-menus of the tool bar
+  // (WP 10.4); while the tab "Liste" hides the tool bar, the overflow offers it, so the list keeps a way to add.
+  // "Save as template" is there only while exactly one bed is selected (AC-4) - not as a disabled entry.
   const overflowItems = useMemo<MenuAction[]>(
     () => [
-      {
-        id: 'addWithDimensions',
-        label: t(`${PREFIX}.addWithDimensions.open`),
-        icon: <AddBoxOutlinedIcon fontSize="small" />,
-        onClick: () => setAddOpen(true),
-        testId: 'garden-plan-add-with-dimensions',
-      },
+      ...(view === 'list'
+        ? [
+            {
+              id: 'addWithDimensions',
+              label: t(`${PREFIX}.addWithDimensions.open`),
+              icon: <AddBoxOutlinedIcon fontSize="small" />,
+              onClick: () => openAddWithDimensions('bed'),
+              testId: 'garden-plan-add-with-dimensions',
+            },
+          ]
+        : []),
+      ...(singleBed
+        ? [
+            {
+              id: 'saveTemplate',
+              label: t(`${PREFIX}.templates.save.button`),
+              icon: <BookmarkAddOutlinedIcon fontSize="small" />,
+              onClick: () => setSaveTemplateOpen(true),
+              testId: 'garden-plan-save-template-button',
+            },
+          ]
+        : []),
       {
         id: 'selectAll',
         label: t(`${PREFIX}.contextMenu.selectAll`),
@@ -1257,7 +1282,7 @@ export function GardenPlanEditor({
         testId: 'garden-plan-keyboard-help-button',
       },
     ],
-    [doSelectAll, openHelp, selection, t],
+    [doSelectAll, openAddWithDimensions, openHelp, selection, singleBed, t, view],
   );
 
   /** Right click (mouse and pen): the object under the pointer, in a menu at the pointer (GP-FR-027). */
@@ -1445,33 +1470,44 @@ export function GardenPlanEditor({
       ? `${hintBase}.${drawShape}.next`
       : `${hintBase}.${drawShape}.start`;
 
+  // The selection group of the tool bar exists only while something is selected (GP-UX-066, AC-4).
+  const hasSelection = selection.some(isPlanEntity);
+  const selectionGroup = useMemo<ToolbarSelectionGroup | null>(
+    () =>
+      hasSelection
+        ? {
+            angleStep,
+            onAngleStep: setAngleStep,
+            onDelete: requestDelete,
+            align: {
+              canAlign: availability.align,
+              canDistribute: availability.distribute,
+              onAlign: align,
+              onDistribute: distribute,
+            },
+          }
+        : null,
+    [align, angleStep, availability, distribute, hasSelection, requestDelete],
+  );
+  // One tool bar, two forms (GP-UX-069): the rail left of the canvas from md up, the bar docked at the bottom below.
   const toolbar = (
     <EditorToolbar
+      orientation={toolbarBelow ? 'horizontal' : 'vertical'}
       tool={tool}
       onTool={selectChooseTool}
       drawShape={drawShape}
       onDrawShape={setDrawShape}
-      angleStep={angleStep}
-      onAngleStep={setAngleStep}
       draftPoints={tools.draftPoints}
       onFinishDraw={thenFocusPlan(tools.finishDraw)}
       onCancelDraw={thenFocusPlan(tools.cancel)}
-      canDelete={selection.some(isPlanEntity)}
-      onDelete={requestDelete}
       vertexPicked={tools.vertex !== null}
       canDeleteVertex={tools.vertex !== null}
       onDeleteVertex={thenFocusPlan(tools.deleteVertex)}
       onInsertVertex={thenFocusPlan(tools.insertVertexAfter)}
       templateActive={templateTool}
       onTemplate={toggleTemplateTool}
-      canSaveTemplate={singleBed !== null}
-      onSaveTemplate={() => setSaveTemplateOpen(true)}
-      align={{
-        canAlign: availability.align,
-        canDistribute: availability.distribute,
-        onAlign: align,
-        onDistribute: distribute,
-      }}
+      onAddWithDimensions={openAddWithDimensions}
+      selectionGroup={selectionGroup}
     />
   );
 
@@ -1816,8 +1852,8 @@ export function GardenPlanEditor({
   const above = (
     <>
       <SaveMessages autoSave={autoSave} />
-      {/* Until WP 10.5 (panel tabs "Ansicht" and "Ebenen") the view row and the legend stay above the plan, and until
-          WP 10.4 (vertical tool bar) the tool bar does; zoom, scale bar and mini-map are overlays already. */}
+      {/* Until WP 10.5 (panel tabs "Ansicht" and "Ebenen") the view row and the legend stay above the plan; the tool
+          bar is a rail left of the canvas (WP 10.4); zoom, scale bar and mini-map are overlays already. */}
       {!listShown && viewBar}
       {!listShown && (
         <ZoneLegend
@@ -1834,7 +1870,6 @@ export function GardenPlanEditor({
           companionPairs={companionPairs}
         />
       )}
-      {!listShown && !toolbarBelow && toolbar}
       {!listShown && !toolbarBelow && touchBar}
       {!listShown && drawing && (
         <NewTypeSelect
@@ -1937,23 +1972,34 @@ export function GardenPlanEditor({
           />
         </Box>
       ) : (
-        // The canvas area: the rest of the viewport height, at least 400 px (GP-UX-067); the zoom sits on it.
-        <Box
-          ref={canvasAreaRef}
-          data-testid="garden-plan-canvas-area"
-          // A measured value that changes with every resize: an inline style, not one generated class per pixel.
-          style={canvasArea ? { height: canvasArea.heightPx } : undefined}
-          sx={{ position: 'relative', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}
-        >
-          {canvasSurface}
-          <ZoomOverlay
-            pxPerM={pxPerM}
-            minPxPerM={minPxPerM}
-            onZoomIn={zoomIn}
-            onZoomOut={zoomOut}
-            onFit={fit}
-          />
-        </Box>
+        <>
+          {/* The tool rail (md up, GP-UX-066) is as high as the canvas area and scrolls inside when it is longer. */}
+          {!toolbarBelow && (
+            <Box
+              style={canvasArea ? { height: canvasArea.heightPx } : undefined}
+              sx={{ display: 'flex', flex: 'none' }}
+            >
+              {toolbar}
+            </Box>
+          )}
+          {/* The canvas area: the rest of the viewport height, at least 400 px (GP-UX-067); the zoom sits on it. */}
+          <Box
+            ref={canvasAreaRef}
+            data-testid="garden-plan-canvas-area"
+            // A measured value that changes with every resize: an inline style, not one generated class per pixel.
+            style={canvasArea ? { height: canvasArea.heightPx } : undefined}
+            sx={{ position: 'relative', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}
+          >
+            {canvasSurface}
+            <ZoomOverlay
+              pxPerM={pxPerM}
+              minPxPerM={minPxPerM}
+              onZoomIn={zoomIn}
+              onZoomOut={zoomOut}
+              onFit={fit}
+            />
+          </Box>
+        </>
       )}
       {!toolbarBelow && panel('sidebar')}
     </Box>
@@ -2065,6 +2111,7 @@ export function GardenPlanEditor({
         suggestedName={newBedName(Object.keys(plan.locations).length + 1)}
         onAdd={addWithDimensions}
         onClose={() => setAddOpen(false)}
+        initialTarget={addTarget}
       />
       {saveTemplateOpen && (
         <Suspense fallback={null}>

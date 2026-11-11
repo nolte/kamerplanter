@@ -13,7 +13,7 @@ import * as api from '../api/gardenPlan';
 import type { BedTemplate, Point } from '../model/types';
 import { AUTO_SAVE_DELAY_MS } from './useAutoSave';
 import { applyAction, setSelection } from '../state/gardenPlanSlice';
-import { chooseOverflowEntry, pointer, px, setupEditor, VIEWPORT } from './editorTestKit';
+import { chooseOverflowEntry, chooseToolMenuEntry, pointer, px, setupEditor, VIEWPORT } from './editorTestKit';
 
 vi.mock('../api/gardenPlan', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api/gardenPlan')>()),
@@ -593,7 +593,7 @@ describe('multi-duplicate (GP-FR-025, GP-NFR-017)', () => {
 
 describe('bed templates (GP-FR-043/044/045)', () => {
   const openTool = async (t: Harness) => {
-    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-tool-template')));
+    t.after(() => chooseToolMenuEntry('bed', 'garden-plan-tool-template'));
     await screen.findByTestId('garden-plan-template-panel');
     await waitFor(() => expect(screen.getByTestId('garden-plan-template-select')).toBeEnabled());
   };
@@ -717,7 +717,7 @@ describe('bed templates (GP-FR-043/044/045)', () => {
     createBedTemplate.mockResolvedValue(template({ key: 'own_2', is_system: false }));
     const t = setupEditor();
     select(t, 'b2');
-    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-save-template-button')));
+    t.after(() => chooseOverflowEntry('garden-plan-save-template-button'));
     const name = await screen.findByTestId('garden-plan-template-save-name');
     fireEvent.change(name, { target: { value: 'Two by two' } });
     await act(async () => {
@@ -732,18 +732,28 @@ describe('bed templates (GP-FR-043/044/045)', () => {
     await waitFor(() => expect(screen.getByTestId('garden-plan-info')).toBeInTheDocument());
   });
 
-  it('is only enabled with exactly one bed selected', () => {
+  it('is an overflow entry only while exactly one bed is selected, never a disabled one (AC-4)', () => {
     const t = setupEditor();
-    expect(screen.getByTestId('garden-plan-save-template-button')).toBeDisabled();
+    const entryShown = () => {
+      fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+      const shown = screen.queryByTestId('garden-plan-save-template-button') !== null;
+      fireEvent.keyDown(screen.getByTestId('garden-plan-overflow-menu'), { key: 'Escape' });
+      return shown;
+    };
+    expect(entryShown()).toBe(false);
     select(t, 'b1', 'b2');
-    expect(screen.getByTestId('garden-plan-save-template-button')).toBeDisabled();
+    expect(entryShown()).toBe(false);
     select(t, 'b1');
-    expect(screen.getByTestId('garden-plan-save-template-button')).toBeEnabled();
+    expect(entryShown()).toBe(true);
+    // Not in the tool bar any more (WP 10.4).
+    expect(
+      within(screen.getByTestId('garden-plan-toolbar')).queryByTestId('garden-plan-save-template-button'),
+    ).toBeNull();
   });
 
   it('the standard-size choice of "add with dimensions" fills shape, size, bed type and height', async () => {
     const t = setupEditor();
-    t.after(() => chooseOverflowEntry('garden-plan-add-with-dimensions'));
+    t.after(() => chooseToolMenuEntry('bed', 'garden-plan-add-with-dimensions'));
     const chip = await screen.findByTestId('garden-plan-add-standard-sys_raised_bed_2x1x0_8');
     fireEvent.click(chip);
     expect(screen.getByTestId('garden-plan-add-width')).toHaveValue('2');
@@ -770,7 +780,7 @@ describe('bed templates (GP-FR-043/044/045)', () => {
     });
     cleanup();
     const u = setupEditor();
-    u.after(() => chooseOverflowEntry('garden-plan-add-with-dimensions'));
+    u.after(() => chooseToolMenuEntry('bed', 'garden-plan-add-with-dimensions'));
     await screen.findByTestId('garden-plan-add-standard-sys_bed_2x1');
     await expectNoA11yViolations(screen.getByTestId('garden-plan-add-dialog'), {
       minImpact: 'serious',

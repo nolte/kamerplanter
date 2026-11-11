@@ -58,6 +58,8 @@ interface AddWithDimensionsDialogProps {
   suggestedName: string;
   onAdd: (ops: PlanOperation[], selection: SelectionRef) => void;
   onClose: () => void;
+  /** What the dialog starts with: the sub-menu of "Bed" or of "Garden object" it was opened from (GP-UX-046). */
+  initialTarget?: DimensionTarget;
 }
 
 interface Draft {
@@ -80,9 +82,9 @@ interface Draft {
 
 const num = (text: string): number | null => parseDecimal(text);
 
-function initialDraft(defaultPosition: Point, bedTypeKey: string): Draft {
+function initialDraft(defaultPosition: Point, bedTypeKey: string, target: DimensionTarget): Draft {
   return {
-    target: 'bed',
+    target,
     bedTypeKey,
     objectType: 'other',
     shape: 'rect',
@@ -135,10 +137,11 @@ function DimensionsForm({
   suggestedName,
   onAdd,
   onClose,
+  initialTarget = 'bed',
 }: Omit<AddWithDimensionsDialogProps, 'open'>) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<Draft>(() =>
-    initialDraft(defaultPosition, bedTypes[0]?.key ?? fallbackBedTypeKey),
+    initialDraft(defaultPosition, bedTypes[0]?.key ?? fallbackBedTypeKey, initialTarget),
   );
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {

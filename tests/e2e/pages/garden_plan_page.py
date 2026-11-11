@@ -157,6 +157,8 @@ class GardenPlanPage(BasePage):
     PANEL_LAST_WATERED = _tid("garden-plan-panel-last-watered")
 
     TOOL_TEMPLATE = _tid("garden-plan-tool-template")
+    TOOL_BED_MENU = _tid("garden-plan-tool-bed-menu")
+    TOOL_BED_SUBMENU = _tid("garden-plan-tool-bed-submenu")
     TEMPLATE_PANEL = _tid("garden-plan-template-panel")
     TEMPLATE_HINT = _tid("garden-plan-template-hint")
     TEMPLATE_ROTATE = _tid("garden-plan-template-rotate")
@@ -1347,9 +1349,20 @@ class GardenPlanPage(BasePage):
 
     # ── Wave 7: bed templates and standard sizes (GP-FR-044 / 045) ────
 
+    def _click_bed_menu_entry(self, entry: tuple[str, str], what: str) -> None:
+        """Open the sub-menu of the tool "Beet" (tool rail, WP 10.4) and choose *entry*; fail loudly when it is missing."""
+        self._open_menu(self.TOOL_BED_MENU, self.TOOL_BED_SUBMENU, "the sub-menu of the bed tool")
+        selector = f"[data-testid='garden-plan-tool-bed-submenu'] {entry[1]}"
+        try:
+            item = self.wait_for_element_clickable((By.CSS_SELECTOR, selector))
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the bed sub-menu has no entry {entry[1]}") from exc
+        self.click_menu_option(item)
+        self.wait_for_element_hidden(self.TOOL_BED_SUBMENU)
+
     def pick_template(self, template_key: str) -> None:
-        """Open the template tool, choose *template_key* in its picker; verify the hint asks for placing."""
-        self.choose_tool(self.TOOL_TEMPLATE)
+        """'Beet ▸ Aus Vorlage', choose *template_key* in its picker; verify the hint asks for placing."""
+        self._click_bed_menu_entry(self.TOOL_TEMPLATE, "'Aus Vorlage'")
         self.wait_for_element(self.TEMPLATE_PANEL)
         self.open_select_in("[data-testid='garden-plan-template-panel']", "template picker")
         self.select_option_by_value(template_key)
@@ -1374,8 +1387,8 @@ class GardenPlanPage(BasePage):
         self.wait_for_text(self.INFO, placed_text, "placing a template")
 
     def open_add_with_dimensions(self) -> None:
-        """'⋮' -> 'Mit Maßen hinzufügen' (an overflow entry since WP 10.3, its test id kept)."""
-        self._click_overflow_entry(self.ADD_WITH_DIMENSIONS, "'Mit Maßen hinzufügen'")
+        """'Beet ▸ Mit Maßen hinzufügen' (a sub-menu entry of the tool rail since WP 10.4, its test id kept)."""
+        self._click_bed_menu_entry(self.ADD_WITH_DIMENSIONS, "'Mit Maßen hinzufügen'")
         self.wait_for_element(self.ADD_DIALOG)
 
     def pick_standard_size(self, template_key: str) -> None:

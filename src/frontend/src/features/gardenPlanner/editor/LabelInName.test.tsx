@@ -2,13 +2,13 @@
  * WCAG 2.5.3 Label in Name for the toggles of the plan editor (#2388, GP-ACC-032): a button that
  * shows text must carry that text in its accessible name, or a speech-input user who says what
  * they see ("click cm") cannot reach it. axe cannot check this here: the tool short text is only
- * displayed from `lg` up, and jsdom lays out no breakpoint. So the DOM is read directly, with the
+ * displayed from `xl` up on the rail, and jsdom lays out no breakpoint. So the DOM is read directly, with the
  * short text present, and compared the way axe's `label-content-name-mismatch` does (axe-core
  * >= 4.11, `isLabelContainedInName`): lower case, parenthesised text REMOVED from both sides, then
  * the visible words must be a contiguous run of the name's words. "Zentimeter (cm)" therefore
  * does not contain "cm" (#2497: the first fix of #2388 used that form and stayed red in the E2E).
  */
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import i18n from '@/i18n/i18n';
 import { ThemeContextProvider } from '@/theme';
@@ -70,30 +70,31 @@ function renderBars() {
         onFit={() => undefined}
       />
       <EditorToolbar
+        orientation="vertical"
         tool="select"
         onTool={() => undefined}
         drawShape="rect"
         onDrawShape={() => undefined}
-        angleStep={15}
-        onAngleStep={() => undefined}
         draftPoints={0}
         onFinishDraw={() => undefined}
         onCancelDraw={() => undefined}
-        canDelete={false}
-        onDelete={() => undefined}
         vertexPicked={false}
         canDeleteVertex={false}
         onDeleteVertex={() => undefined}
         onInsertVertex={() => undefined}
         templateActive
         onTemplate={() => undefined}
-        canSaveTemplate
-        onSaveTemplate={() => undefined}
-        align={{
-          canAlign: true,
-          canDistribute: true,
-          onAlign: () => undefined,
-          onDistribute: () => undefined,
+        onAddWithDimensions={() => undefined}
+        selectionGroup={{
+          angleStep: 15,
+          onAngleStep: () => undefined,
+          onDelete: () => undefined,
+          align: {
+            canAlign: true,
+            canDistribute: true,
+            onAlign: () => undefined,
+            onDistribute: () => undefined,
+          },
         }}
       />
     </ThemeContextProvider>,
@@ -119,9 +120,14 @@ describe('label in name of the editor toggles (WCAG 2.5.3, #2388)', () => {
   it.each(['de', 'en'])('every toggle with visible text names that text (%s)', async (language) => {
     await i18n.changeLanguage(language);
     renderBars();
-    // The short form is in the DOM (only hidden by CSS below lg): the guard really looks at it.
+    // The short form is in the DOM (only hidden by CSS below xl): the guard really looks at it.
     expect(screen.getByTestId('garden-plan-tool-garden_object')).toHaveTextContent(/\S/);
     expect(screen.getByTestId('garden-plan-unit-cm')).toHaveTextContent('cm');
+    expect(screen.getByTestId('garden-plan-align-button')).toHaveTextContent(/\S/);
+    expect(screen.getByTestId('garden-plan-delete-button')).toHaveTextContent(/\S/);
+    expect(labelInNameViolations(document.body)).toEqual([]);
+    // "From template" is an entry of the sub-menu of "Bed" since WP 10.4: named by its text.
+    fireEvent.click(screen.getByTestId('garden-plan-tool-bed-menu'));
     expect(screen.getByTestId('garden-plan-tool-template')).toHaveTextContent(/\S/);
     expect(labelInNameViolations(document.body)).toEqual([]);
   });
