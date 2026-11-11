@@ -3240,6 +3240,7 @@ AC-14 (Teil)
 **Gerät**: Tablet 820 × 1180 (md, 768–1023 px)
 **Priority**: Medium
 **Category**: Layout
+**Status**: rot durch Defekt #2879 (Kopfleiste läuft bei 820 px um ~90 px über); der Test ist bis zur Behebung als nicht-strikter `xfail` markiert.
 **Preconditions**:
 - Garten 10 × 10 m mit einem Beet „Beet A“
 
