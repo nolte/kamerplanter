@@ -32,7 +32,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import type { SunClassThresholds } from '@/api/types';
 import { useLocationTypeNames } from '../bed/useLocationTypeNames';
-import { useSiteThresholds } from '../bed/useSiteThresholds';
+import { useSiteFacts } from '../bed/useSiteThresholds';
+import { isIndoorPlanSite } from '../model/siteKind';
 import type { PlanModel } from '../model/planModel';
 import type {
   GardenObject,
@@ -46,6 +47,7 @@ import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
 import { NumberField } from './NumberField';
 import { ObjectPropsFields } from './objectProps/ObjectPropsFields';
+import { OBJECT_PROPS_PREFIX } from './objectProps/shared';
 import { WaterSourceFields } from './WaterSourceFields';
 import { insertVertex, removeVertex } from './tools/geometryEdit';
 import { isPlanEntity } from './tools/hierarchy';
@@ -61,12 +63,15 @@ import {
 import { stackRefs } from './tools/selection';
 import type { ZMove } from './tools/zOrder';
 import { firstViolation } from './tools/validation';
+import { facingOf, planHasWindows } from './windowSuggestion';
 
 // The tiles load when a bed is selected: the panel is part of the editor chunk, the tiles are not (E-12 budget).
 const SunTileSelector = lazy(() => import('../bed/SunTileSelector'));
 // The sun window chips, the hours and the leaf-shade switch (GP-FR-158/159, #2538): the same lazy chunk the bed
 // dialog and the field-mode sheet load.
 const SunWindowFields = lazy(() => import('../bed/SunWindowFields'));
+// "Aus Fenster vorschlagen" (GP-FR-181, WP 10.7): its preview dialog loads with the sun section, not the editor.
+const WindowSunSuggestion = lazy(() => import('./WindowSunSuggestion'));
 
 const PREFIX = 'pages.gardenPlan.editor';
 const SUN_PREFIX = 'pages.gardenPlan.sun';
@@ -170,6 +175,8 @@ function EntityForm({
   onZOrder,
   bedInfo,
   sunThresholds,
+  windowRadiusM,
+  latitude,
   typeNames,
 }: Pick<
   PropertiesPanelProps,
@@ -178,9 +185,13 @@ function EntityForm({
   entity: PlanEntity;
   entityKey: string;
   sunThresholds: Readonly<SunClassThresholds>;
+  /** The site's radius around a window for the sun-window suggestion, metres (GP-FR-181). */
+  windowRadiusM: number;
+  /** The site's latitude; `null` assumes the northern hemisphere. */
+  latitude: number | null;
   typeNames: ReadonlyMap<string, string>;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const source = sourceOf(plan, entity, entityKey);
   const geometry: Geometry | null = source?.geometry ?? null;
   const locked = source?.locked === true;
@@ -262,6 +273,16 @@ function EntityForm({
   const waterSource = objectProps?.object_type === 'water_source' ? objectProps : null;
   // GP-FR-180: the props of the other classes and the switch `off_site` (WP 10.6).
   const gardenObject = entity === 'garden_object' ? (plan.gardenObjects[entityKey] ?? null) : null;
+  // GP-FR-181: a window's direction from its wall and the plan's north angle, shown read-only ("Südost, 135°").
+  const facing = gardenObject?.object_type === 'window' ? facingOf(plan, gardenObject) : null;
+  const windowOrientation = facing
+    ? t(`${OBJECT_PROPS_PREFIX}.window.orientationValue`, {
+        direction: t(`enums.orientation.${facing.orientation}`),
+        azimuth: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(facing.azimuthDeg),
+      })
+    : null;
+  // The suggestion appears where windows can be: on an indoor plan, or on any plan that has one.
+  const showWindowSuggestion = entity === 'location' && (isIndoorPlanSite(plan.siteType) || planHasWindows(plan));
   const errorText = error
     ? t(`${PREFIX}.notice.${error}`, { defaultValue: t(`${PREFIX}.notice.generic`) })
     : null;
@@ -323,6 +344,19 @@ function EntityForm({
               />
             </Box>
           </Suspense>
+          {showWindowSuggestion && (
+            <Suspense fallback={null}>
+              <WindowSunSuggestion
+                plan={plan}
+                locationKey={entityKey}
+                current={plan.locations[entityKey]?.site_conditions?.sun_profile?.sun_window ?? 'unknown'}
+                radiusM={windowRadiusM}
+                latitude={latitude}
+                disabled={locked}
+                onApply={(sunWindow) => commitSunProfile({ sun_window: sunWindow })}
+              />
+            </Suspense>
+          )}
         </Box>
       )}
 
@@ -335,6 +369,8 @@ function EntityForm({
           object={gardenObject}
           disabled={locked}
           violationOnSite={() => violationOnSite(plan, gardenObject)}
+          windowOrientation={windowOrientation}
+          windowOrientationByConvention={facing?.basis === 'drawing_direction'}
           onCommit={onCommit}
         />
       )}
@@ -679,8 +715,10 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
   const { t } = useTranslation();
   const entities = selection.filter(isPlanEntity);
   const single = selection.length === 1 ? selection[0] : null;
-  // The site's sun-class bounds for the tile help texts (GP-FR-164, WP 8.24); the defaults until it is read.
-  const sunThresholds = useSiteThresholds(plan.siteKey).sun;
+  // The site's sun-class bounds for the tile help texts (GP-FR-164, WP 8.24), its window radius and latitude for the
+  // window suggestion (GP-FR-181, WP 10.7); the defaults until it is read.
+  const siteFacts = useSiteFacts(plan.siteKey);
+  const sunThresholds = siteFacts.thresholds.sun;
   // The type's catalogue name instead of its key ("Hochbeet", not "raised_bed").
   const typeNames = useLocationTypeNames();
 
@@ -702,6 +740,8 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         onOpenCare={props.onOpenCare}
         bedInfo={props.bedInfo}
         sunThresholds={sunThresholds}
+        windowRadiusM={siteFacts.thresholds.window.suggestion_radius_m}
+        latitude={siteFacts.latitude}
         typeNames={typeNames}
         onDuplicate={props.onDuplicate}
         onDelete={props.onDelete}

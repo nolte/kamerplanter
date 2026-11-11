@@ -1,7 +1,9 @@
 /**
  * The fields of a window (REQ-053 §9.8, GP-FR-180): sill height and glazing - what `WindowProps` carries. The
- * orientation is derived from the wall and the plan's north angle and never stored (§9.8, GP-FR-181); it is shown
- * read-only, and as "not available" while no derived value is handed in.
+ * orientation is derived from the wall and the plan's north angle and never stored (§9.8, GP-FR-181, WP 10.7:
+ * `model/windowOrientation.ts`); it is shown read-only ("Südost, 135°"), and as "not available" while none can be
+ * derived (a window that is no line). When the plan has no outline that tells the outside, the caption says that the
+ * outside was taken from the drawing direction.
  */
 import { useTranslation } from 'react-i18next';
 import MenuItem from '@mui/material/MenuItem';
@@ -24,9 +26,11 @@ const NOT_GIVEN = '';
 interface WindowFieldsProps extends ObjectFieldsProps<WindowProps> {
   /** The derived orientation as a text ("Südwest"), or `null` while none is derived. */
   orientation?: string | null;
+  /** The outside was taken from the drawing direction (no outline to tell it). */
+  orientationByConvention?: boolean;
 }
 
-export function WindowFields({ orientation = null, ...fields }: WindowFieldsProps) {
+export function WindowFields({ orientation = null, orientationByConvention = false, ...fields }: WindowFieldsProps) {
   const { t, i18n } = useTranslation();
   const commit = useCommitProps(fields);
   const { props, disabled } = fields;
@@ -77,6 +81,16 @@ export function WindowFields({ orientation = null, ...fields }: WindowFieldsProp
         <Typography variant="caption" color="text.secondary" component="p">
           {t(`${PREFIX}.orientationHelp`)}
         </Typography>
+        {orientation !== null && orientationByConvention && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            component="p"
+            data-testid="garden-plan-panel-window-orientation-convention"
+          >
+            {t(`${PREFIX}.orientationConvention`)}
+          </Typography>
+        )}
       </div>
     </>
   );

@@ -581,6 +581,11 @@ export interface ReachThresholds {
   path_access_max_distance_m: number;
 }
 
+/** How close a window must be to a location for "Aus Fenster vorschlagen", metres (GP-FR-181); > 0, at most 10. */
+export interface WindowThresholds {
+  suggestion_radius_m: number;
+}
+
 export interface Site {
   key: string;
   name: string;
@@ -601,6 +606,8 @@ export interface Site {
   /** The effective values: stored ones, else the defaults (WP 8.24). Absent from an older backend. */
   sun_class_thresholds?: SunClassThresholds;
   reach_thresholds?: ReachThresholds;
+  /** The effective window radius (WP 10.7); absent from an older backend. */
+  window_thresholds?: WindowThresholds;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -646,6 +653,7 @@ export interface SiteCreate {
   /** Omitted or `null` keeps the stored values on an edit (WP 8.24). */
   sun_class_thresholds?: SunClassThresholds | null;
   reach_thresholds?: ReachThresholds | null;
+  window_thresholds?: WindowThresholds | null;
 }
 
 // Locations

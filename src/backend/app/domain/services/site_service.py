@@ -186,9 +186,10 @@ class SiteService:
         ``[]`` and every site edit erased the view (#2181) — it is taken from the
         stored site instead.
 
-        The garden-planning thresholds (REQ-053 GP-FR-164/166, WP 8.24) are optional in the edit body: a body
-        that does not send them (``None``) keeps the stored ones, so a client that does not know them - the MCP
-        tools, an older form - never resets a configured value. Sending the defaults is how they are reset.
+        The garden-planning thresholds (REQ-053 GP-FR-164/166, WP 8.24; the window radius GP-FR-181, WP 10.7)
+        are optional in the edit body: a body that does not send them (``None``) keeps the stored ones, so a
+        client that does not know them - the MCP tools, an older form - never resets a configured value. Sending
+        the defaults is how they are reset.
         """
         existing = self.get_site(key, tenant_key=tenant_key)
         site.tenant_key = tenant_key
@@ -197,6 +198,8 @@ class SiteService:
             site.sun_class_thresholds = existing.sun_class_thresholds
         if site.reach_thresholds is None:
             site.reach_thresholds = existing.reach_thresholds
+        if site.window_thresholds is None:
+            site.window_thresholds = existing.window_thresholds
         if existing.plan is not None and existing.plan.boundary is not None:
             # REQ-053 §20.2: with a boundary the area is derived from it. ``SiteCreate`` carries a
             # ``total_area_m2`` (default 0) the model cannot tell from a typed value, and the repository

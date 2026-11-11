@@ -35,7 +35,8 @@ DEFAULT_TOLERANCE: float = VECTORS["default_tolerance"]
 #: ``reach`` and ``path_access``: ``test_reach_vectors.py``; ``area_dose``, ``nitrogen_approximation`` and
 #: ``unit_identity``: ``test_area_dose_vectors.py``; ``edge_distance``, ``nearest_water_source`` and
 #: ``is_water_source``: ``test_geometry_distance_vectors.py``; ``container_volume``:
-#: ``test_container_volume_vectors.py``).
+#: ``test_container_volume_vectors.py``; ``window_facing`` and ``window_sun_window``:
+#: ``test_window_orientation_vectors.py``).
 LAYOUT_OPERATIONS = frozenset(
     {
         "layout",
@@ -58,6 +59,8 @@ LAYOUT_OPERATIONS = frozenset(
         "nearest_water_source",
         "is_water_source",
         "container_volume",
+        "window_facing",
+        "window_sun_window",
     }
 )
 CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] not in LAYOUT_OPERATIONS]

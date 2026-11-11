@@ -297,6 +297,7 @@ describe('SiteDetailPage', () => {
       await waitFor(() => expect(bodies).toHaveLength(1));
       expect(bodies[0].sun_class_thresholds).toBeNull();
       expect(bodies[0].reach_thresholds).toBeNull();
+      expect(bodies[0].window_thresholds).toBeNull();
     });
 
     it('sends a changed reach threshold and leaves the sun classes alone', async () => {
@@ -333,6 +334,26 @@ describe('SiteDetailPage', () => {
 
       await waitFor(() => expect(bodies).toHaveLength(1));
       expect(bodies[0].reach_thresholds).toEqual({ both_sides_m: 1.2, one_side_m: 0.6, path_access_max_distance_m: 0.5 });
+    });
+
+    it('sends a changed window radius and leaves the other thresholds alone (GP-FR-181, WP 10.7)', async () => {
+      useSite();
+      useSiteSensors();
+      const bodies = capturePut();
+      const user = userEvent.setup();
+      renderPage();
+
+      await screen.findByTestId('site-thresholds-section');
+      expect(screen.getByText(i18n.t('pages.sites.thresholds.windowRadiusHelper'))).toBeInTheDocument();
+      await waitFor(() => expect(input('window_thresholds.suggestion_radius_m').value).toBe('1.5'));
+      await user.clear(input('window_thresholds.suggestion_radius_m'));
+      await user.type(input('window_thresholds.suggestion_radius_m'), '2.5');
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0].window_thresholds).toEqual({ suggestion_radius_m: 2.5 });
+      expect(bodies[0].reach_thresholds).toBeNull();
+      expect(bodies[0].sun_class_thresholds).toBeNull();
     });
 
     it('refuses sun-class bounds that are not descending and sends nothing', async () => {

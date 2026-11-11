@@ -25,6 +25,8 @@ interface ObjectPropsFieldsProps {
   violationOnSite: () => string | null;
   /** The window's derived orientation as text, `null` while none is derived (GP-FR-181). */
   windowOrientation?: string | null;
+  /** The window's outside was taken from the drawing direction, not from the outline (GP-FR-181). */
+  windowOrientationByConvention?: boolean;
   onCommit: (ops: PlanOperation[], label: ActionLabel) => void;
 }
 
@@ -33,6 +35,7 @@ export function ObjectPropsFields({
   disabled,
   violationOnSite,
   windowOrientation = null,
+  windowOrientationByConvention = false,
   onCommit,
 }: ObjectPropsFieldsProps) {
   const { t } = useTranslation();
@@ -41,7 +44,14 @@ export function ObjectPropsFields({
   let fields: ReactNode;
   switch (props.object_type) {
     case 'window':
-      fields = <WindowFields {...common} props={props} orientation={windowOrientation} />;
+      fields = (
+        <WindowFields
+          {...common}
+          props={props}
+          orientation={windowOrientation}
+          orientationByConvention={windowOrientationByConvention}
+        />
+      );
       break;
     case 'door':
       fields = <DoorFields {...common} props={props} />;

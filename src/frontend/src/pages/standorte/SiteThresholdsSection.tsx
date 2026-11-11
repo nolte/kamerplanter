@@ -1,7 +1,8 @@
 /**
  * The garden-planning thresholds of a site (REQ-053 GP-FR-164/166, WP 8.24): where the sun classes begin, the day
  * they refer to, how wide a bed may be before it is out of reach, and how close a path must come to a bed edge to
- * give access from that side (#2703). Part of the site edit form; the values feed the help texts of the sun tiles
+ * give access from that side (#2703), and how close a window must be to a location to suggest its sun window
+ * (GP-FR-181, WP 10.7). Part of the site edit form; the values feed the help texts of the sun tiles
  * and the `bed.reach_too_wide` hint. Nothing is computed from them beyond that.
  */
 import { useTranslation } from 'react-i18next';
@@ -12,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import type { Control } from 'react-hook-form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
-import { MAX_PATH_ACCESS_DISTANCE_M, type SiteFormData } from './siteForm';
+import { MAX_PATH_ACCESS_DISTANCE_M, MAX_WINDOW_SUGGESTION_RADIUS_M, type SiteFormData } from './siteForm';
 
 const PREFIX = 'pages.sites.thresholds';
 
@@ -140,6 +141,27 @@ export default function SiteThresholdsSection({ control, onResetDefaults }: Site
             helperText={t(`${PREFIX}.pathDistanceHelper`)}
             min={0}
             max={MAX_PATH_ACCESS_DISTANCE_M}
+            step="any"
+            inputMode="decimal"
+            suffix="m"
+            required
+          />
+        </FormRow>
+
+        <Typography variant="subtitle2" component="h3" sx={{ mt: 2, mb: 0.5 }}>
+          {t(`${PREFIX}.windowTitle`)}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {t(`${PREFIX}.windowHint`)}
+        </Typography>
+        <FormRow>
+          <FormNumberField
+            name="window_thresholds.suggestion_radius_m"
+            control={control}
+            label={t(`${PREFIX}.windowRadius`)}
+            helperText={t(`${PREFIX}.windowRadiusHelper`)}
+            min={0}
+            max={MAX_WINDOW_SUGGESTION_RADIUS_M}
             step="any"
             inputMode="decimal"
             suffix="m"
