@@ -107,6 +107,7 @@ class WorkspacePlanPage(GardenPlanPage):
     ZOOM_OVERLAY = _tid("garden-plan-zoom-overlay")
     SELECTION_GROUP = _tid("garden-plan-selection-group")
     SIDE_PANEL_TABLIST = _tid("garden-plan-side-panel-tabs")
+    SIDE_PANEL_CLOSE = _tid("garden-plan-panel-close")
     LAYER_TOGGLES = _tid("garden-plan-layer-toggles")
     LAYER_LEGEND = _tid("garden-plan-layer-legend")
 
@@ -356,6 +357,11 @@ class WorkspacePlanPage(GardenPlanPage):
             self.click_panel_toggle()
         else:
             self.open_panel_from_overflow()
+
+    def close_side_panel(self) -> None:
+        """The panel's own close button; waits until the panel is collapsed (not rendered)."""
+        self.click_coordinate_free(self.wait_for_element_clickable(self.SIDE_PANEL_CLOSE))
+        self.wait_for_side_panel(None, "closing the side panel by its button")
 
     def choose_side_panel_tab(self, tab: str) -> None:
         """Pick the panel tab *tab* in the open panel (no opening: the state rule is what the caller observes)."""

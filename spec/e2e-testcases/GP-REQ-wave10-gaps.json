@@ -6,7 +6,7 @@
   },
   "GP-UX-069": {
     "partial": true,
-    "reason": "Docked panel at >= lg, drawer at md and bottom sheet plus TouchBar below md come from one component tree and are tested at 1366, 820 and 390 px (E2E TC-053-101/102/104, `SidePanel.test.tsx`). Unproven: 'every editor function reachable on every width from 1024 px' - four GP-UX-001 tools do not exist (#2868, see AC-2); the md drawer lies over the canvas and hides the zoom controls and a selected object (#2885, the spec wording 'Drawer über der Zeichenfläche' is operator question 6 in #2884)",
+    "reason": "Docked panel from md up and bottom sheet plus TouchBar below md come from one component tree and are tested at 1366, 820 and 390 px (E2E TC-053-101/102/104, `SidePanel.test.tsx`); since #2885 the md panel docks beside the canvas instead of covering it. Unproven: 'every editor function reachable on every width from 1024 px' - four GP-UX-001 tools do not exist (#2868, see AC-2)",
     "issue": 2868
   },
   "GP-UX-049": {

@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.14"
+version: "1.15"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,10 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.15 (2026-11-11, #2885)** — TC-053-102 auf das angedockte Panel bei md umgestellt (REQ-053 v1.18): Panel
+neben statt über der Zeichenfläche, Zoom-Steuerung sichtbar, eine Auswahl am rechten Rand schwenkt in den sichtbaren
+Teil; Vorbedingung um „Beet B“ am rechten Rand erweitert. `test_count` unverändert.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -3235,23 +3239,26 @@ AC-14 (Teil)
 
 ---
 
-### TC-053-102: Tablet 820 × 1180 — Panel als Drawer über der Zeichenfläche, Werkzeuge links, kein horizontales Scrollen
+### TC-053-102: Tablet 820 × 1180 — Panel angedockt neben der Zeichenfläche, Werkzeuge links, kein horizontales Scrollen
 
 **Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-068
 **Gerät**: Tablet 820 × 1180 (md, 768–1023 px)
 **Priority**: Medium
 **Category**: Layout
 **Preconditions**:
-- Garten 10 × 10 m mit einem Beet „Beet A“
+- Garten 10 × 10 m mit „Beet A“ in der Mitte und „Beet B“ am rechten Rand (8,8–9,8 m)
 
 **Testschritte**:
 1. Nutzer öffnet den Plan bei 820 × 1180
 2. Nutzer öffnet das Seitenpanel mit dem Umschalter (in der Kopfleiste oder im Überlauf)
+3. Nutzer schließt das Panel und wählt „Beet B“ mit der Tastatur aus
 
 **Erwartete Ergebnisse**:
 - Die Werkzeuge stehen in der vertikalen Leiste links der Zeichenfläche; die Kopfleiste liegt auf einer Zeile
-- Das Panel öffnet als Drawer, der über dem rechten Rand der Zeichenfläche liegt; die Zeichenfläche wird dabei nicht
-  schmaler
+- Das Panel öffnet angedockt rechts neben der Zeichenfläche; die Zeichenfläche wird schmaler, das Panel überdeckt sie
+  nicht, und die Zoom-Steuerung liegt sichtbar auf ihr (WCAG 2.2 SC 2.4.11, #2885)
+- Die Auswahl von „Beet B“ öffnet das Panel auf „Eigenschaften“; der Plan schwenkt, bis das Beet im sichtbaren Teil
+  der Zeichenfläche liegt
 - Die Seite scrollt weder vor noch nach dem Öffnen horizontal
 - Screenshot-Checkpoints ohne und mit Panel
 
@@ -3261,7 +3268,7 @@ AC-14 (Teil)
 **Hinweis**: Dieser Fall prüft das Layout der Breite md. Er ist **nicht** der Nachweis von AC-2 („jede
 Editor-Funktion erreichbar“), siehe TC-053-103.
 
-**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-820, drawer, gp-ux-069]
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-820, seitenpanel, gp-ux-069]
 
 ---
 
@@ -3801,7 +3808,7 @@ Prüfung.
 | (abgeleitet aus AC-8, AC-16, GP-UX-065) | Welle 10 Teil A: Tab-Wechsel behält Änderung, Auswahl und Zoom, kein Dialog (Verlassen: TC-053-007) | TC-053-099 |
 | (abgeleitet aus AC-4, AC-5, AC-6, AC-17, GP-UX-068) | Welle 10 Teil A: Seitenpanel, Zustandsregel, Panel-Tabs per Tastatur | TC-053-100 |
 | (abgeleitet aus AC-1, AC-3, AC-14, GP-UX-067/069) | Welle 10 Teil A: Desktop 1366 × 768, Zeichenfläche ≥ 60 %, Panel angedockt | TC-053-101 |
-| (abgeleitet aus GP-UX-069) | Welle 10 Teil A: Tablet 820 × 1180 (md), Panel als Drawer | TC-053-102 |
+| (abgeleitet aus GP-UX-069) | Welle 10 Teil A: Tablet 820 × 1180 (md), Panel angedockt (#2885) | TC-053-102 |
 | (abgeleitet aus AC-2, GP-UX-001/069) | Welle 10 Teil A: jede Editor-Funktion bei 1024 px — **blockiert durch #2868**, kein Test | TC-053-103 |
 | (abgeleitet aus AC-9, AC-15, GP-UX-063/069) | Welle 10 Teil A: Smartphone 390 × 844, `TouchBar`, Bottom Sheet, Überlauf | TC-053-104 |
 | (abgeleitet aus GP-FR-180, §9.5) | Welle 10 Teil A: Fenster- und Lampen-Eigenschaften, Objekt-Legende, „Außerhalb des Grundstücks“ | TC-053-105 |

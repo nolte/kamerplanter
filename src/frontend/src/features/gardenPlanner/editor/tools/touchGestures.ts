@@ -64,9 +64,9 @@ export function twoFingerStep(before: [Point, Point], after: [Point, Point]): Tw
 }
 
 /**
- * The vertical pan (px, positive = drag the plan down) that brings an object whose screen box is
- * `topPx..bottomPx` into the free area `0..visibleHeightPx` above a sheet, keeping `marginPx`.
- * 0 when it is visible already or cannot fit (the top edge wins then).
+ * The pan along one axis (px, positive = drag the plan down or right) that brings an object whose screen box is
+ * `topPx..bottomPx` on that axis into the free span `0..visibleHeightPx` - above a sheet (vertical) or left of the
+ * docked panel (horizontal) - keeping `marginPx`. 0 when it is visible already or cannot fit (the start edge wins).
  */
 export function panIntoView(
   topPx: number,

@@ -22,7 +22,7 @@ Planning mode is a workspace like a drawing program. The drawing area gets as mu
 - **Drawing area:** fills the height of the window. Zoom, **Fit**, the scale bar and the mini-map sit in its corners on top of the plan.
 - **Side panel:** on the right, with the tabs **Properties**, **View**, **Layers** and **Zones** (see [Properties, side panel and list view](#properties-and-list-view)). Without a selection it is collapsed and takes no room.
 
-**On tablet and phone.** From 1024 pixels wide the side panel stands beside the plan. Between 768 and 1023 pixels it slides in from the right as a drawer over the plan. Below 768 pixels the tool rail becomes a bar below the plan and the side panel opens as a sheet from the bottom (half or full height). The header bar then keeps only **Back**, the save state, **Save** and **⋮**; **Undo** and **Redo** sit in the bar below the plan. With a touchscreen you see the touch bar (set point, multi-select) at every width. <!-- REQ-053 GP-UX-063, GP-UX-064, GP-UX-065, GP-UX-067, GP-UX-068, GP-UX-069 -->
+**On tablet and phone.** From 768 pixels wide the side panel stands beside the plan; the plan gets narrower and moves a selected bed into view. Below 768 pixels the tool rail becomes a bar below the plan and the side panel opens as a sheet from the bottom (half or full height). The header bar then keeps only **Back**, the save state, **Save** and **⋮**; **Undo** and **Redo** sit in the bar below the plan. With a touchscreen you see the touch bar (set point, multi-select) at every width. <!-- REQ-053 GP-UX-063, GP-UX-064, GP-UX-065, GP-UX-067, GP-UX-068, GP-UX-069 -->
 
 ### The garden boundary {#the-garden-boundary}
 

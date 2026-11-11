@@ -222,24 +222,35 @@ describe('tab contents (GP-UX-068, AC-6)', () => {
 });
 
 describe('form per width (GP-UX-069)', () => {
-  it('md: a non-modal drawer over the canvas, the canvas row keeps its full width', async () => {
+  it('md: docked beside the canvas like lg, never over it - the zoom controls stay uncovered (#2885)', async () => {
     restores.push(stubWidth(900));
     const t = setupEditor();
     // The tool rail stays at md.
     expect(screen.getByTestId('garden-plan-toolbar')).toHaveAttribute('data-orientation', 'vertical');
     t.click(4, 4);
-    const drawer = screen.getByTestId('garden-plan-side-panel-drawer');
-    expect(within(drawer).getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'drawer');
-    expect(screen.queryByTestId('garden-plan-side-panel-dock')).toBeNull();
-    // Not in the canvas row: it lies over it and takes no width from it.
-    const row = screen.getByTestId('garden-plan-canvas-area').parentElement!;
-    expect(row).not.toContainElement(drawer);
-    // Persistent: no dialog, no backdrop, the plan stays usable.
+    const dock = screen.getByTestId('garden-plan-side-panel-dock');
+    expect(within(dock).getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'docked');
+    // A sibling in the canvas row: the canvas gives up the width, the zoom overlay stays inside the canvas area.
+    const area = screen.getByTestId('garden-plan-canvas-area');
+    expect(area.parentElement).toContainElement(dock);
+    expect(area).toContainElement(screen.getByTestId('garden-plan-zoom-overlay'));
+    expect(dock).not.toContainElement(screen.getByTestId('garden-plan-zoom-overlay'));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(document.querySelector('[aria-modal="true"]')).toBeNull();
     fireEvent.click(screen.getByTestId('garden-plan-panel-close'));
     await waitFor(() => expect(panel()).toBeNull());
     expect(t.selected()).toEqual(['b1']);
+  });
+
+  it('pans a selection that the narrower canvas cuts off back left of the docked panel (#2885)', () => {
+    restores.push(stubWidth(900));
+    const t = setupEditor();
+    // The canvas area ends 150 px right of the canvas; the bed b1 lies at 120..200 px.
+    vi.spyOn(screen.getByTestId('garden-plan-canvas-area'), 'getBoundingClientRect').mockReturnValue({
+      top: 0, bottom: 800, left: 0, right: 150, width: 150, height: 800, x: 0, y: 0, toJSON: () => ({}),
+    });
+    t.click(4, 4);
+    act(() => t.rerender());
+    expect(t.onPan).toHaveBeenCalledWith(150 - 16 - 200, 0);
   });
 
   it('below md: a bottom sheet in the dock, half or full of the visible height, following visualViewport', () => {

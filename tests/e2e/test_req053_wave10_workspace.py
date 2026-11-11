@@ -12,8 +12,8 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
                   (WAI-ARIA tabs), selection group only with a selection                                    AC-17)
   TC-053-101  ->  desktop 1366 x 768: canvas >= 60 % of the viewport height, one header bar on one line,   (AC-1, AC-3,
                   vertical tool rail left of the canvas, zoom inside the canvas, panel docked beside it     AC-5, AC-14)
-  TC-053-102  ->  tablet 820 x 1180 (md): rail left, the panel a drawer over the canvas that does not     (GP-UX-069)
-                  narrow it,
+  TC-053-102  ->  tablet 820 x 1180 (md): rail left, the panel docked beside the canvas - zoom controls    (GP-UX-069)
+                  and a selected bed stay uncovered (#2885),
                   no horizontal scrolling - the layout of md only, not the 1024 x 768 criterion (see below)
   TC-053-104  ->  phone 390 x 844 (planning mode): TouchBar and tool bar below the canvas, undo/redo in     (AC-9,
                   the TouchBar, tabs and panel switch in the overflow (entries >= 48 px with text), every   AC-15 part)
@@ -61,6 +61,7 @@ outcome is read back from the server.
 from __future__ import annotations
 
 import pytest
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -466,14 +467,15 @@ def test_tc_053_101_desktop_1366_canvas_height_one_header_rail_left_panel_docked
 # ── TC-053-102 ──────────────────────────────────────────────────────────────
 
 
-def test_tc_053_102_tablet_820_panel_is_a_drawer_over_the_canvas(
+def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
     plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
-    """TC-053-102 - at 820 x 1180 (md, the theme's 768-1023 px) the rail stays left and the panel is a drawer.
+    """TC-053-102 - at 820 x 1180 (md, the theme's 768-1023 px) the rail stays left and the panel docks beside the canvas.
 
     Breaks if the rail is not vertical left of the canvas, the header bar wraps, the panel opens in another form than
-    the drawer, the drawer does not lie over the canvas area's right edge or narrows it, or the page scrolls sideways
-    (GP-UX-069, GP-UX-068). The md layout only - not the 1024 x 768 criterion, blocked by #2868 (TC-053-103).
+    docked, the panel overlaps the canvas area or the zoom controls (WCAG 2.2 SC 2.4.11, #2885), a bed on the plan's
+    right edge that the selection docks the panel beside is left outside the visible canvas, or the page scrolls
+    sideways (GP-UX-069, GP-UX-068). The md layout only - not the 1024 x 768 criterion, blocked by #2868 (TC-053-103).
     """
     set_phone_viewport(browser, 820, 1180)
     plan.dismiss_light_mode_warning()
@@ -481,7 +483,11 @@ def test_tc_053_102_tablet_820_panel_is_a_drawer_over_the_canvas(
         base_url,
         e2e_seed_data,
         purpose="tc102",
-        beds=(BedSpec("Beet A", rect(4.0, 4.5, 2.0, 1.0)),),
+        beds=(
+            BedSpec("Beet A", rect(4.0, 4.5, 2.0, 1.0)),
+            # On the right edge: the canvas that the docked panel narrows cuts it off unless the view pans.
+            BedSpec("Beet B", rect(8.8, 4.5, 1.0, 1.0)),
+        ),
     )
     plan.open(garden.site_key)
 
@@ -500,27 +506,60 @@ def test_tc_053_102_tablet_820_panel_is_a_drawer_over_the_canvas(
     assert plan.side_panel_state() is None, (
         f"TC-053-102: the panel should start collapsed: {plan.side_panel_state()}"
     )
-    # Read now, asserted at the end: the drawer is checked even when the page scrolls sideways.
+    # Read now, asserted at the end: the panel is checked even when the page scrolls sideways.
     overflow_collapsed = plan.horizontal_overflow_px()
     screenshot("053_102_01_tablet_collapsed", "820 × 1180: Werkzeuge links, Panel eingeklappt")
 
     plan.open_side_panel_by_switch()
-    plan.wait_for_side_panel(("drawer", "view"), "TC-053-102: at md the panel opens as a drawer")
-    panel, after = (
+    plan.wait_for_side_panel(
+        ("docked", "view"), "TC-053-102: at md the panel docks beside the canvas"
+    )
+    panel, after, zoom = (
         plan.rect_of(plan.SIDE_PANEL, "side panel"),
         plan.rect_of(plan.CANVAS_AREA, "canvas area"),
+        plan.rect_of(plan.ZOOM_OVERLAY, "zoom overlay"),
     )
-    assert abs(after["width"] - before["width"]) <= 1, (
-        f"TC-053-102: the drawer must lie over the canvas, not narrow it: {before['width']:.0f} -> {after['width']:.0f}"
+    assert panel["left"] >= after["right"] - 1, (
+        f"TC-053-102: the panel {panel} must stand right of the canvas area {after}, not over it (#2885)"
+    )
+    assert after["width"] < before["width"], (
+        f"TC-053-102: the canvas should give the panel its width: {before['width']:.0f} -> {after['width']:.0f}"
     )
     assert (
-        after["left"] <= panel["left"] < after["right"] and panel["right"] <= after["right"] + 1
-    ), f"TC-053-102: the drawer {panel} should lie over the right edge of the canvas area {after}"
-    overflow_drawer = plan.horizontal_overflow_px()
-    screenshot("053_102_02_tablet_drawer", "820 × 1180: Panel als Drawer über der Zeichenfläche")
-    assert overflow_collapsed <= 0 and overflow_drawer <= 0, (
+        after["left"] <= zoom["left"] and zoom["right"] <= min(after["right"], panel["left"]) + 1
+    ), (
+        f"TC-053-102: the zoom controls {zoom} must lie inside the visible canvas area {after}, left of {panel}"
+    )
+    overflow_docked = plan.horizontal_overflow_px()
+    screenshot("053_102_02_tablet_docked", "820 × 1180: Panel neben der Zeichenfläche, Zoom frei")
+
+    # A selection opens the panel and the plan keeps its fit: the bed on the right edge must pan into view.
+    plan.close_side_panel()
+    bed_b = garden.bed_key("Beet B")
+    plan.select_with_keyboard(bed_b)
+    plan.wait_for_side_panel(
+        ("docked", "properties"), "TC-053-102: the selection opens the panel on its properties"
+    )
+    area = plan.rect_of(plan.CANVAS_AREA, "canvas area")
+    try:
+        plan.poll().until(
+            lambda _d: (
+                (box := plan.rect_of(plan.object_locator(bed_b), "Beet B"))["left"]
+                >= area["left"] - 1
+                and box["right"] <= area["right"] + 1
+            )
+        )
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"TC-053-102: the selected bed {plan.rect_of(plan.object_locator(bed_b), 'Beet B')} should pan "
+            f"into the visible canvas area {area} left of the docked panel (#2885)"
+        ) from exc
+    screenshot(
+        "053_102_03_tablet_selection", "820 × 1180: ausgewähltes Beet am rechten Rand im Bild"
+    )
+    assert overflow_collapsed <= 0 and overflow_docked <= 0, (
         f"TC-053-102: the page scrolls sideways at 820 px - by {overflow_collapsed} px with the panel collapsed, "
-        f"by {overflow_drawer} px with the drawer open (header bar: {controls})"
+        f"by {overflow_docked} px with the panel docked (header bar: {controls})"
     )
 
 
