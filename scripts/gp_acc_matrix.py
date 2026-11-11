@@ -95,6 +95,24 @@ _UINFR_SCOPE_END = re.compile(
 #: The widest range ``R-aaa…R-bbb`` that is read as a range; a wider or reversed one is reported, not dropped.
 _UINFR_RANGE_MAX = 30
 
+WAVE10_MATRIX = ROOT / "spec/e2e-testcases/GP-REQ-wave10-matrix.md"
+WAVE10_GAPS = ROOT / "spec/e2e-testcases/GP-REQ-wave10-gaps.json"
+#: The prefix a workspace acceptance criterion carries in the wave-10 matrix (``§17.3 AC-7``).
+AC = "§17.3"
+#: The prefix a domain finding of Anhang A 60-63 carries in the wave-10 matrix (``REQ-053 W-015``).
+WREQ = "REQ-053"
+#: An acceptance criterion row of the workspace table in section 17.3 (``| AC-7 | ... |``).
+_AC_ROW = re.compile(r"^\| AC-(\d{1,2}) \|", re.MULTILINE)
+#: An ``AC-n`` claim; ``AC-15 part`` counts, ``AC-150`` or ``XAC-1`` does not.
+_AC_ID = re.compile(r"(?<![\w-])AC-(\d{1,2})(?!\d)")
+#: A file claims workspace criteria only when it names section 17.3 or one of the rows they accept (GP-UX-063-070):
+#: ``AC-n`` is no unique string in the repo (other specs number their criteria the same way).
+_NAMES_WORKSPACE = re.compile(r"§\s?17\.3(?!\d)|(?<![\w-])GP-UX-0(?:6[3-9]|70)(?!\d)")
+#: A review finding of REQ-053 (``W-015``, also ``W-016.6`` for the sub-point of W-016).
+_W_ID = re.compile(r"(?<![\w-])W-(\d{3})(?:\.\d+)?(?!\d)")
+#: A file claims a W-id only when it names REQ-053 (the W-ids are the agrobiology findings of this spec).
+_NAMES_REQ053 = re.compile(r"(?<![\w-])REQ-053(?!\d)")
+
 
 @cache
 def _read(path: Path) -> str:
@@ -258,6 +276,65 @@ WAVE9_UINFR_ROWS: dict[str, str] = {
     f"{UINFR} R-058": "write allowlist done / note / photo, idempotent replay",
     f"{UINFR} R-059": "delivery of /sw.js and manifest no-store, CSP, kill switch",
     f"{UINFR} R-060": "data on the device: retention 365 / 90 days, photo re-encoding",
+}
+
+
+#: The REQ-053 rows of wave 10, with the part a row contributes when only part of it is wave 10. The rule of waves 8
+#: and 9: a row is here when a work package of plan section 3 "Welle 10" (WP 10.1-10.12) names it as its deliverable.
+#: Not here, with the reason: GP-UX-001 (MUST of wave 2; the tools it lists but nobody built are #2868, carried by
+#: GP-UX-066 and AC-2 below), GP-UX-005 / GP-UX-052 / GP-NFR-023 / GP-NFR-025 (older rows whose place moved with
+#: section 17.3; their behaviour is unchanged and tested in their own wave), PPFD from ``lamp`` / ``lighting`` (no
+#: calculation by the spec), the COULD rows without a wave (residual issues of WP 10.15).
+WAVE10_ROWS: dict[str, str] = {
+    "GP-UX-063": "one header bar, overflow order, below md only back / status / save / overflow (WP 10.3, 10.5)",
+    "GP-UX-064": "tabs Plan / Liste / Beete with `?tab=`, deep link, Back, row opens the plan (WP 10.2)",
+    "GP-UX-065": "a tab switch keeps the editor state and asks nothing (WP 10.2)",
+    "GP-UX-066": "vertical tool rail with a selection group only while something is selected (WP 10.4)",
+    "GP-UX-067": "canvas at viewport height, zoom / scale / mini-map as overlays (WP 10.3)",
+    "GP-UX-068": "side panel tabs Eigenschaften / Ansicht / Ebenen / Zonen, no reserved width, state rule (WP 10.5)",
+    "GP-UX-069": "one component tree: docked >= lg, drawer at md, bottom sheet and TouchBar below md (WP 10.3-10.5)",
+    "GP-UX-070": "testids stay, new ones registered in UI-NFR-022 (WP 10.2-10.5)",
+    "GP-FR-180": "properties of window / door / furniture / lamp (and trellis, off_site), object legend (WP 10.6)",
+    "GP-FR-181": "window orientation suggests the sun profile of nearby locations, never applied unasked (WP 10.7)",
+    "GP-FR-182": "indoor plan: site type in the DTO, empty state, outdoor conditions hidden, 5 cm grid (WP 10.8)",
+    "GP-FR-183": "planting spots: tents and shelves by `supports_layout`, tab and list named 'Pflanzplätze' (WP 10.8)",
+    "GP-UX-049": "wave-10 part: the indoor empty state 'Zeichne die Umrisse deiner Wohnung …' (WP 10.8)",
+}
+
+#: The acceptance criteria of the editor workspace (REQ-053 section 17.3, AC-1-AC-17), keyed ``§17.3 AC-n``. Not here:
+#: AC-11 ("REQ-053 describes the layout before it is built") - the spec itself is its evidence (v1.16, WP 10.1), no
+#: test can claim it.
+WAVE10_AC_ROWS: dict[str, str] = {
+    f"{AC} AC-1": "1366 x 768: canvas >= 60 % of the viewport height, no control row wraps",
+    f"{AC} AC-2": "1024 x 768: every editor function reachable without horizontal scrolling",
+    f"{AC} AC-3": "exactly one editor header bar, no actions in the route header, vertical tool rail",
+    f"{AC} AC-4": "rotate / align / delete only with a selection, 'save as template' only with one bed",
+    f"{AC} AC-5": "no reserved panel width; switch with aria-expanded / aria-controls; WAI-ARIA tabs",
+    f"{AC} AC-6": "layer switches with visible text in the tab 'Ebenen', with the legend",
+    f"{AC} AC-7": "bed list as tab 'Beete', tab state in the URL, a row opens the plan",
+    f"{AC} AC-8": "no unsaved-changes dialog on a tab switch, changes kept",
+    f"{AC} AC-9": "below md TouchBar and bottom sheet, coarse pointer TouchBar everywhere, targets >= 48 px",
+    f"{AC} AC-10": "existing data-testid kept or migrated with the page objects",
+    f"{AC} AC-12": "no or unknown `tab` shows 'Plan'; no tab bar in field mode",
+    f"{AC} AC-13": "tab 'Beete' shows the saved state; indoor 'Pflanzplätze' with `tab=beds`",
+    f"{AC} AC-14": "zoom, scale bar and mini-map inside the canvas, no layout height",
+    f"{AC} AC-15": "390 x 844: header with back / status / save / overflow only, entries >= 48 px with text",
+    f"{AC} AC-16": "selection and viewport unchanged after Plan -> Beete -> Plan",
+    f"{AC} AC-17": "panel state rule (selection opens, deselection closes only what it opened)",
+}
+
+#: The domain remainders of Anhang A 60-63 that wave 10 delivers (§32.6 item 1), keyed by the review finding the
+#: spec carries for them (``REQ-053 W-015``). Not here: W-006 (the TaskCategory values, delivered in wave 4; WP 10.12
+#: only closed the feeding-event part, W-007).
+WAVE10_DOMAIN_ROWS: dict[str, str] = {
+    f"{WREQ} W-015": "sown state, thinning creates plants, replant on a failed slot (Anhang A 60, WP 10.9)",
+    f"{WREQ} W-007": "care-log soil amendment writes the feeding event of task completion (Anhang A 61, WP 10.12)",
+    f"{WREQ} W-005": "trellis offered in the planting dialog when the species needs support (Anhang A 62, WP 10.10)",
+    f"{WREQ} W-008": "tasks on compost / water source / storage from the properties panel (Anhang A 62, WP 10.10)",
+    f"{WREQ} W-016": (
+        "tent rules: supports_layout, adjacency factor, lighting, photoperiod hint, pot volume"
+        " (Anhang A 63, WP 10.8, 10.11)"
+    ),
 }
 
 
@@ -777,6 +854,137 @@ def stray_rows(
     ]
 
 
+def ac_rows() -> dict[str, str]:
+    """``{"§17.3 AC-n": "AC"}`` for every acceptance criterion of the workspace table (REQ-053 section 17.3)."""
+    (spec,) = sorted(ROOT.glob(SPEC_GLOB))
+    return {f"{AC} AC-{int(n)}": "AC" for n in _AC_ROW.findall(_read(spec))}
+
+
+def domain_rows() -> dict[str, str]:
+    """``{"REQ-053 W-nnn": "W"}`` for every review finding the REQ-053 spec names."""
+    (spec,) = sorted(ROOT.glob(SPEC_GLOB))
+    return {f"{WREQ} W-{n}": "W" for n in _W_ID.findall(_read(spec))}
+
+
+def ac_ids(text: str) -> set[str]:
+    """The workspace criteria a text claims: ``AC-n`` counts only in a text that names §17.3 or GP-UX-063-070."""
+    if not _NAMES_WORKSPACE.search(text):
+        return set()
+    return {f"{AC} AC-{int(n)}" for n in _AC_ID.findall(text)}
+
+
+def w_ids(text: str) -> set[str]:
+    """The REQ-053 review findings a text claims: ``W-nnn`` counts only in a text that names REQ-053."""
+    if not _NAMES_REQ053.search(text):
+        return set()
+    return {f"{WREQ} W-{n}" for n in _W_ID.findall(text)}
+
+
+def scan_wave10_extra() -> dict[str, dict[str, set[str]]]:
+    """``{"§17.3 AC-n" | "REQ-053 W-nnn": {tier: {file, ...}}}`` - the criteria and findings the tests claim."""
+    found: dict[str, dict[str, set[str]]] = {}
+    for rel, tier in _test_files():
+        text = _read(ROOT / rel)
+        for row in ac_ids(text) | w_ids(text):
+            found.setdefault(row, {}).setdefault(tier, set()).add(rel.as_posix())
+    return found
+
+
+def scan_wave10_tcs() -> dict[str, set[str]]:
+    """The TC-053 E2E functions per row as :func:`scan_e2e_tcs`, plus the AC / W claims of each function body.
+
+    A body claims an ``AC-n`` (or a ``W-nnn``) when its FILE names §17.3 / GP-UX-063-070 (or REQ-053): the module
+    docstring carries the spec pin, the function docstring the criterion.
+    """
+    tcs = {row: set(numbers) for row, numbers in scan_e2e_tcs().items()}
+    for rel, tier in _test_files():
+        if tier != "e2e" or rel.suffix != ".py":
+            continue
+        text = _read(ROOT / rel)
+        names_ws, names_req = bool(_NAMES_WORKSPACE.search(text)), bool(_NAMES_REQ053.search(text))
+        if not (names_ws or names_req):
+            continue
+        for match in _E2E_TC_FUNCTION.finditer(text):
+            header_end = _SIGNATURE_END.search(text, match.end())
+            end = _TOP_LEVEL_LINE.search(text, header_end.end() if header_end else match.end())
+            body = text[match.start() : end.start() if end else len(text)]
+            rows: set[str] = set()
+            if names_ws:
+                rows |= {f"{AC} AC-{int(n)}" for n in _AC_ID.findall(body)}
+            if names_req:
+                rows |= {f"{WREQ} W-{n}" for n in _W_ID.findall(body)}
+            for row in rows:
+                tcs.setdefault(row, set()).add(match.group(1))
+    return tcs
+
+
+def wave10_rows() -> dict[str, str]:
+    """The rows of the wave-10 matrix in order: the REQ-053 rows, the workspace criteria, the domain findings."""
+    return {**WAVE10_ROWS, **WAVE10_AC_ROWS, **WAVE10_DOMAIN_ROWS}
+
+
+def wave10_spec_rows() -> dict[str, str]:
+    """The priority of every REQ-053 row, every workspace criterion (``AC``) and every finding (``W``)."""
+    return {**spec_rows(), **ac_rows(), **domain_rows()}
+
+
+def scan_wave10() -> dict[str, dict[str, set[str]]]:
+    """The REQ-053 row claims and the AC / W claims of the tests in one map."""
+    return {**scan_rows(), **scan_wave10_extra()}
+
+
+def load_wave10_gaps() -> dict[str, dict[str, object]]:
+    return _load_gaps(WAVE10_GAPS)
+
+
+def render_wave10(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+    tcs: dict[str, set[str]],
+) -> str:
+    header = [
+        "# REQ-053 wave 10 requirement matrix GP-FR / GP-UX, workspace AC and Anhang A findings <-> test",
+        "",
+        "<!-- GENERATED by scripts/gp_acc_matrix.py --write from the tests - do not edit by hand. -->",
+        "",
+        "The rows are the REQ-053 rows of wave 10 (`WAVE10_ROWS` in `scripts/gp_acc_matrix.py`: plan section 3",
+        '"Welle 10", WP 10.1-10.12, spec section 34), the acceptance criteria of the editor workspace',
+        "(`WAVE10_AC_ROWS`, spec section 17.3; AC-11 is met by the spec itself and has no row) and the domain",
+        "remainders of Anhang A 60-63 by their review finding (`WAVE10_DOMAIN_ROWS`, `W-nnn`). The priority is read",
+        "from the spec (`AC` for a criterion, `W` for a finding). A test claims a GP row by carrying its id; it",
+        "claims a criterion by carrying `AC-n` in a file that names §17.3 or one of GP-UX-063-070, and a finding",
+        "by carrying `W-nnn` (or `W-016.6`) in a file that names REQ-053. **E2E TC** lists the `TC-053-nnn` E2E",
+        "functions whose body names the row. **Limit of the method:** a row counts as covered when a test file names its id; that is a",
+        "claim, not proof the test exercises the row - whether it does stays a review question.",
+        "Honest gaps are listed in `GP-REQ-wave10-gaps.json` with a reason and an issue: **GAP** (no test) or",
+        "**partial** (the tests leave the named part unproven).",
+        "",
+    ]
+    return _render_wave(header, "10", wave10_rows(), rows, found, gaps, tcs)
+
+
+def wave10_problems(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+    gaps: dict[str, dict[str, object]],
+) -> list[str]:
+    return _wave_problems("10", wave10_rows(), rows, found, gaps)
+
+
+def stray_ac(
+    rows: dict[str, str],
+    found: dict[str, dict[str, set[str]]],
+) -> list[str]:
+    """Workspace criteria a test claims that the table of section 17.3 does not have (a typo or a retired id)."""
+    return [
+        f"{r}: referenced by {', '.join(sorted(f for files in found[r].values() for f in files))}"
+        " but not a criterion of REQ-053 section 17.3"
+        for r in sorted(found)
+        if r.startswith(f"{AC} ") and r not in rows
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument(
@@ -788,17 +996,21 @@ def main() -> int:
     rows, found_rows = spec_rows(), scan_rows()
     wave7_gaps, wave8_gaps = load_wave7_gaps(), load_wave8_gaps()
     rows9, found9, wave9_gaps = wave9_spec_rows(), scan_wave9(), load_wave9_gaps()
+    rows10, found10, wave10_gaps = wave10_spec_rows(), scan_wave10(), load_wave10_gaps()
     outputs = (
         (MATRIX, render(ids, found, gaps)),
         (WAVE7_MATRIX, render_wave7(rows, found_rows, wave7_gaps)),
         (WAVE8_MATRIX, render_wave8(rows, found_rows, wave8_gaps)),
         (WAVE9_MATRIX, render_wave9(rows9, found9, wave9_gaps, scan_e2e_tcs())),
+        (WAVE10_MATRIX, render_wave10(rows10, found10, wave10_gaps, scan_wave10_tcs())),
     )
     errors = (
         problems(ids, found, gaps)
         + wave7_problems(rows, found_rows, wave7_gaps)
         + wave8_problems(rows, found_rows, wave8_gaps)
         + wave9_problems(rows9, found9, wave9_gaps)
+        + wave10_problems(rows10, found10, wave10_gaps)
+        + stray_ac(ac_rows(), scan_wave10_extra())
         + stray_rows(rows, found_rows)
         + stray_uinfr(uinfr_rows(), scan_uinfr_rows())
         + uinfr_range_problems()

@@ -14,7 +14,7 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
                   vertical tool rail left of the canvas, zoom inside the canvas, panel docked beside it     AC-5, AC-14)
   TC-053-102  ->  tablet 820 x 1180 (md): rail left, the panel a drawer over the canvas that does not     (GP-UX-069)
                   narrow it,
-                  no horizontal scrolling - the layout of md only, NOT AC-2 (see below)
+                  no horizontal scrolling - the layout of md only, not the 1024 x 768 criterion (see below)
   TC-053-104  ->  phone 390 x 844 (planning mode): TouchBar and tool bar below the canvas, undo/redo in     (AC-9,
                   the TouchBar, tabs and panel switch in the overflow (entries >= 48 px with text), every   AC-15 part)
                   bar button >= 48 x 48 px, the selection opens a bottom sheet above the bars
@@ -29,9 +29,10 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
                   the garden keeps "Beete" and its frost layer                                               GP-FR-182)
 
 Not automated here, on purpose (no skip, no xfail - there is nothing to run):
-  TC-053-103  AC-2 "every editor function reachable at 1024 x 768" is BLOCKED by #2868: the tools Fläche, Pflanze
+  TC-053-103  the 1024 x 768 criterion "every editor function reachable" is BLOCKED by #2868: the tools Fläche, Pflanze
               setzen, Messen and Beschriftung of GP-UX-001 are typed but not built. A test that certified today's
-              tool rail as AC-2 would confirm the criterion falsely; TC-053-102 measures only the md layout.
+              tool rail would confirm the criterion falsely; TC-053-102 measures only the md layout. The wave-10
+              matrix carries the criterion as an open gap on #2868 (`GP-REQ-wave10-gaps.json`).
 
 Breakpoints are the app theme's own (``theme/tokens.ts``): md = 768 px, lg = 1024 px - so 1024 x 768 is already lg
 (docked panel), and the tablet case uses the suite's tablet size 820 x 1180, which is md (drawer).
@@ -41,6 +42,10 @@ browser at exactly their width themselves (``set_phone_viewport`` resizes and re
 back; under the mobile/tablet profiles a CDP emulation would pin another size, so they do not run there). They
 first store the user's dismissal of the light-mode warning banner (``dismiss_light_mode_warning``): the banner shows
 only in light mode on a non-private host and would be measured as part of the editor's height otherwise.
+
+Testids (AC-10, GP-UX-070): the suite reaches the reworked editor only through the ``data-testid`` the earlier waves
+already used (``garden-plan-canvas``, ``garden-plan-svg``, ``garden-plan-toolbar``, ``bed-list-section`` …) via
+the migrated page objects; a renamed id breaks these cases, as it breaks the wave 2-9 suites that use them.
 
 Preconditions are self-provisioned through the application's own API, one fresh site per test with a UUID-derived
 name (`_garden_plan_helpers.py`): sites (garden and indoor), plan boundaries, beds/tents/shelves/rooms and garden
@@ -468,7 +473,7 @@ def test_tc_053_102_tablet_820_panel_is_a_drawer_over_the_canvas(
 
     Breaks if the rail is not vertical left of the canvas, the header bar wraps, the panel opens in another form than
     the drawer, the drawer does not lie over the canvas area's right edge or narrows it, or the page scrolls sideways
-    (GP-UX-069, GP-UX-068). The md layout only - NOT AC-2, which is blocked by #2868 (TC-053-103).
+    (GP-UX-069, GP-UX-068). The md layout only - not the 1024 x 768 criterion, blocked by #2868 (TC-053-103).
     """
     set_phone_viewport(browser, 820, 1180)
     plan.dismiss_light_mode_warning()
