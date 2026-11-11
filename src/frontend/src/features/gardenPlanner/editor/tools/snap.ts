@@ -5,7 +5,7 @@
  * shape - every (rotated) vertex, a circle's centre and its four cardinal points - so its right edge
  * can land on another object's left edge. Pure: the editor supplies the candidates.
  */
-import { roundLength, rotatePoint, toShape } from '../../model/geometry';
+import { roundLength, toShape } from '../../model/geometry';
 import type { Geometry, Point } from '../../model/types';
 import { snapToStep } from '../../model/units';
 
@@ -20,12 +20,6 @@ export interface SnapCandidates {
   edges: readonly (readonly [Point, Point])[];
 }
 
-/** A grid frame other than the plan's: a bed's rotated, bed-local raster (slots, GP-FR-154). */
-export interface GridFrame {
-  origin: Point;
-  rotationDeg: number;
-}
-
 export interface SnapOptions {
   /** Grid step in metres; the grid snaps only while `gridEnabled`. */
   gridM: number;
@@ -36,7 +30,6 @@ export interface SnapOptions {
   pointerType?: SnapPointerType;
   /** Corners and edges of other visible objects (`snapCandidates` of the plan index, GP-FR-154). */
   candidates?: SnapCandidates;
-  gridFrame?: GridFrame;
 }
 
 export interface SnapResult {
@@ -81,14 +74,8 @@ function segmentParam(px: number, py: number, a: Point, b: Point): number {
   return Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / lengthSq));
 }
 
-function snapToGrid(point: Point, step: number, frame: GridFrame | undefined): Point {
-  if (!frame) return [snapToStep(point[0], step), snapToStep(point[1], step)];
-  const local = rotatePoint(point, -frame.rotationDeg, frame.origin);
-  const snapped: Point = [
-    frame.origin[0] + snapToStep(local[0] - frame.origin[0], step),
-    frame.origin[1] + snapToStep(local[1] - frame.origin[1], step),
-  ];
-  return rounded(rotatePoint(snapped, frame.rotationDeg, frame.origin));
+function snapToGrid(point: Point, step: number): Point {
+  return [snapToStep(point[0], step), snapToStep(point[1], step)];
 }
 
 /**
@@ -194,7 +181,7 @@ export function resolveMoveSnap(
     }
   }
   if (options.gridEnabled) {
-    const point = snapToGrid([reference[0] + dx, reference[1] + dy], options.gridM, options.gridFrame);
+    const point = snapToGrid([reference[0] + dx, reference[1] + dy], options.gridM);
     return { delta: [point[0] - reference[0], point[1] - reference[1]], kind: 'grid', point };
   }
   return free();
@@ -204,4 +191,21 @@ export function resolveMoveSnap(
 export function resolveSnap(pointM: Point, options: SnapOptions): SnapResult {
   const { point, kind, guide } = resolveMoveSnap([pointM], pointM, [0, 0], options);
   return guide ? { point, kind, guide } : { point, kind };
+}
+
+/**
+ * Grid snap of a single point (slots, in their bed frame, GP-FR-154): the point always lands on the nearest grid
+ * crossing, as the plan grid does in the editor - the pixel tolerance belongs to the object snaps only. `Alt`
+ * (bypass) or a step that is no step returns the point unchanged. Point in, point out in the frame the grid belongs
+ * to - for a slot that is the bed frame (anchor at (0, 0), unrotated), so the raster turns with the bed without a
+ * frame transform. The caller rounds to its own precision.
+ */
+export function snapPointToGrid(point: Point, gridM: number, bypass: boolean): Point {
+  if (bypass || !(gridM > 0)) return [point[0], point[1]];
+  return snapToGrid(point, gridM);
+}
+
+/** A DOM pointer type as a snap tolerance class; an unknown or empty one counts as the mouse. */
+export function snapPointerType(pointerType: string | undefined): SnapPointerType {
+  return pointerType === 'touch' || pointerType === 'pen' ? pointerType : 'mouse';
 }

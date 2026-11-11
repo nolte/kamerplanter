@@ -91,7 +91,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
   const previousYear = usePreviousYear(summary.key, year - 1, plantingVersion + historyVersion);
   // The site's sun-class and reach thresholds (GP-FR-164/166, WP 8.24); the defaults until it is read. Its type hides
   // weather, frost and wind on an indoor site (GP-FR-182, WP 10.8).
-  const { thresholds, siteType } = useSiteFacts(summary.site_key);
+  const { thresholds, siteType, gridStepM } = useSiteFacts(summary.site_key);
 
   const targets = useMemo(
     () => (canEdit ? allowedBedTransitions(summary.bed_status, canDelete) : []),
@@ -112,6 +112,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
             <BedPlantingTab
               bed={summary}
+              gridStepM={gridStepM}
               onChanged={() => {
                 setPlantingVersion((value) => value + 1);
                 void onReload();

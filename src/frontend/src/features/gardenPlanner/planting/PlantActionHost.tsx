@@ -25,9 +25,11 @@ interface PlantActionHostProps {
   onClose: () => void;
   /** The slot or the task changed; reload what shows it. */
   onChanged: () => void;
+  /** The site plan's grid step in metres: "Correct position" snaps a dragged plant to it (GP-FR-154). */
+  gridStepM: number;
 }
 
-export default function PlantActionHost({ bed, target, onClose, onChanged }: PlantActionHostProps) {
+export default function PlantActionHost({ bed, target, onClose, onChanged, gridStepM }: PlantActionHostProps) {
   const { t } = useTranslation();
   const notification = useNotification();
   if (!target) return null;
@@ -41,6 +43,7 @@ export default function PlantActionHost({ bed, target, onClose, onChanged }: Pla
           bedKey={bed.key}
           slotKey={target.slotKey}
           plantLabel={target.plantLabel}
+          gridStepM={gridStepM}
           onClose={onClose}
           onCorrected={() => {
             notification.success(t('pages.bed.planting.position.done', { plant: target.plantLabel }));

@@ -45,6 +45,28 @@ export function nearestGridStep(valueM: number | null | undefined): number {
   );
 }
 
+/** The grid an indoor site's plan starts with (GP-FR-182); mirrors the backend `DEFAULT_INDOOR_GRID_M`. */
+export const DEFAULT_INDOOR_GRID_STEP_M = 0.05;
+
+/**
+ * The snap grid of a loaded plan, as the editor starts on it: the stored `settings.default_grid_m`, else the site
+ * type's default the plan response names (`defaultGridM`), as a step of {@link GRID_STEPS_M}.
+ */
+export function planGridStep(plan: {
+  settings: { default_grid_m: number } | null;
+  defaultGridM?: number;
+}): number {
+  return nearestGridStep(plan.settings?.default_grid_m ?? plan.defaultGridM);
+}
+
+/**
+ * The same grid read from `GET /sites/{key}` (a view without the plan): the stored `plan.default_grid_m`, else the
+ * default of the site type - 5 cm indoor, 10 cm otherwise (backend `default_grid_m_for`).
+ */
+export function siteGridStep(storedM: number | null | undefined, indoor: boolean): number {
+  return nearestGridStep(storedM ?? (indoor ? DEFAULT_INDOOR_GRID_STEP_M : DEFAULT_GRID_STEP_M));
+}
+
 /** "1 cm", "25 cm", "1 m" - the label of a grid step in the header. */
 export function gridStepLabel(stepM: number, locale?: string): string {
   const format = new Intl.NumberFormat(locale);

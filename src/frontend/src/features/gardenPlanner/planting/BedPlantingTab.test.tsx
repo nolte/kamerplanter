@@ -51,7 +51,7 @@ function useTabBackend(plantings: PlantingItem[] = PLANTINGS, slotGeometry: unkn
 function renderTab(role: 'viewer' | 'grower' | 'lead' = 'grower', bed: BedSummary = bedSummary(), onChanged = vi.fn()) {
   return {
     onChanged,
-    ...renderWithProviders(<BedPlantingTab bed={bed} onChanged={onChanged} />, {
+    ...renderWithProviders(<BedPlantingTab bed={bed} onChanged={onChanged} gridStepM={0.1} />, {
       store: createTestStore({ ...tenantState(role), ...authState() }),
     }),
   };

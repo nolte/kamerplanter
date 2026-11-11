@@ -3,7 +3,8 @@
  * marker on the bed or - the default in the field (F-13) - move it with the stepper buttons or type the
  * coordinates. The stepper moves 10 cm per press (§18.1 step 9, #2514); a step-size choice below the arrows
  * switches it to the fine steps 5 cm and 1 cm everywhere except field mode, which turns the choice off
- * (`showFineSteps`). The server logs
+ * (`showFineSteps`). Dragged with the pointer the marker snaps to the site plan's grid in the bed frame (`gridStepM`,
+ * GP-FR-154; `Alt` drags freely); the stepper is not snapped. The server logs
  * `care_event(position_corrected)` with the plant; nothing here writes it. A plant in a zone has no single
  * position and cannot be moved (the panel says so).
  */
@@ -56,6 +57,8 @@ interface PositionCorrectionDialogProps {
   touchTarget?: number;
   /** Hold time before the marker can be dragged; field mode needs a 500 ms long press (GP-UX-023). */
   dragHoldMs?: number;
+  /** The site plan's grid step in metres (`default_grid_m`): a dragged marker snaps to it in the bed frame. */
+  gridStepM: number;
   /**
    * Offer the step-size choice {@link stepCm} / {@link FINE_STEPS_CM} below the stepper (default on). Every
    * caller but field mode leaves it on, whatever the viewport - the plant action host passes nothing. Field mode
@@ -85,6 +88,7 @@ export default function PositionCorrectionDialog({
   stepCm = STEP_CM,
   touchTarget = 48,
   dragHoldMs,
+  gridStepM,
   showFineSteps = true,
 }: PositionCorrectionDialogProps) {
   const { t } = useTranslation();
@@ -216,6 +220,7 @@ export default function PositionCorrectionDialog({
               selected={{ layerId: 'plant', index: 0 }}
               onMove={(_, __, next) => moveTo(next)}
               dragHoldMs={dragHoldMs}
+              gridStepM={gridStepM}
               testId="position-canvas"
             />
             <Box
