@@ -47,7 +47,7 @@ on:
       - 'docs/requirements.in'
       - 'docs/requirements.txt'
       # The invocation. `task docs:lock` and `task docs:venv` hold the compile
-      # flags (`--universal --python-version 3.11 --generate-hashes`) and the
+      # flags (`--universal --python-version 3.14 --generate-hashes`) and the
       # install command; a change to either moves what this lane measures, and a
       # gate that does not watch its own definition is the #1296 shape.
       # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
@@ -82,13 +82,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        # 3.14, matching the runner-side half of the release install: the
-        # compiled file is `--universal`, and `reusable-mkdocs.yaml` installs it
-        # once on the runner and once inside
-        # `squidfunk/mkdocs-material:9.0.6` (Alpine, CPython 3.11.0). This lane
-        # measures the runner half; the musllinux hashes the container half
-        # needs are in the same file and are covered by the drift step, which
-        # recompiles with `--python-version 3.11`.
+        # 3.14, the interpreter the release install uses: since gh-plumbing
+        # v2.2.1 `reusable-mkdocs.yaml` installs, builds and deploys on the
+        # runner with `python-version` 3.14, and `task docs:lock` resolves for
+        # `--python-version 3.14`.
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
