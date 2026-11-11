@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
 import { normalizePlan } from '../model/planModel';
-import { fillViewport, fitViewport, focusViewport, planContentBounds } from './fitViewport';
+import { fillViewport, fitIntoCanvas, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 
 describe('planContentBounds', () => {
   it('is the box around the boundary, the beds and the garden objects', () => {
@@ -121,5 +121,26 @@ describe('fillViewport (GP-UX-067: the canvas takes the room it is given)', () =
     expect(viewport.widthPx).toBe(800);
     expect(viewport.heightPx).toBe(400);
     expect((1 - viewport.originM[0]) * viewport.pxPerM).toBeCloseTo(400, 6);
+  });
+});
+
+describe('fitIntoCanvas (WP 10.5: a panel docked by the selection does not move the plan)', () => {
+  const bounds = [0, 0, 20, 10] as const;
+
+  it('is fillViewport without a reserve', () => {
+    expect(fitIntoCanvas([...bounds], 900, 500)).toEqual(fillViewport([...bounds], 900, 500));
+  });
+
+  it('keeps the zoom and the top-left corner of the wider fit, and draws only the narrower canvas', () => {
+    const before = fitIntoCanvas([...bounds], 1252, 500);
+    const withPanel = fitIntoCanvas([...bounds], 900, 500, 1252);
+    expect(withPanel.pxPerM).toBe(before.pxPerM);
+    expect(withPanel.originM).toEqual(before.originM);
+    expect(withPanel.widthPx).toBe(900);
+    expect(withPanel.heightPx).toBe(500);
+  });
+
+  it('never fits into less than the canvas itself', () => {
+    expect(fitIntoCanvas([...bounds], 900, 500, 400)).toEqual(fillViewport([...bounds], 900, 500));
   });
 });

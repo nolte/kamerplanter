@@ -13,7 +13,7 @@ vi.mock('../api/companionEdges', () => ({ getCompanionEdges: vi.fn() }));
 import * as api from '../api/companionEdges';
 import type { CompanionEdgeWire, CompanionEdgesWire } from '../api/companionEdges';
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
-import { pointer, px, setupEditor } from '../editor/editorTestKit';
+import { openPanelTab, pointer, px, setupEditor } from '../editor/editorTestKit';
 
 const getCompanionEdges = vi.mocked(api.getCompanionEdges);
 const LAYERS_KEY = 'kp_garden_plan_layers';
@@ -77,6 +77,7 @@ async function setupOn() {
 describe('companion layer in the editor', () => {
   it('is off by default: no toggle pressed, no read, no lines', async () => {
     setupEditor({ renderer: new SvgPlanRenderer() });
+    openPanelTab('layers'); // the layer switches and the legend are in the side panel's tab "Ebenen" (WP 10.5)
     const toggle = screen.getByTestId('garden-plan-layer-companion');
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
     await act(async () => undefined);
@@ -91,6 +92,7 @@ describe('companion layer in the editor', () => {
       'b1:s1|s2',
       'b1:s2|s9',
     ]);
+    openPanelTab('layers');
     expect(await screen.findByTestId('garden-plan-legend-companion')).toBeTruthy();
   });
 
@@ -155,6 +157,7 @@ describe('companion layer in the editor', () => {
 
   it('lists the pairs in view as text, incompatible first, behind a disclosure button', async () => {
     await setupOn();
+    openPanelTab('layers');
     const toggle = await screen.findByTestId('garden-plan-legend-companion-list-toggle');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByTestId('garden-plan-legend-companion-list')).toBeNull();

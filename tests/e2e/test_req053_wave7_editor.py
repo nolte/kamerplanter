@@ -278,7 +278,7 @@ def test_tc_053_048_last_watered_layer_days_since_per_bed(
         },
         "TC-053-048: classes and labels of the last-watered layer, Beet C without hatching",
     )
-    legend = plan.text_of(plan.LEGEND_WATERED)
+    legend = plan.legend_section(plan.LEGEND_WATERED)
     for fragment in (
         "Tage seit dem letzten Gießen",
         "0 bis 1 Tag seit",

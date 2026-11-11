@@ -1,7 +1,7 @@
 /**
  * The frame of the plan editor's workspace (REQ-053 §17.3, WP 10.3): the skip links, the one header bar, and the
- * content below it - messages, the rows that are still above the plan until WP 10.4/10.5, the canvas row (or the
- * list) and what docks under it. `GardenPlanEditor` is the content: it owns the state and hands the parts in; the
+ * content below it - messages and tool hints, the canvas row (or the list) with the side panel docked beside it or
+ * lying over it, and what docks under it. `GardenPlanEditor` is the content: it owns the state and hands the parts in; the
  * frame owns only the arrangement, so desktop, tablet and phone come from this one tree (GP-UX-069).
  *
  * Behind the tab "Beete" the content is hidden, not unmounted (GP-UX-065): the header bar stays, because the tabs
@@ -25,9 +25,9 @@ interface EditorWorkspaceProps {
   header: ReactNode;
   /** Save messages, notices, hints and the rows above the plan. */
   above: ReactNode;
-  /** The canvas row (canvas area and docked panel) or the list. */
+  /** The canvas row (tool rail, canvas area, side panel docked or as a drawer) or the list. */
   body: ReactNode;
-  /** The zone panel, the bottom dock on phones. */
+  /** The bottom dock on phones: the side panel as a bottom sheet above the TouchBar and the tool bar. */
   below: ReactNode;
   /** Live region and dialogs: always mounted, also behind the "Beete" tab. */
   overlays: ReactNode;

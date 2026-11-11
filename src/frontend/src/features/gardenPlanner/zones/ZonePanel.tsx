@@ -32,12 +32,25 @@ export interface ZonePanelProps {
   /** A watering round was logged: the last-watered layer is read again. */
   onWatered: () => void;
   onClose: () => void;
+  /**
+   * Move the focus to the panel's heading when it opens (default). Off when it opens as a tab of the side panel
+   * chosen in the tab list: the focus stays on the tab, so the arrow keys keep moving through the tabs (WP 10.5).
+   */
+  focusOnOpen?: boolean;
 }
 
 /** `adopt`: the edit form continues a create whose bed assignment failed (the beds chosen, the message). */
 type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'edit'; key: string; adopt?: ZoneAdoption };
 
-export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, onWatered, onClose }: ZonePanelProps) {
+export default function ZonePanel({
+  plan,
+  zoneData,
+  selectedBedKeys,
+  onChanged,
+  onWatered,
+  onClose,
+  focusOnOpen = true,
+}: ZonePanelProps) {
   const { t } = useTranslation();
   const { canEdit, canDelete, canConfigureIntegrations } = useTenantPermissions();
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
@@ -51,8 +64,12 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
   const record = selected ? (records.find((zone) => zone.key === selected.key) ?? null) : null;
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
-  // Focus follows the panel: into it on open, and to its heading when the view changes (after a save, a delete, a cancel).
+  // Focus follows the panel: into it on open (unless asked not to), and to its heading when the view changes (after a
+  // save, a delete, a cancel). The view last focused for is remembered, so a repeated effect run focuses nothing.
+  const focusedFor = useRef<Mode['kind'] | null>(focusOnOpen ? null : mode.kind);
   useEffect(() => {
+    if (focusedFor.current === mode.kind) return;
+    focusedFor.current = mode.kind;
     headingRef.current?.focus();
   }, [mode.kind]);
 

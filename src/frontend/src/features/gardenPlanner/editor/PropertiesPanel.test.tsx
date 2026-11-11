@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import type { PlanModel } from '../model/planModel';
 import type { PlanLocation } from '../model/types';
-import { setupEditor, typeAndBlur } from './editorTestKit';
+import { openPanelTab, setupEditor, typeAndBlur } from './editorTestKit';
 import { testPlan } from './tools/toolTestKit';
 import { changeBedStatus, patchSoilProfile, patchSun } from '../bed/bedApi';
 import { listLocationTypes } from '@/api/endpoints/sites';
@@ -56,6 +56,8 @@ function planWithPolygon(): PlanModel {
 describe('empty state (GP-UX-049)', () => {
   it('says what to do with exactly one action, which starts the bed tool', () => {
     const t = setupEditor();
+    // Without a selection the side panel is collapsed (GP-UX-068); opened on its properties it shows the empty state.
+    openPanelTab('properties');
     const empty = screen.getByTestId('garden-plan-panel-empty');
     expect(empty).toHaveTextContent(/Pick a bed or object/);
     expect(within(empty).getAllByRole('button')).toHaveLength(1);
@@ -65,6 +67,7 @@ describe('empty state (GP-UX-049)', () => {
 
   it('has no accessibility violations', async () => {
     const t = setupEditor();
+    openPanelTab('properties');
     await expectNoA11yViolations(t.view.container);
   });
 });

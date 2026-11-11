@@ -76,7 +76,6 @@ import { useRendererLabels } from '../renderer/useRendererLabels';
 import { GardenPlanEditor, type EditorTabs, type EditorView } from '../editor/GardenPlanEditor';
 import { PlanViewTabs, type HeaderNav } from '../editor/EditorHeaderBar';
 import type { CanvasAreaSize } from '../editor/useCanvasArea';
-import { EDITOR_SIDEBAR_RESERVE_PX } from '../editor/layout';
 import { EDITOR_ANCHORS } from '../editor/anchors';
 import type { BoundingBox, Point } from '../model/types';
 import { zoomAround } from '../model/units';
@@ -86,7 +85,7 @@ import { PlanIoMenu, usePlanIo } from '../io/PlanIoMenu';
 import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
-import { EMPTY_PLAN_BOUNDS, fillViewport, fitViewport, focusViewport, planContentBounds } from './fitViewport';
+import { EMPTY_PLAN_BOUNDS, fitIntoCanvas, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
 import { isTabOnlyChange, planTabSearch, resolvePlanTab, type PlanTab } from './planTab';
@@ -176,12 +175,9 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   );
   const onEditorView = useCallback((next: EditorView) => selectTab(next), [selectTab]);
   const { t } = useTranslation();
-  const theme = useTheme();
   const navigate = useNavigate();
   const notification = useNotification();
   const { canDelete, canEdit } = useTenantPermissions();
-  // From md up the properties panel sits beside the plan and takes its width from the drawing.
-  const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
   const { plan, loadStatus, loadError, loadRequestId, cachedAt, offlineMiss } = useAppSelector(selectGardenPlanState);
   const online = useOnlineStatus();
@@ -271,15 +267,19 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   const fitted = useMemo(() => {
     if (bounds === null) return null;
     if (canvasSize !== null) {
-      return fillViewport(
+      // A side panel that a selection docked beside the canvas still counts for the fit (WP 10.5): the plan keeps
+      // its zoom and its top-left corner, so selecting a bed does not move it under the pointer.
+      return fitIntoCanvas(
         bounds,
         Math.max(1, canvasSize.widthPx - CANVAS_BORDER_PX),
         Math.max(1, canvasSize.heightPx - CANVAS_BORDER_PX),
+        Math.max(1, (canvasSize.fitWidthPx ?? canvasSize.widthPx) - CANVAS_BORDER_PX),
       );
     }
+    // Not measured yet: a collapsed side panel reserves no width (§17.3, AC-5), so the drawing takes the full width.
     const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
-    return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX - (sidebarBeside ? EDITOR_SIDEBAR_RESERVE_PX : 0)), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
-  }, [bounds, canvasSize, canvasWidth, sidebarBeside]);
+    return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
+  }, [bounds, canvasSize, canvasWidth]);
 
   // The user's view: pan and zoom replace the fitted view until "fit to area" (or another load)
   // drops them. It belongs to one site and one load, so neither needs an effect to reset it.
@@ -298,7 +298,20 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   useEffect(() => {
     viewportRef.current = viewport;
   });
-  const minPxPerM = fitted?.pxPerM ?? 1;
+  // The plan fitted into the canvas that is visible right now, without the room a docked panel takes (WP 10.5):
+  // "fit to area" shows exactly that, and it is the lowest zoom (GP-FR-150) - the whole plan in view.
+  const visibleFit = useMemo(() => {
+    if (bounds === null || canvasSize === null) return null;
+    const reserved = (canvasSize.fitWidthPx ?? canvasSize.widthPx) > canvasSize.widthPx;
+    return reserved
+      ? fitIntoCanvas(
+          bounds,
+          Math.max(1, canvasSize.widthPx - CANVAS_BORDER_PX),
+          Math.max(1, canvasSize.heightPx - CANVAS_BORDER_PX),
+        )
+      : null;
+  }, [bounds, canvasSize]);
+  const minPxPerM = Math.min(fitted?.pxPerM ?? 1, visibleFit?.pxPerM ?? Number.POSITIVE_INFINITY);
 
   const onPan = useCallback(
     (dxPx: number, dyPx: number) => {
@@ -328,7 +341,15 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     },
     [key, loadRequestId, minPxPerM],
   );
-  const onFit = useCallback(() => setView(null), []);
+  // "Fit to area": back to the fitted view - or, while a selection's panel is docked beside the canvas, the plan
+  // fitted into what is visible, kept as the user's view so the panel closing later does not move it again.
+  const onFit = useCallback(() => {
+    if (visibleFit === null) {
+      setView(null);
+      return;
+    }
+    setView({ siteKey: key, requestId: loadRequestId, pxPerM: visibleFit.pxPerM, originM: visibleFit.originM });
+  }, [visibleFit, key, loadRequestId]);
 
   // GP-ACC-016, GP-FR-042: a row of the bed list opens the plan, selects the bed and brings its bounding box into
   // view. The canvas is shown one navigation later, so scrolling to it and focusing it wait for that render.

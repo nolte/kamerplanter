@@ -24,6 +24,7 @@ import { stepZoom, zoomAround } from '../model/units';
 import type { Point } from '../model/types';
 import { testPlan } from './tools/toolTestKit';
 import { GardenPlanEditor } from './GardenPlanEditor';
+import { openPanelTab } from './editorTestKit';
 
 const START: Viewport = { originM: [0, 20], pxPerM: 40, widthPx: 800, heightPx: 800 };
 const MIN_PX_PER_M = 10;
@@ -103,6 +104,7 @@ describe('snap to grid (GP-FR-012, GP-ACC-006)', () => {
 
   it('follows the chosen grid step shown in the header', () => {
     const t = setup();
+    openPanelTab('view'); // grid, snap and unit are in the side panel's tab "Ansicht" (WP 10.5)
     fireEvent.change(screen.getByTestId('garden-plan-grid-step'), { target: { value: '1' } });
     t.drag([[4, 4], [4.2, 4], [4.6, 4]]);
     expect(t.originOf('b1')).toEqual([4, 3]);
@@ -110,6 +112,7 @@ describe('snap to grid (GP-FR-012, GP-ACC-006)', () => {
 
   it('the switch turns snapping off, the value is then only rounded to the millimetre', () => {
     const t = setup();
+    openPanelTab('view'); // grid, snap and unit are in the side panel's tab "Ansicht" (WP 10.5)
     fireEvent.click(screen.getByTestId('garden-plan-snap-toggle'));
     t.drag([[4, 4], [4.1, 4], [4.23, 4]]);
     expect(t.originOf('b1')[0]).toBeCloseTo(3.23, 3);
@@ -155,12 +158,14 @@ describe('grid lines (GP-FR-011)', () => {
     const t = setup();
     fireEvent.keyDown(t.canvas(), { key: 'g' });
     expect(screen.queryByTestId('garden-plan-grid')).toBeNull();
+    openPanelTab('view'); // grid, snap and unit are in the side panel's tab "Ansicht" (WP 10.5)
     fireEvent.click(screen.getByTestId('garden-plan-grid-toggle'));
     expect(screen.getByTestId('garden-plan-grid')).toBeInTheDocument();
   });
 
   it('snapping keeps its raster while the lines of a fine step are not drawn', () => {
     const t = setup();
+    openPanelTab('view'); // grid, snap and unit are in the side panel's tab "Ansicht" (WP 10.5)
     fireEvent.change(screen.getByTestId('garden-plan-grid-step'), { target: { value: '0.01' } });
     expect(step()).toBeGreaterThan(0.01);
     t.drag([[4, 4], [4.1, 4], [4.237, 4]]);
@@ -309,6 +314,7 @@ describe('dimension text (GP-FR-014)', () => {
     fireEvent.pointerDown(t.canvas(), mouse(px(4, 4)));
     fireEvent.pointerUp(t.canvas(), mouse(px(4, 4)));
     expect(screen.getByTestId('garden-plan-dimension')).toHaveTextContent('2.00 m × 2.00 m · 4.00 m²');
+    openPanelTab('view'); // grid, snap and unit are in the side panel's tab "Ansicht" (WP 10.5)
     fireEvent.click(screen.getByTestId('garden-plan-unit-cm'));
     expect(screen.getByTestId('garden-plan-dimension')).toHaveTextContent('200 cm × 200 cm · 4.00 m²');
     expect(window.localStorage.getItem('kp_garden_plan_length_unit')).toBe('cm');
@@ -336,12 +342,14 @@ describe('compass (GP-FR-015)', () => {
 
   it('shows north at 0 degrees and the input as clockwise azimuth', () => {
     setup();
+    openPanelTab('view');
     expect(dial()).toHaveAttribute('aria-valuenow', '0');
     expect(screen.getByLabelText(/North angle/)).toHaveValue(0);
   });
 
   it('typing an angle sets it as one undoable plan operation; the stored value stays an azimuth', () => {
     const t = setup();
+    openPanelTab('view');
     const input = screen.getByLabelText(/North angle/);
     fireEvent.change(input, { target: { value: '90' } });
     fireEvent.blur(input);
@@ -356,6 +364,7 @@ describe('compass (GP-FR-015)', () => {
 
   it('stores 360 as 0 and refuses values outside 0 to 360 with a message', () => {
     const t = setup();
+    openPanelTab('view');
     const input = screen.getByLabelText(/North angle/);
     fireEvent.change(input, { target: { value: '-15' } });
     expect(screen.getByText('Enter an angle from 0 to 360.')).toBeInTheDocument();
@@ -369,6 +378,7 @@ describe('compass (GP-FR-015)', () => {
 
   it('arrow keys turn the dial by 1 degree, Shift by 15', () => {
     const t = setup();
+    openPanelTab('view');
     fireEvent.keyDown(dial(), { key: 'ArrowRight' });
     expect(t.state().plan!.settings!.north_angle_deg).toBe(1);
     fireEvent.keyDown(dial(), { key: 'ArrowRight', shiftKey: true });
@@ -379,6 +389,7 @@ describe('compass (GP-FR-015)', () => {
 
   it('dragging the dial to the right sets 90 degrees on release', () => {
     const t = setup();
+    openPanelTab('view');
     fireEvent.pointerDown(dial(), mouse({ clientX: 30, clientY: 0 }));
     fireEvent.pointerMove(dial(), mouse({ clientX: 30, clientY: 0 }));
     expect(t.state().plan!.settings!.north_angle_deg).toBe(0); // not before release
@@ -388,6 +399,7 @@ describe('compass (GP-FR-015)', () => {
 
   it('does not touch rotation_deg of any object', () => {
     const t = setup();
+    openPanelTab('view');
     const before = JSON.stringify(Object.values(t.state().plan!.locations).map((l) => l.geometry));
     fireEvent.keyDown(dial(), { key: 'ArrowRight', shiftKey: true });
     const after = JSON.stringify(Object.values(t.state().plan!.locations).map((l) => l.geometry));
@@ -399,6 +411,8 @@ describe('accessibility', () => {
   it('the view bar (grid, zoom, compass) and the canvas have no violations', async () => {
     const t = setup();
     await expectNoA11yViolations(t.view.container);
+    openPanelTab('view');
+    await expectNoA11yViolations(t.view.container);
     fireEvent.click(screen.getByTestId('garden-plan-zoom-in'));
     fireEvent.pointerDown(t.canvas(), mouse(px(4, 4)));
     fireEvent.pointerUp(t.canvas(), mouse(px(4, 4)));
@@ -407,10 +421,17 @@ describe('accessibility', () => {
 
   it('every control of the bar has a name and a 44 px target', () => {
     setup();
-    for (const id of ['zoom-in', 'zoom-out', 'zoom-fit', 'grid-toggle', 'snap-toggle', 'unit-m']) {
+    for (const id of ['zoom-in', 'zoom-out', 'zoom-fit']) {
       const button = screen.getByTestId(`garden-plan-${id}`);
       expect(button).toHaveStyle({ minHeight: '44px', minWidth: '44px' });
     }
+    // The view settings are full-width rows of the tab "Ansicht" (WP 10.5): 48 px high (UI-NFR-001 R-011).
+    openPanelTab('view');
+    for (const id of ['grid-toggle', 'snap-toggle', 'unit-m']) {
+      expect(screen.getByTestId(`garden-plan-${id}`)).toHaveStyle({ minHeight: '48px' });
+    }
+    expect(screen.getByTestId('garden-plan-grid-toggle')).toHaveAccessibleName('Show grid');
+    expect(screen.getByTestId('garden-plan-snap-toggle')).toHaveAccessibleName('Snap to grid');
     expect(screen.getByTestId('garden-plan-zoom-in')).toHaveAccessibleName('Zoom in');
     expect(screen.getByTestId('garden-plan-zoom-fit')).toHaveAccessibleName(/Fit/);
     expect(screen.getByLabelText('Grid step')).toBeInTheDocument();

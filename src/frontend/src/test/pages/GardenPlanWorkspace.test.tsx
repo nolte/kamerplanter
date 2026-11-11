@@ -6,7 +6,7 @@
  * jsdom lays nothing out, so the header bar's width is stubbed: `scrollWidth` follows the bar's overflow level
  * (`data-overflow-level`), the way a real bar gets narrower with every step it moves out.
  */
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -22,6 +22,8 @@ import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
 import { tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import { bedListItem } from '@/features/gardenPlanner/bed/bedTestKit';
+import { PANEL_GAP_PX, PANEL_WIDTH_PX } from '@/features/gardenPlanner/editor/layout';
+import { setSelection } from '@/features/gardenPlanner/state/gardenPlanSlice';
 
 const PLAN_URL = '/api/v1/t/:tenant/sites/:key/plan';
 const BEDS_URL = '/api/v1/t/:tenant/locations';
@@ -148,7 +150,7 @@ describe('one header bar (GP-UX-063, AC-3)', () => {
       'garden-plan-save',
       'garden-plan-tabs',
       'garden-plan-mode-field',
-      'garden-plan-zones-open',
+      'garden-plan-panel-toggle',
       'garden-plan-overflow',
     ]) {
       expect(within(bar).getByTestId(id)).toBeInTheDocument();
@@ -201,6 +203,7 @@ describe('one header bar (GP-UX-063, AC-3)', () => {
       'garden-plan-menu-selectAll',
       'garden-plan-menu-multiDuplicate',
       'garden-plan-underlay-open',
+      'garden-plan-zones-open',
       'garden-plan-keyboard-help-button',
       'garden-plan-io-export',
       'garden-plan-io-import',
@@ -234,7 +237,7 @@ describe('move order of the header bar (GP-UX-063)', () => {
     await waitFor(() => expect(bar).toHaveAttribute('data-overflow-level', '2'));
     expect(within(bar).queryByTestId('garden-plan-autosave')).toBeNull();
     expect(within(bar).queryByTestId('garden-plan-mode-field')).toBeNull();
-    expect(within(bar).getByTestId('garden-plan-zones-open')).toBeInTheDocument();
+    expect(within(bar).getByTestId('garden-plan-panel-toggle')).toBeInTheDocument();
     expect(within(bar).getByTestId('garden-plan-tabs')).toBeInTheDocument();
     expect(within(bar).getByTestId('garden-plan-save')).toBeVisible();
     const entries = openOverflow();
@@ -269,7 +272,7 @@ describe('move order of the header bar (GP-UX-063)', () => {
     const bar = screen.getByTestId('garden-plan-header-bar');
     await waitFor(() => expect(bar).toHaveAttribute('data-overflow-level', '4'));
     expect(within(bar).queryByTestId('garden-plan-tabs')).toBeNull();
-    expect(within(bar).queryByTestId('garden-plan-zones-open')).toBeNull();
+    expect(within(bar).queryByTestId('garden-plan-panel-toggle')).toBeNull();
     expect(within(bar).getByTestId('garden-plan-save')).toBeVisible();
     const entries = openOverflow();
     expect(entries.slice(0, 6)).toEqual([
@@ -301,7 +304,7 @@ describe('below md (GP-UX-063, AC-15)', () => {
       'garden-plan-autosave',
       'garden-plan-tabs',
       'garden-plan-mode-field',
-      'garden-plan-zones-open',
+      'garden-plan-panel-toggle',
       'garden-plan-undo',
       'garden-plan-redo',
     ]) {
@@ -351,8 +354,9 @@ describe('canvas on viewport height with overlays (GP-UX-067, AC-14)', () => {
     const area = screen.getByTestId('garden-plan-canvas-area');
     for (const id of ['garden-plan-zoom-in', 'garden-plan-zoom-out', 'garden-plan-zoom-level', 'garden-plan-zoom-fit']) {
       expect(within(area).getByTestId(id)).toBeInTheDocument();
-      expect(within(screen.getByTestId('garden-plan-view-bar')).queryByTestId(id)).toBeNull();
     }
+    // No view row above the plan any more (WP 10.5): the view settings are the side panel's tab "Ansicht".
+    expect(screen.queryByTestId('garden-plan-view-bar')).toBeNull();
     expect(within(area).getByTestId('garden-plan-canvas')).toContainElement(
       screen.getByTestId('garden-plan-scale-bar'),
     );
@@ -392,5 +396,71 @@ describe('canvas on viewport height with overlays (GP-UX-067, AC-14)', () => {
     const svg = screen.getByTestId('garden-plan-svg');
     await waitFor(() => expect(svg.getAttribute('width')).toBe(String(900 - 2)));
     expect(svg.getAttribute('height')).toBe(String(expectedHeight - 2));
+  });
+});
+
+describe('the plan does not move when a selection docks the side panel (WP 10.5)', () => {
+  it('keeps zoom and corner while the panel takes its width; "fit to area" then fits what is visible', async () => {
+    // A wide plan: its fit is limited by the width, so the panel's width would change the zoom.
+    server.use(
+      http.get(PLAN_URL, () =>
+        HttpResponse.json(
+          planResponse({
+            plan: {
+              boundary: { kind: 'rect', origin: [0, 0], width_m: 32, length_m: 3, rotation_deg: 0 },
+              north_angle_deg: 0,
+              default_grid_m: 0.1,
+              adjacency_factor: 1.5,
+              plan_revision: 42,
+            },
+            locations: [bed('loc_a', 0, 0), bed('loc_b', 30, 0)],
+            garden_objects: [],
+          }),
+        ),
+      ),
+      http.get(BEDS_URL, () => HttpResponse.json([])),
+    );
+    const rect = Element.prototype.getBoundingClientRect;
+    const client = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+    const docked = () => document.querySelector('[data-testid="garden-plan-side-panel-dock"]') !== null;
+    // The area loses the panel's width (and the row gap) while the panel is docked, as a laid-out page does.
+    const areaWidth = () => (docked() ? 900 - PANEL_WIDTH_PX - PANEL_GAP_PX : 900);
+    const isArea = (element: Element) => element.getAttribute('data-testid') === 'garden-plan-canvas-area';
+    Element.prototype.getBoundingClientRect = function getBoundingClientRect(this: Element) {
+      return isArea(this) ? new DOMRect(0, 200, areaWidth(), 400) : rect.call(this);
+    };
+    Object.defineProperty(Element.prototype, 'clientWidth', {
+      configurable: true,
+      get(this: Element) {
+        return isArea(this) ? areaWidth() : (client?.get?.call(this) ?? 0);
+      },
+    });
+    restores.push(() => {
+      Element.prototype.getBoundingClientRect = rect;
+      if (client) Object.defineProperty(Element.prototype, 'clientWidth', client);
+    });
+    const { store } = renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    const svg = screen.getByTestId('garden-plan-svg');
+    await waitFor(() => expect(svg.getAttribute('width')).toBe(String(900 - 2)));
+    const zoom = () => screen.getByTestId('garden-plan-zoom-level').textContent;
+    const before = zoom();
+    act(() => {
+      store.dispatch(setSelection([{ entity: 'location', key: 'loc_a' }]));
+    });
+    expect(screen.getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'docked');
+    await waitFor(() => expect(svg.getAttribute('width')).toBe(String(areaWidth() - 2)));
+    // Same zoom, same corner: the bed under the pointer stays where it was.
+    expect(zoom()).toBe(before);
+    // "Fit to area" fits the plan into the narrower canvas that is visible now.
+    fireEvent.click(screen.getByTestId('garden-plan-zoom-fit'));
+    await waitFor(() => expect(zoom()).not.toBe(before));
+    const fitted = zoom();
+    // Closing the panel keeps that view (it is the user's now): nothing jumps.
+    act(() => {
+      store.dispatch(setSelection([]));
+    });
+    await waitFor(() => expect(screen.queryByTestId('garden-plan-side-panel')).toBeNull());
+    expect(zoom()).toBe(fitted);
   });
 });

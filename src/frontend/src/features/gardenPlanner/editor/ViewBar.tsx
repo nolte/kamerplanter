@@ -1,58 +1,29 @@
 /**
- * The view row of the plan editor (REQ-053 WP 2.5): grid step, grid and snap switches, the layer switches, the
- * length unit and the compass (GP-FR-154: the grid step belongs in the header). Zoom and "fit to area" left it in
- * wave 10: they are an overlay on the canvas (`ZoomOverlay`, §17.3 GP-UX-067). The rest moves into the panel tab
- * "Ansicht" with WP 10.5 (GP-UX-068); until then it is its own row under the header bar.
+ * The view settings of the plan editor (REQ-053 WP 2.5, GP-FR-154): grid step, the grid and snap switches, the
+ * length unit and the compass with the north angle. Since wave 10 they are the content of the side panel's tab
+ * "Ansicht" (§17.3, GP-UX-068, WP 10.5), also in the bottom sheet below md (GP-UX-052: grid step and snap in the
+ * tab "Ansicht"). Zoom and "fit to area" are an overlay on the canvas (`ZoomOverlay`, GP-UX-067); the layer switches
+ * are in the tab "Ebenen" (`LayersTab`). The test id `garden-plan-view-bar` stays on the group (GP-UX-070).
  */
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
-import type { Theme } from '@mui/material/styles';
-import { useId, type ReactNode } from 'react';
-import Divider from '@mui/material/Divider';
-import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
-import { visuallyHidden } from '@mui/utils';
+import Typography from '@mui/material/Typography';
+import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import { GRID_STEPS_M, gridStepLabel, type LengthUnit } from '../model/units';
 import { Compass } from './Compass';
 
 const PREFIX = 'pages.gardenPlan.editor';
-const TARGET_PX = 44;
-
-/**
- * The filter "only plants that need attention" (GP-UX-061): depends on the plant-state layer and is disabled while
- * that layer is off, so it never claims to filter something that is not drawn.
- */
-export interface AttentionFilterToggle {
-  active: boolean;
-  /** The plant-state layer is on. */
-  enabled: boolean;
-  label: string;
-  /** Tooltip while usable, and the reason while disabled. */
-  hint: string;
-  icon: ReactNode;
-  onChange: (active: boolean) => void;
-}
-
-/** A layer switch of the registry (`layers.ts`) other than the grid: icon only, so its name is the aria-label. */
-export interface LayerToggle {
-  id: string;
-  label: string;
-  hint: string;
-  icon: ReactNode;
-  visible: boolean;
-}
+const TARGET_PX = 48;
 
 export interface ViewBarProps {
-  /** The registry layers with a toggle of their own (zones, last watered, later more). */
-  layerToggles?: readonly LayerToggle[];
-  onLayer?: (id: string, visible: boolean) => void;
-  /** Shown next to the layer toggles when the plan has a plant-state layer. */
-  attentionFilter?: AttentionFilterToggle;
   gridStepM: number;
   onGridStep: (stepM: number) => void;
   gridVisible: boolean;
@@ -66,23 +37,18 @@ export interface ViewBarProps {
   onNorthAngle?: (angleDeg: number) => void;
 }
 
-// A divider between wrapped rows would dangle at the line end on a phone: only where all fits.
-const dividerSx = { display: { xs: 'none', md: 'block' } } as const;
-
-const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
-/** The look of a disabled button on one that stays focusable (`aria-disabled`). */
-const disabledLookSx = (theme: Theme) => ({ color: theme.palette.action.disabled, cursor: 'not-allowed' });
+const switchSx = { minHeight: TARGET_PX, gap: 1, justifyContent: 'flex-start', textTransform: 'none' } as const;
 
 export function ViewBar(props: ViewBarProps) {
   const { t, i18n } = useTranslation();
-  const attentionHintId = useId();
+  const unitLabelId = useId();
   return (
-    <Paper
-      variant="outlined"
+    <Stack
       role="group"
       aria-label={t(`${PREFIX}.view.label`)}
       data-testid="garden-plan-view-bar"
-      sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 0.5, flexWrap: 'wrap' }}
+      spacing={2}
+      sx={{ minWidth: 0 }}
     >
       <TextField
         select
@@ -94,7 +60,7 @@ export function ViewBar(props: ViewBarProps) {
           select: { native: true },
           htmlInput: { 'data-testid': 'garden-plan-grid-step' },
         }}
-        sx={{ minWidth: 104, '& select': { minHeight: TARGET_PX, boxSizing: 'border-box', display: 'flex', alignItems: 'center' } }}
+        sx={{ '& select': { minHeight: TARGET_PX, boxSizing: 'border-box', display: 'flex', alignItems: 'center' } }}
       >
         {GRID_STEPS_M.map((step) => (
           <option key={step} value={String(step)}>
@@ -102,111 +68,67 @@ export function ViewBar(props: ViewBarProps) {
           </option>
         ))}
       </TextField>
-      <ToggleButtonGroup size="small" aria-label={t(`${PREFIX}.grid.toggles`)}>
-        <Tooltip title={t(`${PREFIX}.grid.toggleHint`)}>
+      {/*
+        Grid and snap carry their name as visible text: there is room for it in the panel (label in name). The tooltip
+        describes them (`describeChild`); as a name it would replace the visible text (WCAG 2.5.3).
+      */}
+      <ToggleButtonGroup orientation="vertical" size="small" aria-label={t(`${PREFIX}.grid.toggles`)} fullWidth>
+        <Tooltip title={t(`${PREFIX}.grid.toggleHint`)} placement="left" describeChild>
           <ToggleButton
             value="grid"
             selected={props.gridVisible}
             onChange={() => props.onGridVisible(!props.gridVisible)}
-            aria-label={t(`${PREFIX}.grid.toggle`)}
             aria-keyshortcuts="G"
             data-testid="garden-plan-grid-toggle"
-            sx={buttonSx}
+            sx={switchSx}
           >
-            <GridOnIcon />
+            <GridOnIcon fontSize="small" />
+            {t(`${PREFIX}.grid.toggle`)}
           </ToggleButton>
         </Tooltip>
-        <Tooltip title={t(`${PREFIX}.snap.hint`)}>
+        <Tooltip title={t(`${PREFIX}.snap.hint`)} placement="left" describeChild>
           <ToggleButton
             value="snap"
             selected={props.snapEnabled}
             onChange={() => props.onSnapEnabled(!props.snapEnabled)}
-            aria-label={t(`${PREFIX}.snap.toggle`)}
             data-testid="garden-plan-snap-toggle"
-            sx={{ ...buttonSx, px: 1.5 }}
+            sx={switchSx}
           >
-            {t(`${PREFIX}.snap.short`)}
+            <FilterCenterFocusIcon fontSize="small" />
+            {t(`${PREFIX}.snap.toggle`)}
           </ToggleButton>
         </Tooltip>
       </ToggleButtonGroup>
 
-      {props.layerToggles && props.layerToggles.length > 0 && (
-        <Divider orientation="vertical" flexItem sx={dividerSx} />
-      )}
-      {props.layerToggles && props.layerToggles.length > 0 && (
-        <ToggleButtonGroup size="small" aria-label={t(`${PREFIX}.zones.layers.group`)} data-testid="garden-plan-layer-toggles">
-          {props.layerToggles.map((layer) => (
-            <Tooltip key={layer.id} title={layer.hint}>
-              <ToggleButton
-                value={layer.id}
-                selected={layer.visible}
-                onChange={() => props.onLayer?.(layer.id, !layer.visible)}
-                aria-label={layer.label}
-                data-testid={`garden-plan-layer-${layer.id}`}
-                sx={buttonSx}
-              >
-                {layer.icon}
-              </ToggleButton>
-            </Tooltip>
+      <Box>
+        <Typography variant="body2" color="text.secondary" component="p" id={unitLabelId} sx={{ mb: 0.5 }}>
+          {t(`${PREFIX}.grid.unit`)}
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={props.unit}
+          aria-labelledby={unitLabelId}
+          onChange={(_event, next: LengthUnit | null) => {
+            if (next) props.onUnit(next);
+          }}
+        >
+          {(['m', 'cm'] as const).map((unit) => (
+            <ToggleButton
+              key={unit}
+              value={unit}
+              aria-label={t(`${PREFIX}.grid.unitOption.${unit}`)}
+              data-testid={`garden-plan-unit-${unit}`}
+              sx={{ minWidth: TARGET_PX, minHeight: TARGET_PX, px: 1.25 }}
+            >
+              {unit === 'm' ? <StraightenIcon fontSize="small" sx={{ mr: 0.5 }} /> : null}
+              {unit}
+            </ToggleButton>
           ))}
         </ToggleButtonGroup>
-      )}
-      {props.attentionFilter && (
-        <>
-          <Tooltip title={props.attentionFilter.hint}>
-            {/*
-              Disabled by `aria-disabled`, not `disabled`: the button stays in the tab order, so a keyboard or screen
-              reader user reaches it and hears why it is disabled (the hidden text below); a click does nothing.
-            */}
-            <ToggleButton
-              size="small"
-              value="attentionOnly"
-              selected={props.attentionFilter.active && props.attentionFilter.enabled}
-              aria-disabled={props.attentionFilter.enabled ? undefined : true}
-              onChange={() => {
-                if (props.attentionFilter?.enabled) props.attentionFilter.onChange(!props.attentionFilter.active);
-              }}
-              aria-label={props.attentionFilter.label}
-              aria-describedby={attentionHintId}
-              data-testid="garden-plan-attention-filter"
-              sx={props.attentionFilter.enabled ? buttonSx : [buttonSx, disabledLookSx]}
-            >
-              {props.attentionFilter.icon}
-            </ToggleButton>
-          </Tooltip>
-          <Box component="span" id={attentionHintId} sx={visuallyHidden}>
-            {props.attentionFilter.hint}
-          </Box>
-        </>
-      )}
+      </Box>
 
-      <Divider orientation="vertical" flexItem sx={dividerSx} />
-
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={props.unit}
-        aria-label={t(`${PREFIX}.grid.unit`)}
-        onChange={(_event, next: LengthUnit | null) => {
-          if (next) props.onUnit(next);
-        }}
-      >
-        {(['m', 'cm'] as const).map((unit) => (
-          <ToggleButton
-            key={unit}
-            value={unit}
-            aria-label={t(`${PREFIX}.grid.unitOption.${unit}`)}
-            data-testid={`garden-plan-unit-${unit}`}
-            sx={{ ...buttonSx, px: 1.25 }}
-          >
-            {unit === 'm' ? <StraightenIcon fontSize="small" sx={{ mr: 0.5 }} /> : null}
-            {unit}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-
-      <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
       <Compass angleDeg={props.northAngleDeg} onChange={props.onNorthAngle} />
-    </Paper>
+    </Stack>
   );
 }

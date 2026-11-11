@@ -12,6 +12,8 @@ import type { PlanRenderer, Viewport } from '../renderer';
 import type { PlanModel } from '../model/planModel';
 import { gardenPlanSlice, loadGardenPlan, type GardenPlanState } from '../state/gardenPlanSlice';
 import { GardenPlanEditor } from './GardenPlanEditor';
+import type { SidePanelTab } from './sidePanelState';
+import type { CanvasAreaSize } from './useCanvasArea';
 import { testPlan } from './tools/toolTestKit';
 
 /** 40 px per metre, model (0, 20) at the top-left: the area is 400 px wide, a 2 m bed 80 px. */
@@ -61,6 +63,8 @@ interface SetupOptions {
    * render that follows a commit (by default the plan prop changes only on `rerender()`).
    */
   connected?: boolean;
+  /** Told the room the canvas area has (only where something is laid out, i.e. with stubbed sizes). */
+  onCanvasSize?: (size: CanvasAreaSize) => void;
 }
 
 function ConnectedEditor(props: Omit<Parameters<typeof GardenPlanEditor>[0], 'plan'>) {
@@ -96,6 +100,7 @@ export function setupEditor(options: SetupOptions = {}) {
             onZoom={onZoom}
             onOpenLocation={onOpenLocation}
             onOpenCare={onOpenCare}
+            onCanvasSize={options.onCanvasSize}
           />
         ) : (
           <GardenPlanEditor
@@ -107,6 +112,7 @@ export function setupEditor(options: SetupOptions = {}) {
             onZoom={onZoom}
             onOpenLocation={onOpenLocation}
             onOpenCare={onOpenCare}
+            onCanvasSize={options.onCanvasSize}
           />
         )}
       </ThemeContextProvider>
@@ -146,6 +152,21 @@ export function chooseOverflowEntry(testId: string): void {
 export function chooseToolMenuEntry(tool: 'bed' | 'garden_object', testId: string): void {
   fireEvent.click(screen.getByTestId(`garden-plan-tool-${tool}-menu`));
   fireEvent.click(screen.getByTestId(testId));
+}
+
+/**
+ * Show a tab of the side panel (REQ-053 §17.3, GP-UX-068, WP 10.5): grid, snap, unit and compass are in "view",
+ * the layer switches and the legend in "layers", the zone panel in "zones". Opens the collapsed panel by its switch
+ * (or by its overflow entry while the switch is in the overflow) first.
+ */
+export function openPanelTab(tab: SidePanelTab): void {
+  if (!screen.queryByTestId('garden-plan-side-panel')) {
+    const toggle = screen.queryByTestId('garden-plan-panel-toggle');
+    if (toggle) fireEvent.click(toggle);
+    else chooseOverflowEntry('garden-plan-menu-panel');
+  }
+  const element = screen.getByTestId(`garden-plan-side-panel-tab-${tab}`);
+  if (element.getAttribute('aria-selected') !== 'true') fireEvent.click(element);
 }
 
 /** Type into a panel field and leave it: the value is committed on blur. */

@@ -21,6 +21,14 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import { authState, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
+import { chooseOverflowEntry, openPanelTab } from '@/features/gardenPlanner/editor/editorTestKit';
+
+/** The layer switches, the filter and the legend are in the side panel's tab "Ebenen" (WP 10.5): show it, then find. */
+async function inLayersTab(testId: string): Promise<HTMLElement> {
+  await screen.findByTestId('garden-plan-canvas');
+  openPanelTab('layers');
+  return screen.getByTestId(testId);
+}
 
 const BASE = '/api/v1/t/:tenant';
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -138,7 +146,7 @@ describe('plant-state layer in the plan', () => {
   it('starts hidden with a named toggle, a disabled filter and no plant-state request', async () => {
     usePlanWithPlants();
     const { container } = renderRoute();
-    const toggle = await screen.findByTestId('garden-plan-layer-plantState');
+    const toggle = await inLayersTab('garden-plan-layer-plantState');
     expect(toggle).toHaveAttribute('aria-label', 'Show plant state');
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     const filter = screen.getByTestId('garden-plan-attention-filter');
@@ -156,7 +164,7 @@ describe('plant-state layer in the plan', () => {
     fireEvent.click(filter);
     expect(filter).toHaveAttribute('aria-pressed', 'false');
     expect(window.localStorage.getItem('kp_garden_plan_attention_filter')).toBeNull();
-    await expectNoA11yViolations(screen.getByTestId('garden-plan-view-bar'));
+    await expectNoA11yViolations(screen.getByTestId('garden-plan-side-panel-tabpanel-layers'));
     expect(layerMarkers(container)).toEqual([]);
     expect(screen.queryByTestId('garden-plan-legend-plantState')).toBeNull();
     expect(stateRequests).toEqual([]);
@@ -165,7 +173,7 @@ describe('plant-state layer in the plan', () => {
   it('draws the states of the bed at marker LOD, adds the legend and stores the switch', async () => {
     usePlanWithPlants();
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    fireEvent.click(await inLayersTab('garden-plan-layer-plantState'));
     await waitFor(() => expect(layerMarkers(container)).toEqual(['pl_0', 'pl_1', 'pl_2']));
     expect(stateRequests).toEqual(['loc_a']);
     expect(container.querySelector('g[data-plan-key="pl_0"] [data-plan-badge-reason="overdue"]')).not.toBeNull();
@@ -183,7 +191,7 @@ describe('plant-state layer in the plan', () => {
   it('filters to the plants that need attention, remembers the choice and is accessible', async () => {
     usePlanWithPlants();
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    fireEvent.click(await inLayersTab('garden-plan-layer-plantState'));
     await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
     const filter = screen.getByTestId('garden-plan-attention-filter');
     expect(filter).not.toHaveAttribute('aria-disabled');
@@ -191,12 +199,12 @@ describe('plant-state layer in the plan', () => {
     expect(filter).toHaveAttribute('aria-pressed', 'true');
     expect(layerMarkers(container)).toEqual(['pl_0']);
     expect(window.localStorage.getItem('kp_garden_plan_attention_filter')).toBe('true');
-    await expectNoA11yViolations(screen.getByTestId('garden-plan-view-bar'));
+    await expectNoA11yViolations(screen.getByTestId('garden-plan-side-panel-tabpanel-layers'));
 
     // a later visit keeps both choices
     cleanup();
     renderRoute();
-    const again = await screen.findByTestId('garden-plan-attention-filter');
+    const again = await inLayersTab('garden-plan-attention-filter');
     expect(again).not.toHaveAttribute('aria-disabled');
     expect(again).toHaveAttribute('aria-pressed', 'true');
   });
@@ -204,7 +212,7 @@ describe('plant-state layer in the plan', () => {
   it('reads no plant state and no growth phase for a zoomed-out plan with the layer on', async () => {
     usePlanWithPlants({ spacingM: 0.01 });
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    fireEvent.click(await inLayersTab('garden-plan-layer-plantState'));
     await screen.findByTestId('garden-plan-legend-plantState');
     expect(container.querySelector('[data-plan-cluster="loc_a"]')).not.toBeNull();
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -215,7 +223,7 @@ describe('plant-state layer in the plan', () => {
   it('asks a phase key that answered 404 only once per session, even after the plan is opened again', async () => {
     usePlanWithPlants({ phaseKey: 'ph_seq' });
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    fireEvent.click(await inLayersTab('garden-plan-layer-plantState'));
     await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
     await waitFor(() => expect(phaseRequests).toEqual(['ph_seq']));
     cleanup();
@@ -229,7 +237,7 @@ describe('plant-state layer in the plan', () => {
   it('reads the loaded states again after the plan was saved or reloaded (a new revision)', async () => {
     usePlanWithPlants();
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    fireEvent.click(await inLayersTab('garden-plan-layer-plantState'));
     await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
     expect(stateRequests).toEqual(['loc_a']);
     const plan = selectGardenPlanState(store.getState()).plan;
@@ -270,13 +278,13 @@ describe('plant-state layer in the plan', () => {
       }),
     );
     const { container } = renderRoute('grower');
-    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    fireEvent.click(await inLayersTab('garden-plan-layer-plantState'));
     await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
     expect(stateRequests).toEqual(['loc_a']);
     const readsBefore = planReads;
     expect(readsBefore).toBeGreaterThan(0);
     const user = userEvent.setup();
-    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    chooseOverflowEntry('garden-plan-zones-open');
     await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
     await user.clear(await screen.findByTestId('garden-plan-zone-name'));
     await user.type(screen.getByTestId('garden-plan-zone-name'), 'Back line');

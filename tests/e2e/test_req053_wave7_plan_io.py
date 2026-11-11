@@ -415,7 +415,7 @@ def test_tc_053_056_plant_state_layer_attention_filter_and_sun_layer(
         },
         "TC-053-056: the plant-state layer",
     )
-    plan.wait_for_element(plan.LEGEND_PLANT_STATE)
+    plan.legend_section(plan.LEGEND_PLANT_STATE)
     assert plan.is_attention_filter_usable(), "TC-053-056: the layer unlocks the filter"
     screenshot("053_056_02_layer", "Ebene Pflanzenzustand: Ringe, ein Zeichen, Legende")
 

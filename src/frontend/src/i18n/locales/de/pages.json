@@ -5695,7 +5695,6 @@
         },
         "panel": {
           "title": "Eigenschaften",
-          "close": "Eigenschaften schließen",
           "name": "Name",
           "label": "Bezeichnung",
           "type": "Typ: {{type}}",
@@ -5831,7 +5830,6 @@
         },
         "snap": {
           "toggle": "Am Raster einrasten",
-          "short": "Einrasten",
           "hint": "Am Raster und an Ecken und Kanten anderer Objekte einrasten. Mit gehaltener Alt-Taste kurzzeitig ausschalten."
         },
         "zoom": {
@@ -6411,6 +6409,22 @@
           "listItem": "{{status}}: {{pair}}. {{detail}}",
           "speciesTruncated": "Ein Platz trägt mehr als {{count}} Arten; das Urteil gilt nur für die ersten {{count}}.",
           "unnamedSpecies": "Art ohne Namen"
+        },
+        "sidePanel": {
+          "toggle": "Seitenpanel",
+          "toggleMenu": "Seitenpanel ein-/ausblenden",
+          "region": "Seitenpanel",
+          "tabs": "Bereiche des Seitenpanels",
+          "tab": {
+            "properties": "Eigenschaften",
+            "view": "Ansicht",
+            "layers": "Ebenen",
+            "zones": "Zonen"
+          },
+          "close": "Seitenpanel schließen",
+          "expand": "Auf volle Höhe vergrößern",
+          "shrink": "Auf halbe Höhe verkleinern",
+          "legendShown": "Legende anzeigen"
         }
       },
       "io": {

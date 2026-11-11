@@ -14,6 +14,11 @@
  * the canvas takes the rest of the viewport height (`useCanvasArea`, GP-UX-067) and zoom, scale bar and mini-map
  * are overlays on it. The list switch is gone: the tabs Plan · Liste of the route are the one way between the two
  * views (GP-UX-064).
+ *
+ * WP 10.5: the side panel (`SidePanel`) carries the tabs Eigenschaften, Ansicht (`ViewBar`), Ebenen (`LayersTab` with
+ * the legend) and Zonen (`ZonePanel`); its switch is in the header bar, its state rule in `useSidePanel`. Its form
+ * follows the width (GP-UX-069): docked beside the canvas from lg up, a drawer over it at md, a bottom sheet below md.
+ * Collapsed it takes no width.
  */
 import {
   lazy,
@@ -37,6 +42,7 @@ import KeyboardIcon from '@mui/icons-material/Keyboard';
 import SelectAllIcon from '@mui/icons-material/SelectAll';
 import ImageIcon from '@mui/icons-material/Image';
 import LayersIcon from '@mui/icons-material/Layers';
+import ViewSidebarOutlinedIcon from '@mui/icons-material/ViewSidebarOutlined';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import WavesIcon from '@mui/icons-material/Waves';
@@ -116,7 +122,11 @@ import { TemplateGhost } from '../templates/TemplateGhost';
 import { useBedTemplates } from '../templates/useBedTemplates';
 import { TouchBar } from './TouchBar';
 import { TouchOverlay } from './TouchOverlay';
-import { ViewBar, type LayerToggle } from './ViewBar';
+import { ViewBar } from './ViewBar';
+import { LayersTab, type LayerToggle } from './LayersTab';
+import { SidePanel, type SheetSize, type SidePanelVariant } from './SidePanel';
+import { useSidePanel, type SidePanelTab } from './sidePanelState';
+import { PANEL_GAP_PX, PANEL_WIDTH_PX } from './layout';
 import { ZoomOverlay } from './ZoomOverlay';
 import { useAutoSave } from './useAutoSave';
 import { useCanvasArea, type CanvasAreaSize } from './useCanvasArea';
@@ -227,6 +237,7 @@ function pointerKind(type: string): SnapPointerType {
 
 const PREFIX = 'pages.gardenPlan.editor';
 const ZONES = `${PREFIX}.zones`;
+const SIDE_PANEL = `${PREFIX}.sidePanel`;
 const UNDERLAY = `${PREFIX}.underlay`;
 
 // The zone panel is its own chunk (UI-NFR-003): the route chunk only carries the switch that mounts it.
@@ -328,11 +339,28 @@ export function GardenPlanEditor({
   const toolbarBelow = useMediaQuery(theme.breakpoints.down('md'));
   const coarsePointer = useMediaQuery('(pointer: coarse)');
   const touchUi = toolbarBelow || coarsePointer;
+  // The side panel's form follows the width alone (GP-UX-069): docked from lg up, a drawer at md, a sheet below md.
+  const belowLg = useMediaQuery(theme.breakpoints.down('lg'));
+  const panelVariant: SidePanelVariant = toolbarBelow ? 'sheet' : belowLg ? 'drawer' : 'docked';
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
   const { selection, stack, tool, editError, past, future, pending } =
     useAppSelector(selectGardenPlanState);
   const invalidKeys = useAppSelector(selectInvalidKeys);
+  // The side panel (GP-UX-068): a new selection - or the touch list of objects at one spot - opens it on the properties.
+  const stackLists = stack !== null && stack.keys.length >= 2;
+  const panelSelection = useMemo(
+    () =>
+      [
+        ...selection.map((ref) => `${ref.entity}:${ref.key}`),
+        ...(stackLists && stack ? [`stack:${stack.keys.join(',')}`] : []),
+      ].join('|'),
+    [selection, stack, stackLists],
+  );
+  const sidePanel = useSidePanel(panelSelection);
+  const [sheetSize, setSheetSize] = useState<SheetSize>('half');
+  // The zone panel takes the focus when its overflow entry opened it, not when its tab was chosen in the tab list.
+  const [zonesFocus, setZonesFocus] = useState(false);
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
   const [notice, setNotice] = useState<string | null>(null);
@@ -345,19 +373,21 @@ export function GardenPlanEditor({
     [setLayer],
   );
   const setLayerById = useCallback((id: string, visible: boolean) => setLayer(id as LayerId, visible), [setLayer]);
-  // The irrigation layers (WP 7.6 / 7.7): zones come with the plan; the endpoint is read once the panel opens.
-  const [zonesOpen, setZonesOpen] = useState(false);
+  // The irrigation layers (WP 7.6 / 7.7): zones come with the plan; the endpoint is read once the tab "Zonen" opens.
+  const zonesOpen = sidePanel.open && sidePanel.tab === 'zones';
   const [layerRefresh, setLayerRefresh] = useState(0);
   // The overflow "⋮" opens the keyboard help and the underlay; their dialogs give the focus back to it (WCAG 2.4.3).
   const overflowButtonRef = useRef<HTMLButtonElement | null>(null);
-  const zonesButtonRef = useRef<HTMLButtonElement | null>(null);
-  const zonesWereOpen = useRef(false);
-  // Closing the panel returns the focus to the button that opened it (WCAG 2.4.3).
+  const panelButtonRef = useRef<HTMLButtonElement | null>(null);
+  // The panel switch, or "⋮" while the switch is in the overflow on a narrow bar.
+  const focusPanelToggle = useCallback(() => (panelButtonRef.current ?? overflowButtonRef.current)?.focus(), []);
+  // Closing the panel by its own button returns the focus to the switch, after the render that removed the button.
+  const focusToggleAfterClose = useRef(false);
   useEffect(() => {
-    // The switch may be in the overflow on a narrow bar: the focus goes back to "⋮" then.
-    if (!zonesOpen && zonesWereOpen.current) (zonesButtonRef.current ?? overflowButtonRef.current)?.focus();
-    zonesWereOpen.current = zonesOpen;
-  }, [zonesOpen]);
+    if (!focusToggleAfterClose.current || sidePanel.open) return;
+    focusToggleAfterClose.current = false;
+    focusPanelToggle();
+  });
   const nowMs = useWateringNow();
   const zoneData = useIrrigationZones(plan.siteKey, plan.zones, zonesOpen);
   const lastWateredAt = useLastWatered(plan.siteKey, plan.locations, layerRefresh);
@@ -522,7 +552,12 @@ export function GardenPlanEditor({
   // The bars docked at the bottom on phones: the canvas keeps clear of them (the sheet above them may cover it).
   const dockBarsRef = useRef<HTMLDivElement | null>(null);
   const canvasAreaRef = useRef<HTMLDivElement | null>(null);
-  const canvasArea = useCanvasArea(canvasAreaRef, dockBarsRef);
+  // A panel that a selection docked beside the canvas still counts for the fit: the plan does not move (WP 10.5).
+  const fitReservePx =
+    panelVariant === 'docked' && sidePanel.open && sidePanel.openedBy === 'selection' && view === 'plan'
+      ? PANEL_WIDTH_PX + PANEL_GAP_PX
+      : 0;
+  const canvasArea = useCanvasArea(canvasAreaRef, dockBarsRef, fitReservePx);
   useEffect(() => {
     if (canvasArea) onCanvasSize?.(canvasArea);
   }, [canvasArea, onCanvasSize]);
@@ -1111,10 +1146,20 @@ export function GardenPlanEditor({
   const focusPanel = useCallback(() => {
     document.querySelector<HTMLElement>('[data-testid="garden-plan-panel-name"]')?.focus();
   }, []);
-  /** The skip link "To the properties panel": the panel's own region takes the focus. */
+  /** The skip link "To the properties panel": the open panel takes the focus, a collapsed one its switch (GP-UX-068). */
+  const panelOpen = sidePanel.open;
   const focusPanelRegion = useCallback(() => {
-    document.getElementById(EDITOR_ANCHORS.panel)?.focus();
-  }, []);
+    if (panelOpen) document.getElementById(EDITOR_ANCHORS.panel)?.focus();
+    else focusPanelToggle();
+  }, [panelOpen, focusPanelToggle]);
+  const showPanelTab = sidePanel.showTab;
+  const chooseTab = useCallback(
+    (tab: SidePanelTab) => {
+      setZonesFocus(false);
+      showPanelTab(tab);
+    },
+    [showPanelTab],
+  );
 
   const menuActions = useMemo<MenuAction[]>(() => {
     const entities = selection.filter(isPlanEntity);
@@ -1126,7 +1171,10 @@ export function GardenPlanEditor({
         id: 'edit',
         label: t(`${PREFIX}.contextMenu.edit`),
         icon: <EditOutlinedIcon fontSize="small" />,
-        onClick: () => window.setTimeout(focusPanel, 0),
+        onClick: () => {
+          showPanelTab('properties');
+          window.setTimeout(focusPanel, 0);
+        },
       },
       {
         id: 'duplicate',
@@ -1212,6 +1260,7 @@ export function GardenPlanEditor({
     focusPanel,
     moveInZ,
     onOpenLocation,
+    showPanelTab,
     plan,
     requestDelete,
     selection,
@@ -1274,6 +1323,18 @@ export function GardenPlanEditor({
         testId: 'garden-plan-underlay-open',
         separated: true,
       },
+      // The irrigation zones (§14) are the panel tab "Zonen"; this entry opens the panel on it in one step and keeps
+      // the test id of the former zone button (GP-UX-070).
+      {
+        id: 'zones',
+        label: t(`${ZONES}.open`),
+        icon: <WaterDropIcon fontSize="small" />,
+        onClick: () => {
+          setZonesFocus(true);
+          showPanelTab('zones');
+        },
+        testId: 'garden-plan-zones-open',
+      },
       {
         id: 'keyboardHelp',
         label: t(`${PREFIX}.keyboard.open`),
@@ -1282,7 +1343,7 @@ export function GardenPlanEditor({
         testId: 'garden-plan-keyboard-help-button',
       },
     ],
-    [doSelectAll, openAddWithDimensions, openHelp, selection, singleBed, t, view],
+    [doSelectAll, openAddWithDimensions, openHelp, selection, showPanelTab, singleBed, t, view],
   );
 
   /** Right click (mouse and pen): the object under the pointer, in a menu at the pointer (GP-FR-027). */
@@ -1524,39 +1585,26 @@ export function GardenPlanEditor({
     [selection],
   );
 
-  const stackLists = stack !== null && stack.keys.length >= 2;
-  const sheetOpen = toolbarBelow && (selection.length > 0 || stackLists);
-  const panel = (layout: 'sidebar' | 'sheet') => (
-    <PropertiesPanel
-      plan={plan}
-      selection={selection}
-      stack={stack}
-      labels={labels}
-      layout={layout}
-      onCommit={onCommit}
-      onSelect={onSelect}
-      onStack={onStack}
-      onClose={() => {
-        onSelect([]);
-        onStack(null);
-        focusSurface(); // the close button disappears with the sheet: keep the focus on the plan or the list
-      }}
-      onMore={(element) => setMenuAnchor({ kind: 'element', element })}
-      onDuplicate={duplicate}
-      onDelete={requestDelete}
-      onZOrder={moveInZ}
-      onDrawBed={() => dispatch(setTool('bed'))}
-      onOpenLocation={onOpenLocation}
-      onOpenCare={onOpenCare}
-      bedInfo={bedInfo}
-    />
-  );
+  const sheetOpen = panelVariant === 'sheet' && sidePanel.open;
+  const closeSidePanel = sidePanel.close;
+  /**
+   * The panel's close button (and the zone panel's). The bottom sheet was the selection's sheet before wave 10 and
+   * still clears it (GP-UX-052, the touch tests stay as they are); the focus goes to the plan or the list then. The
+   * docked panel and the drawer only collapse - the selection stays - and give the focus back to their switch.
+   */
+  const closePanel = useCallback(() => {
+    if (panelVariant === 'sheet' && panelSelection !== '') {
+      onSelect([]);
+      onStack(null);
+      focusSurface(); // the close button disappears with the sheet: keep the focus on the plan or the list
+    } else {
+      focusToggleAfterClose.current = true;
+    }
+    closeSidePanel();
+  }, [panelVariant, panelSelection, onSelect, onStack, focusSurface, closeSidePanel]);
 
   const viewBar = (
     <ViewBar
-      layerToggles={layerToggles}
-      onLayer={setLayerById}
-      attentionFilter={attentionFilter}
       gridStepM={gridStepM}
       onGridStep={setGridStepM}
       gridVisible={gridVisible}
@@ -1568,6 +1616,95 @@ export function GardenPlanEditor({
       northAngleDeg={northAngleDeg}
       onNorthAngle={onNorthAngle}
     />
+  );
+
+  // Only the active tab's content is built and mounted (the zone panel reads its endpoint only while it is open).
+  let panelContent: ReactNode;
+  if (sidePanel.tab === 'properties') {
+    panelContent = (
+      <PropertiesPanel
+        plan={plan}
+        selection={selection}
+        stack={stack}
+        labels={labels}
+        layout={panelVariant === 'sheet' ? 'sheet' : 'sidebar'}
+        onCommit={onCommit}
+        onSelect={onSelect}
+        onStack={onStack}
+        onMore={(element) => setMenuAnchor({ kind: 'element', element })}
+        onDuplicate={duplicate}
+        onDelete={requestDelete}
+        onZOrder={moveInZ}
+        onDrawBed={() => dispatch(setTool('bed'))}
+        onOpenLocation={onOpenLocation}
+        onOpenCare={onOpenCare}
+        bedInfo={bedInfo}
+      />
+    );
+  } else if (sidePanel.tab === 'view') {
+    panelContent = viewBar;
+  } else if (sidePanel.tab === 'layers') {
+    panelContent = (
+      <LayersTab
+        layerToggles={layerToggles}
+        onLayer={setLayerById}
+        attentionFilter={attentionFilter}
+        legend={
+          <ZoneLegend
+            zones={zoneData.zones}
+            showZones={layerPrefs.zones}
+            showLastWatered={layerPrefs.lastWatered}
+            showSun={layerPrefs.sun}
+            showMoisture={layerPrefs.moisture}
+            showFrost={layerPrefs.frost}
+            showPlantState={plantStateOn}
+            phases={legendPhases}
+            showCompanion={companionOn}
+            companionCapped={companionCapped}
+            companionPairs={companionPairs}
+          />
+        }
+      />
+    );
+  } else {
+    panelContent = (
+      // A chunk that cannot load (typically gone after a deploy) stays rejected for the life of the page:
+      // the fallback offers the reload, not a retry that would fail the same way.
+      <ErrorBoundary
+        title={t(`${ZONES}.panel.chunkFailedTitle`)}
+        hint={t(`${ZONES}.panel.chunkFailedHint`)}
+        reloadLabel={t('common.appError.reloadPage')}
+        testId="garden-plan-zone-panel-error"
+        boundaryName="garden-plan-zone-panel"
+      >
+        <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
+          <ZonePanel
+            plan={plan}
+            zoneData={zoneData}
+            selectedBedKeys={selectedBedKeys}
+            onChanged={onZonesChanged}
+            onWatered={onWatered}
+            onClose={closePanel}
+            focusOnOpen={zonesFocus}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+  const sidePanelElement = (
+    <SidePanel
+      variant={panelVariant}
+      open={sidePanel.open}
+      tab={sidePanel.tab}
+      onTab={chooseTab}
+      onClose={closePanel}
+      heightPx={canvasArea && view === 'plan' ? canvasArea.heightPx : undefined}
+      visibleHeight={visibleHeight}
+      sheetSize={sheetSize}
+      onSheetSize={setSheetSize}
+    >
+      {panelContent}
+    </SidePanel>
   );
 
   // A task badge on a bed opens its care tab (GP-FR-089). The press that lands on it starts no gesture (a pan or the
@@ -1810,18 +1947,19 @@ export function GardenPlanEditor({
     />
   ) : null;
 
-  // The panel switch of the header bar (GP-UX-068); until WP 10.5 brings the panel tabs it opens the zone panel.
-  const toggleZones = useCallback(() => setZonesOpen((open) => !open), []);
-  const zonesToggle = useMemo(
+  // The switch of the side panel in the header bar (GP-UX-068): `aria-expanded`, `aria-controls` on the panel.
+  const togglePanel = sidePanel.toggle;
+  const panelToggle = useMemo(
     () => ({
-      label: t(`${ZONES}.open`),
-      icon: <WaterDropIcon />,
-      expanded: zonesOpen,
-      controls: 'garden-plan-zone-panel-region',
-      onToggle: toggleZones,
-      testId: 'garden-plan-zones-open',
+      label: t(`${SIDE_PANEL}.toggle`),
+      menuLabel: t(`${SIDE_PANEL}.toggleMenu`),
+      icon: <ViewSidebarOutlinedIcon />,
+      expanded: panelOpen,
+      controls: EDITOR_ANCHORS.panel,
+      onToggle: togglePanel,
+      testId: 'garden-plan-panel-toggle',
     }),
-    [t, zonesOpen, toggleZones],
+    [t, panelOpen, togglePanel],
   );
   // While the tabs are in the overflow the content panel is named by its tab's label instead of the tab element.
   const [tabsInline, setTabsInline] = useState(true);
@@ -1842,8 +1980,8 @@ export function GardenPlanEditor({
       nav={nav}
       tabs={tabs}
       onTabsInline={onTabsInline}
-      panelToggle={zonesToggle}
-      panelButtonRef={zonesButtonRef}
+      panelToggle={panelToggle}
+      panelButtonRef={panelButtonRef}
       overflowItems={overflowItems}
       overflowButtonRef={overflowButtonRef}
     />
@@ -1852,24 +1990,8 @@ export function GardenPlanEditor({
   const above = (
     <>
       <SaveMessages autoSave={autoSave} />
-      {/* Until WP 10.5 (panel tabs "Ansicht" and "Ebenen") the view row and the legend stay above the plan; the tool
-          bar is a rail left of the canvas (WP 10.4); zoom, scale bar and mini-map are overlays already. */}
-      {!listShown && viewBar}
-      {!listShown && (
-        <ZoneLegend
-          zones={zoneData.zones}
-          showZones={layerPrefs.zones}
-          showLastWatered={layerPrefs.lastWatered}
-          showSun={layerPrefs.sun}
-          showMoisture={layerPrefs.moisture}
-          showFrost={layerPrefs.frost}
-          showPlantState={plantStateOn}
-          phases={legendPhases}
-          showCompanion={companionOn}
-          companionCapped={companionCapped}
-          companionPairs={companionPairs}
-        />
-      )}
+      {/* The view settings, layers and legend are tabs of the side panel (WP 10.5); nothing else stands above the
+          plan but messages and the hints of the tool in use. */}
       {!listShown && !toolbarBelow && touchBar}
       {!listShown && drawing && (
         <NewTypeSelect
@@ -1958,79 +2080,59 @@ export function GardenPlanEditor({
   );
 
   const body = (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', minWidth: 0 }}>
-      {listShown ? (
-        <Box ref={listRef} sx={{ flex: 1, minWidth: 0 }}>
-          <PlanListView
-            plan={plan}
-            labels={labels}
-            selection={selection}
-            stepM={gridStepM}
-            onSelect={onListSelect}
-            onMove={keyboard.moveSelection}
-            onRequestDelete={requestDelete}
-          />
-        </Box>
-      ) : (
-        <>
-          {/* The tool rail (md up, GP-UX-066) is as high as the canvas area and scrolls inside when it is longer. */}
-          {!toolbarBelow && (
-            <Box
-              style={canvasArea ? { height: canvasArea.heightPx } : undefined}
-              sx={{ display: 'flex', flex: 'none' }}
-            >
-              {toolbar}
-            </Box>
-          )}
-          {/* The canvas area: the rest of the viewport height, at least 400 px (GP-UX-067); the zoom sits on it. */}
-          <Box
-            ref={canvasAreaRef}
-            data-testid="garden-plan-canvas-area"
-            // A measured value that changes with every resize: an inline style, not one generated class per pixel.
-            style={canvasArea ? { height: canvasArea.heightPx } : undefined}
-            sx={{ position: 'relative', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}
-          >
-            {canvasSurface}
-            <ZoomOverlay
-              pxPerM={pxPerM}
-              minPxPerM={minPxPerM}
-              onZoomIn={zoomIn}
-              onZoomOut={zoomOut}
-              onFit={fit}
+    // Positioned: the drawer at md lies over the right edge of this row (GP-UX-069).
+    <Box sx={{ position: 'relative', minWidth: 0 }}>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', minWidth: 0 }}>
+        {listShown ? (
+          <Box ref={listRef} sx={{ flex: 1, minWidth: 0 }}>
+            <PlanListView
+              plan={plan}
+              labels={labels}
+              selection={selection}
+              stepM={gridStepM}
+              onSelect={onListSelect}
+              onMove={keyboard.moveSelection}
+              onRequestDelete={requestDelete}
             />
           </Box>
-        </>
-      )}
-      {!toolbarBelow && panel('sidebar')}
+        ) : (
+          <>
+            {/* The tool rail (md up, GP-UX-066) is as high as the canvas area and scrolls inside when it is longer. */}
+            {!toolbarBelow && (
+              <Box
+                style={canvasArea ? { height: canvasArea.heightPx } : undefined}
+                sx={{ display: 'flex', flex: 'none' }}
+              >
+                {toolbar}
+              </Box>
+            )}
+            {/* The canvas area: the rest of the viewport height, at least 400 px (GP-UX-067); the zoom sits on it. */}
+            <Box
+              ref={canvasAreaRef}
+              data-testid="garden-plan-canvas-area"
+              // A measured value that changes with every resize: an inline style, not one generated class per pixel.
+              style={canvasArea ? { height: canvasArea.heightPx } : undefined}
+              sx={{ position: 'relative', flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}
+            >
+              {canvasSurface}
+              <ZoomOverlay
+                pxPerM={pxPerM}
+                minPxPerM={minPxPerM}
+                onZoomIn={zoomIn}
+                onZoomOut={zoomOut}
+                onFit={fit}
+              />
+            </Box>
+          </>
+        )}
+        {panelVariant === 'docked' && sidePanelElement}
+      </Box>
+      {panelVariant === 'drawer' && sidePanelElement}
     </Box>
   );
 
   const below = (
     <>
-      <Box id="garden-plan-zone-panel-region">
-        {zonesOpen && (
-          // A chunk that cannot load (typically gone after a deploy) stays rejected for the life of the page:
-          // the fallback offers the reload, not a retry that would fail the same way.
-          <ErrorBoundary
-            title={t(`${ZONES}.panel.chunkFailedTitle`)}
-            hint={t(`${ZONES}.panel.chunkFailedHint`)}
-            reloadLabel={t('common.appError.reloadPage')}
-            testId="garden-plan-zone-panel-error"
-            boundaryName="garden-plan-zone-panel"
-          >
-            <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
-              <ZonePanel
-                plan={plan}
-                zoneData={zoneData}
-                selectedBedKeys={selectedBedKeys}
-                onChanged={onZonesChanged}
-                onWatered={onWatered}
-                onClose={() => setZonesOpen(false)}
-              />
-            </Suspense>
-          </ErrorBoundary>
-        )}
-      </Box>
       {toolbarBelow && (!listShown || sheetOpen) && (
         <Box
           ref={dockRef}
@@ -2044,14 +2146,7 @@ export function GardenPlanEditor({
             gap: 0.5,
           }}
         >
-          {sheetOpen && (
-            <Box
-              sx={{ maxHeight: Math.round(visibleHeight * 0.45), overflowY: 'auto' }}
-              data-testid="garden-plan-sheet"
-            >
-              {panel('sheet')}
-            </Box>
-          )}
+          {panelVariant === 'sheet' && sidePanelElement}
           <Box ref={dockBarsRef} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {!listShown && touchBar}
             {!listShown && toolbar}
@@ -2163,7 +2258,6 @@ export function GardenPlanEditor({
       skipLinks={
         <SkipLinks
           listShown={listShown}
-          panelAvailable={!toolbarBelow || sheetOpen}
           onToList={showList}
           onToPlan={showPlan}
           onToPanel={focusPanelRegion}

@@ -15,6 +15,14 @@ import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import { server } from '@/test/mocks/server';
+import { openPanelTab } from '@/features/gardenPlanner/editor/editorTestKit';
+
+/** The layer switches, the filter and the legend are in the side panel's tab "Ebenen" (WP 10.5): show it, then find. */
+async function inLayersTab(testId: string): Promise<HTMLElement> {
+  await screen.findByTestId('garden-plan-canvas');
+  openPanelTab('layers');
+  return screen.getByTestId(testId);
+}
 
 const PLAN_URL = '/api/v1/t/:tenant/sites/:key/plan';
 
@@ -67,7 +75,7 @@ describe('site-condition layers in the plan', () => {
     usePlanWithConditions();
     const { container } = renderRoute();
     for (const { id, label } of CASES) {
-      const toggle = await screen.findByTestId(`garden-plan-layer-${id}`);
+      const toggle = await inLayersTab(`garden-plan-layer-${id}`);
       expect(toggle).toHaveAttribute('aria-label', label);
       expect(toggle).toHaveAttribute('aria-pressed', 'false');
       expect(container.querySelector(`[data-testid="garden-plan-${id}-layer"]`)).toBeNull();
@@ -82,7 +90,7 @@ describe('site-condition layers in the plan', () => {
   }) => {
     usePlanWithConditions();
     const { container } = renderRoute();
-    fireEvent.click(await screen.findByTestId(`garden-plan-layer-${id}`));
+    fireEvent.click(await inLayersTab(`garden-plan-layer-${id}`));
     const layer = container.querySelector(`[data-testid="garden-plan-${id}-layer"]`) as SVGElement;
     expect(layer.querySelector('[data-condition-bed="loc_a"]')?.getAttribute('data-condition-value')).toBe(value);
     expect(layer.querySelector('[data-condition-bed="loc_b"]')).toBeNull();
@@ -94,7 +102,7 @@ describe('site-condition layers in the plan', () => {
   it('has no accessibility violations in the layer group of the view bar', async () => {
     usePlanWithConditions();
     renderRoute();
-    const toggle = await screen.findByTestId('garden-plan-layer-frost');
+    const toggle = await inLayersTab('garden-plan-layer-frost');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await expectNoA11yViolations(toggle.parentElement as HTMLElement);
