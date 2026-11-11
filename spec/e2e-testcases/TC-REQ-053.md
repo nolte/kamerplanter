@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.16"
+version: "1.17"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,9 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.17 (2026-11-11, #2906)** — Hinweis zu TC-053-111: der Zustandsrechner zählt `senesced` nicht mehr als
+ausgefallen (REQ-053 v1.20, Vektor `plant-state-008`). `test_count` unverändert.
 
 **Version 1.16 (2026-11-11, #2868)** — TC-053-103 (AC-2) ist nicht mehr blockiert: REQ-053 v1.19 grenzt GP-UX-001 auf
 die vier vorhandenen Werkzeuge ein, der Fall hat jetzt einen ausführbaren E2E-Test bei 1024 × 768. `test_count`
@@ -3487,7 +3490,7 @@ Beobachtungen des Nutzers (Anzahl stehen gebliebener Pflanzen, Menge Kompost).
 | Kriterium | Testfälle | Bemerkung |
 |-----------|-----------|-----------|
 | §11.3 „gesät“, Vereinzeln (W-015) | TC-053-109, TC-053-110 | Abstand aus dem Anbauplan; ohne Abstand fragt der Dialog (E-10) |
-| §11.3 „ausgefallen“, Nachpflanzen (W-015) | TC-053-111 | nur `died`; `senesced` bewusst nicht (siehe unten) |
+| §11.3 „ausgefallen“, Nachpflanzen (W-015) | TC-053-111 | nur `died`; `senesced` ist abgeschlossen, nicht ausgefallen (siehe unten) |
 | R-7.2 Aufgaben an Objekten (W-008) | TC-053-112 | Kompost; Rankhilfe ohne Abschnitt; die Ablehnung an einer Bank prüft der API-Test |
 | §9.5 Rankhilfe im Pflanzdialog (W-005) | TC-053-113 | vorhanden, fehlt, Art ohne Kennzeichen |
 | §9.2a Photoperiode-Hinweis (W-016.6) | TC-053-114 | Konflikt und Gegenprobe |
@@ -3581,9 +3584,9 @@ Beobachtungen des Nutzers (Anzahl stehen gebliebener Pflanzen, Menge Kompost).
   zählt mit — siehe Hinweis unten)
 - Nach dem Bepflanzen sind 2 Salat-Positionen geplant
 
-**Hinweis**: Die Spec-Tabelle §11.3 nennt `termination_type ∈ {died, senesced}` für „ausgefallen“; gebaut ist nach dem
-Agrobiologie-Review von WP 10.9 nur `died` (`thinningLogic.ts`, `REPLANT_TERMINATIONS`). Der Fall prüft das gebaute
-Verhalten; die Spec-Zeile ist in WP 10.15 nachzuziehen. Dass die Nachpflanzung derselben Kultur in derselben Saison den
+**Hinweis**: „Ausgefallen“ ist seit Spec v1.17 (§11.3) nur `termination_type = died`; `senesced` ist das natürliche
+Ende einer Kultur und gilt als abgeschlossen (Zustand „historisch“). Das Nachpflanz-Angebot (`thinningLogic.ts`,
+`REPLANT_TERMINATIONS`) und der Zustandsrechner (GP-FR-192, Vektor `plant-state-008`, #2906) folgen dem. Dass die Nachpflanzung derselben Kultur in derselben Saison den
 Fruchtfolge-Hinweis gegen die eigene ausgefallene Pflanze auslöst, ist beobachtet und als Frage an die Abnahme gemeldet.
 
 **Nachbedingungen**:

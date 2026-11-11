@@ -3842,9 +3842,9 @@
     {
       "id": "plant-state-008",
       "operation": "plant_state",
-      "spec": "§11.3 failed: termination senesced",
+      "spec": "§11.3 historic: termination senesced is the natural end of the crop, not a failure",
       "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": "2026-06-05", "termination_type": "senesced"}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
-      "expected": {"lifecycle": "failed", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+      "expected": {"lifecycle": "historic", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
     },
     {
       "id": "plant-state-009",

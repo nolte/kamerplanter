@@ -30,8 +30,11 @@ export const ATTENTION_PRIORITY: readonly AttentionCode[] = [
   'water',
   'harvest',
 ];
-/** `termination_type` values that count as a failure (§11.3 "ausgefallen"). */
-const FAILED_TERMINATIONS: ReadonlySet<string> = new Set(['died', 'senesced']);
+/**
+ * `termination_type` values that count as a failure (§11.3 "ausgefallen"): only an unplanned loss. `senesced` is
+ * the natural end of the crop and lands in `historic` like `harvested`/`cancelled`.
+ */
+const FAILED_TERMINATIONS: ReadonlySet<string> = new Set(['died']);
 const WATERING_CATEGORY = 'watering';
 const MS_PER_DAY = 86_400_000;
 

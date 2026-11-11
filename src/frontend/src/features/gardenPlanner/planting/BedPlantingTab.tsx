@@ -4,8 +4,8 @@
  * standing plant - "Correct position" and "Transplant to …". The dialog is a separate chunk.
  *
  * Direct sowing (§11.3, W-015): a planned row or zone can be recorded as sown; a sown one is listed as "Sown" with
- * "Thin out", which turns it into plants. A slot whose plant failed (died, senesced) offers "Replant": the planting
- * dialog opens with that crop.
+ * "Thin out", which turns it into plants. A slot whose plant failed (died; a senesced plant ended naturally and is no
+ * failure) offers "Replant": the planting dialog opens with that crop.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
