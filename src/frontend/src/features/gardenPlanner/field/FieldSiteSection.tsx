@@ -6,6 +6,8 @@
  * profile and the one key changed (the soil profile is written as a whole), the wind through the merged
  * `site_conditions`. The shown value is the tapped one until the list reload brings the stored one; a failed
  * write puts it back. Offline the controls are locked (no offline buffer before wave 9, D-23).
+ *
+ * On an indoor plan (GP-FR-182, WP 10.8) the "Windy" chip is not offered: wind is no feature of a windowsill.
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,9 +16,12 @@ import Typography from '@mui/material/Typography';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
+import { useAppSelector } from '@/store/hooks';
 import { patchSiteConditions, patchSoilProfile } from '../bed/bedApi';
 import ChipChoice from '../bed/ChipChoice';
 import type { BedListItem, SiteWaterRegime, SoilProfile } from '../bed/types';
+import { isIndoorPlanSite } from '../model/siteKind';
+import { selectGardenPlanState } from '../state/gardenPlanSlice';
 
 /** The three regimes the field offers; `fresh` is the plain "Normal". `wet` and `unknown` are set elsewhere. */
 export const FIELD_WATER_REGIMES: readonly SiteWaterRegime[] = ['moist', 'fresh', 'dry'];
@@ -42,6 +47,8 @@ export default function FieldSiteSection({ bed, canEdit, online, onChanged }: Fi
   const { t } = useTranslation();
   const { handleError } = useApiError();
   const notification = useNotification();
+  // Field mode loads the plan into the slice; its site type decides whether wind is a feature here.
+  const indoor = useAppSelector((state) => isIndoorPlanSite(selectGardenPlanState(state).plan?.siteType));
   const storedRegime = bed.soil_profile?.site_water_regime ?? 'unknown';
   const storedWind = bed.site_conditions?.wind_exposure ?? 'unknown';
   const [tapped, setTapped] = useState<{ regime?: SiteWaterRegime; windy?: boolean; base: string } | null>(null);
@@ -89,20 +96,22 @@ export default function FieldSiteSection({ bed, canEdit, online, onChanged }: Fi
           touchTarget={KIOSK_TOUCH_TARGET}
           testId="field-mode-site-moisture"
         />
-        <ChipChoice
-          title={t('pages.gardenPlan.siteConditions.field.wind')}
-          options={[{ value: 'windy', label: t('pages.gardenPlan.siteConditions.field.windy') }]}
-          value={windy ? ['windy'] : []}
-          mode="multiple"
-          onToggle={() =>
-            void run({ windy: !windy }, () =>
-              patchSiteConditions(bed.key, { wind_exposure: windy ? windOff : 'exposed' }),
-            )
-          }
-          disabled={disabled}
-          touchTarget={KIOSK_TOUCH_TARGET}
-          testId="field-mode-site-wind"
-        />
+        {!indoor && (
+          <ChipChoice
+            title={t('pages.gardenPlan.siteConditions.field.wind')}
+            options={[{ value: 'windy', label: t('pages.gardenPlan.siteConditions.field.windy') }]}
+            value={windy ? ['windy'] : []}
+            mode="multiple"
+            onToggle={() =>
+              void run({ windy: !windy }, () =>
+                patchSiteConditions(bed.key, { wind_exposure: windy ? windOff : 'exposed' }),
+              )
+            }
+            disabled={disabled}
+            touchTarget={KIOSK_TOUCH_TARGET}
+            testId="field-mode-site-wind"
+          />
+        )}
       </Box>
     </Box>
   );

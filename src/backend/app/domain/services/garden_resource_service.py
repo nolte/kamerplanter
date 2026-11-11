@@ -252,46 +252,69 @@ class GardenResourceService:
         tenant_key: str,
         is_bed: bool | None,
         bed_status: BedStatus | None,
+        supports_layout: bool | None = None,
     ) -> list[BedListRow]:
-        """A site's locations, filtered; with counters when a bed filter is given (GP-API-011).
+        """A site's locations, filtered; with counters when a bed or layout filter is given (GP-API-011).
 
-        ``is_bed`` is the ``is_bed`` flag of the location's type. Counters cost three queries over the
-        listed keys, so a plain listing (neither filter) stays as cheap as before and carries none.
+        ``is_bed`` is the ``is_bed`` flag of the location's type, ``supports_layout`` its layout flag (W-016.1: every
+        bed type plus tent and shelf) - the planting spots of an indoor plan (GP-FR-183, WP 10.8). Counters cost
+        three queries over the listed keys, so a plain listing (no filter) stays as cheap as before and carries none.
         When **beds** are listed (``is_bed=true``, or a ``bed_status`` alone) each row also carries
         ``nearest_water_source_m`` (GP-FR-167) - the value the summary and the CSV compute, from one read of the
-        site's water sources per call.
+        site's water sources per call. A layout listing carries it on its bed rows only, as the summary does: a tent
+        or a shelf is no bed and has no distance to a garden tap.
         """
-        with_counters = is_bed is not None or bed_status is not None
-        beds_listed = is_bed is True or (is_bed is None and bed_status is not None)
-        locations = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status)
+        with_counters = is_bed is not None or bed_status is not None or supports_layout is not None
+        beds_listed = is_bed is True or (is_bed is None and bed_status is not None and supports_layout is None)
+        locations = self._filtered_locations(
+            site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status, supports_layout=supports_layout
+        )
         counters: dict[str, BedCounters] = {}
         if with_counters and locations:
             counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
+        measured = locations
+        if not beds_listed and supports_layout is True:
+            flags = self._plan.bed_type_flags(self._type_keys(locations))
+            measured = [loc for loc in locations if flags.get(loc.location_type_key, False)]
         sources: list[Geometry] = []
-        if beds_listed and any(loc.geometry is not None for loc in locations):
+        if (beds_listed or supports_layout is True) and any(loc.geometry is not None for loc in measured):
             sources = self._water_sources(site_key, tenant_key=tenant_key)
+        measured_keys = {loc.key for loc in measured}
         return [
             BedListRow(
                 location=loc,
                 counters=counters.get(loc.key or "", BedCounters()) if with_counters else None,
-                nearest_water_source_m=nearest_water_source_m(loc.geometry, sources) if beds_listed else None,
+                nearest_water_source_m=(
+                    nearest_water_source_m(loc.geometry, sources) if loc.key in measured_keys and sources else None
+                ),
             )
             for loc in locations
         ]
 
+    @staticmethod
+    def _type_keys(locations: list[Location]) -> list[str]:
+        return sorted({loc.location_type_key for loc in locations if loc.location_type_key})
+
     def _filtered_locations(
-        self, site_key: SiteKey, *, tenant_key: str, is_bed: bool | None, bed_status: BedStatus | None
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        is_bed: bool | None,
+        bed_status: BedStatus | None,
+        supports_layout: bool | None = None,
     ) -> list[Location]:
-        """The owned site's locations, filtered by the ``is_bed`` flag of their type and by bed status."""
+        """The owned site's locations, filtered by their type's ``is_bed`` / ``supports_layout`` flag and by status."""
         self._owned_site(site_key, tenant_key=tenant_key)
         locations = self._sites.get_locations_by_site(site_key)
-        if bed_status is not None and is_bed is None:
+        if bed_status is not None and is_bed is None and supports_layout is None:
             is_bed = True  # a status is a bed's property: ``bed_status=`` alone lists beds, not every location
         if is_bed is not None:
-            flags = self._plan.bed_type_flags(
-                sorted({loc.location_type_key for loc in locations if loc.location_type_key})
-            )
+            flags = self._plan.bed_type_flags(self._type_keys(locations))
             locations = [loc for loc in locations if flags.get(loc.location_type_key, False) is is_bed]
+        if supports_layout is not None:
+            layout = self._plan.layout_type_flags(self._type_keys(locations))
+            locations = [loc for loc in locations if layout.get(loc.location_type_key, False) is supports_layout]
         if bed_status is not None:
             locations = [loc for loc in locations if loc.bed_status is bed_status]
         return locations

@@ -32,7 +32,8 @@ import { allowedBedTransitions } from './bedStatus';
 import type { BedSummary } from './types';
 import { useBedAssignments } from './useBedAssignments';
 import { useLocationTypeNames } from './useLocationTypeNames';
-import { useSiteThresholds } from './useSiteThresholds';
+import { useSiteFacts } from './useSiteThresholds';
+import { isIndoorPlanSite } from '../model/siteKind';
 import { useYearParam } from './useYearParam';
 
 // The renderer is the heavy part; it loads when the Plan tab opens.
@@ -88,8 +89,9 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
   // A planting or a filled-in / taken-back year changes what the head says about the previous year (#2764).
   const [historyVersion, setHistoryVersion] = useState(0);
   const previousYear = usePreviousYear(summary.key, year - 1, plantingVersion + historyVersion);
-  // The site's sun-class and reach thresholds (GP-FR-164/166, WP 8.24); the defaults until it is read.
-  const thresholds = useSiteThresholds(summary.site_key);
+  // The site's sun-class and reach thresholds (GP-FR-164/166, WP 8.24); the defaults until it is read. Its type hides
+  // weather, frost and wind on an indoor site (GP-FR-182, WP 10.8).
+  const { thresholds, siteType } = useSiteFacts(summary.site_key);
 
   const targets = useMemo(
     () => (canEdit ? allowedBedTransitions(summary.bed_status, canDelete) : []),
@@ -198,6 +200,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
         onChangeStatus={targets.length > 0 ? () => setStatusOpen(true) : null}
         onChangeSun={canEdit ? () => setSunOpen(true) : null}
         onChangeSite={canEdit ? () => setSiteOpen(true) : null}
+        outdoorConditions={!isIndoorPlanSite(siteType)}
         rotationReasons={rotationBadge?.reasons}
         reachThresholds={thresholds.reach}
         previousYear={previousYear}
@@ -252,6 +255,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
             bedKey={summary.key}
             bedName={summary.name}
             current={summary.site_conditions}
+            siteType={siteType}
             onClose={() => setSiteOpen(false)}
             onChanged={() => {
               setSiteOpen(false);

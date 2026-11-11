@@ -492,7 +492,8 @@ function setBoundary(plan: PlanModel, op: SetBoundaryOp): AppliedOperation {
   const previous = plan.settings;
   const settings: PlanSettings = {
     north_angle_deg: previous?.north_angle_deg ?? 0,
-    default_grid_m: previous?.default_grid_m ?? DEFAULT_GRID_M,
+    // A plan created by this outline starts on its site type's grid (5 cm indoor, GP-FR-182), as the server stores.
+    default_grid_m: previous?.default_grid_m ?? plan.defaultGridM ?? DEFAULT_GRID_M,
     adjacency_factor: previous?.adjacency_factor ?? DEFAULT_ADJACENCY_FACTOR,
     plan_revision: previous?.plan_revision ?? plan.revision,
     ...(previous ?? {}),

@@ -7,6 +7,7 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { renderWithProviders } from '@/test/helpers';
 import SiteConditionsFields, { parseDegrees } from './SiteConditionsFields';
 import { appliedSitePatch, changedSitePatch, mergeSitePatch } from './siteConditionsPatch';
+import type { SiteType } from '@/api/types';
 import type { SiteConditionsPatch, SiteConditionsSlice } from './types';
 
 afterEach(() => cleanup());
@@ -216,4 +217,33 @@ describe('the patch helpers', () => {
       microclimate: { frost_risk: 'low', cold_air_pocket: true },
     });
   });
+});
+
+describe('SiteConditionsFields per site type (GP-FR-182, WP 10.8)', () => {
+  const OUTDOOR_GROUPS = ['frost', 'cold-air', 'heat', 'wind'] as const;
+  const KEPT_GROUPS = ['slope', 'aspect', 'access', 'flags'] as const;
+
+  it.each<SiteType>(['indoor', 'windowsill', 'grow_tent'])(
+    'hides weather, frost and wind on a %s site and keeps slope, aspect, access and flags',
+    (siteType) => {
+      renderWithProviders(<SiteConditionsFields value={{ wind_exposure: 'exposed' }} onChange={vi.fn()} siteType={siteType} />);
+      for (const group of OUTDOOR_GROUPS) {
+        expect(screen.queryByTestId(`bed-view-site-conditions-${group}`)).toBeNull();
+      }
+      expect(screen.queryByRole('switch', { name: 'Cold-air pocket' })).toBeNull();
+      for (const group of KEPT_GROUPS) {
+        expect(screen.getByTestId(`bed-view-site-conditions-${group}`)).toBeInTheDocument();
+      }
+    },
+  );
+
+  it.each<SiteType | null>(['outdoor', 'greenhouse', 'balcony', null])(
+    'shows every feature on a garden site (%s) - unchanged',
+    (siteType) => {
+      renderWithProviders(<SiteConditionsFields value={{}} onChange={vi.fn()} siteType={siteType} />);
+      for (const group of [...OUTDOOR_GROUPS, ...KEPT_GROUPS]) {
+        expect(screen.getByTestId(`bed-view-site-conditions-${group}`)).toBeInTheDocument();
+      }
+    },
+  );
 });

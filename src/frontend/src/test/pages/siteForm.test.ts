@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ReachThresholds, SiteType } from '@/api/types';
+import { INDOOR_PLAN_SITE_TYPES } from '@/features/gardenPlanner/model/siteKind';
 import {
   SITE_TYPE_VALUES,
   WEATHER_RELEVANT_SITE_TYPES,
@@ -238,5 +239,13 @@ describe('siteForm — garden-planning thresholds (REQ-053 WP 8.24)', () => {
       sun_class_thresholds: null,
       reach_thresholds: { both_sides_m: 1.5, one_side_m: 0.6, path_access_max_distance_m: 0.3 },
     });
+  });
+});
+
+describe('INDOOR_PLAN_SITE_TYPES (REQ-053 WP 10.8, GP-FR-182)', () => {
+  it('splits the site types with the weather-relevant ones, as the backend derives the one from the other', () => {
+    const both = [...INDOOR_PLAN_SITE_TYPES, ...WEATHER_RELEVANT_SITE_TYPES];
+    expect(new Set(both).size).toBe(both.length);
+    expect([...both].sort()).toEqual([...SITE_TYPE_VALUES].sort());
   });
 });

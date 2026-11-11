@@ -6,6 +6,7 @@
  *
  * Plain JSON-serialisable data only - it lives in the Redux store.
  */
+import type { SiteType } from '@/api/types';
 import type { PlanZone } from '../zones/zoneTypes';
 import {
   PLAN_SCHEMA_VERSION,
@@ -23,6 +24,13 @@ export interface PlanModel {
   schemaVersion: typeof PLAN_SCHEMA_VERSION;
   siteKey: string;
   siteName: string;
+  /** The site's type (WP 10.8); absent = unknown, read as a garden plan (`isIndoorPlanSite`). */
+  siteType?: SiteType | null;
+  /**
+   * The snap grid the plan starts on when it has none stored yet: the site type's default from the server (5 cm
+   * indoor, GP-FR-182). Absent = the garden default. A stored `settings.default_grid_m` always wins.
+   */
+  defaultGridM?: number;
   /** The `plan_revision` this copy was loaded or last saved at (the optimistic lock, V-14). */
   revision: number;
   /** `null` = a site without a garden plan yet (§20.2). */
@@ -75,6 +83,8 @@ export function normalizePlan(response: GardenPlanResponse): PlanModel {
     schemaVersion: PLAN_SCHEMA_VERSION,
     siteKey: response.site_key,
     siteName: response.site_name,
+    siteType: response.site_type ?? null,
+    ...(response.site_default_grid_m != null ? { defaultGridM: response.site_default_grid_m } : {}),
     revision: response.plan_revision,
     settings: response.plan ?? null,
     locations: byKey(response.locations),

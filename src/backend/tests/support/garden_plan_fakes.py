@@ -388,6 +388,8 @@ class FakePlanRepo(IGardenPlanRepository):
         plan.plan_revision = revision + 1
         if write.boundary is not None:
             plan.boundary = write.boundary
+        if write.default_grid_m is not None:  # as ``_write_site``: the batch's grid, or the type default of a new plan
+            plan.default_grid_m = write.default_grid_m
         site.plan = plan
         return PlanBatchOutcome(plan_revision=revision + 1, key_map=key_map, released_photo_refs=tuple(released))
 

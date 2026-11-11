@@ -88,6 +88,18 @@ describe('siteConditionsLine (GP-FR-162/163/168)', () => {
       ].join(' · '),
     );
   });
+
+  it('leaves weather, frost and wind out of the line of an indoor site (GP-FR-182, WP 10.8)', () => {
+    const stored = {
+      microclimate: { frost_risk: 'high', cold_air_pocket: true, heat_retention: 'wall' },
+      wind_exposure: 'exposed',
+      slope_deg: 0,
+    } as const;
+    expect(siteConditionsLine(t, stored, false)).toBe('pages.gardenPlan.siteConditions.summary.slope:0');
+    expect(siteConditionsLine(t, { wind_exposure: 'exposed' }, false)).toBeNull();
+    // Counter-check: the garden line still names all of it.
+    expect(siteConditionsLine(t, stored)?.split(' · ')).toHaveLength(5);
+  });
 });
 
 describe('site flags (GP-FR-165, WP 9.11)', () => {

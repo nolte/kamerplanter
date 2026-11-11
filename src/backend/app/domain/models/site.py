@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import AllowInfNan, BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import (
+    INDOOR_PLAN_SITE_TYPES,
     AccessSide,
     BedStatus,
     EcMethod,
@@ -56,6 +57,9 @@ _HARDINESS_ZONE_PATTERN = re.compile(r"^\d{1,2}[ab]$")
 
 #: Snap grid of a new plan, 10 cm (GP-FR-011).
 DEFAULT_GRID_M = 0.10
+#: Snap grid of a new indoor plan, 5 cm (§9.8 "Raster-Standard Indoor 5 cm", GP-FR-182): a pot on a windowsill is
+#: placed finer than a bed in a garden.
+DEFAULT_INDOOR_GRID_M = 0.05
 #: Largest pot volume an input may name, in litres (W-016, #2832 SEC-003) - the bound
 #: ``PlantInstance.container_volume_liters`` has carried since REQ-034: a 500 l tub is already a planter, not a pot.
 #: Applied to the INPUT schemas only (``MixedCultureRunCreate``, ``SlotBatchItem``): ``Slot.container_volume_l`` has
@@ -81,6 +85,16 @@ SLOT_ROLE_KINDS: dict[SlotRole, GeometryKind] = {
     SlotRole.ROW: GeometryKind.POLYLINE,
     SlotRole.ZONE: GeometryKind.POLYGON,
 }
+
+
+def default_grid_m_for(site_type: SiteType) -> float:
+    """The snap grid a new plan of a site of this type starts with: 5 cm indoor, 10 cm otherwise (GP-FR-011/182).
+
+    The one source of the default: the plan service writes it when a site's first plan is created, and the plan
+    read model hands it to the client for a site that has no plan yet. A stored ``SitePlan.default_grid_m`` always
+    wins - the default is never applied to an existing plan.
+    """
+    return DEFAULT_INDOOR_GRID_M if site_type in INDOOR_PLAN_SITE_TYPES else DEFAULT_GRID_M
 
 
 class TapWaterProfile(BaseModel):

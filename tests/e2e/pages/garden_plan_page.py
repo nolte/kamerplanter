@@ -107,6 +107,14 @@ class GardenPlanPage(BasePage):
     TABS = _tid("garden-plan-tabs")
     EDITOR_TABPANEL = _tid("garden-plan-tabpanel-editor")
 
+    # ── Empty plan (GP-UX-049, #2617; indoor WP 10.8, GP-FR-182) ───────
+    # ``data-plan-kind`` is ``garden`` or ``indoor``. A garden offers "add the first bed"; an indoor plan (site type
+    # indoor / windowsill / grow_tent) offers "draw the floor plan" and "photo as a template" instead.
+    EMPTY = _tid("garden-plan-empty")
+    EMPTY_ADD_BED = _tid("garden-plan-empty-add-bed")
+    EMPTY_DRAW = _tid("garden-plan-empty-draw")
+    EMPTY_UNDERLAY = _tid("garden-plan-empty-underlay")
+
     # ── Editor header bar (WP 10.3, GP-UX-063) ─────────────────────────
     # One line on every width: what does not fit moves into the overflow "⋮" (OVERFLOW below), where an entry
     # carries ``garden-plan-menu-<id>`` - or the test id of the button it replaced (keyboard help, underlay,
@@ -239,6 +247,17 @@ class GardenPlanPage(BasePage):
 
     def save_status_text(self) -> str:
         return (self.wait_for_element(self.SAVE_STATUS).get_attribute("textContent") or "").strip()
+
+    def empty_plan_kind(self) -> str:
+        """``garden`` or ``indoor``: which empty state the page shows (WP 10.8). Loud when the plan is not empty."""
+        return self.wait_for_element(self.EMPTY).get_attribute("data-plan-kind") or ""
+
+    def tab_label(self, name: str) -> str:
+        """The visible label of the tab *name* - ``beds`` reads "Pflanzplätze" on an indoor plan (GP-UX-064)."""
+        return (
+            self.wait_for_element(_tid(f"garden-plan-tab-{name}")).get_attribute("textContent")
+            or ""
+        ).strip()
 
     def open_tab(self, name: str) -> None:
         """Switch to the tab *name* (``plan``, ``list`` or ``beds``) and wait until it is the selected one.

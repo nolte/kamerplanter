@@ -60,19 +60,26 @@ export function siteFlagsLine(t: TFunction, flags: readonly string[] | null | un
  * heat, wind, slope, aspect, access sides and competition flags. Only what was entered appears (`unknown` and absent are left out);
  * `null` when nothing was.
  */
-export function siteConditionsLine(t: TFunction, conditions: SiteConditionsSlice | null | undefined): string | null {
+export function siteConditionsLine(
+  t: TFunction,
+  conditions: SiteConditionsSlice | null | undefined,
+  outdoor = true,
+): string | null {
   if (!conditions) return null;
   const parts: string[] = [];
-  const risk = conditions.microclimate?.frost_risk;
+  // Indoors (GP-FR-182, WP 10.8) weather, frost and wind are no features of the place: a stored value is not named.
+  const risk = outdoor ? conditions.microclimate?.frost_risk : undefined;
   if (risk && risk !== 'unknown') {
     parts.push(t('pages.gardenPlan.siteConditions.summary.frost', { value: t(`enums.frostRisk.${risk}`) }));
   }
-  if (conditions.microclimate?.cold_air_pocket) parts.push(t('pages.gardenPlan.siteConditions.coldAirPocket.label'));
-  const heat = conditions.microclimate?.heat_retention;
+  if (outdoor && conditions.microclimate?.cold_air_pocket) {
+    parts.push(t('pages.gardenPlan.siteConditions.coldAirPocket.label'));
+  }
+  const heat = outdoor ? conditions.microclimate?.heat_retention : undefined;
   if (heat && heat !== 'unknown') {
     parts.push(t('pages.gardenPlan.siteConditions.summary.heat', { value: t(`enums.heatRetention.${heat}`) }));
   }
-  const wind = conditions.wind_exposure;
+  const wind = outdoor ? conditions.wind_exposure : undefined;
   if (wind && wind !== 'unknown') {
     parts.push(t('pages.gardenPlan.siteConditions.summary.wind', { value: t(`enums.windExposure.${wind}`) }));
   }

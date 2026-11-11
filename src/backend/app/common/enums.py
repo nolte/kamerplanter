@@ -363,6 +363,11 @@ OVERWINTERING_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, Sit
 #: INDOOR / WINDOWSILL / GROW_TENT stay excluded (climate-controlled, no weather).
 WEATHER_RELEVANT_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY})
 
+#: REQ-053 §9.8 (GP-FR-182, WP 10.8) - the site types whose garden plan is an indoor plan: a flat, a windowsill,
+#: a grow tent. Derived from ``WEATHER_RELEVANT_SITE_TYPES`` rather than listed a second time: a site without
+#: outdoor weather is exactly one whose plan hides weather, frost and wind and starts on the finer indoor grid.
+INDOOR_PLAN_SITE_TYPES = frozenset(SiteType) - WEATHER_RELEVANT_SITE_TYPES
+
 
 class LightType(StrEnum):
     NATURAL = "natural"

@@ -871,6 +871,24 @@ describe('moisture and wind in the bed sheet (REQ-053 GP-FR-162/163, GP-UX-057, 
     });
   });
 
+  it('offers no "Windy" chip on an indoor plan, the moisture chips stay (GP-FR-182, WP 10.8)', async () => {
+    useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1', soil_profile: SOIL })] });
+    server.use(
+      http.get(`${BASE}/sites/:key/plan`, () =>
+        HttpResponse.json(
+          planResponse({ site_type: 'grow_tent', locations: [bed('loc_a', 1, 1)], garden_objects: [], slots: [], plants: [] }),
+        ),
+      ),
+    );
+    const { store } = renderField();
+    await waitFor(() => expect(store.getState().gardenPlan?.plan?.siteType).toBe('grow_tent'));
+    const sheet = await openBed('Raised bed 1');
+    const section = await within(sheet).findByTestId('field-mode-site-section');
+
+    expect(within(section).getByTestId('field-mode-site-moisture-fresh')).toBeInTheDocument();
+    expect(within(section).queryByTestId('field-mode-site-wind')).toBeNull();
+  });
+
   it('stores a tapped regime with the whole stored soil profile and only the one key changed', async () => {
     useFieldBackend({ beds: [bedListItem('loc_a', { name: 'Raised bed 1', soil_profile: SOIL })] });
     const bodies = usePatches();

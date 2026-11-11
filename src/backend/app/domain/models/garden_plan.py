@@ -19,12 +19,13 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, field_validator, model_validator
 
-from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SlotRole, SunExposure, SunWindow
+from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SiteType, SlotRole, SunExposure, SunWindow
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.nutrient_hint import NutrientHint
 from app.domain.models.site import (
+    DEFAULT_GRID_M,
     MAX_ADJACENCY_FACTOR,
     MAX_CONTAINER_VOLUME_L,
     Location,
@@ -673,6 +674,10 @@ class GardenPlanView(BaseModel):
 
     site_key: str
     site_name: str
+    #: The site's type (GP-FR-182, WP 10.8): an indoor type makes the plan an indoor plan on the client.
+    site_type: SiteType = SiteType.OUTDOOR
+    #: The snap grid a new plan of this site starts with (``default_grid_m_for``); the stored plan's grid wins.
+    site_default_grid_m: float = DEFAULT_GRID_M
     plan_revision: int = 0
     plan: SitePlan | None = None
     plan_updated_by_name: str | None = None

@@ -5,6 +5,9 @@
  * beds" narrows the list to the beds assigned to the signed-in user.
  * While a bed has a distance to the nearest water source, an optional column shows it (GP-FR-167, WP 9.12): the
  * server's value of the list response, the same as the summary and the CSV - hidden on narrow screens.
+ *
+ * The list holds every location that can carry a slot layout (`supports_layout`, WP 10.8, G-W10 e): the beds, and
+ * tents and shelves besides. In an indoor plan (GP-FR-183) it is titled "Pflanzplätze".
  */
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -25,7 +28,7 @@ import { parseApiError } from '@/api/errors';
 import { useTableLocalState } from '@/hooks/useTableState';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedStatus } from '../model/types';
-import { listBeds } from './bedApi';
+import { listLayoutLocations } from './bedApi';
 import { BED_STATUS_COLOR, compareNullableLast, formatBedDate, isOverdue, waterSourceText } from './bedFormat';
 import type { BedListItem } from './types';
 import { useBedAssignments } from './useBedAssignments';
@@ -42,6 +45,8 @@ interface BedListSectionProps {
   reloadToken: string | null;
   /** The row was chosen: select the bed on the plan and bring it into view. */
   onSelectBed: (bed: BedListItem) => void;
+  /** The plan is an indoor plan (GP-FR-183): the list is titled "Pflanzplätze". */
+  indoor?: boolean;
 }
 
 type ListState =
@@ -53,9 +58,11 @@ function count(value: number | null | undefined): number {
   return value ?? 0;
 }
 
-export default function BedListSection({ siteKey, reloadToken, onSelectBed }: BedListSectionProps) {
+export default function BedListSection({ siteKey, reloadToken, onSelectBed, indoor = false }: BedListSectionProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
+  // The heading, hint and empty state name what is listed: beds in a garden, planting spots indoors (GP-FR-183).
+  const listPrefix = indoor ? 'pages.bed.listIndoor' : 'pages.bed.list';
   const tableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
   const typeNames = useLocationTypeNames();
   const assignments = useBedAssignments(true);
@@ -68,7 +75,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
 
   useEffect(() => {
     let cancelled = false;
-    listBeds(siteKey)
+    listLayoutLocations(siteKey)
       .then((beds) => {
         if (!cancelled) setState({ status: 'ready', beds });
       })
@@ -210,7 +217,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
     <Box component="section" aria-labelledby="bed-list-heading" data-testid="bed-list-section">
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mb: 1 }}>
         <Typography id="bed-list-heading" variant="h6" component="h2" sx={{ flexGrow: 1 }}>
-          {t('pages.bed.list.title')}
+          {t(`${listPrefix}.title`)}
         </Typography>
         <TextField
           select
@@ -258,7 +265,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
         )}
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {t('pages.bed.list.hint')}
+        {t(`${listPrefix}.hint`)}
       </Typography>
       {state.status === 'error' ? (
         <ErrorDisplay error={state.message} onRetry={() => setAttempt((value) => value + 1)} />
@@ -270,10 +277,10 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
           getRowKey={(bed) => bed.key}
           onRowClick={onSelectBed}
           tableState={tableState}
-          ariaLabel={t('pages.bed.list.title')}
+          ariaLabel={t(`${listPrefix}.title`)}
           sectionTestId="bed-list"
-          emptyMessage={t('pages.bed.list.empty')}
-          emptyDescription={t('pages.bed.list.emptyDescription')}
+          emptyMessage={t(`${listPrefix}.empty`)}
+          emptyDescription={t(`${listPrefix}.emptyDescription`)}
           hasActiveColumnFilters={statusFilter !== 'open' || onlyMine}
           onResetColumnFilters={() => {
             setStatusFilter('open');

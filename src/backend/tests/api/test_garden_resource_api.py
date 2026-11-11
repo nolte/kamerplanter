@@ -189,6 +189,55 @@ class TestTheBedList:
         assert plain[0]["nearest_water_source_m"] is None
 
 
+class TestThePlantingSpots:
+    """WP 10.8 (GP-FR-183, G-W10 e): ``supports_layout=true`` lists every location that can carry a layout."""
+
+    @pytest.fixture(autouse=True)
+    def _indoor(self, repo) -> None:
+        repo.locations["tent"] = make_location("tent", name="Grow tent", location_type_key="tent", geometry=rect(4, 1))
+        repo.locations["shelf"] = make_location("shelf", name="Shelf", location_type_key="shelf")
+        repo.locations["house"] = make_location("house", name="Greenhouse", location_type_key="greenhouse")
+
+    def _list(self, client, **params: str) -> list[dict]:
+        response = client(TenantRole.VIEWER).get(f"{_BASE}/locations", params={"site_key": SITE, **params})
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def test_a_tent_and_a_shelf_are_planting_spots_with_counters(self, client, repo) -> None:
+        repo.counters["tent"] = BedCounters(active_plant_count=4, open_task_count=1)
+
+        rows = {row["key"]: row for row in self._list(client, supports_layout="true")}
+
+        assert sorted(rows) == ["bed", "shelf", "tent"]
+        assert (rows["tent"]["active_plant_count"], rows["tent"]["open_task_count"]) == (4, 1)
+        assert rows["shelf"]["active_plant_count"] == 0
+
+    def test_the_bed_list_still_lists_beds_only(self, client) -> None:
+        """Counter-check: ``is_bed=true`` is unchanged - a bed is a bed, a tent is none."""
+        assert [row["key"] for row in self._list(client, is_bed="true")] == ["bed"]
+
+    def test_the_water_distance_stays_a_bed_value_in_the_planting_spot_list(self, client, repo) -> None:
+        repo.objects["tap"] = _water_source("tap", 4.5, 1.5)
+
+        rows = {row["key"]: row["nearest_water_source_m"] for row in self._list(client, supports_layout="true")}
+
+        assert rows == {"bed": 1.5, "tent": None, "shelf": None}
+
+    def test_supports_layout_false_lists_what_cannot_carry_a_layout(self, client) -> None:
+        assert [row["key"] for row in self._list(client, supports_layout="false")] == ["house"]
+
+    def test_a_status_narrows_the_planting_spots_without_turning_them_into_beds(self, client, repo) -> None:
+        repo.locations["tent"] = repo.locations["tent"].model_copy(update={"bed_status": BedStatus.RETIRED})
+
+        rows = self._list(client, supports_layout="true", bed_status="retired")
+
+        assert [row["key"] for row in rows] == ["tent"]
+
+    def test_a_foreign_site_is_a_404(self, client) -> None:
+        response = client().get(f"{_FOREIGN}/locations", params={"site_key": SITE, "supports_layout": "true"})
+        assert response.status_code == 404
+
+
 class TestTheSummaryPathAccess:
     """GP-FR-166 (#2703): the summary carries the access the site's paths give the bed (x 1..3, y 1..2)."""
 

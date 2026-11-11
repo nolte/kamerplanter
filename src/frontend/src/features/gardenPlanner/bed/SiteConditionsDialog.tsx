@@ -17,6 +17,8 @@ import { useTheme } from '@mui/material/styles';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { patchSiteConditions } from './bedApi';
+import type { SiteType } from '@/api/types';
+import { isIndoorPlanSite } from '../model/siteKind';
 import SiteConditionsFields from './SiteConditionsFields';
 import { appliedSitePatch, changedSitePatch, mergeSitePatch } from './siteConditionsPatch';
 import type { SiteConditionsPatch, SiteConditionsSlice } from './types';
@@ -29,9 +31,18 @@ interface SiteConditionsDialogProps {
   onClose: () => void;
   /** The conditions were stored; the page reloads its summary. */
   onChanged: () => void;
+  /** The type of the bed's site: an indoor type hides weather, frost and wind (GP-FR-182, WP 10.8). */
+  siteType?: SiteType | null;
 }
 
-export default function SiteConditionsDialog({ bedKey, bedName, current, onClose, onChanged }: SiteConditionsDialogProps) {
+export default function SiteConditionsDialog({
+  bedKey,
+  bedName,
+  current,
+  onClose,
+  onChanged,
+  siteType = null,
+}: SiteConditionsDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -77,13 +88,14 @@ export default function SiteConditionsDialog({ bedKey, bedName, current, onClose
       <DialogTitle id="bed-site-title">{t('pages.gardenPlan.siteConditions.dialog.title', { bed: bedName })}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         <Typography variant="body2" color="text.secondary">
-          {t('pages.gardenPlan.siteConditions.hint')}
+          {t(isIndoorPlanSite(siteType) ? 'pages.gardenPlan.siteConditions.hintIndoor' : 'pages.gardenPlan.siteConditions.hint')}
         </Typography>
         <SiteConditionsFields
           value={appliedSitePatch(current, patch)}
           onChange={(next) => setPatch((previous) => mergeSitePatch(previous, next))}
           disabled={saving}
           onValidityChange={setValid}
+          siteType={siteType}
         />
       </DialogContent>
       <DialogActions>

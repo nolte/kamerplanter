@@ -5328,6 +5328,7 @@
         "plan": "Plan",
         "list": "Liste",
         "beds": "Beete",
+        "plantingSpots": "Pflanzplätze",
         "bedsOffline": "Die Beetliste braucht eine Verbindung zum Server. Sobald du wieder online bist, siehst du hier deine Beete."
       },
       "empty": {
@@ -5335,6 +5336,13 @@
         "description": "Für diesen Standort ist noch kein Plan angelegt. Beete legen Mitglieder mit der Rolle Gärtner oder Leitung an; sobald es das erste gibt, siehst du hier deine Beete und Gartenobjekte von oben.",
         "descriptionCanEdit": "Für diesen Standort ist noch kein Plan angelegt. Lege als Nächstes das erste Beet mit seinen Maßen an - danach kannst du weitere Beete und Gartenobjekte direkt auf dem Plan zeichnen.",
         "addFirstBed": "Erstes Beet anlegen"
+      },
+      "emptyIndoor": {
+        "title": "Noch kein Wohnungsplan",
+        "description": "Zeichne die Umrisse deiner Wohnung oder lade ein Foto als Vorlage. Das übernehmen Mitglieder mit der Rolle Gärtner oder Leitung; danach siehst du hier Räume, Fensterbänke, Regale und Zelte von oben.",
+        "descriptionCanEdit": "Zeichne die Umrisse deiner Wohnung oder lade ein Foto als Vorlage. Ein Foto oder eine Skizze des Grundrisses kannst du mit zwei Punkten auf echte Maße eichen und dann darüber zeichnen; das Raster steht auf 5 cm.",
+        "draw": "Grundriss zeichnen",
+        "underlay": "Foto als Vorlage laden"
       },
       "renderer": {
         "canvas": "Gartenplan",
@@ -7110,6 +7118,7 @@
       },
       "siteConditions": {
         "hint": "Halte fest, was du am Beet beobachtest. Kamerplanter rechnet nichts daraus aus; die Angaben fließen in Hinweise beim Bepflanzen und in die Frost-Frühwarnung ein.",
+        "hintIndoor": "Halte fest, was du an diesem Platz beobachtest. Kamerplanter rechnet nichts daraus aus; die Angaben fließen in Hinweise beim Bepflanzen ein. Wetter, Frost und Wind spielen drinnen keine Rolle und sind deshalb ausgeblendet.",
         "frost": {
           "title": "Frostrisiko",
           "hint": "Liegt das Beet in einer Senke oder an einer kalten Stelle? „Hoch“ nennt die Frost-Frühwarnung immer, „Gering“ nie."
@@ -7471,6 +7480,12 @@
         "notPlaced": "„{{name}}“ ist noch nicht im Gartenplan eingezeichnet.",
         "batchOpen": "Aufgaben auf mehreren Beeten erledigen",
         "careLink": "{{tasks}}: Pflege-Tab von {{name}} öffnen"
+      },
+      "listIndoor": {
+        "title": "Pflanzplätze",
+        "hint": "Hier stehen alle Plätze, auf denen Pflanzen ihren Platz haben: Beete, Zelte und Regale. Wähle eine Zeile, um den Platz im Plan hervorzuheben. Der Name öffnet ihn.",
+        "empty": "Noch keine Pflanzplätze",
+        "emptyDescription": "Zeichne im Plan ein Zelt, ein Regal oder ein Beet, dann erscheint es hier."
       },
       "care": {
         "sections": {

@@ -22,7 +22,7 @@ from structlog.testing import capture_logs
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_garden_plan_service, get_tenant_service
-from app.common.enums import TenantRole
+from app.common.enums import SiteType, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.user import User
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -207,6 +207,69 @@ class TestTheBoundary:
             },
         )
         assert response.status_code == 409 and response.json()["error_code"] == "plan.revision_conflict"
+
+
+_INDOOR_TYPES = [SiteType.INDOOR, SiteType.WINDOWSILL, SiteType.GROW_TENT]
+_GARDEN_TYPES = [SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY]
+_ROOM = {"kind": "rect", "origin": [0, 0], "width_m": 4, "length_m": 3, "rotation_deg": 0}
+
+
+class TestTheIndoorPlan:
+    """WP 10.8 (GP-FR-182, §9.8): the plan names its site type, and a new indoor plan starts on a 5 cm grid."""
+
+    def test_a_garden_plan_names_its_type_and_keeps_the_10_cm_grid(self, client) -> None:
+        body = client(TenantRole.VIEWER).get(_PLAN).json()
+
+        assert (body["site_type"], body["site_default_grid_m"]) == ("outdoor", 0.1)
+        assert body["plan"]["default_grid_m"] == 0.1
+
+    @pytest.mark.parametrize("site_type", _INDOOR_TYPES)
+    def test_an_indoor_site_without_a_plan_is_offered_the_5_cm_grid(self, client, repo, site_type) -> None:
+        repo._sites.sites[SITE].type = site_type
+        repo._sites.sites[SITE].plan = None
+
+        body = client(TenantRole.VIEWER).get(_PLAN).json()
+
+        assert (body["site_type"], body["site_default_grid_m"], body.get("plan")) == (site_type.value, 0.05, None)
+
+    @pytest.mark.parametrize("site_type", _INDOOR_TYPES)
+    def test_the_first_save_of_an_indoor_plan_stores_the_5_cm_grid(self, client, repo, site_type) -> None:
+        repo._sites.sites[SITE].type = site_type
+        repo._sites.sites[SITE].plan = None
+
+        response = client().put(f"{_PLAN}/boundary", json={"boundary": _ROOM, "north_angle_deg": 0})
+
+        assert response.status_code == 200, response.text
+        assert client().get(_PLAN).json()["plan"]["default_grid_m"] == 0.05
+
+    @pytest.mark.parametrize("site_type", _GARDEN_TYPES)
+    def test_the_first_save_of_a_garden_plan_still_stores_the_10_cm_grid(self, client, repo, site_type) -> None:
+        """Counter-check: a garden, a greenhouse and a balcony start where they always did."""
+        repo._sites.sites[SITE].type = site_type
+        repo._sites.sites[SITE].plan = None
+
+        client().put(f"{_PLAN}/boundary", json={"boundary": _ROOM, "north_angle_deg": 0})
+
+        body = client().get(_PLAN).json()
+        assert (body["site_default_grid_m"], body["plan"]["default_grid_m"]) == (0.1, 0.1)
+
+    def test_a_grid_named_on_the_first_save_wins_over_the_type_default(self, client, repo) -> None:
+        repo._sites.sites[SITE].type = SiteType.INDOOR
+        repo._sites.sites[SITE].plan = None
+
+        client().put(f"{_PLAN}/boundary", json={"boundary": _ROOM, "north_angle_deg": 0, "default_grid_m": 0.25})
+
+        assert client().get(_PLAN).json()["plan"]["default_grid_m"] == 0.25
+
+    def test_a_stored_grid_is_never_replaced_by_the_type_default(self, client, repo) -> None:
+        """A site turned indoor after its plan was drawn keeps its grid: the default is for a new plan only."""
+        repo._sites.sites[SITE].type = SiteType.INDOOR
+
+        response = client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [_create()]})
+
+        assert response.status_code == 200, response.text
+        assert repo.applied[-1].default_grid_m is None
+        assert client().get(_PLAN).json()["plan"]["default_grid_m"] == 0.1
 
 
 class TestTheBatchOnTheWire:

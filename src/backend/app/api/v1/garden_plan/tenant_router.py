@@ -153,6 +153,8 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
         schema_version=SCHEMA_VERSION,
         site_key=view.site_key,
         site_name=view.site_name,
+        site_type=view.site_type,
+        site_default_grid_m=view.site_default_grid_m,
         plan_revision=view.plan_revision,
         plan=(
             PlanSettingsResponse(

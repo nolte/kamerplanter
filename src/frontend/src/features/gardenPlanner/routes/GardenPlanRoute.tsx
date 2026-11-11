@@ -33,6 +33,10 @@
  * ("Verhältnis zu Shell und Seitenkopf", UI-NFR-021). The canvas reports the room it has and the plan is fitted into
  * exactly that (`fillViewport`). A plan the editor cannot show (loading, error, empty, read-only) keeps the page
  * header actions and a tab row of its own.
+ *
+ * Indoor plan (WP 10.8, §9.8, GP-FR-182/183): a site of type `indoor`, `windowsill` or `grow_tent` uses the same page.
+ * Its empty plan invites to draw the flat or to load a photo of it as a template (the underlay, GP-FR-033), and the
+ * "Beete" tab reads "Pflanzplätze" - its URL value stays `beds`. The editor hides the frost layer of such a plan.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -44,6 +48,8 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import DrawOutlinedIcon from '@mui/icons-material/DrawOutlined';
+import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
@@ -85,6 +91,7 @@ import { PlanIoMenu, usePlanIo } from '../io/PlanIoMenu';
 import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
+import { isIndoorPlanSite } from '../model/siteKind';
 import { EMPTY_PLAN_BOUNDS, fitIntoCanvas, fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
 import { planModeHref, resolvePlanMode } from './planMode';
@@ -100,6 +107,9 @@ const FieldModeView = lazy(() => import('../field/FieldModeView'));
 // Register the slice before the first render of the page; idempotent, so a re-evaluated module
 // (tests, HMR) is harmless.
 registerLazySlice(gardenPlanSlice);
+
+/** The first step an empty plan offers (#2617, WP 10.8): a bed in a garden; indoor, drawing the flat or a photo. */
+type FirstStep = 'bed' | 'draw' | 'underlay';
 
 /** The drawing may take this share of the viewport height before the page scrolls. */
 const MAX_HEIGHT_SHARE = 0.7;
@@ -256,11 +266,20 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     setFit({ requestId: loadRequestId, bounds: planContentBounds(plan) });
   }
   const contentBounds = fit?.bounds ?? null;
-  // "Add the first bed" (#2617): the site it was chosen for keeps the editor on the default area of an
-  // empty plan, also once that bed exists - the fit follows the content only on the next load.
-  const [firstBedSite, setFirstBedSite] = useState<string | null>(null);
-  const startingFirstBed = key !== undefined && firstBedSite === key;
+  // The empty plan's first step (#2617, WP 10.8): "add the first bed", or - indoor - "draw the flat" and "photo as a
+  // template". The site it was chosen for keeps the editor on the default area of an empty plan, also once something
+  // exists - the fit follows the content only on the next load.
+  const [firstStep, setFirstStep] = useState<{ site: string; action: FirstStep } | null>(null);
+  const startAction = key !== undefined && firstStep?.site === key ? firstStep.action : null;
+  const startingFirstBed = startAction !== null;
+  const startFirst = useCallback(
+    (action: FirstStep) => {
+      if (key) setFirstStep({ site: key, action });
+    },
+    [key],
+  );
   const bounds = contentBounds ?? (startingFirstBed ? EMPTY_PLAN_BOUNDS : null);
+  const indoor = isIndoorPlanSite(plan?.siteType);
   // The room the editor's canvas has (GP-UX-067): the plan is fitted into exactly that. Until the canvas has been
   // measured (and where nothing is laid out) the drawing takes the width and a share of the window height.
   const [canvasSize, setCanvasSize] = useState<CanvasAreaSize | null>(null);
@@ -417,7 +436,8 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       label: t('pages.gardenPlan.tabs.label'),
       items: (['plan', 'list', 'beds'] as const).map((value) => ({
         value,
-        label: t(`pages.gardenPlan.tabs.${value}`),
+        // GP-UX-064: indoor the "Beete" tab is "Pflanzplätze"; its URL value stays `beds`.
+        label: t(value === 'beds' && indoor ? 'pages.gardenPlan.tabs.plantingSpots' : `pages.gardenPlan.tabs.${value}`),
         icon: TAB_ICON[value],
         id: TAB_ID[value],
         controls: value === 'beds' ? BEDS_PANEL_ID : EDITOR_PANEL_ID,
@@ -426,7 +446,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       panelId: EDITOR_PANEL_ID,
       onInlineChange: setTabsInline,
     }),
-    [tab, t, selectTab],
+    [tab, t, selectTab, indoor],
   );
 
   const backLink = (
@@ -465,28 +485,50 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   } else if (plan === null || loadStatus !== 'ready') {
     content = <LoadingSkeleton variant="card" />;
   } else if (viewport === null) {
-    // GP-UX-049: a describing text and exactly one action - for the roles that may create beds.
+    // GP-UX-049: a describing text and its next step - for the roles that may create beds. Indoor (GP-FR-182) the
+    // step is the flat: draw it, or trace a photo of it.
+    const empty = indoor ? 'pages.gardenPlan.emptyIndoor' : 'pages.gardenPlan.empty';
+    const mayStart = canEdit && key !== undefined && serverReachable;
     content = (
-      <Box data-testid="garden-plan-empty">
+      <Box data-testid="garden-plan-empty" data-plan-kind={indoor ? 'indoor' : 'garden'}>
         <EmptyState
-          message={t('pages.gardenPlan.empty.title')}
-          description={t(
-            canEdit && serverReachable
-              ? 'pages.gardenPlan.empty.descriptionCanEdit'
-              : 'pages.gardenPlan.empty.description',
-          )}
+          message={t(`${empty}.title`)}
+          description={t(mayStart ? `${empty}.descriptionCanEdit` : `${empty}.description`)}
         />
-        {canEdit && key && serverReachable && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', pb: 4 }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setFirstBedSite(key)}
-              data-testid="garden-plan-empty-add-bed"
-              sx={{ minHeight: 48 }}
-            >
-              {t('pages.gardenPlan.empty.addFirstBed')}
-            </Button>
+        {mayStart && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 2, pb: 4 }}>
+            {indoor ? (
+              <>
+                <Button
+                  variant="contained"
+                  startIcon={<DrawOutlinedIcon />}
+                  onClick={() => startFirst('draw')}
+                  data-testid="garden-plan-empty-draw"
+                  sx={{ minHeight: 48 }}
+                >
+                  {t('pages.gardenPlan.emptyIndoor.draw')}
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddPhotoAlternateOutlinedIcon />}
+                  onClick={() => startFirst('underlay')}
+                  data-testid="garden-plan-empty-underlay"
+                  sx={{ minHeight: 48 }}
+                >
+                  {t('pages.gardenPlan.emptyIndoor.underlay')}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => startFirst('bed')}
+                data-testid="garden-plan-empty-add-bed"
+                sx={{ minHeight: 48 }}
+              >
+                {t('pages.gardenPlan.empty.addFirstBed')}
+              </Button>
+            )}
           </Box>
         )}
       </Box>
@@ -515,7 +557,8 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           onZoom={onZoom}
           onFit={onFit}
           minPxPerM={minPxPerM}
-          initialAddOpen={startingFirstBed && contentBounds === null}
+          initialAddOpen={startAction === 'bed' && contentBounds === null}
+          initialUnderlayOpen={startAction === 'underlay' && contentBounds === null}
           view={tab === 'list' ? 'list' : 'plan'}
           onViewChange={onEditorView}
           nav={headerNav}
@@ -574,7 +617,9 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
         <Box
           id={BEDS_PANEL_ID}
           role="tabpanel"
-          {...(bedsLabelled ? { 'aria-labelledby': TAB_ID.beds } : { 'aria-label': t('pages.gardenPlan.tabs.beds') })}
+          {...(bedsLabelled
+            ? { 'aria-labelledby': TAB_ID.beds }
+            : { 'aria-label': t(indoor ? 'pages.gardenPlan.tabs.plantingSpots' : 'pages.gardenPlan.tabs.beds') })}
           hidden={!bedsShown}
           data-testid={BEDS_PANEL_ID}
           sx={{ mt: editorShown ? 1 : 0 }}
@@ -584,6 +629,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           {key && serverReachable ? (
             <BedListSection
               siteKey={key}
+              indoor={indoor}
               reloadToken={bedListReloadToken(loadRequestId, plan.revision)}
               onSelectBed={onSelectBed}
             />
