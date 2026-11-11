@@ -1292,6 +1292,16 @@
       "cistern": "Zisterne",
       "hose_reel": "Schlauchtrommel"
     },
+    "windowGlazing": {
+      "single": "Einfachverglasung",
+      "double": "Doppel- oder Mehrfachverglasung",
+      "unknown": "Unbekannt"
+    },
+    "lampKind": {
+      "grow_light": "Pflanzenlampe",
+      "ceiling": "Deckenleuchte",
+      "floor": "Stehleuchte"
+    },
     "sunWindow": {
       "morning": "Morgens",
       "midday": "Mittags",

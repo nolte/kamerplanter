@@ -5709,6 +5709,48 @@
             "lastRefilledHelp": "The day the source was last refilled. Leave empty if unknown.",
             "lastRefilledFuture": "That day is in the future. Pick today or an earlier day."
           },
+          "objectProps": {
+            "title": "Object properties",
+            "notGiven": "Not given",
+            "heightRequiredInvalid": "Enter a height between {{min}} and {{max}} m. The field cannot be empty.",
+            "window": {
+              "sillHeight": "Sill height",
+              "sillHeightHelp": "Distance from the floor to the bottom edge of the window. 0 m for a floor-to-ceiling window. Leave empty if unknown.",
+              "sillHeightInvalid": "Enter a sill height between 0 and {{max}} m, or leave the field empty.",
+              "glazing": "Glazing",
+              "glazingHelp": "Single glazing lets more cold reach the plants on the windowsill than double or multiple glazing.",
+              "orientation": "Orientation: {{value}}",
+              "orientationNone": "not available yet",
+              "orientationHelp": "Derived from the window's position in the wall and the plan's north direction, not entered by hand."
+            },
+            "door": {
+              "swing": "Swing direction",
+              "swingHelp": "Which way the door opens, e.g. \"inwards, hinged left\". Leave empty if it does not matter. {{count}} of {{max}} characters.",
+              "swingTooLong": "At most {{max}} characters. Shorten the description."
+            },
+            "furniture": {
+              "note": "Furniture such as a windowsill, shelf or table has no further properties. You set its name, position and size in this tab."
+            },
+            "lamp": {
+              "kind": "Kind of lamp",
+              "kindHelp": "Grow light, ceiling light or floor lamp.",
+              "height": "Mounting height",
+              "heightHelp": "Height of the lamp above the floor.",
+              "ppfd": "Reference PPFD",
+              "ppfdHelp": "Light intensity from the lamp's data sheet. It is stored but not yet used for a light distribution.",
+              "ppfdNone": "Not given. Enter the light intensity from the lamp's data sheet if you know it - there is no default value.",
+              "ppfdInvalid": "Enter a value of 0 µmol/m²/s or more, or leave the field empty."
+            },
+            "trellis": {
+              "height": "Height",
+              "heightHelp": "Height of the trellis above the ground. The field cannot be empty."
+            },
+            "offSite": {
+              "label": "Outside the property",
+              "help": "For scenery beyond the garden boundary, such as the neighbour's house or a tree behind the fence. Such objects may extend past the boundary.",
+              "refused": "The object sticks out of its area or the garden boundary. Move it fully inside before you switch this off."
+            }
+          },
           "lockedHint": "Locked: the values are read-only. Unlock the object to change it.",
           "locked": "Locked",
           "fields": {
@@ -6408,6 +6450,14 @@
           "listItem": "{{status}}: {{pair}}. {{detail}}",
           "speciesTruncated": "A slot holds more than {{count}} species; the verdict covers only the first {{count}}.",
           "unnamedSpecies": "Unnamed species"
+        },
+        "objectLegend": {
+          "title": "Objects",
+          "none": "The plan has no objects such as trees, paths, windows or lamps yet.",
+          "entry_one": "{{type}} ({{count}})",
+          "entry_other": "{{type}} ({{count}})",
+          "offSite_one": "- {{count}} of them outside the property",
+          "offSite_other": "- {{count}} of them outside the property"
         },
         "sidePanel": {
           "toggle": "Side panel",

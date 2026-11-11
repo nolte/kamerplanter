@@ -5,7 +5,7 @@
  */
 import type { KeyboardEvent } from 'react';
 import { alpha, type Theme } from '@mui/material/styles';
-import type { BedStatus, GardenObject, PlanLocation, Point } from '../model/types';
+import type { BedStatus, GardenObject, GardenObjectType, PlanLocation, Point } from '../model/types';
 import type { MarkerEntry, ShapeEntry } from './planIndex';
 import type { SceneCluster, SceneShape } from './scene';
 import type { PlantMarkerState, RendererLabels } from './types';
@@ -60,7 +60,12 @@ export function planPalette(theme: Theme): PlanPalette {
 }
 
 export function objectFill(object: GardenObject, palette: PlanPalette): string {
-  switch (object.object_type) {
+  return objectTypeFill(object.object_type, palette);
+}
+
+/** The fill of an object class; the object legend draws its swatch with it, so legend and plan cannot drift apart. */
+export function objectTypeFill(type: GardenObjectType, palette: PlanPalette): string {
+  switch (type) {
     case 'tree':
     case 'shrub':
       return palette.tree;

@@ -1292,6 +1292,16 @@
       "cistern": "Cistern",
       "hose_reel": "Hose reel"
     },
+    "windowGlazing": {
+      "single": "Single glazing",
+      "double": "Double or multiple glazing",
+      "unknown": "Unknown"
+    },
+    "lampKind": {
+      "grow_light": "Grow light",
+      "ceiling": "Ceiling light",
+      "floor": "Floor lamp"
+    },
     "sunWindow": {
       "morning": "Morning",
       "midday": "Midday",
