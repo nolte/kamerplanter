@@ -17,7 +17,7 @@
  *
  * WP 10.5: the side panel (`SidePanel`) carries the tabs Eigenschaften, Ansicht (`ViewBar`), Ebenen (`LayersTab` with
  * the legend) and Zonen (`ZonePanel`); its switch is in the header bar, its state rule in `useSidePanel`. Its form
- * follows the width (GP-UX-069): docked beside the canvas from lg up, a drawer over it at md, a bottom sheet below md.
+ * follows the width (GP-UX-069): docked beside the canvas from md up, a bottom sheet below md (#2885).
  * Collapsed it takes no width.
  */
 import {
@@ -345,9 +345,9 @@ export function GardenPlanEditor({
   const toolbarBelow = useMediaQuery(theme.breakpoints.down('md'));
   const coarsePointer = useMediaQuery('(pointer: coarse)');
   const touchUi = toolbarBelow || coarsePointer;
-  // The side panel's form follows the width alone (GP-UX-069): docked from lg up, a drawer at md, a sheet below md.
-  const belowLg = useMediaQuery(theme.breakpoints.down('lg'));
-  const panelVariant: SidePanelVariant = toolbarBelow ? 'sheet' : belowLg ? 'drawer' : 'docked';
+  // The side panel's form follows the width alone (GP-UX-069): docked beside the canvas from md up, a sheet below md.
+  // At md it docks too, never over the canvas: an overlay hid the zoom controls and the selection (#2885).
+  const panelVariant: SidePanelVariant = toolbarBelow ? 'sheet' : 'docked';
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
   const { selection, stack, tool, editError, past, future, pending } =
@@ -1473,14 +1473,15 @@ export function GardenPlanEditor({
     latestView.current = { plan, renderer, onPan, selection };
   });
   const isPointerDown = tools.isPointerDown;
+  // A panel docked beside the canvas narrows it while the plan keeps its fit (`fitReservePx`): a selection on the
+  // right may now lie beyond the canvas edge. It pans back into the visible width (WCAG 2.2 SC 2.4.11, #2885).
+  const panelBeside = panelVariant === 'docked' && sidePanel.open && view === 'plan';
+  const canvasWidthPx = canvasArea?.widthPx;
   useEffect(() => {
-    if (!toolbarBelow || selectionSignature === '') return;
+    if (selectionSignature === '' || (!toolbarBelow && !panelBeside)) return;
     const run = () => {
-      const dock = dockRef.current;
       const canvas = canvasRef.current;
-      if (!dock || !canvas) return;
-      const free = dock.getBoundingClientRect().top - canvas.getBoundingClientRect().top;
-      if (free <= 0) return;
+      if (!canvas) return;
       const latest = latestView.current;
       const ref = latest.selection.length === 1 ? latest.selection[0] : null;
       if (!ref || !isPlanEntity(ref)) return;
@@ -1488,16 +1489,32 @@ export function GardenPlanEditor({
         ref.entity === 'location' ? latest.plan.locations[ref.key] : latest.plan.gardenObjects[ref.key];
       const bbox = source?.bbox;
       if (!bbox) return;
-      const ys = [
-        latest.renderer.toScreen([bbox[0], bbox[1]])[1],
-        latest.renderer.toScreen([bbox[2], bbox[3]])[1],
+      const corners = [
+        latest.renderer.toScreen([bbox[0], bbox[1]]),
+        latest.renderer.toScreen([bbox[2], bbox[3]]),
       ];
-      const dy = panIntoView(Math.min(...ys), Math.max(...ys), free);
-      if (dy !== 0) latest.onPan(0, dy);
+      const canvasRect = canvas.getBoundingClientRect();
+      let dx = 0;
+      let dy = 0;
+      // Phones: above the sheet and the docked bars.
+      const dock = toolbarBelow ? dockRef.current : null;
+      const freeHeight = dock ? dock.getBoundingClientRect().top - canvasRect.top : 0;
+      if (freeHeight > 0) {
+        const ys = corners.map((corner) => corner[1]);
+        dy = panIntoView(Math.min(...ys), Math.max(...ys), freeHeight);
+      }
+      // md and up: left of the docked panel, inside the canvas area.
+      const area = panelBeside ? canvasAreaRef.current : null;
+      const freeWidth = area ? area.getBoundingClientRect().right - canvasRect.left : 0;
+      if (freeWidth > 0) {
+        const xs = corners.map((corner) => corner[0]);
+        dx = panIntoView(Math.min(...xs), Math.max(...xs), freeWidth);
+      }
+      if (dx !== 0 || dy !== 0) latest.onPan(dx, dy);
     };
     if (isPointerDown()) panDeferred.current = true;
     else run();
-  }, [selectionSignature, toolbarBelow, isPointerDown, panAfterRelease]);
+  }, [selectionSignature, toolbarBelow, panelBeside, canvasWidthPx, isPointerDown, panAfterRelease]);
 
   const code = notice ?? editError;
   const noticeText = code
@@ -1603,7 +1620,7 @@ export function GardenPlanEditor({
   /**
    * The panel's close button (and the zone panel's). The bottom sheet was the selection's sheet before wave 10 and
    * still clears it (GP-UX-052, the touch tests stay as they are); the focus goes to the plan or the list then. The
-   * docked panel and the drawer only collapse - the selection stays - and give the focus back to their switch.
+   * docked panel only collapses - the selection stays - and gives the focus back to its switch.
    */
   const closePanel = useCallback(() => {
     if (panelVariant === 'sheet' && panelSelection !== '') {
@@ -2081,8 +2098,7 @@ export function GardenPlanEditor({
   );
 
   const body = (
-    // Positioned: the drawer at md lies over the right edge of this row (GP-UX-069).
-    <Box sx={{ position: 'relative', minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }}>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', minWidth: 0 }}>
         {listShown ? (
           <Box ref={listRef} sx={{ flex: 1, minWidth: 0 }}>
@@ -2158,7 +2174,6 @@ export function GardenPlanEditor({
         )}
         {panelVariant === 'docked' && sidePanelElement}
       </Box>
-      {panelVariant === 'drawer' && sidePanelElement}
     </Box>
   );
 

@@ -292,7 +292,7 @@ WAVE10_ROWS: dict[str, str] = {
     "GP-UX-066": "vertical tool rail with a selection group only while something is selected (WP 10.4)",
     "GP-UX-067": "canvas at viewport height, zoom / scale / mini-map as overlays (WP 10.3)",
     "GP-UX-068": "side panel tabs Eigenschaften / Ansicht / Ebenen / Zonen, no reserved width, state rule (WP 10.5)",
-    "GP-UX-069": "one component tree: docked >= lg, drawer at md, bottom sheet and TouchBar below md (WP 10.3-10.5)",
+    "GP-UX-069": "one component tree: docked from md up, bottom sheet and TouchBar below md (WP 10.3-10.5, #2885)",
     "GP-UX-070": "testids stay, new ones registered in UI-NFR-022 (WP 10.2-10.5)",
     "GP-FR-180": "properties of window / door / furniture / lamp (and trellis, off_site), object legend (WP 10.6)",
     "GP-FR-181": "window orientation suggests the sun profile of nearby locations, never applied unasked (WP 10.7)",

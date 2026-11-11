@@ -3,10 +3,9 @@
  * (properties), Ansicht (view), Ebenen (layers) and Zonen (zones) in one panel that the user can collapse.
  *
  * Its form follows the width alone (GP-UX-069), from this one component:
- * - `docked` (≥ lg): beside the canvas, as high as the canvas area. Collapsed it is not rendered at all, so it
- *   reserves no width (AC-5).
- * - `drawer` (md): a persistent MUI `Drawer` over the right edge of the canvas. It is not modal (the persistent
- *   variant has no backdrop, no focus trap and no `role="dialog"`), so the plan stays usable beside it.
+ * - `docked` (md and up): beside the canvas, as high as the canvas area; the canvas gives up the width, so the panel
+ *   never covers the zoom controls or a selected object (WCAG 2.2 SC 2.4.11, #2885). Collapsed it is not rendered at
+ *   all, so it reserves no width (AC-5).
  * - `sheet` (below md): a bottom sheet in the dock above the tool bars, half or full height of what is visible
  *   above the on-screen keyboard (`visualViewport`, GP-UX-052); not modal, closed by its button.
  *
@@ -18,7 +17,6 @@
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
-import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Tab from '@mui/material/Tab';
@@ -35,7 +33,7 @@ const PREFIX = 'pages.gardenPlan.editor.sidePanel';
 const TARGET_PX = 48;
 
 /** The form of the panel, chosen by the width (GP-UX-069). */
-export type SidePanelVariant = 'docked' | 'drawer' | 'sheet';
+export type SidePanelVariant = 'docked' | 'sheet';
 /** The height of the bottom sheet. */
 export type SheetSize = 'half' | 'full';
 
@@ -82,8 +80,7 @@ function PanelFrame({
   return (
     <Paper
       component="section"
-      variant={variant === 'drawer' ? 'elevation' : 'outlined'}
-      elevation={0}
+      variant="outlined"
       id={EDITOR_ANCHORS.panel}
       // The skip link "To the properties panel" focuses the panel itself (GP-NFR-070).
       tabIndex={-1}
@@ -189,36 +186,6 @@ function PanelFrame({
 
 export function SidePanel({ open, heightPx, visibleHeight, ...frame }: SidePanelProps) {
   const { variant, sheetSize } = frame;
-  if (variant === 'drawer') {
-    return (
-      <Drawer
-        variant="persistent"
-        anchor="right"
-        open={open}
-        data-testid="garden-plan-side-panel-drawer"
-        slotProps={{
-          // Over the canvas row (positioned), not the window: the drawer lies on the right edge of the plan.
-          paper: {
-            sx: {
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              height: '100%',
-              width: PANEL_WIDTH_PX,
-              maxWidth: '100%',
-              zIndex: 3,
-              boxShadow: 6,
-              display: 'flex',
-              flexDirection: 'column',
-            },
-          },
-          transition: { unmountOnExit: true },
-        }}
-      >
-        <PanelFrame {...frame} />
-      </Drawer>
-    );
-  }
   if (!open) return null;
   if (variant === 'sheet') {
     const sheetPx = Math.round(visibleHeight * SHEET_SHARE[sheetSize]);
