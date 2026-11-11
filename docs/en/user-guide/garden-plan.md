@@ -67,7 +67,7 @@ The tool rail to the left of the plan offers four tools. Each has a tooltip; on 
 Below the tools, the **selection group** appears only while something is selected: **rotation step** (15°, 45°, 90°), **Align** and **Delete**.
 
 !!! note "Partially available: tools"
-    Four more tools are planned but not built yet: **Area**, **Place plant**, **Measure** and **Label**. Until then you create areas through the API or a backup and plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, #2868 -->
+    Four more tools are planned but not built yet: **Area**, **Place plant**, **Measure** and **Label**. Until then you create areas through the API or a backup and plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 As **shape** you choose rectangle, circle, polygon or line. You drag out the rectangle (with Shift it becomes a square) and the circle from its centre outwards. For the polygon and the line you click point by point; **Finish**, the Enter key or a click on the first point closes the polygon, **Finish** or Enter ends the line. Backspace takes back the last point, **Esc** discards the shape.
 

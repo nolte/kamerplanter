@@ -14,7 +14,9 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
                   vertical tool rail left of the canvas, zoom inside the canvas, panel docked beside it     AC-5, AC-14)
   TC-053-102  ->  tablet 820 x 1180 (md): rail left, the panel docked beside the canvas - zoom controls    (GP-UX-069)
                   and a selected bed stay uncovered (#2885),
-                  no horizontal scrolling - the layout of md only, not the 1024 x 768 criterion (see below)
+                  no horizontal scrolling - the layout of md only, not the 1024 x 768 criterion (TC-053-103)
+  TC-053-103  ->  1024 x 768 (lg, AC-2): every top-level tool of GP-UX-001 and its sub-menu entries, every   (GP-UX-001,
+                  panel tab and every overflow entry reachable inside the viewport, no horizontal scrolling  GP-UX-069)
   TC-053-104  ->  phone 390 x 844 (planning mode): TouchBar and tool bar below the canvas, undo/redo in     (AC-9,
                   the TouchBar, tabs and panel switch in the overflow (entries >= 48 px with text), every   AC-15 part)
                   bar button >= 48 x 48 px, the selection opens a bottom sheet above the bars
@@ -27,12 +29,6 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
                   sun window                                                                                 G-W10 c)
   TC-053-108  ->  indoor tab and list "Pflanzplätze" with tent and shelf (not the room), no frost layer;   (GP-FR-183,
                   the garden keeps "Beete" and its frost layer                                               GP-FR-182)
-
-Not automated here, on purpose (no skip, no xfail - there is nothing to run):
-  TC-053-103  the 1024 x 768 criterion "every editor function reachable" is BLOCKED by #2868: the tools Fläche, Pflanze
-              setzen, Messen and Beschriftung of GP-UX-001 are typed but not built. A test that certified today's
-              tool rail would confirm the criterion falsely; TC-053-102 measures only the md layout. The wave-10
-              matrix carries the criterion as an open gap on #2868 (`GP-REQ-wave10-gaps.json`).
 
 Breakpoints are the app theme's own (``theme/tokens.ts``): md = 768 px, lg = 1024 px - so 1024 x 768 is already lg
 (docked panel), and the tablet case uses the suite's tablet size 820 x 1180, which is md (drawer).
@@ -475,7 +471,7 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
     Breaks if the rail is not vertical left of the canvas, the header bar wraps, the panel opens in another form than
     docked, the panel overlaps the canvas area or the zoom controls (WCAG 2.2 SC 2.4.11, #2885), a bed on the plan's
     right edge that the selection docks the panel beside is left outside the visible canvas, or the page scrolls
-    sideways (GP-UX-069, GP-UX-068). The md layout only - not the 1024 x 768 criterion, blocked by #2868 (TC-053-103).
+    sideways (GP-UX-069, GP-UX-068). The md layout only - the 1024 x 768 criterion is TC-053-103.
     """
     set_phone_viewport(browser, 820, 1180)
     plan.dismiss_light_mode_warning()
@@ -561,6 +557,87 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
         f"TC-053-102: the page scrolls sideways at 820 px - by {overflow_collapsed} px with the panel collapsed, "
         f"by {overflow_docked} px with the panel docked (header bar: {controls})"
     )
+
+
+# ── TC-053-103 ──────────────────────────────────────────────────────────────
+
+#: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist; Bereich,
+#: Pflanze setzen, Messen and Text/Label are GP-UX-071, #2913) and the tools whose rail button opens a sub-menu.
+GP_UX_001_TOOLS = ("select", "pan", "bed", "garden_object")
+TOOLS_WITH_MENU = ("bed", "garden_object")
+PANEL_TABS = ("properties", "view", "layers", "zones")
+
+
+def test_tc_053_103_every_editor_function_reachable_at_1024(
+    plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-103 - at 1024 x 768 every editor function is reachable without horizontal scrolling (AC-2).
+
+    Breaks if a top-level tool of GP-UX-001 is missing from the rail or lies outside the viewport, a tool sub-menu
+    does not open or an entry of it lies outside the viewport, a panel tab cannot be chosen, an overflow entry lies
+    outside the viewport or is lower than 48 px, or the page scrolls sideways at any of these steps (AC-2,
+    GP-UX-001, GP-UX-069). 1024 px is the theme's lg: the panel docks beside the canvas.
+    """
+    width, height = set_phone_viewport(browser, 1024, 768)
+    plan.dismiss_light_mode_warning()
+    garden = provision_garden(
+        base_url,
+        e2e_seed_data,
+        purpose="tc103",
+        beds=(BedSpec("Beet A", rect(4.0, 4.5, 2.0, 1.0)),),
+    )
+    plan.open(garden.site_key)
+    plan.wait_for_element_visible(plan.TOOLBAR)
+    overflow: dict[str, int] = {"start": plan.horizontal_overflow_px()}
+
+    def inside(box: dict[str, float]) -> bool:
+        return (
+            box["left"] >= -1
+            and box["right"] <= width + 1
+            and box["top"] >= -1
+            and box["bottom"] <= height + 1
+        )
+
+    for tool in GP_UX_001_TOOLS:
+        button = plan.rect_of(plan.tool_locator(tool), f"tool {tool}")
+        assert inside(button), (
+            f"TC-053-103 (AC-2): the tool {tool!r} {button} lies outside the {width} x {height} viewport"
+        )
+    screenshot(
+        "053_103_01_rail_1024", "1024 × 768: Werkzeug-Leiste mit allen Werkzeugen aus GP-UX-001"
+    )
+
+    for tool in TOOLS_WITH_MENU:
+        entries = plan.menu_entry_rects(
+            plan.tool_locator(f"{tool}-menu"),
+            f"garden-plan-tool-{tool}-submenu",
+            f"the sub-menu of {tool!r}",
+        )
+        outside = [entry for entry in entries if not inside(entry)]
+        assert not outside, (
+            f"TC-053-103 (AC-2): entries of the {tool!r} sub-menu lie outside the viewport: {outside}"
+        )
+        overflow[f"menu {tool}"] = plan.horizontal_overflow_px()
+
+    plan.open_side_panel_by_switch()
+    for tab in PANEL_TABS:
+        plan.choose_side_panel_tab(tab)
+        panel = plan.rect_of(plan.SIDE_PANEL, "side panel")
+        assert panel["right"] <= width + 1, (
+            f"TC-053-103 (AC-2): with the tab {tab!r} the panel {panel} reaches past the viewport"
+        )
+        overflow[f"tab {tab}"] = plan.horizontal_overflow_px()
+    screenshot("053_103_02_panel_1024", "1024 × 768: Panel angedockt, alle Tabs erreichbar")
+
+    entries = plan.menu_entry_rects(plan.OVERFLOW, "garden-plan-overflow-menu", "the overflow menu")
+    outside = [entry for entry in entries if not inside(entry)]
+    assert not outside, f"TC-053-103 (AC-2): overflow entries lie outside the viewport: {outside}"
+    low = [entry for entry in entries if entry["height"] < 48 - 0.5]
+    assert not low, f"TC-053-103 (AC-2): overflow entries lower than 48 px: {low}"
+    overflow["overflow menu"] = plan.horizontal_overflow_px()
+
+    scrolled = {step: px for step, px in overflow.items() if px > 0}
+    assert not scrolled, f"TC-053-103 (AC-2): the page scrolls sideways at 1024 px: {scrolled}"
 
 
 # ── TC-053-104 ──────────────────────────────────────────────────────────────

@@ -363,6 +363,42 @@ class WorkspacePlanPage(GardenPlanPage):
         self.click_coordinate_free(self.wait_for_element_clickable(self.SIDE_PANEL_CLOSE))
         self.wait_for_side_panel(None, "closing the side panel by its button")
 
+    def tool_locator(self, tool: str) -> tuple[str, str]:
+        """The rail button of the top-level tool *tool* (``select``, ``pan``, ``bed``, ``garden_object``)."""
+        return _tid(f"garden-plan-tool-{tool}")
+
+    _MENU_ENTRY_RECTS = """
+        var menu = document.querySelector(arguments[0]);
+        if (!menu) return null;
+        var paper = menu.querySelector('.MuiPaper-root') || menu;
+        if (getComputedStyle(paper).transform !== 'none' || getComputedStyle(paper).opacity !== '1') return null;
+        return Array.from(menu.querySelectorAll("[role^='menuitem']")).map(function (item) {
+            var r = item.getBoundingClientRect();
+            return {testid: item.getAttribute('data-testid') || '', text: (item.textContent || '').trim(),
+                    left: r.left, right: r.right, top: r.top, bottom: r.bottom, height: r.height};
+        });
+    """
+
+    def menu_entry_rects(self, trigger: tuple[str, str], menu_testid: str, what: str) -> list[dict]:
+        """Open the menu behind *trigger*, read the rect of every entry once the menu stands still, close it by Escape.
+
+        The rects are read after the ``Grow`` transition (transform ``none``, opacity 1); a scale that is still
+        running would report a shrunken entry. Loud when the menu does not open, has no entry, or does not close.
+        """
+        selector = f"[data-testid='{menu_testid}']"
+        self._open_menu(trigger, (By.CSS_SELECTOR, selector), what)
+        try:
+            entries = self.poll().until(
+                lambda d: d.execute_script(self._MENU_ENTRY_RECTS, selector) or None
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the menu shows no entry, or it never stood still"
+            ) from exc
+        self.press(Keys.ESCAPE)
+        self.wait_for_element_hidden((By.CSS_SELECTOR, f"{selector} [role^='menuitem']"))
+        return entries
+
     def choose_side_panel_tab(self, tab: str) -> None:
         """Pick the panel tab *tab* in the open panel (no opening: the state rule is what the caller observes)."""
         state = self.side_panel_state()

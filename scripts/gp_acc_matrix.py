@@ -281,8 +281,8 @@ WAVE9_UINFR_ROWS: dict[str, str] = {
 
 #: The REQ-053 rows of wave 10, with the part a row contributes when only part of it is wave 10. The rule of waves 8
 #: and 9: a row is here when a work package of plan section 3 "Welle 10" (WP 10.1-10.12) names it as its deliverable.
-#: Not here, with the reason: GP-UX-001 (MUST of wave 2; the tools it lists but nobody built are #2868, carried by
-#: GP-UX-066 and AC-2 below), GP-UX-005 / GP-UX-052 / GP-NFR-023 / GP-NFR-025 (older rows whose place moved with
+#: Not here, with the reason: GP-UX-001 (MUST of wave 2; since REQ-053 v1.19 it lists only the tools that exist, the others
+#: are GP-UX-071, #2913; AC-2 below measures the list), GP-UX-005 / GP-UX-052 / GP-NFR-023 / GP-NFR-025 (older rows whose place moved with
 #: section 17.3; their behaviour is unchanged and tested in their own wave), PPFD from ``lamp`` / ``lighting`` (no
 #: calculation by the spec), the COULD rows without a wave (residual issues of WP 10.15).
 WAVE10_ROWS: dict[str, str] = {

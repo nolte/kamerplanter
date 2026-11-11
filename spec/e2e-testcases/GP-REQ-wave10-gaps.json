@@ -1,14 +1,4 @@
 {
-  "GP-UX-066": {
-    "partial": true,
-    "reason": "The vertical rail, the tooltips, the roving tabindex and the selection group that exists only with a selection are tested (`EditorToolbar.test.tsx`, E2E TC-053-100/101). The rail carries four of the eight GP-UX-001 tools (select, pan, bed, garden object): Bereich, Pflanze setzen, Messen and Text/Label are typed in `PlanTool` but never built (`useEditorTools.ts` falls back to select) - operator decision open in #2868",
-    "issue": 2868
-  },
-  "GP-UX-069": {
-    "partial": true,
-    "reason": "Docked panel from md up and bottom sheet plus TouchBar below md come from one component tree and are tested at 1366, 820 and 390 px (E2E TC-053-101/102/104, `SidePanel.test.tsx`); since #2885 the md panel docks beside the canvas instead of covering it. Unproven: 'every editor function reachable on every width from 1024 px' - four GP-UX-001 tools do not exist (#2868, see AC-2)",
-    "issue": 2868
-  },
   "GP-UX-049": {
     "partial": true,
     "reason": "Wave-10 part: the indoor empty state with its text and data-plan-kind is tested (`GardenPlanRoute.test.tsx`, E2E TC-053-106). It offers two actions ('Grundriss zeichnen', 'Foto als Vorlage laden') where GP-UX-049 asks for exactly one, and 'Grundriss zeichnen' only opens the empty canvas because there is no boundary tool (#2890) - operator question 4 in #2884",
@@ -18,10 +8,6 @@
     "partial": true,
     "reason": "Measured in the real app at 1366 x 768: canvas 66.9 % of the viewport height, header bar on one line (E2E TC-053-101). The E2E dismisses the light-mode warning banner first, as a user would; with the banner shown (light mode on a non-private host) the canvas is 58.5 %, below the 60 % of AC-1. Whether AC-1 counts the banner is operator question 2 in #2884",
     "issue": 2884
-  },
-  "§17.3 AC-2": {
-    "reason": "Blocked: 'every editor function reachable at 1024 x 768' cannot hold while four GP-UX-001 tools (Bereich, Pflanze setzen, Messen, Text/Label) are not built - operator decision open in #2868 (TC-053-103 has no executable test on purpose). Note: the theme's lg starts at 1024 px, so this is an lg criterion (docked panel), not the md drawer layout - operator question 1 in #2884",
-    "issue": 2868
   },
   "§17.3 AC-6": {
     "partial": true,
