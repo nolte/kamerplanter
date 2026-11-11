@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.17"
+version: "1.18"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,9 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.18 (2026-11-11, #2882/#2887)** — TC-053-100: Schritt 8 und Erwartung auf manuelle Tab-Aktivierung
+(Pfeil bewegt den Fokus, Eingabe aktiviert; REQ-053 v1.21). `test_count` unverändert.
 
 **Version 1.17 (2026-11-11, #2906)** — Hinweis zu TC-053-111: der Zustandsrechner zählt `senesced` nicht mehr als
 ausgefallen (REQ-053 v1.20, Vektor `plant-state-008`). `test_count` unverändert.
@@ -3192,7 +3195,7 @@ statt eines zweiten Falls.
 5. Nutzer wählt den Panel-Tab „Ebenen“
 6. Nutzer wählt Beet A und hebt die Auswahl mit Esc wieder auf
 7. Nutzer schließt das Panel mit dem Umschalter und öffnet es wieder
-8. Nutzer drückt im aktiven Panel-Tab Pfeil rechts, dann Pos1, dann Ende
+8. Nutzer drückt im aktiven Panel-Tab Pfeil rechts, dann Pos1, dann Ende, jeweils gefolgt von der Eingabetaste
 
 **Erwartete Ergebnisse**:
 - Nach Schritt 1: kein Seitenpanel, die Zeichenfläche reicht bis an den rechten Rand der Kopfleiste; der Umschalter
@@ -3205,8 +3208,9 @@ statt eines zweiten Falls.
 - Nach Schritt 6: das Panel wechselt auf „Eigenschaften“ und bleibt nach Esc offen (der Nutzer hatte es geöffnet)
 - Nach Schritt 7: das Panel ist zu; wieder geöffnet zeigt es „Ebenen“, den zuletzt benutzten Tab
 - Nach Schritt 8: die Panel-Tabs folgen dem WAI-ARIA-Muster „Tabs“ (`role="tab"`, `aria-selected`, `aria-controls` auf
-  ein `tabpanel` mit `aria-labelledby`, nur der aktive Tab ist Tab-Stopp); Pfeil rechts wählt den nächsten Tab
-  („Zonen“), Pos1 „Eigenschaften“, Ende wieder „Zonen“
+  ein `tabpanel` mit `aria-labelledby`, nur der aktive Tab ist Tab-Stopp); die Pfeiltasten bewegen nur den Fokus, erst
+  die Eingabetaste aktiviert (manuelle Aktivierung, #2887): Pfeil rechts aktiviert so den nächsten Tab („Zonen“), Pos1
+  „Eigenschaften“, Ende wieder „Zonen“
 
 **Nachbedingungen**:
 - Keine Änderung am Plan

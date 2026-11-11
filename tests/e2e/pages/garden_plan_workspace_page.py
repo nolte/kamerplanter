@@ -418,7 +418,11 @@ class WorkspacePlanPage(GardenPlanPage):
         return list(wiring)
 
     def press_on_active_panel_tab(self, key: str) -> None:
-        """Focus the selected panel tab and press *key* (arrow, Home, End) - the keyboard path of the tab list."""
+        """Focus the selected panel tab and press *key* (arrow, Home, End) - the keyboard path of the tab list.
+
+        The tabs activate manually (#2887): an arrow, Home or End only moves the focus; Enter or Space on the focused
+        tab (``press``) activates it.
+        """
         state = self.side_panel_state()
         if state is None:
             raise AssertionError("press_on_active_panel_tab(): the side panel is collapsed")

@@ -352,12 +352,24 @@ def test_tc_053_100_side_panel_state_rule_switch_and_keyboard_tabs(
         f"TC-053-100: WAI-ARIA tab wiring broken for {broken}: {wiring}"
     )
 
+    # Manual activation (#2887): an arrow moves the focus only, Enter activates the focused tab.
     plan.press_on_active_panel_tab(Keys.ARROW_RIGHT)
-    plan.wait_for_side_panel(("docked", "zones"), "TC-053-100: Arrow-Right selects the next tab")
+    assert plan.focused_testid() == "garden-plan-side-panel-tab-zones", (
+        f"TC-053-100: Arrow-Right moves the focus to the next tab, focus is on {plan.focused_testid()!r}"
+    )
+    assert plan.side_panel_state() == ("docked", "layers"), (
+        f"TC-053-100: an arrow alone activates no tab: {plan.side_panel_state()}"
+    )
+    plan.press(Keys.ENTER)
+    plan.wait_for_side_panel(("docked", "zones"), "TC-053-100: Enter activates the focused tab")
     plan.press_on_active_panel_tab(Keys.HOME)
-    plan.wait_for_side_panel(("docked", "properties"), "TC-053-100: Home selects the first tab")
+    plan.press(Keys.ENTER)
+    plan.wait_for_side_panel(
+        ("docked", "properties"), "TC-053-100: Home + Enter selects the first tab"
+    )
     plan.press_on_active_panel_tab(Keys.END)
-    plan.wait_for_side_panel(("docked", "zones"), "TC-053-100: End selects the last tab")
+    plan.press(Keys.ENTER)
+    plan.wait_for_side_panel(("docked", "zones"), "TC-053-100: End + Enter selects the last tab")
     screenshot("053_100_05_keyboard_tabs", "Panel-Tabs per Tastatur: Ende → „Zonen“")
 
 

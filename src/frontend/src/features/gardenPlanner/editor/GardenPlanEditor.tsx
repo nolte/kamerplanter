@@ -2097,9 +2097,25 @@ export function GardenPlanEditor({
     </>
   );
 
+  // The side panel has ONE place in the tree for both of its forms (GP-UX-069, G-W10 b, #2882): the last item of the
+  // canvas row. From md up its box takes no box of its own (`display: contents`), so the panel is the row's item
+  // beside the canvas; below md the same box is the bottom dock - a sticky line of its own under the canvas holding the
+  // sheet above the TouchBar and the tool bar. A resize across md only restyles it: what the panel holds (an open
+  // dialog, a typed draft) stays mounted. A portal into a slot per form would not do: a portal whose container
+  // changes mounts its content anew.
+  // Below md the dock also carries the bars (none behind the list, unless the sheet is open over it).
+  const panelSlotShown = toolbarBelow ? !listShown || sheetOpen : sidePanel.open;
   const body = (
     <Box sx={{ minWidth: 0 }}>
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', minWidth: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: toolbarBelow ? 'wrap' : 'nowrap',
+          gap: 1,
+          alignItems: 'flex-start',
+          minWidth: 0,
+        }}
+      >
         {listShown ? (
           <Box ref={listRef} sx={{ flex: 1, minWidth: 0 }}>
             <PlanListView
@@ -2172,34 +2188,37 @@ export function GardenPlanEditor({
             </Box>
           </>
         )}
-        {panelVariant === 'docked' && sidePanelElement}
+        {panelSlotShown && (
+          <Box
+            ref={toolbarBelow ? dockRef : undefined}
+            data-testid={toolbarBelow ? 'garden-plan-dock' : undefined}
+            sx={
+              toolbarBelow
+                ? {
+                    // A line of its own under the canvas (or the list), docked to the bottom while scrolling.
+                    flex: '0 0 100%',
+                    minWidth: 0,
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.5,
+                  }
+                : { display: 'contents' }
+            }
+          >
+            {sidePanelElement}
+            {toolbarBelow && (
+              <Box ref={dockBarsRef} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {!listShown && touchBar}
+                {!listShown && toolbar}
+              </Box>
+            )}
+          </Box>
+        )}
       </Box>
     </Box>
-  );
-
-  const below = (
-    <>
-      {toolbarBelow && (!listShown || sheetOpen) && (
-        <Box
-          ref={dockRef}
-          data-testid="garden-plan-dock"
-          sx={{
-            position: 'sticky',
-            bottom: 0,
-            zIndex: 2,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0.5,
-          }}
-        >
-          {panelVariant === 'sheet' && sidePanelElement}
-          <Box ref={dockBarsRef} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {!listShown && touchBar}
-            {!listShown && toolbar}
-          </Box>
-        </Box>
-      )}
-    </>
   );
 
   const overlays = (
@@ -2312,7 +2331,6 @@ export function GardenPlanEditor({
       header={header}
       above={above}
       body={body}
-      below={below}
       overlays={overlays}
     />
   );
