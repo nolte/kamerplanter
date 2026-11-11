@@ -67,7 +67,7 @@ Die Werkzeug-Leiste links neben dem Plan bietet vier Werkzeuge. Jedes hat einen 
 Unter den Werkzeugen erscheint die **Auswahlgruppe** nur, solange etwas gewählt ist: **Drehraster** (15°, 45°, 90°), **Ausrichten** und **Löschen**.
 
 !!! note "Teilweise verfügbar: Werkzeuge"
-    Vier weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Bereich**, **Pflanze setzen**, **Messen** und **Beschriftung**. Bis dahin legst du Bereiche über die Programmierschnittstelle oder eine Sicherung an und bepflanzt Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, #2868 -->
+    Vier weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Bereich**, **Pflanze setzen**, **Messen** und **Beschriftung**. Bis dahin legst du Bereiche über die Programmierschnittstelle oder eine Sicherung an und bepflanzt Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 Als **Form** wählst du Rechteck, Kreis, Vieleck oder Linie. Das Rechteck ziehst du auf (mit der Umschalttaste wird es ein Quadrat), den Kreis ziehst du vom Mittelpunkt nach außen. Beim Vieleck und bei der Linie klickst du Punkt für Punkt; mit **Fertig**, der Eingabetaste oder einem Klick auf den ersten Punkt schließt du das Vieleck, die Linie beendest du mit **Fertig** oder der Eingabetaste. Die Rücktaste nimmt den letzten Punkt zurück, **Esc** verwirft die Form.
 

@@ -45,7 +45,7 @@ describe('lazy slice registration', () => {
     const { gardenPlanSlice, setTool } = await import('@/features/gardenPlanner/state/gardenPlanSlice');
     const { clearAuth } = await import('@/store/slices/authSlice');
     registerLazySlice(gardenPlanSlice);
-    store.dispatch(setTool('measure'));
+    store.dispatch(setTool('pan'));
     store.dispatch(clearAuth());
     expect(store.getState().gardenPlan?.tool).toBe('select');
   });

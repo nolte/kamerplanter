@@ -51,9 +51,11 @@ import {
 /** Undo steps kept (GP-FR-026 asks for at least 50). */
 export const HISTORY_LIMIT = 100;
 
-/** The toolbar of GP-UX-001: at most eight tools on the top level. */
-export type PlanTool =
-  'select' | 'pan' | 'bed' | 'area' | 'garden_object' | 'plant' | 'measure' | 'label';
+/**
+ * The top-level tools of GP-UX-001 (REQ-053 v1.19, #2868): only tools that exist. Bereich, Pflanze setzen, Messen
+ * and Text/Label are GP-UX-071 (#2913); each comes back here together with its logic and its rail button.
+ */
+export type PlanTool = 'select' | 'pan' | 'bed' | 'garden_object';
 
 export interface SelectionRef {
   entity: PlanEntity | 'slot' | 'plant';

@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.15"
+version: "1.16"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,10 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.16 (2026-11-11, #2868)** — TC-053-103 (AC-2) ist nicht mehr blockiert: REQ-053 v1.19 grenzt GP-UX-001 auf
+die vier vorhandenen Werkzeuge ein, der Fall hat jetzt einen ausführbaren E2E-Test bei 1024 × 768. `test_count`
+unverändert.
 
 **Version 1.15 (2026-11-11, #2885)** — TC-053-102 auf das angedockte Panel bei md umgestellt (REQ-053 v1.18): Panel
 neben statt über der Zeichenfläche, Zoom-Steuerung sichtbar, eine Auswahl am rechten Rand schwenkt in den sichtbaren
@@ -3086,7 +3090,7 @@ statt eines zweiten Falls.
 | Kriterium | Testfälle | Bemerkung |
 |-----------|-----------|-----------|
 | AC-1 | TC-053-101 | Zeichenfläche ≥ 60 % der Höhe bei 1366 × 768, Kopfleiste auf einer Zeile |
-| AC-2 | TC-053-103 | **blockiert durch #2868** — die Werkzeuge Fläche, Pflanze setzen, Messen und Beschriftung sind nicht gebaut; kein ausführbarer Test |
+| AC-2 | TC-053-103 | Seit REQ-053 v1.19 (#2868 eingegrenzt): die vier Werkzeuge aus GP-UX-001 mit Untermenüs, vier Panel-Tabs, alle Überlauf-Einträge bei 1024 × 768 |
 | AC-3 | TC-053-101 | E2E-Teil: genau eine Kopfleiste, Werkzeuge in einer vertikalen Leiste; „Seitenkopf ohne eigene Aktionen“ prüft vitest |
 | AC-4 | TC-053-100 | Teil: Drehen, Ausrichten, Löschen nur bei Auswahl; „Als Vorlage speichern“ nur bei genau einem Beet prüft vitest |
 | AC-5 | TC-053-100, TC-053-101 | keine reservierte Breite, Umschalter mit `aria-expanded`/`aria-controls`, Panel-Tabs per Tastatur |
@@ -3272,33 +3276,36 @@ Editor-Funktion erreichbar“), siehe TC-053-103.
 
 ---
 
-### TC-053-103: Jede Editor-Funktion bei 1024 × 768 erreichbar, ohne horizontales Scrollen (blockiert durch #2868)
+### TC-053-103: Jede Editor-Funktion bei 1024 × 768 erreichbar, ohne horizontales Scrollen
 
 **Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-001 — AC-2
-**Status**: **blockiert durch #2868** — die Werkzeuge Fläche, Pflanze setzen, Messen und Beschriftung aus GP-UX-001
-sind im Code getypt, aber nicht gebaut. Für diesen Fall gibt es **keinen ausführbaren Test**: ein Test, der den
-heutigen Stand der Werkzeug-Leiste als AC-2 erfüllt festschriebe, würde das Kriterium falsch bestätigen.
+**Status**: Seit REQ-053 v1.19 ausführbar: GP-UX-001 nennt nur die vorhandenen Werkzeuge (#2868 „ABGRENZEN“); die
+zurückgestellten Werkzeuge Bereich, Pflanze setzen, Messen und Text/Label (GP-UX-071, #2913) erweitern diesen Fall,
+sobald sie gebaut sind.
 **Gerät**: 1024 × 768 (nach den Theme-Breakpoints bereits lg, Panel angedockt)
 **Priority**: High
 **Category**: Layout
 **Preconditions**:
-- Garten 10 × 10 m mit einem Beet „Beet A“; #2868 ist umgesetzt
+- Garten 10 × 10 m mit einem Beet „Beet A“
 
 **Testschritte**:
 1. Nutzer öffnet den Plan bei 1024 × 768
-2. Nutzer erreicht nacheinander jedes Werkzeug aus GP-UX-001 (Auswahl, Hand/Pan, Beet, Bereich, Gartenobjekt mit
-   Untermenü, Pflanze setzen, Messen, Text/Label) samt der Untermenü-Einträge
-3. Nutzer erreicht jeden der vier Panel-Tabs und jeden Eintrag des Überlaufs „⋮“
+2. Nutzer erreicht jedes Werkzeug aus GP-UX-001 in der Werkzeug-Leiste (Auswahl, Hand/Pan, Beet, Gartenobjekt) und
+   öffnet die Untermenüs von Beet und Gartenobjekt
+3. Nutzer öffnet das Seitenpanel und wählt nacheinander die vier Panel-Tabs
+4. Nutzer öffnet den Überlauf „⋮“
 
 **Erwartete Ergebnisse**:
-- Jede genannte Funktion ist erreichbar und bedienbar
+- Jedes Werkzeug und jeder Untermenü-Eintrag liegt vollständig im Viewport
+- Jeder Panel-Tab lässt sich wählen; das Panel endet innerhalb des Viewports
+- Jeder Überlauf-Eintrag liegt im Viewport und ist mindestens 48 px hoch
 - Die Seitenbreite übersteigt zu keinem Zeitpunkt die Viewport-Breite (kein horizontales Scrollen)
-- Screenshot-Checkpoint mit der vollständigen Werkzeug-Leiste
+- Screenshot-Checkpoints mit der Werkzeug-Leiste und mit dem angedockten Panel
 
 **Nachbedingungen**:
 - Keine Änderung am Plan
 
-**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, blockiert, ac-2, gp-ux-001, gp-ux-069]
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069]
 
 ---
 
@@ -3809,7 +3816,7 @@ Prüfung.
 | (abgeleitet aus AC-4, AC-5, AC-6, AC-17, GP-UX-068) | Welle 10 Teil A: Seitenpanel, Zustandsregel, Panel-Tabs per Tastatur | TC-053-100 |
 | (abgeleitet aus AC-1, AC-3, AC-14, GP-UX-067/069) | Welle 10 Teil A: Desktop 1366 × 768, Zeichenfläche ≥ 60 %, Panel angedockt | TC-053-101 |
 | (abgeleitet aus GP-UX-069) | Welle 10 Teil A: Tablet 820 × 1180 (md), Panel angedockt (#2885) | TC-053-102 |
-| (abgeleitet aus AC-2, GP-UX-001/069) | Welle 10 Teil A: jede Editor-Funktion bei 1024 px — **blockiert durch #2868**, kein Test | TC-053-103 |
+| (abgeleitet aus AC-2, GP-UX-001/069) | Welle 10 Teil A: jede Editor-Funktion bei 1024 px (GP-UX-001 eingegrenzt, #2868) | TC-053-103 |
 | (abgeleitet aus AC-9, AC-15, GP-UX-063/069) | Welle 10 Teil A: Smartphone 390 × 844, `TouchBar`, Bottom Sheet, Überlauf | TC-053-104 |
 | (abgeleitet aus GP-FR-180, §9.5) | Welle 10 Teil A: Fenster- und Lampen-Eigenschaften, Objekt-Legende, „Außerhalb des Grundstücks“ | TC-053-105 |
 | (abgeleitet aus GP-FR-182, GP-UX-049, GP-FR-180) | Welle 10 Teil A: Indoor-Leerzustand, Grundriss zeichnen, Fenster einzeichnen | TC-053-106 |
@@ -3882,7 +3889,6 @@ Prüfregeln der Datei sind kein Browser-Artefakt.
 
 | Teil | Grund |
 |------|-------|
-| AC-2: jede Editor-Funktion bei 1024 × 768 | **Blockiert durch #2868**: die Werkzeuge Fläche, Pflanze setzen, Messen und Beschriftung aus GP-UX-001 sind getypt, aber nicht gebaut. TC-053-103 beschreibt den Fall ohne ausführbaren Test; TC-053-102 prüft bei 820 px (md) nur das Layout (Drawer, kein horizontales Scrollen) und nicht die Vollständigkeit der Werkzeuge. |
 | AC-3: Seitenkopf der Route ohne eigene Aktionen | vitest (`EditorWorkspace`/`GardenPlanRoute`); TC-053-101 prüft die eine Kopfleiste und die vertikale Werkzeug-Leiste. |
 | AC-4: „Als Vorlage speichern“ nur bei genau einem ausgewählten Beet | vitest; TC-053-100 prüft die Auswahlgruppe (nur bei Auswahl). |
 | AC-10, AC-11 | AC-10 ist ein CI-Kriterium (alle Suiten grün), AC-11 ein Dokumentkriterium (REQ-053 v1.16); keines hat ein eigenes Browser-Artefakt. |
