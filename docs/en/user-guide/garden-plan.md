@@ -14,14 +14,22 @@ The garden plan shows your garden from above: beds and garden objects such as pa
 
 Open the site under **Locations** and click **Open garden plan**. The page has the address `/standorte/sites/<key>/plan`. On a narrow screen (under 600 pixels wide) it opens directly in [field mode](#field-mode-in-the-garden); otherwise planning mode starts. With **Field mode** or **Planning mode** at the top of the page you switch at any time.
 
-Planning mode shows the toolbar, the plan in the middle, the properties panel and, below the plan, the [bed list](#bed-list-on-the-garden-plan). With the **Show as list** button you switch to a list view of the same plan that needs neither a mouse nor the drawing area.
+Planning mode is a workspace like a drawing program. The drawing area gets as much room as possible:
+
+- **Header bar:** a single row above the plan. It holds **Back** to the site, **Undo** and **Redo**, the save state with **Save**, the tabs **Plan**, **List** and **Beds**, the switch to field mode and the switch for the side panel. Rare actions sit in the **⋮** menu (More): keyboard help, underlay, select all, export and import and, while exactly one bed is selected, **Save as template**. When the window gets narrower, first the **Auto-save** switch, then the field-mode switch, the panel switch and last the tabs move into the menu. **Save** always stays visible.
+- **Tabs Plan · List · Beds:** **Plan** shows the drawing area, **List** the same plan as a list (usable without a mouse or drawing area), **Beds** the [bed list](#bed-list-on-the-garden-plan). The selected tab is part of the address (`?tab=plan`, `list` or `beds`), so a link opens the right tab directly and the browser's **Back** returns to the previous tab. Switching tabs keeps unsaved changes, the selection and the view, and asks nothing.
+- **Tool rail:** vertical, to the left of the drawing area (see [Tools and shapes](#tools-and-shapes)).
+- **Drawing area:** fills the height of the window. Zoom, **Fit**, the scale bar and the mini-map sit in its corners on top of the plan.
+- **Side panel:** on the right, with the tabs **Properties**, **View**, **Layers** and **Zones** (see [Properties, side panel and list view](#properties-and-list-view)). Without a selection it is collapsed and takes no room.
+
+**On tablet and phone.** From 1024 pixels wide the side panel stands beside the plan. Between 768 and 1023 pixels it slides in from the right as a drawer over the plan. Below 768 pixels the tool rail becomes a bar below the plan and the side panel opens as a sheet from the bottom (half or full height). The header bar then keeps only **Back**, the save state, **Save** and **⋮**; **Undo** and **Redo** sit in the bar below the plan. With a touchscreen you see the touch bar (set point, multi-select) at every width. <!-- REQ-053 GP-UX-063, GP-UX-064, GP-UX-065, GP-UX-067, GP-UX-068, GP-UX-069 -->
 
 ### The garden boundary {#the-garden-boundary}
 
 Every plan has a garden boundary: the outline of your garden as a rectangle or polygon. Beds and garden objects must lie completely inside it. A site with no boundary and no placed objects shows the notice **No garden plan yet** instead of the editor.
 
 !!! note "Partially available: garden boundary"
-    The interface does not yet have a tool for drawing the garden boundary. You create the first plan through the API (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)) or you import a backup (see [Export the plan and restore a backup](#plan-export-import)). Once the boundary exists, the editor changes only its north direction: the compass field sets where geographic north lies on the plan. <!-- REQ-053 GP-FR-013, GP-FR-015 -->
+    The interface does not yet have a tool for drawing the garden boundary. You create the first plan through the API (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)) or you import a backup (see [Export the plan and restore a backup](#plan-export-import)). Once the boundary exists, the editor changes only its north direction: the compass field sets where geographic north lies on the plan. **Draw the floor plan** in an empty [flat plan](#flat-plan) also only opens the empty drawing area; you cannot draw an outline there yet. <!-- REQ-053 GP-FR-013, GP-FR-015, GP-FR-182 -->
 
 ### Who may do what {#who-may-do-what}
 
@@ -45,17 +53,21 @@ Your role always applies to the garden (tenant) you are working in.
 
 ## Drawing and editing
 
-### Tools and shapes
+### Tools and shapes {#tools-and-shapes}
 
-The toolbar offers four tools and the template picker:
+The tool rail to the left of the plan offers four tools. Each has a tooltip; on wide screens its name stands next to it.
 
 | Tool | What it does |
 |------|--------------|
 | **Select** | Clicking selects an object, a frame selects several, with the Shift key you add objects. Dragging moves the selected objects. |
 | **Pan view** | Drags the view without changing anything. |
-| **Draw bed** | Draws a new bed. |
-| **Object: draw garden object** | Draws a garden object such as a path, fence or tree. |
-| **From template** | Places a bed from a [template](#bed-templates). |
+| **Draw bed** ▸ | Draws a new bed. The small menu next to it offers **From template** (place a bed from a [template](#bed-templates)) and **Add with dimensions**. |
+| **Object: draw garden object** ▸ | Draws a garden object such as a path, fence, tree, trellis, compost or, in a flat plan, window, door, furniture and lamp. The menu next to it offers **Add with dimensions**. |
+
+Below the tools, the **selection group** appears only while something is selected: **rotation step** (15°, 45°, 90°), **Align** and **Delete**.
+
+!!! note "Partially available: tools"
+    Four more tools are planned but not built yet: **Area**, **Place plant**, **Measure** and **Label**. Until then you create areas through the API or a backup and plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, #2868 -->
 
 As **shape** you choose rectangle, circle, polygon or line. You drag out the rectangle (with Shift it becomes a square) and the circle from its centre outwards. For the polygon and the line you click point by point; **Finish**, the Enter key or a click on the first point closes the polygon, **Finish** or Enter ends the line. Backspace takes back the last point, **Esc** discards the shape.
 
@@ -83,7 +95,7 @@ The dimensions of the selected object stand outside, above its top edge, and kee
 
 ### With the keyboard
 
-You can operate the plan without a mouse. The **Keyboard help** button (or the **?** key) lists all keys. The most important ones:
+You can operate the plan without a mouse. **Keyboard help** in the **⋮** menu (or the **?** key) lists all keys. The most important ones:
 
 | Key | Effect |
 |-----|--------|
@@ -104,18 +116,33 @@ Tab leaves the plan; you reach all objects and actions in the list view. You can
 
 ### Grid, snapping, zoom and compass
 
-- **Grid:** The grid steps are 1 cm, 5 cm, 10 cm, 25 cm, 50 cm and 1 m. At a low zoom the plan draws only the steps whose lines are far enough apart. With **Show grid** (or **G**) you hide the lines; snapping is not affected.
+Grid, snapping, length unit and compass are in the side panel's **View** tab. Zoom and **Fit** sit at the top right of the drawing area.
+
+- **Grid:** The grid steps are 1 cm, 5 cm, 10 cm, 25 cm, 50 cm and 1 m; a new garden plan starts at 10 cm, a flat plan at 5 cm. At a low zoom the plan draws only the steps whose lines are far enough apart. With **Show grid** (or **G**) you hide the lines; snapping is not affected.
 - **Snapping:** The **Snap** switch makes objects snap to the grid and to corners and edges of other objects when you move, draw or drag handles.
 - **Length unit:** You choose metres or centimetres for all dimensions in the editor. Storage is always in metres.
 - **Zoom:** The fixed levels are 25, 50, 100, 200 and 400 percent; **Fit** shows the whole plan. The scale bar shows how long a distance is on the plan.
 - **Compass:** Set the **north angle** so the plan knows where geographic north lies: turn the dial, use the arrow keys or type a value (0 up to but not including 360 degrees, clockwise; 0 means north is up). The compass in a phone gives magnetic north, so Kamerplanter never takes it over automatically.
 - **Mini-map:** see [Working faster in the garden plan](#plan-comfort).
 
-### Properties and list view
+### Properties, side panel and list view {#properties-and-list-view}
 
-The **Properties** panel shows name, type, position (x to the right, y upwards, in metres), dimensions and rotation counter-clockwise for the selected bed or object. You change the values directly; **Lock** protects an object from being moved by accident. For a bed you also find **Plant it**, the sun tiles and the number of open and overdue tasks with a jump to the care tab. For a polygon the panel lists the points.
+The **side panel** has four tabs:
 
-The list view shows the same objects as a list of areas, beds and garden objects. Each entry has move buttons, an input for a target position and Delete. It is the alternative for screen readers and for everyone who does not want to draw.
+| Tab | Content |
+|-----|---------|
+| **Properties** | The selected bed or object (see below). |
+| **View** | Grid step, grid, snapping, length unit and compass. |
+| **Layers** | The [layers](#layers-and-site-conditions) with their switches, the attention filter, the legend and the zone legend. |
+| **Zones** | Manage the [irrigation zones](#irrigation-zones). |
+
+When you select something, the panel opens on **Properties**. When you clear the selection, it collapses again if the selection opened it. If you opened it yourself with the panel switch in the header bar, it stays open; if you closed it yourself, it stays closed until you open it or select something new. Without a selection it opens on the tab used last, the first time on **View**. You reach the tabs with the keyboard too: the arrow keys change the tab.
+
+The **Properties** tab shows name, type, position (x to the right, y upwards, in metres), dimensions and rotation counter-clockwise for the selected bed or object. You change the values directly; **Lock** protects an object from being moved by accident. For a bed you also find **Plant it**, the sun tiles and the number of open and overdue tasks with a jump to the care tab. For a polygon the panel lists the points.
+
+For a garden object the tab shows the **object properties** of its kind: for a **trellis** the height, for a **window** sill height, glazing and the compass direction Kamerplanter derives from its position in the wall and the north angle (read only), for a **door** the swing, for a **lamp** kind, mounting height and a reference light intensity (Kamerplanter does not calculate anything from it yet). The **Outside the property** switch marks an object such as a neighbour's tree: it may stick out of the garden boundary and is drawn as scenery. You can switch it off only when the object lies completely inside the garden. The object legend in the **Layers** tab explains the symbols of all object kinds on the plan. **Compost**, **water source** and **storage** also get the [Tasks](#tasks-on-garden-objects) section. <!-- REQ-053 GP-FR-180 -->
+
+The **List** tab shows the same objects as a list of areas, beds and garden objects. Each entry has move buttons, an input for a target position and Delete. It is the alternative for screen readers and for everyone who does not want to draw.
 
 ## Working faster in the garden plan {#plan-comfort}
 
@@ -139,7 +166,7 @@ This section describes the aids that save you manual work in planning mode.
 
 ## Saving, conflicts and undo
 
-Changes in the editor are first applied only locally. The bar above the plan shows the state: **Unsaved changes (n)**, **Saving …**, **Saved**, **Conflict** or **Saving failed**. **Save** (or **Ctrl + S**) sends all open changes to the server in one step: either all are accepted or none. The **Auto-save** switch does this for you, see below.
+Changes in the editor are first applied only locally. The header bar shows the state (on narrow screens as an icon with a counter): **Unsaved changes (n)**, **Saving …**, **Saved**, **Conflict** or **Saving failed**. **Save** (or **Ctrl + S**) sends all open changes to the server in one step: either all are accepted or none. The **Auto-save** switch does this for you, see below.
 
 - **Undo and redo** (Ctrl + Z, Ctrl + Shift + Z) cover the last 100 steps. The history applies to this session only: if you reload the page, it is gone.
 - **Conflict:** If someone else saved the plan while you were working on it, the server does not accept your changes. A dialog names who changed it last. Before you reload you can download your changes as a copy (JSON). When you reload, your unsaved changes and the undo history are lost.
@@ -152,11 +179,45 @@ Select a bed and click **Plant it** in the properties panel. The planting dialog
 
 Plants appear on the plan as markers. The plant state layer is described in [Plant state and filter](#plant-state-and-filter).
 
+**Trellis.** If a species needs a support (such as peas or pole beans), the planting dialog tells you which trellises are drawn in the bed or on its edge, with their height. If none is drawn, it says so; you can still plant. Species without this information get no hint. <!-- REQ-053 W-005 -->
+
+### Sowing, thinning and replanting {#sowing-thinning-replanting}
+
+In the **Planting** tab of the bed view, rows and areas you sow directly work like this:
+
+1. **Record sowing:** on a planned row or area you record the day of sowing (at most a year back, not in the future). No single plants exist yet; the row is listed under **Sown** with its date, and the plant state shows it with seed dots.
+2. **Thin out:** once the seedlings stand, you pull the surplus ones and tap **Thin out**. The dialog takes the spacing from the planting plan, which you can change, and calculates the number of plants from it and the row length or area. If no spacing is stored, it asks for the spacing or directly for the number of seedlings left standing; Kamerplanter never fills in a value on its own. Afterwards the plants are recorded one by one, the row no longer counts as sown, and the care log gets a "thinning" entry.
+3. **Replant:** if a plant died (recorded as "died" when it was removed), its place is listed under **Failed**. **Replant** opens the planting dialog with the same crop and its spacing. A plant that was cleared at the natural end of its life ("senesced") does not count as failed and gets no **Replant**.
+
+!!! note "Partially available: sowing and replanting"
+    Sown rows and areas appear in the **Planting** tab, in the plant state and in the legend, but not yet as a line or area on the drawing area and not in the PDF or SVG. When you replant the same crop, the crop rotation hint currently warns against the dead plant itself; judge the hint with common sense then. <!-- REQ-053 W-015, §11.3, #2888 -->
+
 ## Bed List on the Garden Plan {#bed-list-on-the-garden-plan}
 
-Below the plan on the garden plan page, a table lists your beds: name (a link to the bed view), type, area, status, responsible person, plants, open tasks (including overdue ones) and next due date. Retired beds are hidden by default. The **My beds** switch filters to your own beds and requires that beds are assigned to you.
+The **Beds** tab (in a flat plan **Planting spots**) lists your beds in a table: name (a link to the bed view), type, area, status, responsible person, plants, open tasks (including overdue ones) and next due date. Retired beds are hidden by default. The **My beds** switch filters to your own beds and requires that beds are assigned to you.
 
-If you click a row or press Enter, the bed is selected on the plan and the view zooms to it. The number in the "Open tasks" column is a link to the bed's Care tab. From the "grower" role on, the button **Complete tasks on several beds** sits above the table (see [Care on the bed](locations-substrates.md#care-on-the-bed)).
+If you click a row or press Enter, the page switches to the **Plan** tab, the bed is selected and the view zooms to it. After every save the list shows the saved state. The number in the "Open tasks" column is a link to the bed's Care tab. From the "grower" role on, the button **Complete tasks on several beds** sits above the table (see [Care on the bed](locations-substrates.md#care-on-the-bed)).
+
+## Tasks on garden objects {#tasks-on-garden-objects}
+
+A compost heap, a water source or a storage shed needs work too: turning the compost, winterising the rain barrel, tidying the shed. When you select such an object on the plan, the **Properties** tab shows the **Tasks** section with the object's open tasks, sorted by due date. **Add task** opens the task dialog with the object as its target; you choose among the kinds that suit an object: maintenance, cleaning, observation, covering and uncovering. Tasks "for every plant" do not exist here because an object carries no plants. Other objects such as paths, fences or trellises get no tasks. An object must be saved before it gets tasks, and you cannot add any without a connection. Members from the "grower" role on may add them. <!-- REQ-053 R-7.2, W-008 -->
+
+## Flat plan: windowsill, shelf and tent {#flat-plan}
+
+For a site in your home (site type indoor, windowsill or grow tent) the garden plan is a **flat plan**. You draw and plan with the same tools as in the garden; a few things are set up for indoors:
+
+- **Empty plan:** instead of "No garden plan yet" you see **No flat plan yet** with two ways in: **Draw the floor plan** opens the empty drawing area, **Load a photo as a template** opens it with the [underlay](#underlay) dialog. A photo or sketch of the floor plan, calibrated to real dimensions with two points, is the easiest start.
+- **Grid:** a new flat plan starts at 5 cm instead of 10 cm.
+- **Indoor objects:** under **Garden object** you find **Window** (a line in the wall), **Door**, **Furniture** (windowsill, shelf, table) and **Lamp**. Their properties are described under [Properties, side panel and list view](#properties-and-list-view).
+- **What indoors leaves out:** Kamerplanter hides frost, cold-air pocket, heat storage and wind for indoor sites, and the frost layer too. Stored values are kept.
+- **Planting spots:** the **Beds** tab is called **Planting spots** here (the address keeps `tab=beds`) and lists everything you can lay out plants in: tents and shelves as well as tubs and planters. A room itself is not a planting spot.
+
+**Suggest the sun from the windows.** A window knows its compass direction as soon as it sits in the wall: Kamerplanter derives it from its position on the plan and the north angle and shows it in the window's properties, for example "South-east, 135°". When you select a planting spot, its sun section offers **Suggest from windows**. A dialog shows the windows within the radius (1.5 m by default; you set the radius per site), the suggested value for the sun at the bed (morning, midday, afternoon, all day or changing) and notes, for example that shading by neighbouring buildings or trees is not considered. Windows facing away from the sun only bring diffuse light and do not count. **Cancel** changes nothing. Only **Take over** writes the value; if a value is already set, the button reads **Replace** and the dialog tells you beforehand what gets replaced. Hours and foliage shade stay unchanged. Without GPS coordinates for the site Kamerplanter assumes the northern hemisphere; between the tropics there is no suggestion. <!-- REQ-053 GP-FR-180, GP-FR-181, GP-FR-182, GP-FR-183 -->
+
+**Tent rules.** On the page of a tent or shelf you enter, under **Tent rules**, an own **adjacency factor** (it overrides the garden's value, for example when plants grow into each other on purpose) and the **lighting**: lamp height and distance to the plants. Kamerplanter stores the lighting for a later light calculation and does not calculate anything from it yet. If plants in the same tent need different day lengths in their current phase according to their phase profiles, the page warns you: a lamp has only one schedule. If no light duration is stored for a phase, the page says so instead of guessing. When you plant, the dialog warns if a pot is smaller than the species' recommended pot volume. <!-- REQ-053 W-016 -->
+
+!!! note "Partially available: flat plan"
+    You cannot draw the outline of your flat as its own boundary yet; use the underlay and draw rooms, windowsills and shelves as planting spots or objects. The light-need warning currently names the phases by their English name, also in the German interface. Some labels still talk about the "garden" indoors. <!-- REQ-053 GP-FR-182, #2890, #2889 -->
 
 ## Field mode in the garden {#field-mode-in-the-garden}
 
@@ -234,7 +295,7 @@ When there is a new version, the banner **New version available** appears at the
 
 ## Layers and site conditions {#layers-and-site-conditions}
 
-You show and hide layers in the **Layers** group of the view bar. Your browser remembers your choice; it applies only to you. The grid is not a layer of this group: it has its own switch **Show grid** in the group **Grid and snap** (on at the start, key **G**), see [Grid, snapping, zoom and compass](#grid-snapping-zoom-and-compass).
+You show and hide layers in the side panel's **Layers** tab; every switch carries its name. Your browser remembers your choice; it applies only to you. The grid is not a layer of this group: it has its own switch **Show grid** in the **View** tab (on at the start, key **G**), see [Grid, snapping, zoom and compass](#grid-snapping-zoom-and-compass).
 
 | Layer | Shows | At the start |
 |-------|-------|--------------|
@@ -247,7 +308,7 @@ You show and hide layers in the **Layers** group of the view bar. Your browser r
 | **Show plant state** | Phase, ring and sign of every plant | off |
 | **Show companion planting** | Lines between neighbouring plants: good, bad or unknown neighbours | off |
 
-The legend below the view bar explains every layer that is switched on. The hatching of zones and of the state layers differs in pattern, not only in colour.
+The legend in the **Layers** tab explains every layer that is switched on; it appears as soon as at least one layer is on. A flat plan has no frost layer. The hatching of zones and of the state layers differs in pattern, not only in colour.
 
 The **Last watered** layer shows only the distance to the last recorded watering in four steps (0 to 1, 2 to 3, 4 to 7, more than 7 days). It does not say whether a bed needs water. A bed without a recorded watering stays without hatching.
 
@@ -255,20 +316,20 @@ The **Last watered** layer shows only the distance to the last recorded watering
 
 You maintain the values on the bed: sun, sun window and leaf shade in the sun tiles (see [Sun and shade of a bed](locations-substrates.md#sun-and-shade-of-a-bed)), drainage in the soil profile. The layers show these entries on the whole plan.
 
-**Sun window, drainage and frost risk layers in the garden plan.** In the layer group of the view bar you can show three more layers: **Show sun window** (when direct sun reaches the bed), **Show drainage** (poor, moderate, good) and **Show frost risk** (low, normal, high). Every value has its own pattern, so you can tell them apart without colour. The pattern is always shown; once you zoom in far enough for the bed names to appear, a small symbol for the value joins it at the bottom edge of the bed, where the bed has room for it; the legend below the view bar explains every layer that is on. A bed without a recorded value stays without a pattern. All three layers start switched off, and your browser remembers your choice for you. The frost layer shows the stored frost risk; for overwintering, the frost exposure stays the setting that counts. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
+**Sun window, drainage and frost risk layers in the garden plan.** In the **Layers** tab you can show three more layers: **Show sun window** (when direct sun reaches the bed), **Show drainage** (poor, moderate, good) and **Show frost risk** (low, normal, high). Every value has its own pattern, so you can tell them apart without colour. The pattern is always shown; once you zoom in far enough for the bed names to appear, a small symbol for the value joins it at the bottom edge of the bed, where the bed has room for it; the legend in the **Layers** tab explains every layer that is on. A bed without a recorded value stays without a pattern. All three layers start switched off, and your browser remembers your choice for you. The frost layer shows the stored frost risk; for overwintering, the frost exposure stays the setting that counts. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
 
 ### Plant state and filter {#plant-state-and-filter}
 
 What disc, ring and sign on a plant mean is described under [Plant state and plant info](locations-substrates.md#plant-state). In the garden plan the following applies to the layer:
 
-**Plant state layer and filter in the garden plan.** With **Show plant state** in the same layer group you see the state of your plants without opening a bed. Once you zoom close enough to a bed for the single plants to appear, every plant carries disc, ring and sign as in the bed's **Plan** tab: the colour shows the growth phase, the ring how far the planting is, the sign at the top right the most urgent reason to act. Further out each bed sums up its plants as a circle with a number; if you have seen a bed close enough before, Kamerplanter knows its states: the circle then shows the most urgent sign, and the screen reader names the number of all plants in the bed and how many of them need attention. Next to it sits the switch **Only show plants that need attention**: it hides every plant whose state is known and that carries no sign. A plant whose state is not loaded yet stays visible. The circle of a bed then shows only the plants that remain, and it disappears only once every state of the bed is known and no plant needs attention; the bed itself stays visible, and the screen reader still names the number of all plants. While the layer is off, the switch is disabled; you still reach it with the Tab key, and the screen reader tells you why it is disabled. The legend below the view bar explains rings and signs and lists the colours of the growth phases of the plants whose states are loaded, sorted alphabetically in your language. Kamerplanter loads the states only while the layer is on, only for the beds you currently see close enough, and at most four beds at a time. Each bed loads once and again when you come back to the tab, when you save the plan or a newer version of it loads, and after you changed a zone or logged a watering round in the irrigation panel. The layer and the filter start switched off; your browser remembers your choice. The info bubble on hovering a plant stays with the bed's **Plan** tab. <!-- REQ-053 GP-UX-061, GP-UX-060 -->
+**Plant state layer and filter in the garden plan.** With **Show plant state** in the same tab you see the state of your plants without opening a bed. Once you zoom close enough to a bed for the single plants to appear, every plant carries disc, ring and sign as in the bed's **Plan** tab: the colour shows the growth phase, the ring how far the planting is, the sign at the top right the most urgent reason to act. Further out each bed sums up its plants as a circle with a number; if you have seen a bed close enough before, Kamerplanter knows its states: the circle then shows the most urgent sign, and the screen reader names the number of all plants in the bed and how many of them need attention. Next to it sits the switch **Only show plants that need attention**: it hides every plant whose state is known and that carries no sign. A plant whose state is not loaded yet stays visible. The circle of a bed then shows only the plants that remain, and it disappears only once every state of the bed is known and no plant needs attention; the bed itself stays visible, and the screen reader still names the number of all plants. While the layer is off, the switch is disabled; you still reach it with the Tab key, and the screen reader tells you why it is disabled. The legend in the **Layers** tab explains rings and signs and lists the colours of the growth phases of the plants whose states are loaded, sorted alphabetically in your language. Kamerplanter loads the states only while the layer is on, only for the beds you currently see close enough, and at most four beds at a time. Each bed loads once and again when you come back to the tab, when you save the plan or a newer version of it loads, and after you changed a zone or logged a watering round in the irrigation panel. The layer and the filter start switched off; your browser remembers your choice. The info bubble on hovering a plant stays with the bed's **Plan** tab. <!-- REQ-053 GP-UX-061, GP-UX-060 -->
 
 !!! note "Partially available: plant state"
     **Frost danger** does not appear as a sign yet, even though the **Frost risk** layer shows the stored value. **Watering due** arises so far only from a watering task due today, not from the irrigation demand. <!-- REQ-053 GP-UX-060, GP-FR-190 -->
 
 ### Companion planting on the plan {#companion-planting-on-the-plan}
 
-**Companion planting layer in the garden plan.** With **Show companion planting** in the layer group you see whether neighbouring plants get along. The plan draws a line between two neighbouring occupied places of a bed. A place can hold a standing plant or a species that a running planting plans there. The kind of line says what is known:
+**Companion planting layer in the garden plan.** With **Show companion planting** in the **Layers** tab you see whether neighbouring plants get along. The plan draws a line between two neighbouring occupied places of a bed. A place can hold a standing plant or a species that a running planting plans there. The kind of line says what is known:
 
 | Line | Meaning |
 |------|---------|
@@ -286,7 +347,7 @@ The lines appear only once you zoom close enough to a bed for the single plants 
 
 An **irrigation zone** groups beds of one site that are watered together, for example on a drip line or under a sprinkler. A bed belongs to at most one zone. A site can have up to 500 zones.
 
-Click **Manage irrigation zones** to open the zone area.
+You manage zones in the side panel's **Zones** tab; **Manage irrigation zones** in the **⋮** menu opens it directly.
 
 1. **Create a zone:** Click **New zone**. Enter a name, choose the **type of irrigation** (By hand, Drip irrigation, Sprinkler, Soaker hose or Sub-irrigation) and a colour. Optionally enter a water source (a garden object of type water source), the flow rate in litres per minute and a schedule note.
 2. **Assign beds:** Tick the beds or take over the plan selection with **Take over selection from the plan**. A bed that already lies in another zone moves to this one; the interface tells you. Beds and water sources you have not saved yet are available for selection only after you save the plan.
@@ -318,7 +379,7 @@ A bed template fixes shape, dimensions, bed type and height of a bed so you do n
 
 With an **underlay** you place a photo, a sketch or an aerial view under the plan and trace the beds on it.
 
-1. Click **Underlay** and choose an image (JPEG, PNG or WebP). The plan needs a garden boundary for this.
+1. Choose **Underlay** in the **⋮** menu and pick an image (JPEG, PNG or WebP). The plan needs a garden boundary for this.
 2. **Calibrate:** Click two points in the image whose distance you know and enter the distance in metres. From this Kamerplanter calculates the scale (pixels per metre).
 3. **Position:** Set where the top left corner of the image lies on the plan, rotate the image counter-clockwise if needed and set the opacity.
 4. **Save.** With **Remove underlay** you delete the image and the calibration; you would have to create both again.
@@ -347,7 +408,7 @@ What happened on a single bed is in its history: the crop rotation timeline and 
 
 ## Export the plan and restore a backup {#plan-export-import}
 
-On the garden plan page, **Export & import** opens two dialogs.
+On the garden plan page, **Export plan …** and **Restore a backup …** in the **⋮** menu open two dialogs.
 
 **Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic), a PNG (image) and a backup (JSON). You choose paper, orientation, scale and layers (for the PDF also **Bed list as a second page**); a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments (the parcel list in the PDF and the bed list as CSV can include them on request, see below).
 
@@ -376,13 +437,13 @@ If you import the same file several times with *Add*, each round creates its irr
 !!! warning "Beds with active plants"
     A bed with a plant in it is never deleted. While such beds exist, *Replace* rejects the file. If you choose the option to keep those beds, they stay together with the locations above them, and the rest is replaced.
 
-**New season from last year:** In the **Export & import** menu, **New season from last year …** re-creates last year's places as free slots for every bed without active plants (lead only, within the same site). You enter the year of the new season; the places come from what was finished in the year before. Kamerplanter checks first and shows what happens per bed: beds with active plants and retired beds are skipped and listed in the report, and so is a bed that would pass 2,000 slots with the new places. Places that already stand as a free slot are not created twice. Zones, plants, planting runs and history stay as they are; crop rotation and companion planting hints keep using last year's occupancy. **Show "Here stood …"** adds the plant family of last year to each bed, for orientation only. Only **Create free slots** writes, in one step with an entry in the change log; if the plan changed since the check, you check again. <!-- REQ-053 GP-FR-171 -->
+**New season from last year:** In the **⋮** menu, **New season from last year …** re-creates last year's places as free slots for every bed without active plants (lead only, within the same site). You enter the year of the new season; the places come from what was finished in the year before. Kamerplanter checks first and shows what happens per bed: beds with active plants and retired beds are skipped and listed in the report, and so is a bed that would pass 2,000 slots with the new places. Places that already stand as a free slot are not created twice. Zones, plants, planting runs and history stay as they are; crop rotation and companion planting hints keep using last year's occupancy. **Show "Here stood …"** adds the plant family of last year to each bed, for orientation only. Only **Create free slots** writes, in one step with an entry in the change log; if the plan changed since the check, you check again. <!-- REQ-053 GP-FR-171 -->
 
 All keys are newly assigned on import. Links to Home Assistant and to actuators are never carried over; set them up again afterwards. If you have unsaved changes to the plan, save or discard them first. In field mode, export and import are hidden.
 
 ## Importing a bed list from a CSV file {#beetliste-csv-import}
 
-If you already keep your beds in a spreadsheet, a CSV file (a table as a text file, one line per bed) creates them all in the garden plan at once. Only the lead role may do this. You open the import in the **Export & Import** menu with **Import a bed list (CSV) …** or through the link in the first step of the backup import.
+If you already keep your beds in a spreadsheet, a CSV file (a table as a text file, one line per bed) creates them all in the garden plan at once. Only the lead role may do this. You open the import in the **⋮** menu with **Import a bed list (CSV) …** or through the link in the first step of the backup import.
 
 1. **Choose a file:** Pick your CSV file. **Download an example file** gives you a template to complete in your spreadsheet. Kamerplanter checks the file straight away but writes nothing yet.
 2. **Check report:** You see how many lines are valid, which beds (name, size, sun) would be created, which lines have errors and which columns the import does not know and ignores. Errors and warnings name the line and column. Lines with an error are skipped; you can still apply the remaining lines. If no line is valid, fix the file and choose it again.

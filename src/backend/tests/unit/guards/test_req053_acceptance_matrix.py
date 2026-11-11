@@ -18,6 +18,11 @@ Wave 9 (WP 9.17, #2757) adds them a fourth time for the REQ-053 rows of wave 9 (
 requirements wave 9 implements (``WAVE9_UINFR_ROWS``) against ``spec/e2e-testcases/GP-REQ-wave9-matrix.md`` and
 ``GP-REQ-wave9-gaps.json``. A UI-NFR-012 id counts only in a file that names UI-NFR-012 (the REQ documents have R-ids of
 their own), and the matrix lists the TC-053 E2E functions per row.
+
+Wave 10 (WP 10.15, #2836) adds them a fifth time for the REQ-053 rows of wave 10 (``WAVE10_ROWS``), the acceptance
+criteria of the editor workspace (``WAVE10_AC_ROWS``, section 17.3) and the Anhang A 60-63 findings
+(``WAVE10_DOMAIN_ROWS``) against ``spec/e2e-testcases/GP-REQ-wave10-matrix.md`` and ``GP-REQ-wave10-gaps.json``. An
+``AC-n`` counts only in a file that names section 17.3 or GP-UX-063-070, a ``W-nnn`` only in a file that names REQ-053.
 """
 
 from __future__ import annotations
@@ -293,3 +298,76 @@ def test_an_e2e_body_ends_at_the_next_top_level_line(matrix, tmp_path, monkeypat
     )
     monkeypatch.setattr(matrix, "ROOT", tmp_path)
     assert matrix.scan_e2e_tcs() == {"GP-UX-024": {"084"}}
+
+
+def test_every_wave10_row_is_a_row_of_its_spec(matrix) -> None:
+    rows = matrix.wave10_spec_rows()
+    missing = [row for row in matrix.wave10_rows() if row not in rows]
+    assert not missing, f"wave-10 rows the spec does not have: {missing}"
+
+
+def test_the_workspace_criteria_and_findings_are_read_from_the_spec(matrix) -> None:
+    assert matrix.ac_rows()["§17.3 AC-17"] == "AC"
+    assert "§17.3 AC-11" in matrix.ac_rows() and "§17.3 AC-11" not in matrix.wave10_rows()
+    assert matrix.domain_rows()["REQ-053 W-015"] == "W"
+
+
+def test_every_wave10_row_has_a_test_or_a_reviewed_gap(matrix) -> None:
+    errors = matrix.wave10_problems(matrix.wave10_spec_rows(), matrix.scan_wave10(), matrix.load_wave10_gaps())
+    assert not errors, "\n".join(errors)
+
+
+def test_the_committed_wave10_matrix_is_the_generated_one(matrix) -> None:
+    expected = matrix.render_wave10(
+        matrix.wave10_spec_rows(), matrix.scan_wave10(), matrix.load_wave10_gaps(), matrix.scan_wave10_tcs()
+    )
+    assert matrix.WAVE10_MATRIX.read_text(encoding="utf-8") == expected, "run: python3 scripts/gp_acc_matrix.py --write"
+
+
+def test_a_wave10_criterion_without_a_test_is_reported_against_the_wave10_gap_file(matrix) -> None:
+    row = "§17.3 AC-7"
+    rows = dict.fromkeys(matrix.wave10_rows(), "AC")
+    found = {r: {"frontend": {"a"}} for r in matrix.wave10_rows() if r != row}
+    errors = matrix.wave10_problems(rows, found, {})
+    assert errors == [f"{row}: no test references it and it is not in GP-REQ-wave10-gaps.json"]
+
+
+def test_an_ac_id_counts_only_in_a_file_that_names_the_workspace(matrix) -> None:
+    assert matrix.ac_ids("// REQ-053 §17.3: AC-1, AC-15 part") == {"§17.3 AC-1", "§17.3 AC-15"}
+    assert matrix.ac_ids("// GP-UX-068 (AC-5, AC-17)") == {"§17.3 AC-5", "§17.3 AC-17"}
+    # Another spec numbers its criteria the same way: no claim without §17.3 or GP-UX-063-070.
+    assert matrix.ac_ids("// REQ-045 AC-1 dashboard, GP-UX-062 AC-5") == set()
+    assert matrix.ac_ids("// §17.3 AC-150, XAC-1") == set()
+    assert matrix.ac_ids("// §17.30 AC-2") == set()
+
+
+def test_a_w_id_counts_only_in_a_file_that_names_req_053(matrix) -> None:
+    assert matrix.w_ids("REQ-053 §9.2a W-016.6, §11.3 W-015") == {"REQ-053 W-016", "REQ-053 W-015"}
+    assert matrix.w_ids("REQ-045 W-015 is another review") == set()
+
+
+def test_the_wave10_tc_column_reads_ac_and_w_claims_of_the_function(matrix, tmp_path, monkeypatch) -> None:
+    probe = tmp_path / "tests" / "e2e" / "test_probe.py"
+    probe.parent.mkdir(parents=True)
+    probe.write_text(
+        '"""REQ-053 §17.3 workspace."""\n\n'
+        'def test_tc_053_101_desktop(driver):\n    """AC-1, AC-3 (GP-UX-063)."""\n\n\n'
+        'def test_tc_053_109_sow(driver):\n    """§11.3 W-015."""\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(matrix, "ROOT", tmp_path)
+    assert matrix.scan_wave10_tcs() == {
+        "GP-UX-063": {"101"},
+        "§17.3 AC-1": {"101"},
+        "§17.3 AC-3": {"101"},
+        "REQ-053 W-015": {"109"},
+    }
+
+
+def test_a_claimed_criterion_outside_the_table_is_reported(matrix) -> None:
+    rows = {"§17.3 AC-1": "AC"}
+    found = {"§17.3 AC-1": {"e2e": {"a.py"}}, "§17.3 AC-18": {"frontend": {"b.ts"}}}
+    assert matrix.stray_ac(rows, found) == [
+        "§17.3 AC-18: referenced by b.ts but not a criterion of REQ-053 section 17.3"
+    ]
+    assert matrix.stray_ac(matrix.ac_rows(), matrix.scan_wave10_extra()) == []
