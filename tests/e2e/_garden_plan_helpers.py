@@ -104,11 +104,18 @@ class BedSpec:
 
 @dataclass(frozen=True)
 class ObjectSpec:
-    """A garden object to create (path, tree, ...)."""
+    """A garden object to create (path, tree, window, lamp, ...).
+
+    ``props`` are the type's own properties where the model requires some (a lamp's ``kind`` and ``height_m``);
+    ``off_site`` marks scenery outside the boundary (§9.5, exempt from containment). Both go into the same
+    ``create_garden_object`` operation the editor's save sends.
+    """
 
     label: str
     object_type: str
     geometry: dict
+    props: dict | None = None
+    off_site: bool = False
 
 
 @dataclass
@@ -202,17 +209,16 @@ def provision_garden(
             }
         )
     for index, obj in enumerate(objects):
-        operations.append(
-            {
-                "op": "create_garden_object",
-                "temp_key": f"obj{index}",
-                "data": {
-                    "object_type": obj.object_type,
-                    "label": obj.label,
-                    "geometry": obj.geometry,
-                },
-            }
-        )
+        data: dict = {
+            "object_type": obj.object_type,
+            "label": obj.label,
+            "geometry": obj.geometry,
+        }
+        if obj.props is not None:
+            data["props"] = obj.props
+        if obj.off_site:
+            data["off_site"] = True
+        operations.append({"op": "create_garden_object", "temp_key": f"obj{index}", "data": data})
     if operations:
         status, result = _api_request(
             f"{api}/sites/{site_key}/plan/batch",
@@ -257,6 +263,33 @@ def provision_garden(
             )
         garden.slots[bed.name] = created
     return garden
+
+
+def create_site(base_url: str, seed: dict, *, purpose: str, site_type: str) -> tuple[str, str]:
+    """A site **without** a plan (no boundary, no bed, no object): ``(key, name)``.
+
+    The state a freshly created site is in - ``POST /sites`` is all the site form sends - so the plan route shows its
+    empty state (GP-UX-049; indoor GP-FR-182).
+    """
+    api, token = _api(base_url, seed)
+    name = f"E2E-GP-{purpose}-{unique_tag()}"
+    status, site = _api_request(
+        f"{api}/sites",
+        "POST",
+        token,
+        {"name": name, "type": site_type, "timezone": "Europe/Berlin"},
+    )
+    _require(status, site, (201,), f"POST /sites ({name})")
+    return site["key"], name
+
+
+def stored_object(plan: dict, key: str) -> dict:
+    """The stored garden object *key* of a plan read (GP-API-001); loud when the plan has none of that key."""
+    for obj in plan.get("garden_objects") or []:
+        if obj.get("key") == key:
+            return obj
+    keys = [obj.get("key") for obj in plan.get("garden_objects") or []]
+    raise AssertionError(f"garden object {key!r} is not in the stored plan; objects={keys}")
 
 
 def _mapped(key_map: dict, temp_key: str, name: str) -> str:
