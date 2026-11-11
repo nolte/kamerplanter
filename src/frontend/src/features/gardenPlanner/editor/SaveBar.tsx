@@ -123,7 +123,10 @@ function useSaveStatus() {
 
 interface SaveBarProps {
   autoSave: AutoSave;
-  /** Below md: the status is an icon with the count (the words stay for screen readers). */
+  /**
+   * Below md, or once the header bar has nothing left to move (GP-UX-063): the status is an icon with the count (the
+   * words stay for screen readers).
+   */
   compact?: boolean;
   /** Undo and redo; below md they stand in the `TouchBar` instead (GP-UX-052). */
   showUndoRedo?: boolean;

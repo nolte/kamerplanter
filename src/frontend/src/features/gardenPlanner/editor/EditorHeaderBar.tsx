@@ -3,9 +3,11 @@
  * the save group (`SaveBar`: undo/redo, status, auto-save, "Save"), the tabs Plan · Liste · Beete, the switch to
  * field mode, the panel switch and the overflow "⋮" (`EditorHeaderActions`). It is exactly one line on every width:
  * what does not fit moves into the overflow in the order of GP-UX-063 - (1) auto-save, (2) field mode, (3) the panel
- * switch, (4) the tabs, as three entries with the active one marked. Below md the bar holds only back (an icon with
- * its `aria-label`), the compact save status, "Save" and "⋮"; undo and redo stand in the `TouchBar` then. "Save" is
- * the only primary action and never moves (UI-NFR-021 R-017).
+ * switch, (4) the tabs, as three entries with the active one marked. Once nothing is left to move, the site name of
+ * the back link gives way (ellipsis; the full name stays in its accessible name and tooltip), and if even that is not
+ * enough (5) the save status becomes compact, as below md. Below md the bar holds only back (an icon with its
+ * `aria-label`), the compact save status, "Save" and "⋮"; undo and redo stand in the `TouchBar` then. "Save" is the
+ * only primary action and never moves (UI-NFR-021 R-017). So the bar fits at md beside the app navigation (#2879).
  *
  * The same items render inline or as menu entries from one description, so desktop, tablet and phone come from one
  * component tree (GP-UX-069). Inline controls keep their test ids (GP-UX-070); their entries in the overflow carry
@@ -34,11 +36,12 @@ const PREFIX = 'pages.gardenPlan';
 const TARGET_PX = 48;
 
 /**
- * The move order of GP-UX-063: a control is in the overflow once the bar's level reaches its step. Below md the
- * level is `HEADER_LEVEL_ALL`.
+ * The move order of GP-UX-063: a control is in the overflow once the bar's level reaches its step. From the tabs'
+ * step on the back link's site name may shrink; the last step makes the save status compact. Below md the level is
+ * `HEADER_LEVEL_ALL`.
  */
-export const HEADER_STEP = { autoSave: 1, fieldMode: 2, panel: 3, tabs: 4 } as const;
-export const HEADER_LEVEL_ALL = 4;
+export const HEADER_STEP = { autoSave: 1, fieldMode: 2, panel: 3, tabs: 4, compactStatus: 5 } as const;
+export const HEADER_LEVEL_ALL = 5;
 
 /** One tab of the plan route (`?tab=`, GP-UX-064). */
 export interface HeaderTab {
@@ -149,6 +152,9 @@ export function EditorHeaderBar({
     panel: level < HEADER_STEP.panel,
     tabs: level < HEADER_STEP.tabs,
   };
+  // Nothing is left to move: the site name gives way before anything else does (#2879).
+  const nameShrinks = level >= HEADER_STEP.tabs;
+  const compactStatus = narrow || level >= HEADER_STEP.compactStatus;
   const tabsInline = tabs !== undefined && inline.tabs;
   useEffect(() => {
     if (tabs) onTabsInline?.(tabsInline);
@@ -240,7 +246,8 @@ export function EditorHeaderBar({
         gap: 0.5,
         p: 0.5,
         minWidth: 0,
-        // Nothing in the bar shrinks below its content: a line too long is measured and moved, not squeezed.
+        // Nothing in the bar shrinks below its content: a line too long is measured and moved, not squeezed. Only the
+        // back link's site name gives way, once nothing is left to move.
         '& > *': { flexShrink: 0 },
       }}
     >
@@ -258,20 +265,32 @@ export function EditorHeaderBar({
             </IconButton>
           </Tooltip>
         ) : (
-          <Button
-            component={RouterLink}
-            to={nav.backHref}
-            startIcon={<ArrowBackIcon />}
-            aria-label={backLabel}
-            data-testid="garden-plan-back-link"
-            sx={{ minHeight: TARGET_PX, maxWidth: 240, minWidth: 0 }}
-          >
-            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {nav.siteName}
-            </Box>
-          </Button>
+          <Tooltip title={backLabel}>
+            <Button
+              component={RouterLink}
+              to={nav.backHref}
+              startIcon={<ArrowBackIcon />}
+              aria-label={backLabel}
+              data-testid="garden-plan-back-link"
+              sx={{
+                minHeight: TARGET_PX,
+                maxWidth: 240,
+                // Shrinks down to the arrow, a 48 px target; before that the bar moves its controls out.
+                minWidth: TARGET_PX,
+                ...(nameShrinks && { '&&': { flexShrink: 1 } }),
+              }}
+            >
+              <Box
+                component="span"
+                data-testid="garden-plan-back-link-name"
+                sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {nav.siteName}
+              </Box>
+            </Button>
+          </Tooltip>
         ))}
-      <SaveBar autoSave={autoSave} compact={narrow} showUndoRedo={undoRedo} showAutoSave={inline.autoSave} />
+      <SaveBar autoSave={autoSave} compact={compactStatus} showUndoRedo={undoRedo} showAutoSave={inline.autoSave} />
       {tabs && inline.tabs && <PlanViewTabs tabs={tabs} />}
       <Box sx={{ flex: '1 1 0', minWidth: 0, '&&': { flexShrink: 1 } }} />
       {fieldHref && inline.fieldMode && (
