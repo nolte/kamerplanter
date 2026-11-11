@@ -36,6 +36,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
@@ -136,6 +137,7 @@ import { useIrrigationZones, useLastWatered } from '../zones/useZoneData';
 import { useWateringNow } from '../zones/useWateringNow';
 import { useZoneLayers } from '../zones/useZoneLayers';
 import { ZoneLegend } from '../zones/ZoneLegend';
+import ObjectLegend from '../planting/ObjectLegend';
 import { useAnnouncement } from './useAnnouncement';
 import { useBedTypes } from './useBedTypes';
 import { useEditorKeyboard } from './useEditorKeyboard';
@@ -1650,19 +1652,23 @@ export function GardenPlanEditor({
         onLayer={setLayerById}
         attentionFilter={attentionFilter}
         legend={
-          <ZoneLegend
-            zones={zoneData.zones}
-            showZones={layerPrefs.zones}
-            showLastWatered={layerPrefs.lastWatered}
-            showSun={layerPrefs.sun}
-            showMoisture={layerPrefs.moisture}
-            showFrost={layerPrefs.frost}
-            showPlantState={plantStateOn}
-            phases={legendPhases}
-            showCompanion={companionOn}
-            companionCapped={companionCapped}
-            companionPairs={companionPairs}
-          />
+          // GP-UX-005: the layer legend and the object legend (GP-FR-180, WP 10.6), hidden together by the switch.
+          <Stack spacing={2}>
+            <ZoneLegend
+              zones={zoneData.zones}
+              showZones={layerPrefs.zones}
+              showLastWatered={layerPrefs.lastWatered}
+              showSun={layerPrefs.sun}
+              showMoisture={layerPrefs.moisture}
+              showFrost={layerPrefs.frost}
+              showPlantState={plantStateOn}
+              phases={legendPhases}
+              showCompanion={companionOn}
+              companionCapped={companionCapped}
+              companionPairs={companionPairs}
+            />
+            <ObjectLegend objects={plan.gardenObjects} objectTypeLabel={labels.objectType} />
+          </Stack>
         }
       />
     );

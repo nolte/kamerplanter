@@ -35,6 +35,7 @@ import { useLocationTypeNames } from '../bed/useLocationTypeNames';
 import { useSiteThresholds } from '../bed/useSiteThresholds';
 import type { PlanModel } from '../model/planModel';
 import type {
+  GardenObject,
   Geometry,
   PlanEntity,
   PlanOperation,
@@ -44,6 +45,7 @@ import type {
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
 import { NumberField } from './NumberField';
+import { ObjectPropsFields } from './objectProps/ObjectPropsFields';
 import { WaterSourceFields } from './WaterSourceFields';
 import { insertVertex, removeVertex } from './tools/geometryEdit';
 import { isPlanEntity } from './tools/hierarchy';
@@ -137,6 +139,18 @@ function describe(
     return { title: plan.slots[ref.key]?.slot_id ?? ref.key, subtitle: '' };
   const plant = plan.plants[ref.key];
   return { title: plant?.instance_id ?? ref.key, subtitle: plant?.species_key ?? '' };
+}
+
+/**
+ * The violation a garden object would have without its `off_site` exemption (V-03): switching the flag off is refused
+ * while the shape sticks out of its area or the boundary.
+ */
+function violationOnSite(plan: PlanModel, garden: GardenObject): string | null {
+  const onSite: PlanModel = {
+    ...plan,
+    gardenObjects: { ...plan.gardenObjects, [garden.key]: { ...garden, off_site: false } },
+  };
+  return firstViolation(onSite, [{ entity: 'garden_object', key: garden.key, geometry: garden.geometry }]);
 }
 
 function sourceOf(plan: PlanModel, entity: PlanEntity, key: string) {
@@ -246,6 +260,8 @@ function EntityForm({
   // GP-FR-111: the fields of a water source - only what `WaterSourceProps` carries (WP 9.14).
   const objectProps = entity === 'garden_object' ? plan.gardenObjects[entityKey]?.props : undefined;
   const waterSource = objectProps?.object_type === 'water_source' ? objectProps : null;
+  // GP-FR-180: the props of the other classes and the switch `off_site` (WP 10.6).
+  const gardenObject = entity === 'garden_object' ? (plan.gardenObjects[entityKey] ?? null) : null;
   const errorText = error
     ? t(`${PREFIX}.notice.${error}`, { defaultValue: t(`${PREFIX}.notice.generic`) })
     : null;
@@ -312,6 +328,15 @@ function EntityForm({
 
       {waterSource && (
         <WaterSourceFields objectKey={entityKey} props={waterSource} disabled={locked} onCommit={onCommit} />
+      )}
+
+      {gardenObject && (
+        <ObjectPropsFields
+          object={gardenObject}
+          disabled={locked}
+          violationOnSite={() => violationOnSite(plan, gardenObject)}
+          onCommit={onCommit}
+        />
       )}
 
       {geometry === null && (

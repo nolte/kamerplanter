@@ -5710,6 +5710,48 @@
             "lastRefilledHelp": "Tag, an dem die Quelle zuletzt aufgefüllt wurde. Leer lassen, wenn unbekannt.",
             "lastRefilledFuture": "Der Tag liegt in der Zukunft. Wähle heute oder einen früheren Tag."
           },
+          "objectProps": {
+            "title": "Objekteigenschaften",
+            "notGiven": "Nicht angegeben",
+            "heightRequiredInvalid": "Gib eine Höhe zwischen {{min}} und {{max}} m ein. Das Feld darf nicht leer sein.",
+            "window": {
+              "sillHeight": "Brüstungshöhe",
+              "sillHeightHelp": "Abstand vom Fußboden bis zur Unterkante des Fensters. 0 m bei einem bodentiefen Fenster. Leer lassen, wenn unbekannt.",
+              "sillHeightInvalid": "Gib eine Brüstungshöhe zwischen 0 und {{max}} m ein oder lass das Feld leer.",
+              "glazing": "Verglasung",
+              "glazingHelp": "Einfachglas lässt mehr Kälte an die Pflanzen auf der Fensterbank als Doppel- oder Mehrfachglas.",
+              "orientation": "Himmelsrichtung: {{value}}",
+              "orientationNone": "noch nicht verfügbar",
+              "orientationHelp": "Wird aus der Lage des Fensters in der Wand und der Nordrichtung des Plans abgeleitet und nicht von Hand eingetragen."
+            },
+            "door": {
+              "swing": "Öffnungsrichtung",
+              "swingHelp": "Wohin die Tür aufschwingt, z. B. „nach innen, Anschlag links“. Leer lassen, wenn unwichtig. {{count}} von {{max}} Zeichen.",
+              "swingTooLong": "Höchstens {{max}} Zeichen. Kürze die Beschreibung."
+            },
+            "furniture": {
+              "note": "Möbel wie Fensterbank, Regal oder Tisch haben keine weiteren Eigenschaften. Name, Lage und Maße stellst du in diesem Tab ein."
+            },
+            "lamp": {
+              "kind": "Art der Lampe",
+              "kindHelp": "Pflanzenlampe, Deckenleuchte oder Stehleuchte.",
+              "height": "Montagehöhe",
+              "heightHelp": "Höhe der Lampe über dem Boden.",
+              "ppfd": "Referenz-PPFD",
+              "ppfdHelp": "Lichtstärke laut Datenblatt der Lampe. Wird gespeichert, aber noch nicht für eine Lichtverteilung berechnet.",
+              "ppfdNone": "Nicht angegeben. Trag die Lichtstärke aus dem Datenblatt der Lampe ein, wenn du sie kennst – es gibt keinen Standardwert.",
+              "ppfdInvalid": "Gib einen Wert ab 0 µmol/m²/s ein oder lass das Feld leer."
+            },
+            "trellis": {
+              "height": "Höhe",
+              "heightHelp": "Höhe der Rankhilfe über dem Boden. Das Feld darf nicht leer sein."
+            },
+            "offSite": {
+              "label": "Außerhalb des Grundstücks",
+              "help": "Für Kulisse jenseits der Gartengrenze, etwa das Nachbarhaus oder einen Baum hinter dem Zaun. Solche Objekte dürfen über die Grenze hinausragen.",
+              "refused": "Das Objekt ragt aus seinem Bereich oder der Gartengrenze heraus. Schiebe es ganz hinein, bevor du den Schalter ausschaltest."
+            }
+          },
           "lockedHint": "Gesperrt: Die Werte sind schreibgeschützt. Entsperre das Objekt, um es zu ändern.",
           "locked": "Gesperrt",
           "fields": {
@@ -6409,6 +6451,14 @@
           "listItem": "{{status}}: {{pair}}. {{detail}}",
           "speciesTruncated": "Ein Platz trägt mehr als {{count}} Arten; das Urteil gilt nur für die ersten {{count}}.",
           "unnamedSpecies": "Art ohne Namen"
+        },
+        "objectLegend": {
+          "title": "Objekte",
+          "none": "Auf dem Plan sind noch keine Objekte wie Bäume, Wege, Fenster oder Lampen.",
+          "entry_one": "{{type}} ({{count}})",
+          "entry_other": "{{type}} ({{count}})",
+          "offSite_one": "– davon {{count}} außerhalb des Grundstücks",
+          "offSite_other": "– davon {{count}} außerhalb des Grundstücks"
         },
         "sidePanel": {
           "toggle": "Seitenpanel",
