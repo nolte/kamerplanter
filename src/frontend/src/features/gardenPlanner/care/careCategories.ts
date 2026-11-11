@@ -49,6 +49,24 @@ export const BED_CARE_CATEGORIES = [
   'maintenance',
 ] as const;
 
+/**
+ * The garden-object classes a care task may hang off (REQ-053 R-7.2, W-008): turn the compost, winterise the rain
+ * barrel, tidy the shed. The server holds the same set (`TASK_GARDEN_OBJECT_TYPES`, `task_entity_guard.py`) and
+ * answers any other class with 422; the panel offers the action only for these.
+ */
+export const TASK_OBJECT_TYPES: ReadonlySet<string> = new Set(['compost', 'water_source', 'storage']);
+
+/** Whether a garden object of class `objectType` takes care tasks (R-7.2). */
+export function objectTakesTasks(objectType: string): boolean {
+  return TASK_OBJECT_TYPES.has(objectType);
+}
+
+/**
+ * The categories a task on a garden object offers (W-008): no bed work (sowing, weeding, liming ...) on a compost
+ * heap, a rain barrel or a shed - upkeep, cleaning, a look, and covering it for the winter and uncovering it again.
+ */
+export const OBJECT_CARE_CATEGORIES = ['maintenance', 'cleaning', 'observation', 'covering', 'uncovering'] as const;
+
 /** The care log also knows a free note; it is not a task category (`note`, §20.10). */
 export const NOTE_CATEGORY = 'note';
 

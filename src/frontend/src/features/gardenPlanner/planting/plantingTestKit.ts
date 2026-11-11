@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw';
 import type { Species } from '@/api/types';
 import { server } from '@/test/mocks/server';
 import { computeLayout, type EntryLayout } from '../model/layout';
-import type { Geometry } from '../model/types';
+import type { GardenObject, Geometry } from '../model/types';
 import type { PreviewResponse, ValidatePlantingResponse } from './plantingTypes';
 
 /** Fixtures and a recording backend for the planting tests (REQ-053 WP 3.6). */
@@ -62,6 +62,8 @@ export interface PlantingBackend {
   seen: Seen[];
   /** The preview requests received. */
   previews: unknown[];
+  /** The site keys of every garden-object read. */
+  objectReads: string[];
 }
 
 interface BackendOptions {
@@ -73,6 +75,8 @@ interface BackendOptions {
   incompatible?: Record<string, { species_key: string; reason: string }[]>;
   /** The mixed-culture request answers 500 (and, being one transaction, creates nothing). */
   failRun?: boolean;
+  /** The site's garden objects (`GET /sites/{key}/garden-objects`); `'fail'` answers 500. */
+  gardenObjects?: GardenObject[] | 'fail';
 }
 
 function toPreviewResponse(result: ReturnType<typeof computeLayout>): PreviewResponse {
@@ -94,7 +98,7 @@ function toPreviewResponse(result: ReturnType<typeof computeLayout>): PreviewRes
 
 /** Install the handlers of the planting dialog; the preview answers like the Python reference (the port). */
 export function usePlantingBackend(options: BackendOptions = {}): PlantingBackend {
-  const backend: PlantingBackend = { seen: [], previews: [] };
+  const backend: PlantingBackend = { seen: [], previews: [], objectReads: [] };
   const runs = new Map<string, unknown[]>();
   const items = options.species ?? [species('sp_tomato', 'Tomato', { spacing_cm: '60', row_spacing_cm: '80' })];
   const record = async (request: Request) => {
@@ -132,6 +136,13 @@ export function usePlantingBackend(options: BackendOptions = {}): PlantingBacken
       ),
     ),
     http.get(`${BASE}/slots`, () => HttpResponse.json([])),
+    http.get(`${BASE}/sites/:key/garden-objects`, ({ params }) => {
+      backend.objectReads.push(String(params.key));
+      if (options.gardenObjects === 'fail') {
+        return HttpResponse.json({ error_code: 'INTERNAL', message: 'boom', details: [] }, { status: 500 });
+      }
+      return HttpResponse.json(options.gardenObjects ?? []);
+    }),
     http.post(`${BASE}/locations/:key/planting-layout/preview`, async ({ request }) => {
       const body = (await request.json()) as { entry: EntryLayout & { max_count?: number | null } };
       backend.previews.push(body.entry);

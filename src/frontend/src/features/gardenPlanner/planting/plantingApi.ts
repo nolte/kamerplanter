@@ -2,6 +2,7 @@ import { tenantClient } from '@/api/client';
 import { createMixedCulture } from '@/api/endpoints/plantingRuns';
 import { createTask } from '@/api/endpoints/tasks';
 import type { MixedCultureCreate, MixedCultureResponse, PlantingRun, TaskItem } from '@/api/types';
+import type { GardenObject } from '../model/types';
 import type {
   BedFrameGeometry,
   PlantingItem,
@@ -138,4 +139,13 @@ export async function createTransplantTask(payload: {
     entity_type: 'plant_instance',
     entity_key: payload.plantKey,
   });
+}
+
+/**
+ * GP-API-013: the garden objects of the bed's site, in the plan frame like the bed's geometry. The planting dialog
+ * reads them for the trellis hint (W-005) only once a chosen species needs a support.
+ */
+export async function listSiteGardenObjects(siteKey: string): Promise<GardenObject[]> {
+  const { data } = await tenantClient.get<GardenObject[]>(`/sites/${siteKey}/garden-objects`);
+  return data;
 }

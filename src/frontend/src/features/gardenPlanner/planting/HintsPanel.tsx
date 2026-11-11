@@ -5,6 +5,8 @@
  * Root competition or allelopathy reported at the bed (GP-FR-165) adds one neutral note for the whole bed that names
  * exactly the flags set ("Allelopathy risk reported at this site"). Nothing is computed from it: no strength, no
  * `site_fit`, no reason needed to plant.
+ * A species that needs a support (`support_required`, W-005) names the trellises drawn in the bed, or says there is
+ * none (`SupportHint`, WP 10.10) - information only.
  */
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +21,8 @@ import type { Translate } from '@/i18n/translate';
 import type { HintState, MixPair } from './useBedHints';
 import SiteAxisHints from './SiteAxisHints';
 import SiteFitHint from './SiteFitHint';
+import SupportHint from './SupportHint';
+import type { BedTrellisState } from './useBedTrellises';
 import type { SpeciesSiteFit } from './siteFitOf';
 import type { SiteAxisHint } from '../model/siteFit';
 import type { SunExposure } from '../model/types';
@@ -58,6 +62,8 @@ interface HintsPanelProps {
     siteFit?: SpeciesSiteFit | null;
     /** The frost, wind and waterlogging hints of the species on this bed (GP-FR-161); empty = none. */
     axisHints?: readonly SiteAxisHint[];
+    /** The trellises in the bed when the species needs a support (W-005); `null`/absent = no support hint. */
+    support?: BedTrellisState | null;
   }[];
   /** The sun class of the bed, named in the site-fit line. */
   bedSun?: SunExposure;
@@ -225,7 +231,7 @@ export default function HintsPanel({
           {t('pages.bed.planting.hints.siteFlagsDetail')}
         </Alert>
       ) : null}
-      {species.map(({ key, name, state, siteFit, axisHints }) => (
+      {species.map(({ key, name, state, siteFit, axisHints, support }) => (
         <Fragment key={key}>
           {rotationBlock(key, name, state)}
           {siteFit ? (
@@ -241,6 +247,7 @@ export default function HintsPanel({
           {axisHints && axisHints.length > 0 ? (
             <SiteAxisHints speciesKey={key} speciesName={name} hints={axisHints} />
           ) : null}
+          {support ? <SupportHint speciesKey={key} speciesName={name} state={support} /> : null}
         </Fragment>
       ))}
       {mix.map((pair) => (

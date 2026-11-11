@@ -551,6 +551,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             bedSite={bedSite}
             siteFlags={bed.site_conditions?.flags}
             irrigationSystem={bed.irrigation_system ?? null}
+            siteKey={bed.site_key}
             initialAlreadyPlanted
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}

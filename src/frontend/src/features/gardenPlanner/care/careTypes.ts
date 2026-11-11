@@ -70,6 +70,7 @@ export interface BedPlantRef {
 export type TaskTarget = 'bed' | 'plant' | 'other';
 
 /**
- * Where a task is created: on the bed itself, or on each plant standing in it (`for_each_plant`, GP-FR-081).
+ * Where a task is created: on the bed itself, on each plant standing in it (`for_each_plant`, GP-FR-081), or on a
+ * garden object of the plan (`entity_type = garden_object`, REQ-053 R-7.2, W-008).
  */
-export type TaskScope = 'bed' | 'plants';
+export type TaskScope = 'bed' | 'plants' | 'object';
