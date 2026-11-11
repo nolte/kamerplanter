@@ -5795,7 +5795,21 @@
           "geometryTitle": "Lage und Maße",
           "geometryHint": "Maße in Metern, Drehung in Grad. Die Position ist die Ecke des Objekts (bei Kreisen der Mittelpunkt); x zeigt nach rechts, y nach oben.",
           "fieldInvalid": "Bitte eine gültige Zahl eingeben.",
-          "openCare": "Pflege: {{open}} offen, {{overdue}} überfällig"
+          "openCare": "Pflege: {{open}} offen, {{overdue}} überfällig",
+          "objectTasks": {
+            "title": "Aufgaben",
+            "help": "Plane hier Arbeiten an diesem Objekt, etwa den Kompost umsetzen, die Regentonne winterfest machen oder den Schuppen aufräumen. Offene Aufgaben stehen auch in deiner Aufgabenliste.",
+            "add": "Aufgabe anlegen",
+            "loading": "Offene Aufgaben werden geladen …",
+            "empty": "Für dieses Objekt sind keine Aufgaben offen.",
+            "error": "Die Aufgaben konnten nicht geladen werden ({{message}}).",
+            "retry": "Erneut versuchen",
+            "offline": "Ohne Verbindung kannst du keine Aufgaben anlegen und die offenen nicht sehen. Sobald die Verbindung zurück ist, geht es weiter.",
+            "unsaved": "Speichere den Plan zuerst. Erst ein gespeichertes Objekt kann Aufgaben bekommen.",
+            "due": "fällig am {{date}}",
+            "dueOverdue": "überfällig seit {{date}}",
+            "created": "Aufgabe für {{name}} angelegt."
+          }
         },
         "contextMenu": {
           "label": "Aktionen für die Auswahl",
@@ -7630,7 +7644,9 @@
           "submit": "Aufgabe anlegen",
           "createdBed": "Aufgabe für das Beet angelegt.",
           "createdPlants_one": "{{count}} Aufgabe für die Pflanze angelegt.",
-          "createdPlants_other": "{{count}} Aufgaben angelegt, eine je Pflanze."
+          "createdPlants_other": "{{count}} Aufgaben angelegt, eine je Pflanze.",
+          "titleObject": "Neue Aufgabe für {{name}}",
+          "objectHint": "Die Aufgabe gilt für dieses Objekt und erscheint in deiner Aufgabenliste."
         },
         "log": {
           "open": "Pflege protokollieren",
@@ -8023,7 +8039,16 @@
           "reasonHelp": "Der Grund wird an der Pflanzung gespeichert.",
           "reasonRequired": "Nenne einen Grund, um trotzdem zu pflanzen.",
           "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren.",
-          "siteFlagsDetail": "Rechne damit, dass Pflanzen hier schwächer wachsen können – ein Vermerk, keine Bewertung der Art."
+          "siteFlagsDetail": "Rechne damit, dass Pflanzen hier schwächer wachsen können – ein Vermerk, keine Bewertung der Art.",
+          "support": {
+            "checking": "Prüfe, ob im Beet eine Rankhilfe für {{name}} steht …",
+            "present_one": "{{name}} braucht eine Rankhilfe. Im Beet steht diese:",
+            "present_other": "{{name}} braucht eine Rankhilfe. Im Beet stehen diese {{count}}:",
+            "missing": "{{name}} braucht eine Rankhilfe, aber in diesem Beet ist keine eingezeichnet. Stell eine auf und zeichne sie im Gartenplan als Gartenobjekt „Rankhilfe“ ein. Pflanzen kannst du trotzdem.",
+            "unavailable": "{{name}} braucht eine Rankhilfe. Ob im Beet eine steht, ließ sich gerade nicht prüfen.",
+            "unnamed": "Rankhilfe ohne Namen",
+            "trellisWithHeight": "{{name}} ({{height}} m hoch)"
+          }
         },
         "position": {
           "title": "Position korrigieren: {{plant}}",

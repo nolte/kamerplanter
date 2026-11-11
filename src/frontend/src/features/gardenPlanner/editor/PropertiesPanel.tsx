@@ -33,6 +33,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import type { SunClassThresholds } from '@/api/types';
 import { useLocationTypeNames } from '../bed/useLocationTypeNames';
 import { useSiteFacts } from '../bed/useSiteThresholds';
+import { objectTakesTasks } from '../care/careCategories';
 import { isIndoorPlanSite } from '../model/siteKind';
 import type { PlanModel } from '../model/planModel';
 import type {
@@ -72,6 +73,8 @@ const SunTileSelector = lazy(() => import('../bed/SunTileSelector'));
 const SunWindowFields = lazy(() => import('../bed/SunWindowFields'));
 // "Aus Fenster vorschlagen" (GP-FR-181, WP 10.7): its preview dialog loads with the sun section, not the editor.
 const WindowSunSuggestion = lazy(() => import('./WindowSunSuggestion'));
+// Tasks on a compost, water source or storage object (R-7.2, W-008, WP 10.10): loads with such an object's form.
+const ObjectTasksSection = lazy(() => import('./ObjectTasksSection'));
 
 const PREFIX = 'pages.gardenPlan.editor';
 const SUN_PREFIX = 'pages.gardenPlan.sun';
@@ -373,6 +376,16 @@ function EntityForm({
           windowOrientationByConvention={facing?.basis === 'drawing_direction'}
           onCommit={onCommit}
         />
+      )}
+
+      {gardenObject && objectTakesTasks(gardenObject.object_type) && (
+        <Suspense fallback={null}>
+          <ObjectTasksSection
+            objectKey={entityKey}
+            objectType={gardenObject.object_type}
+            objectName={gardenObject.label.trim() || typeLabel}
+          />
+        </Suspense>
       )}
 
       {geometry === null && (

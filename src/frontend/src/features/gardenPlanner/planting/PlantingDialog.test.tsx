@@ -13,7 +13,8 @@ import type { IrrigationSystem } from '@/api/types';
 import { server } from '@/test/mocks/server';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import PlantingDialog from './PlantingDialog';
-import type { SunExposure } from '../model/types';
+import { gardenObject } from '@/test/gardenPlanFixtures';
+import type { GardenObject, SunExposure } from '../model/types';
 import {
   BASE,
   BED_GEOMETRY,
@@ -918,6 +919,136 @@ describe('accessibility', () => {
     await choose(user, 0, 'Tomato');
     await screen.findByTestId('planting-hint-sp_tomato');
     await screen.findByTestId('planting-entry-0-result');
+
+    await expectNoA11yViolations(screen.getByTestId('planting-dialog'));
+  });
+});
+
+describe('trellis hint (W-005, WP 10.10)', () => {
+  const BEAN = species('sp_bean', 'Runner bean', { spacing_cm: '20', row_spacing_cm: '40', support_required: true });
+  const LETTUCE = species('sp_lettuce', 'Lettuce', { spacing_cm: '25', support_required: false });
+  const UNKNOWN = species('sp_pea', 'Pea', { spacing_cm: '5', support_required: null as unknown as boolean });
+  // The bed is the rect (1, 1)–(2.2, 3) in the plan frame.
+  const line = (key: string, points: [number, number][], overrides: Partial<GardenObject> = {}): GardenObject =>
+    gardenObject(key, points[0][0], points[0][1], {
+      object_type: 'trellis',
+      label: `Trellis ${key}`,
+      geometry: { kind: 'polyline', width_m: 0.05, points },
+      bbox: null,
+      props: { object_type: 'trellis', height_m: 1.8 },
+      ...overrides,
+    });
+  const INSIDE = line('tr_in', [[1.2, 2], [2, 2]], { label: 'Bean poles' });
+  const ON_EDGE = line('tr_edge', [[1, 3], [2.2, 3]], { label: '', props: { object_type: 'trellis', height_m: 2 } });
+  const AWAY = line('tr_away', [[5, 5], [6, 5]]);
+  const OFF_SITE = line('tr_off', [[1.2, 1.5], [2, 1.5]], { off_site: true });
+  const FENCE = line('fe_in', [[1.2, 2.5], [2, 2.5]], { object_type: 'fence', props: { object_type: 'fence' } });
+
+  function renderOnSite() {
+    return renderWithProviders(
+      <PlantingDialog
+        bedKey="loc_b03"
+        bedName="Raised bed 3"
+        geometry={BED_GEOMETRY}
+        siteKey="site_1"
+        onClose={vi.fn()}
+        onPlanted={vi.fn()}
+      />,
+      { store: createTestStore({ ...tenantState('grower'), ...authState() }) },
+    );
+  }
+
+  it('names the trellises in the bed or on its edge, not those elsewhere, off site or of another class', async () => {
+    const backend = usePlantingBackend({ species: [BEAN], gardenObjects: [INSIDE, ON_EDGE, AWAY, OFF_SITE, FENCE] });
+    const user = userEvent.setup();
+    renderOnSite();
+    await choose(user, 0, 'Runner bean');
+
+    const hintBox = await screen.findByTestId('planting-support-sp_bean');
+    await waitFor(() => expect(hintBox).toHaveAttribute('data-state', 'present'));
+    expect(hintBox).toHaveAttribute('data-trellis-count', '2');
+    expect(hintBox).toHaveTextContent('needs a support. These 2 stand in the bed:');
+    expect(screen.getByTestId('planting-support-trellis-tr_in')).toHaveTextContent('Bean poles (1.8 m high)');
+    expect(screen.getByTestId('planting-support-trellis-tr_edge')).toHaveTextContent('Unnamed trellis (2 m high)');
+    expect(screen.queryByTestId('planting-support-trellis-tr_away')).toBeNull();
+    expect(screen.queryByTestId('planting-support-trellis-tr_off')).toBeNull();
+    expect(screen.queryByTestId('planting-support-trellis-fe_in')).toBeNull();
+    expect(backend.objectReads).toEqual(['site_1']);
+  });
+
+  it('says that no trellis is drawn, and planting still goes ahead without drawing one', async () => {
+    const backend = usePlantingBackend({ species: [BEAN], gardenObjects: [AWAY] });
+    const user = userEvent.setup();
+    const onPlanted = vi.fn();
+    renderWithProviders(
+      <PlantingDialog
+        bedKey="loc_b03"
+        bedName="Raised bed 3"
+        geometry={BED_GEOMETRY}
+        siteKey="site_1"
+        onClose={vi.fn()}
+        onPlanted={onPlanted}
+      />,
+      { store: createTestStore({ ...tenantState('grower'), ...authState() }) },
+    );
+    await choose(user, 0, 'Runner bean');
+
+    const hintBox = await screen.findByTestId('planting-support-sp_bean');
+    await waitFor(() => expect(hintBox).toHaveAttribute('data-state', 'missing'));
+    expect(hintBox).toHaveTextContent('none is drawn in this bed');
+
+    // Information only: no reason asked, nothing refused, no trellis created.
+    expect(screen.queryByTestId('planting-override-check')).toBeNull();
+    await hintsDone();
+    await user.click(screen.getByTestId('planting-submit'));
+    await waitFor(() => expect(onPlanted).toHaveBeenCalled());
+    expect(backend.seen.map((write) => write.url)).toEqual([MIXED]);
+  });
+
+  it.each([
+    ['support_required false', LETTUCE, 'Lettuce'],
+    ['support_required unknown (null)', UNKNOWN, 'Pea'],
+  ])('shows nothing and reads nothing for %s (G-W10 d)', async (_case, chosen, name) => {
+    const backend = usePlantingBackend({ species: [chosen], gardenObjects: [INSIDE] });
+    const user = userEvent.setup();
+    renderOnSite();
+    await choose(user, 0, name);
+    await screen.findByTestId(`planting-hint-${chosen.key}`);
+
+    expect(screen.queryByTestId(`planting-support-${chosen.key}`)).toBeNull();
+    expect(backend.objectReads).toEqual([]);
+  });
+
+  it('offers no trellis hint without the site', async () => {
+    const backend = usePlantingBackend({ species: [BEAN], gardenObjects: [INSIDE] });
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Runner bean');
+    await screen.findByTestId('planting-hint-sp_bean');
+
+    expect(screen.queryByTestId('planting-support-sp_bean')).toBeNull();
+    expect(backend.objectReads).toEqual([]);
+  });
+
+  it('says it could not check when the objects cannot be read, never "no trellis"', async () => {
+    usePlantingBackend({ species: [BEAN], gardenObjects: 'fail' });
+    const user = userEvent.setup();
+    renderOnSite();
+    await choose(user, 0, 'Runner bean');
+
+    const hintBox = await screen.findByTestId('planting-support-sp_bean');
+    await waitFor(() => expect(hintBox).toHaveAttribute('data-state', 'unavailable'));
+    expect(hintBox).toHaveTextContent('could not be checked');
+  });
+
+  it('has no accessibility violations with the hint', async () => {
+    usePlantingBackend({ species: [BEAN], gardenObjects: [INSIDE] });
+    const user = userEvent.setup();
+    renderOnSite();
+    await choose(user, 0, 'Runner bean');
+    await waitFor(() =>
+      expect(screen.getByTestId('planting-support-sp_bean')).toHaveAttribute('data-state', 'present'),
+    );
 
     await expectNoA11yViolations(screen.getByTestId('planting-dialog'));
   });

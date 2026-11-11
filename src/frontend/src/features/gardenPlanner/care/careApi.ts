@@ -1,4 +1,5 @@
 import { tenantClient } from '@/api/client';
+import { listTasks } from '@/api/endpoints/tasks';
 import type { TaskItem } from '@/api/types';
 import type {
   BatchResult,
@@ -109,13 +110,16 @@ export async function reopenBedTask(key: string): Promise<TaskItem> {
 export interface BedTaskBody {
   name: string;
   category: string;
-  entity_type: 'location';
+  /** The bed (`location`) or a compost / water source / storage object (`garden_object`, REQ-053 R-7.2). */
+  entity_type: 'location' | 'garden_object';
   entity_key: string;
   due_date?: string;
   priority?: string;
   instruction?: string;
 }
 
+/** Create one task on the bed or on a garden object; the server checks that the target is the tenant's (404) and,
+ * for a garden object, that its class takes tasks (422). */
 export async function createBedTask(body: BedTaskBody): Promise<CareTask> {
   const { data } = await tenantClient.post<CareTask>(TASKS, body);
   return data;
@@ -147,4 +151,24 @@ export async function logCareEvent(
 /** GP-API-037: the author takes back an entry within ten minutes (`undo`). */
 export async function voidCareEvent(key: string): Promise<void> {
   await tenantClient.post(`/care-events/${key}/void`, { reason: 'undo' });
+}
+
+/** The statuses a task is still open in; `completed`, `skipped`, `failed` and `dormant` are not shown. */
+const OPEN_STATUSES = ['pending', 'in_progress'] as const;
+/** More open tasks than this on one compost heap is not a case the panel lists; the queue page shows them all. */
+const OBJECT_TASK_LIMIT = 50;
+
+/**
+ * The open tasks of one garden object (REQ-053 R-7.2, W-008): `GET /tasks` filtered by `entity_type = garden_object`
+ * and the object's key, once per open status. Sorted by due date, undated last.
+ */
+export async function listOpenObjectTasks(objectKey: string): Promise<TaskItem[]> {
+  const pages = await Promise.all(
+    OPEN_STATUSES.map((status) =>
+      listTasks(0, OBJECT_TASK_LIMIT, { status, entity_type: 'garden_object', entity_key: objectKey }),
+    ),
+  );
+  // An ISO instant sorts as text; an undated task goes after every dated one.
+  const due = (task: TaskItem) => task.due_date ?? '\uffff';
+  return pages.flat().sort((a, b) => (due(a) < due(b) ? -1 : due(a) > due(b) ? 1 : 0));
 }

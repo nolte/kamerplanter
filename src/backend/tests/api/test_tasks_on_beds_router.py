@@ -46,7 +46,12 @@ from tests.support.task_completion_fakes import FakeCompletionRepo, FakeTaskRepo
 SLUG = "anna"
 GARDEN_OBJECTS = {
     "go_compost": (TENANT, "compost"),
+    "go_barrel": (TENANT, "water_source"),
+    "go_shed": (TENANT, "storage"),
     "go_path": (TENANT, "path"),
+    # A garden bench: there is no ``bench`` class, a bench is drawn as ``furniture`` (REQ-053 §9.8).
+    "go_bench": (TENANT, "furniture"),
+    "go_trellis": (TENANT, "trellis"),
     "go_foreign": (OTHER_TENANT, "compost"),
 }
 
@@ -300,6 +305,26 @@ class TestBindingTypes:
 
         assert resp.status_code == 201
         assert resp.json()["entity_type"] == "garden_object"
+
+    @pytest.mark.parametrize("key", ["go_barrel", "go_shed"])
+    def test_a_task_binds_to_an_own_water_source_or_storage(self, api, key):
+        client, tasks = api
+
+        resp = client.post(url("/tasks"), json={"name": "Winterise", "entity_type": "garden_object", "entity_key": key})
+
+        assert resp.status_code == 201
+        assert resp.json()["entity_key"] == key
+        assert len(tasks.created) == 1
+
+    @pytest.mark.parametrize("key", ["go_bench", "go_trellis"])
+    def test_a_task_on_a_bench_or_trellis_is_a_422_and_writes_nothing(self, api, key):
+        """REQ-053 R-7.2 / WP 10.10: only compost, water source and storage take tasks; the panel offers no others."""
+        client, tasks = api
+
+        resp = client.post(url("/tasks"), json={"name": "x", "entity_type": "garden_object", "entity_key": key})
+
+        assert resp.status_code == 422
+        assert tasks.created == []
 
     def test_a_task_on_a_path_object_is_a_422(self, api):
         client, tasks = api

@@ -57,6 +57,7 @@ import { quickBody, readLastUsed, submitQuick, submitRuns, writeLastUsed } from 
 import type { RotationSeverity } from './plantingTypes';
 import { speciesLabel } from './SpeciesPicker';
 import { useBedHints, useMixedCompatibility } from './useBedHints';
+import { useBedTrellises } from './useBedTrellises';
 import { useEntryPreviews, type EntryPreview, type PreviewRequest } from './useEntryPreviews';
 
 export interface PlantedResult {
@@ -81,6 +82,11 @@ interface PlantingDialogProps {
   siteFlags?: readonly SiteFlag[];
   /** The bed's irrigation system: `hydro`/`nft` lift the pot-volume warning (W-016.5). */
   irrigationSystem?: IrrigationSystem | null;
+  /**
+   * The bed's site: its garden objects give the trellis hint of a species that needs a support (W-005). Absent = the
+   * hint is not offered.
+   */
+  siteKey?: string;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
   /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
@@ -156,6 +162,7 @@ export default function PlantingDialog({
   bedSite,
   siteFlags,
   irrigationSystem = null,
+  siteKey,
   onClose,
   onPlanted,
   initialAlreadyPlanted = false,
@@ -296,6 +303,14 @@ export default function PlantingDialog({
     if (mix.some((pair) => pair.kind === 'incompatible')) all.push('WARNING');
     return worstSeverity(all);
   }, [hintStates, mix]);
+  // The trellis hint (W-005): only the species profile's `support_required: true` asks for it (G-W10 d), and the
+  // site's objects are read only then.
+  const needsSupport = useCallback(
+    (key: string) => speciesByKey.get(key)?.support_required === true,
+    [speciesByKey],
+  );
+  const supportNeeded = speciesKeys.some((key) => key !== null && needsSupport(key));
+  const trellises = useBedTrellises(siteKey, geometry, supportNeeded);
   const hintSpecies = useMemo(
     () =>
       [...new Set(speciesKeys.filter((key): key is string => Boolean(key)))].map((key) => ({
@@ -304,8 +319,9 @@ export default function PlantingDialog({
         state: hintStates[key],
         siteFit: siteFitOf(speciesByKey.get(key), sunExposure),
         axisHints: siteAxesOf(speciesByKey.get(key), bedSite),
+        support: needsSupport(key) ? trellises : null,
       })),
-    [speciesKeys, speciesNames, hintStates, speciesByKey, sunExposure, bedSite],
+    [speciesKeys, speciesNames, hintStates, speciesByKey, sunExposure, bedSite, needsSupport, trellises],
   );
 
   const layers = useMemo<CanvasLayer[]>(

@@ -5794,7 +5794,21 @@
           "geometryTitle": "Position and size",
           "geometryHint": "Sizes in metres, rotation in degrees. The position is the corner of the object (the centre for circles); x points right, y points up.",
           "fieldInvalid": "Please enter a valid number.",
-          "openCare": "Care: {{open}} open, {{overdue}} overdue"
+          "openCare": "Care: {{open}} open, {{overdue}} overdue",
+          "objectTasks": {
+            "title": "Tasks",
+            "help": "Plan work on this object here, such as turning the compost, winterising the rain barrel or tidying the shed. Open tasks also appear in your task list.",
+            "add": "Add task",
+            "loading": "Loading open tasks …",
+            "empty": "No tasks are open for this object.",
+            "error": "The tasks could not be loaded ({{message}}).",
+            "retry": "Try again",
+            "offline": "Without a connection you cannot add tasks or see the open ones. You can continue once the connection is back.",
+            "unsaved": "Save the plan first. Only a saved object can get tasks.",
+            "due": "due {{date}}",
+            "dueOverdue": "overdue since {{date}}",
+            "created": "Task for {{name}} added."
+          }
         },
         "contextMenu": {
           "label": "Actions for the selection",
@@ -7629,7 +7643,9 @@
           "submit": "Create task",
           "createdBed": "Task created for the bed.",
           "createdPlants_one": "{{count}} task created for the plant.",
-          "createdPlants_other": "{{count}} tasks created, one per plant."
+          "createdPlants_other": "{{count}} tasks created, one per plant.",
+          "titleObject": "New task for {{name}}",
+          "objectHint": "The task applies to this object and appears in your task list."
         },
         "log": {
           "open": "Log care",
@@ -8022,7 +8038,16 @@
           "reasonHelp": "The reason is stored with the planting.",
           "reasonRequired": "Give a reason to plant anyway.",
           "confirmToContinue": "Confirm \"Plant anyway\" to continue.",
-          "siteFlagsDetail": "Expect plants to grow less vigorously here – a note, not a rating of the species."
+          "siteFlagsDetail": "Expect plants to grow less vigorously here – a note, not a rating of the species.",
+          "support": {
+            "checking": "Checking whether a trellis for {{name}} stands in the bed …",
+            "present_one": "{{name}} needs a support. This one stands in the bed:",
+            "present_other": "{{name}} needs a support. These {{count}} stand in the bed:",
+            "missing": "{{name}} needs a support, but none is drawn in this bed. Put one up and draw it on the garden plan as the garden object “Trellis”. You can plant anyway.",
+            "unavailable": "{{name}} needs a support. Whether one stands in the bed could not be checked right now.",
+            "unnamed": "Unnamed trellis",
+            "trellisWithHeight": "{{name}} ({{height}} m high)"
+          }
         },
         "position": {
           "title": "Correct position: {{plant}}",

@@ -424,6 +424,7 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             bedSite={bedSite}
             siteFlags={bed.site_conditions?.flags}
             irrigationSystem={bed.irrigation_system ?? null}
+            siteKey={bed.site_key}
             initialSpeciesKey={replant?.speciesKey ?? null}
             initialCultivarKey={replant?.cultivarKey ?? null}
             onClose={() => {
