@@ -29,7 +29,7 @@ const qualityGradeColor: Record<string, ChipColor> = {
 };
 
 export default function HarvestBatchListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { batches, loading } = useAppSelector((s) => s.harvest);
@@ -71,11 +71,11 @@ export default function HarvestBatchListPage() {
       label: t('pages.harvest.plantKey'),
       render: (r) => {
         const plant = plantMap.get(r.plant_key);
-        return plant ? getPlantLabel(plant) : r.plant_key;
+        return plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
       },
       searchValue: (r) => {
         const plant = plantMap.get(r.plant_key);
-        return plant ? getPlantLabel(plant) : r.plant_key;
+        return plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
       },
       hideBelowBreakpoint: 'md',
     },
@@ -127,7 +127,7 @@ export default function HarvestBatchListPage() {
           ? t(`enums.qualityGrade.${r.quality_grade}`)
           : '',
     },
-  ], [t, plantMap]);
+  ], [t, plantMap, i18n.language]);
 
   return (
     <Box data-testid="harvest-batch-list-page">

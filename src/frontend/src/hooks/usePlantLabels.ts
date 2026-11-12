@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as plantApi from '@/api/endpoints/plantInstances';
+import type { PlantInstance } from '@/api/types';
 import { getPlantLabel } from '@/utils/plantDisplay';
 
 /** Above this many keys the caller shows a count; one request per plant would not scale (a bed has up to 200). */
@@ -22,7 +24,14 @@ export function usePlantLabels(keys: readonly string[]): PlantLabels {
   // One stable dependency for the effect, whatever array identity the caller passes.
   const signature = keys.join('\u0000');
   const tooMany = keys.length > PLANT_LABEL_LIMIT;
-  const [resolved, setResolved] = useState<{ signature: string; labels: Map<string, string> } | null>(null);
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+  // The loaded plants (null = could not be loaded), labelled in the render so a
+  // language switch relabels the species name without refetching (#2902).
+  const [resolved, setResolved] = useState<{
+    signature: string;
+    plants: Map<string, PlantInstance | null>;
+  } | null>(null);
 
   useEffect(() => {
     const wanted = signature === '' ? [] : signature.split('\u0000');
@@ -30,12 +39,11 @@ export function usePlantLabels(keys: readonly string[]): PlantLabels {
     let cancelled = false;
     Promise.allSettled(wanted.map((key) => plantApi.getPlantInstance(key))).then((results) => {
       if (cancelled) return;
-      const labels = new Map<string, string>();
+      const plants = new Map<string, PlantInstance | null>();
       results.forEach((result, index) => {
-        const key = wanted[index];
-        labels.set(key, result.status === 'fulfilled' ? getPlantLabel(result.value) : key);
+        plants.set(wanted[index], result.status === 'fulfilled' ? result.value : null);
       });
-      setResolved({ signature, labels });
+      setResolved({ signature, plants });
     });
     return () => {
       cancelled = true;
@@ -44,9 +52,14 @@ export function usePlantLabels(keys: readonly string[]): PlantLabels {
 
   return useMemo(() => {
     const wanted = signature === '' ? [] : signature.split('\u0000');
-    const current = resolved?.signature === signature ? resolved.labels : null;
-    const labels = current ?? new Map(wanted.map((key) => [key, key] as const));
+    const current = resolved?.signature === signature ? resolved.plants : null;
+    const labels = new Map(
+      wanted.map((key) => {
+        const plant = current?.get(key);
+        return [key, plant ? getPlantLabel(plant, language) : key] as const;
+      }),
+    );
     const loading = !tooMany && wanted.length > 0 && current === null;
     return { labels, loading, tooMany };
-  }, [resolved, signature, tooMany]);
+  }, [resolved, signature, tooMany, language]);
 }

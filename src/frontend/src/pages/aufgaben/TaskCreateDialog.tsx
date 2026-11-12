@@ -79,7 +79,7 @@ interface Props {
    */
   hideEntitySelect?: boolean;
   /**
-   * Speaking label for ``presetEntityKey`` (e.g. ``getPlantLabel(plant, ...)``), shown
+   * Speaking label for ``presetEntityKey`` (e.g. ``getPlantLabel(plant, language, ...)``), shown
    * as a locked context field and in the dialog title when ``hideEntitySelect`` is set —
    * so it stays clear which plant the task is created for even without the selector.
    */
@@ -96,7 +96,7 @@ export default function TaskCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -296,7 +296,7 @@ export default function TaskCreateDialog({
               render={({ field }) => (
                 <Autocomplete
                   options={plants}
-                  getOptionLabel={(p) => getPlantLabel(p)}
+                  getOptionLabel={(p) => getPlantLabel(p, i18n.language)}
                   loading={loadingPlants}
                   value={plants.find((p) => p.key === field.value) ?? null}
                   onChange={(_, value) => field.onChange(value?.key ?? null)}

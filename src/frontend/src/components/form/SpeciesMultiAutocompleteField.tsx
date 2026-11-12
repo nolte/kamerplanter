@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { Species } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 interface SpeciesMultiAutocompleteFieldProps<T extends FieldValues> {
   /** Form field holding a `string[]` of species keys. */
@@ -30,11 +31,10 @@ const filterOptions = createFilterOptions<SpeciesOption>({
   trim: true,
 });
 
-function toOption(species: Species): SpeciesOption {
-  const commonName = species.common_names?.[0];
+function toOption(species: Species, language: string): SpeciesOption {
   return {
     key: species.key,
-    label: commonName ? `${commonName} (${species.scientific_name})` : species.scientific_name,
+    label: getSpeciesOptionLabel(species, language),
     searchText: [species.scientific_name, ...(species.common_names ?? []), species.genus, species.family_name ?? ''].join(
       ' ',
     ),
@@ -58,11 +58,12 @@ export default function SpeciesMultiAutocompleteField<T extends FieldValues>({
   helperText,
   disabled,
 }: SpeciesMultiAutocompleteFieldProps<T>) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
 
   const options = useMemo<SpeciesOption[]>(
-    () => species.map(toOption).sort((a, b) => a.label.localeCompare(b.label)),
-    [species],
+    () => species.map((s) => toOption(s, language)).sort((a, b) => a.label.localeCompare(b.label)),
+    [species, language],
   );
   const byKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
 

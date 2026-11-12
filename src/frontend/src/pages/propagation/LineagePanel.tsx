@@ -31,6 +31,7 @@ import type {
   GraftCompatibilityResponse,
   LineageResponse,
 } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 const levelColor: Record<GraftCompatibilityLevel, ChipProps['color']> = {
   compatible: 'success',
@@ -49,7 +50,7 @@ const alertSeverity: Record<GraftCompatibilityLevel, 'success' | 'warning' | 'er
  * run the taxonomy-based graft-compatibility check between two plants.
  */
 export default function LineagePanel(): ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { handleError } = useApiError();
   const notification = useNotification();
   const { instances, loading: instancesLoading } = usePlantInstanceOptions();
@@ -65,11 +66,10 @@ export default function LineagePanel(): ReactElement {
   const speciesNameByKey = useMemo(() => {
     const map = new Map<string, string>();
     for (const s of speciesCatalogue.items) {
-      const common = s.common_names?.[0];
-      map.set(s.key, common ? `${common} (${s.scientific_name})` : s.scientific_name);
+      map.set(s.key, getSpeciesOptionLabel(s, i18n.language));
     }
     return map;
-  }, [speciesCatalogue.items]);
+  }, [speciesCatalogue.items, i18n.language]);
 
   const resolveSpeciesName = useCallback(
     (key: string | null | undefined): string =>

@@ -22,6 +22,7 @@ import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import { listAllSpecies } from '@/api/endpoints/species';
 import type { IrrigationSystem, Species } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useApiError } from '@/hooks/useApiError';
 import { useServerFavorites } from '@/hooks/useServerFavorites';
@@ -55,7 +56,6 @@ import {
 } from './plantingLogic';
 import { quickBody, readLastUsed, submitQuick, submitRuns, writeLastUsed } from './plantingSubmit';
 import type { RotationSeverity } from './plantingTypes';
-import { speciesLabel } from './SpeciesPicker';
 import { useBedHints, useMixedCompatibility } from './useBedHints';
 import { useBedTrellises } from './useBedTrellises';
 import { useEntryPreviews, type EntryPreview, type PreviewRequest } from './useEntryPreviews';
@@ -244,7 +244,11 @@ export default function PlantingDialog({
 
   const species = useMemo(() => (catalogue.status === 'ready' ? catalogue.items : []), [catalogue]);
   const speciesByKey = useMemo(() => new Map(species.map((s) => [s.key, s])), [species]);
-  const speciesNames = useMemo(() => new Map(species.map((s) => [s.key, speciesLabel(s)])), [species]);
+  // Species names in the UI language (#2902) — they feed the trellis/compatibility hints.
+  const speciesNames = useMemo(
+    () => new Map(species.map((s) => [s.key, getSpeciesOptionLabel(s, i18n.language)])),
+    [species, i18n.language],
+  );
 
   const sharing = alternate && canAlternate(forms);
   const effective = useMemo(() => (sharing ? shareRows(forms) : forms), [sharing, forms]);
@@ -416,7 +420,7 @@ export default function PlantingDialog({
         const form = effective[0];
         const chosen = speciesByKey.get(form.speciesKey ?? '');
         if (!chosen) return;
-        const response = await submitQuick(bedKey, quickBody(form, chosen, previews[form.id], plantedFrom, reason));
+        const response = await submitQuick(bedKey, quickBody(form, chosen, previews[form.id], plantedFrom, reason, i18n.language));
         result = { runKeys: [response.run_key], plantCount: response.plant_keys.length, quick: true };
       } else {
         const outcome = await submitRuns({
@@ -428,6 +432,7 @@ export default function PlantingDialog({
           rowAssignments,
           plantedFrom,
           overrideReason: reason,
+          language: i18n.language,
         });
         result = { ...outcome, quick: false };
       }

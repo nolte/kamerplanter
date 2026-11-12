@@ -104,7 +104,7 @@ import * as careApi from '@/api/endpoints/careReminders';
 import * as taskApi from '@/api/endpoints/tasks';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, NutrientPlanPhaseEntry, Fertilizer, WateringLog, GrowthPhase, Species, Site, Location as SiteLocation, Slot, CareConfirmation, SubstrateType, TaskItem } from '@/api/types';
-import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
+import { getPlantDisplayName, getPlantLabel, orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import PlantPhotoGallery from './photos/PlantPhotoGallery';
@@ -1114,7 +1114,7 @@ export default function PlantInstanceDetailPage() {
     <Box data-testid="plant-instance-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
-        title={plant ? getPlantLabel(plant, species, assignedCultivar) : t('entities.plantInstance')}
+        title={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : t('entities.plantInstance')}
         action={
           /* This header is the reason R-024 exists: five controls used to wrap,
              and the destructive "remove" button was the one pushed off a 393px
@@ -1752,7 +1752,7 @@ export default function PlantInstanceDetailPage() {
                       <Typography variant="h6" sx={{ fontStyle: 'italic' }}>{species.scientific_name}</Typography>
                       {species.common_names.length > 0 && (
                         <Typography variant="body2" color="text.secondary">
-                          {species.common_names.join(', ')}
+                          {orderCommonNamesForLanguage(species, i18n.language).join(', ')}
                         </Typography>
                       )}
                     </Box>
@@ -2703,7 +2703,7 @@ export default function PlantInstanceDetailPage() {
               onClose={() => setTaskCreateOpen(false)}
               presetEntityKey={key}
               hideEntitySelect
-              presetEntityLabel={plant ? getPlantLabel(plant, species, assignedCultivar) : null}
+              presetEntityLabel={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : null}
               onCreated={() => {
                 setTaskCreateOpen(false);
                 loadPlantTasks();
@@ -2826,7 +2826,7 @@ export default function PlantInstanceDetailPage() {
 
       <TerminationDialog
         open={removeOpen}
-        plantName={plant ? getPlantLabel(plant, species, assignedCultivar) : ''}
+        plantName={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : ''}
         onConfirm={onRemove}
         onCancel={() => setRemoveOpen(false)}
         loading={removing}
@@ -2854,7 +2854,7 @@ export default function PlantInstanceDetailPage() {
           open={tagDialogOpen}
           onClose={() => setTagDialogOpen(false)}
           plantKey={plant.key}
-          plantName={getPlantDisplayName(plant, species, assignedCultivar)}
+          plantName={getPlantDisplayName(plant, i18n.language, species, assignedCultivar)}
         />
       )}
 
@@ -2863,7 +2863,7 @@ export default function PlantInstanceDetailPage() {
           open={labelDialogOpen}
           onClose={() => setLabelDialogOpen(false)}
           plantKeys={[plant.key]}
-          plantNames={{ [plant.key]: getPlantDisplayName(plant, species, assignedCultivar) }}
+          plantNames={{ [plant.key]: getPlantDisplayName(plant, i18n.language, species, assignedCultivar) }}
         />
       )}
 
@@ -2886,7 +2886,7 @@ export default function PlantInstanceDetailPage() {
         open={wateringDialogOpen}
         onClose={() => setWateringDialogOpen(false)}
         onConfirm={handleConfirmWatering}
-        plantName={plant ? getPlantDisplayName(plant, species, assignedCultivar) : ''}
+        plantName={plant ? getPlantDisplayName(plant, i18n.language, species, assignedCultivar) : ''}
         reminderType="watering"
         loading={confirmingWatering}
         defaultDosages={dosagePresets?.dosages}

@@ -68,7 +68,7 @@ export default function FeedingEventCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -167,7 +167,7 @@ export default function FeedingEventCreateDialog({
               disabled={loadingPlants}
               options={plants.map((p) => ({
                 value: p.key,
-                label: getPlantLabel(p),
+                label: getPlantLabel(p, i18n.language),
               }))}
             />
           )}

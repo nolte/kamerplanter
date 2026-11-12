@@ -28,6 +28,8 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { parseApiError } from '@/api/errors';
 import { getSpecies } from '@/api/endpoints/species';
+import type { Species } from '@/api/types';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useBedSiteFeatures } from './useBedSiteFeatures';
@@ -74,9 +76,14 @@ type ListState =
   | { status: 'error'; message: string }
   | { status: 'ready'; items: PlantingItem[] };
 
-/** Display names of the species in `keys` (common name, else scientific); the key until they arrive. */
+/**
+ * Display names of the species in `keys` (common name in the UI language, else scientific — #2902);
+ * the key until they arrive or when a species cannot be loaded.
+ */
 function useSpeciesNames(keys: readonly string[]): ReadonlyMap<string, string> {
-  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+  const [loaded, setLoaded] = useState<ReadonlyMap<string, Species | null>>(new Map());
   const wanted = useMemo(() => [...new Set(keys)].sort(), [keys]);
   const signature = wanted.join('|');
   useEffect(() => {
@@ -85,11 +92,11 @@ function useSpeciesNames(keys: readonly string[]): ReadonlyMap<string, string> {
     Promise.all(
       wanted.map((key) =>
         getSpecies(key)
-          .then((species): [string, string] => [key, species.common_names?.[0] || species.scientific_name])
-          .catch((): [string, string] => [key, key]),
+          .then((species): [string, Species | null] => [key, species])
+          .catch((): [string, Species | null] => [key, null]),
       ),
     ).then((entries) => {
-      if (!cancelled) setNames(new Map(entries));
+      if (!cancelled) setLoaded(new Map(entries));
     });
     return () => {
       cancelled = true;
@@ -97,7 +104,17 @@ function useSpeciesNames(keys: readonly string[]): ReadonlyMap<string, string> {
     // `signature` is the content of `wanted`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
-  return names;
+  // Labelled in the render, so a language switch relabels without refetching.
+  return useMemo(
+    () =>
+      new Map(
+        [...loaded].map(([key, species]): [string, string] => [
+          key,
+          species ? (getLocalizedCommonName(species, language) ?? key) : key,
+        ]),
+      ),
+    [loaded, language],
+  );
 }
 
 export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked = false }: BedPlantingTabProps) {

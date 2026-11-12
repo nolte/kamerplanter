@@ -30,11 +30,11 @@ import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './Pl
 import SurvivalStatsPanel from './SurvivalStatsPanel';
 import { useSurvivalStats } from '@/hooks/useSurvivalStats';
 import { kamiPlants } from '@/assets/brand/illustrations';
-import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import PlantCoverPreview from './photos/PlantCoverPreview';
 
 export default function PlantInstanceListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.plantInstances);
@@ -142,9 +142,9 @@ export default function PlantInstanceListPage() {
   const labelPlantNames = useMemo(
     () =>
       Object.fromEntries(
-        filteredItems.map((p) => [p.key, getPlantDisplayName(p, speciesMap.get(p.species_key), p.cultivar_key ? cultivarMap.get(p.cultivar_key) : null)]),
+        filteredItems.map((p) => [p.key, getPlantDisplayName(p, i18n.language, speciesMap.get(p.species_key), p.cultivar_key ? cultivarMap.get(p.cultivar_key) : null)]),
       ),
-    [filteredItems, speciesMap, cultivarMap],
+    [filteredItems, speciesMap, cultivarMap, i18n.language],
   );
 
   const columns: Column<PlantInstance>[] = [
@@ -162,7 +162,7 @@ export default function PlantInstanceListPage() {
       render: (r) => {
         const species = speciesMap.get(r.species_key);
         const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
-        const displayName = getPlantDisplayName(r, species, cultivar);
+        const displayName = getPlantDisplayName(r, i18n.language, species, cultivar);
         // The instance_id already has its own column — avoid showing it twice.
         const shown = displayName === r.instance_id ? '—' : displayName;
         if (!species) return shown;
@@ -172,7 +172,7 @@ export default function PlantInstanceListPage() {
             title={
               <Box>
                 <Typography variant="caption" sx={{ display: 'block' }}>
-                  <strong>{t('entities.species')}:</strong> {species.common_names[0] ?? species.scientific_name}
+                  <strong>{t('entities.species')}:</strong> {getLocalizedCommonName(species, i18n.language) ?? species.scientific_name}
                 </Typography>
                 <Typography variant="caption" sx={{ display: 'block', fontStyle: 'italic' }}>
                   {species.scientific_name}
@@ -189,7 +189,7 @@ export default function PlantInstanceListPage() {
           </Tooltip>
         );
       },
-      searchValue: (r) => getPlantDisplayName(r, speciesMap.get(r.species_key), r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null),
+      searchValue: (r) => getPlantDisplayName(r, i18n.language, speciesMap.get(r.species_key), r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null),
     },
     {
       id: 'location',
@@ -347,7 +347,7 @@ export default function PlantInstanceListPage() {
     const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
       germination: 'info', seedling: 'success', vegetative: 'primary', flowering: 'warning', harvest: 'secondary',
     };
-    const displayName = getPlantDisplayName(r, species, cultivar);
+    const displayName = getPlantDisplayName(r, i18n.language, species, cultivar);
     return (
       <MobileCard
         leading={<PlantCoverPreview plantInstanceKey={r.key} size={48} />}
@@ -388,7 +388,7 @@ export default function PlantInstanceListPage() {
         ]}
       />
     );
-  }, [speciesMap, cultivarMap, slotMap, locationMap, plantRunMap, t]);
+  }, [speciesMap, cultivarMap, slotMap, locationMap, plantRunMap, t, i18n.language]);
 
   return (
     <Box data-testid="plant-instance-list-page">

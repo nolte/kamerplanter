@@ -12,6 +12,7 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { Species, PhaseName, PlantConfig } from '@/api/types';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
 const PHASE_OPTIONS: PhaseName[] = [
   'germination',
@@ -33,7 +34,8 @@ export default function PlantSelectionStep({
   plantConfigs,
   onPlantConfigsChange,
 }: PlantSelectionStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
 
   const speciesMap = useMemo(() => {
     const map = new Map<string, Species>();
@@ -47,9 +49,9 @@ export default function PlantSelectionStep({
     (key: string): string => {
       const sp = speciesMap.get(key);
       if (!sp) return key;
-      return sp.common_names?.[0] ?? sp.scientific_name;
+      return getLocalizedCommonName(sp, language) ?? sp.scientific_name;
     },
-    [speciesMap],
+    [speciesMap, language],
   );
 
   // Build a config map for quick lookup
@@ -144,7 +146,7 @@ export default function PlantSelectionStep({
                   <Typography variant="subtitle2" noWrap>
                     {getSpeciesName(key)}
                   </Typography>
-                  {sp && sp.scientific_name !== (sp.common_names?.[0] ?? sp.scientific_name) && (
+                  {sp && sp.scientific_name !== getSpeciesName(key) && (
                     <Typography
                       variant="caption"
                       color="text.secondary"

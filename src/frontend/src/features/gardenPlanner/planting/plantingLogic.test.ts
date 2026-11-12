@@ -21,7 +21,7 @@ import {
   validateEntry,
   worstSeverity,
 } from './plantingLogic';
-import { BED_GEOMETRY, species } from './plantingTestKit';
+import { BED_GEOMETRY, species, taggedSpecies } from './plantingTestKit';
 
 describe('parseLowerBound', () => {
   it.each([
@@ -235,9 +235,16 @@ describe('hints with a strength (D-09)', () => {
 
 describe('names', () => {
   it('derives a 2-5 letter id prefix from the species name, diacritics folded', () => {
-    expect(idPrefixOf(species('s', 'Tomate'))).toBe('TOM');
-    expect(idPrefixOf(species('s', 'Möhre'))).toBe('MOH');
-    expect(idPrefixOf(species('s', '1'))).toMatch(/^[A-Z]{2,5}$/);
-    expect(idPrefixOf(null)).toBe('PLT');
+    expect(idPrefixOf(species('s', 'Tomate'), 'de')).toBe('TOM');
+    expect(idPrefixOf(species('s', 'Möhre'), 'de')).toBe('MOH');
+    expect(idPrefixOf(species('s', '1'), 'de')).toMatch(/^[A-Z]{2,5}$/);
+    expect(idPrefixOf(null, 'de')).toBe('PLT');
+  });
+
+  it('takes the id prefix from the species name in the UI language, not the first list entry (#2902)', () => {
+    const pea = taggedSpecies('sp_pea', { de: 'Erbse', en: 'Pea' });
+    expect(idPrefixOf(pea, 'de')).toBe('ERB');
+    expect(idPrefixOf(pea, 'de-DE')).toBe('ERB');
+    expect(idPrefixOf(pea, 'en')).toBe('PEA');
   });
 });

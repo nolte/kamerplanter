@@ -7,6 +7,7 @@
  */
 import type { MixedCultureCreate, MixedCultureRunCreate, PlantingRunEntryCreate, Species } from '@/api/types';
 import { getActiveTenantSlug } from '@/api/client';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 import { createMixedRuns, quickPlant } from './plantingApi';
 import { idPrefixOf, type EntryFormState } from './plantingLogic';
 import type { QuickPlantingBody, QuickPlantingResponse } from './plantingTypes';
@@ -23,6 +24,7 @@ export function entryPayload(
   species: Species,
   preview: EntryPreview,
   rowAssignment: number[] | null,
+  language: string,
 ): PlantingRunEntryCreate {
   const free = form.layout === 'free';
   const quantity = free ? form.freePoints.length : Math.max(preview.count, 1);
@@ -33,7 +35,7 @@ export function entryPayload(
     species_key: species.key,
     cultivar_key: form.cultivarKey,
     quantity,
-    id_prefix: idPrefixOf(species),
+    id_prefix: idPrefixOf(species, language),
     spacing_cm: numberOrNull(form.spacing),
     layout_strategy: form.layout,
     ...(rowSpacing !== null ? { row_spacing_cm: rowSpacing } : {}),
@@ -55,6 +57,11 @@ export interface RunInput {
   plantedFrom: string;
   /** The reason of "Trotzdem pflanzen"; `null` when no hint was overridden. */
   overrideReason: string | null;
+  /**
+   * The UI language at creation time: the stored run name and plant-id prefix use the species name
+   * the user sees in the dialog (#2902). They are stored text, so a later language switch keeps them.
+   */
+  language: string;
 }
 
 function speciesOf(input: RunInput, form: EntryFormState): Species {
@@ -63,9 +70,9 @@ function speciesOf(input: RunInput, form: EntryFormState): Species {
   return species;
 }
 
-/** `Tomato - Raised bed 3`: what the run list shows. */
-export function runName(species: Species, bedName: string): string {
-  return `${species.common_names?.[0] || species.scientific_name} – ${bedName}`.slice(0, 200);
+/** `Tomate – Hochbeet 3`: what the run list shows, the species name in the UI language (#2902). */
+export function runName(species: Species, bedName: string, language: string): string {
+  return `${getLocalizedCommonName(species, language) ?? species.scientific_name} – ${bedName}`.slice(0, 200);
 }
 
 /**
@@ -77,8 +84,14 @@ export function runItem(input: RunInput, form: EntryFormState): MixedCultureRunC
   const species = speciesOf(input, form);
   const volume = numberOrNull(form.containerVolume);
   return {
-    name: runName(species, input.bedName),
-    entry: entryPayload(form, species, input.previews[form.id], input.rowAssignments[form.id] ?? null),
+    name: runName(species, input.bedName, input.language),
+    entry: entryPayload(
+      form,
+      species,
+      input.previews[form.id],
+      input.rowAssignments[form.id] ?? null,
+      input.language,
+    ),
     ...(form.layout === 'free' && form.freePoints.length > 0 ? { free_points: form.freePoints } : {}),
     ...(form.layout === 'free' && volume !== null && volume > 0 ? { container_volume_l: volume } : {}),
   };
@@ -122,6 +135,7 @@ export function quickBody(
   preview: EntryPreview,
   plantedOn: string,
   overrideReason: string | null,
+  language: string,
 ): QuickPlantingBody {
   const rowSpacing = form.layout === 'rows' ? numberOrNull(form.rowSpacing) : null;
   return {
@@ -129,7 +143,7 @@ export function quickBody(
     cultivar_key: form.cultivarKey,
     quantity: Math.max(preview.count, 1),
     planted_on: plantedOn,
-    id_prefix: idPrefixOf(species),
+    id_prefix: idPrefixOf(species, language),
     spacing_cm: numberOrNull(form.spacing),
     layout_strategy: form.layout as Exclude<EntryFormState['layout'], 'zone' | 'free'>,
     row_direction: form.rowDirection,

@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import type { Translate } from '@/i18n/translate';
 import PlannerGlossary from '../glossary/PlannerGlossary';
+import { formatSpeciesNameWithScientific } from '@/utils/plantDisplay';
 import type { SuccessionFamily, SuccessionRecommendation, SuccessionSpecies } from './historyTypes';
 import type { SuccessionState } from './useSuccessionRecommendation';
 
@@ -21,8 +22,10 @@ function demandText(value: string | null, t: Translate): string | null {
   return value ? t(`enums.nutrientDemandLevel.${value}`, { defaultValue: value }) : null;
 }
 
+// ``common_name`` is derived on the server (bed_rotation_service, still the first
+// ``common_names`` entry until the server-side readers are localized — #2902 slice C).
 function speciesLabel(species: SuccessionSpecies): string {
-  return species.common_name ? `${species.common_name} (${species.scientific_name})` : species.scientific_name;
+  return formatSpeciesNameWithScientific(species.common_name, species.scientific_name);
 }
 
 function FamilyEntry({ family, t }: { family: SuccessionFamily; t: Translate }) {

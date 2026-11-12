@@ -37,6 +37,8 @@ asserted after a positive anchor of the same render, and every stored outcome is
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -498,7 +500,8 @@ def test_tc_053_113_trellis_hint_in_the_planting_dialog(
     """TC-053-113 - pea (``support_required``) names the trellis in Beet A, says "none drawn" in Beet B; carrot: no hint.
 
     Breaks if the hint of a species that needs a support is missing, names another trellis or not its height, does not
-    say that Beet B has none, or appears for a species without the flag (§9.5, W-005, G-W10 d).
+    say that Beet B has none, or appears for a species without the flag (§9.5, W-005, G-W10 d) - or if the hint names
+    the pea in English in the German UI ("Pea", the first entry of ``common_names``) instead of "Erbse" (#2902).
     """
     pea = species(base_url, e2e_seed_data, PEA)
     carrot = species(base_url, e2e_seed_data, CARROT)
@@ -534,6 +537,11 @@ def test_tc_053_113_trellis_hint_in_the_planting_dialog(
     assert list(hint["trellises"]) == [fence], f"TC-053-113: the hint names the fence: {hint!r}"
     assert "Erbsenzaun" in hint["trellises"][fence] and "1,8 m hoch" in hint["trellises"][fence], (
         f"TC-053-113: the trellis line names its label and height: {hint['trellises'][fence]!r}"
+    )
+    # #2902: the species is named in the UI language (common_names_i18n.de), never by the first list entry, which
+    # the seed spells in English ("Pea").
+    assert hint["text"].startswith("Erbse") and not re.search(r"\bPea\b", hint["text"]), (
+        f"TC-053-113: the hint names the pea in German: {hint['text']!r}"
     )
     screenshot("053_113_01_present", "Erbse in Beet A: Rankhilfe „Erbsenzaun (1,8 m hoch)“")
 

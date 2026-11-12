@@ -34,6 +34,7 @@ import {
   EMPTY_DIARY_FILTERS,
   type DiaryOverviewFilterState,
 } from './diaryOverviewFilterState';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
 /** Page size the overview starts with; the backend caps `limit` at 200. */
 const DEFAULT_PAGE_SIZE = 50;
@@ -91,7 +92,7 @@ function mergeEntryIntoRow(row: DiaryOverviewItem, entry: PlantDiaryEntry): Diar
  * turns a deep link into the reactivation hint rather than a 404 (AK-31).
  */
 export default function DiaryOverviewPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -202,16 +203,18 @@ export default function DiaryOverviewPage() {
     const byKey = new Map<string, string>();
     for (const plant of plants) {
       if (!plant.species_key) continue;
+      // The scientific name leads here (the filter is botanical); the common name in
+      // the UI language is only the fallback (#2902).
       const label =
         plant.species?.scientific_name ||
-        plant.species?.common_names?.[0] ||
+        getLocalizedCommonName(plant.species, i18n.language) ||
         plant.species_key;
       if (!byKey.has(plant.species_key)) byKey.set(plant.species_key, label);
     }
     return Array.from(byKey, ([value, label]) => ({ value, label })).sort((a, b) =>
       a.label.localeCompare(b.label),
     );
-  }, [plants]);
+  }, [plants, i18n.language]);
 
   /** A filter change always returns to the first page — page 4 of the old result
    *  set is not page 4 of the new one. */

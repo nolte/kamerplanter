@@ -38,6 +38,7 @@ import type {
   PlantInstancesInPhase,
 } from '@/api/types';
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
+import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 
 /** Elapsed whole days since a phase-start timestamp (FIX-01 R2). Null when unknown. */
 function daysInPhase(startedAt: string | null): number | null {
@@ -323,7 +324,8 @@ export default function PhaseDefinitionDetailPage() {
     {
       id: 'commonName',
       label: t('pages.phaseSequences.commonName'),
-      render: (species) => (species.common_names.length > 0 ? species.common_names.join(', ') : '—'),
+      render: (species) =>
+        species.common_names.length > 0 ? orderCommonNamesForLanguage(species, i18n.language).join(', ') : '—',
       searchValue: (species) => species.common_names.join(' '),
     },
     {
@@ -655,7 +657,11 @@ export default function PhaseDefinitionDetailPage() {
                   <MobileCard
                     title={<Box sx={{ fontStyle: 'italic' }}>{species.scientific_name || species.key}</Box>}
                     titleId="scientificName"
-                    subtitle={species.common_names.length > 0 ? species.common_names.join(', ') : undefined}
+                    subtitle={
+                      species.common_names.length > 0
+                        ? orderCommonNamesForLanguage(species, i18n.language).join(', ')
+                        : undefined
+                    }
                     subtitleId="commonName"
                     fields={[
                       {

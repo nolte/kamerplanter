@@ -30,7 +30,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as companionApi from '@/api/endpoints/companionPlanting';
 import type { CompatibleSpecies, IncompatibleSpecies } from '@/api/types';
-import { getPrimaryCommonName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 interface SpeciesCompanionTabProps {
@@ -49,7 +49,7 @@ export default function SpeciesCompanionTab({
   speciesName,
   fullScreen,
 }: SpeciesCompanionTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -172,7 +172,7 @@ export default function SpeciesCompanionTab({
                 <List dense disablePadding>
                   {compatible.map((c) => {
                     const commonName =
-                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                      getLocalizedCommonName(c, i18n.language) ?? c.species_key;
                     const showScientific =
                       !!c.scientific_name && c.scientific_name !== commonName;
                     return (
@@ -248,7 +248,7 @@ export default function SpeciesCompanionTab({
                 <List dense disablePadding>
                   {incompatible.map((c) => {
                     const commonName =
-                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                      getLocalizedCommonName(c, i18n.language) ?? c.species_key;
                     const showScientific =
                       !!c.scientific_name && c.scientific_name !== commonName;
                     return (

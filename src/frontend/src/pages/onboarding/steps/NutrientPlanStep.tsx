@@ -9,6 +9,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NutrientPlanCard from '../components/NutrientPlanCard';
 import type { NutrientPlanMatch, ExperienceLevel, Species } from '@/api/types';
 import LoadingStatus from '@/components/common/LoadingStatus';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
 interface NutrientPlanStepProps {
   plans: NutrientPlanMatch[];
@@ -28,13 +29,14 @@ export default function NutrientPlanStep({
   experienceLevel,
   allSpecies,
 }: NutrientPlanStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
 
-  // Common name when the catalogue has one, else the scientific name; a key the
-  // wizard's catalogue does not hold falls back to the key itself.
+  // Common name in the UI language when the catalogue has one (#2902), else the
+  // scientific name; a key the wizard's catalogue does not hold falls back to the key itself.
   const speciesNameByKey = useMemo(
-    () => new Map(allSpecies.map((s) => [s.key, s.common_names?.[0] ?? s.scientific_name])),
-    [allSpecies],
+    () => new Map(allSpecies.map((s) => [s.key, getLocalizedCommonName(s, language) ?? s.scientific_name])),
+    [allSpecies, language],
   );
 
   if (loading) {

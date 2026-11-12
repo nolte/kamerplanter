@@ -5,6 +5,7 @@
  */
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import i18n from 'i18next';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
@@ -20,6 +21,7 @@ import {
   BED_GEOMETRY,
   hint,
   species,
+  taggedSpecies,
   usePlantingBackend,
   type PlantingBackend,
 } from './plantingTestKit';
@@ -1025,6 +1027,79 @@ describe('accessibility', () => {
     await screen.findByTestId('planting-entry-0-result');
 
     await expectNoA11yViolations(screen.getByTestId('planting-dialog'));
+  });
+});
+
+describe('species names in the UI language (#2902, TC-053-113)', () => {
+  // English listed first in common_names, as species.yaml does: a `common_names[0]` reader shows "Pea".
+  const PEA = taggedSpecies(
+    'sp_pea',
+    { de: 'Erbse', en: 'Pea' },
+    { scientific_name: 'Pisum sativum', spacing_cm: '5', support_required: true },
+  );
+  let previousLanguage = 'en';
+  beforeEach(async () => {
+    previousLanguage = i18n.language;
+    await i18n.changeLanguage('de');
+  });
+  afterEach(async () => {
+    await i18n.changeLanguage(previousLanguage);
+  });
+
+  async function chooseByTyping(user: ReturnType<typeof userEvent.setup>, typed: string, option: RegExp) {
+    const input = within(await screen.findByTestId('planting-entry-0-species')).getByRole('combobox');
+    await user.click(input);
+    await user.type(input, typed);
+    await user.click(await screen.findByRole('option', { name: option }));
+  }
+
+  function renderGerman(onPlanted = vi.fn()) {
+    return renderWithProviders(
+      <PlantingDialog
+        bedKey="loc_b03"
+        bedName="Hochbeet 3"
+        geometry={BED_GEOMETRY}
+        siteKey="site_1"
+        gridStepM={0.1}
+        onClose={vi.fn()}
+        onPlanted={onPlanted}
+      />,
+      { store: createTestStore({ ...tenantState('grower'), ...authState() }) },
+    );
+  }
+
+  it('names the species in German in the picker, the trellis hint and the stored run', async () => {
+    const backend = usePlantingBackend({ species: [PEA], gardenObjects: [] });
+    const user = userEvent.setup();
+    const onPlanted = vi.fn();
+    renderGerman(onPlanted);
+
+    await chooseByTyping(user, 'Erbs', /^Erbse \(Pisum sativum\)$/);
+
+    const hintBox = await screen.findByTestId('planting-support-sp_pea');
+    await waitFor(() => expect(hintBox).toHaveAttribute('data-state', 'missing'));
+    expect(hintBox).toHaveTextContent('Erbse');
+    expect(hintBox).not.toHaveTextContent(/\bPea\b/);
+
+    await waitFor(() => expect(screen.getByTestId('planting-submit')).toBeEnabled());
+    await user.click(screen.getByTestId('planting-submit'));
+    await waitFor(() => expect(onPlanted).toHaveBeenCalled());
+    const [run] = sentRuns(backend);
+    // Stored text: the name the user saw when creating it.
+    expect(run.name).toBe('Erbse – Hochbeet 3');
+    expect(run.entry.id_prefix).toBe('ERB');
+  });
+
+  it('still finds the species by its English name in the German UI', async () => {
+    usePlantingBackend({ species: [PEA], gardenObjects: [] });
+    const user = userEvent.setup();
+    renderGerman();
+
+    await chooseByTyping(user, 'Pea', /^Erbse \(Pisum sativum\)$/);
+
+    expect(within(screen.getByTestId('planting-entry-0-species')).getByRole('combobox')).toHaveValue(
+      'Erbse (Pisum sativum)',
+    );
   });
 });
 

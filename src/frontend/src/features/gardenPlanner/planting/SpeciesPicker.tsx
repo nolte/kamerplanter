@@ -4,11 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import type { Species } from '@/api/types';
-
-export function speciesLabel(species: Species): string {
-  const common = species.common_names?.[0];
-  return common ? `${common} (${species.scientific_name})` : species.scientific_name;
-}
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 const filter = createFilterOptions<Species>({
   stringify: (species) =>
@@ -38,15 +34,18 @@ export default function SpeciesPicker({
   testId,
   onChange,
 }: SpeciesPickerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   const options = useMemo(
     () =>
       [...species].sort((a, b) => {
         const fa = favorites.has(a.key) ? 0 : 1;
         const fb = favorites.has(b.key) ? 0 : 1;
-        return fa - fb || speciesLabel(a).localeCompare(speciesLabel(b));
+        return (
+          fa - fb || getSpeciesOptionLabel(a, language).localeCompare(getSpeciesOptionLabel(b, language))
+        );
       }),
-    [species, favorites],
+    [species, favorites, language],
   );
   const selected = options.find((option) => option.key === value) ?? null;
 
@@ -55,7 +54,7 @@ export default function SpeciesPicker({
       options={options}
       value={selected}
       onChange={(_, next) => onChange(next?.key ?? null)}
-      getOptionLabel={speciesLabel}
+      getOptionLabel={(option) => getSpeciesOptionLabel(option, language)}
       isOptionEqualToValue={(option, current) => option.key === current.key}
       filterOptions={filter}
       groupBy={(option) =>

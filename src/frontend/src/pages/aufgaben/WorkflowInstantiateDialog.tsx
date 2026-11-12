@@ -327,14 +327,14 @@ export default function WorkflowInstantiateDialog({
         return `${option.run.name} (${t('pages.tasks.runPlantCount', { count })})`;
       }
       if (option.type === 'plant') {
-        return getPlantLabel(option.plant);
+        return getPlantLabel(option.plant, i18n.language);
       }
       if (option.type === 'location') {
         return option.location.name;
       }
       return option.tank.name;
     },
-    [t],
+    [t, i18n.language],
   );
 
   // ── Group by ─────────────────────────────────────────────────────
@@ -550,7 +550,7 @@ export default function WorkflowInstantiateDialog({
                       direction="row"
                       spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                       <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {getPlantLabel(plant)}
+                        {getPlantLabel(plant, i18n.language)}
                       </Typography>
                       <Chip
                         label={t(`enums.phase.${plant.current_phase}`)}

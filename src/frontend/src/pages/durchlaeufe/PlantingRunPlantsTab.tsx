@@ -26,7 +26,7 @@ export default function PlantingRunPlantsTab({
   onCreatePlants,
   onAdoptPlants,
 }: PlantingRunPlantsTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -69,7 +69,7 @@ export default function PlantingRunPlantsTab({
           variant="simple"
           ariaLabel={t('pages.plantingRuns.tabPlants')}
           mobileCardRenderer={(r) => {
-            const displayName = getPlantDisplayName(r);
+            const displayName = getPlantDisplayName(r, i18n.language);
             return (
               <MobileCard
                 title={displayName}

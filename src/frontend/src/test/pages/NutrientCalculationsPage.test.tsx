@@ -464,7 +464,7 @@ describe('NutrientCalculationsPage — area dosing edge cases', () => {
       expect(within(card).getByText(/Standort wird ignoriert/)).toBeTruthy();
     });
 
-    await pickOption(user, within(card).getByLabelText(/Pflanzenart/), /Tomato/);
+    await pickOption(user, within(card).getByLabelText(/Pflanzenart/), /^Tomate \(Solanum lycopersicum\)$/);
 
     await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
 
@@ -536,7 +536,7 @@ describe('NutrientCalculationsPage — area dosing species (REQ-053 E-17)', () =
 
     await pickOption(user, within(card).getByLabelText('Düngemittel'), /Compost/);
     await retype(user, within(card).getByLabelText(/Beetfläche/), '2');
-    await pickOption(user, within(card).getByLabelText(/Pflanzenart/), /Tomato/);
+    await pickOption(user, within(card).getByLabelText(/Pflanzenart/), /^Tomate \(Solanum lycopersicum\)$/);
     await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
 
     await waitFor(() => {

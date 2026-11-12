@@ -3676,6 +3676,8 @@ Bildschirmfoto; der Befund ist gemeldet.
 
 **Erwartete Ergebnisse**:
 - Für die Erbse in Beet A: „Erbse braucht eine Rankhilfe. Im Beet steht diese:“ mit genau „Erbsenzaun (1,8 m hoch)“
+- Die Art heißt in der deutschen Oberfläche „Erbse“, nicht „Pea“ — der Name kommt aus den deutschen Volksnamen der
+  Art, nicht aus dem ersten Eintrag der Namensliste (REQ-001, #2902)
 - Für die Möhre erscheint kein Rankhilfe-Hinweis
 - Für die Erbse in Beet B: „… braucht eine Rankhilfe, aber in diesem Beet ist keine eingezeichnet …“ und „Pflanzen
   kannst du trotzdem.“ — der Hinweis blockiert nicht

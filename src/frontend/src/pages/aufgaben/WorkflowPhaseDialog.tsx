@@ -5,7 +5,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import Autocomplete from '@mui/material/Autocomplete';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
@@ -28,9 +28,20 @@ import { useApiError } from '@/hooks/useApiError';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as speciesApi from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
-import type { WorkflowPhase, WorkflowPhaseSuggestion, GrowthPhase } from '@/api/types';
+import type { WorkflowPhase, WorkflowPhaseSuggestion, GrowthPhase, CommonNamesI18n } from '@/api/types';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
-type SpeciesOption = { key: string; scientific_name: string; common_names: string[] };
+type SpeciesOption = {
+  key: string;
+  scientific_name: string;
+  common_names: string[];
+  common_names_i18n?: CommonNamesI18n;
+};
+
+/** The label shows one language; the species search matches every name in every language (#2902). */
+const filterSpeciesOptions = createFilterOptions<SpeciesOption>({
+  stringify: (option) => [option.scientific_name, ...(option.common_names ?? [])].join(' '),
+});
 
 const stressLevels = ['none', 'low', 'medium', 'high'] as const;
 const lifecyclePhases = [
@@ -59,7 +70,7 @@ interface Props {
 export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase, onSaved }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -125,6 +136,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
               key: s.key,
               scientific_name: s.scientific_name,
               common_names: s.common_names,
+              common_names_i18n: s.common_names_i18n,
             })),
           );
         }
@@ -254,10 +266,10 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
               getOptionLabel={(option) => {
                 if (!option) return '';
                 const sn = option.scientific_name ?? '';
-                const cn = Array.isArray(option.common_names) ? option.common_names : [];
-                const firstCn = cn.find((n) => typeof n === 'string' && n.length > 0);
-                return firstCn ? `${sn} (${firstCn})` : sn;
+                const cn = getLocalizedCommonName(option, i18n.language);
+                return cn && cn !== sn ? `${sn} (${cn})` : sn;
               }}
+              filterOptions={filterSpeciesOptions}
               isOptionEqualToValue={(option, value) =>
                 option != null && value != null && option.key === value.key
               }

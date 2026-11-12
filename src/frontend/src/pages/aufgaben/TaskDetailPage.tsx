@@ -61,9 +61,9 @@ import * as taskApi from '@/api/endpoints/tasks';
 import { attachmentUri } from '@/api/endpoints/attachments';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
-import type { PlantInstance } from '@/api/types';
+import type { PlantInstance, Species } from '@/api/types';
 import type { TaskItem, TaskComment, TaskAuditEntry, ChecklistItem } from '@/api/types';
-import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import AuthImage from '@/components/common/AuthImage';
 import PhotoUpload from '@/components/common/PhotoUpload';
 import TaskTimer from '@/components/common/TaskTimer';
@@ -241,8 +241,11 @@ export default function TaskDetailPage() {
   const { canDelete } = useTenantPermissions();
 
   const [task, setTask] = useState<TaskItem | null>(null);
-  const [plantName, setPlantName] = useState<string | null>(null);
-  const [plantInfo, setPlantInfo] = useState<{ plant: PlantInstance; speciesName: string; cultivarName: string | null } | null>(null);
+  // The loaded plant/species; their names are derived in the render so they follow
+  // the UI language (#2902).
+  const [namedPlant, setNamedPlant] = useState<PlantInstance | null>(null);
+  const [plantInfo, setPlantInfo] = useState<{ plant: PlantInstance; species: Species; cultivarName: string | null } | null>(null);
+  const plantName = namedPlant ? getPlantDisplayName(namedPlant, i18n.language) : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -337,22 +340,21 @@ export default function TaskDetailPage() {
       if (fetched.entity_type === 'plant_instance' && fetched.entity_key) {
         plantApi.getPlantInstance(fetched.entity_key)
           .then(async (p) => {
-            setPlantName(getPlantDisplayName(p));
+            setNamedPlant(p);
             try {
               const sp = await speciesApi.getSpecies(p.species_key);
-              const speciesName = sp.common_names?.[0] || sp.scientific_name;
               let cultivarName: string | null = null;
               if (p.cultivar_key) {
                 const cvList = await speciesApi.listCultivars(p.species_key);
                 const cv = cvList.find((c) => c.key === p.cultivar_key);
                 if (cv) cultivarName = cv.name;
               }
-              setPlantInfo({ plant: p, speciesName, cultivarName });
+              setPlantInfo({ plant: p, species: sp, cultivarName });
             } catch {
               setPlantInfo(null);
             }
           })
-          .catch(() => setPlantName(null));
+          .catch(() => setNamedPlant(null));
       }
       resetEdit({
         name: fetched.name,
@@ -816,10 +818,11 @@ export default function TaskDetailPage() {
                       title={plantInfo ? (
                         <Box sx={{ p: 0.5 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {getPlantDisplayName(plantInfo.plant)}
+                            {getPlantDisplayName(plantInfo.plant, i18n.language)}
                           </Typography>
                           <Typography variant="caption" sx={{ display: 'block' }}>
-                            {t('entities.species')}: {plantInfo.speciesName}
+                            {t('entities.species')}:{' '}
+                            {getLocalizedCommonName(plantInfo.species, i18n.language) ?? plantInfo.species.scientific_name}
                           </Typography>
                           {plantInfo.cultivarName && (
                             <Typography variant="caption" sx={{ display: 'block' }}>

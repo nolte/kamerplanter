@@ -615,10 +615,10 @@ export default function TaskQueuePage() {
   const plantNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of plants) {
-      map.set(p.key, getPlantDisplayName(p));
+      map.set(p.key, getPlantDisplayName(p, i18n.language));
     }
     return map;
-  }, [plants]);
+  }, [plants, i18n.language]);
 
   // Build unified items from both sources
   const unifiedItems = useMemo(() => {
@@ -1612,7 +1612,7 @@ export default function TaskQueuePage() {
               size="small"
               sx={{ minWidth: 200, flex: '1 1 200px', maxWidth: 320 }}
               options={plants}
-              getOptionLabel={(p) => getPlantLabel(p)}
+              getOptionLabel={(p) => getPlantLabel(p, i18n.language)}
               value={plants.find((p) => p.key === filterPlantKey) ?? null}
               onChange={(_, value) => setFilterPlantKey(value?.key ?? null)}
               renderInput={(params) => (

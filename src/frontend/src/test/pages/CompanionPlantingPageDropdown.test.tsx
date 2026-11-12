@@ -157,7 +157,7 @@ describe('CompanionPlantingPage species dropdown counts', () => {
     await openDropdown();
 
     const option = await screen.findByTestId('species-option-sp-tomato');
-    // Common name (from common_names[0]) leads, scientific name stays as context.
+    // Common name (in the UI language, #2902) leads, scientific name stays as context.
     expect(option).toHaveTextContent('Tomato');
     expect(option).toHaveTextContent('Solanum lycopersicum');
   });
@@ -168,7 +168,10 @@ describe('CompanionPlantingPage species dropdown counts', () => {
       {
         species_key: 'sp-leek',
         scientific_name: 'Allium porrum',
+        // The English UI (this file) must show the English name although the flat
+        // list starts with the German one — the language map decides (#2902).
         common_names: ['Lauch', 'Leek'],
+        common_names_i18n: { de: ['Lauch'], en: ['Leek'] },
         score: 0.9,
       },
     ];
@@ -176,7 +179,8 @@ describe('CompanionPlantingPage species dropdown counts', () => {
     await selectSpecies(/Solanum lycopersicum/);
 
     const link = await screen.findByTestId('compatible-species-link-sp-leek');
-    expect(link).toHaveTextContent('Lauch');
+    expect(link).toHaveTextContent('Leek');
+    expect(link).not.toHaveTextContent('Lauch');
     expect(link).toHaveAttribute('href', '/stammdaten/species/sp-leek');
     // Scientific name still visible as secondary information.
     expect(screen.getByText('Allium porrum')).toBeInTheDocument();

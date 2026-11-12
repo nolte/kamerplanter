@@ -11,6 +11,7 @@ import StarIcon from '@mui/icons-material/Star';
 import ScienceIcon from '@mui/icons-material/Science';
 import YardIcon from '@mui/icons-material/Yard';
 import type { ExperienceLevel, PlantConfig, Site, SiteType, Species, StarterKit } from '@/api/types';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
 interface SummaryStepProps {
   experienceLevel: ExperienceLevel;
@@ -67,9 +68,9 @@ export default function SummaryStep({
     (key: string): string => {
       const sp = speciesMap.get(key);
       if (!sp) return key;
-      return sp.common_names?.[0] ?? sp.scientific_name;
+      return getLocalizedCommonName(sp, i18n.language) ?? sp.scientific_name;
     },
-    [speciesMap],
+    [speciesMap, i18n.language],
   );
 
   const getKitName = useCallback(

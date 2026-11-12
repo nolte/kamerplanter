@@ -323,11 +323,22 @@ export interface Toxicity {
   severity: ToxicitySeverity | null;
 }
 
+/**
+ * Language code (`de`, `en`, ...) -> vernacular names in preference order (REQ-001,
+ * #2902). Every name is also in the flat `common_names`. A missing key or `{}` means
+ * "no sourced name in that language" / "names not language-tagged".
+ */
+export type CommonNamesI18n = Partial<Record<string, string[]>>;
+
 export interface Species {
   key: string;
   origin?: DataOrigin;
   scientific_name: string;
+  /** Flat all-language name list (search, forms, CSV import); its order carries no language. */
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   family_key: string | null;
   family_name: string | null;
   genus: string;
@@ -871,6 +882,9 @@ export interface ReusabilityResponse {
 export interface PlantSpeciesSummary {
   scientific_name: string;
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
 }
 
 /** Denormalized cultivar fields embedded in plant responses for readable labels. */
@@ -1153,16 +1167,22 @@ export interface NutrientProfileCreate {
 export interface CompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
-  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  /** Flat all-language common-name list; its order carries no language meaning. */
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   score: number;
 }
 
 export interface IncompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
-  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  /** Flat all-language common-name list; its order carries no language meaning. */
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   reason: string;
 }
 
@@ -3763,6 +3783,9 @@ export interface PhaseDefinitionSpecies {
   key: string;
   scientific_name: string;
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   typical_duration_days: number;
   illustration: string;
 }
@@ -3779,6 +3802,8 @@ export interface PlantInstanceInPhase {
   species_key: string;
   species_scientific_name: string | null;
   species_common_names: string[];
+  /** Language map of the species' common names (REQ-001, #2902). */
+  species_common_names_i18n?: CommonNamesI18n;
   location_key: string | null;
   location_name: string | null;
   slot_key: string | null;

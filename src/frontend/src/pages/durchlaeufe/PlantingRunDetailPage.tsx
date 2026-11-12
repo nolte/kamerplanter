@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -73,7 +73,7 @@ import type {
   Species,
   Cultivar,
 } from '@/api/types';
-import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -97,7 +97,7 @@ export default function PlantingRunDetailPage() {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { key } = useParams<{ key: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const notification = useNotification();
@@ -127,7 +127,17 @@ export default function PlantingRunDetailPage() {
   const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
 
   // Species/cultivar name resolution for entries table
-  const [speciesMap, setSpeciesMap] = useState<Map<string, string>>(new Map());
+  // Cultivar names + loaded species; the species name is derived in the render so it
+  // follows the UI language (#2902).
+  const [cultivarNames, setCultivarNames] = useState<Map<string, string>>(new Map());
+  const [loadedSpecies, setLoadedSpecies] = useState<Map<string, Species>>(new Map());
+  const speciesMap = useMemo(() => {
+    const names = new Map(cultivarNames);
+    for (const [sk, sp] of loadedSpecies) {
+      names.set(sk, getLocalizedCommonName(sp, i18n.language) ?? sp.scientific_name);
+    }
+    return names;
+  }, [cultivarNames, loadedSpecies, i18n.language]);
   const [locationName, setLocationName] = useState<string>('');
   const [siteKeyFromLocation, setSiteKeyFromLocation] = useState<string | null>(null);
 
@@ -208,13 +218,14 @@ export default function PlantingRunDetailPage() {
       setEntries(e);
       const uniqueSpeciesKeys = [...new Set(e.map((entry) => entry.species_key))];
       const nameMap = new Map<string, string>();
+      const speciesByKey = new Map<string, Species>();
       let firstSpecies: Species | null = null;
       let firstCultivar: Cultivar | null = null;
       await Promise.all(
         uniqueSpeciesKeys.map(async (sk) => {
           try {
             const sp = await speciesApi.getSpecies(sk);
-            nameMap.set(sk, sp.common_names?.length > 0 ? sp.common_names[0] : sp.scientific_name);
+            speciesByKey.set(sk, sp);
             // Store full species for the first entry (monoculture detail card)
             if (!firstSpecies && e.length > 0 && e[0].species_key === sk) {
               firstSpecies = sp;
@@ -232,7 +243,8 @@ export default function PlantingRunDetailPage() {
           } catch { /* ok */ }
         }),
       );
-      setSpeciesMap(nameMap);
+      setCultivarNames(nameMap);
+      setLoadedSpecies(speciesByKey);
       setSpeciesDataForTab(firstSpecies);
       setCultivarDataForTab(firstCultivar);
       // Load phase sequence for the first species (monoculture)
@@ -479,9 +491,9 @@ export default function PlantingRunDetailPage() {
   const plantColumns: Column<PlantInRun>[] = [
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
     { id: 'plantName', label: t('pages.plantInstances.plantName'), render: (r) => {
-      const name = getPlantDisplayName(r);
+      const name = getPlantDisplayName(r, i18n.language);
       return name === r.instance_id ? '—' : name;
-    }, searchValue: (r) => getPlantDisplayName(r) },
+    }, searchValue: (r) => getPlantDisplayName(r, i18n.language) },
     { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => r.current_phase ? <Chip label={r.current_phase} size="small" color="primary" /> : '—', searchValue: (r) => r.current_phase ?? '' },
     { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
     { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '—' },
@@ -745,9 +757,9 @@ export default function PlantingRunDetailPage() {
                             data-testid={`phase-plant-${p.key}`}
                           >
                             <ListItemText
-                              primary={getPlantDisplayName(p)}
+                              primary={getPlantDisplayName(p, i18n.language)}
                               secondary={[
-                                getPlantDisplayName(p) === p.instance_id ? null : p.instance_id,
+                                getPlantDisplayName(p, i18n.language) === p.instance_id ? null : p.instance_id,
                                 p.planted_on,
                                 p.detached_at ? t('pages.plantingRuns.detached') : null,
                                 p.removed_on ? t('pages.plantInstances.removedOn') + ': ' + p.removed_on : null,
