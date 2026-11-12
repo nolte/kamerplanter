@@ -64,6 +64,9 @@ export function safeReturnTo(raw: string | null | undefined): string | null {
     return null;
   }
   if (url.origin !== window.location.origin || excluded(url.pathname)) return null;
+  // Dot segments resolve during parsing (`/.//evil.example`, `/%2e%2e//evil.example` -> `//evil.example`): check the
+  // path that is returned, not only the raw input, so the result is never protocol-relative.
+  if (url.pathname.startsWith('//') || url.pathname.includes('\\')) return null;
   return `${url.pathname}${url.search}${url.hash}`;
 }
 

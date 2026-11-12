@@ -131,6 +131,11 @@ describe('only a same-origin app path is followed (UI-NFR-014 R-011)', () => {
   it.each([
     ['https://evil.example/standorte', null],
     ['//evil.example/standorte', null],
+    ['/.//evil.example/x', null],
+    ['/..//evil.example', null],
+    ['/%2e%2e//evil.example', null],
+    ['/%2e//evil.example', null],
+    ['/a/../..//evil.example', null],
     ['/\\evil.example', null],
     ['javascript:alert(1)', null],
     ['standorte/sites/x', null],

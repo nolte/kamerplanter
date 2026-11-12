@@ -338,7 +338,7 @@ class PrintService:
             display_name = plant.plant_name or plant.instance_id or ""
 
             # Generate QR code
-            qr_url = f"{self._app_base_url}/t/{tenant_slug}/plants/{plant_key}"
+            qr_url = f"{self._app_base_url}/t/{quote(tenant_slug, safe='')}/plants/{quote(plant_key, safe='')}"
             qr_data_uri = PrintEngine.generate_qr_code_base64(qr_url, qr_size_mm)
 
             cards.append(
