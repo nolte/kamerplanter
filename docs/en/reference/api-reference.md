@@ -1192,8 +1192,10 @@ The shipped global catalogue (213 species) carries German and English names deri
 
 Intended: UI language, then German, then scientific name. The former rule "first entry of `common_names`" is not a valid basis for this.
 
-!!! warning "Not yet implemented"
-    The UI does not evaluate `common_names_i18n` yet and still shows the first entry of `common_names`. Language-dependent display follows in a later change.
+The web UI follows this rule. For a species without an assignment (`{}`, for example a species a tenant created), it shows the first entry of `common_names`.
+
+!!! warning "Not yet implemented: names built by the server"
+    Fields in which the server returns a single display name (for example in tasks, reminders, the calendar and printouts) still carry the first entry of `common_names`. This follows in a later change.
 
 ### See Also
 

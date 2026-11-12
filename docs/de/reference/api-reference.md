@@ -1192,8 +1192,10 @@ Der mitgelieferte globale Katalog (213 Arten) enthält deutsche und englische Na
 
 Vorgesehen ist: Oberflächensprache, dann Deutsch, dann wissenschaftlicher Name. Die bisherige Regel „erster Eintrag von `common_names`" ist dafür keine zulässige Grundlage.
 
-!!! warning "Noch nicht implementiert"
-    Die Oberfläche wertet `common_names_i18n` noch nicht aus und zeigt weiterhin den ersten Eintrag von `common_names`. Die sprachabhängige Anzeige folgt in einer späteren Änderung.
+Die Web-Oberfläche folgt dieser Regel. Hat eine Art keine Zuordnung (`{}`, zum Beispiel eine selbst angelegte Art), zeigt sie den ersten Eintrag von `common_names`.
+
+!!! warning "Noch nicht implementiert: serverseitig gebildete Namen"
+    Felder, in denen der Server einen einzelnen Anzeigenamen liefert (zum Beispiel in Aufgaben, Erinnerungen, Kalender und Druck), enthalten noch den ersten Eintrag von `common_names`. Das folgt in einer späteren Änderung.
 
 ### Siehe auch
 
