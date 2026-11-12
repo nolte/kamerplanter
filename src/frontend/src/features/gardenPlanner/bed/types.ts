@@ -291,6 +291,17 @@ export interface BedPatchResult {
   plan_revision: number;
 }
 
+/** Answer of `POST /locations/{key}/clear` (GP-API-019): what the clearing ended, archived and logged. */
+export interface ClearBedResult {
+  plants_removed: number;
+  runs_completed: number;
+  slots_archived: number;
+  /** Slots a later run had reserved: they stay live instead of being archived. */
+  slots_released: number;
+  /** The one `clearing` care event the server wrote. */
+  care_event_key: string;
+}
+
 /** Members and their beds (`location_assignments`, GP-FR-050): who is responsible, not who may write. */
 export interface BedAssignee {
   membershipKey: string;

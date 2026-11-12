@@ -8160,6 +8160,31 @@
           "estimateNote": "Bei einer Fläche ist die Anzahl ein Richtwert, berechnet unter der Annahme, dass die Sämlinge in einem gleichmäßigen Quadratraster im angegebenen Abstand stehen. Weicht das ab, gib die tatsächliche Anzahl ein."
         }
       },
+      "clear": {
+        "button": "Beet räumen",
+        "title": "Beet räumen: {{name}}",
+        "plants_one": "{{count}} Pflanze",
+        "plants_other": "{{count}} Pflanzen",
+        "runs_one": "{{count}} Durchlauf",
+        "runs_other": "{{count}} Durchläufen",
+        "affected": "Betroffen sind {{plants}} aus {{runs}}.",
+        "affectedNoRun": "Betroffen sind {{plants}}.",
+        "effectsTitle": "Am Saisonende räumst du das Beet damit in einem Schritt ab:",
+        "effects": {
+          "plants": "Jede Pflanze im Beet wird mit dem heutigen Datum und der Beendigungsart beendet, die du unten wählst, verschwindet aus „Im Beet“ und steht danach in der Historie.",
+          "runs": "Die laufenden Durchläufe des Beets werden abgeschlossen – bei „Abgebrochen“ als abgebrochen. Geplante Durchläufe behalten ihre Plätze.",
+          "slots": "Die Pflanzplätze werden archiviert, bleiben als Historie erhalten und geben das Beet für die nächste Bepflanzung frei.",
+          "log": "Im Pflegeprotokoll erscheint ein Eintrag „Beet geräumt“."
+        },
+        "terminationTitle": "Wie endeten die Pflanzen?",
+        "terminationHint": "Gilt für alle Pflanzen im Beet. Endete eine Pflanze anders, beende sie vorher einzeln auf ihrer Pflanzenseite.",
+        "reason": "Notiz (optional)",
+        "reasonHelp": "Wird mit dem Eintrag „Beet geräumt“ gespeichert.",
+        "irreversible": "Das Räumen lässt sich nicht rückgängig machen.",
+        "submit": "Beet räumen",
+        "done_one": "Beet geräumt: {{count}} Pflanze beendet.",
+        "done_other": "Beet geräumt: {{count}} Pflanzen beendet."
+      },
       "photos": {
         "title": "Fotos des Beets",
         "intro": "Halte fest, wie sich dein Beet über die Saison entwickelt. Das Titelfoto erscheint im Kopf des Beets und im Feldmodus.",

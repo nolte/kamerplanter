@@ -296,15 +296,12 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 
 ### Übersicht oberhalb der Tabs
 
-Über den Tabs siehst du auf einen Blick: Fläche, Typ, Status, Bodentyp, Sonnenexposition, aktive Pflanzen, offene Aufgaben, letzte Pflege, nächste Fälligkeit und wer für das Beet zuständig ist. Hat das Beet ein Titelfoto, steht es vorne in der Übersicht (siehe [Fotos des Beets](#fotos-des-beets)). Mit der **Saison-Auswahl** wechselst du das Jahr; es steht in der Adresse als `?year=`.
+Über den Tabs siehst du auf einen Blick: Fläche, Typ, Status, Bodentyp, Sonnenexposition, aktive Pflanzen, offene Aufgaben, letzte Pflege, nächste Fälligkeit und wer für das Beet zuständig ist. Hat das Beet ein Titelfoto, steht es vorne in der Übersicht (siehe [Fotos des Beets](#fotos-des-beets)). Mit der **Saison-Auswahl** wechselst du das Jahr; es steht in der Adresse als `?year=`. Daneben steht, was im Jahr davor im Beet wuchs.
 
 **Nährstoff-Hinweis.** Unter **Nährstoffe** zeigt die Übersicht **Düngebedarf wahrscheinlich** oder **Düngung prüfen**, sobald Kamerplanter dazu etwas sagen kann. Darunter steht, warum: wie lange deine letzte Düngung oder Bodenverbesserung mit Mist oder Hornspänen zurückliegt (Kompost liefert kaum Stickstoff und zählt dafür nicht), gemessen an der Zehrerstufe der Arten im Beet, und was dein Laborbefund zu Phosphor und Kalium sagt. Hast du nach der letzten Düngung mit Rindenmulch gemulcht, steht dort, dass Rindenmulch beim Verrotten Stickstoff binden kann. Standen als Vorkultur oder stehen gerade Stickstoffsammler wie Bohnen oder Erbsen im Beet, erwähnt der Hinweis das, schätzt aber keine Stickstoffmenge. Ist dein Boden laut Labor reichlich mit Phosphor oder Kalium versorgt, dient Kompost nicht der Nährstoffversorgung; als Bodenverbesserung bleibt er möglich, und der Hinweis rät nie zu Kompost oder Phosphordünger. Für die Laborklassen zählt nur ein Befund nach der CAL-Methode. Eine Zahl oder eine Düngemenge nennt der Hinweis nie. Ist alles unauffällig oder fehlen Angaben, bleibt die Zeile weg. <!-- REQ-053 GP-FR-125 -->
 
 !!! note "Teilweise verfügbar: Nährstoff-Hinweis"
     Die Regeln des Hinweises sind umgesetzt. Damit er etwas anzeigt, braucht jede Schwelle (zum Beispiel, nach wie vielen Tagen ohne Düngung ein Starkzehrer knapp wird) einen belegten Wert mit Quelle. Für keine Schwelle gibt es diesen Beleg bisher, deshalb bleibt die Zeile vorerst bei jedem Beet leer. Sobald belegte Werte vorliegen, wird Kamerplanter den Hinweis zeigen.
-
-!!! warning "Noch nicht implementiert"
-    Die Anzeige der Vorjahreskultur in der Übersicht ist noch nicht umgesetzt. Bis dahin zeigt Kamerplanter dort eine Platzhalterzeile. Auch **Beet räumen** wird erst in einer späteren Version verfügbar sein.
 
 ### Die Tabs
 
@@ -314,7 +311,7 @@ Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Link
 |-----|--------|
 | Plan | Beetrahmen mit Plätzen, Reihen bzw. Zonen und Pflanzenmarkern. Tippst du auf eine Pflanze, bietet das Beet **Position korrigieren** und **Umpflanzen nach …** an. Zum Bearbeiten des Beetrahmens wechselst du über **Im Gartenplan öffnen** in den Gartenplan. |
 | Pflege | Offene und überfällige Aufgaben des Beets und seiner Pflanzen, Erledigen, Vorschläge und Pflegeprotokoll (siehe [Pflege am Beet](#pflege-am-beet)). |
-| Pflanzung | Geplante und stehende Pflanzen des Beets, die Schaltfläche **Bepflanzen** und die Aktionen an einer Pflanze (siehe [Beet bepflanzen](#beet-bepflanzen)). |
+| Pflanzung | Geplante und stehende Pflanzen des Beets, die Schaltflächen **Bepflanzen** und **Beet räumen** und die Aktionen an einer Pflanze (siehe [Beet bepflanzen](#beet-bepflanzen) und [Beet räumen](#beet-raeumen)). |
 | Historie | Zeitstrahl, was in den Jahren zuvor im Beet stand, und die Liste aller Pflegeeinträge und Pflanzungen (siehe [Historie des Beets](#historie-des-beets)). |
 | Boden | Bodenprofil und Bodenanalysen des Beets (siehe [Bodenprofil pflegen](#bodenprofil-pflegen) und [Bodenanalysen erfassen](#bodenanalysen-erfassen)). |
 | Fotos | Die Fotos des Beets mit Titelfoto (siehe [Fotos des Beets](#fotos-des-beets)). |
@@ -345,6 +342,10 @@ Im Tab **Pflanzung** öffnest du mit **Bepflanzen** den Pflanzdialog. Er ist ab 
 
 !!! warning "Noch nicht implementiert"
     Der Hinweis **Fruchtfolge-Hinweis** erscheint bisher nur in der Beetübersicht, nicht am Beet im Gartenplan. Er wird nur für Pflanzungen gesetzt, die du trotz eines Hinweises begonnen hast. Geplante, noch leere Plätze zeigt der Plan als gestrichelte Kreise ohne Art und Datum. Die zuletzt verwendeten Abstände merkt sich dein Browser, nicht dein Konto. Ein Beet ohne Platz im Gartenplan lässt sich noch nicht über den Dialog bepflanzen. <!-- REQ-053 GP-FR-132, GP-FR-061 -->
+
+### Beet räumen {#beet-raeumen}
+
+Am Ende der Saison räumst du ein Beet in einem Schritt ab: Im Tab **Pflanzung** tippst du auf **Beet räumen**, solange Pflanzen im Beet stehen. Der Dialog nennt dir, wie viele Pflanzen und Durchläufe betroffen sind, und erklärt, was passiert: Jede Pflanze endet mit dem heutigen Datum und kommt in die Historie, die laufenden Durchläufe werden abgeschlossen, die Pflanzplätze werden archiviert und geben das Beet für die nächste Pflanzung frei, und das Pflegeprotokoll bekommt einen Eintrag „Beet geräumt“. Du wählst, wie die Pflanzen endeten (**Geerntet** ist vorgewählt, außerdem natürlich abgestorben, eingegangen oder abgebrochen); die Wahl gilt für alle Pflanzen des Beets. Endete eine Pflanze anders, beendest du sie vorher einzeln auf ihrer Pflanzenseite. Geplante Durchläufe behalten ihre Plätze. Räumen dürfen Mitglieder ab der Rolle „grower“, nur mit Verbindung und nicht im Feldmodus; rückgängig machen lässt es sich nicht. <!-- REQ-053 GP-FR-055 -->
 
 ### Pflanzenzustand und Pflanzen-Info {#pflanzenzustand}
 

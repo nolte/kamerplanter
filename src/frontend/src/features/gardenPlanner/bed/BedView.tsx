@@ -6,7 +6,7 @@
  *
  * Offline (REQ-053 WP 9.2) the page hands in the summary from the plan cache with its `cachedAt`: a
  * "Stand von hh:mm" banner says so, and every edit of the bed (status, sun, site conditions, rotation,
- * soil, photos) stays locked with a hint while there is no connection or the summary is the cached one.
+ * soil, photos, "Beet räumen") stays locked with a hint while there is no connection or the summary is the cached one.
  */
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -113,6 +113,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
             <BedPlantingTab
               bed={summary}
               gridStepM={gridStepM}
+              editsLocked={editsLocked}
               onChanged={() => {
                 setPlantingVersion((value) => value + 1);
                 void onReload();

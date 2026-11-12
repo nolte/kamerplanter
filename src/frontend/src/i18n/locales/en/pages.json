@@ -8159,6 +8159,31 @@
           "estimateNote": "For an area the number is a guide value: it assumes the seedlings stand in an even square grid at the given spacing. If that is not so, enter the actual number."
         }
       },
+      "clear": {
+        "button": "Clear bed",
+        "title": "Clear bed: {{name}}",
+        "plants_one": "{{count}} plant",
+        "plants_other": "{{count}} plants",
+        "runs_one": "{{count}} run",
+        "runs_other": "{{count}} runs",
+        "affected": "This affects {{plants}} from {{runs}}.",
+        "affectedNoRun": "This affects {{plants}}.",
+        "effectsTitle": "At the end of the season this clears the bed in one step:",
+        "effects": {
+          "plants": "Every plant in the bed ends today, with the way it ended that you choose below. It leaves \"In the bed\" and then shows in the history.",
+          "runs": "The bed's running runs are completed - as cancelled if you choose \"Cancelled\". Planned runs keep their spots.",
+          "slots": "The planting spots are archived: they stay in the history but free the bed for the next planting.",
+          "log": "The care log gets one entry \"Bed cleared\"."
+        },
+        "terminationTitle": "How did the plants end?",
+        "terminationHint": "Applies to every plant in the bed. If a plant ended differently, end it on its own plant page first.",
+        "reason": "Note (optional)",
+        "reasonHelp": "Saved with the \"Bed cleared\" entry.",
+        "irreversible": "Clearing cannot be undone.",
+        "submit": "Clear bed",
+        "done_one": "Bed cleared: {{count}} plant ended.",
+        "done_other": "Bed cleared: {{count}} plants ended."
+      },
       "photos": {
         "title": "Photos of the bed",
         "intro": "Keep track of how your bed develops over the season. The cover photo appears in the bed header and in field mode.",
