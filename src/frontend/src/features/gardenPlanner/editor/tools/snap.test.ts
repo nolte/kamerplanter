@@ -1,9 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { toShape } from '../../model/geometry';
 import type { Geometry, Point } from '../../model/types';
-import { moveSources, resolveMoveSnap, resolveSnap, type SnapCandidates, type SnapOptions } from './snap';
+import {
+  moveSources,
+  resolveMoveSnap,
+  resolveSnap,
+  snapPointerType,
+  snapPointToGrid,
+  type SnapCandidates,
+  type SnapOptions,
+} from './snap';
 
 const BASE: SnapOptions = { gridM: 0.1, gridEnabled: true, bypass: false, pxPerM: 100 };
+
+describe('snapPointToGrid: slots on the bed-frame grid (GP-FR-154)', () => {
+  it('puts the point on the nearest grid crossing', () => {
+    expect(snapPointToGrid([0.42, 0.83], 0.1, false)).toEqual([0.4, 0.8]);
+  });
+  it('snaps however far the point is from a grid line - no pixel tolerance', () => {
+    expect(snapPointToGrid([0.456, 0.744], 0.1, false)).toEqual([0.5, 0.7]);
+    expect(snapPointToGrid([0.62, 1.38], 0.5, false)).toEqual([0.5, 1.5]);
+  });
+  it('a finer grid gives a different point', () => {
+    expect(snapPointToGrid([0.42, 0.83], 0.05, false)).toEqual([0.4, 0.85]);
+  });
+  it('Alt or a step that is no step leaves the point as it is', () => {
+    expect(snapPointToGrid([0.42, 0.83], 0.1, true)).toEqual([0.42, 0.83]);
+    expect(snapPointToGrid([0.42, 0.83], 0, false)).toEqual([0.42, 0.83]);
+  });
+  it('maps the DOM pointer type to its tolerance class (editor object snap)', () => {
+    expect(snapPointerType('touch')).toBe('touch');
+    expect(snapPointerType('pen')).toBe('pen');
+    expect(snapPointerType('mouse')).toBe('mouse');
+    expect(snapPointerType('')).toBe('mouse');
+    expect(snapPointerType(undefined)).toBe('mouse');
+  });
+});
 
 describe('resolveSnap', () => {
   it('snaps to the grid (GP-ACC-006: 23 cm -> 20 cm)', () => {
@@ -20,17 +52,6 @@ describe('resolveSnap', () => {
       point: [0.23, 0],
       kind: 'none',
     });
-  });
-  it('snaps to a bed-local, rotated raster (slots)', () => {
-    const result = resolveSnap([1.02, 2.51], {
-      ...BASE,
-      gridM: 0.5,
-      gridFrame: { origin: [1, 2], rotationDeg: 90 },
-    });
-    // rotated by 90 degrees the local x axis is +y: (1.02, 2.51) is local (0.51, -0.02) -> (0.5, 0)
-    expect(result.kind).toBe('grid');
-    expect(result.point[0]).toBeCloseTo(1, 3);
-    expect(result.point[1]).toBeCloseTo(2.5, 3);
   });
 
   describe('priority corner > edge > grid (GP-FR-154)', () => {

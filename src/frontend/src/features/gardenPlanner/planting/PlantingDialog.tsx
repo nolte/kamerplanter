@@ -87,6 +87,11 @@ interface PlantingDialogProps {
    * hint is not offered.
    */
   siteKey?: string;
+  /**
+   * The site plan's grid step in metres (`default_grid_m`): a free position set or dragged on the bed snaps to it in
+   * the bed frame (GP-FR-154; `Alt` places freely).
+   */
+  gridStepM: number;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
   /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
@@ -163,6 +168,7 @@ export default function PlantingDialog({
   siteFlags,
   irrigationSystem = null,
   siteKey,
+  gridStepM,
   onClose,
   onPlanted,
   initialAlreadyPlanted = false,
@@ -574,6 +580,7 @@ export default function PlantingDialog({
                 interactiveLayerId={freeForm?.id}
                 onAdd={freeForm ? onAddPoint : undefined}
                 onMove={freeForm ? onMovePoint : undefined}
+                gridStepM={gridStepM}
                 testId="planting-canvas"
               />
               {freeForm ? (

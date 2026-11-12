@@ -38,6 +38,7 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import { kioskHighContrastTheme } from '@/theme/theme';
 import type { BedListItem } from '../bed/types';
 import { useBedAssignments } from '../bed/useBedAssignments';
+import { DEFAULT_GRID_STEP_M, planGridStep } from '../model/units';
 import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import { canBuffer } from '../offline/bufferedWrite';
@@ -130,6 +131,8 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
   useReloadOnReconnect(planFromCache || planOfflineMiss, reloadPlan);
 
   const siteName = plan?.siteKey === siteKey ? plan.siteName : null;
+  // The snap grid of free positions and "Correct position" (GP-FR-154): the loaded plan's, else the default.
+  const gridStepM = plan?.siteKey === siteKey ? planGridStep(plan) : DEFAULT_GRID_STEP_M;
   useEffect(() => {
     if (siteName === null) return undefined;
     dispatch(
@@ -324,6 +327,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
             onClose={() => setOpenBedKey(null)}
             onChanged={reload}
             onPlanChanged={reloadPlan}
+            gridStepM={gridStepM}
           />
         )}
       </Box>

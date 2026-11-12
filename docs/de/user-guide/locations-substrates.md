@@ -333,7 +333,7 @@ Im Tab **Pflanzung** öffnest du mit **Bepflanzen** den Pflanzdialog. Er ist ab 
 
 **Mehrere Arten (Mischkultur).** Mit **Weitere Art hinzufügen** nimmst du bis zu vier Arten in dieselbe Pflanzung auf. Stehen alle in Reihen, verteilt Kamerplanter die Reihen **abwechselnd** auf die Arten, etwa Möhre in jeder zweiten Reihe und Zwiebel dazwischen. Die Reihen- und Randeinstellungen von Art 1 gelten dann für alle, nur der Abstand in der Reihe bleibt je Art. Jede Reihe gehört genau einer Art: Beanspruchen zwei Arten dieselbe Reihe, legt Kamerplanter die Pflanzung nicht an. Verträgt sich eine Kombination laut Kamerplanter nicht, erscheint ein Hinweis. <!-- REQ-053 GP-FR-070 -->
 
-**Freie Positionen.** Wählst du **Freie Positionen**, tippst du die Pflanzplätze ins Beet. Ziehen verschiebt einen Platz, eine Nummer unter der Vorschau löscht ihn. Liegen zwei Plätze näher beieinander als der Mindestabstand, bekommen beide einen **gelben Ring**. Das ist ein Hinweis, du kannst trotzdem pflanzen.
+**Freie Positionen.** Wählst du **Freie Positionen**, tippst du die Pflanzplätze ins Beet. Ziehen verschiebt einen Platz, eine Nummer unter der Vorschau löscht ihn. Jeder Platz rastet beim Tippen und Ziehen am Raster des Gartenplans ein; hältst du dabei Alt gedrückt, setzt du ihn frei auf den Zentimeter genau. Liegen zwei Plätze näher beieinander als der Mindestabstand, bekommen beide einen **gelben Ring**. Das ist ein Hinweis, du kannst trotzdem pflanzen.
 
 **Trotzdem pflanzen.** Ab der Stärke **Warnung** schaltest du **Trotzdem pflanzen** ein und nennst einen **Grund**. Der Grund wird an der Pflanzung gespeichert, das Beet trägt danach in der Übersicht den Hinweis **Fruchtfolge-Hinweis**, solange die Pflanzung läuft.
 

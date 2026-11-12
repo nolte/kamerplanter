@@ -586,6 +586,16 @@ export interface WindowThresholds {
   suggestion_radius_m: number;
 }
 
+/** The plan part of `GET /sites/{key}` (`SitePlanSchema`); the boundary and the editor read the plan route. */
+export interface SitePlanSettings {
+  north_angle_deg: number;
+  /** The plan's snap grid in metres (GP-FR-011). */
+  default_grid_m: number;
+  adjacency_factor: number;
+  plan_revision: number;
+  plan_updated_at?: string | null;
+}
+
 export interface Site {
   key: string;
   name: string;
@@ -608,6 +618,8 @@ export interface Site {
   reach_thresholds?: ReachThresholds;
   /** The effective window radius (WP 10.7); absent from an older backend. */
   window_thresholds?: WindowThresholds;
+  /** The garden plan's settings (REQ-053 §20.2); `null`/absent = a site without a garden plan. */
+  plan?: SitePlanSettings | null;
   created_at: string | null;
   updated_at: string | null;
 }

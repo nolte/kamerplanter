@@ -93,6 +93,8 @@ interface FieldBedSheetProps {
   onChanged: () => void;
   /** Something the map draws changed (plants planted or moved); the plan reloads. */
   onPlanChanged: () => void;
+  /** The site plan's grid step in metres: free positions and "Correct position" snap to it (GP-FR-154). */
+  gridStepM: number;
 }
 
 type Overlay =
@@ -104,7 +106,14 @@ type Overlay =
   | { kind: 'bedPhoto' }
   | null;
 
-export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanChanged }: FieldBedSheetProps) {
+export default function FieldBedSheet({
+  bed,
+  online,
+  onClose,
+  onChanged,
+  onPlanChanged,
+  gridStepM,
+}: FieldBedSheetProps) {
   const { t, i18n } = useTranslation();
   const { canEdit } = useTenantPermissions();
   const bedSite = useBedSiteFeatures(bed);
@@ -552,6 +561,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             siteFlags={bed.site_conditions?.flags}
             irrigationSystem={bed.irrigation_system ?? null}
             siteKey={bed.site_key}
+            gridStepM={gridStepM}
             initialAlreadyPlanted
             touchTarget={KIOSK_TOUCH_TARGET}
             onClose={closeOverlay}
@@ -574,6 +584,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             showFineSteps={false}
             touchTarget={KIOSK_TOUCH_TARGET}
             dragHoldMs={FIELD_LONG_PRESS_MS}
+            gridStepM={gridStepM}
             onClose={closeOverlay}
             onCorrected={() => {
               notification.success(t('pages.bed.planting.position.done', { plant: overlay.plant.instance_id }));

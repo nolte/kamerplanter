@@ -72,7 +72,7 @@ import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
-import { MAX_PX_PER_M, nearestGridStep, stepZoom } from '../model/units';
+import { MAX_PX_PER_M, planGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { snapCandidates } from '../renderer/planIndex';
 import { toScreen as projectToScreen } from '../renderer/viewport';
@@ -169,7 +169,7 @@ import { zoomToEditPxPerM } from './tools/handles';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
-import { resolveMoveSnap, resolveSnap, type SnapPointerType } from './tools/snap';
+import { resolveMoveSnap, resolveSnap, snapPointerType, type SnapPointerType } from './tools/snap';
 import { useEditorTools } from './tools/useEditorTools';
 import { violationOfNew } from './tools/validation';
 import { useVisibleHeight } from './tools/useVisibleHeight';
@@ -234,10 +234,6 @@ function companionEdgeOf(event: { target: EventTarget | null }): string | null {
 function badgeKeyOf(event: { target: EventTarget | null }): string | null {
   const badge = event.target instanceof Element ? event.target.closest('[data-plan-badge]') : null;
   return badge?.getAttribute('data-plan-badge') ?? null;
-}
-
-function pointerKind(type: string): SnapPointerType {
-  return type === 'touch' || type === 'pen' ? type : 'mouse';
 }
 
 const PREFIX = 'pages.gardenPlan.editor';
@@ -371,9 +367,7 @@ export function GardenPlanEditor({
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
   const [notice, setNotice] = useState<string | null>(null);
   // A plan without a stored grid starts on its site type's (5 cm indoor, GP-FR-182, WP 10.8).
-  const [gridStepM, setGridStepM] = useState(() =>
-    nearestGridStep(plan.settings?.default_grid_m ?? plan.defaultGridM),
-  );
+  const [gridStepM, setGridStepM] = useState(() => planGridStep(plan));
   // The grid switch is a per-user layer choice kept in localStorage (GP-FR-031).
   const { prefs: layerPrefs, setLayer } = useLayerPrefs();
   const gridVisible = layerPrefs.grid;
@@ -836,7 +830,7 @@ export function GardenPlanEditor({
       ]);
       if (templateTool) {
         // The ghost sits where the click would put the template: on the snapped point.
-        const landing = snapPoint(pointM, event.altKey, pointerKind(event.pointerType));
+        const landing = snapPoint(pointM, event.altKey, snapPointerType(event.pointerType));
         setGhostPoint((previous) =>
           previous && previous[0] === landing[0] && previous[1] === landing[1] ? previous : landing,
         );
@@ -850,7 +844,7 @@ export function GardenPlanEditor({
         gridEnabled: true,
         bypass: false,
         pxPerM,
-        pointerType: pointerKind(event.pointerType),
+        pointerType: snapPointerType(event.pointerType),
         candidates,
       });
       setSnapMark((previous) =>
@@ -1778,7 +1772,7 @@ export function GardenPlanEditor({
         ]);
         // The same tolerance as the ghost shown under the pointer (a finger or a pen snaps wider).
         const kind = 'pointerType' in event.nativeEvent ? String(event.nativeEvent.pointerType) : 'mouse';
-        void placeTemplate(snapPoint(pointM, event.altKey, pointerKind(kind)));
+        void placeTemplate(snapPoint(pointM, event.altKey, snapPointerType(kind)));
         return;
       }
       if (companionOn && tool === 'select') {

@@ -29,6 +29,7 @@ import { useCacheScope } from '../offline/useCacheScope';
 import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
 import { boundingBox } from '../model/geometry';
 import { locationSubtree, normalizePlan, type PlanModel } from '../model/planModel';
+import { DEFAULT_GRID_STEP_M, planGridStep } from '../model/units';
 import { usePlanRenderer } from '../renderer/createRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { fitViewport } from '../routes/fitViewport';
@@ -362,7 +363,13 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
           ) : null}
         </Box>
       ) : null}
-      <PlantActionHost bed={bed} target={target} onClose={() => setTarget(null)} onChanged={retry} />
+      <PlantActionHost
+        bed={bed}
+        target={target}
+        onClose={() => setTarget(null)}
+        onChanged={retry}
+        gridStepM={model ? planGridStep(model) : DEFAULT_GRID_STEP_M}
+      />
       {sheetView ? (
         <Suspense fallback={null}>
           <PlantInfoSheet view={sheetView} onClose={() => setSheetKey(null)} />

@@ -49,6 +49,8 @@ interface BedPlantingTabProps {
   bed: BedSummary;
   /** The bed's own data changed (plant counters, runs); the page reloads its summary. */
   onChanged: () => void;
+  /** The site plan's grid step in metres: free positions and "Correct position" snap to it (GP-FR-154). */
+  gridStepM: number;
 }
 
 /** Route of the species detail page (global master data, readable for every member). */
@@ -90,7 +92,7 @@ function useSpeciesNames(keys: readonly string[]): ReadonlyMap<string, string> {
   return names;
 }
 
-export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) {
+export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantingTabProps) {
   const { t, i18n } = useTranslation();
   const { canEdit } = useTenantPermissions();
   const bedSite = useBedSiteFeatures(bed);
@@ -425,6 +427,7 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             siteFlags={bed.site_conditions?.flags}
             irrigationSystem={bed.irrigation_system ?? null}
             siteKey={bed.site_key}
+            gridStepM={gridStepM}
             initialSpeciesKey={replant?.speciesKey ?? null}
             initialCultivarKey={replant?.cultivarKey ?? null}
             onClose={() => {
@@ -445,7 +448,13 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
           <ThinningDialog {...thinTarget} onClose={() => setThinTarget(null)} onThinned={onThinned} />
         </Suspense>
       ) : null}
-      <PlantActionHost bed={bed} target={target} onClose={() => setTarget(null)} onChanged={reload} />
+      <PlantActionHost
+        bed={bed}
+        target={target}
+        onClose={() => setTarget(null)}
+        onChanged={reload}
+        gridStepM={gridStepM}
+      />
     </Box>
   );
 }

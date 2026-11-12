@@ -37,12 +37,14 @@ function renderDialog(
   bedSite?: BedSiteFeatures,
   siteFlags?: readonly SiteFlag[],
   irrigationSystem?: IrrigationSystem,
+  gridStepM = 0.1,
 ) {
   const view = renderWithProviders(
     <PlantingDialog
       bedKey="loc_b03"
       bedName="Raised bed 3"
       geometry={BED_GEOMETRY}
+      gridStepM={gridStepM}
       sunExposure={sunExposure}
       bedSite={bedSite}
       siteFlags={siteFlags}
@@ -754,10 +756,10 @@ describe('free positions (GP-FR-072)', () => {
       .mockImplementation(() => ({ left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, x: 0, y: 0, toJSON: () => ({}) }));
   }
 
-  function tapCanvas(x: number, y: number) {
+  function tapCanvas(x: number, y: number, altKey = false) {
     const svg = screen.getByTestId('planting-canvas');
     act(() => {
-      svg.dispatchEvent(new MouseEvent('pointerup', { clientX: x, clientY: y, bubbles: true }));
+      svg.dispatchEvent(new MouseEvent('pointerup', { clientX: x, clientY: y, altKey, bubbles: true }));
     });
   }
 
@@ -771,8 +773,10 @@ describe('free positions (GP-FR-072)', () => {
     await user.click(await screen.findByRole('option', { name: 'Free positions' }));
 
     tapCanvas(200, 200); // -> (0.60, 1.00)
-    tapCanvas(210, 200); // 0.036 m away: closer than the 0.60 m spacing
-    tapCanvas(40, 40);
+    // Each tap lands on the 10 cm grid of the bed frame. The original tap at 210 px (0.636 m) would land on the
+    // first point itself, so the second tap sits 0.654 m in: it snaps to 0.7, closer than the 0.60 m spacing.
+    tapCanvas(215, 200);
+    tapCanvas(75, 40); // (0.15, 1.896) -> (0.2, 1.9)
 
     expect(await screen.findByText('3 positions set · 2 too close')).toBeInTheDocument();
     expect(screen.getAllByTestId('planting-canvas-ring')).toHaveLength(2);
@@ -784,12 +788,57 @@ describe('free positions (GP-FR-072)', () => {
     // The points travel with the run: the server stores and reserves them in the same transaction.
     expect(sentRuns(backend)[0].free_points).toEqual([
       [0.6, 1],
-      [0.64, 1],
-      [0.02, 1.9],
+      [0.7, 1],
+      [0.2, 1.9],
     ]);
     expect(sentRuns(backend)[0].entry).toMatchObject({ layout_strategy: 'free', quantity: 3 });
     expect(backend.seen.some((s) => s.url.endsWith('/slots/batch') || s.url.endsWith('/plan-slots'))).toBe(false);
     rect.mockRestore();
+  });
+
+  describe('snap to the site grid in the bed frame (GP-FR-154, #2893)', () => {
+    // A drawing at the bed's aspect: 1.44 m x 2.24 m (bed plus padding) on 360 x 560 px is 250 px/m on both axes,
+    // so client (135, 322.5) is the bed point (0.42, 0.83).
+    function mockSquareRect() {
+      return vi
+        .spyOn(Element.prototype, 'getBoundingClientRect')
+        .mockImplementation(() => ({ left: 0, top: 0, width: 360, height: 560, right: 360, bottom: 560, x: 0, y: 0, toJSON: () => ({}) }));
+    }
+
+    async function placeTwice(backend: PlantingBackend, gridStepM: number): Promise<number[][] | undefined> {
+      const rect = mockSquareRect();
+      const user = userEvent.setup();
+      const { onPlanted } = renderDialog(vi.fn(), vi.fn(), 'unknown', undefined, undefined, undefined, gridStepM);
+      await choose(user, 0, 'Tomato');
+      await user.click(within(screen.getByTestId('planting-entry-0')).getByRole('combobox', { name: 'Layout' }));
+      await user.click(await screen.findByRole('option', { name: 'Free positions' }));
+
+      tapCanvas(135, 322.5);
+      tapCanvas(135, 322.5, true); // Alt held: placed freely
+      expect(await screen.findByText(/^2 positions set/)).toBeInTheDocument();
+
+      await hintsDone();
+      await user.click(screen.getByTestId('planting-submit'));
+      await waitFor(() => expect(onPlanted).toHaveBeenCalled());
+      rect.mockRestore();
+      return sentRuns(backend)[0].free_points;
+    }
+
+    it('a tapped point lands on the 10 cm grid; with Alt it stays at the centimetre', async () => {
+      const backend = usePlantingBackend({ species: [TOMATO] });
+      expect(await placeTwice(backend, 0.1)).toEqual([
+        [0.4, 0.8],
+        [0.42, 0.83],
+      ]);
+    });
+
+    it('a 5 cm grid puts the same tap elsewhere', async () => {
+      const backend = usePlantingBackend({ species: [TOMATO] });
+      expect(await placeTwice(backend, 0.05)).toEqual([
+        [0.4, 0.85],
+        [0.42, 0.83],
+      ]);
+    });
   });
 
   it('plants free positions without any spacing: the minimum spacing only draws the ring', async () => {
@@ -951,6 +1000,7 @@ describe('trellis hint (W-005, WP 10.10)', () => {
         bedName="Raised bed 3"
         geometry={BED_GEOMETRY}
         siteKey="site_1"
+        gridStepM={0.1}
         onClose={vi.fn()}
         onPlanted={vi.fn()}
       />,
@@ -986,6 +1036,7 @@ describe('trellis hint (W-005, WP 10.10)', () => {
         bedName="Raised bed 3"
         geometry={BED_GEOMETRY}
         siteKey="site_1"
+        gridStepM={0.1}
         onClose={vi.fn()}
         onPlanted={onPlanted}
       />,

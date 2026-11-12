@@ -51,7 +51,7 @@ function setOnline(value: boolean) {
 
 function Sheet() {
   const online = useOnlineStatus();
-  return <FieldBedSheet bed={BED} online={online} onClose={() => undefined} onChanged={() => undefined} onPlanChanged={() => undefined} />;
+  return <FieldBedSheet bed={BED} online={online} onClose={() => undefined} onChanged={() => undefined} onPlanChanged={() => undefined} gridStepM={0.1} />;
 }
 
 function renderSheet() {

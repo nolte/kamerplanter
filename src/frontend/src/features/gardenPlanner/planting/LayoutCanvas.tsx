@@ -3,9 +3,13 @@
  * dialog, the freely placed points with their yellow ring below the spacing, and the single plant that
  * "Correct position" moves. It draws in the bed frame (anchor at (0, 0), y up), so it needs no plan
  * viewport. Colour never carries the entry alone: each layer has its own marker shape.
+ *
+ * A point set or dragged with the pointer always lands on the site plan's grid in that bed frame (GP-FR-154);
+ * `Alt` places it freely. Either way it is rounded to 1 cm.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTheme } from '@mui/material/styles';
+import { snapPointToGrid } from '../editor/tools/snap';
 import { toLocalShape, type Shape } from '../model/geometry';
 import type { Geometry, Point } from '../model/types';
 
@@ -42,8 +46,16 @@ interface LayoutCanvasProps {
    * wet thumb resting on the bed does not move a plant. Without it a drag starts at once.
    */
   dragHoldMs?: number;
+  /**
+   * The site plan's grid step in metres (`default_grid_m`): points set or dragged with the pointer snap to it in
+   * the bed frame (GP-FR-154). Absent = no snap, only the 1 cm rounding (a preview without placement).
+   */
+  gridStepM?: number;
   testId?: string;
 }
+
+/** What the pointer tells about a placement: where, and whether Alt is held. */
+type PlacementPointer = Pick<ReactPointerEvent<Element>, 'clientX' | 'clientY' | 'altKey'>;
 
 const PAD_SHARE = 0.06;
 const MARKER_SHARE = 0.014;
@@ -112,6 +124,7 @@ function LayoutCanvas({
   onSelect,
   onMove,
   dragHoldMs,
+  gridStepM,
   testId = 'layout-canvas',
 }: LayoutCanvasProps) {
   const theme = useTheme();
@@ -139,21 +152,25 @@ function LayoutCanvas({
   }, [shape]);
 
   const toBedPoint = useCallback(
-    (clientX: number, clientY: number): Point | null => {
+    ({ clientX, clientY, altKey }: PlacementPointer): Point | null => {
       const svg = svgRef.current;
       if (!svg) return null;
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return null;
-      const x = view.x + ((clientX - rect.left) / rect.width) * view.width;
-      const y = -(view.y + ((clientY - rect.top) / rect.height) * view.height);
+      const raw: Point = [
+        view.x + ((clientX - rect.left) / rect.width) * view.width,
+        -(view.y + ((clientY - rect.top) / rect.height) * view.height),
+      ];
+      // The bed frame is the slot grid's frame: anchor at (0, 0), unrotated (GP-FR-154).
+      const [x, y] = gridStepM != null ? snapPointToGrid(raw, gridStepM, altKey) : raw;
       return [Math.round(x * CM) / CM, Math.round(y * CM) / CM];
     },
-    [view],
+    [view, gridStepM],
   );
 
   const onBackgroundClick = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (!onAdd || drag.current) return;
-    const point = toBedPoint(event.clientX, event.clientY);
+    const point = toBedPoint(event);
     if (point) onAdd(point);
   };
 
@@ -175,7 +192,7 @@ function LayoutCanvas({
   const moveDrag = (event: ReactPointerEvent<SVGElement>) => {
     const current = drag.current;
     if (!current || !onMove || !current.armed) return;
-    const point = toBedPoint(event.clientX, event.clientY);
+    const point = toBedPoint(event);
     if (!point) return;
     current.moved = true;
     onMove(current.layerId, current.index, point);

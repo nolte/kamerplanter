@@ -325,7 +325,7 @@ On the **Planting** tab, **Plant** opens the planting dialog. It is available fr
 
 **Several species (mixed culture).** **Add another species** adds up to four species to the same planting. If all are laid out in rows, Kamerplanter spreads the rows **alternately** over the species, say carrot in every second row with onion in between. The row and edge settings of species 1 then apply to all; only the spacing within the row stays per species. Every row belongs to exactly one species: if two species claim the same row, Kamerplanter does not create the planting. If Kamerplanter rates a combination as incompatible, a hint appears. <!-- REQ-053 GP-FR-070 -->
 
-**Free positions.** With **Free positions** you tap the planting places onto the bed. Dragging moves a place, a number below the preview deletes it. If two places are closer together than the minimum spacing, both get a **yellow ring**. That is a hint; you can still plant.
+**Free positions.** With **Free positions** you tap the planting places onto the bed. Dragging moves a place, a number below the preview deletes it. Every place snaps to the garden plan's grid when you tap or drag it; hold Alt to place it freely to the centimetre. If two places are closer together than the minimum spacing, both get a **yellow ring**. That is a hint; you can still plant.
 
 **Plant anyway.** From the strength **warning** on, you switch on **Plant anyway** and give a **reason**. The reason is stored with the planting, and the bed carries the **Crop rotation hint** in its overview for as long as the planting runs.
 
