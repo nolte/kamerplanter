@@ -8184,10 +8184,18 @@
           "done_one": "Thinned out: {{count}} plant recorded.",
           "done_other": "Thinned out: {{count}} plants recorded.",
           "singleSeedlingRow": "The spacing is longer than the row - only one seedling stays. Check that the spacing is right.",
-          "singleSeedlingZone": "The spacing is wider than the area - only one seedling stays. Check that the spacing is right.",
+          "singleSeedlingZone": "At these spacings the room for one plant is larger than the area - only one seedling stays. Check that the spacings are right.",
           "resultEstimate_one": "Guide value: {{count}} plant will be recorded.",
           "resultEstimate_other": "Guide value: {{count}} plants will be recorded.",
-          "estimateNote": "For an area the number is a guide value: it assumes the seedlings stand in an even square grid at the given spacing. If that is not so, enter the actual number."
+          "estimateNote": "Without a row spacing the number is a guide value: it assumes the seedlings stand in an even square grid at the given spacing. If you sowed in rows or bands, enter the row spacing. If the stand differs, enter the actual number.",
+          "rowSpacing": "Row spacing (cm, optional)",
+          "rowSpacingFromRun": "Taken from the planting plan. Leave the field empty if you sowed broadcast.",
+          "rowSpacingFromSpecies": "Lower value from the species profile ({{range}} cm). Change it if your rows stand differently; leave the field empty for broadcast sowing.",
+          "rowSpacingHelper": "For row or band sowing, the distance between the rows. Leave empty for broadcast sowing - the number is then estimated on a square grid.",
+          "rowSpacingInvalid": "Enter a row spacing between {{min}} and {{max}} cm or leave the field empty.",
+          "formulaAlongRow": "Calculation: row length ÷ spacing in the row",
+          "formulaRows": "Calculation: area ÷ (row spacing × spacing in the row)",
+          "formulaSquareGrid": "Calculation: square grid (estimate)"
         }
       },
       "clear": {

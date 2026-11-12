@@ -231,7 +231,9 @@ def get_thinning_plan(
     """What thinning the sown slot would do (all roles): the run's spacing and the plant count it gives.
 
     `thinning_to_cm` and `suggested_count` are `null` when the run has no spacing — the grower enters one, there is
-    no default. 422 `slot.not_sown` for a slot that is not sown.
+    no default. A zone is counted with `row_spacing_cm` (the run's, else the species profile's lower value) as row
+    spacing x in-row spacing, without one on the square-grid estimate (`count_formula`). 422 `slot.not_sown` for a
+    slot that is not sown.
     """
     plan = service.plan_thinning(key, tenant_key=ctx.tenant_key)
     return SlotThinningPlanResponse(**asdict(plan))
@@ -254,7 +256,9 @@ def thin_slot(
     """Thin the sown slot into plants of its run (grower and up): `sown_at` is cleared, a `thinning` event logged.
 
     The count is `count`, else the slot's length (row) or area (zone) divided by `thinning_to_cm` — the request's,
-    else the run's (at most 200 cm, else 422 `thinning.spacing_out_of_range`). Without either: 422
+    else the run's (at most 200 cm, else 422 `thinning.spacing_out_of_range`); a zone's area by `row_spacing_cm` x
+    `thinning_to_cm` when a row spacing is known (request, else run, else species profile; `null` = square grid).
+    Without either: 422
     `thinning.spacing_required`; a thinning day in the future is 422 `thinning.planted_in_future`. At most 500 plants
     (422 `plan.quota_exceeded`); 409 when plants stand in the slot, its reservation was released or it changed
     meanwhile.

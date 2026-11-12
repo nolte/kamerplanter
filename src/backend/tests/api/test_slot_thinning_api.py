@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from app.common.auth import get_current_user
 from app.common.datetimes import today_utc
 from app.common.dependencies import get_plant_state_service, get_slot_thinning_service, get_tenant_service
-from app.common.enums import TenantRole
+from app.common.enums import SlotRole, TenantRole
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, SownSlotSource
 from app.domain.models.user import User
 from app.domain.services.plant_state_service import PlantStateService
@@ -85,6 +85,33 @@ class TestThinningRoute:
         response = client().post(f"{_OWN}/slots/row1/thinning", json={})
         assert response.status_code == 422
         assert response.json()["details"][0]["code"] == "thinning.spacing_required"
+
+    def test_a_zone_is_counted_with_the_row_spacing_of_the_species_profile(self, client) -> None:
+        # #2862: carrot thinned to 4 cm in rows 25 cm apart over the 0.5 m² zone — 50 plants, not 312.
+        from app.main import app
+
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=4.0, species_row_spacing_cm="25-30")
+        app.dependency_overrides[get_slot_thinning_service] = lambda: world.thinning
+        body = client(TenantRole.VIEWER).get(f"{_OWN}/slots/row1/thinning").json()
+        assert body["row_spacing_cm"] == 25.0
+        assert body["row_spacing_source"] == "species"
+        assert body["species_row_spacing_cm"] == "25-30"
+        assert body["count_formula"] == "rows"
+        assert body["suggested_count"] == 50
+        response = client().post(f"{_OWN}/slots/row1/thinning", json={"row_spacing_cm": None})
+        assert response.status_code == 201, response.text
+        assert len(response.json()["plant_keys"]) == 312
+
+    def test_the_growers_row_spacing_is_taken_and_bounded(self, client) -> None:
+        from app.main import app
+
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=4.0)
+        app.dependency_overrides[get_slot_thinning_service] = lambda: world.thinning
+        assert client().post(f"{_OWN}/slots/row1/thinning", json={"row_spacing_cm": 4.0}).status_code == 422
+        assert world.repo.thinning_writes == []
+        response = client().post(f"{_OWN}/slots/row1/thinning", json={"row_spacing_cm": 25.0})
+        assert response.status_code == 201, response.text
+        assert len(response.json()["plant_keys"]) == 50
 
     def test_a_body_with_an_unknown_field_is_refused(self, client) -> None:
         response = client().post(f"{_OWN}/slots/row1/thinning", json={"tenant_key": "x"})

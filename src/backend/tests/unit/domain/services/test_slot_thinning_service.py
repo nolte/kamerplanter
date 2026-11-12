@@ -19,7 +19,7 @@ from app.common.datetimes import today_utc
 from app.common.enums import PlantingRunStatus, SlotRole, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
 from app.domain.engines.slot_reservation_engine import ActivePlant
-from app.domain.models.planting_reservation import SlotThinningInput
+from app.domain.models.planting_reservation import QUICK_PLANTING_MAX_QUANTITY, SlotThinningInput
 from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT
 from tests.support.slot_thinning_world import sown_world
 
@@ -141,6 +141,73 @@ class TestThinning:
     def test_a_planting_day_before_the_sowing_is_refused(self) -> None:
         with pytest.raises(PlanValidationError):
             thin(sown_world(), planted_on=today_utc() - timedelta(days=60))
+
+
+class TestRowSpacing:
+    """#2862 — a zone counts row spacing x in-row spacing when a row spacing is known (run, profile or grower).
+
+    The zone of the world is 0.5 m²; carrot thinned to 4 cm in rows 25 cm apart gives 50 plants, the square grid of
+    4 cm gives 312. The values are test data, not constants of the code (E-10).
+    """
+
+    def _zone(self, **kwargs) -> SimpleNamespace:
+        return sown_world(role=SlotRole.ZONE, thinning_to_cm=4.0, **kwargs)
+
+    def test_the_runs_row_spacing_counts_rows(self) -> None:
+        plan = self._zone(row_spacing_cm=25.0).thinning.plan_thinning("row1", tenant_key=TENANT)
+        assert (plan.row_spacing_cm, plan.row_spacing_source, plan.count_formula) == (25.0, "run", "rows")
+        assert plan.suggested_count == 50
+
+    def test_the_species_profile_prefills_its_lower_value(self) -> None:
+        plan = self._zone(species_row_spacing_cm="25-30").thinning.plan_thinning("row1", tenant_key=TENANT)
+        assert (plan.row_spacing_cm, plan.row_spacing_source) == (25.0, "species")
+        assert plan.species_row_spacing_cm == "25-30"
+        assert plan.suggested_count == 50
+
+    def test_the_run_wins_over_the_species_profile(self) -> None:
+        world = self._zone(row_spacing_cm=50.0, species_row_spacing_cm="25-30")
+        plan = world.thinning.plan_thinning("row1", tenant_key=TENANT)
+        assert (plan.row_spacing_cm, plan.row_spacing_source, plan.suggested_count) == (50.0, "run", 25)
+
+    @pytest.mark.parametrize("profile", [None, "unknown", "2"])
+    def test_without_a_usable_row_spacing_the_zone_stays_the_square_grid_estimate(self, profile) -> None:
+        plan = self._zone(species_row_spacing_cm=profile).thinning.plan_thinning("row1", tenant_key=TENANT)
+        assert (plan.row_spacing_cm, plan.row_spacing_source, plan.count_formula) == (None, None, "square_grid")
+        assert plan.suggested_count == 312
+
+    def test_a_row_slot_ignores_the_row_spacing(self) -> None:
+        plan = sown_world(row_spacing_cm=25.0).thinning.plan_thinning("row1", tenant_key=TENANT)
+        assert (plan.count_formula, plan.suggested_count) == ("along_row", 24)
+
+    def test_thinning_stores_the_rows_count(self) -> None:
+        assert len(thin(self._zone(species_row_spacing_cm="25-30")).plant_keys) == 50
+
+    def test_the_growers_row_spacing_replaces_run_and_profile(self) -> None:
+        world = self._zone(row_spacing_cm=50.0, species_row_spacing_cm="40")
+        assert len(thin(world, row_spacing_cm=25.0).plant_keys) == 50
+
+    def test_an_explicit_null_asks_for_the_square_grid(self) -> None:
+        # Broadcast sowing: the grower clears the prefilled row spacing.
+        world = self._zone(species_row_spacing_cm="25-30")
+        assert len(thin(world, row_spacing_cm=None).plant_keys) == 312
+
+    def test_a_row_spacing_below_the_layout_bound_is_invalid(self) -> None:
+        with pytest.raises(ValidationError):
+            SlotThinningInput(row_spacing_cm=4.0)
+        with pytest.raises(ValidationError):
+            SlotThinningInput(row_spacing_cm=1_501.0)
+
+    def test_the_500_plant_cap_is_unchanged(self) -> None:
+        assert QUICK_PLANTING_MAX_QUANTITY == 500
+        # Rows that still yield more than one write takes are refused as before: 0.5 m² at 1 x 5 cm = 1 000.
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=1.0, row_spacing_cm=5.0)
+        assert world.thinning.plan_thinning("row1", tenant_key=TENANT).max_count == 500
+        with pytest.raises(PlanError) as caught:
+            thin(world)
+        assert caught.value.error_code == "plan.quota_exceeded"
+        assert world.repo.thinning_writes == []
+        # The same 2 cm in rows 25 cm apart is 100 plants and is written.
+        assert len(thin(sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0, row_spacing_cm=25.0)).plant_keys) == 100
 
 
 class TestPhaseAndDays:

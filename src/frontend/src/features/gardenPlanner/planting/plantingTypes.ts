@@ -134,11 +134,20 @@ export interface ThinningPlan {
   thinning_to_cm?: number | null;
   suggested_count?: number | null;
   max_count: number;
+  /** Row spacing a zone is counted with: the run's, else the lower value of the species profile (#2862). */
+  row_spacing_cm?: number | null;
+  row_spacing_source?: 'run' | 'species' | null;
+  /** The species profile's row spacing as stored (a range like "20-30"), shown as the source. */
+  species_row_spacing_cm?: string | null;
+  /** The rule behind `suggested_count`. */
+  count_formula?: 'along_row' | 'rows' | 'square_grid' | null;
 }
 
 /** Body of `POST /slots/{key}/thinning`: a spacing, or the count of seedlings left standing. */
 export interface ThinningBody {
   thinning_to_cm?: number | null;
+  /** A zone's row spacing; `null` counts the zone on the square grid (broadcast), absent takes run/profile. */
+  row_spacing_cm?: number | null;
   count?: number | null;
   planted_on?: string | null;
 }

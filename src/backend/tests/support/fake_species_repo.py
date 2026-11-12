@@ -22,8 +22,12 @@ class FakeSpeciesRepo:
         self._grants: set[tuple[str, str]] = set()
         self.lookups: list[str] = []
 
-    def add(self, key: str, scientific_name: str, *, tenant_key: str = "") -> SimpleNamespace:
-        species = SimpleNamespace(key=key, scientific_name=scientific_name, tenant_key=tenant_key)
+    def add(
+        self, key: str, scientific_name: str, *, tenant_key: str = "", row_spacing_cm: str | None = None
+    ) -> SimpleNamespace:
+        species = SimpleNamespace(
+            key=key, scientific_name=scientific_name, tenant_key=tenant_key, row_spacing_cm=row_spacing_cm
+        )
         self._species[key] = species
         return species
 

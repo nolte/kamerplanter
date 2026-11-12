@@ -7,6 +7,10 @@
  * Without that value the dialog asks for it (no default, E-10); the grower may also type the count of seedlings
  * actually left standing. The server computes and stores the count; the number shown here is the same rule
  * (`thinningLogic.ts`).
+ *
+ * A zone also takes a row spacing (#2862): prefilled from the run, else from the species profile (its source shown),
+ * else empty. With it the zone counts row spacing × in-row spacing; empty means broadcast sowing and the square-grid
+ * estimate. The formula used is named under the result.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +31,15 @@ import { parseApiError } from '@/api/errors';
 import { useApiError } from '@/hooks/useApiError';
 import { getThinningPlan, thinSlot } from './plantingApi';
 import type { ThinningPlan, ThinningResult } from './plantingTypes';
-import { MAX_THINNING_SPACING_CM, parseDecimal, spacingExceedsSlot, thinningCount } from './thinningLogic';
+import {
+  MAX_THINNING_ROW_SPACING_CM,
+  MAX_THINNING_SPACING_CM,
+  MIN_THINNING_ROW_SPACING_CM,
+  parseDecimal,
+  spacingExceedsSlot,
+  thinningCount,
+  thinningFormula,
+} from './thinningLogic';
 
 interface ThinningDialogProps {
   slotKey: string;
@@ -44,6 +56,12 @@ type PlanState =
   | { status: 'error'; message: string }
   | { status: 'ready'; plan: ThinningPlan };
 
+const FORMULA_KEYS = {
+  along_row: 'pages.bed.planting.thinning.formulaAlongRow',
+  rows: 'pages.bed.planting.thinning.formulaRows',
+  square_grid: 'pages.bed.planting.thinning.formulaSquareGrid',
+} as const;
+
 /** The UTC calendar day: the server refuses a day after its own today (UTC). */
 function todayUtcText(): string {
   return new Date().toISOString().slice(0, 10);
@@ -57,6 +75,7 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
   const [state, setState] = useState<PlanState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [spacing, setSpacing] = useState('');
+  const [rowSpacing, setRowSpacing] = useState('');
   const [count, setCount] = useState('');
   const [plantedOn, setPlantedOn] = useState(todayUtcText);
   const [showErrors, setShowErrors] = useState(false);
@@ -69,6 +88,7 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
         if (cancelled) return;
         setState({ status: 'ready', plan });
         setSpacing(plan.thinning_to_cm != null ? String(plan.thinning_to_cm) : '');
+        setRowSpacing(plan.row_spacing_cm != null ? String(plan.row_spacing_cm) : '');
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
@@ -82,12 +102,25 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
   const number = useMemo(() => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }), [i18n.language]);
   const dateFormat = useMemo(() => new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }), [i18n.language]);
 
+  const isZone = plan?.measure_kind === 'area';
   const spacingValue = parseDecimal(spacing);
   const countValue = parseDecimal(count);
+  const rowSpacingParsed = parseDecimal(rowSpacing);
+  const rowSpacingInvalid =
+    isZone &&
+    rowSpacing.trim() !== '' &&
+    (rowSpacingParsed === null ||
+      rowSpacingParsed < MIN_THINNING_ROW_SPACING_CM ||
+      rowSpacingParsed > MAX_THINNING_ROW_SPACING_CM);
+  // A row spacing counts only for a zone, and only a valid one: an invalid entry yields no count rather than a guess.
+  const rowSpacingValue = isZone && !rowSpacingInvalid ? rowSpacingParsed : null;
   const computed =
-    plan?.measure_kind && plan.measure_value != null && spacingValue !== null
-      ? thinningCount(plan.measure_kind, plan.measure_value, spacingValue)
+    plan?.measure_kind && plan.measure_value != null && spacingValue !== null && !rowSpacingInvalid
+      ? thinningCount(plan.measure_kind, plan.measure_value, spacingValue, rowSpacingValue)
       : null;
+  const formula = plan?.measure_kind ? thinningFormula(plan.measure_kind, rowSpacingValue) : null;
+  // The prefill's source is named only while the field still holds the prefilled value.
+  const rowSpacingPrefilled = plan?.row_spacing_cm != null && rowSpacingParsed === plan.row_spacing_cm;
   const maxCount = plan?.max_count ?? 0;
   // One spacing longer than the row (wider than the zone): one seedling stays - allowed, but said (A4).
   const singleSeedling =
@@ -96,19 +129,19 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
     spacingValue !== null &&
     spacingValue > 0 &&
     countValue === null &&
-    spacingExceedsSlot(plan.measure_kind, plan.measure_value, spacingValue);
-  // A zone's count assumes a square grid of the spacing: a guide value, not a measurement (A5).
-  const zoneEstimate = plan?.measure_kind === 'area' && countValue === null;
+    spacingExceedsSlot(plan.measure_kind, plan.measure_value, spacingValue, rowSpacingValue);
+  // A zone without a row spacing assumes a square grid of the spacing: a guide value, not a measurement (A5).
+  const zoneEstimate = formula === 'square_grid' && countValue === null;
   const spacingInvalid =
     spacing.trim() !== '' && (spacingValue === null || spacingValue <= 0 || spacingValue > MAX_THINNING_SPACING_CM);
   const countInvalid =
     count.trim() !== '' &&
     (countValue === null || !Number.isInteger(countValue) || countValue < 1 || countValue > maxCount);
   const effectiveCount = countValue !== null && !countInvalid ? countValue : computed;
-  const missing = effectiveCount === null && !spacingInvalid && !countInvalid;
+  const missing = effectiveCount === null && !spacingInvalid && !rowSpacingInvalid && !countInvalid;
   const tooMany = effectiveCount !== null && effectiveCount > maxCount;
   const dateInvalid = plantedOn === '' || (plan !== null && plantedOn < plan.sown_at) || plantedOn > todayUtcText();
-  const invalid = spacingInvalid || countInvalid || missing || tooMany || dateInvalid;
+  const invalid = spacingInvalid || rowSpacingInvalid || countInvalid || missing || tooMany || dateInvalid;
 
   const submit = async () => {
     if (!plan) return;
@@ -117,7 +150,9 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
     setSaving(true);
     try {
       const result = await thinSlot(slotKey, {
-        ...(countValue !== null ? { count: countValue } : { thinning_to_cm: spacingValue }),
+        ...(countValue !== null
+          ? { count: countValue }
+          : { thinning_to_cm: spacingValue, ...(isZone ? { row_spacing_cm: rowSpacingValue } : {}) }),
         planted_on: plantedOn,
       });
       onThinned(result);
@@ -127,6 +162,17 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
       setSaving(false);
     }
   };
+
+  const rowSpacingHelper = rowSpacingInvalid
+    ? t('pages.bed.planting.thinning.rowSpacingInvalid', {
+        min: MIN_THINNING_ROW_SPACING_CM,
+        max: MAX_THINNING_ROW_SPACING_CM,
+      })
+    : rowSpacingPrefilled && plan?.row_spacing_source === 'run'
+      ? t('pages.bed.planting.thinning.rowSpacingFromRun')
+      : rowSpacingPrefilled && plan?.row_spacing_source === 'species'
+        ? t('pages.bed.planting.thinning.rowSpacingFromSpecies', { range: plan.species_row_spacing_cm ?? '' })
+        : t('pages.bed.planting.thinning.rowSpacingHelper');
 
   const measureText =
     plan?.measure_kind === 'length' && plan.measure_value != null
@@ -192,6 +238,26 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
               }}
               sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
             />
+            {isZone ? (
+              <TextField
+                label={t('pages.bed.planting.thinning.rowSpacing')}
+                value={rowSpacing}
+                onChange={(event) => setRowSpacing(event.target.value)}
+                type="number"
+                error={rowSpacingInvalid}
+                helperText={rowSpacingHelper}
+                slotProps={{
+                  htmlInput: {
+                    step: 'any',
+                    min: MIN_THINNING_ROW_SPACING_CM,
+                    max: MAX_THINNING_ROW_SPACING_CM,
+                    inputMode: 'decimal',
+                    'data-testid': 'thinning-row-spacing',
+                  },
+                }}
+                sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
+              />
+            ) : null}
             <TextField
               label={t('pages.bed.planting.thinning.count')}
               value={count}
@@ -251,6 +317,11 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
                     count: effectiveCount,
                   })}
                 </Typography>
+                {countValue === null && formula ? (
+                  <Typography variant="body2" color="text.secondary" data-testid="thinning-formula">
+                    {t(FORMULA_KEYS[formula])}
+                  </Typography>
+                ) : null}
                 {zoneEstimate ? (
                   <Typography variant="body2" color="text.secondary" data-testid="thinning-estimate-note">
                     {t('pages.bed.planting.thinning.estimateNote')}

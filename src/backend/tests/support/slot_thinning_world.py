@@ -30,6 +30,8 @@ ZONE = {"kind": "polygon", "points": [[0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.0, 
 def sown_world(
     *,
     thinning_to_cm: float | None = 5.0,
+    row_spacing_cm: float | None = None,
+    species_row_spacing_cm: str | None = None,
     sown_at: date | None = None,
     role: SlotRole = SlotRole.ROW,
     geometry: dict | None = None,
@@ -54,6 +56,7 @@ def sown_world(
             quantity=1,
             id_prefix="DAU",
             thinning_to_cm=thinning_to_cm,
+            row_spacing_cm=row_spacing_cm,
         )
     )
     world.plan.slots = [
@@ -89,7 +92,7 @@ def sown_world(
         FakeAttachmentService(),
     )
     world.species = FakeSpeciesRepo()
-    world.species.add("sp_carrot", "Daucus carota")
+    world.species.add("sp_carrot", "Daucus carota", row_spacing_cm=species_row_spacing_cm)
     world.thinning = SlotThinningService(world.sites, world.repo, world.runs, world.service, care, world.species)
     world.run_key = run.key
     return world

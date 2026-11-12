@@ -4,7 +4,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { PlantingItem } from './plantingTypes';
-import { failedSlots, isSowable, parseDecimal, spacingExceedsSlot, thinningCount } from './thinningLogic';
+import {
+  failedSlots,
+  isSowable,
+  parseDecimal,
+  spacingExceedsSlot,
+  thinningCount,
+  thinningFormula,
+} from './thinningLogic';
 
 describe('thinningCount', () => {
   it('holds one plant per spacing along a row', () => {
@@ -30,12 +37,40 @@ describe('thinningCount', () => {
   });
 });
 
+describe('thinningCount with a row spacing (#2862, same cases as TestRowSpacing in pytest)', () => {
+  it('counts carrot at 4 cm in rows 25 cm apart as about 100 per m²', () => {
+    expect(thinningCount('area', 1.0, 4, 25)).toBe(100);
+  });
+
+  it('keeps the square-grid estimate without a row spacing', () => {
+    expect(thinningCount('area', 1.0, 4)).toBe(625);
+    expect(thinningCount('area', 1.0, 4, null)).toBe(625);
+  });
+
+  it('ignores the row spacing on a row', () => {
+    expect(thinningCount('length', 1.2, 5, 25)).toBe(24);
+  });
+
+  it('has no count for a row spacing that is not positive', () => {
+    expect(thinningCount('area', 1.0, 4, 0)).toBeNull();
+  });
+
+  it('names the formula', () => {
+    expect(thinningFormula('length', 25)).toBe('along_row');
+    expect(thinningFormula('area', 25)).toBe('rows');
+    expect(thinningFormula('area', null)).toBe('square_grid');
+  });
+});
+
 describe('spacingExceedsSlot', () => {
   it('tells when one spacing is longer than the row or wider than the zone', () => {
     expect(spacingExceedsSlot('length', 0.3, 40)).toBe(true);
     expect(spacingExceedsSlot('length', 1.2, 5)).toBe(false);
     expect(spacingExceedsSlot('area', 0.04, 25)).toBe(true);
     expect(spacingExceedsSlot('area', 1.0, 10)).toBe(false);
+    // 4 cm × 25 cm is a cell of 0.01 m²: a zone of 0.005 m² keeps one seedling, the square grid would not say so.
+    expect(spacingExceedsSlot('area', 0.005, 4, 25)).toBe(true);
+    expect(spacingExceedsSlot('area', 0.005, 4)).toBe(false);
   });
 });
 
