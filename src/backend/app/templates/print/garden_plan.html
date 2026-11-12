@@ -103,10 +103,10 @@
 </div>
 <div class="plan-stage">
     {% if underlay %}
-    <img class="plan-underlay" src="{{ underlay.data_uri }}" alt=""
+    <img class="plan-underlay" src="{{ underlay.data_uri }}" alt="{{ labels.garden_plan_underlay_alt }}"
          style="left: {{ '%.3f'|format(underlay.left_mm) }}mm; top: {{ '%.3f'|format(underlay.top_mm) }}mm; width: {{ '%.3f'|format(underlay.width_mm) }}mm; height: {{ '%.3f'|format(underlay.height_mm) }}mm; opacity: {{ '%.2f'|format(underlay.opacity) }}; transform: rotate({{ '%.3f'|format(underlay.rotation_css_deg) }}deg);">
     {% endif %}
-    <img class="plan-figure" src="{{ svg_data_uri }}" alt="{{ labels.garden_plan_title }}: {{ site_name }}">
+    <img class="plan-figure" src="{{ svg_data_uri }}" alt="{{ labels.garden_plan_title }}: {{ site_name }} ({{ labels.garden_plan_scale }} {{ scale_label }})">
 </div>
 
 {% if show_bed_list %}

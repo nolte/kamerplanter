@@ -6573,6 +6573,10 @@
             "assignmentHint": "Fügt die Spalte „Zuweisung“ mit den Namen der Mitglieder hinzu, denen ein Beet zugewiesen ist. Das sind personenbezogene Daten – gib das PDF nur an Personen weiter, die sie sehen dürfen. Standardmäßig aus.",
             "privacyWithAssignment": "Das PDF enthält in der Parzellenliste die Namen der Mitglieder, denen Beete zugewiesen sind. Notizen und Kontodaten sind nie enthalten."
           },
+          "underlay": {
+            "label": "Unterlage mitdrucken",
+            "hint": "Legt das Foto oder die Skizze, die du als Unterlage geladen hast, unter den Plan. Ein Luftbild kann zeigen, wo du wohnst – gib das PDF dann nur an Personen weiter, die das sehen dürfen. Standardmäßig aus."
+          },
           "privacy": "Der Export enthält keine Namen von Mitgliedern, keine Zuweisungen und keine Notizen anderer Personen.",
           "phoneNote": "Auf dem Handy gelten die Standardeinstellungen (A4, Querformat, automatischer Maßstab). Weitere Optionen gibt es auf einem größeren Bildschirm.",
           "preview": "Vorschau",

@@ -5,6 +5,8 @@
  * default off); like SVG it is not offered on a phone, where GP-UX-050 limits the dialog to JSON and PDF.
  * The PDF can add the parcel list (GP-FR-176) as an extra page; the members a bed is assigned to are a second,
  * separate opt-in under it (SR-024, default off), offered only while the parcel list is chosen.
+ * The site's underlay (GP-FR-033) can be printed under the plan: an opt-in that is off by default and offered only
+ * when the plan has an underlay; like the other PDF options it is not offered on a phone (GP-UX-050).
  * The PNG (GP-FR-144) is drawn in the browser from the loaded plan: 1×/2×/4×, capped to the canvas limits with a
  * hint, and the watermark "Kamerplanter · date" as an option that is off by default. It is not offered on a phone.
  * Lazy: the route chunk stays inside its budget (UI-NFR-003).
@@ -80,6 +82,7 @@ import {
   type PlanSelection,
   type PngExportOptions,
   type PngResolution,
+  underlayOffered,
 } from './types';
 
 const PREFIX = 'pages.gardenPlan.io.export';
@@ -147,6 +150,8 @@ export default function ExportDialog({
   const storePlan = useAppSelector(selectGardenPlanState).plan;
   // Only the plan of this site is drawn: the file is named after `siteKey`, so a plan of another site never is.
   const plan = storePlan && storePlan.siteKey === siteKey ? storePlan : null;
+  // The underlay can be printed only when the plan has one (GP-FR-033); the stored one is what the server prints.
+  const hasUnderlay = underlayOffered(plan?.settings);
   const labels = useRendererLabels();
   // Set when Download starts a PNG and cleared by the first result: a second report of the same run is ignored.
   const pngActive = useRef(false);
@@ -211,7 +216,13 @@ export default function ExportDialog({
   };
   const scope: ExportScope =
     base.format === 'json' && available[options.scope] ? options.scope : 'site';
-  const effective: ExportOptions = { ...base, scope, keys: scopeKeys(scope, selection) };
+  const effective: ExportOptions = {
+    ...base,
+    scope,
+    keys: scopeKeys(scope, selection),
+    // A choice made while the plan had an underlay is not sent once it has none.
+    underlay: hasUnderlay && base.underlay === true,
+  };
   // Neither the CSV nor the PNG asks the server for a preview.
   const preview = usePlanPreview(siteKey, effective, open && !localMode);
   const patch = (change: Partial<ExportOptions>) => {
@@ -706,6 +717,35 @@ export default function ExportDialog({
               data-testid="plan-export-parcel-assignment-hint"
             >
               {t(`${PREFIX}.parcelList.assignmentHint`)}
+            </Typography>
+          </FormControl>
+        )}
+
+        {scaled && !phone && effective.format === 'pdf' && hasUnderlay && (
+          <FormControl component="fieldset" variant="standard">
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={effective.underlay === true}
+                  onChange={(event) => patch({ underlay: event.target.checked })}
+                  slotProps={{
+                    input: {
+                      'data-testid': 'plan-export-underlay',
+                      'aria-describedby': 'plan-export-underlay-hint',
+                    } as object,
+                  }}
+                />
+              }
+              label={t(`${PREFIX}.underlay.label`)}
+              sx={{ minHeight: 44 }}
+            />
+            <Typography
+              id="plan-export-underlay-hint"
+              variant="body2"
+              color="text.secondary"
+              data-testid="plan-export-underlay-hint"
+            >
+              {t(`${PREFIX}.underlay.hint`)}
             </Typography>
           </FormControl>
         )}

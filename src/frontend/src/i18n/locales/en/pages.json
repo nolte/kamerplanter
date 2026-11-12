@@ -6572,6 +6572,10 @@
             "assignmentHint": "Adds the column “Assigned to” with the names of the members a bed is assigned to. That is personal data – share the PDF only with people who may see it. Off by default.",
             "privacyWithAssignment": "The parcel list of the PDF holds the names of the members beds are assigned to. Notes and account data are never included."
           },
+          "underlay": {
+            "label": "Print the underlay",
+            "hint": "Lays the photo or sketch you loaded as an underlay below the plan. An aerial view can reveal where you live – share the PDF only with people who may see that. Off by default."
+          },
           "privacy": "The export holds no member names, no assignments and no notes of other people.",
           "phoneNote": "On a phone the standard settings apply (A4, landscape, automatic scale). More options are available on a larger screen.",
           "preview": "Preview",

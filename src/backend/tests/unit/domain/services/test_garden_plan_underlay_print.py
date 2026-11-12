@@ -22,6 +22,7 @@ from app.domain.services.garden_plan_export_service import GardenPlanExportServi
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
 from tests.support.garden_plan_fakes import SITE, TENANT, FakePlanRepo, FakeSites, make_location, make_site, rect
+from tests.support.pdf_text import pdf_accessibility
 from tests.support.underlay_fakes import FakeUnderlayAttachments, png_bytes
 from tests.unit.domain.services.test_garden_plan_underlay_service import _underlay
 
@@ -145,6 +146,19 @@ class TestThePdf:
         assert html.index('class="plan-underlay"') < html.index('class="plan-figure"')
         assert re.search(r'class="plan-underlay" src="data:image/jpeg;base64,', html)
         assert engine.fetched and all(url.startswith("data:") for url in engine.fetched), engine.fetched
+
+    async def test_the_tagged_pdf_reads_the_underlay_before_the_plan_and_names_both(self, stack) -> None:
+        """GP-NFR-029: an ``alt=""`` underlay was a Figure without alternative text in the tagged PDF."""
+        export, _, _ = stack
+
+        picture = await export.load_underlay(SITE, tenant_key=TENANT)
+        pdf = export.render_pdf(SITE, tenant_key=TENANT, options=PlanSvgOptions(), underlay=picture)
+
+        figures = [alt for role, alt in pdf_accessibility(pdf.content).structure if role == "/Figure"]
+        assert figures == [
+            "Unterlage zum Abzeichnen (Foto oder Skizze) unter dem Plan",
+            f"Gartenplan: Garten (Maßstab 1:{pdf.scale})",
+        ]
 
     async def test_a_picture_that_is_gone_prints_the_plan_without_it(self, stack) -> None:
         export, _, attachments = stack

@@ -196,7 +196,8 @@ class TestTheSvgDownload:
 
         root = ET.fromstring(response.text)
         assert not list(root.iter(f"{SVG}image"))
-        assert HOSTILE in [e.text for e in root.iter(f"{SVG}title")]
+        # The bed's title is "class: name" (GP-NFR-029); the name survives in it as text.
+        assert f"Beet: {HOSTILE}" in [e.text for e in root.iter(f"{SVG}title")]
 
     def test_plant_states_and_phase_colours_reach_the_download(self, client, repo) -> None:
         """#2489 smoke: with a plant-state source and a phase name the SVG on the wire carries the phase-coloured

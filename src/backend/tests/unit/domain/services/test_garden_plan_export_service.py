@@ -232,7 +232,7 @@ class TestGpAcc045:
 
         root = ET.fromstring(rendered.svg)
         assert not list(root.iter(f"{SVG}image"))
-        assert hostile in [e.text for e in root.iter(f"{SVG}title")]
+        assert f"Beet: {hostile}" in [e.text for e in root.iter(f"{SVG}title")]
         assert "<image" not in rendered.svg
 
     @pytest.mark.parametrize("hostile", [HOSTILE_IMAGE_NAME, HOSTILE_FILE_NAME])

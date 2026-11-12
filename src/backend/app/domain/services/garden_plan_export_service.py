@@ -361,7 +361,9 @@ class GardenPlanExportService:
         page_w, page_h = page_size_mm(pdf_options.paper, pdf_options.orientation)
         placement = self._underlay_placement(site_key, tenant_key=tenant_key, image=underlay, rendered=rendered)
         context = {
-            "title": view.site_name,
+            # The document title of the tagged PDF (GP-NFR-029, REQ-032 §8): shown by the viewer instead of the
+            # file name (``DisplayDocTitle``), so it names what the document is, not only the site.
+            "title": f"{print_label(options.locale, 'garden_plan_title')}: {view.site_name}",
             "site_name": view.site_name,
             "generated_date": datetime.now(UTC).strftime("%d.%m.%Y" if options.locale == "de" else "%Y-%m-%d"),
             "plan_revision": view.plan_revision,

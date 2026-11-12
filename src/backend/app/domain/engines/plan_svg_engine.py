@@ -25,6 +25,14 @@ drawn as the plan on screen draws it: the disc in its phase colour (:mod:`app.do
 style of its lifecycle (stroke width and dash only) and at most one attention badge (two ``path`` elements in a
 ``g``) — all inside the allowlist. The legend lists the phases, rings and badges that are on the plan. A plant without
 a state keeps the uniform plant colour; from the threshold on, the counters apply as before (GP-NFR-038).
+
+**Accessible names (GP-NFR-029, #2900).** Every drawn object - bed, garden object, planting spot, plant symbol and the
+plan boundary - carries a ``<title>`` (class and name, ``Beet: Tomaten``) and a ``<desc>`` (what the plan already
+knows: status, area or length, height, species label, plant count, phase, lifecycle, the most urgent attention) as its
+first children, in the export locale. They are text nodes of the allowlisted ``title``/``desc`` elements, escaped like
+every other text; no id, ``data-key`` or element order of the drawing changes. The root carries
+``role="graphics-document"`` (WAI-ARIA Graphics) instead of ``img``, so assistive technology exposes these children
+instead of flattening the plan into one picture. A bed's crop is not named: the read model carries species keys only.
 """
 
 from __future__ import annotations
@@ -35,12 +43,14 @@ from collections import Counter
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from itertools import pairwise
 from typing import Final
 
 from app.common.enums import BedStatus, GardenObjectType
 from app.common.exceptions import PlanError
 from app.domain.calculators.geometry_calculator import (
     CircleShape,
+    area_m2,
     bounding_box,
     centroid,
     to_shape,
@@ -299,6 +309,39 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "type_door": "Tür",
         "type_furniture": "Möbel",
         "type_lamp": "Lampe",
+        # Per-object title and description (GP-NFR-029).
+        "class_bed": "Beet",
+        "class_plant": "Pflanze",
+        "class_slot": "Pflanzplatz",
+        "class_boundary": "Plangrenze",
+        "status_planned": "geplant",
+        "status_active": "aktiv",
+        "status_retired": "stillgelegt",
+        "area": "Fläche {value} m²",
+        "length": "Länge {value} m",
+        "height": "Höhe {value} m",
+        "plants_none": "keine Pflanzen",
+        "plants_one": "1 Pflanze",
+        "plants_many": "{n} Pflanzen",
+        "phases": "Phasen: {names}",
+        "species": "Art: {name}",
+        "in_bed": "in {name}",
+        "off_site": "außerhalb der Plangrenze",
+        "point_object": "Punktobjekt",
+        "slot_occupied": "belegt",
+        "slot_free": "frei",
+        "lifecycle_planned": "geplant",
+        "lifecycle_sown": "gesät",
+        "lifecycle_active": "wächst",
+        "lifecycle_harvesting": "in Ernte",
+        "lifecycle_failed": "ausgefallen",
+        "lifecycle_historic": "abgeschlossen",
+        "attention": "Achtung: {reason}",
+        "attention_problem": "Befund",
+        "attention_frost": "Frostgefahr",
+        "attention_overdue": "überfällig",
+        "attention_water": "gießen",
+        "attention_harvest": "erntereif",
     },
     "en": {
         "north": "N",
@@ -341,6 +384,39 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "type_door": "Door",
         "type_furniture": "Furniture",
         "type_lamp": "Lamp",
+        # Per-object title and description (GP-NFR-029).
+        "class_bed": "Bed",
+        "class_plant": "Plant",
+        "class_slot": "Planting spot",
+        "class_boundary": "Plan boundary",
+        "status_planned": "planned",
+        "status_active": "active",
+        "status_retired": "retired",
+        "area": "area {value} m²",
+        "length": "length {value} m",
+        "height": "height {value} m",
+        "plants_none": "no plants",
+        "plants_one": "1 plant",
+        "plants_many": "{n} plants",
+        "phases": "phases: {names}",
+        "species": "species: {name}",
+        "in_bed": "in {name}",
+        "off_site": "outside the plan boundary",
+        "point_object": "point object",
+        "slot_occupied": "occupied",
+        "slot_free": "free",
+        "lifecycle_planned": "planned",
+        "lifecycle_sown": "sown",
+        "lifecycle_active": "growing",
+        "lifecycle_harvesting": "harvesting",
+        "lifecycle_failed": "failed",
+        "lifecycle_historic": "finished",
+        "attention": "attention: {reason}",
+        "attention_problem": "finding",
+        "attention_frost": "frost risk",
+        "attention_overdue": "overdue",
+        "attention_water": "watering due",
+        "attention_harvest": "ready to harvest",
     },
 }
 
@@ -649,6 +725,8 @@ class _PlantMarker:
     state: PlantVisualState | None = None
     fill: str = _PLANT_COLOR
     phase_label: str | None = None
+    #: The plant's own identifier (``instance_id``), the name its ``<title>`` carries (GP-NFR-029).
+    name: str = ""
 
 
 def _phase_label(name: str, locale: str) -> str:
@@ -664,12 +742,12 @@ def _marker_of(
 ) -> _PlantMarker:
     state = marks.states.get(plant.key) if marks is not None else None
     if marks is None or state is None:
-        return _PlantMarker(point)
+        return _PlantMarker(point, name=plant.instance_id)
     phase_key = state.phase_key or plant.phase_key
     name = marks.phase_names.get(phase_key) if phase_key else None
     if not name or not name.strip():
-        return _PlantMarker(point, state)
-    return _PlantMarker(point, state, phase_color(name), _phase_label(name, locale))
+        return _PlantMarker(point, state, name=plant.instance_id)
+    return _PlantMarker(point, state, phase_color(name), _phase_label(name, locale), name=plant.instance_id)
 
 
 def _phase_rank(item: tuple[tuple[str, str], int]) -> tuple[int, str, str]:
@@ -945,7 +1023,115 @@ def _label_node(canvas: _Canvas, geometry: Geometry, text: str, *, key: str | No
     return _Node("text", attributes, [_truncate(cleaned, max_chars)])
 
 
-def _bed_layer(canvas: _Canvas, locations: list[Location]) -> _Node:
+# ── Accessible names (GP-NFR-029) ─────────────────────────────────────────────
+
+#: Separator of the facts in one ``<desc>``; a comma would collide with the list of phases inside one fact.
+_DESC_SEPARATOR: Final = "; "
+#: Phases a bed's description names one by one; more are shortened to "…".
+_MAX_DESC_PHASES: Final = 4
+
+
+def _decimal(value: float, locale: str) -> str:
+    """A measure in a description with one decimal place, a decimal comma in German (as the printed bed list)."""
+    text = f"{value:.1f}"
+    return text.replace(".", ",") if locale == "de" else text
+
+
+def _one_line(text: str | None) -> str:
+    return " ".join(clean_text(text or "").split())
+
+
+def _named(class_label: str, name: str | None) -> str:
+    """The ``<title>`` of a drawn object: ``class: name``, or the class alone when the object has no name."""
+    cleaned = _one_line(name)
+    return f"{class_label}: {cleaned}" if cleaned else class_label
+
+
+def _accessible(node: _Node, title: str, desc: str) -> _Node:
+    """Give a drawn object its ``<title>`` and ``<desc>`` as the first children (where SVG expects them)."""
+    node.children[:0] = [_el("title", [title]), _el("desc", [desc])]
+    return node
+
+
+def _size_text(geometry: Geometry, labels: dict[str, str], locale: str) -> str | None:
+    """Area of an areal shape, length of a line, nothing for a point."""
+    if isinstance(geometry, PointGeometry):
+        return None
+    if isinstance(geometry, PolylineGeometry):
+        length = sum(math.dist(a, b) for a, b in pairwise(_vertices(geometry)))
+        return labels["length"].format(value=_decimal(length, locale))
+    return labels["area"].format(value=_decimal(area_m2(geometry), locale))
+
+
+def _plant_count_text(count: int, labels: dict[str, str]) -> str:
+    if count == 0:
+        return labels["plants_none"]
+    if count == 1:
+        return labels["plants_one"]
+    return labels["plants_many"].format(n=count)
+
+
+def _bed_desc(loc: Location, plant_count: int, markers: list[_PlantMarker], labels: dict[str, str], locale: str) -> str:
+    parts = [
+        labels[f"status_{loc.bed_status.value}"],
+        labels["area"].format(value=_decimal(loc.area_m2, locale)),
+        _plant_count_text(plant_count, labels),
+    ]
+    phases = sorted({marker.phase_label for marker in markers if marker.phase_label}, key=str.casefold)
+    if phases:
+        shown = phases[:_MAX_DESC_PHASES] + (["…"] if len(phases) > _MAX_DESC_PHASES else [])
+        parts.append(labels["phases"].format(names=", ".join(shown)))
+    return _DESC_SEPARATOR.join(parts)
+
+
+def _object_desc(obj: GardenObject, labels: dict[str, str], locale: str) -> str:
+    parts: list[str] = []
+    species = _one_line(getattr(obj.props, "species_label", None))
+    if species:
+        parts.append(labels["species"].format(name=species))
+    parts.append(_size_text(obj.geometry, labels, locale) or labels["point_object"])
+    height = getattr(obj.props, "height_m", None)
+    if isinstance(height, int | float):
+        parts.append(labels["height"].format(value=_decimal(float(height), locale)))
+    if obj.off_site:
+        parts.append(labels["off_site"])
+    return _DESC_SEPARATOR.join(parts)
+
+
+def _plant_desc(marker: _PlantMarker, bed_name: str, labels: dict[str, str]) -> str:
+    parts = [labels["in_bed"].format(name=_one_line(bed_name))]
+    if marker.phase_label:
+        parts.append(f"{labels['legend_phase']}: {marker.phase_label}")
+    if marker.state is not None:
+        parts.append(labels[f"lifecycle_{marker.state.lifecycle}"])
+        if marker.state.attention:
+            reason = labels[f"attention_{marker.state.attention[0].reason}"]
+            parts.append(labels["attention"].format(reason=reason))
+    return _DESC_SEPARATOR.join(parts)
+
+
+def _slot_desc(slot: PlanSlotView, bed_name: str, labels: dict[str, str]) -> str:
+    return _DESC_SEPARATOR.join(
+        (
+            labels["in_bed"].format(name=_one_line(bed_name)),
+            labels["slot_occupied" if slot.currently_occupied else "slot_free"],
+        )
+    )
+
+
+@dataclass(frozen=True)
+class _Describe:
+    """What the per-object ``<title>``/``<desc>`` need besides the object itself (GP-NFR-029)."""
+
+    labels: dict[str, str]
+    locale: str
+    bed_names: Mapping[str, str]
+    plant_counts: Mapping[str, int]
+
+
+def _bed_layer(
+    canvas: _Canvas, locations: list[Location], describe: _Describe, markers: dict[str, list[_PlantMarker]]
+) -> _Node:
     layer = _el("g", id="layer-beds")
     drawn = [
         loc
@@ -958,12 +1144,14 @@ def _bed_layer(canvas: _Canvas, locations: list[Location]) -> _Node:
         assert loc.geometry is not None  # noqa: S101 - filtered above
         fill, stroke, dash = _BED_STYLE[loc.bed_status]
         shape = _shape_node(canvas, loc.geometry, fill=fill, stroke=stroke, dash=dash, key=loc.key)
-        shape.children.append(_el("title", [loc.name]))
-        layer.add(shape)
+        bed_markers = markers.get(loc.key or "", [])
+        plant_count = describe.plant_counts.get(loc.key or "", 0)
+        desc = _bed_desc(loc, plant_count, bed_markers, describe.labels, describe.locale)
+        layer.add(_accessible(shape, _named(describe.labels["class_bed"], loc.name), desc))
     return layer
 
 
-def _object_layer(canvas: _Canvas, objects: list[GardenObject], extent: _Extent) -> _Node:
+def _object_layer(canvas: _Canvas, objects: list[GardenObject], extent: _Extent, describe: _Describe) -> _Node:
     layer = _el("g", id="layer-objects")
     for obj in sorted(objects, key=lambda o: o.z_order):
         left, bottom, right, top = _geometry_box(obj.geometry)
@@ -973,9 +1161,8 @@ def _object_layer(canvas: _Canvas, objects: list[GardenObject], extent: _Extent)
             continue
         fill, stroke = _OFF_SITE_STYLE if obj.off_site else _OBJECT_STYLE[obj.object_type]
         shape = _shape_node(canvas, obj.geometry, fill=fill, stroke=stroke, key=obj.key)
-        if obj.label:
-            shape.children.append(_el("title", [obj.label]))
-        layer.add(shape)
+        title = _named(describe.labels[f"type_{obj.object_type.value}"], obj.label)
+        layer.add(_accessible(shape, title, _object_desc(obj, describe.labels, describe.locale)))
     return layer
 
 
@@ -1012,18 +1199,21 @@ def _slot_point(slot: PlanSlotView) -> tuple[float, float] | None:
     return (sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points))
 
 
-def _slot_layer(canvas: _Canvas, slots: list[PlanSlotView]) -> _Node:
+def _slot_layer(canvas: _Canvas, slots: list[PlanSlotView], describe: _Describe) -> _Node:
     layer = _el("g", id="layer-slots")
     radius = canvas.paper(0.5)
     for slot in slots:
         geometry = slot.plan_geometry
         if geometry is None:
             continue
+        title = _named(describe.labels["class_slot"], slot.slot_id)
+        desc = _slot_desc(slot, describe.bed_names.get(slot.location_key, ""), describe.labels)
         if geometry["kind"] == "point":
             x, y = _slot_point(slot) or (0.0, 0.0)
             layer.add(
                 _el(
                     "circle",
+                    [_el("title", [title]), _el("desc", [desc])],
                     cx=canvas.x(x),
                     cy=canvas.y(y),
                     r=radius,
@@ -1039,6 +1229,7 @@ def _slot_layer(canvas: _Canvas, slots: list[PlanSlotView]) -> _Node:
             layer.add(
                 _el(
                     tag,
+                    [_el("title", [title]), _el("desc", [desc])],
                     points=canvas.points(vertices),
                     fill="none",
                     stroke=_PLANT_COLOR,
@@ -1140,13 +1331,18 @@ def _ring_attributes(canvas: _Canvas, ring: _RingStyle, fill: str) -> dict[str, 
     return attributes
 
 
-def _stated_marker(canvas: _Canvas, marker: _PlantMarker, state: PlantVisualState, radius: float) -> list[_Node]:
-    """Disc in the phase colour, ring of the lifecycle and, when the plant needs attention, the most urgent badge."""
+def _stated_marker(
+    canvas: _Canvas, marker: _PlantMarker, state: PlantVisualState, radius: float, accessible: tuple[_Node, _Node]
+) -> list[_Node]:
+    """Disc in the phase colour, ring of the lifecycle and, when the plant needs attention, the most urgent badge.
+
+    ``accessible`` is the disc's ``<title>`` and ``<desc>``; the badge is part of that description, not an object."""
     x, y = canvas.x(marker.point[0]), canvas.y(marker.point[1])
     nodes = [
         _Node(
             "circle",
             {"cx": x, "cy": y, "r": radius, **_ring_attributes(canvas, _RING_STYLE[state.lifecycle], marker.fill)},
+            list(accessible),
         )
     ]
     if state.attention:
@@ -1158,7 +1354,12 @@ def _stated_marker(canvas: _Canvas, marker: _PlantMarker, state: PlantVisualStat
 
 
 def _plant_layer(
-    canvas: _Canvas, view: GardenPlanView, markers: dict[str, list[_PlantMarker]], *, counters: bool
+    canvas: _Canvas,
+    view: GardenPlanView,
+    markers: dict[str, list[_PlantMarker]],
+    describe: _Describe,
+    *,
+    counters: bool,
 ) -> _Node:
     layer = _el("g", id="layer-plants")
     beds = {loc.key: loc for loc in view.locations if loc.key}
@@ -1185,13 +1386,28 @@ def _plant_layer(
         return layer
     radius = max(0.08 * 1000.0, canvas.paper(0.6))
     stated_radius = max(0.1 * 1000.0, canvas.paper(1.0))
-    for bed_markers in markers.values():
+    for bed_key, bed_markers in markers.items():
+        bed_name = describe.bed_names.get(bed_key, "")
         for marker in bed_markers:
+            accessible = (
+                _el("title", [_named(describe.labels["class_plant"], marker.name)]),
+                _el("desc", [_plant_desc(marker, bed_name, describe.labels)]),
+            )
             if marker.state is not None:
-                layer.add(*_stated_marker(canvas, marker, marker.state, stated_radius))
+                layer.add(*_stated_marker(canvas, marker, marker.state, stated_radius, accessible))
                 continue
             px, py = marker.point
-            layer.add(_el("circle", cx=canvas.x(px), cy=canvas.y(py), r=radius, fill=_PLANT_COLOR, fill_opacity="0.85"))
+            layer.add(
+                _el(
+                    "circle",
+                    list(accessible),
+                    cx=canvas.x(px),
+                    cy=canvas.y(py),
+                    r=radius,
+                    fill=_PLANT_COLOR,
+                    fill_opacity="0.85",
+                )
+            )
     return layer
 
 
@@ -1213,11 +1429,13 @@ def _label_layer(canvas: _Canvas, view: GardenPlanView, layers: frozenset[PlanSv
     return layer
 
 
-def _boundary_node(canvas: _Canvas, view: GardenPlanView, accent: str) -> _Node:
+def _boundary_node(canvas: _Canvas, view: GardenPlanView, accent: str, describe: _Describe) -> _Node:
     layer = _el("g", id="layer-boundary")
     boundary = view.plan.boundary if view.plan is not None else None
     if boundary is not None:
-        layer.add(_shape_node(canvas, boundary, fill="none", stroke=accent, line_mm=0.7))
+        shape = _shape_node(canvas, boundary, fill="none", stroke=accent, line_mm=0.7)
+        desc = _size_text(boundary, describe.labels, describe.locale) or describe.labels["point_object"]
+        layer.add(_accessible(shape, _named(describe.labels["class_boundary"], view.site_name), desc))
     return layer
 
 
@@ -1399,22 +1617,30 @@ def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions, marks: PlantS
         view_box=f"0 0 {_num(width_units)} {_num(height_units)}",
         width=f"{layout.canvas_w_mm:.2f}mm",
         height=f"{layout.canvas_h_mm:.2f}mm",
-        role="img",
+        role="graphics-document",
         data_scale=str(layout.scale),
     )
     root.add(_el("title", [view.site_name]), _el("desc", [f"{labels['desc']} 1:{layout.scale}"]))
     layers = options.layers
+    slot_beds = {slot.key: slot.location_key for slot in view.slots}
+    describe = _Describe(
+        labels=labels,
+        locale=options.locale,
+        bed_names={loc.key: loc.name for loc in view.locations if loc.key},
+        # The rule of ``_bedded_plants``: a plant stands in its location, else in its slot's bed.
+        plant_counts=Counter(plant.location_key or slot_beds.get(plant.slot_key or "", "") for plant in view.plants),
+    )
     if PlanSvgLayer.GRID in layers:
         root.add(_grid_layer(canvas, extent))
     if PlanSvgLayer.BEDS in layers:
-        root.add(_bed_layer(canvas, view.locations))
+        root.add(_bed_layer(canvas, view.locations, describe, markers))
     if PlanSvgLayer.OBJECTS in layers:
-        root.add(_object_layer(canvas, view.garden_objects, extent))
-    root.add(_boundary_node(canvas, view, options.accent))
+        root.add(_object_layer(canvas, view.garden_objects, extent, describe))
+    root.add(_boundary_node(canvas, view, options.accent, describe))
     if PlanSvgLayer.SLOTS in layers:
-        root.add(_slot_layer(canvas, view.slots))
+        root.add(_slot_layer(canvas, view.slots, describe))
     if PlanSvgLayer.PLANTS in layers:
-        root.add(_plant_layer(canvas, view, markers, counters=counters))
+        root.add(_plant_layer(canvas, view, markers, describe, counters=counters))
     if PlanSvgLayer.LABELS in layers:
         root.add(_label_layer(canvas, view, layers))
     strip_top = canvas.strip_top + canvas.paper(3.0)
