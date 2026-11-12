@@ -76,14 +76,25 @@ export const ENVIRONMENTS = ['development', 'e2e', 'staging', 'production'] as c
  * Substrings that mark a value as a credential or personal datum wherever it
  * appears *by name*. Matched case-insensitively against the name only, so no
  * secret has to be recognised by its shape.
+ *
+ * Coordinates are personal data too: a site's `gps_coordinates` is the home
+ * address of a personal garden, and the field map's own position (REQ-053
+ * GP-UX-026) must never leave the device (SR-019). The app puts neither into an
+ * event or breadcrumb; the names are here so a future `extra`/`contexts`/query
+ * parameter carrying one is redacted rather than shipped.
  */
 const SENSITIVE_NAME_PARTS = [
   'authorization',
   'api_key',
   'apikey',
   'cookie',
+  'coords',
   'credential',
   'email',
+  'geolocation',
+  'gps',
+  'latitude',
+  'longitude',
   'passwd',
   'password',
   'secret',

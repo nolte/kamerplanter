@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.22
+Version: 1.23
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.23 | 2026-11-12 | §2.5.1: „Meine Position“ im Tab Karte des Feldmodus (REQ-053 GP-UX-026, Issue #2898) registriert: der Abschnitt `field-mode-position`, der Schalter `field-mode-position-switch` (natives Eingabefeld, `role="switch"`), die Beschreibung `field-mode-position-description`, der Hinweis `field-mode-position-hint` mit dem qualifizierenden Attribut `data-reason` (`locating`, `denied`, `unavailable`, `timeout`, `site_loading`, `site_error`, `no_gps`, `far`, `outside_view`, `coarse`), die Überlagerung `field-mode-position-dot` (`data-accuracy-m`) mit dem Genauigkeitskreis `field-mode-position-accuracy`. Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.22 | 2026-11-12 | §2.5.1: Beet-QR-Etikett (REQ-053 GP-FR-052, GP-UX-028, Issue #2899) registriert: die Handlung `bed-view-print-label` („Etikett drucken“ unter dem Kopf der Beetansicht), der Dialog `bed-view-label-dialog` mit `bed-view-label-dialog-close`, der Auswahl `bed-view-label-qr-size` und ihren Optionen `bed-view-label-qr-size-<mm>` (`25`, `40`, `60`), dem Hinweis `bed-view-label-offline` und den Handlungen `bed-view-label-download` / `bed-view-label-cancel`; im Feldmodus der Hinweis `field-mode-linked-bed-missing` mit `field-mode-linked-bed-missing-close` (der QR-Link nennt ein Beet, das die Site nicht hat); auf der Login-Seite der Hinweis `login-return-hint` (Rücksprung nach der Anmeldung, UI-NFR-014 R-009). Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.21 | 2026-11-12 | §2.5.1: Opt-in „Wiederkehrende Aufgaben anlegen“ beim Platzieren einer Beetvorlage (REQ-053 GP-FR-087, Issue #2897) registriert: `garden-plan-template-recurring-tasks` und `-recurring-tasks-help`; nachregistriert die Vorlagen-Austausch-Kennungen `garden-plan-template-export` / `-import` / `-exchange-notice` (WP 9.9, GP-FR-173). |
 | 1.20 | 2026-11-12 | §2.5.1: Gartengrenze im Editor (REQ-053 UC-01, GP-FR-019/032, Issue #2890) registriert: der Überlauf-Eintrag `garden-plan-menu-boundary` („Gartengrenze zeichnen“ bzw. „… entsperren und bearbeiten“ / „… sperren“; Indoor „Grundriss …“), der Hinweis des Grenz-Modus `garden-plan-boundary-mode` mit `data-mode` (`draw`/`edit`) und seine Handlung `garden-plan-boundary-done` („Sperren“ bzw. „Zeichnen beenden“). Die Griffe der entsperrten Grenze tragen die bestehenden Kennungen `garden-plan-handles` / `garden-plan-handle-<id>`, die Formwahl `garden-plan-shape-rect`/`-polygon`. Keine Kennung umbenannt (R-021), Page Object im selben Pull Request (R-020). |
@@ -184,7 +185,7 @@ Die folgenden drei Präfixe sind für die grafische Garten-/Beetplanung reservie
 |---|---|---|
 | `garden-plan-*` | Editor und Gartenübersicht (Route `standorte/sites/:key/plan`) | `garden-plan-page` (Seiten-Marker nach R-005), `garden-plan-canvas` (Zeichenfläche, Wurzel des `PlanRenderer`), `garden-plan-layer-<ebene>` (Ebenen-Schalter: `zones`, `lastWatered`, `sun`, `moisture`, `frost`, `plantState`), `garden-plan-attention-filter` (Filter „Nur Pflanzen mit Handlungsbedarf“ der Ebene `plantState`, Issue #2488), `garden-plan-<ebene>-layer` (dekorative Überlagerung der Standortbedingungen: `sun`, `moisture`, `frost`, Issue #2487), `garden-plan-layer-legend` mit `garden-plan-legend-<ebene>` (Abschnitte `sun`, `moisture`, `frost`, `plantState`), `garden-plan-zones-open`, `garden-plan-zone-panel`, `garden-plan-zone-*` (Zonen-Panel: `row-<key>`, `new`, `name`, `type`, `save`, `delete`, `status`, `hints`, `round-open`), `garden-plan-round-*` (Gießrunden-Dialog: `volume`, `allocation-<art>`, `marker`, `submit`, `result`), `garden-plan-panel-sun-profile` mit denselben Suffixen wie `bed-view-sun-profile` (Sonnenzeit, Stunden und Laubschatten im Eigenschaften-Feld, Issue #2538) |
 | `bed-view-*` | Beetansicht (Detailseite eines Beets mit Plan-Tab) | `bed-view-sun-profile` mit `-window`, `-window-<wert>`, `-window-<wert>-input`, `-hours`, `-foliage` (Sonnenprofil im Dialog „Sonne und Schatten“, WP 7.20); sonst — (die heute benannten Beet-Identifikatoren folgen dem Grundschema: `bed-detail-page`, `bed-plan-tab`) |
-| `field-mode-*` | Feldmodus (`?mode=field`, REQ-053 §18: Beet-Sheet, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper) | `field-mode-sun-section` (Abschnitt Sonne im Beet-Sheet), `field-mode-sun-profile` mit denselben Suffixen wie `bed-view-sun-profile` (WP 7.20); sonst — (Präfix reserviert) |
+| `field-mode-*` | Feldmodus (`?mode=field`, REQ-053 §18: Beet-Sheet, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper) | `field-mode-sun-section` (Abschnitt Sonne im Beet-Sheet), `field-mode-sun-profile` mit denselben Suffixen wie `bed-view-sun-profile` (WP 7.20), `field-mode-position-*` („Meine Position“, GP-UX-026, #2898); sonst — (Präfix reserviert) |
 | `bed-header-*` | Kopf der Beetansicht (`BedHeader`, Detailseite eines Beets) | `bed-header-soil` (Substrat), `bed-header-drainage` (Drainage, nur wenn erfasst, Issue #2487), `bed-header-sun` (Sonnenexposition), `bed-header-sun-profile` (Zeile Sonnenzeit und Laubschatten unter der Sonnenexposition, WP 7.20) |
 
 Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzisieren:
@@ -306,6 +307,16 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `bed-view-label-download` / `bed-view-label-cancel` | „Als PDF herunterladen“ (gesperrt ohne Verbindung) und „Abbrechen“ |
 | `field-mode-linked-bed-missing` / `field-mode-linked-bed-missing-close` | Hinweis im Feldmodus, wenn `?bed=<key>` (QR-Link des Etiketts) ein Beet nennt, das die Beetliste der Site nicht enthält, und seine Schließen-Handlung (entfernt `bed` aus der Adresse) |
 | `login-return-hint` | Hinweis auf der Login-Seite, dass es nach der Anmeldung zur aufgerufenen Seite weitergeht (`?returnTo=`, UI-NFR-014 R-009); nicht neben einer offenen Einladung (`login-pending-invitation`) |
+
+**Feldmodus, „Meine Position“ (REQ-053 GP-UX-026, #2898):**
+
+| `data-testid` | Element |
+|---|---|
+| `field-mode-position` | Abschnitt „Meine Position“ über der Karte im Tab „Karte“; fehlt ganz, wenn der Browser keine Geolocation-API hat (REQ-002) |
+| `field-mode-position-switch` | Schalter (natives Eingabefeld, `role="switch"`); beim Öffnen des Feldmodus immer aus, außerhalb eines sicheren Kontexts gesperrt |
+| `field-mode-position-description` | Beschreibung unter dem Schalter (`aria-describedby`): Datenschutzhinweis bzw. ohne sicheren Kontext der Grund der Sperre |
+| `field-mode-position-hint` | Hinweis bei eingeschaltetem Schalter; `data-reason` ∈ `locating`, `denied`, `unavailable`, `timeout`, `site_loading`, `site_error`, `no_gps`, `far` (> 500 m vom Plan), `outside_view`, `coarse` (Genauigkeit ≥ 50 m, Punkt wird trotzdem gezeichnet) |
+| `field-mode-position-dot` / `field-mode-position-accuracy` | Überlagerung mit dem Punkt (`role="img"`, Name „Deine ungefähre Position, Genauigkeit ±N m“, `data-accuracy-m`) und der Genauigkeitskreis (Radius ≥ 3 m); nimmt keine Zeigerereignisse an |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
 

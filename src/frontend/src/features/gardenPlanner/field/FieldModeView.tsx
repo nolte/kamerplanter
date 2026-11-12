@@ -6,7 +6,8 @@
  * The whole view uses the high-contrast kiosk theme: text ≥ 7:1 and touch targets of 64 px
  * (`KIOSK_TOUCH_TARGET`, GP-UX-020/021). There are no drawing tools, no grid, no handles and no
  * destructive actions (GP-UX-023); import and export stay in planning mode. Tenant, site, tab and the map
- * view are remembered per device (localStorage).
+ * view are remembered per device (localStorage); "My position" on the map (GP-UX-026) is not - neither the switch
+ * nor the position.
  *
  * A bed label's QR code (GP-FR-052, GP-UX-028) links here with `?mode=field&bed=<key>`: the sheet of that bed opens as
  * soon as the list is in. A key the site's list does not have says so instead of opening nothing. Closing the sheet or
@@ -122,6 +123,8 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
     },
     [linkedBedKey, setSearchParams],
   );
+  // "My position" (GP-UX-026): opt-in for this visit only. Neither the choice nor any position is remembered.
+  const [ownPositionOn, setOwnPositionOn] = useState(false);
 
   // GP-UX-030: the list first, then the geometry. The plan is forgotten when field mode is left.
   const { settled } = beds;
@@ -366,6 +369,8 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
                   initialView={initialView}
                   onViewChange={onViewChange}
                   onSelectBed={selectBed}
+                  ownPositionOn={ownPositionOn}
+                  onOwnPositionChange={setOwnPositionOn}
                 />
               )}
             </>

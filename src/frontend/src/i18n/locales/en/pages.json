@@ -7161,6 +7161,23 @@
           "fit": "Whole plan",
           "loading": "Loading plan"
         },
+        "position": {
+          "label": "My position",
+          "description": "Shows where you roughly are as a dot on the plan. The position stays on this device: Kamerplanter neither stores nor sends it.",
+          "insecure": "Your position can only be shown over a secure connection (HTTPS or localhost).",
+          "locating": "Finding your position …",
+          "denied": "You declined location access in the browser. Allow it in your browser's site settings if you want to see your position.",
+          "unavailable": "Your device cannot determine your position right now.",
+          "timeout": "Locating takes too long. Kamerplanter keeps trying.",
+          "siteLoading": "Loading the site's coordinates …",
+          "siteError": "The site's coordinates could not be loaded. Switch “My position” off and on again to retry.",
+          "noGps": "This site has no GPS coordinates. Add them to the site details and the plan will show your position.",
+          "far": "You are about {{distance}} away from the plan. Your position is shown once you are closer to the garden.",
+          "outsideView": "Your position is outside the visible part of the map. “Whole plan” shows it.",
+          "outsideViewNear": "Your position is outside the plan, about {{distance}} away.",
+          "coarse": "Locating is imprecise right now (±{{accuracy}} m). The circle shows roughly where you are.",
+          "dot": "Your approximate position, accuracy ±{{accuracy}} m"
+        },
         "sheet": {
           "close": "Close bed",
           "loading": "Loading bed"

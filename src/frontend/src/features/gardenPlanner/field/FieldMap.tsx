@@ -4,6 +4,10 @@
  * Every gesture has a button: zoom in, zoom out and "whole plan" are 64 px targets, and there is no pan
  * gesture at all (tapping a bed is the way to move). The view is remembered per site on this device and
  * only restored while it still shows the plan on the current canvas; otherwise the map opens on "fit".
+ *
+ * "My position" (GP-UX-026) is an opt-in switch above the map: with it on, a dot with an accuracy circle marks the
+ * device on the plan. The map never pans or fits to the dot, because the view is remembered on the device and must not
+ * carry the position (SR-019); a position outside the view or far from the plan is said in a hint instead.
  */
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +26,10 @@ import { fitViewport, focusViewport, planContentBounds } from '../routes/fitView
 import { useElementWidth } from '../routes/useElementWidth';
 import { bedOfKey, MIN_BED_TARGET_PX, nearestBed, restoreFieldView } from './fieldMapLogic';
 import type { FieldViewport } from './fieldPrefs';
+import { OwnPositionDot, OwnPositionSwitch } from './OwnPosition';
+import { ownPositionView } from './ownPositionView';
+import { useOwnPosition } from './useOwnPosition';
+import { useSiteCoordinates } from './useSiteCoordinates';
 
 /** The drawing may take this share of the viewport height in the field. */
 const MAX_HEIGHT_SHARE = 0.6;
@@ -38,6 +46,9 @@ interface FieldMapProps {
   initialView: FieldViewport | null;
   onViewChange: (view: FieldViewport) => void;
   onSelectBed: (bedKey: string) => void;
+  /** "My position" switched on (GP-UX-026). Held by field mode for the visit only, never stored. */
+  ownPositionOn: boolean;
+  onOwnPositionChange: (on: boolean) => void;
 }
 
 export default function FieldMap({
@@ -49,6 +60,8 @@ export default function FieldMap({
   initialView,
   onViewChange,
   onSelectBed,
+  ownPositionOn,
+  onOwnPositionChange,
 }: FieldMapProps) {
   const { t } = useTranslation();
   const [boxRef, boxWidth] = useElementWidth<HTMLDivElement>();
@@ -137,6 +150,25 @@ export default function FieldMap({
     if (near) choose(near);
   };
 
+  // GP-UX-026: the device position, kept in this component's state only.
+  // The site's coordinate first: without one the browser is not asked for the device position at all.
+  const siteCoordinates = useSiteCoordinates(plan.siteKey, ownPositionOn);
+  const position = useOwnPosition(ownPositionOn && siteCoordinates.status === 'ready');
+  const northAngleDeg = plan.settings?.north_angle_deg ?? 0;
+  const own = useMemo(
+    () =>
+      ownPositionView({
+        on: ownPositionOn,
+        status: position.status,
+        fix: position.fix,
+        site: siteCoordinates,
+        bounds,
+        northAngleDeg,
+        viewport,
+      }),
+    [ownPositionOn, position.status, position.fix, siteCoordinates, bounds, northAngleDeg, viewport],
+  );
+
   const buttonSx = { minHeight: KIOSK_TOUCH_TARGET, minWidth: KIOSK_TOUCH_TARGET, borderWidth: 2 };
 
   return (
@@ -178,6 +210,13 @@ export default function FieldMap({
           {t('pages.gardenPlan.field.map.fit')}
         </Button>
       </Box>
+      <OwnPositionSwitch
+        checked={ownPositionOn}
+        onChange={onOwnPositionChange}
+        supported={position.supported}
+        available={position.available}
+        hint={own.hint}
+      />
       {viewport === null ? (
         <Box data-testid="field-map-empty" sx={{ p: 2, border: 2, borderColor: 'divider', borderRadius: 1 }}>
           {t('pages.gardenPlan.empty.title')}
@@ -194,9 +233,19 @@ export default function FieldMap({
             borderColor: 'text.primary',
             borderRadius: 1,
             overflow: 'hidden',
+            position: 'relative',
           }}
         >
           {drawing}
+          {own.dot && (
+            <OwnPositionDot
+              centerPx={own.dot.centerPx}
+              radiusPx={own.dot.radiusPx}
+              radiusM={own.dot.radiusM}
+              widthPx={viewport.widthPx}
+              heightPx={viewport.heightPx}
+            />
+          )}
         </Box>
       )}
     </Box>

@@ -186,6 +186,15 @@ konstruktionsbedingt keinen personenbezogenen Freitext. Geometrie (`garden_objec
 `theme`-Schlüssel (tatsächliche Schlüssel `kamerplanter-lang`, `kamerplanter-theme`), `device_id` (R-049b
 nicht implementiert), jegliche API-Nutzlast in localStorage (G-W9 a hält).
 
+**Nur verarbeitet, nie gespeichert [v] (#2898):** die Eigenposition des Feldmodus (REQ-053 GP-UX-026, `LOC`).
+Nach dem Einschalten von „Meine Position“ liest die Karte die Geräteposition per `watchPosition` und hält sie
+ausschließlich im Komponentenzustand (`features/gardenPlanner/field/useOwnPosition.ts`); weder die Position noch
+die Wahl landen in einem der Speicher dieser Tabelle, in Redux, in einer Anfrage oder in einem Log. Der gemerkte
+Kartenausschnitt (`kp-garden-field-mode`) folgt nur Zoom und Beet-Tipp, nie der Position. Abgesichert durch
+`OwnPosition.test.tsx` (Storage, IndexedDB, Anfragen, Konsole, Store); die Fehlerverfolgung schwärzt Schlüssel
+mit `latitude`/`longitude`/`gps`/`coords`/`geolocation` zusätzlich (`observability/errorTracking.ts`).
+Daher keine Zeile in §3.8.
+
 ---
 
 ## 4. Felder, die die Aufgabe nannte, die aber **nicht** existieren (nicht erfinden)

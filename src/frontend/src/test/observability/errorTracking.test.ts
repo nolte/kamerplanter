@@ -432,6 +432,15 @@ describe('errorTracking', () => {
       expect(isSensitiveName('plantName')).toBe(false);
     });
 
+    it('treats coordinates as personal data (site GPS, own position GP-UX-026)', () => {
+      for (const name of ['latitude', 'longitude', 'gps_coordinates', 'coords', 'geolocation']) {
+        expect(isSensitiveName(name)).toBe(true);
+      }
+      expect(scrubUrl('https://kp.example/x?latitude=52.52&longitude=13.4&tab=map')).toBe(
+        'https://kp.example/x?latitude=[redacted]&longitude=[redacted]&tab=map',
+      );
+    });
+
     it('redacts in place and keeps the key visible', () => {
       const record: Record<string, unknown> = { tenant: 'acme', access_token: 'abc' };
       redactRecord(record);
