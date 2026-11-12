@@ -663,7 +663,10 @@ def test_tc_053_104_phone_390_touchbar_bars_below_overflow_and_bottom_sheet(
     Breaks if the TouchBar or the horizontal tool bar is missing or not below the canvas, undo/redo are not in the
     TouchBar, the header bar wraps or still shows the tabs or the panel switch inline, an overflow entry for them is
     missing, lower than 48 px or without text, a bar button is smaller than 48 x 48 px, the selection does not open a
-    bottom sheet above the bars, or the page scrolls sideways (AC-9, AC-15 part, GP-UX-063/069).
+    bottom sheet above the bars, or the page scrolls sideways (AC-9, AC-15 part, GP-UX-063/069). #2904: also breaks if
+    the overflow's tooltip stays on screen after its menu closed or covers the sheet's close button, the selection
+    group wraps or a selection action (delete above all) lies outside the viewport, or the rotation step - moved into
+    the overflow below md - is missing there.
     """
     set_phone_viewport(browser, 390, 844)
     plan.dismiss_light_mode_warning()
@@ -723,6 +726,7 @@ def test_tc_053_104_phone_390_touchbar_bars_below_overflow_and_bottom_sheet(
         f"TC-053-104 (AC-15): overflow entries lower than 48 px or without text: {short}"
     )
     plan.wait_for_tab("list", "TC-053-104: the overflow entry 'Liste' opens the list")
+    plan.wait_for_no_tooltip("TC-053-104 (#2904): after the overflow menu closed")
     plan.wait_for_tab_content("list", "TC-053-104: the list tab on the phone")
     plan.open_tab("plan")
     plan.wait_for_tab_content("plan", "TC-053-104: back to the plan through the overflow")
@@ -741,8 +745,49 @@ def test_tc_053_104_phone_390_touchbar_bars_below_overflow_and_bottom_sheet(
     assert plan.horizontal_overflow_px() <= 0, (
         f"TC-053-104: with the sheet the page scrolls sideways by {plan.horizontal_overflow_px()} px"
     )
+
+    # #2904: every selection action fully inside the viewport, in one row - without scrolling the page to it.
+    width, height = plan.viewport_size()
+    actions = plan.button_rects(plan.SELECTION_GROUP)
+    names = [name for name, _ in actions]
+    assert "garden-plan-delete-button" in names and "garden-plan-align-button" in names, (
+        f"TC-053-104 (#2904): the selection group should hold align and delete: {names}"
+    )
+    outside = [
+        (name, box)
+        for name, box in actions
+        if box["left"] < -1
+        or box["right"] > width + 1
+        or box["top"] < -1
+        or box["bottom"] > height + 1
+    ]
+    assert not outside, (
+        f"TC-053-104 (#2904): selection actions outside the {width} x {height} viewport: {outside}"
+    )
+    delete = plan.rect_of(plan.DELETE_BUTTON, "the delete button")
+    assert delete["top"] >= 0 and delete["bottom"] <= height + 1, (
+        f"TC-053-104 (#2904): 'Löschen' {delete} is cut off by the bottom edge ({height} px)"
+    )
+    rows = [(name, box["top"], box["bottom"]) for name, box in actions]
+    assert plan.on_one_line(rows), f"TC-053-104 (#2904): the selection group wraps: {rows}"
     screenshot(
         "053_104_03_phone_sheet", "390 × 844: Auswahl öffnet das Bottom Sheet über den Leisten"
+    )
+
+    # The rotation step is in the overflow below md (never dropped); choosing it leaves no tooltip over the sheet.
+    steps = plan.inspect_overflow(
+        ("garden-plan-angle-15", "garden-plan-angle-45", "garden-plan-angle-90"),
+        then_choose="garden-plan-angle-45",
+    )
+    short = {
+        entry: found for entry, found in steps.items() if found[0] < MIN_TARGET_PX or not found[1]
+    }
+    assert not short, (
+        f"TC-053-104 (#2904): rotation step entries lower than 48 px or without text: {short}"
+    )
+    plan.wait_for_no_tooltip("TC-053-104 (#2904): after choosing the rotation step")
+    assert plan.is_uncovered(plan.SIDE_PANEL_CLOSE, "the sheet's close button"), (
+        "TC-053-104 (#2904): something lies over the bottom sheet's close button after the overflow closed"
     )
 
 

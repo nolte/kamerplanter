@@ -40,6 +40,7 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
+import RotateRightIcon from '@mui/icons-material/RotateRight';
 import SelectAllIcon from '@mui/icons-material/SelectAll';
 import ImageIcon from '@mui/icons-material/Image';
 import LayersIcon from '@mui/icons-material/Layers';
@@ -104,7 +105,13 @@ import { EditorWorkspace } from './EditorWorkspace';
 import { EditorOverlay } from './EditorOverlay';
 import { LiveMoveLayer } from './LiveMoveLayer';
 import { usePendingZoom } from './usePendingZoom';
-import { EditorToolbar, type AngleStep, type EditorTool, type ToolbarSelectionGroup } from './EditorToolbar';
+import {
+  ANGLE_STEPS,
+  EditorToolbar,
+  type AngleStep,
+  type EditorTool,
+  type ToolbarSelectionGroup,
+} from './EditorToolbar';
 import { Grid } from './Grid';
 import { MiniMap } from './MiniMap';
 import { miniMapVisible, panToCentre } from './miniMap';
@@ -113,7 +120,7 @@ import { LiveRegion } from './LiveRegion';
 import { NewTypeSelect } from './NewTypeSelect';
 import { PlanListView } from './PlanListView';
 import { buildTree, neighbourKey } from './planTree';
-import { PropertiesPanel } from './PropertiesPanel';
+import { ITEM_MENU_ID, PropertiesPanel } from './PropertiesPanel';
 import { SaveMessages, UndoRedoButtons } from './SaveBar';
 import { ScaleBar } from './ScaleBar';
 import { SkipLinks } from './SkipLinks';
@@ -1292,7 +1299,10 @@ export function GardenPlanEditor({
   // The rare actions of the header bar's overflow (§17.3 target picture; GP-UX-046/052/066). Entries that stand in for
   // a former button keep its test id (GP-UX-070). "Add with dimensions" lives in the sub-menus of the tool bar
   // (WP 10.4); while the tab "Liste" hides the tool bar, the overflow offers it, so the list keeps a way to add.
-  // "Save as template" is there only while exactly one bed is selected (AC-4) - not as a disabled entry.
+  // "Save as template" is there only while exactly one bed is selected (AC-4) - not as a disabled entry. Below md the
+  // rotation step of the tool bar's selection group stands in here too, while something is selected on the plan, so
+  // the group stays one row on a phone (#2904); its entries keep the test ids of the rail's toggles (GP-UX-070).
+  const angleStepInOverflow = toolbarBelow && view !== 'list' && selection.some(isPlanEntity);
   const overflowItems = useMemo<MenuAction[]>(
     () => [
       ...(view === 'list'
@@ -1330,6 +1340,18 @@ export function GardenPlanEditor({
         onClick: () => setMultiOpen(true),
         disabled: !selection.some(isPlanEntity),
       },
+      ...(angleStepInOverflow
+        ? ANGLE_STEPS.map<MenuAction>((step, index) => ({
+            id: `angle-${step}`,
+            label: t(`${PREFIX}.angleStep.label`, { step }),
+            icon: <RotateRightIcon fontSize="small" />,
+            kind: 'radio',
+            checked: angleStep === step,
+            onClick: () => setAngleStep(step),
+            testId: `garden-plan-angle-${step}`,
+            separated: index === 0,
+          }))
+        : []),
       {
         id: 'underlay',
         label: t(`${UNDERLAY}.open`),
@@ -1358,7 +1380,18 @@ export function GardenPlanEditor({
         testId: 'garden-plan-keyboard-help-button',
       },
     ],
-    [doSelectAll, openAddWithDimensions, openHelp, selection, showPanelTab, singleBed, t, view],
+    [
+      angleStep,
+      angleStepInOverflow,
+      doSelectAll,
+      openAddWithDimensions,
+      openHelp,
+      selection,
+      showPanelTab,
+      singleBed,
+      t,
+      view,
+    ],
   );
 
   /** Right click (mouse and pen): the object under the pointer, in a menu at the pointer (GP-FR-027). */
@@ -1664,6 +1697,7 @@ export function GardenPlanEditor({
         onSelect={onSelect}
         onStack={onStack}
         onMore={(element) => setMenuAnchor({ kind: 'element', element })}
+        moreOpen={menuAnchor?.kind === 'element'}
         onDuplicate={duplicate}
         onDelete={requestDelete}
         onZOrder={moveInZ}
@@ -2272,6 +2306,7 @@ export function GardenPlanEditor({
         actions={menuActions}
         onClose={() => setMenuAnchor(null)}
         label={t(`${PREFIX}.contextMenu.label`)}
+        id={ITEM_MENU_ID}
       />
       <AddWithDimensionsDialog
         open={addOpen}

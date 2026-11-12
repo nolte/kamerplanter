@@ -12,9 +12,10 @@ import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import Tooltip, { type TooltipProps } from '@mui/material/Tooltip';
+import type { TooltipProps } from '@mui/material/Tooltip';
 import type { SxProps, Theme } from '@mui/material/styles';
 import AlignHorizontalLeftIcon from '@mui/icons-material/AlignHorizontalLeft';
+import { MenuTriggerTooltip } from './MenuTriggerTooltip';
 import type { AlignMode, DistributeAxis } from './tools/align';
 import { unavailableProps } from './unavailable';
 
@@ -57,7 +58,11 @@ export function AlignMenu({
   const close = () => setAnchor(null);
   return (
     <>
-      <Tooltip title={t(`${PREFIX}.hint`)} placement={tooltipPlacement}>
+      <MenuTriggerTooltip
+        title={t(`${PREFIX}.hint`)}
+        placement={tooltipPlacement}
+        menuOpen={anchor !== null}
+      >
         {/* An unavailable button takes no pointer: the span carries the tooltip (two objects are needed to align). It is
             aria-disabled, not disabled, so it keeps the focus and stays a tool bar item (GP-NFR-070). */}
         <Box component="span" sx={{ display: fullWidth ? 'block' : 'inline-block' }}>
@@ -79,7 +84,7 @@ export function AlignMenu({
             </Box>
           </Button>
         </Box>
-      </Tooltip>
+      </MenuTriggerTooltip>
       <Menu
         id={id}
         anchorEl={anchor}

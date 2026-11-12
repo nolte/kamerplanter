@@ -3,15 +3,17 @@
  * the rare actions (keyboard help, underlay, select all, export and import, …) and every header control the bar
  * moved out for lack of room, in the bar's order. The button carries `aria-label`, `aria-haspopup="menu"`,
  * `aria-expanded` and `aria-controls`; every entry has an icon and a text and is at least 48 px high (the menu is
- * `ContextMenu`, so arrow keys, Home/End and Esc work as in every MUI menu). "Save" is never in here.
+ * `ContextMenu`, so arrow keys, Home/End and Esc work as in every MUI menu). "Save" is never in here. Below md the
+ * tool bar's rotation step stands in here as well, while something is selected (#2904). Its tooltip neither covers
+ * the open menu nor lingers after it closed (`MenuTriggerTooltip`).
  */
 import { useId, useState, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
+import { MenuTriggerTooltip } from './MenuTriggerTooltip';
 
 const PREFIX = 'pages.gardenPlan.editor';
 
@@ -28,7 +30,8 @@ export function EditorHeaderActions({ actions, buttonRef }: EditorHeaderActionsP
   const label = t(`${PREFIX}.contextMenu.overflow`);
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }} data-testid="garden-plan-header-actions">
-      <Tooltip title={label}>
+      {/* No tooltip over the open menu, nor one that the closing menu leaves over the bottom sheet (#2904). */}
+      <MenuTriggerTooltip title={label} menuOpen={anchor !== null}>
         <IconButton
           ref={buttonRef}
           aria-label={label}
@@ -41,7 +44,7 @@ export function EditorHeaderActions({ actions, buttonRef }: EditorHeaderActionsP
         >
           <MoreVertIcon />
         </IconButton>
-      </Tooltip>
+      </MenuTriggerTooltip>
       <ContextMenu
         id={menuId}
         anchor={anchor}

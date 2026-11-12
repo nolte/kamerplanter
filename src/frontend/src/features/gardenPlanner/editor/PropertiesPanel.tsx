@@ -46,6 +46,7 @@ import type {
 } from '../model/types';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
+import { MenuTriggerTooltip } from './MenuTriggerTooltip';
 import { NumberField } from './NumberField';
 import { ObjectPropsFields } from './objectProps/ObjectPropsFields';
 import { OBJECT_PROPS_PREFIX } from './objectProps/shared';
@@ -77,6 +78,8 @@ const WindowSunSuggestion = lazy(() => import('./WindowSunSuggestion'));
 const ObjectTasksSection = lazy(() => import('./ObjectTasksSection'));
 
 const PREFIX = 'pages.gardenPlan.editor';
+/** The id of the item menu's list, for the `aria-controls` of the "⋯" button that opens it (GP-UX-040). */
+export const ITEM_MENU_ID = 'garden-plan-item-menu-list';
 const SUN_PREFIX = 'pages.gardenPlan.sun';
 
 /** A tile-sized placeholder while the lazy tiles load, so the panel does not jump. */
@@ -105,6 +108,8 @@ export interface PropertiesPanelProps {
   onStack: (stack: SelectionStack | null) => void;
   /** Opens the item menu anchored at the "⋯" button (GP-UX-040). */
   onMore: (anchor: HTMLElement) => void;
+  /** The item menu is open at the "⋯" button: its tooltip stays away (#2904). */
+  moreOpen?: boolean;
   onDuplicate: () => void;
   onDelete: () => void;
   onZOrder: (move: ZMove) => void;
@@ -724,7 +729,7 @@ function StackList({
 }
 
 export function PropertiesPanel(props: PropertiesPanelProps) {
-  const { plan, selection, labels, layout, onMore, onSelect, onStack, onDrawBed } = props;
+  const { plan, selection, labels, layout, onMore, moreOpen = false, onSelect, onStack, onDrawBed } = props;
   const { t } = useTranslation();
   const entities = selection.filter(isPlanEntity);
   const single = selection.length === 1 ? selection[0] : null;
@@ -859,17 +864,19 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
           {title}
         </Typography>
         {entities.length > 0 && (
-          <Tooltip title={t(`${PREFIX}.contextMenu.more`)}>
+          <MenuTriggerTooltip title={t(`${PREFIX}.contextMenu.more`)} menuOpen={moreOpen}>
             <IconButton
               aria-label={t(`${PREFIX}.contextMenu.more`)}
               aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              aria-controls={moreOpen ? ITEM_MENU_ID : undefined}
               onClick={(event) => onMore(event.currentTarget)}
               sx={{ width: 48, height: 48 }}
               data-testid="garden-plan-panel-more"
             >
               <MoreVertIcon />
             </IconButton>
-          </Tooltip>
+          </MenuTriggerTooltip>
         )}
       </Box>
       {body}
