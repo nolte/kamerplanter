@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Iterator
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -153,6 +154,84 @@ class TestReadingThePlan:
         response = client().get(f"/api/v1/t/other/sites/{SITE}/plan")
         assert response.status_code == 404
         assert response.json()["error_code"] == "ENTITY_NOT_FOUND"
+
+
+class TestThePlanAsOfADay:
+    """GP-API-001 ``as_of`` (#2901) on the wire: the plants of that day, refusals in the 422 envelope."""
+
+    _TODAY = date(2026, 7, 20)
+
+    @pytest.fixture(autouse=True)
+    def _today(self, monkeypatch) -> None:
+        from app.domain.services import garden_plan_service
+
+        monkeypatch.setattr(garden_plan_service, "today_utc", lambda: self._TODAY)
+
+    @pytest.fixture
+    def stays(self, repo: FakePlanRepo) -> FakePlanRepo:
+        """A tomato from 1 May to 1 June (removed), a bean from 1 June (still standing), both with a phase."""
+        from app.domain.models.garden_plan import PlantShortInfo
+
+        tomato = PlantShortInfo(key="tom", instance_id="T-1", species_key="sp", phase_key="veg", location_key="bed")
+        bean = PlantShortInfo(key="bean", instance_id="B-1", species_key="sp2", phase_key="veg", location_key="bed")
+        repo.plant_stays = [(tomato, date(2026, 5, 1), date(2026, 6, 1)), (bean, date(2026, 6, 1), None)]
+        repo.plants = [bean]
+        return repo
+
+    @pytest.mark.parametrize(
+        ("as_of", "expected"),
+        [
+            ("2026-04-30", []),  # before planting
+            ("2026-05-01", ["tom"]),  # the planting day counts
+            ("2026-05-31", ["tom"]),  # during
+            ("2026-06-01", ["bean"]),  # the removal day no longer counts; the bean is planted that day
+            ("2026-07-20", ["bean"]),  # today; an open removal counts as standing
+        ],
+    )
+    def test_the_plants_of_that_day_come_back_without_a_phase(self, client, stays, as_of, expected) -> None:
+        response = client(TenantRole.VIEWER).get(_PLAN, params={"as_of": as_of})
+
+        assert response.status_code == 200
+        body = response.json()
+        assert [p["key"] for p in body["plants"]] == expected
+        assert all("phase_key" not in p for p in body["plants"])
+        assert body["locations"][0]["season_state"] == ("planted" if expected else "empty")
+        assert [loc["key"] for loc in body["locations"]] == ["bed"]  # the structure is today's
+
+    def test_without_as_of_the_read_is_todays_with_the_phase(self, client, stays) -> None:
+        body = client().get(_PLAN).json()
+        assert [(p["key"], p["phase_key"]) for p in body["plants"]] == [("bean", "veg")]
+        assert stays.read_as_of == [None]
+
+    @pytest.mark.parametrize("as_of", ["2026-13-01", "20260701", "yesterday", "2026-02-30"])
+    def test_a_malformed_date_is_a_422_naming_the_parameter(self, client, as_of) -> None:
+        response = client().get(_PLAN, params={"as_of": as_of})
+        assert response.status_code == 422
+        body = response.json()
+        assert body["error_code"] == "VALIDATION_ERROR"
+        assert "as_of" in body["details"][0]["field"]
+
+    def test_a_day_after_today_is_a_422_with_its_code(self, client, repo) -> None:
+        response = client().get(_PLAN, params={"as_of": "2026-07-21"})
+        assert response.status_code == 422
+        detail = response.json()["details"][0]
+        assert (detail["code"], detail["field"]) == ("plan.as_of_in_future", "as_of")
+        assert repo.read_as_of == []
+
+    def test_a_foreign_tenants_site_is_still_a_404_with_a_day(self, client, stays) -> None:
+        response = client().get(f"/api/v1/t/other/sites/{SITE}/plan", params={"as_of": "2026-05-15"})
+        assert response.status_code == 404
+        assert "tom" not in response.text and stays.read_as_of == []
+
+    def test_the_parameter_is_published_with_a_description_and_an_example(self) -> None:
+        from app.main import app
+
+        operation = app.openapi()["paths"]["/api/v1/t/{tenant_slug}/sites/{key}/plan"]["get"]
+        parameter = next(p for p in operation["parameters"] if p["name"] == "as_of")
+        assert parameter["required"] is False and "planted_on <= as_of < removed_on" in parameter["description"]
+        assert parameter["schema"]["anyOf"][0] == {"type": "string", "format": "date"}
+        assert parameter["schema"]["examples"] == ["2025-07-15"]
+        assert "422" in operation["responses"]
 
 
 class TestTheBoundary:

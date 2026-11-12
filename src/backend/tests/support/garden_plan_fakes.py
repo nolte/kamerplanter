@@ -8,7 +8,7 @@ reached the repository at all. Shared by the unit tier and the API tier.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from app.common.exceptions import DuplicateError, PlanError, PlanRevisionConflictError, WriteConflictError
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
@@ -156,6 +156,11 @@ class FakePlanRepo(IGardenPlanRepository):
         self.objects: dict[str, GardenObject] = {}
         self.slots: list[Slot] = []
         self.plants: list[PlantShortInfo] = []
+        #: GP-API-001 ``as_of`` (#2901): every plant with its stay ``(plant, planted_on, removed_on)``; ``plants``
+        #: stays the "standing now" list the read without ``as_of`` returns.
+        self.plant_stays: list[tuple[PlantShortInfo, date, date | None]] = []
+        #: The ``as_of`` of every ``load_read_model`` read (``None`` = today's plants).
+        self.read_as_of: list[date | None] = []
         self.bed_types = {"bed": True, "raised_bed": True, "greenhouse": False}
         #: ``supports_layout`` per type (W-016.1): every bed type plus tent and shelf.
         self.layout_types = {"bed": True, "raised_bed": True, "greenhouse": False, "tent": True, "shelf": True}
@@ -213,13 +218,25 @@ class FakePlanRepo(IGardenPlanRepository):
             return [], []
         return list(self.locations.values()), list(self.objects.values())
 
-    def load_read_model(self, site_key, *, tenant_key, include_plants, include_tasks, skip_unreadable_slots=True):
+    def load_read_model(
+        self, site_key, *, tenant_key, include_plants, include_tasks, skip_unreadable_slots=True, as_of=None
+    ):
         locations, objects = self.load_structure(site_key, tenant_key=tenant_key)
+        self.read_as_of.append(as_of)
+        if as_of is None:
+            plants = list(self.plants)
+        else:
+            # The repository's window, ``planted_on <= as_of < removed_on``, and no phase (today's is not that day's).
+            plants = [
+                plant.model_copy(update={"phase_key": None})
+                for plant, planted_on, removed_on in self.plant_stays
+                if planted_on <= as_of and (removed_on is None or as_of < removed_on)
+            ]
         return PlanReadData(
             locations=locations,
             garden_objects=objects,
             slots=list(self.slots),
-            plants=list(self.plants) if include_plants else [],
+            plants=plants if include_plants else [],
             task_counters=dict(self.task_counters) if include_tasks else {},
             object_task_counters=dict(self.object_task_counters) if include_tasks else {},
             last_watered=dict(self.last_watered) if include_tasks else {},

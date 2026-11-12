@@ -13,7 +13,7 @@ role check answers 422 where the spec says 403.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from structlog.testing import capture_logs
@@ -1036,6 +1036,64 @@ class TestThePlanReadModel:
         assert all(isinstance(plant, PlantShortInfo) for plant in view.plants)
         assert len(view.locations) == 1 and len(objects) == 2
         assert len(view.slots) == 2 and len(view.plants) == 1 and view.season_states == {"bed": "planted"}
+
+
+_TODAY = date(2026, 7, 20)
+
+
+class TestThePlanAsOfADay:
+    """GP-API-001 ``as_of`` (#2901): the plants of that day, the structure of today, nothing from the future.
+
+    The date window itself (``planted_on <= as_of < removed_on``) is the repository's AQL and is measured
+    against ArangoDB in ``tests/integration/test_garden_plan_repository.py::TestThePlanAsOfADay``; here the
+    service's part: the future refusal before any read, the hand-over, and what it derives from the plants.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _today(self, monkeypatch):
+        monkeypatch.setattr(garden_plan_service, "today_utc", lambda: _TODAY)
+
+    @staticmethod
+    def _bed_with_a_past_tomato(repo):
+        repo.locations["bed"] = make_location("bed", geometry=rect(1, 1))
+        tomato = PlantShortInfo(key="p", instance_id="T-1", species_key="sp", phase_key="ph_veg", location_key="bed")
+        repo.plant_stays = [(tomato, date(2026, 5, 1), date(2026, 6, 1))]
+
+    def test_a_day_after_today_is_refused_before_anything_is_read(self, world):
+        service, repo, _ = world
+        with pytest.raises(PlanError) as refused:
+            service.get_plan(SITE, tenant_key=TENANT, as_of=_TODAY + timedelta(days=1))
+        assert refused.value.status_code == 422 and refused.value.error_code == "plan.as_of_in_future"
+        assert refused.value.details[0]["field"] == "as_of"
+        assert repo.read_as_of == []
+
+    def test_today_is_a_day_that_may_be_asked_for(self, world):
+        service, repo, _ = world
+        service.get_plan(SITE, tenant_key=TENANT, as_of=_TODAY)
+        assert repo.read_as_of == [_TODAY]
+
+    def test_without_as_of_the_read_is_todays(self, world):
+        service, repo, _ = world
+        service.get_plan(SITE, tenant_key=TENANT)
+        assert repo.read_as_of == [None]
+
+    def test_the_day_reaches_the_read_and_the_bed_is_planted_on_that_day(self, world):
+        service, repo, _ = world
+        self._bed_with_a_past_tomato(repo)
+
+        then = service.get_plan(SITE, tenant_key=TENANT, as_of=date(2026, 5, 15))
+        now = service.get_plan(SITE, tenant_key=TENANT)
+
+        assert [(p.key, p.phase_key) for p in then.plants] == [("p", None)]
+        assert then.season_states == {"bed": "planted"}
+        assert now.plants == [] and now.season_states == {"bed": "empty"}
+        assert [loc.key for loc in then.locations] == [loc.key for loc in now.locations]  # the structure is today's
+
+    def test_a_foreign_site_is_a_404_with_a_day_as_well(self, world):
+        service, repo, _ = world
+        with pytest.raises(NotFoundError):
+            service.get_plan("site_foreign", tenant_key=TENANT, as_of=date(2026, 5, 15))
+        assert repo.read_as_of == []
 
 
 class TestNoUserTextInLogs:

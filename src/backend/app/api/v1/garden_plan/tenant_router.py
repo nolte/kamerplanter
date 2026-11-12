@@ -8,6 +8,7 @@ the whole rule.
 
 import json
 import re
+from datetime import date
 from time import perf_counter
 from typing import Annotated, Any
 
@@ -280,19 +281,39 @@ _NO_TASKS = _NoTasks()
     response_model=GardenPlanResponse,
     response_model_exclude_none=True,
     summary="Read the whole garden plan of a site",
+    responses={**VALIDATION_RESPONSE},
 )
 def get_plan(
     key: _SITE_KEY,
     include: Annotated[
         str,
-        Query(description="Comma-separated parts to include: plants, tasks, zones. Default: all (GP-API-001)."),
+        Query(
+            description="Comma-separated parts to include: plants, tasks, zones. Default: all (GP-API-001).",
+            examples=["plants,tasks,zones"],
+        ),
     ] = "plants,tasks,zones",
+    as_of: Annotated[
+        date | None,
+        Query(
+            description=(
+                "Historical plant state (GP-API-001): the plants that stood in the beds on this day "
+                "(planted_on <= as_of < removed_on; no removal date counts as standing), without a phase. "
+                "Beds, objects, boundary, slots, task counters and zones stay current. Not after today (UTC); "
+                "omitted = the plants standing now."
+            ),
+            examples=["2025-07-15"],
+        ),
+    ] = None,
     ctx: TenantContext = Depends(get_current_tenant),
     service: GardenPlanService = Depends(get_garden_plan_service),
 ) -> GardenPlanResponse:
     """The site plan, locations with geometry, garden objects, slots in plan coordinates, plant short
-    info and task counters in one request (GP-API-001, GP-NFR-002)."""
-    view = service.get_plan(key, tenant_key=ctx.tenant_key, include=_include(include))
+    info and task counters in one request (GP-API-001, GP-NFR-002).
+
+    422 for an unknown ``include`` value, a malformed ``as_of`` and ``plan.as_of_in_future`` for a day after
+    today.
+    """
+    view = service.get_plan(key, tenant_key=ctx.tenant_key, include=_include(include), as_of=as_of)
     observe_plan_size(len(view.locations) + len(view.garden_objects))
     return _plan_response(view)
 
