@@ -199,10 +199,12 @@ describe('one header bar (GP-UX-063, AC-3)', () => {
     const entries = openOverflow();
     expect(button).toHaveAttribute('aria-expanded', 'true');
     // "Add with dimensions" is in the tool bar's sub-menus since WP 10.4; "Save as template" needs one selected bed.
+    // The garden boundary is a plan-level entry next to the underlay, not a rail tool (#2890).
     expect(entries).toEqual([
       'garden-plan-menu-selectAll',
       'garden-plan-menu-multiDuplicate',
       'garden-plan-underlay-open',
+      'garden-plan-menu-boundary',
       'garden-plan-zones-open',
       'garden-plan-keyboard-help-button',
       'garden-plan-io-export',

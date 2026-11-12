@@ -37,6 +37,8 @@
  * Indoor plan (WP 10.8, §9.8, GP-FR-182/183): a site of type `indoor`, `windowsill` or `grow_tent` uses the same page.
  * Its empty plan invites to draw the flat or to load a photo of it as a template (the underlay, GP-FR-033), and the
  * "Beete" tab reads "Pflanzplätze" - its URL value stays `beds`. The editor hides the frost layer of such a plan.
+ * "Grundriss zeichnen" mounts the editor with the boundary mode on (#2890): the first drag or the first points draw the
+ * flat's outline.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -559,6 +561,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           minPxPerM={minPxPerM}
           initialAddOpen={startAction === 'bed' && contentBounds === null}
           initialUnderlayOpen={startAction === 'underlay' && contentBounds === null}
+          initialBoundaryOpen={startAction === 'draw' && contentBounds === null}
           view={tab === 'list' ? 'list' : 'plan'}
           onViewChange={onEditorView}
           nav={headerNav}

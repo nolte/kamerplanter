@@ -27,6 +27,8 @@ const PREFIX = 'pages.gardenPlan.editor.touch';
 
 interface TouchBarProps {
   tool: PlanTool;
+  /** A shape is being drawn - a bed, a garden object or the boundary (#2890); default: the bed and object tools. */
+  drawing?: boolean;
   drawShape: DrawShape;
   draftPoints: number;
   onPlacePoint: () => void;
@@ -43,6 +45,7 @@ const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 
 export function TouchBar({
   tool,
+  drawing: drawingProp,
   drawShape,
   draftPoints,
   onPlacePoint,
@@ -54,7 +57,7 @@ export function TouchBar({
   leading,
 }: TouchBarProps) {
   const { t } = useTranslation();
-  const drawing = tool === 'bed' || tool === 'garden_object';
+  const drawing = drawingProp ?? (tool === 'bed' || tool === 'garden_object');
   const pointShape = drawShape === 'polygon' || drawShape === 'polyline';
   const minPoints = drawShape === 'polygon' ? 3 : 2;
   if (!drawing && tool !== 'select' && !leading) return null;

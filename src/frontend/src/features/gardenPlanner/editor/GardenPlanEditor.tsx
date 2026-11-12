@@ -65,6 +65,9 @@ import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import YardIcon from '@mui/icons-material/Yard';
+import DrawOutlinedIcon from '@mui/icons-material/DrawOutlined';
+import CloseIcon from '@mui/icons-material/Close';
+import Tooltip from '@mui/material/Tooltip';
 import { isApiError } from '@/api/errors';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -75,7 +78,7 @@ import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
 import { MAX_PX_PER_M, planGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
-import { snapCandidates } from '../renderer/planIndex';
+import { BOUNDARY_KEY, snapCandidates } from '../renderer/planIndex';
 import { toScreen as projectToScreen } from '../renderer/viewport';
 import { markerLodBedKeys } from '../renderer/scene';
 import type { CompanionPairItem } from '../api/companionEdges';
@@ -157,7 +160,7 @@ import { companionBedKeys, useCompanionEdges } from './useCompanionEdges';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import type { DimensionTarget } from './tools/addDimensions';
-import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
+import { BOUNDARY_SHAPES, commonBedTypeKey, type DrawShape } from './tools/drawMachine';
 import {
   alignAvailability,
   alignSelection,
@@ -204,6 +207,8 @@ export interface GardenPlanEditorProps {
   initialAddOpen?: boolean;
   /** Open the underlay dialog when the editor mounts: the empty indoor plan's "photo as a template" (WP 10.8). */
   initialUnderlayOpen?: boolean;
+  /** Start the boundary mode when the editor mounts: the empty indoor plan's "draw the floor plan" (#2890). */
+  initialBoundaryOpen?: boolean;
   /**
    * Plan or list (GP-NFR-023), when the route owns it: the tabs Plan · Liste keep it in the URL (GP-UX-064).
    * Without it the editor keeps the choice itself.
@@ -274,6 +279,7 @@ const MultiDuplicateDialog = lazy(() => import('./MultiDuplicateDialog'));
 const CompanionEdgeInfo = lazy(() => import('./CompanionEdgeInfo'));
 
 const NO_KEYS: ReadonlySet<string> = new Set();
+const BOUNDARY_ONLY: ReadonlySet<string> = new Set([BOUNDARY_KEY]);
 const NO_BED_KEYS: readonly string[] = [];
 
 /** The turn a click on "Rotate" adds to the template being placed (GP-FR-044). */
@@ -285,10 +291,16 @@ interface TemplateMode {
   rotationDeg: number;
 }
 
+/**
+ * The boundary mode (#2890): `draw` while the plan has no boundary, `edit` (unlocked, handles shown) once it has one,
+ * `null` while another tool is on - then the boundary is locked (GP-FR-032).
+ */
+export type BoundaryMode = 'draw' | 'edit' | null;
+
 /** `panModifier`: Space is held on the canvas, a drag pans whatever the tool (GP-FR-010). */
-function cursorOf(tool: PlanTool, panModifier: boolean): string {
+function cursorOf(tool: PlanTool, panModifier: boolean, boundaryMode: BoundaryMode): string {
   if (tool === 'pan' || panModifier) return 'grab';
-  if (tool === 'bed' || tool === 'garden_object') return 'crosshair';
+  if (tool === 'bed' || tool === 'garden_object' || boundaryMode === 'draw') return 'crosshair';
   return 'default';
 }
 
@@ -335,6 +347,7 @@ export function GardenPlanEditor({
   onOpenCare,
   initialAddOpen = false,
   initialUnderlayOpen = false,
+  initialBoundaryOpen = false,
   view: viewProp,
   onViewChange,
   nav,
@@ -357,6 +370,8 @@ export function GardenPlanEditor({
   const { selection, stack, tool, editError, past, future, pending } =
     useAppSelector(selectGardenPlanState);
   const invalidKeys = useAppSelector(selectInvalidKeys);
+  const boundary = plan.settings?.boundary ?? null;
+  const boundaryMode: BoundaryMode = tool === 'boundary' ? (boundary ? 'edit' : 'draw') : null;
   // The side panel (GP-UX-068): a new selection - or the touch list of objects at one spot - opens it on the properties.
   const stackLists = stack !== null && stack.keys.length >= 2;
   const panelSelection = useMemo(
@@ -669,13 +684,13 @@ export function GardenPlanEditor({
   // corners and edges of the other visible objects (priority corner -> edge -> grid); what is being moved
   // is left out, or it would snap to itself.
   const pxPerM = viewport.pxPerM;
-  const movingKeys = useMemo(
-    () =>
-      tool === 'select' && templateMode === null
-        ? new Set(moveTargets(plan, selection).map((entry) => entry.key))
-        : NO_KEYS,
-    [plan, selection, templateMode, tool],
-  );
+  const movingKeys = useMemo(() => {
+    // The boundary being reshaped must not snap to its own corners (#2890).
+    if (tool === 'boundary') return BOUNDARY_ONLY;
+    return tool === 'select' && templateMode === null
+      ? new Set(moveTargets(plan, selection).map((entry) => entry.key))
+      : NO_KEYS;
+  }, [plan, selection, templateMode, tool]);
   const candidates = useMemo(
     () => (snapEnabled ? snapCandidates(plan, movingKeys) : undefined),
     [plan, movingKeys, snapEnabled],
@@ -810,7 +825,7 @@ export function GardenPlanEditor({
   // the next point will land); on an object edge it draws that edge as a guide (GP-FR-154). A select press, a
   // marquee or a move never shows the pointer's marker: a move shows where the moved object snapped
   // (`tools.moveSnap`), and the first pointer move of a drag still sees the press here.
-  const drawTool = tool === 'bed' || tool === 'garden_object';
+  const drawTool = tool === 'bed' || tool === 'garden_object' || boundaryMode === 'draw';
   const templateTool = templateMode !== null;
   const {
     onPointerMove: toolPointerMove,
@@ -953,7 +968,6 @@ export function GardenPlanEditor({
   });
 
   const northAngleDeg = plan.settings?.north_angle_deg ?? 0;
-  const boundary = plan.settings?.boundary ?? null;
   const onNorthAngle = useMemo(
     () =>
       boundary
@@ -1296,6 +1310,53 @@ export function GardenPlanEditor({
     setAddOpen(true);
   }, []);
 
+  // ── The garden boundary / flat outline (UC-01, GP-FR-019/032, #2890) ─────
+
+  /**
+   * Draw the boundary, or unlock it for editing: the boundary mode. It is a plan-level action of the overflow, not a
+   * tool of the rail (GP-UX-001 lists the rail's tools; §17.3 keeps the rare actions in "⋮"). Nothing stays selected:
+   * the boundary's handles are the only ones on the plan meanwhile.
+   */
+  const startBoundary = useCallback(() => {
+    dispatch(setSelection([]));
+    dispatch(setStack(null));
+    dispatch(setTool('boundary'));
+    setTemplateMode(null);
+    setGhostPoint(null);
+    setDrawShape((shape) => (BOUNDARY_SHAPES.includes(shape) ? shape : 'rect'));
+  }, [dispatch]);
+  /** Leave the boundary mode: the boundary is locked again (GP-FR-032); unsaved changes of it stay pending. */
+  const lockBoundary = useCallback(() => void dispatch(setTool('select')), [dispatch]);
+  // The indoor empty state's "Grundriss zeichnen" starts the mode once, when the editor mounts.
+  const boundaryStarted = useRef(false);
+  useEffect(() => {
+    if (!initialBoundaryOpen || boundaryStarted.current) return;
+    boundaryStarted.current = true;
+    startBoundary();
+  }, [initialBoundaryOpen, startBoundary]);
+  const boundaryTexts = `${PREFIX}.boundary.${indoor ? 'indoor' : 'garden'}`;
+  const boundaryEntry = useMemo<MenuAction>(() => {
+    if (boundaryMode !== null) {
+      return {
+        id: 'boundary',
+        label: t(`${boundaryTexts}.lock`),
+        secondary: t(`${PREFIX}.boundary.lockHint`),
+        icon: <LockIcon fontSize="small" />,
+        onClick: lockBoundary,
+        testId: 'garden-plan-menu-boundary',
+      };
+    }
+    const locked = boundary !== null;
+    return {
+      id: 'boundary',
+      label: t(`${boundaryTexts}.${locked ? 'unlock' : 'draw'}`),
+      secondary: t(`${PREFIX}.boundary.${locked ? 'entryUnlockHint' : 'entryDrawHint'}`),
+      icon: locked ? <LockOpenIcon fontSize="small" /> : <DrawOutlinedIcon fontSize="small" />,
+      onClick: startBoundary,
+      testId: 'garden-plan-menu-boundary',
+    };
+  }, [boundary, boundaryMode, boundaryTexts, lockBoundary, startBoundary, t]);
+
   // The rare actions of the header bar's overflow (§17.3 target picture; GP-UX-046/052/066). Entries that stand in for
   // a former button keep its test id (GP-UX-070). "Add with dimensions" lives in the sub-menus of the tool bar
   // (WP 10.4); while the tab "Liste" hides the tool bar, the overflow offers it, so the list keeps a way to add.
@@ -1360,6 +1421,8 @@ export function GardenPlanEditor({
         testId: 'garden-plan-underlay-open',
         separated: true,
       },
+      // The boundary needs the drawing: the entry is there while the plan is shown (#2890).
+      ...(view === 'plan' ? [boundaryEntry] : []),
       // The irrigation zones (§14) are the panel tab "Zonen"; this entry opens the panel on it in one step and keeps
       // the test id of the former zone button (GP-UX-070).
       {
@@ -1383,6 +1446,7 @@ export function GardenPlanEditor({
     [
       angleStep,
       angleStepInOverflow,
+      boundaryEntry,
       doSelectAll,
       openAddWithDimensions,
       openHelp,
@@ -1587,7 +1651,8 @@ export function GardenPlanEditor({
     onZoom(zoomToEdit.pxPerM, toScreen(zoomToEdit.centreM));
   }, [zoomToEdit, onZoom, toScreen]);
 
-  const drawing = tool === 'bed' || tool === 'garden_object';
+  // The boundary is drawn with the same steps and hints as a bed (#2890).
+  const drawing = drawTool;
   // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
   const hintBase = touchUi ? `${PREFIX}.touch.hint` : `${PREFIX}.drawHint`;
   const hintKey = !drawing
@@ -1634,6 +1699,7 @@ export function GardenPlanEditor({
       onTemplate={toggleTemplateTool}
       onAddWithDimensions={openAddWithDimensions}
       selectionGroup={selectionGroup}
+      boundaryMode={boundaryMode}
     />
   );
 
@@ -1915,7 +1981,7 @@ export function GardenPlanEditor({
         overflow: 'hidden',
         touchAction: 'none',
         userSelect: 'none',
-        cursor: cursorOf(tool, tools.panModifier),
+        cursor: cursorOf(tool, tools.panModifier, boundaryMode),
         border: 1,
         borderColor: 'divider',
         borderRadius: 1,
@@ -2015,6 +2081,7 @@ export function GardenPlanEditor({
   const touchBar = touchUi ? (
     <TouchBar
       tool={tool}
+      drawing={drawing}
       drawShape={drawShape}
       draftPoints={tools.draftPoints}
       onPlacePoint={() => tools.placePointAt(centerPx)}
@@ -2073,7 +2140,7 @@ export function GardenPlanEditor({
       {/* The view settings, layers and legend are tabs of the side panel (WP 10.5); nothing else stands above the
           plan but messages and the hints of the tool in use. */}
       {!listShown && !toolbarBelow && touchBar}
-      {!listShown && drawing && (
+      {!listShown && drawing && boundaryMode === null && (
         <NewTypeSelect
           target={tool === 'bed' ? 'bed' : 'garden_object'}
           labels={labels}
@@ -2106,6 +2173,32 @@ export function GardenPlanEditor({
             onClose={closeTemplateTool}
           />
         </Suspense>
+      )}
+      {!listShown && boundaryMode && (
+        // The boundary mode says what is going on and how it ends (GP-FR-032): drawing, or unlocked for editing.
+        <Alert
+          severity="info"
+          role="status"
+          data-testid="garden-plan-boundary-mode"
+          data-mode={boundaryMode}
+          icon={boundaryMode === 'edit' ? <LockOpenIcon /> : <DrawOutlinedIcon />}
+          action={
+            <Tooltip title={t(`${PREFIX}.boundary.${boundaryMode === 'edit' ? 'lockHint' : 'cancelHint'}`)}>
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={boundaryMode === 'edit' ? <LockIcon /> : <CloseIcon />}
+                onClick={thenFocusPlan(lockBoundary)}
+                data-testid="garden-plan-boundary-done"
+                sx={{ minHeight: 48 }}
+              >
+                {t(`${PREFIX}.boundary.${boundaryMode === 'edit' ? 'done' : 'cancel'}`)}
+              </Button>
+            </Tooltip>
+          }
+        >
+          {t(`${boundaryTexts}.${boundaryMode === 'edit' ? 'editHint' : 'drawHint'}`)}
+        </Alert>
       )}
       {!listShown && hintKey && (
         <Typography

@@ -67,7 +67,10 @@ export type ActionLabel =
   // Arrange and repeat (WP 7.11, 7.13)
   | 'align'
   | 'distribute'
-  | 'multiDuplicate';
+  | 'multiDuplicate'
+  // The garden boundary (UC-01, GP-FR-019/032, #2890)
+  | 'drawBoundary'
+  | 'editBoundary';
 
 export type Effect =
   | { type: 'select'; selection: SelectionRef[] }

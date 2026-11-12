@@ -5485,7 +5485,9 @@
           "northAngle": "Nordrichtung setzen",
           "align": "Ausrichten",
           "distribute": "Gleichmäßig verteilen",
-          "multiDuplicate": "Mehrfach duplizieren"
+          "multiDuplicate": "Mehrfach duplizieren",
+          "drawBoundary": "Grenze zeichnen",
+          "editBoundary": "Grenze ändern"
         },
         "notice": {
           "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
@@ -5533,6 +5535,9 @@
           "distribute": {
             "overlap": "Mit gleichen Abständen würden die gewählten Objekte aufeinander liegen. Schaffe zuerst Platz zwischen ihnen. Der Plan bleibt unverändert.",
             "locked_covered": "Beim Verteilen würde ein Objekt auf einem gesperrten Objekt landen. Entsperre es oder nimm es aus der Auswahl. Der Plan bleibt unverändert."
+          },
+          "boundary": {
+            "shrinks_below_objects": "Die Grenze würde Beete oder Objekte ausschließen und wurde nicht übernommen. Verschiebe sie zuerst nach innen oder ziehe die Grenze weiter."
           }
         },
         "deleteDialog": {
@@ -6515,6 +6520,28 @@
           "expand": "Auf volle Höhe vergrößern",
           "shrink": "Auf halbe Höhe verkleinern",
           "legendShown": "Legende anzeigen"
+        },
+        "boundary": {
+          "garden": {
+            "draw": "Gartengrenze zeichnen",
+            "unlock": "Gartengrenze entsperren und bearbeiten",
+            "lock": "Gartengrenze sperren",
+            "drawHint": "Zeichne die Gartengrenze als Rechteck oder Vieleck. Beete und Gartenobjekte müssen darin liegen.",
+            "editHint": "Die Gartengrenze ist entsperrt: Ziehe ihre Griffe, um sie zu ändern. Beete und Gartenobjekte müssen darin bleiben. Nach dem Speichern ist sie wieder gesperrt."
+          },
+          "indoor": {
+            "draw": "Grundriss zeichnen",
+            "unlock": "Grundriss entsperren und bearbeiten",
+            "lock": "Grundriss sperren",
+            "drawHint": "Zeichne den Umriss deiner Wohnung als Rechteck oder Vieleck. Räume und Objekte müssen darin liegen.",
+            "editHint": "Der Grundriss ist entsperrt: Ziehe seine Griffe, um ihn zu ändern. Räume und Objekte müssen darin bleiben. Nach dem Speichern ist er wieder gesperrt."
+          },
+          "entryDrawHint": "Rechteck oder Vieleck; nach dem Speichern gesperrt",
+          "entryUnlockHint": "Gesperrt gegen versehentliches Ändern",
+          "lockHint": "Bearbeiten beenden und die Grenze gegen versehentliches Ändern sperren",
+          "cancelHint": "Zeichnen beenden, ohne eine Grenze anzulegen",
+          "done": "Sperren",
+          "cancel": "Zeichnen beenden"
         }
       },
       "io": {

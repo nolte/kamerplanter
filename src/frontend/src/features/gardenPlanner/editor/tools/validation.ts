@@ -107,6 +107,44 @@ export function firstViolation(
   return null;
 }
 
+export const ERROR_BOUNDARY_SHRINKS = 'boundary.shrinks_below_objects';
+
+/** Whether a location of the plan bounds `parentKey`'s subtree: some ancestor of it has a geometry. */
+function hasPlacedAncestor(plan: PlanModel, parentKey: string | null | undefined): boolean {
+  const seen = new Set<string>();
+  let current = parentKey ?? null;
+  while (current !== null && !seen.has(current)) {
+    seen.add(current);
+    const location = plan.locations[current];
+    if (location?.geometry) return true;
+    current = location?.parent_location_key ?? null;
+  }
+  return false;
+}
+
+/**
+ * A new garden boundary (GP-FR-019, UC-01): V-01/V-02 on its own shape, then V-03 from the other side - mirroring the
+ * server's V-19 (`boundary_violations`): every placed bed and garden object the boundary bounds directly (no placed
+ * ancestor, not `off_site`) must lie inside it, 1 cm tolerance. `null` = fine. Nothing is clipped: a refusal keeps the
+ * stored boundary, the user moves the objects first.
+ */
+export function boundaryViolation(plan: PlanModel, boundary: Geometry): string | null {
+  if (boundary.kind !== 'rect' && boundary.kind !== 'polygon') return ERROR_INVALID;
+  if (parseGeometry(boundary, 'plan') === null) return ERROR_INVALID;
+  const simple = validateGeometry(boundary);
+  if (simple.length > 0) return simple[0];
+  const outline = toShape(boundary);
+  for (const location of Object.values(plan.locations)) {
+    if (!location.geometry || hasPlacedAncestor(plan, location.parent_location_key)) continue;
+    if (!contains(outline, toShape(location.geometry))) return ERROR_BOUNDARY_SHRINKS;
+  }
+  for (const garden of Object.values(plan.gardenObjects)) {
+    if (!garden.geometry || garden.off_site || hasPlacedAncestor(plan, garden.parent_location_key)) continue;
+    if (!contains(outline, toShape(garden.geometry))) return ERROR_BOUNDARY_SHRINKS;
+  }
+  return null;
+}
+
 /** For a brand-new shape: the V-01..V-03 verdict, with the parent it would be created under. */
 export function violationOfNew(
   plan: PlanModel,

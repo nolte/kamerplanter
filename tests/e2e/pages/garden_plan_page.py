@@ -115,6 +115,15 @@ class GardenPlanPage(BasePage):
     EMPTY_DRAW = _tid("garden-plan-empty-draw")
     EMPTY_UNDERLAY = _tid("garden-plan-empty-underlay")
 
+    # ── Garden boundary / flat outline (UC-01, GP-FR-019/032, #2890) ───
+    # A plan-level action of the overflow, not a rail tool: ``garden-plan-menu-boundary`` draws, unlocks or locks.
+    # While the mode is on, ``garden-plan-boundary-mode`` says ``data-mode`` = ``draw`` / ``edit``; a saved boundary is
+    # locked (no mode, no handles). The handles are the editor's ``garden-plan-handles`` / ``garden-plan-handle-<id>``.
+    BOUNDARY_ENTRY = _tid("garden-plan-menu-boundary")
+    BOUNDARY_MODE = _tid("garden-plan-boundary-mode")
+    BOUNDARY_DONE = _tid("garden-plan-boundary-done")
+    HANDLES = _tid("garden-plan-handles")
+
     # ── Editor header bar (WP 10.3, GP-UX-063) ─────────────────────────
     # One line on every width: what does not fit moves into the overflow "⋮" (OVERFLOW below), where an entry
     # carries ``garden-plan-menu-<id>`` - or the test id of the button it replaced (keyboard help, underlay,
@@ -1565,6 +1574,55 @@ class GardenPlanPage(BasePage):
         self.click_menu_option(item)
         self.wait_for_element(self.MULTI_DIALOG)
         self.wait_for_element(_tid("garden-plan-multi-count"))
+
+    # ── Garden boundary (UC-01, GP-FR-019/032, #2890) ──────────────────
+
+    def boundary_mode(self) -> str | None:
+        """``draw`` / ``edit`` while the boundary mode is on, ``None`` while the boundary is locked (no mode)."""
+        elements = self.driver.find_elements(*self.BOUNDARY_MODE)
+        if not elements:
+            return None
+        value = elements[0].get_attribute("data-mode")
+        if value not in ("draw", "edit"):
+            raise AssertionError(f"the boundary mode carries no known data-mode: {value!r}")
+        return value
+
+    def wait_for_boundary_mode(
+        self, expected: str | None, what: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        try:
+            self.poll(timeout).until(lambda _d: self.boundary_mode() == expected)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: expected the boundary mode {expected!r}, the editor shows "
+                f"{self.boundary_mode()!r}"
+            ) from exc
+
+    def choose_boundary_entry(self, expected_text: str, what: str) -> None:
+        """Open "⋮", require the boundary entry to read *expected_text*, and choose it."""
+        self._open_menu(self.OVERFLOW, self.OVERFLOW_MENU, "the overflow menu")
+        selector = (
+            "[data-testid='garden-plan-overflow-menu'] [data-testid='garden-plan-menu-boundary']"
+        )
+        try:
+            item = self.wait_for_element_clickable((By.CSS_SELECTOR, selector))
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the overflow has no boundary entry") from exc
+        text = " ".join((item.get_attribute("textContent") or "").split())
+        if expected_text not in text:
+            raise AssertionError(
+                f"{what}: the boundary entry reads {text!r}, expected {expected_text!r}"
+            )
+        self.click_menu_option(item)
+        self.wait_for_element_hidden(self.OVERFLOW_MENU)
+
+    def lock_boundary(self) -> None:
+        """'Sperren' in the boundary notice: the mode ends, the boundary is locked again."""
+        self.wait_and_click_coordinate_free(self.BOUNDARY_DONE)
+        self.wait_for_boundary_mode(None, "'Sperren' should end the boundary mode")
+
+    def has_handles(self) -> bool:
+        return bool(self.driver.find_elements(*self.HANDLES))
 
     def set_multi_field(self, field_id: str, value: str) -> None:
         element = self.wait_for_element_clickable(_tid(f"garden-plan-multi-{field_id}"))

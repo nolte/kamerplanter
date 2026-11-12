@@ -54,8 +54,12 @@ export const HISTORY_LIMIT = 100;
 /**
  * The top-level tools of GP-UX-001 (REQ-053 v1.19, #2868): only tools that exist. Bereich, Pflanze setzen, Messen
  * and Text/Label are GP-UX-071 (#2913); each comes back here together with its logic and its rail button.
+ *
+ * `boundary` is no tool of the rail: it is the plan-level mode "Gartengrenze zeichnen / bearbeiten" (UC-01,
+ * GP-FR-019/032, #2890) that the overflow "⋮" and the indoor empty state start. Without a boundary it draws one
+ * (rect or polygon); with one it shows the boundary's handles - the boundary is unlocked while the mode is on.
  */
-export type PlanTool = 'select' | 'pan' | 'bed' | 'garden_object';
+export type PlanTool = 'select' | 'pan' | 'bed' | 'garden_object' | 'boundary';
 
 export interface SelectionRef {
   entity: PlanEntity | 'slot' | 'plant';
@@ -635,6 +639,9 @@ export const gardenPlanSlice = createSlice({
         );
         state.saveStatus = 'idle';
         state.inFlight = 0;
+        // GP-FR-032: a saved boundary is locked. The save ends the unlocked boundary mode; changing it again takes
+        // the explicit "unlock" of the overflow.
+        if (state.tool === 'boundary' && next.settings?.boundary) state.tool = 'select';
         dropSelectionOfMissing(state);
       })
       .addCase(saveGardenPlan.rejected, (state, action) => {

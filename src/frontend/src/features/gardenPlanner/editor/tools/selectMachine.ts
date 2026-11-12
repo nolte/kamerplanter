@@ -333,49 +333,50 @@ function handleMovedTo(
     handle.dragged ||
     distancePx(handle.downPx, sample.pointPx) >= dragThresholdPx(sample.pointerType);
   if (!dragged) return handle;
-  const pointer = env.snapPoint(env.toModel(sample.pointPx), sample.alt, sample.pointerType);
   const { start } = handle;
-  let draft: DraftChange[] = [{ ...handle.subject, geometry: start }];
-  switch (handle.handle.kind) {
-    case 'corner':
-    case 'edge':
-      if (start.kind === 'rect') {
-        draft = [
-          {
-            ...handle.subject,
-            geometry: resizeRect(start, handle.handle.id as RectHandleId, pointer, sample.shift),
-          },
-        ];
-      }
-      break;
-    case 'radius':
-      if (start.kind === 'circle') {
-        draft = [
-          { ...handle.subject, geometry: { ...start, radius_m: resizeCircle(start, pointer) } },
-        ];
-      }
-      break;
-    case 'vertex':
-      draft = [
-        { ...handle.subject, geometry: moveVertex(start, handle.handle.index ?? 0, pointer) },
-      ];
-      break;
-    case 'rotate': {
-      const pivot = geometryCenter(start);
-      const rawPointer = env.toModel(sample.pointPx);
-      const step = sample.alt ? null : env.angleStepDeg;
-      const rotateDeg = rotationDelta(start, pivot, handle.downModel, rawPointer, step);
-      draft = handle.targets.map((entry) => ({
-        entity: entry.entity,
-        key: entry.key,
-        geometry: moveGeometry(entry.geometry, { translate: [0, 0], rotateDeg, pivot }),
-      }));
-      break;
-    }
-    default:
-      break;
+  let draft: DraftChange[];
+  if (handle.handle.kind === 'rotate') {
+    const { pivot, rotateDeg } = rotationOfHandle(start, handle.downModel, sample, env);
+    draft = handle.targets.map((entry) => ({
+      entity: entry.entity,
+      key: entry.key,
+      geometry: moveGeometry(entry.geometry, { translate: [0, 0], rotateDeg, pivot }),
+    }));
+  } else {
+    const pointer = env.snapPoint(env.toModel(sample.pointPx), sample.alt, sample.pointerType);
+    draft = [{ ...handle.subject, geometry: reshapeByHandle(start, handle.handle, pointer, sample.shift) }];
   }
   return { ...handle, dragged, draft, violation: firstViolation(env.plan, draft) };
+}
+
+/** The turn a rotate-handle drag asks for: about the shape's middle, snapped to the angle step unless Alt is held. */
+export function rotationOfHandle(
+  start: Geometry,
+  downModel: Point,
+  sample: PointerSample,
+  env: ToolEnv,
+): { pivot: Point; rotateDeg: number } {
+  const pivot = geometryCenter(start);
+  const step = sample.alt ? null : env.angleStepDeg;
+  return { pivot, rotateDeg: rotationDelta(start, pivot, downModel, env.toModel(sample.pointPx), step) };
+}
+
+/**
+ * The shape after a corner, edge, radius or vertex handle was dragged to `pointer` (GP-FR-022/023); `start` itself for
+ * a handle that does not reshape it (rotate turns the whole subject, see {@link rotationOfHandle}).
+ */
+export function reshapeByHandle(start: Geometry, handle: Handle, pointer: Point, keepAspect: boolean): Geometry {
+  switch (handle.kind) {
+    case 'corner':
+    case 'edge':
+      return start.kind === 'rect' ? resizeRect(start, handle.id as RectHandleId, pointer, keepAspect) : start;
+    case 'radius':
+      return start.kind === 'circle' ? { ...start, radius_m: resizeCircle(start, pointer) } : start;
+    case 'vertex':
+      return moveVertex(start, handle.index ?? 0, pointer);
+    default:
+      return start;
+  }
 }
 
 // ── pointer up ───────────────────────────────────────────────────────────────
