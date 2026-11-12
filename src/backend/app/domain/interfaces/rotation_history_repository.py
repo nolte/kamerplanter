@@ -15,13 +15,19 @@ from app.domain.models.care_event import RotationEntry
 
 @dataclass(frozen=True)
 class PlantedRow:
-    """One plant that stood, or stands, in the bed. ``plan_role`` is the role of the run it belongs to."""
+    """One plant that stood, or stands, in the bed. ``plan_role`` is the role of the run it belongs to.
+
+    ``termination_type`` / ``termination_cause`` say how a removed plant ended (REQ-003 E5); the replant of a failed
+    slot reads them (REQ-053 §11.3 "ausgefallen", #2888). ``None`` for a plant that still stands or ended unrecorded.
+    """
 
     plant_key: str
     species_key: str
     planted_on: date
     removed_on: date | None
     plan_role: str = "main_crop"
+    termination_type: str | None = None
+    termination_cause: str | None = None
 
 
 @dataclass(frozen=True)

@@ -76,9 +76,21 @@ class FakeRotationHistory(IRotationHistoryRepository):
         removed_on: date | None = None,
         plan_role: str = "main_crop",
         tenant: str = "ten_own",
-    ) -> None:
-        row = PlantedRow(f"pi_{len(self.plants)}", species_key, planted_on, removed_on, plan_role)
+        termination_type: str | None = None,
+        termination_cause: str | None = None,
+    ) -> str:
+        """Record a plant of ``tenant`` in the bed; returns its key (``pi_<n>``)."""
+        row = PlantedRow(
+            f"pi_{len(self.plants)}",
+            species_key,
+            planted_on,
+            removed_on,
+            plan_role,
+            termination_type=termination_type,
+            termination_cause=termination_cause,
+        )
         self.plants.append((tenant, location_key, row))
+        return row.plant_key
 
     def list_plantings(self, location_key, *, since, tenant_key):
         if not tenant_key:

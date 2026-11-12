@@ -205,18 +205,21 @@ class BedRotationService:
         tenant_key: str,
         slot_key: str | None = None,
         rotation_window_years: int | None = None,
+        replant_of_plant_key: str | None = None,
     ) -> BedPlantingValidation:
         """Rotation and neighbour hints for planting ``species_key`` in the bed (GP-API-025).
 
         With ``slot_key`` the neighbours are the species in the slots next to it (``adjacent_to``, WP 3.3); without
         one every species standing or planned in the bed counts as a possible neighbour, and an incompatible one is
-        an ``INFO`` — nobody knows yet where the new plant will stand.
+        an ``INFO`` — nobody knows yet where the new plant will stand. ``replant_of_plant_key`` names the died plant a
+        replant replaces (#2888); the validator checks it under ``tenant_key`` and ignores any other key.
         """
         rotation = self._validator.validate_planting_in_location(
             location_key,
             species_key,
             tenant_key=tenant_key,
             rotation_window_years=rotation_window_years or DEFAULT_ROTATION_WINDOW_YEARS,
+            replant_of_plant_key=replant_of_plant_key,
         )
         location = resolve_owned_location(self._sites, location_key, tenant_key)
         scope: NeighbourScope = "bed"

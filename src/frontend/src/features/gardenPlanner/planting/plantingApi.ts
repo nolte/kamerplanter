@@ -34,14 +34,19 @@ export async function previewLayout(bedKey: string, entry: PreviewEntry): Promis
   return data;
 }
 
-/** GP-API-025: crop-rotation and companion hints for planting a species in the bed. */
+/**
+ * GP-API-025: crop-rotation and companion hints for planting a species in the bed. `replantOfPlantKey` names the died
+ * plant a replant replaces (REQ-053 §11.3, #2888): the server does not count it as a previous crop and adds a residual
+ * hint from its cause when the same family goes back in.
+ */
 export async function validatePlanting(
   bedKey: string,
   speciesKey: string,
+  replantOfPlantKey: string | null = null,
 ): Promise<ValidatePlantingResponse> {
   const { data } = await tenantClient.post<ValidatePlantingResponse>(
     `/locations/${bedKey}/validate-planting`,
-    { species_key: speciesKey },
+    { species_key: speciesKey, ...(replantOfPlantKey ? { replant_of_plant_key: replantOfPlantKey } : {}) },
   );
   return data;
 }

@@ -64,6 +64,8 @@ export interface PlantingBackend {
   previews: unknown[];
   /** The site keys of every garden-object read. */
   objectReads: string[];
+  /** The bodies of every `validate-planting` request, in order. */
+  validations: Record<string, unknown>[];
 }
 
 interface BackendOptions {
@@ -98,7 +100,7 @@ function toPreviewResponse(result: ReturnType<typeof computeLayout>): PreviewRes
 
 /** Install the handlers of the planting dialog; the preview answers like the Python reference (the port). */
 export function usePlantingBackend(options: BackendOptions = {}): PlantingBackend {
-  const backend: PlantingBackend = { seen: [], previews: [], objectReads: [] };
+  const backend: PlantingBackend = { seen: [], previews: [], objectReads: [], validations: [] };
   const runs = new Map<string, unknown[]>();
   const items = options.species ?? [species('sp_tomato', 'Tomato', { spacing_cm: '60', row_spacing_cm: '80' })];
   const record = async (request: Request) => {
@@ -153,6 +155,7 @@ export function usePlantingBackend(options: BackendOptions = {}): PlantingBacken
     }),
     http.post(`${BASE}/locations/:key/validate-planting`, async ({ request }) => {
       const body = (await request.json()) as { species_key: string };
+      backend.validations.push(body);
       return HttpResponse.json(
         options.hints?.[body.species_key] ?? hint({ species_key: body.species_key }),
       );

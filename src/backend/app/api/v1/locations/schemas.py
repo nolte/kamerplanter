@@ -891,6 +891,7 @@ class ValidatePlantingRequest(BaseModel):
             "examples": [
                 {"species_key": "5120"},
                 {"species_key": "5120", "slot_key": "8841", "rotation_window_years": 4},
+                {"species_key": "5120", "replant_of_plant_key": "7001"},
             ]
         },
     )
@@ -907,6 +908,16 @@ class ValidatePlantingRequest(BaseModel):
         ge=1,
         le=MAX_ROTATION_WINDOW_YEARS,
         description="Fallback pause when neither the species nor its family names one (default 3, at most 8).",
+    )
+    replant_of_plant_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        description=(
+            "The plant a replant replaces (REQ-053 §11.3, #2888). A plant of this bed that died this calendar year is "
+            "no previous crop for this check; replanting its family adds a residual hint from its termination cause. "
+            "Any other key is ignored."
+        ),
     )
 
 
@@ -945,6 +956,8 @@ class RotationFindingResponse(BaseModel):
     pause_source: Literal["species", "family", "default"] | None = None
     plan_role: str | None = None
     pest_risk: dict[str, Any] | None = None
+    #: The cause of the loss a replant follows; only on `rotation.replant_*` findings (#2888).
+    termination_cause: str | None = None
 
 
 class NeighbourHintResponse(BaseModel):

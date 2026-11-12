@@ -300,6 +300,61 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     expect(panel).not.toHaveTextContent('(s)');
   });
 
+  describe('a replant of a died plant (REQ-053 §11.3 W-015, #2888)', () => {
+    const replantHint = (severity: 'WARNING' | 'INFO', code: string, cause: string | null) =>
+      hint({
+        species_key: 'sp_tomato',
+        severity,
+        rotation: [
+          {
+            severity,
+            code,
+            message: 'english server text',
+            family_key: '4410',
+            family_name: 'Solanaceae',
+            species_key: 'sp_tomato',
+            last_year: 2026,
+            termination_cause: cause,
+          },
+        ],
+      });
+
+    it.each([
+      ['disease', 'died from a disease this year. If the pathogen sits in the soil'],
+      ['pest', 'died from pests this year. If the pests live in the soil'],
+    ])('words the residual %s hint as a warning that asks for a reason, never as a block', async (cause, text) => {
+      usePlantingBackend({
+        species: [TOMATO],
+        hints: { sp_tomato: replantHint('WARNING', 'rotation.replant_after_biotic_failure', cause) },
+      });
+      const user = userEvent.setup();
+      renderDialog();
+      await choose(user, 0, 'Tomato');
+
+      const panel = await screen.findByTestId('planting-hint-sp_tomato');
+      expect(panel).toHaveTextContent('): warning');
+      expect(panel).toHaveTextContent(`The plant you are replacing here ${text}`);
+      expect(panel).not.toHaveTextContent('english server text');
+      await hintsDone();
+      expect(screen.getByTestId('planting-override-check')).toBeInTheDocument();
+    });
+
+    it('words an unrecorded cause as an info that asks for no reason', async () => {
+      usePlantingBackend({
+        species: [TOMATO],
+        hints: { sp_tomato: replantHint('INFO', 'rotation.replant_cause_unknown', null) },
+      });
+      const user = userEvent.setup();
+      renderDialog();
+      await choose(user, 0, 'Tomato');
+
+      const panel = await screen.findByTestId('planting-hint-sp_tomato');
+      expect(panel).toHaveTextContent('the cause is not recorded');
+      await hintsDone();
+      expect(screen.queryByTestId('planting-override-check')).toBeNull();
+    });
+  });
+
   it('plants nothing until "Plant anyway" is confirmed with a reason, then stores the reason on the run', async () => {
     const backend = usePlantingBackend({ species: [TOMATO], hints: { sp_tomato: critical } });
     const user = userEvent.setup();

@@ -453,3 +453,207 @@ class TestTimeline:
         validator, *_ = world
         timeline = validator.rotation_timeline("pot", tenant_key=TENANT)
         assert (timeline.applicable, timeline.not_applicable_reason) == (False, NOT_APPLICABLE_CONTAINER)
+
+
+class TestReplantOfAFailedPlant:
+    """REQ-053 §11.3 "ausgefallen" (W-015, #2888): a replant names the plant it replaces; it is no previous crop.
+
+    Only for the one check that names it, only for a plant of this bed and tenant that died this calendar year. A
+    residual hint from its ``termination_cause`` stays when the same family goes back in: disease or pest a
+    ``WARNING``, no or an unknown cause an ``INFO``, an abiotic loss nothing.
+    """
+
+    def _died(self, history, species="kale", *, cause=None, location="bed", removed_on=date(2026, 5, 1), **kwargs):
+        return history.add_plant(
+            location,
+            species,
+            date(2026, 4, 1),
+            removed_on=removed_on,
+            termination_type="died",
+            termination_cause=cause,
+            **kwargs,
+        )
+
+    @staticmethod
+    def _codes(result) -> list[str]:
+        return [f.code for f in result.findings]
+
+    def test_without_the_reference_the_died_plant_counts_as_the_same_family_this_year(self, world) -> None:
+        validator, _plan, history, *_ = world
+        self._died(history, cause="frost")
+
+        result = check(validator)
+
+        assert self._codes(result) == ["rotation.pause_not_elapsed"]
+        assert result.severity == "CRITICAL"
+
+    def test_the_replaced_plant_is_no_previous_crop_after_an_abiotic_loss(self, world) -> None:
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause="frost")
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        assert "rotation.pause_not_elapsed" not in self._codes(result)
+        assert not [c for c in self._codes(result) if c.startswith("rotation.replant_")]
+        assert result.severity in {"OK", "INFO"}
+
+    @pytest.mark.parametrize("cause", ["disease", "pest"])
+    def test_a_biotic_loss_leaves_a_warning_that_is_never_critical(self, world, cause) -> None:
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause=cause)
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        finding = result.findings[0]
+        assert (finding.code, finding.severity, finding.termination_cause) == (
+            "rotation.replant_after_biotic_failure",
+            "WARNING",
+            cause,
+        )
+        assert (finding.family_key, finding.family_name, finding.species_key, finding.last_year) == (
+            "brassica",
+            "Brassicaaceae",
+            "kale",
+            2026,
+        )
+        assert "rotation.pause_not_elapsed" not in self._codes(result)
+        assert result.severity == "WARNING"
+
+    @pytest.mark.parametrize("cause", [None, "unknown"])
+    def test_an_unknown_cause_leaves_an_info(self, world, cause) -> None:
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause=cause)
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        replant = [f for f in result.findings if f.code.startswith("rotation.replant_")]
+        assert [(f.code, f.severity, f.termination_cause) for f in replant] == [
+            ("rotation.replant_cause_unknown", "INFO", cause)
+        ]
+        assert "rotation.pause_not_elapsed" not in self._codes(result)
+        assert result.severity == "INFO"
+
+    def test_another_family_planted_in_place_of_the_died_plant_gets_no_residual_hint(self, world) -> None:
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause="disease")
+
+        result = check(validator, "tomato", replant_of_plant_key=replaced)
+
+        assert not [c for c in self._codes(result) if c.startswith("rotation.replant_")]
+        assert "rotation.pause_not_elapsed" not in self._codes(result)
+
+    def test_another_plant_of_the_same_family_this_year_still_counts(self, world) -> None:
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause="frost")
+        history.add_plant("bed", "cabbage", date(2026, 4, 1), removed_on=date(2026, 5, 20), termination_type="senesced")
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        (pause,) = [f for f in result.findings if f.code == "rotation.pause_not_elapsed"]
+        assert (pause.species_key, pause.years_since, pause.severity) == ("cabbage", 0, "CRITICAL")
+
+    def test_a_plant_that_died_last_year_still_counts(self, world) -> None:
+        validator, _plan, history, *_ = world
+        replaced = history.add_plant(
+            "bed",
+            "kale",
+            date(2025, 4, 1),
+            removed_on=date(2025, 6, 1),
+            termination_type="died",
+            termination_cause="disease",
+        )
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        assert self._codes(result) == ["rotation.pause_not_elapsed"]
+        assert result.findings[0].years_since == 1
+
+    @pytest.mark.parametrize("termination_type", ["senesced", "harvested", "cancelled", None])
+    def test_a_plant_that_did_not_die_is_not_left_out(self, world, termination_type) -> None:
+        validator, _plan, history, *_ = world
+        replaced = history.add_plant(
+            "bed", "kale", date(2026, 4, 1), removed_on=date(2026, 5, 1), termination_type=termination_type
+        )
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        assert self._codes(result) == ["rotation.pause_not_elapsed"]
+        assert result.severity == "CRITICAL"
+
+    def test_a_standing_plant_is_not_left_out(self, world) -> None:
+        validator, _plan, history, *_ = world
+        standing = history.add_plant("bed", "kale", date(2026, 4, 1))
+
+        assert self._codes(check(validator, replant_of_plant_key=standing)) == ["rotation.pause_not_elapsed"]
+
+    def test_an_unknown_key_is_ignored_without_an_error(self, world) -> None:
+        validator, _plan, history, *_ = world
+        self._died(history, cause="disease")
+
+        result = check(validator, replant_of_plant_key="pi_does_not_exist")
+
+        assert self._codes(result) == ["rotation.pause_not_elapsed"]
+
+    def test_a_died_plant_of_another_bed_is_ignored(self, world) -> None:
+        validator, _plan, history, *_ = world
+        self._died(history, cause="frost")
+        elsewhere = self._died(history, "cabbage", cause="disease", location="pot")
+
+        result = check(validator, replant_of_plant_key=elsewhere)
+
+        assert self._codes(result) == ["rotation.pause_not_elapsed"]
+
+    def test_another_tenants_died_plant_in_a_bed_with_the_same_key_says_nothing(self, world) -> None:
+        validator, _plan, history, *_ = world
+        self._died(history, cause="frost")
+        foreign = self._died(history, "cabbage", cause="disease", tenant=OTHER_TENANT)
+
+        result = check(validator, replant_of_plant_key=foreign)
+
+        # The own died kale still counts; the foreign plant's cause never shows (no oracle across tenants).
+        assert self._codes(result) == ["rotation.pause_not_elapsed"]
+        assert all(f.termination_cause is None for f in result.findings)
+
+    def test_a_soil_reset_after_the_loss_leaves_no_residual_hint(self, world) -> None:
+        validator, plan, history, *_ = world
+        plan.locations["bed"] = make_location("bed", soil_profile=SoilProfile(rotation_reset_at=date(2026, 5, 15)))
+        replaced = self._died(history, cause="disease")
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        assert not [c for c in self._codes(result) if c.startswith("rotation.replant_")]
+        assert "rotation.pause_not_elapsed" not in self._codes(result)
+
+    def test_a_perennial_that_stood_last_year_still_counts_for_last_year(self, world) -> None:
+        validator, _plan, history, *_ = world
+        replaced = history.add_plant(
+            "bed",
+            "kale",
+            date(2025, 4, 1),
+            removed_on=date(2026, 5, 1),
+            termination_type="died",
+            termination_cause="disease",
+        )
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        (pause,) = [f for f in result.findings if f.code == "rotation.pause_not_elapsed"]
+        assert (pause.last_year, pause.years_since) == (2025, 1)
+        assert "rotation.replant_after_biotic_failure" in self._codes(result)
+
+    def test_the_timeline_still_lists_the_died_plant(self, world) -> None:
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause="disease")
+        check(validator, replant_of_plant_key=replaced)
+
+        timeline = validator.rotation_timeline("bed", tenant_key=TENANT, years=5)
+
+        assert [(e.year, e.family_key, e.species_key) for e in timeline.entries] == [(2026, "brassica", "kale")]
+
+    def test_a_bed_that_is_off_says_nothing_about_the_replant(self, world) -> None:
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause="disease", location="pot")
+
+        result = check(validator, location="pot", replant_of_plant_key=replaced)
+
+        assert (result.applicable, result.findings) == (False, [])

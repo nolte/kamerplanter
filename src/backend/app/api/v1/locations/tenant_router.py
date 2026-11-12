@@ -727,6 +727,11 @@ def validate_planting(
     and shelves unless switched on (`rotation_enabled: true`, GP-FR-137). With `slot_key` the neighbours of that slot
     (`adjacent_to`) are checked, otherwise every species standing or planned in the bed. 422
     `reference.not_found` for a species or slot the tenant cannot see.
+
+    **Replant** (`replant_of_plant_key`, REQ-053 §11.3, #2888): a plant of this bed that died this calendar year is no
+    previous crop for this check. Replanting its family adds `rotation.replant_after_biotic_failure` (`WARNING`,
+    cause disease or pest) or `rotation.replant_cause_unknown` (`INFO`, no or unknown cause); an abiotic loss adds
+    nothing. Any other key (another bed's, another tenant's, a harvested plant, an earlier year) is ignored.
     """
     result = service.validate_planting(
         key,
@@ -734,6 +739,7 @@ def validate_planting(
         tenant_key=ctx.tenant_key,
         slot_key=body.slot_key,
         rotation_window_years=body.rotation_window_years,
+        replant_of_plant_key=body.replant_of_plant_key,
     )
     return ValidatePlantingResponse(
         location_key=result.rotation.location_key,

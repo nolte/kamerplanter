@@ -3574,27 +3574,32 @@ Beobachtungen des Nutzers (Anzahl stehen gebliebener Pflanzen, Menge Kompost).
 **Priority**: Medium
 **Category**: Happy Path
 **Preconditions**:
-- „Beet 1“ mit zwei Salatpflanzen auf zwei Pflanzplätzen; die eine ist eingegangen (`died`), die andere hat ihre
-  Saison natürlich beendet (`senesced`)
+- „Beet 1“ mit einer Salatpflanze und einer Möhre auf zwei Pflanzplätzen, beide in diesem Jahr gepflanzt; der Salat ist
+  an einer Krankheit eingegangen (`died`, Ursache `disease`), die Möhre hat ihre Saison natürlich beendet (`senesced`)
 
 **Testschritte**:
 1. Nutzer öffnet den Tab „Bepflanzung“
 2. Nutzer wählt beim ausgefallenen Platz „Nachpflanzen“
-3. Nutzer wählt Reihen, 2 Pflanzen, bestätigt den Fruchtfolge-Hinweis mit „Trotzdem pflanzen“ und einer Begründung und
+3. Nutzer wählt Reihen, 2 Pflanzen, bestätigt den Resthinweis mit „Trotzdem pflanzen“ und einer Begründung und
    bepflanzt
 
 **Erwartete Ergebnisse**:
 - Unter „Ausgefallen (1)“ steht genau der Platz der eingegangenen Pflanze mit „ausgefallen am …“ und „Nachpflanzen“;
   der Platz der natürlich beendeten Pflanze steht dort nicht
 - Der Bepflanzen-Dialog öffnet mit dem Salat als Art und dem Steckbrief-Abstand des Salats als Pflanzabstand
-- Der Dialog zeigt den Fruchtfolge-Hinweis „… steht in diesem Jahr schon in diesem Beet …“ (der ausgefallene Salat
-  zählt mit — siehe Hinweis unten)
+- Der Dialog zeigt **keinen** Fruchtfolge-Hinweis „… steht in diesem Jahr schon in diesem Beet …“: der ersetzte
+  Salat zählt für die Nachpflanzung nicht als Vorkultur (#2888)
+- Stattdessen zeigt er als Warnung den Resthinweis, dass die Pflanze hier in diesem Jahr an einer Krankheit eingegangen
+  ist und die neue Pflanze auf dieselbe Weise ausfallen kann, wenn die Ursache im Boden sitzt
 - Nach dem Bepflanzen sind 2 Salat-Positionen geplant
 
 **Hinweis**: „Ausgefallen“ ist seit Spec v1.17 (§11.3) nur `termination_type = died`; `senesced` ist das natürliche
 Ende einer Kultur und gilt als abgeschlossen (Zustand „historisch“). Das Nachpflanz-Angebot (`thinningLogic.ts`,
-`REPLANT_TERMINATIONS`) und der Zustandsrechner (GP-FR-192, Vektor `plant-state-008`, #2906) folgen dem. Dass die Nachpflanzung derselben Kultur in derselben Saison den
-Fruchtfolge-Hinweis gegen die eigene ausgefallene Pflanze auslöst, ist beobachtet und als Frage an die Abnahme gemeldet.
+`REPLANT_TERMINATIONS`) und der Zustandsrechner (GP-FR-192, Vektor `plant-state-008`, #2906) folgen dem. Die
+Nachpflanzung nennt die ersetzte Pflanze (`replant_of_plant_key`); sie zählt im Jahr ihres Ausfalls nicht als Vorkultur.
+Bei Ursache `disease`/`pest` bleibt eine Warnung, ohne Ursache ein Hinweis (`INFO`), bei abiotischer Ursache nichts
+(§11.3 „ausgefallen“, #2888). Die Möhre steht als andere Familie im Beet, damit die Vorbedingung keinen zweiten
+Salat-Anbau dieses Jahres enthält, der den Fruchtfolge-Hinweis zu Recht auslösen würde.
 
 **Nachbedingungen**:
 - Ein neuer geplanter Salat-Anbau mit 2 Positionen

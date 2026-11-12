@@ -461,6 +461,7 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked 
             gridStepM={gridStepM}
             initialSpeciesKey={replant?.speciesKey ?? null}
             initialCultivarKey={replant?.cultivarKey ?? null}
+            replantOfPlantKey={replant?.plantKey ?? null}
             onClose={() => {
               setPlanting(false);
               setReplant(null);

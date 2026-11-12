@@ -119,7 +119,14 @@ describe('failedSlots', () => {
 
   it('lists a slot whose newest plant died, with its crop', () => {
     expect(failedSlots([died('s1', '2026-06-01')])).toEqual([
-      { slotKey: 's1', slotId: 'S1', speciesKey: 'sp_tomato', cultivarKey: 'cv_1', removedOn: '2026-06-01' },
+      {
+        slotKey: 's1',
+        slotId: 'S1',
+        plantKey: 'p_s1_2026-06-01',
+        speciesKey: 'sp_tomato',
+        cultivarKey: 'cv_1',
+        removedOn: '2026-06-01',
+      },
     ]);
   });
 
@@ -134,6 +141,15 @@ describe('failedSlots', () => {
       died('s1', '2026-07-01', { state: 'harvested', termination_type: 'harvested' }),
     ];
     expect(failedSlots(items)).toEqual([]);
+  });
+
+  it('names the newest died plant of the slot as the one a replant replaces (#2888)', () => {
+    const items = [died('s1', '2026-05-01'), died('s1', '2026-06-15')];
+    expect(failedSlots(items).map((slot) => slot.plantKey)).toEqual(['p_s1_2026-06-15']);
+  });
+
+  it('has no plant to name when the listing carries no plant key', () => {
+    expect(failedSlots([died('s1', '2026-06-01', { plant_key: null })])[0].plantKey).toBeNull();
   });
 
   it('skips a slot in which something stands or is planned again', () => {

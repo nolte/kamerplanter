@@ -99,6 +99,7 @@ export function failedSlots(items: readonly PlantingItem[]): FailedPlanting[] {
     .map((item) => ({
       slotKey: item.slot_key as string,
       slotId: item.slot_id ?? '',
+      plantKey: item.plant_key ?? null,
       speciesKey: item.species_key,
       cultivarKey: item.cultivar_key ?? null,
       removedOn: item.removed_on ?? null,

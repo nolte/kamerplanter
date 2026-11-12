@@ -54,7 +54,9 @@ class ArangoRotationHistoryRepository(IRotationHistoryRepository):
                         species_key: p.species_key,
                         planted_on: p.planted_on,
                         removed_on: p.removed_on,
-                        plan_role: run != null AND run.plan_role != null ? run.plan_role : "main_crop"
+                        plan_role: run != null AND run.plan_role != null ? run.plan_role : "main_crop",
+                        termination_type: p.termination_type,
+                        termination_cause: p.termination_cause
                     }
                 """,
                 bind_vars={
@@ -108,6 +110,8 @@ def _planted(row: dict[str, Any]) -> PlantedRow:
         planted_on=date.fromisoformat(row["planted_on"][:10]),
         removed_on=date.fromisoformat(removed[:10]) if removed else None,
         plan_role=row["plan_role"],
+        termination_type=row.get("termination_type"),
+        termination_cause=row.get("termination_cause"),
     )
 
 

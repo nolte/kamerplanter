@@ -410,4 +410,41 @@ describe('Sown, thinned out, failed (REQ-053 §11.3, W-015)', () => {
       'Tomato (Tomato scientificus)',
     );
   });
+
+  it('names the died plant in the crop-rotation check of the replant, so it is no previous crop (#2888)', async () => {
+    const backend = useTabBackend([FAILED]);
+    server.use(
+      http.get('/api/v1/species', () =>
+        HttpResponse.json({ items: [species('sp_tomato', 'Tomato', { spacing_cm: '60' })], total: 1, offset: 0, limit: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(await screen.findByTestId('planting-replant-s7'));
+
+    await waitFor(() =>
+      expect(backend.validations).toContainEqual({ species_key: 'sp_tomato', replant_of_plant_key: 'pl_dead' }),
+    );
+  });
+
+  it('names no plant in the check of a planting that is no replant', async () => {
+    const backend = useTabBackend([]);
+    server.use(
+      http.get('/api/v1/species', () =>
+        HttpResponse.json({ items: [species('sp_tomato', 'Tomato', { spacing_cm: '60' })], total: 1, offset: 0, limit: 200 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderTab();
+    await user.click(await screen.findByTestId('bed-planting-empty-plant'));
+    const entry = await screen.findByTestId('planting-entry-0');
+    const box = within(entry).getByRole('combobox', { name: /^Species/ });
+    await user.click(box);
+    await user.type(box, 'Toma');
+    await user.click(await screen.findByRole('option', { name: /Tomato/ }));
+
+    await waitFor(() => expect(backend.validations).toHaveLength(1));
+    expect(backend.validations[0]).toEqual({ species_key: 'sp_tomato' });
+  });
 });
