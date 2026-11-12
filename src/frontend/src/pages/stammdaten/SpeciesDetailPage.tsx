@@ -36,7 +36,9 @@ import SpeciesCropRotationTab from './species-detail/SpeciesCropRotationTab';
 import {
   speciesEditSchema,
   speciesFormDefaults,
+  speciesFormToPayload,
   speciesToFormValues,
+  speciesToUpdatePayload,
   type SpeciesFormData,
 } from './species-detail/speciesDetailSchema';
 import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
@@ -148,27 +150,13 @@ export default function SpeciesDetailPage() {
   }, [current, reset]);
 
   const onSubmit = async (data: SpeciesFormData) => {
-    if (!key) return;
+    if (!key || !current) return;
     try {
       setSaving(true);
-      const payload = {
-        ...data,
-        photosynthesis_type: data.photosynthesis_type || null,
-        container_suitable: data.container_suitable || null,
-        indoor_suitable: data.indoor_suitable || null,
-        balcony_suitable: data.balcony_suitable || null,
-        harvest_pattern: data.harvest_pattern || null,
-        harvested_part: data.harvested_part || null,
-        climacteric: data.climacteric || null,
-        default_nutrient_plan_key: data.default_nutrient_plan_key || null,
-        propagation_configs: data.propagation_configs.map((c) => ({
-          method: c.method,
-          months: [...new Set(c.months)].sort((a, b) => a - b),
-          wood_stage: c.wood_stage || null,
-          difficulty: c.difficulty || null,
-          notes: c.notes?.trim() || null,
-        })),
-      };
+      // The update replaces the species: start from every stored field and override
+      // only what the form edits — fields the form does not show (growing periods,
+      // category, frost sensitivity, watering guide, ...) must not fall to defaults.
+      const payload = { ...speciesToUpdatePayload(current), ...speciesFormToPayload(data) };
       await api.updateSpecies(key, payload);
       notification.success(t('common.save'));
       dispatch(fetchSpecies(key));

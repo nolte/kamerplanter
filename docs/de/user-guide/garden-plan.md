@@ -200,6 +200,8 @@ Pflanzen erscheinen auf dem Plan als Marker. Die Zustandsebene beschreibt der Ab
 
 **Rankhilfe.** Braucht eine Art eine Rankhilfe (etwa Erbse oder Stangenbohne), sagt dir der Pflanzdialog, welche Rankhilfen im Beet oder an seinem Rand eingezeichnet sind, mit ihrer Höhe. Ist keine eingezeichnet, weist er darauf hin; pflanzen kannst du trotzdem. Bei Arten ohne diese Angabe erscheint kein Hinweis. <!-- REQ-053 W-005 -->
 
+**Artnamen.** Der Pflanzdialog nennt jede Art mit ihrem Namen in der Sprache der Oberfläche, also „Erbse“ statt „Pea“. Fehlt ein Name in dieser Sprache, nimmt er den deutschen, sonst den wissenschaftlichen Namen. Bei der Suche findest du eine Art trotzdem unter jedem ihrer Namen, egal in welcher Sprache du tippst. Den Namen des Anbaus und das Kürzel der Pflanzen-IDs (etwa „ERB“) bildet Kamerplanter aus dem Namen, der beim Anlegen angezeigt wird; wechselst du später die Sprache, bleiben beide, wie sie sind. <!-- REQ-001, #2902 -->
+
 ### Säen, vereinzeln und nachpflanzen {#saen-vereinzeln-nachpflanzen}
 
 Im Tab **Pflanzung** der Beetansicht gilt für Reihen und Flächen, die du direkt säst:

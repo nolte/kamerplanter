@@ -19,6 +19,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.species.router import router as species_router
+from app.api.v1.species.schemas import SpeciesCreate
 from app.common.auth import (
     get_active_tenant_context,
     get_active_tenant_key,
@@ -27,10 +28,10 @@ from app.common.auth import (
     get_is_platform_admin,
 )
 from app.common.dependencies import get_family_repo, get_species_service
-from app.common.enums import TenantRole
+from app.common.enums import FrostTolerance, PlantCategory, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
-from app.domain.models.species import Species
+from app.domain.models.species import GrowingPeriod, Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.species_service import SpeciesService
 from tests.support.grant_fakes import NoGrantsMixin
@@ -197,3 +198,34 @@ def test_a_read_returns_the_map() -> None:
 
     assert resp.status_code == 200, resp.text
     assert resp.json()["common_names_i18n"] == {"de": ["Möhre", "Karotte"], "en": ["Carrot"]}
+
+
+def test_a_full_round_trip_without_the_map_keeps_every_field() -> None:
+    """The client contract of the edit form and the growing-periods tab (#2902).
+
+    ``PUT`` replaces the species, so the frontend sends every ``SpeciesCreate`` field it
+    loaded (``speciesToUpdatePayload``) and leaves the language map out. Sending back
+    what ``GET`` returned, minus the map, must therefore change nothing — not the names,
+    not the map, not any other field.
+    """
+    stored = _own_carrot()
+    stored.family_key = "fam_api"
+    stored.genus = "Daucus"
+    stored.description = "Wurzelgemüse"
+    stored.synonyms = ["Daucus sativus"]
+    stored.plant_category = PlantCategory.OUTDOOR_VEGETABLE
+    stored.frost_sensitivity = FrostTolerance.HARDY
+    stored.support_required = True
+    stored.growing_periods = [GrowingPeriod(label="Frühjahr", direct_sow_months=[3, 4], harvest_months=[7])]
+    before = stored.model_dump()
+    repo = _Repo([stored])
+    client = _client(repo)
+
+    loaded = client.get("/api/v1/species/own").json()
+    body = {field: loaded[field] for field in SpeciesCreate.model_fields if field != "common_names_i18n"}
+    resp = client.put("/api/v1/species/own", json=body)
+
+    assert resp.status_code == 200, resp.text
+    after = repo.by_key["own"].model_dump()
+    for field in [*SpeciesCreate.model_fields, "common_names_i18n"]:
+        assert after[field] == before[field], field
