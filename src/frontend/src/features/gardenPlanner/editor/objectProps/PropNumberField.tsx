@@ -1,12 +1,14 @@
 /**
  * A numeric object property in the properties panel (REQ-053 GP-FR-180, GP-UX-052/053): the typed text is a draft;
  * blur or Enter commits it as ONE change, Escape puts the stored value back. Both decimal separators are read, the
- * decimal keypad opens on touch. A draft outside the bounds of the backend model is shown red with a text that says
+ * decimal keypad opens on touch. The stored value is written with the separator of the UI language (UI-NFR-007 R-014). A draft outside the bounds of the backend model is shown red with a text that says
  * what to enter, and is not committed. An optional field may be emptied (`null`); a required one may not.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
+import { formatDecimal } from '../../model/units';
 import { parseDecimal } from '../tools/panelFields';
 
 interface PropNumberFieldProps {
@@ -29,8 +31,6 @@ interface PropNumberFieldProps {
   onCommit: (value: number | null) => void;
 }
 
-const format = (value: number | null | undefined): string => (value == null ? '' : String(value));
-
 export function PropNumberField({
   label,
   value,
@@ -44,13 +44,15 @@ export function PropNumberField({
   testId,
   onCommit,
 }: PropNumberFieldProps) {
+  const { i18n } = useTranslation();
+  const language = i18n.language;
   const stored = value ?? null;
-  const [text, setText] = useState(format(stored));
-  const [seen, setSeen] = useState(stored);
-  // The model changed under the field (undo, another edit): show the stored value (derived state pattern).
-  if (stored !== seen) {
-    setSeen(stored);
-    setText(format(stored));
+  const [text, setText] = useState(() => formatDecimal(stored, language));
+  const [seen, setSeen] = useState({ stored, language });
+  // The model changed under the field (undo, another edit) or the language did: show the stored value (derived state).
+  if (stored !== seen.stored || language !== seen.language) {
+    setSeen({ stored, language });
+    setText(formatDecimal(stored, language));
   }
   const empty = text.trim() === '';
   const parsed = empty ? null : parseDecimal(text);
@@ -80,7 +82,7 @@ export function PropNumberField({
           commit();
         } else if (event.key === 'Escape') {
           event.stopPropagation();
-          setText(format(stored));
+          setText(formatDecimal(stored, language));
         }
       }}
       slotProps={{

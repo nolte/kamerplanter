@@ -32,6 +32,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useApiError } from '@/hooks/useApiError';
 import type { Geometry, Point } from '../model/types';
+import { formatDecimal } from '../model/units';
 import LayoutCanvas from './LayoutCanvas';
 import { correctSlotPosition, getSlot, listBedSlots } from './plantingApi';
 import { insideBed } from './plantingLogic';
@@ -73,8 +74,9 @@ type Loaded =
   | { status: 'error' }
   | { status: 'ready'; origin: Point };
 
-function cmText(value: number): string {
-  return String(Math.round(value * CM * 10) / 10);
+/** A position in metres as the field's text: centimetres to 1 mm, with the separator of `language`. */
+function cmText(value: number, language: string): string {
+  return formatDecimal(Math.round(value * CM * 10) / 10, language);
 }
 
 export default function PositionCorrectionDialog({
@@ -91,7 +93,7 @@ export default function PositionCorrectionDialog({
   gridStepM,
   showFineSteps = true,
 }: PositionCorrectionDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { handleError } = useApiError();
@@ -111,8 +113,8 @@ export default function PositionCorrectionDialog({
         if (cancelled) return;
         if (slot.geometry?.kind === 'point') {
           setLoaded({ status: 'ready', origin: slot.geometry.origin });
-          setXText(cmText(slot.geometry.origin[0]));
-          setYText(cmText(slot.geometry.origin[1]));
+          setXText(cmText(slot.geometry.origin[0], i18n.language));
+          setYText(cmText(slot.geometry.origin[1], i18n.language));
           setOthers(
             slots.flatMap((other) =>
               other.key !== slotKey && !other.archived_at && other.geometry?.kind === 'point'
@@ -130,7 +132,7 @@ export default function PositionCorrectionDialog({
     return () => {
       cancelled = true;
     };
-  }, [slotKey, bedKey]);
+  }, [slotKey, bedKey, i18n.language]);
 
   // The two fields are the truth: what they say is what is saved. A text that is not a number has no position.
   const parsed = useMemo<Point | null>(() => {
@@ -144,9 +146,9 @@ export default function PositionCorrectionDialog({
   const shown: Point | null = parsed ?? (loaded.status === 'ready' ? loaded.origin : null);
 
   const moveTo = useCallback((next: Point) => {
-    setXText(cmText(next[0]));
-    setYText(cmText(next[1]));
-  }, []);
+    setXText(cmText(next[0], i18n.language));
+    setYText(cmText(next[1], i18n.language));
+  }, [i18n.language]);
 
   const step = (dxCm: number, dyCm: number) => {
     if (!shown) return;

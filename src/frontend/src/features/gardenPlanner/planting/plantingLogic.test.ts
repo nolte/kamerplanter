@@ -44,7 +44,7 @@ describe('prefillFor (GP-FR-061, F-11)', () => {
   const tomato = species('sp_t', 'Tomato', { spacing_cm: '50-60', row_spacing_cm: '80' });
 
   it('takes the Steckbrief first, even when the tenant used another value last', () => {
-    const prefill = prefillFor(tomato, { spacing_cm: 45, row_spacing_cm: 70, layout_strategy: 'rows' });
+    const prefill = prefillFor(tomato, { spacing_cm: 45, row_spacing_cm: 70, layout_strategy: 'rows' }, 'en');
     expect(prefill).toMatchObject({
       spacing: '50',
       rowSpacing: '80',
@@ -56,7 +56,7 @@ describe('prefillFor (GP-FR-061, F-11)', () => {
 
   it('falls back to what the tenant used last, field by field', () => {
     const noRow = species('sp_b', 'Bean', { spacing_cm: '10', row_spacing_cm: null });
-    const prefill = prefillFor(noRow, { spacing_cm: 99, row_spacing_cm: 40 });
+    const prefill = prefillFor(noRow, { spacing_cm: 99, row_spacing_cm: 40 }, 'en');
     expect(prefill).toMatchObject({
       spacing: '10',
       spacingSource: 'species',
@@ -67,12 +67,20 @@ describe('prefillFor (GP-FR-061, F-11)', () => {
 
   it('stays empty - no silent default - when neither source has a value', () => {
     const bare = species('sp_x', 'Unknown');
-    expect(prefillFor(bare, null)).toMatchObject({
+    expect(prefillFor(bare, null, 'en')).toMatchObject({
       spacing: '',
       rowSpacing: '',
       spacingSource: 'none',
       rowSpacingSource: 'none',
       layout: null,
+    });
+  });
+
+  it('writes a fractional spacing with the separator of the UI language (#2905)', () => {
+    const cress = species('sp_c', 'Cress', { spacing_cm: '2.5', row_spacing_cm: null });
+    expect(prefillFor(cress, { spacing_cm: 7.5, row_spacing_cm: 12.5 }, 'de')).toMatchObject({
+      spacing: '2,5',
+      rowSpacing: '12,5',
     });
   });
 });

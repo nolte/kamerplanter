@@ -12,6 +12,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { PlanOperation, WaterSourceKind, WaterSourceProps } from '../model/types';
+import { formatDecimal } from '../model/units';
 import { parseDecimal } from './tools/panelFields';
 import type { ActionLabel } from './tools/machineTypes';
 
@@ -50,16 +51,16 @@ function dayOf(instant: string | null | undefined): string {
 /** Today on the UTC calendar: the latest day a source can have been refilled (the server refuses a later one). */
 const todayUtc = (): string => new Date().toISOString().slice(0, 10);
 
-const formatCapacity = (value: number | null | undefined): string => (value == null ? '' : String(value));
-
 export function WaterSourceFields({ objectKey, props, disabled, onCommit }: WaterSourceFieldsProps) {
-  const { t } = useTranslation();
-  const [capacityText, setCapacityText] = useState(formatCapacity(props.capacity_liters));
-  const [seenCapacity, setSeenCapacity] = useState(props.capacity_liters ?? null);
-  // The model changed under the field (undo, another edit): show the stored value (derived state pattern).
-  if ((props.capacity_liters ?? null) !== seenCapacity) {
-    setSeenCapacity(props.capacity_liters ?? null);
-    setCapacityText(formatCapacity(props.capacity_liters));
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
+  const storedCapacity = props.capacity_liters ?? null;
+  const [capacityText, setCapacityText] = useState(() => formatDecimal(storedCapacity, language));
+  const [seenCapacity, setSeenCapacity] = useState({ stored: storedCapacity, language });
+  // The model changed under the field (undo, another edit) or the language did: show the stored value (derived state).
+  if (storedCapacity !== seenCapacity.stored || language !== seenCapacity.language) {
+    setSeenCapacity({ stored: storedCapacity, language });
+    setCapacityText(formatDecimal(storedCapacity, language));
   }
   const storedDay = dayOf(props.last_refilled_at);
   const [dayDraft, setDayDraft] = useState(storedDay);
@@ -144,7 +145,7 @@ export function WaterSourceFields({ objectKey, props, disabled, onCommit }: Wate
             commitCapacity();
           } else if (event.key === 'Escape') {
             event.stopPropagation();
-            setCapacityText(formatCapacity(props.capacity_liters));
+            setCapacityText(formatDecimal(storedCapacity, language));
           }
         }}
         slotProps={{

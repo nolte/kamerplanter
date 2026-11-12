@@ -7,6 +7,7 @@ import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '@/i18n/i18n';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import PositionCorrectionDialog from './PositionCorrectionDialog';
@@ -81,6 +82,25 @@ afterEach(() => {
 });
 
 describe('Correct position: the dragged plant snaps to the site grid in the bed frame (GP-FR-154)', () => {
+  it('shows a fractional centimetre with the decimal comma in German (#2905)', async () => {
+    useSlotBackend();
+    server.use(
+      http.get(`${BASE}/slots/:key`, () =>
+        HttpResponse.json({ key: 's1', slot_id: 'BED_001', location_key: 'loc_b03', geometry: { kind: 'point', origin: [0.305, 0.9] } }),
+      ),
+    );
+    const original = i18n.language;
+    await act(() => i18n.changeLanguage('de'));
+    try {
+      renderDialog(0.1);
+      const dialog = await screen.findByTestId('position-dialog');
+      await waitFor(() => expect(within(dialog).getByTestId('position-x')).toHaveValue('30,5'));
+    } finally {
+      cleanup();
+      await act(() => i18n.changeLanguage(original));
+    }
+  });
+
   it('lands on the 10 cm grid and saves that point', async () => {
     const patches = useSlotBackend();
     const user = userEvent.setup();

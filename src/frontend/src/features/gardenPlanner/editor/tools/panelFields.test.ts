@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Geometry } from '../../model/types';
+import { formatDecimal } from '../../model/units';
 import { geometryFields, parseDecimal, pointList, setField, setPoint } from './panelFields';
 
 const rect: Geometry = { kind: 'rect', origin: [1, 2], width_m: 3, length_m: 4, rotation_deg: 0 };
@@ -13,6 +14,26 @@ describe('parseDecimal', () => {
   it('refuses text, blanks and thousands separators', () => {
     for (const text of ['', ' ', 'abc', '1,2,3', '1e3', '1 000', '--1'])
       expect(parseDecimal(text)).toBeNull();
+  });
+});
+
+describe('formatDecimal (#2905, UI-NFR-007 R-014)', () => {
+  it('writes the separator of the language, without grouping or rounding', () => {
+    expect(formatDecimal(0.9, 'de')).toBe('0,9');
+    expect(formatDecimal(0.9, 'en')).toBe('0.9');
+    expect(formatDecimal(-1234.5678, 'de')).toBe('-1234,5678');
+    expect(formatDecimal(1234.5678, 'en-US')).toBe('1234.5678');
+    expect(formatDecimal(3, 'de')).toBe('3');
+  });
+  it('writes a missing or unset value as an empty text', () => {
+    expect(formatDecimal(null, 'de')).toBe('');
+    expect(formatDecimal(undefined, 'en')).toBe('');
+    expect(formatDecimal(Number.NaN, 'de')).toBe('');
+  });
+  it('round-trips through parseDecimal without drift', () => {
+    for (const language of ['de', 'en'])
+      for (const value of [0.1, 0.3, 0.1 + 0.2, 1.005, -0.5, 12.345, 999.999])
+        expect(parseDecimal(formatDecimal(value, language))).toBe(value);
   });
 });
 

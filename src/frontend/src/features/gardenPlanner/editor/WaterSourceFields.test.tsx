@@ -5,9 +5,10 @@
  * change is ONE `update_fields` of the whole props object through the plan (never a PATCH of its own); a value the
  * server would refuse (capacity <= 0) is not committed; clearing the capacity sends `null`.
  */
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import i18n from '@/i18n/i18n';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { renderWithProviders } from '@/test/helpers';
 import type { PlanOperation, WaterSourceProps } from '../model/types';
@@ -16,6 +17,8 @@ import { testPlan } from './tools/toolTestKit';
 import { WaterSourceFields } from './WaterSourceFields';
 
 afterEach(() => cleanup());
+
+const ORIGINAL_LANGUAGE = i18n.language;
 
 const BARREL: WaterSourceProps = {
   object_type: 'water_source',
@@ -43,6 +46,23 @@ describe('water source fields (GP-FR-111)', () => {
     expect(screen.getByTestId('garden-plan-panel-water-source-kind')).toHaveValue('rain_barrel');
     expect(screen.getByTestId('garden-plan-panel-water-source-capacity')).toHaveValue('300');
     expect(screen.getByTestId('garden-plan-panel-water-source-refilled')).toHaveValue('2026-10-01');
+  });
+
+  it.each([
+    ['de', '12,5'],
+    ['en', '12.5'],
+  ])('writes a fractional capacity with the separator of %s and commits nothing unchanged (#2905)', async (language, shown) => {
+    await act(() => i18n.changeLanguage(language));
+    try {
+      const onCommit = renderFields({ ...BARREL, capacity_liters: 12.5 });
+      const capacity = screen.getByTestId('garden-plan-panel-water-source-capacity');
+      expect(capacity).toHaveValue(shown);
+      fireEvent.blur(capacity);
+      expect(onCommit).not.toHaveBeenCalled();
+    } finally {
+      cleanup();
+      await act(() => i18n.changeLanguage(ORIGINAL_LANGUAGE));
+    }
   });
 
   it('commits a new kind as one update_fields with the whole props object', async () => {
