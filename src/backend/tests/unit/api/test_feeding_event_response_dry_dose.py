@@ -34,3 +34,26 @@ def test_the_create_body_still_demands_a_positive_volume():
         FeedingEventCreate(plant_key="p")
     with pytest.raises(ValidationError):
         FeedingEventCreate(plant_key="p", volume_applied_liters=0)
+
+
+def test_a_top_dress_carries_its_dose_on_the_wire():
+    """#2903: the detail page shows what a top dress applied - material, amount, unit and the plants."""
+    event = FeedingEvent(
+        _key="fe1",
+        tenant_key="t",
+        plant_key="p1",
+        application_method="top_dress",
+        location_key="bed",
+        plant_keys=["p1", "p2"],
+        product_label="Nettle tea",
+        material="compost",
+        dose_quantity=2,
+        dose_unit="l",
+        quantity_total=None,
+    )
+
+    response = to_response(event, FeedingEventResponse)
+
+    assert (response.material, response.dose_quantity, response.dose_unit) == ("compost", 2, "l")
+    assert (response.plant_keys, response.location_key, response.product_label) == (["p1", "p2"], "bed", "Nettle tea")
+    assert "tenant_key" not in response.model_dump()

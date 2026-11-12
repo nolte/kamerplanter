@@ -2589,6 +2589,25 @@ export interface FeedingEvent {
   runoff_volume_liters: number | null;
   channel_id: string | null;
   notes: string | null;
+  /**
+   * REQ-053: a dose logged in the care log or by a bed task (#2903). A top dress (compost, a dry
+   * fertiliser) has no volume - `volume_applied_liters` is `0` then - and carries the dose here.
+   */
+  location_key?: string | null;
+  /** Every plant of the dose; empty when only `plant_key` names it (a feeding from the REQ-004 form). */
+  plant_keys?: string[];
+  task_key?: string | null;
+  product_key?: string | null;
+  /** The product as named in free text (no catalogue entry). */
+  product_label?: string | null;
+  /** Code of `enums.careMaterial` or free text. */
+  material?: string | null;
+  dose_quantity?: number | null;
+  /** Code of `enums.careUnit`. */
+  dose_unit?: string | null;
+  /** For a dose per m², the total for the bed. */
+  quantity_total?: number | null;
+  quantity_total_unit?: string | null;
   created_at: string | null;
   updated_at: string | null;
 }

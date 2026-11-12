@@ -582,7 +582,7 @@ class CareEventService:
             logger.info("care_event.replayed", event_key=stored.event.key)
             return LoggedCareEvent(stored, replayed=True)
         event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, stamp=stamp)
-        feeding = self._amendment_feeding(event, tenant_key=tenant_key)
+        feeding = self._logged_feeding(event, tenant_key=tenant_key)
         outcome = insert_or_read_winner(
             lambda: self._store(event, feeding, tenant_key=tenant_key),
             lambda: self._replayed(stamp, tenant_key=tenant_key, user_key=user_key),
@@ -605,20 +605,23 @@ class CareEventService:
     ) -> CareEventView:
         """Store a care event (GP-API-033); the performer is the caller (GP-NFR-054).
 
-        Only a client's entry (``origin is None``) writes the feeding event of a nutrient amendment: a server caller
-        records a deed whose document is its own business and names it through ``origin.source_ref`` (#2833).
+        Only a client's entry (``origin is None``) writes the feeding event of a feeding or a nutrient amendment: a
+        server caller records a deed whose document is its own business and names it through ``origin.source_ref``
+        (#2833, #2854).
         """
         event = self.build_event(data, tenant_key=tenant_key, user_key=user_key, role=role, origin=origin)
-        feeding = self._amendment_feeding(event, tenant_key=tenant_key) if origin is None else None
+        feeding = self._logged_feeding(event, tenant_key=tenant_key) if origin is None else None
         stored = self._store(event, feeding, tenant_key=tenant_key)
         self._record_created(stored)
         return self._stored_view(stored.key or "", tenant_key=tenant_key, user_key=user_key)
 
-    def _amendment_feeding(self, event: CareEvent, *, tenant_key: str) -> DomainDocument | None:
-        """The ``feeding_event`` a care-log nutrient amendment writes beside its line (§12.1, W-007; #2833).
+    def _logged_feeding(self, event: CareEvent, *, tenant_key: str) -> DomainDocument | None:
+        """The ``feeding_event`` a care-log entry writes beside its line (§12.1, W-007; #2833, #2854).
 
-        Built by :meth:`TaskCompletionEngine.feeding_document`, the builder the task completion uses, so both ways
-        of recording a compost, manure or horn-shavings dose store the same document. The plants are the event's
+        Which entries write one is :meth:`TaskCompletionEngine.logged_entry_wants_feeding_event`: a nutrient
+        amendment with a quantity, and a ``feeding`` that names a product and a quantity. Built by
+        :meth:`TaskCompletionEngine.feeding_document`, the builder the task completion uses, so both ways of
+        recording a dose store the same document. The plants are the event's
         own, else the plants standing in the bed (a whole-bed dose is every plant's) - the completion's rule.
         This runs only on a client's :meth:`create` / :meth:`log` and on the correction of a client's entry; the
         completion builds its event with :meth:`build_event` and its document itself, so one action writes exactly
@@ -628,7 +631,7 @@ class CareEventService:
             PlanError: 422 ``care_event.too_many_plants`` - more plants stand in the bed than one event may name
                 (``MAX_PLANTS_PER_EVENT``, the bound a client's ``plant_keys`` has); never a silently cut list.
         """
-        if not TaskCompletionEngine.logged_amendment_wants_feeding_event(event):
+        if not TaskCompletionEngine.logged_entry_wants_feeding_event(event):
             return None
         plants = list(event.plant_keys)
         if not plants:
@@ -725,11 +728,12 @@ class CareEventService:
         # alone keeps the predecessor's mark; a changed quantity is the person's own (measured) statement.
         if event.quantity == predecessor.quantity and event.unit == predecessor.unit:
             event.allocation = predecessor.allocation
-        # A client's entry owns its amendment's feeding event (#2833): the repository withdraws the predecessor's,
-        # and a correction that is still a nutrient amendment writes its own for the corrected dose. A line that
-        # mirrors another writer's document (backfill, task, reconciliation) writes none.
+        # A client's entry owns its feeding event (#2833, #2854): the repository withdraws the predecessor's, and a
+        # correction that still states a dose (a feeding with product and quantity, a nutrient amendment) writes
+        # its own for the corrected dose. A line that mirrors another writer's document (backfill, task,
+        # reconciliation) writes none.
         feeding = (
-            self._amendment_feeding(event, tenant_key=tenant_key)
+            self._logged_feeding(event, tenant_key=tenant_key)
             if owns_its_source_document(predecessor.trigger)
             else None
         )
@@ -745,8 +749,8 @@ class CareEventService:
     def void(self, key: str, *, reason: str, tenant_key: str, user_key: str, role: TenantRole) -> CareEventView:
         """Cancel an entry (GP-API-037): ``voided_at`` / ``voided_by`` / ``void_reason``.
 
-        A client's nutrient amendment takes its feeding event with it (the repository withdraws it in the same
-        transaction, #2833): a cancelled dose stops counting in the fertiliser balance.
+        A client's feeding or nutrient amendment takes its feeding event with it (the repository withdraws it in the
+        same transaction, #2833, #2854): a cancelled dose stops counting in the fertiliser balance.
 
         The lead may cancel any entry. A grower may take back their *own* entry within ten minutes of
         ``created_at`` with ``reason = "undo"`` (the field-mode snackbar, GP-FR-149) and nothing else.

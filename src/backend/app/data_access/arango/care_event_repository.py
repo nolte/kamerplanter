@@ -368,8 +368,9 @@ def write_domain_document(txn: StreamTransaction, domain: DomainDocument, now: s
     """Insert a specialist document (§12.1) and its edges inside the caller's transaction; returns its reference.
 
     The one writer of the documents a care event is the line of: the task completion (WP 4.3) and the care-log
-    entry of a nutrient amendment (#2833) both call it, then store the event with ``source_ref`` set to the
-    returned ``{"collection", "key"}`` - the reference the consistency job (GP-FR-105) reads as "already logged".
+    entry of a feeding or a nutrient amendment (#2833, #2854) both call it, then store the event with ``source_ref``
+    set to the returned ``{"collection", "key"}`` - the reference the consistency job (GP-FR-105) reads as "already
+    logged".
     The caller declares ``domain.collection`` and the edge collections for writing.
     """
     stored = txn.collection(domain.collection).insert(domain.document, return_new=True)["new"]
@@ -592,6 +593,31 @@ def retention_patch(doc: dict[str, Any], now: str) -> dict[str, Any]:
     if doc.get("redaction_reason") is not None:
         patch["redaction_reason"] = REDACTED
     return patch
+
+
+#: Blanks the free-text product name a care line copied into its ``feeding_event`` (#2854); a document that is gone
+#: (withdrawn), another tenant's or one without a name is left alone.
+REDACT_FEEDING_LABELS_AQL = """
+FOR target IN @targets
+    LET d = DOCUMENT(@@feedings, target.key)
+    FILTER d != null AND d.tenant_key == target.tenant_key AND d.product_label != null
+    UPDATE d WITH { product_label: @redacted } IN @@feedings
+"""
+
+
+def feeding_label_targets(docs: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """The ``feeding_events`` whose ``product_label`` is a copy of these lines' free text (#2854).
+
+    Every ``source_ref`` into ``feeding_events``, whoever wrote the document: a ``product_label`` there only ever
+    comes from a care line (the builder of the care log and the task completion), so redacting or anonymising the
+    line's text must reach the copy as well (GP-FR-109, R-25).
+    """
+    targets: list[dict[str, str]] = []
+    for doc in docs:
+        reference = doc.get("source_ref")
+        if isinstance(reference, dict) and reference.get("collection") == col.FEEDING_EVENTS and reference.get("key"):
+            targets.append({"key": str(reference["key"]), "tenant_key": str(doc.get("tenant_key", ""))})
+    return targets
 
 
 class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepository):
@@ -996,7 +1022,7 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
         stamp = at.astimezone(UTC).isoformat()
         with stream_transaction(
             self._db,
-            write=(col.CARE_EVENTS, col.GARDEN_PLAN_AUDIT),
+            write=(col.CARE_EVENTS, col.GARDEN_PLAN_AUDIT, col.FEEDING_EVENTS),
             read=(col.SITES,),
             entity="care_event",
         ) as txn:
@@ -1021,6 +1047,15 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
                 if doc.get("void_reason") not in (None, UNDO_REASON):
                     patch["void_reason"] = REDACTED
                 redacted.append(self._wrapped(events.update(patch, return_new=True)["new"]))
+            # The product name the chain copied into its feeding events goes with the line's text (#2854).
+            txn.aql.execute(
+                REDACT_FEEDING_LABELS_AQL,
+                bind_vars={
+                    "@feedings": col.FEEDING_EVENTS,
+                    "targets": [t for t in feeding_label_targets(docs) if t["tenant_key"] == tenant_key],
+                    "redacted": REDACTED,
+                },
+            )
             head = next(doc for doc in docs if doc["_key"] == key)
             revision = next(
                 iter(
@@ -1086,6 +1121,13 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
             failures = [outcome for outcome in cast("list[Any]", outcomes) if isinstance(outcome, Exception)]
             if failures:
                 raise failures[0]
+            # R-25 reaches the product name a line copied into its feeding event as well (#2854).
+            label_vars: dict[str, Any] = {
+                "@feedings": col.FEEDING_EVENTS,
+                "targets": feeding_label_targets(fresh),
+                "redacted": REDACTED,
+            }
+            self._db.aql.execute(REDACT_FEEDING_LABELS_AQL, bind_vars=label_vars)
         result.anonymized = len(fresh)
         result.pending_photos = [
             PendingPhotos(str(doc["_key"]), str(doc.get("tenant_key", "")), tuple(str(r) for r in doc["photo_refs"]))

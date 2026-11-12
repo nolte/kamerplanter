@@ -40,6 +40,8 @@ class FeedingEvent(BaseModel):
     task_key: str | None = None
     #: The product and the dose as typed (``quantity`` in ``unit``) and, for an area dose, the total for the bed.
     product_key: str | None = None
+    #: The product as the grower named it in free text (a nettle tea without a catalogue entry, #2854).
+    product_label: str | None = Field(default=None, max_length=200)
     material: str | None = None
     dose_quantity: float | None = Field(default=None, ge=0)
     dose_unit: str | None = None
