@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.18"
+version: "1.19"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,9 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.19 (2026-11-12, #2889)** — TC-053-114: Erwartung nennt den deutschen Phasennamen aus dem Katalog
+(z. B. „(Vegetative Phase)“ / „(Blüte)“), nie den englischen. `test_count` unverändert.
 
 **Version 1.18 (2026-11-11, #2882/#2887)** — TC-053-100: Schritt 8 und Erwartung auf manuelle Tab-Aktivierung
 (Pfeil bewegt den Fokus, Eingabe aktiviert; REQ-053 v1.21). `test_count` unverändert.
@@ -3681,12 +3684,10 @@ Bildschirmfoto; der Befund ist gemeldet.
 
 **Erwartete Ergebnisse**:
 - Zelt A zeigt „Unterschiedlicher Lichtbedarf unter einer Lampe“ und nennt beide Gruppen mit ihrer Lichtdauer aus dem
-  Phasenprofil, z. B. „18 Stunden Licht für 1 Pflanze (…)“ und „12 Stunden Licht für 1 Pflanze (…)“
+  Phasenprofil und dem deutschen Namen der Phase aus dem Phasenkatalog, z. B. „18 Stunden Licht für 1 Pflanze
+  (Vegetative Phase)“ und „12 Stunden Licht für 1 Pflanze (Blüte)“ — nie den englischen Namen („Vegetative“,
+  „Flowering“, #2889)
 - Zelt B zeigt keinen Lichtbedarf-Hinweis
-
-**Hinweis**: Die Phasenbezeichnung in der Klammer erscheint in der deutschen Oberfläche englisch („Vegetative“,
-„Flowering“), während die Pflanzentabelle derselben Seite „Vegetativ“/„Blüte“ zeigt; gemeldet, nicht Teil der
-Prüfung.
 
 **Nachbedingungen**:
 - Keine Änderung

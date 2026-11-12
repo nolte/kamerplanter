@@ -26,7 +26,7 @@ from app.data_access.arango.garden_plan_repository import ArangoGardenPlanReposi
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import LocationPatch
-from app.domain.models.tent_hint import HINT_PHOTOPERIOD_CONFLICT
+from app.domain.models.tent_hint import HINT_PHOTOPERIOD_CONFLICT, PhaseLabel
 from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -225,6 +225,22 @@ class TestPhotoperiodRead:
 
         assert (rows["p_named"].phase_code, rows["p_named"].display_name) == ("flowering", "Gelato #3")
         assert (rows["p_unnamed"].phase_code, rows["p_unnamed"].display_name) == ("seedling", "P_UNNAMED")
+
+    def test_each_plant_carries_its_phase_with_both_display_names(self, db, repo) -> None:
+        """#2889: a sequence entry carries its definition's English and German name, a legacy growth phase its own
+        (English only - it has no German field); no phase, no label. Nothing is resolved by language here."""
+        db.collection(col.PHASE_DEFINITIONS).update(
+            {"_key": "pd_flowering", "display_name": "Flowering", "display_name_de": "Blüte"}
+        )
+        _plant(db, "p_sequence", phase="pse_flowering")
+        _plant(db, "p_legacy", phase="gp_veg")
+        _plant(db, "p_nophase", phase=None)
+
+        rows = {row.plant_key: row for row in repo.load_location_photoperiods("tent", tenant_key=A)}
+
+        assert rows["p_sequence"].phase_label == PhaseLabel("flowering", "Flowering", "Blüte")
+        assert rows["p_legacy"].phase_label == PhaseLabel("vegetative", "Vegetative", "")
+        assert rows["p_nophase"].phase_label is None
 
     def test_an_ambiguous_name_bridge_is_unknown_and_the_legacy_id_still_wins(self, db, repo) -> None:
         """Two growth phases named ``flowering`` in the species' lifecycles: the sequence plant is not guessed."""

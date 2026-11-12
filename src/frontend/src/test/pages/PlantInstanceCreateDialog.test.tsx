@@ -605,6 +605,24 @@ describe('PlantInstanceCreateDialog', () => {
       expect(payloads[0].current_phase_key).toBe('seq-entry-germination');
     });
 
+    it('labels the PhaseSequence phases with the German catalogue name in the German UI (#2889)', async () => {
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () =>
+          HttpResponse.json(phaseSequenceWithEntries()),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+      await waitForPhaseOptions();
+      const field = screen.getByTestId('form-field-current_phase_key');
+      // The pre-selected first entry is germination: `display_name_de` "Keimung", never the English "Germination".
+      expect(within(field).getByRole('combobox')).toHaveTextContent('Keimung');
+      expect(within(field).getByRole('combobox')).not.toHaveTextContent('Germination');
+    });
+
     it('falls back to LifecycleConfig growth phases when the species has no PhaseSequence (#626)', async () => {
       const payloads: Array<{ current_phase_key: string | null }> = [];
       server.use(

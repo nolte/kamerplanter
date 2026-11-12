@@ -552,7 +552,7 @@ def test_tc_053_114_tent_photoperiod_conflict_hint_from_the_phase_profiles(
     The phases and their photoperiods come from the catalogue: the light-triggered phases (no young phase) of the hemp
     lifecycle with the longest and the shortest ``photoperiod_hours``. Tent A holds one plant in each, tent B two plants
     in the longest one. Breaks if tent A shows no conflict hint, the hint does not name both photoperiods with their
-    phase, or tent B shows one (§9.2a, W-016.6, V-23 - a hint, never an error).
+    phase by its German catalogue name (#2889), or tent B shows one (§9.2a, W-016.6, V-23 - a hint, never an error).
     """
     hemp = species(base_url, e2e_seed_data, HEMP)
     phases = [
@@ -568,6 +568,12 @@ def test_tc_053_114_tent_photoperiod_conflict_hint_from_the_phase_profiles(
     assert longest.photoperiod_hours - shortest.photoperiod_hours >= 1.0, (
         f"precondition: two phases at least one hour apart (the hint's tolerance): {longest!r}, {shortest!r}"
     )
+    for phase in (longest, shortest):
+        # #2889: the hint must word the phase by the catalogue's German name; only one that differs from the English
+        # name can tell the two apart (seed: "Vegetative Phase" / "Blüte").
+        assert phase.display_name_de and phase.display_name_de != phase.display_name, (
+            f"precondition: the phase has a German name of its own in the catalogue: {phase!r}"
+        )
     garden = provision_garden(
         base_url,
         e2e_seed_data,
@@ -599,9 +605,12 @@ def test_tc_053_114_tent_photoperiod_conflict_hint_from_the_phase_profiles(
     bed_view.open_tent_rules(tent_a)
     text = bed_view.photoperiod_conflict_text("TC-053-114: tent A")
     for phase in (longest, shortest):
-        # The phase label in brackets follows the hours; its language is a separate finding (see the TC).
-        fragment = f"{_hours_de(phase.photoperiod_hours)} Stunden Licht für 1 Pflanze ("
+        # The phase in brackets is its German catalogue name, never the English one (#2889).
+        fragment = f"{_hours_de(phase.photoperiod_hours)} Stunden Licht für 1 Pflanze ({phase.display_name_de})"
         assert fragment in text, f"TC-053-114: the hint names {fragment!r}: {text!r}"
+        assert f"({phase.display_name})" not in text, (
+            f"TC-053-114: the hint names the phase in English ({phase.display_name!r}): {text!r}"
+        )
     assert text.startswith("Unterschiedlicher Lichtbedarf unter einer Lampe"), (
         f"TC-053-114: the hint's title: {text!r}"
     )

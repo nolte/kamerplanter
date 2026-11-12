@@ -17,6 +17,7 @@ from app.domain.models.tent_hint import (
     HINT_PHOTOPERIOD_CONFLICT,
     HINT_PHOTOPERIOD_UNKNOWN,
     MAX_NAMED_UNKNOWN_PLANTS,
+    PhaseLabel,
     PlantPhotoperiod,
 )
 
@@ -132,6 +133,34 @@ class TestPhotoperiodHints:
             (18.0, 3, ("Seedling", "Vegetative")),
             (12.0, 1, ("Flowering",)),
         ]
+
+    def test_groups_carry_each_phase_once_with_both_display_names(self) -> None:
+        """#2889: the group names its phases by code with both catalogue names, never a server-picked language.
+
+        A legacy growth phase (English name only) and a sequence entry of the same code (both names) are one phase:
+        the German name is taken from the entry, whichever plant comes first.
+        """
+        legacy = PhaseLabel("vegetative", display_name="Vegetative")
+        sequence = PhaseLabel("vegetative", display_name="", display_name_de="Vegetative Phase")
+        flowering = PhaseLabel("flowering", display_name="Flowering", display_name_de="Blüte")
+        groups = photoperiod_groups(
+            [
+                PlantPhotoperiod("a", "Vegetative", 18.0, "vegetative", phase_label=legacy),
+                PlantPhotoperiod("b", "vegetative", 18.0, "vegetative", phase_label=sequence),
+                PlantPhotoperiod("c", None, 18.0),
+                PlantPhotoperiod("d", "Flowering", 12.0, "flowering", phase_label=flowering),
+            ]
+        )
+
+        assert [g.phases for g in groups] == [
+            (PhaseLabel("vegetative", display_name="Vegetative", display_name_de="Vegetative Phase"),),
+            (flowering,),
+        ]
+
+    def test_a_group_without_a_resolved_phase_names_none(self) -> None:
+        (group,) = photoperiod_groups([plant("a", 18), plant("b", 18)])
+
+        assert group.phases == ()
 
     def test_the_shared_types_are_tent_and_shelf(self) -> None:
         assert frozenset({"tent", "shelf"}) == PHOTOPERIOD_SHARED_LOCATION_TYPES

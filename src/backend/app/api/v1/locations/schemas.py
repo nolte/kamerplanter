@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic.config import JsonDict
 
 from app.api.v1.attachments.schemas import ThumbnailUris
 from app.api.v1.care_events.schemas import CareEventResponse, care_event_to_response
@@ -374,17 +375,50 @@ class NutrientHintResponse(BaseModel):
         )
 
 
+class PhaseLabelResponse(BaseModel):
+    """A phase of a photoperiod group with both catalogue display names; the client picks the one for its language.
+
+    `display_name` is the English name, `display_name_de` the German one; either is empty when the catalogue holds
+    none (a legacy growth phase has no German name) - the client then falls back to its own wording of `code`.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"code": "vegetative", "display_name": "Vegetative", "display_name_de": "Vegetative Phase"}]
+        }
+    )
+
+    code: str = Field(min_length=1)
+    display_name: str = ""
+    display_name_de: str = ""
+
+
+_GROUP_EXAMPLE_VEGETATIVE: JsonDict = {
+    "photoperiod_hours": 18.0,
+    "plant_count": 2,
+    "phase_names": ["Vegetative"],
+    "phases": [{"code": "vegetative", "display_name": "Vegetative", "display_name_de": "Vegetative Phase"}],
+}
+_GROUP_EXAMPLE_FLOWERING: JsonDict = {
+    "photoperiod_hours": 12.0,
+    "plant_count": 1,
+    "phase_names": ["Flowering"],
+    "phases": [{"code": "flowering", "display_name": "Flowering", "display_name_de": "Blüte"}],
+}
+
+
 class PhotoperiodGroupResponse(BaseModel):
     """Plants of one light schedule that ask for the same photoperiod (W-016.6)."""
 
-    model_config = ConfigDict(
-        json_schema_extra={"examples": [{"photoperiod_hours": 18.0, "plant_count": 2, "phase_names": ["Vegetative"]}]}
-    )
+    model_config = ConfigDict(json_schema_extra={"examples": [_GROUP_EXAMPLE_VEGETATIVE]})
 
     photoperiod_hours: float = Field(ge=0, le=24)
     plant_count: int = Field(ge=1)
-    #: Display names of the phases these plants are in (sorted); empty when no phase name resolves.
+    #: Display names of the phases these plants are in (sorted), English or the machine name - not localised; kept
+    #: for older clients. `phases` carries what a client words in its UI language (#2889).
     phase_names: list[str] = Field(default_factory=list)
+    #: The phases these plants are in, one per `code`, sorted by it; empty when no phase resolves.
+    phases: list[PhaseLabelResponse] = Field(default_factory=list)
 
 
 class TentHintResponse(BaseModel):
@@ -404,10 +438,7 @@ class TentHintResponse(BaseModel):
                 {
                     "code": "tent.photoperiod_conflict",
                     "severity": "warning",
-                    "groups": [
-                        {"photoperiod_hours": 18.0, "plant_count": 2, "phase_names": ["Vegetative"]},
-                        {"photoperiod_hours": 12.0, "plant_count": 1, "phase_names": ["Flowering"]},
-                    ],
+                    "groups": [_GROUP_EXAMPLE_VEGETATIVE, _GROUP_EXAMPLE_FLOWERING],
                     "unknown_plant_count": 0,
                     "unknown_plant_names": [],
                 }
@@ -432,6 +463,12 @@ class TentHintResponse(BaseModel):
                     photoperiod_hours=group.photoperiod_hours,
                     plant_count=group.plant_count,
                     phase_names=list(group.phase_names),
+                    phases=[
+                        PhaseLabelResponse(
+                            code=phase.code, display_name=phase.display_name, display_name_de=phase.display_name_de
+                        )
+                        for phase in group.phases
+                    ],
                 )
                 for group in hint.groups
             ],

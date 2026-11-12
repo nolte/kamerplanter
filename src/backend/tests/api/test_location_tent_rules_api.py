@@ -19,7 +19,7 @@ from app.common.dependencies import get_garden_resource_service, get_tenant_serv
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.garden_plan import BedCounters
-from app.domain.models.tent_hint import PlantPhotoperiod
+from app.domain.models.tent_hint import PhaseLabel, PlantPhotoperiod
 from app.domain.models.user import User
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -163,8 +163,8 @@ class TestSummary:
                 "code": "tent.photoperiod_conflict",
                 "severity": "warning",
                 "groups": [
-                    {"photoperiod_hours": 18.0, "plant_count": 1, "phase_names": ["Vegetative"]},
-                    {"photoperiod_hours": 12.0, "plant_count": 1, "phase_names": ["Flowering"]},
+                    {"photoperiod_hours": 18.0, "plant_count": 1, "phase_names": ["Vegetative"], "phases": []},
+                    {"photoperiod_hours": 12.0, "plant_count": 1, "phase_names": ["Flowering"], "phases": []},
                 ],
                 "unknown_plant_count": 0,
                 "unknown_plant_names": [],
@@ -177,3 +177,44 @@ class TestSummary:
         ]
 
         assert client().get(f"{_BASE}/locations/tent/summary").json()["tent_hints"] == []
+
+    def test_each_group_names_its_phases_by_code_with_both_display_names(self, client, repo) -> None:
+        """#2889: the wire carries the phase code and both catalogue names; the client words it in its language.
+
+        ``phase_names`` stays as it was (additive change). A legacy growth phase has no German name: it travels empty,
+        never replaced by the English one.
+        """
+        repo.counters["tent"] = BedCounters(active_plant_count=2)
+        repo.photoperiods["tent"] = [
+            PlantPhotoperiod(
+                "p1",
+                "Vegetative",
+                18.0,
+                "vegetative",
+                phase_label=PhaseLabel("vegetative", display_name="Vegetative"),
+            ),
+            PlantPhotoperiod(
+                "p2",
+                "Flowering",
+                12.0,
+                "flowering",
+                phase_label=PhaseLabel("flowering", display_name="Flowering", display_name_de="Blüte"),
+            ),
+        ]
+
+        (hint,) = client().get(f"{_BASE}/locations/tent/summary").json()["tent_hints"]
+
+        assert hint["groups"] == [
+            {
+                "photoperiod_hours": 18.0,
+                "plant_count": 1,
+                "phase_names": ["Vegetative"],
+                "phases": [{"code": "vegetative", "display_name": "Vegetative", "display_name_de": ""}],
+            },
+            {
+                "photoperiod_hours": 12.0,
+                "plant_count": 1,
+                "phase_names": ["Flowering"],
+                "phases": [{"code": "flowering", "display_name": "Flowering", "display_name_de": "Blüte"}],
+            },
+        ]

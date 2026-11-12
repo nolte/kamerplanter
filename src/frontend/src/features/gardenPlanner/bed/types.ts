@@ -250,11 +250,21 @@ export interface BedSummary extends BedListItem {
 
 export type TentHintCode = 'tent.photoperiod_conflict' | 'tent.photoperiod_unknown';
 
+/** A phase of a photoperiod group: its machine name and both catalogue names; empty = the catalogue holds none. */
+export interface PhaseLabel {
+  code: string;
+  display_name: string;
+  display_name_de: string;
+}
+
 /** Plants of one light schedule that ask for the same photoperiod. */
 export interface PhotoperiodGroup {
   photoperiod_hours: number;
   plant_count: number;
+  /** English or machine names, not localised; kept for an older backend. Word `phases` instead (#2889). */
   phase_names: string[];
+  /** The phases of these plants, one per code; absent from an older backend. */
+  phases?: PhaseLabel[];
 }
 
 /** A light-schedule hint of a tent or shelf level (V-23): a hint, never an error. */

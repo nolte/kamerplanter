@@ -1581,11 +1581,14 @@ class PhasePhotoperiod:
 
     ``key`` is the sequence entry - what a plant's ``current_phase_key`` holds; ``name`` the phase definition's
     machine name, by which the entry is bridged to the growth phase whose requirement profile carries the photoperiod.
+    ``display_name`` / ``display_name_de`` are the phase definition's English and German names from the catalogue.
     """
 
     key: str
     name: str
     photoperiod_hours: float
+    display_name: str = ""
+    display_name_de: str = ""
 
 
 def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[PhasePhotoperiod]:
@@ -1610,7 +1613,8 @@ def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[Phas
         by_name.setdefault(str(phase["name"]), []).append(phase)
     found: list[PhasePhotoperiod] = []
     for entry in (sequence or {}).get("entries") or []:
-        name = str((entry.get("phase_definition") or {}).get("name") or "")
+        definition = entry.get("phase_definition") or {}
+        name = str(definition.get("name") or "")
         matches = by_name.get(name) or []
         if len(matches) != 1:
             continue
@@ -1624,7 +1628,13 @@ def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[Phas
         if hours is None:
             continue
         found.append(
-            PhasePhotoperiod(key=str(entry["key"]), name=name, photoperiod_hours=float(hours))
+            PhasePhotoperiod(
+                key=str(entry["key"]),
+                name=name,
+                photoperiod_hours=float(hours),
+                display_name=str(definition.get("display_name") or ""),
+                display_name_de=str(definition.get("display_name_de") or ""),
+            )
         )
     return found
 
