@@ -150,8 +150,10 @@ All bundled species with populated propagation methods already have an expert no
 
 The shipped species catalogue contains German and English names for its species. They are kept when you edit a species, even if you only change the list of common names. If you remove a name from the list, it also disappears from the language assignment. <!-- REQ-001 / UI-NFR-007 R-009a -->
 
-!!! warning "Not yet implemented"
-    The UI still shows the first entry of the name list. In the future it will show the name in your UI language, falling back to German and finally to the scientific name. The language assignment is already stored and available through the API, see the [API reference](../reference/api-reference.md#species-language-tagged-common-names-common_names_i18n).
+The UI shows the name in your UI language, falling back to German and finally to the scientific name. The search still finds a species by any of its names in any language; pick lists show the other names on a second line. A species you created yourself has no language assignment and appears with the first name you entered.
+
+!!! warning "Not yet implemented: names written in the background"
+    Names that Kamerplanter writes into texts in the background, for example in tasks, reminders and printouts, still use the first entry of the name list. This follows in a later change.
 
 ---
 

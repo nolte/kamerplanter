@@ -10,6 +10,7 @@ import StarIcon from '@mui/icons-material/Star';
 import InputAdornment from '@mui/material/InputAdornment';
 import ButtonBase from '@mui/material/ButtonBase';
 import type { Species } from '@/api/types';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
 interface FavoriteSpeciesStepProps {
   allSpecies: Species[];
@@ -28,7 +29,8 @@ export default function FavoriteSpeciesStep({
   kitSpeciesKeys,
   existingFavoriteKeys,
 }: FavoriteSpeciesStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   const [search, setSearch] = useState('');
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,11 +50,11 @@ export default function FavoriteSpeciesStep({
       const aKit = kitSet.has(a.key) ? 0 : 1;
       const bKit = kitSet.has(b.key) ? 0 : 1;
       if (aKit !== bKit) return aKit - bKit;
-      const aName = a.common_names?.[0] ?? a.scientific_name;
-      const bName = b.common_names?.[0] ?? b.scientific_name;
-      return aName.localeCompare(bName);
+      const aName = getLocalizedCommonName(a, language) ?? a.scientific_name;
+      const bName = getLocalizedCommonName(b, language) ?? b.scientific_name;
+      return aName.localeCompare(bName, language);
     });
-  }, [allSpecies, search, kitSpeciesKeys]);
+  }, [allSpecies, search, kitSpeciesKeys, language]);
 
   const kitSet = useMemo(() => new Set(kitSpeciesKeys), [kitSpeciesKeys]);
   const existingSet = useMemo(() => new Set(existingFavoriteKeys), [existingFavoriteKeys]);
@@ -144,7 +146,7 @@ export default function FavoriteSpeciesStep({
             const isFavorited = favoriteSpeciesKeys.includes(sp.key);
             const isFromKit = kitSet.has(sp.key);
             const isExisting = existingSet.has(sp.key);
-            const displayName = sp.common_names?.[0] ?? sp.scientific_name;
+            const displayName = getLocalizedCommonName(sp, language) ?? sp.scientific_name;
 
             return (
               <ButtonBase

@@ -203,7 +203,9 @@ export function useHistoryBackend(options: BackendOptions = {}) {
           {
             key: 'sp_tomato',
             scientific_name: 'Solanum lycopersicum',
-            common_names: ['Tomato'],
+            // English first in the flat list, as the API serves a seeded species (#2902).
+            common_names: ['Tomato', 'Tomate'],
+            common_names_i18n: { de: ['Tomate'], en: ['Tomato'] },
             family_key: 'fam_sol',
             family_name: 'Solanaceae',
           },

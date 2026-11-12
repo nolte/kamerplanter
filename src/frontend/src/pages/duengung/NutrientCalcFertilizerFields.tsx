@@ -13,6 +13,7 @@ import { listSites, listLocations } from '@/api/endpoints/sites';
 import { listAllSpecies } from '@/api/endpoints/species';
 import { useApiError } from '@/hooks/useApiError';
 import type { Fertilizer, Location, Species } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 /**
  * Shared master-data selectors for the Nutrient Calculations page (#610).
@@ -377,12 +378,6 @@ export function EcBudgetFertilizerRows({
   );
 }
 
-/** "Common name (Scientific name)", falling back to the scientific name. */
-function speciesOptionLabel(species: Species): string {
-  const common = species.common_names?.[0];
-  return common ? `${common} (${species.scientific_name})` : species.scientific_name;
-}
-
 const speciesFilter = createFilterOptions<Species>({
   stringify: (species) =>
     [species.scientific_name, ...(species.common_names ?? []), species.genus, species.family_name ?? ''].join(' '),
@@ -409,10 +404,14 @@ export function SpeciesSelect({
   helperText,
   loading,
 }: SpeciesSelectProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   const sorted = useMemo(
-    () => [...options].sort((a, b) => speciesOptionLabel(a).localeCompare(speciesOptionLabel(b))),
-    [options],
+    () =>
+      [...options].sort((a, b) =>
+        getSpeciesOptionLabel(a, language).localeCompare(getSpeciesOptionLabel(b, language)),
+      ),
+    [options, language],
   );
   const selected = useMemo(
     () => sorted.find((s) => s.key === value) ?? null,
@@ -424,7 +423,7 @@ export function SpeciesSelect({
       options={sorted}
       value={selected}
       onChange={(_, next) => onChange(next?.key ?? '')}
-      getOptionLabel={speciesOptionLabel}
+      getOptionLabel={(option) => getSpeciesOptionLabel(option, language)}
       isOptionEqualToValue={(o, v) => o.key === v.key}
       filterOptions={speciesFilter}
       loading={loading}

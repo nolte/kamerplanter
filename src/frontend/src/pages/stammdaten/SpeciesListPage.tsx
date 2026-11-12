@@ -44,6 +44,7 @@ import { LOCAL_EMBEDDING_ADAPTER_KEY } from '@/api/endpoints/identification';
 import SpeciesCreateDialog from './SpeciesCreateDialog';
 import SpeciesThumbnail from './SpeciesThumbnail';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 
 type ToggleFilter =
   | 'favoritesOnly'
@@ -142,7 +143,7 @@ function matchesToggleFilter(
 }
 
 export default function SpeciesListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.species);
@@ -342,7 +343,7 @@ export default function SpeciesListPage() {
     {
       id: 'commonNames',
       label: t('pages.species.commonNames'),
-      render: (r) => r.common_names.join(', ') || '—',
+      render: (r) => orderCommonNamesForLanguage(r, i18n.language).join(', ') || '—',
     },
     {
       id: 'family',
@@ -600,7 +601,7 @@ export default function SpeciesListPage() {
           <MobileCard
             title={r.scientific_name}
             titleId="scientificName"
-            subtitle={r.common_names.join(', ') || undefined}
+            subtitle={orderCommonNamesForLanguage(r, i18n.language).join(', ') || undefined}
             subtitleId="commonNames"
             trailing={
               <SpeciesThumbnail

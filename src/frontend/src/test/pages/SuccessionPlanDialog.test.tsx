@@ -63,13 +63,14 @@ describe('SuccessionPlanDialog', () => {
       'Neuer Staffelplan',
     );
 
-    // Pick a species from the autocomplete (mockSpecies has "Tomato").
+    // Pick a species from the autocomplete. mockSpecies lists "Tomato" first; the
+    // German UI leads the option with the German name (#2902).
     const speciesInput = screen
       .getByTestId('form-field-species_key')
       .querySelector('input')!;
     await user.click(speciesInput);
     await user.type(speciesInput, 'Tom');
-    const option = await screen.findByText('Tomato');
+    const option = await screen.findByText('Tomate, Tomato');
     await user.click(option);
 
     await user.click(screen.getByTestId('form-submit-button'));
@@ -238,7 +239,7 @@ describe('SuccessionPlanDialog', () => {
       .querySelector('input')!;
     await user.click(speciesInput);
     await user.type(speciesInput, 'Tom');
-    await user.click(await screen.findByText('Tomato'));
+    await user.click(await screen.findByText('Tomate, Tomato'));
 
     // Cultivar select becomes enabled and renders the mapped option.
     const cultivarField = await screen.findByTestId('form-field-cultivar_key');
@@ -265,7 +266,7 @@ describe('SuccessionPlanDialog', () => {
       .querySelector('input')!;
     await user.click(speciesInput);
     await user.type(speciesInput, 'Tom');
-    await user.click(await screen.findByText('Tomato'));
+    await user.click(await screen.findByText('Tomate, Tomato'));
 
     // Set an end date before the start date (start defaults to today).
     // FormDateField has no testid, so locate it by its label.

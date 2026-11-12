@@ -20,7 +20,7 @@ import { formatFeedingAmount } from './feedingEventDose';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
 
 export default function FeedingEventListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { events, loading } = useAppSelector((s) => s.feedingEvents);
@@ -72,7 +72,7 @@ export default function FeedingEventListPage() {
       label: t('pages.feedingEvents.plantKey'),
       render: (r) => {
         const plant = plantMap.get(r.plant_key);
-        const name = plant ? getPlantLabel(plant) : r.plant_key;
+        const name = plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
         return (
           <Chip
             icon={<SpaIcon />}
@@ -90,7 +90,7 @@ export default function FeedingEventListPage() {
       },
       searchValue: (r) => {
         const plant = plantMap.get(r.plant_key);
-        return plant ? getPlantLabel(plant) : r.plant_key;
+        return plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
       },
     },
     {
@@ -125,7 +125,7 @@ export default function FeedingEventListPage() {
       align: 'right',
       searchValue: (r) => r.measured_ec_after != null ? String(r.measured_ec_after) : '',
     },
-  ], [t, plantMap]);
+  ], [t, plantMap, i18n.language]);
 
   return (
     <Box data-testid="feeding-event-list-page">
@@ -155,7 +155,7 @@ export default function FeedingEventListPage() {
         ariaLabel={t('pages.feedingEvents.title')}
         mobileCardRenderer={(r) => {
           const plant = plantMap.get(r.plant_key);
-          const plantName = plant ? getPlantLabel(plant) : r.plant_key;
+          const plantName = plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
           return (
             <MobileCard
               title={plantName}

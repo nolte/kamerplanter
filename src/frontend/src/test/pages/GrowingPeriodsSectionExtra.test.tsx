@@ -148,6 +148,61 @@ describe('GrowingPeriodsSection — save & delete', () => {
     expect(Array.isArray((putBody as unknown as Record<string, unknown>).growing_periods)).toBe(true);
   });
 
+  it('round-trips every stored field, so saving the periods drops no other data (#2902)', async () => {
+    // PUT /species/{key} replaces the species: a field missing from the body is stored
+    // as its default (measured: common_names -> [], with the language map).
+    let putBody: Record<string, unknown> | null = null;
+    server.use(
+      http.put('/api/v1/species/sp-1', async ({ request }) => {
+        putBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(makeSpecies());
+      }),
+    );
+    const onSaved = vi.fn();
+    const species = makeSpecies({
+      common_names: ['Tomato', 'Tomate'],
+      common_names_i18n: { de: ['Tomate'], en: ['Tomato'] },
+      family_key: 'fam-sol',
+      genus: 'Solanum',
+      description: 'Fruchtgemüse',
+      synonyms: ['Lycopersicon esculentum'],
+      hardiness_zones: ['10'],
+      plant_category: 'outdoor_vegetable',
+      frost_sensitivity: 'sensitive',
+      support_required: true,
+      spacing_cm: '60',
+      default_nutrient_plan_key: 'plan-1',
+      propagation_configs: [{ method: 'seed', months: [3] }],
+      growing_periods: [makePeriod({ direct_sow_months: [3], harvest_months: [8] })],
+    });
+    renderWithProviders(
+      <GrowingPeriodsSection speciesKey="sp-1" species={species} onSaved={onSaved} />,
+      { store: createStoreWithExpertise('expert') },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('common.save') }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(putBody).toMatchObject({
+      scientific_name: 'Solanum lycopersicum',
+      common_names: ['Tomato', 'Tomate'],
+      family_key: 'fam-sol',
+      genus: 'Solanum',
+      description: 'Fruchtgemüse',
+      synonyms: ['Lycopersicon esculentum'],
+      hardiness_zones: ['10'],
+      plant_category: 'outdoor_vegetable',
+      frost_sensitivity: 'sensitive',
+      support_required: true,
+      spacing_cm: '60',
+      default_nutrient_plan_key: 'plan-1',
+      propagation_configs: [{ method: 'seed', months: [3] }],
+      growing_periods: [expect.objectContaining({ direct_sow_months: [3], harvest_months: [8] })],
+    });
+    // The language map is left out on purpose: the server keeps the stored one.
+    expect(putBody).not.toHaveProperty('common_names_i18n');
+  });
+
   it('reports an error and does not call onSaved when saving fails', async () => {
     server.use(
       http.put('/api/v1/species/sp-1', () => HttpResponse.json({ message: 'x' }, { status: 500 })),

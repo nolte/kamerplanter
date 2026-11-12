@@ -847,9 +847,11 @@ class PlantingDialog(BasePage):
     def choose_species(self, scientific_name: str, index: int = 0) -> str:
         """Type the scientific name into the species picker and pick its option; return the label.
 
-        The option is the one whose label ends in ``(<scientific name>)`` -
-        exactly that species, not a variety that shares the prefix. The committed
-        input value is read back.
+        The option is the one whose label carries ``(<scientific name>)`` -
+        exactly that species, not a variety that shares the prefix (the closing
+        parenthesis ends the name). The label is followed by the species' names
+        in other languages (#2902), so the match is not anchored at the end. The
+        committed input value is read back.
         """
         field = self.wait_for_element(
             (By.CSS_SELECTOR, f"[data-testid='planting-entry-{index}-species'] input")
@@ -860,7 +862,7 @@ class PlantingDialog(BasePage):
         def _option():
             for option in self.driver.find_elements(*self.OPTIONS):
                 text = " ".join((option.get_attribute("textContent") or "").split())
-                if text.endswith(suffix):
+                if suffix in text:
                     return option
             return False
 
@@ -873,10 +875,11 @@ class PlantingDialog(BasePage):
             raise AssertionError(
                 f"the species picker offers no option for {scientific_name!r}; options: {rendered}"
             ) from exc
-        label = " ".join((option.get_attribute("textContent") or "").split())
         self.click_menu_option(option)
-        self.poll().until(lambda _d: (field.get_attribute("value") or "") == label)
-        return label
+        # The committed value is the option's first line; its second line (names in other languages) is not part
+        # of it, so the value is read back rather than compared with the option's whole text.
+        self.poll().until(lambda _d: (field.get_attribute("value") or "").endswith(suffix))
+        return field.get_attribute("value") or ""
 
     # ── Count, layout, spacings ────────────────────────────────────────
 

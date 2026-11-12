@@ -200,6 +200,8 @@ Plants appear on the plan as markers. The plant state layer is described in [Pla
 
 **Trellis.** If a species needs a support (such as peas or pole beans), the planting dialog tells you which trellises are drawn in the bed or on its edge, with their height. If none is drawn, it says so; you can still plant. Species without this information get no hint. <!-- REQ-053 W-005 -->
 
+**Species names.** The planting dialog names every species in the language of the interface, for example "Garden Pea" in English and "Erbse" in German. If a species has no name in that language, it uses the German name, otherwise the scientific name. The search still finds a species by any of its names, whatever language you type in. The name of the run and the prefix of the plant IDs (such as "ERB" for "Erbse") come from the name shown when you create the run; if you switch the language later, both stay as they are. <!-- REQ-001, #2902 -->
+
 ### Sowing, thinning and replanting {#sowing-thinning-replanting}
 
 In the **Planting** tab of the bed view, rows and areas you sow directly work like this:

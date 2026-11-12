@@ -7,6 +7,7 @@
  * vectors); nothing here recomputes a position.
  */
 import type { Species } from '@/api/types';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 import {
   MAX_SPACING_CM,
   MIN_SPACING_CM,
@@ -349,9 +350,12 @@ export function worstSeverity(severities: readonly RotationSeverity[]): Rotation
 
 // ── Names ───────────────────────────────────────────────────────────────────
 
-/** `^[A-Z]{2,5}$` for the plant ids of a run: the first letters of the species' name, diacritics folded. */
-export function idPrefixOf(species: Species | null): string {
-  const source = species?.common_names?.[0] || species?.scientific_name || '';
+/**
+ * `^[A-Z]{2,5}$` for the plant ids of a run: the first letters of the species' name in the UI language
+ * (#2902 — "Erbse" -> `ERB` in the German UI, not `PEA`), diacritics folded.
+ */
+export function idPrefixOf(species: Species | null, language: string): string {
+  const source = getLocalizedCommonName(species, language) ?? '';
   const letters = source
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

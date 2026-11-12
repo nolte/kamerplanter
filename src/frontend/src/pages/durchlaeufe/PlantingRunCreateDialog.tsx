@@ -226,7 +226,7 @@ function EntryRow({
 export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -551,8 +551,8 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                             />
                           </ListItemIcon>
                           <ListItemText
-                            primary={getPlantDisplayName(plant)}
-                            secondary={getPlantDisplayName(plant) !== plant.instance_id ? plant.instance_id : undefined}
+                            primary={getPlantDisplayName(plant, i18n.language)}
+                            secondary={getPlantDisplayName(plant, i18n.language) !== plant.instance_id ? plant.instance_id : undefined}
                           />
                           <Chip
                             label={plant.current_phase}

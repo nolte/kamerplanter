@@ -180,7 +180,7 @@ export default function WateringLogCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -351,7 +351,7 @@ export default function WateringLogCreateDialog({
                 <Autocomplete
                   multiple
                   options={plantOptions}
-                  getOptionLabel={(option) => getPlantLabel(option)}
+                  getOptionLabel={(option) => getPlantLabel(option, i18n.language)}
                   value={plantOptions.filter((p) => field.value.includes(p.key))}
                   onChange={(_, newValue) => {
                     field.onChange(newValue.map((p) => p.key));
@@ -379,7 +379,7 @@ export default function WateringLogCreateDialog({
                       return (
                         <Chip
                           key={key}
-                          label={getPlantLabel(option)}
+                          label={getPlantLabel(option, i18n.language)}
                           size="small"
                           color="success"
                           variant="outlined"

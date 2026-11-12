@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { Species } from '@/api/types';
+import { getSpeciesOptionLabel, orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 
 interface SpeciesAutocompleteFieldProps<T extends FieldValues> {
   name: Path<T>;
@@ -30,14 +31,6 @@ const filterOptions = createFilterOptions<SpeciesFilterOption>({
   trim: true,
 });
 
-function getDisplayLabel(species: Species): string {
-  const commonName = species.common_names?.[0];
-  if (commonName) {
-    return `${commonName} (${species.scientific_name})`;
-  }
-  return species.scientific_name;
-}
-
 export default function SpeciesAutocompleteField<T extends FieldValues>({
   name,
   control,
@@ -48,7 +41,8 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
   required,
   autoFocus,
 }: SpeciesAutocompleteFieldProps<T>) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
 
   const sortedOptions = useMemo<SpeciesFilterOption[]>(() => {
     const mapped = species.map((s) => ({
@@ -61,12 +55,14 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
       ].join(' '),
     }));
 
-    return mapped.sort((a, b) => {
-      const aLabel = a.species.common_names?.[0] ?? a.species.scientific_name;
-      const bLabel = b.species.common_names?.[0] ?? b.species.scientific_name;
-      return aLabel.localeCompare(bLabel);
-    });
-  }, [species]);
+    // Sorted by the label the user reads — the common name in the UI language (#2902).
+    return mapped.sort((a, b) =>
+      getSpeciesOptionLabel(a.species, language).localeCompare(
+        getSpeciesOptionLabel(b.species, language),
+        language,
+      ),
+    );
+  }, [species, language]);
 
   return (
     <Controller
@@ -82,7 +78,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
             }}
             options={sortedOptions}
             filterOptions={filterOptions}
-            getOptionLabel={(o) => getDisplayLabel(o.species)}
+            getOptionLabel={(o) => getSpeciesOptionLabel(o.species, language)}
             isOptionEqualToValue={(opt, val) => opt.species.key === val.species.key}
             disabled={disabled}
             fullWidth
@@ -90,9 +86,8 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
             noOptionsText={t('pages.plantInstances.speciesNoResults')}
             renderOption={({ key: liKey, ...props }, option) => {
               const { species: sp } = option;
-              const commonNames = sp.common_names?.length
-                ? sp.common_names.join(', ')
-                : null;
+              const names = orderCommonNamesForLanguage(sp, language);
+              const commonNames = names.length ? names.join(', ') : null;
               return (
                 <Box
                   component="li"
@@ -100,7 +95,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
                   {...props}
                   sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1 }}
                 >
-                  <Typography variant="body2" noWrap>
+                  <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
                     {commonNames ?? sp.scientific_name}
                   </Typography>
                   <Typography

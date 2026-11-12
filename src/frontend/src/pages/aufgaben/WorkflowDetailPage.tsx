@@ -71,13 +71,13 @@ import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as speciesApi from '@/api/endpoints/species';
-import type { WorkflowTemplate, TaskTemplate, Activity, WorkflowPhase } from '@/api/types';
+import type { WorkflowTemplate, TaskTemplate, Activity, WorkflowPhase, CommonNamesI18n, Species } from '@/api/types';
 import type { WorkflowExecutionEnriched } from '@/api/endpoints/tasks';
 import TaskTemplateDialog from './TaskTemplateDialog';
 import WorkflowPhaseDialog from './WorkflowPhaseDialog';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import Autocomplete from '@mui/material/Autocomplete';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -86,6 +86,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import * as favApi from '@/api/endpoints/favorites';
+import { getAlternativeCommonNames, getLocalizedCommonName, getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 const entityTypes = ['plant_instance', 'planting_run', 'location', 'tank'] as const;
 
@@ -98,6 +99,21 @@ const editSchema = z.object({
 });
 
 type EditFormData = z.infer<typeof editSchema>;
+
+/** A species of the compatible-species picker. */
+type SpeciesOption = {
+  key: string;
+  scientific_name: string;
+  common_names: string[];
+  common_names_i18n?: CommonNamesI18n;
+  plant_category: string | null;
+  family_name: string | null;
+};
+
+/** Species picker search: scientific name plus every common name in every language (#2902). */
+const filterSpeciesOptions = createFilterOptions<SpeciesOption>({
+  stringify: (option) => [option.scientific_name, ...(option.common_names ?? [])].join(' '),
+});
 
 export default function WorkflowDetailPage() {
   const theme = useTheme();
@@ -169,7 +185,6 @@ export default function WorkflowDetailPage() {
   const [activityFavKeys, setActivityFavKeys] = useState<Set<string>>(new Set());
 
   // Species selection
-  type SpeciesOption = { key: string; scientific_name: string; common_names: string[]; plant_category: string | null; family_name: string | null };
   const [allSpecies, setAllSpecies] = useState<SpeciesOption[]>([]);
   const [speciesLoading, setSpeciesLoading] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<SpeciesOption[]>([]);
@@ -188,6 +203,9 @@ export default function WorkflowDetailPage() {
       target_entity_types: ['plant_instance'],
     },
   });
+
+  // The species of the breadcrumb; the crumb label is built below so it follows the UI language (#2902).
+  const [crumbSpecies, setCrumbSpecies] = useState<Species | null>(null);
 
   const load = useCallback(async () => {
     if (!key) return;
@@ -210,34 +228,42 @@ export default function WorkflowDetailPage() {
         tags: wf.tags.join(', '),
         target_entity_types: (wf.target_entity_types ?? ['plant_instance']) as EditFormData['target_entity_types'],
       });
-      // Build dynamic breadcrumbs
-      const crumbs: { label: string; path?: string }[] = [
-        { label: 'nav.aufgaben', path: '/aufgaben' },
-        { label: 'nav.workflows', path: '/aufgaben/workflows' },
-      ];
+      let sp: Species | null = null;
       if (wf.species_key) {
         try {
-          const sp = await speciesApi.getSpecies(wf.species_key);
-          crumbs.push({
-            label: sp.common_names?.[0] || sp.scientific_name,
-            path: `/stammdaten/species/${wf.species_key}#workflows`,
-          });
+          sp = await speciesApi.getSpecies(wf.species_key);
         } catch { /* species may not resolve */ }
       }
-      crumbs.push({ label: wf.name });
-      dispatch(setBreadcrumbs(crumbs));
+      setCrumbSpecies(sp);
       setError(null);
     } catch (err) {
       setError(String(err));
     } finally {
       setLoading(false);
     }
-  }, [key, reset, dispatch]);
+  }, [key, reset]);
 
   useEffect(() => {
     load();
     return () => { dispatch(setBreadcrumbs([])); };
   }, [load, dispatch]);
+
+  // Dynamic breadcrumbs, the species crumb in the UI language.
+  useEffect(() => {
+    if (!workflow) return;
+    const crumbs: { label: string; path?: string }[] = [
+      { label: 'nav.aufgaben', path: '/aufgaben' },
+      { label: 'nav.workflows', path: '/aufgaben/workflows' },
+    ];
+    if (crumbSpecies && workflow.species_key === crumbSpecies.key) {
+      crumbs.push({
+        label: getLocalizedCommonName(crumbSpecies, i18n.language) ?? crumbSpecies.scientific_name,
+        path: `/stammdaten/species/${crumbSpecies.key}#workflows`,
+      });
+    }
+    crumbs.push({ label: workflow.name });
+    dispatch(setBreadcrumbs(crumbs));
+  }, [workflow, crumbSpecies, i18n.language, dispatch]);
 
   // Load all species + favorites for the compatible-species picker
   useEffect(() => {
@@ -252,6 +278,7 @@ export default function WorkflowDetailPage() {
       .then(([res, favs]) => {
         const items: SpeciesOption[] = res.items.map((s) => ({
           key: s.key, scientific_name: s.scientific_name, common_names: s.common_names,
+          common_names_i18n: s.common_names_i18n,
           plant_category: s.plant_category, family_name: s.family_name,
         }));
         setAllSpecies(items);
@@ -355,9 +382,12 @@ export default function WorkflowDetailPage() {
       const aFav = favoriteKeys.has(a.key) ? 0 : 1;
       const bFav = favoriteKeys.has(b.key) ? 0 : 1;
       if (aFav !== bFav) return aFav - bFav;
-      return a.scientific_name.localeCompare(b.scientific_name);
+      return getSpeciesOptionLabel(a, i18n.language).localeCompare(
+        getSpeciesOptionLabel(b, i18n.language),
+        i18n.language,
+      );
     });
-  }, [allSpecies, speciesFilter, favoriteKeys]);
+  }, [allSpecies, speciesFilter, favoriteKeys, i18n.language]);
 
   const handleToggleEnabled = useCallback(async (tt: TaskTemplate) => {
     try {
@@ -1428,10 +1458,9 @@ export default function WorkflowDetailPage() {
                     options={filteredSpeciesOptions}
                     value={selectedSpecies}
                     onChange={(_, newValue) => setSelectedSpecies(newValue)}
-                    getOptionLabel={(opt) => {
-                      const common = opt.common_names?.[0];
-                      return common ? `${common} (${opt.scientific_name})` : opt.scientific_name;
-                    }}
+                    getOptionLabel={(opt) => getSpeciesOptionLabel(opt, i18n.language)}
+                    // The label shows one language; the search matches every name (#2902).
+                    filterOptions={filterSpeciesOptions}
                     isOptionEqualToValue={(opt, val) => opt.key === val.key}
                     loading={speciesLoading}
                     groupBy={(opt) => opt.plant_category ? t(`enums.plantCategory.${opt.plant_category}`, { defaultValue: opt.plant_category }) : t('common.other')}
@@ -1463,8 +1492,15 @@ export default function WorkflowDetailPage() {
                             {isFav ? <StarIcon fontSize="small" color="warning" /> : <StarBorderIcon fontSize="small" sx={{ opacity: 0.3 }} />}
                           </ListItemIcon>
                           <ListItemText
-                            primary={opt.common_names?.[0] || opt.scientific_name}
-                            secondary={opt.common_names?.[0] ? opt.scientific_name : opt.family_name}
+                            primary={getLocalizedCommonName(opt, i18n.language) ?? opt.scientific_name}
+                            secondary={[
+                              getLocalizedCommonName(opt, i18n.language) !== opt.scientific_name
+                                ? opt.scientific_name
+                                : opt.family_name,
+                              ...getAlternativeCommonNames(opt, i18n.language),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                             slotProps={{ primary: { variant: 'body2' }, secondary: { variant: 'caption' } }}
                           />
                         </ListItem>
@@ -1477,7 +1513,7 @@ export default function WorkflowDetailPage() {
                           <Chip
                             key={tagKey}
                             icon={favoriteKeys.has(opt.key) ? <StarIcon fontSize="small" /> : undefined}
-                            label={opt.common_names?.[0] || opt.scientific_name}
+                            label={getLocalizedCommonName(opt, i18n.language) ?? opt.scientific_name}
                             size="small"
                             {...tagProps}
                           />

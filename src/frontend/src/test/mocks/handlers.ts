@@ -26,7 +26,10 @@ const mockSpecies = [
   {
     key: 'sp-1',
     scientific_name: 'Solanum lycopersicum',
-    common_names: ['Tomato'],
+    // As the API serves a seeded species (#2902): English first in the flat list,
+    // the language map says which name is which.
+    common_names: ['Tomato', 'Tomate'],
+    common_names_i18n: { de: ['Tomate'], en: ['Tomato'] },
     family_key: 'fam-1',
     genus: 'Solanum',
     hardiness_zones: ['9-11'],

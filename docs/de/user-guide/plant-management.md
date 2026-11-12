@@ -150,8 +150,10 @@ Alle mitgelieferten Arten mit gepflegten Vermehrungsmethoden haben bereits einen
 
 Der mitgelieferte Artenkatalog enthält für die Arten deutsche und englische Namen. Beim Bearbeiten einer Art bleiben sie erhalten, auch wenn du nur die Liste der umgangssprachlichen Namen änderst. Entfernst du einen Namen aus der Liste, verschwindet er auch aus der Sprachzuordnung. <!-- REQ-001 / UI-NFR-007 R-009a -->
 
-!!! warning "Noch nicht implementiert"
-    Die Oberfläche zeigt weiterhin den ersten Eintrag der Namensliste an. Künftig wird sie den Namen in deiner Oberflächensprache zeigen, ersatzweise den deutschen, zuletzt den wissenschaftlichen Namen. Die Sprachzuordnung ist bereits gespeichert und über die Schnittstelle abrufbar, siehe [API-Referenz](../reference/api-reference.md#arten-sprachgetaggte-volksnamen-common_names_i18n).
+Die Oberfläche zeigt den Namen in deiner Oberflächensprache, ersatzweise den deutschen und zuletzt den wissenschaftlichen Namen. Die Suche findet eine Art weiterhin über jeden ihrer Namen, egal in welcher Sprache; in Auswahllisten stehen die übrigen Namen in einer zweiten Zeile. Eine Art, die du selbst angelegt hast, hat keine Sprachzuordnung und erscheint mit dem ersten Namen, den du eingetragen hast.
+
+!!! warning "Noch nicht implementiert: Namen aus dem Hintergrund"
+    Namen, die Kamerplanter im Hintergrund in Texte schreibt, zum Beispiel in Aufgaben, Erinnerungen und Ausdrucken, verwenden noch den ersten Eintrag der Namensliste. Das folgt in einer späteren Änderung.
 
 ---
 

@@ -62,10 +62,10 @@ describe('SpeciesListPage', () => {
     });
   });
 
-  it('displays species common names', async () => {
+  it('displays species common names, those of the UI language first (#2902)', async () => {
     renderWithProviders(<SpeciesListPage />);
     await waitFor(() => {
-      expect(screen.getByText('Tomato')).toBeTruthy();
+      expect(screen.getByText('Tomate, Tomato')).toBeTruthy();
     });
   });
 

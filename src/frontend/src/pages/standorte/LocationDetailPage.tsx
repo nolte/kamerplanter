@@ -109,7 +109,7 @@ function frostExposureFromApi(value: boolean | null | undefined): FormData['fros
 
 export default function LocationDetailPage() {
   const { key } = useParams<{ key: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const notification = useNotification();
@@ -626,9 +626,9 @@ export default function LocationDetailPage() {
                   columns={[
                     { id: 'instance_id', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
                     { id: 'plant_name', label: t('pages.plantInstances.plantName'), render: (r) => {
-                      const name = getPlantDisplayName(r);
+                      const name = getPlantDisplayName(r, i18n.language);
                       return name === r.instance_id ? '—' : name;
-                    }, searchValue: (r) => getPlantDisplayName(r) },
+                    }, searchValue: (r) => getPlantDisplayName(r, i18n.language) },
                     { id: 'current_phase', label: t('pages.plantInstances.currentPhase'), render: (r) => (
                       <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
                     ), searchValue: (r) => t(`enums.phaseName.${r.current_phase}`) },
@@ -640,7 +640,7 @@ export default function LocationDetailPage() {
                   tableState={instanceTableState}
                   ariaLabel={t('pages.locations.standalonePlants')}
                   mobileCardRenderer={(r) => {
-                    const displayName = getPlantDisplayName(r);
+                    const displayName = getPlantDisplayName(r, i18n.language);
                     return (
                       <MobileCard
                         title={displayName}

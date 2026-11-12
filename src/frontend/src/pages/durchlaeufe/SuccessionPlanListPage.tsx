@@ -43,6 +43,7 @@ import type {
 } from '@/api/types';
 import SuccessionPlanDialog from './SuccessionPlanDialog';
 import { kamiPlantingRuns } from '@/assets/brand/illustrations';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
 const statusColor: Record<SuccessionPlanStatus, ChipProps['color']> = {
   planned: 'default',
@@ -58,7 +59,7 @@ function formatDate(value: string | null): string {
 }
 
 export default function SuccessionPlanListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const fullScreenResultDialog = useMediaQuery(theme.breakpoints.down('sm'));
   const dispatch = useAppDispatch();
@@ -88,10 +89,10 @@ export default function SuccessionPlanListPage() {
   const speciesNameByKey = useMemo(() => {
     const map = new Map<string, string>();
     for (const sp of speciesCatalogue.items) {
-      map.set(sp.key, sp.common_names?.[0] ?? sp.scientific_name);
+      map.set(sp.key, getLocalizedCommonName(sp, i18n.language) ?? sp.scientific_name);
     }
     return map;
-  }, [speciesCatalogue.items]);
+  }, [speciesCatalogue.items, i18n.language]);
 
   // Defensive ordering for the "generated runs" preview: always show the staggered
   // batches in chronological/sequence order regardless of API response order, so the

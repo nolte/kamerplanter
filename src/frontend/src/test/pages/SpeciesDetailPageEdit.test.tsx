@@ -232,6 +232,43 @@ describe('SpeciesDetailPage — edit form & actions', () => {
     expect(payload).toMatchObject({ scientific_name: 'Solanum lycopersicum' });
     // months were de-duplicated and sorted in the propagation mapping.
     expect(payload.propagation_configs[0].months).toEqual([3, 4]);
+    // The update replaces the species: fields the form does not show round-trip from
+    // the stored species instead of falling to their defaults (#2902).
+    expect(payload).toMatchObject({
+      frost_sensitivity: 'sensitive',
+      plant_category: 'outdoor_vegetable',
+      allows_harvest: true,
+      direct_sow_months: [4],
+      harvest_months: [8, 9],
+      bloom_months: [6],
+      sowing_indoor_weeks_before_last_frost: 6,
+      growing_periods: [],
+    });
+    expect(payload).not.toHaveProperty('common_names_i18n');
+  });
+
+  it('keeps the growing periods of the stored species when the edit form is saved (#2902)', async () => {
+    const user = userEvent.setup();
+    const period = {
+      label: 'Frühjahr',
+      sowing_indoor_weeks_before_last_frost: null,
+      sowing_outdoor_after_last_frost_days: null,
+      direct_sow_months: [3],
+      growth_months: [],
+      harvest_months: [7],
+      bloom_months: [],
+      harvest_from_year: null,
+      bloom_from_year: null,
+    };
+    const species = makeFullSpecies({ growing_periods: [period] });
+    getSpecies.mockResolvedValue(species);
+    renderWithProviders(<SpeciesDetailPage />, { store: makeStore('expert', species), route: '/#edit' });
+
+    await screen.findByTestId('form-field-scientific_name');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => expect(updateSpecies).toHaveBeenCalledOnce());
+    expect(updateSpecies.mock.calls[0][1].growing_periods).toEqual([period]);
   });
 
   it('shows both failed edit-form catalogues instead of empty pickers (#1628)', async () => {

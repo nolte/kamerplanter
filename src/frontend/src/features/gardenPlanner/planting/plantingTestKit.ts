@@ -36,6 +36,23 @@ export function species(key: string, name: string, overrides: Partial<Species> =
   } as Species;
 }
 
+/**
+ * A seeded species with language-tagged names, as the API serves it (#2902): `common_names` lists the
+ * English name FIRST (the species.yaml order), so a reader that shows `common_names[0]` shows English in
+ * the German UI and a test using this fixture fails.
+ */
+export function taggedSpecies(
+  key: string,
+  names: { de: string; en: string },
+  overrides: Partial<Species> = {},
+): Species {
+  return species(key, names.en, {
+    common_names: [names.en, names.de],
+    common_names_i18n: { de: [names.de], en: [names.en] },
+    ...overrides,
+  });
+}
+
 export function hint(overrides: Partial<ValidatePlantingResponse> = {}): ValidatePlantingResponse {
   return {
     location_key: 'loc_b03',

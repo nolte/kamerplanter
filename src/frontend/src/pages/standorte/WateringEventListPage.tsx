@@ -95,7 +95,7 @@ interface DetailDialogProps {
 function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: DetailDialogProps) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (!event) return null;
 
@@ -116,7 +116,7 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
                 <Chip
                   key={p.key}
                   icon={<SpaIcon />}
-                  label={getPlantLabel(p)}
+                  label={getPlantLabel(p, i18n.language)}
                   size="small"
                   component={RouterLink}
                   to={`/pflanzen/plant-instances/${p.key}`}
@@ -281,7 +281,7 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function WateringEventListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const { events, loading } = useAppSelector((s) => s.wateringEvents);
   const [createOpen, setCreateOpen] = useState(false);
@@ -317,7 +317,7 @@ export default function WateringEventListPage() {
               <Chip
                 key={p.key}
                 icon={<SpaIcon />}
-                label={getPlantLabel(p)}
+                label={getPlantLabel(p, i18n.language)}
                 size="small"
                 color="success"
                 variant="outlined"
@@ -333,7 +333,7 @@ export default function WateringEventListPage() {
           </Box>
         );
       },
-      searchValue: (r) => getPlantsForEvent(r).map((p) => getPlantLabel(p)).join(' '),
+      searchValue: (r) => getPlantsForEvent(r).map((p) => getPlantLabel(p, i18n.language)).join(' '),
     },
     {
       id: 'applicationMethod',
@@ -377,7 +377,7 @@ export default function WateringEventListPage() {
           : '—',
       searchValue: (r) => r.fertilizers_used.map((f) => f.product_name).join(' '),
     },
-  ], [t, getPlantsForEvent]);
+  ], [t, getPlantsForEvent, i18n.language]);
 
   return (
     <Box data-testid="watering-event-list-page">
@@ -416,7 +416,7 @@ export default function WateringEventListPage() {
             <MobileCard
               title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
               titleId="wateredAt"
-              subtitle={plants.length > 0 ? plants.map((p) => getPlantLabel(p)).join(', ') : undefined}
+              subtitle={plants.length > 0 ? plants.map((p) => getPlantLabel(p, i18n.language)).join(', ') : undefined}
               subtitleId="plants"
               chips={[
                 {

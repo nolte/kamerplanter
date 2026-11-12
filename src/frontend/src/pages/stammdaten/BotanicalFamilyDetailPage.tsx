@@ -38,6 +38,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchBotanicalFamily, clearCurrent } from '@/store/slices/botanicalFamiliesSlice';
 import * as api from '@/api/endpoints/botanicalFamilies';
 import type { Species } from '@/api/types';
+import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 
 const growthHabitValues = [
   'herb',
@@ -86,7 +87,7 @@ const PANEL_GAP = 4;
 
 export default function BotanicalFamilyDetailPage() {
   const { key } = useParams<{ key: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const notification = useNotification();
@@ -493,7 +494,7 @@ export default function BotanicalFamilyDetailPage() {
             <ListItemButton key={s.key} component={RouterLink} to={`/stammdaten/species/${s.key}`}>
               <ListItemText
                 primary={s.scientific_name}
-                secondary={s.common_names.join(', ') || undefined}
+                secondary={orderCommonNamesForLanguage(s, i18n.language).join(', ') || undefined}
                 slotProps={{ primary: { variant: 'body2' } }}
               />
               <ParkIcon fontSize="small" sx={{ color: 'text.disabled', ml: 1 }} />

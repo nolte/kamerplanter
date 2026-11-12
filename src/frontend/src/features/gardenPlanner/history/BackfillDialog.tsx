@@ -21,6 +21,7 @@ import { useTheme } from '@mui/material/styles';
 import { listAllBotanicalFamilies } from '@/api/endpoints/botanicalFamilies';
 import { listAllSpecies } from '@/api/endpoints/species';
 import type { BotanicalFamily, Species } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 import { useApiError } from '@/hooks/useApiError';
 import { backfillYear } from './historyApi';
 import {
@@ -44,13 +45,8 @@ interface BackfillDialogProps {
   onSaved: (result: BackfillResult) => void;
 }
 
-function speciesLabel(species: Species): string {
-  const common = species.common_names?.[0];
-  return common ? `${common} (${species.scientific_name})` : species.scientific_name;
-}
-
 export default function BackfillDialog({ bedKey, initialYear, onClose, onSaved }: BackfillDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { handleError } = useApiError();
@@ -151,7 +147,7 @@ export default function BackfillDialog({ bedKey, initialYear, onClose, onSaved }
               <Autocomplete
                 options={species}
                 value={chosenSpecies}
-                getOptionLabel={speciesLabel}
+                getOptionLabel={(option) => getSpeciesOptionLabel(option, i18n.language)}
                 isOptionEqualToValue={(option, value) => option.key === value.key}
                 onChange={(_event, value) =>
                   patch({ speciesKey: value?.key ?? '', familyKey: value ? '' : form.familyKey })
