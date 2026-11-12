@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.21
+Version: 1.22
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.22 | 2026-11-12 | §2.5.1: Beet-QR-Etikett (REQ-053 GP-FR-052, GP-UX-028, Issue #2899) registriert: die Handlung `bed-view-print-label` („Etikett drucken“ unter dem Kopf der Beetansicht), der Dialog `bed-view-label-dialog` mit `bed-view-label-dialog-close`, der Auswahl `bed-view-label-qr-size` und ihren Optionen `bed-view-label-qr-size-<mm>` (`25`, `40`, `60`), dem Hinweis `bed-view-label-offline` und den Handlungen `bed-view-label-download` / `bed-view-label-cancel`; im Feldmodus der Hinweis `field-mode-linked-bed-missing` mit `field-mode-linked-bed-missing-close` (der QR-Link nennt ein Beet, das die Site nicht hat); auf der Login-Seite der Hinweis `login-return-hint` (Rücksprung nach der Anmeldung, UI-NFR-014 R-009). Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.21 | 2026-11-12 | §2.5.1: Opt-in „Wiederkehrende Aufgaben anlegen“ beim Platzieren einer Beetvorlage (REQ-053 GP-FR-087, Issue #2897) registriert: `garden-plan-template-recurring-tasks` und `-recurring-tasks-help`; nachregistriert die Vorlagen-Austausch-Kennungen `garden-plan-template-export` / `-import` / `-exchange-notice` (WP 9.9, GP-FR-173). |
 | 1.20 | 2026-11-12 | §2.5.1: Gartengrenze im Editor (REQ-053 UC-01, GP-FR-019/032, Issue #2890) registriert: der Überlauf-Eintrag `garden-plan-menu-boundary` („Gartengrenze zeichnen“ bzw. „… entsperren und bearbeiten“ / „… sperren“; Indoor „Grundriss …“), der Hinweis des Grenz-Modus `garden-plan-boundary-mode` mit `data-mode` (`draw`/`edit`) und seine Handlung `garden-plan-boundary-done` („Sperren“ bzw. „Zeichnen beenden“). Die Griffe der entsperrten Grenze tragen die bestehenden Kennungen `garden-plan-handles` / `garden-plan-handle-<id>`, die Formwahl `garden-plan-shape-rect`/`-polygon`. Keine Kennung umbenannt (R-021), Page Object im selben Pull Request (R-020). |
 | 1.19 | 2026-11-12 | §2.5.1: „Beet räumen“ der Beetansicht (REQ-053 GP-FR-055, GP-API-019, Issue #2891) registriert: die Handlung `bed-clear-button` im Tab „Pflanzung“ (nur solange Pflanzen stehen und das Beet bearbeitbar ist), der Dialog `bed-clear-dialog` mit dem Satz `bed-clear-affected` (qualifizierende Attribute `data-plant-count`, `data-run-count`), der Folgenliste `bed-clear-effects`, der Auswahl `bed-clear-termination` mit `bed-clear-termination-<art>` und `-<art>-input` (`<art>` ∈ `harvested`, `senesced`, `died`, `cancelled`), der Notiz `bed-clear-reason`, dem Hinweis `bed-clear-irreversible` und den Handlungen `bed-clear-submit` / `bed-clear-cancel`. Keine bestehende Kennung umbenannt (R-021); das Page Object `bed_view_page.py` erhält im selben Pull Request `ClearBedDialog`. Zusammen mit der Verwendung im selben Pull Request (R-020). |
@@ -298,6 +299,13 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `bed-clear-termination` / `bed-clear-termination-<art>` / `bed-clear-termination-<art>-input` | Auswahl der Beendigungsart (Radiogruppe), Chip und natives Eingabefeld, `<art>` ∈ `harvested` (vorgewählt), `senesced`, `died`, `cancelled` |
 | `bed-clear-reason` / `bed-clear-irreversible` | Optionale Notiz (höchstens 1000 Zeichen) und der Hinweis, dass Räumen nicht rückgängig zu machen ist |
 | `bed-clear-submit` / `bed-clear-cancel` | Bestätigen (Gefahrenfarbe, während der Anfrage gesperrt) und Abbrechen |
+| `bed-view-print-label` | „Etikett drucken“ unter dem Kopf der Beetansicht (GP-FR-052, GP-UX-028, #2899); für jedes Mitglied, gesperrt ohne Verbindung; öffnet `bed-view-label-dialog` |
+| `bed-view-label-dialog` / `bed-view-label-dialog-close` | Dialog „Beet-Etikett drucken“ und sein Schließen-Knopf |
+| `bed-view-label-qr-size` / `bed-view-label-qr-size-<mm>` | Auswahl der QR-Code-Größe und ihre Optionen, `<mm>` ∈ `25`, `40` (vorgewählt), `60` |
+| `bed-view-label-offline` | Hinweis im Dialog, dass ohne Verbindung kein Etikett erstellt werden kann (nur dann gerendert) |
+| `bed-view-label-download` / `bed-view-label-cancel` | „Als PDF herunterladen“ (gesperrt ohne Verbindung) und „Abbrechen“ |
+| `field-mode-linked-bed-missing` / `field-mode-linked-bed-missing-close` | Hinweis im Feldmodus, wenn `?bed=<key>` (QR-Link des Etiketts) ein Beet nennt, das die Beetliste der Site nicht enthält, und seine Schließen-Handlung (entfernt `bed` aus der Adresse) |
+| `login-return-hint` | Hinweis auf der Login-Seite, dass es nach der Anmeldung zur aufgerufenen Seite weitergeht (`?returnTo=`, UI-NFR-014 R-009); nicht neben einer offenen Einladung (`login-pending-invitation`) |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
 

@@ -13,6 +13,8 @@
  * proven address (REQ-024 AK-61) or, for a link invitation, a signed-in account.
  */
 
+import { rememberedLoginReturn, returnToFromSearch } from './loginReturn';
+
 const STORAGE_KEY = 'kamerplanter.pendingInvitation';
 const ACCEPT_PATH = '/invitations/accept';
 
@@ -46,14 +48,18 @@ export function invitationAcceptPath(token: string): string {
 }
 
 /**
- * Where a completed sign-in continues: the remembered invitation, else the dashboard.
+ * Where a completed sign-in continues: the remembered invitation, else the page the visitor was sent
+ * away from (UI-NFR-014 R-010: the login page's `returnTo` in *search*, else the remembered one -
+ * see `loginReturn`), else the dashboard.
  *
  * Reads without consuming: the login page and the public-only route guard both ask after the same
- * sign-in, and both must get the same answer. The accept page forgets the token.
+ * sign-in, and both must get the same answer. The accept page forgets the token; reaching a
+ * protected page signed in forgets the return path.
  */
-export function postLoginPath(): string {
+export function postLoginPath(search?: string): string {
   const token = pendingInvitationToken();
-  return token ? invitationAcceptPath(token) : '/dashboard';
+  if (token) return invitationAcceptPath(token);
+  return returnToFromSearch(search) ?? rememberedLoginReturn() ?? '/dashboard';
 }
 
 /** Whether *pathname* is the accept page. */

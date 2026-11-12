@@ -735,7 +735,16 @@
     "layoutGrid3x3": "Raster 3×3 (9 Karten pro Seite)",
     "layoutGrid3x3Helper": "Sehr kompakt — optimal für viele Pflanzen auf einmal.",
     "printLabels": "Infokarten drucken",
-    "printLabelsShort": "Etiketten"
+    "printLabelsShort": "Etiketten",
+    "bedLabel": "Etikett drucken",
+    "bedLabelTitle": "Beet-Etikett drucken",
+    "bedLabelIntro": "Erstellt ein druckfertiges PDF-Etikett für „{{name}}“ mit Standort, Typ, Fläche und einem QR-Code. Wer den Code scannt, landet direkt in diesem Beet im Feldmodus – ohne Anmeldung zuerst beim Login und danach wieder hier.",
+    "bedLabelOffline": "Ohne Verbindung kann kein Etikett erstellt werden.",
+    "qrSizeLabel": "Größe des QR-Codes",
+    "qrSizeIntro": "Größere Codes lassen sich aus dem Stand und bei schlechtem Licht besser scannen.",
+    "qrSizeSmall": "Klein (25 mm)",
+    "qrSizeMedium": "Mittel (40 mm)",
+    "qrSizeLarge": "Groß (60 mm)"
   },
   "dashboard": {
     "manageWidgets": "Widgets verwalten",

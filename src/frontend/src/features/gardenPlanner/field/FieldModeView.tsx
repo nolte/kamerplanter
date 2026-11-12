@@ -8,6 +8,10 @@
  * destructive actions (GP-UX-023); import and export stay in planning mode. Tenant, site, tab and the map
  * view are remembered per device (localStorage).
  *
+ * A bed label's QR code (GP-FR-052, GP-UX-028) links here with `?mode=field&bed=<key>`: the sheet of that bed opens as
+ * soon as the list is in. A key the site's list does not have says so instead of opening nothing. Closing the sheet or
+ * choosing another bed drops `bed` from the address.
+ *
  * Without a connection the bed list and the plan come from the plan cache (REQ-053 WP 9.2): a banner names
  * the time of that state, and a site that was never loaded online shows an empty state with a hint instead
  * of an error. Field mode has no geometry tools. Offline, the bed sheet buffers "Done", the note and photos
@@ -17,7 +21,7 @@
  * count against the garden-planner route budget.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -89,7 +93,35 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
     const view = samePlace ? prefs.viewports[siteKey] : undefined;
     return view ? { siteKey, view } : null;
   });
-  const [openBedKey, setOpenBedKey] = useState<string | null>(null);
+  // GP-UX-028: a bed label's QR code opens field mode with `?bed=<key>` - that bed's sheet is open from the start.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedBedKey = searchParams.get('bed');
+  const [openBedKey, setOpenBedKey] = useState<string | null>(linkedBedKey);
+  // A second label scanned while field mode is open (same route, new `bed`) opens that bed too. (State adjusted
+  // during render, the documented derived-state pattern.)
+  const [seenLinkedBedKey, setSeenLinkedBedKey] = useState(linkedBedKey);
+  if (linkedBedKey !== seenLinkedBedKey) {
+    setSeenLinkedBedKey(linkedBedKey);
+    if (linkedBedKey !== null) setOpenBedKey(linkedBedKey);
+  }
+  // Choosing another bed or closing the sheet drops `bed` from the address (replacing the entry), so a reload
+  // or "Back" does not reopen the bed the label named.
+  const selectBed = useCallback(
+    (key: string | null) => {
+      setOpenBedKey(key);
+      if (linkedBedKey !== null && key !== linkedBedKey) {
+        setSearchParams(
+          (previous) => {
+            const next = new URLSearchParams(previous);
+            next.delete('bed');
+            return next;
+          },
+          { replace: true },
+        );
+      }
+    },
+    [linkedBedKey, setSearchParams],
+  );
 
   // GP-UX-030: the list first, then the geometry. The plan is forgotten when field mode is left.
   const { settled } = beds;
@@ -160,6 +192,8 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
   );
   const bedKeys = useMemo(() => new Set(sorted.map((bed) => bed.key)), [sorted]);
   const openBed: BedListItem | null = sorted.find((bed) => bed.key === openBedKey) ?? null;
+  // The label named a bed this site's list does not have (removed, moved to another site, or not a bed).
+  const linkedBedMissing = list !== null && linkedBedKey !== null && openBedKey === linkedBedKey && openBed === null;
   const { reload } = beds;
   // The older of the two cached states decides the banner: nothing on screen is newer than it says.
   const cachedTimes = [beds.cachedAt, plan?.siteKey === siteKey ? planCachedAt : null].filter(
@@ -216,6 +250,25 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
           </Alert>
         )}
         {cachedAt !== null && <CachedDataBanner cachedAt={cachedAt} />}
+        {linkedBedMissing && (
+          <Alert
+            severity="info"
+            sx={{ mb: 2 }}
+            data-testid="field-mode-linked-bed-missing"
+            action={
+              <Button
+                color="inherit"
+                onClick={() => selectBed(null)}
+                sx={{ minHeight: KIOSK_TOUCH_TARGET }}
+                data-testid="field-mode-linked-bed-missing-close"
+              >
+                {t('common.close')}
+              </Button>
+            }
+          >
+            {t('pages.gardenPlan.field.linkedBedMissing')}
+          </Alert>
+        )}
 
         <Tabs
           value={tab}
@@ -280,7 +333,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
                   beds={sorted}
                   mine={assignments.mine}
                   today={today}
-                  onOpen={(bed) => setOpenBedKey(bed.key)}
+                  onOpen={(bed) => selectBed(bed.key)}
                   planningHref={canEdit ? planningHref : undefined}
                 />
               )}
@@ -312,7 +365,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
                   selectedBedKey={openBedKey}
                   initialView={initialView}
                   onViewChange={onViewChange}
-                  onSelectBed={setOpenBedKey}
+                  onSelectBed={selectBed}
                 />
               )}
             </>
@@ -324,7 +377,7 @@ export default function FieldModeView({ siteKey, renderer, labels, planningHref 
             key={openBed.key}
             bed={openBed}
             online={online}
-            onClose={() => setOpenBedKey(null)}
+            onClose={() => selectBed(null)}
             onChanged={reload}
             onPlanChanged={reloadPlan}
             gridStepM={gridStepM}

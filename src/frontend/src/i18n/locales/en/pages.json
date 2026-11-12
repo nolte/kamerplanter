@@ -1144,7 +1144,8 @@
       "adminAddMemberStepUpDescription": "You are adding \"{{name}}\" to the organization \"{{tenant}}\" as \"{{role}}\". The role decides what they may change and delete in the organization – a lead may also delete it. So you confirm this with your own credentials.",
       "adminAddMemberStepUpConfirm": "Add member",
       "providerUnlinked": "Sign-in method removed",
-      "pendingInvitation": "You opened an invitation. Sign in with the invited email address – or register with it – and the invitation is accepted afterwards."
+      "pendingInvitation": "You opened an invitation. Sign in with the invited email address – or register with it – and the invitation is accepted afterwards.",
+      "returnAfterLogin": "Sign in – you then continue straight to the page you opened."
     },
     "tenants": {
       "selectTenant": "Select Garden",
@@ -7124,6 +7125,7 @@
         "title": "Field mode",
         "toPlanning": "Planning mode",
         "toField": "Field mode",
+        "linkedBedMissing": "The bed from the QR code is not (or no longer) on this site. Choose a bed from the list.",
         "offline": "No connection. Completing and logging are locked until you are back online, so nothing gets lost.",
         "finish": "Finish",
         "planted_one": "{{count}} plant recorded.",

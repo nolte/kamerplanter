@@ -245,8 +245,10 @@ Löschen, Beet räumen, Export und Import gibt es im Feldmodus nicht – dafür 
 
 Ohne Verbindung speichert der Feldmodus **Erledigt**, die **Notiz** und Fotos auf deinem Gerät und sendet sie, sobald du wieder online bist; die übrigen Knöpfe des Schnellprotokolls brauchen eine Verbindung. Was genau ohne Netz geht, steht unter [Was geht ohne Netz](#was-geht-ohne-netz).
 
+**QR-Etikett am Beet.** In der Beetansicht druckst du über **Etikett drucken** ein PDF-Etikett mit Beetname, Standort, Typ, Fläche und einem QR-Code; die Größe des Codes wählst du (25, 40 oder 60 mm). Scannst du den Code mit dem Smartphone, öffnet sich der Feldmodus mit dem Blatt genau dieses Beets. Bist du nicht angemeldet, kommst du zuerst zur Anmeldung und danach direkt zum Beet zurück. Der Code enthält nur die Adresse des Beets, kein Passwort und keinen Zugang: Wer nicht Mitglied deines Gartens ist, sieht nichts. Bist du in mehreren Gärten Mitglied, wechsle vorher in den Garten des Beets.
+
 !!! warning "Noch nicht implementiert"
-    Für **Gepflanzt** wird es ein **Rückgängig** geben. Die Hilfe per GPS und der QR-Code am Beet folgen später. Die Ebene „Zuletzt gegossen" wird es nur im Planungsmodus geben. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+    Für **Gepflanzt** wird es ein **Rückgängig** geben. Die Hilfe per GPS folgt später. Die Ebene „Zuletzt gegossen" wird es nur im Planungsmodus geben. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
 
 ## Was geht ohne Netz {#was-geht-ohne-netz}
 

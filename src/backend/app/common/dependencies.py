@@ -2038,6 +2038,7 @@ def get_print_service() -> PrintService:
         species_repo=get_species_repo(),
         site_repo=get_site_repo(),
         app_base_url=settings.app_base_url,
+        location_type_repo=get_location_type_repo(),
     )
 
 

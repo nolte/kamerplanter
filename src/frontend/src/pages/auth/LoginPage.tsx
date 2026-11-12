@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -22,6 +22,7 @@ import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
 import { forgetPendingInvitation, pendingInvitationToken, postLoginPath } from '@/utils/pendingInvitation';
+import { forgetLoginReturn, rememberLoginReturn, returnToFromSearch } from '@/utils/loginReturn';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -53,12 +54,21 @@ export default function LoginPage() {
     dispatch(clearError());
   }, [dispatch]);
 
+  // UI-NFR-014 R-009/R-010 — the page a visitor without a session was sent away from (`?returnTo=`, validated). It
+  // is remembered for a sign-in with an identity provider, which leaves the app; without one, a stale path is dropped.
+  const { search } = useLocation();
+  const returnTo = returnToFromSearch(search);
+  useEffect(() => {
+    if (returnTo) rememberLoginReturn(returnTo);
+    else forgetLoginReturn();
+  }, [returnTo]);
+
   useEffect(() => {
     if (isAuthenticated) {
-      // #2162 — back to the invitation the visitor opened before signing in, if any.
-      navigate(postLoginPath(), { replace: true });
+      // #2162 — back to the invitation the visitor opened before signing in, else the page asked for (UI-NFR-014).
+      navigate(postLoginPath(search), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +119,12 @@ export default function LoginPage() {
               }}
             >
               {t('pages.auth.pendingInvitation')}
+            </Alert>
+          )}
+
+          {returnTo && !invitationToken && (
+            <Alert severity="info" sx={{ mb: 2 }} data-testid="login-return-hint">
+              {t('pages.auth.returnAfterLogin')}
             </Alert>
           )}
 

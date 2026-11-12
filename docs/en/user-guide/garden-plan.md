@@ -245,8 +245,10 @@ Deleting, clearing a bed, export and import are not available in field mode; swi
 
 Without a connection field mode keeps **Done**, the **Note** and photos on your device and sends them as soon as you are back online; the other quick log buttons need a connection. What exactly works offline is described under [What works offline](#what-works-offline).
 
+**QR label on the bed.** In the bed view, **Print label** creates a PDF label with the bed name, site, type, area and a QR code; you choose the size of the code (25, 40 or 60 mm). Scanning the code with your phone opens field mode with the sheet of exactly this bed. If you are not signed in, you go through the sign-in first and come straight back to the bed. The code holds only the address of the bed, no password and no access: someone who is not a member of your garden sees nothing. If you are a member of several gardens, switch to the bed's garden first.
+
 !!! warning "Not yet implemented"
-    **Planted** will get an **Undo**. GPS help and the QR code on the bed will follow later. The "last watered" layer will exist only in planning mode. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+    **Planted** will get an **Undo**. GPS help will follow later. The "last watered" layer will exist only in planning mode. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
 
 ## What works offline {#what-works-offline}
 

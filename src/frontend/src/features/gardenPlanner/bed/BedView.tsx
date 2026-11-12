@@ -2,7 +2,8 @@
  * The bed view (REQ-053 GP-FR-041/047): the bed head from the summary and the tabs Plan, Planting,
  * Care, Soil, History, Photos (GP-FR-051) and Details. The tab is part of the URL hash (`useTabUrl`), so every tab can
  * be linked. "Details" is the location page as it always was (master data, tank, runs, slots,
- * watering, sensors), handed in by `LocationDetailPage`.
+ * watering, sensors), handed in by `LocationDetailPage`. Under the head, "Etikett drucken" (GP-FR-052, GP-UX-028) opens
+ * the bed label: a PDF whose QR code opens this bed in field mode.
  *
  * Offline (REQ-053 WP 9.2) the page hands in the summary from the plan cache with its `cachedAt`: a
  * "Stand von hh:mm" banner says so, and every edit of the bed (status, sun, site conditions, rotation,
@@ -12,8 +13,10 @@ import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { TabPanel, tabA11yProps } from '@/components/common/TabPanel';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
@@ -50,6 +53,8 @@ const BedPhotosTab = lazy(() => import('./BedPhotosTab'));
 const SunDialog = lazy(() => import('./SunDialog'));
 // The site conditions (frost, wind, slope, access) load when their dialog opens (GP-FR-162/163/168).
 const SiteConditionsDialog = lazy(() => import('./SiteConditionsDialog'));
+// The bed label (GP-FR-052) loads when "Etikett drucken" is pressed.
+const LocationLabelDialog = lazy(() => import('@/components/print/LocationLabelDialog'));
 
 const ID_PREFIX = 'bed';
 const TABS_WITH_PLAN = ['plan', 'planting', 'care', 'soil', 'history', 'photos', 'details'] as const;
@@ -84,6 +89,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
   const [statusOpen, setStatusOpen] = useState(false);
   const [sunOpen, setSunOpen] = useState(false);
   const [siteOpen, setSiteOpen] = useState(false);
+  const [labelOpen, setLabelOpen] = useState(false);
   const [plantingVersion, setPlantingVersion] = useState(0);
   const rotationBadge = useRotationBadge(summary.key, plantingVersion);
   // A planting or a filled-in / taken-back year changes what the head says about the previous year (#2764).
@@ -207,6 +213,19 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
         reachThresholds={thresholds.reach}
         previousYear={previousYear}
       />
+      {/* GP-FR-052 / GP-UX-028: every member may print the label; it needs the server, so it waits for a connection. */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="outlined"
+          startIcon={<QrCode2Icon />}
+          onClick={() => setLabelOpen(true)}
+          disabled={!online}
+          sx={{ minHeight: 44 }}
+          data-testid="bed-view-print-label"
+        >
+          {t('print.bedLabel')}
+        </Button>
+      </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
@@ -263,6 +282,17 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
               setSiteOpen(false);
               void onReload();
             }}
+          />
+        </Suspense>
+      )}
+
+      {labelOpen && (
+        <Suspense fallback={null}>
+          <LocationLabelDialog
+            open
+            locationKey={summary.key}
+            locationName={summary.name}
+            onClose={() => setLabelOpen(false)}
           />
         </Suspense>
       )}

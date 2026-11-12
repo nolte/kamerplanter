@@ -129,6 +129,7 @@ _EXPECTED_LIMITED = frozenset(
         "GET /api/v1/t/{tenant_slug}/print/nutrient-plan/{plan_key}",
         "GET /api/v1/t/{tenant_slug}/print/care-checklist",
         "GET /api/v1/t/{tenant_slug}/print/plant-labels",
+        "GET /api/v1/t/{tenant_slug}/print/location-label/{location_key}",
         "GET /api/v1/t/{tenant_slug}/print/garden-plan/{site_key}",
         "GET /api/v1/t/{tenant_slug}/sites/{key}/plan/render.svg",
         "GET /api/v1/t/{tenant_slug}/sites/{key}/plan/export",

@@ -19,7 +19,7 @@ from app.domain.services.garden_plan_export_service import (
     GardenPlanExportService,
     require_parcel_list_for_assignment,
 )
-from app.domain.services.print_service import PrintService
+from app.domain.services.print_service import LOCATION_LABEL_QR_DEFAULT_MM, PrintService
 
 router = APIRouter(prefix="/print", tags=["print"], responses=NOT_FOUND_RESPONSE)
 
@@ -131,6 +131,40 @@ def export_plant_labels_pdf(
         media_type="application/pdf",
         headers={
             "Content-Disposition": 'attachment; filename="plant-labels.pdf"',
+        },
+    )
+
+
+@router.get("/location-label/{location_key}")
+@limiter.limit(settings.rate_limit_export, key_func=user_rate_limit_key)
+def export_location_label_pdf(
+    request: Request,
+    location_key: Annotated[str, Path(description="Document key of the bed (or other location).")],
+    qr_size_mm: int = Query(
+        LOCATION_LABEL_QR_DEFAULT_MM, ge=20, le=60, description="QR-code edge length in millimetres."
+    ),
+    locale: str = Query("de", pattern="^(de|en)$", description="Document language: de or en."),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PrintService = Depends(get_print_service),
+) -> StreamingResponse:
+    """A printable bed label as PDF (REQ-053 GP-FR-052, GP-UX-028): name, site, type, area and a QR code.
+
+    For a bed the QR code opens the bed in field mode of its site's plan
+    (``/standorte/sites/{site_key}/plan?mode=field&bed={location_key}``); for any other location it opens the
+    location page. The link carries no token: a scan without a session goes through the sign-in and back. Every
+    member may print it. 404 when the location does not exist or its site belongs to another tenant.
+    """
+    pdf_bytes = service.generate_location_label_pdf(
+        location_key,
+        tenant_key=ctx.tenant_key,
+        qr_size_mm=qr_size_mm,
+        locale=locale,
+    )
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="bed-label-{location_key}.pdf"',
         },
     )
 
