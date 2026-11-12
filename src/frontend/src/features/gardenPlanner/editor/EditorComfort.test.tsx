@@ -24,6 +24,12 @@ vi.mock('../api/gardenPlan', async (importOriginal) => ({
   placeBedTemplate: vi.fn(),
 }));
 const listLocationTypes = vi.hoisted(() => vi.fn());
+// GP-FR-087: the template panel names the recurring tasks of the picked template.
+const getTaskTemplate = vi.hoisted(() => vi.fn());
+vi.mock('@/api/endpoints/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/endpoints/tasks')>()),
+  getTaskTemplate,
+}));
 // `getSite` feeds the sun-tile thresholds of the properties panel (WP 8.24); unread here, so the defaults apply.
 vi.mock('@/api/endpoints/sites', () => ({
   listLocationTypes,
@@ -611,6 +617,8 @@ describe('bed templates (GP-FR-043/044/045)', () => {
       updated: [],
       deleted: [],
       derived: {},
+      created_tasks: [],
+      recurring_tasks_failed: false,
     });
     getGardenPlan.mockResolvedValue(planResponse());
     const t = setupEditor();
@@ -631,10 +639,63 @@ describe('bed templates (GP-FR-043/044/045)', () => {
       origin: [4, 15],
       rotation_deg: 90,
       expected_revision: revision,
+      create_recurring_tasks: false,
     });
     await waitFor(() => expect(getGardenPlan).toHaveBeenCalled());
     // a pointer press with the tool on selects nothing
     expect(t.state().pending).toHaveLength(0);
+  });
+
+  it('GP-FR-087: the opt-in travels with the placement and the info names the tasks created', async () => {
+    listBedTemplates.mockResolvedValue([
+      ...CATALOGUE,
+      template({ key: 'own_tasks', name: 'Raised bed with care', recurring_task_templates: ['tt_refill'] }),
+    ]);
+    getTaskTemplate.mockResolvedValue({ key: 'tt_refill', name: 'Refill soil', name_de: 'Erde nachfüllen' });
+    placeBedTemplate.mockResolvedValue({
+      plan_revision: 8,
+      key_map: { template_bed: 'loc_new' },
+      updated: [],
+      deleted: [],
+      derived: {},
+      created_tasks: ['task_1'],
+      recurring_tasks_failed: false,
+    });
+    getGardenPlan.mockResolvedValue(planResponse());
+    const t = setupEditor();
+    await openTool(t);
+    await pick('Raised bed with care');
+    const box = await screen.findByTestId('garden-plan-template-recurring-tasks');
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    expect(box).toBeChecked();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('garden-plan-template-place-center'));
+    });
+    await waitFor(() => expect(placeBedTemplate).toHaveBeenCalledTimes(1));
+    expect(placeBedTemplate.mock.calls[0][1]).toMatchObject({
+      template_key: 'own_tasks',
+      create_recurring_tasks: true,
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('garden-plan-info')).toHaveTextContent(/1 (wiederkehrende Aufgabe|recurring task)/),
+    );
+  });
+
+  it('GP-FR-087: picking another template resets the opt-in', async () => {
+    listBedTemplates.mockResolvedValue([
+      ...CATALOGUE,
+      template({ key: 'own_tasks', name: 'Raised bed with care', recurring_task_templates: ['tt_refill'] }),
+      template({ key: 'own_tasks_2', name: 'Planter with care', recurring_task_templates: ['tt_refill'] }),
+    ]);
+    getTaskTemplate.mockResolvedValue({ key: 'tt_refill', name: 'Refill soil', name_de: '' });
+    const t = setupEditor();
+    await openTool(t);
+    await pick('Raised bed with care');
+    fireEvent.click(await screen.findByTestId('garden-plan-template-recurring-tasks'));
+    expect(screen.getByTestId('garden-plan-template-recurring-tasks')).toBeChecked();
+    await pick('Planter with care');
+    expect(screen.getByTestId('garden-plan-template-recurring-tasks')).not.toBeChecked();
   });
 
   it('"Place at centre" puts the middle of the turned template, not its anchor, in the middle of the view (#2536)', async () => {
@@ -644,6 +705,8 @@ describe('bed templates (GP-FR-043/044/045)', () => {
       updated: [],
       deleted: [],
       derived: {},
+      created_tasks: [],
+      recurring_tasks_failed: false,
     });
     getGardenPlan.mockResolvedValue(planResponse());
     const t = setupEditor();

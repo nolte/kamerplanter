@@ -6091,6 +6091,17 @@
         },
         "templates": {
           "placed": "Das Beet wurde aus der Vorlage angelegt und ist gespeichert. Zum Zurücknehmen lösche das Beet.",
+          "placedWithTasks_one": "Das Beet wurde aus der Vorlage angelegt, dazu {{count}} wiederkehrende Aufgabe. Zum Zurücknehmen lösche das Beet und die Aufgabe.",
+          "placedWithTasks_other": "Das Beet wurde aus der Vorlage angelegt, dazu {{count}} wiederkehrende Aufgaben. Zum Zurücknehmen lösche das Beet und die Aufgaben.",
+          "placedTasksFailed": "Das Beet wurde angelegt, die wiederkehrenden Aufgaben aber nicht. Lege sie im Pflege-Tab des Beets an.",
+          "recurringTasks": {
+            "label": "Wiederkehrende Aufgaben anlegen",
+            "loading": "Die Aufgaben der Vorlage werden geladen …",
+            "helper_one": "Legt am neuen Beet {{count}} jährlich wiederkehrende Aufgabe an: {{names}}. Erstmals fällig ist sie am Tag des Platzierens, oder so viele Tage später, wie die Aufgabenvorlage vorgibt.",
+            "helper_other": "Legt am neuen Beet {{count}} jährlich wiederkehrende Aufgaben an: {{names}}. Jede ist erstmals am Tag des Platzierens fällig, oder so viele Tage später, wie ihre Aufgabenvorlage vorgibt.",
+            "unreadable_one": "{{count}} Aufgabenvorlage ist nicht mehr lesbar; mit diesem Häkchen lässt sich die Vorlage nicht platzieren.",
+            "unreadable_other": "{{count}} Aufgabenvorlagen sind nicht mehr lesbar; mit diesem Häkchen lässt sich die Vorlage nicht platzieren."
+          },
           "tool": {
             "label": "Beet aus Vorlage platzieren",
             "hint": "Ein Beet aus einer Vorlage mit einem Klick auf den Plan setzen",

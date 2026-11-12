@@ -30,7 +30,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from time import monotonic
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from pydantic import BaseModel
@@ -117,6 +117,9 @@ from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slo
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.location_photo_service import LocationPhotoDiscard, release_location_photos
 from app.domain.services.site_service import place_in_tree
+
+if TYPE_CHECKING:
+    from app.domain.services.task_service import TaskService
 
 logger = structlog.get_logger()
 
@@ -309,6 +312,7 @@ class GardenPlanService:
         template_repo: IBedTemplateRepository | None = None,
         *,
         photos: Callable[[], LocationPhotoDiscard] | None = None,
+        tasks: Callable[[], TaskService] | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
@@ -318,6 +322,9 @@ class GardenPlanService:
         self._zones = zone_repo
         #: ``None`` = a caller that never places a template; no template key is then visible (WP 7.9).
         self._templates = template_repo
+        #: GP-FR-087 (#2897): the task path that writes the recurring tasks a template brings. ``None`` = a caller
+        #: that never asks for them; ``create_recurring_tasks`` is then refused before anything is written.
+        self._tasks = tasks
 
     # ── Anchor ────────────────────────────────────────────────────────────────
 
@@ -610,19 +617,30 @@ class GardenPlanService:
         origin: tuple[float, float],
         rotation_deg: float,
         expected_revision: int,
+        create_recurring_tasks: bool = False,
     ) -> PlanBatchResult:
         """Create one bed from a template, through the same path as a batch ``create_location`` (WP 7.9, #2475).
 
         Order (SR-013): tenant anchor (404) -> role (403) -> the template, which must be a system template or the
         tenant's own (422 ``reference.not_found`` for an absent *and* a foreign key alike) -> its location type,
         which must still exist (422 ``reference.not_found``) and still be a bed type (422
-        ``bed_template.not_a_bed_type``) -> the geometry placed at ``origin`` and turned by ``rotation_deg`` (422
+        ``bed_template.not_a_bed_type``) -> with ``create_recurring_tasks``, every ``recurring_task_templates`` key,
+        which must be a task template the tenant can read, its own or a global one (422 ``reference.not_found`` on
+        ``recurring_task_templates[i]``) -> the geometry placed at ``origin`` and turned by ``rotation_deg`` (422
         ``geometry.invalid``) -> the plan rules of any batch: containment (422 ``geometry.outside_parent``),
         overlap, quota and, inside the transaction, the revision (409 ``plan.revision_conflict``).
 
         The bed receives a **copy** of the template's fields (name, location type, geometry, height, soil axes);
         ``Location.template_key`` records where it came from and nothing else follows the template afterwards.
-        ``recurring_task_templates`` are not applied (operator decision of 2026-10-19, #2466 item 9).
+
+        **Recurring tasks (GP-FR-087, #2897; operator decision of 2026-11-11).** Opt-in: only with
+        ``create_recurring_tasks`` does the template's ``recurring_task_templates`` become tasks on the new bed,
+        directly (not as suggestions), each with a yearly RRULE (:meth:`TaskService.create_recurring_tasks_for_bed`).
+        Every key is resolved **before** the bed is written, so a refused key writes nothing. The tasks are written
+        after the plan's transaction, all in one transaction of their own: the plan write and the task write are two
+        stores' transactions, and the task path is not folded into the plan's. Should the task write fail, the bed
+        stands, the failure is logged and the answer says so (``recurring_tasks_failed``) - as the photo discard of
+        :meth:`apply_batch_async` does after its commit.
         """
         site = self._owned_site(site_key, tenant_key=tenant_key)
         if not MembershipEngine.can_edit_resource(role):
@@ -641,6 +659,9 @@ class GardenPlanService:
                 status_code=422,
                 field="template_key",
             )
+        task_template_keys = (
+            self._resolved_task_templates(template, tenant_key=tenant_key) if create_recurring_tasks else []
+        )
         try:
             data = TemplateLocationData.model_validate(
                 {
@@ -657,7 +678,7 @@ class GardenPlanService:
         except PydanticValidationError as exc:
             raise PlanValidationError(_findings_of(exc, None)) from exc
         operation = CreateLocationOp(op="create_location", temp_key=_TEMPLATE_TEMP_KEY, data=data)
-        return self._apply(
+        result = self._apply(
             site,
             tenant_key=tenant_key,
             user_key=user_key,
@@ -666,6 +687,56 @@ class GardenPlanService:
             operations=[operation],
             started=_now(),
         )
+        bed_key = result.key_map.get(_TEMPLATE_TEMP_KEY)
+        if task_template_keys and bed_key and self._tasks is not None:
+            self._create_template_tasks(
+                result, task_template_keys, bed_key=bed_key, tenant_key=tenant_key, user_key=user_key
+            )
+        return result
+
+    def _resolved_task_templates(self, template: BedTemplate, *, tenant_key: str) -> list[str]:
+        """The template's task-template keys when every one is the tenant's own or a global one; 422 otherwise.
+
+        Resolved through the template catalogue's union rule (GP-NFR-058, the rule a template write applies), so a
+        key of another tenant answers like an absent one. Nothing has been written when this refuses.
+        """
+        keys = list(template.recurring_task_templates)
+        if not keys:
+            return []
+        if self._tasks is None or self._templates is None:
+            raise RuntimeError("place_template with create_recurring_tasks needs the task service.")
+        visible: set[str] = self._templates.visible_task_template_keys(keys, tenant_key=tenant_key)
+        findings: list[_Finding] = [
+            (None, f"recurring_task_templates[{index}]", ERROR_REFERENCE_NOT_FOUND, {})
+            for index, key in enumerate(keys)
+            if key not in visible
+        ]
+        if findings:
+            raise PlanValidationError(findings[:_MAX_FINDINGS])
+        return keys
+
+    def _create_template_tasks(
+        self, result: PlanBatchResult, keys: list[str], *, bed_key: str, tenant_key: str, user_key: str
+    ) -> None:
+        """Write the recurring tasks on the committed bed; a failure leaves the bed and is reported, never raised."""
+        factory = self._tasks
+        if factory is None:
+            return
+        tasks: TaskService = factory()
+        try:
+            created = tasks.create_recurring_tasks_for_bed(
+                keys, bed_key=bed_key, tenant_key=tenant_key, actor_user_key=user_key
+            )
+        except Exception as exc:  # noqa: BLE001 - the bed is committed; the answer must still reach the client
+            logger.warning(
+                "garden_plan.template_tasks_failed",
+                location_key=bed_key,
+                error=type(exc).__name__,
+                count=len(keys),
+            )
+            result.recurring_tasks_failed = True
+            return
+        result.created_task_keys = [task.key for task in created if task.key]
 
     # ── GP-FR-174: the beds of a CSV bed list ────────────────────────────────
 

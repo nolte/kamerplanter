@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import cast
 
 import structlog
@@ -37,6 +37,17 @@ class RecurrenceEngine:
         if interval_days is None or interval_days <= 0:
             return None
         return f"FREQ=DAILY;INTERVAL={interval_days}"
+
+    @staticmethod
+    def yearly_rule_on(day: date) -> str:
+        """Express "every year on this calendar day" as the canonical iCal RRULE (REQ-053 GP-FR-087).
+
+        The month and the day are pinned, so a task completed late still falls due on the same day next year
+        instead of drifting with its completion. 29 February is pinned to the 28th: as ``BYMONTHDAY=29`` the rule
+        would skip three years out of four.
+        """
+        month_day = min(day.day, 28) if day.month == 2 else day.day
+        return f"FREQ=YEARLY;BYMONTH={day.month};BYMONTHDAY={month_day}"
 
     @staticmethod
     def parses_as_rrule(rule: str) -> bool:

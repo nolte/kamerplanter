@@ -27,6 +27,7 @@ from app.api.v1.garden_plan.schemas import (
     DerivedGeometrySchema,
     GardenPlanResponse,
     PlaceTemplateRequest,
+    PlaceTemplateResponse,
     PlanAuditEntryResponse,
     PlanBatchRequest,
     PlanBatchResponse,
@@ -446,7 +447,7 @@ async def apply_batch(
 
 @router.post(
     "/{key}/plan/place-template",
-    response_model=PlanBatchResponse,
+    response_model=PlaceTemplateResponse,
     summary="Place one bed from a bed template",
     responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
 )
@@ -457,14 +458,19 @@ def place_template(
     body: PlaceTemplateRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
     service: GardenPlanService = Depends(get_garden_plan_service),
-) -> PlanBatchResponse:
+) -> PlaceTemplateResponse:
     """Create a bed from a template through the batch path (GP-FR-044, WP 7.9): one transaction, one revision.
 
     The bed gets a copy of the template's name, location type, geometry (anchor at `origin`, turned by
     `rotation_deg`), height and soil axes; `template_key` is kept on it as provenance. In order: the template
-    (422 `reference.not_found` - a foreign key answers like an absent one), the geometry (422 `geometry.invalid`),
+    (422 `reference.not_found` - a foreign key answers like an absent one), with `create_recurring_tasks` its task
+    templates (422 `reference.not_found` on `recurring_task_templates[i]`), the geometry (422 `geometry.invalid`),
     containment and overlap (422 `geometry.outside_parent`, `bed.overlap`) and last the revision (409
     `plan.revision_conflict`). `key_map` maps `template_bed` to the new location key.
+
+    `create_recurring_tasks: true` (GP-FR-087) creates one task per task template on the new bed, recurring yearly,
+    and lists them in `created_tasks`; should that write fail after the bed is committed, the bed stands and
+    `recurring_tasks_failed` is `true`.
     """
     started = perf_counter()
     try:
@@ -477,12 +483,23 @@ def place_template(
             origin=body.origin,
             rotation_deg=body.rotation_deg,
             expected_revision=body.expected_revision,
+            create_recurring_tasks=body.create_recurring_tasks,
         )
     except PlanRevisionConflictError:
         record_conflict()
         raise
     observe_batch_duration(perf_counter() - started)
-    return _batch_response(result)
+    return PlaceTemplateResponse(
+        plan_revision=result.plan_revision,
+        key_map=result.key_map,
+        updated=result.updated,
+        deleted=result.deleted,
+        derived={
+            key: DerivedGeometrySchema(area_m2=value.area_m2, bbox=value.bbox) for key, value in result.derived.items()
+        },
+        created_tasks=result.created_task_keys,
+        recurring_tasks_failed=result.recurring_tasks_failed,
+    )
 
 
 @router.get(

@@ -279,6 +279,11 @@ class PlanBatchResult(BaseModel):
     #: The photos the deleted beds held (REQ-053 GP-FR-051, WP 8.18), read inside the transaction: the caller
     #: discards them after the commit unless something else names them. Never part of the response.
     released_photo_refs: list[str] = Field(default_factory=list, exclude=True)
+    #: ``place-template`` with ``create_recurring_tasks`` (GP-FR-087, #2897): the tasks created on the new bed after
+    #: the commit; empty for every other write.
+    created_task_keys: list[str] = Field(default_factory=list)
+    #: The bed was committed but writing its recurring tasks failed (all or none): the bed stands without them.
+    recurring_tasks_failed: bool = False
 
 
 # ── Write set handed to the repository ────────────────────────────────────────

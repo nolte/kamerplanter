@@ -295,11 +295,17 @@ export interface PlaceTemplateArg {
   templateKey: string;
   origin: [number, number];
   rotationDeg: number;
+  /** GP-FR-087: create the template's recurring tasks on the new bed (opt-in). */
+  createRecurringTasks?: boolean;
 }
 
-/** `code` is a `notice.*` key of the editor: a server code (`bed.overlap`, ...) or one of the `template.*` codes. */
+/**
+ * `code` is a `notice.*` key of the editor: a server code (`bed.overlap`, ...) or one of the `template.*` codes.
+ * `createdTasks` counts the recurring tasks created with the bed; `tasksFailed` = the bed stands without them.
+ */
 export type PlaceTemplateOutcome =
-  { ok: true; locationKey: string | null } | { ok: false; code: string };
+  | { ok: true; locationKey: string | null; createdTasks: number; tasksFailed: boolean }
+  | { ok: false; code: string };
 
 /**
  * Place a bed from a template. The server creates the bed in its own transaction (`POST .../plan/place-template`)
@@ -331,12 +337,18 @@ export const placeTemplateAt = createAsyncThunk<
       origin: arg.origin,
       rotation_deg: arg.rotationDeg,
       expected_revision: revision,
+      create_recurring_tasks: arg.createRecurringTasks === true,
     });
     const refreshed = await dispatch(refreshGardenPlan(siteKey));
     // The bed exists on the server; without the refreshed model the editor would not show it.
     if (refreshGardenPlan.rejected.match(refreshed))
       return { ok: false, code: 'template.refresh_failed' };
-    return { ok: true, locationKey: response.key_map.template_bed ?? null };
+    return {
+      ok: true,
+      locationKey: response.key_map.template_bed ?? null,
+      createdTasks: response.created_tasks?.length ?? 0,
+      tasksFailed: response.recurring_tasks_failed === true,
+    };
   } catch (error) {
     const failure = api.toPlanSaveFailure(error);
     if (failure.kind === 'conflict') {

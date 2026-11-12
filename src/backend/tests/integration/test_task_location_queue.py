@@ -1,5 +1,8 @@
 """REQ-053 WP 4.2 (#2412) — the location queue and the ``task_cloned_from`` edge against a real ArangoDB.
 
+GP-FR-087 (#2897): the recurring tasks a bed template brings are written through ``create_tasks_atomic`` with their
+``has_task`` (bed → task) and ``instance_of`` (task → task template) edges in one transaction.
+
 What no double decides: that the AQL of ``get_pending_tasks_in_locations`` finds the tasks on a bed *and* on the plants
 standing in it, hides a removed plant's task and a foreign tenant's task of the same key, and that a ``garden_object``
 binding writes its ``has_task`` edge from ``garden_objects``. Every "nothing there" is paired with the own-tenant
@@ -11,9 +14,13 @@ from __future__ import annotations
 import pytest
 from arango import ArangoClient
 
+from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.task_repository import ArangoTaskRepository
+from app.domain.engines.dependency_resolver import DependencyResolver
+from app.domain.engines.hst_validator import HSTValidator
 from app.domain.models.task import Task
+from app.domain.services.task_service import TaskService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = pytest.mark.usefixtures("arango_db")
@@ -27,6 +34,7 @@ _DOCUMENTS = (
     col.LOCATIONS,
     col.TASK_COMMENTS,
     col.TASK_AUDIT_ENTRIES,
+    col.TASK_TEMPLATES,
 )
 _EDGES = (
     col.HAS_TASK,
@@ -192,3 +200,39 @@ def test_create_tasks_atomic_refuses_a_foreign_tenants_task_and_writes_nothing(d
 
     assert list(database.collection(col.TASKS).all()) == []
     assert list(database.collection(col.HAS_TASK).all()) == []
+
+
+def _task_templates(database) -> None:
+    templates = database.collection(col.TASK_TEMPLATES)
+    templates.insert({"_key": "tt_refill", "tenant_key": "", "name": "Refill soil", "days_offset": 0})
+    templates.insert({"_key": "tt_own", "tenant_key": A, "name": "Cover", "days_offset": 10})
+    templates.insert({"_key": "tt_foreign", "tenant_key": B, "name": "Theirs", "days_offset": 0})
+
+
+def test_the_recurring_tasks_of_a_bed_template_are_stored_with_their_rule_and_both_edges(database, repo) -> None:
+    _task_templates(database)
+    service = TaskService(repo, HSTValidator(), DependencyResolver())
+
+    created = service.create_recurring_tasks_for_bed(["tt_refill", "tt_own"], bed_key="bed_new", tenant_key=A)
+
+    stored = {doc["template_key"]: doc for doc in database.collection(col.TASKS).all()}
+    assert set(stored) == {"tt_refill", "tt_own"}
+    for doc in stored.values():
+        assert (doc["tenant_key"], doc["entity_type"], doc["entity_key"]) == (A, "location", "bed_new")
+        assert doc["recurrence_rule"].startswith("FREQ=YEARLY;BYMONTH=")
+    has_task = sorted((e["_from"], e["_to"]) for e in database.collection(col.HAS_TASK).all())
+    assert has_task == sorted((f"{col.LOCATIONS}/bed_new", f"{col.TASKS}/{t.key}") for t in created)
+    instance_of = sorted((e["_from"], e["_to"]) for e in database.collection(col.INSTANCE_OF).all())
+    assert instance_of == sorted((f"{col.TASKS}/{t.key}", f"{col.TASK_TEMPLATES}/{t.template_key}") for t in created)
+
+
+def test_a_foreign_task_template_writes_no_task_and_no_edge(database, repo) -> None:
+    _task_templates(database)
+    service = TaskService(repo, HSTValidator(), DependencyResolver())
+
+    with pytest.raises(NotFoundError):
+        service.create_recurring_tasks_for_bed(["tt_refill", "tt_foreign"], bed_key="bed_new", tenant_key=A)
+
+    assert list(database.collection(col.TASKS).all()) == []
+    assert list(database.collection(col.HAS_TASK).all()) == []
+    assert list(database.collection(col.INSTANCE_OF).all()) == []

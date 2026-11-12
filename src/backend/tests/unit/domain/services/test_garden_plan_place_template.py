@@ -2,7 +2,8 @@
 
 ``place_template`` runs through the same path as a batch ``create_location``; what is pinned here is what it adds:
 the template is resolved under the tenant (a foreign key answers like an absent one), the bed receives a copy and
-a provenance key, nothing of ``recurring_task_templates`` is applied, and every refusal leaves the repository
+a provenance key, nothing of ``recurring_task_templates`` is applied without the opt-in (with it:
+``test_garden_plan_template_recurring_tasks.py``, GP-FR-087), and every refusal leaves the repository
 untouched. The import half: ``template_key`` travels in the file and is resolved against the system templates and
 the target tenant's own - otherwise dropped and reported.
 """
@@ -125,7 +126,7 @@ class TestPlacing:
         assert geometry is not None and geometry.rotation_deg == 90.0
         assert result.derived[real].bbox == (3.0, 1.0, 4.0, 3.0)
 
-    def test_the_recurring_task_templates_are_stored_but_not_applied(self, world: World) -> None:
+    def test_the_recurring_task_templates_are_not_applied_without_the_opt_in(self, world: World) -> None:
         world.place()
 
         (write,) = world.repo.applied

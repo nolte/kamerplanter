@@ -5,13 +5,19 @@
  *
  * WP 9.9 (GP-FR-173): "Export" downloads the picked template as a JSON file; "Import" opens the check-then-confirm
  * dialog (its own lazy chunk) and picks the imported template once it is written.
+ *
+ * GP-FR-087 (#2897): a template that brings recurring tasks shows the opt-in "create recurring tasks" (off by
+ * default) and names what it will create; the choice travels with the placement request.
  */
 import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from '@mui/material/FormHelperText';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -24,6 +30,7 @@ import { saveBlob } from '../io/ioApi';
 import type { BedTemplates } from './useBedTemplates';
 import { templateName } from './templateName';
 import { exportBedTemplate } from './templateExchange';
+import { useTemplateTaskNames } from './useTemplateTaskNames';
 
 const TemplateImportDialog = lazy(() => import('./TemplateImportDialog'));
 
@@ -42,13 +49,21 @@ interface TemplatePanelProps {
   onPlaceCenter: () => void;
   /** The ghost under the pointer sits where the template would leave the garden: the status line says so. */
   ghostInvalid?: boolean;
+  /** GP-FR-087: create the picked template's recurring tasks on the placed bed (opt-in, off by default). */
+  createRecurringTasks: boolean;
+  onCreateRecurringTasks: (value: boolean) => void;
   onClose: () => void;
 }
+
+const NO_TASKS: readonly string[] = [];
 
 export default function TemplatePanel(props: TemplatePanelProps) {
   const { t } = useTranslation();
   const { catalogue, templateKey } = props;
-  const known = catalogue.templates.some((template) => template.key === templateKey);
+  const picked = catalogue.templates.find((template) => template.key === templateKey) ?? null;
+  const known = picked !== null;
+  const taskKeys = picked?.recurring_task_templates ?? NO_TASKS;
+  const taskNames = useTemplateTaskNames(taskKeys);
   // Importing creates a template: from grower, like "Save as template" (the server says the same, 403).
   const { canEdit } = useTenantPermissions();
   const [importOpen, setImportOpen] = useState(false);
@@ -160,6 +175,40 @@ export default function TemplatePanel(props: TemplatePanelProps) {
       >
         {t(`${PREFIX}.panel.close`)}
       </Button>
+      {taskKeys.length > 0 && (
+        <Box sx={{ flexBasis: '100%' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={props.createRecurringTasks}
+                onChange={(event) => props.onCreateRecurringTasks(event.target.checked)}
+                slotProps={{
+                  input: {
+                    'aria-describedby': 'garden-plan-template-recurring-tasks-help',
+                    'data-testid': 'garden-plan-template-recurring-tasks',
+                  } as object,
+                }}
+              />
+            }
+            label={t(`${PREFIX}.recurringTasks.label`)}
+            sx={{ minHeight: TARGET_PX }}
+          />
+          <FormHelperText
+            id="garden-plan-template-recurring-tasks-help"
+            data-testid="garden-plan-template-recurring-tasks-help"
+            sx={{ mt: 0 }}
+          >
+            {taskNames.loading
+              ? t(`${PREFIX}.recurringTasks.loading`)
+              : t(`${PREFIX}.recurringTasks.helper`, {
+                  count: taskKeys.length,
+                  names: taskNames.names.join(', '),
+                })}
+            {!taskNames.loading && taskNames.unreadable > 0 &&
+              ` ${t(`${PREFIX}.recurringTasks.unreadable`, { count: taskNames.unreadable })}`}
+          </FormHelperText>
+        </Box>
+      )}
       <Typography
         variant="body2"
         color="text.secondary"

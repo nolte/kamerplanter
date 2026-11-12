@@ -289,6 +289,8 @@ const TEMPLATE_TURN_DEG = 90;
 interface TemplateMode {
   templateKey: string | null;
   rotationDeg: number;
+  /** GP-FR-087: the opt-in "create recurring tasks", off by default and again for every newly picked template. */
+  createRecurringTasks: boolean;
 }
 
 /**
@@ -1081,7 +1083,7 @@ export function GardenPlanEditor({
   }, [plan, selection]);
 
   const toggleTemplateTool = useCallback(() => {
-    setTemplateMode((previous) => (previous ? null : { templateKey: null, rotationDeg: 0 }));
+    setTemplateMode((previous) => (previous ? null : { templateKey: null, rotationDeg: 0, createRecurringTasks: false }));
     setGhostPoint(null);
     setSnapMark(null);
     dispatch(setTool('select'));
@@ -1098,11 +1100,18 @@ export function GardenPlanEditor({
             templateKey: mode.templateKey,
             origin: originM,
             rotationDeg: mode.rotationDeg,
+            createRecurringTasks: mode.createRecurringTasks,
           }),
         ).unwrap();
         if (outcome.ok) {
           setNotice(null);
-          setInfo(t(`${PREFIX}.templates.placed`));
+          setInfo(
+            outcome.tasksFailed
+              ? t(`${PREFIX}.templates.placedTasksFailed`)
+              : outcome.createdTasks > 0
+                ? t(`${PREFIX}.templates.placedWithTasks`, { count: outcome.createdTasks })
+                : t(`${PREFIX}.templates.placed`),
+          );
           if (outcome.locationKey) {
             dispatch(setSelection([{ entity: 'location', key: outcome.locationKey }]));
           }
@@ -2157,7 +2166,13 @@ export function GardenPlanEditor({
             catalogue={templateCatalogue}
             templateKey={templateMode.templateKey}
             onTemplateKey={(key) =>
-              setTemplateMode((previous) => (previous ? { ...previous, templateKey: key } : previous))
+              setTemplateMode((previous) =>
+                previous ? { ...previous, templateKey: key, createRecurringTasks: false } : previous,
+              )
+            }
+            createRecurringTasks={templateMode.createRecurringTasks}
+            onCreateRecurringTasks={(value) =>
+              setTemplateMode((previous) => (previous ? { ...previous, createRecurringTasks: value } : previous))
             }
             rotationDeg={templateMode.rotationDeg}
             onRotate={() =>

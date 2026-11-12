@@ -3,6 +3,9 @@
  * from GP-API-070; "Import" sends the chosen file to GP-API-071 as a dry run, shows the check report and writes only
  * on confirmation - then the panel reloads the catalogue and picks the new template. A taken name (409) proposes a
  * free one the user checks again with. The server is the authority on every answer.
+ *
+ * GP-FR-087 (#2897): a template that brings recurring tasks offers the opt-in "create recurring tasks", off by
+ * default, and names the tasks it would create.
  */
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -76,9 +79,11 @@ function renderPanel(
   templateKey: string | null = 'tpl_1',
   role: 'viewer' | 'grower' | 'lead' = 'grower',
   templateList?: BedTemplates['templates'],
+  createRecurringTasks = false,
 ) {
   const reload = vi.fn();
   const onTemplateKey = vi.fn();
+  const onCreateRecurringTasks = vi.fn();
   const store = createTestStore({ ...tenantState(role), ...authState() });
   const shown = catalogue(reload);
   renderWithProviders(
@@ -90,11 +95,13 @@ function renderPanel(
       onRotate={vi.fn()}
       busy={false}
       onPlaceCenter={vi.fn()}
+      createRecurringTasks={createRecurringTasks}
+      onCreateRecurringTasks={onCreateRecurringTasks}
       onClose={vi.fn()}
     />,
     { store },
   );
-  return { reload, onTemplateKey };
+  return { reload, onTemplateKey, onCreateRecurringTasks };
 }
 
 function useImportBackend(calls: ImportCall[], answer: (params: URLSearchParams) => Response | BedTemplateImportReport) {
@@ -327,5 +334,62 @@ describe('TemplatePanel - import', () => {
     );
     expect(screen.queryByTestId('garden-plan-template-import-report')).not.toBeInTheDocument();
     expect(screen.getByTestId('garden-plan-template-import-confirm')).toBeDisabled();
+  });
+});
+
+describe('TemplatePanel - recurring tasks (GP-FR-087)', () => {
+  const withTasks = (keys: string[]) => [{ ...catalogue().templates[0], recurring_task_templates: keys }];
+
+  function useTaskTemplates(names: Record<string, string>) {
+    server.use(
+      http.get(`${BASE}/tasks/templates/:key`, ({ params }) => {
+        const key = String(params.key);
+        if (!(key in names)) return refusal(404, []);
+        return HttpResponse.json({ key, name: names[key], name_de: '', days_offset: 0 });
+      }),
+    );
+  }
+
+  it('offers no opt-in for a template without recurring tasks', () => {
+    renderPanel();
+
+    expect(screen.queryByTestId('garden-plan-template-recurring-tasks')).not.toBeInTheDocument();
+  });
+
+  it('offers the opt-in off by default and names the tasks it would create', async () => {
+    useTaskTemplates({ tt_refill: 'Refill soil', tt_cover: 'Cover for winter' });
+    const user = userEvent.setup();
+    const { onCreateRecurringTasks } = renderPanel('tpl_1', 'grower', withTasks(['tt_refill', 'tt_cover']));
+
+    const box = screen.getByTestId('garden-plan-template-recurring-tasks');
+    expect(box).not.toBeChecked();
+    expect(box).toHaveAccessibleName('Create recurring tasks');
+    await waitFor(() =>
+      expect(screen.getByTestId('garden-plan-template-recurring-tasks-help')).toHaveTextContent(
+        'Creates 2 yearly recurring tasks on the new bed: Refill soil, Cover for winter.',
+      ),
+    );
+
+    await user.click(box);
+
+    expect(onCreateRecurringTasks).toHaveBeenCalledWith(true);
+  });
+
+  it('shows the opt-in as chosen when the editor holds it', () => {
+    useTaskTemplates({ tt_refill: 'Refill soil' });
+    renderPanel('tpl_1', 'grower', withTasks(['tt_refill']), true);
+
+    expect(screen.getByTestId('garden-plan-template-recurring-tasks')).toBeChecked();
+  });
+
+  it('says so when a task template can no longer be read', async () => {
+    useTaskTemplates({ tt_refill: 'Refill soil' });
+    renderPanel('tpl_1', 'grower', withTasks(['tt_refill', 'tt_gone']));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('garden-plan-template-recurring-tasks-help')).toHaveTextContent(
+        '1 task template can no longer be read',
+      ),
+    );
   });
 });

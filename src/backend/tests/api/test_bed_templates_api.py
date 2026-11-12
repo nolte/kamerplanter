@@ -21,13 +21,17 @@ from app.common.auth import get_current_user, get_is_platform_admin
 from app.common.dependencies import get_bed_template_service, get_garden_plan_service, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
+from app.domain.engines.dependency_resolver import DependencyResolver
+from app.domain.engines.hst_validator import HSTValidator
 from app.domain.models.bed_template import BedTemplate
 from app.domain.models.site import SitePlan
 from app.domain.models.user import User
 from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.task_service import TaskService
 from tests.support.bed_template_fakes import FakeTemplates
 from tests.support.garden_plan_fakes import OTHER_TENANT, SITE, TENANT, FakePlanRepo, FakeSites, make_site
+from tests.support.template_task_fakes import TemplateTaskRepo, task_template
 
 _BASE = "/api/v1/t/own"
 _RECT = {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 1, "rotation_deg": 0}
@@ -72,11 +76,19 @@ def plan_repo() -> FakePlanRepo:
 
 
 @pytest.fixture
-def client(templates: FakeTemplates, plan_repo: FakePlanRepo) -> Iterator[Callable[..., TestClient]]:
+def task_repo() -> TemplateTaskRepo:
+    return TemplateTaskRepo(task_template("tt_refill", ""), task_template("tt_theirs", OTHER_TENANT))
+
+
+@pytest.fixture
+def client(
+    templates: FakeTemplates, plan_repo: FakePlanRepo, task_repo: TemplateTaskRepo
+) -> Iterator[Callable[..., TestClient]]:
     from app.main import app
 
     service = BedTemplateService(templates)
-    plans = GardenPlanService(plan_repo._sites, plan_repo, template_repo=templates)
+    tasks = TaskService(task_repo, HSTValidator(), DependencyResolver())
+    plans = GardenPlanService(plan_repo._sites, plan_repo, template_repo=templates, tasks=lambda: tasks)
     state = {"platform_admin": False}
 
     def build(role: TenantRole = TenantRole.GROWER, *, platform_admin: bool = False) -> TestClient:
@@ -243,6 +255,59 @@ class TestPlaceTemplate:
         assert plan.status_code == 200, plan.text
         (placed,) = [loc for loc in plan.json()["locations"] if loc["key"] == real]
         assert placed["template_key"] == "sys_bed"  # provenance is part of the read model
+
+    def test_the_opt_in_creates_the_recurring_tasks_on_the_new_bed(
+        self, client, templates: FakeTemplates, plan_repo: FakePlanRepo, task_repo: TemplateTaskRepo
+    ) -> None:
+        templates.task_templates = {"tt_refill": ""}
+        templates.add(
+            _template("sys_bed", None, "System bed").model_copy(update={"recurring_task_templates": ["tt_refill"]})
+        )
+
+        response = client(TenantRole.GROWER).post(
+            self._PATH,
+            json={"template_key": "sys_bed", "origin": [4, 1], "expected_revision": 5, "create_recurring_tasks": True},
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        (task,) = task_repo.created
+        assert body["created_tasks"] == [task.key] and body["recurring_tasks_failed"] is False
+        assert (task.entity_type, task.entity_key) == ("location", body["key_map"]["template_bed"])
+        assert task.recurrence_rule is not None and task.recurrence_rule.startswith("FREQ=YEARLY;")
+
+    def test_without_the_opt_in_the_answer_lists_no_task(
+        self, client, templates: FakeTemplates, task_repo: TemplateTaskRepo
+    ) -> None:
+        templates.task_templates = {"tt_refill": ""}
+        templates.add(
+            _template("sys_bed", None, "System bed").model_copy(update={"recurring_task_templates": ["tt_refill"]})
+        )
+
+        response = client(TenantRole.GROWER).post(
+            self._PATH, json={"template_key": "sys_bed", "origin": [4, 1], "expected_revision": 5}
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["created_tasks"] == [] and task_repo.created == []
+
+    def test_a_foreign_task_template_is_422_and_places_nothing(
+        self, client, templates: FakeTemplates, plan_repo: FakePlanRepo, task_repo: TemplateTaskRepo
+    ) -> None:
+        templates.task_templates = {"tt_theirs": OTHER_TENANT}
+        templates.add(
+            _template("own", TENANT, "Own bed").model_copy(update={"recurring_task_templates": ["tt_theirs"]})
+        )
+
+        response = client(TenantRole.GROWER).post(
+            self._PATH,
+            json={"template_key": "own", "origin": [4, 1], "expected_revision": 5, "create_recurring_tasks": True},
+        )
+
+        assert response.status_code == 422, response.text
+        (detail,) = response.json()["details"]
+        assert (detail["code"], detail["field"]) == ("reference.not_found", "recurring_task_templates[0]")
+        assert plan_repo.applied == [] and task_repo.created == []
 
     def test_a_viewer_places_nothing(self, client, plan_repo: FakePlanRepo) -> None:
         response = client(TenantRole.VIEWER).post(

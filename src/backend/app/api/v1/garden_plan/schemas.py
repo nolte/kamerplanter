@@ -163,6 +163,7 @@ class PlaceTemplateRequest(BaseModel):
                     "origin": [4.0, 1.0],
                     "rotation_deg": 90,
                     "expected_revision": 42,
+                    "create_recurring_tasks": True,
                 }
             ]
         },
@@ -179,6 +180,40 @@ class PlaceTemplateRequest(BaseModel):
         default=0.0, ge=0.0, lt=360.0, description="Counter-clockwise, added to the template's own rotation."
     )
     expected_revision: int = Field(ge=0, description="The plan_revision the client's copy was loaded at (V-14).")
+    create_recurring_tasks: bool = Field(
+        default=False,
+        description="Opt-in (GP-FR-087): create the template's `recurring_task_templates` as tasks on the new bed, "
+        "each recurring yearly (RRULE) from its first due date - the day of placement plus the task template's "
+        "`days_offset`. Default `false`: the bed only.",
+    )
+
+
+class PlaceTemplateResponse(PlanBatchResponse):
+    """The answer of ``place-template``: the batch response plus the tasks created on the new bed (GP-FR-087)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "plan_revision": 43,
+                    "key_map": {"template_bed": "loc_b17"},
+                    "updated": [],
+                    "deleted": [],
+                    "derived": {"loc_b17": {"area_m2": 2.0, "bbox": [4.0, 1.0, 6.0, 2.0]}},
+                    "created_tasks": ["task_8812"],
+                    "recurring_tasks_failed": False,
+                }
+            ]
+        }
+    )
+
+    created_tasks: list[str] = Field(
+        default_factory=list, description="Keys of the recurring tasks created on the new bed (opt-in)."
+    )
+    recurring_tasks_failed: bool = Field(
+        default=False,
+        description="The bed was placed, but writing its recurring tasks failed; none of them exists.",
+    )
 
 
 class PlanBoundaryResponse(BaseModel):

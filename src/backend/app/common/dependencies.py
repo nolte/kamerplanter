@@ -478,6 +478,8 @@ def get_garden_plan_service() -> GardenPlanService:
         ArangoIrrigationZoneRepository(get_db()),
         ArangoBedTemplateRepository(get_db()),
         photos=get_location_photo_service,
+        # GP-FR-087 (#2897): the recurring tasks a template brings, opt-in at placing time, through the task path.
+        tasks=get_task_service,
     )
 
 
