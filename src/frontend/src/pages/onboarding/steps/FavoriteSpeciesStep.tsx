@@ -52,7 +52,7 @@ export default function FavoriteSpeciesStep({
       if (aKit !== bKit) return aKit - bKit;
       const aName = getLocalizedCommonName(a, language) ?? a.scientific_name;
       const bName = getLocalizedCommonName(b, language) ?? b.scientific_name;
-      return aName.localeCompare(bName);
+      return aName.localeCompare(bName, language);
     });
   }, [allSpecies, search, kitSpeciesKeys, language]);
 

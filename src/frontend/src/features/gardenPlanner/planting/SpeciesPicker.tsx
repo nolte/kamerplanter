@@ -3,8 +3,10 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 import type { Species } from '@/api/types';
-import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { getAlternativeCommonNames, getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 const filter = createFilterOptions<Species>({
   stringify: (species) =>
@@ -42,7 +44,7 @@ export default function SpeciesPicker({
         const fa = favorites.has(a.key) ? 0 : 1;
         const fb = favorites.has(b.key) ? 0 : 1;
         return (
-          fa - fb || getSpeciesOptionLabel(a, language).localeCompare(getSpeciesOptionLabel(b, language))
+          fa - fb || getSpeciesOptionLabel(a, language).localeCompare(getSpeciesOptionLabel(b, language), language)
         );
       }),
     [species, favorites, language],
@@ -65,6 +67,26 @@ export default function SpeciesPicker({
             : t('pages.bed.planting.species.others')
       }
       noOptionsText={t('pages.bed.planting.species.none')}
+      renderOption={({ key: liKey, ...props }, option) => {
+        const alternatives = getAlternativeCommonNames(option, language).join(', ');
+        return (
+          <Box
+            component="li"
+            key={liKey}
+            {...props}
+            sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start !important' }}
+          >
+            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+              {getSpeciesOptionLabel(option, language)}
+            </Typography>
+            {alternatives && (
+              <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                {alternatives}
+              </Typography>
+            )}
+          </Box>
+        );
+      }}
       renderInput={(params) => (
         <TextField
           {...params}

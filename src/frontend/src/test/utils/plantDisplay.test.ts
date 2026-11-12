@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   formatSpeciesNameWithScientific,
+  getAlternativeCommonNames,
   getLocalizedCommonName,
   getSpeciesLabel,
   getSpeciesOptionLabel,
@@ -229,5 +230,23 @@ describe('getPlantLabel', () => {
 
   it('avoids redundant parentheses when plant_name equals instance_id', () => {
     expect(getPlantLabel(plant({ plant_name: 'BASIL-001' }), 'de')).toBe('BASIL-001');
+  });
+});
+
+describe('getAlternativeCommonNames', () => {
+  const carrot = {
+    scientific_name: 'Daucus carota',
+    common_names: ['Carrot', 'Möhre', 'Karotte'],
+    common_names_i18n: { de: ['Möhre', 'Karotte'], en: ['Carrot'] },
+  };
+
+  it('lists the names other than the displayed one', () => {
+    expect(getAlternativeCommonNames(carrot, 'de')).toEqual(['Karotte', 'Carrot']);
+    expect(getAlternativeCommonNames(carrot, 'en')).toEqual(['Möhre', 'Karotte']);
+  });
+
+  it('is empty without a second name', () => {
+    expect(getAlternativeCommonNames({ scientific_name: 'X y', common_names: ['Foo'] }, 'de')).toEqual([]);
+    expect(getAlternativeCommonNames(null, 'de')).toEqual([]);
   });
 });

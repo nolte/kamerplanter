@@ -57,7 +57,10 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
 
     // Sorted by the label the user reads — the common name in the UI language (#2902).
     return mapped.sort((a, b) =>
-      getSpeciesOptionLabel(a.species, language).localeCompare(getSpeciesOptionLabel(b.species, language)),
+      getSpeciesOptionLabel(a.species, language).localeCompare(
+        getSpeciesOptionLabel(b.species, language),
+        language,
+      ),
     );
   }, [species, language]);
 
@@ -92,7 +95,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
                   {...props}
                   sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1 }}
                 >
-                  <Typography variant="body2" noWrap>
+                  <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
                     {commonNames ?? sp.scientific_name}
                   </Typography>
                   <Typography

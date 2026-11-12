@@ -127,6 +127,27 @@ export function orderCommonNamesForLanguage(
 }
 
 /**
+ * The common names that are NOT the displayed one, for the secondary line of a picker
+ * option — shows why an English search term matched in the German UI. Deduplicated
+ * case-insensitively; empty when the species has no other name.
+ */
+export function getAlternativeCommonNames(
+  species: SpeciesNameSource | null | undefined,
+  language: string | null | undefined,
+): string[] {
+  const shown = getLocalizedCommonName(species, language)?.toLowerCase();
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const name of orderCommonNamesForLanguage(species, language)) {
+    const key = name.trim().toLowerCase();
+    if (key === shown || seen.has(key)) continue;
+    seen.add(key);
+    result.push(name.trim());
+  }
+  return result;
+}
+
+/**
  * "Common (Scientific)" — the picker/option label shape, e.g. "Erbse (Pisum sativum)".
  * Only the scientific name when there is no distinct common name.
  */

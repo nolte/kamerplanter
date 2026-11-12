@@ -1074,7 +1074,7 @@ describe('species names in the UI language (#2902, TC-053-113)', () => {
     const onPlanted = vi.fn();
     renderGerman(onPlanted);
 
-    await chooseByTyping(user, 'Erbs', /^Erbse \(Pisum sativum\)$/);
+    await chooseByTyping(user, 'Erbs', /^Erbse \(Pisum sativum\)\s*Pea$/);
 
     const hintBox = await screen.findByTestId('planting-support-sp_pea');
     await waitFor(() => expect(hintBox).toHaveAttribute('data-state', 'missing'));
@@ -1095,7 +1095,8 @@ describe('species names in the UI language (#2902, TC-053-113)', () => {
     const user = userEvent.setup();
     renderGerman();
 
-    await chooseByTyping(user, 'Pea', /^Erbse \(Pisum sativum\)$/);
+    await // The option's secondary line names the English match, so the user sees why it matched.
+    await chooseByTyping(user, 'Pea', /^Erbse \(Pisum sativum\)\s*Pea$/);
 
     expect(within(screen.getByTestId('planting-entry-0-species')).getByRole('combobox')).toHaveValue(
       'Erbse (Pisum sativum)',

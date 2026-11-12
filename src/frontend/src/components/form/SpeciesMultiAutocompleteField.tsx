@@ -6,7 +6,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { Species } from '@/api/types';
-import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { getAlternativeCommonNames, getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 interface SpeciesMultiAutocompleteFieldProps<T extends FieldValues> {
   /** Form field holding a `string[]` of species keys. */
@@ -22,6 +22,8 @@ interface SpeciesMultiAutocompleteFieldProps<T extends FieldValues> {
 interface SpeciesOption {
   key: string;
   label: string;
+  /** Other-language names, shown as secondary text so a match on them is explainable. */
+  alternatives: string;
   searchText: string;
 }
 
@@ -35,6 +37,7 @@ function toOption(species: Species, language: string): SpeciesOption {
   return {
     key: species.key,
     label: getSpeciesOptionLabel(species, language),
+    alternatives: getAlternativeCommonNames(species, language).join(', '),
     searchText: [species.scientific_name, ...(species.common_names ?? []), species.genus, species.family_name ?? ''].join(
       ' ',
     ),
@@ -62,7 +65,7 @@ export default function SpeciesMultiAutocompleteField<T extends FieldValues>({
   const language = i18n.language;
 
   const options = useMemo<SpeciesOption[]>(
-    () => species.map((s) => toOption(s, language)).sort((a, b) => a.label.localeCompare(b.label)),
+    () => species.map((s) => toOption(s, language)).sort((a, b) => a.label.localeCompare(b.label, language)),
     [species, language],
   );
   const byKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
@@ -74,7 +77,7 @@ export default function SpeciesMultiAutocompleteField<T extends FieldValues>({
       render={({ field, fieldState: { error } }) => {
         const keys: string[] = Array.isArray(field.value) ? (field.value as string[]) : [];
         const selected = keys.map(
-          (key) => byKey.get(key) ?? { key, label: key, searchText: key },
+          (key) => byKey.get(key) ?? { key, label: key, alternatives: '', searchText: key },
         );
         return (
           <Autocomplete
@@ -99,7 +102,14 @@ export default function SpeciesMultiAutocompleteField<T extends FieldValues>({
                 {...props}
                 sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1 }}
               >
-                <Typography variant="body2">{option.label}</Typography>
+                <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                  {option.label}
+                </Typography>
+                {option.alternatives && (
+                  <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                    {option.alternatives}
+                  </Typography>
+                )}
               </Box>
             )}
             renderInput={(params) => (

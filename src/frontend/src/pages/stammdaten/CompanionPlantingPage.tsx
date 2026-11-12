@@ -40,7 +40,7 @@ import type {
   IncompatibleSpecies,
   CompanionCountsMap,
 } from '@/api/types';
-import { getLocalizedCommonName } from '@/utils/plantDisplay';
+import { getAlternativeCommonNames, getLocalizedCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 /**
@@ -218,7 +218,14 @@ export default function CompanionPlantingPage() {
           // actually differs from the shown common name (species without a curated
           // common name fall back to the scientific name as the primary line).
           const commonName = getLocalizedCommonName(option, i18n.language);
-          const showScientific = !!option.scientific_name && option.scientific_name !== commonName;
+          // Other-language names follow, so an English search term in the German UI
+          // visibly matches (#2902).
+          const secondaryLine = [
+            option.scientific_name && option.scientific_name !== commonName ? option.scientific_name : '',
+            ...getAlternativeCommonNames(option, i18n.language),
+          ]
+            .filter(Boolean)
+            .join(' · ');
           return (
             <Box
               component="li"
@@ -242,20 +249,19 @@ export default function CompanionPlantingPage() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   variant="body2"
-                  noWrap
+                  sx={{ overflowWrap: 'anywhere' }}
                   color={hasRelations ? 'text.primary' : 'text.secondary'}
                 >
                   {commonName ?? option.scientific_name}
                 </Typography>
-                {showScientific && (
+                {secondaryLine && (
                   <Typography
                     variant="caption"
-                    noWrap
                     component="span"
                     color="text.secondary"
-                    sx={{ display: 'block', fontStyle: 'italic' }}
+                    sx={{ display: 'block', fontStyle: 'italic', overflowWrap: 'anywhere' }}
                   >
-                    {option.scientific_name}
+                    {secondaryLine}
                   </Typography>
                 )}
               </Box>

@@ -29,7 +29,7 @@ import * as taskApi from '@/api/endpoints/tasks';
 import * as speciesApi from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { WorkflowPhase, WorkflowPhaseSuggestion, GrowthPhase, CommonNamesI18n } from '@/api/types';
-import { getLocalizedCommonName } from '@/utils/plantDisplay';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 type SpeciesOption = {
   key: string;
@@ -263,12 +263,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
               loading={speciesLoading}
               value={selectedSpecies}
               onChange={(_e, value) => setSelectedSpecies(value)}
-              getOptionLabel={(option) => {
-                if (!option) return '';
-                const sn = option.scientific_name ?? '';
-                const cn = getLocalizedCommonName(option, i18n.language);
-                return cn && cn !== sn ? `${sn} (${cn})` : sn;
-              }}
+              getOptionLabel={(option) => (option ? getSpeciesOptionLabel(option, i18n.language) : '')}
               filterOptions={filterSpeciesOptions}
               isOptionEqualToValue={(option, value) =>
                 option != null && value != null && option.key === value.key

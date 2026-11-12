@@ -61,6 +61,7 @@ from ._garden_plan_helpers import (
     sow_slot,
     species,
     stored_slot,
+    tenant_get,
     thinning_plan,
     unique_tag,
     utc_today,
@@ -706,9 +707,13 @@ def test_tc_053_115_compost_through_the_care_log_writes_one_feeding_event(
         (reference["key"], "top_dress")
     ], f"TC-053-115: exactly the referenced top dress names the plant: {feedings!r}"
 
+    # The page names the plant by its label since #2920 - instance id plus the species name in the UI language,
+    # taken from the API's language map (#2902), never the raw key.
+    instance_id = tenant_get(base_url, e2e_seed_data, f"/plant-instances/{plant}")["instance_id"]
+    plant_label = f"{instance_id} ({lettuce['common_names_i18n']['de'][0]})"
     detail = FeedingEventDetailPage(bed_view.driver, base_url).open(reference["key"])
     facts = detail.facts()
-    assert (facts.get("Pflanze"), facts.get("Anwendungsart")) == (plant, "Aufstreuen"), (
+    assert (facts.get("Pflanze"), facts.get("Anwendungsart")) == (plant_label, "Aufstreuen"), (
         f"TC-053-115: the feeding page shows the plant and 'Aufstreuen': {facts!r}"
     )
     screenshot(

@@ -86,7 +86,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import * as favApi from '@/api/endpoints/favorites';
-import { getLocalizedCommonName, getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { getAlternativeCommonNames, getLocalizedCommonName, getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 const entityTypes = ['plant_instance', 'planting_run', 'location', 'tank'] as const;
 
@@ -382,9 +382,12 @@ export default function WorkflowDetailPage() {
       const aFav = favoriteKeys.has(a.key) ? 0 : 1;
       const bFav = favoriteKeys.has(b.key) ? 0 : 1;
       if (aFav !== bFav) return aFav - bFav;
-      return a.scientific_name.localeCompare(b.scientific_name);
+      return getSpeciesOptionLabel(a, i18n.language).localeCompare(
+        getSpeciesOptionLabel(b, i18n.language),
+        i18n.language,
+      );
     });
-  }, [allSpecies, speciesFilter, favoriteKeys]);
+  }, [allSpecies, speciesFilter, favoriteKeys, i18n.language]);
 
   const handleToggleEnabled = useCallback(async (tt: TaskTemplate) => {
     try {
@@ -1490,11 +1493,14 @@ export default function WorkflowDetailPage() {
                           </ListItemIcon>
                           <ListItemText
                             primary={getLocalizedCommonName(opt, i18n.language) ?? opt.scientific_name}
-                            secondary={
+                            secondary={[
                               getLocalizedCommonName(opt, i18n.language) !== opt.scientific_name
                                 ? opt.scientific_name
-                                : opt.family_name
-                            }
+                                : opt.family_name,
+                              ...getAlternativeCommonNames(opt, i18n.language),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                             slotProps={{ primary: { variant: 'body2' }, secondary: { variant: 'caption' } }}
                           />
                         </ListItem>
