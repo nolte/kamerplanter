@@ -117,7 +117,8 @@ describe('FeedingEventDetailPage', () => {
   it('renders the loaded feeding event', async () => {
     renderWithProviders(<FeedingEventDetailPage />);
     expect(await screen.findByTestId('feeding-event-detail-page')).toBeInTheDocument();
-    expect(screen.getByText('plant-1')).toBeInTheDocument();
+    // The plant label resolves after its own request; an unloadable plant keeps its key.
+    expect(await screen.findByText('plant-1')).toBeInTheDocument();
   });
 
   it('shows the name of the plant instead of its key', async () => {
