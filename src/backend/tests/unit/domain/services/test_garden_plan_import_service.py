@@ -979,3 +979,39 @@ class TestTheReplacedBedsReleaseTheirPhotosWp818:
         assert merged.applied and not dry.applied  # the merge really wrote
         assert dry.released_photo_refs == [] and merged.released_photo_refs == []
         assert discard.calls == []  # no photo released, so the discard is not even built
+
+
+class TestTheOrientation:
+    """GP-FR-017 (#2894): an imported bed takes the axis on the north angle the import leaves."""
+
+    def test_an_imported_bed_is_inserted_with_its_axis(self, rig, repo) -> None:
+        rig.run(rig.file())
+
+        # 3 x 1 m beds along +x on a plan with north up: east-west.
+        assert {loc.orientation for loc in repo.locations.values()} == {"east"}
+
+    def test_the_files_north_angle_turns_the_imported_and_the_kept_beds(self, rig, repo) -> None:
+        repo.locations["b2"] = make_location("b2", "Beet 2", geometry=rect(1, 3, 3, 1), orientation="east")
+        repo.planted = {"b2"}
+        document = rig.file()
+        document["locations"] = [loc for loc in document["locations"] if loc["key"] == "b1"]
+        document["slots"] = []
+        document["plan"]["north_angle_deg"] = 90.0  # north = +x: the beds now lie north-south
+
+        rig.run(document, force=True)
+
+        (write,) = repo.applied
+        assert write.location_updates == [("b2", {"orientation": "north"})]
+        assert {loc.orientation for loc in repo.locations.values()} == {"north"}
+
+    def test_a_kept_bed_is_not_written_while_north_stays(self, rig, repo) -> None:
+        repo.locations["b2"] = make_location("b2", "Beet 2", geometry=rect(1, 3, 3, 1), orientation="west")
+        repo.planted = {"b2"}
+        document = rig.file()
+        document["locations"] = [loc for loc in document["locations"] if loc["key"] == "b1"]
+        document["slots"] = []
+
+        rig.run(document, force=True)
+
+        assert repo.applied[0].location_updates == []
+        assert repo.locations["b2"].orientation == "west"

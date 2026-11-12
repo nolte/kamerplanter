@@ -5726,6 +5726,7 @@
           "name": "Name",
           "label": "Label",
           "type": "Type: {{type}}",
+          "bedAxis": "Long axis: {{from}}–{{to}} ({{azimuth}}°), derived from rotation and north angle",
           "notPlaced": "This bed is not placed on the plan yet.",
           "waterSource": {
             "title": "Water source",
@@ -5938,7 +5939,8 @@
           "s": "S",
           "w": "W",
           "help": "Set where geographic north lies on your plan. Turn the dial or use the arrow keys (Shift or Page Up/Down: 15 degree steps, Home: north up). 0 degrees means north is up, 90 degrees means north points right.",
-          "invalid": "Enter an angle from 0 to 360."
+          "invalid": "Enter an angle from 0 to 360.",
+          "sun": "Today: sunrise {{sunriseTime}}, direction {{sunriseDirection}} ({{sunriseAzimuth}}°), sunset {{sunsetTime}}, direction {{sunsetDirection}} ({{sunsetAzimuth}}°). Filled dot = sunrise, ring = sunset; shading is not considered."
         },
         "dimensions": {
           "rect": "{{width}} × {{length}} · {{area}}",

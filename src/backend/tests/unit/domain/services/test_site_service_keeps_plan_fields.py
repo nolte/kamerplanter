@@ -128,7 +128,23 @@ class TestUpdateLocation:
 
         _service(repo).update_location("loc_1", body, tenant_key=TENANT)
 
-        assert repo.location_write == {"untouched": (*LOCATION_FIELDS_KEPT_ON_EDIT, "area_m2"), "frost_risk": None}
+        # GP-FR-017 (#2894): the stored 2 x 1 m bed has a long axis, so its orientation is derived, never the body's.
+        assert repo.location_write == {
+            "untouched": (*LOCATION_FIELDS_KEPT_ON_EDIT, "area_m2", "orientation"),
+            "frost_risk": None,
+        }
+
+    def test_a_placed_bed_without_a_long_axis_takes_the_body_s_orientation(self) -> None:
+        """A circle has no axis (GP-FR-017): its orientation stays manually maintained and the PUT writes it."""
+        repo = _Repo()
+        circle = {"kind": "circle", "origin": [2.0, 2.0], "radius_m": 1.0}
+        repo.location = repo.location.model_copy(update={"geometry": circle})
+        body = Location(name="Kräuterspirale", site_key="site_1", area_m2=3.0, orientation="west")
+
+        _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+
+        assert "orientation" not in repo.location_write["untouched"]
+        assert repo.written[0].orientation == "west"
 
     def test_the_response_is_the_stored_location_not_the_model_handed_in(self) -> None:
         repo = _Repo()

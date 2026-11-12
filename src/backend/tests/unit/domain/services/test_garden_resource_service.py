@@ -787,12 +787,45 @@ class TestPatchingALocation:
         assert repo.locations["bed"].orientation == "south"
 
     def test_a_patch_without_an_aspect_leaves_a_manual_orientation_alone(self, world) -> None:
+        """Without geometry the orientation stays manually maintained (GP-FR-017: "Ohne Geometrie bleibt die
+        manuelle Pflege")."""
         service, repo, _ = world
-        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"orientation": Orientation.WEST})
+        repo.locations["bed"] = repo.locations["bed"].model_copy(
+            update={"orientation": Orientation.WEST, "geometry": None}
+        )
         patch_location(service, site_conditions={"slope_deg": 8.0}, notes="Hang")
 
         assert "orientation" not in repo.field_updates[-1][1]
         assert repo.locations["bed"].orientation == "west"
+
+    def test_a_placed_bed_without_an_aspect_takes_its_long_axis(self, world) -> None:
+        """GP-FR-017 (#2894): a 2 x 1 m bed on a plan with north up lies east-west - the manual value gives way."""
+        service, repo, _ = world
+        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"orientation": Orientation.WEST})
+        patch_location(service, site_conditions={"slope_deg": 8.0})
+
+        assert repo.field_updates[-1][1]["orientation"] == "east"
+        assert repo.locations["bed"].orientation == "east"
+
+    def test_clearing_the_aspect_hands_the_orientation_to_the_long_axis(self, world) -> None:
+        """GP-FR-017/168: the aspect wins while set; cleared, the axis on the site's north angle decides."""
+        service, repo, site = world
+        site.plan = site.plan.model_copy(update={"north_angle_deg": 90.0})  # north = +x: the 2 x 1 m bed is N-S
+        patch_location(service, site_conditions={"aspect_deg": 200.0})
+        assert repo.locations["bed"].orientation == "south"
+
+        patch_location(service, site_conditions={"aspect_deg": None})
+
+        assert repo.locations["bed"].orientation == "north"
+
+    def test_a_turned_bed_and_a_cleared_aspect_in_one_request_agree_with_the_batch(self, world) -> None:
+        """The field write runs after the plan batch and must derive from the geometry the request leaves."""
+        service, repo, _ = world
+        patch_location(service, site_conditions={"aspect_deg": 200.0})
+
+        patch_location(service, site_conditions={"aspect_deg": None}, geometry=rect(1, 1, 2, 1, 90))
+
+        assert repo.locations["bed"].orientation == "north"
 
     def test_orientation_is_no_field_of_the_patch_body(self) -> None:
         with pytest.raises(ValueError, match="orientation"):

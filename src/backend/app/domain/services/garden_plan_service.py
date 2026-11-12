@@ -31,13 +31,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from time import monotonic
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import ErrorDetails
 
-from app.common.datetimes import today_utc
+from app.common.datetimes import now_utc, today_utc
 from app.common.enums import SunProfileSource, TenantRole
 from app.common.exceptions import (
     ForbiddenError,
@@ -52,6 +53,7 @@ from app.domain.calculators.geometry_calculator import (
     to_local_shape,
     validate_geometry,
 )
+from app.domain.calculators.sun_calculator import SunDirections, calculate_sun_directions
 from app.domain.calculators.template_placement_calculator import place_geometry
 from app.domain.engines.garden_plan_engine import (
     ERROR_BOUNDARY_SHRINKS,
@@ -138,9 +140,11 @@ _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width
 #: paths (status, soil, irrigation zone, tank, pitch …) that run outside the plan revision (GP-NFR-007), and a
 #: batch must not write it back with the value it read earlier. ``site_conditions`` is therefore no column here:
 #: the batch changes only its sun profile (#2538) and writes that sub-path alone (``location_sun_profiles``).
+#: ``orientation`` is derived (GP-FR-017): :meth:`GardenPlanService._orient` sets it on the beds whose geometry the
+#: batch changes, and on every bed when it turns the north angle - written exactly when one of the two moved it.
 _LOCATION_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "area_m2", "name", "path", "depth", "description", "notes", "sun_exposure", "height_m"}
-    | {"locked", "z_order"}
+    | {"locked", "z_order", "orientation"}
 )
 _OBJECT_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "label", "notes", "props", "off_site", "locked", "z_order"}
@@ -179,6 +183,31 @@ class _Work:
 
     def known(self, entity: str, key: str) -> bool:
         return key in (self.locations if entity == _ENTITY_LOCATION else self.objects)
+
+
+def north_angle_after(plan: SitePlan | None, changes: SetBoundaryOp | None) -> float:
+    """The north angle a write leaves: the batch's own when it sends one, else the stored one, else 0 (GP-FR-015)."""
+    if changes is not None and changes.north_angle_deg is not None:
+        return changes.north_angle_deg
+    return plan.north_angle_deg if plan is not None else 0.0
+
+
+def sun_directions_today(site: Site, *, now: datetime) -> SunDirections | None:
+    """GP-FR-016: where the sun rises and sets on the site's current day; ``None`` without ``gps_coordinates``.
+
+    The day is the site's own (``Site.timezone``, UTC when it does not resolve), and so are the times: the compass
+    names the morning and the evening of the garden, not of the server. Compared with no stored value (§12a).
+    """
+    if site.gps_coordinates is None:
+        return None
+    try:
+        zone: ZoneInfo | None = ZoneInfo(site.timezone)
+    except (ZoneInfoNotFoundError, ValueError) as error:
+        logger.debug("garden_plan.sun_directions_utc_fallback", reason=type(error).__name__)
+        zone = None
+    local = now.astimezone(zone if zone is not None else UTC)
+    latitude, longitude = site.gps_coordinates
+    return calculate_sun_directions(latitude, longitude, local.date(), local.tzinfo or UTC)
 
 
 def _dump(model: BaseModel, **options: Any) -> dict[str, Any]:
@@ -404,6 +433,7 @@ class GardenPlanService:
             last_watered=data.last_watered if "tasks" in include else {},
             zones=self.zone_rows(site_key, tenant_key=tenant_key) if "zones" in include else [],
             included=sorted(include),
+            sun_directions=sun_directions_today(site, now=now_utc()),
         )
 
     def count_zones(self, site_key: SiteKey, *, tenant_key: str) -> int:
@@ -1420,6 +1450,9 @@ class GardenPlanService:
         audit: list[dict[str, str]],
     ) -> PlanBatchWrite:
         site_key = site.key or ""
+        north_angle_deg = north_angle_after(site.plan, work.plan_changes)
+        stored_north = site.plan.north_angle_deg if site.plan is not None else 0.0
+        self._orient(work, north_angle_deg=north_angle_deg, north_turned=north_angle_deg != stored_north)
         inserts = sorted(
             work.temp_locations, key=lambda key: (work.locations[key].depth, work.temp_locations.index(key))
         )
@@ -1485,6 +1518,25 @@ class GardenPlanService:
             audit=audit,
             time_budget_seconds=max(remaining, 0.5),
         )
+
+    @staticmethod
+    def _orient(work: _Work, *, north_angle_deg: float, north_turned: bool) -> None:
+        """GP-FR-017: a bed the batch places, moves or turns takes the orientation of its long axis.
+
+        Only those - every bed of the site when the batch turns the north angle, since that turns every axis. A bed
+        the batch does not touch keeps its stored value, so a concurrent ``PATCH`` of its aspect is never reverted
+        (GP-NFR-007); a bed placed before the rule takes the derived value with its next move, turn or north change.
+        An aspect keeps its priority, a location without a long axis its manual value
+        (:meth:`Location.orientation_on_plan`).
+        """
+        touched = {key for entity, key in work.moved if entity == _ENTITY_LOCATION} | set(work.temp_locations)
+        for key, entry in list(work.locations.items()):
+            if not north_turned and key not in touched:
+                continue
+            location: Location = entry
+            oriented = location.orientation_on_plan(north_angle_deg)
+            if oriented != location.orientation:
+                work.locations[key] = Location(**{**_dump(location, by_alias=True), "orientation": oriented})
 
     @staticmethod
     def _grid_to_write(site: Site, changes: SetBoundaryOp | None) -> float | None:

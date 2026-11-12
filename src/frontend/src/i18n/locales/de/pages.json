@@ -5727,6 +5727,7 @@
           "name": "Name",
           "label": "Bezeichnung",
           "type": "Typ: {{type}}",
+          "bedAxis": "Längsachse: {{from}}–{{to}} ({{azimuth}}°), aus Drehung und Nordwinkel abgeleitet",
           "notPlaced": "Dieses Beet ist noch nicht auf dem Plan platziert.",
           "waterSource": {
             "title": "Wasserquelle",
@@ -5939,7 +5940,8 @@
           "s": "S",
           "w": "W",
           "help": "Stelle ein, wo geografisch Norden auf deinem Plan liegt. Drehe das Zifferblatt oder nutze die Pfeiltasten (Umschalt oder Bild auf/ab: 15°-Schritte, Pos1: Norden oben). 0° heißt: Norden ist oben, 90°: Norden zeigt nach rechts.",
-          "invalid": "Gib einen Winkel von 0 bis 360 ein."
+          "invalid": "Gib einen Winkel von 0 bis 360 ein.",
+          "sun": "Heute: Sonnenaufgang {{sunriseTime}} Uhr, Richtung {{sunriseDirection}} ({{sunriseAzimuth}}°), Sonnenuntergang {{sunsetTime}} Uhr, Richtung {{sunsetDirection}} ({{sunsetAzimuth}}°). Gefüllter Punkt = Aufgang, Ring = Untergang; Verschattung ist nicht berücksichtigt."
         },
         "dimensions": {
           "rect": "{{width}} × {{length}} · {{area}}",

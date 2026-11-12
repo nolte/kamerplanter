@@ -130,7 +130,7 @@ Grid, snapping, length unit and compass are in the side panel's **View** tab. Zo
 - **Snapping:** The **Snap** switch makes objects snap to the grid and to corners and edges of other objects when you move, draw or drag handles.
 - **Length unit:** You choose metres or centimetres for all dimensions in the editor. Storage is always in metres.
 - **Zoom:** The fixed levels are 25, 50, 100, 200 and 400 percent; **Fit** shows the whole plan. The scale bar shows how long a distance is on the plan.
-- **Compass:** Set the **north angle** so the plan knows where geographic north lies: turn the dial, use the arrow keys or type a value (0 up to but not including 360 degrees, clockwise; 0 means north is up). The compass in a phone gives magnetic north, so Kamerplanter never takes it over automatically.
+- **Compass:** Set the **north angle** so the plan knows where geographic north lies: turn the dial, use the arrow keys or type a value (0 up to but not including 360 degrees, clockwise; 0 means north is up). The compass in a phone gives magnetic north, so Kamerplanter never takes it over automatically. If the site has GPS coordinates, the compass marks today's sunrise and sunset directions (filled dot and ring, with time and degrees below, shading not considered); from the north angle and the rotation Kamerplanter also derives each bed's long axis, which you see in its properties and which is stored as its orientation as long as no slope direction is entered. <!-- REQ-053 GP-FR-016, GP-FR-017 -->
 - **Mini-map:** see [Working faster in the garden plan](#plan-comfort).
 
 ### Properties, side panel and list view {#properties-and-list-view}

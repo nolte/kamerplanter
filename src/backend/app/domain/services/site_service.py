@@ -9,6 +9,7 @@ from app.common.exceptions import NotFoundError, ValidationError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, SiteKey, SlotKey
+from app.domain.calculators.orientation_calculator import bed_axis
 from app.domain.engines.frost_exposure_resolver import frost_risk_from_exposed
 from app.domain.engines.water_mix_engine import WaterSourceValidator, WaterSourceWarning
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -338,6 +339,9 @@ class SiteService:
         untouched = LOCATION_FIELDS_KEPT_ON_EDIT
         if existing.geometry is not None:
             untouched = (*untouched, "area_m2")
+            if bed_axis(existing.geometry, 0.0) is not None:
+                # GP-FR-017: a placed bed with a long axis has a derived orientation, no manually maintained one.
+                untouched = (*untouched, "orientation")
         parent: Location | None = None
         # The body's site too (#2107): the router used to check it before this call.
         self.get_site(location.site_key, tenant_key=tenant_key)

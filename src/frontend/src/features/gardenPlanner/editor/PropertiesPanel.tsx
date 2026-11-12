@@ -34,6 +34,7 @@ import type { SunClassThresholds } from '@/api/types';
 import { useLocationTypeNames } from '../bed/useLocationTypeNames';
 import { useSiteFacts } from '../bed/useSiteThresholds';
 import { objectTakesTasks } from '../care/careCategories';
+import { bedAxis, oppositeOrientation } from '../model/bedOrientation';
 import { isIndoorPlanSite } from '../model/siteKind';
 import type { PlanModel } from '../model/planModel';
 import type {
@@ -289,6 +290,16 @@ function EntityForm({
         azimuth: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(facing.azimuthDeg),
       })
     : null;
+  // GP-FR-017: a placed bed's long axis from its rotation and the plan's north angle, live while it is turned.
+  const axis =
+    entity === 'location' && geometry ? bedAxis(geometry, plan.settings?.north_angle_deg ?? 0) : null;
+  const bedAxisText = axis
+    ? t(`${PREFIX}.panel.bedAxis`, {
+        from: t(`enums.orientation.${axis.orientation}`),
+        to: t(`enums.orientation.${oppositeOrientation(axis.orientation)}`),
+        azimuth: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(axis.azimuthDeg),
+      })
+    : null;
   // The suggestion appears where windows can be: on an indoor plan, or on any plan that has one.
   const showWindowSuggestion = entity === 'location' && (isIndoorPlanSite(plan.siteType) || planHasWindows(plan));
   const errorText = error
@@ -325,6 +336,11 @@ function EntityForm({
       <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-type">
         {t(`${PREFIX}.panel.type`, { type: typeLabel })}
       </Typography>
+      {bedAxisText && (
+        <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-bed-axis">
+          {bedAxisText}
+        </Typography>
+      )}
       {entity === 'location' && bedInfo?.(entityKey)}
 
       {entity === 'location' && (

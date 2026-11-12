@@ -44,6 +44,7 @@ from app.domain.calculators.geometry_distance import (
     nearest_water_source_m,
     water_source_geometries,
 )
+from app.domain.calculators.orientation_calculator import derived_orientation
 from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
 from app.domain.calculators.reach_calculator import path_access
 from app.domain.engines.bed_list_csv_engine import (
@@ -119,8 +120,9 @@ _ENTITY_OBJECT = "garden_object"
 #: What ``PATCH /locations`` writes without the plan revision (GP-NFR-007): the document's own columns.
 #: ``geometry``, ``locked`` and ``z_order`` are structure — they go through the plan batch and raise the revision,
 #: as ``set_locked`` / ``set_z_order`` do there, so a client holding the plan sees the change as one.
-#: ``orientation`` is no body field: the model derives it from ``site_conditions.aspect_deg`` (GP-FR-168, WP 8.24),
-#: and listing it here writes the derived value when an aspect change moves the bed into another sector.
+#: ``orientation`` is no body field: it is derived from ``site_conditions.aspect_deg`` (GP-FR-168, WP 8.24) and, without
+#: an aspect, from the geometry and the site's north angle (GP-FR-017); listing it here writes the derived value when
+#: an aspect change moves the bed into another sector or clears the aspect of a placed bed.
 _PATCH_COLUMNS: tuple[str, ...] = (
     "name",
     "path",
@@ -455,7 +457,12 @@ class GardenResourceService:
         self._resolve_references(location, patch, tenant_key=tenant_key)
         self._check_rotation_switch(location, patch)
 
-        fields = self._field_changes(location, patch)
+        north_angle_deg = (
+            self._north_angle_deg(location.site_key, tenant_key=tenant_key)
+            if patch.site_conditions is not None
+            else None
+        )
+        fields = self._field_changes(location, patch, north_angle_deg=north_angle_deg)
         soil = self._soil_edit(patch, tenant_key=tenant_key)
         self._refuse_stale_soil(location, soil)
         operations = self._structure_operations(location, patch)
@@ -632,8 +639,20 @@ class GardenResourceService:
                 field="soil_profile.last_analysis_at",
             )
 
-    def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
-        """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""
+    def _north_angle_deg(self, site_key: SiteKey, *, tenant_key: str) -> float:
+        """The site's north angle (GP-FR-015); 0 for a site without a plan."""
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        return site.plan.north_angle_deg if site.plan is not None else 0.0
+
+    def _field_changes(
+        self, location: Location, patch: LocationPatch, *, north_angle_deg: float | None = None
+    ) -> dict[str, Any]:
+        """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value.
+
+        With *north_angle_deg* (sent when the body carries ``site_conditions``) the orientation is derived again
+        (GP-FR-017): a cleared aspect hands it back to the long axis of the geometry the request leaves - the sent
+        one when the same body moves the bed, so this write agrees with the plan batch that ran before it.
+        """
         provided = {name: getattr(patch, name) for name in patch.model_fields_set if name in set(_PATCH_COLUMNS)}
         if not provided:
             return {}
@@ -653,6 +672,12 @@ class GardenResourceService:
                     for e in exc.errors()
                 ]
             ) from exc
+        if north_angle_deg is not None:
+            geometry = patch.geometry if "geometry" in patch.model_fields_set else updated.geometry
+            aspect = updated.site_conditions.aspect_deg if updated.site_conditions is not None else None
+            oriented = derived_orientation(aspect, geometry, north_angle_deg)
+            if oriented is not None:
+                updated.orientation = oriented
         if "name" in provided:
             parent = (
                 self._sites.get_location_by_key(updated.parent_location_key) if updated.parent_location_key else None

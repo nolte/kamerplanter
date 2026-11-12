@@ -18,6 +18,7 @@ import {
   type PlanPlant,
   type PlanSettings,
   type PlanSlot,
+  type PlanSunDirections,
 } from './types';
 
 export interface PlanModel {
@@ -49,6 +50,8 @@ export interface PlanModel {
   slotFrames?: Record<string, Geometry>;
   /** Irrigation zones of the site as the plan response carries them (WP 7.6). */
   zones: PlanZone[];
+  /** Today's sunrise and sunset directions for the compass (GP-FR-016); absent = no GPS position on the site. */
+  sunDirections?: PlanSunDirections | null;
 }
 
 /** The response carries a DTO version this client does not read. */
@@ -93,6 +96,7 @@ export function normalizePlan(response: GardenPlanResponse): PlanModel {
     plants: byKey(response.plants),
     slotFrames: slotFramesOf(response.locations),
     zones: response.zones,
+    sunDirections: response.sun_directions ?? null,
   };
 }
 

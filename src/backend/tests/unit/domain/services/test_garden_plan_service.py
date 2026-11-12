@@ -1163,12 +1163,13 @@ class TestOnlyWhatTheBatchChangedIsWritten:
     def test_a_move_carries_geometry_bbox_and_area_but_not_status_soil_or_zone(self, world):
         service, repo, _ = world
         repo.locations["a"] = make_location(
-            "a", geometry=rect(1, 1), irrigation_zone_key="zone_1", bed_status="retired"
+            "a", geometry=rect(1, 1), irrigation_zone_key="zone_1", bed_status="retired", orientation="east"
         )
         batch(service, [{"op": "update_geometry", "entity": "location", "key": "a", "geometry": rect(3, 3)}])
         (write,) = repo.applied
         ((_, fields),) = write.location_updates
-        assert set(fields) == {"geometry", "bbox"}  # the area did not change: same width and length
+        # The area did not change (same width and length), nor did the east-west axis (GP-FR-017).
+        assert set(fields) == {"geometry", "bbox"}
         assert "bed_status" not in fields and "irrigation_zone_key" not in fields
 
     def test_clearing_a_note_is_a_none_so_the_repository_removes_it(self, world):
@@ -1316,3 +1317,92 @@ class TestTheBoundaryKeepsTheNorthAngleItWasNotGiven:
             expected_revision=None,
         )
         assert repo.applied[1].north_angle_deg == 15.0
+
+
+# ── GP-FR-016/017 (#2894): sun directions in the plan, orientation from the geometry ──────────────
+
+
+class TestTheBatchDerivesTheOrientation:
+    """GP-FR-017: a bed the batch places, moves or turns - or every bed, when it turns north - takes its axis."""
+
+    def test_a_new_bed_is_inserted_with_the_orientation_of_its_long_axis(self, world):
+        service, repo, _ = world
+        batch(service, [create_bed(geometry=rect(4, 1, 1, 4))])  # 1 x 4 m along +y, north up: north-south
+
+        ((_, inserted),) = repo.applied[0].location_inserts
+        assert inserted.orientation == "north"
+
+    def test_turning_a_bed_writes_its_new_orientation(self, world):
+        service, repo, _ = world
+        repo.locations["a"] = make_location("a", geometry=rect(1, 1, 2, 1), orientation="east")
+        batch(service, [{"op": "update_geometry", "entity": "location", "key": "a", "geometry": rect(1, 1, 2, 1, 90)}])
+
+        ((_, fields),) = repo.applied[0].location_updates
+        assert fields["orientation"] == "north"
+
+    def test_turning_north_turns_every_bed_but_not_one_with_an_aspect_or_without_axis(self, world):
+        service, repo, _ = world
+        repo.locations["a"] = make_location("a", geometry=rect(1, 1, 2, 1), orientation="east")
+        repo.locations["b"] = make_location(
+            "b", geometry=rect(4, 1, 2, 1), orientation="south", site_conditions={"aspect_deg": 180.0}
+        )
+        repo.locations["c"] = make_location("c", geometry=rect(1, 4, 1, 1), orientation="west")  # square: manual
+        batch(service, [{"op": "set_boundary", "boundary": _BOUNDARY, "north_angle_deg": 90.0}])
+
+        assert repo.applied[0].location_updates == [("a", {"orientation": "north"})]
+        assert repo.locations["b"].orientation == "south"
+        assert repo.locations["c"].orientation == "west"
+
+    def test_an_untouched_bed_keeps_its_stored_value_while_north_stays(self, world):
+        """A concurrent PATCH of an untouched bed's aspect is never reverted (GP-NFR-007): nothing is written."""
+        service, repo, _ = world
+        repo.locations["a"] = make_location("a", geometry=rect(1, 1, 2, 1), orientation="west")
+        batch(service, [create_bed(geometry=rect(5, 5))])
+
+        assert repo.applied[0].location_updates == []
+        assert repo.locations["a"].orientation == "west"
+
+
+class TestTheSunDirections:
+    """GP-FR-016: today's sunrise and sunset at the site come with the plan when the site has GPS."""
+
+    NOON_UTC = datetime(2026, 6, 21, 10, 0, tzinfo=UTC)
+
+    def test_a_site_without_gps_has_none(self):
+        assert garden_plan_service.sun_directions_today(make_site(), now=self.NOON_UTC) is None
+
+    def test_a_site_with_gps_has_both_directions_in_its_own_time(self):
+        site = make_site().model_copy(update={"gps_coordinates": (52.52, 13.405), "timezone": "Europe/Berlin"})
+
+        directions = garden_plan_service.sun_directions_today(site, now=self.NOON_UTC)
+
+        assert directions is not None
+        assert (directions.day.isoformat(), directions.sunrise.time, directions.sunset.time) == (
+            "2026-06-21",
+            "04:43",
+            "21:32",
+        )
+        assert 45.0 < directions.sunrise.azimuth_deg < 50.0 and 310.0 < directions.sunset.azimuth_deg < 315.0
+
+    def test_the_day_is_the_sites_not_the_servers(self):
+        """23:30 UTC is already the next morning in Tokyo: the compass names that day."""
+        site = make_site().model_copy(update={"gps_coordinates": (35.68, 139.69), "timezone": "Asia/Tokyo"})
+
+        directions = garden_plan_service.sun_directions_today(site, now=datetime(2026, 6, 21, 23, 30, tzinfo=UTC))
+
+        assert directions is not None and directions.day.isoformat() == "2026-06-22"
+
+    def test_an_unknown_time_zone_falls_back_to_utc(self):
+        site = make_site().model_copy(update={"gps_coordinates": (52.52, 13.405), "timezone": "Mars/Olympus"})
+
+        directions = garden_plan_service.sun_directions_today(site, now=self.NOON_UTC)
+
+        assert directions is not None and directions.sunrise.time == "02:43"
+
+    def test_the_plan_view_carries_them(self, world):
+        service, repo, site = world
+        site.gps_coordinates = (52.52, 13.405)
+
+        assert service.get_plan(SITE, tenant_key=TENANT).sun_directions is not None
+        site.gps_coordinates = None
+        assert service.get_plan(SITE, tenant_key=TENANT).sun_directions is None

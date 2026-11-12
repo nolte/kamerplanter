@@ -18,6 +18,7 @@ import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import { GRID_STEPS_M, gridStepLabel, type LengthUnit } from '../model/units';
+import type { PlanSunDirections } from '../model/types';
 import { Compass } from './Compass';
 
 const PREFIX = 'pages.gardenPlan.editor';
@@ -35,6 +36,8 @@ export interface ViewBarProps {
   northAngleDeg: number;
   /** Absent while the plan has no outline to carry the angle. */
   onNorthAngle?: (angleDeg: number) => void;
+  /** Today's sunrise and sunset for the compass (GP-FR-016); absent = no GPS position on the site. */
+  sunDirections?: PlanSunDirections | null;
 }
 
 const switchSx = { minHeight: TARGET_PX, gap: 1, justifyContent: 'flex-start', textTransform: 'none' } as const;
@@ -128,7 +131,7 @@ export function ViewBar(props: ViewBarProps) {
         </ToggleButtonGroup>
       </Box>
 
-      <Compass angleDeg={props.northAngleDeg} onChange={props.onNorthAngle} />
+      <Compass angleDeg={props.northAngleDeg} onChange={props.onNorthAngle} sunDirections={props.sunDirections} />
     </Stack>
   );
 }
