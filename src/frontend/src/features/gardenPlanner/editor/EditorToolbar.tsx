@@ -3,8 +3,9 @@
  *
  * From md up it is a vertical rail left of the canvas (`orientation="vertical"`); below md the same tree is the bar
  * docked at the bottom edge next to the `TouchBar` (`orientation="horizontal"`, GP-UX-069). Top level: the tools of
- * GP-UX-001 that exist - select, pan ("Verschieben"), bed and garden object; bed and garden object open a sub-menu
- * (at most two levels) with "From template" (bed only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
+ * GP-UX-001 that exist - select, pan ("Verschieben"), bed, garden object and measure (GP-UX-071), read from the tool
+ * registry (`toolRegistry.ts`); bed and garden object open a sub-menu (at most two levels) with "From template" (bed
+ * only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
  * the options of the tool that is on (shape, finish / cancel a drawing, polygon points) and the **selection group**
  * (rotate step, align, delete) - rendered only while something is selected, never as disabled buttons (AC-4).
  * Docked below md the selection group is one row that never wraps: align and delete stay in it, the rotation step -
@@ -31,29 +32,26 @@ import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import CropSquareIcon from '@mui/icons-material/CropSquare';
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import NearMeIcon from '@mui/icons-material/NearMe';
-import PanToolIcon from '@mui/icons-material/PanTool';
-import ParkIcon from '@mui/icons-material/Park';
 import PentagonIcon from '@mui/icons-material/Pentagon';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import TimelineIcon from '@mui/icons-material/Timeline';
-import YardIcon from '@mui/icons-material/Yard';
 import type { PlanTool } from '../state/gardenPlanSlice';
 import { AlignMenu } from './AlignMenu';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import { MenuTriggerTooltip } from './MenuTriggerTooltip';
 import type { DimensionTarget } from './tools/addDimensions';
 import type { AlignMode, DistributeAxis } from './tools/align';
-import { BOUNDARY_SHAPES, type DrawShape } from './tools/drawMachine';
+import type { DrawShape } from './tools/drawMachine';
+import { RAIL_TOOLS, TOOL_DEFS, type RailTool } from './toolRegistry';
 import { unavailableProps } from './unavailable';
 import { useRovingToolbar, type ToolbarOrientation } from './useRovingToolbar';
 
 const TARGET_PX = 48;
 const PREFIX = 'pages.gardenPlan.editor';
 
-/** The tools in the bar; the rest of `PlanTool` (area, plant, measure, label) arrives with later work packages. */
-export type EditorTool = Extract<PlanTool, 'select' | 'pan' | 'bed' | 'garden_object'>;
-/** The tools that open a sub-menu (GP-UX-001: at most two levels). */
+/** The tools in the bar: every tool of the registry with a rail button (GP-UX-001, GP-UX-071). */
+export type EditorTool = RailTool;
+/** The tools whose sub-menu has entries here (GP-UX-001: at most two levels). */
 type MenuTool = Extract<EditorTool, 'bed' | 'garden_object'>;
 
 export const ANGLE_STEPS = [15, 45, 90] as const;
@@ -111,13 +109,6 @@ const SHAPES: { shape: DrawShape; icon: ReactElement }[] = [
   { shape: 'polyline', icon: <TimelineIcon /> },
 ];
 
-const TOOLS: { tool: EditorTool; icon: ReactElement }[] = [
-  { tool: 'select', icon: <NearMeIcon /> },
-  { tool: 'pan', icon: <PanToolIcon /> },
-  { tool: 'bed', icon: <YardIcon /> },
-  { tool: 'garden_object', icon: <ParkIcon /> },
-];
-
 const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 
 export function EditorToolbar(props: EditorToolbarProps) {
@@ -159,18 +150,18 @@ export function EditorToolbar(props: EditorToolbarProps) {
     return actions;
   }, [menu, onAddWithDimensions, onTemplate, t, templateActive]);
 
+  // A tool with a sub-menu in the registry shows its button only when the menu has an entry to offer.
   const hasMenu = (tool: EditorTool): tool is MenuTool =>
-    (tool === 'bed' && (onTemplate !== undefined || onAddWithDimensions !== undefined)) ||
-    (tool === 'garden_object' && onAddWithDimensions !== undefined);
+    TOOL_DEFS[tool].menu === true &&
+    ((tool === 'bed' && (onTemplate !== undefined || onAddWithDimensions !== undefined)) ||
+      (tool === 'garden_object' && onAddWithDimensions !== undefined));
 
   const boundaryDraw = props.boundaryMode === 'draw';
-  const drawing = props.tool === 'bed' || props.tool === 'garden_object' || boundaryDraw;
-  // A bed is an area; only a garden object can be a line; the boundary is a rect or a polygon (§9.5).
-  const shapes = SHAPES.filter((entry) =>
-    boundaryDraw
-      ? BOUNDARY_SHAPES.includes(entry.shape)
-      : props.tool === 'garden_object' || entry.shape !== 'polyline',
-  );
+  const drawDef = TOOL_DEFS[props.tool].draw;
+  // The shapes offered come from the registry (§9.5): a bed is an area, only a garden object can be a line, the
+  // boundary is a rect or a polygon. The boundary mode offers them only while it draws.
+  const drawing = drawDef !== undefined && (TOOL_DEFS[props.tool].kind === 'draw' || boundaryDraw);
+  const shapes = SHAPES.filter((entry) => drawDef?.shapes.includes(entry.shape));
   const pointShape = props.drawShape === 'polygon' || props.drawShape === 'polyline';
   const minPoints = props.drawShape === 'polygon' ? 3 : 2;
   const finishReady = props.draftPoints >= minPoints;
@@ -232,7 +223,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       }
     >
       <Box role="group" aria-label={t(`${PREFIX}.toolbar.tools`)} sx={stackSx}>
-        {TOOLS.map(({ tool, icon }) => {
+        {RAIL_TOOLS.map(({ tool, icon: Icon }) => {
           // While the template tool is on no other tool is: clicking "Select" must register as a change.
           const pressed = !templateActive && props.tool === tool;
           const menuOpen = menu?.tool === tool && menu.anchor !== null;
@@ -252,7 +243,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                     justifyContent: vertical ? { xs: 'center', xl: 'flex-start' } : 'center',
                   }}
                 >
-                  {icon}
+                  <Icon />
                   <Box component="span" sx={shortSx}>
                     {t(`${PREFIX}.tools.${tool}.short`)}
                   </Box>
@@ -338,7 +329,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
           data-testid="garden-plan-draw-cancel"
           sx={buttonSx}
         >
-          {t(`${PREFIX}.draw.cancel`)}
+          {/* The measure tool's points are a measurement, not a draft: the button clears it (GP-UX-071). */}
+          {t(TOOL_DEFS[props.tool].kind === 'measure' ? `${PREFIX}.measure.clear` : `${PREFIX}.draw.cancel`)}
         </Button>
       )}
 

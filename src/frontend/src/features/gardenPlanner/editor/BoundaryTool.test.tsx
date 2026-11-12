@@ -78,7 +78,7 @@ describe('drawing the boundary (UC-01, GP-FR-019)', () => {
     expect(screen.getByTestId('garden-plan-shape-polygon')).toBeInTheDocument();
     expect(screen.queryByTestId('garden-plan-shape-circle')).toBeNull();
     expect(screen.queryByTestId('garden-plan-shape-polyline')).toBeNull();
-    for (const tool of ['select', 'pan', 'bed', 'garden_object']) {
+    for (const tool of ['select', 'pan', 'bed', 'garden_object', 'measure']) {
       expect(screen.getByTestId(`garden-plan-tool-${tool}`)).toHaveAttribute('aria-pressed', 'false');
     }
 
@@ -356,7 +356,8 @@ describe('accessibility', () => {
 });
 
 describe('the rail stays GP-UX-001 (#2868)', () => {
-  it('keeps exactly the four top-level tools; the boundary is an overflow entry, not a tool', () => {
+  // GP-UX-071 (#2913) added "Messen" as the fifth tool; the boundary still is no tool of the rail.
+  it('keeps exactly the top-level tools of GP-UX-001; the boundary is an overflow entry, not a tool', () => {
     setupEditor({ plan: testPlan() });
     const tools = screen.getByRole('group', { name: 'Tool' });
     const ids = within(tools)
@@ -368,6 +369,7 @@ describe('the rail stays GP-UX-001 (#2868)', () => {
       'garden-plan-tool-pan',
       'garden-plan-tool-bed',
       'garden-plan-tool-garden_object',
+      'garden-plan-tool-measure',
     ]);
   });
 });

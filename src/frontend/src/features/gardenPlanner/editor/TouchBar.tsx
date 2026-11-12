@@ -1,8 +1,8 @@
 /**
- * The touch action bars of the editor (REQ-053 GP-UX-036/037, WP 2.6). While a draw tool is active
- * the bar offers "set point · undo · finish · cancel" (each at least 48 px) - the crosshair in the
- * middle of the plan marks where "set point" puts the point, and two fingers pan the plan under
- * it. With the select tool it offers the multi-select switch: while on, every tap adds or removes
+ * The touch action bars of the editor (REQ-053 GP-UX-036/037, WP 2.6). While a draw tool or the measure tool
+ * (GP-UX-071) is active the bar offers "set point · undo · finish · cancel" (each at least 48 px; the measure tool's
+ * "cancel" clears the measurement) - the crosshair in the middle of the plan marks where "set point" puts the point,
+ * and two fingers pan the plan under it. Which section a tool gets comes from the tool registry. With the select tool it offers the multi-select switch: while on, every tap adds or removes
  * an object and a drag on empty ground draws a selection frame (otherwise it pans). Below md it also carries
  * undo and redo at its start (`leading`, REQ-053 §17.3 GP-UX-052/063): the header bar there keeps only
  * "back", the save status, "Save" and its overflow.
@@ -20,6 +20,7 @@ import UndoIcon from '@mui/icons-material/Undo';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import type { PlanTool } from '../state/gardenPlanSlice';
 import type { DrawShape } from './tools/drawMachine';
+import { behaviourOf, TOOL_DEFS } from './toolRegistry';
 import { unavailableProps } from './unavailable';
 
 const TARGET_PX = 48;
@@ -27,8 +28,13 @@ const PREFIX = 'pages.gardenPlan.editor.touch';
 
 interface TouchBarProps {
   tool: PlanTool;
-  /** A shape is being drawn - a bed, a garden object or the boundary (#2890); default: the bed and object tools. */
+  /**
+   * The point actions are offered - a shape is drawn (a bed, a garden object, the boundary #2890) or a distance is
+   * measured; default: the tools whose kind has the touch section `points` in the registry.
+   */
   drawing?: boolean;
+  /** The measurement can be finished (measure tool only; it is finished once and then cleared or restarted). */
+  measureFinishable?: boolean;
   drawShape: DrawShape;
   draftPoints: number;
   onPlacePoint: () => void;
@@ -46,6 +52,7 @@ const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 export function TouchBar({
   tool,
   drawing: drawingProp,
+  measureFinishable = false,
   drawShape,
   draftPoints,
   onPlacePoint,
@@ -57,10 +64,16 @@ export function TouchBar({
   leading,
 }: TouchBarProps) {
   const { t } = useTranslation();
-  const drawing = drawingProp ?? (tool === 'bed' || tool === 'garden_object');
-  const pointShape = drawShape === 'polygon' || drawShape === 'polyline';
-  const minPoints = drawShape === 'polygon' ? 3 : 2;
-  if (!drawing && tool !== 'select' && !leading) return null;
+  const { kind } = TOOL_DEFS[tool];
+  const touch = behaviourOf(kind).touch;
+  const drawing = drawingProp ?? touch === 'points';
+  const selecting = touch === 'select';
+  // A measurement is a line of points: always finished by "Finish", from two points on, and only once.
+  const measuring = kind === 'measure';
+  const pointShape = measuring || drawShape === 'polygon' || drawShape === 'polyline';
+  const minPoints = drawShape === 'polygon' && !measuring ? 3 : 2;
+  const canFinish = measuring ? measureFinishable : draftPoints >= minPoints;
+  if (!drawing && !selecting && !leading) return null;
 
   return (
     <Paper
@@ -105,8 +118,8 @@ export function TouchBar({
             <Button
               size="small"
               startIcon={<CheckIcon />}
-              onClick={draftPoints < minPoints ? undefined : onFinish}
-              {...unavailableProps(draftPoints < minPoints)}
+              onClick={canFinish ? onFinish : undefined}
+              {...unavailableProps(!canFinish)}
               sx={buttonSx}
               data-testid="garden-plan-touch-finish"
             >
@@ -121,11 +134,11 @@ export function TouchBar({
             sx={buttonSx}
             data-testid="garden-plan-touch-cancel"
           >
-            {t(`${PREFIX}.cancel`)}
+            {t(measuring ? `${PREFIX}.clear` : `${PREFIX}.cancel`)}
           </Button>
         </>
       )}
-      {tool === 'select' && (
+      {selecting && (
         <ToggleButton
           value="multi"
           selected={multiSelect}
@@ -138,7 +151,7 @@ export function TouchBar({
           {t(`${PREFIX}.multiSelect`)}
         </ToggleButton>
       )}
-      {tool === 'select' && multiSelect && (
+      {selecting && multiSelect && (
         <Typography
           variant="body2"
           color="text.secondary"

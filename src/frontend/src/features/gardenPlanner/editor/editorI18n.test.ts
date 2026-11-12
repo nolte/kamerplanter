@@ -43,6 +43,26 @@ describe('garden plan editor texts', () => {
     }
   });
 
+  it('words the measure tool (GP-UX-071) in DE and EN: rail label, verb tooltip, short text, status, touch "clear"', () => {
+    const paths = [
+      ['tools', 'measure', 'label'],
+      ['tools', 'measure', 'hint'],
+      ['tools', 'measure', 'short'],
+      ['measure', 'clear'],
+      ['measure', 'total'],
+      ['touch', 'clear'],
+      ...['pointer', 'touch'].flatMap((mode) =>
+        ['start', 'first', 'open_one', 'open_other', 'done_one', 'done_other'].map((key) => ['measure', 'status', mode, key]),
+      ),
+    ];
+    for (const locale of [de, en]) {
+      for (const path of paths) expect(typeof at(locale, [...PLAN, 'editor', ...path]), path.join('.')).toBe('string');
+    }
+    // The tooltip names the verb (GP-UX-010).
+    expect(at(de, [...PLAN, 'editor', 'tools', 'measure', 'hint'])).toMatch(/^Abstand messen/);
+    expect(at(en, [...PLAN, 'editor', 'tools', 'measure', 'hint'])).toMatch(/^Measure a distance/);
+  });
+
   it('carries the same keys in DE and EN', () => {
     const deLeaves = leaves(at(de, PLAN));
     // a subtree missing in BOTH locales would compare equal: the namespace holds about 1000 texts, so a short

@@ -6,7 +6,7 @@
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, type Theme } from '@mui/material/styles';
 import type { Shape } from '../model/geometry';
 import type { Point } from '../model/types';
 import { formatArea, formatLength, type LengthUnit } from '../model/units';
@@ -29,8 +29,25 @@ interface DimensionLabelsProps {
 }
 
 const MAX_LABELS = 5;
-const FONT_PX = 12;
+/** The size of the dimension text on the canvas, in pixels. */
+export const DIMENSION_FONT_PX = 12;
+const FONT_PX = DIMENSION_FONT_PX;
 const NO_HANDLES: readonly Point[] = [];
+
+/**
+ * How a size reads on the canvas: semi-bold text with a halo in the paper colour, legible on any fill below it. The
+ * measure tool's lengths (GP-UX-071) use the same.
+ */
+export function dimensionTextProps(palette: Theme['palette']) {
+  return {
+    fontSize: FONT_PX,
+    fontWeight: 600,
+    fill: palette.text.primary,
+    stroke: palette.background.paper,
+    strokeWidth: 3,
+    paintOrder: 'stroke',
+  } as const;
+}
 
 export function dimensionText(
   dimensions: Dimensions,
@@ -89,12 +106,7 @@ export function DimensionLabels({ items, toScreen, unit, handlesPx = NO_HANDLES,
           x={label.x}
           y={label.y}
           textAnchor="middle"
-          fontSize={FONT_PX}
-          fontWeight={600}
-          fill={palette.text.primary}
-          stroke={palette.background.paper}
-          strokeWidth={3}
-          paintOrder="stroke"
+          {...dimensionTextProps(palette)}
         >
           {label.text}
         </text>

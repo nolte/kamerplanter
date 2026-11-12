@@ -3103,7 +3103,7 @@ statt eines zweiten Falls.
 | Kriterium | Testfälle | Bemerkung |
 |-----------|-----------|-----------|
 | AC-1 | TC-053-101 | Zeichenfläche ≥ 60 % der Höhe bei 1366 × 768, Kopfleiste auf einer Zeile |
-| AC-2 | TC-053-103 | Seit REQ-053 v1.19 (#2868 eingegrenzt): die vier Werkzeuge aus GP-UX-001 mit Untermenüs, vier Panel-Tabs, alle Überlauf-Einträge bei 1024 × 768 |
+| AC-2 | TC-053-103 | Seit REQ-053 v1.19 (#2868 eingegrenzt): die Werkzeuge aus GP-UX-001 mit Untermenüs (seit #2913 samt Messen), vier Panel-Tabs, alle Überlauf-Einträge bei 1024 × 768 |
 | AC-3 | TC-053-101 | E2E-Teil: genau eine Kopfleiste, Werkzeuge in einer vertikalen Leiste; „Seitenkopf ohne eigene Aktionen“ prüft vitest |
 | AC-4 | TC-053-100 | Teil: Drehen, Ausrichten, Löschen nur bei Auswahl; „Als Vorlage speichern“ nur bei genau einem Beet prüft vitest |
 | AC-5 | TC-053-100, TC-053-101 | keine reservierte Breite, Umschalter mit `aria-expanded`/`aria-controls`, Panel-Tabs per Tastatur |
@@ -3294,8 +3294,8 @@ Editor-Funktion erreichbar“), siehe TC-053-103.
 
 **Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-001 — AC-2
 **Status**: Seit REQ-053 v1.19 ausführbar: GP-UX-001 nennt nur die vorhandenen Werkzeuge (#2868 „ABGRENZEN“); die
-zurückgestellten Werkzeuge Bereich, Pflanze setzen, Messen und Text/Label (GP-UX-071, #2913) erweitern diesen Fall,
-sobald sie gebaut sind.
+zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald sie gebaut sind — Messen ist gebaut
+(Schritt 5), Bereich, Pflanze setzen und Text/Label stehen aus.
 **Gerät**: 1024 × 768 (nach den Theme-Breakpoints bereits lg, Panel angedockt)
 **Priority**: High
 **Category**: Layout
@@ -3304,10 +3304,12 @@ sobald sie gebaut sind.
 
 **Testschritte**:
 1. Nutzer öffnet den Plan bei 1024 × 768
-2. Nutzer erreicht jedes Werkzeug aus GP-UX-001 in der Werkzeug-Leiste (Auswahl, Hand/Pan, Beet, Gartenobjekt) und
-   öffnet die Untermenüs von Beet und Gartenobjekt
+2. Nutzer erreicht jedes Werkzeug aus GP-UX-001 in der Werkzeug-Leiste (Auswahl, Hand/Pan, Beet, Gartenobjekt,
+   Messen) und öffnet die Untermenüs von Beet und Gartenobjekt
 3. Nutzer öffnet das Seitenpanel und wählt nacheinander die vier Panel-Tabs
 4. Nutzer öffnet den Überlauf „⋮“
+5. Nutzer wählt „Messen“, klickt auf dem freien Plan die Punkte (1 m, 1 m), (4 m, 1 m) und (4 m, 3 m), drückt Enter
+   und danach Esc
 
 **Erwartete Ergebnisse**:
 - Jedes Werkzeug und jeder Untermenü-Eintrag liegt vollständig im Viewport
@@ -3315,11 +3317,14 @@ sobald sie gebaut sind.
 - Jeder Überlauf-Eintrag liegt im Viewport und ist mindestens 48 px hoch
 - Die Seitenbreite übersteigt zu keinem Zeitpunkt die Viewport-Breite (kein horizontales Scrollen)
 - Screenshot-Checkpoints mit der Werkzeug-Leiste und mit dem angedockten Panel
+- Messen (Schritt 5): die Zeichenfläche zeigt je Abschnitt „3,00 m“ und „2,00 m“ und die Summe „Gesamt 5,00 m“; der
+  Statustext (`garden-plan-measure-status`) nennt „5,00 m“ und „2 Abschnitte“, nach Enter „Messung fertig: 5,00 m“;
+  Esc löscht die Messung; es entsteht keine zu speichernde Änderung
 
 **Nachbedingungen**:
 - Keine Änderung am Plan
 
-**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069]
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069, gp-ux-071]
 
 ---
 

@@ -5432,6 +5432,11 @@
             "more": "Open more object tools",
             "menu": "Object tools",
             "dimensionsHint": "Add a garden object by its dimensions instead of drawing it"
+          },
+          "measure": {
+            "label": "Measure",
+            "hint": "Measure a distance – click point by point on the plan, Enter or a double click finishes",
+            "short": "Measure"
           }
         },
         "shapes": {
@@ -5461,6 +5466,28 @@
           "cancel": "Cancel",
           "finishHint": "Finish the shape (Enter)",
           "finishDisabled": "Place at least {{count}} points first."
+        },
+        "measure": {
+          "clear": "Clear measurement",
+          "total": "Total {{length}}",
+          "status": {
+            "pointer": {
+              "start": "Click the start of the distance. Every further click sets a point while the line shows its length. This only measures – nothing is saved in the plan.",
+              "first": "Start point set. Click the next point. Esc clears the measurement.",
+              "open_one": "Measured: {{total}} ({{count}} segment). Click more points or finish with Enter or a double click. Backspace takes back the last point, Esc clears the measurement.",
+              "open_other": "Measured: {{total}} ({{count}} segments). Click more points or finish with Enter or a double click. Backspace takes back the last point, Esc clears the measurement.",
+              "done_one": "Measurement done: {{total}} ({{count}} segment). Esc clears it, a new click starts the next measurement.",
+              "done_other": "Measurement done: {{total}} ({{count}} segments). Esc clears it, a new click starts the next measurement."
+            },
+            "touch": {
+              "start": "Move the plan with two fingers until the crosshair sits on the start point, then tap \"Set point\". This only measures – nothing is saved in the plan.",
+              "first": "Start point set. Move the crosshair to the next point and tap \"Set point\".",
+              "open_one": "Measured: {{total}} ({{count}} segment). Set more points or finish with \"Finish\". \"Undo\" takes back the last point, \"Clear\" discards the measurement.",
+              "open_other": "Measured: {{total}} ({{count}} segments). Set more points or finish with \"Finish\". \"Undo\" takes back the last point, \"Clear\" discards the measurement.",
+              "done_one": "Measurement done: {{total}} ({{count}} segment). \"Clear\" discards it, \"Set point\" starts the next measurement.",
+              "done_other": "Measurement done: {{total}} ({{count}} segments). \"Clear\" discards it, \"Set point\" starts the next measurement."
+            }
+          }
         },
         "vertex": {
           "insert": "Insert point",
@@ -5877,7 +5904,8 @@
               "next_one": "{{count}} point placed. Place the next point. \"Undo\" takes back the last one.",
               "next_other": "{{count}} points placed. Place more points or end with \"Finish\". \"Undo\" takes back the last one."
             }
-          }
+          },
+          "clear": "Clear"
         },
         "addWithDimensions": {
           "open": "Add with dimensions",

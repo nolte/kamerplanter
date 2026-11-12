@@ -151,6 +151,12 @@ class WorkspacePlanPage(GardenPlanPage):
     NEW_OBJECT_TYPE = "garden-plan-new-object-type"
     DRAW_FINISH = _tid("garden-plan-draw-finish")
 
+    # ── Measure tool (GP-UX-071, #2913) ────────────────────────────────
+    TOOL_MEASURE = _tid("garden-plan-tool-measure")
+    MEASURE_STATUS = _tid("garden-plan-measure-status")
+    MEASURE_TOTAL = _tid("garden-plan-measure-total")
+    MEASURE_SEGMENTS = _tid("garden-plan-measure-segment")
+
     # ── Object properties (WP 10.6) ────────────────────────────────────
     OBJECT_PROPS = _tid("garden-plan-panel-object-props")
     WINDOW_SILL = _tid("garden-plan-panel-window-sill-height")
@@ -391,8 +397,37 @@ class WorkspacePlanPage(GardenPlanPage):
         self.wait_for_side_panel(None, "closing the side panel by its button")
 
     def tool_locator(self, tool: str) -> tuple[str, str]:
-        """The rail button of the top-level tool *tool* (``select``, ``pan``, ``bed``, ``garden_object``)."""
+        """The rail button of the top-level tool *tool* (``select``, ``pan``, ``bed``, ``garden_object``, ``measure``)."""
         return _tid(f"garden-plan-tool-{tool}")
+
+    def measure_status(self) -> str:
+        """The measure tool's status text (``role="status"``): the next step and the measured total."""
+        return (
+            self.wait_for_element(self.MEASURE_STATUS).get_attribute("textContent") or ""
+        ).strip()
+
+    def wait_for_measure_status(
+        self, fragment: str, what: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str:
+        """Wait until the measure status contains *fragment*; loud with the last text otherwise."""
+        try:
+            self.poll(timeout).until(lambda _d: fragment in self.measure_status())
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the measure status should contain {fragment!r}, reads {self.measure_status()!r}"
+            ) from exc
+        return self.measure_status()
+
+    def measure_texts(self) -> tuple[list[str], str]:
+        """The segment lengths and the total the measure overlay draws on the canvas."""
+        segments = [
+            (node.get_attribute("textContent") or "").strip()
+            for node in self.driver.find_elements(*self.MEASURE_SEGMENTS)
+        ]
+        total = (
+            self.wait_for_element(self.MEASURE_TOTAL).get_attribute("textContent") or ""
+        ).strip()
+        return segments, total
 
     _MENU_ENTRY_RECTS = """
         var menu = document.querySelector(arguments[0]);

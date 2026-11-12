@@ -87,7 +87,7 @@ describe('toolbar', () => {
   it('offers the tools with 48 px targets, named, and marks the active one', () => {
     setup();
     const toolbar = screen.getByRole('toolbar', { name: 'Garden plan tools' });
-    for (const tool of ['select', 'pan', 'bed', 'garden_object']) {
+    for (const tool of ['select', 'pan', 'bed', 'garden_object', 'measure']) {
       const button = within(toolbar).getByTestId(`garden-plan-tool-${tool}`);
       expect(button).toHaveStyle({ minHeight: '48px', minWidth: '48px' });
     }

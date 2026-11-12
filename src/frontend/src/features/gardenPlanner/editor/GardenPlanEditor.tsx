@@ -34,6 +34,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -76,7 +77,7 @@ import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
-import { MAX_PX_PER_M, planGridStep, stepZoom } from '../model/units';
+import { formatLength, MAX_PX_PER_M, planGridStep, stepZoom, type LengthUnit } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { BOUNDARY_KEY, snapCandidates } from '../renderer/planIndex';
 import { toScreen as projectToScreen } from '../renderer/viewport';
@@ -102,6 +103,7 @@ import { EDITOR_ANCHORS } from './anchors';
 import { ALIGN_MODES, DISTRIBUTE_AXES } from './AlignMenu';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import { DimensionLabels, type DimensionItem } from './DimensionLabels';
+import { MeasureOverlay } from './MeasureOverlay';
 import { ConflictDialog } from './ConflictDialog';
 import { EditorHeaderBar, type HeaderNav, type HeaderTabs } from './EditorHeaderBar';
 import { EditorWorkspace } from './EditorWorkspace';
@@ -132,6 +134,7 @@ import { bedFrameGeometry, originForCentre, placeGeometry } from '../templates/p
 import { TemplateGhost } from '../templates/TemplateGhost';
 import { useBedTemplates } from '../templates/useBedTemplates';
 import { TouchBar } from './TouchBar';
+import { behaviourOf, canvasKindOf, cursorOf, TOOL_DEFS } from './toolRegistry';
 import { TouchOverlay } from './TouchOverlay';
 import { ViewBar } from './ViewBar';
 import { LayersTab, type LayerToggle } from './LayersTab';
@@ -180,6 +183,7 @@ import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
 import { resolveMoveSnap, resolveSnap, snapPointerType, type SnapPointerType } from './tools/snap';
+import type { MeasureView } from './tools/measureMachine';
 import { useEditorTools } from './tools/useEditorTools';
 import { violationOfNew } from './tools/validation';
 import { useVisibleHeight } from './tools/useVisibleHeight';
@@ -299,11 +303,20 @@ interface TemplateMode {
  */
 export type BoundaryMode = 'draw' | 'edit' | null;
 
-/** `panModifier`: Space is held on the canvas, a drag pans whatever the tool (GP-FR-010). */
-function cursorOf(tool: PlanTool, panModifier: boolean, boundaryMode: BoundaryMode): string {
-  if (tool === 'pan' || panModifier) return 'grab';
-  if (tool === 'bed' || tool === 'garden_object' || boundaryMode === 'draw') return 'crosshair';
-  return 'default';
+/** The measure tool's status text (GP-UX-071): the next step and, from the second fixed point on, the total. */
+function measureStatusText(
+  t: TFunction,
+  measure: MeasureView | null,
+  touch: boolean,
+  unit: LengthUnit,
+  language: string,
+): string {
+  const base = `${PREFIX}.measure.status.${touch ? 'touch' : 'pointer'}`;
+  if (measure === null) return t(`${base}.start`);
+  const segments = measure.fixedPoints - 1;
+  if (segments < 1) return t(`${base}.first`);
+  const total = formatLength(measure.fixedTotalM, unit, language);
+  return t(`${base}.${measure.done ? 'done' : 'open'}`, { total, count: segments });
 }
 
 /** The body of the delete dialog: the children the delete takes along, by number (GP-FR-153). */
@@ -357,7 +370,7 @@ export function GardenPlanEditor({
   contentHidden = false,
   onCanvasSize,
 }: GardenPlanEditorProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   // On phones the bar docks to the bottom; it follows the canvas in the DOM there so that the
   // tab order is the visual order (WCAG 2.4.3). On md+ it sits above the plan.
@@ -374,6 +387,9 @@ export function GardenPlanEditor({
   const invalidKeys = useAppSelector(selectInvalidKeys);
   const boundary = plan.settings?.boundary ?? null;
   const boundaryMode: BoundaryMode = tool === 'boundary' ? (boundary ? 'edit' : 'draw') : null;
+  // What the active tool means for the canvas comes from the tool registry (GP-UX-071): one place, not tool names.
+  const canvasKind = canvasKindOf(tool, boundary !== null);
+  const toolBehaviour = behaviourOf(canvasKind);
   // The side panel (GP-UX-068): a new selection - or the touch list of objects at one spot - opens it on the properties.
   const stackLists = stack !== null && stack.keys.length >= 2;
   const panelSelection = useMemo(
@@ -827,7 +843,8 @@ export function GardenPlanEditor({
   // the next point will land); on an object edge it draws that edge as a guide (GP-FR-154). A select press, a
   // marquee or a move never shows the pointer's marker: a move shows where the moved object snapped
   // (`tools.moveSnap`), and the first pointer move of a drag still sees the press here.
-  const drawTool = tool === 'bed' || tool === 'garden_object' || boundaryMode === 'draw';
+  const drawTool = canvasKind === 'draw';
+  const pointerSnaps = toolBehaviour.snapMarker;
   const templateTool = templateMode !== null;
   const {
     onPointerMove: toolPointerMove,
@@ -848,7 +865,7 @@ export function GardenPlanEditor({
         setSnapMark((previous) => (previous === null ? previous : null));
         return;
       }
-      const snapping = (drawTool || templateTool || toolHandleDragging) && snapEnabled && !event.altKey;
+      const snapping = (pointerSnaps || templateTool || toolHandleDragging) && snapEnabled && !event.altKey;
       if (!templateTool && !snapping) {
         // A move of the selection or a hover: no marker, and no layout read per pointer move (GP-NFR-033).
         setSnapMark((previous) => (previous === null ? previous : null));
@@ -893,8 +910,8 @@ export function GardenPlanEditor({
     [
       candidates,
       companionOn,
-      drawTool,
       gridStepM,
+      pointerSnaps,
       pxPerM,
       renderer,
       snapEnabled,
@@ -1569,7 +1586,9 @@ export function GardenPlanEditor({
       dispatch(setTool(next));
       setTemplateMode(null);
       setGhostPoint(null);
-      if (next === 'bed' && drawShape === 'polyline') setDrawShape('rect');
+      // A shape the new tool does not offer falls back to its first (a bed is no line, §9.5).
+      const shapes = TOOL_DEFS[next].draw?.shapes;
+      if (shapes && !shapes.includes(drawShape)) setDrawShape(shapes[0]);
     },
     [dispatch, drawShape],
   );
@@ -1662,6 +1681,16 @@ export function GardenPlanEditor({
 
   // The boundary is drawn with the same steps and hints as a bed (#2890).
   const drawing = drawTool;
+  // The crosshair and the touch bar's "set point" serve every tool that sets points: drawing and measuring.
+  const settingPoints = toolBehaviour.touch === 'points';
+  // The type choice of a new bed or garden object (WP 2.6); the boundary has none.
+  const drawTarget = drawTool && boundaryMode === null ? TOOL_DEFS[tool].draw?.target : undefined;
+  const newObjectTarget = drawTarget === 'bed' || drawTarget === 'garden_object' ? drawTarget : null;
+  // The measure tool's status (GP-UX-071): what to do next and the measured total as text, announced politely - the
+  // canvas overlay is hidden from assistive technology. It speaks of fixed points only, never of the hover.
+  const measure = tools.measure;
+  const measureStatus =
+    canvasKind === 'measure' ? measureStatusText(t, measure, touchUi, unit, i18n.language) : null;
   // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
   const hintBase = touchUi ? `${PREFIX}.touch.hint` : `${PREFIX}.drawHint`;
   const hintKey = !drawing
@@ -1991,7 +2020,7 @@ export function GardenPlanEditor({
         overflow: 'hidden',
         touchAction: 'none',
         userSelect: 'none',
-        cursor: cursorOf(tool, tools.panModifier, boundaryMode),
+        cursor: cursorOf(toolBehaviour, tools.panModifier),
         border: 1,
         borderColor: 'divider',
         borderRadius: 1,
@@ -2050,6 +2079,9 @@ export function GardenPlanEditor({
                 handlesPx={live.handlesPx}
                 heightPx={viewport.heightPx}
               />
+              {measure && (
+                <MeasureOverlay measure={measure} toScreen={toScreen} unit={unit} widthPx={viewport.widthPx} />
+              )}
               {selectedTemplate && ghostPoint && templateMode && (
                 <TemplateGhost
                   template={selectedTemplate}
@@ -2079,7 +2111,7 @@ export function GardenPlanEditor({
       )}
       <TouchOverlay
         ring={touch.ring}
-        crosshair={touchUi && drawing ? centerPx : null}
+        crosshair={touchUi && settingPoints ? centerPx : null}
         widthPx={viewport.widthPx}
         heightPx={viewport.heightPx}
       />
@@ -2091,7 +2123,8 @@ export function GardenPlanEditor({
   const touchBar = touchUi ? (
     <TouchBar
       tool={tool}
-      drawing={drawing}
+      drawing={settingPoints}
+      measureFinishable={tools.measureFinishable}
       drawShape={drawShape}
       draftPoints={tools.draftPoints}
       onPlacePoint={() => tools.placePointAt(centerPx)}
@@ -2150,9 +2183,9 @@ export function GardenPlanEditor({
       {/* The view settings, layers and legend are tabs of the side panel (WP 10.5); nothing else stands above the
           plan but messages and the hints of the tool in use. */}
       {!listShown && !toolbarBelow && touchBar}
-      {!listShown && drawing && boundaryMode === null && (
+      {!listShown && newObjectTarget && (
         <NewTypeSelect
-          target={tool === 'bed' ? 'bed' : 'garden_object'}
+          target={newObjectTarget}
           labels={labels}
           bedTypes={bedTypes}
           bedTypeKey={bedTypeKey}
@@ -2224,6 +2257,18 @@ export function GardenPlanEditor({
           data-testid="garden-plan-draw-hint"
         >
           {t(hintKey, { count: tools.draftPoints })}
+        </Typography>
+      )}
+      {!listShown && measureStatus && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          role="status"
+          aria-live="polite"
+          data-testid="garden-plan-measure-status"
+          data-done={measure?.done ? 'true' : 'false'}
+        >
+          {measureStatus}
         </Typography>
       )}
       {noticeText && (
