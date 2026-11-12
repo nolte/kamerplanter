@@ -146,6 +146,13 @@ Alle mitgelieferten Arten mit gepflegten Vermehrungsmethoden haben bereits einen
 2. Auf der Detailseite kannst du alle Felder bearbeiten
 3. Die Detailseite zeigt auch zugehörige Sorten, Wachstumsphasen und Nährstoffpläne
 
+### Namen in mehreren Sprachen
+
+Der mitgelieferte Artenkatalog enthält für die Arten deutsche und englische Namen. Beim Bearbeiten einer Art bleiben sie erhalten, auch wenn du nur die Liste der umgangssprachlichen Namen änderst. Entfernst du einen Namen aus der Liste, verschwindet er auch aus der Sprachzuordnung. <!-- REQ-001 / UI-NFR-007 R-009a -->
+
+!!! warning "Noch nicht implementiert"
+    Die Oberfläche zeigt weiterhin den ersten Eintrag der Namensliste an. Künftig wird sie den Namen in deiner Oberflächensprache zeigen, ersatzweise den deutschen, zuletzt den wissenschaftlichen Namen. Die Sprachzuordnung ist bereits gespeichert und über die Schnittstelle abrufbar, siehe [API-Referenz](../reference/api-reference.md#arten-sprachgetaggte-volksnamen-common_names_i18n).
+
 ---
 
 ## Referenzbilder in der Artenansicht

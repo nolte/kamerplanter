@@ -1144,6 +1144,64 @@ GET /api/v1/species/{species_key}/lifecycle
 
 ---
 
+## Species: Language-Tagged Common Names (`common_names_i18n`)
+
+Species also carry their common names grouped by language, so the matching name can later be picked per UI language. <!-- REQ-001 / UI-NFR-007 R-009a -->
+
+### Fields
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `common_names` | list[string] | Flat list of all names in all languages — basis for search, forms and CSV import. Unchanged. |
+| `common_names_i18n` | object (language code → list[string]) | Names per language in preference order, the first name is the preferred one. Keys in use today: `de`, `en`. Default `{}`. |
+
+```json
+{
+  "scientific_name": "Solanum lycopersicum",
+  "common_names": ["Tomate", "Tomato"],
+  "common_names_i18n": { "de": ["Tomate"], "en": ["Tomato"] }
+}
+```
+
+### Rules
+
+- Every name in `common_names_i18n` must also be in `common_names`. The map assigns existing names to a language and never introduces a name of its own. A request that violates this gets `422`; the name is never appended silently.
+- Keys are lowercase language codes with 2–3 letters (`de`, `en`, `fil`); other keys give `422`.
+- Names are stripped of surrounding whitespace, an empty name gives `422`. Duplicate names within one language are dropped, a language left without names is omitted.
+
+### Writing
+
+`POST /api/v1/species` and `PUT /api/v1/species/{key}` accept `common_names_i18n` as an optional field:
+
+| Request | Effect |
+|---------|--------|
+| `POST` without the field | The species is created with `{}`. |
+| `PUT` without the field | The stored map is kept. Names you remove from `common_names` in this `PUT` also disappear from the map. |
+| `PUT` with `{}` | The map is cleared. |
+| `PUT` with a map | The map is replaced by the one sent (rules above). |
+
+### Reading
+
+`GET /api/v1/species` (and the single-species read) returns `common_names_i18n`. The same field is part of the species summaries in plant instances (as `species_common_names_i18n` or `common_names_i18n` in the species object), planting runs, companion-planting compatibility and the species lists of phase sequences and phase definitions.
+
+### Catalogue Data
+
+The shipped global catalogue (213 species) carries German and English names derived from the plant fact sheets. Existing installations get them at start-up through the seed sync; no migration is needed. The sync only touches rows of the global catalogue; species owned by a tenant are never touched.
+
+### Display Rule
+
+Intended: UI language, then German, then scientific name. The former rule "first entry of `common_names`" is not a valid basis for this.
+
+!!! warning "Not yet implemented"
+    The UI does not evaluate `common_names_i18n` yet and still shows the first entry of `common_names`. Language-dependent display follows in a later change.
+
+### See Also
+
+- [Master Data: Plant Species — User Guide](../user-guide/plant-management.md)
+- [Error Handling](../api/error-handling.md)
+
+---
+
 ## Season & Overwintering Automation
 
 These endpoints read the automatically computed season state of a site and the automatically materialised overwintering profile of a plant. Both are derived without user interaction as soon as a plant is assigned to a frost-exposed location — by default, a location on an outdoor, greenhouse, or balcony site (`OVERWINTERING_SITE_TYPES`), or a location with a manual frost-exposure override on a site of another type (see [Setting Frost Exposure for a Location](../user-guide/locations-substrates.md#setting-frost-exposure-for-a-location)) — on plant creation, on a site change, and additionally as a safety net from the daily season evaluation run — see [Season Automation](../user-guide/season-automation.md) and [Overwintering](../user-guide/overwintering.md) in the user guide. <!-- REQ-047 -->
@@ -1796,6 +1854,7 @@ Requires a valid JWT token; no separate role restriction.
     "key": "species/123",
     "scientific_name": "Solanum lycopersicum",
     "common_names": ["Tomate", "Tomato"],
+    "common_names_i18n": { "de": ["Tomate"], "en": ["Tomato"] },
     "typical_duration_days": 30,
     "illustration": "phases/flowering.svg"
   }
@@ -1807,6 +1866,7 @@ Requires a valid JWT token; no separate role restriction.
 | `key` | string | The species' key |
 | `scientific_name` | string | Scientific (binomial) name |
 | `common_names` | list[string] | Common names |
+| `common_names_i18n` | object | Common names per language code, see [Species: Language-Tagged Common Names](#species-language-tagged-common-names-common_names_i18n) |
 | `typical_duration_days` | integer | This phase's typical duration for the species — the species-specific override (`override_duration_days`) from the phase-sequence entry when set, otherwise the phase definition's default |
 | `illustration` | string | The phase definition's own illustration path (no per-species illustration yet) |
 
@@ -1835,6 +1895,7 @@ Requires a valid JWT token and an active tenant membership; any role may read.
       "species_key": "species/123",
       "species_scientific_name": "Solanum lycopersicum",
       "species_common_names": ["Tomato"],
+      "species_common_names_i18n": { "en": ["Tomato"] },
       "location_key": "locations/5",
       "location_name": "South Balcony",
       "slot_key": "slots/12",
