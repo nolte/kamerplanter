@@ -86,11 +86,19 @@ class SlotThinningRequest(SlotThinningInput):
 
     ``thinning_to_cm`` overrides the run's spacing for this count, ``count`` the computed number. Without a spacing on
     the run or here and without a count the request is refused (422 ``thinning.spacing_required``) — no default.
+    ``row_spacing_cm`` (5–1 500 cm, zones only, #2862) replaces the run's / species profile's row spacing; ``null``
+    counts the zone on the square-grid estimate; leaving it out takes the run's, else the species profile's value.
     """
 
     model_config = ConfigDict(
         extra="forbid",
-        json_schema_extra={"examples": [{"thinning_to_cm": 5.0}, {"count": 24, "planted_on": "2026-05-02"}]},
+        json_schema_extra={
+            "examples": [
+                {"thinning_to_cm": 5.0},
+                {"thinning_to_cm": 4.0, "row_spacing_cm": 25.0},
+                {"count": 24, "planted_on": "2026-05-02"},
+            ]
+        },
     )
 
 
@@ -114,6 +122,10 @@ class SlotThinningPlanResponse(BaseModel):
                     "thinning_to_cm": 5.0,
                     "suggested_count": 24,
                     "max_count": 500,
+                    "row_spacing_cm": None,
+                    "row_spacing_source": None,
+                    "species_row_spacing_cm": "20-30",
+                    "count_formula": "along_row",
                 }
             ]
         }
@@ -138,6 +150,26 @@ class SlotThinningPlanResponse(BaseModel):
         default=None, description="Plants for `thinning_to_cm` over the measure; `null` without either."
     )
     max_count: int
+    row_spacing_cm: float | None = Field(
+        default=None,
+        description=(
+            "Row spacing a zone is counted with: the run entry's, else the lower value of the species profile's range; "
+            "`null` without either (square-grid estimate)."
+        ),
+    )
+    row_spacing_source: Literal["run", "species"] | None = Field(
+        default=None, description="Where `row_spacing_cm` came from; `null` when there is none."
+    )
+    species_row_spacing_cm: str | None = Field(
+        default=None, description="The species profile's row spacing as stored (a range like `20-30`), for display."
+    )
+    count_formula: Literal["along_row", "rows", "square_grid"] | None = Field(
+        default=None,
+        description=(
+            "The rule behind `suggested_count`: one plant per spacing along a row, row spacing x in-row spacing, or "
+            "the square-grid estimate; `null` without a measure."
+        ),
+    )
 
 
 class SlotThinningResponse(BaseModel):

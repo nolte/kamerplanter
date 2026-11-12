@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -276,6 +276,9 @@ class QuickPlantingResult:
 
 # ── Thinning a sown row or zone (REQ-053 §11.3 "gesät", §12 ``thinning``, W-015) ──
 
+#: Where the row spacing of a thinning count came from (#2862): the run entry or the species profile.
+type RowSpacingSource = Literal["run", "species"]
+
 #: The widest spacing a sown crop is thinned to (cm). Thinning is for direct-sown vegetables and herbs; anything
 #: spaced wider is planted, not thinned (agrobiology review of WP 10.9). The run entry itself takes up to 1 500 cm.
 MAX_THINNING_SPACING_CM = 200.0
@@ -287,11 +290,17 @@ class SlotThinningInput(BaseModel):
     The count follows from the slot's measure and ``thinning_to_cm``: the run's value unless the grower enters
     one here. ``count`` overrides the computed number (the seedlings actually left standing). Neither field has a
     default — without a spacing on the run or in the request and without a count the request is refused (E-10).
+
+    ``row_spacing_cm`` counts only for a zone (#2862): a value here replaces the run's and the species profile's,
+    an explicit ``null`` says "broadcast, no rows" (the square-grid estimate), and leaving the field out takes the
+    run entry's ``row_spacing_cm``, else the lower value of the species' ``row_spacing_cm`` — never a constant.
+    The bounds are those of the layout's row spacing (GP-FR-060).
     """
 
     model_config = ConfigDict(extra="forbid")
 
     thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_THINNING_SPACING_CM)
+    row_spacing_cm: float | None = Field(default=None, ge=MIN_ROW_SPACING_CM, le=MAX_SPACING_CM)
     count: int | None = Field(default=None, ge=1, le=QUICK_PLANTING_MAX_QUANTITY)
     planted_on: date | None = None
 
@@ -301,8 +310,12 @@ class SlotThinningPlan:
     """What thinning a sown slot would do, read before the grower confirms (``GET /slots/{key}/thinning``).
 
     ``thinning_to_cm`` is the run entry's value, ``None`` when the run has none (the grower must enter it).
-    ``suggested_count`` is :func:`~app.domain.calculators.thinning_calculator.thinning_count` for that value, ``None``
-    without a value or without a measure.
+    ``row_spacing_cm`` is the run entry's row spacing (``row_spacing_source = "run"``), else the lower value of the
+    species profile's range (``"species"``, the range itself in ``species_row_spacing_cm``), else ``None`` — then a
+    zone is counted on the square-grid estimate. ``count_formula`` names the rule behind ``suggested_count``:
+    ``along_row``, ``rows`` or ``square_grid``. ``suggested_count`` is
+    :func:`~app.domain.calculators.thinning_calculator.thinning_count` for those values, ``None`` without a spacing
+    or without a measure.
     """
 
     slot_key: str
@@ -318,6 +331,10 @@ class SlotThinningPlan:
     thinning_to_cm: float | None
     suggested_count: int | None
     max_count: int = QUICK_PLANTING_MAX_QUANTITY
+    row_spacing_cm: float | None = None
+    row_spacing_source: RowSpacingSource | None = None
+    species_row_spacing_cm: str | None = None
+    count_formula: str | None = None
 
 
 @dataclass(frozen=True)

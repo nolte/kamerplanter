@@ -8,7 +8,9 @@ run that reserved it, ``sown_at`` is cleared and a ``thinning`` care event names
 
 **No agronomic default** (E-10): the spacing is the run entry's ``thinning_to_cm``, else the grower's value in the
 request; without either and without an explicit ``count`` the request is refused with
-``thinning.spacing_required`` (422) and the dialog asks for it.
+``thinning.spacing_required`` (422) and the dialog asks for it. A zone's row spacing (#2862) is the grower's value,
+else the run entry's ``row_spacing_cm``, else the lower value of the species profile's ``row_spacing_cm`` (GP-FR-061);
+without one the zone is counted on the square-grid estimate — no row spacing is ever made up.
 
 **Ownership is resolved here, never in the router** (#2107): every method takes ``*, tenant_key: str`` without a
 default and resolves the slot through its bed and site (:func:`resolve_owned_slot`; a slot carries no tenant) — a
@@ -28,7 +30,8 @@ from app.common.datetimes import today_utc
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, WriteConflictError
 from app.common.tenant_guard import verify_tenant_ownership
-from app.domain.calculators.thinning_calculator import SOWABLE_ROLES, sown_measure, thinning_count
+from app.domain.calculators.range_parser import parse_range_lower
+from app.domain.calculators.thinning_calculator import SOWABLE_ROLES, sown_measure, thinning_count, thinning_formula
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES, Reservation
@@ -43,13 +46,15 @@ from app.domain.models.planting_reservation import (
     MAX_THINNING_SPACING_CM,
     QUICK_PLANTING_MAX_QUANTITY,
     QuickPlantedPlant,
+    RowSpacingSource,
     SlotThinningInput,
     SlotThinningOutcome,
     SlotThinningPlan,
     SlotThinningWrite,
 )
-from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
+from app.domain.models.planting_run import MAX_SPACING_CM, MIN_ROW_SPACING_CM, PlantingRun, PlantingRunEntry
 from app.domain.models.site import Slot
+from app.domain.models.species import Species
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.location_ownership import resolve_owned_slot
 from app.domain.services.planting_run_service import PlantingRunService
@@ -134,10 +139,13 @@ class SlotThinningService:
         slot, _location = resolve_owned_slot(self._sites, slot_key, tenant_key)
         sown_at = self._require_sown(slot)
         reservation = self._live_reservation(slot, tenant_key)
-        _run, entry = self._run_and_entry(reservation, tenant_key)
+        _run, entry, species = self._run_and_entry(reservation, tenant_key)
         measure = sown_measure(slot.slot_role, slot.geometry)
         spacing = entry.thinning_to_cm
-        suggested = thinning_count(measure, spacing) if measure is not None and spacing is not None else None
+        row_spacing, row_source = _row_spacing_of(entry, species)
+        suggested = (
+            thinning_count(measure, spacing, row_spacing) if measure is not None and spacing is not None else None
+        )
         return SlotThinningPlan(
             slot_key=slot.key or slot_key,
             slot_id=slot.slot_id,
@@ -151,6 +159,10 @@ class SlotThinningService:
             measure_value=round(measure.value, 3) if measure is not None else None,
             thinning_to_cm=spacing,
             suggested_count=suggested,
+            row_spacing_cm=row_spacing,
+            row_spacing_source=row_source,
+            species_row_spacing_cm=species.row_spacing_cm,
+            count_formula=thinning_formula(measure, row_spacing) if measure is not None else None,
         )
 
     def thin_slot(
@@ -177,8 +189,8 @@ class SlotThinningService:
         sown_at = self._require_sown(slot)
         self._require_no_plant(slot, tenant_key)
         reservation = self._live_reservation(slot, tenant_key)
-        run, entry = self._run_and_entry(reservation, tenant_key)
-        count = self._count_of(slot, entry, request)
+        run, entry, species = self._run_and_entry(reservation, tenant_key)
+        count = self._count_of(slot, entry, species, request)
         today = today_utc()
         planted_on = request.planted_on or today
         if planted_on < sown_at:
@@ -297,7 +309,9 @@ class SlotThinningService:
             )
         return min(live, key=lambda r: (r.planned_from or date.max, r.run_key, r.sequence))
 
-    def _run_and_entry(self, reservation: Reservation, tenant_key: str) -> tuple[PlantingRun, PlantingRunEntry]:
+    def _run_and_entry(
+        self, reservation: Reservation, tenant_key: str
+    ) -> tuple[PlantingRun, PlantingRunEntry, Species]:
         run = self._runs.get_by_key(reservation.run_key)
         if run is None:
             raise NotFoundError("PlantingRun", reservation.run_key)
@@ -310,13 +324,18 @@ class SlotThinningService:
             raise PlanError(ERROR_NO_RUN, "The run has no entry for this slot.", status_code=422, field="slot_key")
         # The stored species is resolved under the tenant before the plants are stamped with it and its phase data
         # is read: an entry written before #1876 may still name another tenant's species (#1963).
-        if readable_species(self._species, entry.species_key, tenant_key) is None:
+        species = readable_species(self._species, entry.species_key, tenant_key)
+        if species is None:
             raise NotFoundError("Species", entry.species_key)
-        return run, entry
+        return run, entry, species
 
     @staticmethod
-    def _count_of(slot: Slot, entry: PlantingRunEntry, request: SlotThinningInput) -> int:
-        """The grower's count, else the slot's measure divided by the spacing — never a default spacing (E-10)."""
+    def _count_of(slot: Slot, entry: PlantingRunEntry, species: Species, request: SlotThinningInput) -> int:
+        """The grower's count, else the slot's measure divided by the spacing — never a default spacing (E-10).
+
+        A zone's row spacing: the request's when it names the field (an explicit ``null`` asks for the square grid),
+        else the run's, else the species profile's (:func:`_row_spacing_of`).
+        """
         if request.count is not None:
             count = request.count
         else:
@@ -330,7 +349,11 @@ class SlotThinningService:
             measure = sown_measure(slot.slot_role, slot.geometry)
             if measure is None:
                 raise PlanValidationError([(None, "count", ERROR_NO_MEASURE, {})])
-            count = thinning_count(measure, spacing)
+            if "row_spacing_cm" in request.model_fields_set:
+                row_spacing = request.row_spacing_cm
+            else:
+                row_spacing, _source = _row_spacing_of(entry, species)
+            count = thinning_count(measure, spacing, row_spacing)
         if count > QUICK_PLANTING_MAX_QUANTITY:
             raise PlanError(
                 ERROR_TOO_MANY,
@@ -341,6 +364,21 @@ class SlotThinningService:
                 current=count,
             )
         return count
+
+
+def _row_spacing_of(entry: PlantingRunEntry, species: Species) -> tuple[float | None, RowSpacingSource | None]:
+    """The row spacing a zone is counted with and where it came from: the run entry, else the species profile.
+
+    The species stores a range string; its lower value is read, as the planting dialog prefills it (GP-FR-061). A
+    profile value the parser cannot read or that lies outside the layout's row-spacing bounds (GP-FR-060) is no
+    value. Neither source → ``(None, None)``: the zone falls back to the square-grid estimate (E-10, no constant).
+    """
+    if entry.row_spacing_cm is not None:
+        return entry.row_spacing_cm, "run"
+    from_profile = parse_range_lower(species.row_spacing_cm)
+    if from_profile is not None and MIN_ROW_SPACING_CM <= from_profile <= MAX_SPACING_CM:
+        return from_profile, "species"
+    return None, None
 
 
 def _history_of(phase_key: str, phase_name: str, now: datetime) -> PhaseHistory | None:

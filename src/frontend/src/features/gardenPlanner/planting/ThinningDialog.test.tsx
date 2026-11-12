@@ -108,6 +108,85 @@ describe('ThinningDialog', () => {
     renderDialog();
     expect(await screen.findByTestId('thinning-result')).toHaveTextContent('Guide value: 50 plants');
     expect(screen.getByTestId('thinning-estimate-note')).toHaveTextContent('square grid');
+    expect(screen.getByTestId('thinning-formula')).toHaveTextContent('square grid (estimate)');
+  });
+
+  it('prefills the row spacing of the species profile, names its source and counts rows (#2862)', async () => {
+    const posts = useBackend(
+      plan({
+        slot_role: 'zone',
+        measure_kind: 'area',
+        measure_value: 0.5,
+        thinning_to_cm: 4,
+        row_spacing_cm: 25,
+        row_spacing_source: 'species',
+        species_row_spacing_cm: '25-30',
+        count_formula: 'rows',
+        suggested_count: 50,
+      }),
+    );
+    const user = userEvent.setup();
+    const onThinned = renderDialog();
+
+    expect(await screen.findByTestId('thinning-row-spacing')).toHaveValue(25);
+    expect(screen.getByText(/species profile \(25-30 cm\)/)).toBeInTheDocument();
+    expect(screen.getByTestId('thinning-result')).toHaveTextContent('50 plants');
+    expect(screen.getByTestId('thinning-result')).not.toHaveTextContent('Guide value');
+    expect(screen.getByTestId('thinning-formula')).toHaveTextContent('row spacing × spacing in the row');
+    expect(screen.queryByTestId('thinning-estimate-note')).toBeNull();
+    await user.click(screen.getByTestId('thinning-submit'));
+
+    await waitFor(() => expect(onThinned).toHaveBeenCalled());
+    expect(posts).toEqual([{ thinning_to_cm: 4, row_spacing_cm: 25, planted_on: expect.any(String) }]);
+  });
+
+  it('falls back to the square-grid estimate when the grower clears the row spacing', async () => {
+    const posts = useBackend(
+      plan({
+        slot_role: 'zone',
+        measure_kind: 'area',
+        measure_value: 0.5,
+        thinning_to_cm: 4,
+        row_spacing_cm: 25,
+        row_spacing_source: 'run',
+        count_formula: 'rows',
+        suggested_count: 50,
+      }),
+    );
+    const user = userEvent.setup();
+    const onThinned = renderDialog();
+    const rowSpacing = await screen.findByTestId('thinning-row-spacing');
+    expect(screen.getByText(/Taken from the planting plan. Leave the field empty/)).toBeInTheDocument();
+    await user.clear(rowSpacing);
+
+    expect(screen.getByTestId('thinning-result')).toHaveTextContent('Guide value: 312 plants');
+    expect(screen.getByTestId('thinning-formula')).toHaveTextContent('square grid (estimate)');
+    await user.click(screen.getByTestId('thinning-submit'));
+    await waitFor(() => expect(onThinned).toHaveBeenCalled());
+    expect(posts).toEqual([{ thinning_to_cm: 4, row_spacing_cm: null, planted_on: expect.any(String) }]);
+  });
+
+  it('leaves the row spacing empty without a source and refuses one below 5 cm', async () => {
+    const posts = useBackend(
+      plan({ slot_role: 'zone', measure_kind: 'area', measure_value: 0.5, thinning_to_cm: 10, suggested_count: 50 }),
+    );
+    const user = userEvent.setup();
+    renderDialog();
+    const rowSpacing = await screen.findByTestId('thinning-row-spacing');
+    expect(rowSpacing).toHaveValue(null);
+    expect(screen.getByText(/For row or band sowing/)).toBeInTheDocument();
+    await user.type(rowSpacing, '3');
+    expect(screen.getByText(/between 5 and 1500 cm/)).toBeInTheDocument();
+    expect(screen.queryByTestId('thinning-result')).toBeNull();
+    await user.click(screen.getByTestId('thinning-submit'));
+    expect(posts).toEqual([]);
+  });
+
+  it('a row has no row-spacing field and names its formula', async () => {
+    useBackend(plan());
+    renderDialog();
+    expect(await screen.findByTestId('thinning-formula')).toHaveTextContent('row length ÷ spacing in the row');
+    expect(screen.queryByTestId('thinning-row-spacing')).toBeNull();
   });
 
   it('a row count is not called a guide value', async () => {

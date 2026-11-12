@@ -8185,10 +8185,18 @@
           "done_one": "Vereinzelt: {{count}} Pflanze erfasst.",
           "done_other": "Vereinzelt: {{count}} Pflanzen erfasst.",
           "singleSeedlingRow": "Der Abstand ist länger als die Reihe – es bleibt nur ein Sämling stehen. Prüfe, ob der Abstand stimmt.",
-          "singleSeedlingZone": "Der Abstand ist größer als die Fläche – es bleibt nur ein Sämling stehen. Prüfe, ob der Abstand stimmt.",
+          "singleSeedlingZone": "Der Platz für eine Pflanze ist bei diesen Abständen größer als die Fläche – es bleibt nur ein Sämling stehen. Prüfe, ob die Abstände stimmen.",
           "resultEstimate_one": "Richtwert: {{count}} Pflanze wird erfasst.",
           "resultEstimate_other": "Richtwert: {{count}} Pflanzen werden erfasst.",
-          "estimateNote": "Bei einer Fläche ist die Anzahl ein Richtwert, berechnet unter der Annahme, dass die Sämlinge in einem gleichmäßigen Quadratraster im angegebenen Abstand stehen. Weicht das ab, gib die tatsächliche Anzahl ein."
+          "estimateNote": "Ohne Reihenabstand ist die Anzahl ein Richtwert, berechnet unter der Annahme, dass die Sämlinge in einem gleichmäßigen Quadratraster im angegebenen Abstand stehen. Hast du in Reihen oder Bändern gesät, gib den Reihenabstand ein. Weicht der Bestand ab, gib die tatsächliche Anzahl ein.",
+          "rowSpacing": "Reihenabstand (cm, optional)",
+          "rowSpacingFromRun": "Aus dem Anbauplan übernommen. Lass das Feld leer, wenn du breitwürfig gesät hast.",
+          "rowSpacingFromSpecies": "Unterer Wert aus dem Steckbrief der Art ({{range}} cm). Ändere ihn, wenn deine Reihen anders stehen; lass das Feld bei Breitsaat leer.",
+          "rowSpacingHelper": "Bei Reihen- oder Bandsaat der Abstand zwischen den Reihen. Bei Breitsaat leer lassen – dann wird mit einem Quadratraster geschätzt.",
+          "rowSpacingInvalid": "Gib einen Reihenabstand zwischen {{min}} und {{max}} cm ein oder lass das Feld leer.",
+          "formulaAlongRow": "Berechnung: Reihenlänge ÷ Abstand in der Reihe",
+          "formulaRows": "Berechnung: Fläche ÷ (Reihenabstand × Abstand in der Reihe)",
+          "formulaSquareGrid": "Berechnung: Quadratraster (Schätzung)"
         }
       },
       "clear": {
