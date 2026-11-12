@@ -114,7 +114,7 @@ describe('the area tool (GP-UX-071)', () => {
     expect(t.state().past).toHaveLength(1);
     expect(t.state().plan!.locations.solo.parent_location_key ?? null).toBeNull();
     expect(screen.getByTestId('garden-plan-notice')).toHaveTextContent(
-      'What was inside it already does not belong to it',
+      'Beds and objects that were already inside do not move with it',
     );
   });
 

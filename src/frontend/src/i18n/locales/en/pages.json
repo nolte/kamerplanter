@@ -5599,7 +5599,7 @@
             "shrinks_below_objects": "The boundary would leave beds or objects outside and was not applied. Move them inside first or draw the boundary wider."
           },
           "area": {
-            "encloses_existing": "The area is added. What was inside it already does not belong to it and does not move with it. Only what you draw inside it now becomes part of the area."
+            "encloses_existing": "The area is added. Beds and objects that were already inside do not move with it. Draw beds after the area from now on, then they belong to it."
           }
         },
         "deleteDialog": {

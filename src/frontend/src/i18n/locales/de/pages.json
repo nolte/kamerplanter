@@ -5600,7 +5600,7 @@
             "shrinks_below_objects": "Die Grenze würde Beete oder Objekte ausschließen und wurde nicht übernommen. Verschiebe sie zuerst nach innen oder ziehe die Grenze weiter."
           },
           "area": {
-            "encloses_existing": "Der Bereich ist angelegt. Was schon darin lag, gehört nicht zu ihm und wandert beim Verschieben nicht mit. Nur was du jetzt darin zeichnest, wird ein Teil des Bereichs."
+            "encloses_existing": "Der Bereich ist angelegt. Beete und Objekte, die schon darin lagen, wandern beim Verschieben nicht mit. Zeichne Beete künftig erst nach dem Bereich, dann gehören sie dazu."
           }
         },
         "deleteDialog": {
