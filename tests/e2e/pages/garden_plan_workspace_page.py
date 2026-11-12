@@ -76,6 +76,31 @@ root.querySelectorAll('button, [role="button"]').forEach(function (el) {
 return out;
 """
 
+#: Every displayed button of a container with its box: ``[label, left, top, right, bottom]``.
+_BUTTON_RECTS = """
+var root = arguments[0];
+var out = [];
+root.querySelectorAll('button, [role="button"]').forEach(function (el) {
+  var r = el.getBoundingClientRect();
+  if (r.width <= 0 || r.height <= 0) { return; }
+  var name = el.getAttribute('data-testid') || el.getAttribute('aria-label') || el.textContent.trim().slice(0, 30);
+  out.push([name, r.left, r.top, r.right, r.bottom]);
+});
+return out;
+"""
+
+#: Whether the centre of the first displayed match is the element itself (or inside it): nothing lies over it.
+_UNCOVERED = """
+var nodes = document.querySelectorAll(arguments[0]);
+for (var i = 0; i < nodes.length; i++) {
+  var r = nodes[i].getBoundingClientRect();
+  if (r.width <= 0 || r.height <= 0) { continue; }
+  var hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return !!hit && nodes[i].contains(hit);
+}
+return null;
+"""
+
 #: The WAI-ARIA "Tabs" wiring of the side panel's tab list (GP-UX-068): per tab its state and its tab panel's link.
 _PANEL_TAB_WIRING = """
 var list = arguments[0];
@@ -106,6 +131,8 @@ class WorkspacePlanPage(GardenPlanPage):
     CANVAS_AREA = _tid("garden-plan-canvas-area")
     ZOOM_OVERLAY = _tid("garden-plan-zoom-overlay")
     SELECTION_GROUP = _tid("garden-plan-selection-group")
+    DELETE_BUTTON = _tid("garden-plan-delete-button")
+    TOOLTIP = (By.CSS_SELECTOR, "[role='tooltip']")
     SIDE_PANEL_TABLIST = _tid("garden-plan-side-panel-tabs")
     SIDE_PANEL_CLOSE = _tid("garden-plan-panel-close")
     LAYER_TOGGLES = _tid("garden-plan-layer-toggles")
@@ -514,6 +541,50 @@ class WorkspacePlanPage(GardenPlanPage):
         if not sizes:
             raise AssertionError(f"{locator[1]} holds no displayed button")
         return [(str(name), float(w), float(h)) for name, w, h in sizes]
+
+    def button_rects(self, locator: tuple[str, str]) -> list[tuple[str, dict[str, float]]]:
+        """``(name, box)`` of every displayed button inside *locator*; loud when it holds none."""
+        rects = self.driver.execute_script(_BUTTON_RECTS, self.wait_for_element_visible(locator))
+        if not rects:
+            raise AssertionError(f"{locator[1]} holds no displayed button")
+        return [
+            (
+                str(name),
+                {
+                    "left": float(left),
+                    "top": float(top),
+                    "right": float(right),
+                    "bottom": float(bottom),
+                },
+            )
+            for name, left, top, right, bottom in rects
+        ]
+
+    def is_uncovered(self, locator: tuple[str, str], what: str) -> bool:
+        """Whether nothing (a tooltip, a menu) lies over the centre of the displayed *locator*; loud when absent."""
+        if locator[0] != By.CSS_SELECTOR:
+            raise AssertionError(f"is_uncovered() takes a CSS locator, got {locator!r}")
+        self.wait_for_element_visible(locator)
+        found = self.driver.execute_script(_UNCOVERED, locator[1])
+        if found is None:
+            raise AssertionError(f"{what}: {locator[1]} is not displayed")
+        return bool(found)
+
+    def wait_for_no_tooltip(self, what: str) -> None:
+        """Wait until no tooltip is displayed (a closing one fades out); loud when one stays (#2904)."""
+        try:
+            self.poll().until(
+                lambda d: (
+                    not any(element.is_displayed() for element in d.find_elements(*self.TOOLTIP))
+                )
+            )
+        except TimeoutException as exc:
+            texts = [
+                " ".join((element.text or "").split())
+                for element in self.driver.find_elements(*self.TOOLTIP)
+                if element.is_displayed()
+            ]
+            raise AssertionError(f"{what}: a tooltip stays on screen: {texts}") from exc
 
     def touchbar_holds(self, testid: str) -> bool:
         """Whether the displayed ``TouchBar`` holds a displayed control *testid* (undo/redo below md, GP-UX-052)."""

@@ -7,6 +7,10 @@
  * (at most two levels) with "From template" (bed only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
  * the options of the tool that is on (shape, finish / cancel a drawing, polygon points) and the **selection group**
  * (rotate step, align, delete) - rendered only while something is selected, never as disabled buttons (AC-4).
+ * Docked below md the selection group is one row that never wraps: align and delete stay in it, the rotation step -
+ * a setting, not an action on the selection - is an entry of the header bar's overflow "⋮" there (`GardenPlanEditor`,
+ * #2904; "no wrapping bars - what does not fit moves into the overflow", §17.3). A wrapping group grew past the
+ * bottom edge of a phone and cut "Delete" off.
  *
  * The bar is one tab stop with a roving tabindex (arrow keys of its orientation, Home/End). Every target is at least
  * 48 px (UI-NFR-001 R-011); every control has a tooltip that names its verb (GP-UX-010), and on wide screens (xl,
@@ -37,6 +41,7 @@ import YardIcon from '@mui/icons-material/Yard';
 import type { PlanTool } from '../state/gardenPlanSlice';
 import { AlignMenu } from './AlignMenu';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
+import { MenuTriggerTooltip } from './MenuTriggerTooltip';
 import type { DimensionTarget } from './tools/addDimensions';
 import type { AlignMode, DistributeAxis } from './tools/align';
 import type { DrawShape } from './tools/drawMachine';
@@ -56,6 +61,7 @@ export type AngleStep = (typeof ANGLE_STEPS)[number];
 
 /** The selection group of the bar (GP-UX-066): present only while something is selected. */
 export interface ToolbarSelectionGroup {
+  /** The rotation step; on the rail only - below md it is an entry of the header bar's overflow (#2904). */
   angleStep: AngleStep;
   onAngleStep: (step: AngleStep) => void;
   onDelete: () => void;
@@ -170,6 +176,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
     ? ({ display: 'flex', flexDirection: 'column', gap: 0.5 } as const)
     : ({ display: 'flex', alignItems: 'center', gap: 0.5 } as const);
   const wrapSx = { display: 'flex', gap: 0.5, flexWrap: 'wrap' } as const;
+  // Docked below md the selection group is one row that never wraps (#2904).
+  const selectionRowSx = { display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap', flex: 'none' } as const;
   const divider = (
     <Divider orientation={vertical ? 'horizontal' : 'vertical'} flexItem sx={vertical ? { my: 0.25 } : undefined} />
   );
@@ -241,7 +249,11 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 </ToggleButton>
               </Tooltip>
               {hasMenu(tool) && (
-                <Tooltip title={t(`${PREFIX}.tools.${tool}.more`)} placement={tooltipPlacement}>
+                <MenuTriggerTooltip
+                  title={t(`${PREFIX}.tools.${tool}.more`)}
+                  placement={tooltipPlacement}
+                  menuOpen={menuOpen}
+                >
                   <Button
                     size="small"
                     color="inherit"
@@ -255,7 +267,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                   >
                     {vertical ? <ArrowRightIcon /> : <ArrowDropUpIcon />}
                   </Button>
-                </Tooltip>
+                </MenuTriggerTooltip>
               )}
             </Box>
           );
@@ -351,30 +363,33 @@ export function EditorToolbar(props: EditorToolbarProps) {
             role="group"
             aria-label={t(`${PREFIX}.toolbar.selection`)}
             data-testid="garden-plan-selection-group"
-            sx={vertical ? stackSx : { display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+            // Below md the rotation step is in the header bar's overflow, so the row fits a phone.
+            sx={vertical ? stackSx : selectionRowSx}
           >
             {vertical && (
-              <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }} aria-hidden>
-                {t(`${PREFIX}.toolbar.rotate`)}
-              </Typography>
+              <>
+                <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }} aria-hidden>
+                  {t(`${PREFIX}.toolbar.rotate`)}
+                </Typography>
+                <Box role="group" aria-label={t(`${PREFIX}.toolbar.angleStep`)} sx={wrapSx}>
+                  {ANGLE_STEPS.map((step) => (
+                    <Tooltip key={step} title={t(`${PREFIX}.angleStep.hint`, { step })} placement={tooltipPlacement}>
+                      <ToggleButton
+                        value={step}
+                        size="small"
+                        selected={group.angleStep === step}
+                        onChange={() => group.onAngleStep(step)}
+                        aria-label={t(`${PREFIX}.angleStep.label`, { step })}
+                        data-testid={`garden-plan-angle-${step}`}
+                        sx={{ ...buttonSx, px: 1 }}
+                      >
+                        {step}°
+                      </ToggleButton>
+                    </Tooltip>
+                  ))}
+                </Box>
+              </>
             )}
-            <Box role="group" aria-label={t(`${PREFIX}.toolbar.angleStep`)} sx={wrapSx}>
-              {ANGLE_STEPS.map((step) => (
-                <Tooltip key={step} title={t(`${PREFIX}.angleStep.hint`, { step })} placement={tooltipPlacement}>
-                  <ToggleButton
-                    value={step}
-                    size="small"
-                    selected={group.angleStep === step}
-                    onChange={() => group.onAngleStep(step)}
-                    aria-label={t(`${PREFIX}.angleStep.label`, { step })}
-                    data-testid={`garden-plan-angle-${step}`}
-                    sx={{ ...buttonSx, px: 1 }}
-                  >
-                    {step}°
-                  </ToggleButton>
-                </Tooltip>
-              ))}
-            </Box>
             {group.align && (
               <AlignMenu
                 canAlign={group.align.canAlign}
@@ -394,7 +409,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 onClick={group.onDelete}
                 aria-label={t(`${PREFIX}.delete.label`)}
                 data-testid="garden-plan-delete-button"
-                sx={buttonSx}
+                sx={{ ...buttonSx, whiteSpace: 'nowrap' }}
               >
                 <DeleteOutlinedIcon />
                 <Box component="span" sx={actionTextSx}>

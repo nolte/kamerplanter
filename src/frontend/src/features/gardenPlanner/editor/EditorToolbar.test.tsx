@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { EditorToolbar, type ToolbarSelectionGroup } from './EditorToolbar';
-import { chooseToolMenuEntry, setupEditor, stubPhone } from './editorTestKit';
+import { chooseOverflowEntry, chooseToolMenuEntry, setupEditor, stubPhone } from './editorTestKit';
 import type { ToolbarOrientation } from './useRovingToolbar';
 
 const restores: (() => void)[] = [];
@@ -153,6 +153,68 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
     await expectNoA11yViolations(second.bar);
     fireEvent.click(screen.getByTestId('garden-plan-tool-bed-menu'));
     await expectNoA11yViolations(document.body, { minImpact: 'serious' });
+  });
+});
+
+describe('the docked bar below md with a selection (GP-UX-066/069, AC-9, #2904)', () => {
+  it('keeps align and delete in one row that never wraps, and leaves the rotation step to the overflow', () => {
+    const { bar } = renderBar({ orientation: 'horizontal', selectionGroup: group() });
+    const box = within(bar).getByTestId('garden-plan-selection-group');
+    // One row: a wrapping group grew past the bottom edge of a phone and cut "Delete" off.
+    expect(box).toHaveStyle({ display: 'flex', flexWrap: 'nowrap' });
+    expect(within(box).getByTestId('garden-plan-align-button')).toHaveAccessibleName('Align');
+    expect(within(box).getByTestId('garden-plan-delete-button')).toHaveAccessibleName('Delete');
+    // Both keep their text on the phone (GP-UX-052: no tooltips on touch).
+    expect(within(box).getByTestId('garden-plan-delete-button')).toHaveTextContent('Delete');
+    expect(within(box).getByTestId('garden-plan-align-button')).toHaveTextContent('Align');
+    for (const step of [15, 45, 90]) expect(screen.queryByTestId(`garden-plan-angle-${step}`)).toBeNull();
+    for (const button of within(box).getAllByRole('button')) {
+      expect(button).toHaveStyle({ minHeight: '48px', minWidth: '48px' });
+    }
+  });
+
+  it('offers the rotation step in the header overflow on the phone - never dropped - and only with a selection', () => {
+    restores.push(stubPhone());
+    const t = setupEditor();
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+    expect(within(screen.getByTestId('garden-plan-overflow-menu')).queryByTestId('garden-plan-angle-15')).toBeNull();
+    fireEvent.keyDown(screen.getByTestId('garden-plan-overflow-menu'), { key: 'Escape' });
+
+    t.click(15, 3);
+    expect(t.selected()).toEqual(['solo']);
+    const dock = screen.getByTestId('garden-plan-dock');
+    const box = within(dock).getByTestId('garden-plan-selection-group');
+    expect(within(box).getByTestId('garden-plan-delete-button')).toBeInTheDocument();
+    expect(within(box).queryByTestId('garden-plan-angle-15')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+    const menu = screen.getByTestId('garden-plan-overflow-menu');
+    const entries = [15, 45, 90].map((step) => within(menu).getByTestId(`garden-plan-angle-${step}`));
+    for (const entry of entries) expect(entry).toHaveAttribute('role', 'menuitemradio');
+    expect(entries.map((entry) => entry.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
+    expect(entries[1]).toHaveTextContent('Rotation step 45 degrees');
+    fireEvent.click(entries[1]);
+
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+    expect(
+      within(screen.getByTestId('garden-plan-overflow-menu')).getByTestId('garden-plan-angle-45'),
+    ).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(screen.getByTestId('garden-plan-overflow-menu'), { key: 'Escape' });
+    // Chosen by test id like any overflow entry (GP-UX-070).
+    chooseOverflowEntry('garden-plan-angle-90');
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+    expect(
+      within(screen.getByTestId('garden-plan-overflow-menu')).getByTestId('garden-plan-angle-90'),
+    ).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('keeps the rotation step on the rail from md up, not in the overflow', () => {
+    const t = setupEditor();
+    t.click(15, 3);
+    const box = screen.getByTestId('garden-plan-selection-group');
+    expect(within(box).getByTestId('garden-plan-angle-15')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+    expect(within(screen.getByTestId('garden-plan-overflow-menu')).queryByTestId('garden-plan-angle-15')).toBeNull();
   });
 });
 
