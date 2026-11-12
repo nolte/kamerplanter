@@ -764,3 +764,17 @@ describe('BedView', () => {
     await expectNoA11yViolations(container);
   });
 });
+
+describe('bed label (GP-FR-052, GP-UX-028, #2899)', () => {
+  it('offers "Etikett drucken" to every member and opens the label dialog for this bed', async () => {
+    useBackend();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');
+
+    await userEvent.click(await screen.findByTestId('bed-view-print-label'));
+
+    const dialog = await screen.findByTestId('bed-view-label-dialog');
+    expect(dialog).toHaveTextContent(bedSummary().name);
+    await userEvent.click(within(dialog).getByTestId('bed-view-label-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('bed-view-label-dialog')).toBeNull());
+  });
+});

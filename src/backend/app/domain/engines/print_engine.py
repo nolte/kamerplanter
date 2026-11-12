@@ -231,6 +231,16 @@ LABELS: dict[str, dict[str, str]] = {
         "sun_exposure_shade": "Schatten",
         "sun_exposure_deep_shade": "Tiefschatten",
         "sun_exposure_unknown": "unbekannt",
+        # REQ-053 GP-FR-052 / GP-UX-028: the bed label (location_label.html).
+        "location_label_title": "Beet-Etikett",
+        "location_label_title_location": "Standort-Etikett",
+        "location_label_site": "Standort",
+        "location_label_type": "Typ",
+        "location_label_area": "Fläche",
+        "location_label_scan_hint": "Scanne den QR-Code: Er öffnet das Beet im Feldmodus.",
+        "location_label_scan_hint_location": "Scanne den QR-Code: Er öffnet den Bereich in der App.",
+        "location_label_qr_alt": "QR-Code mit dem Link zum Beet im Feldmodus",
+        "location_label_qr_alt_location": "QR-Code mit dem Link zum Bereich",
     },
     "en": {
         "author": "Author",
@@ -297,6 +307,16 @@ LABELS: dict[str, dict[str, str]] = {
         "sun_exposure_shade": "shade",
         "sun_exposure_deep_shade": "deep shade",
         "sun_exposure_unknown": "unknown",
+        # REQ-053 GP-FR-052 / GP-UX-028: the bed label (location_label.html).
+        "location_label_title": "Bed label",
+        "location_label_title_location": "Location label",
+        "location_label_site": "Site",
+        "location_label_type": "Type",
+        "location_label_area": "Area",
+        "location_label_scan_hint": "Scan the QR code: it opens the bed in field mode.",
+        "location_label_scan_hint_location": "Scan the QR code: it opens the location in the app.",
+        "location_label_qr_alt": "QR code linking to the bed in field mode",
+        "location_label_qr_alt_location": "QR code linking to the location",
     },
 }
 

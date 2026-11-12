@@ -5,6 +5,7 @@ class PrintTemplateType(StrEnum):
     NUTRIENT_PLAN = "nutrient_plan"
     CARE_CHECKLIST = "care_checklist"
     PLANT_LABEL = "plant_label"
+    LOCATION_LABEL = "location_label"
 
 
 class PrintFormat(StrEnum):

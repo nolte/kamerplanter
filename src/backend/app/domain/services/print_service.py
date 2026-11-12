@@ -1,22 +1,50 @@
-"""Print service for generating PDF exports of nutrient plans, care checklists, and plant labels."""
+"""Print service for generating PDF exports of nutrient plans, care checklists, plant and bed labels."""
 
 from datetime import UTC, datetime
+from urllib.parse import quote, urlencode
 
 import structlog
 
+from app.common.exceptions import NotFoundError
 from app.common.log_privacy import log_tenant
+from app.common.tenant_guard import verify_tenant_ownership
 from app.data_access.arango.base_repository import get_all_pages
-from app.domain.engines.print_engine import PrintEngine
+from app.domain.engines.print_engine import PrintEngine, format_decimal
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
+from app.domain.interfaces.location_type_repository import ILocationTypeRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.care_reminder import CareDashboardEntry
+from app.domain.models.location_type import LocationType
+from app.domain.models.site import Location, Site
 from app.domain.services.care_reminder_service import CareReminderService
+from app.domain.services.location_ownership import find_owned_location, require_owned_site
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger(__name__)
+
+#: Default QR edge length of a bed label (GP-FR-052): larger than a pot card's 25 mm, because a bed label is read from
+#: standing height. REQ-032 §2.7 sets 20 mm as the floor for reliable scanning.
+LOCATION_LABEL_QR_DEFAULT_MM = 40
+
+
+def location_label_url(app_base_url: str, *, site_key: str, location_key: str, is_bed: bool) -> str:
+    """The URL a bed label's QR code carries (REQ-053 GP-UX-028, GP-NFR-053).
+
+    A bed opens in field mode of its site's plan with the bed's sheet open:
+    ``{base}/standorte/sites/{site}/plan?mode=field&bed={key}``. Any other location opens its own page,
+    ``{base}/standorte/locations/{key}`` - field mode lists beds only. The path is the app's own route, with no token
+    and no tenant: who scans it without a session signs in first and is brought back to it (UI-NFR-014 R-009), and
+    a non-member gets the 404 of the site (SR-023). Keys are percent-encoded, so a key can never add a path segment or
+    a parameter.
+    """
+    base = app_base_url.rstrip("/")
+    if is_bed:
+        query = urlencode({"mode": "field", "bed": location_key})
+        return f"{base}/standorte/sites/{quote(site_key, safe='')}/plan?{query}"
+    return f"{base}/standorte/locations/{quote(location_key, safe='')}"
 
 
 class PrintService:
@@ -32,6 +60,7 @@ class PrintService:
         print_engine: PrintEngine | None = None,
         site_repo: ISiteRepository | None = None,
         app_base_url: str = "http://localhost:5173",
+        location_type_repo: ILocationTypeRepository | None = None,
     ) -> None:
         self._nutrient_plan_service = nutrient_plan_service
         self._care_reminder_service = care_reminder_service
@@ -41,6 +70,7 @@ class PrintService:
         self._print_engine = print_engine or PrintEngine()
         self._site_repo = site_repo
         self._app_base_url = app_base_url
+        self._location_type_repo = location_type_repo
 
     def generate_nutrient_plan_pdf(
         self,
@@ -263,6 +293,8 @@ class PrintService:
 
         for plant_key in plant_keys:
             plant = self._plant_repo.get_or_raise(plant_key)
+            # A foreign plant answers like an absent one: its name, species and location must not reach the PDF.
+            verify_tenant_ownership(plant, tenant_key, "PlantInstance")
 
             # Resolve species data
             species_data: dict = {}
@@ -292,7 +324,8 @@ class PrintService:
             location_name = ""
             if plant.location_key and self._site_repo:
                 if plant.location_key not in location_cache:
-                    location = self._site_repo.get_location_by_key(plant.location_key)
+                    # Anchored on the location's site (#1397): a dangling or foreign location prints no name.
+                    location = find_owned_location(self._site_repo, plant.location_key, tenant_key)
                     location_cache[plant.location_key] = location.name if location else ""
                 location_name = location_cache[plant.location_key]
 
@@ -343,6 +376,99 @@ class PrintService:
         )
 
         return self._print_engine.render_pdf("plant_label.html", context, locale)
+
+    def generate_location_label_pdf(
+        self,
+        location_key: str,
+        *,
+        tenant_key: str,
+        qr_size_mm: int = LOCATION_LABEL_QR_DEFAULT_MM,
+        locale: str = "de",
+    ) -> bytes:
+        """A printable label of a bed with a QR code that opens it in field mode (REQ-053 GP-FR-052, GP-UX-028).
+
+        The label names the bed, its site, its type and - while it has one - its area. The QR code carries
+        :func:`location_label_url`: field mode of the site's plan with the bed's sheet open for a bed (type with
+        ``is_bed``), the location page for any other location.
+
+        Ownership is anchored on the location's site (``location_ownership``, #1397): an absent location, one
+        without a site and one under a foreign site all raise the same ``NotFoundError``.
+
+        Args:
+            location_key: Key of the bed (or other location).
+            tenant_key: The caller's tenant; the location's site must belong to it.
+            qr_size_mm: QR code edge length in millimetres.
+            locale: Locale of the printed labels ('de' or 'en').
+
+        Returns:
+            PDF file content as bytes.
+
+        Raises:
+            NotFoundError: If the location does not exist or does not belong to the tenant.
+        """
+        location, site = self._owned_location_and_site(location_key, tenant_key=tenant_key)
+        location_type = self._location_type(location.location_type_key)
+        is_bed = location_type is not None and location_type.is_bed
+        qr_url = location_label_url(
+            self._app_base_url, site_key=site.key or location.site_key, location_key=location_key, is_bed=is_bed
+        )
+        label = {
+            "name": location.name,
+            "site_name": site.name,
+            "type_name": self._location_type_name(location_type, location.location_type_key, locale),
+            # A location without an area says nothing rather than "0 m²" (as the bed head, GP-FR-047).
+            "area": format_decimal(location.area_m2, locale) if location.area_m2 > 0 else "",
+            "qr_url": qr_url,
+            "qr_data_uri": PrintEngine.generate_qr_code_base64(qr_url, qr_size_mm),
+            "title_key": "location_label_title" if is_bed else "location_label_title_location",
+            "hint_key": "location_label_scan_hint" if is_bed else "location_label_scan_hint_location",
+            "qr_alt_key": "location_label_qr_alt" if is_bed else "location_label_qr_alt_location",
+        }
+        context = {
+            "label": label,
+            "qr_size_mm": qr_size_mm,
+            "title": location.name,
+            "generated_date": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
+        }
+
+        logger.info(
+            "print_service.generate_location_label_pdf",
+            tenant=log_tenant(tenant_key),
+            location_key=location_key,
+            is_bed=is_bed,
+            qr_size_mm=qr_size_mm,
+        )
+
+        return self._print_engine.render_pdf("location_label.html", context, locale)
+
+    def _owned_location_and_site(self, location_key: str, *, tenant_key: str) -> tuple[Location, Site]:
+        """The location and its site, both owned by ``tenant_key``; ``NotFoundError`` otherwise.
+
+        The same walk as :func:`resolve_owned_location`, kept here because the label needs the site too and must
+        not read it twice. Without a site repository there is nothing to anchor on, so the answer is a refusal.
+        """
+        if self._site_repo is None or not location_key:
+            raise NotFoundError("Location", location_key)
+        location = self._site_repo.get_location_by_key(location_key)
+        if location is None:
+            raise NotFoundError("Location", location_key)
+        site = require_owned_site(self._site_repo, location.site_key, tenant_key, "Location", location_key)
+        return location, site
+
+    def _location_type(self, location_type_key: str) -> LocationType | None:
+        """The location type, or ``None`` when it is unset, unknown or no type repository is wired."""
+        if not location_type_key or self._location_type_repo is None:
+            return None
+        return self._location_type_repo.get_by_key(location_type_key)
+
+    @staticmethod
+    def _location_type_name(location_type: LocationType | None, location_type_key: str, locale: str) -> str:
+        """The type's display name in ``locale`` (English name when there is one), else the raw key."""
+        if location_type is None:
+            return location_type_key
+        if locale == "en" and location_type.name_en:
+            return location_type.name_en
+        return location_type.name
 
     @staticmethod
     def _entry_to_dict(entry: CareDashboardEntry) -> dict:

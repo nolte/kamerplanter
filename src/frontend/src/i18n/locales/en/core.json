@@ -735,7 +735,16 @@
     "layoutGrid3x3": "Grid 3×3 (9 cards per page)",
     "layoutGrid3x3Helper": "Very compact — best for labelling many plants at once.",
     "printLabels": "Print info cards",
-    "printLabelsShort": "Labels"
+    "printLabelsShort": "Labels",
+    "bedLabel": "Print label",
+    "bedLabelTitle": "Print bed label",
+    "bedLabelIntro": "Creates a print-ready PDF label for “{{name}}” with site, type, area and a QR code. Scanning the code opens this bed in field mode – without a session it goes through the sign-in first and comes back here.",
+    "bedLabelOffline": "A label cannot be created without a connection.",
+    "qrSizeLabel": "QR code size",
+    "qrSizeIntro": "Larger codes scan more reliably from standing height and in poor light.",
+    "qrSizeSmall": "Small (25 mm)",
+    "qrSizeMedium": "Medium (40 mm)",
+    "qrSizeLarge": "Large (60 mm)"
   },
   "dashboard": {
     "manageWidgets": "Manage widgets",

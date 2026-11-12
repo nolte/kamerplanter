@@ -960,3 +960,38 @@ describe('moisture and wind in the bed sheet (REQ-053 GP-FR-162/163, GP-UX-057, 
     expect(within(sheet).getByRole('checkbox', { name: 'Windy' })).toBeDisabled();
   });
 });
+
+describe('bed QR deep link (GP-FR-052, GP-UX-028, #2899)', () => {
+  it('opens the sheet of the bed the label names as soon as the list is in', async () => {
+    useFieldBackend();
+    renderField('grower', '/standorte/sites/site_1/plan?mode=field&bed=loc_c');
+
+    const sheet = await screen.findByTestId('field-bed-sheet');
+    expect(within(sheet).getByRole('heading', { name: 'Allotment' })).toBeInTheDocument();
+    expect(screen.queryByTestId('field-mode-linked-bed-missing')).toBeNull();
+  });
+
+  it('drops the bed from the address when the sheet is closed, so a reload does not reopen it', async () => {
+    useFieldBackend();
+    const { router } = renderField('grower', '/standorte/sites/site_1/plan?mode=field&bed=loc_c');
+
+    await screen.findByTestId('field-bed-sheet');
+    fireEvent.click(screen.getByTestId('field-sheet-close'));
+
+    await waitFor(() => expect(router.state.location.search).toBe('?mode=field'));
+    expect(screen.queryByTestId('field-bed-sheet')).toBeNull();
+  });
+
+  it('says so when the label names a bed this site does not have, and opens nothing', async () => {
+    useFieldBackend();
+    const { router } = renderField('viewer', '/standorte/sites/site_1/plan?mode=field&bed=loc_gone');
+
+    const hint = await screen.findByTestId('field-mode-linked-bed-missing');
+    expect(hint).toHaveTextContent('The bed from the QR code is not (or no longer) on this site.');
+    expect(screen.queryByTestId('field-bed-sheet')).toBeNull();
+
+    fireEvent.click(within(hint).getByTestId('field-mode-linked-bed-missing-close'));
+    await waitFor(() => expect(router.state.location.search).toBe('?mode=field'));
+    expect(screen.queryByTestId('field-mode-linked-bed-missing')).toBeNull();
+  });
+});

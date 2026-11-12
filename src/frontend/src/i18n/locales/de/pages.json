@@ -1144,7 +1144,8 @@
       "adminAddMemberStepUpDescription": "Du fügst „{{name}}“ der Organisation „{{tenant}}“ als „{{role}}“ hinzu. Die Rolle bestimmt, was die Person in der Organisation ändern und löschen darf – eine Leitung kann auch die Organisation löschen. Deshalb bestätigst du das mit deinem eigenen Zugang.",
       "adminAddMemberStepUpConfirm": "Mitglied hinzufügen",
       "providerUnlinked": "Anmeldeweg entfernt",
-      "pendingInvitation": "Du hast eine Einladung geöffnet. Melde dich mit der eingeladenen E-Mail-Adresse an – oder registriere dich mit ihr –, danach wird die Einladung angenommen."
+      "pendingInvitation": "Du hast eine Einladung geöffnet. Melde dich mit der eingeladenen E-Mail-Adresse an – oder registriere dich mit ihr –, danach wird die Einladung angenommen.",
+      "returnAfterLogin": "Melde dich an – danach geht es direkt zur aufgerufenen Seite weiter."
     },
     "tenants": {
       "selectTenant": "Garten wählen",
@@ -7125,6 +7126,7 @@
         "title": "Feldmodus",
         "toPlanning": "Planungsmodus",
         "toField": "Feldmodus",
+        "linkedBedMissing": "Das Beet aus dem QR-Code gibt es auf diesem Standort nicht (mehr). Wähle ein Beet aus der Liste.",
         "offline": "Keine Verbindung. Erledigen und Protokollieren sind gesperrt, bis du wieder online bist – so geht nichts verloren.",
         "finish": "Fertig",
         "planted_one": "{{count}} Pflanze eingetragen.",

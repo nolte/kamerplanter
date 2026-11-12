@@ -1,12 +1,20 @@
+import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAppSelector } from '@/store/hooks';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { isLightMode } from '@/config/mode';
 import { isInvitationAcceptPath, rememberPendingInvitation } from '@/utils/pendingInvitation';
+import { forgetLoginReturn, loginPathFor } from '@/utils/loginReturn';
 
 export default function ProtectedRoute() {
   const { isAuthenticated, initialized } = useAppSelector((s) => s.auth);
   const location = useLocation();
+
+  // UI-NFR-014 R-010: a protected page reached signed in is where the sign-in was meant to lead - or a later
+  // visit; either way the remembered return path has done its job.
+  useEffect(() => {
+    if (!isLightMode && isAuthenticated) forgetLoginReturn();
+  }, [isAuthenticated]);
 
   // Light mode: no authentication required
   if (isLightMode) {
@@ -28,7 +36,9 @@ export default function ProtectedRoute() {
     if (isInvitationAcceptPath(location.pathname)) {
       rememberPendingInvitation(new URLSearchParams(location.search).get('token') ?? '');
     }
-    return <Navigate to="/login" replace />;
+    // UI-NFR-014 R-009 — every other page (a bed label's QR deep link, GP-UX-028, among them) is named in the
+    // login URL; the login page carries it through the sign-in.
+    return <Navigate to={loginPathFor(location)} replace />;
   }
 
   return <Outlet />;

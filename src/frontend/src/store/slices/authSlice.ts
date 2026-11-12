@@ -6,6 +6,7 @@ import type { UserProfile } from '@/api/types';
 import { isApiError, parseApiError } from '@/api/errors';
 import { releasePushSubscription } from '@/lib/pushSubscription';
 import { forgetPendingInvitation } from '@/utils/pendingInvitation';
+import { forgetLoginReturn } from '@/utils/loginReturn';
 
 interface AuthState {
   user: UserProfile | null;
@@ -89,6 +90,8 @@ export const logoutUser = createAsyncThunk('auth/logout', async () => {
   // #2162 review S-2 — an invitation remembered across a sign-in belongs to the account that is
   // leaving; the next account signing in in this tab must not be taken to it.
   forgetPendingInvitation();
+  // UI-NFR-014 — the same for a page remembered for the return after a sign-in.
+  forgetLoginReturn();
   await releasePushSubscription({ notifyServer: true });
   await authApi.logout();
 });
