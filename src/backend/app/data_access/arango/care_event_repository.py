@@ -614,9 +614,11 @@ def feeding_label_targets(docs: list[dict[str, Any]]) -> list[dict[str, str]]:
     """
     targets: list[dict[str, str]] = []
     for doc in docs:
-        reference = doc.get("source_ref")
-        if isinstance(reference, dict) and reference.get("collection") == col.FEEDING_EVENTS and reference.get("key"):
-            targets.append({"key": str(reference["key"]), "tenant_key": str(doc.get("tenant_key", ""))})
+        row: dict[str, Any] = doc
+        source = row.get("source_ref")
+        reference: dict[str, Any] = source if isinstance(source, dict) else {}
+        if reference.get("collection") == col.FEEDING_EVENTS and reference.get("key"):
+            targets += [{"key": str(reference["key"]), "tenant_key": str(row.get("tenant_key", ""))}]
     return targets
 
 
