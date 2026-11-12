@@ -340,9 +340,13 @@ class TestTheRouteOperand:
         sowing``, ``GET …/slots/{key}/thinning`` and ``POST …/slots/{key}/thinning``. The planting tab
         (``features/gardenPlanner/planting/plantingApi.ts``: ``sowSlot``, ``getThinningPlan``, ``thinSlot``) consumes
         all three in the same change.
+
+        +1: the bed QR label (REQ-053 GP-UX-028 / GP-FR-052, #2899): ``GET /t/{slug}/print/location-label/
+        {location_key}``. The bed view's label dialog (``api/endpoints/print.ts``, ``downloadLocationLabelPdf``)
+        consumes it in the same change.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 907
+        assert len(checker.collect_operations(app)) == 908
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
