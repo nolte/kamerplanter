@@ -1,3 +1,5 @@
+from typing import Any
+
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.models.phase_sequence import (
@@ -107,6 +109,7 @@ class PhaseSequenceService:
                     override = entry.override_duration_days
                     break
             duration = override if override is not None else default_days
+            species: dict[str, Any]
             for species in self._repo.get_species_for_sequence(seq_key, tenant_key=tenant_key):
                 species_key = species.get("key")
                 if not species_key:

@@ -82,7 +82,15 @@ def _build_app(role: TenantRole = TenantRole.GROWER) -> tuple[FastAPI, dict]:
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
 
     # Read tools delegate to injected fakes so no DB is needed.
-    species = [SimpleNamespace(key="sp-1", scientific_name="Tomato", common_names=["Tomato"], genus="Solanum")]
+    species = [
+        SimpleNamespace(
+            key="sp-1",
+            scientific_name="Tomato",
+            common_names=["Tomato"],
+            common_names_i18n={"en": ["Tomato"]},
+            genus="Solanum",
+        )
+    ]
     fake_species = SimpleNamespace(list_species=lambda offset, limit, tenant_key=None: (species, 1))
     fake_care = SimpleNamespace(
         confirm_reminder=lambda plant_key, reminder_type, notes, tenant_key="": SimpleNamespace(key="cc-1")

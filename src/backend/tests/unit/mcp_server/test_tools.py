@@ -44,7 +44,13 @@ def _ctx(**services) -> ToolContext:
 @pytest.mark.asyncio
 async def test_list_species_delegates_and_wraps():
     species = [
-        SimpleNamespace(key="sp-1", scientific_name="Solanum lycopersicum", common_names=["Tomato"], genus="Solanum")
+        SimpleNamespace(
+            key="sp-1",
+            scientific_name="Solanum lycopersicum",
+            common_names=["Tomato"],
+            common_names_i18n={"en": ["Tomato"]},
+            genus="Solanum",
+        )
     ]
     # tenant_key kwarg accepted for SEC-003 (the tool scopes the global tool to "").
     svc = SimpleNamespace(list_species=lambda offset, limit, tenant_key=None: (species, 1))
@@ -57,7 +63,12 @@ async def test_list_species_delegates_and_wraps():
 @pytest.mark.asyncio
 async def test_get_species_info_includes_companions():
     species = SimpleNamespace(
-        key="sp-1", scientific_name="Basil", common_names=["Basil"], genus="Ocimum", growth_habit="herb"
+        key="sp-1",
+        scientific_name="Basil",
+        common_names=["Basil"],
+        common_names_i18n={"en": ["Basil"]},
+        genus="Ocimum",
+        growth_habit="herb",
     )
     svc = SimpleNamespace(
         get_species=lambda key, tenant_key=None: species,

@@ -55,6 +55,11 @@ DISTANCE_CM_STRING_PATTERN = r"^\d+(\.\d+)?(\s*[-–—]+\s*\d+(\.\d+)?)?$"
 COMMON_NAMES_LANGUAGE_CODE_PATTERN = re.compile(r"^[a-z]{2,3}$")
 
 
+def _stripped(name: str) -> str:
+    """``name`` without surrounding whitespace — a typed receiver for the write-route guard."""
+    return name.strip()
+
+
 def validate_common_names_i18n(common_names: list[str], names_i18n: dict[str, list[str]]) -> dict[str, list[str]]:
     """Check and normalize ``common_names_i18n`` against the flat ``common_names`` list.
 
@@ -69,14 +74,14 @@ def validate_common_names_i18n(common_names: list[str], names_i18n: dict[str, li
     Raises:
         ValueError: on an invalid key, an empty name or a name not in ``common_names``.
     """
-    known = {name.strip() for name in common_names}
+    known = {_stripped(name) for name in common_names}
     normalized: dict[str, list[str]] = {}
     for language, names in names_i18n.items():
         if not COMMON_NAMES_LANGUAGE_CODE_PATTERN.fullmatch(language):
             raise ValueError(f"common_names_i18n key must be a lowercase language code, got {language!r}")
         cleaned: list[str] = []
         for raw in names:
-            name = raw.strip()
+            name = _stripped(raw)
             if not name:
                 raise ValueError(f"common_names_i18n[{language!r}] contains an empty name")
             if name not in known:
@@ -96,10 +101,10 @@ def prune_common_names_i18n(common_names: list[str], names_i18n: dict[str, list[
     user removed from ``common_names`` leaves the language lists with it instead of
     turning the save into a 422 the user cannot act on.
     """
-    known = {name.strip() for name in common_names}
+    known = {_stripped(name) for name in common_names}
     pruned: dict[str, list[str]] = {}
     for language, names in names_i18n.items():
-        kept = [name for name in names if name.strip() in known]
+        kept = [name for name in names if _stripped(name) in known]
         if kept:
             pruned[language] = kept
     return pruned

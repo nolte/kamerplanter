@@ -89,6 +89,22 @@ SPECIES_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
 )
 
 
+def _companion_species_fields(vertex: dict[str, Any]) -> dict[str, Any]:
+    """The species fields a companion row passes through from the graph vertex.
+
+    Both names travel verbatim: ``common_names`` for search and context, and
+    ``common_names_i18n`` from which the presentation layer picks the display name
+    (UI language -> de -> scientific name, REQ-001/#2902) — the order of
+    ``common_names`` carries no language meaning.
+    """
+    return {
+        "species_key": vertex.get("_key", ""),
+        "scientific_name": vertex.get("scientific_name"),
+        "common_names": vertex.get("common_names", []),
+        "common_names_i18n": vertex.get("common_names_i18n") or {},
+    }
+
+
 def _is_unset(value: object) -> bool:
     """Whether ``value`` is genuinely unset for inheritance purposes (#975).
 
@@ -963,35 +979,14 @@ class SpeciesService:
         """
         self.get_species(species_key, tenant_key=tenant_key)
         raw = self._graph.get_compatible_species(species_key, tenant_key=tenant_key)
-        # Pass the full common_names list and its language map straight through from
-        # the graph vertex — both are already loaded on the species document (no extra
-        # query). The presentation layer picks the display name from
-        # common_names_i18n (UI language -> de -> scientific name, REQ-001/#2902); the
-        # order of common_names carries no language meaning.
-        return [
-            {
-                "species_key": item["species"].get("_key", ""),
-                "scientific_name": item["species"].get("scientific_name"),
-                "common_names": item["species"].get("common_names", []),
-                "common_names_i18n": item["species"].get("common_names_i18n") or {},
-                "score": item.get("score", 0.0),
-            }
-            for item in raw
-        ]
+        # Names pass straight through from the graph vertex (no extra query), see
+        # _companion_species_fields.
+        return [{**_companion_species_fields(item["species"]), "score": item.get("score", 0.0)} for item in raw]
 
     def get_incompatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict]:
         self.get_species(species_key, tenant_key=tenant_key)
         raw = self._graph.get_incompatible_species(species_key, tenant_key=tenant_key)
-        return [
-            {
-                "species_key": item["species"].get("_key", ""),
-                "scientific_name": item["species"].get("scientific_name"),
-                "common_names": item["species"].get("common_names", []),
-                "common_names_i18n": item["species"].get("common_names_i18n") or {},
-                "reason": item.get("reason", ""),
-            }
-            for item in raw
-        ]
+        return [{**_companion_species_fields(item["species"]), "reason": item.get("reason", "")} for item in raw]
 
     def get_companion_counts(self, *, tenant_key: str | None) -> dict[str, dict[str, int]]:
         # Whole-catalogue aggregate: per-species compatible/incompatible companion
