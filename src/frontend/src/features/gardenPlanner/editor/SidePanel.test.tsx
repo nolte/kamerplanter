@@ -1,13 +1,14 @@
 /**
  * The side panel of the plan editor (REQ-053 §17.3, GP-UX-068/069, AC-5/AC-6/AC-17, WP 10.5): no reserved width while
  * collapsed, the switch with `aria-expanded`/`aria-controls`, the WAI-ARIA tabs with a roving tabindex, the state
- * rule through the editor, the form per width (docked from lg up, drawer at md, bottom sheet below md), the skip link,
+ * rule through the editor, the form per width (docked from md up, bottom sheet below md), the skip link,
  * the view settings in "Ansicht" and the layer switches with the legend in "Ebenen".
  *
  * jsdom lays nothing out: the width is set through `matchMedia` (MUI's `up`/`down` queries are answered for a chosen
  * window width), and the canvas area's size is stubbed where the fit reserve is checked.
  */
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
@@ -149,7 +150,8 @@ describe('state rule through the editor (GP-UX-068, AC-17)', () => {
 });
 
 describe('panel tabs: WAI-ARIA "Tabs" (GP-UX-068, AC-5)', () => {
-  it('has one tab stop, arrows and Home/End move and select, and every tab controls its tab panel', () => {
+  it('has one tab stop, arrows and Home/End move the focus, Enter selects, every tab controls its tab panel', async () => {
+    const user = userEvent.setup();
     setupEditor();
     fireEvent.click(toggle());
     const list = screen.getByRole('tablist', { name: 'Side panel sections' });
@@ -162,18 +164,27 @@ describe('panel tabs: WAI-ARIA "Tabs" (GP-UX-068, AC-5)', () => {
     }
     // Roving tabindex: only the selected tab ("View" on the first open) is a tab stop.
     expect(tabs.filter((element) => element.tabIndex === 0)).toEqual([tab('view')]);
+    // Manual activation (#2887): the arrows move the focus only, Enter or Space activates the focused tab.
     act(() => tab('view').focus());
     fireEvent.keyDown(tab('view'), { key: 'ArrowRight' });
     expect(tab('layers')).toHaveFocus();
+    expect(tab('view')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('layers')).toHaveAttribute('aria-selected', 'false');
+    await user.keyboard('{Enter}');
     expect(tab('layers')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('garden-plan-side-panel-tabpanel-layers')).toBeVisible();
     expect(screen.getByTestId('garden-plan-side-panel-tabpanel-view')).not.toBeVisible();
     fireEvent.keyDown(tab('layers'), { key: 'Home' });
     expect(tab('properties')).toHaveFocus();
+    await user.keyboard(' ');
     expect(tab('properties')).toHaveAttribute('aria-selected', 'true');
     fireEvent.keyDown(tab('properties'), { key: 'ArrowLeft' });
     expect(tab('zones')).toHaveFocus();
-    fireEvent.keyDown(tab('zones'), { key: 'End' });
+    fireEvent.keyDown(tab('zones'), { key: 'Home' });
+    fireEvent.keyDown(tab('properties'), { key: 'End' });
+    expect(tab('zones')).toHaveFocus();
+    expect(tab('properties')).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{Enter}');
     expect(tab('zones')).toHaveAttribute('aria-selected', 'true');
     expect(within(list).getAllByRole('tab').filter((element) => element.tabIndex === 0)).toEqual([tab('zones')]);
   });

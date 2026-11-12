@@ -8,13 +8,18 @@
  *   all, so it reserves no width (AC-5).
  * - `sheet` (below md): a bottom sheet in the dock above the tool bars, half or full height of what is visible
  *   above the on-screen keyboard (`visualViewport`, GP-UX-052); not modal, closed by its button.
+ * Both forms are the same elements; only their attributes and styles differ. A change of the form therefore keeps
+ * the content mounted - an open dialog or a typed draft in it survives a resize (#2882). The caller keeps the panel
+ * at one place in its tree for the same reason.
  *
- * The tabs follow the WAI-ARIA "Tabs" pattern: a `tablist` of `tab`s with `aria-selected` and `aria-controls` on
- * their `tabpanel` (which names itself by `aria-labelledby`), a roving tabindex - only the active tab is a tab stop -
- * and arrow left/right, Home and End move between them; the selection follows the focus. All four tab panels exist,
- * the inactive ones hidden and empty: only the active tab's content is mounted.
+ * The tabs follow the WAI-ARIA "Tabs" pattern with manual activation: a `tablist` of `tab`s with `aria-selected`
+ * and `aria-controls` on their `tabpanel` (which names itself by `aria-labelledby`), a roving tabindex - only the
+ * active tab is a tab stop - and arrow left/right, Home and End move the focus between them; Enter or Space (or a
+ * click) activates the focused tab. Arrowing across the tabs therefore neither loads the zone panel nor leaves
+ * "Eigenschaften" with a draft in it (#2887). All four tab panels exist, the inactive ones hidden and empty: only the
+ * active tab's content is mounted.
  */
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -124,7 +129,7 @@ function PanelFrame({
             value={tab}
             onChange={(_event, next: SidePanelTab) => onTab(next)}
             aria-label={t(`${PREFIX}.tabs`)}
-            selectionFollowsFocus
+            // Manual activation (no `selectionFollowsFocus`): the arrows move the focus, Enter/Space activate (#2887).
             // Content-sized tabs; on a panel too narrow for the labels the list scrolls inside, the page never does.
             variant="scrollable"
             scrollButtons={false}
@@ -184,34 +189,37 @@ function PanelFrame({
   );
 }
 
+/** The size of the panel's box per form: an inline style, because it follows measured heights (no class per pixel). */
+function boxStyle(
+  variant: SidePanelVariant,
+  sheetSize: SheetSize,
+  visibleHeight: number,
+  heightPx: number | undefined,
+): CSSProperties {
+  if (variant === 'sheet') {
+    // Follows the visible height (on-screen keyboard open or not).
+    const sheetPx = Math.round(visibleHeight * SHEET_SHARE[sheetSize]);
+    return sheetSize === 'full' ? { height: sheetPx } : { maxHeight: sheetPx };
+  }
+  return heightPx !== undefined ? { height: heightPx } : { maxHeight: '80vh' };
+}
+
 export function SidePanel({ open, heightPx, visibleHeight, ...frame }: SidePanelProps) {
   const { variant, sheetSize } = frame;
   if (!open) return null;
-  if (variant === 'sheet') {
-    const sheetPx = Math.round(visibleHeight * SHEET_SHARE[sheetSize]);
-    return (
-      <Box
-        data-testid="garden-plan-sheet"
-        data-size={sheetSize}
-        sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
-        // Follows the visible height (keyboard open or not): an inline style, not one class per pixel.
-        style={sheetSize === 'full' ? { height: sheetPx } : { maxHeight: sheetPx }}
-      >
-        <PanelFrame {...frame} />
-      </Box>
-    );
-  }
+  const sheet = variant === 'sheet';
+  // One box for both forms: a change of the form changes attributes and styles, never the elements (#2882).
   return (
     <Box
-      data-testid="garden-plan-side-panel-dock"
+      data-testid={sheet ? 'garden-plan-sheet' : 'garden-plan-side-panel-dock'}
+      data-size={sheet ? sheetSize : undefined}
       sx={{
-        width: PANEL_WIDTH_PX,
-        flex: 'none',
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
+        ...(sheet ? {} : { width: PANEL_WIDTH_PX, flex: 'none' }),
       }}
-      style={heightPx !== undefined ? { height: heightPx } : { maxHeight: '80vh' }}
+      style={boxStyle(variant, sheetSize, visibleHeight, heightPx)}
     >
       <PanelFrame {...frame} />
     </Box>

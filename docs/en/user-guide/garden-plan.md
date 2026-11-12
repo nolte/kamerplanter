@@ -136,7 +136,7 @@ The **side panel** has four tabs:
 | **Layers** | The [layers](#layers-and-site-conditions) with their switches, the attention filter, the legend and the zone legend. |
 | **Zones** | Manage the [irrigation zones](#irrigation-zones). |
 
-When you select something, the panel opens on **Properties**. When you clear the selection, it collapses again if the selection opened it. If you opened it yourself with the panel switch in the header bar, it stays open; if you closed it yourself, it stays closed until you open it or select something new. Without a selection it opens on the tab used last, the first time on **View**. You reach the tabs with the keyboard too: the arrow keys change the tab.
+When you select something, the panel opens on **Properties**. When you clear the selection, it collapses again if the selection opened it. If you opened it yourself with the panel switch in the header bar, it stays open; if you closed it yourself, it stays closed until you open it or select something new. Without a selection it opens on the tab used last, the first time on **View**. You reach the tabs with the keyboard too: the arrow keys move from tab to tab, Enter or Space opens the tab. So you can move across the tabs without the content changing.
 
 The **Properties** tab shows name, type, position (x to the right, y upwards, in metres), dimensions and rotation counter-clockwise for the selected bed or object. You change the values directly; **Lock** protects an object from being moved by accident. For a bed you also find **Plant it**, the sun tiles and the number of open and overdue tasks with a jump to the care tab. For a polygon the panel lists the points.
 
