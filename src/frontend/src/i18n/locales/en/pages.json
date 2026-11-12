@@ -5484,7 +5484,9 @@
           "northAngle": "Set north direction",
           "align": "Align",
           "distribute": "Distribute evenly",
-          "multiDuplicate": "Duplicate several times"
+          "multiDuplicate": "Duplicate several times",
+          "drawBoundary": "Draw boundary",
+          "editBoundary": "Change boundary"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -5532,6 +5534,9 @@
           "distribute": {
             "overlap": "With equal gaps the selected objects would lie on top of each other. Make room between them first. The plan stays as it was.",
             "locked_covered": "Distributing would put an object on top of a locked one. Unlock it or remove it from the selection. The plan stays as it was."
+          },
+          "boundary": {
+            "shrinks_below_objects": "The boundary would leave beds or objects outside and was not applied. Move them inside first or draw the boundary wider."
           }
         },
         "deleteDialog": {
@@ -6514,6 +6519,28 @@
           "expand": "Expand to full height",
           "shrink": "Shrink to half height",
           "legendShown": "Show legend"
+        },
+        "boundary": {
+          "garden": {
+            "draw": "Draw garden boundary",
+            "unlock": "Unlock and edit garden boundary",
+            "lock": "Lock garden boundary",
+            "drawHint": "Draw the garden boundary as a rectangle or polygon. Beds and garden objects must lie inside it.",
+            "editHint": "The garden boundary is unlocked: drag its handles to change it. Beds and garden objects must stay inside it. Saving locks it again."
+          },
+          "indoor": {
+            "draw": "Draw floor plan",
+            "unlock": "Unlock and edit floor plan",
+            "lock": "Lock floor plan",
+            "drawHint": "Draw the outline of your flat as a rectangle or polygon. Rooms and objects must lie inside it.",
+            "editHint": "The floor plan is unlocked: drag its handles to change it. Rooms and objects must stay inside it. Saving locks it again."
+          },
+          "entryDrawHint": "Rectangle or polygon; locked once saved",
+          "entryUnlockHint": "Locked against accidental changes",
+          "lockHint": "Stop editing and lock the boundary against accidental changes",
+          "cancelHint": "Stop drawing without creating a boundary",
+          "done": "Lock",
+          "cancel": "Stop drawing"
         }
       },
       "io": {

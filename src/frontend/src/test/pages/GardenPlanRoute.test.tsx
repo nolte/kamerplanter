@@ -309,6 +309,28 @@ describe('GardenPlanRoute', () => {
       expect(screen.queryByTestId('garden-plan-empty')).toBeNull();
     });
 
+    it('"Draw the floor plan" starts the boundary tool: the flat outline is drawn first (#2890)', async () => {
+      usePlan(emptyOf('indoor'));
+      const { store } = renderRoute(undefined, tenantState('grower'));
+      fireEvent.click(await screen.findByTestId('garden-plan-empty-draw'));
+
+      const banner = await screen.findByTestId('garden-plan-boundary-mode');
+      expect(banner).toHaveAttribute('data-mode', 'draw');
+      expect(banner).toHaveTextContent('Draw the outline of your flat as a rectangle or polygon.');
+      expect(store.getState().gardenPlan!.tool).toBe('boundary');
+      expect(screen.getByTestId('garden-plan-shape-rect')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByTestId('garden-plan-shape-circle')).toBeNull();
+    });
+
+    it('"Load a photo as a template" does not start the boundary tool (counter-check)', async () => {
+      usePlan(emptyOf('indoor'));
+      const { store } = renderRoute(undefined, tenantState('grower'));
+      fireEvent.click(await screen.findByTestId('garden-plan-empty-underlay'));
+      await screen.findByTestId('garden-plan-underlay-dialog');
+      expect(store.getState().gardenPlan!.tool).toBe('select');
+      expect(screen.queryByTestId('garden-plan-boundary-mode')).toBeNull();
+    });
+
     it('"Load a photo as a template" opens the editor with the underlay dialog', async () => {
       usePlan(emptyOf('windowsill'));
       renderRoute(undefined, tenantState('grower'));

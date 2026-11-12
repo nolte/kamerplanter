@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.19
+Version: 1.20
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.20 | 2026-11-12 | §2.5.1: Gartengrenze im Editor (REQ-053 UC-01, GP-FR-019/032, Issue #2890) registriert: der Überlauf-Eintrag `garden-plan-menu-boundary` („Gartengrenze zeichnen“ bzw. „… entsperren und bearbeiten“ / „… sperren“; Indoor „Grundriss …“), der Hinweis des Grenz-Modus `garden-plan-boundary-mode` mit `data-mode` (`draw`/`edit`) und seine Handlung `garden-plan-boundary-done` („Sperren“ bzw. „Zeichnen beenden“). Die Griffe der entsperrten Grenze tragen die bestehenden Kennungen `garden-plan-handles` / `garden-plan-handle-<id>`, die Formwahl `garden-plan-shape-rect`/`-polygon`. Keine Kennung umbenannt (R-021), Page Object im selben Pull Request (R-020). |
 | 1.19 | 2026-11-12 | §2.5.1: „Beet räumen“ der Beetansicht (REQ-053 GP-FR-055, GP-API-019, Issue #2891) registriert: die Handlung `bed-clear-button` im Tab „Pflanzung“ (nur solange Pflanzen stehen und das Beet bearbeitbar ist), der Dialog `bed-clear-dialog` mit dem Satz `bed-clear-affected` (qualifizierende Attribute `data-plant-count`, `data-run-count`), der Folgenliste `bed-clear-effects`, der Auswahl `bed-clear-termination` mit `bed-clear-termination-<art>` und `-<art>-input` (`<art>` ∈ `harvested`, `senesced`, `died`, `cancelled`), der Notiz `bed-clear-reason`, dem Hinweis `bed-clear-irreversible` und den Handlungen `bed-clear-submit` / `bed-clear-cancel`. Keine bestehende Kennung umbenannt (R-021); das Page Object `bed_view_page.py` erhält im selben Pull Request `ClearBedDialog`. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.18 | 2026-11-11 | §2.5.1: Mit dem Drawer bei md (REQ-053 v1.18, GP-UX-069, Issue #2885) entfällt die Kennung `garden-plan-side-panel-drawer` und der `data-variant`-Wert `drawer`; das Panel trägt ab md `garden-plan-side-panel-dock` und `docked`. Keine Kennung umbenannt (R-021): die entfallene Hülle hat keinen Nachfolger, Page Object und TC-053-102 sind im selben Pull Request nachgezogen (R-020). |
 | 1.17 | 2026-11-11 | §2.5.1: Nachregistrierung aus der Abnahme der REQ-053-Welle 10 (WP 10.15, Issue #2836): sieben Kennungen waren im Code und in den Page Objects in Gebrauch, aber nicht registriert (Befund aus WP 10.13/10.14, #2880/#2881) — `garden-plan-new-object-type` (Art-Auswahl „Gartenobjekt“ im Dialog „Mit Maßen hinzufügen“), `garden-plan-shape-<form>` (Formwahl beim Zeichnen), `garden-plan-draw-finish` („Fertig“ beim Punkt-Zeichnen), `garden-plan-touchbar` (Touch-Aktionsleiste), `garden-plan-panel-empty` (Tab „Eigenschaften“ ohne Auswahl), `bed-list-link-<key>` (Beetname in der Beetliste) und `garden-plan-back-link-name` (Site-Name im Zurück-Link der Kopfleiste). Jede Kennung ist im Code nachgemessen (Datei und Zeile in #2836); keine umbenannt (R-021). Die Registrierung kommt nach der Verwendung — eine Abweichung von R-020, die hier festgehalten und nicht nachträglich verdeckt wird; einen Guard, der die Registrierung prüft, gibt es nicht. |
@@ -264,7 +265,7 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-window-suggestion-hints` | Liste der Hinweise; jeder Eintrag trägt `data-hint` = Hinweis-Code (`hemisphere_assumed`, `tropics`, `no_window`, `diffuse_light_only`, `shading_not_considered`, `season`, `window_distance`, `glazing`) |
 | `garden-plan-empty` | Leerzustand der Plan-Route (GP-UX-049), Attribut `data-plan-kind` = `garden` oder `indoor` (Site-Typ `indoor`, `windowsill`, `grow_tent`; WP 10.8, GP-FR-182) |
 | `garden-plan-empty-add-bed` | Handlung des Garten-Leerzustands „Erstes Beet anlegen“ (#2617): öffnet den Editor mit „Mit Maßen hinzufügen“; nur mit Schreibrecht und Serververbindung |
-| `garden-plan-empty-draw` / `garden-plan-empty-underlay` | Handlungen des Indoor-Leerzustands (WP 10.8): „Grundriss zeichnen“ öffnet den Editor auf der leeren Fläche, „Foto als Vorlage laden“ öffnet ihn mit `garden-plan-underlay-dialog`; nur mit Schreibrecht und Serververbindung |
+| `garden-plan-empty-draw` / `garden-plan-empty-underlay` | Handlungen des Indoor-Leerzustands (WP 10.8): „Grundriss zeichnen“ öffnet den Editor im Grenz-Modus (`garden-plan-boundary-mode`, #2890), „Foto als Vorlage laden“ öffnet ihn mit `garden-plan-underlay-dialog`; nur mit Schreibrecht und Serververbindung |
 | `garden-plan-zones-open` | Kennung unverändert, ab WP 10.5 Überlauf-Eintrag „Bewässerungszonen verwalten“: öffnet das Seitenpanel auf dem Tab „Zonen“ |
 | `garden-plan-panel-object-tasks` | Abschnitt „Aufgaben“ im Tab „Eigenschaften“ eines gewählten Gartenobjekts der Klassen `compost`, `water_source`, `storage` (R-7.2, W-008, WP 10.10); `data-object-type` nennt die Klasse. Andere Klassen haben den Abschnitt nicht |
 | `garden-plan-panel-object-tasks-list` / `garden-plan-panel-object-task-<key>` | Liste der offenen Aufgaben des Objekts (`pending`, `in_progress`, nach Fälligkeit) und ihre Zeile, `<key>` = Schlüssel der Aufgabe; `data-overdue` = `true`/`false` |
@@ -279,6 +280,9 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-panel-empty` | Inhalt des Tabs „Eigenschaften“ ohne Auswahl („Nichts ausgewählt“) |
 | `bed-list-link-<key>` | Beetname als Link zur Beetansicht in der Beetliste (Tabelle und Karte), `<key>` = Schlüssel der Location; im Tab „Beete“ bzw. „Pflanzplätze“ |
 | `garden-plan-back-link-name` | Site-Name im Zurück-Link der Editor-Kopfleiste (§17.3, GP-UX-063); kürzt mit Auslassungspunkten und fehlt unter md (dort nur das Icon mit `aria-label`) |
+| `garden-plan-menu-boundary` | Überlauf-Eintrag der Gartengrenze (REQ-053 UC-01, GP-FR-019/032, #2890), nur auf dem Tab „Plan“: ohne Grenze „Gartengrenze zeichnen“ (Indoor „Grundriss zeichnen“), mit gesperrter Grenze „… entsperren und bearbeiten“, im Grenz-Modus „… sperren“ |
+| `garden-plan-boundary-mode` | Hinweis über der Zeichenfläche, solange der Grenz-Modus an ist; `data-mode` = `draw` (keine Grenze, Rechteck oder Vieleck zeichnen) oder `edit` (Grenze entsperrt, ihre Griffe `garden-plan-handle-<id>` sind gezeichnet) |
+| `garden-plan-boundary-done` | Handlung im Hinweis `garden-plan-boundary-mode`: „Sperren“ (`edit`) bzw. „Zeichnen beenden“ (`draw`) — beendet den Grenz-Modus, die Grenze ist wieder gesperrt; Speichern sperrt sie ebenso |
 
 **Beetansicht, „Beet räumen“ (REQ-053 GP-FR-055, GP-API-019, #2891):**
 

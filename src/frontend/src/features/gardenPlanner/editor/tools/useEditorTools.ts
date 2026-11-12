@@ -38,6 +38,19 @@ import {
   type DrawShape,
   type DrawState,
 } from './drawMachine';
+import {
+  boundaryCancel,
+  boundaryDown,
+  boundaryGestureActive,
+  boundaryHandles,
+  boundaryMove,
+  boundaryOverlay,
+  boundaryUp,
+  INITIAL_BOUNDARY_STATE,
+  setBoundaryOp,
+  type BoundaryState,
+} from './boundaryMachine';
+import { BOUNDARY_KEY } from '../../renderer/planIndex';
 import { insertVertex, removeVertex } from './geometryEdit';
 import { computeHandles, type HandleSet } from './handles';
 import { isPlanEntity } from './hierarchy';
@@ -67,7 +80,7 @@ import {
 } from './selectMachine';
 import { selectAll } from './selection';
 import type { SnapMark } from './snap';
-import { firstViolation } from './validation';
+import { boundaryViolation, firstViolation } from './validation';
 
 export interface EditorToolsOptions {
   tool: PlanTool;
@@ -139,6 +152,7 @@ function isMoveOnly(committed: Machines, next: Machines): boolean {
     committed.pointerId === next.pointerId &&
     committed.draw === next.draw &&
     committed.pan === next.pan &&
+    committed.boundary === next.boundary &&
     committed.select.vertex === next.select.vertex &&
     // The press that turns into a move is live too: the editor renders at the press and at the release only.
     (committed.select.gesture.kind === 'move' || committed.select.gesture.kind === 'press') &&
@@ -190,10 +204,19 @@ export interface EditorTools {
 
 const defaultSnap: ToolEnv['snapPoint'] = ([x, y]) => [roundLength(x), roundLength(y)];
 
-function toolKind(tool: PlanTool): 'select' | 'draw' | 'pan' {
+type ToolKind = 'select' | 'draw' | 'pan' | 'boundary';
+
+/** The boundary mode draws while the plan has no boundary and edits it once there is one (#2890). */
+function toolKind(tool: PlanTool, plan: PlanModel): ToolKind {
   if (tool === 'pan') return 'pan';
   if (tool === 'bed' || tool === 'garden_object') return 'draw';
+  if (tool === 'boundary') return plan.settings?.boundary ? 'boundary' : 'draw';
   return 'select';
+}
+
+function drawTargetOf(tool: PlanTool): DrawOptions['target'] {
+  if (tool === 'garden_object') return 'garden_object';
+  return tool === 'boundary' ? 'boundary' : 'bed';
 }
 
 /** Where the canvas content starts in client pixels (inside its border). */
@@ -262,7 +285,7 @@ function envOf(o: EnvSource): ToolEnv {
 
 function drawOptionsOf(o: EditorToolsOptions): DrawOptions {
   return {
-    target: o.tool === 'garden_object' ? 'garden_object' : 'bed',
+    target: drawTargetOf(o.tool),
     shape: o.drawShape,
     newBedName: o.newBedName,
     bedTypeKey: o.bedTypeKey,
@@ -274,8 +297,9 @@ interface Machines {
   select: SelectState;
   draw: DrawState;
   pan: PanState;
+  boundary: BoundaryState;
   /** Which machine owns the gesture in progress. */
-  active: 'select' | 'draw' | 'pan' | null;
+  active: 'select' | 'draw' | 'pan' | 'boundary' | null;
   pointerId: number | null;
   /** The tool and shape these states belong to: a switch discards them (see `useEditorTools`). */
   forTool: string;
@@ -285,11 +309,14 @@ const INITIAL_MACHINES: Omit<Machines, 'forTool'> = {
   select: INITIAL_SELECT_STATE,
   draw: INITIAL_DRAW_STATE,
   pan: INITIAL_PAN_STATE,
+  boundary: INITIAL_BOUNDARY_STATE,
   active: null,
   pointerId: null,
 };
 
-const toolId = (o: Pick<EditorToolsOptions, 'tool' | 'drawShape'>) => `${o.tool}:${o.drawShape}`;
+/** The boundary mode switching from drawing to editing (or back, by an undo) is a switch too. */
+const toolId = (o: Pick<EditorToolsOptions, 'tool' | 'drawShape' | 'plan'>) =>
+  `${o.tool}:${o.drawShape}:${toolKind(o.tool, o.plan)}`;
 
 export function useEditorTools(options: EditorToolsOptions): EditorTools {
   // Handlers read the newest options and machine states from refs; the same states are mirrored
@@ -428,7 +455,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       // The middle button and Space + primary button pan in every tool; a finger keeps its own gestures.
       const spacePan = spaceHeld.current && event.button === 0 && event.pointerType !== 'touch';
       if (spacePan) spaceUsed.current = true;
-      const kind = event.button === 1 || spacePan ? 'pan' : toolKind(o.tool);
+      let kind: ToolKind = event.button === 1 || spacePan ? 'pan' : toolKind(o.tool, o.plan);
+      // In the boundary mode a press on a boundary handle reshapes it; any other press pans the view (#2890).
+      const boundaryStep = kind === 'boundary' ? boundaryDown(m.boundary, sample, env) : null;
+      if (kind === 'boundary' && boundaryStep === null) kind = 'pan';
       try {
         event.currentTarget.setPointerCapture?.(event.pointerId);
       } catch {
@@ -436,6 +466,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       }
       if (kind === 'pan') {
         update({ active: kind, pointerId: event.pointerId, pan: panDown(m.pan, sample).state });
+      } else if (kind === 'boundary' && boundaryStep) {
+        update({ active: kind, pointerId: event.pointerId, boundary: boundaryStep.state });
+        apply(boundaryStep.effects);
       } else if (kind === 'draw') {
         const step = drawDown(m.draw, sample, env, drawOptionsOf(o));
         update({ active: kind, pointerId: event.pointerId, draw: step.state });
@@ -463,12 +496,14 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         apply(step.effects);
       } else if (m.active === 'draw') {
         update({ draw: drawMove(m.draw, sample, env, true).state });
+      } else if (m.active === 'boundary') {
+        update({ boundary: boundaryMove(m.boundary, sample, env) });
       } else if (m.active === 'select') {
         const step = selectMove(m.select, sample, env);
         update({ select: step.state });
         apply(step.effects);
         syncPreview();
-      } else if (toolKind(o.tool) === 'draw' && m.draw.kind === 'points') {
+      } else if (toolKind(o.tool, o.plan) === 'draw' && m.draw.kind === 'points') {
         update({ draw: drawMove(m.draw, sample, env, false).state }); // the rubber band follows the hover
       }
     },
@@ -496,6 +531,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         const step = drawUp(m.draw, sample, env, drawOptionsOf(o));
         update({ active: null, pointerId: null, draw: step.state });
         apply(step.effects);
+      } else if (m.active === 'boundary') {
+        const step = boundaryUp(boundaryMove(m.boundary, sample, env), env);
+        update({ active: null, pointerId: null, boundary: step.state });
+        apply(step.effects);
       } else if (m.active === 'select') {
         const step = selectUp(m.select, sample, env);
         update({ active: null, pointerId: null, select: step.state });
@@ -510,6 +549,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     update({
       select: selectCancel(m.select),
       draw: m.draw.kind === 'drag' ? INITIAL_DRAW_STATE : m.draw,
+      boundary: boundaryCancel(m.boundary),
       pan: INITIAL_PAN_STATE,
       active: null,
       pointerId: null,
@@ -525,6 +565,11 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     if (m.draw.kind !== 'idle') {
       update({ draw: INITIAL_DRAW_STATE, active: null, pointerId: null });
       endPress(); // the release no longer reaches the gesture: its press origin and scroll listener end here
+    } else if (boundaryGestureActive(m.boundary)) {
+      update({ boundary: boundaryCancel(m.boundary), active: null, pointerId: null });
+      endPress();
+    } else if (m.boundary.vertex !== null) {
+      update({ boundary: { kind: 'idle', vertex: null } });
     } else if (isGestureActive(m.select)) {
       update({ select: selectCancel(m.select), active: null, pointerId: null });
       endPress();
@@ -546,7 +591,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   const placePointAt = useCallback(
     (pointPx: Point) => {
       const o = latest.current;
-      if (toolKind(o.tool) !== 'draw') return;
+      if (toolKind(o.tool, o.plan) !== 'draw') return;
       const sample: PointerSample = { pointPx, pointerType: 'touch', shift: false, alt: false };
       const env = envOf(o);
       const drawOptions = drawOptionsOf(o);
@@ -576,8 +621,47 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     return geometry ? { ref, geometry, index: picked.index } : null;
   }, [current]);
 
+  /** The picked point of the boundary in the boundary mode (#2890), if it is still there. */
+  const pickedBoundaryVertex = useCallback(() => {
+    const o = latest.current;
+    const m = current();
+    const boundary = o.plan.settings?.boundary ?? null;
+    if (toolKind(o.tool, o.plan) !== 'boundary' || boundary === null || m.boundary.vertex === null) return null;
+    return { geometry: boundary, index: m.boundary.vertex };
+  }, [current]);
+
+  /** "Punkt löschen" / "Punkt einfügen" on the boundary: one `set_boundary`, checked like a handle drag. */
+  const editBoundaryVertex = useCallback(
+    (mode: 'delete' | 'insert') => {
+      const o = latest.current;
+      const picked = pickedBoundaryVertex();
+      if (picked === null) return;
+      const next =
+        mode === 'delete'
+          ? removeVertex(picked.geometry, picked.index)
+          : insertVertex(picked.geometry, picked.index);
+      if (next === null) {
+        o.onNotice('geometry.too_few_points');
+        return;
+      }
+      if (next === picked.geometry) return;
+      const violation = boundaryViolation(o.plan, next);
+      if (violation) {
+        o.onNotice(violation);
+        return;
+      }
+      o.onCommit([setBoundaryOp(o, next)], 'editBoundary');
+      update({ boundary: { kind: 'idle', vertex: mode === 'delete' ? null : picked.index + 1 } });
+    },
+    [pickedBoundaryVertex, update],
+  );
+
   const deleteVertex = useCallback(() => {
     const o = latest.current;
+    if (pickedBoundaryVertex() !== null) {
+      editBoundaryVertex('delete');
+      return;
+    }
     const picked = pickedVertex();
     if (picked === null) return;
     const next = removeVertex(picked.geometry, picked.index);
@@ -593,10 +677,14 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     }
     o.onCommit([{ op: 'update_geometry', ...draft }], 'editPoint');
     update({ select: clearVertex(current().select) });
-  }, [current, pickedVertex, update]);
+  }, [current, editBoundaryVertex, pickedBoundaryVertex, pickedVertex, update]);
 
   const insertVertexAfter = useCallback(() => {
     const o = latest.current;
+    if (pickedBoundaryVertex() !== null) {
+      editBoundaryVertex('insert');
+      return;
+    }
     const picked = pickedVertex();
     if (picked === null) return;
     const next = insertVertex(picked.geometry, picked.index);
@@ -608,7 +696,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     update({
       select: { ...current().select, vertex: { key: picked.ref.key, index: picked.index + 1 } },
     });
-  }, [current, pickedVertex, update]);
+  }, [current, editBoundaryVertex, pickedBoundaryVertex, pickedVertex, update]);
 
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -640,7 +728,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         event.preventDefault();
         update({ draw: drawUndoPoint(m.draw) });
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (pickedVertex() !== null) {
+        if (pickedVertex() !== null || pickedBoundaryVertex() !== null) {
           event.preventDefault();
           deleteVertex();
         } else if (o.selection.some(isPlanEntity)) {
@@ -649,12 +737,12 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         }
       }
     },
-    [cancel, current, deleteVertex, finishDraw, holdSpace, pickedVertex, update],
+    [cancel, current, deleteVertex, finishDraw, holdSpace, pickedBoundaryVertex, pickedVertex, update],
   );
 
   const isPointerDown = useCallback(() => current().pointerId !== null, [current]);
 
-  const kind = toolKind(options.tool);
+  const kind = toolKind(options.tool, options.plan);
   const {
     plan,
     viewport,
@@ -667,16 +755,17 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     bedTypeKey,
     objectType,
   } = options;
-  const { select: selectState, draw: drawState } = machines;
+  const { select: selectState, draw: drawState, boundary: boundaryState } = machines;
 
   const overlay = useMemo<Overlay>(() => {
     if (kind === 'select') return selectOverlay(selectState);
+    if (kind === 'boundary') return boundaryOverlay(boundaryState);
     if (kind !== 'draw') return EMPTY_OVERLAY;
     return drawOverlay(
       drawState,
       envOf({ plan, viewport, selection, renderer, stack, angleStepDeg, snapPoint }),
       {
-        target: tool === 'garden_object' ? 'garden_object' : 'bed',
+        target: drawTargetOf(tool),
         shape: drawShape,
         newBedName,
         bedTypeKey,
@@ -687,6 +776,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     kind,
     selectState,
     drawState,
+    boundaryState,
     plan,
     viewport,
     selection,
@@ -703,6 +793,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
 
   // Handles follow the live draft of a handle drag, and are hidden while a move or marquee runs.
   const handles = useMemo<HandleSet | null>(() => {
+    // The unlocked boundary shows its own handles (#2890); nothing is selected meanwhile.
+    if (kind === 'boundary') return boundaryHandles(boundaryState, { plan, pxPerM: viewport.pxPerM });
     if (kind !== 'select' || selection.length !== 1) return null;
     const ref = selection[0];
     const gesture = selectState.gesture;
@@ -715,15 +807,17 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       geometry = gesture.draft.find((entry) => entry.key === ref.key)?.geometry ?? geometry;
     }
     return geometry ? computeHandles(geometry, viewport.pxPerM) : null;
-  }, [kind, selection, selectState, plan, viewport.pxPerM]);
+  }, [kind, selection, selectState, boundaryState, plan, viewport.pxPerM]);
 
-  const vertex =
-    selection.length === 1 && selectState.vertex?.key === selection[0].key
-      ? selectState.vertex
-      : null;
+  const boundaryVertex = boundaryState.vertex;
+  const vertex = useMemo<VertexSelection | null>(() => {
+    if (kind === 'boundary') return boundaryVertex === null ? null : { key: BOUNDARY_KEY, index: boundaryVertex };
+    return selection.length === 1 && selectState.vertex?.key === selection[0].key ? selectState.vertex : null;
+  }, [kind, boundaryVertex, selection, selectState.vertex]);
   const draftPoints = pointCount(drawState);
   const handleDragging =
-    kind === 'select' && selectState.gesture.kind === 'handle' && selectState.gesture.dragged;
+    (kind === 'select' && selectState.gesture.kind === 'handle' && selectState.gesture.dragged) ||
+    (kind === 'boundary' && boundaryState.kind === 'handle' && boundaryState.dragged);
   const moving = kind === 'select' && selectState.gesture.kind === 'move';
   const moveSnap = useMemo(
     () => (kind === 'select' ? moveSnapMark(selectState) : null),

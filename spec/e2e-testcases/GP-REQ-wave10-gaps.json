@@ -1,7 +1,7 @@
 {
   "GP-UX-049": {
     "partial": true,
-    "reason": "Wave-10 part: the indoor empty state with its text and data-plan-kind is tested (`GardenPlanRoute.test.tsx`, E2E TC-053-106). It offers two actions ('Grundriss zeichnen', 'Foto als Vorlage laden') where GP-UX-049 asks for exactly one, and 'Grundriss zeichnen' only opens the empty canvas because there is no boundary tool (#2890) - operator question 4 in #2884",
+    "reason": "Wave-10 part: the indoor empty state with its text and data-plan-kind is tested (`GardenPlanRoute.test.tsx`, E2E TC-053-106). It offers two actions ('Grundriss zeichnen', 'Foto als Vorlage laden') where GP-UX-049 asks for exactly one - operator question 4 in #2884. Since #2890 'Grundriss zeichnen' starts the boundary tool (`GardenPlanRoute.test.tsx`, E2E TC-053-001)",
     "issue": 2884
   },
   "§17.3 AC-1": {

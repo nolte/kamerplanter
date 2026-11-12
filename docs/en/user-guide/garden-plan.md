@@ -16,7 +16,7 @@ Open the site under **Locations** and click **Open garden plan**. The page has t
 
 Planning mode is a workspace like a drawing program. The drawing area gets as much room as possible:
 
-- **Header bar:** a single row above the plan. It holds **Back** to the site, **Undo** and **Redo**, the save state with **Save**, the tabs **Plan**, **List** and **Beds**, the switch to field mode and the switch for the side panel. Rare actions sit in the **⋮** menu (More): keyboard help, underlay, select all, export and import and, while exactly one bed is selected, **Save as template**. When the window gets narrower, first the **Auto-save** switch, then the field-mode switch, the panel switch and last the tabs move into the menu. **Save** always stays visible.
+- **Header bar:** a single row above the plan. It holds **Back** to the site, **Undo** and **Redo**, the save state with **Save**, the tabs **Plan**, **List** and **Beds**, the switch to field mode and the switch for the side panel. Rare actions sit in the **⋮** menu (More): keyboard help, underlay, drawing or unlocking the garden boundary, select all, export and import and, while exactly one bed is selected, **Save as template**. When the window gets narrower, first the **Auto-save** switch, then the field-mode switch, the panel switch and last the tabs move into the menu. **Save** always stays visible.
 - **Tabs Plan · List · Beds:** **Plan** shows the drawing area, **List** the same plan as a list (usable without a mouse or drawing area), **Beds** the [bed list](#bed-list-on-the-garden-plan). The selected tab is part of the address (`?tab=plan`, `list` or `beds`), so a link opens the right tab directly and the browser's **Back** returns to the previous tab. Switching tabs keeps unsaved changes, the selection and the view, and asks nothing.
 - **Tool rail:** vertical, to the left of the drawing area (see [Tools and shapes](#tools-and-shapes)).
 - **Drawing area:** fills the height of the window. Zoom, **Fit**, the scale bar and the mini-map sit in its corners on top of the plan.
@@ -28,8 +28,14 @@ Planning mode is a workspace like a drawing program. The drawing area gets as mu
 
 Every plan has a garden boundary: the outline of your garden as a rectangle or polygon. Beds and garden objects must lie completely inside it. A site with no boundary and no placed objects shows the notice **No garden plan yet** instead of the editor.
 
+**Drawing the boundary.** Choose **Draw garden boundary** in the **⋮** menu (in a [flat plan](#flat-plan) **Draw floor plan**). A notice appears above the plan, and in the tool rail you pick **Rectangle** or **Polygon**. You drag out a rectangle; a polygon you place point by point and close with **Done** or Enter, just like a bed. On a touchscreen you place the points with **Set point**. Afterwards the boundary shows handles: drag corners and edges, rotate, move, insert or delete points. Every change is one step for **Undo**; the north direction stays as it is.
+
+**Locked once saved.** A saved boundary is locked against accidental changes: you can neither select nor move it. To change it, choose **Unlock and edit garden boundary** in the **⋮** menu. **Lock** in the notice above the plan, Esc or the next save lock it again.
+
+**Beds and objects stay inside.** A boundary that would leave a bed or garden object outside is drawn red and not applied; Kamerplanter clips nothing. Move the bed inside first or draw the boundary wider. Objects marked "Outside the property" do not count.
+
 !!! note "Partially available: garden boundary"
-    The interface does not yet have a tool for drawing the garden boundary. You create the first plan through the API (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)) or you import a backup (see [Export the plan and restore a backup](#plan-export-import)). Once the boundary exists, the editor changes only its north direction: the compass field sets where geographic north lies on the plan. **Draw the floor plan** in an empty [flat plan](#flat-plan) also only opens the empty drawing area; you cannot draw an outline there yet. <!-- REQ-053 GP-FR-013, GP-FR-015, GP-FR-182 -->
+    A garden without a plan shows **No garden plan yet** with **Add the first bed**. You draw the boundary afterwards through the **⋮** menu. The compass field in the **View** tab sets the north direction only once a boundary exists. <!-- REQ-053 UC-01, GP-FR-019, GP-FR-032, GP-FR-013, GP-FR-015, GP-FR-182 -->
 
 ### Who may do what {#who-may-do-what}
 
@@ -208,7 +214,7 @@ A compost heap, a water source or a storage shed needs work too: turning the com
 
 For a site in your home (site type indoor, windowsill or grow tent) the garden plan is a **flat plan**. You draw and plan with the same tools as in the garden; a few things are set up for indoors:
 
-- **Empty plan:** instead of "No garden plan yet" you see **No flat plan yet** with two ways in: **Draw the floor plan** opens the empty drawing area, **Load a photo as a template** opens it with the [underlay](#underlay) dialog. A photo or sketch of the floor plan, calibrated to real dimensions with two points, is the easiest start.
+- **Empty plan:** instead of "No garden plan yet" you see **No flat plan yet** with two ways in: **Draw the floor plan** opens the drawing area and starts drawing the outline of your flat right away (see [The garden boundary](#the-garden-boundary)), **Load a photo as a template** opens it with the [underlay](#underlay) dialog. A photo or sketch of the floor plan, calibrated to real dimensions with two points, is the easiest start.
 - **Grid:** a new flat plan starts at 5 cm instead of 10 cm.
 - **Indoor objects:** under **Garden object** you find **Window** (a line in the wall), **Door**, **Furniture** (windowsill, shelf, table) and **Lamp**. Their properties are described under [Properties, side panel and list view](#properties-and-list-view).
 - **What indoors leaves out:** Kamerplanter hides frost, cold-air pocket, heat storage and wind for indoor sites, and the frost layer too. Stored values are kept.
@@ -219,7 +225,7 @@ For a site in your home (site type indoor, windowsill or grow tent) the garden p
 **Tent rules.** On the page of a tent or shelf you enter, under **Tent rules**, an own **adjacency factor** (it overrides the garden's value, for example when plants grow into each other on purpose) and the **lighting**: lamp height and distance to the plants. Kamerplanter stores the lighting for a later light calculation and does not calculate anything from it yet. If plants in the same tent need different day lengths in their current phase according to their phase profiles, the page warns you: a lamp has only one schedule. If no light duration is stored for a phase, the page says so instead of guessing. When you plant, the dialog warns if a pot is smaller than the species' recommended pot volume. <!-- REQ-053 W-016 -->
 
 !!! note "Partially available: flat plan"
-    You cannot draw the outline of your flat as its own boundary yet; use the underlay and draw rooms, windowsills and shelves as planting spots or objects. The light-need warning currently names the phases by their English name, also in the German interface. Some labels still talk about the "garden" indoors. <!-- REQ-053 GP-FR-182, #2890, #2889 -->
+    The light-need warning currently names the phases by their English name, also in the German interface. Some labels still talk about the "garden" indoors. <!-- REQ-053 GP-FR-182, #2889 -->
 
 ## Field mode in the garden {#field-mode-in-the-garden}
 
@@ -489,7 +495,7 @@ This section is for everyone who creates the plan through the API or operates an
 ## Frequently Asked Questions
 
 ??? question "What do I do if the plan shows **No garden plan yet**?"
-    The site has no garden boundary yet. Create it through the API or import a backup, see [The garden boundary](#the-garden-boundary).
+    The site has no plan yet. Choose **Add the first bed** and then draw the garden boundary through the **⋮** menu, or import a backup, see [The garden boundary](#the-garden-boundary).
 
 ??? question "I can draw but not save."
     Saving requires at least the "grower" role. With the "viewer" role the server refuses to save.

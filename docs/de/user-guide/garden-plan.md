@@ -16,7 +16,7 @@ Der Gartenplan zeigt deinen Garten von oben: Beete und Gartenobjekte wie Wege, Z
 
 Der Planungsmodus ist eine Arbeitsfläche wie in einem Zeichenprogramm. Die Zeichenfläche bekommt so viel Platz wie möglich:
 
-- **Kopfleiste:** Eine einzige Zeile über dem Plan. Sie enthält **Zurück** zum Standort, **Rückgängig** und **Wiederholen**, den Speicher-Stand mit **Speichern**, die Tabs **Plan**, **Liste** und **Beete**, den Wechsel in den Feldmodus und den Schalter für das Seitenpanel. Seltene Aktionen liegen im Menü **⋮** (Mehr): Tastaturhilfe, Unterlage, Alles auswählen, Export und Import und, wenn genau ein Beet gewählt ist, **Als Vorlage speichern**. Wird das Fenster schmaler, wandern zuerst der Schalter **Automatisch speichern**, dann der Feldmodus-Wechsel, der Panel-Schalter und zuletzt die Tabs ins Menü. **Speichern** bleibt immer sichtbar.
+- **Kopfleiste:** Eine einzige Zeile über dem Plan. Sie enthält **Zurück** zum Standort, **Rückgängig** und **Wiederholen**, den Speicher-Stand mit **Speichern**, die Tabs **Plan**, **Liste** und **Beete**, den Wechsel in den Feldmodus und den Schalter für das Seitenpanel. Seltene Aktionen liegen im Menü **⋮** (Mehr): Tastaturhilfe, Unterlage, Gartengrenze zeichnen oder entsperren, Alles auswählen, Export und Import und, wenn genau ein Beet gewählt ist, **Als Vorlage speichern**. Wird das Fenster schmaler, wandern zuerst der Schalter **Automatisch speichern**, dann der Feldmodus-Wechsel, der Panel-Schalter und zuletzt die Tabs ins Menü. **Speichern** bleibt immer sichtbar.
 - **Tabs Plan · Liste · Beete:** **Plan** zeigt die Zeichenfläche, **Liste** denselben Plan als Liste (ohne Maus und Zeichenfläche bedienbar), **Beete** die [Beetliste](#beetliste-im-gartenplan). Der gewählte Tab steht in der Adresse (`?tab=plan`, `list` oder `beds`). Ein Link öffnet also direkt den richtigen Tab, und **Zurück** im Browser führt zum vorigen Tab. Beim Wechsel zwischen den Tabs bleiben ungespeicherte Änderungen, Auswahl und Ausschnitt erhalten, und es kommt keine Rückfrage.
 - **Werkzeug-Leiste:** links neben der Zeichenfläche, senkrecht (siehe [Werkzeuge und Formen](#werkzeuge-und-formen)).
 - **Zeichenfläche:** füllt die Höhe des Fensters. Zoom, **Anpassen**, Maßstabsbalken und die Übersichtskarte liegen in den Ecken über dem Plan.
@@ -28,8 +28,14 @@ Der Planungsmodus ist eine Arbeitsfläche wie in einem Zeichenprogramm. Die Zeic
 
 Jeder Plan hat eine Gartengrenze: den Umriss deines Gartens als Rechteck oder Vieleck. Beete und Gartenobjekte müssen ganz innerhalb liegen. Ein Standort ohne Grenze und ohne eingezeichnete Objekte zeigt statt des Editors den Hinweis **Noch kein Gartenplan**.
 
+**Grenze zeichnen.** Wähle im Menü **⋮** den Eintrag **Gartengrenze zeichnen** (im [Wohnungsplan](#wohnungsplan) **Grundriss zeichnen**). Über dem Plan erscheint ein Hinweis, und in der Werkzeug-Leiste wählst du **Rechteck** oder **Vieleck**. Ein Rechteck ziehst du auf, ein Vieleck setzt du Punkt für Punkt und schließt es mit **Fertig** oder Enter, genau wie bei einem Beet. Auf dem Touchscreen setzt du die Punkte mit **Punkt setzen**. Danach zeigt die Grenze Griffe: Ecken und Kanten ziehen, drehen, Punkte verschieben, einfügen oder löschen. Jede Änderung ist ein Schritt für **Rückgängig**, die Nordrichtung bleibt, wie sie ist.
+
+**Gesperrt nach dem Speichern.** Eine gespeicherte Grenze ist gegen versehentliches Ändern gesperrt: Du kannst sie weder auswählen noch verschieben. Zum Ändern wählst du im Menü **⋮** **Gartengrenze entsperren und bearbeiten**. **Sperren** im Hinweis über dem Plan, Esc oder das nächste Speichern sperren sie wieder.
+
+**Beete und Objekte bleiben drin.** Eine Grenze, die ein Beet oder Gartenobjekt draußen ließe, zeichnet der Editor rot und übernimmt sie nicht; Kamerplanter schneidet nichts ab. Verschiebe zuerst das Beet nach innen oder zieh die Grenze weiter. Objekte mit „Außerhalb des Grundstücks“ zählen nicht.
+
 !!! note "Teilweise verfügbar: Gartengrenze"
-    Die Oberfläche hat noch kein Werkzeug, mit dem du die Gartengrenze zeichnest. Den ersten Plan legst du über die Programmierschnittstelle an (siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster)) oder du spielst eine Sicherung ein (siehe [Plan exportieren und Sicherung einspielen](#plan-export-import)). Ist die Grenze einmal da, ändert sich nur noch ihre Nordrichtung im Editor: Das Kompass-Feld stellt ein, wo geografisch Norden auf dem Plan liegt. Auch **Grundriss zeichnen** im leeren [Wohnungsplan](#wohnungsplan) öffnet nur die leere Zeichenfläche; einen Umriss zeichnest du dort noch nicht. <!-- REQ-053 GP-FR-013, GP-FR-015, GP-FR-182 -->
+    Ein Garten ohne Plan zeigt **Noch kein Gartenplan** mit **Erstes Beet anlegen**. Die Grenze zeichnest du danach über das Menü **⋮**. Das Kompass-Feld im Tab **Ansicht** stellt die Nordrichtung erst ein, wenn es eine Grenze gibt. <!-- REQ-053 UC-01, GP-FR-019, GP-FR-032, GP-FR-013, GP-FR-015, GP-FR-182 -->
 
 ### Wer darf was {#wer-darf-was}
 
@@ -208,7 +214,7 @@ Auch ein Kompost, eine Wasserquelle oder ein Lager braucht Arbeit: den Kompost u
 
 Für einen Standort in der Wohnung (Standort-Art Innenraum, Fensterbank oder Growzelt) ist der Gartenplan ein **Wohnungsplan**. Du zeichnest und planst mit denselben Werkzeugen wie im Garten; einiges ist auf drinnen eingestellt:
 
-- **Leerer Plan:** Statt „Noch kein Gartenplan“ steht **Noch kein Wohnungsplan** mit zwei Wegen: **Grundriss zeichnen** öffnet die leere Zeichenfläche, **Foto als Vorlage laden** öffnet sie mit dem Dialog für die [Unterlage](#unterlage). Ein Foto oder eine Skizze des Grundrisses, mit zwei Punkten auf echte Maße geeicht, ist der bequemste Einstieg.
+- **Leerer Plan:** Statt „Noch kein Gartenplan“ steht **Noch kein Wohnungsplan** mit zwei Wegen: **Grundriss zeichnen** öffnet die Zeichenfläche und startet gleich das Zeichnen des Wohnungsumrisses (siehe [Die Gartengrenze](#die-gartengrenze)), **Foto als Vorlage laden** öffnet sie mit dem Dialog für die [Unterlage](#unterlage). Ein Foto oder eine Skizze des Grundrisses, mit zwei Punkten auf echte Maße geeicht, ist der bequemste Einstieg.
 - **Raster:** Ein neuer Wohnungsplan beginnt mit 5 cm statt 10 cm.
 - **Objekte drinnen:** Unter **Gartenobjekt** findest du **Fenster** (als Linie in der Wand), **Tür**, **Möbel** (Fensterbank, Regal, Tisch) und **Lampe**. Ihre Eigenschaften stehen unter [Eigenschaften, Seitenpanel und Listenansicht](#eigenschaften-und-listenansicht).
 - **Was drinnen fehlt:** Frost, Kaltluft, Wärmespeicher und Wind blendet Kamerplanter für Innenräume aus, ebenso die Frost-Ebene. Gespeicherte Werte bleiben erhalten.
@@ -219,7 +225,7 @@ Für einen Standort in der Wohnung (Standort-Art Innenraum, Fensterbank oder Gro
 **Zelt-Regeln.** Auf der Seite eines Zelts oder Regals trägst du unter **Zelt-Regeln** einen eigenen **Nachbarschaftsfaktor** ein (er überschreibt den Wert des Gartens, etwa wenn Pflanzen bewusst ineinander wachsen) und die **Beleuchtung**: Höhe der Lampe und Abstand zu den Pflanzen. Kamerplanter speichert die Beleuchtung für eine spätere Lichtberechnung und rechnet daraus noch nichts. Stehen im selben Zelt Pflanzen, die laut ihren Phasenprofilen in ihrer aktuellen Phase unterschiedlich lange Lichttage brauchen, warnt die Seite: Eine Lampe hat nur einen Zeitplan. Ist für eine Phase keine Lichtdauer hinterlegt, sagt die Seite das, statt zu raten. Beim Bepflanzen warnt der Dialog, wenn ein Topf kleiner ist als das empfohlene Topfvolumen der Art. <!-- REQ-053 W-016 -->
 
 !!! note "Teilweise verfügbar: Wohnungsplan"
-    Einen Umriss der Wohnung zeichnest du noch nicht als eigene Grenze; nutze die Unterlage und zeichne Räume, Fensterbänke und Regale als Pflanzplätze oder Objekte. Die Warnung zum Lichtbedarf nennt die Phasen derzeit mit ihrem englischen Namen. Einige Beschriftungen sprechen drinnen noch vom „Garten“. <!-- REQ-053 GP-FR-182, #2890, #2889 -->
+    Die Warnung zum Lichtbedarf nennt die Phasen derzeit mit ihrem englischen Namen. Einige Beschriftungen sprechen drinnen noch vom „Garten“. <!-- REQ-053 GP-FR-182, #2889 -->
 
 ## Feldmodus im Garten {#feldmodus-im-garten}
 
@@ -489,7 +495,7 @@ Dieser Abschnitt ist für alle, die den Plan über die API anlegen oder eine Ins
 ## Häufige Fragen
 
 ??? question "Was tue ich, wenn der Plan **Noch kein Gartenplan** zeigt?"
-    Der Standort hat noch keine Gartengrenze. Lege sie über die API an oder spiele eine Sicherung ein, siehe [Die Gartengrenze](#die-gartengrenze).
+    Der Standort hat noch keinen Plan. Wähle **Erstes Beet anlegen** und zeichne danach über das Menü **⋮** die Gartengrenze, oder spiele eine Sicherung ein, siehe [Die Gartengrenze](#die-gartengrenze).
 
 ??? question "Ich kann zeichnen, aber nicht speichern."
     Speichern erfordert mindestens die Rolle „grower". Mit der Rolle „viewer" lehnt der Server das Speichern ab.

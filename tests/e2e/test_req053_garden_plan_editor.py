@@ -1,6 +1,8 @@
 """E2E baseline of the REQ-053 garden plan editor (WP 2.9, issue #2370; spec pin REQ-053 v1.4).
 
 Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, GP-ACC from the coverage matrix):
+  TC-053-001  ->  draw the boundary on an empty site, save, reload: stored and   (UC-01, GP-FR-019/032,
+                  locked (#2890); partial, see the test's docstring              GP-API-002)
   TC-053-002  ->  draw a bed with the rectangle tool, snap to 2,0 x 1,0 m      (GP-ACC-002)
   TC-053-003  ->  drag a bed: grid snap, Alt without snap, Esc cancels          (GP-ACC-006)
   TC-053-004  ->  undo / redo of a move by keyboard                             (GP-ACC-007)
@@ -11,11 +13,6 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, GP-ACC from the co
   TC-053-009  ->  "Als Liste": all objects reachable, keyboard, axe             (GP-ACC-032)
   TC-053-014  ->  tent 1,2 x 1,2 m with 9 slots in the same plan view           (GP-ACC-036)
                   partial: see the test's docstring
-
-Not automated here, on purpose (no skip, no xfail — there is nothing to run):
-  TC-053-001  the editor of WP 2.1-2.8 has no boundary tool and does not mount on a
-              plan without content (the route shows an empty state instead), so the
-              boundary cannot be drawn in the browser.
 
 Preconditions are self-provisioned through the application's own API, one fresh
 site per test with a UUID-derived name (`_garden_plan_helpers.py`): no test reads
@@ -40,6 +37,7 @@ from ._garden_plan_helpers import (
     ObjectSpec,
     ProvisionedGarden,
     circle,
+    create_site,
     polyline,
     provision_garden,
     read_plan,
@@ -47,6 +45,7 @@ from ._garden_plan_helpers import (
     stored_origin,
 )
 from .pages.garden_plan_page import GardenPlanPage
+from .pages.garden_plan_workspace_page import WorkspacePlanPage
 
 pytestmark = pytest.mark.requires_desktop
 
@@ -73,6 +72,69 @@ def _garden_with_one_bed(base_url: str, seed: dict, purpose: str) -> Provisioned
         purpose=purpose,
         beds=(BedSpec(BED_NAME, rect(*BED_ORIGIN, 2.0, 1.0)),),
     )
+
+
+# ── TC-053-001 ──────────────────────────────────────────────────────────────
+
+
+def test_tc_053_001_draw_the_boundary_on_an_empty_site_save_reload_locked(
+    browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-001 - draw the boundary on an empty site, save, reload: stored and locked (UC-01, #2890).
+
+    Precondition (API): an indoor site without a plan (no boundary, nothing placed). "Grundriss zeichnen" in its empty
+    state starts the boundary mode; a rectangle dragged from (1,0 | 1,0) to (9,0 | 7,0) is one unsaved change and
+    stays unlocked (handles) until the save, which locks it. Breaks if the empty state does not start the mode, the
+    drawn boundary is not one change, the save does not store an 8,0 x 6,0 m rect at (1,0 | 1,0), the saved boundary
+    is not locked (mode or handles after the save or after the reload), or the reload loses it. The overflow's
+    "entsperren und bearbeiten" unlocks it again and "Sperren" locks it without a change (GP-FR-032).
+
+    Spec deviation, not asserted: TC-053-001 starts on an outdoor site, whose empty state offers "Erstes Beet anlegen"
+    only (#2617, GP-UX-049 one action) - the boundary is reached there through the overflow after the first bed. The
+    one-step path from an empty site is the indoor "Grundriss zeichnen", so the case runs there; it reads no area.
+    """
+    plan = WorkspacePlanPage(browser, base_url)
+    site_key, _ = create_site(base_url, e2e_seed_data, purpose="tc001-boundary", site_type="indoor")
+    plan.open_empty_plan(site_key)
+    plan.start_drawing_from_empty_state()
+    plan.wait_for_boundary_mode("draw", "TC-053-001: 'Grundriss zeichnen' starts the boundary mode")
+    screenshot("053_001_01_boundary_draw", "Grundriss zeichnen: Grenz-Modus, Rechteck oder Vieleck")
+
+    plan.draw_rect((1.0, 1.0), (9.0, 7.0))
+    plan.wait_for_pending(1, "TC-053-001: the drawn boundary is one unsaved change")
+    plan.wait_for_boundary_mode(
+        "edit", "TC-053-001: the new boundary stays unlocked until the save"
+    )
+    assert plan.has_handles(), "TC-053-001: the unlocked boundary must show its handles"
+    screenshot("053_001_02_boundary_drawn", "Grenze gezeichnet, entsperrt mit Griffen")
+
+    plan.save_with_button()
+    plan.wait_for_boundary_mode(None, "TC-053-001: the save locks the boundary (GP-FR-032)")
+    assert not plan.has_handles(), "TC-053-001: a locked boundary shows no handles"
+
+    stored = read_plan(base_url, e2e_seed_data, site_key).get("plan") or {}
+    boundary = stored.get("boundary") or {}
+    origin = [float(c) for c in boundary.get("origin") or []]
+    assert (
+        boundary.get("kind") == "rect"
+        and len(origin) == 2
+        and all(abs(c - 1.0) <= 0.05 for c in origin)
+        and abs(float(boundary.get("width_m", 0)) - 8.0) <= 0.05
+        and abs(float(boundary.get("length_m", 0)) - 6.0) <= 0.05
+    ), f"TC-053-001: the stored boundary should be the 8,0 x 6,0 m rect at (1,0 | 1,0): {boundary}"
+
+    plan.reload(site_key)
+    assert plan.boundary_mode() is None, "TC-053-001: after the reload the boundary is locked"
+    assert not plan.has_handles(), "TC-053-001: after the reload the boundary shows no handles"
+    plan.choose_boundary_entry(
+        "Grundriss entsperren und bearbeiten",
+        "TC-053-001: the saved boundary is unlocked on request",
+    )
+    plan.wait_for_boundary_mode("edit", "TC-053-001: the overflow entry unlocks the boundary")
+    assert plan.has_handles(), "TC-053-001: the unlocked boundary shows its handles again"
+    screenshot("053_001_03_boundary_unlocked", "Gespeicherte Grenze entsperrt")
+    plan.lock_boundary()
+    assert plan.pending_count() == 0, "TC-053-001: unlocking and locking is no change of the plan"
 
 
 # ── TC-053-002 ──────────────────────────────────────────────────────────────

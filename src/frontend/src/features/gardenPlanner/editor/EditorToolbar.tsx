@@ -44,7 +44,7 @@ import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import { MenuTriggerTooltip } from './MenuTriggerTooltip';
 import type { DimensionTarget } from './tools/addDimensions';
 import type { AlignMode, DistributeAxis } from './tools/align';
-import type { DrawShape } from './tools/drawMachine';
+import { BOUNDARY_SHAPES, type DrawShape } from './tools/drawMachine';
 import { unavailableProps } from './unavailable';
 import { useRovingToolbar, type ToolbarOrientation } from './useRovingToolbar';
 
@@ -97,6 +97,11 @@ interface EditorToolbarProps {
   onAddWithDimensions?: (target: DimensionTarget) => void;
   /** The selection group; `null` while nothing is selected - then it is not rendered at all (AC-4). */
   selectionGroup: ToolbarSelectionGroup | null;
+  /**
+   * The boundary mode of the overflow (#2890): `draw` offers the boundary's shapes (rect, polygon) and the drawing
+   * controls here; no top-level tool is pressed meanwhile - the mode is no tool of the rail (GP-UX-001).
+   */
+  boundaryMode?: 'draw' | 'edit' | null;
 }
 
 const SHAPES: { shape: DrawShape; icon: ReactElement }[] = [
@@ -158,9 +163,14 @@ export function EditorToolbar(props: EditorToolbarProps) {
     (tool === 'bed' && (onTemplate !== undefined || onAddWithDimensions !== undefined)) ||
     (tool === 'garden_object' && onAddWithDimensions !== undefined);
 
-  const drawing = props.tool === 'bed' || props.tool === 'garden_object';
-  // A bed is an area; only a garden object can be a line.
-  const shapes = SHAPES.filter((entry) => props.tool === 'garden_object' || entry.shape !== 'polyline');
+  const boundaryDraw = props.boundaryMode === 'draw';
+  const drawing = props.tool === 'bed' || props.tool === 'garden_object' || boundaryDraw;
+  // A bed is an area; only a garden object can be a line; the boundary is a rect or a polygon (§9.5).
+  const shapes = SHAPES.filter((entry) =>
+    boundaryDraw
+      ? BOUNDARY_SHAPES.includes(entry.shape)
+      : props.tool === 'garden_object' || entry.shape !== 'polyline',
+  );
   const pointShape = props.drawShape === 'polygon' || props.drawShape === 'polyline';
   const minPoints = props.drawShape === 'polygon' ? 3 : 2;
   const finishReady = props.draftPoints >= minPoints;

@@ -9,6 +9,10 @@
  * containment rule the server enforces. The bed type and the object type come from the editor's
  * type choice (WP 2.6); without one the bed type is the one most beds of the plan have and the
  * object is a generic `other`.
+ *
+ * The target `boundary` draws the garden boundary / flat outline (UC-01, #2890) with the same steps: the finished
+ * rect or polygon is one `set_boundary`, checked against the beds and objects it must enclose (V-19); the tool stays
+ * on and shows the new boundary's handles until the save locks it (GP-FR-032).
  */
 import { MIN_DIMENSION_M, roundLength, toShape } from '../../model/geometry';
 import { newTempKey } from '../../model/planModel';
@@ -25,10 +29,15 @@ import {
   type ToolEnv,
 } from './machineTypes';
 import { defaultProps } from './objectTypes';
-import { inferParentKey, violationOfNew } from './validation';
+import { setBoundaryOp } from './boundaryMachine';
+import { boundaryViolation, inferParentKey, violationOfNew } from './validation';
 
 export type DrawShape = 'rect' | 'circle' | 'polygon' | 'polyline';
-export type DrawTarget = 'bed' | 'garden_object';
+/** `boundary`: the garden boundary / flat outline (UC-01, GP-FR-019) - a rect or a polygon, never a circle or line. */
+export type DrawTarget = 'bed' | 'garden_object' | 'boundary';
+
+/** The shapes the garden boundary can take (§9.5 table "Gartengrenze": rect, polygon). */
+export const BOUNDARY_SHAPES: readonly DrawShape[] = ['rect', 'polygon'];
 
 export interface DrawOptions {
   target: DrawTarget;
@@ -143,12 +152,29 @@ function pointsGeometry(points: readonly Point[], shape: DrawShape): Geometry {
       };
 }
 
+/** The live verdict on a drawn shape: V-01..V-03 for an object, the boundary's own rules for the boundary. */
+function violationOf(env: ToolEnv, opts: DrawOptions, geometry: Geometry): string | null {
+  if (opts.target === 'boundary') return boundaryViolation(env.plan, geometry);
+  return violationOfNew(env.plan, geometry, inferParentKey(env.plan, geometry));
+}
+
+/**
+ * The garden boundary drawn (UC-01): ONE `set_boundary` (one undo step) that keeps the north angle. The tool stays on:
+ * with a boundary in the plan it now shows the boundary's handles - unlocked until the save (GP-FR-032).
+ */
+function createBoundary(env: ToolEnv, geometry: Geometry): { effects: Effect[]; ok: boolean } {
+  const violation = boundaryViolation(env.plan, geometry);
+  if (violation) return { effects: [{ type: 'notice', code: violation }], ok: false };
+  return { ok: true, effects: [{ type: 'commit', ops: [setBoundaryOp(env, geometry)], label: 'drawBoundary' }] };
+}
+
 /** The effects of a finished shape, or a notice when the live validation refuses it. */
 function create(
   env: ToolEnv,
   opts: DrawOptions,
   geometry: Geometry,
 ): { effects: Effect[]; ok: boolean } {
+  if (opts.target === 'boundary') return createBoundary(env, geometry);
   const parentKey = inferParentKey(env.plan, geometry);
   const violation = violationOfNew(env.plan, geometry, parentKey);
   if (violation) return { effects: [{ type: 'notice', code: violation }], ok: false };
@@ -329,15 +355,14 @@ export function drawOverlay(state: DrawState, env: ToolEnv, opts: DrawOptions): 
   if (state.kind === 'drag') {
     const geometry = dragGeometry(state, opts.shape);
     if (geometry === null) return EMPTY_OVERLAY;
-    const invalid = violationOfNew(env.plan, geometry, inferParentKey(env.plan, geometry)) !== null;
+    const invalid = violationOf(env, opts, geometry) !== null;
     return { shapes: [{ key: 'draft', shape: toShape(geometry), invalid }], marquee: null };
   }
   if (state.kind === 'points' && state.points.length > 0) {
     const vertices = state.hoverM ? [...state.points, state.hoverM] : state.points;
     let invalid = false;
     if (state.points.length >= (opts.shape === 'polygon' ? 3 : 2)) {
-      const geometry = pointsGeometry(state.points, opts.shape);
-      invalid = violationOfNew(env.plan, geometry, inferParentKey(env.plan, geometry)) !== null;
+      invalid = violationOf(env, opts, pointsGeometry(state.points, opts.shape)) !== null;
     }
     return {
       shapes: [
