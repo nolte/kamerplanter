@@ -22,6 +22,14 @@ logger = structlog.get_logger(__name__)
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates" / "print"
 
+#: Every print PDF is a tagged PDF (REQ-032 §8 "Barrierefreie PDFs", REQ-053 GP-NFR-029): WeasyPrint's documented
+#: ``pdf_tags`` option (``weasyprint.DEFAULT_OPTIONS``, "Whether PDF should be tagged for accessibility") writes the
+#: structure tree (``/StructTreeRoot``) in document order, ``/MarkInfo << /Marked true >>`` and
+#: ``/ViewerPreferences << /DisplayDocTitle true >>``. Title and language come from ``base.html`` (``<title>``,
+#: ``<html lang>``). Deliberately not the ``pdf/ua-1`` variant: that would claim PDF/UA conformance in the XMP
+#: metadata, which no checker in the pipeline verifies.
+PDF_TAGS = True
+
 # RFC 3986 scheme: the fetcher classifies the URL itself instead of trusting the
 # caller's parse, so an odd spelling (upper case, leading whitespace) cannot slip
 # past the allowlist below.
@@ -198,6 +206,8 @@ LABELS: dict[str, dict[str, str]] = {
         "garden_plan_paper": "Format",
         "garden_plan_revision": "Stand (Revision)",
         "garden_plan_a3_hint": "Mit A3 wäre ein feinerer Maßstab möglich.",
+        "garden_plan_underlay_alt": "Unterlage zum Abzeichnen (Foto oder Skizze) unter dem Plan",
+        "plant_label_qr_alt": "QR-Code mit dem Link zur Pflanze",
         "garden_plan_bed_list": "Beetliste",
         "garden_plan_bed_name": "Name",
         "garden_plan_bed_area": "Fläche (m²)",
@@ -262,6 +272,8 @@ LABELS: dict[str, dict[str, str]] = {
         "garden_plan_paper": "Paper",
         "garden_plan_revision": "Revision",
         "garden_plan_a3_hint": "A3 would allow a finer scale.",
+        "garden_plan_underlay_alt": "Underlay to trace over (photo or sketch) below the plan",
+        "plant_label_qr_alt": "QR code linking to the plant",
         "garden_plan_bed_list": "Bed list",
         "garden_plan_bed_name": "Name",
         "garden_plan_bed_area": "Area (m²)",
@@ -410,7 +422,7 @@ class PrintEngine:
             base_url=str(self._templates_dir),
             url_fetcher=self._url_fetcher,
         )
-        pdf: bytes = html.write_pdf()
+        pdf: bytes = html.write_pdf(pdf_tags=PDF_TAGS)
         return pdf
 
     @staticmethod

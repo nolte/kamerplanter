@@ -50,6 +50,8 @@ export function exportParams(options: ExportOptions, locale: string): Record<str
       // The member names are asked for only together with the parcel list (SR-024 opt-in).
       if (options.includeAssignment) params.include_assignment = 'true';
     }
+    // The underlay is printed only when asked for (GP-FR-033); without the parameter the PDF never carries it.
+    if (options.underlay) params.underlay = 'true';
   }
   return params;
 }

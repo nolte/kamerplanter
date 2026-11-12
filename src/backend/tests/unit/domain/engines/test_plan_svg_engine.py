@@ -248,7 +248,7 @@ class TestAllowlistAndEscaping:
         assert "image" not in _tags(root)
         assert _tags(root) <= ALLOWED_ELEMENTS
         titles = [e.text for e in root.iter(f"{SVG}title")]
-        assert hostile in titles, "the name must survive as text, not vanish"
+        assert f"Beet: {hostile}" in titles, "the name must survive as text, not vanish"
 
     def test_the_hostile_markup_never_appears_unescaped_in_the_serialised_document(self) -> None:
         rendered = _render(_view(locations=_three_beds(b1=HOSTILE_IMAGE_NAME)))
@@ -292,7 +292,7 @@ class TestAllowlistAndEscaping:
         rendered = _render(_view(locations=_three_beds(b1="Beet\x00\x01 mit\x1fSteuerzeichen\ud800")))
 
         root = _parse(rendered.svg)
-        assert any(e.text == "Beet mitSteuerzeichen" for e in root.iter(f"{SVG}title"))
+        assert any(e.text == "Beet: Beet mitSteuerzeichen" for e in root.iter(f"{SVG}title"))
 
     def test_a_label_is_truncated_to_the_bed_it_labels(self) -> None:
         rendered = _render(_view(locations=_three_beds(b1="B" * 200)))

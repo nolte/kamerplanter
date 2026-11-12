@@ -2,6 +2,7 @@
  * Wire types of the plan export and import (REQ-053 GP-API-004…007, GP-API-005). Plain data; the
  * parsing of the backup file itself stays on the server, which treats it as untrusted input.
  */
+import type { PlanSettings } from '../model/types';
 
 export type ExportFormat = 'json' | 'svg' | 'pdf';
 export type ExportPaper = 'a4' | 'a3';
@@ -59,6 +60,16 @@ export interface ExportOptions {
    * opt-in that is off by default (SR-024, as the CSV's); never sent without `parcelList`.
    */
   includeAssignment?: boolean;
+  /**
+   * PDF only: print the site's underlay (GP-FR-033) under the plan. An aerial view or photo can reveal where someone
+   * lives, so it is off by default and offered only when the plan has an underlay ({@link underlayOffered}).
+   */
+  underlay?: boolean;
+}
+
+/** GP-FR-033: the export dialog offers "print the underlay" only for a plan that has a stored underlay. */
+export function underlayOffered(settings: Pick<PlanSettings, 'underlay'> | null | undefined): boolean {
+  return settings?.underlay !== null && settings?.underlay !== undefined;
 }
 
 export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
@@ -70,6 +81,7 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
   bedList: false,
   parcelList: false,
   includeAssignment: false,
+  underlay: false,
   scope: 'site',
   keys: [],
 };
