@@ -11,7 +11,7 @@
  *
  * The same items render inline or as menu entries from one description, so desktop, tablet and phone come from one
  * component tree (GP-UX-069). Inline controls keep their test ids (GP-UX-070); their entries in the overflow carry
- * `garden-plan-menu-<id>`.
+ * `garden-plan-menu-<id>`. A focused control that moves into the overflow gives the focus to "⋮" (GP-NFR-070).
  */
 import { useEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -23,6 +23,7 @@ import Paper from '@mui/material/Paper';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Tooltip from '@mui/material/Tooltip';
+import { useForkRef } from '@mui/material/utils';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
@@ -30,7 +31,7 @@ import type { MenuAction } from './ContextMenu';
 import { EditorHeaderActions } from './EditorHeaderActions';
 import { SaveBar } from './SaveBar';
 import type { AutoSave } from './useAutoSave';
-import { useHeaderOverflow } from './useHeaderOverflow';
+import { useHeaderFocusRescue, useHeaderOverflow } from './useHeaderOverflow';
 
 const PREFIX = 'pages.gardenPlan';
 const TARGET_PX = 48;
@@ -146,6 +147,10 @@ export function EditorHeaderBar({
   const { t } = useTranslation();
   const barRef = useRef<HTMLDivElement | null>(null);
   const level = useHeaderOverflow(barRef, narrow ? HEADER_LEVEL_ALL : 0, HEADER_LEVEL_ALL);
+  // A focused control that moves into the overflow hands the focus to "⋮" (GP-NFR-070).
+  const ownOverflowRef = useRef<HTMLButtonElement | null>(null);
+  const overflowRef = useForkRef(ownOverflowRef, overflowButtonRef);
+  const focusRescue = useHeaderFocusRescue(barRef, ownOverflowRef);
   const inline = {
     autoSave: level < HEADER_STEP.autoSave,
     fieldMode: level < HEADER_STEP.fieldMode,
@@ -239,6 +244,8 @@ export function EditorHeaderBar({
       aria-label={t(`${PREFIX}.header.label`)}
       data-testid="garden-plan-header-bar"
       data-overflow-level={level}
+      onFocus={focusRescue.onFocus}
+      onBlur={focusRescue.onBlur}
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -318,7 +325,7 @@ export function EditorHeaderBar({
           {panelToggle.label}
         </Button>
       )}
-      <EditorHeaderActions actions={menu} buttonRef={overflowButtonRef} />
+      <EditorHeaderActions actions={menu} buttonRef={overflowRef} />
     </Paper>
   );
 }

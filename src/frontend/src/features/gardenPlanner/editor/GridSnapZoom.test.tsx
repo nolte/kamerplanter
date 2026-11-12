@@ -198,7 +198,7 @@ describe('zoom (GP-FR-009, GP-FR-150)', () => {
     expect(level()).toBe('25 %');
     fireEvent.click(screen.getByTestId('garden-plan-zoom-out'));
     expect(level()).toBe('10 %');
-    expect(screen.getByTestId('garden-plan-zoom-out')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-zoom-out')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('+ and - zoom from the keyboard, 0 fits', () => {

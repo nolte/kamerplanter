@@ -18,6 +18,7 @@ import Typography from '@mui/material/Typography';
 import RotateRightIcon from '@mui/icons-material/RotateRight';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { unavailableProps } from '../editor/unavailable';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { saveBlob } from '../io/ioApi';
 import type { BedTemplates } from './useBedTemplates';
@@ -116,11 +117,12 @@ export default function TemplatePanel(props: TemplatePanelProps) {
       <Button
         variant="contained"
         size="small"
-        // aria-disabled, not disabled: a disabled button drops the keyboard focus to the page body
+        // aria-disabled, not disabled: a disabled button drops the keyboard focus to the page body (GP-NFR-070);
+        // the MUI state class gives it the disabled look
         onClick={() => {
           if (known && !props.busy) props.onPlaceCenter();
         }}
-        aria-disabled={!known || props.busy}
+        {...unavailableProps(!known || props.busy)}
         data-testid="garden-plan-template-place-center"
         sx={{ minHeight: TARGET_PX }}
       >
@@ -132,7 +134,7 @@ export default function TemplatePanel(props: TemplatePanelProps) {
         startIcon={<DownloadIcon />}
         // aria-disabled, not disabled: see "place at the centre"
         onClick={() => void exportPicked()}
-        aria-disabled={!known || exporting}
+        {...unavailableProps(!known || exporting)}
         data-testid="garden-plan-template-export"
         sx={{ minHeight: TARGET_PX }}
       >

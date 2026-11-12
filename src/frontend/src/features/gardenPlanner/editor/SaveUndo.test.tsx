@@ -98,10 +98,10 @@ describe('save status (GP-NFR-005)', () => {
   it('starts as saved with nothing to save, then counts the unsaved changes', () => {
     const t = setupEditor({ plan: plan() });
     expect(status()).toHaveTextContent('Saved');
-    expect(screen.getByTestId('garden-plan-save')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-save')).toHaveAttribute('aria-disabled', 'true');
     moveBed(t, 4);
     expect(status()).toHaveTextContent('Unsaved changes (1)');
-    expect(screen.getByTestId('garden-plan-save')).toBeEnabled();
+    expect(screen.getByTestId('garden-plan-save')).not.toHaveAttribute('aria-disabled');
     moveBed(t, 5);
     expect(status()).toHaveTextContent('Unsaved changes (2)');
   });
@@ -144,10 +144,10 @@ describe('undo and redo (GP-ACC-007, GP-FR-026, GP-FR-155)', () => {
     const t = setupEditor({ plan: plan() });
     const undoButton = screen.getByTestId('garden-plan-undo');
     const redoButton = screen.getByTestId('garden-plan-redo');
-    expect(undoButton).toBeDisabled();
-    expect(redoButton).toBeDisabled();
+    expect(undoButton).toHaveAttribute('aria-disabled', 'true');
+    expect(redoButton).toHaveAttribute('aria-disabled', 'true');
     moveBed(t, 4);
-    expect(undoButton).toBeEnabled();
+    expect(undoButton).not.toHaveAttribute('aria-disabled');
     expect(undoButton).toHaveAccessibleName('Undo: Move (Ctrl+Z)');
     t.after(() => fireEvent.click(undoButton));
     expect(originOf(t, 'b1')).toBe(3);
@@ -173,7 +173,7 @@ describe('undo and redo (GP-ACC-007, GP-FR-026, GP-FR-155)', () => {
     await clickSave(t);
     expect(status()).toHaveTextContent('Saved');
     expect(t.state().plan?.revision).toBe(43);
-    expect(screen.getByTestId('garden-plan-undo')).toBeEnabled();
+    expect(screen.getByTestId('garden-plan-undo')).not.toHaveAttribute('aria-disabled');
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-undo')));
     expect(originOf(t, 'b1')).toBe(3);
     expect(status()).toHaveTextContent('Unsaved changes (1)');
@@ -254,8 +254,8 @@ describe('saving (GP-NFR-006)', () => {
     expect(applyPlanBatch.mock.calls[0][1].expected_revision).toBe(42);
     expect(applyPlanBatch.mock.calls[0][1].operations).toHaveLength(1);
     expect(status()).toHaveTextContent('Saving');
-    expect(screen.getByTestId('garden-plan-save')).toBeDisabled();
-    expect(screen.getByTestId('garden-plan-undo')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-save')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTestId('garden-plan-undo')).toHaveAttribute('aria-disabled', 'true');
     await act(async () => resolve(ok()));
     expect(status()).toHaveTextContent('Saved');
   });
@@ -458,8 +458,8 @@ describe('409 conflict (GP-ACC-010/011, GP-UX-017)', () => {
     expect(t.state().past).toHaveLength(0);
     expect(t.state().pending).toHaveLength(2);
     expect(status()).toHaveTextContent('Conflict');
-    expect(screen.getByTestId('garden-plan-save')).toBeDisabled();
-    expect(screen.getByTestId('garden-plan-undo')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-save')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByTestId('garden-plan-undo')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('cannot be dismissed with Escape', async () => {
@@ -501,7 +501,7 @@ describe('409 conflict (GP-ACC-010/011, GP-UX-017)', () => {
     expect(t.state().plan?.revision).toBe(43);
     expect(t.state().pending).toHaveLength(0);
     expect(t.state().past).toHaveLength(0);
-    expect(screen.getByTestId('garden-plan-undo')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-undo')).toHaveAttribute('aria-disabled', 'true');
     expect(status()).toHaveTextContent('Saved');
   });
 

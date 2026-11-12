@@ -1,6 +1,6 @@
 /**
  * Roving tabindex for a tool bar (WAI-ARIA "Toolbar" pattern; REQ-053 GP-UX-066 "wie GP-NFR-068"): the bar is ONE tab
- * stop. Inside, the arrow keys of its orientation move between the enabled buttons (wrapping around), Home and End
+ * stop. Inside, the arrow keys of its orientation move between the buttons (wrapping around), Home and End
  * jump to the first and last. The tab stop is the button that had the focus last; before that the pressed tool, else
  * the first button. Buttons appear and disappear with the tool and the selection, so the tab stop is reapplied after
  * every render of the bar and whenever the focus enters it.
@@ -25,6 +25,10 @@ const KEYS: Record<ToolbarOrientation, { next: string; previous: string }> = {
   horizontal: { next: 'ArrowRight', previous: 'ArrowLeft' },
 };
 
+/**
+ * The buttons of the bar. A button that cannot act for now is `aria-disabled` (see `unavailable.ts`) and stays an
+ * item, reachable and focusable (WAI-ARIA "Toolbar", GP-NFR-070); only a natively `disabled` one is skipped.
+ */
 function itemsOf(bar: HTMLElement | null): HTMLButtonElement[] {
   if (!bar) return [];
   return Array.from(bar.querySelectorAll<HTMLButtonElement>('button')).filter((button) => !button.disabled);

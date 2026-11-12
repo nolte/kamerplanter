@@ -356,9 +356,9 @@ describe('drawing (GP-FR-001)', () => {
     fireEvent.click(screen.getByTestId('garden-plan-shape-polygon'));
     t.click(16, 14);
     t.click(19, 14);
-    expect(screen.getByTestId('garden-plan-draw-finish')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-draw-finish')).toHaveAttribute('aria-disabled', 'true');
     t.click(19, 17);
-    expect(screen.getByTestId('garden-plan-draw-finish')).toBeEnabled();
+    expect(screen.getByTestId('garden-plan-draw-finish')).not.toHaveAttribute('aria-disabled');
     expect(screen.getAllByTestId('garden-plan-ghost')).toHaveLength(1);
     t.key('Escape');
     expect(t.state().past).toHaveLength(0);

@@ -40,6 +40,7 @@ import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import type { DimensionTarget } from './tools/addDimensions';
 import type { AlignMode, DistributeAxis } from './tools/align';
 import type { DrawShape } from './tools/drawMachine';
+import { unavailableProps } from './unavailable';
 import { useRovingToolbar, type ToolbarOrientation } from './useRovingToolbar';
 
 const TARGET_PX = 48;
@@ -296,8 +297,9 @@ export function EditorToolbar(props: EditorToolbarProps) {
               variant="contained"
               size="small"
               fullWidth={vertical}
-              onClick={props.onFinishDraw}
-              disabled={!finishReady}
+              // Too few points, or the shape just finished: no-op, the focus stays (GP-NFR-070).
+              onClick={finishReady ? props.onFinishDraw : undefined}
+              {...unavailableProps(!finishReady)}
               data-testid="garden-plan-draw-finish"
               sx={buttonSx}
             >
@@ -332,8 +334,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
           <Button
             size="small"
             fullWidth={vertical}
-            onClick={props.onDeleteVertex}
-            disabled={!props.canDeleteVertex}
+            onClick={props.canDeleteVertex ? props.onDeleteVertex : undefined}
+            {...unavailableProps(!props.canDeleteVertex)}
             data-testid="garden-plan-vertex-delete"
             sx={buttonSx}
           >

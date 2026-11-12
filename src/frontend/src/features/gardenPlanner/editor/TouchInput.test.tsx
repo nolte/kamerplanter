@@ -292,7 +292,7 @@ describe('touch bar (GP-UX-036/037)', () => {
       });
     }
     expect(screen.getByTestId('garden-plan-crosshair')).toBeInTheDocument();
-    expect(screen.getByTestId('garden-plan-touch-finish')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-touch-finish')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('sets points at the crosshair, takes one back and finishes a polygon', () => {
@@ -305,10 +305,10 @@ describe('touch bar (GP-UX-036/037)', () => {
     place();
     // A second point on the same spot is the same point: nothing is added.
     place();
-    expect(screen.getByTestId('garden-plan-touch-undo')).not.toBeDisabled();
+    expect(screen.getByTestId('garden-plan-touch-undo')).not.toHaveAttribute('aria-disabled');
     expect(screen.getByTestId('garden-plan-draw-hint')).toHaveTextContent('1 point');
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-touch-undo')));
-    expect(screen.getByTestId('garden-plan-touch-undo')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-touch-undo')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('sets the two corners of a rectangle with two taps, the view may pan in between', () => {

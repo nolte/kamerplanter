@@ -396,11 +396,22 @@ class GardenPlanPage(BasePage):
             raise AssertionError("click_save_expecting_refusal(): nothing to save")
         self.wait_and_click(self.SAVE_BUTTON)
 
+    def is_available(self, locator: tuple[str, str]) -> bool:
+        """Whether the editor button at *locator* can act now.
+
+        Undo, redo, "Speichern", zoom-out and "Fertig" turn unavailable by
+        ``aria-disabled="true"``, not ``disabled``: they keep the keyboard focus
+        (REQ-053 GP-NFR-070, #2886). Selenium's ``is_enabled()`` only reads the
+        native attribute, so it reports such a button as enabled; this reads both.
+        """
+        element = self.wait_for_element(locator)
+        return element.is_enabled() and element.get_attribute("aria-disabled") != "true"
+
     def is_undo_enabled(self) -> bool:
-        return self.wait_for_element(self.UNDO_BUTTON).is_enabled()
+        return self.is_available(self.UNDO_BUTTON)
 
     def is_redo_enabled(self) -> bool:
-        return self.wait_for_element(self.REDO_BUTTON).is_enabled()
+        return self.is_available(self.REDO_BUTTON)
 
     def undo_with_button(self) -> None:
         before = self.pending_count()
@@ -1530,7 +1541,7 @@ class GardenPlanPage(BasePage):
 
     def align(self, mode: str) -> None:
         """'Ausrichten' -> *mode* (left/right/top/bottom/centerH/centerV or distribute-<axis>)."""
-        if not self.wait_for_element(self.ALIGN_BUTTON).is_enabled():
+        if not self.is_available(self.ALIGN_BUTTON):
             raise AssertionError(
                 "'Ausrichten' is disabled: fewer than two movable objects are selected"
             )
@@ -2477,10 +2488,9 @@ class GardenPlanPage(BasePage):
         return {status: {"text": text, "dash": dash} for status, text, dash in rows}
 
     def zoom_out_to_fit(self, max_steps: int = 25, *, what: str = "zoom out to fit") -> None:
-        """Press "zoom out" until it is disabled (the fit zoom is the lowest level); bounded, loud."""
+        """Press "zoom out" until it is unavailable (the fit zoom is the lowest level); bounded, loud."""
         for step in range(1, max_steps + 1):
-            button = self.wait_for_element(self.ZOOM_OUT)
-            if not button.is_enabled():
+            if not self.is_available(self.ZOOM_OUT):
                 return
             before = self.zoom_percent()
             self.wait_and_click(self.ZOOM_OUT)

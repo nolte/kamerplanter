@@ -20,6 +20,7 @@ import UndoIcon from '@mui/icons-material/Undo';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import type { PlanTool } from '../state/gardenPlanSlice';
 import type { DrawShape } from './tools/drawMachine';
+import { unavailableProps } from './unavailable';
 
 const TARGET_PX = 48;
 const PREFIX = 'pages.gardenPlan.editor.touch';
@@ -89,8 +90,9 @@ export function TouchBar({
           <Button
             size="small"
             startIcon={<UndoIcon />}
-            onClick={onUndoPoint}
-            disabled={draftPoints === 0}
+            // No point left / too few points: no-op, the focus stays (GP-NFR-070).
+            onClick={draftPoints === 0 ? undefined : onUndoPoint}
+            {...unavailableProps(draftPoints === 0)}
             sx={buttonSx}
             data-testid="garden-plan-touch-undo"
           >
@@ -100,8 +102,8 @@ export function TouchBar({
             <Button
               size="small"
               startIcon={<CheckIcon />}
-              onClick={onFinish}
-              disabled={draftPoints < minPoints}
+              onClick={draftPoints < minPoints ? undefined : onFinish}
+              {...unavailableProps(draftPoints < minPoints)}
               sx={buttonSx}
               data-testid="garden-plan-touch-finish"
             >

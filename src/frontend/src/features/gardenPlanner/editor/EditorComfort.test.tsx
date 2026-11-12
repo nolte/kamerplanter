@@ -219,7 +219,7 @@ describe('align and distribute (GP-FR-029, GP-FR-155)', () => {
   it('does not count a locked bed: with one movable bed left there is nothing to align', () => {
     const t = setupEditor();
     select(t, 'solo', 'lock');
-    expect(screen.getByTestId('garden-plan-align-button')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-align-button')).toHaveAttribute('aria-disabled', 'true');
     expect(originOf(t, 'lock')).toEqual([14, 8]);
   });
 
@@ -257,9 +257,9 @@ describe('align and distribute (GP-FR-029, GP-FR-155)', () => {
   it('is disabled for a single selection and distribute needs three', () => {
     const t = setupEditor();
     select(t, 'solo');
-    expect(screen.getByTestId('garden-plan-align-button')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-align-button')).toHaveAttribute('aria-disabled', 'true');
     select(t, 'solo', 'b1');
-    expect(screen.getByTestId('garden-plan-align-button')).toBeEnabled();
+    expect(screen.getByTestId('garden-plan-align-button')).not.toHaveAttribute('aria-disabled');
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
     expect(screen.getByTestId('garden-plan-distribute-horizontal')).toHaveAttribute(
       'aria-disabled',

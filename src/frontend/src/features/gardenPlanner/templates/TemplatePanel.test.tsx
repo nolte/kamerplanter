@@ -161,7 +161,9 @@ describe('TemplatePanel - export', () => {
 
     const button = screen.getByTestId('garden-plan-template-export');
     expect(button).toHaveAttribute('aria-disabled', 'true');
-    await user.click(button);
+    // The disabled look takes the pointer (`pointer-events: none`); the keyboard still reaches the button.
+    button.focus();
+    await user.keyboard('{Enter}');
 
     expect(requested).not.toHaveBeenCalled();
     expect(click).not.toHaveBeenCalled();
