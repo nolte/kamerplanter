@@ -5620,6 +5620,10 @@
             "tasks_one": "{{count}} open task",
             "tasks_other": "{{count}} open tasks"
           },
+          "plantsRefused_one": "1 plant still stands in it. As long as it does, saving refuses this deletion – remove it first.",
+          "plantsRefused_other": "{{count}} plants still stand in it. As long as they do, saving refuses this deletion – remove them first.",
+          "enclosedKept_one": "Not deleted: 1 bed or object that lay inside before the area was drawn. It does not belong to the area and stays on the plan.",
+          "enclosedKept_other": "Not deleted: {{count}} beds or objects that lay inside before the area was drawn. They do not belong to the area and stay on the plan.",
           "irreversible": "Caution: once the plan is saved, this deletion cannot be undone.",
           "confirm": "Delete",
           "reversible": "As long as you have not saved the plan, you can undo this deletion."

@@ -276,7 +276,12 @@ function EntityForm({
     const slot = p.slot_key ? plan.slots[p.slot_key] : undefined;
     return slot ? slot.location_key === entityKey : p.location_key === entityKey;
   }).length;
-  const emptyBed = entity === 'location' && slotCount === 0 && plantCount === 0;
+  // An area (garden, terrace, greenhouse, room; §9.5, #2913) is no bed: no bed axis, no zone or watering line, no sun
+  // of its own (nothing reads an area's sun - its beds carry theirs) and no "Plant it". Name, type, size, lock,
+  // duplicate, order, delete, "Open details" and its tasks stay.
+  const isArea = entity === 'location' && plan.locations[entityKey]?.is_area === true;
+  const bedRows = entity === 'location' && !isArea;
+  const emptyBed = bedRows && slotCount === 0 && plantCount === 0;
   // GP-FR-111: the fields of a water source - only what `WaterSourceProps` carries (WP 9.14).
   const objectProps = entity === 'garden_object' ? plan.gardenObjects[entityKey]?.props : undefined;
   const waterSource = objectProps?.object_type === 'water_source' ? objectProps : null;
@@ -292,7 +297,7 @@ function EntityForm({
     : null;
   // GP-FR-017: a placed bed's long axis from its rotation and the plan's north angle, live while it is turned.
   const axis =
-    entity === 'location' && geometry ? bedAxis(geometry, plan.settings?.north_angle_deg ?? 0) : null;
+    bedRows && geometry ? bedAxis(geometry, plan.settings?.north_angle_deg ?? 0) : null;
   const bedAxisText = axis
     ? t(`${PREFIX}.panel.bedAxis`, {
         from: t(`enums.orientation.${axis.orientation}`),
@@ -301,7 +306,7 @@ function EntityForm({
       })
     : null;
   // The suggestion appears where windows can be: on an indoor plan, or on any plan that has one.
-  const showWindowSuggestion = entity === 'location' && (isIndoorPlanSite(plan.siteType) || planHasWindows(plan));
+  const showWindowSuggestion = bedRows && (isIndoorPlanSite(plan.siteType) || planHasWindows(plan));
   const errorText = error
     ? t(`${PREFIX}.notice.${error}`, { defaultValue: t(`${PREFIX}.notice.generic`) })
     : null;
@@ -341,9 +346,9 @@ function EntityForm({
           {bedAxisText}
         </Typography>
       )}
-      {entity === 'location' && bedInfo?.(entityKey)}
+      {bedRows && bedInfo?.(entityKey)}
 
-      {entity === 'location' && (
+      {bedRows && (
         <Box component="section" aria-labelledby="garden-plan-panel-sun-title" data-testid="garden-plan-panel-sun">
           <Typography variant="subtitle2" component="h4" id="garden-plan-panel-sun-title" sx={{ mb: 0.5 }}>
             {t(`${SUN_PREFIX}.title`)}
@@ -638,10 +643,11 @@ function SunBulk({
 }: Pick<PropertiesPanelProps, 'plan' | 'selection' | 'onCommit'> & { sunThresholds: Readonly<SunClassThresholds> }) {
   const { t } = useTranslation();
   const [result, setResult] = useState<{ changed: number; sun: SunExposure } | null>(null);
+  // Beds only: an area has no sun of its own (#2913).
   const beds = selection
     .filter((ref) => ref.entity === 'location')
     .map((ref) => plan.locations[ref.key])
-    .filter((location) => location !== undefined);
+    .filter((location) => location !== undefined && location.is_area !== true);
   const open = beds.filter((location) => !location.locked);
   if (beds.length === 0) return null;
   const values = new Set(open.map((location) => location.sun_exposure));

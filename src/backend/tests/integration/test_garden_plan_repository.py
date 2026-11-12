@@ -668,6 +668,22 @@ class TestAreas:
         assert stored[area].parent_location_key is None
         assert stored[bed].parent_location_key is None
 
+    def test_deleting_an_area_removes_its_children_and_leaves_what_lay_inside_before(self, db, service) -> None:
+        """The delete the confirmation describes: the subtree goes (``TestDeleteCascade``), a bed that was there
+        before the area was drawn around it is no child and stays - it is neither deleted nor orphaned."""
+        first_save(service)
+        before = batch(service, [create("b0", rect(1, 1, 1, 1))], revision=1).key_map["b0"]
+        area = batch(service, [create("gh", rect(0, 0, 6, 4), location_type_key="greenhouse")], revision=2).key_map[
+            "gh"
+        ]
+        child = batch(service, [create("b1", rect(3, 1, 1, 1), parent_location_key=area)], revision=3).key_map["b1"]
+
+        assert batch(service, [{"op": "delete", "entity": "location", "key": area}], revision=4).deleted
+
+        stored = {loc.key: loc for loc in service.get_plan("site_a", tenant_key=A).locations}
+        assert area not in stored and child not in stored
+        assert stored[before].parent_location_key is None
+
 
 class TestTheReadModel:
     def test_plants_and_open_task_counts_ride_in_the_same_read(self, db, service) -> None:

@@ -306,6 +306,19 @@ Die Stundengrenzen müssen größer als 0 und streng absteigend sein, `one_side_
 
 ---
 
+### Gartenplan lesen: Bereiche (REQ-053)
+
+`GET /api/v1/t/{slug}/sites/{key}/plan` liefert den ganzen Plan eines Standorts. Zwei Felder sagen, welche Orte **Bereiche** sind (ein Garten, eine Terrasse, ein Balkon, ein Gewächshaus oder ein Zimmer) und welche Beete:
+
+| Feld | Bedeutung |
+|------|-----------|
+| `area_type_keys` | Alle Ortstypen, die der Plan als Bereich zeichnet, sortiert, auch solche, die auf diesem Plan noch nicht vorkommen. Ein Typ ist ein Bereichstyp, wenn er weder ein Beet ist (`is_bed`) noch ein Pflanzraster trägt (`supports_layout`); Zelt und Regal zählen deshalb nicht dazu. |
+| `locations[].is_area` | `true` bei einem Bereich. Bei allen anderen Orten fehlt das Feld. Für einen Bereich hat `bed_status` keine Bedeutung. |
+
+Ein Beet, das ganz in einem Bereich liegt, nennt ihn in `parent_location_key` nur, wenn es nach dem Bereich darin angelegt wurde; ein Endpunkt zum Umhängen bestehender Beete fehlt. Beides sind Ergänzungen, ältere Clients lesen die Antwort unverändert. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
+
+---
+
 ### Gartenplan (PDF, SVG, JSON-Sicherung)
 
 Drei Exporte des Gartenplans eines Standorts (REQ-053). Alle brauchen ein gültiges JWT und stehen jedem Mitglied des Mandanten offen. Ein Standort eines anderen Mandanten antwortet wie ein nicht vorhandener mit `404`. Je Route gelten `RATE_LIMIT_PLAN_EXPORT` Anfragen je Konto (Standard 10 pro Minute) und `RATE_LIMIT_PLAN_EXPORT_TENANT` je Mandant (Standard 30 pro Minute); darüber antwortet die API mit `429` und `Retry-After`.

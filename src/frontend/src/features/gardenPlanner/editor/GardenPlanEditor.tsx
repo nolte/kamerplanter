@@ -348,14 +348,18 @@ function useDeleteTexts(impact: DeleteImpact | null, plan: PlanModel, labels: Re
       impact.childObjects > 0 &&
         t(`${PREFIX}.deleteDialog.counts.objects`, { count: impact.childObjects }),
       impact.slots > 0 && t(`${PREFIX}.deleteDialog.counts.slots`, { count: impact.slots }),
-      impact.plants > 0 && t(`${PREFIX}.deleteDialog.counts.plants`, { count: impact.plants }),
       impact.tasks > 0 && t(`${PREFIX}.deleteDialog.counts.tasks`, { count: impact.tasks }),
     ].filter((line): line is string => typeof line === 'string');
-    const parts = [
-      lines.length > 0
-        ? `${t(`${PREFIX}.deleteDialog.alsoDeleted`)}\n${lines.map((line) => `• ${line}`).join('\n')}`
-        : t(`${PREFIX}.deleteDialog.nothingElse`),
-    ];
+    const parts: string[] = [];
+    if (lines.length > 0) {
+      parts.push(`${t(`${PREFIX}.deleteDialog.alsoDeleted`)}\n${lines.map((line) => `• ${line}`).join('\n')}`);
+    } else if (impact.enclosedKept === 0 && impact.plants === 0) {
+      parts.push(t(`${PREFIX}.deleteDialog.nothingElse`));
+    }
+    // Standing plants are never deleted with their bed: the server refuses the whole save (V-09, GP-FR-024).
+    if (impact.plants > 0) parts.push(t(`${PREFIX}.deleteDialog.plantsRefused`, { count: impact.plants }));
+    // What lay inside an area before it was drawn is no child of it and stays (#2913).
+    if (impact.enclosedKept > 0) parts.push(t(`${PREFIX}.deleteDialog.enclosedKept`, { count: impact.enclosedKept }));
     parts.push(t(`${PREFIX}.deleteDialog.${impact.reversible ? 'reversible' : 'irreversible'}`));
     return { title, message: parts.join('\n\n') };
   }, [impact, labels, plan, t]);
@@ -1118,6 +1122,8 @@ export function GardenPlanEditor({
   const singleBed = useMemo(() => {
     const ref = selection.length === 1 ? selection[0] : null;
     const location = ref?.entity === 'location' ? plan.locations[ref.key] : undefined;
+    // An area is no bed: it cannot be saved as a bed template (#2913).
+    if (location?.is_area === true) return null;
     return location?.geometry && bedFrameGeometry(location.geometry) ? location : null;
   }, [plan, selection]);
 
@@ -1300,7 +1306,8 @@ export function GardenPlanEditor({
         });
       }
     }
-    if (single?.entity === 'location' && onOpenLocation) {
+    // "Plant it" is a bed's (an area holds beds, it is not planted itself, #2913).
+    if (single?.entity === 'location' && onOpenLocation && plan.locations[single.key]?.is_area !== true) {
       actions.push({
         id: 'plant',
         label: t(`${PREFIX}.panel.plant`),

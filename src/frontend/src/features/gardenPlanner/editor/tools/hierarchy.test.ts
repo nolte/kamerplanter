@@ -67,6 +67,19 @@ describe('deleteImpact (GP-FR-153)', () => {
     expect(impact.ops).toEqual([{ op: 'delete', entity: 'location', key: 'area' }]);
   });
 
+  it('counts what lies inside a deleted area without being its child: it stays on the plan (#2913)', () => {
+    const plan = testPlan();
+    const marked = { ...plan, locations: { ...plan.locations, area: { ...plan.locations.area, is_area: true } } };
+    // A bed drawn before the area, inside its outline (3,8)-(5,10), hanging below nothing.
+    const before = { ...plan.locations.solo, key: 'before', geometry: { kind: 'rect' as const, origin: [3, 8] as [number, number], width_m: 2, length_m: 2, rotation_deg: 0 }, bbox: [3, 8, 5, 10] as [number, number, number, number] };
+    const withBefore = { ...marked, locations: { ...marked.locations, before } };
+    const impact = deleteImpact(withBefore, [area]);
+    expect(impact).toMatchObject({ childBeds: 2, childObjects: 1, enclosedKept: 1 });
+    expect(applyOperations(withBefore, impact.ops).plan.locations.before).toBeDefined();
+    // Not an area (the mark is missing): nothing is counted, the rule is the area's.
+    expect(deleteImpact({ ...plan, locations: { ...plan.locations, before } }, [area]).enclosedKept).toBe(0);
+  });
+
   it('matches what applyOperation really removes', () => {
     const plan = testPlan();
     const impact = deleteImpact(plan, [area]);

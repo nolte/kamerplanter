@@ -5621,6 +5621,10 @@
             "tasks_one": "{{count}} offene Aufgabe",
             "tasks_other": "{{count}} offene Aufgaben"
           },
+          "plantsRefused_one": "Darin steht noch 1 Pflanze. Solange sie dort steht, lehnt das Speichern dieses Löschen ab – entferne sie zuerst.",
+          "plantsRefused_other": "Darin stehen noch {{count}} Pflanzen. Solange sie dort stehen, lehnt das Speichern dieses Löschen ab – entferne sie zuerst.",
+          "enclosedKept_one": "Nicht gelöscht wird 1 Beet oder Objekt, das schon vor dem Bereich darin lag: Es gehört nicht zum Bereich und bleibt auf dem Plan.",
+          "enclosedKept_other": "Nicht gelöscht werden {{count}} Beete oder Objekte, die schon vor dem Bereich darin lagen – diese gehören nicht zum Bereich und bleiben auf dem Plan.",
           "irreversible": "Achtung: Nach dem Speichern des Plans lässt sich dieses Löschen nicht mehr rückgängig machen.",
           "confirm": "Löschen",
           "reversible": "Solange du den Plan nicht gespeichert hast, kannst du das Löschen rückgängig machen."
