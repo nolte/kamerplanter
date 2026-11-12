@@ -98,7 +98,6 @@ def _companion_species_fields(vertex: dict[str, Any]) -> dict[str, Any]:
     ``common_names`` carries no language meaning.
     """
     return {
-        "species_key": vertex.get("_key", ""),
         "scientific_name": vertex.get("scientific_name"),
         "common_names": vertex.get("common_names", []),
         "common_names_i18n": vertex.get("common_names_i18n") or {},
@@ -981,12 +980,28 @@ class SpeciesService:
         raw = self._graph.get_compatible_species(species_key, tenant_key=tenant_key)
         # Names pass straight through from the graph vertex (no extra query), see
         # _companion_species_fields.
-        return [{**_companion_species_fields(item["species"]), "score": item.get("score", 0.0)} for item in raw]
+        # The neighbour's key is named here, next to the tenant-resolved read above: the stored-species-key guard
+        # (#2082) derives its readers from the function that names ``species_key``.
+        return [
+            {
+                "species_key": item["species"].get("_key", ""),
+                **_companion_species_fields(item["species"]),
+                "score": item.get("score", 0.0),
+            }
+            for item in raw
+        ]
 
     def get_incompatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict]:
         self.get_species(species_key, tenant_key=tenant_key)
         raw = self._graph.get_incompatible_species(species_key, tenant_key=tenant_key)
-        return [{**_companion_species_fields(item["species"]), "reason": item.get("reason", "")} for item in raw]
+        return [
+            {
+                "species_key": item["species"].get("_key", ""),
+                **_companion_species_fields(item["species"]),
+                "reason": item.get("reason", ""),
+            }
+            for item in raw
+        ]
 
     def get_companion_counts(self, *, tenant_key: str | None) -> dict[str, dict[str, int]]:
         # Whole-catalogue aggregate: per-species compatible/incompatible companion
