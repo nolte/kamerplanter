@@ -31,6 +31,7 @@ import { ConditionLayer, FROST_CONDITION, MOISTURE_CONDITION, SUN_CONDITION } fr
 import { drawDragged, drawScene, drawsNode, type DragPreview, type DrawFrame } from './konvaDraw';
 import { MARKER_RADIUS_PX, labelFontPx } from './lod';
 import {
+  activationKeyUp,
   activationKeys,
   clusterAriaLabel,
   markerAriaLabel,
@@ -367,6 +368,7 @@ const ShapeTarget = memo(function ShapeTarget({ item, pxPerM, labels, onFocusKey
       aria-pressed={selected}
       onFocus={onFocusKey ? () => onFocusKey(entry.key) : undefined}
       onKeyDown={onActivateKey ? activationKeys(onActivateKey, entry.key) : undefined}
+      onKeyUp={onActivateKey ? activationKeyUp(onActivateKey, entry.key) : undefined}
     >
       {entry.shape.kind === 'circle' ? (
         <circle
@@ -479,6 +481,7 @@ const MarkerTarget = memo(function MarkerTarget({
       aria-pressed={selected}
       onFocus={onFocusKey ? () => onFocusKey(entry.key) : undefined}
       onKeyDown={onActivateKey ? activationKeys(onActivateKey, entry.key) : undefined}
+      onKeyUp={onActivateKey ? activationKeyUp(onActivateKey, entry.key) : undefined}
     >
       <circle className="gp-shape" cx={num(entry.x)} cy={num(-entry.y)} r={num(radius)} {...UNPAINTED} />
     </g>

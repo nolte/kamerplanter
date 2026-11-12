@@ -85,6 +85,7 @@ The dimensions of the selected object stand outside, above its top edge, and kee
 - With **Ctrl** (**Cmd** on a Mac) and the mouse wheel you zoom smoothly around the pointer; when the plan has the focus, the wheel alone is enough. A plain mouse wheel scrolls the page.
 - A right-click on an object (on a touchscreen the **⋯** button in the properties panel) opens the actions of the object: Edit, Duplicate, Bring to front, Send to back, Lock. Duplicate has no keyboard shortcut; the copy of a bed has no planting positions.
 - Hold the **Alt** key to switch snapping off briefly.
+- You move the view in every tool by dragging with the **middle mouse button** held down, or by holding **Space** and dragging with the left mouse button. While you hold Space, the pointer shows a hand; the selection stays, nothing is drawn or moved. When you release Space, your tool applies again. In a text field Space types a space as usual, on a button it activates the button.
 
 ### On a touchscreen
 
@@ -100,9 +101,10 @@ You can operate the plan without a mouse. **Keyboard help** in the **⋮** menu 
 | Key | Effect |
 |-----|--------|
 | Arrow keys | Move the selection by one grid step; without a selection they scroll the view |
-| Shift + arrow keys | Ten steps at once |
+| Shift + arrow keys | Ten grid steps at once; without a selection they scroll ten times as far |
+| Space + drag | Moves the view in every tool |
 | Page Down / Page Up | Focus the next or previous object |
-| Enter / Space | Select the focused object; Enter also closes a polygon |
+| Enter / Space | Select the focused object (Space on release); Enter also closes a polygon |
 | Delete | Deletes the selection after a confirmation |
 | Esc | Cancels what is in progress, then clears the selection |
 | Ctrl + A | Selects all unlocked objects |

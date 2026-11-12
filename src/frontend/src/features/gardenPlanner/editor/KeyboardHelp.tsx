@@ -20,6 +20,7 @@ import { useTheme } from '@mui/material/styles';
 const KEYS = [
   'arrows',
   'shiftArrows',
+  'spaceDrag',
   'scroll',
   'pageKeys',
   'help',

@@ -5642,7 +5642,11 @@
             },
             "shiftArrows": {
               "keys": "Umschalt + Pfeiltasten",
-              "does": "Zehn Schritte auf einmal (oder schneller scrollen)."
+              "does": "Zehn Rasterschritte auf einmal; ohne Auswahl scrollen sie zehnmal so weit."
+            },
+            "spaceDrag": {
+              "keys": "Leertaste + Ziehen",
+              "does": "Verschiebt die Ansicht in jedem Werkzeug, solange du die Leertaste hältst (wie die mittlere Maustaste). Die Auswahl bleibt, gezeichnet wird nichts."
             },
             "scroll": {
               "keys": "Tab",

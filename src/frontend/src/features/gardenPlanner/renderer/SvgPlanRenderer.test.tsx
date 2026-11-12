@@ -138,8 +138,16 @@ describe('SvgPlanRenderer - structure', () => {
     expect(onFocusKey).toHaveBeenCalledWith('loc_a');
     fireEvent.keyDown(a, { key: 'Enter' });
     fireEvent.keyDown(a, { key: ' ' });
+    expect(onActivateKey).toHaveBeenCalledTimes(1); // Space acts on the release (GP-FR-010)
+    fireEvent.keyUp(a, { key: ' ' });
     fireEvent.keyDown(a, { key: 'a' });
     expect(onActivateKey.mock.calls).toEqual([['loc_a'], ['loc_a']]);
+    // A release the editor already handled (a Space that panned) activates nothing.
+    const handle = (event: Event) => event.preventDefault();
+    window.addEventListener('keyup', handle, { capture: true });
+    fireEvent.keyUp(a, { key: ' ' });
+    window.removeEventListener('keyup', handle, { capture: true });
+    expect(onActivateKey).toHaveBeenCalledTimes(2);
   });
 
   it('has no accessibility violations on the drawn objects', async () => {

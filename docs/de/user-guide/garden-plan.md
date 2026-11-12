@@ -85,6 +85,7 @@ Die Maße des gewählten Objekts stehen außerhalb über seiner Oberkante und we
 - Mit **Strg** (am Mac **Cmd**) und dem Mausrad zoomst du stufenlos um den Zeiger; liegt der Fokus auf dem Plan, genügt das Mausrad. Ein einfaches Mausrad blättert die Seite.
 - Ein Rechtsklick auf ein Objekt (auf dem Touchscreen die Schaltfläche **⋯** im Eigenschaften-Feld) öffnet die Aktionen des Objekts: Bearbeiten, Duplizieren, In den Vordergrund, In den Hintergrund, Sperren. Für das Duplizieren gibt es keine Tastenkombination; die Kopie eines Beets hat keine Pflanzplätze.
 - Mit gehaltener **Alt**-Taste schaltest du das Einrasten kurz aus.
+- Die Ansicht verschiebst du in jedem Werkzeug, indem du mit gedrückter **mittlerer Maustaste** ziehst oder die **Leertaste** hältst und mit der linken Maustaste ziehst. Solange du die Leertaste hältst, zeigt der Zeiger eine Hand; die Auswahl bleibt, gezeichnet oder verschoben wird nichts. Lässt du die Leertaste los, gilt wieder dein Werkzeug. In einem Textfeld tippt die Leertaste wie gewohnt ein Leerzeichen, auf einer Schaltfläche löst sie die Schaltfläche aus.
 
 ### Auf dem Touchscreen
 
@@ -100,9 +101,10 @@ Der Plan ist ohne Maus bedienbar. **Tastaturhilfe** im Menü **⋮** (oder die T
 | Taste | Wirkung |
 |-------|---------|
 | Pfeiltasten | Verschieben die Auswahl um einen Rasterschritt; ohne Auswahl scrollen sie die Ansicht |
-| Umschalt + Pfeiltasten | Zehn Schritte auf einmal |
+| Umschalt + Pfeiltasten | Zehn Rasterschritte auf einmal; ohne Auswahl scrollen sie zehnmal so weit |
+| Leertaste + Ziehen | Verschiebt die Ansicht in jedem Werkzeug |
 | Bild ab / Bild auf | Fokussieren das nächste oder vorherige Objekt |
-| Eingabe / Leertaste | Wählt das fokussierte Objekt; Eingabe schließt auch ein Vieleck ab |
+| Eingabe / Leertaste | Wählt das fokussierte Objekt (die Leertaste beim Loslassen); Eingabe schließt auch ein Vieleck ab |
 | Entf | Löscht die Auswahl nach Rückfrage |
 | Esc | Bricht Laufendes ab, danach hebt es die Auswahl auf |
 | Strg + A | Wählt alle nicht gesperrten Objekte |

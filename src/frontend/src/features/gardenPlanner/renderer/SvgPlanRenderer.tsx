@@ -12,6 +12,7 @@ import { ConditionLayer, FROST_CONDITION, MOISTURE_CONDITION, SUN_CONDITION } fr
 import { DETAIL_PX_PER_M, PLANT_INFO_ID, STATE_MARKER_RADIUS_PX } from './plantMarkerStyle';
 import type { MarkerEntry } from './planIndex';
 import {
+  activationKeyUp,
   activationKeys,
   BADGE_FONT_PX,
   clusterAriaLabel,
@@ -310,6 +311,7 @@ const ShapeNode = memo(function ShapeNode({
       aria-pressed={selected}
       onFocus={onFocusKey ? () => onFocusKey(entry.key) : undefined}
       onKeyDown={onActivateKey ? activationKeys(onActivateKey, entry.key) : undefined}
+      onKeyUp={onActivateKey ? activationKeyUp(onActivateKey, entry.key) : undefined}
     >
       {entry.shape.kind === 'circle' ? (
         <circle
@@ -527,6 +529,7 @@ const MarkerNode = memo(function MarkerNode({
       aria-pressed={selected}
       onFocus={onFocusKey ? () => onFocusKey(entry.key) : undefined}
       onKeyDown={onActivateKey ? activationKeys(onActivateKey, entry.key) : undefined}
+      onKeyUp={onActivateKey ? activationKeyUp(onActivateKey, entry.key) : undefined}
     >
       {circle}
     </g>
