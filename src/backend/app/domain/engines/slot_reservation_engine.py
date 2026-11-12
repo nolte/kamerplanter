@@ -151,6 +151,63 @@ def _first_conflict(
     return None
 
 
+# ── Free slots for a window (GP-FR-074) ──────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class CandidateSlot:
+    """An unarchived slot of the bed, in the order it is chosen; ``capacity`` is its ``capacity_plants``."""
+
+    slot_key: str
+    capacity: int
+
+
+@dataclass(frozen=True)
+class SlotPick:
+    """The slots chosen for one window; empty with the refusals when the free capacity falls short."""
+
+    chosen: list[str]
+    conflicts: list[SlotConflict]
+
+
+def pick_free_slots(
+    candidates: list[CandidateSlot],
+    *,
+    needed: int,
+    planned_from: date,
+    planned_until: date | None,
+    reservations: list[Reservation],
+    plants: list[ActivePlant],
+) -> SlotPick:
+    """The first candidates free in ``[planned_from, planned_until]`` until their capacity holds ``needed`` plants.
+
+    "Free" is V-08 itself (:func:`find_conflicts` for a run that does not exist yet), so the re-check inside the
+    write's transaction judges the same way. When the free capacity falls short, ``chosen`` is empty and
+    ``conflicts`` names why the taken candidates were refused (empty when the bed is simply too small).
+    """
+    conflicts = find_conflicts(
+        [candidate.slot_key for candidate in candidates],
+        run_key="",
+        planned_from=planned_from,
+        planned_until=planned_until,
+        reservations=reservations,
+        plants=plants,
+    )
+    taken = {conflict.slot_key for conflict in conflicts}
+    picked: list[str] = []
+    held = 0
+    for candidate in candidates:
+        if held >= needed:
+            break
+        if candidate.slot_key in taken:
+            continue
+        picked += [candidate.slot_key]
+        held += max(candidate.capacity, 1)
+    if held < needed:
+        return SlotPick(chosen=[], conflicts=conflicts)
+    return SlotPick(chosen=picked, conflicts=[])
+
+
 # ── Slot ids ─────────────────────────────────────────────────────────────────
 
 _ID_CHARS = re.compile(r"[^A-Z0-9]+")

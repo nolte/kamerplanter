@@ -24,6 +24,7 @@ from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
 from pydantic import BaseModel
 
+from app.common.datetimes import today_utc
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import (
     NotFoundError,
@@ -301,6 +302,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             )
         if include_plants and location_keys:
             data.plants = self._plants(location_keys, tenant_key, as_of)
+            data.slot_planned_from = self._slot_planned_from(
+                location_keys, {slot.key for slot in data.slots if slot.key}, tenant_key
+            )
         if include_tasks and location_keys:
             data.task_counters = self._task_counters(location_keys, tenant_key)
             data.last_watered = {
@@ -337,6 +341,45 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             ),
         )
         return list(cursor)
+
+    def _slot_planned_from(self, location_keys: list[str], live_slots: set[str], tenant_key: str) -> dict[str, date]:
+        """Per slot, the first ``planned_from`` of a live run of the tenant whose window has not ended (GP-FR-074).
+
+        Read from the runs of the owned beds outwards (``run.location_key``, then the run's ``run_planned_at``
+        edges by ``_from``): a run reserves only slots of its own bed and keeps that bed while it reserves
+        (``run.reserved_bed_fixed``), and a site has far fewer live runs than slots - asking the edge index for
+        every one of 3 000 slot ids cost ~8 % of the large class's ``GET /plan``. The tenant predicate sits on
+        the run (a slot carries none, E-01). A window that ended before today (UTC) is history, not a
+        reservation the plan announces; ``live_slots`` (the slots read above) drops an archived slot.
+        """
+        if not location_keys or not live_slots:
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR run IN @@runs
+                FILTER run.tenant_key == @tenant_key AND run.location_key IN @location_keys AND run.status IN @live
+                FOR e IN @@edges
+                    FILTER e._from == run._id AND (e.planned_until == null OR e.planned_until >= @today)
+                    COLLECT slot = e._to AGGREGATE first = MIN(e.planned_from)
+                    RETURN {slot_key: PARSE_IDENTIFIER(slot).key, planned_from: first}
+            """,
+                bind_vars={
+                    "@runs": col.PLANTING_RUNS,
+                    "@edges": col.RUN_PLANNED_AT,
+                    "location_keys": location_keys,
+                    "today": today_utc().isoformat(),
+                    "tenant_key": tenant_key,
+                    "live": sorted(LIVE_RUN_STATUSES),
+                },
+            ),
+        )
+        return {
+            row["slot_key"]: date.fromisoformat(row["planned_from"])
+            for row in cursor
+            if row["slot_key"] in live_slots and isinstance(row.get("planned_from"), str)
+        }
 
     def _editor_name(self, site_key: SiteKey, tenant_key: str) -> str | None:
         cursor = cast(

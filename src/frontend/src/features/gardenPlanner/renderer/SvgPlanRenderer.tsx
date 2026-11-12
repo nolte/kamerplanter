@@ -9,7 +9,13 @@ import { PlantBadge, PlantMarkerBody } from './PlantMarker';
 import { UnderlayLayer } from '../underlay/UnderlayLayer';
 import { WateredLayer, ZoneLayer } from './ZoneOverlays';
 import { ConditionLayer, FROST_CONDITION, MOISTURE_CONDITION, SUN_CONDITION } from './ConditionOverlays';
-import { DETAIL_PX_PER_M, PLANT_INFO_ID, STATE_MARKER_RADIUS_PX } from './plantMarkerStyle';
+import {
+  DETAIL_PX_PER_M,
+  PLANNED_DATE_FONT_PX,
+  PLANNED_DATE_OFFSET_SHARE,
+  PLANT_INFO_ID,
+  STATE_MARKER_RADIUS_PX,
+} from './plantMarkerStyle';
 import type { MarkerEntry } from './planIndex';
 import {
   activationKeyUp,
@@ -508,8 +514,32 @@ const MarkerNode = memo(function MarkerNode({
       aria-hidden={interactive ? undefined : 'true'}
     />
   );
+  // A reserved, still empty position carries its first day beside the dashed ring (GP-FR-074).
+  const planned =
+    !plant && entry.plannedFrom && labels.plannedDate ? (
+      <text
+        data-plan-planned-from={entry.plannedFrom}
+        x={num(entry.x + radius * PLANNED_DATE_OFFSET_SHARE)}
+        y={num(-entry.y + PLANNED_DATE_FONT_PX / pxPerM / 3)}
+        fontSize={num(PLANNED_DATE_FONT_PX / pxPerM)}
+        fill={palette.text}
+        aria-hidden="true"
+        pointerEvents="none"
+      >
+        {labels.plannedDate(entry.plannedFrom)}
+      </text>
+    ) : null;
   if (!interactive) {
-    if (!stated) return circle;
+    if (!stated) {
+      return planned ? (
+        <>
+          {circle}
+          {planned}
+        </>
+      ) : (
+        circle
+      );
+    }
     // A layer marker is decorative, like a batch: the bed's label carries the count, the bed view the details.
     return (
       <g data-plan-key={entry.key} data-plan-kind={entry.kind} data-plan-state-layer="true" aria-hidden="true" pointerEvents="none">
@@ -532,6 +562,7 @@ const MarkerNode = memo(function MarkerNode({
       onKeyUp={onActivateKey ? activationKeyUp(onActivateKey, entry.key) : undefined}
     >
       {circle}
+      {planned}
     </g>
   );
 });

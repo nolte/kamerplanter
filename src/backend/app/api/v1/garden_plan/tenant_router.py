@@ -241,6 +241,7 @@ def _slot_fields(slot: PlanSlotView) -> dict[str, Any]:
         "row_index": slot.row_index,
         "sequence": slot.sequence,
         "plan_geometry": plan_geometry,
+        "planned_from": slot.planned_from,
     }
 
 

@@ -187,6 +187,8 @@ Select a bed and click **Plant it** in the properties panel. The planting dialog
 
 Plants appear on the plan as markers. The plant state layer is described in [Plant state and filter](#plant-state-and-filter).
 
+**Succession sowing in a bed.** When you generate the batches of a succession plan for a bed with planting positions, every batch still to come reserves free positions for its time in the bed, and the plan shows these positions dashed with the day from which they are taken. <!-- REQ-053 GP-FR-074, #2896 -->
+
 **Trellis.** If a species needs a support (such as peas or pole beans), the planting dialog tells you which trellises are drawn in the bed or on its edge, with their height. If none is drawn, it says so; you can still plant. Species without this information get no hint. <!-- REQ-053 W-005 -->
 
 ### Sowing, thinning and replanting {#sowing-thinning-replanting}

@@ -10,10 +10,12 @@ from app.domain.engines.slot_reservation_engine import (
     CONFLICT_ACTIVE_PLANT,
     CONFLICT_RESERVATION,
     ActivePlant,
+    CandidateSlot,
     Reservation,
     allocate_slot_ids,
     find_conflicts,
     intersects_year,
+    pick_free_slots,
     plant_state,
     slot_id_prefix,
     window_overlap,
@@ -218,3 +220,59 @@ class TestStates:
         assert intersects_year(D(2025, 11, 1), D(2026, 2, 1), 2026)
         assert not intersects_year(D(2025, 11, 1), D(2025, 12, 31), 2026)
         assert intersects_year(D(2026, 5, 1), None, 2031)
+
+
+class TestPickFreeSlots:
+    """GP-FR-074: the slots a succession batch takes - the first free ones in bed order, judged by V-08."""
+
+    CANDIDATES = [CandidateSlot("s1", 1), CandidateSlot("s2", 1), CandidateSlot("s3", 1)]
+
+    def test_the_first_free_slots_until_the_batch_fits(self) -> None:
+        pick = pick_free_slots(
+            self.CANDIDATES, needed=2, planned_from=D(2027, 4, 1), planned_until=None, reservations=[], plants=[]
+        )
+        assert pick.chosen == ["s1", "s2"]
+        assert pick.conflicts == []
+
+    def test_a_slot_taken_in_the_window_is_skipped_and_one_taken_before_is_not(self) -> None:
+        held = [
+            reservation("s1", "run_a", D(2027, 3, 1), D(2027, 4, 5)),
+            reservation("s2", "run_b", D(2027, 1, 1), D(2027, 3, 31)),
+        ]
+        pick = pick_free_slots(
+            self.CANDIDATES,
+            needed=2,
+            planned_from=D(2027, 4, 1),
+            planned_until=D(2027, 4, 21),
+            reservations=held,
+            plants=[],
+        )
+        assert pick.chosen == ["s2", "s3"]
+
+    def test_capacity_counts_plants_not_slots(self) -> None:
+        pick = pick_free_slots(
+            [CandidateSlot("row", 10), CandidateSlot("s1", 1)],
+            needed=8,
+            planned_from=D(2027, 4, 1),
+            planned_until=None,
+            reservations=[],
+            plants=[],
+        )
+        assert pick.chosen == ["row"]
+
+    def test_too_little_free_capacity_answers_the_conflicts(self) -> None:
+        plant = ActivePlant(slot_key="s3", plant_key="p1", run_key="run_c", expected_end=None)
+        held = [reservation("s1", "run_a", D(2027, 3, 1), None)]
+        pick = pick_free_slots(
+            self.CANDIDATES,
+            needed=2,
+            planned_from=D(2027, 4, 1),
+            planned_until=None,
+            reservations=held,
+            plants=[plant],
+        )
+        assert pick.chosen == []
+        assert [(c.slot_key, c.kind, c.conflicting_run_key) for c in pick.conflicts] == [
+            ("s1", CONFLICT_RESERVATION, "run_a"),
+            ("s3", CONFLICT_ACTIVE_PLANT, "run_c"),
+        ]

@@ -62,6 +62,8 @@ _DOCUMENTS = (
     col.TASKS,
     # the plan read model asks when a bed was last watered (REQ-053 WP 7.3)
     col.WATERING_EVENTS,
+    # the plan read model announces the slots a live run reserves, read from the runs of the beds (GP-FR-074)
+    col.PLANTING_RUNS,
     # the underlay names an attachment, and its removal scans every carrier in one transaction (#2545)
     col.ATTACHMENTS,
     # an attachment removal writes the tombstone of a client_event_id in the same transaction (#2743)

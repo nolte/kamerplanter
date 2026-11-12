@@ -183,6 +183,8 @@ class FakePlanRepo(IGardenPlanRepository):
         self.care_events: list[CareEvent] = []
         #: Newest watering per bed (WP 7.3), what ``load_read_model`` hands the plan with the task counters.
         self.last_watered: dict[str, datetime] = {}
+        #: First reserved day per slot key (GP-FR-074), what ``load_read_model`` hands the plan with the plants.
+        self.slot_planned_from: dict[str, date] = {}
         self.zones: dict[str, tuple[str, str]] = {"zone_1": (TENANT, SITE)}
         #: What the import wrote (WP 7.2): the zones it created by their new key, and the zone keys it deleted.
         self.imported_zones: dict[str, IrrigationZone] = {}
@@ -241,6 +243,7 @@ class FakePlanRepo(IGardenPlanRepository):
             object_task_counters=dict(self.object_task_counters) if include_tasks else {},
             last_watered=dict(self.last_watered) if include_tasks else {},
             plan_updated_by_name=self.editor_name,
+            slot_planned_from=dict(self.slot_planned_from) if include_plants else {},
         )
 
     def load_active_slots(self, site_key, location_keys, *, tenant_key, include_archived=False, slot_keys=None):

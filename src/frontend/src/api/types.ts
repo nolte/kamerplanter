@@ -1754,6 +1754,8 @@ export interface SuccessionPlan {
   completed_batches: number;
   status: SuccessionPlanStatus;
   reminder_days_before: number;
+  /** Days one batch holds its slots of the bed (GP-FR-074); `null` = open end. */
+  batch_duration_days?: number | null;
   location_key: string | null;
   notes: string | null;
   created_at: string | null;
@@ -1769,6 +1771,7 @@ export interface SuccessionPlanCreate {
   end_date: string;
   plants_per_batch: number;
   reminder_days_before?: number;
+  batch_duration_days?: number | null;
   location_key?: string | null;
   notes?: string | null;
 }
@@ -1781,6 +1784,7 @@ export interface SuccessionPlanUpdate {
   end_date?: string;
   plants_per_batch?: number;
   reminder_days_before?: number;
+  batch_duration_days?: number | null;
   location_key?: string | null;
   notes?: string | null;
   status?: SuccessionPlanStatus;

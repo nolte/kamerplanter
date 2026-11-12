@@ -88,5 +88,10 @@ export const STATE_MARKER_RADIUS_PX = 8;
 /** From this zoom (px/m) the ring also shows the phase progress (R-014). */
 export const DETAIL_PX_PER_M = 100;
 
+/** Size of the date beside a reserved, still empty position (GP-FR-074), in screen pixels. */
+export const PLANNED_DATE_FONT_PX = 10;
+/** Where that date starts, right of the marker centre, as a share of the marker radius. */
+export const PLANNED_DATE_OFFSET_SHARE = 1.6;
+
 /** DOM id of the one open plant info bubble; the focused or hovered marker points at it (GP-UX-058). */
 export const PLANT_INFO_ID = 'gp-plant-info';

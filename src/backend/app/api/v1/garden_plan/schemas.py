@@ -384,6 +384,11 @@ class PlanSlotResponse(BaseModel):
     plan_geometry: PlanSlotGeometry | None = Field(
         default=None, description="The slot's geometry transformed into the plan frame (§9.2)."
     )
+    planned_from: date | None = Field(
+        default=None,
+        description="First day a planned run reserves the slot in a window that has not ended (GP-FR-065/074); "
+        "absent for an unreserved slot.",
+    )
 
 
 class PlanPlantResponse(BaseModel):

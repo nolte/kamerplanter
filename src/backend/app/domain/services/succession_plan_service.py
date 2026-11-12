@@ -1,9 +1,11 @@
 from collections.abc import Callable
 from typing import Any
 
+import structlog
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import SuccessionPlanStatus
+from app.common.datetimes import today_utc
+from app.common.enums import PlantingRunStatus, SuccessionPlanStatus
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.succession_plan_engine import SuccessionPlanEngine
@@ -12,7 +14,19 @@ from app.domain.interfaces.succession_plan_repository import ISuccessionPlanRepo
 from app.domain.models.planting_run import PlantingRun
 from app.domain.models.succession_plan import SuccessionPlan
 from app.domain.services.location_ownership import resolve_owned_location
+from app.domain.services.planting_reservation_service import BatchWindow, PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
+
+logger = structlog.get_logger()
+
+#: Plan fields whose change makes the reservations of the not yet sown batches stale (GP-FR-074).
+_RESERVATION_FIELDS = frozenset(
+    {"interval_days", "start_date", "end_date", "plants_per_batch", "batch_duration_days", "location_key"}
+)
+#: Runs read per page when the plan's batches are looked up.
+_BATCH_PAGE = 200
+#: A plan in one of these states sows nothing more: its future batches release their slots.
+_ENDED_PLAN_STATUSES = frozenset({SuccessionPlanStatus.COMPLETED, SuccessionPlanStatus.CANCELLED})
 
 
 class SuccessionPlanService:
@@ -21,6 +35,16 @@ class SuccessionPlanService:
     Generation delegates the actual PlantingRun/entry creation to
     :class:`PlantingRunService` (so runs are built exactly like any other run)
     and records ``has_succession_plan`` / ``succession_at`` graph edges.
+
+    **Slot reservation (REQ-053 GP-FR-074).** A batch that is generated for a
+    bed with slots and is not yet due reserves its slots there for its window
+    (``planned_from`` = sowing date, ``planned_until`` from
+    ``batch_duration_days``), through :class:`PlantingReservationService` —
+    the same V-08 rules and 409 ``slot.already_planned`` as ``plan-slots``.
+    All batches of one generation are chosen before anything is written. A
+    plan change that moves the schedule, the bed or the batch size, a plan
+    that ends, and a deleted plan release the reservations of the batches that
+    are still ``planned`` and not yet due; sown or started batches keep theirs.
     """
 
     _UPDATABLE_FIELDS = frozenset(
@@ -45,8 +69,11 @@ class SuccessionPlanService:
         engine: SuccessionPlanEngine | None = None,
         site_repo: ISiteRepository | None = None,
         species_resolver: Callable[..., Any] | None = None,
+        reservations: PlantingReservationService | None = None,
     ) -> None:
         self._repo = repo
+        # Unwired (pure-domain tests), batches reserve nothing - generation behaves as before GP-FR-074.
+        self._reservations = reservations
         # ``SpeciesService.get_species``-shaped: ``resolver(key, tenant_key=...)``
         # answers global, own or granted species and 404s the rest (#1872 C13).
         self._species_resolver = species_resolver
@@ -123,11 +150,53 @@ class SuccessionPlanService:
         merged.total_batches = self._engine.compute_total_batches(
             merged.start_date, merged.end_date, merged.interval_days
         )
-        return self._repo.update(key, merged)
+        updated = self._repo.update(key, merged)
+        if self._makes_reservations_stale(plan, merged):
+            self._release_future_batches(key, tenant_key=plan.tenant_key)
+        return updated
 
     def delete_plan(self, key: SuccessionPlanKey, *, tenant_key: str) -> bool:
-        self._owned_plan(key, tenant_key=tenant_key)
+        plan = self._owned_plan(key, tenant_key=tenant_key)
+        self._release_future_batches(key, tenant_key=plan.tenant_key)
         return self._repo.delete(key)
+
+    @staticmethod
+    def _makes_reservations_stale(before: SuccessionPlan, after: SuccessionPlan) -> bool:
+        if after.status in _ENDED_PLAN_STATUSES and before.status not in _ENDED_PLAN_STATUSES:
+            return True
+        return any(getattr(before, field) != getattr(after, field) for field in _RESERVATION_FIELDS)
+
+    def _release_future_batches(self, plan_key: SuccessionPlanKey, *, tenant_key: str) -> list[str]:
+        """Release the reservations of the plan's batches that are still ``planned`` and not yet due.
+
+        A batch whose window has begun, or that was sown or started, is left alone: its slots carry what was
+        planted. The runs themselves stay - deleting or moving them is the grower's decision (REQ-013).
+        """
+        if self._reservations is None:
+            return []
+        today = today_utc()
+        released: list[str] = []
+        for run in self._planned_batches(plan_key, tenant_key=tenant_key):
+            start = run.planned_from or run.planned_start_date
+            if not run.key or start is None or start <= today:
+                continue
+            if self._reservations.release_run_reservations(run.key, tenant_key=tenant_key):
+                released += [run.key]
+        if released:
+            logger.info("succession_plan.batches_released", plan_key=plan_key, runs=len(released))
+        return released
+
+    def _planned_batches(self, plan_key: SuccessionPlanKey, *, tenant_key: str) -> list[PlantingRun]:
+        """The tenant's ``planned`` runs generated by the plan, read page by page through the tenant-scoped window."""
+        filters = {"succession_plan_key": plan_key, "status": PlantingRunStatus.PLANNED.value}
+        runs: list[PlantingRun] = []
+        offset = 0
+        while True:
+            page = self._run_service.list_runs_window(offset, _BATCH_PAGE, filters, tenant_key=tenant_key)
+            runs += page
+            if len(page) < _BATCH_PAGE:
+                return runs
+            offset += _BATCH_PAGE
 
     # ── Run generation ────────────────────────────────────────────────
 
@@ -145,9 +214,19 @@ class SuccessionPlanService:
         plan.total_batches = total
 
         start_sequence = plan.completed_batches + 1
+        runs = self._engine.generate_batch_runs(plan, start_sequence=start_sequence)
+        # Every batch's slots are chosen before the first run is stored: a refusal leaves nothing behind.
+        picks = self._pick_slots(plan, runs)
         created: list[PlantingRun] = []
-        for run in self._engine.generate_batch_runs(plan, start_sequence=start_sequence):
-            created.append(self._persist_run(plan_key, plan, run))
+        try:
+            for run, slot_keys in zip(runs, picks, strict=True):
+                created += [self._persist_run(plan_key, plan, run, slot_keys)]
+        except Exception:
+            # A reservation placed between the choice and the write refused one batch; ``_persist_run`` took that
+            # run back. The batches stored before it count, so a later call does not create them a second time.
+            if created:
+                self._record_progress(plan_key, plan, start_sequence - 1 + len(created))
+            raise
 
         if created and plan.location_key:
             self._repo.link_plan_to_location(plan_key, plan.location_key)
@@ -157,6 +236,13 @@ class SuccessionPlanService:
             plan.status = SuccessionPlanStatus.ACTIVE
         updated = self._repo.update(plan_key, plan)
         return updated, created
+
+    def _record_progress(self, plan_key: SuccessionPlanKey, plan: SuccessionPlan, generated: int) -> None:
+        if plan.location_key:
+            self._repo.link_plan_to_location(plan_key, plan.location_key)
+        plan.completed_batches = generated
+        plan.status = SuccessionPlanStatus.ACTIVE
+        self._repo.update(plan_key, plan)
 
     def generate_next_run(
         self, plan_key: SuccessionPlanKey, *, tenant_key: str
@@ -171,7 +257,8 @@ class SuccessionPlanService:
             return plan, None
 
         run = self._engine.generate_batch_run(plan, sequence, total=plan.total_batches)
-        created = self._persist_run(plan_key, plan, run)
+        [slot_keys] = self._pick_slots(plan, [run])
+        created = self._persist_run(plan_key, plan, run, slot_keys)
 
         if plan.location_key:
             self._repo.link_plan_to_location(plan_key, plan.location_key)
@@ -213,9 +300,53 @@ class SuccessionPlanService:
             raise NotFoundError("Species", species_key)
         self._species_resolver(species_key, tenant_key=tenant_key)
 
-    def _persist_run(self, plan_key: SuccessionPlanKey, plan: SuccessionPlan, run: PlantingRun) -> PlantingRun:
+    def _pick_slots(self, plan: SuccessionPlan, runs: list[PlantingRun]) -> list[list[str]]:
+        """The slots each batch reserves in the plan's bed, aligned with ``runs`` (GP-FR-074).
+
+        A batch whose sowing date has passed reserves nothing: it is overdue, and where it went is the grower's
+        call. Without a bed, or unwired, nothing is reserved either.
+        """
+        nothing: list[list[str]] = [[] for _ in runs]
+        if self._reservations is None or not plan.location_key or not runs:
+            return nothing
+        today = today_utc()
+        due = [index for index, run in enumerate(runs) if run.planned_from is not None and run.planned_from >= today]
+        if not due:
+            return nothing
+        windows = [
+            BatchWindow(
+                planned_from=runs[index].planned_from or today,
+                planned_until=runs[index].planned_until,
+                needed=plan.plants_per_batch,
+            )
+            for index in due
+        ]
+        picks = self._reservations.pick_batch_slots(plan.location_key, windows, tenant_key=plan.tenant_key)
+        for index, slot_keys in zip(due, picks, strict=True):
+            nothing[index] = slot_keys
+        return nothing
+
+    def _persist_run(
+        self, plan_key: SuccessionPlanKey, plan: SuccessionPlan, run: PlantingRun, slot_keys: list[str]
+    ) -> PlantingRun:
+        """Store one batch run with its entry and, when it has slots, its reservation.
+
+        A refused reservation takes the run back, so a batch never exists without the slots it was meant to hold.
+        """
         entry = self._engine.build_entry(plan)
         created = self._run_service.create_run(run, [entry], tenant_key=plan.tenant_key)
+        if created.key and slot_keys and self._reservations is not None:
+            try:
+                stored_entries = self._run_service.list_entries(created.key)
+                self._reservations.reserve_slots(
+                    created.key,
+                    tenant_key=plan.tenant_key,
+                    entry_key=stored_entries[0].key or "",
+                    slot_keys=slot_keys,
+                )
+            except Exception:
+                self._run_service.delete_run(created.key, tenant_key=plan.tenant_key)
+                raise
         if created.key:
             self._repo.link_plan_to_run(plan_key, created.key)
         return created

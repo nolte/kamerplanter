@@ -650,6 +650,11 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "PlantingReservationService.place_layout",
         "PlantingReservationService.place_mixed_runs",
         "PlantingReservationService.plan_slots",
+        # REQ-053 GP-FR-074 (#2896): ``plan_slots`` without its role check, for the succession batches; it loads the
+        # run through ``_owned_run`` under the tenant like ``plan_slots``.
+        "PlantingReservationService.reserve_slots",
+        # REQ-053 GP-FR-074 (#2896): a plan change releases a planned batch; the run is loaded through ``_owned_run``.
+        "PlantingReservationService.release_run_reservations",
         "PlantingReservationService.release_slot",
         "PlantingReservationService.clear_bed",
         "PlantingReservationService.record_position_correction",
