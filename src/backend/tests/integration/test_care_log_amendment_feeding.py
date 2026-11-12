@@ -5,8 +5,9 @@ Against a real ArangoDB, through the services: ``POST /care-events`` (``CareEven
 can decide is measured here: the rows really stored per action (one ``feeding_events`` document, its ``fed_by``
 edges, a care event whose ``source_ref`` names it - the reference the daily consistency job reads as "already
 logged"), that the completion does not store a second one through the care-log path, and that a buffered replay
-stores nothing more. Every "one row" count is paired with the reference the care event carries, so a count of one
-cannot be some other row.
+stores nothing more. A direct ``feeding`` with product and quantity stores one as well and its void removes it; one
+without either stores none (#2854). Every "one row" count is paired with the reference the care event carries, so a
+count of one cannot be some other row.
 
 Taking the entry back: a void (the snackbar undo included) removes the entry's feeding event and its edges in the
 same transaction, a correction replaces it by one for the corrected dose (or by none), a backfilled line's mirrored
@@ -221,6 +222,118 @@ class TestBothWays:
         assert db.collection(col.CARE_EVENTS).get(logged.view.event.key)["material"] == "sand"
 
 
+def _direct_feeding(**overrides: Any) -> CareEventInput:
+    data: dict[str, Any] = {
+        "location_key": "bed",
+        "category": "feeding",
+        "summary": "Fed bed 3",
+        "performed_at": datetime.now(UTC) - timedelta(hours=1),
+        "product_ref": {"kind": "fertilizer", "key": "fert_global"},
+        "quantity": 2,
+        "unit": "l",
+        **overrides,
+    }
+    return CareEventInput(**data)
+
+
+class TestADirectFeeding:
+    """#2854 (operator decision 2026-11-11): a direct ``feeding`` with product and quantity counts in the balance."""
+
+    def test_a_feeding_with_product_and_quantity_stores_exactly_one_feeding_event(self, db) -> None:
+        logged = _care(db).log(_direct_feeding(), tenant_key=TENANT, user_key=USER, role=TenantRole.GROWER)
+
+        (feeding,) = _feedings(db)
+        stored = db.collection(col.CARE_EVENTS).get(logged.view.event.key)
+        assert stored["source_ref"] == {"collection": "feeding_events", "key": feeding["_key"]}
+        assert (feeding["product_key"], feeding["dose_quantity"], feeding["volume_applied_liters"]) == (
+            "fert_global",
+            2,
+            2.0,
+        )
+        assert _fed_by(db, feeding["_key"]) == ["plant_instances/pi_1", "plant_instances/pi_2"]
+        (used,) = _edges_of(db, col.FEEDING_USED)
+        assert (used["_from"], used["_to"]) == (f"feeding_events/{feeding['_key']}", "fertilizers/fert_global")
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            pytest.param({"product_ref": None}, id="no-product"),
+            pytest.param({"quantity": None, "unit": None}, id="no-quantity"),
+        ],
+    )
+    def test_a_feeding_without_product_or_quantity_stores_none(self, db, overrides) -> None:
+        logged = _care(db).log(_direct_feeding(**overrides), tenant_key=TENANT, user_key=USER, role=TenantRole.GROWER)
+
+        assert _feedings(db) == []
+        # positive control: the line itself is there, read through the same collection
+        assert db.collection(col.CARE_EVENTS).get(logged.view.event.key)["category"] == "feeding"
+
+    def test_voiding_a_direct_feeding_removes_its_feeding_event_and_edges(self, db) -> None:
+        care = _care(db)
+        logged = care.log(_direct_feeding(), tenant_key=TENANT, user_key=USER, role=TenantRole.GROWER)
+        (feeding,) = _feedings(db)
+        assert len(_fed_by(db, feeding["_key"])) == 2  # positive control: the edges were there
+
+        care.void(logged.view.event.key, reason="wrong bed", tenant_key=TENANT, user_key=USER, role=TenantRole.LEAD)
+
+        assert _feedings(db) == []
+        assert _edges_of(db, col.FED_BY) == [] and _edges_of(db, col.FEEDING_USED) == []
+
+
+class TestTheCopiedProductName:
+    """#2854: the free-text product name a line copies into its feeding event goes with the line's text."""
+
+    @staticmethod
+    def _logged(db: Any) -> tuple[str, str]:
+        body = _direct_feeding(product_ref=None, product_label="Nettle tea from Anna")
+        logged = _care(db).log(body, tenant_key=TENANT, user_key=USER, role=TenantRole.GROWER)
+        (feeding,) = _feedings(db)
+        assert feeding["product_label"] == "Nettle tea from Anna"  # positive control: the copy is there
+        return logged.view.event.key or "", feeding["_key"]
+
+    def test_redacting_the_line_redacts_the_copy(self, db) -> None:
+        event_key, feeding_key = self._logged(db)
+
+        ArangoCareEventRepository(db).redact(
+            event_key, tenant_key=TENANT, redacted_by=USER, reason="names a person", at=datetime.now(UTC)
+        )
+
+        assert db.collection(col.FEEDING_EVENTS).get(feeding_key)["product_label"] == "[redacted]"
+        assert db.collection(col.CARE_EVENTS).get(event_key)["product_label"] == "[redacted]"
+
+    def test_the_retention_anonymisation_redacts_the_copy(self, db) -> None:
+        _, feeding_key = self._logged(db)
+        future = datetime.now(UTC) + timedelta(days=1)
+
+        ArangoCareEventRepository(db).anonymize_expired(
+            cutoff=future, pflschg_cutoff=future, now=datetime.now(UTC), batch=10
+        )
+
+        assert db.collection(col.FEEDING_EVENTS).get(feeding_key)["product_label"] == "[redacted]"
+
+    def test_another_tenants_feeding_event_is_not_touched(self, db) -> None:
+        db.collection(col.FEEDING_EVENTS).insert({"_key": "fe_foreign", "tenant_key": "t_other", "product_label": "x"})
+        line = ArangoCareEventRepository(db).insert(
+            CareEvent(
+                tenant_key=TENANT,
+                site_key=SITE,
+                location_key="bed",
+                category="feeding",
+                summary="Feeding",
+                performed_at=datetime.now(UTC) - timedelta(hours=1),
+                source_ref={"collection": "feeding_events", "key": "fe_foreign"},
+                created_by=USER,
+            ),
+            tenant_key=TENANT,
+        )
+
+        ArangoCareEventRepository(db).redact(
+            line.key or "", tenant_key=TENANT, redacted_by=USER, reason="r", at=datetime.now(UTC)
+        )
+
+        assert db.collection(col.FEEDING_EVENTS).get("fe_foreign")["product_label"] == "x"
+
+
 def _correction(**overrides: Any) -> CareEventCorrection:
     data: dict[str, Any] = {
         "category": "soil_amendment",
@@ -367,7 +480,7 @@ class TestAServerCaller:
     def test_the_repository_refuses_a_feeding_event_for_a_line_that_names_a_source(self, db) -> None:
         care = _care(db)
         event = care.build_event(_amendment(), tenant_key=TENANT, user_key=USER, role=TenantRole.GROWER)
-        feeding = care._amendment_feeding(event, tenant_key=TENANT)
+        feeding = care._logged_feeding(event, tenant_key=TENANT)
         assert feeding is not None
         named = event.model_copy(update={"source_ref": {"collection": "feeding_events", "key": "fe_caller"}})
 

@@ -265,24 +265,42 @@ class TestTheSharedFeedingBuilder:
         assert doc.document["created_at"] == WHEN.isoformat()
 
     @pytest.mark.parametrize(
-        ("category", "material", "quantity", "logged_writes", "completion_writes"),
+        ("category", "material", "quantity", "product", "logged_writes", "completion_writes"),
         [
-            ("soil_amendment", "compost", 2, True, True),
-            ("soil_amendment", "manure", 2, True, True),
-            ("soil_amendment", "horn_shavings", 2, True, True),
-            ("soil_amendment", "compost", None, False, False),
-            ("soil_amendment", "sand", 2, False, False),
-            ("soil_amendment", None, 2, False, False),
-            # a direct feeding line keeps the feeding form; only its completion writes the document (§12.1)
-            ("feeding", None, 2, False, True),
-            ("mulching", "compost", 2, False, False),
+            ("soil_amendment", "compost", 2, {}, True, True),
+            ("soil_amendment", "manure", 2, {}, True, True),
+            ("soil_amendment", "horn_shavings", 2, {}, True, True),
+            ("soil_amendment", "compost", None, {}, False, False),
+            ("soil_amendment", "sand", 2, {}, False, False),
+            ("soil_amendment", None, 2, {}, False, False),
+            # #2854: a direct feeding line writes the document when it names a product and a quantity ...
+            ("feeding", None, 2, {"product_ref": {"kind": "fertilizer", "key": "fert_global"}}, True, True),
+            ("feeding", None, 2, {"product_label": "Nettle tea"}, True, True),
+            # ... and is the care event alone without either: it says "fed", not what or how much
+            ("feeding", None, 2, {}, False, True),
+            ("feeding", None, 2, {"product_label": "   "}, False, True),
+            ("feeding", None, None, {"product_label": "Nettle tea"}, False, False),
+            ("feeding", None, 0, {"product_label": "Nettle tea"}, False, True),
+            ("mulching", "compost", 2, {}, False, False),
         ],
     )
-    def test_which_line_writes_a_feeding_event(self, category, material, quantity, logged_writes, completion_writes):
-        line = event(category, material=material, quantity=quantity, unit="kg" if quantity else None)
+    def test_which_line_writes_a_feeding_event(
+        self, category, material, quantity, product, logged_writes, completion_writes
+    ):
+        unit = "kg" if quantity is not None else None
+        line = event(category, material=material, quantity=quantity, unit=unit, **product)
 
-        assert TaskCompletionEngine.logged_amendment_wants_feeding_event(line) is logged_writes
+        assert TaskCompletionEngine.logged_entry_wants_feeding_event(line) is logged_writes
         assert TaskCompletionEngine.wants_feeding_event(line) is completion_writes
+
+    def test_a_named_product_travels_into_the_feeding_event(self):
+        line = event("feeding", quantity=2, unit="l", product_label="Nettle tea", trigger="manual", task_key=None)
+
+        doc = ENGINE.feeding_document(line, plant_keys=["p1"], task_key=None, now=WHEN)
+
+        parsed = FeedingEvent.model_validate(doc.document)
+        assert (parsed.product_label, parsed.product_key) == ("Nettle tea", None)
+        assert (parsed.volume_applied_liters, parsed.application_method.value) == (2.0, "drench")
 
 
 class TestHarvest:

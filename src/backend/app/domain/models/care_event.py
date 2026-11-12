@@ -51,7 +51,8 @@ CLIENT_TRIGGERS: frozenset[str] = frozenset({"manual", "observation"})
 def owns_its_source_document(trigger: str | None) -> bool:
     """Whether a line of ``trigger`` wrote the specialist document its ``source_ref`` names (#2833).
 
-    A care-log entry (a client trigger) stores its nutrient amendment's ``feeding_event`` itself, so cancelling or
+    A care-log entry (a client trigger) stores the ``feeding_event`` of its feeding or nutrient amendment itself
+    (#2854), so cancelling or
     correcting the entry takes that document back with it. Every other line points at a document another writer
     owns: the backfill and the consistency job mirror a feeding, watering or harvest recorded on its own form, a
     reminder its confirmation, and the task completion's document is withdrawn by reopening the task.

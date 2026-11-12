@@ -134,15 +134,31 @@ class TaskCompletionEngine:
         return TaskCompletionEngine.is_nutrient_amendment(event)
 
     @staticmethod
-    def logged_amendment_wants_feeding_event(event: CareEvent) -> bool:
-        """Whether a care-log entry made without a task (``POST /care-events``) writes a ``feeding_event`` (W-007).
+    def names_a_product(event: CareEvent) -> bool:
+        """Whether ``event`` says *what* was given: a catalogue product or a product named in free text."""
+        has_ref = bool(event.product_ref and event.product_ref.get("key"))
+        return has_ref or bool((event.product_label or "").strip())
 
-        The same rule as a completion's, narrowed to the nutrient amendment: §12.1 makes the compost, manure or horn
-        shavings dose an input of the fertiliser balance whichever way it is recorded (#2833). A direct ``feeding``
-        line, a watering or a harvest stays the care event alone - their specialist documents keep their own forms
-        (the feeding / watering endpoints, the harvest form with the Karenz gate).
+    @staticmethod
+    def logged_entry_wants_feeding_event(event: CareEvent) -> bool:
+        """Whether a care-log entry made without a task (``POST /care-events``) writes a ``feeding_event`` (§12.1).
+
+        The completion's rule, narrowed to the entries that state a dose of something:
+
+        * a nutrient amendment (compost, manure, horn shavings) with a quantity - the material is what was given
+          (W-007, #2833);
+        * a ``feeding`` with a product (catalogue or free text) **and** a quantity above 0 (operator decision
+          2026-11-11, #2854). A feeding line without them says "fed" but not what or how much; it contributes
+          nothing to the fertiliser balance and stays the care event alone.
+
+        A watering or a harvest stays the care event alone - their specialist documents keep their own forms (the
+        watering endpoints, the harvest form with the Karenz gate).
         """
-        return TaskCompletionEngine.is_nutrient_amendment(event) and TaskCompletionEngine.wants_feeding_event(event)
+        if not TaskCompletionEngine.wants_feeding_event(event):
+            return False
+        if event.category == TaskCategory.FEEDING.value:
+            return (event.quantity or 0) > 0 and TaskCompletionEngine.names_a_product(event)
+        return TaskCompletionEngine.is_nutrient_amendment(event)
 
     def domain_document(
         self,
@@ -200,7 +216,7 @@ class TaskCompletionEngine:
         """The ``feeding_event`` ``event`` is the log line of - the one builder for both ways a dose is recorded.
 
         The task completion passes its task (``task_key``); a care-log entry without a task passes ``None``
-        (:meth:`logged_amendment_wants_feeding_event`, #2833). The caller stores the document and points the care
+        (:meth:`logged_entry_wants_feeding_event`, #2833, #2854). The caller stores the document and points the care
         event's ``source_ref`` at it in the same transaction.
         """
         stamp = (now or datetime.now(UTC)).isoformat()
@@ -236,6 +252,7 @@ class TaskCompletionEngine:
             plant_keys=list(plant_keys),
             task_key=task_key,
             product_key=product_key,
+            product_label=event.product_label,
             material=event.material,
             dose_quantity=event.quantity,
             dose_unit=event.unit,

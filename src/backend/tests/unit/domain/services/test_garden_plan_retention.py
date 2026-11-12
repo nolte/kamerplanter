@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.data_access.arango.care_event_repository import retention_patch
+from app.data_access.arango.care_event_repository import feeding_label_targets, retention_patch
 from app.domain.interfaces.care_event_repository import AnonymizedBatch, PendingPhotos
 from app.domain.models.care_event import ACCOUNT_FIELDS, ANONYMIZED_MARKER, FREE_TEXT_FIELDS, REDACTED
 from app.domain.services.garden_plan_retention_service import BATCH_SIZE, MAX_BATCHES, GardenPlanRetentionService
@@ -235,3 +235,20 @@ class TestThePlanAuditSweep:
 
         assert service(plan=plan).purge_expired_garden_plan_audit(NOW) == 0
         assert len(plan.calls) == 1
+
+
+class TestTheCopiedProductName:
+    """#2854: a line's free-text product name lives on in its feeding event; redaction and R-25 must reach it."""
+
+    def test_every_feeding_event_a_line_names_is_a_target_with_the_lines_tenant(self) -> None:
+        docs = [
+            {"_key": "c1", "tenant_key": "t1", "source_ref": {"collection": "feeding_events", "key": "fe1"}},
+            {"_key": "c2", "tenant_key": "t1", "source_ref": {"collection": "watering_events", "key": "we1"}},
+            {"_key": "c3", "tenant_key": "t1", "source_ref": None},
+            {"_key": "c4", "tenant_key": "t2", "source_ref": {"collection": "feeding_events", "key": "fe4"}},
+        ]
+
+        assert feeding_label_targets(docs) == [
+            {"key": "fe1", "tenant_key": "t1"},
+            {"key": "fe4", "tenant_key": "t2"},
+        ]

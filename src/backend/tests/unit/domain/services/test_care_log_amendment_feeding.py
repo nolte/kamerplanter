@@ -9,7 +9,9 @@ passes through :meth:`CareEventService.create` / :meth:`CareEventService.log`.
 Pinned here, against the in-memory doubles: the direct way writes exactly one feeding event and points its line at
 it; the completion writes exactly one and the care-log way none on top; both build the same document for the same
 dose; the rules that keep a line without a specialist document (no quantity, no nutrient material, a direct
-``feeding``) hold; and a replayed buffered write does not write a second feeding event. That each way stores exactly
+``feeding`` without product or quantity) hold; and a replayed buffered write does not write a second feeding event.
+Since #2854 (operator decision 2026-11-11) a direct ``feeding`` with a product and a quantity writes one as well, and
+its void withdraws it. That each way stores exactly
 one ``feeding_events`` row in a real database is ``tests/integration/test_care_log_amendment_feeding.py``.
 
 Taking the entry back (security review of the first commit): the service decides which way a void or a correction
@@ -90,7 +92,7 @@ def world():
     care = CareEventService(
         care_repo, sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
     )
-    tasks = FakeTaskRepo(bed_task("t_amend", TaskCategory.SOIL_AMENDMENT))
+    tasks = FakeTaskRepo(bed_task("t_amend", TaskCategory.SOIL_AMENDMENT), bed_task("t_feed", TaskCategory.FEEDING))
     completion = FakeCompletionRepo(tasks, plants)
     service = TaskService(
         tasks,
@@ -175,7 +177,7 @@ class TestTheCareLogWay:
             pytest.param({"category": "mulching", "unit": "cm"}, id="compost-as-mulch"),
             pytest.param(
                 {"category": "feeding", "material": None, "unit": "l", "summary": "Nettle tea"},
-                id="a-direct-feeding-keeps-its-own-form",
+                id="a-direct-feeding-without-a-product",
             ),
         ],
     )
@@ -204,6 +206,107 @@ class TestTheCareLogWay:
             log(care, amendment(plant_keys=["pi_foreign"]))
 
         assert repo.feedings == [] and repo.events == {}
+
+
+def direct_feeding(**overrides) -> CareEventInput:
+    """A ``feeding`` logged without a task (#2854): a catalogue product, 2 l of the diluted product."""
+    data = {
+        "location_key": "bed",
+        "category": "feeding",
+        "summary": "Fed bed 3",
+        "performed_at": WHEN,
+        "product_ref": {"kind": "fertilizer", "key": "fert_global"},
+        "quantity": 2,
+        "unit": "l",
+        "plant_keys": ["pi_here"],
+    }
+    return CareEventInput(**{**data, **overrides})
+
+
+class TestADirectFeeding:
+    """#2854 (operator decision 2026-11-11): a direct ``feeding`` with product and quantity counts in the balance."""
+
+    def test_a_feeding_with_a_catalogue_product_and_a_quantity_writes_one_feeding_event(self, world):
+        care, repo, *_ = world
+
+        logged = log(care, direct_feeding())
+
+        (feeding,) = repo.feedings
+        parsed = FeedingEvent.model_validate(feeding.document)
+        assert (parsed.tenant_key, parsed.location_key, parsed.plant_keys) == (TENANT, "bed", ["pi_here"])
+        assert (parsed.product_key, parsed.dose_quantity, parsed.dose_unit) == ("fert_global", 2, "l")
+        assert parsed.volume_applied_liters == 2.0
+        assert [(line.fertilizer_key, line.ml_applied) for line in parsed.fertilizers_used] == [("fert_global", 2000)]
+        assert parsed.task_key is None
+        assert repo.events[logged.view.event.key].source_ref == {"collection": "feeding_events", "key": "fe_1"}
+
+    def test_a_feeding_with_a_product_named_in_free_text_writes_one_and_keeps_the_name(self, world):
+        care, repo, *_ = world
+
+        log(care, direct_feeding(product_ref=None, product_label="Nettle tea"))
+
+        (feeding,) = repo.feedings
+        parsed = FeedingEvent.model_validate(feeding.document)
+        assert (parsed.product_key, parsed.product_label) == (None, "Nettle tea")
+        assert parsed.fertilizers_used == []  # no catalogue product, so no product line
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            pytest.param({"product_ref": None}, id="no-product"),
+            pytest.param({"product_ref": None, "product_label": "  "}, id="a-blank-product-name"),
+            pytest.param({"quantity": None, "unit": None}, id="no-quantity"),
+            pytest.param({"quantity": 0}, id="a-zero-quantity"),
+        ],
+    )
+    def test_a_feeding_without_product_or_quantity_writes_none(self, world, data):
+        care, repo, *_ = world
+
+        logged = log(care, direct_feeding(**data))
+
+        assert repo.feedings == []
+        assert repo.events[logged.view.event.key].source_ref is None
+
+    def test_voiding_a_direct_feeding_withdraws_its_feeding_event(self, world):
+        care, repo, *_ = world
+        logged = log(care, direct_feeding())
+        assert repo.live_feedings() == ["fe_1"]  # positive control: the dose counted before the void
+
+        care.void(logged.view.event.key, reason="undo", tenant_key=TENANT, user_key=USER, role=GROWER)
+
+        assert repo.live_feedings() == []
+        assert repo.withdrawn == ["fe_1"]
+
+    def test_a_correction_that_drops_the_product_withdraws_the_feeding_event(self, world):
+        care, repo, *_ = world
+        logged = log(care, direct_feeding())
+
+        view = care.supersede(
+            logged.view.event.key,
+            CareEventCorrection(
+                category="feeding", summary="Fed bed 3", performed_at=WHEN, quantity=2, unit="l", plant_keys=["pi_here"]
+            ),
+            tenant_key=TENANT,
+            user_key=USER,
+            role=GROWER,
+        )
+
+        assert repo.live_feedings() == []
+        assert repo.events[view.event.key].source_ref is None
+
+    def test_a_completed_feeding_task_still_writes_exactly_one(self, world):
+        _, care_repo, service, completion = world
+
+        service.complete_task(
+            "t_feed",
+            tenant_key=TENANT,
+            details=TaskCompletionDetails(product_label="Nettle tea", quantity=2, unit="l", performed_at=WHEN),
+            actor=ACTOR,
+        )
+
+        (write,) = completion.completed
+        assert write.domain is not None and write.domain.collection == "feeding_events"
+        assert care_repo.feedings == [] and care_repo.events == {}
 
 
 class TestTheTaskWay:

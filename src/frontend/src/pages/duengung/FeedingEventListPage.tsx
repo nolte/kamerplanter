@@ -16,6 +16,7 @@ import type { FeedingEvent, PlantInstance } from '@/api/types';
 import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import FeedingEventCreateDialog from './FeedingEventCreateDialog';
+import { formatFeedingAmount } from './feedingEventDose';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
 
 export default function FeedingEventListPage() {
@@ -100,10 +101,13 @@ export default function FeedingEventListPage() {
     },
     {
       id: 'volume',
-      label: t('pages.feedingEvents.volumeApplied'),
-      render: (r) => `${r.volume_applied_liters} L`,
+      // A solution's litres or a top dress's dose (#2903) - never "0 L" for compost.
+      label: t('pages.feedingEvents.amount'),
+      render: (r) => formatFeedingAmount(t, r),
       align: 'right',
-      searchValue: (r) => String(r.volume_applied_liters),
+      // A number for a solution, so the column keeps sorting by litres; a top dress's dose as shown.
+      searchValue: (r) =>
+        r.volume_applied_liters > 0 ? String(r.volume_applied_liters) : formatFeedingAmount(t, r),
     },
     {
       id: 'isSupplemental',
@@ -179,7 +183,7 @@ export default function FeedingEventListPage() {
                   : []),
               ]}
               fields={[
-                { id: 'volume', label: t('pages.feedingEvents.volumeApplied'), value: `${r.volume_applied_liters} L` },
+                { id: 'volume', label: t('pages.feedingEvents.amount'), value: formatFeedingAmount(t, r) },
                 ...(r.measured_ec_after != null
                   ? [{ id: 'ecAfter', label: t('pages.feedingEvents.ecAfter'), value: `${r.measured_ec_after} mS/cm` }]
                   : []),

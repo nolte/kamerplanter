@@ -60,6 +60,17 @@ class FeedingEventResponse(BaseModel):
     runoff_ph: float | None
     runoff_volume_liters: float | None
     notes: str | None
+    # ── REQ-053: a dose logged in the care log or by a bed task (#2903) - the clients show it for a top dress ──
+    location_key: str | None = None
+    plant_keys: list[str] = Field(default_factory=list)
+    task_key: str | None = None
+    product_key: str | None = None
+    product_label: str | None = None
+    material: str | None = None
+    dose_quantity: float | None = None
+    dose_unit: str | None = None
+    quantity_total: float | None = None
+    quantity_total_unit: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

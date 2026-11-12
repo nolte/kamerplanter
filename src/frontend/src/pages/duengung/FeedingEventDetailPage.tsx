@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -15,10 +15,13 @@ import Chip from '@mui/material/Chip';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Alert from '@mui/material/Alert';
+import Skeleton from '@mui/material/Skeleton';
+import Stack from '@mui/material/Stack';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SpaIcon from '@mui/icons-material/Spa';
 
 const PANEL_GAP = 4;
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
@@ -37,15 +40,25 @@ import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useTabUrl } from '@/hooks/useTabUrl';
+import { usePlantLabels } from '@/hooks/usePlantLabels';
 import * as feedingApi from '@/api/endpoints/feeding-events';
+import * as fertilizerApi from '@/api/endpoints/fertilizers';
 import type { FeedingEvent, RunoffResponse } from '@/api/types';
+import {
+  feedingPlantKeys,
+  formatFeedingDose,
+  isTopDress,
+  materialLabel,
+  showsLiquidFields,
+} from './feedingEventDose';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 
 const editSchema = z.object({
   application_method: z.enum(applicationMethods),
   is_supplemental: z.boolean(),
-  volume_applied_liters: z.number().gt(0),
+  // Optional for a top dress (compost, a dry fertiliser has no volume, #2903); required for a solution below.
+  volume_applied_liters: z.number().gt(0).nullable(),
   measured_ec_before: z.number().min(0).nullable(),
   measured_ec_after: z.number().min(0).nullable(),
   measured_ph_before: z.number().min(0).max(14).nullable(),
@@ -57,6 +70,25 @@ const editSchema = z.object({
 });
 
 type EditFormData = z.infer<typeof editSchema>;
+
+/**
+ * A solution is a volume; a top dress may be saved without one, and so may a dose logged in the care log or by a
+ * bed task (`loggedDose`: millilitres of a concentrate, whose water is unknown, carry no volume either).
+ * UI-only rule: the server (`FeedingEventUpdate`) does not enforce it - an update without a volume keeps the old one.
+ */
+function volumeRequired(method: string | undefined, loggedDose: boolean): boolean {
+  return method !== 'top_dress' && !loggedDose;
+}
+
+function buildEditResolver(requiredMessage: string, loggedDose: boolean) {
+  return zodResolver(
+    editSchema.superRefine((data, ctx) => {
+      if (volumeRequired(data.application_method, loggedDose) && data.volume_applied_liters == null) {
+        ctx.addIssue({ code: 'custom', path: ['volume_applied_liters'], message: requiredMessage });
+      }
+    }),
+  );
+}
 
 export default function FeedingEventDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -75,15 +107,38 @@ export default function FeedingEventDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [runoffResult, setRunoffResult] = useState<RunoffResponse | null>(null);
+  const [productName, setProductName] = useState<string | null>(null);
 
+  const loggedDose = event?.dose_quantity != null;
+  const resolver = useMemo(() => buildEditResolver(t('validation.required'), loggedDose), [t, loggedDose]);
   const {
     control,
     handleSubmit,
     reset,
     formState: { isDirty },
-  } = useForm<EditFormData>({
-    resolver: zodResolver(editSchema),
-  });
+  } = useForm<EditFormData>({ resolver });
+  const editedMethod = useWatch({ control, name: 'application_method' });
+
+  const plantKeys = useMemo(() => (event ? feedingPlantKeys(event) : []), [event]);
+  const plantLabels = usePlantLabels(plantKeys);
+
+  // The catalogue product a care-log dose names: its name, best effort (the key if it cannot be loaded).
+  const productKey = event?.product_label ? null : (event?.product_key ?? null);
+  useEffect(() => {
+    if (!productKey) return;
+    let cancelled = false;
+    fertilizerApi
+      .fetchFertilizer(productKey)
+      .then((fertilizer) => {
+        if (!cancelled) setProductName(fertilizer.product_name);
+      })
+      .catch(() => {
+        if (!cancelled) setProductName(productKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productKey]);
 
   const load = useCallback(async () => {
     if (!key) return;
@@ -95,7 +150,8 @@ export default function FeedingEventDetailPage() {
       reset({
         application_method: e.application_method as (typeof applicationMethods)[number],
         is_supplemental: e.is_supplemental,
-        volume_applied_liters: e.volume_applied_liters,
+        // A top dress is answered as `0` L; in the form that is "no volume".
+        volume_applied_liters: e.volume_applied_liters > 0 ? e.volume_applied_liters : null,
         measured_ec_before: e.measured_ec_before,
         measured_ec_after: e.measured_ec_after,
         measured_ph_before: e.measured_ph_before,
@@ -157,6 +213,14 @@ export default function FeedingEventDetailPage() {
   if (loading) return <LoadingSkeleton variant="form" />;
   if (error || !event) return <ErrorDisplay error={error ?? 'Not found'} />;
 
+  const topDress = isTopDress(event);
+  const liquid = showsLiquidFields(event);
+  const dose = formatFeedingDose(t, event);
+  const material = materialLabel(t, event.material);
+  const product = event.product_label || (event.product_key ? (productName ?? event.product_key) : '');
+  // In the edit tab the method can change; a top dress without measurements keeps those sections hidden.
+  const editLiquid = editedMethod !== 'top_dress' || liquid;
+
   return (
     <Box data-testid="feeding-event-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
@@ -189,9 +253,36 @@ export default function FeedingEventDetailPage() {
                 <TableBody>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.plantKey')}
+                      {plantKeys.length > 1
+                        ? t('pages.feedingEvents.plants')
+                        : t('pages.feedingEvents.plantKey')}
                     </TableCell>
-                    <TableCell>{event.plant_key}</TableCell>
+                    <TableCell data-testid="feeding-event-plants">
+                      {plantKeys.length === 0 && '—'}
+                      {plantLabels.tooMany &&
+                        t('pages.feedingEvents.plantCount', { count: plantKeys.length })}
+                      {!plantLabels.tooMany && plantKeys.length > 0 && (
+                        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                          {plantKeys.map((plantKey) =>
+                            plantLabels.loading ? (
+                              <Skeleton key={plantKey} variant="rounded" width={120} height={24} />
+                            ) : (
+                              <Chip
+                                key={plantKey}
+                                icon={<SpaIcon />}
+                                label={plantLabels.labels.get(plantKey) ?? plantKey}
+                                size="small"
+                                color="success"
+                                variant="outlined"
+                                component={RouterLink}
+                                to={`/pflanzen/plant-instances/${plantKey}`}
+                                clickable
+                              />
+                            ),
+                          )}
+                        </Stack>
+                      )}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>
@@ -229,60 +320,90 @@ export default function FeedingEventDetailPage() {
                       )}
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.volumeApplied')}
-                    </TableCell>
-                    <TableCell>{event.volume_applied_liters} L</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.ecBefore')}
-                    </TableCell>
-                    <TableCell>
-                      {event.measured_ec_before != null ? `${event.measured_ec_before} mS/cm` : '—'}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.ecAfter')}
-                    </TableCell>
-                    <TableCell>
-                      {event.measured_ec_after != null ? `${event.measured_ec_after} mS/cm` : '—'}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.phBefore')}
-                    </TableCell>
-                    <TableCell>
-                      {event.measured_ph_before ?? '—'}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.phAfter')}
-                    </TableCell>
-                    <TableCell>
-                      {event.measured_ph_after ?? '—'}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.runoffEc')}
-                    </TableCell>
-                    <TableCell>
-                      {event.runoff_ec != null ? `${event.runoff_ec} mS/cm` : '—'}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>
-                      {t('pages.feedingEvents.runoffPh')}
-                    </TableCell>
-                    <TableCell>
-                      {event.runoff_ph ?? '—'}
-                    </TableCell>
-                  </TableRow>
+                  {product && (
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>
+                        {t('pages.feedingEvents.product')}
+                      </TableCell>
+                      <TableCell data-testid="feeding-event-product">{product}</TableCell>
+                    </TableRow>
+                  )}
+                  {material && (
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>
+                        {t('pages.feedingEvents.material')}
+                      </TableCell>
+                      <TableCell data-testid="feeding-event-material">{material}</TableCell>
+                    </TableRow>
+                  )}
+                  {(topDress || dose) && (
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>
+                        {t('pages.feedingEvents.amount')}
+                      </TableCell>
+                      <TableCell data-testid="feeding-event-dose">{dose || '—'}</TableCell>
+                    </TableRow>
+                  )}
+                  {liquid && (
+                    <>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {t('pages.feedingEvents.volumeApplied')}
+                        </TableCell>
+                        <TableCell>
+                          {event.volume_applied_liters > 0 ? `${event.volume_applied_liters} L` : '—'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {t('pages.feedingEvents.ecBefore')}
+                        </TableCell>
+                        <TableCell>
+                          {event.measured_ec_before != null ? `${event.measured_ec_before} mS/cm` : '—'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {t('pages.feedingEvents.ecAfter')}
+                        </TableCell>
+                        <TableCell>
+                          {event.measured_ec_after != null ? `${event.measured_ec_after} mS/cm` : '—'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {t('pages.feedingEvents.phBefore')}
+                        </TableCell>
+                        <TableCell>
+                          {event.measured_ph_before ?? '—'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {t('pages.feedingEvents.phAfter')}
+                        </TableCell>
+                        <TableCell>
+                          {event.measured_ph_after ?? '—'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {t('pages.feedingEvents.runoffEc')}
+                        </TableCell>
+                        <TableCell>
+                          {event.runoff_ec != null ? `${event.runoff_ec} mS/cm` : '—'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          {t('pages.feedingEvents.runoffPh')}
+                        </TableCell>
+                        <TableCell>
+                          {event.runoff_ph ?? '—'}
+                        </TableCell>
+                      </TableRow>
+                    </>
+                  )}
                   {event.notes && (
                     <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>
@@ -326,10 +447,12 @@ export default function FeedingEventDetailPage() {
             </Card>
           )}
 
-          <Button variant="outlined" onClick={onAnalyzeRunoff} sx={{ mb: 2 }}>
-            {t('pages.feedingEvents.analyzeRunoff')}
-          </Button>
-          {runoffResult && (
+          {liquid && (
+            <Button variant="outlined" onClick={onAnalyzeRunoff} sx={{ mb: 2 }}>
+              {t('pages.feedingEvents.analyzeRunoff')}
+            </Button>
+          )}
+          {liquid && runoffResult && (
             <Alert
               severity={
                 runoffResult.overall_health === 'good' ? 'success' : 'warning'
@@ -382,99 +505,108 @@ export default function FeedingEventDetailPage() {
                 min={0.01}
                 suffix="L"
                 inputMode="decimal"
-                helperText={t('pages.feedingEvents.volumeAppliedHelper')}
+                required={volumeRequired(editedMethod, loggedDose)}
+                helperText={
+                  !volumeRequired(editedMethod, loggedDose)
+                    ? t('pages.feedingEvents.volumeOptional')
+                    : t('pages.feedingEvents.volumeAppliedHelper')
+                }
               />
             </CardContent>
           </Card>
 
-          {/* Section: Measurements */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.feedingEvents.sectionMeasurements')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.feedingEvents.sectionMeasurementsDesc')}
-              </Typography>
-              <FormRow>
-                <FormNumberField
-                  name="measured_ec_before"
-                  control={control}
-                  label={t('pages.feedingEvents.ecBefore')}
-                  min={0}
-                  suffix="mS/cm"
-                  inputMode="decimal"
-                  helperText={t('pages.feedingEvents.ecHelper')}
-                />
-                <FormNumberField
-                  name="measured_ec_after"
-                  control={control}
-                  label={t('pages.feedingEvents.ecAfter')}
-                  min={0}
-                  suffix="mS/cm"
-                  inputMode="decimal"
-                />
-              </FormRow>
-              <FormRow>
-                <FormNumberField
-                  name="measured_ph_before"
-                  control={control}
-                  label={t('pages.feedingEvents.phBefore')}
-                  min={0}
-                  max={14}
-                  inputMode="decimal"
-                  helperText={t('pages.feedingEvents.phHelper')}
-                />
-                <FormNumberField
-                  name="measured_ph_after"
-                  control={control}
-                  label={t('pages.feedingEvents.phAfter')}
-                  min={0}
-                  max={14}
-                  inputMode="decimal"
-                />
-              </FormRow>
-            </CardContent>
-          </Card>
+          {editLiquid && (
+            <>
+              {/* Section: Measurements */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                    {t('pages.feedingEvents.sectionMeasurements')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.feedingEvents.sectionMeasurementsDesc')}
+                  </Typography>
+                  <FormRow>
+                    <FormNumberField
+                      name="measured_ec_before"
+                      control={control}
+                      label={t('pages.feedingEvents.ecBefore')}
+                      min={0}
+                      suffix="mS/cm"
+                      inputMode="decimal"
+                      helperText={t('pages.feedingEvents.ecHelper')}
+                    />
+                    <FormNumberField
+                      name="measured_ec_after"
+                      control={control}
+                      label={t('pages.feedingEvents.ecAfter')}
+                      min={0}
+                      suffix="mS/cm"
+                      inputMode="decimal"
+                    />
+                  </FormRow>
+                  <FormRow>
+                    <FormNumberField
+                      name="measured_ph_before"
+                      control={control}
+                      label={t('pages.feedingEvents.phBefore')}
+                      min={0}
+                      max={14}
+                      inputMode="decimal"
+                      helperText={t('pages.feedingEvents.phHelper')}
+                    />
+                    <FormNumberField
+                      name="measured_ph_after"
+                      control={control}
+                      label={t('pages.feedingEvents.phAfter')}
+                      min={0}
+                      max={14}
+                      inputMode="decimal"
+                    />
+                  </FormRow>
+                </CardContent>
+              </Card>
 
-          {/* Section: Runoff */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.feedingEvents.sectionRunoff')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.feedingEvents.sectionRunoffDesc')}
-              </Typography>
-              <FormRow>
-                <FormNumberField
-                  name="runoff_ec"
-                  control={control}
-                  label={t('pages.feedingEvents.runoffEc')}
-                  min={0}
-                  suffix="mS/cm"
-                  inputMode="decimal"
-                  helperText={t('pages.feedingEvents.ecHelper')}
-                />
-                <FormNumberField
-                  name="runoff_ph"
-                  control={control}
-                  label={t('pages.feedingEvents.runoffPh')}
-                  min={0}
-                  max={14}
-                  inputMode="decimal"
-                />
-              </FormRow>
-              <FormNumberField
-                name="runoff_volume_liters"
-                control={control}
-                label={t('pages.feedingEvents.runoffVolume')}
-                min={0}
-                suffix="L"
-                inputMode="decimal"
-              />
-            </CardContent>
-          </Card>
+              {/* Section: Runoff */}
+              <Card variant="outlined">
+                <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+                  <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                    {t('pages.feedingEvents.sectionRunoff')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('pages.feedingEvents.sectionRunoffDesc')}
+                  </Typography>
+                  <FormRow>
+                    <FormNumberField
+                      name="runoff_ec"
+                      control={control}
+                      label={t('pages.feedingEvents.runoffEc')}
+                      min={0}
+                      suffix="mS/cm"
+                      inputMode="decimal"
+                      helperText={t('pages.feedingEvents.ecHelper')}
+                    />
+                    <FormNumberField
+                      name="runoff_ph"
+                      control={control}
+                      label={t('pages.feedingEvents.runoffPh')}
+                      min={0}
+                      max={14}
+                      inputMode="decimal"
+                    />
+                  </FormRow>
+                  <FormNumberField
+                    name="runoff_volume_liters"
+                    control={control}
+                    label={t('pages.feedingEvents.runoffVolume')}
+                    min={0}
+                    suffix="L"
+                    inputMode="decimal"
+                  />
+                </CardContent>
+              </Card>
+            </>
+          )}
 
           {/* Notes */}
           <Card variant="outlined">
