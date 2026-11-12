@@ -51,6 +51,7 @@ import {
   type BoundaryState,
 } from './boundaryMachine';
 import { BOUNDARY_KEY } from '../../renderer/planIndex';
+import { canvasKindOf, TOOL_DEFS, type ToolKind } from '../toolRegistry';
 import { insertVertex, removeVertex } from './geometryEdit';
 import { computeHandles, type HandleSet } from './handles';
 import { isPlanEntity } from './hierarchy';
@@ -63,6 +64,20 @@ import {
   type PointerSample,
   type ToolEnv,
 } from './machineTypes';
+import {
+  INITIAL_MEASURE_STATE,
+  measureDown,
+  measureFinish,
+  measureFinishable,
+  measureMove,
+  measurePointCount,
+  measureRelease,
+  measureUndoPoint,
+  measureUp,
+  measureView,
+  type MeasureState,
+  type MeasureView,
+} from './measureMachine';
 import { INITIAL_PAN_STATE, panDown, panMove, panUp, type PanState } from './panMachine';
 import {
   clearVertex,
@@ -153,6 +168,7 @@ function isMoveOnly(committed: Machines, next: Machines): boolean {
     committed.draw === next.draw &&
     committed.pan === next.pan &&
     committed.boundary === next.boundary &&
+    committed.measure === next.measure &&
     committed.select.vertex === next.select.vertex &&
     // The press that turns into a move is live too: the editor renders at the press and at the release only.
     (committed.select.gesture.kind === 'move' || committed.select.gesture.kind === 'press') &&
@@ -181,8 +197,12 @@ export interface EditorTools {
   /** The handles of the selected object; `null` when nothing editable is selected. */
   handles: HandleSet | null;
   vertex: VertexSelection | null;
-  /** Points placed so far by a polygon/polyline being drawn. */
+  /** Points placed so far by a polygon/polyline being drawn, or by the measure tool. */
   draftPoints: number;
+  /** The measurement of the measure tool (GP-UX-071); `null` while there is none. */
+  measure: MeasureView | null;
+  /** The measurement can be finished now ("Finish", Enter): two points, not finished yet. */
+  measureFinishable: boolean;
   /**
    * A handle of the selected object is being dragged past the threshold: the dragged point is the pointer's
    * snapped point, so the pointer's snap marker is right (GP-FR-154). A press, a marquee or a move is not.
@@ -193,10 +213,11 @@ export interface EditorTools {
   /** Where the snapped source of the moved object lands (GP-FR-154); `null` without a snap. */
   moveSnap: SnapMark | null;
   cancel: () => void;
+  /** Finish the polygon/line being drawn, or the measurement. */
   finishDraw: () => void;
-  /** Touch: set a polygon/line point or a rectangle/circle corner at a canvas pixel. */
+  /** Touch: set a polygon/line point, a rectangle/circle corner or a measure point at a canvas pixel. */
   placePointAt: (pointPx: Point) => void;
-  /** Touch: take the last drawn point back. */
+  /** Touch: take the last drawn or measured point back. */
   undoPoint: () => void;
   deleteVertex: () => void;
   insertVertexAfter: () => void;
@@ -204,19 +225,13 @@ export interface EditorTools {
 
 const defaultSnap: ToolEnv['snapPoint'] = ([x, y]) => [roundLength(x), roundLength(y)];
 
-type ToolKind = 'select' | 'draw' | 'pan' | 'boundary';
-
-/** The boundary mode draws while the plan has no boundary and edits it once there is one (#2890). */
+/** The machine of the tool, from the tool registry; the boundary mode draws until the plan has one (#2890). */
 function toolKind(tool: PlanTool, plan: PlanModel): ToolKind {
-  if (tool === 'pan') return 'pan';
-  if (tool === 'bed' || tool === 'garden_object') return 'draw';
-  if (tool === 'boundary') return plan.settings?.boundary ? 'boundary' : 'draw';
-  return 'select';
+  return canvasKindOf(tool, Boolean(plan.settings?.boundary));
 }
 
 function drawTargetOf(tool: PlanTool): DrawOptions['target'] {
-  if (tool === 'garden_object') return 'garden_object';
-  return tool === 'boundary' ? 'boundary' : 'bed';
+  return TOOL_DEFS[tool].draw?.target ?? 'bed';
 }
 
 /** Where the canvas content starts in client pixels (inside its border). */
@@ -298,8 +313,9 @@ interface Machines {
   draw: DrawState;
   pan: PanState;
   boundary: BoundaryState;
+  measure: MeasureState;
   /** Which machine owns the gesture in progress. */
-  active: 'select' | 'draw' | 'pan' | 'boundary' | null;
+  active: ToolKind | null;
   pointerId: number | null;
   /** The tool and shape these states belong to: a switch discards them (see `useEditorTools`). */
   forTool: string;
@@ -310,6 +326,7 @@ const INITIAL_MACHINES: Omit<Machines, 'forTool'> = {
   draw: INITIAL_DRAW_STATE,
   pan: INITIAL_PAN_STATE,
   boundary: INITIAL_BOUNDARY_STATE,
+  measure: INITIAL_MEASURE_STATE,
   active: null,
   pointerId: null,
 };
@@ -394,8 +411,23 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     },
     [current, liveMove],
   );
+  // A switch ends what was under way for good (GP-UX-071: a measurement ends with the tool change): the states of the
+  // tool left behind are dropped, not merely hidden - switching back must not bring a measurement or a half-drawn
+  // polygon back. React's "adjust state while rendering" pattern; the refs follow in the effect below.
+  const activeToolId = toolId(options);
+  const [shownToolId, setShownToolId] = useState(activeToolId);
+  if (shownToolId !== activeToolId) {
+    setShownToolId(activeToolId);
+    if (stored.forTool !== activeToolId) setMachines({ ...INITIAL_MACHINES, forTool: activeToolId });
+  }
+  useEffect(() => {
+    if (live.current.forTool === activeToolId) return;
+    const reset = { ...INITIAL_MACHINES, forTool: activeToolId };
+    live.current = reset;
+    committed.current = reset;
+  }, [activeToolId]);
   const machines =
-    stored.forTool === toolId(options) ? stored : { ...INITIAL_MACHINES, forTool: toolId(options) };
+    stored.forTool === activeToolId ? stored : { ...INITIAL_MACHINES, forTool: activeToolId };
 
   const apply = useCallback((effects: Effect[]) => {
     const o = latest.current;
@@ -473,6 +505,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         const step = drawDown(m.draw, sample, env, drawOptionsOf(o));
         update({ active: kind, pointerId: event.pointerId, draw: step.state });
         apply(step.effects);
+      } else if (kind === 'measure') {
+        update({ active: kind, pointerId: event.pointerId, measure: measureDown(m.measure, sample, env) });
       } else {
         const step = selectDown(m.select, sample, env);
         update({ active: kind, pointerId: event.pointerId, select: step.state });
@@ -498,6 +532,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         update({ draw: drawMove(m.draw, sample, env, true).state });
       } else if (m.active === 'boundary') {
         update({ boundary: boundaryMove(m.boundary, sample, env) });
+      } else if (m.active === 'measure') {
+        update({ measure: measureMove(m.measure, sample, env, true) });
       } else if (m.active === 'select') {
         const step = selectMove(m.select, sample, env);
         update({ select: step.state });
@@ -505,6 +541,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         syncPreview();
       } else if (toolKind(o.tool, o.plan) === 'draw' && m.draw.kind === 'points') {
         update({ draw: drawMove(m.draw, sample, env, false).state }); // the rubber band follows the hover
+      } else if (toolKind(o.tool, o.plan) === 'measure' && m.measure.kind === 'open') {
+        update({ measure: measureMove(m.measure, sample, env, false) }); // the live line follows the hover
       }
     },
     [apply, current, syncPreview, update],
@@ -535,6 +573,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         const step = boundaryUp(boundaryMove(m.boundary, sample, env), env);
         update({ active: null, pointerId: null, boundary: step.state });
         apply(step.effects);
+      } else if (m.active === 'measure') {
+        update({ active: null, pointerId: null, measure: measureUp(m.measure, sample, env) });
       } else if (m.active === 'select') {
         const step = selectUp(m.select, sample, env);
         update({ active: null, pointerId: null, select: step.state });
@@ -550,6 +590,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       select: selectCancel(m.select),
       draw: m.draw.kind === 'drag' ? INITIAL_DRAW_STATE : m.draw,
       boundary: boundaryCancel(m.boundary),
+      measure: measureRelease(m.measure),
       pan: INITIAL_PAN_STATE,
       active: null,
       pointerId: null,
@@ -565,6 +606,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     if (m.draw.kind !== 'idle') {
       update({ draw: INITIAL_DRAW_STATE, active: null, pointerId: null });
       endPress(); // the release no longer reaches the gesture: its press origin and scroll listener end here
+    } else if (m.measure.kind !== 'idle') {
+      // The measurement is cleared; the next Escape goes on with the selection and the tool.
+      update({ measure: INITIAL_MEASURE_STATE, active: null, pointerId: null });
+      endPress();
     } else if (boundaryGestureActive(m.boundary)) {
       update({ boundary: boundaryCancel(m.boundary), active: null, pointerId: null });
       endPress();
@@ -583,6 +628,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
 
   const finishDraw = useCallback(() => {
     const o = latest.current;
+    if (toolKind(o.tool, o.plan) === 'measure') {
+      update({ measure: measureFinish(current().measure) });
+      return;
+    }
     const step = drawFinish(current().draw, envOf(o), drawOptionsOf(o));
     update({ draw: step.state });
     apply(step.effects);
@@ -591,9 +640,14 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   const placePointAt = useCallback(
     (pointPx: Point) => {
       const o = latest.current;
-      if (toolKind(o.tool, o.plan) !== 'draw') return;
+      const kind = toolKind(o.tool, o.plan);
+      if (kind !== 'draw' && kind !== 'measure') return;
       const sample: PointerSample = { pointPx, pointerType: 'touch', shift: false, alt: false };
       const env = envOf(o);
+      if (kind === 'measure') {
+        update({ measure: measureUp(measureDown(current().measure, sample, env), sample, env) });
+        return;
+      }
       const drawOptions = drawOptionsOf(o);
       const down = drawDown(current().draw, sample, env, drawOptions);
       const up = drawUp(down.state, sample, env, drawOptions);
@@ -604,7 +658,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   );
 
   const undoPoint = useCallback(() => {
-    update({ draw: drawUndoPoint(current().draw) });
+    const m = current();
+    if (m.measure.kind !== 'idle') update({ measure: measureUndoPoint(m.measure) });
+    else update({ draw: drawUndoPoint(m.draw) });
   }, [current, update]);
 
   /** The geometry and index of the picked polygon point, if it is still there. */
@@ -717,7 +773,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       }
       if (event.key === 'Escape') {
         cancel();
-      } else if (event.key === 'Enter' && m.draw.kind === 'points') {
+      } else if (event.key === 'Enter' && (m.draw.kind === 'points' || m.measure.kind === 'open')) {
         event.preventDefault();
         finishDraw();
       } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
@@ -727,6 +783,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       } else if (event.key === 'Backspace' && m.draw.kind === 'points') {
         event.preventDefault();
         update({ draw: drawUndoPoint(m.draw) });
+      } else if (event.key === 'Backspace' && m.measure.kind !== 'idle') {
+        event.preventDefault();
+        update({ measure: measureUndoPoint(m.measure) });
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         if (pickedVertex() !== null || pickedBoundaryVertex() !== null) {
           event.preventDefault();
@@ -755,7 +814,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     bedTypeKey,
     objectType,
   } = options;
-  const { select: selectState, draw: drawState, boundary: boundaryState } = machines;
+  const { select: selectState, draw: drawState, boundary: boundaryState, measure: measureState } = machines;
 
   const overlay = useMemo<Overlay>(() => {
     if (kind === 'select') return selectOverlay(selectState);
@@ -814,7 +873,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     if (kind === 'boundary') return boundaryVertex === null ? null : { key: BOUNDARY_KEY, index: boundaryVertex };
     return selection.length === 1 && selectState.vertex?.key === selection[0].key ? selectState.vertex : null;
   }, [kind, boundaryVertex, selection, selectState.vertex]);
-  const draftPoints = pointCount(drawState);
+  const draftPoints = kind === 'measure' ? measurePointCount(measureState) : pointCount(drawState);
+  const measure = useMemo(() => (kind === 'measure' ? measureView(measureState) : null), [kind, measureState]);
+  const canFinishMeasure = kind === 'measure' && measureFinishable(measureState);
   const handleDragging =
     (kind === 'select' && selectState.gesture.kind === 'handle' && selectState.gesture.dragged) ||
     (kind === 'boundary' && boundaryState.kind === 'handle' && boundaryState.dragged);
@@ -834,6 +895,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       handles,
       vertex,
       draftPoints,
+      measure,
+      measureFinishable: canFinishMeasure,
       handleDragging,
       moving,
       moveSnap,
@@ -857,6 +920,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       handles,
       vertex,
       draftPoints,
+      measure,
+      canFinishMeasure,
       handleDragging,
       moving,
       moveSnap,

@@ -29,7 +29,8 @@ function renderBar(
   options: {
     orientation?: ToolbarOrientation;
     selectionGroup?: ToolbarSelectionGroup | null;
-    tool?: 'select' | 'bed';
+    tool?: 'select' | 'bed' | 'measure';
+    draftPoints?: number;
   } = {},
 ) {
   const onTool = vi.fn();
@@ -46,7 +47,7 @@ function renderBar(
         onTool={onTool}
         drawShape="rect"
         onDrawShape={vi.fn()}
-        draftPoints={0}
+        draftPoints={options.draftPoints ?? 0}
         onFinishDraw={vi.fn()}
         onCancelDraw={vi.fn()}
         vertexPicked={false}
@@ -83,6 +84,8 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
       'garden-plan-tool-pan',
       'garden-plan-tool-bed',
       'garden-plan-tool-garden_object',
+      // GP-UX-071 (#2913): the first of the four further tools, after the existing four.
+      'garden-plan-tool-measure',
     ]);
     expect(tools.length).toBeLessThanOrEqual(8);
     // Hand/Pan is the tool #2820 calls "Verschieben".
@@ -97,6 +100,26 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
     renderBar();
     fireEvent.mouseOver(screen.getByTestId('garden-plan-tool-bed'));
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Draw a new bed on the plan');
+  });
+
+  it('names the verb of the measure tool and explains the clicks (GP-UX-010, GP-UX-071)', async () => {
+    renderBar();
+    const measure = screen.getByTestId('garden-plan-tool-measure');
+    expect(measure).toHaveAccessibleName('Measure');
+    // No sub-menu: measuring has no further entries.
+    expect(screen.queryByTestId('garden-plan-tool-measure-menu')).toBeNull();
+    fireEvent.mouseOver(measure);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Measure a distance – click point by point on the plan, Enter or a double click finishes',
+    );
+  });
+
+  it('offers no shapes while measuring, and its points are cleared, not cancelled', () => {
+    renderBar({ tool: 'measure', draftPoints: 2 });
+    expect(screen.getByTestId('garden-plan-tool-measure')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByTestId('garden-plan-shape-rect')).toBeNull();
+    expect(screen.queryByTestId('garden-plan-draw-finish')).toBeNull();
+    expect(screen.getByTestId('garden-plan-draw-cancel')).toHaveTextContent('Clear measurement');
   });
 
   it('puts "From template" and "Add with dimensions" into the sub-menus of Bed and Garden object', () => {

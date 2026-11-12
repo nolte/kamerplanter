@@ -573,9 +573,10 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
 
 # ── TC-053-103 ──────────────────────────────────────────────────────────────
 
-#: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist; Bereich,
-#: Pflanze setzen, Messen and Text/Label are GP-UX-071, #2913) and the tools whose rail button opens a sub-menu.
-GP_UX_001_TOOLS = ("select", "pan", "bed", "garden_object")
+#: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist) plus Messen from
+#: GP-UX-071 (#2913; Bereich, Pflanze setzen and Text/Label are still to come), and the tools whose rail button opens
+#: a sub-menu.
+GP_UX_001_TOOLS = ("select", "pan", "bed", "garden_object", "measure")
 TOOLS_WITH_MENU = ("bed", "garden_object")
 PANEL_TABS = ("properties", "view", "layers", "zones")
 
@@ -625,9 +626,9 @@ def test_tc_053_103_every_editor_function_reachable_at_1024(
             f"garden-plan-tool-{tool}-submenu",
             f"the sub-menu of {tool!r}",
         )
-        outside = [entry for entry in entries if not inside(entry)]
+        outside = [entry for entry in entries if not (inside(entry) and entry["in_menu"])]
         assert not outside, (
-            f"TC-053-103 (AC-2): entries of the {tool!r} sub-menu lie outside the viewport: {outside}"
+            f"TC-053-103 (AC-2): entries of the {tool!r} sub-menu cannot be reached in the viewport: {outside}"
         )
         overflow[f"menu {tool}"] = plan.horizontal_overflow_px()
 
@@ -642,14 +643,66 @@ def test_tc_053_103_every_editor_function_reachable_at_1024(
     screenshot("053_103_02_panel_1024", "1024 × 768: Panel angedockt, alle Tabs erreichbar")
 
     entries = plan.menu_entry_rects(plan.OVERFLOW, "garden-plan-overflow-menu", "the overflow menu")
-    outside = [entry for entry in entries if not inside(entry)]
-    assert not outside, f"TC-053-103 (AC-2): overflow entries lie outside the viewport: {outside}"
+    # AC-2 asks for "erreichbar": an entry reached by scrolling inside the menu counts, a cut-off one does not
+    # (the menu is bounded by the viewport and scrolls; at 768 px height its last entries are scrolled into it).
+    outside = [entry for entry in entries if not (inside(entry) and entry["in_menu"])]
+    assert not outside, (
+        f"TC-053-103 (AC-2): overflow entries cannot be reached in the viewport: {outside}"
+    )
     low = [entry for entry in entries if entry["height"] < 48 - 0.5]
     assert not low, f"TC-053-103 (AC-2): overflow entries lower than 48 px: {low}"
     overflow["overflow menu"] = plan.horizontal_overflow_px()
 
     scrolled = {step: px for step, px in overflow.items() if px > 0}
     assert not scrolled, f"TC-053-103 (AC-2): the page scrolls sideways at 1024 px: {scrolled}"
+
+
+def test_tc_053_103_measure_tool_measures_a_known_distance(
+    plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-103 step 5 - the rail's measure tool measures a known polyline and stores nothing (GP-UX-071).
+
+    Breaks if the measure tool is not on the rail or does not become active, if a click does not set a snapped
+    point, if a segment or the total is measured wrong or not shown as text (the status the screen reader hears
+    and the overlay on the canvas), if Enter does not finish it, if Esc does not clear it, or if measuring leaves a
+    change to save (it is transient: no plan operation).
+    """
+    set_phone_viewport(browser, 1024, 768)
+    plan.dismiss_light_mode_warning()
+    garden = provision_garden(
+        base_url,
+        e2e_seed_data,
+        purpose="tc103m",
+        beds=(BedSpec("Beet A", rect(4.0, 4.5, 2.0, 1.0)),),
+    )
+    plan.open(garden.site_key)
+    plan.wait_for_element_visible(plan.TOOLBAR)
+    plan.choose_tool(plan.TOOL_MEASURE)
+
+    # 3 m along x, then 2 m along y: 5 m in two segments, away from the bed and the boundary (no object snap).
+    plan.click_plan_point(1.0, 1.0, "measure start")
+    plan.wait_for_measure_status("Startpunkt gesetzt", "TC-053-103 measure: after the first click")
+    plan.click_plan_point(4.0, 1.0, "measure second point")
+    plan.click_plan_point(4.0, 3.0, "measure third point")
+    status = plan.wait_for_measure_status("5,00 m", "TC-053-103 measure: two segments")
+    assert "2 Abschnitte" in status, (
+        f"TC-053-103 measure: the status should count 2 segments: {status!r}"
+    )
+    segments, total = plan.measure_texts()
+    assert segments == ["3,00 m", "2,00 m"], (
+        f"TC-053-103 measure: segment lengths on the canvas: {segments}"
+    )
+    assert total == "Gesamt 5,00 m", f"TC-053-103 measure: total on the canvas: {total!r}"
+
+    plan.focus_canvas()
+    plan.press(Keys.ENTER)
+    plan.wait_for_measure_status("Messung fertig: 5,00 m", "TC-053-103 measure: Enter finishes")
+    screenshot("053_103_03_measure", "1024 × 768: Messen, 3 m + 2 m = 5 m")
+    assert plan.pending_count() == 0, "TC-053-103 measure: measuring must leave nothing to save"
+
+    plan.press(Keys.ESCAPE)
+    plan.poll().until(lambda d: not d.find_elements(*plan.MEASURE_TOTAL))
+    plan.wait_for_measure_status("Klicke auf den Startpunkt", "TC-053-103 measure: Esc clears")
 
 
 # ── TC-053-104 ──────────────────────────────────────────────────────────────

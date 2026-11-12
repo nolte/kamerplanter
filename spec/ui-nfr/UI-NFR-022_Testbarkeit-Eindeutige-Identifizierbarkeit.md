@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.23
+Version: 1.24
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.24 | 2026-11-12 | §2.5.1: `garden-plan-tool-<tool>` mit seinen Werten (select, pan, bed, garden_object, measure) und die Touch-Kennungen `garden-plan-touch-*` nachregistriert; neu für das Werkzeug „Messen“ (REQ-053 GP-UX-071, Issue #2913): `garden-plan-measure-status`, `garden-plan-measure` / `-line` / `-segment` / `-total`, `garden-plan-measure-place` / `-finish`. |
 | 1.23 | 2026-11-12 | §2.5.1: „Meine Position“ im Tab Karte des Feldmodus (REQ-053 GP-UX-026, Issue #2898) registriert: der Abschnitt `field-mode-position`, der Schalter `field-mode-position-switch` (natives Eingabefeld, `role="switch"`), die Beschreibung `field-mode-position-description`, der Hinweis `field-mode-position-hint` mit dem qualifizierenden Attribut `data-reason` (`locating`, `denied`, `unavailable`, `timeout`, `site_loading`, `site_error`, `no_gps`, `far`, `outside_view`, `coarse`), die Überlagerung `field-mode-position-dot` (`data-accuracy-m`) mit dem Genauigkeitskreis `field-mode-position-accuracy`. Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.22 | 2026-11-12 | §2.5.1: Beet-QR-Etikett (REQ-053 GP-FR-052, GP-UX-028, Issue #2899) registriert: die Handlung `bed-view-print-label` („Etikett drucken“ unter dem Kopf der Beetansicht), der Dialog `bed-view-label-dialog` mit `bed-view-label-dialog-close`, der Auswahl `bed-view-label-qr-size` und ihren Optionen `bed-view-label-qr-size-<mm>` (`25`, `40`, `60`), dem Hinweis `bed-view-label-offline` und den Handlungen `bed-view-label-download` / `bed-view-label-cancel`; im Feldmodus der Hinweis `field-mode-linked-bed-missing` mit `field-mode-linked-bed-missing-close` (der QR-Link nennt ein Beet, das die Site nicht hat); auf der Login-Seite der Hinweis `login-return-hint` (Rücksprung nach der Anmeldung, UI-NFR-014 R-009). Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.21 | 2026-11-12 | §2.5.1: Opt-in „Wiederkehrende Aufgaben anlegen“ beim Platzieren einer Beetvorlage (REQ-053 GP-FR-087, Issue #2897) registriert: `garden-plan-template-recurring-tasks` und `-recurring-tasks-help`; nachregistriert die Vorlagen-Austausch-Kennungen `garden-plan-template-export` / `-import` / `-exchange-notice` (WP 9.9, GP-FR-173). |
@@ -240,6 +241,7 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-canvas-area` | Bereich der Zeichenfläche auf Viewport-Höhe (GP-UX-067, mindestens 400 px); trägt `garden-plan-canvas` und die Overlays |
 | `garden-plan-zoom-overlay` | Zoom −/%/+ und „An Fläche anpassen“ als Overlay oben rechts auf der Zeichenfläche (Kennungen `garden-plan-zoom-*` unverändert) |
 | `garden-plan-toolbar` | Die Werkzeug-Leiste (Kennung unverändert): ab WP 10.4 vertikal links der Zeichenfläche (ab md, `aria-orientation="vertical"`), unter md unten angedockt neben der `TouchBar` (`aria-orientation="horizontal"`); `data-orientation` nennt die Form |
+| `garden-plan-tool-<tool>` | Werkzeug der obersten Ebene in der Werkzeug-Leiste (`aria-pressed` zeigt das aktive), `<tool>` ∈ `select`, `pan`, `bed`, `garden_object`, `measure` (REQ-053 GP-UX-001; `measure` = „Messen“ aus GP-UX-071, #2913). Die Werte sind die Schlüssel des Werkzeug-Registers (`editor/toolRegistry.ts`); ein weiteres Werkzeug aus GP-UX-071 ergänzt diese Liste. Die Kennung bestand vor der Registrierung (Nachregistrierung, keine Umbenennung, R-021) |
 | `garden-plan-tool-<tool>-menu` | Knopf, der das Untermenü eines Werkzeugs öffnet (`aria-haspopup="menu"`), `<tool>` ∈ `bed`, `garden_object` (WP 10.4, GP-UX-001: höchstens zwei Ebenen) |
 | `garden-plan-tool-<tool>-submenu` | Das Untermenü dazu: „Beet“ mit `garden-plan-tool-template` und `garden-plan-add-with-dimensions`, „Gartenobjekt“ mit `garden-plan-add-with-dimensions-object` |
 | `garden-plan-add-with-dimensions-object` | „Mit Maßen hinzufügen“ im Untermenü „Gartenobjekt“ (öffnet `garden-plan-add-dialog` mit Art „Gartenobjekt“) |
@@ -282,6 +284,11 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-shape-<form>` | Formwahl der Werkzeug-Leiste während des Zeichnens, `<form>` ∈ `rect`, `circle`, `polygon`, `polyline` (`polyline` nur beim Werkzeug „Gartenobjekt“); `aria-pressed` zeigt die gewählte Form |
 | `garden-plan-draw-finish` | „Fertig“ beim Zeichnen einer Punktform (Polygon, Polylinie): schließt die Form; deaktiviert, bis die Mindestzahl an Punkten gesetzt ist |
 | `garden-plan-touchbar` | Touch-Aktionsleiste (`role="toolbar"`, GP-UX-036/037): unter md der Werkzeug-Pfad, bei grobem Zeiger auf jeder Breite (§17.3, GP-UX-069) |
+| `garden-plan-touch-place` / `garden-plan-touch-undo` / `garden-plan-touch-finish` / `garden-plan-touch-cancel` | Punkt-Handlungen der `TouchBar` bei jedem Werkzeug, das Punkte setzt (Zeichnen, Gartengrenze, Messen): „Punkt setzen“ am Fadenkreuz `garden-plan-crosshair`, „Rückgängig“ (letzter Punkt), „Fertig“ (deaktiviert, bis genug Punkte gesetzt sind), „Abbrechen“ — beim Messen „Löschen“. Bestehende Kennungen, mit #2913 nachregistriert |
+| `garden-plan-measure-status` | Statustext des Werkzeugs „Messen“ (REQ-053 GP-UX-071, #2913) über der Zeichenfläche (`role="status"`, `aria-live="polite"`): nächster Schritt und die gemessene Summe als Text; `data-done` = `true`, sobald die Messung beendet ist |
+| `garden-plan-measure` / `garden-plan-measure-line` | Die Messung im Editor-Overlay (`aria-hidden`, für jeden Renderer gleich) und ihre Linie; `data-done` wie beim Statustext; nur gerendert, solange eine Messung besteht |
+| `garden-plan-measure-place` / `garden-plan-measure-finish` | Bedienung des Werkzeugs „Messen“ ohne Zeiger in der Werkzeug-Leiste (ab md bei feinem Zeiger, solange Messen aktiv ist; sonst übernimmt die `TouchBar`): „Punkt setzen“ am Fadenkreuz `garden-plan-crosshair` in der Planmitte und „Fertig“ (deaktiviert, bis zwei Punkte gesetzt sind) |
+| `garden-plan-measure-segment` / `garden-plan-measure-total` | Länge je Abschnitt (erst ab zwei Abschnitten, in Pfadreihenfolge; ein Abschnitt, der auf dem Bildschirm kürzer ist als seine Beschriftung, bleibt ohne) und die Summe am Ende der Linie, in der Längeneinheit des Nutzers |
 | `garden-plan-panel-empty` | Inhalt des Tabs „Eigenschaften“ ohne Auswahl („Nichts ausgewählt“) |
 | `bed-list-link-<key>` | Beetname als Link zur Beetansicht in der Beetliste (Tabelle und Karte), `<key>` = Schlüssel der Location; im Tab „Beete“ bzw. „Pflanzplätze“ |
 | `garden-plan-back-link-name` | Site-Name im Zurück-Link der Editor-Kopfleiste (§17.3, GP-UX-063); kürzt mit Auslassungspunkten und fehlt unter md (dort nur das Icon mit `aria-label`) |

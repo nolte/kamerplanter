@@ -102,3 +102,16 @@ describe('overflow menu (GP-UX-052)', () => {
     expect(t.selected()).toContain('b1');
   });
 });
+
+describe('the overflow "⋮" stays reachable on a short screen (REQ-053 AC-2, GP-UX-063)', () => {
+  it('is bounded by the viewport and scrolls inside, so its last entries can be scrolled to', () => {
+    setupEditor();
+    fireEvent.click(screen.getByTestId('garden-plan-overflow'));
+    const paper = screen.getByTestId('garden-plan-overflow-menu');
+    // At 1024 x 768 the menu holds more 48 px entries than fit below the header bar: the paper keeps a height bound
+    // to the viewport (MUI's menu bound, `calc(100% - 96px)` of the screen-filling modal) and scrolls - an entry
+    // cut off without a way to scroll to it would not be reachable.
+    expect(paper).toHaveStyle({ overflowY: 'auto', maxHeight: 'calc(100% - 96px)' });
+    expect(paper.querySelectorAll('[role^="menuitem"]').length).toBeGreaterThan(5);
+  });
+});

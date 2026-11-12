@@ -555,6 +555,18 @@ describe('tool, selection and reset', () => {
     expect(store.getState().gardenPlan.selection).toEqual([]);
   });
 
+  it('holds the measure tool (GP-UX-071) as a tool of its own - no edit, nothing pending - and resets it', async () => {
+    const store = await loaded();
+    const before = store.getState().gardenPlan;
+    store.dispatch(setTool('measure'));
+    expect(store.getState().gardenPlan.tool).toBe('measure');
+    expect(store.getState().gardenPlan.plan).toBe(before.plan);
+    expect(store.getState().gardenPlan.pending).toEqual(before.pending);
+    expect(store.getState().gardenPlan.past).toEqual(before.past);
+    store.dispatch(resetGardenPlan());
+    expect(store.getState().gardenPlan.tool).toBe('select');
+  });
+
   it('drops a selected entity that an action removed', async () => {
     const store = await loaded();
     store.dispatch(setSelection([{ entity: 'garden_object', key: 'go_1' }]));

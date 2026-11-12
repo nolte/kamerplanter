@@ -18,6 +18,7 @@ import {
   loadGardenPlan,
   selectGardenPlanState,
   setSelection,
+  setTool,
 } from '../state/gardenPlanSlice';
 import { GardenPlanEditor } from '../editor/GardenPlanEditor';
 import { testPlan } from '../editor/tools/toolTestKit';
@@ -119,6 +120,33 @@ describe('arrow keys (GP-ACC-008)', () => {
     t.canvas().appendChild(input);
     fireEvent.keyDown(input, { key: 'ArrowRight' });
     expect(t.plan().locations.solo.bbox?.[0]).toBe(14);
+  });
+});
+
+describe('the measure tool (GP-UX-071) without the canvas picture', () => {
+  it('announces the measured total as polite status text, drawn over the SVG renderer too', async () => {
+    const t = setup();
+    act(() => void t.store.dispatch(setTool('measure')));
+    const click = (x: number, y: number) => {
+      const at = { pointerId: 1, pointerType: 'mouse', button: 0, clientX: x * 40, clientY: (20 - y) * 40 };
+      fireEvent.pointerDown(t.canvas(), at);
+      fireEvent.pointerUp(t.canvas(), at);
+    };
+    click(1, 14);
+    click(4, 18);
+    fireEvent.keyDown(t.canvas(), { key: 'Enter' });
+    const status = screen.getByTestId('garden-plan-measure-status');
+    // Text, not colour only: the total is in the status, which a screen reader hears politely.
+    expect(status).toHaveTextContent('Measurement done: 5.00 m (1 segment)');
+    expect(status).toHaveAttribute('role', 'status');
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    // The canvas picture of it lies in the overlay, which is hidden from assistive technology.
+    const overlay = screen.getByTestId('garden-plan-overlay');
+    expect(overlay).toHaveAttribute('aria-hidden', 'true');
+    expect(within(overlay).getByTestId('garden-plan-measure-total')).toHaveTextContent('5.00 m');
+    expect(t.store.getState().gardenPlan.past).toHaveLength(0);
+    vi.useRealTimers();
+    await expectNoA11yViolations(document.body, { minImpact: 'serious', minElements: 60 });
   });
 });
 

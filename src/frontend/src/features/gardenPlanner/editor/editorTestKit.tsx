@@ -65,6 +65,11 @@ interface SetupOptions {
   connected?: boolean;
   /** Told the room the canvas area has (only where something is laid out, i.e. with stubbed sizes). */
   onCanvasSize?: (size: CanvasAreaSize) => void;
+  /**
+   * Apply every `onPan` to the viewport like the route does (the plan slides by the pixels), shown at the next
+   * `rerender()` - for a flow that moves the plan under the crosshair. By default the viewport stays put.
+   */
+  applyPan?: boolean;
 }
 
 function ConnectedEditor(props: Omit<Parameters<typeof GardenPlanEditor>[0], 'plan'>) {
@@ -74,7 +79,17 @@ function ConnectedEditor(props: Omit<Parameters<typeof GardenPlanEditor>[0], 'pl
 
 export function setupEditor(options: SetupOptions = {}) {
   const plan = options.plan ?? testPlan();
-  const onPan = options.onPan ?? vi.fn<(dxPx: number, dyPx: number) => void>();
+  let viewport = options.viewport ?? VIEWPORT;
+  const onPan =
+    options.onPan ??
+    vi.fn<(dxPx: number, dyPx: number) => void>((dxPx, dyPx) => {
+      if (!options.applyPan) return;
+      // The content slides by (dx, dy) pixels: the model point at the top-left moves the other way.
+      viewport = {
+        ...viewport,
+        originM: [viewport.originM[0] - dxPx / viewport.pxPerM, viewport.originM[1] + dyPx / viewport.pxPerM],
+      };
+    });
   const onZoom = options.onZoom;
   const onOpenLocation = options.onOpenLocation;
   const onOpenCare = options.onOpenCare;
@@ -93,7 +108,7 @@ export function setupEditor(options: SetupOptions = {}) {
       <ThemeContextProvider>
         {options.connected ? (
           <ConnectedEditor
-            viewport={options.viewport ?? VIEWPORT}
+            viewport={viewport}
             renderer={drawnBy}
             labels={TEST_LABELS}
             onPan={onPan}
@@ -105,7 +120,7 @@ export function setupEditor(options: SetupOptions = {}) {
         ) : (
           <GardenPlanEditor
             plan={state().plan!}
-            viewport={options.viewport ?? VIEWPORT}
+            viewport={viewport}
             renderer={drawnBy}
             labels={TEST_LABELS}
             onPan={onPan}

@@ -151,6 +151,12 @@ class WorkspacePlanPage(GardenPlanPage):
     NEW_OBJECT_TYPE = "garden-plan-new-object-type"
     DRAW_FINISH = _tid("garden-plan-draw-finish")
 
+    # ── Measure tool (GP-UX-071, #2913) ────────────────────────────────
+    TOOL_MEASURE = _tid("garden-plan-tool-measure")
+    MEASURE_STATUS = _tid("garden-plan-measure-status")
+    MEASURE_TOTAL = _tid("garden-plan-measure-total")
+    MEASURE_SEGMENTS = _tid("garden-plan-measure-segment")
+
     # ── Object properties (WP 10.6) ────────────────────────────────────
     OBJECT_PROPS = _tid("garden-plan-panel-object-props")
     WINDOW_SILL = _tid("garden-plan-panel-window-sill-height")
@@ -391,26 +397,74 @@ class WorkspacePlanPage(GardenPlanPage):
         self.wait_for_side_panel(None, "closing the side panel by its button")
 
     def tool_locator(self, tool: str) -> tuple[str, str]:
-        """The rail button of the top-level tool *tool* (``select``, ``pan``, ``bed``, ``garden_object``)."""
+        """The rail button of the top-level tool *tool* (``select``, ``pan``, ``bed``, ``garden_object``, ``measure``)."""
         return _tid(f"garden-plan-tool-{tool}")
 
+    def measure_status(self) -> str:
+        """The measure tool's status text (``role="status"``): the next step and the measured total."""
+        return (
+            self.wait_for_element(self.MEASURE_STATUS).get_attribute("textContent") or ""
+        ).strip()
+
+    def wait_for_measure_status(
+        self, fragment: str, what: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str:
+        """Wait until the measure status contains *fragment*; loud with the last text otherwise."""
+        try:
+            self.poll(timeout).until(lambda _d: fragment in self.measure_status())
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the measure status should contain {fragment!r}, reads {self.measure_status()!r}"
+            ) from exc
+        return self.measure_status()
+
+    def measure_texts(self) -> tuple[list[str], str]:
+        """The segment lengths and the total the measure overlay draws on the canvas."""
+        segments = [
+            (node.get_attribute("textContent") or "").strip()
+            for node in self.driver.find_elements(*self.MEASURE_SEGMENTS)
+        ]
+        total = (
+            self.wait_for_element(self.MEASURE_TOTAL).get_attribute("textContent") or ""
+        ).strip()
+        return segments, total
+
+    # An entry the menu's paper has scrolled out of sight is reachable when the paper is a scroll container the user
+    # can scroll (``overflow-y`` auto/scroll): the entry is scrolled into the paper the way a wheel or a finger would,
+    # then its rect is read. ``in_menu`` says whether it then lies inside the paper's visible box. A paper that cannot
+    # scroll leaves a cut-off entry outside it (``in_menu`` false); a paper that grows past the viewport leaves the
+    # entry outside the viewport - either way the caller's check fails (AC-2: reachable, not merely present).
     _MENU_ENTRY_RECTS = """
         var menu = document.querySelector(arguments[0]);
         if (!menu) return null;
         var paper = menu.querySelector('.MuiPaper-root') || menu;
-        if (getComputedStyle(paper).transform !== 'none' || getComputedStyle(paper).opacity !== '1') return null;
-        return Array.from(menu.querySelectorAll("[role^='menuitem']")).map(function (item) {
+        var style = getComputedStyle(paper);
+        if (style.transform !== 'none' || style.opacity !== '1') return null;
+        var scrollable = /(auto|scroll)/.test(style.overflowY);
+        var entries = Array.from(menu.querySelectorAll("[role^='menuitem']")).map(function (item) {
+            var p = paper.getBoundingClientRect();
             var r = item.getBoundingClientRect();
+            var scrolled = false;
+            if (scrollable && (r.bottom > p.bottom + 1 || r.top < p.top - 1)) {
+                paper.scrollTop += r.bottom > p.bottom ? r.bottom - p.bottom : r.top - p.top;
+                r = item.getBoundingClientRect();
+                scrolled = true;
+            }
             return {testid: item.getAttribute('data-testid') || '', text: (item.textContent || '').trim(),
-                    left: r.left, right: r.right, top: r.top, bottom: r.bottom, height: r.height};
+                    left: r.left, right: r.right, top: r.top, bottom: r.bottom, height: r.height,
+                    scrolled: scrolled, in_menu: r.top >= p.top - 1 && r.bottom <= p.bottom + 1};
         });
+        paper.scrollTop = 0;
+        return entries;
     """
 
     def menu_entry_rects(self, trigger: tuple[str, str], menu_testid: str, what: str) -> list[dict]:
         """Open the menu behind *trigger*, read the rect of every entry once the menu stands still, close it by Escape.
 
         The rects are read after the ``Grow`` transition (transform ``none``, opacity 1); a scale that is still
-        running would report a shrunken entry. Loud when the menu does not open, has no entry, or does not close.
+        running would report a shrunken entry. An entry outside the visible part of a scrolling menu is scrolled into
+        it first (``scrolled``); ``in_menu`` tells whether it is then visible inside the menu (see
+        ``_MENU_ENTRY_RECTS``). Loud when the menu does not open, has no entry, or does not close.
         """
         selector = f"[data-testid='{menu_testid}']"
         self._open_menu(trigger, (By.CSS_SELECTOR, selector), what)
