@@ -113,10 +113,32 @@ def _id(item: tuple[str, dict[str, Any]]) -> str:
     return f"{item[0]}:{item[1]['scientific_name']}"
 
 
+def _steckbrief_row(entry: dict[str, Any]) -> str | None:
+    """The raw 'Volksnamen (DE/EN)' cell of the Steckbrief that describes exactly this taxon, else ``None``."""
+    sci: str = entry["scientific_name"]
+    if sci in _STECKBRIEF_DE_FIRST_EXCEPTIONS:
+        return None
+    return _STECKBRIEFE.get(_normalize_name(sci))
+
+
+#: The comparisons against the Steckbrief are parametrised over the entries they can judge, not skipped per entry:
+#: a skip reports like a pass, and the unit tier allows one (#1434). What is left out is counted below.
+_WITH_STECKBRIEF = [item for item in _ENTRIES if _steckbrief_row(item[1]) is not None]
+_WITH_TWO_PART_ROW = [item for item in _WITH_STECKBRIEF if (_steckbrief_row(item[1]) or "").count(";") == 1]
+
+
 def test_the_corpus_is_what_the_issue_measured() -> None:
     # 213 named entries across ten files when #2902 was filed; a shrinking count
     # would mean a file silently dropped out of _SPECIES_FILES' reach.
     assert len(_ENTRIES) >= 213
+
+
+def test_the_steckbrief_comparisons_cover_what_they_covered_when_written() -> None:
+    # Measured on 2026-11-12 with 213 entries: 9 have no Steckbrief for exactly their taxon (or are a reasoned
+    # exception), 34 have a Steckbrief row that is not the two-part 'DE; EN' form. More entries left out than
+    # that means a comparison quietly stopped judging - the reason these are counted instead of skipped.
+    assert len(_ENTRIES) - len(_WITH_STECKBRIEF) <= 9
+    assert len(_ENTRIES) - len(_WITH_TWO_PART_ROW) <= 34
 
 
 @pytest.mark.parametrize("item", _ENTRIES, ids=_id)
@@ -132,25 +154,22 @@ def test_every_entry_has_a_language_map_within_its_names(item: tuple[str, dict[s
     Species(scientific_name=entry["scientific_name"], common_names=entry["common_names"], common_names_i18n=names_i18n)
 
 
-@pytest.mark.parametrize("item", _ENTRIES, ids=_id)
+@pytest.mark.parametrize("item", _WITH_STECKBRIEF, ids=_id)
 def test_the_preferred_german_name_is_the_steckbriefs(item: tuple[str, dict[str, Any]]) -> None:
     _filename, entry = item
-    sci = entry["scientific_name"]
-    raw = _STECKBRIEFE.get(_normalize_name(sci))
-    if raw is None or sci in _STECKBRIEF_DE_FIRST_EXCEPTIONS:
-        pytest.skip("no Steckbrief describes exactly this taxon")
+    raw = _steckbrief_row(entry)
+    assert raw is not None
     first_german = re.split(r"[;,]", raw, maxsplit=1)[0].strip()
 
     assert _fold(entry["common_names_i18n"]["de"][0]) == _fold(first_german)
 
 
-@pytest.mark.parametrize("item", _ENTRIES, ids=_id)
+@pytest.mark.parametrize("item", _WITH_TWO_PART_ROW, ids=_id)
 def test_every_name_of_a_two_part_steckbrief_row_sits_in_its_language(item: tuple[str, dict[str, Any]]) -> None:
     _filename, entry = item
     sci = entry["scientific_name"]
-    raw = _STECKBRIEFE.get(_normalize_name(sci))
-    if raw is None or sci in _STECKBRIEF_DE_FIRST_EXCEPTIONS or raw.count(";") != 1:
-        pytest.skip("no two-part 'DE; EN' Steckbrief row for exactly this taxon")
+    raw = _steckbrief_row(entry)
+    assert raw is not None
     names_i18n = entry["common_names_i18n"]
     for language, part in zip(("de", "en"), raw.split(";"), strict=True):
         listed = {_fold(name) for name in names_i18n.get(language, [])}
