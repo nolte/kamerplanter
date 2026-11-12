@@ -31,7 +31,8 @@ export type ShapeKind = 'location' | 'gardenObject' | 'boundary';
 
 /**
  * Hit priority class (GP-UX-032), also the paint order reversed: 1 bed or garden object, 2 path,
- * 3 area (lawn), 4 boundary. Plant markers rank 0 and are not shape entries.
+ * 3 area (an area location such as a garden or terrace, #2913, and a lawn), 4 boundary. Plant markers rank 0 and are
+ * not shape entries.
  */
 export type ShapeLayer = 1 | 2 | 3 | 4;
 
@@ -74,6 +75,16 @@ function entry(
   };
 }
 
+/** An area location (REQ-053 §9.5, #2913): a garden, terrace, balcony, greenhouse or room - not a bed. */
+export function isAreaLocation(location: PlanLocation): boolean {
+  return location.is_area === true;
+}
+
+/** A shape entry of an area location. */
+export function isAreaEntry(entry: ShapeEntry): boolean {
+  return entry.kind === 'location' && isAreaLocation(entry.source as PlanLocation);
+}
+
 const locationCache = new WeakMap<object, ShapeEntry[]>();
 const objectCache = new WeakMap<object, ShapeEntry[]>();
 const boundaryCache = new WeakMap<object, ShapeEntry | null>();
@@ -88,7 +99,8 @@ function locationEntries(locations: Record<string, PlanLocation>): ShapeEntry[] 
         entry(
           location.key,
           'location',
-          1,
+          // An area lies below the beds and paths inside it: a click on a bed inside it selects the bed (GP-UX-032).
+          isAreaLocation(location) ? 3 : 1,
           location.geometry,
           location.bbox,
           location.z_order,

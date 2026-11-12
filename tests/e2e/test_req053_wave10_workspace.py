@@ -573,11 +573,11 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
 
 # ── TC-053-103 ──────────────────────────────────────────────────────────────
 
-#: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist) plus Messen from
-#: GP-UX-071 (#2913; Bereich, Pflanze setzen and Text/Label are still to come), and the tools whose rail button opens
-#: a sub-menu.
-GP_UX_001_TOOLS = ("select", "pan", "bed", "garden_object", "measure")
-TOOLS_WITH_MENU = ("bed", "garden_object")
+#: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist) plus Bereich and
+#: Messen from GP-UX-071 (#2913; Pflanze setzen and Text/Label are still to come), and the tools whose rail button
+#: opens a sub-menu.
+GP_UX_001_TOOLS = ("select", "pan", "area", "bed", "garden_object", "measure")
+TOOLS_WITH_MENU = ("area", "bed", "garden_object")
 PANEL_TABS = ("properties", "view", "layers", "zones")
 
 
@@ -703,6 +703,69 @@ def test_tc_053_103_measure_tool_measures_a_known_distance(
     plan.press(Keys.ESCAPE)
     plan.poll().until(lambda d: not d.find_elements(*plan.MEASURE_TOTAL))
     plan.wait_for_measure_status("Klicke auf den Startpunkt", "TC-053-103 measure: Esc clears")
+
+
+def test_tc_053_103_area_parents_a_bed_drawn_inside_it(
+    plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-103 step 6 - the rail's area tool draws an area that parents the bed drawn inside it (GP-UX-071).
+
+    Breaks if the area tool is not on the rail or does not become active, if its type choice with the parent rule is
+    missing, if the drawn rectangle is not stored as a location of the chosen area type that the read model marks
+    ``is_area``, if a bed drawn inside it afterwards does not get the area as ``parent_location_key``, or if the bed
+    that was on the plan before (outside the area) changes its parent.
+    """
+    set_phone_viewport(browser, 1024, 768)
+    plan.dismiss_light_mode_warning()
+    garden = provision_garden(
+        base_url,
+        e2e_seed_data,
+        purpose="tc103a",
+        beds=(BedSpec("Beet A", rect(4.0, 4.5, 2.0, 1.0)),),
+    )
+    plan.open(garden.site_key)
+    plan.wait_for_element_visible(plan.TOOLBAR)
+    before = {
+        loc["key"]: loc for loc in read_plan(base_url, e2e_seed_data, garden.site_key)["locations"]
+    }
+
+    plan.choose_tool(plan.TOOL_AREA)
+    plan.choose_new_area_type("garden")
+    helper = plan.new_area_type_rule()
+    assert "danach ganz in diesem Bereich" in helper, (
+        f"TC-053-103 area: the type choice should name the parent rule, it reads {helper!r}"
+    )
+    plan.draw_rect((0.5, 0.5), (3.5, 3.5))
+    plan.wait_for_pending(1, "TC-053-103 area: drawing the area")
+    area_key = plan.selected_keys()
+    assert len(area_key) == 1, f"TC-053-103 area: the new area should be selected, got {area_key}"
+    (area_temp,) = area_key
+
+    plan.choose_tool(plan.TOOL_BED)
+    plan.draw_rect((1.0, 1.0), (2.0, 2.0), start_on=area_temp)
+    plan.wait_for_pending(2, "TC-053-103 area: drawing the bed inside the area")
+    screenshot("053_103_04_area", "1024 × 768: Bereich mit einem Beet darin")
+    plan.save_with_button()
+
+    stored = read_plan(base_url, e2e_seed_data, garden.site_key)
+    new = [loc for loc in stored["locations"] if loc["key"] not in before]
+    areas = [loc for loc in new if loc.get("is_area") is True]
+    beds = [loc for loc in new if loc.get("is_area") is not True]
+    assert len(areas) == 1 and len(beds) == 1, (
+        f"TC-053-103 area: expected one new area and one new bed: {new}"
+    )
+    assert areas[0]["location_type_key"] == "garden", f"TC-053-103 area: area type {areas[0]}"
+    assert "garden" in stored.get("area_type_keys", []), (
+        "TC-053-103 area: the read model names the area types"
+    )
+    assert beds[0].get("parent_location_key") == areas[0]["key"], (
+        f"TC-053-103 area: the bed drawn inside the area should hang below it: {beds[0]} / {areas[0]}"
+    )
+    old_bed = garden.bed_key("Beet A")
+    after = {loc["key"]: loc for loc in stored["locations"]}
+    assert after[old_bed].get("parent_location_key") == before[old_bed].get(
+        "parent_location_key"
+    ), "TC-053-103 area: the bed that was there before keeps its parent"
 
 
 # ── TC-053-104 ──────────────────────────────────────────────────────────────

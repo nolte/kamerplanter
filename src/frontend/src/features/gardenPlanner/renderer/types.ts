@@ -55,6 +55,8 @@ export interface RendererLabels {
   canvasRole: string;
   boundary: string;
   bed: (params: { name: string; size: string; plants: number; openTasks: number }) => string;
+  /** An area location (#2913): "Gemüsegarten, Bereich, 6 × 4 m". Absent = it is named like a bed. */
+  area?: (params: { name: string; size: string; openTasks: number }) => string;
   object: (params: { label: string; typeLabel: string; size: string }) => string;
   plant: (params: { id: string }) => string;
   /** An empty position; with `plannedFrom` it is reserved by a planned run from that day on (GP-FR-074). */

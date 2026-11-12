@@ -61,12 +61,13 @@ Deine Rolle gilt immer für den Garten (Mandanten), in dem du gerade arbeitest.
 
 ### Werkzeuge und Formen {#werkzeuge-und-formen}
 
-Die Werkzeug-Leiste links neben dem Plan bietet fünf Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
+Die Werkzeug-Leiste links neben dem Plan bietet sechs Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
 
 | Werkzeug | Was es tut |
 |----------|-----------|
 | **Auswählen** | Klicken wählt ein Objekt, ein Rahmen wählt mehrere, mit der Umschalttaste fügst du Objekte hinzu. Gewählte Objekte verschiebst du durch Ziehen. |
 | **Ansicht verschieben** | Zieht die Ansicht, ohne etwas zu ändern. |
+| **Bereich zeichnen** ▸ | Zeichnet einen Bereich wie Garten, Terrasse, Balkon oder Gewächshaus, in den du danach Beete legst, siehe [Bereiche](#bereiche). Das Menü daneben bietet **Mit Maßen hinzufügen**. |
 | **Beet zeichnen** ▸ | Zeichnet ein neues Beet. Das kleine Menü daneben bietet **Aus Vorlage** (ein Beet aus einer [Vorlage](#beetvorlagen) setzen) und **Mit Maßen hinzufügen**. |
 | **Objekt: Gartenobjekt zeichnen** ▸ | Zeichnet ein Gartenobjekt wie Weg, Zaun, Baum, Rankhilfe, Kompost oder im Wohnungsplan Fenster, Tür, Möbel und Lampe. Das Menü daneben bietet **Mit Maßen hinzufügen**. |
 | **Messen** | Misst einen Abstand auf dem Plan, Punkt für Punkt. Es wird nichts gespeichert, siehe [Abstände messen](#abstande-messen). |
@@ -74,17 +75,25 @@ Die Werkzeug-Leiste links neben dem Plan bietet fünf Werkzeuge. Jedes hat einen
 Unter den Werkzeugen erscheint die **Auswahlgruppe** nur, solange etwas gewählt ist: **Drehraster** (15°, 45°, 90°), **Ausrichten** und **Löschen**.
 
 !!! note "Teilweise verfügbar: Werkzeuge"
-    Drei weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Bereich**, **Pflanze setzen** und **Beschriftung**. Bis dahin legst du Bereiche über die Programmierschnittstelle oder eine Sicherung an und bepflanzt Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
+    Zwei weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Pflanze setzen** und **Beschriftung**. Bis dahin bepflanzt du Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 Als **Form** wählst du Rechteck, Kreis, Vieleck oder Linie. Das Rechteck ziehst du auf (mit der Umschalttaste wird es ein Quadrat), den Kreis ziehst du vom Mittelpunkt nach außen. Beim Vieleck und bei der Linie klickst du Punkt für Punkt; mit **Fertig**, der Eingabetaste oder einem Klick auf den ersten Punkt schließt du das Vieleck, die Linie beendest du mit **Fertig** oder der Eingabetaste. Die Rücktaste nimmt den letzten Punkt zurück, **Esc** verwirft die Form.
 
-Zu jedem Objekt zeigt der Plan Breite, Länge (beim Kreis den Durchmesser) und Fläche. **Mit Maßen hinzufügen** legt ein Beet oder Objekt mit eingetippten Maßen an, auch ohne Zeichnen.
+Zu jedem Objekt zeigt der Plan Breite, Länge (beim Kreis den Durchmesser) und Fläche. **Mit Maßen hinzufügen** legt einen Bereich, ein Beet oder ein Objekt mit eingetippten Maßen an, auch ohne Zeichnen.
 
 Der Name eines Beets oder Objekts steht in seiner Mitte, bei einem Vieleck an der Stelle mit dem meisten Platz zu allen Rändern, damit er auch in einem Winkelbeet im Beet bleibt. Ist der Name zu lang, kürzt der Plan ihn mit „…“. Überdecken sich zwei Namen, bleibt der des größeren Objekts stehen. Im PDF und in der SVG steht der Name an derselben Stelle. <!-- REQ-053 GP-UX-047 -->
 
 Ein gewähltes Objekt hat Griffe: Die Ecken ändern die Größe, der Drehgriff dreht das Objekt. Das **Drehraster** rastet beim Drehen alle 15, 45 oder 90 Grad ein; mit gehaltener Alt-Taste drehst du frei. Bei einem Vieleck fügst du über **Punkt einfügen** einen Punkt hinzu und entfernst einen mit **Punkt löschen**.
 
 Die Maße des gewählten Objekts stehen außerhalb über seiner Oberkante und weichen den Griffen aus. Ist ein Objekt auf dem Bildschirm zu klein für Griffe, erscheint ein Hinweis mit **Zum Bearbeiten heranzoomen**: Der Plan zoomt um das Objekt herum so weit hinein, dass alle Griffe erscheinen. <!-- REQ-053 GP-UX-047, GP-UX-048 -->
+
+### Bereiche {#bereiche}
+
+Ein **Bereich** fasst Beete zusammen: der Gemüsegarten hinter dem Haus, die Terrasse, der Balkon oder das Gewächshaus. Wähle **Bereich zeichnen** und über dem Plan den **Bereichstyp** (Garten, Terrasse, Balkon, Gewächshaus oder einen eigenen Typ; im [Wohnungsplan](#wohnungsplan) Zimmer). Dann ziehst du ein Rechteck auf oder setzt ein Vieleck Punkt für Punkt, genau wie bei einem Beet. Der neue Bereich heißt zunächst „Bereich 1“, „Bereich 2“ und so weiter; den Namen änderst du im Seitenpanel. Ohne Maus legst du einen Bereich über **Bereich zeichnen ▸ Mit Maßen hinzufügen** an.
+
+Der Plan zeigt einen Bereich hell gefüllt mit gepunktetem Rand und seinem Namen, unter den Beeten und Wegen darin. Ein Klick auf ein Beet im Bereich wählt das Beet, ein Klick auf eine freie Stelle im Bereich wählt den Bereich. Liegt der Name des Bereichs auf dem Namen eines Beets, bleibt der Name des Beets stehen. Ein Gewächshaus oder Zimmer, das schon auf deinem Plan liegt, sieht jetzt ebenfalls so aus.
+
+**Was zu einem Bereich gehört.** Ein Beet, das du *nach* dem Bereich ganz in ihm zeichnest, gehört zu ihm: Verschiebst du den Bereich, wandern seine Beete mit, und löschst du ihn, fragt der Plan nach, weil seine Beete mitgehen. Beete und Objekte, die schon auf dem Plan liegen, bevor du den Bereich um sie herum zeichnest, gehören **nicht** zu ihm und bleiben, wo sie sind; der Plan sagt dir das nach dem Zeichnen in einem Hinweis. Ein Beet nachträglich in einen Bereich umhängen geht nicht. Zeichne deshalb zuerst die Bereiche und dann die Beete darin. Ein Bereich liegt nie in einem Beet. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
 
 ### Abstände messen {#abstande-messen}
 

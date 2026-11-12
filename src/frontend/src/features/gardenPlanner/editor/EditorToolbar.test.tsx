@@ -29,7 +29,7 @@ function renderBar(
   options: {
     orientation?: ToolbarOrientation;
     selectionGroup?: ToolbarSelectionGroup | null;
-    tool?: 'select' | 'bed' | 'measure';
+    tool?: 'select' | 'area' | 'bed' | 'measure';
     draftPoints?: number;
   } = {},
 ) {
@@ -82,9 +82,11 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
     expect(tools.map((button) => button.getAttribute('data-testid'))).toEqual([
       'garden-plan-tool-select',
       'garden-plan-tool-pan',
+      // GP-UX-071 (#2913): Bereich stands before Beet - an area holds beds.
+      'garden-plan-tool-area',
       'garden-plan-tool-bed',
       'garden-plan-tool-garden_object',
-      // GP-UX-071 (#2913): the first of the four further tools, after the existing four.
+      // GP-UX-071 (#2913): Messen after the tools that create something.
       'garden-plan-tool-measure',
     ]);
     expect(tools.length).toBeLessThanOrEqual(8);
@@ -112,6 +114,24 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
       'Measure a distance – click point by point on the plan, Enter or a double click finishes',
     );
+  });
+
+  it('names the verb of the area tool and offers a rect and a polygon only (GP-UX-010, GP-UX-071, §9.5)', async () => {
+    const { onTool } = renderBar({ tool: 'area' });
+    const area = screen.getByTestId('garden-plan-tool-area');
+    expect(area).toHaveAccessibleName('Draw area');
+    expect(area).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('garden-plan-shape-rect')).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-shape-polygon')).toBeInTheDocument();
+    expect(screen.queryByTestId('garden-plan-shape-circle')).toBeNull();
+    expect(screen.queryByTestId('garden-plan-shape-polyline')).toBeNull();
+    fireEvent.mouseOver(area);
+    // The tooltip names the parent rule: what is drawn inside afterwards belongs to it.
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Draw an area – a garden, terrace, balcony or greenhouse. Beds you draw inside it afterwards belong to it',
+    );
+    fireEvent.click(screen.getByTestId('garden-plan-tool-select'));
+    expect(onTool).toHaveBeenLastCalledWith('select');
   });
 
   it('offers no shapes while measuring, and its points are cleared, not cancelled', () => {
@@ -143,6 +163,9 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
     expect(onAddWithDimensions).toHaveBeenLastCalledWith('bed');
     chooseToolMenuEntry('garden_object', 'garden-plan-add-with-dimensions-object');
     expect(onAddWithDimensions).toHaveBeenLastCalledWith('garden_object');
+    // The area's non-pointer path (WCAG 2.1.1, #2913): "Add with dimensions" in the sub-menu of Area.
+    chooseToolMenuEntry('area', 'garden-plan-add-with-dimensions-area');
+    expect(onAddWithDimensions).toHaveBeenLastCalledWith('area');
   });
 
   it('renders no selection group without a selection - not even as disabled buttons (AC-4)', () => {
@@ -251,6 +274,10 @@ describe('keyboard: roving tabindex (GP-UX-066 like GP-NFR-068)', () => {
     fireEvent.keyDown(select, { key: 'ArrowDown' });
     expect(screen.getByTestId('garden-plan-tool-pan')).toHaveFocus();
     expect(tabStops(bar)).toEqual([screen.getByTestId('garden-plan-tool-pan')]);
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    expect(screen.getByTestId('garden-plan-tool-area')).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    expect(screen.getByTestId('garden-plan-tool-area-menu')).toHaveFocus();
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
     expect(screen.getByTestId('garden-plan-tool-bed')).toHaveFocus();
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });

@@ -1006,6 +1006,28 @@ class TestThePlanReadModel:
         view = GardenPlanService(sites, FakePlanRepo(sites)).get_plan(SITE, tenant_key=TENANT)
         assert view.plan is None and view.plan_revision == 0
 
+    def test_an_area_location_is_marked_and_every_area_type_is_named_gp_ux_071(self, world):
+        """#2913: the read model says which locations are areas (neither bed nor layout type) and names every area
+        type, so the client draws an area it creates as one before the save.
+
+        Breaks if a greenhouse is not marked as an area, a bed or a tent (``supports_layout``, an indoor planting
+        spot) is, or the plan-level list misses a type no location of this plan has.
+        """
+        from app.api.v1.garden_plan.tenant_router import _plan_response
+
+        service, repo, _ = world
+        repo.layout_types = {**repo.layout_types, "terrace": False}
+        repo.locations["house"] = make_location("house", "Glashaus", rect(0, 0, 6, 4), location_type_key="greenhouse")
+        repo.locations["bed"] = make_location("bed", geometry=rect(1, 1, 2, 1), parent_location_key="house")
+        repo.locations["tent"] = make_location("tent", geometry=rect(7, 1, 1, 1), location_type_key="tent")
+
+        view = service.get_plan(SITE, tenant_key=TENANT)
+        response = _plan_response(view)
+
+        assert view.area_type_keys == frozenset({"greenhouse", "terrace"})
+        assert response.area_type_keys == ["greenhouse", "terrace"]
+        assert {loc.key: loc.is_area for loc in response.locations} == {"house": True, "bed": None, "tent": None}
+
     def test_the_view_is_the_one_a_validated_construction_gives(self, world):
         """#2526: ``get_plan`` constructs the view without validating it again; nothing may differ from that.
 

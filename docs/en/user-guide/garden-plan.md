@@ -61,12 +61,13 @@ Your role always applies to the garden (tenant) you are working in.
 
 ### Tools and shapes {#tools-and-shapes}
 
-The tool rail to the left of the plan offers five tools. Each has a tooltip; on wide screens its name stands next to it.
+The tool rail to the left of the plan offers six tools. Each has a tooltip; on wide screens its name stands next to it.
 
 | Tool | What it does |
 |------|--------------|
 | **Select** | Clicking selects an object, a frame selects several, with the Shift key you add objects. Dragging moves the selected objects. |
 | **Pan view** | Drags the view without changing anything. |
+| **Draw area** ▸ | Draws an area such as a garden, terrace, balcony or greenhouse that you then put beds into, see [Areas](#areas). The menu next to it offers **Add with dimensions**. |
 | **Draw bed** ▸ | Draws a new bed. The small menu next to it offers **From template** (place a bed from a [template](#bed-templates)) and **Add with dimensions**. |
 | **Object: draw garden object** ▸ | Draws a garden object such as a path, fence, tree, trellis, compost or, in a flat plan, window, door, furniture and lamp. The menu next to it offers **Add with dimensions**. |
 | **Measure** | Measures a distance on the plan, point by point. Nothing is saved, see [Measuring distances](#measuring-distances). |
@@ -74,17 +75,25 @@ The tool rail to the left of the plan offers five tools. Each has a tooltip; on 
 Below the tools, the **selection group** appears only while something is selected: **rotation step** (15°, 45°, 90°), **Align** and **Delete**.
 
 !!! note "Partially available: tools"
-    Three more tools are planned but not built yet: **Area**, **Place plant** and **Label**. Until then you create areas through the API or a backup and plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
+    Two more tools are planned but not built yet: **Place plant** and **Label**. Until then you plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 As **shape** you choose rectangle, circle, polygon or line. You drag out the rectangle (with Shift it becomes a square) and the circle from its centre outwards. For the polygon and the line you click point by point; **Finish**, the Enter key or a click on the first point closes the polygon, **Finish** or Enter ends the line. Backspace takes back the last point, **Esc** discards the shape.
 
-For every object the plan shows width, length (diameter for a circle) and area. **Add with dimensions** creates a bed or object from typed-in dimensions, without drawing.
+For every object the plan shows width, length (diameter for a circle) and area. **Add with dimensions** creates an area, a bed or an object from typed-in dimensions, without drawing.
 
 The name of a bed or object sits in its middle; on a polygon it sits where it has the most room to every edge, so it stays inside an L-shaped bed. A name that is too long is shortened with "…". When two names overlap, the larger object keeps its name. The PDF and the SVG put the name in the same place. <!-- REQ-053 GP-UX-047 -->
 
 A selected object has handles: the corners change the size, the rotation handle turns the object. The **rotation step** snaps the rotation every 15, 45 or 90 degrees; hold the Alt key to rotate freely. On a polygon you add a point with **Insert point** and remove one with **Delete point**.
 
 The dimensions of the selected object stand outside, above its top edge, and keep clear of the handles. When an object is too small on screen for handles, a hint offers **Zoom in to edit**: the plan zooms in around the object until all handles appear. <!-- REQ-053 GP-UX-047, GP-UX-048 -->
+
+### Areas {#areas}
+
+An **area** groups beds: the vegetable garden behind the house, the terrace, the balcony or the greenhouse. Choose **Draw area** and, above the plan, the **Area type** (garden, terrace, balcony, greenhouse or a type of your own; in a [flat plan](#flat-plan) a room). Then drag out a rectangle or set a polygon point by point, just like a bed. The new area is called "Area 1", "Area 2" and so on at first; you change the name in the side panel. Without a mouse you add an area with **Draw area ▸ Add with dimensions**.
+
+The plan shows an area with a light fill, a dotted outline and its name, below the beds and paths inside it. A click on a bed inside the area selects the bed, a click on a free spot of the area selects the area. When the area's name lies on a bed's name, the bed's name stays. A greenhouse or room that is already on your plan now looks like this as well.
+
+**What belongs to an area.** A bed you draw completely inside the area *after* the area belongs to it: when you move the area, its beds move along, and when you delete it, the plan asks first because its beds go with it. Beds and objects that are on the plan before you draw the area around them do **not** belong to it and stay where they are; the plan tells you so in a notice after drawing. Moving an existing bed into an area afterwards is not possible. So draw the areas first and then the beds inside them. An area never lies inside a bed. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
 
 ### Measuring distances {#measuring-distances}
 

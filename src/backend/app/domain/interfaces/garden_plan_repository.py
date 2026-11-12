@@ -24,6 +24,9 @@ from app.domain.models.tent_hint import PlantPhotoperiod
 #: Plants one photoperiod read considers (W-016.6). A tent holds a few dozen at most; the bound keeps a mis-typed
 #: location of thousands of plants from turning a summary into a scan.
 MAX_PHOTOPERIOD_PLANTS = 500
+#: Area location types one read returns (REQ-053 §9.5). The seed has a dozen; the bound keeps the master-data read
+#: of every plan request bounded.
+MAX_AREA_TYPES = 500
 
 
 @dataclass
@@ -134,6 +137,15 @@ class IGardenPlanRepository(ABC):
 
         A type flagged ``is_bed`` reads ``True`` even where a stored document lacks ``supports_layout`` (the model's
         rule, ``LocationType._a_bed_supports_a_layout``).
+        """
+
+    @abstractmethod
+    def area_type_keys(self) -> list[str]:
+        """The keys of every location type the plan draws as an **area** (REQ-053 §9.5, GP-UX-071), sorted.
+
+        An area type is neither ``is_bed`` nor ``supports_layout``: garden, terrace, balcony, greenhouse, room and
+        the like. Tent and shelf (``supports_layout``) are planting spots, not areas. Location types are global master
+        data; at most :data:`MAX_AREA_TYPES` keys are read.
         """
 
     @abstractmethod

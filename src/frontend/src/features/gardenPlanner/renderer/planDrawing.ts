@@ -6,7 +6,7 @@
 import type { KeyboardEvent } from 'react';
 import { alpha, type Theme } from '@mui/material/styles';
 import type { BedStatus, GardenObject, GardenObjectType, PlanLocation, Point } from '../model/types';
-import type { MarkerEntry, ShapeEntry } from './planIndex';
+import { isAreaLocation, type MarkerEntry, type ShapeEntry } from './planIndex';
 import type { SceneCluster, SceneShape } from './scene';
 import type { PlantMarkerState, RendererLabels } from './types';
 
@@ -18,6 +18,8 @@ export interface PlanPalette {
   text: string;
   boundary: string;
   bed: Record<BedStatus, { fill: string; dash?: string }>;
+  /** An area location (garden, terrace, greenhouse, #2913): a light wash and a dotted outline, so not by colour alone. */
+  area: { fill: string; dash: string };
   object: string;
   tree: string;
   lawn: string;
@@ -46,6 +48,7 @@ export function planPalette(theme: Theme): PlanPalette {
       planned: { fill: alpha(palette.info.main, 0.2), dash: '6 4' },
       retired: { fill: alpha(palette.grey[500], 0.2) },
     },
+    area: { fill: alpha(palette.secondary.main, 0.08), dash: '2 4' },
     object: alpha(palette.grey[500], 0.35),
     tree: alpha(palette.success.dark, 0.3),
     lawn: alpha(palette.success.light, 0.2),
@@ -92,7 +95,8 @@ export interface ShapeStyle {
 export function shapeStyle(entry: ShapeEntry, selected: boolean, invalid: boolean, palette: PlanPalette): ShapeStyle {
   const location = entry.kind === 'location' ? (entry.source as PlanLocation) : null;
   const object = entry.kind === 'gardenObject' ? (entry.source as GardenObject) : null;
-  const bed = location ? palette.bed[location.bed_status] : null;
+  // An area keeps its own look whatever its `bed_status` (REQ-053 §9.5, #2913).
+  const bed = location ? (isAreaLocation(location) ? palette.area : palette.bed[location.bed_status]) : null;
   return {
     fill:
       entry.kind === 'boundary'
@@ -157,6 +161,9 @@ export function shapeAriaLabel(item: SceneShape, labels: RendererLabels): string
   const size = labels.size(entry.geometry, entry.areaM2 || entry.bboxAreaM2);
   if (entry.kind === 'location') {
     const location = entry.source as PlanLocation;
+    if (isAreaLocation(location) && labels.area) {
+      return labels.area({ name: location.name, size, openTasks: location.open_task_count });
+    }
     return labels.bed({
       name: location.name,
       size,

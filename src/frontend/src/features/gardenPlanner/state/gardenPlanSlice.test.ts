@@ -567,6 +567,25 @@ describe('tool, selection and reset', () => {
     expect(store.getState().gardenPlan.tool).toBe('select');
   });
 
+  it('holds the area tool (GP-UX-071) and draws an area created by an action as one before the save', async () => {
+    getGardenPlan.mockResolvedValue(planResponse({ area_type_keys: ['garden', 'terrace'] }));
+    const store = makeStore();
+    await store.dispatch(loadGardenPlan('site_1'));
+    store.dispatch(setTool('area'));
+    expect(store.getState().gardenPlan.tool).toBe('area');
+    const geometry = { kind: 'rect' as const, origin: [1, 1] as [number, number], width_m: 4, length_m: 3, rotation_deg: 0 };
+    store.dispatch(
+      applyAction([
+        { op: 'create_location', temp_key: 'tmp_a', data: { name: 'Area 1', location_type_key: 'terrace', geometry } },
+        { op: 'create_location', temp_key: 'tmp_b', data: { name: 'Bed 1', location_type_key: 'bed', geometry } },
+      ]),
+    );
+    const { plan } = store.getState().gardenPlan;
+    expect(plan?.areaTypeKeys).toEqual(['garden', 'terrace']);
+    expect(plan?.locations.tmp_a.is_area).toBe(true);
+    expect(plan?.locations.tmp_b.is_area).toBeUndefined();
+  });
+
   it('drops a selected entity that an action removed', async () => {
     const store = await loaded();
     store.dispatch(setSelection([{ entity: 'garden_object', key: 'go_1' }]));

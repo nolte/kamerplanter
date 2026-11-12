@@ -270,6 +270,7 @@ def _el(tag: str, children: list[_Node | str] | None = None, **attributes: Attri
 _LABELS: Final[dict[str, dict[str, str]]] = {
     "de": {
         "north": "N",
+        "legend_area": "Bereich",
         "legend_bed_active": "Beet",
         "legend_bed_planned": "Beet (geplant)",
         "legend_bed_retired": "Beet (stillgelegt)",
@@ -310,6 +311,7 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "type_furniture": "Möbel",
         "type_lamp": "Lampe",
         # Per-object title and description (GP-NFR-029).
+        "class_area": "Bereich",
         "class_bed": "Beet",
         "class_plant": "Pflanze",
         "class_slot": "Pflanzplatz",
@@ -345,6 +347,7 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
     },
     "en": {
         "north": "N",
+        "legend_area": "Area",
         "legend_bed_active": "Bed",
         "legend_bed_planned": "Bed (planned)",
         "legend_bed_retired": "Bed (retired)",
@@ -385,6 +388,7 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "type_furniture": "Furniture",
         "type_lamp": "Lamp",
         # Per-object title and description (GP-NFR-029).
+        "class_area": "Area",
         "class_bed": "Bed",
         "class_plant": "Plant",
         "class_slot": "Planting spot",
@@ -483,6 +487,9 @@ _BED_STYLE: Final[dict[BedStatus, tuple[str, str, str | None]]] = {
     BedStatus.PLANNED: ("#fff9c4", "#f9a825", "3 2"),
     BedStatus.RETIRED: ("#eeeeee", "#9e9e9e", "1 2"),
 }
+#: An area (REQ-053 §9.5: garden, terrace, balcony, greenhouse, room): a light wash with a dash-dot outline, so it
+#: stays apart from a bed in greyscale too; drawn below the beds.
+_AREA_STYLE: Final[tuple[str, str, str | None]] = ("#eceff1", "#78909c", "4 1 1 1")
 _BED_LABEL_KEY: Final[dict[BedStatus, str]] = {
     BedStatus.ACTIVE: "legend_bed_active",
     BedStatus.PLANNED: "legend_bed_planned",
@@ -815,12 +822,16 @@ def _legend(
 ) -> Iterator[_LegendEntry]:
     layers = options.layers
     if PlanSvgLayer.BEDS in layers:
-        # Only what ``_bed_layer`` draws: areas, not lines or points.
-        present = {
-            loc.bed_status
+        # Only what ``_bed_layer`` draws: surfaces, not lines or points.
+        surfaces = [
+            loc
             for loc in view.locations
             if loc.geometry is not None and not isinstance(loc.geometry, PolylineGeometry | PointGeometry)
-        }
+        ]
+        if any(loc.location_type_key in view.area_type_keys for loc in surfaces):
+            fill, stroke, dash = _AREA_STYLE
+            yield _LegendEntry("box", fill, stroke, labels["legend_area"], dash)
+        present = {loc.bed_status for loc in surfaces if loc.location_type_key not in view.area_type_keys}
         for status in (BedStatus.ACTIVE, BedStatus.PLANNED, BedStatus.RETIRED):
             if status in present:
                 fill, stroke, dash = _BED_STYLE[status]
@@ -1130,7 +1141,11 @@ class _Describe:
 
 
 def _bed_layer(
-    canvas: _Canvas, locations: list[Location], describe: _Describe, markers: dict[str, list[_PlantMarker]]
+    canvas: _Canvas,
+    locations: list[Location],
+    describe: _Describe,
+    markers: dict[str, list[_PlantMarker]],
+    area_types: frozenset[str],
 ) -> _Node:
     layer = _el("g", id="layer-beds")
     drawn = [
@@ -1138,10 +1153,16 @@ def _bed_layer(
         for loc in locations
         if loc.geometry is not None and not isinstance(loc.geometry, PolylineGeometry | PointGeometry)
     ]
-    # Large areas first so a bed inside a greenhouse is drawn on top of it.
-    drawn.sort(key=lambda loc: (loc.z_order, -(loc.area_m2 or 0.0)))
+    # Areas below the beds (GP-UX-032), then large first so a bed inside a greenhouse is drawn on top of it.
+    drawn.sort(key=lambda loc: (loc.location_type_key not in area_types, loc.z_order, -(loc.area_m2 or 0.0)))
     for loc in drawn:
         assert loc.geometry is not None  # noqa: S101 - filtered above
+        if loc.location_type_key in area_types:
+            fill, stroke, dash = _AREA_STYLE
+            shape = _shape_node(canvas, loc.geometry, fill=fill, stroke=stroke, dash=dash, key=loc.key)
+            desc = describe.labels["area"].format(value=_decimal(loc.area_m2, describe.locale))
+            layer.add(_accessible(shape, _named(describe.labels["class_area"], loc.name), desc))
+            continue
         fill, stroke, dash = _BED_STYLE[loc.bed_status]
         shape = _shape_node(canvas, loc.geometry, fill=fill, stroke=stroke, dash=dash, key=loc.key)
         bed_markers = markers.get(loc.key or "", [])
@@ -1414,7 +1435,8 @@ def _plant_layer(
 def _label_layer(canvas: _Canvas, view: GardenPlanView, layers: frozenset[PlanSvgLayer]) -> _Node:
     layer = _el("g", id="layer-labels")
     if PlanSvgLayer.BEDS in layers:
-        for loc in view.locations:
+        # The names of areas first: where one runs into a bed's name, the bed's is written on top.
+        for loc in sorted(view.locations, key=lambda loc: loc.location_type_key not in view.area_type_keys):
             if loc.geometry is None or isinstance(loc.geometry, PolylineGeometry | PointGeometry):
                 continue
             label = _label_node(canvas, loc.geometry, loc.name, key=loc.key)
@@ -1633,7 +1655,7 @@ def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions, marks: PlantS
     if PlanSvgLayer.GRID in layers:
         root.add(_grid_layer(canvas, extent))
     if PlanSvgLayer.BEDS in layers:
-        root.add(_bed_layer(canvas, view.locations, describe, markers))
+        root.add(_bed_layer(canvas, view.locations, describe, markers, view.area_type_keys))
     if PlanSvgLayer.OBJECTS in layers:
         root.add(_object_layer(canvas, view.garden_objects, extent, describe))
     root.add(_boundary_node(canvas, view, options.accent, describe))

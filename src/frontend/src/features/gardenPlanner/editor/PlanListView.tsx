@@ -205,7 +205,10 @@ export function PlanListView({
     ];
     if (info.size) facts.push([t(`${PREFIX}.fact.size`), info.size]);
     if (location) {
-      facts.push([t(`${PREFIX}.fact.status`), t(`${PREFIX}.status.${location.bed_status}`)]);
+      // An area has no bed status (§9.5, #2913): its `bed_status` is a stored default, not a fact.
+      if (location.is_area !== true) {
+        facts.push([t(`${PREFIX}.fact.status`), t(`${PREFIX}.status.${location.bed_status}`)]);
+      }
       facts.push([
         t(`${PREFIX}.fact.plants`),
         String(plantsInLocations(plan, new Set([row.key])).length),

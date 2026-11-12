@@ -152,6 +152,7 @@ import { useZoneLayers } from '../zones/useZoneLayers';
 import { ZoneLegend } from '../zones/ZoneLegend';
 import ObjectLegend from '../planting/ObjectLegend';
 import { useAnnouncement } from './useAnnouncement';
+import { useAreaTypes } from './useAreaTypes';
 import { useBedTypes } from './useBedTypes';
 import { useEditorKeyboard } from './useEditorKeyboard';
 import { useEditorShortcuts } from './useEditorShortcuts';
@@ -163,7 +164,13 @@ import { companionBedKeys, useCompanionEdges } from './useCompanionEdges';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import type { DimensionTarget } from './tools/addDimensions';
-import { BOUNDARY_SHAPES, commonBedTypeKey, type DrawShape } from './tools/drawMachine';
+import {
+  BOUNDARY_SHAPES,
+  commonBedTypeKey,
+  FALLBACK_AREA_TYPE_KEY,
+  nextLocationNumber,
+  type DrawShape,
+} from './tools/drawMachine';
 import {
   alignAvailability,
   alignSelection,
@@ -284,6 +291,8 @@ const CompanionEdgeInfo = lazy(() => import('./CompanionEdgeInfo'));
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const BOUNDARY_ONLY: ReadonlySet<string> = new Set([BOUNDARY_KEY]);
+/** The seeded area type of an indoor plan while the type list is not loaded (WP 10.8: rooms, #2913). */
+const INDOOR_FALLBACK_AREA_TYPE_KEY = 'room';
 const NO_BED_KEYS: readonly string[] = [];
 
 /** The turn a click on "Rotate" adds to the template being placed (GP-FR-044). */
@@ -569,6 +578,7 @@ export function GardenPlanEditor({
   const [pendingDelete, setPendingDelete] = useState<DeleteImpact | null>(null);
   const [multiSelect, setMultiSelect] = useState(false);
   const [bedTypeChoice, setBedTypeChoice] = useState<string | null>(null);
+  const [areaTypeChoice, setAreaTypeChoice] = useState<string | null>(null);
   const [objectType, setObjectType] = useState<GardenObjectType>('other');
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
   const [addOpen, setAddOpen] = useState(initialAddOpen);
@@ -633,6 +643,12 @@ export function GardenPlanEditor({
   const templateCatalogue = useBedTemplates(templateMode !== null);
   const fallbackBedType = useMemo(() => commonBedTypeKey(plan), [plan]);
   const bedTypeKey = bedTypeChoice ?? fallbackBedType;
+  // The area tool's type (GP-UX-071, #2913): the choice while it is offered, else the first offered type, else the
+  // seeded garden (indoor: room) while the list is not loaded.
+  const areaTypes = useAreaTypes(tool === 'area' || addOpen, indoor);
+  const fallbackAreaType = areaTypes[0]?.key ?? (indoor ? INDOOR_FALLBACK_AREA_TYPE_KEY : FALLBACK_AREA_TYPE_KEY);
+  const areaTypeKey =
+    areaTypeChoice !== null && areaTypes.some((type) => type.key === areaTypeChoice) ? areaTypeChoice : fallbackAreaType;
 
   const onCommit = useCallback(
     (ops: PlanOperation[], label: ActionLabel) => {
@@ -677,6 +693,7 @@ export function GardenPlanEditor({
     (node ?? surface)?.focus();
   });
   const newBedName = useCallback((n: number) => t(`${PREFIX}.newBedName`, { n }), [t]);
+  const newAreaName = useCallback((n: number) => t(`${PREFIX}.area.newName`, { n }), [t]);
 
   const requestDelete = useCallback(() => {
     const impact = deleteImpact(plan, selection);
@@ -768,6 +785,8 @@ export function GardenPlanEditor({
     additive: multiSelect,
     bedTypeKey,
     objectType,
+    areaTypeKey,
+    newAreaName,
     snapPoint,
     snapMove,
   });
@@ -1693,7 +1712,8 @@ export function GardenPlanEditor({
   const settingPoints = toolBehaviour.touch === 'points';
   // The type choice of a new bed or garden object (WP 2.6); the boundary has none.
   const drawTarget = drawTool && boundaryMode === null ? TOOL_DEFS[tool].draw?.target : undefined;
-  const newObjectTarget = drawTarget === 'bed' || drawTarget === 'garden_object' ? drawTarget : null;
+  const newObjectTarget =
+    drawTarget === 'area' || drawTarget === 'bed' || drawTarget === 'garden_object' ? drawTarget : null;
   // The measure tool's status (GP-UX-071): what to do next and the measured total as text, announced politely - the
   // canvas overlay is hidden from assistive technology. It speaks of fixed points only, never of the hover.
   const measure = tools.measure;
@@ -2215,6 +2235,9 @@ export function GardenPlanEditor({
           onBedTypeKey={setBedTypeChoice}
           objectType={objectType}
           onObjectType={setObjectType}
+          areaTypes={areaTypes}
+          areaTypeKey={areaTypeKey}
+          onAreaTypeKey={setAreaTypeChoice}
         />
       )}
       {!listShown && templateMode && (
@@ -2492,7 +2515,10 @@ export function GardenPlanEditor({
         bedTypes={bedTypes}
         fallbackBedTypeKey={fallbackBedType}
         defaultPosition={renderer.toModel(centerPx)}
-        suggestedName={newBedName(Object.keys(plan.locations).length + 1)}
+        suggestedName={newBedName(nextLocationNumber(plan, false))}
+        areaTypes={areaTypes}
+        fallbackAreaTypeKey={areaTypeKey}
+        suggestedAreaName={newAreaName(nextLocationNumber(plan, true))}
         onAdd={addWithDimensions}
         onClose={() => setAddOpen(false)}
         initialTarget={addTarget}

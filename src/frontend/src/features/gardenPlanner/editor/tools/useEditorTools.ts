@@ -125,6 +125,9 @@ export interface EditorToolsOptions {
   /** The type choice for the next drawn bed / garden object (WP 2.6). */
   bedTypeKey?: string;
   objectType?: GardenObjectType;
+  /** The type choice and the name of the next drawn area (GP-UX-071, #2913). */
+  areaTypeKey?: string;
+  newAreaName?: (n: number) => string;
 }
 
 /**
@@ -305,6 +308,8 @@ function drawOptionsOf(o: EditorToolsOptions): DrawOptions {
     newBedName: o.newBedName,
     bedTypeKey: o.bedTypeKey,
     objectType: o.objectType,
+    areaTypeKey: o.areaTypeKey,
+    newAreaName: o.newAreaName,
   };
 }
 
@@ -813,6 +818,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     newBedName,
     bedTypeKey,
     objectType,
+    areaTypeKey,
+    newAreaName,
   } = options;
   const { select: selectState, draw: drawState, boundary: boundaryState, measure: measureState } = machines;
 
@@ -829,6 +836,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         newBedName,
         bedTypeKey,
         objectType,
+        areaTypeKey,
+        newAreaName,
       },
     );
   }, [
@@ -848,6 +857,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     newBedName,
     bedTypeKey,
     objectType,
+    areaTypeKey,
+    newAreaName,
   ]);
 
   // Handles follow the live draft of a handle drag, and are hidden while a move or marquee runs.

@@ -158,6 +158,8 @@ function createLocation(plan: PlanModel, op: CreateLocationOp): AppliedOperation
     overdue_task_count: 0,
   };
   if (parentKey !== null) location.parent_location_key = parentKey;
+  // An area is one by its type (#2913): drawn as an area already before the save, as the server will read it.
+  if (plan.areaTypeKeys?.includes(data.location_type_key)) location.is_area = true;
   if (data.height_m != null) location.height_m = data.height_m;
   if (data.description != null) location.description = data.description;
   if (data.notes != null) location.notes = data.notes;

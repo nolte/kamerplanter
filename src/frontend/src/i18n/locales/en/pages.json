@@ -5363,6 +5363,7 @@
         "canvasRole": "Garden plan",
         "boundary": "Garden boundary",
         "bedType": "Bed",
+        "areaType": "Area",
         "plantCount_one": "{{count}} plant",
         "plantCount_other": "{{count}} plants",
         "openTaskCount_one": "{{count}} open task",
@@ -5417,6 +5418,14 @@
             "hint": "Move the view without changing anything",
             "short": "Pan"
           },
+          "area": {
+            "label": "Draw area",
+            "hint": "Draw an area – a garden, terrace, balcony or greenhouse. Beds you draw inside it afterwards belong to it",
+            "short": "Area",
+            "more": "Open more area tools",
+            "menu": "Area tools",
+            "dimensionsHint": "Add an area by its dimensions instead of drawing it"
+          },
           "bed": {
             "label": "Draw bed",
             "hint": "Draw a new bed on the plan",
@@ -5438,6 +5447,11 @@
             "hint": "Measure a distance – click point by point on the plan, Enter or a double click finishes",
             "short": "Measure"
           }
+        },
+        "area": {
+          "type": "Area type",
+          "parentRule": "Beds, areas and objects you draw completely inside this area afterwards belong to it and move with it. What is already on the plan stays where it is.",
+          "newName": "Area {{n}}"
         },
         "shapes": {
           "rect": {
@@ -5583,6 +5597,9 @@
           },
           "boundary": {
             "shrinks_below_objects": "The boundary would leave beds or objects outside and was not applied. Move them inside first or draw the boundary wider."
+          },
+          "area": {
+            "encloses_existing": "The area is added. What was inside it already does not belong to it and does not move with it. Only what you draw inside it now becomes part of the area."
           }
         },
         "deleteDialog": {
@@ -5925,6 +5942,7 @@
           "open": "Add with dimensions",
           "title": "Add with dimensions",
           "kind": "What to add",
+          "area": "Area",
           "bed": "Bed",
           "object": "Garden object",
           "bedType": "Bed type",
@@ -5942,7 +5960,7 @@
             "strokeWidth": "Stroke width",
             "height": "Height (optional)"
           },
-          "intro": "Add a bed or object by typing numbers instead of drawing it. The shape is checked like a drawn one and has to fit completely inside its area.",
+          "intro": "Add an area, a bed or an object by typing numbers instead of drawing it. The shape is checked like a drawn one and has to fit completely inside its area.",
           "nameHelper": "Leave empty to use the suggestion.",
           "positionHint": "All sizes in metres, rotation in degrees. The position is the corner of the rectangle (the centre for circles); x points right, y points up.",
           "pointsHint": "Enter the points one after another in metres (x to the right, y up). A polygon needs at least three points, a line two.",

@@ -5364,6 +5364,7 @@
         "canvasRole": "Gartenplan",
         "boundary": "Gartengrenze",
         "bedType": "Beet",
+        "areaType": "Bereich",
         "plantCount_one": "{{count}} Pflanze",
         "plantCount_other": "{{count}} Pflanzen",
         "openTaskCount_one": "{{count}} offene Aufgabe",
@@ -5418,6 +5419,14 @@
             "hint": "Die Ansicht verschieben, ohne etwas zu ändern",
             "short": "Verschieben"
           },
+          "area": {
+            "label": "Bereich zeichnen",
+            "hint": "Bereich zeichnen – Garten, Terrasse, Balkon oder Gewächshaus. Beete, die du danach darin zeichnest, gehören zu ihm",
+            "short": "Bereich",
+            "more": "Weitere Bereich-Werkzeuge öffnen",
+            "menu": "Bereich-Werkzeuge",
+            "dimensionsHint": "Einen Bereich über Maße statt per Zeichnen anlegen"
+          },
           "bed": {
             "label": "Beet zeichnen",
             "hint": "Ein neues Beet auf dem Plan zeichnen",
@@ -5439,6 +5448,11 @@
             "hint": "Abstand messen – Punkt für Punkt auf den Plan klicken, Enter oder Doppelklick beendet",
             "short": "Messen"
           }
+        },
+        "area": {
+          "type": "Bereichstyp",
+          "parentRule": "Beete, Bereiche und Objekte, die du danach ganz in diesem Bereich zeichnest, gehören zu ihm und wandern beim Verschieben mit. Was schon auf dem Plan liegt, bleibt, wo es ist.",
+          "newName": "Bereich {{n}}"
         },
         "shapes": {
           "rect": {
@@ -5584,6 +5598,9 @@
           },
           "boundary": {
             "shrinks_below_objects": "Die Grenze würde Beete oder Objekte ausschließen und wurde nicht übernommen. Verschiebe sie zuerst nach innen oder ziehe die Grenze weiter."
+          },
+          "area": {
+            "encloses_existing": "Der Bereich ist angelegt. Was schon darin lag, gehört nicht zu ihm und wandert beim Verschieben nicht mit. Nur was du jetzt darin zeichnest, wird ein Teil des Bereichs."
           }
         },
         "deleteDialog": {
@@ -5926,6 +5943,7 @@
           "open": "Mit Maßen hinzufügen",
           "title": "Mit Maßen hinzufügen",
           "kind": "Was wird hinzugefügt",
+          "area": "Bereich",
           "bed": "Beet",
           "object": "Gartenobjekt",
           "bedType": "Beettyp",
@@ -5943,7 +5961,7 @@
             "strokeWidth": "Strichbreite",
             "height": "Höhe (optional)"
           },
-          "intro": "Lege ein Beet oder Objekt über Zahlen an, statt es zu zeichnen. Die Form wird wie eine gezeichnete geprüft und muss ganz in ihren Bereich passen.",
+          "intro": "Lege einen Bereich, ein Beet oder ein Objekt über Zahlen an, statt es zu zeichnen. Die Form wird wie eine gezeichnete geprüft und muss ganz in ihren Bereich passen.",
           "nameHelper": "Leer lassen, dann wird der Vorschlag verwendet.",
           "positionHint": "Alle Maße in Metern, Drehung in Grad. Die Position ist die Ecke des Rechtecks (bei Kreisen der Mittelpunkt); x zeigt nach rechts, y nach oben.",
           "pointsHint": "Gib die Punkte der Reihe nach in Metern ein (x nach rechts, y nach oben). Ein Vieleck braucht mindestens drei Punkte, eine Linie zwei.",

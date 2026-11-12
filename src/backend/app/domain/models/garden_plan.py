@@ -690,6 +690,10 @@ class GardenPlanView(BaseModel):
     plan: SitePlan | None = None
     plan_updated_by_name: str | None = None
     locations: list[Location] = Field(default_factory=list)
+    #: The location types the plan draws as areas (REQ-053 §9.5, GP-UX-071): neither ``is_bed`` nor
+    #: ``supports_layout``. Every such type, not only those on the plan, so a client styles an area it creates before
+    #: the save. Empty = unknown: every location is drawn as before, bed-like.
+    area_type_keys: frozenset[str] = Field(default_factory=frozenset)
     garden_objects: list[GardenObject] = Field(default_factory=list)
     slots: list[PlanSlotView] = Field(default_factory=list)
     plants: list[PlantShortInfo] = Field(default_factory=list)

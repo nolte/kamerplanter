@@ -80,3 +80,41 @@ describe('addWithDimensions', () => {
     });
   });
 });
+
+describe('addWithDimensions - an area (GP-UX-071, #2913)', () => {
+  /** The test plan with its `area` location marked an area, as the server reads it. */
+  function areaPlan() {
+    const plan = testPlan();
+    return { ...plan, locations: { ...plan.locations, area: { ...plan.locations.area, is_area: true } } };
+  }
+
+  it('creates an area of the chosen type without a height, named by the suggestion when left blank', () => {
+    const out = addWithDimensions(
+      areaPlan(),
+      { ...base, target: 'area', areaTypeKey: 'terrace', heightM: 0.4, x: 13, y: 13, width: 5, length: 4 },
+      'Area 2',
+    );
+    expect(out.ok).toBe(true);
+    if (out.ok) {
+      expect(out.ops[0]).toMatchObject({
+        op: 'create_location',
+        data: { name: 'Area 2', location_type_key: 'terrace', geometry: { kind: 'rect', origin: [13, 13] } },
+      });
+      expect('height_m' in (out.ops[0] as { data: object }).data).toBe(false);
+    }
+  });
+
+  it('hangs an area typed into a bed below the area around it, never below the bed', () => {
+    const out = addWithDimensions(
+      areaPlan(),
+      { ...base, target: 'area', x: 3.2, y: 3.2, width: 1.5, length: 1.5 },
+      'Area 2',
+    );
+    expect(out.ok && out.ops[0]).toMatchObject({ data: { parent_location_key: 'area', location_type_key: 'garden' } });
+  });
+
+  it('refuses a circle or a line for an area (§9.5)', () => {
+    const circle = addWithDimensions(areaPlan(), { ...base, target: 'area', shape: 'circle', radius: 1 }, 'Area 2');
+    expect(circle).toEqual({ ok: false, code: 'geometry.invalid' });
+  });
+});

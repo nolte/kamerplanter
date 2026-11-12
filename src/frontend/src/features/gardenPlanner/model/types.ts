@@ -242,6 +242,12 @@ export interface PlanLocation {
   bbox?: BoundingBox | null;
   height_m?: number | null;
   bed_status: BedStatus;
+  /**
+   * `true`: an area (REQ-053 §9.5, GP-UX-071) - a garden, terrace, balcony, greenhouse or room: its type is neither a
+   * bed nor carries a slot layout. Drawn with a light wash below the beds; `bed_status` means nothing for it.
+   * Absent = no area (the server omits the default; a plan cached before #2913 has none).
+   */
+  is_area?: boolean;
   sun_exposure: SunExposure;
   /** Absent = nothing known (#2538). */
   site_conditions?: PlanSiteConditions | null;
@@ -375,6 +381,11 @@ export interface GardenPlanResponse {
   /** Absent = a site without a garden plan (§20.2). */
   plan?: PlanSettings | null;
   locations: PlanLocation[];
+  /**
+   * Every location type the plan draws as an area (#2913), also those no location has yet: a location created here
+   * is drawn as an area before the save. Absent in a plan cached before the server sent it.
+   */
+  area_type_keys?: string[];
   garden_objects: GardenObject[];
   slots: PlanSlot[];
   plants: PlanPlant[];
