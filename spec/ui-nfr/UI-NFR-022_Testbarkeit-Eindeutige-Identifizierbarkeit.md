@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.23
+Version: 1.24
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.24 | 2026-11-12 | §2.5.1: `garden-plan-tool-<tool>` mit seinen Werten (select, pan, bed, garden_object, measure) und die Touch-Kennungen `garden-plan-touch-*` nachregistriert; neu für das Werkzeug „Messen“ (REQ-053 GP-UX-071, Issue #2913): `garden-plan-measure-status`, `garden-plan-measure` / `-line` / `-segment` / `-total`, `garden-plan-measure-place` / `-finish`. |
 | 1.23 | 2026-11-12 | §2.5.1: „Meine Position“ im Tab Karte des Feldmodus (REQ-053 GP-UX-026, Issue #2898) registriert: der Abschnitt `field-mode-position`, der Schalter `field-mode-position-switch` (natives Eingabefeld, `role="switch"`), die Beschreibung `field-mode-position-description`, der Hinweis `field-mode-position-hint` mit dem qualifizierenden Attribut `data-reason` (`locating`, `denied`, `unavailable`, `timeout`, `site_loading`, `site_error`, `no_gps`, `far`, `outside_view`, `coarse`), die Überlagerung `field-mode-position-dot` (`data-accuracy-m`) mit dem Genauigkeitskreis `field-mode-position-accuracy`. Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.22 | 2026-11-12 | §2.5.1: Beet-QR-Etikett (REQ-053 GP-FR-052, GP-UX-028, Issue #2899) registriert: die Handlung `bed-view-print-label` („Etikett drucken“ unter dem Kopf der Beetansicht), der Dialog `bed-view-label-dialog` mit `bed-view-label-dialog-close`, der Auswahl `bed-view-label-qr-size` und ihren Optionen `bed-view-label-qr-size-<mm>` (`25`, `40`, `60`), dem Hinweis `bed-view-label-offline` und den Handlungen `bed-view-label-download` / `bed-view-label-cancel`; im Feldmodus der Hinweis `field-mode-linked-bed-missing` mit `field-mode-linked-bed-missing-close` (der QR-Link nennt ein Beet, das die Site nicht hat); auf der Login-Seite der Hinweis `login-return-hint` (Rücksprung nach der Anmeldung, UI-NFR-014 R-009). Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.21 | 2026-11-12 | §2.5.1: Opt-in „Wiederkehrende Aufgaben anlegen“ beim Platzieren einer Beetvorlage (REQ-053 GP-FR-087, Issue #2897) registriert: `garden-plan-template-recurring-tasks` und `-recurring-tasks-help`; nachregistriert die Vorlagen-Austausch-Kennungen `garden-plan-template-export` / `-import` / `-exchange-notice` (WP 9.9, GP-FR-173). |

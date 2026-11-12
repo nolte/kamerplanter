@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.20"
+version: "1.21"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,10 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.21 (2026-11-12, #2913)** — TC-053-103: fünftes Werkzeug „Messen“ (bekannte Strecke messen, Summe und
+Statustext prüfen); Überlauf-Einträge gelten als erreichbar, wenn sie durch Scrollen im Menü sichtbar werden.
+`test_count` unverändert.
 
 **Version 1.20 (2026-11-12, #2888)** — TC-053-111: Beim Nachpflanzen erscheint kein Gleichjahr-Hinweis gegen die
 ausgefallene Pflanze; nach Ausfall durch Krankheit bleibt eine Warnung mit „Trotzdem pflanzen“ und Begründung.
