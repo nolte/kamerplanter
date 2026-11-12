@@ -187,6 +187,8 @@ Wähle ein Beet und klicke im Eigenschaften-Feld auf **Bepflanzen**. Es öffnet 
 
 Pflanzen erscheinen auf dem Plan als Marker. Die Zustandsebene beschreibt der Abschnitt [Pflanzenzustand und Filter](#pflanzenzustand-und-filter).
 
+**Staffelanbau im Beet.** Erzeugst du die Staffeln eines Staffelanbaus für ein Beet mit Pflanzplätzen, reserviert jede noch kommende Staffel freie Plätze für ihre Standzeit, und der Plan zeigt diese Plätze gestrichelt mit dem Datum, ab dem sie belegt sind. <!-- REQ-053 GP-FR-074, #2896 -->
+
 **Rankhilfe.** Braucht eine Art eine Rankhilfe (etwa Erbse oder Stangenbohne), sagt dir der Pflanzdialog, welche Rankhilfen im Beet oder an seinem Rand eingezeichnet sind, mit ihrer Höhe. Ist keine eingezeichnet, weist er darauf hin; pflanzen kannst du trotzdem. Bei Arten ohne diese Angabe erscheint kein Hinweis. <!-- REQ-053 W-005 -->
 
 ### Säen, vereinzeln und nachpflanzen {#saen-vereinzeln-nachpflanzen}

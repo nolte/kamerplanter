@@ -401,7 +401,11 @@ class GardenPlanService:
         by_key = {loc.key: loc for loc in data.locations if loc.key}
         # One transform per bed, not per slot: 3 000 slots share 150 beds in the large class (#2526).
         to_plan = {key: bed_to_plan_transform(loc.geometry) for key, loc in by_key.items() if loc.geometry is not None}
-        slots = [view for slot in data.slots if (view := self._slot_view(slot, to_plan.get(slot.location_key)))]
+        slots = [
+            view
+            for slot in data.slots
+            if (view := self._slot_view(slot, to_plan.get(slot.location_key), data.slot_planned_from))
+        ]
         occupied = {plant.location_key for plant in data.plants if plant.location_key}
         # Derived, never set (§7.4). ``green_manure``, ``fallow`` and ``winter_covered`` need the run's
         # ``plan_role``, the crop-rotation plan and the care events (WP 3.x/4.x); until they exist a bed
@@ -482,8 +486,13 @@ class GardenPlanService:
         ]
 
     @staticmethod
-    def _slot_view(slot: Slot, to_plan: Callable[[Point2D], Point2D] | None) -> PlanSlotView | None:
-        """*to_plan* is the bed-to-plan transform of the slot's bed; ``None`` = no bed or a bed without geometry."""
+    def _slot_view(
+        slot: Slot, to_plan: Callable[[Point2D], Point2D] | None, planned_from: dict[str, date] | None = None
+    ) -> PlanSlotView | None:
+        """*to_plan* is the bed-to-plan transform of the slot's bed; ``None`` = no bed or a bed without geometry.
+
+        *planned_from* maps a reserved slot to the first day of its reservation (GP-FR-074).
+        """
         if not slot.key:
             return None
         plan_geometry: dict[str, Any] | None = None
@@ -499,6 +508,7 @@ class GardenPlanService:
             row_index=slot.row_index,
             sequence=slot.sequence,
             plan_geometry=plan_geometry,
+            planned_from=(planned_from or {}).get(slot.key),
         )
 
     # ── GP-API-008: the change log ────────────────────────────────────────────

@@ -314,6 +314,16 @@ class FakeRunRepo:
     def get_entries(self, run_key):
         return [e for e in self.entries.values() if e.run_key == run_key]
 
+    def get_runs_window(self, offset=0, limit=50, filters=None, *, tenant_key):
+        """The tenant's runs whose fields equal ``filters``, in key order (the repository's window)."""
+        matching = [
+            run
+            for key, run in sorted(self.runs.items())
+            if run.tenant_key == tenant_key
+            and all(str(getattr(run, field)) == str(value) for field, value in (filters or {}).items())
+        ]
+        return matching[offset : offset + limit]
+
     def get_entry_or_raise(self, key):
         if key not in self.entries:
             raise NotFoundError("PlantingRunEntry", key)

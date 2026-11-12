@@ -24,6 +24,8 @@ import {
   BADGE_RADIUS_SHARE,
   BADGE_STYLES,
   DETAIL_PX_PER_M,
+  PLANNED_DATE_FONT_PX,
+  PLANNED_DATE_OFFSET_SHARE,
   RING_STYLES,
   STATE_MARKER_RADIUS_PX,
 } from './plantMarkerStyle';
@@ -370,6 +372,14 @@ export function drawMarker(ctx: PlanCanvasContext, frame: DrawFrame, marker: Sce
     selected ? 3 : 1,
     plant ? [] : [2, 2],
   );
+  // A reserved, still empty position carries its first day beside the dashed ring (GP-FR-074), like `MarkerNode`.
+  if (!plant && entry.plannedFrom && frame.labels.plannedDate) {
+    ctx.font = font(frame, PLANNED_DATE_FONT_PX);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = frame.palette.text;
+    ctx.fillText(frame.labels.plannedDate(entry.plannedFrom), cx + radius * PLANNED_DATE_OFFSET_SHARE, cy);
+  }
 }
 
 /** A bed's decorative markers as one path per fill (GP-ACC-033): the canvas twin of `MarkerBatchNode`. */

@@ -928,6 +928,23 @@ class TestThePlanReadModel:
         assert by_key["s1"].plan_geometry["origin"] == pytest.approx([0.5, 2.5])  # R(90°)·(1.0, 0.5) = (-0.5, 1.0)
         assert by_key["s2"].plan_geometry is None
 
+    def test_a_reserved_slot_carries_the_first_day_of_its_reservation_gp_fr_074(self, world):
+        service, repo, _ = world
+        repo.locations["bed"] = make_location("bed", geometry=rect(1, 1, 2, 1))
+        repo.slots = [
+            Slot(_key="s0", slot_id="BED_P0", location_key="bed", geometry={"kind": "point", "origin": [0, 0]}),
+            Slot(_key="s1", slot_id="BED_P1", location_key="bed", geometry={"kind": "point", "origin": [1, 0]}),
+        ]
+        repo.slot_planned_from = {"s0": date(2027, 4, 22)}
+
+        by_key = {slot.key: slot for slot in service.get_plan(SITE, tenant_key=TENANT).slots}
+
+        assert by_key["s0"].planned_from == date(2027, 4, 22)
+        assert by_key["s1"].planned_from is None
+        # The reservation date belongs to the planting part of the plan: without it, nothing is announced.
+        without = service.get_plan(SITE, tenant_key=TENANT, include=frozenset({"tasks"}))
+        assert {slot.key: slot.planned_from for slot in without.slots} == {"s0": None, "s1": None}
+
     def test_the_slot_of_a_bed_without_geometry_is_unplaced(self, world):
         service, repo, _ = world
         repo.locations["bed"] = make_location("bed")

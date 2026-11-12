@@ -14,7 +14,7 @@ and change outside the plan revision (GP-NFR-007).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, field_validator, model_validator
@@ -673,6 +673,8 @@ class PlanSlotView(BaseModel):
     sequence: int | None = None
     #: ``None`` for a slot without geometry or below a bed without one (unplaced).
     plan_geometry: dict[str, Any] | None = None
+    #: First day a planned run holds the slot (GP-FR-074): the plan draws the empty position dashed with this date.
+    planned_from: date | None = None
 
 
 class GardenPlanView(BaseModel):

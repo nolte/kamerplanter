@@ -43,6 +43,7 @@ const schema = z.object({
   end_date: z.string().min(1),
   plants_per_batch: z.number().int().min(1),
   reminder_days_before: z.number().int().min(0),
+  batch_duration_days: z.number().int().min(1).max(1095).nullable().optional(),
   site_key: z.string().nullable().optional(),
   location_key: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -84,6 +85,7 @@ function defaultsFor(plan?: SuccessionPlan | null): FormData {
     end_date: plan?.end_date ?? today,
     plants_per_batch: plan?.plants_per_batch ?? 1,
     reminder_days_before: plan?.reminder_days_before ?? 3,
+    batch_duration_days: plan?.batch_duration_days ?? null,
     site_key: null,
     location_key: plan?.location_key ?? null,
     notes: plan?.notes ?? null,
@@ -194,6 +196,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
           end_date: data.end_date,
           plants_per_batch: data.plants_per_batch,
           reminder_days_before: data.reminder_days_before,
+          batch_duration_days: data.batch_duration_days ?? null,
           location_key: data.location_key || null,
           notes: data.notes || null,
         });
@@ -208,6 +211,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
           end_date: data.end_date,
           plants_per_batch: data.plants_per_batch,
           reminder_days_before: data.reminder_days_before,
+          batch_duration_days: data.batch_duration_days ?? null,
           location_key: data.location_key || null,
           notes: data.notes || null,
         });
@@ -335,6 +339,16 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             step={1}
             suffix={t('pages.successionPlans.daysSuffix')}
             helperText={t('pages.successionPlans.reminderDaysBeforeHelper')}
+          />
+          <FormNumberField
+            name="batch_duration_days"
+            control={control}
+            label={t('pages.successionPlans.batchDurationDays')}
+            min={1}
+            max={1095}
+            step={1}
+            suffix={t('pages.successionPlans.daysSuffix')}
+            helperText={t('pages.successionPlans.batchDurationDaysHelper')}
           />
 
           <Alert

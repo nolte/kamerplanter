@@ -57,7 +57,10 @@ export interface RendererLabels {
   bed: (params: { name: string; size: string; plants: number; openTasks: number }) => string;
   object: (params: { label: string; typeLabel: string; size: string }) => string;
   plant: (params: { id: string }) => string;
-  slot: (params: { id: string }) => string;
+  /** An empty position; with `plannedFrom` it is reserved by a planned run from that day on (GP-FR-074). */
+  slot: (params: { id: string; plannedFrom?: string | null }) => string;
+  /** The short date drawn next to a reserved, still empty position (GP-FR-074); absent = no date is drawn. */
+  plannedDate?: (isoDay: string) => string;
   cluster: (params: { count: number }) => string;
   /** "{n} Pflanzen · {m} mit Handlungsbedarf" for a cluster whose plant states are known (GP-FR-190). */
   clusterSummary?: (params: { count: number; attention: number }) => string;

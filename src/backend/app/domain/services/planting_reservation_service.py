@@ -5,6 +5,8 @@
 * :meth:`plan_slots` / :meth:`release_slot` set and drop the reservation of a run (GP-API-021/022). V-08 is
   checked here for the answer and again **inside** the write transaction (a reservation placed in between
   must not slip through).
+* :meth:`pick_batch_slots` chooses the free slots of a succession plan's batches (GP-FR-074); they are then written
+  through :meth:`reserve_slots`, the same path as ``plan-slots``, and dropped through :meth:`release_run_reservations`.
 * :meth:`list_plantings` answers ``GET /locations/{key}/plantings`` (§11.3).
 * :meth:`clear_bed` ends every live run and plant of a bed, archives its slots and logs ``clearing``
   (GP-FR-055). The care event is built by :class:`CareEventService` — its validation and stored shape —
@@ -22,7 +24,7 @@ written. A foreign and an absent resource answer identically (404); a slot key o
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import InvalidOperation
 from typing import Any
@@ -66,10 +68,12 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.slot_reservation_engine import (
     PLANTING_STATES,
     ActivePlant,
+    CandidateSlot,
     Reservation,
     SlotConflict,
     allocate_slot_ids,
     find_conflicts,
+    pick_free_slots,
     slot_id_prefix,
 )
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
@@ -101,6 +105,9 @@ logger = structlog.get_logger()
 ERROR_ALREADY_PLANNED = "slot.already_planned"
 ERROR_SPACING_REQUIRED = "layout.spacing_required"
 ERROR_QUOTA = "plan.quota_exceeded"
+ERROR_NOT_ENOUGH_SLOTS = "succession.not_enough_slots"
+#: Run key of a batch chosen in :meth:`PlantingReservationService.pick_batch_slots` but not stored yet.
+_PENDING_BATCH = "pending-batch:"
 
 #: Reservations that fill a run's entry are at most the positions one bed holds (GP-NFR-017).
 MAX_RESERVED_SLOTS = MAX_SLOTS_PER_BATCH
@@ -128,6 +135,15 @@ class PlannedSlots:
     planned_from: date
     planned_until: date | None
     slots: list[tuple[str, int]]
+
+
+@dataclass(frozen=True)
+class BatchWindow:
+    """One batch of a succession plan as a reservation asks for it: its window and how many plants it places."""
+
+    planned_from: date
+    planned_until: date | None
+    needed: int
 
 
 @dataclass(frozen=True)
@@ -463,6 +479,21 @@ class PlantingReservationService:
         entry's reservation.
         """
         self._require_editor(role)
+        return self.reserve_slots(run_key, tenant_key=tenant_key, entry_key=entry_key, slot_keys=slot_keys)
+
+    def reserve_slots(
+        self,
+        run_key: str,
+        *,
+        tenant_key: str,
+        entry_key: str,
+        slot_keys: list[str],
+    ) -> PlannedSlots:
+        """:meth:`plan_slots` without the role check, for a caller whose own route already gated the role.
+
+        The one write path of a reservation: a succession plan's batches (GP-FR-074) reserve through here, so
+        ownership, the slot set of the bed and V-08 (before and inside the transaction) are the same checks.
+        """
         run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status in (PlantingRunStatus.COMPLETED, PlantingRunStatus.CANCELLED):
             raise InvalidRunStateError("plan_slots", run.status.value)
@@ -509,6 +540,95 @@ class PlantingReservationService:
             planned_until=planned_until,
             slots=[(slot_key, sequence) for sequence, slot_key in enumerate(slot_keys, start=1)],
         )
+
+    # ── GP-FR-074: the slots of a succession plan's batches ───────────
+
+    def pick_batch_slots(
+        self, location_key: str, windows: Sequence[BatchWindow], *, tenant_key: str
+    ) -> list[list[str]]:
+        """The slots each window reserves in the bed, in the order of ``windows``; nothing is written.
+
+        Candidates are the bed's unarchived slots in ``sequence`` order. A window takes the first slots that are
+        free in it (V-08) until their capacity holds its plants; a slot chosen for an earlier window counts as
+        reserved for the later ones, so overlapping batches take different slots and disjoint ones may share.
+        A bed without slots reserves nothing (an empty list per window). A bed whose positions together hold
+        fewer plants than a window needs is 422 ``succession.not_enough_slots``; enough positions that are taken
+        in the window are 409 ``slot.already_planned`` — both before anything is written.
+        """
+        location = resolve_owned_location(self._sites, location_key, tenant_key)
+        slots = self._plan.load_active_slots(
+            location.site_key, [location.key or location_key], tenant_key=tenant_key, include_archived=False
+        )
+        candidates = [
+            CandidateSlot(slot_key=slot.key, capacity=slot.capacity_plants)
+            for slot in sorted(slots, key=lambda s: (s.sequence is None, s.sequence or 0, s.slot_id))
+            if slot.key
+        ]
+        if not candidates:
+            return [[] for _ in windows]
+        capacity = sum(max(candidate.capacity, 1) for candidate in candidates)
+        keys = [candidate.slot_key for candidate in candidates]
+        reservations = self._repo.reservations_for(keys, tenant_key=tenant_key)
+        plants = self._repo.active_plants_in(keys, tenant_key=tenant_key)
+        picks: list[list[str]] = []
+        for index, window in enumerate(windows):
+            if window.needed > capacity:
+                raise PlanError(
+                    ERROR_NOT_ENOUGH_SLOTS,
+                    "The bed has fewer positions than one batch needs.",
+                    status_code=422,
+                    field="plants_per_batch",
+                    needed=window.needed,
+                    available=capacity,
+                )
+            pick = pick_free_slots(
+                candidates,
+                needed=window.needed,
+                planned_from=window.planned_from,
+                planned_until=window.planned_until,
+                reservations=reservations,
+                plants=plants,
+            )
+            if not pick.chosen:
+                # A batch of this same request holds no stored run yet: there is no key to name.
+                raise self._already_planned(
+                    [
+                        replace(c, conflicting_run_key=None)
+                        if (c.conflicting_run_key or "").startswith(_PENDING_BATCH)
+                        else c
+                        for c in pick.conflicts
+                    ]
+                )
+            picks += [pick.chosen]
+            # The batch is not stored yet; its pick holds the slots for the batches after it.
+            reservations = reservations + [
+                Reservation(
+                    slot_key=slot_key,
+                    run_key=f"{_PENDING_BATCH}{index}",
+                    entry_key="",
+                    planned_species_key="",
+                    sequence=sequence,
+                    planned_from=window.planned_from,
+                    planned_until=window.planned_until,
+                )
+                for sequence, slot_key in enumerate(pick.chosen, start=1)
+            ]
+        return picks
+
+    def release_run_reservations(self, run_key: str, *, tenant_key: str) -> int:
+        """Drop every reservation of a ``planned`` run of the tenant; the slots stay (GP-FR-074 plan change).
+
+        Role-free like :meth:`reserve_slots`: the caller's route gated the role. A run that already started keeps
+        its reservations (they place its plants), so only a planned run is released here.
+        """
+        run = self._owned_run(run_key, tenant_key=tenant_key)
+        if run.status is not PlantingRunStatus.PLANNED:
+            raise InvalidRunStateError("release_reservations", run.status.value)
+        dropped = self._repo.drop_run_reservations(run_key, remove_layout_slots=False)
+        if dropped and run.location_key:
+            request_adjacency_recompute(self._dispatch_adjacency, run.location_key)
+        logger.info("planting_reservation.run_released", run_key=run_key, edges=dropped)
+        return dropped
 
     @staticmethod
     def _already_planned(conflicts: list[SlotConflict]) -> PlanError:

@@ -174,7 +174,7 @@ export function shapeAriaLabel(item: SceneShape, labels: RendererLabels): string
 export function markerAriaLabel(entry: MarkerEntry, labels: RendererLabels, state?: PlantMarkerState): string {
   return entry.kind === 'plant'
     ? (state?.ariaLabel ?? labels.plant({ id: entry.displayId }))
-    : labels.slot({ id: entry.displayId });
+    : labels.slot({ id: entry.displayId, plannedFrom: entry.plannedFrom ?? null });
 }
 
 export function clusterAriaLabel(cluster: SceneCluster, labels: RendererLabels): string {

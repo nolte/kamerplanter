@@ -4,6 +4,9 @@ from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.models.succession_plan import SuccessionPlan
 
+#: ``PlantingRun.source`` of a batch run (REQ-013 §2, ``RUN_SOURCES``).
+SOURCE_SUCCESSION = "succession"
+
 
 class SuccessionPlanEngine:
     """Pure logic for succession (staggered-sowing) plans — no DB access.
@@ -63,7 +66,22 @@ class SuccessionPlanEngine:
             succession_plan_key=plan.key,
             succession_sequence=sequence,
             succession_total=total,
+            source=SOURCE_SUCCESSION,
+            # The batch's reservation window (GP-FR-065/074): from its sowing date for the plan's batch duration.
+            planned_from=planned_start,
+            planned_until=self.batch_until(plan, planned_start),
         )
+
+    @staticmethod
+    def batch_until(plan: SuccessionPlan, planned_start: date) -> date | None:
+        """The last day a batch sown on ``planned_start`` holds its slots; ``None`` without a batch duration.
+
+        Windows are closed (V-08): a batch of 60 days sown on 1 April holds through 30 May, and the next batch
+        may take the same slots from 31 May on.
+        """
+        if plan.batch_duration_days is None:
+            return None
+        return planned_start + timedelta(days=plan.batch_duration_days - 1)
 
     def next_batch_to_generate(self, plan: SuccessionPlan) -> int | None:
         """Return the next 1-based batch sequence to generate, or ``None`` when done.

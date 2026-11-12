@@ -300,6 +300,8 @@ export interface PlanSlot {
   row_index?: number | null;
   sequence?: number | null;
   plan_geometry?: PlanSlotGeometry | null;
+  /** First day (`YYYY-MM-DD`) a planned run reserves the slot (GP-FR-074); absent for an unreserved slot. */
+  planned_from?: string | null;
 }
 
 export interface PlanPlant {

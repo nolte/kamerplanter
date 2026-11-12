@@ -42,6 +42,9 @@ class PlanReadData:
     last_watered: dict[str, datetime] = field(default_factory=dict)
     #: Display name of the account that last changed the plan structure; ``None`` when unknown or erased.
     plan_updated_by_name: str | None = None
+    #: Per slot key, the first day a live run of the tenant reserves the slot in a window that has not ended
+    #: (``run_planned_at``, GP-FR-065/074); filled with the plants (``include=plants``). An unreserved slot is absent.
+    slot_planned_from: dict[str, date] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

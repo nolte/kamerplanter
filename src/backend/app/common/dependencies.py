@@ -1010,6 +1010,8 @@ def get_succession_plan_service() -> SuccessionPlanService:
         get_planting_run_service(),
         site_repo=get_site_repo(),
         species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
+        # GP-FR-074: each batch reserves its slots through the same service as ``plan-slots``.
+        reservations=get_planting_reservation_service(),
     )
 
 

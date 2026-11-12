@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import SuccessionPlanStatus
 
+#: The longest window one batch may hold its slots: three years, the bound of ``Cultivar.days_to_maturity``.
+MAX_BATCH_DURATION_DAYS = 1095
+
 
 class SuccessionPlan(BaseModel):
     """REQ-013 §2 — staggered-sowing plan that generates a series of PlantingRuns.
@@ -30,6 +33,8 @@ class SuccessionPlan(BaseModel):
     completed_batches: int = Field(default=0, ge=0)
     status: SuccessionPlanStatus = SuccessionPlanStatus.PLANNED
     reminder_days_before: int = Field(default=3, ge=0)
+    #: How long one batch holds its slots, in days (GP-FR-065 ``planned_until``, set by hand); ``None`` = open end.
+    batch_duration_days: int | None = Field(default=None, ge=1, le=MAX_BATCH_DURATION_DAYS)
     location_key: str | None = None
     notes: str | None = None
     created_at: datetime | None = None

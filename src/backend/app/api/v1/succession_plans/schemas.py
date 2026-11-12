@@ -5,6 +5,11 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import SuccessionPlanStatus
+from app.domain.models.succession_plan import MAX_BATCH_DURATION_DAYS
+
+_BATCH_DURATION_DESCRIPTION = (
+    "Days one batch holds its slots of the plan's bed (reservation window `planned_until`); `null` = open end."
+)
 
 
 class SuccessionPlanCreate(BaseModel):
@@ -16,6 +21,9 @@ class SuccessionPlanCreate(BaseModel):
     end_date: date
     plants_per_batch: int = Field(ge=1)
     reminder_days_before: int = Field(default=3, ge=0)
+    batch_duration_days: int | None = Field(
+        default=None, ge=1, le=MAX_BATCH_DURATION_DAYS, description=_BATCH_DURATION_DESCRIPTION
+    )
     location_key: str | None = None
     notes: str | None = None
 
@@ -34,6 +42,9 @@ class SuccessionPlanUpdate(BaseModel):
     end_date: date | None = None
     plants_per_batch: int | None = Field(default=None, ge=1)
     reminder_days_before: int | None = Field(default=None, ge=0)
+    batch_duration_days: int | None = Field(
+        default=None, ge=1, le=MAX_BATCH_DURATION_DAYS, description=_BATCH_DURATION_DESCRIPTION
+    )
     location_key: str | None = None
     notes: str | None = None
     status: SuccessionPlanStatus | None = None
@@ -61,6 +72,7 @@ class SuccessionPlanResponse(BaseModel):
     completed_batches: int
     status: SuccessionPlanStatus
     reminder_days_before: int
+    batch_duration_days: int | None = None
     location_key: str | None
     notes: str | None
     created_at: datetime | None = None

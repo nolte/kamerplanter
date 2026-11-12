@@ -224,6 +224,8 @@ export interface MarkerEntry {
   y: number;
   /** Phase definition of the plant (`kind = 'plant'`); the renderer colours the marker by it (GP-FR-067). */
   phaseKey?: string | null;
+  /** An empty position that a planned run reserves: its first day (`YYYY-MM-DD`, GP-FR-074). */
+  plannedFrom?: string | null;
 }
 
 export interface BedMarkers {
@@ -274,6 +276,7 @@ function buildMarkerIndex(
       x: origin[0],
       y: origin[1],
       phaseKey: plant?.phase_key ?? null,
+      plannedFrom: plant ? null : (slot.planned_from ?? null),
     };
     const list = perBed.get(slot.location_key);
     if (list) list.push(marker);
