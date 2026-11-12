@@ -28,7 +28,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from time import monotonic
 from typing import Any
 
@@ -37,6 +37,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import ErrorDetails
 
+from app.common.datetimes import today_utc
 from app.common.enums import SunProfileSource, TenantRole
 from app.common.exceptions import (
     ForbiddenError,
@@ -121,6 +122,9 @@ logger = structlog.get_logger()
 
 #: ``?include=`` values of GP-API-001.
 INCLUDE_PARTS: frozenset[str] = frozenset({"plants", "tasks", "zones"})
+
+#: GP-API-001 ``as_of`` names a day after today (UTC): the plan has no future plants to show (#2901).
+ERROR_AS_OF_IN_FUTURE = "plan.as_of_in_future"
 
 #: How many findings one refusal lists; the rest would only repeat the same mistake.
 _MAX_FINDINGS = 50
@@ -328,12 +332,35 @@ class GardenPlanService:
     # ── GP-API-001: the read model ────────────────────────────────────────────
 
     def get_plan(
-        self, site_key: SiteKey, *, tenant_key: str, include: frozenset[str] = INCLUDE_PARTS
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        include: frozenset[str] = INCLUDE_PARTS,
+        as_of: date | None = None,
     ) -> GardenPlanView:
-        """The whole plan of a site in one object: structure, slots in plan coordinates, plants, task counters."""
+        """The whole plan of a site in one object: structure, slots in plan coordinates, plants, task counters.
+
+        ``as_of`` (GP-API-001 SHOULD, #2901) is the historical state of the **plants**: those that stood in the
+        beds on that day (``planted_on <= as_of < removed_on``), without a phase (``current_phase_key`` is
+        today's), and the season state derived from them. Beds, objects, boundary and slots carry no history
+        and are the current structure; task counters, last watering and zones stay those of today. A day after
+        today (UTC) is 422 ``plan.as_of_in_future``.
+        """
+        if as_of is not None and as_of > today_utc():
+            raise PlanError(
+                ERROR_AS_OF_IN_FUTURE,
+                "as_of must not be after today.",
+                status_code=422,
+                field="as_of",
+            )
         site = self._owned_site(site_key, tenant_key=tenant_key)
         data = self._plan.load_read_model(
-            site_key, tenant_key=tenant_key, include_plants="plants" in include, include_tasks="tasks" in include
+            site_key,
+            tenant_key=tenant_key,
+            include_plants="plants" in include,
+            include_tasks="tasks" in include,
+            as_of=as_of,
         )
         by_key = {loc.key: loc for loc in data.locations if loc.key}
         # One transform per bed, not per slot: 3 000 slots share 150 beds in the large class (#2526).
@@ -342,7 +369,8 @@ class GardenPlanService:
         occupied = {plant.location_key for plant in data.plants if plant.location_key}
         # Derived, never set (§7.4). ``green_manure``, ``fallow`` and ``winter_covered`` need the run's
         # ``plan_role``, the crop-rotation plan and the care events (WP 3.x/4.x); until they exist a bed
-        # is ``planted`` when a plant with ``removed_on = null`` stands in it and ``empty`` otherwise.
+        # is ``planted`` when a plant with ``removed_on = null`` stands in it and ``empty`` otherwise - with
+        # ``as_of``, when a plant stood in it on that day.
         season_states = (
             {key: "planted" if key in occupied else "empty" for key in by_key} if "plants" in include else {}
         )

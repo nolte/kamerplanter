@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from app.common.types import SiteKey
@@ -79,8 +79,13 @@ class IGardenPlanRepository(ABC):
         include_plants: bool,
         include_tasks: bool,
         skip_unreadable_slots: bool = True,
+        as_of: date | None = None,
     ) -> PlanReadData:
         """The documents of the plan read model; slots of archived runs are left out.
+
+        ``as_of`` (GP-API-001, #2901) changes the plants only: those of ``tenant_key`` that stood in the beds on
+        that day (``planted_on <= as_of < removed_on``, an open ``removed_on`` counts as standing), without a
+        ``phase_key``. ``None`` reads the plants standing now. Structure, slots and task counters stay current.
 
         A stored slot that fails :class:`Slot` validation (a legacy row) is logged and left out, so one such row
         does not turn the displayed plan into an error (#2709). A reader that hands the slots on - the export,

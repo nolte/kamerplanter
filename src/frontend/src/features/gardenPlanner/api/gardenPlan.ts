@@ -19,13 +19,22 @@ const SITES = '/sites';
 /** `include` values of GP-API-001. */
 export type PlanInclude = 'plants' | 'tasks' | 'zones';
 
-/** GP-API-001: the whole plan in one response. */
+/**
+ * GP-API-001: the whole plan in one response.
+ *
+ * `asOf` (`YYYY-MM-DD`, not after today) asks for the plants that stood in the beds on that day, without a
+ * phase; beds, objects, slots and task counters stay current (#2901). Omitted, the plants standing now.
+ */
 export async function getGardenPlan(
   siteKey: string,
   include?: readonly PlanInclude[],
+  asOf?: string,
 ): Promise<GardenPlanResponse> {
+  const params: Record<string, string> = {};
+  if (include) params.include = include.join(',');
+  if (asOf) params.as_of = asOf;
   const { data } = await tenantClient.get<GardenPlanResponse>(`${SITES}/${siteKey}/plan`, {
-    params: include ? { include: include.join(',') } : undefined,
+    params: Object.keys(params).length > 0 ? params : undefined,
   });
   return data;
 }

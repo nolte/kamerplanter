@@ -15,7 +15,7 @@ writes run inside.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, cast
 
 import structlog
@@ -280,6 +280,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         include_plants: bool,
         include_tasks: bool,
         skip_unreadable_slots: bool = True,
+        as_of: date | None = None,
     ) -> PlanReadData:
         locations, objects = self.load_structure(site_key, tenant_key=tenant_key)
         location_keys = [loc.key for loc in locations if loc.key]
@@ -299,7 +300,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 else [model_or_conflict(Slot, row, entity="Slot") for row in live]
             )
         if include_plants and location_keys:
-            data.plants = self._plants(location_keys, tenant_key)
+            data.plants = self._plants(location_keys, tenant_key, as_of)
         if include_tasks and location_keys:
             data.task_counters = self._task_counters(location_keys, tenant_key)
             data.last_watered = {
@@ -357,7 +358,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
         return next(cursor, None)
 
-    def _plants(self, location_keys: list[str], tenant_key: str) -> list[PlantShortInfo]:
+    def _plants(self, location_keys: list[str], tenant_key: str, as_of: date | None = None) -> list[PlantShortInfo]:
+        if as_of is not None:
+            return self._plants_as_of(location_keys, tenant_key, as_of)
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
@@ -375,6 +378,44 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 }
             """,
                 bind_vars={"@col": col.PLANT_INSTANCES, "tenant_key": tenant_key, "location_keys": location_keys},
+                batch_size=_READ_MODEL_BATCH_SIZE,
+            ),
+        )
+        return [PlantShortInfo(**row) for row in cursor]
+
+    def _plants_as_of(self, location_keys: list[str], tenant_key: str, as_of: date) -> list[PlantShortInfo]:
+        """The plants that stood in the beds on ``as_of``: ``planted_on <= as_of < removed_on`` (GP-API-001, #2901).
+
+        The date window sits in the same tenant-scoped statement as the bed filter, never after it. An open
+        ``removed_on`` counts as standing. A row without ``planted_on`` (a legacy row) cannot be dated and stays
+        out. ``planted_on``/``removed_on`` are stored as ISO dates, so the string comparison is the date one.
+
+        ``phase_key`` is ``null`` on purpose: ``current_phase_key`` is today's phase, not the phase on ``as_of``.
+        """
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR p IN @@col
+                FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys
+                    AND p.planted_on != null AND p.planted_on <= @as_of
+                    AND (p.removed_on == null OR p.removed_on > @as_of)
+                SORT p.location_key ASC, p._key ASC
+                RETURN {
+                    key: p._key,
+                    instance_id: p.instance_id,
+                    species_key: p.species_key,
+                    phase_key: null,
+                    slot_key: p.slot_key,
+                    location_key: p.location_key
+                }
+            """,
+                bind_vars={
+                    "@col": col.PLANT_INSTANCES,
+                    "tenant_key": tenant_key,
+                    "location_keys": location_keys,
+                    "as_of": as_of.isoformat(),
+                },
                 batch_size=_READ_MODEL_BATCH_SIZE,
             ),
         )

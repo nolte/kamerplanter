@@ -16,7 +16,7 @@ import gc
 import math
 import statistics
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from arango import ArangoClient
@@ -33,8 +33,10 @@ from app.common.gc_policy import freeze_startup_heap
 from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import _REFERENCE_READ, ArangoAttachmentRepository
 from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGardenPlanRepository
+from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import PlanBatchWrite
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Location, SiteUnderlay, SunProfile
 from app.domain.services.garden_plan_service import GardenPlanService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -864,6 +866,80 @@ def measure_get_plan(db, service) -> tuple[list[float], int]:
     sizes = {size for _, size in runs}
     assert len(sizes) == 1, f"the same plan answered with different sizes: {sorted(sizes)}"
     return [duration for duration, _ in runs], sizes.pop()
+
+
+class TestThePlanAsOfADay:
+    """GP-API-001 ``as_of`` (#2901): ``planted_on <= as_of < removed_on``, inside the tenant-scoped statement.
+
+    The plants are written through the production writer (``ArangoPlantInstanceRepository.create``), so the
+    stored date format the AQL string comparison relies on is the one production stores, not one the test chose.
+    The writer assigns the document key, so the plants are named by ``instance_id``.
+    """
+
+    @staticmethod
+    def _plant(db, name: str, *, tenant: str, location: str, planted_on: date, removed_on: date | None) -> None:
+        ArangoPlantInstanceRepository(db).create(
+            PlantInstance(
+                tenant_key=tenant,
+                instance_id=name,
+                species_key="sp",
+                location_key=location,
+                planted_on=planted_on,
+                removed_on=removed_on,
+                current_phase_key="ph_today",
+            )
+        )
+
+    @pytest.fixture
+    def bed(self, db, service) -> str:
+        first_save(service)
+        bed = batch(service, [create("bed", rect(1, 1, 2, 1))], revision=1).key_map["bed"]
+        self._plant(db, "tomato", tenant=A, location=bed, planted_on=date(2025, 5, 1), removed_on=date(2025, 6, 1))
+        self._plant(db, "bean", tenant=A, location=bed, planted_on=date(2025, 6, 1), removed_on=None)
+        # Another tenant's plant naming the bed through the whole window: the tenant predicate must hold it out.
+        self._plant(db, "intruder", tenant=B, location=bed, planted_on=date(2025, 1, 1), removed_on=None)
+        # A legacy row without ``planted_on`` cannot be dated and is never "standing on" a day.
+        db.collection(col.PLANT_INSTANCES).insert(
+            {"tenant_key": A, "instance_id": "undated", "species_key": "sp", "location_key": bed}
+        )
+        return bed
+
+    @pytest.mark.parametrize(
+        ("as_of", "expected"),
+        [
+            (date(2025, 4, 30), []),  # before planting
+            (date(2025, 5, 1), ["tomato"]),  # the planting day counts
+            (date(2025, 5, 31), ["tomato"]),  # during
+            (date(2025, 6, 1), ["bean"]),  # the removal day no longer counts
+            (date(2025, 12, 24), ["bean"]),  # after removal; the open removal counts as standing
+        ],
+    )
+    def test_the_plants_that_stood_on_that_day(self, service, bed, as_of, expected) -> None:
+        view = service.get_plan("site_a", tenant_key=A, as_of=as_of)
+
+        assert sorted(p.instance_id for p in view.plants) == sorted(expected)
+        assert all(p.phase_key is None for p in view.plants)  # today's phase is not that day's
+        assert view.season_states == {bed: "planted" if expected else "empty"}
+        assert [loc.key for loc in view.locations] == [bed]  # the structure is today's
+
+    def test_without_as_of_the_read_is_todays_with_the_phase(self, service, bed) -> None:
+        view = service.get_plan("site_a", tenant_key=A)
+        # Unchanged reading: what stands now, with today's phase - the undated legacy row included, as before.
+        assert sorted((p.instance_id, p.phase_key) for p in view.plants) == [("bean", "ph_today"), ("undated", None)]
+
+    def test_the_other_tenant_reads_nothing_of_the_site_on_any_day(self, service, bed) -> None:
+        with pytest.raises(NotFoundError):
+            service.get_plan("site_a", tenant_key=B, as_of=date(2025, 5, 15))
+        # Positive control: the owner reads the same day.
+        owner = service.get_plan("site_a", tenant_key=A, as_of=date(2025, 5, 15))
+        assert [p.instance_id for p in owner.plants] == ["tomato"]
+
+    def test_the_repository_holds_the_foreign_plant_out_inside_the_statement(self, db, bed) -> None:
+        """The read below the service: the date window and the tenant predicate are one statement."""
+        data = ArangoGardenPlanRepository(db).load_read_model(
+            "site_a", tenant_key=A, include_plants=True, include_tasks=False, as_of=date(2025, 3, 1)
+        )
+        assert data.plants == []  # the intruder stood there since January - of tenant B
 
 
 class TestGetPlanBenchmark:
