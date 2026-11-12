@@ -29,6 +29,24 @@ export function isLengthUnit(value: unknown): value is LengthUnit {
   return value === 'm' || value === 'cm';
 }
 
+// ── draft text of an editable number field (UI-NFR-007 R-014, #2905) ────────
+
+/** The decimal separator of `language` ("," in German, "." in English); "." when the locale names none. */
+function decimalSeparator(language: string): string {
+  const parts = new Intl.NumberFormat(language).formatToParts(1.5);
+  return parts.find((part) => part.type === 'decimal')?.value ?? '.';
+}
+
+/**
+ * A stored number as the draft text of an editable field: the separator of `language` ("0,9" in German, "0.9" in
+ * English), no grouping, and exactly the digits `String(value)` writes - no rounding, so the text read back by a
+ * parser that takes both separators (`parseDecimal`) is the same number. `''` for a missing or non-finite value.
+ */
+export function formatDecimal(value: number | null | undefined, language: string): string {
+  if (value == null || !Number.isFinite(value)) return '';
+  return String(value).replace('.', decimalSeparator(language));
+}
+
 // ── grid (GP-FR-011) ─────────────────────────────────────────────────────────
 
 /** The grid steps in metres: 1 cm, 5 cm, 10 cm, 25 cm, 50 cm, 1 m. */

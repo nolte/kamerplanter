@@ -28,6 +28,7 @@ import type { LocationType } from '@/api/types';
 import type { PlanModel } from '../model/planModel';
 import type { StandardSize } from '../templates/standardSizes';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
+import { formatDecimal } from '../model/units';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef } from '../state/gardenPlanSlice';
 import {
@@ -82,20 +83,25 @@ interface Draft {
 
 const num = (text: string): number | null => parseDecimal(text);
 
-function initialDraft(defaultPosition: Point, bedTypeKey: string, target: DimensionTarget): Draft {
+function initialDraft(
+  defaultPosition: Point,
+  bedTypeKey: string,
+  target: DimensionTarget,
+  language: string,
+): Draft {
   return {
     target,
     bedTypeKey,
     objectType: 'other',
     shape: 'rect',
     name: '',
-    x: String(Math.round(defaultPosition[0] * 100) / 100),
-    y: String(Math.round(defaultPosition[1] * 100) / 100),
+    x: formatDecimal(Math.round(defaultPosition[0] * 100) / 100, language),
+    y: formatDecimal(Math.round(defaultPosition[1] * 100) / 100, language),
     width: '2',
     length: '1',
     radius: '1',
     rotation: '0',
-    strokeWidth: '0.3',
+    strokeWidth: formatDecimal(0.3, language),
     height: '',
     points: [
       { x: '', y: '' },
@@ -139,9 +145,9 @@ function DimensionsForm({
   onClose,
   initialTarget = 'bed',
 }: Omit<AddWithDimensionsDialogProps, 'open'>) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState<Draft>(() =>
-    initialDraft(defaultPosition, bedTypes[0]?.key ?? fallbackBedTypeKey, initialTarget),
+    initialDraft(defaultPosition, bedTypes[0]?.key ?? fallbackBedTypeKey, initialTarget, i18n.language),
   );
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
@@ -190,11 +196,11 @@ function DimensionsForm({
       target: 'bed',
       shape: size.shape,
       bedTypeKey: size.bedTypeKey,
-      width: size.width === null ? previous.width : String(size.width),
-      length: size.length === null ? previous.length : String(size.length),
-      radius: size.radius === null ? previous.radius : String(size.radius),
+      width: size.width === null ? previous.width : formatDecimal(size.width, i18n.language),
+      length: size.length === null ? previous.length : formatDecimal(size.length, i18n.language),
+      radius: size.radius === null ? previous.radius : formatDecimal(size.radius, i18n.language),
       rotation: '0',
-      height: size.heightM === null ? '' : String(size.heightM),
+      height: formatDecimal(size.heightM, i18n.language),
     }));
     setError(null);
   };

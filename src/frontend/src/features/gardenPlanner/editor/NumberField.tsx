@@ -2,11 +2,14 @@
  * A numeric panel field (REQ-053 GP-FR-155, GP-UX-052/054): the typed text is a draft; blur or
  * Enter turns it into ONE change (one undo step), Escape puts the old value back. The decimal
  * keypad opens on touch (`inputmode="decimal"`), both separators are read. A draft the live
- * validation refuses is shown red and is not committed.
+ * validation refuses is shown red and is not committed. The value is written with the separator of the UI language
+ * (UI-NFR-007 R-014).
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
+import { formatDecimal } from '../model/units';
 import { parseDecimal } from './tools/panelFields';
 
 interface NumberFieldProps {
@@ -27,8 +30,6 @@ interface NumberFieldProps {
   errorText?: string;
 }
 
-const format = (value: number): string => String(value);
-
 export function NumberField({
   label,
   value,
@@ -42,12 +43,14 @@ export function NumberField({
   testId,
   errorText,
 }: NumberFieldProps) {
-  const [text, setText] = useState(format(value));
-  const [seen, setSeen] = useState(value);
-  // The model changed under the field (undo, a drag): show the new value (derived state pattern).
-  if (value !== seen) {
-    setSeen(value);
-    setText(format(value));
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+  const [text, setText] = useState(() => formatDecimal(value, language));
+  const [seen, setSeen] = useState({ value, language });
+  // The model changed under the field (undo, a drag) or the language did: show the new value (derived state pattern).
+  if (value !== seen.value || language !== seen.language) {
+    setSeen({ value, language });
+    setText(formatDecimal(value, language));
   }
   const parsed = parseDecimal(text);
   const range =
@@ -56,7 +59,7 @@ export function NumberField({
   const dirty = parsed === null || parsed !== value;
 
   const revert = () => {
-    setText(format(value));
+    setText(formatDecimal(value, language));
     onError?.(null);
   };
   const commit = () => {

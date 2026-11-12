@@ -3,11 +3,12 @@
  * from the product data sheet only, the live total follows the bed area, a bed without area disables the
  * per-m² units, a zero rate is refused, "≈ kg N/ha" is an approximation, liming shows a text-only hint.
  */
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Fertilizer } from '@/api/types';
+import i18n from '@/i18n/i18n';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
@@ -83,6 +84,25 @@ async function pickProduct(user: ReturnType<typeof userEvent.setup>, name: strin
 afterEach(() => cleanup());
 
 describe('area dosing (GP-FR-123)', () => {
+  it('pre-fills a fractional rate with the decimal comma in German (#2905)', async () => {
+    server.use(
+      http.get('/api/v1/t/:tenant/fertilizers', () =>
+        HttpResponse.json([fertilizer('mulch', { product_name: 'Bark mulch', application_rate_l_per_m2: 0.5 })]),
+      ),
+    );
+    const original = i18n.language;
+    await act(() => i18n.changeLanguage('de'));
+    try {
+      const user = userEvent.setup();
+      renderDialog('feeding', 3.6);
+      await pickProduct(user, 'Bark mulch');
+      expect(screen.getByTestId('care-complete-quantity')).toHaveValue('0,5');
+    } finally {
+      cleanup();
+      await act(() => i18n.changeLanguage(original));
+    }
+  });
+
   it('pre-fills 80 g/m² from the data sheet, shows 288 g on 3.6 m² and sends rate and unit', async () => {
     useCatalogue();
     const user = userEvent.setup();

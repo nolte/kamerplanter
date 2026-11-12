@@ -17,6 +17,7 @@ import {
 } from '../model/layout';
 import { pointInPolygon, toLocalShape } from '../model/geometry';
 import type { Geometry, Point } from '../model/types';
+import { formatDecimal } from '../model/units';
 import type { PreviewEntry, RotationSeverity } from './plantingTypes';
 
 /** Strategies that lay out counted plants in rows; only these alternate (GP-FR-070). */
@@ -58,23 +59,19 @@ export interface Prefill {
   layout: LayoutStrategy | null;
 }
 
-function asText(value: number | null): string {
-  return value === null ? '' : String(value);
-}
-
 /**
  * Where a spacing comes from, in the order of GP-FR-061: the Steckbrief (`spacing_cm`,
  * `row_spacing_cm`), else what this tenant used last for the species, else nothing - there is no
  * silent default (E-10); the dialog says that the field is empty.
  */
-export function prefillFor(species: Species | null, lastUsed: LastUsedSpacing | null): Prefill {
+export function prefillFor(species: Species | null, lastUsed: LastUsedSpacing | null, language: string): Prefill {
   const fromSpecies = parseLowerBound(species?.spacing_cm);
   const rowFromSpecies = parseLowerBound(species?.row_spacing_cm);
   const fromLast = lastUsed?.spacing_cm ?? null;
   const rowFromLast = lastUsed?.row_spacing_cm ?? null;
   return {
-    spacing: asText(fromSpecies ?? fromLast),
-    rowSpacing: asText(rowFromSpecies ?? rowFromLast),
+    spacing: formatDecimal(fromSpecies ?? fromLast, language),
+    rowSpacing: formatDecimal(rowFromSpecies ?? rowFromLast, language),
     spacingSource: fromSpecies !== null ? 'species' : fromLast !== null ? 'lastUsed' : 'none',
     rowSpacingSource: rowFromSpecies !== null ? 'species' : rowFromLast !== null ? 'lastUsed' : 'none',
     layout: lastUsed?.layout_strategy ?? null,

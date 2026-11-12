@@ -28,6 +28,7 @@ import {
   nitrogenApproximation,
   roundRate,
 } from '../model/areaDose';
+import { formatDecimal } from '../model/units';
 import {
   formKindOf,
   materialsFor,
@@ -150,11 +151,8 @@ export default function CareFormFields({
       ? nitrogenApproximation(quantity, product?.nPercent)
       : null;
   const decimal = (value: number) => formatNumber(value, { maximumFractionDigits: 1 });
-  /** The rate as the field takes it: 0.1, with the decimal comma in German (no grouping, so it parses back). */
-  const rateText = (rate: number) => {
-    const text = String(roundRate(rate));
-    return i18n.language.startsWith('de') ? text.replace('.', ',') : text;
-  };
+  /** The rate as the field takes it: 0.1, with the separator of the UI language (no grouping, so it parses back). */
+  const rateText = (rate: number) => formatDecimal(roundRate(rate), i18n.language);
 
   /**
    * GP-FR-123: the data sheet rate of the chosen product, as rate and unit. It replaces an empty quantity

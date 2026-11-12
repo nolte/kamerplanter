@@ -176,7 +176,7 @@ export default function PlantingDialog({
   initialCultivarKey = null,
   touchTarget = 48,
 }: PlantingDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const { handleError } = useApiError();
@@ -207,7 +207,7 @@ export default function PlantingDialog({
         // "Replant" (W-015): entry 1 starts with the failed slot's crop, prefilled as a manual choice would be.
         const chosen = initialSpeciesKey ? response.items.find((item) => item.key === initialSpeciesKey) : undefined;
         if (chosen) {
-          const prefill = prefillFor(chosen, readLastUsed(chosen.key));
+          const prefill = prefillFor(chosen, readLastUsed(chosen.key), i18n.language);
           setPrefills((current) => ({ ...current, e1: prefill }));
           setForms((current) =>
             current.map((form) =>
@@ -234,7 +234,7 @@ export default function PlantingDialog({
     return () => {
       cancelled = true;
     };
-  }, [bedKey, initialSpeciesKey, initialCultivarKey]);
+  }, [bedKey, initialSpeciesKey, initialCultivarKey, i18n.language]);
 
   const species = useMemo(() => (catalogue.status === 'ready' ? catalogue.items : []), [catalogue]);
   const speciesByKey = useMemo(() => new Map(species.map((s) => [s.key, s])), [species]);
@@ -362,11 +362,11 @@ export default function PlantingDialog({
   const chooseSpecies = useCallback(
     (id: string, key: string | null) => {
       const chosen = key ? (speciesByKey.get(key) ?? null) : null;
-      const prefill = key ? prefillFor(chosen, readLastUsed(key)) : null;
+      const prefill = key ? prefillFor(chosen, readLastUsed(key), i18n.language) : null;
       setPrefills((current) => ({ ...current, [id]: prefill }));
       setForms((current) => current.map((form) => (form.id === id ? withSpecies(form, key, null, prefill) : form)));
     },
-    [speciesByKey],
+    [speciesByKey, i18n.language],
   );
 
   const addEntry = () => {

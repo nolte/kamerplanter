@@ -37,6 +37,7 @@ import { isApiError } from '@/api/errors';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { PlanUnderlay } from '../model/types';
+import { formatDecimal } from '../model/units';
 import {
   MAX_DISTANCE_M,
   MIN_OPACITY,
@@ -130,8 +131,6 @@ const NumberField = memo(function NumberField({
   );
 });
 
-const text = (value: number): string => (Number.isFinite(value) ? String(value) : '');
-
 /** One decimal, as a click marks it (`toImagePoint`). */
 const tenth = (value: number): number => Math.round(value * 10) / 10;
 const clamp = (value: number, max: number): number => Math.min(Math.max(value, 0), max);
@@ -144,7 +143,8 @@ export default function UnderlayDialog({
   onSaved,
   onClose,
 }: UnderlayDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   // Grower and above write; a viewer sees the calibration read-only (the backend decides as well).
   const { canEdit } = useTenantPermissions();
   const notify = useNotification();
@@ -152,14 +152,14 @@ export default function UnderlayDialog({
   const [file, setFile] = useState<File | null>(null);
   const [href, setHref] = useState<string | null>(null);
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
-  const [p1x, setP1x] = useState(text(stored?.calibration.p1_px[0] ?? Number.NaN));
-  const [p1y, setP1y] = useState(text(stored?.calibration.p1_px[1] ?? Number.NaN));
-  const [p2x, setP2x] = useState(text(stored?.calibration.p2_px[0] ?? Number.NaN));
-  const [p2y, setP2y] = useState(text(stored?.calibration.p2_px[1] ?? Number.NaN));
-  const [distance, setDistance] = useState(text(stored?.calibration.distance_m ?? Number.NaN));
-  const [originX, setOriginX] = useState(text(stored?.origin[0] ?? 0));
-  const [originY, setOriginY] = useState(text(stored?.origin[1] ?? 0));
-  const [rotation, setRotation] = useState(text(stored?.rotation_deg ?? 0));
+  const [p1x, setP1x] = useState(() => formatDecimal(stored?.calibration.p1_px[0] ?? Number.NaN, language));
+  const [p1y, setP1y] = useState(() => formatDecimal(stored?.calibration.p1_px[1] ?? Number.NaN, language));
+  const [p2x, setP2x] = useState(() => formatDecimal(stored?.calibration.p2_px[0] ?? Number.NaN, language));
+  const [p2y, setP2y] = useState(() => formatDecimal(stored?.calibration.p2_px[1] ?? Number.NaN, language));
+  const [distance, setDistance] = useState(() => formatDecimal(stored?.calibration.distance_m ?? Number.NaN, language));
+  const [originX, setOriginX] = useState(() => formatDecimal(stored?.origin[0] ?? 0, language));
+  const [originY, setOriginY] = useState(() => formatDecimal(stored?.origin[1] ?? 0, language));
+  const [rotation, setRotation] = useState(() => formatDecimal(stored?.rotation_deg ?? 0, language));
   const [opacity, setOpacity] = useState(stored?.opacity ?? 0.5);
   const [marking, setMarking] = useState<Which>('p1');
   const [busy, setBusy] = useState(false);
@@ -239,11 +239,11 @@ export default function UnderlayDialog({
   const activePoint = marking === 'p1' ? calibration.p1 : calibration.p2;
   const setActive = (point: Point) => {
     if (marking === 'p1') {
-      setP1x(String(point[0]));
-      setP1y(String(point[1]));
+      setP1x(formatDecimal(point[0], language));
+      setP1y(formatDecimal(point[1], language));
     } else {
-      setP2x(String(point[0]));
-      setP2y(String(point[1]));
+      setP2x(formatDecimal(point[0], language));
+      setP2y(formatDecimal(point[1], language));
     }
   };
 
