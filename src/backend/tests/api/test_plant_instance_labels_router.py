@@ -41,6 +41,7 @@ def _species() -> Species:
         _key="basil",
         scientific_name="Ocimum basilicum",
         common_names=["Basilikum", "Basil"],
+        common_names_i18n={"de": ["Basilikum"], "en": ["Basil"]},
         genus="Ocimum",
     )
 
@@ -81,6 +82,8 @@ def test_plant_instances_list_embeds_species_and_cultivar():
     assert body["species"] == {
         "scientific_name": "Ocimum basilicum",
         "common_names": ["Basilikum", "Basil"],
+        # The language map rides along so the client can pick the UI-language name (#2902).
+        "common_names_i18n": {"de": ["Basilikum"], "en": ["Basil"]},
     }
     assert body["cultivar"] == {"name": "Genovese"}
 

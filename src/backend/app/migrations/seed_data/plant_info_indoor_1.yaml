@@ -352,7 +352,10 @@ new_species:
       - method: division
         months: [3, 4]
         notes: Horst beim Umtopfen teilen
-    common_names: [Frauenhaarfarn, Delta Maidenhair Fern]
+    common_names: [Frauenhaarfarn, Delta Maidenhair Fern, Delta-Frauenhaarfarn, Maidenhair Fern]
+    common_names_i18n:
+      de: [Frauenhaarfarn, Delta-Frauenhaarfarn]
+      en: [Maidenhair Fern, Delta Maidenhair Fern]
     genus: Adiantum
     plant_category: tropical_foliage
     growth_habit: fern
@@ -393,7 +396,10 @@ new_species:
       - method: offset
         months: [9, 10, 11]
         notes: Kindel nach der Blüte bei halber Mutterpflanzengröße trennen
-    common_names: [Lanzenrosette, Silbervasenbromelien, Silver Vase Plant, Urn Plant]
+    common_names: [Lanzenrosette, Silbervasenbromelien, Silver Vase Plant, Urn Plant, Urnenpflanze]
+    common_names_i18n:
+      de: [Urnenpflanze, Lanzenrosette, Silbervasenbromelien]
+      en: [Silver Vase Plant, Urn Plant]
     genus: Aechmea
     plant_category: tropical_foliage
     growth_habit: epiphyte
@@ -432,7 +438,10 @@ new_species:
       - method: cutting
         months: [4, 5, 6]
         wood_stage: herbaceous
-    common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant]
+    common_names: [Schamblume, Lippenstiftpflanze, Lipstick Plant, Lippenstift-Blume, Lipstick Vine, Basket Vine]
+    common_names_i18n:
+      de: [Lippenstiftpflanze, Lippenstift-Blume, Schamblume]
+      en: [Lipstick Plant, Lipstick Vine, Basket Vine]
     genus: Aeschynanthus
     plant_category: tropical_foliage
     growth_habit: epiphyte
@@ -473,7 +482,10 @@ new_species:
       - method: cutting
         months: [4, 5, 6]
         wood_stage: herbaceous
-    common_names: [Kolbenfaden, Chinese Evergreen]
+    common_names: [Kolbenfaden, Chinese Evergreen, Chinesisches Immergrün, Philippine Evergreen]
+    common_names_i18n:
+      de: [Chinesisches Immergrün, Kolbenfaden]
+      en: [Chinese Evergreen, Philippine Evergreen]
     genus: Aglaonema
     plant_category: tropical_foliage
     growth_habit: herb
@@ -518,7 +530,10 @@ new_species:
       - method: offset
         months: [4, 5]
         notes: Knollenkindel beim Umtopfen abtrennen
-    common_names: [Pfeilblatt, Alocasia Polly, Amazonian Elephant Ear]
+    common_names: [Pfeilblatt, Alocasia Polly, Amazonian Elephant Ear, Elefantenohr, Afrikanische Maske, African Mask Plant, Elephant Ear, Kris Plant]
+    common_names_i18n:
+      de: [Elefantenohr, Afrikanische Maske, Pfeilblatt]
+      en: [African Mask Plant, Elephant Ear, Kris Plant, Amazonian Elephant Ear]
     genus: Alocasia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -563,7 +578,10 @@ new_species:
       - method: seed
         months: [3, 4, 5]
         notes: Warmkeimer
-    common_names: [Echte Aloe, Wüstenlilie, Aloe Vera, True Aloe, Burn Plant]
+    common_names: [Echte Aloe, Wüstenlilie, Aloe Vera, True Aloe, Burn Plant, Barbados Aloe]
+    common_names_i18n:
+      de: [Echte Aloe, Wüstenlilie, Aloe Vera]
+      en: [True Aloe, Barbados Aloe, Aloe Vera, Burn Plant]
     genus: Aloe
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -613,7 +631,10 @@ new_species:
         months: [4, 5, 6]
         wood_stage: herbaceous
         notes: Kopfsteckling mit Luftwurzeln
-    common_names: [Flamingoblume, Anthurie, Flamingo Flower, Painter's Palette]
+    common_names: [Flamingoblume, Anthurie, Flamingo Flower, "Painter's Palette", Große Flamingoblume, Anthurium]
+    common_names_i18n:
+      de: [Flamingoblume, Große Flamingoblume, Anthurie]
+      en: [Flamingo Flower, Anthurium, "Painter's Palette"]
     genus: Anthurium
     plant_category: tropical_foliage
     growth_habit: herb
@@ -656,7 +677,10 @@ new_species:
       - method: cutting
         months: [4, 5, 6]
         wood_stage: herbaceous
-    common_names: [Glanzkölbchen, Zebrakraut, Zebra Plant]
+    common_names: [Glanzkölbchen, Zebrakraut, Zebra Plant, Zebrapflanze]
+    common_names_i18n:
+      de: [Zebrapflanze, Glanzkölbchen, Zebrakraut]
+      en: [Zebra Plant]
     genus: Aphelandra
     plant_category: tropical_foliage
     growth_habit: shrub
@@ -702,7 +726,10 @@ new_species:
       - method: cutting
         months: [5, 6, 7]
         wood_stage: semi_hardwood
-    common_names: [Spitzblume, Korallenbeere, Coralberry, Christmas Berry]
+    common_names: [Spitzblume, Korallenbeere, Coralberry, Christmas Berry, Korallenmyrte, Ardisie, Coral Ardisia, Spiceberry]
+    common_names_i18n:
+      de: [Korallenmyrte, Spitzblume, Korallenbeere, Ardisie]
+      en: [Coral Ardisia, Coralberry, Spiceberry, Christmas Berry]
     genus: Ardisia
     plant_category: indoor_houseplant
     growth_habit: shrub
@@ -751,7 +778,10 @@ new_species:
       - method: seed
         months: [3, 4, 5]
         notes: Saat vorquellen
-    common_names: [Feder-Spargel, Asparagus Fern, Lace Fern]
+    common_names: [Feder-Spargel, Asparagus Fern, Lace Fern, Zierspargel, Plumosa-Farn, Plumosa Fern]
+    common_names_i18n:
+      de: [Feder-Spargel, Zierspargel, Plumosa-Farn]
+      en: [Asparagus Fern, Lace Fern, Plumosa Fern]
     genus: Asparagus
     plant_category: tropical_foliage
     growth_habit: vine
@@ -789,7 +819,10 @@ new_species:
       - method: division
         months: [3, 4, 5]
         notes: Rhizom mit mind. zwei Blättern je Teilstück
-    common_names: [Schusterpalme, Gusseisenpflanze, Cast Iron Plant, Bar Room Plant]
+    common_names: [Schusterpalme, Gusseisenpflanze, Cast Iron Plant, Bar Room Plant, Schildblatt, Iron Plant]
+    common_names_i18n:
+      de: [Schusterpalme, Gusseisenpflanze, Schildblatt]
+      en: [Cast Iron Plant, Bar Room Plant, Iron Plant]
     genus: Aspidistra
     plant_category: indoor_houseplant
     growth_habit: herb
@@ -828,7 +861,10 @@ new_species:
       - method: spore
         months: [3, 4, 5, 6]
         notes: Sporen warm und konstant feucht
-    common_names: [Nestfarn, Bird's Nest Fern]
+    common_names: [Nestfarn, "Bird's Nest Fern", Vogelnestfarn]
+    common_names_i18n:
+      de: [Nestfarn, Vogelnestfarn]
+      en: ["Bird's Nest Fern"]
     genus: Asplenium
     plant_category: tropical_foliage
     growth_habit: fern
@@ -877,7 +913,10 @@ new_species:
       - method: offset
         months: [5, 6, 7]
         notes: Seitentriebe abtrennen
-    common_names: [Elefantenfuß, Flaschenbaum, Ponytail Palm, Elephant Foot Tree]
+    common_names: [Elefantenfuß, Flaschenbaum, Ponytail Palm, Elephant Foot Tree, Pferdeschwanzpalme, Flaschenpalme, Elephant Foot, Bottle Palm]
+    common_names_i18n:
+      de: [Elefantenfuß, Pferdeschwanzpalme, Flaschenpalme, Flaschenbaum]
+      en: [Ponytail Palm, Elephant Foot, Bottle Palm, Elephant Foot Tree]
     genus: Beaucarnea
     plant_category: succulent_cactus
     # A4 reclassification (#453 WP-10): caudiciform succulent — verdickte Stammbasis als
@@ -921,7 +960,10 @@ new_species:
       - method: division
         months: [4, 5, 6]
         notes: Rhizom teilen
-    common_names: [Blattbegonie, Königsbegonie, Rex Begonia, Painted-Leaf Begonia]
+    common_names: [Blattbegonie, Königsbegonie, Rex Begonia, Painted-Leaf Begonia, Zierbegonie, King Begonia]
+    common_names_i18n:
+      de: [Königsbegonie, Zierbegonie, Blattbegonie]
+      en: [Rex Begonia, King Begonia, Painted-Leaf Begonia]
     genus: Begonia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -974,7 +1016,10 @@ new_species:
       - method: cutting
         months: [4, 5, 6]
         wood_stage: herbaceous
-    common_names: [Eisbegonie, Gottesauge, Wax Begonia, Bedding Begonia]
+    common_names: [Eisbegonie, Gottesauge, Wax Begonia, Bedding Begonia, Wachsbegonie, Immerblühende Begonie, Ever-Flowering Begonia]
+    common_names_i18n:
+      de: [Wachsbegonie, Eisbegonie, Immerblühende Begonie, Gottesauge]
+      en: [Wax Begonia, Bedding Begonia, Ever-Flowering Begonia]
     genus: Begonia
     plant_category: balcony_plant
     growth_habit: herb
@@ -1022,7 +1067,10 @@ new_species:
       - method: offset
         months: [3, 4, 5]
         notes: Keiki/Rückbulben abtrennen
-    common_names: [Cattleya-Orchidee, Corsage Orchid, Queen of Orchids]
+    common_names: [Cattleya-Orchidee, Corsage Orchid, Queen of Orchids, Korsagen-Orchidee]
+    common_names_i18n:
+      de: [Cattleya-Orchidee, Korsagen-Orchidee]
+      en: [Corsage Orchid, Queen of Orchids]
     genus: Cattleya
     plant_category: orchid
     growth_habit: epiphyte
@@ -1070,6 +1118,9 @@ new_species:
       - method: seed
         months: [4, 5, 6]
     common_names: [Leuchterblume, String of Hearts, Rosary Vine, Chain of Hearts]
+    common_names_i18n:
+      de: [Leuchterblume]
+      en: [String of Hearts, Rosary Vine, Chain of Hearts]
     genus: Ceropegia
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1116,7 +1167,10 @@ new_species:
       - method: seed
         months: [3, 4, 5]
         notes: Warmkeimer, frisches Saatgut
-    common_names: [Bergpalme, Mexikanische Bergpalme, Parlour Palm, Neanthe Bella Palm]
+    common_names: [Bergpalme, Mexikanische Bergpalme, Parlour Palm, Neanthe Bella Palm, Stubenpalme, Parlor Palm]
+    common_names_i18n:
+      de: [Stubenpalme, Bergpalme, Mexikanische Bergpalme]
+      en: [Parlor Palm, Neanthe Bella Palm, Parlour Palm]
     genus: Chamaedorea
     plant_category: tropical_foliage
     growth_habit: tree
@@ -1167,7 +1221,10 @@ new_species:
       - method: seed
         months: [5, 6]
         notes: Frische Samen, Warmkeimer, langsam
-    common_names: [Clivie, Riemenblatt, Bush Lily, Natal Lily]
+    common_names: [Clivie, Riemenblatt, Bush Lily, Natal Lily, Riemenblume, Klivie, Kaffir Lily]
+    common_names_i18n:
+      de: [Riemenblume, Klivie, Clivie, Riemenblatt]
+      en: [Natal Lily, Kaffir Lily, Bush Lily]
     genus: Clivia
     plant_category: indoor_houseplant
     growth_habit: bulb_geophyte
@@ -1213,7 +1270,10 @@ new_species:
       - method: layering
         months: [5, 6, 7]
         notes: Abmoosen bei kahlen Trieben
-    common_names: [Croton, Wunderstrauch, Garden Croton, "Joseph's Coat"]
+    common_names: ["Croton", "Wunderstrauch", "Garden Croton", "Joseph's Coat", "Fire Croton"]
+    common_names_i18n:
+      de: ["Croton", "Wunderstrauch"]
+      en: ["Croton", "Garden Croton", "Joseph's Coat", "Fire Croton"]
     genus: Codiaeum
     plant_category: tropical_foliage
     growth_habit: shrub
@@ -1266,6 +1326,9 @@ new_species:
         months: [4, 5, 6]
         wood_stage: semi_hardwood
     common_names: [Kaffeepflanze, Arabica-Kaffee, Coffee Plant, Arabian Coffee]
+    common_names_i18n:
+      de: [Kaffeepflanze, Arabica-Kaffee]
+      en: [Coffee Plant, Arabian Coffee]
     genus: Coffea
     plant_category: tropical_foliage
     growth_habit: shrub
@@ -1315,7 +1378,10 @@ new_species:
         months: [5, 6, 7]
         wood_stage: herbaceous
         notes: Einzelblatt antrocknen, dann auflegen
-    common_names: [Geldbaum, Pfennigbaum, Jade Plant, Money Plant]
+    common_names: [Geldbaum, Pfennigbaum, Jade Plant, Money Plant, Jade-Pflanze, Friendship Tree]
+    common_names_i18n:
+      de: [Geldbaum, Pfennigbaum, Jade-Pflanze]
+      en: [Jade Plant, Money Plant, Friendship Tree]
     genus: Crassula
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1358,7 +1424,10 @@ new_species:
       - method: division
         months: [4, 5, 6]
         notes: Horst beim Umtopfen teilen
-    common_names: [Fischgräten-Gebetsblume, Ctenanthe, Fishbone Prayer Plant, Never Never Plant]
+    common_names: [Fischgräten-Gebetsblume, Ctenanthe, Fishbone Prayer Plant, Never Never Plant, Bamburanta]
+    common_names_i18n:
+      de: [Fischgräten-Gebetsblume, Ctenanthe]
+      en: [Fishbone Prayer Plant, Never Never Plant, Bamburanta]
     genus: Ctenanthe
     plant_category: tropical_foliage
     growth_habit: herb
@@ -1406,6 +1475,9 @@ new_species:
       - method: layering
         months: [4, 5, 6]
     common_names: [Perlenschnur, Erbsenpflanze, String of Pearls, Rosary Plant]
+    common_names_i18n:
+      de: [Perlenschnur, Erbsenpflanze]
+      en: [String of Pearls, Rosary Plant]
     genus: Curio
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1456,7 +1528,10 @@ new_species:
       - method: seed
         months: [8, 9, 10]
         notes: Dunkelkeimer, kühle Spätsommeraussaat
-    common_names: [Alpenveilchen, Cyclamen, Persian Cyclamen]
+    common_names: [Alpenveilchen, Cyclamen, Persian Cyclamen, "Florist's Cyclamen"]
+    common_names_i18n:
+      de: [Alpenveilchen]
+      en: [Cyclamen, Persian Cyclamen, "Florist's Cyclamen"]
     genus: Cyclamen
     plant_category: indoor_houseplant
     growth_habit: bulb_geophyte
@@ -1500,7 +1575,10 @@ new_species:
       - method: division
         months: [5, 6]
         notes: Mind. drei bis vier Bulben je Teilstück
-    common_names: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee, Noble Dendrobium]
+    common_names: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee, Noble Dendrobium, Noble Rock Orchid]
+    common_names_i18n:
+      de: [Dendrobium-Orchidee, Edle Dendrobie, Bambusorchidee]
+      en: [Noble Dendrobium, Noble Rock Orchid]
     genus: Dendrobium
     plant_category: orchid
     growth_habit: epiphyte
@@ -1546,6 +1624,9 @@ new_species:
       - method: division
         months: [4, 5, 6]
     common_names: [Dieffenbachie, Stumme Bohne, Dumb Cane, Leopard Lily]
+    common_names_i18n:
+      de: [Dieffenbachie, Stumme Bohne]
+      en: [Dumb Cane, Leopard Lily]
     genus: Dieffenbachia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -1591,7 +1672,10 @@ new_species:
         wood_stage: herbaceous
       - method: division
         months: [4, 5, 6]
-    common_names: [Zylindrische Sansevierie, Afrikanischer Speer, African Spear, Cylindrical Snake Plant]
+    common_names: [Zylindrische Sansevierie, Afrikanischer Speer, African Spear, Cylindrical Snake Plant, Speerpflanze, Spear Sansevieria, Elephant Grass]
+    common_names_i18n:
+      de: [Zylindrische Sansevierie, Afrikanischer Speer, Speerpflanze]
+      en: [African Spear, Cylindrical Snake Plant, Spear Sansevieria, Elephant Grass]
     genus: Dracaena
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1636,7 +1720,10 @@ new_species:
       - method: layering
         months: [5, 6, 7]
         notes: Abmoosen bei kahlen Stämmen
-    common_names: [Madagassischer Drachenbaum, Rotsaum-Drachenbaum, Madagascar Dragon Tree]
+    common_names: [Madagassischer Drachenbaum, Rotsaum-Drachenbaum, Madagascar Dragon Tree, Red-Edged Dracaena]
+    common_names_i18n:
+      de: [Madagassischer Drachenbaum, Rotsaum-Drachenbaum]
+      en: [Madagascar Dragon Tree, Red-Edged Dracaena]
     genus: Dracaena
     plant_category: tropical_foliage
     growth_habit: tree

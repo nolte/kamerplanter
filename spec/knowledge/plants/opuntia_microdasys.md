@@ -14,7 +14,7 @@
 |------|------|---------|
 | Wissenschaftlicher Name | Opuntia microdasys | `species.scientific_name` |
 | Synonyme | Opuntia microdasys var. albispina (weißhöckrige Variante) | — |
-| Volksnamen (DE/EN) | Hasenohren-Kaktus, Bunny Ears, Polka-Dot-Kaktus; Bunny Ears Cactus, Angel Wings, Polka Dot Cactus | `species.common_names` |
+| Volksnamen (DE/EN) | Hasenohren-Kaktus, Polka-Dot-Kaktus; Bunny Ears, Bunny Ears Cactus, Angel Wings, Polka Dot Cactus | `species.common_names` |
 | Familie | Cactaceae | `species.family` → `botanical_families.name` |
 | Gattung | Opuntia | `species.genus` |
 | Ordnung | Caryophyllales | `botanical_families.order` |

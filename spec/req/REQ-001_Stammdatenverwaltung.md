@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.13 (Zierpflanzen-Tabelle auf `nutrient_demand` umgestellt, `nutrient_demand_level` hat außer M6 keinen Leser mehr — E-17 Variante A); 4.12 (REQ-053 Welle 1 WP 1.6 / Migration M6 v0096 umgesetzt: `NutrientDemand` = `*_feeder`, Species-Felder `nutrient_demand`/`_source`/`_confidence`, `nitrogen_fixing`, `rotation_pause_years`, `row_spacing_cm`, `light_requirement`, Familie `rotation_pause_years`); 4.11 (REQ-053 v1.4 Welle 0: NutrientDemand/nitrogen_fixing/PlanRole-Split, rotation_pause_years, row_spacing_cm, light_requirement vs. shade_tolerance)
+Version: 4.14 (#2902: `common_names_i18n` — Volksnamen je Sprache, Anzeigeregel UI-Sprache → `de` → wissenschaftlicher Name); 4.13 (Zierpflanzen-Tabelle auf `nutrient_demand` umgestellt, `nutrient_demand_level` hat außer M6 keinen Leser mehr — E-17 Variante A); 4.12 (REQ-053 Welle 1 WP 1.6 / Migration M6 v0096 umgesetzt: `NutrientDemand` = `*_feeder`, Species-Felder `nutrient_demand`/`_source`/`_confidence`, `nitrogen_fixing`, `rotation_pause_years`, `row_spacing_cm`, `light_requirement`, Familie `rotation_pause_years`); 4.11 (REQ-053 v1.4 Welle 0: NutrientDemand/nitrogen_fixing/PlanRole-Split, rotation_pause_years, row_spacing_cm, light_requirement vs. shade_tolerance)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.5 (R-24 Promotion-Audit-Retention; bis NFR-011 v1.4 als R-19 geführt), REQ-053 v1.4 (§16.3 GP-FR-138/139, GP-FR-061, GP-FR-131, GP-FR-160)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.14 | 2026-11-12 | **#2902 (UI-NFR-007 R-009a):** `Species.common_names_i18n` (Sprachcode → Namen in Vorzugsreihenfolge, heute `de` und `en`) neben der flachen Liste `common_names`, die Suche, Formulare und CSV-Import weiter nutzen. Jeder Name der Zuordnung steht auch in `common_names` (sonst 422). Anzeige: UI-Sprache → `de` → wissenschaftlicher Name, nie „erster Eintrag der Liste“. Additiv und ohne Migration: die 213 Seed-Einträge tragen die Zuordnung aus der Steckbrief-Zeile „Volksnamen (DE/EN)“, der Seed-Abgleich schreibt sie nur auf globale Katalogzeilen. Die Leser im Frontend und im Backend folgen in eigenen Änderungen. |
 | 4.13 | 2026-11-06 | **E-17 Variante A nachgezogen (REQ-053 §32.3, #2685):** Die Spalte der Zierpflanzen-Seed-Tabelle heißt `nutrient_demand` (Werte unverändert, keine Art war `nitrogen_fixer`). `Species.nutrient_demand_level` bleibt als Alt-Feld im Modell, damit alte Bestände starten; seit dem Wegfall von `_FEEDER_EC_FACTOR` (REQ-053 WP 8.11, #2654) liest es außer Migration M6 kein Code mehr — es skaliert keine EC und speist keine Warnung. |
 | 4.12 | 2026-10-16 | **Migration M6 umgesetzt (REQ-053 WP 1.6, #2325, `v0096_nutrient_demand_split`):** `common/enums.NutrientDemand` trägt jetzt `heavy_feeder`/`medium_feeder`/`light_feeder`; die Seed-Tabelle der Familien (§Seed-Daten) zeigt die neuen Werte; `Species` erhält im Code die v4.11-Felder `nutrient_demand`, `nutrient_demand_source`, `nutrient_demand_confidence`, `nitrogen_fixing` (Optional, `null` = unbelegt), `rotation_pause_years`, `row_spacing_cm` (Range-String), `light_requirement`; `BotanicalFamily.rotation_pause_years`; Importer (`seed_plant_info.py` und Geschwister) leiten die Felder weiter. `nutrient_demand_level` bleibt als Alt-Feld (EC-Resolver), ist nie Quelle für `nutrient_demand` (E-10). Nutzerseitige Edits behalten die belegten Werte (`SPECIES_FIELDS_KEPT_ON_EDIT`). |
 | 4.11 | 2026-10-15 | **Angleichung an REQ-053 v1.4 (Grafische Garten-/Beetplanung, Welle 0 — Anhang A Issues 55/57/77):** *Nachtrag 2026-10-16 (Spec-Readiness-Review REQ-053):* `Species.row_spacing_cm` ist ein **Range-String** wie `spacing_cm` (`Optional[str]`, Pattern `distance_cm_string`, Parser „unterer Wert"; Bereich 5–1 500 prüft der `seed-data-validator`), kein `int` mit `le=`; `site_fit`-Mapping an GP-FR-160 angeglichen (sonniger als der Anspruch → `marginal`/`poor`, nicht `ok`; `shade_tolerance = null` bei genau einer Stufe schattiger → `marginal` „Toleranz unbekannt", GP-ACC-053). (a) **Zehrerstufe, Stickstofffixierung und Planrolle getrennt** (REQ-053 §16.3, GP-FR-138, K-001): `NutrientDemand = heavy_feeder \| medium_feeder \| light_feeder` an `Species.nutrient_demand` (**Pflicht bei Nutzpflanzen**, mit `nutrient_demand_source`/`nutrient_demand_confidence`, H-004) und `BotanicalFamily.typical_nutrient_demand` (Werte `light`/`medium`/`heavy` → `light_feeder`/`medium_feeder`/`heavy_feeder`); `nitrogen_fixing: bool` neu an `Species` (an `BotanicalFamily` vorhanden); `PlanRole = main_crop \| green_manure \| fallow` **nur** an `PlantingRun` (REQ-013) und `CropRotationPlan` (REQ-002), nie an Spezies/Familie. `Species.nutrient_demand_level` (4 Werte inkl. `nitrogen_fixer`) wird per Migration **M6** `M6_nutrient_demand_split` abgelöst (GP-FR-139): `nitrogen_fixer` → `nitrogen_fixing = true`, `nutrient_demand` aus dem Steckbrief, sonst `null` + Dry-Run-Report — **kein stiller Default**. (b) `BotanicalFamily.rotation_pause_years` (Default je Familie) + `Species.rotation_pause_years` (Override); `rotation_window_years` Obergrenze 8 (GP-FR-131, K-004). (c) **Neu** `Species.row_spacing_cm` (5–1 000, GP-FR-061, O-11) und `Species.light_requirement ∈ {full_sun, partial_shade, shade}` als **Lichtanspruch**; `Species.shade_tolerance` bleibt **Toleranz** („verträgt Schatten bis Stufe X") — Semantik festgeschrieben (E-05, O-16), `site_fit`-Mapping in REQ-053 GP-FR-160 referenziert. (d) Agronomische Werte **nur mit Quelle** (E-10): fehlt eine belastbare Quelle, bleibt das Feld `null` und steht in der Lückenliste. Keine Code-Änderung in dieser Version; Schema/Seeds/Migration folgen in REQ-053 Welle 1 (Issue 57, M6). |
@@ -79,7 +80,17 @@ Zusätzlich erfasst das System:
     - `promoted_from_tenant: Optional[str]` (Default: `null`) — Nur gesetzt nach Promotion. Speichert den ursprünglichen `tenant_key`. Read-only nach Promotion.
     <!-- /Quelle: ADR-002 / W-006 -->
     - `scientific_name: str` (Binomiale Nomenklatur, z.B. "Solanum lycopersicum")
-    - `common_names: list[str]` (Landessprachliche Namen)
+    - `common_names: list[str]` (Landessprachliche Namen) — flache Liste **aller** Volksnamen in allen Sprachen. Sie dient der Suche, dem Bearbeitungsformular und dem CSV-Import. Ihre Reihenfolge trägt **keine** Sprachaussage: Die Seed-Dateien führen teils den englischen, teils den deutschen Namen zuerst (#2902).
+    <!-- Quelle: #2902 Volksnamen nach Sprache -->
+    - `common_names_i18n: dict[str, list[str]]` (Default: `{}`) — Sprachcode → Volksnamen dieser Sprache in Präferenzreihenfolge (der erste Name ist der bevorzugte). Schlüssel sind kleingeschriebene ISO-639-Sprachcodes (2–3 Buchstaben); heute belegt sind `de` und `en`. Regeln:
+        - Jeder Name in `common_names_i18n` MUSS auch in `common_names` stehen. Die Map ordnet vorhandene Namen einer Sprache zu und führt **keinen** eigenen Namen ein. Ein API-Create/-Update mit einem Namen außerhalb von `common_names` wird mit **422** abgelehnt, nicht stillschweigend ergänzt.
+        - Ein Name, der in beiden Sprachen gleich lautet (z.B. „Zucchini", „Dill", „Kohlrabi"), steht in beiden Listen.
+        - Eine Sprache ohne belegten Namen fehlt als Schlüssel. Es wird kein Name übersetzt oder erfunden (E-10). Ein Name, der weder eindeutig deutsch noch englisch ist (z.B. ein botanisches Epitheton wie „Adansonii"), bleibt nur in `common_names`.
+        - Quelle der Sprachzuordnung ist die Steckbrief-Zeile „Volksnamen (DE/EN)" (`spec/knowledge/plants/*.md`). Dort trennt `;` die deutschen von den englischen Namen.
+        - Ein Update ohne das Feld `common_names_i18n` behält die gespeicherte Map. Namen, die das Update aus `common_names` entfernt, verschwinden dabei auch aus der Map.
+        - **Anzeigeregel:** Der angezeigte Volksname ist der erste Name in `common_names_i18n[<UI-Sprache>]`, sonst der erste in `common_names_i18n['de']` (kanonische Sprache, UI-NFR-007 R-009a), sonst der `scientific_name`. „Erster Eintrag von `common_names`" ist **keine** zulässige Anzeigeregel.
+        - Bestehende Installationen erhalten die Map über den Seed-Abgleich (`common_names` und `common_names_i18n` gehören zu den bei jedem Seed-Lauf abgeglichenen Feldern globaler Arten), nicht über eine Migration. Tenant-eigene Arten werden dabei nicht überschrieben.
+    <!-- /Quelle: #2902 Volksnamen nach Sprache -->
     - `family: str` (Botanische Familie, z.B. "Solanaceae")
     - `genus: str`
     - `hardiness_zones: list[str]` (z.B. ["7a", "7b", "8a"])
@@ -1039,6 +1050,10 @@ class SpeciesDefinition(BaseModel):
 
     scientific_name: str = Field(regex=r'^[A-Z][a-z]+ [a-z]+$', description="Binomiale Nomenklatur")
     common_names: list[str] = Field(min_items=1)
+    common_names_i18n: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Sprachcode (de, en, ...) -> Volksnamen in Präferenzreihenfolge; jeder Name auch in common_names (#2902)"
+    )
     family: str
     genus: str
     cycle_type: Literal['annual', 'biennial', 'perennial']

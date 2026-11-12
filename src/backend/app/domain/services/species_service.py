@@ -9,7 +9,7 @@ from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
-from app.domain.models.species import Cultivar, Species
+from app.domain.models.species import Cultivar, Species, prune_common_names_i18n
 from app.domain.services.catalogue_authorization import (
     require_platform_admin_for_global_catalogue,
 )
@@ -87,6 +87,21 @@ SPECIES_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "traits",
     "waterlogging_tolerance",
 )
+
+
+def _companion_species_fields(vertex: dict[str, Any]) -> dict[str, Any]:
+    """The species fields a companion row passes through from the graph vertex.
+
+    Both names travel verbatim: ``common_names`` for search and context, and
+    ``common_names_i18n`` from which the presentation layer picks the display name
+    (UI language -> de -> scientific name, REQ-001/#2902) — the order of
+    ``common_names`` carries no language meaning.
+    """
+    return {
+        "scientific_name": vertex.get("scientific_name"),
+        "common_names": vertex.get("common_names", []),
+        "common_names_i18n": vertex.get("common_names_i18n") or {},
+    }
 
 
 def _is_unset(value: object) -> bool:
@@ -525,7 +540,15 @@ class SpeciesService:
         tenant_key: str,
         caller_role: TenantRole,
         is_platform_admin: bool,
+        keep_stored_common_names_i18n: bool = False,
     ) -> Species:
+        """Full-replace update of a species master record.
+
+        ``keep_stored_common_names_i18n`` is set when the edit body did not carry
+        ``common_names_i18n`` (an edit form that predates the field, #2902): the stored
+        language map is kept, minus every name the edit removed from ``common_names``,
+        so saving such a form neither wipes the map nor fails on a name the user deleted.
+        """
         # Unscoped load so a foreign key resolves and is answered with the
         # ownership-hiding 404 below, not a leaky "exists but forbidden".
         existing = self.get_species(key)
@@ -542,6 +565,8 @@ class SpeciesService:
         # the green-manure flag, ... — comes from the stored record; see
         # SPECIES_FIELDS_KEPT_ON_EDIT for the list and why.
         keep_stored_fields(species, existing, SPECIES_FIELDS_KEPT_ON_EDIT)
+        if keep_stored_common_names_i18n:
+            species.common_names_i18n = prune_common_names_i18n(species.common_names, existing.common_names_i18n)
         # tenant ownership (REQ-001 v4.0, #808) is server-managed and never
         # submitted by the edit form — preserve it so a full-replace update never
         # resets a tenant-owned species back to the global default (tenant_key ""),
@@ -953,15 +978,14 @@ class SpeciesService:
         """
         self.get_species(species_key, tenant_key=tenant_key)
         raw = self._graph.get_compatible_species(species_key, tenant_key=tenant_key)
-        # Pass the full common_names list straight through from the graph vertex —
-        # it is already loaded on the species document (no extra query). The
-        # presentation layer derives the layperson-facing display name from it
-        # (first entry = German common name by seed convention, REQ-567/A).
+        # Names pass straight through from the graph vertex (no extra query), see
+        # _companion_species_fields.
+        # The neighbour's key is named here, next to the tenant-resolved read above: the stored-species-key guard
+        # (#2082) derives its readers from the function that names ``species_key``.
         return [
             {
                 "species_key": item["species"].get("_key", ""),
-                "scientific_name": item["species"].get("scientific_name"),
-                "common_names": item["species"].get("common_names", []),
+                **_companion_species_fields(item["species"]),
                 "score": item.get("score", 0.0),
             }
             for item in raw
@@ -973,8 +997,7 @@ class SpeciesService:
         return [
             {
                 "species_key": item["species"].get("_key", ""),
-                "scientific_name": item["species"].get("scientific_name"),
-                "common_names": item["species"].get("common_names", []),
+                **_companion_species_fields(item["species"]),
                 "reason": item.get("reason", ""),
             }
             for item in raw

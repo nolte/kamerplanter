@@ -25,7 +25,7 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
 | `botanical_families` | Plant families | `name` (unique), `common_name` |
-| `species` | Plant species | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_configs[]` |
+| `species` | Plant species | `scientific_name` (unique), `common_names`, `common_names_i18n`, `frost_sensitivity`, `propagation_configs[]` |
 | `cultivars` | Cultivars / varieties | `name`, `species_key`, genetic lineage |
 | `lifecycle_configs` | Lifecycle definitions per species | `species_key`, `lifecycle_type` |
 | `growth_phases` | Individual growth phases | `name`, `order`, `lifecycle_config_key` |

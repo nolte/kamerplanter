@@ -98,6 +98,7 @@ class ListSpecies(ToolBase):
                     "species_key": s.key,
                     "scientific_name": s.scientific_name,
                     "common_names": s.common_names,
+                    "common_names_i18n": s.common_names_i18n,
                     "genus": s.genus,
                 }
                 for s in species
@@ -140,6 +141,7 @@ class GetSpeciesInfo(ToolBase):
                 "species_key": species.key,
                 "scientific_name": species.scientific_name,
                 "common_names": species.common_names,
+                "common_names_i18n": species.common_names_i18n,
                 "synonyms": get("synonyms"),
                 "genus": species.genus,
                 "family_key": get("family_key"),

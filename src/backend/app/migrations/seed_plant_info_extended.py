@@ -192,6 +192,9 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
             Species(
                 scientific_name=entry["scientific_name"],
                 common_names=_to_list(entry.get("common_names", [])),
+                # Language map of the names above (REQ-001, #2902) — carried explicitly
+                # because this loader is whitelist-driven.
+                common_names_i18n=entry.get("common_names_i18n") or {},
                 genus=entry.get("genus", ""),
                 plant_category=PlantCategory(pc) if pc else None,
                 growth_habit=GrowthHabit(entry.get("growth_habit", "herb")),

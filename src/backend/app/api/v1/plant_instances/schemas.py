@@ -108,6 +108,8 @@ class SpeciesSummary(BaseModel):
 
     scientific_name: str
     common_names: list[str] = Field(default_factory=list)
+    #: Language code -> names in preference order (REQ-001, #2902).
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class CultivarSummary(BaseModel):
@@ -188,6 +190,7 @@ class PlantInstanceInPhaseResponse(BaseModel):
     species_key: str
     species_scientific_name: str | None = None
     species_common_names: list[str] = Field(default_factory=list)
+    species_common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     location_key: str | None = None
     location_name: str | None = None
     slot_key: str | None = None

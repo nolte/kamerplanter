@@ -357,7 +357,10 @@ new_species:
       - method: layering
         months: [7, 8]
         notes: Absenker
-    common_names: [Forsythie, Goldgloeckchen, Forsythia]
+    common_names: [Forsythie, Goldglöckchen, Forsythia, Goldflieder, Border Forsythia]
+    common_names_i18n:
+      de: [Forsythie, Goldflieder, Goldglöckchen]
+      en: [Border Forsythia, Forsythia]
     genus: Forsythia
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -412,7 +415,10 @@ new_species:
         notes: auch im Herbst
       - method: seed
         months: [3, 4]
-    common_names: [Blut-Storchschnabel, Bloody Cranesbill]
+    common_names: [Blut-Storchschnabel, Bloody Cranesbill, Blutroter Storchschnabel]
+    common_names_i18n:
+      de: [Blut-Storchschnabel, Blutroter Storchschnabel]
+      en: [Bloody Cranesbill]
     genus: Geranium
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -471,7 +477,10 @@ new_species:
       - method: seed
         months: [6, 7]
         notes: Frischsaat, Kaltkeimer
-    common_names: [Christrose, Schneerose, Christmas Rose]
+    common_names: [Christrose, Schneerose, Christmas Rose, Weihnachtsrose, Schwarze Nieswurz]
+    common_names_i18n:
+      de: [Christrose, Weihnachtsrose, Schwarze Nieswurz, Schneerose]
+      en: [Christmas Rose]
     genus: Helleborus
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -516,6 +525,9 @@ new_species:
         months: [3, 4]
         notes: auch im Herbst
     common_names: [Taglilie, Daylily]
+    common_names_i18n:
+      de: [Taglilie]
+      en: [Daylily]
     genus: Hemerocallis
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -561,6 +573,9 @@ new_species:
         months: [3, 4]
         notes: beim Austrieb; auch im Herbst
     common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
+    common_names_i18n:
+      de: [Funkie, Herzlilie]
+      en: [Hosta, Plantain Lily]
     genus: Hosta
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -612,7 +627,10 @@ new_species:
       - method: layering
         months: [6, 7, 8]
         notes: Absenker
-    common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
+    common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea, Ballhortensie, Hortensie, French Hydrangea]
+    common_names_i18n:
+      de: [Bauernhortensie, Ballhortensie, Hortensie, Gartenhortensie]
+      en: [Bigleaf Hydrangea, French Hydrangea, Hydrangea]
     genus: Hydrangea
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -661,7 +679,10 @@ new_species:
         notes: auch Hartholz im Winter
       - method: layering
         months: [6, 7, 8]
-    common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
+    common_names: [Liguster, Gewöhnlicher Liguster, Wild Privet, Rainweide, Common Privet]
+    common_names_i18n:
+      de: [Gewöhnlicher Liguster, Rainweide, Liguster]
+      en: [Common Privet, Wild Privet]
     genus: Ligustrum
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -706,7 +727,10 @@ new_species:
       - method: division
         months: [9, 10]
         notes: Augen nur flach setzen, sonst blühfaul
-    common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
+    common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony, Chinesische Pfingstrose, Milchweiße Pfingstrose, Common Garden Peony]
+    common_names_i18n:
+      de: [Chinesische Pfingstrose, Milchweiße Pfingstrose, Staudenpfingstrose, Edelpfingstrose]
+      en: [Chinese Peony, Common Garden Peony, Garden Peony]
     genus: Paeonia
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -758,6 +782,9 @@ new_species:
         wood_stage: herbaceous
         notes: Trieb- oder Wurzelschnittlinge
     common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
+    common_names_i18n:
+      de: [Flammenblume, Hoher Stauden-Phlox]
+      en: [Garden Phlox]
     genus: Phlox
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -810,6 +837,9 @@ new_species:
         months: [1, 2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Rhododendron, Alpenrose]
+    common_names_i18n:
+      de: [Rhododendron, Alpenrose]
+      en: [Rhododendron]
     genus: Rhododendron
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -862,7 +892,10 @@ new_species:
       - method: grafting
         months: [7, 8]
         notes: Okulation im Sommer
-    common_names: [Gartenrose, Rose, Garden Rose]
+    common_names: [Gartenrose, Rose, Garden Rose, Edelrose]
+    common_names_i18n:
+      de: [Gartenrose, Edelrose, Rose]
+      en: [Garden Rose]
     genus: Rosa
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -919,6 +952,9 @@ new_species:
         months: [1, 2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
+    common_names_i18n:
+      de: [Gemeiner Flieder, Edelflieder]
+      en: [Common Lilac]
     genus: Syringa
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -971,7 +1007,10 @@ new_species:
       - method: seed
         months: [9, 10]
         notes: Kaltkeimer, doppelte Dormanz
-    common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
+    common_names: [Gewöhnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
+    common_names_i18n:
+      de: [Gewöhnlicher Schneeball, Gemeiner Schneeball]
+      en: [Guelder-rose]
     genus: Viburnum
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -1021,6 +1060,9 @@ new_species:
         months: [6, 7, 8]
         notes: Absenker im Sommer
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
+    common_names_i18n:
+      de: [Liebliche Weigelie, Weigelie]
+      en: [Weigela]
     genus: Weigela
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -1068,7 +1110,10 @@ new_species:
       - method: grafting
         months: [2, 3]
         notes: Spätwinter-Reiserveredelung; Okulation im Sommer alternativ
-    common_names: [Kulturapfel, Apfel, Apple]
+    common_names: [Kulturapfel, Apfel, Apple, Apfelbaum, Domestic Apple]
+    common_names_i18n:
+      de: [Kulturapfel, Apfelbaum, Apfel]
+      en: [Apple, Domestic Apple]
     genus: Malus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1120,7 +1165,10 @@ new_species:
       - method: grafting
         months: [2, 3]
         notes: Spätwinter-Veredelung
-    common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
+    common_names: [Süßkirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
+    common_names_i18n:
+      de: [Süßkirsche, Vogelkirsche]
+      en: [Sweet Cherry, Wild Cherry]
     genus: Prunus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1172,6 +1220,9 @@ new_species:
         months: [2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Pflaume, Zwetschge, Plum, European Plum]
+    common_names_i18n:
+      de: [Pflaume, Zwetschge]
+      en: [Plum, European Plum]
     genus: Prunus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1224,6 +1275,9 @@ new_species:
         months: [2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Kulturbirne, Gemeine Birne, Pear]
+    common_names_i18n:
+      de: [Kulturbirne, Gemeine Birne]
+      en: [Pear]
     genus: Pyrus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1280,7 +1334,10 @@ new_species:
       - method: division
         months: [10, 11, 3]
         notes: Teilung in Ruhe
-    common_names: [Rote Johannisbeere, Ahlbeere, Red Currant]
+    common_names: [Rote Johannisbeere, Ahlbeere, Red Currant, Ribes]
+    common_names_i18n:
+      de: [Rote Johannisbeere, Ahlbeere]
+      en: [Red Currant, Ribes]
     genus: Ribes
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1335,6 +1392,9 @@ new_species:
         months: [6, 7, 8]
         notes: Absenker im Sommer
     common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
+    common_names_i18n:
+      de: [Stachelbeere, Stachelbeerstrauch]
+      en: [Gooseberry]
     genus: Ribes
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1388,6 +1448,9 @@ new_species:
         months: [7, 8, 9]
         wood_stage: semi_hardwood
     common_names: [Brombeere, Blackberry, Bramble]
+    common_names_i18n:
+      de: [Brombeere]
+      en: [Blackberry, Bramble]
     genus: Rubus
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1443,6 +1506,9 @@ new_species:
         months: [10, 11, 3]
         notes: Teilung in Ruhe
     common_names: [Himbeere, Gemeine Himbeere, Raspberry]
+    common_names_i18n:
+      de: [Himbeere, Gemeine Himbeere]
+      en: [Raspberry]
     genus: Rubus
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1494,6 +1560,9 @@ new_species:
         wood_stage: hardwood
         notes: Steckholz im Winter, sehr leicht
     common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
+    common_names_i18n:
+      de: [Schwarzer Holunder, Fliederbeere, Hollerbusch]
+      en: [Black Elderberry, Elder]
     genus: Sambucus
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1546,7 +1615,10 @@ new_species:
         months: [2, 3]
         wood_stage: hardwood
         notes: Steckholz Spätwinter; auch softwood im Sommer
-    common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
+    common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry, Strauchheidelbeere]
+    common_names_i18n:
+      de: [Kulturheidelbeere, Amerikanische Heidelbeere, Strauchheidelbeere]
+      en: [Highbush Blueberry]
     genus: Vaccinium
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1601,6 +1673,9 @@ new_species:
         months: [1, 2, 3]
         notes: Spätwinter-Veredelung/Omega-Veredelung
     common_names: [Weinrebe, Weintraube, Grape Vine]
+    common_names_i18n:
+      de: [Weinrebe, Weintraube]
+      en: [Grape Vine]
     genus: Vitis
     plant_category: outdoor_vegetable
     growth_habit: vine
@@ -1668,7 +1743,10 @@ new_species:
       - method: seed
         months: [8, 9]
         notes: Frischsaat keimt am besten
-    common_names: [Liebstoeckel, Maggikraut, Lovage]
+    common_names: [Liebstöckel, Maggikraut, Lovage, Suppengrün]
+    common_names_i18n:
+      de: [Liebstöckel, Maggikraut, Suppengrün]
+      en: [Lovage]
     genus: Levisticum
     plant_category: herb
     growth_habit: herb
@@ -1736,7 +1814,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: Lichtkeimer
-    common_names: [Zitronenmelisse, Melisse, Lemon Balm]
+    common_names: [Zitronenmelisse, Melisse, Lemon Balm, Gartenmelisse]
+    common_names_i18n:
+      de: [Zitronenmelisse, Gartenmelisse, Melisse]
+      en: [Lemon Balm]
     genus: Melissa
     plant_category: herb
     growth_habit: herb
@@ -1802,7 +1883,10 @@ new_species:
       - method: seed
         months: [3, 4, 5]
         notes: Lichtkeimer
-    common_names: [Oregano, Wilder Majoran, Dost, Oregano]
+    common_names: [Oregano, Wilder Majoran, Dost, Wild Marjoram]
+    common_names_i18n:
+      de: [Oregano, Wilder Majoran, Dost]
+      en: [Oregano, Wild Marjoram]
     genus: Origanum
     plant_category: herb
     growth_habit: subshrub
@@ -1865,6 +1949,9 @@ new_species:
         months: [4, 5]
         notes: Lichtkeimer, einjährig
     common_names: [Sommer-Bohnenkraut, Summer Savory]
+    common_names_i18n:
+      de: [Sommer-Bohnenkraut]
+      en: [Summer Savory]
     genus: Satureja
     plant_category: herb
     growth_habit: herb
@@ -1926,7 +2013,10 @@ new_species:
       - method: seed
         months: [3, 4]
         notes: Direktsaat, frisches Saatgut, kurz keimfähig
-    common_names: [Pastinake, Parsnip]
+    common_names: [Pastinake, Parsnip, Hammermöhre, Hirschmöhre]
+    common_names_i18n:
+      de: [Pastinake, Hammermöhre, Hirschmöhre]
+      en: [Parsnip]
     genus: Pastinaca
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -1989,7 +2079,10 @@ new_species:
       - method: seed
         months: [3, 4]
         notes: Sorten nicht sortenecht
-    common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
+    common_names: [Rhabarber, Gemüserhabarber, Rhubarb, Garden Rhubarb]
+    common_names_i18n:
+      de: [Rhabarber, Gemüserhabarber]
+      en: [Rhubarb, Garden Rhubarb]
     genus: Rheum
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2050,6 +2143,9 @@ new_species:
         months: [3, 4, 8, 9]
         notes: Direktsaat, schießt bei Hitze/Langtag
     common_names: [Spinat, Echter Spinat, Spinach]
+    common_names_i18n:
+      de: [Spinat, Echter Spinat]
+      en: [Spinach]
     genus: Spinacia
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2118,7 +2214,10 @@ new_species:
       - method: self_seeding
         months: [8, 9]
         notes: versamt sich willig
-    common_names: [Vielblaettrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin]
+    common_names: [Vielblättrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin, Gartenlupine, Large-leaved Lupin]
+    common_names_i18n:
+      de: [Vielblättrige Lupine, Gartenlupine, Staudenlupine]
+      en: [Garden Lupin, Large-leaved Lupin, Bigleaf Lupin]
     genus: Lupinus
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2177,7 +2276,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: Direktsaat
-    common_names: [Luzerne, Alfalfa, Ewiger Klee]
+    common_names: [Luzerne, Alfalfa, Ewiger Klee, Lucerne]
+    common_names_i18n:
+      de: [Luzerne, Ewiger Klee]
+      en: [Alfalfa, Lucerne]
     genus: Medicago
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2237,7 +2339,10 @@ new_species:
         notes: Dunkelkeimer, Direktsaat als Gründüngung
       - method: self_seeding
         months: [8, 9]
-    common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
+    common_names: [Büschelschön, Bienenfreund, Phacelia, Scorpion Weed, Rainfarn-Phazelie, Lacy Phacelia, Blue Tansy, Fiddleneck]
+    common_names_i18n:
+      de: [Bienenfreund, Rainfarn-Phazelie, Büschelschön]
+      en: [Lacy Phacelia, Blue Tansy, Fiddleneck, Phacelia, Scorpion Weed]
     genus: Phacelia
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2290,7 +2395,10 @@ new_species:
         notes: Direktsaat als Gründüngung
       - method: self_seeding
         months: [8, 9]
-    common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
+    common_names: [Gelbsenf, Weißer Senf, White Mustard, Yellow Mustard]
+    common_names_i18n:
+      de: [Gelbsenf, Weißer Senf]
+      en: [White Mustard, Yellow Mustard]
     genus: Sinapis
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2345,7 +2453,10 @@ new_species:
       - method: seed
         months: [3, 4, 5]
         notes: Vorkultur oder Direktsaat nach Frost
-    common_names: [Studentenblume, Franzoesische Tagetes, French Marigold]
+    common_names: [Studentenblume, Französische Tagetes, French Marigold, Aufrechte Tagetes]
+    common_names_i18n:
+      de: [Studentenblume, Aufrechte Tagetes, Französische Tagetes]
+      en: [French Marigold]
     genus: Tagetes
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -2406,7 +2517,10 @@ new_species:
         notes: Direktsaat nach Frost, Dunkelkeimer
       - method: self_seeding
         months: [9, 10]
-    common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
+    common_names: [Große Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
+    common_names_i18n:
+      de: [Große Kapuzinerkresse, Kapuzinerkresse]
+      en: [Garden Nasturtium, Indian Cress]
     genus: Tropaeolum
     plant_category: herb
     growth_habit: herb

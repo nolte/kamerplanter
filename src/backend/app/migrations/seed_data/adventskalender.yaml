@@ -66,6 +66,9 @@ new_species_family_map:
 new_species:
   - scientific_name: "Allium porrum"
     common_names: ["Porree", "Lauch", "Winterlauch", "Leek", "Garden Leek"]
+    common_names_i18n:
+      de: ["Porree", "Lauch", "Winterlauch"]
+      en: ["Leek", "Garden Leek"]
     genus: Allium
     growth_habit: herb
     root_type: fibrous
@@ -117,6 +120,9 @@ new_species:
 
   - scientific_name: "Allium schoenoprasum"
     common_names: ["Schnittlauch", "Feinröhriger Schnittlauch", "Chives", "Ciboulette"]
+    common_names_i18n:
+      de: ["Schnittlauch", "Feinröhriger Schnittlauch"]
+      en: ["Chives"]
     genus: Allium
     growth_habit: herb
     root_type: bulbous
@@ -145,6 +151,9 @@ new_species:
 
   - scientific_name: "Beta vulgaris subsp. vulgaris"
     common_names: ["Rote Bete", "Rote Rübe", "Rote Beete", "Rahne", "Beetroot", "Red Beet", "Table Beet"]
+    common_names_i18n:
+      de: ["Rote Bete", "Rote Rübe", "Rote Beete", "Rahne"]
+      en: ["Beetroot", "Red Beet", "Table Beet"]
     genus: Beta
     growth_habit: herb
     root_type: taproot
@@ -177,6 +186,9 @@ new_species:
 
   - scientific_name: "Brassica oleracea var. gemmifera"
     common_names: ["Rosenkohl", "Kohlsprossen", "Brüsseler Kohl", "Brussels Sprouts", "Sprouts"]
+    common_names_i18n:
+      de: ["Rosenkohl", "Kohlsprossen", "Brüsseler Kohl"]
+      en: ["Brussels Sprouts", "Sprouts"]
     genus: Brassica
     growth_habit: herb
     root_type: taproot

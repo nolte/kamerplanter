@@ -52,6 +52,9 @@ new_species:
       - method: seed
         months: [3, 4]
     common_names: [Dahlie, Dahlia, Garden Dahlia]
+    common_names_i18n:
+      de: [Dahlie]
+      en: [Dahlia, Garden Dahlia]
     genus: Dahlia
     plant_category: bulb_tuber
     growth_habit: bulb_geophyte
@@ -106,12 +109,10 @@ new_species:
       - method: seed
         months: [3, 4]
         notes: blüht erst nach Jahren
-    common_names:
-      - Pfauenblume
-      - Tigerblume
-      - Tiger Flower
-      - Mexican Shell Flower
-      - Peacock Flower
+    common_names: [Pfauenblume, Tigerblume, Tiger Flower, Mexican Shell Flower, Peacock Flower, "Jockey's Cap Lily"]
+    common_names_i18n:
+      de: [Pfauenblume, Tigerblume]
+      en: [Tiger Flower, Mexican Shell Flower, Peacock Flower, "Jockey's Cap Lily"]
     genus: Tigridia
     plant_category: bulb_tuber
     growth_habit: bulb_geophyte
@@ -174,6 +175,9 @@ new_species:
       - Zeller
       - Celeriac
       - Turnip-rooted Celery
+    common_names_i18n:
+      de: [Knollensellerie, Wurzelsellerie, Zeller]
+      en: [Celeriac, Turnip-rooted Celery]
     genus: Apium
     plant_category: outdoor_vegetable
     growth_habit: herb

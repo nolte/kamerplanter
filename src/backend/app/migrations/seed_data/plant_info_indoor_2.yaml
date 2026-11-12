@@ -340,7 +340,10 @@ new_species:
         months: [4, 5, 6]
         wood_stage: herbaceous
         notes: buntlaubige Sorten revertieren oft zu Grün
-    common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, Mother-in-Law's Tongue]
+    common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, "Mother-in-Law's Tongue", Sansevieria, "Saint George's Sword"]
+    common_names_i18n:
+      de: [Bogenhanf, Schwiegermutterzunge, Sansevieria]
+      en: [Snake Plant, "Mother-in-Law's Tongue", "Saint George's Sword", Sansevieria]
     genus: Dracaena
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -384,7 +387,10 @@ new_species:
       - method: division
         months: [4, 5, 6]
         notes: horstweise Halme abtrennen
-    common_names: [Goldfruchtpalme, Areca-Palme, Areca Palm, Butterfly Palm, Golden Cane Palm]
+    common_names: [Goldfruchtpalme, Areca-Palme, Areca Palm, Butterfly Palm, Golden Cane Palm, Areka-Palme, Schmetterlingspalme]
+    common_names_i18n:
+      de: [Areka-Palme, Goldfruchtpalme, Schmetterlingspalme, Areca-Palme]
+      en: [Areca Palm, Butterfly Palm, Golden Cane Palm]
     genus: Dypsis
     plant_category: tropical_foliage
     growth_habit: tree
@@ -435,7 +441,10 @@ new_species:
       - method: offset
         months: [5, 6, 7]
         notes: Kindel abtrennen
-    common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem]
+    common_names: [Mexikanische Schneekugel, Glashausrose, Mexican Snowball, Mexican Gem, White Mexican Rose]
+    common_names_i18n:
+      de: [Mexikanische Schneekugel, Glashausrose]
+      en: [Mexican Snowball, Mexican Gem, White Mexican Rose]
     genus: Echeveria
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -487,7 +496,10 @@ new_species:
         months: [6, 7, 8]
         wood_stage: softwood
         notes: Milchsaft abspülen
-    common_names: [Weihnachtsstern, Adventsstern, Poinsettia, Christmas Star]
+    common_names: [Weihnachtsstern, Adventsstern, Poinsettia, Christmas Star, Poinsettie]
+    common_names_i18n:
+      de: [Weihnachtsstern, Poinsettie, Adventsstern]
+      en: [Poinsettia, Christmas Star]
     genus: Euphorbia
     plant_category: indoor_houseplant
     growth_habit: shrub
@@ -542,7 +554,10 @@ new_species:
       - method: seed
         months: [4, 5, 6]
         notes: frisches Saatgut
-    common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant]
+    common_names: [Zimmeraralie, Japanische Aralie, Japanese Aralia, Paperplant, False Castor Oil Plant]
+    common_names_i18n:
+      de: [Zimmeraralie, Japanische Aralie]
+      en: [Japanese Aralia, False Castor Oil Plant, Paperplant]
     genus: Fatsia
     plant_category: indoor_houseplant
     growth_habit: shrub
@@ -592,7 +607,10 @@ new_species:
       - method: layering
         months: [6, 7, 8]
         notes: Abmoosen
-    common_names: [Birkenfeige, Weeping Fig, Benjamin Fig]
+    common_names: [Birkenfeige, Weeping Fig, Benjamin Fig, Benjaminfeige, Zimmerficus]
+    common_names_i18n:
+      de: [Birkenfeige, Benjaminfeige, Zimmerficus]
+      en: [Weeping Fig, Benjamin Fig]
     genus: Ficus
     plant_category: tropical_foliage
     growth_habit: tree
@@ -645,7 +663,10 @@ new_species:
       - method: layering
         months: [6, 7, 8]
         notes: Abmoosen
-    common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree]
+    common_names: [Gummibaum, Rubber Plant, Rubber Fig, Indian Rubber Tree, Kautschukbaum, Rubber Tree]
+    common_names_i18n:
+      de: [Gummibaum, Kautschukbaum]
+      en: [Rubber Plant, Rubber Tree, Rubber Fig, Indian Rubber Tree]
     genus: Ficus
     plant_category: tropical_foliage
     growth_habit: tree
@@ -697,6 +718,9 @@ new_species:
         months: [6, 7, 8]
         notes: Abmoosen
     common_names: [Geigenfeige, Fiddle Leaf Fig]
+    common_names_i18n:
+      de: [Geigenfeige]
+      en: [Fiddle Leaf Fig]
     genus: Ficus
     plant_category: tropical_foliage
     growth_habit: tree
@@ -747,7 +771,10 @@ new_species:
         notes: hohe Luftfeuchte
       - method: division
         months: [3, 4, 5, 6]
-    common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant]
+    common_names: [Fittonie, Mosaikpflanze, Nerve Plant, Mosaic Plant, Aderblatt, Filigranpflanze, Net Plant]
+    common_names_i18n:
+      de: [Mosaikpflanze, Aderblatt, Filigranpflanze, Fittonie]
+      en: [Nerve Plant, Mosaic Plant, Net Plant]
     genus: Fittonia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -797,6 +824,9 @@ new_species:
         wood_stage: semi_hardwood
         notes: Bodenwärme
     common_names: [Gardenie, Knopflochblume, Gardenia, Cape Jasmine]
+    common_names_i18n:
+      de: [Gardenie, Knopflochblume]
+      en: [Cape Jasmine, Gardenia]
     genus: Gardenia
     plant_category: indoor_houseplant
     growth_habit: shrub
@@ -843,7 +873,10 @@ new_species:
       - method: division
         months: [3, 4, 5]
         notes: beim Umtopfen
-    common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant]
+    common_names: [Klapperschlangen-Calathea, Lanzettblatt-Calathea, Rattlesnake Plant, Rattlesnake Calathea]
+    common_names_i18n:
+      de: [Klapperschlangen-Calathea, Lanzettblatt-Calathea]
+      en: [Rattlesnake Plant, Rattlesnake Calathea]
     genus: Goeppertia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -893,7 +926,10 @@ new_species:
       - method: division
         months: [3, 4, 5]
         notes: beim Umtopfen, hohe Luftfeuchte
-    common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows]
+    common_names: [Pfauenkorb-Marante, Korbmarante, Peacock Plant, Cathedral Windows, Pfauenpflanze, Peacock Calathea]
+    common_names_i18n:
+      de: [Pfauenpflanze, Korbmarante, Pfauenkorb-Marante]
+      en: [Peacock Plant, Cathedral Windows, Peacock Calathea]
     genus: Goeppertia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -942,7 +978,10 @@ new_species:
       - method: division
         months: [3, 4, 5]
         notes: beim Umtopfen
-    common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea]
+    common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea, Calathea, Korbmarante, Rundblatt-Korbmarante, Orbifolia Prayer Plant]
+    common_names_i18n:
+      de: [Calathea orbifolia, Rundblatt-Korbmarante, Orbifolia-Korbmarante, Calathea, Korbmarante]
+      en: [Orbifolia Prayer Plant, Round-leaf Calathea, Calathea]
     genus: Goeppertia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -987,7 +1026,10 @@ new_species:
       - method: grafting
         months: [4, 5, 6]
         notes: chlorophyllfreie Sorten brauchen Unterlage; in Wachstumsperiode pfropfen
-    common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus]
+    common_names: [Erdbeerkaktus, Hibotan, Moon Cactus, Chin Cactus, Mondkaktus, Bunter Pfropfkaktus, Ruby Ball Cactus]
+    common_names_i18n:
+      de: [Mondkaktus, Bunter Pfropfkaktus, Erdbeerkaktus]
+      en: [Moon Cactus, Ruby Ball Cactus, Chin Cactus]
     genus: Gymnocalycium
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1037,7 +1079,10 @@ new_species:
         months: [5, 6, 7]
         wood_stage: herbaceous
         notes: niedrige Erfolgsrate
-    common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus]
+    common_names: [Zebra-Haworthie, Zebrapflanze, Zebra Plant, Zebra Cactus, Zebra-Hauswurz, Zebra-Haworthia]
+    common_names_i18n:
+      de: [Zebra-Hauswurz, Zebra-Haworthia, Zebra-Haworthie, Zebrapflanze]
+      en: [Zebra-Haworthia, Zebra Plant, Zebra Cactus]
     genus: Haworthiopsis
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1087,7 +1132,10 @@ new_species:
         notes: bewurzelt auch in Wasser
       - method: layering
         months: [6, 7, 8]
-    common_names: [Gewoehnlicher Efeu, English Ivy, Common Ivy]
+    common_names: [Gewöhnlicher Efeu, English Ivy, Common Ivy]
+    common_names_i18n:
+      de: [Gewöhnlicher Efeu]
+      en: [English Ivy, Common Ivy]
     genus: Hedera
     plant_category: indoor_houseplant
     growth_habit: vine
@@ -1153,6 +1201,9 @@ new_species:
         months: [3, 4, 5]
         notes: sortenuntreu
     common_names: [Chinesischer Roseneibisch, Zimmer-Hibiskus, Chinese Hibiscus, Tropical Hibiscus]
+    common_names_i18n:
+      de: [Zimmer-Hibiskus, Chinesischer Roseneibisch]
+      en: [Chinese Hibiscus, Tropical Hibiscus]
     genus: Hibiscus
     plant_category: balcony_plant
     growth_habit: shrub
@@ -1202,6 +1253,9 @@ new_species:
         months: [4, 5]
         notes: Tochterzwiebeln abtrennen
     common_names: [Ritterstern, Amaryllis, Hippeastrum, Knight's Star Lily]
+    common_names_i18n:
+      de: [Amaryllis, Ritterstern]
+      en: [Amaryllis, "Knight's Star Lily", Hippeastrum]
     genus: Hippeastrum
     plant_category: bulb_tuber
     growth_habit: bulb_geophyte
@@ -1255,7 +1309,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: frisches Saatgut, warm, sehr langsam
-    common_names: [Kentiapalme, Kentia Palm, Sentry Palm, Thatch Palm]
+    common_names: [Kentiapalme, Kentia Palm, Sentry Palm, Thatch Palm, Paradiespalme, Paradise Palm]
+    common_names_i18n:
+      de: [Kentiapalme, Paradiespalme]
+      en: [Kentia Palm, Sentry Palm, Paradise Palm, Thatch Palm]
     genus: Howea
     plant_category: tropical_foliage
     growth_habit: tree
@@ -1307,7 +1364,10 @@ new_species:
         notes: Knotensteckling mit 1-2 Blattpaaren
       - method: layering
         months: [5, 6, 7]
-    common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower]
+    common_names: [Wachsblume, Porzellanblume, Wax Plant, Porcelain Flower, Honey Plant]
+    common_names_i18n:
+      de: [Wachsblume, Porzellanblume]
+      en: [Wax Plant, Honey Plant, Porcelain Flower]
     genus: Hoya
     plant_category: tropical_foliage
     growth_habit: vine
@@ -1368,7 +1428,10 @@ new_species:
         months: [3, 4, 5]
         wood_stage: herbaceous
         notes: bewurzelt leicht in Wasser
-    common_names: [Fleissiges Lieschen, Busy Lizzie, Patient Lucy]
+    common_names: [Fleißiges Lieschen, Busy Lizzie, Patient Lucy, Springkraut, Touch-me-not]
+    common_names_i18n:
+      de: [Fleißiges Lieschen, Springkraut]
+      en: [Busy Lizzie, Touch-me-not, Patient Lucy]
     genus: Impatiens
     plant_category: balcony_plant
     growth_habit: herb
@@ -1417,7 +1480,10 @@ new_species:
         wood_stage: semi_hardwood
       - method: layering
         months: [6, 7, 8]
-    common_names: [Vielbluetigter Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine]
+    common_names: [Vielblütiger Jasmin, Winterjasmin, Pink Jasmine, Winter-blooming Jasmine, Pink Jasmin, Chinese Jasmine]
+    common_names_i18n:
+      de: [Pink Jasmin, Vielblütiger Jasmin, Winterjasmin]
+      en: [Pink Jasmine, Chinese Jasmine, Winter-blooming Jasmine]
     genus: Jasminum
     plant_category: indoor_houseplant
     growth_habit: vine
@@ -1470,7 +1536,10 @@ new_species:
       - method: seed
         months: [4, 5, 6]
         notes: Lichtkeimer, sehr fein
-    common_names: [Flammendes Kaethchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe]
+    common_names: [Flammendes Käthchen, Kalanchoe, Flaming Katy, Christmas Kalanchoe, Florist Kalanchoe]
+    common_names_i18n:
+      de: [Flammendes Käthchen, Kalanchoe]
+      en: [Flaming Katy, Christmas Kalanchoe, Florist Kalanchoe]
     genus: Kalanchoe
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1521,7 +1590,10 @@ new_species:
       - method: leaf_cutting
         months: [4, 5, 6]
         wood_stage: herbaceous
-    common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant]
+    common_names: [Brutblatt, Goethepflanze, Mother of Thousands, Mexican Hat Plant, Teufelsrückgrat, Alligator Plant, "Devil's Backbone"]
+    common_names_i18n:
+      de: [Brutblatt, Teufelsrückgrat, Goethepflanze]
+      en: [Mother of Thousands, Alligator Plant, "Devil's Backbone", Mexican Hat Plant]
     genus: Kalanchoe
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1579,7 +1651,10 @@ new_species:
       - method: division
         months: [4, 5]
         notes: Gruppen teilen
-    common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants]
+    common_names: [Lebende Steine, Lithops, Living Stones, Stone Plants, Steinpflanzen, Pebble Plants]
+    common_names_i18n:
+      de: [Lebende Steine, Steinpflanzen]
+      en: [Living Stones, Pebble Plants, Lithops, Stone Plants]
     genus: Lithops
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1633,7 +1708,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: frisches Saatgut, warm, langsam
-    common_names: [Chinesische Faecherpalme, Brunnenpalme, Chinese Fan Palm, Fountain Palm]
+    common_names: [Chinesische Fächerpalme, Brunnenpalme, Chinese Fan Palm, Fountain Palm, Fächerpalme]
+    common_names_i18n:
+      de: [Chinesische Fächerpalme, Fächerpalme, Brunnenpalme]
+      en: [Chinese Fan Palm, Fountain Palm]
     genus: Livistona
     plant_category: tropical_foliage
     growth_habit: tree
@@ -1691,7 +1769,10 @@ new_species:
       - method: seed
         months: [5, 6, 7]
         notes: warm halten
-    common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus]
+    common_names: [Warzenkaktus, Mammillaria, Pincushion Cactus, Nipple Cactus, Kissenkaktus, Nippelkaktus, Fishhook Cactus]
+    common_names_i18n:
+      de: [Kissenkaktus, Warzenkaktus, Nippelkaktus]
+      en: [Pincushion Cactus, Nipple Cactus, Fishhook Cactus, Mammillaria]
     genus: Mammillaria
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -1745,7 +1826,10 @@ new_species:
         months: [3, 4, 5]
         wood_stage: herbaceous
         notes: Knotensteckling
-    common_names: [Pfeilwurz, Marante, Prayer Plant]
+    common_names: [Pfeilwurz, Marante, Prayer Plant, Gebet-Pflanze]
+    common_names_i18n:
+      de: [Pfeilwurz, Gebet-Pflanze, Marante]
+      en: [Prayer Plant]
     genus: Maranta
     plant_category: tropical_foliage
     growth_habit: herb

@@ -40,6 +40,7 @@ class _Species:
         self.key = "sp-tomato"
         self.scientific_name = "Solanum lycopersicum"
         self.common_names = ["Tomate"]
+        self.common_names_i18n = {"de": ["Tomate"]}
         self.synonyms = []
         self.genus = "Solanum"
         self.family_key = "fam-solanaceae"

@@ -75,6 +75,9 @@ $defs:
         items:
           type: string
         minItems: 1
+      common_names_i18n:
+        $ref: "_defs.schema.yaml#/$defs/common_names_i18n"
+        description: "Language code -> names in preference order (de, en); each name also in common_names"
       family:
         type: string
         description: "Botanical family name (must match a families entry)"

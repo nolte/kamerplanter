@@ -2,7 +2,10 @@
 species:
   # -- Solanaceae (6) --
   - scientific_name: Solanum lycopersicum
-    common_names: [Tomato, Tomate]
+    common_names: [Tomato, Tomate, Paradeiser]
+    common_names_i18n:
+      de: [Tomate, Paradeiser]
+      en: [Tomato]
     family: Solanaceae
     genus: Solanum
     growth_habit: herb
@@ -44,7 +47,10 @@ species:
       max_ph: 6.8
 
   - scientific_name: Capsicum annuum
-    common_names: [Pepper, Paprika, Chili]
+    common_names: [Pepper, Paprika, Chili, Gemüse-Paprika, Peperoni, Bell Pepper, Sweet Pepper, Chili Pepper]
+    common_names_i18n:
+      de: [Paprika, Gemüse-Paprika, Peperoni, Chili]
+      en: [Bell Pepper, Sweet Pepper, Chili Pepper, Pepper, Chili]
     family: Solanaceae
     genus: Capsicum
     growth_habit: herb
@@ -90,7 +96,10 @@ species:
         months: [2, 3]
         difficulty: moderate
         notes: "Vorkultur 8-10 Wochen vor den Eisheiligen bei 24-28 Grad. Keimung dauert 10-20 Tage; Pikieren nach dem Auflaufen. Sehr wärmebedürftig."
-    common_names: [Eggplant, Aubergine]
+    common_names: [Eggplant, Aubergine, Eierpflanze, Brinjal]
+    common_names_i18n:
+      de: [Aubergine, Eierpflanze]
+      en: [Aubergine, Eggplant, Brinjal]
     family: Solanaceae
     genus: Solanum
     growth_habit: herb
@@ -131,7 +140,10 @@ species:
       max_ph: 6.8
 
   - scientific_name: Solanum tuberosum
-    common_names: [Potato, Kartoffel]
+    common_names: [Potato, Kartoffel, Erdapfel]
+    common_names_i18n:
+      de: [Kartoffel, Erdapfel]
+      en: [Potato]
     family: Solanaceae
     genus: Solanum
     growth_habit: herb
@@ -172,7 +184,10 @@ species:
         months: [2, 3]
         difficulty: moderate
         notes: "Vorkultur 10 Wochen vor letztem Frost bei 20-25 Grad. Samen nicht abdecken (Lichtkeimer). Pikieren bei 2-3 echten Blättern, Auspflanzen nach Eisheiligen."
-    common_names: [Cape Gooseberry, Physalis, Andenbeere]
+    common_names: [Cape Gooseberry, Physalis, Andenbeere, Kapstachelbeere, Golden Berry, Poha, Inca Berry]
+    common_names_i18n:
+      de: [Andenbeere, Kapstachelbeere, Physalis]
+      en: [Cape Gooseberry, Golden Berry, Poha, Inca Berry]
     family: Solanaceae
     genus: Physalis
     growth_habit: herb
@@ -218,7 +233,10 @@ species:
         months: [3, 4]
         difficulty: difficult
         notes: "Lichtkeimer: Samen nur andrücken, nicht bedecken. Sehr feines Saatgut, ggf. mit Sand mischen. Keimtemperatur 24-28 Grad. Vorkultur 8 Wochen vor Auspflanzung; Pikieren bei 3-4 cm Wuchshöhe."
-    common_names: [Tobacco, Tabak]
+    common_names: [Tobacco, Tabak, Virginischer Tabak, Common Tobacco, Virginia Tobacco]
+    common_names_i18n:
+      de: [Tabak, Virginischer Tabak]
+      en: [Common Tobacco, Virginia Tobacco, Tobacco]
     family: Solanaceae
     genus: Nicotiana
     growth_habit: herb
@@ -263,7 +281,10 @@ species:
         wood_stage: herbaceous
         difficulty: moderate
         notes: "Klone aus vegetativen Trieben der Mutterpflanze (mind. 4 Nodien, 8-15 cm). Schnittstelle schräg, sofort in Wasser, dann in Wurzelhormon tauchen. Bei 22-26 Grad und 18h Licht bewurzeln; erhält Genetik und Geschlecht der Mutterpflanze."
-    common_names: [Hemp, Cannabis, Hanf]
+    common_names: [Hemp, Cannabis, Hanf, Marihuana, Marijuana]
+    common_names_i18n:
+      de: [Cannabis, Hanf, Marihuana]
+      en: [Cannabis, Hemp, Marijuana]
     family: Cannabaceae
     genus: Cannabis
     growth_habit: herb
@@ -316,7 +337,10 @@ species:
         months: [3, 4]
         difficulty: difficult
         notes: "Direktsaat oder Vorkultur. Nur weibliche Pflanzen produzieren Hopfenzapfen; Geschlecht erst nach Vegetationsstart erkennbar. Samen 2-4 Wochen stratifizieren. Für Nutzanbau Rhizomvermehrung deutlich vorzuziehen."
-    common_names: [Hops, Hopfen]
+    common_names: [Hops, Hopfen, Echter Hopfen, Hop, Common Hop, European Hop]
+    common_names_i18n:
+      de: [Hopfen, Echter Hopfen]
+      en: [Hop, Common Hop, European Hop, Hops]
     family: Cannabaceae
     genus: Humulus
     growth_habit: vine
@@ -351,7 +375,10 @@ species:
 
   # -- Lamiaceae (6) --
   - scientific_name: Ocimum basilicum
-    common_names: [Basil, Basilikum]
+    common_names: [Basil, Basilikum, Königskraut, Sweet Basil]
+    common_names_i18n:
+      de: [Basilikum, Königskraut]
+      en: [Basil, Sweet Basil]
     family: Lamiaceae
     genus: Ocimum
     growth_habit: herb
@@ -389,7 +416,10 @@ species:
       max_ph: 7.0
 
   - scientific_name: Mentha piperita
-    common_names: [Peppermint, Pfefferminze]
+    common_names: [Peppermint, Pfefferminze, Minze]
+    common_names_i18n:
+      de: [Pfefferminze, Minze]
+      en: [Peppermint]
     family: Lamiaceae
     genus: Mentha
     growth_habit: herb
@@ -424,7 +454,10 @@ species:
       max_ph: 7.5
 
   - scientific_name: Thymus vulgaris
-    common_names: [Thyme, Thymian]
+    common_names: [Thyme, Thymian, Echter Thymian, Gartenthymian, Garden Thyme]
+    common_names_i18n:
+      de: [Thymian, Echter Thymian, Gartenthymian]
+      en: [Thyme, Garden Thyme]
     family: Lamiaceae
     genus: Thymus
     growth_habit: subshrub
@@ -458,7 +491,10 @@ species:
       max_ph: 8.0
 
   - scientific_name: Salvia rosmarinus
-    common_names: [Rosemary, Rosmarin]
+    common_names: [Rosemary, Rosmarin, Echter Rosmarin]
+    common_names_i18n:
+      de: [Rosmarin, Echter Rosmarin]
+      en: [Rosemary]
     family: Lamiaceae
     genus: Salvia
     growth_habit: subshrub
@@ -493,7 +529,10 @@ species:
       max_ph: 8
 
   - scientific_name: Salvia officinalis
-    common_names: [Sage, Salbei]
+    common_names: [Sage, Salbei, Echter Salbei, Küchensalbei, Heilsalbei, Common Sage, Garden Sage]
+    common_names_i18n:
+      de: [Echter Salbei, Küchensalbei, Heilsalbei, Salbei]
+      en: [Common Sage, Garden Sage, Sage]
     family: Lamiaceae
     genus: Salvia
     growth_habit: subshrub
@@ -526,7 +565,10 @@ species:
       max_ph: 7.8
 
   - scientific_name: Lavandula angustifolia
-    common_names: [Lavender, Lavendel]
+    common_names: [Lavender, Lavendel, Echter Lavendel, Schmalblättriger Lavendel, English Lavender, True Lavender]
+    common_names_i18n:
+      de: [Echter Lavendel, Schmalblättriger Lavendel, Lavendel]
+      en: [English Lavender, True Lavender, Lavender]
     family: Lamiaceae
     genus: Lavandula
     growth_habit: subshrub
@@ -563,7 +605,10 @@ species:
 
   # -- Apiaceae (6) --
   - scientific_name: Daucus carota
-    common_names: [Carrot, Karotte, "Möhre"]
+    common_names: ["Carrot", "Karotte", "Möhre", "Mohrrübe", "Gelbe Rübe"]
+    common_names_i18n:
+      de: ["Möhre", "Karotte", "Mohrrübe", "Gelbe Rübe"]
+      en: ["Carrot"]
     family: Apiaceae
     genus: Daucus
     growth_habit: herb
@@ -600,6 +645,9 @@ species:
 
   - scientific_name: Foeniculum vulgare
     common_names: [Fennel, Fenchel]
+    common_names_i18n:
+      de: [Fenchel]
+      en: [Fennel]
     family: Apiaceae
     genus: Foeniculum
     growth_habit: herb
@@ -636,7 +684,10 @@ species:
       max_ph: 7.5
 
   - scientific_name: Anethum graveolens
-    common_names: [Dill]
+    common_names: [Dill, Gewöhnlicher Dill, Gurkenkraut, Dill Weed]
+    common_names_i18n:
+      de: [Dill, Gewöhnlicher Dill, Gurkenkraut]
+      en: [Dill, Dill Weed]
     family: Apiaceae
     genus: Anethum
     growth_habit: herb
@@ -671,7 +722,10 @@ species:
       max_ph: 7.8
 
   - scientific_name: Coriandrum sativum
-    common_names: [Coriander, Koriander]
+    common_names: [Coriander, Koriander, Korianderkraut, Cilantro]
+    common_names_i18n:
+      de: [Koriander, Korianderkraut]
+      en: [Coriander, Cilantro]
     family: Apiaceae
     genus: Coriandrum
     growth_habit: herb
@@ -711,7 +765,10 @@ species:
         months: [2, 3]
         difficulty: moderate
         notes: "Lichtkeimer: Samen nicht bedecken, andrücken. Vorkultur 10-12 Wochen vor Auspflanzung bei 15-18 Grad. Pikieren auf Einzelpflanzen. Auspflanzung ab Mitte Mai nach den Eisheiligen. Zweijährig, Ernte im Anpflanzjahr."
-    common_names: [Celery, Sellerie]
+    common_names: [Celery, Sellerie, Knollensellerie, Stangensellerie, Schnittsellerie, Celeriac, Smallage]
+    common_names_i18n:
+      de: [Sellerie, Knollensellerie, Stangensellerie, Schnittsellerie]
+      en: [Celery, Celeriac, Smallage]
     family: Apiaceae
     genus: Apium
     growth_habit: herb
@@ -748,7 +805,10 @@ species:
       max_ph: 7
 
   - scientific_name: Petroselinum crispum
-    common_names: [Parsley, Petersilie]
+    common_names: [Parsley, Petersilie, Glatte Petersilie, Krause Petersilie, Peterle, Garden Parsley]
+    common_names_i18n:
+      de: [Petersilie, Glatte Petersilie, Krause Petersilie, Peterle]
+      en: [Parsley, Garden Parsley]
     family: Apiaceae
     genus: Petroselinum
     growth_habit: herb
@@ -784,7 +844,10 @@ species:
 
   # -- Brassicaceae (6) --
   - scientific_name: Brassica oleracea var. italica
-    common_names: [Broccoli, Brokkoli]
+    common_names: [Broccoli, Brokkoli, Calabrese]
+    common_names_i18n:
+      de: [Brokkoli, Broccoli]
+      en: [Broccoli, Calabrese]
     family: Brassicaceae
     genus: Brassica
     growth_habit: herb
@@ -821,7 +884,10 @@ species:
       max_ph: 6.8
 
   - scientific_name: Brassica oleracea var. botrytis
-    common_names: [Cauliflower, Blumenkohl]
+    common_names: [Cauliflower, Blumenkohl, Karfiol]
+    common_names_i18n:
+      de: [Blumenkohl, Karfiol]
+      en: [Cauliflower]
     family: Brassicaceae
     genus: Brassica
     growth_habit: herb
@@ -856,7 +922,10 @@ species:
       max_ph: 6.8
 
   - scientific_name: Brassica oleracea var. gongylodes
-    common_names: [Kohlrabi]
+    common_names: [Kohlrabi, Oberrübe, Turnip Cabbage]
+    common_names_i18n:
+      de: [Kohlrabi, Oberrübe]
+      en: [Kohlrabi, Turnip Cabbage]
     family: Brassicaceae
     genus: Brassica
     growth_habit: herb
@@ -897,6 +966,9 @@ species:
         difficulty: easy
         notes: "Direktsaat in Reihen, 1-2 cm tief, Abstand 3-5 cm. Keimt bereits ab 5 Grad; geeignet für Sukzessionsanbau alle 2-3 Wochen. Schnellster Radieschen-Typ: Ernte nach 4-6 Wochen."
     common_names: [Radish, Rettich, Radieschen]
+    common_names_i18n:
+      de: [Rettich, Radieschen]
+      en: [Radish]
     family: Brassicaceae
     genus: Raphanus
     growth_habit: herb
@@ -938,7 +1010,10 @@ species:
         months: [3, 4, 5, 6, 7, 8, 9]
         difficulty: easy
         notes: "Direktsaat, 0,5-1 cm tief, dünn ausstreuen. Kühle Temperaturen bevorzugt, bei Hitze schiesst Pflanze schnell in Samen. Sukzessionsanbau alle 2-3 Wochen empfohlen für kontinuierliche Ernte."
-    common_names: [Arugula, Rucola]
+    common_names: [Arugula, Rucola, Senfrauke, Garten-Senfrauke, Rucolasalat, Rocket, Roquette, Garden Rocket]
+    common_names_i18n:
+      de: [Rucola, Senfrauke, Garten-Senfrauke, Rucolasalat]
+      en: [Rocket, Arugula, Garden Rocket]
     family: Brassicaceae
     genus: Eruca
     growth_habit: herb
@@ -978,6 +1053,9 @@ species:
         difficulty: easy
         notes: "Vorkultur 6 Wochen vor Auspflanzung bei 15-18 Grad, oder Direktsaat April bis Juni. Pikieren auf Einzelpflanzen. Auspflanzung ab Mitte Mai, Abstand 40-50 cm. Frosthart nach Abhärtung."
     common_names: [Cabbage, "Weißkohl"]
+    common_names_i18n:
+      de: ["Weißkohl"]
+      en: ["Cabbage"]
     family: Brassicaceae
     genus: Brassica
     growth_habit: herb
@@ -1015,7 +1093,10 @@ species:
 
   # -- Fabaceae (6) --
   - scientific_name: Phaseolus vulgaris
-    common_names: [Common Bean, Buschbohne, Gartenbohne]
+    common_names: [Common Bean, Buschbohne, Gartenbohne, Grüne Bohne, Stangenbohne, Fisole, French Bean, Green Bean, Snap Bean]
+    common_names_i18n:
+      de: [Gartenbohne, Grüne Bohne, Buschbohne, Stangenbohne, Fisole]
+      en: [Common Bean, French Bean, Green Bean, Snap Bean]
     family: Fabaceae
     genus: Phaseolus
     growth_habit: herb
@@ -1053,7 +1134,10 @@ species:
       max_ph: 7
 
   - scientific_name: Pisum sativum
-    common_names: [Pea, Erbse]
+    common_names: [Pea, Erbse, Gartenerbse, Garden Pea, Green Pea]
+    common_names_i18n:
+      de: [Erbse, Gartenerbse]
+      en: [Garden Pea, Green Pea, Pea]
     family: Fabaceae
     genus: Pisum
     growth_habit: vine
@@ -1097,7 +1181,10 @@ species:
         months: [2, 3, 4]
         difficulty: easy
         notes: "Direktsaat ab Februar/März (ab 5 Grad Bodentemperatur), 5-6 cm tief, Abstand 20-25 cm. Frühaussaat erhöht den Ertrag. Sehr froststabil (bis -10 Grad). Keine Vorkultur empfohlen (Pfahlwurzel verträgt Verpflanzen schlecht)."
-    common_names: [Broad Bean, Ackerbohne, Dicke Bohne]
+    common_names: [Broad Bean, Ackerbohne, Dicke Bohne, Saubohne, Pferdebohne, Fava Bean, Field Bean]
+    common_names_i18n:
+      de: [Ackerbohne, Saubohne, Pferdebohne, Dicke Bohne]
+      en: [Fava Bean, Broad Bean, Field Bean]
     family: Fabaceae
     genus: Vicia
     growth_habit: herb
@@ -1140,7 +1227,10 @@ species:
         months: [5, 6]
         difficulty: easy
         notes: "Direktsaat nach letztem Frost bei Bodentemperaturen über 12 Grad, 2-3 cm tief, Abstand 10-15 cm. Impfung mit Rhizobium-Bakterien empfohlen für optimale Stickstoffixierung. Nicht verpflanzen (Pfahlwurzel)."
-    common_names: [Soybean, Sojabohne]
+    common_names: [Soybean, Sojabohne, Soya, Soya Bean]
+    common_names_i18n:
+      de: [Sojabohne, Soya]
+      en: [Soybean, Soya Bean]
     family: Fabaceae
     genus: Glycine
     growth_habit: herb
@@ -1182,7 +1272,10 @@ species:
         months: [4, 5]
         difficulty: easy
         notes: "Direktsaat ab April bei 8-10 Grad Bodentemperatur, 3-4 cm tief, Abstand 5-10 cm in Reihen. Kein Verpflanzen (Pfahlwurzel). Rhizobium-Impfung sinnvoll auf Erstanbauflächen. Ernte wenn Hülsen gelblich-braun."
-    common_names: [Lentil, Linse]
+    common_names: [Lentil, Linse, Speiselinse, Common Lentil]
+    common_names_i18n:
+      de: [Linse, Speiselinse]
+      en: [Lentil, Common Lentil]
     family: Fabaceae
     genus: Lens
     growth_habit: herb
@@ -1215,7 +1308,10 @@ species:
       max_ph: 8
 
   - scientific_name: Trifolium pratense
-    common_names: [Red Clover, Rotklee]
+    common_names: [Red Clover, Rotklee, Wiesenklee, Meadow Clover]
+    common_names_i18n:
+      de: [Rotklee, Wiesenklee]
+      en: [Red Clover, Meadow Clover]
     family: Fabaceae
     genus: Trifolium
     growth_habit: herb
@@ -1254,7 +1350,10 @@ species:
 
   # -- Cucurbitaceae (6) --
   - scientific_name: Cucumis sativus
-    common_names: [Cucumber, Gurke]
+    common_names: [Cucumber, Gurke, Salatgurke, Schlangengurke, Einlegegurke, Garden Cucumber, Gherkin]
+    common_names_i18n:
+      de: [Gurke, Salatgurke, Schlangengurke, Einlegegurke]
+      en: [Cucumber, Garden Cucumber, Gherkin]
     family: Cucurbitaceae
     genus: Cucumis
     growth_habit: vine
@@ -1299,7 +1398,10 @@ species:
         months: [4, 5]
         difficulty: moderate
         notes: "Vorkultur 4 Wochen vor letztem Frost bei 22-26 Grad in Einzeltöpfen (keine Pikur wegen empfindlicher Wurzeln). Auspflanzung nach Eisheiligen. Wärmebedürftig; Folienabdeckung oder Gewächshaus in Mitteleuropa empfehlenswert."
-    common_names: [Melon, Melone, Honigmelone]
+    common_names: [Melon, Melone, Honigmelone, Zuckermelone, Netzmelone, Muskusmelone, Cantaloupe, Honeydew, Muskmelon]
+    common_names_i18n:
+      de: [Melone, Zuckermelone, Honigmelone, Netzmelone, Muskusmelone]
+      en: [Melon, Cantaloupe, Honeydew, Muskmelon]
     family: Cucurbitaceae
     genus: Cucumis
     growth_habit: vine
@@ -1338,7 +1440,10 @@ species:
       max_ph: 7.5
 
   - scientific_name: Cucurbita pepo
-    common_names: [Zucchini, Squash]
+    common_names: [Zucchini, Squash, Gartenkürbis, Courgette, Zucchini Squash, Summer Squash]
+    common_names_i18n:
+      de: [Zucchini, Gartenkürbis]
+      en: [Zucchini, Courgette, Zucchini Squash, Summer Squash, Squash]
     family: Cucurbitaceae
     genus: Cucurbita
     growth_habit: vine
@@ -1376,7 +1481,10 @@ species:
       max_ph: 6.8
 
   - scientific_name: Cucurbita maxima
-    common_names: [Pumpkin, "Kürbis", "Riesenkürbis"]
+    common_names: ["Pumpkin", "Kürbis", "Riesenkürbis", "Hokkaido-Kürbis", "Winter Squash"]
+    common_names_i18n:
+      de: ["Riesenkürbis", "Hokkaido-Kürbis", "Kürbis"]
+      en: ["Winter Squash", "Pumpkin"]
     family: Cucurbitaceae
     genus: Cucurbita
     growth_habit: vine
@@ -1418,6 +1526,9 @@ species:
         difficulty: moderate
         notes: "Vorkultur 4 Wochen vor letztem Frost in Einzeltöpfen (8-10 cm) bei 24-28 Grad. Empfindliche Wurzeln: kein Pikieren. Auspflanzung erst nach Eisheiligen. In Mitteleuropa Gewächshaus oder Folientunnel empfohlen für ausreichend Wärme."
     common_names: [Watermelon, Wassermelone]
+    common_names_i18n:
+      de: [Wassermelone]
+      en: [Watermelon]
     family: Cucurbitaceae
     genus: Citrullus
     growth_habit: vine
@@ -1459,7 +1570,10 @@ species:
         months: [3, 4]
         difficulty: moderate
         notes: "Vorkultur 6 Wochen vor letztem Frost bei 25-28 Grad in Einzeltöpfen. Samen vor der Aussaat 24h einweichen; Keimung kann 1-2 Wochen dauern. Sehr lange Vegetationszeit (120-150 Tage); in Mitteleuropa Gewächshaus oder Folientunnel nötig."
-    common_names: [Luffa, Schwammgurke]
+    common_names: [Luffa, Schwammgurke, Luffagurke, Schwammkürbis, Loofah, Sponge Gourd, Smooth Luffa, Egyptian Cucumber]
+    common_names_i18n:
+      de: [Schwammgurke, Luffagurke, Schwammkürbis, Luffa]
+      en: [Luffa, Loofah, Sponge Gourd, Smooth Luffa, Egyptian Cucumber]
     family: Cucurbitaceae
     genus: Luffa
     growth_habit: vine
@@ -1495,7 +1609,10 @@ species:
 
   # -- Asteraceae (6) --
   - scientific_name: Lactuca sativa
-    common_names: [Lettuce, Salat]
+    common_names: [Lettuce, Salat, Gartensalat, Kopfsalat, Lattich, Garden Lettuce]
+    common_names_i18n:
+      de: [Salat, Gartensalat, Kopfsalat, Lattich]
+      en: [Lettuce, Garden Lettuce]
     family: Asteraceae
     genus: Lactuca
     growth_habit: herb
@@ -1534,7 +1651,10 @@ species:
       max_ph: 7.0
 
   - scientific_name: Cichorium intybus
-    common_names: [Chicory, "Chicorée", Wegwarte]
+    common_names: ["Chicory", "Chicorée", "Wegwarte", "Zichorie", "Gemeine Wegwarte", "Coffeeweed", "Blue Daisy"]
+    common_names_i18n:
+      de: ["Wegwarte", "Zichorie", "Gemeine Wegwarte", "Chicorée"]
+      en: ["Chicory", "Coffeeweed", "Blue Daisy"]
     family: Asteraceae
     genus: Cichorium
     growth_habit: herb
@@ -1568,7 +1688,10 @@ species:
       max_ph: 7.5
 
   - scientific_name: Helianthus annuus
-    common_names: [Sunflower, Sonnenblume]
+    common_names: [Sunflower, Sonnenblume, Common Sunflower]
+    common_names_i18n:
+      de: [Sonnenblume]
+      en: [Common Sunflower, Sunflower]
     family: Asteraceae
     genus: Helianthus
     growth_habit: herb
@@ -1614,7 +1737,10 @@ species:
         months: [3, 4, 5]
         difficulty: easy
         notes: "Vorkultur ab März bei 18-22 Grad, 0,5 cm tief. Direktsaat nach Eisheiligen ab Mai. Schnelle Keimung (5-7 Tage). Nach Auspflanzung buschig wachsen; erste Blütenknospen auskneipen fördert Verzweigung."
-    common_names: [Marigold, Tagetes, Studentenblume]
+    common_names: [Marigold, Tagetes, Studentenblume, Aufrechte Studentenblume, Afrikanische Studentenblume, Azteken-Ringelblume, African Marigold, Aztec Marigold, Big Marigold]
+    common_names_i18n:
+      de: [Aufrechte Studentenblume, Afrikanische Studentenblume, Azteken-Ringelblume, Tagetes, Studentenblume]
+      en: [African Marigold, Aztec Marigold, Big Marigold, Marigold]
     family: Asteraceae
     genus: Tagetes
     growth_habit: herb
@@ -1656,7 +1782,10 @@ species:
         months: [7, 8, 9]
         difficulty: easy
         notes: "Kamille sät sich nach der Reife der Blüten selbst reichlich aus. Standort mehrjährig halten, indem ausgereifte Blütenköpfe abwechselnd stehen bleiben. Keine Massnahmen nötig."
-    common_names: [Chamomile, Kamille]
+    common_names: [Chamomile, Kamille, Echte Kamille, Feldkamille, Kamillenblume, German Chamomile, Common Chamomile]
+    common_names_i18n:
+      de: [Echte Kamille, Feldkamille, Kamillenblume, Kamille]
+      en: [German Chamomile, Common Chamomile, Chamomile]
     family: Asteraceae
     genus: Matricaria
     growth_habit: herb
@@ -1689,7 +1818,10 @@ species:
       max_ph: 7.5
 
   - scientific_name: Artemisia dracunculus
-    common_names: [Tarragon, Estragon]
+    common_names: [Tarragon, Estragon, Bertram, Dragon]
+    common_names_i18n:
+      de: [Estragon, Bertram, Dragon]
+      en: [Tarragon]
     family: Asteraceae
     genus: Artemisia
     growth_habit: herb
@@ -1728,7 +1860,10 @@ species:
         months: [4, 5, 6]
         difficulty: easy
         notes: "Direktsaat ab Mai nach Eisheiligen (mind. 12 Grad Bodentemperatur), 4-5 cm tief, Abstand 20-30 cm. Blockanbau (mind. 4 Reihen) für sichere Windbestäubung. Vorkultur ab April in Einzeltöpfen möglich, aber Direktsaat vorzuziehen."
-    common_names: [Corn, Mais]
+    common_names: [Corn, Mais, Zuckermais, Maize, Sweet Corn]
+    common_names_i18n:
+      de: [Mais, Zuckermais]
+      en: [Maize, Corn, Sweet Corn]
     family: Poaceae
     genus: Zea
     growth_habit: grass
@@ -1771,7 +1906,10 @@ species:
         months: [3, 4, 10, 11]
         difficulty: easy
         notes: "Direktsaat. Sommerweizen: März-April, 3-4 cm tief, Abstand 3-5 cm in Reihen. Winterweizen: Oktober-November; benötigt Vernalisation (Kältereiz) für Schossen und Ährenbildung. Ernte Sommerweizen Juli-August, Winterweizen Juni-Juli."
-    common_names: [Wheat, Weizen]
+    common_names: [Wheat, Weizen, Weichweizen, Brotweizen, Common Wheat, Bread Wheat]
+    common_names_i18n:
+      de: [Weichweizen, Weizen, Brotweizen]
+      en: [Common Wheat, Bread Wheat, Wheat]
     family: Poaceae
     genus: Triticum
     growth_habit: grass
@@ -1830,7 +1968,10 @@ species:
         months: [3, 4, 9, 10]
         difficulty: easy
         notes: "Direktsaat. Sommergerste: März-April, 3-4 cm tief. Wintergerste: September-Oktober; frosthart und benötigt Vernalisation. Sommergerste wird als Braugerste und Futtergerste angebaut. Breit streuen oder in Reihen mit 10-15 cm Abstand."
-    common_names: [Barley, Gerste]
+    common_names: [Barley, Gerste, Saat-Gerste, Common Barley, Cultivated Barley]
+    common_names_i18n:
+      de: [Gerste, Saat-Gerste]
+      en: [Common Barley, Cultivated Barley, Barley]
     family: Poaceae
     genus: Hordeum
     growth_habit: grass
@@ -1869,7 +2010,10 @@ species:
         months: [3, 4]
         difficulty: easy
         notes: "Direktsaat Sommerhafer ab März bei abgetauter Erde, 3-4 cm tief. Hafer ist ein reines Sommergetreide; Winterformen spielen in Mitteleuropa kaum eine Rolle. Breit streuen oder in Reihen; benötigt ausreichend Feuchtigkeit beim Auflaufen."
-    common_names: [Oat, Hafer]
+    common_names: [Oat, Hafer, Saat-Hafer, Common Oat, Cultivated Oat]
+    common_names_i18n:
+      de: [Hafer, Saat-Hafer]
+      en: [Common Oat, Cultivated Oat, Oat]
     family: Poaceae
     genus: Avena
     growth_habit: grass
@@ -1906,7 +2050,10 @@ species:
         months: [4, 5]
         difficulty: difficult
         notes: "Vorkultur 8 Wochen vor Auspflanzung bei 28-32 Grad. Keimung im Wasser (24-48h einweichen). In Mitteleuropa nur im Gewächshaus oder unter Folie realisierbar; benötigt Wasserstandhaltung oder ständig feuchte Erde. Auspflanzung als Setzlinge in flaches Wasser."
-    common_names: [Rice, Reis]
+    common_names: [Rice, Reis, Asiatischer Reis, Asian Rice, Common Rice]
+    common_names_i18n:
+      de: [Reis, Asiatischer Reis]
+      en: [Asian Rice, Common Rice, Rice]
     family: Poaceae
     genus: Oryza
     growth_habit: grass
@@ -1948,7 +2095,10 @@ species:
         months: [5, 6]
         difficulty: easy
         notes: "Direktsaat nach letztem Frost (Bodentemperatur mind. 15 Grad), 2-4 cm tief, Abstand 15-20 cm in Reihen. C4-Pflanze: extrem hitze- und trockenheitstolerant. In Mitteleuropa nur in warmen Lagen mit langer Vegetationsperiode anbaubar."
-    common_names: [Sorghum, Hirse]
+    common_names: [Sorghum, Hirse, Mohrenhirse, Großhirse, Great Millet, Guinea Corn]
+    common_names_i18n:
+      de: [Sorghum, Mohrenhirse, Großhirse, Hirse]
+      en: [Sorghum, Great Millet, Guinea Corn]
     family: Poaceae
     genus: Sorghum
     growth_habit: grass
@@ -1984,7 +2134,10 @@ species:
   # -- Araceae (2) --
   - scientific_name: Monstera deliciosa
     allows_harvest: false  # #1002: ornamental — Steckbrief: "Entfaellt (Fruchtbildung Indoor extrem selten)"
-    common_names: [Monstera, Fensterblatt]
+    common_names: [Monstera, Fensterblatt, Köstliches Fensterblatt, Swiss Cheese Plant, Fruit Salad Plant]
+    common_names_i18n:
+      de: [Fensterblatt, Köstliches Fensterblatt]
+      en: [Swiss Cheese Plant, Monstera, Fruit Salad Plant]
     family: Araceae
     genus: Monstera
     growth_habit: vine
@@ -2015,7 +2168,10 @@ species:
 
   - scientific_name: Spathiphyllum wallisii
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: [Peace Lily, Einblatt]
+    common_names: [Peace Lily, Einblatt, Blattfahne, Friedenslilie, Scheidenblatt, White Sails, Spathe Flower]
+    common_names_i18n:
+      de: [Einblatt, Blattfahne, Friedenslilie, Scheidenblatt]
+      en: [Peace Lily, White Sails, Spathe Flower]
     family: Araceae
     genus: Spathiphyllum
     growth_habit: herb
@@ -2049,7 +2205,10 @@ species:
   # -- Asparagaceae (1) --
   - scientific_name: Chlorophytum comosum
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: [Spider Plant, "Grünlilie"]
+    common_names: ["Spider Plant", "Grünlilie", "Brautschleppe", "Graslilie", "Airplane Plant", "Ribbon Plant", "Spider Ivy"]
+    common_names_i18n:
+      de: ["Grünlilie", "Brautschleppe", "Graslilie"]
+      en: ["Spider Plant", "Airplane Plant", "Ribbon Plant", "Spider Ivy"]
     family: Asparagaceae
     genus: Chlorophytum
     growth_habit: herb
@@ -2079,7 +2238,10 @@ species:
   # -- Bromeliaceae (1) --
   - scientific_name: Guzmania lingulata
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: [Scarlet Star, Guzmania]
+    common_names: [Scarlet Star, Guzmania, Bromelie, Guzmanie, Scharlachrote Guzmanie, Tufted Airplant, Droophead Tufted Airplant]
+    common_names_i18n:
+      de: [Bromelie, Guzmanie, Scharlachrote Guzmanie]
+      en: [Scarlet Star, Tufted Airplant, Droophead Tufted Airplant, Guzmania]
     family: Bromeliaceae
     genus: Guzmania
     growth_habit: epiphyte
@@ -2110,7 +2272,10 @@ species:
 
   # -- Rosaceae (1) --
   - scientific_name: Fragaria x ananassa
-    common_names: [Strawberry, Erdbeere]
+    common_names: [Strawberry, Erdbeere, Gartenerdbeere, Garden Strawberry]
+    common_names_i18n:
+      de: [Erdbeere, Gartenerdbeere]
+      en: [Strawberry, Garden Strawberry]
     family: Rosaceae
     genus: Fragaria
     growth_habit: groundcover
@@ -2151,7 +2316,10 @@ species:
   # -- Urticaceae (1) --
   - scientific_name: Pilea peperomioides
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: [Chinese Money Plant, Ufopflanze]
+    common_names: [Ufopflanze, Chinesischer Geldbaum, Chinese Money Plant, Pancake Plant, Chinesische Geldpflanze, Bauchnabelpflanze, UFO Plant]
+    common_names_i18n:
+      de: [Chinesische Geldpflanze, Bauchnabelpflanze, Ufopflanze, Chinesischer Geldbaum]
+      en: [Chinese Money Plant, Pancake Plant, UFO Plant]
     family: Urticaceae
     genus: Pilea
     growth_habit: herb
@@ -2182,7 +2350,10 @@ species:
   # -- Marantaceae (1) --
   # Formerly Calathea orbifolia; reclassified Borchsenius et al. 2012
   - scientific_name: Goeppertia orbifolia
-    common_names: [Calathea, Korbmarante]
+    common_names: [Orbifolia-Korbmarante, Calathea orbifolia, Round-leaf Calathea, Calathea, Korbmarante, Rundblatt-Korbmarante, Orbifolia Prayer Plant]
+    common_names_i18n:
+      de: [Calathea orbifolia, Rundblatt-Korbmarante, Orbifolia-Korbmarante, Calathea, Korbmarante]
+      en: [Orbifolia Prayer Plant, Round-leaf Calathea, Calathea]
     family: Marantaceae
     genus: Goeppertia
     growth_habit: herb
@@ -2213,7 +2384,10 @@ species:
 
   # -- Asparagaceae (2) --
   - scientific_name: Dracaena trifasciata
-    common_names: [Snake Plant, Bogenhanf, Sansevieria]
+    common_names: [Bogenhanf, Schwiegermutterzunge, Snake Plant, "Mother-in-Law's Tongue", Sansevieria, "Saint George's Sword"]
+    common_names_i18n:
+      de: [Bogenhanf, Schwiegermutterzunge, Sansevieria]
+      en: [Snake Plant, "Mother-in-Law's Tongue", "Saint George's Sword", Sansevieria]
     family: Asparagaceae
     genus: Dracaena
     growth_habit: succulent
@@ -2243,6 +2417,9 @@ species:
   # -- Asparagaceae (3) --
   - scientific_name: Dracaena fragrans
     common_names: [Corn Plant, Duftdracaena, Maispalme, Mass Cane, Happy Plant]
+    common_names_i18n:
+      de: [Duftdracaena, Maispalme]
+      en: [Corn Plant, Mass Cane, Happy Plant]
     family: Asparagaceae
     genus: Dracaena
     growth_habit: shrub
@@ -2278,7 +2455,10 @@ species:
 
   # -- Nymphaeaceae (1) --
   - scientific_name: Nymphaea alba
-    common_names: [White Water Lily, Weisse Seerose, European White Waterlily]
+    common_names: [Weiße Seerose, White Water Lily, European White Waterlily]
+    common_names_i18n:
+      de: [Weiße Seerose]
+      en: [White Water Lily, European White Waterlily]
     family: Nymphaeaceae
     genus: Nymphaea
     growth_habit: aquatic
@@ -2317,7 +2497,10 @@ species:
 
   # -- Araceae (3) --
   - scientific_name: Epipremnum aureum
-    common_names: [Pothos, Efeutute]
+    common_names: [Pothos, Efeutute, Goldene Efeutute, Golden Pothos, "Devil's Ivy"]
+    common_names_i18n:
+      de: [Efeutute, Goldene Efeutute, Pothos]
+      en: [Golden Pothos, "Devil's Ivy", Pothos]
     family: Araceae
     genus: Epipremnum
     growth_habit: vine
@@ -2347,7 +2530,10 @@ species:
 
   # -- Amaryllidaceae (1) --
   - scientific_name: Allium schoenoprasum
-    common_names: [Chives, Schnittlauch]
+    common_names: [Schnittlauch, Feinröhriger Schnittlauch, Chives, Ciboulette]
+    common_names_i18n:
+      de: [Schnittlauch, Feinröhriger Schnittlauch]
+      en: [Chives]
     family: Amaryllidaceae
     genus: Allium
     growth_habit: herb
@@ -2384,7 +2570,10 @@ species:
   # -- Geraniaceae (1) --
   - scientific_name: Pelargonium zonale
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: [Zonal Geranium, Geranie]
+    common_names: [Geranie, Zonalpelargonie, Zonal Geranium, Horseshoe Geranium, Zimmerpelargonie, Zonale Geranie, Stehende Geranie, Garden Geranium]
+    common_names_i18n:
+      de: [Zimmerpelargonie, Zonale Geranie, Stehende Geranie, Geranie, Zonalpelargonie]
+      en: [Zonal Geranium, Horseshoe Geranium, Garden Geranium]
     family: Geraniaceae
     genus: Pelargonium
     growth_habit: subshrub
@@ -2418,7 +2607,10 @@ species:
 
   # -- Solanaceae (Petunia) --
   - scientific_name: Petunia x hybrida
-    common_names: [Petunia, Petunie]
+    common_names: [Petunia, Petunie, Garten-Petunie, Garden Petunia]
+    common_names_i18n:
+      de: [Garten-Petunie, Petunie]
+      en: [Garden Petunia, Petunia]
     family: Solanaceae
     genus: Petunia
     growth_habit: herb
@@ -2462,7 +2654,10 @@ species:
         wood_stage: softwood
         difficulty: easy
         notes: "Weichholzstecklinge aus nicht-blühenden Triebspitzen (8-10 cm) zur Überwinterung der Mutterpflanze. Bei 12-15 Grad hell und trocken überwintern. Im Frühjahr antreiben und als Stecklinge zur Nachzucht nutzen."
-    common_names: [Garden Verbena, Verbene]
+    common_names: [Garden Verbena, Verbene, Garten-Verbene, Eisenkraut, Annual Verbena]
+    common_names_i18n:
+      de: [Garten-Verbene, Eisenkraut, Verbene]
+      en: [Garden Verbena, Annual Verbena]
     family: Verbenaceae
     genus: Verbena
     growth_habit: herb
@@ -2497,7 +2692,10 @@ species:
 
   # -- Violaceae (1) --
   - scientific_name: Viola x wittrockiana
-    common_names: [Pansy, "Stiefmütterchen"]
+    common_names: ["Pansy", "Stiefmütterchen", "Gartenstiefmütterchen", "Garden Pansy"]
+    common_names_i18n:
+      de: ["Stiefmütterchen", "Gartenstiefmütterchen"]
+      en: ["Garden Pansy", "Pansy"]
     family: Violaceae
     genus: Viola
     growth_habit: herb

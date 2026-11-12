@@ -1144,6 +1144,64 @@ Die `LifecycleResponse` enthält zusätzlich:
 
 ---
 
+## Arten: Sprachgetaggte Volksnamen (`common_names_i18n`)
+
+Arten tragen ihre gebräuchlichen Namen zusätzlich nach Sprache sortiert. So lässt sich später pro Oberflächensprache der passende Name wählen. <!-- REQ-001 / UI-NFR-007 R-009a -->
+
+### Felder
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `common_names` | Liste[string] | Flache Liste aller Namen in allen Sprachen — Grundlage für Suche, Formulare und CSV-Import. Bleibt unverändert bestehen. |
+| `common_names_i18n` | Objekt (Sprachcode → Liste[string]) | Namen je Sprache in Präferenzreihenfolge, der erste Name ist der bevorzugte. Heute belegte Schlüssel: `de`, `en`. Standardwert `{}`. |
+
+```json
+{
+  "scientific_name": "Solanum lycopersicum",
+  "common_names": ["Tomate", "Tomato"],
+  "common_names_i18n": { "de": ["Tomate"], "en": ["Tomato"] }
+}
+```
+
+### Regeln
+
+- Jeder Name in `common_names_i18n` muss auch in `common_names` stehen. Die Map ordnet vorhandene Namen einer Sprache zu und führt keinen eigenen Namen ein. Verstößt eine Anfrage dagegen, antwortet die API mit `422`; der Name wird nie stillschweigend ergänzt.
+- Schlüssel sind kleingeschriebene Sprachcodes mit 2–3 Buchstaben (`de`, `en`, `fil`); andere Schlüssel führen zu `422`.
+- Namen werden von Leerzeichen am Rand befreit, ein leerer Name führt zu `422`. Doppelte Namen innerhalb einer Sprache werden entfernt, eine Sprache ohne Namen wird weggelassen.
+
+### Schreiben
+
+`POST /api/v1/species` und `PUT /api/v1/species/{key}` akzeptieren `common_names_i18n` als optionales Feld:
+
+| Anfrage | Wirkung |
+|---------|---------|
+| `POST` ohne das Feld | Die Art wird mit `{}` angelegt. |
+| `PUT` ohne das Feld | Die gespeicherte Map bleibt erhalten. Namen, die du in diesem `PUT` aus `common_names` entfernst, verschwinden auch aus der Map. |
+| `PUT` mit `{}` | Die Map wird geleert. |
+| `PUT` mit einer Map | Die Map wird durch die gesendete ersetzt (Regeln siehe oben). |
+
+### Lesen
+
+`GET /api/v1/species` (und die Detailabfrage einer Art) liefert `common_names_i18n`. Dasselbe Feld enthalten die Art-Kurzinfos in Pflanzinstanzen (dort als `species_common_names_i18n` bzw. `common_names_i18n` im Art-Objekt), Pflanzdurchläufen, der Mischkultur-Verträglichkeit und den Arten-Listen der Phasenabläufe und Phasendefinitionen.
+
+### Katalogdaten
+
+Der mitgelieferte globale Katalog (213 Arten) enthält deutsche und englische Namen, abgeleitet aus den Pflanzen-Steckbriefen. Bestehende Installationen erhalten sie beim Start über den Seed-Abgleich, es ist keine Migration nötig. Der Abgleich betrifft nur Zeilen des globalen Katalogs; Arten, die einem Mandanten gehören, werden nie angefasst.
+
+### Anzeigeregel
+
+Vorgesehen ist: Oberflächensprache, dann Deutsch, dann wissenschaftlicher Name. Die bisherige Regel „erster Eintrag von `common_names`" ist dafür keine zulässige Grundlage.
+
+!!! warning "Noch nicht implementiert"
+    Die Oberfläche wertet `common_names_i18n` noch nicht aus und zeigt weiterhin den ersten Eintrag von `common_names`. Die sprachabhängige Anzeige folgt in einer späteren Änderung.
+
+### Siehe auch
+
+- [Stammdaten: Pflanzenarten — Benutzerhandbuch](../user-guide/plant-management.md)
+- [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
 ## Saison- & Überwinterungs-Automatik
 
 Diese Endpunkte lesen den automatisch berechneten Saison-Zustand eines Standorts und das automatisch materialisierte Überwinterungsprofil einer Pflanze. Beides entsteht ohne Nutzerinteraktion, sobald eine Pflanze an einer frostexponierten Location zugeordnet wird — standardmäßig einer Location auf einem Freiland-, Gewächshaus- oder Balkon-Standort (`OVERWINTERING_SITE_TYPES`), oder einer Location mit einer manuellen Frostexpositions-Übersteuerung auf einem andersartigen Standort (siehe [Frostexposition einer Location festlegen](../user-guide/locations-substrates.md#frostexposition-einer-location-festlegen)) — beim Anlegen der Pflanze, bei einem Standortwechsel, sowie zusätzlich als Sicherheitsnetz aus der täglichen Saison-Auswertung — siehe [Saison-Automatik](../user-guide/season-automation.md) und [Überwinterung](../user-guide/overwintering.md) im Benutzerhandbuch. <!-- REQ-047 -->
@@ -1796,6 +1854,7 @@ Erfordert ein gültiges JWT-Token, keine gesonderte Rollen-Einschränkung.
     "key": "species/123",
     "scientific_name": "Solanum lycopersicum",
     "common_names": ["Tomate", "Tomato"],
+    "common_names_i18n": { "de": ["Tomate"], "en": ["Tomato"] },
     "typical_duration_days": 30,
     "illustration": "phases/flowering.svg"
   }
@@ -1807,6 +1866,7 @@ Erfordert ein gültiges JWT-Token, keine gesonderte Rollen-Einschränkung.
 | `key` | string | Schlüssel der Art |
 | `scientific_name` | string | Wissenschaftlicher (binomialer) Name |
 | `common_names` | Liste[string] | Gebräuchliche Namen |
+| `common_names_i18n` | Objekt | Gebräuchliche Namen je Sprachcode, siehe [Arten: Sprachgetaggte Volksnamen](#arten-sprachgetaggte-volksnamen-common_names_i18n) |
 | `typical_duration_days` | integer | Typische Dauer dieser Phase für die Art — die art-spezifische Überschreibung (`override_duration_days`) aus dem Phasenablauf-Eintrag, falls für diese Art gesetzt, sonst der Standardwert der Phasendefinition |
 | `illustration` | string | Illustrations-Pfad der Phasendefinition selbst (noch keine art-spezifische Illustration) |
 
@@ -1835,6 +1895,7 @@ Erfordert ein gültiges JWT-Token und eine aktive Mandanten-Mitgliedschaft; jede
       "species_key": "species/123",
       "species_scientific_name": "Solanum lycopersicum",
       "species_common_names": ["Tomate"],
+      "species_common_names_i18n": { "de": ["Tomate"] },
       "location_key": "locations/5",
       "location_name": "Balkon Süd",
       "slot_key": "slots/12",

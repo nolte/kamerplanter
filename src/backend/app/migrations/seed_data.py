@@ -704,22 +704,31 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         "climacteric",
     )
 
+    # Vernacular names (REQ-001, #2902) reach an existing installation through this
+    # sync, not through a migration: the language map ``common_names_i18n`` is new, and
+    # a name corrected in species.yaml (umlauts, a name added from the Steckbrief) would
+    # otherwise never leave the YAML. The two travel together — the map may only name
+    # entries of the list. Only a GLOBAL row is touched: a tenant's own species that
+    # shares the scientific name keeps the names its owner gave it.
+    seed_name_fields = ("common_names", "common_names_i18n")
+
     species_key_map: dict[str, str] = {}
 
     for sp in species_list:
-        existing = species_repo.get_by_scientific_name(sp.scientific_name)
-        if existing:
-            species_key_map[sp.scientific_name] = existing.key or ""
+        existing_species: Species | None = species_repo.get_by_scientific_name(sp.scientific_name)
+        if existing_species:
+            species_key_map[sp.scientific_name] = existing_species.key or ""
+            synced_fields = seed_update_fields + (seed_name_fields if not existing_species.tenant_key else ())
             # Update seed fields if they changed
             needs_update = False
-            for field in seed_update_fields:
-                if getattr(sp, field) != getattr(existing, field):
+            for field in synced_fields:
+                if getattr(sp, field) != getattr(existing_species, field):
                     needs_update = True
                     break
             if needs_update:
-                for field in seed_update_fields:
-                    setattr(existing, field, getattr(sp, field))
-                species_repo.update(existing.key or "", existing)
+                for field in synced_fields:
+                    setattr(existing_species, field, getattr(sp, field))
+                species_repo.update(existing_species.key or "", existing_species)
                 logger.info("species_updated", name=sp.scientific_name)
             else:
                 logger.info("species_exists", name=sp.scientific_name)

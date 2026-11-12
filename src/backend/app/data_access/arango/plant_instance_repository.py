@@ -326,6 +326,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             species_key: p.species_key,
             species_scientific_name: species != null ? species.scientific_name : null,
             species_common_names: species != null ? (species.common_names || []) : [],
+            species_common_names_i18n: species != null ? (species.common_names_i18n || {}) : {},
             location_key: p.location_key,
             location_name: (location_site != null AND location_site.tenant_key == @tenant_key) ? location.name : null,
             slot_key: p.slot_key,

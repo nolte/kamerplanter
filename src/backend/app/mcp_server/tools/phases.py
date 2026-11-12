@@ -266,6 +266,16 @@ class ListPhaseSequences(ToolBase):
         )
 
 
+def _bound_species_item(row: dict[str, Any]) -> dict[str, Any]:
+    """One species bound to a phase sequence, as ``list_species_by_phase_sequence`` lists it."""
+    return {
+        "species_key": row.get("key"),
+        "scientific_name": row.get("scientific_name") or "",
+        "common_names": list(row.get("common_names") or []),
+        "common_names_i18n": dict(row.get("common_names_i18n") or {}),
+    }
+
+
 @mcp_tool(name="list_species_by_phase_sequence", permission=McpPermission.READ)
 class ListSpeciesByPhaseSequence(ToolBase):
     """List the species bound to one phase sequence — the reverse lookup.
@@ -300,14 +310,7 @@ class ListSpeciesByPhaseSequence(ToolBase):
                 "is_repeating": sequence.is_repeating,
                 "count": len(page),
                 "total": len(species),
-                "items": [
-                    {
-                        "species_key": row.get("key"),
-                        "scientific_name": row.get("scientific_name") or "",
-                        "common_names": list(row.get("common_names") or []),
-                    }
-                    for row in page
-                ],
+                "items": [_bound_species_item(row) for row in page],
             },
             links=[ctx.global_link(f"/phase-sequences/{sequence.key}/species")],
         )

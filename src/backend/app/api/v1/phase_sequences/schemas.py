@@ -64,6 +64,7 @@ class PhaseDefinitionSpeciesResponse(BaseModel):
     key: str
     scientific_name: str = ""
     common_names: list[str] = Field(default_factory=list)
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     typical_duration_days: int = 1
     illustration: str = ""
 
@@ -74,6 +75,7 @@ class PhaseSequenceSpeciesResponse(BaseModel):
     key: str
     scientific_name: str = ""
     common_names: list[str] = Field(default_factory=list)
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
 
 
 # ── PhaseSequence schemas ──

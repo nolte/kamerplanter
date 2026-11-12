@@ -146,6 +146,13 @@ All bundled species with populated propagation methods already have an expert no
 2. On the detail page you can edit all fields
 3. The detail page also shows associated cultivars, growth phases, and nutrient plans
 
+### Names in Multiple Languages
+
+The shipped species catalogue contains German and English names for its species. They are kept when you edit a species, even if you only change the list of common names. If you remove a name from the list, it also disappears from the language assignment. <!-- REQ-001 / UI-NFR-007 R-009a -->
+
+!!! warning "Not yet implemented"
+    The UI still shows the first entry of the name list. In the future it will show the name in your UI language, falling back to German and finally to the scientific name. The language assignment is already stored and available through the API, see the [API reference](../reference/api-reference.md#species-language-tagged-common-names-common_names_i18n).
+
 ---
 
 ## Reference Images in the Species View

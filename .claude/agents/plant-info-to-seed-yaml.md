@@ -283,6 +283,17 @@ new_species:
     common_names:
       - "<Name1>"
       - "<Name2>"
+    # Sprachzuordnung der Namen oben (REQ-001, #2902) — PFLICHT, sobald common_names
+    # gesetzt ist. Quelle: Steckbrief-Zeile `| Volksnamen (DE/EN) | <DE>; <EN> |`:
+    # Namen vor dem `;` -> de, nach dem `;` -> en, je an `,` getrennt, Reihenfolge des
+    # Steckbriefs = Praeferenz (de[0] ist der in der deutschen UI angezeigte Name).
+    # Jeder Name hier MUSS auch in common_names stehen (sonst 422 / Testfehler).
+    # Gleichlautende Namen (Zucchini, Dill, Kohlrabi) stehen in beiden Listen.
+    # Sprache ohne Namen weglassen; nichts uebersetzen oder erfinden (E-10).
+    # Umschriebene Umlaute des Steckbriefs (Moehre) als echte Umlaute (Möhre) uebernehmen.
+    common_names_i18n:
+      de: ["<DE-Name1>", "<DE-Name2>"]
+      en: ["<EN-Name1>"]
     genus: "<Genus>"
     growth_habit: <enum>
     root_type: <enum>
@@ -488,7 +499,7 @@ python -c "import yaml; yaml.safe_load(open('<output_file>'))"
 
 2. Pruefe Enum-Werte gegen Schema (manuell im Kopf — jeder Enum-Wert muss in _defs.schema.yaml existieren)
 
-3. Pruefe Pflichtfelder: Jede new_species MUSS `scientific_name, common_names, genus, growth_habit, root_type` haben
+3. Pruefe Pflichtfelder: Jede new_species MUSS `scientific_name, common_names, genus, growth_habit, root_type` haben — und `common_names_i18n` (DE/EN-Zuordnung aus der Steckbrief-Zeile „Volksnamen (DE/EN)", jeder Name auch in `common_names`; geprueft von `tests/unit/migrations/test_seed_common_names_i18n.py`)
 
 4. Pruefe Phasen-Konsistenz: `sequence_order` muss lueckenlos ab 1 sein, genau eine Phase mit `is_terminal: true`
 

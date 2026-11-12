@@ -181,7 +181,7 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
             f"FOR v IN 1..1 INBOUND @seq_id {col.HAS_PHASE_SEQUENCE} "
             f"FILTER v != null AND {predicate} "
             f"RETURN {{ key: v._key, scientific_name: v.scientific_name, "
-            f"common_names: v.common_names || [] }}"
+            f"common_names: v.common_names || [], common_names_i18n: v.common_names_i18n || {{}} }}"
         )
         seq_id = f"{col.PHASE_SEQUENCES}/{seq_key}"
         return list(self._db.aql.execute(query, bind_vars={"seq_id": seq_id, **predicate_vars}))
