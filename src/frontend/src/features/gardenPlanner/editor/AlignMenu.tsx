@@ -16,6 +16,7 @@ import Tooltip, { type TooltipProps } from '@mui/material/Tooltip';
 import type { SxProps, Theme } from '@mui/material/styles';
 import AlignHorizontalLeftIcon from '@mui/icons-material/AlignHorizontalLeft';
 import type { AlignMode, DistributeAxis } from './tools/align';
+import { unavailableProps } from './unavailable';
 
 const PREFIX = 'pages.gardenPlan.editor.align';
 const TARGET_PX = 48;
@@ -57,13 +58,14 @@ export function AlignMenu({
   return (
     <>
       <Tooltip title={t(`${PREFIX}.hint`)} placement={tooltipPlacement}>
-        {/* A disabled button fires no events: the span carries the tooltip (two objects are needed to align). */}
+        {/* An unavailable button takes no pointer: the span carries the tooltip (two objects are needed to align). It is
+            aria-disabled, not disabled, so it keeps the focus and stays a tool bar item (GP-NFR-070). */}
         <Box component="span" sx={{ display: fullWidth ? 'block' : 'inline-block' }}>
           <Button
             size="small"
             fullWidth={fullWidth}
-            onClick={(event) => setAnchor(event.currentTarget)}
-            disabled={!canAlign}
+            onClick={canAlign ? (event) => setAnchor(event.currentTarget) : undefined}
+            {...unavailableProps(!canAlign)}
             aria-label={t(`${PREFIX}.button`)}
             aria-haspopup="menu"
             aria-expanded={anchor !== null}

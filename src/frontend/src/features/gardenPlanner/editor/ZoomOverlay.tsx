@@ -14,6 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { pxPerMToPercent } from '../model/units';
+import { unavailableProps } from './unavailable';
 
 const PREFIX = 'pages.gardenPlan.editor';
 const TARGET_PX = 48;
@@ -54,8 +55,9 @@ export function ZoomOverlay({ pxPerM, minPxPerM, onZoomIn, onZoomOut, onFit }: Z
       <Tooltip title={t(`${PREFIX}.zoom.outHint`)}>
         <span>
           <IconButton
-            onClick={onZoomOut}
-            disabled={atMin}
+            // At the fit zoom it does nothing but keeps the focus (GP-NFR-070); "-" stops there as well.
+            onClick={atMin ? undefined : onZoomOut}
+            {...unavailableProps(atMin)}
             aria-label={t(`${PREFIX}.zoom.out`)}
             aria-keyshortcuts="-"
             data-testid="garden-plan-zoom-out"

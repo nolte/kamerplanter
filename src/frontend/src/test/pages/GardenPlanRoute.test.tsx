@@ -103,7 +103,7 @@ describe('GardenPlanRoute', () => {
     fireEvent.click(screen.getByTestId('garden-plan-zoom-fit'));
     expect(level()).toBe(fitted);
     // The fitted view is the lowest zoom (GP-FR-150).
-    expect(screen.getByTestId('garden-plan-zoom-out')).toBeDisabled();
+    expect(screen.getByTestId('garden-plan-zoom-out')).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('selects the bed and brings its bounding box into view when a row of the bed list is chosen (GP-ACC-016)', async () => {

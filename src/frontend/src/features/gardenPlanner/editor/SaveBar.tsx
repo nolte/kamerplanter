@@ -38,6 +38,7 @@ import {
   undo,
 } from '../state/gardenPlanSlice';
 import { failureHint, failureTitle, findingLines, knownCodeText } from './saveMessages';
+import { unavailableProps } from './unavailable';
 import type { AutoSave } from './useAutoSave';
 
 const PREFIX = 'pages.gardenPlan.editor.save';
@@ -52,7 +53,10 @@ interface FailureSnapshot {
   ops: PlanOperation[];
 }
 
-/** Undo and redo, 44 px each, their tooltip naming the action they would take back or repeat. */
+/**
+ * Undo and redo, 48 px each, their tooltip naming the action they would take back or repeat. At an end of the history
+ * the button is `aria-disabled`, not `disabled`: the focus stays on it (GP-NFR-070).
+ */
 export function UndoRedoButtons() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
@@ -74,8 +78,8 @@ export function UndoRedoButtons() {
       <Tooltip title={undoText}>
         <span>
           <IconButton
-            onClick={onUndo}
-            disabled={!canUndo}
+            onClick={canUndo ? onUndo : undefined}
+            {...unavailableProps(!canUndo)}
             aria-label={undoText}
             aria-keyshortcuts="Control+Z Meta+Z"
             data-testid="garden-plan-undo"
@@ -88,8 +92,8 @@ export function UndoRedoButtons() {
       <Tooltip title={redoText}>
         <span>
           <IconButton
-            onClick={onRedo}
-            disabled={!canRedo}
+            onClick={canRedo ? onRedo : undefined}
+            {...unavailableProps(!canRedo)}
             aria-label={redoText}
             aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y"
             data-testid="garden-plan-redo"
@@ -139,6 +143,8 @@ export function SaveBar({ autoSave, compact = false, showUndoRedo = true, showAu
   const dispatch = useAppDispatch();
   const { count, saving, conflict, failed, statusText } = useSaveStatus();
   const save = useCallback(() => void dispatch(saveGardenPlan()), [dispatch]);
+  // Nothing to send, a save under way or a conflict open: "Save" does nothing but keeps the focus (GP-NFR-070).
+  const cannotSave = count === 0 || saving || conflict;
 
   return (
     <Box
@@ -211,8 +217,8 @@ export function SaveBar({ autoSave, compact = false, showUndoRedo = true, showAu
         <span>
           <Button
             variant="contained"
-            onClick={save}
-            disabled={count === 0 || saving || conflict}
+            onClick={cannotSave ? undefined : save}
+            {...unavailableProps(cannotSave)}
             aria-busy={saving}
             aria-keyshortcuts="Control+S Meta+S"
             startIcon={

@@ -6,7 +6,16 @@
  * measured again. The level is checked in a layout effect, before the browser paints, so a clipped bar is not shown.
  * Where nothing is laid out (jsdom: every width is 0) the floor stays.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type RefObject,
+} from 'react';
 
 /** Below this many px of extra content the bar counts as fitting (sub-pixel rounding). */
 const TOLERANCE_PX = 1;
@@ -54,4 +63,64 @@ export function useHeaderOverflow(
   }, [barRef, level]);
 
   return level;
+}
+
+export interface HeaderFocusRescue {
+  onFocus: (event: ReactFocusEvent<HTMLElement>) => void;
+  onBlur: (event: ReactFocusEvent<HTMLElement>) => void;
+}
+
+/**
+ * Keeps the keyboard focus in the header bar when the control that has it leaves the bar (REQ-053 GP-NFR-070, WCAG 2.2
+ * SC 2.4.3): a level change moves the focused auto-save switch, tab, field-mode link or panel switch into the
+ * overflow, or the bar turns narrow - the element is removed and the browser would drop the focus to the page body.
+ * The bar remembers the control of its own that has the focus; once that control is gone after a render and nothing
+ * else took the focus, the focus goes to the overflow "⋮" (`overflowRef`), where the control now is.
+ *
+ * Spread `onFocus`/`onBlur` on the bar. A focus that leaves the bar for another element forgets the control; a blur to
+ * nothing (a click on the page, the window losing focus) forgets it once it is clear the control is still there.
+ */
+export function useHeaderFocusRescue(
+  barRef: RefObject<HTMLElement | null>,
+  overflowRef: RefObject<HTMLElement | null>,
+): HeaderFocusRescue {
+  const focused = useRef<HTMLElement | null>(null);
+
+  const onFocus = useCallback(
+    (event: ReactFocusEvent<HTMLElement>) => {
+      // React lets focus events of a portal (an open menu) bubble here; only the bar's own controls count.
+      const target = event.target;
+      focused.current = target instanceof HTMLElement && barRef.current?.contains(target) ? target : null;
+    },
+    [barRef],
+  );
+
+  const onBlur = useCallback(
+    (event: ReactFocusEvent<HTMLElement>) => {
+      const target = event.target;
+      const next = event.relatedTarget;
+      if (next instanceof Node) {
+        if (!barRef.current?.contains(next)) focused.current = null;
+        return;
+      }
+      // A blur to nothing: a removal is handled by the layout effect below in the same commit; a control still in
+      // place had a real blur (a click on the page) and is not followed later.
+      window.setTimeout(() => {
+        if (focused.current === target && target.isConnected) focused.current = null;
+      }, 0);
+    },
+    [barRef],
+  );
+
+  // After every render of the bar: was the focused control removed, with the focus left on the body?
+  useLayoutEffect(() => {
+    const control = focused.current;
+    if (control === null || control.isConnected) return;
+    focused.current = null;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) return;
+    overflowRef.current?.focus();
+  });
+
+  return useMemo(() => ({ onFocus, onBlur }), [onFocus, onBlur]);
 }
