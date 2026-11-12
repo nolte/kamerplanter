@@ -68,7 +68,8 @@
     "is_water_source": "input.object_type (garden object class), input.off_site (boolean) -> expected boolean: whether nearest_water_source measures to the object - class water_source and not off_site scenery (the neighbour's tap behind the fence is not the garden's water) - geometry_distance.is_water_source / model/geometryDistance.ts isWaterSource (REQ-053 GP-FR-167, WP 9.12)",
     "container_volume": "input.container_volume_l (litres | null), input.recommended_container_volume_l (Steckbrief range string | number | null), optional input.phase_code (machine phase name) and input.irrigation_system (Location.irrigation_system) -> expected {volume_below: boolean, recommended_l: number | null}: the recommendation is the leading number of the string (decimal comma allowed, anything after it ignored), a non-positive or unreadable one is no recommendation; volume_below is true only when both are known, the phase is no young phase (germination, seedling, rooting, establishment, pup_establishment, bulbil_establishment), the irrigation system is not pot-free (hydro, nft) and the pot is strictly smaller (container_volume_calculator.check_container_volume / planting/plantingLogic.ts containerCheck, REQ-053 §9.2a W-016.5)",
     "window_facing": "input.window (the window's geometry, plan frame), input.north_angle_deg (compass azimuth of north on the plan, GP-FR-015), input.boundary (the site outline, rect | circle | polygon | null) -> expected {azimuth_deg, orientation, basis} | null: the compass azimuth (0 = north, clockwise, rounded to 0.1 deg like north_angle_deg, [0, 360)) of the window's outward normal and its 8-sector orientation (orientation_calculator.orientation_from_aspect, half-open). The wall direction is the chord from the first to the last vertex of the polyline; any other shape, or a chord of length 0, gives null. Outside is found by probing 0.5 m from the chord midpoint along both normals: when exactly one probe lies inside the boundary, the other side is outside (basis 'boundary'); without a boundary, or when both or neither probe lies inside, the convention is that outside is LEFT of the drawing direction - walls traced clockwise on screen keep the room on their right (basis 'drawing_direction'). window_orientation.window_facing / model/windowOrientation.ts windowFacing (REQ-053 GP-FR-181, WP 10.7)",
-    "window_sun_window": "input.azimuths (compass azimuths of the windows within the radius, deg), input.latitude (Site.gps_coordinates[0] | null) -> expected {sun_window: morning | midday | afternoon | all_day | mixed | null, hints: [code]}: no latitude assumes the northern hemisphere (hint hemisphere_assumed); |latitude| < 23.5 gives null (hint tropics); latitude < 0 maps a -> (180 - a) mod 360 first. Each azimuth falls into its orientation_from_aspect sector: north contributes nothing (hint diffuse_light_only), northeast/east/southeast morning, south midday, southwest/west/northwest afternoon. No azimuth: null (hint no_window). The set of contributions: empty -> null, one value -> that value, morning + midday + afternoon -> all_day, any other two or more -> mixed; no distance weighting, a single window is never all_day. A suggestion carries the caveats shading_not_considered, season, window_distance, glazing. Hints are in this order: hemisphere_assumed, tropics, no_window, diffuse_light_only, shading_not_considered, season, window_distance, glazing. window_orientation.suggest_sun_window / model/windowOrientation.ts suggestSunWindow (REQ-053 GP-FR-181, WP 10.7, agrobiology review 2026-11-11)"
+    "window_sun_window": "input.azimuths (compass azimuths of the windows within the radius, deg), input.latitude (Site.gps_coordinates[0] | null) -> expected {sun_window: morning | midday | afternoon | all_day | mixed | null, hints: [code]}: no latitude assumes the northern hemisphere (hint hemisphere_assumed); |latitude| < 23.5 gives null (hint tropics); latitude < 0 maps a -> (180 - a) mod 360 first. Each azimuth falls into its orientation_from_aspect sector: north contributes nothing (hint diffuse_light_only), northeast/east/southeast morning, south midday, southwest/west/northwest afternoon. No azimuth: null (hint no_window). The set of contributions: empty -> null, one value -> that value, morning + midday + afternoon -> all_day, any other two or more -> mixed; no distance weighting, a single window is never all_day. A suggestion carries the caveats shading_not_considered, season, window_distance, glazing. Hints are in this order: hemisphere_assumed, tropics, no_window, diffuse_light_only, shading_not_considered, season, window_distance, glazing. window_orientation.suggest_sun_window / model/windowOrientation.ts suggestSunWindow (REQ-053 GP-FR-181, WP 10.7, agrobiology review 2026-11-11)",
+    "bed_axis": "input.geometry (a location geometry, plan frame: rect | circle | polygon), input.north_angle_deg (compass azimuth of north on the plan, GP-FR-015) -> expected {azimuth_deg, orientation} | null: the bed's long axis as a compass direction (REQ-053 GP-FR-017, the successor of REQ-002 bed_orientation). The long axis lies in the bed's own frame, before rotation_deg: a rect along +y when length_m > width_m, along +x when width_m > length_m; a polygon is read like the rectangle that encloses it there (bounding box of the stored points, extents compared at 0.001 m); a circle, a square and a polygon with a square bounding box have none (null). The axis is turned by rotation_deg (counter-clockwise) and read against north_angle_deg (clockwise): azimuth = 90 - (axis + rotation_deg) - north_angle_deg, folded into the half turn [0, 180) and rounded to 0.1 deg (ties away from zero, 180.0 wraps to 0). orientation is the half-open 8-sector name of that azimuth (orientation_from_aspect), the south sector of the half turn [157.5, 180) naming the north-south axis north - so only north, northeast, east, southeast occur. orientation_calculator.bed_axis / model/bedOrientation.ts bedAxis (REQ-053 GP-FR-017, #2894)"
   },
   "cases": [
     {
@@ -6386,6 +6387,125 @@
       "spec": "three windows, two values - mixed; no distance weighting",
       "input": {"azimuths": [90, 100, 180], "latitude": 50.0},
       "expected": {"sun_window": "mixed", "hints": ["shading_not_considered", "season", "window_distance", "glazing"]}
+    },
+    {
+      "id": "bed-axis-rect-long-y-north-up",
+      "operation": "bed_axis",
+      "spec": "GP-FR-017: a 1 x 4 m bed, length along +y, north = +y: a north-south axis - north, 0",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 4, "rotation_deg": 0}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north"}
+    },
+    {
+      "id": "bed-axis-rect-long-x-north-up",
+      "operation": "bed_axis",
+      "spec": "GP-FR-017: a 4 x 1 m bed, width along +x, north = +y: an east-west axis - east, 90",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 4, "length_m": 1, "rotation_deg": 0}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 90.0, "orientation": "east"}
+    },
+    {
+      "id": "bed-axis-rect-turned-90",
+      "operation": "bed_axis",
+      "spec": "GP-FR-017: the 1 x 4 m bed turned 90 deg counter-clockwise lies east-west - east, 90",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 4, "rotation_deg": 90}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 90.0, "orientation": "east"}
+    },
+    {
+      "id": "bed-axis-rect-turned-45",
+      "operation": "bed_axis",
+      "spec": "GP-FR-017: the 1 x 4 m bed turned 45 deg counter-clockwise points up-left: a southeast-northwest axis - southeast, 135",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 4, "rotation_deg": 45}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 135.0, "orientation": "southeast"}
+    },
+    {
+      "id": "bed-axis-rect-turned-315",
+      "operation": "bed_axis",
+      "spec": "GP-FR-017: the 1 x 4 m bed turned 315 deg points up-right: a northeast-southwest axis - northeast, 45",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 4, "rotation_deg": 315}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 45.0, "orientation": "northeast"}
+    },
+    {
+      "id": "bed-axis-north-angle-90",
+      "operation": "bed_axis",
+      "spec": "GP-FR-015/017: north = +x (north_angle_deg 90); a 4 x 1 m bed along +x lies north-south - north, 0",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 4, "length_m": 1, "rotation_deg": 0}, "north_angle_deg": 90},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north"}
+    },
+    {
+      "id": "bed-axis-rotation-and-north",
+      "operation": "bed_axis",
+      "spec": "GP-FR-017: rotation_deg 30 (counter-clockwise) and north_angle_deg 15 (clockwise) on a 3 x 1 m bed: 90 - 30 - 15 = 45 - northeast",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 3, "length_m": 1, "rotation_deg": 30}, "north_angle_deg": 15},
+      "expected": {"azimuth_deg": 45.0, "orientation": "northeast"}
+    },
+    {
+      "id": "bed-axis-fold-boundary-157-5",
+      "operation": "bed_axis",
+      "spec": "Folded into [0, 180): an axis at 157.5 lies in the south sector of the half turn and is the north-south axis - north",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 4, "rotation_deg": 0}, "north_angle_deg": 22.5},
+      "expected": {"azimuth_deg": 157.5, "orientation": "north"}
+    },
+    {
+      "id": "bed-axis-sector-boundary-22-5",
+      "operation": "bed_axis",
+      "spec": "Half-open sectors: an axis at 22.5 is northeast (the sector that starts there)",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 4, "rotation_deg": 0}, "north_angle_deg": 337.5},
+      "expected": {"azimuth_deg": 22.5, "orientation": "northeast"}
+    },
+    {
+      "id": "bed-axis-sector-boundary-67-5",
+      "operation": "bed_axis",
+      "spec": "Half-open sectors: an axis at 67.5 is east",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 4, "length_m": 1, "rotation_deg": 0}, "north_angle_deg": 22.5},
+      "expected": {"azimuth_deg": 67.5, "orientation": "east"}
+    },
+    {
+      "id": "bed-axis-wraps-180-to-0",
+      "operation": "bed_axis",
+      "spec": "Rounded to 0.1 deg: 179.99 rounds to 180.0, which is 0 - north",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 4, "rotation_deg": 0.01}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 0.0, "orientation": "north"}
+    },
+    {
+      "id": "bed-axis-square-none",
+      "operation": "bed_axis",
+      "spec": "A square has no long axis: null",
+      "input": {"geometry": {"kind": "rect", "origin": [1, 1], "width_m": 2, "length_m": 2, "rotation_deg": 30}, "north_angle_deg": 0},
+      "expected": null
+    },
+    {
+      "id": "bed-axis-circle-none",
+      "operation": "bed_axis",
+      "spec": "A circle has no long axis: null",
+      "input": {"geometry": {"kind": "circle", "origin": [5, 5], "radius_m": 2}, "north_angle_deg": 0},
+      "expected": null
+    },
+    {
+      "id": "bed-axis-polygon-long-x",
+      "operation": "bed_axis",
+      "spec": "A polygon is read like the rectangle enclosing it in its own frame: 5 x 1 m along +x - east, 90",
+      "input": {"geometry": {"kind": "polygon", "points": [[0, 0], [5, 0], [5, 1], [0, 1]]}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 90.0, "orientation": "east"}
+    },
+    {
+      "id": "bed-axis-polygon-rotated",
+      "operation": "bed_axis",
+      "spec": "A polygon's rotation_deg turns its own frame: 1 x 3 m along +y turned 30 deg - 150, southeast",
+      "input": {"geometry": {"kind": "polygon", "points": [[0, 0], [1, 0], [1, 3], [0, 3]], "rotation_deg": 30}, "north_angle_deg": 0},
+      "expected": {"azimuth_deg": 150.0, "orientation": "southeast"}
+    },
+    {
+      "id": "bed-axis-polygon-square-bbox-none",
+      "operation": "bed_axis",
+      "spec": "A triangle whose bounding box is square has no long axis: null",
+      "input": {"geometry": {"kind": "polygon", "points": [[0, 0], [2, 0], [0, 2]]}, "north_angle_deg": 0},
+      "expected": null
+    },
+    {
+      "id": "bed-axis-polygon-extents-at-storage-precision",
+      "operation": "bed_axis",
+      "spec": "Extents compared at 0.001 m: 0.3 - 0.1 is 0.19999999999999998 in binary and equals 0.2 - null",
+      "input": {"geometry": {"kind": "polygon", "points": [[0.1, 0], [0.3, 0], [0.3, 0.2], [0.1, 0.2]]}, "north_angle_deg": 0},
+      "expected": null
     }
   ]
 }

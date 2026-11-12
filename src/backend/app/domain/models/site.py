@@ -33,7 +33,7 @@ from app.common.enums import (
     WindExposure,
 )
 from app.domain.calculators.geometry_calculator import BoundingBox, area_m2, bounding_box
-from app.domain.calculators.orientation_calculator import orientation_from_aspect
+from app.domain.calculators.orientation_calculator import derived_orientation, orientation_from_aspect
 from app.domain.calculators.reach_calculator import PATH_ACCESS_MAX_DISTANCE_M, REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
 from app.domain.calculators.window_orientation import DEFAULT_WINDOW_SUGGESTION_RADIUS_M
 from app.domain.models.geometry import (
@@ -753,12 +753,26 @@ class Location(BaseModel):
 
         Derived in the model, like ``area_m2`` from the geometry, so every write path - ``PATCH /locations``,
         ``PUT /locations``, the plan batch, the import - stores the same value without a call site to forget.
-        Without an aspect the orientation is the manually maintained value and is never touched.
+        Without an aspect the model leaves the value alone; the geometry rule needs the site's north angle and is
+        applied by the writers through :meth:`orientation_on_plan`.
         """
         aspect = self.site_conditions.aspect_deg if self.site_conditions is not None else None
         if aspect is not None:
             self.orientation = orientation_from_aspect(aspect)
         return self
+
+    def orientation_on_plan(self, north_angle_deg: float) -> Orientation | None:
+        """GP-FR-017: the orientation this location has on a plan whose north lies at *north_angle_deg*.
+
+        The aspect's sector when ``aspect_deg`` is set (GP-FR-168, already applied by the model), else the long axis
+        of the geometry (``orientation_calculator.bed_axis``), else the stored, manually maintained value - a location
+        without geometry, a circle, a square. The model cannot apply the geometry rule itself: the north angle lives
+        on the site. Every path that writes a geometry, an aspect or the north angle stores this value instead -
+        the plan batch, ``PATCH /locations`` and the import.
+        """
+        aspect = self.site_conditions.aspect_deg if self.site_conditions is not None else None
+        derived = derived_orientation(aspect, self.geometry, north_angle_deg)
+        return derived if derived is not None else self.orientation
 
 
 class Site(BaseModel):

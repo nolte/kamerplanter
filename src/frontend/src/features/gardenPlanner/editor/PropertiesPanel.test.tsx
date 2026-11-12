@@ -485,3 +485,28 @@ describe('accessibility', () => {
     await expectNoA11yViolations(t.view.container);
   });
 });
+
+describe('long axis of a bed (GP-FR-017)', () => {
+  const axis = () => screen.queryByTestId('garden-plan-panel-bed-axis');
+
+  it('a square bed has none; a longer bed shows its axis live, before it is saved', () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    expect(axis()).not.toBeInTheDocument(); // Bed 1 is 2 x 2 m
+
+    t.after(() => typeAndBlur(field('length'), '3'));
+    expect(axis()).toHaveTextContent('Long axis: North–South (0°), derived from rotation and north angle');
+
+    t.after(() => typeAndBlur(field('width'), '4'));
+    expect(axis()).toHaveTextContent('Long axis: East–West (90°)');
+  });
+
+  it('follows the plan north angle', () => {
+    const plan = testPlan();
+    const t = setupEditor({ plan: { ...plan, settings: { ...plan.settings!, north_angle_deg: 45 } } });
+    t.click(4, 4);
+    t.after(() => typeAndBlur(field('length'), '3'));
+
+    expect(axis()).toHaveTextContent('Long axis: Southeast–Northwest (135°)');
+  });
+});

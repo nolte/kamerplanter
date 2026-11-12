@@ -516,6 +516,35 @@ class PlanZoneResponse(BaseModel):
     location_keys: list[str] = Field(default_factory=list)
 
 
+class PlanSunDirectionResponse(BaseModel):
+    """Where the sun stands at sunrise or sunset: compass azimuth (0 = north, clockwise) and the site's local time."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"azimuth_deg": 47.8, "time": "04:43"}]})
+
+    azimuth_deg: float = Field(description="Compass azimuth, 0 = north, clockwise, [0, 360) in steps of 0.1.")
+    time: str = Field(description="Local time at the site (`Site.timezone`), `HH:MM`.")
+
+
+class PlanSunDirectionsResponse(BaseModel):
+    """GP-FR-016: today's sunrise and sunset directions at the site - for the compass; no shading (§29)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "day": "2026-06-21",
+                    "sunrise": {"azimuth_deg": 47.8, "time": "04:43"},
+                    "sunset": {"azimuth_deg": 312.2, "time": "21:32"},
+                }
+            ]
+        }
+    )
+
+    day: date = Field(description="The site's current day (`Site.timezone`) the directions are for.")
+    sunrise: PlanSunDirectionResponse
+    sunset: PlanSunDirectionResponse
+
+
 class GardenPlanResponse(BaseModel):
     """GP-API-001: the whole plan in one response."""
 
@@ -564,6 +593,13 @@ class GardenPlanResponse(BaseModel):
     plants: list[PlanPlantResponse] = Field(default_factory=list)
     zones: list[PlanZoneResponse] = Field(
         default_factory=list, description="Irrigation zones of the site with the beds they cover (`include=zones`)."
+    )
+    sun_directions: PlanSunDirectionsResponse | None = Field(
+        default=None,
+        description=(
+            "Today's sunrise and sunset directions at the site (GP-FR-016); absent without `gps_coordinates` and on "
+            "a day of polar day or night."
+        ),
     )
 
 

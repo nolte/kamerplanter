@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, field_validator, model_validator
 
 from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SiteType, SlotRole, SunExposure, SunWindow
+from app.domain.calculators.sun_calculator import SunDirections
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
@@ -698,3 +699,6 @@ class GardenPlanView(BaseModel):
     last_watered: dict[str, datetime] = Field(default_factory=dict)
     zones: list[dict[str, Any]] = Field(default_factory=list)
     included: list[str] = Field(default_factory=list)
+    #: Today's sunrise and sunset directions at the site (GP-FR-016); ``None`` without ``gps_coordinates`` and on a
+    #: day without sunrise or sunset.
+    sun_directions: SunDirections | None = None

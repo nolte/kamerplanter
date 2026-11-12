@@ -344,6 +344,20 @@ export interface PlanSettings {
   underlay?: PlanUnderlay | null;
 }
 
+/** Where the sun stands at sunrise or sunset: compass azimuth (0 = north, clockwise, 0.1 deg), local `HH:MM`. */
+export interface PlanSunDirection {
+  azimuth_deg: number;
+  time: string;
+}
+
+/** Today's sunrise and sunset directions at the site (GP-FR-016); absent without GPS and on a polar day/night. */
+export interface PlanSunDirections {
+  /** The site's current day (ISO date) the directions are for. */
+  day: string;
+  sunrise: PlanSunDirection;
+  sunset: PlanSunDirection;
+}
+
 export interface GardenPlanResponse {
   schema_version: string;
   site_key: string;
@@ -363,6 +377,8 @@ export interface GardenPlanResponse {
   slots: PlanSlot[];
   plants: PlanPlant[];
   zones: PlanZone[];
+  /** Absent = the site has no GPS position, or the sun neither rises nor sets today (GP-FR-016). */
+  sun_directions?: PlanSunDirections | null;
 }
 
 // ── Plan operations (GP-API-003, closed list) ────────────────────────────────

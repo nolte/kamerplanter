@@ -203,6 +203,11 @@ def _dumped(model: BaseModel) -> dict[str, Any]:
     return model.model_dump(mode="json")
 
 
+def _dumped_python(model: BaseModel) -> dict[str, Any]:
+    """The fields of *model* by alias, as Python values - the input that rebuilds the same model."""
+    return model.model_dump(by_alias=True)
+
+
 def _is_temp(key: str) -> bool:
     return key.startswith(_TEMP_PREFIX)
 
@@ -349,6 +354,9 @@ class GardenPlanImportService:
                 ]
             )
 
+        settings = parsed.plan if prepared.settings_written else None
+        stored_north = site.plan.north_angle_deg if site.plan is not None else 0.0
+        north_angle_deg = settings.north_angle_deg if settings is not None else stored_north
         write = self._build_write(
             site_key,
             tenant_key=tenant_key,
@@ -358,6 +366,8 @@ class GardenPlanImportService:
             prepared=prepared,
             parsed=parsed,
             started=started,
+            north_angle_deg=north_angle_deg,
+            north_turned=north_angle_deg != stored_north,
         )
         outcome = self._plan.apply_plan_batch(write)
         for temp_key in {temp for temp, _ in write.slot_inserts}:
@@ -1085,7 +1095,10 @@ class GardenPlanImportService:
         prepared: _Prepared,
         parsed: GardenPlanExport,
         started: float,
+        north_angle_deg: float,
+        north_turned: bool,
     ) -> PlanBatchWrite:
+        location_updates = _orient(prepared, north_angle_deg=north_angle_deg, north_turned=north_turned)
         inserts = sorted(
             prepared.imported_locations,
             key=lambda temp: (prepared.locations[temp].depth, prepared.imported_locations.index(temp)),
@@ -1118,6 +1131,7 @@ class GardenPlanImportService:
             expected_revision=revision,
             basis_revision=revision,
             location_inserts=[(temp, prepared.locations[temp]) for temp in inserts],
+            location_updates=location_updates,
             location_deletes=prepared.delete_locations,
             object_inserts=[(temp, prepared.objects[temp]) for temp in prepared.imported_objects],
             object_deletes=prepared.delete_objects,
@@ -1134,6 +1148,28 @@ class GardenPlanImportService:
             snapshot_summary=f"state before the replace import (revision {revision})",
             time_budget_seconds=max(IMPORT_TIME_BUDGET_SECONDS - (perf_counter() - started), 1.0),
         )
+
+
+def _orient(prepared: _Prepared, *, north_angle_deg: float, north_turned: bool) -> list[tuple[str, dict[str, Any]]]:
+    """GP-FR-017: the orientation the locations take on the plan the import leaves.
+
+    An imported bed is inserted with it; a bed that stays (``merge``, or a planted bed of a ``replace``) gets it as
+    an update only when the file's north angle turns its axis - the plan batch's rule. An aspect keeps its priority,
+    a location without a long axis its stored value (:meth:`Location.orientation_on_plan`).
+    """
+    updates: list[tuple[str, dict[str, Any]]] = []
+    for key, entry in list(prepared.locations.items()):
+        if not north_turned and not _is_temp(key):
+            continue
+        location: Location = entry
+        oriented = location.orientation_on_plan(north_angle_deg)
+        if oriented == location.orientation:
+            continue
+        if _is_temp(key):
+            prepared.locations[key] = Location(**{**_dumped_python(location), "orientation": oriented})
+        else:
+            updates.append((key, {"orientation": oriented.value if oriented is not None else None}))
+    return updates
 
 
 def _current_document(document: dict[str, Any]) -> dict[str, Any]:

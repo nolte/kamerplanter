@@ -21,6 +21,7 @@ import {
   type GardenPlanState,
 } from '../state/gardenPlanSlice';
 import { stepZoom, zoomAround } from '../model/units';
+import type { PlanModel } from '../model/planModel';
 import type { Point } from '../model/types';
 import { testPlan } from './tools/toolTestKit';
 import { GardenPlanEditor } from './GardenPlanEditor';
@@ -62,9 +63,8 @@ function Harness({ renderer }: { renderer: HeadlessPlanRenderer }) {
   );
 }
 
-function setup() {
+function setup(plan: PlanModel = testPlan()) {
   const store = configureStore({ reducer: { gardenPlan: gardenPlanSlice.reducer } });
-  const plan = testPlan();
   store.dispatch(loadGardenPlan.pending('r1', 'site_1'));
   store.dispatch(loadGardenPlan.fulfilled(plan, 'r1', 'site_1'));
   const view = render(
@@ -395,6 +395,25 @@ describe('compass (GP-FR-015)', () => {
     expect(t.state().plan!.settings!.north_angle_deg).toBe(0); // not before release
     fireEvent.pointerUp(dial(), mouse({ clientX: 30, clientY: 0 }));
     expect(t.state().plan!.settings!.north_angle_deg).toBe(90);
+  });
+
+  it('shows the sunrise and sunset the plan carries, and nothing without them (GP-FR-016)', () => {
+    setup({
+      ...testPlan(),
+      sunDirections: {
+        day: '2026-06-21',
+        sunrise: { azimuth_deg: 47.8, time: '04:43' },
+        sunset: { azimuth_deg: 312.2, time: '21:32' },
+      },
+    });
+    openPanelTab('view');
+    expect(screen.getByTestId('garden-plan-compass-sun')).toHaveTextContent('sunrise 04:43, direction Northeast');
+    expect(screen.getByTestId('garden-plan-compass-sunrise')).toBeInTheDocument();
+    cleanup();
+
+    setup();
+    openPanelTab('view');
+    expect(screen.queryByTestId('garden-plan-compass-sun')).not.toBeInTheDocument();
   });
 
   it('does not touch rotation_deg of any object', () => {

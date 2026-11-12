@@ -1755,6 +1755,7 @@ export function GardenPlanEditor({
       onUnit={setUnit}
       northAngleDeg={northAngleDeg}
       onNorthAngle={onNorthAngle}
+      sunDirections={plan.sunDirections}
     />
   );
 

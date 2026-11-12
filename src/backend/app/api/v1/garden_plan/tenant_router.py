@@ -46,6 +46,8 @@ from app.api.v1.garden_plan.schemas import (
     PlanSnapshotResponse,
     PlanSnapshotRestoreRequest,
     PlanSoilProfileResponse,
+    PlanSunDirectionResponse,
+    PlanSunDirectionsResponse,
     PlanSunProfileResponse,
     PlanUnderlayRequest,
     PlanUnderlayResponse,
@@ -79,6 +81,7 @@ from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.calculators.geometry_calculator import area_m2
+from app.domain.calculators.sun_calculator import SunDirections
 from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.bed_csv_import import MAX_CSV_BYTES
 from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
@@ -198,6 +201,18 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
         slots=[_slot_fields(slot) for slot in view.slots],
         plants=[_plant_fields(plant) for plant in view.plants],
         zones=[PlanZoneResponse(**zone) for zone in view.zones],
+        sun_directions=_sun_directions_response(view.sun_directions),
+    )
+
+
+def _sun_directions_response(directions: SunDirections | None) -> PlanSunDirectionsResponse | None:
+    """GP-FR-016: the compass's sunrise and sunset directions, absent without GPS."""
+    if directions is None:
+        return None
+    return PlanSunDirectionsResponse(
+        day=directions.day,
+        sunrise=PlanSunDirectionResponse(azimuth_deg=directions.sunrise.azimuth_deg, time=directions.sunrise.time),
+        sunset=PlanSunDirectionResponse(azimuth_deg=directions.sunset.azimuth_deg, time=directions.sunset.time),
     )
 
 
