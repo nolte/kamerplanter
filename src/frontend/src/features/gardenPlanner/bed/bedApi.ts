@@ -1,9 +1,11 @@
 import { tenantClient } from '@/api/client';
+import type { TerminationType } from '@/api/types';
 import type { BedStatus, SunExposure } from '../model/types';
 import type {
   BedListItem,
   BedPatchResult,
   BedSummary,
+  ClearBedResult,
   SiteConditionsPatch,
   SoilProfile,
   SunProfilePatch,
@@ -90,6 +92,23 @@ export async function changeBedStatus(
 ): Promise<BedPatchResult> {
   const { data } = await tenantClient.post<BedPatchResult>(`${LOCATIONS}/${key}/status`, {
     bed_status: bedStatus,
+    ...(reason ? { reason } : {}),
+  });
+  return data;
+}
+
+/**
+ * GP-API-019 "Beet räumen" (GP-FR-055): one transaction on the server - every standing plant gets today as
+ * `removed_on` and `terminationType`, the live runs end (`cancelled` for `cancelled`, else `completed`), their slots
+ * are archived and one `clearing` care event is written. One type for the whole bed (REQ-053 v1.5 (e)).
+ */
+export async function clearBed(
+  key: string,
+  terminationType: TerminationType,
+  reason?: string,
+): Promise<ClearBedResult> {
+  const { data } = await tenantClient.post<ClearBedResult>(`${LOCATIONS}/${key}/clear`, {
+    termination_type: terminationType,
     ...(reason ? { reason } : {}),
   });
   return data;

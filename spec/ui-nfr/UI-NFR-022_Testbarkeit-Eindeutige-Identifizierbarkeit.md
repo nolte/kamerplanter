@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.18
+Version: 1.19
 Autor: Business Analyst - Agrotech
-Datum: 2026-11-11
+Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-005, UI-NFR-008, UI-NFR-017]
 Betroffene Module: [Frontend, Mobile]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.19 | 2026-11-12 | §2.5.1: „Beet räumen“ der Beetansicht (REQ-053 GP-FR-055, GP-API-019, Issue #2891) registriert: die Handlung `bed-clear-button` im Tab „Pflanzung“ (nur solange Pflanzen stehen und das Beet bearbeitbar ist), der Dialog `bed-clear-dialog` mit dem Satz `bed-clear-affected` (qualifizierende Attribute `data-plant-count`, `data-run-count`), der Folgenliste `bed-clear-effects`, der Auswahl `bed-clear-termination` mit `bed-clear-termination-<art>` und `-<art>-input` (`<art>` ∈ `harvested`, `senesced`, `died`, `cancelled`), der Notiz `bed-clear-reason`, dem Hinweis `bed-clear-irreversible` und den Handlungen `bed-clear-submit` / `bed-clear-cancel`. Keine bestehende Kennung umbenannt (R-021); das Page Object `bed_view_page.py` erhält im selben Pull Request `ClearBedDialog`. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.18 | 2026-11-11 | §2.5.1: Mit dem Drawer bei md (REQ-053 v1.18, GP-UX-069, Issue #2885) entfällt die Kennung `garden-plan-side-panel-drawer` und der `data-variant`-Wert `drawer`; das Panel trägt ab md `garden-plan-side-panel-dock` und `docked`. Keine Kennung umbenannt (R-021): die entfallene Hülle hat keinen Nachfolger, Page Object und TC-053-102 sind im selben Pull Request nachgezogen (R-020). |
 | 1.17 | 2026-11-11 | §2.5.1: Nachregistrierung aus der Abnahme der REQ-053-Welle 10 (WP 10.15, Issue #2836): sieben Kennungen waren im Code und in den Page Objects in Gebrauch, aber nicht registriert (Befund aus WP 10.13/10.14, #2880/#2881) — `garden-plan-new-object-type` (Art-Auswahl „Gartenobjekt“ im Dialog „Mit Maßen hinzufügen“), `garden-plan-shape-<form>` (Formwahl beim Zeichnen), `garden-plan-draw-finish` („Fertig“ beim Punkt-Zeichnen), `garden-plan-touchbar` (Touch-Aktionsleiste), `garden-plan-panel-empty` (Tab „Eigenschaften“ ohne Auswahl), `bed-list-link-<key>` (Beetname in der Beetliste) und `garden-plan-back-link-name` (Site-Name im Zurück-Link der Kopfleiste). Jede Kennung ist im Code nachgemessen (Datei und Zeile in #2836); keine umbenannt (R-021). Die Registrierung kommt nach der Verwendung — eine Abweichung von R-020, die hier festgehalten und nicht nachträglich verdeckt wird; einen Guard, der die Registrierung prüft, gibt es nicht. |
 | 1.16 | 2026-11-11 | §2.5.1: Aufgaben an Gartenobjekten und Rankhilfe-Hinweis im Pflanzdialog (REQ-053 R-7.2, W-005/W-008, Anhang A 62, WP 10.10, Issue #2831) registriert: der Abschnitt `garden-plan-panel-object-tasks` (`data-object-type` = `compost`/`water_source`/`storage`, nur für diese drei Klassen) im Tab „Eigenschaften“ mit der Liste `garden-plan-panel-object-tasks-list`, den Zeilen `garden-plan-panel-object-task-<key>` (`data-overdue`), der Handlung `garden-plan-panel-object-task-add` („Aufgabe anlegen“) und den Zuständen `garden-plan-panel-object-tasks-empty`, `-error`, `-offline`, `-unsaved`; im bestehenden Aufgaben-Dialog `care-task-dialog` das qualifizierende Attribut `data-target` (`location`/`garden_object`) und der Hinweis `care-task-object-hint`; im Pflanzdialog der Rankhilfe-Hinweis `planting-support-<species_key>` (`data-state` `loading`/`present`/`missing`/`unavailable`, `data-trellis-count`) mit den Einträgen `planting-support-trellis-<key>`. Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |
@@ -278,6 +279,18 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-panel-empty` | Inhalt des Tabs „Eigenschaften“ ohne Auswahl („Nichts ausgewählt“) |
 | `bed-list-link-<key>` | Beetname als Link zur Beetansicht in der Beetliste (Tabelle und Karte), `<key>` = Schlüssel der Location; im Tab „Beete“ bzw. „Pflanzplätze“ |
 | `garden-plan-back-link-name` | Site-Name im Zurück-Link der Editor-Kopfleiste (§17.3, GP-UX-063); kürzt mit Auslassungspunkten und fehlt unter md (dort nur das Icon mit `aria-label`) |
+
+**Beetansicht, „Beet räumen“ (REQ-053 GP-FR-055, GP-API-019, #2891):**
+
+| `data-testid` | Element |
+|---|---|
+| `bed-clear-button` | „Beet räumen“ im Tab „Pflanzung“; nur gerendert, solange Pflanzen im Beet stehen, das Mitglied das Beet bearbeiten darf (ab grower) und die Ansicht online und nicht zwischengespeichert ist; im Feldmodus nicht vorhanden (GP-UX-023) |
+| `bed-clear-dialog` | Dialog „Beet räumen: <Beet>“; schreibt nichts, bis `bed-clear-submit` bestätigt wird; `bed-clear-cancel` schließt ohne Schreiben |
+| `bed-clear-affected` | Satz „Betroffen sind n Pflanzen aus m Durchläufen“; `data-plant-count` und `data-run-count` tragen die Zahlen |
+| `bed-clear-effects` | Liste der Folgen (Pflanzen beendet, Durchläufe abgeschlossen, Plätze archiviert, Eintrag „Beet geräumt“) |
+| `bed-clear-termination` / `bed-clear-termination-<art>` / `bed-clear-termination-<art>-input` | Auswahl der Beendigungsart (Radiogruppe), Chip und natives Eingabefeld, `<art>` ∈ `harvested` (vorgewählt), `senesced`, `died`, `cancelled` |
+| `bed-clear-reason` / `bed-clear-irreversible` | Optionale Notiz (höchstens 1000 Zeichen) und der Hinweis, dass Räumen nicht rückgängig zu machen ist |
+| `bed-clear-submit` / `bed-clear-cancel` | Bestätigen (Gefahrenfarbe, während der Anfrage gesperrt) und Abbrechen |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
 

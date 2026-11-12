@@ -11,8 +11,9 @@ import type { CareUnit } from './careTypes';
  * Two `TaskCategory` values are left out on purpose (REQ-053 Anhang A 61, #2833). This list feeds the
  * task dialog, the batch completion and the care log dialog: a category in it can be planned as a task
  * and logged as a line. Both have a dedicated way that does more than a care line can:
- * - `clearing` — "Beet räumen" (GP-API-019, `POST /locations/{key}/clear`) ends the runs, removes the
- *   standing plants and archives the slots in one transaction, and writes the `clearing` line itself.
+ * - `clearing` — "Beet räumen" (GP-API-019, `POST /locations/{key}/clear`; `bed/BedClearDialog`, offered in the
+ *   planting tab) ends the runs, removes the standing plants and archives the slots in one transaction, and writes
+ *   the `clearing` line itself.
  *   The server refuses a client-written `clearing` line (422 `care_event.category_server_only`), and a
  *   task completed as `clearing` would log a clearing that cleared nothing.
  * - `soil_analysis` — the bed's soil analysis dialog (`bed/SoilAnalysisDialog`) records the measured

@@ -288,15 +288,12 @@ If you open a location whose type is a bed (Bed, Raised Bed, Greenhouse Bed, Col
 
 ### Summary above the tabs
 
-Above the tabs you see at a glance: area, type, status, soil type, sun exposure, active plants, open tasks, last care, next due date and who is responsible for the bed. If the bed has a cover photo, it leads the summary (see [Photos of the bed](#photos-of-the-bed)). Use the **season selector** to switch the year; it appears in the address as `?year=`.
+Above the tabs you see at a glance: area, type, status, soil type, sun exposure, active plants, open tasks, last care, next due date and who is responsible for the bed. If the bed has a cover photo, it leads the summary (see [Photos of the bed](#photos-of-the-bed)). Use the **season selector** to switch the year; it appears in the address as `?year=`. Next to it you see what grew in the bed the year before.
 
 **Nutrient hint.** Under **Nutrients** the summary shows **Fertiliser likely needed** or **Check feeding** as soon as Kamerplanter can say something about it. Below it you see why: how long ago your last feeding or soil amendment with manure or horn shavings was (compost supplies little nitrogen and does not count), measured against the feeder level of the species in the bed, and what your lab report says about phosphorus and potassium. If you mulched with bark mulch after your last feeding, it says that bark mulch can bind nitrogen while it rots. If the previous crop was, or the current crop is, a nitrogen fixer such as beans or peas, the hint mentions it but does not estimate a nitrogen amount. If your lab report shows the soil is rich in phosphorus or potassium, compost serves no nutrient supply; as a soil improver it remains an option, and the hint never points you to compost or a phosphorus fertiliser. Only a lab report by the CAL method counts for the content classes. The hint never names a number or a fertiliser amount. When everything looks fine or data is missing, the line stays out. <!-- REQ-053 GP-FR-125 -->
 
 !!! note "Partially available: nutrient hint"
     The rules of the hint are in place. To show anything, every threshold (for example after how many days without feeding a heavy feeder runs short) needs a sourced value. No threshold has such a source yet, so the line stays empty for every bed for now. Once sourced values exist, Kamerplanter will show the hint.
-
-!!! warning "Not yet implemented"
-    Showing the previous year's crop in the summary is not implemented yet. Until then, Kamerplanter shows a placeholder line there. **Clear bed** will also only be available in a later version.
 
 ### The tabs
 
@@ -306,7 +303,7 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 |-----|---------|
 | Plan | Bed frame with places, rows or zones and plant markers. Tap a plant and the bed offers **Correct position** and **Transplant to …**. **Open in garden plan** takes you to the garden plan for editing the bed frame. |
 | Care | Open and overdue tasks of the bed and its plants, completing them, suggestions and the care log (see [Care on the bed](#care-on-the-bed)). |
-| Planting | Planned and standing plants of the bed, the **Plant** button and the actions on a plant (see [Planting a bed](#planting-a-bed)). |
+| Planting | Planned and standing plants of the bed, the **Plant** and **Clear bed** buttons and the actions on a plant (see [Planting a bed](#planting-a-bed) and [Clearing a bed](#clearing-a-bed)). |
 | History | A timeline of what stood in the bed in earlier years, and the list of all care entries and plantings (see [History of the bed](#history-of-the-bed)). |
 | Soil | The bed's soil profile and soil analyses (see [Maintaining the soil profile](#maintaining-the-soil-profile) and [Recording soil analyses](#recording-soil-analyses)). |
 | Photos | The bed's photos with its cover photo (see [Photos of the bed](#photos-of-the-bed)). |
@@ -337,6 +334,10 @@ On the **Planting** tab, **Plant** opens the planting dialog. It is available fr
 
 !!! warning "Not yet implemented"
     The **Crop rotation hint** appears only in the bed overview so far, not on the bed in the garden plan. It is set only for plantings you started despite a hint. Planned, still empty places appear on the plan as dashed circles without species and date. Your browser, not your account, remembers the spacings you used last. A bed that is not on the garden plan cannot be planted through the dialog yet. <!-- REQ-053 GP-FR-132, GP-FR-061 -->
+
+### Clearing a bed {#clearing-a-bed}
+
+At the end of the season you clear a bed in one step: in the **Planting** tab, tap **Clear bed** while plants stand in the bed. The dialog tells you how many plants and runs are affected and explains what happens: every plant ends with today's date and moves to the history, the running runs are completed, the planting spots are archived and free the bed for the next planting, and the care log gets one entry "Bed cleared". You choose how the plants ended (**Harvested** is preselected; also senesced, died or cancelled); the choice applies to every plant in the bed. If a plant ended differently, end it on its own plant page first. Planned runs keep their spots. Members from the "grower" role can clear a bed, only while online and not in field mode; it cannot be undone. <!-- REQ-053 GP-FR-055 -->
 
 ### Plant state and plant info {#plant-state}
 

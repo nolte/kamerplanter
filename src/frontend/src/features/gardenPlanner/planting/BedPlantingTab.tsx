@@ -6,6 +6,10 @@
  * Direct sowing (§11.3, W-015): a planned row or zone can be recorded as sown; a sown one is listed as "Sown" with
  * "Thin out", which turns it into plants. A slot whose plant failed (died; a senesced plant ended naturally and is no
  * failure) offers "Replant": the planting dialog opens with that crop.
+ *
+ * "Beet räumen" (GP-FR-055, GP-API-019) sits beside "Plant" while plants stand in the bed: one dialog ends them all,
+ * names how many plants and runs it affects, and reloads this list and the page's summary like every other action of
+ * the tab. Offered to whoever may edit the bed, and locked while the page shows cached data or has no connection.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +22,7 @@ import CardContent from '@mui/material/CardContent';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -37,6 +42,7 @@ import { failedSlots, isSowable } from './thinningLogic';
 const PlantingDialog = lazy(() => import('./PlantingDialog'));
 const SowingDialog = lazy(() => import('./SowingDialog'));
 const ThinningDialog = lazy(() => import('./ThinningDialog'));
+const BedClearDialog = lazy(() => import('../bed/BedClearDialog'));
 
 /** The sown or sowable slot a dialog was opened for. */
 interface SlotTarget {
@@ -51,6 +57,8 @@ interface BedPlantingTabProps {
   onChanged: () => void;
   /** The site plan's grid step in metres: free positions and "Correct position" snap to it (GP-FR-154). */
   gridStepM: number;
+  /** The page shows cached data or is offline (WP 9.2): the bed is not cleared against that state. */
+  editsLocked?: boolean;
 }
 
 /** Route of the species detail page (global master data, readable for every member). */
@@ -92,7 +100,7 @@ function useSpeciesNames(keys: readonly string[]): ReadonlyMap<string, string> {
   return names;
 }
 
-export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantingTabProps) {
+export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked = false }: BedPlantingTabProps) {
   const { t, i18n } = useTranslation();
   const { canEdit } = useTenantPermissions();
   const bedSite = useBedSiteFeatures(bed);
@@ -104,6 +112,7 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantin
   const [sowTarget, setSowTarget] = useState<SlotTarget | null>(null);
   const [thinTarget, setThinTarget] = useState<SlotTarget | null>(null);
   const [target, setTarget] = useState<PlantActionTarget | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +139,8 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantin
   const sown = items.filter((item) => item.state === 'planned' && Boolean(item.sown_at));
   const failed = useMemo(() => failedSlots(items), [items]);
   const active = items.filter((item) => item.state === 'active');
+  // The runs the standing plants belong to: what "Beet räumen" ends besides the plants (TC-053-027).
+  const activeRunCount = new Set(active.map((item) => item.run_key).filter(Boolean)).size;
   const finished = items.filter((item) => item.state === 'harvested' || item.state === 'historical');
   const names = useSpeciesNames(useMemo(() => items.map((item) => item.species_key), [items]));
   const nameOf = (key: string) => names.get(key) ?? key;
@@ -139,6 +150,7 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantin
   const placed = Boolean(bed.geometry);
   const retired = bed.bed_status === 'retired';
   const canPlant = canEdit && placed && !retired;
+  const canClear = canEdit && !editsLocked && active.length > 0;
 
   const onPlanted = (result: PlantedResult) => {
     setPlanting(false);
@@ -161,6 +173,11 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantin
     reload();
   };
 
+  const onCleared = () => {
+    setClearing(false);
+    reload();
+  };
+
   const slotTarget = (item: PlantingItem): SlotTarget => ({
     slotKey: item.slot_key ?? '',
     slotLabel: item.slot_id ?? '',
@@ -174,16 +191,30 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantin
           {t('pages.bed.planting.tab.title')}
         </Typography>
         {canEdit ? (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setPlanting(true)}
-            disabled={!canPlant}
-            sx={{ minHeight: 48 }}
-            data-testid="bed-plant-button"
-          >
-            {t('pages.bed.planting.tab.plant')}
-          </Button>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {canClear ? (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteSweepOutlinedIcon />}
+                onClick={() => setClearing(true)}
+                sx={{ minHeight: 48 }}
+                data-testid="bed-clear-button"
+              >
+                {t('pages.bed.clear.button')}
+              </Button>
+            ) : null}
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setPlanting(true)}
+              disabled={!canPlant}
+              sx={{ minHeight: 48 }}
+              data-testid="bed-plant-button"
+            >
+              {t('pages.bed.planting.tab.plant')}
+            </Button>
+          </Box>
         ) : null}
       </Box>
       {canEdit && !placed ? <Alert severity="info">{t('pages.bed.planting.tab.notPlaced')}</Alert> : null}
@@ -446,6 +477,18 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM }: BedPlantin
       {thinTarget ? (
         <Suspense fallback={null}>
           <ThinningDialog {...thinTarget} onClose={() => setThinTarget(null)} onThinned={onThinned} />
+        </Suspense>
+      ) : null}
+      {clearing && canClear ? (
+        <Suspense fallback={null}>
+          <BedClearDialog
+            bedKey={bed.key}
+            bedName={bed.name}
+            plantCount={active.length}
+            runCount={activeRunCount}
+            onClose={() => setClearing(false)}
+            onCleared={onCleared}
+          />
         </Suspense>
       ) : null}
       <PlantActionHost

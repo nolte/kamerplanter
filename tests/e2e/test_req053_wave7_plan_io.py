@@ -20,7 +20,8 @@ Deviations from the written steps, on purpose:
               ends (``archived_at``) only through "Beet räumen", which stamps *now*. No path the running system
               accepts writes an end in an earlier calendar year, so the test chooses the season ``UTC year + 1``:
               the current year is then the "previous year". The bed is cleared through the clear route
-              (``POST /locations/{key}/clear``) because "Beet räumen" has no browser surface yet (TC-053-027).
+              (``POST /locations/{key}/clear``) as part of the arrangement; the browser path of "Beet räumen"
+              is TC-053-027 in ``test_req053_planting.py``.
               "Fruchtfolge-Hinweise beim Bepflanzen nutzen sie" is not asserted: the rotation hint reads the
               calendar years before the planting year, and the season the test can produce is the current one.
   TC-053-044  Runs in the full profile only (``UNDERLAY_NEEDS_STORAGE``: the light E2E backend has no writable
@@ -31,7 +32,6 @@ Deviations from the written steps, on purpose:
               its derived direction, furniture and a pot on it (no window/furniture tool in the editor).
 
 Not automated here, on purpose (no skip, no xfail - there is nothing to run):
-  TC-053-027  "Beet räumen" has no browser surface (no button calls ``POST /locations/{key}/clear``).
   TC-053-041  The replace import through the wizard is not part of this work package; TC-053-058 uses the replace
               import only as its arrangement (API) and restores through the browser.
   Export dialog "Unterlage" switch: the export dialog has no underlay option (``EXPORT_LAYERS`` holds none);

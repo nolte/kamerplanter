@@ -7,6 +7,7 @@ component objects sit on top of it, one per surface wave 3 drives:
 * :class:`PlantingDialog` - "Bepflanzen" (``PlantingDialog`` / ``EntryCard`` /
   ``HintsPanel`` / ``LayoutCanvas``);
 * :class:`PositionDialog` - "Position korrigieren" (``PositionCorrectionDialog``);
+* :class:`ClearBedDialog` - "Beet räumen" (``BedClearDialog``, GP-FR-055, TC-053-027);
 * the plan tab's plant markers, the hover bubble and the legend live on
   :class:`BedViewPage` itself, next to the network probe that proves the bubble
   needs no request (GP-FR-191).
@@ -37,6 +38,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .base_page import DEFAULT_TIMEOUT, BasePage
+from .bed_site_page import press_space_on
 from .garden_plan_page import ScreenPoint
 
 
@@ -117,6 +119,9 @@ class BedViewPage(BasePage):
     # ── Planting tab (WP 3.6) ──────────────────────────────────────────
     PLANTING_TAB = _tid("bed-planting-tab")
     PLANT_BUTTON = _tid("bed-plant-button")
+    #: "Beet räumen" (GP-FR-055): rendered only while plants stand and the member may edit the bed.
+    CLEAR_BUTTON = _tid("bed-clear-button")
+    FINISHED_NOTE = _tid("bed-planting-finished")
     PLANNED_LIST = _tid("bed-planting-planned")
     ACTIVE_LIST = _tid("bed-planting-active")
 
@@ -313,6 +318,29 @@ class BedViewPage(BasePage):
         dialog = PlantingDialog(self.driver, self.base_url)
         dialog.wait_until_ready()
         return dialog
+
+    def is_clear_offered(self) -> bool:
+        """Whether "Beet räumen" is offered now; read after the planting tab settled."""
+        self.wait_for_element(self.PLANTING_TAB)
+        return self.is_present(self.CLEAR_BUTTON)
+
+    def open_clear_dialog(self) -> ClearBedDialog:
+        """ "Beet räumen" in the planting tab; returns once the dialog shows what it affects."""
+        try:
+            self.wait_and_click_coordinate_free(self.CLEAR_BUTTON)
+        except TimeoutException as exc:
+            raise AssertionError("the planting tab offers no 'Beet räumen' button") from exc
+        dialog = ClearBedDialog(self.driver, self.base_url)
+        dialog.wait_for_element_visible(dialog.AFFECTED)
+        return dialog
+
+    def finished_note(self) -> str:
+        """The "… geerntet oder entfernt …" line of the planting tab; loud when it is absent."""
+        try:
+            note = self.wait_for_element(self.FINISHED_NOTE)
+        except TimeoutException as exc:
+            raise AssertionError("the planting tab shows no finished-plants line") from exc
+        return " ".join((note.get_attribute("textContent") or "").split())
 
     def is_planting_enabled(self) -> bool:
         """Whether "Bepflanzen" is offered and enabled (read after the planting tab settled); loud without the button."""
@@ -1104,6 +1132,76 @@ class PlantingDialog(BasePage):
 
     def is_open(self) -> bool:
         return bool(self.driver.find_elements(*self.DIALOG))
+
+
+class ClearBedDialog(BasePage):
+    """ "Beet räumen: <Beet>" (``BedClearDialog``): what it affects, the termination type, one confirmation.
+
+    The termination types are ``ChipChoice`` radios (``bed-clear-termination-<type>-input``), switched with the
+    keyboard like the site-condition chips (:func:`~.bed_site_page.press_space_on`).
+    """
+
+    DIALOG = _tid("bed-clear-dialog")
+    AFFECTED = _tid("bed-clear-affected")
+    EFFECTS = _tid("bed-clear-effects")
+    SUBMIT = _tid("bed-clear-submit")
+    CANCEL = _tid("bed-clear-cancel")
+    REASON = _tid("bed-clear-reason")
+
+    def affected_counts(self) -> tuple[int, int]:
+        """``(plants, runs)`` the dialog names, from the attributes beside its sentence."""
+        affected = self.wait_for_element(self.AFFECTED)
+        return (
+            int(affected.get_attribute("data-plant-count") or -1),
+            int(affected.get_attribute("data-run-count") or -1),
+        )
+
+    def affected_text(self) -> str:
+        return " ".join(
+            (self.wait_for_element(self.AFFECTED).get_attribute("textContent") or "").split()
+        )
+
+    def effects_text(self) -> str:
+        return " ".join(
+            (self.wait_for_element(self.EFFECTS).get_attribute("textContent") or "").split()
+        )
+
+    def _termination(self, value: str):
+        return self.wait_for_element(_tid(f"bed-clear-termination-{value}-input"))
+
+    def chosen_termination(self) -> str | None:
+        """The checked termination type, or ``None``."""
+        for value in ("harvested", "senesced", "died", "cancelled"):
+            if self._termination(value).is_selected():
+                return value
+        return None
+
+    def termination_label(self, value: str) -> str:
+        label = self.wait_for_element(_tid(f"bed-clear-termination-{value}"))
+        return " ".join((label.get_attribute("textContent") or "").split())
+
+    def choose_termination(self, value: str) -> None:
+        """Check the termination type *value* with the keyboard; verified."""
+        radio = self._termination(value)
+        if radio.is_selected():
+            raise AssertionError(
+                f"termination {value!r} is already chosen; the test expected to change it"
+            )
+        press_space_on(self, radio, f"choosing termination {value!r}")
+        try:
+            self.poll().until(lambda _d: radio.is_selected())
+        except TimeoutException as exc:
+            raise AssertionError(f"termination {value!r} is not chosen after Space") from exc
+
+    def confirm_and_wait_closed(self, what: str) -> None:
+        """ "Beet räumen" in the dialog; it closes only once the server cleared the bed."""
+        self.wait_and_click_coordinate_free(self.SUBMIT)
+        try:
+            self.wait_for_element_hidden(self.DIALOG)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the clearing dialog did not close after the confirmation"
+            ) from exc
 
 
 class SowingDialog(BasePage):

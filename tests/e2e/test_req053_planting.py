@@ -6,6 +6,8 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, GP-ACC from the co
   TC-053-018  ->  crop-rotation hint before the layout, "Trotzdem pflanzen" + reason (GP-ACC-047)
   TC-053-019  ->  correct a position by drag (desktop variant), history entry       (GP-ACC-022)
                   partial: see the test's docstring
+  TC-053-027  ->  "Beet räumen": 12 plants of 2 runs end in one step, history entry, (GP-ACC-040)
+                  a new zone run fits the same bed (#2891)
   TC-053-034  ->  plant info on hover without a request, Esc, keyboard focus        (GP-ACC-051)
   TC-053-035  ->  marker state channels: ring, one badge, legend without colour      (GP-ACC-052)
                   partial: see the test's docstring
@@ -52,6 +54,7 @@ from ._garden_plan_helpers import (
     species,
     tenant_get,
     unique_tag,
+    utc_today,
 )
 from .pages.bed_view_page import BedViewPage
 from .pages.planting_run_detail_page import PlantingRunDetailPage
@@ -579,3 +582,120 @@ def test_tc_053_035_marker_channels_one_badge_and_a_legend_without_colour(
     )
     assert all(row["text"] for row in rows), f"TC-053-035: every legend row has a text: {rows}"
     screenshot("053_035_02_legend", "Legende: Ringstile und Badges")
+
+
+# ── TC-053-027 ──────────────────────────────────────────────────────────────
+
+
+def test_tc_053_027_clearing_the_bed_ends_every_plant_and_run_in_one_step(
+    bed_view: BedViewPage, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-027 — "Beet räumen" with "abgestorben" on a bed with 2 runs and 12 plants (GP-ACC-040, #2891).
+
+    Precondition (API): a 3,0 x 1,6 m bed with two runs of six tomatoes each, every
+    plant on its own position. "Abgestorben" is the type ``senesced`` (label
+    "Natürlich abgestorben (Seneszenz)"), the type GP-ACC-040 names. Breaks if the
+    dialog does not name 12 plants and 2 runs, if "Geerntet" is not the default, if
+    the confirmation leaves a plant standing or one without today's end and the
+    chosen type, if a run is not "completed", if a live slot of the cleared runs
+    survives, if the history has no "Beet geräumt" entry, or if a new run in a
+    zone layout is refused against the archived positions (V-06).
+
+    Spec deviation, not asserted: the planting tab shows the ended plants as a count
+    ("… geerntet oder entfernt …"), not as a list with a date; the date is read back
+    from the server.
+    """
+    tomato = species(base_url, e2e_seed_data, TOMATO)
+    _garden, bed = _one_bed(base_url, e2e_seed_data, "tc027", 3.0, 1.6)
+    runs = [
+        plant_on_positions(
+            base_url,
+            e2e_seed_data,
+            bed_key=bed,
+            species_key=tomato["key"],
+            id_prefix=prefix,
+            points=tuple((0.25 + 0.5 * n, y) for n in range(6)),
+        )
+        for prefix, y in (("TA", 0.4), ("TB", 1.2))
+    ]
+    cleared_slots = {slot for run in runs for slot in run.point_slots}
+    assert len(plantings(base_url, e2e_seed_data, bed, "active")) == 12, (
+        "TC-053-027 precondition: 12 plants stand in the bed"
+    )
+
+    bed_view.open(bed, "planting")
+    bed_view.wait_for_planting_lists(0, 12, "TC-053-027: before clearing")
+    screenshot(
+        "053_027_01_bed_with_plants", "Beet mit 2 Durchläufen und 12 Pflanzen, Tab Bepflanzung"
+    )
+
+    dialog = bed_view.open_clear_dialog()
+    assert dialog.affected_counts() == (12, 2), (
+        f"TC-053-027: the dialog must name 12 plants and 2 runs, it names {dialog.affected_text()!r}"
+    )
+    assert dialog.affected_text() == "Betroffen sind 12 Pflanzen aus 2 Durchläufen.", (
+        f"TC-053-027: the dialog's sentence reads {dialog.affected_text()!r}"
+    )
+    assert "Beet geräumt" in dialog.effects_text(), (
+        f"TC-053-027: the dialog must say that clearing writes one care entry: {dialog.effects_text()!r}"
+    )
+    assert dialog.chosen_termination() == "harvested", (
+        f"TC-053-027: 'Geerntet' is the default, the dialog checks {dialog.chosen_termination()!r}"
+    )
+    assert "abgestorben" in dialog.termination_label("senesced"), (
+        f"TC-053-027: the type 'abgestorben' is labelled {dialog.termination_label('senesced')!r}"
+    )
+    dialog.choose_termination("senesced")
+    screenshot(
+        "053_027_02_clear_dialog", "Dialog Beet räumen: 12 Pflanzen, 2 Durchläufe, abgestorben"
+    )
+    dialog.confirm_and_wait_closed("TC-053-027: confirming 'Beet räumen'")
+
+    bed_view.wait_for_planting_lists(0, 0, "TC-053-027: after clearing")
+    assert not bed_view.is_clear_offered(), (
+        "TC-053-027: an empty bed must not offer 'Beet räumen' again"
+    )
+    assert "12 Pflanzen" in bed_view.finished_note(), (
+        f"TC-053-027: the tab must count the 12 ended plants: {bed_view.finished_note()!r}"
+    )
+    screenshot("053_027_03_bed_cleared", "Tab Bepflanzung nach dem Räumen: nichts mehr im Beet")
+
+    today = utc_today().isoformat()
+    ended = plantings(base_url, e2e_seed_data, bed, "historical")
+    assert len(ended) == 12, f"TC-053-027: 12 plants must be in the history, it holds {ended}"
+    wrong = [
+        (p["plant_key"], p.get("removed_on"), p.get("termination_type"))
+        for p in ended
+        if p.get("removed_on") != today or p.get("termination_type") != "senesced"
+    ]
+    assert not wrong, f"TC-053-027: every plant ends today as 'senesced'; these do not: {wrong}"
+    statuses = {
+        run.run_key: tenant_get(base_url, e2e_seed_data, f"/planting-runs/{run.run_key}")["status"]
+        for run in runs
+    }
+    assert set(statuses.values()) == {"completed"}, (
+        f"TC-053-027: both runs must be completed: {statuses}"
+    )
+    live = {slot["key"] for slot in bed_slots(base_url, e2e_seed_data, bed)}
+    assert not (cleared_slots & live), (
+        f"TC-053-027: the cleared positions must be archived, still live: {sorted(cleared_slots & live)}"
+    )
+
+    bed_view.open(bed, "history")
+    entry = bed_view.wait_for_history_entry("Beet geräumt", "TC-053-027: after clearing")
+    screenshot("053_027_04_history", "Historie mit dem Eintrag Beet geräumt")
+    assert entry, "TC-053-027: the history entry 'Beet geräumt' is empty"
+
+    bed_view.open(bed, "planting")
+    planting = bed_view.open_planting_dialog()
+    planting.choose_species(TOMATO)
+    planting.choose_layout("zone")
+    planting.set_count(4)
+    planting.set_spacing(40)
+    planting.wait_for_server_preview(4, "TC-053-027: a zone run in the cleared bed")
+    planting.submit_and_wait_closed("TC-053-027: planting a zone run after clearing")
+    new_runs = [r for r in runs_of_bed(base_url, e2e_seed_data, bed) if r["key"] not in statuses]
+    assert len(new_runs) == 1 and new_runs[0]["status"] == "planned", (
+        f"TC-053-027: one new planned run must stand in the bed, runs: {new_runs}"
+    )
+    screenshot("053_027_05_new_zone_run", "Neuer Durchlauf im Zonen-Layout im geräumten Beet")
