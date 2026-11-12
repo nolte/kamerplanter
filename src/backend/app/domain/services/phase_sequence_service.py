@@ -117,6 +117,7 @@ class PhaseSequenceService:
                         "key": species_key,
                         "scientific_name": species.get("scientific_name") or "",
                         "common_names": species.get("common_names") or [],
+                        "common_names_i18n": species.get("common_names_i18n") or {},
                         "typical_duration_days": duration,
                         "illustration": defn.illustration,
                     }

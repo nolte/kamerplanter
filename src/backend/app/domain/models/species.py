@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Literal, Self
 
@@ -48,6 +49,61 @@ type LightRequirement = Literal["full_sun", "partial_shade", "shade"]
 #: Range string like ``spacing_cm``: "80", "60--80", "25-30", "5–10" (seed schema
 #: ``_defs.schema.yaml#/$defs/distance_cm_string``); the 5–1500 cm bound is the validator's.
 DISTANCE_CM_STRING_PATTERN = r"^\d+(\.\d+)?(\s*[-–—]+\s*\d+(\.\d+)?)?$"
+
+# ── Language-tagged vernacular names (REQ-001, #2902) ────────────────
+#: Lowercase ISO 639-1/-2 language code, the key of ``common_names_i18n``.
+COMMON_NAMES_LANGUAGE_CODE_PATTERN = re.compile(r"^[a-z]{2,3}$")
+
+
+def validate_common_names_i18n(common_names: list[str], names_i18n: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Check and normalize ``common_names_i18n`` against the flat ``common_names`` list.
+
+    Keys must be lowercase language codes (``de``, ``en``, ...). Names are stripped;
+    an empty name is rejected, a duplicate within one language is dropped and a
+    language left with no name is dropped (a missing key and an empty list say the
+    same: no sourced name in that language). Every name must also be in
+    ``common_names``, which stays the flat all-language list search, forms and the
+    CSV import read — the i18n map only says which of those names belongs to which
+    language, it never introduces a name of its own.
+
+    Raises:
+        ValueError: on an invalid key, an empty name or a name not in ``common_names``.
+    """
+    known = {name.strip() for name in common_names}
+    normalized: dict[str, list[str]] = {}
+    for language, names in names_i18n.items():
+        if not COMMON_NAMES_LANGUAGE_CODE_PATTERN.fullmatch(language):
+            raise ValueError(f"common_names_i18n key must be a lowercase language code, got {language!r}")
+        cleaned: list[str] = []
+        for raw in names:
+            name = raw.strip()
+            if not name:
+                raise ValueError(f"common_names_i18n[{language!r}] contains an empty name")
+            if name not in known:
+                raise ValueError(f"common_names_i18n[{language!r}] name {name!r} is not in common_names")
+            if name not in cleaned:
+                cleaned.append(name)
+        if cleaned:
+            normalized[language] = cleaned
+    return normalized
+
+
+def prune_common_names_i18n(common_names: list[str], names_i18n: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Drop every language-tagged name that is no longer in ``common_names``.
+
+    The edit path's counterpart to :func:`validate_common_names_i18n`: an edit form
+    that does not carry ``common_names_i18n`` keeps the stored map, and a name the
+    user removed from ``common_names`` leaves the language lists with it instead of
+    turning the save into a 422 the user cannot act on.
+    """
+    known = {name.strip() for name in common_names}
+    pruned: dict[str, list[str]] = {}
+    for language, names in names_i18n.items():
+        kept = [name for name in names if name.strip() in known]
+        if kept:
+            pruned[language] = kept
+    return pruned
+
 
 # ── WateringGuide (embedded on Species/Cultivar) ─────────────────────
 
@@ -299,7 +355,18 @@ class Species(BaseModel):
         description="Internal canonical dedup key derived from scientific_name (REQ-048). "
         "Server-managed, never displayed; the human-facing scientific_name is left untouched.",
     )
+    #: Flat, language-mixed list of every vernacular name — what search, the edit
+    #: form and the CSV import read. Its order carries NO language meaning: a reader
+    #: that shows "the first entry" shows whatever language the seed listed first.
     common_names: list[str] = Field(default_factory=list)
+    #: Language code -> names in preference order (REQ-001, #2902). Says which of the
+    #: ``common_names`` belong to which language; every name is also in
+    #: ``common_names``. Display rule: UI language -> ``de`` -> scientific name.
+    common_names_i18n: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Language code (de, en, ...) -> vernacular names in preference order; "
+        "each name is also contained in common_names.",
+    )
     family_key: str | None = None
     genus: str = ""
     hardiness_zones: list[str] = Field(default_factory=list)
@@ -556,6 +623,12 @@ class Species(BaseModel):
         request input (REQ-048 R2/R3).
         """
         self.scientific_name_normalized = normalize_scientific_name(self.scientific_name)
+        return self
+
+    @model_validator(mode="after")
+    def _common_names_i18n_within_common_names(self) -> Self:
+        """Every language-tagged name must be one of ``common_names`` (REQ-001, #2902)."""
+        self.common_names_i18n = validate_common_names_i18n(self.common_names, self.common_names_i18n)
         return self
 
     @model_validator(mode="after")

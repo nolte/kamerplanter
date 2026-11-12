@@ -295,17 +295,33 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
     species_key_map: dict[str, str] = {}
 
     for sp in new_species:
-        existing = species_repo.get_by_scientific_name(sp.scientific_name)
-        if existing:
-            species_key_map[sp.scientific_name] = existing.key or ""
+        existing_species: Species | None = species_repo.get_by_scientific_name(sp.scientific_name)
+        if existing_species:
+            species_key_map[sp.scientific_name] = existing_species.key or ""
+            changed = False
             # Update growing_periods if changed (GrowingPeriod model migration)
-            if sp.growing_periods and sp.growing_periods != existing.growing_periods:
-                existing.growing_periods = sp.growing_periods
-                species_repo.update(existing.key or "", existing)
+            if sp.growing_periods and sp.growing_periods != existing_species.growing_periods:
+                existing_species.growing_periods = sp.growing_periods
+                changed = True
                 logger.info(
                     "species_growing_periods_updated",
                     name=sp.scientific_name,
                 )
+            # Vernacular names and their language map (REQ-001, #2902) reach an
+            # existing_species installation through this sync, not a migration. They travel
+            # together (the map may only name entries of the list) and only onto a
+            # GLOBAL row — a tenant's own species keeps the names its owner gave it.
+            names_changed = (
+                sp.common_names != existing_species.common_names
+                or sp.common_names_i18n != existing_species.common_names_i18n
+            )
+            if not existing_species.tenant_key and names_changed:
+                existing_species.common_names = sp.common_names
+                existing_species.common_names_i18n = sp.common_names_i18n
+                changed = True
+                logger.info("species_common_names_updated", name=sp.scientific_name)
+            if changed:
+                species_repo.update(existing_species.key or "", existing_species)
             else:
                 logger.info("species_exists", name=sp.scientific_name)
             continue

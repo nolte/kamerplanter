@@ -63,3 +63,24 @@ Gates:
 Mehrere Steckbriefe dürfen auf **eine** geseedete Art abbilden (`spp.`-Aggregate,
 Sorten — das intendierte 210→207-Delta, Audit §6); ein Steckbrief ohne
 Seed-Gegenstück wird übersprungen, nie als Drift gewertet.
+
+## Volksnamen nach Sprache (`common_names_i18n`, #2902)
+
+Für die **Sprachzuordnung** der Volksnamen ist die Richtung umgekehrt: Quelle ist
+die Steckbrief-Zeile `| Volksnamen (DE/EN) | <DE-Namen>; <EN-Namen> |`. Jeder
+Seed-Eintrag mit `common_names` trägt `common_names_i18n` (`de`/`en`, Reihenfolge =
+Präferenz); jeder Name der Map steht auch in `common_names`.
+
+Erzwungen durch `tests/unit/migrations/test_seed_common_names_i18n.py`:
+
+- Map vorhanden und Teilmenge von `common_names`;
+- `de[0]` = erster deutscher Name des Steckbriefs, der dasselbe Taxon beschreibt
+  (Vergleich gefaltet: Groß-/Kleinschreibung, Umlaut-Umschrift, Bindestriche,
+  nachgestellte Klammerzusätze);
+- jeder Name einer zweiteiligen Zeile (genau ein `;`) steht in der Sprache seiner Seite;
+- eine Art in zwei Seed-Dateien trägt in beiden dieselben Namen (der Seed-Abgleich
+  schreibt Namen auf bestehende globale Zeilen; zwei Fassungen würden sich bei
+  jedem Start abwechseln).
+
+Ausnahmen stehen kommentiert im Test (`_STECKBRIEF_DE_FIRST_EXCEPTIONS`,
+`_UNTAKEN_STECKBRIEF_NAMES`).

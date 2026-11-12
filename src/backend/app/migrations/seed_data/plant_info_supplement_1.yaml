@@ -45,6 +45,9 @@ new_species:
       days_to_germination: 14
       light_germination: light
     common_names: ["Usambaraveilchen", "Afrikanisches Veilchen", "African Violet"]
+    common_names_i18n:
+      de: ["Afrikanisches Veilchen", "Usambaraveilchen"]
+      en: ["African Violet"]
     genus: Streptocarpus
     plant_category: indoor_houseplant
     growth_habit: herb
@@ -104,7 +107,10 @@ new_species:
 
   - scientific_name: "Syngonium podophyllum"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: ["Pfeilblatt", "Dreieckspflanze", "Arrowhead Plant", "Arrowhead Vine"]
+    common_names: ["Pfeilblatt", "Dreieckspflanze", "Arrowhead Plant", "Arrowhead Vine", "Arrowhead-Pflanze", "Goosefoot Plant"]
+    common_names_i18n:
+      de: ["Pfeilblatt", "Dreieckspflanze", "Arrowhead-Pflanze"]
+      en: ["Arrowhead Plant", "Arrowhead Vine", "Goosefoot Plant"]
     genus: Syngonium
     plant_category: tropical_foliage
     growth_habit: vine
@@ -168,6 +174,9 @@ new_species:
     # trait — so the flag is false rather than a set of invented months.
     allows_harvest: false
     common_names: ["Dahlie", "Garten-Dahlie", "Dahlia", "Garden Dahlia"]
+    common_names_i18n:
+      de: ["Dahlie", "Garten-Dahlie"]
+      en: ["Dahlia", "Garden Dahlia"]
     genus: Dahlia
     growth_habit: bulb_geophyte
     root_type: tuberous

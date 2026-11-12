@@ -458,7 +458,13 @@ def list_plants(
             # #2082: a legacy plant may carry another tenant's private species key.
             sp = readable_species(species_repo, species_key, ctx.tenant_key)
             species_cache[species_key] = (
-                SpeciesSummary(scientific_name=sp.scientific_name, common_names=sp.common_names) if sp else None
+                SpeciesSummary(
+                    scientific_name=sp.scientific_name,
+                    common_names=sp.common_names,
+                    common_names_i18n=sp.common_names_i18n,
+                )
+                if sp
+                else None
             )
         return species_cache[species_key]
 

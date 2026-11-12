@@ -79,7 +79,17 @@ Zusätzlich erfasst das System:
     - `promoted_from_tenant: Optional[str]` (Default: `null`) — Nur gesetzt nach Promotion. Speichert den ursprünglichen `tenant_key`. Read-only nach Promotion.
     <!-- /Quelle: ADR-002 / W-006 -->
     - `scientific_name: str` (Binomiale Nomenklatur, z.B. "Solanum lycopersicum")
-    - `common_names: list[str]` (Landessprachliche Namen)
+    - `common_names: list[str]` (Landessprachliche Namen) — flache Liste **aller** Volksnamen in allen Sprachen. Sie dient der Suche, dem Bearbeitungsformular und dem CSV-Import. Ihre Reihenfolge trägt **keine** Sprachaussage: Die Seed-Dateien führen teils den englischen, teils den deutschen Namen zuerst (#2902).
+    <!-- Quelle: #2902 Volksnamen nach Sprache -->
+    - `common_names_i18n: dict[str, list[str]]` (Default: `{}`) — Sprachcode → Volksnamen dieser Sprache in Präferenzreihenfolge (der erste Name ist der bevorzugte). Schlüssel sind kleingeschriebene ISO-639-Sprachcodes (2–3 Buchstaben); heute belegt sind `de` und `en`. Regeln:
+        - Jeder Name in `common_names_i18n` MUSS auch in `common_names` stehen. Die Map ordnet vorhandene Namen einer Sprache zu und führt **keinen** eigenen Namen ein. Ein API-Create/-Update mit einem Namen außerhalb von `common_names` wird mit **422** abgelehnt, nicht stillschweigend ergänzt.
+        - Ein Name, der in beiden Sprachen gleich lautet (z.B. „Zucchini", „Dill", „Kohlrabi"), steht in beiden Listen.
+        - Eine Sprache ohne belegten Namen fehlt als Schlüssel. Es wird kein Name übersetzt oder erfunden (E-10). Ein Name, der weder eindeutig deutsch noch englisch ist (z.B. ein botanisches Epitheton wie „Adansonii"), bleibt nur in `common_names`.
+        - Quelle der Sprachzuordnung ist die Steckbrief-Zeile „Volksnamen (DE/EN)" (`spec/knowledge/plants/*.md`). Dort trennt `;` die deutschen von den englischen Namen.
+        - Ein Update ohne das Feld `common_names_i18n` behält die gespeicherte Map. Namen, die das Update aus `common_names` entfernt, verschwinden dabei auch aus der Map.
+        - **Anzeigeregel:** Der angezeigte Volksname ist der erste Name in `common_names_i18n[<UI-Sprache>]`, sonst der erste in `common_names_i18n['de']` (kanonische Sprache, UI-NFR-007 R-009a), sonst der `scientific_name`. „Erster Eintrag von `common_names`" ist **keine** zulässige Anzeigeregel.
+        - Bestehende Installationen erhalten die Map über den Seed-Abgleich (`common_names` und `common_names_i18n` gehören zu den bei jedem Seed-Lauf abgeglichenen Feldern globaler Arten), nicht über eine Migration. Tenant-eigene Arten werden dabei nicht überschrieben.
+    <!-- /Quelle: #2902 Volksnamen nach Sprache -->
     - `family: str` (Botanische Familie, z.B. "Solanaceae")
     - `genus: str`
     - `hardiness_zones: list[str]` (z.B. ["7a", "7b", "8a"])
@@ -1039,6 +1049,10 @@ class SpeciesDefinition(BaseModel):
 
     scientific_name: str = Field(regex=r'^[A-Z][a-z]+ [a-z]+$', description="Binomiale Nomenklatur")
     common_names: list[str] = Field(min_items=1)
+    common_names_i18n: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Sprachcode (de, en, ...) -> Volksnamen in Präferenzreihenfolge; jeder Name auch in common_names (#2902)"
+    )
     family: str
     genus: str
     cycle_type: Literal['annual', 'biennial', 'perennial']

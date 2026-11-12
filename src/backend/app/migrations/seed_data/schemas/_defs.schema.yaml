@@ -523,3 +523,28 @@ $defs:
         minimum: 1
         maximum: 10
     additionalProperties: false
+
+  # ── Language-tagged vernacular names (REQ-001, #2902) ────────────────────
+  # Language code -> names in preference order. Every name must also appear in the
+  # flat ``common_names`` list (checked by
+  # tests/unit/migrations/test_seed_common_names_i18n.py; JSON Schema cannot
+  # express the subset rule). A language without a sourced name is left out.
+  common_names_i18n:
+    type: object
+    propertyNames:
+      pattern: "^[a-z]{2,3}$"
+    properties:
+      de:
+        $ref: "#/$defs/common_names_i18n_list"
+      en:
+        $ref: "#/$defs/common_names_i18n_list"
+    additionalProperties: false
+
+  common_names_i18n_list:
+    type: array
+    items:
+      type: string
+      minLength: 1
+      pattern: "^\\S(.*\\S)?$"
+    minItems: 1
+    uniqueItems: true

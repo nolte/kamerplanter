@@ -305,6 +305,7 @@ class ListSpeciesByPhaseSequence(ToolBase):
                         "species_key": row.get("key"),
                         "scientific_name": row.get("scientific_name") or "",
                         "common_names": list(row.get("common_names") or []),
+                        "common_names_i18n": dict(row.get("common_names_i18n") or {}),
                     }
                     for row in page
                 ],

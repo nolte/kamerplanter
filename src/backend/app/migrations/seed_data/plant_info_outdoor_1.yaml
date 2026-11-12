@@ -130,7 +130,10 @@ new_species:
       light_germination: dark
       thousand_seed_weight_g: 3.5
       sowing_density_per_m2: 80
-    common_names: ["Zwiebel", "Kuechenzwiebel", "Onion", "Common Onion"]
+    common_names: ["Zwiebel", "Küchenzwiebel", "Onion", "Common Onion", "Speisezwiebel"]
+    common_names_i18n:
+      de: ["Küchenzwiebel", "Speisezwiebel", "Zwiebel"]
+      en: ["Onion", "Common Onion"]
     genus: Allium
     plant_category: outdoor_vegetable
     growth_habit: bulb_geophyte
@@ -196,7 +199,10 @@ new_species:
     rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Allium sativum"
-    common_names: ["Knoblauch", "Garlic"]
+    common_names: ["Knoblauch", "Garlic", "Echter Knoblauch"]
+    common_names_i18n:
+      de: ["Knoblauch", "Echter Knoblauch"]
+      en: ["Garlic"]
     genus: Allium
     plant_category: outdoor_vegetable
     growth_habit: bulb_geophyte
@@ -258,7 +264,10 @@ new_species:
 
   - scientific_name: "Anemone hupehensis"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone"]
+    common_names: ["Herbstanemone", "Japanese Anemone", "Chinese Anemone", "Chinesische Herbstanemone"]
+    common_names_i18n:
+      de: ["Herbstanemone", "Chinesische Herbstanemone"]
+      en: ["Japanese Anemone", "Chinese Anemone"]
     genus: Anemone
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -320,7 +329,10 @@ new_species:
       light_germination: light
       pretreatment: [presoak]
       thousand_seed_weight_g: 18
-    common_names: ["Spargel", "Asparagus", "Garden Asparagus"]
+    common_names: ["Spargel", "Asparagus", "Garden Asparagus", "Gemüsespargel"]
+    common_names_i18n:
+      de: ["Spargel", "Gemüsespargel"]
+      en: ["Asparagus", "Garden Asparagus"]
     genus: Asparagus
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -383,7 +395,10 @@ new_species:
 
   - scientific_name: "Astilbe chinensis"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard"]
+    common_names: ["Prachtspiere", "Chinese Astilbe", "False Goat's Beard", "Chinesische Prachtspiere", "Astilbe"]
+    common_names_i18n:
+      de: ["Chinesische Prachtspiere", "Astilbe", "Prachtspiere"]
+      en: ["Chinese Astilbe", "False Goat's Beard"]
     genus: Astilbe
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -445,7 +460,10 @@ new_species:
       light_germination: indifferent
       thousand_seed_weight_g: 3.3
       sowing_density_per_m2: 5
-    common_names: ["Gruenkohl", "Kale", "Borecole"]
+    common_names: ["Grünkohl", "Kale", "Borecole", "Braunkohl", "Krauskohl", "Curly Kale"]
+    common_names_i18n:
+      de: ["Grünkohl", "Braunkohl", "Krauskohl"]
+      en: ["Kale", "Curly Kale", "Borecole"]
     genus: Brassica
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -502,7 +520,10 @@ new_species:
 
   - scientific_name: "Buxus sempervirens"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
-    common_names: ["Buchsbaum", "Common Boxwood", "European Box"]
+    common_names: ["Buchsbaum", "Common Boxwood", "European Box", "Gemeiner Buchsbaum", "Common Box", "European Boxwood"]
+    common_names_i18n:
+      de: ["Buchsbaum", "Gemeiner Buchsbaum"]
+      en: ["Common Box", "European Boxwood", "Common Boxwood", "European Box"]
     genus: Buxus
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -567,7 +588,10 @@ new_species:
       light_germination: dark
       thousand_seed_weight_g: 10
       sowing_density_per_m2: 16
-    common_names: ["Ringelblume", "Pot Marigold", "Calendula"]
+    common_names: ["Ringelblume", "Pot Marigold", "Calendula", "Sonnenwende", "Garten-Ringelblume", "Common Marigold"]
+    common_names_i18n:
+      de: ["Ringelblume", "Sonnenwende", "Garten-Ringelblume"]
+      en: ["Pot Marigold", "Common Marigold", "Calendula"]
     genus: Calendula
     plant_category: herb
     growth_habit: herb
@@ -625,6 +649,9 @@ new_species:
   - scientific_name: "Clematis spp."
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
     common_names: ["Waldrebe", "Clematis"]
+    common_names_i18n:
+      de: ["Waldrebe"]
+      en: ["Clematis"]
     genus: Clematis
     plant_category: outdoor_ornamental
     growth_habit: vine
@@ -688,7 +715,10 @@ new_species:
       days_to_germination: 365
       pretreatment: [cold_stratification, warm_stratification]
       thousand_seed_weight_g: 220
-    common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry"]
+    common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry", "Herlitze", "Cornel"]
+    common_names_i18n:
+      de: ["Kornelkirsche", "Herlitze", "Cornel", "Dirndlstrauch"]
+      en: ["Cornelian Cherry"]
     genus: Cornus
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -759,7 +789,10 @@ new_species:
       seed_viability_years: 1
       light_germination: dark
       pretreatment: [cold_stratification]
-    common_names: ["Rittersporn", "Delphinium", "Larkspur"]
+    common_names: ["Rittersporn", "Delphinium", "Larkspur", "Hoher Rittersporn", "Garten-Rittersporn", "Garden Delphinium", "Candle Delphinium"]
+    common_names_i18n:
+      de: ["Hoher Rittersporn", "Garten-Rittersporn", "Rittersporn"]
+      en: ["Garden Delphinium", "Candle Delphinium", "Delphinium", "Larkspur"]
     genus: Delphinium
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -833,7 +866,10 @@ new_species:
       pretreatment: [cold_stratification]
       thousand_seed_weight_g: 3.5
       sowing_density_per_m2: 300
-    common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea"]
+    common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea", "Roter Sonnenhut"]
+    common_names_i18n:
+      de: ["Purpur-Sonnenhut", "Roter Sonnenhut"]
+      en: ["Purple Coneflower", "Echinacea"]
     genus: Echinacea
     plant_category: outdoor_ornamental
     growth_habit: herb

@@ -55,7 +55,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: frisches Saatgut, unter Wasser
-    common_names: [Weisse Seerose, White Water Lily, European White Waterlily]
+    common_names: [Weiße Seerose, White Water Lily, European White Waterlily]
+    common_names_i18n:
+      de: [Weiße Seerose]
+      en: [White Water Lily, European White Waterlily]
     genus: Nymphaea
     growth_habit: aquatic
     root_type: fibrous  # rhizomatous -> fibrous

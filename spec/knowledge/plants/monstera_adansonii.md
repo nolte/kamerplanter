@@ -13,7 +13,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Wissenschaftlicher Name | Monstera adansonii | `species.scientific_name` |
-| Volksnamen (DE/EN) | Monkey Mask Monstera, Lochpflanze; Swiss Cheese Plant, Monkey Mask Plant, Five Holes Plant | `species.common_names` |
+| Volksnamen (DE/EN) | Lochpflanze; Monkey Mask Monstera, Swiss Cheese Plant, Monkey Mask Plant, Five Holes Plant | `species.common_names` |
 | Familie | Araceae | `species.family` → `botanical_families.name` |
 | Gattung | Monstera | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |

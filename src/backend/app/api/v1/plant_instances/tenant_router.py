@@ -45,7 +45,11 @@ def _to_response(p: PlantInstance, service: PlantInstanceService, tenant_key: st
         PlantResponse,
         current_phase=phase_name,
         species=(
-            SpeciesSummary(scientific_name=species.scientific_name, common_names=species.common_names)
+            SpeciesSummary(
+                scientific_name=species.scientific_name,
+                common_names=species.common_names,
+                common_names_i18n=species.common_names_i18n,
+            )
             if species
             else None
         ),
