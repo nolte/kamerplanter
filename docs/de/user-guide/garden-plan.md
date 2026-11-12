@@ -199,8 +199,21 @@ Im Tab **Pflanzung** der Beetansicht gilt für Reihen und Flächen, die du direk
 2. **Vereinzeln:** Sobald die Sämlinge stehen, ziehst du die überzähligen heraus und tippst auf **Vereinzeln**. Der Dialog nimmt den Abstand aus dem Anbauplan, den du ändern kannst, und berechnet daraus mit der Reihenlänge oder Fläche die Zahl der Pflanzen. Fehlt ein Abstand, fragt er nach dem Abstand oder direkt nach der Zahl der stehen gebliebenen Pflanzen; Kamerplanter setzt keinen Wert von selbst ein. Bei einer Fläche fragt der Dialog zusätzlich nach dem Reihenabstand und belegt ihn aus dem Anbauplan oder dem Steckbrief der Art vor (mit Quelle); mit Reihenabstand rechnet er Reihenabstand × Abstand in der Reihe, ohne ihn (Breitsaat) schätzt er mit einem Quadratraster und sagt dir, welche Rechnung er nutzt. Danach sind die Pflanzen einzeln erfasst, die Reihe gilt nicht mehr als gesät, und das Pflegeprotokoll erhält einen Eintrag „Vereinzeln“.
 3. **Nachpflanzen:** Ist eine Pflanze eingegangen (beim Entfernen als „eingegangen“ erfasst, nicht „abgestorben (planmäßig)“), steht ihr Platz unter **Ausgefallen**. **Nachpflanzen** öffnet den Bepflanzen-Dialog mit derselben Kultur und ihrem Abstand. Eine Pflanze, die am Ende ihrer Zeit abgeräumt wurde, gilt nicht als ausgefallen und bekommt kein **Nachpflanzen**.
 
-!!! note "Teilweise verfügbar: Säen und Nachpflanzen"
-    Gesäte Reihen und Flächen erscheinen im Tab **Pflanzung**, im Pflanzenzustand und in der Legende, aber noch nicht als Linie oder Fläche auf der Zeichenfläche und nicht im PDF oder in der SVG. Beim Nachpflanzen derselben Kultur warnt der Fruchtfolge-Hinweis derzeit vor der eingegangenen Pflanze selbst; prüfe den Hinweis dann mit Augenmaß. <!-- REQ-053 W-015, §11.3, #2888 -->
+!!! note "Teilweise verfügbar: Säen"
+    Gesäte Reihen und Flächen erscheinen im Tab **Pflanzung**, im Pflanzenzustand und in der Legende, aber noch nicht als Linie oder Fläche auf der Zeichenfläche und nicht im PDF oder in der SVG. <!-- REQ-053 W-015 -->
+
+**Fruchtfolge-Hinweis beim Nachpflanzen.** Der Dialog weiß, welche Pflanze du ersetzt, und hält dir deren Familie nicht als „stand dieses Jahr schon hier" vor. Stattdessen richtet sich ein Resthinweis nach der Ursache, die du beim Entfernen erfasst hast:
+
+| Erfasste Ursache | Hinweis im Dialog |
+|------------------|-------------------|
+| Krankheit oder Schädlinge | Warnung: Sitzt der Erreger oder Schädling im Boden, kann die neue Pflanze derselben Familie genauso ausfallen. **Trotzdem pflanzen** verlangt einen kurzen Grund; gesperrt wird nie. |
+| Ursache unbekannt oder nicht erfasst | Leiser Info-Hinweis mit derselben Überlegung. |
+| Frost, Hitze, Trockenheit, Staunässe, Vernachlässigung oder mechanischer Schaden | Kein Hinweis. |
+
+Andere Pflanzen im Beet und frühere Jahre zählen wie bisher. Hast du am Beet einen Bodenwechsel erfasst, entfällt der Hinweis ganz.
+
+!!! tip "Tipp"
+    Erfasse die Ursache, wenn du eine Pflanze als „eingegangen“ markierst. Ohne Ursache siehst du den Info-Hinweis, obwohl vielleicht Frost der Grund war. <!-- REQ-053 §11.3, GP-FR-131, #2888 -->
 
 ## Beetliste im Gartenplan {#beetliste-im-gartenplan}
 

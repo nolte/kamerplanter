@@ -199,8 +199,21 @@ In the **Planting** tab of the bed view, rows and areas you sow directly work li
 2. **Thin out:** once the seedlings stand, you pull the surplus ones and tap **Thin out**. The dialog takes the spacing from the planting plan, which you can change, and calculates the number of plants from it and the row length or area. If no spacing is stored, it asks for the spacing or directly for the number of seedlings left standing; Kamerplanter never fills in a value on its own. For an area the dialog also asks for the row spacing and prefills it from the planting plan or the species profile (naming the source); with a row spacing it calculates row spacing × spacing in the row, without one (broadcast sowing) it estimates on a square grid and tells you which calculation it used. Afterwards the plants are recorded one by one, the row no longer counts as sown, and the care log gets a "thinning" entry.
 3. **Replant:** if a plant died (recorded as "died" when it was removed), its place is listed under **Failed**. **Replant** opens the planting dialog with the same crop and its spacing. A plant that was cleared at the natural end of its life ("senesced") does not count as failed and gets no **Replant**.
 
-!!! note "Partially available: sowing and replanting"
-    Sown rows and areas appear in the **Planting** tab, in the plant state and in the legend, but not yet as a line or area on the drawing area and not in the PDF or SVG. When you replant the same crop, the crop rotation hint currently warns against the dead plant itself; judge the hint with common sense then. <!-- REQ-053 W-015, §11.3, #2888 -->
+!!! note "Partially available: sowing"
+    Sown rows and areas appear in the **Planting** tab, in the plant state and in the legend, but not yet as a line or area on the drawing area and not in the PDF or SVG. <!-- REQ-053 W-015 -->
+
+**Crop rotation hint when replanting.** The dialog knows which plant you are replacing and no longer holds its family against you as "already stood here this year". Instead, a residual hint depends on the cause you recorded when you removed the plant:
+
+| Recorded cause | Hint in the dialog |
+|----------------|--------------------|
+| Disease or pests | Warning: if the pathogen or pest lives in the soil, the new plant of the same family can fail the same way. **Plant anyway** needs a short reason; nothing is ever blocked. |
+| Cause unknown or not recorded | Soft info hint with the same consideration. |
+| Frost, heat, drought, waterlogging, neglect or mechanical damage | No hint. |
+
+Other plants in the bed and earlier years count as before. If you recorded a soil change on the bed, the hint is gone entirely.
+
+!!! tip "Tip"
+    Record the cause when you mark a plant as "died". Without a cause you see the info hint even if frost was the reason. <!-- REQ-053 §11.3, GP-FR-131, #2888 -->
 
 ## Bed List on the Garden Plan {#bed-list-on-the-garden-plan}
 

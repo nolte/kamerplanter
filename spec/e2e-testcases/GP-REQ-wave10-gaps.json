@@ -16,7 +16,7 @@
   },
   "REQ-053 W-015": {
     "partial": true,
-    "reason": "Sowing, the sown state, thinning into the server's count, the grower's count without a spacing and 'Nachpflanzen' on a died slot are tested (unit, API, integration, vitest, E2E TC-053-109/110/111). The replant names the plant it replaces and gets no rotation hint against it, only a residual hint from its termination cause (unit, API, vitest, E2E TC-053-111, #2888). Open: (a) the soil-borne data model behind that residual hint - cause class, pathogen persistence, host ranges, season definition, substrate (#2888); (b) rows and zones are not drawn on the canvas and SVG/PDF do not show sown slots, so the 'Saatreihen-Muster' of §11.3 shows only in the planting list, plant states and legend; (c) band and broadcast sowing counts wait for a row spacing (#2862)",
+    "reason": "Sowing, the sown state, thinning into the server's count, the grower's count without a spacing and 'Nachpflanzen' on a died slot are tested (unit, API, integration, vitest, E2E TC-053-109/110/111). The replant names the plant it replaces and gets no rotation hint against it, only a residual hint from its termination cause (unit, API, vitest, E2E TC-053-111, #2888). Open: (a) the soil-borne data model behind that residual hint - cause class, pathogen persistence, host ranges, season definition, substrate, planned with REQ-054 H-10 (#2888); (b) rows and zones are not drawn on the canvas and SVG/PDF do not show sown slots, so the 'Saatreihen-Muster' of §11.3 shows only in the planting list, plant states and legend; (c) band and broadcast sowing counts wait for a row spacing (#2862)",
     "issue": 2888
   },
   "REQ-053 W-016": {
