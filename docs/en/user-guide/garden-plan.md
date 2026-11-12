@@ -61,7 +61,7 @@ Your role always applies to the garden (tenant) you are working in.
 
 ### Tools and shapes {#tools-and-shapes}
 
-The tool rail to the left of the plan offers four tools. Each has a tooltip; on wide screens its name stands next to it.
+The tool rail to the left of the plan offers five tools. Each has a tooltip; on wide screens its name stands next to it.
 
 | Tool | What it does |
 |------|--------------|
@@ -69,11 +69,12 @@ The tool rail to the left of the plan offers four tools. Each has a tooltip; on 
 | **Pan view** | Drags the view without changing anything. |
 | **Draw bed** ▸ | Draws a new bed. The small menu next to it offers **From template** (place a bed from a [template](#bed-templates)) and **Add with dimensions**. |
 | **Object: draw garden object** ▸ | Draws a garden object such as a path, fence, tree, trellis, compost or, in a flat plan, window, door, furniture and lamp. The menu next to it offers **Add with dimensions**. |
+| **Measure** | Measures a distance on the plan, point by point. Nothing is saved, see [Measuring distances](#measuring-distances). |
 
 Below the tools, the **selection group** appears only while something is selected: **rotation step** (15°, 45°, 90°), **Align** and **Delete**.
 
 !!! note "Partially available: tools"
-    Four more tools are planned but not built yet: **Area**, **Place plant**, **Measure** and **Label**. Until then you create areas through the API or a backup and plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
+    Three more tools are planned but not built yet: **Area**, **Place plant** and **Label**. Until then you create areas through the API or a backup and plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 As **shape** you choose rectangle, circle, polygon or line. You drag out the rectangle (with Shift it becomes a square) and the circle from its centre outwards. For the polygon and the line you click point by point; **Finish**, the Enter key or a click on the first point closes the polygon, **Finish** or Enter ends the line. Backspace takes back the last point, **Esc** discards the shape.
 
@@ -84,6 +85,14 @@ The name of a bed or object sits in its middle; on a polygon it sits where it ha
 A selected object has handles: the corners change the size, the rotation handle turns the object. The **rotation step** snaps the rotation every 15, 45 or 90 degrees; hold the Alt key to rotate freely. On a polygon you add a point with **Insert point** and remove one with **Delete point**.
 
 The dimensions of the selected object stand outside, above its top edge, and keep clear of the handles. When an object is too small on screen for handles, a hint offers **Zoom in to edit**: the plan zooms in around the object until all handles appear. <!-- REQ-053 GP-UX-047, GP-UX-048 -->
+
+### Measuring distances {#measuring-distances}
+
+With **Measure** you check how far apart two spots are, for example whether a path fits between two beds. Click the start point; as you move the mouse, a line with its length follows. The next click sets the point. Keep clicking to measure a polyline: the plan shows the length of every segment and the total at its end. The points snap like drawn points, to the grid and to corners and edges of other objects; hold Alt to place them freely.
+
+Press Enter or double-click to finish the measurement; it stays until you press **Esc**, start the next measurement with a new click or change the tool. Backspace takes back the last point. The lengths use the unit you chose in the **View** tab (metres or centimetres). Above the plan the measured distance is also shown as text, which a screen reader reads out too.
+
+Measuring changes nothing in the plan: there is no unsaved change and no step for **Undo**. <!-- REQ-053 GP-UX-071, #2913 -->
 
 ### With the mouse
 
@@ -98,7 +107,7 @@ The dimensions of the selected object stand outside, above its top edge, and kee
 - With **two fingers** you move and zoom the plan.
 - You select an object with a tap. To move it, hold your finger on the object for about half a second; a ring shows that it is now being moved. If you swipe earlier, you move the view instead.
 - You switch **multi-select** on as a button. Then you tap objects or drag a frame over free space.
-- When drawing, you move the plan with two fingers until the crosshair is on the point you want, and tap **Set point**. **Undo** takes back the point, **Finish** closes the shape, **Cancel** discards it. The plan ignores very wide touches (a palm) and a second finger that lands right after the first.
+- When drawing, you move the plan with two fingers until the crosshair is on the point you want, and tap **Set point**. **Undo** takes back the point, **Finish** closes the shape, **Cancel** discards it. With **Measure** you set the points the same way; **Finish** ends the measurement, **Clear** discards it. The plan ignores very wide touches (a palm) and a second finger that lands right after the first.
 
 ### With the keyboard
 

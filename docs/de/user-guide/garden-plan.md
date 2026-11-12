@@ -61,7 +61,7 @@ Deine Rolle gilt immer für den Garten (Mandanten), in dem du gerade arbeitest.
 
 ### Werkzeuge und Formen {#werkzeuge-und-formen}
 
-Die Werkzeug-Leiste links neben dem Plan bietet vier Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
+Die Werkzeug-Leiste links neben dem Plan bietet fünf Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
 
 | Werkzeug | Was es tut |
 |----------|-----------|
@@ -69,11 +69,12 @@ Die Werkzeug-Leiste links neben dem Plan bietet vier Werkzeuge. Jedes hat einen 
 | **Ansicht verschieben** | Zieht die Ansicht, ohne etwas zu ändern. |
 | **Beet zeichnen** ▸ | Zeichnet ein neues Beet. Das kleine Menü daneben bietet **Aus Vorlage** (ein Beet aus einer [Vorlage](#beetvorlagen) setzen) und **Mit Maßen hinzufügen**. |
 | **Objekt: Gartenobjekt zeichnen** ▸ | Zeichnet ein Gartenobjekt wie Weg, Zaun, Baum, Rankhilfe, Kompost oder im Wohnungsplan Fenster, Tür, Möbel und Lampe. Das Menü daneben bietet **Mit Maßen hinzufügen**. |
+| **Messen** | Misst einen Abstand auf dem Plan, Punkt für Punkt. Es wird nichts gespeichert, siehe [Abstände messen](#abstande-messen). |
 
 Unter den Werkzeugen erscheint die **Auswahlgruppe** nur, solange etwas gewählt ist: **Drehraster** (15°, 45°, 90°), **Ausrichten** und **Löschen**.
 
 !!! note "Teilweise verfügbar: Werkzeuge"
-    Vier weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Bereich**, **Pflanze setzen**, **Messen** und **Beschriftung**. Bis dahin legst du Bereiche über die Programmierschnittstelle oder eine Sicherung an und bepflanzt Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
+    Drei weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Bereich**, **Pflanze setzen** und **Beschriftung**. Bis dahin legst du Bereiche über die Programmierschnittstelle oder eine Sicherung an und bepflanzt Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 Als **Form** wählst du Rechteck, Kreis, Vieleck oder Linie. Das Rechteck ziehst du auf (mit der Umschalttaste wird es ein Quadrat), den Kreis ziehst du vom Mittelpunkt nach außen. Beim Vieleck und bei der Linie klickst du Punkt für Punkt; mit **Fertig**, der Eingabetaste oder einem Klick auf den ersten Punkt schließt du das Vieleck, die Linie beendest du mit **Fertig** oder der Eingabetaste. Die Rücktaste nimmt den letzten Punkt zurück, **Esc** verwirft die Form.
 
@@ -84,6 +85,14 @@ Der Name eines Beets oder Objekts steht in seiner Mitte, bei einem Vieleck an de
 Ein gewähltes Objekt hat Griffe: Die Ecken ändern die Größe, der Drehgriff dreht das Objekt. Das **Drehraster** rastet beim Drehen alle 15, 45 oder 90 Grad ein; mit gehaltener Alt-Taste drehst du frei. Bei einem Vieleck fügst du über **Punkt einfügen** einen Punkt hinzu und entfernst einen mit **Punkt löschen**.
 
 Die Maße des gewählten Objekts stehen außerhalb über seiner Oberkante und weichen den Griffen aus. Ist ein Objekt auf dem Bildschirm zu klein für Griffe, erscheint ein Hinweis mit **Zum Bearbeiten heranzoomen**: Der Plan zoomt um das Objekt herum so weit hinein, dass alle Griffe erscheinen. <!-- REQ-053 GP-UX-047, GP-UX-048 -->
+
+### Abstände messen {#abstande-messen}
+
+Mit **Messen** prüfst du, wie weit zwei Stellen auseinanderliegen, etwa ob zwischen zwei Beeten ein Weg passt. Klicke auf den Startpunkt; während du die Maus bewegst, folgt eine Linie mit ihrer Länge. Der nächste Klick setzt den Punkt. Klickst du weiter, misst du einen Linienzug: Der Plan zeigt die Länge jedes Abschnitts und am Ende die Summe. Die Punkte rasten wie beim Zeichnen am Raster und an Ecken und Kanten anderer Objekte ein; mit gehaltener Alt-Taste setzt du sie frei.
+
+Mit der Eingabetaste oder einem Doppelklick beendest du die Messung; sie bleibt stehen, bis du **Esc** drückst, mit einem neuen Klick die nächste Messung beginnst oder das Werkzeug wechselst. Die Rücktaste nimmt den letzten Punkt zurück. Die Längen stehen in der Einheit, die du im Tab **Ansicht** gewählt hast (Meter oder Zentimeter). Über dem Plan steht die gemessene Strecke zusätzlich als Text, den auch ein Bildschirmleser vorliest.
+
+Messen ändert nichts am Plan: Es entsteht keine ungespeicherte Änderung und kein Schritt für **Rückgängig**. <!-- REQ-053 GP-UX-071, #2913 -->
 
 ### Mit der Maus
 
@@ -98,7 +107,7 @@ Die Maße des gewählten Objekts stehen außerhalb über seiner Oberkante und we
 - Mit **zwei Fingern** verschiebst und zoomst du den Plan.
 - Ein Objekt wählst du mit einem Tipp. Zum Verschieben hältst du den Finger etwa eine halbe Sekunde auf dem Objekt; ein Ring zeigt, dass es nun bewegt wird. Wischst du früher, verschiebst du stattdessen die Ansicht.
 - **Mehrfachauswahl** schaltest du als Schaltfläche ein. Dann tippst du Objekte an oder ziehst über freier Fläche einen Rahmen.
-- Beim Zeichnen schiebst du den Plan mit zwei Fingern, bis das Fadenkreuz auf dem gewünschten Punkt liegt, und tippst auf **Punkt setzen**. **Rückgängig** nimmt den Punkt zurück, **Fertig** schließt die Form, **Abbrechen** verwirft sie. Sehr breite Berührungen (eine Handfläche) und ein zweiter Finger unmittelbar nach dem ersten ignoriert der Plan.
+- Beim Zeichnen schiebst du den Plan mit zwei Fingern, bis das Fadenkreuz auf dem gewünschten Punkt liegt, und tippst auf **Punkt setzen**. **Rückgängig** nimmt den Punkt zurück, **Fertig** schließt die Form, **Abbrechen** verwirft sie. Beim **Messen** setzt du die Punkte genauso; **Fertig** beendet die Messung, **Löschen** verwirft sie. Sehr breite Berührungen (eine Handfläche) und ein zweiter Finger unmittelbar nach dem ersten ignoriert der Plan.
 
 ### Mit der Tastatur
 

@@ -626,9 +626,9 @@ def test_tc_053_103_every_editor_function_reachable_at_1024(
             f"garden-plan-tool-{tool}-submenu",
             f"the sub-menu of {tool!r}",
         )
-        outside = [entry for entry in entries if not inside(entry)]
+        outside = [entry for entry in entries if not (inside(entry) and entry["in_menu"])]
         assert not outside, (
-            f"TC-053-103 (AC-2): entries of the {tool!r} sub-menu lie outside the viewport: {outside}"
+            f"TC-053-103 (AC-2): entries of the {tool!r} sub-menu cannot be reached in the viewport: {outside}"
         )
         overflow[f"menu {tool}"] = plan.horizontal_overflow_px()
 
@@ -643,8 +643,12 @@ def test_tc_053_103_every_editor_function_reachable_at_1024(
     screenshot("053_103_02_panel_1024", "1024 × 768: Panel angedockt, alle Tabs erreichbar")
 
     entries = plan.menu_entry_rects(plan.OVERFLOW, "garden-plan-overflow-menu", "the overflow menu")
-    outside = [entry for entry in entries if not inside(entry)]
-    assert not outside, f"TC-053-103 (AC-2): overflow entries lie outside the viewport: {outside}"
+    # AC-2 asks for "erreichbar": an entry reached by scrolling inside the menu counts, a cut-off one does not
+    # (the menu is bounded by the viewport and scrolls; at 768 px height its last entries are scrolled into it).
+    outside = [entry for entry in entries if not (inside(entry) and entry["in_menu"])]
+    assert not outside, (
+        f"TC-053-103 (AC-2): overflow entries cannot be reached in the viewport: {outside}"
+    )
     low = [entry for entry in entries if entry["height"] < 48 - 0.5]
     assert not low, f"TC-053-103 (AC-2): overflow entries lower than 48 px: {low}"
     overflow["overflow menu"] = plan.horizontal_overflow_px()

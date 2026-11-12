@@ -3314,7 +3314,10 @@ zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald 
 **Erwartete Ergebnisse**:
 - Jedes Werkzeug und jeder Untermenü-Eintrag liegt vollständig im Viewport
 - Jeder Panel-Tab lässt sich wählen; das Panel endet innerhalb des Viewports
-- Jeder Überlauf-Eintrag liegt im Viewport und ist mindestens 48 px hoch
+- Jeder Überlauf-Eintrag ist erreichbar: Er liegt im Viewport und im sichtbaren Teil des Menüs, gegebenenfalls nachdem
+  das Menü in sich gescrollt wurde (bei 768 px Höhe passen nicht alle Einträge untereinander; das Menü ist auf die
+  Viewport-Höhe begrenzt und scrollt). Ein abgeschnittener Eintrag ohne Scrollmöglichkeit gilt als nicht erreichbar.
+  Jeder Eintrag ist mindestens 48 px hoch. Dasselbe gilt für die Untermenü-Einträge der Werkzeuge
 - Die Seitenbreite übersteigt zu keinem Zeitpunkt die Viewport-Breite (kein horizontales Scrollen)
 - Screenshot-Checkpoints mit der Werkzeug-Leiste und mit dem angedockten Panel
 - Messen (Schritt 5): die Zeichenfläche zeigt je Abschnitt „3,00 m“ und „2,00 m“ und die Summe „Gesamt 5,00 m“; der
