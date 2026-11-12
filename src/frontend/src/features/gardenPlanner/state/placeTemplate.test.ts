@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api/errors';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import * as api from '../api/gardenPlan';
-import type { PlanBatchResponse } from '../model/types';
+import type { PlaceTemplateResponse, PlanBatchResponse } from '../model/types';
 import gardenPlanReducer, {
   applyAction,
   refreshGardenPlan,
@@ -27,12 +27,14 @@ const applyPlanBatch = vi.mocked(api.applyPlanBatch);
 const placeBedTemplate = vi.mocked(api.placeBedTemplate);
 
 const ARG = { templateKey: 'sys_bed_2x1', origin: [4, 1] as [number, number], rotationDeg: 90 };
-const placed: PlanBatchResponse = {
+const placed: PlaceTemplateResponse = {
   plan_revision: 8,
   key_map: { template_bed: 'loc_new' },
   updated: [],
   deleted: [],
   derived: {},
+  created_tasks: [],
+  recurring_tasks_failed: false,
 };
 
 function apiError(status: number, code: string, details: Record<string, unknown>[]): ApiError {
@@ -67,15 +69,31 @@ describe('placeTemplateAt (GP-FR-044)', () => {
     const revision = selectGardenPlanState(store.getState()).plan!.revision;
     placeBedTemplate.mockResolvedValue(placed);
     const outcome = await store.dispatch(placeTemplateAt(ARG));
-    expect(outcome.payload).toEqual({ ok: true, locationKey: 'loc_new' });
+    expect(outcome.payload).toEqual({ ok: true, locationKey: 'loc_new', createdTasks: 0, tasksFailed: false });
     expect(placeBedTemplate).toHaveBeenCalledWith('site_1', {
       template_key: 'sys_bed_2x1',
       origin: [4, 1],
       rotation_deg: 90,
       expected_revision: revision,
+      create_recurring_tasks: false,
     });
     expect(getGardenPlan).toHaveBeenCalledTimes(2); // load + refresh
     expect(selectGardenPlanState(store.getState()).loadStatus).toBe('ready');
+  });
+
+  it('GP-FR-087: sends the opt-in and reports the recurring tasks the server created', async () => {
+    const store = await loaded();
+    placeBedTemplate.mockResolvedValue({ ...placed, created_tasks: ['task_1', 'task_2'] });
+    const outcome = await store.dispatch(placeTemplateAt({ ...ARG, createRecurringTasks: true }));
+    expect(placeBedTemplate.mock.calls[0][1].create_recurring_tasks).toBe(true);
+    expect(outcome.payload).toEqual({ ok: true, locationKey: 'loc_new', createdTasks: 2, tasksFailed: false });
+  });
+
+  it('GP-FR-087: a bed whose task write failed is placed, and the failure is reported', async () => {
+    const store = await loaded();
+    placeBedTemplate.mockResolvedValue({ ...placed, recurring_tasks_failed: true });
+    const outcome = await store.dispatch(placeTemplateAt({ ...ARG, createRecurringTasks: true }));
+    expect(outcome.payload).toEqual({ ok: true, locationKey: 'loc_new', createdTasks: 0, tasksFailed: true });
   });
 
   it('saves unsaved edits first and places on the revision the save returned', async () => {
@@ -139,7 +157,7 @@ describe('edits made while the server changes the plan', () => {
   it('B2: an edit during a placement waits ("busy"), the new bed is in the model and no 409 follows', async () => {
     const store = await loaded();
     const first = Object.keys(selectGardenPlanState(store.getState()).plan!.locations)[0];
-    let release: (value: PlanBatchResponse) => void = () => undefined;
+    let release: (value: PlaceTemplateResponse) => void = () => undefined;
     placeBedTemplate.mockReturnValue(new Promise((resolve) => (release = resolve)));
     getGardenPlan.mockResolvedValue(
       planResponse({ locations: [bed('b1', 3, 3), bed('loc_new', 8, 8)] }),
@@ -154,7 +172,7 @@ describe('edits made while the server changes the plan', () => {
     expect(during.placing).toBe(true);
     expect(selectAutoSaveReady(store.getState())).toBe(false);
     release(placed);
-    expect((await running).payload).toEqual({ ok: true, locationKey: 'loc_new' });
+    expect((await running).payload).toEqual({ ok: true, locationKey: 'loc_new', createdTasks: 0, tasksFailed: false });
     const after = selectGardenPlanState(store.getState());
     expect(Object.keys(after.plan!.locations)).toContain('loc_new');
     expect(after.placing).toBe(false);

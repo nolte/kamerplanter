@@ -5,6 +5,7 @@ import type {
   BedTemplateInput,
   GardenPlanResponse,
   PlaceTemplateRequest,
+  PlaceTemplateResponse,
   PlanBatchRequest,
   PlanBatchResponse,
 } from '../model/types';
@@ -75,8 +76,8 @@ export async function createBedTemplate(input: BedTemplateInput): Promise<BedTem
 export async function placeBedTemplate(
   siteKey: string,
   request: PlaceTemplateRequest,
-): Promise<PlanBatchResponse> {
-  const { data } = await tenantClient.post<PlanBatchResponse>(
+): Promise<PlaceTemplateResponse> {
+  const { data } = await tenantClient.post<PlaceTemplateResponse>(
     `${SITES}/${siteKey}/plan/place-template`,
     request,
   );

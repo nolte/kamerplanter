@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.20
+Version: 1.21
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.21 | 2026-11-12 | §2.5.1: Opt-in „Wiederkehrende Aufgaben anlegen“ beim Platzieren einer Beetvorlage (REQ-053 GP-FR-087, Issue #2897) registriert: `garden-plan-template-recurring-tasks` und `-recurring-tasks-help`; nachregistriert die Vorlagen-Austausch-Kennungen `garden-plan-template-export` / `-import` / `-exchange-notice` (WP 9.9, GP-FR-173). |
 | 1.20 | 2026-11-12 | §2.5.1: Gartengrenze im Editor (REQ-053 UC-01, GP-FR-019/032, Issue #2890) registriert: der Überlauf-Eintrag `garden-plan-menu-boundary` („Gartengrenze zeichnen“ bzw. „… entsperren und bearbeiten“ / „… sperren“; Indoor „Grundriss …“), der Hinweis des Grenz-Modus `garden-plan-boundary-mode` mit `data-mode` (`draw`/`edit`) und seine Handlung `garden-plan-boundary-done` („Sperren“ bzw. „Zeichnen beenden“). Die Griffe der entsperrten Grenze tragen die bestehenden Kennungen `garden-plan-handles` / `garden-plan-handle-<id>`, die Formwahl `garden-plan-shape-rect`/`-polygon`. Keine Kennung umbenannt (R-021), Page Object im selben Pull Request (R-020). |
 | 1.19 | 2026-11-12 | §2.5.1: „Beet räumen“ der Beetansicht (REQ-053 GP-FR-055, GP-API-019, Issue #2891) registriert: die Handlung `bed-clear-button` im Tab „Pflanzung“ (nur solange Pflanzen stehen und das Beet bearbeitbar ist), der Dialog `bed-clear-dialog` mit dem Satz `bed-clear-affected` (qualifizierende Attribute `data-plant-count`, `data-run-count`), der Folgenliste `bed-clear-effects`, der Auswahl `bed-clear-termination` mit `bed-clear-termination-<art>` und `-<art>-input` (`<art>` ∈ `harvested`, `senesced`, `died`, `cancelled`), der Notiz `bed-clear-reason`, dem Hinweis `bed-clear-irreversible` und den Handlungen `bed-clear-submit` / `bed-clear-cancel`. Keine bestehende Kennung umbenannt (R-021); das Page Object `bed_view_page.py` erhält im selben Pull Request `ClearBedDialog`. Zusammen mit der Verwendung im selben Pull Request (R-020). |
 | 1.18 | 2026-11-11 | §2.5.1: Mit dem Drawer bei md (REQ-053 v1.18, GP-UX-069, Issue #2885) entfällt die Kennung `garden-plan-side-panel-drawer` und der `data-variant`-Wert `drawer`; das Panel trägt ab md `garden-plan-side-panel-dock` und `docked`. Keine Kennung umbenannt (R-021): die entfallene Hülle hat keinen Nachfolger, Page Object und TC-053-102 sind im selben Pull Request nachgezogen (R-020). |
@@ -203,6 +204,8 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 |---|---|
 | `garden-plan-tool-template` | „Aus Vorlage“ (Beet aus Vorlage); ab WP 10.4 Eintrag im Untermenü „Beet“ der Werkzeug-Leiste (`menuitemcheckbox`) |
 | `garden-plan-template-panel` / `-select` / `-rotate` / `-place-center` / `-close` / `-hint` / `-failed` | Leiste unter der Werkzeugleiste: Vorlagenwahl, Drehen um 90°, in die Bildmitte setzen, beenden, Hinweis, Ladefehler |
+| `garden-plan-template-recurring-tasks` / `-recurring-tasks-help` | Opt-in „Wiederkehrende Aufgaben anlegen“ (Checkbox, Standard aus) und Hilfetext mit den Aufgaben, die angelegt würden; nur bei einer Vorlage mit `recurring_task_templates` (REQ-053 GP-FR-087, #2897) |
+| `garden-plan-template-export` / `-import` / `-exchange-notice` | Vorlage als JSON-Datei herunterladen, Vorlagen-Datei importieren (ab Gärtner), Rückmeldung dazu (REQ-053 GP-FR-173, WP 9.9) |
 | `garden-plan-template-ghost` | Umriss der Vorlage unter dem Zeiger (SVG-Overlay) |
 | `garden-plan-save-template-button` | „Als Vorlage speichern" aus dem gewählten Beet; ab WP 10.4 Eintrag im Überlauf „⋮“, nur bei genau einem gewählten Beet |
 | `garden-plan-template-save-dialog` / `-name` / `-submit` / `-cancel` / `-error` | Dialog „Als Vorlage speichern" |

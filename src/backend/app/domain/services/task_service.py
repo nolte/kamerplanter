@@ -1030,8 +1030,6 @@ class TaskService:
 
         now = datetime.now(UTC)
         for tt in templates:
-            checklist = [ChecklistItem(text=item.text, done=False, order=item.order) for item in tt.default_checklist]
-
             status = "pending"
             # recurrence-owner-ok: a workflow-template offset — it says when the FIRST task
             # of this run falls due relative to instantiation, not when the next one does.
@@ -1048,30 +1046,15 @@ class TaskService:
                 status = "dormant"
                 due_date = None
 
-            task = Task(
-                name=tt.name,
-                name_de=tt.name_de,
-                instruction=tt.instruction,
-                instruction_de=tt.instruction_de,
-                category=tt.category,
+            task = self._task_from_template(
+                tt,
+                tenant_key=tenant_key,
                 entity_key=entity_key,
                 entity_type=entity_type,
                 due_date=due_date,
                 status=status,
-                priority="medium",
-                skill_level=tt.skill_level,
-                stress_level=tt.stress_level,
-                estimated_duration_minutes=tt.estimated_duration_minutes,
-                requires_photo=tt.requires_photo,
-                timer_duration_seconds=tt.timer_duration_seconds,
-                timer_label=tt.timer_label,
-                checklist=checklist,
-                trigger_phase=tt.trigger_phase,
-                template_key=tt.key,
-                workflow_execution_key=execution.key,
-                activity_key=tt.activity_key,
-                tenant_key=tenant_key,
             )
+            task.workflow_execution_key = execution.key
             created_task = self._repo.create_task(task)
 
             if tt.activity_key and created_task.key:
@@ -1081,6 +1064,99 @@ class TaskService:
                 )
 
         return execution
+
+    @staticmethod
+    def _task_from_template(
+        tt: TaskTemplate,
+        *,
+        tenant_key: str,
+        entity_key: str,
+        entity_type: str,
+        due_date: datetime | None,
+        status: str,
+    ) -> Task:
+        """The one way a task template becomes an unsaved task: a workflow run and a bed template both use it."""
+        return Task(
+            name=tt.name,
+            name_de=tt.name_de,
+            instruction=tt.instruction,
+            instruction_de=tt.instruction_de,
+            category=tt.category,
+            entity_key=entity_key,
+            entity_type=entity_type,
+            due_date=due_date,
+            status=status,
+            priority="medium",
+            skill_level=tt.skill_level,
+            stress_level=tt.stress_level,
+            estimated_duration_minutes=tt.estimated_duration_minutes,
+            requires_photo=tt.requires_photo,
+            timer_duration_seconds=tt.timer_duration_seconds,
+            timer_label=tt.timer_label,
+            checklist=[ChecklistItem(text=item.text, done=False, order=item.order) for item in tt.default_checklist],
+            trigger_phase=tt.trigger_phase,
+            template_key=tt.key,
+            activity_key=tt.activity_key,
+            tenant_key=tenant_key,
+        )
+
+    def create_recurring_tasks_for_bed(
+        self,
+        task_template_keys: Sequence[str],
+        *,
+        bed_key: str,
+        tenant_key: str,
+        actor_user_key: str = "",
+    ) -> list[Task]:
+        """The recurring tasks a bed template brings, created on a newly placed bed (REQ-053 GP-FR-087, #2897).
+
+        Each key names a task template the tenant can read - its own or a global one (the hybrid-catalogue
+        union, #324); another tenant's key answers 404 like an absent one and nothing is written. Every template
+        becomes one pending task on the bed (``entity_type = location``) through the builder a workflow run uses,
+        with a **yearly** RRULE (ADR-008 boundary 1) pinned to the calendar day of its first due date: the day of
+        placement plus the template's ``days_offset``. Bed templates name a task template, and a task template
+        carries no cadence of its own, so "every year on that day" is the cadence (the GP-FR-087 example: refill
+        the raised bed every March). The tasks and their edges are written in **one** transaction - all or none.
+        The tasks are the user's (``origin = user``): the user asked for them when placing the bed.
+
+        Whether ``bed_key`` is a bed of the tenant is the caller's check: it is the bed the caller just created.
+        """
+        self._require_tenant_key(tenant_key, "create_recurring_tasks_for_bed")
+        keys: list[str] = []
+        for key in task_template_keys:  # a repeated key creates one task
+            if key not in keys:
+                keys += [key]
+        if not keys:
+            return []
+        templates: list[TaskTemplate] = []
+        for key in keys:
+            template: TaskTemplate = self._repo.get_task_template_or_raise(key)
+            verify_tenant_read_access(template, tenant_key, "TaskTemplate")
+            templates += [template]
+        now = datetime.now(UTC)
+        tasks: list[Task] = []
+        for template in templates:
+            # recurrence-owner-ok: a template offset - it says when the FIRST task falls due after the bed is
+            # placed, like a workflow run's ``days_offset``; the cadence is the RRULE below, advanced by
+            # RecurrenceEngine after each completion.
+            first_due: datetime = now + timedelta(days=template.days_offset)
+            task = self._task_from_template(
+                template,
+                tenant_key=tenant_key,
+                entity_key=bed_key,
+                entity_type="location",
+                due_date=first_due,
+                status="pending",
+            )
+            task.recurrence_rule = self._recurrence.require_rrule(self._recurrence.yearly_rule_on(first_due.date()))
+            tasks += [task]
+        created: list[Task] = self._repo.create_tasks_atomic(tasks, tenant_key=tenant_key)
+        for task in created:
+            if task.activity_key and task.key:
+                self._repo.create_task_activity_edge(task.key, task.activity_key)
+            self._propagate_created(task, actor_user_key)
+        logger.info("task.recurring_from_bed_template", tenant=log_tenant(tenant_key), count=len(created))
+        return created
 
     # ── Notification propagation (REQ-030 §4.2, #742) ──
 

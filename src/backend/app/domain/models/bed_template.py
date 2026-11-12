@@ -22,10 +22,11 @@ soil *axes* (medium, texture, drainage, water regime, conditions) and neither a 
 nor a measurement (a state of one bed) nor a free-text note (which could name a person). ``created_by`` is the
 account that created a tenant template; it is erased with the account (GP-NFR-055) and never shown in a response.
 
-``recurring_task_templates`` is a list of ``task_templates`` keys, **stored only**: placing a template copies
-nothing from it (operator decision of 2026-10-19, #2466 item 9). The service resolves every key under the tenant
-(GP-NFR-058) so a foreign key cannot be parked here; a system template, which every tenant reads, admits global
-task templates only (#2529).
+``recurring_task_templates`` is a list of ``task_templates`` keys. Placing a template creates them as recurring
+tasks on the new bed **only when the user opts in** at placing time (GP-FR-087, operator decision of 2026-11-11,
+#2897; ``GardenPlanService.place_template``); without the opt-in nothing of it is copied. The service resolves every
+key under the tenant (GP-NFR-058) so a foreign key cannot be parked here; a system template, which every tenant
+reads, admits global task templates only (#2529).
 """
 
 from __future__ import annotations
@@ -131,7 +132,7 @@ class BedTemplate(BaseModel):
     height_m: float | None = Field(default=None, ge=MIN_TEMPLATE_HEIGHT_M, le=MAX_TEMPLATE_HEIGHT_M)
     default_layout: DefaultLayout = Field(default_factory=DefaultLayout)
     soil_profile_defaults: SoilProfileDefaults | None = None
-    #: ``task_templates`` keys, stored only (see the module docstring).
+    #: ``task_templates`` keys; created as recurring tasks only on the opt-in of ``place-template`` (module docstring).
     recurring_task_templates: list[TaskTemplateKey] = Field(
         default_factory=list, max_length=MAX_RECURRING_TASK_TEMPLATES
     )

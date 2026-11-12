@@ -6090,6 +6090,17 @@
         },
         "templates": {
           "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",
+          "placedWithTasks_one": "The bed was created from the template, with {{count}} recurring task. To take it back, delete the bed and the task.",
+          "placedWithTasks_other": "The bed was created from the template, with {{count}} recurring tasks. To take it back, delete the bed and the tasks.",
+          "placedTasksFailed": "The bed was created, but its recurring tasks were not. Add them in the bed's care tab.",
+          "recurringTasks": {
+            "label": "Create recurring tasks",
+            "loading": "Loading the template's tasks …",
+            "helper_one": "Creates {{count}} yearly recurring task on the new bed: {{names}}. It is first due on the day you place the bed, or as many days later as the task template says.",
+            "helper_other": "Creates {{count}} yearly recurring tasks on the new bed: {{names}}. Each is first due on the day you place the bed, or as many days later as its task template says.",
+            "unreadable_one": "{{count}} task template can no longer be read; with this box ticked the template cannot be placed.",
+            "unreadable_other": "{{count}} task templates can no longer be read; with this box ticked the template cannot be placed."
+          },
           "tool": {
             "label": "Place bed from template",
             "hint": "Put a bed from a template on the plan with one click",

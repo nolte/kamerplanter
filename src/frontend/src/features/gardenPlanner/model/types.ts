@@ -559,4 +559,13 @@ export interface PlaceTemplateRequest {
   origin: Point;
   rotation_deg: number;
   expected_revision: number;
+  /** GP-FR-087: create the template's recurring tasks on the new bed (opt-in; the server default is `false`). */
+  create_recurring_tasks?: boolean;
+}
+
+/** The answer of `place-template`: the batch response plus the recurring tasks created on the new bed. */
+export interface PlaceTemplateResponse extends PlanBatchResponse {
+  created_tasks: string[];
+  /** The bed is placed, but writing its recurring tasks failed; none of them exists. */
+  recurring_tasks_failed: boolean;
 }
