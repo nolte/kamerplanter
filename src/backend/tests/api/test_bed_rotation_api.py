@@ -212,6 +212,66 @@ class TestValidatePlanting:
         assert foreign.json()["details"] == unknown.json()["details"]
 
 
+class TestReplantOfAFailedPlant:
+    """REQ-053 §11.3 "ausgefallen" (W-015, #2888): ``replant_of_plant_key`` on the wire - a hint, never an error."""
+
+    _URL = f"{_BASE}/locations/bed/validate-planting"
+
+    def _died(self, world, cause: str | None, *, tenant: str = TENANT) -> str:
+        return world.history.add_plant(
+            "bed",
+            "cabbage",
+            date(2026, 4, 1),
+            removed_on=date(2026, 5, 1),
+            termination_type="died",
+            termination_cause=cause,
+            tenant=tenant,
+        )
+
+    def test_the_replaced_plant_is_no_previous_crop_and_a_disease_leaves_a_warning(self, client, world) -> None:
+        replaced = self._died(world, "disease")
+
+        before = client().post(self._URL, json={"species_key": "cabbage"}).json()
+        after = client().post(self._URL, json={"species_key": "cabbage", "replant_of_plant_key": replaced})
+
+        assert [f["code"] for f in before["rotation"]] == ["rotation.pause_not_elapsed"]
+        assert before["severity"] == "CRITICAL"
+        assert after.status_code == 200
+        body = after.json()
+        assert body["severity"] == "WARNING"
+        finding = body["rotation"][0]
+        assert (finding["code"], finding["severity"], finding["termination_cause"], finding["family_name"]) == (
+            "rotation.replant_after_biotic_failure",
+            "WARNING",
+            "disease",
+            "Brassicaaceae",
+        )
+        assert "rotation.pause_not_elapsed" not in [f["code"] for f in body["rotation"]]
+
+    def test_an_unrecorded_cause_is_an_info(self, client, world) -> None:
+        replaced = self._died(world, None)
+
+        body = client().post(self._URL, json={"species_key": "cabbage", "replant_of_plant_key": replaced}).json()
+
+        assert body["severity"] == "INFO"
+        assert "rotation.replant_cause_unknown" in [f["code"] for f in body["rotation"]]
+
+    def test_another_tenants_plant_and_an_unknown_key_answer_alike_and_change_nothing(self, client, world) -> None:
+        self._died(world, "frost")
+        foreign = self._died(world, "disease", tenant=OTHER_TENANT)
+
+        named_foreign = client().post(self._URL, json={"species_key": "cabbage", "replant_of_plant_key": foreign})
+        named_unknown = client().post(self._URL, json={"species_key": "cabbage", "replant_of_plant_key": "nope"})
+
+        assert named_foreign.status_code == named_unknown.status_code == 200
+        assert named_foreign.json() == named_unknown.json()
+        assert [f["code"] for f in named_foreign.json()["rotation"]] == ["rotation.pause_not_elapsed"]
+
+    def test_an_empty_key_is_a_422(self, client) -> None:
+        response = client().post(self._URL, json={"species_key": "cabbage", "replant_of_plant_key": ""})
+        assert response.status_code == 422
+
+
 class TestPerBedSwitchGpAcc055:
     """GP-ACC-055 / GP-FR-137: the rotation check is off for planter/tent/shelf until one bed is switched on."""
 

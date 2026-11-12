@@ -101,6 +101,15 @@ function findingText(
       });
     case 'rotation.pest_risk':
       return t(named ? 'pages.bed.planting.hints.pestRisk' : 'pages.bed.planting.hints.pestRiskUnnamed', { family });
+    case 'rotation.replant_after_biotic_failure':
+      // Disease or pest: the cause may sit in the soil (#2888). An unexpected cause reads as the disease sentence.
+      return t(
+        finding.termination_cause === 'pest'
+          ? 'pages.bed.planting.hints.replantAfterPest'
+          : 'pages.bed.planting.hints.replantAfterDisease',
+      );
+    case 'rotation.replant_cause_unknown':
+      return t('pages.bed.planting.hints.replantCauseUnknown');
     case 'rotation.no_family':
       return t('pages.bed.planting.hints.noFamily');
     case 'rotation.no_history':

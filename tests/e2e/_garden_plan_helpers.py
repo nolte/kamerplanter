@@ -1549,15 +1549,26 @@ def stored_slot(base_url: str, seed: dict, bed_key: str, slot_key: str) -> dict:
     raise AssertionError(f"slot {slot_key!r} is not a live slot of bed {bed_key!r}")
 
 
-def remove_plant(base_url: str, seed: dict, plant_key: str, termination_type: str) -> dict:
-    """``POST /plant-instances/{key}/remove`` with *termination_type* (``died``, ``senesced``, ...), REQ-003 E5."""
-    removed = _tenant_post(
-        base_url,
-        seed,
-        f"/plant-instances/{plant_key}/remove",
-        {"termination_type": termination_type},
-    )
-    if removed.get("termination_type") != termination_type or not removed.get("removed_on"):
+def remove_plant(
+    base_url: str,
+    seed: dict,
+    plant_key: str,
+    termination_type: str,
+    termination_cause: str | None = None,
+) -> dict:
+    """``POST /plant-instances/{key}/remove`` with *termination_type* (``died``, ``senesced``, ...), REQ-003 E5.
+
+    *termination_cause* (``disease``, ``pest``, ``frost``, ...) is only valid with ``died``.
+    """
+    body: dict[str, str] = {"termination_type": termination_type}
+    if termination_cause is not None:
+        body["termination_cause"] = termination_cause
+    removed = _tenant_post(base_url, seed, f"/plant-instances/{plant_key}/remove", body)
+    if (
+        removed.get("termination_type") != termination_type
+        or not removed.get("removed_on")
+        or (termination_cause is not None and removed.get("termination_cause") != termination_cause)
+    ):
         raise AssertionError(
             f"Self-provisioning failed: plant {plant_key!r} is not recorded as {termination_type}: {removed!r}"
         )

@@ -58,6 +58,8 @@ export interface RotationFinding {
   pause_years?: number | null;
   pause_source?: 'species' | 'family' | 'default' | null;
   plan_role?: string | null;
+  /** The cause of the loss a replant follows; only on `rotation.replant_*` findings (#2888). */
+  termination_cause?: string | null;
 }
 
 export interface NeighbourHint {
@@ -112,6 +114,11 @@ export interface PlantingItem {
 export interface FailedPlanting {
   slotKey: string;
   slotId: string;
+  /**
+   * The died plant the replant replaces: the planting check sends it as `replant_of_plant_key`, so that plant is no
+   * previous crop of the replant (#2888). `null` when the listing carries no plant key.
+   */
+  plantKey: string | null;
   speciesKey: string;
   cultivarKey: string | null;
   removedOn: string | null;

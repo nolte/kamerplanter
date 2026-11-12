@@ -15,8 +15,15 @@ export type HintState =
   | { status: 'ready'; data: ValidatePlantingResponse }
   | { status: 'error'; message: string };
 
-/** One request per distinct species; the history of a bed does not change while the dialog is open. */
-export function useBedHints(bedKey: string, speciesKeys: readonly (string | null)[]): Record<string, HintState> {
+/**
+ * One request per distinct species; the history of a bed does not change while the dialog is open. A replant names
+ * the died plant it replaces (`replantOfPlantKey`, #2888) in every request: that plant is no previous crop of it.
+ */
+export function useBedHints(
+  bedKey: string,
+  speciesKeys: readonly (string | null)[],
+  replantOfPlantKey: string | null = null,
+): Record<string, HintState> {
   const [states, setStates] = useState<Record<string, HintState>>({});
   const asked = useRef(new Set<string>());
   const wanted = useMemo(
@@ -29,7 +36,7 @@ export function useBedHints(bedKey: string, speciesKeys: readonly (string | null
       if (asked.current.has(key)) continue;
       asked.current.add(key);
       setStates((current) => ({ ...current, [key]: { status: 'loading' } }));
-      validatePlanting(bedKey, key)
+      validatePlanting(bedKey, key, replantOfPlantKey)
         .then((data) => setStates((current) => ({ ...current, [key]: { status: 'ready', data } })))
         .catch((error: unknown) =>
           setStates((current) => ({
@@ -38,7 +45,7 @@ export function useBedHints(bedKey: string, speciesKeys: readonly (string | null
           })),
         );
     }
-  }, [bedKey, wanted]);
+  }, [bedKey, wanted, replantOfPlantKey]);
 
   return states;
 }

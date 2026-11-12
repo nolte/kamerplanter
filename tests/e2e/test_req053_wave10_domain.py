@@ -8,7 +8,8 @@ Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, section 15):
   TC-053-110  ->  a sown row whose run has no spacing: the dialog asks for it (no default, E-10), refuses an      (§11.3
                   empty submit, takes the grower's count of seedlings left standing                              W-015, E-10)
   TC-053-111  ->  a died plant's slot is "Ausgefallen" with "Nachpflanzen" (a senesced one is not); the planting  (§11.3
-                  dialog opens with that crop and its Steckbrief spacing, the replant is planned                 W-015)
+                  dialog opens with that crop and its Steckbrief spacing; the died plant is no previous crop of  W-015,
+                  the replant, its disease leaves a residual warning; the replant is planned                     #2888)
   TC-053-112  ->  "Aufgaben" on a compost heap: the object's own category list, no "for every plant", the new    (R-7.2
                   task listed and stored on the object; a trellis gets no task section                           W-008)
   TC-053-113  ->  trellis hint in the planting dialog: a species with support_required names the trellis in    (§9.5
@@ -336,28 +337,40 @@ def test_tc_053_111_failed_slot_offers_a_replant_with_the_same_crop(
 ) -> None:
     """TC-053-111 - a died plant leaves its slot "Ausgefallen"; "Nachpflanzen" opens the dialog with that crop.
 
-    Precondition (API): two lettuce plants on two positions of Beet 1; one removed as died, the other as senesced (the
-    natural end of an annual). Breaks if the died one is not listed under "Ausgefallen", the senesced one is, the
-    dialog opens without the crop or without its Steckbrief spacing, or the replant is not planned as that crop
-    (§11.3 "ausgefallen", W-015).
+    Precondition (API): a lettuce and a carrot on two positions of Beet 1; the lettuce removed as died from a disease,
+    the carrot as senesced (the natural end of an annual, another family - so no second lettuce of this year stands in
+    the history). Breaks if the died one is not listed under "Ausgefallen", the senesced one is, the dialog opens
+    without the crop or without its Steckbrief spacing, the replant meets the same-year rotation hint against the
+    lettuce it replaces, the residual disease warning is missing, or the replant is not planned as that crop
+    (§11.3 "ausgefallen", W-015, #2888).
     """
     lettuce = species(base_url, e2e_seed_data, LETTUCE)
+    carrot = species(base_url, e2e_seed_data, CARROT)
     spacing = _steckbrief_spacing(lettuce)
     garden = provision_garden(
         base_url, e2e_seed_data, purpose="tc111", beds=(BedSpec("Beet 1", BED),)
     )
     bed = garden.bed_key("Beet 1")
-    planted = plant_on_positions(
+    lettuce_planted = plant_on_positions(
         base_url,
         e2e_seed_data,
         bed_key=bed,
         species_key=lettuce["key"],
         id_prefix="SAL",
-        points=((0.5, 0.6), (2.5, 0.6)),
+        points=((0.5, 0.6),),
     )
-    died_slot, senesced_slot = planted.point_slots
-    remove_plant(base_url, e2e_seed_data, planted.plant_on(died_slot), "died")
-    remove_plant(base_url, e2e_seed_data, planted.plant_on(senesced_slot), "senesced")
+    carrot_planted = plant_on_positions(
+        base_url,
+        e2e_seed_data,
+        bed_key=bed,
+        species_key=carrot["key"],
+        id_prefix="MOE",
+        points=((2.5, 0.6),),
+    )
+    (died_slot,) = lettuce_planted.point_slots
+    (senesced_slot,) = carrot_planted.point_slots
+    remove_plant(base_url, e2e_seed_data, lettuce_planted.plant_on(died_slot), "died", "disease")
+    remove_plant(base_url, e2e_seed_data, carrot_planted.plant_on(senesced_slot), "senesced")
 
     bed_view.open(bed, "planting")
     bed_view.wait_for_slot_lists(
@@ -378,13 +391,16 @@ def test_tc_053_111_failed_slot_offers_a_replant_with_the_same_crop(
         f"TC-053-111: the spacing is the Steckbrief's {spacing} cm: {dialog.field_value('spacing')!r}"
     )
     screenshot("053_111_02_replant_dialog", f"Bepflanzen vorbelegt: {chosen}")
-    # The failed lettuce stood in the bed this year, so the crop-rotation check flags its own family (rule as built;
-    # no exception for a replant). Observed and pinned here, raised as a question for the WP 10.15 acceptance.
+    # The replant names the lettuce it replaces (#2888): that lettuce is no previous crop, so no same-year rotation
+    # hint against it. Its disease leaves a residual warning - the cause may sit in the soil.
     severity, rotation = dialog.wait_for_hint(
         lettuce["key"], "TC-053-111: the replant's rotation hint"
     )
-    assert severity in ("warning", "error") and "in diesem Jahr schon in diesem Beet" in rotation, (
-        f"TC-053-111: the replant meets the same-year rotation hint: {severity!r}, {rotation!r}"
+    assert "in diesem Jahr schon in diesem Beet" not in rotation, (
+        f"TC-053-111: the replant meets no rotation hint against the plant it replaces: {rotation!r}"
+    )
+    assert severity == "warning" and "an einer Krankheit eingegangen" in rotation, (
+        f"TC-053-111: the disease of the replaced plant leaves a residual warning: {severity!r}, {rotation!r}"
     )
     dialog.choose_layout("rows")
     dialog.set_count(2)

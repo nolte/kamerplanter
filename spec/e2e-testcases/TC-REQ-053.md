@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.19"
+version: "1.20"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,10 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.20 (2026-11-12, #2888)** — TC-053-111: Beim Nachpflanzen erscheint kein Gleichjahr-Hinweis gegen die
+ausgefallene Pflanze; nach Ausfall durch Krankheit bleibt eine Warnung mit „Trotzdem pflanzen“ und Begründung.
+`test_count` unverändert.
 
 **Version 1.19 (2026-11-12, #2889)** — TC-053-114: Erwartung nennt den deutschen Phasennamen aus dem Katalog
 (z. B. „(Vegetative Phase)“ / „(Blüte)“), nie den englischen. `test_count` unverändert.
@@ -3574,27 +3578,32 @@ Beobachtungen des Nutzers (Anzahl stehen gebliebener Pflanzen, Menge Kompost).
 **Priority**: Medium
 **Category**: Happy Path
 **Preconditions**:
-- „Beet 1“ mit zwei Salatpflanzen auf zwei Pflanzplätzen; die eine ist eingegangen (`died`), die andere hat ihre
-  Saison natürlich beendet (`senesced`)
+- „Beet 1“ mit einer Salatpflanze und einer Möhre auf zwei Pflanzplätzen, beide in diesem Jahr gepflanzt; der Salat ist
+  an einer Krankheit eingegangen (`died`, Ursache `disease`), die Möhre hat ihre Saison natürlich beendet (`senesced`)
 
 **Testschritte**:
 1. Nutzer öffnet den Tab „Bepflanzung“
 2. Nutzer wählt beim ausgefallenen Platz „Nachpflanzen“
-3. Nutzer wählt Reihen, 2 Pflanzen, bestätigt den Fruchtfolge-Hinweis mit „Trotzdem pflanzen“ und einer Begründung und
+3. Nutzer wählt Reihen, 2 Pflanzen, bestätigt den Resthinweis mit „Trotzdem pflanzen“ und einer Begründung und
    bepflanzt
 
 **Erwartete Ergebnisse**:
 - Unter „Ausgefallen (1)“ steht genau der Platz der eingegangenen Pflanze mit „ausgefallen am …“ und „Nachpflanzen“;
   der Platz der natürlich beendeten Pflanze steht dort nicht
 - Der Bepflanzen-Dialog öffnet mit dem Salat als Art und dem Steckbrief-Abstand des Salats als Pflanzabstand
-- Der Dialog zeigt den Fruchtfolge-Hinweis „… steht in diesem Jahr schon in diesem Beet …“ (der ausgefallene Salat
-  zählt mit — siehe Hinweis unten)
+- Der Dialog zeigt **keinen** Fruchtfolge-Hinweis „… steht in diesem Jahr schon in diesem Beet …“: der ersetzte
+  Salat zählt für die Nachpflanzung nicht als Vorkultur (#2888)
+- Stattdessen zeigt er als Warnung den Resthinweis, dass die Pflanze hier in diesem Jahr an einer Krankheit eingegangen
+  ist und die neue Pflanze auf dieselbe Weise ausfallen kann, wenn die Ursache im Boden sitzt
 - Nach dem Bepflanzen sind 2 Salat-Positionen geplant
 
 **Hinweis**: „Ausgefallen“ ist seit Spec v1.17 (§11.3) nur `termination_type = died`; `senesced` ist das natürliche
 Ende einer Kultur und gilt als abgeschlossen (Zustand „historisch“). Das Nachpflanz-Angebot (`thinningLogic.ts`,
-`REPLANT_TERMINATIONS`) und der Zustandsrechner (GP-FR-192, Vektor `plant-state-008`, #2906) folgen dem. Dass die Nachpflanzung derselben Kultur in derselben Saison den
-Fruchtfolge-Hinweis gegen die eigene ausgefallene Pflanze auslöst, ist beobachtet und als Frage an die Abnahme gemeldet.
+`REPLANT_TERMINATIONS`) und der Zustandsrechner (GP-FR-192, Vektor `plant-state-008`, #2906) folgen dem. Die
+Nachpflanzung nennt die ersetzte Pflanze (`replant_of_plant_key`); sie zählt im Jahr ihres Ausfalls nicht als Vorkultur.
+Bei Ursache `disease`/`pest` bleibt eine Warnung, ohne Ursache ein Hinweis (`INFO`), bei abiotischer Ursache nichts
+(§11.3 „ausgefallen“, #2888). Die Möhre steht als andere Familie im Beet, damit die Vorbedingung keinen zweiten
+Salat-Anbau dieses Jahres enthält, der den Fruchtfolge-Hinweis zu Recht auslösen würde.
 
 **Nachbedingungen**:
 - Ein neuer geplanter Salat-Anbau mit 2 Positionen

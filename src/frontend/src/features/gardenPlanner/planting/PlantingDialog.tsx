@@ -103,6 +103,11 @@ interface PlantingDialogProps {
   initialSpeciesKey?: string | null;
   initialCultivarKey?: string | null;
   /**
+   * The died plant a replant replaces (#2888): the crop-rotation check does not count it as a previous crop and
+   * shows a residual hint from its cause instead when the same family goes back in.
+   */
+  replantOfPlantKey?: string | null;
+  /**
    * Minimum edge in px of the dialog's own controls (add entry, switches, date, actions); field mode passes
    * the kiosk target (64 px, GP-UX-020). The entry cards keep their own sizes.
    */
@@ -174,6 +179,7 @@ export default function PlantingDialog({
   initialAlreadyPlanted = false,
   initialSpeciesKey = null,
   initialCultivarKey = null,
+  replantOfPlantKey = null,
   touchTarget = 48,
 }: PlantingDialogProps) {
   const { t, i18n } = useTranslation();
@@ -301,7 +307,7 @@ export default function PlantingDialog({
   }, [effective, computed]);
 
   const speciesKeys = useMemo(() => effective.map((form) => form.speciesKey), [effective]);
-  const hintStates = useBedHints(bedKey, speciesKeys);
+  const hintStates = useBedHints(bedKey, speciesKeys, replantOfPlantKey);
   const mix = useMixedCompatibility(speciesKeys);
   const severity = useMemo<RotationSeverity>(() => {
     const all: RotationSeverity[] = [];

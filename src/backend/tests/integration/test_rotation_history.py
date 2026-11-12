@@ -70,8 +70,11 @@ def repo(db):
     return ArangoRotationHistoryRepository(db)
 
 
-def _plant(db, key, *, slot=None, location=None, species="sp", planted="2025-04-01", removed=None, tenant=TENANT):
+def _plant(
+    db, key, *, slot=None, location=None, species="sp", planted="2025-04-01", removed=None, tenant=TENANT, **extra
+):
     doc = {
+        **extra,
         "_key": key,
         "tenant_key": tenant,
         "species_key": species,
@@ -168,6 +171,17 @@ class TestPlantings:
         (row,) = repo.list_plantings("bed", since=date(2020, 1, 1), tenant_key=TENANT)
 
         assert row.plan_role == "main_crop"
+
+    def test_a_row_says_how_a_removed_plant_ended(self, db, repo) -> None:
+        """The replant of a failed slot reads the termination of the plant it replaces (REQ-053 §11.3, #2888)."""
+        db.collection(col.SLOTS).insert({"_key": "s1", "location_key": "bed"})
+        _plant(db, "lost", slot="s1", removed="2025-06-01", termination_type="died", termination_cause="disease")
+        _plant(db, "standing", slot="s1")
+
+        rows = {r.plant_key: r for r in repo.list_plantings("bed", since=date(2020, 1, 1), tenant_key=TENANT)}
+
+        assert (rows["lost"].termination_type, rows["lost"].termination_cause) == ("died", "disease")
+        assert (rows["standing"].termination_type, rows["standing"].termination_cause) == (None, None)
 
     def test_an_empty_tenant_is_refused(self, repo) -> None:
         with pytest.raises(ValueError, match="tenant_key"):
