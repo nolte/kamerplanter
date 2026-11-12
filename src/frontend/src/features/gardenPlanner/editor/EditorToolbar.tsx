@@ -27,6 +27,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
+import AddLocationAltOutlinedIcon from '@mui/icons-material/AddLocationAltOutlined';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import CropSquareIcon from '@mui/icons-material/CropSquare';
@@ -100,6 +101,12 @@ interface EditorToolbarProps {
    * controls here; no top-level tool is pressed meanwhile - the mode is no tool of the rail (GP-UX-001).
    */
   boundaryMode?: 'draw' | 'edit' | null;
+  /**
+   * The measure tool's path without a pointer (GP-UX-071, WCAG 2.1.1): "Set point" puts a point at the crosshair in
+   * the middle of the plan, "Finish" ends the measurement. `onAim` tells the editor to show the crosshair (the button
+   * got the focus or was used). Absent = not offered; shown only while the measure tool is on.
+   */
+  measure?: { finishable: boolean; onPlace: () => void; onFinish: () => void; onAim: () => void };
 }
 
 const SHAPES: { shape: DrawShape; icon: ReactElement }[] = [
@@ -113,7 +120,8 @@ const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 
 export function EditorToolbar(props: EditorToolbarProps) {
   const { t } = useTranslation();
-  const { orientation, onTemplate, templateActive, onAddWithDimensions } = props;
+  const { orientation, onTemplate, templateActive, onAddWithDimensions, measure } = props;
+  const measuring = TOOL_DEFS[props.tool].kind === 'measure';
   const vertical = orientation === 'vertical';
   const barRef = useRef<HTMLDivElement | null>(null);
   const roving = useRovingToolbar(barRef, orientation);
@@ -321,6 +329,45 @@ export function EditorToolbar(props: EditorToolbarProps) {
           </Box>
         </Tooltip>
       )}
+      {measuring && measure && (
+        <Box role="group" aria-label={t(`${PREFIX}.measure.group`)} sx={stackSx}>
+          <Tooltip title={t(`${PREFIX}.measure.placeHint`)} placement={tooltipPlacement}>
+            <Button
+              variant="contained"
+              size="small"
+              fullWidth={vertical}
+              startIcon={<AddLocationAltOutlinedIcon />}
+              onFocus={measure.onAim}
+              onClick={() => {
+                measure.onAim();
+                measure.onPlace();
+              }}
+              data-testid="garden-plan-measure-place"
+              sx={{ ...buttonSx, whiteSpace: 'nowrap' }}
+            >
+              {t(`${PREFIX}.measure.place`)}
+            </Button>
+          </Tooltip>
+          <Tooltip
+            title={t(`${PREFIX}.measure.${measure.finishable ? 'finishHint' : 'finishDisabled'}`)}
+            placement={tooltipPlacement}
+          >
+            <Box component="span" sx={{ display: vertical ? 'block' : 'inline-block' }}>
+              <Button
+                size="small"
+                fullWidth={vertical}
+                // Fewer than two points, or already finished: no-op, the focus stays (GP-NFR-070).
+                onClick={measure.finishable ? measure.onFinish : undefined}
+                {...unavailableProps(!measure.finishable)}
+                data-testid="garden-plan-measure-finish"
+                sx={buttonSx}
+              >
+                {t(`${PREFIX}.measure.finish`)}
+              </Button>
+            </Box>
+          </Tooltip>
+        </Box>
+      )}
       {props.draftPoints > 0 && (
         <Button
           size="small"
@@ -330,7 +377,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
           sx={buttonSx}
         >
           {/* The measure tool's points are a measurement, not a draft: the button clears it (GP-UX-071). */}
-          {t(TOOL_DEFS[props.tool].kind === 'measure' ? `${PREFIX}.measure.clear` : `${PREFIX}.draw.cancel`)}
+          {t(measuring ? `${PREFIX}.measure.clear` : `${PREFIX}.draw.cancel`)}
         </Button>
       )}
 

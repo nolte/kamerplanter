@@ -5472,7 +5472,7 @@
           "total": "Total {{length}}",
           "status": {
             "pointer": {
-              "start": "Click the start of the distance. Every further click sets a point while the line shows its length. This only measures – nothing is saved in the plan.",
+              "start": "Click the start of the distance. Every further click sets a point while the line shows its length. This only measures – nothing is saved in the plan. Without a mouse, \"Set point\" in the tool rail sets a point at the crosshair.",
               "first": "Start point set. Click the next point. Esc clears the measurement.",
               "open_one": "Measured: {{total}} ({{count}} segment). Click more points or finish with Enter or a double click. Backspace takes back the last point, Esc clears the measurement.",
               "open_other": "Measured: {{total}} ({{count}} segments). Click more points or finish with Enter or a double click. Backspace takes back the last point, Esc clears the measurement.",
@@ -5486,8 +5486,22 @@
               "open_other": "Measured: {{total}} ({{count}} segments). Set more points or finish with \"Finish\". \"Undo\" takes back the last point, \"Clear\" discards the measurement.",
               "done_one": "Measurement done: {{total}} ({{count}} segment). \"Clear\" discards it, \"Set point\" starts the next measurement.",
               "done_other": "Measurement done: {{total}} ({{count}} segments). \"Clear\" discards it, \"Set point\" starts the next measurement."
+            },
+            "keyboard": {
+              "start": "Move the plan on the canvas with the arrow keys until the crosshair sits on the start point, then choose \"Set point\" in the tool rail.",
+              "first": "Start point set. Move the plan with the arrow keys until the crosshair sits on the next point and choose \"Set point\" again.",
+              "open_one": "Measured: {{total}} ({{count}} segment). Set more points or finish with \"Finish\". \"Clear measurement\" discards the measurement.",
+              "open_other": "Measured: {{total}} ({{count}} segments). Set more points or finish with \"Finish\". \"Clear measurement\" discards the measurement.",
+              "done_one": "Measurement done: {{total}} ({{count}} segment). \"Clear measurement\" discards it, \"Set point\" starts the next measurement.",
+              "done_other": "Measurement done: {{total}} ({{count}} segments). \"Clear measurement\" discards it, \"Set point\" starts the next measurement."
             }
-          }
+          },
+          "group": "Measure",
+          "place": "Set point",
+          "placeHint": "Set a point at the crosshair in the middle of the plan",
+          "finish": "Finish",
+          "finishHint": "Finish the measurement",
+          "finishDisabled": "Set two points first."
         },
         "vertex": {
           "insert": "Insert point",

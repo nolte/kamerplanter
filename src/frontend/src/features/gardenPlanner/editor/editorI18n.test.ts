@@ -51,7 +51,13 @@ describe('garden plan editor texts', () => {
       ['measure', 'clear'],
       ['measure', 'total'],
       ['touch', 'clear'],
-      ...['pointer', 'touch'].flatMap((mode) =>
+      ['measure', 'place'],
+      ['measure', 'placeHint'],
+      ['measure', 'finish'],
+      ['measure', 'finishHint'],
+      ['measure', 'finishDisabled'],
+      ['measure', 'group'],
+      ...['pointer', 'touch', 'keyboard'].flatMap((mode) =>
         ['start', 'first', 'open_one', 'open_other', 'done_one', 'done_other'].map((key) => ['measure', 'status', mode, key]),
       ),
     ];

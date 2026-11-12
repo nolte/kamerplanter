@@ -23,6 +23,8 @@ interface MeasureOverlayProps {
 const OFFSET_PX = 10;
 /** Average glyph width of the dimension text as a share of its size (as `placeDimensionLabel` estimates it). */
 const GLYPH_EM = 0.62;
+/** Free room a segment needs beyond its label's width for the label to be drawn. */
+const SEGMENT_GAP_PX = 8;
 
 export function MeasureOverlay({ measure, toScreen, unit, widthPx }: MeasureOverlayProps) {
   const { t, i18n } = useTranslation();
@@ -37,8 +39,13 @@ export function MeasureOverlay({ measure, toScreen, unit, widthPx }: MeasureOver
       ? measure.segmentsM.map((lengthM, index) => {
           const [ax, ay] = pathPx[index];
           const [bx, by] = pathPx[index + 1];
-          return { x: (ax + bx) / 2, y: (ay + by) / 2 - OFFSET_PX / 2, text: length(lengthM) };
+          const text = length(lengthM);
+          // A segment too short on screen for its own label would overprint its neighbours and the total: the
+          // label stays off (the total and the status text still carry the length); zooming in shows it.
+          const fits = Math.hypot(bx - ax, by - ay) >= text.length * DIMENSION_FONT_PX * GLYPH_EM + SEGMENT_GAP_PX;
+          return { x: (ax + bx) / 2, y: (ay + by) / 2 - OFFSET_PX / 2, text, fits };
         })
+        .filter((segment) => segment.fits)
       : [];
     const totalText = several
       ? t('pages.gardenPlan.editor.measure.total', { length: length(measure.totalM) })

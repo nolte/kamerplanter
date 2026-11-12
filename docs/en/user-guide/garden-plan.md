@@ -90,7 +90,7 @@ The dimensions of the selected object stand outside, above its top edge, and kee
 
 With **Measure** you check how far apart two spots are, for example whether a path fits between two beds. Click the start point; as you move the mouse, a line with its length follows. The next click sets the point. Keep clicking to measure a polyline: the plan shows the length of every segment and the total at its end. The points snap like drawn points, to the grid and to corners and edges of other objects; hold Alt to place them freely.
 
-Press Enter or double-click to finish the measurement; it stays until you press **Esc**, start the next measurement with a new click or change the tool. Backspace takes back the last point. The lengths use the unit you chose in the **View** tab (metres or centimetres). Above the plan the measured distance is also shown as text, which a screen reader reads out too.
+Press Enter or double-click to finish the measurement; it stays until you press **Esc**, start the next measurement with a new click or change the tool. Backspace takes back the last point. The lengths use the unit you chose in the **View** tab (metres or centimetres). Above the plan the measured distance is also shown as text, which a screen reader reads out too. Without a mouse you measure from the tool rail: **Set point** sets a point at the crosshair in the middle of the plan, the arrow keys on the canvas move the plan to the next point, and **Finish** ends the measurement.
 
 Measuring changes nothing in the plan: there is no unsaved change and no step for **Undo**. <!-- REQ-053 GP-UX-071, #2913 -->
 

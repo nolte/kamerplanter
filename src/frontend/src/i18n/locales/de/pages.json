@@ -5473,7 +5473,7 @@
           "total": "Gesamt {{length}}",
           "status": {
             "pointer": {
-              "start": "Klicke auf den Startpunkt der Strecke. Jeder weitere Klick setzt einen Punkt, die Linie zeigt dabei ihre Länge. Gemessen wird nur – im Plan wird nichts gespeichert.",
+              "start": "Klicke auf den Startpunkt der Strecke. Jeder weitere Klick setzt einen Punkt, die Linie zeigt dabei ihre Länge. Gemessen wird nur – im Plan wird nichts gespeichert. Ohne Maus setzt „Punkt setzen“ in der Werkzeug-Leiste einen Punkt am Fadenkreuz.",
               "first": "Startpunkt gesetzt. Klicke den nächsten Punkt. Esc löscht die Messung.",
               "open_one": "Gemessen: {{total}} ({{count}} Abschnitt). Klicke weitere Punkte oder beende mit Enter oder Doppelklick. Rücktaste nimmt den letzten Punkt zurück, Esc löscht die Messung.",
               "open_other": "Gemessen: {{total}} ({{count}} Abschnitte). Klicke weitere Punkte oder beende mit Enter oder Doppelklick. Rücktaste nimmt den letzten Punkt zurück, Esc löscht die Messung.",
@@ -5487,8 +5487,22 @@
               "open_other": "Gemessen: {{total}} ({{count}} Abschnitte). Setze weitere Punkte oder beende mit „Fertig“. „Rückgängig“ nimmt den letzten Punkt zurück, „Löschen“ verwirft die Messung.",
               "done_one": "Messung fertig: {{total}} ({{count}} Abschnitt). „Löschen“ verwirft sie, „Punkt setzen“ beginnt die nächste Messung.",
               "done_other": "Messung fertig: {{total}} ({{count}} Abschnitte). „Löschen“ verwirft sie, „Punkt setzen“ beginnt die nächste Messung."
+            },
+            "keyboard": {
+              "start": "Verschiebe den Plan auf der Zeichenfläche mit den Pfeiltasten, bis das Fadenkreuz auf dem Startpunkt liegt, und wähle dann in der Werkzeug-Leiste „Punkt setzen“.",
+              "first": "Startpunkt gesetzt. Verschiebe den Plan mit den Pfeiltasten, bis das Fadenkreuz auf dem nächsten Punkt liegt, und wähle wieder „Punkt setzen“.",
+              "open_one": "Gemessen: {{total}} ({{count}} Abschnitt). Setze weitere Punkte oder beende mit „Fertig“. „Messung löschen“ verwirft die Messung.",
+              "open_other": "Gemessen: {{total}} ({{count}} Abschnitte). Setze weitere Punkte oder beende mit „Fertig“. „Messung löschen“ verwirft die Messung.",
+              "done_one": "Messung fertig: {{total}} ({{count}} Abschnitt). „Messung löschen“ verwirft sie, „Punkt setzen“ beginnt die nächste Messung.",
+              "done_other": "Messung fertig: {{total}} ({{count}} Abschnitte). „Messung löschen“ verwirft sie, „Punkt setzen“ beginnt die nächste Messung."
             }
-          }
+          },
+          "group": "Messen",
+          "place": "Punkt setzen",
+          "placeHint": "Einen Punkt am Fadenkreuz in der Mitte des Plans setzen",
+          "finish": "Fertig",
+          "finishHint": "Die Messung beenden",
+          "finishDisabled": "Setze zuerst zwei Punkte."
         },
         "vertex": {
           "insert": "Punkt einfügen",

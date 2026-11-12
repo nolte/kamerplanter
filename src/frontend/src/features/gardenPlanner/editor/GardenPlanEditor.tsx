@@ -303,15 +303,18 @@ interface TemplateMode {
  */
 export type BoundaryMode = 'draw' | 'edit' | null;
 
-/** The measure tool's status text (GP-UX-071): the next step and, from the second fixed point on, the total. */
+/**
+ * The measure tool's status text (GP-UX-071): the next step and, from the second fixed point on, the total. `mode`
+ * is how the user sets points: the pointer, the touch bar, or the rail's "Set point" without a pointer.
+ */
 function measureStatusText(
   t: TFunction,
   measure: MeasureView | null,
-  touch: boolean,
+  mode: 'pointer' | 'touch' | 'keyboard',
   unit: LengthUnit,
   language: string,
 ): string {
-  const base = `${PREFIX}.measure.status.${touch ? 'touch' : 'pointer'}`;
+  const base = `${PREFIX}.measure.status.${mode}`;
   if (measure === null) return t(`${base}.start`);
   const segments = measure.fixedPoints - 1;
   if (segments < 1) return t(`${base}.first`);
@@ -1581,9 +1584,14 @@ export function GardenPlanEditor({
     ],
   );
 
+  // The rail's "Set point" of the measure tool was focused or used: the crosshair it aims with is shown and the status
+  // speaks of the keyboard path (GP-UX-071, WCAG 2.1.1). A mouse user who never touches it sees neither.
+  const [measureAim, setMeasureAim] = useState(false);
+  const aimMeasure = useCallback(() => setMeasureAim(true), []);
   const selectChooseTool = useCallback(
     (next: EditorTool) => {
       dispatch(setTool(next));
+      setMeasureAim(false);
       setTemplateMode(null);
       setGhostPoint(null);
       // A shape the new tool does not offer falls back to its first (a bed is no line, §9.5).
@@ -1689,8 +1697,22 @@ export function GardenPlanEditor({
   // The measure tool's status (GP-UX-071): what to do next and the measured total as text, announced politely - the
   // canvas overlay is hidden from assistive technology. It speaks of fixed points only, never of the hover.
   const measure = tools.measure;
+  // Below md and with a coarse pointer the TouchBar carries "Set point"; elsewhere the rail offers it (GP-UX-071).
+  const railMeasure = canvasKind === 'measure' && !touchUi;
+  const aiming = railMeasure && measureAim;
+  const { placePointAt, finishDraw } = tools;
+  const measureControls = railMeasure
+    ? {
+        finishable: tools.measureFinishable,
+        onPlace: () => placePointAt([viewport.widthPx / 2, viewport.heightPx / 2]),
+        onFinish: finishDraw,
+        onAim: aimMeasure,
+      }
+    : undefined;
   const measureStatus =
-    canvasKind === 'measure' ? measureStatusText(t, measure, touchUi, unit, i18n.language) : null;
+    canvasKind === 'measure'
+      ? measureStatusText(t, measure, touchUi ? 'touch' : aiming ? 'keyboard' : 'pointer', unit, i18n.language)
+      : null;
   // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
   const hintBase = touchUi ? `${PREFIX}.touch.hint` : `${PREFIX}.drawHint`;
   const hintKey = !drawing
@@ -1738,6 +1760,7 @@ export function GardenPlanEditor({
       onAddWithDimensions={openAddWithDimensions}
       selectionGroup={selectionGroup}
       boundaryMode={boundaryMode}
+      measure={measureControls}
     />
   );
 
@@ -2111,7 +2134,7 @@ export function GardenPlanEditor({
       )}
       <TouchOverlay
         ring={touch.ring}
-        crosshair={touchUi && settingPoints ? centerPx : null}
+        crosshair={(touchUi && settingPoints) || aiming ? centerPx : null}
         widthPx={viewport.widthPx}
         heightPx={viewport.heightPx}
       />

@@ -3,7 +3,7 @@
  * canvas with its lengths in the user's unit, the status text that announces the total, the touch path below md -
  * and nothing that reaches the plan, its pending operations or the undo history.
  */
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { openPanelTab, pointer, px, setupEditor, stubPhone } from './editorTestKit';
@@ -174,5 +174,60 @@ describe('the touch path below md (GP-UX-036/069)', () => {
     t.after(() => fireEvent.click(clear));
     expect(screen.queryByTestId('garden-plan-measure')).toBeNull();
     expect(t.state().pending).toHaveLength(0);
+  });
+});
+
+describe('measuring without a pointer (WCAG 2.1.1)', () => {
+  it('measures a distance by keyboard alone: rail, set point, arrow keys, set point, finish', () => {
+    const t = setupEditor({ applyPan: true });
+    // The rail: one tab stop, the arrow keys walk it, Enter/Space on a button is its click.
+    const select = screen.getByTestId('garden-plan-tool-select');
+    act(() => select.focus());
+    // Past pan, bed, garden object and their sub-menu buttons: six steps to the measure tool.
+    for (let i = 0; i < 6; i += 1) fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    expect(screen.getByTestId('garden-plan-tool-measure')).toHaveFocus();
+    t.after(() => fireEvent.click(document.activeElement!));
+    expect(t.state().tool).toBe('measure');
+    // No crosshair for the mouse user who never asks for it.
+    expect(screen.queryByTestId('garden-plan-crosshair')).toBeNull();
+
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    const place = screen.getByTestId('garden-plan-measure-place');
+    expect(place).toHaveFocus();
+    expect(place).toHaveStyle({ minHeight: '48px', minWidth: '48px' });
+    // Its focus shows the crosshair it aims with, and the status speaks of the keyboard path.
+    expect(screen.getByTestId('garden-plan-crosshair')).toBeInTheDocument();
+    const status = () => screen.getByTestId('garden-plan-measure-status');
+    expect(status()).toHaveTextContent('Move the plan on the canvas with the arrow keys');
+    expect(screen.getByTestId('garden-plan-measure-finish')).toHaveAttribute('aria-disabled', 'true');
+
+    // The crosshair is the canvas centre: (400, 400) px = model (10, 10).
+    t.after(() => fireEvent.click(place));
+    expect(status()).toHaveTextContent('Start point set');
+
+    // Three metres to the right: the arrow keys slide the plan on the canvas (one step = 40 px = 1 m here).
+    act(() => t.canvas().focus());
+    for (let i = 0; i < 3; i += 1) t.after(() => fireEvent.keyDown(t.canvas(), { key: 'ArrowRight' }));
+    act(() => screen.getByTestId('garden-plan-measure-place').focus());
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-measure-place')));
+    expect(status()).toHaveTextContent('Measured: 3.00 m (1 segment)');
+
+    const finish = screen.getByTestId('garden-plan-measure-finish');
+    expect(finish).not.toHaveAttribute('aria-disabled');
+    t.after(() => fireEvent.click(finish));
+    expect(status()).toHaveTextContent('Measurement done: 3.00 m (1 segment)');
+    expect(status()).toHaveAttribute('aria-live', 'polite');
+    expect(t.state().pending).toHaveLength(0);
+  });
+
+  it('offers set point and finish on the rail only while measuring, and leaves them to the TouchBar on a phone', () => {
+    setupEditor();
+    expect(screen.queryByTestId('garden-plan-measure-place')).toBeNull();
+    cleanup();
+    restores.push(stubPhone());
+    const t = setupEditor();
+    t.after(() => fireEvent.click(within(screen.getByTestId('garden-plan-dock')).getByTestId('garden-plan-tool-measure')));
+    expect(screen.queryByTestId('garden-plan-measure-place')).toBeNull();
+    expect(screen.getByTestId('garden-plan-touch-place')).toBeInTheDocument();
   });
 });
