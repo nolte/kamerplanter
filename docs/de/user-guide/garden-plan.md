@@ -235,6 +235,8 @@ Der Feldmodus ist für das Smartphone im Beet gedacht: große Schaltflächen (mi
 
 **Meine Beete · heute fällig.** Der Feldmodus startet mit der Liste deiner Beete. Beete, die dir zugewiesen sind, stehen oben (markiert mit **Meins**), danach Beete mit überfälligen oder heute fälligen Aufgaben, dann die übrigen nach ihrer nächsten Fälligkeit. Überfällig ist eine Aufgabe, deren Fälligkeitstag vor dem heutigen Tag liegt; eine Aufgabe, die heute fällig ist, zählt noch nicht als überfällig. Stillgelegte Beete fehlen in der Liste. Der Tab **Karte** zeigt den Plan ohne Werkzeuge, Raster und Griffe. Mit **Vergrößern**, **Verkleinern** und **Ganzer Plan** änderst du die Ansicht. Tippst du auf ein Beet oder knapp daneben, zoomt die Karte auf das Beet und öffnet es.
 
+**Meine Position.** Über der Karte schaltest du **Meine Position** ein. Erst dann fragt dein Browser, ob Kamerplanter deinen Standort verwenden darf. Ein Punkt mit einem Kreis zeigt dir, wo du ungefähr im Garten stehst; der Kreis ist mindestens 3 m groß und wächst, wenn dein Gerät ungenauer ortet. Der Punkt wandert mit dir, solange der Schalter an ist und die Karte offen ist. Dafür braucht der Standort GPS-Koordinaten und der Plan eine Nordrichtung; die Koordinaten gelten als Mitte deines Gartens. Fehlen sie, hast du die Freigabe abgelehnt oder bist du mehr als 500 m vom Plan entfernt, siehst du statt des Punkts einen Hinweis. **Deine Position bleibt auf deinem Gerät:** Kamerplanter sendet sie nicht an den Server und speichert sie nirgends, auch der Schalter steht beim nächsten Öffnen wieder auf aus. <!-- REQ-053 GP-UX-026 -->
+
 **Das Beet-Blatt.** Ein Tipp auf ein Beet öffnet unten ein Blatt mit dem Namen des Beets (daneben sein Titelfoto, wenn es eines hat), dem Schnellprotokoll, den Aufgaben und den Pflanzen. Die Aufgaben stehen in der Reihenfolge **Überfällig**, **Heute fällig**, **Später**. Die Pflanzen siehst du nach Art, Anzahl und Phase gruppiert; die Phasenfarbe hat immer einen schwarzen Rand und den Namen daneben.
 
 - **Erledigt** öffnet den kurzen Dialog mit den freiwilligen Feldern (Menge, Notiz). **Fertig** speichert. Das sind zwei Tipps nach der Beetauswahl. Ein doppelter Tipp zählt nur einmal, und die Schaltflächen bleiben gesperrt, bis die Antwort da ist.
@@ -250,7 +252,7 @@ Ohne Verbindung speichert der Feldmodus **Erledigt**, die **Notiz** und Fotos au
 **QR-Etikett am Beet.** In der Beetansicht druckst du über **Etikett drucken** ein PDF-Etikett mit Beetname, Standort, Typ, Fläche und einem QR-Code; die Größe des Codes wählst du (25, 40 oder 60 mm). Scannst du den Code mit dem Smartphone, öffnet sich der Feldmodus mit dem Blatt genau dieses Beets. Bist du nicht angemeldet, kommst du zuerst zur Anmeldung und danach direkt zum Beet zurück. Der Code enthält nur die Adresse des Beets, kein Passwort und keinen Zugang: Wer nicht Mitglied deines Gartens ist, sieht nichts. Bist du in mehreren Gärten Mitglied, wechsle vorher in den Garten des Beets.
 
 !!! warning "Noch nicht implementiert"
-    Für **Gepflanzt** wird es ein **Rückgängig** geben. Die Hilfe per GPS folgt später. Die Ebene „Zuletzt gegossen" wird es nur im Planungsmodus geben. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+    Für **Gepflanzt** wird es ein **Rückgängig** geben. Die Ebene „Zuletzt gegossen" wird es nur im Planungsmodus geben. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
 
 ## Was geht ohne Netz {#was-geht-ohne-netz}
 

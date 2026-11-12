@@ -7162,6 +7162,23 @@
           "fit": "Ganzer Plan",
           "loading": "Plan wird geladen"
         },
+        "position": {
+          "label": "Meine Position",
+          "description": "Zeigt deinen ungefähren Standort als Punkt auf dem Plan. Die Position bleibt auf diesem Gerät: Kamerplanter speichert und sendet sie nicht.",
+          "insecure": "Deine Position kann nur über eine sichere Verbindung (HTTPS oder localhost) angezeigt werden.",
+          "locating": "Deine Position wird ermittelt …",
+          "denied": "Du hast die Standortfreigabe im Browser abgelehnt. Erlaube sie in den Website-Einstellungen deines Browsers, wenn du deine Position sehen möchtest.",
+          "unavailable": "Dein Gerät kann deine Position gerade nicht bestimmen.",
+          "timeout": "Die Ortung dauert zu lange. Kamerplanter versucht es weiter.",
+          "siteLoading": "Die Koordinaten des Standorts werden geladen …",
+          "siteError": "Die Koordinaten des Standorts konnten nicht geladen werden. Schalte „Meine Position“ aus und wieder ein, um es erneut zu versuchen.",
+          "noGps": "Für diesen Standort sind keine GPS-Koordinaten hinterlegt. Trage sie in den Standortdaten ein, dann zeigt der Plan deine Position.",
+          "far": "Du bist etwa {{distance}} vom Plan entfernt. Deine Position wird erst angezeigt, wenn du näher am Garten bist.",
+          "outsideView": "Deine Position liegt außerhalb des sichtbaren Ausschnitts. Mit „Ganzer Plan“ siehst du sie.",
+          "outsideViewNear": "Deine Position liegt außerhalb des Plans, etwa {{distance}} entfernt.",
+          "coarse": "Die Ortung ist gerade ungenau (±{{accuracy}} m). Der Kreis zeigt, wo du ungefähr stehst.",
+          "dot": "Deine ungefähre Position, Genauigkeit ±{{accuracy}} m"
+        },
         "sheet": {
           "close": "Beet schließen",
           "loading": "Beet wird geladen"

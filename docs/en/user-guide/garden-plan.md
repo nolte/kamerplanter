@@ -235,6 +235,8 @@ Field mode is made for the phone at the bed: large buttons (at least 64 pixels),
 
 **My beds · due today.** Field mode starts with the list of your beds. Beds assigned to you come first (marked **Mine**), then beds with overdue tasks or tasks due today, then the rest by their next due date. A task is overdue when its due day lies before today; a task due today does not count as overdue yet. Retired beds are left out. The **Map** tab shows the plan without tools, grid or handles. **Zoom in**, **Zoom out** and **Whole plan** change the view. If you tap a bed, or just next to it, the map zooms to the bed and opens it.
 
+**My position.** Above the map you switch on **My position**. Only then does your browser ask whether Kamerplanter may use your location. A dot with a circle shows roughly where you stand in the garden; the circle is at least 3 m wide and grows when your device locates less precisely. The dot moves with you while the switch is on and the map is open. This needs GPS coordinates on the site and a north direction on the plan; the coordinates count as the middle of your garden. If they are missing, if you declined access, or if you are more than 500 m away from the plan, you see a hint instead of the dot. **Your position stays on your device:** Kamerplanter does not send it to the server and stores it nowhere; even the switch is off again the next time you open field mode. <!-- REQ-053 GP-UX-026 -->
+
 **The bed sheet.** A tap on a bed opens a sheet at the bottom with the bed's name (its cover photo beside it, if it has one), the quick log, the tasks and the plants. Tasks come in the order **Overdue**, **Due today**, **Later**. Plants are grouped by species, count and phase; the phase colour always has a black outline and the phase name next to it.
 
 - **Done** opens the short dialog with the optional fields (quantity, note). **Finish** saves. That is two taps after choosing the bed. A double tap counts once, and the buttons stay locked until the answer has arrived.
@@ -250,7 +252,7 @@ Without a connection field mode keeps **Done**, the **Note** and photos on your 
 **QR label on the bed.** In the bed view, **Print label** creates a PDF label with the bed name, site, type, area and a QR code; you choose the size of the code (25, 40 or 60 mm). Scanning the code with your phone opens field mode with the sheet of exactly this bed. If you are not signed in, you go through the sign-in first and come straight back to the bed. The code holds only the address of the bed, no password and no access: someone who is not a member of your garden sees nothing. If you are a member of several gardens, switch to the bed's garden first.
 
 !!! warning "Not yet implemented"
-    **Planted** will get an **Undo**. GPS help will follow later. The "last watered" layer will exist only in planning mode. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+    **Planted** will get an **Undo**. The "last watered" layer will exist only in planning mode. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
 
 ## What works offline {#what-works-offline}
 
