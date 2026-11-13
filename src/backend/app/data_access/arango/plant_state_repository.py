@@ -33,6 +33,7 @@ from app.domain.interfaces.plant_state_repository import (
     PlantStateSource,
     SownSlotSource,
 )
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 
 #: Statuses of a task that is still to do. Suggestions (``suggested = true``) are proposals, not work.
 _OPEN_TASK_STATUSES = ("pending", "in_progress")
@@ -99,11 +100,22 @@ FOR s IN @@slots
         entry_key: reservation.entry_key,
         species_key: reservation.species_key,
         cultivar_key: entry == null ? null : entry.cultivar_key,
-        species_name: species == null ? null : FIRST(species.common_names),
+        species_common_names: species == null ? null : species.common_names,
+        species_common_names_i18n: species == null ? null : species.common_names_i18n,
         scientific_name: species == null ? null : species.scientific_name,
         cultivar_name: cultivar == null ? null : cultivar.name
     }
 """
+
+
+def _species_name(row: dict[str, Any]) -> str | None:
+    """The row's vernacular species name by the one display rule (#2902), in the canonical language.
+
+    The plan's client sends no UI language; the scientific name travels in a field of its own.
+    """
+    return localized_vernacular_name(
+        row["species_common_names"], row["species_common_names_i18n"], CANONICAL_NAME_LANGUAGE
+    )
 
 
 def _date(value: Any) -> date | None:
@@ -197,7 +209,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 run_key=row["run_key"],
                 entry_key=row["entry_key"],
                 cultivar_key=row["cultivar_key"],
-                species_name=row["species_name"],
+                species_name=_species_name(row),
                 scientific_name=row["scientific_name"],
                 cultivar_name=row["cultivar_name"],
             )
@@ -283,7 +295,8 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                     planted_on: p.planted_on,
                     slot_key: slot != null AND slot.location_key == bed ? slot._key : null,
                     slot_id: slot != null AND slot.location_key == bed ? slot.slot_id : null,
-                    species_name: species == null ? null : FIRST(species.common_names),
+                    species_common_names: species == null ? null : species.common_names,
+                    species_common_names_i18n: species == null ? null : species.common_names_i18n,
                     scientific_name: species == null ? null : species.scientific_name,
                     cultivar_name: cultivar == null ? null : cultivar.name,
                     phase_key: p.current_phase_key,
@@ -493,7 +506,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             slot_key=row["slot_key"],
             slot_id=row["slot_id"],
             cultivar_key=row["cultivar_key"],
-            species_name=row["species_name"],
+            species_name=_species_name(row),
             scientific_name=row["scientific_name"],
             cultivar_name=row["cultivar_name"],
             phase_key=row["phase_key"],

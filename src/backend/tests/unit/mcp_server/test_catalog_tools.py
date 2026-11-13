@@ -145,6 +145,32 @@ async def test_species_info_keeps_meaningful_false_and_zero():
     assert resp.data["allows_harvest"] is True
 
 
+@pytest.mark.parametrize(
+    ("names", "names_i18n", "label"),
+    [
+        # species.yaml lists the English name first; the summary names the canonical German one (#2902)
+        (["Tomato", "Tomate"], {"en": ["Tomato"], "de": ["Tomate"]}, "Solanum lycopersicum (Tomate)"),
+        # no language map (tenant-created, CSV import): the first listed name
+        (["Meine Tomate"], {}, "Solanum lycopersicum (Meine Tomate)"),
+        # a map without German: the scientific name alone
+        (["Tomato"], {"en": ["Tomato"]}, "Solanum lycopersicum:"),
+    ],
+    ids=["map", "no-map", "no-german"],
+)
+@pytest.mark.asyncio
+async def test_species_info_summary_names_the_species_by_the_display_rule(names, names_i18n, label):
+    class _Named(_SpeciesService):
+        def get_species(self, key, *, tenant_key=None):
+            species = _Species()
+            species.common_names = names
+            species.common_names_i18n = names_i18n
+            return species
+
+    resp = await GetSpeciesInfo().run(_ctx(species_service=_Named()), GetSpeciesInfo.Input(species_key="sp-tomato"))
+
+    assert resp.summary.startswith(f"Species {label}")
+
+
 @pytest.mark.asyncio
 async def test_species_info_embeds_cultivars_and_can_omit_them():
     svc = _SpeciesService(cultivars=[_Cultivar()])

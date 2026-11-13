@@ -61,6 +61,7 @@ from app.domain.models.care_event import (
     CareEventOrigin,
     RotationEntry,
 )
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 from app.domain.services.care_event_service import BACKFILL_ERROR_REASON, CareEventService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 from app.domain.services.species_visibility import readable_species
@@ -405,7 +406,10 @@ class BedRotationService:
                         SuccessionSpecies(
                             species.key or "",
                             species.scientific_name,
-                            species.common_names[0] if species.common_names else None,
+                            # The planner's client sends no UI language: the canonical one (#2902).
+                            localized_vernacular_name(
+                                species.common_names, species.common_names_i18n, CANONICAL_NAME_LANGUAGE
+                            ),
                             species.nutrient_demand.value if species.nutrient_demand is not None else None,
                             species.nitrogen_fixing,
                         )

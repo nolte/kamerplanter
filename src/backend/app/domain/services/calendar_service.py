@@ -38,6 +38,7 @@ from app.domain.models.calendar import (
     CalendarFeedIssued,
 )
 from app.domain.models.site import Site
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE
 from app.domain.services.ical_generator import ICalGenerator
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.species_visibility import readable_species
@@ -291,6 +292,7 @@ class CalendarService:
                 key=sp.key or "",
                 scientific_name=sp.scientific_name,
                 common_names=sp.common_names,
+                common_names_i18n=sp.common_names_i18n,
                 allows_harvest=sp.allows_harvest,
                 growing_periods=[
                     GrowingPeriodData(
@@ -320,7 +322,10 @@ class CalendarService:
             for sp in species_list
             if _has_sowing_data(sp)
         ]
-        species_entries = self._sowing_engine.build_calendar(species_data, frost_config, year)
+        # The calendar's client sends no UI language: labels in the canonical one (#2902).
+        species_entries = self._sowing_engine.build_calendar(
+            species_data, frost_config, year, language=CANONICAL_NAME_LANGUAGE
+        )
 
         if not run_entries:
             return species_entries, frost_config

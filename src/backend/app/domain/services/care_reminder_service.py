@@ -47,6 +47,7 @@ from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Cultivar, Species, WateringGuide
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_common_name
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
@@ -1694,7 +1695,18 @@ class CareReminderService:
                 {
                     "plant_key": plant_key,
                     "plant_name": plant.plant_name or plant.instance_id or "",
-                    "species_name": (species.common_names[0] if species and species.common_names else None),
+                    # The dashboard's client sends no UI language: the canonical one (#2902).
+                    "species_name": (
+                        localized_common_name(
+                            species.common_names,
+                            species.common_names_i18n,
+                            species.scientific_name,
+                            CANONICAL_NAME_LANGUAGE,
+                        )
+                        or None
+                        if species
+                        else None
+                    ),
                     "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
                     "has_nutrient_plan": self._has_nutrient_plan(plant_key, plant.tenant_key),
                     # REQ-022 §3.2 winter-reminder gating context (B1).

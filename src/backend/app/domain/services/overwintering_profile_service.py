@@ -43,6 +43,7 @@ from app.domain.models.overwintering_profile import (
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Location
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 from app.domain.services.location_ownership import find_owned_location, resolve_owned_location
 from app.domain.services.species_visibility import readable_species
 
@@ -791,7 +792,10 @@ class OverwinteringProfileService:
             species = readable_species(self._species_repo, species_key, tenant_key)
             if species is not None:
                 labels["species_scientific_name"] = species.scientific_name
-                labels["species_common_name"] = species.common_names[0] if species.common_names else None
+                # The scientific name has its own label; the client sends no UI language (#2902).
+                labels["species_common_name"] = localized_vernacular_name(
+                    species.common_names, species.common_names_i18n, CANONICAL_NAME_LANGUAGE
+                )
 
         if location_key and self._site_repo is not None:
             # Anchored on the parent site (#1397). Written as
