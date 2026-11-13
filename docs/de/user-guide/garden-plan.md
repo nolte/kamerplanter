@@ -55,13 +55,13 @@ Deine Rolle gilt immer für den Garten (Mandanten), in dem du gerade arbeitest.
 | Sicherung einspielen, früheren Stand wiederherstellen, neue Saison anlegen | nein | nein | ja |
 
 !!! note "Hinweis"
-    Der Editor blendet Werkzeuge nicht aus, die deine Rolle nicht darf. Der Server prüft beim Speichern. Ein Stapel von Änderungen, der auch nur eine Löschung enthält, wird als Ganzes abgelehnt, wenn du nicht die Rolle „lead" hast; du siehst dann die Meldung **Speichern nicht erlaubt** und machst die Änderung rückgängig. Lösche bei Bedarf nur als Leitung.
+    Der Editor blendet Werkzeuge nicht aus, die deine Rolle nicht darf. Der Server prüft beim Speichern. Eine Ausnahme ist **Pflanze setzen**: Das Werkzeug schreibt sofort eine Pflanze und fehlt deshalb für viewer ganz. Ein Stapel von Änderungen, der auch nur eine Löschung enthält, wird als Ganzes abgelehnt, wenn du nicht die Rolle „lead" hast; du siehst dann die Meldung **Speichern nicht erlaubt** und machst die Änderung rückgängig. Lösche bei Bedarf nur als Leitung.
 
 ## Zeichnen und bearbeiten
 
 ### Werkzeuge und Formen {#werkzeuge-und-formen}
 
-Die Werkzeug-Leiste links neben dem Plan bietet sechs Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
+Die Werkzeug-Leiste links neben dem Plan bietet sieben Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
 
 | Werkzeug | Was es tut |
 |----------|-----------|
@@ -70,6 +70,7 @@ Die Werkzeug-Leiste links neben dem Plan bietet sechs Werkzeuge. Jedes hat einen
 | **Bereich zeichnen** ▸ | Zeichnet einen Bereich wie Garten, Terrasse, Balkon oder Gewächshaus, in den du danach Beete legst, siehe [Bereiche](#bereiche). Das Menü daneben bietet **Mit Maßen hinzufügen**. |
 | **Beet zeichnen** ▸ | Zeichnet ein neues Beet. Das kleine Menü daneben bietet **Aus Vorlage** (ein Beet aus einer [Vorlage](#beetvorlagen) setzen) und **Mit Maßen hinzufügen**. |
 | **Objekt: Gartenobjekt zeichnen** ▸ | Zeichnet ein Gartenobjekt wie Weg, Zaun, Baum, Rankhilfe, Kompost oder im Wohnungsplan Fenster, Tür, Möbel und Lampe. Das Menü daneben bietet **Mit Maßen hinzufügen**. |
+| **Pflanze setzen** | Setzt genau eine Pflanze auf den freien Pflanzplatz, den du anklickst, siehe [Eine Pflanze setzen](#eine-pflanze-setzen). |
 | **Messen** | Misst einen Abstand auf dem Plan, Punkt für Punkt. Es wird nichts gespeichert, siehe [Abstände messen](#abstande-messen). |
 
 Unter den Werkzeugen erscheint die **Auswahlgruppe** nur, solange etwas gewählt ist: **Drehraster** (15°, 45°, 90°), **Ausrichten** und **Löschen**.
@@ -94,6 +95,27 @@ Ein **Bereich** fasst Beete zusammen: der Gemüsegarten hinter dem Haus, die Ter
 Der Plan zeigt einen Bereich hell gefüllt mit gepunktetem Rand und seinem Namen, unter den Beeten und Wegen darin. Ein Klick auf ein Beet im Bereich wählt das Beet, ein Klick auf eine freie Stelle im Bereich wählt den Bereich. Liegt der Name des Bereichs auf dem Namen eines Beets, bleibt der Name des Beets stehen. Ein Gewächshaus oder Zimmer, das schon auf deinem Plan liegt, sieht jetzt ebenfalls so aus. Im Seitenpanel und im Kontextmenü bietet ein Bereich nur, was für ihn gilt: Name, Typ, Maße, Sperren, Duplizieren, Reihenfolge, Löschen und **Details öffnen**. Sonnenangaben, Ausrichtung und **Bepflanzen** gehören zu den Beeten darin, **Als Vorlage speichern** gibt es nur für ein Beet.
 
 **Was zu einem Bereich gehört.** Ein Beet, das du *nach* dem Bereich ganz in ihm zeichnest, gehört zu ihm: Verschiebst du den Bereich, wandern seine Beete mit, und löschst du ihn, fragt der Plan nach, weil seine Beete mitgehen. Stehen in einem dieser Beete noch Pflanzen, lehnt das Speichern das Löschen ab, bis du sie entfernt hast. Beete und Objekte, die schon auf dem Plan liegen, bevor du den Bereich um sie herum zeichnest, gehören **nicht** zu ihm und bleiben, wo sie sind; der Plan sagt dir das nach dem Zeichnen in einem Hinweis. Ein Beet nachträglich in einen Bereich umhängen geht nicht. Zeichne deshalb zuerst die Bereiche und dann die Beete darin. Ein Bereich liegt nie in einem Beet. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
+
+### Eine Pflanze setzen {#eine-pflanze-setzen}
+
+Mit **Pflanze setzen** pflanzt du direkt im Plan, Platz für Platz. Freie Pflanzplätze zeigt der Plan als gestrichelte Kreise im Beet. Wähle das Werkzeug und klicke (auf dem Touchscreen: tippe) auf einen freien Platz. Es öffnet sich ein kleiner Dialog für genau diesen Platz; sein Titel nennt Beet und Platz. Darin wählst du die **Art** (deine Favoriten stehen oben), auf Wunsch eine **Sorte** und den Tag **Gepflanzt am** (vorbelegt mit heute). Darunter stehen die Hinweise des Beets zu Fruchtfolge und Nachbarn für diese Art. **Pflanze setzen** legt die Pflanze an; der Plan zeigt sie danach auf dem Platz und meldet zum Beispiel „Kopfsalat in Hochbeet 1 gesetzt“. Das Werkzeug bleibt aktiv, sodass du gleich den nächsten Platz anklicken kannst. **Esc** oder ein anderes Werkzeug beendet es.
+
+Was der Klick sonst trifft, sagt dir ein Hinweis über dem Plan:
+
+- **Hier steht schon eine Pflanze:** Es öffnet sich kein Dialog; die Pflanze wird ausgewählt.
+- **Reservierter Platz:** Eine geplante Pflanzung hält ihn frei (gestrichelt mit Datum). Wähle einen anderen Platz.
+- **Reihe oder Fläche:** Diese säst du im Beet, nicht Pflanze für Pflanze, siehe [Säen, vereinzeln und nachpflanzen](#saen-vereinzeln-nachpflanzen).
+- **Beet ohne Pflanzplätze:** Das Beet wird ausgewählt. Pflanzplätze legst du im Beet an, über **Details öffnen** (bei einem leeren Beet **Bepflanzen**) im Eigenschaftenpanel.
+- **Zu weit herausgezoomt:** Stehen die Pflanzplätze so dicht, dass der Plan sie nur als Zahl zeigt, zoomt der Klick an dieser Stelle hinein; dann klickst du den Platz an.
+- Daneben, ein Bereich, ein Gartenobjekt oder leerer Grund: Der Hinweis sagt, dass du einen freien Platz in einem Beet treffen musst.
+
+**Was es nicht tut.** Pflanze setzen legt genau eine Pflanze an. Es plant keine Pflanzung, ordnet keine Reihen an und legt keine Pflanzplätze an. Mehrere Pflanzen, ein ganzes Beet und Mischkultur machst du im Pflanzdialog des Beets, siehe [Ein Beet bepflanzen](#ein-beet-bepflanzen).
+
+**Wenn der Platz abgelehnt wird.** Spricht die Fruchtfolge hart gegen die Art (dieselbe Familie stand hier zu kurz zuvor) oder verträgt sich ein Nachbar nicht mit ihr, lässt Kamerplanter auf diesen Platz keine einzelne Pflanze dieser Art zu. Der Dialog sagt dir das schon, bevor du absendest, und sperrt **Pflanze setzen**. Für eine einzelne Pflanze gibt es kein **Trotzdem pflanzen**. Das geht mit einer Begründung im Pflanzdialog des Beets; **Zum Beet** bringt dich dorthin. Ist der Platz inzwischen belegt, weil jemand anderes dort gepflanzt hat, sagt dir der Dialog das ebenfalls und zeigt den neuen Stand des Plans.
+
+**Ohne Maus.** Pflanzplätze lassen sich auf dem Plan nicht mit der Tastatur ansteuern, Beete schon. Wähle ein Beet (Bild ab / Bild auf, dann Eingabe). Hat es freie Pflanzplätze, bietet das Eigenschaftenpanel **Pflanze setzen**; im Dialog wählst du dann den Platz. Ist ein freier Platz ausgewählt, bietet das Panel **Pflanze setzen** für genau diesen Platz.
+
+**Wer und wann.** Pflanze setzen gibt es nur mit der Rolle „grower" oder „lead". Die Pflanze wird sofort gespeichert, nicht mit den übrigen Planänderungen. Ungespeicherte Änderungen am Plan speichert Kamerplanter vorher. Ohne Verbindung setzt das Werkzeug nichts und merkt auch nichts vor; der Text über dem Plan sagt dir das. <!-- REQ-053 GP-UX-071, #2913 -->
 
 ### Abstände messen {#abstande-messen}
 
@@ -203,7 +225,7 @@ Dieser Abschnitt beschreibt die Hilfen, die dir im Planungsmodus Handarbeit abne
 
 Wähle ein Beet und klicke im Eigenschaften-Feld auf **Bepflanzen**. Es öffnet sich der Pflanzdialog, den du auch aus der Beetansicht kennst. Du wählst Art und Sorte, siehst Hinweise zu Fruchtfolge, Nachbarn und Standort, legst die Anordnung fest (Raster, Reihen, Versetzt, Fläche oder Freie Positionen), siehst eine Vorschau und planst die Pflanzung oder erfasst sie sofort. Mit der Rolle „grower" ist das möglich, das Beet muss im Plan stehen und darf nicht stillgelegt sein. Die Schritte stehen unter [Beet bepflanzen](locations-substrates.md#beet-bepflanzen).
 
-Pflanzen erscheinen auf dem Plan als Marker. Die Zustandsebene beschreibt der Abschnitt [Pflanzenzustand und Filter](#pflanzenzustand-und-filter).
+Pflanzen erscheinen auf dem Plan als Marker. Die Zustandsebene beschreibt der Abschnitt [Pflanzenzustand und Filter](#pflanzenzustand-und-filter). Eine einzelne Pflanze auf einen freien Pflanzplatz setzt du schneller direkt im Plan, siehe [Eine Pflanze setzen](#eine-pflanze-setzen).
 
 **Staffelanbau im Beet.** Erzeugst du die Staffeln eines Staffelanbaus für ein Beet mit Pflanzplätzen, reserviert jede noch kommende Staffel freie Plätze für ihre Standzeit, und der Plan zeigt diese Plätze gestrichelt mit dem Datum, ab dem sie belegt sind. <!-- REQ-053 GP-FR-074, #2896 -->
 
@@ -321,7 +343,7 @@ Kamerplanter speichert jeden Eintrag mit dem Zeitpunkt, zu dem du ihn erfasst ha
 
 ### Nur mit Verbindung
 
-**Gegossen**, **Gesät**, **Gejätet/Gemulcht**, **Geerntet** und **Gepflanzt**, **Position korrigieren**, Sonne und Standortmerkmale, alles Zeichnen und Verschieben im Plan, Löschen, Export, Import und Beetvorlagen brauchen eine Verbindung. Ohne Verbindung sind diese Knöpfe gesperrt; nichts geht dabei verloren.
+**Gegossen**, **Gesät**, **Gejätet/Gemulcht**, **Geerntet** und **Gepflanzt**, **Position korrigieren**, Sonne und Standortmerkmale, alles Zeichnen und Verschieben im Plan, **Pflanze setzen**, Löschen, Export, Import und Beetvorlagen brauchen eine Verbindung. Ohne Verbindung sind diese Knöpfe gesperrt; nichts geht dabei verloren.
 
 ### Beim ersten Mal einmal neu laden
 

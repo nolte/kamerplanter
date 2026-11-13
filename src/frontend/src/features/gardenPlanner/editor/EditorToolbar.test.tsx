@@ -86,6 +86,8 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
       'garden-plan-tool-area',
       'garden-plan-tool-bed',
       'garden-plan-tool-garden_object',
+      // GP-UX-071 (#2913): Pflanze setzen after the tools that draw the places it plants into.
+      'garden-plan-tool-plant',
       // GP-UX-071 (#2913): Messen after the tools that create something.
       'garden-plan-tool-measure',
     ]);

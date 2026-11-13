@@ -3,8 +3,8 @@
  *
  * From md up it is a vertical rail left of the canvas (`orientation="vertical"`); below md the same tree is the bar
  * docked at the bottom edge next to the `TouchBar` (`orientation="horizontal"`, GP-UX-069). Top level: the tools of
- * GP-UX-001 that exist - select, pan ("Verschieben"), area, bed, garden object and measure (area and measure from
- * GP-UX-071), read from the tool registry (`toolRegistry.ts`); area, bed and garden object open a sub-menu (at most
+ * GP-UX-001 that exist - select, pan ("Verschieben"), area, bed, garden object, plant ("Pflanze setzen") and measure
+ * (area, plant and measure from GP-UX-071), read from the tool registry (`toolRegistry.ts`); area, bed and garden object open a sub-menu (at most
  * two levels) with "From template" (bed only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
  * the options of the tool that is on (shape, finish / cancel a drawing, polygon points) and the **selection group**
  * (rotate step, align, delete) - rendered only while something is selected, never as disabled buttons (AC-4).
@@ -114,6 +114,11 @@ interface EditorToolbarProps {
    * got the focus or was used). Absent = not offered; shown only while the measure tool is on.
    */
   measure?: { finishable: boolean; onPlace: () => void; onFinish: () => void; onAim: () => void };
+  /**
+   * Tools the user may not use and that are therefore not offered at all (never as a disabled button, AC-4): a viewer
+   * does not get "Pflanze setzen", which writes a plant (REQ-049, GP-UX-071).
+   */
+  hiddenTools?: ReadonlySet<EditorTool>;
 }
 
 const SHAPES: { shape: DrawShape; icon: ReactElement }[] = [
@@ -237,7 +242,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       }
     >
       <Box role="group" aria-label={t(`${PREFIX}.toolbar.tools`)} sx={stackSx}>
-        {RAIL_TOOLS.map(({ tool, icon: Icon }) => {
+        {RAIL_TOOLS.filter(({ tool }) => !props.hiddenTools?.has(tool)).map(({ tool, icon: Icon }) => {
           // While the template tool is on no other tool is: clicking "Select" must register as a change.
           const pressed = !templateActive && props.tool === tool;
           const menuOpen = menu?.tool === tool && menu.anchor !== null;

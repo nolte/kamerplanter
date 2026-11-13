@@ -370,6 +370,7 @@ describe('the rail stays GP-UX-001 (#2868)', () => {
       'garden-plan-tool-area',
       'garden-plan-tool-bed',
       'garden-plan-tool-garden_object',
+      'garden-plan-tool-plant',
       'garden-plan-tool-measure',
     ]);
   });

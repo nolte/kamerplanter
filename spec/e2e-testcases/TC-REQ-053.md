@@ -3114,7 +3114,7 @@ statt eines zweiten Falls.
 | Kriterium | Testfälle | Bemerkung |
 |-----------|-----------|-----------|
 | AC-1 | TC-053-101 | Zeichenfläche ≥ 60 % der Höhe bei 1366 × 768, Kopfleiste auf einer Zeile |
-| AC-2 | TC-053-103 | Seit REQ-053 v1.19 (#2868 eingegrenzt): die Werkzeuge aus GP-UX-001 mit Untermenüs (seit #2913 samt Messen und Bereich), vier Panel-Tabs, alle Überlauf-Einträge bei 1024 × 768 |
+| AC-2 | TC-053-103 | Seit REQ-053 v1.19 (#2868 eingegrenzt): die Werkzeuge aus GP-UX-001 mit Untermenüs (seit #2913 samt Messen, Bereich und Pflanze setzen), vier Panel-Tabs, alle Überlauf-Einträge bei 1024 × 768 |
 | AC-3 | TC-053-101 | E2E-Teil: genau eine Kopfleiste, Werkzeuge in einer vertikalen Leiste; „Seitenkopf ohne eigene Aktionen“ prüft vitest |
 | AC-4 | TC-053-100 | Teil: Drehen, Ausrichten, Löschen nur bei Auswahl; „Als Vorlage speichern“ nur bei genau einem Beet prüft vitest |
 | AC-5 | TC-053-100, TC-053-101 | keine reservierte Breite, Umschalter mit `aria-expanded`/`aria-controls`, Panel-Tabs per Tastatur |
@@ -3305,24 +3305,28 @@ Editor-Funktion erreichbar“), siehe TC-053-103.
 
 **Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-001 — AC-2
 **Status**: Seit REQ-053 v1.19 ausführbar: GP-UX-001 nennt nur die vorhandenen Werkzeuge (#2868 „ABGRENZEN“); die
-zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald sie gebaut sind — Messen (Schritt 5)
-und Bereich (Schritt 6) sind gebaut, Pflanze setzen und Text/Label stehen aus.
+zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald sie gebaut sind — Messen (Schritt 5),
+Bereich (Schritt 6) und Pflanze setzen (Schritt 7) sind gebaut, Text/Label steht aus.
 **Gerät**: 1024 × 768 (nach den Theme-Breakpoints bereits lg, Panel angedockt)
 **Priority**: High
 **Category**: Layout
 **Preconditions**:
 - Garten 10 × 10 m mit einem Beet „Beet A“
+- Schritt 7: ein eigener Garten mit einem Beet „Beet P“ (2 × 1 m), das zwei freie Punkt-Pflanzplätze hat (Beet-Rahmen
+  (0,5 m, 0,5 m) und (1,5 m, 0,5 m)); die Art „Lactuca sativa“ (Saat-Katalog)
 
 **Testschritte**:
 1. Nutzer öffnet den Plan bei 1024 × 768
 2. Nutzer erreicht jedes Werkzeug aus GP-UX-001 in der Werkzeug-Leiste (Auswahl, Hand/Pan, Bereich, Beet,
-   Gartenobjekt, Messen) und öffnet die Untermenüs von Bereich, Beet und Gartenobjekt
+   Gartenobjekt, Pflanze setzen, Messen) und öffnet die Untermenüs von Bereich, Beet und Gartenobjekt
 3. Nutzer öffnet das Seitenpanel und wählt nacheinander die vier Panel-Tabs
 4. Nutzer öffnet den Überlauf „⋮“
 5. Nutzer wählt „Messen“, klickt auf dem freien Plan die Punkte (1 m, 1 m), (4 m, 1 m) und (4 m, 3 m), drückt Enter
    und danach Esc
 6. Nutzer wählt „Bereich“ (Typ Garten), zieht auf dem freien Plan ein Rechteck von (0,5 m, 0,5 m) bis (3,5 m, 3,5 m),
    wählt danach „Beet“, zieht im Bereich ein Rechteck von (1 m, 1 m) bis (2 m, 2 m) und speichert
+7. Nutzer wählt „Pflanze setzen“, klickt auf den ersten freien Pflanzplatz von „Beet P“, wählt im Dialog die Art
+   „Lactuca sativa“ und bestätigt mit „Pflanze setzen“
 
 **Erwartete Ergebnisse**:
 - Jedes Werkzeug und jeder Untermenü-Eintrag liegt vollständig im Viewport
@@ -3340,11 +3344,18 @@ und Bereich (Schritt 6) sind gebaut, Pflanze setzen und Text/Label stehen aus.
   Eltern-Regel (`garden-plan-new-area-type-rule`); nach dem Speichern liest die API einen neuen Bereich vom Typ `garden` (`is_area: true`) und ein neues
   Beet, dessen `parent_location_key` dieser Bereich ist; „Beet A“ (vor dem Bereich angelegt, außerhalb) behält seine
   Eltern
+- Pflanze setzen (Schritt 7): Das Werkzeug ist aktiv (`aria-pressed`), der Statustext `garden-plan-plant-status` nennt
+  den Klick auf einen freien Pflanzplatz; der Klick öffnet den Dialog `garden-plan-plant-dialog`, dessen Titel „Beet P“
+  und die Platz-ID nennt; nach „Pflanze setzen“ schließt der Dialog, die Erfolgsmeldung `garden-plan-info` nennt
+  „in Beet P gesetzt“, das Werkzeug bleibt aktiv, und es entsteht keine zu speichernde Planänderung. Die API liest
+  genau eine neue Pflanze der Art auf genau diesem Pflanzplatz (`slot_key`) im Beet, der Plan (`GET …/plan`) führt
+  sie auf dem Platz; der zweite Platz bleibt frei
 
 **Nachbedingungen**:
-- Schritte 1–5: keine Änderung am Plan; Schritt 6 legt einen Bereich und ein Beet an (eigener Garten)
+- Schritte 1–5: keine Änderung am Plan; Schritt 6 legt einen Bereich und ein Beet an (eigener Garten); Schritt 7 legt
+  eine Pflanze an (eigener Garten)
 
-**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069, gp-ux-071, bereich]
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069, gp-ux-071, bereich, pflanze-setzen]
 
 ---
 

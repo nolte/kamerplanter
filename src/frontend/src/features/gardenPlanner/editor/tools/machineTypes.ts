@@ -79,7 +79,11 @@ export type Effect =
   | { type: 'pan'; dxPx: number; dyPx: number }
   /** The client refused an edit before it reached the model (`geometry.outside_parent`, `object.locked`, ...). */
   | { type: 'notice'; code: string }
-  | { type: 'tool'; tool: PlanTool };
+  | { type: 'tool'; tool: PlanTool }
+  /** "Pflanze setzen" (GP-UX-071): open the plant dialog for this free point slot of this bed. */
+  | { type: 'plantSlot'; bedKey: string; slotKey: string }
+  /** Zoom to `pxPerM`, keeping the plan point under `anchorPx` (canvas pixels) in place. */
+  | { type: 'zoom'; pxPerM: number; anchorPx: Point };
 
 export interface Step<S> {
   state: S;

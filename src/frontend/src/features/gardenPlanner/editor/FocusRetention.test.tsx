@@ -6,6 +6,8 @@
 import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { configureStore } from '@reduxjs/toolkit';
+import tenantsReducer from '@/store/slices/tenantSlice';
+import { tenantState } from '@/test/helpers';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
@@ -233,7 +235,11 @@ describe('M-2: a focused header control that moves into the overflow hands the f
   };
 
   function renderBar(narrow = false) {
-    const store = configureStore({ reducer: { gardenPlan: gardenPlanSlice.reducer } });
+    const store = configureStore({
+    // The editor reads the domain role ("Pflanze setzen" is a grower's tool, REQ-049): a grower's tenant.
+    reducer: { gardenPlan: gardenPlanSlice.reducer, tenants: tenantsReducer },
+    preloadedState: { tenants: tenantState('grower').tenants as ReturnType<typeof tenantsReducer> },
+  });
     store.dispatch(loadGardenPlan.pending('r1', 'site_1'));
     store.dispatch(loadGardenPlan.fulfilled(plan(), 'r1', 'site_1'));
     const overflowButtonRef = { current: null as HTMLButtonElement | null };

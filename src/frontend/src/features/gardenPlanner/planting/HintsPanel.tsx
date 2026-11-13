@@ -80,6 +80,11 @@ interface HintsPanelProps {
   onOverrideReason: (reason: string) => void;
   /** Worst severity over all species; decides whether the "plant anyway" step is needed. */
   severity: RotationSeverity;
+  /**
+   * The caller can plant anyway with a reason (default). `false`: no "Trotzdem pflanzen" step - the single plant of
+   * the plan's tool "Pflanze setzen" has no such path on the server (GP-UX-071), the caller says so itself.
+   */
+  overridable?: boolean;
 }
 
 function findingText(
@@ -146,9 +151,10 @@ export default function HintsPanel({
   onOverrideChecked,
   onOverrideReason,
   severity,
+  overridable = true,
 }: HintsPanelProps) {
   const { t } = useTranslation();
-  const mustGiveReason = needsOverrideReason(severity);
+  const mustGiveReason = overridable && needsOverrideReason(severity);
   const flagsLine = siteFlagsLine(t, siteFlags);
   const nameOf = (key: string) => speciesNames.get(key) ?? key;
 

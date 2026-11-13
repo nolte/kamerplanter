@@ -79,6 +79,7 @@ import {
   type MeasureView,
 } from './measureMachine';
 import { INITIAL_PAN_STATE, panDown, panMove, panUp, type PanState } from './panMachine';
+import { INITIAL_PLANT_STATE, plantClick, plantDown, plantMove, plantUp, type PlantState } from './plantMachine';
 import {
   clearVertex,
   dragPreview,
@@ -128,6 +129,15 @@ export interface EditorToolsOptions {
   /** The type choice and the name of the next drawn area (GP-UX-071, #2913). */
   areaTypeKey?: string;
   newAreaName?: (n: number) => string;
+  /** "Pflanze setzen" (GP-UX-071, #2913): a click on a free point slot asks for the plant dialog of that slot. */
+  onPlantSlot?: (bedKey: string, slotKey: string) => void;
+  /**
+   * Zoom to `pxPerM` keeping the plan point under `anchorPx` in place: the plant tool zooms to where the planting
+   * spots can be hit. Absent = the tool only says to zoom in.
+   */
+  onZoomTo?: (pxPerM: number, anchorPx: Point) => void;
+  /** The highest zoom the view allows (px per metre); caps that zoom. */
+  maxPxPerM?: number;
 }
 
 /**
@@ -172,6 +182,7 @@ function isMoveOnly(committed: Machines, next: Machines): boolean {
     committed.pan === next.pan &&
     committed.boundary === next.boundary &&
     committed.measure === next.measure &&
+    committed.plant === next.plant &&
     committed.select.vertex === next.select.vertex &&
     // The press that turns into a move is live too: the editor renders at the press and at the release only.
     (committed.select.gesture.kind === 'move' || committed.select.gesture.kind === 'press') &&
@@ -218,7 +229,10 @@ export interface EditorTools {
   cancel: () => void;
   /** Finish the polygon/line being drawn, or the measurement. */
   finishDraw: () => void;
-  /** Touch: set a polygon/line point, a rectangle/circle corner or a measure point at a canvas pixel. */
+  /**
+   * Touch: set a polygon/line point, a rectangle/circle corner or a measure point at a canvas pixel. With the plant
+   * tool it is a click there: the planting spot at that pixel.
+   */
   placePointAt: (pointPx: Point) => void;
   /** Touch: take the last drawn or measured point back. */
   undoPoint: () => void;
@@ -301,6 +315,10 @@ function envOf(o: EnvSource): ToolEnv {
   };
 }
 
+function plantOptionsOf(o: EditorToolsOptions): { canZoom: boolean; maxPxPerM: number } {
+  return { canZoom: o.onZoomTo !== undefined, maxPxPerM: o.maxPxPerM ?? Number.POSITIVE_INFINITY };
+}
+
 function drawOptionsOf(o: EditorToolsOptions): DrawOptions {
   return {
     target: drawTargetOf(o.tool),
@@ -319,6 +337,7 @@ interface Machines {
   pan: PanState;
   boundary: BoundaryState;
   measure: MeasureState;
+  plant: PlantState;
   /** Which machine owns the gesture in progress. */
   active: ToolKind | null;
   pointerId: number | null;
@@ -332,6 +351,7 @@ const INITIAL_MACHINES: Omit<Machines, 'forTool'> = {
   pan: INITIAL_PAN_STATE,
   boundary: INITIAL_BOUNDARY_STATE,
   measure: INITIAL_MEASURE_STATE,
+  plant: INITIAL_PLANT_STATE,
   active: null,
   pointerId: null,
 };
@@ -456,6 +476,12 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         case 'tool':
           o.onTool(effect.tool);
           break;
+        case 'plantSlot':
+          o.onPlantSlot?.(effect.bedKey, effect.slotKey);
+          break;
+        case 'zoom':
+          o.onZoomTo?.(effect.pxPerM, effect.anchorPx);
+          break;
       }
     }
   }, []);
@@ -512,6 +538,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         apply(step.effects);
       } else if (kind === 'measure') {
         update({ active: kind, pointerId: event.pointerId, measure: measureDown(m.measure, sample, env) });
+      } else if (kind === 'plant') {
+        update({ active: kind, pointerId: event.pointerId, plant: plantDown(sample) });
       } else {
         const step = selectDown(m.select, sample, env);
         update({ active: kind, pointerId: event.pointerId, select: step.state });
@@ -539,6 +567,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         update({ boundary: boundaryMove(m.boundary, sample, env) });
       } else if (m.active === 'measure') {
         update({ measure: measureMove(m.measure, sample, env, true) });
+      } else if (m.active === 'plant') {
+        const step = plantMove(m.plant, sample);
+        update({ plant: step.state });
+        apply(step.effects);
       } else if (m.active === 'select') {
         const step = selectMove(m.select, sample, env);
         update({ select: step.state });
@@ -580,6 +612,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         apply(step.effects);
       } else if (m.active === 'measure') {
         update({ active: null, pointerId: null, measure: measureUp(m.measure, sample, env) });
+      } else if (m.active === 'plant') {
+        const step = plantUp(m.plant, sample, env, plantOptionsOf(o));
+        update({ active: null, pointerId: null, plant: step.state });
+        apply(step.effects);
       } else if (m.active === 'select') {
         const step = selectUp(m.select, sample, env);
         update({ active: null, pointerId: null, select: step.state });
@@ -596,6 +632,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       draw: m.draw.kind === 'drag' ? INITIAL_DRAW_STATE : m.draw,
       boundary: boundaryCancel(m.boundary),
       measure: measureRelease(m.measure),
+      plant: INITIAL_PLANT_STATE,
       pan: INITIAL_PAN_STATE,
       active: null,
       pointerId: null,
@@ -620,6 +657,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       endPress();
     } else if (m.boundary.vertex !== null) {
       update({ boundary: { kind: 'idle', vertex: null } });
+    } else if (m.plant.kind !== 'idle') {
+      update({ plant: INITIAL_PLANT_STATE, active: null, pointerId: null });
+      endPress();
     } else if (isGestureActive(m.select)) {
       update({ select: selectCancel(m.select), active: null, pointerId: null });
       endPress();
@@ -646,9 +686,13 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     (pointPx: Point) => {
       const o = latest.current;
       const kind = toolKind(o.tool, o.plan);
-      if (kind !== 'draw' && kind !== 'measure') return;
+      if (kind !== 'draw' && kind !== 'measure' && kind !== 'plant') return;
       const sample: PointerSample = { pointPx, pointerType: 'touch', shift: false, alt: false };
       const env = envOf(o);
+      if (kind === 'plant') {
+        apply(plantClick(sample, env, plantOptionsOf(o)));
+        return;
+      }
       if (kind === 'measure') {
         update({ measure: measureUp(measureDown(current().measure, sample, env), sample, env) });
         return;
