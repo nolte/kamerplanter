@@ -421,8 +421,12 @@ def test_the_events_carry_the_marker_the_source_and_only_what_the_source_states(
     assert "performed_by_user_key" not in slot
     # no unit in the source, no quantity; no free text copied
     assert "quantity" not in stored[("treatment_applications", "tr_account")]
-    assert "Anna" not in str(stored[("treatment_applications", "tr_account")])
-    assert "0123" not in str(stored[("treatment_applications", "tr_account")])
+    # Matched against the source's free text and the stored string values, not a digit run in the whole
+    # document: "0123" alone also occurs in a stored timestamp's microseconds (``…:20.901232+00:00``).
+    treatment = stored[("treatment_applications", "tr_account")]
+    assert "notes" not in treatment
+    values = [value for value in treatment.values() if isinstance(value, str)]
+    assert not [value for value in values if "call 0123" in value or "Anna Beispiel" in value], values
 
 
 def test_the_window_is_the_retention_window_of_the_care_log(db) -> None:  # type: ignore[no-untyped-def]
