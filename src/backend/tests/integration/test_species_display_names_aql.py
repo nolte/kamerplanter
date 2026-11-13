@@ -52,7 +52,7 @@ _DOCUMENTS = (
     col.SITES,
     col.TANKS,
 )
-_EDGES = (col.RUN_CONTAINS, col.PLACED_IN, col.RUN_PLANNED_AT)
+_EDGES = (col.RUN_CONTAINS, col.PLACED_IN, col.RUN_PLANNED_AT, col.TENANT_HAS_ACCESS)
 
 #: ``species key -> (vernacular name expected, display name expected)`` in the canonical language.
 _EXPECTED = {
@@ -262,3 +262,154 @@ class TestRequestLanguage:
         assert {source.species_key: source.species_name for source in states}["tomato"] == "Tomato"
         assert stats["wf_tomato"]["species_name"] == "Tomato"
         assert [row["species_name"] for row in executions] == ["Tomato"]
+
+
+#: Another tenant's private species, and one of its private species granted to ``A`` (#1092).
+B = "ten_b"
+FOREIGN = "foreign"
+GRANTED = "granted"
+
+
+def _scoped_species(db) -> None:
+    db.collection(col.SPECIES).insert_many(
+        [
+            {
+                "_key": FOREIGN,
+                "tenant_key": B,
+                "scientific_name": "Secretus privatus",
+                "common_names": ["Geheimkraut"],
+                "common_names_i18n": {"de": ["Geheimkraut"]},
+            },
+            {
+                "_key": GRANTED,
+                "tenant_key": B,
+                "scientific_name": "Communis datus",
+                "common_names": ["Teilkraut"],
+                "common_names_i18n": {"de": ["Teilkraut"]},
+            },
+        ]
+    )
+    db.collection(col.CULTIVARS).insert_many(
+        [
+            {"_key": "cv_foreign", "species_key": FOREIGN, "name": "Geheime Sorte"},
+            {"_key": "cv_granted", "species_key": GRANTED, "name": "Geteilte Sorte"},
+        ]
+    )
+    db.collection(col.TENANT_HAS_ACCESS).insert({"_from": f"{col.TENANTS}/{A}", "_to": f"{col.SPECIES}/{GRANTED}"})
+
+
+def _legacy_plants(db) -> None:
+    """``A``'s plants written before the species reference was verified (#2082): one names ``B``'s private species."""
+    db.collection(col.PLANT_INSTANCES).insert_many(
+        [
+            {
+                "_key": f"p_{species}",
+                "tenant_key": A,
+                "instance_id": f"I-{species}",
+                "species_key": species,
+                "cultivar_key": f"cv_{species}",
+                "location_key": "bed",
+                "planted_on": "2026-04-01",
+                "removed_on": None,
+            }
+            for species in (FOREIGN, GRANTED)
+        ]
+    )
+
+
+class TestStoredSpeciesKeyIsNoReadGrant:
+    """A stored ``species_key`` names a species only when its tenant may read it: own, global or granted."""
+
+    def test_the_dashboard_grid(self, db) -> None:
+        _scoped_species(db)
+        _legacy_plants(db)
+
+        rows = {row["species_key"]: row for row in ArangoPlantInstanceRepository(db).list_active_for_tenant(A, 50)}
+
+        assert rows[FOREIGN]["species_common_name"] is None
+        assert rows[FOREIGN]["species_scientific_name"] is None
+        assert rows[FOREIGN]["cultivar_name"] is None
+        assert rows[GRANTED]["species_common_name"] == "Teilkraut"
+        assert rows[GRANTED]["cultivar_name"] == "Geteilte Sorte"
+
+    def test_the_phase_definition_list(self, db) -> None:
+        _scoped_species(db)
+        _legacy_plants(db)
+        db.collection(col.PHASE_DEFINITIONS).insert({"_key": "def", "name": "vegetative"})
+        db.collection(col.PHASE_SEQUENCE_ENTRIES).insert({"_key": "entry", "phase_definition_key": "def"})
+        db.collection(col.PLANT_INSTANCES).update_match({"tenant_key": A}, {"current_phase_key": "entry"})
+
+        rows = {
+            row["species_key"]: row
+            for row in ArangoPlantInstanceRepository(db).list_active_in_phase_definition(A, "def")
+        }
+
+        assert rows[FOREIGN]["species_scientific_name"] is None
+        assert rows[FOREIGN]["species_common_names"] == []
+        assert rows[GRANTED]["species_scientific_name"] == "Communis datus"
+
+    def test_the_bed_plants(self, db) -> None:
+        _scoped_species(db)
+        _legacy_plants(db)
+
+        sources = ArangoPlantStateRepository(db).list_bed_plants("bed", tenant_key=A, now=NOW, offset=0, limit=50)
+
+        by_species = {source.species_key: source for source in sources}
+        assert (by_species[FOREIGN].species_name, by_species[FOREIGN].scientific_name) == (None, None)
+        assert by_species[FOREIGN].cultivar_name is None
+        assert by_species[GRANTED].species_name == "Teilkraut"
+        assert by_species[GRANTED].cultivar_name == "Geteilte Sorte"
+
+    def test_the_sown_slots_name_a_granted_species(self, db) -> None:
+        _scoped_species(db)
+        db.collection(col.PLANTING_RUNS).insert({"_key": "run", "tenant_key": A, "status": "planned"})
+        for index, species in enumerate((FOREIGN, GRANTED)):
+            slot = f"s{index}"
+            db.collection(col.SLOTS).insert(
+                {"_key": slot, "slot_id": f"BED_{index:03}", "location_key": "bed", "sown_at": "2026-04-02"}
+            )
+            db.collection(col.PLANTING_RUN_ENTRIES).insert(
+                {"_key": f"e{index}", "species_key": species, "cultivar_key": f"cv_{species}"}
+            )
+            db.collection(col.RUN_PLANNED_AT).insert(
+                {
+                    "_from": f"{col.PLANTING_RUNS}/run",
+                    "_to": f"{col.SLOTS}/{slot}",
+                    "entry_key": f"e{index}",
+                    "planned_species_key": species,
+                    "planned_from": "2026-04-01",
+                }
+            )
+
+        sown = {slot.species_key: slot for slot in ArangoPlantStateRepository(db).list_sown_slots("bed", tenant_key=A)}
+
+        assert (sown[FOREIGN].species_name, sown[FOREIGN].cultivar_name) == (None, None)
+        assert sown[GRANTED].species_name == "Teilkraut"
+        assert sown[GRANTED].cultivar_name == "Geteilte Sorte"
+
+    def test_the_workflow_reads(self, db) -> None:
+        _scoped_species(db)
+        _legacy_plants(db)
+        db.collection(col.WORKFLOW_TEMPLATES).insert_many(
+            [{"_key": f"wf_{species}", "tenant_key": A, "species_key": species} for species in (FOREIGN, GRANTED)]
+        )
+        db.collection(col.WORKFLOW_EXECUTIONS).insert_many(
+            [
+                {
+                    "_key": f"we_{species}",
+                    "workflow_template_key": "wf",
+                    "entity_type": "plant_instance",
+                    "entity_key": f"p_{species}",
+                    "created_at": f"2026-05-0{index + 1}T00:00:00+00:00",
+                }
+                for index, species in enumerate((FOREIGN, GRANTED))
+            ]
+        )
+        tasks = ArangoTaskRepository(db)
+
+        stats = tasks.get_workflow_usage_stats([f"wf_{FOREIGN}", f"wf_{GRANTED}"], tenant_key=A)
+        executions = {row["key"]: row["species_name"] for row in tasks.get_executions_for_template("wf", tenant_key=A)}
+
+        assert stats[f"wf_{FOREIGN}"]["species_name"] == ""
+        assert stats[f"wf_{GRANTED}"]["species_name"] == "Teilkraut"
+        assert executions == {f"we_{FOREIGN}": "", f"we_{GRANTED}": "Teilkraut"}

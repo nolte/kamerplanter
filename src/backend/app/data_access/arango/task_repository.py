@@ -14,7 +14,7 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.client_event_tombstones import record_tombstone, tombstoned_ids
 from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import aql_field
-from app.data_access.arango.tenant_scope import tenant_union_predicate
+from app.data_access.arango.tenant_scope import readable_or_null, tenant_union_predicate
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_common_name
@@ -78,6 +78,10 @@ _EXECUTION_OWNER = f"""
             : (run_doc != null ? run_doc.tenant_key
             : (loc_site != null ? loc_site.tenant_key : null)))
 """
+
+#: The species ``stored_sp`` a row names by a stored key, when ``@tenant_key`` may read it (own, global or granted),
+#: else ``null``: a key on a row is not proof of read access (#1963, #2082).
+_READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_sp")
 
 #: The name fields of the species ``sp`` a row projection joined, for :func:`_pop_species_display_name`. The query
 #: only carries them; the display rule (#2902) is applied once, in Python - not re-spelled per query in AQL.
@@ -1574,6 +1578,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         A system template is shared, its tasks are not: counted over every tenant,
         ``entity_count`` told each tenant how many entities *all* tenants ran the
         template on (#1708). Only ``tenant_key``'s tasks count.
+
+        The template's species is named only when the tenant may read it: a template may
+        carry a stored key to another tenant's private species (#1963).
         """
         self._require_tenant_key(tenant_key, "get_workflow_usage_stats")
         if not wf_keys:
@@ -1581,9 +1588,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         query = f"""
         FOR wf_key IN @wf_keys
           LET wf = DOCUMENT(CONCAT('{col.WORKFLOW_TEMPLATES}/', wf_key))
-          LET sp = wf.species_key != null
+          LET stored_sp = wf.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', wf.species_key))
             : null
+          LET sp = {_READABLE_STORED_SPECIES}
           LET tt_keys = (
             FOR tt IN {col.TASK_TEMPLATES}
               FILTER tt.workflow_template_key == wf_key
@@ -1650,9 +1658,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           FILTER owner == @tenant_key
           SORT DATE_TIMESTAMP(we.created_at) DESC, we._key DESC
           LIMIT @offset, @limit
-          LET sp = plant != null AND plant.species_key != null
+          LET stored_sp = plant != null AND plant.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', plant.species_key))
             : null
+          LET sp = {_READABLE_STORED_SPECIES}
           LET entity_name = plant != null
             ? (plant.plant_name || plant.instance_id || ekey)
             : (loc != null ? loc.name : (tank != null ? tank.name : (run_doc != null ? run_doc.name : ekey)))

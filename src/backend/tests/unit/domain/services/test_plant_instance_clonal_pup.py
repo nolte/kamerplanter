@@ -12,6 +12,7 @@ transition never spawns; an intermediate reproductive phase never spawns.
 """
 
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from freezegun import freeze_time
@@ -343,3 +344,58 @@ class TestClonalPupSpawn:
         result = self._handle()
 
         assert result is None
+
+
+class TestPupInheritsOnlyAReadableSpecies:
+    """A mother written before her species reference was verified may name a species her tenant cannot read (#2082).
+
+    She keeps that key (changed-only rule), but the pup is a *new* row and bypasses ``create_plant``: it must not
+    inherit an unreadable key. The visibility rule is the real one (``readable_species``), on a doubled repository.
+    """
+
+    def setup_method(self) -> None:
+        # The spawn scenario of the class above (a monocarpic agave mother in her last phase), reused as is.
+        TestClonalPupSpawn.setup_method(self)  # type: ignore[arg-type]
+
+    def _handle(self) -> PlantInstance | None:
+        service = PlantInstanceService(
+            self.plant_repo,
+            self.site_repo,
+            self.rotation,
+            self.companion,
+            phase_repo=self.phase_repo,
+            phase_seq_repo=None,
+            species_repo=self.species_repo,
+            propagation_service=self.propagation,
+        )
+        return service.handle_monocarpic_terminal_transition("mother-1", "flowering", trigger=AUTO)
+
+    def _species(self, owner: str, *, granted: bool = False) -> None:
+        self.species_repo = MagicMock()
+        self.species_repo.get_by_key.return_value = SimpleNamespace(key="agave", tenant_key=owner)
+        self.species_repo.is_granted_to.return_value = granted
+
+    def test_a_foreign_private_species_spawns_no_pup(self) -> None:
+        self._species("tenant-b")
+
+        assert self._handle() is None
+        self.plant_repo.create.assert_not_called()
+        self.plant_repo.create_descended_from_edge.assert_not_called()
+        self.propagation.record.assert_not_called()
+
+    def test_a_granted_species_is_inherited(self) -> None:
+        self._species("tenant-b", granted=True)
+
+        pup = self._handle()
+
+        assert pup is not None
+        assert pup.species_key == "agave"
+        self.species_repo.is_granted_to.assert_called_once_with("agave", "tenant-a")
+
+    def test_the_tenants_own_and_a_global_species_are_inherited(self) -> None:
+        for owner in ("tenant-a", ""):
+            self._species(owner)
+            self.plant_repo.create.reset_mock()
+
+            assert self._handle() is not None
+            self.plant_repo.create.assert_called_once()

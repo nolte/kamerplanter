@@ -8,9 +8,13 @@ from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.document_reads import get_document
+from app.data_access.arango.tenant_scope import readable_or_null
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
+
+#: The stored species a plant names, when its tenant may read it (own, global or granted), else ``null``.
+_READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_species")
 
 
 class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantInstanceRepository):
@@ -283,7 +287,8 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         binds (``@@col`` / ``DOCUMENT(@…_col, …)``), never interpolated.
         """
         self._require_tenant_key(tenant_key, "list_active_in_phase_definition")
-        query = """
+        query = (
+            """
         LET defn = DOCUMENT(@defn_col, @phase_definition_key)
         LET seq_entry_keys = (
           FOR e IN @@entry_col
@@ -302,7 +307,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             AND p.current_phase_key != null
             AND p.current_phase_key IN phase_keys
           SORT DATE_TIMESTAMP(p.current_phase_started_at) DESC, p._key ASC
-          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          // A plant written before its species reference was verified may name a species its tenant
+          // cannot read (#2082): the names are joined only for a readable one (own, global or granted).
+          LET stored_species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          LET species = """
+            + _READABLE_STORED_SPECIES
+            + """
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           LET slot = p.slot_key != null ? DOCUMENT(@slot_col, p.slot_key) : null
           // The label guards below anchor on the parent SITE, not on
@@ -336,6 +346,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             current_phase_started_at: p.current_phase_started_at
           }
         """
+        )
         bind_vars = {
             "@col": self._collection_name,
             "@entry_col": col.PHASE_SEQUENCE_ENTRIES,
@@ -420,20 +431,28 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         to :func:`DOCUMENT`. Every plant row *and* every open-task row is filtered on
         ``… .tenant_key == @tenant_key``, and the empty-tenant sentinel is rejected
         up-front, so neither the list nor the task marker can ever span tenants (SEC-B4).
-        The species join is the plant's *own* ``species_key`` (global catalog data, and
-        the plant is already tenant-filtered), so it cannot leak a foreign-tenant record;
-        the location label is additionally gated on the same ``tenant_key`` (defence in
+        The plant's ``species_key`` is a stored reference, not proof of read access: a row
+        written before the reference was verified may name another tenant's private species
+        (#2082). Species and cultivar names are therefore joined only for a species the tenant
+        may read (:func:`~app.data_access.arango.tenant_scope.readable_or_null`); the location
+        label is additionally gated on the same ``tenant_key`` (defence in
         depth), mirroring ``list_active_in_phase_definition``. ``@limit`` is a bound
         integer, never interpolated.
         """
         self._require_tenant_key(tenant_key, "list_active_for_tenant")
-        query = """
+        query = (
+            """
         FOR p IN @@col
           FILTER p.tenant_key == @tenant_key AND p.removed_on == null
           SORT p.planted_on DESC, p._key ASC
           LIMIT @limit
-          LET cultivar = p.cultivar_key != null ? DOCUMENT(@cultivar_col, p.cultivar_key) : null
-          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          // A plant written before its species reference was verified may name a species its tenant
+          // cannot read (#2082): the names are joined only for a readable one (own, global or granted).
+          LET stored_species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          LET species = """
+            + _READABLE_STORED_SPECIES
+            + """
+          LET cultivar = species != null AND p.cultivar_key != null ? DOCUMENT(@cultivar_col, p.cultivar_key) : null
           LET phase = p.current_phase_key != null ? DOCUMENT(@phase_col, p.current_phase_key) : null
           // #488 FIX-02 (R5): resolve the phase-definition key for the card's phase
           // deep link. ``current_phase_key`` points at a ``PhaseSequenceEntry`` on the
@@ -487,6 +506,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             next_due_date: LENGTH(open_task_due_dates) > 0 ? MIN(open_task_due_dates) : null
           }
         """
+        )
         bind_vars = {
             "@col": self._collection_name,
             "@task_col": col.TASKS,

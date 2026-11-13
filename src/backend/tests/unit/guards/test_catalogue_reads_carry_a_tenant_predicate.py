@@ -42,7 +42,8 @@ a glob that assumed a name prefix). Resolved here: an inline literal, an f-strin
 ``<<EXPR>>``), implicit and ``+`` concatenation, a name assigned anywhere in the
 same function or at module level, and the receiver of a trailing
 ``.replace``/``.format``/``.join`` — which is the spelling the #1561 repair itself
-uses to splice its predicate in.
+uses to splice its predicate in — and a call to a ``tenant_scope`` builder (an AQL
+fragment, read as ``<<EXPR>>``).
 
 **Spellings this does NOT match**, named rather than discovered later:
 
@@ -157,6 +158,10 @@ def _resolve(node: ast.AST, assigns: dict[str, ast.AST]) -> str | None:
         func = node.func
         if isinstance(func, ast.Attribute) and func.attr in {"replace", "format", "join"}:
             return _resolve(func.value, assigns)
+        # A fragment a tenant_scope builder returns (``readable_or_null``) is an expression, not a catalogue loop:
+        # it reads like an f-string placeholder.
+        if isinstance(func, ast.Name) and func.id in _PREDICATE_BUILDERS:
+            return "<<EXPR>>"
     return None
 
 

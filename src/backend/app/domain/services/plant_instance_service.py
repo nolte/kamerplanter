@@ -716,11 +716,11 @@ class PlantInstanceService:
     def _spawn_pup(self, mother: PlantInstance) -> PlantInstance | None:
         """Create the pup instance, its lineage edge and a clone PropagationEvent.
 
-        The pup inherits ``tenant_key``, ``species_key``, ``cultivar_key`` and the
-        mother's **location** — but NOT the slot (R4): the mother lives on senescent
-        and still occupies it. ``planted_on`` is the terminal-transition date. The
-        pup's phase is forced to ``pup_establishment`` when the species models it,
-        else falls back to the first sequence phase (R2).
+        The pup inherits ``tenant_key``, ``species_key`` (only one the tenant may read —
+        otherwise no pup is spawned), ``cultivar_key`` and the mother's **location** —
+        but NOT the slot (R4): the mother lives on senescent and still occupies it.
+        ``planted_on`` is the terminal-transition date. The pup's phase is forced to
+        ``pup_establishment`` when the species models it, else falls back to the first sequence phase (R2).
 
         Idempotency (R7 / Fix #1) is keyed on the **existence of the pup document**,
         not merely the lineage edge. The pup's ``instance_id`` is the deterministic
@@ -746,6 +746,19 @@ class PlantInstanceService:
         if self._repo.has_descendants(mother.key):
             logger.warning(
                 "clonal_pup_spawn_skipped_existing_descendant",
+                mother_key=mother.key,
+                tenant=log_tenant(mother.tenant_key),
+            )
+            return None
+
+        # The pup bypasses `create_plant`, so the species reference is resolved here. A mother written before
+        # that reference was verified may name a species her tenant cannot read (#2082); such a row keeps its
+        # key (changed-only rule), but a NEW row must not inherit it. No pup rather than a pup without species.
+        if self._species_repo is not None and not readable_species(
+            self._species_repo, mother.species_key, mother.tenant_key
+        ):
+            logger.warning(
+                "clonal_pup_spawn_skipped_unreadable_species",
                 mother_key=mother.key,
                 tenant=log_tenant(mother.tenant_key),
             )
