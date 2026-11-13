@@ -205,6 +205,7 @@ class IpmService:
         allowed = {
             "scientific_name",
             "common_name",
+            "common_names_i18n",
             "pathogen_type",
             "incubation_period_days",
             "environmental_triggers",

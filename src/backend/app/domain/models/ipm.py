@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import (
     DataOrigin,
@@ -14,6 +14,7 @@ from app.common.enums import (
     TreatmentApplicationMethod,
     TreatmentType,
 )
+from app.domain.models.species_names import normalize_names_i18n
 
 
 class Pest(BaseModel):
@@ -57,7 +58,17 @@ class Pest(BaseModel):
 class Disease(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     scientific_name: str = Field(min_length=1, max_length=200)
+    #: The stored name: the seed's English name and the key the seed's
+    #: ``disease_treatments`` edges name the disease by. Shown where the language
+    #: map has no name for the UI language nor for ``de`` (REQ-010 v1.8, #2936).
     common_name: str = Field(min_length=1, max_length=200)
+    #: Language code -> names in preference order (REQ-010 v1.8, #2936). Only
+    #: sourced names (E-10): a language without one is absent and the UI falls back
+    #: to ``common_name``. Resolved by ``species_names.localized_catalog_name``.
+    common_names_i18n: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Language code (de, en, ...) -> disease names in preference order.",
+    )
     pathogen_type: PathogenType
     incubation_period_days: int | None = Field(default=None, ge=1)
     environmental_triggers: list[str] = Field(default_factory=list)
@@ -70,6 +81,11 @@ class Disease(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        return normalize_names_i18n(value)
 
 
 class Treatment(BaseModel):

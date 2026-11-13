@@ -110,6 +110,33 @@ export function getLocalizedCommonName(
   return firstNonEmpty(species.common_names) ?? scientific;
 }
 
+/** A catalogue entity with ONE stored name plus its names per language (IPM disease, beneficial). */
+type CatalogNameSource = {
+  common_name?: string | null;
+  common_names_i18n?: Readonly<Partial<Record<string, readonly string[]>>> | null;
+};
+
+/**
+ * The display name of an IPM disease or beneficial (REQ-010 v1.8, UI-NFR-007 R-009a,
+ * #2936): the first name of the UI language -> the first name of `de` -> the stored
+ * `common_name`. A disease's stored name is English and a beneficial's German; a
+ * language without a sourced name (E-10) shows that stored name instead of a guess.
+ * Mirrors `localized_catalog_name` in `app/domain/models/species_names.py`.
+ */
+export function getLocalizedCatalogName(
+  entity: CatalogNameSource | null | undefined,
+  language: string | null | undefined,
+): string {
+  const map = entity?.common_names_i18n;
+  const lang = normalizeNameLanguage(language);
+  return (
+    firstNonEmpty(map?.[lang]) ??
+    firstNonEmpty(map?.[COMMON_NAME_FALLBACK_LANGUAGE]) ??
+    nonEmpty(entity?.common_name) ??
+    ''
+  );
+}
+
 /**
  * All common names for a joined list display ("Erbse, Pea"): the names of the UI
  * language first (in their preference order), then the remaining `common_names` in

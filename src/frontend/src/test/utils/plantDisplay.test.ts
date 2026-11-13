@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatSpeciesNameWithScientific,
   getAlternativeCommonNames,
+  getLocalizedCatalogName,
   getLocalizedCommonName,
   getSpeciesLabel,
   getSpeciesOptionLabel,
@@ -248,5 +249,36 @@ describe('getAlternativeCommonNames', () => {
   it('is empty without a second name', () => {
     expect(getAlternativeCommonNames({ scientific_name: 'X y', common_names: ['Foo'] }, 'de')).toEqual([]);
     expect(getAlternativeCommonNames(null, 'de')).toEqual([]);
+  });
+});
+
+describe('getLocalizedCatalogName (REQ-010 v1.8, #2936)', () => {
+  const mildew = {
+    common_name: 'Powdery Mildew',
+    common_names_i18n: { en: ['Powdery Mildew'], de: ['Echter Mehltau'] },
+  };
+
+  it('shows the name of the UI language', () => {
+    expect(getLocalizedCatalogName(mildew, 'de')).toBe('Echter Mehltau');
+    expect(getLocalizedCatalogName(mildew, 'en')).toBe('Powdery Mildew');
+    expect(getLocalizedCatalogName(mildew, 'de-DE')).toBe('Echter Mehltau');
+  });
+
+  it('falls back to German for a language without a name', () => {
+    expect(getLocalizedCatalogName(mildew, 'fr')).toBe('Echter Mehltau');
+  });
+
+  it('shows the stored name where no sourced name exists (E-10)', () => {
+    const rust = { common_name: 'Rust', common_names_i18n: { en: ['Rust'] } };
+    expect(getLocalizedCatalogName(rust, 'de')).toBe('Rust');
+    const wasp = { common_name: 'Schlupfwespe', common_names_i18n: { de: ['Schlupfwespe'] } };
+    expect(getLocalizedCatalogName(wasp, 'en')).toBe('Schlupfwespe');
+  });
+
+  it('shows the stored name without a map and skips blank entries', () => {
+    expect(getLocalizedCatalogName({ common_name: 'Rust' }, 'de')).toBe('Rust');
+    expect(getLocalizedCatalogName({ common_name: 'Rust', common_names_i18n: {} }, 'en')).toBe('Rust');
+    expect(getLocalizedCatalogName({ common_name: 'Rust', common_names_i18n: { de: ['  '] } }, 'de')).toBe('Rust');
+    expect(getLocalizedCatalogName(null, 'de')).toBe('');
   });
 });

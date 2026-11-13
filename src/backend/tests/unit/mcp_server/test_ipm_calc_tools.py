@@ -81,13 +81,15 @@ class _Beneficial:
         self.scientific_name = sci
         self.preys_on = list(preys_on)
         self.description = None
+        self.common_names_i18n = {}  # the model's default (#2936)
 
 
 class _Disease:
-    def __init__(self, key, sci, common):
+    def __init__(self, key, sci, common, names_i18n=None):
         self.key = key
         self.scientific_name = sci
         self.common_name = common
+        self.common_names_i18n = names_i18n or {}  # the model's default (#2936)
         self.pathogen_type = "fungus"
         self.incubation_period_days = 7
         self.environmental_triggers = ["high_humidity"]
@@ -259,6 +261,21 @@ async def test_disease_lookup_round_trip():
     detail = await GetDisease().run(_ctx(ipm_service=svc), GetDisease.Input(disease_key="di1"))
     assert detail.data["pathogen_type"] == "fungus"
     assert detail.data["environmental_triggers"] == ["high_humidity"]
+
+
+@pytest.mark.asyncio
+async def test_a_disease_is_found_and_summarised_by_its_german_name():
+    # #2936 — the stored name is English; a German query finds the row, and the summary
+    # speaks the canonical language like the pest tools' ``common_name_de or common_name``.
+    names = {"en": ["Grey mould"], "de": ["Grauschimmelfäule"]}
+    svc = _IpmService(diseases=[_Disease("di1", "Botrytis cinerea", "Grey mould", names)])
+
+    listing = await ListDiseases().run(_ctx(ipm_service=svc), ListDiseases.Input(query="grauschimmel"))
+    detail = await GetDisease().run(_ctx(ipm_service=svc), GetDisease.Input(disease_key="di1"))
+
+    assert [i["disease_key"] for i in listing.data["items"]] == ["di1"]
+    assert listing.data["items"][0]["common_names_i18n"] == names
+    assert detail.summary.startswith("Grauschimmelfäule (Botrytis cinerea)")
 
 
 @pytest.mark.asyncio

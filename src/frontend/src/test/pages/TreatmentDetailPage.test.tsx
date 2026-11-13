@@ -104,6 +104,31 @@ describe('TreatmentDetailPage', () => {
     expect(await screen.findByText('Neem Oil')).toBeInTheDocument();
   });
 
+  // #2936 — a disease's stored common_name is English; the chip follows the UI language.
+  it.each([
+    ['de', 'Echter Mehltau'],
+    ['en', 'Powdery Mildew'],
+  ])('names a targeted disease in the UI language (%s)', async (language, expected) => {
+    await i18n.changeLanguage(language);
+    vi.mocked(getTreatmentDetail).mockResolvedValue(
+      makeDetail({
+        targeted_diseases: [
+          {
+            key: 'd1',
+            common_name: 'Powdery Mildew',
+            common_name_de: null,
+            common_names_i18n: { en: ['Powdery Mildew'], de: ['Echter Mehltau'] },
+            scientific_name: 'Erysiphe spp.',
+          },
+        ],
+      }),
+    );
+    renderWithProviders(<TreatmentDetailPage />, { route: '/pflanzenschutz/treatments/t1' });
+
+    const diseases = await screen.findByTestId('treatment-targeted-diseases');
+    expect(diseases).toHaveTextContent(expected);
+  });
+
   it('renders an error state when loading fails', async () => {
     vi.mocked(getTreatmentDetail).mockRejectedValue(new Error('boom'));
     renderWithProviders(<TreatmentDetailPage />, { route: '/pflanzenschutz/treatments/t1' });

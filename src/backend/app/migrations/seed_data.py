@@ -931,6 +931,8 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         beneficial = Beneficial(
             slug=taxon.slug,
             common_name=taxon.common_name_de,
+            # Synced on every run (upsert): the names per language (#2936), no migration.
+            common_names_i18n=taxon.names_i18n(),
             scientific_name=taxon.scientific_name,
             gbif_taxon_key=taxon.gbif_taxon_key,
             preys_on=list(taxon.preys_on),

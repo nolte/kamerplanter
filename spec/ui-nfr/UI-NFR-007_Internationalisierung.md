@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Internationalisierung, Lokalisierung
 Technologie: React, TypeScript, Flutter
 Status: Entwurf
 Priorität: Mittel
-Version: 1.3
+Version: 1.4
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [i18n, internationalisierung, lokalisierung, sprache, datumsformat, zahlenformat, pluralisierung]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-11-13 | **#2936:** R-009a gilt auch für die Namen von Krankheiten und Nützlingen (REQ-010 v1.8, `common_names_i18n`): Name der UI-Sprache → `de` → gespeicherter `common_name`. |
 | 1.3 | 2026-11-13 | **#2902:** R-009a: Rückfall auf den ersten Listeneintrag für Arten ohne Sprachzuordnung; serverseitig gebildete Namen folgen der Sprache der Anfrage (`Accept-Language`, REQ-001 v4.15). |
 | 1.2 | 2026-11-12 | **#2902:** R-009a nennt `common_names_i18n` (REQ-001 v4.14) als Quelle des Volksnamens in der aktiven Sprache. |
 | 1.1 | 2026-07-12 | **Architektur-Unterbau (Issue #568, NFR-017):** Cross-Reference ergänzt. Die N-Sprachen-Fähigkeit (R-003) und die RTL-Vorbereitung (R-024/R-025) werden durch das stack-weite Locale-keyed Content-Modell, die einheitliche Locale-Resolution und die Fallback-Kette aus NFR-017 architektonisch unterlegt. UI-NFR-007 bleibt maßgeblich für das UI-**Verhalten** (Rendering, Formate, Sprachwechsel); NFR-017 liefert das Daten-/Backend-Fundament. |
@@ -80,7 +81,7 @@ Internationalisierung von Anfang an einzuplanen ist deutlich günstiger als eine
 | R-007 | Für Domänenwerte SOLL ein einheitlicher Key-Namespace verwendet werden (z.B. `enums.phase.germination`, `enums.substrateType.soil`), damit alle Enum-Übersetzungen zentral auffindbar sind. | SOLL |
 | R-008 | Übersetzungsdateien MÜSSEN in einem strukturierten Format vorliegen (JSON oder YAML). | MUSS |
 | R-009 | Fehlende Übersetzungen MÜSSEN im Entwicklungsmodus eine Warnung erzeugen und den Key als Fallback anzeigen. | MUSS |
-| R-009a | **Botanische Namen MÜSSEN in Endnutzer-Ansichten von einem lokalisierten Trivialnamen begleitet werden, wo einer vorliegt.** *Solanum lycopersicum* allein ist für die Zielgruppe kein Name — sichtbar sein muss „Tomate", der wissenschaftliche Name tritt als Zusatz daneben (Untertitel, Klammerzusatz, Tooltip). Das gilt für Listen, Auswahlfelder, Detail-Kopfzeilen, Suchergebnisse und Druckansichten. Der Trivialname kommt aus `common_names_i18n` (REQ-001, #2902) in der aktiven Locale mit Fallback auf die kanonische Sprache — bei einer Art mit Sprachzuordnung nie aus dem ersten Eintrag von `common_names`, dessen Reihenfolge keine Sprache trägt (nur eine Art ohne Zuordnung fällt auf ihn zurück, REQ-001); serverseitig gebildete Namen folgen derselben Regel in der Sprache, die die Oberfläche als `Accept-Language` sendet; existiert keiner, steht der botanische Name allein — er wird nie weggelassen, weil er die eindeutige Identität trägt. Belege: #623, #567. | MUSS |
+| R-009a | **Botanische Namen MÜSSEN in Endnutzer-Ansichten von einem lokalisierten Trivialnamen begleitet werden, wo einer vorliegt.** *Solanum lycopersicum* allein ist für die Zielgruppe kein Name — sichtbar sein muss „Tomate", der wissenschaftliche Name tritt als Zusatz daneben (Untertitel, Klammerzusatz, Tooltip). Das gilt für Listen, Auswahlfelder, Detail-Kopfzeilen, Suchergebnisse und Druckansichten. Der Trivialname kommt aus `common_names_i18n` (REQ-001, #2902) in der aktiven Locale mit Fallback auf die kanonische Sprache — bei einer Art mit Sprachzuordnung nie aus dem ersten Eintrag von `common_names`, dessen Reihenfolge keine Sprache trägt (nur eine Art ohne Zuordnung fällt auf ihn zurück, REQ-001); serverseitig gebildete Namen folgen derselben Regel in der Sprache, die die Oberfläche als `Accept-Language` sendet; existiert keiner, steht der botanische Name allein — er wird nie weggelassen, weil er die eindeutige Identität trägt. Dieselbe Sprachwahl gilt für Krankheiten und Nützlinge (REQ-010 v1.8, #2936): Name der aktiven Locale aus `common_names_i18n`, sonst `de`, sonst der gespeicherte `common_name`. Belege: #623, #567. | MUSS |
 
 ### 2.3 Datums- und Zeitformate
 

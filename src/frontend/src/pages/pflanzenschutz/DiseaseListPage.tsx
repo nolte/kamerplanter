@@ -17,6 +17,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import type { Disease } from '@/api/types';
 import DiseaseCreateDialog from './DiseaseCreateDialog';
 import { kamiIpm } from '@/assets/brand/illustrations';
+import { getLocalizedCatalogName } from '@/utils/plantDisplay';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -28,7 +29,7 @@ const pathogenTypeColor: Record<string, ChipColor> = {
 };
 
 export default function DiseaseListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const { diseases, loading } = useAppSelector((s) => s.ipm);
   // #1501 — pests, diseases and treatments are the INSTALLATION-WIDE IPM
@@ -54,7 +55,14 @@ export default function DiseaseListPage() {
     {
       id: 'commonName',
       label: t('pages.ipm.commonName'),
-      render: (r) => r.common_name,
+      // The name in the UI language (#2936); sorting follows it, the search also finds the other names.
+      render: (r) => getLocalizedCatalogName(r, i18n.language),
+      searchValue: (r) =>
+        [
+          getLocalizedCatalogName(r, i18n.language),
+          r.common_name,
+          ...Object.values(r.common_names_i18n ?? {}).flat(),
+        ].join(' '),
     },
     {
       id: 'pathogenType',
@@ -128,7 +136,7 @@ export default function DiseaseListPage() {
           <MobileCard
             title={r.scientific_name}
             titleId="scientificName"
-            subtitle={r.common_name}
+            subtitle={getLocalizedCatalogName(r, i18n.language)}
             subtitleId="commonName"
             chips={[
               {

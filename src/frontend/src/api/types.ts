@@ -3145,7 +3145,9 @@ export interface PestUpdate {
 export interface Beneficial {
   key: string;
   slug: string;
+  /** The stored (German) name; display via `getLocalizedCatalogName` (#2936). */
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   scientific_name: string;
   description: string | null;
   preys_on: string[];
@@ -3203,7 +3205,9 @@ export interface Disease {
   key: string;
   origin?: DataOrigin;
   scientific_name: string;
+  /** The stored (English) name; display via `getLocalizedCatalogName` (#2936). */
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   pathogen_type: string;
   incubation_period_days: number | null;
   environmental_triggers: string[];
@@ -3216,6 +3220,7 @@ export interface Disease {
 export interface DiseaseCreate {
   scientific_name: string;
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   pathogen_type: string;
   incubation_period_days?: number | null;
   environmental_triggers?: string[];
@@ -3226,6 +3231,7 @@ export interface DiseaseCreate {
 export interface DiseaseUpdate {
   scientific_name?: string;
   common_name?: string;
+  common_names_i18n?: CommonNamesI18n;
   pathogen_type?: string;
   incubation_period_days?: number | null;
   environmental_triggers?: string[];
@@ -3298,6 +3304,8 @@ export interface TreatmentTargetRef {
   key: string;
   common_name: string;
   common_name_de: string | null;
+  /** Diseases name their languages here (#2936); pests use `common_name_de`. */
+  common_names_i18n?: CommonNamesI18n;
   scientific_name: string;
 }
 

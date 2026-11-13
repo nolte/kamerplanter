@@ -32,6 +32,7 @@ from app.common.enums import McpPermission, PestPressureLevel, PlantPart
 from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.ipm import Inspection, InspectionFinding
 from app.domain.models.mcp import McpToolResponse
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_catalog_name
 from app.mcp_server.base import (
     TenantToolInput,
     ToolBase,
@@ -65,6 +66,8 @@ def _disease_summary(disease: Any) -> dict[str, Any]:
         "disease_key": disease.key,
         "scientific_name": disease.scientific_name,
         "common_name": disease.common_name,
+        # Names per language (#2936): the stored common_name is English for the seeded rows.
+        "common_names_i18n": disease.common_names_i18n,
         "pathogen_type": disease.pathogen_type,
         "incubation_period_days": disease.incubation_period_days,
         "environmental_triggers": disease.environmental_triggers,
@@ -179,6 +182,7 @@ class GetPest(ToolBase):
                 "beneficials": [
                     {
                         "common_name": b.common_name,
+                        "common_names_i18n": b.common_names_i18n,
                         "scientific_name": b.scientific_name,
                         "preys_on": b.preys_on,
                         "description": b.description,
@@ -212,7 +216,15 @@ class ListDiseases(ToolBase):
         if args.query:
             needle = args.query.strip().lower()
             selected = [
-                d for d in selected if _matches(d.scientific_name, d.common_name, d.pathogen_type, needle=needle)
+                d
+                for d in selected
+                if _matches(
+                    d.scientific_name,
+                    d.common_name,
+                    *(name for names in d.common_names_i18n.values() for name in names),
+                    d.pathogen_type,
+                    needle=needle,
+                )
             ]
         page = selected[: args.limit]
         return self._response(
@@ -235,8 +247,10 @@ class GetDisease(ToolBase):
         disease = ctx.ipm_service.get_disease(args.disease_key)
         data = _disease_summary(disease)
         data["description"] = disease.description
+        # The canonical language, like the pest tools' ``common_name_de or common_name`` (#2936).
+        name = localized_catalog_name(disease.common_name, disease.common_names_i18n, CANONICAL_NAME_LANGUAGE)
         return self._response(
-            summary=f"{disease.common_name} ({disease.scientific_name}), pathogen: {disease.pathogen_type}.",
+            summary=f"{name} ({disease.scientific_name}), pathogen: {disease.pathogen_type}.",
             data=data,
             links=[ctx.global_link(f"/ipm/diseases/{disease.key}")],
         )

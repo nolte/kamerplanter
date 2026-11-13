@@ -23,6 +23,9 @@ class PestTaxon(BaseModel):
     slug: str = Field(min_length=1, max_length=80)
     category: PestFindingCategory
     common_name_de: str
+    # English name, set only where a source names one (E-10, #2936); the source sits
+    # next to each value. ``None`` -> an English UI shows ``common_name_de``.
+    common_name_en: str | None = None
     scientific_name: str
     gbif_taxon_key: str | None = None
     # Optional explicit iNaturalist taxon id. GBIF keys are NOT iNat ids, so the
@@ -41,6 +44,13 @@ class PestTaxon(BaseModel):
     symptom_hint_de: str | None = None
 
     model_config = {"frozen": True}
+
+    def names_i18n(self) -> dict[str, list[str]]:
+        """The taxon's names as a ``common_names_i18n`` map (REQ-010 v1.8, #2936): only the languages it names."""
+        names: dict[str, list[str]] = {"de": [self.common_name_de]}
+        if self.common_name_en:
+            names["en"] = [self.common_name_en]
+        return names
 
 
 # WP-4.1 — Schädlinge (category=pest). ``scientific_name`` matcht die
@@ -306,6 +316,8 @@ _BENEFICIALS: list[PestTaxon] = [
         slug="ladybird",
         category=PestFindingCategory.BENEFICIAL,
         common_name_de="Marienkäfer (inkl. Larven)",
+        # Source: https://en.wikipedia.org/wiki/Coccinellidae ("commonly known as ... ladybirds")
+        common_name_en="Ladybirds",
         scientific_name="Coccinellidae",
         gbif_taxon_key="7782",
         inat_life_stage="Larva",  # close the beneficial-larvae gap (§4.1)
@@ -315,6 +327,8 @@ _BENEFICIALS: list[PestTaxon] = [
         slug="lacewing",
         category=PestFindingCategory.BENEFICIAL,
         common_name_de="Florfliegen (Larven)",
+        # Source: https://en.wikipedia.org/wiki/Chrysopidae ("Green lacewings are insects in ... Chrysopidae")
+        common_name_en="Green lacewings",
         scientific_name="Chrysopidae",
         gbif_taxon_key="9265",
         inat_life_stage="Larva",  # close the beneficial-larvae gap (§4.1)
@@ -324,6 +338,8 @@ _BENEFICIALS: list[PestTaxon] = [
         slug="hoverfly",
         category=PestFindingCategory.BENEFICIAL,
         common_name_de="Schwebfliegen (Larven)",
+        # Source: https://en.wikipedia.org/wiki/Hoverfly ("Hoverflies ... make up the insect family Syrphidae")
+        common_name_en="Hoverflies",
         scientific_name="Syrphidae",
         gbif_taxon_key="6920",
         inat_life_stage="Larva",  # close the beneficial-larvae gap (§4.1)
@@ -333,6 +349,8 @@ _BENEFICIALS: list[PestTaxon] = [
         slug="predatory_mite",
         category=PestFindingCategory.BENEFICIAL,
         common_name_de="Raubmilben",
+        # Source: https://en.wikipedia.org/wiki/Phytoseiidae ("a family of predatory mites")
+        common_name_en="Predatory mites",
         scientific_name="Phytoseiidae",
         gbif_taxon_key="3511",
         preys_on=["spider_mite", "thrips_frankliniella", "thrips_echinothrips"],
@@ -341,6 +359,8 @@ _BENEFICIALS: list[PestTaxon] = [
         slug="parasitoid_wasp",
         category=PestFindingCategory.BENEFICIAL,
         common_name_de="Schlupfwespe (Encarsia formosa)",
+        # No English common name: https://en.wikipedia.org/wiki/Encarsia_formosa names
+        # the species only by its scientific name, so an English UI shows the German one.
         scientific_name="Encarsia formosa",
         gbif_taxon_key="1365418",
         # Encarsia formosa parasitiert ausschliesslich Weisse Fliege, nicht

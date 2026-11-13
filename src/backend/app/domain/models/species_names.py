@@ -38,6 +38,9 @@ from app.common.locale import DEFAULT_LOCALE
 #: this language; a request's language comes from ``app.common.locale.get_request_locale``.
 CANONICAL_NAME_LANGUAGE = DEFAULT_LOCALE
 
+#: Lowercase ISO 639-1/-2 language code, the key of every ``common_names_i18n`` map.
+COMMON_NAMES_LANGUAGE_CODE_PATTERN = re.compile(r"^[a-z]{2,3}$")
+
 
 def normalize_name_language(language: str | None) -> str:
     """``language`` as the key of ``common_names_i18n``: ``de-DE`` / ``en_US`` / ``EN`` -> ``de`` / ``en`` / ``en``.
@@ -100,3 +103,53 @@ def localized_common_name(
     Empty only when the species carries neither.
     """
     return localized_vernacular_name(common_names, common_names_i18n, language) or (scientific_name or "")
+
+
+# ── Catalogue entities with ONE stored name (IPM diseases and beneficials, #2936) ──
+
+
+def normalize_names_i18n(names_i18n: Mapping[str, Sequence[str]]) -> dict[str, list[str]]:
+    """Check and normalize a ``common_names_i18n`` map: language code -> names in preference order.
+
+    Keys must be lowercase ISO 639 codes (``de``, ``en``, ...). Names are stripped; an
+    empty name is rejected, a duplicate within one language is dropped and a language
+    left with no name is dropped — a missing key and an empty list say the same: no
+    sourced name in that language (E-10).
+
+    Raises:
+        ValueError: on an invalid key or an empty name.
+    """
+    normalized: dict[str, list[str]] = {}
+    for language, names in names_i18n.items():
+        if not COMMON_NAMES_LANGUAGE_CODE_PATTERN.fullmatch(language):
+            raise ValueError(f"common_names_i18n key must be a lowercase language code, got {language!r}")
+        cleaned: list[str] = []
+        for raw in names:
+            text: str = str(raw)
+            name: str = text.strip()
+            if not name:
+                raise ValueError(f"common_names_i18n[{language!r}] contains an empty name")
+            if name not in cleaned:
+                cleaned.append(name)
+        if cleaned:
+            normalized[language] = cleaned
+    return normalized
+
+
+def localized_catalog_name(
+    common_name: str | None,
+    common_names_i18n: Mapping[str, Sequence[str]] | None,
+    language: str | None,
+) -> str:
+    """The display name of a catalogue entity that stores ONE ``common_name`` plus a language map.
+
+    IPM diseases and beneficials (REQ-010 v1.8, #2936) keep the single
+    ``common_name`` they always had (the seed's name, the edge key of a disease) and
+    say in ``common_names_i18n`` which name belongs to which language. Rule: the first
+    name of ``language``, else the first name of the canonical language ``de``, else
+    the stored ``common_name`` — a language without a sourced name shows the existing
+    name instead of an invented translation (E-10). Same rule as the frontend helper
+    ``getLocalizedCatalogName`` (``src/frontend/src/utils/plantDisplay.ts``).
+    """
+    stored = _first_name([common_name or ""])
+    return localized_vernacular_name([stored] if stored else [], common_names_i18n, language) or (stored or "")
