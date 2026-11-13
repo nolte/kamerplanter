@@ -51,8 +51,12 @@ class SequenceAutoTarget:
 
 
 def _entered_by_a_person(profile: RequirementProfile) -> RequirementProfile:
-    """The profile with its photoperiod marked ``sourced``: a person wrote it, no client may claim another origin."""
-    return profile.model_copy(update={"photoperiod_source": PhotoperiodSource.SOURCED})
+    """The profile with its photoperiod marked ``sourced``: a person wrote it, no client may claim another origin.
+
+    The route builds the profile from the request body, so marking it in place changes nothing anyone else holds.
+    """
+    profile.photoperiod_source = PhotoperiodSource.SOURCED
+    return profile
 
 
 class PhaseService:

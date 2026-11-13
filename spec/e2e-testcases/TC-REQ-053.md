@@ -3742,9 +3742,9 @@ Bildschirmfoto; der Befund ist gemeldet.
 - Indoor-Site mit „Zelt A“ und „Zelt B“
 - Aus dem Phasenprofil der Hanf-Phasen (ohne Jungpflanzen-Phasen) die Phase mit der längsten und die mit der kürzesten
   Lichtdauer (mindestens 1 Stunde auseinander)
-- Die Lichtdauer beider Phasen gilt als eingetragen: Die Hanf-Phasen stammen aus der allgemeinen Phasenvorlage
-  (Herkunft „aus der Phasenvorlage erzeugt“), die nicht mitzählt (#2857, REQ-053 §9.2a); ein Plattform-Admin
-  speichert beide Phasenprofile unverändert im Profil-Editor (per API), danach ist die Herkunft „eingetragen“
+- Nur Phasen, deren Lichtdauer aus dem Steckbrief stammt (Herkunft „aus dem Steckbrief oder eingetragen“), kommen in
+  Frage (#2857, REQ-053 §9.2a): Die Saatdaten übertragen die Lichtdauern aus dem Hanf-Steckbrief auf die Hanf-Phasen
+  (vegetativ 18 h, Blüte 12 h); eine Phase ohne Steckbrief-Angabe (Spülung) zählt nicht
 - In Zelt A je eine Pflanze in jeder der beiden Phasen; in Zelt B zwei Pflanzen in der Phase mit der längsten Lichtdauer
 
 **Testschritte**:

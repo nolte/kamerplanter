@@ -413,7 +413,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
                 stated: dict[str, float] = {
                     str(entry["phase"]["name"]): float(entry["requirements"]["photoperiod"])
                     for entry in phase_data.get(sci_name, [])
-                    if entry["requirements"].get("photoperiod") is not None
+                    if entry["requirements"]["photoperiod"] is not None
                 }
                 stamp_unchanged_photoperiods(lifecycle_repo, existing_phases, stated)
                 continue

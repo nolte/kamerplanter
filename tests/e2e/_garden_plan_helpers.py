@@ -1600,6 +1600,8 @@ class PhasePhotoperiod:
     photoperiod_hours: float
     display_name: str = ""
     display_name_de: str = ""
+    #: Where the hours came from (#2857): only ``sourced`` hours take part in the tent hint.
+    photoperiod_source: str | None = None
 
 
 def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[PhasePhotoperiod]:
@@ -1645,88 +1647,10 @@ def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[Phas
                 photoperiod_hours=float(hours),
                 display_name=str(definition.get("display_name") or ""),
                 display_name_de=str(definition.get("display_name_de") or ""),
+                photoperiod_source=profile.get("photoperiod_source"),
             )
         )
     return found
-
-
-#: The fields ``PUT /profiles/requirements/{key}`` takes (``RequirementProfileCreate``); the rest is the server's.
-_REQUIREMENT_PROFILE_BODY_FIELDS = (
-    "phase_key",
-    "light_ppfd_target",
-    "photoperiod_hours",
-    "light_spectrum",
-    "temperature_day_c",
-    "temperature_night_c",
-    "humidity_day_percent",
-    "humidity_night_percent",
-    "vpd_target_kpa",
-    "co2_ppm",
-    "irrigation_frequency_days",
-    "irrigation_volume_ml_per_plant",
-)
-
-
-def _platform_admin_api(base_url: str, seed: dict) -> tuple[str, str | None]:
-    """The API base and a token of the platform admin: the catalogue's phase profiles are theirs to edit (#1120).
-
-    Light mode has no login (the sole operator is the platform admin, REQ-027): ``None``. Full mode logs in as the
-    seeded platform-admin account (``seed_e2e_platform_admin.py``), never as the demo user.
-    """
-    from .conftest import PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD, _fresh_access_token
-
-    api = f"{base_url.rstrip('/')}/api/v1"
-    if not seed.get("access_token"):
-        return api, None
-    admin_seed = {
-        "access_token": seed["access_token"],
-        "email": PLATFORM_ADMIN_EMAIL,
-        "password": PLATFORM_ADMIN_PASSWORD,
-    }
-    return api, _fresh_access_token(admin_seed, base_url)
-
-
-def enter_phase_photoperiods(
-    base_url: str, seed: dict, species_key: str, phase_names: set[str]
-) -> None:
-    """Save the requirement profile of each named growth phase of *species_key* unchanged, as the profile editor does.
-
-    A person who saves the profile states its light hours: the server stores them as ``sourced`` (#2857), the only
-    origin the tent hint judges. The values stay as the catalogue holds them. Loud when a phase is missing or the
-    answer does not carry ``photoperiod_source = sourced``.
-    """
-    api, token = _platform_admin_api(base_url, seed)
-    status, lifecycle = _api_request(f"{api}/species/{species_key}/lifecycle", "GET", token)
-    _require(status, lifecycle, (200,), f"GET /species/{species_key}/lifecycle")
-    status, phases = _api_request(
-        f"{api}/growth-phases?lifecycle_key={lifecycle['key']}", "GET", token
-    )
-    _require(status, phases, (200,), f"GET /growth-phases?lifecycle_key={lifecycle['key']}")
-    keys = {
-        str(phase["name"]): str(phase["key"])
-        for phase in phases
-        if str(phase["name"]) in phase_names
-    }
-    if set(keys) != phase_names:
-        raise AssertionError(
-            f"Self-provisioning failed: growth phases {sorted(phase_names - set(keys))} not found"
-        )
-    for name, phase_key in sorted(keys.items()):
-        status, profile = _api_request(f"{api}/profiles/requirements/{phase_key}", "GET", token)
-        _require(status, profile, (200,), f"GET /profiles/requirements/{phase_key}")
-        body = {
-            field_name: profile[field_name]
-            for field_name in _REQUIREMENT_PROFILE_BODY_FIELDS
-            if field_name in profile
-        }
-        status, saved = _api_request(
-            f"{api}/profiles/requirements/{profile['key']}", "PUT", token, body
-        )
-        _require(status, saved, (200,), f"PUT /profiles/requirements/{profile['key']}")
-        if not isinstance(saved, dict) or saved.get("photoperiod_source") != "sourced":
-            raise AssertionError(
-                f"Self-provisioning failed: the {name!r} profile is not sourced: {saved!r}"
-            )
 
 
 def create_plant_in_phase(

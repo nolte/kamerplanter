@@ -37,6 +37,11 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.species import Species
 from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_photoperiod_source import (
+    StatedPhotoperiod,
+    apply_steckbrief_phase_photoperiods,
+    parse_steckbrief_phase_photoperiods,
+)
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -82,6 +87,13 @@ def _load_lifecycle_overrides() -> dict[str, dict]:
     """Load per-species lifecycle overrides (cultivation_cycle_type, flowering_strategy)."""
     data = load_yaml("species.yaml")
     return data.get("lifecycle_overrides", {}) or {}
+
+
+def _load_steckbrief_phase_photoperiods() -> dict[str, list[StatedPhotoperiod]]:
+    """Load the light hours Steckbriefe state for default phases (#2857, ``steckbrief_phase_photoperiods``)."""
+    data: dict[str, Any] = load_yaml("species.yaml")
+    block: dict[str, Any] = data.get("steckbrief_phase_photoperiods") or {}
+    return parse_steckbrief_phase_photoperiods(block)
 
 
 def _load_default_phases() -> list[dict]:
@@ -785,6 +797,13 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             lifecycle_repo.create_nutrient_profile(nut)
 
             logger.info("phase_created", species=sp.scientific_name, phase=phase_data["name"])
+
+    # ── Light hours the Steckbrief states for default phases (#2857) ─────
+    # New and existing lifecycles alike: this is how an installation gets them without a migration.
+    stated_hours = apply_steckbrief_phase_photoperiods(
+        lifecycle_repo, _load_steckbrief_phase_photoperiods(), species_key_map
+    )
+    logger.info("steckbrief_phase_photoperiods_applied", changed=stated_hours)
 
     # ── Link indoor species to their (attribute-resolved) PhaseSequence ─────
     # No-op on the very first boot (phase_sequences seed later in the registry);

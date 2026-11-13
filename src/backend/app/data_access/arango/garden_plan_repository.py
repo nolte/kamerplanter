@@ -796,7 +796,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 phase_code=_text_or_none(row["phase_code"]),
                 display_name=_text_or_none(row["display_name"]) or str(row["plant_key"]),
                 phase_label=_phase_label_or_none(row),
-                photoperiod_source=_photoperiod_source_or_none(row.get("photoperiod_source")),
+                photoperiod_source=_photoperiod_source_or_none(row["photoperiod_source"]),
             )
             for row in cursor
         ]

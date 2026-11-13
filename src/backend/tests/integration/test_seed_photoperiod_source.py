@@ -5,10 +5,13 @@ installation receives it through the loaders that run on every start. Measured a
 production entry points:
 
 * a fresh seed: Steckbrief phases (``plant_info*.yaml``, ``adventskalender.yaml``) carry ``sourced``; the generic
-  phases of ``species.yaml`` (``default_phases``, one table for every species) carry ``generated``;
+  phases of ``species.yaml`` (``default_phases``, one table for every species) carry ``generated`` - except the
+  phases ``steckbrief_phase_photoperiods`` lists for a species (hemp): those carry the Steckbrief's hours as
+  ``sourced``, and only their requirement profiles differ (same phases, names, durations, nutrient profiles);
 * a re-seed over profiles stored before the field existed stamps ``sourced`` where the Steckbrief states the hours -
   also when the value is unchanged - and leaves every other profile's origin alone (no relabelling of a generator
-  value, no migration).
+  value, no migration);
+* both ways, a hemp plant in the vegetative phase and one in flowering in one tent give ``tent.photoperiod_conflict``.
 """
 
 from __future__ import annotations
@@ -19,8 +22,15 @@ import pytest
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
+from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
+from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.domain.models.tent_hint import HINT_PHOTOPERIOD_CONFLICT
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.migrations.seed_adventskalender import run_seed_adventskalender
 from app.migrations.seed_data import run_seed
+from app.migrations.seed_phase_ownership import species_with_seeded_phases
 from app.migrations.seed_plant_info import run_seed_plant_info
 from app.migrations.seed_plant_info_extended import run_seed_plant_info_extended
 from app.migrations.yaml_loader import load_yaml
@@ -88,6 +98,74 @@ def _steckbrief_phases(filename: str, *, hours_key: str, requirement_key: str) -
     raise AssertionError(f"{filename} has no species whose phases all state their light hours")
 
 
+def _generic_species() -> str:
+    """A species of species.yaml seeded only with the generic default phases and no Steckbrief light hours."""
+    data = load_yaml("species.yaml")
+    listed = set(data["steckbrief_phase_photoperiods"])
+    owned = species_with_seeded_phases()
+    return next(
+        entry["scientific_name"]
+        for entry in data["species"]
+        if entry["scientific_name"] not in owned and entry["scientific_name"] not in listed
+    )
+
+
+_TENANT = "ten_hemp"
+_RECT = {"kind": "rect", "origin": [0, 0], "width_m": 4, "length_m": 4, "rotation_deg": 0}
+
+
+def _hemp_tent_hints(db: StandardDatabase) -> list[str]:
+    """A tent with one hemp plant in the vegetative and one in the flowering phase: the codes of its hints."""
+    hemp = {name: profile["phase_key"] for name, profile in _profiles(db, "Cannabis sativa").items()}
+    species_key = next(
+        db.aql.execute(
+            "FOR s IN @@c FILTER s.scientific_name == 'Cannabis sativa' AND s.tenant_key == '' RETURN s._key",
+            bind_vars={"@c": col.SPECIES},
+        )
+    )
+    for collection in (col.SITES, col.LOCATIONS, col.PLANT_INSTANCES):
+        db.aql.execute("FOR d IN @@c FILTER d._key LIKE 'hemp_%' REMOVE d IN @@c", bind_vars={"@c": collection})
+    db.collection(col.SITES).insert(
+        {
+            "_key": "hemp_site",
+            "tenant_key": _TENANT,
+            "name": "Grow room",
+            "type": "indoor",
+            "total_area_m2": 0.0,
+            "timezone": "UTC",
+            "plan": {"boundary": _RECT, "plan_revision": 1, "north_angle_deg": 0.0},
+        }
+    )
+    db.collection(col.LOCATIONS).insert(
+        {
+            "_key": "hemp_tent",
+            "site_key": "hemp_site",
+            "name": "Tent",
+            "location_type_key": "tent",
+            "area_m2": 1.44,
+            "depth": 0,
+            "path": "hemp_tent",
+            "geometry": {"kind": "rect", "origin": [1, 1], "width_m": 1.2, "length_m": 1.2, "rotation_deg": 0},
+        }
+    )
+    for key, phase in (("hemp_veg", "vegetative"), ("hemp_flower", "flowering")):
+        db.collection(col.PLANT_INSTANCES).insert(
+            {
+                "_key": key,
+                "tenant_key": _TENANT,
+                "instance_id": key.upper(),
+                "species_key": species_key,
+                "location_key": "hemp_tent",
+                "current_phase_key": hemp[phase],
+                "removed_on": None,
+            }
+        )
+    sites = ArangoSiteRepository(db)
+    plan = ArangoGardenPlanRepository(db)
+    service = GardenResourceService(sites, plan, ArangoGardenObjectRepository(db), GardenPlanService(sites, plan))
+    return [hint.code for hint in service.get_summary("hemp_tent", tenant_key=_TENANT).tent_hints]
+
+
 def _forget_the_origins(db: StandardDatabase) -> None:
     """Give every stored profile the shape it had before #2857: no ``photoperiod_source``."""
     db.aql.execute(
@@ -113,10 +191,20 @@ def test_steckbrief_phases_are_sourced_and_generic_ones_generated(seeded: Standa
         advent_stated, "sourced"
     )
 
-    # Hemp has no Steckbrief phases: species.yaml's default_phases are the generator's phase-name table.
+    # Hemp has no Steckbrief phases; its default phases get its Steckbrief's hours (steckbrief_phase_photoperiods).
     hemp = _profiles(seeded, "Cannabis sativa")
-    assert hemp, "precondition: hemp has phases with profiles"
-    assert {p["photoperiod_source"] for p in hemp.values()} == {"generated"}
+    assert {name: (p["photoperiod_hours"], p["photoperiod_source"]) for name, p in hemp.items()} == {
+        "seedling": (18.0, "sourced"),
+        "vegetative": (18.0, "sourced"),
+        "flowering": (12.0, "sourced"),
+        "flushing": (12.0, "generated"),  # the Steckbrief has no flushing phase (E-10)
+        "ripening": (12.0, "sourced"),
+    }
+    # Any other generic species keeps the phase-name table's hours.
+    generic = _profiles(seeded, _generic_species())
+    assert generic and {p["photoperiod_source"] for p in generic.values()} <= {"generated", "default"}
+
+    assert _hemp_tent_hints(seeded) == [HINT_PHOTOPERIOD_CONFLICT]
 
 
 def test_a_reseed_stamps_stated_hours_and_relabels_nothing_else(seeded: StandardDatabase) -> None:
@@ -135,5 +223,14 @@ def test_a_reseed_stamps_stated_hours_and_relabels_nothing_else(seeded: Standard
     )
     # The adventskalender never patches existing phases; it vouches for values still equal to its own.
     assert {p.get("photoperiod_source") for p in _profiles(seeded, advent).values()} == {"sourced"}
-    # Generic phases stay of unknown origin: nothing in a seed states their hours for this species.
-    assert {p.get("photoperiod_source") for p in _profiles(seeded, "Cannabis sativa").values()} == {None}
+    # Hemp: the Steckbrief's hours are stamped on the legacy profiles; flushing (no Steckbrief row) stays unknown.
+    assert {name: p.get("photoperiod_source") for name, p in _profiles(seeded, "Cannabis sativa").items()} == {
+        "seedling": "sourced",
+        "vegetative": "sourced",
+        "flowering": "sourced",
+        "flushing": None,
+        "ripening": "sourced",
+    }
+    # Other generic phases stay of unknown origin: nothing in a seed states their hours for that species.
+    assert {p.get("photoperiod_source") for p in _profiles(seeded, _generic_species()).values()} == {None}
+    assert _hemp_tent_hints(seeded) == [HINT_PHOTOPERIOD_CONFLICT]
