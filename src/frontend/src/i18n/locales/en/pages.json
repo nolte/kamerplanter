@@ -6664,9 +6664,9 @@
           "submit": "Set the plant",
           "openBed": "Go to the bed",
           "blocked": {
-            "check": "The server does not allow a single plant of this species on this spot: crop rotation or neighbours speak against it (see the hints). A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason.",
-            "rotation": "The server refuses the plant: crop rotation does not allow this plant family here yet. A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason.",
-            "companion": "The server refuses the plant: a neighbour does not get along with this species. A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason."
+            "check": "A single plant of this species cannot be set on this spot: crop rotation or neighbours speak against it (see the hints). A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason.",
+            "rotation": "This plant cannot be set here: crop rotation does not allow this plant family here yet. A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason.",
+            "companion": "This plant cannot be set here: a neighbour does not get along with this species. A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason."
           },
           "refused": {
             "offline": "Without a connection to the server nothing is set. Try again once you are back online.",

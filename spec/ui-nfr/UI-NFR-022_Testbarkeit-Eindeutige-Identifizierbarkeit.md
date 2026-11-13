@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.25
+Version: 1.26
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.26 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Pflanze setzen“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-plant`, `garden-plan-plant-status` und `garden-plan-plant-dialog`. |
 | 1.25 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Bereich“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-area` und `garden-plan-new-area-type-rule`. |
 | 1.24 | 2026-11-12 | §2.5.1: `garden-plan-tool-<tool>` mit seinen Werten (select, pan, bed, garden_object, measure) und die Touch-Kennungen `garden-plan-touch-*` nachregistriert; neu für das Werkzeug „Messen“ (REQ-053 GP-UX-071, Issue #2913): `garden-plan-measure-status`, `garden-plan-measure` / `-line` / `-segment` / `-total`, `garden-plan-measure-place` / `-finish`. |
 | 1.23 | 2026-11-12 | §2.5.1: „Meine Position“ im Tab Karte des Feldmodus (REQ-053 GP-UX-026, Issue #2898) registriert: der Abschnitt `field-mode-position`, der Schalter `field-mode-position-switch` (natives Eingabefeld, `role="switch"`), die Beschreibung `field-mode-position-description`, der Hinweis `field-mode-position-hint` mit dem qualifizierenden Attribut `data-reason` (`locating`, `denied`, `unavailable`, `timeout`, `site_loading`, `site_error`, `no_gps`, `far`, `outside_view`, `coarse`), die Überlagerung `field-mode-position-dot` (`data-accuracy-m`) mit dem Genauigkeitskreis `field-mode-position-accuracy`. Keine bestehende Kennung umbenannt (R-021); die Page Objects brauchen keine Anpassung. Zusammen mit der Verwendung im selben Pull Request (R-020). |

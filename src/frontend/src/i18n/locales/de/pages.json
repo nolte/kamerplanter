@@ -6665,9 +6665,9 @@
           "submit": "Pflanze setzen",
           "openBed": "Zum Beet",
           "blocked": {
-            "check": "Auf diesen Platz lässt der Server keine einzelne Pflanze dieser Art: Fruchtfolge oder Nachbarn sprechen dagegen (siehe Hinweise). Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets.",
-            "rotation": "Der Server lehnt die Pflanze ab: Die Fruchtfolge lässt diese Pflanzenfamilie hier noch nicht zu. Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets.",
-            "companion": "Der Server lehnt die Pflanze ab: Ein Nachbar verträgt sich nicht mit dieser Art. Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets."
+            "check": "Auf diesen Platz lässt sich keine einzelne Pflanze dieser Art setzen: Fruchtfolge oder Nachbarn sprechen dagegen (siehe Hinweise). Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets.",
+            "rotation": "Diese Pflanze lässt sich hier nicht setzen: Die Fruchtfolge lässt diese Pflanzenfamilie hier noch nicht zu. Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets.",
+            "companion": "Diese Pflanze lässt sich hier nicht setzen: Ein Nachbar verträgt sich nicht mit dieser Art. Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets."
           },
           "refused": {
             "offline": "Ohne Verbindung zum Server wird nichts gesetzt. Versuche es, sobald du wieder online bist.",
