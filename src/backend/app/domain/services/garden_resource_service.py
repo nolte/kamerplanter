@@ -104,7 +104,6 @@ from app.domain.services.location_ownership import (
     resolve_owned_location,
     resolve_owned_slot,
 )
-from app.domain.services.location_photo_service import LocationPhotoDiscard, release_location_photos
 from app.domain.services.nutrient_hint_service import NutrientHintService
 from app.domain.services.site_service import place_in_tree
 
@@ -176,7 +175,6 @@ class GardenResourceService:
         plan_service: GardenPlanService,
         dispatch_adjacency: AdjacencyDispatch | None = None,
         *,
-        photos: Callable[[], LocationPhotoDiscard] | None = None,
         nutrient_hint: Callable[[], NutrientHintService] | None = None,
     ) -> None:
         self._sites = site_repo
@@ -184,9 +182,6 @@ class GardenResourceService:
         self._objects = object_repo
         self._plan_service = plan_service
         self._dispatch_adjacency = dispatch_adjacency
-        # WP 8.18: the photos of a deleted bed are discarded after the commit (unless something else names them).
-        # A provider, built only by a delete that released a photo.
-        self._photos = photos
         # WP 8.10: the nutrient hint of the bed summary (GP-FR-125). A provider, built only by a summary of a bed.
         self._nutrient_hint = nutrient_hint
 
@@ -811,15 +806,19 @@ class GardenResourceService:
 
     # ── DELETE /locations/{key} (V-09) ────────────────────────────────────────
 
-    def delete_location(self, key: LocationKey, *, tenant_key: str, user_key: str, role: TenantRole) -> list[str]:
+    async def delete_bed(self, key: LocationKey, *, tenant_key: str, user_key: str, role: TenantRole) -> None:
         """Delete the location and what is below it; 409 ``location.has_active_plants`` while a plant stands in it.
 
-        Returns the photo ids the deleted locations held (read in the transaction, WP 8.18); their references
-        went with the documents, the attachments are the caller's to discard (:meth:`delete_bed`).
+        Goes through :meth:`GardenPlanService.apply_batch_async`, the one path that commits a bed delete **and**
+        discards the photos the deleted beds held unless another carrier names them (WP 8.18, #2715 item 5). There is
+        no synchronous variant that hands the photo ids back to its caller to remember: that was how a caller could
+        drop them (``tests/unit/guards/test_released_bed_photos_are_released.py``).
+
+        The ownership and role reads are synchronous (python-arango) and run in a worker thread, off the event loop.
         """
-        location = self._owned_location(key, tenant_key=tenant_key)
+        location = await asyncio.to_thread(self._owned_location, key, tenant_key=tenant_key)
         self._require_lead(role)
-        result = self._plan_service.apply_batch(
+        await self._plan_service.apply_batch_async(
             location.site_key,
             tenant_key=tenant_key,
             user_key=user_key,
@@ -828,17 +827,6 @@ class GardenResourceService:
             operations=[{"op": "delete", "entity": _ENTITY_LOCATION, "key": key}],
             body_bytes=0,
         )
-        return list(result.released_photo_refs)
-
-    async def delete_bed(self, key: LocationKey, *, tenant_key: str, user_key: str, role: TenantRole) -> None:
-        """:meth:`delete_location`, then its photos are discarded unless another carrier names them (WP 8.18).
-
-        The repository calls are synchronous (python-arango) and run in a worker thread, off the event loop.
-        """
-        released = await asyncio.to_thread(
-            self.delete_location, key, tenant_key=tenant_key, user_key=user_key, role=role
-        )
-        await release_location_photos(self._photos, released, tenant_key=tenant_key)
 
     # ── GP-API-013: garden objects ────────────────────────────────────────────
 

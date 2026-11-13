@@ -346,6 +346,20 @@ class TestList:
         assert [photo.attachment.key for photo in view.photos] == ["p1"]
         assert world.bed().photo_refs == ["gone", "p1"]  # listing does not rewrite the bed
 
+    def test_the_gallery_is_read_in_one_round_trip_in_the_beds_order(self, world: World) -> None:
+        """#2715 item 7: one ``get_many`` for the whole gallery, never one ``get`` per photo."""
+        for key in ("p1", "p2", "p3"):
+            world.attachments.add(key, tenant_key=TENANT)
+        world.attachments.add("foreign", tenant_key=OTHER_TENANT)
+        world.repo.locations["bed"] = world.bed().model_copy(update={"photo_refs": ["p3", "foreign", "p1", "p2"]})
+        world.attachments.reads.clear()
+
+        view = world.service.list_photos("bed", tenant_key=TENANT, user_key=ME, role=TenantRole.VIEWER)
+
+        assert world.attachments.reads == []
+        assert world.attachments.batch_reads == [["p3", "foreign", "p1", "p2"]]
+        assert [photo.attachment.key for photo in view.photos] == ["p3", "p1", "p2"]
+
     def test_another_tenants_bed_is_not_found(self, world: World) -> None:
         with pytest.raises(NotFoundError):
             world.service.list_photos("foreign_bed", tenant_key=TENANT, user_key=ME, role=TenantRole.LEAD)
@@ -375,9 +389,7 @@ class TestList:
 class TestBedDelete:
     def _resources(self, world: World) -> GardenResourceService:
         plans = GardenPlanService(world.repo._sites, world.repo, photos=lambda: world.service)
-        return GardenResourceService(
-            world.repo._sites, world.repo, FakeObjects(world.repo), plans, photos=lambda: world.service
-        )
+        return GardenResourceService(world.repo._sites, world.repo, FakeObjects(world.repo), plans)
 
     async def test_deleting_the_bed_removes_its_references_and_deletes_its_photos(self, world: World) -> None:
         for key in ("p1", "p2"):
@@ -414,6 +426,33 @@ class TestBedDelete:
         )
 
         assert "bed" not in world.repo.locations and world.attachments.deleted == ["p1"]
+
+    async def test_the_commit_hook_runs_before_the_discard(self, world: World) -> None:
+        """#2715 item 8: the route's batch-duration metric stops at the commit, not after the storage deletes."""
+        world.attachments.add("p1", tenant_key=TENANT)
+        world.add("p1")
+        plans = GardenPlanService(world.repo._sites, world.repo, photos=lambda: world.service)
+        events: list[str] = []
+        original = world.attachments.delete_if_unreferenced
+
+        async def deleting(attachment_id: str, tenant_key: str) -> bool:
+            events.append("discard")
+            return await original(attachment_id, tenant_key)
+
+        world.attachments.delete_if_unreferenced = deleting  # type: ignore[method-assign]
+
+        result = await plans.apply_batch_async(
+            SITE,
+            tenant_key=TENANT,
+            user_key=ME,
+            role=TenantRole.LEAD,
+            expected_revision=None,
+            operations=[{"op": "delete", "entity": "location", "key": "bed"}],
+            body_bytes=0,
+            on_commit=lambda committed: events.append(f"commit:{committed.plan_revision}"),
+        )
+
+        assert events == [f"commit:{result.plan_revision}", "discard"]
 
     async def test_discard_released_never_deletes_another_category(self, world: World) -> None:
         world.attachments.add("gallery", tenant_key=TENANT, category=AttachmentCategory.PLANT)

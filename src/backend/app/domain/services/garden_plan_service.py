@@ -626,11 +626,15 @@ class GardenPlanService:
         expected_revision: int | None,
         operations: list[Any],
         body_bytes: int,
+        on_commit: Callable[[PlanBatchResult], object] | None = None,
     ) -> PlanBatchResult:
         """:meth:`apply_batch` off the event loop, then the photos of the beds it deleted are discarded (WP 8.18).
 
         A photo goes only when nothing else names it (another bed, a gallery, a task …) and its stored object only
         when no other record holds it; a failure there is logged, the committed batch still answers.
+
+        ``on_commit`` runs once the batch has committed and before the discard: the route stops its batch-duration
+        metric there, so the histogram measures the plan write and not the storage deletes behind it (#2715 item 8).
         """
         result = await asyncio.to_thread(
             self.apply_batch,
@@ -642,6 +646,8 @@ class GardenPlanService:
             operations=operations,
             body_bytes=body_bytes,
         )
+        if on_commit is not None:
+            on_commit(result)
         await release_location_photos(self._photos, result.released_photo_refs, tenant_key=tenant_key)
         return result
 

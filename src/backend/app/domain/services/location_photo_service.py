@@ -127,7 +127,9 @@ class LocationPhotoService:
         self, location_key: str, state: LocationPhotoState, *, tenant_key: str, user_key: str, role: TenantRole
     ) -> LocationPhotoGallery:
         # Comprehensions, not ``append``: the write-route sweep cannot type a list receiver (its ceiling, #2039).
-        found = [(ref, self._attachment_repo.get(ref, tenant_key)) for ref in state.photo_refs]
+        # One round trip for the whole gallery (#2715 item 7), not one ``get`` per photo.
+        records = self._attachment_repo.get_many(state.photo_refs, tenant_key)
+        found = [(ref, records.get(ref)) for ref in state.photo_refs]
         shown = [(ref, attachment) for ref, attachment in found if attachment is not None]
         # A stale reference (its record is gone) is skipped, and so is a stale cover: the view names a cover only
         # when that photo is among the ones it returns, so a client never asks for a rendition that cannot exist.

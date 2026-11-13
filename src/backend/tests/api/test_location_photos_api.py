@@ -70,9 +70,7 @@ class World:
             self.repo._sites, FakeLocationPhotoRepo(self.repo, self.attachments), self.attachments, self._attachments
         )
         plans = GardenPlanService(self.repo._sites, self.repo, photos=self._photo_service)
-        self.resources = GardenResourceService(
-            self.repo._sites, self.repo, FakeObjects(self.repo), plans, photos=self._photo_service
-        )
+        self.resources = GardenResourceService(self.repo._sites, self.repo, FakeObjects(self.repo), plans)
 
     def _attachments(self) -> FakePhotoAttachments:
         return self.attachments

@@ -631,7 +631,6 @@ def get_garden_resource_service() -> GardenResourceService:
         ArangoGardenObjectRepository(get_db()),
         get_garden_plan_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
-        photos=get_location_photo_service,
         nutrient_hint=get_nutrient_hint_service,
     )
 

@@ -1,5 +1,6 @@
 """NFR-013 §2.2 — ArangoDB repository for the ``attachments`` collection."""
 
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from typing import Any, cast
 
@@ -224,6 +225,26 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         if attachment is None or attachment.tenant_key != tenant_key:
             return None
         return attachment
+
+    def get_many(self, keys: Sequence[str], tenant_key: str) -> dict[str, Attachment]:
+        """One query for the tenant's records among *keys* (#2715 item 7; was one ``get`` per photo of a gallery)."""
+        unique = list(dict.fromkeys(keys))
+        if not unique:
+            return {}
+        self._require_tenant_key(tenant_key, "get_many")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR att IN @@collection
+              FILTER att._key IN @keys AND att.tenant_key == @tenant_key
+              RETURN att
+            """,
+                bind_vars={"@collection": self._collection_name, "keys": unique, "tenant_key": tenant_key},
+            ),
+        )
+        found = [Attachment(**self._from_doc(doc)) for doc in cursor]
+        return {attachment.key: attachment for attachment in found if attachment.key}
 
     def delete(self, key: str, tenant_key: str) -> bool:
         existing = self.get(key, tenant_key)
