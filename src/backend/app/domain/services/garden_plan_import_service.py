@@ -150,6 +150,7 @@ class _Prepared:
     delete_locations: list[str] = field(default_factory=list)
     delete_objects: list[str] = field(default_factory=list)
     deleted_slot_count: int = 0
+    deleted_photo_count: int = 0
     deleted_names: dict[str, str] = field(default_factory=dict)
     kept: int = 0
     boundary: Any = None
@@ -586,6 +587,8 @@ class GardenPlanImportService:
         prepared.delete_locations = sorted(set(stored) - keep)
         prepared.deleted_names = {key: stored[key].name for key in prepared.delete_locations}
         prepared.delete_objects = sorted(obj.key for obj in existing_objects if obj.key)
+        # #2715 item 4: what the transaction will release (``_delete_locations`` returns these refs), counted once.
+        prepared.deleted_photo_count = len({ref for key in prepared.delete_locations for ref in stored[key].photo_refs})
         if prepared.delete_locations:
             prepared.deleted_slot_count = len(
                 self._plan.load_active_slots(site_key, prepared.delete_locations, tenant_key=tenant_key)
@@ -1076,6 +1079,7 @@ class GardenPlanImportService:
                 garden_objects=len(prepared.delete_objects),
                 slots=prepared.deleted_slot_count,
                 zones=len(prepared.delete_zones),
+                bed_photos=prepared.deleted_photo_count,
             ),
             kept_locations=prepared.kept,
             dropped_references=prepared.dropped[:MAX_REPORTED],

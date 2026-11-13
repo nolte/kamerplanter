@@ -705,7 +705,13 @@ class PlanImportResponse(PlanImportReport):
                     "offset_m": None,
                     "would_create": {"locations": 5, "garden_objects": 3, "slots": 20, "plan_settings": 0},
                     "would_update": {"locations": 0, "garden_objects": 0, "slots": 0, "plan_settings": 1},
-                    "would_delete": {"locations": 4, "garden_objects": 2, "slots": 12, "plan_settings": 0},
+                    "would_delete": {
+                        "locations": 4,
+                        "garden_objects": 2,
+                        "slots": 12,
+                        "plan_settings": 0,
+                        "bed_photos": 3,
+                    },
                     "kept_locations": 0,
                     "dropped_references": [
                         {"entity": "location", "key": "loc_7", "field": "irrigation_zone_key", "reason": "not_found"}

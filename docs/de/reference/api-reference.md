@@ -388,7 +388,7 @@ POST /api/v1/t/{slug}/sites/{key}/plan/import
 | `offset_m` | Nur `merge`: `[dx, dy]` in Metern (endlich, höchstens ±1000), auf jede Form der Datei addiert; bei `replace` `422` `import.offset_requires_merge`, bei einem ungültigen Wert `422` |
 | `document` | Die Sicherungsdatei |
 
-Die Antwort ist für Dry-Run und ausgeführten Import derselbe Bericht: `would_create`, `would_update` und `would_delete` (Zähler für `locations`, `garden_objects`, `slots`, `plan_settings`), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. Ein Dry-Run listet Geometrie- und Grenzverletzungen in `errors[]` mit Status `200`; ein ausgeführter Import mit Fehlern antwortet `422`.
+Die Antwort ist für Dry-Run und ausgeführten Import derselbe Bericht: `would_create`, `would_update` und `would_delete` (Zähler für `locations`, `garden_objects`, `slots`, `plan_settings`; `would_delete.bed_photos` nennt die Fotos der gelöschten Beete, die nach dem Import gelöscht werden, sofern nichts anderes sie noch nennt), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. Ein Dry-Run listet Geometrie- und Grenzverletzungen in `errors[]` mit Status `200`; ein ausgeführter Import mit Fehlern antwortet `422`.
 
 Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt und jeder Pflanzplatz bekommt einen neuen Schlüssel. Ein Verweis, der die Datei verlässt, wird nur gegen die Ziel-Site aufgelöst, sonst geleert und in `dropped_references[]` gemeldet. Verknüpfungen zu Home-Assistant-Entitäten und Aktoren werden nie importiert.
 

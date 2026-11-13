@@ -50,6 +50,9 @@ class ImportCounts(BaseModel):
     slots: int = 0
     plan_settings: int = 0
     zones: int = 0
+    #: ``would_delete`` only (#2715 item 4): the photos the deleted beds show, each once. They are deleted after
+    #: the import unless another record still names them (WP 8.18) - the dry run says so before a lead confirms.
+    bed_photos: int = 0
 
 
 class DroppedReference(BaseModel):

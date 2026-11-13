@@ -6893,6 +6893,8 @@
           "create": "Will be created",
           "delete": "Will be deleted",
           "counts": "{{locations}} locations, {{objects}} garden objects, {{slots}} plant places",
+          "bedPhotos_one": "{{count}} bed photo goes with the deleted beds, unless it is still used elsewhere.",
+          "bedPhotos_other": "{{count}} bed photos go with the deleted beds, unless they are still used elsewhere.",
           "kept_one": "{{count}} location with active plants stays.",
           "kept_other": "{{count}} locations (with active plants and what lies above them) stay.",
           "noErrors": "The file can be imported.",

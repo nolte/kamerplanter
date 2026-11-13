@@ -6894,6 +6894,8 @@
           "create": "Wird angelegt",
           "delete": "Wird gelöscht",
           "counts": "{{locations}} Standorte, {{objects}} Gartenobjekte, {{slots}} Pflanzplätze",
+          "bedPhotos_one": "Mit den gelöschten Beeten wird {{count}} Beetfoto gelöscht, sofern es nicht noch anderswo verwendet wird.",
+          "bedPhotos_other": "Mit den gelöschten Beeten werden {{count}} Beetfotos gelöscht, sofern sie nicht noch anderswo verwendet werden.",
           "kept_one": "{{count}} Standort mit aktiven Pflanzen bleibt erhalten.",
           "kept_other": "{{count}} Standorte (mit aktiven Pflanzen und was darüber liegt) bleiben erhalten.",
           "noErrors": "Die Datei lässt sich einspielen.",
