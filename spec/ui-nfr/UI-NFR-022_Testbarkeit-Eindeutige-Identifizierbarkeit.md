@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.26
+Version: 1.27
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.27 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Text“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-text`, `garden-plan-text-status`, `garden-plan-text-place`, `garden-plan-text-dialog` und `garden-plan-caption-<key>`; `garden-plan-touch-place` gilt auch für das Setzen des Ankerpunkts. |
 | 1.26 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Pflanze setzen“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-plant`, `garden-plan-plant-status` und `garden-plan-plant-dialog`. |
 | 1.25 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Bereich“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-area` und `garden-plan-new-area-type-rule`. |
 | 1.24 | 2026-11-12 | §2.5.1: `garden-plan-tool-<tool>` mit seinen Werten (select, pan, bed, garden_object, measure) und die Touch-Kennungen `garden-plan-touch-*` nachregistriert; neu für das Werkzeug „Messen“ (REQ-053 GP-UX-071, Issue #2913): `garden-plan-measure-status`, `garden-plan-measure` / `-line` / `-segment` / `-total`, `garden-plan-measure-place` / `-finish`. |
