@@ -6,7 +6,7 @@ Kategorie: Architektur / Datenmodell Unterkategorie: Internationalisierung, Loka
 Technologie: Python 3.14, FastAPI, Pydantic, ArangoDB, React, TypeScript, react-i18next
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
 Datum: 2026-07-12
 Tags: [i18n, mehrsprachigkeit, lokalisierung, locale-map, fallback-chain, enum, error-messages, datenmodell]
@@ -20,6 +20,7 @@ Betroffene Module: [ALL]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.1 | 2026-11-13 | **#2902:** §4 Umsetzungsstand von R-112/R-114: `get_request_locale` (`app/common/locale.py`) löst die Sprache aus explizitem Parameter, `Accept-Language` und Standard `de` auf; Stufe `user.locale` (R-113) ist nicht angewendet, weil der Sprachumschalter das Feld nicht schreibt. |
 | 1.0 | 2026-07-12 | Erstversion (Issue #568). Definiert das **eine** skalierbare Locale-keyed Content-Modell für lokalisierte Stammdaten (kein per-Sprache-Attribut), die **eine** Locale-Resolution über den Stack mit definierter Fallback-Kette, die Enum-Behandlung (stabiler Wert + Katalog-Label), die Regel **technische Fehler English-only / nutzerseitige Meldungen katalogisierbar**, sowie die RAG-/Knowledge-Sprachstrategie. Grenzt gegen UI-NFR-007 (UI-Verhalten), NFR-003 (Source-Language-Scope) und NFR-005 (Docs-Mehrsprachigkeit) ab. Ist-Zustand: `spec/analysis/i18n-current-state-capture.md`; Zielarchitektur: `spec/analysis/i18n-implementation-concept.md`; Rollout: `.audits/plans/07-i18n-nlanguage-rollout.md`. |
 
 ## 1. Business Case
@@ -211,8 +212,8 @@ Die drei harten Constraints aus Issue #568 sind normativ:
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-07-12
+**Letzte Aktualisierung**: 2026-11-13
 **Review**: Pending
 **Genehmigung**: Pending

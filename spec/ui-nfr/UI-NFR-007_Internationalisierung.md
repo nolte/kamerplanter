@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Internationalisierung, Lokalisierung
 Technologie: React, TypeScript, Flutter
 Status: Entwurf
 Priorität: Mittel
-Version: 1.2
+Version: 1.3
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [i18n, internationalisierung, lokalisierung, sprache, datumsformat, zahlenformat, pluralisierung]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-11-13 | **#2902:** R-009a: Rückfall auf den ersten Listeneintrag für Arten ohne Sprachzuordnung; serverseitig gebildete Namen folgen der Sprache der Anfrage (`Accept-Language`, REQ-001 v4.15). |
 | 1.2 | 2026-11-12 | **#2902:** R-009a nennt `common_names_i18n` (REQ-001 v4.14) als Quelle des Volksnamens in der aktiven Sprache. |
 | 1.1 | 2026-07-12 | **Architektur-Unterbau (Issue #568, NFR-017):** Cross-Reference ergänzt. Die N-Sprachen-Fähigkeit (R-003) und die RTL-Vorbereitung (R-024/R-025) werden durch das stack-weite Locale-keyed Content-Modell, die einheitliche Locale-Resolution und die Fallback-Kette aus NFR-017 architektonisch unterlegt. UI-NFR-007 bleibt maßgeblich für das UI-**Verhalten** (Rendering, Formate, Sprachwechsel); NFR-017 liefert das Daten-/Backend-Fundament. |
 | 1.0 | 2026-02-26 | Erstversion — Sprachen, Text-Externalisierung, Datums-/Zahlen-/Pluralformate, Sprachwechsel, RTL-Vorbereitung. |
