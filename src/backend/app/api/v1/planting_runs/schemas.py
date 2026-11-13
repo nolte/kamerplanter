@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
 
 from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
-from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlanRole, RowDirection
+from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlanRole, PlantingRunType, RowDirection
 from app.domain.models.planting_run import (
     MAX_DEPTH_CM,
     MAX_EDGE_MARGIN_CM,
@@ -176,6 +176,9 @@ class PlantingRunCreate(BaseModel):
         start = self.planned_from or self.planned_start_date
         if start and self.planned_until and self.planned_until < start:
             raise ValueError("planned_until must not lie before the start of the window.")
+        # ``PlantingRun`` refuses this on construction, inside the route, where it answered 500 (#2775).
+        if self.run_type == PlantingRunType.CLONE and not self.source_plant_key:
+            raise ValueError("Clone runs require a source_plant_key.")
         return self
 
 

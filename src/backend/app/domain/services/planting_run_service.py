@@ -48,7 +48,7 @@ from app.domain.models.planting_reservation import (
 from app.domain.models.planting_run import SOURCE_FIELD_MODE, PlantingRun, PlantingRunEntry
 from app.domain.models.site import Location, Slot
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
-from app.domain.services.planting_reservation_service import FreePlacement, PlantingReservationService
+from app.domain.services.planting_reservation_service import FreePlacement, PlantingReservationService, PreparedLayout
 from app.domain.services.slot_occupancy import plants_standing_on
 
 logger = structlog.get_logger()
@@ -229,6 +229,52 @@ class PlantingRunService:
         An empty tenant is refused: every reference check below skips a run
         without one, so creating such a run would store unchecked references.
         """
+        entries, location, prepared = self._checked_new_run(run, entries, tenant_key=tenant_key)
+        created = self._repo.create(run)
+        stored_entries: list[PlantingRunEntry] = []
+        if entries and created.key:
+            for entry in entries:
+                entry.run_key = created.key
+                stored_entries.append(self._repo.create_entry(entry))
+        if prepared is not None and location is not None and created.key:
+            try:
+                assert self._reservations is not None  # noqa: S101 — set by _prepare_layout's condition
+                self._reservations.place_layout(location, created, stored_entries, prepared, tenant_key=tenant_key)
+            except Exception:
+                # The run and its entries are already stored; the slots are the all-or-nothing part. Take the run
+                # back so a failed layout does not leave a planned run without its positions.
+                self._repo.delete(created.key)
+                raise
+        return created
+
+    def preview_run(
+        self,
+        run: PlantingRun,
+        entries: list[PlantingRunEntry] | None = None,
+        *,
+        tenant_key: str,
+    ) -> tuple[PlantingRun, list[PlantingRunEntry], int]:
+        """What :meth:`create_run` would store, with every one of its checks and nothing written (#2775).
+
+        Returns the run as it would be stored (tenant, status, ``planned_quantity`` and the reservation
+        window filled in), its entries, and the number of layout slots the bed would gain. A refusal is the
+        one ``create_run`` would raise, so a dry run and a real call cannot disagree on validity.
+        """
+        checked, _location, prepared = self._checked_new_run(run, entries, tenant_key=tenant_key)
+        return run, checked or [], len(prepared.slots) if prepared is not None else 0
+
+    def _checked_new_run(
+        self,
+        run: PlantingRun,
+        entries: list[PlantingRunEntry] | None,
+        *,
+        tenant_key: str,
+    ) -> tuple[list[PlantingRunEntry] | None, Location | None, PreparedLayout | None]:
+        """Stamp and check a new run and its entries for :meth:`create_run`; reads only, nothing is written.
+
+        Returns the entries (a clone template may supply them) and, for a run laid out on a bed with
+        geometry, the bed and its prepared slots. A refusal therefore leaves nothing behind.
+        """
         if not tenant_key:
             raise ValueError("create_run is tenant-scoped and requires a non-empty tenant_key (#2107).")
         run.tenant_key = tenant_key
@@ -259,11 +305,7 @@ class PlantingRunService:
         self._require_green_manure_species(run, entries or [])
         total_qty = 0
         if entries:
-            self._engine.validate_run_type_constraints(
-                run.run_type,
-                entries,
-                run.source_plant_key,
-            )
+            self._check_run_type(run.run_type, entries, run.source_plant_key)
             total_qty = sum(e.quantity for e in entries)
         run.planned_quantity = total_qty
         # The reservation window starts with the run (GP-FR-065: ``planned_from`` = ``planned_start_date``).
@@ -272,22 +314,23 @@ class PlantingRunService:
         # The layout of a bed with geometry is computed *before* the run is stored (GP-API-020): a refusal —
         # no spacing, too many positions, a zone overlap, the slot quota — leaves nothing behind.
         location, prepared = self._prepare_layout(run, entries or [])
-        created = self._repo.create(run)
-        stored_entries: list[PlantingRunEntry] = []
-        if entries and created.key:
-            for entry in entries:
-                entry.run_key = created.key
-                stored_entries.append(self._repo.create_entry(entry))
-        if prepared is not None and location is not None and created.key:
-            try:
-                assert self._reservations is not None  # noqa: S101 — set by _prepare_layout's condition
-                self._reservations.place_layout(location, created, stored_entries, prepared, tenant_key=tenant_key)
-            except Exception:
-                # The run and its entries are already stored; the slots are the all-or-nothing part. Take the run
-                # back so a failed layout does not leave a planned run without its positions.
-                self._repo.delete(created.key)
-                raise
-        return created
+        return entries, location, prepared
+
+    def _check_run_type(
+        self,
+        run_type: PlantingRunType,
+        entries: list[PlantingRunEntry],
+        source_plant_key: str | None,
+    ) -> None:
+        """The run-type rule (REQ-013 v2.0) as a caller error: 422, not the 500 a bare ``ValueError`` was (#2775).
+
+        A monoculture or clone run has exactly one entry; a mixed culture is separate runs
+        (``POST /planting-runs/mixed-culture``), never one run with several entries.
+        """
+        try:
+            self._engine.validate_run_type_constraints(run_type, entries, source_plant_key)
+        except ValueError as exc:
+            raise ValidationError(str(exc), details=[{"field": "entries", "reason": str(exc)}]) from None
 
     def create_mixed_culture(
         self,
@@ -441,7 +484,7 @@ class PlantingRunService:
         except NotFoundError:
             raise PlanValidationError([(None, "entry.cultivar_key", "reference.not_found", {})]) from None
         self._require_green_manure_species(run, [entry])
-        self._engine.validate_run_type_constraints(run.run_type, [entry], None)
+        self._check_run_type(run.run_type, [entry], None)
 
     def _prepare_layout(self, run: PlantingRun, entries: list[PlantingRunEntry]):  # type: ignore[no-untyped-def]
         """``(bed, prepared slots)`` for a run on a bed with geometry whose entries plan a layout, else nothing."""
@@ -901,11 +944,7 @@ class PlantingRunService:
         for entry in entries:
             self._require_readable_species(entry.species_key, run.tenant_key)
 
-        self._engine.validate_run_type_constraints(
-            run.run_type,
-            entries,
-            run.source_plant_key,
-        )
+        self._check_run_type(run.run_type, entries, run.source_plant_key)
 
         location_key = run.location_key or "LOC"
         existing_ids = set()

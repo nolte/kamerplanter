@@ -55,7 +55,7 @@ _CARE = "app/domain/services/care_reminder_service.py:CareReminderService"
 _READERS: dict[str, tuple[str, str]] = {
     "app/domain/services/planting_run_service.py:PlantingRunService.add_entry": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService.create_plants": (_RESOLVES, ""),
-    "app/domain/services/planting_run_service.py:PlantingRunService.create_run": (_RESOLVES, ""),
+    "app/domain/services/planting_run_service.py:PlantingRunService._checked_new_run": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService._stamp_mixed_draft": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService.get_phase_timeline": (_RESOLVES, ""),
     # REQ-053 W-015 (#2830): thinning stamps plants with the reserving entry's species and reads its phase data.

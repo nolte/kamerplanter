@@ -326,7 +326,10 @@ def test_every_write_path_of_an_entry_species_resolves_it() -> None:
     service = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == "PlantingRunService")
     methods = {n.name: n for n in service.body if isinstance(n, ast.FunctionDef)}
 
-    for writer in ("create_run", "add_entry", "update_entry", "create_plants"):
+    # ``create_run`` and its dry-run twin ``preview_run`` check a new run's entries in ``_checked_new_run`` (#2775).
+    for creator in ("create_run", "preview_run"):
+        assert "_checked_new_run" in _call_names(methods[creator]), creator
+    for writer in ("_checked_new_run", "add_entry", "update_entry", "create_plants"):
         assert _call_names(methods[writer]) & _RESOLVERS, writer
 
 
