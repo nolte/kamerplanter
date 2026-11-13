@@ -109,6 +109,7 @@ TENANT_AGNOSTIC_BEATS: dict[str, str] = {
     "app.tasks.enrichment_tasks.sync_all_sources_task": _GLOBAL + " (species catalogue enrichment)",
     "app.tasks.storage_tasks.cleanup_orphaned_location_photos": _STORAGE + " (never-linked bed photos)",
     "app.tasks.storage_tasks.cleanup_orphaned_task_photos": _STORAGE,
+    "app.tasks.storage_tasks.cleanup_orphaned_underlays": _STORAGE + " (never-named garden-plan underlays)",
     "app.tasks.storage_tasks.reconcile_orphaned_storage_objects": _STORAGE,
     "app.tasks.tenant_tasks.cleanup_expired_invitations": _RETENTION + " (R-12, invitation expiry)",
     "app.tasks.tenant_tasks.resume_tenant_erasures": _RETENTION + " (it is what erases a pending tenant)",

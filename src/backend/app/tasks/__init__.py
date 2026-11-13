@@ -417,6 +417,13 @@ celery_app.conf.update(
             "task": "app.tasks.storage_tasks.cleanup_orphaned_location_photos",
             "schedule": crontab(hour=3, minute=50),
         },
+        # #2715 item 1 — collect garden-plan underlays uploaded but never named by a site, or left behind by a
+        # discard that failed after the underlay write committed. 04:00, after the bed-photo sweep and before the
+        # object reconciliation, so the objects these records held are seen there the same night.
+        "storage-cleanup-orphaned-underlays-daily": {
+            "task": "app.tasks.storage_tasks.cleanup_orphaned_underlays",
+            "schedule": crontab(hour=4, minute=0),
+        },
         # #1834 — reconcile the object store against the attachment catalogue.
         # 04:10, after the task-photo sweep; report-only until the operator sets
         # STORAGE_RECONCILE_DELETE_ENABLED, bounded per run and resumable.

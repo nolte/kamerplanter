@@ -1368,6 +1368,13 @@ class Settings(BaseSettings):
     # a bed photo is only ever referenced by the bed's ``photo_refs`` / ``cover_photo_ref`` under its attachment
     # id. The same task catches a photo whose post-commit discard failed (``LocationPhotoService`` only logs it).
     storage_location_photo_orphan_hours: int = Field(default=48, ge=0)
+    # #2715 item 1 — the same two-step gap for the background picture of a garden plan (category
+    # ``garden_plan_underlay``): uploaded through ``POST /attachments``, then named by
+    # ``PUT /sites/{key}/plan/underlay``.
+    # A refused or never-sent PUT leaves the upload unreferenced, counted against the quota, holding an aerial photo.
+    # Its only carrier is ``sites.plan.underlay.attachment_key`` (written by one service, under the attachment id), so
+    # the location sweep's reasoning holds: ON by default with a 48 h floor, ``0`` disables.
+    storage_garden_plan_underlay_orphan_hours: int = Field(default=48, ge=0)
     # #1834 — periodic reconciliation of the object store against the attachment
     # catalogue: objects under ``t/{tenant}/`` that no record holds any more.
     #
