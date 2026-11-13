@@ -181,7 +181,7 @@ Because the role applies per garden, the same key can write in your own garden a
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    56 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) and the eight tools of the growth-phase layer (see [Growth Phases and Lifecycle](#growth-phases-and-lifecycle)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, site and location management, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
+    68 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) and the eight tools of the growth-phase layer (see [Growth Phases and Lifecycle](#growth-phases-and-lifecycle)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, site and location management, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
 
 !!! info "New: what an analysis agent can write back"
     Five tools were added that externally operated analysis agents needed. Each one ships paired with the read tool that finds its result again — a write no read tool surfaces afterwards counts as a defect here:
@@ -264,6 +264,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `clone_nutrient_plan` | Derive a **tenant-owned copy** of a plan — the only correct way to correct a shared template |
 | `set_nutrient_plan_phase_targets` | Set `target_ec_ms` / `reference_ec_ms` on **one** phase of a plan you own. An omitted field stays unchanged; the tool can never clear a value |
 | `transition_plant_phase` | Put a plant into a phase, or correct a wrong one. The target is validated against the sequence **that plant's species** runs on — a phase key from elsewhere would park the plant in a phase its lifecycle can never advance out of |
+| `create_planting_run` | Create a planned planting run (monoculture or clone) with at most one entry and, for garden planning, a reservation window (`planned_from`/`planned_until`), a crop-rotation role and a reserved area. A `dry_run` runs every check the real call runs and writes nothing. A mixed culture is not one run with several entries and is refused; `list_planting_runs` finds the result |
 
 ### Setup tools (`mcp.setup`)
 

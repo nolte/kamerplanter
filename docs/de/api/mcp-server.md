@@ -181,7 +181,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 ## Werkzeug-Katalog (aktueller Stand)
 
 !!! note "Teilweise verfügbar: Werkzeug-Umfang"
-    Umgesetzt sind derzeit 56 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) und die acht Werkzeuge der Wachstumsphasen-Ebene (siehe [Wachstumsphasen und Lebenszyklus](#wachstumsphasen-und-lebenszyklus)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, Standort- und Bereichsverwaltung sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
+    Umgesetzt sind derzeit 68 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) und die acht Werkzeuge der Wachstumsphasen-Ebene (siehe [Wachstumsphasen und Lebenszyklus](#wachstumsphasen-und-lebenszyklus)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, Standort- und Bereichsverwaltung sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
 
 !!! info "Neu: was ein Analyse-Agent zurückschreiben kann"
     Fünf Werkzeuge sind hinzugekommen, die extern betriebene Analyse-Agenten brauchten. Jedes ist mit dem Lese-Werkzeug gepaart, das sein Ergebnis wiederfindet — ein Schreibvorgang, den anschließend kein Lese-Werkzeug mehr sichtbar macht, gilt hier als Fehler:
@@ -264,6 +264,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `clone_nutrient_plan` | Einen Plan als **mandanteneigene Kopie** ableiten — der einzige richtige Weg, eine geteilte Vorlage zu korrigieren |
 | `set_nutrient_plan_phase_targets` | An **einer** Phase eines eigenen Plans `target_ec_ms` / `reference_ec_ms` setzen. Ein ausgelassenes Feld bleibt unverändert; leeren kann das Werkzeug nichts |
 | `transition_plant_phase` | Eine Pflanze in eine Phase setzen oder eine falsche korrigieren. Das Ziel wird gegen die Abfolge geprüft, auf der die **Art dieser Pflanze** läuft — ein fremder Phasenschlüssel würde die Pflanze in einer Phase parken, aus der ihr Lebenszyklus nie wieder herausfindet |
+| `create_planting_run` | Einen geplanten Pflanzdurchlauf anlegen (Mono- oder Klon-Run) mit höchstens einem Eintrag und, für die Beetplanung, Belegungsfenster (`planned_from`/`planned_until`), Rolle in der Fruchtfolge und reservierter Fläche. Ein Trockenlauf (`dry_run`) prüft alles, was das Anlegen prüft, und schreibt nichts. Eine Mischkultur ist kein Durchlauf mit mehreren Einträgen und wird abgelehnt; das Ergebnis findet `list_planting_runs` |
 
 ### Setup-Werkzeuge (`mcp.setup`)
 
