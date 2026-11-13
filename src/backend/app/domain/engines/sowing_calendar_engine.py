@@ -8,6 +8,7 @@ from pydantic import BaseModel, model_validator
 
 from app.common.datetimes import replace_year
 from app.common.enums import FrostTolerance, PlantTrait
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 
 # ── Default frost dates (Central Europe) ──────────────────────────────
 
@@ -64,6 +65,8 @@ class SpeciesData(BaseModel):
     key: str
     scientific_name: str
     common_names: list[str] = []
+    #: Language code -> names (REQ-001 ``common_names_i18n``, #2902); picks the label's language.
+    common_names_i18n: dict[str, list[str]] = {}
     traits: list[PlantTrait] = []
     allows_harvest: bool = True
     frost_sensitivity: FrostTolerance | None = None
@@ -382,12 +385,19 @@ class SowingCalendarEngine:
         species_list: list[SpeciesData],
         frost_config: FrostConfig,
         year: int,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[SowingCalendarEntry]:
+        """One entry per species and growing period; ``common_name`` is the vernacular label in ``language``.
+
+        The label is empty when the species has no vernacular name in that language (the
+        entry carries the scientific name in ``species_name``), except for a species with
+        several periods, whose label names the period behind the scientific name.
+        """
         entries: list[SowingCalendarEntry] = []
         for sp in species_list:
             if not sp.growing_periods:
                 continue
-            common = sp.common_names[0] if sp.common_names else ""
+            common = localized_vernacular_name(sp.common_names, sp.common_names_i18n, language) or ""
             is_ornamental = PlantTrait.ORNAMENTAL in sp.traits or not sp.allows_harvest
 
             for i, period in enumerate(sp.growing_periods):

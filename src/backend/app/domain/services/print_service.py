@@ -18,6 +18,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.care_reminder import CareDashboardEntry
 from app.domain.models.location_type import LocationType
 from app.domain.models.site import Location, Site
+from app.domain.models.species_names import localized_common_name
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.location_ownership import find_owned_location, require_owned_site
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -204,8 +205,13 @@ class PrintService:
             if plant.species_key:
                 if plant.species_key not in species_cache:
                     species = readable_species(self._species_repo, plant.species_key, tenant_key)
+                    # The printed language's name, else the scientific one (#2902).
                     species_cache[plant.species_key] = (
-                        species.common_names[0] if species and species.common_names else ""
+                        localized_common_name(
+                            species.common_names, species.common_names_i18n, species.scientific_name, locale
+                        )
+                        if species
+                        else ""
                     )
                 species_name = species_cache[plant.species_key] or None
 
@@ -304,7 +310,6 @@ class PrintService:
                     if species:
                         species_data = {
                             "scientific_name": species.scientific_name,
-                            "common_name": (species.common_names[0] if species.common_names else ""),
                             "family_key": species.family_key,
                         }
                     else:

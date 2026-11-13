@@ -47,6 +47,7 @@ from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Cultivar, Species, WateringGuide
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_common_name
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
@@ -1648,8 +1649,12 @@ class CareReminderService:
         hemisphere: str = "north",
         *,
         tenant_key: str,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[CareDashboardEntry]:
         """Build the care dashboard for all active plants of a tenant.
+
+        ``language`` words the species names (the request's locale, #2902); a caller
+        without a request keeps the canonical language.
 
         Loads the tenant's plant instances (excluding removed plants), resolves
         the contextual data each plant needs (species name, current growth phase,
@@ -1661,10 +1666,10 @@ class CareReminderService:
         ``tenant_key`` is keyword-only without a default (#2107): an empty tenant
         lists nothing (:meth:`_build_plant_data_for_tenant`).
         """
-        plant_data = self._build_plant_data_for_tenant(tenant_key)
+        plant_data = self._build_plant_data_for_tenant(tenant_key, language=language)
         return self._dashboard_entries(plant_data, hemisphere)
 
-    def _build_plant_data_for_tenant(self, tenant_key: str) -> list[dict]:
+    def _build_plant_data_for_tenant(self, tenant_key: str, *, language: str = CANONICAL_NAME_LANGUAGE) -> list[dict]:
         """Assemble ``plant_data`` dicts for the tenant's active plants.
 
         Each dict carries the fields :meth:`get_care_dashboard` consumes:
@@ -1694,7 +1699,18 @@ class CareReminderService:
                 {
                     "plant_key": plant_key,
                     "plant_name": plant.plant_name or plant.instance_id or "",
-                    "species_name": (species.common_names[0] if species and species.common_names else None),
+                    # In the request's language (#2902).
+                    "species_name": (
+                        localized_common_name(
+                            species.common_names,
+                            species.common_names_i18n,
+                            species.scientific_name,
+                            language,
+                        )
+                        or None
+                        if species
+                        else None
+                    ),
                     "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
                     "has_nutrient_plan": self._has_nutrient_plan(plant_key, plant.tenant_key),
                     # REQ-022 §3.2 winter-reminder gating context (B1).

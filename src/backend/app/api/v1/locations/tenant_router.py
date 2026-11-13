@@ -77,6 +77,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import BedStatus
 from app.common.exceptions import PlanError, ValidationError
+from app.common.locale import get_request_locale
 from app.common.openapi_responses import (
     CONFLICT_RESPONSE,
     FORBIDDEN_RESPONSE,
@@ -625,15 +626,17 @@ def list_plant_states(
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantStateService = Depends(get_plant_state_service),
+    language: str = Depends(get_request_locale),
 ) -> list[PlantStateResponse]:
     """The standing plants of a bed with their visual state and the facts of the info bubble (GP-API-054), all roles.
 
     One request per bed instead of one per plant (GP-FR-191): the plan draws the marker channels and answers
     hover, focus and tap from this list. Ordered by plant key; `limit` is at most 200 and a client pages until a
-    page comes back shorter. Only the fields of the plant info are returned — no notes, no user names.
+    page comes back shorter. Only the fields of the plant info are returned — no notes, no user names. The species
+    name follows the request's language (`Accept-Language`, #2902).
     """
     entries = service.list_plant_states(
-        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, language=language
     )
     return [PlantStateResponse.from_entry(entry) for entry in entries]
 
@@ -904,6 +907,7 @@ def get_succession_recommendation(
     key: Annotated[str, Path(description="Document key of the bed.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: BedRotationService = Depends(get_bed_rotation_service),
+    language: str = Depends(get_request_locale),
 ) -> SuccessionRecommendationResponse:
     """Families and species for the next year of the bed (GP-FR-133), all roles - **order only, no amounts**.
 
@@ -912,8 +916,9 @@ def get_succession_recommendation(
     families, minus those whose pause in this bed is not over (`held_back`). A species appears only with a stored
     `nutrient_demand` (or `green_manure_suitable` for the restoring step) - nothing is defaulted. `status` explains
     an empty list (`no_history`, `demand_unknown`, `no_successor_data`, `no_matching_species`, `not_applicable`).
+    A species' `common_name` follows the request's language (`Accept-Language`, #2902).
     """
-    result = service.succession_recommendation(key, tenant_key=ctx.tenant_key)
+    result = service.succession_recommendation(key, tenant_key=ctx.tenant_key, language=language)
     previous = result.previous
     return SuccessionRecommendationResponse(
         location_key=result.location_key,

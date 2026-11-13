@@ -22,9 +22,11 @@ import { describe, expect, it } from 'vitest';
  * line scan; nothing in the tree writes them today):
  *  - indirection through a variable — `const names = sp.common_names; names[0]`
  *  - `common_names.slice(0, 1)`, `common_names.filter(...)[0]`, `.shift()`
- *  - a name the SERVER already reduced to its first entry (`common_name` of the
- *    succession recommendation, the print service) — that is the backend's reader
- *    (#2902 slice C), the frontend only formats what it gets
+ *  - a name the SERVER already reduced to one (`common_name` of the succession
+ *    recommendation, the print service, …) — the backend words it by the same rule in
+ *    the request's language (`Accept-Language`, guarded by
+ *    `tests/unit/guards/test_species_display_names_use_the_resolver.py`); the frontend
+ *    only formats what it gets
  * Search/filter code (`[...common_names].join(' ')`, `.some(...)`) and the forms
  * (`name="common_names"`) read the whole list and are not display reads.
  */

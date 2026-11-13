@@ -36,6 +36,7 @@ from app.domain.interfaces.dashboard_repositories import (
     TankDashboardRepository,
     TaskDashboardRepository,
 )
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE
 
 logger = structlog.get_logger(__name__)
 
@@ -101,8 +102,8 @@ class DashboardService:
         self._care_repo = care_repo
         self._clock = clock
 
-    def get_summary(self, tenant_key: str) -> DashboardSummary:
-        """Build a fresh DashboardSummary for the active tenant."""
+    def get_summary(self, tenant_key: str, *, language: str = CANONICAL_NAME_LANGUAGE) -> DashboardSummary:
+        """Build a fresh DashboardSummary for the active tenant; ``language`` words the species names (#2902)."""
 
         now = self._clock()
         today = now.date()
@@ -127,7 +128,7 @@ class DashboardService:
             counts=counts,
             upcoming_tasks=self._upcoming_tasks(tenant_key, today),
             recent_activities=self._recent_activities(tenant_key, now),
-            active_plants=self._active_plants(tenant_key),
+            active_plants=self._active_plants(tenant_key, language=language),
         )
 
     # ── Internal aggregators ─────────────────────────────────────────
@@ -205,10 +206,12 @@ class DashboardService:
             logger.exception("dashboard.upcoming_tasks.failed", tenant=log_tenant(tenant_key))
             return []
 
-    def _active_plants(self, tenant_key: str, limit: int = PLANT_GRID_LIMIT) -> list[dict[str, Any]]:
+    def _active_plants(
+        self, tenant_key: str, limit: int = PLANT_GRID_LIMIT, *, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> list[dict[str, Any]]:
         self._require_methods(self._plant_repo, "list_active_for_tenant")
         try:
-            return list(self._plant_repo.list_active_for_tenant(tenant_key, limit) or [])
+            return list(self._plant_repo.list_active_for_tenant(tenant_key, limit, language=language) or [])
         except Exception:
             logger.exception("dashboard.active_plants.failed", tenant=log_tenant(tenant_key))
             return []

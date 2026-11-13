@@ -606,7 +606,13 @@ class TestHardinessOverview:
 
         class _SpeciesRepo:
             def get_by_key(self, key):  # noqa: ANN001, ANN201
-                return SimpleNamespace(tenant_key="", scientific_name="Solanum lycopersicum", common_names=["Tomate"])
+                return SimpleNamespace(
+                    tenant_key="",
+                    scientific_name="Solanum lycopersicum",
+                    # English first, as in species.yaml: the label follows the map, not the order (#2902).
+                    common_names=["Tomato", "Tomate"],
+                    common_names_i18n={"en": ["Tomato"], "de": ["Tomate"]},
+                )
 
         class _SiteRepo:
             """Stores what the write path stores: no ``tenant_key`` on the row.

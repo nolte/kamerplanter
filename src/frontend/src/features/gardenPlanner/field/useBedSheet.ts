@@ -16,6 +16,7 @@ import { parseApiError } from '@/api/errors';
 import { getBedQueue } from '../care/careApi';
 import type { CareTask } from '../care/careTypes';
 import { bedSheetEntry, isOfflineCacheMiss, readThrough, type CacheScope } from '../offline/planCache';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { isPlantEntry, listPlantStates, type PlantStateWire } from '../planting/plantStateApi';
 
 export type BedSheetState =
@@ -44,10 +45,13 @@ export const SHEET_READ_TIMEOUT_MS = 15_000;
 export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet {
   const [loaded, setLoaded] = useState<{ bedKey: string; attempt: number; state: BedSheetState } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // The plants' species names are worded by the server in the UI language (#2902): a switch reads again, and the
+  // offline copy is kept per language.
+  const requestLanguage = useRequestLanguage();
 
   useEffect(() => {
     const controller = new AbortController();
-    readThrough<SheetData>(scope ? bedSheetEntry(scope, bedKey) : null, async () => {
+    readThrough<SheetData>(scope ? bedSheetEntry(scope, bedKey, requestLanguage) : null, async () => {
       let complete = true;
       const [tasks, plants] = await Promise.all([
         // A bounded read (review B1): a request that never answers must end, so `reloading` ends and the lie-fi
@@ -79,7 +83,7 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
         }
       });
     return () => controller.abort();
-  }, [bedKey, scope, attempt]);
+  }, [bedKey, scope, attempt, requestLanguage]);
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
   const state = loaded && loaded.bedKey === bedKey ? loaded.state : null;

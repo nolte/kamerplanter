@@ -61,6 +61,7 @@ from app.domain.models.care_event import (
     CareEventOrigin,
     RotationEntry,
 )
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 from app.domain.services.care_event_service import BACKFILL_ERROR_REASON, CareEventService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 from app.domain.services.species_visibility import readable_species
@@ -306,7 +307,9 @@ class BedRotationService:
         """Family, nutrient demand and plan role per year (GP-API-039, GP-ACC-028)."""
         return self._validator.rotation_timeline(location_key, tenant_key=tenant_key, years=years)
 
-    def succession_recommendation(self, location_key: str, *, tenant_key: str) -> SuccessionRecommendation:
+    def succession_recommendation(
+        self, location_key: str, *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> SuccessionRecommendation:
         """The families and species for the next year of a bed, by the feeder cycle and ``rotation_after`` (GP-FR-133).
 
         The previous year is the latest year of the bed's rotation timeline that has an entry; the step after it
@@ -405,7 +408,8 @@ class BedRotationService:
                         SuccessionSpecies(
                             species.key or "",
                             species.scientific_name,
-                            species.common_names[0] if species.common_names else None,
+                            # In the request's language (#2902).
+                            localized_vernacular_name(species.common_names, species.common_names_i18n, language),
                             species.nutrient_demand.value if species.nutrient_demand is not None else None,
                             species.nitrogen_fixing,
                         )

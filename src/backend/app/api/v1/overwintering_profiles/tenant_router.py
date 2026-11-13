@@ -21,6 +21,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import GrowthHabit, RootType
 from app.common.exceptions import NotFoundError
+from app.common.locale import get_request_locale
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
@@ -65,9 +66,10 @@ def list_overwintering_profiles(
 def get_hardiness_overview(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
+    language: str = Depends(get_request_locale),
 ) -> WinterHardinessOverviewResponse:
-    """Return the tenant's winter-hardiness traffic-light overview."""
-    overview = service.get_hardiness_overview(ctx.tenant_key)
+    """Return the tenant's winter-hardiness traffic-light overview; species names follow the request's language."""
+    overview = service.get_hardiness_overview(ctx.tenant_key, language=language)
     return WinterHardinessOverviewResponse(**overview.model_dump())
 
 

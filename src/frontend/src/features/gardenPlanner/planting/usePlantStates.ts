@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computePlantState, type PhaseFacts, type PlantVisualState } from '../model/plantState';
 import { listPlantStates, stateKeyOf, type PlantStateEntryWire } from './plantStateApi';
 import { stateInstant, usePlantStateClock } from './plantStateClock';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 
 /** A plant (or sown slot) of the answer with the state the port computed at the current instant (GP-FR-192). */
 export type PlantStateView = PlantStateEntryWire & { visual: PlantVisualState };
@@ -55,6 +56,8 @@ export function usePlantStates(bedKey: string | null, enabled = true): UsePlantS
   const [attempt, setAttempt] = useState(0);
   const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   const day = usePlantStateClock(enabled, refresh);
+  // The species names are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
 
   useEffect(() => {
     if (!enabled || !bedKey) return undefined;
@@ -67,7 +70,7 @@ export function usePlantStates(bedKey: string | null, enabled = true): UsePlantS
         // States are an enhancement of the plan: a failed read leaves the plain markers.
       });
     return () => abort.abort();
-  }, [bedKey, enabled, attempt]);
+  }, [bedKey, enabled, attempt, requestLanguage]);
 
   const current = wires && wires.bedKey === bedKey ? wires : null;
   const states = useMemo(() => {

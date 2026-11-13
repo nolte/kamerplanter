@@ -37,7 +37,7 @@ class PlantDashboardRepository(Protocol):
         """Alive plant instances (``removed_on == null``) owned by ``tenant_key``."""
         ...
 
-    def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
+    def list_active_for_tenant(self, tenant_key: str, limit: int, *, language: str = "de") -> list[dict[str, Any]]:
         """Newest alive plant instances for the plant grid (#488).
 
         Each row carries ``_key`` plus the per-card status fields the rich grid
@@ -45,6 +45,7 @@ class PlantDashboardRepository(Protocol):
         ``cultivar_name``, ``phase_key`` / ``phase_name``, ``location_key`` /
         ``location_name`` and an open-task marker (``has_open_task`` +
         ``next_due_date``). Resolved server-side in one query (no N+1).
+        ``species_common_name`` is worded in ``language`` (#2902).
         """
         ...
 

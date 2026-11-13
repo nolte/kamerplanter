@@ -83,23 +83,28 @@ def test_count_active_for_tenant_filters_removed_on_null() -> None:
 
 
 def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
+    common = {
+        "_key": "p-1",
+        "instance_id": "7432",
+        "plant_name": "Basil",
+        "species_key": "ocimum-basilicum",
+        "species_scientific_name": "Ocimum basilicum",
+        "cultivar_key": None,
+        "cultivar_name": None,
+        "phase_key": "veg",
+        "phase_definition_key": "phase-veg",
+        "phase_name": "Vegetative",
+        "location_key": "loc-1",
+        "location_name": "Balcony",
+        "has_open_task": True,
+        "next_due_date": "2026-05-01T00:00:00+00:00",
+    }
+    # The query carries both name fields; the repository resolves them to one name (#2902).
     rows = [
-        {
-            "_key": "p-1",
-            "instance_id": "7432",
-            "plant_name": "Basil",
-            "species_key": "ocimum-basilicum",
-            "species_common_name": "Basil",
-            "species_scientific_name": "Ocimum basilicum",
-            "cultivar_key": None,
-            "cultivar_name": None,
-            "phase_key": "veg",
-            "phase_definition_key": "phase-veg",
-            "phase_name": "Vegetative",
-            "location_key": "loc-1",
-            "location_name": "Balcony",
-            "has_open_task": True,
-            "next_due_date": "2026-05-01T00:00:00+00:00",
+        common
+        | {
+            "species_common_names": ["Basil", "Basilikum"],
+            "species_common_names_i18n": {"en": ["Basil"], "de": ["Basilikum"]},
         }
     ]
     db = _CapturingDb(rows)
@@ -107,7 +112,7 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
 
     result = repo.list_active_for_tenant("tenant-A", 8)
 
-    assert result == rows
+    assert result == [common | {"species_common_name": "Basilikum"}]
     q = db.aql.query or ""
     assert "@@col" in q
     assert "p.tenant_key == @tenant_key" in q
@@ -117,7 +122,9 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     # #488 — enriched per-card status fields are projected (no full document).
     assert "instance_id:" in q  # FIX-02: business identifier for the card
     assert "cultivar_name:" in q
-    assert "species_common_name:" in q  # FIX-02 R2: speaking title
+    # FIX-02 R2: speaking title, resolved from both name fields by the one display rule (#2902).
+    assert "species_common_names:" in q
+    assert "species_common_names_i18n:" in q
     assert "species_scientific_name:" in q  # FIX-02: species row secondary hint
     assert "phase_name:" in q
     assert "phase_definition_key:" in q  # FIX-02 R5: phase deep link

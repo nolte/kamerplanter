@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from app.domain.calculators.plant_state_calculator import OpenTask
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE
 
 
 @dataclass(frozen=True)
@@ -80,19 +81,38 @@ class SownSlotSource:
 class IPlantStateRepository(ABC):
     @abstractmethod
     def list_bed_plants(
-        self, location_key: str, *, tenant_key: str, now: datetime, offset: int, limit: int
+        self,
+        location_key: str,
+        *,
+        tenant_key: str,
+        now: datetime,
+        offset: int,
+        limit: int,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[PlantStateSource]:
-        """A window of the tenant's standing plants in the bed, ordered by plant key, with all facts joined in."""
+        """A window of the tenant's standing plants in the bed, ordered by plant key, with all facts joined in.
+
+        ``species_name`` is the vernacular name in ``language`` by the display rule (#2902)."""
 
     @abstractmethod
     def list_plants_in_beds(
-        self, bed_keys: list[str], *, tenant_key: str, now: datetime, offset: int, limit: int
+        self,
+        bed_keys: list[str],
+        *,
+        tenant_key: str,
+        now: datetime,
+        offset: int,
+        limit: int,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[PlantStateSource]:
         """A window of the tenant's standing plants in any of the beds, ordered by plant key, with the same facts as
         :meth:`list_bed_plants` — one window for many beds, so a site costs a fixed number of statements per page."""
 
     @abstractmethod
-    def list_sown_slots(self, location_key: str, *, tenant_key: str) -> list[SownSlotSource]:
+    def list_sown_slots(
+        self, location_key: str, *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> list[SownSlotSource]:
         """The bed's sown, plantless slots reserved by a live run of the tenant, ordered by slot key.
 
-        Bounded by the slots a bed holds (GP-NFR-017); the caller has resolved the bed under the tenant."""
+        Bounded by the slots a bed holds (GP-NFR-017); the caller has resolved the bed under the tenant.
+        ``species_name`` is worded in ``language`` (#2902)."""

@@ -418,11 +418,13 @@ class ITaskRepository(ABC):
     def delete_task_templates_for_workflow(self, wf_key: str) -> int: ...
 
     @abstractmethod
-    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]: ...
+    def get_workflow_usage_stats(
+        self, wf_keys: list[str], *, tenant_key: str, language: str = "de"
+    ) -> dict[str, dict]: ...
 
     @abstractmethod
     def get_executions_for_template(
-        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50, language: str = "de"
     ) -> list[dict]: ...
 
     # ── Batch ──

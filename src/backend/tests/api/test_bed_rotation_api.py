@@ -765,6 +765,45 @@ class TestSuccessionRecommendation:
         assert (body["target"], body["previous"]["step"]) == ("heavy_feeder", "restoring")
         assert [s["species_key"] for f in body["families"] for s in f["species"]] == ["pumpkin"]
 
+    def test_the_species_common_name_follows_the_language_map_not_the_list_order(self, client, cycle) -> None:
+        """#2902: species.yaml lists the English name first; the planner shows the name of the request's language."""
+
+        def common_name(language: str | None) -> str | None:
+            headers = {"Accept-Language": language} if language else {}
+            response = client().get(self.URL, headers=headers)
+            assert response.status_code == 200, response.text
+            return response.json()["families"][0]["species"][0]["common_name"]
+
+        cycle.species.by_key["cabbage"] = make_species(
+            "cabbage",
+            "brassica",
+            nutrient_demand=NutrientDemand.MEDIUM_FEEDER,
+            common_names=["Cabbage", "Weißkohl"],
+            common_names_i18n={"en": ["Cabbage"], "de": ["Weißkohl"]},
+        )
+        assert common_name(None) == "Weißkohl"
+        assert common_name("de-DE,de;q=0.9") == "Weißkohl"
+        assert common_name("en-GB,en;q=0.9,de;q=0.8") == "Cabbage"
+
+        # a species without a language map (tenant-created, CSV import) keeps its first listed name in every language
+        cycle.species.by_key["cabbage"] = make_species(
+            "cabbage", "brassica", nutrient_demand=NutrientDemand.MEDIUM_FEEDER, common_names=["Mein Kohl", "Kohl"]
+        )
+        assert common_name(None) == "Mein Kohl"
+        assert common_name("en") == "Mein Kohl"
+
+        # ... and one whose map has no German name shows none (the scientific name has its own field)
+        cycle.species.by_key["cabbage"] = make_species(
+            "cabbage",
+            "brassica",
+            nutrient_demand=NutrientDemand.MEDIUM_FEEDER,
+            common_names=["Cabbage"],
+            common_names_i18n={"en": ["Cabbage"]},
+        )
+        species = self.get(client)["families"][0]["species"][0]
+        assert species["common_name"] is None
+        assert species["scientific_name"]
+
     def test_a_species_the_tenant_may_read_through_a_grant_is_listed(self, client, cycle) -> None:
         assert "secret_cabbage" not in [s["species_key"] for f in self.get(client)["families"] for s in f["species"]]
         cycle.species.grants.add(("secret_cabbage", TENANT))

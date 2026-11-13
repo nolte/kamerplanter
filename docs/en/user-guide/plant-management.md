@@ -152,8 +152,10 @@ The shipped species catalogue contains German and English names for its species.
 
 The UI shows the name in your UI language, falling back to German and finally to the scientific name. The search still finds a species by any of its names in any language; pick lists show the other names on a second line. A species you created yourself has no language assignment and appears with the first name you entered.
 
-!!! warning "Not yet implemented: names written in the background"
-    Names that Kamerplanter writes into texts in the background, for example in tasks, reminders and printouts, still use the first entry of the name list. This follows in a later change.
+The same rule applies to names Kamerplanter puts together itself: in the care overview, the dashboard plant grid, the sowing calendar, the bed plan, the crop rotation recommendation, the winter hardiness overview, the workflow lists and printouts. When you switch the UI language, the open view reloads its names in the new language.
+
+!!! note "Names written in the background"
+    Texts Kamerplanter writes without a request from you are created in German, for example reminders, notifications and the names of automatically generated workflow templates. Anything already saved, such as the title of a task, keeps the language it was created in. In field mode without a connection, a bed shows plants again after a language switch only once you have opened it online in the new language.
 
 ---
 

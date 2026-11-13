@@ -587,14 +587,14 @@ class _StateRows(IPlantStateRepository):
         self.calls: list[tuple[tuple[str, ...], str, int, int]] = []
         self.bed_calls: list[tuple[str, str, int, int]] = []
 
-    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit):
+    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit, language="de"):
         self.bed_calls.append((location_key, tenant_key, offset, limit))
         return self.rows.get(location_key, [])[offset : offset + limit]
 
-    def list_sown_slots(self, location_key, *, tenant_key):
+    def list_sown_slots(self, location_key, *, tenant_key, language="de"):
         return []
 
-    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit, language="de"):
         self.calls.append((tuple(bed_keys), tenant_key, offset, limit))
         everything = sorted((row for bed in bed_keys for row in self.rows.get(bed, [])), key=lambda row: row.plant_key)
         return everything[offset : offset + limit]
@@ -618,7 +618,7 @@ class _Phases:
 class _FailingStates(_StateRows):
     """A plant-state source whose store is down — the export must print, not 500 (S-1)."""
 
-    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit, language="de"):
         raise _StoreDownError("connection refused: tenant ten_secret, bed b1")
 
 
@@ -629,7 +629,7 @@ class _StoreDownError(Exception):
 class _FullPages(_StateRows):
     """Every page comes back full — the page cap is the only thing that ends the loop (S-3)."""
 
-    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit, language="de"):
         self.calls.append((tuple(bed_keys), tenant_key, offset, limit))
         return [_source(f"p{offset + index:05d}") for index in range(limit)]
 

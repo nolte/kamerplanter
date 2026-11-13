@@ -12,6 +12,7 @@ from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_run import PlantingRun
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_common_name
 from app.domain.models.task import Task, WorkflowTemplate
 
 
@@ -50,7 +51,10 @@ class ActivityPlanService:
         family_name = ""
         if self._species_repo:
             species = self._species_repo.get_or_raise(species_key)
-            species_name = (species.common_names[0] if species.common_names else "") or species.scientific_name
+            # Persisted as the template name: written once, in the canonical language (#2902).
+            species_name = localized_common_name(
+                species.common_names, species.common_names_i18n, species.scientific_name, CANONICAL_NAME_LANGUAGE
+            )
             if species.family_key and self._family_repo:
                 family = self._family_repo.get_by_key(species.family_key)
                 if family:

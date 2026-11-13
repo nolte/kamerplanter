@@ -17,6 +17,7 @@ from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_common_name
 from app.domain.models.task import (
     Task,
     TaskAuditEntry,
@@ -77,6 +78,31 @@ _EXECUTION_OWNER = f"""
             : (run_doc != null ? run_doc.tenant_key
             : (loc_site != null ? loc_site.tenant_key : null)))
 """
+
+#: The name fields of the species ``sp`` a row projection joined, for :func:`_pop_species_display_name`. The query
+#: only carries them; the display rule (#2902) is applied once, in Python - not re-spelled per query in AQL.
+_SPECIES_NAME_FIELDS = (
+    "sp_found: sp != null, "
+    "sp_common_names: sp != null ? sp.common_names : null, "
+    "sp_common_names_i18n: sp != null ? sp.common_names_i18n : null, "
+    "sp_scientific_name: sp != null ? sp.scientific_name : null"
+)
+_SPECIES_NAME_KEYS = ("sp_found", "sp_common_names", "sp_common_names_i18n", "sp_scientific_name")
+
+
+def _pop_species_display_name(row: dict[str, Any], language: str) -> str:
+    """Take the :data:`_SPECIES_NAME_FIELDS` off ``row`` and return the species' display name ('' without a species).
+
+    In ``language``, the request's (#2902).
+    """
+    name = (
+        localized_common_name(row["sp_common_names"], row["sp_common_names_i18n"], row["sp_scientific_name"], language)
+        if row["sp_found"]
+        else ""
+    )
+    for field in _SPECIES_NAME_KEYS:
+        del row[field]
+    return name
 
 
 #: The tasks buffered completions closed (REQ-053 WP 9.3), one query for a whole batch. ``SORT`` keeps the answer
@@ -1540,8 +1566,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         self._db.aql.execute(delete_query, bind_vars={"key": wf_key})
         return count
 
-    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
-        """Return species_name and the tenant's assigned entity count per workflow key.
+    def get_workflow_usage_stats(
+        self, wf_keys: list[str], *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> dict[str, dict]:
+        """Return species_name (in ``language``, #2902) and the tenant's assigned entity count per workflow key.
 
         A system template is shared, its tasks are not: counted over every tenant,
         ``entity_count`` told each tenant how many entities *all* tenants ran the
@@ -1556,9 +1584,6 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           LET sp = wf.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', wf.species_key))
             : null
-          LET species_name = sp != null
-            ? (LENGTH(sp.common_names) > 0 ? sp.common_names[0] : sp.scientific_name)
-            : ''
           LET tt_keys = (
             FOR tt IN {col.TASK_TEMPLATES}
               FILTER tt.workflow_template_key == wf_key
@@ -1570,18 +1595,33 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
               FILTER t.tenant_key == @tenant_key
               RETURN DISTINCT t.entity_key
           )
-          RETURN {{ wf_key: wf_key, species_name: species_name, entity_count: LENGTH(entity_keys) }}
+          RETURN {{
+            wf_key: wf_key,
+            {_SPECIES_NAME_FIELDS},
+            entity_count: LENGTH(entity_keys)
+          }}
         """
         cursor = self._db.aql.execute(query, bind_vars={"wf_keys": wf_keys, "tenant_key": tenant_key})
         result: dict[str, dict] = {}
         for row in cursor:
-            result[row["wf_key"]] = {"species_name": row["species_name"], "entity_count": row["entity_count"]}
+            result[row["wf_key"]] = {
+                "species_name": _pop_species_display_name(row, language),
+                "entity_count": row["entity_count"],
+            }
         return result
 
     def get_executions_for_template(
-        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+        self,
+        template_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[dict]:
         """Return ``tenant_key``'s executions of a template, newest first, with enriched entity info.
+
+        ``species_name`` is the plant's species display name in ``language`` (#2902).
 
         ``WorkflowExecution`` carries no ``tenant_key``; it belongs to the entity
         it runs on. A shared system template is readable by every tenant, so
@@ -1613,9 +1653,6 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           LET sp = plant != null AND plant.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', plant.species_key))
             : null
-          LET species_name = sp != null
-            ? (LENGTH(sp.common_names) > 0 ? sp.common_names[0] : sp.scientific_name)
-            : ''
           LET entity_name = plant != null
             ? (plant.plant_name || plant.instance_id || ekey)
             : (loc != null ? loc.name : (tank != null ? tank.name : (run_doc != null ? run_doc.name : ekey)))
@@ -1625,7 +1662,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             entity_type: etype,
             entity_name: entity_name,
             plant_removed: plant != null AND plant.removed_on != null,
-            species_name: species_name,
+            {_SPECIES_NAME_FIELDS},
             completion_percentage: we.completion_percentage,
             on_schedule: we.on_schedule,
             started_at: we.started_at,
@@ -1633,7 +1670,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           }}
         """
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return list(cursor)
+        rows: list[dict[str, Any]] = list(cursor)
+        for row in rows:
+            row["species_name"] = _pop_species_display_name(row, language)
+        return rows
 
     # ── Dashboard counts (REQ-009) ──
 

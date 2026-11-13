@@ -10,6 +10,7 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.document_reads import get_document
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 
 
 class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantInstanceRepository):
@@ -391,8 +392,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return int(next(cursor, 0) or 0)
 
-    def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
+    def list_active_for_tenant(
+        self, tenant_key: str, limit: int, *, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> list[dict[str, Any]]:
         """Return the newest *alive* plant instances of ``tenant_key``, enriched (REQ-009).
+
+        ``species_common_name`` is resolved by the display rule in ``language`` (#2902).
 
         Feeds the ``plant_grid`` dashboard widget (#461 / #488): a newest-first list of
         active plants, each carrying its ``_key`` for a deep link to the plant detail
@@ -436,9 +441,6 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           // path (whose key lives in a different collection), leaving
           // ``phase_definition_key`` null so the chip renders without a link (A4).
           LET phase_entry = p.current_phase_key != null ? DOCUMENT(@entry_col, p.current_phase_key) : null
-          LET species_common_name = (species != null AND LENGTH(species.common_names) > 0)
-            ? species.common_names[0]
-            : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           // Anchored on the parent site, for the reason spelled out on the sibling
           // query above: ``location.tenant_key`` is persisted empty by the write
@@ -470,7 +472,9 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             instance_id: p.instance_id,
             plant_name: p.plant_name,
             species_key: p.species_key,
-            species_common_name: species_common_name,
+            // Both name fields, resolved to one name below by the one display rule (#2902).
+            species_common_names: species != null ? species.common_names : null,
+            species_common_names_i18n: species != null ? species.common_names_i18n : null,
             species_scientific_name: species != null ? species.scientific_name : null,
             cultivar_key: p.cultivar_key,
             cultivar_name: cultivar != null ? cultivar.name : null,
@@ -503,4 +507,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "today": today_utc().isoformat(),
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return list(cursor)
+        rows: list[dict[str, Any]] = list(cursor)
+        for row in rows:
+            # One name for the card title by the one display rule, in the request's language (#2902).
+            # The scientific name has its own field.
+            row["species_common_name"] = localized_vernacular_name(
+                row["species_common_names"], row["species_common_names_i18n"], language
+            )
+            del row["species_common_names"], row["species_common_names_i18n"]
+        return rows

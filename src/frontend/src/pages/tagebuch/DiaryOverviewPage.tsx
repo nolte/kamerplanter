@@ -15,6 +15,7 @@ import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import { useApiError } from '@/hooks/useApiError';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { useNotification } from '@/hooks/useNotification';
 import { isApiError } from '@/api/errors';
 import { attachmentUri } from '@/api/endpoints/attachments';
@@ -167,9 +168,12 @@ export default function DiaryOverviewPage() {
     pageSize,
   ]);
 
+  // A row's species name is worded by the server in the UI language when it stands in for a missing
+  // scientific name (#2902): reload on a switch.
+  const requestLanguage = useRequestLanguage();
   useEffect(() => {
     load();
-  }, [load, reloadToken]);
+  }, [load, reloadToken, requestLanguage]);
 
   // The plant/species dropdown options. Loaded once and independently of the
   // listing: a tenant without a readable plant list still gets a usable page,
