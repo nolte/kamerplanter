@@ -24,6 +24,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.tenant_scope import readable_or_null
 from app.domain.calculators.overdue_calculator import utc_day
 from app.domain.calculators.plant_state_calculator import OpenTask
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
@@ -58,9 +59,13 @@ MAX_SOWN_SLOTS = 2_000
 BED_KEYS_PER_STATEMENT = 500
 
 
+#: The stored species a row names, when its tenant may read it (own, global or granted), else ``null``.
+_READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_species")
+
 #: The bed's sown slots without a standing plant of the tenant, with the crop of their live reservation (W-015).
 #: A slot carries no tenant (E-01): the plants and the reserving run are filtered on it, the bed was resolved first.
-_SOWN_SLOTS = """
+_SOWN_SLOTS = (
+    """
 FOR s IN @@slots
     FILTER s.location_key == @location_key AND s.archived_at == null AND s.sown_at != null
     LET standing = (
@@ -86,10 +91,11 @@ FOR s IN @@slots
     LIMIT @max
     LET entry = reservation.entry_key == null ? null : DOCUMENT(@entries, reservation.entry_key)
     LET stored_species = reservation.species_key == null ? null : DOCUMENT(@species, reservation.species_key)
-    // Names only of a species the tenant may read (global or its own, the hybrid union): a legacy entry may still
-    // name another tenant's private species (#1963), and the answer must not carry its names.
-    LET species = stored_species != null AND stored_species.tenant_key IN [null, "", @tenant_key]
-        ? stored_species : null
+    // Names only of a species the tenant may read (global, its own or granted): a legacy entry may still name
+    // another tenant's private species (#1963), and the answer must not carry its names.
+    LET species = """
+    + _READABLE_STORED_SPECIES
+    + """
     LET cultivar = species == null OR entry == null OR entry.cultivar_key == null
         ? null : DOCUMENT(@cultivars, entry.cultivar_key)
     RETURN {
@@ -106,6 +112,7 @@ FOR s IN @@slots
         cultivar_name: cultivar == null ? null : cultivar.name
     }
 """
+)
 
 
 def _species_name(row: dict[str, Any], language: str) -> str | None:
@@ -286,8 +293,14 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 FILTER bed IN @beds
                 SORT p._key ASC
                 LIMIT @offset, @limit
-                LET species = DOCUMENT(@species, p.species_key)
-                LET cultivar = p.cultivar_key == null ? null : DOCUMENT(@cultivars, p.cultivar_key)
+                // A plant written before its species reference was verified may name a species its tenant
+                // cannot read (#2082): the names are joined only for a readable one.
+                LET stored_species = DOCUMENT(@species, p.species_key)
+                LET species = """
+                + _READABLE_STORED_SPECIES
+                + """
+                LET cultivar = species == null OR p.cultivar_key == null
+                    ? null : DOCUMENT(@cultivars, p.cultivar_key)
                 LET entry = p.current_phase_key == null ? null : DOCUMENT(@entries, p.current_phase_key)
                 LET definition = entry == null ? null : DOCUMENT(@definitions, entry.phase_definition_key)
                 LET legacy = (p.current_phase_key == null OR entry != null)
