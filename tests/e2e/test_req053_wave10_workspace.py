@@ -70,7 +70,9 @@ from ._garden_plan_helpers import (
     provision_garden,
     read_plan,
     rect,
+    species,
     stored_object,
+    tenant_get,
     tenant_location,
 )
 from .pages.field_mode_page import set_phone_viewport
@@ -573,10 +575,10 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
 
 # ── TC-053-103 ──────────────────────────────────────────────────────────────
 
-#: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist) plus Bereich and
-#: Messen from GP-UX-071 (#2913; Pflanze setzen and Text/Label are still to come), and the tools whose rail button
-#: opens a sub-menu.
-GP_UX_001_TOOLS = ("select", "pan", "area", "bed", "garden_object", "measure")
+#: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist) plus Bereich,
+#: Pflanze setzen and Messen from GP-UX-071 (#2913; Text/Label is still to come), and the tools whose rail button
+#: opens a sub-menu. The seed user is a lead: "Pflanze setzen" is a writing role's tool and is on the rail.
+GP_UX_001_TOOLS = ("select", "pan", "area", "bed", "garden_object", "plant", "measure")
 TOOLS_WITH_MENU = ("area", "bed", "garden_object")
 PANEL_TABS = ("properties", "view", "layers", "zones")
 
@@ -766,6 +768,89 @@ def test_tc_053_103_area_parents_a_bed_drawn_inside_it(
     assert after[old_bed].get("parent_location_key") == before[old_bed].get(
         "parent_location_key"
     ), "TC-053-103 area: the bed that was there before keeps its parent"
+
+
+#: The species step 7 plants: a seed species whose option label carries ``(Lactuca sativa)``.
+LETTUCE = "Lactuca sativa"
+
+
+def test_tc_053_103_plant_tool_sets_one_plant_into_the_clicked_free_spot(
+    plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-103 step 7 - the rail's plant tool sets one plant into the free planting spot clicked (GP-UX-071).
+
+    Breaks if the tool is not on the rail or does not become active, if its status does not say what a click does, if
+    a click on a free point slot does not open the dialog for that bed and spot, if the species cannot be chosen, if
+    confirming leaves the dialog open, does not announce the plant or switches the tool off, if it leaves a plan change
+    to save (the plant is written through the plant API, not the plan batch), or if the server does not hold exactly
+    one new plant of that species on exactly that slot while the other spot stays free.
+    """
+    set_phone_viewport(browser, 1024, 768)
+    plan.dismiss_light_mode_warning()
+    garden = provision_garden(
+        base_url,
+        e2e_seed_data,
+        purpose="tc103p",
+        beds=(BedSpec("Beet P", rect(4.0, 4.5, 2.0, 1.0), slots=((0.5, 0.5), (1.5, 0.5))),),
+    )
+    bed_key = garden.bed_key("Beet P")
+    first_slot, second_slot = garden.slots["Beet P"]
+    before = read_plan(base_url, e2e_seed_data, garden.site_key)
+    slots = {slot["key"]: slot for slot in before["slots"]}
+    target = slots[first_slot]
+    assert not target.get("currently_occupied"), (
+        f"TC-053-103 plant: the spot must start free: {target}"
+    )
+    x_m, y_m = target["plan_geometry"]["origin"]
+    plants_before = {plant["key"] for plant in before.get("plants", [])}
+
+    plan.open(garden.site_key)
+    plan.wait_for_element_visible(plan.TOOLBAR)
+    plan.choose_tool(plan.TOOL_PLANT)
+    status = plan.plant_status()
+    assert "freien Pflanzplatz" in status, (
+        f"TC-053-103 plant: the status should name the click: {status!r}"
+    )
+
+    plan.click_plan_position(x_m, y_m, "TC-053-103 plant: the first free spot of Beet P")
+    title = plan.wait_for_plant_dialog("TC-053-103 plant: a click on the free spot")
+    assert "Beet P" in title and target["slot_id"] in title, (
+        f"TC-053-103 plant: the dialog title should name the bed and the spot {target['slot_id']!r}: {title!r}"
+    )
+    plan.choose_plant_species(LETTUCE)
+    screenshot(
+        "053_103_05_plant_dialog",
+        "1024 × 768: Pflanze setzen – Dialog für einen freien Pflanzplatz",
+    )
+    plan.submit_plant_dialog("TC-053-103 plant: confirming the dialog")
+
+    info = plan.text_of(plan.INFO)
+    assert "in Beet P gesetzt" in info, f"TC-053-103 plant: the success message reads {info!r}"
+    assert plan.driver.find_element(*plan.TOOL_PLANT).get_attribute("aria-pressed") == "true", (
+        "TC-053-103 plant: the tool stays on for the next spot"
+    )
+    assert plan.pending_count() == 0, (
+        "TC-053-103 plant: setting a plant leaves no plan change to save"
+    )
+
+    after = read_plan(base_url, e2e_seed_data, garden.site_key)
+    new = [plant for plant in after.get("plants", []) if plant["key"] not in plants_before]
+    lettuce = species(base_url, e2e_seed_data, LETTUCE)
+    assert len(new) == 1, f"TC-053-103 plant: exactly one new plant expected, got {new}"
+    assert new[0].get("slot_key") == first_slot and new[0].get("species_key") == lettuce["key"], (
+        f"TC-053-103 plant: the plant should stand on {first_slot} as {LETTUCE}: {new[0]}"
+    )
+    stored_slots = {slot["key"]: slot for slot in after["slots"]}
+    assert stored_slots[first_slot].get("currently_occupied") is True, (
+        f"TC-053-103 plant: the plan marks the spot occupied: {stored_slots[first_slot]}"
+    )
+    assert not stored_slots[second_slot].get("currently_occupied"), (
+        f"TC-053-103 plant: the other spot stays free: {stored_slots[second_slot]}"
+    )
+    plant = tenant_get(base_url, e2e_seed_data, f"/plant-instances/{new[0]['key']}")
+    assert isinstance(plant, dict) and plant.get("location_key") == bed_key, (
+        f"TC-053-103 plant: the plant instance exists in Beet P: {plant}"
+    )
 
 
 # ── TC-053-104 ──────────────────────────────────────────────────────────────

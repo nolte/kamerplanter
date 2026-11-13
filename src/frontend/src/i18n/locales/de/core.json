@@ -485,7 +485,9 @@
       "serviceAccountLimitReached": "Der Garten hat die Höchstzahl an Dienstkonten seines Plans erreicht. Lösche ein nicht mehr genutztes Dienstkonto oder bitte den Betreiber um einen größeren Plan.",
       "storageQuotaExceeded": "Der Speicherplatz des Gartens ist aufgebraucht. Lösche nicht mehr benötigte Fotos oder Anhänge oder bitte den Betreiber um mehr Speicher.",
       "photoQuotaExceeded": "Diese Pflanze hat die Höchstzahl an Fotos erreicht. Lösche ältere Fotos, bevor du neue hochlädst."
-    }
+    },
+    "slotOccupied": "Auf diesem Pflanzplatz steht schon eine Pflanze. Wähle einen anderen Platz oder entferne die Pflanze zuerst.",
+    "slotAlreadyPlanned": "Dieser Pflanzplatz ist für eine geplante Pflanzung reserviert. Wähle einen anderen Platz."
   },
   "validation": {
     "required": "Pflichtfeld.",

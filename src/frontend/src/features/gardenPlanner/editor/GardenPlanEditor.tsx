@@ -72,8 +72,10 @@ import Tooltip from '@mui/material/Tooltip';
 import { isApiError } from '@/api/errors';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createBedTemplate } from '../api/gardenPlan';
+import type { PlantedInSlot, PlantSlotOption } from '../planting/PlantSlotDialog';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
@@ -191,6 +193,7 @@ import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
 import { resolveMoveSnap, resolveSnap, snapPointerType, type SnapPointerType } from './tools/snap';
 import type { MeasureView } from './tools/measureMachine';
+import { freePointSlots } from './tools/plantTarget';
 import { useEditorTools } from './tools/useEditorTools';
 import { violationOfNew } from './tools/validation';
 import { useVisibleHeight } from './tools/useVisibleHeight';
@@ -288,6 +291,11 @@ const SaveAsTemplateDialog = lazy(() => import('../templates/SaveAsTemplateDialo
 const MultiDuplicateDialog = lazy(() => import('./MultiDuplicateDialog'));
 // The info card of a companion line (GP-FR-134) loads with the first hover or tap.
 const CompanionEdgeInfo = lazy(() => import('./CompanionEdgeInfo'));
+// The dialog of "Pflanze setzen" (GP-UX-071) loads with its first use.
+const PlantSlotDialog = lazy(() => import('../planting/PlantSlotDialog'));
+/** The tools a viewer does not get: "Pflanze setzen" writes a plant, which needs a writing domain role (REQ-049). */
+const WRITE_ONLY_TOOLS: ReadonlySet<EditorTool> = new Set<EditorTool>(['plant']);
+const NO_TOOLS: ReadonlySet<EditorTool> = new Set<EditorTool>();
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 const BOUNDARY_ONLY: ReadonlySet<string> = new Set([BOUNDARY_KEY]);
@@ -398,8 +406,10 @@ export function GardenPlanEditor({
   const panelVariant: SidePanelVariant = toolbarBelow ? 'sheet' : 'docked';
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
-  const { selection, stack, tool, editError, past, future, pending } =
+  const { selection, stack, tool, editError, past, future, pending, offline } =
     useAppSelector(selectGardenPlanState);
+  // "Pflanze setzen" writes a plant through the plant API: a viewer neither sees the tool nor its panel entry.
+  const { canEdit } = useTenantPermissions();
   const invalidKeys = useAppSelector(selectInvalidKeys);
   const boundary = plan.settings?.boundary ?? null;
   const boundaryMode: BoundaryMode = tool === 'boundary' ? (boundary ? 'edit' : 'draw') : null;
@@ -769,6 +779,71 @@ export function GardenPlanEditor({
     [candidates, gridStepM, snapEnabled, pxPerM],
   );
 
+  // "Pflanze setzen" (GP-UX-071, #2913): the spot the dialog is open for - the clicked slot, or a bed whose free spots
+  // the dialog offers (the panel's keyboard path).
+  const [plantTarget, setPlantTarget] = useState<{ bedKey: string; slotKey: string | null } | null>(null);
+  const openPlantDialog = useCallback(
+    (bedKey: string, slotKey: string | null) => {
+      // The plant is written at once through the plant API, outside the plan's offline buffer: offline it cannot be,
+      // and it is not queued silently either.
+      if (offline) {
+        setNotice('plant.offline');
+        return;
+      }
+      if (!canEdit) {
+        setNotice('plant.read_only');
+        return;
+      }
+      setNotice(null);
+      setPlantTarget({ bedKey, slotKey });
+    },
+    [canEdit, offline, setNotice, setPlantTarget],
+  );
+  // A role change (or a store without one) while the tool is on: back to Select, the tool is not offered.
+  useEffect(() => {
+    if (tool === 'plant' && !canEdit) dispatch(setTool('select'));
+  }, [canEdit, dispatch, tool]);
+  const plantBed = plantTarget ? plan.locations[plantTarget.bedKey] : undefined;
+  // The clicked spot alone, or every free point slot of the bed the panel opened the dialog for.
+  const plantSlots = useMemo<PlantSlotOption[]>(() => {
+    if (plantTarget === null) return [];
+    const slots =
+      plantTarget.slotKey !== null
+        ? [plan.slots[plantTarget.slotKey]].filter((slot) => slot !== undefined)
+        : freePointSlots(plan, plantTarget.bedKey);
+    return slots.map((slot) => ({ key: slot.key, label: slot.slot_id }));
+  }, [plan, plantTarget]);
+  const closePlantDialog = useCallback(() => setPlantTarget(null), []);
+  const onPlanted = useCallback(
+    (result: PlantedInSlot) => {
+      const bedName = plantTarget ? (plan.locations[plantTarget.bedKey]?.name ?? '') : '';
+      setPlantTarget(null);
+      // The tool stays on: the next free spot is one click away (several plants in a row is the point of it).
+      setInfo(
+        t(`${PREFIX}.plantSlot.${result.refreshed ? 'done' : 'doneNotShown'}`, {
+          species: result.speciesName,
+          bed: bedName,
+        }),
+      );
+      if (result.refreshed) {
+        dispatch(setSelection([{ entity: 'plant', key: result.plantKey }]));
+        dispatch(setStack(null));
+      }
+    },
+    [dispatch, plan, plantTarget, setInfo, setPlantTarget, t],
+  );
+  const openPlantBed = useMemo(
+    () =>
+      plantTarget && onOpenLocation
+        ? () => {
+            const bedKey = plantTarget.bedKey;
+            setPlantTarget(null);
+            onOpenLocation(bedKey);
+          }
+        : undefined,
+    [onOpenLocation, plantTarget],
+  );
+
   const tools = useEditorTools({
     tool,
     drawShape,
@@ -793,6 +868,9 @@ export function GardenPlanEditor({
     newAreaName,
     snapPoint,
     snapMove,
+    onPlantSlot: openPlantDialog,
+    onZoomTo: onZoom,
+    maxPxPerM: MAX_PX_PER_M,
   });
 
   const zoomCenter = useMemo<Point>(
@@ -1740,6 +1818,11 @@ export function GardenPlanEditor({
     canvasKind === 'measure'
       ? measureStatusText(t, measure, touchUi ? 'touch' : aiming ? 'keyboard' : 'pointer', unit, i18n.language)
       : null;
+  // "Pflanze setzen" says what a click does - and, offline, that it needs a connection before anybody clicks.
+  const plantStatus =
+    canvasKind === 'plant'
+      ? t(`${PREFIX}.plantSlot.status.${offline ? 'offline' : touchUi ? 'touch' : 'pointer'}`)
+      : null;
   // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
   const hintBase = touchUi ? `${PREFIX}.touch.hint` : `${PREFIX}.drawHint`;
   const hintKey = !drawing
@@ -1788,6 +1871,7 @@ export function GardenPlanEditor({
       selectionGroup={selectionGroup}
       boundaryMode={boundaryMode}
       measure={measureControls}
+      hiddenTools={canEdit ? NO_TOOLS : WRITE_ONLY_TOOLS}
     />
   );
 
@@ -1859,6 +1943,7 @@ export function GardenPlanEditor({
         onDrawBed={() => dispatch(setTool('bed'))}
         onOpenLocation={onOpenLocation}
         onOpenCare={onOpenCare}
+        onPlantSlot={canEdit ? openPlantDialog : undefined}
         bedInfo={bedInfo}
       />
     );
@@ -2312,6 +2397,18 @@ export function GardenPlanEditor({
           {t(hintKey, { count: tools.draftPoints })}
         </Typography>
       )}
+      {!listShown && plantStatus && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          role="status"
+          aria-live="polite"
+          data-testid="garden-plan-plant-status"
+          data-offline={offline ? 'true' : 'false'}
+        >
+          {plantStatus}
+        </Typography>
+      )}
       {!listShown && measureStatus && (
         <Typography
           variant="body2"
@@ -2497,6 +2594,28 @@ export function GardenPlanEditor({
                 if (next !== null) setLayer('underlay', true);
               }}
               onClose={() => setUnderlayOpen(false)}
+            />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+      {plantTarget && plantBed && plantSlots.length > 0 && (
+        <ErrorBoundary
+          title={t(`${PREFIX}.plantSlot.chunkFailedTitle`)}
+          hint={t(`${PREFIX}.plantSlot.chunkFailedHint`)}
+          reloadLabel={t('common.appError.reloadPage')}
+          testId="garden-plan-plant-dialog-load-error"
+        >
+          <Suspense fallback={null}>
+            <PlantSlotDialog
+              key={`${plantTarget.bedKey}:${plantTarget.slotKey ?? ''}`}
+              bedKey={plantTarget.bedKey}
+              bedName={plantBed.name}
+              bedSun={plantBed.sun_exposure}
+              slots={plantSlots}
+              initialSlotKey={plantTarget.slotKey}
+              onClose={closePlantDialog}
+              onPlanted={onPlanted}
+              onOpenBed={openPlantBed}
             />
           </Suspense>
         </ErrorBoundary>

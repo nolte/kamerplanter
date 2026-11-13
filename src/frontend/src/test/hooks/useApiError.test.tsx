@@ -89,6 +89,18 @@ describe('useApiError', () => {
     );
   });
 
+  it.each([
+    ['slot.occupied', /stands on this planting spot already|steht schon eine Pflanze/],
+    ['slot.already_planned', /reserved for a planned planting|für eine geplante Pflanzung reserviert/],
+  ])('names the taken planting position %s instead of the generic conflict (REQ-053 V-25)', (code, text) => {
+    const { result } = renderHook(() => useApiError(), { wrapper });
+    result.current.handleError(makeApiError(code, 'refused', [], 409));
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      expect.stringMatching(text),
+      expect.objectContaining({ variant: 'error' }),
+    );
+  });
+
   it('handles VALIDATION_ERROR', () => {
     const { result } = renderHook(() => useApiError(), { wrapper });
     result.current.handleError(makeApiError('VALIDATION_ERROR', 'Invalid', [], 422));

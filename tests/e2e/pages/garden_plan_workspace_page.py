@@ -156,6 +156,18 @@ class WorkspacePlanPage(GardenPlanPage):
     NEW_AREA_TYPE = "garden-plan-new-area-type"
     NEW_AREA_TYPE_RULE = _tid("garden-plan-new-area-type-rule")
 
+    # ── Plant tool "Pflanze setzen" (GP-UX-071, #2913) ─────────────────
+    TOOL_PLANT = _tid("garden-plan-tool-plant")
+    PLANT_STATUS = _tid("garden-plan-plant-status")
+    PLANT_DIALOG = _tid("garden-plan-plant-dialog")
+    PLANT_DIALOG_TITLE = (By.CSS_SELECTOR, "[data-testid='garden-plan-plant-dialog'] h2")
+    PLANT_DIALOG_SPECIES = (
+        By.CSS_SELECTOR,
+        "[data-testid='garden-plan-plant-dialog-species'] input",
+    )
+    PLANT_DIALOG_SUBMIT = _tid("garden-plan-plant-dialog-submit")
+    PLANT_OPTIONS = (By.CSS_SELECTOR, "li[role='option']")
+
     # ── Measure tool (GP-UX-071, #2913) ────────────────────────────────
     TOOL_MEASURE = _tid("garden-plan-tool-measure")
     MEASURE_STATUS = _tid("garden-plan-measure-status")
@@ -728,6 +740,89 @@ class WorkspacePlanPage(GardenPlanPage):
         builder.pointer_action.pointer_down(MouseButton.LEFT)
         builder.pointer_action.pointer_up(MouseButton.LEFT)
         builder.perform()
+
+    def click_plan_position(self, x_m: float, y_m: float, what: str) -> None:
+        """One trusted pointer press and release at model point (*x_m*, *y_m*) on the plan, whatever is drawn there.
+
+        The plant tool's target is a planting-spot marker, which the editor draws as a decorative path: the guard
+        checks only that the point lies on the plan (``elementFromPoint`` inside the SVG), not which object it is.
+        """
+        self._bring_canvas_into_view()
+        point: ScreenPoint = self.to_screen(x_m, y_m)
+        inside = self.driver.execute_script(
+            "var el = document.elementFromPoint(arguments[0], arguments[1]); return !!el && arguments[2].contains(el);",
+            point.x,
+            point.y,
+            self.wait_for_element(self.SVG),
+        )
+        if not inside:
+            raise AssertionError(
+                f"{what}: the point ({point.x:.1f}, {point.y:.1f}) is not on the plan"
+            )
+        builder = ActionBuilder(self.driver)
+        builder.pointer_action.move_to_location(round(point.x), round(point.y))
+        builder.pointer_action.pointer_down(MouseButton.LEFT)
+        builder.pointer_action.pointer_up(MouseButton.LEFT)
+        builder.perform()
+
+    def plant_status(self) -> str:
+        """The plant tool's status text (``role="status"``): what a click does."""
+        return self.text_of(self.PLANT_STATUS)
+
+    def wait_for_plant_dialog(self, what: str) -> str:
+        """The plant dialog is open; its title (bed and spot)."""
+        try:
+            self.wait_for_element_visible(self.PLANT_DIALOG)
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the plant dialog did not open") from exc
+        return self.text_of(self.PLANT_DIALOG_TITLE)
+
+    def choose_plant_species(self, scientific_name: str) -> str:
+        """Type the scientific name into the dialog's species picker and pick exactly that species' option."""
+        field = self.wait_for_element(self.PLANT_DIALOG_SPECIES)
+        self.clear_and_fill(field, scientific_name)
+        suffix = f"({scientific_name})"
+
+        def _option():
+            for option in self.driver.find_elements(*self.PLANT_OPTIONS):
+                if suffix in " ".join((option.get_attribute("textContent") or "").split()):
+                    return option
+            return False
+
+        try:
+            option = self.poll().until(lambda _d: _option())
+        except TimeoutException as exc:
+            rendered = [
+                o.get_attribute("textContent")
+                for o in self.driver.find_elements(*self.PLANT_OPTIONS)
+            ]
+            raise AssertionError(
+                f"the plant dialog offers no option for {scientific_name!r}; options: {rendered}"
+            ) from exc
+        self.click_menu_option(option)
+        self.poll().until(lambda _d: (field.get_attribute("value") or "").endswith(suffix))
+        return field.get_attribute("value") or ""
+
+    def submit_plant_dialog(self, what: str) -> None:
+        """Press "Pflanze setzen" once it is enabled (the slot check ran); waits until the dialog is gone."""
+        try:
+            self.poll().until(lambda d: d.find_element(*self.PLANT_DIALOG_SUBMIT).is_enabled())
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: 'Pflanze setzen' stays disabled") from exc
+        self.wait_and_click_coordinate_free(self.PLANT_DIALOG_SUBMIT)
+        try:
+            self.poll().until(lambda d: not d.find_elements(*self.PLANT_DIALOG))
+        except TimeoutException as exc:
+            errors = [
+                (e.get_attribute("textContent") or "").strip()
+                for e in self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    "[data-testid^='garden-plan-plant-dialog-'][role='alert'], [data-testid='garden-plan-plant-dialog-blocked']",
+                )
+            ]
+            raise AssertionError(
+                f"{what}: the plant dialog did not close; it says {errors}"
+            ) from exc
 
     def finish_drawing(self) -> None:
         """ "Fertig" of a point-by-point shape; waits until the new object is one unsaved change."""

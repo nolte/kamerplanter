@@ -8,6 +8,7 @@
  */
 import type { SvgIconComponent } from '@mui/icons-material';
 import CropFreeIcon from '@mui/icons-material/CropFree';
+import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import NearMeIcon from '@mui/icons-material/NearMe';
 import PanToolIcon from '@mui/icons-material/PanTool';
 import ParkIcon from '@mui/icons-material/Park';
@@ -19,12 +20,13 @@ import { AREA_SHAPES, BOUNDARY_SHAPES, type DrawShape, type DrawTarget } from '.
 /**
  * The machine that takes the canvas's pointer and keys while a tool is on. `boundary` is the plan-level boundary mode
  * (#2890): it draws while the plan has no boundary and reshapes it once there is one (see {@link canvasKindOf}).
+ * `plant` is a click machine (GP-UX-071, #2913): a click on a free planting spot opens the dialog for it, a drag pans.
  */
-export type ToolKind = 'select' | 'pan' | 'draw' | 'measure' | 'boundary';
+export type ToolKind = 'select' | 'pan' | 'draw' | 'measure' | 'plant' | 'boundary';
 
 /** What the kind of the active tool means for the canvas around it. */
 export interface KindBehaviour {
-  cursor: 'default' | 'grab' | 'crosshair';
+  cursor: 'default' | 'grab' | 'crosshair' | 'pointer';
   /** The snap marker follows the pointer: the next click lands on it (GP-FR-154). */
   snapMarker: boolean;
   /**
@@ -39,6 +41,8 @@ export const KIND_BEHAVIOUR: Record<Exclude<ToolKind, 'boundary'>, KindBehaviour
   pan: { cursor: 'grab', snapMarker: false, touch: null },
   draw: { cursor: 'crosshair', snapMarker: true, touch: 'points' },
   measure: { cursor: 'crosshair', snapMarker: true, touch: 'points' },
+  // A tap or click picks a planting spot; there are no points to set, so the touch bar has nothing to offer.
+  plant: { cursor: 'pointer', snapMarker: false, touch: null },
 };
 
 /** A boundary that exists is reshaped by its handles; a press elsewhere pans (#2890). */
@@ -69,6 +73,8 @@ export const TOOL_DEFS: Record<PlanTool, ToolDef> = {
     menu: true,
     draw: { target: 'garden_object', shapes: ['rect', 'circle', 'polygon', 'polyline'] },
   },
+  // GP-UX-071: one plant into the free point slot clicked; written at once through the plant API, not the plan batch.
+  plant: { kind: 'plant', rail: LocalFloristIcon },
   // GP-UX-071: transient - nothing is stored, no plan operation, no undo step.
   measure: { kind: 'measure', rail: StraightenIcon },
   boundary: { kind: 'boundary', draw: { target: 'boundary', shapes: BOUNDARY_SHAPES } },

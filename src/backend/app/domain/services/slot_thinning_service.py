@@ -58,6 +58,7 @@ from app.domain.models.species import Species
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.location_ownership import resolve_owned_slot
 from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.slot_occupancy import ERROR_SLOT_OCCUPIED
 from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
@@ -70,7 +71,7 @@ MAX_SOWING_AGE_DAYS = 730
 
 ERROR_NOT_SOWABLE = "slot.not_sowable"
 ERROR_NOT_SOWN = "slot.not_sown"
-ERROR_OCCUPIED = "slot.occupied"
+ERROR_OCCUPIED = ERROR_SLOT_OCCUPIED
 ERROR_NO_RUN = "thinning.no_run"
 ERROR_SPACING_REQUIRED = "thinning.spacing_required"
 ERROR_NO_MEASURE = "thinning.no_measure"

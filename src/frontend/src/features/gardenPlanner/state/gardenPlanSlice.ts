@@ -53,14 +53,14 @@ export const HISTORY_LIMIT = 100;
 
 /**
  * The top-level tools of GP-UX-001 (REQ-053 v1.19, #2868): only tools that exist. Of GP-UX-071 (#2913) "Bereich"
- * (`area`) and "Messen" (`measure`) are built; Pflanze setzen and Text/Label each come back here together with their
- * logic and their entry in the tool registry (`editor/toolRegistry.ts`), which gives them their rail button.
+ * (`area`), "Pflanze setzen" (`plant`) and "Messen" (`measure`) are built; Text/Label comes back here together with
+ * its logic and its entry in the tool registry (`editor/toolRegistry.ts`), which gives it its rail button.
  *
  * `boundary` is no tool of the rail: it is the plan-level mode "Gartengrenze zeichnen / bearbeiten" (UC-01,
  * GP-FR-019/032, #2890) that the overflow "⋮" and the indoor empty state start. Without a boundary it draws one
  * (rect or polygon); with one it shows the boundary's handles - the boundary is unlocked while the mode is on.
  */
-export type PlanTool = 'select' | 'pan' | 'area' | 'bed' | 'garden_object' | 'measure' | 'boundary';
+export type PlanTool = 'select' | 'pan' | 'area' | 'bed' | 'garden_object' | 'plant' | 'measure' | 'boundary';
 
 export interface SelectionRef {
   entity: PlanEntity | 'slot' | 'plant';

@@ -7,6 +7,8 @@ import { useCallback, useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { configureStore } from '@reduxjs/toolkit';
+import tenantsReducer from '@/store/slices/tenantSlice';
+import { tenantState } from '@/test/helpers';
 import { Provider } from 'react-redux';
 import { afterEach, describe, expect, it } from 'vitest';
 import i18n from '@/i18n/i18n';
@@ -75,7 +77,11 @@ function withTinyBed(key: string, x: number, y: number, sizeM: number): PlanMode
 }
 
 function setup(plan: PlanModel = testPlan()) {
-  const store = configureStore({ reducer: { gardenPlan: gardenPlanSlice.reducer } });
+  const store = configureStore({
+    // The editor reads the domain role ("Pflanze setzen" is a grower's tool, REQ-049): a grower's tenant.
+    reducer: { gardenPlan: gardenPlanSlice.reducer, tenants: tenantsReducer },
+    preloadedState: { tenants: tenantState('grower').tenants as ReturnType<typeof tenantsReducer> },
+  });
   store.dispatch(loadGardenPlan.pending('r1', 'site_1'));
   store.dispatch(loadGardenPlan.fulfilled(plan, 'r1', 'site_1'));
   const renderer = new HeadlessPlanRenderer();

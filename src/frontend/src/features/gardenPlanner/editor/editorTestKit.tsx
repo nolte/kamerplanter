@@ -5,6 +5,8 @@ import { Provider, useSelector } from 'react-redux';
 import { vi, type Mock } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
 import tenantsReducer from '@/store/slices/tenantSlice';
+import uiReducer from '@/store/slices/uiSlice';
+import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
 import { tenantState } from '@/test/helpers';
 import { HeadlessPlanRenderer } from '../renderer/HeadlessPlanRenderer';
 import { TEST_LABELS } from '../renderer/rendererTestKit';
@@ -70,6 +72,8 @@ interface SetupOptions {
    * `rerender()` - for a flow that moves the plan under the crosshair. By default the viewport stays put.
    */
   applyPan?: boolean;
+  /** The domain role of the tenant (REQ-049); the editor is a grower's surface by default. */
+  role?: 'viewer' | 'grower' | 'lead';
 }
 
 function ConnectedEditor(props: Omit<Parameters<typeof GardenPlanEditor>[0], 'plan'>) {
@@ -95,8 +99,14 @@ export function setupEditor(options: SetupOptions = {}) {
   const onOpenCare = options.onOpenCare;
   // The editor is the grower's surface: tools that gate on the role (the template import, #2749) need a tenant.
   const store = configureStore({
-    reducer: { gardenPlan: gardenPlanSlice.reducer, tenants: tenantsReducer },
-    preloadedState: { tenants: tenantState('grower').tenants as ReturnType<typeof tenantsReducer> },
+    // The plant dialog's hints read the expertise level (user preferences, the UI's "show all fields").
+    reducer: {
+      gardenPlan: gardenPlanSlice.reducer,
+      tenants: tenantsReducer,
+      userPreferences: userPreferencesReducer,
+      ui: uiReducer,
+    },
+    preloadedState: { tenants: tenantState(options.role ?? 'grower').tenants as ReturnType<typeof tenantsReducer> },
   });
   store.dispatch(loadGardenPlan.pending('r1', 'site_1'));
   store.dispatch(loadGardenPlan.fulfilled(plan, 'r1', 'site_1'));

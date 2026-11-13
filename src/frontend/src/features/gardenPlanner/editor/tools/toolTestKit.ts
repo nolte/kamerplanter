@@ -72,46 +72,49 @@ function rectBed(
  * the tree t1 at (9,9); alone: bed solo (14,2) 2x2 and the locked bed lock (14,8) 2x2. Boundary 20x20.
  */
 export function testPlan() {
-  return normalizePlan(
-    planResponse({
-      plan: {
-        boundary: { kind: 'rect', origin: [0, 0], width_m: 20, length_m: 20, rotation_deg: 0 },
-        north_angle_deg: 0,
-        default_grid_m: 0.1,
-        adjacency_factor: 1.5,
-        plan_revision: 7,
-      },
-      locations: [
-        rectBed('area', 2, 2, 10, 10, { name: 'Area', location_type_key: 'area', z_order: 0 }),
-        rectBed('b1', 3, 3, 2, 2, {
-          name: 'Bed 1',
-          parent_location_key: 'area',
-          depth: 1,
-          open_task_count: 3,
-          z_order: 1,
-        }),
-        rectBed('b2', 6, 3, 2, 2, {
-          name: 'Bed 2',
-          parent_location_key: 'area',
-          depth: 1,
-          z_order: 1,
-        }),
-        rectBed('solo', 14, 2, 2, 2, { name: 'Solo', z_order: 0 }),
-        rectBed('lock', 14, 8, 2, 2, { name: 'Locked', locked: true }),
-      ],
-      garden_objects: [
-        gardenObject('t1', 9, 9, {
-          parent_location_key: 'area',
-          geometry: { kind: 'circle', origin: [9, 9], radius_m: 0.5 },
-          bbox: [8.5, 8.5, 9.5, 9.5],
-          label: 'Tree',
-        }),
-      ],
-      slots: [
-        { key: 's1', slot_id: 'B1_1', location_key: 'b1', plan_geometry: { origin: [3.5, 3.5] } },
-        { key: 's2', slot_id: 'B1_2', location_key: 'b1', plan_geometry: { origin: [4.5, 4.5] } },
-      ],
-      plants: [{ key: 'p1', instance_id: 'TOM-1', species_key: 'sp_tomato', slot_key: 's1' }],
-    }),
-  );
+  return normalizePlan(testPlanResponse());
+}
+
+/** The server's answer behind {@link testPlan}; `plants` replaces its plants (a plan read again after a write). */
+export function testPlanResponse(plants?: NonNullable<Parameters<typeof planResponse>[0]>['plants']) {
+  return planResponse({
+    plan: {
+      boundary: { kind: 'rect', origin: [0, 0], width_m: 20, length_m: 20, rotation_deg: 0 },
+      north_angle_deg: 0,
+      default_grid_m: 0.1,
+      adjacency_factor: 1.5,
+      plan_revision: 7,
+    },
+    locations: [
+      rectBed('area', 2, 2, 10, 10, { name: 'Area', location_type_key: 'area', z_order: 0 }),
+      rectBed('b1', 3, 3, 2, 2, {
+        name: 'Bed 1',
+        parent_location_key: 'area',
+        depth: 1,
+        open_task_count: 3,
+        z_order: 1,
+      }),
+      rectBed('b2', 6, 3, 2, 2, {
+        name: 'Bed 2',
+        parent_location_key: 'area',
+        depth: 1,
+        z_order: 1,
+      }),
+      rectBed('solo', 14, 2, 2, 2, { name: 'Solo', z_order: 0 }),
+      rectBed('lock', 14, 8, 2, 2, { name: 'Locked', locked: true }),
+    ],
+    garden_objects: [
+      gardenObject('t1', 9, 9, {
+        parent_location_key: 'area',
+        geometry: { kind: 'circle', origin: [9, 9], radius_m: 0.5 },
+        bbox: [8.5, 8.5, 9.5, 9.5],
+        label: 'Tree',
+      }),
+    ],
+    slots: [
+      { key: 's1', slot_id: 'B1_1', location_key: 'b1', plan_geometry: { origin: [3.5, 3.5] } },
+      { key: 's2', slot_id: 'B1_2', location_key: 'b1', plan_geometry: { origin: [4.5, 4.5] } },
+    ],
+    plants: plants ?? [{ key: 'p1', instance_id: 'TOM-1', species_key: 'sp_tomato', slot_key: 's1' }],
+  });
 }

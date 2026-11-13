@@ -15,8 +15,16 @@ afterEach(() => cleanup());
 const ALL_TOOLS = Object.keys(TOOL_DEFS) as PlanTool[];
 
 describe('the tool registry', () => {
-  it('lists the rail in GP-UX-001 order: select, pan, Bereich before Beet, garden object, Messen; no boundary', () => {
-    expect(RAIL_TOOLS.map((entry) => entry.tool)).toEqual(['select', 'pan', 'area', 'bed', 'garden_object', 'measure']);
+  it('lists the rail in GP-UX-001 order: select, pan, Bereich before Beet, garden object, Pflanze setzen, Messen; no boundary', () => {
+    expect(RAIL_TOOLS.map((entry) => entry.tool)).toEqual([
+      'select',
+      'pan',
+      'area',
+      'bed',
+      'garden_object',
+      'plant',
+      'measure',
+    ]);
     expect(RAIL_TOOLS.length).toBeLessThanOrEqual(8);
   });
 
@@ -27,6 +35,7 @@ describe('the tool registry', () => {
       ['area', 'draw'],
       ['bed', 'draw'],
       ['garden_object', 'draw'],
+      ['plant', 'plant'],
       ['measure', 'measure'],
       ['boundary', 'draw'],
     ]);
@@ -34,7 +43,7 @@ describe('the tool registry', () => {
     expect(canvasKindOf('bed', true)).toBe('draw');
   });
 
-  it('gives the canvas its cursor by the kind: grab to pan, a crosshair to draw and to measure', () => {
+  it('gives the canvas its cursor by the kind: grab to pan, a crosshair to draw and to measure, a hand to plant', () => {
     const cursor = (tool: PlanTool, hasBoundary = false) => cursorOf(behaviourOf(canvasKindOf(tool, hasBoundary)), false);
     expect(ALL_TOOLS.map((tool) => [tool, cursor(tool)])).toEqual([
       ['select', 'default'],
@@ -42,6 +51,7 @@ describe('the tool registry', () => {
       ['area', 'crosshair'],
       ['bed', 'crosshair'],
       ['garden_object', 'crosshair'],
+      ['plant', 'pointer'],
       ['measure', 'crosshair'],
       ['boundary', 'crosshair'],
     ]);
@@ -87,6 +97,8 @@ describe('the touch bar reads its sections from the registry', () => {
     ['area', true, false],
     ['bed', true, false],
     ['garden_object', true, false],
+    // "Pflanze setzen" is a tap on a spot: no points to set, no multi-select - the bar offers nothing misleading.
+    ['plant', false, false],
     ['measure', true, false],
     ['boundary', false, false],
   ] as const)('%s: point actions %s, multi-select %s', (tool, points, multi) => {

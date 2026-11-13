@@ -485,7 +485,9 @@
       "serviceAccountLimitReached": "The garden has reached the service account limit of its plan. Delete a service account you no longer use or ask the operator for a larger plan.",
       "storageQuotaExceeded": "The garden's storage is used up. Delete photos or attachments you no longer need or ask the operator for more storage.",
       "photoQuotaExceeded": "This plant has reached its photo limit. Delete older photos before you upload new ones."
-    }
+    },
+    "slotOccupied": "A plant stands on this planting spot already. Choose another spot or remove that plant first.",
+    "slotAlreadyPlanned": "This planting spot is reserved for a planned planting. Choose another spot."
   },
   "validation": {
     "required": "This field is required.",

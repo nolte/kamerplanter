@@ -5442,6 +5442,11 @@
             "menu": "Object tools",
             "dimensionsHint": "Add a garden object by its dimensions instead of drawing it"
           },
+          "plant": {
+            "label": "Set a plant",
+            "hint": "Set a plant – click a free planting spot (dashed circle) in a bed to add one plant exactly there",
+            "short": "Plant"
+          },
           "measure": {
             "label": "Measure",
             "hint": "Measure a distance – click point by point on the plan, Enter or a double click finishes",
@@ -5600,6 +5605,18 @@
           },
           "area": {
             "encloses_existing": "The area is added. Beds and objects that were already inside do not move with it. Draw beds after the area from now on, then they belong to it."
+          },
+          "plant": {
+            "occupied": "A plant stands here already. Click a free planting spot (dashed circle).",
+            "reserved": "This planting spot is reserved for a planned planting. Choose another free spot.",
+            "row_slot": "Rows and areas are sown in the bed, not plant by plant: select the bed, then “Open details” in the properties panel.",
+            "no_slots": "This bed has no planting spots yet. You lay them out in the bed: “Open details” (or “Plant it”) in the properties panel.",
+            "missed": "Missed. Click right on a free planting spot (dashed circle) in the bed.",
+            "no_bed": "There is no bed here. You set a plant on a free planting spot in a bed.",
+            "zoomed_in": "The planting spots were too small to hit – the plan is zoomed in now. Click a free planting spot.",
+            "zoom_in": "The planting spots are too small at this zoom. Zoom in until they show as single circles.",
+            "offline": "Setting a plant needs a connection to the server. Without one nothing is set and nothing is queued.",
+            "read_only": "Only members who may write in this garden (grower or lead role) can set a plant."
           }
         },
         "deleteDialog": {
@@ -5893,7 +5910,11 @@
             "due": "due {{date}}",
             "dueOverdue": "overdue since {{date}}",
             "created": "Task for {{name}} added."
-          }
+          },
+          "plantSlot": "Set a plant",
+          "plantSpot": "Set a plant",
+          "plantSpotHelp_one": "Set one plant on the only free planting spot of this bed.",
+          "plantSpotHelp_other": "Set one plant on one of the {{count}} free planting spots of this bed – you choose the spot in the next step."
         },
         "contextMenu": {
           "label": "Actions for the selection",
@@ -6623,6 +6644,47 @@
           "cancelHint": "Stop drawing without creating a boundary",
           "done": "Lock",
           "cancel": "Stop drawing"
+        },
+        "plantSlot": {
+          "title": "Set a plant: {{bed}}, spot {{slot}}",
+          "titleBed": "Set a plant: {{bed}}",
+          "intro": "This sets exactly one plant on this planting spot. Several plants, rows and the layout of a bed are made in the bed's planting dialog.",
+          "slot": "Planting spot",
+          "slotHelp_one": "The only free planting spot of this bed.",
+          "slotHelp_other": "{{count}} free planting spots in this bed.",
+          "loading": "Loading species …",
+          "catalogueError": "The species could not be loaded. Close the dialog and try again.",
+          "species": "Species",
+          "speciesRequired": "Choose a species.",
+          "cultivar": "Cultivar (optional)",
+          "noCultivar": "No particular cultivar",
+          "plantedOn": "Planted on",
+          "plantedOnRequired": "Enter the day you planted.",
+          "checking": "Checking the planting spot …",
+          "submit": "Set the plant",
+          "openBed": "Go to the bed",
+          "blocked": {
+            "check": "A single plant of this species cannot be set on this spot: crop rotation or neighbours speak against it (see the hints). A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason.",
+            "rotation": "This plant cannot be set here: crop rotation does not allow this plant family here yet. A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason.",
+            "companion": "This plant cannot be set here: a neighbour does not get along with this species. A single plant has no “Plant anyway” – the bed's planting dialog offers it with a reason."
+          },
+          "refused": {
+            "offline": "Without a connection to the server nothing is set. Try again once you are back online.",
+            "busy": "The plan is being saved right now. Try again in a moment.",
+            "save_first": "Your unsaved changes to the plan could not be saved. Save them first, then set the plant.",
+            "slot_taken": "A plant stands on this planting spot by now. The plan has been reloaded – choose another free spot.",
+            "failed": "The plant could not be set. Check your entries and try again.",
+            "slot_reserved": "This planting spot is reserved for a planned planting by now. The plan has been reloaded – choose another free spot."
+          },
+          "done": "{{species}} set in {{bed}}.",
+          "doneNotShown": "{{species}} set in {{bed}}. The plan shows the plant once it is loaded again.",
+          "status": {
+            "pointer": "Click a free planting spot (dashed circle) in a bed to set a plant there. Without a mouse: select the bed, then “Set a plant” in the properties panel.",
+            "touch": "Tap a free planting spot (dashed circle) in a bed to set a plant there. Dragging moves the plan.",
+            "offline": "Setting a plant needs a connection to the server – you are offline right now."
+          },
+          "chunkFailedTitle": "The “Set a plant” dialog could not be loaded",
+          "chunkFailedHint": "Reload the page and try again."
         }
       },
       "io": {

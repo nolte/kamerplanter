@@ -55,13 +55,13 @@ Your role always applies to the garden (tenant) you are working in.
 | Import a backup, restore an earlier state, create a new season | no | no | yes |
 
 !!! note "Note"
-    The editor does not hide tools your role may not use. The server checks when you save. A batch of changes that contains even one deletion is refused as a whole unless you have the "lead" role; you then see the message **Saving is not allowed** and undo the change. Delete only as a lead if you need to.
+    The editor does not hide tools your role may not use. The server checks when you save. One exception is **Set a plant**: the tool writes a plant at once and is therefore missing for viewers altogether. A batch of changes that contains even one deletion is refused as a whole unless you have the "lead" role; you then see the message **Saving is not allowed** and undo the change. Delete only as a lead if you need to.
 
 ## Drawing and editing
 
 ### Tools and shapes {#tools-and-shapes}
 
-The tool rail to the left of the plan offers six tools. Each has a tooltip; on wide screens its name stands next to it.
+The tool rail to the left of the plan offers seven tools. Each has a tooltip; on wide screens its name stands next to it.
 
 | Tool | What it does |
 |------|--------------|
@@ -70,6 +70,7 @@ The tool rail to the left of the plan offers six tools. Each has a tooltip; on w
 | **Draw area** ▸ | Draws an area such as a garden, terrace, balcony or greenhouse that you then put beds into, see [Areas](#areas). The menu next to it offers **Add with dimensions**. |
 | **Draw bed** ▸ | Draws a new bed. The small menu next to it offers **From template** (place a bed from a [template](#bed-templates)) and **Add with dimensions**. |
 | **Object: draw garden object** ▸ | Draws a garden object such as a path, fence, tree, trellis, compost or, in a flat plan, window, door, furniture and lamp. The menu next to it offers **Add with dimensions**. |
+| **Set a plant** | Sets exactly one plant on the free planting spot you click, see [Setting a plant](#setting-a-plant). |
 | **Measure** | Measures a distance on the plan, point by point. Nothing is saved, see [Measuring distances](#measuring-distances). |
 
 Below the tools, the **selection group** appears only while something is selected: **rotation step** (15°, 45°, 90°), **Align** and **Delete**.
@@ -94,6 +95,27 @@ An **area** groups beds: the vegetable garden behind the house, the terrace, the
 The plan shows an area with a light fill, a dotted outline and its name, below the beds and paths inside it. A click on a bed inside the area selects the bed, a click on a free spot of the area selects the area. When the area's name lies on a bed's name, the bed's name stays. A greenhouse or room that is already on your plan now looks like this as well. In the side panel and the context menu an area offers only what applies to it: name, type, size, lock, duplicate, order, delete and **Open details**. Sun details, orientation and **Plant it** belong to the beds inside it, and **Save as template** exists for a bed only.
 
 **What belongs to an area.** A bed you draw completely inside the area *after* the area belongs to it: when you move the area, its beds move along, and when you delete it, the plan asks first because its beds go with it. If plants still stand in one of these beds, saving refuses the deletion until you have removed them. Beds and objects that are on the plan before you draw the area around them do **not** belong to it and stay where they are; the plan tells you so in a notice after drawing. Moving an existing bed into an area afterwards is not possible. So draw the areas first and then the beds inside them. An area never lies inside a bed. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
+
+### Setting a plant {#setting-a-plant}
+
+With **Set a plant** you plant right on the plan, spot by spot. The plan shows free planting spots as dashed circles in the bed. Choose the tool and click (on a touchscreen: tap) a free spot. A small dialog opens for exactly this spot; its title names the bed and the spot. In it you choose the **species** (your favourites come first), a **cultivar** if you like and the day **Planted on** (today by default). Below are the bed's hints on crop rotation and neighbours for this species. **Set the plant** adds the plant; the plan then shows it on the spot and reports, for example, "Lettuce set in Raised bed 1". The tool stays on so you can click the next spot right away. **Esc** or another tool ends it.
+
+What else a click can hit, a notice above the plan tells you:
+
+- **A plant stands here already:** no dialog opens; the plant is selected.
+- **Reserved spot:** a planned planting keeps it free (dashed, with a date). Choose another spot.
+- **Row or area:** you sow these in the bed, not plant by plant, see [Sowing, thinning and replanting](#sowing-thinning-replanting).
+- **Bed without planting spots:** the bed is selected. You lay out planting spots in the bed, through **Open details** (on an empty bed **Plant it**) in the properties panel.
+- **Zoomed out too far:** if the spots are so close that the plan shows them only as a count, the click zooms in at that place; then you click the spot.
+- Beside the spots, an area, a garden object or empty ground: the notice says you need to hit a free spot in a bed.
+
+**What it does not do.** Set a plant adds exactly one plant. It plans no planting, lays out no rows and creates no planting spots. Several plants, a whole bed and mixed cultures are done in the bed's planting dialog, see [Planting a bed](#planting-a-bed).
+
+**When the spot is refused.** If crop rotation speaks hard against the species (the same family stood here too recently) or a neighbour does not get along with it, Kamerplanter allows no single plant of this species on this spot. The dialog tells you before you submit and locks **Set the plant**. A single plant has no **Plant anyway**. The bed's planting dialog offers that with a reason; **Go to the bed** takes you there. If the spot was taken meanwhile because someone else planted there, the dialog tells you that too and shows the plan's new state.
+
+**Without a mouse.** Planting spots cannot be reached by keyboard on the plan, beds can. Select a bed (Page Down / Page Up, then Enter). If it has free planting spots, the properties panel offers **Set a plant**; you then choose the spot in the dialog. With a free spot selected, the panel offers **Set a plant** for exactly that spot.
+
+**Who and when.** Set a plant is available with the "grower" or "lead" role only. The plant is saved at once, not with the other plan changes. Kamerplanter saves unsaved plan changes first. Without a connection the tool sets nothing and queues nothing; the text above the plan tells you so. <!-- REQ-053 GP-UX-071, #2913 -->
 
 ### Measuring distances {#measuring-distances}
 
@@ -203,7 +225,7 @@ Changes in the editor are first applied only locally. The header bar shows the s
 
 Select a bed and click **Plant it** in the properties panel. The planting dialog opens, which you also know from the bed view. You choose species and cultivar, see hints on crop rotation, neighbours and site, set the arrangement (grid, rows, staggered, area or free positions), see a preview and either plan the planting or record it at once. This works with the "grower" role; the bed must be on the plan and must not be retired. The steps are under [Planting a bed](locations-substrates.md#planting-a-bed).
 
-Plants appear on the plan as markers. The plant state layer is described in [Plant state and filter](#plant-state-and-filter).
+Plants appear on the plan as markers. The plant state layer is described in [Plant state and filter](#plant-state-and-filter). A single plant on a free planting spot is quicker to set right on the plan, see [Setting a plant](#setting-a-plant).
 
 **Succession sowing in a bed.** When you generate the batches of a succession plan for a bed with planting positions, every batch still to come reserves free positions for its time in the bed, and the plan shows these positions dashed with the day from which they are taken. <!-- REQ-053 GP-FR-074, #2896 -->
 
@@ -321,7 +343,7 @@ Kamerplanter stores each entry on your device with the time you captured it. As 
 
 ### Online only
 
-**Watered**, **Sown**, **Weeded/Mulched**, **Harvested** and **Planted**, **Correct position**, sun and site features, all drawing and moving on the plan, deleting, export, import and bed templates need a connection. Without a connection these buttons are locked; nothing gets lost.
+**Watered**, **Sown**, **Weeded/Mulched**, **Harvested** and **Planted**, **Correct position**, sun and site features, all drawing and moving on the plan, **Set a plant**, deleting, export, import and bed templates need a connection. Without a connection these buttons are locked; nothing gets lost.
 
 ### Reload once the first time
 

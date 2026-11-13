@@ -67,6 +67,13 @@ export function useApiError() {
             notification.error(t('errors.soilProfileStale'));
             break;
           // REQ-053 WP 9.3: the stable conflict reasons of a task completion and of a replayed buffered write.
+          // REQ-053 V-25 (#2913): a planting position carries one plant; a reserved one waits for its run.
+          case 'slot.occupied':
+            notification.error(t('errors.slotOccupied'));
+            break;
+          case 'slot.already_planned':
+            notification.error(t('errors.slotAlreadyPlanned'));
+            break;
           case 'task.already_closed':
             notification.error(t('errors.taskAlreadyClosed'));
             break;

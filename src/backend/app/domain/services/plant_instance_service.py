@@ -27,6 +27,7 @@ from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.planting_reservation_repository import IPlantingReservationRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -44,7 +45,7 @@ from app.domain.models.survival_stats import (
 )
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.propagation_service import PropagationService
-from app.domain.services.slot_occupancy import plants_standing_on
+from app.domain.services.slot_occupancy import plants_standing_on, require_free_position
 from app.domain.services.species_visibility import readable_species
 
 if TYPE_CHECKING:
@@ -75,8 +76,12 @@ class PlantInstanceService:
         overwintering_service: OverwinteringProfileService | None = None,
         substrate_service: SubstrateService | None = None,
         species_service: SpeciesService | None = None,
+        reservation_repo: IPlantingReservationRepository | None = None,
     ) -> None:
         self._repo = plant_repo
+        # REQ-053 GP-UX-071 (#2913): a position a live run reserves takes no single plant. Optional so the service
+        # stays constructible in pure-domain contexts; wired in production (`get_plant_instance_service`).
+        self._reservation_repo = reservation_repo
         self._site_repo = site_repo
         self._rotation = rotation_validator
         self._companion = companion_engine
@@ -516,6 +521,18 @@ class PlantInstanceService:
         # neighbourhood tenant-scoped, so a foreign slot yields no findings and
         # *passes* — the reference has to be refused before it is interpreted.
         self._resolve_references(plant)
+        # REQ-053 GP-UX-071 (#2913): a position holds one plant. Integrity, not advice - so not behind
+        # `skip_validation`. The slot is the caller's: `_resolve_references` resolved it above.
+        if plant.slot_key:
+            slot = self._site_repo.get_slot_by_key(plant.slot_key)
+            if slot is not None:
+                require_free_position(
+                    slot,
+                    plants=self._repo,
+                    reservations=self._reservation_repo,
+                    tenant_key=tenant_key,
+                    today=today_utc(),
+                )
 
         if not skip_validation and plant.slot_key:
             # Both engines read the slot's neighbourhood/history, which is

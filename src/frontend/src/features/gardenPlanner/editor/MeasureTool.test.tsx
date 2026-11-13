@@ -183,8 +183,8 @@ describe('measuring without a pointer (WCAG 2.1.1)', () => {
     // The rail: one tab stop, the arrow keys walk it, Enter/Space on a button is its click.
     const select = screen.getByTestId('garden-plan-tool-select');
     act(() => select.focus());
-    // Past pan, area, bed, garden object and their sub-menu buttons: eight steps to the measure tool.
-    for (let i = 0; i < 8; i += 1) fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    // Past pan, area, bed, garden object, their sub-menu buttons and the plant tool: nine steps to the measure tool.
+    for (let i = 0; i < 9; i += 1) fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
     expect(screen.getByTestId('garden-plan-tool-measure')).toHaveFocus();
     t.after(() => fireEvent.click(document.activeElement!));
     expect(t.state().tool).toBe('measure');

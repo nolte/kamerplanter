@@ -5443,6 +5443,11 @@
             "menu": "Objekt-Werkzeuge",
             "dimensionsHint": "Ein Gartenobjekt über Maße statt per Zeichnen anlegen"
           },
+          "plant": {
+            "label": "Pflanze setzen",
+            "hint": "Pflanze setzen – auf einen freien Pflanzplatz (gestrichelter Kreis) in einem Beet klicken, genau dort entsteht eine Pflanze",
+            "short": "Pflanze"
+          },
           "measure": {
             "label": "Messen",
             "hint": "Abstand messen – Punkt für Punkt auf den Plan klicken, Enter oder Doppelklick beendet",
@@ -5601,6 +5606,18 @@
           },
           "area": {
             "encloses_existing": "Der Bereich ist angelegt. Beete und Objekte, die schon darin lagen, wandern beim Verschieben nicht mit. Zeichne Beete künftig erst nach dem Bereich, dann gehören sie dazu."
+          },
+          "plant": {
+            "occupied": "Hier steht schon eine Pflanze. Klicke auf einen freien Pflanzplatz (gestrichelter Kreis).",
+            "reserved": "Dieser Pflanzplatz ist für eine geplante Pflanzung reserviert. Wähle einen anderen freien Platz.",
+            "row_slot": "Reihen und Flächen säst du im Beet, nicht Pflanze für Pflanze: Beet auswählen, dann „Details öffnen“ im Eigenschaftenpanel.",
+            "no_slots": "Dieses Beet hat noch keine Pflanzplätze. Pflanzplätze legst du im Beet an: „Details öffnen“ (oder „Bepflanzen“) im Eigenschaftenpanel.",
+            "missed": "Daneben. Klicke genau auf einen freien Pflanzplatz (gestrichelter Kreis) im Beet.",
+            "no_bed": "Hier ist kein Beet. Eine Pflanze setzt du auf einen freien Pflanzplatz in einem Beet.",
+            "zoomed_in": "Die Pflanzplätze waren zu klein zum Treffen – der Plan ist jetzt hineingezoomt. Klicke auf einen freien Pflanzplatz.",
+            "zoom_in": "Die Pflanzplätze sind bei dieser Zoomstufe zu klein. Zoome hinein, bis sie als einzelne Kreise erscheinen.",
+            "offline": "Pflanze setzen braucht eine Verbindung zum Server. Ohne Verbindung wird nichts gesetzt und nichts vorgemerkt.",
+            "read_only": "Eine Pflanze setzen kann nur, wer in diesem Garten schreiben darf (Rolle Gärtner oder Leitung)."
           }
         },
         "deleteDialog": {
@@ -5894,7 +5911,11 @@
             "due": "fällig am {{date}}",
             "dueOverdue": "überfällig seit {{date}}",
             "created": "Aufgabe für {{name}} angelegt."
-          }
+          },
+          "plantSlot": "Pflanze setzen",
+          "plantSpot": "Pflanze setzen",
+          "plantSpotHelp_one": "Eine Pflanze auf den einzigen freien Pflanzplatz dieses Beets setzen.",
+          "plantSpotHelp_other": "Eine Pflanze auf einen der {{count}} freien Pflanzplätze dieses Beets setzen – den Platz wählst du im nächsten Schritt."
         },
         "contextMenu": {
           "label": "Aktionen für die Auswahl",
@@ -6624,6 +6645,47 @@
           "cancelHint": "Zeichnen beenden, ohne eine Grenze anzulegen",
           "done": "Sperren",
           "cancel": "Zeichnen beenden"
+        },
+        "plantSlot": {
+          "title": "Pflanze setzen: {{bed}}, Platz {{slot}}",
+          "titleBed": "Pflanze setzen: {{bed}}",
+          "intro": "Hier setzt du genau eine Pflanze auf diesen Pflanzplatz. Mehrere Pflanzen, Reihen und die Aufteilung eines Beets legst du im Pflanzdialog des Beets an.",
+          "slot": "Pflanzplatz",
+          "slotHelp_one": "Der einzige freie Pflanzplatz dieses Beets.",
+          "slotHelp_other": "{{count}} freie Pflanzplätze in diesem Beet.",
+          "loading": "Arten werden geladen …",
+          "catalogueError": "Die Arten konnten nicht geladen werden. Schließe den Dialog und versuche es noch einmal.",
+          "species": "Art",
+          "speciesRequired": "Wähle eine Art.",
+          "cultivar": "Sorte (optional)",
+          "noCultivar": "Keine bestimmte Sorte",
+          "plantedOn": "Gepflanzt am",
+          "plantedOnRequired": "Gib den Tag an, an dem du gepflanzt hast.",
+          "checking": "Der Pflanzplatz wird geprüft …",
+          "submit": "Pflanze setzen",
+          "openBed": "Zum Beet",
+          "blocked": {
+            "check": "Auf diesen Platz lässt sich keine einzelne Pflanze dieser Art setzen: Fruchtfolge oder Nachbarn sprechen dagegen (siehe Hinweise). Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets.",
+            "rotation": "Diese Pflanze lässt sich hier nicht setzen: Die Fruchtfolge lässt diese Pflanzenfamilie hier noch nicht zu. Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets.",
+            "companion": "Diese Pflanze lässt sich hier nicht setzen: Ein Nachbar verträgt sich nicht mit dieser Art. Für eine einzelne Pflanze gibt es kein „Trotzdem pflanzen“ – das geht mit Begründung im Pflanzdialog des Beets."
+          },
+          "refused": {
+            "offline": "Ohne Verbindung zum Server wird nichts gesetzt. Versuche es, sobald du wieder online bist.",
+            "busy": "Der Plan wird gerade gespeichert. Versuche es gleich noch einmal.",
+            "save_first": "Deine ungespeicherten Änderungen am Plan ließen sich nicht speichern. Speichere sie zuerst, dann setzt du die Pflanze.",
+            "slot_taken": "Auf diesem Pflanzplatz steht inzwischen eine Pflanze. Der Plan ist neu geladen – wähle einen anderen freien Platz.",
+            "failed": "Die Pflanze konnte nicht gesetzt werden. Prüfe deine Angaben und versuche es noch einmal.",
+            "slot_reserved": "Dieser Pflanzplatz ist inzwischen für eine geplante Pflanzung reserviert. Der Plan ist neu geladen – wähle einen anderen freien Platz."
+          },
+          "done": "{{species}} in {{bed}} gesetzt.",
+          "doneNotShown": "{{species}} in {{bed}} gesetzt. Der Plan zeigt die Pflanze nach dem nächsten Laden.",
+          "status": {
+            "pointer": "Klicke auf einen freien Pflanzplatz (gestrichelter Kreis) in einem Beet, um dort eine Pflanze zu setzen. Ohne Maus: Beet auswählen, dann „Pflanze setzen“ im Eigenschaftenpanel.",
+            "touch": "Tippe auf einen freien Pflanzplatz (gestrichelter Kreis) in einem Beet, um dort eine Pflanze zu setzen. Ziehen verschiebt den Plan.",
+            "offline": "Pflanze setzen braucht eine Verbindung zum Server – gerade bist du offline."
+          },
+          "chunkFailedTitle": "Der Dialog „Pflanze setzen“ konnte nicht geladen werden",
+          "chunkFailedHint": "Lade die Seite neu und versuche es noch einmal."
         }
       },
       "io": {

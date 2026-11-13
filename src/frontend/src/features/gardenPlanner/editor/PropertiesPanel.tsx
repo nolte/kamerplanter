@@ -29,6 +29,7 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import FlipToBackIcon from '@mui/icons-material/FlipToBack';
 import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import LockIcon from '@mui/icons-material/Lock';
+import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import type { SunClassThresholds } from '@/api/types';
 import { useLocationTypeNames } from '../bed/useLocationTypeNames';
@@ -54,6 +55,7 @@ import { OBJECT_PROPS_PREFIX } from './objectProps/shared';
 import { WaterSourceFields } from './WaterSourceFields';
 import { insertVertex, removeVertex } from './tools/geometryEdit';
 import { isPlanEntity } from './tools/hierarchy';
+import { freePointSlots, isPointSlot, slotState } from './tools/plantTarget';
 import type { ActionLabel } from './tools/machineTypes';
 import {
   geometryFields,
@@ -122,6 +124,12 @@ export interface PropertiesPanelProps {
   onOpenCare?: (locationKey: string) => void;
   /** Extra facts under the type of a bed: its irrigation zone and the days since its last watering (WP 7.7). */
   bedInfo?: (locationKey: string) => ReactNode;
+  /**
+   * "Pflanze setzen" (GP-UX-071, #2913): one plant into a free point slot - the selected slot, or (`slotKey` `null`)
+   * a free spot of the selected bed chosen in the dialog. The path without a pointer: slots cannot be focused on the
+   * plan, beds can. Absent = not offered (a viewer).
+   */
+  onPlantSlot?: (bedKey: string, slotKey: string | null) => void;
 }
 
 interface Described {
@@ -183,13 +191,23 @@ function EntityForm({
   onDelete,
   onZOrder,
   bedInfo,
+  onPlantSlot,
   sunThresholds,
   windowRadiusM,
   latitude,
   typeNames,
 }: Pick<
   PropertiesPanelProps,
-  'plan' | 'labels' | 'onCommit' | 'onOpenLocation' | 'onOpenCare' | 'onDuplicate' | 'onDelete' | 'onZOrder' | 'bedInfo'
+  | 'plan'
+  | 'labels'
+  | 'onCommit'
+  | 'onOpenLocation'
+  | 'onOpenCare'
+  | 'onDuplicate'
+  | 'onDelete'
+  | 'onZOrder'
+  | 'bedInfo'
+  | 'onPlantSlot'
 > & {
   entity: PlanEntity;
   entityKey: string;
@@ -282,6 +300,8 @@ function EntityForm({
   const isArea = entity === 'location' && plan.locations[entityKey]?.is_area === true;
   const bedRows = entity === 'location' && !isArea;
   const emptyBed = bedRows && slotCount === 0 && plantCount === 0;
+  // The bed's free point slots: "Pflanze setzen" sets one plant into one of them (GP-UX-071).
+  const freeSpots = bedRows && onPlantSlot ? freePointSlots(plan, entityKey).length : 0;
   // GP-FR-111: the fields of a water source - only what `WaterSourceProps` carries (WP 9.14).
   const objectProps = entity === 'garden_object' ? plan.gardenObjects[entityKey]?.props : undefined;
   const waterSource = objectProps?.object_type === 'water_source' ? objectProps : null;
@@ -601,6 +621,28 @@ function EntityForm({
           {t(`${PREFIX}.delete.label`)}
         </Button>
       </Stack>
+      {freeSpots > 0 && onPlantSlot && (
+        <Box>
+          <Button
+            variant="outlined"
+            startIcon={<LocalFloristIcon />}
+            onClick={() => onPlantSlot(entityKey, null)}
+            aria-describedby="garden-plan-panel-plant-spot-help"
+            sx={{ minHeight: 48 }}
+            data-testid="garden-plan-panel-plant-spot"
+          >
+            {t(`${PREFIX}.panel.plantSpot`)}
+          </Button>
+          <Typography
+            id="garden-plan-panel-plant-spot-help"
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mt: 0.5 }}
+          >
+            {t(`${PREFIX}.panel.plantSpotHelp`, { count: freeSpots })}
+          </Typography>
+        </Box>
+      )}
       {entity === 'location' && onOpenLocation && (
         <Button
           variant="text"
@@ -786,18 +828,36 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         onDuplicate={props.onDuplicate}
         onDelete={props.onDelete}
         onZOrder={props.onZOrder}
+        onPlantSlot={props.onPlantSlot}
       />
     );
   } else if (single !== null && !isPlanEntity(single)) {
     const info = describe(plan, single, labels, typeNames);
     title = info.title;
+    const slot = single.entity === 'slot' ? plan.slots[single.key] : undefined;
+    // A free point slot can be planted from here: the same dialog as a click with the tool (GP-UX-071).
+    const plantable =
+      slot !== undefined && isPointSlot(slot) && slotState(plan, slot.key).state === 'free' && props.onPlantSlot;
     body = (
-      <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-readonly">
-        {t(`${PREFIX}.panel.${single.entity === 'slot' ? 'slotInfo' : 'plantInfo'}`, {
-          name: info.title,
-          species: info.subtitle,
-        })}
-      </Typography>
+      <Stack spacing={1.5}>
+        <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-readonly">
+          {t(`${PREFIX}.panel.${single.entity === 'slot' ? 'slotInfo' : 'plantInfo'}`, {
+            name: info.title,
+            species: info.subtitle,
+          })}
+        </Typography>
+        {plantable && slot && props.onPlantSlot ? (
+          <Button
+            variant="outlined"
+            startIcon={<LocalFloristIcon />}
+            onClick={() => props.onPlantSlot?.(slot.location_key, slot.key)}
+            sx={{ minHeight: 48, alignSelf: 'flex-start' }}
+            data-testid="garden-plan-panel-plant-slot"
+          >
+            {t(`${PREFIX}.panel.plantSlot`)}
+          </Button>
+        ) : null}
+      </Stack>
     );
   } else if (selection.length > 1) {
     title = t(`${PREFIX}.panel.multiTitle`, { count: selection.length });
