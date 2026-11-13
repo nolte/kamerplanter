@@ -115,6 +115,30 @@ async def _bytes_stream(data: bytes) -> AsyncIterator[bytes]:
     yield data
 
 
+def accepted_mime_types(settings: Settings, category: str) -> list[str]:
+    """The types this installation stores for *category*.
+
+    The category whitelist, minus - while EXIF stripping is on - every image type the strip cannot re-encode
+    (#2139): it would be stored with its EXIF/GPS block, whatever a per-category override admits. The upload
+    pipeline and the tenant-archive import (#2715 item 3) both ask here, so neither admits what the other refuses.
+    """
+    allowed = settings.allowed_mime_types_for_category(category)
+    if settings.storage_strip_exif:
+        allowed = [m for m in allowed if not m.startswith("image/") or is_strippable_format(m)]
+    return allowed
+
+
+def stored_body(settings: Settings, data: bytes, mime_type: str, *, stripper: ExifStripper | None = None) -> bytes:
+    """The bytes this installation stores for *data*: EXIF-stripped images unless ``STORAGE_STRIP_EXIF`` is off.
+
+    Shared by the upload pipeline and the tenant-archive import (#2715 item 3), so an imported photo keeps no more
+    metadata than an uploaded one. Raises ``ImagePixelLimitError`` above the decode ceiling (#2108).
+    """
+    if settings.storage_strip_exif and mime_type.startswith("image/"):
+        return (stripper or ExifStripper()).strip(data, mime_type)
+    return data
+
+
 class AttachmentService:
     """Upload / serve / delete attachments (NFR-013 §5.1)."""
 
@@ -222,11 +246,7 @@ class AttachmentService:
         self._enforce_quota(tenant_key, incoming_bytes=len(data))
 
         # 2. MIME whitelist (category-resolved).
-        allowed = self._settings.allowed_mime_types_for_category(category.value)
-        if self._settings.storage_strip_exif:
-            # #2139 — an image type the strip cannot re-encode would be stored
-            # with its EXIF/GPS block, whatever a per-category override admits.
-            allowed = [m for m in allowed if not m.startswith("image/") or is_strippable_format(m)]
+        allowed = self.accepted_mime_types(category.value)
         if mime_type not in allowed:
             raise InvalidFileTypeError(mime_type, allowed)
 
@@ -290,7 +310,7 @@ class AttachmentService:
             return linked, True
 
         # 7. EXIF strip for images (unless disabled).
-        body = self._stored_body(data, mime_type)
+        body = self.stored_body(data, mime_type)
 
         # 8. Build key + write bytes.
         created_at = datetime.now(UTC)
@@ -527,7 +547,7 @@ class AttachmentService:
         if not await self._object_exists(held.storage_key):
             await self._storage.put_object(
                 held.storage_key,
-                _bytes_stream(self._stored_body(data, held.mime_type)),
+                _bytes_stream(self.stored_body(data, held.mime_type)),
                 held.mime_type,
                 metadata={"tenant_key": tenant_key, "category": category.value},
             )
@@ -561,11 +581,13 @@ class AttachmentService:
         except OSError, ValueError:
             return
 
-    def _stored_body(self, data: bytes, mime_type: str) -> bytes:
-        """The bytes the pipeline stores for *data*: EXIF-stripped images unless disabled."""
-        if self._settings.storage_strip_exif and mime_type.startswith("image/"):
-            return self._exif.strip(data, mime_type)
-        return data
+    def accepted_mime_types(self, category: str) -> list[str]:
+        """:func:`accepted_mime_types` under this service's settings."""
+        return accepted_mime_types(self._settings, category)
+
+    def stored_body(self, data: bytes, mime_type: str) -> bytes:
+        """:func:`stored_body` under this service's settings and EXIF stripper."""
+        return stored_body(self._settings, data, mime_type, stripper=self._exif)
 
     async def _object_exists(self, storage_key: str) -> bool:
         from app.common.exceptions import NotFoundError

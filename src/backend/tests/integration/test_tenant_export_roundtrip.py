@@ -43,7 +43,9 @@ import hashlib
 import io
 import json
 import zipfile
+from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -53,6 +55,7 @@ from arango import ArangoClient
 
 from app.common.async_bridge import run_async
 from app.common.exceptions import MemberLimitReachedError, TenantImportRefusedError
+from app.config.settings import Settings
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
@@ -74,6 +77,7 @@ from app.domain.engines.tenant_export_engine import TenantArchiveWriter, read_te
 from app.domain.engines.tenant_import_engine import TenantImportEngine
 from app.domain.models.tenant_export import TenantImportMemberGrant, TenantImportRequest
 from app.domain.models.user import User
+from app.domain.services.attachment_service import stored_body
 from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.tenant_export_service import StepUpFactors, TenantExportService
@@ -307,7 +311,12 @@ SALT = "tenant-export-salt-not-a-secret-0123456789"
 
 
 def _service(
-    db, storage_root: Path, *, signing_key: bytes | None = SIGNING_KEY, readings: Any = None
+    db,
+    storage_root: Path,
+    *,
+    signing_key: bytes | None = SIGNING_KEY,
+    readings: Any = None,
+    stored_body: Callable[[bytes, str], bytes] | None = None,
 ) -> TenantExportService:
     from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
     from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
@@ -354,6 +363,7 @@ def _service(
         allowed_mime_types=lambda category: ["image/jpeg", "image/png", "image/webp"],
         max_object_bytes=10 * 1024 * 1024,
         readings=readings,
+        stored_body=stored_body,
     )
 
 
@@ -1035,6 +1045,87 @@ def test_an_attachments_size_and_hash_come_from_its_object(target, tmp_path) -> 
 
     row = target.collection("attachments").get(outcome.key_mapping["attachments"]["a1"])
     assert (row["byte_size"], row["sha256"]) == (len(photo), hashlib.sha256(photo).hexdigest())
+
+
+def _photo_with_gps() -> bytes:
+    """A real JPEG carrying an EXIF block with a GPS latitude - what a phone writes into an aerial photo."""
+    from PIL import Image
+
+    image = Image.new("RGB", (32, 24), (40, 120, 60))
+    exif = Image.Exif()
+    exif[0x010F] = "PhoneMaker"  # Make
+    exif.get_ifd(0x8825)[2] = (52.0, 31.0, 12.0)  # GPSLatitude
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", exif=exif.tobytes())
+    return buffer.getvalue()
+
+
+def _photo_archive(photo: bytes) -> Any:
+    from app.domain.models.tenant_export import TenantArchive
+
+    return TenantArchive(
+        format="kamerplanter-tenant-export/1",
+        source_tenant_key="ten-src",
+        tenant={"name": "Aerial", "slug": "aerial"},
+        collections={
+            "attachments": [
+                {
+                    "_key": "u1",
+                    "tenant_key": "ten-src",
+                    "storage_key": "t/ten-src/garden_plan_underlay/2026/10/u1.jpg",
+                    "mime_type": "image/jpeg",
+                    "byte_size": len(photo),
+                    "sha256": hashlib.sha256(photo).hexdigest(),
+                    "original_filename": "u1.jpg",
+                    "created_by": "_anonymized",
+                    "category": "garden_plan_underlay",
+                }
+            ]
+        },
+        objects={"garden_plan_underlay/2026/10/u1.jpg": photo},
+    )
+
+
+def _stored_object(service: TenantExportService, storage_key: str) -> bytes:
+    async def read() -> bytes:
+        stream = await service._storage.get_object(storage_key)  # type: ignore[union-attr]
+        return b"".join([chunk async for chunk in stream])
+
+    return run_async(read())
+
+
+def test_an_imported_photo_loses_its_exif_like_an_uploaded_one(target, tmp_path) -> None:
+    """#2715 item 3 - the import stores the bytes the upload pipeline would: no EXIF/GPS block, and the row's size
+    and hash are those of the stored bytes (the quota and the dedup read them)."""
+    from PIL import Image
+
+    photo = _photo_with_gps()
+    assert Image.open(io.BytesIO(photo)).getexif().get_ifd(0x8825), "the fixture must carry GPS to prove anything"
+    dst = _service(target, tmp_path / "dst", stored_body=partial(stored_body, Settings(storage_strip_exif=True)))
+
+    outcome = run_async(
+        dst.import_archive(_photo_archive(photo), actor_user_key=ADMIN, member_grants={}, plan_key="standard")
+    )
+
+    row = target.collection("attachments").get(outcome.key_mapping["attachments"]["u1"])
+    stored = _stored_object(dst, row["storage_key"])
+    assert stored != photo
+    reopened = Image.open(io.BytesIO(stored))
+    assert not reopened.getexif(), "EXIF survived the import"
+    assert (row["byte_size"], row["sha256"]) == (len(stored), hashlib.sha256(stored).hexdigest())
+
+
+def test_with_the_strip_switched_off_the_import_keeps_the_bytes(target, tmp_path) -> None:
+    """``STORAGE_STRIP_EXIF=false`` is the operator's switch for both paths: the import does not strip either."""
+    photo = _photo_with_gps()
+    dst = _service(target, tmp_path / "dst", stored_body=partial(stored_body, Settings(storage_strip_exif=False)))
+
+    outcome = run_async(
+        dst.import_archive(_photo_archive(photo), actor_user_key=ADMIN, member_grants={}, plan_key="standard")
+    )
+
+    row = target.collection("attachments").get(outcome.key_mapping["attachments"]["u1"])
+    assert _stored_object(dst, row["storage_key"]) == photo
 
 
 def test_a_legacy_stamped_catalogue_row_counts_as_present(target, tmp_path) -> None:

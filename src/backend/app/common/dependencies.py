@@ -1695,6 +1695,7 @@ def get_tenant_export_service() -> TenantExportService:
         ArangoTenantExportRequestRepository,
         ArangoTenantImportRequestRepository,
     )
+    from app.domain.services.attachment_service import accepted_mime_types, stored_body
     from app.domain.services.tenant_export_service import TenantExportService, resolve_export_signing_key
 
     # Dispatched by task name: ``celery_app`` is typed (Celery), the decorated task objects are not, and
@@ -1741,7 +1742,10 @@ def get_tenant_export_service() -> TenantExportService:
         signing_key=resolve_export_signing_key(
             dedicated_secret=settings.tenant_export_signing_secret, jwt_secret=settings.jwt_secret_key
         ),
-        allowed_mime_types=settings.allowed_mime_types_for_category,
+        # #2715 item 3 — the upload pipeline's MIME filter and stored bytes, so an import keeps no type and no
+        # EXIF/GPS block an upload would not.
+        allowed_mime_types=functools.partial(accepted_mime_types, settings),
+        stored_body=functools.partial(stored_body, settings),
         max_object_bytes=settings.storage_max_file_size_mb * 1024 * 1024,
         # REQ-056 §8.3 (#2138) — readings travel as timeseries/readings.csv only with TimescaleDB.
         readings=get_observation_repo() if settings.timescaledb_enabled else None,
