@@ -273,6 +273,9 @@ class FakePlanRepo(IGardenPlanRepository):
     def layout_type_flags(self, location_type_keys):
         return {key: self.layout_types[key] for key in location_type_keys if key in self.layout_types}
 
+    def area_type_keys(self):
+        return sorted(key for key, layout in self.layout_types.items() if not layout)
+
     def load_location_photoperiods(self, location_key, *, tenant_key):
         self.photoperiod_reads.append(location_key)
         location = self.locations.get(location_key)

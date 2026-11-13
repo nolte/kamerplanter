@@ -54,6 +54,7 @@ from app.domain.calculators.overdue_calculator import start_of_utc_day
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
 from app.domain.interfaces.garden_plan_repository import (
+    MAX_AREA_TYPES,
     MAX_PHOTOPERIOD_PLANTS,
     IGardenPlanRepository,
     PlanReadData,
@@ -675,6 +676,23 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             ),
         )
         return {row["key"]: row["supports_layout"] for row in cursor}
+
+    def area_type_keys(self) -> list[str]:
+        bind_vars: dict[str, Any] = {"@col": col.LOCATION_TYPES, "limit": MAX_AREA_TYPES}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR t IN @@col
+                    FILTER t.is_bed != true AND t.supports_layout != true
+                    SORT t._key
+                    LIMIT @limit
+                    RETURN t._key
+                """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [str(key) for key in cursor]
 
     def load_location_photoperiods(self, location_key: str, *, tenant_key: str) -> list[PlantPhotoperiod]:
         if not tenant_key:

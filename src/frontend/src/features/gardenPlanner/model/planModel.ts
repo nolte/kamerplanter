@@ -37,6 +37,12 @@ export interface PlanModel {
   /** `null` = a site without a garden plan yet (§20.2). */
   settings: PlanSettings | null;
   locations: Record<string, PlanLocation>;
+  /**
+   * The location types drawn as areas (REQ-053 §9.5, #2913), from the server: a location created with one of them is
+   * an area before the save (`applyOperation`). Absent = unknown (a plan cached before #2913, a hand-built model):
+   * only the locations the server marked `is_area` are areas.
+   */
+  areaTypeKeys?: string[];
   gardenObjects: Record<string, GardenObject>;
   slots: Record<string, PlanSlot>;
   plants: Record<string, PlanPlant>;
@@ -91,6 +97,7 @@ export function normalizePlan(response: GardenPlanResponse): PlanModel {
     revision: response.plan_revision,
     settings: response.plan ?? null,
     locations: byKey(response.locations),
+    ...(response.area_type_keys ? { areaTypeKeys: response.area_type_keys } : {}),
     gardenObjects: byKey(response.garden_objects),
     slots: byKey(response.slots),
     plants: byKey(response.plants),

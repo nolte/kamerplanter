@@ -7,7 +7,9 @@
  *   the geometry it touches (structural sharing), so a pan or an unrelated edit never searches a pole again.
  * - A name is shortened with "…" to the room a centred label has at the anchor (the PDF's rule, with the canvas font).
  * - When two labels overlap on screen, the larger object keeps its name (GP-UX-047); equal areas resolve by paint
- *   order, so the same data and viewport always give the same picture (GP-FR-003).
+ *   order, so the same data and viewport always give the same picture (GP-FR-003). The name of an area location gives
+ *   way to every other name (REQ-053 §9.5, #2913): an area holds beds, and its name at its centre would otherwise
+ *   hide the names of the beds inside it.
  */
 import { areaM2 } from '../model/geometry';
 import { labelAnchor, labelLength, truncateLabel, type LabelAnchor } from '../model/labelAnchor';
@@ -62,6 +64,8 @@ export interface LabelCandidate {
   /** The type icon is drawn above the name and takes room too. */
   withIcon: boolean;
   weight: number;
+  /** An area location's name: it gives way to every other name, whatever the weights (#2913). Absent = no area. */
+  yields?: boolean;
   /** Paint order of the object: the tie-break of equal weights. */
   order: number;
 }
@@ -88,15 +92,17 @@ function overlap(a: ScreenBox, b: ScreenBox): boolean {
 }
 
 /**
- * The keys whose labels stay: candidates are taken from the largest object down, and one whose box would overlap a
- * label already kept gives way (GP-UX-047).
+ * The keys whose labels stay: candidates are taken from the largest object down - area names last - and one whose
+ * box would overlap a label already kept gives way (GP-UX-047).
  */
 export function resolveLabelCollisions(
   candidates: readonly LabelCandidate[],
   pxPerM: number,
   fontPx: number,
 ): Set<string> {
-  const ranked = [...candidates].sort((a, b) => b.weight - a.weight || a.order - b.order);
+  const ranked = [...candidates].sort(
+    (a, b) => Number(a.yields === true) - Number(b.yields === true) || b.weight - a.weight || a.order - b.order,
+  );
   const kept: ScreenBox[] = [];
   const keys = new Set<string>();
   for (const candidate of ranked) {

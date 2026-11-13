@@ -54,13 +54,24 @@ def _boundary(width: float, length: float) -> dict:
     return {"kind": "rect", "origin": [0, 0], "width_m": width, "length_m": length, "rotation_deg": 0}
 
 
-def _view(*, width: float = 10, length: float = 6, locations=(), objects=(), slots=(), plants=(), north: float = 0.0):
+def _view(
+    *,
+    width: float = 10,
+    length: float = 6,
+    locations=(),
+    objects=(),
+    slots=(),
+    plants=(),
+    north: float = 0.0,
+    area_types: frozenset[str] = frozenset(),
+):
     return GardenPlanView(
         site_key=SITE,
         site_name="Garten",
         plan_revision=3,
         plan=SitePlan(boundary=_boundary(width, length), plan_revision=3, north_angle_deg=north),
         locations=list(locations),
+        area_type_keys=area_types,
         garden_objects=list(objects),
         slots=list(slots),
         plants=list(plants),
@@ -348,14 +359,21 @@ class TestAllowlistAndEscaping:
             )
             for index, object_type in enumerate(GardenObjectType)
         ]
+        # An area (REQ-053 §9.5, #2913) is a location class of its own: it is drawn with its own style and legend.
+        area = make_location("a1", "Gemüsegarten", geometry=rect(0.5, 0.5, 9, 3), location_type_key="garden")
         view = _view(
-            locations=_three_beds(), objects=objects, slots=[_slot("s1", "b1", 1.5, 1.5)], plants=[_plant("p1", "s1")]
+            locations=[area, *_three_beds()],
+            objects=objects,
+            slots=[_slot("s1", "b1", 1.5, 1.5)],
+            plants=[_plant("p1", "s1")],
+            area_types=frozenset({"garden"}),
         )
 
         root = _parse(_render(view, layers=frozenset(PlanSvgLayer)).svg)
 
         drawn = {e.attrib["data-key"] for e in root.iter() if e.attrib.get("data-key", "").startswith("o")}
         assert drawn == {f"o{index}" for index in range(len(GardenObjectType))}, "every class must be drawn"
+        assert _by_key(root, "a1").attrib["fill"] == plan_svg_engine._AREA_STYLE[0], "the area class must be drawn"
         assert _tags(root) <= ALLOWED_ELEMENTS
         assert _attribute_names(root) <= ALLOWED_ATTRIBUTES
 
@@ -838,3 +856,42 @@ class TestPlantStateLegend:
 
 
 _GOLDEN_LEGEND = Path(__file__).with_name("golden") / "plan_svg_legend_de.svg"
+
+
+class TestAreas:
+    """REQ-053 §9.5, GP-UX-071 (#2913): an area (garden, terrace, balcony, greenhouse, room) is drawn as an area - a
+    light wash with its own outline, below the beds, named "Bereich" - not as a bed with a status colour."""
+
+    def _garden(self, area_types: frozenset[str] = frozenset({"garden"})) -> GardenPlanView:
+        # The area carries the higher z-order on purpose: an area lies below the beds whatever its z-order.
+        area = make_location("a1", "Gemüsegarten", geometry=rect(0.5, 0.5, 9, 4), location_type_key="garden", z_order=1)
+        bed = make_location("b1", "Beet 1", geometry=rect(1, 1, 2, 1), parent_location_key="a1")
+        # The bed comes first in the read model: the drawing order must not depend on it.
+        return _view(locations=[bed, area], area_types=area_types)
+
+    def test_an_area_has_the_area_style_and_a_bed_keeps_its_status_style(self) -> None:
+        root = _parse(_render(self._garden()).svg)
+
+        fill, stroke, _dash = plan_svg_engine._AREA_STYLE
+        area = _by_key(root, "a1")
+        assert (area.attrib["fill"], area.attrib["stroke"]) == (fill, stroke)
+        assert "stroke-dasharray" in area.attrib, "an area keeps apart from a bed without colour too"
+        assert _by_key(root, "b1").attrib["fill"] == plan_svg_engine._BED_STYLE[BedStatus.ACTIVE][0]
+
+    def test_the_area_lies_below_the_bed_inside_it(self) -> None:
+        root = _parse(_render(self._garden()).svg)
+
+        (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-beds"]
+        assert [child.attrib.get("data-key") for child in layer] == ["a1", "b1"]
+
+    def test_the_area_is_titled_as_an_area_and_named_in_the_legend(self) -> None:
+        root = _parse(_render(self._garden(), locale="en").svg)
+
+        assert _by_key(root, "a1").find(f"{SVG}title").text == "Area: Gemüsegarten"
+        (legend,) = [e for e in root.iter() if e.attrib.get("id") == "legend"]
+        assert [e.text for e in legend.iter(f"{SVG}text")] == ["Area", "Bed"]
+
+    def test_without_area_types_every_location_is_drawn_as_before(self) -> None:
+        root = _parse(_render(self._garden(area_types=frozenset())).svg)
+
+        assert _by_key(root, "a1").attrib["fill"] == plan_svg_engine._BED_STYLE[BedStatus.ACTIVE][0]

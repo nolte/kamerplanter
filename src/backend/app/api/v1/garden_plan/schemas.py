@@ -308,6 +308,14 @@ class PlanLocationResponse(BaseModel):
     bbox: tuple[float, float, float, float] | None = None
     height_m: float | None = None
     bed_status: BedStatus = BedStatus.ACTIVE
+    is_area: bool | None = Field(
+        default=None,
+        description=(
+            "`true`: the location is an area (REQ-053 §9.5) - its type is neither a bed nor carries a slot layout "
+            "(garden, terrace, balcony, greenhouse, room); drawn with a light fill below the beds, `bed_status` means "
+            "nothing for it. Absent for every other location (GP-NFR-031: the read model omits the default)."
+        ),
+    )
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     site_conditions: PlanSiteConditionsResponse | None = Field(
         default=None, description="Sun profile and frost risk; absent when nothing is known (#2538)."
@@ -565,6 +573,7 @@ class GardenPlanResponse(BaseModel):
                     "plan_revision": 42,
                     "plan": {"north_angle_deg": 15.0, "default_grid_m": 0.1, "adjacency_factor": 1.5},
                     "locations": [],
+                    "area_type_keys": ["balcony", "garden", "greenhouse", "terrace"],
                     "garden_objects": [],
                     "slots": [],
                     "plants": [],
@@ -593,6 +602,13 @@ class GardenPlanResponse(BaseModel):
     #: ``null`` = a site without a garden plan (§20.2).
     plan: PlanSettingsResponse | None = None
     locations: list[PlanLocationResponse] = Field(default_factory=list)
+    area_type_keys: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Every location type the plan draws as an area (REQ-053 §9.5, GP-UX-071), sorted - also those no location "
+            "of this plan has yet, so a client draws an area it creates as one before the save."
+        ),
+    )
     garden_objects: list[PlanGardenObjectResponse] = Field(default_factory=list)
     slots: list[PlanSlotResponse] = Field(default_factory=list)
     plants: list[PlanPlantResponse] = Field(default_factory=list)

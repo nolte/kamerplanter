@@ -5364,6 +5364,7 @@
         "canvasRole": "Gartenplan",
         "boundary": "Gartengrenze",
         "bedType": "Beet",
+        "areaType": "Bereich",
         "plantCount_one": "{{count}} Pflanze",
         "plantCount_other": "{{count}} Pflanzen",
         "openTaskCount_one": "{{count}} offene Aufgabe",
@@ -5418,6 +5419,14 @@
             "hint": "Die Ansicht verschieben, ohne etwas zu ändern",
             "short": "Verschieben"
           },
+          "area": {
+            "label": "Bereich zeichnen",
+            "hint": "Bereich zeichnen – Garten, Terrasse, Balkon oder Gewächshaus. Beete, die du danach darin zeichnest, gehören zu ihm",
+            "short": "Bereich",
+            "more": "Weitere Bereich-Werkzeuge öffnen",
+            "menu": "Bereich-Werkzeuge",
+            "dimensionsHint": "Einen Bereich über Maße statt per Zeichnen anlegen"
+          },
           "bed": {
             "label": "Beet zeichnen",
             "hint": "Ein neues Beet auf dem Plan zeichnen",
@@ -5439,6 +5448,11 @@
             "hint": "Abstand messen – Punkt für Punkt auf den Plan klicken, Enter oder Doppelklick beendet",
             "short": "Messen"
           }
+        },
+        "area": {
+          "type": "Bereichstyp",
+          "parentRule": "Beete, Bereiche und Objekte, die du danach ganz in diesem Bereich zeichnest, gehören zu ihm und wandern beim Verschieben mit. Was schon auf dem Plan liegt, bleibt, wo es ist.",
+          "newName": "Bereich {{n}}"
         },
         "shapes": {
           "rect": {
@@ -5584,6 +5598,9 @@
           },
           "boundary": {
             "shrinks_below_objects": "Die Grenze würde Beete oder Objekte ausschließen und wurde nicht übernommen. Verschiebe sie zuerst nach innen oder ziehe die Grenze weiter."
+          },
+          "area": {
+            "encloses_existing": "Der Bereich ist angelegt. Beete und Objekte, die schon darin lagen, wandern beim Verschieben nicht mit. Zeichne Beete künftig erst nach dem Bereich, dann gehören sie dazu."
           }
         },
         "deleteDialog": {
@@ -5604,6 +5621,10 @@
             "tasks_one": "{{count}} offene Aufgabe",
             "tasks_other": "{{count}} offene Aufgaben"
           },
+          "plantsRefused_one": "Darin steht noch 1 Pflanze. Solange sie dort steht, lehnt das Speichern dieses Löschen ab – entferne sie zuerst.",
+          "plantsRefused_other": "Darin stehen noch {{count}} Pflanzen. Solange sie dort stehen, lehnt das Speichern dieses Löschen ab – entferne sie zuerst.",
+          "enclosedKept_one": "Nicht gelöscht wird 1 Beet oder Objekt, das schon vor dem Bereich darin lag: Es gehört nicht zum Bereich und bleibt auf dem Plan.",
+          "enclosedKept_other": "Nicht gelöscht werden {{count}} Beete oder Objekte, die schon vor dem Bereich darin lagen – diese gehören nicht zum Bereich und bleiben auf dem Plan.",
           "irreversible": "Achtung: Nach dem Speichern des Plans lässt sich dieses Löschen nicht mehr rückgängig machen.",
           "confirm": "Löschen",
           "reversible": "Solange du den Plan nicht gespeichert hast, kannst du das Löschen rückgängig machen."
@@ -5926,6 +5947,7 @@
           "open": "Mit Maßen hinzufügen",
           "title": "Mit Maßen hinzufügen",
           "kind": "Was wird hinzugefügt",
+          "area": "Bereich",
           "bed": "Beet",
           "object": "Gartenobjekt",
           "bedType": "Beettyp",
@@ -5943,7 +5965,7 @@
             "strokeWidth": "Strichbreite",
             "height": "Höhe (optional)"
           },
-          "intro": "Lege ein Beet oder Objekt über Zahlen an, statt es zu zeichnen. Die Form wird wie eine gezeichnete geprüft und muss ganz in ihren Bereich passen.",
+          "intro": "Lege einen Bereich, ein Beet oder ein Objekt über Zahlen an, statt es zu zeichnen. Die Form wird wie eine gezeichnete geprüft und muss ganz in ihren Bereich passen.",
           "nameHelper": "Leer lassen, dann wird der Vorschlag verwendet.",
           "positionHint": "Alle Maße in Metern, Drehung in Grad. Die Position ist die Ecke des Rechtecks (bei Kreisen der Mittelpunkt); x zeigt nach rechts, y nach oben.",
           "pointsHint": "Gib die Punkte der Reihe nach in Metern ein (x nach rechts, y nach oben). Ein Vieleck braucht mindestens drei Punkte, eine Linie zwei.",

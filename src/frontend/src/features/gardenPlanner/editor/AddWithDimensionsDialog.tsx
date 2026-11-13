@@ -1,7 +1,7 @@
 /**
  * "Add with dimensions" (REQ-053 GP-UX-046, WP 2.6): type, shape, size, position and rotation typed
- * in - the keyboard and touch alternative to drawing, and the place where a new bed or object gets
- * its type. The result goes through the same live validation as a drawn shape; a refusal is
+ * in - the keyboard and touch alternative to drawing, and the place where a new area, bed or object gets
+ * its type (the area since GP-UX-071, #2913: its non-pointer path). The result goes through the same live validation as a drawn shape; a refusal is
  * explained inside the dialog and nothing is created. A reference-object distance ("2 m from the
  * fence") is not part of this version.
  */
@@ -31,8 +31,10 @@ import type { GardenObjectType, PlanOperation, Point } from '../model/types';
 import { formatDecimal } from '../model/units';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef } from '../state/gardenPlanSlice';
+import { locationTypeName } from './NewTypeSelect';
 import {
   addWithDimensions,
+  DIMENSION_SHAPES,
   SHAPE_FIELDS,
   type DimensionTarget,
   type DimensionValues,
@@ -57,6 +59,11 @@ interface AddWithDimensionsDialogProps {
   defaultPosition: Point;
   /** "Beet 4" for a blank name. */
   suggestedName: string;
+  /** The offered area types (`useAreaTypes`); empty while not loaded - then `fallbackAreaTypeKey` is used. */
+  areaTypes?: LocationType[];
+  fallbackAreaTypeKey?: string;
+  /** "Bereich 2" for a blank area name; absent = `suggestedName`. */
+  suggestedAreaName?: string;
   onAdd: (ops: PlanOperation[], selection: SelectionRef) => void;
   onClose: () => void;
   /** What the dialog starts with: the sub-menu of "Bed" or of "Garden object" it was opened from (GP-UX-046). */
@@ -66,6 +73,7 @@ interface AddWithDimensionsDialogProps {
 interface Draft {
   target: DimensionTarget;
   bedTypeKey: string;
+  areaTypeKey: string;
   objectType: GardenObjectType;
   shape: DrawShape;
   name: string;
@@ -86,12 +94,14 @@ const num = (text: string): number | null => parseDecimal(text);
 function initialDraft(
   defaultPosition: Point,
   bedTypeKey: string,
+  areaTypeKey: string,
   target: DimensionTarget,
   language: string,
 ): Draft {
   return {
     target,
     bedTypeKey,
+    areaTypeKey,
     objectType: 'other',
     shape: 'rect',
     name: '',
@@ -115,6 +125,7 @@ function valuesOf(draft: Draft): DimensionValues {
   return {
     target: draft.target,
     bedTypeKey: draft.bedTypeKey,
+    areaTypeKey: draft.areaTypeKey,
     objectType: draft.objectType,
     name: draft.name,
     shape: draft.shape,
@@ -141,13 +152,22 @@ function DimensionsForm({
   fallbackBedTypeKey,
   defaultPosition,
   suggestedName,
+  areaTypes = NO_TYPES,
+  fallbackAreaTypeKey = 'garden',
+  suggestedAreaName,
   onAdd,
   onClose,
   initialTarget = 'bed',
 }: Omit<AddWithDimensionsDialogProps, 'open'>) {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState<Draft>(() =>
-    initialDraft(defaultPosition, bedTypes[0]?.key ?? fallbackBedTypeKey, initialTarget, i18n.language),
+    initialDraft(
+      defaultPosition,
+      bedTypes[0]?.key ?? fallbackBedTypeKey,
+      areaTypes[0]?.key ?? fallbackAreaTypeKey,
+      initialTarget,
+      i18n.language,
+    ),
   );
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
@@ -155,14 +175,15 @@ function DimensionsForm({
     setError(null);
   };
   const fields = SHAPE_FIELDS[draft.shape];
-  const shapes: DrawShape[] =
-    draft.target === 'garden_object'
-      ? ['rect', 'circle', 'polygon', 'polyline']
-      : ['rect', 'circle', 'polygon'];
+  const shapes = DIMENSION_SHAPES[draft.target];
   // The type list of a bed arrives with the request; until then the draft keeps the first known key.
   const bedKey = bedTypes.some((type) => type.key === draft.bedTypeKey)
     ? draft.bedTypeKey
     : (bedTypes[0]?.key ?? draft.bedTypeKey);
+  const areaKey = areaTypes.some((type) => type.key === draft.areaTypeKey)
+    ? draft.areaTypeKey
+    : (areaTypes[0]?.key ?? draft.areaTypeKey);
+  const nameSuggestion = draft.target === 'area' ? (suggestedAreaName ?? suggestedName) : suggestedName;
 
   const numberField = (
     id: 'x' | 'y' | 'width' | 'length' | 'radius' | 'rotation' | 'strokeWidth',
@@ -208,8 +229,8 @@ function DimensionsForm({
   const submit = () => {
     const outcome = addWithDimensions(
       plan,
-      { ...valuesOf(draft), bedTypeKey: bedKey },
-      suggestedName,
+      { ...valuesOf(draft), bedTypeKey: bedKey, areaTypeKey: areaKey },
+      nameSuggestion,
     );
     if (!outcome.ok) {
       setError(outcome.code);
@@ -244,11 +265,15 @@ function DimensionsForm({
               setDraft((previous) => ({
                 ...previous,
                 target: next,
-                shape: next === 'bed' && previous.shape === 'polyline' ? 'rect' : previous.shape,
+                // A shape the new kind does not take falls back to the rectangle (§9.5).
+                shape: DIMENSION_SHAPES[next].includes(previous.shape) ? previous.shape : 'rect',
               }));
               setError(null);
             }}
           >
+            <ToggleButton value="area" sx={{ minHeight: 48 }} data-testid="garden-plan-add-kind-area">
+              {t(`${PREFIX}.addWithDimensions.area`)}
+            </ToggleButton>
             <ToggleButton value="bed" sx={{ minHeight: 48 }} data-testid="garden-plan-add-kind-bed">
               {t(`${PREFIX}.addWithDimensions.bed`)}
             </ToggleButton>
@@ -267,7 +292,27 @@ function DimensionsForm({
             </Suspense>
           )}
 
-          {draft.target === 'bed' ? (
+          {draft.target === 'area' ? (
+            <TextField
+              select
+              size="small"
+              label={t(`${PREFIX}.area.type`)}
+              value={areaKey}
+              onChange={(event) => set('areaTypeKey', event.target.value)}
+              helperText={t(`${PREFIX}.area.parentRule`)}
+              slotProps={{ htmlInput: { 'data-testid': 'garden-plan-add-area-type' } }}
+              sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
+            >
+              {(areaTypes.length > 0
+                ? areaTypes
+                : [{ key: areaKey, name: areaKey, name_en: null } as LocationType]
+              ).map((type) => (
+                <MenuItem key={type.key} value={type.key} sx={{ minHeight: 48 }}>
+                  {locationTypeName(type, i18n.language)}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : draft.target === 'bed' ? (
             <TextField
               select
               size="small"
@@ -309,7 +354,7 @@ function DimensionsForm({
             label={t(`${PREFIX}.addWithDimensions.name`)}
             value={draft.name}
             onChange={(event) => set('name', event.target.value)}
-            placeholder={suggestedName}
+            placeholder={nameSuggestion}
             helperText={t(`${PREFIX}.addWithDimensions.nameHelper`)}
             slotProps={{ htmlInput: { 'data-testid': 'garden-plan-add-name' } }}
             sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
@@ -451,6 +496,8 @@ function DimensionsForm({
     </Box>
   );
 }
+
+const NO_TYPES: LocationType[] = [];
 
 export function AddWithDimensionsDialog(props: AddWithDimensionsDialogProps) {
   const { t } = useTranslation();

@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.22"
+version: "1.23"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,9 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.23 (2026-11-13, #2913)** — TC-053-103: sechstes Werkzeug „Bereich“ (Bereich zeichnen, Beet darin zeichnen,
+der Bereich ist Eltern des Beets). `test_count` unverändert.
 
 **Version 1.22 (2026-11-12, #2902)** — TC-053-113: der Rankhilfe-Hinweis nennt die Art mit ihrem deutschen Namen
 („Erbse“), nie mit dem englischen; TC-053-115 erwartet das Pflanzen-Label statt des rohen Schlüssels.
@@ -3111,7 +3114,7 @@ statt eines zweiten Falls.
 | Kriterium | Testfälle | Bemerkung |
 |-----------|-----------|-----------|
 | AC-1 | TC-053-101 | Zeichenfläche ≥ 60 % der Höhe bei 1366 × 768, Kopfleiste auf einer Zeile |
-| AC-2 | TC-053-103 | Seit REQ-053 v1.19 (#2868 eingegrenzt): die Werkzeuge aus GP-UX-001 mit Untermenüs (seit #2913 samt Messen), vier Panel-Tabs, alle Überlauf-Einträge bei 1024 × 768 |
+| AC-2 | TC-053-103 | Seit REQ-053 v1.19 (#2868 eingegrenzt): die Werkzeuge aus GP-UX-001 mit Untermenüs (seit #2913 samt Messen und Bereich), vier Panel-Tabs, alle Überlauf-Einträge bei 1024 × 768 |
 | AC-3 | TC-053-101 | E2E-Teil: genau eine Kopfleiste, Werkzeuge in einer vertikalen Leiste; „Seitenkopf ohne eigene Aktionen“ prüft vitest |
 | AC-4 | TC-053-100 | Teil: Drehen, Ausrichten, Löschen nur bei Auswahl; „Als Vorlage speichern“ nur bei genau einem Beet prüft vitest |
 | AC-5 | TC-053-100, TC-053-101 | keine reservierte Breite, Umschalter mit `aria-expanded`/`aria-controls`, Panel-Tabs per Tastatur |
@@ -3302,8 +3305,8 @@ Editor-Funktion erreichbar“), siehe TC-053-103.
 
 **Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-001 — AC-2
 **Status**: Seit REQ-053 v1.19 ausführbar: GP-UX-001 nennt nur die vorhandenen Werkzeuge (#2868 „ABGRENZEN“); die
-zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald sie gebaut sind — Messen ist gebaut
-(Schritt 5), Bereich, Pflanze setzen und Text/Label stehen aus.
+zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald sie gebaut sind — Messen (Schritt 5)
+und Bereich (Schritt 6) sind gebaut, Pflanze setzen und Text/Label stehen aus.
 **Gerät**: 1024 × 768 (nach den Theme-Breakpoints bereits lg, Panel angedockt)
 **Priority**: High
 **Category**: Layout
@@ -3312,12 +3315,14 @@ zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald 
 
 **Testschritte**:
 1. Nutzer öffnet den Plan bei 1024 × 768
-2. Nutzer erreicht jedes Werkzeug aus GP-UX-001 in der Werkzeug-Leiste (Auswahl, Hand/Pan, Beet, Gartenobjekt,
-   Messen) und öffnet die Untermenüs von Beet und Gartenobjekt
+2. Nutzer erreicht jedes Werkzeug aus GP-UX-001 in der Werkzeug-Leiste (Auswahl, Hand/Pan, Bereich, Beet,
+   Gartenobjekt, Messen) und öffnet die Untermenüs von Bereich, Beet und Gartenobjekt
 3. Nutzer öffnet das Seitenpanel und wählt nacheinander die vier Panel-Tabs
 4. Nutzer öffnet den Überlauf „⋮“
 5. Nutzer wählt „Messen“, klickt auf dem freien Plan die Punkte (1 m, 1 m), (4 m, 1 m) und (4 m, 3 m), drückt Enter
    und danach Esc
+6. Nutzer wählt „Bereich“ (Typ Garten), zieht auf dem freien Plan ein Rechteck von (0,5 m, 0,5 m) bis (3,5 m, 3,5 m),
+   wählt danach „Beet“, zieht im Bereich ein Rechteck von (1 m, 1 m) bis (2 m, 2 m) und speichert
 
 **Erwartete Ergebnisse**:
 - Jedes Werkzeug und jeder Untermenü-Eintrag liegt vollständig im Viewport
@@ -3331,11 +3336,15 @@ zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald 
 - Messen (Schritt 5): die Zeichenfläche zeigt je Abschnitt „3,00 m“ und „2,00 m“ und die Summe „Gesamt 5,00 m“; der
   Statustext (`garden-plan-measure-status`) nennt „5,00 m“ und „2 Abschnitte“, nach Enter „Messung fertig: 5,00 m“;
   Esc löscht die Messung; es entsteht keine zu speichernde Änderung
+- Bereich (Schritt 6): Die Typauswahl `garden-plan-new-area-type` steht über der Zeichenfläche, daneben die
+  Eltern-Regel (`garden-plan-new-area-type-rule`); nach dem Speichern liest die API einen neuen Bereich vom Typ `garden` (`is_area: true`) und ein neues
+  Beet, dessen `parent_location_key` dieser Bereich ist; „Beet A“ (vor dem Bereich angelegt, außerhalb) behält seine
+  Eltern
 
 **Nachbedingungen**:
-- Keine Änderung am Plan
+- Schritte 1–5: keine Änderung am Plan; Schritt 6 legt einen Bereich und ein Beet an (eigener Garten)
 
-**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069, gp-ux-071]
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069, gp-ux-071, bereich]
 
 ---
 

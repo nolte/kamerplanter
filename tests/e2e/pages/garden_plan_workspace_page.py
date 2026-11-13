@@ -151,6 +151,11 @@ class WorkspacePlanPage(GardenPlanPage):
     NEW_OBJECT_TYPE = "garden-plan-new-object-type"
     DRAW_FINISH = _tid("garden-plan-draw-finish")
 
+    # ── Area tool (GP-UX-071, #2913) ───────────────────────────────────
+    TOOL_AREA = _tid("garden-plan-tool-area")
+    NEW_AREA_TYPE = "garden-plan-new-area-type"
+    NEW_AREA_TYPE_RULE = _tid("garden-plan-new-area-type-rule")
+
     # ── Measure tool (GP-UX-071, #2913) ────────────────────────────────
     TOOL_MEASURE = _tid("garden-plan-tool-measure")
     MEASURE_STATUS = _tid("garden-plan-measure-status")
@@ -701,6 +706,14 @@ class WorkspacePlanPage(GardenPlanPage):
     def choose_new_object_type(self, object_type: str) -> None:
         """Pick the type of the next drawn object in its Select (opens on mousedown); read back on the input."""
         choose_from_native_select(self, self.NEW_OBJECT_TYPE, object_type)
+
+    def choose_new_area_type(self, area_type: str) -> None:
+        """Pick the type of the next drawn area in its Select (opens on mousedown); read back on the input."""
+        choose_from_native_select(self, self.NEW_AREA_TYPE, area_type)
+
+    def new_area_type_rule(self) -> str:
+        """The parent rule beside the area type choice (GP-UX-071), whitespace-normalised."""
+        return self.text_of(self.NEW_AREA_TYPE_RULE)
 
     def choose_draw_shape(self, shape: str) -> None:
         self.choose_tool(_tid(f"garden-plan-shape-{shape}"))

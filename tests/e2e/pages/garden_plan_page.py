@@ -993,12 +993,17 @@ class GardenPlanPage(BasePage):
         corner_b: tuple[float, float],
         *,
         during: Callable[[], None] | None = None,
+        start_on: str | None = None,
     ) -> None:
-        """Drag a rectangle between two model points with the active draw tool."""
+        """Drag a rectangle between two model points with the active draw tool.
+
+        *start_on*: the plan object the first corner lies on (a bed drawn inside an area starts on the area), ``None``
+        = empty ground.
+        """
         self._bring_canvas_into_view()
         start = self.to_screen(*corner_a)
         end = self.to_screen(*corner_b)
-        self._require_hit(start, None, "starting a rectangle")
+        self._require_hit(start, start_on, "starting a rectangle")
         self.pointer_drag(start, end, during=during)
 
     def is_ghost_shown(self) -> bool:

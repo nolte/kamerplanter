@@ -13,8 +13,13 @@
  * The target `boundary` draws the garden boundary / flat outline (UC-01, #2890) with the same steps: the finished
  * rect or polygon is one `set_boundary`, checked against the beds and objects it must enclose (V-19); the tool stays
  * on and shows the new boundary's handles until the save locks it (GP-FR-032).
+ *
+ * The target `area` (GP-UX-071, #2913) draws an area location - a garden, terrace, balcony, greenhouse or room - as a
+ * rect or a polygon: one `create_location` like a bed, with the area type of the editor's choice. Its parent can only
+ * be another area (an area never lies in a bed). It becomes the parent of what is drawn inside it afterwards; what lies
+ * inside it already keeps its parent (there is no re-parent operation), and the machine says so in a notice.
  */
-import { MIN_DIMENSION_M, roundLength, toShape } from '../../model/geometry';
+import { contains, MIN_DIMENSION_M, roundLength, toShape } from '../../model/geometry';
 import { newTempKey } from '../../model/planModel';
 import type { GardenObjectType, Geometry, Point, PlanOperation } from '../../model/types';
 import type { SelectionRef } from '../../state/gardenPlanSlice';
@@ -33,11 +38,19 @@ import { setBoundaryOp } from './boundaryMachine';
 import { boundaryViolation, inferParentKey, violationOfNew } from './validation';
 
 export type DrawShape = 'rect' | 'circle' | 'polygon' | 'polyline';
-/** `boundary`: the garden boundary / flat outline (UC-01, GP-FR-019) - a rect or a polygon, never a circle or line. */
-export type DrawTarget = 'bed' | 'garden_object' | 'boundary';
+/**
+ * `boundary`: the garden boundary / flat outline (UC-01, GP-FR-019) - a rect or a polygon, never a circle or line.
+ * `area`: an area location (§9.5 "Bereich", GP-UX-071) - a rect or a polygon too.
+ */
+export type DrawTarget = 'area' | 'bed' | 'garden_object' | 'boundary';
 
 /** The shapes the garden boundary can take (§9.5 table "Gartengrenze": rect, polygon). */
 export const BOUNDARY_SHAPES: readonly DrawShape[] = ['rect', 'polygon'];
+/** The shapes an area can take (§9.5 table "Bereich (GardenArea)": rect, polygon). */
+export const AREA_SHAPES: readonly DrawShape[] = ['rect', 'polygon'];
+
+/** The notice after an area was drawn around beds or objects that were there already: they stay where they hang. */
+export const NOTICE_AREA_ENCLOSES_EXISTING = 'area.encloses_existing';
 
 export interface DrawOptions {
   target: DrawTarget;
@@ -46,6 +59,10 @@ export interface DrawOptions {
   newBedName: (n: number) => string;
   /** `location_type_key` of a new bed; the plan's most common bed type when unset. */
   bedTypeKey?: string;
+  /** `location_type_key` of a new area (#2913); `garden` when unset. */
+  areaTypeKey?: string;
+  /** Name of the n-th area of the plan ("Bereich 2"); absent = `newBedName`. */
+  newAreaName?: (n: number) => string;
   /** Type of a new garden object; `other` when unset. */
   objectType?: GardenObjectType;
 }
@@ -70,6 +87,8 @@ export const INITIAL_DRAW_STATE: DrawState = { kind: 'idle' };
 const DEFAULT_POLYLINE_WIDTH_M = 0.3;
 /** Placeholder bed type when the plan has no bed to copy it from (the seeded raised bed). */
 const FALLBACK_BED_TYPE_KEY = 'raised_bed';
+/** Placeholder area type while the editor has no type choice (the seeded garden). */
+export const FALLBACK_AREA_TYPE_KEY = 'garden';
 /** Clicking this close to the first or last point finishes a polygon or polyline. */
 const FINISH_RADIUS_PX = 12;
 
@@ -81,10 +100,11 @@ function isPointShape(shape: DrawShape): boolean {
   return shape === 'polygon' || shape === 'polyline';
 }
 
-/** The bed type most beds of the plan have. */
+/** The bed type most beds of the plan have. Areas do not count: a plan of three gardens still draws raised beds. */
 export function commonBedTypeKey(plan: ToolEnv['plan']): string {
   const counts = new Map<string, number>();
   for (const location of Object.values(plan.locations)) {
+    if (location.is_area === true) continue;
     counts.set(location.location_type_key, (counts.get(location.location_type_key) ?? 0) + 1);
   }
   let best = FALLBACK_BED_TYPE_KEY;
@@ -97,6 +117,35 @@ export function commonBedTypeKey(plan: ToolEnv['plan']): string {
 
 function bedTypeKey(env: ToolEnv): string {
   return commonBedTypeKey(env.plan);
+}
+
+/** The number of the next area (`area`) or bed of the plan: "Bereich 3" counts areas, "Beet 4" everything else. */
+export function nextLocationNumber(plan: ToolEnv['plan'], area: boolean): number {
+  let count = 0;
+  for (const location of Object.values(plan.locations)) {
+    if ((location.is_area === true) === area) count += 1;
+  }
+  return count + 1;
+}
+
+/** The parent a new shape of `target` gets: the smallest placed location around it - for an area only an area. */
+function parentOf(env: ToolEnv, target: DrawTarget, geometry: Geometry): string | null {
+  return inferParentKey(env.plan, geometry, target === 'area');
+}
+
+/**
+ * Whether a new area encloses a placed bed, area or garden object that is there already. Those keep their parent: the
+ * area becomes the parent of what is drawn inside it afterwards only (GP-UX-071, #2913).
+ */
+export function enclosesExisting(plan: ToolEnv['plan'], area: Geometry): boolean {
+  const outline = toShape(area);
+  for (const location of Object.values(plan.locations)) {
+    if (location.geometry && contains(outline, toShape(location.geometry))) return true;
+  }
+  for (const garden of Object.values(plan.gardenObjects)) {
+    if (!garden.off_site && contains(outline, toShape(garden.geometry))) return true;
+  }
+  return false;
 }
 
 function rectBetween(a: Point, b: Point, square: boolean): Geometry | null {
@@ -155,7 +204,7 @@ function pointsGeometry(points: readonly Point[], shape: DrawShape): Geometry {
 /** The live verdict on a drawn shape: V-01..V-03 for an object, the boundary's own rules for the boundary. */
 function violationOf(env: ToolEnv, opts: DrawOptions, geometry: Geometry): string | null {
   if (opts.target === 'boundary') return boundaryViolation(env.plan, geometry);
-  return violationOfNew(env.plan, geometry, inferParentKey(env.plan, geometry));
+  return violationOfNew(env.plan, geometry, parentOf(env, opts.target, geometry));
 }
 
 /**
@@ -175,19 +224,21 @@ function create(
   geometry: Geometry,
 ): { effects: Effect[]; ok: boolean } {
   if (opts.target === 'boundary') return createBoundary(env, geometry);
-  const parentKey = inferParentKey(env.plan, geometry);
+  const parentKey = parentOf(env, opts.target, geometry);
   const violation = violationOfNew(env.plan, geometry, parentKey);
   if (violation) return { effects: [{ type: 'notice', code: violation }], ok: false };
   const tempKey = newTempKey();
   let op: PlanOperation;
   let ref: SelectionRef;
-  if (opts.target === 'bed') {
+  const area = opts.target === 'area';
+  if (opts.target === 'bed' || area) {
+    const name = area ? (opts.newAreaName ?? opts.newBedName) : opts.newBedName;
     op = {
       op: 'create_location',
       temp_key: tempKey,
       data: {
-        name: opts.newBedName(Object.keys(env.plan.locations).length + 1),
-        location_type_key: opts.bedTypeKey ?? bedTypeKey(env),
+        name: name(nextLocationNumber(env.plan, area)),
+        location_type_key: area ? (opts.areaTypeKey ?? FALLBACK_AREA_TYPE_KEY) : (opts.bedTypeKey ?? bedTypeKey(env)),
         geometry,
         ...(parentKey ? { parent_location_key: parentKey } : {}),
       },
@@ -206,15 +257,15 @@ function create(
     };
     ref = { entity: 'garden_object', key: tempKey };
   }
-  return {
-    ok: true,
-    effects: [
-      { type: 'commit', ops: [op], label: 'draw' },
-      { type: 'select', selection: [ref] },
-      { type: 'stack', stack: null },
-      { type: 'tool', tool: 'select' },
-    ],
-  };
+  const effects: Effect[] = [
+    { type: 'commit', ops: [op], label: 'draw' },
+    { type: 'select', selection: [ref] },
+    { type: 'stack', stack: null },
+    { type: 'tool', tool: 'select' },
+  ];
+  // Drawn around what was there: say that it stays where it hangs - no silent "it is inside, but not in it".
+  if (area && enclosesExisting(env.plan, geometry)) effects.push({ type: 'notice', code: NOTICE_AREA_ENCLOSES_EXISTING });
+  return { ok: true, effects };
 }
 
 // ── events ───────────────────────────────────────────────────────────────────

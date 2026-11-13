@@ -367,6 +367,7 @@ describe('the rail stays GP-UX-001 (#2868)', () => {
     expect(ids).toEqual([
       'garden-plan-tool-select',
       'garden-plan-tool-pan',
+      'garden-plan-tool-area',
       'garden-plan-tool-bed',
       'garden-plan-tool-garden_object',
       'garden-plan-tool-measure',

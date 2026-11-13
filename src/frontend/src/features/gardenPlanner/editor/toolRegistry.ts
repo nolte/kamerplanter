@@ -7,13 +7,14 @@
  * The rail, the touch bar, the editor and the tool hook read this instead of comparing tool names.
  */
 import type { SvgIconComponent } from '@mui/icons-material';
+import CropFreeIcon from '@mui/icons-material/CropFree';
 import NearMeIcon from '@mui/icons-material/NearMe';
 import PanToolIcon from '@mui/icons-material/PanTool';
 import ParkIcon from '@mui/icons-material/Park';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import YardIcon from '@mui/icons-material/Yard';
 import type { PlanTool } from '../state/gardenPlanSlice';
-import { BOUNDARY_SHAPES, type DrawShape, type DrawTarget } from './tools/drawMachine';
+import { AREA_SHAPES, BOUNDARY_SHAPES, type DrawShape, type DrawTarget } from './tools/drawMachine';
 
 /**
  * The machine that takes the canvas's pointer and keys while a tool is on. `boundary` is the plan-level boundary mode
@@ -57,7 +58,10 @@ export interface ToolDef {
 export const TOOL_DEFS: Record<PlanTool, ToolDef> = {
   select: { kind: 'select', rail: NearMeIcon },
   pan: { kind: 'pan', rail: PanToolIcon },
-  // A bed is an area; only a garden object can be a line (§9.5).
+  // GP-UX-071: an area location (garden, terrace, greenhouse...) - a rect or a polygon (§9.5); it parents the beds drawn
+  // inside it afterwards. Its sub-menu holds "Add with dimensions".
+  area: { kind: 'draw', rail: CropFreeIcon, menu: true, draw: { target: 'area', shapes: AREA_SHAPES } },
+  // A bed is a surface; only a garden object can be a line (§9.5).
   bed: { kind: 'draw', rail: YardIcon, menu: true, draw: { target: 'bed', shapes: ['rect', 'circle', 'polygon'] } },
   garden_object: {
     kind: 'draw',

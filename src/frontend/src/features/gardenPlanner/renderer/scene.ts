@@ -5,7 +5,7 @@
  */
 import { ICON_MIN_PX, LABEL_MIN_PX, labelFontPx, markersVisible } from './lod';
 import { fitLabel, labelAnchorOf, labelWeight, resolveLabelCollisions, type LabelCandidate } from './labelLayout';
-import { markerIndex, shapeEntries, type MarkerEntry, type ShapeEntry } from './planIndex';
+import { isAreaEntry, markerIndex, shapeEntries, type MarkerEntry, type ShapeEntry } from './planIndex';
 import { ATTENTION_PRIORITY, type AttentionCode } from '../model/plantState';
 import type { PlanModel } from '../model/planModel';
 import type { GardenObject, PlanLocation } from '../model/types';
@@ -152,7 +152,17 @@ function sceneLabels(kept: readonly ShapeEntry[], pxPerM: number, fontPx: number
     const text = fitLabel(nameOf(entry), entry.geometry, pxPerM, fontPx);
     if (!text) return;
     const [x, y] = labelAnchorOf(entry.geometry).point;
-    candidates.push({ key: entry.key, text, x, y, withIcon: showIcon(entry, pxPerM), weight: labelWeight(entry), order });
+    const yields = isAreaEntry(entry);
+    candidates.push({
+      key: entry.key,
+      text,
+      x,
+      y,
+      withIcon: showIcon(entry, pxPerM),
+      weight: labelWeight(entry),
+      order,
+      ...(yields ? { yields } : {}),
+    });
   });
   const shown = resolveLabelCollisions(candidates, pxPerM, fontPx);
   const labels = new Map<string, SceneLabel>();

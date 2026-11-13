@@ -306,6 +306,19 @@ The hour bounds must be above 0 and strictly descending, and `one_side_m` may no
 
 ---
 
+### Reading the Garden Plan: Areas (REQ-053)
+
+`GET /api/v1/t/{slug}/sites/{key}/plan` returns the whole plan of a site. Two fields tell which locations are **areas** (a garden, terrace, balcony, greenhouse or room) and which are beds:
+
+| Field | Meaning |
+|-------|---------|
+| `area_type_keys` | Every location type the plan draws as an area, sorted, also those no location of this plan has yet. A type is an area type when it is neither a bed (`is_bed`) nor carries a planting grid (`supports_layout`); tent and shelf therefore do not count. |
+| `locations[].is_area` | `true` for an area. For every other location the field is absent. For an area, `bed_status` has no meaning. |
+
+A bed lying completely inside an area names it in `parent_location_key` only when it was created inside the area after the area; there is no endpoint to move existing beds into an area. Both fields are additions; older clients read the response unchanged. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
+
+---
+
 ### Garden Plan (PDF, SVG, JSON backup)
 
 Three exports of one site's garden plan (REQ-053). All three need a valid JWT and are open to every member of the tenant. A site of another tenant answers `404`, like an absent one. Each route allows `RATE_LIMIT_PLAN_EXPORT` requests per account (default 10 a minute) and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant (default 30 a minute); above that the API answers `429` with `Retry-After`.

@@ -428,6 +428,7 @@ class GardenPlanService:
             plan=site.plan,
             plan_updated_by_name=data.plan_updated_by_name,
             locations=data.locations,
+            area_type_keys=frozenset(self._plan.area_type_keys()),
             garden_objects=data.garden_objects,
             slots=slots,
             plants=data.plants if "plants" in include else [],

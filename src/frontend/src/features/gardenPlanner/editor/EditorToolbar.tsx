@@ -3,9 +3,9 @@
  *
  * From md up it is a vertical rail left of the canvas (`orientation="vertical"`); below md the same tree is the bar
  * docked at the bottom edge next to the `TouchBar` (`orientation="horizontal"`, GP-UX-069). Top level: the tools of
- * GP-UX-001 that exist - select, pan ("Verschieben"), bed, garden object and measure (GP-UX-071), read from the tool
- * registry (`toolRegistry.ts`); bed and garden object open a sub-menu (at most two levels) with "From template" (bed
- * only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
+ * GP-UX-001 that exist - select, pan ("Verschieben"), area, bed, garden object and measure (area and measure from
+ * GP-UX-071), read from the tool registry (`toolRegistry.ts`); area, bed and garden object open a sub-menu (at most
+ * two levels) with "From template" (bed only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
  * the options of the tool that is on (shape, finish / cancel a drawing, polygon points) and the **selection group**
  * (rotate step, align, delete) - rendered only while something is selected, never as disabled buttons (AC-4).
  * Docked below md the selection group is one row that never wraps: align and delete stay in it, the rotation step -
@@ -53,7 +53,14 @@ const PREFIX = 'pages.gardenPlan.editor';
 /** The tools in the bar: every tool of the registry with a rail button (GP-UX-001, GP-UX-071). */
 export type EditorTool = RailTool;
 /** The tools whose sub-menu has entries here (GP-UX-001: at most two levels). */
-type MenuTool = Extract<EditorTool, 'bed' | 'garden_object'>;
+type MenuTool = Extract<EditorTool, 'area' | 'bed' | 'garden_object'>;
+
+/** "Add with dimensions" per sub-menu: the bed entry keeps the test id of the former button (GP-UX-070). */
+const DIMENSIONS_TEST_ID: Record<MenuTool, string> = {
+  area: 'garden-plan-add-with-dimensions-area',
+  bed: 'garden-plan-add-with-dimensions',
+  garden_object: 'garden-plan-add-with-dimensions-object',
+};
 
 export const ANGLE_STEPS = [15, 45, 90] as const;
 export type AngleStep = (typeof ANGLE_STEPS)[number];
@@ -144,15 +151,14 @@ export function EditorToolbar(props: EditorToolbarProps) {
       });
     }
     if (onAddWithDimensions) {
-      const target: DimensionTarget = menu.tool === 'bed' ? 'bed' : 'garden_object';
+      const target: DimensionTarget = menu.tool;
       actions.push({
         id: 'addWithDimensions',
         label: t(`${PREFIX}.addWithDimensions.open`),
         secondary: t(`${PREFIX}.tools.${menu.tool}.dimensionsHint`),
         icon: <AddBoxOutlinedIcon fontSize="small" />,
         onClick: () => onAddWithDimensions(target),
-        // The bed entry keeps the test id of the former button (GP-UX-070); the object entry is new.
-        testId: menu.tool === 'bed' ? 'garden-plan-add-with-dimensions' : 'garden-plan-add-with-dimensions-object',
+        testId: DIMENSIONS_TEST_ID[menu.tool],
       });
     }
     return actions;
@@ -162,7 +168,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const hasMenu = (tool: EditorTool): tool is MenuTool =>
     TOOL_DEFS[tool].menu === true &&
     ((tool === 'bed' && (onTemplate !== undefined || onAddWithDimensions !== undefined)) ||
-      (tool === 'garden_object' && onAddWithDimensions !== undefined));
+      ((tool === 'area' || tool === 'garden_object') && onAddWithDimensions !== undefined));
 
   const boundaryDraw = props.boundaryMode === 'draw';
   const drawDef = TOOL_DEFS[props.tool].draw;

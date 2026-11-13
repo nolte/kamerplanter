@@ -41,6 +41,15 @@ export function useRendererLabels(): RendererLabels {
         ]
           .filter(Boolean)
           .join(', '),
+      area: ({ name, size: dimension, openTasks }) =>
+        [
+          name,
+          t(`${prefix}.areaType`),
+          dimension,
+          openTasks > 0 ? t(`${prefix}.openTaskCount`, { count: openTasks }) : null,
+        ]
+          .filter(Boolean)
+          .join(', '),
       object: ({ label, typeLabel, size: dimension }) =>
         [label, typeLabel, dimension].filter(Boolean).join(', '),
       plant: ({ id }) => t(`${prefix}.plant`, { id }),

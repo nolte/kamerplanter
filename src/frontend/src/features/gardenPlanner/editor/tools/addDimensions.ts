@@ -8,16 +8,26 @@ import { roundLength } from '../../model/geometry';
 import { newTempKey, type PlanModel } from '../../model/planModel';
 import type { GardenObjectType, Geometry, PlanOperation, Point } from '../../model/types';
 import type { SelectionRef } from '../../state/gardenPlanSlice';
-import type { DrawShape } from './drawMachine';
+import { AREA_SHAPES, FALLBACK_AREA_TYPE_KEY, type DrawShape } from './drawMachine';
 import { defaultProps } from './objectTypes';
 import { inferParentKey, violationOfNew } from './validation';
 
-export type DimensionTarget = 'bed' | 'garden_object';
+/** `area`: an area location (GP-UX-071, #2913) - a rect or a polygon, its parent only another area. */
+export type DimensionTarget = 'area' | 'bed' | 'garden_object';
+
+/** The shapes the dialog offers per target (§9.5): a bed is a surface, an area a rect or polygon, an object anything. */
+export const DIMENSION_SHAPES: Record<DimensionTarget, readonly DrawShape[]> = {
+  area: AREA_SHAPES,
+  bed: ['rect', 'circle', 'polygon'],
+  garden_object: ['rect', 'circle', 'polygon', 'polyline'],
+};
 
 export interface DimensionValues {
   target: DimensionTarget;
   /** `location_type_key` of a bed. */
   bedTypeKey: string;
+  /** `location_type_key` of an area; absent = the fallback area type. */
+  areaTypeKey?: string;
   objectType: GardenObjectType;
   name: string;
   shape: DrawShape;
@@ -105,10 +115,30 @@ export function addWithDimensions(
   const result = geometryOfValues(values);
   if ('missing' in result) return { ok: false, code: 'geometry.invalid' };
   const { geometry } = result;
-  const parentKey = inferParentKey(plan, geometry);
+  if (!DIMENSION_SHAPES[values.target].includes(values.shape)) return { ok: false, code: 'geometry.invalid' };
+  // A new area never lies in a bed: its parent can only be another area (#2913).
+  const parentKey = inferParentKey(plan, geometry, values.target === 'area');
   const violation = violationOfNew(plan, geometry, parentKey);
   if (violation) return { ok: false, code: violation };
   const tempKey = newTempKey();
+  if (values.target === 'area') {
+    return {
+      ok: true,
+      ops: [
+        {
+          op: 'create_location',
+          temp_key: tempKey,
+          data: {
+            name: values.name.trim() || fallbackName,
+            location_type_key: values.areaTypeKey ?? FALLBACK_AREA_TYPE_KEY,
+            geometry,
+            ...(parentKey ? { parent_location_key: parentKey } : {}),
+          },
+        },
+      ],
+      selection: { entity: 'location', key: tempKey },
+    };
+  }
   if (values.target === 'bed') {
     return {
       ok: true,

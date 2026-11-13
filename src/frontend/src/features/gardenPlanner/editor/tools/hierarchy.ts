@@ -4,6 +4,7 @@
  * guessed - so the delete dialog's numbers are the numbers `applyOperation` will remove.
  */
 import { applyOperations } from '../../model/applyOperation';
+import { contains, toShape } from '../../model/geometry';
 import { locationSubtree, plantsInLocations, type PlanModel } from '../../model/planModel';
 import type { Geometry, PlanEntity, PlanOperation } from '../../model/types';
 import type { SelectionRef } from '../../state/gardenPlanSlice';
@@ -97,6 +98,32 @@ export function moveTargets(plan: PlanModel, selection: readonly SelectionRef[])
   return [...found.values()];
 }
 
+/**
+ * How many placed locations and garden objects lie completely inside one of the deleted `roots` that is an area, yet
+ * are deleted with none of them (not in `locationKeys` / `objectKeys`): they are no children, so they stay (#2913).
+ */
+function keptInsideAreas(
+  plan: PlanModel,
+  roots: readonly string[],
+  locationKeys: ReadonlySet<string>,
+  objectKeys: ReadonlySet<string>,
+): number {
+  const outlines = roots
+    .map((key) => plan.locations[key])
+    .filter((location) => location?.is_area === true && location.geometry)
+    .map((location) => toShape(location!.geometry!));
+  if (outlines.length === 0) return 0;
+  const inside = (geometry: Geometry) => outlines.some((outline) => contains(outline, toShape(geometry)));
+  let kept = 0;
+  for (const location of Object.values(plan.locations)) {
+    if (!locationKeys.has(location.key) && location.geometry && inside(location.geometry)) kept += 1;
+  }
+  for (const garden of Object.values(plan.gardenObjects)) {
+    if (!objectKeys.has(garden.key) && !garden.off_site && inside(garden.geometry)) kept += 1;
+  }
+  return kept;
+}
+
 /** What a delete of the selection takes along (GP-FR-153): counts of the children it removes. */
 export interface DeleteImpact {
   /** The selection roots that get a `delete` operation. */
@@ -108,6 +135,11 @@ export interface DeleteImpact {
   plants: number;
   /** Open tasks of every deleted location. */
   tasks: number;
+  /**
+   * Placed beds, areas and garden objects that lie inside a deleted area but are not its children - they were there
+   * before the area was drawn around them (#2913). The delete leaves them on the plan; the dialog says so.
+   */
+  enclosedKept: number;
   /** Locked entities that stop the delete (GP-FR-032). */
   lockedKeys: string[];
   /** False when the delete cannot be put back by counter-operations after saving (GP-FR-155). */
@@ -131,6 +163,7 @@ export function deleteImpact(plan: PlanModel, selection: readonly SelectionRef[]
   ];
   let tasks = 0;
   for (const key of locationKeys) tasks += plan.locations[key]?.open_task_count ?? 0;
+  const enclosedKept = keptInsideAreas(plan, rootLocations, locationKeys, new Set([...insideObjects, ...rootObjects]));
 
   const ops: PlanOperation[] = roots.map(({ entity, key }) => ({ op: 'delete', entity, key }));
   let reversible = false;
@@ -153,6 +186,7 @@ export function deleteImpact(plan: PlanModel, selection: readonly SelectionRef[]
     slots: Object.values(plan.slots).filter((slot) => locationKeys.has(slot.location_key)).length,
     plants: plantsInLocations(plan, locationKeys).length,
     tasks,
+    enclosedKept,
     lockedKeys,
     reversible,
     ops,

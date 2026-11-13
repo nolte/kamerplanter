@@ -15,8 +15,8 @@ afterEach(() => cleanup());
 const ALL_TOOLS = Object.keys(TOOL_DEFS) as PlanTool[];
 
 describe('the tool registry', () => {
-  it('lists the rail in GP-UX-001 order: the four tools of before, then Messen; the boundary is no rail tool', () => {
-    expect(RAIL_TOOLS.map((entry) => entry.tool)).toEqual(['select', 'pan', 'bed', 'garden_object', 'measure']);
+  it('lists the rail in GP-UX-001 order: select, pan, Bereich before Beet, garden object, Messen; no boundary', () => {
+    expect(RAIL_TOOLS.map((entry) => entry.tool)).toEqual(['select', 'pan', 'area', 'bed', 'garden_object', 'measure']);
     expect(RAIL_TOOLS.length).toBeLessThanOrEqual(8);
   });
 
@@ -24,6 +24,7 @@ describe('the tool registry', () => {
     expect(ALL_TOOLS.map((tool) => [tool, canvasKindOf(tool, false)])).toEqual([
       ['select', 'select'],
       ['pan', 'pan'],
+      ['area', 'draw'],
       ['bed', 'draw'],
       ['garden_object', 'draw'],
       ['measure', 'measure'],
@@ -38,6 +39,7 @@ describe('the tool registry', () => {
     expect(ALL_TOOLS.map((tool) => [tool, cursor(tool)])).toEqual([
       ['select', 'default'],
       ['pan', 'grab'],
+      ['area', 'crosshair'],
       ['bed', 'crosshair'],
       ['garden_object', 'crosshair'],
       ['measure', 'crosshair'],
@@ -52,6 +54,9 @@ describe('the tool registry', () => {
     expect(TOOL_DEFS.bed.draw?.shapes).not.toContain('polyline');
     expect(TOOL_DEFS.garden_object.draw?.shapes).toContain('polyline');
     expect(TOOL_DEFS.boundary.draw?.shapes).toEqual(['rect', 'polygon']);
+    // An area is a rect or a polygon (§9.5 "Bereich"): no circle, no line (#2913).
+    expect(TOOL_DEFS.area.draw).toEqual({ target: 'area', shapes: ['rect', 'polygon'] });
+    expect(TOOL_DEFS.area.menu).toBe(true);
     expect(TOOL_DEFS.measure.draw).toBeUndefined();
   });
 });
@@ -79,6 +84,7 @@ describe('the touch bar reads its sections from the registry', () => {
   it.each([
     ['select', false, true],
     ['pan', false, false],
+    ['area', true, false],
     ['bed', true, false],
     ['garden_object', true, false],
     ['measure', true, false],

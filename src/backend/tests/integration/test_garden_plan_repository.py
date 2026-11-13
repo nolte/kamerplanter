@@ -621,6 +621,70 @@ class TestDeleteCascade:
         ]
 
 
+class TestAreas:
+    """REQ-053 GP-UX-071 (#2913): the tool "Bereich" creates an area location; what the server does with it."""
+
+    def test_an_area_type_is_neither_a_bed_nor_a_layout_type(self, db, service) -> None:
+        """Breaks if a bed type, a layout type such as a tent, or a type named by a location only counts as an area,
+        or if a greenhouse or terrace does not."""
+        db.collection(col.LOCATION_TYPES).insert_many(
+            [
+                {"_key": "tent", "name": "Tent", "is_bed": False, "supports_layout": True},
+                {"_key": "terrace", "name": "Terrasse", "is_bed": False, "supports_layout": False},
+            ]
+        )
+        first_save(service)
+        house = batch(service, [create("gh", rect(0, 0, 6, 4), location_type_key="greenhouse")], revision=1).key_map[
+            "gh"
+        ]
+
+        view = service.get_plan("site_a", tenant_key=A)
+
+        assert ArangoGardenPlanRepository(db).area_type_keys() == ["greenhouse", "terrace"]
+        assert view.area_type_keys == frozenset({"greenhouse", "terrace"})
+        assert [loc.key for loc in view.locations if loc.location_type_key in view.area_type_keys] == [house]
+
+    def test_a_bed_drawn_inside_an_area_afterwards_is_its_child(self, db, service) -> None:
+        """The parent rule: the client sends the area as the parent of a bed drawn inside it; the server keeps it."""
+        first_save(service)
+        area = batch(service, [create("gh", rect(0, 0, 6, 4), location_type_key="greenhouse")], revision=1).key_map[
+            "gh"
+        ]
+        bed = batch(service, [create("b", rect(1, 1, 2, 1), parent_location_key=area)], revision=2).key_map["b"]
+
+        stored = {loc.key: loc for loc in service.get_plan("site_a", tenant_key=A).locations}
+        assert stored[bed].parent_location_key == area
+
+    def test_an_area_drawn_around_existing_beds_is_accepted_and_moves_none_of_them(self, db, service) -> None:
+        """Measured behaviour behind the tool's notice: no overlap rule refuses the area (V-05 holds among beds), and
+        the beds that were there keep their parent - there is no re-parent operation."""
+        first_save(service)
+        bed = batch(service, [create("b", rect(1, 1, 2, 1))], revision=1).key_map["b"]
+        area = batch(service, [create("gh", rect(0, 0, 6, 4), location_type_key="greenhouse")], revision=2).key_map[
+            "gh"
+        ]
+
+        stored = {loc.key: loc for loc in service.get_plan("site_a", tenant_key=A).locations}
+        assert stored[area].parent_location_key is None
+        assert stored[bed].parent_location_key is None
+
+    def test_deleting_an_area_removes_its_children_and_leaves_what_lay_inside_before(self, db, service) -> None:
+        """The delete the confirmation describes: the subtree goes (``TestDeleteCascade``), a bed that was there
+        before the area was drawn around it is no child and stays - it is neither deleted nor orphaned."""
+        first_save(service)
+        before = batch(service, [create("b0", rect(1, 1, 1, 1))], revision=1).key_map["b0"]
+        area = batch(service, [create("gh", rect(0, 0, 6, 4), location_type_key="greenhouse")], revision=2).key_map[
+            "gh"
+        ]
+        child = batch(service, [create("b1", rect(3, 1, 1, 1), parent_location_key=area)], revision=3).key_map["b1"]
+
+        assert batch(service, [{"op": "delete", "entity": "location", "key": area}], revision=4).deleted
+
+        stored = {loc.key: loc for loc in service.get_plan("site_a", tenant_key=A).locations}
+        assert area not in stored and child not in stored
+        assert stored[before].parent_location_key is None
+
+
 class TestTheReadModel:
     def test_plants_and_open_task_counts_ride_in_the_same_read(self, db, service) -> None:
         first_save(service)

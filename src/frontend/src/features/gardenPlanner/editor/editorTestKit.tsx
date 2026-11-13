@@ -164,7 +164,7 @@ export function chooseOverflowEntry(testId: string): void {
  * Choose an entry of a tool's sub-menu in the tool bar (REQ-053 GP-UX-001/066, WP 10.4): "From template" and "Add
  * with dimensions" under "Bed", "Add with dimensions" under "Garden object".
  */
-export function chooseToolMenuEntry(tool: 'bed' | 'garden_object', testId: string): void {
+export function chooseToolMenuEntry(tool: 'area' | 'bed' | 'garden_object', testId: string): void {
   fireEvent.click(screen.getByTestId(`garden-plan-tool-${tool}-menu`));
   fireEvent.click(screen.getByTestId(testId));
 }

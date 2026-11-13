@@ -155,12 +155,16 @@ export function violationOfNew(
   return firstViolation(plan, [draft], { parentKey });
 }
 
-/** The smallest placed location that holds `geometry` completely: the parent a new shape gets. */
-export function inferParentKey(plan: PlanModel, geometry: Geometry): string | null {
+/**
+ * The smallest placed location that holds `geometry` completely: the parent a new shape gets. `areasOnly`: only area
+ * locations qualify - a new area never lies in a bed (REQ-053 GP-UX-071, #2913).
+ */
+export function inferParentKey(plan: PlanModel, geometry: Geometry, areasOnly = false): string | null {
   const shape = toShape(geometry);
   let best: { key: string; area: number } | null = null;
   for (const location of Object.values(plan.locations)) {
     if (!location.geometry) continue;
+    if (areasOnly && location.is_area !== true) continue;
     const parent = toShape(location.geometry);
     if (parent.kind === 'vertices' && !parent.closed) continue;
     if (!contains(parent, shape)) continue;

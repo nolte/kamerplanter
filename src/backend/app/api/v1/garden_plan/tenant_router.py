@@ -185,9 +185,11 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
                 last_watered_at=view.last_watered.get(location.key or ""),
                 site_conditions=_site_conditions_response(location.site_conditions),
                 soil_profile=_soil_profile_response(location.soil_profile),
+                is_area=True if location.location_type_key in view.area_type_keys else None,
             )
             for location in view.locations
         ],
+        area_type_keys=sorted(view.area_type_keys),
         garden_objects=[
             PlanGardenObjectResponse(
                 **garden_object_to_response(obj).model_dump(),
