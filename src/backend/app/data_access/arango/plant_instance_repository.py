@@ -88,8 +88,17 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         now re-validated before the write, and a missing document now raises
         :class:`NotFoundError` instead of surfacing the raw
         ``DocumentUpdateError`` — the hand-rolled version never mapped 1202.
+
+        A plant standing on a slot has a ``placed_in`` edge to it, whichever write put it there: occupancy
+        (``get_active_by_slot``) and crop-rotation history (``get_history_by_slot``) read the edge, and only
+        ``create`` wrote one - a plant *moved* onto a slot (``PUT``/``PATCH``/MCP, a run relocation) stood there
+        unseen. The edge to a slot it left stays: it is that slot's history, and a plant counts as standing only
+        while its own ``slot_key`` names the slot (``slot_occupancy.plants_standing_on``).
         """
-        return super().update(key, plant)
+        updated = super().update(key, plant)
+        if plant.slot_key:
+            self.create_edge_if_absent(col.PLACED_IN, f"{col.PLANT_INSTANCES}/{key}", f"{col.SLOTS}/{plant.slot_key}")
+        return updated
 
     def increment_chill_days(self, key: PlantID) -> int | None:
         """One AQL statement: the liveness check and the increment cannot be interleaved (#1970)."""
@@ -126,6 +135,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         caller-supplied slot key and named no tenant; the companion-planting
         engine reads it to decide whether a neighbouring plant conflicts, so an
         unscoped answer would describe another tenant's bed in a warning message.
+
+        "Currently" means the plant's own ``slot_key`` still names the slot: ``placed_in`` keeps the edge of a
+        plant that moved on (it is the slot's crop-rotation history, :meth:`get_history_by_slot`), so the edge
+        alone would still count it as a neighbour of the slot it left.
         """
         self._require_tenant_key(tenant_key, "get_active_by_slot")
         query = """
@@ -133,9 +146,11 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           OPTIONS {edgeCollections: [@edge_col]}
           FILTER v.removed_on == null
           FILTER v.tenant_key == @tenant_key
-          RETURN v
+          FILTER v.slot_key == @slot_key
+          RETURN DISTINCT v
         """
         bind_vars = {
+            "slot_key": slot_key,
             "slot_id": f"{col.SLOTS}/{slot_key}",
             "edge_col": col.PLACED_IN,
             "tenant_key": tenant_key,
