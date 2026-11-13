@@ -3309,7 +3309,8 @@ Editor-Funktion erreichbar“), siehe TC-053-103.
 **Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-001 — AC-2
 **Status**: Seit REQ-053 v1.19 ausführbar: GP-UX-001 nennt nur die vorhandenen Werkzeuge (#2868 „ABGRENZEN“); die
 zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald sie gebaut sind — Messen (Schritt 5),
-Bereich (Schritt 6) und Pflanze setzen (Schritt 7) sind gebaut, Text/Label steht aus.
+Bereich (Schritt 6), Pflanze setzen (Schritt 7) und Text (Schritt 8) sind gebaut; damit sind alle acht Werkzeuge
+abgedeckt.
 **Gerät**: 1024 × 768 (nach den Theme-Breakpoints bereits lg, Panel angedockt)
 **Priority**: High
 **Category**: Layout
@@ -3317,11 +3318,12 @@ Bereich (Schritt 6) und Pflanze setzen (Schritt 7) sind gebaut, Text/Label steht
 - Garten 10 × 10 m mit einem Beet „Beet A“
 - Schritt 7: ein eigener Garten mit einem Beet „Beet P“ (2 × 1 m), das zwei freie Punkt-Pflanzplätze hat (Beet-Rahmen
   (0,5 m, 0,5 m) und (1,5 m, 0,5 m)); die Art „Lactuca sativa“ (Saat-Katalog)
+- Schritt 8: ein eigener Garten 10 × 10 m ohne Beschriftung
 
 **Testschritte**:
 1. Nutzer öffnet den Plan bei 1024 × 768
 2. Nutzer erreicht jedes Werkzeug aus GP-UX-001 in der Werkzeug-Leiste (Auswahl, Hand/Pan, Bereich, Beet,
-   Gartenobjekt, Pflanze setzen, Messen) und öffnet die Untermenüs von Bereich, Beet und Gartenobjekt
+   Gartenobjekt, Pflanze setzen, Messen, Text) und öffnet die Untermenüs von Bereich, Beet und Gartenobjekt
 3. Nutzer öffnet das Seitenpanel und wählt nacheinander die vier Panel-Tabs
 4. Nutzer öffnet den Überlauf „⋮“
 5. Nutzer wählt „Messen“, klickt auf dem freien Plan die Punkte (1 m, 1 m), (4 m, 1 m) und (4 m, 3 m), drückt Enter
@@ -3330,6 +3332,9 @@ Bereich (Schritt 6) und Pflanze setzen (Schritt 7) sind gebaut, Text/Label steht
    wählt danach „Beet“, zieht im Bereich ein Rechteck von (1 m, 1 m) bis (2 m, 2 m) und speichert
 7. Nutzer wählt „Pflanze setzen“, klickt auf den ersten freien Pflanzplatz von „Beet P“, wählt im Dialog die Art
    „Lactuca sativa“ und bestätigt mit „Pflanze setzen“
+8. Nutzer wählt „Text“, klickt auf den freien Plan bei (2 m, 6 m), gibt im Dialog zuerst einen leeren Text ein und
+   bestätigt, dann „Kräuterecke <Nord>“ und bestätigt mit „Text setzen“; danach ändert er im Eigenschaftenpanel den
+   Text auf „Kräuterecke Nord“, speichert und lädt die Seite neu
 
 **Erwartete Ergebnisse**:
 - Jedes Werkzeug und jeder Untermenü-Eintrag liegt vollständig im Viewport
@@ -3353,12 +3358,20 @@ Bereich (Schritt 6) und Pflanze setzen (Schritt 7) sind gebaut, Text/Label steht
   „in Beet P gesetzt“, das Werkzeug bleibt aktiv, und es entsteht keine zu speichernde Planänderung. Die API liest
   genau eine neue Pflanze der Art auf genau diesem Pflanzplatz (`slot_key`) im Beet, der Plan (`GET …/plan`) führt
   sie auf dem Platz; der zweite Platz bleibt frei
+- Text (Schritt 8): Das Werkzeug ist aktiv (`aria-pressed`) und das achte der Leiste, der Statustext
+  `garden-plan-text-status` nennt den Klick auf den Plan; der Klick öffnet `garden-plan-text-dialog`. Der leere Text
+  wird im Dialog abgelehnt („Gib einen Text ein.“), es entsteht nichts. Nach „Text setzen“ schließt der Dialog, die
+  Beschriftung ist ausgewählt, das Werkzeug ist „Auswahl“ und der Plan hat eine ungespeicherte Änderung; der Text steht
+  auf der Zeichenfläche (bei Markup wie „<Nord>“ als Text, kein Element). Nach Panel-Änderung, Speichern und Neuladen
+  liest die API (`GET …/plan`) genau ein Gartenobjekt `object_type = "text_label"` mit `label` „Kräuterecke Nord“,
+  Rechteck-Geometrie mit dem Ankerpunkt nahe (2 m, 6 m) und ohne `parent_location_key`; die Objekt-Legende nennt
+  keine Beschriftung
 
 **Nachbedingungen**:
 - Schritte 1–5: keine Änderung am Plan; Schritt 6 legt einen Bereich und ein Beet an (eigener Garten); Schritt 7 legt
-  eine Pflanze an (eigener Garten)
+  eine Pflanze an (eigener Garten); Schritt 8 legt eine Beschriftung an (eigener Garten)
 
-**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069, gp-ux-071, bereich, pflanze-setzen]
+**Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-1024, ac-2, gp-ux-001, gp-ux-069, gp-ux-071, bereich, pflanze-setzen, text]
 
 ---
 
