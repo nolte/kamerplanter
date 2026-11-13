@@ -524,15 +524,7 @@ class PlantInstanceService:
         # REQ-053 GP-UX-071 (#2913): a position holds one plant. Integrity, not advice - so not behind
         # `skip_validation`. The slot is the caller's: `_resolve_references` resolved it above.
         if plant.slot_key:
-            slot = self._site_repo.get_slot_by_key(plant.slot_key)
-            if slot is not None:
-                require_free_position(
-                    slot,
-                    plants=self._repo,
-                    reservations=self._reservation_repo,
-                    tenant_key=tenant_key,
-                    today=today_utc(),
-                )
+            self._require_free_position(plant.slot_key, tenant_key)
 
         if not skip_validation and plant.slot_key:
             # Both engines read the slot's neighbourhood/history, which is
@@ -615,10 +607,8 @@ class PlantInstanceService:
             )
             self._phase_repo.create_phase_history(history)
 
-        # Mark slot as occupied — the flag alone (#2727): writing back the whole slot read here reverted a
-        # PATCH /slots (role, geometry, capacity) that landed in between.
-        if plant.slot_key and self._site_repo.get_slot_by_key(plant.slot_key) is not None:
-            self._site_repo.set_slot_occupied(plant.slot_key, True)
+        if plant.slot_key:
+            self._occupy_slot(plant.slot_key)
 
         # REQ-047 §3.4 — eager overwintering materialisation. A plant created on an
         # outdoor/greenhouse site derives its winter profile immediately, instead of
@@ -919,9 +909,49 @@ class PlantInstanceService:
         # is never dialled — see :meth:`_resolve_references` for why changed-only is
         # the correct semantics here and not merely the cheap one.
         self._resolve_references(plant, previous=existing)
+        # REQ-053 GP-UX-071 (#2913): a move onto a position takes it like a new plant does - one plant per
+        # position, none on a live run's reservation. Only a slot the plant moves *to*: staying put re-checks
+        # nothing (the plant itself stands there).
+        moved_slot = plant.slot_key != existing.slot_key
+        if moved_slot and plant.slot_key:
+            self._require_free_position(plant.slot_key, tenant_key)
         updated = self._repo.update(key, plant)
+        if moved_slot:
+            # The stored plant names its new slot now, so it no longer counts as standing on the old one.
+            if existing.slot_key:
+                self._release_slot(existing.slot_key, tenant_key=tenant_key, leaving=key)
+            if plant.slot_key:
+                self._occupy_slot(plant.slot_key)
         self._sync_overwintering_on_move(updated, old_site_key)
         return updated
+
+    # ── Slot occupancy (REQ-053 GP-UX-071, #2727) ────────────────────
+
+    def _require_free_position(self, slot_key: str, tenant_key: str) -> None:
+        """Refuse a single plant on a taken ``position`` slot (409); rows and zones take several plants."""
+        slot = self._site_repo.get_slot_by_key(slot_key)
+        if slot is not None:
+            require_free_position(
+                slot,
+                plants=self._repo,
+                reservations=self._reservation_repo,
+                tenant_key=tenant_key,
+                today=today_utc(),
+            )
+
+    def _occupy_slot(self, slot_key: str) -> None:
+        """Mark the slot occupied - the flag alone (#2727): writing back a whole slot read earlier reverted a
+        PATCH /slots (role, geometry, capacity) that landed in between."""
+        if self._site_repo.get_slot_by_key(slot_key) is not None:
+            self._site_repo.set_slot_occupied(slot_key, True)
+
+    def _release_slot(self, slot_key: str, *, tenant_key: str, leaving: str) -> None:
+        """Free the slot's flag only when no plant is left on it (``<= 1`` freed a zone while a second plant
+        still stood on it, #2727 review)."""
+        if self._site_repo.get_slot_by_key(slot_key) is not None and not plants_standing_on(
+            self._repo, slot_key, tenant_key=tenant_key, leaving=leaving
+        ):
+            self._site_repo.set_slot_occupied(slot_key, False)
 
     # ── REQ-047 §3.4 overwintering-profile sync ──────────────────────────
 
@@ -1070,14 +1100,9 @@ class PlantInstanceService:
         # instances left (a run may contain several plants).
         self._delete_orphaned_run_tasks(key, tenant_key=plant.tenant_key)
 
-        # Freed only when no plant is left on it: ``removed_on`` is already set above, so the removed plant is not
-        # among them (``<= 1`` freed a zone while a second plant still stood on it, #2727 review).
-        if (
-            plant.slot_key
-            and self._site_repo.get_slot_by_key(plant.slot_key) is not None
-            and not plants_standing_on(self._repo, plant.slot_key, tenant_key=plant.tenant_key, leaving=key)
-        ):
-            self._site_repo.set_slot_occupied(plant.slot_key, False)  # the flag alone (#2727)
+        # ``removed_on`` is already set above, so the removed plant is not among those left on the slot.
+        if plant.slot_key:
+            self._release_slot(plant.slot_key, tenant_key=plant.tenant_key, leaving=key)
 
         return updated
 

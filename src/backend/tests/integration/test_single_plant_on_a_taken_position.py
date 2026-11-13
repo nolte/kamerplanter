@@ -165,3 +165,102 @@ def test_a_row_keeps_taking_plants(db) -> None:
     service.create_plant(_plant("row", "CAR-1"), tenant_key=A)
     service.create_plant(_plant("row", "CAR-2"), tenant_key=A)
     assert db.collection(col.PLANT_INSTANCES).count() == 2
+
+
+def _move(service: PlantInstanceService, key: str, slot_key: str | None) -> PlantInstance:
+    """The write ``PATCH``/``PUT``/the MCP move tool make: the stored plant with a new ``slot_key``."""
+    plant = service.get_plant(key, tenant_key=A)
+    plant.slot_key = slot_key
+    return service.update_plant(key, plant, tenant_key=A)
+
+
+def _occupied(db, slot: str) -> bool:
+    return db.collection(col.SLOTS).get(slot)["currently_occupied"]
+
+
+class TestMovingAPlant:
+    """A move onto a slot takes it like a new plant does, and the plant is found there afterwards."""
+
+    def test_a_move_onto_a_taken_position_is_refused(self, db) -> None:
+        service = _service(db)
+        service.create_plant(_plant("s1", "LAC-1"), tenant_key=A)
+        mover = service.create_plant(_plant("s2", "LAC-2"), tenant_key=A)
+
+        with pytest.raises(PlanError) as refused:
+            _move(service, mover.key, "s1")
+
+        assert refused.value.status_code == 409
+        assert refused.value.error_code == "slot.occupied"
+        assert service.get_plant(mover.key, tenant_key=A).slot_key == "s2"
+
+    def test_a_move_onto_a_reserved_position_is_refused(self, db) -> None:
+        _reserve(db, "run_live", "s3", "planned")
+        service = _service(db)
+        mover = service.create_plant(_plant("s1", "LAC-1"), tenant_key=A)
+
+        with pytest.raises(PlanError) as refused:
+            _move(service, mover.key, "s3")
+
+        assert refused.value.error_code == "slot.already_planned"
+
+    def test_a_moved_plant_stands_on_its_new_position(self, db) -> None:
+        """The edge the occupancy read follows exists for the new slot: the next plant there is refused."""
+        service = _service(db)
+        mover = service.create_plant(_plant("s1", "LAC-1"), tenant_key=A)
+
+        _move(service, mover.key, "s2")
+
+        assert [plant.key for plant in service.get_plants_in_slot("s2", tenant_key=A)] == [mover.key]
+        with pytest.raises(PlanError) as refused:
+            service.create_plant(_plant("s2", "LAC-2"), tenant_key=A)
+        assert refused.value.error_code == "slot.occupied"
+        # …and the position it left takes a plant again.
+        assert service.create_plant(_plant("s1", "LAC-3"), tenant_key=A).slot_key == "s1"
+
+    def test_the_flags_follow_the_move(self, db) -> None:
+        service = _service(db)
+        mover = service.create_plant(_plant("s1", "LAC-1"), tenant_key=A)
+
+        _move(service, mover.key, "s2")
+        assert (_occupied(db, "s1"), _occupied(db, "s2")) == (False, True)
+
+        _move(service, mover.key, None)
+        assert _occupied(db, "s2") is False
+
+    def test_a_row_another_plant_still_stands_on_stays_occupied(self, db) -> None:
+        service = _service(db)
+        service.create_plant(_plant("row", "CAR-1"), tenant_key=A)
+        mover = service.create_plant(_plant("row", "CAR-2"), tenant_key=A)
+
+        _move(service, mover.key, "s1")
+
+        assert _occupied(db, "row") is True
+
+    def test_an_edit_that_keeps_the_slot_is_not_refused(self, db) -> None:
+        service = _service(db)
+        plant = service.create_plant(_plant("s1", "LAC-1"), tenant_key=A)
+        stored = service.get_plant(plant.key, tenant_key=A)
+        stored.plant_name = "Kopfsalat"
+
+        assert service.update_plant(plant.key, stored, tenant_key=A).plant_name == "Kopfsalat"
+        assert db.collection(col.PLACED_IN).count() == 1  # no second edge to the same slot
+
+    def test_moving_back_reuses_the_edge(self, db) -> None:
+        service = _service(db)
+        mover = service.create_plant(_plant("s1", "LAC-1"), tenant_key=A)
+
+        _move(service, mover.key, "s2")
+        _move(service, mover.key, "s1")
+
+        assert db.collection(col.PLACED_IN).count() == 2
+        assert [plant.key for plant in service.get_plants_in_slot("s1", tenant_key=A)] == [mover.key]
+
+    def test_a_plant_that_left_a_slot_is_no_longer_read_on_it(self, db) -> None:
+        """``placed_in`` keeps the left slot's edge (rotation history); the occupancy read does not follow it."""
+        service = _service(db)
+        mover = service.create_plant(_plant("s1", "LAC-1"), tenant_key=A)
+
+        _move(service, mover.key, "s2")
+
+        assert service.get_plants_in_slot("s1", tenant_key=A) == []
+        assert [plant.key for plant in service.get_slot_history("s1", tenant_key=A)] == [mover.key]
