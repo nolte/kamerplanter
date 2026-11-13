@@ -1600,6 +1600,8 @@ class PhasePhotoperiod:
     photoperiod_hours: float
     display_name: str = ""
     display_name_de: str = ""
+    #: Where the hours came from (#2857): only ``sourced`` hours take part in the tent hint.
+    photoperiod_source: str | None = None
 
 
 def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[PhasePhotoperiod]:
@@ -1645,6 +1647,7 @@ def phase_photoperiods(base_url: str, seed: dict, species_key: str) -> list[Phas
                 photoperiod_hours=float(hours),
                 display_name=str(definition.get("display_name") or ""),
                 display_name_de=str(definition.get("display_name_de") or ""),
+                photoperiod_source=profile.get("photoperiod_source"),
             )
         )
     return found

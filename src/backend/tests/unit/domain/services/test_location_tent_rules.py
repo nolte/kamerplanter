@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import SlotRole, TenantRole
+from app.common.enums import PhotoperiodSource, SlotRole, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.interfaces.graph_repository import AdjacencySync
 from app.domain.models.garden_plan import BedCounters, LocationPatch
@@ -215,10 +215,27 @@ def _tent_summary(service: GardenResourceService, repo: FakePlanRepo, plants: li
     return service.get_summary("tent", tenant_key=TENANT)
 
 
-def _plant(key: str, phase: str | None, hours: float | None, code: str | None = None) -> PlantPhotoperiod:
+def _plant(
+    key: str, phase: str | None, hours: float | None, code: str | None = None, *, source: PhotoperiodSource | None
+) -> PlantPhotoperiod:
     return PlantPhotoperiod(
-        plant_key=key, phase_name=phase, photoperiod_hours=hours, phase_code=code, display_name=f"Plant {key}"
+        plant_key=key,
+        phase_name=phase,
+        photoperiod_hours=hours,
+        phase_code=code,
+        display_name=f"Plant {key}",
+        photoperiod_source=source,
     )
+
+
+def _sourced(key: str, phase: str | None, hours: float, code: str | None = None) -> PlantPhotoperiod:
+    """A plant whose phase profile states its hours from a Steckbrief or a person's entry (#2857)."""
+    return _plant(key, phase, hours, code, source=PhotoperiodSource.SOURCED)
+
+
+def _no_profile(key: str, phase: str | None) -> PlantPhotoperiod:
+    """A plant whose current phase resolves no requirement profile."""
+    return _plant(key, phase, None, source=None)
 
 
 def _shelf(repo: FakePlanRepo, lighting: LocationLighting | None) -> None:
@@ -227,7 +244,7 @@ def _shelf(repo: FakePlanRepo, lighting: LocationLighting | None) -> None:
     )
     repo.layout_types["shelf"] = True
     repo.counters["shelf"] = BedCounters(active_plant_count=2)
-    repo.photoperiods["shelf"] = [_plant("p1", "Vegetative", 18), _plant("p2", "Flowering", 12)]
+    repo.photoperiods["shelf"] = [_sourced("p1", "Vegetative", 18), _sourced("p2", "Flowering", 12)]
 
 
 class TestPhotoperiodHintInTheSummary:
@@ -245,7 +262,7 @@ class TestPhotoperiodHintInTheSummary:
         view = _tent_summary(
             service,
             repo,
-            [_plant("p1", "Vegetative", 18), _plant("p2", "Vegetative", 18), _plant("p3", "Flowering", 12)],
+            [_sourced("p1", "Vegetative", 18), _sourced("p2", "Vegetative", 18), _sourced("p3", "Flowering", 12)],
         )
 
         (hint,) = view.tent_hints
@@ -259,14 +276,14 @@ class TestPhotoperiodHintInTheSummary:
     def test_the_hint_disappears_once_the_photoperiods_agree(self, world) -> None:
         service, repo = world
 
-        view = _tent_summary(service, repo, [_plant("p1", "Flowering", 12), _plant("p3", "Flowering", 12)])
+        view = _tent_summary(service, repo, [_sourced("p1", "Flowering", 12), _sourced("p3", "Flowering", 12)])
 
         assert view.tent_hints == []
 
     def test_an_unknown_photoperiod_is_reported_never_assumed(self, world) -> None:
         service, repo = world
 
-        view = _tent_summary(service, repo, [_plant("p1", "Vegetative", 18), _plant("p2", "Seedling", None)])
+        view = _tent_summary(service, repo, [_sourced("p1", "Vegetative", 18), _no_profile("p2", "Seedling")])
 
         (hint,) = view.tent_hints
         assert hint.code == HINT_PHOTOPERIOD_UNKNOWN
@@ -276,7 +293,7 @@ class TestPhotoperiodHintInTheSummary:
     def test_a_bed_never_reads_the_photoperiods(self, world) -> None:
         service, repo = world
         repo.counters["bed"] = BedCounters(active_plant_count=3)
-        repo.photoperiods["bed"] = [_plant("p1", "Vegetative", 18), _plant("p2", "Flowering", 12)]
+        repo.photoperiods["bed"] = [_sourced("p1", "Vegetative", 18), _sourced("p2", "Flowering", 12)]
 
         view = service.get_summary("bed", tenant_key=TENANT)
 
@@ -286,14 +303,14 @@ class TestPhotoperiodHintInTheSummary:
     def test_a_single_plant_reads_nothing(self, world) -> None:
         service, repo = world
 
-        view = _tent_summary(service, repo, [_plant("p1", "Vegetative", 18)])
+        view = _tent_summary(service, repo, [_sourced("p1", "Vegetative", 18)])
 
         assert view.tent_hints == []
         assert repo.photoperiod_reads == []
 
     def test_the_read_carries_the_callers_tenant(self, world) -> None:
         service, repo = world
-        _tent_summary(service, repo, [_plant("p1", "Vegetative", 18), _plant("p2", "Flowering", 12)])
+        _tent_summary(service, repo, [_sourced("p1", "Vegetative", 18), _sourced("p2", "Flowering", 12)])
 
         assert repo.photoperiod_reads == ["tent"]
         assert repo.locations["tent"].site_key == SITE
@@ -304,7 +321,7 @@ class TestPhotoperiodHintInTheSummary:
         view = _tent_summary(
             service,
             repo,
-            [_plant("p1", "Flowering", 12, "flowering"), _plant("p2", "Seedling", 18, "seedling")],
+            [_sourced("p1", "Flowering", 12, "flowering"), _sourced("p2", "Seedling", 18, "seedling")],
         )
 
         assert view.tent_hints == []
@@ -312,10 +329,28 @@ class TestPhotoperiodHintInTheSummary:
     def test_the_unknown_hint_names_the_plants(self, world) -> None:
         service, repo = world
 
-        view = _tent_summary(service, repo, [_plant("p1", "Vegetative", 18), _plant("p2", "Flowering", None)])
+        view = _tent_summary(service, repo, [_sourced("p1", "Vegetative", 18), _no_profile("p2", "Flowering")])
 
         (hint,) = view.tent_hints
         assert hint.unknown_plant_names == ("Plant p2",)
+
+    def test_default_and_generated_hours_are_unknown_not_a_conflict(self, world) -> None:
+        """#2857: hours nobody chose for the species (generator table, fallback) never make a conflict."""
+        service, repo = world
+
+        view = _tent_summary(
+            service,
+            repo,
+            [
+                _plant("p1", "Vegetative", 18, "vegetative", source=PhotoperiodSource.DEFAULT),
+                _plant("p2", "Flowering", 12, "flowering", source=PhotoperiodSource.GENERATED),
+                _plant("p3", "Flowering", 12, "flowering", source=None),
+            ],
+        )
+
+        (hint,) = view.tent_hints
+        assert (hint.code, hint.severity, hint.unknown_plant_count) == (HINT_PHOTOPERIOD_UNKNOWN, "info", 3)
+        assert hint.groups == ()
 
 
 class TestPhotoperiodHintOnAShelf:

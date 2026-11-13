@@ -112,7 +112,21 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
                     {t('pages.profiles.requirements')}
                   </Typography>
                   <ProfileRow label={`${t('pages.profiles.lightPpfd')} (PPFD)`} value={reqProfile.light_ppfd_target} />
-                  <ProfileRow label={t('pages.profiles.photoperiodHours')} value={`${reqProfile.photoperiod_hours} h`} />
+                  <ProfileRow
+                    label={t('pages.profiles.photoperiodHours')}
+                    value={`${reqProfile.photoperiod_hours} h`}
+                    detail={
+                      reqProfile.photoperiod_source
+                        ? t(`enums.photoperiodSource.${reqProfile.photoperiod_source}`)
+                        : t('pages.profiles.photoperiodSourceUnknown')
+                    }
+                    detailTestId="profile-photoperiod-source"
+                  />
+                  {!readOnly && reqProfile.photoperiod_source !== 'sourced' && (
+                    <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }} data-testid="profile-photoperiod-source-todo">
+                      {t('pages.profiles.photoperiodSourceTodo')}
+                    </Typography>
+                  )}
                   <Divider sx={{ my: 1 }} />
                   <ProfileRow label={t('pages.profiles.tempDay')} value={`${reqProfile.temperature_day_c} °C`} />
                   <ProfileRow label={t('pages.profiles.tempNight')} value={`${reqProfile.temperature_night_c} °C`} />
@@ -190,11 +204,26 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
   );
 }
 
-function ProfileRow({ label, value }: { label: string; value: string | number }) {
+interface ProfileRowProps {
+  label: string;
+  value: string | number;
+  /** A second line under the value, e.g. where the value came from (#2857). */
+  detail?: string;
+  detailTestId?: string;
+}
+
+function ProfileRow({ label, value, detail, detailTestId }: ProfileRowProps) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.5 }}>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
-      <Typography variant="body2">{value}</Typography>
+      <Box sx={{ textAlign: 'right' }}>
+        <Typography variant="body2">{value}</Typography>
+        {detail && (
+          <Typography variant="caption" color="text.secondary" data-testid={detailTestId}>
+            {detail}
+          </Typography>
+        )}
+      </Box>
     </Box>
   );
 }

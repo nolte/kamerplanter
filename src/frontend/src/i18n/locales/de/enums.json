@@ -514,6 +514,11 @@
       "southwest": "Südwest",
       "northwest": "Nordwest"
     },
+    "photoperiodSource": {
+      "sourced": "aus dem Steckbrief oder eingetragen",
+      "generated": "aus der Phasenvorlage erzeugt",
+      "default": "Standardwert"
+    },
     "plantTrait": {
       "disease_resistant": "Krankheitsresistent",
       "pest_resistant": "Schädlingsresistent",

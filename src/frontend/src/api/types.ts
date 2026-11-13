@@ -1100,11 +1100,19 @@ export interface LifecycleConfigCreate {
 
 // Profiles
 
+/**
+ * Where a profile's `photoperiod_hours` came from (#2857, REQ-003): `sourced` = Steckbrief or entered by a person,
+ * `generated` = the generator's phase-name table, `default` = fallback nobody chose. Set by the server only.
+ */
+export type PhotoperiodSource = 'sourced' | 'generated' | 'default';
+
 export interface RequirementProfile {
   key: string;
   phase_key: string;
   light_ppfd_target: number;
   photoperiod_hours: number;
+  /** `null` = stored before the provenance existed (origin unknown). Absent from create/update bodies. */
+  photoperiod_source?: PhotoperiodSource | null;
   light_spectrum: Record<string, number>;
   temperature_day_c: number;
   temperature_night_c: number;

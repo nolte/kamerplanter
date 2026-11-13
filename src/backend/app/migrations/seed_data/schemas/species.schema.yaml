@@ -59,6 +59,38 @@ properties:
       type: array
       items:
         type: object
+  steckbrief_phase_photoperiods:
+    type: object
+    description: >-
+      Light hours a Steckbrief states for the default phases of a species (#2857), keyed by
+      scientific_name. seed_data writes them onto the phase of that name as `sourced`;
+      seed_steckbrief_consistency compares each value with the Steckbrief's
+      `requirement_profiles.photoperiod_hours` row under the named phase heading.
+    additionalProperties:
+      type: object
+      properties:
+        steckbrief:
+          type: string
+          pattern: "^[a-z0-9_]+\\.md$"
+          description: "File name under spec/knowledge/plants/"
+        phases:
+          type: object
+          minProperties: 1
+          additionalProperties:
+            type: object
+            properties:
+              hours:
+                type: number
+                minimum: 0
+                maximum: 24
+              steckbrief_phase:
+                type: string
+                minLength: 1
+                description: "The Steckbrief's '#### Phase: ...' heading text"
+            required: [hours, steckbrief_phase]
+            additionalProperties: false
+      required: [steckbrief, phases]
+      additionalProperties: false
 
 required: [species]
 additionalProperties: false

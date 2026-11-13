@@ -514,6 +514,11 @@
       "southwest": "Southwest",
       "northwest": "Northwest"
     },
+    "photoperiodSource": {
+      "sourced": "from the species profile or entered",
+      "generated": "generated from the phase template",
+      "default": "default value"
+    },
     "plantTrait": {
       "disease_resistant": "Disease Resistant",
       "pest_resistant": "Pest Resistant",

@@ -25,7 +25,7 @@ from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
 from pydantic import BaseModel
 
 from app.common.datetimes import today_utc
-from app.common.enums import AttachmentCategory
+from app.common.enums import AttachmentCategory, PhotoperiodSource
 from app.common.exceptions import (
     NotFoundError,
     PlanError,
@@ -236,6 +236,16 @@ def _photoperiod_or_none(value: object) -> float | None:
         return None
     hours = float(value)
     return hours if 0.0 <= hours <= 24.0 else None
+
+
+def _photoperiod_source_or_none(value: object) -> PhotoperiodSource | None:
+    """A stored ``photoperiod_source``; missing or a value this code does not know is ``None`` (origin unknown)."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return PhotoperiodSource(value)
+    except ValueError:
+        return None
 
 
 class ArangoGardenPlanRepository(IGardenPlanRepository):
@@ -770,7 +780,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                         phase_display_name_de: entry != null
                             ? (definition == null ? null : definition.display_name_de)
                             : (legacy == null ? null : legacy.display_name_de),
-                        photoperiod_hours: profile == null ? null : profile.photoperiod_hours
+                        photoperiod_hours: profile == null ? null : profile.photoperiod_hours,
+                        // Where the hours came from (#2857); null without a profile or for one stored before.
+                        photoperiod_source: profile == null ? null : profile.photoperiod_source
                     }
                 """,
                 bind_vars=bind_vars,
@@ -784,6 +796,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 phase_code=_text_or_none(row["phase_code"]),
                 display_name=_text_or_none(row["display_name"]) or str(row["plant_key"]),
                 phase_label=_phase_label_or_none(row),
+                photoperiod_source=_photoperiod_source_or_none(row["photoperiod_source"]),
             )
             for row in cursor
         ]

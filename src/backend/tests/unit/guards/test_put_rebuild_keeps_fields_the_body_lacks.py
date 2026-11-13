@@ -199,12 +199,20 @@ _DECIDED: dict[str, dict[str, _Decision]] = {
         for field in ("cycle_restart_phase_order", "expected_productive_years", "first_bearing_year", "max_seasons")
     },
     "app/api/v1/profiles/router.py::update_requirement_profile": {
-        field: _Decision(
-            _Verdict.NONE_IN_MERGE_MODE,
-            "Seed-only profile values; the requirement-profile view is a plain merge-mode repository.",
-            BaseArangoRepository,
-        )
-        for field in ("far_red_fraction", "photosynthesis_temp_opt_c", "vpd_sensitivity", "vpd_threshold_kpa")
+        **{
+            field: _Decision(
+                _Verdict.NONE_IN_MERGE_MODE,
+                "Seed-only profile values; the requirement-profile view is a plain merge-mode repository.",
+                BaseArangoRepository,
+            )
+            for field in ("far_red_fraction", "photosynthesis_temp_opt_c", "vpd_sensitivity", "vpd_threshold_kpa")
+        },
+        # #2857: server-owned provenance, never a body field - pinned in
+        # tests/api/test_requirement_profile_photoperiod_source_api.py.
+        "photoperiod_source": _Decision(
+            _Verdict.DERIVED,
+            "PhaseService.update_requirement_profile sets it to `sourced`: a person saved the light hours.",
+        ),
     },
     "app/api/v1/profiles/router.py::update_nutrient_profile": {
         field: _Decision(

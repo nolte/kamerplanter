@@ -9,6 +9,8 @@ What no double decides, measured here:
   ambiguous or missing name bridge unknown while a legacy phase id still wins;
 * the summary's hint appears with two photoperiods and disappears once they agree; a young plant takes no part, and
   a shelf level counts only with its own lamp;
+* the read carries each profile's ``photoperiod_source`` (#2857), and hours that are not ``sourced`` make the hint
+  ``unknown``, never a conflict;
 * ``layout_type_flags`` reads ``supports_layout`` and lets ``is_bed`` imply it;
 * a location's own ``adjacency_factor`` decides the derived neighbourhood of its slots;
 * ``lighting`` is stored replaced whole, without the ``null`` keys of the PATCH, and ``null`` removes it.
@@ -19,14 +21,14 @@ from __future__ import annotations
 import pytest
 from arango import ArangoClient
 
-from app.common.enums import TenantRole
+from app.common.enums import PhotoperiodSource, TenantRole
 from app.data_access.arango import collections as col
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import LocationPatch
-from app.domain.models.tent_hint import HINT_PHOTOPERIOD_CONFLICT, PhaseLabel
+from app.domain.models.tent_hint import HINT_PHOTOPERIOD_CONFLICT, HINT_PHOTOPERIOD_UNKNOWN, PhaseLabel
 from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -96,7 +98,12 @@ def _location(key: str, site: str, type_key: str, **fields) -> dict:
     }
 
 
-def _phase(db, key: str, name: str, lifecycle: str, *, hours: float | None) -> None:
+#: Leave ``photoperiod_source`` out of the stored profile - one written before the provenance existed (#2857).
+NO_FIELD = object()
+
+
+def _phase(db, key: str, name: str, lifecycle: str, *, hours: float | None, source: object = "sourced") -> None:
+    """A growth phase with a requirement profile of ``hours`` from ``source`` (#2857); no profile for ``None``."""
     db.collection(col.GROWTH_PHASES).insert(
         {"_key": key, "name": name, "display_name": name.title(), "lifecycle_key": lifecycle}
     )
@@ -104,9 +111,10 @@ def _phase(db, key: str, name: str, lifecycle: str, *, hours: float | None) -> N
         {"_from": f"{col.LIFECYCLE_CONFIGS}/{lifecycle}", "_to": f"{col.GROWTH_PHASES}/{key}"}
     )
     if hours is not None:
-        db.collection(col.REQUIREMENT_PROFILES).insert(
-            {"_key": f"rp_{key}", "phase_key": key, "photoperiod_hours": hours}
-        )
+        profile: dict[str, object] = {"_key": f"rp_{key}", "phase_key": key, "photoperiod_hours": hours}
+        if source is not NO_FIELD:
+            profile["photoperiod_source"] = source
+        db.collection(col.REQUIREMENT_PROFILES).insert(profile)
         db.collection(col.REQUIRES_PROFILE).insert(
             {"_from": f"{col.GROWTH_PHASES}/{key}", "_to": f"{col.REQUIREMENT_PROFILES}/rp_{key}"}
         )
@@ -136,7 +144,8 @@ def db(database):
         )
     database.collection(col.LOCATIONS).insert(_location("tent", "site_a", "tent"))
     database.collection(col.LOCATIONS).insert(_location("tent_2", "site_a", "tent"))
-    # Cannabis: a legacy lifecycle - vegetative (18 h), flowering (12 h) and a seedling without a profile.
+    # Cannabis: a legacy lifecycle - vegetative (18 h) and flowering (12 h), both sourced, and a seedling without a
+    # profile.
     database.collection(col.SPECIES).insert({"_key": "sp_cannabis", "scientific_name": "Cannabis sativa"})
     database.collection(col.LIFECYCLE_CONFIGS).insert({"_key": "lc_cannabis", "species_key": "sp_cannabis"})
     database.collection(col.HAS_LIFECYCLE).insert(
@@ -268,6 +277,34 @@ class TestPhotoperiodRead:
 
         assert (row.phase_code, row.photoperiod_hours) == ("ripening", None)
 
+    def test_each_plant_carries_the_origin_of_its_hours(self, db, repo) -> None:
+        """#2857: the stored ``photoperiod_source`` reaches the engine as it is; a missing field or a value this code
+        does not know reads ``None`` (origin unknown), and so does a plant without a profile."""
+        for key, source in (
+            ("gp_gen", "generated"),
+            ("gp_def", "default"),
+            ("gp_legacy", NO_FIELD),
+            ("gp_null", None),
+            ("gp_alien", "estimated_by_ai"),
+        ):
+            _phase(db, key, key.removeprefix("gp_"), "lc_cannabis", hours=12.0, source=source)
+            _plant(db, f"p_{key}", phase=key)
+        _plant(db, "p_sourced", phase="gp_flower")
+        _plant(db, "p_seedling", phase="gp_seedling")
+
+        rows = {row.plant_key: row for row in repo.load_location_photoperiods("tent", tenant_key=A)}
+
+        assert {key: row.photoperiod_source for key, row in rows.items()} == {
+            "p_gp_gen": PhotoperiodSource.GENERATED,
+            "p_gp_def": PhotoperiodSource.DEFAULT,
+            "p_gp_legacy": None,
+            "p_gp_null": None,
+            "p_gp_alien": None,
+            "p_sourced": PhotoperiodSource.SOURCED,
+            "p_seedling": None,
+        }
+        assert rows["p_gp_gen"].photoperiod_hours == 12.0
+
     def test_an_empty_tenant_is_refused(self, repo) -> None:
         with pytest.raises(ValueError):
             repo.load_location_photoperiods("tent", tenant_key="")
@@ -286,6 +323,25 @@ class TestSummaryHint:
         db.collection(col.PLANT_INSTANCES).update({"_key": "p1", "current_phase_key": "gp_flower"})
 
         assert service.get_summary("tent", tenant_key=A).tent_hints == []
+
+    def test_unsourced_hours_are_unknown_not_a_conflict(self, db, service) -> None:
+        """#2857: the generator's 18 h against a profile from before the provenance - no statement, no conflict."""
+        db.collection(col.REQUIREMENT_PROFILES).update({"_key": "rp_gp_veg", "photoperiod_source": "generated"})
+        db.collection(col.REQUIREMENT_PROFILES).replace(
+            {"_key": "rp_gp_flower", "phase_key": "gp_flower", "photoperiod_hours": 12.0}
+        )
+        _plant(db, "p1", phase="gp_veg", plant_name="Lemon")
+        _plant(db, "p2", phase="pse_flowering", plant_name="Gelato")
+
+        (hint,) = service.get_summary("tent", tenant_key=A).tent_hints
+
+        assert (hint.code, hint.severity, hint.groups) == (HINT_PHOTOPERIOD_UNKNOWN, "info", ())
+        assert hint.unknown_plant_names == ("Gelato", "Lemon")
+
+        db.collection(col.REQUIREMENT_PROFILES).update({"_key": "rp_gp_veg", "photoperiod_source": "sourced"})
+        db.collection(col.REQUIREMENT_PROFILES).update({"_key": "rp_gp_flower", "photoperiod_source": "sourced"})
+
+        assert [h.code for h in service.get_summary("tent", tenant_key=A).tent_hints] == [HINT_PHOTOPERIOD_CONFLICT]
 
     def test_a_young_plant_takes_no_part(self, db, service) -> None:
         _plant(db, "p1", phase="gp_flower")

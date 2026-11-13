@@ -41,6 +41,7 @@ from app.common.enums import (
     HarvestedPart,
     HarvestPattern,
     Orientation,
+    PhotoperiodSource,
     RootType,
     SeedType,
 )
@@ -72,6 +73,8 @@ _TS_ONLY_ENUM_SYNC: list[tuple[type[StrEnum], str]] = [
     (CareStyleType, "CareStyleType"),
     # REQ-053 WP 8.24 (#2667): widened additively from four to eight compass values.
     (Orientation, "Orientation"),
+    # #2857: the origin of a requirement profile's light hours, shown next to them in the profile view.
+    (PhotoperiodSource, "PhotoperiodSource"),
 ]
 
 # (python enum, enums.* i18n key) — every value must resolve in de AND en.
@@ -87,6 +90,7 @@ _I18N_ENUMS: list[tuple[type[StrEnum], str]] = [
     (ClimactericClass, "climacteric"),
     (DtmReference, "dtmReference"),
     (Orientation, "orientation"),
+    (PhotoperiodSource, "photoperiodSource"),
 ]
 
 

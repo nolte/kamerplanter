@@ -21,7 +21,7 @@
   },
   "REQ-053 W-016": {
     "partial": true,
-    "reason": "supports_layout for tents and shelves, the per-location adjacency factor, the lighting fields (no consumer by design), the photoperiod hint and the pot-volume warning are tested (unit, API, integration incl. migration v0108, vitest, E2E TC-053-114). Open: the hint names the phases with `display_name`, so the German UI shows English phase names (#2889); `day_neutral` and the provenance of photoperiod hours are #2857",
-    "issue": 2889
+    "reason": "supports_layout for tents and shelves, the per-location adjacency factor, the lighting fields (no consumer by design), the photoperiod hint with German phase names (#2889) and only sourced light hours (#2857: photoperiod_source, unit, API, integration incl. the seed re-run) and the pot-volume warning are tested (unit, API, integration incl. migration v0108, vitest, E2E TC-053-114). Open in #2857: an `unspecified` photoperiod type and leaving day-neutral plants out of the conflict wait for a data migration",
+    "issue": 2857
   }
 }

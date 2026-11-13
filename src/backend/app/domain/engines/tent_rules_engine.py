@@ -10,9 +10,13 @@ profile of the plant's current phase (REQ-003), read by the repository
 whose phase has no such profile has an *unknown* photoperiod - it is never given a default. It takes no part in the
 conflict; when unknown plants share the location with others, the hint ``tent.photoperiod_unknown`` names them.
 
-**The stored value is not a sourced value.** A requirement profile's ``photoperiod_hours`` may be the model default
-(18.0) or the 18/12 the ``resource_profile_generator`` writes, and nothing records which. The conflict therefore stays a
-``warning`` and the text says it follows the stored phase profiles, never that the plants *need* different light.
+**Only a sourced value is judged (#2857).** A requirement profile records where its ``photoperiod_hours`` came from
+(``PhotoperiodSource``). Only ``sourced`` hours - from a Steckbrief or entered by a person in the profile editor - say
+something about the plant; the 18/12 of the generator's phase-name table (``generated``), the fallback 18.0
+(``default``) and a profile stored before the provenance existed (``None``) do not. Such a plant counts as unknown,
+exactly like one without a profile (:func:`judged_photoperiod`). Day-neutral plants still take part, because a stored
+``day_neutral`` type is not yet a classified one (see below) - so the conflict stays a ``warning`` and the text names
+the light hours of the phase profiles, never that the plants *need* different light.
 
 **Who takes part.** Only plants in a light-triggered phase: a young, establishing plant (``YOUNG_PHASE_NAMES`` -
 germination, seedling, rooting and the establishment phases of cuttings and offsets) is left out entirely.
@@ -20,6 +24,7 @@ germination, seedling, rooting and the establishment phases of cuttings and offs
 
 from __future__ import annotations
 
+from app.common.enums import PhotoperiodSource
 from app.domain.engines.phase_role_map import is_young_phase
 from app.domain.models.tent_hint import (
     HINT_PHOTOPERIOD_CONFLICT,
@@ -57,20 +62,32 @@ def has_own_light_schedule(location_type_key: str, lamp_height_cm: float | None)
     return location_type_key in PHOTOPERIOD_SHARED_LOCATION_TYPES and lamp_height_cm is not None
 
 
+def judged_photoperiod(plant: PlantPhotoperiod) -> float | None:
+    """The photoperiod the check may judge: the stored hours only when they are ``sourced`` (#2857), else ``None``.
+
+    ``generated`` (the generator's phase-name table), ``default`` (nobody chose it), ``None`` (stored before the
+    provenance existed) and a plant without a profile are all unknown - never a value to compare.
+    """
+    if plant.photoperiod_source != PhotoperiodSource.SOURCED:
+        return None
+    return plant.photoperiod_hours
+
+
 def light_triggered(plants: list[PlantPhotoperiod]) -> list[PlantPhotoperiod]:
     """The plants that take part in the photoperiod check: every plant that is not in a young phase."""
     return [plant for plant in plants if not is_young_phase(plant.phase_code)]
 
 
 def photoperiod_groups(plants: list[PlantPhotoperiod]) -> tuple[PhotoperiodGroup, ...]:
-    """The plants with a known photoperiod grouped by it, longest first.
+    """The plants with a known (:func:`judged_photoperiod`) photoperiod grouped by it, longest first.
 
     A group starts at its longest photoperiod and takes every plant less than :data:`PHOTOPERIOD_EQUAL_TOLERANCE_HOURS`
     below it; the group shows that longest value. Two or more groups exist exactly when the longest and the shortest
     known photoperiod lie at least the tolerance apart.
     """
+    judged: list[tuple[float | None, PlantPhotoperiod]] = [(judged_photoperiod(plant), plant) for plant in plants]
     known: list[tuple[float, PlantPhotoperiod]] = sorted(
-        ((plant.photoperiod_hours, plant) for plant in plants if plant.photoperiod_hours is not None),
+        ((hours, plant) for hours, plant in judged if hours is not None),
         key=lambda pair: -pair[0],
     )
     anchors: list[float] = []
@@ -118,7 +135,7 @@ def _phase_labels(plants: list[PlantPhotoperiod]) -> tuple[PhaseLabel, ...]:
 
 def _unknown_names(plants: list[PlantPhotoperiod]) -> tuple[str, ...]:
     names: list[str] = sorted(
-        plant.display_name or plant.plant_key for plant in plants if plant.photoperiod_hours is None
+        plant.display_name or plant.plant_key for plant in plants if judged_photoperiod(plant) is None
     )
     return tuple(names[:MAX_NAMED_UNKNOWN_PLANTS])
 
@@ -131,13 +148,14 @@ def photoperiod_hints(
     * ``tent.photoperiod_conflict`` (``warning``): the light-triggered plants with a known photoperiod fall into two
       or more groups (:func:`photoperiod_groups`).
     * ``tent.photoperiod_unknown`` (``info``): no conflict among the known ones, but at least two light-triggered
-      plants stand here and at least one of them has no photoperiod - the check could not judge it (E-10).
+      plants stand here and at least one of them has no sourced photoperiod - the check could not judge it (E-10,
+      #2857). With a conflict the unknown plants are still counted and named on the conflict hint.
     """
     if not has_own_light_schedule(location_type_key, lamp_height_cm):
         return []
     considered = light_triggered(plants)
     groups = photoperiod_groups(considered)
-    unknown = sum(1 for plant in considered if plant.photoperiod_hours is None)
+    unknown = sum(1 for plant in considered if judged_photoperiod(plant) is None)
     names = _unknown_names(considered)
     if len(groups) >= 2:
         return [TentHint(HINT_PHOTOPERIOD_CONFLICT, "warning", groups, unknown, names)]

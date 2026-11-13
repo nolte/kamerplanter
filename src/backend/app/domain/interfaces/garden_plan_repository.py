@@ -156,7 +156,9 @@ class IGardenPlanRepository(ABC):
         photoperiod is the ``photoperiod_hours`` of the requirement profile of the plant's current phase (REQ-003):
         a legacy growth phase directly (its key is the plant's ``current_phase_key`` - the id wins); a phase-sequence
         entry through the growth phase of the same name in the species' lifecycle, only when exactly one has that
-        name. Two, none, or no profile - ``None``, never a guess or a default (E-10). Each plant carries its phase's
+        name. Two, none, or no profile - ``None``, never a guess or a default (E-10). With the hours comes the
+        profile's ``photoperiod_source`` as stored (#2857; ``None`` when the profile has none or a value this code does
+        not know) - which hours the rule may judge is the engine's decision. Each plant carries its phase's
         machine name (``phase_code``) and its display name. At most :data:`MAX_PHOTOPERIOD_PLANTS` plants, ordered
         by key; the caller resolved the location under the tenant first.
         """

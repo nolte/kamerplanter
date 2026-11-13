@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.common.enums import TransitionTriggerType
+from app.common.enums import PhotoperiodSource, TransitionTriggerType
 
 # ── Environmental-physiology literals (REQ-003 v2.6) ─────────────────
 type VpdSensitivity = Literal["low", "medium", "high"]
@@ -16,6 +16,11 @@ class RequirementProfile(BaseModel):
     phase_key: str = ""
     light_ppfd_target: int = Field(default=400, ge=0)
     photoperiod_hours: float = Field(default=18.0, ge=0, le=24)
+    photoperiod_source: PhotoperiodSource | None = Field(
+        default=None,
+        description="Where photoperiod_hours came from (#2857): sourced, generated or default; "
+        "None = stored before the provenance existed, origin unknown.",
+    )
     light_spectrum: dict[str, float] = Field(default_factory=lambda: {"red": 0.6, "blue": 0.3, "far_red": 0.1})
     temperature_day_c: float = Field(default=25.0)
     temperature_night_c: float = Field(default=20.0)

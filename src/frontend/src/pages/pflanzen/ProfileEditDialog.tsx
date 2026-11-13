@@ -160,6 +160,10 @@ export default function ProfileEditDialog({
                 <FormNumberField name="req.light_ppfd_target" control={control} label={t('pages.profiles.lightPpfd')} min={0} suffix="PPFD" helperText="0–2000 μmol/m²/s" autoFocus />
                 <FormNumberField name="req.photoperiod_hours" control={control} label={t('pages.profiles.photoperiodHours')} min={0} max={24} step={0.5} suffix="h" helperText="0–24 h" />
               </FormRow>
+              {/* #2857: the server stores the saved light hours as entered (`sourced`); say so before saving. */}
+              <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }} data-testid="profile-photoperiod-source-hint">
+                {t('pages.profiles.photoperiodSourceHint')}
+              </Typography>
               <FormRow>
                 <FormNumberField name="req.temperature_day_c" control={control} label={t('pages.profiles.tempDay')} step={0.5} suffix="°C" helperText="18–30 °C" />
                 <FormNumberField name="req.temperature_night_c" control={control} label={t('pages.profiles.tempNight')} step={0.5} suffix="°C" helperText="15–25 °C" />

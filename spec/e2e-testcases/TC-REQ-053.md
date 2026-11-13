@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.25"
+version: "1.26"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,9 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.26 (2026-11-13, #2857)** — TC-053-114: Vorbedingung „nur Phasen mit belegter Lichtdauer“ (Hanf vegetativ
+18 h und Blüte 12 h aus dem Steckbrief); der Zelt-Hinweis zählt nur belegte Lichtdauern (REQ-053 §9.2a).
 
 **Version 1.25 (2026-11-13, #2913)** — TC-053-103: achtes Werkzeug „Text“ (Schritt 8: Ankerpunkt setzen, Text im
 Dialog, die Beschriftung steht nach dem Speichern als `text_label` im Plan).
@@ -3742,6 +3745,9 @@ Bildschirmfoto; der Befund ist gemeldet.
 - Indoor-Site mit „Zelt A“ und „Zelt B“
 - Aus dem Phasenprofil der Hanf-Phasen (ohne Jungpflanzen-Phasen) die Phase mit der längsten und die mit der kürzesten
   Lichtdauer (mindestens 1 Stunde auseinander)
+- Nur Phasen, deren Lichtdauer aus dem Steckbrief stammt (Herkunft „aus dem Steckbrief oder eingetragen“), kommen in
+  Frage (#2857, REQ-053 §9.2a): Die Saatdaten übertragen die Lichtdauern aus dem Hanf-Steckbrief auf die Hanf-Phasen
+  (vegetativ 18 h, Blüte 12 h); eine Phase ohne Steckbrief-Angabe (Spülung) zählt nicht
 - In Zelt A je eine Pflanze in jeder der beiden Phasen; in Zelt B zwei Pflanzen in der Phase mit der längsten Lichtdauer
 
 **Testschritte**:

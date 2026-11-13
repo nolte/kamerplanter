@@ -32,6 +32,7 @@ from app.common.enums import (
     GrowthHabit,
     NutrientDemand,
     NutrientDemandLevel,
+    PhotoperiodSource,
     PhotoperiodType,
     PlantCategory,
     PropagationDifficulty,
@@ -57,6 +58,7 @@ from app.domain.models.species import (
 )
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
+from app.migrations.seed_photoperiod_source import stamp_steckbrief_photoperiod
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -640,6 +642,9 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                                 if getattr(req_profile, field) != req[field]:
                                     setattr(req_profile, field, req[field])
                                     req_changed = True
+                            # Stated hours are sourced; a value the phase leaves out keeps its origin (#2857).
+                            if stamp_steckbrief_photoperiod(req_profile, req):
+                                req_changed = True
                             if req_changed:
                                 lifecycle_repo.update_requirement_profile(req_profile.key, req_profile)
                                 updated_count += 1
@@ -747,6 +752,8 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 phase_key=phase_key,
                 light_ppfd_target=req["light_ppfd_target"],
                 photoperiod_hours=req["photoperiod_hours"],
+                # The Steckbrief states the hours of this phase (#2857).
+                photoperiod_source=PhotoperiodSource.SOURCED,
                 temperature_day_c=req["temperature_day_c"],
                 temperature_night_c=req["temperature_night_c"],
                 humidity_day_percent=req["humidity_day_percent"],

@@ -424,12 +424,13 @@ class PhotoperiodGroupResponse(BaseModel):
 class TentHintResponse(BaseModel):
     """A light-schedule hint of a tent or shelf level (REQ-053 §9.2a, W-016.6, V-23): a hint, never an error.
 
-    `tent.photoperiod_conflict` (`warning`): according to the stored phase profiles (the requirement profile of their
-    current phase), the plants ask for photoperiods at least one hour apart. A stored photoperiod may be a default
-    rather than a sourced value, so this is never stated as fact. Plants in a young phase (germination, seedling,
-    rooting, establishment) take no part. `tent.photoperiod_unknown` (`info`): at least one plant's phase names no
-    photoperiod, so the check could not judge it - nothing is assumed (E-10); `unknown_plant_names` names the first
-    five of them.
+    `tent.photoperiod_conflict` (`warning`): according to the phase profiles (the requirement profile of their current
+    phase), the plants ask for photoperiods at least one hour apart. Only light hours with `photoperiod_source =
+    sourced` (from a Steckbrief or entered in the profile editor) form groups (#2857). Plants in a young phase
+    (germination, seedling, rooting, establishment) take no part. `tent.photoperiod_unknown` (`info`): at least one
+    plant's phase names no sourced photoperiod - no profile, or hours that are generated, a default or of unknown
+    origin - so the check could not judge it; nothing is assumed (E-10). `unknown_plant_names` names the first five
+    of them; a conflict hint counts and names them too.
     """
 
     model_config = ConfigDict(
@@ -450,7 +451,7 @@ class TentHintResponse(BaseModel):
     severity: TentHintSeverity
     groups: list[PhotoperiodGroupResponse] = Field(default_factory=list)
     unknown_plant_count: int = Field(default=0, ge=0)
-    #: The first five plants (by name) whose photoperiod is unknown; `unknown_plant_count` counts all of them.
+    #: The first five plants (by name) whose photoperiod is unknown (none sourced); `unknown_plant_count` counts all.
     unknown_plant_names: list[str] = Field(default_factory=list, max_length=MAX_NAMED_UNKNOWN_PLANTS)
 
     @classmethod

@@ -3204,3 +3204,20 @@ default_phases:
       npk_ratio: [0, 1, 2]
       target_ec_ms: 1.2
       target_ph: 6.0
+
+# Light hours a Steckbrief states for the phases a species is seeded with from `default_phases` (#2857, REQ-003,
+# REQ-053 §9.2a). The generic phases carry the phase-name table's hours (`photoperiod_source: generated`), which the
+# tent hint does not judge. For a species listed here, seed_data writes the stated hours onto the phase of that name
+# and marks them `sourced` - also on an existing installation, without a migration. Only phases the Steckbrief states
+# are listed (E-10): a phase it has no row for keeps its generated value. `steckbrief_phase` names the Steckbrief's
+# "#### Phase: ..." heading; the value is the photoperiod-type figure of its `requirement_profiles.photoperiod_hours`
+# row (the first number: "18/6" -> 18, "12/12" -> 12). seed_steckbrief_consistency compares both, so they cannot drift.
+# A species whose phases a plant_info / adventskalender file carries must not be listed: those phases are sourced there.
+steckbrief_phase_photoperiods:
+  Cannabis sativa:
+    steckbrief: cannabis_sativa.md
+    phases:
+      seedling: { hours: 18, steckbrief_phase: "Saemling (Seedling)" }
+      vegetative: { hours: 18, steckbrief_phase: "Vegetativ" }
+      flowering: { hours: 12, steckbrief_phase: "Hauptbluete (Flowering)" }
+      ripening: { hours: 12, steckbrief_phase: "Spaetbluete / Reifung (Late Flowering)" }

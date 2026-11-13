@@ -16,7 +16,7 @@ einem Konflikt gewinnt der Seed; der Steckbrief wird angeglichen.
 
 ## Erzwungen durch
 
-`app/migrations/seed_steckbrief_consistency.py` verdrahtet fünf Attribute zum
+`app/migrations/seed_steckbrief_consistency.py` verdrahtet fünf Attribute und die Lichtdauer je Phase (#2857) zum
 Abgleich zwischen den KA-Feld-verankerten Tabellen der Steckbriefe und den
 Seed-YAMLs und **bricht bei Drift** (Exit-Code ≠ 0):
 
@@ -27,6 +27,7 @@ Seed-YAMLs und **bricht bei Drift** (Exit-Code ≠ 0):
 | `photoperiod_type` | `plant_info*.yaml:lifecycle_configs[<name>]` | aktiv |
 | `flowering_strategy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` | aktiv |
 | `growth_determinacy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` | latent¹ |
+| `photoperiod_hours` je Phase (#2857) | `species.yaml:steckbrief_phase_photoperiods[<name>].phases[<phase>]` gegen die Zeile `requirement_profiles.photoperiod_hours` unter `#### Phase: <steckbrief_phase>` (erste Zahl = Wert für den Photoperiodentyp); fehlt Datei, Überschrift oder Zeile, ist das ebenfalls Drift | aktiv |
 
 Ein Abgleich greift nur, wenn **beide** Seiten einen Wert führen.
 
