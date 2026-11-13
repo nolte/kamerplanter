@@ -143,6 +143,7 @@ class TestTheReport:
             "slots": 0,
             "plan_settings": 0,
             "zones": 0,
+            "bed_photos": 0,
         }
         assert report["would_delete"]["locations"] == 1 and report["would_update"]["plan_settings"] == 1
         assert report["errors"] == [] and report["dropped_references"] == []
