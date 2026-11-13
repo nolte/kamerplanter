@@ -744,6 +744,8 @@ def get_plant_instance_service() -> PlantInstanceService:
         # production, and an absence check reads this call to keep it that way.
         substrate_service=get_substrate_service(),
         species_service=get_species_service(),
+        # REQ-053 GP-UX-071 (#2913): a reserved position refuses a single plant (409 `slot.already_planned`).
+        reservation_repo=get_planting_reservation_repo(),
     )
 
 

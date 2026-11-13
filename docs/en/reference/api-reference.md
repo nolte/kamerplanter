@@ -278,6 +278,8 @@ When the check is off, both routes answer `rotation_applicable: false` with the 
 
 The switch also governs the check per plant place: when the check is off for a bed, `POST …/plant-instances` with a `slot_key` and `POST …/planting-runs/{key}/create-plants` no longer refuse a planting in that bed with `ROTATION_VIOLATION`, and `POST …/plant-instances/slots/{slot_key}/validate-planting` reports it as valid.
 
+**One planting position, one plant.** `POST …/plant-instances` with the `slot_key` of a slot with the role `position` refuses a second plant with **409**: `slot.occupied` when a plant of the tenant stands there already (`removed_on` empty), and `slot.already_planned` with `conflicting_run_key`, `overlap_from` and `overlap_until` when a planned or running planting run reserves the spot for a window that has not ended. Both are in `details[0]` with `field: "slot_key"`. Rows and areas (`row`, `zone`) keep taking several plants. The check reads before it writes; two simultaneous requests for the same spot can both pass it, as when the plants of a planting run are created. <!-- REQ-053 V-25, GP-UX-071 -->
+
 **Error codes:**
 
 | HTTP status | Code | Meaning |

@@ -35,7 +35,6 @@ interface PlantBackend {
  */
 function usePlantBackend(options: {
   valid?: boolean;
-  taken?: boolean;
   createError?: { status: number; code: string };
 } = {}): PlantBackend {
   usePlantingBackend({ species: [LETTUCE] });
@@ -43,18 +42,6 @@ function usePlantBackend(options: {
   server.use(
     http.post(`${BASE}/plant-instances/slots/:slot/validate-planting`, () =>
       HttpResponse.json({ valid: options.valid ?? true, warnings: [], benefits: [] }),
-    ),
-    http.get(`${BASE}/slots/:key`, ({ params }) =>
-      HttpResponse.json({
-        key: params.key,
-        slot_id: 'B1_2',
-        location_key: 'b1',
-        capacity_plants: 1,
-        currently_occupied: options.taken ?? false,
-        last_sanitization: null,
-        created_at: null,
-        updated_at: null,
-      }),
     ),
     http.post(`${BASE}/plant-instances`, async ({ request }) => {
       const body = (await request.json()) as Record<string, unknown>;
@@ -254,8 +241,8 @@ describe('the plant dialog', () => {
     expect(screen.getByTestId('garden-plan-plant-dialog')).toBeInTheDocument();
   });
 
-  it('a slot taken meanwhile is refused before the create; any other error reads in the dialog too', async () => {
-    const backend = usePlantBackend({ taken: true });
+  it("a slot taken meanwhile: the server's 409 slot.occupied reads as its sentence in the dialog", async () => {
+    const backend = usePlantBackend({ createError: { status: 409, code: 'slot.occupied' } });
     const user = userEvent.setup();
     const t = plantSetup();
     t.click(4.5, 4.5);
@@ -266,7 +253,9 @@ describe('the plant dialog', () => {
     expect(await within(dialog).findByTestId('garden-plan-plant-dialog-error')).toHaveTextContent(
       'A plant stands on this planting spot by now',
     );
-    expect(backend.created).toEqual([]);
+    // The request went out: the server decides, the client does not guess from an older read.
+    expect(backend.created).toHaveLength(1);
+    expect(backend.planReads).toBe(1);
   });
 
   it('a server error that has no sentence of its own still shows one in the dialog', async () => {

@@ -6673,7 +6673,8 @@
             "busy": "The plan is being saved right now. Try again in a moment.",
             "save_first": "Your unsaved changes to the plan could not be saved. Save them first, then set the plant.",
             "slot_taken": "A plant stands on this planting spot by now. The plan has been reloaded – choose another free spot.",
-            "failed": "The plant could not be set. Check your entries and try again."
+            "failed": "The plant could not be set. Check your entries and try again.",
+            "slot_reserved": "This planting spot is reserved for a planned planting by now. The plan has been reloaded – choose another free spot."
           },
           "done": "{{species}} set in {{bed}}.",
           "doneNotShown": "{{species}} set in {{bed}}. The plan shows the plant once it is loaded again.",

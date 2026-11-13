@@ -278,6 +278,8 @@ Ist die Prüfung aus, antworten beide Routen mit `rotation_applicable: false` un
 
 Der Schalter gilt auch für die Prüfung je Pflanzplatz: Ist die Prüfung für ein Beet aus, lehnen `POST …/plant-instances` mit `slot_key` und `POST …/planting-runs/{key}/create-plants` eine Pflanzung in diesem Beet nicht mehr mit `ROTATION_VIOLATION` ab, und `POST …/plant-instances/slots/{slot_key}/validate-planting` meldet sie als zulässig.
 
+**Ein Pflanzplatz, eine Pflanze.** `POST …/plant-instances` mit dem `slot_key` eines Pflanzplatzes der Rolle `position` lehnt eine zweite Pflanze mit **409** ab: `slot.occupied`, wenn dort schon eine Pflanze des Mandanten steht (`removed_on` leer), und `slot.already_planned` mit `conflicting_run_key`, `overlap_from` und `overlap_until`, wenn ein laufender oder geplanter Pflanzlauf den Platz für ein Zeitfenster reserviert, das noch nicht vorbei ist. Beide stehen in `details[0]` mit `field: "slot_key"`. Reihen und Flächen (`row`, `zone`) nehmen weiter mehrere Pflanzen auf. Die Prüfung liest vor dem Schreiben; zwei gleichzeitige Anfragen auf denselben Platz können sie beide passieren, wie beim Anlegen der Pflanzen eines Pflanzlaufs. <!-- REQ-053 V-25, GP-UX-071 -->
+
 **Fehlercodes:**
 
 | HTTP-Status | Code | Bedeutung |

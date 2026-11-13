@@ -99,10 +99,11 @@ from app.domain.models.site import Location, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
+from app.domain.services.slot_occupancy import ERROR_SLOT_ALREADY_PLANNED
 
 logger = structlog.get_logger()
 
-ERROR_ALREADY_PLANNED = "slot.already_planned"
+ERROR_ALREADY_PLANNED = ERROR_SLOT_ALREADY_PLANNED
 ERROR_SPACING_REQUIRED = "layout.spacing_required"
 ERROR_QUOTA = "plan.quota_exceeded"
 ERROR_NOT_ENOUGH_SLOTS = "succession.not_enough_slots"

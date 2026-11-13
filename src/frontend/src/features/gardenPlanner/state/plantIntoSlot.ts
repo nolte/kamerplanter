@@ -10,7 +10,6 @@
  */
 import { isApiError } from '@/api/errors';
 import { createPlantInstance } from '@/api/endpoints/plantInstances';
-import { getSlot } from '@/api/endpoints/sites';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 import { refreshGardenPlan, saveGardenPlan, selectGardenPlanState, type GardenPlanState } from './gardenPlanSlice';
 
@@ -27,10 +26,20 @@ export interface PlantIntoSlotArg {
 /**
  * Why nothing was planted: `offline` - no connection; `busy` - a save or a template placement is running, or the plan
  * is in conflict; `save_first` - the unsaved edits could not be saved; `slot_taken` - the slot was occupied meanwhile;
- * `rotation` / `companion` - the server refuses the single plant for a critical crop-rotation finding or an
- * incompatible neighbour (no override for a single plant); `failed` - anything else, with the error.
+ * `slot_reserved` - a planned run reserves the position (409 `slot.already_planned`, V-08); `rotation` / `companion` -
+ * the server refuses the single plant for a critical crop-rotation finding or an incompatible neighbour (no override
+ * for a single plant); `failed` - anything else, with the error. `slot_taken` is the server's 409 `slot.occupied`
+ * (REQ-053 V-25): the position carries a plant already - the server decides, a client read could not close the race.
  */
-export type PlantRefusal = 'offline' | 'busy' | 'save_first' | 'slot_taken' | 'rotation' | 'companion' | 'failed';
+export type PlantRefusal =
+  | 'offline'
+  | 'busy'
+  | 'save_first'
+  | 'slot_taken'
+  | 'slot_reserved'
+  | 'rotation'
+  | 'companion'
+  | 'failed';
 
 export type PlantIntoSlotOutcome =
   | { ok: true; plantKey: string; refreshed: boolean }
@@ -40,8 +49,13 @@ type State = { gardenPlan?: GardenPlanState };
 /** Any store that holds the plan slice: the app's root store, or a test store of the slice alone. */
 type PlanDispatch = ThunkDispatch<State, unknown, UnknownAction>;
 
-/** The server's codes for the two refusals of `create_plant` that the bed's planting dialog can override. */
+/**
+ * The server's codes for the refusals of `create_plant` the dialog has a sentence for: the position is taken or
+ * reserved (V-25 / V-08), and the two the bed's planting dialog can override.
+ */
 const REFUSAL_BY_CODE: Record<string, PlantRefusal> = {
+  'slot.occupied': 'slot_taken',
+  'slot.already_planned': 'slot_reserved',
   ROTATION_VIOLATION: 'rotation',
   INCOMPATIBLE_COMPANION: 'companion',
 };
@@ -63,13 +77,6 @@ export function plantIntoSlot(arg: PlantIntoSlotArg) {
     }
     const siteKey = current.plan.siteKey;
     try {
-      // The plan may be older than the slot: somebody may have planted it meanwhile (the server does not refuse a
-      // second plant on an occupied slot).
-      const slot = await getSlot(arg.slotKey);
-      if (slot.currently_occupied) {
-        await dispatch(refreshGardenPlan(siteKey));
-        return { ok: false, code: 'slot_taken' };
-      }
       const created = await createPlantInstance({
         instance_id: arg.instanceId,
         species_key: arg.speciesKey,
@@ -83,7 +90,10 @@ export function plantIntoSlot(arg: PlantIntoSlotArg) {
       return { ok: true, plantKey: created.key, refreshed: refreshGardenPlan.fulfilled.match(refreshed) };
     } catch (error) {
       const code = isApiError(error) ? REFUSAL_BY_CODE[error.errorCode] : undefined;
-      return code ? { ok: false, code } : { ok: false, code: 'failed', error };
+      if (!code) return { ok: false, code: 'failed', error };
+      // The plan is older than the slot: show what stands or is planned there now.
+      if (code === 'slot_taken' || code === 'slot_reserved') await dispatch(refreshGardenPlan(siteKey));
+      return { ok: false, code };
     }
   };
 }

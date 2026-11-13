@@ -6,8 +6,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api/errors';
 import * as plantApi from '@/api/endpoints/plantInstances';
-import * as sitesApi from '@/api/endpoints/sites';
-import type { PlantInstance, Slot } from '@/api/types';
+import type { PlantInstance } from '@/api/types';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import * as api from '../api/gardenPlan';
 import gardenPlanReducer, {
@@ -27,15 +26,10 @@ vi.mock('@/api/endpoints/plantInstances', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/endpoints/plantInstances')>()),
   createPlantInstance: vi.fn(),
 }));
-vi.mock('@/api/endpoints/sites', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/api/endpoints/sites')>()),
-  getSlot: vi.fn(),
-}));
 
 const getGardenPlan = vi.mocked(api.getGardenPlan);
 const applyPlanBatch = vi.mocked(api.applyPlanBatch);
 const createPlantInstance = vi.mocked(plantApi.createPlantInstance);
-const getSlot = vi.mocked(sitesApi.getSlot);
 
 const ARG: PlantIntoSlotArg = {
   bedKey: 'loc_b1',
@@ -45,19 +39,6 @@ const ARG: PlantIntoSlotArg = {
   plantedOn: '2026-11-13',
   instanceId: 'LACTU-1113-ABC',
 };
-
-function slot(occupied: boolean): Slot {
-  return {
-    key: 'slot_1',
-    slot_id: 'B1_1',
-    location_key: 'loc_b1',
-    capacity_plants: 1,
-    currently_occupied: occupied,
-    last_sanitization: null,
-    created_at: null,
-    updated_at: null,
-  };
-}
 
 function apiError(status: number, code: string): ApiError {
   return new ApiError(
@@ -80,7 +61,6 @@ beforeEach(() => {
 describe('plantIntoSlot', () => {
   it('creates one plant with the slot, its bed and the site, then reads the plan again', async () => {
     const store = await loaded();
-    getSlot.mockResolvedValue(slot(false));
     createPlantInstance.mockResolvedValue({ key: 'p_new' } as PlantInstance);
     const outcome = await store.dispatch(plantIntoSlot(ARG));
     expect(outcome).toEqual({ ok: true, plantKey: 'p_new', refreshed: true });
@@ -101,7 +81,6 @@ describe('plantIntoSlot', () => {
     const store = await loaded();
     store.dispatch(setPlanOffline(true));
     expect(await store.dispatch(plantIntoSlot(ARG))).toEqual({ ok: false, code: 'offline' });
-    expect(getSlot).not.toHaveBeenCalled();
     expect(createPlantInstance).not.toHaveBeenCalled();
     expect(selectGardenPlanState(store.getState()).pending).toHaveLength(0);
   });
@@ -115,7 +94,6 @@ describe('plantIntoSlot', () => {
 
     const revision = selectGardenPlanState(store.getState()).plan!.revision;
     applyPlanBatch.mockResolvedValue({ plan_revision: revision + 1, key_map: {}, updated: [], deleted: [], derived: {} });
-    getSlot.mockResolvedValue(slot(false));
     createPlantInstance.mockResolvedValue({ key: 'p_new' } as PlantInstance);
     // A failed save leaves the plan in its failed state: a retry reloads first in the editor; here the save goes again.
     const second = await loaded();
@@ -125,17 +103,18 @@ describe('plantIntoSlot', () => {
     expect(applyPlanBatch).toHaveBeenCalledTimes(2);
   });
 
-  it('a slot taken meanwhile is refused before the create, and the plan is read again', async () => {
+  it("the server's refusal of a taken or reserved position (V-25, V-08) is named, and the plan is read again", async () => {
     const store = await loaded();
-    getSlot.mockResolvedValue(slot(true));
+    createPlantInstance.mockRejectedValueOnce(apiError(409, 'slot.occupied'));
     expect(await store.dispatch(plantIntoSlot(ARG))).toEqual({ ok: false, code: 'slot_taken' });
-    expect(createPlantInstance).not.toHaveBeenCalled();
     expect(getGardenPlan).toHaveBeenCalledTimes(2);
+    createPlantInstance.mockRejectedValueOnce(apiError(409, 'slot.already_planned'));
+    expect(await store.dispatch(plantIntoSlot(ARG))).toEqual({ ok: false, code: 'slot_reserved' });
+    expect(getGardenPlan).toHaveBeenCalledTimes(3);
   });
 
   it('maps the two refusals the bed dialog can override; anything else carries its error', async () => {
     const store = await loaded();
-    getSlot.mockResolvedValue(slot(false));
     createPlantInstance.mockRejectedValueOnce(apiError(422, 'ROTATION_VIOLATION'));
     expect(await store.dispatch(plantIntoSlot(ARG))).toEqual({ ok: false, code: 'rotation' });
     createPlantInstance.mockRejectedValueOnce(apiError(422, 'INCOMPATIBLE_COMPANION'));

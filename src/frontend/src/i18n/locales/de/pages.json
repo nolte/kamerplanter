@@ -6674,7 +6674,8 @@
             "busy": "Der Plan wird gerade gespeichert. Versuche es gleich noch einmal.",
             "save_first": "Deine ungespeicherten Änderungen am Plan ließen sich nicht speichern. Speichere sie zuerst, dann setzt du die Pflanze.",
             "slot_taken": "Auf diesem Pflanzplatz steht inzwischen eine Pflanze. Der Plan ist neu geladen – wähle einen anderen freien Platz.",
-            "failed": "Die Pflanze konnte nicht gesetzt werden. Prüfe deine Angaben und versuche es noch einmal."
+            "failed": "Die Pflanze konnte nicht gesetzt werden. Prüfe deine Angaben und versuche es noch einmal.",
+            "slot_reserved": "Dieser Pflanzplatz ist inzwischen für eine geplante Pflanzung reserviert. Der Plan ist neu geladen – wähle einen anderen freien Platz."
           },
           "done": "{{species}} in {{bed}} gesetzt.",
           "doneNotShown": "{{species}} in {{bed}} gesetzt. Der Plan zeigt die Pflanze nach dem nächsten Laden.",
