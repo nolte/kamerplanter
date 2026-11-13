@@ -454,6 +454,28 @@ class TestBedDelete:
 
         assert events == [f"commit:{result.plan_revision}", "discard"]
 
+    async def test_a_failing_commit_hook_neither_fails_the_batch_nor_skips_the_release(self, world: World) -> None:
+        """#2715 review I: the metric hook runs after the commit; its failure is logged, the photos still go."""
+        world.attachments.add("p1", tenant_key=TENANT)
+        world.add("p1")
+        plans = GardenPlanService(world.repo._sites, world.repo, photos=lambda: world.service)
+
+        def broken(_committed: object) -> None:
+            raise RuntimeError("metrics registry gone")
+
+        result = await plans.apply_batch_async(
+            SITE,
+            tenant_key=TENANT,
+            user_key=ME,
+            role=TenantRole.LEAD,
+            expected_revision=None,
+            operations=[{"op": "delete", "entity": "location", "key": "bed"}],
+            body_bytes=0,
+            on_commit=broken,
+        )
+
+        assert result.plan_revision is not None and world.attachments.deleted == ["p1"]
+
     async def test_discard_released_never_deletes_another_category(self, world: World) -> None:
         world.attachments.add("gallery", tenant_key=TENANT, category=AttachmentCategory.PLANT)
         world.attachments.add("foreign", tenant_key=OTHER_TENANT)

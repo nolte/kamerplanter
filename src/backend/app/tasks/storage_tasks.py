@@ -322,10 +322,16 @@ async def _cleanup_orphaned_underlays(older_than_hours: int, limit: int) -> dict
 async def _delete_orphans(
     orphans: list[Attachment], count_undated: Callable[[], int], *, cutoff: datetime, task: str
 ) -> dict[str, Any]:
-    """Delete the selected orphans one by one through ``AttachmentService``; the audit dict of both sweeps.
+    """Delete the selected orphans one by one through ``AttachmentService``; the audit dict of every sweep.
 
-    ``AttachmentService.delete`` is tenant-scoped and takes the row's own ``tenant_key``, so the installation-wide
-    selection never deletes across a tenant boundary.
+    Each row goes through :meth:`AttachmentService.delete_if_unreferenced` (#2715 review): the reference scan and the
+    record's removal are one transaction (``remove_if_unreferenced``, #2545), and the stored object follows only when
+    the record went. The selection is a snapshot; between it and the delete the upload dedup can hand the old record
+    back (``find_own_by_sha256``) and a carrier name it (``PUT /plan/underlay``, ``POST /locations/{key}/photos``) -
+    an unconditional delete then left that carrier pointing at nothing. A row named meanwhile is ``skipped``.
+
+    The call is tenant-scoped and takes the row's own ``tenant_key``, so the installation-wide selection never
+    deletes across a tenant boundary.
     """
     from app.common.dependencies import get_attachment_service
     from app.common.held_count import held_undated_count
@@ -348,12 +354,13 @@ async def _delete_orphans(
         # orphan behind it for ever, and the sweep would look like it was merely
         # retrying while it had in fact stopped working.
         try:
-            if await service.delete(attachment.key, attachment.tenant_key):
+            if await service.delete_if_unreferenced(attachment.key, attachment.tenant_key):
                 deleted += 1
                 freed_bytes += attachment.byte_size
             else:
                 # Gone between the query and the delete — a manual
-                # ``DELETE /attachments/{id}``, or a concurrent sweep.
+                # ``DELETE /attachments/{id}``, or a concurrent sweep — or named by a
+                # carrier meanwhile (dedup handed the old record back), so it stays.
                 # Counted, so ``found`` and ``deleted + failed + skipped`` keep adding
                 # up; the sibling task upholds the same invariant and the comment
                 # above claims it.

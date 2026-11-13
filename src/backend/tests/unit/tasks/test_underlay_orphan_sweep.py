@@ -98,7 +98,7 @@ class TestTheBody:
         repo.find_orphaned_photos.return_value = [_underlay("a1", "t_a", 100), _underlay("b1", "t_b", 50)]
         repo.count_undated_orphaned_photos.return_value = 0
         service = MagicMock()
-        service.delete = AsyncMock(side_effect=[True, True])
+        service.delete_if_unreferenced = AsyncMock(side_effect=[True, True])
         before = datetime.now(UTC)
 
         with (
@@ -111,5 +111,23 @@ class TestTheBody:
         assert args == (AttachmentCategory.GARDEN_PLAN_UNDERLAY,) and kwargs["limit"] == 500
         assert (before - kwargs["older_than"]).total_seconds() >= 48 * 3600 - 5
         repo.count_undated_orphaned_photos.assert_called_once_with(AttachmentCategory.GARDEN_PLAN_UNDERLAY)
-        assert [call.args for call in service.delete.await_args_list] == [("a1", "t_a"), ("b1", "t_b")]
+        assert [call.args for call in service.delete_if_unreferenced.await_args_list] == [("a1", "t_a"), ("b1", "t_b")]
         assert result["found"] == 2 and result["deleted"] == 2 and result["freed_bytes"] == 150
+
+
+async def test_a_row_named_meanwhile_is_skipped_and_frees_nothing() -> None:
+    """``delete_if_unreferenced`` answers ``False`` for a record a carrier named after the selection."""
+    repo = MagicMock(spec=ArangoAttachmentRepository)
+    repo.find_orphaned_photos.return_value = [_underlay("a1", "t_a", 100)]
+    repo.count_undated_orphaned_photos.return_value = 0
+    service = MagicMock()
+    service.delete_if_unreferenced = AsyncMock(return_value=False)
+    service.delete = AsyncMock(side_effect=AssertionError("the unconditional delete must not be used"))
+
+    with (
+        patch("app.common.dependencies.get_attachment_repo", return_value=repo),
+        patch("app.common.dependencies.get_attachment_service", return_value=service),
+    ):
+        result = await storage_tasks._cleanup_orphaned_underlays(48, 500)
+
+    assert (result["deleted"], result["skipped"], result["freed_bytes"]) == (0, 1, 0)

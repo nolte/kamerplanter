@@ -64,10 +64,30 @@ class FakePhotoAttachments:
         row = self.rows.get(key)
         return row if row is not None and row.tenant_key == tenant_key else None
 
-    def get_many(self, keys: Sequence[str], tenant_key: str) -> dict[str, Attachment]:
+    def get_many(self, keys: Sequence[str], *, tenant_key: str) -> dict[str, Attachment]:
         """One round trip, as the ArangoDB repository answers it (#2715 item 7)."""
         self.batch_reads.append(list(keys))
         return {key: row for key in keys if (row := self.rows.get(key)) is not None and row.tenant_key == tenant_key}
+
+    def releasable_after_location_delete(
+        self, attachment_ids: Sequence[str], *, tenant_key: str, location_keys: Sequence[str]
+    ) -> list[str]:
+        """The rule of :meth:`delete_if_unreferenced`, asked with *location_keys* already gone (#2715 review F)."""
+        gone = set(location_keys)
+        named = {
+            ref
+            for key, loc in self._repo.locations.items()
+            if key not in gone
+            for ref in [*loc.photo_refs, *([loc.cover_photo_ref] if loc.cover_photo_ref else [])]
+        }
+        return [
+            key
+            for key in dict.fromkeys(attachment_ids)
+            if (row := self.get(key, tenant_key)) is not None
+            and row.category == AttachmentCategory.LOCATION
+            and key not in named
+            and key not in self.held_elsewhere
+        ]
 
     async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
         if self.fail_with is not None:

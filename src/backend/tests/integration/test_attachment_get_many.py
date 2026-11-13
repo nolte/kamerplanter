@@ -58,7 +58,7 @@ def repo():  # type: ignore[no-untyped-def]
 
 
 def test_one_query_answers_the_tenants_records_and_nothing_else(repo) -> None:  # type: ignore[no-untyped-def]
-    found = repo.get_many(["p3", "foreign", "missing", "p1", "p3"], TENANT)
+    found = repo.get_many(["p3", "foreign", "missing", "p1", "p3"], tenant_key=TENANT)
 
     assert set(found) == {"p3", "p1"}
     assert all(attachment.tenant_key == TENANT for attachment in found.values())
@@ -66,10 +66,10 @@ def test_one_query_answers_the_tenants_records_and_nothing_else(repo) -> None:  
 
 
 def test_the_other_tenant_reads_only_its_own(repo) -> None:  # type: ignore[no-untyped-def]
-    assert set(repo.get_many(["p1", "foreign"], OTHER_TENANT)) == {"foreign"}
+    assert set(repo.get_many(["p1", "foreign"], tenant_key=OTHER_TENANT)) == {"foreign"}
 
 
-def test_no_keys_is_no_query_and_an_empty_tenant_is_refused(repo) -> None:  # type: ignore[no-untyped-def]
-    assert repo.get_many([], TENANT) == {}
-    with pytest.raises(ValueError, match="tenant"):
-        repo.get_many(["p1"], "")
+def test_no_keys_and_an_empty_tenant_read_as_absent_like_get(repo) -> None:  # type: ignore[no-untyped-def]
+    """#2715 review G: ``get_many`` answers like ``get`` and the interface default - never a cross-tenant read."""
+    assert repo.get_many([], tenant_key=TENANT) == {}
+    assert repo.get_many(["p1"], tenant_key="") == {} and repo.get("p1", "") is None

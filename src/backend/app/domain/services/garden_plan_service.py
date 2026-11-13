@@ -647,7 +647,10 @@ class GardenPlanService:
             body_bytes=body_bytes,
         )
         if on_commit is not None:
-            on_commit(result)
+            try:
+                on_commit(result)
+            except Exception as exc:  # noqa: BLE001 — the batch has committed; a metric must not skip the release
+                logger.warning("garden_plan.batch_commit_hook_failed", site_key=site_key, error_type=type(exc).__name__)
         await release_location_photos(self._photos, result.released_photo_refs, tenant_key=tenant_key)
         return result
 

@@ -99,7 +99,7 @@ class TestTheBody:
         repo.find_orphaned_photos.return_value = [_photo("a1", "t_a", 100), _photo("b1", "t_b", 50)]
         repo.count_undated_orphaned_photos.return_value = 2
         service = MagicMock()
-        service.delete = AsyncMock(side_effect=[True, RuntimeError("storage down")])
+        service.delete_if_unreferenced = AsyncMock(side_effect=[True, RuntimeError("storage down")])
         before = datetime.now(UTC)
 
         with (
@@ -113,7 +113,7 @@ class TestTheBody:
         assert (before - kwargs["older_than"]).total_seconds() >= 48 * 3600 - 5
         repo.find_orphaned_task_photos.assert_not_called()
         repo.count_undated_orphaned_photos.assert_called_once_with(AttachmentCategory.LOCATION)
-        assert [call.args for call in service.delete.await_args_list] == [("a1", "t_a"), ("b1", "t_b")]
+        assert [call.args for call in service.delete_if_unreferenced.await_args_list] == [("a1", "t_a"), ("b1", "t_b")]
         assert {key: result[key] for key in ("found", "deleted", "failed", "skipped", "freed_bytes")} == {
             "found": 2,
             "deleted": 1,

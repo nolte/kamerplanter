@@ -222,3 +222,12 @@ def test_every_caller_of_an_unreleasing_bed_delete_releases_or_is_decided() -> N
 def test_no_decision_is_stale() -> None:
     assert sorted(set(_NO_BED_DELETE) - set(_unreleased_callers())) == []
     assert all(reason.strip() for reason in _NO_BED_DELETE.values())
+
+
+def test_nothing_in_the_app_calls_the_repository_bed_delete_that_returns_no_photos() -> None:
+    """#2715 review H: ``ISiteRepository.delete_location`` removes beds and returns a ``bool`` - no carrier, so the
+    rule above cannot see the photos it drops. ``SiteService.delete_location``, its last caller, is gone; a new one
+    has to go through the plan batch (``GardenResourceService.delete_bed``) instead."""
+    callers = sorted(function.qualname for function in _functions() if "delete_location" in function.calls())
+
+    assert callers == []

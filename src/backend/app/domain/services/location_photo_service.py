@@ -67,6 +67,10 @@ class LocationPhotoDiscard(Protocol):
 
     async def discard_released(self, attachment_ids: Iterable[str], *, tenant_key: str) -> int: ...
 
+    def count_releasable(
+        self, attachment_ids: Iterable[str], *, tenant_key: str, location_keys: Iterable[str]
+    ) -> int: ...
+
 
 class LocationPhotoService:
     def __init__(
@@ -128,7 +132,7 @@ class LocationPhotoService:
     ) -> LocationPhotoGallery:
         # Comprehensions, not ``append``: the write-route sweep cannot type a list receiver (its ceiling, #2039).
         # One round trip for the whole gallery (#2715 item 7), not one ``get`` per photo.
-        records = self._attachment_repo.get_many(state.photo_refs, tenant_key)
+        records = self._attachment_repo.get_many(state.photo_refs, tenant_key=tenant_key)
         found = [(ref, records.get(ref)) for ref in state.photo_refs]
         shown = [(ref, attachment) for ref, attachment in found if attachment is not None]
         # A stale reference (its record is gone) is skipped, and so is a stale cover: the view names a cover only
@@ -257,6 +261,22 @@ class LocationPhotoService:
         return await asyncio.to_thread(self._view, key, state, tenant_key=tenant_key, user_key=user_key, role=role)
 
     # ── after a bed or site delete ────────────────────────────────────────
+
+    def count_releasable(self, attachment_ids: Iterable[str], *, tenant_key: str, location_keys: Iterable[str]) -> int:
+        """How many of *attachment_ids* :meth:`discard_released` would delete once *location_keys* are gone.
+
+        #2715 review F: the import dry run states the photos the replace deletes. The same rule as the discard -
+        the tenant's own ``location`` record, named by no carrier once those beds are gone (a kept bed, another bed
+        or a gallery keeps it; a stale reference has no record) - asked before the delete, read-only.
+        """
+        ids = _unique(attachment_ids)
+        if not ids:
+            return 0
+        return len(
+            self._attachment_repo.releasable_after_location_delete(
+                ids, tenant_key=tenant_key, location_keys=list(location_keys)
+            )
+        )
 
     async def discard_released(self, attachment_ids: Iterable[str], *, tenant_key: str) -> int:
         """Delete the photos a committed bed (or site) delete let go of, unless something else still names them.

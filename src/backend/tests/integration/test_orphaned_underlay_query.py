@@ -143,6 +143,31 @@ async def test_an_underlay_whose_site_let_go_of_it_is_collected(db) -> None:  # 
     assert "named" not in _keys(db)
 
 
+async def test_an_underlay_named_after_the_selection_survives_the_sweep(db) -> None:  # type: ignore[no-untyped-def]
+    """#2715 review: the upload dedup hands an old record back and the PUT names it between the sweep's selection
+    and its delete. The delete re-checks the references in its own transaction, so the site keeps its picture."""
+    repo = ArangoAttachmentRepository(db)
+    select = repo.find_orphaned_photos
+
+    def select_then_link(*args, **kwargs):  # type: ignore[no-untyped-def]
+        selected = select(*args, **kwargs)
+        db.collection(col.SITES).insert(_site("site-2", "never-named"))  # PUT /plan/underlay lands now
+        return selected
+
+    storage = AsyncMock()
+    service = AttachmentService(storage=storage, attachment_repo=repo, settings=settings)
+    with (
+        patch.object(repo, "find_orphaned_photos", side_effect=select_then_link),
+        patch("app.common.dependencies.get_attachment_repo", return_value=repo),
+        patch("app.common.dependencies.get_attachment_service", return_value=service),
+    ):
+        result = await storage_tasks._cleanup_orphaned_underlays(FLOOR_HOURS, 500)
+
+    assert "never-named" in _keys(db)
+    assert not any("obj-never-named.jpg" in call.args[0] for call in storage.delete_object.await_args_list)
+    assert result["found"] == 2 and result["deleted"] == 1 and result["skipped"] == 1
+
+
 async def test_a_second_run_deletes_nothing(db) -> None:  # type: ignore[no-untyped-def]
     await _sweep(db)
 

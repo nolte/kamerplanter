@@ -136,6 +136,31 @@ async def test_a_never_linked_bed_photo_past_the_floor_is_deleted_and_nothing_el
     assert not any("obj-linked" in key or "obj-fresh" in key for key in deleted_objects)
 
 
+async def test_a_photo_linked_after_the_selection_survives_the_sweep(db) -> None:  # type: ignore[no-untyped-def]
+    """#2715 review: the dedup hands an old record back and the link lands between selection and delete."""
+    repo = ArangoAttachmentRepository(db)
+    select = repo.find_orphaned_photos
+
+    def select_then_link(*args, **kwargs):  # type: ignore[no-untyped-def]
+        selected = select(*args, **kwargs)
+        db.collection(col.LOCATIONS).insert(
+            {"_key": "bed-3", "name": "Beet 3", "site_key": "site-1", "photo_refs": ["never-linked"]}
+        )
+        return selected
+
+    storage = AsyncMock()
+    service = AttachmentService(storage=storage, attachment_repo=repo, settings=settings)
+    with (
+        patch.object(repo, "find_orphaned_photos", side_effect=select_then_link),
+        patch("app.common.dependencies.get_attachment_repo", return_value=repo),
+        patch("app.common.dependencies.get_attachment_service", return_value=service),
+    ):
+        result = await storage_tasks._cleanup_orphaned_location_photos(FLOOR_HOURS, 500)
+
+    assert "never-linked" in _keys(db) and "never-linked-other-tenant" not in _keys(db)
+    assert result["deleted"] == 1 and result["skipped"] == 1
+
+
 async def test_a_second_run_deletes_nothing(db) -> None:  # type: ignore[no-untyped-def]
     await _sweep(db)
 
@@ -166,3 +191,17 @@ def test_the_task_query_is_unchanged_by_the_category_parameter(db) -> None:  # t
     assert location == {"never-linked", "never-linked-other-tenant"}
     assert repo.count_undated_orphaned_task_photos() == 0
     assert repo.count_undated_orphaned_photos(AttachmentCategory.LOCATION) == 1
+
+
+def test_the_dry_run_count_asks_the_discards_rule_with_the_deleted_beds_gone(db) -> None:  # type: ignore[no-untyped-def]
+    """#2715 review F: ``releasable_after_location_delete`` - a photo the deleted beds named goes, one a bed that
+    stays, another carrier or another tenant holds does not, a stale ref and another category are not counted."""
+    repo = ArangoAttachmentRepository(db)
+    asked = ["linked", "cover-only", "named-by-a-plant", "never-linked-other-tenant", "gone", "old-task-orphan"]
+
+    both = repo.releasable_after_location_delete(asked, tenant_key=TENANT, location_keys=["bed-1", "bed-2"])
+    one = repo.releasable_after_location_delete(asked, tenant_key=TENANT, location_keys=["bed-1"])
+
+    assert set(both) == {"linked", "cover-only"}
+    assert set(one) == {"linked"}  # bed-2 stays and still names its cover
+    assert repo.releasable_after_location_delete(asked, tenant_key="", location_keys=["bed-1"]) == []
