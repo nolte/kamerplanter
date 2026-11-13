@@ -4,7 +4,7 @@
  * the text run, `rotation_deg` = its turn. The server holds the same rules (`garden_object.py`); the editor checks
  * them before the save so a refusal never reaches the user as a 422.
  */
-import type { GardenObject, Geometry, Point } from './types';
+import type { Geometry, Point } from './types';
 
 /** The longest caption (the server's `TEXT_LABEL_MAX_CHARS`). */
 export const TEXT_LABEL_MAX_CHARS = 80;
@@ -37,10 +37,6 @@ export function textLabelProblem(text: string): TextLabelProblem | null {
   if (textLength(trimmed) > TEXT_LABEL_MAX_CHARS) return 'too_long';
   if (CONTROLS.test(trimmed) || BIDI_CONTROLS.test(trimmed)) return 'control';
   return null;
-}
-
-export function isTextLabel(object: Pick<GardenObject, 'object_type'> | null | undefined): boolean {
-  return object?.object_type === 'text_label';
 }
 
 /** The font size of a caption in metres: its box's height share, smaller where the text would run past the width. */
