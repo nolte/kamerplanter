@@ -261,6 +261,36 @@ class TestGpAcc045:
         assert "&#34;&gt;&lt;image href=&#34;http://169.254.169.254/&#34;/&gt;" in engine.html[-1]
 
 
+class TestACaptionIsPrintedAsText2913:
+    """GP-UX-071 (#2913): a caption's text is user input - escaped in the SVG and in the SVG the PDF embeds."""
+
+    @staticmethod
+    def _caption(repo, label: str) -> None:
+        repo.objects["c1"] = GardenObject(
+            _key="c1",
+            site_key=SITE,
+            object_type=GardenObjectType.TEXT_LABEL,
+            label=label,
+            geometry={"kind": "rect", "origin": [5, 3], "width_m": 3, "length_m": 0.5, "rotation_deg": 0},
+            props={},
+        )
+
+    @pytest.mark.parametrize("hostile", [HOSTILE_IMAGE_NAME, "<script>alert(1)</script>"])
+    def test_the_svg_and_the_pdf_carry_the_caption_as_text(self, repo, opener_calls, hostile) -> None:
+        self._caption(repo, hostile)
+        engine = _CapturingEngine()
+
+        rendered = _service(repo).render_svg(SITE, tenant_key=TENANT, options=_options())
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options())
+
+        for root in (ET.fromstring(rendered.svg), _embedded_svg(engine.html[-1])):
+            assert not list(root.iter(f"{SVG}image")) and not list(root.iter(f"{SVG}script"))
+            (node,) = [e for e in root.iter(f"{SVG}text") if e.attrib.get("data-key") == "c1"]
+            assert "".join(node.itertext()).endswith(hostile)
+        assert "<image" not in rendered.svg and "<script" not in rendered.svg
+        assert all(url.startswith("data:") for url in opener_calls), opener_calls
+
+
 class TestNoPersonalDataByDefault:
     """GP-FR-142 / SR-024: no notes, no coordinates, no account references on paper."""
 

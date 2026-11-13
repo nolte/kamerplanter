@@ -13,6 +13,7 @@ import NearMeIcon from '@mui/icons-material/NearMe';
 import PanToolIcon from '@mui/icons-material/PanTool';
 import ParkIcon from '@mui/icons-material/Park';
 import StraightenIcon from '@mui/icons-material/Straighten';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
 import YardIcon from '@mui/icons-material/Yard';
 import type { PlanTool } from '../state/gardenPlanSlice';
 import { AREA_SHAPES, BOUNDARY_SHAPES, type DrawShape, type DrawTarget } from './tools/drawMachine';
@@ -21,8 +22,9 @@ import { AREA_SHAPES, BOUNDARY_SHAPES, type DrawShape, type DrawTarget } from '.
  * The machine that takes the canvas's pointer and keys while a tool is on. `boundary` is the plan-level boundary mode
  * (#2890): it draws while the plan has no boundary and reshapes it once there is one (see {@link canvasKindOf}).
  * `plant` is a click machine (GP-UX-071, #2913): a click on a free planting spot opens the dialog for it, a drag pans.
+ * `text` is a click machine too (GP-UX-071): a click sets the snapped anchor of a caption and asks for its text.
  */
-export type ToolKind = 'select' | 'pan' | 'draw' | 'measure' | 'plant' | 'boundary';
+export type ToolKind = 'select' | 'pan' | 'draw' | 'measure' | 'plant' | 'text' | 'boundary';
 
 /** What the kind of the active tool means for the canvas around it. */
 export interface KindBehaviour {
@@ -31,9 +33,10 @@ export interface KindBehaviour {
   snapMarker: boolean;
   /**
    * The touch bar's section (GP-UX-036/037): `points` - set point at the crosshair, undo, finish, cancel;
-   * `select` - the multi-select switch; `null` - none.
+   * `place` - set point at the crosshair only (one point, nothing to undo or finish); `select` - the multi-select
+   * switch; `null` - none.
    */
-  touch: 'points' | 'select' | null;
+  touch: 'points' | 'place' | 'select' | null;
 }
 
 export const KIND_BEHAVIOUR: Record<Exclude<ToolKind, 'boundary'>, KindBehaviour> = {
@@ -43,6 +46,8 @@ export const KIND_BEHAVIOUR: Record<Exclude<ToolKind, 'boundary'>, KindBehaviour
   measure: { cursor: 'crosshair', snapMarker: true, touch: 'points' },
   // A tap or click picks a planting spot; there are no points to set, so the touch bar has nothing to offer.
   plant: { cursor: 'pointer', snapMarker: false, touch: null },
+  // The anchor snaps like a drawn corner; below md "set point" puts it at the crosshair - one point, then the dialog.
+  text: { cursor: 'crosshair', snapMarker: true, touch: 'place' },
 };
 
 /** A boundary that exists is reshaped by its handles; a press elsewhere pans (#2890). */
@@ -77,6 +82,8 @@ export const TOOL_DEFS: Record<PlanTool, ToolDef> = {
   plant: { kind: 'plant', rail: LocalFloristIcon },
   // GP-UX-071: transient - nothing is stored, no plan operation, no undo step.
   measure: { kind: 'measure', rail: StraightenIcon },
+  // GP-UX-071: a free caption - a `text_label` garden object, created through the plan batch like a drawn object.
+  text: { kind: 'text', rail: TextFieldsIcon },
   boundary: { kind: 'boundary', draw: { target: 'boundary', shapes: BOUNDARY_SHAPES } },
 };
 

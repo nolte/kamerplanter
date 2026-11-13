@@ -15,7 +15,7 @@ afterEach(() => cleanup());
 const ALL_TOOLS = Object.keys(TOOL_DEFS) as PlanTool[];
 
 describe('the tool registry', () => {
-  it('lists the rail in GP-UX-001 order: select, pan, Bereich before Beet, garden object, Pflanze setzen, Messen; no boundary', () => {
+  it('lists the rail in GP-UX-001 order: select, pan, Bereich before Beet, garden object, Pflanze setzen, Messen, Text; no boundary', () => {
     expect(RAIL_TOOLS.map((entry) => entry.tool)).toEqual([
       'select',
       'pan',
@@ -24,8 +24,10 @@ describe('the tool registry', () => {
       'garden_object',
       'plant',
       'measure',
+      'text',
     ]);
-    expect(RAIL_TOOLS.length).toBeLessThanOrEqual(8);
+    // Text is the eighth and last tool of GP-UX-071: the cap of GP-UX-001 is reached, not passed (#2913).
+    expect(RAIL_TOOLS).toHaveLength(8);
   });
 
   it('hands each tool to its machine; the boundary mode draws until the plan has a boundary (#2890)', () => {
@@ -37,6 +39,7 @@ describe('the tool registry', () => {
       ['garden_object', 'draw'],
       ['plant', 'plant'],
       ['measure', 'measure'],
+      ['text', 'text'],
       ['boundary', 'draw'],
     ]);
     expect(canvasKindOf('boundary', true)).toBe('boundary');
@@ -53,8 +56,11 @@ describe('the tool registry', () => {
       ['garden_object', 'crosshair'],
       ['plant', 'pointer'],
       ['measure', 'crosshair'],
+      // The caption's anchor is aimed like a drawn corner: crosshair and snap marker (GP-UX-071).
+      ['text', 'crosshair'],
       ['boundary', 'crosshair'],
     ]);
+    expect(behaviourOf('text').snapMarker).toBe(true);
     // The boundary that exists is reshaped by its handles: no crosshair. Space pans in every tool (GP-FR-010).
     expect(cursor('boundary', true)).toBe('default');
     expect(cursorOf(behaviourOf('measure'), true)).toBe('grab');
@@ -68,6 +74,9 @@ describe('the tool registry', () => {
     expect(TOOL_DEFS.area.draw).toEqual({ target: 'area', shapes: ['rect', 'polygon'] });
     expect(TOOL_DEFS.area.menu).toBe(true);
     expect(TOOL_DEFS.measure.draw).toBeUndefined();
+    // The text tool is no draw tool: one click, then the dialog - no shapes to pick, no sub-menu.
+    expect(TOOL_DEFS.text.draw).toBeUndefined();
+    expect(TOOL_DEFS.text.menu).toBeUndefined();
   });
 });
 
@@ -100,6 +109,8 @@ describe('the touch bar reads its sections from the registry', () => {
     // "Pflanze setzen" is a tap on a spot: no points to set, no multi-select - the bar offers nothing misleading.
     ['plant', false, false],
     ['measure', true, false],
+    // Text: "set point" alone (its anchor at the crosshair) - see the next test.
+    ['text', true, false],
     ['boundary', false, false],
   ] as const)('%s: point actions %s, multi-select %s', (tool, points, multi) => {
     renderTouchBar(tool);
@@ -107,6 +118,16 @@ describe('the touch bar reads its sections from the registry', () => {
     expect(screen.queryByTestId('garden-plan-touch-multi') !== null).toBe(multi);
     // A tool with neither section and nothing leading shows no bar at all.
     expect(screen.queryByTestId('garden-plan-touchbar') !== null).toBe(points || multi);
+  });
+
+  it('offers the text tool "set point" alone: one anchor, nothing to undo, finish or cancel (GP-UX-071)', () => {
+    const onPlacePoint = vi.fn();
+    renderTouchBar('text', { onPlacePoint });
+    screen.getByTestId('garden-plan-touch-place').click();
+    expect(onPlacePoint).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('garden-plan-touch-undo')).toBeNull();
+    expect(screen.queryByTestId('garden-plan-touch-finish')).toBeNull();
+    expect(screen.queryByTestId('garden-plan-touch-cancel')).toBeNull();
   });
 
   it('finishes a measurement only while it is finishable, and its "cancel" clears it', () => {

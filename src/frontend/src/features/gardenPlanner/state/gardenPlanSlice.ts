@@ -60,7 +60,16 @@ export const HISTORY_LIMIT = 100;
  * GP-FR-019/032, #2890) that the overflow "⋮" and the indoor empty state start. Without a boundary it draws one
  * (rect or polygon); with one it shows the boundary's handles - the boundary is unlocked while the mode is on.
  */
-export type PlanTool = 'select' | 'pan' | 'area' | 'bed' | 'garden_object' | 'plant' | 'measure' | 'boundary';
+export type PlanTool =
+  | 'select'
+  | 'pan'
+  | 'area'
+  | 'bed'
+  | 'garden_object'
+  | 'plant'
+  | 'measure'
+  | 'text'
+  | 'boundary';
 
 export interface SelectionRef {
   entity: PlanEntity | 'slot' | 'plant';

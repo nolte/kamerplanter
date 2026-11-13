@@ -18,14 +18,19 @@ and the model fills it in, but a *mismatching* value is refused.
 class (§9.5 "Geometrieformen"); ``bbox`` is derived from it (GP-FR-007).
 ``off_site = True`` marks scenery outside the garden boundary (the neighbour's
 house, a tree behind the fence) and exempts the object from containment (V-03).
+
+``text_label`` (GP-UX-071, #2913) is no physical object but a caption: its text is
+``label`` (one line, :data:`TEXT_LABEL_MAX_CHARS`), its rect geometry the box the
+text is set in (origin = anchor, ``length_m`` = text height, ``rotation_deg`` = turn).
 """
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Final, Literal, Self
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from app.common.enums import (
     FoliageType,
@@ -64,7 +69,47 @@ ALLOWED_GEOMETRY_KINDS: dict[GardenObjectType, frozenset[GeometryKind]] = {
     GardenObjectType.DOOR: _LINE,
     GardenObjectType.FURNITURE: frozenset({GeometryKind.RECT}),
     GardenObjectType.LAMP: frozenset({GeometryKind.POINT, GeometryKind.RECT}),
+    # GP-UX-071: the text box - origin = the anchor (lower left of the text), length = text height, rotation = turn.
+    GardenObjectType.TEXT_LABEL: frozenset({GeometryKind.RECT}),
 }
+
+#: The longest caption a ``text_label`` takes (GP-UX-071): one line on the plan, not a note.
+TEXT_LABEL_MAX_CHARS: Final = 80
+
+#: Format characters that turn the reading order of a text (bidi embeddings, overrides and isolates). A caption with
+#: one of them could show other text than it stores (a reversed name), so it is refused like a control character.
+_BIDI_CONTROLS: Final = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\u200e\u200f\u061c")
+
+
+#: A caption's glyphs fill this share of its box's height (``length_m``); the rest is the line's air.
+TEXT_LABEL_HEIGHT_SHARE: Final = 0.8
+#: Average glyph width as a share of the font size - the estimate the editor sizes a new caption's box with.
+TEXT_LABEL_GLYPH_EM: Final = 0.6
+
+
+def text_label_font_m(width_m: float, length_m: float, text: str) -> float:
+    """The font size of a caption in metres (GP-UX-071): its box's height share, smaller where the text would run
+    past the box's width. The editor's renderers and the SVG/PDF export draw with the same rule."""
+    by_height = length_m * TEXT_LABEL_HEIGHT_SHARE
+    chars = max(1, len(text))
+    return min(by_height, width_m / (chars * TEXT_LABEL_GLYPH_EM))
+
+
+def text_label_error(text: str) -> str | None:
+    """Why ``text`` (already stripped) is no caption, or ``None``: empty, too long, more than one line, a control.
+
+    One line means no line or paragraph break of any kind (``Cc`` holds LF/CR/TAB, ``Zl``/``Zp`` the Unicode
+    separators); the other controls and the bidi format characters are refused for what they could hide.
+    """
+    if not text:
+        return "A text label needs a text."
+    if len(text) > TEXT_LABEL_MAX_CHARS:
+        return f"A text label holds at most {TEXT_LABEL_MAX_CHARS} characters, got {len(text)}."
+    for char in text:
+        if unicodedata.category(char) in {"Cc", "Zl", "Zp"} or char in _BIDI_CONTROLS:
+            return f"A text label is one line of text without control characters (U+{ord(char):04X})."
+    return None
+
 
 #: A point object (water source, lamp) is drawn as a circle of this fixed radius (§9.5
 #: "circle r = 0,25 m fest"), so its ``bbox`` spans the drawn symbol, not the bare point.
@@ -178,6 +223,12 @@ class FurnitureProps(_PropsBase):
     object_type: Literal[GardenObjectType.FURNITURE] = GardenObjectType.FURNITURE
 
 
+class TextLabelProps(_PropsBase):
+    """GP-UX-071: a caption has no own properties - its text is the object's ``label``, its box the geometry."""
+
+    object_type: Literal[GardenObjectType.TEXT_LABEL] = GardenObjectType.TEXT_LABEL
+
+
 class LampProps(_PropsBase):
     """§9.8: preparation for a light distribution, no calculation. ``ppfd_ref`` is a reference PPFD in µmol/m²/s."""
 
@@ -203,7 +254,8 @@ GardenObjectProps = Annotated[
     | WindowProps
     | DoorProps
     | FurnitureProps
-    | LampProps,
+    | LampProps
+    | TextLabelProps,
     Field(discriminator="object_type"),
 ]
 
@@ -225,6 +277,7 @@ PROPS_BY_TYPE: dict[GardenObjectType, type[_PropsBase]] = {
     GardenObjectType.DOOR: DoorProps,
     GardenObjectType.FURNITURE: FurnitureProps,
     GardenObjectType.LAMP: LampProps,
+    GardenObjectType.TEXT_LABEL: TextLabelProps,
 }
 
 
@@ -250,7 +303,8 @@ class GardenObject(BaseModel):
     #: The area the object lies in (a path inside a greenhouse); containment is checked by the service (V-03).
     parent_location_key: str | None = None
     object_type: GardenObjectType
-    #: Shown on the plan; required for ``other`` (§9.5), optional elsewhere.
+    #: Shown on the plan; required for ``other`` (§9.5), optional elsewhere. A ``text_label``'s text (GP-UX-071): one
+    #: line, 1..:data:`TEXT_LABEL_MAX_CHARS` characters, no control or bidi format character.
     label: str = Field(default="", max_length=200)
     geometry: Geometry
     #: Derived from ``geometry`` in the plan frame (GP-FR-007).
@@ -275,8 +329,14 @@ class GardenObject(BaseModel):
 
     @field_validator("label")
     @classmethod
-    def strip_label(cls, value: str) -> str:
-        return value.strip()
+    def strip_label(cls, value: str, info: ValidationInfo) -> str:
+        stripped = value.strip()
+        # ``object_type`` is declared before ``label``, so it is validated already (absent when it was invalid).
+        if info.data.get("object_type") is GardenObjectType.TEXT_LABEL:
+            error = text_label_error(stripped)
+            if error is not None:
+                raise ValueError(error)
+        return stripped
 
     @model_validator(mode="after")
     def validate_consistency(self) -> Self:

@@ -70,7 +70,9 @@ export type ActionLabel =
   | 'multiDuplicate'
   // The garden boundary (UC-01, GP-FR-019/032, #2890)
   | 'drawBoundary'
-  | 'editBoundary';
+  | 'editBoundary'
+  // A caption set with the text tool (GP-UX-071, #2913)
+  | 'addText';
 
 export type Effect =
   | { type: 'select'; selection: SelectionRef[] }
@@ -82,6 +84,8 @@ export type Effect =
   | { type: 'tool'; tool: PlanTool }
   /** "Pflanze setzen" (GP-UX-071): open the plant dialog for this free point slot of this bed. */
   | { type: 'plantSlot'; bedKey: string; slotKey: string }
+  /** "Text" (GP-UX-071): ask for the text of a new caption anchored at this snapped plan point. */
+  | { type: 'textAnchor'; point: Point }
   /** Zoom to `pxPerM`, keeping the plan point under `anchorPx` (canvas pixels) in place. */
   | { type: 'zoom'; pxPerM: number; anchorPx: Point };
 

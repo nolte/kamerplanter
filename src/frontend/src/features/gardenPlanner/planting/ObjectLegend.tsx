@@ -30,7 +30,10 @@ interface LegendEntry {
   offSite: number;
 }
 
-/** The classes the plan holds, in the order of the object menu, with their counts. */
+/**
+ * The classes the plan holds, in the order of the object menu, with their counts. A caption (`text_label`, GP-UX-071)
+ * is not in that menu and so never a legend class: it explains itself on the plan.
+ */
 function legendEntries(objects: Readonly<Record<string, GardenObject>>): LegendEntry[] {
   const counts = new Map<GardenObjectType, LegendEntry>();
   for (const object of Object.values(objects)) {

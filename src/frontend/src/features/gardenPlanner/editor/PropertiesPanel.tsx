@@ -37,6 +37,13 @@ import { useSiteFacts } from '../bed/useSiteThresholds';
 import { objectTakesTasks } from '../care/careCategories';
 import { bedAxis, oppositeOrientation } from '../model/bedOrientation';
 import { isIndoorPlanSite } from '../model/siteKind';
+import {
+  refitTextLabel,
+  TEXT_LABEL_MAX_CHARS,
+  textLabelProblem,
+  textLength,
+  type TextLabelProblem,
+} from '../model/textLabel';
 import type { PlanModel } from '../model/planModel';
 import type {
   GardenObject,
@@ -227,10 +234,14 @@ function EntityForm({
     entity === 'location' ? plan.locations[entityKey]?.name : plan.gardenObjects[entityKey]?.label;
   const [nameDraft, setNameDraft] = useState(name ?? '');
   const [seenName, setSeenName] = useState(name ?? '');
+  // A caption's text breaks a rule (GP-UX-071): told under the field, nothing is committed until it is fixed.
+  const [captionProblem, setCaptionProblem] = useState<TextLabelProblem | null>(null);
   if ((name ?? '') !== seenName) {
     setSeenName(name ?? '');
     setNameDraft(name ?? '');
+    setCaptionProblem(null);
   }
+  const caption = entity === 'garden_object' && plan.gardenObjects[entityKey]?.object_type === 'text_label';
 
   const violation = (next: Geometry): string | null =>
     firstViolation(plan, [{ entity, key: entityKey, geometry: next }]);
@@ -239,9 +250,40 @@ function EntityForm({
     if (geometry === null || sameGeometry(next, geometry)) return;
     onCommit([{ op: 'update_geometry', entity, key: entityKey, geometry: next }], 'edit');
   };
+  /**
+   * A caption's new text (GP-UX-071): checked like the dialog does, and its box refitted to the text in the same undo
+   * step - the text keeps its size instead of shrinking into the old box. A box the plan refuses there (past the
+   * boundary) is told and nothing changes.
+   */
+  const commitCaption = (trimmed: string) => {
+    const problem = textLabelProblem(trimmed);
+    setCaptionProblem(problem);
+    if (problem !== null || geometry === null) return;
+    const ops: PlanOperation[] = [
+      { op: 'update_fields', entity: 'garden_object', key: entityKey, fields: { label: trimmed } },
+    ];
+    const refitted = refitTextLabel(geometry, trimmed);
+    if (refitted !== null && refitted !== geometry) {
+      const refused = violation(refitted);
+      if (refused) {
+        setError(refused);
+        return;
+      }
+      ops.push({ op: 'update_geometry', entity: 'garden_object', key: entityKey, geometry: refitted });
+    }
+    setError(null);
+    onCommit(ops, 'edit');
+  };
   const commitName = () => {
     const trimmed = nameDraft.trim();
-    if (trimmed === (name ?? '').trim()) return;
+    if (trimmed === (name ?? '').trim()) {
+      setCaptionProblem(null);
+      return;
+    }
+    if (caption) {
+      commitCaption(trimmed);
+      return;
+    }
     if (entity === 'location' && trimmed === '') {
       setNameDraft(name ?? ''); // a bed always has a name
       return;
@@ -344,9 +386,19 @@ function EntityForm({
       )}
       <TextField
         size="small"
-        label={t(entity === 'location' ? `${PREFIX}.panel.name` : `${PREFIX}.panel.label`)}
+        label={t(
+          entity === 'location' ? `${PREFIX}.panel.name` : caption ? `${PREFIX}.text.field` : `${PREFIX}.panel.label`,
+        )}
         value={nameDraft}
         disabled={locked}
+        error={caption && captionProblem !== null}
+        helperText={
+          !caption
+            ? undefined
+            : captionProblem !== null
+              ? t(`${PREFIX}.text.problem.${captionProblem}`, { max: TEXT_LABEL_MAX_CHARS })
+              : t(`${PREFIX}.text.counter`, { count: textLength(nameDraft.trim()), max: TEXT_LABEL_MAX_CHARS })
+        }
         onChange={(event) => setNameDraft(event.target.value)}
         onBlur={commitName}
         onKeyDown={(event) => {
@@ -413,7 +465,8 @@ function EntityForm({
         <WaterSourceFields objectKey={entityKey} props={waterSource} disabled={locked} onCommit={onCommit} />
       )}
 
-      {gardenObject && (
+      {/* A caption has no properties of a thing (no height, no "outside the boundary"): its text and box are all. */}
+      {gardenObject && !caption && (
         <ObjectPropsFields
           object={gardenObject}
           disabled={locked}

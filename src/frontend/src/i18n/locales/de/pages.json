@@ -5392,7 +5392,8 @@
           "window": "Fenster",
           "door": "Tür",
           "furniture": "Möbel",
-          "lamp": "Lampe"
+          "lamp": "Lampe",
+          "text_label": "Beschriftung"
         },
         "clusterSummary_one": "{{count}} Pflanze · {{attention}}",
         "clusterSummary_other": "{{count}} Pflanzen · {{attention}}",
@@ -5452,6 +5453,11 @@
             "label": "Messen",
             "hint": "Abstand messen – Punkt für Punkt auf den Plan klicken, Enter oder Doppelklick beendet",
             "short": "Messen"
+          },
+          "text": {
+            "label": "Text",
+            "hint": "Text setzen – auf den Plan klicken, wo die Beschriftung beginnen soll, dann den Text eingeben",
+            "short": "Text"
           }
         },
         "area": {
@@ -5552,7 +5558,8 @@
           "distribute": "Gleichmäßig verteilen",
           "multiDuplicate": "Mehrfach duplizieren",
           "drawBoundary": "Grenze zeichnen",
-          "editBoundary": "Grenze ändern"
+          "editBoundary": "Grenze ändern",
+          "addText": "Text setzen"
         },
         "notice": {
           "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
@@ -6686,6 +6693,25 @@
           },
           "chunkFailedTitle": "Der Dialog „Pflanze setzen“ konnte nicht geladen werden",
           "chunkFailedHint": "Lade die Seite neu und versuche es noch einmal."
+        },
+        "text": {
+          "title": "Beschriftung setzen",
+          "field": "Text",
+          "submit": "Text setzen",
+          "counter": "{{count}} von {{max}} Zeichen, eine Zeile",
+          "problem": {
+            "empty": "Gib einen Text ein.",
+            "too_long": "Eine Beschriftung hat höchstens {{max}} Zeichen.",
+            "control": "Eine Beschriftung ist eine Zeile ohne Zeilenumbruch oder Steuerzeichen."
+          },
+          "group": "Text",
+          "place": "Text hier setzen",
+          "placeHint": "Die Beschriftung am Fadenkreuz in der Mitte des Plans beginnen lassen und den Text eingeben",
+          "status": {
+            "pointer": "Klicke auf den Plan, wo die Beschriftung beginnen soll – der Punkt rastet wie beim Zeichnen ein. Danach gibst du den Text ein. Ohne Maus setzt „Text hier setzen“ in der Werkzeug-Leiste die Beschriftung am Fadenkreuz.",
+            "touch": "Schiebe den Plan mit zwei Fingern, bis das Fadenkreuz dort liegt, wo die Beschriftung beginnen soll, und tippe auf „Punkt setzen“. Danach gibst du den Text ein.",
+            "keyboard": "Verschiebe den Plan auf der Zeichenfläche mit den Pfeiltasten, bis das Fadenkreuz dort liegt, wo die Beschriftung beginnen soll, und wähle dann in der Werkzeug-Leiste „Text hier setzen“."
+          }
         }
       },
       "io": {

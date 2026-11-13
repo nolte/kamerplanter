@@ -3,8 +3,8 @@
  *
  * From md up it is a vertical rail left of the canvas (`orientation="vertical"`); below md the same tree is the bar
  * docked at the bottom edge next to the `TouchBar` (`orientation="horizontal"`, GP-UX-069). Top level: the tools of
- * GP-UX-001 that exist - select, pan ("Verschieben"), area, bed, garden object, plant ("Pflanze setzen") and measure
- * (area, plant and measure from GP-UX-071), read from the tool registry (`toolRegistry.ts`); area, bed and garden object open a sub-menu (at most
+ * GP-UX-001 that exist - select, pan ("Verschieben"), area, bed, garden object, plant ("Pflanze setzen"), measure and
+ * text (area, plant, measure and text from GP-UX-071 - eight, the cap), read from the tool registry (`toolRegistry.ts`); area, bed and garden object open a sub-menu (at most
  * two levels) with "From template" (bed only, GP-FR-044) and "Add with dimensions" (GP-UX-046). Below them
  * the options of the tool that is on (shape, finish / cancel a drawing, polygon points) and the **selection group**
  * (rotate step, align, delete) - rendered only while something is selected, never as disabled buttons (AC-4).
@@ -115,6 +115,12 @@ interface EditorToolbarProps {
    */
   measure?: { finishable: boolean; onPlace: () => void; onFinish: () => void; onAim: () => void };
   /**
+   * The text tool's path without a pointer (GP-UX-071, WCAG 2.1.1): "Set text" puts the caption's anchor at the
+   * crosshair in the middle of the plan and opens the text dialog; `onAim` shows the crosshair (focus or use). Absent =
+   * not offered; shown only while the text tool is on.
+   */
+  text?: { onPlace: () => void; onAim: () => void };
+  /**
    * Tools the user may not use and that are therefore not offered at all (never as a disabled button, AC-4): a viewer
    * does not get "Pflanze setzen", which writes a plant (REQ-049, GP-UX-071).
    */
@@ -132,8 +138,9 @@ const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 
 export function EditorToolbar(props: EditorToolbarProps) {
   const { t } = useTranslation();
-  const { orientation, onTemplate, templateActive, onAddWithDimensions, measure } = props;
+  const { orientation, onTemplate, templateActive, onAddWithDimensions, measure, text } = props;
   const measuring = TOOL_DEFS[props.tool].kind === 'measure';
+  const captioning = TOOL_DEFS[props.tool].kind === 'text';
   const vertical = orientation === 'vertical';
   const barRef = useRef<HTMLDivElement | null>(null);
   const roving = useRovingToolbar(barRef, orientation);
@@ -376,6 +383,27 @@ export function EditorToolbar(props: EditorToolbarProps) {
                 {t(`${PREFIX}.measure.finish`)}
               </Button>
             </Box>
+          </Tooltip>
+        </Box>
+      )}
+      {captioning && text && (
+        <Box role="group" aria-label={t(`${PREFIX}.text.group`)} sx={stackSx}>
+          <Tooltip title={t(`${PREFIX}.text.placeHint`)} placement={tooltipPlacement}>
+            <Button
+              variant="contained"
+              size="small"
+              fullWidth={vertical}
+              startIcon={<AddLocationAltOutlinedIcon />}
+              onFocus={text.onAim}
+              onClick={() => {
+                text.onAim();
+                text.onPlace();
+              }}
+              data-testid="garden-plan-text-place"
+              sx={{ ...buttonSx, whiteSpace: 'nowrap' }}
+            >
+              {t(`${PREFIX}.text.place`)}
+            </Button>
           </Tooltip>
         </Box>
       )}

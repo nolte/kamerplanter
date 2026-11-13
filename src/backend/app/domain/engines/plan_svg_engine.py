@@ -64,13 +64,14 @@ from app.domain.calculators.plant_state_calculator import (
     PlantVisualState,
 )
 from app.domain.engines.phase_colors import phase_color
-from app.domain.models.garden_object import POINT_OBJECT_RADIUS_M, GardenObject
+from app.domain.models.garden_object import POINT_OBJECT_RADIUS_M, GardenObject, text_label_font_m
 from app.domain.models.garden_plan import GardenPlanView, PlanSlotView, PlantShortInfo
 from app.domain.models.geometry import (
     CircleGeometry,
     Geometry,
     PointGeometry,
     PolylineGeometry,
+    RectGeometry,
 )
 from app.domain.models.site import Location
 
@@ -310,6 +311,8 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "type_door": "Tür",
         "type_furniture": "Möbel",
         "type_lamp": "Lampe",
+        "type_text_label": "Beschriftung",
+        "text_label_desc": "freie Beschriftung auf dem Plan",
         # Per-object title and description (GP-NFR-029).
         "class_area": "Bereich",
         "class_bed": "Beet",
@@ -387,6 +390,8 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "type_door": "Door",
         "type_furniture": "Furniture",
         "type_lamp": "Lamp",
+        "type_text_label": "Text label",
+        "text_label_desc": "free caption on the plan",
         # Per-object title and description (GP-NFR-029).
         "class_area": "Area",
         "class_bed": "Bed",
@@ -513,6 +518,8 @@ _OBJECT_STYLE: Final[dict[GardenObjectType, tuple[str, str]]] = {
     GardenObjectType.DOOR: ("#d7ccc8", "#4e342e"),
     GardenObjectType.FURNITURE: ("#d7ccc8", "#6d4c41"),
     GardenObjectType.LAMP: ("#fff59d", "#f9a825"),
+    # A caption is drawn as its text only (GP-UX-071); the pair is the text colour, never a box.
+    GardenObjectType.TEXT_LABEL: ("none", "#212121"),
 }
 _OFF_SITE_STYLE: Final = ("#eeeeee", "#9e9e9e")
 _TEXT_COLOR: Final = "#212121"
@@ -837,8 +844,12 @@ def _legend(
                 fill, stroke, dash = _BED_STYLE[status]
                 yield _LegendEntry("box", fill, stroke, labels[_BED_LABEL_KEY[status]], dash)
     if PlanSvgLayer.OBJECTS in layers:
-        # First appearance order, each type once.
-        seen = {obj.object_type: None for obj in view.garden_objects if not obj.off_site}
+        # First appearance order, each type once. A caption explains itself: it is no class of the legend.
+        seen = {
+            obj.object_type: None
+            for obj in view.garden_objects
+            if not obj.off_site and obj.object_type is not GardenObjectType.TEXT_LABEL
+        }
         for object_type in seen:
             fill, stroke = _OBJECT_STYLE[object_type]
             yield _LegendEntry("box", fill, stroke, labels[f"type_{object_type.value}"])
@@ -1180,11 +1191,46 @@ def _object_layer(canvas: _Canvas, objects: list[GardenObject], extent: _Extent,
             right < extent.min_x or left > extent.max_x or top < extent.min_y or bottom > extent.max_y
         ):
             continue
+        if obj.object_type is GardenObjectType.TEXT_LABEL:
+            caption = _text_label_node(canvas, obj)
+            if caption is not None:
+                title = _named(describe.labels["type_text_label"], obj.label)
+                layer.add(_accessible(caption, title, describe.labels["text_label_desc"]))
+            continue
         fill, stroke = _OFF_SITE_STYLE if obj.off_site else _OBJECT_STYLE[obj.object_type]
         shape = _shape_node(canvas, obj.geometry, fill=fill, stroke=stroke, key=obj.key)
         title = _named(describe.labels[f"type_{obj.object_type.value}"], obj.label)
         layer.add(_accessible(shape, title, _object_desc(obj, describe.labels, describe.locale)))
     return layer
+
+
+def _text_label_node(canvas: _Canvas, obj: GardenObject) -> _Node | None:
+    """A caption (GP-UX-071): its text centred in its box, turned with it, as large as the box allows.
+
+    The text is a text node of the allowlisted ``<text>`` element, so it is escaped like every other name (an ``<`` in
+    a caption stays text, never markup); characters XML cannot hold are dropped by :func:`clean_text`.
+    """
+    text = _one_line(obj.label)
+    if not text or not isinstance(obj.geometry, RectGeometry):
+        return None
+    geometry = obj.geometry
+    font_m = text_label_font_m(geometry.width_m, geometry.length_m, text)
+    cx, cy = canvas.point(label_anchor(geometry).point)
+    attributes: dict[str, AttributeValue] = {
+        "x": cx,
+        "y": cy,
+        "font-size": font_m * 1000.0,
+        "font-family": _FONT,
+        "text-anchor": "middle",
+        "dominant-baseline": "middle",
+        "fill": _OFF_SITE_STYLE[1] if obj.off_site else _OBJECT_STYLE[GardenObjectType.TEXT_LABEL][1],
+    }
+    if geometry.rotation_deg:
+        # The plan turns counter-clockwise with y up; on the canvas y grows down, so the turn is mirrored.
+        attributes["transform"] = f"rotate({_num(-geometry.rotation_deg)} {_num(cx)} {_num(cy)})"
+    if obj.key:
+        attributes["data-key"] = obj.key
+    return _Node("text", attributes, [text])
 
 
 def _grid_layer(canvas: _Canvas, extent: _Extent, accent_free: str = _GRID_COLOR) -> _Node:
@@ -1444,6 +1490,9 @@ def _label_layer(canvas: _Canvas, view: GardenPlanView, layers: frozenset[PlanSv
                 layer.add(label)
     if PlanSvgLayer.OBJECTS in layers:
         for obj in view.garden_objects:
+            # A caption is its own text (``_object_layer``); a second copy here would print it twice.
+            if obj.object_type is GardenObjectType.TEXT_LABEL:
+                continue
             if obj.label and not isinstance(obj.geometry, PolylineGeometry | PointGeometry):
                 label = _label_node(canvas, obj.geometry, obj.label, key=obj.key)
                 if label is not None:

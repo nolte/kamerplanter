@@ -95,6 +95,7 @@ import {
   type VertexSelection,
 } from './selectMachine';
 import { selectAll } from './selection';
+import { INITIAL_TEXT_STATE, textClick, textDown, textMove, textUp, type TextState } from './textMachine';
 import type { SnapMark } from './snap';
 import { boundaryViolation, firstViolation } from './validation';
 
@@ -138,6 +139,8 @@ export interface EditorToolsOptions {
   onZoomTo?: (pxPerM: number, anchorPx: Point) => void;
   /** The highest zoom the view allows (px per metre); caps that zoom. */
   maxPxPerM?: number;
+  /** "Text" (GP-UX-071, #2913): a click set the snapped anchor of a new caption; the editor asks for its text. */
+  onTextAnchor?: (point: Point) => void;
 }
 
 /**
@@ -183,6 +186,7 @@ function isMoveOnly(committed: Machines, next: Machines): boolean {
     committed.boundary === next.boundary &&
     committed.measure === next.measure &&
     committed.plant === next.plant &&
+    committed.text === next.text &&
     committed.select.vertex === next.select.vertex &&
     // The press that turns into a move is live too: the editor renders at the press and at the release only.
     (committed.select.gesture.kind === 'move' || committed.select.gesture.kind === 'press') &&
@@ -231,7 +235,8 @@ export interface EditorTools {
   finishDraw: () => void;
   /**
    * Touch: set a polygon/line point, a rectangle/circle corner or a measure point at a canvas pixel. With the plant
-   * tool it is a click there: the planting spot at that pixel.
+   * tool it is a click there: the planting spot at that pixel; with the text tool the anchor of a new caption (also
+   * the rail's "Set point" without a pointer).
    */
   placePointAt: (pointPx: Point) => void;
   /** Touch: take the last drawn or measured point back. */
@@ -338,6 +343,7 @@ interface Machines {
   boundary: BoundaryState;
   measure: MeasureState;
   plant: PlantState;
+  text: TextState;
   /** Which machine owns the gesture in progress. */
   active: ToolKind | null;
   pointerId: number | null;
@@ -352,6 +358,7 @@ const INITIAL_MACHINES: Omit<Machines, 'forTool'> = {
   boundary: INITIAL_BOUNDARY_STATE,
   measure: INITIAL_MEASURE_STATE,
   plant: INITIAL_PLANT_STATE,
+  text: INITIAL_TEXT_STATE,
   active: null,
   pointerId: null,
 };
@@ -482,6 +489,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         case 'zoom':
           o.onZoomTo?.(effect.pxPerM, effect.anchorPx);
           break;
+        case 'textAnchor':
+          o.onTextAnchor?.(effect.point);
+          break;
       }
     }
   }, []);
@@ -540,6 +550,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         update({ active: kind, pointerId: event.pointerId, measure: measureDown(m.measure, sample, env) });
       } else if (kind === 'plant') {
         update({ active: kind, pointerId: event.pointerId, plant: plantDown(sample) });
+      } else if (kind === 'text') {
+        update({ active: kind, pointerId: event.pointerId, text: textDown(sample) });
       } else {
         const step = selectDown(m.select, sample, env);
         update({ active: kind, pointerId: event.pointerId, select: step.state });
@@ -570,6 +582,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       } else if (m.active === 'plant') {
         const step = plantMove(m.plant, sample);
         update({ plant: step.state });
+        apply(step.effects);
+      } else if (m.active === 'text') {
+        const step = textMove(m.text, sample);
+        update({ text: step.state });
         apply(step.effects);
       } else if (m.active === 'select') {
         const step = selectMove(m.select, sample, env);
@@ -616,6 +632,10 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
         const step = plantUp(m.plant, sample, env, plantOptionsOf(o));
         update({ active: null, pointerId: null, plant: step.state });
         apply(step.effects);
+      } else if (m.active === 'text') {
+        const step = textUp(m.text, sample, env);
+        update({ active: null, pointerId: null, text: step.state });
+        apply(step.effects);
       } else if (m.active === 'select') {
         const step = selectUp(m.select, sample, env);
         update({ active: null, pointerId: null, select: step.state });
@@ -633,6 +653,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       boundary: boundaryCancel(m.boundary),
       measure: measureRelease(m.measure),
       plant: INITIAL_PLANT_STATE,
+      text: INITIAL_TEXT_STATE,
       pan: INITIAL_PAN_STATE,
       active: null,
       pointerId: null,
@@ -660,6 +681,9 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     } else if (m.plant.kind !== 'idle') {
       update({ plant: INITIAL_PLANT_STATE, active: null, pointerId: null });
       endPress();
+    } else if (m.text.kind !== 'idle') {
+      update({ text: INITIAL_TEXT_STATE, active: null, pointerId: null });
+      endPress();
     } else if (isGestureActive(m.select)) {
       update({ select: selectCancel(m.select), active: null, pointerId: null });
       endPress();
@@ -686,11 +710,15 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     (pointPx: Point) => {
       const o = latest.current;
       const kind = toolKind(o.tool, o.plan);
-      if (kind !== 'draw' && kind !== 'measure' && kind !== 'plant') return;
+      if (kind !== 'draw' && kind !== 'measure' && kind !== 'plant' && kind !== 'text') return;
       const sample: PointerSample = { pointPx, pointerType: 'touch', shift: false, alt: false };
       const env = envOf(o);
       if (kind === 'plant') {
         apply(plantClick(sample, env, plantOptionsOf(o)));
+        return;
+      }
+      if (kind === 'text') {
+        apply(textClick(sample, env));
         return;
       }
       if (kind === 'measure') {

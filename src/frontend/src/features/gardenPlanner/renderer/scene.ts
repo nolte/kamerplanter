@@ -118,15 +118,20 @@ function screenSize(entry: ShapeEntry, pxPerM: number): [number, number] {
   return [(entry.bbox[2] - entry.bbox[0]) * pxPerM, (entry.bbox[3] - entry.bbox[1]) * pxPerM];
 }
 
-/** GP-NFR-067: a name from 60 px of on-screen width; the boundary has none. */
+/** GP-NFR-067: a name from 60 px of on-screen width; the boundary and a caption (its text is the drawing) have none. */
 function labelGate(entry: ShapeEntry, pxPerM: number): boolean {
-  return entry.kind !== 'boundary' && screenSize(entry, pxPerM)[0] >= LABEL_MIN_PX;
+  return entry.kind !== 'boundary' && !isCaption(entry) && screenSize(entry, pxPerM)[0] >= LABEL_MIN_PX;
+}
+
+/** A caption (GP-UX-071): drawn as its own text, so it has no type icon, no name label and no printed size. */
+function isCaption(entry: ShapeEntry): boolean {
+  return entry.kind === 'gardenObject' && (entry.source as GardenObject).object_type === 'text_label';
 }
 
 /** GP-NFR-067: a garden object's type icon from 24 px. */
 function showIcon(entry: ShapeEntry, pxPerM: number): boolean {
   const [widthPx, heightPx] = screenSize(entry, pxPerM);
-  return entry.kind === 'gardenObject' && Math.max(widthPx, heightPx) >= ICON_MIN_PX;
+  return entry.kind === 'gardenObject' && !isCaption(entry) && Math.max(widthPx, heightPx) >= ICON_MIN_PX;
 }
 
 /**
@@ -311,7 +316,8 @@ export function buildScene(
       label: labels.get(entry.key) ?? null,
       showIcon: showIcon(entry, pxPerM),
       // The editor prints the selection's dimensions on its overlay, clear of the handles (GP-UX-047).
-      showDimensions: entry.kind !== 'boundary' && selected.has(entry.key) && !options.dimensionsOnOverlay,
+      showDimensions:
+        entry.kind !== 'boundary' && !isCaption(entry) && selected.has(entry.key) && !options.dimensionsOnOverlay,
       plantCount: markers.get(entry.key)?.plantCount ?? 0,
     };
   });

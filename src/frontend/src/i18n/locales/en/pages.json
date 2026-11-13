@@ -5391,7 +5391,8 @@
           "window": "Window",
           "door": "Door",
           "furniture": "Furniture",
-          "lamp": "Lamp"
+          "lamp": "Lamp",
+          "text_label": "Text label"
         },
         "clusterSummary_one": "{{count}} plant · {{attention}}",
         "clusterSummary_other": "{{count}} plants · {{attention}}",
@@ -5451,6 +5452,11 @@
             "label": "Measure",
             "hint": "Measure a distance – click point by point on the plan, Enter or a double click finishes",
             "short": "Measure"
+          },
+          "text": {
+            "label": "Text",
+            "hint": "Set a text – click the plan where the caption should start, then type the text",
+            "short": "Text"
           }
         },
         "area": {
@@ -5551,7 +5557,8 @@
           "distribute": "Distribute evenly",
           "multiDuplicate": "Duplicate several times",
           "drawBoundary": "Draw boundary",
-          "editBoundary": "Change boundary"
+          "editBoundary": "Change boundary",
+          "addText": "Set text"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -6685,6 +6692,25 @@
           },
           "chunkFailedTitle": "The “Set a plant” dialog could not be loaded",
           "chunkFailedHint": "Reload the page and try again."
+        },
+        "text": {
+          "title": "Set a caption",
+          "field": "Text",
+          "submit": "Set text",
+          "counter": "{{count}} of {{max}} characters, one line",
+          "problem": {
+            "empty": "Type a text.",
+            "too_long": "A caption has at most {{max}} characters.",
+            "control": "A caption is one line without line breaks or control characters."
+          },
+          "group": "Text",
+          "place": "Set text here",
+          "placeHint": "Start the caption at the crosshair in the middle of the plan and type the text",
+          "status": {
+            "pointer": "Click the plan where the caption should start – the point snaps like when drawing. Then type the text. Without a mouse, \"Set text here\" in the tool rail starts the caption at the crosshair.",
+            "touch": "Move the plan with two fingers until the crosshair sits where the caption should start, then tap \"Set point\". Then type the text.",
+            "keyboard": "Move the plan on the canvas with the arrow keys until the crosshair sits where the caption should start, then choose \"Set text here\" in the tool rail."
+          }
         }
       },
       "io": {

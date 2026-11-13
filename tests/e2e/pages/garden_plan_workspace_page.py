@@ -174,6 +174,17 @@ class WorkspacePlanPage(GardenPlanPage):
     MEASURE_TOTAL = _tid("garden-plan-measure-total")
     MEASURE_SEGMENTS = _tid("garden-plan-measure-segment")
 
+    # ── Text tool (GP-UX-071, #2913) ───────────────────────────────────
+    TOOL_TEXT = _tid("garden-plan-tool-text")
+    TEXT_STATUS = _tid("garden-plan-text-status")
+    TEXT_DIALOG = _tid("garden-plan-text-dialog")
+    TEXT_INPUT = _tid("garden-plan-text-input")
+    TEXT_SUBMIT = _tid("garden-plan-text-submit")
+    TEXT_INPUT_HELPER = (
+        By.CSS_SELECTOR,
+        "[data-testid='garden-plan-text-dialog'] .MuiFormHelperText-root",
+    )
+
     # ── Object properties (WP 10.6) ────────────────────────────────────
     OBJECT_PROPS = _tid("garden-plan-panel-object-props")
     WINDOW_SILL = _tid("garden-plan-panel-window-sill-height")
@@ -823,6 +834,51 @@ class WorkspacePlanPage(GardenPlanPage):
             raise AssertionError(
                 f"{what}: the plant dialog did not close; it says {errors}"
             ) from exc
+
+    # ── Text tool (GP-UX-071) ──────────────────────────────────────────
+
+    def text_status(self) -> str:
+        """The text tool's status text (``role="status"``): where a click puts the caption."""
+        return self.text_of(self.TEXT_STATUS)
+
+    def wait_for_text_dialog(self, what: str) -> None:
+        """The caption dialog is open and its field is there (the form mounts only while it is open)."""
+        try:
+            self.wait_for_element_visible(self.TEXT_INPUT)
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the text dialog did not open") from exc
+
+    def type_caption(self, text: str) -> None:
+        """Replace the dialog field's text with *text*."""
+        self.clear_and_fill(self.wait_for_element(self.TEXT_INPUT), text)
+
+    def text_dialog_helper(self) -> str:
+        """The field's helper line: the character count, or the refusal after a confirm."""
+        return self.text_of(self.TEXT_INPUT_HELPER)
+
+    def submit_text_dialog(self) -> None:
+        """ "Text setzen" - whatever follows (refusal or a closed dialog) is the caller's wait."""
+        self.wait_and_click_coordinate_free(self.TEXT_SUBMIT)
+
+    def wait_for_text_dialog_closed(self, what: str) -> None:
+        """The dialog's form is gone: the caption was taken (it is one unsaved change then)."""
+        try:
+            self.poll().until(lambda d: not d.find_elements(*self.TEXT_INPUT))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the text dialog did not close; its field says {self.text_dialog_helper()!r}"
+            ) from exc
+
+    def caption_on_canvas(self, key: str) -> str:
+        """The text the SVG renderer draws for the caption *key* (``garden-plan-caption-<key>``)."""
+        return self.text_of(_tid(f"garden-plan-caption-{key}"))
+
+    def set_panel_name(self, value: str) -> None:
+        """Type *value* into the panel's name field (a caption's "Text") and commit it with Enter."""
+        self.open_side_panel_tab("properties")
+        field = self.wait_for_element_clickable(self.PANEL_NAME)
+        self.clear_and_fill(field, value)
+        field.send_keys(Keys.ENTER)
 
     def finish_drawing(self) -> None:
         """ "Fertig" of a point-by-point shape; waits until the new object is one unsaved change."""

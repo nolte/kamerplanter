@@ -12,6 +12,8 @@ const WINDOW = 'M5 4h14v16H5zM5 12h14M12 4v16';
 const DOOR = 'M6 3h12v18H6zM15 12h1';
 const LAMP = 'M12 3a5 5 0 0 0-3 9v3h6v-3a5 5 0 0 0-3-9zM9 18h6v3H9z';
 const BUSH = 'M5 18a4 4 0 0 1 1-7 5 5 0 0 1 9-2 4 4 0 0 1 4 9z';
+/** A capital T: the caption's glyph where a list shows one (the plan draws a caption as its text, not as an icon). */
+const TEXT = 'M5 5h14M12 5v14';
 
 export const OBJECT_ICON_PATHS: Record<GardenObjectType, string> = {
   tree: TREE,
@@ -30,4 +32,5 @@ export const OBJECT_ICON_PATHS: Record<GardenObjectType, string> = {
   door: DOOR,
   furniture: BOX,
   lamp: LAMP,
+  text_label: TEXT,
 };

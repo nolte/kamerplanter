@@ -16,7 +16,8 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
                   and a selected bed stay uncovered (#2885),
                   no horizontal scrolling - the layout of md only, not the 1024 x 768 criterion (TC-053-103)
   TC-053-103  ->  1024 x 768 (lg, AC-2): every top-level tool of GP-UX-001 and its sub-menu entries, every   (GP-UX-001,
-                  panel tab and every overflow entry reachable inside the viewport, no horizontal scrolling  GP-UX-069)
+                  panel tab and every overflow entry reachable inside the viewport, no horizontal scrolling  GP-UX-069,
+                  (steps 5-8: measure, area, plant and text tool of GP-UX-071)                              GP-UX-071)
   TC-053-104  ->  phone 390 x 844 (planning mode): TouchBar and tool bar below the canvas, undo/redo in     (AC-9,
                   the TouchBar, tabs and panel switch in the overflow (entries >= 48 px with text), every   AC-15 part)
                   bar button >= 48 x 48 px, the selection opens a bottom sheet above the bars
@@ -58,6 +59,7 @@ from __future__ import annotations
 
 import pytest
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -576,9 +578,9 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
 # ── TC-053-103 ──────────────────────────────────────────────────────────────
 
 #: The top-level tools of GP-UX-001 since REQ-053 v1.19 (#2868: narrowed to the tools that exist) plus Bereich,
-#: Pflanze setzen and Messen from GP-UX-071 (#2913; Text/Label is still to come), and the tools whose rail button
-#: opens a sub-menu. The seed user is a lead: "Pflanze setzen" is a writing role's tool and is on the rail.
-GP_UX_001_TOOLS = ("select", "pan", "area", "bed", "garden_object", "plant", "measure")
+#: Pflanze setzen, Messen and Text from GP-UX-071 (#2913; eight, the cap), and the tools whose rail button opens a
+#: sub-menu. The seed user is a lead: "Pflanze setzen" is a writing role's tool and is on the rail.
+GP_UX_001_TOOLS = ("select", "pan", "area", "bed", "garden_object", "plant", "measure", "text")
 TOOLS_WITH_MENU = ("area", "bed", "garden_object")
 PANEL_TABS = ("properties", "view", "layers", "zones")
 
@@ -851,6 +853,111 @@ def test_tc_053_103_plant_tool_sets_one_plant_into_the_clicked_free_spot(
     assert isinstance(plant, dict) and plant.get("location_key") == bed_key, (
         f"TC-053-103 plant: the plant instance exists in Beet P: {plant}"
     )
+
+
+#: Step 8's caption: markup in it must reach the canvas as text, never as an element.
+CAPTION = "Kräuterecke <Nord>"
+CAPTION_EDITED = "Kräuterecke Nord"
+
+
+def test_tc_053_103_text_tool_sets_a_caption_on_the_plan(
+    plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-103 step 8 - the rail's text tool sets a free caption on the plan (GP-UX-071).
+
+    Breaks if the tool is not the eighth of the rail or does not become active, if its status does not say what a
+    click does, if a click does not open the text dialog, if an empty text is not refused in the dialog (or creates an
+    object), if confirming does not create exactly one unsaved ``text_label`` that is selected while the tool hands
+    over to Select, if markup in the text reaches the canvas as an element, if the panel's text field does not change
+    the caption, or if the server does not hold exactly one ``text_label`` with the edited text, a rect box anchored
+    where the click was and no parent after save and reload.
+    """
+    set_phone_viewport(browser, 1024, 768)
+    plan.dismiss_light_mode_warning()
+    garden = provision_garden(base_url, e2e_seed_data, purpose="tc103t", beds=())
+    before = read_plan(base_url, e2e_seed_data, garden.site_key)
+    objects_before = {obj["key"] for obj in before.get("garden_objects", [])}
+
+    plan.open(garden.site_key)
+    plan.wait_for_element_visible(plan.TOOLBAR)
+    rail = [
+        node.get_attribute("data-testid")
+        for node in plan.driver.find_elements(
+            By.CSS_SELECTOR,
+            "[data-testid='garden-plan-toolbar'] [data-testid^='garden-plan-tool-'][aria-pressed]",
+        )
+    ]
+    assert rail[-1:] == ["garden-plan-tool-text"] and len(rail) == 8, (
+        f"TC-053-103 text: the text tool should be the eighth and last tool of the rail: {rail}"
+    )
+    plan.choose_tool(plan.TOOL_TEXT)
+    assert plan.driver.find_element(*plan.TOOL_TEXT).get_attribute("aria-pressed") == "true", (
+        "TC-053-103 text: the tool is on"
+    )
+    status = plan.text_status()
+    assert "Klicke auf den Plan" in status, (
+        f"TC-053-103 text: the status should name the click: {status!r}"
+    )
+
+    plan.click_plan_point(2.0, 6.0, "TC-053-103 text: the free plan at (2 m, 6 m)")
+    plan.wait_for_text_dialog("TC-053-103 text: a click on the plan")
+    plan.submit_text_dialog()
+    plan.poll().until(lambda _d: "Gib einen Text ein" in plan.text_dialog_helper())
+    assert plan.pending_count() == 0, "TC-053-103 text: an empty text creates nothing"
+
+    plan.type_caption(CAPTION)
+    screenshot("053_103_06_text_dialog", "1024 × 768: Text – Dialog nach dem Klick auf den Plan")
+    plan.submit_text_dialog()
+    plan.wait_for_text_dialog_closed("TC-053-103 text: confirming the caption")
+    plan.wait_for_pending(1, "TC-053-103 text: the caption is one unsaved change")
+    selected = plan.selected_keys()
+    assert len(selected) == 1, (
+        f"TC-053-103 text: the new caption should be selected, got {selected}"
+    )
+    (temp_key,) = selected
+    assert (
+        plan.driver.find_element(*plan.tool_locator("select")).get_attribute("aria-pressed")
+        == "true"
+    ), "TC-053-103 text: like a drawn object, the tool hands over to Select"
+    assert plan.caption_on_canvas(temp_key) == CAPTION, (
+        "TC-053-103 text: the caption is drawn as its text"
+    )
+    assert not plan.driver.find_elements(
+        By.CSS_SELECTOR, f"[data-testid='garden-plan-caption-{temp_key}'] *"
+    ), "TC-053-103 text: markup in the caption must not become an element"
+    screenshot("053_103_07_text_on_plan", "1024 × 768: Beschriftung auf dem Plan, ausgewählt")
+
+    plan.set_panel_name(CAPTION_EDITED)
+    plan.wait_for_pending(
+        3, "TC-053-103 text: the edited text (and its refitted box) is one more step"
+    )
+    plan.save_with_button()
+
+    stored = read_plan(base_url, e2e_seed_data, garden.site_key)
+    new = [obj for obj in stored.get("garden_objects", []) if obj["key"] not in objects_before]
+    assert len(new) == 1, f"TC-053-103 text: exactly one new garden object expected: {new}"
+    caption = new[0]
+    assert caption["object_type"] == "text_label" and caption["label"] == CAPTION_EDITED, (
+        f"TC-053-103 text: the stored caption: {caption}"
+    )
+    geometry = caption["geometry"]
+    assert geometry["kind"] == "rect" and caption.get("parent_location_key") is None, (
+        f"TC-053-103 text: a rect box without a parent: {caption}"
+    )
+    x_m, y_m = geometry["origin"]
+    assert abs(x_m - 2.0) <= 0.15 and abs(y_m - 6.0) <= 0.15, (
+        f"TC-053-103 text: the anchor should be where the click was, (2 m, 6 m): {geometry}"
+    )
+
+    plan.reload(garden.site_key)
+    plan.wait_for_element_visible(plan.TOOLBAR)
+    assert plan.caption_on_canvas(caption["key"]) == CAPTION_EDITED, (
+        "TC-053-103 text: after the reload the plan draws the stored caption"
+    )
+    plan.open_side_panel_tab("layers")
+    assert not plan.driver.find_elements(
+        By.CSS_SELECTOR, "[data-testid='garden-plan-legend-object-text_label']"
+    ), "TC-053-103 text: a caption is no class of the object legend"
 
 
 # ── TC-053-104 ──────────────────────────────────────────────────────────────

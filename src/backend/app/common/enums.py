@@ -2236,7 +2236,8 @@ class GardenObjectType(StrEnum):
     """Class of a non-plantable plan object (REQ-053 §20.4, §9.5, §9.8).
 
     The outdoor classes come from §9.5, the indoor classes (``window``, ``door``,
-    ``furniture``, ``lamp``) from §9.8. The value selects the ``props`` model of a
+    ``furniture``, ``lamp``) from §9.8, ``text_label`` from GP-UX-071 (a caption, no
+    physical object). The value selects the ``props`` model of a
     :class:`~app.domain.models.garden_object.GardenObject`. Additive (M-9).
     """
 
@@ -2256,6 +2257,9 @@ class GardenObjectType(StrEnum):
     DOOR = "door"
     FURNITURE = "furniture"
     LAMP = "lamp"
+    #: A free caption on the plan (GP-UX-071, #2913): its text is ``label``, its box the rect geometry. Not a physical
+    #: object - no height, no shade, no task, no legend entry.
+    TEXT_LABEL = "text_label"
 
 
 class WaterSourceKind(StrEnum):

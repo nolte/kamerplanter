@@ -16,9 +16,12 @@ from app.domain.models.garden_object import (
     ALLOWED_GEOMETRY_KINDS,
     POINT_OBJECT_RADIUS_M,
     PROPS_BY_TYPE,
+    TEXT_LABEL_MAX_CHARS,
     GardenObject,
+    TextLabelProps,
     TreeProps,
     WaterSourceProps,
+    text_label_font_m,
 )
 
 _POINT = {"kind": "point", "origin": [9.7, 0.4]}
@@ -44,6 +47,7 @@ _VALID: dict[GardenObjectType, tuple[dict, dict]] = {
     GardenObjectType.DOOR: (_LINE, {"swing": "inward"}),
     GardenObjectType.FURNITURE: (_RECT, {}),
     GardenObjectType.LAMP: (_POINT, {"kind": "grow_light", "height_m": 1.2, "ppfd_ref": 400}),
+    GardenObjectType.TEXT_LABEL: (_RECT, {}),
 }
 
 
@@ -179,3 +183,63 @@ class TestReviewFollowUps:
         response = garden_object_to_response(_object(GardenObjectType.LAWN, created_by="acct_1"))
 
         assert "created_by" not in response.model_dump()
+
+
+class TestTextLabel:
+    """GP-UX-071 (#2913): a caption is one line of text in a rect box - validated server-side, whatever the client."""
+
+    def test_a_caption_is_a_rect_with_its_text_as_label(self) -> None:
+        obj = _object(
+            GardenObjectType.TEXT_LABEL,
+            label="  Kräuterecke  ",
+            geometry={**_RECT, "rotation_deg": 30},
+        )
+        assert isinstance(obj.props, TextLabelProps)
+        assert obj.label == "Kräuterecke"
+        assert ALLOWED_GEOMETRY_KINDS[GardenObjectType.TEXT_LABEL] == frozenset({GeometryKind.RECT})
+
+    @pytest.mark.parametrize("geometry", [_POINT, _CIRCLE, _LINE])
+    def test_only_a_rect_box_carries_a_caption(self, geometry: dict) -> None:
+        with pytest.raises(ValidationError, match="may be drawn as"):
+            _object(GardenObjectType.TEXT_LABEL, geometry=geometry)
+
+    @pytest.mark.parametrize("label", ["", "   ", "\t"])
+    def test_a_caption_without_text_is_refused(self, label: str) -> None:
+        with pytest.raises(ValidationError, match="needs a text") as caught:
+            _object(GardenObjectType.TEXT_LABEL, label=label)
+        assert caught.value.errors()[0]["loc"] == ("label",)
+
+    def test_the_length_is_bounded(self) -> None:
+        assert _object(GardenObjectType.TEXT_LABEL, label="a" * TEXT_LABEL_MAX_CHARS).label == "a" * 80
+        with pytest.raises(ValidationError, match="at most 80"):
+            _object(GardenObjectType.TEXT_LABEL, label="a" * (TEXT_LABEL_MAX_CHARS + 1))
+
+    @pytest.mark.parametrize(
+        "label",
+        [
+            "Zeile 1\nZeile 2",
+            "Zeile\r2",
+            "tab\tinside",
+            "nul\x00",
+            "bell\x07",
+            "line\u2028separator",
+            "para\u2029separator",
+            "right-to-left \u202eoverride",
+            "isolate \u2066x\u2069",
+        ],
+    )
+    def test_line_breaks_controls_and_bidi_overrides_are_refused(self, label: str) -> None:
+        with pytest.raises(ValidationError, match="one line of text"):
+            _object(GardenObjectType.TEXT_LABEL, label=label)
+
+    def test_markup_is_text_not_refused(self) -> None:
+        """Escaping is the export's job: ``<b>`` is a valid caption and must reach the SVG as text."""
+        assert _object(GardenObjectType.TEXT_LABEL, label="<b>Beet & Co</b>").label == "<b>Beet & Co</b>"
+
+    def test_the_rule_binds_only_captions(self) -> None:
+        """Another class keeps its free label (a multi-line note is the ``notes`` field's, but not refused here)."""
+        assert _object(GardenObjectType.COMPOST, label="").label == ""
+
+    def test_the_font_fills_the_height_unless_the_text_runs_past_the_width(self) -> None:
+        assert text_label_font_m(10.0, 0.5, "abc") == pytest.approx(0.4)
+        assert text_label_font_m(1.2, 0.5, "abcdefghij") == pytest.approx(0.2)

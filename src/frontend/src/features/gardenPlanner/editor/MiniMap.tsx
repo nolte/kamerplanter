@@ -55,7 +55,8 @@ function MiniMapView({ plan, extent, viewport, onJump }: MiniMapProps) {
       if (location.geometry && location.bbox) boxes.push({ key: location.key, box: location.bbox });
     }
     for (const object of Object.values(plan.gardenObjects)) {
-      if (object.bbox) boxes.push({ key: object.key, box: object.bbox });
+      // A caption is no thing on the ground (GP-UX-071): a box for it would read as an object on the overview.
+      if (object.bbox && object.object_type !== 'text_label') boxes.push({ key: object.key, box: object.bbox });
     }
     return (
       <>
