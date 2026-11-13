@@ -93,8 +93,17 @@ _KEPT_INFO_KEYS: frozenset[str] = frozenset({"transparency", "duration", "loop",
 _METADATA_FREE_SAVE_PARAMS: dict[str, object] = {"exif": b"", "xmp": b"", "icc_profile": None}
 
 
-def strip_exif(data: bytes, mime_type: str, *, max_pixels: int = MAX_IMAGE_PIXELS) -> bytes:
+class UnreadableImageError(ValueError):
+    """#2715 review — a strict strip met bytes that are not a decodable image of the claimed format."""
+
+
+def strip_exif(data: bytes, mime_type: str, *, max_pixels: int = MAX_IMAGE_PIXELS, strict: bool = False) -> bytes:
     """Return ``data`` with image metadata removed; passthrough for non-images.
+
+    ``strict=True`` (the tenant-archive import, #2715 review) is the fail-closed variant: bytes of a strippable
+    claimed type that do not decode, decode as another format, or are truncated raise :class:`UnreadableImageError`
+    instead of coming back unchanged - an import has no magic-byte check before it, and an unstripped return would
+    store the EXIF/GPS block the strip exists to remove.
 
     Never raises on malformed image bytes — if Pillow cannot decode the input
     the original bytes are returned unchanged (the magic-byte validator runs
@@ -113,12 +122,16 @@ def strip_exif(data: bytes, mime_type: str, *, max_pixels: int = MAX_IMAGE_PIXEL
 
     try:
         with open_bounded_image(data, max_pixels=max_pixels) as src:
+            if strict and src.format != pil_format:
+                raise UnreadableImageError(f"claimed {pil_format}, decoded {src.format}")
             src.load()
             src.info = {key: value for key, value in src.info.items() if key in _KEPT_INFO_KEYS}
             buffer = io.BytesIO()
             src.save(buffer, format=pil_format, **_save_kwargs(pil_format), **_METADATA_FREE_SAVE_PARAMS)
             return buffer.getvalue()
     except (OSError, ValueError) as exc:
+        if strict:
+            raise UnreadableImageError(type(exc).__name__) from exc
         logger.warning("exif_strip_skipped", mime_type=mime_type, reason=str(exc))
         return data
 
@@ -152,6 +165,7 @@ class ExifStripper:
 
 __all__ = [
     "ExifStripper",
+    "UnreadableImageError",
     "is_strippable_format",
     "is_unsupported_photo_format",
     "strip_exif",

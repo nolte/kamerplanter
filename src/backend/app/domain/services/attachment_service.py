@@ -54,11 +54,11 @@ from app.common.exceptions import (
     VirusScanRejectedError,
     WriteConflictError,
 )
-from app.common.image_bounds import image_dimensions
+from app.common.image_bounds import STORED_IMAGE_MAX_PIXELS, image_dimensions
 from app.common.log_privacy import log_subject, log_tenant
 from app.common.url_safety import validate_server_side_url
 from app.config.settings import Settings
-from app.domain.engines.storage.exif_stripper import ExifStripper, is_strippable_format
+from app.domain.engines.storage.exif_stripper import ExifStripper, is_strippable_format, strip_exif
 from app.domain.engines.storage.magic_byte_validator import _SNIFF_LEN, MagicByteValidator
 from app.domain.engines.storage.storage_key_builder import StorageKeyBuilder
 from app.domain.engines.storage.thumbnail_generator import (
@@ -136,6 +136,26 @@ def stored_body(settings: Settings, data: bytes, mime_type: str, *, stripper: Ex
     """
     if settings.storage_strip_exif and mime_type.startswith("image/"):
         return (stripper or ExifStripper()).strip(data, mime_type)
+    return data
+
+
+def imported_object_body(settings: Settings, data: bytes, mime_type: str) -> bytes:
+    """The bytes a tenant-archive import stores for an object of *mime_type* (#2715 item 3 and its review).
+
+    An archive object was **stored** by some installation, so it is judged like a stored object, not an upload:
+
+    * a strippable image type (JPEG/PNG/WEBP) is stripped under the stored-object ceiling
+      (``STORED_IMAGE_MAX_PIXELS``, 80 MPx - objects stored before #2108 were admitted under Pillow's defaults), and
+      **strictly**: bytes that do not decode as the claimed format raise
+      :class:`~app.domain.engines.storage.exif_stripper.UnreadableImageError`, never come back unstripped;
+    * every other admitted type (a document, or an image type the strip cannot re-encode that the category's
+      whitelist admits - HEIC/GIF stored before #2139) is kept as it is: the import does not refuse what the
+      installation held lawfully before.
+
+    With ``STORAGE_STRIP_EXIF`` off nothing is re-encoded, as for an upload.
+    """
+    if settings.storage_strip_exif and is_strippable_format(mime_type):
+        return strip_exif(data, mime_type, max_pixels=STORED_IMAGE_MAX_PIXELS, strict=True)
     return data
 
 
