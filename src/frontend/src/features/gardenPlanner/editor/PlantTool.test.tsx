@@ -101,10 +101,10 @@ describe('the plant tool on the rail (GP-UX-071)', () => {
     const status = screen.getByTestId('garden-plan-plant-status');
     expect(status).toHaveTextContent('Click a free planting spot');
     expect(status).toHaveAttribute('aria-live', 'polite');
-    // Seven tools now, within GP-UX-001's eight.
+    // Eight tools with Text (GP-UX-071), the cap of GP-UX-001.
     const rail = within(screen.getByRole('group', { name: 'Tool' }));
     // The tools' own buttons (the sub-menu buttons beside area, bed and garden object are no tools).
-    expect(rail.getAllByRole('button').filter((node) => node.getAttribute('aria-pressed') !== null)).toHaveLength(7);
+    expect(rail.getAllByRole('button').filter((node) => node.getAttribute('aria-pressed') !== null)).toHaveLength(8);
     expect(button).toHaveStyle({ minWidth: '48px', minHeight: '48px' });
   });
 

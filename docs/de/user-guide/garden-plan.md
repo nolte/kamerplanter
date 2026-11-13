@@ -61,7 +61,7 @@ Deine Rolle gilt immer für den Garten (Mandanten), in dem du gerade arbeitest.
 
 ### Werkzeuge und Formen {#werkzeuge-und-formen}
 
-Die Werkzeug-Leiste links neben dem Plan bietet sieben Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
+Die Werkzeug-Leiste links neben dem Plan bietet acht Werkzeuge. Jedes hat einen Tooltip; auf breiten Bildschirmen steht der Name daneben.
 
 | Werkzeug | Was es tut |
 |----------|-----------|
@@ -72,11 +72,9 @@ Die Werkzeug-Leiste links neben dem Plan bietet sieben Werkzeuge. Jedes hat eine
 | **Objekt: Gartenobjekt zeichnen** ▸ | Zeichnet ein Gartenobjekt wie Weg, Zaun, Baum, Rankhilfe, Kompost oder im Wohnungsplan Fenster, Tür, Möbel und Lampe. Das Menü daneben bietet **Mit Maßen hinzufügen**. |
 | **Pflanze setzen** | Setzt genau eine Pflanze auf den freien Pflanzplatz, den du anklickst, siehe [Eine Pflanze setzen](#eine-pflanze-setzen). |
 | **Messen** | Misst einen Abstand auf dem Plan, Punkt für Punkt. Es wird nichts gespeichert, siehe [Abstände messen](#abstande-messen). |
+| **Text** | Setzt eine freie Beschriftung auf den Plan, etwa „Kräuterecke“ oder „Zum Kompost“, siehe [Beschriftungen](#beschriftungen). |
 
 Unter den Werkzeugen erscheint die **Auswahlgruppe** nur, solange etwas gewählt ist: **Drehraster** (15°, 45°, 90°), **Ausrichten** und **Löschen**.
-
-!!! note "Teilweise verfügbar: Werkzeuge"
-    Zwei weitere Werkzeuge sind geplant, aber noch nicht gebaut: **Pflanze setzen** und **Beschriftung**. Bis dahin bepflanzt du Beete über **Bepflanzen**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 Als **Form** wählst du Rechteck, Kreis, Vieleck oder Linie. Das Rechteck ziehst du auf (mit der Umschalttaste wird es ein Quadrat), den Kreis ziehst du vom Mittelpunkt nach außen. Beim Vieleck und bei der Linie klickst du Punkt für Punkt; mit **Fertig**, der Eingabetaste oder einem Klick auf den ersten Punkt schließt du das Vieleck, die Linie beendest du mit **Fertig** oder der Eingabetaste. Die Rücktaste nimmt den letzten Punkt zurück, **Esc** verwirft die Form.
 
@@ -125,6 +123,18 @@ Mit der Eingabetaste oder einem Doppelklick beendest du die Messung; sie bleibt 
 
 Messen ändert nichts am Plan: Es entsteht keine ungespeicherte Änderung und kein Schritt für **Rückgängig**. <!-- REQ-053 GP-UX-071, #2913 -->
 
+### Beschriftungen {#beschriftungen}
+
+Mit **Text** schreibst du eine freie Beschriftung auf den Plan: einen Hinweis wie „Kräuterecke“, „Zum Kompost“ oder „Nachbar“. Wähle das Werkzeug und klicke dorthin, wo der Text beginnen soll. Der Punkt rastet wie beim Zeichnen am Raster und an Ecken und Kanten anderer Objekte ein; mit gehaltener Alt-Taste setzt du ihn frei. Es öffnet sich ein kleiner Dialog. Gib den Text ein und bestätige mit **Text setzen** oder der Eingabetaste; **Abbrechen** oder **Esc** setzt nichts.
+
+Eine Beschriftung ist **eine Zeile mit höchstens 80 Zeichen**. Das Feld zählt mit und sagt dir, wenn der Text leer oder zu lang ist. Zeilenumbrüche und unsichtbare Steuerzeichen nimmt es nicht an. Der Text erscheint so groß, wie die Namen auf dem Plan bei deiner aktuellen Zoomstufe wirken, und wächst und schrumpft danach mit dem Plan. Im PDF und in der SVG steht er an derselben Stelle und in derselben Größe.
+
+Die neue Beschriftung ist danach ausgewählt, und die Werkzeug-Leiste wechselt zu **Auswählen**. Du verschiebst, drehst, sperrst, duplizierst und löschst sie wie jedes andere Objekt; mit den Ecken änderst du ihre Größe. Den Text änderst du im Tab **Eigenschaften** im Feld **Text**; die Beschriftung behält dabei ihre Schriftgröße und wird so breit wie der neue Text. Eine Beschriftung ist eine ungespeicherte Änderung wie ein gezeichnetes Beet: Sie wird mit dem Plan gespeichert, und **Rückgängig** nimmt sie zurück.
+
+Eine Beschriftung ist kein Gegenstand im Garten. Sie gehört zu keinem Beet und keinem Bereich, wirft keinen Schatten, bekommt keine Aufgaben und steht nicht in der Objekt-Legende. Wie jedes Objekt muss sie innerhalb der Gartengrenze liegen; ragt sie darüber hinaus, sagt dir der Dialog das, und dein Text bleibt stehen.
+
+**Ohne Maus.** Solange **Text** aktiv ist, bietet die Werkzeug-Leiste **Text hier setzen**: Die Beschriftung beginnt am Fadenkreuz in der Mitte des Plans. Mit den Pfeiltasten auf der Zeichenfläche schiebst du den Plan vorher an die richtige Stelle. <!-- REQ-053 GP-UX-071, §9.5, #2913 -->
+
 ### Mit der Maus
 
 - Klicken wählt, Ziehen verschiebt, ein Rahmen über freier Fläche wählt alles, was ganz im Rahmen liegt (gesperrte Objekte nicht).
@@ -138,7 +148,7 @@ Messen ändert nichts am Plan: Es entsteht keine ungespeicherte Änderung und ke
 - Mit **zwei Fingern** verschiebst und zoomst du den Plan.
 - Ein Objekt wählst du mit einem Tipp. Zum Verschieben hältst du den Finger etwa eine halbe Sekunde auf dem Objekt; ein Ring zeigt, dass es nun bewegt wird. Wischst du früher, verschiebst du stattdessen die Ansicht.
 - **Mehrfachauswahl** schaltest du als Schaltfläche ein. Dann tippst du Objekte an oder ziehst über freier Fläche einen Rahmen.
-- Beim Zeichnen schiebst du den Plan mit zwei Fingern, bis das Fadenkreuz auf dem gewünschten Punkt liegt, und tippst auf **Punkt setzen**. **Rückgängig** nimmt den Punkt zurück, **Fertig** schließt die Form, **Abbrechen** verwirft sie. Beim **Messen** setzt du die Punkte genauso; **Fertig** beendet die Messung, **Löschen** verwirft sie. Sehr breite Berührungen (eine Handfläche) und ein zweiter Finger unmittelbar nach dem ersten ignoriert der Plan.
+- Beim Zeichnen schiebst du den Plan mit zwei Fingern, bis das Fadenkreuz auf dem gewünschten Punkt liegt, und tippst auf **Punkt setzen**. **Rückgängig** nimmt den Punkt zurück, **Fertig** schließt die Form, **Abbrechen** verwirft sie. Beim **Messen** setzt du die Punkte genauso; **Fertig** beendet die Messung, **Löschen** verwirft sie. Mit **Text** tippst du einmal auf **Punkt setzen**; danach fragt der Dialog nach dem Text. Sehr breite Berührungen (eine Handfläche) und ein zweiter Finger unmittelbar nach dem ersten ignoriert der Plan.
 
 ### Mit der Tastatur
 

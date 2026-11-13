@@ -100,7 +100,9 @@ export type GardenObjectType =
   | 'window'
   | 'door'
   | 'furniture'
-  | 'lamp';
+  | 'lamp'
+  /** A free caption on the plan (GP-UX-071, #2913): its text is `label`, its box the rect geometry. */
+  | 'text_label';
 
 export type PathSurface = 'gravel' | 'paving' | 'bark' | 'grass' | 'other';
 export type FoliageType = 'deciduous' | 'evergreen';
@@ -183,6 +185,10 @@ export interface LampProps {
   height_m: number;
   ppfd_ref?: number | null;
 }
+/** A caption has no own properties: its text is the object's `label`, its box the geometry (GP-UX-071). */
+export interface TextLabelProps {
+  object_type: 'text_label';
+}
 
 export type GardenObjectProps =
   | PathProps
@@ -200,7 +206,8 @@ export type GardenObjectProps =
   | WindowProps
   | DoorProps
   | FurnitureProps
-  | LampProps;
+  | LampProps
+  | TextLabelProps;
 
 // ── Read model (GP-API-001) ──────────────────────────────────────────────────
 

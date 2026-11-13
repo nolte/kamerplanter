@@ -58,6 +58,8 @@ export interface RendererLabels {
   /** An area location (#2913): "Gemüsegarten, Bereich, 6 × 4 m". Absent = it is named like a bed. */
   area?: (params: { name: string; size: string; openTasks: number }) => string;
   object: (params: { label: string; typeLabel: string; size: string }) => string;
+  /** A caption (GP-UX-071): "Kräuterecke, Beschriftung". Absent = it is named like any other object. */
+  caption?: (params: { text: string; typeLabel: string }) => string;
   plant: (params: { id: string }) => string;
   /** An empty position; with `plannedFrom` it is reserved by a planned run from that day on (GP-FR-074). */
   slot: (params: { id: string; plannedFrom?: string | null }) => string;

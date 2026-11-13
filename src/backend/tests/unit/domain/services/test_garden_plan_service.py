@@ -1445,3 +1445,87 @@ class TestTheSunDirections:
         assert service.get_plan(SITE, tenant_key=TENANT).sun_directions is not None
         site.gps_coordinates = None
         assert service.get_plan(SITE, tenant_key=TENANT).sun_directions is None
+
+
+def _create_caption(label: str, *, temp: str = "c", geometry: dict | None = None) -> dict:
+    return {
+        "op": "create_garden_object",
+        "temp_key": temp,
+        "data": {
+            "object_type": "text_label",
+            "label": label,
+            "geometry": geometry or {**rect(2, 2, 3, 0.5), "rotation_deg": 20},
+        },
+    }
+
+
+class TestTextLabelThroughThePlanBatch2913:
+    """GP-UX-071 (#2913): the caption is written through the plan batch and its role check, validated by the server."""
+
+    def test_a_caption_is_created_on_the_plan_batch_like_every_object(self, world):
+        service, repo, _ = world
+
+        result = batch(service, [_create_caption("  Kräuterecke ")])
+
+        (stored,) = repo.objects.values()
+        assert stored.object_type is GardenObjectType.TEXT_LABEL
+        assert stored.label == "Kräuterecke"
+        assert stored.parent_location_key is None
+        assert result.key_map["c"] == stored.key
+
+    @pytest.mark.parametrize("label", ["", "Zeile 1\nZeile 2", "a\u202eb", "x" * 81, "bell\x07"])
+    def test_an_invalid_caption_is_a_422_on_the_label_and_nothing_is_written(self, world, label):
+        service, repo, _ = world
+
+        with pytest.raises(PlanValidationError) as refused:
+            batch(service, [_create_caption(label)])
+
+        assert refused.value.codes == ["validation.invalid"]
+        assert repo.applied == []
+
+    def test_the_text_is_edited_with_update_fields_and_checked_again(self, world):
+        service, repo, _ = world
+        batch(service, [_create_caption("Alt")])
+        (key,) = repo.objects
+
+        batch(
+            service,
+            [{"op": "update_fields", "entity": "garden_object", "key": key, "fields": {"label": "Neu"}}],
+            revision=6,
+        )
+        assert repo.objects[key].label == "Neu"
+
+        with pytest.raises(PlanValidationError):
+            batch(
+                service,
+                [{"op": "update_fields", "entity": "garden_object", "key": key, "fields": {"label": "a\nb"}}],
+                revision=7,
+            )
+        assert repo.objects[key].label == "Neu"
+
+    def test_a_viewer_cannot_write_a_caption(self, world):
+        service, repo, _ = world
+
+        with pytest.raises(PlanError) as refused:
+            batch(service, [_create_caption("Hinweis")], role=TenantRole.VIEWER)
+        assert refused.value.status_code == 403
+        assert repo.applied == []
+
+    def test_deleting_a_caption_is_a_lead_operation_like_every_delete(self, world):
+        service, repo, _ = world
+        batch(service, [_create_caption("Hinweis")])
+        (key,) = repo.objects
+
+        with pytest.raises(PlanError) as refused:
+            batch(service, [{"op": "delete", "entity": "garden_object", "key": key}], revision=6)
+        assert refused.value.status_code == 403
+
+        batch(service, [{"op": "delete", "entity": "garden_object", "key": key}], role=TenantRole.LEAD, revision=6)
+        assert repo.objects == {}
+
+    def test_a_caption_is_never_a_point_geometry(self, world):
+        service, repo, _ = world
+
+        with pytest.raises(PlanValidationError):
+            batch(service, [_create_caption("Hinweis", geometry={"kind": "point", "origin": [3, 3]})])
+        assert repo.applied == []

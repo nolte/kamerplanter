@@ -76,8 +76,9 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createBedTemplate } from '../api/gardenPlan';
 import type { PlantedInSlot, PlantSlotOption } from '../planting/PlantSlotDialog';
-import type { PlanModel } from '../model/planModel';
+import { newTempKey, type PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
+import { newTextHeightM, textLabelGeometry } from '../model/textLabel';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
 import { formatLength, MAX_PX_PER_M, planGridStep, stepZoom, type LengthUnit } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
@@ -101,6 +102,7 @@ import {
   type PlanTool,
 } from '../state/gardenPlanSlice';
 import { AddWithDimensionsDialog } from './AddWithDimensionsDialog';
+import { TextLabelDialog } from './TextLabelDialog';
 import { EDITOR_ANCHORS } from './anchors';
 import { ALIGN_MODES, DISTRIBUTE_AXES } from './AlignMenu';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
@@ -832,6 +834,47 @@ export function GardenPlanEditor({
     },
     [dispatch, plan, plantTarget, setInfo, setPlantTarget, t],
   );
+  // "Text" (GP-UX-071, #2913): the snapped anchor the dialog asks the caption's text for, and a plan rule the caption
+  // broke there (outside the boundary) - told inside the dialog, which keeps the text typed.
+  const [textAnchor, setTextAnchor] = useState<Point | null>(null);
+  const [textError, setTextError] = useState<string | null>(null);
+  const openTextDialog = useCallback((point: Point) => {
+    setTextError(null);
+    setTextAnchor(point);
+  }, []);
+  const closeTextDialog = useCallback(() => setTextAnchor(null), []);
+  const pxPerMNow = viewport.pxPerM;
+  const submitText = useCallback(
+    (text: string) => {
+      if (textAnchor === null) return;
+      // As high on screen as the plan's names at the zoom it is set at; the box as wide as the text.
+      const geometry = textLabelGeometry(textAnchor, text, newTextHeightM(pxPerMNow));
+      // A caption belongs to no bed or area: it hangs free on the plan, bounded by the boundary like every object.
+      const violation = violationOfNew(plan, geometry, null);
+      if (violation) {
+        setTextError(violation);
+        return;
+      }
+      const tempKey = newTempKey();
+      onCommit(
+        [
+          {
+            op: 'create_garden_object',
+            temp_key: tempKey,
+            data: { object_type: 'text_label', label: text, geometry, props: {} },
+          },
+        ],
+        'addText',
+      );
+      setTextAnchor(null);
+      // Like a drawn object: the new caption is selected (its handles move, size and turn it), the tool hands over
+      // to Select.
+      dispatch(setSelection([{ entity: 'garden_object', key: tempKey }]));
+      dispatch(setStack(null));
+      dispatch(setTool('select'));
+    },
+    [dispatch, onCommit, plan, pxPerMNow, textAnchor],
+  );
   const openPlantBed = useMemo(
     () =>
       plantTarget && onOpenLocation
@@ -871,6 +914,7 @@ export function GardenPlanEditor({
     onPlantSlot: openPlantDialog,
     onZoomTo: onZoom,
     maxPxPerM: MAX_PX_PER_M,
+    onTextAnchor: openTextDialog,
   });
 
   const zoomCenter = useMemo<Point>(
@@ -1793,8 +1837,10 @@ export function GardenPlanEditor({
 
   // The boundary is drawn with the same steps and hints as a bed (#2890).
   const drawing = drawTool;
-  // The crosshair and the touch bar's "set point" serve every tool that sets points: drawing and measuring.
+  // The crosshair and the touch bar's "set point" serve every tool that sets points: drawing and measuring, and the
+  // text tool's single anchor (`place`).
   const settingPoints = toolBehaviour.touch === 'points';
+  const placingPoint = toolBehaviour.touch === 'place';
   // The type choice of a new bed or garden object (WP 2.6); the boundary has none.
   const drawTarget = drawTool && boundaryMode === null ? TOOL_DEFS[tool].draw?.target : undefined;
   const newObjectTarget =
@@ -1804,7 +1850,9 @@ export function GardenPlanEditor({
   const measure = tools.measure;
   // Below md and with a coarse pointer the TouchBar carries "Set point"; elsewhere the rail offers it (GP-UX-071).
   const railMeasure = canvasKind === 'measure' && !touchUi;
-  const aiming = railMeasure && measureAim;
+  // The text tool's path without a pointer is the same: "Set text" at the crosshair (GP-UX-071, WCAG 2.1.1).
+  const railText = canvasKind === 'text' && !touchUi;
+  const aiming = (railMeasure || railText) && measureAim;
   const { placePointAt, finishDraw } = tools;
   const measureControls = railMeasure
     ? {
@@ -1818,6 +1866,12 @@ export function GardenPlanEditor({
     canvasKind === 'measure'
       ? measureStatusText(t, measure, touchUi ? 'touch' : aiming ? 'keyboard' : 'pointer', unit, i18n.language)
       : null;
+  const textControls = railText
+    ? { onPlace: () => placePointAt([viewport.widthPx / 2, viewport.heightPx / 2]), onAim: aimMeasure }
+    : undefined;
+  // The text tool says where a click puts the text - with a pointer, a finger or from the rail.
+  const textStatus =
+    canvasKind === 'text' ? t(`${PREFIX}.text.status.${touchUi ? 'touch' : aiming ? 'keyboard' : 'pointer'}`) : null;
   // "Pflanze setzen" says what a click does - and, offline, that it needs a connection before anybody clicks.
   const plantStatus =
     canvasKind === 'plant'
@@ -1871,6 +1925,7 @@ export function GardenPlanEditor({
       selectionGroup={selectionGroup}
       boundaryMode={boundaryMode}
       measure={measureControls}
+      text={textControls}
       hiddenTools={canEdit ? NO_TOOLS : WRITE_ONLY_TOOLS}
     />
   );
@@ -2246,7 +2301,7 @@ export function GardenPlanEditor({
       )}
       <TouchOverlay
         ring={touch.ring}
-        crosshair={(touchUi && settingPoints) || aiming ? centerPx : null}
+        crosshair={(touchUi && (settingPoints || placingPoint)) || aiming ? centerPx : null}
         widthPx={viewport.widthPx}
         heightPx={viewport.heightPx}
       />
@@ -2407,6 +2462,17 @@ export function GardenPlanEditor({
           data-offline={offline ? 'true' : 'false'}
         >
           {plantStatus}
+        </Typography>
+      )}
+      {!listShown && textStatus && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          role="status"
+          aria-live="polite"
+          data-testid="garden-plan-text-status"
+        >
+          {textStatus}
         </Typography>
       )}
       {!listShown && measureStatus && (
@@ -2620,6 +2686,7 @@ export function GardenPlanEditor({
           </Suspense>
         </ErrorBoundary>
       )}
+      <TextLabelDialog open={textAnchor !== null} error={textError} onSubmit={submitText} onClose={closeTextDialog} />
       <LiveRegion message={announcement} />
       <KeyboardHelp
         open={helpOpen}

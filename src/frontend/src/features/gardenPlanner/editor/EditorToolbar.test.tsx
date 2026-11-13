@@ -90,6 +90,8 @@ describe('the tool rail (GP-UX-066, AC-3)', () => {
       'garden-plan-tool-plant',
       // GP-UX-071 (#2913): Messen after the tools that create something.
       'garden-plan-tool-measure',
+      // GP-UX-071 (#2913): Text last - the eighth tool, the cap of GP-UX-001.
+      'garden-plan-tool-text',
     ]);
     expect(tools.length).toBeLessThanOrEqual(8);
     // Hand/Pan is the tool #2820 calls "Verschieben".

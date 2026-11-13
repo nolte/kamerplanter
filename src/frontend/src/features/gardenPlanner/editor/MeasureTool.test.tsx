@@ -191,6 +191,8 @@ describe('measuring without a pointer (WCAG 2.1.1)', () => {
     // No crosshair for the mouse user who never asks for it.
     expect(screen.queryByTestId('garden-plan-crosshair')).toBeNull();
 
+    // Past the text tool, the last of the rail (GP-UX-071), to the measure tool's own controls below the tools.
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
     const place = screen.getByTestId('garden-plan-measure-place');
     expect(place).toHaveFocus();

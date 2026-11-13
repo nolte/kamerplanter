@@ -61,7 +61,7 @@ Your role always applies to the garden (tenant) you are working in.
 
 ### Tools and shapes {#tools-and-shapes}
 
-The tool rail to the left of the plan offers seven tools. Each has a tooltip; on wide screens its name stands next to it.
+The tool rail to the left of the plan offers eight tools. Each has a tooltip; on wide screens its name stands next to it.
 
 | Tool | What it does |
 |------|--------------|
@@ -72,11 +72,9 @@ The tool rail to the left of the plan offers seven tools. Each has a tooltip; on
 | **Object: draw garden object** ▸ | Draws a garden object such as a path, fence, tree, trellis, compost or, in a flat plan, window, door, furniture and lamp. The menu next to it offers **Add with dimensions**. |
 | **Set a plant** | Sets exactly one plant on the free planting spot you click, see [Setting a plant](#setting-a-plant). |
 | **Measure** | Measures a distance on the plan, point by point. Nothing is saved, see [Measuring distances](#measuring-distances). |
+| **Text** | Sets a free caption on the plan, such as "Herb corner" or "To the compost", see [Captions](#captions). |
 
 Below the tools, the **selection group** appears only while something is selected: **rotation step** (15°, 45°, 90°), **Align** and **Delete**.
-
-!!! note "Partially available: tools"
-    Two more tools are planned but not built yet: **Place plant** and **Label**. Until then you plant beds with **Plant it**. <!-- REQ-053 GP-UX-001, GP-UX-066, GP-UX-071, #2913 -->
 
 As **shape** you choose rectangle, circle, polygon or line. You drag out the rectangle (with Shift it becomes a square) and the circle from its centre outwards. For the polygon and the line you click point by point; **Finish**, the Enter key or a click on the first point closes the polygon, **Finish** or Enter ends the line. Backspace takes back the last point, **Esc** discards the shape.
 
@@ -125,6 +123,18 @@ Press Enter or double-click to finish the measurement; it stays until you press 
 
 Measuring changes nothing in the plan: there is no unsaved change and no step for **Undo**. <!-- REQ-053 GP-UX-071, #2913 -->
 
+### Captions {#captions}
+
+With **Text** you write a free caption on the plan: a note such as "Herb corner", "To the compost" or "Neighbour". Choose the tool and click where the text should start. The point snaps like a drawn point, to the grid and to corners and edges of other objects; hold Alt to place it freely. A small dialog opens. Type the text and confirm with **Set text** or Enter; **Cancel** or **Esc** sets nothing.
+
+A caption is **one line of at most 80 characters**. The field counts along and tells you when the text is empty or too long. It does not accept line breaks or invisible control characters. The text appears as large as the names on the plan look at your current zoom, and from then on grows and shrinks with the plan. In the PDF and the SVG it stands in the same place and at the same size.
+
+The new caption is selected afterwards and the tool rail switches to **Select**. You move, rotate, lock, duplicate and delete it like any other object; its corners change its size. You change the text in the **Properties** tab in the field **Text**; the caption keeps its font size and becomes as wide as the new text. A caption is an unsaved change like a drawn bed: it is saved with the plan, and **Undo** takes it back.
+
+A caption is not a thing in the garden. It belongs to no bed and no area, casts no shade, gets no tasks and is not listed in the object legend. Like every object it has to lie inside the garden boundary; if it reaches past it, the dialog tells you so and your text stays.
+
+**Without a mouse.** While **Text** is on, the tool rail offers **Set text here**: the caption starts at the crosshair in the middle of the plan. Use the arrow keys on the canvas to move the plan to the right place first. <!-- REQ-053 GP-UX-071, §9.5, #2913 -->
+
 ### With the mouse
 
 - Clicking selects, dragging moves, a frame over free space selects everything that lies completely inside the frame (locked objects excluded).
@@ -138,7 +148,7 @@ Measuring changes nothing in the plan: there is no unsaved change and no step fo
 - With **two fingers** you move and zoom the plan.
 - You select an object with a tap. To move it, hold your finger on the object for about half a second; a ring shows that it is now being moved. If you swipe earlier, you move the view instead.
 - You switch **multi-select** on as a button. Then you tap objects or drag a frame over free space.
-- When drawing, you move the plan with two fingers until the crosshair is on the point you want, and tap **Set point**. **Undo** takes back the point, **Finish** closes the shape, **Cancel** discards it. With **Measure** you set the points the same way; **Finish** ends the measurement, **Clear** discards it. The plan ignores very wide touches (a palm) and a second finger that lands right after the first.
+- When drawing, you move the plan with two fingers until the crosshair is on the point you want, and tap **Set point**. **Undo** takes back the point, **Finish** closes the shape, **Cancel** discards it. With **Measure** you set the points the same way; **Finish** ends the measurement, **Clear** discards it. With **Text** you tap **Set point** once; then the dialog asks for the text. The plan ignores very wide touches (a palm) and a second finger that lands right after the first.
 
 ### With the keyboard
 

@@ -21,6 +21,7 @@ import {
   activationKeyUp,
   activationKeys,
   BADGE_FONT_PX,
+  captionOf,
   clusterAriaLabel,
   markerAriaLabel,
   markerFill,
@@ -298,6 +299,7 @@ const ShapeNode = memo(function ShapeNode({
   const iconPath = iconKind ? OBJECT_ICON_PATHS[iconKind] : null;
   const badge = taskBadgeOf(entry, pxPerM);
 
+  const caption = captionOf(entry);
   const { label } = item;
   const cx = centre[0];
   const cy = -centre[1];
@@ -319,7 +321,29 @@ const ShapeNode = memo(function ShapeNode({
       onKeyDown={onActivateKey ? activationKeys(onActivateKey, entry.key) : undefined}
       onKeyUp={onActivateKey ? activationKeyUp(onActivateKey, entry.key) : undefined}
     >
-      {entry.shape.kind === 'circle' ? (
+      {caption ? (
+        // A caption (GP-UX-071, #2913): its box as an outline only while selected or refused, then its text - centred,
+        // turned with the box (mirrored: the drawing has y down) and as large as the box allows.
+        <>
+          <path className="gp-shape" d={d} {...style} vectorEffect="non-scaling-stroke" />
+          <text
+            data-testid={`garden-plan-caption-${entry.key}`}
+            x={num(caption.x)}
+            y={num(-caption.y)}
+            transform={
+              caption.rotationDeg ? `rotate(${num(-caption.rotationDeg)} ${num(caption.x)} ${num(-caption.y)})` : undefined
+            }
+            fontSize={caption.fontM.toPrecision(4)}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill={item.invalid ? palette.invalid : palette.text}
+            pointerEvents="none"
+            aria-hidden="true"
+          >
+            {caption.text}
+          </text>
+        </>
+      ) : entry.shape.kind === 'circle' ? (
         <circle
           className="gp-shape"
           cx={num(entry.shape.center[0])}

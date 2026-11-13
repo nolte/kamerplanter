@@ -2,7 +2,8 @@
  * The touch action bars of the editor (REQ-053 GP-UX-036/037, WP 2.6). While a draw tool or the measure tool
  * (GP-UX-071) is active the bar offers "set point · undo · finish · cancel" (each at least 48 px; the measure tool's
  * "cancel" clears the measurement) - the crosshair in the middle of the plan marks where "set point" puts the point,
- * and two fingers pan the plan under it. Which section a tool gets comes from the tool registry. With the select tool it offers the multi-select switch: while on, every tap adds or removes
+ * and two fingers pan the plan under it. The text tool (GP-UX-071) gets "set point" alone: its anchor at the
+ * crosshair, then the text dialog. Which section a tool gets comes from the tool registry. With the select tool it offers the multi-select switch: while on, every tap adds or removes
  * an object and a drag on empty ground draws a selection frame (otherwise it pans). Below md it also carries
  * undo and redo at its start (`leading`, REQ-053 §17.3 GP-UX-052/063): the header bar there keeps only
  * "back", the save status, "Save" and its overflow.
@@ -67,13 +68,15 @@ export function TouchBar({
   const { kind } = TOOL_DEFS[tool];
   const touch = behaviourOf(kind).touch;
   const drawing = drawingProp ?? touch === 'points';
+  // The text tool sets one anchor (GP-UX-071): "set point" alone - there is nothing to undo, finish or clear.
+  const placing = !drawing && touch === 'place';
   const selecting = touch === 'select';
   // A measurement is a line of points: always finished by "Finish", from two points on, and only once.
   const measuring = kind === 'measure';
   const pointShape = measuring || drawShape === 'polygon' || drawShape === 'polyline';
   const minPoints = drawShape === 'polygon' && !measuring ? 3 : 2;
   const canFinish = measuring ? measureFinishable : draftPoints >= minPoints;
-  if (!drawing && !selecting && !leading) return null;
+  if (!drawing && !placing && !selecting && !leading) return null;
 
   return (
     <Paper
@@ -91,6 +94,18 @@ export function TouchBar({
       }}
     >
       {leading}
+      {placing && (
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddLocationAltOutlinedIcon />}
+          onClick={onPlacePoint}
+          sx={buttonSx}
+          data-testid="garden-plan-touch-place"
+        >
+          {t(`${PREFIX}.place`)}
+        </Button>
+      )}
       {drawing && (
         <>
           <Button

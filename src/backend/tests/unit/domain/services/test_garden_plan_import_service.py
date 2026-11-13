@@ -13,8 +13,9 @@ from typing import Any
 
 import pytest
 
-from app.common.enums import TenantRole
+from app.common.enums import GardenObjectType, TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import LocationLighting, SiteConditions, SitePlan, Slot
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
@@ -1015,3 +1016,46 @@ class TestTheOrientation:
 
         assert repo.applied[0].location_updates == []
         assert repo.locations["b2"].orientation == "west"
+
+
+class TestTextLabelsInTheBackup2913:
+    """GP-UX-071 (#2913): a caption is part of the plan's structure - it is backed up and restored, and a file that
+    smuggles a second line or a control character into one is refused like any other invalid field."""
+
+    @staticmethod
+    def _with_caption(repo: FakePlanRepo, label: str = "Kräuterecke") -> None:
+        repo.objects["c1"] = GardenObject(
+            _key="c1",
+            site_key=SITE,
+            object_type=GardenObjectType.TEXT_LABEL,
+            label=label,
+            geometry={"kind": "rect", "origin": [5, 5], "width_m": 3, "length_m": 0.5, "rotation_deg": 15},
+            props={},
+        )
+
+    def test_a_caption_survives_export_and_replace(self, rig, repo) -> None:
+        self._with_caption(repo)
+        document = rig.file()
+        (caption,) = [item for item in document["garden_objects"] if item["object_type"] == "text_label"]
+        assert caption["label"] == "Kräuterecke" and caption["geometry"]["rotation_deg"] == 15
+
+        report = rig.run(document)
+
+        assert report.applied and report.errors == []
+        (restored,) = [o for o in repo.objects.values() if o.object_type.value == "text_label"]
+        assert restored.label == "Kräuterecke"
+        assert restored.geometry.rotation_deg == 15
+
+    @pytest.mark.parametrize("label", ["Zeile 1\nZeile 2", "x\u202ey", "a" * 81, "   "])
+    def test_a_caption_the_editor_could_not_write_is_refused_and_nothing_is_written(self, rig, repo, label) -> None:
+        self._with_caption(repo)
+        document = rig.file()
+        index = next(i for i, item in enumerate(document["garden_objects"]) if item["object_type"] == "text_label")
+        document["garden_objects"][index]["label"] = label
+        applied_before = list(repo.applied)
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document)
+
+        assert repo.applied == applied_before
+        assert any(detail["field"].startswith(f"garden_objects[{index}]") for detail in refused.value.details)

@@ -52,6 +52,7 @@ export function useRendererLabels(): RendererLabels {
           .join(', '),
       object: ({ label, typeLabel, size: dimension }) =>
         [label, typeLabel, dimension].filter(Boolean).join(', '),
+      caption: ({ text, typeLabel }) => [text, typeLabel].filter(Boolean).join(', '),
       plant: ({ id }) => t(`${prefix}.plant`, { id }),
       slot: ({ id, plannedFrom }) =>
         plannedFrom

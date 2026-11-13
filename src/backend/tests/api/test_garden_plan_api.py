@@ -663,3 +663,51 @@ class TestNonFiniteGeometryOnTheWire:
 
         assert response.status_code == 422, response.text
         assert repo.applied == [] and repo._sites.sites[SITE].plan.plan_revision == 5
+
+
+class TestTextLabelOnTheWire2913:
+    """GP-UX-071 (#2913): a caption goes through ``POST /plan/batch`` and comes back with ``GET /plan``; an invalid
+    caption reads as the 422 envelope with the operation and the field - never a 500."""
+
+    @staticmethod
+    def _caption(label: str) -> dict:
+        return {
+            "op": "create_garden_object",
+            "temp_key": "c1",
+            "data": {
+                "object_type": "text_label",
+                "label": label,
+                "geometry": {"kind": "rect", "origin": [5, 5], "width_m": 3, "length_m": 0.5, "rotation_deg": 10},
+            },
+        }
+
+    def test_a_caption_written_by_the_batch_is_in_the_plan_read_model(self, client) -> None:
+        response = client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [self._caption("Ost")]})
+        assert response.status_code == 200, response.text
+        key = response.json()["key_map"]["c1"]
+
+        body = client(TenantRole.VIEWER).get(_PLAN).json()
+
+        (caption,) = [o for o in body["garden_objects"] if o["key"] == key]
+        assert caption["object_type"] == "text_label" and caption["label"] == "Ost"
+        assert caption["geometry"]["rotation_deg"] == 10
+        assert caption["props"]["object_type"] == "text_label"
+
+    @pytest.mark.parametrize("label", ["Zeile 1\nZeile 2", "x" * 81, " "])
+    def test_an_invalid_caption_is_a_422_naming_the_label(self, client, repo, label) -> None:
+        response = client(raise_server_exceptions=False).post(
+            f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [self._caption(label)]}
+        )
+
+        assert response.status_code == 422, response.text
+        detail = response.json()["details"][0]
+        assert detail["op_index"] == 0 and detail["field"].endswith("label")
+        assert repo.applied == []
+
+    def test_a_viewer_is_refused_at_the_route(self, client, repo) -> None:
+        response = client(TenantRole.VIEWER).post(
+            f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [self._caption("Ost")]}
+        )
+
+        assert response.status_code == 403
+        assert repo.applied == []

@@ -6,6 +6,8 @@
 import type { KeyboardEvent } from 'react';
 import { alpha, type Theme } from '@mui/material/styles';
 import type { BedStatus, GardenObject, GardenObjectType, PlanLocation, Point } from '../model/types';
+import { textLabelFontM } from '../model/textLabel';
+import { labelAnchorOf } from './labelLayout';
 import { isAreaLocation, type MarkerEntry, type ShapeEntry } from './planIndex';
 import type { SceneCluster, SceneShape } from './scene';
 import type { PlantMarkerState, RendererLabels } from './types';
@@ -92,7 +94,48 @@ export interface ShapeStyle {
   strokeDasharray: string | undefined;
 }
 
+/**
+ * A caption as drawn (GP-UX-071, #2913): its text centred in its box, turned with it, as large as the box allows - the
+ * rule the PDF uses too (`text_label_font_m`). Centre in metres (plan frame), font size in metres, turn in degrees
+ * counter-clockwise (the plan's sense; a drawing with y down mirrors it).
+ */
+export interface CaptionDrawing {
+  text: string;
+  x: number;
+  y: number;
+  fontM: number;
+  rotationDeg: number;
+}
+
+/** The caption of a `text_label` entry, or `null` for every other shape (and for a caption without text). */
+export function captionOf(entry: ShapeEntry): CaptionDrawing | null {
+  if (entry.kind !== 'gardenObject' || entry.geometry.kind !== 'rect') return null;
+  const object = entry.source as GardenObject;
+  if (object.object_type !== 'text_label') return null;
+  const text = object.label.trim();
+  if (text === '') return null;
+  const [x, y] = labelAnchorOf(entry.geometry).point;
+  return {
+    text,
+    x,
+    y,
+    fontM: textLabelFontM(entry.geometry.width_m, entry.geometry.length_m, text),
+    rotationDeg: entry.geometry.rotation_deg ?? 0,
+  };
+}
+
+/** A caption's box is drawn only while it is selected or refused (dashed): on the plan it is its text alone. */
+const CAPTION_SELECTED_DASH = '4 3';
+
 export function shapeStyle(entry: ShapeEntry, selected: boolean, invalid: boolean, palette: PlanPalette): ShapeStyle {
+  if (captionOf(entry) !== null) {
+    return {
+      fill: 'none',
+      stroke: invalid ? palette.invalid : selected ? palette.selected : 'none',
+      strokeWidth: invalid ? 2 : 1,
+      strokeDasharray: invalid ? undefined : CAPTION_SELECTED_DASH,
+    };
+  }
   const location = entry.kind === 'location' ? (entry.source as PlanLocation) : null;
   const object = entry.kind === 'gardenObject' ? (entry.source as GardenObject) : null;
   // An area keeps its own look whatever its `bed_status` (REQ-053 §9.5, #2913).
@@ -150,9 +193,11 @@ export function pathData(entry: ShapeEntry): string {
 
 // ── Accessible names ─────────────────────────────────────────────────────────
 
-/** The type icon of a garden object; beds and the boundary have none. */
+/** The type icon of a garden object; beds, the boundary and a caption (it is its text) have none. */
 export function shapeIconKind(entry: ShapeEntry): GardenObject['object_type'] | null {
-  return entry.kind === 'gardenObject' ? (entry.source as GardenObject).object_type : null;
+  if (entry.kind !== 'gardenObject') return null;
+  const type = (entry.source as GardenObject).object_type;
+  return type === 'text_label' ? null : type;
 }
 
 /** The accessible name of a shape node (GP-NFR-020): the bed with size, plants and tasks, an object with its type. */
@@ -173,6 +218,10 @@ export function shapeAriaLabel(item: SceneShape, labels: RendererLabels): string
   }
   if (entry.kind === 'gardenObject') {
     const object = entry.source as GardenObject;
+    // A caption is named by its text; the size of its box says nothing to a listener (GP-UX-071).
+    if (object.object_type === 'text_label' && labels.caption) {
+      return labels.caption({ text: object.label, typeLabel: labels.objectType(object.object_type) });
+    }
     return labels.object({ label: object.label, typeLabel: labels.objectType(object.object_type), size });
   }
   return labels.boundary;

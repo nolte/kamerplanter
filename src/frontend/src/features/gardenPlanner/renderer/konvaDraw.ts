@@ -11,11 +11,13 @@ import { ICON_SIZE_PX, MARKER_RADIUS_PX } from './lod';
 import { OBJECT_ICON_PATHS } from './icons';
 import {
   BADGE_FONT_PX,
+  captionOf,
   dashList,
   markerFill,
   shapeIconKind,
   shapeStyle,
   taskBadgeOf,
+  type CaptionDrawing,
   type PlanPalette,
 } from './planDrawing';
 import {
@@ -41,6 +43,7 @@ export type PlanCanvasContext = Pick<
   | 'save'
   | 'restore'
   | 'translate'
+  | 'rotate'
   | 'scale'
   | 'beginPath'
   | 'closePath'
@@ -161,9 +164,38 @@ function traceShape(ctx: PlanCanvasContext, frame: DrawFrame, item: SceneShape):
   if (entry.shape.closed) ctx.closePath();
 }
 
+/**
+ * A caption (GP-UX-071, #2913): its text centred in its box and turned with it; the box outline only while it is
+ * selected or refused. Like the SVG's caption node, from the same `captionOf`.
+ */
+function drawCaption(ctx: PlanCanvasContext, frame: DrawFrame, item: SceneShape, caption: CaptionDrawing): void {
+  const style = shapeStyle(item.entry, item.selected, item.invalid, frame.palette);
+  if (style.stroke !== 'none') {
+    traceShape(ctx, frame, item);
+    strokeWith(ctx, style.stroke, style.strokeWidth, dashList(style.strokeDasharray));
+  }
+  const [cx, cy] = screen(frame, [caption.x, caption.y]);
+  ctx.save();
+  ctx.translate(cx, cy);
+  // The plan turns counter-clockwise with y up; the canvas has y down, so the turn is mirrored.
+  if (caption.rotationDeg) ctx.rotate((-caption.rotationDeg * Math.PI) / 180);
+  ctx.font = font(frame, caption.fontM * frame.viewport.pxPerM);
+  ctx.fillStyle = item.invalid ? frame.palette.invalid : frame.palette.text;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(caption.text, 0, 0);
+  ctx.restore();
+  ctx.textBaseline = 'alphabetic';
+}
+
 /** One bed, garden object or the boundary: outline, type icon, name, dimensions and task badge, like `ShapeNode`. */
 export function drawShape(ctx: PlanCanvasContext, frame: DrawFrame, item: SceneShape): void {
   const { entry } = item;
+  const caption = captionOf(entry);
+  if (caption) {
+    drawCaption(ctx, frame, item, caption);
+    return;
+  }
   const { pxPerM } = frame.viewport;
   const { palette, fontPx } = frame;
   const style = shapeStyle(entry, item.selected, item.invalid, palette);

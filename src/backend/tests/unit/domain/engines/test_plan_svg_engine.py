@@ -895,3 +895,64 @@ class TestAreas:
         root = _parse(_render(self._garden(area_types=frozenset())).svg)
 
         assert _by_key(root, "a1").attrib["fill"] == plan_svg_engine._BED_STYLE[BedStatus.ACTIVE][0]
+
+
+def _caption(label: str, *, key: str = "c1", rotation: float = 0.0) -> GardenObject:
+    """A ``text_label`` (GP-UX-071) - 3 m wide, 0.5 m high, anchored at (2, 4)."""
+    return GardenObject(
+        _key=key,
+        site_key=SITE,
+        object_type=GardenObjectType.TEXT_LABEL,
+        label=label,
+        geometry={"kind": "rect", "origin": [2, 4], "width_m": 3, "length_m": 0.5, "rotation_deg": rotation},
+        props={},
+    )
+
+
+class TestTextLabel:
+    """GP-UX-071 (#2913): a caption is printed as its text - escaped, turned with its box, never a legend class."""
+
+    def test_the_caption_is_one_text_node_with_title_and_desc(self) -> None:
+        root = _parse(_render(_view(locations=_three_beds(), objects=[_caption("Kräuterecke")]), locale="de").svg)
+
+        texts = [e for e in root.iter(f"{SVG}text") if e.attrib.get("data-key") == "c1"]
+        assert len(texts) == 1, "one text node: the caption is not printed again by the name layer"
+        (node,) = texts
+        assert node.text is None or node.text == ""  # title and desc come first, the caption is the tail
+        assert [child.tag.removeprefix(SVG) for child in node] == ["title", "desc"]
+        assert node[0].text == "Beschriftung: Kräuterecke"
+        assert "".join(node.itertext()).endswith("Kräuterecke")
+        # Centred in its box (2 + 1.5, 4 + 0.25), 0.4 m high on the 0.5 m box.
+        assert float(node.attrib["font-size"]) == pytest.approx(400.0)
+        assert node.attrib["text-anchor"] == "middle"
+        assert "transform" not in node.attrib
+
+    def test_a_turned_caption_is_rotated_about_its_centre(self) -> None:
+        root = _parse(_render(_view(objects=[_caption("Weg", rotation=30)])).svg)
+
+        (node,) = [e for e in root.iter(f"{SVG}text") if e.attrib.get("data-key") == "c1"]
+        x, y = node.attrib["x"], node.attrib["y"]
+        assert node.attrib["transform"] == f"rotate(-30 {x} {y})"
+
+    @pytest.mark.parametrize("hostile", [HOSTILE_IMAGE_NAME, "<script>alert(1)</script>", "]]><svg onload=x>"])
+    def test_a_hostile_caption_stays_text(self, hostile: str) -> None:
+        rendered = _render(_view(objects=[_caption(hostile)]))
+
+        root = _parse(rendered.svg)
+        assert _tags(root) <= ALLOWED_ELEMENTS
+        assert not _tags(root) & {"image", "script"}
+        assert len(list(root.iter(f"{SVG}svg"))) == 1, "no nested svg element"
+        assert "<script" not in rendered.svg and "<image" not in rendered.svg
+        (node,) = [e for e in root.iter(f"{SVG}text") if e.attrib.get("data-key") == "c1"]
+        assert "".join(node.itertext()).endswith(hostile)
+
+    def test_the_caption_is_no_class_of_the_legend(self) -> None:
+        root = _parse(_render(_view(locations=_three_beds(), objects=[_caption("Hinweis")]), locale="de").svg)
+
+        assert _legend_texts(root) == ["Beet"]
+
+    def test_the_objects_layer_off_hides_the_caption(self) -> None:
+        layers = frozenset(PlanSvgLayer) - {PlanSvgLayer.OBJECTS}
+        root = _parse(_render(_view(locations=_three_beds(), objects=[_caption("Hinweis")]), layers=layers).svg)
+
+        assert not [e for e in root.iter() if e.attrib.get("data-key") == "c1"]
