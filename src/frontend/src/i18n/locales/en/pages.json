@@ -2493,6 +2493,7 @@
       "lightPpfd": "Light PPFD",
       "photoperiodHours": "Photoperiod (h)",
       "photoperiodSourceUnknown": "origin unknown",
+      "photoperiodSourceTodo": "Check the light duration and save the profile with the pencil icon, then it counts as entered.",
       "photoperiodSourceHint": "Only a light duration from the species profile or one that was entered counts for the tent hints. When you save the profile, the light duration counts as entered.",
       "tempDay": "Day Temperature",
       "tempNight": "Night Temperature",

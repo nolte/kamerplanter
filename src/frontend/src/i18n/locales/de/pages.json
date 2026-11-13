@@ -2493,6 +2493,7 @@
       "lightPpfd": "Licht-PPFD",
       "photoperiodHours": "Photoperiode (h)",
       "photoperiodSourceUnknown": "Herkunft unbekannt",
+      "photoperiodSourceTodo": "Prüfe die Lichtdauer und speichere das Profil über das Stift-Symbol, dann gilt sie als eingetragen.",
       "photoperiodSourceHint": "Nur eine Lichtdauer aus dem Steckbrief oder eine eingetragene zählt bei den Zelt-Hinweisen. Speicherst du das Profil, gilt die Lichtdauer als eingetragen.",
       "tempDay": "Tagestemperatur",
       "tempNight": "Nachttemperatur",

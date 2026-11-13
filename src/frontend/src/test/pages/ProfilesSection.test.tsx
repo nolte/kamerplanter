@@ -169,4 +169,27 @@ describe('ProfilesSection — origin of the light hours', () => {
       i18n.t('pages.profiles.photoperiodSourceUnknown'),
     );
   });
+
+  it.each(['generated', 'default', null] as const)('says what to do while the hours are not entered (%s)', async (source) => {
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: source }));
+
+    renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" />);
+
+    expect(await screen.findByTestId('profile-photoperiod-source-todo')).toHaveTextContent(
+      i18n.t('pages.profiles.photoperiodSourceTodo'),
+    );
+  });
+
+  it('asks for nothing once the hours are entered, nor from a reader who cannot edit', async () => {
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: 'sourced' }));
+    const { unmount } = renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" />);
+    await screen.findByTestId('profile-photoperiod-source');
+    expect(screen.queryByTestId('profile-photoperiod-source-todo')).not.toBeInTheDocument();
+    unmount();
+
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: 'generated' }));
+    renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" readOnly />);
+    await screen.findByTestId('profile-photoperiod-source');
+    expect(screen.queryByTestId('profile-photoperiod-source-todo')).not.toBeInTheDocument();
+  });
 });

@@ -122,6 +122,11 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
                     }
                     detailTestId="profile-photoperiod-source"
                   />
+                  {!readOnly && reqProfile.photoperiod_source !== 'sourced' && (
+                    <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }} data-testid="profile-photoperiod-source-todo">
+                      {t('pages.profiles.photoperiodSourceTodo')}
+                    </Typography>
+                  )}
                   <Divider sx={{ my: 1 }} />
                   <ProfileRow label={t('pages.profiles.tempDay')} value={`${reqProfile.temperature_day_c} °C`} />
                   <ProfileRow label={t('pages.profiles.tempNight')} value={`${reqProfile.temperature_night_c} °C`} />
