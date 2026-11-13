@@ -16,7 +16,8 @@ Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, section 15):
                   the bed (with its height), says "none drawn" in a bed without one, and a species without        W-005)
                   the flag gets no hint
   TC-053-114  ->  tent with plants whose current phases ask for different photoperiods (from the phase          (§9.2a
-                  profiles): the light-schedule hint names both groups; a tent with one photoperiod has none     W-016.6)
+                  profiles, saved as entered - #2857): the light-schedule hint names both groups; a tent with    W-016.6)
+                  one photoperiod has none
   TC-053-115  ->  soil amendment "Kompost" recorded through "Pflege protokollieren" (no task) writes exactly one  (§12.1
                   feeding event for the bed's plant, shown on its feeding page; "Sand" writes none                W-007)
 
@@ -47,6 +48,7 @@ from ._garden_plan_helpers import (
     ObjectSpec,
     care_events,
     create_plant_in_phase,
+    enter_phase_photoperiods,
     lower_bound_cm,
     object_tasks,
     phase_photoperiods,
@@ -575,8 +577,10 @@ def test_tc_053_114_tent_photoperiod_conflict_hint_from_the_phase_profiles(
     """TC-053-114 - two plants under one lamp whose current phases ask for different photoperiods: the hint says so.
 
     The phases and their photoperiods come from the catalogue: the light-triggered phases (no young phase) of the hemp
-    lifecycle with the longest and the shortest ``photoperiod_hours``. Tent A holds one plant in each, tent B two plants
-    in the longest one. Breaks if tent A shows no conflict hint, the hint does not name both photoperiods with their
+    lifecycle with the longest and the shortest ``photoperiod_hours``. Only a sourced light duration forms a group
+    (#2857), and hemp's phases come from the generic phase template, so both profiles are first saved unchanged
+    through the profile editor's route (the platform admin's ``PUT``), which stores them as entered. Tent A holds one
+    plant in each, tent B two plants in the longest one. Breaks if tent A shows no conflict hint, the hint does not name both photoperiods with their
     phase by its German catalogue name (#2889), or tent B shows one (§9.2a, W-016.6, V-23 - a hint, never an error).
     """
     hemp = species(base_url, e2e_seed_data, HEMP)
@@ -599,6 +603,9 @@ def test_tc_053_114_tent_photoperiod_conflict_hint_from_the_phase_profiles(
         assert phase.display_name_de and phase.display_name_de != phase.display_name, (
             f"precondition: the phase has a German name of its own in the catalogue: {phase!r}"
         )
+    # #2857: only a light duration from a Steckbrief or entered by a person forms a group. Hemp's phases come from the
+    # generic phase template (`generated`); saving both profiles, as the profile editor does, makes them `sourced`.
+    enter_phase_photoperiods(base_url, e2e_seed_data, hemp["key"], {longest.name, shortest.name})
     garden = provision_garden(
         base_url,
         e2e_seed_data,

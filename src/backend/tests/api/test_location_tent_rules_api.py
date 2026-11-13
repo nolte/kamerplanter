@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_garden_resource_service, get_tenant_service
-from app.common.enums import TenantRole
+from app.common.enums import PhotoperiodSource, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.garden_plan import BedCounters
 from app.domain.models.tent_hint import PhaseLabel, PlantPhotoperiod
@@ -35,6 +35,8 @@ from tests.support.garden_plan_fakes import (
 )
 
 _BASE = "/api/v1/t/own"
+#: The hours of a Steckbrief or a person's entry - the only ones the tent rule judges (#2857).
+SOURCED = PhotoperiodSource.SOURCED
 
 
 class _Tenants:
@@ -152,8 +154,8 @@ class TestSummary:
     def test_the_conflict_hint_appears_and_disappears(self, client, repo) -> None:
         repo.counters["tent"] = BedCounters(active_plant_count=2)
         repo.photoperiods["tent"] = [
-            PlantPhotoperiod("p1", "Vegetative", 18.0),
-            PlantPhotoperiod("p2", "Flowering", 12.0),
+            PlantPhotoperiod("p1", "Vegetative", 18.0, photoperiod_source=SOURCED),
+            PlantPhotoperiod("p2", "Flowering", 12.0, photoperiod_source=SOURCED),
         ]
 
         hints = client().get(f"{_BASE}/locations/tent/summary").json()["tent_hints"]
@@ -172,11 +174,35 @@ class TestSummary:
         ]
 
         repo.photoperiods["tent"] = [
-            PlantPhotoperiod("p1", "Flowering", 12.0),
-            PlantPhotoperiod("p2", "Flowering", 12.0),
+            PlantPhotoperiod("p1", "Flowering", 12.0, photoperiod_source=SOURCED),
+            PlantPhotoperiod("p2", "Flowering", 12.0, photoperiod_source=SOURCED),
         ]
 
         assert client().get(f"{_BASE}/locations/tent/summary").json()["tent_hints"] == []
+
+    def test_unsourced_hours_answer_unknown_not_conflict(self, client, repo) -> None:
+        """#2857: a default 18 h against a generated 12 h is no statement about the plants - `info`, not `warning`."""
+        repo.counters["tent"] = BedCounters(active_plant_count=2)
+        repo.photoperiods["tent"] = [
+            PlantPhotoperiod(
+                "p1", "Vegetative", 18.0, display_name="Lemon", photoperiod_source=PhotoperiodSource.DEFAULT
+            ),
+            PlantPhotoperiod(
+                "p2", "Flowering", 12.0, display_name="Gelato", photoperiod_source=PhotoperiodSource.GENERATED
+            ),
+        ]
+
+        hints = client().get(f"{_BASE}/locations/tent/summary").json()["tent_hints"]
+
+        assert hints == [
+            {
+                "code": "tent.photoperiod_unknown",
+                "severity": "info",
+                "groups": [],
+                "unknown_plant_count": 2,
+                "unknown_plant_names": ["Gelato", "Lemon"],
+            }
+        ]
 
     def test_each_group_names_its_phases_by_code_with_both_display_names(self, client, repo) -> None:
         """#2889: the wire carries the phase code and both catalogue names; the client words it in its language.
@@ -192,6 +218,7 @@ class TestSummary:
                 18.0,
                 "vegetative",
                 phase_label=PhaseLabel("vegetative", display_name="Vegetative"),
+                photoperiod_source=SOURCED,
             ),
             PlantPhotoperiod(
                 "p2",
@@ -199,6 +226,7 @@ class TestSummary:
                 12.0,
                 "flowering",
                 phase_label=PhaseLabel("flowering", display_name="Flowering", display_name_de="Blüte"),
+                photoperiod_source=SOURCED,
             ),
         ]
 

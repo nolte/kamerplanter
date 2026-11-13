@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import PhotoperiodSource
+
 
 class RequirementProfileCreate(BaseModel):
     phase_key: str
@@ -20,6 +22,14 @@ class RequirementProfileCreate(BaseModel):
 
 class RequirementProfileResponse(RequirementProfileCreate):
     key: str
+    #: Where `photoperiod_hours` came from (#2857). Read-only: a create or update through this API is a person's
+    #: entry and the server stores `sourced`; a client cannot set it. `null` = stored before the field existed.
+    photoperiod_source: PhotoperiodSource | None = Field(
+        default=None,
+        description="Origin of photoperiod_hours: `sourced` (Steckbrief/species seed profile or entered by a person), "
+        "`generated` (phase-name table of the profile generator), `default` (fallback, nobody chose it); "
+        "null = stored before the provenance existed. Set by the server, never by the client.",
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

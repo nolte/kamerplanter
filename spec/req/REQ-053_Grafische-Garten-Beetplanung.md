@@ -447,9 +447,30 @@ Die Betreiberentscheidung lautet: **keine Sonderbehandlung** — ein Growzelt un
 | Topfvolumen | nur `planter.volume_liters` am Beet | `Slot.container_volume_l` (optional) — im Zelt begrenzt das Topfvolumen die Pflanze, nicht der Abstand; der Dialog prüft gegen `Species.recommended_container_volume_l`/`min_container_depth_cm` (Schema vorhanden) und warnt (W-016.5) |
 | Licht (SHOULD, nicht MVP) | — | `Location.lighting {lamp_height_cm, canopy_distance_cm, fixture_geometry?}` als Vorbereitung für PPFD-Verteilung; Randabstand im Zelt ist frei konfigurierbar, weil `spacing/2` dort keine Lichtbasis hat (W-016.2/3) |
 | Etagen | — | **Eine Ebene = eine Location** (Kind von `shelf`/`tent`) mit eigener Lampe, Klima und Photoperiode; 2D-Geometrie bildet keine Stapel ab (W-016.4) |
-| Photoperiode (SHOULD) | — | Validierungshinweis `tent.photoperiod_conflict`, wenn Pflanzen verschiedener Photoperiode-Phasen in derselben Zelt-Location stehen (W-016.6) |
+| Photoperiode (SHOULD) | — | Validierungshinweis `tent.photoperiod_conflict`, wenn Pflanzen verschiedener Photoperiode-Phasen in derselben Zelt-Location stehen (W-016.6); nur belegte Lichtdauern (`photoperiod_source = sourced`) bilden Gruppen, alles andere zählt als unbekannt (#2857, siehe unten) |
 | Nachbarschaftsfaktor | Site-weit | `adjacency_factor` pro Location überschreibbar (SCROG-Überlappung, W-016.8) |
 | Fruchtfolge | — | Für `tent`, `shelf`, `planter` standardmäßig aus (GP-FR-137) |
+
+**Photoperiode-Hinweis — nur belegte Lichtdauern zählen (#2857).** Der Hinweis liest die Lichtdauer aus dem
+Anforderungsprofil der aktuellen Phase jeder Pflanze (REQ-003 `photoperiod_hours`) samt ihrer Herkunft
+(`photoperiod_source`). Konfliktgruppen bilden **nur** Lichtdauern mit Herkunft `sourced` (aus einem Steckbrief oder
+im Profil-Editor eingetragen). Eine Lichtdauer aus der Phasenvorlage des Generators (`generated`), der Rückfallwert
+(`default`), ein Profil ohne Herkunft (vor #2857 gespeichert) und eine Pflanze ohne Profil zählen gleich: als
+**unbekannt**. Daraus folgt:
+
+- Zwei oder mehr Gruppen belegter Lichtdauern, mindestens 1 h auseinander → `tent.photoperiod_conflict` (`warning`);
+  unbekannte Pflanzen werden am Konflikt mitgezählt und benannt (höchstens fünf Namen).
+- Sonst mindestens zwei beteiligte Pflanzen, davon mindestens eine unbekannt → `tent.photoperiod_unknown` (`info`);
+  der Text sagt, dass nur ein Standard- oder Vorlagenwert vorliegt, und nennt den Schritt: die Lichtdauer im
+  Phasenprofil der Art eintragen.
+- Eine belegte und eine unbekannte Pflanze sind nie ein Konflikt, nur `unknown`.
+- Toleranz (1 h), Ausschluss junger Phasen und die Bedingung „eigener Lichtplan“ (Zelt; Regal-Ebene mit eigener
+  Lampe) bleiben unverändert.
+
+Der Teil, der am Photoperiodentyp hängt, bleibt in #2857 offen, bis eine Datenmigration möglich ist: ein Wert
+`unspecified` für `PhotoperiodType` (heute steht `day_neutral` als Vorgabe auch für nie klassifizierte Arten), der
+Ausschluss tagneutraler Pflanzen aus dem Konflikt und die Prüfung „Kurztagpflanze mit 18 h“. Bis dahin nehmen
+tagneutrale Pflanzen am Vergleich teil.
 
 Abgenommen wird der Editor weiterhin primär mit Outdoor-Szenarien (§30), aber die E2E-Grundlinie (Issue 23) enthält **ein Zelt-Szenario** (Location `tent`, 9 Punkt-Slots im 3 × 3-Raster, Pflanze verschieben), damit die Gleichbehandlung nachweisbar ist (GP-ACC-036).
 
@@ -1820,7 +1841,7 @@ Die Standort-Zuweisung (`location_assignments`) bleibt Koordination ohne Schreib
 | V-20 | DB | unique `slots(location_key, slot_id)` | bestehende Regel |
 | V-21 | API | `batch.operation_forbidden` | Operation über der Rolle des Aufrufers (403, SR-001) |
 | V-22 | API/Domain | `plan.quota_exceeded`, `layout.too_many_positions`, `batch.too_complex` (Request-Body > 1 MiB: 413 `body_too_large`) | Quoten (GP-NFR-017), Layout-Obergrenze (GP-FR-062), Komplexitäts-/Zeitbudget (GP-NFR-013) |
-| V-23 | Domain | `tent.photoperiod_conflict` | Hinweis (kein Fehler): Pflanzen verschiedener Photoperiode-Phasen in einer Zelt-Location (SHOULD) |
+| V-23 | Domain | `tent.photoperiod_conflict` | Hinweis (kein Fehler): Pflanzen verschiedener Photoperiode-Phasen in einer Zelt-Location (SHOULD); nur belegte Lichtdauern (`sourced`) zählen, sonst `tent.photoperiod_unknown` (§9.2a, #2857) |
 | V-24 | Domain | `site.has_active_plants` | `DELETE /sites/{key}` verweigert (409, `details[0].active_plant_count`), solange eine Pflanze mit `removed_on = null` den Standort (`site_key`) oder ein Beet/einen Slot trägt, der mit gelöscht würde; V-09 eine Ebene höher (GP-FR-024), geprüft in der Lösch-Transaktion vor dem ersten Schreibzugriff |
 | V-25 | Domain | `slot.occupied` (409), `slot.already_planned` (409, V-08) | Eine Einzelpflanze (`POST /plant-instances` mit `slot_key`, `PlantInstanceService.create_plant`) auf einem Pflanzplatz der Rolle `position` wird abgelehnt, wenn dort schon eine Pflanze des Mandanten mit `removed_on = null` steht (`slot.occupied`, derselbe Code wie beim Säen und Vereinzeln) oder ein lebender Pflanzlauf (`planned`/`active`/`harvesting`) den Platz für ein Fenster reserviert, das nicht vor heute (UTC) endet (`slot.already_planned` mit `conflicting_run_key`, `overlap_from`, `overlap_until`). Gilt auch mit `skip_validation`. Reihen und Flächen (`row`, `zone`) nehmen weiter bis `capacity_plants` Pflanzen. Prüfen-dann-Schreiben wie `create-plants` (keine Transaktion, kein eindeutiger Kantenindex): zwei gleichzeitige Anfragen können beide durchkommen (GP-UX-071, #2913) |
 

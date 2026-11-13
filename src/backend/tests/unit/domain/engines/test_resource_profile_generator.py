@@ -1,4 +1,6 @@
+from app.common.enums import PhotoperiodSource
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
+from app.migrations.yaml_loader import load_yaml
 
 
 class TestRequirementProfileGeneration:
@@ -113,3 +115,41 @@ class TestGetVpdRanges:
         assert ranges["seedling"] == (0.4, 0.8)
         assert ranges["flowering"] == (1.0, 1.5)
         assert "vegetative" in ranges
+
+
+class TestPhotoperiodSource:
+    """#2857: the generator records whether a phase's light hours came from its table or are the fallback."""
+
+    def test_a_table_hit_is_generated(self):
+        req = ResourceProfileGenerator().generate_requirement_profile("flowering")
+
+        assert (req.photoperiod_hours, req.photoperiod_source) == (12.0, PhotoperiodSource.GENERATED)
+
+    def test_a_phase_name_outside_the_table_gets_the_default(self):
+        req = ResourceProfileGenerator().generate_requirement_profile("harvest")
+
+        assert (req.photoperiod_hours, req.photoperiod_source) == (18.0, PhotoperiodSource.DEFAULT)
+
+    def test_a_yaml_table_is_still_a_phase_name_table(self):
+        """``species.yaml`` ``default_phases`` gives every species the same hours - generated, not sourced."""
+        gen = ResourceProfileGenerator.from_yaml_phases(load_yaml("species.yaml")["default_phases"])
+
+        vegetative = gen.generate_requirement_profile("vegetative")
+        assert vegetative.photoperiod_source == PhotoperiodSource.GENERATED
+        assert gen.generate_requirement_profile("germination").photoperiod_source == PhotoperiodSource.DEFAULT
+
+    def test_a_table_entry_without_hours_is_the_default(self):
+        gen = ResourceProfileGenerator({"vegetative": {"requirement": {"light_ppfd_target": 300}}})
+
+        req = gen.generate_requirement_profile("vegetative")
+
+        assert (req.light_ppfd_target, req.photoperiod_hours, req.photoperiod_source) == (
+            300,
+            18.0,
+            PhotoperiodSource.DEFAULT,
+        )
+
+    def test_an_empty_yaml_table_falls_back_to_the_built_in_one_as_generated(self):
+        req = ResourceProfileGenerator.from_yaml_phases([]).generate_requirement_profile("vegetative")
+
+        assert req.photoperiod_source == PhotoperiodSource.GENERATED

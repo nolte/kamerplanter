@@ -1159,6 +1159,25 @@ GET /api/v1/species/{species_key}/lifecycle
 
 ---
 
+## Requirement Profiles: Origin of the Light Duration (`photoperiod_source`)
+
+A phase's requirement profile records where its light duration `photoperiod_hours` comes from. Only a sourced light duration says something about the plant; the tent hint compares only those. <!-- REQ-003, REQ-053 §9.2a, #2857 -->
+
+| Value | Meaning |
+|-------|---------|
+| `sourced` | From a species profile in the seed data, or saved by a person through `POST`/`PUT /api/v1/profiles/requirements` |
+| `generated` | Taken by the profile generator from its phase template, which is the same for every species (also `POST /api/v1/profiles/generate-defaults/{phase_key}`) |
+| `default` | Nobody chose it: the template does not know the phase, the fallback of 18.0 h applies |
+| `null` | Profile from before the field existed, origin unknown |
+
+- `GET /api/v1/profiles/requirements/{phase_key}` returns the field.
+- `POST /api/v1/profiles/requirements` and `PUT /api/v1/profiles/requirements/{key}` always set it to `sourced`. A `photoperiod_source` in the request body is ignored; a client cannot state another origin.
+- Existing installations need no migration: at start-up the seed loaders write `sourced` into every profile whose light duration a species profile names. Other profiles keep their origin.
+
+**Tent hint in `GET /api/v1/t/{slug}/locations/{key}/summary`.** `tent_hints[]` forms groups (`groups[]`) only from light durations with `sourced`. Plants with `generated`, `default`, `null` or without a profile count as unknown (`unknown_plant_count`, the first five in `unknown_plant_names`). Two groups at least one hour apart give `tent.photoperiod_conflict` (`warning`); otherwise at least two plants, at least one of them unknown, give `tent.photoperiod_unknown` (`info`). Plants in a young phase are not counted.
+
+---
+
 ## Species: Language-Tagged Common Names (`common_names_i18n`)
 
 Species also carry their common names grouped by language, so the matching name can later be picked per UI language. <!-- REQ-001 / UI-NFR-007 R-009a -->

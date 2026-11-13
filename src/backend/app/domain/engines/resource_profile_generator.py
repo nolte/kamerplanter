@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from app.common.enums import PhotoperiodSource
 from app.domain.engines.phase_resource_resolver import resolve_nutrient
 from app.domain.models.phase import NutrientProfile, RequirementProfile
+
+#: The photoperiod a phase gets when the table names none for it - nobody chose it (``PhotoperiodSource.DEFAULT``).
+_FALLBACK_PHOTOPERIOD_HOURS = 18.0
 
 # Fallback defaults used when no YAML profile data is provided.
 # These match the values formerly in config/constants.py.
@@ -92,17 +96,24 @@ class ResourceProfileGenerator:
         self._profiles = phase_profiles or _DEFAULT_PROFILES
 
     def generate_requirement_profile(self, phase_name: str, phase_key: str = "") -> RequirementProfile:
-        """Generate a requirement profile for a given phase."""
+        """Generate a requirement profile for a given phase.
+
+        The photoperiod records where it came from (#2857): a phase name the table carries hours for is
+        ``generated`` - the table is one per phase name for every species, so the value says nothing about this
+        species; any other phase name gets the fallback 18.0 h as ``default``.
+        """
         profile = self._profiles.get(phase_name, {})
         req = profile.get("requirement", {})
 
         vpd_range = req.get("vpd_range", (0.8, 1.2))
         vpd_target = (vpd_range[0] + vpd_range[1]) / 2
 
+        table_hours = req.get("photoperiod_hours")
         return RequirementProfile(
             phase_key=phase_key,
             light_ppfd_target=req.get("light_ppfd_target", 400),
-            photoperiod_hours=req.get("photoperiod_hours", 18.0),
+            photoperiod_hours=_FALLBACK_PHOTOPERIOD_HOURS if table_hours is None else table_hours,
+            photoperiod_source=PhotoperiodSource.DEFAULT if table_hours is None else PhotoperiodSource.GENERATED,
             temperature_day_c=req.get("temperature_day_c", 25.0),
             temperature_night_c=req.get("temperature_night_c", 20.0),
             humidity_day_percent=req.get("humidity_day_percent", 60),

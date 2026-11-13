@@ -1159,6 +1159,25 @@ Die `LifecycleResponse` enthält zusätzlich:
 
 ---
 
+## Anforderungsprofile: Herkunft der Lichtdauer (`photoperiod_source`)
+
+Ein Anforderungsprofil einer Phase hält fest, woher seine Lichtdauer `photoperiod_hours` stammt. Nur eine belegte Lichtdauer sagt etwas über die Pflanze; der Zelt-Hinweis vergleicht nur solche. <!-- REQ-003, REQ-053 §9.2a, #2857 -->
+
+| Wert | Bedeutung |
+|------|-----------|
+| `sourced` | Aus einem Steckbrief der Saatdaten oder von einer Person über `POST`/`PUT /api/v1/profiles/requirements` gespeichert |
+| `generated` | Vom Profil-Generator aus seiner Phasenvorlage genommen, die für alle Arten gleich ist (auch `POST /api/v1/profiles/generate-defaults/{phase_key}`) |
+| `default` | Niemand hat sie gewählt: Die Vorlage kennt die Phase nicht, es gilt der Rückfallwert 18,0 h |
+| `null` | Profil aus der Zeit vor dem Feld, Herkunft unbekannt |
+
+- `GET /api/v1/profiles/requirements/{phase_key}` liefert das Feld mit.
+- `POST /api/v1/profiles/requirements` und `PUT /api/v1/profiles/requirements/{key}` setzen es immer auf `sourced`. Ein `photoperiod_source` im Request-Body wird ignoriert; ein Client kann keine andere Herkunft angeben.
+- Bestehende Installationen brauchen keine Migration: Beim Start schreiben die Saat-Loader `sourced` in jedes Profil, dessen Lichtdauer ein Steckbrief nennt. Andere Profile behalten ihre Herkunft.
+
+**Zelt-Hinweis in `GET /api/v1/t/{slug}/locations/{key}/summary`.** `tent_hints[]` bildet Gruppen (`groups[]`) nur aus Lichtdauern mit `sourced`. Pflanzen mit `generated`, `default`, `null` oder ohne Profil zählen als unbekannt (`unknown_plant_count`, die ersten fünf in `unknown_plant_names`). Zwei Gruppen, mindestens eine Stunde auseinander, ergeben `tent.photoperiod_conflict` (`warning`); sonst ergeben mindestens zwei Pflanzen mit mindestens einer unbekannten `tent.photoperiod_unknown` (`info`). Pflanzen in einer Jungpflanzen-Phase zählen nicht mit.
+
+---
+
 ## Arten: Sprachgetaggte Volksnamen (`common_names_i18n`)
 
 Arten tragen ihre gebräuchlichen Namen zusätzlich nach Sprache sortiert. So lässt sich später pro Oberflächensprache der passende Name wählen. <!-- REQ-001 / UI-NFR-007 R-009a -->

@@ -92,6 +92,12 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
     - `dli_target_mol: Optional[float]` (Daily Light Integral in mol/m²/Tag — DLI = PPFD × h × 3600 / 1.000.000; Zimmerpflanzen Niedriglicht: 2-5, Zimmerpflanzen Mittellicht: 5-12, Zimmerpflanzen Hochlicht: 12-20, Salate: 12-17, Kräuter: 15-20, Tomaten: 20-30, Cannabis: 35-45. Hinweis: Nordfenster Deutschland Winter ≈ 1-2 mol/m²/d — unter Minimum für fast alle Zimmerpflanzen.)
     - `dli_min_mol: Optional[float]` (Minimaler DLI unter dem die Pflanze langfristig Schaden nimmt. Zimmerpflanzen: Schattentolerante 1.5, Halbschatten 3.0, Helles Licht 5.0, Volle Sonne 10.0)
     - `photoperiod_hours: float`
+    - `photoperiod_source: Optional[Literal['sourced', 'generated', 'default']]` (Herkunft von `photoperiod_hours`, #2857 — additiv, vom Server gesetzt, nie vom Client:
+      - `sourced` — der Wert stammt aus einem Steckbrief (Phasenblock `growth_phases` der Saatdaten, `plant_info*.yaml`, `adventskalender.yaml`) oder eine Person hat ihn im Profil-Editor eingetragen bzw. gespeichert (`POST`/`PUT /profiles/requirements`). Nur dieser Wert ist eine Aussage über die Pflanze.
+      - `generated` — der Profil-Generator hat ihn aus seiner Phasennamen-Tabelle genommen (eingebaute Tabelle oder `species.yaml` `default_phases`; eine Tabelle für alle Arten, z. B. vegetativ 18 h, Blüte 12 h). Auch `POST /profiles/generate-defaults/{phase_key}`.
+      - `default` — niemand hat ihn gewählt: Die Tabelle kennt den Phasennamen nicht oder nennt keine Lichtdauer, es gilt der Rückfallwert 18,0 h.
+      - `null` — Profil aus der Zeit vor diesem Feld, Herkunft unbekannt. Ohne Datenmigration: Der Saatlauf beim Start stempelt `sourced` überall dort, wo ein Steckbrief die Lichtdauer der Phase nennt (auch bei unverändertem Wert; `adventskalender.yaml` nur, wenn der gespeicherte Wert noch dem Steckbrief entspricht). Werte, die kein Steckbrief nennt, behalten ihre Herkunft — ein Generatorwert wird nie zu `sourced` umetikettiert.
+      Verbraucher: der Zelt-Hinweis (REQ-053 §9.2a, V-23) wertet nur `sourced` aus.)
     - `light_spectrum: dict` (z.B. {"blue": 0.25, "green": 0.20, "red": 0.45, "far_red": 0.10}. Zimmerpflanzen: Breitbandiges Weißlicht (2700–6500K CCT) empfohlen. Tropische Grünpflanzen: hoher Blauanteil (400–500nm) für kompakten Wuchs. Sukkulenten: hoher Rotanteil + UV für Stressfärbung. Kurztagspflanzen (Kalanchoe, Schlumbergera): R:FR > 1.5 für Kompaktheit, Far-Red (730nm) für Blüteninduktion.)
     - `temperature_day_c: float`
     - `temperature_night_c: float`

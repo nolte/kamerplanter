@@ -2313,6 +2313,21 @@ class FlowRateSource(StrEnum):
     HA_ENTITY = "ha_entity"
 
 
+class PhotoperiodSource(StrEnum):
+    """Where a requirement profile's ``photoperiod_hours`` came from (REQ-003, REQ-053 §9.2a, #2857). Additive (M-9).
+
+    ``sourced``: the value comes from a Steckbrief / species seed profile, or a person entered it in the profile
+    editor. ``generated``: the resource-profile generator took it from its phase-name table (one table for every
+    species). ``default``: nobody chose it - the generator found no value for the phase and the model fallback
+    (18.0 h) stands. A stored profile without the field predates this provenance; its origin is unknown. Only a
+    ``sourced`` value is a statement about the plant: the tent rule (V-23) groups no other value.
+    """
+
+    SOURCED = "sourced"
+    GENERATED = "generated"
+    DEFAULT = "default"
+
+
 class PathSurface(StrEnum):
     """Surface of a ``path`` garden object (REQ-053 §20.4)."""
 

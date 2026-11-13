@@ -5,7 +5,7 @@ from typing import Any
 
 import structlog
 
-from app.common.enums import TransitionTrigger
+from app.common.enums import PhotoperiodSource, TransitionTrigger
 from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PhaseKey, PlantID
@@ -48,6 +48,11 @@ class SequenceAutoTarget:
     duration_days: int
     is_restart: bool
     current_is_terminal: bool
+
+
+def _entered_by_a_person(profile: RequirementProfile) -> RequirementProfile:
+    """The profile with its photoperiod marked ``sourced``: a person wrote it, no client may claim another origin."""
+    return profile.model_copy(update={"photoperiod_source": PhotoperiodSource.SOURCED})
 
 
 class PhaseService:
@@ -259,10 +264,16 @@ class PhaseService:
         return profile
 
     def create_requirement_profile(self, profile: RequirementProfile) -> RequirementProfile:
-        return self._repo.create_requirement_profile(profile)
+        """Store a profile a person wrote in the profile editor: its photoperiod is ``sourced`` (#2857)."""
+        return self._repo.create_requirement_profile(_entered_by_a_person(profile))
 
     def update_requirement_profile(self, key: str, profile: RequirementProfile) -> RequirementProfile:
-        return self._repo.update_requirement_profile(key, profile)
+        """Store a profile a person saved in the profile editor: its photoperiod is ``sourced`` (#2857).
+
+        The editor shows the light hours with every other field, so saving states them - whether the person changed
+        the value or kept the one shown.
+        """
+        return self._repo.update_requirement_profile(key, _entered_by_a_person(profile))
 
     def get_nutrient_profile(self, phase_key: PhaseKey) -> NutrientProfile:
         profile = self._repo.get_nutrient_profile(phase_key)

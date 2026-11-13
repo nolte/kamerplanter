@@ -143,9 +143,11 @@ describe('TentRulesSection', () => {
 
     const alert = screen.getByTestId('tent-hint-photoperiod-conflict');
     expect(alert).toHaveTextContent('Different light needs under one lamp');
-    expect(alert).toHaveTextContent('According to the stored phase profiles');
+    expect(alert).toHaveTextContent('According to the species profile or the entered phase profile');
     expect(alert).toHaveTextContent('18 hours of light for 2 plants (Vegetative); 12 hours of light for 1 plant');
-    expect(alert).toHaveTextContent('For 1 more plant no light duration is recorded');
+    expect(alert).toHaveTextContent(
+      'For 1 more plant no light duration from the species profile or entered by you exists; it is not counted.',
+    );
     expect(alert).not.toHaveTextContent('tent.photoperiod_conflict');
   });
 
@@ -154,9 +156,50 @@ describe('TentRulesSection', () => {
       hints: [{ code: 'tent.photoperiod_unknown', severity: 'info', groups: [], unknown_plant_count: 2 }],
     });
 
-    expect(screen.getByTestId('tent-hint-photoperiod-unknown')).toHaveTextContent(
-      'For 2 plants no light duration is recorded for their current phase.',
+    const alert = screen.getByTestId('tent-hint-photoperiod-unknown');
+    expect(alert).toHaveTextContent(
+      'For 2 plants no light duration from the species profile or entered by you exists for their current phase, ' +
+        'at most a default or template value.',
     );
+    // #2857: the grower is told what to do - a default or template value never counts.
+    expect(alert).toHaveTextContent('Enter the light duration in the phase profile of the species, then the plants count.');
+  });
+
+  /** #2857: the German text says why a stored value does not count and what to do, in the informal "du". */
+  describe('in the German UI', () => {
+    const initialLanguage = i18n.language;
+
+    afterEach(async () => {
+      cleanup();
+      await act(() => i18n.changeLanguage(initialLanguage));
+    });
+
+    it('says that only a sourced light duration counts and how to give one', async () => {
+      await act(() => i18n.changeLanguage('de'));
+      renderSection({
+        hints: [{ code: 'tent.photoperiod_unknown', severity: 'info', groups: [], unknown_plant_count: 1 }],
+      });
+
+      const alert = screen.getByTestId('tent-hint-photoperiod-unknown');
+      expect(alert).toHaveTextContent('Lichtbedarf nicht für alle Pflanzen bekannt');
+      expect(alert).toHaveTextContent(
+        'Für 1 Pflanze ist zur aktuellen Phase keine Lichtdauer aus dem Steckbrief oder von dir eingetragen, ' +
+          'höchstens ein Standard- oder Vorlagenwert.',
+      );
+      expect(alert).toHaveTextContent('Trag die Lichtdauer im Phasenprofil der Art ein, dann zählt die Pflanze mit.');
+      // No sentence starts with the formal "Sie".
+      expect(alert.textContent ?? '').not.toMatch(/(^|[.!?;:]\s*)Sie\b/);
+    });
+
+    it('names the source of the conflicting values', async () => {
+      await act(() => i18n.changeLanguage('de'));
+      renderSection({ hints: [CONFLICT] });
+
+      const alert = screen.getByTestId('tent-hint-photoperiod-conflict');
+      expect(alert).toHaveTextContent('Laut Steckbrief oder eingetragenem Phasenprofil brauchen die Pflanzen hier');
+      expect(alert).not.toHaveTextContent('hinterlegten Phasenprofilen');
+      expect(alert.textContent ?? '').not.toMatch(/(^|[.!?;:]\s*)Sie\b/);
+    });
   });
 
   it('names the plants whose light needs are unknown, the first five and how many more', () => {

@@ -21,6 +21,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import (
     CycleType,
+    PhotoperiodSource,
     PhotoperiodType,
     StressTolerance,
     Suitability,
@@ -32,6 +33,7 @@ from app.domain.models.species import Species
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
 from app.migrations.seed_ipm_rows import seed_ipm_rows
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
+from app.migrations.seed_photoperiod_source import stamp_unchanged_photoperiods
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -407,6 +409,13 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
             has_germination = any(p.name == "germination" for p in existing_phases)
             if has_germination:
                 logger.info("phases_already_artspezifisch", species=sci_name)
+                # The phases stay as they are; their stored light hours that equal the Steckbrief's are sourced (#2857).
+                stated: dict[str, float] = {
+                    str(entry["phase"]["name"]): float(entry["requirements"]["photoperiod"])
+                    for entry in phase_data.get(sci_name, [])
+                    if entry["requirements"].get("photoperiod") is not None
+                }
+                stamp_unchanged_photoperiods(lifecycle_repo, existing_phases, stated)
                 continue
 
             if phases_owned_elsewhere(sci_name, phase_data):
@@ -465,6 +474,8 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
                 phase_key=phase_key,
                 light_ppfd_target=req["ppfd"],
                 photoperiod_hours=req["photoperiod"],
+                # The Steckbrief states the hours of this phase (#2857).
+                photoperiod_source=PhotoperiodSource.SOURCED,
                 temperature_day_c=req["temp_day"],
                 temperature_night_c=req["temp_night"],
                 humidity_day_percent=req["hum_day"],

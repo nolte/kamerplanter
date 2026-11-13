@@ -179,9 +179,18 @@ The Vapor Pressure Deficit (VPD) describes how strongly the air draws moisture f
 | Vegetative | 0.8–1.2 kPa |
 | Flowering | 1.0–1.5 kPa |
 
-### Photoperiod
+### Photoperiod {#photoperiode}
 
 The day length (hours of light per day) controls the transition to flowering in many plants.
+
+Next to the photoperiod, the profile shows where the value comes from:
+
+- **from the species profile or entered**: the value is in the species profile, or someone entered it in the profile.
+- **generated from the phase template**: Kamerplanter took it from a general template that is the same for every species (for example 18 hours for the vegetative phase, 12 hours for flowering).
+- **default value**: nobody chose it; the fallback of 18 hours applies.
+- **origin unknown**: the profile dates from before Kamerplanter recorded the origin. At the next start, profiles whose light duration a species profile names get the origin "from the species profile".
+
+Only a value **from the species profile or entered** counts for the hint about different light needs in a tent (see [Tent rules](garden-plan.md)). When you save the profile with **Edit**, the light duration counts as entered, even if you do not change it. Check it before you save.
 
 | Phase | Typical Photoperiod (short-day plants) |
 |-------|---------------------------------------|
