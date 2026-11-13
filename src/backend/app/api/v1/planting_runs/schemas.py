@@ -138,7 +138,8 @@ class EntryResponse(BaseModel):
 
 class PlantingRunCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    run_type: str
+    #: The domain enum, not ``str``: an unknown value reached ``PlantingRun(...)`` inside the route and answered 500.
+    run_type: PlantingRunType
     location_key: str | None = None
     substrate_batch_key: str | None = None
     planned_start_date: date | None = None
@@ -177,7 +178,7 @@ class PlantingRunCreate(BaseModel):
         if start and self.planned_until and self.planned_until < start:
             raise ValueError("planned_until must not lie before the start of the window.")
         # ``PlantingRun`` refuses this on construction, inside the route, where it answered 500 (#2775).
-        if self.run_type == PlantingRunType.CLONE and not self.source_plant_key:
+        if self.run_type is PlantingRunType.CLONE and not self.source_plant_key:
             raise ValueError("Clone runs require a source_plant_key.")
         return self
 

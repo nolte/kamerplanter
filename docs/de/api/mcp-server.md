@@ -264,7 +264,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `clone_nutrient_plan` | Einen Plan als **mandanteneigene Kopie** ableiten — der einzige richtige Weg, eine geteilte Vorlage zu korrigieren |
 | `set_nutrient_plan_phase_targets` | An **einer** Phase eines eigenen Plans `target_ec_ms` / `reference_ec_ms` setzen. Ein ausgelassenes Feld bleibt unverändert; leeren kann das Werkzeug nichts |
 | `transition_plant_phase` | Eine Pflanze in eine Phase setzen oder eine falsche korrigieren. Das Ziel wird gegen die Abfolge geprüft, auf der die **Art dieser Pflanze** läuft — ein fremder Phasenschlüssel würde die Pflanze in einer Phase parken, aus der ihr Lebenszyklus nie wieder herausfindet |
-| `create_planting_run` | Einen geplanten Pflanzdurchlauf anlegen (Mono- oder Klon-Run) mit seinem einen Eintrag und, für die Beetplanung, Belegungsfenster (`planned_from`/`planned_until`), Rolle in der Fruchtfolge und reservierter Fläche. Ein Trockenlauf (`dry_run`) prüft alles, was das Anlegen prüft, und schreibt nichts. Eine Mischkultur ist kein Durchlauf mit mehreren Einträgen und wird abgelehnt; das Ergebnis findet `list_planting_runs` |
+| `create_planting_run` | Einen geplanten Pflanzdurchlauf anlegen (Mono- oder Klon-Run) mit höchstens einem Eintrag und, für die Beetplanung, Belegungsfenster (`planned_from`/`planned_until`), Rolle in der Fruchtfolge und reservierter Fläche. Ein Trockenlauf (`dry_run`) prüft alles, was das Anlegen prüft, und schreibt nichts. Eine Mischkultur ist kein Durchlauf mit mehreren Einträgen und wird abgelehnt; das Ergebnis findet `list_planting_runs` |
 
 ### Setup-Werkzeuge (`mcp.setup`)
 

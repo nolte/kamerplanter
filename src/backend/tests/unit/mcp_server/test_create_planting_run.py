@@ -12,17 +12,21 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import model_validator
 
 from app.api.v1.planting_runs.schemas import EntryCreate, PlantingRunCreate
 from app.common.enums import McpPermission, PlantingRunStatus, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.models.planting_run import PlantingRun
 from app.domain.services.planting_run_service import PlantingRunService
 from app.mcp_server.audit import MCPAuditLogger
+from app.mcp_server.base import McpToolError
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.idempotency import IdempotencyStore
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.registry import ToolRegistry, load_tools
+from app.mcp_server.tools import runs as runs_module
 from app.mcp_server.tools.runs import CreatePlantingRun, ListPlantingRuns, PlantingRunEntryInput
 from tests.unit.domain.services.test_planting_run_location_ownership import OWN, FakeRunRepo, FakeSiteRepo
 from tests.unit.mcp_server.test_dispatcher import _FakeAuditRepo, _FakeIdempotencyRepo
@@ -208,4 +212,40 @@ async def test_a_viewer_cannot_create_a_run():
     with pytest.raises(ForbiddenError):
         await dispatcher.dispatch(principal, "create_planting_run", _args())
 
+    assert repo.store == {}
+
+
+@pytest.mark.asyncio
+async def test_a_run_without_entries_is_a_planned_reservation():
+    """``POST /planting-runs`` allows it (entries come later via ``/entries``); the tool does too."""
+    dispatcher, principal, repo = _setup()
+
+    response = await dispatcher.dispatch(
+        principal, "create_planting_run", _args(entries=None, reserved_area_m2=1.5, plan_role="green_manure")
+    )
+
+    (stored,) = repo.store.values()
+    assert (stored.planned_quantity, stored.reserved_area_m2, repo.entries) == (0, 1.5, [])
+    assert response.data["entries"] == []
+
+
+class _StricterRun(PlantingRun):
+    """A domain rule the input does not mirror — what a future drift between the two would look like."""
+
+    @model_validator(mode="after")
+    def _refuse(self) -> _StricterRun:
+        raise ValueError("a rule only the domain model knows")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run", [False, True])
+async def test_a_domain_model_refusal_is_a_validation_error_not_an_internal_failure(monkeypatch, dry_run: bool):
+    monkeypatch.setattr(runs_module, "PlantingRun", _StricterRun)
+    dispatcher, principal, repo = _setup()
+
+    with pytest.raises(ValidationError) as caught:
+        await dispatcher.dispatch(principal, "create_planting_run", _args(dry_run=dry_run))
+
+    assert not isinstance(caught.value, McpToolError)
+    assert caught.value.error_code == "VALIDATION_ERROR"
     assert repo.store == {}

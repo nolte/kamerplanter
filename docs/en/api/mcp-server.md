@@ -264,7 +264,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | `clone_nutrient_plan` | Derive a **tenant-owned copy** of a plan — the only correct way to correct a shared template |
 | `set_nutrient_plan_phase_targets` | Set `target_ec_ms` / `reference_ec_ms` on **one** phase of a plan you own. An omitted field stays unchanged; the tool can never clear a value |
 | `transition_plant_phase` | Put a plant into a phase, or correct a wrong one. The target is validated against the sequence **that plant's species** runs on — a phase key from elsewhere would park the plant in a phase its lifecycle can never advance out of |
-| `create_planting_run` | Create a planned planting run (monoculture or clone) with its single entry and, for garden planning, a reservation window (`planned_from`/`planned_until`), a crop-rotation role and a reserved area. A `dry_run` runs every check the real call runs and writes nothing. A mixed culture is not one run with several entries and is refused; `list_planting_runs` finds the result |
+| `create_planting_run` | Create a planned planting run (monoculture or clone) with at most one entry and, for garden planning, a reservation window (`planned_from`/`planned_until`), a crop-rotation role and a reserved area. A `dry_run` runs every check the real call runs and writes nothing. A mixed culture is not one run with several entries and is refused; `list_planting_runs` finds the result |
 
 ### Setup tools (`mcp.setup`)
 

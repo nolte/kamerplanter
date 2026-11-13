@@ -6,6 +6,7 @@ from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import (
     DepthKind,
@@ -16,6 +17,7 @@ from app.common.enums import (
     PlantingRunType,
     RowDirection,
 )
+from app.common.exceptions import ValidationError
 from app.domain.models.mcp import McpToolResponse
 from app.domain.models.planting_run import (
     MAX_DEPTH_CM,
@@ -103,8 +105,8 @@ class CreatePlantingRun(WriteToolBase):
         name: str = Field(min_length=1, max_length=200)
         run_type: PlantingRunType = Field(
             description=(
-                "'monoculture' or 'clone'. Either has exactly one entry; a mixed culture is not one run with "
-                "several entries and is refused."
+                "'monoculture' or 'clone'. Either has at most one entry: omit entries for a reservation without "
+                "a species yet; a mixed culture is not one run with several entries and is refused."
             )
         )
         location_key: str | None = Field(default=None, description="Bed or location; get_location resolves it.")
@@ -153,9 +155,21 @@ class CreatePlantingRun(WriteToolBase):
 
     @classmethod
     def _drafts(cls, ctx: ToolContext, args: Input) -> tuple[PlantingRun, list[PlantingRunEntry] | None]:
-        """The run and entries as ``POST /planting-runs`` builds them; the tenant is the bound one, not an argument."""
-        run = PlantingRun(**args.model_dump(exclude=set(cls._CALL_FIELDS)), tenant_key=ctx.tenant_key)
-        entries = [PlantingRunEntry(**entry.model_dump()) for entry in args.entries] if args.entries else None
+        """The run and entries as ``POST /planting-runs`` builds them; the tenant is the bound one, not an argument.
+
+        The domain models carry their own validators. Should one refuse what the input accepted, that is the
+        caller's request failing a rule, so it answers ``validation.error`` — not the
+        ``internal.contract_mismatch`` an unhandled pydantic error would become in the dispatcher.
+        """
+        try:
+            run = PlantingRun(**args.model_dump(exclude=set(cls._CALL_FIELDS)), tenant_key=ctx.tenant_key)
+            entries = [PlantingRunEntry(**entry.model_dump()) for entry in args.entries] if args.entries else None
+        except PydanticValidationError as exc:
+            # Location and message only: ``errors()`` also carries the input values, which stay out of the reply.
+            details = [
+                {"field": ".".join(str(part) for part in err["loc"]), "reason": err["msg"]} for err in exc.errors()
+            ]
+            raise ValidationError("The planting run is invalid.", details=details) from None
         return run, entries
 
     @staticmethod
