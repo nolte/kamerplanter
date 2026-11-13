@@ -50,6 +50,8 @@ def _database():
         for name in _DOCUMENTS:
             database.create_collection(name)
         database.create_collection(col.RUN_CONTAINS, edge=True)
+        # The species join reads the #1092 grants (a stored species key is no read grant, #2082).
+        database.create_collection(col.TENANT_HAS_ACCESS, edge=True)
         yield database
         system.delete_database(TEST_DATABASE)
     finally:
