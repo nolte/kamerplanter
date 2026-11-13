@@ -202,6 +202,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const stackSx = vertical
     ? ({ display: 'flex', flexDirection: 'column', gap: 0.5 } as const)
     : ({ display: 'flex', alignItems: 'center', gap: 0.5 } as const);
+  // Eight tools (three with a sub-menu) are wider than a 360 px bar: docked, the tool group wraps instead of clipping.
+  const toolsSx = vertical ? stackSx : ({ ...stackSx, flexWrap: 'wrap', minWidth: 0 } as const);
   const wrapSx = { display: 'flex', gap: 0.5, flexWrap: 'wrap' } as const;
   // Docked below md the selection group is one row that never wraps (#2904).
   const selectionRowSx = { display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap', flex: 'none' } as const;
@@ -248,7 +250,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
             }
       }
     >
-      <Box role="group" aria-label={t(`${PREFIX}.toolbar.tools`)} sx={stackSx}>
+      <Box role="group" aria-label={t(`${PREFIX}.toolbar.tools`)} sx={toolsSx}>
         {RAIL_TOOLS.filter(({ tool }) => !props.hiddenTools?.has(tool)).map(({ tool, icon: Icon }) => {
           // While the template tool is on no other tool is: clicking "Select" must register as a change.
           const pressed = !templateActive && props.tool === tool;

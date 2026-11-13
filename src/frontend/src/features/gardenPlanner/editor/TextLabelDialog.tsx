@@ -17,6 +17,8 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { TEXT_LABEL_MAX_CHARS, textLabelProblem, textLength } from '../model/textLabel';
 
 const PREFIX = 'pages.gardenPlan.editor';
@@ -69,7 +71,7 @@ function TextForm({ error, titleId, onSubmit, onClose }: TextFormProps) {
           }
           slotProps={{
             htmlInput: { 'data-testid': 'garden-plan-text-input', autoComplete: 'off', spellCheck: true },
-            formHelperText: { 'aria-live': 'polite' } as Record<string, string>,
+            formHelperText: (shownProblem !== null ? { role: 'alert' } : {}) as Record<string, string>,
           }}
           sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
         />
@@ -94,8 +96,12 @@ function TextForm({ error, titleId, onSubmit, onClose }: TextFormProps) {
 export function TextLabelDialog({ open, error, onSubmit, onClose }: TextLabelDialogProps) {
   const { t } = useTranslation();
   const titleId = useId();
+  const theme = useTheme();
+  // Below sm the dialog is full screen, so the keyboard and the field do not fight for a small card.
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   return (
     <Dialog
+      fullScreen={fullScreen}
       open={open}
       onClose={onClose}
       maxWidth="xs"
