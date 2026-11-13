@@ -158,7 +158,7 @@ class TestSowingRoute:
 class _SownOnly(IPlantStateRepository):
     """The bed ``bed`` holds one sown row and no plant."""
 
-    def list_sown_slots(self, location_key, *, tenant_key):
+    def list_sown_slots(self, location_key, *, tenant_key, language="de"):
         return [
             SownSlotSource(
                 slot_key="row1",
@@ -170,10 +170,10 @@ class _SownOnly(IPlantStateRepository):
             )
         ]
 
-    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit):
+    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit, language="de"):
         return []
 
-    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit, language="de"):
         return []
 
 

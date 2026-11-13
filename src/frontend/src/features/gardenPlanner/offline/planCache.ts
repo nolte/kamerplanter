@@ -279,9 +279,18 @@ export function bedSummaryEntry(scope: CacheScope, locationKey: string): CacheEn
   return { table: 'bedSummaries', key: siteCacheKey(scope, locationKey), scope };
 }
 
-/** `{user_key}:{tenant_key}:{location_key}` — what the field-mode bed sheet shows (tasks and plants). */
-export function bedSheetEntry(scope: CacheScope, locationKey: string): CacheEntry {
-  return { table: 'bedSheets', key: siteCacheKey(scope, locationKey), scope };
+/**
+ * `{user_key}:{tenant_key}:{location_key}#lang=<language>` — what the field-mode bed sheet shows (tasks and
+ * plants). The plants carry a species name the server worded in the request's language (`Accept-Language`,
+ * #2902), so the language is part of the key: offline after a language switch the sheet is a cache miss rather
+ * than a sheet with the names of the previous language.
+ */
+export function bedSheetEntry(scope: CacheScope, locationKey: string, language = 'de'): CacheEntry {
+  return {
+    table: 'bedSheets',
+    key: `${siteCacheKey(scope, locationKey)}#lang=${encodeURIComponent(language)}`,
+    scope,
+  };
 }
 
 /** The first page of the site list, per page size (#2789 review C7): `{user_key}:{tenant_key}#limit=<n>`. */

@@ -23,6 +23,7 @@ import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchHardinessOverview } from '@/store/slices/overwinteringProfilesSlice';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import SeasonOverviewPanel from './SeasonOverviewPanel';
 import type {
   WinterHardinessLight,
@@ -116,6 +117,8 @@ const TILE_ORDER: WinterHardinessLight[] = ['green', 'yellow', 'red'];
 export default function WinterProtectionWidget() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
+  // The red entries' species names are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const navigate = useNavigate();
   // Self-fetching like the weather widget, and outside the aggregate flag for the
   // same reason (#1373).
@@ -125,7 +128,7 @@ export default function WinterProtectionWidget() {
 
   useEffect(() => {
     dispatch(fetchHardinessOverview());
-  }, [dispatch]);
+  }, [dispatch, requestLanguage]);
 
   const tiles = useMemo(
     () =>

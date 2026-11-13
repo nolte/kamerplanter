@@ -1205,12 +1205,30 @@ Der mitgelieferte globale Katalog (213 Arten) enthält deutsche und englische Na
 
 ### Anzeigeregel
 
-Vorgesehen ist: Oberflächensprache, dann Deutsch, dann wissenschaftlicher Name. Die bisherige Regel „erster Eintrag von `common_names`" ist dafür keine zulässige Grundlage.
+Angezeigt wird der Name in der Oberflächensprache, sonst der deutsche, sonst der wissenschaftliche Name. Hat eine Art keine Zuordnung (`{}`, zum Beispiel eine selbst angelegte oder per CSV importierte Art), steht der erste Eintrag von `common_names`. Für Arten mit Zuordnung ist der erste Eintrag keine zulässige Grundlage, weil die Reihenfolge der Liste keine Sprache trägt.
 
-Die Web-Oberfläche folgt dieser Regel. Hat eine Art keine Zuordnung (`{}`, zum Beispiel eine selbst angelegte Art), zeigt sie den ersten Eintrag von `common_names`.
+Die Web-Oberfläche und der Server folgen derselben Regel. Felder, in denen der Server einen einzelnen Anzeigenamen liefert, folgen der Sprache der Anfrage:
 
-!!! warning "Noch nicht implementiert: serverseitig gebildete Namen"
-    Felder, in denen der Server einen einzelnen Anzeigenamen liefert (zum Beispiel in Aufgaben, Erinnerungen, Kalender und Druck), enthalten noch den ersten Eintrag von `common_names`. Das folgt in einer späteren Änderung.
+| Antwort | Feld |
+|---------|------|
+| `GET /api/v1/t/{slug}/care-reminders/dashboard` | `species_name` |
+| `GET /api/v1/t/{slug}/dashboard/aggregated` (Widget `plant_grid`) | `species_common_name` |
+| `GET /api/v1/t/{slug}/calendar/sowing` | `common_name` |
+| `GET /api/v1/t/{slug}/locations/{key}/plant-states` | `species_name` |
+| `GET /api/v1/t/{slug}/locations/{key}/succession-recommendation` | `common_name` |
+| `GET /api/v1/t/{slug}/overwintering-profiles/hardiness-overview` | `species_common_name` |
+| `GET /api/v1/t/{slug}/tasks/workflows` und `…/workflows/{key}/executions` | `species_name` |
+| `GET /api/v1/t/{slug}/diary` | `species_name` (nur wenn der wissenschaftliche Name fehlt) |
+
+Die Sprache kommt aus dem Header `Accept-Language`, den die Web-Oberfläche bei jeder Anfrage mit ihrer aktiven Sprache sendet. Der Server wertet ihn nach Gewicht (`q`) aus und unterstützt `de` und `en`. Ein anderer oder fehlender Header ergibt `de`. Die Druck-Endpunkte nehmen stattdessen ihren Parameter `locale`.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -H "Accept-Language: en" \
+  https://kamerplanter.example/api/v1/t/mein-garten/calendar/sowing
+```
+
+!!! note "Texte ohne Anfrage bleiben deutsch"
+    Was der Server ohne Anfrage schreibt, entsteht in der kanonischen Sprache Deutsch: Erinnerungen, Benachrichtigungen, Zusammenfassungen der MCP-Werkzeuge und die Namen automatisch erzeugter Workflow-Vorlagen. Gespeicherte Namen behalten die Sprache, in der sie entstanden sind.
 
 ### Siehe auch
 

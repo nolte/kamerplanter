@@ -102,14 +102,14 @@ class _OneBedOfStates(IPlantStateRepository):
         self.rows = rows
         self.tenants: list[str] = []
 
-    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit):
+    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit, language="de"):
         self.tenants.append(tenant_key)
         return self.rows[offset : offset + limit] if location_key == "bed" else []
 
-    def list_sown_slots(self, location_key, *, tenant_key):
+    def list_sown_slots(self, location_key, *, tenant_key, language="de"):
         return []
 
-    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit, language="de"):
         self.tenants.append(tenant_key)
         return self.rows[offset : offset + limit] if "bed" in bed_keys else []
 

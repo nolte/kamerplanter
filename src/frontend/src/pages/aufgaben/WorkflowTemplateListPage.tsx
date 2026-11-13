@@ -36,6 +36,7 @@ import { fetchWorkflows } from '@/store/slices/tasksSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import * as taskApi from '@/api/endpoints/tasks';
 import type { WorkflowTemplate } from '@/api/types';
 import WorkflowInstantiateDialog from './WorkflowInstantiateDialog';
@@ -273,6 +274,8 @@ export default function WorkflowTemplateListPage() {
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
+  // The workflows' species names are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -289,7 +292,7 @@ export default function WorkflowTemplateListPage() {
 
   useEffect(() => {
     dispatch(fetchWorkflows({}));
-  }, [dispatch]);
+  }, [dispatch, requestLanguage]);
 
   const filteredWorkflows = useMemo(() => {
     if (!searchQuery.trim()) return workflows;

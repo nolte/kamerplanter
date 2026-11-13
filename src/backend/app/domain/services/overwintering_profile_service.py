@@ -662,11 +662,14 @@ class OverwinteringProfileService:
 
     # ── Dashboard overview ──────────────────────────────────────────────
 
-    def get_hardiness_overview(self, tenant_key: str) -> WinterHardinessOverview:
+    def get_hardiness_overview(
+        self, tenant_key: str, *, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> WinterHardinessOverview:
         """Aggregate profiles per traffic-light colour for the dashboard widget.
 
         Counts each subject once: a per-instance profile (user override) wins over a
         shared-template reference, so a subject that has both is not double-counted.
+        The species labels of the red entries are worded in ``language`` (#2902).
         """
         # Every profile, not the first 1000: the counts are an aggregate (#2025).
         profiles = read_all_pages(
@@ -691,6 +694,7 @@ class OverwinteringProfileService:
                         planting_run_key=profile.planting_run_key,
                         hardiness_rating=profile.hardiness_rating,
                         winter_action=profile.winter_action,
+                        language=language,
                     )
                 )
 
@@ -711,6 +715,7 @@ class OverwinteringProfileService:
                             planting_run_key=planting_run_key,
                             hardiness_rating=template.hardiness_rating,
                             winter_action=template.winter_action,
+                            language=language,
                         )
                     )
 
@@ -731,6 +736,7 @@ class OverwinteringProfileService:
         planting_run_key: str | None,
         hardiness_rating: HardinessRating,
         winter_action: WinterAction,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> WinterHardinessOverviewEntry:
         """Build one red overview entry, enriched with human-readable labels (#631).
 
@@ -740,7 +746,9 @@ class OverwinteringProfileService:
         tenant-scoped: a foreign-tenant or missing document simply leaves the label
         ``None`` and the widget degrades gracefully to the remaining fields.
         """
-        labels = self._resolve_subject_labels(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
+        labels = self._resolve_subject_labels(
+            tenant_key, plant_key=plant_key, planting_run_key=planting_run_key, language=language
+        )
         return WinterHardinessOverviewEntry(
             profile_key=profile_key,
             plant_key=plant_key,
@@ -756,6 +764,7 @@ class OverwinteringProfileService:
         *,
         plant_key: str | None,
         planting_run_key: str | None,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> dict[str, str | None]:
         """Resolve the speaking labels for a red subject via the available repos.
 
@@ -792,9 +801,9 @@ class OverwinteringProfileService:
             species = readable_species(self._species_repo, species_key, tenant_key)
             if species is not None:
                 labels["species_scientific_name"] = species.scientific_name
-                # The scientific name has its own label; the client sends no UI language (#2902).
+                # In the request's language; the scientific name has its own label (#2902).
                 labels["species_common_name"] = localized_vernacular_name(
-                    species.common_names, species.common_names_i18n, CANONICAL_NAME_LANGUAGE
+                    species.common_names, species.common_names_i18n, language
                 )
 
         if location_key and self._site_repo is not None:

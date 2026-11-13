@@ -28,6 +28,7 @@ import WidgetConfigDialog from '@/components/dashboard/WidgetConfigDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchWidgetCatalog, fetchAggregated } from '@/store/slices/dashboardSlice';
 import { useDashboardLayout } from '@/hooks/useDashboardLayout';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import {
   dashboardWidgetCatalog,
   placementsForBreakpoint,
@@ -78,6 +79,8 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  // The plant grid's species names are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const { layout, activeWidgets, isWidgetRenderable, catalogLoaded, persist, reset } =
     useDashboardLayout();
   const aggregated = useAppSelector((s) => s.dashboard.aggregated);
@@ -104,7 +107,7 @@ export default function DashboardPage() {
   const activeWidgetKeys = useMemo(() => layout.widgets.map((w) => w.widget_key), [layout.widgets]);
   useEffect(() => {
     if (activeWidgetKeys.length) void dispatch(fetchAggregated(activeWidgetKeys));
-  }, [dispatch, activeWidgetKeys.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dispatch, activeWidgetKeys.join(','), requestLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const effectiveLayout = editMode && working ? working : layout;
 

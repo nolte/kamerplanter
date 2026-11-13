@@ -1649,8 +1649,12 @@ class CareReminderService:
         hemisphere: str = "north",
         *,
         tenant_key: str,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[CareDashboardEntry]:
         """Build the care dashboard for all active plants of a tenant.
+
+        ``language`` words the species names (the request's locale, #2902); a caller
+        without a request keeps the canonical language.
 
         Loads the tenant's plant instances (excluding removed plants), resolves
         the contextual data each plant needs (species name, current growth phase,
@@ -1662,10 +1666,10 @@ class CareReminderService:
         ``tenant_key`` is keyword-only without a default (#2107): an empty tenant
         lists nothing (:meth:`_build_plant_data_for_tenant`).
         """
-        plant_data = self._build_plant_data_for_tenant(tenant_key)
+        plant_data = self._build_plant_data_for_tenant(tenant_key, language=language)
         return self._dashboard_entries(plant_data, hemisphere)
 
-    def _build_plant_data_for_tenant(self, tenant_key: str) -> list[dict]:
+    def _build_plant_data_for_tenant(self, tenant_key: str, *, language: str = CANONICAL_NAME_LANGUAGE) -> list[dict]:
         """Assemble ``plant_data`` dicts for the tenant's active plants.
 
         Each dict carries the fields :meth:`get_care_dashboard` consumes:
@@ -1695,13 +1699,13 @@ class CareReminderService:
                 {
                     "plant_key": plant_key,
                     "plant_name": plant.plant_name or plant.instance_id or "",
-                    # The dashboard's client sends no UI language: the canonical one (#2902).
+                    # In the request's language (#2902).
                     "species_name": (
                         localized_common_name(
                             species.common_names,
                             species.common_names_i18n,
                             species.scientific_name,
-                            CANONICAL_NAME_LANGUAGE,
+                            language,
                         )
                         or None
                         if species

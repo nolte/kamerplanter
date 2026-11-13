@@ -46,6 +46,7 @@ from app.common.auth import get_current_tenant, get_current_user, require_permis
 from app.common.dependencies import get_species_service, get_task_entity_guard, get_task_service
 from app.common.enums import TaskCategory, TaskOrigin, TaskStatus
 from app.common.exceptions import ValidationError
+from app.common.locale import get_request_locale
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
@@ -105,8 +106,10 @@ def list_workflows(
     target_entity_type: str | None = Query(None, description="Filter by target entity type."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
+    language: str = Depends(get_request_locale),
 ):
-    """List the tenant's workflow templates with usage stats (paginated)."""
+    """List the tenant's workflow templates with usage stats (paginated); ``species_name`` follows the request's
+    language (``Accept-Language``, #2902)."""
     templates = service.list_workflow_templates_window(
         pagination.offset,
         pagination.limit,
@@ -115,7 +118,9 @@ def list_workflows(
         target_entity_type=target_entity_type,
     )
     wf_keys = [wt.key for wt in templates if wt.key]
-    usage_map = service.get_workflow_usage_stats(wf_keys, tenant_key=ctx.tenant_key) if wf_keys else {}
+    usage_map = (
+        service.get_workflow_usage_stats(wf_keys, tenant_key=ctx.tenant_key, language=language) if wf_keys else {}
+    )
     result = []
     for wt in templates:
         resp = _wf_response(wt)
@@ -197,11 +202,14 @@ def list_workflow_executions(
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
+    language: str = Depends(get_request_locale),
 ):
-    """List a workflow template's executions, newest first, with enriched entity info (paginated, MT-035)."""
+    """List a workflow template's executions, newest first, with enriched entity info (paginated, MT-035).
+
+    ``species_name`` follows the request's language (``Accept-Language``, #2902)."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     return service.get_executions_for_template(
-        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, language=language
     )
 
 

@@ -68,9 +68,11 @@ class TestLocalizedCommonName:
         assert localized_common_name([], {}, TOMATO_SCIENTIFIC, "de") == TOMATO_SCIENTIFIC
         assert localized_common_name(None, None, TOMATO_SCIENTIFIC, "en") == TOMATO_SCIENTIFIC
 
-    def test_a_blank_first_name_counts_as_none(self) -> None:
+    def test_blank_names_are_skipped_like_the_frontend_helper(self) -> None:
+        # Mirrors ``firstNonEmpty`` of ``getLocalizedCommonName`` (utils/plantDisplay.ts).
         assert localized_common_name(["  "], {}, TOMATO_SCIENTIFIC, "de") == TOMATO_SCIENTIFIC
         assert localized_common_name([" Tomate "], {}, TOMATO_SCIENTIFIC, "de") == "Tomate"
+        assert localized_common_name(["", "  ", "Tomate"], {}, TOMATO_SCIENTIFIC, "en") == "Tomate"
 
     def test_empty_when_the_species_carries_no_name_at_all(self) -> None:
         assert localized_common_name([], {}, None, "de") == ""

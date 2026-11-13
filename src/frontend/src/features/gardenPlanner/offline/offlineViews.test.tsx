@@ -32,12 +32,15 @@ import { careTask } from '../care/careTestKit';
 import { applyAction, selectGardenPlanState } from '../state/gardenPlanSlice';
 // A bed sheet is seeded with `complete: true`: `storedProjection('bedSheets')` stores only a complete answer.
 import { bedListEntry, bedSheetEntry, planEntry, readCached, writeCached, type CacheScope } from './planCache';
+import { requestLanguage } from '@/api/client';
 
 const BASE = '/api/v1/t/:tenant';
 /** `authState()` signs in `user-1`, `tenantState()` makes `tenant-1` active. */
 const SCOPE: CacheScope = { userKey: 'user-1', tenantKey: 'tenant-1' };
 const OTHER_TENANT: CacheScope = { userKey: 'user-1', tenantKey: 'tenant-2' };
 const CACHED_AT = Date.now() - 5 * 60 * 1000;
+/** The bed sheet's cache entry in the language the sheet reads in (the key carries it, #2902). */
+const sheetEntry = () => bedSheetEntry(SCOPE, 'loc_b03', requestLanguage());
 
 const PLAN = planResponse({
   locations: [bed('loc_b03', 1, 1), bed('loc_b04', 4, 1)],
@@ -335,7 +338,7 @@ describe('field-mode bed sheet', () => {
     await writeCached(bedListEntry(SCOPE, 'site_1'), BEDS, CACHED_AT);
     await writeCached(planEntry(SCOPE, 'site_1'), PLAN, CACHED_AT);
     await writeCached(
-      bedSheetEntry(SCOPE, 'loc_b03'),
+      sheetEntry(),
       { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [], complete: true },
       CACHED_AT,
     );
@@ -357,7 +360,7 @@ describe('field-mode bed sheet', () => {
     const { listEntries } = await import('./queue');
     await emptyWriteQueue();
     await writeCached(
-      bedSheetEntry(SCOPE, 'loc_b03'),
+      sheetEntry(),
       { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [], complete: true },
       CACHED_AT,
     );
@@ -431,20 +434,20 @@ describe('field-mode bed sheet', () => {
     const sheet = await openBed('Raised bed 3');
     await within(sheet).findByText('Live task');
     await waitFor(async () =>
-      expect((await readCached<{ tasks: Record<string, unknown>[] }>(bedSheetEntry(SCOPE, 'loc_b03')))?.data.tasks[0]).toMatchObject(
+      expect((await readCached<{ tasks: Record<string, unknown>[] }>(sheetEntry()))?.data.tasks[0]).toMatchObject(
         { name: 'Live task', assigned_to_user_key: null, completion_notes: null, photo_refs: [] },
       ),
     );
   });
 
   it('never writes a partial sheet over a good one (plant states failed)', async () => {
-    await writeCached(bedSheetEntry(SCOPE, 'loc_b03'), { tasks: [], plants: [{ plant_key: 'pl_good' }], complete: true }, CACHED_AT);
+    await writeCached(sheetEntry(), { tasks: [], plants: [{ plant_key: 'pl_good' }], complete: true }, CACHED_AT);
     server.use(http.get(`${BASE}/locations/:key/plant-states`, () => HttpResponse.json({}, { status: 500 })));
     renderPlan('field');
     const sheet = await openBed('Raised bed 3');
     await within(sheet).findByText('Live task');
     await new Promise((resolve) => setTimeout(resolve, 100));
-    expect((await readCached<{ plants: { plant_key: string }[] }>(bedSheetEntry(SCOPE, 'loc_b03')))?.data.plants).toEqual([
+    expect((await readCached<{ plants: { plant_key: string }[] }>(sheetEntry()))?.data.plants).toEqual([
       { plant_key: 'pl_good', cover_photo_ref: null },
     ]);
   });
@@ -453,7 +456,7 @@ describe('field-mode bed sheet', () => {
     await writeCached(bedListEntry(SCOPE, 'site_1'), BEDS, CACHED_AT);
     await writeCached(planEntry(SCOPE, 'site_1'), PLAN, CACHED_AT);
     await writeCached(
-      bedSheetEntry(SCOPE, 'loc_b03'),
+      sheetEntry(),
       { tasks: [careTask('t_cached', { name: 'Cached task', entity_key: 'loc_b03' })], plants: [], complete: true },
       CACHED_AT,
     );

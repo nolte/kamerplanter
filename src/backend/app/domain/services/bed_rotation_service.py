@@ -307,7 +307,9 @@ class BedRotationService:
         """Family, nutrient demand and plan role per year (GP-API-039, GP-ACC-028)."""
         return self._validator.rotation_timeline(location_key, tenant_key=tenant_key, years=years)
 
-    def succession_recommendation(self, location_key: str, *, tenant_key: str) -> SuccessionRecommendation:
+    def succession_recommendation(
+        self, location_key: str, *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> SuccessionRecommendation:
         """The families and species for the next year of a bed, by the feeder cycle and ``rotation_after`` (GP-FR-133).
 
         The previous year is the latest year of the bed's rotation timeline that has an entry; the step after it
@@ -406,10 +408,8 @@ class BedRotationService:
                         SuccessionSpecies(
                             species.key or "",
                             species.scientific_name,
-                            # The planner's client sends no UI language: the canonical one (#2902).
-                            localized_vernacular_name(
-                                species.common_names, species.common_names_i18n, CANONICAL_NAME_LANGUAGE
-                            ),
+                            # In the request's language (#2902).
+                            localized_vernacular_name(species.common_names, species.common_names_i18n, language),
                             species.nutrient_demand.value if species.nutrient_demand is not None else None,
                             species.nitrogen_fixing,
                         )

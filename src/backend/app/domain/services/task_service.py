@@ -40,6 +40,7 @@ from app.domain.models.client_event import (
     is_client_event_conflict,
     same_digest,
 )
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE
 from app.domain.models.task import (
     ChecklistItem,
     Task,
@@ -340,9 +341,11 @@ class TaskService:
             tenant_key=tenant_key,
         )
 
-    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
-        """Return species_name and ``tenant_key``'s assigned entity count per workflow key (#1708)."""
-        return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key)
+    def get_workflow_usage_stats(
+        self, wf_keys: list[str], *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> dict[str, dict]:
+        """Return species_name (in ``language``, #2902) and ``tenant_key``'s assigned entity count per workflow key."""
+        return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key, language=language)
 
     def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
         wt = self._repo.get_workflow_template_or_raise(key)
@@ -2926,7 +2929,17 @@ class TaskService:
         return self._repo.get_workflow_execution_or_raise(key, tenant_key=tenant_key)
 
     def get_executions_for_template(
-        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+        self,
+        template_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[dict]:
-        """A template's executions in ``tenant_key``, newest first; ``offset``/``limit`` read one window (MT-035)."""
-        return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key, offset=offset, limit=limit)
+        """A template's executions in ``tenant_key``, newest first; ``offset``/``limit`` read one window (MT-035).
+
+        The species names are worded in ``language`` (#2902)."""
+        return self._repo.get_executions_for_template(
+            template_key, tenant_key=tenant_key, offset=offset, limit=limit, language=language
+        )

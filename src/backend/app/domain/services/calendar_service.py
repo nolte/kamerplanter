@@ -275,6 +275,7 @@ class CalendarService:
         year: int,
         *,
         tenant_key: str,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> tuple[list[SowingCalendarEntry], FrostConfig]:
         site = self._owned_site(site_key, tenant_key=tenant_key)
         frost_config = self._build_frost_config(site, year)
@@ -322,10 +323,8 @@ class CalendarService:
             for sp in species_list
             if _has_sowing_data(sp)
         ]
-        # The calendar's client sends no UI language: labels in the canonical one (#2902).
-        species_entries = self._sowing_engine.build_calendar(
-            species_data, frost_config, year, language=CANONICAL_NAME_LANGUAGE
-        )
+        # Labels in the request's language (#2902).
+        species_entries = self._sowing_engine.build_calendar(species_data, frost_config, year, language=language)
 
         if not run_entries:
             return species_entries, frost_config
@@ -465,8 +464,9 @@ class CalendarService:
         year: int,
         *,
         tenant_key: str,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> SeasonOverview:
-        entries, frost_config = self.get_sowing_calendar(site_key, year, tenant_key=tenant_key)
+        entries, frost_config = self.get_sowing_calendar(site_key, year, tenant_key=tenant_key, language=language)
         site = self._owned_site(site_key, tenant_key=tenant_key)
         site_name = site.name if site is not None else ""
 

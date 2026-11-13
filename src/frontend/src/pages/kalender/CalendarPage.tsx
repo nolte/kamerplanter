@@ -70,6 +70,7 @@ import { fetchSites } from '@/store/slices/sitesSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { confirmReminder } from '@/api/endpoints/careReminders';
 import type { CalendarEvent, CalendarEventCategory, CalendarFeed } from '@/api/types';
 import { kamiCalendar } from '@/assets/brand/illustrations';
@@ -178,6 +179,8 @@ export default function CalendarPage() {
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
+  // Sowing-calendar labels are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const navigate = useNavigate();
   const notification = useNotification();
   // `require_permission(CALENDAR_FEED, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
@@ -267,7 +270,7 @@ export default function CalendarPage() {
     if (viewMode === 'sowing') {
       dispatch(fetchSowingCalendar({ siteId: selectedSiteKey || undefined, year: currentYear }));
     }
-  }, [dispatch, viewMode, selectedSiteKey, currentYear]);
+  }, [dispatch, viewMode, selectedSiteKey, currentYear, requestLanguage]);
 
   // Fetch season overview when view mode or site changes
   useEffect(() => {

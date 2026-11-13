@@ -31,10 +31,12 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 
+from app.common.locale import DEFAULT_LOCALE
+
 #: The canonical language of names and generated texts (UI-NFR-007 R-009a). A reader
-#: that has no request language - a background task, a persisted title, an endpoint
-#: whose client does not send its UI language - resolves in this language.
-CANONICAL_NAME_LANGUAGE = "de"
+#: that has no request language - a background task, a persisted title - resolves in
+#: this language; a request's language comes from ``app.common.locale.get_request_locale``.
+CANONICAL_NAME_LANGUAGE = DEFAULT_LOCALE
 
 
 def normalize_name_language(language: str | None) -> str:
@@ -50,11 +52,16 @@ def normalize_name_language(language: str | None) -> str:
 
 
 def _first_name(names: Sequence[str] | None) -> str | None:
-    """The first name of ``names`` without surrounding whitespace; ``None`` when there is none or it is blank."""
-    if not names:
-        return None
-    first: str = str(names[0])
-    return first.strip() or None
+    """The first non-blank name of ``names`` without surrounding whitespace; ``None`` when there is none.
+
+    Skips blank entries like the frontend's ``firstNonEmpty`` (``utils/plantDisplay.ts``).
+    """
+    for raw in names or ():
+        name: str = str(raw)
+        stripped: str = name.strip()
+        if stripped:
+            return stripped
+    return None
 
 
 def localized_vernacular_name(

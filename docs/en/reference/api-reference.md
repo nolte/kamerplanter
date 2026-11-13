@@ -1205,12 +1205,30 @@ The shipped global catalogue (213 species) carries German and English names deri
 
 ### Display Rule
 
-Intended: UI language, then German, then scientific name. The former rule "first entry of `common_names`" is not a valid basis for this.
+The name shown is the one in the UI language, else the German one, else the scientific name. For a species without an assignment (`{}`, for example a species a tenant created or imported via CSV), it is the first entry of `common_names`. For a species with an assignment the first entry is not a valid basis, because the order of the list carries no language.
 
-The web UI follows this rule. For a species without an assignment (`{}`, for example a species a tenant created), it shows the first entry of `common_names`.
+The web UI and the server follow the same rule. Fields in which the server returns a single display name follow the language of the request:
 
-!!! warning "Not yet implemented: names built by the server"
-    Fields in which the server returns a single display name (for example in tasks, reminders, the calendar and printouts) still carry the first entry of `common_names`. This follows in a later change.
+| Response | Field |
+|----------|-------|
+| `GET /api/v1/t/{slug}/care-reminders/dashboard` | `species_name` |
+| `GET /api/v1/t/{slug}/dashboard/aggregated` (widget `plant_grid`) | `species_common_name` |
+| `GET /api/v1/t/{slug}/calendar/sowing` | `common_name` |
+| `GET /api/v1/t/{slug}/locations/{key}/plant-states` | `species_name` |
+| `GET /api/v1/t/{slug}/locations/{key}/succession-recommendation` | `common_name` |
+| `GET /api/v1/t/{slug}/overwintering-profiles/hardiness-overview` | `species_common_name` |
+| `GET /api/v1/t/{slug}/tasks/workflows` and `…/workflows/{key}/executions` | `species_name` |
+| `GET /api/v1/t/{slug}/diary` | `species_name` (only when the scientific name is missing) |
+
+The language comes from the `Accept-Language` header, which the web UI sends with its active language on every request. The server evaluates it by weight (`q`) and supports `de` and `en`. Any other or a missing header yields `de`. The print endpoints use their `locale` parameter instead.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -H "Accept-Language: en" \
+  https://kamerplanter.example/api/v1/t/mein-garten/calendar/sowing
+```
+
+!!! note "Texts without a request stay German"
+    What the server writes without a request is created in the canonical language German: reminders, notifications, summaries of the MCP tools and the names of automatically generated workflow templates. Stored names keep the language they were created in.
 
 ### See Also
 

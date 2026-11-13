@@ -34,6 +34,7 @@ from app.domain.calculators.plant_state_inputs import sown_visual_state, visual_
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource, SownSlotSource
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE
 from app.domain.services.frost_forecast import read_site_frost_verdict
 from app.domain.services.location_ownership import resolve_owned_location
 from app.domain.services.plant_state_inputs import frost_risk_of
@@ -68,16 +69,24 @@ class PlantStateService:
         offset: int = 0,
         limit: int = 50,
         now: datetime | None = None,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[PlantStateEntry]:
-        """A window of the bed's sown slots (by slot key) followed by its standing plants (by plant key)."""
+        """A window of the bed's sown slots (by slot key) followed by its standing plants (by plant key).
+
+        Species names are worded in ``language`` (#2902)."""
         location = resolve_owned_location(self._sites, location_key, tenant_key)
         moment = now if now is not None else datetime.now(UTC)
-        sown = self._repo.list_sown_slots(location_key, tenant_key=tenant_key)
+        sown = self._repo.list_sown_slots(location_key, tenant_key=tenant_key, language=language)
         sown_window = sown[offset : offset + limit]
         plant_limit = limit - len(sown_window)
         rows = (
             self._repo.list_bed_plants(
-                location_key, tenant_key=tenant_key, now=moment, offset=max(offset - len(sown), 0), limit=plant_limit
+                location_key,
+                tenant_key=tenant_key,
+                now=moment,
+                offset=max(offset - len(sown), 0),
+                limit=plant_limit,
+                language=language,
             )
             if plant_limit > 0
             else []

@@ -4,6 +4,7 @@ import type { PlantMarkerState } from '../renderer/types';
 import { listPlantStates, stateKeyOf, type PlantStateEntryWire } from './plantStateApi';
 import { stateInstant, usePlantStateClock } from './plantStateClock';
 import { usePlantStateText } from './usePlantStateText';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { viewsOf } from './usePlantStates';
 
 /**
@@ -71,6 +72,16 @@ export function usePlanPlantStates(
   }, [abortAll]);
 
   const day = usePlantStateClock(enabled, refresh);
+
+  // The species names of the answers are worded by the server in the UI language (#2902): a switch drops the
+  // cached beds (a new round), so the visible ones are read again in the new language.
+  const requestLanguage = useRequestLanguage();
+  const statesLanguage = useRef(requestLanguage);
+  useEffect(() => {
+    if (statesLanguage.current === requestLanguage) return;
+    statesLanguage.current = requestLanguage;
+    refresh();
+  }, [requestLanguage, refresh]);
 
   // Off: everything still on its way or queued is cancelled and the answers are dropped (a new round).
   useEffect(() => {

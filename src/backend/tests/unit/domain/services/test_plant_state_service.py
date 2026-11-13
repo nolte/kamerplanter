@@ -36,19 +36,22 @@ class RecordingRepo(IPlantStateRepository):
         self.sown = sown or []
         self.calls: list[tuple[str, str, int, int]] = []
         self.sown_calls: list[tuple[str, str]] = []
+        self.languages: list[str] = []
 
-    def list_sown_slots(self, location_key: str, *, tenant_key: str) -> list[SownSlotSource]:
+    def list_sown_slots(self, location_key: str, *, tenant_key: str, language: str = "de") -> list[SownSlotSource]:
         self.sown_calls.append((location_key, tenant_key))
+        self.languages.append(language)
         return self.sown
 
     def list_bed_plants(
-        self, location_key: str, *, tenant_key: str, now: datetime, offset: int, limit: int
+        self, location_key: str, *, tenant_key: str, now: datetime, offset: int, limit: int, language: str = "de"
     ) -> list[PlantStateSource]:
         self.calls.append((location_key, tenant_key, offset, limit))
+        self.languages.append(language)
         return self.rows
 
     def list_plants_in_beds(
-        self, bed_keys: list[str], *, tenant_key: str, now: datetime, offset: int, limit: int
+        self, bed_keys: list[str], *, tenant_key: str, now: datetime, offset: int, limit: int, language: str = "de"
     ) -> list[PlantStateSource]:
         raise AssertionError("the plant-states API reads one bed, never the site-wide window")
 

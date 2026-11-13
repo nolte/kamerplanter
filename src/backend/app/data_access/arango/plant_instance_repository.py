@@ -392,8 +392,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return int(next(cursor, 0) or 0)
 
-    def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
+    def list_active_for_tenant(
+        self, tenant_key: str, limit: int, *, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> list[dict[str, Any]]:
         """Return the newest *alive* plant instances of ``tenant_key``, enriched (REQ-009).
+
+        ``species_common_name`` is resolved by the display rule in ``language`` (#2902).
 
         Feeds the ``plant_grid`` dashboard widget (#461 / #488): a newest-first list of
         active plants, each carrying its ``_key`` for a deep link to the plant detail
@@ -505,10 +509,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         rows: list[dict[str, Any]] = list(cursor)
         for row in rows:
-            # One name for the card title by the one display rule, in the canonical language: the
-            # dashboard's client sends no UI language (#2902). The scientific name has its own field.
+            # One name for the card title by the one display rule, in the request's language (#2902).
+            # The scientific name has its own field.
             row["species_common_name"] = localized_vernacular_name(
-                row["species_common_names"], row["species_common_names_i18n"], CANONICAL_NAME_LANGUAGE
+                row["species_common_names"], row["species_common_names_i18n"], language
             )
             del row["species_common_names"], row["species_common_names_i18n"]
         return rows

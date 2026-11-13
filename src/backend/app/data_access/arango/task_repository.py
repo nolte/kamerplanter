@@ -90,15 +90,13 @@ _SPECIES_NAME_FIELDS = (
 _SPECIES_NAME_KEYS = ("sp_found", "sp_common_names", "sp_common_names_i18n", "sp_scientific_name")
 
 
-def _pop_species_display_name(row: dict[str, Any]) -> str:
+def _pop_species_display_name(row: dict[str, Any], language: str) -> str:
     """Take the :data:`_SPECIES_NAME_FIELDS` off ``row`` and return the species' display name ('' without a species).
 
-    In the canonical language: the workflow pages' client sends no UI language (#2902).
+    In ``language``, the request's (#2902).
     """
     name = (
-        localized_common_name(
-            row["sp_common_names"], row["sp_common_names_i18n"], row["sp_scientific_name"], CANONICAL_NAME_LANGUAGE
-        )
+        localized_common_name(row["sp_common_names"], row["sp_common_names_i18n"], row["sp_scientific_name"], language)
         if row["sp_found"]
         else ""
     )
@@ -1568,8 +1566,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         self._db.aql.execute(delete_query, bind_vars={"key": wf_key})
         return count
 
-    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
-        """Return species_name and the tenant's assigned entity count per workflow key.
+    def get_workflow_usage_stats(
+        self, wf_keys: list[str], *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> dict[str, dict]:
+        """Return species_name (in ``language``, #2902) and the tenant's assigned entity count per workflow key.
 
         A system template is shared, its tasks are not: counted over every tenant,
         ``entity_count`` told each tenant how many entities *all* tenants ran the
@@ -1605,15 +1605,23 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         result: dict[str, dict] = {}
         for row in cursor:
             result[row["wf_key"]] = {
-                "species_name": _pop_species_display_name(row),
+                "species_name": _pop_species_display_name(row, language),
                 "entity_count": row["entity_count"],
             }
         return result
 
     def get_executions_for_template(
-        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+        self,
+        template_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[dict]:
         """Return ``tenant_key``'s executions of a template, newest first, with enriched entity info.
+
+        ``species_name`` is the plant's species display name in ``language`` (#2902).
 
         ``WorkflowExecution`` carries no ``tenant_key``; it belongs to the entity
         it runs on. A shared system template is readable by every tenant, so
@@ -1664,7 +1672,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         rows: list[dict[str, Any]] = list(cursor)
         for row in rows:
-            row["species_name"] = _pop_species_display_name(row)
+            row["species_name"] = _pop_species_display_name(row, language)
         return rows
 
     # ── Dashboard counts (REQ-009) ──

@@ -230,3 +230,35 @@ class TestWorkflowReads:
             f"we_{key}": display for key, (_vernacular, display) in _EXPECTED.items()
         }
         assert all(not any(field.startswith("sp_") for field in row) for row in rows)
+
+
+class TestRequestLanguage:
+    """The request's language (``Accept-Language``) reaches every read: the English-tagged name for ``en``."""
+
+    def test_english(self, db) -> None:
+        _plants(db)
+        db.collection(col.WORKFLOW_TEMPLATES).insert({"_key": "wf_tomato", "tenant_key": "", "species_key": "tomato"})
+        db.collection(col.WORKFLOW_EXECUTIONS).insert(
+            {
+                "_key": "we",
+                "workflow_template_key": "wf",
+                "entity_type": "plant_instance",
+                "entity_key": "p_tomato",
+                "created_at": "2026-05-01T00:00:00+00:00",
+            }
+        )
+        tasks = ArangoTaskRepository(db)
+
+        grid = ArangoPlantInstanceRepository(db).list_active_for_tenant(A, 50, language="en")
+        states = ArangoPlantStateRepository(db).list_bed_plants(
+            "bed", tenant_key=A, now=NOW, offset=0, limit=50, language="en"
+        )
+        stats = tasks.get_workflow_usage_stats(["wf_tomato"], tenant_key=A, language="en")
+        executions = tasks.get_executions_for_template("wf", tenant_key=A, language="en")
+
+        assert {row["species_key"]: row["species_common_name"] for row in grid}["tomato"] == "Tomato"
+        # a species without a map keeps its first listed name; a map without English falls back to German
+        assert {row["species_key"]: row["species_common_name"] for row in grid}["mine"] == "Meine Gurke"
+        assert {source.species_key: source.species_name for source in states}["tomato"] == "Tomato"
+        assert stats["wf_tomato"]["species_name"] == "Tomato"
+        assert [row["species_name"] for row in executions] == ["Tomato"]

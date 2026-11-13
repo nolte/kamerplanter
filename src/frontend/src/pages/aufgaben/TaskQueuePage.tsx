@@ -94,6 +94,7 @@ import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import { kamiTasks } from '@/assets/brand/illustrations';
 import TaskCreateDialog from './TaskCreateDialog';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import CareProfileEditDialog from '@/pages/pflege/components/CareProfileEditDialog';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
 
@@ -211,6 +212,8 @@ function formatRelativeDate(dateStr: string, t: (key: string) => string): string
 export default function TaskQueuePage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
+  // Server-worded species names (care dashboard) follow the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -357,7 +360,7 @@ export default function TaskQueuePage() {
   useEffect(() => {
     dispatch(fetchOverdueTasks());
     dispatch(fetchDashboard());
-  }, [dispatch]);
+  }, [dispatch, requestLanguage]);
 
   useEffect(() => {
     loadPlants();

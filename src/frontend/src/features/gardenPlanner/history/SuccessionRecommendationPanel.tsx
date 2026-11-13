@@ -22,8 +22,8 @@ function demandText(value: string | null, t: Translate): string | null {
   return value ? t(`enums.nutrientDemandLevel.${value}`, { defaultValue: value }) : null;
 }
 
-// ``common_name`` is derived on the server (bed_rotation_service, still the first
-// ``common_names`` entry until the server-side readers are localized — #2902 slice C).
+// ``common_name`` is worded on the server by the display rule in the request's language
+// (``Accept-Language`` from ``api/client.ts``, #2902); the panel only formats it.
 function speciesLabel(species: SuccessionSpecies): string {
   return formatSpeciesNameWithScientific(species.common_name, species.scientific_name);
 }

@@ -152,8 +152,10 @@ Der mitgelieferte Artenkatalog enthält für die Arten deutsche und englische Na
 
 Die Oberfläche zeigt den Namen in deiner Oberflächensprache, ersatzweise den deutschen und zuletzt den wissenschaftlichen Namen. Die Suche findet eine Art weiterhin über jeden ihrer Namen, egal in welcher Sprache; in Auswahllisten stehen die übrigen Namen in einer zweiten Zeile. Eine Art, die du selbst angelegt hast, hat keine Sprachzuordnung und erscheint mit dem ersten Namen, den du eingetragen hast.
 
-!!! warning "Noch nicht implementiert: Namen aus dem Hintergrund"
-    Namen, die Kamerplanter im Hintergrund in Texte schreibt, zum Beispiel in Aufgaben, Erinnerungen und Ausdrucken, verwenden noch den ersten Eintrag der Namensliste. Das folgt in einer späteren Änderung.
+Dieselbe Regel gilt für Namen, die Kamerplanter selbst zusammenstellt: in der Pflegeübersicht, im Pflanzenraster des Dashboards, im Aussaatkalender, im Beetplan, in der Fruchtfolge-Empfehlung, in der Winterhärte-Übersicht, in den Workflow-Listen und in Ausdrucken. Wechselst du die Oberflächensprache, lädt die geöffnete Ansicht ihre Namen in der neuen Sprache nach.
+
+!!! note "Namen aus dem Hintergrund"
+    Texte, die Kamerplanter ohne deine Anfrage schreibt, entstehen auf Deutsch, zum Beispiel Erinnerungen, Benachrichtigungen und die Namen automatisch erzeugter Workflow-Vorlagen. Was einmal gespeichert ist, etwa der Titel einer Aufgabe, behält die Sprache, in der es entstanden ist. Im Feldmodus ohne Verbindung zeigt ein Beet nach einem Sprachwechsel erst wieder Pflanzen, wenn du es einmal online in der neuen Sprache geöffnet hast.
 
 ---
 

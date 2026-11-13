@@ -108,14 +108,12 @@ FOR s IN @@slots
 """
 
 
-def _species_name(row: dict[str, Any]) -> str | None:
-    """The row's vernacular species name by the one display rule (#2902), in the canonical language.
+def _species_name(row: dict[str, Any], language: str) -> str | None:
+    """The row's vernacular species name by the one display rule (#2902), in ``language``.
 
-    The plan's client sends no UI language; the scientific name travels in a field of its own.
+    The scientific name travels in a field of its own.
     """
-    return localized_vernacular_name(
-        row["species_common_names"], row["species_common_names_i18n"], CANONICAL_NAME_LANGUAGE
-    )
+    return localized_vernacular_name(row["species_common_names"], row["species_common_names_i18n"], language)
 
 
 def _date(value: Any) -> date | None:
@@ -166,24 +164,40 @@ class ArangoPlantStateRepository(IPlantStateRepository):
         self._db = db
 
     def list_bed_plants(
-        self, location_key: str, *, tenant_key: str, now: datetime, offset: int, limit: int
+        self,
+        location_key: str,
+        *,
+        tenant_key: str,
+        now: datetime,
+        offset: int,
+        limit: int,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[PlantStateSource]:
         if not tenant_key:
             raise ValueError("list_bed_plants needs a tenant_key (an empty tenant is no tenant, #2107).")
         _check_window(offset, limit)
-        return self._read([location_key], tenant_key, now, offset, limit)
+        return self._read([location_key], tenant_key, now, offset, limit, language)
 
     def list_plants_in_beds(
-        self, bed_keys: list[str], *, tenant_key: str, now: datetime, offset: int, limit: int
+        self,
+        bed_keys: list[str],
+        *,
+        tenant_key: str,
+        now: datetime,
+        offset: int,
+        limit: int,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[PlantStateSource]:
         if not tenant_key:
             raise ValueError("list_plants_in_beds needs a tenant_key (an empty tenant is no tenant, #2107).")
         _check_window(offset, limit)
         if not bed_keys:
             return []
-        return self._read(sorted(set(bed_keys)), tenant_key, now, offset, limit)
+        return self._read(sorted(set(bed_keys)), tenant_key, now, offset, limit, language)
 
-    def list_sown_slots(self, location_key: str, *, tenant_key: str) -> list[SownSlotSource]:
+    def list_sown_slots(
+        self, location_key: str, *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> list[SownSlotSource]:
         if not tenant_key:
             raise ValueError("list_sown_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
         bind_vars: dict[str, Any] = {
@@ -209,7 +223,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 run_key=row["run_key"],
                 entry_key=row["entry_key"],
                 cultivar_key=row["cultivar_key"],
-                species_name=_species_name(row),
+                species_name=_species_name(row, language),
                 scientific_name=row["scientific_name"],
                 cultivar_name=row["cultivar_name"],
             )
@@ -218,7 +232,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
         ]
 
     def _read(
-        self, bed_keys: list[str], tenant_key: str, now: datetime, offset: int, limit: int
+        self, bed_keys: list[str], tenant_key: str, now: datetime, offset: int, limit: int, language: str
     ) -> list[PlantStateSource]:
         plants = self._window(bed_keys, tenant_key, offset, limit)
         if not plants:
@@ -229,7 +243,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
         care = self._care(sorted({row["location_key"] for row in plants}), plant_keys, tenant_key, now)
         findings = self._findings(plant_keys, tenant_key, now)
         harvests = self._harvests(plant_keys, tenant_key)
-        return [self._source(row, tasks, care, findings, harvests) for row in plants]
+        return [self._source(row, tasks, care, findings, harvests, language) for row in plants]
 
     def _window(self, bed_keys: list[str], tenant_key: str, offset: int, limit: int) -> list[dict[str, Any]]:
         """The plants of the window, in plant-key order. Up to :data:`BED_KEYS_PER_STATEMENT` beds in one statement;
@@ -469,6 +483,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
         care: _CareIndex,
         findings: dict[str, tuple[int, str | None]],
         harvests: dict[str, tuple[int, float | None]],
+        language: str,
     ) -> PlantStateSource:
         plant_key = row["plant_key"]
         run_key = row["run_key"]
@@ -506,7 +521,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             slot_key=row["slot_key"],
             slot_id=row["slot_id"],
             cultivar_key=row["cultivar_key"],
-            species_name=_species_name(row),
+            species_name=_species_name(row, language),
             scientific_name=row["scientific_name"],
             cultivar_name=row["cultivar_name"],
             phase_key=row["phase_key"],

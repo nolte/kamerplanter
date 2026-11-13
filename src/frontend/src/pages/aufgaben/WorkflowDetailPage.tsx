@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import { useRetryFocus } from '@/hooks/useRetryFocus';
@@ -67,6 +67,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as taskApi from '@/api/endpoints/tasks';
@@ -247,6 +248,27 @@ export default function WorkflowDetailPage() {
     load();
     return () => { dispatch(setBreadcrumbs([])); };
   }, [load, dispatch]);
+
+  // The executions' species names are worded by the server in the UI language (#2902). A switch reloads
+  // only the executions: re-running `load` would reset the edit form and lose unsaved input.
+  const requestLanguage = useRequestLanguage();
+  const executionsLanguage = useRef(requestLanguage);
+  useEffect(() => {
+    if (!key || executionsLanguage.current === requestLanguage) return undefined;
+    executionsLanguage.current = requestLanguage;
+    let cancelled = false;
+    taskApi
+      .listWorkflowExecutions(key)
+      .then((execs) => {
+        if (!cancelled) setExecutions(execs);
+      })
+      .catch(() => {
+        // Keep the executions of the previous language; the next full load replaces them.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, requestLanguage]);
 
   // Dynamic breadcrumbs, the species crumb in the UI language.
   useEffect(() => {

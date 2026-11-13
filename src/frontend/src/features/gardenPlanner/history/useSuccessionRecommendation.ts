@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { parseApiError } from '@/api/errors';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { getSuccessionRecommendation } from './historyApi';
 import type { SuccessionRecommendation } from './historyTypes';
 
@@ -16,6 +17,8 @@ export type SuccessionState =
 export function useSuccessionRecommendation(bedKey: string, version: number) {
   const [state, setState] = useState<SuccessionState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  // The species' `common_name` is worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
 
   useEffect(() => {
     let cancelled = false;
@@ -29,7 +32,7 @@ export function useSuccessionRecommendation(bedKey: string, version: number) {
     return () => {
       cancelled = true;
     };
-  }, [bedKey, version, attempt]);
+  }, [bedKey, version, attempt, requestLanguage]);
 
   const retry = useCallback(() => {
     setState({ status: 'loading' });

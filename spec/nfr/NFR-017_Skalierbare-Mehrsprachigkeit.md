@@ -115,6 +115,8 @@ Die drei harten Constraints aus Issue #568 sind normativ:
 | R-115 | Das Frontend MUSS **eine** aktive Locale führen (react-i18next `i18n.language`) und diese für **alle** locale-abhängigen Entscheidungen nutzen — Text, Enum-Label, Datums-/Zahlenformat, Backend-Content-Auswahl. Verstreute binäre `=== 'de'`/`startsWith('en')`-Zweige (~76 Stellen) MÜSSEN durch die zentrale Locale + zentrale Formatter/Resolver ersetzt werden. | MUSS |
 | R-116 | Datums-/Zeit-/Zahlenformatierung MUSS ausschließlich über die zentrale Utility (`utils/formatting.ts`, `Intl`-basiert mit `i18n.language`) laufen; hartkodierte Locale-Literale (`'de-DE'`/`'en-US'`) und deutsche `dayjs`-Formatstrings sind unzulässig (Detaildurchsetzung: UI-NFR-007 §2.3/§2.4). | MUSS |
 
+**Umsetzungsstand R-112/R-114 (#2902, 2026-11-13):** Die Dependency `get_request_locale` existiert (`src/backend/app/common/locale.py`) und löst die Stufen **(1)** expliziter Parameter `locale`/`language`, **(3)** `Accept-Language` (nach q-Gewicht verhandelt, unterstützt `de`/`en`) und **(4)** `de` auf. Stufe **(2)** `user.locale` wird **noch nicht** angewendet: Der Sprachumschalter der Oberfläche schreibt `user.locale` nicht, und jedes Konto trägt den Default `de` — angewendet würde dieser Wert die Sprache überstimmen, die die Oberfläche tatsächlich anzeigt (R-113 bleibt offen). Das Frontend sendet seine aktive Sprache (`i18n.language`) bei jeder Anfrage als `Accept-Language` (`src/frontend/src/api/client.ts`). Erste Nutzer sind die serverseitig gebildeten Artnamen (REQ-001); die übrigen `language: str = "de"`-Parameter sind noch nicht auf die Dependency umgestellt.
+
 ---
 
 ## 5. Fehlermeldungs-Sprache (P-2)
