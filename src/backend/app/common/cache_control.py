@@ -11,6 +11,12 @@ each reuse ask the server first, so online a logout or a lost membership takes e
 keeps them only in the namespace ``kp:{user_key}:{tenant_key}``, which a logout and a tenant switch delete
 (UI-NFR-012 R-056, GP-UX-024).
 
+**The browser's HTTP cache** (SEC-001): ``no-cache`` forbids reuse without revalidation, not storage, so the
+browser's own disk cache may keep these answers - a cache no script can empty. The clients therefore fetch the
+three reads with the request cache mode ``no-store`` (the worker's strategies and the page's API client,
+``OFFLINE_READ_FETCH_OPTIONS`` in ``src/frontend/src/pwa/cachePolicy.ts``), and logout answers
+``Clear-Site-Data: "cache"`` (:func:`clear_browser_http_cache`) as defence in depth.
+
 A route opts in by calling :func:`allow_offline_read_cache` on its ``Response``; the sweep
 ``tests/api/test_api_responses_are_not_stored.py`` pins that exactly the routes of :data:`OFFLINE_READ_ROUTES` do,
 and the frontend guard ``src/test/guards/swCacheAllowlist.test.ts`` that the worker's allowlist names the same
@@ -48,9 +54,22 @@ def allow_offline_read_cache(response: Response) -> None:
     response.headers["Cache-Control"] = OFFLINE_READ_CACHE_CONTROL
 
 
+#: ``Clear-Site-Data`` value of a logout (SEC-001): the browser drops this origin's HTTP cache. Only ``"cache"``:
+#: ``"storage"`` would also delete the offline write buffer the user may still have to sync (UI-NFR-012 R-051), and
+#: the app clears Cache Storage and IndexedDB itself (``clearOfflineData``).
+CLEAR_SITE_DATA_CACHE: Final = '"cache"'
+
+
+def clear_browser_http_cache(response: Response) -> None:
+    """Ask the browser to drop this origin's HTTP cache (``Clear-Site-Data: "cache"``) - on logout (SEC-001)."""
+    response.headers["Clear-Site-Data"] = CLEAR_SITE_DATA_CACHE
+
+
 __all__ = [
     "API_DEFAULT_CACHE_CONTROL",
+    "CLEAR_SITE_DATA_CACHE",
     "OFFLINE_READ_CACHE_CONTROL",
     "OFFLINE_READ_ROUTES",
     "allow_offline_read_cache",
+    "clear_browser_http_cache",
 ]

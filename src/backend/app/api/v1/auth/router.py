@@ -38,6 +38,7 @@ from app.common.auth import (
     resolved_principal_key,
     resolved_tenant_budget_key,
 )
+from app.common.cache_control import clear_browser_http_cache
 from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
 from app.common.error_handlers import app_error_response
 from app.common.exceptions import (
@@ -529,6 +530,8 @@ def logout(
     if kp_refresh:
         service.logout(kp_refresh)
     _clear_refresh_cookie(response)
+    # SEC-001 (#2759): the offline reads answer `private, no-cache`; drop what the browser's HTTP cache kept of them.
+    clear_browser_http_cache(response)
     return MessageResponse(message="Logged out successfully.")
 
 
@@ -543,6 +546,7 @@ def logout_all(
     verify_csrf(request)
     count = service.logout_all(current_user.key or "")
     _clear_refresh_cookie(response)
+    clear_browser_http_cache(response)
     return MessageResponse(message=f"Revoked {count} session(s).")
 
 

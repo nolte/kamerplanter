@@ -139,7 +139,7 @@ describe('src/sw.ts applies the allowlist on its only API caching path', () => {
   it("answers an allowlisted read only from the requesting client's namespace", () => {
     const route = source.slice(source.indexOf('isAllowlistedApiRequest(request.method'), source.indexOf('router.registerRoute(new Route(({ url }) =>'));
     expect(route).toMatch(/registry\.forClient\(clientIdOf\(options\.event\)\)/);
-    expect(route).toMatch(/if \(killed \|\| !cacheName\) return networkOnly\.handle\(options\)/);
+    expect(route).toMatch(/if \(killed \|\| !cacheName\) return offlineReadNetworkOnly\.handle\(options\)/);
     expect(source).toMatch(/plugins: \[createApiCachePlugin\(cacheName, apiContext\) as WorkboxPlugin\]/);
   });
 

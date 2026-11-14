@@ -31,7 +31,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.common.auth import get_current_user
-from app.common.cache_control import API_DEFAULT_CACHE_CONTROL, OFFLINE_READ_CACHE_CONTROL, OFFLINE_READ_ROUTES
+from app.common.cache_control import (
+    API_DEFAULT_CACHE_CONTROL,
+    CLEAR_SITE_DATA_CACHE,
+    OFFLINE_READ_CACHE_CONTROL,
+    OFFLINE_READ_ROUTES,
+)
 from app.common.dependencies import (
     get_garden_plan_service,
     get_garden_resource_service,
@@ -215,3 +220,55 @@ def test_every_other_answer_stays_no_store(tenant_client: TestClient, path: str,
     response = tenant_client.get(path)
     assert response.status_code == status
     assert response.headers["cache-control"] == API_DEFAULT_CACHE_CONTROL
+
+
+# ── SEC-001: logout drops what the browser's HTTP cache kept (Clear-Site-Data) ─────────────────────────────────
+
+
+class _Sessions:
+    """``AuthService`` as the two logout routes use it."""
+
+    revoked: list[str]
+
+    def __init__(self) -> None:
+        self.revoked = []
+
+    def logout(self, raw_refresh: str) -> None:
+        self.revoked.append(raw_refresh)
+
+    def logout_all(self, user_key: str) -> int:
+        self.revoked.append(f"all:{user_key}")
+        return 2
+
+
+@pytest.fixture
+def auth_client() -> Iterator[tuple[TestClient, _Sessions]]:
+    from app.common.dependencies import get_auth_service
+
+    sessions = _Sessions()
+    app.dependency_overrides[get_auth_service] = lambda: sessions
+    app.dependency_overrides[get_current_user] = lambda: User(_key="u_sabine", email="s@example.org", display_name="S")
+    client = TestClient(app)
+    client.cookies.set("csrf_token", "tok")
+    client.cookies.set("kp_refresh", "refresh-1")
+    try:
+        yield client, sessions
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("path", ["/api/v1/auth/logout", "/api/v1/auth/logout-all"])
+def test_a_logout_tells_the_browser_to_drop_its_http_cache(auth_client, path: str) -> None:
+    """The three offline reads may sit in the browser's HTTP cache (``private, no-cache``); no script can empty it."""
+    client, sessions = auth_client
+    response = client.post(path, headers={"x-csrf-token": "tok"})
+    assert response.status_code == 200
+    assert response.headers["clear-site-data"] == CLEAR_SITE_DATA_CACHE == '"cache"'
+    assert sessions.revoked
+
+
+def test_a_refused_logout_clears_nothing(auth_client) -> None:
+    client, sessions = auth_client
+    response = client.post("/api/v1/auth/logout")
+    assert response.status_code == 403
+    assert "clear-site-data" not in response.headers and sessions.revoked == []

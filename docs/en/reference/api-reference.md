@@ -323,7 +323,7 @@ A bed lying completely inside an area names it in `parent_location_key` only whe
 
 **Writing the parcel number.** You set `parcel_label` with `PATCH /api/v1/t/{slug}/locations/{key}` or with `update_fields` in the plan batch; `null` or a blank text removes it, surrounding space is stripped. More than 40 characters, a line break, a control or bidi character give `422`. `PUT /locations/{key}` leaves the value unchanged. The bed list CSV has the selectable column `parcel_label`, and the JSON backup carries the field. <!-- REQ-053 GP-FR-176 -->
 
-**Caching.** `GET …/sites`, `GET …/sites/{key}/plan` and `GET …/locations/{key}/summary` answer with `Cache-Control: private, no-cache`: the browser may keep them for the offline view but must ask the server before every reuse. Every other answer under `/api/v1/` carries `Cache-Control: no-store`, an error answer of these three included. <!-- REQ-053 §32.6 Pkt. 13 -->
+**Caching.** `GET …/sites`, `GET …/sites/{key}/plan` and `GET …/locations/{key}/summary` answer with `Cache-Control: private, no-cache`: the browser may keep them for the offline view but must ask the server before every reuse. Every other answer under `/api/v1/` carries `Cache-Control: no-store`, an error answer of these three included. The app fetches the three paths with the request cache mode `no-store`, so only its own offline store, separated per account and garden, keeps them and not the general browser cache; `POST /auth/logout` and `/auth/logout-all` also answer with `Clear-Site-Data: "cache"`. Your own clients should fetch the three paths the same way. <!-- REQ-053 §32.6 Pkt. 13 -->
 
 ---
 

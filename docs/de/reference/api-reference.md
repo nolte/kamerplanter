@@ -323,7 +323,7 @@ Ein Beet, das ganz in einem Bereich liegt, nennt ihn in `parent_location_key` nu
 
 **Parzellennummer schreiben.** `parcel_label` setzt du mit `PATCH /api/v1/t/{slug}/locations/{key}` oder im Plan-Batch mit `update_fields`; `null` oder ein leerer Text entfernt sie, Leerraum außen wird entfernt. Mehr als 40 Zeichen, ein Zeilenumbruch, ein Steuer- oder Bidi-Zeichen ergeben `422`. `PUT /locations/{key}` lässt den Wert unverändert. Die Beetliste als CSV hat die wählbare Spalte `parcel_label`, die JSON-Sicherung trägt das Feld. <!-- REQ-053 GP-FR-176 -->
 
-**Zwischenspeichern.** `GET …/sites`, `GET …/sites/{key}/plan` und `GET …/locations/{key}/summary` antworten mit `Cache-Control: private, no-cache`: Der Browser darf sie für die Offline-Ansicht behalten, muss aber vor jeder Wiederverwendung beim Server nachfragen. Alle anderen Antworten unter `/api/v1/` tragen `Cache-Control: no-store`, auch eine Fehlerantwort dieser drei. <!-- REQ-053 §32.6 Pkt. 13 -->
+**Zwischenspeichern.** `GET …/sites`, `GET …/sites/{key}/plan` und `GET …/locations/{key}/summary` antworten mit `Cache-Control: private, no-cache`: Der Browser darf sie für die Offline-Ansicht behalten, muss aber vor jeder Wiederverwendung beim Server nachfragen. Alle anderen Antworten unter `/api/v1/` tragen `Cache-Control: no-store`, auch eine Fehlerantwort dieser drei. Die App ruft die drei Pfade mit dem Request-Cache-Modus `no-store` ab, damit nur ihr eigener, nach Konto und Garten getrennter Offline-Speicher sie hält und nicht der allgemeine Browser-Cache; `POST /auth/logout` und `/auth/logout-all` antworten zusätzlich mit `Clear-Site-Data: "cache"`. Eigene Clients sollten die drei Pfade ebenso abrufen. <!-- REQ-053 §32.6 Pkt. 13 -->
 
 ---
 
