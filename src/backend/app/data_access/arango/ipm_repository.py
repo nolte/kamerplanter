@@ -16,12 +16,23 @@ from app.domain.models.ipm import (
 )
 
 
+class _DiseaseRepository(BaseArangoRepository[Disease]):
+    """The ``diseases`` collection: an update replaces ``common_names_i18n`` whole (#2936).
+
+    ArangoDB merges object values by default, so a language removed from the map - by a
+    ``PUT`` with fewer languages or ``{}``, or by a seed that dropped an unsourced name -
+    would survive every write. The map is a value: what the model holds is what is stored.
+    """
+
+    _update_doc_merges_objects = False
+
+
 class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     _model_cls = Pest
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PESTS)
-        self._diseases = BaseArangoRepository[Disease](db, col.DISEASES, Disease)
+        self._diseases = _DiseaseRepository(db, col.DISEASES, Disease)
         self._treatments = BaseArangoRepository[Treatment](db, col.TREATMENTS, Treatment)
         self._inspections = BaseArangoRepository[Inspection](db, col.INSPECTIONS, Inspection)
         self._applications = BaseArangoRepository[TreatmentApplication](

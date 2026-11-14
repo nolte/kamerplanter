@@ -115,7 +115,9 @@ class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDe
         data.pop("_key", None)
         if existing is not None:
             data["updated_at"] = self._now()
-            result = coll.update({"_key": existing.key, **data}, return_new=True)
+            # ``merge=False``: ``common_names_i18n`` is a value, so a language the
+            # taxonomy no longer names leaves the stored map too (#2936).
+            result = coll.update({"_key": existing.key, **data}, return_new=True, merge=False)
         else:
             data["created_at"] = self._now()
             data["updated_at"] = self._now()

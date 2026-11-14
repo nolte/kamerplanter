@@ -108,7 +108,13 @@ def localized_common_name(
 # ── Catalogue entities with ONE stored name (IPM diseases and beneficials, #2936) ──
 
 
-def normalize_names_i18n(names_i18n: Mapping[str, Sequence[str]]) -> dict[str, list[str]]:
+def _stripped_name(raw: object) -> str:
+    """``raw`` as a name without surrounding whitespace (a typed helper the write-route guard resolves)."""
+    text: str = str(raw)
+    return text.strip()
+
+
+def normalize_names_i18n(names_i18n: dict[str, list[str]]) -> dict[str, list[str]]:
     """Check and normalize a ``common_names_i18n`` map: language code -> names in preference order.
 
     Keys must be lowercase ISO 639 codes (``de``, ``en``, ...). Names are stripped; an
@@ -125,8 +131,7 @@ def normalize_names_i18n(names_i18n: Mapping[str, Sequence[str]]) -> dict[str, l
             raise ValueError(f"common_names_i18n key must be a lowercase language code, got {language!r}")
         cleaned: list[str] = []
         for raw in names:
-            text: str = str(raw)
-            name: str = text.strip()
+            name = _stripped_name(raw)
             if not name:
                 raise ValueError(f"common_names_i18n[{language!r}] contains an empty name")
             if name not in cleaned:

@@ -28,6 +28,12 @@ const pathogenTypeColor: Record<string, ChipColor> = {
   physiological: 'info',
 };
 
+/** Every name a disease is known by, de-duplicated: the stored one and each language's (#2936). */
+function diseaseNames(disease: Disease): string[] {
+  const names = [disease.common_name, ...Object.values(disease.common_names_i18n ?? {}).flat()];
+  return [...new Set(names.filter((name): name is string => Boolean(name?.trim())))];
+}
+
 export default function DiseaseListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
@@ -55,14 +61,16 @@ export default function DiseaseListPage() {
     {
       id: 'commonName',
       label: t('pages.ipm.commonName'),
-      // The name in the UI language (#2936); sorting follows it, the search also finds the other names.
+      // The name in the UI language (#2936). Sorting compares the shown names in the UI
+      // language's collation; the search matches each stored name on its own.
       render: (r) => getLocalizedCatalogName(r, i18n.language),
-      searchValue: (r) =>
-        [
-          getLocalizedCatalogName(r, i18n.language),
-          r.common_name,
-          ...Object.values(r.common_names_i18n ?? {}).flat(),
-        ].join(' '),
+      sortFn: (a, b) =>
+        getLocalizedCatalogName(a, i18n.language).localeCompare(
+          getLocalizedCatalogName(b, i18n.language),
+          i18n.language,
+          { sensitivity: 'base' },
+        ),
+      searchValues: (r) => diseaseNames(r),
     },
     {
       id: 'pathogenType',

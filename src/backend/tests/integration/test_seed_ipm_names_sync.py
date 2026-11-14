@@ -5,6 +5,10 @@ it (the privacy reservations hold the next migration numbers), so an existing
 installation receives it through the seed loaders' update path. Measured against a
 real server: a disease and a beneficial stored before the field existed gain the map
 on the next ``run_seed``, and nothing else about their identity changes.
+
+"Synced on every run" holds for removals too: ArangoDB merges object values on update by
+default, so a language the seed no longer names would have survived every boot. The
+disease repository and the beneficial upsert replace the map whole (``merge=False``).
 """
 
 from __future__ import annotations
@@ -69,3 +73,37 @@ def test_a_beneficial_from_before_the_field_gains_its_names_per_language(db: Sta
     rows = _rows(db, col.BENEFICIALS, "slug", "predatory_mite")
     assert [r["_key"] for r in rows] == [planted["_key"]]
     assert rows[0]["common_names_i18n"] == {"de": ["Raubmilben"], "en": ["Predatory mites"]}
+
+
+def test_a_language_the_seed_no_longer_names_leaves_a_stored_disease(db: StandardDatabase) -> None:
+    planted = db.collection(col.DISEASES).insert(
+        {
+            "scientific_name": "Erysiphe spp.",
+            "common_name": "Powdery Mildew",
+            "pathogen_type": "fungal",
+            "common_names_i18n": {"en": ["Powdery Mildew"], "de": ["Mehltau"], "fr": ["Oïdium"]},
+        }
+    )
+
+    run_seed()
+
+    row = db.collection(col.DISEASES).get(planted["_key"])
+    seed = next(d for d in load_yaml("ipm.yaml")["diseases"] if d["scientific_name"] == "Erysiphe spp.")
+    assert row["common_names_i18n"] == seed["common_names_i18n"]
+    assert "fr" not in row["common_names_i18n"]
+
+
+def test_a_language_the_taxonomy_no_longer_names_leaves_a_stored_beneficial(db: StandardDatabase) -> None:
+    planted = db.collection(col.BENEFICIALS).insert(
+        {
+            "slug": "parasitoid_wasp",
+            "common_name": "Schlupfwespe (Encarsia formosa)",
+            "scientific_name": "Encarsia formosa",
+            "common_names_i18n": {"de": ["Schlupfwespe (Encarsia formosa)"], "en": ["Whitefly parasite"]},
+        }
+    )
+
+    run_seed()
+
+    row = db.collection(col.BENEFICIALS).get(planted["_key"])
+    assert row["common_names_i18n"] == {"de": ["Schlupfwespe (Encarsia formosa)"]}

@@ -35,6 +35,12 @@ export interface Column<T> {
   sortFn?: (a: T, b: T) => number;
   searchable?: boolean;
   searchValue?: (row: T) => string;
+  /**
+   * Several values the search matches one by one (e.g. a name in every language,
+   * #2936): a query must sit inside ONE of them, never across two. Wins over
+   * `searchValue` for the search; sorting still uses `sortFn` / `searchValue`.
+   */
+  searchValues?: (row: T) => readonly string[];
   hideBelowBreakpoint?: 'md' | 'lg';
 }
 
@@ -195,6 +201,7 @@ export default function DataTable<T>({
       filtered = filtered.filter((row) =>
         columns.some((col) => {
           if (col.searchable === false) return false;
+          if (col.searchValues) return col.searchValues(row).some((value) => value.toLowerCase().includes(lower));
           return defaultSearchExtractor(row, col).toLowerCase().includes(lower);
         }),
       );

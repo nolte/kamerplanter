@@ -32,7 +32,7 @@ from app.common.enums import McpPermission, PestPressureLevel, PlantPart
 from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.ipm import Inspection, InspectionFinding
 from app.domain.models.mcp import McpToolResponse
-from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_catalog_name
+from app.domain.models.species_names import localized_catalog_name
 from app.mcp_server.base import (
     TenantToolInput,
     ToolBase,
@@ -61,10 +61,12 @@ def _pest_summary(pest: Any) -> dict[str, Any]:
     }
 
 
-def _disease_summary(disease: Any) -> dict[str, Any]:
+def _disease_summary(disease: Any, language: str) -> dict[str, Any]:
     return {
         "disease_key": disease.key,
         "scientific_name": disease.scientific_name,
+        # The name in the request's language: UI language -> de -> stored name (#2936).
+        "name": localized_catalog_name(disease.common_name, disease.common_names_i18n, language),
         "common_name": disease.common_name,
         # Names per language (#2936): the stored common_name is English for the seeded rows.
         "common_names_i18n": disease.common_names_i18n,
@@ -221,7 +223,7 @@ class ListDiseases(ToolBase):
                 if _matches(
                     d.scientific_name,
                     d.common_name,
-                    *(name for names in d.common_names_i18n.values() for name in names),
+                    *(name for language in d.common_names_i18n for name in d.common_names_i18n[language]),
                     d.pathogen_type,
                     needle=needle,
                 )
@@ -231,7 +233,11 @@ class ListDiseases(ToolBase):
             summary=f"{len(page)} diseases"
             + (f" match '{args.query}'" if args.query else f" of {total} in the catalogue")
             + ".",
-            data={"count": len(page), "matched": len(selected), "items": [_disease_summary(d) for d in page]},
+            data={
+                "count": len(page),
+                "matched": len(selected),
+                "items": [_disease_summary(d, ctx.language) for d in page],
+            },
             links=[ctx.global_link("/ipm/diseases")],
         )
 
@@ -245,12 +251,10 @@ class GetDisease(ToolBase):
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         disease = ctx.ipm_service.get_disease(args.disease_key)
-        data = _disease_summary(disease)
+        data = _disease_summary(disease, ctx.language)
         data["description"] = disease.description
-        # The canonical language, like the pest tools' ``common_name_de or common_name`` (#2936).
-        name = localized_catalog_name(disease.common_name, disease.common_names_i18n, CANONICAL_NAME_LANGUAGE)
         return self._response(
-            summary=f"{name} ({disease.scientific_name}), pathogen: {disease.pathogen_type}.",
+            summary=f"{data['name']} ({disease.scientific_name}), pathogen: {disease.pathogen_type}.",
             data=data,
             links=[ctx.global_link(f"/ipm/diseases/{disease.key}")],
         )

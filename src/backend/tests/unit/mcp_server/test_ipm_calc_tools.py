@@ -263,19 +263,26 @@ async def test_disease_lookup_round_trip():
     assert detail.data["environmental_triggers"] == ["high_humidity"]
 
 
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [("de", "Grauschimmelfäule"), ("en", "Grey mould"), (None, "Grauschimmelfäule")],
+)
 @pytest.mark.asyncio
-async def test_a_disease_is_found_and_summarised_by_its_german_name():
+async def test_a_disease_is_found_by_any_name_and_named_in_the_request_language(language, expected):
     # #2936 — the stored name is English; a German query finds the row, and the summary
-    # speaks the canonical language like the pest tools' ``common_name_de or common_name``.
+    # and each item's ``name`` follow the request's language (#2945), else ``de``.
     names = {"en": ["Grey mould"], "de": ["Grauschimmelfäule"]}
     svc = _IpmService(diseases=[_Disease("di1", "Botrytis cinerea", "Grey mould", names)])
+    principal = McpPrincipal(account_key="u-1", display_name="Gardener", memberships=(_membership(),))
+    ctx = ToolContext(principal, _membership(), services={"ipm_service": svc}, language=language)
 
-    listing = await ListDiseases().run(_ctx(ipm_service=svc), ListDiseases.Input(query="grauschimmel"))
-    detail = await GetDisease().run(_ctx(ipm_service=svc), GetDisease.Input(disease_key="di1"))
+    listing = await ListDiseases().run(ctx, ListDiseases.Input(query="grauschimmel"))
+    detail = await GetDisease().run(ctx, GetDisease.Input(disease_key="di1"))
 
     assert [i["disease_key"] for i in listing.data["items"]] == ["di1"]
+    assert listing.data["items"][0]["name"] == expected
     assert listing.data["items"][0]["common_names_i18n"] == names
-    assert detail.summary.startswith("Grauschimmelfäule (Botrytis cinerea)")
+    assert detail.summary.startswith(f"{expected} (Botrytis cinerea)")
 
 
 @pytest.mark.asyncio

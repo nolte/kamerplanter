@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
+from app.common.locale import DEFAULT_LOCALE
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 
 if TYPE_CHECKING:
@@ -61,10 +62,15 @@ class ToolContext:
         membership: McpTenantMembership | None = None,
         *,
         services: dict[str, Any] | None = None,
+        language: str | None = None,
     ) -> None:
         self.principal = principal
         self.membership = membership
         self._services: dict[str, Any] = dict(services or {})
+        #: The request's language (``Accept-Language`` / ``?locale=``, resolved by
+        #: ``get_request_locale``) for names a tool words on the server (#2945, #2936);
+        #: the canonical language when the call carries none (a direct dispatch).
+        self.language: str = language or DEFAULT_LOCALE
 
     # ── acting-tenant shortcuts ──────────────────────────────────────────
     def _require_membership(self) -> McpTenantMembership:
