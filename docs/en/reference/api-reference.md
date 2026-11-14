@@ -316,8 +316,14 @@ The hour bounds must be above 0 and strictly descending, and `one_side_m` may no
 |-------|---------|
 | `area_type_keys` | Every location type the plan draws as an area, sorted, also those no location of this plan has yet. A type is an area type when it is neither a bed (`is_bed`) nor carries a planting grid (`supports_layout`); tent and shelf therefore do not count. |
 | `locations[].is_area` | `true` for an area. For every other location the field is absent. For an area, `bed_status` has no meaning. |
+| `bed_type_keys` | Every location type flagged `is_bed`, sorted. A client checks the rule "two beds of one parent location do not overlap" (`bed.overlap`) with it before the save; the server still checks it. |
+| `locations[].parcel_label` | The bed's fixed parcel number (one line, at most 40 characters). Absent when none is set. |
 
 A bed lying completely inside an area names it in `parent_location_key` only when it was created inside the area after the area; there is no endpoint to move existing beds into an area. Both fields are additions; older clients read the response unchanged. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
+
+**Writing the parcel number.** You set `parcel_label` with `PATCH /api/v1/t/{slug}/locations/{key}` or with `update_fields` in the plan batch; `null` or a blank text removes it, surrounding space is stripped. More than 40 characters, a line break, a control or bidi character give `422`. `PUT /locations/{key}` leaves the value unchanged. The bed list CSV has the selectable column `parcel_label`, and the JSON backup carries the field. <!-- REQ-053 GP-FR-176 -->
+
+**Caching.** `GET …/sites`, `GET …/sites/{key}/plan` and `GET …/locations/{key}/summary` answer with `Cache-Control: private, no-cache`: the browser may keep them for the offline view but must ask the server before every reuse. Every other answer under `/api/v1/` carries `Cache-Control: no-store`, an error answer of these three included. <!-- REQ-053 §32.6 Pkt. 13 -->
 
 ---
 

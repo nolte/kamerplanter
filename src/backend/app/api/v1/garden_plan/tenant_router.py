@@ -58,6 +58,7 @@ from app.api.v1.garden_plan.schemas import (
 from app.api.v1.locations.schemas import rotation_year_responses
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
 from app.common.body_limit import read_bounded_body
+from app.common.cache_control import allow_offline_read_cache
 from app.common.dependencies import (
     get_bed_csv_import_service,
     get_garden_plan_export_service,
@@ -190,6 +191,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
             for location in view.locations
         ],
         area_type_keys=sorted(view.area_type_keys),
+        bed_type_keys=sorted(view.bed_type_keys),
         garden_objects=[
             PlanGardenObjectResponse(
                 **garden_object_to_response(obj).model_dump(),
@@ -303,6 +305,7 @@ _NO_TASKS = _NoTasks()
     responses={**VALIDATION_RESPONSE},
 )
 def get_plan(
+    response: Response,
     key: _SITE_KEY,
     include: Annotated[
         str,
@@ -330,9 +333,10 @@ def get_plan(
     info and task counters in one request (GP-API-001, GP-NFR-002).
 
     422 for an unknown ``include`` value, a malformed ``as_of`` and ``plan.as_of_in_future`` for a day after
-    today.
+    today. Answers ``Cache-Control: private, no-cache`` (REQ-053 §32.6 Pkt. 13): the service worker keeps it offline.
     """
     view = service.get_plan(key, tenant_key=ctx.tenant_key, include=_include(include), as_of=as_of)
+    allow_offline_read_cache(response)
     observe_plan_size(len(view.locations) + len(view.garden_objects))
     return _plan_response(view)
 

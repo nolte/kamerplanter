@@ -308,6 +308,12 @@ function updateLocationFields(
     if (patch.height_m === null) delete next.height_m;
     else next.height_m = patch.height_m;
   }
+  // Part of the read model (GP-FR-176, #2759): the old value is known, so the step has a wire inverse.
+  if (patch.parcel_label !== undefined) {
+    before.parcel_label = location.parcel_label ?? null;
+    if (patch.parcel_label === null) delete next.parcel_label;
+    else next.parcel_label = patch.parcel_label;
+  }
   const sunPatch = patch.site_conditions?.sun_profile;
   if (sunPatch !== undefined && Object.keys(sunPatch).length > 0) {
     const { merged, previous } = mergeSunProfile(location, sunPatch);
@@ -394,14 +400,14 @@ function recreateLocation(location: PlanLocation): PlanOperation[] | null {
   if (location.description != null) data.description = location.description;
   if (location.notes != null) data.notes = location.notes;
   const operations: PlanOperation[] = [{ op: 'create_location', temp_key: location.key, data }];
+  // `create_location` carries neither the sun profile (#2538) nor the parcel label (#2759): one `update_fields`
+  // restores both.
+  const fields: LocationFieldsPatch = {};
   const sun = location.site_conditions?.sun_profile;
-  if (sun && Object.keys(sun).length > 0) {
-    operations.push({
-      op: 'update_fields',
-      entity: 'location',
-      key: location.key,
-      fields: { site_conditions: { sun_profile: { ...sun } } },
-    });
+  if (sun && Object.keys(sun).length > 0) fields.site_conditions = { sun_profile: { ...sun } };
+  if (location.parcel_label) fields.parcel_label = location.parcel_label;
+  if (Object.keys(fields).length > 0) {
+    operations.push({ op: 'update_fields', entity: 'location', key: location.key, fields });
   }
   return operations;
 }

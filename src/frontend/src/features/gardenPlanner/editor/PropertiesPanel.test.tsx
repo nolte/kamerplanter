@@ -157,6 +157,42 @@ describe('editing values (GP-FR-024, GP-FR-155)', () => {
     expect(t.state().past).toHaveLength(1);
   });
 
+  it('sets, keeps and clears the parcel label of a bed as one undo step each (GP-FR-176, #2759)', () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    t.after(() => typeAndBlur(screen.getByTestId('garden-plan-panel-parcel-label'), ' A-17 '));
+    expect(t.state().plan!.locations.b1.parcel_label).toBe('A-17');
+    const pending = t.state().pending;
+    expect(pending[pending.length - 1]?.op).toEqual({
+      op: 'update_fields',
+      entity: 'location',
+      key: 'b1',
+      fields: { parcel_label: 'A-17' },
+    });
+    // Unchanged: nothing new to save or undo.
+    t.after(() => typeAndBlur(screen.getByTestId('garden-plan-panel-parcel-label'), 'A-17'));
+    expect(t.state().past).toHaveLength(1);
+    // Blank clears it.
+    t.after(() => typeAndBlur(screen.getByTestId('garden-plan-panel-parcel-label'), '  '));
+    expect(t.state().plan!.locations.b1.parcel_label).toBeUndefined();
+    expect(t.state().past).toHaveLength(2);
+  });
+
+  it('explains a parcel label that is too long and commits nothing', () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    const input = screen.getByTestId('garden-plan-panel-parcel-label');
+    t.after(() => typeAndBlur(input, 'x'.repeat(41)));
+    expect(screen.getByTestId('garden-plan-panel-parcel-label')).toHaveAttribute('aria-invalid', 'true');
+    expect(t.state().past).toHaveLength(0);
+  });
+
+  it('offers no parcel label on an area or a garden object', () => {
+    const t = setupEditor();
+    t.click(9, 9); // the tree
+    expect(screen.queryByTestId('garden-plan-panel-parcel-label')).toBeNull();
+  });
+
   it('lists polygon points, edits one, and keeps three', () => {
     const t = setupEditor({ plan: planWithPolygon() });
     t.click(5, 15);

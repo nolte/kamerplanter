@@ -28,6 +28,7 @@ from app.common.exceptions import PlanError
 from app.domain.engines.bed_list_csv_engine import (
     ASSIGNMENT_COLUMN,
     COLUMN_NEAREST_WATER_SOURCE,
+    COLUMN_PARCEL_LABEL,
     DEFAULT_COLUMNS,
     ERROR_NO_COLUMNS,
     ERROR_UNKNOWN_COLUMN,
@@ -53,6 +54,7 @@ def _row(**fields) -> BedListExportRow:  # type: ignore[no-untyped-def]
         soil_profile=fields.pop("soil_profile", SoilProfile(soil_texture=SoilTexture.LOAM)),
         site_conditions=fields.pop("site_conditions", None),
         irrigation_zone_key="zone_1",
+        parcel_label=fields.pop("parcel_label", None),
     )
     return BedListExportRow(
         location=location,
@@ -208,6 +210,14 @@ class TestTheCells:
             COLUMN_NEAREST_WATER_SOURCE,
         )
 
+    def test_the_parcel_label_is_selectable_after_the_name_but_not_a_default(self) -> None:
+        """GP-FR-176 (#2759): the stable identifier, empty for a bed without one."""
+        assert COLUMN_PARCEL_LABEL not in DEFAULT_COLUMNS
+        columns = resolve_bed_list_columns("type,parcel_label,name", include_assignment=False)
+        assert columns == ("name", COLUMN_PARCEL_LABEL, "type")
+        assert _cells(_row(parcel_label="A-17"), columns)[COLUMN_PARCEL_LABEL] == "A-17"
+        assert _cells(_row(), columns)[COLUMN_PARCEL_LABEL] == ""
+
     def test_a_bed_without_site_features_has_empty_feature_cells(self) -> None:
         cells = _cells(_row(site_conditions=None), SITE_CONDITION_COLUMNS)
         assert cells.pop("sun_exposure") == "full_sun"  # §10.1's coarse class lives on the location itself
@@ -221,6 +231,9 @@ class TestTheHardening:
     @pytest.mark.parametrize("name", ['=HYPERLINK("http://x")', "+1", "-2+3", "@SUM(A1)", "\tcmd", "\rcmd"])
     def test_a_formula_looking_name_is_neutralised(self, name: str) -> None:
         assert _cells(_row(name=name), ("name",)) == {"name": f"'{name}"}
+
+    def test_a_formula_looking_parcel_label_is_neutralised(self) -> None:
+        assert _cells(_row(parcel_label="=A1+1"), (COLUMN_PARCEL_LABEL,)) == {COLUMN_PARCEL_LABEL: "'=A1+1"}
 
     def test_formula_looking_labels_and_member_names_are_neutralised(self) -> None:
         row = _row(type_name="=cmd", zone_name="@zone", assignees=["=Mallory", "Sabine"])

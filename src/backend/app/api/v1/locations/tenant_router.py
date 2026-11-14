@@ -60,6 +60,7 @@ from app.api.v1.locations.schemas import (
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
+from app.common.cache_control import allow_offline_read_cache
 from app.common.csv_download import CsvDelimiter, csv_download, csv_not_requested
 from app.common.datetimes import utc_range
 from app.common.dependencies import (
@@ -168,7 +169,8 @@ def list_locations(
         max_length=1000,
         description=(
             "`format=csv` only: comma-separated columns. Default `name,type,area_m2,status,soil_texture,"
-            "irrigation_zone,active_plants`; selectable besides: the site features `sun_exposure`, `sun_window`, "
+            "irrigation_zone,active_plants`; selectable besides: `parcel_label` (the stable parcel identifier, "
+            "GP-FR-176), the site features `sun_exposure`, `sun_window`, "
             "`direct_sun_hours_summer`, `foliage_shade_in_summer`, `frost_risk`, `cold_air_pocket`, "
             "`heat_retention`, `wind_exposure`, `slope_deg`, `aspect_deg`, `access_sides`, `site_flags` (GP-FR-175) "
             "and the derived `nearest_water_source_m` (metres to the nearest water source, empty without one; "
@@ -336,6 +338,7 @@ def patch_location(
 
 @router.get("/{key}/summary", response_model=BedSummaryResponse)
 def get_location_summary(
+    response: Response,
     key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: GardenResourceService = Depends(get_garden_resource_service),
@@ -352,8 +355,10 @@ def get_location_summary(
     `tent_hints` (W-016.6, V-23) are hints of a tent or shelf level with two or more plants - never an error:
     `tent.photoperiod_conflict` when their current phases ask for different photoperiods, `tent.photoperiod_unknown`
     when a phase names none.
+    Answers `Cache-Control: private, no-cache` (REQ-053 §32.6 Pkt. 13): the service worker keeps it offline.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
+    allow_offline_read_cache(response)
     counters = view.counters
     return to_response(
         view.location,

@@ -144,7 +144,7 @@ _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width
 #: batch changes, and on every bed when it turns the north angle - written exactly when one of the two moved it.
 _LOCATION_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "area_m2", "name", "path", "depth", "description", "notes", "sun_exposure", "height_m"}
-    | {"locked", "z_order", "orientation"}
+    | {"parcel_label", "locked", "z_order", "orientation"}
 )
 _OBJECT_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "label", "notes", "props", "off_site", "locked", "z_order"}
@@ -431,6 +431,7 @@ class GardenPlanService:
             plan_updated_by_name=data.plan_updated_by_name,
             locations=data.locations,
             area_type_keys=frozenset(self._plan.area_type_keys()),
+            bed_type_keys=frozenset(self._plan.bed_type_keys()),
             garden_objects=data.garden_objects,
             slots=slots,
             plants=data.plants if "plants" in include else [],

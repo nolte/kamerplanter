@@ -123,6 +123,24 @@ describe('rect and circle are dragged out', () => {
     expect(commit(up.effects)).toBeUndefined();
     expect(up.effects).toEqual([{ type: 'notice', code: 'geometry.outside_parent' }]);
   });
+  it('refuses a bed drawn over another bed of the same parent before the save (V-05, #2759)', () => {
+    // `solo` (14,2) 2x2 is a top-level bed; the new bed covers its upper half.
+    const env = makeEnv({ ...testPlan(), bedTypeKeys: ['bed'] });
+    const opts = bedOptions('rect');
+    const down = drawDown(INITIAL_DRAW_STATE, at(env, [14.5, 3]), env, opts);
+    const moved = drawMove(down.state, at(env, [17, 5]), env, true);
+    expect(drawOverlay(moved.state, env, opts).shapes[0].invalid).toBe(true);
+    const up = drawUp(moved.state, at(env, [17, 5]), env, opts);
+    expect(commit(up.effects)).toBeUndefined();
+    expect(up.effects).toEqual([{ type: 'notice', code: 'bed.overlap' }]);
+    // A garden object may lie on a bed (a path under a raised bed).
+    const objectOpts = objectOptions('rect');
+    const objectDown = drawDown(INITIAL_DRAW_STATE, at(env, [14.5, 3]), env, objectOpts);
+    const objectMoved = drawMove(objectDown.state, at(env, [17, 5]), env, true);
+    expect(
+      commit(drawUp(objectMoved.state, at(env, [17, 5]), env, objectOpts).effects),
+    ).toBeDefined();
+  });
 });
 
 describe('polygon and polyline are built point by point', () => {

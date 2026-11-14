@@ -773,6 +773,23 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
         return [str(key) for key in cursor]
 
+    def bed_type_keys(self) -> list[str]:
+        bind_vars: dict[str, Any] = {"@col": col.LOCATION_TYPES, "limit": MAX_AREA_TYPES}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR t IN @@col
+                    FILTER t.is_bed == true
+                    SORT t._key
+                    LIMIT @limit
+                    RETURN t._key
+                """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [str(key) for key in cursor]
+
     def load_location_photoperiods(self, location_key: str, *, tenant_key: str) -> list[PlantPhotoperiod]:
         if not tenant_key:
             raise ValueError("load_location_photoperiods needs a tenant_key (an empty tenant is no tenant, #2107).")

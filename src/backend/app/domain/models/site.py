@@ -46,6 +46,7 @@ from app.domain.models.geometry import (
     Geometry,
     round_length,
 )
+from app.domain.models.parcel_label import ParcelLabel
 
 #: How ``Site.hardiness_zone`` was determined (REQ-039). ``manual`` is never
 #: overwritten by the automatic refresh; ``derived_*`` values are recomputed.
@@ -652,6 +653,9 @@ class Location(BaseModel):
     frost_exposed: bool | None = None
     # ── Garden plan (REQ-053 §20.3, §10.1) ──
     description: str | None = Field(default=None, max_length=1000)
+    #: A stable, user-editable identifier such as an allotment parcel number (GP-FR-176, #2759): the parcel list's
+    #: identifier where set, else the per-print running number. One line, at most 40 characters, blank = ``None``.
+    parcel_label: ParcelLabel = None
     geometry: Geometry | None = None
     #: Height of a raised bed or planter in metres (GP-FR-043); bounded like a width (V-01).
     height_m: float | None = Field(default=None, ge=MIN_DIMENSION_M, le=MAX_DIMENSION_M)

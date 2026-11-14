@@ -5819,6 +5819,10 @@
         "panel": {
           "title": "Eigenschaften",
           "name": "Name",
+          "parcelLabel": "Parzellennummer",
+          "parcelLabelHelp": "Bleibt in jedem Ausdruck gleich, zum Beispiel die Nummer laut Pachtvertrag. Ohne Eintrag nummeriert die Parzellenliste die Beete je Ausdruck.",
+          "parcelLabelTooLong": "Höchstens {{max}} Zeichen.",
+          "parcelLabelControl": "Nur eine Zeile ohne Steuerzeichen.",
           "label": "Bezeichnung",
           "type": "Typ: {{type}}",
           "bedAxis": "Längsachse: {{from}}–{{to}} ({{azimuth}}°), aus Drehung und Nordwinkel abgeleitet",
@@ -6810,7 +6814,7 @@
             "notLoaded": "Der Plan ist nicht geladen. Schließe den Dialog und lade die Seite neu, dann kannst du das Bild erstellen."
           },
           "csv": {
-            "defaultColumns": "Standardspalten",
+            "defaultColumns": "Beetdaten",
             "siteConditionColumns": "Standortmerkmale (wählbar)",
             "noColumns": "Wähle mindestens eine Spalte aus.",
             "excel": "Excel-Variante",
@@ -6821,6 +6825,7 @@
             "summary": "Die Datei enthält je Beet eine Zeile mit diesen Spalten: {{columns}}.",
             "columns": {
               "name": "Name",
+              "parcel_label": "Parzellennummer",
               "type": "Typ",
               "area_m2": "Fläche (m²)",
               "status": "Status",

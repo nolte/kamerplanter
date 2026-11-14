@@ -316,8 +316,14 @@ Die Stundengrenzen müssen größer als 0 und streng absteigend sein, `one_side_
 |------|-----------|
 | `area_type_keys` | Alle Ortstypen, die der Plan als Bereich zeichnet, sortiert, auch solche, die auf diesem Plan noch nicht vorkommen. Ein Typ ist ein Bereichstyp, wenn er weder ein Beet ist (`is_bed`) noch ein Pflanzraster trägt (`supports_layout`); Zelt und Regal zählen deshalb nicht dazu. |
 | `locations[].is_area` | `true` bei einem Bereich. Bei allen anderen Orten fehlt das Feld. Für einen Bereich hat `bed_status` keine Bedeutung. |
+| `bed_type_keys` | Alle Ortstypen mit `is_bed`, sortiert. Damit prüft ein Client die Regel „zwei Beete desselben Elternorts überlappen sich nicht“ (`bed.overlap`) schon vor dem Speichern; der Server prüft sie weiterhin. |
+| `locations[].parcel_label` | Feste Parzellennummer des Beets (eine Zeile, höchstens 40 Zeichen). Fehlt, wenn keine gesetzt ist. |
 
 Ein Beet, das ganz in einem Bereich liegt, nennt ihn in `parent_location_key` nur, wenn es nach dem Bereich darin angelegt wurde; ein Endpunkt zum Umhängen bestehender Beete fehlt. Beides sind Ergänzungen, ältere Clients lesen die Antwort unverändert. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
+
+**Parzellennummer schreiben.** `parcel_label` setzt du mit `PATCH /api/v1/t/{slug}/locations/{key}` oder im Plan-Batch mit `update_fields`; `null` oder ein leerer Text entfernt sie, Leerraum außen wird entfernt. Mehr als 40 Zeichen, ein Zeilenumbruch, ein Steuer- oder Bidi-Zeichen ergeben `422`. `PUT /locations/{key}` lässt den Wert unverändert. Die Beetliste als CSV hat die wählbare Spalte `parcel_label`, die JSON-Sicherung trägt das Feld. <!-- REQ-053 GP-FR-176 -->
+
+**Zwischenspeichern.** `GET …/sites`, `GET …/sites/{key}/plan` und `GET …/locations/{key}/summary` antworten mit `Cache-Control: private, no-cache`: Der Browser darf sie für die Offline-Ansicht behalten, muss aber vor jeder Wiederverwendung beim Server nachfragen. Alle anderen Antworten unter `/api/v1/` tragen `Cache-Control: no-store`, auch eine Fehlerantwort dieser drei. <!-- REQ-053 §32.6 Pkt. 13 -->
 
 ---
 

@@ -163,6 +163,16 @@ class TestAGoodBatch:
         assert repo.locations["a"].name == "New Name"
         assert repo.locations["a"].path == "new_name"
 
+    def test_update_fields_sets_and_clears_the_parcel_label(self, world):
+        """GP-FR-176 (#2759): the editor's panel writes the stable parcel identifier through the batch."""
+        service, repo, _ = world
+        repo.locations["a"] = make_location("a", geometry=rect(1, 1))
+        op = {"op": "update_fields", "entity": "location", "key": "a", "fields": {"parcel_label": " 12 "}}
+        batch(service, [op])
+        assert repo.locations["a"].parcel_label == "12"
+        batch(service, [{**op, "fields": {"parcel_label": None}}], revision=6)
+        assert repo.locations["a"].parcel_label is None
+
     def test_update_fields_merges_the_sun_profile_and_keeps_the_frost_risk(self, world):
         """#2538: the batch merges ``site_conditions.sun_profile`` by the PATCH rule; the microclimate stays."""
         from app.domain.models.site import SiteConditions

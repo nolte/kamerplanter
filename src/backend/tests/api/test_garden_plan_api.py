@@ -111,6 +111,17 @@ class TestReadingThePlan:
         assert [loc["key"] for loc in body["locations"]] == ["bed"]
         assert body["locations"][0]["area_m2"] == 2.0 and body["locations"][0]["bbox"] == [1.0, 1.0, 3.0, 2.0]
 
+    def test_a_set_parcel_label_is_on_the_plan_and_an_unset_one_is_left_out(self, client, repo) -> None:
+        """GP-FR-176 (#2759); GP-NFR-031: the lean read model omits the field where it is ``null``."""
+        repo.locations["other"] = make_location("other", geometry=rect(5, 5))
+        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"parcel_label": "A-17"})
+
+        body = client(TenantRole.VIEWER).get(_PLAN).json()
+
+        by_key = {loc["key"]: loc for loc in body["locations"]}
+        assert by_key["bed"]["parcel_label"] == "A-17"
+        assert "parcel_label" not in by_key["other"]
+
     def test_the_plan_names_its_editor_by_display_name_never_by_key(self, client) -> None:
         body = client(TenantRole.VIEWER).get(_PLAN).json()
         assert body["plan"]["plan_updated_by_name"] == "Sabine"

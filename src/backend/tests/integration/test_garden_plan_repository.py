@@ -641,6 +641,8 @@ class TestAreas:
         view = service.get_plan("site_a", tenant_key=A)
 
         assert ArangoGardenPlanRepository(db).area_type_keys() == ["greenhouse", "terrace"]
+        assert "tent" not in ArangoGardenPlanRepository(db).bed_type_keys()
+        assert "bed" in view.bed_type_keys and "terrace" not in view.bed_type_keys
         assert view.area_type_keys == frozenset({"greenhouse", "terrace"})
         assert [loc.key for loc in view.locations if loc.location_type_key in view.area_type_keys] == [house]
 

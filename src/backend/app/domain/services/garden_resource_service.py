@@ -127,6 +127,7 @@ _PATCH_COLUMNS: tuple[str, ...] = (
     "path",
     "depth",
     "description",
+    "parcel_label",
     "notes",
     "height_m",
     "sun_exposure",

@@ -89,7 +89,7 @@ describe('service worker cache allowlist (G-W9 c)', () => {
     }
   });
 
-  it('respects Cache-Control: no-store — which is the backend default today (MT-044)', () => {
+  it('respects Cache-Control: no-store — the backend default outside the three reads (MT-044)', () => {
     const json = (cacheControl: string | null) => ({
       status: 200,
       type: 'basic',
@@ -147,5 +147,48 @@ describe('src/sw.ts applies the allowlist on its only API caching path', () => {
     const staticRoute = source.slice(source.indexOf("url.pathname.startsWith('/assets/')") - 200);
     expect(staticRoute).toMatch(/startsWith\('\/assets\/'\) \|\| url\.pathname\.startsWith\('\/icons\/'\)/);
     expect(source).toMatch(/denylist: \[\/\^\\\/api\\\/\//);
+  });
+});
+
+/**
+ * REQ-053 §32.6 Pkt. 13 (#2759): the backend answers exactly the three allowlisted reads with `Cache-Control:
+ * private, no-cache` (`OFFLINE_READ_ROUTES` in `src/backend/app/common/cache_control.py`) and every other `/api/v1/`
+ * answer with `no-store`. The worker's allowlist and that route list must name the same three paths: an allowlisted
+ * path the backend still answers `no-store` is never stored (dead offline cache), a `private, no-cache` route outside
+ * the allowlist is network-only.
+ */
+describe('the allowlist matches the backend routes that answer private, no-cache (#2759)', () => {
+  const backend = readFileSync(join(process.cwd(), '../backend/app/common/cache_control.py'), 'utf8');
+  const block = backend.slice(backend.indexOf('OFFLINE_READ_ROUTES'), backend.indexOf('def allow_offline_read_cache'));
+  const routes = [...block.matchAll(/\(\s*"(\w+)"\s*,\s*"([^"]+)"\s*\)/g)].map(([, method, path]) => ({
+    method,
+    path,
+  }));
+  /** A concrete request path of a route template: every `{param}` becomes a plain key. */
+  const sample = (template: string) => template.replace(/\{[^}]+\}/g, 'key_1');
+
+  it('reads the three backend routes (the measuring tool finds what it should)', () => {
+    expect(routes).toHaveLength(3);
+    expect(routes.every((route) => route.method === 'GET')).toBe(true);
+  });
+
+  it.each(['sites', 'sites/{key}/plan', 'locations/{key}/summary'])('the backend names …/%s', (tail) => {
+    expect(routes.map((route) => route.path)).toContain(`/api/v1/t/{tenant_slug}/${tail}`);
+  });
+
+  it('caches every backend private, no-cache route, and an answer with that header is stored', () => {
+    for (const route of routes) expect(allowed(sample(route.path), route.method)).toBe(true);
+    const answer = {
+      status: 200,
+      type: 'basic',
+      headers: new Headers({ 'content-type': 'application/json', 'cache-control': 'private, no-cache' }),
+    };
+    expect(isCacheableApiResponse(answer)).toBe(true);
+  });
+
+  it('allowlists no path the backend answers no-store', () => {
+    for (const pattern of API_CACHE_ALLOWLIST) {
+      expect(routes.some((route) => pattern.test(sample(route.path)))).toBe(true);
+    }
   });
 });

@@ -36,6 +36,7 @@ from app.domain.models.garden_object import GardenObjectProps
 from app.domain.models.garden_plan import MAX_PLAN_OBJECTS_PER_SITE, MAX_PLAN_ZONES, MAX_SLOTS_PER_SITE
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.irrigation_zone import COLOR_PATTERN, DEFAULT_ZONE_COLOR
+from app.domain.models.parcel_label import ParcelLabel
 from app.domain.models.site import LocationLighting, SiteConditions, SoilProfile
 
 SCHEMA_VERSION = "1"
@@ -73,6 +74,9 @@ class ExportLocation(_ExportModel):
     name: str
     location_type_key: str
     description: str | None = None
+    #: The stable parcel identifier (GP-FR-176, #2759), additive inside ``schema_version "1"``: a file written before
+    #: it lacks the key, and the restored bed has none. Read with the location's own rule (one line, ≤ 40 chars).
+    parcel_label: ParcelLabel = None
     notes: str | None = None
     geometry: Geometry | None = None
     area_m2: float = 0.0

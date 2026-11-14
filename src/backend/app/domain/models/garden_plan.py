@@ -25,6 +25,7 @@ from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.nutrient_hint import NutrientHint
+from app.domain.models.parcel_label import ParcelLabel
 from app.domain.models.site import (
     DEFAULT_GRID_M,
     MAX_ADJACENCY_FACTOR,
@@ -163,6 +164,8 @@ class LocationFieldsPatch(_Strict):
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=1000)
+    #: The stable parcel identifier (GP-FR-176, #2759); ``null`` or a blank text clears it.
+    parcel_label: ParcelLabel = None
     notes: str | None = Field(default=None, max_length=4000)
     sun_exposure: SunExposure | None = None
     height_m: float | None = None
@@ -455,11 +458,13 @@ class SiteConditionsPatch(SiteConditions):
 
 class LocationPatch(_Strict):
     """``PATCH /locations/{key}`` (GP-API-010): only the fields present are changed; an explicit ``null`` clears
-    the ones that can be cleared (description, notes, height, irrigation zone, soil profile, rotation switch,
-    adjacency factor, lighting)."""
+    the ones that can be cleared (description, parcel label, notes, height, irrigation zone, soil profile, rotation
+    switch, adjacency factor, lighting)."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=1000)
+    #: The stable parcel identifier (GP-FR-176, #2759); ``null`` or a blank text clears it.
+    parcel_label: ParcelLabel = None
     notes: str | None = Field(default=None, max_length=4000)
     height_m: float | None = None
     sun_exposure: SunExposure | None = None
@@ -713,6 +718,9 @@ class GardenPlanView(BaseModel):
     #: ``supports_layout``. Every such type, not only those on the plan, so a client styles an area it creates before
     #: the save. Empty = unknown: every location is drawn as before, bed-like.
     area_type_keys: frozenset[str] = Field(default_factory=frozenset)
+    #: The location types flagged ``is_bed`` (V-05, #2759): every one, so the editor checks the bed overlap live for a
+    #: bed it draws before the save. Empty = unknown: the editor leaves V-05 to the server.
+    bed_type_keys: frozenset[str] = Field(default_factory=frozenset)
     garden_objects: list[GardenObject] = Field(default_factory=list)
     slots: list[PlanSlotView] = Field(default_factory=list)
     plants: list[PlantShortInfo] = Field(default_factory=list)

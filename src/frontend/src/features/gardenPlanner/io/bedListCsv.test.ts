@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  BED_LIST_BED_COLUMNS,
   BED_LIST_DEFAULT_COLUMNS,
   BED_LIST_SITE_CONDITION_COLUMNS,
   bedListCsvParams,
@@ -30,6 +31,13 @@ describe('bedListCsv', () => {
       delimiter: 'comma',
       locale: 'en',
     });
+  });
+
+  it('offers the parcel label right after the name, not pre-selected (GP-FR-176, #2759)', () => {
+    expect(BED_LIST_BED_COLUMNS.slice(0, 2)).toEqual(['name', 'parcel_label']);
+    expect(BED_LIST_DEFAULT_COLUMNS).not.toContain('parcel_label' as never);
+    const options = { ...DEFAULT_BED_LIST_CSV_OPTIONS, columns: ['type', 'parcel_label', 'name'] as const };
+    expect(bedListCsvParams('s1', options, 'de').columns).toBe('name,parcel_label,type');
   });
 
   it('offers the distance to the nearest water source as a selectable column, last in the file (GP-FR-167)', () => {

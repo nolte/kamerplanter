@@ -4,9 +4,10 @@ Pure: :class:`BedListExportRow` objects and a column selection in, header and ro
 quoting, formula hardening of text cells) is :mod:`app.common.csv_export`.
 
 **Columns.** :data:`DEFAULT_COLUMNS` are GP-FR-145's (name, type, area, status, soil texture, irrigation zone, active
-plants). :data:`SITE_CONDITION_COLUMNS` are the selectable site features of §10.2 (GP-FR-175). The column ids are
-the header of the file and stable machine names; enum cells carry the API's values (``full_sun``, ``loam``), as the
-care-log CSV does.
+plants); :data:`COLUMN_PARCEL_LABEL` (GP-FR-176) is selectable and written after the name.
+:data:`SITE_CONDITION_COLUMNS` are the selectable site features of §10.2 (GP-FR-175). The column ids are the header
+of the file and stable machine names; enum cells carry the API's values (``full_sun``, ``loam``), as the care-log
+CSV does.
 
 **The assignment is not a column to pick** (SR-024). :data:`ASSIGNMENT_COLUMN` is appended only by
 ``include_assignment`` - naming it in ``columns`` is refused like any unknown column, so there is exactly one way to
@@ -61,8 +62,17 @@ SITE_CONDITION_COLUMNS: tuple[str, ...] = (
     COLUMN_NEAREST_WATER_SOURCE,
 )
 
+#: GP-FR-176 (#2759): the bed's stable parcel identifier, selectable, written right after the name. Not pre-selected:
+#: GP-FR-145 names the default columns, and most gardens set no parcel label.
+COLUMN_PARCEL_LABEL = "parcel_label"
+
 #: Every column ``columns=`` may name, in the order the file writes them.
-SELECTABLE_COLUMNS: tuple[str, ...] = DEFAULT_COLUMNS + SITE_CONDITION_COLUMNS
+SELECTABLE_COLUMNS: tuple[str, ...] = (
+    DEFAULT_COLUMNS[0],
+    COLUMN_PARCEL_LABEL,
+    *DEFAULT_COLUMNS[1:],
+    *SITE_CONDITION_COLUMNS,
+)
 
 #: The member names of the bed - only with ``include_assignment=true`` (SR-024), always the last column.
 ASSIGNMENT_COLUMN = "assigned_to"
@@ -147,6 +157,7 @@ def _cells(decimal: str) -> dict[str, Callable[[BedListExportRow], str]]:
 
     return {
         "name": lambda row: csv_text(row.location.name),
+        COLUMN_PARCEL_LABEL: lambda row: csv_text(row.location.parcel_label),
         "type": lambda row: csv_text(row.type_name or row.location.location_type_key),
         "area_m2": lambda row: csv_number(round(row.location.area_m2, 2), decimal=decimal),
         "status": lambda row: csv_text(row.location.bed_status.value),

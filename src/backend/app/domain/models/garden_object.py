@@ -78,7 +78,7 @@ TEXT_LABEL_MAX_CHARS: Final = 80
 
 #: Format characters that turn the reading order of a text (bidi embeddings, overrides and isolates). A caption with
 #: one of them could show other text than it stores (a reversed name), so it is refused like a control character.
-_BIDI_CONTROLS: Final = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\u200e\u200f\u061c")
+BIDI_FORMAT_CHARS: Final = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\u200e\u200f\u061c")
 
 
 #: A caption's glyphs fill this share of its box's height (``length_m``); the rest is the line's air.
@@ -106,7 +106,7 @@ def text_label_error(text: str) -> str | None:
     if len(text) > TEXT_LABEL_MAX_CHARS:
         return f"A text label holds at most {TEXT_LABEL_MAX_CHARS} characters, got {len(text)}."
     for char in text:
-        if unicodedata.category(char) in {"Cc", "Zl", "Zp"} or char in _BIDI_CONTROLS:
+        if unicodedata.category(char) in {"Cc", "Zl", "Zp"} or char in BIDI_FORMAT_CHARS:
             return f"A text label is one line of text without control characters (U+{ord(char):04X})."
     return None
 

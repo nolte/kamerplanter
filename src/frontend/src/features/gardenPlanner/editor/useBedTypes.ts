@@ -25,5 +25,8 @@ export function useBedTypes(enabled: boolean): LocationType[] {
       cancelled = true;
     };
   }, [enabled, types]);
-  return types ?? [];
+  // A stable empty list until the types arrive: a fresh `[]` per render would change every memo that reads it.
+  return types ?? NO_TYPES;
 }
+
+const NO_TYPES: LocationType[] = [];

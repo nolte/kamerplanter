@@ -36,12 +36,27 @@ export const BED_LIST_SITE_CONDITION_COLUMNS = [
   'nearest_water_source_m',
 ] as const;
 
+/**
+ * GP-FR-176 (#2759): the bed's stable parcel identifier (an allotment number), selectable, written right after the
+ * name. Not pre-selected - GP-FR-145 names the defaults, and most gardens set no parcel label.
+ */
+export const BED_LIST_PARCEL_LABEL_COLUMN = 'parcel_label' as const;
+
 export type BedListColumn =
-  (typeof BED_LIST_DEFAULT_COLUMNS)[number] | (typeof BED_LIST_SITE_CONDITION_COLUMNS)[number];
+  | (typeof BED_LIST_DEFAULT_COLUMNS)[number]
+  | typeof BED_LIST_PARCEL_LABEL_COLUMN
+  | (typeof BED_LIST_SITE_CONDITION_COLUMNS)[number];
+
+/** The bed's own data as the dialog groups it: the GP-FR-145 defaults with the parcel label after the name. */
+export const BED_LIST_BED_COLUMNS: readonly BedListColumn[] = [
+  BED_LIST_DEFAULT_COLUMNS[0],
+  BED_LIST_PARCEL_LABEL_COLUMN,
+  ...BED_LIST_DEFAULT_COLUMNS.slice(1),
+];
 
 /** Every selectable column in the order the file writes them (the server orders them the same way). */
 export const BED_LIST_COLUMNS: readonly BedListColumn[] = [
-  ...BED_LIST_DEFAULT_COLUMNS,
+  ...BED_LIST_BED_COLUMNS,
   ...BED_LIST_SITE_CONDITION_COLUMNS,
 ];
 

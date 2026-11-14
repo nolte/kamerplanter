@@ -118,7 +118,13 @@ export function addWithDimensions(
   if (!DIMENSION_SHAPES[values.target].includes(values.shape)) return { ok: false, code: 'geometry.invalid' };
   // A new area never lies in a bed: its parent can only be another area (#2913).
   const parentKey = inferParentKey(plan, geometry, values.target === 'area');
-  const violation = violationOfNew(plan, geometry, parentKey);
+  // V-05 (#2759) for a bed: the type decides whether it is one.
+  const violation = violationOfNew(
+    plan,
+    geometry,
+    parentKey,
+    values.target === 'bed' ? values.bedTypeKey : undefined,
+  );
   if (violation) return { ok: false, code: violation };
   const tempKey = newTempKey();
   if (values.target === 'area') {
