@@ -1,5 +1,6 @@
 """NFR-013 §2.2 — ArangoDB repository for the ``attachments`` collection."""
 
+import re
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from typing import Any, cast
@@ -690,6 +691,10 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             f": (d.{aql_field(field)} == null ? [] : [d.{aql_field(field)}]))"
             for index, (collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
         ]
+        # One loop variable per carrier (``ref0``, ``ref1`` …), not a shared ``d``: a scan that reads one carrier's
+        # ``tenant_key`` must not look like it reads one off a tenantless collection (``locations``) - the
+        # tenantless-collection scanner (``test_garden_plan_tenant_isolation``) judges by alias (#2715 review).
+        parts = [re.sub(r"\bd\b", f"ref{index}", part) for index, part in enumerate(parts)]
         collected = ",\n".join(parts)
         return f"""        LET raw_refs = UNIQUE(FLATTEN([
 {collected}
