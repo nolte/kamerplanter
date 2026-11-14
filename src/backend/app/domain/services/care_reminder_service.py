@@ -911,7 +911,7 @@ class CareReminderService:
         *,
         tenant_key: str,
         performed_at: datetime,
-        user_key: str = "",
+        user_key: str,
         volume_liters: float | None = None,
     ) -> Callable[[str], CareEvent | None]:
         """The care event of a confirmation (REQ-053 GP-FR-106, WP 8.3), as a function of the stored confirmation's key.
@@ -921,6 +921,10 @@ class CareReminderService:
         Otherwise the bed is the plant's location, tenant and site are the **site's**, and the event is made by
         the mapper of the M4 backfill (``trigger = reminder``): one mapping per source, whoever writes it.
         ``volume_liters`` is the volume the caller typed; none is invented.
+
+        ``user_key`` is the confirming caller and becomes the event's performer and author (REQ-053 §32.8 Pkt. 2,
+        #2517). It has no default: every entry path - REST, the notification action, the task queue, MCP - must
+        name its caller, so a new path cannot store a confirmation without a performer by forgetting it.
         """
         if plant is None or self._site_repo is None:
             return _NO_EVENT
@@ -979,9 +983,12 @@ class CareReminderService:
         measured_ec: float | None = None,
         measured_ph: float | None = None,
         tenant_key: str,
-        user_key: str = "",
+        user_key: str,
     ) -> CareConfirmation:
         """Confirm a care reminder for a plant ``tenant_key`` owns.
+
+        ``user_key`` (keyword-only, no default) is the confirming caller: the performer of the care event the
+        confirmation logs (REQ-053 §32.8 Pkt. 2, #2517) and the recipient of the follow-up care notification.
 
         SEC-001 / #2107: the plant is verified against ``tenant_key`` (keyword-only,
         no default) before any care state is touched. A foreign or unknown key
@@ -1285,6 +1292,7 @@ class CareReminderService:
         task: Task,
         *,
         tenant_key: str,
+        user_key: str,
         completion_client_event_id: str | None = None,
     ) -> Task | None:
         """Mirror a completed care-reminder task into the plant's care state (REQ-022).
@@ -1300,6 +1308,9 @@ class CareReminderService:
         generated log so it surfaces in the global Gießprotokoll view. It is also
         the tenant every write is verified against: a task or plant belonging to
         another tenant is refused (:meth:`_resolve_care_task_context`, SEC-001).
+
+        ``user_key`` (keyword-only, no default) is the completing caller and becomes the performer of the care event
+        the confirmation logs, exactly as on the dashboard path (REQ-053 §32.8 Pkt. 2, #2517).
 
         Non-care tasks, non-plant entities, foreign tasks/plants and plants without
         a care profile are no-ops. Returns the newly scheduled follow-up watering
@@ -1340,6 +1351,7 @@ class CareReminderService:
                     reminder_type,
                     tenant_key=tenant_key,
                     performed_at=confirmation.confirmed_at,
+                    user_key=user_key,
                 ),
             )
         except DuplicateError as exc:

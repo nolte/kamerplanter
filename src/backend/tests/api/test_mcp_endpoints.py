@@ -93,7 +93,8 @@ def _build_app(role: TenantRole = TenantRole.GROWER) -> tuple[FastAPI, dict]:
     ]
     fake_species = SimpleNamespace(list_species=lambda offset, limit, tenant_key=None: (species, 1))
     fake_care = SimpleNamespace(
-        confirm_reminder=lambda plant_key, reminder_type, notes, tenant_key="": SimpleNamespace(key="cc-1")
+        # Keyword-only without defaults like the service: a tool that drops the caller fails here (#2517).
+        confirm_reminder=lambda plant_key, reminder_type, notes, *, tenant_key, user_key: SimpleNamespace(key="cc-1")
     )
     # SEC-001: confirm_care_task ownership-checks the plant first via get_plant.
     fake_plants = SimpleNamespace(get_plant=lambda key, tenant_key: SimpleNamespace(key=key))

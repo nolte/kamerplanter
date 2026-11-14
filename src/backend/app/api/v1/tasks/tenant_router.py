@@ -796,7 +796,10 @@ def complete_task(
         # The dedup key is THIS request's id (outcome), never the task's stored one: a completion without an id
         # after a reopen leaves an earlier completion's id on the task.
         get_care_reminder_service().record_care_task_completion(
-            completed, tenant_key=ctx.tenant_key, completion_client_event_id=outcome.client_event_id
+            completed,
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            completion_client_event_id=outcome.client_event_id,
         )
     return _task_response(completed)
 

@@ -93,16 +93,17 @@ class _CareServiceStub:
     """
 
     def __init__(self) -> None:
-        self.completions: list[tuple[Task, str]] = []
+        self.completions: list[tuple[Task, str, str]] = []
         self.skips: list[tuple[Task, str]] = []
 
     def __getattr__(self, name: str):  # noqa: ANN204 — test guard
         raise AssertionError(f"the router must not touch the care service's private {name!r}")
 
     def record_care_task_completion(
-        self, task: Task, *, tenant_key: str = "", completion_client_event_id: str | None = None
+        self, task: Task, *, tenant_key: str, user_key: str, completion_client_event_id: str | None = None
     ) -> None:
-        self.completions.append((task, tenant_key))
+        # No defaults: the stub mirrors the service, so a router that drops the caller fails here (#2517).
+        self.completions.append((task, tenant_key, user_key))
         return None
 
     def record_care_task_skip(self, task: Task, *, tenant_key: str = "") -> None:
@@ -133,13 +134,14 @@ def test_skip_delegates_to_the_service_with_the_request_tenant(care_stub: _CareS
     assert service.skip_calls == [("task-1", TENANT)]
 
 
-def test_complete_delegates_to_the_service_with_the_request_tenant(care_stub: _CareServiceStub) -> None:
+def test_complete_delegates_to_the_service_with_the_request_tenant_and_caller(care_stub: _CareServiceStub) -> None:
     task = _care_task(TaskStatus.COMPLETED)
     service = _TaskServiceStub(task)
 
     complete_task(_request(), "task-1", TaskCompleteRequest(), ctx=_ctx(), service=service)  # type: ignore[arg-type]
 
-    assert [(t.key, tenant) for t, tenant in care_stub.completions] == [("task-1", TENANT)]
+    # The completing caller is the performer of the confirmation (REQ-053 §32.8 Pkt. 2, #2517).
+    assert [(t.key, tenant, user) for t, tenant, user in care_stub.completions] == [("task-1", TENANT, "user-a")]
 
 
 def test_plain_task_never_builds_a_care_service(care_stub: _CareServiceStub) -> None:
