@@ -95,10 +95,11 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
 #: ``test_tenant_scoped_ref_collections_match_the_models`` reads the field off the
 #: models, so that mistake fails the lane instead of deleting a photo.
 #:
-#: ``harvest_observations``, ``storage_observations``, ``pests`` and ``locations``
-#: (a bed's tenant is its site's, #2107) are absent because they genuinely have no
-#: ``tenant_key`` — they stay unfiltered and keep
-#: protecting across the whole installation, which is the safe direction.
+#: ``harvest_observations``, ``storage_observations`` and ``pests`` are absent because
+#: they genuinely have no ``tenant_key`` — they stay unfiltered and keep protecting
+#: across the whole installation, which is the safe direction. ``locations`` has no
+#: ``tenant_key`` either (a bed's tenant is its site's, #2107) and is narrowed through
+#: its site instead: :data:`SITE_SCOPED_REF_COLLECTIONS`.
 TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
     {
         col.TASKS,
@@ -110,6 +111,24 @@ TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
         col.SITES,  # Site.tenant_key (the underlay of a site plan, REQ-053 GP-FR-033)
     }
 )
+
+#: The tenantless carriers whose reference scan is narrowed **through the site** they sit on (#2715 item 2).
+#:
+#: A ``Location`` has no ``tenant_key``; its tenant is its site's (#2107). Scanned unfiltered, the interactive delete
+#: read the ``photo_refs`` of every bed of every tenant inside its transaction. Narrowed, it reads the beds whose
+#: ``site_key`` is one of the tenant's sites (the ``(site_key, bed_status)`` index leads with ``site_key``).
+#:
+#: **What keeps protecting**, because the narrowing gives up its saving rather than a photo: a bed with no
+#: ``site_key`` (``null`` or ``""``), and a bed on a site without a tenant stamp (``tenant_key`` ``null`` or ``""``)
+#: - the same rule as the unstamped rows of :data:`TENANT_SCOPED_REF_COLLECTIONS`. What is no longer read is a bed
+#: on another tenant's site, and a bed whose ``site_key`` names a site that is gone. Neither can protect a photo of
+#: this tenant: a bed photo is linked only through ``ILocationPhotoRepository.add_photo``, which resolves the bed
+#: through a site of the photo's own tenant, and a bed on a vanished site is reachable by no route (every read
+#: resolves the bed through its site) - so a reference it holds names a picture nobody can be shown.
+#:
+#: ``test_site_scoped_ref_collections_carry_a_site_key`` pins that every collection here declares ``site_key`` and
+#: no ``tenant_key`` - a tenant-stamped collection belongs in the other set.
+SITE_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset({col.LOCATIONS})
 
 #: The carriers :meth:`ArangoAttachmentRepository.remove_if_unreferenced` reads inside its transaction.
 _REFERENCE_READ: tuple[str, ...] = tuple(
@@ -663,7 +682,13 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             keeps reading every tenant's references — it has no tenant to narrow to
             and no interactive latency to answer for.
             """
-            if not tenant_scoped or collection not in TENANT_SCOPED_REF_COLLECTIONS:
+            if not tenant_scoped:
+                return ""
+            if collection in SITE_SCOPED_REF_COLLECTIONS:
+                # The bed through its site (#2715 item 2): ``ref_site_keys`` below holds the tenant's sites, the
+                # unstamped ones, and ``null`` / ``""`` for a bed without a site - those keep protecting.
+                return " FILTER d.site_key IN ref_site_keys"
+            if collection not in TENANT_SCOPED_REF_COLLECTIONS:
                 return ""
             # An *unstamped* row still protects. ``tenant_key`` defaults to ``""`` on
             # ``Task``, ``PlantDiaryEntry`` and ``Inspection``, so a legacy or imported
@@ -696,7 +721,19 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # tenantless-collection scanner (``test_garden_plan_tenant_isolation``) judges by alias (#2715 review).
         parts = [re.sub(r"\bd\b", f"ref{index}", part) for index, part in enumerate(parts)]
         collected = ",\n".join(parts)
-        return f"""        LET raw_refs = UNIQUE(FLATTEN([
+        # The tenant's sites, read once per scan; the anchor of every site-scoped carrier (a bed has no tenant_key).
+        site_anchor = (
+            """        LET ref_site_keys = APPEND(
+          (FOR ref_site IN @@ref_sites
+            FILTER ref_site.tenant_key == @ref_tenant_key OR ref_site.tenant_key == null OR ref_site.tenant_key == ""
+            RETURN ref_site._key),
+          [null, ""]
+        )
+"""
+            if tenant_scoped
+            else ""
+        )
+        return f"""{site_anchor}        LET raw_refs = UNIQUE(FLATTEN([
 {collected}
         ], 2))
         LET referenced = UNIQUE(FLATTEN([
@@ -743,9 +780,9 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             f" OR {storage_stem} NOT IN {candidates_expression})"
         )
 
-    def _reference_bind_vars(self) -> dict[str, Any]:
-        """The collection bindings :meth:`_aql_referenced_prelude` needs."""
-        bind_vars: dict[str, Any] = {}
+    def _reference_bind_vars(self, *, tenant_scoped: bool = False) -> dict[str, Any]:
+        """The collection bindings :meth:`_aql_referenced_prelude` needs (with the site anchor when tenant-scoped)."""
+        bind_vars: dict[str, Any] = {"@ref_sites": col.SITES} if tenant_scoped else {}
         for index, collection in enumerate(PHOTO_REF_COLLECTIONS):
             bind_vars[f"@ref_col_{index}"] = collection
         for index, (collection, _field) in enumerate(ATTACHMENT_REF_FIELDS):
@@ -810,7 +847,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             "tenant_key": tenant_key,
             "ref_tenant_key": tenant_key,
             "ignored_task_key": task_key,
-            **self._reference_bind_vars(),
+            **self._reference_bind_vars(tenant_scoped=True),
         }
         row = next(iter(self._db.aql.execute(query, bind_vars=bind_vars)), None)
         if row is None:
@@ -862,6 +899,71 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
                 )
         return Attachment(**self._from_doc(removed[0])) if removed else None
 
+    def remove_unreferenced(
+        self, attachment_ids: Sequence[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> list[Attachment]:
+        """:meth:`remove_if_unreferenced` for many records at once: one reference scan, one transaction (#2715 item 6).
+
+        A committed bed or site delete hands back up to 50 photos per bed. Asked one by one, every photo re-ran the
+        whole reference scan in its own transaction inside the DELETE request; here the scan runs once and every
+        tenant's record of *category* among *attachment_ids* that no carrier names is removed with it. The
+        transaction semantics are the single remove's: a writer that names one of the records touches it, so a
+        concurrent link conflicts (``WriteConflictError``) and **nothing** is removed - the caller decides whether to
+        ask again. Tombstones of buffered uploads are written in the same transaction.
+
+        Returns the removed records (their stored objects are the caller's next step); an empty tenant removes nothing.
+        """
+        unique = list({attachment_id: None for attachment_id in attachment_ids})
+        if not unique or not tenant_key:
+            return []
+        with stream_transaction(
+            self._db,
+            write=(self._collection_name, col.CLIENT_EVENT_TOMBSTONES),
+            read=_REFERENCE_READ,
+            entity=self._collection_name,
+        ) as txn:
+            releasable = self._unreferenced_among_in(txn, unique, tenant_key, category=category)
+            if not releasable:
+                return []
+            removed: list[dict[str, Any]] = list(
+                txn.aql.execute(
+                    """
+                FOR att IN @@collection
+                  FILTER att._key IN @ids AND att.tenant_key == @tenant_key
+                  REMOVE att IN @@collection
+                  RETURN OLD
+                """,
+                    bind_vars={"@collection": self._collection_name, "ids": releasable, "tenant_key": tenant_key},
+                )
+            )
+            for client_event_id in [row["client_event_id"] for row in removed if "client_event_id" in row]:
+                if client_event_id:
+                    record_tombstone_in(
+                        txn, tenant_key=tenant_key, client_event_id=str(client_event_id), kind="attachment"
+                    )
+        return [Attachment(**self._from_doc(row)) for row in removed]
+
+    def _unreferenced_among_in(
+        self, txn: StreamTransaction, attachment_ids: list[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> list[str]:
+        """The tenant's records of *category* among *attachment_ids* that no carrier names, read inside *txn*."""
+        query = f"""
+{self._aql_referenced_prelude(tenant_scoped=True)}
+        FOR att IN @@collection
+          FILTER att._key IN @ids AND att.tenant_key == @tenant_key AND att.category == @category
+            AND {self._aql_unreferenced("referenced", "att")}
+          RETURN att._key
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "ids": attachment_ids,
+            "tenant_key": tenant_key,
+            "ref_tenant_key": tenant_key,
+            "category": AttachmentCategory(category).value,
+            **self._reference_bind_vars(tenant_scoped=True),
+        }
+        return [str(key) for key in txn.aql.execute(query, bind_vars=bind_vars)]
+
     def releasable_after_location_delete(
         self, attachment_ids: Sequence[str], *, tenant_key: str, location_keys: Sequence[str]
     ) -> list[str]:
@@ -872,7 +974,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         counts what the import will delete - not a photo a kept bed, another bed or a gallery still names, and not a
         stale reference whose record is gone. Read-only; an empty tenant reads nothing.
         """
-        unique = list(dict.fromkeys(attachment_ids))
+        unique = list({attachment_id: None for attachment_id in attachment_ids})
         if not unique or not tenant_key:
             return []
         query = f"""
@@ -889,7 +991,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             "ref_tenant_key": tenant_key,
             "category": AttachmentCategory.LOCATION.value,
             "ignored_location_keys": list(location_keys),
-            **self._reference_bind_vars(),
+            **self._reference_bind_vars(tenant_scoped=True),
         }
         return [str(key) for key in cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))]
 
@@ -906,7 +1008,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             "attachment_id": attachment_id,
             "tenant_key": tenant_key,
             "ref_tenant_key": tenant_key,
-            **self._reference_bind_vars(),
+            **self._reference_bind_vars(tenant_scoped=True),
         }
         return next(iter(txn.aql.execute(query, bind_vars=bind_vars)), False) is True
 

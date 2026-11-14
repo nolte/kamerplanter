@@ -9,6 +9,7 @@ released. The service decisions are pinned in ``tests/unit/domain/services/test_
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 import pytest
@@ -273,6 +274,150 @@ class TestTheReferenceIsACarrier:
         assert db.collection(col.ATTACHMENTS).get("p1") is not None
 
 
+def _scan_nodes(db, query: str, bind_vars: dict[str, Any]) -> list[tuple[str, str]]:
+    """``(node type, collection)`` of every collection read in the plan ArangoDB would run, subqueries included."""
+    found: list[tuple[str, str]] = []
+
+    def walk(nodes: list[dict[str, Any]]) -> None:
+        for node in nodes:
+            if node["type"] in ("EnumerateCollectionNode", "IndexNode"):
+                found.append((node["type"], node["collection"]))
+            if node["type"] == "SubqueryNode":
+                walk(node["subquery"]["nodes"])
+
+    walk(db.aql.explain(query, bind_vars=bind_vars)["nodes"])
+    return found
+
+
+class TestTheScanReadsTheTenantsBedsOnly:
+    """#2715 item 2 - the interactive reference scan reads the beds of the caller's sites, not every bed installed.
+
+    A ``Location`` has no ``tenant_key``; the scan is anchored on ``sites.tenant_key`` and reads the beds through the
+    ``site_key`` index. Every bed that could protect a photo of this tenant still does: a bed of one of its sites,
+    a bed without a site, a bed on a site without a tenant stamp.
+    """
+
+    def test_the_scoped_scan_reads_the_beds_through_the_site_index(self, db) -> None:
+        repo = ArangoAttachmentRepository(db)
+        query = repo._aql_referenced_prelude(tenant_scoped=True) + "\n        RETURN referenced"
+        nodes = _scan_nodes(db, query, {"ref_tenant_key": A, **repo._reference_bind_vars(tenant_scoped=True)})
+
+        bed_reads = [kind for kind, collection in nodes if collection == col.LOCATIONS]
+        assert bed_reads == ["IndexNode", "IndexNode"]  # photo_refs and cover_photo_ref, neither a full scan
+
+    def test_the_nightly_sweep_still_reads_every_bed(self, db) -> None:
+        repo = ArangoAttachmentRepository(db)
+        query = repo._aql_referenced_prelude() + "\n        RETURN referenced"
+        nodes = _scan_nodes(db, query, repo._reference_bind_vars())
+
+        assert [kind for kind, collection in nodes if collection == col.LOCATIONS] == ["EnumerateCollectionNode"] * 2
+
+    def test_another_tenants_bed_is_not_read(self, db) -> None:
+        # Impossible through the API (a photo is linked only to a bed of its own tenant's site): planted here to
+        # show the narrowing is real - before #2715 this foreign row kept the photo.
+        db.collection(col.ATTACHMENTS).insert(_photo("p1"))
+        db.collection(col.LOCATIONS).update({"_key": "bed_b", "photo_refs": ["p1"], "cover_photo_ref": "p1"})
+
+        assert ArangoAttachmentRepository(db).remove_if_unreferenced("p1", A) is not None
+
+    @pytest.mark.parametrize("fields", [{"photo_refs": ["p1"]}, {"cover_photo_ref": "p1"}], ids=["refs", "cover"])
+    def test_a_bed_of_the_tenants_site_keeps_the_photo(self, db, fields) -> None:
+        db.collection(col.ATTACHMENTS).insert(_photo("p1"))
+        db.collection(col.LOCATIONS).update({"_key": "bed_a2", **fields})
+        repo = ArangoAttachmentRepository(db)
+
+        assert repo.remove_if_unreferenced("p1", A) is None
+        assert repo.remove_unreferenced(["p1"], A, category=AttachmentCategory.LOCATION) == []
+        assert repo.releasable_after_location_delete(["p1"], tenant_key=A, location_keys=["bed_a"]) == []
+        assert repo.task_photo_delete_state("p1", A, task_key="none")[0] == "shared"
+        assert db.collection(col.ATTACHMENTS).get("p1") is not None
+
+    @pytest.mark.parametrize(
+        "bed",
+        [
+            {"_key": "loose", "name": "loose", "location_type_key": "bed"},  # no site_key attribute at all
+            {"_key": "loose", "name": "loose", "location_type_key": "bed", "site_key": ""},
+            {"_key": "loose", "name": "loose", "location_type_key": "bed", "site_key": None},
+            {"_key": "loose", "name": "loose", "location_type_key": "bed", "site_key": "site_unstamped"},
+        ],
+        ids=["no_site_key", "empty_site_key", "null_site_key", "unstamped_site"],
+    )
+    def test_a_bed_the_narrowing_cannot_place_keeps_the_photo(self, db, bed) -> None:
+        db.collection(col.SITES).insert({"_key": "site_unstamped", "name": "legacy", "type": "outdoor"})
+        db.collection(col.ATTACHMENTS).insert(_photo("p1"))
+        db.collection(col.LOCATIONS).insert({**bed, "photo_refs": ["p1"]})
+        repo = ArangoAttachmentRepository(db)
+
+        assert repo.remove_if_unreferenced("p1", A) is None
+        assert repo.remove_unreferenced(["p1"], A, category=AttachmentCategory.LOCATION) == []
+        assert db.collection(col.ATTACHMENTS).get("p1") is not None
+
+
+class TestTheBatchRemove:
+    """#2715 item 6 - ``remove_unreferenced``: one scan, one transaction, the single remove's rule for each record."""
+
+    def test_the_unreferenced_go_and_the_named_stay(self, db) -> None:
+        for key in ("free1", "free2", "named", "cover"):
+            db.collection(col.ATTACHMENTS).insert(_photo(key))
+        db.collection(col.ATTACHMENTS).insert(_photo("gallery", category=AttachmentCategory.PLANT.value))
+        db.collection(col.ATTACHMENTS).insert(_photo("foreign", tenant=B))
+        db.collection(col.LOCATIONS).update({"_key": "bed_a2", "photo_refs": ["named"], "cover_photo_ref": "cover"})
+
+        removed = ArangoAttachmentRepository(db).remove_unreferenced(
+            ["free1", "free2", "named", "cover", "gallery", "foreign", "gone", "free1"],
+            A,
+            category=AttachmentCategory.LOCATION,
+        )
+
+        assert sorted(attachment.key for attachment in removed) == ["free1", "free2"]
+        remaining = {doc["_key"] for doc in db.collection(col.ATTACHMENTS).all()}
+        assert remaining == {"named", "cover", "gallery", "foreign"}
+
+    def test_buffered_uploads_leave_their_tombstones(self, db) -> None:
+        db.collection(col.CLIENT_EVENT_TOMBSTONES).truncate()
+        db.collection(col.ATTACHMENTS).insert({**_photo("p_buffered"), "client_event_id": "ce-bed-2"})
+        db.collection(col.ATTACHMENTS).insert(_photo("p_plain"))
+
+        repo = ArangoAttachmentRepository(db)
+        assert len(repo.remove_unreferenced(["p_buffered", "p_plain"], A, category=AttachmentCategory.LOCATION)) == 2
+
+        assert repo.client_event_tombstones(["ce-bed-2"], tenant_key=A) == {"ce-bed-2"}
+        assert db.collection(col.CLIENT_EVENT_TOMBSTONES).count() == 1
+
+    def test_an_empty_tenant_removes_nothing(self, db) -> None:
+        db.collection(col.ATTACHMENTS).insert(_photo("p1"))
+
+        assert (
+            ArangoAttachmentRepository(db).remove_unreferenced(["p1"], "", category=AttachmentCategory.LOCATION) == []
+        )
+        assert db.collection(col.ATTACHMENTS).get("p1") is not None
+
+    def test_a_link_committed_after_the_scan_conflicts_and_every_photo_stays(self, db) -> None:
+        for key in ("p1", "p2"):
+            db.collection(col.ATTACHMENTS).insert(_photo(key))
+
+        def rival() -> None:  # bed_a takes p1 after the batch's scan saw no reference
+            ArangoLocationPhotoRepository(db).add_photo("bed_a", tenant_key=A, attachment_key="p1", max_photos=50)
+
+        with pytest.raises(WriteConflictError):
+            _BatchOvertaken(db, rival).remove_unreferenced(["p1", "p2"], A, category=AttachmentCategory.LOCATION)
+
+        assert _stored(db, "bed_a") == (["p1"], "p1")
+        assert db.collection(col.ATTACHMENTS).get("p1") is not None
+        assert db.collection(col.ATTACHMENTS).get("p2") is not None  # one transaction: nothing half-done
+
+
+class _BatchOvertaken(ArangoAttachmentRepository):
+    def __init__(self, db, rival) -> None:
+        super().__init__(db)
+        self._rival = rival
+
+    def _unreferenced_among_in(self, txn, attachment_ids, tenant_key, *, category):  # type: ignore[no-untyped-def]
+        answer = super()._unreferenced_among_in(txn, attachment_ids, tenant_key, category=category)
+        self._rival()
+        return answer
+
+
 class TestTheDeletesReportTheirPhotos:
     def test_the_plan_batch_delete_reports_the_photos_of_the_deleted_bed(self, db) -> None:
         db.collection(col.LOCATIONS).update({"_key": "bed_a", "photo_refs": ["p2", "p1"], "cover_photo_ref": "p1"})
@@ -312,6 +457,11 @@ class _Deleter:
 
     async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
         return self._repo.remove_if_unreferenced(attachment_id, tenant_key) is not None
+
+    async def delete_many_if_unreferenced(
+        self, attachment_ids: Iterable[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> int:
+        return len(self._repo.remove_unreferenced(list(attachment_ids), tenant_key, category=category))
 
 
 class TestTheServiceOnTheDatabase:

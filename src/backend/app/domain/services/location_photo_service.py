@@ -19,7 +19,8 @@ tenant's, of another category or outside its tenant's storage namespace answers 
 plan underlay), and its stored object only when no other record holds it (#1770). The bed's own reference is gone
 by then. A failure there is logged, never raised: the bed's write has committed, and a 500 would make the client
 retry a removal that no longer finds the photo. Deleting a whole bed (or its site) hands the photos it held to
-:meth:`discard_released` after the commit, with the same rule.
+:meth:`discard_released` after the commit, with the same rule - as one batch (one reference scan, one transaction,
+bounded storage deletes), not one round per photo (#2715 item 6).
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.attachment import Attachment
 from app.domain.models.location_photo import LocationPhoto, LocationPhotoGallery
 from app.domain.models.site import MAX_PHOTOS_PER_LOCATION, Location
-from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.attachment_service import AttachmentService, ObjectReleaseError
 from app.domain.services.location_ownership import resolve_owned_location
 
 logger = structlog.get_logger(__name__)
@@ -57,9 +58,15 @@ ERROR_COVER_NOT_A_PHOTO = "location.cover_not_a_photo"
 
 
 class UnreferencedAttachmentDelete(Protocol):
-    """``AttachmentService.delete_if_unreferenced``: the record goes unless a carrier names it, then its object."""
+    """``AttachmentService.delete_if_unreferenced`` (one photo removed from a bed) and its batch
+    ``delete_many_if_unreferenced`` (the photos a bed or site delete let go of, #2715 item 6): a record goes unless a
+    carrier names it, then its object."""
 
     async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool: ...
+
+    async def delete_many_if_unreferenced(
+        self, attachment_ids: Iterable[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> int: ...
 
 
 class LocationPhotoDiscard(Protocol):
@@ -282,15 +289,40 @@ class LocationPhotoService:
         """Delete the photos a committed bed (or site) delete let go of, unless something else still names them.
 
         Only ``location`` attachments of the tenant are considered - an id of any other category is never deleted
-        through this path. Each failure is logged and skipped; returns how many photos were deleted.
+        through this path. **One batch, not one round per photo** (#2715 item 6): a site with many beds of up to 50
+        photos each ran one reference scan and one transaction per photo inside the DELETE request, so the committed
+        delete answered late or timed out. ``delete_many_if_unreferenced`` scans once, removes the unreferenced
+        records in one transaction and releases their objects with bounded parallelism. A failure is logged, never
+        raised (the delete has committed); the nightly ``cleanup_orphaned_location_photos`` collects what stays.
+        Returns how many photos were deleted.
         """
-        discarded = 0
-        for attachment_id in _unique(attachment_ids):
-            attachment = await asyncio.to_thread(self._attachment_repo.get, attachment_id, tenant_key)
-            if attachment is None or attachment.category != AttachmentCategory.LOCATION:
-                continue
-            if await self._discard(attachment_id, tenant_key=tenant_key):
-                discarded += 1
+        ids = _unique(attachment_ids)
+        if not ids:
+            return 0
+        try:
+            deleter: UnreferencedAttachmentDelete = self._attachments()
+            discarded = await deleter.delete_many_if_unreferenced(ids, tenant_key, category=AttachmentCategory.LOCATION)
+        except ObjectReleaseError as exc:
+            # The records went (#2715 review SEC-S02): counted as deleted; only the objects that stayed are reported.
+            logger.warning(
+                "location_photo_objects_release_failed",
+                tenant=log_tenant(tenant_key),
+                deleted=exc.removed,
+                attachment_ids=exc.attachment_ids,
+                objects=exc.objects,
+                error_type=type(exc.__cause__).__name__,
+            )
+            return exc.removed
+        except Exception as exc:  # noqa: BLE001 — the delete has committed; its response must not turn into a 500
+            logger.warning(
+                "location_photos_discard_failed",
+                tenant=log_tenant(tenant_key),
+                count=len(ids),
+                # Ids only (never a URL): the nightly ``cleanup_orphaned_location_photos`` collects them.
+                attachment_ids=ids,
+                error_type=type(exc).__name__,
+            )
+            return 0
         return discarded
 
     async def _discard(self, attachment_id: str, *, tenant_key: str) -> bool:

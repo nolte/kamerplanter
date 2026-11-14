@@ -485,6 +485,69 @@ class TestBedDelete:
         assert discarded == 0 and world.attachments.deleted == []
         assert {"gallery", "foreign"} <= set(world.attachments.rows)
 
+    async def test_the_photos_of_every_deleted_bed_go_in_one_batch(self, world: World) -> None:
+        """#2715 item 6: one ``delete_many_if_unreferenced`` for the whole delete, not one reference scan per photo."""
+        for bed in ("bed", "bed2"):
+            for index in range(3):
+                key = f"{bed}_p{index}"
+                world.attachments.add(key, tenant_key=TENANT)
+                world.add(key, key=bed)
+        plans = GardenPlanService(world.repo._sites, world.repo, photos=lambda: world.service)
+
+        await plans.apply_batch_async(
+            SITE,
+            tenant_key=TENANT,
+            user_key=ME,
+            role=TenantRole.LEAD,
+            expected_revision=None,
+            operations=[
+                {"op": "delete", "entity": "location", "key": "bed"},
+                {"op": "delete", "entity": "location", "key": "bed2"},
+            ],
+            body_bytes=0,
+        )
+
+        assert len(world.attachments.batch_deletes) == 1 and len(world.attachments.batch_deletes[0]) == 6
+        assert len(world.attachments.deleted) == 6
+
+    async def test_a_failing_batch_is_logged_and_counts_nothing(self, world: World) -> None:
+        from unittest.mock import patch
+
+        from app.domain.services import location_photo_service
+
+        world.attachments.add("p1", tenant_key=TENANT)
+        world.attachments.fail_with = RuntimeError("scan budget exhausted")
+
+        with patch.object(location_photo_service, "logger") as logger:
+            discarded = await world.service.discard_released(["p1", "p1"], tenant_key=TENANT)
+
+        assert discarded == 0 and "p1" in world.attachments.rows
+        assert logger.warning.call_args.args[0] == "location_photos_discard_failed"
+        assert logger.warning.call_args.kwargs["attachment_ids"] == ["p1"]
+
+    async def test_records_deleted_with_objects_left_count_and_report_only_the_objects(self, world: World) -> None:
+        """#2715 review SEC-S02: the records are gone - they count; the objects that stayed are the reported error."""
+        from unittest.mock import patch
+
+        from app.domain.services import location_photo_service
+
+        for key in ("p1", "p2"):
+            world.attachments.add(key, tenant_key=TENANT)
+        world.attachments.objects_fail = True
+
+        with patch.object(location_photo_service, "logger") as logger:
+            discarded = await world.service.discard_released(["p1", "p2"], tenant_key=TENANT)
+
+        assert discarded == 2 and world.attachments.deleted == ["p1", "p2"]
+        assert logger.warning.call_args.args[0] == "location_photo_objects_release_failed"
+        fields = logger.warning.call_args.kwargs
+        assert fields["deleted"] == 2 and fields["attachment_ids"] == ["p1", "p2"] and fields["objects"] == 2
+        assert "location_photos_discard_failed" not in [call.args[0] for call in logger.warning.call_args_list]
+
+    async def test_an_empty_release_asks_nothing(self, world: World) -> None:
+        assert await world.service.discard_released([], tenant_key=TENANT) == 0
+        assert world.attachments.batch_deletes == []
+
     async def test_release_without_a_provider_and_with_a_failing_one_never_raises(self, world: World) -> None:
         await release_location_photos(None, ["p1"], tenant_key=TENANT)
 

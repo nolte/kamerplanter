@@ -8,6 +8,7 @@ is patched so no broker is required.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import threading
 from collections.abc import Callable
@@ -31,7 +32,7 @@ from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.data_access.storage.s3_adapter import S3StorageAdapter
 from app.domain.models.attachment import Attachment
-from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.attachment_service import AttachmentService, ObjectReleaseError
 
 MAX_SIZE = 25 * 1024 * 1024
 
@@ -52,6 +53,8 @@ class _FakeAttachmentRepo:
         self.create_calls = 0
         #: How often ``remove_if_unreferenced`` ran - each call is one transaction.
         self.remove_calls = 0
+        #: How often ``remove_unreferenced`` ran - one transaction for the whole batch (#2715 item 6).
+        self.batch_remove_calls = 0
         self._rivals: list[Callable[[], None]] = []
 
     def create(self, attachment: Attachment) -> Attachment:
@@ -127,6 +130,21 @@ class _FakeAttachmentRepo:
         if state != "staged":
             return None
         return self._store.pop(attachment_id)
+
+    def remove_unreferenced(self, attachment_ids, tenant_key, *, category):  # type: ignore[no-untyped-def]
+        # One call standing for the batch's one transaction (#2715 item 6): one scan, every remove, or a conflict.
+        self.remove_calls += 1
+        self.batch_remove_calls += 1
+        if self._rivals:
+            self._rivals.pop(0)()
+            raise WriteConflictError("attachments")
+        removed = []
+        for attachment_id in dict.fromkeys(attachment_ids):
+            stored = self.get(attachment_id, tenant_key)
+            if stored is None or stored.category != category or self.states.get(attachment_id, "staged") != "staged":
+                continue
+            removed.append(self._store.pop(attachment_id))
+        return removed
 
     def mark_renditions_failed(self, tenant_key: str, storage_key: str) -> int:
         """Updates every record holding the object, names none of them (#2108) - a writer that is not a carrier."""
@@ -822,6 +840,198 @@ class TestDeleteIfUnreferenced:
         ]
         assert repo.get(attachment.key, "t-1") is not None
         assert await service._object_exists(attachment.storage_key)
+
+
+class TestDeleteManyIfUnreferenced:
+    """#2715 item 6 - the photos a committed bed or site delete let go of go in one batch, not one scan per photo."""
+
+    async def _stored(self, service, *, colour: int, category=AttachmentCategory.LOCATION) -> Attachment:
+        image = Image.new("RGB", (32, 32), color=(colour, 10, 10))
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG")
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            return await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=buffer.getvalue(),
+                mime_type="image/jpeg",
+                original_filename="beet.jpg",
+                category=category,
+            )
+
+    async def test_one_transaction_removes_every_unreferenced_record_and_its_object(self, service, repo):
+        photos = [await self._stored(service, colour=colour) for colour in (10, 20, 30)]
+
+        deleted = await service.delete_many_if_unreferenced(
+            [photo.key for photo in photos], "t-1", category=AttachmentCategory.LOCATION
+        )
+
+        assert deleted == 3 and repo.batch_remove_calls == 1 and repo.remove_calls == 1
+        assert all(repo.get(photo.key, "t-1") is None for photo in photos)
+        assert not any([await service._object_exists(photo.storage_key) for photo in photos])
+
+    async def test_a_photo_a_carrier_still_names_stays_with_its_object(self, service, repo):
+        kept, gone = await self._stored(service, colour=40), await self._stored(service, colour=50)
+        repo.states = {kept.key: "shared"}
+
+        deleted = await service.delete_many_if_unreferenced(
+            [kept.key, gone.key], "t-1", category=AttachmentCategory.LOCATION
+        )
+
+        assert deleted == 1
+        assert repo.get(kept.key, "t-1") is not None and await service._object_exists(kept.storage_key)
+        assert repo.get(gone.key, "t-1") is None
+
+    async def test_another_category_and_another_tenant_are_never_removed(self, service, repo):
+        gallery = await self._stored(service, colour=60, category=AttachmentCategory.PLANT)
+        bed = await self._stored(service, colour=70)
+
+        assert (
+            await service.delete_many_if_unreferenced([gallery.key], "t-1", category=AttachmentCategory.LOCATION) == 0
+        )
+        assert (
+            await service.delete_many_if_unreferenced([bed.key], "t-other", category=AttachmentCategory.LOCATION) == 0
+        )
+
+        assert repo.get(gallery.key, "t-1") is not None and repo.get(bed.key, "t-1") is not None
+
+    async def test_an_object_another_record_holds_stays(self, service, repo):
+        photo = await self._stored(service, colour=80)
+        twin = repo.create(
+            photo.model_copy(update={"key": None, "created_by": "u-2", "category": AttachmentCategory.PLANT})
+        )
+
+        assert await service.delete_many_if_unreferenced([photo.key], "t-1", category=AttachmentCategory.LOCATION) == 1
+
+        assert repo.get(twin.key, "t-1") is not None and await service._object_exists(photo.storage_key)
+
+    async def test_a_conflict_is_asked_once_more_and_a_second_one_keeps_every_photo(self, service, repo):
+        photos = [await self._stored(service, colour=colour) for colour in (90, 100)]
+        keys = [photo.key for photo in photos]
+        repo.overtake_next_removals(lambda: None, lambda: None, lambda: None)
+
+        with capture_logs() as logs:
+            assert await service.delete_many_if_unreferenced(keys, "t-1", category=AttachmentCategory.LOCATION) == 0
+
+        assert repo.batch_remove_calls == 2  # one retry, no loop
+        assert all(repo.get(key, "t-1") is not None for key in keys)
+        assert "attachment_delete_skipped_concurrent_write" in [entry["event"] for entry in logs]
+
+    async def test_a_conflict_whose_retry_succeeds_deletes(self, service, repo):
+        photo = await self._stored(service, colour=110)
+        repo.overtake_next_removals(lambda: repo.mark_renditions_failed("t-1", photo.storage_key))
+
+        assert await service.delete_many_if_unreferenced([photo.key], "t-1", category=AttachmentCategory.LOCATION) == 1
+        assert repo.batch_remove_calls == 2
+
+    async def test_the_storage_deletes_are_bounded(self, service, repo, adapter, monkeypatch):
+        from app.domain.services import attachment_service
+
+        monkeypatch.setattr(attachment_service, "OBJECT_RELEASE_CONCURRENCY", 2)
+        photos = [await self._stored(service, colour=colour) for colour in range(120, 200, 10)]
+        in_flight = peak = 0
+        original = adapter.delete_object
+
+        async def counting(key: str) -> None:
+            nonlocal in_flight, peak
+            in_flight += 1
+            peak = max(peak, in_flight)
+            await asyncio.sleep(0)
+            await original(key)
+            in_flight -= 1
+
+        adapter.delete_object = counting  # type: ignore[method-assign]
+
+        deleted = await service.delete_many_if_unreferenced(
+            [photo.key for photo in photos], "t-1", category=AttachmentCategory.LOCATION
+        )
+
+        assert deleted == len(photos) and peak == 2
+
+    async def test_a_failed_object_delete_is_owed_and_the_rest_still_go(self, adapter, repo, settings):
+        owed = _OwedReleases()
+        service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings, release_retries=owed)
+        broken, fine = await self._stored(service, colour=210), await self._stored(service, colour=220)
+        original = adapter.delete_object
+
+        async def failing_for_one(key: str) -> None:
+            if key == broken.storage_key:
+                raise OSError("storage unavailable")
+            await original(key)
+
+        adapter.delete_object = failing_for_one  # type: ignore[method-assign]
+
+        assert (
+            await service.delete_many_if_unreferenced(
+                [broken.key, fine.key], "t-1", category=AttachmentCategory.LOCATION
+            )
+            == 2
+        )
+
+        assert owed.recorded == [("t-1", [broken.storage_key])]
+        assert not await service._object_exists(fine.storage_key)
+
+    async def test_without_a_retry_store_the_records_count_and_only_the_objects_are_the_error(
+        self, adapter, repo, settings
+    ):
+        """#2715 review SEC-S02: the records were committed away - the error names the objects that stayed, apart."""
+        service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+        broken, fine = await self._stored(service, colour=230), await self._stored(service, colour=240)
+        tried: list[str] = []
+        original = adapter.delete_object
+
+        async def failing_for_one(key: str) -> None:
+            tried.append(key)
+            if key == broken.storage_key:
+                raise OSError("storage unavailable")
+            await original(key)
+
+        adapter.delete_object = failing_for_one  # type: ignore[method-assign]
+
+        with pytest.raises(ObjectReleaseError) as raised:
+            await service.delete_many_if_unreferenced(
+                [broken.key, fine.key], "t-1", category=AttachmentCategory.LOCATION
+            )
+
+        assert raised.value.removed == 2 and raised.value.attachment_ids == [broken.key] and raised.value.objects == 1
+        assert isinstance(raised.value.__cause__, OSError)
+        assert not any("/" in attachment_id for attachment_id in raised.value.attachment_ids)
+        assert {broken.storage_key, fine.storage_key} <= set(tried)  # every key was tried
+        assert repo.get(broken.key, "t-1") is None and repo.get(fine.key, "t-1") is None
+
+    async def test_an_object_held_again_between_chunks_is_not_deleted(self, service, repo, adapter, monkeypatch):
+        """#2715 review SEC-S01: each chunk asks for other holders right before its deletes, not once for the batch."""
+        from app.domain.services import attachment_service
+
+        monkeypatch.setattr(attachment_service, "OBJECT_RELEASE_CONCURRENCY", 1)
+        first, second = await self._stored(service, colour=250), await self._stored(service, colour=5)
+        original = adapter.delete_object
+        linked: list[str] = []
+
+        async def dedup_upload_meanwhile(key: str) -> None:
+            await original(key)
+            if not linked:  # the first storage call: another member uploads the second photo's bytes now
+                linked.append(
+                    repo.create(
+                        second.model_copy(
+                            update={"key": None, "created_by": "u-2", "category": AttachmentCategory.PLANT}
+                        )
+                    ).key
+                )
+
+        adapter.delete_object = dedup_upload_meanwhile  # type: ignore[method-assign]
+
+        deleted = await service.delete_many_if_unreferenced(
+            [first.key, second.key], "t-1", category=AttachmentCategory.LOCATION
+        )
+
+        assert deleted == 2
+        assert not await service._object_exists(first.storage_key)
+        assert await service._object_exists(second.storage_key)  # the new record holds it
+
+    async def test_an_empty_batch_touches_nothing(self, service, repo):
+        assert await service.delete_many_if_unreferenced([], "t-1", category=AttachmentCategory.LOCATION) == 0
+        assert repo.batch_remove_calls == 0
 
 
 class _OwedReleases:
