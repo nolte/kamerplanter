@@ -271,8 +271,9 @@ class TestRemovePlantFreesItsSlot:
     """#2727: a slot is freed - by writing ``currently_occupied`` alone - once no plant is left standing on it.
 
     The plant repository is a store of real plants, so ``get_active_by_slot`` answers what the ArangoDB query
-    answers: the live plants (``removed_on`` unset) on the slot. The removed plant is already stamped
-    ``removed_on`` when the service asks, which is why ``len(active) <= 1`` freed a zone with a plant still on it.
+    answers: the live plants (``removed_on`` unset) whose own ``slot_key`` names the slot (#2774). The removed plant
+    is already stamped ``removed_on`` when the service asks, which is why ``len(active) <= 1`` freed a zone with a
+    plant still on it.
     """
 
     def setup_method(self):
@@ -292,7 +293,9 @@ class TestRemovePlantFreesItsSlot:
         self.plant_repo.get_by_key.side_effect = self.store.get
         self.plant_repo.update.side_effect = self._update
         self.plant_repo.get_active_by_slot.side_effect = lambda slot_key, *, tenant_key: [
-            p for p in self.store.values() if p.removed_on is None and p.tenant_key == tenant_key
+            p
+            for p in self.store.values()
+            if p.removed_on is None and p.tenant_key == tenant_key and p.slot_key == slot_key
         ]
         self.site_repo = MagicMock()
         self.site_repo.get_slot_by_key.return_value = Slot(_key="zone-1", slot_id="BED_Z1", location_key="bed")
@@ -320,7 +323,7 @@ class TestRemovePlantFreesItsSlot:
         self.site_repo.update_slot.assert_not_called()  # no whole-slot write that could revert a PATCH /slots
 
     def test_a_plant_moved_off_the_slot_does_not_hold_it(self):
-        """``placed_in`` is not re-pointed on a move; the plant's own ``slot_key`` decides."""
+        """``placed_in`` keeps the edge of a slot a plant left; the plant's own ``slot_key`` decides (#2774)."""
         self.store["plant-2"] = self.store["plant-2"].model_copy(update={"slot_key": "elsewhere"})
 
         self._remove("plant-1")

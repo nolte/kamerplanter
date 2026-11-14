@@ -291,14 +291,34 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         )
 
     def get_existing_ids_at_location(self, location_key: LocationKey) -> set[str]:
+        """The ``instance_id``s taken at a location: every plant that ever stood in one of its slots.
+
+        Both paths count: a ``placed_in`` edge (a plant that stood there and moved on), and a plant's own
+        ``slot_key`` (a plant moved here before #2948 has no edge to its slot). Missing one would let
+        ``generate_plant_ids`` reissue an id the unique index then refuses (#2774).
+        """
         query = """
-        FOR slot IN 1..1 OUTBOUND @loc_id GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@slot_edge]}
-          FOR plant IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
-            OPTIONS {edgeCollections: [@plant_edge]}
+        LET slots = (
+          FOR slot IN 1..1 OUTBOUND @loc_id GRAPH 'kamerplanter_graph'
+            OPTIONS {edgeCollections: [@slot_edge]}
+            RETURN slot
+        )
+        LET by_edge = (
+          FOR slot IN slots
+            FOR plant IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+              OPTIONS {edgeCollections: [@plant_edge]}
+              RETURN plant.instance_id
+        )
+        LET by_slot_key = (
+          FOR plant IN @@plants
+            FILTER plant.slot_key IN slots[*]._key
             RETURN plant.instance_id
+        )
+        FOR instance_id IN UNION_DISTINCT(by_edge, by_slot_key)
+          RETURN instance_id
         """
         bind_vars = {
+            "@plants": col.PLANT_INSTANCES,
             "loc_id": f"{col.LOCATIONS}/{location_key}",
             "slot_edge": col.HAS_SLOT,
             "plant_edge": col.PLACED_IN,

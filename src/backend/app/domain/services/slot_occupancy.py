@@ -32,7 +32,7 @@ def plants_standing_on(
     return [
         plant
         for plant in plants.get_active_by_slot(slot_key, tenant_key=tenant_key)
-        if plant.slot_key == slot_key and (leaving is None or plant.key != leaving)
+        if leaving is None or plant.key != leaving
     ]
 
 

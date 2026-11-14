@@ -15,10 +15,12 @@ Two registers, both checked against the code:
 * :data:`_SITES` - every place under ``app/`` that names the edge collection (the constant ``PLACED_IN`` as an
   attribute or a bare name, and every non-docstring string literal containing the word ``placed_in``), keyed by
   its enclosing unit (function, class, or module-level assignment), with a verdict: ``history`` (a reader that
-  deliberately sees every slot a plant ever stood in, reason given), ``writer`` or ``declaration`` (writes edges,
-  or names the collection for the schema, the graph, a transaction or an export; such a unit must not iterate
-  ``@@placed_in``). There is no ``current`` verdict: a new reader of the edge is either history, with a reason, or
-  it is wrong. An unclassified site fails, and so does an entry no site matches any more.
+  deliberately sees every slot a plant ever stood in, reason given), ``ever-or-now`` (a reader of "any plant
+  ever or now": it keeps the edges and must also select the plants by their own ``slot_key`` in a loop over
+  ``@@plants``, because a plant moved before #2948 has no edge to its slot), ``writer`` or ``declaration``
+  (writes edges, or names the collection for the schema, the graph, a transaction or an export; such a unit must
+  not iterate ``@@placed_in``). There is no ``current`` verdict: a new reader of the edge is history or
+  ever-or-now, with a reason, or it is wrong. An unclassified site fails, and so does an entry no site matches any more.
 
 What this does not see: a traversal over ``GRAPH 'kamerplanter_graph'`` without ``edgeCollections`` that reaches
 ``placed_in`` implicitly - it names neither the constant nor the string. The behaviour itself is held by
@@ -35,6 +37,7 @@ APP = Path(__file__).resolve().parents[3] / "app"
 BACKEND = APP.parent
 
 _HISTORY = "history"
+_EVER_OR_NOW = "ever-or-now"
 _WRITER = "writer"
 _DECLARATION = "declaration"
 
@@ -59,6 +62,9 @@ _CURRENT_READERS: dict[str, str] = {
     f"{_PS}:ArangoPlantStateRepository.list_sown_slots": "executes _SOWN_SLOTS",
     f"{_PI}:ArangoPlantInstanceRepository.get_active_by_slot": "plants currently occupying a slot",
     f"{_SS}:ArangoSiteRepository.get_slot_for_plant": "the slot a plant stands in (watering)",
+    "app/data_access/arango/watering_log_repository.py:ArangoWateringLogRepository.get_last_watering_date_for_run": (
+        "the slots a run's plants stand in now"
+    ),
 }
 
 #: ``"path:unit"`` → ``(verdict, reason)`` for every unit naming ``placed_in``.
@@ -68,17 +74,14 @@ _SITES: dict[str, tuple[str, str]] = {
         _HISTORY,
         "the slot's crop-rotation history includes the plants that left it",
     ),
+    # -- "ever or now": the edges for the plants that left, plus the plants whose own slot_key names the slot -------
     f"{_PR}:ArangoPlantingReservationRepository._remove_orphan_layout_slots": (
-        _HISTORY,
-        "a slot any plant ever stood in keeps its rotation history and is not deleted",
+        _EVER_OR_NOW,
+        "a slot any plant ever stood in keeps its history, and one a plant stands in now is not deleted",
     ),
     "app/data_access/arango/planting_run_repository.py:ArangoPlantingRunRepository.get_existing_ids_at_location": (
-        _HISTORY,
-        "instance ids ever used at the location must not be reissued",
-    ),
-    "app/data_access/arango/watering_log_repository.py:ArangoWateringLogRepository.get_last_watering_date_for_run": (
-        _HISTORY,
-        "a watering of any slot the run's plants stood in counts for the run",
+        _EVER_OR_NOW,
+        "instance ids ever used or in use at the location must not be reissued",
     ),
     "app/data_access/arango/watering_repository.py:ArangoWateringRepository.get_by_location": (
         _HISTORY,
@@ -112,6 +115,8 @@ _SITES: dict[str, tuple[str, str]] = {
 
 _NAMES_THE_EDGE = re.compile(r"\bplaced_in\b")
 _ITERATES_THE_EDGE = re.compile(r"\bIN\s+@@placed_in\b")
+#: A loop over the plant collection that compares the loop variable's own ``slot_key`` before the next ``FOR``.
+_SELECTS_BY_SLOT_KEY = re.compile(r"\bFOR\s+(\w+)\s+IN\s+@@plants\b(?:(?!\bFOR\b).)*?\b\1\.slot_key\b", re.DOTALL)
 
 
 def _docstrings(tree: ast.AST) -> set[int]:
@@ -279,6 +284,30 @@ def test_no_reader_is_both_current_and_registered_as_an_edge_site() -> None:
     assert not both, "Registered as a current reader and as a placed_in site:\n  " + "\n  ".join(both)
 
 
+def test_ever_or_now_readers_also_select_by_slot_key() -> None:
+    """A reader of "ever stood here" keeps the edges, and must also count a plant standing here by its slot_key:
+    a plant moved before #2948 has no edge to the slot it stands in (#2774)."""
+    units, constants = _sites()
+    missing = []
+    for key, (verdict, _reason) in sorted(_SITES.items()):
+        if verdict != _EVER_OR_NOW or key not in units:
+            continue
+        text, _iterating = _aql_text(units[key], constants[key.split(":", 1)[0]])
+        if not _SELECTS_BY_SLOT_KEY.search(text):
+            missing.append(key)
+    assert not missing, (
+        "These ever-or-now readers count no plant by its own slot_key (a FOR over @@plants comparing "
+        "<var>.slot_key):\n  " + "\n  ".join(missing)
+    )
+
+
+def test_the_slot_key_detector_needs_the_loop_variable() -> None:
+    assert _SELECTS_BY_SLOT_KEY.search("FOR plant IN @@plants FILTER plant.slot_key == s._key")
+    assert _SELECTS_BY_SLOT_KEY.search("FOR plant IN @@plants\n  FILTER plant.slot_key IN slots[*]._key")
+    assert not _SELECTS_BY_SLOT_KEY.search("FOR plant IN @@plants FILTER plant.location_key == @k")
+    assert not _SELECTS_BY_SLOT_KEY.search("FOR p IN @@plants FILTER p.x == 1 FOR q IN @@other FILTER p.slot_key")
+
+
 def test_writers_and_declarations_read_no_edges() -> None:
     units, constants = _sites()
     reading = []
@@ -298,6 +327,6 @@ def test_every_verdict_is_known_and_reasoned() -> None:
     bad = sorted(
         key
         for key, (verdict, reason) in _SITES.items()
-        if verdict not in (_HISTORY, _WRITER, _DECLARATION) or not reason.strip()
+        if verdict not in (_HISTORY, _EVER_OR_NOW, _WRITER, _DECLARATION) or not reason.strip()
     )
     assert not bad, "Unknown verdict or empty reason:\n  " + "\n  ".join(bad)

@@ -82,7 +82,7 @@ _RESERVATION_READ = (col.PLANTING_RUNS, col.PLANT_INSTANCES, col.RUN_CONTAINS)
 _DROP_WRITE = tuple(
     dict.fromkeys((col.LOCATIONS, col.SLOTS, col.HAS_SLOT, col.RUN_PLANNED_AT, *(edge for edge, _ in _SLOT_EDGES)))
 )
-_DROP_READ = tuple(c for c in (col.PLACED_IN, col.PLANTING_RUNS) if c not in _DROP_WRITE)
+_DROP_READ = tuple(c for c in (col.PLACED_IN, col.PLANT_INSTANCES, col.PLANTING_RUNS) if c not in _DROP_WRITE)
 _RELEASE_WRITE = (col.LOCATIONS, col.RUN_PLANNED_AT)
 _RELEASE_READ = (col.SLOTS,)
 _CLEAR_WRITE = (
@@ -688,7 +688,12 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
 
     @staticmethod
     def _remove_orphan_layout_slots(txn: StreamTransaction, slot_ids: list[str]) -> None:
-        """Delete the layout slots that nothing uses any more: unoccupied, unarchived, unreserved, no plant ever."""
+        """Delete the layout slots that nothing uses any more: unoccupied, unarchived, unreserved, no plant ever.
+
+        "No plant ever" is both: no ``placed_in`` edge (the slot's rotation history) and no plant whose own
+        ``slot_key`` names it - a plant moved here before #2948 has no edge to it, and deleting its slot would leave
+        it a ``slot_key`` no bed reader finds (#2774).
+        """
         free = list(
             txn.aql.execute(
                 """
@@ -697,13 +702,15 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         AND s.currently_occupied != true AND s.archived_at == null
                     LET reserved = LENGTH(FOR e IN @@planned FILTER e._to == s._id LIMIT 1 RETURN 1)
                     LET planted = LENGTH(FOR p IN @@placed_in FILTER p._to == s._id LIMIT 1 RETURN 1)
-                    FILTER reserved == 0 AND planted == 0
+                    LET standing = LENGTH(FOR plant IN @@plants FILTER plant.slot_key == s._key LIMIT 1 RETURN 1)
+                    FILTER reserved == 0 AND planted == 0 AND standing == 0
                     RETURN s._id
                 """,
                 bind_vars={
                     "@slots": col.SLOTS,
                     "@planned": col.RUN_PLANNED_AT,
                     "@placed_in": col.PLACED_IN,
+                    "@plants": col.PLANT_INSTANCES,
                     "ids": slot_ids,
                 },
             )

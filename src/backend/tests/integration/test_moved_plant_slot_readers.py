@@ -30,6 +30,7 @@ from app.data_access.arango.plant_state_repository import ArangoPlantStateReposi
 from app.data_access.arango.planting_reservation_repository import ArangoPlantingReservationRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.models.care_event import CareEvent
 from app.domain.models.plant_instance import PlantInstance
@@ -526,3 +527,50 @@ def test_the_plants_are_indexed_by_slot_key(database) -> None:
     indexes = database.collection(col.PLANT_INSTANCES).indexes()
 
     assert any(i["type"] == "persistent" and i["fields"] == col.PLANT_INSTANCE_SLOT_INDEX_FIELDS for i in indexes)
+
+
+class TestLegacyMoveEverOrNowReaders:
+    """The readers of "any plant, ever or now" count a plant moved before #2948 on the slot it stands in."""
+
+    def test_a_layout_slot_it_stands_in_is_not_removed_with_the_run_reservations(self, db, plants, repo) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "lay", geometry_source="layout")
+        make_slot(db, "free", geometry_source="layout")
+        make_run(db, "run_a", status="planned")
+        reserve(db, "run_a", "lay")
+        reserve(db, "run_a", "free")
+        pi = place(plants, "pi", "s1")
+        legacy_move(db, pi, "lay")
+
+        assert repo.drop_run_reservations("run_a", remove_layout_slots=True) == 2
+
+        remaining = {s["_key"] for s in db.collection(col.SLOTS).all()}
+        assert "lay" in remaining
+        assert "free" not in remaining  # control: a slot nothing uses still goes
+
+    def test_its_instance_id_is_taken_at_the_location_it_stands_in(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+        legacy_move(db, pi, "t1", "bed2")
+        runs = ArangoPlantingRunRepository(db)
+
+        assert runs.get_existing_ids_at_location("bed2") == {"ID_pi"}
+        # the edge keeps it taken at the bed it left, too
+        assert runs.get_existing_ids_at_location("bed") == {"ID_pi"}
+
+    def test_the_last_watering_of_its_run_is_on_the_slot_it_stands_in(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        make_run(db, "run_a", location="bed2")
+        pi = place(plants, "pi", "s1")
+        db.collection(col.RUN_CONTAINS).insert({"_from": "planting_runs/run_a", "_to": f"plant_instances/{pi}"})
+        legacy_move(db, pi, "t1", "bed2")
+        logs = db.collection(col.WATERING_LOGS)
+        logs.insert({"tenant_key": A, "slot_keys": ["t1"], "logged_at": "2026-09-01T08:00:00+00:00"})
+        # a newer watering of the slot it left waters whatever stands there now, not this run
+        logs.insert({"tenant_key": A, "slot_keys": ["s1"], "logged_at": "2026-10-01T08:00:00+00:00"})
+
+        last = ArangoWateringLogRepository(db).get_last_watering_date_for_run("run_a", tenant_key=A)
+
+        assert last == date(2026, 9, 1)

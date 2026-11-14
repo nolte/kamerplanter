@@ -159,8 +159,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
     def get_history_by_slot(self, slot_key: SlotKey, years: int = 3, *, tenant_key: str) -> list[PlantInstance]:
         """Past plantings of a slot within ``years``, **inside one tenant** (#927).
 
-        Same treatment as :meth:`get_active_by_slot`; this is the crop-rotation
-        history, which says which botanical families were grown in that bed.
+        Tenant-scoped like :meth:`get_active_by_slot`, but read through the
+        ``placed_in`` edges, not ``slot_key``: this is the crop-rotation history,
+        which says which botanical families were grown in that bed, including plants
+        that have since moved on.
         """
         self._require_tenant_key(tenant_key, "get_history_by_slot")
         # ``planted_on`` is a ``date`` stored as ``YYYY-MM-DD``: bind the cutoff as a
