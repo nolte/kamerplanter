@@ -30,6 +30,8 @@ class SeasonBedOutcome(BaseModel):
     slots: int = 0
     #: Slots of the previous year left out because their geometry no longer lies inside the bed's shape (V-04).
     slots_outside_bed: int = 0
+    #: Zones of the previous year left out because they overlap a standing zone or one copied before them (V-06).
+    slots_overlapping: int = 0
 
 
 class PlanSeasonReport(BaseModel):

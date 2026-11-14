@@ -24,6 +24,7 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { isApiError } from '@/api/errors';
+import type { Translate } from '@/i18n/translate';
 import { familiesOfYear, startNewSeason } from './seasonApi';
 import { MIN_SEASON_YEAR, type SeasonBedOutcome, type SeasonReport } from './seasonTypes';
 
@@ -46,6 +47,15 @@ interface NewSeasonDialogProps {
   onClose: () => void;
   /** Slots were written; the page reloads the plan. */
   onApplied: () => void;
+}
+
+/** What the copy left out of a bed, in words: places outside its shape (V-04) and overlapping zones (V-06). */
+function leftOutText(bed: SeasonBedOutcome, t: Translate): string | undefined {
+  const parts = [
+    bed.slots_outside_bed > 0 ? t(`${PREFIX}.outsideBed`, { count: bed.slots_outside_bed }) : null,
+    bed.slots_overlapping > 0 ? t(`${PREFIX}.overlapping`, { count: bed.slots_overlapping }) : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(' ') : undefined;
 }
 
 function failureKey(error: unknown): string {
@@ -231,9 +241,7 @@ export default function NewSeasonDialog({
                                   what: (hints[bed.location_key] ?? []).join(', '),
                                 })
                               : t(`${PREFIX}.hereStoodUnknown`)
-                            : bed.slots_outside_bed > 0
-                              ? t(`${PREFIX}.outsideBed`, { count: bed.slots_outside_bed })
-                              : undefined
+                            : leftOutText(bed, t)
                         }
                       />
                     </ListItem>
