@@ -751,7 +751,8 @@ class PlantingReservationService:
         """
         self._require_editor(role)
         slot, location = resolve_owned_slot(self._sites, slot_key, tenant_key)
-        plants = self._repo.active_plants_in([slot.key or slot_key], tenant_key=tenant_key)
+        # A zone stand (#2862) is no plant: correcting its position moved no plant.
+        plants = [p for p in self._repo.active_plants_in([slot.key or slot_key], tenant_key=tenant_key) if not p.stand]
         if not plants:
             return None
         view = self._care_events.create(

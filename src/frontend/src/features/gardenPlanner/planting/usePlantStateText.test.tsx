@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { formatDay, MAX_INFO_LINES, usePlantStateText } from './usePlantStateText';
-import type { PlantStateWire } from './plantStateApi';
+import type { PlantStateWire, StandStateWire } from './plantStateApi';
 import { visualOf, type PlantStateView } from './usePlantStates';
 
 /** The plant info is one glance: at most eight lines, the reasons to act never the ones that give way (GP-FR-190). */
@@ -48,6 +48,30 @@ describe('usePlantStateText', () => {
     const { result } = renderHook(() => usePlantStateText());
     const harvesting = view({ inputs: { ...view().inputs, open_tasks: [], open_findings: 0, frost_risk: false } });
     expect(result.current.ariaLabel(harvesting)).toContain('Harvesting');
+  });
+
+  it('names a zone stand on the marker and in the info, with its thinning day (#2862)', () => {
+    const { result } = renderHook(() => usePlantStateText());
+    const wire: StandStateWire = {
+      kind: 'stand',
+      plant_key: null,
+      slot_key: 'z1',
+      slot_id: 'BED_Z01',
+      instance_id: 'BED_Z01',
+      species_key: 'sp',
+      species_name: 'Carrot',
+      planted_on: '2026-05-20',
+      sown_on: '2026-04-12',
+      lifecycle: 'active',
+      last_care: {},
+      attention: [],
+      harvest: { ready: false },
+      inputs: { open_tasks: [], open_findings: 0, frost_risk: false, harvest_batches: 0, phase: null },
+    };
+    const stand: PlantStateView = { ...wire, visual: visualOf(wire, NOW) };
+    expect(result.current.ariaLabel(stand)).toBe('Carrot, Zone stand');
+    const age = result.current.lines(stand).find((line) => line.key === 'age');
+    expect(age?.text).toMatch(/^Zone stand · thinned on /);
   });
 
   it('falls back from the species name to the scientific name to the instance id', () => {

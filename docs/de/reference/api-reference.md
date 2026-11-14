@@ -499,6 +499,17 @@ Die Liste nennt je Snapshot `audit_key`, `revision`, `at`, `summary`, `changed_b
 
 ---
 
+### Vereinzeln einer Zone: Zonen-Bestand (REQ-053)
+
+**`GET /slots/{key}/thinning`** liefert den Vereinzel-Plan eines gesäten Platzes. `max_count` ist die größte Zahl Einzelpflanzen je Vorgang (500). Bei einer Zone nennt `max_stand_count` zusätzlich die größte Zahl, die als Bestand erfasst werden darf (100 000); bei einer Reihe ist sie `null`.
+
+**`POST /slots/{key}/thinning`** vereinzelt den Platz. Bis `max_count` entstehen Einzelpflanzen wie bisher. Liegt die Zahl bei einer **Zone** darüber, entstehen keine Pflanzen und die Antwort trägt `stand_quantity` mit der erfassten Zahl (sonst `null`). Der Bestand kommt zur `actual_quantity` des Durchlaufs hinzu, der Pflegeeintrag hat keine `plant_keys` (ganzes Beet), und der Platz behält `sown_at` und erhält `thinned_at`. Eine Reihe über 500 und eine Zone über `max_stand_count` antworten weiter mit `422` `plan.quota_exceeded`. Säen oder Vereinzeln eines Platzes mit Bestand antwortet `409` `slot.occupied`; das Räumen des Beetes beendet den Bestand.
+
+| Antwort | Neues Feld | Bedeutung |
+|---------|------------|-----------|
+| Platz (`GET /slots/{key}`) und Pflanzung (`GET /locations/{key}/plantings`) | `thinned_at` | Tag des Vereinzelns einer Zone als Bestand, sonst `null` |
+| Pflanzenzustand (`GET /locations/{key}/plant-states`) | `kind = "stand"`, `sown_on` | `planted_on` ist der Vereinzel-Tag, `sown_on` der Saattag, der Lebenszyklus `active`, `plant_key` ist `null` |
+
 ### Bewässerungszonen, Gießrunde und Zonen-Quote (REQ-053)
 
 Bewässerungszonen gehören zu einem Standort. Lesen darf jedes Mitglied, anlegen, ändern und Beete zuordnen ab „grower", löschen nur die Leitung. Eine Zone oder ein Standort eines anderen Mandanten antwortet wie eine nicht vorhandene mit `404`.

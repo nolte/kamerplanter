@@ -34,7 +34,10 @@ class IPlantingReservationRepository(ABC):
 
     @abstractmethod
     def active_plants_in(self, slot_keys: list[str], *, tenant_key: str) -> list[ActivePlant]:
-        """The tenant's plants standing in ``slot_keys`` (by their own ``slot_key``, ``removed_on`` null)."""
+        """The tenant's plants standing in ``slot_keys`` (by their own ``slot_key``, ``removed_on`` null).
+
+        A zone stand (``thinned_at``, #2862) is reported as one entry with ``stand = True``, an empty ``plant_key``, no
+        run and no expected end: the slot stays occupied until the bed is cleared."""
 
     @abstractmethod
     def reservations_of_run(self, run_key: str, *, tenant_key: str) -> list[Reservation]:
@@ -96,14 +99,18 @@ class IPlantingReservationRepository(ABC):
     @abstractmethod
     def mark_slot_sown(self, location_key: str, slot_key: str, *, sown_at: date, tenant_key: str) -> bool:
         """Set ``sown_at`` of a slot of the bed under the bed's lock; ``False`` when the slot is gone, archived, or one
-        of the tenant's plants stands in it (the caller answers 409)."""
+        of the tenant's plants stands in it, or it holds a zone stand (the caller answers 409)."""
 
     @abstractmethod
     def thin_sown_slot(self, write: SlotThinningWrite) -> SlotThinningOutcome:
         """The plants of a thinned slot, its cleared ``sown_at`` and the ``thinning`` event in one transaction.
 
+        With ``write.stand_quantity`` the zone becomes a zone stand instead (#2862): no plant, ``sown_at`` kept,
+        ``thinned_at`` set to the thinning day, the run's ``actual_quantity`` grown by the stand, an event without
+        plants.
+
         Raises:
             NotFoundError: the bed is gone.
-            WriteConflictError: the slot is no longer sown on ``write.sown_at``, has a plant standing, was archived,
+            WriteConflictError: the slot is no longer sown on ``write.sown_at``, has a plant or a stand, was archived,
                 or another writer of the bed was faster.
         """

@@ -499,6 +499,17 @@ The list names, per snapshot, `audit_key`, `revision`, `at`, `summary`, `changed
 
 ---
 
+### Thinning a zone: zone stand (REQ-053)
+
+**`GET /slots/{key}/thinning`** returns the thinning plan of a sown slot. `max_count` is the most single plants one operation creates (500). For a zone, `max_stand_count` also names the most plants that may be recorded as a stand (100,000); for a row it is `null`.
+
+**`POST /slots/{key}/thinning`** thins the slot. Up to `max_count`, single plants are created as before. If the number for a **zone** is higher, no plants are created and the answer carries `stand_quantity` with the recorded number (otherwise `null`). The stand is added to the run's `actual_quantity`, the care entry has no `plant_keys` (whole bed), and the slot keeps `sown_at` and gets `thinned_at`. A row above 500 and a zone above `max_stand_count` still answer `422` `plan.quota_exceeded`. Sowing or thinning a slot that holds a stand answers `409` `slot.occupied`; clearing the bed ends the stand.
+
+| Response | New field | Meaning |
+|----------|-----------|---------|
+| Slot (`GET /slots/{key}`) and planting (`GET /locations/{key}/plantings`) | `thinned_at` | Day a zone was thinned into a stand, otherwise `null` |
+| Plant state (`GET /locations/{key}/plant-states`) | `kind = "stand"`, `sown_on` | `planted_on` is the thinning day, `sown_on` the sowing day, lifecycle `active`, `plant_key` is `null` |
+
 ### Irrigation zones, watering round and zone quota (REQ-053)
 
 Irrigation zones belong to a site. Every member may read; creating, changing and assigning beds needs "grower" or above; only the lead may delete. A zone or site of another tenant answers like a missing one with `404`.

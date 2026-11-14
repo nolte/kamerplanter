@@ -26,10 +26,12 @@ from app.domain.models.planting_run import (
     PlantingRun,
     PlantingRunEntry,
 )
-from app.domain.models.site import Slot
+from app.domain.models.site import MAX_AREA_CAPACITY, Slot
 
 #: GP-NFR-017: one quick planting writes at most this many plants.
 QUICK_PLANTING_MAX_QUANTITY = 500
+#: The largest target stand a thinned zone records (#2862): the most plants a zone slot holds (``capacity_plants``).
+MAX_ZONE_STAND_QUANTITY = MAX_AREA_CAPACITY
 
 #: The transaction budget of the reservation writes — the garden-plan batch's, the largest atomic write (GP-NFR-013).
 RESERVATION_TIME_BUDGET_SECONDS = 10.0
@@ -107,6 +109,8 @@ class PlantingRow:
     #: The slot's role and sowing day, on a planned position only (§11.3 "gesät", W-015).
     slot_role: str | None = None
     sown_at: date | None = None
+    #: The thinning day of a zone recorded as a target stand (§11.3 "Zonen-Bestand", #2862).
+    thinned_at: date | None = None
 
 
 @dataclass(frozen=True)
@@ -300,6 +304,9 @@ class SlotThinningInput(BaseModel):
     one here. ``count`` overrides the computed number (the seedlings actually left standing). Neither field has a
     default — without a spacing on the run or in the request and without a count the request is refused (E-10).
 
+    ``count`` above :data:`QUICK_PLANTING_MAX_QUANTITY` is taken for a zone only: it is recorded as the zone's target
+    stand, not as single plants (§11.1 step 7, #2862); a row stays capped at the quota.
+
     ``row_spacing_cm`` counts only for a zone (#2862): a value here replaces the run's and the species profile's,
     an explicit ``null`` says "broadcast, no rows" (the square-grid estimate), and leaving the field out takes the
     run entry's ``row_spacing_cm``, else the lower value of the species' ``row_spacing_cm`` — never a constant.
@@ -310,7 +317,7 @@ class SlotThinningInput(BaseModel):
 
     thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_THINNING_SPACING_CM)
     row_spacing_cm: float | None = Field(default=None, ge=MIN_ROW_SPACING_CM, le=MAX_SPACING_CM)
-    count: int | None = Field(default=None, ge=1, le=QUICK_PLANTING_MAX_QUANTITY)
+    count: int | None = Field(default=None, ge=1, le=MAX_ZONE_STAND_QUANTITY)
     planted_on: date | None = None
 
 
@@ -324,7 +331,8 @@ class SlotThinningPlan:
     zone is counted on the square-grid estimate. ``count_formula`` names the rule behind ``suggested_count``:
     ``along_row``, ``rows`` or ``square_grid``. ``suggested_count`` is
     :func:`~app.domain.calculators.thinning_calculator.thinning_count` for those values, ``None`` without a spacing
-    or without a measure.
+    or without a measure. ``max_count`` is the quota of single plants; a zone counted above it is recorded as a
+    target stand of up to ``max_stand_count`` plants (``None`` for a row, which has no stand, #2862).
     """
 
     slot_key: str
@@ -340,6 +348,7 @@ class SlotThinningPlan:
     thinning_to_cm: float | None
     suggested_count: int | None
     max_count: int = QUICK_PLANTING_MAX_QUANTITY
+    max_stand_count: int | None = None
     row_spacing_cm: float | None = None
     row_spacing_source: RowSpacingSource | None = None
     species_row_spacing_cm: str | None = None
@@ -353,6 +362,10 @@ class SlotThinningWrite:
     ``sown_at`` is the day the service read: a slot thinned or re-sown in between no longer matches and the write
     is refused (409), and so is a slot whose reservation by ``run_key`` / ``entry_key`` was released meanwhile. A run
     still ``planned`` when the transaction reaches it turns ``active`` with ``run_phase_key`` and ``run_history``.
+
+    ``stand_quantity`` set: a zone above the quota of single plants (#2862, §11.1 step 7). ``plants`` is then empty,
+    the slot keeps ``sown_at`` and gets ``thinned_at`` (the zone stand), the run's ``actual_quantity`` grows by the
+    stand, and the event names no plant (= the whole bed, GP-FR-100).
     """
 
     location_key: str
@@ -366,6 +379,10 @@ class SlotThinningWrite:
     event: CareEvent
     #: When the plants' (and a started run's) phase began: the thinning day.
     phase_started_at: datetime
+    #: The target stand recorded instead of single plants; ``None`` writes the plants.
+    stand_quantity: int | None = None
+    #: The thinning day a zone stand is marked with (``thinned_at``); set with ``stand_quantity``.
+    thinned_on: date | None = None
     run_history: PhaseHistory | None = None
     run_phase_key: str | None = None
     #: Start the run if it is still ``planned`` when the transaction reaches it (decided there, not on the service's
@@ -381,3 +398,5 @@ class SlotThinningOutcome:
     care_event_key: str
     #: The run was still ``planned`` and the thinning started it.
     run_started: bool = False
+    #: The target stand a zone above the quota recorded instead of single plants (#2862); ``None`` when plants stand.
+    stand_quantity: int | None = None

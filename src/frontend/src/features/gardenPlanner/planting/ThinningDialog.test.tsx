@@ -220,6 +220,50 @@ describe('ThinningDialog', () => {
     expect(posts).toEqual([]);
   });
 
+  it('records a zone above the quota as a target stand and says so before the grower confirms (#2862)', async () => {
+    // 0.5 m² at 2 cm on the square grid: 1 250 seedlings - more than the 500 single plants one write takes.
+    const posts = useBackend(
+      plan({
+        slot_role: 'zone',
+        measure_kind: 'area',
+        measure_value: 0.5,
+        thinning_to_cm: 2,
+        suggested_count: 1250,
+        max_stand_count: 100000,
+      }),
+    );
+    const user = userEvent.setup();
+    const onThinned = renderDialog();
+    expect(await screen.findByTestId('thinning-result')).toHaveTextContent('zone stand of 1250 plants');
+    expect(screen.getByTestId('thinning-stand-note')).toHaveTextContent('more than 500 plants');
+    expect(screen.queryByTestId('thinning-too-many')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('thinning-submit'));
+    await waitFor(() => expect(onThinned).toHaveBeenCalled());
+    expect(posts).toEqual([{ thinning_to_cm: 2, row_spacing_cm: null, planted_on: expect.any(String) }]);
+  });
+
+  it('takes a typed count above the quota for a zone as a stand', async () => {
+    useBackend(plan({ slot_role: 'zone', measure_kind: 'area', measure_value: 0.5, thinning_to_cm: 10, max_stand_count: 100000 }));
+    const user = userEvent.setup();
+    renderDialog();
+    await user.type(await screen.findByTestId('thinning-count'), '800');
+    expect(screen.getByTestId('thinning-result')).toHaveTextContent('zone stand of 800 plants');
+    expect(screen.getByTestId('thinning-stand-note')).toBeInTheDocument();
+  });
+
+  it('keeps a row capped at the quota: no stand, too many is refused', async () => {
+    const posts = useBackend(plan());
+    const user = userEvent.setup();
+    renderDialog();
+    const spacing = await screen.findByTestId('thinning-spacing');
+    await user.clear(spacing);
+    await user.type(spacing, '0.2');
+    expect(screen.getByTestId('thinning-too-many')).toHaveTextContent('at most 500');
+    expect(screen.queryByTestId('thinning-stand-note')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('thinning-submit'));
+    expect(posts).toEqual([]);
+  });
+
   it('has no accessibility violations', async () => {
     useBackend(plan());
     renderDialog();

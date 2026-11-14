@@ -190,6 +190,24 @@ class TestFindConflicts:
             == []
         )
 
+    def test_a_zone_stand_blocks_every_window_and_every_run(self) -> None:
+        # #2862: a thinned zone recorded as a target stand has no plant, run or end - the slot stays taken.
+        stand = ActivePlant("s1", "", None, None, stand=True)
+        for run_key in ("run_b", ""):
+            (conflict,) = find_conflicts(
+                ["s1"], run_key=run_key, planned_from=D(2031, 1, 1), planned_until=None, reservations=[], plants=[stand]
+            )
+            assert conflict.kind == CONFLICT_ACTIVE_PLANT
+        pick = pick_free_slots(
+            [CandidateSlot("s1", 1)],
+            needed=1,
+            planned_from=D(2031, 1, 1),
+            planned_until=None,
+            reservations=[],
+            plants=[stand],
+        )
+        assert pick.chosen == []
+
 
 class TestSlotIds:
     def test_the_prefix_is_the_beds_name_in_capitals(self) -> None:

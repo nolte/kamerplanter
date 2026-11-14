@@ -74,6 +74,7 @@ SLOT_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "sequence",
     "slot_role",
     "sown_at",
+    "thinned_at",
 )
 
 #: What ``PUT /slots/{key}`` leaves out of its write (#2639): the plan fields plus the two

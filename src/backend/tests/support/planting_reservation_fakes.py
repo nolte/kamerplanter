@@ -256,6 +256,23 @@ class FakeReservationRepo(IPlantingReservationRepository):
             if started:
                 self.run_sink.runs[write.run_key] = run.model_copy(update={"status": PlantingRunStatus.ACTIVE})
         keys: list[str] = []
+        if write.stand_quantity is not None:
+            # A zone stand (#2862): ``sown_at`` stays, ``thinned_at`` is the thinning day, the slot is occupied.
+            for index, slot in enumerate(self._plan.slots):
+                if slot.key == write.slot_key:
+                    self._plan.slots[index] = slot.model_copy(
+                        update={"thinned_at": write.thinned_on, "currently_occupied": True}
+                    )
+            self.plants.append(
+                ActivePlant(slot_key=write.slot_key, plant_key="", run_key=None, expected_end=None, stand=True)
+            )
+            return SlotThinningOutcome(
+                plant_keys=[],
+                instance_ids=[],
+                care_event_key="ce_thin",
+                run_started=started,
+                stand_quantity=write.stand_quantity,
+            )
         for index, slot in enumerate(self._plan.slots):
             if slot.key == write.slot_key:
                 self._plan.slots[index] = slot.model_copy(update={"sown_at": None, "currently_occupied": True})

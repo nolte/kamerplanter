@@ -6,6 +6,12 @@ length or area and the spacing the seedlings are thinned to
 (:func:`~app.domain.calculators.thinning_calculator.thinning_count`), the plants stand in the slot as plants of the
 run that reserved it, ``sown_at`` is cleared and a ``thinning`` care event names them — one transaction.
 
+**A zone above the quota becomes a target stand** (§11.1 step 7, §32.8 Pkt. 1, #2862): when a zone's count exceeds
+the quota of one write (:data:`QUICK_PLANTING_MAX_QUANTITY`, GP-NFR-017), no single plants are created. The run's
+``actual_quantity`` grows by the stand (``quantity`` of the entry stays the planned amount), the slot keeps
+``sown_at`` and gets ``thinned_at`` (state "Zonen-Bestand", the slot stays occupied), and the ``thinning`` event names
+no plant (= the whole bed, GP-FR-100). Up to the quota nothing changes. A row stays capped at the quota.
+
 **No agronomic default** (E-10): the spacing is the run entry's ``thinning_to_cm``, else the grower's value in the
 request; without either and without an explicit ``count`` the request is refused with
 ``thinning.spacing_required`` (422) and the dialog asks for it. A zone's row spacing (#2862) is the grower's value,
@@ -27,7 +33,7 @@ from datetime import UTC, date, datetime, time
 import structlog
 
 from app.common.datetimes import today_utc
-from app.common.enums import TenantRole
+from app.common.enums import SlotRole, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, WriteConflictError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.calculators.range_parser import parse_range_lower
@@ -44,6 +50,7 @@ from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import (
     MAX_THINNING_SPACING_CM,
+    MAX_ZONE_STAND_QUANTITY,
     QUICK_PLANTING_MAX_QUANTITY,
     QuickPlantedPlant,
     RowSpacingSource,
@@ -65,6 +72,8 @@ logger = structlog.get_logger()
 
 #: The summary of the ``thinning`` care event; data, not prose (no user text).
 THINNING_SUMMARY = "Thinned slot {slot_id} to {count} plants"
+#: The summary of the ``thinning`` event of a zone recorded as a target stand (#2862).
+THINNING_STAND_SUMMARY = "Thinned zone {slot_id} to a stand of {count} plants"
 #: A sowing day may lie this many days back: two years cover an overwintering or biennial direct sowing recorded late
 #: (agrobiology review of WP 10.9); older is no sowing of this slot's crop.
 MAX_SOWING_AGE_DAYS = 730
@@ -164,6 +173,7 @@ class SlotThinningService:
             row_spacing_source=row_source,
             species_row_spacing_cm=species.row_spacing_cm,
             count_formula=thinning_formula(measure, row_spacing) if measure is not None else None,
+            max_stand_count=MAX_ZONE_STAND_QUANTITY if slot.slot_role is SlotRole.ZONE else None,
         )
 
     def thin_slot(
@@ -177,11 +187,15 @@ class SlotThinningService:
     ) -> SlotThinningOutcome:
         """Turn the sown slot into plants of its run, clear ``sown_at`` and log ``thinning`` — one transaction.
 
+        A zone counted above the quota of single plants is recorded as a target stand instead (#2862): no plant, the
+        run's ``actual_quantity`` grows by the count, the slot keeps ``sown_at`` and gets ``thinned_at``, the event
+        names no plant. ``outcome.stand_quantity`` is then the count and ``plant_keys`` empty.
+
         Raises:
             ForbiddenError: a viewer (403).
             NotFoundError: the slot is not the tenant's (404).
             PlanError: not sowable (422), not sown (422), plants stand in it (409), no live run reserves it (422),
-                more plants than one write takes (422 ``plan.quota_exceeded``).
+                more plants than one write takes on a row, or than a zone stand holds (422 ``plan.quota_exceeded``).
             PlanValidationError: neither a spacing nor a count (422 ``thinning.spacing_required``), or the slot
                 has no measure to divide (422 ``thinning.no_measure``).
         """
@@ -192,6 +206,7 @@ class SlotThinningService:
         reservation = self._live_reservation(slot, tenant_key)
         run, entry, species = self._run_and_entry(reservation, tenant_key)
         count = self._count_of(slot, entry, species, request)
+        stand = count > QUICK_PLANTING_MAX_QUANTITY
         today = today_utc()
         planted_on = request.planted_on or today
         if planted_on < sown_at:
@@ -204,35 +219,42 @@ class SlotThinningService:
         # The seedlings left standing have emerged: they start in the phase after germination, on the thinning day.
         phase_key, phase_name = self._run_service.thinning_phase_of(entry.species_key)
         phase_started_at = datetime.combine(planted_on, time.min, tzinfo=UTC)
-        # The plants to store: ids of the entry's prefix free at the bed, the run's crop, the first phase.
-        existing = self._runs.get_existing_ids_at_location(location_key)
-        sized = PlantingRunEntry(
-            species_key=entry.species_key, cultivar_key=entry.cultivar_key, quantity=count, id_prefix=entry.id_prefix
-        )
-        plants = [
-            PlantInstance(
-                tenant_key=tenant_key,
-                instance_id=spec["instance_id"],
+        # The plants to store: ids of the entry's prefix free at the bed, the run's crop, the first phase. A zone stand
+        # stores none (#2862).
+        plants: list[PlantInstance] = []
+        if not stand:
+            existing = self._runs.get_existing_ids_at_location(location_key)
+            sized = PlantingRunEntry(
                 species_key=entry.species_key,
                 cultivar_key=entry.cultivar_key,
-                site_key=location.site_key,
-                location_key=location_key,
-                slot_key=slot.key,
-                planted_on=planted_on,
-                current_phase_key=phase_key or None,
-                current_phase_started_at=phase_started_at,
+                quantity=count,
+                id_prefix=entry.id_prefix,
             )
-            for spec in self._engine.generate_plant_ids(location_key, [sized], existing)
-        ]
+            plants = [
+                PlantInstance(
+                    tenant_key=tenant_key,
+                    instance_id=spec["instance_id"],
+                    species_key=entry.species_key,
+                    cultivar_key=entry.cultivar_key,
+                    site_key=location.site_key,
+                    location_key=location_key,
+                    slot_key=slot.key,
+                    planted_on=planted_on,
+                    current_phase_key=phase_key or None,
+                    current_phase_started_at=phase_started_at,
+                )
+                for spec in self._engine.generate_plant_ids(location_key, [sized], existing)
+            ]
         drafts = [
             QuickPlantedPlant(plant=plant, slot_index=0, history=_history_of(phase_key, phase_name, phase_started_at))
             for plant in plants
         ]
+        summary = THINNING_STAND_SUMMARY if stand else THINNING_SUMMARY
         event = self._care_events.build_event(
             CareEventInput(
                 location_key=location_key,
                 category="thinning",
-                summary=THINNING_SUMMARY.format(slot_id=slot.slot_id, count=count),
+                summary=summary.format(slot_id=slot.slot_id, count=count),
                 performed_at=now,
             ),
             tenant_key=tenant_key,
@@ -252,6 +274,8 @@ class SlotThinningService:
                     plants=drafts,
                     event=event,
                     phase_started_at=phase_started_at,
+                    stand_quantity=count if stand else None,
+                    thinned_on=planted_on if stand else None,
                     run_history=_history_of(phase_key, phase_name, phase_started_at),
                     run_phase_key=phase_key or None,
                 )
@@ -267,6 +291,7 @@ class SlotThinningService:
             slot_key=slot.key or slot_key,
             run_key=reservation.run_key,
             plants=len(outcome.plant_keys),
+            stand=outcome.stand_quantity,
             run_started=outcome.run_started,
         )
         return outcome
@@ -334,6 +359,9 @@ class SlotThinningService:
     def _count_of(slot: Slot, entry: PlantingRunEntry, species: Species, request: SlotThinningInput) -> int:
         """The grower's count, else the slot's measure divided by the spacing — never a default spacing (E-10).
 
+        A row is capped at the quota of one write; a zone above it is recorded as a target stand (#2862) and is
+        capped at the most plants a zone holds (:data:`MAX_ZONE_STAND_QUANTITY`).
+
         A zone's row spacing: the request's when it names the field (an explicit ``null`` asks for the square grid),
         else the run's, else the species profile's (:func:`_row_spacing_of`).
         """
@@ -355,13 +383,14 @@ class SlotThinningService:
             else:
                 row_spacing, _source = _row_spacing_of(entry, species)
             count = thinning_count(measure, spacing, row_spacing)
-        if count > QUICK_PLANTING_MAX_QUANTITY:
+        limit = MAX_ZONE_STAND_QUANTITY if slot.slot_role is SlotRole.ZONE else QUICK_PLANTING_MAX_QUANTITY
+        if count > limit:
             raise PlanError(
                 ERROR_TOO_MANY,
-                f"Thinning creates at most {QUICK_PLANTING_MAX_QUANTITY} plants at once.",
+                f"Thinning this slot records at most {limit} plants.",
                 status_code=422,
                 field="count",
-                limit=QUICK_PLANTING_MAX_QUANTITY,
+                limit=limit,
                 current=count,
             )
         return count
@@ -388,4 +417,4 @@ def _history_of(phase_key: str, phase_name: str, now: datetime) -> PhaseHistory 
     return PhaseHistory(phase_key=phase_key, phase_name=phase_name, entered_at=now, transition_reason="initial")
 
 
-__all__ = ["MAX_SOWING_AGE_DAYS", "THINNING_SUMMARY", "SlotThinningService"]
+__all__ = ["MAX_SOWING_AGE_DAYS", "THINNING_STAND_SUMMARY", "THINNING_SUMMARY", "SlotThinningService"]

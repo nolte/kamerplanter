@@ -3,7 +3,7 @@
  * the entry's `kind` instead of assuming a plant - and is keyed by its slot (it has no plant).
  */
 import { describe, expect, it } from 'vitest';
-import type { PlantStateEntryWire, PlantStateWire, SownStateWire } from './plantStateApi';
+import type { PlantStateEntryWire, PlantStateWire, SownStateWire, StandStateWire } from './plantStateApi';
 import { isPlantEntry, stateKeyOf } from './plantStateApi';
 import { viewsOf, visualOf } from './usePlantStates';
 
@@ -23,6 +23,15 @@ const base = {
 };
 
 const sown: SownStateWire = { ...base, kind: 'sown', plant_key: null, lifecycle: 'sown' };
+const stand: StandStateWire = {
+  ...base,
+  slot_key: 'z1',
+  kind: 'stand',
+  plant_key: null,
+  planted_on: '2026-05-20',
+  sown_on: '2026-04-12',
+  lifecycle: 'active',
+};
 const plant: PlantStateWire = {
   ...base,
   plant_key: 'p1',
@@ -45,5 +54,19 @@ describe('the sown entry of the plant states', () => {
 
   it('is not a plant for the plant lists', () => {
     expect([sown, plant].filter(isPlantEntry).map((entry) => entry.plant_key)).toEqual(['p1']);
+  });
+});
+
+describe('the zone stand of the plant states (#2862)', () => {
+  it('stands: lifecycle active, no phase, no reason', () => {
+    const visual = visualOf(stand, NOW);
+    expect(visual.lifecycle).toBe('active');
+    expect(visual.phase_key).toBeNull();
+    expect(visual.attention).toEqual([]);
+  });
+
+  it('is keyed by its slot and is no plant for the plant lists', () => {
+    expect(Object.keys(viewsOf([stand, plant], NOW))).toEqual(['z1', 'p1']);
+    expect([stand, plant].filter(isPlantEntry).map((entry) => entry.plant_key)).toEqual(['p1']);
   });
 });

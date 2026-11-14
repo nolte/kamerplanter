@@ -63,12 +63,38 @@ export function thinningCount(
   return Math.max(1, Math.floor(raw));
 }
 
+/**
+ * The most plants thinning may record for the slot: the quota of single plants for a row; for a zone the bound of a
+ * target stand, which the server names (#2862). Without that bound (an older server) the quota.
+ */
+export function thinningLimit(kind: 'length' | 'area' | null | undefined, maxCount: number, maxStandCount?: number | null): number {
+  return kind === 'area' && maxStandCount != null ? Math.max(maxStandCount, maxCount) : maxCount;
+}
+
+/**
+ * Whether thinning records a zone stand instead of single plants (REQ-053 §11.1 step 7, #2862): a zone whose count
+ * exceeds the quota of one write. A row never does - it stays capped at the quota.
+ */
+export function recordsZoneStand(kind: 'length' | 'area' | null | undefined, count: number | null, maxCount: number): boolean {
+  return kind === 'area' && count !== null && count > maxCount;
+}
+
 /** A decimal typed with a comma or a point; `null` when empty or not a number. */
 export function parseDecimal(text: string): number | null {
   const trimmed = text.trim().replace(',', '.');
   if (trimmed === '') return null;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** A sown zone thinned into a target stand (§11.3 "Zonen-Bestand", #2862): it stands, no plant does. */
+export function isZoneStand(item: PlantingItem): boolean {
+  return item.state === 'planned' && Boolean(item.sown_at) && Boolean(item.thinned_at);
+}
+
+/** A sown row or zone still waiting for its thinning. */
+export function isAwaitingThinning(item: PlantingItem): boolean {
+  return item.state === 'planned' && Boolean(item.sown_at) && !item.thinned_at;
 }
 
 /** A planned position that can be sown: a row or a zone, not yet sown. */

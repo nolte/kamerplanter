@@ -222,7 +222,7 @@ def sow_slot(
 
     The slot shows as *sown* until it is thinned. 422 `slot.not_sowable` for a position slot, `thinning.no_run` when no
     run reserves it, `slot.sown_in_future` / `slot.sown_too_long_ago` (more than 730 days back) for the day;
-    409 `slot.occupied` when plants stand in it.
+    409 `slot.occupied` when plants or a zone stand (#2862) stand in it.
     """
     slot = service.mark_sown(key, tenant_key=ctx.tenant_key, role=ctx.role, sown_at=body.sown_at)
     return to_response(slot, SlotResponse)
@@ -265,11 +265,17 @@ def thin_slot(
     else the run's (at most 200 cm, else 422 `thinning.spacing_out_of_range`); a zone's area by `row_spacing_cm` x
     `thinning_to_cm` when a row spacing is known (request, else run, else species profile; `null` = square grid).
     Without either: 422
-    `thinning.spacing_required`; a thinning day in the future is 422 `thinning.planted_in_future`. At most 500 plants
-    (422 `plan.quota_exceeded`); 409 when plants stand in the slot, its reservation was released or it changed
-    meanwhile.
+    `thinning.spacing_required`; a thinning day in the future is 422 `thinning.planted_in_future`. A row takes at most
+    500 plants (422 `plan.quota_exceeded`). A zone above 500 creates no single plants (#2862): it is recorded as a
+    target stand (`stand_quantity`, added to the run's `actual_quantity`), the slot keeps `sown_at`, gets `thinned_at`
+    and stays occupied, and the `thinning` event names no plant (whole bed); a stand above 100 000 is 422
+    `plan.quota_exceeded`. 409 when plants or a zone stand stand in the slot, its reservation was released or it
+    changed meanwhile.
     """
     outcome = service.thin_slot(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, request=body)
     return SlotThinningResponse(
-        plant_keys=outcome.plant_keys, instance_ids=outcome.instance_ids, care_event_key=outcome.care_event_key
+        plant_keys=outcome.plant_keys,
+        instance_ids=outcome.instance_ids,
+        care_event_key=outcome.care_event_key,
+        stand_quantity=outcome.stand_quantity,
     )

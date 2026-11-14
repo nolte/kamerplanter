@@ -17,7 +17,8 @@ its site; without a forecast source there is no frost reason.
 **Sown slots come first** (§11.3 "gesät", W-015): a ``row``/``zone`` slot with ``sown_at`` and no plant yet is an
 entry of its own (:class:`~app.domain.interfaces.plant_state_repository.SownSlotSource`, lifecycle ``sown``). The
 answer is the sown slots (by slot key) followed by the plants (by plant key), and ``offset``/``limit`` window that
-one sequence — a client paging until a short page sees every entry exactly once.
+one sequence — a client paging until a short page sees every entry exactly once. A zone thinned into a target stand
+(``thinned_at``, §11.3 "Zonen-Bestand", #2862) is reported in the same place with lifecycle ``active``.
 
 **Logs carry no user text** (GP-NFR-060): keys and counts only.
 """
@@ -30,7 +31,7 @@ from datetime import UTC, datetime
 import structlog
 
 from app.domain.calculators.plant_state_calculator import PlantVisualState
-from app.domain.calculators.plant_state_inputs import sown_visual_state, visual_state_of
+from app.domain.calculators.plant_state_inputs import sown_visual_state, stand_visual_state, visual_state_of
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource, SownSlotSource
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
@@ -98,7 +99,10 @@ class PlantStateService:
             else None
         )
         frost_risk = frost_risk_of(location, verdict)
-        entries = [PlantStateEntry(slot, sown_visual_state(moment)) for slot in sown_window]
+        entries = [
+            PlantStateEntry(slot, stand_visual_state(moment) if slot.thinned_at else sown_visual_state(moment))
+            for slot in sown_window
+        ]
         entries.extend(
             PlantStateEntry(row, visual_state_of(row, frost_risk=frost_risk, now=moment), frost_risk) for row in rows
         )

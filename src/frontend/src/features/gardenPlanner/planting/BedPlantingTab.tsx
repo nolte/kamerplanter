@@ -39,7 +39,7 @@ import { plantDetailPath } from './PlantInfoPopover';
 import { listPlantings } from './plantingApi';
 import type { FailedPlanting, PlantingItem, ThinningResult } from './plantingTypes';
 import type { PlantedResult } from './PlantingDialog';
-import { failedSlots, isSowable } from './thinningLogic';
+import { failedSlots, isAwaitingThinning, isSowable, isZoneStand } from './thinningLogic';
 
 const PlantingDialog = lazy(() => import('./PlantingDialog'));
 const SowingDialog = lazy(() => import('./SowingDialog'));
@@ -153,11 +153,13 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked 
 
   const items = useMemo(() => (state.status === 'ready' ? state.items : []), [state]);
   const planned = items.filter((item) => item.state === 'planned' && !item.sown_at);
-  const sown = items.filter((item) => item.state === 'planned' && Boolean(item.sown_at));
+  const sown = items.filter(isAwaitingThinning);
+  // Zones thinned into a target stand (#2862): they stand, but no plant does - listed apart, never offered for thinning.
+  const stands = items.filter(isZoneStand);
   const failed = useMemo(() => failedSlots(items), [items]);
   const active = items.filter((item) => item.state === 'active');
   // The runs the standing plants belong to: what "Beet räumen" ends besides the plants (TC-053-027).
-  const activeRunCount = new Set(active.map((item) => item.run_key).filter(Boolean)).size;
+  const activeRunCount = new Set([...active, ...stands].map((item) => item.run_key).filter(Boolean)).size;
   const finished = items.filter((item) => item.state === 'harvested' || item.state === 'historical');
   const names = useSpeciesNames(useMemo(() => items.map((item) => item.species_key), [items]));
   const nameOf = (key: string) => names.get(key) ?? key;
@@ -167,7 +169,7 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked 
   const placed = Boolean(bed.geometry);
   const retired = bed.bed_status === 'retired';
   const canPlant = canEdit && placed && !retired;
-  const canClear = canEdit && !editsLocked && active.length > 0;
+  const canClear = canEdit && !editsLocked && (active.length > 0 || stands.length > 0);
 
   const onPlanted = (result: PlantedResult) => {
     setPlanting(false);
@@ -185,7 +187,11 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked 
   };
 
   const onThinned = (result: ThinningResult) => {
-    notification.success(t('pages.bed.planting.thinning.done', { count: result.plant_keys.length }));
+    notification.success(
+      result.stand_quantity != null
+        ? t('pages.bed.planting.thinning.doneStand', { count: result.stand_quantity })
+        : t('pages.bed.planting.thinning.done', { count: result.plant_keys.length }),
+    );
     setThinTarget(null);
     reload();
   };
@@ -343,6 +349,34 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked 
                       {t('pages.bed.planting.tab.thin')}
                     </Button>
                   ) : null}
+                </Box>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {stands.length > 0 ? (
+        <Card variant="outlined" component="section" aria-label={t('pages.bed.planting.tab.stand', { count: stands.length })} data-testid="bed-planting-stands">
+          <CardContent>
+            <Typography variant="subtitle1" component="h3" gutterBottom>
+              {t('pages.bed.planting.tab.stand', { count: stands.length })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {t('pages.bed.planting.tab.standHelp')}
+            </Typography>
+            <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {stands.map((item) => (
+                <Box component="li" key={`${item.slot_key}-${item.run_key}`} data-testid={`planting-stand-${item.slot_key}`}>
+                  <Link component={RouterLink} to={speciesDetailPath(item.species_key)} sx={ROW_LINK_SX}>
+                    {nameOf(item.species_key)}
+                  </Link>
+                  {' · '}
+                  {item.slot_id}
+                  {' · '}
+                  {t('pages.bed.planting.tab.sownOn', { date: dateText(item.sown_at) })}
+                  {' · '}
+                  {t('pages.bed.planting.tab.thinnedOn', { date: dateText(item.thinned_at) })}
                 </Box>
               ))}
             </Box>

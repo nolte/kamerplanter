@@ -361,6 +361,24 @@ describe('Sown, thinned out, failed (REQ-053 §11.3, W-015)', () => {
     expect(await screen.findByTestId('thinning-dialog')).toBeInTheDocument();
   });
 
+  it('lists a zone stand apart, without "Thin out", and lets the bed be cleared (#2862)', async () => {
+    const STAND: PlantingItem = {
+      ...ROW, slot_key: 'z1', slot_id: 'BED_Z01', slot_role: 'zone', sown_at: '2026-04-12', thinned_at: '2026-05-20',
+    };
+    useTabBackend([ROW, STAND]);
+    renderTab();
+
+    const stands = await screen.findByTestId('bed-planting-stands');
+    await waitFor(() =>
+      expect(within(stands).getByTestId('planting-stand-z1')).toHaveTextContent('Tomato · BED_Z01 · sown on'),
+    );
+    expect(within(stands).getByTestId('planting-stand-z1')).toHaveTextContent('thinned on');
+    expect(screen.queryByTestId('bed-planting-sown')).toBeNull();
+    expect(screen.queryByTestId('planting-thin-z1')).toBeNull();
+    expect(screen.queryByTestId('planting-sow-z1')).toBeNull();
+    expect(screen.getByTestId('bed-clear-button')).toBeInTheDocument();
+  });
+
   it('offers "Record sowing" on a planned row and sends the day', async () => {
     useTabBackend([ROW]);
     const puts: unknown[] = [];

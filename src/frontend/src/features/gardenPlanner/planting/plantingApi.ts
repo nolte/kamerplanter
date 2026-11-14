@@ -117,7 +117,10 @@ export async function getThinningPlan(slotKey: string): Promise<ThinningPlan> {
   return data;
 }
 
-/** REQ-053 W-015: thin the sown slot into plants of its run; the server clears `sown_at` and logs `thinning`. */
+/**
+ * REQ-053 W-015: thin the sown slot into plants of its run; the server clears `sown_at` and logs `thinning`. A zone
+ * above the quota becomes a target stand instead (#2862): no plants, `stand_quantity` set, the slot keeps `sown_at`.
+ */
 export async function thinSlot(slotKey: string, body: ThinningBody): Promise<ThinningResult> {
   const { data } = await tenantClient.post<ThinningResult>(`/slots/${slotKey}/thinning`, body);
   return data;
