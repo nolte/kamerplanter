@@ -135,20 +135,20 @@ def test_one_confirmation_writes_exactly_one_event_in_the_plants_bed() -> None:
 def test_a_plant_without_a_bed_gets_no_event_and_no_error() -> None:
     service, repo = _service(_plant(location_key=None))
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert len(repo.confirmations) == 1  # the confirmation itself is unchanged
     assert repo.events == []
     # counter-case: the same call for a plant that stands in a bed DOES write the event
     service, repo = _service(_plant())
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
     assert len(repo.events) == 1
 
 
 def test_a_service_without_a_site_repository_logs_nothing() -> None:
     service, repo = _service(_plant(), with_sites=False)
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert len(repo.confirmations) == 1 and repo.events == []
 
@@ -157,7 +157,7 @@ def test_the_bed_of_another_tenants_site_is_not_logged_into() -> None:
     """The tenant is the bed's site's: a plant whose location belongs to another tenant's site gets no event."""
     service, repo = _service(_plant(), site_tenant=OTHER)
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert repo.events == []
 
@@ -166,7 +166,7 @@ def test_a_foreign_tenants_confirmation_is_a_404_and_writes_nothing() -> None:
     service, repo = _service(_plant(tenant=OTHER))
 
     with pytest.raises(NotFoundError):
-        service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+        service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert repo.confirmations == [] and repo.events == []
 
@@ -175,7 +175,7 @@ def test_an_aborted_write_stores_neither() -> None:
     service, repo = _service(_plant(), repo=_Repo(abort=True))
 
     with pytest.raises(RuntimeError):
-        service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+        service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert repo.confirmations == [] and repo.events == []
 
@@ -183,8 +183,8 @@ def test_an_aborted_write_stores_neither() -> None:
 def test_the_volume_the_caller_typed_is_logged_and_none_is_invented() -> None:
     service, repo = _service(_plant())
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, volume_liters=2.5)
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1", volume_liters=2.5)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     typed, untyped = repo.events
     assert (typed.quantity, typed.unit) == (2.5, "l")
@@ -210,10 +210,12 @@ def test_a_care_task_completion_logs_the_same_event() -> None:
     )
     service.complete_care_task_with_log = lambda *a, **k: None  # type: ignore[method-assign]
 
-    service.record_care_task_completion(task, tenant_key=OWN)
+    service.record_care_task_completion(task, tenant_key=OWN, user_key="u-queue")
 
     assert len(repo.confirmations) == 1 and len(repo.events) == 1
     assert repo.events[0].trigger == "reminder" and repo.events[0].category == "watering"
+    # #2517: the task-queue path stores the completing caller as performer, like the dashboard path.
+    assert (repo.events[0].performed_by_user_key, repo.events[0].created_by) == ("u-queue", "u-queue")
 
 
 def test_every_reminder_type_has_a_category_and_it_is_a_care_event_category() -> None:
@@ -225,7 +227,7 @@ def test_every_reminder_type_has_a_category_and_it_is_a_care_event_category() ->
 def test_a_reminder_of_every_type_produces_a_valid_event() -> None:
     for reminder_type in ReminderType:
         service, repo = _service(_plant())
-        service.confirm_reminder("plant-1", reminder_type, tenant_key=OWN)
+        service.confirm_reminder("plant-1", reminder_type, tenant_key=OWN, user_key="user-1")
         assert [e.category for e in repo.events] == [REMINDER_CATEGORIES[reminder_type.value]], reminder_type
 
 
@@ -233,7 +235,7 @@ def test_the_time_of_the_event_is_the_time_of_the_confirmation() -> None:
     service, repo = _service(_plant())
     before = datetime.now(UTC)
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert before <= repo.events[0].performed_at <= datetime.now(UTC)
 
@@ -242,12 +244,12 @@ def test_a_plant_placed_by_its_slot_only_is_logged_in_the_slots_bed() -> None:
     """The backfill scan walks plant -> slot -> location; the live write walks the same way, so the lines agree."""
     service, repo = _service(_plant(location_key=None, slot_key="s1"))
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert [e.location_key for e in repo.events] == ["L1"]
     # counter-case: a slot that names no location leaves the plant without a bed
     service, repo = _service(_plant(location_key=None, slot_key="gone"))
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
     assert repo.events == []
 
 
@@ -260,6 +262,6 @@ def test_an_event_the_model_refuses_does_not_block_the_confirmation(monkeypatch)
     monkeypatch.setattr(module, "map_document", refuses)
     service, repo = _service(_plant())
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=OWN, user_key="user-1")
 
     assert len(repo.confirmations) == 1 and repo.events == []

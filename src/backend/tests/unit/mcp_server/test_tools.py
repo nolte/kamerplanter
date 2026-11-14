@@ -135,9 +135,10 @@ async def test_get_due_care_tasks_filters_actionable():
 async def test_confirm_care_task_preview_and_execute():
     calls = {}
 
-    def _confirm(plant_key, reminder_type, notes, tenant_key=""):
+    def _confirm(plant_key, reminder_type, notes, *, tenant_key, user_key):
         calls["plant_key"] = plant_key
         calls["tenant_key"] = tenant_key
+        calls["user_key"] = user_key
         return SimpleNamespace(key="cc-1")
 
     plant_svc = SimpleNamespace(get_plant=lambda key, tenant_key: SimpleNamespace(key=key))
@@ -153,6 +154,8 @@ async def test_confirm_care_task_preview_and_execute():
     result = await tool.execute(ctx, args)
     assert calls["plant_key"] == "p1"
     assert calls["tenant_key"] == "home"  # SEC-001: tenant threaded for defence-in-depth
+    # #2517: the principal is the performer - here a service account, so its own account key is stored.
+    assert calls["user_key"] == "sa-1"
     assert result.data["confirmation_key"] == "cc-1"
 
 
@@ -165,7 +168,7 @@ async def test_confirm_care_task_rejects_foreign_plant_key():
 
     confirmed = {"called": False}
 
-    def _confirm(plant_key, reminder_type, notes, tenant_key=""):
+    def _confirm(plant_key, reminder_type, notes, *, tenant_key, user_key):
         confirmed["called"] = True
         return SimpleNamespace(key="cc-1")
 

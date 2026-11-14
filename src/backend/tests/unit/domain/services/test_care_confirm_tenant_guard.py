@@ -57,7 +57,9 @@ def _service(plant: SimpleNamespace | None) -> tuple[CareReminderService, MagicM
 
 #: Each request-driven write, called for ``plant-1`` on behalf of ``tenant``.
 _WRITES: dict[str, Callable[[CareReminderService, str], object]] = {
-    "confirm_reminder": lambda s, t: s.confirm_reminder("plant-1", ReminderType.PEST_CHECK, tenant_key=t),
+    "confirm_reminder": lambda s, t: s.confirm_reminder(
+        "plant-1", ReminderType.PEST_CHECK, tenant_key=t, user_key="user-1"
+    ),
     "snooze_reminder": lambda s, t: s.snooze_reminder("plant-1", ReminderType.WATERING, 2, tenant_key=t),
     "update_profile": lambda s, t: s.update_profile("plant-1", {"notes": "x"}, tenant_key=t),
     "reset_profile": lambda s, t: s.reset_profile("plant-1", tenant_key=t),
@@ -115,5 +117,5 @@ def test_a_service_without_a_plant_repository_owns_nothing() -> None:
     service = CareReminderService(care_repo, CareReminderEngine())
 
     with pytest.raises(NotFoundError):
-        service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=_OWN)
+        service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=_OWN, user_key="user-1")
     care_repo.create_confirmation_logged.assert_not_called()

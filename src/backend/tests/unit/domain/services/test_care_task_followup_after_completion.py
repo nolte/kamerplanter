@@ -137,7 +137,7 @@ def test_dashboard_confirmation_schedules_the_follow_up() -> None:
     repo = FakeTaskRepo([_due_watering_task()])
     service = _service(repo)
 
-    service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT)
+    service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT, user_key="user-1")
 
     assert len(repo.open_care_tasks(ReminderType.WATERING)) == 1
     assert next(task for task in repo.store if task.key == "task-due").status == TaskStatus.COMPLETED
