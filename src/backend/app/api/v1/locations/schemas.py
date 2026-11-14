@@ -782,6 +782,13 @@ class PlantingItemResponse(BaseModel):
     sown_at: date | None = Field(
         default=None, description="Day a planned `row`/`zone` slot was sown (§11.3 sown); `null` when not sown."
     )
+    thinned_at: date | None = Field(
+        default=None,
+        description=(
+            "Day a sown zone was thinned into a target stand instead of single plants (§11.3 zone stand, #2862); "
+            "the stand's count is the run's `actual_quantity`. `null` otherwise."
+        ),
+    )
 
     @classmethod
     def from_row(cls, row: PlantingRow) -> PlantingItemResponse:
@@ -803,6 +810,7 @@ class PlantingItemResponse(BaseModel):
             planned_until=row.planned_until,
             slot_role=row.slot_role,
             sown_at=row.sown_at,
+            thinned_at=row.thinned_at,
         )
 
 
@@ -1399,7 +1407,8 @@ class PlantStateResponse(BaseModel):
 
     Only the fields of the plant info: no notes, no user names (SR-006/SR-020). A sown ``row``/``zone`` slot without
     plants yet (§11.3, W-015) is an entry too: ``kind = sown``, ``plant_key`` ``null``, ``instance_id`` the slot's id,
-    ``planted_on`` the sowing day, lifecycle ``sown``.
+    ``planted_on`` the sowing day, lifecycle ``sown``. A zone thinned into a target stand (§11.3 "Zonen-Bestand", #2862)
+    is ``kind = stand``: ``planted_on`` the thinning day, ``sown_on`` the sowing day, lifecycle ``active``.
     """
 
     model_config = ConfigDict(
@@ -1433,7 +1442,10 @@ class PlantStateResponse(BaseModel):
         }
     )
 
-    kind: Literal["plant", "sown"] = Field(default="plant", description="`sown`: a sown slot without plants yet.")
+    kind: Literal["plant", "sown", "stand"] = Field(
+        default="plant",
+        description="`sown`: a sown slot without plants yet; `stand`: a zone thinned into a target stand (#2862).",
+    )
     plant_key: str | None = None
     slot_key: str | None = None
     slot_id: str | None = None
@@ -1443,6 +1455,7 @@ class PlantStateResponse(BaseModel):
     scientific_name: str | None = None
     cultivar_name: str | None = None
     planted_on: date
+    sown_on: date | None = Field(default=None, description="Sowing day of a `stand` entry; `null` otherwise.")
     lifecycle: Lifecycle
     phase: PlantPhaseResponse | None = None
     last_care: PlantLastCareResponse
@@ -1514,9 +1527,10 @@ class PlantStateResponse(BaseModel):
 
     @classmethod
     def _from_sown(cls, source: SownSlotSource, state: PlantVisualState) -> PlantStateResponse:
-        """A sown slot: no plant, no phase, no care, no reason that needs attention."""
+        """A sown slot (or a zone stand, #2862): no plant, no phase, no care, no reason that needs attention."""
+        stand = source.thinned_at is not None
         return cls(
-            kind="sown",
+            kind="stand" if stand else "sown",
             plant_key=None,
             slot_key=source.slot_key,
             slot_id=source.slot_id,
@@ -1525,7 +1539,8 @@ class PlantStateResponse(BaseModel):
             species_name=source.species_name,
             scientific_name=source.scientific_name,
             cultivar_name=source.cultivar_name,
-            planted_on=source.sown_at,
+            planted_on=source.thinned_at or source.sown_at,
+            sown_on=source.sown_at if stand else None,
             lifecycle=state.lifecycle,
             last_care=PlantLastCareResponse(),
             attention=[],

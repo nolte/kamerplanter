@@ -630,6 +630,7 @@ class DataExportEngine:
                 "geometry_source",
                 "container_volume_l",
                 "sown_at",
+                "thinned_at",
                 "archived_at",
                 "planned_spacing_cm",
                 "created_at",

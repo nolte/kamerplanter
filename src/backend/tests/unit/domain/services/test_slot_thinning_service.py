@@ -19,7 +19,12 @@ from app.common.datetimes import today_utc
 from app.common.enums import PlantingRunStatus, SlotRole, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
 from app.domain.engines.slot_reservation_engine import ActivePlant
-from app.domain.models.planting_reservation import QUICK_PLANTING_MAX_QUANTITY, SlotThinningInput
+from app.domain.models.planting_reservation import (
+    MAX_ZONE_STAND_QUANTITY,
+    QUICK_PLANTING_MAX_QUANTITY,
+    SlotThinningInput,
+)
+from app.domain.services.slot_thinning_service import THINNING_STAND_SUMMARY, THINNING_SUMMARY
 from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT
 from tests.support.slot_thinning_world import sown_world
 
@@ -133,10 +138,13 @@ class TestThinning:
             thin(sown_world(reserved=False))
         assert caught.value.error_code == "thinning.no_run"
 
-    def test_more_plants_than_one_write_takes_are_refused(self) -> None:
+    def test_a_row_with_more_plants_than_one_write_takes_is_refused(self) -> None:
+        world = sown_world(thinning_to_cm=0.2)  # 1.2 m of row at 0.2 cm = 600
         with pytest.raises(PlanError) as caught:
-            thin(sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0))  # 0.5 m² at 2 cm = 1250
+            thin(world)
         assert caught.value.error_code == "plan.quota_exceeded"
+        assert caught.value.details[0]["limit"] == QUICK_PLANTING_MAX_QUANTITY
+        assert world.repo.thinning_writes == []
 
     def test_a_planting_day_before_the_sowing_is_refused(self) -> None:
         with pytest.raises(PlanValidationError):
@@ -199,15 +207,99 @@ class TestRowSpacing:
 
     def test_the_500_plant_cap_is_unchanged(self) -> None:
         assert QUICK_PLANTING_MAX_QUANTITY == 500
-        # Rows that still yield more than one write takes are refused as before: 0.5 m² at 1 x 5 cm = 1 000.
+        # Rows of a zone that yield more than one write takes become a target stand (#2862): 0.5 m² at 1 x 5 cm.
         world = sown_world(role=SlotRole.ZONE, thinning_to_cm=1.0, row_spacing_cm=5.0)
         assert world.thinning.plan_thinning("row1", tenant_key=TENANT).max_count == 500
+        outcome = thin(world)
+        assert (outcome.plant_keys, outcome.stand_quantity) == ([], 1_000)
+        # The same 2 cm in rows 25 cm apart is 100 plants and is written.
+        assert len(thin(sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0, row_spacing_cm=25.0)).plant_keys) == 100
+
+
+class TestZoneStand:
+    """#2862, REQ-053 §11.1 step 7 / §32.8 Pkt. 1 — a zone above the quota becomes a target stand, not 1 000 plants.
+
+    The zone of the world is 0.5 m²; thinned to 2 cm on the square grid it holds 1 250 plants. Test data, not
+    constants of the code (E-10).
+    """
+
+    def test_a_zone_above_the_quota_records_the_target_stand_instead_of_plants(self) -> None:
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0)
+        outcome = thin(world)
+        assert (outcome.plant_keys, outcome.instance_ids, outcome.stand_quantity) == ([], [], 1_250)
+        (write,) = world.repo.thinning_writes
+        assert write.plants == []
+        assert write.stand_quantity == 1_250
+        assert write.tenant_key == TENANT
+        # The event is the whole bed's (GP-FR-100): no plant keys, the stand in the summary.
+        assert write.event.category == "thinning"
+        assert write.event.plant_keys == []
+        assert write.event.summary == THINNING_STAND_SUMMARY.format(slot_id="BED3_R01", count=1_250)
+        # The run starts as with plants.
+        assert outcome.run_started is True
+        assert world.runs.runs[world.run_key].status is PlantingRunStatus.ACTIVE
+
+    def test_the_slot_keeps_sown_at_and_is_marked_as_a_stand_on_the_thinning_day(self) -> None:
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0)
+        sown_at = world.plan.slots[0].sown_at
+        day = today_utc() - timedelta(days=2)
+        thin(world, planted_on=day)
+        slot = next(slot for slot in world.plan.slots if slot.key == "row1")
+        assert (slot.sown_at, slot.thinned_at, slot.currently_occupied) == (sown_at, day, True)
+
+    def test_up_to_the_quota_a_zone_still_gets_single_plants(self) -> None:
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0)
+        outcome = thin(world, count=QUICK_PLANTING_MAX_QUANTITY)
+        assert len(outcome.plant_keys) == QUICK_PLANTING_MAX_QUANTITY
+        assert outcome.stand_quantity is None
+        (write,) = world.repo.thinning_writes
+        assert write.stand_quantity is None
+        assert write.event.summary == THINNING_SUMMARY.format(slot_id="BED3_R01", count=QUICK_PLANTING_MAX_QUANTITY)
+
+    def test_one_above_the_quota_is_a_stand(self) -> None:
+        outcome = thin(sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0), count=QUICK_PLANTING_MAX_QUANTITY + 1)
+        assert (outcome.plant_keys, outcome.stand_quantity) == ([], QUICK_PLANTING_MAX_QUANTITY + 1)
+
+    def test_a_growers_count_above_the_quota_on_a_row_is_refused(self) -> None:
+        world = sown_world()
+        with pytest.raises(PlanError) as caught:
+            thin(world, count=QUICK_PLANTING_MAX_QUANTITY + 1)
+        assert caught.value.error_code == "plan.quota_exceeded"
+        assert world.repo.thinning_writes == []
+
+    def test_a_stand_larger_than_a_zone_holds_is_refused(self) -> None:
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=0.2)  # 0.5 m² at 0.2 cm = 125 000
         with pytest.raises(PlanError) as caught:
             thin(world)
         assert caught.value.error_code == "plan.quota_exceeded"
+        assert caught.value.details[0]["limit"] == MAX_ZONE_STAND_QUANTITY
         assert world.repo.thinning_writes == []
-        # The same 2 cm in rows 25 cm apart is 100 plants and is written.
-        assert len(thin(sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0, row_spacing_cm=25.0)).plant_keys) == 100
+
+    def test_a_count_above_the_stand_bound_is_invalid(self) -> None:
+        with pytest.raises(ValidationError):
+            SlotThinningInput(count=MAX_ZONE_STAND_QUANTITY + 1)
+
+    def test_the_plan_names_the_stand_bound_for_a_zone_only(self) -> None:
+        zone = sown_world(role=SlotRole.ZONE).thinning.plan_thinning("row1", tenant_key=TENANT)
+        row = sown_world().thinning.plan_thinning("row1", tenant_key=TENANT)
+        assert (zone.max_count, zone.max_stand_count) == (QUICK_PLANTING_MAX_QUANTITY, MAX_ZONE_STAND_QUANTITY)
+        assert (row.max_count, row.max_stand_count) == (QUICK_PLANTING_MAX_QUANTITY, None)
+
+    def test_a_zone_stand_is_not_thinned_again(self) -> None:
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0)
+        thin(world)
+        with pytest.raises(PlanError) as caught:
+            thin(world)
+        assert (caught.value.error_code, caught.value.status_code) == ("slot.occupied", 409)
+        assert len(world.repo.thinning_writes) == 1
+
+    def test_a_zone_stand_is_not_sown_again(self) -> None:
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0)
+        thin(world)
+        with pytest.raises(PlanError) as caught:
+            world.thinning.mark_sown("row1", tenant_key=TENANT, role=TenantRole.GROWER, sown_at=today_utc())
+        assert (caught.value.error_code, caught.value.status_code) == ("slot.occupied", 409)
+        assert world.repo.sowings == []
 
 
 class TestPhaseAndDays:

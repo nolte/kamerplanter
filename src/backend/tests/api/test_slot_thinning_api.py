@@ -9,6 +9,7 @@ tenant's slug answers 404 and names nothing of the slot), the dotted codes and t
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from dataclasses import replace
 from datetime import date, timedelta
 
 import pytest
@@ -113,6 +114,33 @@ class TestThinningRoute:
         assert response.status_code == 201, response.text
         assert len(response.json()["plant_keys"]) == 50
 
+    def test_a_zone_above_the_quota_answers_the_target_stand(self, client) -> None:
+        # #2862: 0.5 m² at 2 cm is 1 250 seedlings - recorded as a stand, no plant, no plant key in the answer.
+        from app.main import app
+
+        world = sown_world(role=SlotRole.ZONE, thinning_to_cm=2.0)
+        app.dependency_overrides[get_slot_thinning_service] = lambda: world.thinning
+        plan = client(TenantRole.VIEWER).get(f"{_OWN}/slots/row1/thinning").json()
+        assert (plan["suggested_count"], plan["max_count"], plan["max_stand_count"]) == (1_250, 500, 100_000)
+        response = client().post(f"{_OWN}/slots/row1/thinning", json={})
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert (body["plant_keys"], body["instance_ids"], body["stand_quantity"]) == ([], [], 1_250)
+        slot = next(slot for slot in world.plan.slots if slot.key == "row1")
+        assert slot.sown_at is not None
+        assert slot.thinned_at == today_utc()
+        # The stand holds the slot: a second thinning is a conflict.
+        again = client().post(f"{_OWN}/slots/row1/thinning", json={})
+        assert again.status_code == 409
+        assert again.json()["details"][0]["code"] == "slot.occupied"
+
+    def test_a_row_above_the_quota_is_refused_with_its_limit(self, client, world) -> None:
+        response = client().post(f"{_OWN}/slots/row1/thinning", json={"count": 501})
+        assert response.status_code == 422
+        detail = response.json()["details"][0]
+        assert (detail["code"], detail["limit"]) == ("plan.quota_exceeded", 500)
+        assert world.repo.thinning_writes == []
+
     def test_a_body_with_an_unknown_field_is_refused(self, client) -> None:
         response = client().post(f"{_OWN}/slots/row1/thinning", json={"tenant_key": "x"})
         assert response.status_code == 422
@@ -191,4 +219,20 @@ class TestPlantStatesCarryTheSownSlot:
         assert entry["slot_key"] == "row1"
         assert entry["instance_id"] == "BED3_R01"
         assert entry["planted_on"] == "2026-04-12"
+        assert entry["attention"] == []
+
+    def test_a_zone_stand_is_an_entry_of_kind_stand(self, client, world) -> None:
+        from app.main import app
+
+        class _StandOnly(_SownOnly):
+            def list_sown_slots(self, location_key, *, tenant_key, language="de"):
+                (slot,) = super().list_sown_slots(location_key, tenant_key=tenant_key, language=language)
+                return [replace(slot, thinned_at=date(2026, 5, 20))]
+
+        app.dependency_overrides[get_plant_state_service] = lambda: PlantStateService(world.sites, _StandOnly())
+        response = client(TenantRole.VIEWER).get(f"{_OWN}/locations/bed/plant-states")
+        assert response.status_code == 200, response.text
+        (entry,) = response.json()
+        assert (entry["kind"], entry["lifecycle"], entry["plant_key"]) == ("stand", "active", None)
+        assert (entry["planted_on"], entry["sown_on"]) == ("2026-05-20", "2026-04-12")
         assert entry["attention"] == []

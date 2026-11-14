@@ -7159,7 +7159,8 @@
           "details": "Details",
           "close": "Schließen",
           "photo": "Titelbild von {{name}}",
-          "sheetTitle": "Pflanze {{name}}"
+          "sheetTitle": "Pflanze {{name}}",
+          "standAge": "Zonen-Bestand · vereinzelt am {{date}} · {{days}} Tage"
         },
         "legend": {
           "title": "Pflanzenzustand",
@@ -7176,7 +7177,8 @@
           "badgeOverdue": "Kreis mit Ausrufezeichen: Aufgabe überfällig",
           "badgeWater": "Tropfen: Gießen fällig",
           "badgeHarvest": "Quadrat mit Haken: erntereif"
-        }
+        },
+        "zoneStand": "Zonen-Bestand"
       },
       "sun": {
         "title": "Sonne und Schatten",
@@ -8130,7 +8132,11 @@
           "failed_other": "Ausgefallen ({{count}})",
           "failedHelp": "Hier ist eine Pflanze eingegangen. Der Platz ist frei – mit „Nachpflanzen“ öffnest du den Bepflanzen-Dialog mit derselben Kultur.",
           "failedOn": "ausgefallen am {{date}}",
-          "replant": "Nachpflanzen"
+          "replant": "Nachpflanzen",
+          "stand_one": "Zonen-Bestand ({{count}})",
+          "stand_other": "Zonen-Bestand ({{count}})",
+          "standHelp": "Vereinzelte Flächen mit mehr Pflanzen, als die App einzeln anlegt: Der Bestand zählt als Menge am Anbau. Die Fläche bleibt belegt, bis du das Beet räumst.",
+          "thinnedOn": "vereinzelt am {{date}}"
         },
         "dialog": {
           "title": "Bepflanzen: {{bed}}",
@@ -8393,7 +8399,10 @@
           "rowSpacingInvalid": "Gib einen Reihenabstand zwischen {{min}} und {{max}} cm ein oder lass das Feld leer.",
           "formulaAlongRow": "Berechnung: Reihenlänge ÷ Abstand in der Reihe",
           "formulaRows": "Berechnung: Fläche ÷ (Reihenabstand × Abstand in der Reihe)",
-          "formulaSquareGrid": "Berechnung: Quadratraster (Schätzung)"
+          "formulaSquareGrid": "Berechnung: Quadratraster (Schätzung)",
+          "resultStand": "Es wird ein Zonen-Bestand von {{count}} Pflanzen erfasst – ohne Einzelpflanzen.",
+          "standNote": "Mehr als {{max}} Pflanzen legt die App nicht einzeln an. Stattdessen hält sie die Anzahl als Soll-Bestand am Anbau fest, die Fläche bleibt belegt, und der Pflegeeintrag gilt für das ganze Beet. Einzelne Pflanzen kannst du dann nicht getrennt pflegen.",
+          "doneStand": "Vereinzelt: Zonen-Bestand von {{count}} Pflanzen erfasst."
         }
       },
       "clear": {

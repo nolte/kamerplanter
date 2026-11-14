@@ -7158,7 +7158,8 @@
           "details": "Details",
           "close": "Close",
           "photo": "Cover photo of {{name}}",
-          "sheetTitle": "Plant {{name}}"
+          "sheetTitle": "Plant {{name}}",
+          "standAge": "Zone stand · thinned on {{date}} · {{days}} days"
         },
         "legend": {
           "title": "Plant state",
@@ -7175,7 +7176,8 @@
           "badgeOverdue": "circle with an exclamation mark: task overdue",
           "badgeWater": "drop: watering due",
           "badgeHarvest": "square with a check mark: ready to harvest"
-        }
+        },
+        "zoneStand": "Zone stand"
       },
       "sun": {
         "title": "Sun and shade",
@@ -8129,7 +8131,11 @@
           "failed_other": "Failed ({{count}})",
           "failedHelp": "A plant died here. The spot is free - \"Replant\" opens the planting dialog with the same crop.",
           "failedOn": "failed on {{date}}",
-          "replant": "Replant"
+          "replant": "Replant",
+          "stand_one": "Zone stand ({{count}})",
+          "stand_other": "Zone stand ({{count}})",
+          "standHelp": "Thinned areas with more plants than the app creates one by one: the stand counts as a quantity of the planting run. The area stays occupied until you clear the bed.",
+          "thinnedOn": "thinned on {{date}}"
         },
         "dialog": {
           "title": "Plant: {{bed}}",
@@ -8392,7 +8398,10 @@
           "rowSpacingInvalid": "Enter a row spacing between {{min}} and {{max}} cm or leave the field empty.",
           "formulaAlongRow": "Calculation: row length ÷ spacing in the row",
           "formulaRows": "Calculation: area ÷ (row spacing × spacing in the row)",
-          "formulaSquareGrid": "Calculation: square grid (estimate)"
+          "formulaSquareGrid": "Calculation: square grid (estimate)",
+          "resultStand": "A zone stand of {{count}} plants will be recorded – without single plants.",
+          "standNote": "The app does not create more than {{max}} plants one by one. It records the count as the target stand of the planting run, the area stays occupied, and the care entry applies to the whole bed. You can then not care for single plants separately.",
+          "doneStand": "Thinned: zone stand of {{count}} plants recorded."
         }
       },
       "clear": {

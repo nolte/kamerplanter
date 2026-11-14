@@ -13,6 +13,10 @@ overlaps every window that starts on or after ``planned_from`` and every window 
 **An active plant** (``placed_in`` with ``removed_on = null``) blocks a reservation whose ``planned_from``
 lies before the *expected end* of the plant's run (its ``planned_until``; ``None`` = unknown = open).
 A reservation that starts after that end is allowed (GP-FR-065): the slot is free again by then.
+
+**A zone stand** (a thinned zone recorded as a target stand instead of single plants, §11.3 "Zonen-Bestand", #2862)
+counts like a standing plant without a run and without an expected end: it blocks every window, the run that thinned
+the zone included, until the bed is cleared (GP-FR-055) — the slot never looks free while the stand grows.
 """
 
 from __future__ import annotations
@@ -48,12 +52,16 @@ class Reservation:
 
 @dataclass(frozen=True)
 class ActivePlant:
-    """A plant standing in a slot; ``expected_end`` is the ``planned_until`` of its run (``None``: unknown)."""
+    """A plant standing in a slot; ``expected_end`` is the ``planned_until`` of its run (``None``: unknown).
+
+    ``stand`` marks a zone stand (#2862): no plant document stands behind it, ``plant_key`` is empty.
+    """
 
     slot_key: str
     plant_key: str
     run_key: str | None
     expected_end: date | None
+    stand: bool = False
 
 
 @dataclass(frozen=True)

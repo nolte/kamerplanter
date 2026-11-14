@@ -36,6 +36,13 @@ def sown_visual_state(now: datetime) -> PlantVisualState:
     return compute(PlantFacts(kind="sown"), None, (), open_findings=0, frost_risk=False, harvest_batches=0, now=now)
 
 
+def stand_visual_state(now: datetime) -> PlantVisualState:
+    """The visual state of a zone stand (§11.3 "Zonen-Bestand", #2862): lifecycle ``active``, no phase, no reason.
+
+    The thinned zone stands — it is live, not sown — but no plant document carries tasks, findings or a phase."""
+    return compute(PlantFacts(), None, (), open_findings=0, frost_risk=False, harvest_batches=0, now=now)
+
+
 def visual_state_of(row: PlantStateSource, *, frost_risk: bool, now: datetime) -> PlantVisualState:
     """The visual state of the standing plant ``row`` at ``now`` in a bed with the given frost input."""
     return compute(
@@ -49,4 +56,4 @@ def visual_state_of(row: PlantStateSource, *, frost_risk: bool, now: datetime) -
     )
 
 
-__all__ = ["phase_facts", "sown_visual_state", "visual_state_of"]
+__all__ = ["phase_facts", "sown_visual_state", "stand_visual_state", "visual_state_of"]

@@ -6,12 +6,39 @@ import { describe, expect, it } from 'vitest';
 import type { PlantingItem } from './plantingTypes';
 import {
   failedSlots,
+  isAwaitingThinning,
   isSowable,
+  isZoneStand,
   parseDecimal,
+  recordsZoneStand,
   spacingExceedsSlot,
   thinningCount,
   thinningFormula,
+  thinningLimit,
 } from './thinningLogic';
+
+describe('zone stand above the quota (#2862)', () => {
+  it('records a stand only for a zone above the quota', () => {
+    expect(recordsZoneStand('area', 501, 500)).toBe(true);
+    expect(recordsZoneStand('area', 500, 500)).toBe(false);
+    expect(recordsZoneStand('length', 600, 500)).toBe(false);
+    expect(recordsZoneStand('area', null, 500)).toBe(false);
+  });
+
+  it('lets a zone count up to the stand bound and keeps a row at the quota', () => {
+    expect(thinningLimit('area', 500, 100000)).toBe(100000);
+    expect(thinningLimit('length', 500, 100000)).toBe(500);
+    expect(thinningLimit('area', 500, null)).toBe(500);
+  });
+
+  it('tells a zone stand from a sown slot still to thin', () => {
+    const sown: PlantingItem = { state: 'planned', slot_key: 'z1', species_key: 'sp', slot_role: 'zone', sown_at: '2026-04-12' };
+    const stand: PlantingItem = { ...sown, thinned_at: '2026-05-20' };
+    expect([isAwaitingThinning(sown), isZoneStand(sown)]).toEqual([true, false]);
+    expect([isAwaitingThinning(stand), isZoneStand(stand)]).toEqual([false, true]);
+    expect(isSowable(stand)).toBe(false);
+  });
+});
 
 describe('thinningCount', () => {
   it('holds one plant per spacing along a row', () => {

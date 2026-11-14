@@ -11,6 +11,10 @@
  * A zone also takes a row spacing (#2862): prefilled from the run, else from the species profile (its source shown),
  * else empty. With it the zone counts row spacing × in-row spacing; empty means broadcast sowing and the square-grid
  * estimate. The formula used is named under the result.
+ *
+ * A zone counted above the quota of single plants (500, GP-NFR-017) is recorded as a target stand (§11.1 step 7,
+ * #2862): the dialog says so before the grower confirms - no single plants, the area stays occupied, the care entry
+ * applies to the whole bed.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,9 +40,11 @@ import {
   MAX_THINNING_SPACING_CM,
   MIN_THINNING_ROW_SPACING_CM,
   parseDecimal,
+  recordsZoneStand,
   spacingExceedsSlot,
   thinningCount,
   thinningFormula,
+  thinningLimit,
 } from './thinningLogic';
 
 interface ThinningDialogProps {
@@ -122,6 +128,8 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
   // The prefill's source is named only while the field still holds the prefilled value.
   const rowSpacingPrefilled = plan?.row_spacing_cm != null && rowSpacingParsed === plan.row_spacing_cm;
   const maxCount = plan?.max_count ?? 0;
+  // A zone may record more than the quota - as a target stand (#2862); a row may not.
+  const limit = thinningLimit(plan?.measure_kind, maxCount, plan?.max_stand_count);
   // One spacing longer than the row (wider than the zone): one seedling stays - allowed, but said (A4).
   const singleSeedling =
     plan?.measure_kind != null &&
@@ -136,10 +144,11 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
     spacing.trim() !== '' && (spacingValue === null || spacingValue <= 0 || spacingValue > MAX_THINNING_SPACING_CM);
   const countInvalid =
     count.trim() !== '' &&
-    (countValue === null || !Number.isInteger(countValue) || countValue < 1 || countValue > maxCount);
+    (countValue === null || !Number.isInteger(countValue) || countValue < 1 || countValue > limit);
   const effectiveCount = countValue !== null && !countInvalid ? countValue : computed;
   const missing = effectiveCount === null && !spacingInvalid && !rowSpacingInvalid && !countInvalid;
-  const tooMany = effectiveCount !== null && effectiveCount > maxCount;
+  const tooMany = effectiveCount !== null && effectiveCount > limit;
+  const stand = !tooMany && recordsZoneStand(plan?.measure_kind, effectiveCount, maxCount);
   const dateInvalid = plantedOn === '' || (plan !== null && plantedOn < plan.sown_at) || plantedOn > todayUtcText();
   const invalid = spacingInvalid || rowSpacingInvalid || countInvalid || missing || tooMany || dateInvalid;
 
@@ -266,7 +275,7 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
               error={(showErrors || count.trim() !== '') && countInvalid}
               helperText={
                 countInvalid
-                  ? t('pages.bed.planting.thinning.countInvalid', { max: maxCount })
+                  ? t('pages.bed.planting.thinning.countInvalid', { max: limit })
                   : computed !== null
                     ? t('pages.bed.planting.thinning.countComputed', { count: computed })
                     : t('pages.bed.planting.thinning.countHelper')
@@ -298,7 +307,7 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
             ) : null}
             {tooMany ? (
               <Alert severity="warning" data-testid="thinning-too-many">
-                {t('pages.bed.planting.thinning.tooMany', { count: effectiveCount ?? 0, max: maxCount })}
+                {t('pages.bed.planting.thinning.tooMany', { count: effectiveCount ?? 0, max: limit })}
               </Alert>
             ) : null}
             {singleSeedling && !spacingInvalid ? (
@@ -313,10 +322,20 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
             {effectiveCount !== null && !tooMany ? (
               <Box aria-live="polite">
                 <Typography variant="subtitle2" data-testid="thinning-result">
-                  {t(zoneEstimate ? 'pages.bed.planting.thinning.resultEstimate' : 'pages.bed.planting.thinning.result', {
-                    count: effectiveCount,
-                  })}
+                  {t(
+                    stand
+                      ? 'pages.bed.planting.thinning.resultStand'
+                      : zoneEstimate
+                        ? 'pages.bed.planting.thinning.resultEstimate'
+                        : 'pages.bed.planting.thinning.result',
+                    { count: effectiveCount },
+                  )}
                 </Typography>
+                {stand ? (
+                  <Alert severity="info" sx={{ mt: 1 }} data-testid="thinning-stand-note">
+                    {t('pages.bed.planting.thinning.standNote', { max: maxCount })}
+                  </Alert>
+                ) : null}
                 {countValue === null && formula ? (
                   <Typography variant="body2" color="text.secondary" data-testid="thinning-formula">
                     {t(FORMULA_KEYS[formula])}

@@ -62,17 +62,27 @@ export interface SownStateWire extends Omit<PlantStateWire, 'kind' | 'plant_key'
   plant_key: null;
 }
 
-/** One entry of the answer: a standing plant or a sown slot (the sown slots come first). */
-export type PlantStateEntryWire = PlantStateWire | SownStateWire;
+/**
+ * A zone thinned into a target stand instead of single plants (REQ-053 §11.3 "Zonen-Bestand", #2862): it stands
+ * (lifecycle `active`), but no plant does. `planted_on` is the thinning day, `sown_on` the sowing day.
+ */
+export interface StandStateWire extends Omit<PlantStateWire, 'kind' | 'plant_key'> {
+  kind: 'stand';
+  plant_key: null;
+  sown_on?: string | null;
+}
+
+/** One entry of the answer: a standing plant, a sown slot or a zone stand (the slot entries come first). */
+export type PlantStateEntryWire = PlantStateWire | SownStateWire | StandStateWire;
 
 /** Whether the entry is a standing plant (the field sheet and the plant actions take plants only). */
 export function isPlantEntry(entry: PlantStateEntryWire): entry is PlantStateWire {
-  return entry.kind !== 'sown';
+  return entry.kind !== 'sown' && entry.kind !== 'stand';
 }
 
-/** The key of an entry on the plan: the plant's, or for a sown slot the slot's (the marker of a plantless slot). */
+/** The key of an entry on the plan: the plant's, or for a sown slot or zone stand the slot's (a plantless slot). */
 export function stateKeyOf(wire: Pick<PlantStateEntryWire, 'kind' | 'plant_key' | 'slot_key'>): string {
-  return (wire.kind === 'sown' ? wire.slot_key : wire.plant_key) ?? '';
+  return (wire.kind === 'sown' || wire.kind === 'stand' ? wire.slot_key : wire.plant_key) ?? '';
 }
 
 /** The server answers at most 200 plants per page (the shared pagination bound). */

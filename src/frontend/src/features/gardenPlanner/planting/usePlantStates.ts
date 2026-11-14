@@ -17,8 +17,10 @@ export function visualOf(wire: PlantStateEntryWire, now: string): PlantVisualSta
         is_terminal: wire.inputs.phase.is_terminal,
       }
     : null;
+  // A zone stand (#2862) stands like a plant without one: the calculator sees a live plant with no phase.
+  const kind = wire.kind === 'stand' ? 'plant' : (wire.kind ?? 'plant');
   return computePlantState(
-    { kind: wire.kind ?? 'plant', removed_on: null, termination_type: null },
+    { kind, removed_on: null, termination_type: null },
     phase,
     wire.inputs.open_tasks.map((task) => ({ category: task.category, due: task.due ?? null })),
     {

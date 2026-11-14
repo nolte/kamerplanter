@@ -250,6 +250,14 @@ class TestSownSlots:
         assert entries[0].state.phase_key is None
         assert repo.sown_calls == [("bed", TENANT)]
 
+    def test_a_zone_stand_is_reported_as_active_without_a_plant(self) -> None:
+        # #2862: a zone thinned into a target stand keeps its slot entry, now standing (lifecycle active), no reason.
+        service, _repo = self._service([], [sown("z1", thinned_at=date(2026, 5, 20))])
+        (entry,) = service.list_plant_states("bed", tenant_key=TENANT, now=NOW)
+        assert isinstance(entry.source, SownSlotSource)
+        assert entry.state.lifecycle == "active"
+        assert (entry.state.attention, entry.state.phase_key, entry.state.harvest_ready) == ((), None, False)
+
     def test_the_window_runs_over_the_sown_slots_then_the_plants(self) -> None:
         service, repo = self._service([row()], [sown("r1"), sown("r2"), sown("r3")])
         first = service.list_plant_states("bed", tenant_key=TENANT, offset=0, limit=2, now=NOW)

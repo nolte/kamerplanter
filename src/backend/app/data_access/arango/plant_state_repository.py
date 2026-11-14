@@ -62,7 +62,8 @@ BED_KEYS_PER_STATEMENT = 500
 #: The stored species a row names, when its tenant may read it (own, global or granted), else ``null``.
 _READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_species")
 
-#: The bed's sown slots without a standing plant of the tenant, with the crop of their live reservation (W-015).
+#: The bed's sown slots without a standing plant of the tenant, with the crop of their live reservation (W-015). A
+#: zone thinned into a target stand keeps ``sown_at`` and reports its ``thinned_at`` (§11.3 "Zonen-Bestand", #2862).
 #: A slot carries no tenant (E-01): the plants and the reserving run are filtered on it, the bed was resolved first.
 #: A plant stands in the slot its own ``slot_key`` names - selected by it, not through ``placed_in`` (#2774).
 _SOWN_SLOTS = (
@@ -101,6 +102,7 @@ FOR s IN @@slots
         slot_key: s._key,
         slot_id: s.slot_id,
         sown_at: s.sown_at,
+        thinned_at: s.thinned_at,
         run_key: reservation.run_key,
         entry_key: reservation.entry_key,
         species_key: reservation.species_key,
@@ -232,6 +234,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 species_name=_species_name(row, language),
                 scientific_name=row["scientific_name"],
                 cultivar_name=row["cultivar_name"],
+                thinned_at=_date(row.get("thinned_at")),
             )
             for row in rows
             if (sown_at := _date(row["sown_at"])) is not None

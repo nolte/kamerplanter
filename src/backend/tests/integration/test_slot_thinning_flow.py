@@ -16,7 +16,7 @@ import pytest
 from arango import ArangoClient
 
 from app.common.datetimes import today_utc
-from app.common.enums import PlantingRunStatus, PlantingRunType, TenantRole
+from app.common.enums import PlantingRunStatus, PlantingRunType, TenantRole, TerminationType
 from app.common.exceptions import NotFoundError, PlanError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
@@ -302,3 +302,101 @@ def test_a_position_slot_is_never_marked_sown_by_the_repository(world) -> None:
 
     assert not world.reservation_repo.mark_slot_sown("bed", "row1", sown_at=today_utc(), tenant_key=A)
     assert world.db.collection(col.SLOTS).get("row1").get("sown_at") is None
+
+
+# ── #2862: a zone above the quota becomes a target stand (REQ-053 §11.1 step 7, §11.3 "Zonen-Bestand") ──
+
+#: 0.5 m² of zone; thinned to 2 cm on the square grid it holds 1 250 seedlings - more than one write takes (500).
+ZONE = {"kind": "polygon", "points": [[0.2, 0.2], [1.2, 0.2], [1.2, 0.7], [0.2, 0.7]]}
+
+
+def _sown_zone(world) -> None:
+    world.db.collection(col.SLOTS).update({"_key": "row1", "slot_role": "zone", "geometry": ZONE})
+    sow(world)
+
+
+def _thin_zone(world, **request):
+    return world.thinning.thin_slot(
+        "row1",
+        tenant_key=A,
+        user_key=USER,
+        role=TenantRole.GROWER,
+        request=SlotThinningInput(thinning_to_cm=2.0, row_spacing_cm=None, **request),
+    )
+
+
+def test_a_zone_above_the_quota_records_the_target_stand_and_no_plant(world) -> None:
+    _sown_zone(world)
+    sown_at = (today_utc() - timedelta(days=14)).isoformat()
+
+    outcome = _thin_zone(world)
+
+    assert (outcome.plant_keys, outcome.stand_quantity) == ([], 1_250)
+    assert list(world.db.collection(col.PLANT_INSTANCES).all()) == []
+    assert list(world.db.collection(col.PLACED_IN).all()) == []
+    slot = world.db.collection(col.SLOTS).get("row1")
+    assert (slot["sown_at"], slot["thinned_at"], slot["currently_occupied"]) == (
+        sown_at,
+        today_utc().isoformat(),
+        True,
+    )
+    run = world.db.collection(col.PLANTING_RUNS).get(world.run_key)
+    assert (run["status"], run["actual_quantity"]) == ("active", 1_250)
+    entry = world.db.collection(col.PLANTING_RUN_ENTRIES).all().next()
+    assert entry["quantity"] == 1  # the planned amount stays
+    (event,) = [e for e in world.db.collection(col.CARE_EVENTS).all() if e["category"] == "thinning"]
+    assert event["plant_keys"] == []  # the whole bed (GP-FR-100)
+
+    # The plan shows the zone stand, standing, in the place of the sown entry; the planting list names the day.
+    (state,) = world.states.list_plant_states("bed", tenant_key=A, now=datetime.now(UTC))
+    assert (state.state.lifecycle, state.source.slot_key, state.source.thinned_at) == ("active", "row1", today_utc())
+    (planned,) = world.reservations.list_plantings("bed", tenant_key=A, state="planned", year=None, offset=0, limit=50)
+    assert planned.thinned_at == today_utc()
+
+
+def test_a_zone_stand_keeps_the_slot_taken(world) -> None:
+    _sown_zone(world)
+    _thin_zone(world)
+
+    (stand,) = world.reservation_repo.active_plants_in(["row1"], tenant_key=A)
+    assert (stand.stand, stand.plant_key, stand.run_key, stand.expected_end) == (True, "", None, None)
+    # The stand is anchored on the bed's site: another tenant sees nothing of it.
+    assert world.reservation_repo.active_plants_in(["row1"], tenant_key=B) == []
+    # Neither a second thinning nor a new sowing takes the slot; the repository refuses as well as the service.
+    with pytest.raises(PlanError) as caught:
+        _thin_zone(world)
+    assert caught.value.status_code == 409
+    with pytest.raises(PlanError):
+        sow(world)
+    assert not world.reservation_repo.mark_slot_sown("bed", "row1", sown_at=today_utc(), tenant_key=A)
+    run = world.db.collection(col.PLANTING_RUNS).get(world.run_key)
+    assert run["actual_quantity"] == 1_250
+
+
+def test_up_to_the_quota_a_zone_still_gets_its_plants(world) -> None:
+    _sown_zone(world)
+
+    outcome = _thin_zone(world, count=500)
+
+    assert (len(outcome.plant_keys), outcome.stand_quantity) == (500, None)
+    slot = world.db.collection(col.SLOTS).get("row1")
+    assert slot["sown_at"] is None
+    assert slot.get("thinned_at") is None
+
+
+def test_clearing_the_bed_ends_the_zone_stand(world) -> None:
+    _sown_zone(world)
+    _thin_zone(world)
+
+    world.reservations.clear_bed(
+        "bed",
+        tenant_key=A,
+        user_key=USER,
+        role=TenantRole.GROWER,
+        termination_type=TerminationType.HARVESTED,
+        reason=None,
+    )
+
+    slot = world.db.collection(col.SLOTS).get("row1")
+    assert slot.get("thinned_at") is None or slot.get("archived_at") is not None
+    assert world.reservation_repo.active_plants_in(["row1"], tenant_key=A) == []

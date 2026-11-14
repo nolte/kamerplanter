@@ -367,6 +367,12 @@ class TestPositionCorrection:
         assert world.service.record_position_correction("s1", tenant_key=TENANT, user_key=USER, role=GROWER) is None
         assert world.care_repo.inserted == []
 
+    def test_a_zone_stand_is_no_plant_to_name(self, world) -> None:
+        # #2862: a target stand has no plant document - moving its slot moved no plant, nothing is logged.
+        world.repo.plants.append(ActivePlant("s1", "", None, None, stand=True))
+        assert world.service.record_position_correction("s1", tenant_key=TENANT, user_key=USER, role=GROWER) is None
+        assert world.care_repo.inserted == []
+
     def test_a_viewer_logs_nothing(self, world) -> None:
         world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
 

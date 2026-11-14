@@ -108,6 +108,11 @@ export interface PlantingItem {
   slot_role?: SlotRole | null;
   /** Day a planned row or zone was sown (§11.3 "gesät"); `null` when not sown. */
   sown_at?: string | null;
+  /**
+   * Day a sown zone was thinned into a target stand instead of single plants (§11.3 "Zonen-Bestand", #2862); the
+   * stand's count is the run's `actual_quantity`. `null` otherwise.
+   */
+  thinned_at?: string | null;
 }
 
 /** A slot whose newest plant failed (§11.3 "ausgefallen"): free for a replant of the same crop. */
@@ -140,7 +145,13 @@ export interface ThinningPlan {
   /** The run's spacing after thinning; `null` when the run has none - the grower enters one (no default). */
   thinning_to_cm?: number | null;
   suggested_count?: number | null;
+  /** The most single plants one thinning creates (500, GP-NFR-017). */
   max_count: number;
+  /**
+   * Zones only: a count above `max_count` is recorded as a target stand of at most this many plants instead of single
+   * plants (#2862); `null` for a row.
+   */
+  max_stand_count?: number | null;
   /** Row spacing a zone is counted with: the run's, else the lower value of the species profile (#2862). */
   row_spacing_cm?: number | null;
   row_spacing_source?: 'run' | 'species' | null;
@@ -163,6 +174,8 @@ export interface ThinningResult {
   plant_keys: string[];
   instance_ids: string[];
   care_event_key: string;
+  /** The target stand a zone above the quota recorded instead of single plants (#2862); `null` when plants stand. */
+  stand_quantity?: number | null;
 }
 
 export interface QuickPlantingBody {

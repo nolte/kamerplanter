@@ -44,6 +44,8 @@ class SlotResponse(BaseModel):
     geometry_source: GeometrySource | None = None
     container_volume_l: float | None = None
     sown_at: date | None = None
+    #: Thinning day of a zone recorded as a target stand (§11.3 "Zonen-Bestand", #2862); ``None`` otherwise.
+    thinned_at: date | None = None
     archived_at: datetime | None = None
     planned_spacing_cm: float | None = None
     created_at: datetime | None = None
@@ -122,6 +124,7 @@ class SlotThinningPlanResponse(BaseModel):
                     "thinning_to_cm": 5.0,
                     "suggested_count": 24,
                     "max_count": 500,
+                    "max_stand_count": None,
                     "row_spacing_cm": None,
                     "row_spacing_source": None,
                     "species_row_spacing_cm": "20-30",
@@ -149,7 +152,14 @@ class SlotThinningPlanResponse(BaseModel):
     suggested_count: int | None = Field(
         default=None, description="Plants for `thinning_to_cm` over the measure; `null` without either."
     )
-    max_count: int
+    max_count: int = Field(description="The most single plants one thinning creates (GP-NFR-017).")
+    max_stand_count: int | None = Field(
+        default=None,
+        description=(
+            "Zones only: a count above `max_count` is recorded as a target stand of at most this many plants instead "
+            "of single plants (#2862); `null` for a row."
+        ),
+    )
     row_spacing_cm: float | None = Field(
         default=None,
         description=(
@@ -173,12 +183,22 @@ class SlotThinningPlanResponse(BaseModel):
 
 
 class SlotThinningResponse(BaseModel):
-    """``POST /slots/{key}/thinning``: the plants the thinned slot now holds and the ``thinning`` care event."""
+    """``POST /slots/{key}/thinning``: the plants the thinned slot now holds and the ``thinning`` care event.
+
+    A zone above the quota of single plants holds a target stand instead (#2862): ``plant_keys`` and ``instance_ids``
+    are empty and ``stand_quantity`` is the count recorded on the run.
+    """
 
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
-                {"plant_keys": ["7710", "7711"], "instance_ids": ["B3_DAU_01", "B3_DAU_02"], "care_event_key": "6610"}
+                {
+                    "plant_keys": ["7710", "7711"],
+                    "instance_ids": ["B3_DAU_01", "B3_DAU_02"],
+                    "care_event_key": "6610",
+                    "stand_quantity": None,
+                },
+                {"plant_keys": [], "instance_ids": [], "care_event_key": "6611", "stand_quantity": 1250},
             ]
         }
     )
@@ -186,3 +206,7 @@ class SlotThinningResponse(BaseModel):
     plant_keys: list[str]
     instance_ids: list[str]
     care_event_key: str
+    stand_quantity: int | None = Field(
+        default=None,
+        description="Target stand a zone above the quota recorded instead of single plants; `null` when plants stand.",
+    )

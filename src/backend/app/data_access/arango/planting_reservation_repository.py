@@ -83,7 +83,8 @@ _SLOT_EDGES = _edges_touching(col.SLOTS)
 
 #: Collections the layout / reservation writes touch.
 _RESERVATION_WRITE = (col.LOCATIONS, col.SLOTS, col.HAS_SLOT, col.RUN_PLANNED_AT)
-_RESERVATION_READ = (col.PLANTING_RUNS, col.PLANT_INSTANCES, col.RUN_CONTAINS)
+#: ``sites`` anchors the zone stands of the V-08 read (``_ACTIVE_PLANTS_IN_SLOTS``) on the tenant.
+_RESERVATION_READ = (col.PLANTING_RUNS, col.PLANT_INSTANCES, col.RUN_CONTAINS, col.SITES)
 #: A deleted layout slot takes every edge a slot may carry with it.
 _DROP_WRITE = tuple(
     dict.fromkeys((col.LOCATIONS, col.SLOTS, col.HAS_SLOT, col.RUN_PLANNED_AT, *(edge for edge, _ in _SLOT_EDGES)))
@@ -170,12 +171,14 @@ FOR e IN @@edges
     }
 """
 
-#: Sets ``sown_at`` on an unarchived row or zone slot of the bed in which none of the tenant's plants stands. A plant
-#: stands in the slot its own ``slot_key`` names - selected by it, never through ``placed_in``: that edge stays on a
-#: slot a plant left, and a plant moved before #2948 has none to its current slot (#2774).
+#: Sets ``sown_at`` on an unarchived row or zone slot of the bed in which none of the tenant's plants stands and no
+#: zone stand grows (``thinned_at``, #2862). A plant stands in the slot its own ``slot_key`` names - selected by it,
+#: never through ``placed_in``: that edge stays on a slot a plant left, and a plant moved before #2948 has none to its
+#: current slot (#2774).
 _MARK_SLOT_SOWN = """
 FOR s IN @@slots
     FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.slot_role IN @roles
+        AND s.thinned_at == null
     LET standing = (
         FOR plant IN @@plants
             FILTER plant.slot_key == s._key AND plant.tenant_key == @tenant_key AND plant.removed_on == null
@@ -187,11 +190,13 @@ FOR s IN @@slots
     RETURN NEW._key
 """
 
-#: Clears ``sown_at`` and sets the occupancy of the slot thinned — only while it is still sown on the day read and
-#: none of the tenant's plants stands in it (selected by its own ``slot_key``, not through ``placed_in``, #2774).
+#: Clears ``sown_at`` and sets the occupancy of the slot thinned — only while it is still sown on the day read, is no
+#: zone stand yet (#2862) and none of the tenant's plants stands in it (selected by its own ``slot_key``, not through
+#: ``placed_in``, #2774).
 _CLEAR_SOWN_SLOT = """
 FOR s IN @@slots
     FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.sown_at == @sown_at
+        AND s.thinned_at == null
     LET standing = (
         FOR plant IN @@plants
             FILTER plant.slot_key == s._key AND plant.tenant_key == @tenant_key AND plant.removed_on == null
@@ -203,8 +208,26 @@ FOR s IN @@slots
     RETURN NEW._key
 """
 
-#: Adds the thinned plants to the run's count and starts the run only if it is still ``planned`` (decided here, on the
-#: run as the transaction sees it, not on the service's earlier read); ``started`` reports whether it did.
+#: A sown zone above the quota of single plants becomes a zone stand (§11.3 "Zonen-Bestand", #2862): ``sown_at``
+#: stays, ``thinned_at`` marks the stand, the slot is occupied — under the same conditions as ``_CLEAR_SOWN_SLOT``.
+_MARK_ZONE_STAND = """
+FOR s IN @@slots
+    FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.sown_at == @sown_at
+        AND s.thinned_at == null AND s.slot_role == "zone"
+    LET standing = (
+        FOR plant IN @@plants
+            FILTER plant.slot_key == s._key AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+            LIMIT 1
+            RETURN 1
+    )
+    FILTER LENGTH(standing) == 0
+    UPDATE s WITH {thinned_at: @thinned_at, currently_occupied: true, updated_at: @now} IN @@slots
+    RETURN NEW._key
+"""
+
+#: Adds the thinned plants (or a zone's target stand, #2862) to the run's ``actual_quantity`` and starts the run only
+#: if it is still ``planned`` (decided here, on the run as the transaction sees it, not on the service's earlier
+#: read); ``started`` reports whether it did.
 _COUNT_THINNED_PLANTS = """
 FOR r IN @@runs
     FILTER r._key == @key AND r.tenant_key == @tenant_key AND r.status IN @live
@@ -245,17 +268,32 @@ FOR e IN @@edges
 
 #: The plants standing in some slots, with the expected end of their run. A plant stands in the slot its own
 #: ``slot_key`` names: selected by it, not through ``placed_in`` (the edge of a slot left stays as history, #2774).
+#: A zone stand (``thinned_at``, #2862) stands there too, without a plant, a run or an end: it blocks every window
+#: until the bed is cleared. A slot carries no tenant (E-01): the stand is anchored on the site of the slot's bed.
 _ACTIVE_PLANTS_IN_SLOTS = """
-FOR plant IN @@plants
-    FILTER plant.slot_key IN @slot_keys AND plant.tenant_key == @tenant_key AND plant.removed_on == null
-    LET link = FIRST(FOR r IN @@run_contains FILTER r._to == plant._id AND r.detached_at == null RETURN r)
-    LET run = link == null ? null : DOCUMENT(link._from)
-    RETURN {
-        slot_key: plant.slot_key,
-        plant_key: plant._key,
-        run_key: run == null ? null : run._key,
-        expected_end: run == null ? null : run.planned_until
-    }
+LET plants = (
+    FOR plant IN @@plants
+        FILTER plant.slot_key IN @slot_keys AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+        LET link = FIRST(FOR r IN @@run_contains FILTER r._to == plant._id AND r.detached_at == null RETURN r)
+        LET run = link == null ? null : DOCUMENT(link._from)
+        RETURN {
+            slot_key: plant.slot_key,
+            plant_key: plant._key,
+            run_key: run == null ? null : run._key,
+            expected_end: run == null ? null : run.planned_until,
+            stand: false
+        }
+)
+LET stands = (
+    FOR s IN @@slots
+        FILTER s._key IN @slot_keys AND s.archived_at == null AND s.thinned_at != null
+        LET location = DOCUMENT(@@locations, s.location_key)
+        LET site = location == null ? null : DOCUMENT(@@sites, location.site_key)
+        FILTER site != null AND site.tenant_key == @tenant_key
+        RETURN {slot_key: s._key, plant_key: "", run_key: null, expected_end: null, stand: true}
+)
+FOR row IN APPEND(plants, stands)
+    RETURN row
 """
 
 
@@ -317,6 +355,9 @@ class _Reads:
             bind_vars={
                 "@plants": col.PLANT_INSTANCES,
                 "@run_contains": col.RUN_CONTAINS,
+                "@slots": col.SLOTS,
+                "@locations": col.LOCATIONS,
+                "@sites": col.SITES,
                 "slot_keys": slot_keys,
                 "tenant_key": tenant_key,
             },
@@ -327,6 +368,7 @@ class _Reads:
                 plant_key=row["plant_key"],
                 run_key=row["run_key"],
                 expected_end=_date(row["expected_end"]),
+                stand=bool(row.get("stand")),
             )
             for row in rows
         ]
@@ -416,7 +458,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         planned_from: e.planned_from,
                         planned_until: e.planned_until,
                         slot_role: s.slot_role,
-                        sown_at: s.sown_at
+                        sown_at: s.sown_at,
+                        thinned_at: s.thinned_at
                     }
             """,
                 bind_vars={
@@ -441,6 +484,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 planned_until=_date(row["planned_until"]),
                 slot_role=row["slot_role"] or "position",
                 sown_at=_date(row["sown_at"]),
+                thinned_at=_date(row.get("thinned_at")),
             )
             for row in cursor
         ]
@@ -753,10 +797,21 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 "UPDATE r WITH {status: @status, completed_at: @now, updated_at: @now} IN @@runs",
                 bind_vars={"@runs": col.PLANTING_RUNS, "ids": run_ids, "status": end_status, "now": now},
             )
-            touched_slots = {p["slot_id"] for p in plants if p["slot_id"]} | set(
-                txn.aql.execute(
-                    "FOR e IN @@edges FILTER e._from IN @ids RETURN DISTINCT e._to",
-                    bind_vars={"@edges": col.RUN_PLANNED_AT, "ids": run_ids},
+            touched_slots = (
+                {p["slot_id"] for p in plants if p["slot_id"]}
+                | set(
+                    txn.aql.execute(
+                        "FOR e IN @@edges FILTER e._from IN @ids RETURN DISTINCT e._to",
+                        bind_vars={"@edges": col.RUN_PLANNED_AT, "ids": run_ids},
+                    )
+                )
+                # A zone stand ends with the bed, also one whose run ended before (#2862).
+                | set(
+                    txn.aql.execute(
+                        "FOR s IN @@slots FILTER s.location_key == @location_key AND s.archived_at == null "
+                        "AND s.thinned_at != null RETURN s._id",
+                        bind_vars={"@slots": col.SLOTS, "location_key": write.location_key},
+                    )
                 )
             )
             txn.aql.execute(
@@ -861,7 +916,11 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
 
     @staticmethod
     def _archive_or_release(txn: StreamTransaction, slot_ids: list[str], now: str) -> tuple[int, int]:
-        """Slots nothing live reserves any more become history; one a later planned run reserves is only freed."""
+        """Slots nothing live reserves any more become history; one a later planned run reserves is only freed.
+
+        A freed slot loses the sowing and the zone stand of the ended run (``sown_at``, ``thinned_at``, #2862): they
+        are not the later run's.
+        """
         if not slot_ids:
             return 0, 0
         still_reserved = set(
@@ -887,7 +946,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
         if release:
             txn.aql.execute(
                 "FOR s IN @@slots FILTER s._id IN @ids "
-                "UPDATE s WITH {currently_occupied: false, updated_at: @now} IN @@slots",
+                "UPDATE s WITH {currently_occupied: false, sown_at: null, thinned_at: null, updated_at: @now} "
+                "IN @@slots",
                 bind_vars={"@slots": col.SLOTS, "ids": release, "now": now},
             )
         return len(archive), len(release)
@@ -1056,24 +1116,27 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             )
             if not held:
                 raise WriteConflictError("run_planned_at", "the reservation of the slot was released concurrently")
-            # Re-read after the lock: the slot must still be the sown, plantless slot the service read.
-            cleared = list(
-                txn.aql.execute(
-                    _CLEAR_SOWN_SLOT,
-                    bind_vars={
-                        "@slots": col.SLOTS,
-                        "@plants": col.PLANT_INSTANCES,
-                        "key": write.slot_key,
-                        "location_key": write.location_key,
-                        "tenant_key": write.tenant_key,
-                        "sown_at": write.sown_at.isoformat(),
-                        "now": now,
-                    },
-                )
-            )
+            # Re-read after the lock: the slot must still be the sown, plantless slot the service read. A zone above
+            # the quota keeps ``sown_at`` and becomes a zone stand instead of its plants (#2862).
+            stand = write.stand_quantity is not None
+            slot_vars: dict[str, Any] = {
+                "@slots": col.SLOTS,
+                "@plants": col.PLANT_INSTANCES,
+                "key": write.slot_key,
+                "location_key": write.location_key,
+                "tenant_key": write.tenant_key,
+                "sown_at": write.sown_at.isoformat(),
+                "now": now,
+            }
+            if stand:
+                slot_vars["thinned_at"] = write.phase_started_at.date().isoformat()
+                cleared = list(txn.aql.execute(_MARK_ZONE_STAND, bind_vars=slot_vars))
+            else:
+                cleared = list(txn.aql.execute(_CLEAR_SOWN_SLOT, bind_vars=slot_vars))
             if not cleared:
                 raise WriteConflictError("slots", "the slot was thinned, re-sown or removed concurrently")
-            plant_keys = self._insert_plants(txn, write.plants, run_id, [write.slot_key], now)
+            plant_keys = [] if stand else self._insert_plants(txn, write.plants, run_id, [write.slot_key], now)
+            added = write.stand_quantity if write.stand_quantity is not None else len(plant_keys)
             activation: dict[str, Any] = {
                 "status": "active",
                 "started_at": now,
@@ -1087,7 +1150,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         "@runs": col.PLANTING_RUNS,
                         "key": write.run_key,
                         "tenant_key": write.tenant_key,
-                        "added": len(plant_keys),
+                        "added": added,
                         "live": _LIVE_STATUSES,
                         "activation": activation,
                         "activate": write.activate_run,
@@ -1100,7 +1163,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             started = bool(runs[0]["started"])
             if started and write.run_history is not None:
                 self._insert_history(txn, write.run_history, write.run_key, now)
-            # A copy, so the caller's write set keeps the event as it was handed in.
+            # A copy, so the caller's write set keeps the event as it was handed in. A zone stand names no plant: the
+            # event is the whole bed's (GP-FR-100).
             event = copy.copy(write.event)
             event.plant_keys = plant_keys[:MAX_PLANTS_PER_EVENT]
             stored = write_care_event(txn, event, now)
@@ -1109,6 +1173,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             location_key=write.location_key,
             slot_key=write.slot_key,
             plants=len(plant_keys),
+            stand=write.stand_quantity,
             run_started=started,
         )
         return SlotThinningOutcome(
@@ -1116,6 +1181,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             instance_ids=[item.plant.instance_id for item in write.plants],
             care_event_key=stored["_key"],
             run_started=started,
+            stand_quantity=write.stand_quantity,
         )
 
     def _insert_plants(

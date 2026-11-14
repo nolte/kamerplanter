@@ -64,6 +64,9 @@ class SownSlotSource:
 
     The species is the one the slot's live reservation plans (the tenant's run); a sown slot without a live
     reservation of the tenant is not reported — nothing would name its crop.
+
+    ``thinned_at`` set: the zone was thinned into a target stand instead of single plants (§11.3 "Zonen-Bestand",
+    #2862) — it stands, but no plant document does.
     """
 
     slot_key: str
@@ -76,6 +79,7 @@ class SownSlotSource:
     species_name: str | None = None
     scientific_name: str | None = None
     cultivar_name: str | None = None
+    thinned_at: date | None = None
 
 
 class IPlantStateRepository(ABC):

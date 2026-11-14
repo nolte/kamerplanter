@@ -514,6 +514,10 @@ class Slot(BaseModel):
     container_volume_l: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     #: Direct sowing recorded on a ``row``/``zone`` slot before plants exist (§11.3 "gesät").
     sown_at: date | None = None
+    #: The thinning day of a sown zone recorded as a target stand instead of single plants (§11.1 step 7, §11.3
+    #: "Zonen-Bestand", #2862): ``sown_at`` stays, the stand count is on the run (``actual_quantity``), and the slot
+    #: stays occupied until the bed is cleared.
+    thinned_at: date | None = None
     #: Set when the run that used the slot was closed (GP-FR-055); archived slots are history.
     archived_at: datetime | None = None
     planned_spacing_cm: float | None = Field(default=None, gt=0)
