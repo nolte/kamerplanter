@@ -32,7 +32,7 @@ from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.data_access.storage.s3_adapter import S3StorageAdapter
 from app.domain.models.attachment import Attachment
-from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.attachment_service import AttachmentService, ObjectReleaseError
 
 MAX_SIZE = 25 * 1024 * 1024
 
@@ -971,25 +971,63 @@ class TestDeleteManyIfUnreferenced:
         assert owed.recorded == [("t-1", [broken.storage_key])]
         assert not await service._object_exists(fine.storage_key)
 
-    async def test_without_a_retry_store_the_failure_propagates_after_every_key_was_tried(
+    async def test_without_a_retry_store_the_records_count_and_only_the_objects_are_the_error(
         self, adapter, repo, settings
     ):
+        """#2715 review SEC-S02: the records were committed away - the error names the objects that stayed, apart."""
         service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
-        photos = [await self._stored(service, colour=colour) for colour in (230, 240)]
+        broken, fine = await self._stored(service, colour=230), await self._stored(service, colour=240)
         tried: list[str] = []
+        original = adapter.delete_object
 
-        async def failing(key: str) -> None:
+        async def failing_for_one(key: str) -> None:
             tried.append(key)
-            raise OSError("storage unavailable")
+            if key == broken.storage_key:
+                raise OSError("storage unavailable")
+            await original(key)
 
-        adapter.delete_object = failing  # type: ignore[method-assign]
+        adapter.delete_object = failing_for_one  # type: ignore[method-assign]
 
-        with pytest.raises(OSError):
+        with pytest.raises(ObjectReleaseError) as raised:
             await service.delete_many_if_unreferenced(
-                [p.key for p in photos], "t-1", category=AttachmentCategory.LOCATION
+                [broken.key, fine.key], "t-1", category=AttachmentCategory.LOCATION
             )
 
-        assert {photo.storage_key for photo in photos} <= set(tried)
+        assert raised.value.removed == 2 and raised.value.attachment_ids == [broken.key] and raised.value.objects == 1
+        assert isinstance(raised.value.__cause__, OSError)
+        assert not any("/" in attachment_id for attachment_id in raised.value.attachment_ids)
+        assert {broken.storage_key, fine.storage_key} <= set(tried)  # every key was tried
+        assert repo.get(broken.key, "t-1") is None and repo.get(fine.key, "t-1") is None
+
+    async def test_an_object_held_again_between_chunks_is_not_deleted(self, service, repo, adapter, monkeypatch):
+        """#2715 review SEC-S01: each chunk asks for other holders right before its deletes, not once for the batch."""
+        from app.domain.services import attachment_service
+
+        monkeypatch.setattr(attachment_service, "OBJECT_RELEASE_CONCURRENCY", 1)
+        first, second = await self._stored(service, colour=250), await self._stored(service, colour=5)
+        original = adapter.delete_object
+        linked: list[str] = []
+
+        async def dedup_upload_meanwhile(key: str) -> None:
+            await original(key)
+            if not linked:  # the first storage call: another member uploads the second photo's bytes now
+                linked.append(
+                    repo.create(
+                        second.model_copy(
+                            update={"key": None, "created_by": "u-2", "category": AttachmentCategory.PLANT}
+                        )
+                    ).key
+                )
+
+        adapter.delete_object = dedup_upload_meanwhile  # type: ignore[method-assign]
+
+        deleted = await service.delete_many_if_unreferenced(
+            [first.key, second.key], "t-1", category=AttachmentCategory.LOCATION
+        )
+
+        assert deleted == 2
+        assert not await service._object_exists(first.storage_key)
+        assert await service._object_exists(second.storage_key)  # the new record holds it
 
     async def test_an_empty_batch_touches_nothing(self, service, repo):
         assert await service.delete_many_if_unreferenced([], "t-1", category=AttachmentCategory.LOCATION) == 0

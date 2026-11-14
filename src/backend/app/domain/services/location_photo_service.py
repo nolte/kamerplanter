@@ -47,7 +47,7 @@ from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.attachment import Attachment
 from app.domain.models.location_photo import LocationPhoto, LocationPhotoGallery
 from app.domain.models.site import MAX_PHOTOS_PER_LOCATION, Location
-from app.domain.services.attachment_service import AttachmentService
+from app.domain.services.attachment_service import AttachmentService, ObjectReleaseError
 from app.domain.services.location_ownership import resolve_owned_location
 
 logger = structlog.get_logger(__name__)
@@ -302,6 +302,17 @@ class LocationPhotoService:
         try:
             deleter: UnreferencedAttachmentDelete = self._attachments()
             discarded = await deleter.delete_many_if_unreferenced(ids, tenant_key, category=AttachmentCategory.LOCATION)
+        except ObjectReleaseError as exc:
+            # The records went (#2715 review SEC-S02): counted as deleted; only the objects that stayed are reported.
+            logger.warning(
+                "location_photo_objects_release_failed",
+                tenant=log_tenant(tenant_key),
+                deleted=exc.removed,
+                attachment_ids=exc.attachment_ids,
+                objects=exc.objects,
+                error_type=type(exc.__cause__).__name__,
+            )
+            return exc.removed
         except Exception as exc:  # noqa: BLE001 — the delete has committed; its response must not turn into a 500
             logger.warning(
                 "location_photos_discard_failed",

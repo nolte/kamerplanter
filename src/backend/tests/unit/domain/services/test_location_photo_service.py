@@ -525,6 +525,25 @@ class TestBedDelete:
         assert logger.warning.call_args.args[0] == "location_photos_discard_failed"
         assert logger.warning.call_args.kwargs["attachment_ids"] == ["p1"]
 
+    async def test_records_deleted_with_objects_left_count_and_report_only_the_objects(self, world: World) -> None:
+        """#2715 review SEC-S02: the records are gone - they count; the objects that stayed are the reported error."""
+        from unittest.mock import patch
+
+        from app.domain.services import location_photo_service
+
+        for key in ("p1", "p2"):
+            world.attachments.add(key, tenant_key=TENANT)
+        world.attachments.objects_fail = True
+
+        with patch.object(location_photo_service, "logger") as logger:
+            discarded = await world.service.discard_released(["p1", "p2"], tenant_key=TENANT)
+
+        assert discarded == 2 and world.attachments.deleted == ["p1", "p2"]
+        assert logger.warning.call_args.args[0] == "location_photo_objects_release_failed"
+        fields = logger.warning.call_args.kwargs
+        assert fields["deleted"] == 2 and fields["attachment_ids"] == ["p1", "p2"] and fields["objects"] == 2
+        assert "location_photos_discard_failed" not in [call.args[0] for call in logger.warning.call_args_list]
+
     async def test_an_empty_release_asks_nothing(self, world: World) -> None:
         assert await world.service.discard_released([], tenant_key=TENANT) == 0
         assert world.attachments.batch_deletes == []

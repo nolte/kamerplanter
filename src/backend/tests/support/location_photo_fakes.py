@@ -18,6 +18,7 @@ from app.domain.interfaces.location_photo_repository import (
     without_photo,
 )
 from app.domain.models.attachment import Attachment
+from app.domain.services.attachment_service import ObjectReleaseError
 from tests.support.garden_plan_fakes import FakePlanRepo
 
 
@@ -36,6 +37,8 @@ class FakePhotoAttachments:
         #: Keys read one by one, and the key lists read in one round trip.
         self.reads: list[str] = []
         self.batch_reads: list[list[str]] = []
+        #: Set to make the batch's object release fail after its records went (#2715 review SEC-S02).
+        self.objects_fail = False
         #: The id lists handed to ``delete_many_if_unreferenced``, one entry per call.
         self.batch_deletes: list[list[str]] = []
 
@@ -113,14 +116,17 @@ class FakePhotoAttachments:
         self.batch_deletes.append(ids)
         if self.fail_with is not None:
             raise self.fail_with
-        deleted = 0
+        deleted: list[str] = []
         for attachment_id in ids:
             row = self.get(attachment_id, tenant_key)
             if row is None or row.category != category:
                 continue
             if await self.delete_if_unreferenced(attachment_id, tenant_key):
-                deleted += 1
-        return deleted
+                deleted.append(attachment_id)
+        if deleted and self.objects_fail:
+            # The records went; the storage did not (no retry store) - as ``AttachmentService`` reports it.
+            raise ObjectReleaseError(removed=len(deleted), attachment_ids=deleted, objects=len(deleted))
+        return len(deleted)
 
 
 class FakeLocationPhotoRepo(ILocationPhotoRepository):
