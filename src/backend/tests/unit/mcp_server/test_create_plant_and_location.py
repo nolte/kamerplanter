@@ -354,3 +354,20 @@ async def test_a_viewer_may_not_create_a_plant():
         await dispatcher.dispatch(principal, "create_plant", _PLANT)
 
     assert plants.store == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run", [False, True])
+async def test_a_parent_of_another_site_than_site_key_is_refused_not_overwritten(dry_run: bool):
+    """#2776 SEC-004: the caller's site_key used to be overwritten silently by the parent's site."""
+    dispatcher, principal, _plants, sites = _setup()
+    sites.sites["site_own_2"] = Site(_key="site_own_2", tenant_key=OWN, name="Balcony", type=SiteType.OUTDOOR)
+
+    with pytest.raises(ValidationError, match="same site"):
+        await dispatcher.dispatch(
+            principal,
+            "create_location",
+            {**_LOCATION, "site_key": "site_own_2", "parent_location_key": "loc_own", "dry_run": dry_run},
+        )
+
+    assert sites.created == []

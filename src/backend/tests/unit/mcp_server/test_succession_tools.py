@@ -7,6 +7,7 @@ refusal is asserted at the store as well.
 
 from __future__ import annotations
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -264,4 +265,46 @@ async def test_another_tenants_plan_is_not_found_and_nothing_is_generated(dry_ru
             principal, "generate_succession_runs", {"succession_plan_key": key, "dry_run": dry_run}
         )
 
+    assert runs.store == {}
+
+
+# ── Operational quotas (#2776 SEC-001) ────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run", [True, False])
+async def test_a_plan_over_the_batch_quota_is_refused_at_the_input_quickly(dry_run: bool):
+    """Ten years sown daily (~3650 batches): refused before the tool runs, in well under a second."""
+    import time
+
+    dispatcher, principal, plans, runs = _setup()
+    started = time.perf_counter()
+
+    with pytest.raises(ValidationError, match="succession.quota_exceeded"):
+        await dispatcher.dispatch(
+            principal,
+            "create_succession_plan",
+            {**_PLAN, "interval_days": 1, "end_date": "2037-04-01", "dry_run": dry_run},
+        )
+
+    assert time.perf_counter() - started < 1.0
+    assert plans._store == {} and runs.store == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run", [True, False])
+async def test_a_stored_plan_over_the_quota_generates_nothing(dry_run: bool):
+    """A row stored before the quota is not re-validated on read; generation refuses it before building runs."""
+    from app.common.exceptions import PlanError
+
+    dispatcher, principal, plans, runs = _setup()
+    key = await _created_plan(dispatcher, principal)
+    plans._store[key] = plans._store[key].model_copy(update={"interval_days": 1, "end_date": date(2029, 4, 1)})
+
+    with pytest.raises(PlanError) as refused:
+        await dispatcher.dispatch(
+            principal, "generate_succession_runs", {"succession_plan_key": key, "dry_run": dry_run}
+        )
+
+    assert refused.value.error_code == "succession.quota_exceeded"
     assert runs.store == {}

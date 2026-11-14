@@ -17,7 +17,15 @@ from pydantic import ValidationError as PydanticValidationError
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
 from app.domain.models.planting_run import PlantingRun
-from app.domain.models.succession_plan import MAX_BATCH_DURATION_DAYS, SuccessionPlan
+from app.domain.models.succession_plan import (
+    MAX_BATCH_DURATION_DAYS,
+    MAX_PLANTS_PER_BATCH,
+    MAX_SUCCESSION_BATCHES,
+    MAX_SUCCESSION_INTERVAL_DAYS,
+    MAX_SUCCESSION_WINDOW_DAYS,
+    SuccessionPlan,
+    check_succession_quotas,
+)
 from app.mcp_server.base import WriteToolBase, WriteToolInput, domain_validation_error, mcp_tool, record_fields
 from app.mcp_server.context import ToolContext
 
@@ -30,10 +38,15 @@ class CreateSuccessionPlan(WriteToolBase):
         name: str = Field(min_length=1, max_length=200)
         species_key: str = Field(min_length=1, description="Species to sow; list_species resolves it.")
         cultivar_key: str | None = Field(default=None, min_length=1, description="list_cultivars resolves it.")
-        interval_days: int = Field(ge=1, description="Days between two sowings.")
+        interval_days: int = Field(ge=1, le=MAX_SUCCESSION_INTERVAL_DAYS, description="Days between two sowings.")
         start_date: date = Field(description="Day of the first sowing (YYYY-MM-DD).")
-        end_date: date = Field(description="Last day a batch may be sown (YYYY-MM-DD).")
-        plants_per_batch: int = Field(ge=1)
+        end_date: date = Field(
+            description=(
+                f"Last day a batch may be sown (YYYY-MM-DD); at most {MAX_SUCCESSION_WINDOW_DAYS} days after "
+                f"start_date and at most {MAX_SUCCESSION_BATCHES} batches in all."
+            )
+        )
+        plants_per_batch: int = Field(ge=1, le=MAX_PLANTS_PER_BATCH)
         reminder_days_before: int = Field(default=3, ge=0)
         batch_duration_days: int | None = Field(
             default=None,
@@ -50,6 +63,7 @@ class CreateSuccessionPlan(WriteToolBase):
         def _date_range(self) -> CreateSuccessionPlan.Input:
             if self.end_date < self.start_date:
                 raise ValueError("end_date must be on or after start_date.")
+            check_succession_quotas(self.start_date, self.end_date, self.interval_days)
             return self
 
     @staticmethod

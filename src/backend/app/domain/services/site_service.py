@@ -302,9 +302,16 @@ class SiteService:
         return location
 
     def _checked_new_location(self, location: Location, *, tenant_key: str) -> None:
-        """Resolve the parent, the site and the tank of a new location under ``tenant_key``; reads only."""
+        """Resolve the parent, the site and the tank of a new location under ``tenant_key``; reads only.
+
+        A parent of another site than the ``site_key`` given is refused with 422, as :meth:`update_location`
+        refuses it (#2776 SEC-004) — it used to overwrite the caller's ``site_key`` silently. An empty
+        ``site_key`` with a parent takes the parent's site.
+        """
         if location.parent_location_key:
             parent = self.get_location(location.parent_location_key, tenant_key=tenant_key)
+            if location.site_key and location.site_key != parent.site_key:
+                raise ValidationError("A parent location must belong to the same site.")
             location.site_key = parent.site_key
             self._place_in_tree(location, parent)
         else:

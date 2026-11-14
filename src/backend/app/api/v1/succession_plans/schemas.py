@@ -5,7 +5,12 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import SuccessionPlanStatus
-from app.domain.models.succession_plan import MAX_BATCH_DURATION_DAYS
+from app.domain.models.succession_plan import (
+    MAX_BATCH_DURATION_DAYS,
+    MAX_PLANTS_PER_BATCH,
+    MAX_SUCCESSION_INTERVAL_DAYS,
+    check_succession_quotas,
+)
 
 _BATCH_DURATION_DESCRIPTION = (
     "Days one batch holds its slots of the plan's bed (reservation window `planned_until`); `null` = open end."
@@ -16,10 +21,10 @@ class SuccessionPlanCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     species_key: str
     cultivar_key: str | None = None
-    interval_days: int = Field(ge=1)
+    interval_days: int = Field(ge=1, le=MAX_SUCCESSION_INTERVAL_DAYS)
     start_date: date
     end_date: date
-    plants_per_batch: int = Field(ge=1)
+    plants_per_batch: int = Field(ge=1, le=MAX_PLANTS_PER_BATCH)
     reminder_days_before: int = Field(default=3, ge=0)
     batch_duration_days: int | None = Field(
         default=None, ge=1, le=MAX_BATCH_DURATION_DAYS, description=_BATCH_DURATION_DESCRIPTION
@@ -31,16 +36,18 @@ class SuccessionPlanCreate(BaseModel):
     def validate_date_range(self) -> SuccessionPlanCreate:
         if self.end_date < self.start_date:
             raise ValueError("end_date must be on or after start_date.")
+        # The domain model's quotas, refused here so the route answers 422 rather than failing on construction.
+        check_succession_quotas(self.start_date, self.end_date, self.interval_days)
         return self
 
 
 class SuccessionPlanUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     cultivar_key: str | None = None
-    interval_days: int | None = Field(default=None, ge=1)
+    interval_days: int | None = Field(default=None, ge=1, le=MAX_SUCCESSION_INTERVAL_DAYS)
     start_date: date | None = None
     end_date: date | None = None
-    plants_per_batch: int | None = Field(default=None, ge=1)
+    plants_per_batch: int | None = Field(default=None, ge=1, le=MAX_PLANTS_PER_BATCH)
     reminder_days_before: int | None = Field(default=None, ge=0)
     batch_duration_days: int | None = Field(
         default=None, ge=1, le=MAX_BATCH_DURATION_DAYS, description=_BATCH_DURATION_DESCRIPTION
