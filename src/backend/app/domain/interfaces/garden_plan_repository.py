@@ -15,6 +15,7 @@ from app.domain.models.garden_plan import (
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
+    SlotRuleBasis,
     SlotSpeciesHint,
     TaskCounter,
 )
@@ -275,7 +276,27 @@ class IGardenPlanRepository(ABC):
         """
 
     @abstractmethod
-    def update_slot_fields(self, slot_key: str, fields: dict[str, Any], *, read: Slot) -> None:
+    def load_slot_rule_basis(
+        self,
+        site_key: SiteKey,
+        location_keys: list[str],
+        *,
+        tenant_key: str,
+        include_archived: bool = False,
+    ) -> SlotRuleBasis:
+        """The beds, their slots and each bed's ``slot_rules_revision`` — what V-04/V-06 are checked against (#2773).
+
+        One query, so one snapshot: the revision belongs to exactly the frame and the slots returned. A writer that
+        validated against them hands the revision to its transaction, which compares and raises it before it
+        writes (``slot_rules_fence.take_slot_rules``). Ownership as :meth:`load_active_slots`: a bed of another
+        site or tenant is absent from all three parts. A stored slot that fails :class:`Slot` validation raises the
+        409 ``StoredDocumentInvalidError``.
+        """
+
+    @abstractmethod
+    def update_slot_fields(
+        self, slot_key: str, fields: dict[str, Any], *, read: Slot, slot_rules: tuple[str, int] | None
+    ) -> None:
         """Write *only* ``fields`` of a slot, nested objects replaced whole (a geometry may change its kind).
 
         The caller has resolved the slot under the tenant through ``location_ownership``.
@@ -286,6 +307,10 @@ class IGardenPlanRepository(ABC):
         :class:`~app.common.exceptions.WriteConflictError` (409) and nothing is written. Without it a second
         ``PATCH`` drawing an unplaced zone's polygon between the read and this write could meet a role changed
         to ``row`` here and store a slot neither PATCH validated.
+
+        ``slot_rules`` is ``(bed key, slot_rules_revision)`` of the basis V-04/V-06 were checked against, or
+        ``None`` when the change ran no bed-level rule (capacity only). With it the write and the bed's fence are one
+        transaction: a slot or frame write of the bed since the basis was read is a ``WriteConflictError`` (#2773).
         """
 
     @abstractmethod
@@ -306,5 +331,6 @@ class IGardenPlanRepository(ABC):
 
         Raises:
             DuplicateError: a ``slot_id`` of the location is taken (V-20, the unique index).
-            WriteConflictError: a slot to delete became occupied or reserved after the service read it.
+            WriteConflictError: a slot to delete became occupied or reserved after the service read it, or the bed's
+                slots or frame changed since ``write.slot_rules_revision`` was read (#2773).
         """

@@ -161,6 +161,9 @@ class FreePlacement:
 class PreparedLayout:
     slots: list[PreparedSlot]
     warnings: list[LayoutWarning]
+    #: The bed's ``slot_rules_revision`` read with the slots V-04/V-06 ran against; the write hands it to its
+    #: transaction, which refuses (409) when another slot or frame write of the bed landed since (#2773).
+    slot_rules_revision: int
 
 
 def entry_layout_of(entry: PlantingRunEntry, *, index: int = 0) -> EntryLayout | None:
@@ -281,11 +284,22 @@ class PlantingReservationService:
         if (not planned and not placements) or location.geometry is None or not location.key:
             return None
 
-        existing = self._plan.load_active_slots(
+        # The frame, the slots and the fence in one snapshot (#2773): the layout is computed in the frame read here,
+        # and the write is refused when another slot or frame write of the bed lands after this read.
+        basis = self._plan.load_slot_rule_basis(
             location.site_key, [location.key], tenant_key=tenant_key, include_archived=True
         )
+        bed_key = location.key
+        bed = basis.locations.get(bed_key)
+        if bed is None:
+            raise NotFoundError("Location", bed_key)
+        frame = bed.geometry
+        if frame is None:
+            return None
+        location = bed
+        existing = basis.slots
         live = [slot for slot in existing if slot.archived_at is None]
-        prefix = slot_id_prefix(location.name, location.key)
+        prefix = slot_id_prefix(location.name, bed_key)
         used_ids = {slot.slot_id for slot in existing}
         rank = max((slot.sequence or 0 for slot in existing), default=0)
 
@@ -293,7 +307,7 @@ class PlantingReservationService:
         warnings: list[LayoutWarning] = []
         results: list[tuple[int, PlantingRunEntry, LayoutResult]] = []
         for index, entry, layout in planned:
-            result = compute_layout(location.geometry, layout, entry.quantity)
+            result = compute_layout(frame, layout, entry.quantity)
             results.append((index, entry, result))
             warnings.extend(result.warnings)
         total = sum(len(result.slots) for _, _, result in results) + sum(len(p.points) for p in placements)
@@ -314,7 +328,7 @@ class PlantingReservationService:
         slots += self._free_slots(location, placements, ids[cursor:], rank + cursor)
         self._check_free_points_inside(location, slots)
         self._check_zone_overlap(slots, live)
-        return PreparedLayout(slots=slots, warnings=warnings)
+        return PreparedLayout(slots=slots, warnings=warnings, slot_rules_revision=basis.revisions[location.key or ""])
 
     def _free_slots(
         self, location: Location, placements: Sequence[FreePlacement], ids: list[str], rank: int
@@ -455,6 +469,7 @@ class PlantingReservationService:
                 planned_from=planned_from,
                 planned_until=planned_until,
                 slots=reserved,
+                slot_rules_revision=prepared.slot_rules_revision,
             )
         )
         logger.info("planting_reservation.layout_placed", run_key=run.key, location_key=location.key, slots=len(keys))

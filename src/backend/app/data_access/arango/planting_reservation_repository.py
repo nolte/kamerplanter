@@ -9,6 +9,11 @@ one bed (a layout, a reservation, a clearing, a quick planting, a slot batch) th
 with the write-write conflict (409) instead of committing a state the winner's V-06/V-08 check never saw.
 The reservation re-check runs *after* the lock, inside the transaction (``verify``), so a reservation placed
 between the service's read and this write cannot slip through.
+
+The lock serialises only transactions that are open at once. The layout writes (a run's layout, a mixed culture,
+a quick planting) check V-04/V-06 against a read made *before* their transaction, so a writer whose transaction
+opens after another one committed would pass the lock unhindered; they also take the bed's slot-rule fence
+(``slot_rules_fence.take_slot_rules``, #2773) with the revision read together with that check's slots.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictEr
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.slot_rules_fence import take_slot_rules
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.engines.slot_reservation_engine import (
     LIVE_RUN_STATUSES,
@@ -546,6 +552,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
         ) as txn:
             now = _now()
             self._lock_location(txn, write.location_key, now)
+            if write.slot_rules_revision is not None:
+                take_slot_rules(txn, {write.location_key: write.slot_rules_revision})
             slots = txn.collection(col.SLOTS)
             has_slot = txn.collection(col.HAS_SLOT)
             planned_at = txn.collection(col.RUN_PLANNED_AT)
@@ -902,6 +910,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
         ) as txn:
             now = _now()
             self._lock_location(txn, write.location_key, now)
+            if write.slot_rules_revision is not None:
+                take_slot_rules(txn, {write.location_key: write.slot_rules_revision})
             location_id = f"{col.LOCATIONS}/{write.location_key}"
             for item in write.runs:
                 run_key = txn.collection(col.PLANTING_RUNS).insert(_insert_doc(item.run, now), return_new=True)["new"][
@@ -951,6 +961,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
         ) as txn:
             now = _now()
             self._lock_location(txn, write.location_key, now)
+            if write.slot_rules_revision is not None:
+                take_slot_rules(txn, {write.location_key: write.slot_rules_revision})
             location_id = f"{col.LOCATIONS}/{write.location_key}"
 
             slot_keys: list[str] = []

@@ -47,6 +47,8 @@ from app.data_access.arango.garden_object_repository import ArangoGardenObjectRe
 from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.guarded_update import StoredValue, update_if_unchanged
 from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
+from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.slot_rules_fence import SLOT_RULES_REVISION, take_slot_rules
 from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
 from app.data_access.arango.watering_queries import last_waterings
@@ -73,6 +75,7 @@ from app.domain.models.garden_plan import (
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
+    SlotRuleBasis,
     SlotSpeciesHint,
     TaskCounter,
 )
@@ -659,6 +662,58 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
         return [model_or_conflict(Slot, doc, entity="Slot") for doc in cursor]
 
+    def load_slot_rule_basis(
+        self,
+        site_key: SiteKey,
+        location_keys: list[str],
+        *,
+        tenant_key: str,
+        include_archived: bool = False,
+    ) -> SlotRuleBasis:
+        if not tenant_key:
+            raise ValueError("load_slot_rule_basis needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return SlotRuleBasis(locations={}, revisions={}, slots=[])
+        # One statement, one snapshot (#2773): the fence is read together with the frame and the slots it guards.
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"""
+            FOR l IN @@locations
+                FILTER l._key IN @location_keys AND l.site_key == @site_key
+                {_OWNED_BY_LOCATION_SITE}
+                RETURN {{
+                    location: l,
+                    revision: l.{aql_field(SLOT_RULES_REVISION)} || 0,
+                    slots: (
+                        FOR s IN @@slots
+                            FILTER s.location_key == l._key AND (@include_archived OR s.archived_at == null)
+                            RETURN s
+                    )
+                }}
+            """,
+                bind_vars={
+                    "@locations": col.LOCATIONS,
+                    "@slots": col.SLOTS,
+                    "location_keys": sorted(set(location_keys)),
+                    "site_key": site_key,
+                    "sites": f"{col.SITES}/",
+                    "tenant_key": tenant_key,
+                    "include_archived": include_archived,
+                },
+            ),
+        )
+        locations: dict[str, Location] = {}
+        revisions: dict[str, int] = {}
+        slots: list[Slot] = []
+        for row in cursor:
+            location = Location(**row["location"])
+            key = location.key or ""
+            locations[key] = location
+            revisions[key] = int(row["revision"])
+            slots += [model_or_conflict(Slot, doc, entity="Slot") for doc in row["slots"]]
+        return SlotRuleBasis(locations=locations, revisions=revisions, slots=slots)
+
     def bed_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
         if not location_type_keys:
             return {}
@@ -945,6 +1000,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 time_budget_seconds=write.time_budget_seconds,
             ) as txn:
                 stored_plan, revision = self._check_revision(txn, write)
+                # V-04 of a reshaped bed and a season's copy were checked against slots read outside the revision.
+                take_slot_rules(txn, write.slot_rules_revisions)
                 now = _now()
                 new_revision = revision + 1
                 key_map: dict[str, str] = {}
@@ -1856,19 +1913,39 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": location_id, "created_at": now}
                 )
 
-    def update_slot_fields(self, slot_key: str, fields: dict[str, Any], *, read: Slot) -> None:
+    def update_slot_fields(
+        self, slot_key: str, fields: dict[str, Any], *, read: Slot, slot_rules: tuple[str, int] | None
+    ) -> None:
         # Nested objects replaced whole (``merge_objects=False``) and nulls removed, as a PATCH writes them; a
         # vanished slot is a NotFoundError, a changed one a WriteConflictError (``update_if_unchanged``).
-        update_if_unchanged(
-            self._db,
-            col.SLOTS,
-            slot_key,
-            {**fields, "updated_at": _now()},
-            expected=_slot_cross_validated(read),
-            entity="Slot",
-            keep_null=False,
-            merge_objects=False,
-        )
+        data = {**fields, "updated_at": _now()}
+        expected = _slot_cross_validated(read)
+        if slot_rules is None:
+            update_if_unchanged(
+                self._db,
+                col.SLOTS,
+                slot_key,
+                data,
+                expected=expected,
+                entity="Slot",
+                keep_null=False,
+                merge_objects=False,
+            )
+            return
+        # V-04/V-06 ran against the bed's basis: the fence and the slot are one transaction (#2773).
+        location_key, revision = slot_rules
+        with stream_transaction(self._db, write=(col.LOCATIONS, col.SLOTS), entity="Slot") as txn:
+            take_slot_rules(txn, {location_key: revision})
+            update_if_unchanged(
+                txn,
+                col.SLOTS,
+                slot_key,
+                data,
+                expected=expected,
+                entity="Slot",
+                keep_null=False,
+                merge_objects=False,
+            )
 
     def irrigation_zone_site_key(self, zone_key: str, *, tenant_key: str) -> str | None:
         if not tenant_key:
@@ -1936,6 +2013,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         ) as txn:
             now = _now()
             self._lock_location(txn, write.location_key, now)
+            if write.slot_rules_revision is not None:
+                take_slot_rules(txn, {write.location_key: write.slot_rules_revision})
             self._remove_slots(txn, write.delete_keys)
             slots = txn.collection(col.SLOTS)
             edges = txn.collection(col.HAS_SLOT)
@@ -1959,8 +2038,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
     @staticmethod
     def _lock_location(txn: StreamTransaction, location_key: str, now: str) -> None:
         """Write the bed's own document first, so two slot batches of one bed — or a slot batch and the delete of the
-        bed — cannot both pass: the loser fails with the write-write conflict (409) instead of committing a layout
-        that the winner's V-04/V-06 check never saw. A bed that is gone is a 404."""
+        bed — whose transactions are open at once cannot both pass: the loser fails with the write-write conflict
+        (409). A writer whose transaction opens after the other committed is not stopped here; the slot-rule fence
+        taken next (``take_slot_rules``, #2773) refuses it. A bed that is gone is a 404."""
         touched = list(
             txn.aql.execute(
                 "FOR l IN @@col FILTER l._key == @key UPDATE l WITH {updated_at: @now} IN @@col RETURN 1",

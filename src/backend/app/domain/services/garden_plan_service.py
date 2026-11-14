@@ -180,6 +180,8 @@ class _Work:
     boundary_op: int | None = None
     plan_changes: SetBoundaryOp | None = None
     findings: list[_Finding] = field(default_factory=list)
+    #: ``bed key → slot_rules_revision`` read with the slots a reshaped bed's V-04 ran against (#2773).
+    slot_rules: dict[str, int] = field(default_factory=dict)
 
     def known(self, entity: str, key: str) -> bool:
         return key in (self.locations if entity == _ENTITY_LOCATION else self.objects)
@@ -1406,7 +1408,11 @@ class GardenPlanService:
                 reshaped[key] = index
         if not reshaped:
             return
-        slots = self._plan.load_active_slots(site_key, sorted(reshaped), tenant_key=tenant_key)
+        # The slots and the bed's fence in one snapshot: a slot write that lands after this read raises the fence,
+        # and the batch's transaction refuses (409) instead of storing a frame the slot was never checked against.
+        basis = self._plan.load_slot_rule_basis(site_key, sorted(reshaped), tenant_key=tenant_key)
+        work.slot_rules.update(basis.revisions)
+        slots = basis.slots
         by_bed: dict[str, list[tuple[str, Geometry]]] = {}
         for slot in slots:
             if slot.key and slot.geometry is not None:
@@ -1536,6 +1542,7 @@ class GardenPlanService:
             adjacency_factor=changes.adjacency_factor if changes is not None else None,
             total_area_m2=area_m2(changes.boundary) if changes is not None else None,
             audit=audit,
+            slot_rules_revisions=dict(work.slot_rules),
             time_budget_seconds=max(remaining, 0.5),
         )
 

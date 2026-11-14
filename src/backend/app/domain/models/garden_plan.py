@@ -349,6 +349,10 @@ class PlanBatchWrite:
     snapshot: dict[str, Any] | None = None
     #: Summary of the snapshot row (counts only, never a name — GP-NFR-060).
     snapshot_summary: str = ""
+    #: ``location key → slot_rules_revision`` the V-04 check of a reshaped bed, or the copy of a new season into a
+    #: bed, read with the slots (``load_slot_rule_basis``). The transaction compares and raises it before it writes
+    #: (409 ``conflict.write`` when a slot write landed in between, #2773).
+    slot_rules_revisions: dict[str, int] = field(default_factory=dict)
     time_budget_seconds: float = BATCH_TIME_BUDGET_SECONDS
 
 
@@ -368,6 +372,8 @@ class SlotBatchWrite:
     location_key: str
     delete_keys: list[str]
     inserts: list[Slot]
+    #: The bed's ``slot_rules_revision`` read with the slots V-04/V-06 were checked against (#2773).
+    slot_rules_revision: int | None = None
     time_budget_seconds: float = BATCH_TIME_BUDGET_SECONDS
 
 
@@ -392,6 +398,19 @@ class PlanBatchOutcome:
     key_map: dict[str, str]
     #: ``photo_refs`` of the locations the batch deleted, read in the transaction (WP 8.18).
     released_photo_refs: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class SlotRuleBasis:
+    """What V-04/V-06 are checked against, read in **one** snapshot (#2773): the beds, their slots and the fence.
+
+    ``revisions`` holds each bed's ``slot_rules_revision``; a write that validated against this basis hands it to
+    its transaction, which refuses (409) when another slot or frame write landed since the read.
+    """
+
+    locations: dict[str, Location]
+    revisions: dict[str, int]
+    slots: list[Slot]
 
 
 @dataclass(frozen=True)

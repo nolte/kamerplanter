@@ -22,6 +22,7 @@ from app.common.exceptions import (
     DuplicateError,
     NotFoundError,
     PlanError,
+    PlanValidationError,
     StoredDocumentInvalidError,
     WriteConflictError,
 )
@@ -33,6 +34,7 @@ from app.data_access.arango.garden_plan_repository import (
     ArangoGardenPlanRepository,
 )
 from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.domain.engines.garden_plan_engine import overlapping_zones
 from app.domain.models.garden_plan import GardenObjectPatch, LocationPatch, SlotBatchRequest, SlotPatch
 from app.domain.models.site import MAX_POSITION_CAPACITY, Location, Slot
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -993,6 +995,160 @@ class TestASlotPatchIsConditionalOnWhatItValidated:
         with pytest.raises(PydanticValidationError):
             SlotPatch(capacity_plants=MAX_POSITION_CAPACITY + 1)
         assert SlotCreate(slot_id="BED_S1", location_key="bed", capacity_plants=MAX_POSITION_CAPACITY)
+
+
+def _square(x: float, y: float, side: float = 0.4) -> dict:
+    return {"kind": "polygon", "points": [[x, y], [x + side, y], [x + side, y + side], [x, y + side]]}
+
+
+def _stored_overlaps(db) -> list[tuple[str, str]]:
+    """V-06 on what is stored: the pairs of live zones of the bed that overlap."""
+    zones = [
+        (doc["_key"], Slot(**doc).geometry)
+        for doc in db.collection(col.SLOTS).all()
+        if doc.get("slot_role") == "zone" and doc.get("archived_at") is None and doc.get("geometry")
+    ]
+    return overlapping_zones([(key, geometry) for key, geometry in zones if geometry is not None])
+
+
+class TestBedLevelSlotRulesHoldUnderConcurrentWrites:
+    """#2773: V-04 (inside the bed) and V-06 (zones do not overlap) are checked against the bed's frame and its
+    other slots, read before the write. Each test forces the interleaving the issue describes: writer one has read
+    and validated, writer two runs to its commit, then writer one writes. Each writer alone is valid against what it
+    read; together they would store a state no check saw. The loser answers 409 (``WriteConflictError``) and writes
+    nothing; the stored state satisfies the rule. ``slot_rules_revision`` on the bed is the fence.
+    """
+
+    @pytest.fixture(autouse=True)
+    def zones(self, db) -> None:
+        add_slot(db, "z1", "BED_Z1", geometry=_square(0.0, 0.0))
+        add_slot(db, "z2", "BED_Z2", geometry=_square(0.6, 0.0))
+        for key in ("z1", "z2"):
+            db.collection(col.SLOTS).update({"_key": key, "slot_role": "zone", "capacity_plants": 4})
+
+    @staticmethod
+    def _other(db) -> GardenResourceService:
+        sites, plan = ArangoSiteRepository(db), ArangoGardenPlanRepository(db)
+        return GardenResourceService(sites, plan, ArangoGardenObjectRepository(db), GardenPlanService(sites, plan))
+
+    @staticmethod
+    def _before(monkeypatch, target, name: str, other_write) -> None:
+        """Run ``other_write`` to its commit right before ``target.name`` writes - after its caller validated."""
+        write = getattr(target, name)
+
+        def other_first(*args, **kwargs):
+            other_write()
+            return write(*args, **kwargs)
+
+        monkeypatch.setattr(target, name, other_first)
+
+    @staticmethod
+    def _move(service: GardenResourceService, key: str, geometry: dict) -> None:
+        service.patch_slot(key, tenant_key=A, role=TenantRole.GROWER, patch=SlotPatch(geometry=geometry))
+
+    def test_two_zone_patches_into_one_area_the_second_is_a_409(self, db, service, monkeypatch) -> None:
+        """The issue's window: Z1 and Z2 redrawn into the same area, each valid against the other's old polygon."""
+        self._before(
+            monkeypatch,
+            service._plan,
+            "update_slot_fields",
+            lambda: self._move(self._other(db), "z2", _square(0.4, 0.5)),
+        )
+
+        with pytest.raises(WriteConflictError):
+            self._move(service, "z1", _square(0.3, 0.5))
+
+        assert db.collection(col.SLOTS).get("z1")["geometry"]["points"][0] == [0.0, 0.0]  # nothing written
+        assert db.collection(col.SLOTS).get("z2")["geometry"]["points"][0] == [0.4, 0.5]  # the winner, alone
+        assert _stored_overlaps(db) == []
+
+    def test_a_retry_after_the_409_is_checked_against_the_winner(self, db, service) -> None:
+        """The 409 is retryable: the same request again reads the winner's zone and is refused as V-06."""
+        self._move(self._other(db), "z2", _square(0.4, 0.5))
+
+        with pytest.raises(PlanValidationError) as refused:
+            self._move(service, "z1", _square(0.3, 0.5))
+
+        assert refused.value.codes == ["slot.overlap"]
+        assert _stored_overlaps(db) == []
+
+    def test_a_capacity_patch_in_between_is_no_conflict(self, db, service, monkeypatch) -> None:
+        """Positive control: a write that changes no geometry or role of the bed does not raise the fence."""
+        other = self._other(db)
+        self._before(
+            monkeypatch,
+            service._plan,
+            "update_slot_fields",
+            lambda: other.patch_slot("z2", tenant_key=A, role=TenantRole.GROWER, patch=SlotPatch(capacity_plants=6)),
+        )
+
+        self._move(service, "z1", _square(0.3, 0.5))
+
+        assert db.collection(col.SLOTS).get("z1")["geometry"]["points"][0] == [0.3, 0.5]
+        assert db.collection(col.SLOTS).get("z2")["capacity_plants"] == 6
+
+    def test_a_slot_patch_loses_to_a_bed_reshape_that_cuts_it_off(self, db, service, monkeypatch) -> None:
+        """V-04: the slot moves to the far end of the bed while the bed is cut to half its width."""
+        half = {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 1, "rotation_deg": 0}
+        self._before(
+            monkeypatch, service._plan, "update_slot_fields", lambda: _patch(self._other(db), {"geometry": half})
+        )
+
+        with pytest.raises(WriteConflictError):
+            self._move(service, "z1", _square(1.5, 0.2))
+
+        assert db.collection(col.LOCATIONS).get("bed")["geometry"]["width_m"] == 1  # the reshape, alone
+        assert db.collection(col.SLOTS).get("z1")["geometry"]["points"][0] == [0.0, 0.0]
+
+    def test_a_bed_reshape_loses_to_a_slot_patch_into_the_part_it_cuts_off(self, db, service, monkeypatch) -> None:
+        """V-04 the other way round: the reshape checked the slots before the slot moved into the cut-off part."""
+        half = {"kind": "rect", "origin": [1, 1], "width_m": 1, "length_m": 1, "rotation_deg": 0}
+        self._before(
+            monkeypatch,
+            service._plan,
+            "apply_plan_batch",
+            lambda: self._move(self._other(db), "z1", _square(1.5, 0.2)),
+        )
+
+        with pytest.raises(WriteConflictError):
+            _patch(service, {"geometry": half})
+
+        assert db.collection(col.LOCATIONS).get("bed")["geometry"]["width_m"] == 2  # nothing written, no revision
+        assert db.collection(col.SITES).get("site_a")["plan"]["plan_revision"] == 1
+        assert db.collection(col.SLOTS).get("z1")["geometry"]["points"][0] == [1.5, 0.2]
+
+    def test_a_slot_batch_loses_to_a_zone_patch_into_its_area(self, db, service, monkeypatch) -> None:
+        """The slot batch (GP-API-015) checked its new zone against Z1 where it was."""
+        self._before(
+            monkeypatch,
+            service._plan,
+            "replace_slots",
+            lambda: self._move(self._other(db), "z1", _square(1.0, 0.5)),
+        )
+        request = SlotBatchRequest.model_validate(
+            {"mode": "append", "slots": [{"slot_id": "BED_Z3", "slot_role": "zone", "geometry": _square(1.1, 0.5)}]}
+        )
+
+        with pytest.raises(WriteConflictError):
+            service.replace_slots("bed", tenant_key=A, role=TenantRole.GROWER, request=request)
+
+        assert "BED_Z3" not in slot_ids(db)
+        assert _stored_overlaps(db) == []
+
+    def test_the_fence_of_a_gone_bed_is_a_404_and_a_bed_without_it_reads_as_zero(self, db, repo) -> None:
+        basis = repo.load_slot_rule_basis("site_a", ["bed", "gone"], tenant_key=A)
+        assert basis.revisions == {"bed": 0} and sorted(slot.key for slot in basis.slots) == ["z1", "z2"]
+        assert repo.load_slot_rule_basis("site_a", ["bed"], tenant_key=B).revisions == {}  # another tenant's: absent
+
+        read = ArangoSiteRepository(db).get_slot_by_key("z1")
+        assert read is not None
+        repo.update_slot_fields("z1", {"geometry": _square(0.0, 0.5)}, read=read, slot_rules=("bed", 0))
+        assert db.collection(col.LOCATIONS).get("bed")["slot_rules_revision"] == 1
+        with pytest.raises(WriteConflictError):  # the same basis a second time: it is stale now
+            repo.update_slot_fields("z1", {"geometry": _square(0.0, 0.0)}, read=read, slot_rules=("bed", 0))
+        with pytest.raises(NotFoundError):
+            repo.update_slot_fields("z1", {"geometry": _square(0.0, 0.0)}, read=read, slot_rules=("gone", 0))
+        assert db.collection(col.SLOTS).get("z1")["geometry"]["points"][0] == [0.0, 0.5]
 
 
 class TestTheSlotBatchIsAllOrNothing:

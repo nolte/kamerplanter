@@ -93,7 +93,7 @@ class GardenPlanSeasonService:
 
         report = PlanSeasonReport(year=year, source_year=year - 1, dry_run=dry_run, plan_revision=revision)
         inserts: list[tuple[str, Slot]] = []
-        self._plan_the_beds(report, inserts, site_key, tenant_key=tenant_key, year=year)
+        fences = self._plan_the_beds(report, inserts, site_key, tenant_key=tenant_key, year=year)
         report.slots_to_create = len(inserts)
         if (
             report.slots_to_create
@@ -124,6 +124,9 @@ class GardenPlanSeasonService:
             expected_revision=revision,
             basis_revision=revision,
             slot_inserts=inserts,
+            # The copy kept clear of the slots standing in each bed as read with the fence (#2773): a slot write
+            # of the bed in between makes the transaction refuse (409) rather than copy beside an unseen slot.
+            slot_rules_revisions={bed: fences[bed] for bed, _ in inserts},
             audit=[
                 {
                     "op": "season_copy",
@@ -157,13 +160,15 @@ class GardenPlanSeasonService:
         *,
         tenant_key: str,
         year: int,
-    ) -> None:
+    ) -> dict[str, int]:
+        """Fill ``report`` and ``inserts``; returns each bed's ``slot_rules_revision`` read with its slots."""
         locations, _ = self._plan.load_structure(site_key, tenant_key=tenant_key)
         beds: dict[str, Location] = {loc.key: loc for loc in locations if loc.key}
         outcomes: list[SeasonBedOutcome] = []
         if not beds:
-            return
-        everything = self._plan.load_active_slots(site_key, sorted(beds), tenant_key=tenant_key, include_archived=True)
+            return {}
+        basis = self._plan.load_slot_rule_basis(site_key, sorted(beds), tenant_key=tenant_key, include_archived=True)
+        everything = basis.slots
         live: dict[str, list[Slot]] = defaultdict(list)
         history: dict[str, list[Slot]] = defaultdict(list)
         for slot in everything:
@@ -218,6 +223,7 @@ class GardenPlanSeasonService:
         report.beds = outcomes
         report.beds_copied = sum(1 for item in outcomes if item.status == "copied")
         report.beds_skipped = sum(1 for item in outcomes if item.status.startswith("skipped"))
+        return basis.revisions
 
 
 def _distinct_places(old_slots: list[Slot], taken: set[str]) -> list[Slot]:
