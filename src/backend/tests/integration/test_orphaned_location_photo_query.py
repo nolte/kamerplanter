@@ -84,6 +84,9 @@ def db():  # type: ignore[no-untyped-def]
     # Shown by a bed, and a bed's cover on its own (no photo_refs on that row).
     attachments.insert(_attachment("linked", created_at=OLD))
     attachments.insert(_attachment("cover-only", created_at=OLD))
+    # The beds sit on a site of TENANT, as every linked bed does: the interactive scan reads a tenant's beds through
+    # its sites (#2715 item 2), the sweep reads all of them.
+    database.collection(col.SITES).insert({"_key": "site-1", "tenant_key": TENANT, "name": "Garten"})
     locations = database.collection(col.LOCATIONS)
     locations.insert({"_key": "bed-1", "name": "Beet 1", "site_key": "site-1", "photo_refs": ["linked"]})
     locations.insert({"_key": "bed-2", "name": "Beet 2", "site_key": "site-1", "cover_photo_ref": "cover-only"})

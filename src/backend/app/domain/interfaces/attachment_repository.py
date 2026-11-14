@@ -246,6 +246,17 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def remove_unreferenced(
+        self, attachment_ids: Sequence[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> list[Attachment]:
+        """Remove every tenant's record of *category* among *attachment_ids* that no carrier names; the removed ones.
+
+        :meth:`remove_if_unreferenced` for a batch (#2715 item 6): ONE reference scan and the removes in ONE
+        transaction, so a carrier written meanwhile conflicts the whole batch instead of being left pointing at
+        nothing. The stored objects are not touched here.
+        """
+
+    @abstractmethod
     def task_photo_delete_state(self, attachment_id: str, tenant_key: str, *, task_key: str) -> tuple[str, str | None]:
         """``(state, created_by)`` for the task-photo delete route (#1393).
 
