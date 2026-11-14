@@ -41,7 +41,7 @@ interface Seen {
   params: Record<string, string>;
 }
 
-function useMatrix(beds: RotationMatrixBed[], options: { total?: number; fail?: boolean } = {}) {
+function useMatrix(beds: RotationMatrixBed[], options: { total?: number; fail?: boolean; columns?: number[] } = {}) {
   const seen: Seen[] = [];
   server.use(
     http.get(`${BASE}/sites/:key/rotation-matrix`, ({ request }) => {
@@ -53,7 +53,7 @@ function useMatrix(beds: RotationMatrixBed[], options: { total?: number; fail?: 
       const body: RotationMatrix = {
         site_key: 'site_1',
         years: Number(params.years ?? 5),
-        columns: COLUMNS,
+        columns: options.columns ?? COLUMNS,
         total: options.total ?? beds.length,
         truncated: false,
         offset,
@@ -109,6 +109,44 @@ describe('RotationMatrixPage - table semantics and marks', () => {
     // the scroll region is a labelled, focusable region (keyboard users can scroll it)
     const region = screen.getByRole('region', { name: /Crop rotation matrix/ });
     expect(region).toHaveAttribute('tabindex', '0');
+  });
+
+  it('shows a planned run in a future column as planned, in words and in the accessible name (#2958)', async () => {
+    const columns = [...COLUMNS, THIS_YEAR + 1, THIS_YEAR + 2];
+    const planned = { ...SOLANACEAE, source: 'planned' as const };
+    useMatrix(
+      [
+        bed('loc_a', 'Raised bed 1', {
+          cells: columns.map((year) => ({
+            year,
+            plantings: year === THIS_YEAR - 1 ? [FABACEAE] : year === THIS_YEAR + 1 ? [planned] : [],
+          })),
+        }),
+      ],
+      { columns },
+    );
+    renderPage('viewer');
+
+    const future = await screen.findByTestId(`matrix-cell-loc_a-${THIS_YEAR + 1}`);
+    expect(within(future).getByText(/planned/)).toBeInTheDocument();
+    expect(future.querySelector('[data-planned="true"]')).not.toBeNull();
+    expect(screen.getByTestId(`matrix-future-${THIS_YEAR + 1}`)).toHaveTextContent('Planning');
+    expect(screen.queryByTestId(`matrix-future-${THIS_YEAR}`)).toBeNull();
+    // the control: what stood is not marked planned
+    const past = screen.getByTestId(`matrix-cell-loc_a-${THIS_YEAR - 1}`);
+    expect(past.querySelector('[data-planned="true"]')).toBeNull();
+    expect(within(past).queryByText(/planned/)).toBeNull();
+  });
+
+  it('gives a grower no button on a planned future cell (#2958)', async () => {
+    const columns = [...COLUMNS, THIS_YEAR + 1];
+    useMatrix([bed('loc_a', 'Raised bed 1', { cells: columns.map((year) => ({ year, plantings: [] })) })], { columns });
+    renderPage('grower');
+
+    await screen.findByTestId(`matrix-cell-loc_a-${THIS_YEAR + 1}`);
+    expect(screen.queryByTestId(`matrix-cell-button-loc_a-${THIS_YEAR + 1}`)).toBeNull();
+    // the control: a past cell of the same grower has its button
+    expect(screen.getByTestId(`matrix-cell-button-loc_a-${THIS_YEAR - 1}`)).toBeInTheDocument();
   });
 
   it('marks a family by code and pattern, not by colour alone, and shows the feeder class as text', async () => {

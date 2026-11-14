@@ -2432,6 +2432,8 @@ def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
 
     runs_col = db.collection(PLANTING_RUNS)
     runs_col.add_persistent_index(fields=["name"], unique=False)
+    # REQ-053 GP-FR-135: the rotation matrix reads the runs still planned at each bed of a page.
+    runs_col.add_persistent_index(fields=["location_key", "status"], unique=False)
 
     # REQ-013 §2 Succession plans — list queries always filter by tenant.
     succession_plans_col = db.collection(SUCCESSION_PLANS)

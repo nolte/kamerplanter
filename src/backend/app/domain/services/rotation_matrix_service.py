@@ -4,12 +4,14 @@ Rows are the beds of the site, columns the years, a cell the list of what stood 
 no second aggregation**: every bed is read through the same three calls of
 :class:`~app.domain.engines.crop_rotation_validator.CropRotationValidator` as ``GET /locations/{key}/rotation``
 (:meth:`~CropRotationValidator.bed_rotation_entries`, :meth:`~CropRotationValidator.timeline_years`,
-:meth:`~CropRotationValidator.timeline_rows`), so a matrix cell is the timeline row of the same bed and year by
-construction. Beds the rotation check is off for (``rotation_exempt`` or switched off)
+:meth:`~CropRotationValidator.timeline_rows`), so what stood in a matrix cell is the timeline row of the same bed and
+year by construction. Beds the rotation check is off for (``rotation_exempt`` or switched off)
 are listed and marked (``rotation_applicable = false`` plus the reason), never silently dropped.
 
-Future columns: the spec names ``CropRotationPlan`` as their source; that plan has no persisted store yet, so the
-matrix stops at the current year and invents no planned crop (nothing without a source is shown).
+Future columns (§32.5 item A, #2958): the matrix runs ``ROTATION_MATRIX_FUTURE_YEARS`` past the current year, and the
+runs still planned at a bed fill the current and the future years
+(:meth:`~CropRotationValidator.with_planned_entries`, ``source = planned``). There is no ``CropRotationPlan`` store;
+a plan never displaces what stood in the same year and season, so a past column is the timeline row unchanged.
 
 Every method takes ``*, tenant_key: str`` without a default; the site is resolved through the ownership anchor
 (:func:`~app.domain.services.location_ownership.require_owned_site`) before anything else is read.
@@ -21,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from app.common.datetimes import today_utc
-from app.config.constants import MAX_ROTATION_MATRIX_BEDS
+from app.config.constants import MAX_ROTATION_MATRIX_BEDS, ROTATION_MATRIX_FUTURE_YEARS
 from app.domain.engines.crop_rotation_validator import (
     CropRotationValidator,
     HistoryEntry,
@@ -99,9 +101,11 @@ class RotationMatrixService:
         )
         today_year = today_utc().year
         from_year = today_year - window + 1
+        to_year = today_year + ROTATION_MATRIX_FUTURE_YEARS
         rows: list[RotationMatrixBed] = []
         for loc in page:
-            entries, reset_at = history[loc.key or ""]
+            stood, reset_at = history[loc.key or ""]
+            entries = self._validator.with_planned_entries(loc, stood, to_year=to_year, tenant_key=tenant_key)
             reason = not_applicable_reason(loc)
             rows.append(
                 RotationMatrixBed(
@@ -113,4 +117,4 @@ class RotationMatrixService:
                     entries=self._validator.timeline_rows(entries, from_year=from_year, resolver=resolver),
                 )
             )
-        return RotationMatrix(site_key, window, from_year, today_year, len(beds), truncated, offset, limit, rows)
+        return RotationMatrix(site_key, window, from_year, to_year, len(beds), truncated, offset, limit, rows)

@@ -30,7 +30,11 @@ from app.common.enums import (
     SunExposure,
     SunWindow,
 )
-from app.config.constants import MAX_ROTATION_MATRIX_BEDS
+from app.config.constants import (
+    MAX_ROTATION_MATRIX_BEDS,
+    MAX_ROTATION_TIMELINE_YEARS,
+    ROTATION_MATRIX_FUTURE_YEARS,
+)
 from app.domain.models.garden_plan import MAX_OPERATIONS
 from app.domain.models.garden_plan_import import MAX_OFFSET_M, PlanImportReport
 from app.domain.models.geometry import Geometry
@@ -1013,8 +1017,9 @@ class RotationMatrixBedResponse(BaseModel):
     not_applicable_reason: str | None = None
     rotation_reset_at: date | None = None
     cells: list[RotationYearResponse] = Field(
-        max_length=10,
-        description="One cell per `columns` entry, same order; an empty `plantings` is a year nobody recorded.",
+        max_length=MAX_ROTATION_TIMELINE_YEARS + ROTATION_MATRIX_FUTURE_YEARS,
+        description="One cell per `columns` entry, same order; an empty `plantings` is a year nothing was recorded or "
+        "planned for.",
     )
 
 
@@ -1027,7 +1032,7 @@ class RotationMatrixResponse(BaseModel):
                 {
                     "site_key": "4700",
                     "years": 5,
-                    "columns": [2022, 2023, 2024, 2025, 2026],
+                    "columns": [2022, 2023, 2024, 2025, 2026, 2027, 2028],
                     "total": 1,
                     "truncated": False,
                     "offset": 0,
@@ -1040,7 +1045,11 @@ class RotationMatrixResponse(BaseModel):
 
     site_key: str
     years: int
-    columns: list[int] = Field(max_length=10, description="The years, oldest first; the current year is the last.")
+    columns: list[int] = Field(
+        max_length=MAX_ROTATION_TIMELINE_YEARS + ROTATION_MATRIX_FUTURE_YEARS,
+        description="The years, oldest first: `years` up to the current one, then two future years filled from planned "
+        "runs.",
+    )
     total: int = Field(description="Beds of the site the matrix reads (at most 500), for paging.")
     truncated: bool = Field(description="`true` when the site holds more than 500 beds; the surplus is not listed.")
     offset: int

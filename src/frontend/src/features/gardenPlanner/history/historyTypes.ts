@@ -63,7 +63,8 @@ export interface RotationPlanting {
   species_key: string | null;
   nutrient_demand: string | null;
   plan_role: PlanRole;
-  source: 'plant' | 'backfill';
+  /** `planned`: a run still planned at the bed - only the site rotation matrix shows it (#2958). */
+  source: 'plant' | 'backfill' | 'planned';
   /** The backfill event; cancel it with `DELETE …/history/backfill/{key}`. */
   care_event_key: string | null;
 }

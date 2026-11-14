@@ -8507,7 +8507,9 @@
     "rotationMatrix": {
       "title": "Fruchtfolge-Matrix",
       "backToSite": "Zurück zum Standort",
-      "description": "Je Beet und Jahr, was dort stand. Die Pflanzenfamilie erkennst du an Farbe, Kürzel und Muster; darunter steht die Zehrerklasse. Die Matrix zeigt die Daten der Beet-Historie, nichts wird neu berechnet.",
+      "description": "Je Beet und Jahr, was dort stand, und in den letzten Spalten, was dort geplant ist. Die Pflanzenfamilie erkennst du an Farbe, Kürzel und Muster; darunter steht die Zehrerklasse. Geplantes ist gestrichelt umrandet und als „geplant“ beschriftet. Die Matrix zeigt die Daten der Beet-Historie und der geplanten Durchläufe, nichts wird neu berechnet.",
+      "planned": "geplant",
+      "futureColumn": "Planung",
       "editHint": "Tippe auf ein vergangenes Jahr, um nachzutragen, was dort stand.",
       "regionLabel": "Fruchtfolge-Matrix, seitlich scrollbar",
       "caption": "Fruchtfolge der Beete dieses Standorts, je Jahr",

@@ -528,14 +528,33 @@ class TestRotationMatrix:
         rotation = {year["year"]: year["plantings"] for year in timeline.json()["timeline"]}
         cells = {cell["year"]: cell["plantings"] for cell in row["cells"]}
 
-        # bean (family pause 6) widens the default look-back to six years
-        assert list(cells) == matrix["columns"] == [2021, 2022, 2023, 2024, 2025, 2026]
-        assert cells == rotation  # the same expression: every year, every field, in the same order
+        # bean (family pause 6) widens the default look-back to six years; two future columns follow (#2958)
+        assert list(cells) == matrix["columns"] == [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028]
+        # the same expression: every year the timeline shows, every field, in the same order
+        assert {year: plantings for year, plantings in cells.items() if year <= 2026} == rotation
+        assert cells[2027] == cells[2028] == []  # nothing planned, nothing invented
         # not vacuous: three years carry a crop, and the season and the backfill key made it into the cell
         assert [year for year, plantings in cells.items() if plantings] == [2023, 2024, 2025]
         assert (cells[2023][0]["season"], cells[2023][0]["source"]) == ("spring", "backfill")
         assert cells[2023][0]["care_event_key"] is not None
         assert (cells[2024][0]["family_key"], cells[2024][0]["nutrient_demand"]) == ("solanum", "medium_feeder")
+
+    def test_a_run_planned_for_next_season_shows_in_next_years_column_marked_as_planned(self, client, world) -> None:
+        """#2958: the future columns come from planned runs (§32.5 item A), the same cells for every role."""
+        world.history.add_run("bed", "tomato", date(2027, 4, 15), date(2027, 9, 30))
+        world.history.add_run("bed", "bean", date(2027, 4, 15), status="cancelled")
+        world.history.add_run("bed", "bean", date(2027, 4, 15), tenant=OTHER_TENANT)
+
+        (row,) = client(TenantRole.VIEWER).get(self.URL).json()["beds"]
+        cells = {cell["year"]: cell["plantings"] for cell in row["cells"]}
+
+        assert [(p["species_key"], p["family_key"], p["source"], p["season"]) for p in cells[2027]] == [
+            ("tomato", "solanum", "planned", None)
+        ]
+        assert cells[2028] == []
+        # the bed timeline reads what stood, never a plan
+        timeline = client().get(f"{_BASE}/locations/bed/rotation").json()["timeline"]
+        assert all(p["source"] != "planned" for year in timeline for p in year["plantings"])
 
     def test_an_exempt_bed_and_a_bed_switched_off_are_listed_and_marked(self, client, world) -> None:
         world.plan.locations["perennial"] = make_location("perennial", "Hedge", rotation_exempt=True)
@@ -555,7 +574,8 @@ class TestRotationMatrix:
         )
         # the control: an ordinary bed of the same site is not marked, and a marked bed still shows what stood there
         assert (rows["bed"]["rotation_applicable"], rows["bed"]["not_applicable_reason"]) == (True, None)
-        assert rows["off"]["cells"][-2]["plantings"][0]["family_key"] == "solanum"
+        off_cells = {cell["year"]: cell["plantings"] for cell in rows["off"]["cells"]}
+        assert off_cells[2025][0]["family_key"] == "solanum"
 
     def test_a_planter_is_no_bed_and_stays_out_of_the_matrix(self, client) -> None:
         assert [row["location_key"] for row in client().get(self.URL).json()["beds"]] == ["bed"]
@@ -578,7 +598,8 @@ class TestRotationMatrix:
         assert client().get(self.URL, params={"years": 11}).status_code == 422
         assert client().get(self.URL, params={"years": 0}).status_code == 422
         ten = client().get(self.URL, params={"years": 10}).json()
-        assert (ten["years"], len(ten["columns"]), ten["columns"][-1]) == (10, 10, 2026)
+        assert (ten["years"], len(ten["columns"]), ten["columns"][-1]) == (10, 12, 2028)
+        assert ten["columns"][9] == 2026  # ten years back up to the current one, then the two future ones
 
     def test_the_default_look_back_follows_the_longest_pause_of_the_beds_shown(self, client, world) -> None:
         assert client().get(self.URL).json()["years"] == 5

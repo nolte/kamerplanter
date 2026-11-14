@@ -47,7 +47,8 @@ NOT_APPLICABLE_EXEMPT = "rotation.not_applicable.rotation_exempt"
 NOT_APPLICABLE_DISABLED = "rotation.not_applicable.disabled"
 
 PauseSource = Literal["species", "family", "default"]
-HistorySource = Literal["plant", "backfill"]
+#: ``planned``: a run still planned at the bed (GP-FR-135 future columns) - only the rotation matrix reads it.
+HistorySource = Literal["plant", "backfill", "planned"]
 
 #: The order of the entries of one year, earliest in the season first (#2764): a spring pre-crop before the main
 #: crop it preceded, an autumn follow-up after it. A plant carries no season; it reads as the main season.
@@ -112,7 +113,8 @@ class BedRotationResult:
 
 @dataclass(frozen=True)
 class HistoryEntry:
-    """One family-year in a bed: what stood there (a plant) or what the grower recorded afterwards (a backfill)."""
+    """One family-year in a bed: what stood there (a plant), what the grower recorded afterwards (a backfill) or, in
+    the rotation matrix only, a run still planned there (``planned``)."""
 
     year: int
     family_key: str | None
@@ -121,6 +123,17 @@ class HistoryEntry:
     season: str | None
     source: HistorySource
     event_key: str | None = None
+
+
+def _history_order(entry: HistoryEntry) -> tuple[Any, ...]:
+    """Newest year first; within a year spring, main, autumn (:data:`SEASON_ORDER`), then family, species, source."""
+    return (
+        -entry.year,
+        SEASON_ORDER.get(entry.season, 1),
+        entry.family_key or "",
+        entry.species_key or "",
+        entry.source,
+    )
 
 
 @dataclass(frozen=True)
@@ -621,11 +634,7 @@ class CropRotationValidator:
             )
             found[(row.event_key,)] = entry
         entries = [e for e in found.values() if e.year >= from_year]
-        ordered = sorted(
-            entries,
-            key=lambda e: (-e.year, SEASON_ORDER.get(e.season, 1), e.family_key or "", e.species_key or "", e.source),
-        )
-        return ordered, reset_at
+        return sorted(entries, key=_history_order), reset_at
 
     def validate_planting_in_location(
         self,
@@ -782,6 +791,40 @@ class CropRotationValidator:
         return self._bed_history(
             location, from_year=today_utc().year - MAX_ROTATION_TIMELINE_YEARS + 1, tenant_key=tenant_key
         )
+
+    def with_planned_entries(
+        self, location: Location, entries: list[HistoryEntry], *, to_year: int, tenant_key: str
+    ) -> list[HistoryEntry]:
+        """``entries`` plus the runs still planned at the bed, up to ``to_year`` (GP-FR-135, §32.5 item A).
+
+        Only the site rotation matrix calls it: the bed timeline, the planting check, the succession recommendation
+        and the nutrient hint read what stood, never a plan. A planned run counts for every year of its window from
+        today on - a window with an open end for its start year only - so a run whose window ended before today, a
+        cancelled, an active or a finished run is not there (an active run's plants are). A plan carries no season and
+        reads as the main season: a year in which a plant stood or a main-season backfill is recorded keeps only what
+        stood (the actual planting wins over the plan). A run of another tenant is not read; a species the tenant may
+        not see names no family, as for a plant.
+        """
+        history: IRotationHistoryRepository = self._bed_collaborators()[2]
+        today: date = today_utc()
+        occupied = {e.year for e in entries if SEASON_ORDER.get(e.season, 1) == SEASON_ORDER["main"]}
+        family_cache: dict[str, str | None] = {}
+        found: dict[tuple[Any, ...], HistoryEntry] = {}
+        for run in history.list_planned_runs(location.key or "", tenant_key=tenant_key):
+            if run.planned_from is None:
+                continue
+            end = run.planned_until or run.planned_from
+            if end < today:
+                continue
+            for year in range(max(run.planned_from, today).year, min(end.year, to_year) + 1):
+                if year in occupied:
+                    continue
+                for species_key in run.species_keys:
+                    family = self._family_of(species_key, family_cache, tenant_key)
+                    found[(year, family, species_key, run.plan_role)] = HistoryEntry(
+                        year, family, species_key, run.plan_role, None, "planned"
+                    )
+        return sorted([*entries, *found.values()], key=_history_order)
 
     @staticmethod
     def check_timeline_years(years: int | None) -> None:

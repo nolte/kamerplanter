@@ -571,9 +571,10 @@ def get_rotation_matrix(
     Beds are listed in name order, at most 500 of them, paged by `offset`/`limit`; `total` is the bed count after
     that cap (the paging basis), `truncated` says the site holds more than 500 beds. A bed the rotation check is off
     for (`rotation_exempt` or switched off) is listed with `rotation_applicable: false` and its reason. History before
-    a bed's `rotation_reset_at` is left out. There is no future column yet: the planned rotation (`CropRotationPlan`)
-    has no store. The default `years` is read from the beds of the page - pass the `years` of the first answer when
-    paging.
+    a bed's `rotation_reset_at` is left out. The columns run from `years` back to two years ahead: the runs still
+    planned at a bed (`source: planned`) fill the current and the future years, never a year and season in which
+    something already stood. The default `years` is read from the beds of the page - pass the `years` of the first
+    answer when paging.
     """
     matrix = service.rotation_matrix(
         key, tenant_key=ctx.tenant_key, years=years, offset=pagination.offset, limit=pagination.limit
