@@ -275,6 +275,7 @@ class SlotThinningService:
                     event=event,
                     phase_started_at=phase_started_at,
                     stand_quantity=count if stand else None,
+                    thinned_on=planted_on if stand else None,
                     run_history=_history_of(phase_key, phase_name, phase_started_at),
                     run_phase_key=phase_key or None,
                 )

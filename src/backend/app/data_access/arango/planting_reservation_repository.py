@@ -100,7 +100,8 @@ _CLEAR_WRITE = (
     col.RUN_PLANNED_AT,
     *CARE_EVENT_WRITE_COLLECTIONS,
 )
-_CLEAR_READ = (col.RUN_CONTAINS, col.RUN_AT_LOCATION)
+#: ``sites`` anchors the stand slots of the bed on the tenant (a slot carries none, E-01).
+_CLEAR_READ = (col.RUN_CONTAINS, col.RUN_AT_LOCATION, col.SITES)
 _MIXED_WRITE = (
     col.LOCATIONS,
     col.SLOTS,
@@ -148,8 +149,9 @@ _SOW_WRITE = (col.LOCATIONS, col.SLOTS)
 #: The slot roles that can be sown (§11.3): a position slot holds one planted plant, never sown seed.
 _SOWABLE_ROLES = ("row", "zone")
 #: Thinning re-reads the reservation it was decided on.
-_THIN_READ = (col.RUN_PLANNED_AT,)
-_SOW_READ = (col.PLANT_INSTANCES,)
+#: ``sites`` anchors the slot write on the tenant through the slot's bed (a slot carries none, E-01).
+_THIN_READ = (col.RUN_PLANNED_AT, col.SITES)
+_SOW_READ = (col.PLANT_INSTANCES, col.SITES)
 
 # ── Queries ──────────────────────────────────────────────────────────────────
 
@@ -174,11 +176,15 @@ FOR e IN @@edges
 #: Sets ``sown_at`` on an unarchived row or zone slot of the bed in which none of the tenant's plants stands and no
 #: zone stand grows (``thinned_at``, #2862). A plant stands in the slot its own ``slot_key`` names - selected by it,
 #: never through ``placed_in``: that edge stays on a slot a plant left, and a plant moved before #2948 has none to its
-#: current slot (#2774).
+#: current slot (#2774). A slot carries no tenant (E-01): the write is anchored on the site of the slot's bed, so a
+#: foreign tenant's slot is never written even if the service check were bypassed (zero rows -> the caller's 409).
 _MARK_SLOT_SOWN = """
 FOR s IN @@slots
     FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.slot_role IN @roles
         AND s.thinned_at == null
+    LET location = DOCUMENT(@@locations, s.location_key)
+    LET site = location == null ? null : DOCUMENT(@@sites, location.site_key)
+    FILTER site != null AND site.tenant_key == @tenant_key
     LET standing = (
         FOR plant IN @@plants
             FILTER plant.slot_key == s._key AND plant.tenant_key == @tenant_key AND plant.removed_on == null
@@ -192,11 +198,14 @@ FOR s IN @@slots
 
 #: Clears ``sown_at`` and sets the occupancy of the slot thinned — only while it is still sown on the day read, is no
 #: zone stand yet (#2862) and none of the tenant's plants stands in it (selected by its own ``slot_key``, not through
-#: ``placed_in``, #2774).
+#: ``placed_in``, #2774). Anchored on the tenant through the slot's bed and site, as ``_MARK_SLOT_SOWN``.
 _CLEAR_SOWN_SLOT = """
 FOR s IN @@slots
     FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.sown_at == @sown_at
         AND s.thinned_at == null
+    LET location = DOCUMENT(@@locations, s.location_key)
+    LET site = location == null ? null : DOCUMENT(@@sites, location.site_key)
+    FILTER site != null AND site.tenant_key == @tenant_key
     LET standing = (
         FOR plant IN @@plants
             FILTER plant.slot_key == s._key AND plant.tenant_key == @tenant_key AND plant.removed_on == null
@@ -214,6 +223,9 @@ _MARK_ZONE_STAND = """
 FOR s IN @@slots
     FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.sown_at == @sown_at
         AND s.thinned_at == null AND s.slot_role == "zone"
+    LET location = DOCUMENT(@@locations, s.location_key)
+    LET site = location == null ? null : DOCUMENT(@@sites, location.site_key)
+    FILTER site != null AND site.tenant_key == @tenant_key
     LET standing = (
         FOR plant IN @@plants
             FILTER plant.slot_key == s._key AND plant.tenant_key == @tenant_key AND plant.removed_on == null
@@ -238,9 +250,11 @@ FOR r IN @@runs
     RETURN {key: NEW._key, started: @activate AND OLD.status == "planned"}
 """
 
-#: The reservation the thinning was decided on, re-read after the bed lock: the run still reserves the slot for the
-#: same entry.
+#: The reservation the thinning was decided on, re-read after the bed lock: the run is still the tenant's and live,
+#: and still reserves the slot for the same entry - checked before the first write of the transaction.
 _RESERVATION_STILL_HELD = """
+LET run = DOCUMENT(@run_id)
+FILTER run != null AND run.tenant_key == @tenant_key AND run.status IN @live
 FOR e IN @@edges
     FILTER e._from == @run_id AND e._to == @slot_id AND (e.entry_key == null ? "" : e.entry_key) == @entry_key
     LIMIT 1
@@ -368,7 +382,7 @@ class _Reads:
                 plant_key=row["plant_key"],
                 run_key=row["run_key"],
                 expected_end=_date(row["expected_end"]),
-                stand=bool(row.get("stand")),
+                stand=bool(row["stand"]),
             )
             for row in rows
         ]
@@ -484,7 +498,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 planned_until=_date(row["planned_until"]),
                 slot_role=row["slot_role"] or "position",
                 sown_at=_date(row["sown_at"]),
-                thinned_at=_date(row.get("thinned_at")),
+                thinned_at=_date(row["thinned_at"]),
             )
             for row in cursor
         ]
@@ -809,8 +823,17 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 | set(
                     txn.aql.execute(
                         "FOR s IN @@slots FILTER s.location_key == @location_key AND s.archived_at == null "
-                        "AND s.thinned_at != null RETURN s._id",
-                        bind_vars={"@slots": col.SLOTS, "location_key": write.location_key},
+                        "AND s.thinned_at != null "
+                        "LET location = DOCUMENT(@@locations, s.location_key) "
+                        "LET site = location == null ? null : DOCUMENT(@@sites, location.site_key) "
+                        "FILTER site != null AND site.tenant_key == @tenant_key RETURN s._id",
+                        bind_vars={
+                            "@slots": col.SLOTS,
+                            "@locations": col.LOCATIONS,
+                            "@sites": col.SITES,
+                            "location_key": write.location_key,
+                            "tenant_key": write.tenant_key,
+                        },
                     )
                 )
             )
@@ -1073,6 +1096,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         "tenant_key": tenant_key,
                         "sown_at": sown_at.isoformat(),
                         "roles": list(_SOWABLE_ROLES),
+                        "@locations": col.LOCATIONS,
+                        "@sites": col.SITES,
                         "now": now,
                     },
                 )
@@ -1111,6 +1136,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         "run_id": run_id,
                         "slot_id": f"{col.SLOTS}/{write.slot_key}",
                         "entry_key": write.entry_key,
+                        "tenant_key": write.tenant_key,
+                        "live": _LIVE_STATUSES,
                     },
                 )
             )
@@ -1122,6 +1149,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             slot_vars: dict[str, Any] = {
                 "@slots": col.SLOTS,
                 "@plants": col.PLANT_INSTANCES,
+                "@locations": col.LOCATIONS,
+                "@sites": col.SITES,
                 "key": write.slot_key,
                 "location_key": write.location_key,
                 "tenant_key": write.tenant_key,
@@ -1129,7 +1158,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 "now": now,
             }
             if stand:
-                slot_vars["thinned_at"] = write.phase_started_at.date().isoformat()
+                slot_vars["thinned_at"] = str(write.thinned_on or write.sown_at)
                 cleared = list(txn.aql.execute(_MARK_ZONE_STAND, bind_vars=slot_vars))
             else:
                 cleared = list(txn.aql.execute(_CLEAR_SOWN_SLOT, bind_vars=slot_vars))

@@ -261,7 +261,7 @@ class FakeReservationRepo(IPlantingReservationRepository):
             for index, slot in enumerate(self._plan.slots):
                 if slot.key == write.slot_key:
                     self._plan.slots[index] = slot.model_copy(
-                        update={"thinned_at": write.phase_started_at.date(), "currently_occupied": True}
+                        update={"thinned_at": write.thinned_on, "currently_occupied": True}
                     )
             self.plants.append(
                 ActivePlant(slot_key=write.slot_key, plant_key="", run_key=None, expected_end=None, stand=True)

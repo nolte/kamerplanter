@@ -234,7 +234,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 species_name=_species_name(row, language),
                 scientific_name=row["scientific_name"],
                 cultivar_name=row["cultivar_name"],
-                thinned_at=_date(row.get("thinned_at")),
+                thinned_at=_date(row["thinned_at"]),
             )
             for row in rows
             if (sown_at := _date(row["sown_at"])) is not None

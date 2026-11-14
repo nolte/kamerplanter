@@ -9,7 +9,7 @@ event names them. Another tenant reaches neither the slot nor the sown state (40
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -17,7 +17,7 @@ from arango import ArangoClient
 
 from app.common.datetimes import today_utc
 from app.common.enums import PlantingRunStatus, PlantingRunType, TenantRole, TerminationType
-from app.common.exceptions import NotFoundError, PlanError
+from app.common.exceptions import NotFoundError, PlanError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.collections import ensure_collections
@@ -29,7 +29,8 @@ from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepo
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.domain.engines.planting_run_engine import PlantingRunEngine
-from app.domain.models.planting_reservation import SlotThinningInput
+from app.domain.models.care_event import CareEvent
+from app.domain.models.planting_reservation import ClearBedWrite, SlotThinningInput, SlotThinningWrite
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.plant_state_service import PlantStateService
@@ -400,3 +401,112 @@ def test_clearing_the_bed_ends_the_zone_stand(world) -> None:
     slot = world.db.collection(col.SLOTS).get("row1")
     assert slot.get("thinned_at") is None or slot.get("archived_at") is not None
     assert world.reservation_repo.active_plants_in(["row1"], tenant_key=A) == []
+
+
+# ── #2862 SEC-001/SEC-002: the repository writes anchor the tenant themselves ──
+# Each test calls the repository directly with a foreign tenant - the service's ``resolve_owned_slot`` is bypassed on
+# purpose. The bed belongs to tenant A (site_a); tenant B owns site_b only.
+
+
+def _foreign_run_reserving_row1(world) -> str:
+    """A live run of tenant B with a reservation of A's slot - the state a bypassed service check would act on."""
+    world.db.collection(col.PLANTING_RUNS).insert(
+        {"_key": "run_b", "tenant_key": B, "name": "B", "run_type": "monoculture", "status": "planned"}
+    )
+    world.db.collection(col.RUN_PLANNED_AT).insert(
+        {"_from": "planting_runs/run_b", "_to": "slots/row1", "entry_key": "e_b", "planned_species_key": "sp_carrot",
+         "sequence": 1, "planned_from": (today_utc() - timedelta(days=30)).isoformat()}
+    )  # fmt: skip
+    return "run_b"
+
+
+def _thinning_write(world, *, tenant_key: str, run_key: str, entry_key: str, stand: int | None = None):
+    sown_at = date.fromisoformat(world.db.collection(col.SLOTS).get("row1")["sown_at"])
+    event = CareEvent(
+        tenant_key=tenant_key,
+        site_key="site_b",
+        location_key="bed",
+        category="thinning",
+        performed_at=datetime.now(UTC),
+        trigger="system",
+    )
+    return SlotThinningWrite(
+        location_key="bed",
+        slot_key="row1",
+        sown_at=sown_at,
+        run_key=run_key,
+        entry_key=entry_key,
+        tenant_key=tenant_key,
+        plants=[],
+        event=event,
+        phase_started_at=datetime.now(UTC),
+        stand_quantity=stand,
+        thinned_on=today_utc() if stand is not None else None,
+    )
+
+
+def test_the_repository_does_not_sow_a_foreign_tenants_slot(world) -> None:
+    assert not world.reservation_repo.mark_slot_sown("bed", "row1", sown_at=today_utc(), tenant_key=B)
+    assert world.db.collection(col.SLOTS).get("row1").get("sown_at") is None
+
+
+@pytest.mark.parametrize("stand", [None, 1_250])
+def test_the_repository_does_not_thin_a_foreign_tenants_slot(world, stand) -> None:
+    _sown_zone(world)
+    run_key = _foreign_run_reserving_row1(world)
+
+    with pytest.raises(WriteConflictError):
+        world.reservation_repo.thin_sown_slot(
+            _thinning_write(world, tenant_key=B, run_key=run_key, entry_key="e_b", stand=stand)
+        )
+
+    slot = world.db.collection(col.SLOTS).get("row1")
+    assert slot["sown_at"] is not None
+    assert slot.get("thinned_at") is None
+    assert world.db.collection(col.PLANTING_RUNS).get(run_key).get("actual_quantity") in (None, 0)
+    assert [e for e in world.db.collection(col.CARE_EVENTS).all() if e["category"] == "thinning"] == []
+
+
+def test_the_held_reservation_must_belong_to_a_live_run_of_the_tenant(world) -> None:
+    _sown_zone(world)
+    entry_key = world.db.collection(col.RUN_PLANNED_AT).all().next()["entry_key"]
+
+    # A's own run, named under B: refused before the first write.
+    with pytest.raises(WriteConflictError):
+        world.reservation_repo.thin_sown_slot(
+            _thinning_write(world, tenant_key=B, run_key=world.run_key, entry_key=entry_key, stand=1_250)
+        )
+    # A's run, ended meanwhile: refused as well.
+    world.db.collection(col.PLANTING_RUNS).update({"_key": world.run_key, "status": "completed"})
+    with pytest.raises(WriteConflictError):
+        world.reservation_repo.thin_sown_slot(
+            _thinning_write(world, tenant_key=A, run_key=world.run_key, entry_key=entry_key, stand=1_250)
+        )
+    assert world.db.collection(col.SLOTS).get("row1").get("thinned_at") is None
+
+
+def test_clearing_under_a_foreign_tenant_leaves_the_zone_stand(world) -> None:
+    _sown_zone(world)
+    _thin_zone(world)
+
+    world.reservation_repo.clear_bed(
+        ClearBedWrite(
+            location_key="bed",
+            tenant_key=B,
+            termination_type="harvested",
+            removed_on=today_utc(),
+            event=CareEvent(
+                tenant_key=B,
+                site_key="site_b",
+                location_key="bed",
+                category="clearing",
+                performed_at=datetime.now(UTC),
+                trigger="system",
+            ),
+        )
+    )
+
+    slot = world.db.collection(col.SLOTS).get("row1")
+    assert slot["thinned_at"] == today_utc().isoformat()
+    assert slot.get("archived_at") is None
+    assert [s.stand for s in world.reservation_repo.active_plants_in(["row1"], tenant_key=A)] == [True]

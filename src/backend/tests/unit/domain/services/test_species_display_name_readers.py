@@ -339,6 +339,7 @@ class TestPlantStateRows:
             "slot_key": "s1",
             "slot_id": "BED_001",
             "sown_at": "2026-04-02",
+            "thinned_at": None,
             "run_key": "run",
             "entry_key": "e1",
             "species_key": "sp",

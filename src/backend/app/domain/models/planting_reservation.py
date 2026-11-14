@@ -381,6 +381,8 @@ class SlotThinningWrite:
     phase_started_at: datetime
     #: The target stand recorded instead of single plants; ``None`` writes the plants.
     stand_quantity: int | None = None
+    #: The thinning day a zone stand is marked with (``thinned_at``); set with ``stand_quantity``.
+    thinned_on: date | None = None
     run_history: PhaseHistory | None = None
     run_phase_key: str | None = None
     #: Start the run if it is still ``planned`` when the transaction reaches it (decided there, not on the service's
