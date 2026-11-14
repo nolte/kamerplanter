@@ -113,6 +113,22 @@ class SuccessionPlanService:
         The tenant is stamped here and an empty one refused (#2107 review SEC-003):
         the location and species checks below skip an empty tenant.
         """
+        self._checked_new_plan(plan, tenant_key=tenant_key)
+        return self._repo.create(plan)
+
+    def preview_plan(self, plan: SuccessionPlan, *, tenant_key: str) -> SuccessionPlan:
+        """What :meth:`create_plan` would store, with every one of its checks and nothing written (#2776).
+
+        The MCP ``create_succession_plan`` dry run. Besides the location and species checks, the tenant of
+        ``cultivar_key`` — which the write checks inside the repository (#948) — is checked here too. Returns
+        the plan as it would be stored (tenant, status and ``total_batches`` filled in).
+        """
+        self._checked_new_plan(plan, tenant_key=tenant_key)
+        self._repo.verify_references(plan)
+        return plan
+
+    def _checked_new_plan(self, plan: SuccessionPlan, *, tenant_key: str) -> None:
+        """Stamp and check a new plan for :meth:`create_plan` / :meth:`preview_plan`; reads only."""
         if not tenant_key:
             raise ValueError("create_plan is tenant-scoped and requires a non-empty tenant_key (#2107).")
         plan.tenant_key = tenant_key
@@ -121,7 +137,6 @@ class SuccessionPlanService:
         plan.total_batches = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
         self._verify_location_ownership(plan.location_key, plan.tenant_key)
         self._require_readable_species(plan.species_key, plan.tenant_key)
-        return self._repo.create(plan)
 
     def update_plan(self, key: SuccessionPlanKey, data: dict, *, tenant_key: str) -> SuccessionPlan:
         plan = self._owned_plan(key, tenant_key=tenant_key)
@@ -210,11 +225,9 @@ class SuccessionPlanService:
         """
         plan = self._owned_plan(plan_key, tenant_key=tenant_key)
         self._verify_location_ownership(plan.location_key, plan.tenant_key)
-        total = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
-        plan.total_batches = total
-
         start_sequence = plan.completed_batches + 1
-        runs = self._engine.generate_batch_runs(plan, start_sequence=start_sequence)
+        runs = self._pending_runs(plan, next_only=False)
+        total = plan.total_batches
         # Every batch's slots are chosen before the first run is stored: a refusal leaves nothing behind.
         picks = self._pick_slots(plan, runs)
         created: list[PlantingRun] = []
@@ -250,13 +263,12 @@ class SuccessionPlanService:
         """Generate only the next not-yet-generated batch run, or nothing when done."""
         plan = self._owned_plan(plan_key, tenant_key=tenant_key)
         self._verify_location_ownership(plan.location_key, plan.tenant_key)
-        if not plan.total_batches:
-            plan.total_batches = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
-        sequence = self._engine.next_batch_to_generate(plan)
-        if sequence is None:
+        pending = self._pending_runs(plan, next_only=True)
+        if not pending:
             return plan, None
 
-        run = self._engine.generate_batch_run(plan, sequence, total=plan.total_batches)
+        [run] = pending
+        sequence = run.succession_sequence or plan.completed_batches + 1
         [slot_keys] = self._pick_slots(plan, [run])
         created = self._persist_run(plan_key, plan, run, slot_keys)
 
@@ -268,6 +280,47 @@ class SuccessionPlanService:
             plan.status = SuccessionPlanStatus.ACTIVE
         updated = self._repo.update(plan_key, plan)
         return updated, created
+
+    def preview_generation(
+        self, plan_key: SuccessionPlanKey, *, tenant_key: str, next_only: bool = False
+    ) -> tuple[SuccessionPlan, list[tuple[PlantingRun, list[str]]]]:
+        """The runs :meth:`generate_runs` (or, with ``next_only``, :meth:`generate_next_run`) would create (#2776).
+
+        Nothing is written. Each batch is the run the engine builds, put through the checks
+        :meth:`PlantingRunService.create_run` makes before its write (the tenant of the bed, the species and the
+        cultivar of its entry), and paired with the slots it would reserve in the plan's bed — the same choice the
+        real call makes, so a bed without room answers 409 ``slot.already_planned`` / 422
+        ``succession.not_enough_slots`` here as well. A plan with every batch generated previews an empty list.
+        """
+        plan = self._owned_plan(plan_key, tenant_key=tenant_key)
+        self._verify_location_ownership(plan.location_key, plan.tenant_key)
+        runs = self._pending_runs(plan, next_only=next_only)
+        picks = self._pick_slots(plan, runs)
+        checked: list[PlantingRun] = []
+        for run in runs:
+            previewed, _entries, _layout_slots = self._run_service.preview_run(
+                run, [self._engine.build_entry(plan)], tenant_key=plan.tenant_key
+            )
+            checked += [previewed]
+        return plan, list(zip(checked, picks, strict=True))
+
+    def _pending_runs(self, plan: SuccessionPlan, *, next_only: bool) -> list[PlantingRun]:
+        """The not yet generated batch runs, unpersisted: all of them, or only the next one.
+
+        Sets ``plan.total_batches`` as the generation does: recomputed for all batches, kept when already known
+        for the next one.
+        """
+        if next_only:
+            if not plan.total_batches:
+                plan.total_batches = self._engine.compute_total_batches(
+                    plan.start_date, plan.end_date, plan.interval_days
+                )
+            sequence = self._engine.next_batch_to_generate(plan)
+            if sequence is None:
+                return []
+            return [self._engine.generate_batch_run(plan, sequence, total=plan.total_batches)]
+        plan.total_batches = self._engine.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
+        return self._engine.generate_batch_runs(plan, start_sequence=plan.completed_batches + 1)
 
     def _verify_location_ownership(self, location_key: str | None, tenant_key: str) -> None:
         """Reject a location owned by another tenant (cross-tenant reference guard).

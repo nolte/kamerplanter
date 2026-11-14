@@ -31,6 +31,10 @@ class ArangoSuccessionPlanRepository(BaseArangoRepository[SuccessionPlan], ISucc
         self._require_tenant_key(tenant_key, "list_plans_window")
         return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
 
+    def verify_references(self, plan: SuccessionPlan) -> None:
+        """The owned-reference check :meth:`create` runs before its write, alone (MCP dry run, #2776)."""
+        self._verify_owned_references(plan)
+
     def delete(self, key: SuccessionPlanKey) -> bool:
         plan_id = f"{col.SUCCESSION_PLANS}/{key}"
         self.delete_edges(col.HAS_SUCCESSION_PLAN, from_id=plan_id)

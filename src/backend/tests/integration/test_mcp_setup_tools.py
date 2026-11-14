@@ -1,4 +1,5 @@
-"""MCP setup tools end to end: ``create_location`` and ``create_plant`` (#2719, REQ-033 §2.3/§2.4).
+"""MCP setup tools end to end: ``create_location``, ``create_plant`` (#2719) and the garden-plan and
+succession tools of #2776 (REQ-033 §2.3/§2.4).
 
 Driven through the real dispatcher, the real tools, services and repositories over a real ArangoDB, so the
 refusals asserted here are the services' own. Every refusal is asserted at the store as well: a
@@ -16,6 +17,8 @@ from tests.support.boundary_harness import TENANT_A, TENANT_B, open_env
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
+_BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 10, "rotation_deg": 0}
+
 
 @pytest.fixture(scope="module")
 def env():
@@ -32,7 +35,16 @@ def db(env):
     for entry in database.collections():
         if not entry["system"]:
             database.collection(entry["name"]).truncate()
-    database.collection(col.SITES).insert({"_key": "site-a", "tenant_key": TENANT_A, "name": "A", "type": "outdoor"})
+    database.collection(col.SITES).insert(
+        {
+            "_key": "site-a",
+            "tenant_key": TENANT_A,
+            "name": "A",
+            "type": "outdoor",
+            "plan": {"boundary": _BOUNDARY, "plan_revision": 1},
+        }
+    )
+    database.collection(col.LOCATION_TYPES).insert({"_key": "bed", "name": "Bed", "is_bed": True})
     database.collection(col.SITES).insert({"_key": "site-b", "tenant_key": TENANT_B, "name": "B", "type": "outdoor"})
     database.collection(col.LOCATIONS).insert({"_key": "loc-b", "site_key": "site-b", "name": "Bed B", "area_m2": 4})
     database.collection(col.SLOTS).insert({"_key": "slot-b", "slot_id": "B_001", "location_key": "loc-b"})
@@ -253,3 +265,123 @@ async def test_a_viewer_may_not_create_a_plant(db):
     with pytest.raises(ForbiddenError):
         await _call("create_plant", _PLANT, role=TenantRole.VIEWER)
     assert db.collection(col.PLANT_INSTANCES).count() == 0
+
+
+# ── create_location with a geometry (#2776) ───────────────────────────────────
+
+
+def _rect(x: float, y: float, w: float = 2, h: float = 1) -> dict:
+    return {"kind": "rect", "origin": [x, y], "width_m": w, "length_m": h, "rotation_deg": 0}
+
+
+_BED = {"name": "Beet 1", "site_key": "site-a", "location_type_key": "bed", "geometry": _rect(1, 1)}
+
+
+@pytest.mark.asyncio
+async def test_a_bed_with_a_geometry_is_placed_and_its_area_derived(db):
+    from app.data_access.arango import collections as col
+
+    dry = await _call("create_location", {**_BED, "dry_run": True})
+    assert dry.data["area_m2"] == 2.0 and _count(db, col.LOCATIONS, site_key="site-a") == 0
+
+    response = await _call("create_location", _BED)
+
+    stored = db.collection(col.LOCATIONS).get(response.data["key"])
+    assert stored["site_key"] == "site-a" and stored["area_m2"] == 2.0
+    assert db.collection(col.SITES).get("site-a")["plan"]["plan_revision"] == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("geometry", "code"),
+    [(_rect(9, 9, 4, 4), "geometry.outside_parent"), (_rect(1.5, 1.2), "bed.overlap")],
+    ids=["V-03", "V-05"],
+)
+async def test_a_bed_breaking_a_plan_rule_is_refused_with_its_code(db, geometry, code: str):
+    from app.data_access.arango import collections as col
+    from app.mcp_server.base import McpToolError
+
+    await _call("create_location", _BED)
+
+    with pytest.raises(McpToolError) as refused:
+        await _call("create_location", {**_BED, "name": "Beet 2", "geometry": geometry})
+
+    assert code in {finding["code"] for finding in refused.value.error_details["findings"]}
+    assert _count(db, col.LOCATIONS, site_key="site-a") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_plant_in_a_placed_bed_shows_in_the_beds_rotation_matrix_row(db):
+    from app.common.dependencies import get_rotation_matrix_service
+
+    bed = await _call("create_location", _BED)
+    await _call(
+        "create_plant",
+        {**_PLANT, "location_key": bed.data["key"], "planted_on": "2026-04-01"},
+        role=TenantRole.GROWER,
+    )
+
+    matrix = get_rotation_matrix_service().rotation_matrix("site-a", tenant_key=TENANT_A)
+
+    (row,) = [b for b in matrix.beds if b.location_key == bed.data["key"]]
+    assert "sp-global" in {entry.species_key for entry in row.entries}
+
+
+# ── Succession (#2776) ────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_succession_plan_generates_runs_list_planting_runs_finds(db):
+    from app.data_access.arango import collections as col
+
+    plan = await _call(
+        "create_succession_plan",
+        {
+            "name": "Salat",
+            "species_key": "sp-global",
+            "interval_days": 14,
+            "start_date": "2027-04-01",
+            "end_date": "2027-04-29",
+            "plants_per_batch": 4,
+        },
+        role=TenantRole.GROWER,
+    )
+    key = plan.data["succession_plan_key"]
+
+    preview = await _call(
+        "generate_succession_runs", {"succession_plan_key": key, "dry_run": True}, role=TenantRole.GROWER
+    )
+    assert preview.data["generated_count"] == 3 and db.collection(col.PLANTING_RUNS).count() == 0
+
+    generated = await _call("generate_succession_runs", {"succession_plan_key": key}, role=TenantRole.GROWER)
+    listed = await _call("list_planting_runs", {}, role=TenantRole.GROWER)
+
+    assert generated.data["generated_count"] == 3
+    assert sorted(item["run_key"] for item in listed.data["items"]) == sorted(
+        run["run_key"] for run in generated.data["runs"]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize(
+    "overrides",
+    [{"location_key": "loc-b"}, {"species_key": "sp-b"}, {"cultivar_key": "cv-b"}],
+    ids=["location", "species", "cultivar"],
+)
+async def test_a_succession_plan_with_a_foreign_key_is_refused(db, overrides, dry_run: bool):
+    from app.data_access.arango import collections as col
+
+    args = {
+        "name": "Salat",
+        "species_key": "sp-global",
+        "interval_days": 14,
+        "start_date": "2027-04-01",
+        "end_date": "2027-04-29",
+        "plants_per_batch": 4,
+        **overrides,
+        "dry_run": dry_run,
+    }
+    with pytest.raises(NotFoundError):
+        await _call("create_succession_plan", args, role=TenantRole.GROWER)
+    assert db.collection(col.SUCCESSION_PLANS).count() == 0

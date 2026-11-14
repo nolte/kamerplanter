@@ -164,9 +164,10 @@ def test_create_plant_takes_what_the_rest_create_body_takes():
 
 
 def test_create_location_takes_what_the_rest_create_body_takes():
-    """Without ``geometry``, the tool is ``POST /locations``: no body field more, none less."""
+    """Besides the plan fields of the geometry path (#2776), the tool is ``POST /locations``: no field more."""
     call_fields = {"tenant", "dry_run", "idempotency_key"}
-    assert set(CreateLocation.Input.model_fields) - call_fields == set(LocationCreate.model_fields)
+    plan_fields = {"geometry", "height_m", "description", "sun_exposure"}
+    assert set(CreateLocation.Input.model_fields) - call_fields - plan_fields == set(LocationCreate.model_fields)
 
 
 # ── create_location ───────────────────────────────────────────────────────────

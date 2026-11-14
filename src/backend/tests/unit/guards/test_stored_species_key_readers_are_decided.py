@@ -64,7 +64,8 @@ _READERS: dict[str, tuple[str, str]] = {
     "app/domain/services/propagation_service.py:PropagationService._require_event_references": (_RESOLVES, ""),
     # A clonal pup inherits the mother's species only when her tenant may read it (#2082).
     "app/domain/services/plant_instance_service.py:PlantInstanceService._spawn_pup": (_RESOLVES, ""),
-    "app/domain/services/succession_plan_service.py:SuccessionPlanService.create_plan": (_RESOLVES, ""),
+    # create_plan and its dry run (preview_plan, MCP #2776) share the check.
+    "app/domain/services/succession_plan_service.py:SuccessionPlanService._checked_new_plan": (_RESOLVES, ""),
     "app/tasks/irrigation_tasks.py:_resolve_species_kc": (_RESOLVES, ""),
     "app/api/v1/overwintering_profiles/tenant_router.py:auto_generate_overwintering_profile": (_RESOLVES, ""),
     "app/api/v1/plant_instances/tenant_router.py:_to_response": (_RESOLVES, ""),

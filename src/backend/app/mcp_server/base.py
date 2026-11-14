@@ -14,7 +14,7 @@ caller's tenant role before the handler runs.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
@@ -116,9 +116,15 @@ def domain_validation_error(exc: PydanticValidationError, message: str) -> Valid
 CALL_FIELDS: frozenset[str] = frozenset({"tenant", "dry_run", "idempotency_key"})
 
 
-def record_fields(args: BaseModel, *, exclude: frozenset[str] = CALL_FIELDS) -> dict[str, Any]:
-    """A tool input as the field mapping of the record it describes, without the call-steering fields."""
-    return args.model_dump(exclude=set(exclude))
+def record_fields(
+    args: BaseModel, *, exclude: frozenset[str] = CALL_FIELDS, mode: Literal["python", "json"] = "python"
+) -> dict[str, Any]:
+    """A tool input as the field mapping of the record it describes, without the call-steering fields.
+
+    ``mode="json"`` gives the wire form (enum values, ISO dates) for a service that takes raw mappings,
+    such as the garden-plan batch.
+    """
+    return args.model_dump(exclude=set(exclude), mode=mode)
 
 
 def image_content_index(position: int) -> int:

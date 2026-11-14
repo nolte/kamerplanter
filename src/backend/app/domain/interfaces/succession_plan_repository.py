@@ -32,6 +32,11 @@ class ISuccessionPlanRepository(ABC):
     def create(self, plan: SuccessionPlan) -> SuccessionPlan: ...
 
     @abstractmethod
+    def verify_references(self, plan: SuccessionPlan) -> None:
+        """Run the owned-reference check :meth:`create` runs, without writing (dry run, #2776)."""
+        ...
+
+    @abstractmethod
     def update(self, key: SuccessionPlanKey, plan: SuccessionPlan) -> SuccessionPlan: ...
 
     @abstractmethod
