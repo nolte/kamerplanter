@@ -143,12 +143,13 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
     (_SLOTS, "app/data_access/arango/collections.py:ensure_collections"): (_ECHO, "declares the index"),
     # REQ-053 WP 8.15 (#2658, SEC-001): a bind variable of the same name, not the field. It narrows the slot read to
     # slots of the tenant's bed by their own ``_key``; no watering log is read and no species is looked up.
+    # #2773: the bind variable moved into the shared builder of load_active_slots / load_slot_rule_basis.
     (
         "watering_logs.slot_keys",
-        "app/data_access/arango/garden_plan_repository.py:ArangoGardenPlanRepository.load_active_slots",
+        "app/data_access/arango/garden_plan_repository.py:_slot_read_binds",
     ): (
         _ECHO,
-        "a slot_keys bind variable restricting the bed's own slots by _key; reads no watering log",
+        "builds the slot_keys bind variable of the bed's own slot read (load_active_slots); reads no watering log",
     ),
     # #2774: the occupancy read selects the tenant's plants by their own ``slot_key`` - a bind variable of the same
     # name, not the field; no watering log is read.
