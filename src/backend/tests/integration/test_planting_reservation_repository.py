@@ -125,6 +125,7 @@ def reserve(db, run: str, slot: str, start: str, end: str | None, entry: str = "
 
 
 def plant(db, key: str, slot: str | None, run: str | None, tenant: str = A, **fields) -> None:
+    """A plant standing in ``slot``: like every production write, its own ``slot_key`` and the edge name it (#2774)."""
     db.collection(col.PLANT_INSTANCES).insert(
         {
             "_key": key,
@@ -132,6 +133,7 @@ def plant(db, key: str, slot: str | None, run: str | None, tenant: str = A, **fi
             "instance_id": f"ID_{key}",
             "species_key": "sp",
             "planted_on": "2026-05-01",
+            **({"slot_key": slot} if slot else {}),
             **fields,
         }
     )

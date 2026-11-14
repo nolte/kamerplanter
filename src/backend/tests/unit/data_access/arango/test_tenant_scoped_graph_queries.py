@@ -231,23 +231,17 @@ class TestSiteGraphQueries:
                 resolvers={"v": lambda row: row, "site": lambda _row: sites.get(site_key)},
             )
 
+        slots = {p["slot"]["_key"]: p["slot"] for p in placements}
+
         def slot_for_plant(query: str, bind_vars: dict[str, Any]) -> Any:
-            plant_id = str(bind_vars["plant_id"])
-            rows = [p for p in placements if p["_from"] == plant_id]
-            rows = apply_predicates(
-                rows,
-                query,
-                bind_vars,
-                resolvers={
-                    "slot": lambda row: row["slot"],
-                    "plant": lambda row: plants.get(row["_from"].split("/")[-1]),
-                },
-            )
-            return [p["slot"] for p in rows]
+            # ``DOCUMENT(@plant_id)``, then the slot its own ``slot_key`` names (#2774) - not an edge scan.
+            plant = plants.get(str(bind_vars["plant_id"]).split("/")[-1])
+            rows = apply_predicates([plant] if plant else [], query, bind_vars, resolvers={"plant": lambda row: row})
+            return [slots[row["slot_key"]] for row in rows if row.get("slot_key") in slots]
 
         aql = ReplayingAql()
         aql.route("@contains_col", location_tree)
-        aql.route("@@placed_in", slot_for_plant)
+        aql.route("DOCUMENT(@slots, plant.slot_key)", slot_for_plant)
         return ArangoSiteRepository(ReplayingDatabase(aql))
 
     def test_a_foreign_sites_location_tree_is_not_walkable(self):
@@ -308,7 +302,11 @@ class TestSlotOccupancyAndHistory:
             rows = [p for p in plants.values() if p["slot_key"] == slot_key]
             return apply_predicates(rows, query, bind_vars, resolvers={"v": lambda row: row})
 
-        aql = ReplayingAql().route("INBOUND @slot_id", by_slot)
+        def by_slot_key(query: str, bind_vars: dict[str, Any]) -> Any:
+            # The occupancy read selects the plants by their own ``slot_key`` (#2774); the predicates filter them.
+            return apply_predicates(list(plants.values()), query, bind_vars, resolvers={"v": lambda row: row})
+
+        aql = ReplayingAql().route("INBOUND @slot_id", by_slot).route("FOR v IN @@plants", by_slot_key)
         return ArangoPlantInstanceRepository(ReplayingDatabase(aql))
 
     def test_a_foreign_slot_shows_no_occupants(self):

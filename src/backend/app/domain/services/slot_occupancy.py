@@ -1,9 +1,9 @@
 """Who still stands on a slot — the one predicate both occupation writers free a slot by (#2727) — and the refusals
 a slot answers when it is already taken.
 
-A slot is freed only when no plant is left on it. ``get_active_by_slot`` reads the ``placed_in`` edges, and those
-are written when a plant is created and not re-pointed when a plant is moved off a slot (``PlantInstance.slot_key``
-is): a plant counts as standing on the slot only while its own ``slot_key`` still names it.
+A slot is freed only when no plant is left on it. A plant counts as standing on the slot only while its own
+``slot_key`` names it: ``get_active_by_slot`` selects by that field, not by the ``placed_in`` edges, which keep the
+slots a plant left as rotation history (#2774).
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def plants_standing_on(
     return [
         plant
         for plant in plants.get_active_by_slot(slot_key, tenant_key=tenant_key)
-        if plant.slot_key == slot_key and (leaving is None or plant.key != leaving)
+        if leaving is None or plant.key != leaving
     ]
 
 

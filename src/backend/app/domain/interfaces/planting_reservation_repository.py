@@ -34,7 +34,7 @@ class IPlantingReservationRepository(ABC):
 
     @abstractmethod
     def active_plants_in(self, slot_keys: list[str], *, tenant_key: str) -> list[ActivePlant]:
-        """The tenant's plants standing in ``slot_keys`` (``placed_in``, ``removed_on`` null)."""
+        """The tenant's plants standing in ``slot_keys`` (by their own ``slot_key``, ``removed_on`` null)."""
 
     @abstractmethod
     def reservations_of_run(self, run_key: str, *, tenant_key: str) -> list[Reservation]:

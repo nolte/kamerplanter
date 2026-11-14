@@ -64,15 +64,14 @@ _READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_species")
 
 #: The bed's sown slots without a standing plant of the tenant, with the crop of their live reservation (W-015).
 #: A slot carries no tenant (E-01): the plants and the reserving run are filtered on it, the bed was resolved first.
+#: A plant stands in the slot its own ``slot_key`` names - selected by it, not through ``placed_in`` (#2774).
 _SOWN_SLOTS = (
     """
 FOR s IN @@slots
     FILTER s.location_key == @location_key AND s.archived_at == null AND s.sown_at != null
     LET standing = (
-        FOR e IN @@placed_in
-            FILTER e._to == s._id
-            LET plant = DOCUMENT(e._from)
-            FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+        FOR plant IN @@plants
+            FILTER plant.slot_key == s._key AND plant.tenant_key == @tenant_key AND plant.removed_on == null
             LIMIT 1
             RETURN 1
     )
@@ -209,7 +208,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             raise ValueError("list_sown_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
         bind_vars: dict[str, Any] = {
             "@slots": col.SLOTS,
-            "@placed_in": col.PLACED_IN,
+            "@plants": col.PLANT_INSTANCES,
             "@planned_at": col.RUN_PLANNED_AT,
             "entries": col.PLANTING_RUN_ENTRIES,
             "species": col.SPECIES,

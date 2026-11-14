@@ -89,11 +89,11 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         :class:`NotFoundError` instead of surfacing the raw
         ``DocumentUpdateError`` — the hand-rolled version never mapped 1202.
 
-        A plant standing on a slot has a ``placed_in`` edge to it, whichever write put it there: occupancy
-        (``get_active_by_slot``) and crop-rotation history (``get_history_by_slot``) read the edge, and only
-        ``create`` wrote one - a plant *moved* onto a slot (``PUT``/``PATCH``/MCP, a run relocation) stood there
-        unseen. The edge to a slot it left stays: it is that slot's history, and a plant counts as standing only
-        while its own ``slot_key`` names the slot (``slot_occupancy.plants_standing_on``).
+        A plant that stood on a slot has a ``placed_in`` edge to it, whichever write put it there: crop-rotation
+        history (``get_history_by_slot``) reads the edge, and only ``create`` wrote one - a plant *moved* onto a
+        slot (``PUT``/``PATCH``/MCP, a run relocation) was missing from that slot's history. The edge to a slot it
+        left stays: it is that slot's history. Where a plant stands *now* is its own ``slot_key``, which the
+        occupancy reads select by (``get_active_by_slot``, #2774).
         """
         updated = super().update(key, plant)
         if plant.slot_key:
@@ -136,23 +136,21 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         engine reads it to decide whether a neighbouring plant conflicts, so an
         unscoped answer would describe another tenant's bed in a warning message.
 
-        "Currently" means the plant's own ``slot_key`` still names the slot: ``placed_in`` keeps the edge of a
-        plant that moved on (it is the slot's crop-rotation history, :meth:`get_history_by_slot`), so the edge
-        alone would still count it as a neighbour of the slot it left.
+        "Currently" means the plant's own ``slot_key`` names the slot, so the plants are selected by it and not
+        through ``placed_in``: that edge stays on a slot a plant left (it is the slot's crop-rotation history,
+        :meth:`get_history_by_slot`), and a plant moved before #2948 has none to its current slot (#2774).
         """
         self._require_tenant_key(tenant_key, "get_active_by_slot")
         query = """
-        FOR v, e IN 1..1 INBOUND @slot_id GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge_col]}
-          FILTER v.removed_on == null
-          FILTER v.tenant_key == @tenant_key
+        FOR v IN @@plants
           FILTER v.slot_key == @slot_key
-          RETURN DISTINCT v
+          FILTER v.tenant_key == @tenant_key
+          FILTER v.removed_on == null
+          RETURN v
         """
         bind_vars = {
+            "@plants": col.PLANT_INSTANCES,
             "slot_key": slot_key,
-            "slot_id": f"{col.SLOTS}/{slot_key}",
-            "edge_col": col.PLACED_IN,
             "tenant_key": tenant_key,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
@@ -161,8 +159,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
     def get_history_by_slot(self, slot_key: SlotKey, years: int = 3, *, tenant_key: str) -> list[PlantInstance]:
         """Past plantings of a slot within ``years``, **inside one tenant** (#927).
 
-        Same treatment as :meth:`get_active_by_slot`; this is the crop-rotation
-        history, which says which botanical families were grown in that bed.
+        Tenant-scoped like :meth:`get_active_by_slot`, but read through the
+        ``placed_in`` edges, not ``slot_key``: this is the crop-rotation history,
+        which says which botanical families were grown in that bed, including plants
+        that have since moved on.
         """
         self._require_tenant_key(tenant_key, "get_history_by_slot")
         # ``planted_on`` is a ``date`` stored as ``YYYY-MM-DD``: bind the cutoff as a
