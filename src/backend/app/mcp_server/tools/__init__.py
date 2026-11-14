@@ -24,8 +24,8 @@ the inventory in §2):
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location,
   add_plant_diary_entry, claim_diary_analysis, submit_diary_analysis,
   record_feeding_event, create_inspection, assign_nutrient_plan,
-  transition_plant_phase
-* setup (mcp.setup): create_site, assign_species_phase_sequence
+  transition_plant_phase, create_planting_run, create_plant
+* setup (mcp.setup): create_site, create_location, assign_species_phase_sequence
 
 The five ``*_diary_analys*`` / ``get_diary_entry*`` tools (REQ-050 §4,
 REQ-033 §2.2a) are the complete contract for the external analysis agent in the

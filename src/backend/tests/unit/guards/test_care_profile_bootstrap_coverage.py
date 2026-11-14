@@ -73,6 +73,23 @@ _BOOTSTRAP_CALLS = frozenset(
 )
 
 
+#: Functions that build a ``PlantInstance`` without storing it — classified by hand, each with its reason.
+#:
+#: Construction is detector D1 because a builder is where an unbootstrapped write usually starts. A function that
+#: only *drafts* a plant for someone else to store or to check is not one: the bootstrap belongs to the path that
+#: persists the draft. Every entry must still be a creation site and must call no persisting method
+#: (``test_a_draft_only_site_persists_nothing``), so an entry cannot quietly turn into an unbootstrapped writer.
+_DRAFT_ONLY: dict[str, str] = {
+    "app/mcp_server/tools/plants.py::_draft": (
+        "MCP create_plant builds the plant from its input; execute stores it through "
+        "PlantInstanceService.create_plant (which bootstraps), the dry run only checks it (preview_plant)."
+    ),
+}
+
+#: Calls that store a plant row, for the draft-only check.
+_PERSISTING_CALLS = frozenset({"create", "create_plant", "create_plants", "insert"})
+
+
 def _module_files() -> list[Path]:
     files = []
     for path in sorted(_APP.rglob("*.py")):
@@ -200,7 +217,11 @@ class TestEveryCreationPathBootstrapsTheCareProfile:
     def test_no_plant_is_created_without_a_care_profile(self) -> None:
         creation_sites, bootstrapped = scan_tree()
 
-        unbootstrapped = {key: site["where"] for key, site in creation_sites.items() if key not in bootstrapped}
+        unbootstrapped = {
+            key: site["where"]
+            for key, site in creation_sites.items()
+            if key not in bootstrapped and key not in _DRAFT_ONLY
+        }
 
         assert not unbootstrapped, (
             "these functions create a PlantInstance without reaching the care-profile "
@@ -208,6 +229,15 @@ class TestEveryCreationPathBootstrapsTheCareProfile:
             "Call `_bootstrap_care_profile_for(created)` (or route through a function that "
             "does) — see #1444."
         )
+
+    @pytest.mark.parametrize("key", sorted(_DRAFT_ONLY))
+    def test_a_draft_only_site_persists_nothing(self, key: str) -> None:
+        """A draft-only entry is still a creation site (not stale) and stores nothing itself."""
+        creation_sites, _bootstrapped = scan_tree()
+
+        assert key in creation_sites, f"{key} no longer builds a PlantInstance; drop it from _DRAFT_ONLY"
+        assert len(_DRAFT_ONLY[key]) >= 12
+        assert not creation_sites[key]["calls"] & _PERSISTING_CALLS, f"{key} stores a plant; it is no draft"
 
     @pytest.mark.parametrize(
         "function_name",
@@ -411,11 +441,13 @@ class TestTheClosure:
         name — and still pass every test above.
         """
         creation_sites, bootstrapped = scan_tree()
-        assert {key for key in creation_sites if key not in bootstrapped} == set(), "the real tree is clean"
+
+        def open_sites() -> set[str]:
+            return {key for key in creation_sites if key not in bootstrapped and key not in _DRAFT_ONLY}
+
+        assert open_sites() == set(), "the real tree is clean"
 
         injected, _direct = scan_source(_UNBOOTSTRAPPED, label="app/services/fake_import.py")
         creation_sites.update(injected)
 
-        assert {key for key in creation_sites if key not in bootstrapped} == {
-            "app/services/fake_import.py::import_plant"
-        }
+        assert open_sites() == {"app/services/fake_import.py::import_plant"}

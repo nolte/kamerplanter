@@ -181,7 +181,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 ## Werkzeug-Katalog (aktueller Stand)
 
 !!! note "Teilweise verfügbar: Werkzeug-Umfang"
-    Umgesetzt sind derzeit 68 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) und die acht Werkzeuge der Wachstumsphasen-Ebene (siehe [Wachstumsphasen und Lebenszyklus](#wachstumsphasen-und-lebenszyklus)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, Standort- und Bereichsverwaltung sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
+    Umgesetzt sind derzeit 70 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) und die acht Werkzeuge der Wachstumsphasen-Ebene (siehe [Wachstumsphasen und Lebenszyklus](#wachstumsphasen-und-lebenszyklus)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, das Ändern und Löschen von Standorten und Bereichen sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
 
 !!! info "Neu: was ein Analyse-Agent zurückschreiben kann"
     Fünf Werkzeuge sind hinzugekommen, die extern betriebene Analyse-Agenten brauchten. Jedes ist mit dem Lese-Werkzeug gepaart, das sein Ergebnis wiederfindet — ein Schreibvorgang, den anschließend kein Lese-Werkzeug mehr sichtbar macht, gilt hier als Fehler:
@@ -265,12 +265,14 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `set_nutrient_plan_phase_targets` | An **einer** Phase eines eigenen Plans `target_ec_ms` / `reference_ec_ms` setzen. Ein ausgelassenes Feld bleibt unverändert; leeren kann das Werkzeug nichts |
 | `transition_plant_phase` | Eine Pflanze in eine Phase setzen oder eine falsche korrigieren. Das Ziel wird gegen die Abfolge geprüft, auf der die **Art dieser Pflanze** läuft — ein fremder Phasenschlüssel würde die Pflanze in einer Phase parken, aus der ihr Lebenszyklus nie wieder herausfindet |
 | `create_planting_run` | Einen geplanten Pflanzdurchlauf anlegen (Mono- oder Klon-Run) mit höchstens einem Eintrag und, für die Beetplanung, Belegungsfenster (`planned_from`/`planned_until`), Rolle in der Fruchtfolge und reservierter Fläche. Ein Trockenlauf (`dry_run`) prüft alles, was das Anlegen prüft, und schreibt nichts. Eine Mischkultur ist kein Durchlauf mit mehreren Einträgen und wird abgelehnt; das Ergebnis findet `list_planting_runs` |
+| `create_plant` | Eine einzelne Pflanze anlegen, wahlweise gleich an einem Standort, in einem Bereich und auf einem Slot. Nimmt dieselben Felder wie das Anlegen in der Oberfläche; ohne `current_phase_key` startet die Pflanze in der ersten Phase ihrer Art. Jeder Schlüssel (Standort, Bereich, Slot, Art, Sorte, Substrat) wird gegen deinen Garten geprüft, auch im Trockenlauf; eine schon vergebene `instance_id` lehnt schon der Trockenlauf mit `conflict.duplicate` ab. Das Ergebnis findest du mit `list_plants` |
 
 ### Setup-Werkzeuge (`mcp.setup`)
 
 | Werkzeug | Zweck |
 |----------|-------|
 | `create_site` | Standort-Wurzel anlegen (Wohnung, Garten, Balkon, Gewächshaus, Fensterbank, Growzelt) |
+| `create_location` | Einen Bereich (Raum, Zelt, Regal, Beet) in einem Standort anlegen, mit `parent_location_key` beliebig tief verschachtelt — dann gilt der Standort des Elternbereichs. Die Antwort enthält den neuen Schlüssel (`key`); mit `get_location` liest du den Bereich wieder |
 | `assign_species_phase_sequence` | Eine Art an eine **vorhandene** Phasen-Abfolge binden. Verlangt `mcp.setup` und nicht nur `mcp.write` **und die Plattform-Admin-Rolle** (das Werkzeug hat keinen Mandanten; für Nicht-Admins ist es nicht gelistet und wird mit `permission.denied` abgelehnt), weil Arten und Abfolgen zum gemeinsamen Katalog gehören: eine einzige Bindung ändert den Zeitplan aller Pflanzen dieser Art in *jedem* Garten. Abfolgen zu *definieren* bleibt bewusst Aufgabe der Oberfläche |
 
 Jedes Werkzeug prüft die referenzierten Schlüssel (Pflanze, Standort, Bereich, Slot) grundsätzlich gegen den für diesen Aufruf aufgelösten Mandanten. Ein Fremdschlüssel aus einem anderen Mandanten liefert konsequent `not_found` — niemals `permission.denied` — damit kein Werkzeug die Existenz fremder Ressourcen verrät.

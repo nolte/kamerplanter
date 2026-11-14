@@ -71,6 +71,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             self.create_edge(col.PLACED_IN, plant_id, slot_id)
         return created
 
+    def verify_references(self, plant: PlantInstance) -> None:
+        """The owned-reference check :meth:`create` runs before its write, alone (MCP dry run, #2719)."""
+        self._verify_owned_references(plant)
+
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
         """Full-replace update, on the shared base path (#968 §2).
 

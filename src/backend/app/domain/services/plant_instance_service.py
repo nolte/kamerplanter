@@ -13,7 +13,7 @@ from app.common.enums import (
     TerminationType,
     TransitionTrigger,
 )
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.common.log_privacy import log_tenant, loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
@@ -502,13 +502,25 @@ class PlantInstanceService:
         except Exception:  # noqa: BLE001 — never fail plant creation for this
             logger.error("care_profile_bootstrap_failed", plant_key=created.key, exc_info=True)
 
-    def create_plant(self, plant: PlantInstance, skip_validation: bool = False, *, tenant_key: str) -> PlantInstance:
-        """Create ``plant`` in ``tenant_key``.
+    def preview_plant(self, plant: PlantInstance, *, tenant_key: str) -> PlantInstance:
+        """What :meth:`create_plant` would store, with every one of its checks and nothing written (#2719).
 
-        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
-        plant before anything is resolved, so every reference check below — site,
-        species, substrate, slot — runs against the caller's tenant rather than
-        against whatever the model happened to carry.
+        The MCP ``create_plant`` dry run. Besides the checks :meth:`create_plant` makes itself, the two the
+        write makes inside the repository run here as well: the tenant of ``cultivar_key`` (the #948 owned
+        reference) and the tenant-unique ``instance_id`` (409, #2065). Returns the plant as it would be stored —
+        tenant stamped, initial phase resolved — so a dry run and the real call cannot disagree on validity.
+        """
+        self._checked_new_plant(plant, False, tenant_key=tenant_key)
+        self._repo.verify_references(plant)
+        if self._repo.get_by_instance_id(plant.instance_id, tenant_key=tenant_key) is not None:
+            raise DuplicateError("PlantInstance", "instance_id", plant.instance_id)
+        return plant
+
+    def _checked_new_plant(self, plant: PlantInstance, skip_validation: bool, *, tenant_key: str) -> bool:
+        """Stamp and check a new plant for :meth:`create_plant` / :meth:`preview_plant`; reads only.
+
+        Resolves the initial phase onto ``plant`` and returns whether a caller-supplied phase is an
+        actual-state capture (a non-first phase, #539 gap 2).
         """
         if not tenant_key:
             raise ValueError("create_plant is tenant-scoped and requires a non-empty tenant_key (#2107).")
@@ -566,7 +578,18 @@ class PlantInstanceService:
             is_actual_state_capture = bool(first_key) and plant.current_phase_key != first_key
         elif first_key:
             plant.current_phase_key = first_key
-        else:
+        return is_actual_state_capture
+
+    def create_plant(self, plant: PlantInstance, skip_validation: bool = False, *, tenant_key: str) -> PlantInstance:
+        """Create ``plant`` in ``tenant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
+        plant before anything is resolved, so every reference check below — site,
+        species, substrate, slot — runs against the caller's tenant rather than
+        against whatever the model happened to carry.
+        """
+        is_actual_state_capture = self._checked_new_plant(plant, skip_validation, tenant_key=tenant_key)
+        if not plant.current_phase_key:
             # No phase could be resolved at all: the species has neither a bound
             # PhaseSequence nor a LifecycleConfig with growth phases. Until #1006 this
             # branch did not exist — creation fell through silently and produced a plant
