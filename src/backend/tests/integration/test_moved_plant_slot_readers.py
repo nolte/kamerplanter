@@ -5,7 +5,9 @@ the slot it left - that edge is the old slot's crop-rotation history (#2948). Me
 with the moved state produced the way production produces it (``create`` on slot A, then ``update`` with slot B, so
 both edges exist): sowing and thinning the old slot are not refused, the old slot has no occupant, the bed listing and
 the bed clearing see the plant only in its new bed, the sown-slot read lists the old slot, and the slot of a plant is
-its new one. A run relocation through ``PlantingRunService.update_run`` leaves the old bed's readers empty.
+its new one. A run relocation through ``PlantingRunService.update_run`` leaves the old bed's readers empty. A plant
+moved before #2948 - its ``slot_key`` names the new slot, its only edge the old one - is found on its new slot by
+every reader, which is why the readers select by ``slot_key`` and not through the edge.
 
 Every "not there" assertion is paired with the control through the same reader: the plant on its new slot, or a
 plant that never moved.
@@ -52,7 +54,7 @@ def database():
         system.delete_database(TEST_DATABASE)
     system.create_database(TEST_DATABASE)
     db = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
-    # The production schema and graph: ``get_active_by_slot`` traverses ``kamerplanter_graph``.
+    # The production schema, graph and indexes.
     col.ensure_collections(db)
     yield db
     system.delete_database(TEST_DATABASE)
@@ -412,3 +414,115 @@ class TestRunRelocation:
         assert sorted((a.slot_key, a.plant_key) for a in occupants) == sorted((s, k) for k, s in slot_of.items())
         listed = repo.list_plantings("bed2", tenant_key=A, state=None, year=None)
         assert sorted(r.plant_key for r in listed) == sorted(keys)
+
+
+def legacy_move(db, key: str, slot: str, location: str | None = None) -> None:
+    """The state a plant moved before #2948 is left in: its ``slot_key`` names the new slot, its only ``placed_in``
+    edge still points at the old one - ``update`` did not write an edge then. Written directly, not through
+    ``update``, because no production path produces it any more."""
+    fields: dict[str, Any] = {"_key": key, "slot_key": slot}
+    if location is not None:
+        fields["location_key"] = location
+    db.collection(col.PLANT_INSTANCES).update(fields)
+
+
+class TestLegacyMovedBeforeTheEdgeFix:
+    """A plant moved before #2948 (``slot_key`` = new slot, edge only to the old one) stands on its new slot."""
+
+    def test_the_precondition_is_the_pre_2948_state(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+
+        legacy_move(db, pi, "t1", "bed2")
+
+        assert edge_targets(db, pi) == ["slots/s1"]
+        moved = plants.get_by_key(pi)
+        assert moved is not None and moved.slot_key == "t1"
+
+    def test_its_slot_cannot_be_sown_and_the_slot_it_left_can(self, db, plants, repo) -> None:
+        make_slot(db, "row1", role="row")
+        make_slot(db, "row2", role="row")
+        pi = place(plants, "pi", "row1")
+        legacy_move(db, pi, "row2")
+
+        assert not repo.mark_slot_sown("bed", "row2", sown_at=SOWN_AT, tenant_key=A)
+        assert db.collection(col.SLOTS).get("row2").get("sown_at") is None
+        assert repo.mark_slot_sown("bed", "row1", sown_at=SOWN_AT, tenant_key=A)
+
+    def test_its_slot_refuses_the_thinning(self, db, plants, repo) -> None:
+        make_slot(db, "row0", role="row")
+        make_slot(db, "row1", role="row", sown_at=SOWN_AT.isoformat())
+        make_run(db, "run_a", status="planned")
+        reserve(db, "run_a", "row1")
+        pi = place(plants, "pi", "row0")
+        legacy_move(db, pi, "row1")
+
+        with pytest.raises(WriteConflictError):
+            repo.thin_sown_slot(TestThinning().write())
+
+        assert db.collection(col.SLOTS).get("row1")["sown_at"] == SOWN_AT.isoformat()
+
+    def test_it_occupies_its_slot_and_not_the_one_it_left(self, db, plants, repo) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+        legacy_move(db, pi, "t1", "bed2")
+
+        assert repo.active_plants_in(["s1"], tenant_key=A) == []
+        (occupant,) = repo.active_plants_in(["s1", "t1"], tenant_key=A)
+        assert (occupant.slot_key, occupant.plant_key) == ("t1", pi)
+        assert [p.key for p in plants.get_active_by_slot("t1", tenant_key=A)] == [pi]
+        assert plants.get_active_by_slot("s1", tenant_key=A) == []
+
+    def test_its_new_bed_lists_it_and_the_old_one_does_not(self, db, plants, repo) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+        legacy_move(db, pi, "t1", "bed2")
+
+        assert repo.list_plantings("bed", tenant_key=A, state=None, year=None) == []
+        new_bed = repo.list_plantings("bed2", tenant_key=A, state=None, year=None)
+        assert [(r.plant_key, r.slot_key) for r in new_bed] == [(pi, "t1")]
+
+    def test_clearing_its_new_bed_removes_it_and_the_old_bed_keeps_it(self, db, plants, repo) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+        legacy_move(db, pi, "t1", "bed2")
+
+        assert repo.clear_bed(TestClearBed().write("bed")).removed_plant_keys == []
+        assert db.collection(col.PLANT_INSTANCES).get(pi).get("removed_on") is None
+
+        assert repo.clear_bed(TestClearBed().write("bed2")).removed_plant_keys == [pi]
+        assert db.collection(col.PLANT_INSTANCES).get(pi)["removed_on"] == "2026-11-13"
+
+    def test_its_sown_slot_is_not_listed_and_the_one_it_left_is(self, db, plants) -> None:
+        make_slot(db, "row1", role="row", sown_at=SOWN_AT.isoformat())
+        make_slot(db, "row2", role="row", sown_at=SOWN_AT.isoformat())
+        make_run(db, "run_a", status="planned")
+        reserve(db, "run_a", "row1")
+        reserve(db, "run_a", "row2")
+        pi = place(plants, "pi", "row1")
+        legacy_move(db, pi, "row2")
+
+        sown = ArangoPlantStateRepository(db).list_sown_slots("bed", tenant_key=A)
+
+        assert [s.slot_key for s in sown] == ["row1"]
+
+    def test_its_slot_is_the_new_one(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+        legacy_move(db, pi, "t1", "bed2")
+
+        slot = ArangoSiteRepository(db).get_slot_for_plant(pi, tenant_key=A)
+
+        assert slot is not None and slot.key == "t1"
+
+
+def test_the_plants_are_indexed_by_slot_key(database) -> None:
+    """The occupancy readers select by ``slot_key``; ``ensure_collections`` gives them a persistent index (#2774)."""
+    indexes = database.collection(col.PLANT_INSTANCES).indexes()
+
+    assert any(i["type"] == "persistent" and i["fields"] == col.PLANT_INSTANCE_SLOT_INDEX_FIELDS for i in indexes)

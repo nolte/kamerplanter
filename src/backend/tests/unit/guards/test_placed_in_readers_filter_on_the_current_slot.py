@@ -1,24 +1,24 @@
-"""#2774 — every reader of ``placed_in`` that means "on the slot now" filters on the plant's own ``slot_key``.
+"""#2774 - a reader of where a plant stands *now* selects it by its own ``slot_key``, never through ``placed_in``.
 
 ``ArangoPlantInstanceRepository.update`` adds a ``placed_in`` edge to the new slot of a moved plant and keeps the
-edge to the slot it left (#2948): that edge is the old slot's crop-rotation history. The edge alone therefore no
-longer says where a plant stands - only the plant's own ``slot_key`` does. A reader that asks "which plants stand
-in this slot / bed" and follows the edge without comparing ``slot_key`` counts a moved plant on every slot it ever
-stood in (a phantom occupant, a refused sowing, and in ``clear_bed`` a plant of another bed removed).
+edge to the slot it left (#2948): that edge is the old slot's crop-rotation history. A plant moved before #2948 has
+no edge to its current slot at all. The edge therefore never says where a plant stands - only the plant's own
+``slot_key`` does. A reader that asks "which plants stand in this slot / bed" through the edge counts a moved plant
+on every slot it ever stood in and misses a plant moved before #2948 on the slot it stands in (a phantom occupant,
+a sowing over a standing plant, and in ``clear_bed`` a plant of another bed removed or one of this bed left).
 
-The population is every place under ``app/`` that names the edge collection: the constant ``PLACED_IN`` (as an
-attribute or a bare name) and every string literal containing the word ``placed_in`` (AQL text with
-``@@placed_in``, bind keys, edge lists), docstrings excluded. Each site is keyed by its enclosing unit (the function
-or class, or the module-level constant it is assigned to) and listed in :data:`_SITES` with a verdict:
+Two registers, both checked against the code:
 
-* ``current`` - a reader of the current occupancy. Checked against the code: the unit's AQL text (its own string
-  literals plus the module-level string constants it names) must compare an attribute ``.slot_key`` with something
-  other than ``null``, and every literal in it that reads ``@@placed_in`` must do so itself;
-* ``history`` - a reader that deliberately sees every slot a plant ever stood in (reason given);
-* ``writer`` / ``declaration`` - writes edges, or names the collection for a transaction, an index, the graph or an
-  export. Checked against the code: such a unit must contain no AQL that iterates ``@@placed_in``.
-
-An unclassified site fails, and so does a register entry no site matches any more (a stale entry).
+* :data:`_CURRENT_READERS` - the readers of the current occupancy. Each unit must exist (no stale entry) and its
+  AQL - its own string literals plus the module-level string constants it names - must not name ``placed_in``
+  at all: it selects the plants by ``slot_key`` (or looks the slot up by it).
+* :data:`_SITES` - every place under ``app/`` that names the edge collection (the constant ``PLACED_IN`` as an
+  attribute or a bare name, and every non-docstring string literal containing the word ``placed_in``), keyed by
+  its enclosing unit (function, class, or module-level assignment), with a verdict: ``history`` (a reader that
+  deliberately sees every slot a plant ever stood in, reason given), ``writer`` or ``declaration`` (writes edges,
+  or names the collection for the schema, the graph, a transaction or an export; such a unit must not iterate
+  ``@@placed_in``). There is no ``current`` verdict: a new reader of the edge is either history, with a reason, or
+  it is wrong. An unclassified site fails, and so does an entry no site matches any more.
 
 What this does not see: a traversal over ``GRAPH 'kamerplanter_graph'`` without ``edgeCollections`` that reaches
 ``placed_in`` implicitly - it names neither the constant nor the string. The behaviour itself is held by
@@ -34,7 +34,6 @@ from pathlib import Path
 APP = Path(__file__).resolve().parents[3] / "app"
 BACKEND = APP.parent
 
-_CURRENT = "current"
 _HISTORY = "history"
 _WRITER = "writer"
 _DECLARATION = "declaration"
@@ -44,24 +43,26 @@ _PI = "app/data_access/arango/plant_instance_repository.py"
 _PS = "app/data_access/arango/plant_state_repository.py"
 _CO = "app/data_access/arango/collections.py"
 
-#: ``"path:unit"`` → ``(verdict, reason)``.
+_SS = "app/data_access/arango/site_repository.py"
+
+#: ``"path:unit"`` of every reader of the current occupancy → what it answers. None of them may name ``placed_in``.
+_CURRENT_READERS: dict[str, str] = {
+    f"{_PR}:_MARK_SLOT_SOWN": "refuses sowing a slot a plant stands in",
+    f"{_PR}:ArangoPlantingReservationRepository.mark_slot_sown": "executes _MARK_SLOT_SOWN",
+    f"{_PR}:_CLEAR_SOWN_SLOT": "refuses thinning a slot a plant stands in",
+    f"{_PR}:ArangoPlantingReservationRepository.thin_sown_slot": "executes _CLEAR_SOWN_SLOT",
+    f"{_PR}:_ACTIVE_PLANTS_IN_SLOTS": "the occupants a reservation conflicts with",
+    f"{_PR}:_Reads.active_plants_in": "executes _ACTIVE_PLANTS_IN_SLOTS",
+    f"{_PR}:ArangoPlantingReservationRepository._plant_rows": "the bed's plantings, one row per plant",
+    f"{_PR}:ArangoPlantingReservationRepository._live_plants": "the plants clear_bed removes",
+    f"{_PS}:_SOWN_SLOTS": "sown slots without a standing plant",
+    f"{_PS}:ArangoPlantStateRepository.list_sown_slots": "executes _SOWN_SLOTS",
+    f"{_PI}:ArangoPlantInstanceRepository.get_active_by_slot": "plants currently occupying a slot",
+    f"{_SS}:ArangoSiteRepository.get_slot_for_plant": "the slot a plant stands in (watering)",
+}
+
+#: ``"path:unit"`` → ``(verdict, reason)`` for every unit naming ``placed_in``.
 _SITES: dict[str, tuple[str, str]] = {
-    # -- readers of the current occupancy ---------------------------------------------------------------------
-    f"{_PR}:_MARK_SLOT_SOWN": (_CURRENT, "refuses sowing a slot a plant stands in"),
-    f"{_PR}:ArangoPlantingReservationRepository.mark_slot_sown": (_CURRENT, "executes _MARK_SLOT_SOWN"),
-    f"{_PR}:_CLEAR_SOWN_SLOT": (_CURRENT, "refuses thinning a slot a plant stands in"),
-    f"{_PR}:ArangoPlantingReservationRepository._thin_sown_slot": (_CURRENT, "executes _CLEAR_SOWN_SLOT"),
-    f"{_PR}:_ACTIVE_PLANTS_IN_SLOTS": (_CURRENT, "the occupants a reservation conflicts with"),
-    f"{_PR}:_Reads.active_plants_in": (_CURRENT, "executes _ACTIVE_PLANTS_IN_SLOTS"),
-    f"{_PR}:ArangoPlantingReservationRepository._plant_rows": (_CURRENT, "the bed's plantings, one row per plant"),
-    f"{_PR}:ArangoPlantingReservationRepository._live_plants": (_CURRENT, "the plants clear_bed removes"),
-    f"{_PS}:_SOWN_SLOTS": (_CURRENT, "sown slots without a standing plant"),
-    f"{_PS}:ArangoPlantStateRepository.list_sown_slots": (_CURRENT, "executes _SOWN_SLOTS"),
-    f"{_PI}:ArangoPlantInstanceRepository.get_active_by_slot": (_CURRENT, "plants currently occupying a slot"),
-    "app/data_access/arango/site_repository.py:ArangoSiteRepository.get_slot_for_plant": (
-        _CURRENT,
-        "the slot a plant stands in (watering)",
-    ),
     # -- history readers: every slot a plant ever stood in is the point -----------------------------------------
     f"{_PI}:ArangoPlantInstanceRepository.get_history_by_slot": (
         _HISTORY,
@@ -96,12 +97,9 @@ _SITES: dict[str, tuple[str, str]] = {
     f"{_CO}:PLACED_IN": (_DECLARATION, "the collection name constant"),
     f"{_CO}:EDGE_COLLECTIONS": (_DECLARATION, "the edge collections created at startup"),
     f"{_CO}:GRAPH_EDGE_DEFINITIONS": (_DECLARATION, "the named graph's edge definition"),
-    f"{_PR}:_RESERVATION_READ": (_DECLARATION, "transaction read set"),
     f"{_PR}:_DROP_READ": (_DECLARATION, "transaction read set"),
-    f"{_PR}:_CLEAR_READ": (_DECLARATION, "transaction read set"),
     f"{_PR}:_QUICK_WRITE": (_DECLARATION, "transaction write set"),
     f"{_PR}:_THIN_WRITE": (_DECLARATION, "transaction write set"),
-    f"{_PR}:_SOW_READ": (_DECLARATION, "transaction read set"),
     "app/domain/engines/tenant_export_engine.py:TenantExportEngine": (
         _DECLARATION,
         "the edge collections a tenant export copies",
@@ -114,7 +112,6 @@ _SITES: dict[str, tuple[str, str]] = {
 
 _NAMES_THE_EDGE = re.compile(r"\bplaced_in\b")
 _ITERATES_THE_EDGE = re.compile(r"\bIN\s+@@placed_in\b")
-_COMPARISON = re.compile(r"([\w.@()]+)\s*==\s*([\w.@()]+)")
 
 
 def _docstrings(tree: ast.AST) -> set[int]:
@@ -199,7 +196,12 @@ def _sites() -> tuple[dict[str, _Unit], dict[str, dict[str, str]]]:
 
 def _aql_text(unit: _Unit, module_constants: dict[str, str]) -> tuple[str, list[str]]:
     """The unit's own literals plus the module constants it names; and the literals that iterate the edge."""
-    own = [n.value for n in ast.walk(unit.node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+    docstrings = _docstrings(unit.node)
+    own = [
+        n.value
+        for n in ast.walk(unit.node)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstrings
+    ]
     named = [
         module_constants[n.id]
         for n in ast.walk(unit.node)
@@ -210,15 +212,28 @@ def _aql_text(unit: _Unit, module_constants: dict[str, str]) -> tuple[str, list[
     return text, iterating
 
 
-def _compares_the_current_slot(aql: str) -> bool:
-    """Whether ``aql`` compares an attribute ``.slot_key`` with something other than ``null``."""
-    for match in _COMPARISON.finditer(aql):
-        left, right = match.group(1), match.group(2)
-        if "null" in (left, right):
-            continue
-        if left.endswith(".slot_key") or right.endswith(".slot_key"):
-            return True
-    return False
+def _unit_nodes() -> dict[str, tuple[ast.AST, dict[str, str]]]:
+    """``"path:unit"`` → the unit's node and its module's string constants, for every function, class and
+    module-level assignment under ``app/``."""
+    found: dict[str, tuple[ast.AST, dict[str, str]]] = {}
+    for path in sorted(APP.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        rel = path.relative_to(BACKEND).as_posix()
+        constants = _module_strings(tree)
+
+        def visit(node: ast.AST, stack: list[str], *, rel: str = rel, constants: dict[str, str] = constants) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    name = [*stack, child.name]
+                    found[f"{rel}:{'.'.join(name)}"] = (child, constants)
+                    visit(child, name)
+                elif not stack and isinstance(child, (ast.Assign, ast.AnnAssign)):
+                    target = child.targets[0] if isinstance(child, ast.Assign) else child.target
+                    if isinstance(target, ast.Name):
+                        found[f"{rel}:{target.id}"] = (child, constants)
+
+        visit(tree, [])
+    return found
 
 
 def test_every_site_naming_placed_in_is_classified() -> None:
@@ -226,8 +241,8 @@ def test_every_site_naming_placed_in_is_classified() -> None:
     unclassified = sorted(f"{key} (line {units[key].lines[0]})" for key in units if key not in _SITES)
     assert not unclassified, (
         "These units name the placed_in edge collection but are not classified in _SITES. A reader of the "
-        "current occupancy must filter on the plant's own slot_key (#2774); a history reader, writer or "
-        "declaration needs an entry with its reason:\n  " + "\n  ".join(unclassified)
+        "current occupancy must not read the edge at all but select by the plant's own slot_key (#2774); a "
+        "history reader, writer or declaration needs an entry with its reason:\n  " + "\n  ".join(unclassified)
     )
 
 
@@ -237,25 +252,31 @@ def test_no_register_entry_is_stale() -> None:
     assert not stale, "These _SITES entries no longer name placed_in (remove them):\n  " + "\n  ".join(stale)
 
 
-def test_current_readers_filter_on_the_plants_own_slot_key() -> None:
-    units, constants = _sites()
-    failures: list[str] = []
-    for key, (verdict, _reason) in sorted(_SITES.items()):
-        if verdict != _CURRENT or key not in units:
-            continue
-        path = key.split(":", 1)[0]
-        text, iterating = _aql_text(units[key], constants[path])
-        if not _compares_the_current_slot(text):
-            failures.append(f"{key}: no comparison of the plant's slot_key")
-        failures.extend(
-            f"{key}: an AQL literal iterating @@placed_in compares no slot_key"
-            for chunk in iterating
-            if not _compares_the_current_slot(chunk)
+def test_current_readers_exist_and_do_not_read_placed_in() -> None:
+    units = _unit_nodes()
+    stale = sorted(key for key in _CURRENT_READERS if key not in units)
+    assert not stale, "These _CURRENT_READERS entries no longer exist (update the register):\n  " + "\n  ".join(stale)
+    through_the_edge = []
+    for key in sorted(_CURRENT_READERS):
+        node, constants = units[key]
+        text, _iterating = _aql_text(_Unit(node), constants)
+        names_the_constant = any(
+            (isinstance(n, ast.Attribute) and n.attr == "PLACED_IN")
+            or (isinstance(n, ast.Name) and n.id == "PLACED_IN")
+            for n in ast.walk(node)
         )
-    assert not failures, (
-        "A placed_in edge also leads to a slot the plant left (#2948); a reader of the current occupancy must "
-        "compare the plant's own slot_key (#2774):\n  " + "\n  ".join(failures)
+        if names_the_constant or _NAMES_THE_EDGE.search(text):
+            through_the_edge.append(key)
+    assert not through_the_edge, (
+        "A placed_in edge also leads to a slot the plant left (#2948) and is missing for a plant moved before it; a "
+        "reader of the current occupancy selects the plants by their own slot_key instead (#2774):\n  "
+        + "\n  ".join(through_the_edge)
     )
+
+
+def test_no_reader_is_both_current_and_registered_as_an_edge_site() -> None:
+    both = sorted(set(_CURRENT_READERS) & set(_SITES))
+    assert not both, "Registered as a current reader and as a placed_in site:\n  " + "\n  ".join(both)
 
 
 def test_writers_and_declarations_read_no_edges() -> None:
@@ -277,15 +298,6 @@ def test_every_verdict_is_known_and_reasoned() -> None:
     bad = sorted(
         key
         for key, (verdict, reason) in _SITES.items()
-        if verdict not in (_CURRENT, _HISTORY, _WRITER, _DECLARATION) or not reason.strip()
+        if verdict not in (_HISTORY, _WRITER, _DECLARATION) or not reason.strip()
     )
     assert not bad, "Unknown verdict or empty reason:\n  " + "\n  ".join(bad)
-
-
-def test_the_comparison_detector_rejects_the_null_check_and_accepts_the_filter() -> None:
-    """The detector must not take ``plant.slot_key == null`` (the loose-plant arm) for the current-slot filter."""
-    assert not _compares_the_current_slot("FILTER plant.location_key == @k AND plant.slot_key == null")
-    assert not _compares_the_current_slot('"slot_key": slot_key, FILTER s._key == @slot_key')
-    assert _compares_the_current_slot("FILTER plant != null AND plant.slot_key == s._key")
-    assert _compares_the_current_slot("FILTER PARSE_IDENTIFIER(e._to).key == plant.slot_key")
-    assert _compares_the_current_slot("FILTER v.slot_key == @slot_key")

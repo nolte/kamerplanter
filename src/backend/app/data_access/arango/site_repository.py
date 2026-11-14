@@ -861,25 +861,23 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         ``list_plants``/``get_plant`` and every other tenant-scoped read, so
         anchoring on it was no stricter than the rest of the application.
 
-        Only the edge to the slot the plant's own ``slot_key`` names counts:
-        ``placed_in`` keeps the edge of a slot the plant left (#2774).
+        The slot is the one the plant's own ``slot_key`` names, looked up directly and not through ``placed_in``:
+        that edge stays on a slot the plant left, and a plant moved before #2948 has none to its current slot
+        (#2774).
         """
         self._require_tenant_key(tenant_key, "get_slot_for_plant")
         query = """
-        FOR e IN @@placed_in
-          FILTER e._from == @plant_id
-          LET plant = DOCUMENT(@plant_id)
-          FILTER plant != null AND plant.tenant_key == @tenant_key
-          FILTER PARSE_IDENTIFIER(e._to).key == plant.slot_key
-          LET slot = DOCUMENT(e._to)
-          FILTER slot != null
-          RETURN slot
+        LET plant = DOCUMENT(@plant_id)
+        FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.slot_key != null
+        LET slot = DOCUMENT(@slots, plant.slot_key)
+        FILTER slot != null
+        RETURN slot
         """
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         cursor = self._db.aql.execute(
             query,
             bind_vars={
-                "@placed_in": col.PLACED_IN,
+                "slots": col.SLOTS,
                 "plant_id": plant_id,
                 "tenant_key": tenant_key,
             },

@@ -2204,6 +2204,9 @@ LEGACY_WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["name"]
 #: existence of another tenant's plant. ``v0079`` retires the legacy index.
 PLANT_INSTANCE_ID_INDEX_FIELDS = ["tenant_key", "instance_id"]
 
+#: The occupancy reads select a slot's plants by ``slot_key`` (#2774).
+PLANT_INSTANCE_SLOT_INDEX_FIELDS = ["slot_key"]
+
 #: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
 LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS = ["instance_id"]
 
@@ -2411,6 +2414,9 @@ def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
     plants_col = db.collection(PLANT_INSTANCES)
     # Per tenant since #2065; v0079 drops the legacy collection-wide index.
     plants_col.add_persistent_index(fields=PLANT_INSTANCE_ID_INDEX_FIELDS, unique=True)
+    # The plants standing in a slot are selected by their own ``slot_key`` (#2774); non-unique, so creating it on a
+    # volume that predates it needs no migration. One of the fields #2562 lists.
+    plants_col.add_persistent_index(fields=PLANT_INSTANCE_SLOT_INDEX_FIELDS, unique=False)
 
     # MT-035 (#2131): the keyset/offset window of each tenant's list reads `limit` entries.
     for keyset_collection in KEYSET_PAGED_COLLECTIONS:
