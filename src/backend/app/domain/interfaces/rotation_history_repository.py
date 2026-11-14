@@ -1,7 +1,8 @@
 """What stood in a bed, as the crop-rotation validator reads it (REQ-053 GP-FR-131, GP-FR-103).
 
-Two sources, one port: the plants that were placed in the bed's slots (``plant_instances``) and the years a
-grower filled in afterwards (``care_events`` with ``category = planting``, ``trigger = backfill``). Both reads take
+Three sources, one port: the plants that were placed in the bed's slots (``plant_instances``), the years a grower
+filled in afterwards (``care_events`` with ``category = planting``, ``trigger = backfill``) and the runs still planned
+at the bed (``planting_runs`` with ``status = planned``, the future columns of the rotation matrix). Every read takes
 the tenant keyword-only without a default and filter on it; the bed itself is resolved by the caller through the
 ownership anchor (a bed has no ``tenant_key`` of its own, #2107).
 """
@@ -40,6 +41,22 @@ class BackfillRow:
     created_by: str | None = None
 
 
+@dataclass(frozen=True)
+class PlannedRunRow:
+    """One run of the tenant still planned at the bed (GP-FR-135 future columns, §32.5 item A).
+
+    ``planned_from`` / ``planned_until`` are the run's reservation window; where the run carries none, the window of
+    its ``run_planned_at`` edges to the bed's slots (earliest start, latest end - open when one edge is open), and
+    for the start at last the run's ``planned_start_date``. ``planned_from = None``: the run names no time at all.
+    """
+
+    run_key: str
+    plan_role: str
+    species_keys: tuple[str, ...]
+    planned_from: date | None
+    planned_until: date | None
+
+
 class IRotationHistoryRepository(ABC):
     @abstractmethod
     def list_plantings(self, location_key: str, *, since: date, tenant_key: str) -> list[PlantedRow]:
@@ -48,3 +65,11 @@ class IRotationHistoryRepository(ABC):
     @abstractmethod
     def list_backfills(self, location_key: str, *, since: datetime, tenant_key: str) -> list[BackfillRow]:
         """Live backfill events of the bed performed on or after ``since``, newest first."""
+
+    @abstractmethod
+    def list_planned_runs(self, location_key: str, *, tenant_key: str) -> list[PlannedRunRow]:
+        """Runs of ``tenant_key`` with ``status = planned`` at the bed: by ``location_key`` or by a reservation edge.
+
+        Cancelled, active and finished runs are not part of it (an active run's plants come from
+        :meth:`list_plantings`); the window is not filtered here - the caller decides which years a run covers.
+        """

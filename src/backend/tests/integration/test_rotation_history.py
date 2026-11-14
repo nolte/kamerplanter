@@ -33,8 +33,18 @@ _DOCUMENTS = [
     col.LOCATIONS,
     col.SITES,
     col.FEEDING_EVENTS,
+    col.PLANTING_RUN_ENTRIES,
 ]
-_EDGES = [col.RUN_CONTAINS, col.CARE_EVENT_AT, col.CARE_EVENT_FOR, col.TASK_LOGGED_AS, col.FED_BY, col.FEEDING_USED]
+_EDGES = [
+    col.RUN_PLANNED_AT,
+    col.HAS_ENTRY,
+    col.RUN_CONTAINS,
+    col.CARE_EVENT_AT,
+    col.CARE_EVENT_FOR,
+    col.TASK_LOGGED_AS,
+    col.FED_BY,
+    col.FEEDING_USED,
+]
 TENANT = "ten_own"
 OTHER = "ten_other"
 
@@ -269,3 +279,91 @@ class TestTheRowTheServiceWrites:
 
         events.void(stored.key, tenant_key=TENANT, voided_by="u_sabine", reason="backfill_error", at=datetime.now(UTC))
         assert repo.list_backfills("bed", since=datetime(2020, 1, 1, tzinfo=UTC), tenant_key=TENANT) == []
+
+
+def _run(db, key, *, location=None, status="planned", tenant=TENANT, species=("sp",), slots=(), **fields):
+    """A run with one entry per species; ``slots`` = ``(slot_key, planned_from, planned_until)`` reservation edges."""
+    db.collection(col.PLANTING_RUNS).insert(
+        {"_key": key, "tenant_key": tenant, "status": status, "location_key": location, **fields}
+    )
+    for index, species_key in enumerate(species):
+        entry_key = f"{key}_e{index}"
+        db.collection(col.PLANTING_RUN_ENTRIES).insert(
+            {"_key": entry_key, "run_key": key, "tenant_key": tenant, "species_key": species_key}
+        )
+        db.collection(col.HAS_ENTRY).insert(
+            {"_from": f"{col.PLANTING_RUNS}/{key}", "_to": f"{col.PLANTING_RUN_ENTRIES}/{entry_key}"}
+        )
+    for slot_key, start, end in slots:
+        db.collection(col.RUN_PLANNED_AT).insert(
+            {
+                "_from": f"{col.PLANTING_RUNS}/{key}",
+                "_to": f"{col.SLOTS}/{slot_key}",
+                "planned_from": start,
+                "planned_until": end,
+            }
+        )
+
+
+class TestPlannedRuns:
+    """#2958 (GP-FR-135 future columns): the runs still planned at a bed, from a real store."""
+
+    def test_reads_planned_runs_by_location_and_by_reservation_edge_only(self, db, repo) -> None:
+        db.collection(col.SLOTS).insert_many(
+            [{"_key": "s1", "location_key": "bed"}, {"_key": "x", "location_key": "b2"}]
+        )
+        _run(
+            db,
+            "by_location",
+            location="bed",
+            planned_from="2027-04-01",
+            planned_until="2027-09-30",
+            species=("tomato", "basil"),
+            plan_role="main_crop",
+        )
+        _run(db, "by_edge", slots=[("s1", "2027-05-01", "2027-08-31")], plan_role="green_manure")
+        _run(db, "elsewhere", location="b2", planned_from="2027-04-01", slots=[("x", "2027-04-01", None)])
+        _run(db, "cancelled", location="bed", status="cancelled", planned_from="2027-04-01")
+        _run(db, "active", slots=[("s1", "2027-04-01", None)], status="active")
+
+        rows = {r.run_key: r for r in repo.list_planned_runs("bed", tenant_key=TENANT)}
+
+        assert sorted(rows) == ["by_edge", "by_location"]
+        assert rows["by_location"].species_keys == ("basil", "tomato")
+        assert (rows["by_location"].planned_from, rows["by_location"].planned_until) == (
+            date(2027, 4, 1),
+            date(2027, 9, 30),
+        )
+        # no window on the run: the edges' window counts, and the run's role is carried
+        assert (rows["by_edge"].planned_from, rows["by_edge"].planned_until, rows["by_edge"].plan_role) == (
+            date(2027, 5, 1),
+            date(2027, 8, 31),
+            "green_manure",
+        )
+
+    def test_an_open_edge_keeps_the_window_open_and_the_start_date_is_the_last_fallback(self, db, repo) -> None:
+        db.collection(col.SLOTS).insert_many(
+            [{"_key": "s1", "location_key": "bed"}, {"_key": "s2", "location_key": "bed"}]
+        )
+        _run(db, "open", slots=[("s1", "2027-05-01", "2027-08-31"), ("s2", "2027-04-01", None)])
+        _run(db, "dated", location="bed", planned_start_date="2028-03-01")
+
+        rows = {r.run_key: r for r in repo.list_planned_runs("bed", tenant_key=TENANT)}
+
+        assert (rows["open"].planned_from, rows["open"].planned_until) == (date(2027, 4, 1), None)
+        assert (rows["dated"].planned_from, rows["dated"].planned_until, rows["dated"].plan_role) == (
+            date(2028, 3, 1),
+            None,
+            "main_crop",
+        )
+
+    def test_another_tenants_run_on_this_bed_is_not_read(self, db, repo) -> None:
+        db.collection(col.SLOTS).insert({"_key": "s1", "location_key": "bed"})
+        _run(db, "mine", location="bed", planned_from="2027-04-01")
+        _run(db, "theirs", location="bed", planned_from="2027-04-01", tenant=OTHER)
+        _run(db, "theirs_edge", slots=[("s1", "2027-04-01", None)], tenant=OTHER)
+
+        assert [r.run_key for r in repo.list_planned_runs("bed", tenant_key=TENANT)] == ["mine"]
+        assert sorted(r.run_key for r in repo.list_planned_runs("bed", tenant_key=OTHER)) == ["theirs", "theirs_edge"]
+        with pytest.raises(ValueError):
+            repo.list_planned_runs("bed", tenant_key="")

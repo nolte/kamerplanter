@@ -21,6 +21,9 @@ MAX_ROTATION_TIMELINE_YEARS: int = 10
 
 # The site rotation matrix (GP-FR-135) reads at most this many beds of a site; the page window slices them.
 MAX_ROTATION_MATRIX_BEDS: int = 500
+# GP-FR-135: future columns of the site rotation matrix after the current year, filled from planned runs (§32.5
+# item A). Fixed, so every page of a matrix carries the same columns.
+ROTATION_MATRIX_FUTURE_YEARS: int = 2
 
 # NFR-011 §4: the erasure tombstone salt (ERASURE_TOMBSTONE_SALT) must be a
 # high-entropy secret; a value shorter than this is treated as unset/insecure.
