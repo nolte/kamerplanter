@@ -194,6 +194,13 @@ const LIMING_MATERIALS = ['lime', 'wood_ash', 'other'] as const;
 /** Materials that raise the pH: lime and wood ash (review U-005, R-011). */
 const PH_RAISING_MATERIALS: ReadonlySet<string> = new Set(['lime', 'wood_ash']);
 
+/**
+ * The citation the liming hint is shown with (REQ-053 §32.5 item 15 b): R-011 of the agrobiology review
+ * (`spec/analysis/agrobiology-req-053-wave8-ec.md`) backs "lime and wood ash raise the pH" by two institutional
+ * sources. "Not for acid-loving plants" rests on a portal only and is not shown until a citable source exists.
+ */
+export const LIMING_HINT_SOURCE = 'University of New Hampshire Extension; Alberta Agriculture';
+
 /** The material suggestions of a category; an empty list hides the field. */
 export function materialsFor(category: string): readonly string[] {
   if (category === 'liming') return LIMING_MATERIALS;
@@ -201,8 +208,8 @@ export function materialsFor(category: string): readonly string[] {
 }
 
 /**
- * Whether the form shows the text-only hint "not above the target pH, not for acid-loving plants"
- * (review U-005): every liming, and a soil amendment with lime or wood ash. Text only — no amount.
+ * Whether the form shows the text-only hint "lime and wood ash raise the pH" with its source (R-011, §32.5
+ * item 15 b): every liming, and a soil amendment with lime or wood ash. Text only — no amount.
  */
 export function showsLimingHint(category: string, material: string): boolean {
   return category === 'liming' || (formKindOf(category) === 'amendment' && PH_RAISING_MATERIALS.has(material.trim()));

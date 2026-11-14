@@ -2087,9 +2087,9 @@ Testdaten legen sie als Seed-Daten an (Aufgabe über die API, Vorschlags-Markier
   Kaffeesatz, Gründüngung, Schwefel, Kalk, Holzasche und „Sonstiges“ (Freitext bleibt möglich); die Mulch-Materialien
   (Stroh, Grasschnitt, Rindenmulch, Holzhäcksel, Laub, Pappe, Kompost) bietet die Kategorie „Mulchen“ an, die Kalkung
   Kalk, Holzasche und „Sonstiges“
-- Der Kalkungs-Dialog trägt den Hinweis „Kalk und Holzasche heben den pH-Wert. Bringe sie nicht aus, wenn der Boden schon
-  über dem Ziel-pH liegt, und nicht bei säureliebenden Pflanzen … Eine Kalkmenge berechnet die App nicht.“ als reinen Text;
-  das Mengenfeld bleibt leer, es wird keine Menge vorgeschlagen
+- Der Kalkungs-Dialog trägt den Hinweis „Kalk und Holzasche heben den pH-Wert. Eine Kalkmenge berechnet die App nicht.“
+  als reinen Text mit der Zeile „Quelle: …“ (R-011); ein Satz zu Ziel-pH oder säureliebenden Pflanzen erscheint nicht
+  (REQ-053 §32.5 Pkt. 15 b); das Mengenfeld bleibt leer, es wird keine Menge vorgeschlagen
 - Die Historie enthält die drei Einträge „Bodenverbesserung“ (Kompost), „Mulchen“ (Rindenmulch) und „Kalkung“ (Kalk) mit
   Material, Menge und Datum
 - Die offenen Aufgaben „Bodenverbesserung“ und „Kalkung“ sind erledigt

@@ -7653,7 +7653,7 @@
           "title": "Record a soil analysis for {{name}}",
           "description": "Enter the values from your lab report, test kit or probe, each with its unit and measuring method. The newest pH, EC, humus and lime values go into the soil profile automatically.",
           "performedAt": "Sample taken on",
-          "performedAtHelper": "At most 365 days back, not in the future.",
+          "performedAtHelper": "At most 5 years back, not in the future.",
           "source": "Source",
           "sourceHelper": "Where do the values come from?",
           "depth": "Sampling depth",
@@ -7680,7 +7680,7 @@
           "saved": "Soil analysis saved.",
           "errors": {
             "future": "The time lies in the future.",
-            "tooOld": "At most 365 days back.",
+            "tooOld": "At most 5 years back.",
             "invalid": "Please enter a date and time.",
             "depth": "Enter a depth between 0 and 1000 cm.",
             "method": "Choose the measuring method - without it the value cannot be read.",
@@ -7853,7 +7853,8 @@
           "nitrogenApprox": "Approximation: ≈ {{kgPerHa}} kg N/ha ({{gPerM2}} g N/m²)",
           "nitrogenApproxHint": "Approximation from the N content on the label. This is not a nutrient balance and says nothing about fertilizer regulations.",
           "materialHint": "Pick a material from the list or type your own name.",
-          "limingHint": "Lime and wood ash raise the pH. Do not apply them when the soil is already above the target pH, and not for acid-loving plants such as blueberry or rhododendron. The app does not calculate a lime amount."
+          "limingHint": "Lime and wood ash raise the pH. The app does not calculate a lime amount.",
+          "hintSource": "Source: {{source}}"
         },
         "errors": {
           "future": "The time lies in the future.",

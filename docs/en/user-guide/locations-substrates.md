@@ -378,7 +378,7 @@ Every field is optional, so you can tap **Complete** without entering anything. 
 
 **Nitrogen as an approximation.** If the product label states an N content, the dialog also shows "≈ … kg N/ha" for grams per m²: 80 g/m² of horn shavings at 13 % N are about 10.4 g N/m² or 104 kg N/ha (1 g/m² = 10 kg/ha). This is only an approximation from the label, not a nutrient balance. There is no warning when the total of a season gets high.
 
-**Soil amendment and liming.** Under **Material** you pick from a list, for example compost, manure, horn shavings, rock dust, biochar, sand, perlite, coffee grounds, green manure, sulfur, lime or wood ash. Liming offers lime and wood ash. If nothing fits, type your own name. For lime and wood ash a hint appears: both raise the pH, so do not apply them when your soil is already above the target pH, and not for acid-loving plants such as blueberry or rhododendron. Kamerplanter does not calculate how much lime your soil needs. <!-- REQ-053 GP-FR-123, GP-FR-124 -->
+**Soil amendment and liming.** Under **Material** you pick from a list, for example compost, manure, horn shavings, rock dust, biochar, sand, perlite, coffee grounds, green manure, sulfur, lime or wood ash. Liming offers lime and wood ash. If nothing fits, type your own name. For lime and wood ash a hint appears: both raise the pH. The hint names its source (University of New Hampshire Extension, Alberta Agriculture). Kamerplanter does not calculate how much lime your soil needs. <!-- REQ-053 GP-FR-123, GP-FR-124 -->
 
 **Organic soil amendment in the feeding balance.** When you apply compost, manure or horn shavings, Kamerplanter counts it as feeding the plants in the bed: it creates an entry in their feeding log, whether you complete a task or record the dose with **Log care**. Other materials such as sand or perlite write no such entry. If you undo or void the care entry, the dose also leaves the feeding balance. Kamerplanter refuses a dose on a bed with more than 200 plants; record it per part of the bed then. <!-- REQ-053 W-007, §12.1 -->
 
@@ -505,7 +505,7 @@ If you enter an EC, you also choose the **EC method** (saturated paste, 1:2 or 1
 
 Below the soil profile, the **Soil** tab has the **Soil analyses** area. From the role "grower" upwards you open **Record soil analysis** there and enter the values from your lab report, test kit or probe:
 
-1. When the sample was taken (up to one year back), where the values come from (**Lab**, **Test kit** or **Probe/sensor**) and, optionally, the sampling depth in cm.
+1. When the sample was taken (up to five years back, so you can also enter older lab reports - every other care entry reaches one year back), where the values come from (**Lab**, **Test kit** or **Probe/sensor**) and, optionally, the sampling depth in cm.
 2. For each value the **parameter** (pH, EC, humus, lime content, Nmin, phosphorus, potassium, magnesium, soil moisture), the **value**, the **unit** and the **method**. For pH and EC the method is required; if it is not on the report, choose "Probe, method unknown" or "Method unknown". **Add another value** records a whole report in one go.
 3. You can give a **content class** (A to E) only for phosphorus, potassium and magnesium when the value comes from a lab by the CAL method - exactly as stated in the report. Kamerplanter never computes a class.
 

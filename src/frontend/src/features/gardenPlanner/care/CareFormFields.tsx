@@ -32,6 +32,7 @@ import { formatDecimal } from '../model/units';
 import {
   formKindOf,
   materialsFor,
+  LIMING_HINT_SOURCE,
   showsLimingHint,
   UNITS_BY_KIND,
   WATER_SOURCES,
@@ -377,6 +378,14 @@ export default function CareFormFields({
       {showsLimingHint(category, state.material) && (
         <Alert severity="info" role="note" data-testid={`${testId}-liming-hint`}>
           {t('pages.bed.care.form.limingHint')}
+          <Typography
+            component="span"
+            variant="caption"
+            sx={{ display: 'block', mt: 0.5 }}
+            data-testid={`${testId}-liming-hint-source`}
+          >
+            {t('pages.bed.care.form.hintSource', { source: LIMING_HINT_SOURCE })}
+          </Typography>
         </Alert>
       )}
 

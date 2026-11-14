@@ -23,7 +23,7 @@ import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import { useApiError } from '@/hooks/useApiError';
-import { performedAtBounds } from '../care/careForm';
+import { performedAtBounds, SOIL_ANALYSIS_MAX_BACKDATE_DAYS } from '../care/careForm';
 import { recordSoilAnalysis } from './bedApi';
 import {
   MAX_ROWS,
@@ -66,7 +66,7 @@ export default function SoilAnalysisDialog({ bedKey, bedName, onClose, onSaved }
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { handleError } = useApiError();
   const now = useMemo(() => new Date(), []);
-  const bounds = useMemo(() => performedAtBounds(now), [now]);
+  const bounds = useMemo(() => performedAtBounds(now, SOIL_ANALYSIS_MAX_BACKDATE_DAYS), [now]);
   const [form, setForm] = useState<SoilAnalysisFormState>(() => emptySoilAnalysisForm(now));
   const [nextId, setNextId] = useState(2);
   const [showErrors, setShowErrors] = useState(false);

@@ -12,6 +12,7 @@ the role rules the router gate cannot express (author / lead / ten-minute undo).
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -21,13 +22,16 @@ from app.common.enums import AdminScope, CareEventAllocation, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
 from app.domain.interfaces.care_event_repository import CareEventFilter
 from app.domain.models.care_event import (
+    MAX_AGE_DAYS,
     REDACTED,
+    SOIL_ANALYSIS_MAX_AGE_DAYS,
     CareEvent,
     CareEventCorrection,
     CareEventInput,
     CareEventOrigin,
 )
 from app.domain.services.care_event_service import CareEventService
+from app.domain.services.retention_service import RetentionService
 from tests.support.care_event_fakes import (
     FakeAttachmentRepo,
     FakeAttachmentService,
@@ -289,6 +293,119 @@ class TestPerformedAt:
     def test_a_naive_instant_is_read_as_utc(self):
         naive = datetime.now() - timedelta(hours=1)  # noqa: DTZ005 — the point of the test
         assert input_for(performed_at=naive).performed_at.tzinfo is UTC
+
+
+def soil_analysis(**overrides) -> CareEventInput:
+    measurement = {"parameter": "ph", "value": 6.4, "unit": "pH", "ph_method": "cacl2"}
+    return input_for(category="soil_analysis", summary="Lab report", measurements=[measurement], **overrides)
+
+
+class TestSoilAnalysisBackdating:
+    """GP-FR-122 (REQ-053 §32.5 item 14): a soil analysis reaches five years back, every other entry one."""
+
+    def test_a_soil_analysis_three_years_back_is_stored(self, world):
+        service, repo, *_ = world
+        three_years = datetime.now(UTC) - timedelta(days=3 * 365)
+
+        stored = create(service, soil_analysis(performed_at=three_years)).event
+
+        assert stored.category == "soil_analysis"
+        assert stored.performed_at == three_years
+        assert len(repo.inserted) == 1
+
+    def test_a_soil_analysis_beyond_five_years_is_too_old(self, world):
+        service, repo, *_ = world
+
+        with pytest.raises(PlanError) as exc:
+            create(
+                service,
+                soil_analysis(performed_at=datetime.now(UTC) - timedelta(days=SOIL_ANALYSIS_MAX_AGE_DAYS + 1)),
+            )
+
+        assert exc.value.error_code == "care_event.too_old"
+        assert exc.value.details[0]["max_age_days"] == SOIL_ANALYSIS_MAX_AGE_DAYS
+        assert repo.inserted == []
+
+    def test_every_other_category_keeps_the_year(self, world):
+        service, repo, *_ = world
+
+        with pytest.raises(PlanError) as exc:
+            create(service, input_for(category="note", performed_at=datetime.now(UTC) - timedelta(days=3 * 365)))
+
+        assert exc.value.details[0]["max_age_days"] == MAX_AGE_DAYS
+        assert repo.inserted == []
+
+    def test_a_buffered_soil_analysis_keeps_the_year_of_its_tombstone(self, world):
+        """A replay outliving its deletion tombstone (a year plus a margin) is stopped by V-11 alone."""
+        service, repo, *_ = world
+
+        with pytest.raises(PlanError) as exc:
+            service.log(
+                soil_analysis(performed_at=datetime.now(UTC) - timedelta(days=2 * 365), client_event_id=uuid.uuid4()),
+                tenant_key=TENANT,
+                user_key=USER,
+                role=GROWER,
+            )
+
+        assert exc.value.details[0]["max_age_days"] == MAX_AGE_DAYS
+        assert repo.inserted == []
+
+    def test_a_soil_analysis_moved_three_years_back_by_a_correction_is_stored(self, world):
+        service, repo, *_ = world
+        first = create(service, soil_analysis()).event
+        three_years = datetime.now(UTC) - timedelta(days=3 * 365)
+
+        fixed = service.supersede(
+            first.key,
+            CareEventCorrection(
+                category="soil_analysis",
+                summary="Lab report, date fixed",
+                performed_at=three_years,
+                measurements=first.measurements,
+            ),
+            tenant_key=TENANT,
+            user_key=USER,
+            role=GROWER,
+        )
+
+        assert fixed.event.performed_at == three_years
+        assert fixed.event.supersedes_key == first.key
+
+    def test_a_correction_beyond_five_years_is_too_old(self, world):
+        service, repo, *_ = world
+        first = create(service, soil_analysis()).event
+        before = len(repo.inserted)
+
+        with pytest.raises(PlanError) as exc:
+            service.supersede(
+                first.key,
+                CareEventCorrection(
+                    category="soil_analysis",
+                    summary="Lab report",
+                    performed_at=datetime.now(UTC) - timedelta(days=SOIL_ANALYSIS_MAX_AGE_DAYS + 1),
+                    measurements=first.measurements,
+                ),
+                tenant_key=TENANT,
+                user_key=USER,
+                role=GROWER,
+            )
+
+        assert exc.value.error_code == "care_event.too_old"
+        assert len(repo.inserted) == before
+
+    @pytest.mark.parametrize(
+        "now",
+        [
+            datetime(2026, 11, 14, 4, 55, tzinfo=UTC),
+            datetime(2028, 2, 29, 4, 55, tzinfo=UTC),
+            datetime(2029, 3, 1, 0, 0, tzinfo=UTC),
+        ],
+    )
+    def test_the_window_never_reaches_past_the_anonymisation_cutoff(self, now):
+        """R-25 anonymises five calendar years after ``performed_at``: no analysis is stored already due."""
+        earliest = now - timedelta(days=SOIL_ANALYSIS_MAX_AGE_DAYS)
+
+        assert earliest > RetentionService().care_event_anonymisation_cutoff(now)
 
 
 class TestCorrectingAnOldEntry:

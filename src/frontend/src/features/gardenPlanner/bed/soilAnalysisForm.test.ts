@@ -60,6 +60,12 @@ describe('soil analysis form', () => {
     expect(errors.depth).toBe('range');
   });
 
+  it('takes a lab report up to five years old and refuses an older one (GP-FR-122)', () => {
+    const rows = [{ ...emptyRow(1, 'humus'), value: '3' }];
+    expect(validateSoilAnalysis(form({ performedAt: '2023-03-01T09:00', rows }), NOW).performedAt).toBeUndefined();
+    expect(validateSoilAnalysis(form({ performedAt: '2021-06-01T09:00', rows }), NOW).performedAt).toBe('tooOld');
+  });
+
   it('sends every value as typed with its own unit and method, and the depth on each', () => {
     const state = form({
       source: 'lab',

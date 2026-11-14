@@ -9,6 +9,11 @@ import type { CareEventBody, CareUnit, CompletionPayload, FertilizerRef } from '
 const MS_PER_DAY = 86_400_000;
 /** GP-FR-085: backdating reaches a year, never into the future. */
 export const MAX_BACKDATE_DAYS = 365;
+/**
+ * GP-FR-122 (REQ-053 §32.5 item 14): a soil analysis reaches five years back. Mirrors the server's
+ * `SOIL_ANALYSIS_MAX_AGE_DAYS` (`domain/models/care_event.py`), `5 * 365` days.
+ */
+export const SOIL_ANALYSIS_MAX_BACKDATE_DAYS = 5 * 365;
 const NOTE_MAX = 2000;
 const TEXT_MAX = 200;
 
@@ -41,20 +46,19 @@ export function toLocalInput(date: Date): string {
 }
 
 /**
- * The earliest instant the field takes: a year back, rounded UP to the next full minute, because the input
- * has no seconds and a value rounded down would lie before the server's limit (GP-FR-085).
+ * The earliest instant the field takes: `maxDays` back (a year by default), rounded UP to the next full minute,
+ * because the input has no seconds and a value rounded down would lie before the server's limit (GP-FR-085).
  */
-function earliestAllowed(now: Date): Date {
-  const earliest = new Date(now.getTime() - MAX_BACKDATE_DAYS * MS_PER_DAY);
+function earliestAllowed(now: Date, maxDays: number): Date {
+  const limit = now.getTime() - maxDays * MS_PER_DAY;
+  const earliest = new Date(limit);
   earliest.setSeconds(0, 0);
-  return earliest.getTime() < now.getTime() - MAX_BACKDATE_DAYS * MS_PER_DAY
-    ? new Date(earliest.getTime() + 60_000)
-    : earliest;
+  return earliest.getTime() < limit ? new Date(earliest.getTime() + 60_000) : earliest;
 }
 
 /** The bounds of the instant field (GP-FR-085), for the input's `min` and `max`. */
-export function performedAtBounds(now: Date): { min: string; max: string } {
-  return { min: toLocalInput(earliestAllowed(now)), max: toLocalInput(now) };
+export function performedAtBounds(now: Date, maxDays: number = MAX_BACKDATE_DAYS): { min: string; max: string } {
+  return { min: toLocalInput(earliestAllowed(now, maxDays)), max: toLocalInput(now) };
 }
 
 export function emptyForm(now: Date = new Date()): CareFormState {
@@ -100,11 +104,15 @@ export function parseQuantity(text: string): number | null {
 }
 
 /** `future`, `tooOld` or `invalid` when the instant breaks GP-FR-085; `null` when it is fine. */
-export function performedAtProblem(value: string, now: Date): 'future' | 'tooOld' | 'invalid' | null {
+export function performedAtProblem(
+  value: string,
+  now: Date,
+  maxDays: number = MAX_BACKDATE_DAYS,
+): 'future' | 'tooOld' | 'invalid' | null {
   const at = new Date(value);
   if (Number.isNaN(at.getTime())) return 'invalid';
   if (at.getTime() > now.getTime()) return 'future';
-  if (at.getTime() < earliestAllowed(now).getTime()) return 'tooOld';
+  if (at.getTime() < earliestAllowed(now, maxDays).getTime()) return 'tooOld';
   return null;
 }
 
