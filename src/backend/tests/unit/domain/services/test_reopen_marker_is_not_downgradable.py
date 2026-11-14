@@ -56,6 +56,7 @@ def _service(task: Task) -> TaskService:
     service._repo = repo
     service._propagate = lambda fn: None
     service._attachment_repo = None
+    service._care_mirror = None
     return service
 
 
