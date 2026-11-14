@@ -78,6 +78,11 @@ export function ImportReportView({ report, extraFindings }: ImportReportViewProp
         {report.mode === 'replace' && (
           <CountLine counts={report.would_delete} label={t(`${PREFIX}.delete`)} />
         )}
+        {report.mode === 'replace' && report.would_delete.bed_photos > 0 && (
+          <Typography variant="body2" data-testid="plan-import-bed-photos">
+            {t(`${PREFIX}.bedPhotos`, { count: report.would_delete.bed_photos })}
+          </Typography>
+        )}
         {report.kept_locations > 0 && (
           <Typography variant="body2">
             {t(`${PREFIX}.kept`, { count: report.kept_locations })}

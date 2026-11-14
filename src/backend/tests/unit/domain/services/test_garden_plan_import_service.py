@@ -7,6 +7,7 @@ and what reaches the repository (new keys only, the snapshot, the adjacency disp
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 from typing import Any
@@ -20,6 +21,7 @@ from app.domain.models.site import LocationLighting, SiteConditions, SitePlan, S
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.location_photo_service import LocationPhotoService
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     SITE,
@@ -30,6 +32,7 @@ from tests.support.garden_plan_fakes import (
     make_site,
     rect,
 )
+from tests.support.location_photo_fakes import FakeLocationPhotoRepo, FakePhotoAttachments
 
 FOREIGN_SITE = "site_foreign"
 USER = "u_sabine"
@@ -58,8 +61,12 @@ class Rig:
         plans = GardenPlanService(repo._sites, repo)
         self.export = GardenPlanExportService(repo._sites, repo, plans)
         self.dispatched: list[str] = []
+        self.attachments = FakePhotoAttachments(repo)
+        self.photos = LocationPhotoService(
+            repo._sites, FakeLocationPhotoRepo(repo, self.attachments), self.attachments, lambda: self.attachments
+        )
         self.service = GardenPlanImportService(
-            repo._sites, repo, plans, self.export, dispatch_adjacency=self.dispatched.append
+            repo._sites, repo, plans, self.export, dispatch_adjacency=self.dispatched.append, photos=lambda: self.photos
         )
 
     def file(self) -> dict[str, Any]:
@@ -112,6 +119,72 @@ class TestReplace:
         assert report.dry_run and not report.applied and report.would_create.locations == 2
         assert repo.applied == [] and set(repo.locations) == {"b1", "b2"} and rig.dispatched == []
 
+    def test_the_dry_run_states_how_many_bed_photos_go_with_the_deleted_beds(self, rig, repo) -> None:
+        """#2715 item 4: a lead confirms a replace knowing the photos it deletes (a cover is one of the photos, so
+        it is not counted twice)."""
+        document = rig.file()
+        for key in ("p1", "p2", "p3"):
+            rig.attachments.add(key, tenant_key=TENANT)
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"photo_refs": ["p1", "p2"], "cover_photo_ref": "p1"}
+        )
+        repo.locations["b2"] = repo.locations["b2"].model_copy(update={"photo_refs": ["p3"]})
+
+        dry = rig.run(document, dry_run=True, confirm_site_name=None)
+
+        assert dry.would_delete.bed_photos == 3 and dry.would_create.bed_photos == 0
+
+    def test_a_shared_a_kept_or_a_stale_photo_is_not_counted(self, rig, repo) -> None:
+        """#2715 review F: the discard's rule - another carrier, a bed that stays and a missing record keep a ref
+        out of the count."""
+        for key in ("mine", "shared-with-gallery", "on-kept-bed"):
+            rig.attachments.add(key, tenant_key=TENANT)
+        rig.attachments.held_elsewhere.add("shared-with-gallery")
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"photo_refs": ["mine", "shared-with-gallery", "stale", "on-kept-bed"]}
+        )
+        repo.locations["b2"] = repo.locations["b2"].model_copy(update={"photo_refs": ["on-kept-bed"]})
+        repo.planted = {"b2"}
+        document = rig.file()
+
+        dry = rig.run(document, dry_run=True, force=True)
+
+        assert dry.kept_locations == 1 and dry.would_delete.bed_photos == 1
+
+    def test_the_count_matches_what_the_applied_replace_discards(self, rig, repo) -> None:
+        document = rig.file()
+        for key in ("p1", "p2"):
+            rig.attachments.add(key, tenant_key=TENANT)
+        rig.attachments.held_elsewhere.add("p2")
+        repo.locations["b1"] = repo.locations["b1"].model_copy(update={"photo_refs": ["p1", "p2"]})
+
+        dry = rig.run(document, dry_run=True, confirm_site_name=None)
+        applied = rig.run(document)
+        asyncio.run(rig.service.release_photos(applied, tenant_key=TENANT))
+
+        assert dry.would_delete.bed_photos == len(rig.attachments.deleted) == 1
+
+    def test_without_the_photo_side_nothing_is_counted(self, repo) -> None:
+        repo.locations["b1"] = repo.locations["b1"].model_copy(update={"photo_refs": ["p1"]})
+        plans = GardenPlanService(repo._sites, repo)
+        export = GardenPlanExportService(repo._sites, repo, plans)
+        service = GardenPlanImportService(repo._sites, repo, plans, export)
+        document = export.export_json(SITE, tenant_key=TENANT).model_dump(mode="json")
+
+        dry = service.import_plan(
+            SITE,
+            tenant_key=TENANT,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            mode="replace",
+            dry_run=True,
+            force=False,
+            confirm_site_name=None,
+            document=document,
+        )
+
+        assert dry.would_delete.bed_photos == 0
+
     @pytest.mark.parametrize("name", [None, "", "garten", "Beet"])
     def test_the_exact_site_name_is_required_for_the_write(self, rig, repo, name) -> None:
         with pytest.raises(PlanError) as refused:
@@ -144,6 +217,13 @@ class TestReplace:
 
 
 class TestMerge:
+    def test_a_merge_deletes_no_bed_photo(self, rig, repo) -> None:
+        repo.locations["b1"] = repo.locations["b1"].model_copy(update={"photo_refs": ["p1"]})
+
+        dry = rig.run(rig.file(), mode="merge", dry_run=True, confirm_site_name=None)
+
+        assert dry.would_delete.bed_photos == 0
+
     def test_it_adds_next_to_what_is_there_without_a_snapshot(self, rig, repo) -> None:
         document = rig.file()
         for loc in document["locations"]:

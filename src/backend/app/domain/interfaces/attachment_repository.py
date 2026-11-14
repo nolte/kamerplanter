@@ -1,6 +1,7 @@
 """NFR-013 §2.2 — repository interface for the ``attachments`` collection."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Final
 
@@ -32,6 +33,29 @@ class IAttachmentRepository(ABC):
 
     @abstractmethod
     def get(self, key: str, tenant_key: str) -> Attachment | None: ...
+
+    def get_many(self, keys: Sequence[str], *, tenant_key: str) -> dict[str, Attachment]:
+        """The tenant's records among *keys*, by key; an absent or another tenant's key is missing from the map.
+
+        #2715 item 7: a gallery read names up to 50 photos, so a store answers them in one round trip. This default
+        asks :meth:`get` per key (a fake, a tool); the ArangoDB repository overrides it with one query.
+        """
+        found: dict[str, Attachment] = {}
+        for key in dict.fromkeys(keys):
+            attachment = self.get(key, tenant_key)
+            if attachment is not None:
+                found[key] = attachment
+        return found
+
+    def releasable_after_location_delete(
+        self, attachment_ids: Sequence[str], *, tenant_key: str, location_keys: Sequence[str]
+    ) -> list[str]:
+        """The tenant's ``location`` records among *attachment_ids* that nothing names once *location_keys* are gone.
+
+        #2715 review F: what a bed delete's discard would remove, asked before the delete (the import dry run). The
+        ArangoDB repository answers it with the reference scan; a store without one does not guess.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def delete(self, key: str, tenant_key: str) -> bool: ...

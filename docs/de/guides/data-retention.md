@@ -729,7 +729,7 @@ dem Start des Beat-Prozesses: Ein Neustart des Beat-Pods verschiebt keinen Lauf,
 Wo ein Altersfilter einen Datensatz ohne lesbaren Zeitstempel nicht beurteilen kann,
 löscht er ihn nicht, sondern zählt ihn und meldet den Zähler als `held_undated` im
 Lauf-Ereignis: beim Konto-Bereinigungs-Task (R-02), bei den Aufrufprotokollen, bei den
-verwaisten Aufgaben- und Beetfotos, bei den Consent Records (R-04, `purge_expired_consent_records`),
+verwaisten Aufgaben- und Beetfotos und Plan-Unterlagen, bei den Consent Records (R-04, `purge_expired_consent_records`),
 bei den bestätigten E-Mail-Änderungen (R-07b, `expire_email_change_requests`) und beim
 Glossar-Cache (`glossary_cleanup_cache`).
 
@@ -750,6 +750,22 @@ heißt: kein Beet, keine Pflanzengalerie, keine Aufgabe und kein anderer Datensa
 trägt. Ein frisch hochgeladenes Foto liegt innerhalb der 48 Stunden und bleibt. Der Lauf
 schreibt die Zeile `cleanup_orphaned_location_photos_audit` mit `found`, `deleted`, `failed`,
 `skipped`, `freed_bytes` und `held_undated`.
+
+### Nie verwendete Plan-Unterlagen
+
+Die Unterlage unter einem Gartenplan (ein Luftbild oder eine Skizze zum Abzeichnen) kommt
+auf demselben zweistufigen Weg: erst die Datei, dann die Zuordnung zum Standort. Bricht die
+Zuordnung ab (der Standort hat noch keinen Plan, der Tab wurde geschlossen, die Verbindung
+brach ab) oder schlägt nach dem Ersetzen oder Entfernen der Unterlage das Löschen der alten
+Datei fehl, bleibt ein Bild zurück, das kein Standort zeigt. Ein Luftbild kann zeigen, wo
+jemand wohnt.
+
+Diese Dateien entfernt der Celery-Task `app.tasks.storage_tasks.cleanup_orphaned_underlays`
+(täglich 04:00 UTC): Jede Unterlage (Kategorie `garden_plan_underlay`), die älter als
+`STORAGE_GARDEN_PLAN_UNDERLAY_ORPHAN_HOURS` Stunden ist (Standard **48**, `0` schaltet den
+Task ab) und die nichts mehr nennt, wird samt Datei und Vorschaubildern gelöscht. Eine
+Unterlage, die zwei Standorte teilen, bleibt, solange einer sie nennt. Der Lauf schreibt die
+Zeile `cleanup_orphaned_underlays_audit` mit denselben Feldern wie der Beetfoto-Task.
 
 ### Metriken
 

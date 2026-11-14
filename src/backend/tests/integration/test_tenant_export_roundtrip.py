@@ -43,7 +43,9 @@ import hashlib
 import io
 import json
 import zipfile
+from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -53,6 +55,7 @@ from arango import ArangoClient
 
 from app.common.async_bridge import run_async
 from app.common.exceptions import MemberLimitReachedError, TenantImportRefusedError
+from app.config.settings import Settings
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
@@ -74,6 +77,7 @@ from app.domain.engines.tenant_export_engine import TenantArchiveWriter, read_te
 from app.domain.engines.tenant_import_engine import TenantImportEngine
 from app.domain.models.tenant_export import TenantImportMemberGrant, TenantImportRequest
 from app.domain.models.user import User
+from app.domain.services.attachment_service import imported_object_body
 from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.tenant_export_service import StepUpFactors, TenantExportService
@@ -303,11 +307,18 @@ def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
 
 
 SIGNING_KEY = b"integration-installation-key-0123456789"
+_PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
 SALT = "tenant-export-salt-not-a-secret-0123456789"
 
 
 def _service(
-    db, storage_root: Path, *, signing_key: bytes | None = SIGNING_KEY, readings: Any = None
+    db,
+    storage_root: Path,
+    *,
+    signing_key: bytes | None = SIGNING_KEY,
+    readings: Any = None,
+    stored_body: Callable[[bytes, str], bytes] | None = None,
+    allowed_mime_types: Callable[[str], list[str]] | None = None,
 ) -> TenantExportService:
     from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
     from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
@@ -351,9 +362,10 @@ def _service(
         security_audit=audit,
         entitlements=entitlements,
         signing_key=signing_key,
-        allowed_mime_types=lambda category: ["image/jpeg", "image/png", "image/webp"],
+        allowed_mime_types=allowed_mime_types or (lambda category: list(_PHOTO_TYPES)),
         max_object_bytes=10 * 1024 * 1024,
         readings=readings,
+        stored_body=stored_body,
     )
 
 
@@ -1035,6 +1047,154 @@ def test_an_attachments_size_and_hash_come_from_its_object(target, tmp_path) -> 
 
     row = target.collection("attachments").get(outcome.key_mapping["attachments"]["a1"])
     assert (row["byte_size"], row["sha256"]) == (len(photo), hashlib.sha256(photo).hexdigest())
+
+
+def _photo_with_gps(size: tuple[int, int] = (32, 24), mode: str = "RGB") -> bytes:
+    """A real JPEG carrying an EXIF block with a GPS latitude - what a phone writes into an aerial photo."""
+    from PIL import Image
+
+    image = Image.new(mode, size, 90)
+    exif = Image.Exif()
+    exif[0x010F] = "PhoneMaker"  # Make
+    exif.get_ifd(0x8825)[2] = (52.0, 31.0, 12.0)  # GPSLatitude
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", exif=exif.tobytes())
+    return buffer.getvalue()
+
+
+def _object_archive(data: bytes, *, mime_type: str = "image/jpeg", extension: str = "jpg") -> bytes:
+    """An unsigned archive with one garden-plan underlay and its object, written the way the export writes it."""
+    path = f"garden_plan_underlay/2026/10/u1.{extension}"
+    row = {
+        "_key": "u1",
+        "tenant_key": "ten-src",
+        "storage_key": f"t/ten-src/{path}",
+        "mime_type": mime_type,
+        "byte_size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "original_filename": f"u1.{extension}",
+        "created_by": "_anonymized",
+        "category": "garden_plan_underlay",
+    }
+    buffer = io.BytesIO()
+    writer = TenantArchiveWriter(buffer, max_bytes=None)
+    writer.write_json("tenant.json", {"name": "Aerial", "slug": "aerial"})
+    writer.write_lines("collections/attachments.jsonl", [[row]])
+    writer.write_lines("members.jsonl", [[]])
+    writer.write_object(path, data)
+    writer.finish({"format": "kamerplanter-tenant-export/1", "source_tenant_key": "ten-src"})
+    return buffer.getvalue()
+
+
+def _stored_object(service: TenantExportService, storage_key: str) -> bytes:
+    async def read() -> bytes:
+        stream = await service._storage.get_object(storage_key)  # type: ignore[union-attr]
+        return b"".join([chunk async for chunk in stream])
+
+    return run_async(read())
+
+
+def _imported_underlay(db, service: TenantExportService, archive: bytes) -> tuple[dict[str, Any], bytes]:
+    finished = _request_and_run(service, archive, {})
+    assert finished.status == "completed", finished
+    rows = list(
+        db.aql.execute(
+            "FOR a IN attachments FILTER a.tenant_key == @t RETURN a", bind_vars={"t": finished.target_tenant_key}
+        )
+    )
+    (row,) = rows
+    return row, _stored_object(service, row["storage_key"])
+
+
+def _importing(db, tmp_path: Path, *, strip: bool = True, types: tuple[str, ...] = _PHOTO_TYPES) -> TenantExportService:
+    return _service(
+        db,
+        tmp_path / "dst",
+        stored_body=partial(imported_object_body, Settings(storage_strip_exif=strip)),
+        allowed_mime_types=lambda category: list(types),
+    )
+
+
+def test_an_imported_photo_loses_its_exif_like_an_uploaded_one(target, tmp_path) -> None:
+    """#2715 item 3 - the import stores the bytes the upload pipeline would: no EXIF/GPS block, and the row's size
+    and hash are those of the stored bytes (the quota and the dedup read them)."""
+    from PIL import Image
+
+    photo = _photo_with_gps()
+    assert Image.open(io.BytesIO(photo)).getexif().get_ifd(0x8825), "the fixture must carry GPS to prove anything"
+
+    row, stored = _imported_underlay(target, _importing(target, tmp_path), _object_archive(photo))
+
+    assert stored != photo
+    assert not Image.open(io.BytesIO(stored)).getexif(), "EXIF survived the import"
+    assert (row["byte_size"], row["sha256"]) == (len(stored), hashlib.sha256(stored).hexdigest())
+
+
+def test_with_the_strip_switched_off_the_import_keeps_the_bytes(target, tmp_path) -> None:
+    """``STORAGE_STRIP_EXIF=false`` is the operator's switch for both paths: the import does not strip either."""
+    photo = _photo_with_gps()
+
+    _row, stored = _imported_underlay(target, _importing(target, tmp_path, strip=False), _object_archive(photo))
+
+    assert stored == photo
+
+
+def test_a_truncated_photo_with_gps_is_refused_in_the_preview_not_stored_unstripped(target, tmp_path) -> None:
+    """#2715 review D/E: the strip fails closed for a strippable type, and the refusal comes with the request the
+    admin confirms (the verification), before anything is stored or dispatched."""
+    photo = _photo_with_gps()
+    truncated = photo[: len(photo) // 2]
+    assert b"Exif" in truncated, "the GPS APP1 block must survive the cut to prove anything"
+    service = _importing(target, tmp_path)
+    archive = _object_archive(truncated)
+
+    with pytest.raises(TenantImportRefusedError) as refused:
+        service.request_import(
+            io.BytesIO(archive),
+            size_bytes=len(archive),
+            requester=_person(ADMIN),
+            authenticated_with_api_key=False,
+            member_mapping={},
+            plan_key=None,
+            factors=StepUpFactors(password="pw"),
+            client_ip=None,
+        )
+
+    assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
+    assert any("not a readable image" in detail["reason"] for detail in refused.value.details)
+    assert target.collection("tenant_import_requests").count() == 0
+
+
+def test_bytes_that_are_no_image_of_the_stated_type_are_refused(target, tmp_path) -> None:
+    service = _importing(target, tmp_path)
+    archive = _object_archive(b"%PDF-1.7 not a photo at all")
+
+    with pytest.raises(TenantImportRefusedError) as refused:
+        service._verified_archive(io.BytesIO(archive))
+
+    assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
+
+
+def test_a_stored_image_above_the_upload_ceiling_but_within_the_stored_one_imports(target, tmp_path) -> None:
+    """#2715 review B: objects stored before #2108 may hold up to 80 MPx; an old tenant's export re-imports."""
+    from PIL import Image
+
+    big = _photo_with_gps(size=(7100, 7100), mode="L")  # 50.4 MPx: above the 40 MPx upload ceiling
+
+    _row, stored = _imported_underlay(target, _importing(target, tmp_path), _object_archive(big))
+
+    reopened = Image.open(io.BytesIO(stored))
+    assert reopened.size == (7100, 7100) and not reopened.getexif()
+
+
+def test_an_unstrippable_type_the_category_admits_is_kept_unchanged(target, tmp_path) -> None:
+    """#2715 review C: a HEIC stored before #2139 is not refused; it is kept as it is (the strip cannot touch it)."""
+    heic = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00heicmif1 stored before 2139"
+    service = _importing(target, tmp_path, types=(*_PHOTO_TYPES, "image/heic"))
+
+    _row, stored = _imported_underlay(target, service, _object_archive(heic, mime_type="image/heic", extension="heic"))
+
+    assert stored == heic
 
 
 def test_a_legacy_stamped_catalogue_row_counts_as_present(target, tmp_path) -> None:

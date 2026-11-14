@@ -13,12 +13,13 @@ import ImportWizard from './ImportWizard';
 import type { PlanImportReport, PlanSnapshot } from './types';
 
 const BASE = '/api/v1/t/:tenant';
-const counts = (locations = 0, garden_objects = 0, slots = 0, plan_settings = 0) => ({
+const counts = (locations = 0, garden_objects = 0, slots = 0, plan_settings = 0, bed_photos = 0) => ({
   locations,
   garden_objects,
   slots,
   plan_settings,
   zones: 0,
+  bed_photos,
 });
 
 function report(overrides: Partial<PlanImportReport> = {}): PlanImportReport {
@@ -98,6 +99,28 @@ describe('ImportWizard', () => {
     expect(calls.bodies).toHaveLength(1);
     expect(calls.bodies[0]).toMatchObject({ mode: 'replace', dry_run: true, force: false, confirm_site_name: null });
     expect((calls.bodies[0].document as { schema_version: string }).schema_version).toBe('1');
+  });
+
+  it('says how many bed photos a replace deletes with the beds', async () => {
+    useBackend(calls, () => report({ would_delete: counts(4, 2, 12, 0, 3) }));
+    const user = userEvent.setup();
+    renderWizard();
+    await choose(user);
+
+    const view = await screen.findByTestId('plan-import-report');
+    expect(within(view).getByTestId('plan-import-bed-photos')).toHaveTextContent(
+      '3 bed photos go with the deleted beds, unless they are still used elsewhere.',
+    );
+  });
+
+  it('names no bed photos for a replace that deletes none', async () => {
+    useBackend(calls, () => report());
+    const user = userEvent.setup();
+    renderWizard();
+    await choose(user);
+
+    const view = await screen.findByTestId('plan-import-report');
+    expect(within(view).queryByTestId('plan-import-bed-photos')).not.toBeInTheDocument();
   });
 
   it('names a reference that left the file as "not in the file"', async () => {

@@ -150,6 +150,7 @@ class _Prepared:
     delete_locations: list[str] = field(default_factory=list)
     delete_objects: list[str] = field(default_factory=list)
     deleted_slot_count: int = 0
+    deleted_photo_count: int = 0
     deleted_names: dict[str, str] = field(default_factory=dict)
     kept: int = 0
     boundary: Any = None
@@ -586,11 +587,32 @@ class GardenPlanImportService:
         prepared.delete_locations = sorted(set(stored) - keep)
         prepared.deleted_names = {key: stored[key].name for key in prepared.delete_locations}
         prepared.delete_objects = sorted(obj.key for obj in existing_objects if obj.key)
+        prepared.deleted_photo_count = self._releasable_photo_count(
+            [ref for key in prepared.delete_locations for ref in stored[key].photo_refs],
+            prepared.delete_locations,
+            tenant_key=tenant_key,
+        )
         if prepared.delete_locations:
             prepared.deleted_slot_count = len(
                 self._plan.load_active_slots(site_key, prepared.delete_locations, tenant_key=tenant_key)
             )
         prepared.snapshot_wanted = True
+
+    def _releasable_photo_count(self, refs: list[str], location_keys: list[str], *, tenant_key: str) -> int:
+        """#2715 item 4 (review F): the bed photos the commit's discard will actually delete.
+
+        Not every ref of a deleted bed: :func:`release_location_photos` keeps a photo a kept bed, another bed or
+        another carrier still names, and skips a stale ref without a record - the count asks the same rule
+        (:meth:`LocationPhotoService.count_releasable`). Without the photo side nothing is discarded, so 0. Should
+        the read fail, the distinct refs are reported - an overstatement is the safe direction for a warning.
+        """
+        if not refs or self._photos is None:
+            return 0
+        try:
+            return self._photos().count_releasable(refs, tenant_key=tenant_key, location_keys=location_keys)
+        except Exception as exc:  # noqa: BLE001 — a count must not refuse the import it describes
+            logger.warning("garden_plan.import_photo_count_failed", error_type=type(exc).__name__)
+            return len(set(refs))
 
     def _plan_the_zones(
         self, prepared: _Prepared, zones: list[ExportZone], site_key: str, *, tenant_key: str, mode: ImportMode
@@ -1076,6 +1098,7 @@ class GardenPlanImportService:
                 garden_objects=len(prepared.delete_objects),
                 slots=prepared.deleted_slot_count,
                 zones=len(prepared.delete_zones),
+                bed_photos=prepared.deleted_photo_count,
             ),
             kept_locations=prepared.kept,
             dropped_references=prepared.dropped[:MAX_REPORTED],

@@ -17,6 +17,7 @@ What this file pins:
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
@@ -1199,7 +1200,8 @@ class TestTheBedStatus:
 
 class TestDeletingALocation:
     def delete(self, service, key="bed", *, role=TenantRole.LEAD, tenant=TENANT):
-        return service.delete_location(key, tenant_key=tenant, user_key=USER, role=role)
+        # #2715 item 5: the bed delete has one public path, the async one that releases the photos as well.
+        return asyncio.run(service.delete_bed(key, tenant_key=tenant, user_key=USER, role=role))
 
     def test_a_lead_deletes_with_an_audit_row_and_a_revision_bump(self, world) -> None:
         service, repo, site = world

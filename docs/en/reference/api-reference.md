@@ -388,7 +388,7 @@ POST /api/v1/t/{slug}/sites/{key}/plan/import
 | `offset_m` | `merge` only: `[dx, dy]` in metres (finite, at most ±1000), added to every shape of the file; `replace` answers `422` `import.offset_requires_merge`, an invalid value `422` |
 | `document` | The backup file |
 
-The answer is the same report for a dry run and an applied import: `would_create`, `would_update` and `would_delete` (counts of `locations`, `garden_objects`, `slots`, `plan_settings`), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. A dry run lists geometry and limit violations in `errors[]` with status `200`; an applied import with errors answers `422`.
+The answer is the same report for a dry run and an applied import: `would_create`, `would_update` and `would_delete` (counts of `locations`, `garden_objects`, `slots`, `plan_settings`; `would_delete.bed_photos` names the photos of the deleted beds, which are deleted after the import unless something else still names them), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. A dry run lists geometry and limit violations in `errors[]` with status `200`; an applied import with errors answers `422`.
 
 Keys of the file are never kept: every location, garden object and slot gets a new key. A reference that leaves the file is resolved against the target site only, otherwise it is set to empty and reported in `dropped_references[]`. Links to Home Assistant entities and actuators are never imported.
 

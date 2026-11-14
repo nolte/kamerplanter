@@ -573,7 +573,7 @@ def _services(
     plan_repo = ArangoGardenPlanRepository(db)
     photos = _photo_service(db)
     plan = GardenPlanService(sites, plan_repo, template_repo=ArangoBedTemplateRepository(db), photos=lambda: photos)
-    resources = GardenResourceService(sites, plan_repo, ArangoGardenObjectRepository(db), plan, photos=lambda: photos)
+    resources = GardenResourceService(sites, plan_repo, ArangoGardenObjectRepository(db), plan)
     run_repo = ArangoPlantingRunRepository(db)
     reservation_repo = ArangoPlantingReservationRepository(db)
     care = CareEventService(

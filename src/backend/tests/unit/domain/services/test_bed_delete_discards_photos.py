@@ -76,6 +76,7 @@ def test_the_request_wiring_hands_every_bed_delete_path_the_photo_service(monkey
 
     assert dependencies.get_site_service()._photos is dependencies.get_location_photo_service
     assert dependencies.get_garden_plan_service()._photos is dependencies.get_location_photo_service
-    assert dependencies.get_garden_resource_service()._photos is dependencies.get_location_photo_service
+    # ``DELETE /locations/{key}`` goes through the plan service's releasing batch path (#2715 item 5).
+    assert dependencies.get_garden_resource_service()._plan_service._photos is dependencies.get_location_photo_service
     # a ``replace`` import and a snapshot restore delete beds too (#2661 follow-up)
     assert dependencies.get_garden_plan_import_service()._photos is dependencies.get_location_photo_service

@@ -684,7 +684,7 @@ hold across restarts.
 
 Where an age filter cannot judge a record because its timestamp is missing or unreadable,
 it does not delete it but counts it and reports the counter as `held_undated` in the run
-event: in the account cleanup task (R-02), the call logs, the orphaned task and bed photos, the
+event: in the account cleanup task (R-02), the call logs, the orphaned task and bed photos and plan underlays, the
 consent records (R-04, `purge_expired_consent_records`), the confirmed e-mail changes
 (R-07b, `expire_email_change_requests`) and the glossary cache (`glossary_cleanup_cache`).
 
@@ -706,6 +706,21 @@ it" means no bed, no plant gallery, no task and no other record that carries pho
 freshly uploaded photo is inside the 48 hours and stays. The run writes the line
 `cleanup_orphaned_location_photos_audit` with `found`, `deleted`, `failed`, `skipped`,
 `freed_bytes` and `held_undated`.
+
+### Never-used plan underlays
+
+The underlay of a garden plan (an aerial photo or a sketch to trace over) arrives the same
+two-step way: first the file, then the assignment to the site. If the assignment never
+happens (the site has no plan yet, the tab was closed, the connection dropped) or deleting
+the old file fails after the underlay was replaced or removed, a picture is left that no
+site shows. An aerial photo can show where someone lives.
+
+The Celery task `app.tasks.storage_tasks.cleanup_orphaned_underlays` (daily at 04:00 UTC)
+removes these files: every underlay (category `garden_plan_underlay`) older than
+`STORAGE_GARDEN_PLAN_UNDERLAY_ORPHAN_HOURS` hours (default **48**, `0` disables the task)
+that nothing names any more is deleted together with its file and preview images. An
+underlay two sites share stays while either names it. The run writes the line
+`cleanup_orphaned_underlays_audit` with the same fields as the bed-photo task.
 
 ### Metrics
 

@@ -80,6 +80,7 @@ from app.common.enums import (
 from app.common.exceptions import (
     ExportAlreadyRunningError,
     ForbiddenError,
+    ImagePixelLimitError,
     MemberLimitReachedError,
     NotFoundError,
     PayloadTooLargeError,
@@ -91,6 +92,7 @@ from app.common.exceptions import (
 )
 from app.common.log_privacy import log_subject, log_tenant
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.storage.exif_stripper import UnreadableImageError
 from app.domain.engines.tenant_export_engine import (
     ARCHIVE_FORMAT,
     ARCHIVE_STORAGE_CATEGORY,
@@ -236,6 +238,7 @@ class TenantExportService:
         allowed_mime_types: Callable[[str], list[str]] | None = None,
         max_object_bytes: int | None = None,
         readings: IObservationRepository | None = None,
+        stored_body: Callable[[bytes, str], bytes] | None = None,
     ) -> None:
         if exports_per_day < 1:
             raise ValueError("exports_per_day must be at least 1")
@@ -260,6 +263,9 @@ class TenantExportService:
         self._signing_key = signing_key or None
         self._allowed_mime_types = allowed_mime_types
         self._max_object_bytes = max_object_bytes
+        # #2715 item 3 — ``attachment_service.imported_object_body``: an imported photo is
+        # EXIF/GPS-stripped exactly when an uploaded one would be. ``None`` stores the archive's bytes as they are.
+        self._stored_body = stored_body
         #: ``None`` without TimescaleDB (``TIMESCALEDB_ENABLED=false``): the archive then has no readings part.
         self._readings: IObservationRepository | None = readings
 
@@ -849,6 +855,12 @@ class TenantExportService:
             engine = TenantImportEngine(archive, target_tenant_key="", member_accounts={})
             engine.validate_documents()
             self._check_objects(archive)
+            # #2715 item 3 (review E): the bytes the target stores are settled here, in the verification both the
+            # request (the preview the admin confirms) and the run perform - an undecodable or oversized image is a
+            # refusal before the confirmation, not a failed run. The quota, the rows' ``sha256``/``byte_size``
+            # (:func:`_object_facts`) and the stored objects all follow these bytes; the run re-verifies the
+            # stored original upload, so an object is stripped once per phase, never twice in a row.
+            archive = self._with_stored_bodies(archive)
         except TenantArchiveError as exc:
             raise TenantImportRefusedError(exc.code, str(exc), exc.entries) from exc
         level = self._store.migration_level()
@@ -1264,6 +1276,33 @@ class TenantExportService:
         self._entitlements.require_for_new_tenant(
             plan_key, EntitlementDimension.PHOTOS_PER_INSTANCE, projected=photos, subject=plant
         )
+
+    def _with_stored_bodies(self, archive: TenantArchive) -> TenantArchive:
+        """The archive with every object replaced by the bytes this installation stores for it (#2715 item 3).
+
+        An archive object is a photo some installation stored - possibly one with ``STORAGE_STRIP_EXIF`` off, an
+        older release, or an archive edited by hand - so its EXIF/GPS block is this installation's to remove, the
+        same way an upload's is. A strippable image that does not decode as its claimed type, or lies above the
+        stored-object ceiling, refuses the import (``IMPORT_FORMAT_UNSUPPORTED``, nothing is written); every other
+        admitted type is kept unchanged (``imported_object_body``).
+        """
+        if self._stored_body is None or not archive.objects:
+            return archive
+        types = self._object_types(archive)
+        objects: dict[str, bytes] = {}
+        refused: list[str] = []
+        for path, data in archive.objects.items():
+            try:
+                objects[path] = self._stored_body(data, (types.get(path) or "").lower().strip())
+            except ImagePixelLimitError:
+                refused.append(f"objects/{path}: larger than the image pixel limit")
+            except UnreadableImageError:
+                refused.append(f"objects/{path}: not a readable image of its stated type")
+        if refused:
+            raise TenantImportRefusedError(
+                "IMPORT_FORMAT_UNSUPPORTED", "the archive carries images this installation does not accept", refused
+            )
+        return archive.model_copy(update={"objects": objects})
 
     @staticmethod
     def _object_types(archive: TenantArchive) -> dict[str, str]:

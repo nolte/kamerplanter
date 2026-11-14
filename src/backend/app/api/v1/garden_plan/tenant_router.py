@@ -446,6 +446,9 @@ async def apply_batch(
     deleted afterwards unless something else still names them (WP 8.18).
     """
     started = perf_counter()
+    # #2715 item 8: the serialisation that measures the operations runs off the event loop, and the duration is
+    # observed when the batch has committed - the photo discard after it is not part of the plan write.
+    body_bytes = await run_in_threadpool(_operations_bytes, body.operations)
     try:
         result = await service.apply_batch_async(
             key,
@@ -454,12 +457,12 @@ async def apply_batch(
             role=ctx.role,
             expected_revision=body.expected_revision,
             operations=body.operations,
-            body_bytes=_operations_bytes(body.operations),
+            body_bytes=body_bytes,
+            on_commit=lambda _committed: observe_batch_duration(perf_counter() - started),
         )
     except PlanRevisionConflictError:
         record_conflict()
         raise
-    observe_batch_duration(perf_counter() - started)
     return _batch_response(result)
 
 

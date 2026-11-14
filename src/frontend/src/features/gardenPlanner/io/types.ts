@@ -113,6 +113,8 @@ export interface ImportCounts {
   slots: number;
   plan_settings: number;
   zones: number;
+  /** `would_delete` only: the photos the deleted beds show; deleted unless something else still names them. */
+  bed_photos: number;
 }
 
 export interface DroppedReference {

@@ -370,10 +370,6 @@ class SiteService:
                 self._repo.get_location_by_key(current.parent_location_key) if current.parent_location_key else None
             )
 
-    def delete_location(self, key: LocationKey, *, tenant_key: str) -> bool:
-        self.get_location(key, tenant_key=tenant_key)
-        return self._repo.delete_location(key)
-
     def list_location_children(self, parent_key: LocationKey, *, tenant_key: str) -> list[Location]:
         self.get_location(parent_key, tenant_key=tenant_key)
         return self._repo.get_location_children(parent_key)

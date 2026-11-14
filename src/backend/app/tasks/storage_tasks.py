@@ -306,13 +306,32 @@ async def _cleanup_orphaned_location_photos(older_than_hours: int, limit: int) -
     )
 
 
+async def _cleanup_orphaned_underlays(older_than_hours: int, limit: int) -> dict[str, Any]:
+    from app.common.dependencies import get_attachment_repo
+
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    attachment_repo = get_attachment_repo()
+    return await _delete_orphans(
+        attachment_repo.find_orphaned_photos(AttachmentCategory.GARDEN_PLAN_UNDERLAY, older_than=cutoff, limit=limit),
+        lambda: attachment_repo.count_undated_orphaned_photos(AttachmentCategory.GARDEN_PLAN_UNDERLAY),
+        cutoff=cutoff,
+        task="cleanup_orphaned_underlays",
+    )
+
+
 async def _delete_orphans(
     orphans: list[Attachment], count_undated: Callable[[], int], *, cutoff: datetime, task: str
 ) -> dict[str, Any]:
-    """Delete the selected orphans one by one through ``AttachmentService``; the audit dict of both sweeps.
+    """Delete the selected orphans one by one through ``AttachmentService``; the audit dict of every sweep.
 
-    ``AttachmentService.delete`` is tenant-scoped and takes the row's own ``tenant_key``, so the installation-wide
-    selection never deletes across a tenant boundary.
+    Each row goes through :meth:`AttachmentService.delete_if_unreferenced` (#2715 review): the reference scan and the
+    record's removal are one transaction (``remove_if_unreferenced``, #2545), and the stored object follows only when
+    the record went. The selection is a snapshot; between it and the delete the upload dedup can hand the old record
+    back (``find_own_by_sha256``) and a carrier name it (``PUT /plan/underlay``, ``POST /locations/{key}/photos``) -
+    an unconditional delete then left that carrier pointing at nothing. A row named meanwhile is ``skipped``.
+
+    The call is tenant-scoped and takes the row's own ``tenant_key``, so the installation-wide selection never
+    deletes across a tenant boundary.
     """
     from app.common.dependencies import get_attachment_service
     from app.common.held_count import held_undated_count
@@ -335,12 +354,13 @@ async def _delete_orphans(
         # orphan behind it for ever, and the sweep would look like it was merely
         # retrying while it had in fact stopped working.
         try:
-            if await service.delete(attachment.key, attachment.tenant_key):
+            if await service.delete_if_unreferenced(attachment.key, attachment.tenant_key):
                 deleted += 1
                 freed_bytes += attachment.byte_size
             else:
                 # Gone between the query and the delete — a manual
-                # ``DELETE /attachments/{id}``, or a concurrent sweep.
+                # ``DELETE /attachments/{id}``, or a concurrent sweep — or named by a
+                # carrier meanwhile (dedup handed the old record back), so it stays.
                 # Counted, so ``found`` and ``deleted + failed + skipped`` keep adding
                 # up; the sibling task upholds the same invariant and the comment
                 # above claims it.
@@ -436,6 +456,37 @@ def cleanup_orphaned_location_photos(self, *, limit: int = 500) -> dict[str, Any
         raise self.retry(exc=exc) from exc
 
     logger.info("cleanup_orphaned_location_photos_audit", **result)
+    return result
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[untyped-decorator]
+def cleanup_orphaned_underlays(self, *, limit: int = 500) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    """Collect garden-plan underlays (category ``garden_plan_underlay``) that nothing references (#2715 item 1).
+
+    The picture under a site plan (REQ-053 GP-FR-033) is uploaded first (``POST /attachments``) and named by the
+    site in a second request (``PUT /sites/{key}/plan/underlay``). A refused PUT (no plan yet, a reference error), a
+    closed tab or a dropped connection leaves the upload unreferenced, and a discard that failed after a replaced or
+    removed underlay committed (``GardenPlanUnderlayService`` logs it) does the same. An aerial photo can show where
+    someone lives (GP-FR-033 §26), so it does not stay until the tenant erasure.
+
+    **On by default** (``STORAGE_GARDEN_PLAN_UNDERLAY_ORPHAN_HOURS=48``), like the bed-photo sweep and for the same
+    reason: the PUT follows the upload within one client flow, and the only carrier is the site's
+    ``plan.underlay.attachment_key``, written by one service under the attachment id. The reference check still
+    covers every carrier (``PHOTO_REF_COLLECTIONS`` and ``ATTACHMENT_REF_FIELDS``), so a picture two sites share
+    stays while either names it. ``0`` disables it.
+    """
+    hours = settings.storage_garden_plan_underlay_orphan_hours
+    if hours <= 0:
+        logger.info("cleanup_orphaned_underlays_disabled")
+        return {"found": 0, "deleted": 0, "failed": 0, "skipped": 0, "freed_bytes": 0, "disabled": True}
+
+    try:
+        result = asyncio.run(_cleanup_orphaned_underlays(hours, limit))
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("cleanup_orphaned_underlays_failed", error=loggable_error(exc))
+        raise self.retry(exc=exc) from exc
+
+    logger.info("cleanup_orphaned_underlays_audit", **result)
     return result
 
 

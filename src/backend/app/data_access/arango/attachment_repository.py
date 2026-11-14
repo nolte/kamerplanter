@@ -1,5 +1,7 @@
 """NFR-013 §2.2 — ArangoDB repository for the ``attachments`` collection."""
 
+import re
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from typing import Any, cast
 
@@ -224,6 +226,27 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         if attachment is None or attachment.tenant_key != tenant_key:
             return None
         return attachment
+
+    def get_many(self, keys: Sequence[str], *, tenant_key: str) -> dict[str, Attachment]:
+        """One query for the tenant's records among *keys* (#2715 item 7; was one ``get`` per photo of a gallery)."""
+        unique = list(dict.fromkeys(keys))
+        if not unique or not tenant_key:
+            # Like :meth:`get`: an empty tenant owns no record (no attachment carries ``tenant_key == ""``), so it
+            # reads as absent rather than raising - and never as a query across every tenant.
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR att IN @@collection
+              FILTER att._key IN @keys AND att.tenant_key == @tenant_key
+              RETURN att
+            """,
+                bind_vars={"@collection": self._collection_name, "keys": unique, "tenant_key": tenant_key},
+            ),
+        )
+        found = [Attachment(**self._from_doc(doc)) for doc in cursor]
+        return {attachment.key: attachment for attachment in found if attachment.key}
 
     def delete(self, key: str, tenant_key: str) -> bool:
         existing = self.get(key, tenant_key)
@@ -596,7 +619,9 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         total = int(next(count_cursor, 0) or 0)
         return items, total
 
-    def _aql_referenced_prelude(self, *, ignore_task_key: bool = False, tenant_scoped: bool = False) -> str:
+    def _aql_referenced_prelude(
+        self, *, ignore_task_key: bool = False, tenant_scoped: bool = False, ignore_location_keys: bool = False
+    ) -> str:
         """AQL that binds ``referenced`` to every id anything in the tenant links.
 
         Shared by the orphan sweep and :meth:`unreferenced_among`, because the two
@@ -621,6 +646,14 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # that deletes a photo *from* that task. Applied to the tasks collection
         # only; every other carrier still protects the photo.
         skip = " FILTER d._key != @ignored_task_key" if ignore_task_key else ""
+        # ``@ignored_location_keys`` discounts the beds a pending delete removes (#2715 review F): what the photos
+        # are named by once those beds are gone. Applied to the locations collection only (both carriers on it).
+        skip_beds = " FILTER d._key NOT IN @ignored_location_keys" if ignore_location_keys else ""
+
+        def skipped(collection: str) -> str:
+            if collection == col.TASKS:
+                return skip
+            return skip_beds if collection == col.LOCATIONS else ""
 
         def tenant(collection: str) -> str:
             """The tenant narrowing, for the collections that can carry it.
@@ -644,7 +677,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         parts = [
             f"          (FOR d IN @@ref_col_{index}"
             f"{tenant(PHOTO_REF_COLLECTIONS[index])}"
-            f"{skip if PHOTO_REF_COLLECTIONS[index] == col.TASKS else ''}"
+            f"{skipped(PHOTO_REF_COLLECTIONS[index])}"
             f" RETURN d.photo_refs || [])"
             for index in range(len(PHOTO_REF_COLLECTIONS))
         ]
@@ -653,11 +686,15 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # collections (``@@``) and values (``@``), not attribute names; every name
         # comes from the module-level tuple above, never from a caller.
         parts += [
-            f"          (FOR d IN @@extra_col_{index}{tenant(collection)} "
+            f"          (FOR d IN @@extra_col_{index}{tenant(collection)}{skipped(collection)} "
             f"RETURN IS_ARRAY(d.{aql_field(field)}) ? d.{aql_field(field)} "
             f": (d.{aql_field(field)} == null ? [] : [d.{aql_field(field)}]))"
             for index, (collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
         ]
+        # One loop variable per carrier (``ref0``, ``ref1`` …), not a shared ``d``: a scan that reads one carrier's
+        # ``tenant_key`` must not look like it reads one off a tenantless collection (``locations``) - the
+        # tenantless-collection scanner (``test_garden_plan_tenant_isolation``) judges by alias (#2715 review).
+        parts = [re.sub(r"\bd\b", f"ref{index}", part) for index, part in enumerate(parts)]
         collected = ",\n".join(parts)
         return f"""        LET raw_refs = UNIQUE(FLATTEN([
 {collected}
@@ -824,6 +861,37 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
                     txn, tenant_key=tenant_key, client_event_id=str(removed[0]["client_event_id"]), kind="attachment"
                 )
         return Attachment(**self._from_doc(removed[0])) if removed else None
+
+    def releasable_after_location_delete(
+        self, attachment_ids: Sequence[str], *, tenant_key: str, location_keys: Sequence[str]
+    ) -> list[str]:
+        """The ids a delete of *location_keys* would let :meth:`remove_if_unreferenced` remove (#2715 review F).
+
+        The tenant's own ``location`` records among *attachment_ids* that no carrier names once those beds are gone:
+        the rule ``LocationPhotoService.discard_released`` applies after the commit, asked before it, so a dry run
+        counts what the import will delete - not a photo a kept bed, another bed or a gallery still names, and not a
+        stale reference whose record is gone. Read-only; an empty tenant reads nothing.
+        """
+        unique = list(dict.fromkeys(attachment_ids))
+        if not unique or not tenant_key:
+            return []
+        query = f"""
+{self._aql_referenced_prelude(tenant_scoped=True, ignore_location_keys=True)}
+        FOR att IN @@collection
+          FILTER att._key IN @ids AND att.tenant_key == @tenant_key AND att.category == @category
+            AND {self._aql_unreferenced("referenced", "att")}
+          RETURN att._key
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "ids": unique,
+            "tenant_key": tenant_key,
+            "ref_tenant_key": tenant_key,
+            "category": AttachmentCategory.LOCATION.value,
+            "ignored_location_keys": list(location_keys),
+            **self._reference_bind_vars(),
+        }
+        return [str(key) for key in cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))]
 
     def _unreferenced_in(self, txn: StreamTransaction, attachment_id: str, tenant_key: str) -> bool:
         """Whether the tenant's record *attachment_id* exists and no carrier names it, read inside *txn*."""

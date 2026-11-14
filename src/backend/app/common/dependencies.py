@@ -631,7 +631,6 @@ def get_garden_resource_service() -> GardenResourceService:
         ArangoGardenObjectRepository(get_db()),
         get_garden_plan_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
-        photos=get_location_photo_service,
         nutrient_hint=get_nutrient_hint_service,
     )
 
@@ -1695,6 +1694,7 @@ def get_tenant_export_service() -> TenantExportService:
         ArangoTenantExportRequestRepository,
         ArangoTenantImportRequestRepository,
     )
+    from app.domain.services.attachment_service import imported_object_body
     from app.domain.services.tenant_export_service import TenantExportService, resolve_export_signing_key
 
     # Dispatched by task name: ``celery_app`` is typed (Celery), the decorated task objects are not, and
@@ -1741,7 +1741,11 @@ def get_tenant_export_service() -> TenantExportService:
         signing_key=resolve_export_signing_key(
             dedicated_secret=settings.tenant_export_signing_secret, jwt_secret=settings.jwt_secret_key
         ),
+        # The category whitelist as before #2715: an archive may hold a type stored lawfully before #2139 (HEIC, GIF)
+        # that an upload no longer admits while stripping is on - kept unchanged, not refused.
         allowed_mime_types=settings.allowed_mime_types_for_category,
+        # #2715 item 3 — strippable images are stripped (strictly, under the stored-object ceiling).
+        stored_body=functools.partial(imported_object_body, settings),
         max_object_bytes=settings.storage_max_file_size_mb * 1024 * 1024,
         # REQ-056 §8.3 (#2138) — readings travel as timeseries/readings.csv only with TimescaleDB.
         readings=get_observation_repo() if settings.timescaledb_enabled else None,

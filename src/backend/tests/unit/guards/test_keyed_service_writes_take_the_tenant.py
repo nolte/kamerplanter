@@ -634,7 +634,6 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "GardenPlanService.place_template",
         "GardenResourceService.patch_location",
         "GardenResourceService.change_bed_status",
-        "GardenResourceService.delete_location",
         "GardenResourceService.create_garden_object",
         "GardenResourceService.patch_garden_object",
         "GardenResourceService.delete_garden_object",

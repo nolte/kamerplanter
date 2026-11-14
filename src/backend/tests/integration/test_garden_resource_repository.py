@@ -9,6 +9,7 @@ a foreign tenant's rows. Every "nothing is there" assertion is paired with the p
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
@@ -1169,14 +1170,14 @@ class TestDeleteALocation:
             {"_key": "p1", "tenant_key": A, "location_key": "bed", "removed_on": None}
         )
         with pytest.raises(PlanError) as exc:
-            service.delete_location("bed", tenant_key=A, user_key=USER, role=TenantRole.LEAD)
+            asyncio.run(service.delete_bed("bed", tenant_key=A, user_key=USER, role=TenantRole.LEAD))
         assert exc.value.details[0]["active_plant_count"] == 1 and db.collection(col.LOCATIONS).has("bed")
 
         db.collection(col.PLANT_INSTANCES).update({"_key": "p1", "removed_on": "2026-10-01"})
-        service.delete_location("bed", tenant_key=A, user_key=USER, role=TenantRole.LEAD)
+        asyncio.run(service.delete_bed("bed", tenant_key=A, user_key=USER, role=TenantRole.LEAD))
         assert not db.collection(col.LOCATIONS).has("bed") and db.collection(col.SLOTS).count() == 0
 
     def test_another_tenants_lead_deletes_nothing(self, db, service) -> None:
         with pytest.raises(NotFoundError):
-            service.delete_location("bed", tenant_key=B, user_key=USER, role=TenantRole.LEAD)
+            asyncio.run(service.delete_bed("bed", tenant_key=B, user_key=USER, role=TenantRole.LEAD))
         assert db.collection(col.LOCATIONS).has("bed")
