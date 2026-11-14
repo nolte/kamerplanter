@@ -13,6 +13,7 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import CareCompletionDialog from './CareCompletionDialog';
+import { LIMING_HINT_SOURCE } from './careCategories';
 import type { CompletionPayload } from './careTypes';
 
 function fertilizer(key: string, overrides: Partial<Fertilizer>): Fertilizer {
@@ -257,13 +258,19 @@ describe('amendment materials (GP-FR-124)', () => {
     expect(onSubmit.mock.calls[0][0]).toEqual({ material: 'Leaf mould' });
   });
 
-  it('liming shows the text-only pH hint and computes no lime amount', async () => {
+  it('liming shows the sourced pH hint only and computes no lime amount', async () => {
     useCatalogue();
     renderDialog('liming', 3.6);
 
     const hint = screen.getByTestId('care-complete-liming-hint');
-    expect(hint).toHaveTextContent('above the target pH');
-    expect(hint).toHaveTextContent('acid-loving plants');
+    // §32.5 item 15 b: only the part R-011 backs, with its source; the unsourced advice is gone.
+    expect(hint).toHaveTextContent('Lime and wood ash raise the pH.');
+    expect(hint).toHaveTextContent('The app does not calculate a lime amount.');
+    expect(hint).not.toHaveTextContent('acid-loving');
+    expect(hint).not.toHaveTextContent('above the target pH');
+    expect(screen.getByTestId('care-complete-liming-hint-source')).toHaveTextContent(
+      `Source: ${LIMING_HINT_SOURCE}`,
+    );
     expect(screen.getByTestId('care-complete-quantity')).toHaveValue('');
   });
 

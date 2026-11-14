@@ -220,6 +220,24 @@ class TestLogging:
         assert future.json()["details"][0]["code"] == "care_event.performed_in_future"
         assert old.json()["details"][0]["code"] == "care_event.too_old"
 
+    def test_a_soil_analysis_reaches_five_years_back(self, client) -> None:
+        """GP-FR-122 (§32.5 item 14): an old lab report is accepted; past five years it answers 422."""
+
+        def analysis(days_back: int) -> dict:
+            return body(
+                category="soil_analysis",
+                summary="Lab report",
+                measurements=[{"parameter": "ph", "value": 6.1, "unit": "pH", "ph_method": "cacl2"}],
+                performed_at=(datetime.now(UTC) - timedelta(days=days_back)).isoformat(),
+            )
+
+        three_years = client().post(_OWN, json=analysis(3 * 365))
+        six_years = client().post(_OWN, json=analysis(6 * 365))
+
+        assert three_years.status_code == 201, three_years.text
+        assert six_years.status_code == 422
+        assert six_years.json()["details"][0]["code"] == "care_event.too_old"
+
     def test_a_viewer_cannot_log(self, client, world) -> None:
         response = client(TenantRole.VIEWER).post(_OWN, json=body())
 

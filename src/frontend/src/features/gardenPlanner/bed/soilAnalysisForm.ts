@@ -3,7 +3,7 @@
  * GP-FR-122). Pure, so the rules are pinned without rendering. A value is sent exactly as typed, with the unit and
  * method the user chose - nothing is converted between methods or units (U-002/U-003).
  */
-import { parseQuantity, performedAtProblem, toLocalInput } from '../care/careForm';
+import { parseQuantity, performedAtProblem, SOIL_ANALYSIS_MAX_BACKDATE_DAYS, toLocalInput } from '../care/careForm';
 import {
   CONTENT_CLASS_PARAMETERS,
   SOIL_CONTENT_CLASSES,
@@ -116,7 +116,8 @@ function rowError(row: MeasurementRow): RowError {
 /** Field problems as i18n keys; `hasErrors` says whether the form may be sent. */
 export function validateSoilAnalysis(state: SoilAnalysisFormState, now: Date): SoilAnalysisErrors {
   const errors: SoilAnalysisErrors = { rows: {} };
-  const problem = performedAtProblem(state.performedAt, now);
+  // GP-FR-122: a lab report may be up to five years old (every other care entry: a year).
+  const problem = performedAtProblem(state.performedAt, now, SOIL_ANALYSIS_MAX_BACKDATE_DAYS);
   if (problem) errors.performedAt = problem;
   if (state.depth.trim() !== '') {
     const depth = parseQuantity(state.depth);

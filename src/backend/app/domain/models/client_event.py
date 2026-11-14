@@ -41,7 +41,8 @@ CLIENT_EVENT_DIGEST_FIELD = "client_event_digest"
 CLIENT_EVENT_INDEX_FIELDS: frozenset[str] = frozenset({"client_event_id", "completion_client_event_id"})
 
 #: How long a tombstone outlives the object a buffered write created: longer than a client event may lie back
-#: (``MAX_AGE_DAYS`` of V-11, a year) plus a margin for a device that was offline at the end of that year.
+#: (``MAX_AGE_DAYS`` of V-11, a year) plus a margin for a device that was offline at the end of that year. A buffered
+#: soil analysis keeps that year too; only an unbuffered one reaches five years (``care_event.client_max_age_days``).
 CLIENT_EVENT_TOMBSTONE_DAYS = 365 + 30
 
 #: ``kind`` of a tombstone: which path's object was deleted.

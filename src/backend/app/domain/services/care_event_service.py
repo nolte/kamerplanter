@@ -73,6 +73,7 @@ from app.domain.models.care_event import (
     CareEventOrigin,
     CareEventView,
     LoggedCareEvent,
+    client_max_age_days,
     display_performer,
     owns_its_source_document,
 )
@@ -508,9 +509,14 @@ class CareEventService:
             tenant_key=tenant_key,
             user_key=user_key,
             already_photos=[],
-            # The origin carries its own bound: a client gets a year, a server-made backfill the calendar-year
-            # window of GP-API-042 (V-11 exception). The future bound (five minutes) holds for every caller.
-            max_age_days=origin.max_age_days if origin else MAX_AGE_DAYS,
+            # The origin carries its own bound: a client gets a year (a soil analysis five, GP-FR-122), a
+            # server-made backfill the calendar-year window of GP-API-042 (V-11 exception). The future bound (five
+            # minutes) holds for every caller.
+            max_age_days=(
+                origin.max_age_days
+                if origin
+                else client_max_age_days(data.category, buffered=data.client_event_id is not None)
+            ),
         )
         if origin is not None:
             # A server caller (the task completion) anchors its idempotency on its own object (WP 9.3).
@@ -571,7 +577,8 @@ class CareEventService:
         whose plant was removed since still finds its event. Two attempts at once race on the unique index
         ``(tenant_key, client_event_id)``: the loser's insert is refused (``1210``, or ``1200`` while the winner has
         not committed) and it reads the winner instead of answering an error. ``performed_at`` is the capture time
-        the client sent, held to V-11 like every client event (a year back at most, ``MAX_AGE_DAYS``).
+        the client sent, held to V-11 like every buffered client event (a year back at most, ``MAX_AGE_DAYS``, a
+        soil analysis included - see :func:`client_max_age_days`).
         """
         self._require_editor(role)
         stamp = self._client_stamp(data, user_key=user_key)
@@ -709,7 +716,9 @@ class CareEventService:
             tenant_key=tenant_key,
             user_key=user_key,
             already_photos=predecessor.photo_refs,
-            max_age_days=BACKFILL_YEAR_WINDOW_DAYS if predecessor.trigger == "backfill" else MAX_AGE_DAYS,
+            max_age_days=(
+                BACKFILL_YEAR_WINDOW_DAYS if predecessor.trigger == "backfill" else client_max_age_days(data.category)
+            ),
             check_instant=not unchanged_instant,
         )
         event = CareEvent(

@@ -7654,7 +7654,7 @@
           "title": "Bodenanalyse für {{name}} erfassen",
           "description": "Trag die Werte aus deinem Laborbefund, deinem Testset oder von deiner Sonde ein – jeden mit Einheit und Messmethode. Die neuesten Werte für pH, EC, Humus und Kalk landen automatisch im Bodenprofil.",
           "performedAt": "Probe genommen am",
-          "performedAtHelper": "Höchstens 365 Tage zurück, nicht in der Zukunft.",
+          "performedAtHelper": "Höchstens 5 Jahre zurück, nicht in der Zukunft.",
           "source": "Herkunft",
           "sourceHelper": "Woher stammen die Werte?",
           "depth": "Entnahmetiefe",
@@ -7681,7 +7681,7 @@
           "saved": "Bodenanalyse gespeichert.",
           "errors": {
             "future": "Der Zeitpunkt liegt in der Zukunft.",
-            "tooOld": "Höchstens 365 Tage zurück.",
+            "tooOld": "Höchstens 5 Jahre zurück.",
             "invalid": "Bitte gib Datum und Uhrzeit an.",
             "depth": "Gib eine Tiefe zwischen 0 und 1000 cm an.",
             "method": "Wähle die Messmethode – ohne sie ist der Wert nicht lesbar.",
@@ -7854,7 +7854,8 @@
           "nitrogenApprox": "Näherung: ≈ {{kgPerHa}} kg N/ha ({{gPerM2}} g N/m²)",
           "nitrogenApproxHint": "Näherung aus dem N-Gehalt auf dem Etikett. Das ist keine Nährstoffbilanz und keine Aussage zur Düngeverordnung.",
           "materialHint": "Wähle ein Material aus der Liste oder tippe einen eigenen Namen.",
-          "limingHint": "Kalk und Holzasche heben den pH-Wert. Bringe sie nicht aus, wenn der Boden schon über dem Ziel-pH liegt, und nicht bei säureliebenden Pflanzen wie Heidelbeere oder Rhododendron. Eine Kalkmenge berechnet die App nicht."
+          "limingHint": "Kalk und Holzasche heben den pH-Wert. Eine Kalkmenge berechnet die App nicht.",
+          "hintSource": "Quelle: {{source}}"
         },
         "errors": {
           "future": "Der Zeitpunkt liegt in der Zukunft.",

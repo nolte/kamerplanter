@@ -11,6 +11,7 @@ import {
   emptyForm,
   performedAtBounds,
   performedAtProblem,
+  SOIL_ANALYSIS_MAX_BACKDATE_DAYS,
   validateForm,
   type CareFormState,
 } from './careForm';
@@ -119,6 +120,15 @@ describe('the instant (GP-FR-085)', () => {
 
   it('bounds the input to the same window', () => {
     expect(performedAtBounds(NOW)).toEqual({ min: '2025-06-14T18:30', max: '2026-06-14T18:30' });
+  });
+
+  it('takes a longer window for a soil analysis (GP-FR-122: five years, 5 × 365 days)', () => {
+    expect(SOIL_ANALYSIS_MAX_BACKDATE_DAYS).toBe(1825);
+    // 2021-06-15 18:30 is 5 × 365 days before NOW (2024 is the one leap day in between).
+    expect(performedAtBounds(NOW, SOIL_ANALYSIS_MAX_BACKDATE_DAYS).min).toBe('2021-06-15T18:30');
+    expect(performedAtProblem('2021-06-15T18:30', NOW, SOIL_ANALYSIS_MAX_BACKDATE_DAYS)).toBeNull();
+    expect(performedAtProblem('2021-06-15T18:29', NOW, SOIL_ANALYSIS_MAX_BACKDATE_DAYS)).toBe('tooOld');
+    expect(performedAtProblem('2023-06-15T18:30', NOW)).toBe('tooOld');
   });
 });
 

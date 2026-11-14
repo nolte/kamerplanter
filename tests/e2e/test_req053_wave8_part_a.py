@@ -592,9 +592,16 @@ def test_tc_053_064_amendment_mulch_and_liming_with_a_text_only_hint(
 
     dialog = care_tab.open_completion(liming)
     hint = dialog.text_of("liming-hint")
-    assert hint.startswith("Kalk und Holzasche heben den pH-Wert.") and hint.endswith(
-        "Eine Kalkmenge berechnet die App nicht."
+    # §32.5 item 15 b (#2643): only the part R-011 backs, then its source; no advice without a source.
+    assert hint.startswith(
+        "Kalk und Holzasche heben den pH-Wert. Eine Kalkmenge berechnet die App nicht."
     ), f"TC-053-064: the liming hint: {hint!r}"
+    assert "säureliebend" not in hint and "Ziel-pH" not in hint, (
+        f"TC-053-064: unsourced advice: {hint!r}"
+    )
+    assert dialog.text_of("liming-hint-source").startswith("Quelle: "), (
+        f"TC-053-064: the hint's source: {hint!r}"
+    )
     assert not AMOUNT.search(hint), f"TC-053-064: the hint names no amount: {hint!r}"
     assert dialog.quantity_value() == "", (
         f"TC-053-064: no lime amount is pre-filled: {dialog.quantity_value()!r}"

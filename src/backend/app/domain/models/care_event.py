@@ -96,6 +96,11 @@ ACCOUNT_FIELDS: tuple[str, ...] = (
 #: ten years.
 FUTURE_TOLERANCE_MINUTES = 5
 MAX_AGE_DAYS = 365
+#: A soil analysis reaches five years back (GP-FR-122, REQ-053 §32.5 item 14): a lab report is often older than a
+#: year. ``5 * 365`` days never reaches past the five *calendar* years of R-25 (``RetentionService.
+#: care_event_anonymisation_cutoff``), so an analysis is never stored already due for anonymisation.
+SOIL_ANALYSIS_MAX_AGE_DAYS = 5 * 365
+CATEGORY_SOIL_ANALYSIS = "soil_analysis"
 BACKFILL_MAX_AGE_DAYS = 3650
 #: A backfilled year is a calendar year (GP-API-042): ``current year - 10`` mid-season can lie this far back.
 BACKFILL_YEAR_WINDOW_DAYS = BACKFILL_MAX_AGE_DAYS + 366
@@ -405,6 +410,19 @@ class CareEventOrigin:
             raise ValueError("A backfill reaches ten calendar years back at most.")
         if self.rotation_entry is not None and self.trigger != "backfill":
             raise ValueError("Only a backfill carries a rotation entry.")
+
+
+def client_max_age_days(category: str, *, buffered: bool = False) -> int:
+    """How far back V-11 lets a client date an event of ``category`` — the one place create and correction read.
+
+    A year for every category; a soil analysis five years (GP-FR-122). A **buffered** write (one carrying a
+    ``client_event_id``, UI-NFR-012) keeps the year whatever its category: once the tombstone of its deletion has
+    expired (``CLIENT_EVENT_TOMBSTONE_DAYS``, a year plus a margin), only this bound stops a late replay from
+    creating the deleted event again.
+    """
+    if category == CATEGORY_SOIL_ANALYSIS and not buffered:
+        return SOIL_ANALYSIS_MAX_AGE_DAYS
+    return MAX_AGE_DAYS
 
 
 #: What the API shows for an account that is erased or gone (GP-API-034).
