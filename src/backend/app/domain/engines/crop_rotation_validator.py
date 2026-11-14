@@ -807,7 +807,8 @@ class CropRotationValidator:
         """
         history: IRotationHistoryRepository = self._bed_collaborators()[2]
         today: date = today_utc()
-        occupied = {e.year for e in entries if SEASON_ORDER.get(e.season, 1) == SEASON_ORDER["main"]}
+        # the main season: a plant carries none and reads as the main season (SEASON_ORDER)
+        occupied = {e.year for e in entries if e.season in (None, "main")}
         family_cache: dict[str, str | None] = {}
         found: dict[tuple[Any, ...], HistoryEntry] = {}
         for run in history.list_planned_runs(location.key or "", tenant_key=tenant_key):
