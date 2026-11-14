@@ -164,7 +164,8 @@ FOR e IN @@edges
     }
 """
 
-#: Sets ``sown_at`` on an unarchived row or zone slot of the bed in which none of the tenant's plants stands.
+#: Sets ``sown_at`` on an unarchived row or zone slot of the bed in which none of the tenant's plants stands. A plant
+#: stands in the slot its own ``slot_key`` names; ``placed_in`` keeps the edge of a slot it left (#2774).
 _MARK_SLOT_SOWN = """
 FOR s IN @@slots
     FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.slot_role IN @roles
@@ -173,6 +174,7 @@ FOR s IN @@slots
             FILTER e._to == s._id
             LET plant = DOCUMENT(e._from)
             FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+                AND plant.slot_key == s._key
             LIMIT 1
             RETURN 1
     )
@@ -182,7 +184,7 @@ FOR s IN @@slots
 """
 
 #: Clears ``sown_at`` and sets the occupancy of the slot thinned — only while it is still sown on the day read and
-#: none of the tenant's plants stands in it.
+#: none of the tenant's plants stands in it (by its own ``slot_key``: a plant that left keeps its edge, #2774).
 _CLEAR_SOWN_SLOT = """
 FOR s IN @@slots
     FILTER s._key == @key AND s.location_key == @location_key AND s.archived_at == null AND s.sown_at == @sown_at
@@ -191,6 +193,7 @@ FOR s IN @@slots
             FILTER e._to == s._id
             LET plant = DOCUMENT(e._from)
             FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+                AND plant.slot_key == s._key
             LIMIT 1
             RETURN 1
     )
@@ -239,12 +242,14 @@ FOR e IN @@edges
     }
 """
 
-#: The plants standing in some slots, with the expected end of their run.
+#: The plants standing in some slots, with the expected end of their run. A plant stands only in the slot its own
+#: ``slot_key`` names; ``placed_in`` keeps the edge of a slot it left (#2774).
 _ACTIVE_PLANTS_IN_SLOTS = """
 FOR e IN @@placed_in
     FILTER e._to IN @ids
     LET plant = DOCUMENT(e._from)
     FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+        AND PARSE_IDENTIFIER(e._to).key == plant.slot_key
     LET link = FIRST(FOR r IN @@run_contains FILTER r._to == e._from AND r.detached_at == null RETURN r)
     LET run = link == null ? null : DOCUMENT(link._from)
     RETURN {
@@ -443,7 +448,11 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
         ]
 
     def _plant_rows(self, location_key: str, tenant_key: str) -> list[PlantingRow]:
-        """The bed's plants: those placed in its slots, and the unplaced ones that name the bed."""
+        """The bed's plants: those placed in its slots, and the unplaced ones that name the bed.
+
+        A plant is listed on the slot its own ``slot_key`` names: ``placed_in`` keeps the edge of a slot it left
+        (#2774).
+        """
         cursor = cast(
             "Cursor",
             self._db.aql.execute(
@@ -453,7 +462,9 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                     FILTER s.location_key == @location_key
                     FOR e IN @@placed_in
                         FILTER e._to == s._id
-                        RETURN {plant: DOCUMENT(e._from), slot_key: s._key, slot_id: s.slot_id}
+                        LET plant = DOCUMENT(e._from)
+                        FILTER plant != null AND plant.slot_key == s._key
+                        RETURN {plant: plant, slot_key: s._key, slot_id: s.slot_id}
             )
             LET loose = (
                 FOR plant IN @@plants
@@ -778,7 +789,11 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
 
     @staticmethod
     def _live_plants(txn: StreamTransaction, location_key: str, tenant_key: str) -> list[dict[str, Any]]:
-        """The tenant's plants standing in the bed: placed in its slots, or naming the bed without a slot."""
+        """The tenant's plants standing in the bed: placed in its slots, or naming the bed without a slot.
+
+        A plant stands in the slot its own ``slot_key`` names - ``placed_in`` keeps the edge of a slot it left, and a
+        plant that moved to another bed must not be removed with this one (#2774).
+        """
         return list(
             txn.aql.execute(
                 """
@@ -787,7 +802,9 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                         FILTER s.location_key == @location_key
                         FOR e IN @@placed_in
                             FILTER e._to == s._id
-                            RETURN {plant: DOCUMENT(e._from), slot_id: s._id}
+                            LET plant = DOCUMENT(e._from)
+                            FILTER plant != null AND plant.slot_key == s._key
+                            RETURN {plant: plant, slot_id: s._id}
                 )
                 LET loose = (
                     FOR plant IN @@plants

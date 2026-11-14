@@ -860,6 +860,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         The predicate never depended on it — such a plant was already invisible to
         ``list_plants``/``get_plant`` and every other tenant-scoped read, so
         anchoring on it was no stricter than the rest of the application.
+
+        Only the edge to the slot the plant's own ``slot_key`` names counts:
+        ``placed_in`` keeps the edge of a slot the plant left (#2774).
         """
         self._require_tenant_key(tenant_key, "get_slot_for_plant")
         query = """
@@ -867,6 +870,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
           FILTER e._from == @plant_id
           LET plant = DOCUMENT(@plant_id)
           FILTER plant != null AND plant.tenant_key == @tenant_key
+          FILTER PARSE_IDENTIFIER(e._to).key == plant.slot_key
           LET slot = DOCUMENT(e._to)
           FILTER slot != null
           RETURN slot

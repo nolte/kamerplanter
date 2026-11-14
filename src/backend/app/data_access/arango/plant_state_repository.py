@@ -64,6 +64,7 @@ _READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_species")
 
 #: The bed's sown slots without a standing plant of the tenant, with the crop of their live reservation (W-015).
 #: A slot carries no tenant (E-01): the plants and the reserving run are filtered on it, the bed was resolved first.
+#: A plant stands in the slot its own ``slot_key`` names; ``placed_in`` keeps the edge of a slot it left (#2774).
 _SOWN_SLOTS = (
     """
 FOR s IN @@slots
@@ -73,6 +74,7 @@ FOR s IN @@slots
             FILTER e._to == s._id
             LET plant = DOCUMENT(e._from)
             FILTER plant != null AND plant.tenant_key == @tenant_key AND plant.removed_on == null
+                AND plant.slot_key == s._key
             LIMIT 1
             RETURN 1
     )
