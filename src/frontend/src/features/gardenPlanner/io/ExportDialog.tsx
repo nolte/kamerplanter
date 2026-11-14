@@ -56,7 +56,7 @@ import {
   serializePlanSvg,
 } from './pngExport';
 import {
-  BED_LIST_DEFAULT_COLUMNS,
+  BED_LIST_BED_COLUMNS,
   BED_LIST_SITE_CONDITION_COLUMNS,
   DEFAULT_BED_LIST_CSV_OPTIONS,
   orderedBedListColumns,
@@ -418,7 +418,7 @@ export default function ExportDialog({
               <FormGroup
                 sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}
               >
-                {BED_LIST_DEFAULT_COLUMNS.map(columnBox)}
+                {BED_LIST_BED_COLUMNS.map(columnBox)}
               </FormGroup>
             </FormControl>
             <FormControl component="fieldset" variant="standard">

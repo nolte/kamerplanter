@@ -550,11 +550,13 @@ class GardenPlanExportService:
     ) -> list[dict[str, str]]:
         """The parcel list (GP-FR-176): identifier, area, irrigation zone and - only on request - the assignment.
 
-        **The identifier is the bed's name with a running number in plan order** - depth, drawing order
-        (``z_order``), key (:func:`_plan_order`). There is no ``bed_number`` field (placeholder assumption 8 of
-        wave 9, #2759): the number is counted for this print and **holds for this print only**. A bed added or
-        removed, or moved in the drawing order (bring to front / send to back), renumbers the beds after it; the
-        page says so under its heading. It is no stable identifier to refer to across prints - the bed name is.
+        **The identifier is the bed's ``parcel_label`` where one is set** (operator decision of 2026-11-14 on #2759):
+        a stable, user-editable text such as an allotment parcel number, the same on every print. **Without it, the
+        bed's name with a running number in plan order** - depth, drawing order (``z_order``), key
+        (:func:`_plan_order`); that number is counted for this print and **holds for this print only**. A bed added
+        or removed, or moved in the drawing order (bring to front / send to back), renumbers the beds after it; the
+        page says so under its heading. Every bed keeps its running number, labelled or not, so the numbers of the
+        unlabelled beds do not depend on which others carry a label.
 
         **Bounded** like the CSV: more than ``MAX_BED_LIST_EXPORT_ROWS`` beds is 422 ``export.too_many_rows``,
         checked before the zone or the assignment is read.
@@ -585,6 +587,7 @@ class GardenPlanExportService:
         for number, bed in enumerate(beds, start=1):
             row = {
                 "number": str(number),
+                "parcel_label": bed.parcel_label or "",
                 "name": bed.name,
                 "area": format_decimal(bed.area_m2, locale),
                 "zone": zone_names.get(bed.irrigation_zone_key, "") if bed.irrigation_zone_key else "",

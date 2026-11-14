@@ -33,6 +33,16 @@ function roundTrip(op: PlanOperation) {
   return { before, applied, restored: restored.plan };
 }
 
+describe('normalizePlan: the bed types of V-05 (#2759)', () => {
+  it('keeps the server bed types, and none from a plan cached before it sent them', () => {
+    expect(normalizePlan(planResponse({ bed_type_keys: ['bed', 'raised_bed'] })).bedTypeKeys).toEqual([
+      'bed',
+      'raised_bed',
+    ]);
+    expect('bedTypeKeys' in normalizePlan(planResponse())).toBe(false);
+  });
+});
+
 describe('applyOperation', () => {
   it('does not mutate its input and shares what it does not change', () => {
     const before = smallPlan();
@@ -236,6 +246,21 @@ describe('applyOperation', () => {
         },
       ]);
       expect(restored).toEqual(before);
+    });
+
+    it('sets a parcel label and inverts to none; clearing removes the key (GP-FR-176, #2759)', () => {
+      const { before, applied, restored } = roundTrip({
+        op: 'update_fields',
+        entity: 'location',
+        key: 'loc_a',
+        fields: { parcel_label: 'A-17' },
+      });
+      expect(applied.plan.locations.loc_a.parcel_label).toBe('A-17');
+      expect(applied.inverse).toEqual([
+        { op: 'update_fields', entity: 'location', key: 'loc_a', fields: { parcel_label: null } },
+      ]);
+      expect(restored).toEqual(before);
+      expect('parcel_label' in restored.locations.loc_a).toBe(false);
     });
 
     it('merges a sun-profile key into a bed without one and the inverse restores the plan exactly (#2538)', () => {

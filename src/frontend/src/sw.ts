@@ -30,6 +30,7 @@ import {
   API_CACHE_MAX_BYTES,
   API_NETWORK_TIMEOUT_SECONDS,
   BACKGROUND_SYNC_TAG,
+  OFFLINE_READ_FETCH_OPTIONS,
   RUNTIME_CONFIG_CACHE,
   RUNTIME_CONFIG_NETWORK_TIMEOUT_SECONDS,
   STATIC_ASSET_CACHE,
@@ -195,6 +196,9 @@ function apiStrategy(cacheName: string): NetworkFirst {
     strategy = new NetworkFirst({
       cacheName,
       networkTimeoutSeconds: API_NETWORK_TIMEOUT_SECONDS,
+      // SEC-001 (#2759): the answer is `private, no-cache` - keep it out of the browser's HTTP cache; only this
+      // namespaced cache holds it.
+      fetchOptions: OFFLINE_READ_FETCH_OPTIONS,
       plugins: [createApiCachePlugin(cacheName, apiContext) as WorkboxPlugin],
     });
     apiStrategies.set(cacheName, strategy);
@@ -203,6 +207,8 @@ function apiStrategy(cacheName: string): NetworkFirst {
 }
 
 const networkOnly = new NetworkOnly();
+/** An allowlisted read without a namespace or after the kill switch: from the network, past the HTTP cache too. */
+const offlineReadNetworkOnly = new NetworkOnly({ fetchOptions: OFFLINE_READ_FETCH_OPTIONS });
 
 const staticAssetPlugin: WorkboxPlugin = {
   cacheWillUpdate: async ({ response }) => (response.status === 200 ? response : null),
@@ -230,7 +236,7 @@ router.registerRoute(
     async (options) => {
       await stateLoaded;
       const cacheName = registry.forClient(clientIdOf(options.event));
-      if (killed || !cacheName) return networkOnly.handle(options);
+      if (killed || !cacheName) return offlineReadNetworkOnly.handle(options);
       return apiStrategy(cacheName).handle(options);
     },
   ),

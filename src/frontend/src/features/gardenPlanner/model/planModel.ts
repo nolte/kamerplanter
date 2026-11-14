@@ -43,6 +43,11 @@ export interface PlanModel {
    * only the locations the server marked `is_area` are areas.
    */
   areaTypeKeys?: string[];
+  /**
+   * The location types flagged `is_bed`, from the server (V-05, #2759): two beds of one parent may not overlap, and
+   * the live validation checks it with them. Absent = unknown: V-05 stays the server's.
+   */
+  bedTypeKeys?: string[];
   gardenObjects: Record<string, GardenObject>;
   slots: Record<string, PlanSlot>;
   plants: Record<string, PlanPlant>;
@@ -98,6 +103,7 @@ export function normalizePlan(response: GardenPlanResponse): PlanModel {
     settings: response.plan ?? null,
     locations: byKey(response.locations),
     ...(response.area_type_keys ? { areaTypeKeys: response.area_type_keys } : {}),
+    ...(response.bed_type_keys ? { bedTypeKeys: response.bed_type_keys } : {}),
     gardenObjects: byKey(response.garden_objects),
     slots: byKey(response.slots),
     plants: byKey(response.plants),

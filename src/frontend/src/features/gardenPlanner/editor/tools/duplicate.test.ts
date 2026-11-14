@@ -3,7 +3,7 @@ import { applyOperations } from '../../model/applyOperation';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import { normalizePlan } from '../../model/planModel';
 import type { Geometry } from '../../model/types';
-import { testPlan } from './toolTestKit';
+import { testPlan, testPlanResponse } from './toolTestKit';
 import {
   duplicateSelection,
   multiCopyName,
@@ -14,15 +14,16 @@ import {
 const name = (n: string) => `${n} (copy)`;
 
 describe('duplicateSelection', () => {
-  it('copies a bed with its base fields, shifted by the step, and names the copy', () => {
+  it('copies a bed with its base fields beside it - own width plus the step - and names the copy', () => {
     const plan = testPlan();
+    // solo (14,2) 2x2: width 2 + step 0.5 to the right.
     const out = duplicateSelection(plan, [{ entity: 'location', key: 'solo' }], 0.5, name);
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     const [op] = out.value.ops;
     expect(op).toMatchObject({
       op: 'create_location',
-      data: { name: 'Solo (copy)', location_type_key: 'bed', geometry: { origin: [14.5, 1.5] } },
+      data: { name: 'Solo (copy)', location_type_key: 'bed', geometry: { origin: [16.5, 2] } },
     });
     expect(out.value.selection).toEqual([
       { entity: 'location', key: (op as { temp_key: string }).temp_key },
@@ -41,7 +42,15 @@ describe('duplicateSelection', () => {
   });
 
   it('takes everything inside a selected area along, under the copied area', () => {
-    const plan = testPlan();
+    // The area (2,2) 10x10 needs room for a second one beside it: a 40 m boundary.
+    const response = testPlanResponse();
+    const plan = normalizePlan({
+      ...response,
+      plan: {
+        ...response.plan!,
+        boundary: { kind: 'rect', origin: [0, 0], width_m: 40, length_m: 40, rotation_deg: 0 },
+      },
+    });
     const out = duplicateSelection(plan, [{ entity: 'location', key: 'area' }], 0.1, name);
     if (!out.ok) throw new Error('expected a copy');
     // area + b1 + b2 + the tree
@@ -56,13 +65,14 @@ describe('duplicateSelection', () => {
 
   it('tries the other directions when the first would leave the parent', () => {
     const plan = testPlan();
-    // b2 sits at (6,3)..(8,5) in the area (2,2)..(12,12): a step of 3.9 m right-down leaves it at the bottom.
-    const out = duplicateSelection(plan, [{ entity: 'location', key: 'b2' }], 3.9, name);
+    // b2 sits at (6,3)..(8,5) in the area (2,2)..(12,12): 2 + 2.5 m to the right ends at 12.5, outside; downwards
+    // leaves it too; to the left (1.5..3.5) as well - upwards (6, 7.5) fits.
+    const out = duplicateSelection(plan, [{ entity: 'location', key: 'b2' }], 2.5, name);
     expect(out.ok).toBe(true);
     if (out.ok) {
       const geometry = (out.value.ops[0] as { data: { geometry: { origin: number[] } } }).data
         .geometry;
-      expect(geometry.origin).not.toEqual([9.9, -0.9]);
+      expect(geometry.origin).toEqual([6, 7.5]);
     }
   });
 
@@ -87,6 +97,83 @@ describe('duplicateSelection', () => {
     if (!out.ok) throw new Error('expected a copy');
     const applied = applyOperations(plan, out.value.ops).plan;
     expect(applied.locations[out.value.selection[0].key].locked).toBe(false);
+  });
+});
+
+describe('duplicateSelection: the first free position (GP-FR-025, #2759 question 14)', () => {
+  const rect = (x: number, y: number): Geometry => ({
+    kind: 'rect',
+    origin: [x, y],
+    width_m: 2,
+    length_m: 1,
+    rotation_deg: 0,
+  });
+  /** Bed `a` (1,1) 2x1 and, at the first position a copy of it takes (width 2 + step 0.1), bed `n`. */
+  const row = (bedTypeKeys?: string[]) =>
+    normalizePlan(
+      planResponse({
+        plan: {
+          boundary: { kind: 'rect', origin: [0, 0], width_m: 20, length_m: 20, rotation_deg: 0 },
+          north_angle_deg: 0,
+          default_grid_m: 0.1,
+          adjacency_factor: 1.5,
+          plan_revision: 1,
+        },
+        locations: [
+          bed('a', 1, 1, { geometry: rect(1, 1), area_m2: 2, bbox: [1, 1, 3, 2], name: 'A' }),
+          bed('n', 3.1, 1, {
+            geometry: rect(3.1, 1),
+            area_m2: 2,
+            bbox: [3.1, 1, 5.1, 2],
+            name: 'N',
+          }),
+        ],
+        ...(bedTypeKeys ? { bed_type_keys: bedTypeKeys } : {}),
+      }),
+    );
+  const originOf = (out: ReturnType<typeof duplicateSelection>) => {
+    if (!out.ok) throw new Error(out.code);
+    const op = out.value.ops[0];
+    return op.op === 'create_location' && op.data.geometry.kind === 'rect'
+      ? op.data.geometry.origin
+      : null;
+  };
+
+  it('skips a position a sibling bed already takes (V-05) and lands on the next free one', () => {
+    // Right: overlaps `n`; down and left leave the boundary; up (1, 2.1) is free.
+    expect(
+      originOf(duplicateSelection(row(['bed']), [{ entity: 'location', key: 'a' }], 0.1, name)),
+    ).toEqual([1, 2.1]);
+  });
+
+  it('never lands on its original: the copy shares no area with the bed it was made from', () => {
+    const plan = row(['bed']);
+    const out = duplicateSelection(plan, [{ entity: 'location', key: 'n' }], 0.1, name);
+    const origin = originOf(out)!;
+    // n's copy goes right of n: x 5.2..7.2, clear of both a and n.
+    expect(origin).toEqual([5.2, 1]);
+  });
+
+  it('a plan without the bed types leaves V-05 to the server and takes the first position', () => {
+    expect(
+      originOf(duplicateSelection(row(), [{ entity: 'location', key: 'a' }], 0.1, name)),
+    ).toEqual([3.1, 1]);
+  });
+
+  it('says bed.overlap when every position inside the parent is taken by a bed', () => {
+    // A 4.1 m wide strip of ground: the only position beside `a` is the one `n` holds.
+    const plan = row(['bed']);
+    const narrow = {
+      ...plan,
+      settings: {
+        ...plan.settings!,
+        boundary: { kind: 'rect', origin: [0.5, 0.5], width_m: 4.7, length_m: 2, rotation_deg: 0 },
+      },
+    } as typeof plan;
+    expect(duplicateSelection(narrow, [{ entity: 'location', key: 'a' }], 0.1, name)).toEqual({
+      ok: false,
+      code: 'bed.overlap',
+    });
   });
 });
 

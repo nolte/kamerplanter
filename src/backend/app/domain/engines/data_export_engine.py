@@ -577,6 +577,8 @@ class DataExportEngine:
                 "_key",
                 "name",
                 "description",
+                # REQ-053 GP-FR-176 (#2759): the parcel identifier the subject typed (Art. 15).
+                "parcel_label",
                 "site_key",
                 "parent_location_key",
                 # REQ-053 GP-FR-147: the JSON plan backup is part of this disclosure, so every field of it is here.

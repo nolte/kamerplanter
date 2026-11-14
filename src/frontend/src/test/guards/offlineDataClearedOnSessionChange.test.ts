@@ -542,3 +542,62 @@ describe('offline data is cleared on account erasure and on a dead session (#278
     }
   });
 });
+
+/**
+ * REQ-053 §32.6 Pkt. 13 (#2759): `GET …/sites`, `GET …/sites/{key}/plan` and `GET …/locations/{key}/summary` now
+ * answer `private, no-cache`, so the worker really stores them in `kp:{user_key}:{tenant_key}` (they were `no-store`
+ * before and never written). The logout and the tenant switch above both run `clearOfflineData`; this pins that the
+ * real one empties exactly that namespace, holding the three answers, and leaves the public build caches.
+ */
+describe("the worker's API cache of the three offline reads is emptied by the same clearings (#2759)", () => {
+  const NAMESPACE = 'kp:alice:tenant_a';
+  const OTHER_TENANT = 'kp:alice:tenant_b';
+  const PUBLIC = ['workbox-precache-v2-https://kamerplanter.example/', 'kp-static-assets', 'kp-runtime-config'];
+  const READS = [
+    '/api/v1/t/garten-a/sites',
+    '/api/v1/t/garten-a/sites/site_1/plan',
+    '/api/v1/t/garten-a/locations/loc_1/summary',
+  ];
+  let stores: Map<string, Map<string, Response>>;
+
+  beforeEach(async () => {
+    const { isAllowlistedApiRequest, isCacheableApiResponse } = await import('@/pwa/cachePolicy');
+    stores = new Map(PUBLIC.map((name) => [name, new Map<string, Response>()]));
+    stores.set(OTHER_TENANT, new Map());
+    const namespace = new Map<string, Response>();
+    for (const path of READS) {
+      const url = new URL(path, 'https://kamerplanter.example');
+      const answer = new Response('{}', {
+        headers: { 'content-type': 'application/json', 'cache-control': 'private, no-cache' },
+      });
+      // What the worker's plugin checks before it writes (`swApiCachePerClient.test.ts`): allowlisted, storable.
+      expect(isAllowlistedApiRequest('GET', url, url.origin)).toBe(true);
+      expect(isCacheableApiResponse(answer)).toBe(true);
+      namespace.set(url.href, answer);
+    }
+    stores.set(NAMESPACE, namespace);
+    vi.stubGlobal('caches', {
+      keys: vi.fn(async () => [...stores.keys()]),
+      delete: vi.fn(async (name: string) => stores.delete(name)),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('a logout or tenant switch (clearOfflineData) deletes the namespace with the three answers', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    expect(stores.get(NAMESPACE)?.size).toBe(3);
+    await actual.clearOfflineData();
+    expect(stores.has(NAMESPACE)).toBe(false);
+    expect(stores.has(OTHER_TENANT)).toBe(false);
+    expect([...stores.keys()].sort()).toEqual([...PUBLIC].sort());
+  });
+
+  it('the confirmed logout (discarding the write buffer) deletes it as well', async () => {
+    const actual = await vi.importActual<typeof import('@/pwa/offlineData')>('@/pwa/offlineData');
+    await actual.clearOfflineData({ discardWriteQueueOf: 'alice' });
+    expect([...stores.keys()].some((name) => name.startsWith('kp:'))).toBe(false);
+  });
+});

@@ -152,7 +152,7 @@
         <tbody>
         {% for parcel in parcels %}
             <tr>
-                <td>{{ parcel.number }} &middot; {{ parcel.name }}</td>
+                <td>{% if parcel.parcel_label %}{{ parcel.parcel_label }}{% else %}{{ parcel.number }}{% endif %} &middot; {{ parcel.name }}</td>
                 <td>{{ parcel.area }}</td>
                 <td>{{ parcel.zone or '–' }}</td>
                 {% if show_assignment %}<td>{{ parcel.assigned_to or '–' }}</td>{% endif %}

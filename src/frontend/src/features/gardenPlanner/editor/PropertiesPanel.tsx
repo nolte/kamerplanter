@@ -57,6 +57,7 @@ import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
 import { MenuTriggerTooltip } from './MenuTriggerTooltip';
 import { NumberField } from './NumberField';
+import { ParcelLabelField } from './ParcelLabelField';
 import { ObjectPropsFields } from './objectProps/ObjectPropsFields';
 import { OBJECT_PROPS_PREFIX } from './objectProps/shared';
 import { WaterSourceFields } from './WaterSourceFields';
@@ -300,6 +301,22 @@ function EntityForm({
     onCommit([op], 'edit');
   };
 
+  // GP-FR-176 (#2759): through the pending model like the name - a PATCH would raise the revision outside the editor.
+  const commitParcelLabel = (parcelLabel: string | null) => {
+    if (entity !== 'location') return;
+    onCommit(
+      [
+        {
+          op: 'update_fields',
+          entity: 'location',
+          key: entityKey,
+          fields: { parcel_label: parcelLabel },
+        },
+      ],
+      'edit',
+    );
+  };
+
   const commitSun = (sun: SunExposure) => {
     if (entity !== 'location' || plan.locations[entityKey]?.sun_exposure === sun) return;
     onCommit(
@@ -410,6 +427,13 @@ function EntityForm({
         slotProps={{ htmlInput: { 'data-testid': 'garden-plan-panel-name' } }}
         sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
       />
+      {bedRows && (
+        <ParcelLabelField
+          value={plan.locations[entityKey]?.parcel_label}
+          disabled={locked}
+          onCommit={commitParcelLabel}
+        />
+      )}
       <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-type">
         {t(`${PREFIX}.panel.type`, { type: typeLabel })}
       </Typography>

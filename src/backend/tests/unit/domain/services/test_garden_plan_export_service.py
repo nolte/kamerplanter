@@ -352,7 +352,29 @@ class TestTheParcelList:
 
         _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
 
-        assert "Die Nummer gilt nur für diesen Ausdruck" in engine.html[-1]
+        assert "Die laufende Nummer gilt nur für diesen Ausdruck" in engine.html[-1]
+
+    def test_a_set_parcel_label_is_the_identifier_and_the_others_keep_their_running_number(self, repo) -> None:
+        """#2759: the stored label stands where it is set; an unlabelled bed keeps its plan-order number."""
+        repo.locations["b2"] = repo.locations["b2"].model_copy(update={"parcel_label": "A-17"})
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        section = engine.html[-1][engine.html[-1].index('<section class="parcel-list">') :]
+        cells = [
+            re.findall(r"<td>(.*?)</td>", row, flags=re.S)[0].strip()
+            for row in re.findall(r"<tr>(.*?)</tr>", section, flags=re.S)[1:]
+        ]
+        assert cells == ["1 &middot; Beet 1", "A-17 &middot; Beet 2", "3 &middot; Beet 3"]
+
+    def test_a_parcel_label_is_escaped_into_text(self, repo) -> None:
+        repo.locations["b1"] = repo.locations["b1"].model_copy(update={"parcel_label": "<b>7</b>"})
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), parcel_list=True)
+
+        assert "&lt;b&gt;7&lt;/b&gt;" in engine.html[-1] and "<b>7</b>" not in engine.html[-1]
 
     def test_an_erased_account_and_a_deleted_membership_print_differently(self, repo) -> None:
         """SEC-003: erased account = "anonymisiert"; a deleted membership's assignment is gone, the cell is "–".

@@ -45,6 +45,8 @@ LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "lighting",
     "locked",
     "notes",
+    # REQ-053 GP-FR-176 (#2759): written by ``PATCH /locations`` and the plan batch; the PUT body does not carry it.
+    "parcel_label",
     "photo_refs",
     "pitch_m",
     "rotation_enabled",

@@ -248,6 +248,11 @@ export interface PlanLocation {
   area_m2: number;
   bbox?: BoundingBox | null;
   height_m?: number | null;
+  /**
+   * The stable parcel identifier, e.g. an allotment number (GP-FR-176, #2759): the parcel list's identifier where set.
+   * Absent = none set (the server omits `null`).
+   */
+  parcel_label?: string | null;
   bed_status: BedStatus;
   /**
    * `true`: an area (REQ-053 §9.5, GP-UX-071) - a garden, terrace, balcony, greenhouse or room: its type is neither a
@@ -393,6 +398,11 @@ export interface GardenPlanResponse {
    * is drawn as an area before the save. Absent in a plan cached before the server sent it.
    */
   area_type_keys?: string[];
+  /**
+   * Every location type flagged `is_bed` (V-05, #2759): the editor checks the bed overlap live with them. Absent in a
+   * plan cached before the server sent it; the editor then leaves V-05 to the server.
+   */
+  bed_type_keys?: string[];
   garden_objects: GardenObject[];
   slots: PlanSlot[];
   plants: PlanPlant[];
@@ -438,6 +448,8 @@ export interface CreateGardenObjectData {
 export interface LocationFieldsPatch {
   name?: string;
   description?: string | null;
+  /** The stable parcel identifier (GP-FR-176, #2759); `null` clears it. */
+  parcel_label?: string | null;
   notes?: string | null;
   sun_exposure?: SunExposure;
   height_m?: number | null;

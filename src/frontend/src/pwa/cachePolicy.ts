@@ -112,14 +112,26 @@ export function userCachePrefix(userKey: string | null | undefined): string | nu
   return `${API_CACHE_PREFIX}${userKey}:`;
 }
 
-/** Whether a request may be answered from (and written into) the namespaced API cache. */
-export function isAllowlistedApiRequest(method: string, url: URL, appOrigin: string): boolean {
+/** Whether a same-origin request of `method` to `path` (no query) is one of the allowlisted reads. */
+export function isAllowlistedApiPath(method: string, path: string): boolean {
   if (method.toUpperCase() !== 'GET') return false;
-  if (url.origin !== appOrigin) return false;
-  const path = url.pathname;
   if (FORBIDDEN_API_PATH_PATTERNS.some((pattern) => pattern.test(path))) return false;
   return API_CACHE_ALLOWLIST.some((pattern) => pattern.test(path));
 }
+
+/** Whether a request may be answered from (and written into) the namespaced API cache. */
+export function isAllowlistedApiRequest(method: string, url: URL, appOrigin: string): boolean {
+  if (url.origin !== appOrigin) return false;
+  return isAllowlistedApiPath(method, url.pathname);
+}
+
+/**
+ * REQ-053 §32.6 Pkt. 13, SEC-001 (#2759): the allowlisted reads answer `Cache-Control: private, no-cache`, which lets
+ * the browser's own HTTP disk cache STORE them - a cache no logout can empty from script. Every fetch of them
+ * therefore runs with the request cache mode `no-store`: the worker's network fetch and the page's own request (no
+ * controlling worker: first load, dev server, kill switch). Only the namespaced Cache Storage keeps the answer.
+ */
+export const OFFLINE_READ_FETCH_OPTIONS: RequestInit = { cache: 'no-store' };
 
 /** The parts of a `Response` the cacheability rule reads. */
 export interface ResponseLike {

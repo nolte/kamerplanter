@@ -1,21 +1,63 @@
 /**
  * Live validation while drawing and dragging (REQ-053 GP-UX-053). It mirrors the server's
  * `check_entity` for the rules a client can decide without the database: V-01 (bounds), V-02
- * (simple polygon) and V-03 (containment in the nearest placed ancestor, else the garden
- * boundary). Bed overlap (V-05) needs the location type's `is_bed` flag the plan does not carry,
- * so it stays the server's. The server is the authority; this only draws the red outline early.
+ * (simple polygon), V-03 (containment in the nearest placed ancestor, else the garden
+ * boundary) and V-05 (two beds of one parent location do not overlap; operator decision of 2026-11-14 on #2759,
+ * question 14). V-05 needs the `is_bed` flag of a location's type: the plan carries it as `bedTypeKeys`; a plan
+ * without them (cached before the server sent them) leaves V-05 to the server. A bed overlapping a garden object or
+ * an area is allowed (a path under a raised bed). The server is the authority; this only draws the red outline early.
  */
-import { contains, parseGeometry, toShape, validateGeometry } from '../../model/geometry';
+import { contains, overlaps, parseGeometry, toShape, validateGeometry } from '../../model/geometry';
 import type { PlanModel } from '../../model/planModel';
 import type { Geometry, PlanEntity } from '../../model/types';
 
 export const ERROR_INVALID = 'geometry.invalid';
 export const ERROR_OUTSIDE_PARENT = 'geometry.outside_parent';
+/** V-05: the server's `bed.overlap`. */
+export const ERROR_BED_OVERLAP = 'bed.overlap';
+
+/** The key a not-yet-created shape is checked under; no stored or temp key looks like it. */
+const NEW_ENTITY_KEY = '__new__';
 
 export interface DraftChange {
   entity: PlanEntity;
   key: string;
   geometry: Geometry;
+}
+
+/** A shape that does not exist yet: the parent it would be created under and, for a location, its type. */
+export interface NewEntity {
+  parentKey: string | null;
+  /** The type of a new location; absent = a garden object (never a bed). */
+  locationTypeKey?: string;
+}
+
+/** Whether locations of `typeKey` are beds by the plan's `bedTypeKeys`; `null` = the plan does not say (no V-05). */
+function isBedType(plan: PlanModel, typeKey: string | undefined): boolean | null {
+  if (!plan.bedTypeKeys) return null;
+  return typeKey !== undefined && plan.bedTypeKeys.includes(typeKey);
+}
+
+/**
+ * V-05 for one bed: whether `geometry` overlaps another placed bed with the same parent. `overrides` hold the shapes
+ * the change set gives the other beds; `selfKey` is skipped (a bed never overlaps itself).
+ */
+function overlapsSiblingBed(
+  plan: PlanModel,
+  selfKey: string,
+  geometry: Geometry,
+  parentKey: string | null,
+  overrides: ReadonlyMap<string, Geometry>,
+): boolean {
+  const shape = toShape(geometry);
+  for (const other of Object.values(plan.locations)) {
+    if (other.key === selfKey || (other.parent_location_key ?? null) !== parentKey) continue;
+    if (isBedType(plan, other.location_type_key) !== true) continue;
+    const otherGeometry = overrides.get(`location:${other.key}`) ?? other.geometry;
+    if (!otherGeometry) continue;
+    if (overlaps(shape, toShape(otherGeometry))) return true;
+  }
+  return false;
 }
 
 /** The geometry of the nearest ancestor location that is placed, else the boundary, else none. */
@@ -43,7 +85,7 @@ function enclosingGeometry(
 export function firstViolation(
   plan: PlanModel,
   changes: readonly DraftChange[],
-  newEntity?: { parentKey: string | null },
+  newEntity?: NewEntity,
 ): string | null {
   const overrides = new Map(changes.map((c) => [`${c.entity}:${c.key}`, c.geometry]));
   const checked = new Set<string>();
@@ -74,6 +116,15 @@ export function firstViolation(
       change.entity === 'garden_object' && plan.gardenObjects[change.key]?.off_site === true;
     const own = check(`${change.entity}:${change.key}`, change.geometry, parentKey, offSite);
     if (own) return own;
+    // V-05, after V-02/V-03 like the server: a shape without a defined interior would answer noise.
+    if (change.entity !== 'location') continue;
+    const typeKey = source
+      ? plan.locations[change.key]?.location_type_key
+      : newEntity?.locationTypeKey;
+    if (isBedType(plan, typeKey) !== true) continue;
+    if (overlapsSiblingBed(plan, change.key, change.geometry, parentKey ?? null, overrides)) {
+      return ERROR_BED_OVERLAP;
+    }
   }
   const changedLocations = new Set(
     changes.filter((c) => c.entity === 'location').map((c) => c.key),
@@ -145,14 +196,22 @@ export function boundaryViolation(plan: PlanModel, boundary: Geometry): string |
   return null;
 }
 
-/** For a brand-new shape: the V-01..V-03 verdict, with the parent it would be created under. */
+/**
+ * For a brand-new shape: the V-01..V-03 verdict, with the parent it would be created under - and V-05 when it is a
+ * location of a bed type (`locationTypeKey`).
+ */
 export function violationOfNew(
   plan: PlanModel,
   geometry: Geometry,
   parentKey: string | null,
+  locationTypeKey?: string,
 ): string | null {
-  const draft: DraftChange = { entity: 'garden_object', key: '__new__', geometry };
-  return firstViolation(plan, [draft], { parentKey });
+  const draft: DraftChange = {
+    entity: locationTypeKey === undefined ? 'garden_object' : 'location',
+    key: NEW_ENTITY_KEY,
+    geometry,
+  };
+  return firstViolation(plan, [draft], { parentKey, locationTypeKey });
 }
 
 /**

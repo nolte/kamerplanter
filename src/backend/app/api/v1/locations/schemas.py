@@ -128,6 +128,8 @@ class LocationResponse(BaseModel):
     frost_exposed: bool | None = None
     # ── Garden plan (REQ-053 §20.3, §10.1, WP 1.7) — read-only here; PATCH arrives with WP 1.9 ──
     description: str | None = None
+    #: Stable identifier such as an allotment parcel number (GP-FR-176, #2759); `null` = none set.
+    parcel_label: str | None = None
     #: Plan frame (§9.2); ``None`` = not placed on the plan (GP-ACC-035).
     geometry: Geometry | None = None
     height_m: float | None = None

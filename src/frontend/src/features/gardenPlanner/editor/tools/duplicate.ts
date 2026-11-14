@@ -1,7 +1,9 @@
 /**
  * Duplicate with offset (REQ-053 GP-FR-025): copies geometry and base fields of the selected
- * locations and garden objects - and everything inside a selected area - shifted by one grid step.
- * Plants and tasks are never copied. Slots cannot be: the closed plan operation list has no
+ * locations and garden objects - and everything inside a selected area - to the first free position: shifted by the
+ * selection's own extent plus one grid step, so the copy lies next to the original instead of on it (operator
+ * decision of 2026-11-14 on #2759, question 14). "Free" is the live validation's verdict, V-05 (`bed.overlap`)
+ * included, so a copy never lands where the save would refuse it. Plants and tasks are never copied. Slots cannot be: the closed plan operation list has no
  * `create_slot`, so a copied bed starts without positions (the panel offers to lay them out).
  * Every copy gets a fresh temp key; one duplicate is one `PlanOperation` batch = one undo step.
  * `multiDuplicate` makes several copies in a row with a naming scheme (SHOULD, F-10) the same way.
@@ -21,19 +23,28 @@ import {
 import type { SelectionRef } from '../../state/gardenPlanSlice';
 import { translateGeometry } from './geometryEdit';
 import { objectsIn, selectionRoots } from './hierarchy';
-import { violationOfNew } from './validation';
+import { ERROR_BED_OVERLAP, ERROR_OUTSIDE_PARENT, violationOfNew } from './validation';
 
-/** Offset directions tried in turn: down-right first, then the other diagonals and axes. */
+/**
+ * Offset directions tried in turn (the plan frame's y points up): right first, then down, left, up, then the
+ * diagonals. Each one shifts by the selection's extent plus a grid step along its axes.
+ */
 const DIRECTIONS: readonly Point[] = [
+  [1, 0],
+  [0, -1],
+  [-1, 0],
+  [0, 1],
   [1, -1],
   [1, 1],
   [-1, -1],
   [-1, 1],
-  [1, 0],
-  [0, 1],
-  [-1, 0],
-  [0, -1],
 ];
+
+/**
+ * How many positions one direction tries, one extent-plus-step further each time, while a copy still fits into its
+ * parent somewhere: a row of 20 beds is skipped before the duplicate gives up and says why.
+ */
+export const MAX_DUPLICATE_RINGS = 20;
 
 export interface DuplicateResult {
   ops: PlanOperation[];
@@ -43,7 +54,7 @@ export interface DuplicateResult {
 
 export type DuplicateOutcome =
   | { ok: true; value: DuplicateResult }
-  | { ok: false; code: 'nothing' | 'geometry.outside_parent' | 'geometry.invalid' };
+  | { ok: false; code: 'nothing' | 'geometry.outside_parent' | 'geometry.invalid' | 'bed.overlap' };
 
 function locationData(
   location: PlanLocation,
@@ -151,8 +162,8 @@ function copyAt(
       ),
     });
     if (isRoot) {
-      // A root copy shares the parent of its original; its subtree moves rigidly with it.
-      violation ??= violationOfNew(plan, geometry, parent);
+      // A root copy shares the parent of its original; its subtree moves rigidly with it. V-05 with its type (#2759).
+      violation ??= violationOfNew(plan, geometry, parent, location.location_type_key);
       rootCopies.push({ entity: 'location', key: tempKey });
     }
   }
@@ -178,8 +189,10 @@ function copyAt(
 }
 
 /**
- * The operations that duplicate `selection`, shifted by `stepM` metres in the first direction
- * where the copies stay inside their parent (the live validation of GP-UX-053).
+ * The operations that duplicate `selection` at the first free position (GP-FR-025, #2759): shifted by the
+ * selection's own extent plus `stepM` metres along each direction in turn, then one extent-plus-step further, until
+ * the copies pass the live validation (V-01..V-03 and V-05, GP-UX-053). The search stops when every direction leaves
+ * the parent; the refusal names the reason that blocked a position inside it (`bed.overlap`) before the containment.
  * `copyName(name)` builds the name of a copied bed ("Beet 1 (Kopie)"); i18n stays with the caller.
  */
 export function duplicateSelection(
@@ -190,13 +203,25 @@ export function duplicateSelection(
 ): DuplicateOutcome {
   const source = copyableOf(plan, selection);
   if (source === null) return { ok: false, code: 'nothing' };
+  const [x0, y0, x1, y1] = rootsExtent(plan, source);
+  const pitch: Point = [x1 - x0 + stepM, y1 - y0 + stepM];
   let sawOutside = false;
-  for (const [dx, dy] of DIRECTIONS) {
-    const copy = copyAt(plan, source, [dx * stepM, dy * stepM], copyName);
-    if (copy.violation === null)
-      return { ok: true, value: { ops: copy.ops, selection: copy.selection } };
-    sawOutside ||= copy.violation === 'geometry.outside_parent';
+  let sawOverlap = false;
+  for (let ring = 1; ring <= MAX_DUPLICATE_RINGS; ring += 1) {
+    let roomInside = false;
+    for (const [dx, dy] of DIRECTIONS) {
+      const delta: Point = [roundLength(dx * ring * pitch[0]), roundLength(dy * ring * pitch[1])];
+      const copy = copyAt(plan, source, delta, copyName);
+      if (copy.violation === null)
+        return { ok: true, value: { ops: copy.ops, selection: copy.selection } };
+      if (copy.violation === ERROR_OUTSIDE_PARENT) sawOutside = true;
+      else roomInside = true;
+      sawOverlap ||= copy.violation === ERROR_BED_OVERLAP;
+    }
+    // Every direction already leaves the parent: one step further out only leaves it further.
+    if (!roomInside) break;
   }
+  if (sawOverlap) return { ok: false, code: 'bed.overlap' };
   return { ok: false, code: sawOutside ? 'geometry.outside_parent' : 'geometry.invalid' };
 }
 
@@ -231,7 +256,8 @@ export type MultiDuplicateOutcome =
         | 'plan.quota_exceeded'
         | 'multi.too_many'
         | 'geometry.outside_parent'
-        | 'geometry.invalid';
+        | 'geometry.invalid'
+        | 'bed.overlap';
       /** Number of the first copy that breaks a rule (1-based), when the code is a geometry one. */
       failedCopy?: number;
       /** The name that copy's first bed would have carried ("Parzelle 13"); absent when it holds no bed. */
@@ -319,8 +345,8 @@ export function multiDuplicate(
       return {
         ok: false,
         code:
-          copy.violation === 'geometry.outside_parent'
-            ? 'geometry.outside_parent'
+          copy.violation === ERROR_OUTSIDE_PARENT || copy.violation === ERROR_BED_OVERLAP
+            ? copy.violation
             : 'geometry.invalid',
         failedCopy: k,
         ...(firstName === undefined ? {} : { failedName: firstName }),

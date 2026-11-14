@@ -4,6 +4,7 @@ import {
   firstViolation,
   inferParentKey,
   violationOfNew,
+  ERROR_BED_OVERLAP,
   ERROR_INVALID,
   ERROR_OUTSIDE_PARENT,
 } from './validation';
@@ -117,5 +118,63 @@ describe('new shapes', () => {
     const plan = testPlan();
     expect(violationOfNew(plan, rect(9, 6, 1, 1), 'area')).toBeNull();
     expect(violationOfNew(plan, rect(15, 15, 6, 1), null)).toBe(ERROR_OUTSIDE_PARENT);
+  });
+});
+
+describe('V-05 bed overlap, checked live (#2759 question 14)', () => {
+  /** The test plan with the server's bed types: `bed` is one, the area type is not. */
+  const withBedTypes = () => ({ ...testPlan(), bedTypeKeys: ['bed'] });
+
+  it('flags a bed dragged onto a sibling bed of the same area', () => {
+    // b1 (3,3) and b2 (6,3) share the area: b1 moved to (5.5,3) covers half of b2.
+    expect(
+      firstViolation(withBedTypes(), [
+        { entity: 'location', key: 'b1', geometry: rect(5.5, 3, 2, 2) },
+      ]),
+    ).toBe(ERROR_BED_OVERLAP);
+  });
+
+  it('accepts beds that only touch along an edge (the server tolerance)', () => {
+    expect(
+      firstViolation(withBedTypes(), [
+        { entity: 'location', key: 'b1', geometry: rect(4, 3, 2, 2) },
+      ]),
+    ).toBeNull();
+  });
+
+  it('reads the sibling where the same change set moves it', () => {
+    // Both move right by 3 m together (a group drag): they keep their gap.
+    expect(
+      firstViolation(withBedTypes(), [
+        { entity: 'location', key: 'b1', geometry: rect(6, 3, 2, 2) },
+        { entity: 'location', key: 'b2', geometry: rect(9, 3, 2, 2) },
+      ]),
+    ).toBeNull();
+  });
+
+  it('lets a bed overlap a garden object (a path under a raised bed)', () => {
+    // The tree t1 at (9,9) r 0.5 in the same area.
+    expect(
+      firstViolation(withBedTypes(), [
+        { entity: 'location', key: 'b1', geometry: rect(8, 8, 2, 2) },
+      ]),
+    ).toBeNull();
+  });
+
+  it('compares only beds of the same parent', () => {
+    // `solo` (14,2) is top level; b1 stays in the area - a shape inside the area cannot reach it anyway, so a new
+    // top-level bed on top of solo is the case: it overlaps.
+    expect(violationOfNew(withBedTypes(), rect(14.5, 2.5, 1, 1), null, 'bed')).toBe(
+      ERROR_BED_OVERLAP,
+    );
+    // The same shape as a garden object is fine, and so is a new area (not a bed type).
+    expect(violationOfNew(withBedTypes(), rect(14.5, 2.5, 1, 1), null)).toBeNull();
+    expect(violationOfNew(withBedTypes(), rect(14.5, 2.5, 1, 1), null, 'area')).toBeNull();
+  });
+
+  it('is the server-only rule while the plan does not name the bed types', () => {
+    expect(
+      firstViolation(testPlan(), [{ entity: 'location', key: 'b1', geometry: rect(5.5, 3, 2, 2) }]),
+    ).toBeNull();
   });
 });

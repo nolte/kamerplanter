@@ -2153,11 +2153,14 @@ export function GardenPlanEditor({
     if (origin) void placeTemplate(origin);
   }, [placeTemplate, renderer, selectedTemplate, snapPoint, templateMode, viewCentreX, viewCentreY]);
   // The ghost turns red where the template would break a rule the client can check (V-01..V-03 against the garden
-  // boundary - the server places it without a parent); a bed overlap stays the server's (#2536).
+  // boundary - the server places it without a parent - and V-05 against the top-level beds, #2759).
   const ghostInvalid = useMemo(() => {
     if (!selectedTemplate || !templateMode || !ghostPoint) return false;
     const placed = placeGeometry(selectedTemplate.default_geometry, ghostPoint, templateMode.rotationDeg);
-    return placed !== null && violationOfNew(plan, placed, null) !== null;
+    return (
+      placed !== null &&
+      violationOfNew(plan, placed, null, selectedTemplate.location_type_key) !== null
+    );
   }, [ghostPoint, plan, selectedTemplate, templateMode]);
   const closeTemplateTool = useCallback(() => {
     setTemplateMode(null);

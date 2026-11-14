@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 
 from app.api.mapping import to_response
 from app.api.v1.hardiness_zones.schemas import HardinessZoneResponse, SiteHardinessResponse
@@ -8,6 +8,7 @@ from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_current_tenant, require_permission, require_tenant_role
+from app.common.cache_control import allow_offline_read_cache
 from app.common.dependencies import (
     get_hardiness_zone_service,
     get_plant_instance_service,
@@ -93,11 +94,17 @@ def _build_tree(
 
 @router.get("", response_model=list[SiteResponse])
 def list_sites(
+    response: Response,
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
-    """List the tenant's sites (paginated)."""
+    """List the tenant's sites (paginated).
+
+    Answers `Cache-Control: private, no-cache` (REQ-053 §32.6 Pkt. 13): one of the three reads the service worker
+    keeps for the garden plan offline, in the user's and tenant's own namespace.
+    """
+    allow_offline_read_cache(response)
     items = service.list_sites_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_site_response(s, service) for s in items]
 

@@ -150,6 +150,15 @@ class IGardenPlanRepository(ABC):
         """
 
     @abstractmethod
+    def bed_type_keys(self) -> list[str]:
+        """The keys of every location type flagged ``is_bed`` (REQ-053 V-05), sorted.
+
+        The editor checks V-05 (``bed.overlap``) live with them (operator decision of 2026-11-14 on #2759, question
+        14): two beds of one parent may not overlap. Every bed type, not only those on the plan, so a bed drawn with a
+        type the plan does not hold yet is checked too. Global master data; at most :data:`MAX_AREA_TYPES` keys.
+        """
+
+    @abstractmethod
     def load_location_photoperiods(self, location_key: str, *, tenant_key: str) -> list[PlantPhotoperiod]:
         """The tenant's standing plants in the location with the photoperiod their current phase asks for (W-016.6).
 

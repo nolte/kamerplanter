@@ -201,10 +201,25 @@ function pointsGeometry(points: readonly Point[], shape: DrawShape): Geometry {
       };
 }
 
-/** The live verdict on a drawn shape: V-01..V-03 for an object, the boundary's own rules for the boundary. */
+/** The type of the location the tool creates; `undefined` for a garden object (or the boundary). */
+function newLocationTypeKey(env: ToolEnv, opts: DrawOptions): string | undefined {
+  if (opts.target === 'area') return opts.areaTypeKey ?? FALLBACK_AREA_TYPE_KEY;
+  if (opts.target === 'bed') return opts.bedTypeKey ?? bedTypeKey(env);
+  return undefined;
+}
+
+/**
+ * The live verdict on a drawn shape: V-01..V-03 for an object, plus V-05 for a bed (#2759), the boundary's own rules
+ * for the boundary.
+ */
 function violationOf(env: ToolEnv, opts: DrawOptions, geometry: Geometry): string | null {
   if (opts.target === 'boundary') return boundaryViolation(env.plan, geometry);
-  return violationOfNew(env.plan, geometry, parentOf(env, opts.target, geometry));
+  return violationOfNew(
+    env.plan,
+    geometry,
+    parentOf(env, opts.target, geometry),
+    newLocationTypeKey(env, opts),
+  );
 }
 
 /**
@@ -225,20 +240,21 @@ function create(
 ): { effects: Effect[]; ok: boolean } {
   if (opts.target === 'boundary') return createBoundary(env, geometry);
   const parentKey = parentOf(env, opts.target, geometry);
-  const violation = violationOfNew(env.plan, geometry, parentKey);
+  const locationTypeKey = newLocationTypeKey(env, opts);
+  const violation = violationOfNew(env.plan, geometry, parentKey, locationTypeKey);
   if (violation) return { effects: [{ type: 'notice', code: violation }], ok: false };
   const tempKey = newTempKey();
   let op: PlanOperation;
   let ref: SelectionRef;
   const area = opts.target === 'area';
-  if (opts.target === 'bed' || area) {
+  if (locationTypeKey !== undefined) {
     const name = area ? (opts.newAreaName ?? opts.newBedName) : opts.newBedName;
     op = {
       op: 'create_location',
       temp_key: tempKey,
       data: {
         name: name(nextLocationNumber(env.plan, area)),
-        location_type_key: area ? (opts.areaTypeKey ?? FALLBACK_AREA_TYPE_KEY) : (opts.bedTypeKey ?? bedTypeKey(env)),
+        location_type_key: locationTypeKey,
         geometry,
         ...(parentKey ? { parent_location_key: parentKey } : {}),
       },

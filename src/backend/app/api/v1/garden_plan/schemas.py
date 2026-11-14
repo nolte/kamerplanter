@@ -307,6 +307,13 @@ class PlanLocationResponse(BaseModel):
     area_m2: float = 0.0
     bbox: tuple[float, float, float, float] | None = None
     height_m: float | None = None
+    parcel_label: str | None = Field(
+        default=None,
+        description=(
+            "Stable identifier such as an allotment parcel number (GP-FR-176): the parcel list's identifier where "
+            "set. Absent when none is set."
+        ),
+    )
     bed_status: BedStatus = BedStatus.ACTIVE
     is_area: bool | None = Field(
         default=None,
@@ -574,6 +581,7 @@ class GardenPlanResponse(BaseModel):
                     "plan": {"north_angle_deg": 15.0, "default_grid_m": 0.1, "adjacency_factor": 1.5},
                     "locations": [],
                     "area_type_keys": ["balcony", "garden", "greenhouse", "terrace"],
+                    "bed_type_keys": ["bed", "raised_bed"],
                     "garden_objects": [],
                     "slots": [],
                     "plants": [],
@@ -607,6 +615,13 @@ class GardenPlanResponse(BaseModel):
         description=(
             "Every location type the plan draws as an area (REQ-053 §9.5, GP-UX-071), sorted - also those no location "
             "of this plan has yet, so a client draws an area it creates as one before the save."
+        ),
+    )
+    bed_type_keys: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Every location type flagged `is_bed`, sorted (REQ-053 V-05): two beds of one parent location may not "
+            "overlap. A client checks the rule live with it before the save; the server stays the authority."
         ),
     )
     garden_objects: list[PlanGardenObjectResponse] = Field(default_factory=list)

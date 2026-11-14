@@ -18,6 +18,7 @@ from app.common.body_limit import (
     RoutePatternCeiling,
     request_body_limit_bytes,
 )
+from app.common.cache_control import API_DEFAULT_CACHE_CONTROL
 from app.common.dependencies import close_connection, get_connection, get_ha_client, get_ha_entity_grant_service
 from app.common.error_handlers import (
     app_error_handler,
@@ -485,9 +486,10 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     # browser cache after logout or a tenant switch. A default, not an override: a
     # route that decided its own caching keeps it (attachment and pest-image
     # downloads answer ``private, no-cache`` with an ETag, token downloads
-    # ``no-store`` (#2254), the SSE stream ``no-cache``).
+    # ``no-store`` (#2254), the SSE stream ``no-cache``, the three offline reads of the garden plan
+    # ``private, no-cache`` (REQ-053 §32.6 Pkt. 13, ``app/common/cache_control.py``).
     if request.url.path.startswith(_NO_STORE_PREFIX) and "cache-control" not in response.headers:
-        response.headers["Cache-Control"] = "no-store"
+        response.headers["Cache-Control"] = API_DEFAULT_CACHE_CONTROL
     return response
 
 

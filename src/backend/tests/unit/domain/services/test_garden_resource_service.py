@@ -547,6 +547,17 @@ class TestPatchingALocation:
         assert repo.field_updates[-1] == ("bed", {"notes": None})
         assert repo.locations["bed"].notes is None
 
+    def test_a_parcel_label_is_written_stripped_and_cleared_by_null(self, world) -> None:
+        """GP-FR-176 (#2759): the stable parcel identifier is a column of its own, outside the plan revision."""
+        service, repo, site = world
+        stored, plan_revision = patch_location(service, parcel_label="  A-17 ")
+
+        assert stored.parcel_label == "A-17" and plan_revision == revision(site) == 5
+        assert repo.field_updates == [("bed", {"parcel_label": "A-17"})]
+        patch_location(service, parcel_label=None)
+        assert repo.field_updates[-1] == ("bed", {"parcel_label": None})
+        assert repo.locations["bed"].parcel_label is None
+
     def test_null_is_refused_where_nothing_can_be_cleared(self) -> None:
         with pytest.raises(ValueError, match="cannot be null"):
             LocationPatch.model_validate({"name": None})

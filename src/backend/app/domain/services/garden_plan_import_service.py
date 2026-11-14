@@ -805,6 +805,7 @@ class GardenPlanImportService:
             "parent_location_key": parent_key,
             "location_type_key": type_key,
             "description": item.description,
+            "parcel_label": item.parcel_label,
             "notes": item.notes,
             "geometry": item.geometry,
             "area_m2": item.area_m2 if item.geometry is None else 0.0,

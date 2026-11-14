@@ -5818,6 +5818,10 @@
         "panel": {
           "title": "Properties",
           "name": "Name",
+          "parcelLabel": "Parcel number",
+          "parcelLabelHelp": "Stays the same on every print, for example the number in the lease. Without one, the parcel list numbers the beds per print.",
+          "parcelLabelTooLong": "At most {{max}} characters.",
+          "parcelLabelControl": "One line only, without control characters.",
           "label": "Label",
           "type": "Type: {{type}}",
           "bedAxis": "Long axis: {{from}}–{{to}} ({{azimuth}}°), derived from rotation and north angle",
@@ -6809,7 +6813,7 @@
             "notLoaded": "The plan is not loaded. Close the dialog and reload the page, then you can create the image."
           },
           "csv": {
-            "defaultColumns": "Standard columns",
+            "defaultColumns": "Bed data",
             "siteConditionColumns": "Site features (optional)",
             "noColumns": "Select at least one column.",
             "excel": "Excel variant",
@@ -6820,6 +6824,7 @@
             "summary": "The file holds one row per bed with these columns: {{columns}}.",
             "columns": {
               "name": "Name",
+              "parcel_label": "Parcel number",
               "type": "Type",
               "area_m2": "Area (m²)",
               "status": "Status",

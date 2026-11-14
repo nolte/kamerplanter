@@ -1,5 +1,6 @@
 import axios, { AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import { ApiError } from './errors';
+import { bypassHttpCacheForOfflineReads } from './offlineReadRequest';
 import type { ApiErrorResponse } from './types';
 import { isLightMode } from '@/config/mode';
 import { invalidateAllCatalogues } from './catalogueRevision';
@@ -351,6 +352,10 @@ const tenantClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Axios runs request interceptors in reverse registration order: registered first, this one runs LAST - after the
+// slug prefix below has completed the URL it tests (SEC-001, #2759).
+tenantClient.interceptors.request.use(bypassHttpCacheForOfflineReads);
 
 tenantClient.interceptors.request.use(async (config) => {
   let slug = isLightMode ? LIGHT_MODE_SLUG : _activeTenantSlug;
