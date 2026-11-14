@@ -9,9 +9,9 @@ say which language the name is in", so this guard enumerates the class, not the 
 with a field named ``common_name`` or ``common_name_<lang>`` also carries, outside
 :data:`_ALLOWED`, either
 
-* a ``common_names_i18n`` map (Species, Disease, Beneficial), or
+* a ``common_names_i18n`` map (Species, Disease, Beneficial, Pest - #2955), or
 * name fields for at least two languages: ``common_name_de`` plus ``common_name`` (the
-  English base, as on Pest) or ``common_name_en`` (as on BotanicalFamily).
+  English base) or ``common_name_en`` (as on BotanicalFamily).
 
 **Blind spots**, named rather than discovered later:
 
@@ -75,6 +75,14 @@ def test_the_scan_sees_the_known_name_carriers() -> None:
         "app.domain.models.botanical_family.BotanicalFamily",
         "app.domain.models.pest_taxonomy.PestTaxon",
     } <= names
+
+
+def test_pests_and_diseases_declare_their_languages_in_one_shape() -> None:
+    # #2955 — ``TreatmentTargetRef`` names a pest and a disease; both read the map now.
+    models = _models()
+
+    assert "common_names_i18n" in models["app.domain.models.ipm.Pest"].model_fields
+    assert "common_names_i18n" in models["app.domain.models.ipm.Disease"].model_fields
 
 
 def test_every_model_with_a_common_name_declares_its_languages() -> None:

@@ -21,7 +21,7 @@ vi.mock('@/components/pests/PestImageGallery', () => ({
 }));
 
 function makePest(overrides: Partial<Pest> = {}): Pest {
-  return {
+  const row: Pest = {
     key: 'p1',
     scientific_name: 'Tetranychus urticae',
     common_name: 'Spinnmilbe',
@@ -52,6 +52,11 @@ function makePest(overrides: Partial<Pest> = {}): Pest {
     created_at: null,
     updated_at: null,
     ...overrides,
+  };
+  // Like the server (#2955): the German name also sits in the language map.
+  return {
+    ...row,
+    common_names_i18n: row.common_names_i18n ?? (row.common_name_de ? { de: [row.common_name_de] } : {}),
   };
 }
 
@@ -184,6 +189,27 @@ describe('PestDetailPage', () => {
 
     expect(await screen.findByText('Trauermücken')).toBeInTheDocument();
     expect(screen.queryByText('Fungus Gnats')).toBeNull();
+  });
+
+  // #2955 — the title reads the pest's language map like a disease's name.
+  it.each([
+    ['de', 'Trauermücken', 'Fungus Gnats'],
+    ['en', 'Fungus Gnats', 'Trauermücken'],
+  ])('names the pest in the UI language (%s)', async (language, expected, other) => {
+    await i18n.changeLanguage(language);
+    vi.mocked(getPestDetail).mockResolvedValue(
+      makeDetail({
+        pest: makePest({
+          common_name: 'Fungus Gnats',
+          common_name_de: 'Trauermücken',
+          common_names_i18n: { en: ['Fungus Gnats'], de: ['Trauermücken'] },
+        }),
+      }),
+    );
+    renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+    expect(await screen.findByRole('heading', { level: 1, name: expected })).toBeInTheDocument();
+    expect(screen.queryByText(other)).toBeNull();
   });
 
   it('shows the German variant of a profile field under the German locale', async () => {

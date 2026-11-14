@@ -17,7 +17,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import type { Disease } from '@/api/types';
 import DiseaseCreateDialog from './DiseaseCreateDialog';
 import { kamiIpm } from '@/assets/brand/illustrations';
-import { getLocalizedCatalogName } from '@/utils/plantDisplay';
+import { getCatalogNames, getLocalizedCatalogName } from '@/utils/plantDisplay';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -27,12 +27,6 @@ const pathogenTypeColor: Record<string, ChipColor> = {
   viral: 'secondary',
   physiological: 'info',
 };
-
-/** Every name a disease is known by, de-duplicated: the stored one and each language's (#2936). */
-function diseaseNames(disease: Disease): string[] {
-  const names = [disease.common_name, ...Object.values(disease.common_names_i18n ?? {}).flat()];
-  return [...new Set(names.filter((name): name is string => Boolean(name?.trim())))];
-}
 
 export default function DiseaseListPage() {
   const { t, i18n } = useTranslation();
@@ -70,7 +64,7 @@ export default function DiseaseListPage() {
           i18n.language,
           { sensitivity: 'base' },
         ),
-      searchValues: (r) => diseaseNames(r),
+      searchValues: (r) => getCatalogNames(r),
     },
     {
       id: 'pathogenType',

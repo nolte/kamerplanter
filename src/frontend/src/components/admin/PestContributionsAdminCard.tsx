@@ -25,6 +25,7 @@ import {
   setPestContributionPromotion,
 } from '@/api/endpoints/adminPestRecognition';
 import { formatDate } from '@/utils/formatting';
+import { getLocalizedCatalogName } from '@/utils/plantDisplay';
 import type { Pest, PestContribution } from '@/api/types';
 import LoadingStatus from '@/components/common/LoadingStatus';
 
@@ -47,7 +48,7 @@ interface PestContributionsAdminCardProps {
  * Platform-admin only.
  */
 export function PestContributionsAdminCard({ gridColumn }: PestContributionsAdminCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notify = useNotification();
 
   const [pests, setPests] = useState<Pest[] | null>(null);
@@ -156,9 +157,10 @@ export function PestContributionsAdminCard({ gridColumn }: PestContributionsAdmi
     if (trigger) requestAnimationFrame(() => trigger.focus());
   }, []);
 
+  // The pest's name in the UI language (#2955), the rule the pest pages follow.
   const pestLabel = useCallback(
-    (pest: Pest) => pest.common_name_de || pest.common_name || pest.scientific_name,
-    [],
+    (pest: Pest) => getLocalizedCatalogName(pest, i18n.language) || pest.scientific_name,
+    [i18n.language],
   );
 
   const promotedCount = useMemo(

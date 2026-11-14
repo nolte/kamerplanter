@@ -320,10 +320,10 @@ export default function TreatmentDetailPage() {
                         component={RouterLink}
                         to={`/pflanzenschutz/pests/${p.key}`}
                         icon={<BugReportIcon />}
-                        label={l(p, 'common_name')}
+                        label={getLocalizedCatalogName(p, i18n.language)}
                         size="small"
                         variant="outlined"
-                        aria-label={`${l(p, 'common_name')} — ${t('pages.treatmentDetail.viewPestDetail')}`}
+                        aria-label={`${getLocalizedCatalogName(p, i18n.language)} — ${t('pages.treatmentDetail.viewPestDetail')}`}
                         sx={{ cursor: 'pointer', minHeight: 44 }}
                         data-testid="treatment-target-pest"
                         clickable

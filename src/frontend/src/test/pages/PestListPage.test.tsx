@@ -34,7 +34,7 @@ vi.mock('@/store/slices/pestDetectionSlice', async (importOriginal) => {
 });
 
 function pest(key: string, overrides: Partial<Pest> = {}): Pest {
-  return {
+  const row: Pest = {
     key,
     scientific_name: 'Tetranychus urticae',
     common_name: 'Spider mite',
@@ -65,6 +65,11 @@ function pest(key: string, overrides: Partial<Pest> = {}): Pest {
     created_at: null,
     updated_at: null,
     ...overrides,
+  };
+  // Like the server (#2955): the German name also sits in the language map.
+  return {
+    ...row,
+    common_names_i18n: row.common_names_i18n ?? (row.common_name_de ? { de: [row.common_name_de] } : {}),
   };
 }
 
@@ -283,5 +288,45 @@ describe('PestListPage — column filters with URL state', () => {
 
     await waitFor(() => expect(screen.getByText('Spinnmilbe')).toBeInTheDocument());
     expect(screen.queryByTestId('column-filter-recognition')).toBeNull();
+  });
+});
+
+describe('PestListPage — names in the UI language (#2955)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('de');
+  });
+
+  const rows = [
+    pest('p-mite', {
+      scientific_name: 'Tetranychus urticae',
+      common_name: 'Spider Mites',
+      common_name_de: 'Spinnmilben',
+      common_names_i18n: { en: ['Spider Mites'], de: ['Spinnmilben'] },
+    }),
+    pest('p-gnat', {
+      scientific_name: 'Sciaridae',
+      common_name: 'Fungus Gnats',
+      common_name_de: 'Trauermücken',
+      common_names_i18n: { en: ['Fungus Gnats'], de: ['Trauermücken'] },
+    }),
+  ];
+
+  it.each([
+    ['de', 'Spinnmilben', 'Spider Mites'],
+    ['en', 'Spider Mites', 'Spinnmilben'],
+  ])('shows the name of the UI language (%s)', async (language, expected, other) => {
+    await i18n.changeLanguage(language);
+    renderWithProviders(<PestListPage />, { store: storeWith(rows, status(false)) });
+
+    expect((await screen.findAllByText(expected)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(other)).toBeNull();
+  });
+
+  it('finds a pest by its name in another language', async () => {
+    await i18n.changeLanguage('en');
+    renderWithProviders(<PestListPage />, { store: storeWith(rows, status(false)), route: '/?q=trauerm' });
+
+    expect(await screen.findByTestId('pest-list-page')).toHaveTextContent('Fungus Gnats');
+    expect(screen.getByTestId('pest-list-page')).not.toHaveTextContent('Spider Mites');
   });
 });

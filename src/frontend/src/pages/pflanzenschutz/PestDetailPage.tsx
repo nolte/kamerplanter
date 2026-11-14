@@ -165,7 +165,7 @@ export default function PestDetailPage() {
         {/* Left: title + meta row */}
         <Box>
           {/* Row 1: page title */}
-          <PageTitle title={l(pest, 'common_name')} sx={{ mb: 0 }} />
+          <PageTitle title={getLocalizedCatalogName(pest, i18n.language)} sx={{ mb: 0 }} />
           {/* Row 2: scientific name + classification chips */}
           <Box
             sx={{
@@ -268,7 +268,7 @@ export default function PestDetailPage() {
             <Box id="pest-detail-images-panel" sx={{ pt: 1 }}>
               <PestImageGallery
                 pestKey={pest.key}
-                pestName={l(pest, 'common_name')}
+                pestName={getLocalizedCatalogName(pest, i18n.language)}
                 detectionSlug={pest.detection_slug ?? null}
               />
             </Box>

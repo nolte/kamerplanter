@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatSpeciesNameWithScientific,
   getAlternativeCommonNames,
+  getCatalogNames,
   getLocalizedCatalogName,
   getLocalizedCommonName,
   getSpeciesLabel,
@@ -280,5 +281,36 @@ describe('getLocalizedCatalogName (REQ-010 v1.8, #2936)', () => {
     expect(getLocalizedCatalogName({ common_name: 'Rust', common_names_i18n: {} }, 'en')).toBe('Rust');
     expect(getLocalizedCatalogName({ common_name: 'Rust', common_names_i18n: { de: ['  '] } }, 'de')).toBe('Rust');
     expect(getLocalizedCatalogName(null, 'de')).toBe('');
+  });
+});
+
+describe('getLocalizedCatalogName for pests (REQ-010 v1.9, #2955)', () => {
+  const mites = {
+    common_name: 'Spider Mites',
+    common_name_de: 'Spinnmilben',
+    common_names_i18n: { en: ['Spider Mites'], de: ['Spinnmilben'] },
+  };
+
+  it('names a pest by the same rule as a disease', () => {
+    expect(getLocalizedCatalogName(mites, 'de')).toBe('Spinnmilben');
+    expect(getLocalizedCatalogName(mites, 'en')).toBe('Spider Mites');
+    expect(getLocalizedCatalogName(mites, 'fr')).toBe('Spinnmilben');
+  });
+});
+
+describe('getCatalogNames (#2936, #2955)', () => {
+  it('lists the stored name and every language name once, trimmed', () => {
+    expect(
+      getCatalogNames({
+        common_name: 'Spider Mites',
+        common_names_i18n: { en: ['Spider Mites'], de: [' Spinnmilben ', 'Rote Spinne'] },
+      }),
+    ).toEqual(['Spider Mites', 'Spinnmilben', 'Rote Spinne']);
+  });
+
+  it('skips blank names and copes without a map or entity', () => {
+    expect(getCatalogNames({ common_name: 'Rust', common_names_i18n: { de: ['  '] } })).toEqual(['Rust']);
+    expect(getCatalogNames({ common_name: '  ' })).toEqual([]);
+    expect(getCatalogNames(null)).toEqual([]);
   });
 });
