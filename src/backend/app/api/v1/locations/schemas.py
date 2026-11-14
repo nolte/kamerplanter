@@ -1065,7 +1065,9 @@ class RotationPlantingResponse(BaseModel):
         default=None, description="Species value, else the family's; `null` for a green manure and a fallow year."
     )
     plan_role: Literal["main_crop", "green_manure", "fallow"]
-    source: Literal["plant", "backfill"]
+    source: Literal["plant", "backfill", "planned"] = Field(
+        description="`plant` and `backfill` stood; `planned` is a run still planned (site rotation matrix only)."
+    )
     care_event_key: str | None = Field(
         default=None, description="The backfill event; cancel it with `DELETE …/history/backfill/{key}`."
     )

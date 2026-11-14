@@ -65,7 +65,9 @@ def test_a_row_is_the_timeline_of_its_bed_for_every_year(world) -> None:
     timeline = validator.rotation_timeline("bed", tenant_key=TENANT, years=matrix.years)
 
     assert row.entries == timeline.entries
-    assert (matrix.from_year, matrix.to_year) == (timeline.from_year, timeline.to_year)
+    assert matrix.from_year == timeline.from_year
+    # the matrix runs two years past the timeline's last year; nothing planned, so nothing is there
+    assert (timeline.to_year, matrix.to_year) == (2026, 2028)
     assert {e.year for e in row.entries} == {2024, 2025}  # not vacuous
 
 
@@ -153,3 +155,82 @@ def test_a_stored_foreign_species_is_resolved_under_the_tenant_and_names_no_fami
     by_year = {e.year: e for e in row.entries}
     assert (by_year[2025].family_key, by_year[2025].nutrient_demand) == (None, None)
     assert by_year[2024].family_key == "solanum"  # the control: a readable species still names its family
+
+
+# ── Future columns from planned runs (#2958, §32.5 item A) ─────────────────────────────────────────────────────────
+
+
+def _bed_row(service, tenant: str = TENANT):
+    return next(r for r in service.rotation_matrix("site_1", tenant_key=tenant).beds if r.location_key == "bed")
+
+
+def test_a_run_planned_for_next_season_is_in_next_years_column_marked_planned(world) -> None:
+    service, _validator, _plan, history = world
+    history.add_run("bed", "tomato", date(2027, 4, 1), date(2027, 9, 30))
+
+    row = _bed_row(service)
+
+    assert [(e.year, e.family_key, e.source, e.season) for e in row.entries] == [(2027, "solanum", "planned", None)]
+
+
+def test_a_cancelled_a_started_and_a_past_window_run_are_not_shown(world) -> None:
+    service, _validator, _plan, history = world
+    history.add_run("bed", "tomato", date(2027, 4, 1), status="cancelled")
+    history.add_run("bed", "tomato", date(2027, 4, 1), status="active")
+    history.add_run("bed", "bean", date(2026, 3, 1), date(2026, 5, 31))  # ended before today (2026-06-01)
+    history.add_run("bed", "bean", date(2025, 4, 1))  # open end: its start year only, long past
+    history.add_run("bed", "bean", None)  # names no time at all
+
+    assert _bed_row(service).entries == []
+    # the control: the same bed shows a run still planned
+    history.add_run("bed", "bean", date(2026, 3, 1), date(2026, 6, 30))
+    assert [(e.year, e.source) for e in _bed_row(service).entries] == [(2026, "planned")]
+
+
+def test_what_stood_this_year_wins_over_a_plan_for_the_same_season(world) -> None:
+    service, _validator, _plan, history = world
+    history.add_plant("bed", "bean", date(2026, 4, 1))
+    history.add_run("bed", "tomato", date(2026, 7, 1), date(2027, 9, 30))
+
+    entries = _bed_row(service).entries
+
+    # 2026 keeps the bean that stands; the plan fills only the following year of its window
+    assert [(e.year, e.species_key, e.source) for e in entries] == [
+        (2027, "tomato", "planned"),
+        (2026, "bean", "plant"),
+    ]
+
+
+def test_a_window_over_several_years_fills_them_up_to_the_last_future_column(world) -> None:
+    service, _validator, _plan, history = world
+    history.add_run("bed", "tomato", date(2027, 4, 1), date(2035, 9, 30), plan_role="green_manure")
+
+    entries = _bed_row(service).entries
+
+    assert [(e.year, e.plan_role) for e in entries] == [(2028, "green_manure"), (2027, "green_manure")]
+
+
+def test_another_tenants_run_never_reaches_a_row(world) -> None:
+    service, _validator, _plan, history = world
+    history.add_run("bed", "tomato", date(2027, 4, 1), tenant=OTHER_TENANT)
+
+    assert _bed_row(service).entries == []
+    # the control: the own tenant's run of the same shape is shown
+    history.add_run("bed", "tomato", date(2027, 4, 1))
+    assert [e.source for e in _bed_row(service).entries] == ["planned"]
+
+
+def test_a_planned_foreign_species_names_no_family(world) -> None:
+    service, _validator, _plan, history = world
+    history.add_run("bed", "secret", date(2027, 4, 1))
+
+    (entry,) = _bed_row(service).entries
+
+    assert (entry.species_key, entry.family_key, entry.nutrient_demand) == ("secret", None, None)
+
+
+def test_the_bed_timeline_never_shows_a_plan(world) -> None:
+    _service, validator, _plan, history = world
+    history.add_run("bed", "tomato", date(2026, 6, 1), date(2026, 9, 30))
+
+    assert validator.rotation_timeline("bed", tenant_key=TENANT).entries == []

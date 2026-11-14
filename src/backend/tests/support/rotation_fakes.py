@@ -13,6 +13,7 @@ from datetime import date, datetime
 from app.domain.interfaces.rotation_history_repository import (
     BackfillRow,
     IRotationHistoryRepository,
+    PlannedRunRow,
     PlantedRow,
 )
 from app.domain.models.botanical_family import BotanicalFamily
@@ -65,7 +66,34 @@ class FakeRotationHistory(IRotationHistoryRepository):
     def __init__(self, care_events: FakeCareEventRepo | None = None) -> None:
         #: (tenant, location_key, row)
         self.plants: list[tuple[str, str, PlantedRow]] = []
+        #: (tenant, location_key, status, row) - only ``planned`` runs are answered, like the AQL
+        self.runs: list[tuple[str, str, str, PlannedRunRow]] = []
         self._events = care_events
+
+    def add_run(
+        self,
+        location_key: str,
+        species_key: str,
+        planned_from: date | None,
+        planned_until: date | None = None,
+        *,
+        plan_role: str = "main_crop",
+        status: str = "planned",
+        tenant: str = "ten_own",
+    ) -> str:
+        """Record a run of ``tenant`` at the bed; returns its key (``run_<n>``)."""
+        row = PlannedRunRow(f"run_{len(self.runs)}", plan_role, (species_key,), planned_from, planned_until)
+        self.runs.append((tenant, location_key, status, row))
+        return row.run_key
+
+    def list_planned_runs(self, location_key, *, tenant_key):
+        if not tenant_key:
+            raise ValueError("tenant_key required")
+        return [
+            row
+            for tenant, location, status, row in self.runs
+            if tenant == tenant_key and location == location_key and status == "planned"
+        ]
 
     def add_plant(
         self,

@@ -1,8 +1,8 @@
 """ArangoDB read model of what stood in a bed (REQ-053 GP-FR-131, GP-FR-103; WP 3.4).
 
 ``locations`` and ``slots`` carry no ``tenant_key`` (E-01, #2107): the caller resolves the bed through the ownership
-anchor first, and every query below still filters the *plants* and the *events* on ``@tenant_key`` — a plant or an
-event of another tenant that happens to name this bed's key is never part of the answer.
+anchor first, and every query below still filters the *plants*, the *events* and the *runs* on ``@tenant_key`` — a
+plant, an event or a run of another tenant that happens to name this bed's key is never part of the answer.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from app.data_access.arango import collections as col
 from app.domain.interfaces.rotation_history_repository import (
     BackfillRow,
     IRotationHistoryRepository,
+    PlannedRunRow,
     PlantedRow,
 )
 from app.domain.models.care_event import RotationEntry
@@ -100,6 +101,71 @@ class ArangoRotationHistoryRepository(IRotationHistoryRepository):
             ),
         )
         return [_backfill(row) for row in cursor]
+
+    def list_planned_runs(self, location_key: str, *, tenant_key: str) -> list[PlannedRunRow]:
+        self._require_tenant(tenant_key, "list_planned_runs")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                LET bed_slots = (FOR s IN @@slots FILTER s.location_key == @location_key RETURN s._id)
+                LET by_edge = (
+                    FOR e IN @@planned_at
+                        FILTER e._to IN bed_slots
+                        RETURN DISTINCT e._from
+                )
+                LET by_location = (
+                    FOR r IN @@runs
+                        FILTER r.location_key == @location_key AND r.status == "planned"
+                        RETURN r._id
+                )
+                FOR run_id IN UNION_DISTINCT(by_edge, by_location)
+                    LET r = DOCUMENT(run_id)
+                    FILTER r != null AND r.tenant_key == @tenant_key AND r.status == "planned"
+                    LET edges = (
+                        FOR e IN @@planned_at
+                            FILTER e._from == r._id AND e._to IN bed_slots
+                            RETURN e
+                    )
+                    LET open_edge = LENGTH(edges[* FILTER CURRENT.planned_until == null]) > 0
+                    LET species = (
+                        FOR entry IN 1..1 OUTBOUND r._id @@has_entry
+                            FILTER entry.species_key != null
+                            SORT entry.species_key
+                            RETURN DISTINCT entry.species_key
+                    )
+                    SORT r._key
+                    RETURN {
+                        run_key: r._key,
+                        plan_role: r.plan_role != null ? r.plan_role : "main_crop",
+                        species_keys: species,
+                        planned_from: NOT_NULL(r.planned_from, MIN(edges[*].planned_from), r.planned_start_date),
+                        planned_until: r.planned_until != null ? r.planned_until
+                            : (open_edge ? null : MAX(edges[*].planned_until))
+                    }
+                """,
+                bind_vars={
+                    "@slots": col.SLOTS,
+                    "@planned_at": col.RUN_PLANNED_AT,
+                    "@runs": col.PLANTING_RUNS,
+                    "@has_entry": col.HAS_ENTRY,
+                    "location_key": location_key,
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        return [_planned_run(row) for row in cursor if row["species_keys"]]
+
+
+def _planned_run(row: dict[str, Any]) -> PlannedRunRow:
+    start, end = row["planned_from"], row["planned_until"]
+    return PlannedRunRow(
+        run_key=row["run_key"],
+        plan_role=row["plan_role"],
+        species_keys=tuple(row["species_keys"]),
+        planned_from=date.fromisoformat(start[:10]) if start else None,
+        planned_until=date.fromisoformat(end[:10]) if end else None,
+    )
 
 
 def _planted(row: dict[str, Any]) -> PlantedRow:

@@ -2,8 +2,10 @@
  * The rotation matrix of a site (REQ-053 GP-FR-135, GP-API `GET /sites/{key}/rotation-matrix`): one row per bed,
  * one column per year, a cell lists what stood in the bed that year. The family is marked by colour **and** by a
  * short code plus a fill pattern (greyscale and colour-blind safe), the feeder class stands as text. A grower taps
- * a past cell to fill the year in ("What stood here in {year}?", GP-API-042); every member can read. The header row
- * and the bed column stay put while the table scrolls, on a 390 px screen too.
+ * a past cell to fill the year in ("What stood here in {year}?", GP-API-042); every member can read. The last columns
+ * are future years: a run still planned at a bed shows there (and in the current year, where nothing stood yet) as
+ * "planned", in words and with a dashed outline (#2958). The header row and the bed column stay put while the table
+ * scrolls, on a 390 px screen too.
  */
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -75,19 +77,31 @@ function PlantingEntry({
 }) {
   const fallow = planting.plan_role === 'fallow';
   const greenManure = planting.plan_role === 'green_manure';
+  const planned = planting.source === 'planned';
   const season = planting.season ? t(`pages.bed.history.timeline.seasons.${planting.season}`) : null;
   const demand = demandText(planting, t);
   return (
-    <Box component="li" sx={{ listStyle: 'none', display: 'flex', alignItems: 'flex-start', gap: 0.75, textAlign: 'left' }}>
+    <Box
+      component="li"
+      data-planned={planned ? 'true' : undefined}
+      sx={{
+        listStyle: 'none',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 0.75,
+        textAlign: 'left',
+        ...(planned && { border: 1, borderStyle: 'dashed', borderColor: 'text.secondary', borderRadius: 1, px: 0.5 }),
+      }}
+    >
       <Swatch mark={fallow ? undefined : mark} />
       <Box sx={{ minWidth: 0 }}>
         <Typography component="span" variant="body2" sx={{ fontWeight: 700, display: 'block' }}>
           {fallow ? t('pages.bed.history.timeline.fallow') : (mark?.code ?? planting.family_name ?? '?')}
           {greenManure && ` · ${t('pages.bed.history.timeline.greenManure')}`}
         </Typography>
-        {(demand || season) && (
+        {(demand || season || planned) && (
           <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
-            {[demand, season].filter(Boolean).join(' · ')}
+            {[planned ? t('pages.rotationMatrix.planned') : null, demand, season].filter(Boolean).join(' · ')}
           </Typography>
         )}
       </Box>
@@ -106,7 +120,9 @@ function summarize(
     .map((planting) => {
       if (planting.plan_role === 'fallow') return t('pages.bed.history.timeline.fallow');
       const name = (planting.family_key ? marks.get(planting.family_key)?.name : null) ?? planting.family_name ?? '?';
-      return planting.plan_role === 'green_manure' ? `${name} (${t('pages.bed.history.timeline.greenManure')})` : name;
+      const label =
+        planting.plan_role === 'green_manure' ? `${name} (${t('pages.bed.history.timeline.greenManure')})` : name;
+      return planting.source === 'planned' ? `${label} (${t('pages.rotationMatrix.planned')})` : label;
     })
     .join(', ');
 }
@@ -204,6 +220,17 @@ function RotationMatrixView({ siteKey: key }: { siteKey: string }) {
                 {matrix.columns.map((year) => (
                   <TableCell key={year} component="th" scope="col" align="center" sx={{ minWidth: MIN_CELL_WIDTH }}>
                     {year}
+                    {year > thisYear && (
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block' }}
+                        data-testid={`matrix-future-${year}`}
+                      >
+                        {t('pages.rotationMatrix.futureColumn')}
+                      </Typography>
+                    )}
                   </TableCell>
                 ))}
               </TableRow>

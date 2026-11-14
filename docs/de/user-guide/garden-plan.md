@@ -471,9 +471,11 @@ Ein Standort hat höchstens eine Unterlage, und alle Mitglieder sehen dieselbe. 
 
 ## Fruchtfolge-Matrix {#fruchtfolge-matrix}
 
-Die Matrix zeigt für alle Beete eines Standorts auf einen Blick, was in den letzten Jahren dort stand. Du öffnest sie auf der Standortseite mit **Fruchtfolge-Matrix** (Adresse `/standorte/sites/<key>/rotation-matrix`). Jede Zeile ist ein Beet, jede Spalte ein Jahr, das aktuelle Jahr steht ganz rechts. Wie weit die Matrix zurückreicht, richtet sich nach den längsten Anbaupausen der Familien in den gezeigten Beeten, mindestens fünf, höchstens zehn Jahre.
+Die Matrix zeigt für alle Beete eines Standorts auf einen Blick, was in den letzten Jahren dort stand. Du öffnest sie auf der Standortseite mit **Fruchtfolge-Matrix** (Adresse `/standorte/sites/<key>/rotation-matrix`). Jede Zeile ist ein Beet, jede Spalte ein Jahr. Nach dem aktuellen Jahr folgen zwei Spalten **Planung** für die kommenden Jahre. Wie weit die Matrix zurückreicht, richtet sich nach den längsten Anbaupausen der Familien in den gezeigten Beeten, mindestens fünf, höchstens zehn Jahre.
 
 In einer Zelle steht je Eintrag die Pflanzenfamilie als Kürzel mit Farbe und Muster, darunter die Zehrerklasse als Text und, wenn bekannt, die Saison. Farbe allein trägt die Familie nie: Kürzel und Muster unterscheiden sie auch im Graustufendruck. Die Legende unter der Tabelle nennt zu jedem Kürzel den vollen Namen. Gründüngung und Brache sind gekennzeichnet. Ein leeres Jahr zeigt einen Strich: Es ist nichts erfasst.
+
+In den Spalten **Planung** und im laufenden Jahr siehst du, was du mit einem Pflanzdurchlauf für ein Beet geplant hast. Solche Einträge sind gestrichelt umrandet und mit „geplant“ beschriftet. So prüfst du die Fruchtfolge, bevor du pflanzt. Abgebrochene Durchläufe und Pläne, deren Zeitraum vorbei ist, erscheinen nicht. Steht im laufenden Jahr schon etwas im Beet, zeigt die Matrix das Gepflanzte und nicht den Plan.
 
 - **Nachtragen.** Mit der Rolle „grower" oder „lead" tippst du auf ein vergangenes Jahr und trägst im bekannten Dialog **Was stand hier?** nach, was dort wuchs (siehe [Historie des Beets](locations-substrates.md#historie-des-beets)). Das laufende Jahr nimmt die Matrix nicht entgegen; dort gilt, was im Beet gepflanzt ist. Beobachter („viewer") lesen die Matrix nur.
 - **Zum Beet.** Der Name des Beets führt zur Beetansicht.
