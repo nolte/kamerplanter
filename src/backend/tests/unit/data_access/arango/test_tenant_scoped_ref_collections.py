@@ -140,7 +140,44 @@ def test_the_nightly_sweep_is_not_narrowed():
         + [collection for collection, _field in repo.ATTACHMENT_REF_FIELDS]
         if collection in repo.TENANT_SCOPED_REF_COLLECTIONS
     ]
-    assert scoped_aql.count("@ref_tenant_key") == len(sites), (
+    # Plus one: the site anchor of the site-scoped carriers reads ``sites.tenant_key`` once (#2715 item 2).
+    assert scoped_aql.count("@ref_tenant_key") == len(sites) + 1, (
         f"Expected the tenant filter on all {len(sites)} tenant-scoped scan sites "
-        f"({sorted(set(sites))}), found {scoped_aql.count('@ref_tenant_key')}."
+        f"({sorted(set(sites))}) and the site anchor, found {scoped_aql.count('@ref_tenant_key')}."
     )
+    site_scoped = [
+        collection
+        for collection in list(repo.PHOTO_REF_COLLECTIONS)
+        + [collection for collection, _field in repo.ATTACHMENT_REF_FIELDS]
+        if collection in repo.SITE_SCOPED_REF_COLLECTIONS
+    ]
+    assert site_scoped, "locations carry photo_refs and cover_photo_ref - both are site-scoped scan sites"
+    assert scoped_aql.count("site_key IN ref_site_keys") == len(site_scoped)
+    assert "ref_site_keys" not in sweep_aql
+
+
+def _declares_field(class_name: str, field: str) -> bool:
+    for path in sorted(_MODELS_ROOT.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ClassDef) and node.name == class_name:
+                return any(
+                    isinstance(statement, ast.AnnAssign)
+                    and isinstance(statement.target, ast.Name)
+                    and statement.target.id == field
+                    for statement in node.body
+                )
+    return False
+
+
+@pytest.mark.parametrize("collection", sorted(repo.SITE_SCOPED_REF_COLLECTIONS))
+def test_site_scoped_ref_collections_carry_a_site_key(collection: str):
+    """#2715 item 2 — the site anchor reads ``d.site_key``; on a collection without it every row compares ``null``.
+
+    ``null`` is in ``ref_site_keys`` on purpose (a bed without a site keeps protecting), so a wrong member would not
+    drop out silently - it would just never be narrowed. A collection that carries ``tenant_key`` belongs in
+    ``TENANT_SCOPED_REF_COLLECTIONS`` instead, and must not be in both.
+    """
+    model = _MODEL_FOR_COLLECTION[collection]
+    assert _declares_field(model, "site_key"), f"{model} declares no site_key"
+    assert not _declares_tenant_key(model), f"{model} declares tenant_key: narrow it by the tenant, not the site"
+    assert collection not in repo.TENANT_SCOPED_REF_COLLECTIONS

@@ -28,7 +28,7 @@ from __future__ import annotations
 import copy
 import json
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from types import SimpleNamespace
@@ -70,7 +70,7 @@ from app.common.dependencies import (
     get_soil_analysis_service,
     get_task_service,
 )
-from app.common.enums import TenantRole
+from app.common.enums import AttachmentCategory, TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError, PlanValidationError
 from app.data_access.arango import collections as col
@@ -206,6 +206,12 @@ class _RecordDeleter:
         """The real service's rule: the record goes only when no carrier (another site's underlay included) names it,
         checked in the transaction of the remove (#2545)."""
         return self._repo.remove_if_unreferenced(attachment_id, tenant_key) is not None
+
+    async def delete_many_if_unreferenced(
+        self, attachment_ids: Iterable[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> int:
+        """The bed and site deletes' batch (#2715 item 6): one scan, the unreferenced records removed together."""
+        return len(self._repo.remove_unreferenced(list(attachment_ids), tenant_key, category=category))
 
 
 #: Every collection a route of these four routers can write — the plan batch's and the slot batch's write sets

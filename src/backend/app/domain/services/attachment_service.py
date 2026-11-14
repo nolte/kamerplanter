@@ -33,7 +33,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast
@@ -81,6 +81,11 @@ from app.domain.models.client_event import (
 from app.domain.services.entitlement_service import EntitlementService
 
 logger = structlog.get_logger()
+
+#: Storage deletes in flight at once when a batch of removed records releases its objects (#2715 item 6): a site
+#: delete can let go of several hundred photos, each an object plus renditions; one at a time made the DELETE answer
+#: late, all at once would flood the object store.
+OBJECT_RELEASE_CONCURRENCY = 8
 
 
 @dataclass(frozen=True)
@@ -890,6 +895,90 @@ class AttachmentService:
             shared_object_retained=shared,
         )
         return True
+
+    async def delete_many_if_unreferenced(
+        self, attachment_ids: Iterable[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> int:
+        """:meth:`delete_if_unreferenced` for the photos a committed bed or site delete let go of (#2715 item 6).
+
+        One call, one reference scan: the records go in **one** transaction
+        (:meth:`IAttachmentRepository.remove_unreferenced`) instead of one scan and one transaction per photo inside
+        the DELETE request. Only records of *category* are considered. The rule is unchanged - a record any carrier
+        still names stays, sha256-shared objects stay while another record holds them. A conflict is asked once
+        more in a fresh transaction, like the single delete; a second conflict keeps every photo of the batch (the
+        safe direction, ``attachment_delete_skipped_concurrent_write``) for the nightly orphan sweep.
+
+        The stored objects of the removed records are then released with at most
+        :data:`OBJECT_RELEASE_CONCURRENCY` storage calls in flight: one shared held-elsewhere query for the batch,
+        a failed object owed to the reconciliation run as in :meth:`_release_object`. Returns how many records went.
+        """
+        ids = list({attachment_id: None for attachment_id in attachment_ids})
+        if not ids:
+            return 0
+        removed: list[Attachment] | None = None
+        for _attempt in range(2):
+            try:
+                removed = await asyncio.to_thread(self._repo.remove_unreferenced, ids, tenant_key, category=category)
+                break
+            except WriteConflictError:
+                continue
+        if removed is None:
+            logger.info("attachment_delete_skipped_concurrent_write", tenant=log_tenant(tenant_key), count=len(ids))
+            return 0
+        if removed:
+            await self._release_objects(removed, tenant_key)
+            logger.info(
+                "attachments_deleted",
+                tenant=log_tenant(tenant_key),
+                attachment_ids=[attachment.key for attachment in removed],
+                category=category.value,
+            )
+        return len(removed)
+
+    async def _release_objects(self, removed: list[Attachment], tenant_key: str) -> None:
+        """Release the stored objects of already removed records, bounded in parallel (#2715 item 6).
+
+        :meth:`_release_object` for a batch: a record outside its tenant's namespace keeps its object (#2138
+        SEC-004), an object another record still holds stays (#1770, asked after the removes committed, so the last
+        of two concurrent deletes sees no holder). The deletes run in chunks of :data:`OBJECT_RELEASE_CONCURRENCY`.
+        Every key is tried; the failed ones are owed to the reconciliation run (#2630), and without a retry store the
+        first error propagates after all keys were tried.
+        """
+        own = [attachment for attachment in removed if self.in_own_namespace(attachment)]
+        storage_keys = list({attachment.storage_key: None for attachment in own})
+        held = await asyncio.to_thread(
+            self._repo.storage_keys_held_elsewhere, tenant_key=tenant_key, storage_keys=storage_keys, excluding=[]
+        )
+        object_keys = list(
+            {
+                key: None
+                for attachment in own
+                if attachment.storage_key not in held
+                for key in self._object_keys(attachment)
+            }
+        )
+        failed: list[str] = []
+        error: BaseException | None = None
+        for start in range(0, len(object_keys), OBJECT_RELEASE_CONCURRENCY):
+            chunk = object_keys[start : start + OBJECT_RELEASE_CONCURRENCY]
+            outcomes = await asyncio.gather(
+                *(self._storage.delete_object(key) for key in chunk), return_exceptions=True
+            )
+            failed += [key for key, outcome in zip(chunk, outcomes, strict=True) if isinstance(outcome, BaseException)]
+            error = error or next((outcome for outcome in outcomes if isinstance(outcome, BaseException)), None)
+        if error is None:
+            return
+        # The exception type only: a storage error text embeds the object path (tenant).
+        logger.warning(
+            "attachment_object_release_failed",
+            error_type=type(error).__name__,
+            objects=len(failed),
+            outside_namespace=len(removed) - len(own),
+        )
+        if self._release_retries is None:
+            raise error
+        await asyncio.to_thread(self._release_retries.owe_release, tenant_key=tenant_key, object_keys=failed)
+        logger.info("attachment_object_release_owed", tenant=log_tenant(tenant_key), objects=len(failed))
 
     async def _release_object(self, attachment: Attachment, tenant_key: str) -> bool:
         """Delete the stored object and renditions of an already removed record; ``True`` when they were kept.
