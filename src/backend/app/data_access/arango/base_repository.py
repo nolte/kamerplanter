@@ -254,6 +254,15 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: more must go - sets ``False`` (#2226 re-review SEC-S1).
     _update_fields_merges_objects: ClassVar[bool] = True
 
+    #: How :meth:`update` (the full-model write, :meth:`_update_doc`) writes a field
+    #: whose value is an object. ``True`` (default, ArangoDB's ``mergeObjects``) - the
+    #: object is merged into the stored one, so a sub-key the model no longer carries
+    #: survives the write. ``False`` - the model's object replaces the stored one whole.
+    #: A repository whose model carries a value-type map that must be able to lose a key
+    #: - a disease's names per language, where removing a language must remove it
+    #: (#2936) - sets ``False``. ``merged`` objects of :meth:`_update_doc` then replace too.
+    _update_doc_merges_objects: ClassVar[bool] = True
+
     def __init__(
         self,
         db: StandardDatabase,
@@ -818,7 +827,11 @@ class BaseArangoRepository[TModel: BaseModel]:
             data.pop("created_at", None)
         data["updated_at"] = self._now()
         try:
-            result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=not full_replace)
+            options: dict[str, Any] = {"return_new": True, "keep_none": not full_replace}
+            # ``merge`` is passed only to switch merging off, as in :meth:`_update_doc_fields`.
+            if not self._update_doc_merges_objects:
+                options["merge"] = False
+            result = self.collection.update({"_key": key, **data}, **options)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 # The entity, not the collection: ``details[0].entity`` is a contract

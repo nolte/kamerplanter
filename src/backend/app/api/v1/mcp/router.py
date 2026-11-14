@@ -43,6 +43,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.mcp.deps import get_dispatcher, get_mcp_principal, get_session_store
 from app.common.enums import McpPermission
 from app.common.exceptions import KamerplanterError
+from app.common.locale import get_request_locale
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.core.permissions import has_mcp_permission
 from app.domain.models.mcp import McpToolResponse
@@ -115,6 +116,7 @@ async def call_mcp_tool(
     arguments: dict[str, Any] = Body(default_factory=dict, description="Arguments passed to the tool."),
     principal: McpPrincipal = Depends(get_mcp_principal),
     dispatcher: ToolDispatcher = Depends(get_dispatcher),
+    language: str = Depends(get_request_locale),
 ) -> dict[str, Any]:
     """Invoke a single MCP tool (REST-friendly).
 
@@ -125,7 +127,7 @@ async def call_mcp_tool(
     a second image encoding here would give recipes two contracts to get wrong.
     """
 
-    response = await dispatcher.dispatch(principal, tool_name, arguments)
+    response = await dispatcher.dispatch(principal, tool_name, arguments, language=language)
     return response.to_payload()
 
 
@@ -250,6 +252,7 @@ async def mcp_endpoint(
     principal: McpPrincipal = Depends(get_mcp_principal),
     dispatcher: ToolDispatcher = Depends(get_dispatcher),
     sessions: McpSessionStore = Depends(get_session_store),
+    language: str = Depends(get_request_locale),
     mcp_session_id: Annotated[str | None, Header(alias="Mcp-Session-Id")] = None,
     mcp_protocol_version: Annotated[str | None, Header(alias="MCP-Protocol-Version")] = None,
 ) -> Any:
@@ -334,7 +337,7 @@ async def mcp_endpoint(
         tool_name = params.get("name", "")
         arguments = params.get("arguments") or {}
         try:
-            tool_response = await dispatcher.dispatch(principal, tool_name, arguments)
+            tool_response = await dispatcher.dispatch(principal, tool_name, arguments, language=language)
         except KamerplanterError as exc:
             # Surface a structured tool error to the LLM client (isError) instead
             # of a transport-level failure, so the model can react (§2.6, §4.0).

@@ -134,6 +134,9 @@ $defs:
         type: string
       common_name:
         type: string
+      common_names_i18n:
+        $ref: "_defs.schema.yaml#/$defs/common_names_i18n"
+        description: "Language code -> disease names (de, en); only sourced names (E-10), REQ-010 v1.8"
       pathogen_type:
         type: string
         enum: [fungal, bacterial, viral, physiological, oomycete, protist]

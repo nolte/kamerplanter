@@ -26,6 +26,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import { useLocalizedField } from '@/hooks/useLocalizedField';
 import { getPestDetail } from '@/api/endpoints/ipm';
 import type { PestDetail, TreatmentType } from '@/api/types';
+import { getLocalizedCatalogName } from '@/utils/plantDisplay';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -388,7 +389,7 @@ export default function PestDetailPage() {
                     />
                     <Box>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {b.common_name}
+                        {getLocalizedCatalogName(b, i18n.language)}
                       </Typography>
                       <Typography
                         variant="caption"

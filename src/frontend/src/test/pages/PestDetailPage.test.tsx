@@ -134,6 +134,32 @@ describe('PestDetailPage', () => {
     expect(screen.getByText('Marienkäfer')).toBeInTheDocument();
   });
 
+  // #2936 — a beneficial's stored common_name is German; the English UI shows the sourced English name.
+  it.each([
+    ['de', 'Raubmilben'],
+    ['en', 'Predatory mites'],
+  ])('names a beneficial in the UI language (%s)', async (language, expected) => {
+    await i18n.changeLanguage(language);
+    vi.mocked(getPestDetail).mockResolvedValue(
+      makeDetail({
+        beneficials: [
+          {
+            key: 'b2',
+            slug: 'predatory_mite',
+            common_name: 'Raubmilben',
+            common_names_i18n: { de: ['Raubmilben'], en: ['Predatory mites'] },
+            scientific_name: 'Phytoseiidae',
+            description: null,
+            preys_on: ['spider_mite'],
+          },
+        ],
+      }),
+    );
+    renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });
+
+    expect(await screen.findByTestId('pest-detail-beneficials')).toHaveTextContent(expected);
+  });
+
   it('renders an error state when loading fails', async () => {
     vi.mocked(getPestDetail).mockRejectedValue(new Error('boom'));
     renderWithProviders(<PestDetailPage />, { route: '/pflanzenschutz/pests/p1' });

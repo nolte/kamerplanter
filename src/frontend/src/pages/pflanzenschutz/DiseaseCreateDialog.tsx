@@ -17,6 +17,7 @@ import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/ipm';
+import { normalizeNameLanguage } from '@/utils/plantDisplay';
 
 const pathogenTypes = ['fungal', 'bacterial', 'viral', 'physiological'] as const;
 
@@ -41,7 +42,7 @@ interface Props {
 export default function DiseaseCreateDialog({ open, onClose, onCreated }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -71,6 +72,8 @@ export default function DiseaseCreateDialog({ open, onClose, onCreated }: Props)
       await api.createDisease({
         scientific_name: data.scientific_name,
         common_name: data.common_name,
+        // The name was typed in the UI language: record it so (#2936). The server trims it.
+        common_names_i18n: { [normalizeNameLanguage(i18n.language)]: [data.common_name] },
         pathogen_type: data.pathogen_type,
         incubation_period_days: data.incubation_period_days,
         environmental_triggers: data.environmental_triggers,

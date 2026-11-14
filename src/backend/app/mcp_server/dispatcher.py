@@ -76,6 +76,8 @@ class ToolDispatcher:
         principal: McpPrincipal,
         tool_name: str,
         raw_args: dict[str, Any] | None,
+        *,
+        language: str | None = None,
     ) -> McpToolResponse:
         raw_args = raw_args or {}
         input_hash = hash_arguments(raw_args)
@@ -148,7 +150,7 @@ class ToolDispatcher:
             )
             raise
 
-        ctx = ToolContext(principal, membership, services=self._services)
+        ctx = ToolContext(principal, membership, services=self._services, language=language)
         started = perf_counter()
         try:
             response, status = await self._run(tool, ctx, args, principal, membership, tool_name, input_hash)

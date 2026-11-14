@@ -29,6 +29,7 @@ from app.common.enums import (
 )
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.botanical_family import PhRange
+from app.domain.models.species_names import normalize_names_i18n
 
 # ── Environmental-physiology literals (REQ-001 v4.2) ─────────────────
 type PhotosynthesisType = Literal["c3", "c4", "cam"]
@@ -51,8 +52,8 @@ type LightRequirement = Literal["full_sun", "partial_shade", "shade"]
 DISTANCE_CM_STRING_PATTERN = r"^\d+(\.\d+)?(\s*[-–—]+\s*\d+(\.\d+)?)?$"
 
 # ── Language-tagged vernacular names (REQ-001, #2902) ────────────────
-#: Lowercase ISO 639-1/-2 language code, the key of ``common_names_i18n``.
-COMMON_NAMES_LANGUAGE_CODE_PATTERN = re.compile(r"^[a-z]{2,3}$")
+# The language-code pattern and the key/empty/duplicate normalisation are shared with
+# the IPM catalogue entities (#2936) and live in ``species_names``.
 
 
 def _stripped(name: str) -> str:
@@ -75,21 +76,11 @@ def validate_common_names_i18n(common_names: list[str], names_i18n: dict[str, li
         ValueError: on an invalid key, an empty name or a name not in ``common_names``.
     """
     known = {_stripped(name) for name in common_names}
-    normalized: dict[str, list[str]] = {}
-    for language, names in names_i18n.items():
-        if not COMMON_NAMES_LANGUAGE_CODE_PATTERN.fullmatch(language):
-            raise ValueError(f"common_names_i18n key must be a lowercase language code, got {language!r}")
-        cleaned: list[str] = []
-        for raw in names:
-            name = _stripped(raw)
-            if not name:
-                raise ValueError(f"common_names_i18n[{language!r}] contains an empty name")
+    normalized = normalize_names_i18n(names_i18n)
+    for language, names in normalized.items():
+        for name in names:
             if name not in known:
                 raise ValueError(f"common_names_i18n[{language!r}] name {name!r} is not in common_names")
-            if name not in cleaned:
-                cleaned.append(name)
-        if cleaned:
-            normalized[language] = cleaned
     return normalized
 
 
@@ -646,8 +637,6 @@ class Species(BaseModel):
     @field_validator("hardiness_zones")
     @classmethod
     def validate_hardiness_zones(cls, v: list[str]) -> list[str]:
-        import re
-
         for zone in v:
             if not re.match(r"^\d{1,2}[ab]?$", zone):
                 raise ValueError(f"Invalid USDA hardiness zone format: '{zone}'")

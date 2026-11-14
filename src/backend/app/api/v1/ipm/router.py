@@ -119,6 +119,7 @@ def _beneficial_response(b: Beneficial) -> BeneficialResponse:
         key=b.key or "",
         slug=b.slug,
         common_name=b.common_name,
+        common_names_i18n=b.common_names_i18n,
         scientific_name=b.scientific_name,
         description=b.description,
         preys_on=b.preys_on,
@@ -305,7 +306,12 @@ def get_treatment_detail(
             for p in detail["targeted_pests"]
         ],
         targeted_diseases=[
-            TreatmentTargetRef(key=d.key or "", common_name=d.common_name, scientific_name=d.scientific_name)
+            TreatmentTargetRef(
+                key=d.key or "",
+                common_name=d.common_name,
+                common_names_i18n=d.common_names_i18n,
+                scientific_name=d.scientific_name,
+            )
             for d in detail["targeted_diseases"]
         ],
     )

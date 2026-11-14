@@ -1493,9 +1493,18 @@ pests:
       treibende Blatthüllen achten und die Hüllen umdrehen, um die Raupe darin zu
       finden.
 
+# common_names_i18n (REQ-010 v1.8, #2936): names per language, synced on every seed
+# run (no migration). `en` is the stored common_name; `de` only with its source on the
+# same line (E-10; checked 2026-11-13: the article names the pathogen with that name).
+# A disease without a sourced German name has no `de` key and the German UI shows the
+# stored name - the gap list is `DISEASES_WITHOUT_A_SOURCED_GERMAN_NAME` in
+# tests/unit/migrations/test_seed_ipm_names_i18n.py.
 diseases:
   - scientific_name: Erysiphe spp.
     common_name: Powdery Mildew
+    common_names_i18n:
+      en: ["Powdery Mildew"]  # the stored common_name (English)
+      de: ["Echter Mehltau"]  # Source: https://de.wikipedia.org/wiki/Echte_Mehltaupilze
     pathogen_type: fungal
     incubation_period_days: 5
     environmental_triggers: [low_humidity, warm_temperature, poor_air_circulation, drought_stress]
@@ -1503,6 +1512,9 @@ diseases:
 
   - scientific_name: Botrytis cinerea
     common_name: Botrytis (Grey Mold)
+    common_names_i18n:
+      en: ["Botrytis (Grey Mold)"]  # the stored common_name (English)
+      de: ["Grauschimmelfäule"]  # Source: https://de.wikipedia.org/wiki/Grauschimmelfäule
     pathogen_type: fungal
     incubation_period_days: 3
     environmental_triggers: [high_humidity, cool_temperature, poor_air_circulation, condensation]  # optimal 15-22°C, NOT cold
@@ -1510,6 +1522,9 @@ diseases:
 
   - scientific_name: Fusarium oxysporum
     common_name: Fusarium Wilt
+    common_names_i18n:
+      en: ["Fusarium Wilt"]  # the stored common_name (English)
+      de: ["Fusarium-Welke"]  # Source: https://de.wikipedia.org/wiki/Fusarium_oxysporum
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [warm_soil, overwatering]
@@ -1517,6 +1532,9 @@ diseases:
 
   - scientific_name: Peronospora spp.
     common_name: Downy Mildew
+    common_names_i18n:
+      en: ["Downy Mildew"]  # the stored common_name (English)
+      de: ["Falscher Mehltau"]  # Source: https://de.wikipedia.org/wiki/Falscher_Mehltau
     pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [cool_wet, poor_ventilation]
@@ -1524,6 +1542,9 @@ diseases:
 
   - scientific_name: Pythium spp.
     common_name: Root Rot
+    common_names_i18n:
+      en: ["Root Rot"]  # the stored common_name (English)
+      de: ["Wurzelfäule"]  # Source: https://de.wikipedia.org/wiki/Pythium
     pathogen_type: oomycete
     incubation_period_days: 5
     environmental_triggers: [overwatering, poor_drainage]
@@ -1531,6 +1552,8 @@ diseases:
 
   - scientific_name: Xanthomonas campestris
     common_name: Bacterial Spot
+    common_names_i18n:
+      en: ["Bacterial Spot"]  # the stored common_name (English)
     pathogen_type: bacterial
     incubation_period_days: 5
     environmental_triggers: [high_humidity, warm_temperature]
@@ -1538,6 +1561,9 @@ diseases:
 
   - scientific_name: Tobacco mosaic virus
     common_name: Tobacco Mosaic Virus
+    common_names_i18n:
+      en: ["Tobacco Mosaic Virus"]  # the stored common_name (English)
+      de: ["Tabakmosaikvirus"]  # Source: https://de.wikipedia.org/wiki/Tabakmosaikvirus
     pathogen_type: viral
     incubation_period_days: 14
     environmental_triggers: [mechanical_transmission]
@@ -1545,6 +1571,9 @@ diseases:
 
   - scientific_name: Phytophthora infestans
     common_name: Late Blight
+    common_names_i18n:
+      en: ["Late Blight"]  # the stored common_name (English)
+      de: ["Kraut- und Knollenfäule"]  # Source: https://de.wikipedia.org/wiki/Phytophthora_infestans
     pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1554,6 +1583,9 @@ diseases:
 
   - scientific_name: Plasmodiophora brassicae
     common_name: Clubroot  # Kohlhernie
+    common_names_i18n:
+      en: ["Clubroot"]  # the stored common_name (English)
+      de: ["Kohlhernie"]  # Source: https://de.wikipedia.org/wiki/Kohlhernie
     pathogen_type: protist  # Phytomyxea, NOT an oomycete — phosphonates ineffective
     incubation_period_days: 21
     environmental_triggers: [acidic_soil, waterlogged_soil, warm_soil]
@@ -1561,6 +1593,9 @@ diseases:
 
   - scientific_name: Verticillium dahliae
     common_name: Verticillium Wilt  # Verticillium-Welke
+    common_names_i18n:
+      en: ["Verticillium Wilt"]  # the stored common_name (English)
+      de: ["Verticillium-Welke"]  # Source: https://de.wikipedia.org/wiki/Verticillium-Welke
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [cool_soil, overwatering]
@@ -1568,6 +1603,9 @@ diseases:
 
   - scientific_name: Monilinia fructigena
     common_name: Brown Rot (Fruit)  # Monilia-Fruchtfäule
+    common_names_i18n:
+      en: ["Brown Rot (Fruit)"]  # the stored common_name (English)
+      de: ["Monilia-Fruchtfäule"]  # Source: https://de.wikipedia.org/wiki/Monilinia
     pathogen_type: fungal
     incubation_period_days: 5
     environmental_triggers: [high_humidity, warm_temperature, wound_entry]
@@ -1575,6 +1613,9 @@ diseases:
 
   - scientific_name: Monilinia laxa
     common_name: Blossom Blight  # Monilia-Spitzendürre
+    common_names_i18n:
+      en: ["Blossom Blight"]  # the stored common_name (English)
+      de: ["Monilia-Spitzendürre"]  # Source: https://de.wikipedia.org/wiki/Monilinia
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1582,6 +1623,9 @@ diseases:
 
   - scientific_name: Venturia inaequalis
     common_name: Apple Scab  # Apfelschorf
+    common_names_i18n:
+      en: ["Apple Scab"]  # the stored common_name (English)
+      de: ["Apfelschorf"]  # Source: https://de.wikipedia.org/wiki/Apfelschorf
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [cool_wet, prolonged_leaf_wetness]
@@ -1589,6 +1633,8 @@ diseases:
 
   - scientific_name: Puccinia spp.
     common_name: Rust  # Rost
+    common_names_i18n:
+      en: ["Rust"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [high_humidity, warm_temperature, dew]
@@ -1596,6 +1642,8 @@ diseases:
 
   - scientific_name: Septoria lycopersici
     common_name: Septoria Leaf Spot  # Septoria-Blattflecken
+    common_names_i18n:
+      en: ["Septoria Leaf Spot"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [high_humidity, warm_temperature, splash_water]
@@ -1603,6 +1651,9 @@ diseases:
 
   - scientific_name: Alternaria solani
     common_name: Early Blight  # Dürrfleckenkrankheit
+    common_names_i18n:
+      en: ["Early Blight"]  # the stored common_name (English)
+      de: ["Dürrfleckenkrankheit"]  # Source: https://de.wikipedia.org/wiki/Alternaria_solani
     pathogen_type: fungal
     incubation_period_days: 5
     environmental_triggers: [warm_temperature, alternating_wet_dry, nutrient_deficiency]
@@ -1610,6 +1661,9 @@ diseases:
 
   - scientific_name: Guignardia bidwellii
     common_name: Black Rot (Grape)  # Schwarzfäule
+    common_names_i18n:
+      en: ["Black Rot (Grape)"]  # the stored common_name (English)
+      de: ["Schwarzfäule der Rebe"]  # Source: https://de.wikipedia.org/wiki/Schwarzfäule_der_Rebe
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [warm_temperature, prolonged_moisture]
@@ -1617,6 +1671,9 @@ diseases:
 
   - scientific_name: Erwinia amylovora
     common_name: Fire Blight  # Feuerbrand
+    common_names_i18n:
+      en: ["Fire Blight"]  # the stored common_name (English)
+      de: ["Feuerbrand"]  # Source: https://de.wikipedia.org/wiki/Feuerbrand
     pathogen_type: bacterial
     incubation_period_days: 7
     environmental_triggers: [warm_temperature, high_humidity, rain_during_bloom]
@@ -1624,6 +1681,9 @@ diseases:
 
   - scientific_name: Sclerotinia sclerotiorum
     common_name: White Mold  # Weißstängeligkeit
+    common_names_i18n:
+      en: ["White Mold"]  # the stored common_name (English)
+      de: ["Weißstängeligkeit"]  # Source: https://de.wikipedia.org/wiki/Weißstängeligkeit
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [cool_wet, dense_canopy, poor_air_circulation]
@@ -1631,6 +1691,8 @@ diseases:
 
   - scientific_name: Pseudoperonospora cubensis
     common_name: Cucurbit Downy Mildew  # Falscher Mehltau (Gurke)
+    common_names_i18n:
+      en: ["Cucurbit Downy Mildew"]  # the stored common_name (English)
     pathogen_type: oomycete
     incubation_period_days: 5
     environmental_triggers: [cool_wet, high_humidity, dew]
@@ -1638,6 +1700,9 @@ diseases:
 
   - scientific_name: Phytophthora ramorum
     common_name: Ramorum Blight  # Triebsterben
+    common_names_i18n:
+      en: ["Ramorum Blight"]  # the stored common_name (English)
+      de: ["Triebsterben"]  # Source: https://de.wikipedia.org/wiki/Phytophthora_ramorum
     pathogen_type: oomycete
     incubation_period_days: 10
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1645,6 +1710,8 @@ diseases:
 
   - scientific_name: Rhizoctonia solani
     common_name: Damping Off  # Umfallkrankheit
+    common_names_i18n:
+      en: ["Damping Off"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 3
     environmental_triggers: [overwatering, cool_soil, dense_sowing]
@@ -1652,6 +1719,9 @@ diseases:
 
   - scientific_name: Claviceps purpurea
     common_name: Ergot  # Mutterkorn
+    common_names_i18n:
+      en: ["Ergot"]  # the stored common_name (English)
+      de: ["Mutterkorn"]  # Source: https://de.wikipedia.org/wiki/Mutterkorn
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1659,6 +1729,9 @@ diseases:
 
   - scientific_name: Plasmopara viticola
     common_name: Grapevine Downy Mildew  # Falscher Mehltau (Rebe)
+    common_names_i18n:
+      en: ["Grapevine Downy Mildew"]  # the stored common_name (English)
+      de: ["Falscher Mehltau der Weinrebe"]  # Source: https://de.wikipedia.org/wiki/Falscher_Mehltau_der_Weinrebe
     pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [warm_temperature, high_humidity, rain]
@@ -1666,6 +1739,9 @@ diseases:
 
   - scientific_name: Erysiphe necator  # syn. Uncinula necator (veraltet seit 2002)
     common_name: Grapevine Powdery Mildew  # Echter Mehltau (Rebe)
+    common_names_i18n:
+      en: ["Grapevine Powdery Mildew"]  # the stored common_name (English)
+      de: ["Echter Mehltau der Weinrebe"]  # Source: https://de.wikipedia.org/wiki/Echter_Mehltau_der_Weinrebe
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [warm_temperature, low_humidity, poor_air_circulation]
@@ -1673,6 +1749,9 @@ diseases:
 
   - scientific_name: Taphrina deformans
     common_name: Peach Leaf Curl  # Kräuselkrankheit
+    common_names_i18n:
+      en: ["Peach Leaf Curl"]  # the stored common_name (English)
+      de: ["Kräuselkrankheit"]  # Source: https://de.wikipedia.org/wiki/Kräuselkrankheit
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [cool_wet, spring_rain]
@@ -1680,6 +1759,9 @@ diseases:
 
   - scientific_name: Pseudomonas syringae
     common_name: Bacterial Canker  # Bakterienbrand
+    common_names_i18n:
+      en: ["Bacterial Canker"]  # the stored common_name (English)
+      de: ["Bakterienbrand"]  # Source: https://de.wikipedia.org/wiki/Bakterienbrand
     pathogen_type: bacterial
     incubation_period_days: 10
     environmental_triggers: [cool_wet, frost_damage, wound_entry]
@@ -1687,6 +1769,9 @@ diseases:
 
   - scientific_name: Cucumber mosaic virus
     common_name: Cucumber Mosaic Virus  # Gurkenmosaikvirus
+    common_names_i18n:
+      en: ["Cucumber Mosaic Virus"]  # the stored common_name (English)
+      de: ["Gurkenmosaikvirus"]  # Source: https://de.wikipedia.org/wiki/Gurkenmosaikvirus
     pathogen_type: viral
     incubation_period_days: 10
     environmental_triggers: [aphid_transmission, mechanical_transmission]
@@ -1694,6 +1779,9 @@ diseases:
 
   - scientific_name: Armillaria mellea
     common_name: Honey Fungus  # Hallimasch
+    common_names_i18n:
+      en: ["Honey Fungus"]  # the stored common_name (English)
+      de: ["Hallimasch"]  # Source: https://de.wikipedia.org/wiki/Hallimasche
     pathogen_type: fungal
     incubation_period_days: 30
     environmental_triggers: [waterlogged_soil, stressed_trees]
@@ -1703,6 +1791,8 @@ diseases:
 
   - scientific_name: Fusarium solani
     common_name: Fusarium Leaf Spot (Dracaena)
+    common_names_i18n:
+      en: ["Fusarium Leaf Spot (Dracaena)"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [waterlogging, poor_ventilation, wound_entry]
@@ -1710,6 +1800,8 @@ diseases:
 
   - scientific_name: Erwinia carotovora
     common_name: Soft Stem Rot (Erwinia)
+    common_names_i18n:
+      en: ["Soft Stem Rot (Erwinia)"]  # the stored common_name (English)
     pathogen_type: bacterial
     incubation_period_days: 7
     environmental_triggers: [overwatering, wound_entry]
@@ -1717,6 +1809,8 @@ diseases:
 
   - scientific_name: Fluoride Toxicity (Abiotic)
     common_name: Fluoride Tip Burn
+    common_names_i18n:
+      en: ["Fluoride Tip Burn"]  # the stored common_name (English)
     pathogen_type: physiological
     incubation_period_days: 7
     environmental_triggers: [fluoride_exposure, salt_accumulation, low_humidity]
@@ -1726,6 +1820,8 @@ diseases:
 
   - scientific_name: Ramularia nymphaearum
     common_name: Water Lily Leaf Spot (Ramularia)
+    common_names_i18n:
+      en: ["Water Lily Leaf Spot (Ramularia)"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [high_humidity, poor_air_circulation]
@@ -1733,6 +1829,8 @@ diseases:
 
   - scientific_name: Erwinia spp. / Pythium spp.
     common_name: Rhizome Rot (Water Lily)
+    common_names_i18n:
+      en: ["Rhizome Rot (Water Lily)"]  # the stored common_name (English)
     pathogen_type: bacterial
     incubation_period_days: 21
     environmental_triggers: [overwatering, anaerobic_substrate, wound_entry]

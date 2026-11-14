@@ -205,15 +205,26 @@ class IpmService:
         allowed = {
             "scientific_name",
             "common_name",
+            "common_names_i18n",
             "pathogen_type",
             "incubation_period_days",
             "environmental_triggers",
             "affected_plant_parts",
             "description",
         }
+        old_name = existing.common_name
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)
+        renamed = existing.common_name != old_name
+        names_i18n = existing.common_names_i18n
+        # Membership + subscript rather than ``.get``: no call the write-route guard cannot type.
+        english_was_the_stored_name = "en" in names_i18n and names_i18n["en"] == [old_name]
+        if renamed and "common_names_i18n" not in data and english_was_the_stored_name:
+            # The map's English entry IS the stored name (the seed writes it so, #2936):
+            # it follows a rename, or the display - which prefers the map - would keep
+            # showing the old name and the edit would look lost.
+            existing.common_names_i18n = {**existing.common_names_i18n, "en": [existing.common_name]}
         return self._repo.update_disease(key, existing)
 
     def delete_disease(self, key: str, *, is_platform_admin: bool) -> bool:
