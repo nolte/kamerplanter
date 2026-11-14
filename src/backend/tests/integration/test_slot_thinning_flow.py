@@ -312,7 +312,9 @@ ZONE = {"kind": "polygon", "points": [[0.2, 0.2], [1.2, 0.2], [1.2, 0.7], [0.2, 
 
 
 def _sown_zone(world) -> None:
-    world.db.collection(col.SLOTS).update({"_key": "row1", "slot_role": "zone", "geometry": ZONE})
+    # merge=False replaces the row's geometry object: a merge would keep the polyline's ``width_m`` on the polygon,
+    # a geometry the Slot model refuses to load.
+    world.db.collection(col.SLOTS).update({"_key": "row1", "slot_role": "zone", "geometry": ZONE}, merge=False)
     sow(world)
 
 
@@ -467,7 +469,14 @@ def test_the_repository_does_not_thin_a_foreign_tenants_slot(world, stand) -> No
     assert [e for e in world.db.collection(col.CARE_EVENTS).all() if e["category"] == "thinning"] == []
 
 
-def test_the_held_reservation_must_belong_to_a_live_run_of_the_tenant(world) -> None:
+def test_a_foreign_or_ended_run_thins_nothing(world) -> None:
+    """Fail closed for a run of another tenant or one that ended: nothing is written.
+
+    The outcome alone cannot tell *which* check refused: the run count (``_COUNT_THINNED_PLANTS``) filters tenant and
+    status too, and an aborted transaction leaves no trace of how far it got. That ``_RESERVATION_STILL_HELD`` checks
+    the run before the first write is pinned on the query text in
+    ``tests/unit/data_access/arango/test_slot_write_queries_anchor_the_tenant.py``.
+    """
     _sown_zone(world)
     entry_key = world.db.collection(col.RUN_PLANNED_AT).all().next()["entry_key"]
 
