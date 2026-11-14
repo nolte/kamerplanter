@@ -1239,6 +1239,8 @@ def get_task_service() -> TaskService:
         care_events=get_care_event_service(),
         harvests=get_harvest_service(),
         fertilizers=get_fertilizer_repo(),
+        # Built lazily, only for a care-reminder task: every completing or skipping path mirrors it (#2960).
+        care_mirror=get_care_reminder_service,
     )
 
 
