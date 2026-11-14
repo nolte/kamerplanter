@@ -385,3 +385,45 @@ async def test_a_succession_plan_with_a_foreign_key_is_refused(db, overrides, dr
     with pytest.raises(NotFoundError):
         await _call("create_succession_plan", args, role=TenantRole.GROWER)
     assert db.collection(col.SUCCESSION_PLANS).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_succession_plans_are_listed_and_read_in_the_own_tenant_only(db):
+    from app.data_access.arango import collections as col
+
+    created = await _call(
+        "create_succession_plan",
+        {
+            "name": "Salat",
+            "species_key": "sp-global",
+            "interval_days": 14,
+            "start_date": "2027-04-01",
+            "end_date": "2027-04-29",
+            "plants_per_batch": 4,
+        },
+        role=TenantRole.GROWER,
+    )
+    own = created.data["succession_plan_key"]
+    db.collection(col.SUCCESSION_PLANS).insert(
+        {
+            "_key": "plan-b",
+            "tenant_key": TENANT_B,
+            "name": "Foreign",
+            "species_key": "sp-b",
+            "interval_days": 7,
+            "start_date": "2027-04-01",
+            "end_date": "2027-04-15",
+            "plants_per_batch": 2,
+            "total_batches": 3,
+        }
+    )
+
+    listed = await _call("list_succession_plans", {}, role=TenantRole.VIEWER)
+    got = await _call("get_succession_plan", {"succession_plan_key": own}, role=TenantRole.VIEWER)
+
+    assert listed.data["total"] == 1
+    assert [item["succession_plan_key"] for item in listed.data["items"]] == [own]
+    assert got.data["name"] == "Salat" and got.data["total_batches"] == 3
+    for key in ("plan-b", "plan-missing"):
+        with pytest.raises(NotFoundError):
+            await _call("get_succession_plan", {"succession_plan_key": key}, role=TenantRole.VIEWER)

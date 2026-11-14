@@ -181,7 +181,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 ## Werkzeug-Katalog (aktueller Stand)
 
 !!! note "Teilweise verfügbar: Werkzeug-Umfang"
-    Umgesetzt sind derzeit 72 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) und die acht Werkzeuge der Wachstumsphasen-Ebene (siehe [Wachstumsphasen und Lebenszyklus](#wachstumsphasen-und-lebenszyklus)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, das Ändern und Löschen von Standorten und Bereichen sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
+    Umgesetzt sind derzeit 74 Werkzeuge — sie decken das Lesen weitgehend ab, dazu die fünf Tagebuch-Analyse-Werkzeuge (siehe [Tagebuch-Analyse: externe Agenten](#tagebuch-analyse-externe-agenten)) und die acht Werkzeuge der Wachstumsphasen-Ebene (siehe [Wachstumsphasen und Lebenszyklus](#wachstumsphasen-und-lebenszyklus)). Beim übrigen **Schreiben** fehlt weiterhin, was die Spezifikation vorsieht: Setup-Makros für Wohnung/Growbox/Freiland-Garten, Massen-Anlage von Pflanzen, das Ändern und Löschen von Standorten und Bereichen sowie das Zurückschreiben einer Ernte (`record_harvest`) und einer angewandten Behandlung (`apply_treatment`). Erweiterung ist ein dokumentierter Folgeschritt.
 
 !!! info "Neu: was ein Analyse-Agent zurückschreiben kann"
     Fünf Werkzeuge sind hinzugekommen, die extern betriebene Analyse-Agenten brauchten. Jedes ist mit dem Lese-Werkzeug gepaart, das sein Ergebnis wiederfindet — ein Schreibvorgang, den anschließend kein Lese-Werkzeug mehr sichtbar macht, gilt hier als Fehler:
@@ -240,6 +240,8 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | `list_species` | Pflanzenarten-Katalog auflisten (paginiert) |
 | `get_species_info` | **Vollständige** Stammdaten einer Art: Aussaat-, Blüte- und Erntefenster, Winterhärte, Frostempfindlichkeit, Nährstoffbedarf, Giftigkeit, Mischkultur-Hinweise und die zugehörigen Sorten |
 | `list_planting_runs` | Pflanzdurchläufe des Mandanten auflisten, optional nach Status gefiltert |
+| `list_succession_plans` | Sukzessionspläne (Staffelanbau) des Mandanten auflisten — Art, Beet, Intervall, Zeitraum, Status und wie viele Sätze schon erzeugt sind. Seitenweise mit `offset`/`limit` (höchstens 100), die Antwort nennt die Gesamtzahl (`total`) |
+| `get_succession_plan` | Einen Sukzessionsplan mit allen Feldern lesen, die auch die Detailansicht zeigt. Die erzeugten Durchläufe stehen nicht darin — die findest du mit `list_planting_runs`. Ein Plan aus einem anderen Garten gilt als nicht gefunden |
 | `list_tasks` | Aufgaben des Mandanten auflisten, optional nach Status gefiltert |
 | `get_due_care_tasks` | Heute fällige/überfällige Pflegeerinnerungen, gruppiert nach Dringlichkeit |
 | `get_harvest_readiness` | Erntebereitschafts-Überblick über alle aktiven Pflanzen |

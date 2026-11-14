@@ -181,7 +181,7 @@ Because the role applies per garden, the same key can write in your own garden a
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    72 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) and the eight tools of the growth-phase layer (see [Growth Phases and Lifecycle](#growth-phases-and-lifecycle)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, changing and deleting sites and locations, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
+    74 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) and the eight tools of the growth-phase layer (see [Growth Phases and Lifecycle](#growth-phases-and-lifecycle)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, changing and deleting sites and locations, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
 
 !!! info "New: what an analysis agent can write back"
     Five tools were added that externally operated analysis agents needed. Each one ships paired with the read tool that finds its result again — a write no read tool surfaces afterwards counts as a defect here:
@@ -240,6 +240,8 @@ Because the role applies per garden, the same key can write in your own garden a
 | `list_species` | List the plant species catalog (paginated) |
 | `get_species_info` | **Full** master data for one species: sowing, bloom and harvest windows, hardiness, frost sensitivity, nutrient demand, toxicity, companion-planting hints and its cultivars |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |
+| `list_succession_plans` | List the tenant's succession plans (staggered sowing) — species, bed, interval, date range, status and how many batches are already generated. Paged with `offset`/`limit` (at most 100); the answer states the total (`total`) |
+| `get_succession_plan` | Read one succession plan with every field the detail view shows. The generated runs are not part of it — `list_planting_runs` finds them. A plan of another garden counts as not found |
 | `list_tasks` | List the tenant's tasks, optionally filtered by status |
 | `get_due_care_tasks` | Today's / overdue care reminders, grouped by urgency |
 | `get_harvest_readiness` | Harvest-readiness overview across all active plants |

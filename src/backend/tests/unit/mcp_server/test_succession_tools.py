@@ -1,4 +1,5 @@
-"""MCP ``create_succession_plan`` and ``generate_succession_runs`` (#2776, REQ-033 §2.4).
+"""MCP succession tools: the writes ``create_succession_plan`` / ``generate_succession_runs`` (#2776,
+REQ-033 §2.4) and the reads ``list_succession_plans`` / ``get_succession_plan`` (REQ-033 §2.1).
 
 Driven through the real :class:`ToolDispatcher`, the real ``SuccessionPlanService`` and the real
 ``PlantingRunService`` over repository doubles, so the refusals asserted here are the services' own. Every
@@ -12,10 +13,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.api.v1.succession_plans.schemas import SuccessionPlanCreate
+from app.api.v1.succession_plans.schemas import SuccessionPlanCreate, SuccessionPlanResponse
 from app.common.enums import McpPermission, SuccessionPlanStatus, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.models.succession_plan import SuccessionPlan
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.succession_plan_service import SuccessionPlanService
 from app.mcp_server.audit import MCPAuditLogger
@@ -24,7 +26,13 @@ from app.mcp_server.idempotency import IdempotencyStore
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 from app.mcp_server.registry import ToolRegistry, load_tools
 from app.mcp_server.tools.runs import ListPlantingRuns
-from app.mcp_server.tools.succession import CreateSuccessionPlan, GenerateSuccessionRuns
+from app.mcp_server.tools.succession import (
+    CreateSuccessionPlan,
+    GenerateSuccessionRuns,
+    GetSuccessionPlan,
+    ListSuccessionPlans,
+    _plan_detail,
+)
 from tests.unit.domain.services.test_planting_run_location_ownership import OWN, FakeSiteRepo
 from tests.unit.domain.services.test_succession_plan_service import _FakeSuccessionRepo
 from tests.unit.mcp_server.test_create_planting_run import _RunRepo, _species
@@ -51,7 +59,13 @@ def _setup(role: TenantRole = TenantRole.GROWER):
     plan_repo = _PlanRepo()
     service = SuccessionPlanService(plan_repo, run_service, site_repo=FakeSiteRepo(), species_resolver=_species)
     registry = ToolRegistry()
-    for tool in (CreateSuccessionPlan(), GenerateSuccessionRuns(), ListPlantingRuns()):
+    for tool in (
+        CreateSuccessionPlan(),
+        GenerateSuccessionRuns(),
+        ListPlantingRuns(),
+        ListSuccessionPlans(),
+        GetSuccessionPlan(),
+    ):
         registry.register(tool)
     dispatcher = ToolDispatcher(
         registry,
@@ -308,3 +322,98 @@ async def test_a_stored_plan_over_the_quota_generates_nothing(dry_run: bool):
 
     assert refused.value.error_code == "succession.quota_exceeded"
     assert runs.store == {}
+
+
+# ── list_succession_plans / get_succession_plan (REQ-033 §2.1) ────────────────
+
+
+@pytest.mark.parametrize("name", ["list_succession_plans", "get_succession_plan"])
+def test_the_read_tool_is_a_tenant_scoped_read_without_write_arguments(name: str):
+    tool = load_tools().get(name)
+    assert tool is not None
+    assert tool.permission is McpPermission.READ
+    assert not tool.write and tool.tenant_scoped
+    assert not {"dry_run", "idempotency_key"} & set(tool.spec().input_schema["properties"])
+
+
+def test_get_succession_plan_returns_what_the_rest_detail_route_returns():
+    """The REST ``SuccessionPlanResponse`` fields, ``key`` named as the write tools name it."""
+    expected = (set(SuccessionPlanResponse.model_fields) - {"key"}) | {"succession_plan_key"}
+    stored = _PlanRepo().create(
+        SuccessionPlan(
+            name="Salat",
+            species_key="sp_own",
+            interval_days=14,
+            start_date=date(2027, 4, 1),
+            end_date=date(2027, 5, 13),
+            plants_per_batch=6,
+            tenant_key=OWN,
+        )
+    )
+    assert set(_plan_detail(stored)) == expected
+
+
+@pytest.mark.asyncio
+async def test_a_viewer_lists_and_reads_the_tenants_plans():
+    dispatcher, principal, _plans, _runs = _setup()
+    key = await _created_plan(dispatcher, principal)
+    _dispatcher, viewer, _p, _r = _setup(TenantRole.VIEWER)  # same tenant, read-only role
+
+    listed = await dispatcher.dispatch(viewer, "list_succession_plans", {})
+    got = await dispatcher.dispatch(viewer, "get_succession_plan", {"succession_plan_key": key})
+
+    assert listed.data["total"] == 1
+    assert [item["succession_plan_key"] for item in listed.data["items"]] == [key]
+    assert listed.data["items"][0]["total_batches"] == 4
+    assert got.data["succession_plan_key"] == key
+    assert got.data["start_date"] == "2027-04-01" and got.data["completed_batches"] == 0
+    assert got.data["status"] == SuccessionPlanStatus.PLANNED
+
+
+@pytest.mark.asyncio
+async def test_list_succession_plans_pages_and_reports_the_total():
+    dispatcher, principal, plans, _runs = _setup()
+    keys = [await _created_plan(dispatcher, principal) for _ in range(3)]
+
+    first = await dispatcher.dispatch(principal, "list_succession_plans", {"offset": 0, "limit": 2})
+    second = await dispatcher.dispatch(principal, "list_succession_plans", {"offset": 2, "limit": 2})
+
+    assert first.data["total"] == 3 and second.data["total"] == 3
+    paged = [item["succession_plan_key"] for item in first.data["items"] + second.data["items"]]
+    assert paged == keys and len(first.data["items"]) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("args", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
+async def test_list_succession_plans_refuses_a_page_outside_its_caps(args: dict):
+    dispatcher, principal, _plans, _runs = _setup()
+
+    with pytest.raises(ValidationError):
+        await dispatcher.dispatch(principal, "list_succession_plans", args)
+
+
+@pytest.mark.asyncio
+async def test_another_tenants_plan_is_neither_listed_nor_readable():
+    dispatcher, principal, plans, _runs = _setup()
+    own = await _created_plan(dispatcher, principal)
+    foreign = await _created_plan(dispatcher, principal)
+    plans._store[foreign] = plans._store[foreign].model_copy(update={"tenant_key": "tenant_foreign"})
+
+    listed = await dispatcher.dispatch(principal, "list_succession_plans", {})
+
+    assert listed.data["total"] == 1
+    assert [item["succession_plan_key"] for item in listed.data["items"]] == [own]
+    with pytest.raises(NotFoundError) as foreign_read:
+        await dispatcher.dispatch(principal, "get_succession_plan", {"succession_plan_key": foreign})
+    with pytest.raises(NotFoundError) as unknown_read:
+        await dispatcher.dispatch(principal, "get_succession_plan", {"succession_plan_key": "sp_missing"})
+    # Same error class and code for a foreign and an unknown key: nothing tells the two apart.
+    assert foreign_read.value.error_code == unknown_read.value.error_code
+
+
+@pytest.mark.asyncio
+async def test_an_empty_plan_key_is_a_caller_error_not_a_lookup():
+    dispatcher, principal, _plans, _runs = _setup()
+
+    with pytest.raises(ValidationError):
+        await dispatcher.dispatch(principal, "get_succession_plan", {"succession_plan_key": ""})

@@ -1,4 +1,8 @@
-"""REQ-033 succession tools (§2.4, permission ``mcp.write``). Delegates to ``SuccessionPlanService``.
+"""REQ-033 succession tools (§2.1 read, §2.4 write). Delegates to ``SuccessionPlanService``.
+
+``list_succession_plans`` and ``get_succession_plan`` read with ``mcp.read`` and answer what
+``GET /succession-plans`` and ``GET /succession-plans/{key}`` answer — the plan fields, no runs; the runs
+are found with ``list_planting_runs``. A plan of another tenant is not listed and reads as not found.
 
 A succession plan (REQ-013 §2) re-sows one species at a fixed interval; generating it creates one planting run
 per batch, so ``list_planting_runs`` finds the result. Both tools run the checks of their REST routes
@@ -26,8 +30,134 @@ from app.domain.models.succession_plan import (
     SuccessionPlan,
     check_succession_quotas,
 )
-from app.mcp_server.base import WriteToolBase, WriteToolInput, domain_validation_error, mcp_tool, record_fields
+from app.mcp_server.base import (
+    TenantToolInput,
+    ToolBase,
+    ToolInput,
+    WriteToolBase,
+    WriteToolInput,
+    domain_validation_error,
+    mcp_tool,
+    record_fields,
+)
 from app.mcp_server.context import ToolContext
+
+#: Upper bound on one page of ``list_succession_plans`` — the bound ``list_planting_runs`` uses.
+_MAX_LIST_LIMIT = 100
+
+
+def _plan_detail(plan: SuccessionPlan) -> dict[str, Any]:
+    """The fields ``SuccessionPlanResponse`` carries, under the key name the write tools return."""
+    return {
+        "succession_plan_key": plan.key,
+        "name": plan.name,
+        "species_key": plan.species_key,
+        "cultivar_key": plan.cultivar_key,
+        "location_key": plan.location_key,
+        "interval_days": plan.interval_days,
+        "start_date": plan.start_date.isoformat(),
+        "end_date": plan.end_date.isoformat(),
+        "plants_per_batch": plan.plants_per_batch,
+        "total_batches": plan.total_batches,
+        "completed_batches": plan.completed_batches,
+        "status": plan.status,
+        "reminder_days_before": plan.reminder_days_before,
+        "batch_duration_days": plan.batch_duration_days,
+        "notes": plan.notes,
+        "created_at": plan.created_at.isoformat() if plan.created_at else None,
+        "updated_at": plan.updated_at.isoformat() if plan.updated_at else None,
+    }
+
+
+#: The fields one ``list_succession_plans`` item carries — a compact projection of :func:`_plan_detail`.
+_LIST_FIELDS: tuple[str, ...] = (
+    "succession_plan_key",
+    "name",
+    "species_key",
+    "location_key",
+    "interval_days",
+    "start_date",
+    "end_date",
+    "total_batches",
+    "completed_batches",
+    "status",
+)
+#: The fields ``create_succession_plan`` answers with, dry run and write alike.
+_WRITE_FIELDS: tuple[str, ...] = (
+    "succession_plan_key",
+    "name",
+    "species_key",
+    "cultivar_key",
+    "location_key",
+    "interval_days",
+    "start_date",
+    "end_date",
+    "plants_per_batch",
+    "total_batches",
+    "status",
+)
+
+
+@mcp_tool(name="list_succession_plans", permission=McpPermission.READ)
+class ListSuccessionPlans(ToolBase):
+    """List the tenant's succession plans with interval, date range and batch progress."""
+
+    class Input(TenantToolInput):
+        offset: int = Field(default=0, ge=0)
+        limit: int = Field(default=25, ge=1, le=_MAX_LIST_LIMIT)
+
+    @staticmethod
+    def _own_input(args: ToolInput) -> ListSuccessionPlans.Input:
+        """Narrow the base-typed argument; the dispatcher always builds it from :attr:`Input`."""
+        if not isinstance(args, ListSuccessionPlans.Input):
+            raise TypeError(f"list_succession_plans takes ListSuccessionPlans.Input, not {type(args).__name__}")
+        return args
+
+    async def run(self, ctx: ToolContext, args: ToolInput) -> McpToolResponse:
+        own = self._own_input(args)
+        plans, total = ctx.succession_plan_service.list_plans(
+            offset=own.offset, limit=own.limit, tenant_key=ctx.tenant_key
+        )
+        return self._response(
+            summary=f"{total} succession plans ({len(plans)} returned).",
+            data={
+                "total": total,
+                "items": [{field: detail[field] for field in _LIST_FIELDS} for detail in map(_plan_detail, plans)],
+            },
+            links=[ctx.api_link("/succession-plans"), ctx.ui_link("/durchlaeufe/succession-plans")],
+        )
+
+
+@mcp_tool(name="get_succession_plan", permission=McpPermission.READ)
+class GetSuccessionPlan(ToolBase):
+    """Return one succession plan: species, bed, interval, date range and batch progress."""
+
+    class Input(TenantToolInput):
+        succession_plan_key: str = Field(min_length=1, description="list_succession_plans resolves it.")
+
+    @staticmethod
+    def _own_input(args: ToolInput) -> GetSuccessionPlan.Input:
+        """Narrow the base-typed argument; the dispatcher always builds it from :attr:`Input`."""
+        if not isinstance(args, GetSuccessionPlan.Input):
+            raise TypeError(f"get_succession_plan takes GetSuccessionPlan.Input, not {type(args).__name__}")
+        return args
+
+    async def run(self, ctx: ToolContext, args: ToolInput) -> McpToolResponse:
+        # Tenant-scoped read: a foreign key raises not_found like an unknown one, so it probes nothing.
+        plan = ctx.succession_plan_service.get_plan(
+            self._own_input(args).succession_plan_key, tenant_key=ctx.tenant_key
+        )
+        return self._response(
+            summary=(
+                f"Succession plan '{plan.name}': every {plan.interval_days} days, "
+                f"{plan.completed_batches} of {plan.total_batches} batches generated ({plan.status})."
+            ),
+            data=_plan_detail(plan),
+            links=[
+                ctx.api_link(f"/succession-plans/{plan.key}"),
+                ctx.ui_link(f"/durchlaeufe/succession-plans/{plan.key}"),
+            ],
+        )
 
 
 @mcp_tool(name="create_succession_plan", permission=McpPermission.WRITE)
@@ -83,19 +213,8 @@ class CreateSuccessionPlan(WriteToolBase):
 
     @staticmethod
     def _plan_data(plan: SuccessionPlan) -> dict[str, Any]:
-        return {
-            "succession_plan_key": plan.key,
-            "name": plan.name,
-            "species_key": plan.species_key,
-            "cultivar_key": plan.cultivar_key,
-            "location_key": plan.location_key,
-            "interval_days": plan.interval_days,
-            "start_date": plan.start_date.isoformat(),
-            "end_date": plan.end_date.isoformat(),
-            "plants_per_batch": plan.plants_per_batch,
-            "total_batches": plan.total_batches,
-            "status": plan.status,
-        }
+        detail = _plan_detail(plan)
+        return {field: detail[field] for field in _WRITE_FIELDS}
 
     async def preview(self, ctx: ToolContext, args: WriteToolInput) -> McpToolResponse:
         checked = ctx.succession_plan_service.preview_plan(
@@ -128,7 +247,9 @@ class GenerateSuccessionRuns(WriteToolBase):
     """Create the planting runs of a succession plan's batches; a dry run lists the runs it would create."""
 
     class Input(WriteToolInput):
-        succession_plan_key: str = Field(min_length=1, description="create_succession_plan returns it.")
+        succession_plan_key: str = Field(
+            min_length=1, description="create_succession_plan returns it; list_succession_plans resolves it."
+        )
         mode: Literal["all", "next"] = Field(
             default="all",
             description=(

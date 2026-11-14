@@ -20,7 +20,8 @@ the inventory in §2):
   get_diary_entry, get_diary_entry_photos, list_diary_entries,
   get_species_phase_sequence, list_phase_sequences,
   list_species_by_phase_sequence, get_species_lifecycle,
-  get_plant_phase_status, get_plant_phase_history
+  get_plant_phase_status, get_plant_phase_history, list_succession_plans,
+  get_succession_plan
 * write (mcp.write): confirm_care_task, archive_plant, set_plant_location,
   add_plant_diary_entry, claim_diary_analysis, submit_diary_analysis,
   record_feeding_event, create_inspection, assign_nutrient_plan,
