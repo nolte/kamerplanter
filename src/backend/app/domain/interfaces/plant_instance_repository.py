@@ -37,6 +37,11 @@ class IPlantInstanceRepository(ABC):
     def create(self, plant: PlantInstance) -> PlantInstance: ...
 
     @abstractmethod
+    def verify_references(self, plant: PlantInstance) -> None:
+        """Run the owned-reference check :meth:`create` runs, without writing (dry run, #2719)."""
+        ...
+
+    @abstractmethod
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance: ...
 
     @abstractmethod

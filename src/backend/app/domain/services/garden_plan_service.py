@@ -574,6 +574,65 @@ class GardenPlanService:
         for the site document is still refused with 409.
         """
         started = _now()
+        site, structure, parsed = self._checked_batch(
+            site_key, tenant_key=tenant_key, role=role, operations=operations, body_bytes=body_bytes
+        )
+        return self._apply(
+            site,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            expected_revision=self._revision_of(site) if expected_revision is None else expected_revision,
+            basis_revision=self._revision_of(site),
+            operations=parsed,
+            started=started,
+            structure=structure,
+        )
+
+    def preview_batch(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        operations: list[Any],
+        body_bytes: int,
+    ) -> PlanBatchResult:
+        """Every check :meth:`apply_batch` makes before its transaction, and nothing written (MCP dry run, #2776).
+
+        The same order and the same refusals: tenant anchor, references, role per operation, Pydantic, the plan
+        rules (V-03 ``geometry.outside_parent``, V-05 ``bed.overlap`` …) on the working copy. Only the revision
+        check is missing: it runs inside the transaction, which a preview never opens. The result carries the
+        site's current ``plan_revision``, no ``key_map`` (nothing was stored, so nothing got a key) and the
+        derived values keyed by each created object's ``temp_key``.
+        """
+        started = _now()
+        site, structure, parsed = self._checked_batch(
+            site_key, tenant_key=tenant_key, role=role, operations=operations, body_bytes=body_bytes
+        )
+        revision = self._revision_of(site)
+        work, write = self._validated_write(
+            site,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            expected_revision=revision,
+            basis_revision=revision,
+            operations=parsed,
+            started=started,
+            structure=structure,
+        )
+        return self._result(work, write, revision, {})
+
+    def _checked_batch(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        role: TenantRole,
+        operations: list[Any],
+        body_bytes: int,
+    ) -> tuple[Site, tuple[list[Location], list[GardenObject]], list[PlanOperation]]:
+        """Steps (2) to (4) of a batch: the site, its structure and the parsed operations; reads only."""
         site = self._owned_site(site_key, tenant_key=tenant_key)  # (2) tenant anchor
 
         # V-17 and the size ceiling concern the request as a whole and say nothing about the plan.
@@ -607,16 +666,7 @@ class GardenPlanService:
                 limit=MAX_BATCH_POINTS,
                 current=points,
             )
-        return self._apply(
-            site,
-            tenant_key=tenant_key,
-            user_key=user_key,
-            expected_revision=self._revision_of(site) if expected_revision is None else expected_revision,
-            basis_revision=self._revision_of(site),
-            operations=parsed,
-            started=started,
-            structure=(locations, objects),
-        )
+        return site, (locations, objects), parsed
 
     async def apply_batch_async(
         self,
@@ -974,6 +1024,48 @@ class GardenPlanService:
         ``audit`` are change-log rows the caller adds to those the operations produce (the CSV import's
         ``import_csv`` row); they are written in the same transaction.
         """
+        work, write = self._validated_write(
+            site,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            expected_revision=expected_revision,
+            basis_revision=basis_revision,
+            operations=operations,
+            started=started,
+            structure=structure,
+            audit=audit,
+        )
+        site_key = site.key or ""
+        try:
+            outcome = self._plan.apply_plan_batch(write)
+        except PlanRevisionConflictError:
+            logger.warning("garden_plan.revision_conflict", site_key=site_key)
+            raise
+        result = self._result(work, write, outcome.plan_revision, outcome.key_map)
+        result.released_photo_refs = list(outcome.released_photo_refs)
+        logger.info(
+            "garden_plan.batch_applied",
+            site_key=site_key,
+            revision=outcome.plan_revision,
+            op_count=len(operations),
+            duration_ms=round((_now() - started) * 1000),
+        )
+        return result
+
+    def _validated_write(
+        self,
+        site: Site,
+        *,
+        tenant_key: str,
+        user_key: str,
+        expected_revision: int,
+        basis_revision: int,
+        operations: list[PlanOperation],
+        started: float,
+        structure: tuple[list[Location], list[GardenObject]] | None = None,
+        audit: list[dict[str, str]] | None = None,
+    ) -> tuple[_Work, PlanBatchWrite]:
+        """Run ``operations`` on a working copy, validate it and build the write set; nothing is written."""
         site_key = site.key or ""
         locations, objects = structure or self._plan.load_structure(site_key, tenant_key=tenant_key)
         work = _Work(
@@ -1011,21 +1103,7 @@ class GardenPlanService:
             remaining=BATCH_TIME_BUDGET_SECONDS - (_now() - started),
             audit=audit or [],
         )
-        try:
-            outcome = self._plan.apply_plan_batch(write)
-        except PlanRevisionConflictError:
-            logger.warning("garden_plan.revision_conflict", site_key=site_key)
-            raise
-        result = self._result(work, write, outcome.plan_revision, outcome.key_map)
-        result.released_photo_refs = list(outcome.released_photo_refs)
-        logger.info(
-            "garden_plan.batch_applied",
-            site_key=site_key,
-            revision=outcome.plan_revision,
-            op_count=len(operations),
-            duration_ms=round((_now() - started) * 1000),
-        )
-        return result
+        return work, write
 
     @staticmethod
     def _ordered(findings: list[_Finding]) -> list[_Finding]:

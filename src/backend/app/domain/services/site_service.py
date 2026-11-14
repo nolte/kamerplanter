@@ -289,8 +289,29 @@ class SiteService:
         ``tenant_key`` now (keyword-only without a default); a foreign or unknown
         parent answers 404.
         """
+        self._checked_new_location(location, tenant_key=tenant_key)
+        return self._repo.create_location(location)
+
+    def preview_location(self, location: Location, *, tenant_key: str) -> Location:
+        """What :meth:`create_location` would store, with every one of its checks and nothing written (#2719).
+
+        The MCP ``create_location`` dry run: the location comes back placed in the tree (``site_key`` from the
+        parent, ``depth``, ``path``), so a dry run and the real call cannot disagree on validity.
+        """
+        self._checked_new_location(location, tenant_key=tenant_key)
+        return location
+
+    def _checked_new_location(self, location: Location, *, tenant_key: str) -> None:
+        """Resolve the parent, the site and the tank of a new location under ``tenant_key``; reads only.
+
+        A parent of another site than the ``site_key`` given is refused with 422, as :meth:`update_location`
+        refuses it (#2776 SEC-004) — it used to overwrite the caller's ``site_key`` silently. An empty
+        ``site_key`` with a parent takes the parent's site.
+        """
         if location.parent_location_key:
             parent = self.get_location(location.parent_location_key, tenant_key=tenant_key)
+            if location.site_key and location.site_key != parent.site_key:
+                raise ValidationError("A parent location must belong to the same site.")
             location.site_key = parent.site_key
             self._place_in_tree(location, parent)
         else:
@@ -299,7 +320,6 @@ class SiteService:
         if location.tank_key:
             self._require_owned_tank(location.tank_key, tenant_key)
         mirror_frost_exposed(location, None)
-        return self._repo.create_location(location)
 
     @staticmethod
     def _place_in_tree(location: Location, parent: Location | None) -> None:

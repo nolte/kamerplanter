@@ -1,8 +1,14 @@
 from datetime import date, timedelta
 
 from app.common.enums import PlantingRunStatus, PlantingRunType
+from app.common.exceptions import PlanError
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
-from app.domain.models.succession_plan import SuccessionPlan
+from app.domain.models.succession_plan import (
+    ERROR_SUCCESSION_QUOTA,
+    MAX_SUCCESSION_BATCHES,
+    SuccessionPlan,
+    succession_batch_count,
+)
 
 #: ``PlantingRun.source`` of a batch run (REQ-013 §2, ``RUN_SOURCES``).
 SOURCE_SUCCESSION = "succession"
@@ -24,10 +30,7 @@ class SuccessionPlanEngine:
         (and including) ``end_date``: ``floor((end - start) / interval) + 1``.
         The window always contains at least the first batch.
         """
-        span_days = (end_date - start_date).days
-        if span_days < 0:
-            return 0
-        return span_days // interval_days + 1
+        return succession_batch_count(start_date, end_date, interval_days)
 
     def build_entry(self, plan: SuccessionPlan) -> PlantingRunEntry:
         """Build the single species entry each generated (monoculture) run carries."""
@@ -47,6 +50,18 @@ class SuccessionPlanEngine:
         count the result is empty (no-op).
         """
         total = self.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
+        # Defensive: the model refuses such a schedule, but a stored legacy row is not re-validated on every path —
+        # no generation builds more runs than the quota, whatever the plan says.
+        if total > MAX_SUCCESSION_BATCHES:
+            raise PlanError(
+                ERROR_SUCCESSION_QUOTA,
+                f"A succession plan may hold at most {MAX_SUCCESSION_BATCHES} batches.",
+                status_code=422,
+                field="interval_days",
+                quota="batches",
+                limit=MAX_SUCCESSION_BATCHES,
+                current=total,
+            )
         start = max(start_sequence, 1)
         return [self.generate_batch_run(plan, sequence, total=total) for sequence in range(start, total + 1)]
 

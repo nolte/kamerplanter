@@ -53,6 +53,15 @@ NEW_TOOLS: dict[str, tuple[McpPermission, bool, bool]] = {
     "assign_species_phase_sequence": (McpPermission.SETUP, True, False),
     # ── issue #2775: a planting run is created inside the caller's tenant, at the REST write level ──
     "create_planting_run": (McpPermission.WRITE, True, True),
+    # ── issue #2719: a plant at the REST write level, a location behind the admin-only setup class ──
+    "create_plant": (McpPermission.WRITE, True, True),
+    "create_location": (McpPermission.SETUP, True, True),
+    # ── issue #2776: succession plans and their runs, at the REST write level ──
+    "create_succession_plan": (McpPermission.WRITE, True, True),
+    "generate_succession_runs": (McpPermission.WRITE, True, True),
+    # ── operator decision 2026-11-14: the plans themselves are readable, at the REST read level ──
+    "list_succession_plans": (McpPermission.READ, False, True),
+    "get_succession_plan": (McpPermission.READ, False, True),
 }
 
 #: Write tool → the read tool that surfaces its result again (§4.1).
@@ -64,6 +73,11 @@ WRITE_RESULT_READERS: dict[str, str] = {
     "transition_plant_phase": "get_plant_phase_status",
     "assign_species_phase_sequence": "get_species_phase_sequence",
     "create_planting_run": "list_planting_runs",
+    "create_plant": "list_plants",
+    "create_location": "get_location",
+    "create_succession_plan": "get_succession_plan",
+    # The result of a generation is the runs it creates, not the plan.
+    "generate_succession_runs": "list_planting_runs",
 }
 
 #: Write tool → the read tool that RESOLVES its key arguments (§4.1). Distinct
@@ -74,6 +88,9 @@ WRITE_REFERENCE_RESOLVERS: dict[str, str] = {
     "assign_species_phase_sequence": "list_phase_sequences",
     "assign_nutrient_plan": "list_nutrient_plans",
     "create_planting_run": "list_species",
+    "create_plant": "list_species",
+    "create_succession_plan": "list_species",
+    "generate_succession_runs": "list_succession_plans",
 }
 
 
@@ -157,10 +174,12 @@ def test_every_write_tool_takes_a_key_a_read_tool_produces():
 
 #: Palette size after issue #1244 — 64 after #949, plus `clone_nutrient_plan`,
 #: `set_nutrient_plan_phase_targets` and `validate_nutrient_plan_coverage`, plus `create_planting_run`
-#: (#2775). This is the number
+#: (#2775), plus `create_plant` and `create_location` (#2719), plus `create_succession_plan` and
+#: `generate_succession_runs` (#2776), plus `list_succession_plans` and `get_succession_plan` (operator
+#: decision 2026-11-14). This is the number
 #: ``docs/*/api/mcp-server.md`` and REQ-033 §Umsetzungsstand both quote, which is
 #: the whole reason it is asserted rather than described.
-PALETTE_SIZE = 68
+PALETTE_SIZE = 74
 
 
 def test_the_palette_holds_exactly_the_registered_tools():

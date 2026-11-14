@@ -181,7 +181,7 @@ Because the role applies per garden, the same key can write in your own garden a
 ## Tool Catalog (current state)
 
 !!! note "Partially available: tool scope"
-    68 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) and the eight tools of the growth-phase layer (see [Growth Phases and Lifecycle](#growth-phases-and-lifecycle)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, site and location management, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
+    74 tools are implemented, which covers reading fairly thoroughly, plus the five diary-analysis tools (see [Diary Analysis: External Agents](#diary-analysis-external-agents)) and the eight tools of the growth-phase layer (see [Growth Phases and Lifecycle](#growth-phases-and-lifecycle)). For the remaining **writing**, gaps remain: setup macros for apartment/growbox/outdoor garden, bulk plant creation, changing and deleting sites and locations, and writing back a harvest (`record_harvest`) or an applied treatment (`apply_treatment`). Expansion is a documented follow-up.
 
 !!! info "New: what an analysis agent can write back"
     Five tools were added that externally operated analysis agents needed. Each one ships paired with the read tool that finds its result again — a write no read tool surfaces afterwards counts as a defect here:
@@ -240,6 +240,8 @@ Because the role applies per garden, the same key can write in your own garden a
 | `list_species` | List the plant species catalog (paginated) |
 | `get_species_info` | **Full** master data for one species: sowing, bloom and harvest windows, hardiness, frost sensitivity, nutrient demand, toxicity, companion-planting hints and its cultivars |
 | `list_planting_runs` | List the tenant's planting runs, optionally filtered by status |
+| `list_succession_plans` | List the tenant's succession plans (staggered sowing) — species, bed, interval, date range, status and how many batches are already generated. Paged with `offset`/`limit` (at most 100); the answer states the total (`total`) |
+| `get_succession_plan` | Read one succession plan with every field the detail view shows. The generated runs are not part of it — `list_planting_runs` finds them. A plan of another garden counts as not found |
 | `list_tasks` | List the tenant's tasks, optionally filtered by status |
 | `get_due_care_tasks` | Today's / overdue care reminders, grouped by urgency |
 | `get_harvest_readiness` | Harvest-readiness overview across all active plants |
@@ -265,12 +267,16 @@ Because the role applies per garden, the same key can write in your own garden a
 | `set_nutrient_plan_phase_targets` | Set `target_ec_ms` / `reference_ec_ms` on **one** phase of a plan you own. An omitted field stays unchanged; the tool can never clear a value |
 | `transition_plant_phase` | Put a plant into a phase, or correct a wrong one. The target is validated against the sequence **that plant's species** runs on — a phase key from elsewhere would park the plant in a phase its lifecycle can never advance out of |
 | `create_planting_run` | Create a planned planting run (monoculture or clone) with at most one entry and, for garden planning, a reservation window (`planned_from`/`planned_until`), a crop-rotation role and a reserved area. A `dry_run` runs every check the real call runs and writes nothing. A mixed culture is not one run with several entries and is refused; `list_planting_runs` finds the result |
+| `create_plant` | Create a single plant, optionally placed at a site, in a location and on a slot right away. Takes the same fields as creating a plant in the web UI; without `current_phase_key` the plant starts in the first phase of its species. Every key (site, location, slot, species, cultivar, substrate) is checked against your garden, in a dry run too; an `instance_id` already in use is refused with `conflict.duplicate` by the dry run already. `list_plants` finds the result |
+| `create_succession_plan` | Create a succession plan (staggered sowing): one species re-sown every `interval_days` days between `start_date` and `end_date`, `plants_per_batch` plants per batch, optionally in a bed (`location_key`). The dry run reports the number of batches. The runs are created only by `generate_succession_runs` |
+| `generate_succession_runs` | Create the planting runs of a succession plan — every batch not generated yet (`mode: "all"`) or only the next one (`mode: "next"`). A batch already generated is never created twice. The dry run lists the runs it would create, with their sowing date and the number of slots each would reserve in the bed. `list_planting_runs` finds the result |
 
 ### Setup tools (`mcp.setup`)
 
 | Tool | Purpose |
 |------|---------|
 | `create_site` | Create a site root (apartment, garden, balcony, greenhouse, windowsill, grow tent) |
+| `create_location` | Create a location (room, tent, shelf, bed) in a site, nested to any depth with `parent_location_key` — the parent's site then applies. With a `geometry` (rectangle, circle or polygon in metres, in plan coordinates) the location is placed on the garden plan right away: it must lie inside the site boundary or its parent (`geometry.outside_parent`) and may not overlap another bed (`bed.overlap`); `area_m2` is derived from the geometry, and `location_type_key` is required. The tool resolves the plan revision itself. If someone changes the plan during the call, you get `conflict.plan_revision` and nothing was written — the tool never retries silently. The answer carries the new `key` and the derived area; `get_location` reads the location back |
 | `assign_species_phase_sequence` | Bind a species to an **existing** phase sequence. Requires `mcp.setup` rather than just `mcp.write` **and the platform admin role** (the tool has no tenant; it is not listed for non-admins and is refused with `permission.denied`), because species and sequences belong to the shared catalogue: a single binding changes the schedule of every plant of that species in *every* garden. *Defining* sequences stays deliberately a job for the web UI |
 
 Every tool validates referenced keys (plant, site, location, slot) against the tenant resolved for that call. A foreign key from another tenant consistently returns `not_found` — never `permission.denied` — so no tool ever discloses the existence of another tenant's resources.

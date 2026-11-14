@@ -61,6 +61,9 @@ _NO_BED_DELETE: dict[str, str] = {
     f"{_RESOURCES}.create_garden_object": _OBJECT_OPS,
     f"{_RESOURCES}.patch_garden_object": _OBJECT_OPS,
     f"{_RESOURCES}.delete_garden_object": _OBJECT_OPS,
+    "app.mcp_server.tools.sites.CreateLocation.preview": (
+        "the MCP dry run: preview_batch commits nothing, and the tool sends one create_location operation"
+    ),
 }
 
 

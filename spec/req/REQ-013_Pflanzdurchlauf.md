@@ -7,7 +7,7 @@ Kategorie: Gruppenmanagement
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 2.8 (REQ-053 v1.4 Welle 0: Layout-Felder am Entry, Planrolle/Reservierung am Run, Edge `run_planned_at`, `create-plants` über geplante Slots)
+Version: 2.9 (§SuccessionPlan: Betriebs-Kontingente — höchstens 104 Staffeln je Plan, `interval_days` ≤ 365, Aussaatfenster `end_date - start_date` ≤ 1096 Tage, `plants_per_batch` ≤ 10 000; Überschreitung 422 `succession.quota_exceeded {quota, limit, current}`, für REST, MCP und Änderung gleich, #2776 SEC-001); 2.8 (REQ-053 v1.4 Welle 0: Layout-Felder am Entry, Planrolle/Reservierung am Run, Edge `run_planned_at`, `create-plants` über geplante Slots)
 ```
 
 ### Changelog
@@ -477,13 +477,14 @@ eigenen `tenant_key` — genau deshalb ist die Pflanzenpruefung nicht optional.
     - `start_date: date` (Erste Aussaat)
     - `end_date: date` (Letzte Aussaat)
     - `plants_per_batch: int` (Pflanzen pro Staffel)
-    - `total_batches: int` (Berechnet: ceil((end_date - start_date) / interval_days))
+    - `total_batches: int` (Berechnet: floor((end_date - start_date) / interval_days) + 1)
     - `completed_batches: int` (Abgeschlossene Staffeln)
     - `status: Literal['planned', 'active', 'completed', 'cancelled']`
     - `reminder_days_before: int` (Erinnerung N Tage vor naechster Aussaat, Default: 3)
     - `notes: Optional[str]`
     - `created_at: datetime`
     - `updated_at: datetime`
+  - **Betriebs-Kontingente (v2.9, #2776):** keine agronomischen Werte, sondern Grenzen dafür, wie viel Arbeit ein Erzeugen-Aufruf macht — jede Staffel ist ein Durchlauf mit Eintrag, Slot-Wahl und Kante, alle in einer Anfrage (REST und MCP, Trockenlauf eingeschlossen). Höchstens **104 Staffeln** je Plan (`MAX_SUCCESSION_BATCHES`, zwei Jahre wöchentlich), `interval_days` höchstens **365**, Aussaatfenster `end_date - start_date` höchstens **1096 Tage** (drei Jahre), `plants_per_batch` höchstens **10 000**. Eine Überschreitung beim Anlegen oder Ändern ist 422; Fenster und Staffelzahl melden `succession.quota_exceeded` mit `quota` (`window_days` / `batches`), `limit` und `current`. Das Erzeugen baut nie mehr Durchläufe als das Kontingent, auch nicht für einen älteren gespeicherten Plan.
 
 ### Konfigurationsregeln:
 
