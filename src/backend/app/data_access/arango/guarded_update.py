@@ -26,6 +26,7 @@ from arango.exceptions import ArangoServerError
 
 from app.common.exceptions import NotFoundError, WriteConflictError
 from app.data_access.arango.conflicts import conflict_error_for, is_document_not_found
+from app.data_access.arango.transactions import StreamTransaction
 
 
 @dataclass(frozen=True)
@@ -58,7 +59,7 @@ RETURN {found: doc != null, new: FIRST(written)}
 
 
 def update_if_unchanged(
-    db: StandardDatabase,
+    db: StandardDatabase | StreamTransaction,
     collection: str,
     key: str,
     data: Mapping[str, Any],
@@ -69,6 +70,9 @@ def update_if_unchanged(
     merge_objects: bool,
 ) -> dict[str, Any]:
     """Write ``data`` into ``collection/key`` only while every ``expected`` value is stored; return the new document.
+
+    ``db`` may be a stream-transaction handle: the write then belongs to that transaction (``PATCH /slots`` takes
+    the bed's slot-rule fence in the same one, #2773).
 
     Raises:
         NotFoundError: the document does not exist (any more).

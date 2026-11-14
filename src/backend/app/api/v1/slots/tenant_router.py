@@ -111,7 +111,11 @@ def update_slot(
     return to_response(updated, SlotResponse)
 
 
-@router.patch("/{key}", response_model=SlotResponse, responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE})
+@router.patch(
+    "/{key}",
+    response_model=SlotResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
 def patch_slot(
     key: Annotated[str, Path(description="Document key of the slot.")],
     body: SlotPatch,
@@ -122,7 +126,9 @@ def patch_slot(
     """Correct a slot's geometry (bed frame), role or capacity (GP-API-014).
 
     Outside the plan revision (GP-NFR-007). 422 ``slot.outside_bed`` (V-04) or ``slot.overlap`` (V-06)
-    when the new geometry breaks a rule. Triggers the adjacency recompute (GP-NFR-016). A new geometry
+    when the new geometry breaks a rule. 409 ``WRITE_CONFLICT`` when another write changed the slot's role,
+    capacity or geometry kind (#2727), or the bed's slots or frame (#2773), after the rules were checked: reload
+    and send again. Triggers the adjacency recompute (GP-NFR-016). A new geometry
     under a standing plant is "Correct position" (GP-FR-068): it logs ``care_event(position_corrected)``
     with the plant.
     """

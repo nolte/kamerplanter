@@ -16,20 +16,26 @@ import pytest
 from arango import ArangoClient
 
 from app.common.enums import LayoutStrategy, PlantingRunStatus, PlantingRunType, TenantRole, TerminationType
-from app.common.exceptions import NotFoundError, PlanError
+from app.common.exceptions import NotFoundError, PlanError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.collections import ensure_collections
+from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.planting_reservation_repository import ArangoPlantingReservationRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.domain.engines.garden_plan_engine import overlapping_zones
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.models.garden_plan import SlotBatchRequest
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import QuickPlantingInput
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
+from app.domain.models.site import Slot
 from app.domain.services.care_event_service import CareEventService
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -193,6 +199,7 @@ def test_a_slot_patch_between_the_read_and_the_occupation_survives_2727(world, m
             slot_key,
             {"geometry": moved, "geometry_source": "editor", "capacity_plants": 3},
             read=ArangoSiteRepository(world.db).get_slot_by_key(slot_key),
+            slot_rules=None,  # no geometry rule in play: the capacity and the point stay in the bed
         )
         return create(plant)
 
@@ -444,3 +451,67 @@ def test_a_slot_of_another_bed_or_another_tenant_is_reference_not_found(world) -
         bodies.append(str(caught.value.details).replace(key, "<key>"))
     assert bodies[0] == bodies[1]  # foreign and absent read alike
     assert edges(world, col.RUN_PLANNED_AT) == []
+
+
+def test_a_run_layout_loses_to_a_zone_drawn_after_its_check_2773(world, monkeypatch) -> None:
+    """#2773: the run's zone was checked against the bed's zones (V-06) before its transaction opened. A slot batch
+    that draws a zone into the same area and commits in between makes the layout a 409 - the run is taken back - and
+    the bed holds no overlapping zones."""
+    sites, plan = ArangoSiteRepository(world.db), ArangoGardenPlanRepository(world.db)
+    editor = GardenResourceService(sites, plan, ArangoGardenObjectRepository(world.db), GardenPlanService(sites, plan))
+    drawn = {"kind": "polygon", "points": [[0.5, 0.5], [1.5, 0.5], [1.5, 1.5], [0.5, 1.5]]}
+    place = world.reservations._repo.place_run_layout
+
+    def zone_drawn_then_place(write):
+        editor.replace_slots(
+            "bed",
+            tenant_key=A,
+            role=TenantRole.GROWER,
+            request=SlotBatchRequest.model_validate(
+                {"mode": "append", "slots": [{"slot_id": "BED3_DRAWN", "slot_role": "zone", "geometry": drawn}]}
+            ),
+        )
+        return place(write)
+
+    monkeypatch.setattr(world.reservations._repo, "place_run_layout", zone_drawn_then_place)
+
+    with pytest.raises(WriteConflictError):
+        world.service.create_run(
+            run_of(), [entry_of(quantity=1, layout_strategy=LayoutStrategy.ZONE, row_spacing_cm=None)], tenant_key=A
+        )
+
+    zones = [Slot(**doc) for doc in edges(world, col.SLOTS) if doc.get("slot_role") == "zone"]
+    assert [zone.slot_id for zone in zones] == ["BED3_DRAWN"]  # the winner alone; the run's zone was not written
+    assert overlapping_zones([(zone.slot_id, zone.geometry) for zone in zones if zone.geometry is not None]) == []
+    assert edges(world, col.PLANTING_RUNS) == []  # the run was taken back with its layout
+
+
+def test_a_quick_planting_on_a_bed_that_lost_its_frame_is_a_409_not_plants_without_places_2773(
+    world, monkeypatch
+) -> None:
+    """The service saw a frame and asked for a layout; the frame is removed before the layout's basis is read. The
+    planting is refused (409, reload) instead of being stored without positions."""
+    basis = world.reservations._plan.load_slot_rule_basis
+
+    def frame_removed_then_basis(*args, **kwargs):
+        world.db.collection(col.LOCATIONS).update({"_key": "bed", "geometry": None}, keep_none=False)
+        return basis(*args, **kwargs)
+
+    monkeypatch.setattr(world.reservations._plan, "load_slot_rule_basis", frame_removed_then_basis)
+
+    with pytest.raises(WriteConflictError):
+        world.service.quick_plant(
+            "bed",
+            tenant_key=A,
+            role=TenantRole.GROWER,
+            request=QuickPlantingInput(
+                species_key="sp",
+                quantity=4,
+                layout_strategy=LayoutStrategy.GRID,
+                spacing_cm=50,
+                planted_on=D(2026, 5, 20),
+            ),
+        )
+
+    assert edges(world, col.PLANTING_RUNS) == [] and edges(world, col.PLANT_INSTANCES) == []
+    assert edges(world, col.SLOTS) == []

@@ -63,6 +63,9 @@ class RunSlotsWrite:
     planned_from: date
     planned_until: date | None
     slots: list[NewReservedSlot]
+    #: The bed's ``slot_rules_revision`` read with the slots V-04/V-06 were checked against (#2773); ``None`` when
+    #: the write carries no slot.
+    slot_rules_revision: int | None = None
     time_budget_seconds: float = RESERVATION_TIME_BUDGET_SECONDS
 
 
@@ -148,6 +151,9 @@ class QuickPlantWrite:
     slots: list[Slot]
     plants: list[QuickPlantedPlant]
     run_history: PhaseHistory | None
+    #: The bed's ``slot_rules_revision`` read with the slots V-04/V-06 were checked against (#2773); ``None`` when
+    #: the write carries no slot.
+    slot_rules_revision: int | None = None
     time_budget_seconds: float = RESERVATION_TIME_BUDGET_SECONDS
 
 
@@ -213,6 +219,9 @@ class MixedRunsWrite:
 
     location_key: str
     runs: list[MixedRunWrite]
+    #: The bed's ``slot_rules_revision`` read with the slots V-04/V-06 were checked against (#2773); ``None`` when
+    #: the write carries no slot.
+    slot_rules_revision: int | None = None
     time_budget_seconds: float = RESERVATION_TIME_BUDGET_SECONDS
 
 

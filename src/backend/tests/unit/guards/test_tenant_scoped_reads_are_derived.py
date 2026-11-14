@@ -964,6 +964,14 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         via="get_by_scientific_name",
         check="_authorize_tenant_owned_write",
     ),
+    ("ArangoPlantingReservationRepository", "place_run_layout"): Exclusion(
+        "verified",
+        "the only read is the bed's slot-rule fence (#2773), a compare-and-raise on the bed the caller resolved under "
+        "the tenant; the service checks the run's tenant before it writes the run's layout",
+        witness="app.domain.services.planting_reservation_service::PlantingReservationService.place_layout",
+        via="place_run_layout",
+        check="verify_tenant_ownership",
+    ),
     ("ArangoTaskRepository", "get_task_templates_for_workflow"): Exclusion(
         "verified",
         "task templates are read by their workflow template, whose hybrid read access the route "

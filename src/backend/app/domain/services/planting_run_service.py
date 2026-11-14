@@ -393,7 +393,12 @@ class PlantingRunService:
             for index, draft in enumerate(drafts)
         ]
         outcome = self._reservations.place_mixed_runs(
-            MixedRunsWrite(location_key=location_key, runs=writes), tenant_key=tenant_key
+            MixedRunsWrite(
+                location_key=location_key,
+                runs=writes,
+                slot_rules_revision=prepared.slot_rules_revision if prepared is not None else None,
+            ),
+            tenant_key=tenant_key,
         )
         return [self._repo.get_or_raise(run_key) for run_key in outcome.run_keys]
 
@@ -1149,7 +1154,7 @@ class PlantingRunService:
         )
         self._require_green_manure_species(run, [entry])
 
-        slots, warnings = self._quick_layout(location, entry, request, tenant_key=tenant_key)
+        slots, warnings, slot_rules_revision = self._quick_layout(location, entry, request, tenant_key=tenant_key)
         existing_ids = self._repo.get_existing_ids_at_location(location_key)
         specs = self._engine.generate_plant_ids(location_key, [entry], existing_ids)
         phase_key, phase_name = self._resolve_initial_phase(request.species_key)
@@ -1181,6 +1186,7 @@ class PlantingRunService:
                 slots=slots[: len(plants)],
                 plants=plants,
                 run_history=self._history_of(phase_key, phase_name, now),
+                slot_rules_revision=slot_rules_revision,
             )
         )
         # REQ-022 — every plant gets its care profile, best-effort per plant (as ``create_plants`` does).
@@ -1226,22 +1232,23 @@ class PlantingRunService:
 
     def _quick_layout(
         self, location: Any, entry: PlantingRunEntry, request: QuickPlantingInput, *, tenant_key: str
-    ) -> tuple[list[Slot], list[str]]:
-        """The slots of a quick planting and the warnings: a layout when the bed and the request allow one."""
+    ) -> tuple[list[Slot], list[str], int | None]:
+        """The slots of a quick planting, the warnings and the bed's ``slot_rules_revision`` the layout was checked
+        against (#2773; ``None`` without a layout): a layout when the bed and the request allow one."""
         if request.layout_strategy is None or request.spacing_cm is None or self._reservations is None:
-            return [], []
+            return [], [], None
         if location.geometry is None:
-            return [], ["layout.bed_without_geometry"]
+            return [], ["layout.bed_without_geometry"], None
         prepared = self._reservations.prepare_layout(location, [entry], tenant_key=tenant_key)
         if prepared is None:
-            return [], []
+            return [], [], None
         slots = [item.slot for item in prepared.slots][: request.quantity]
         warnings = [w.code for w in prepared.warnings]
         if len(slots) < request.quantity:
             warnings.append("layout.capacity_exceeded")
         for slot in slots:
             slot.currently_occupied = True
-        return slots, warnings
+        return slots, warnings, prepared.slot_rules_revision
 
     def adopt_plants(self, run_key: PlantingRunKey, plant_keys: list[str], *, tenant_key: str) -> dict:
         """Adopt existing standalone PlantInstances into the run.

@@ -25,6 +25,7 @@ from app.domain.models.garden_plan import (
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
+    SlotRuleBasis,
     SlotSpeciesHint,
     TaskCounter,
 )
@@ -197,6 +198,8 @@ class FakePlanRepo(IGardenPlanRepository):
         self.species_hints: list[SlotSpeciesHint] = []
         #: the ``slot_keys`` of every ``load_active_slots`` read (``None`` = the whole bed)
         self.active_slot_reads: list[list[str] | None] = []
+        #: ``slot_rules_revision`` per bed key, what ``load_slot_rule_basis`` answers (#2773); absent reads as 0.
+        self.slot_rules_revisions: dict[str, int] = {}
         #: The bed list download (WP 8.25): type names, zone names (per ``zones``) and assignments by tenant.
         self.type_names: dict[str, LocationTypeName] = {
             "bed": LocationTypeName("Beet", "Bed"),
@@ -244,6 +247,24 @@ class FakePlanRepo(IGardenPlanRepository):
             last_watered=dict(self.last_watered) if include_tasks else {},
             plan_updated_by_name=self.editor_name,
             slot_planned_from=dict(self.slot_planned_from) if include_plants else {},
+        )
+
+    def load_slot_rule_basis(self, site_key, location_keys, *, tenant_key, include_archived=False):
+        """The fake's basis (#2773): its locations of the keys, their slots and ``slot_rules_revisions`` (default 0)."""
+        site = self._sites.get_site_by_key(site_key)
+        if site is None or site.tenant_key != tenant_key:
+            return SlotRuleBasis(locations={}, revisions={}, slots=[])
+        locations = {
+            key: location
+            for key, location in self.locations.items()
+            if key in location_keys and location.site_key == site_key
+        }
+        return SlotRuleBasis(
+            locations=locations,
+            revisions={key: self.slot_rules_revisions.get(key, 0) for key in locations},
+            slots=self.load_active_slots(
+                site_key, list(locations), tenant_key=tenant_key, include_archived=include_archived
+            ),
         )
 
     def load_active_slots(self, site_key, location_keys, *, tenant_key, include_archived=False, slot_keys=None):
@@ -447,10 +468,12 @@ class FakePlanRepo(IGardenPlanRepository):
         site.plan = site.plan.model_copy(update={"underlay": underlay})
         return True, previous
 
-    def update_slot_fields(self, slot_key, fields, *, read):
+    def update_slot_fields(self, slot_key, fields, *, read, slot_rules):
         self.slot_field_updates.append((slot_key, dict(fields)))
         #: The slot the last field write is conditional on (#2727).
         self.slot_field_update_read = read
+        #: The bed fence the last field write took (#2773), ``None`` when no bed-level rule ran.
+        self.slot_field_update_fence = slot_rules
         self.slots = [
             Slot(**{**slot.model_dump(by_alias=True), **fields}) if slot.key == slot_key else slot
             for slot in self.slots

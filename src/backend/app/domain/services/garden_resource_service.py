@@ -36,7 +36,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.datetimes import ensure_aware_utc
 from app.common.enums import BedStatus, FrostRisk, GardenObjectType, TenantRole
-from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
 from app.domain.calculators.geometry_distance import (
     WATER_SOURCE_OBJECT_TYPE,
@@ -937,8 +937,10 @@ class GardenResourceService:
         """Correct a slot's geometry, role or capacity — outside the plan revision (GP-NFR-007).
 
         V-04 (inside the bed) and V-06 (zones may not overlap, archived slots excepted) are checked on the
-        slot as it will be. A slot that is occupied can be corrected: moving a plant's place is the point of
-        GP-FR-068.
+        slot as it will be, against the bed's frame and slots read with its ``slot_rules_revision``; the write
+        takes that fence in its transaction, so a concurrent slot or frame write of the bed that committed after
+        the read makes this one a 409 ``WRITE_CONFLICT`` (#2773) instead of two zones that overlap. A slot that is
+        occupied can be corrected: moving a plant's place is the point of GP-FR-068.
         """
         slot, location = resolve_owned_slot(self._sites, key, tenant_key)
         self._require_editor(role)
@@ -965,18 +967,11 @@ class GardenResourceService:
                 ]
             ) from exc
 
-        if updated.geometry is not None and ("geometry" in provided or "slot_role" in provided):
-            self._check_slot_rules(
-                location,
-                [(key, updated.geometry)],
-                others=[
-                    (other.key, other.geometry)
-                    for other in self._plan.load_active_slots(
-                        location.site_key, [location.key or ""], tenant_key=tenant_key
-                    )
-                    if other.key and other.key != key and other.geometry is not None
-                ],
-            )
+        slot_rules = (
+            self._checked_bed_rules(location, key, updated.geometry, tenant_key=tenant_key)
+            if updated.geometry is not None and ("geometry" in provided or "slot_role" in provided)
+            else None
+        )
         # Only the columns that changed, the geometry replaced whole: a document merge would keep the keys of
         # the old geometry kind (``origin`` beside ``points``) and make the slot unreadable.
         now, before = _dump(updated, by_alias=True, mode="json"), _dump(slot, by_alias=True, mode="json")
@@ -984,9 +979,34 @@ class GardenResourceService:
         if fields:
             # Conditional on the role, capacity and geometry kind it was validated against (#2727): a 409, not a
             # slot neither write validated, when another PATCH changed one of them since the read.
-            self._plan.update_slot_fields(key, fields, read=slot)
+            self._plan.update_slot_fields(key, fields, read=slot, slot_rules=slot_rules)
             self._recompute_adjacency(location.key or "")
         return resolve_owned_slot(self._sites, key, tenant_key)[0]
+
+    def _checked_bed_rules(
+        self, location: Location, key: SlotKey, geometry: Geometry, *, tenant_key: str
+    ) -> tuple[str, int]:
+        """V-04/V-06 for the slot ``key`` at ``geometry``; returns the fence ``(bed key, slot_rules_revision)``.
+
+        The bed's frame, its slots and its fence are read in one snapshot (#2773): the write that hands the fence to
+        its transaction is refused when another slot or frame write of the bed lands after this read, so V-04/V-06
+        hold for what is stored.
+        """
+        bed_key = location.key or ""
+        basis = self._plan.load_slot_rule_basis(location.site_key, [bed_key], tenant_key=tenant_key)
+        bed = basis.locations.get(bed_key)
+        if bed is None:
+            raise NotFoundError("Location", bed_key)
+        self._check_slot_rules(
+            bed,
+            [(key, geometry)],
+            others=[
+                (other.key, other.geometry)
+                for other in basis.slots
+                if other.key and other.key != key and other.geometry is not None
+            ],
+        )
+        return bed_key, basis.revisions[bed_key]
 
     # ── GP-API-016: POST /locations/{key}/planting-layout/preview ─────────────
 
@@ -1049,7 +1069,13 @@ class GardenResourceService:
                 limit=MAX_SLOTS_PER_BATCH,
                 current=len(items),
             )
-        existing = self._plan.load_active_slots(location.site_key, [key], tenant_key=tenant_key, include_archived=True)
+        # The frame, the slots and the fence in one snapshot; the transaction refuses (409) when another slot or
+        # frame write of the bed lands after this read (#2773).
+        basis = self._plan.load_slot_rule_basis(location.site_key, [key], tenant_key=tenant_key, include_archived=True)
+        if key not in basis.locations:
+            raise NotFoundError("Location", key)
+        location = basis.locations[key]
+        existing = basis.slots
         active = [slot for slot in existing if slot.archived_at is None and slot.key]
         delete_keys: list[str] = []
         if request.mode == "replace_unoccupied":
@@ -1072,7 +1098,14 @@ class GardenResourceService:
             )
 
         inserts = [self._slot_of(key, item) for item in items]
-        outcome = self._plan.replace_slots(SlotBatchWrite(location_key=key, delete_keys=delete_keys, inserts=inserts))
+        outcome = self._plan.replace_slots(
+            SlotBatchWrite(
+                location_key=key,
+                delete_keys=delete_keys,
+                inserts=inserts,
+                slot_rules_revision=basis.revisions[key],
+            )
+        )
         self._recompute_adjacency(key)
         logger.info(
             "garden_resource.slots_replaced",
