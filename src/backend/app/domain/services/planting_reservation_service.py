@@ -48,6 +48,7 @@ from app.common.exceptions import (
     NotFoundError,
     PlanError,
     PlanValidationError,
+    WriteConflictError,
 )
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.calculators.planting_layout_calculator import (
@@ -295,7 +296,9 @@ class PlantingReservationService:
             raise NotFoundError("Location", bed_key)
         frame = bed.geometry
         if frame is None:
-            return None
+            # The caller saw a frame; it was removed since. "No layout" would store the run or the plants without
+            # their positions - a conflict to reload instead (409, retryable).
+            raise WriteConflictError("Location", "the bed lost its frame since it was read; reload and retry")
         location = bed
         existing = basis.slots
         live = [slot for slot in existing if slot.archived_at is None]

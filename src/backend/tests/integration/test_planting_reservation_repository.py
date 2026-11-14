@@ -179,6 +179,7 @@ class TestPlaceRunLayout:
             planned_from=D(2026, 5, 15),
             planned_until=D(2026, 9, 30),
             slots=[NewReservedSlot(layout_slot(slot_id, n), "e1", "sp", n) for n, slot_id in enumerate(ids, start=1)],
+            slot_rules_revision=0,  # the bed's fence as a fresh bed reads it (#2773)
         )
 
     def test_slots_and_both_edges_are_written_together(self, db, repo) -> None:
@@ -607,6 +608,7 @@ class TestQuickPlant:
             ),
             entry=PlantingRunEntry(tenant_key=A, species_key="sp", quantity=plants, id_prefix="TOM"),
             slots=[layout_slot(slot_id, n) for n, slot_id in enumerate(slot_ids, start=1)],
+            slot_rules_revision=0,  # the bed's fence as a fresh bed reads it (#2773)
             plants=[
                 QuickPlantedPlant(
                     plant=PlantInstance(

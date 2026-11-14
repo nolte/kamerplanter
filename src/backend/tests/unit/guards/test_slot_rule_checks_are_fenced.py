@@ -12,9 +12,13 @@ transaction (``slot_rules_fence.take_slot_rules``); the loser answers 409.
   or through a method of its own class - and reads stored slots does so through ``load_slot_rule_basis``, never
   ``load_active_slots`` (which carries no fence). A new check site that reads its siblings unfenced fails here;
 * every production construction of a write that carries slots into a bed (``SlotBatchWrite``, ``RunSlotsWrite``,
-  ``MixedRunsWrite``, ``QuickPlantWrite``; ``PlanBatchWrite`` with ``slot_inserts``) hands the fence over by keyword;
-* every public repository method that takes one of those writes, and ``update_slot_fields``, calls
-  ``take_slot_rules`` - so a fence handed over is never dropped on the floor.
+  ``MixedRunsWrite``, ``QuickPlantWrite``; ``PlanBatchWrite`` with ``slot_inserts``) hands the fence over by keyword,
+  and never as a literal ``None``. The one exception is the plan import's ``_build_write``: it inserts slots only
+  into beds the same write inserts, which the repository enforces at runtime (``_refuse_unfenced_slot_inserts``);
+* every public repository method that takes one of those writes, and ``update_slot_fields``, compares the fence
+  (``take_slot_rules`` or ``lock_bed`` with the revision) and refuses a write that carries slots without one
+  (``require_fence``, or ``_refuse_unfenced_slot_inserts`` for the plan batch) - so a fence handed over is never
+  dropped on the floor, and a missing one is a programming error rather than a silent skip.
 
 The interleavings themselves are forced against ArangoDB in
 ``tests/integration/test_garden_resource_repository.py::TestBedLevelSlotRulesHoldUnderConcurrentWrites`` and
@@ -42,10 +46,13 @@ _FENCED_WRITES: dict[str, str] = {
     "MixedRunsWrite": "slot_rules_revision",
     "QuickPlantWrite": "slot_rules_revision",
 }
-#: ``PlanBatchWrite`` carries slots only with ``slot_inserts``; the import inserts them into beds it creates itself.
+#: ``PlanBatchWrite(slot_inserts=...)`` constructions without a fence, by ``path::Class.function`` → why. Narrowed to
+#: the one construction whose slots only ever go into beds inserted by the same write - the repository refuses any
+#: other target at runtime (``ArangoGardenPlanRepository._refuse_unfenced_slot_inserts``).
 _PLAN_BATCH_SLOT_INSERTS_EXEMPT: dict[str, str] = {
-    "app/domain/services/garden_plan_import_service.py": (
-        "the import inserts slots only into the beds it inserts in the same transaction - no sibling to race"
+    "app/domain/services/garden_plan_import_service.py::GardenPlanImportService._build_write": (
+        "imported slots name only imported beds (_add_slots maps file keys of imported_locations), inserted in the "
+        "same transaction - no sibling to race; a kept bed only ever gets an orientation update (_orient)"
     ),
 }
 
@@ -121,33 +128,69 @@ def _keywords(call: ast.Call) -> set[str]:
     return {keyword.arg for keyword in call.keywords if keyword.arg is not None}
 
 
+def _is_none_literal(call: ast.Call, keyword: str) -> bool:
+    return any(k.arg == keyword and isinstance(k.value, ast.Constant) and k.value.value is None for k in call.keywords)
+
+
+def _enclosing_functions(tree: ast.Module) -> dict[ast.AST, str]:
+    """Every ``Call`` node of ``tree`` → ``Class.function`` (or ``function``) it sits in."""
+    owner: dict[ast.AST, str] = {}
+
+    def visit(node: ast.AST, prefix: str, function: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.ClassDef):
+                visit(child, f"{child.name}.", function)
+            elif isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                visit(child, prefix, f"{prefix}{child.name}")
+            else:
+                if isinstance(child, ast.Call):
+                    owner[child] = function
+                visit(child, prefix, function)
+
+    visit(tree, "", "")
+    return owner
+
+
 def test_every_write_that_carries_slots_hands_the_fence_over() -> None:
     missing: list[str] = []
     seen: set[str] = set()
+    exempt_used: set[str] = set()
     for path in sorted(_APP.rglob("*.py")):
         if _DATA_ACCESS in path.parents:
             continue
-        for node in ast.walk(_tree(path)):
+        tree = _tree(path)
+        owners = _enclosing_functions(tree)
+        for node in ast.walk(tree):
             if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
                 continue
             name, where = node.func.id, f"{_relative(path)}:{node.lineno}"
             if name in _FENCED_WRITES:
                 seen.add(name)
-                if _FENCED_WRITES[name] not in _keywords(node):
-                    missing.append(f"{where} {name} without {_FENCED_WRITES[name]}=")
+                keyword = _FENCED_WRITES[name]
+                if keyword not in _keywords(node) or _is_none_literal(node, keyword):
+                    missing.append(f"{where} {name} without a real {keyword}=")
             elif name == "PlanBatchWrite" and "slot_inserts" in _keywords(node):
                 seen.add(name)
-                if "slot_rules_revisions" not in _keywords(node) and _relative(path) not in (
-                    _PLAN_BATCH_SLOT_INSERTS_EXEMPT
-                ):
-                    missing.append(f"{where} PlanBatchWrite(slot_inserts=...) without slot_rules_revisions=")
+                site = f"{_relative(path)}::{owners.get(node, '')}"
+                if "slot_rules_revisions" in _keywords(node) and not _is_none_literal(node, "slot_rules_revisions"):
+                    continue
+                if site in _PLAN_BATCH_SLOT_INSERTS_EXEMPT:
+                    exempt_used.add(site)
+                    continue
+                missing.append(f"{where} PlanBatchWrite(slot_inserts=...) without slot_rules_revisions=")
     assert seen == {*_FENCED_WRITES, "PlanBatchWrite"}, f"the scan lost a write it exists for: {sorted(seen)}"
+    assert exempt_used == set(_PLAN_BATCH_SLOT_INSERTS_EXEMPT), "a stale exemption: drop it"
     assert missing == [], f"A write carries slots into a bed without the fence its check read (#2773): {missing}"
+
+
+#: What compares a fence in a repository write, and what refuses a write that carries slots without one.
+_COMPARES = frozenset({"take_slot_rules", "lock_bed"})
+_REFUSES = frozenset({"require_fence", "_refuse_unfenced_slot_inserts"})
 
 
 def test_every_repository_write_of_slots_takes_the_fence() -> None:
     write_types = {*_FENCED_WRITES, "PlanBatchWrite"}
-    takers: dict[str, bool] = {}
+    writers: dict[str, set[str]] = {}
     for path in sorted(_DATA_ACCESS.rglob("*.py")):
         for cls in (node for node in ast.walk(_tree(path)) if isinstance(node, ast.ClassDef)):
             for name, fn in _methods(cls).items():
@@ -156,7 +199,7 @@ def test_every_repository_write_of_slots_takes_the_fence() -> None:
                 }
                 carries = bool(annotations & write_types) and not name.startswith("_")
                 if carries or name == "update_slot_fields":
-                    takers[f"{_relative(path)}::{cls.name}.{name}"] = "take_slot_rules" in _called_names(fn)
+                    writers[f"{_relative(path)}::{cls.name}.{name}"] = _called_names(fn)
     assert {
         "app/data_access/arango/garden_plan_repository.py::ArangoGardenPlanRepository.update_slot_fields",
         "app/data_access/arango/garden_plan_repository.py::ArangoGardenPlanRepository.replace_slots",
@@ -164,6 +207,11 @@ def test_every_repository_write_of_slots_takes_the_fence() -> None:
         "app/data_access/arango/planting_reservation_repository.py::ArangoPlantingReservationRepository.place_run_layout",
         "app/data_access/arango/planting_reservation_repository.py::ArangoPlantingReservationRepository.create_mixed_runs",
         "app/data_access/arango/planting_reservation_repository.py::ArangoPlantingReservationRepository.quick_plant",
-    } <= set(takers), f"the scan lost a writer it exists for: {sorted(takers)}"
-    dropped = sorted(site for site, takes in takers.items() if not takes)
-    assert dropped == [], f"These repository writes take a fence but never compare it (take_slot_rules): {dropped}"
+    } <= set(writers), f"the scan lost a writer it exists for: {sorted(writers)}"
+    dropped = sorted(site for site, calls in writers.items() if not calls & _COMPARES)
+    assert dropped == [], f"These repository writes take a fence but never compare it: {dropped}"
+    # ``update_slot_fields`` takes the fence as a required argument; ``None`` there is a capacity-only PATCH.
+    unrefused = sorted(
+        site for site, calls in writers.items() if not calls & _REFUSES and not site.endswith(".update_slot_fields")
+    )
+    assert unrefused == [], f"These repository writes would skip a missing fence silently: {unrefused}"

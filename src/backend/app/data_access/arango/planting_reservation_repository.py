@@ -28,11 +28,11 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 from pydantic import BaseModel
 
-from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
+from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.query_builder import aql_field
-from app.data_access.arango.slot_rules_fence import take_slot_rules
+from app.data_access.arango.slot_rules_fence import lock_bed, require_fence
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.engines.slot_reservation_engine import (
     LIVE_RUN_STATUSES,
@@ -519,16 +519,10 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
         """Write the bed's own document first: two writers of one bed cannot both pass (see the module docstring).
 
         ``must_exist=False`` for the writes that tidy up after a run (release, drop): a bed that is gone has
-        nothing left to serialise with, and the tidying must still go through.
+        nothing left to serialise with, and the tidying must still go through. The writes that carry slots call
+        :func:`lock_bed` with their fence instead.
         """
-        touched = list(
-            txn.aql.execute(
-                "FOR l IN @@col FILTER l._key == @key UPDATE l WITH {updated_at: @now} IN @@col RETURN 1",
-                bind_vars={"@col": col.LOCATIONS, "key": location_key, "now": now},
-            )
-        )
-        if not touched and must_exist:
-            raise NotFoundError("Location", location_key)
+        lock_bed(txn, location_key, now, revision=None, must_exist=must_exist)
 
     @staticmethod
     def _edge_doc(run_key: str, slot_key: str, now: str, **properties: Any) -> dict[str, Any]:
@@ -551,9 +545,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             time_budget_seconds=write.time_budget_seconds,
         ) as txn:
             now = _now()
-            self._lock_location(txn, write.location_key, now)
-            if write.slot_rules_revision is not None:
-                take_slot_rules(txn, {write.location_key: write.slot_rules_revision})
+            require_fence(write.slot_rules_revision, write.slots, write="RunSlotsWrite")
+            lock_bed(txn, write.location_key, now, revision=write.slot_rules_revision)
             slots = txn.collection(col.SLOTS)
             has_slot = txn.collection(col.HAS_SLOT)
             planned_at = txn.collection(col.RUN_PLANNED_AT)
@@ -909,9 +902,10 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             time_budget_seconds=write.time_budget_seconds,
         ) as txn:
             now = _now()
-            self._lock_location(txn, write.location_key, now)
-            if write.slot_rules_revision is not None:
-                take_slot_rules(txn, {write.location_key: write.slot_rules_revision})
+            require_fence(
+                write.slot_rules_revision, [slot for run in write.runs for slot in run.slots], write="MixedRunsWrite"
+            )
+            lock_bed(txn, write.location_key, now, revision=write.slot_rules_revision)
             location_id = f"{col.LOCATIONS}/{write.location_key}"
             for item in write.runs:
                 run_key = txn.collection(col.PLANTING_RUNS).insert(_insert_doc(item.run, now), return_new=True)["new"][
@@ -960,9 +954,8 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             time_budget_seconds=write.time_budget_seconds,
         ) as txn:
             now = _now()
-            self._lock_location(txn, write.location_key, now)
-            if write.slot_rules_revision is not None:
-                take_slot_rules(txn, {write.location_key: write.slot_rules_revision})
+            require_fence(write.slot_rules_revision, write.slots, write="QuickPlantWrite")
+            lock_bed(txn, write.location_key, now, revision=write.slot_rules_revision)
             location_id = f"{col.LOCATIONS}/{write.location_key}"
 
             slot_keys: list[str] = []

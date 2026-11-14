@@ -484,3 +484,34 @@ def test_a_run_layout_loses_to_a_zone_drawn_after_its_check_2773(world, monkeypa
     assert [zone.slot_id for zone in zones] == ["BED3_DRAWN"]  # the winner alone; the run's zone was not written
     assert overlapping_zones([(zone.slot_id, zone.geometry) for zone in zones if zone.geometry is not None]) == []
     assert edges(world, col.PLANTING_RUNS) == []  # the run was taken back with its layout
+
+
+def test_a_quick_planting_on_a_bed_that_lost_its_frame_is_a_409_not_plants_without_places_2773(
+    world, monkeypatch
+) -> None:
+    """The service saw a frame and asked for a layout; the frame is removed before the layout's basis is read. The
+    planting is refused (409, reload) instead of being stored without positions."""
+    basis = world.reservations._plan.load_slot_rule_basis
+
+    def frame_removed_then_basis(*args, **kwargs):
+        world.db.collection(col.LOCATIONS).update({"_key": "bed", "geometry": None}, keep_none=False)
+        return basis(*args, **kwargs)
+
+    monkeypatch.setattr(world.reservations._plan, "load_slot_rule_basis", frame_removed_then_basis)
+
+    with pytest.raises(WriteConflictError):
+        world.service.quick_plant(
+            "bed",
+            tenant_key=A,
+            role=TenantRole.GROWER,
+            request=QuickPlantingInput(
+                species_key="sp",
+                quantity=4,
+                layout_strategy=LayoutStrategy.GRID,
+                spacing_cm=50,
+                planted_on=D(2026, 5, 20),
+            ),
+        )
+
+    assert edges(world, col.PLANTING_RUNS) == [] and edges(world, col.PLANT_INSTANCES) == []
+    assert edges(world, col.SLOTS) == []

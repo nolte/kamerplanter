@@ -22,6 +22,7 @@ from app.common.exceptions import (
     DuplicateError,
     NotFoundError,
     PlanError,
+    PlanRevisionConflictError,
     PlanValidationError,
     StoredDocumentInvalidError,
     WriteConflictError,
@@ -1110,9 +1111,11 @@ class TestBedLevelSlotRulesHoldUnderConcurrentWrites:
             lambda: self._move(self._other(db), "z1", _square(1.5, 0.2)),
         )
 
-        with pytest.raises(WriteConflictError):
+        # The plan's own conflict (the payload the plan editor reloads on), not a bare WRITE_CONFLICT.
+        with pytest.raises(PlanRevisionConflictError) as lost:
             _patch(service, {"geometry": half})
 
+        assert lost.value.error_code == "plan.revision_conflict"
         assert db.collection(col.LOCATIONS).get("bed")["geometry"]["width_m"] == 2  # nothing written, no revision
         assert db.collection(col.SITES).get("site_a")["plan"]["plan_revision"] == 1
         assert db.collection(col.SLOTS).get("z1")["geometry"]["points"][0] == [1.5, 0.2]
@@ -1134,6 +1137,41 @@ class TestBedLevelSlotRulesHoldUnderConcurrentWrites:
 
         assert "BED_Z3" not in slot_ids(db)
         assert _stored_overlaps(db) == []
+
+    def test_a_plan_batch_that_copies_slots_into_a_standing_bed_needs_its_fence(self, db, repo) -> None:
+        """Only a bed inserted by the same write may take slots without a fence; anything else is refused."""
+        from app.domain.models.garden_plan import PlanBatchWrite
+
+        write = PlanBatchWrite(
+            site_key="site_a",
+            tenant_key=A,
+            editor_key=USER,
+            expected_revision=1,
+            basis_revision=1,
+            slot_inserts=[("bed", Slot(slot_id="BED_COPY", geometry=point(0.4, 0.4)))],
+        )
+        with pytest.raises(ValueError, match="without their fence"):
+            repo.apply_plan_batch(write)
+
+        assert "BED_COPY" not in slot_ids(db)
+        assert db.collection(col.SITES).get("site_a")["plan"]["plan_revision"] == 1  # the revision was not taken
+
+    def test_a_slot_batch_that_carries_slots_without_its_fence_is_refused(self, db, repo) -> None:
+        """A missing fence is a programming error, never a silent skip; a batch that only removes needs none."""
+        from app.domain.models.garden_plan import SlotBatchWrite
+
+        with pytest.raises(ValueError, match="no slot_rules_revision"):
+            repo.replace_slots(SlotBatchWrite("bed", [], [Slot(slot_id="BED_N1", geometry=point(0.4, 0.4))]))
+        assert "BED_N1" not in slot_ids(db)
+
+        outcome = repo.replace_slots(SlotBatchWrite("bed", ["z1"], []))
+        assert outcome.deleted_count == 1 and "BED_Z1" not in slot_ids(db)
+
+    def test_a_bed_that_fails_its_model_is_the_409_not_a_500(self, db, repo) -> None:
+        db.collection(col.LOCATIONS).update({"_key": "bed", "geometry": {"kind": "rect", "origin": "nowhere"}})
+
+        with pytest.raises(StoredDocumentInvalidError):
+            repo.load_slot_rule_basis("site_a", ["bed"], tenant_key=A)
 
     def test_the_fence_of_a_gone_bed_is_a_404_and_a_bed_without_it_reads_as_zero(self, db, repo) -> None:
         basis = repo.load_slot_rule_basis("site_a", ["bed", "gone"], tenant_key=A)
@@ -1190,6 +1228,7 @@ class TestTheSlotBatchIsAllOrNothing:
                 Slot(slot_id="BED_NEW", geometry=point(0.4, 0.4)),
                 Slot(slot_id="BED_TAKEN", geometry=point(0.6, 0.4)),
             ],
+            slot_rules_revision=0,
         )
         with pytest.raises(DuplicateError):
             repo.replace_slots(write)
@@ -1203,7 +1242,11 @@ class TestTheSlotBatchIsAllOrNothing:
 
         add_slot(db, "late", "BED_LATE", occupied=True)  # the service read it as free; a plant took it since
         with pytest.raises(WriteConflictError):
-            repo.replace_slots(SlotBatchWrite("bed", ["late"], [Slot(slot_id="BED_NEW", geometry=point(0.4, 0.4))]))
+            repo.replace_slots(
+                SlotBatchWrite(
+                    "bed", ["late"], [Slot(slot_id="BED_NEW", geometry=point(0.4, 0.4))], slot_rules_revision=0
+                )
+            )
         assert slot_ids(db) == ["BED_LATE"]
 
     def test_a_slot_reserved_by_now_aborts_the_batch(self, db, repo) -> None:
@@ -1225,7 +1268,9 @@ class TestTheSlotBatchIsAllOrNothing:
         from app.domain.models.site import Slot
 
         with pytest.raises(NotFoundError):
-            repo.replace_slots(SlotBatchWrite("gone", [], [Slot(slot_id="GONE_N1", geometry=point(0.4, 0.4))]))
+            repo.replace_slots(
+                SlotBatchWrite("gone", [], [Slot(slot_id="GONE_N1", geometry=point(0.4, 0.4))], slot_rules_revision=0)
+            )
         assert db.collection(col.SLOTS).count() == 0 and db.collection(col.HAS_SLOT).count() == 0
 
     def test_the_site_quota_counts_active_slots_of_every_bed_of_the_site(self, db, repo) -> None:
