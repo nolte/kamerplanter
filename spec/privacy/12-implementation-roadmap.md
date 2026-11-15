@@ -123,6 +123,15 @@ Offline · **P3** Governance, Monitoring, Compliance.
   Beats mit Grenzen, NFR-011-Zeilen (Spec-Änderung), Art.-15-Quellen, **`data_controller` je Mandant konfigurierbar** (DA-01).
 - Abhängigkeiten: E05. Akzeptanz: TA-702, TA-400…TA-403, TA-603. Gate: ja. **Discovery**: V-11 (THC-Feld), Modellfelder
   `nutrient_plans`/`propagation` (Feldnamen VERIFIED_CODE, Längen teilweise unbegrenzt).
+- **Teilstand (2026-11-15)**: Discovery erledigt — V-11: kein THC-Feld, keine Weitergabe-Entität (`13` §4, `06`
+  §3.2); `propagation`: nur `rooting_protocols.author`, und das ist ein roher Kontoschlüssel, kein Freitext
+  (eigene Korrektur nötig, nicht v0111; `09` §5 Stand). v0111 (`kind = data_backfill`, aktive Mandanten) und die
+  Modellfelder `performed_by_user_key`/`performed_by_label` (4 Collections), `author_user_key`/`author_label`
+  (`nutrient_plans`), `created_by_user_key` (`workflow_templates`) umgesetzt; Inventar: Ausnahmen „immer `null`“
+  (R6) + Kontoreferenzen im Mandantenexport (`08` §3.4 Stand). Offen: serverseitiges Stempeln + Marker-Regeln +
+  `USER_DATA_MANIFEST` (zusammen), Request-Schemas (altes Feld als Label, ein Release), UI „Ich war es / jemand
+  anderes“, Druckvorlage über `PersonRef`, MCP schreibt weiter `inspector = "mcp:<key>"` (E08/PRIV-310),
+  R-46…R-48 mit Beats, Art.-15-Quellen, `data_controller`.
 
 #### PRIV-E14 · feat(backup): erasure mirror (tombstones only), bucket object with HMAC chain, restore replay by tombstone match, dump retention — before enabling backups
 - `erasure_mirror` + Beats (`sync`, `purge`), Spiegel-Objekt (Fernet, HMAC-Kette), CLI `privacy_restore_replay` (Abgleich
@@ -225,7 +234,7 @@ Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rech
 | E10 (PRIV-510…523) | READY | — | VERIFIED_CODE (`07` §1, §7) | Lane |
 | E11 (PRIV-505…533) | READY | — (LEG-09/10 als Prüfdatum) | L-11 | Lane |
 | E12 (PRIV-116, 118) | READY | — | DA-02 | nach E06/E07/E09 |
-| E13 (R-46…R-48, v0111) | NEEDS_DISCOVERY (THC-Feld V-11; Modelle `nutrient_plans`/`propagation` Feldlängen) → sonst READY | V-11 | VERIFIED_CODE teilweise | Discovery-Task vor Lane |
+| E13 (R-46…R-48, v0111) | IN_PROGRESS (Discovery + v0111 + Modellfelder DONE 2026-11-15) | — (V-11 erledigt) | VERIFIED_CODE `09` §5 | Lane: Stempeln + Marker-Regeln, Request-Schemas/UI, R-46…R-48, `data_controller`; Folge-Issue `rooting_protocols.author` |
 | E14 (PRIV-707…713) | READY_WITH_GUARDS | `deployment_allowed` Backups erst nach E14; LEG-11 Prüfdatum | L-19 (Backups), kein deutscher Primärbeleg (L-21) | Lane; Betreiber entscheidet Dump-Frist |
 | E15 | READY | — | — | nach E04/E07 |
 | E16 Spec-Änderungen | READY | Betreiberfreigabe je DEC | `14` | Doku-Lane |

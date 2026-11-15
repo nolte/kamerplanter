@@ -318,8 +318,9 @@ class TestVersionSmoke:
 
     #: Versions that are honestly reversible besides the baseline: v0104 (REQ-053 M4) marks every line it writes
     #: (``trigger = backfill`` + ``source_ref``) and ``down`` deletes exactly those (M-6). v0110 (spec/privacy
-    #: 09 §4) removes the ``legacy`` / ``unknown_legacy`` values only it writes (09 §11).
-    _REVERSIBLE_BESIDES_BASELINE = frozenset({"0104", "0110"})
+    #: 09 §4) removes the ``legacy`` / ``unknown_legacy`` values only it writes; v0111 (09 §5) removes the key
+    #: fields that are still ``null`` and the labels that are still copies of their source (09 §11).
+    _REVERSIBLE_BESIDES_BASELINE = frozenset({"0104", "0110", "0111"})
 
     def test_baseline_and_the_declared_marker_migrations_are_the_only_reversible(self):
         migrations = _migrations()

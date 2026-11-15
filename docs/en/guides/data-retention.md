@@ -1042,6 +1042,48 @@ finding also the warning `privacy_consistency.undeclared_tombstones`, and the me
 
 ---
 
+## Migration v0110: Classifying Existing Gardens for Record Keeping
+
+A garden can be legally required to keep records — a cultivation association under the KCanG, for
+example, or a business with plant-protection records. New fields in the garden settings record
+whether that applies (`record_keeping`) and what kind of organisation the garden is
+(`organization_kind`). The migration `v0110_tenant_record_keeping_default` sets a starting value for
+existing gardens:
+
+- **Personal garden:** `record_keeping = none`. `organization_kind` stays empty.
+- **Organisation garden:** `record_keeping = legacy` and `organization_kind = unknown_legacy`. This
+  means "not classified yet". Whoever manages the garden should fill in the right classification.
+
+A value that is already set stays as it is. The migration is **reversible**: the way back removes
+only the two starting values `legacy` and `unknown_legacy`, never anything someone entered on
+purpose afterwards.
+
+## Migration v0111: The Performing Person Beside the Free Text
+
+Who watered, filled or serviced a tank, wrote a nutrient plan or created a workflow template has so
+far been stored as typed-in text on the row (`performed_by`, `author`, `created_by`). A name is not
+an account, though: access and erasure requests cannot reach it, and no account can be derived from
+a name safely. The migration `v0111_keyed_performers` therefore adds two new fields beside each of
+them:
+
+- `…_user_key` — the account of the person who did it. The migration **never** sets it; it stays
+  empty until the application stamps it itself on new entries.
+- `…_label` — a label for a person without an account, at most 80 characters. The migration copies
+  the existing free text there, cut to 80 characters.
+
+This covers watering events, watering logs, tank fills, tank maintenance, nutrient plans and
+workflow templates. Inspections recorded through the MCP interface (`inspector = "mcp:<key>"`) are a
+special case: if the key belongs to an existing **service account** that is a member of this
+garden, it is recorded as the inspection's account and the text is cleared. Otherwise nothing
+changes.
+
+The migration processes **active** gardens only, each in its own transaction. Global catalogue
+entries (system nutrient plans and templates) are left alone. The old fields remain. The migration
+is **reversible**: the way back removes empty account fields and labels that are still the
+unchanged copy of the free text. It does not undo the assignment of MCP inspections.
+
+---
+
 ## Legacy data: cleaning up Home Assistant readings from before the fix
 
 Until the Home Assistant poll was fixed, Kamerplanter stored every polled reading with an

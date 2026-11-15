@@ -365,6 +365,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "notification.Notification.parent_notification_key": _I,
     "nutrient_plan.NutrientPlan.species_keys": _V,
     "nutrient_plan.NutrientPlan.cloned_from_key": _V,
+    "nutrient_plan.NutrientPlan.author_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "observation.AggregatedReading.sensor_key": _N,
     "observation.SensorReading.sensor_key": _V,  # #1871 B6
     "overwintering_profile.OverwinteringProfile.plant_key": _V,
@@ -450,6 +451,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "task.WorkflowTemplate.lifecycle_key": _G,
     "task.WorkflowTemplate.phase_sequence_key": _I,
     "task.WorkflowTemplate.source_workflow_key": _I,
+    "task.WorkflowTemplate.created_by_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "tenant_context.TenantContext.user_key": _N,
     "tenant_erasure.TenantErasurePlan.known_parent_keys": _I,
     "tenant_erasure.TenantErasureRecord.parent_keys": _I,
@@ -457,12 +459,14 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "watering_event.WateringEvent.plant_keys": _V,
     "watering_event.WateringEvent.tank_fill_event_key": _V,  # #1872 C6
     "watering_event.WateringEvent.nutrient_plan_key": _V,  # #1872 C7
+    "watering_event.WateringEvent.performed_by_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "watering_event.WateringEvent.task_key": _V,  # bundle A, L8
     "watering_log.WateringLog.plant_keys": _V,
     "watering_log.WateringLog.slot_keys": _V,  # #1871 B4
     "watering_log.WateringLog.tank_fill_event_key": _V,  # #1872 C6
     "watering_log.WateringLog.nutrient_plan_key": _V,  # #1872 C7
     "watering_log.WateringLog.task_key": _V,  # bundle A, L8
+    "watering_log.WateringLog.performed_by_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "weather.ClimateNormal.site_key": _I,
     "weather.WeatherForecast.site_key": _I,
     "weather.WeatherSourceConfig.site_key": _V,

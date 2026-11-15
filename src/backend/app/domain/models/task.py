@@ -26,6 +26,10 @@ class WorkflowTemplate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     created_by: str = Field(default="", max_length=200)
+    #: The account that created the template (spec/privacy ``08`` §3.4, PRIV-E13): set by the server only,
+    #: never from a request body (PRIV-705). ``None`` until E13 stamps it; v0111 wrote an explicit
+    #: ``null`` on every older template of an active tenant. ``created_by`` stays the free-text label.
+    created_by_user_key: str | None = None
     version: str = Field(default="1.0", max_length=20)
     species_compatible: list[str] = Field(default_factory=list)
     growth_system: str | None = None

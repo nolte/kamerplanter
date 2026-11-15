@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, Discriminator, Field, field_validator, model_validator
 
 from app.common.enums import ApplicationMethod, PhaseName, ScheduleMode, SubstrateType
+from app.domain.models.privacy import PERSON_LABEL_MAX_LENGTH
 
 
 class FertilizerDosage(BaseModel):
@@ -195,6 +196,13 @@ class NutrientPlan(BaseModel):
         description="Substrate type the reference_ec_ms values are calibrated for.",
     )
     author: str = ""
+    #: The account that wrote the plan (spec/privacy ``08`` §3.4, PRIV-E13): set by the server only, never
+    #: from a request body (PRIV-705). ``None`` until E13 stamps it; v0111 wrote an explicit ``null`` on
+    #: every older plan of an active tenant. ``author`` is deprecated for one release — v0111 copied it
+    #: into the label (the nutrient-plan PDF prints it).
+    author_user_key: str | None = None
+    #: A third party who wrote the plan: free text, never an account key (SR-006).
+    author_label: str | None = Field(default=None, max_length=PERSON_LABEL_MAX_LENGTH)
     is_template: bool = False
     version: str = "1.0"
     tags: list[str] = Field(default_factory=list)

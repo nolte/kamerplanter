@@ -262,7 +262,9 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
 #: 68 after REQ-053 WP 4.3 (#2413): 73 measured (the completion's CompletionActor and UndoWrite, in memory only).
 #: 70 after REQ-053 WP 8.25 (#2668): 75 measured (the bed list download's BedAssignee, in memory only - the
 #: service turns it into a display name before anything leaves it).
-MIN_USER_REFERENCE_FIELDS = 70
+#: 76 after spec/privacy v0111 (PRIV-E13): 81 measured (the keyed performer/author/creator fields of six
+#: collections, excluded while they are always null).
+MIN_USER_REFERENCE_FIELDS = 76
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:
