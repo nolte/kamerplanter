@@ -26,7 +26,7 @@ vi.mock('@/components/common/AuthImage', () => ({
 }));
 
 function pest(overrides: Partial<Pest> = {}): Pest {
-  return {
+  const row: Pest = {
     key: 'p1',
     scientific_name: 'Tetranychus urticae',
     common_name: 'Two-spotted spider mite',
@@ -57,6 +57,11 @@ function pest(overrides: Partial<Pest> = {}): Pest {
     created_at: null,
     updated_at: null,
     ...overrides,
+  };
+  // Like the server (#2955): the German name also sits in the language map.
+  return {
+    ...row,
+    common_names_i18n: row.common_names_i18n ?? (row.common_name_de ? { de: [row.common_name_de] } : {}),
   };
 }
 
@@ -259,5 +264,26 @@ describe('PestContributionsAdminCard', () => {
     await waitFor(() =>
       expect(screen.getByTestId('pest-contribution-row')).toHaveAttribute('data-status', 'private'),
     );
+  });
+  // #2955 — the pest picker names a pest by the language map, like the pest pages.
+  it.each([
+    ['de', 'Spinnmilben'],
+    ['en', 'Spider Mites'],
+  ])('names the pests in the UI language (%s)', async (language, expected) => {
+    await i18n.changeLanguage(language);
+    vi.mocked(listAllPests).mockResolvedValue([
+      pest({
+        common_name: 'Spider Mites',
+        common_name_de: 'Spinnmilben',
+        common_names_i18n: { en: ['Spider Mites'], de: ['Spinnmilben'] },
+      }),
+    ]);
+    vi.mocked(listPestContributions).mockResolvedValue(list([contribution()]));
+    renderWithProviders(<PestContributionsAdminCard />);
+
+    const input = await screen.findByLabelText(i18n.t('pages.admin.pestContributions.selectPestLabel'));
+    await userEvent.click(input);
+
+    expect(await screen.findByRole('option', { name: expected })).toBeInTheDocument();
   });
 });

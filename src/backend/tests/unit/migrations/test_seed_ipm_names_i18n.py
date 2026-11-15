@@ -25,7 +25,7 @@ import pytest
 import yaml
 
 from app.domain.models.beneficial import Beneficial
-from app.domain.models.ipm import Disease
+from app.domain.models.ipm import Disease, Pest
 from app.domain.models.pest_taxonomy import beneficial_taxa
 
 _APP = Path(__file__).resolve().parents[3] / "app"
@@ -117,3 +117,27 @@ def test_every_english_beneficial_name_sits_under_its_source() -> None:
 
     assert len(english) == len(beneficial_taxa()) - len(BENEFICIALS_WITHOUT_A_SOURCED_ENGLISH_NAME)
     assert [lines[i] for i in english if not _SOURCE_COMMENT.search(lines[i - 1])] == []
+
+
+# ── Pests (#2955): the same language map, filled from the seed's former ``common_name_de`` ──
+
+
+def _seeded_pests() -> list[dict[str, Any]]:
+    data = yaml.safe_load(_IPM_SEED.read_text(encoding="utf-8"))
+    return list(data["pests"])
+
+
+@pytest.mark.parametrize("row", _seeded_pests(), ids=_ids(_seeded_pests()))
+def test_a_seeded_pest_names_its_stored_name_as_english_and_has_its_german_name(row: dict[str, Any]) -> None:
+    pest = Pest.model_validate(row)
+
+    assert pest.common_names_i18n.get("en") == [pest.common_name]
+    assert pest.common_names_i18n.get("de"), f"{pest.scientific_name} has no German name"
+    # The compatibility field is derived from the map, never seeded on its own.
+    assert pest.common_name_de == pest.common_names_i18n["de"][0]
+
+
+def test_no_seeded_pest_carries_a_second_german_name() -> None:
+    # One German name per pest: ``common_names_i18n.de``. A ``common_name_de`` next to
+    # it would be a second truth the model silently overrides (#2955).
+    assert [row["scientific_name"] for row in _seeded_pests() if "common_name_de" in row] == []
