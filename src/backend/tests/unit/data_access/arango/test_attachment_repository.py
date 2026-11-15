@@ -135,6 +135,13 @@ class TestAnonymizeUserMetadata:
         assert bind_vars["categories"] == ["diary", "plant"]
         assert bind_vars["marker"] == "_anonymized"
 
+    def test_the_original_file_name_goes_in_the_same_write(self, repo, mock_db):
+        """spec/privacy PRIV-211: the storage phase marks the row, so the attachments rule never reaches it."""
+        mock_db.aql.execute.return_value = iter([1])
+        repo.anonymize_user_metadata("t-1", "u-1")
+        query = mock_db.aql.execute.call_args.args[0]
+        assert 'original_filename: ""' in query
+
     def test_returns_zero_when_nothing_matches(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
         assert repo.anonymize_user_metadata("t-1", "u-1") == 0

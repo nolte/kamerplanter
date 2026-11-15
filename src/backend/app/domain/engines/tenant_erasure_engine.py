@@ -332,6 +332,7 @@ class TenantErasureEngine:
         "system_settings": _PLATFORM,
         "plans": _PLATFORM + " (REQ-056 plan catalogue; a tenant points at a plan, no plan names a tenant)",
         "schema_migrations": _PLATFORM,
+        "migration_reports": _PLATFORM + " (operator proof of a migration run; no personal data)",
         "tenant_import_requests": _PLATFORM
         + (
             " (REQ-056 §13.5, #2138: a platform admin's import request; the tenant it founds does not exist "

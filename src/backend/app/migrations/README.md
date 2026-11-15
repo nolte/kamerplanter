@@ -184,6 +184,8 @@ cd src/backend
 python -m app.migrations upgrade                 # alle ausstehenden anwenden
 python -m app.migrations upgrade --to 0004       # bis Version 0004 (inkl.)
 python -m app.migrations upgrade --dry-run       # nur Report, nichts schreiben
+python -m app.migrations upgrade --dry-run --report-out /tmp/report.json
+                                                 # + redigierte Berichte der Datenschutz-Migrationen als JSON
 python -m app.migrations downgrade --to 0003     # bis 0003 zurückrollen
 python -m app.migrations downgrade --to 0003 --dry-run
 python -m app.migrations current                 # höchste angewandte Version
@@ -191,6 +193,17 @@ python -m app.migrations history                 # angewandte Migrationen + Zeit
 python -m app.migrations create <slug>           # nächste Migration scaffolden
 python -m app.migrations.audit_legacy_stamps     # v0004-Stempel-Audit, nur lesend (MT-052)
 ```
+
+## Datenschutz-Migrationen (`kind`, `migration_reports`)
+
+Eine Migration, die `kind = "privacy_correction"` oder `"data_backfill"` setzt
+(`spec/privacy/09`), bekommt jeden Bericht — Trockenlauf und echter Lauf — nach dem
+Redaktionsfilter (`framework/report_store.py`) in die Plattform-Collection
+`migration_reports` geschrieben. Der Filter lässt nur eine feste Form durch (Zähler, Status,
+Phasen, Collection-/Feldnamen, Mandanten- und Zeilenschlüssel, ≤ 25 Stichproben je Bucket);
+alles andere wird verworfen und als `redacted_entries` gezählt. Meldet eine Migration
+`incomplete=True` (Status `partial` oder `verify_failed`), lässt der Runner sie wie bei
+`precondition_unmet` ausstehend, und der nächste Start versucht sie erneut.
 
 ## Historisches Risiko: v0004-Stempel (MT-052, #2144)
 

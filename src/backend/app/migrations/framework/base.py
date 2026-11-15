@@ -13,10 +13,16 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+from typing import Literal
 
 from arango.database import StandardDatabase
 
 from app.migrations.framework.report import IrreversibleMigrationError, MigrationReport
+
+#: What a migration of the privacy package is (spec/privacy/09 §9, PRIV-716): a
+#: ``privacy_correction`` processes every tenant except a ``deleted`` one (Art. 17 holds
+#: whatever the tenant's state); a ``data_backfill`` keeps to the active tenants.
+type MigrationKind = Literal["privacy_correction", "data_backfill"]
 
 
 class Migration:
@@ -32,6 +38,10 @@ class Migration:
     name: str = ""
     description: str = ""
     reversible: bool = False
+    #: ``None`` for every migration outside the privacy package. A migration that sets it
+    #: has its report persisted in ``migration_reports`` — dry run and real run — after the
+    #: redaction filter (spec/privacy PRIV-701, :mod:`app.migrations.framework.report_store`).
+    kind: MigrationKind | None = None
 
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
         """Apply the migration.

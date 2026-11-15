@@ -369,6 +369,7 @@ celery_app.conf.update(
         "app.tasks.pest_dataset_tasks",
         "app.tasks.pest_image_tasks",
         "app.tasks.phase_transitions",
+        "app.tasks.privacy_consistency",
         "app.tasks.reference_contribution_tasks",
         "app.tasks.reference_image_tasks",
         "app.tasks.retention_tasks",
@@ -600,6 +601,12 @@ celery_app.conf.update(
         "care-events-consistency-daily": {
             "task": "care_events.consistency",
             "schedule": crontab(hour=5, minute=10),  # 05:10 UTC daily, after the retention sweeps
+        },
+        # spec/privacy PRIV-206 / DEC-28 (E04): tombstones outside the allowlist are counted, never corrected.
+        # Read-only, its own task (NFR-011 §3.1); after the care-event job, which is the one that copies keys.
+        "privacy-consistency-daily": {
+            "task": "privacy.consistency",
+            "schedule": crontab(hour=5, minute=20),  # 05:20 UTC daily
         },
     },
 )

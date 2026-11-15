@@ -1046,6 +1046,58 @@ idempotent. Vorab zählen: `python -m app.migrations upgrade --dry-run`.
 
 ---
 
+## Migration v0109: kopierte Pseudonyme korrigieren
+
+Nach einer Kontolöschung bleibt das Pseudonym der Person (`anon_…`) nur dort stehen, wo es
+gewollt ist — in Ernte-, Behandlungs- und Kontrollnachweisen und in den Audit-Protokollen. Ältere
+Abläufe haben es an Stellen kopiert, an denen nur die Markierung „anonymisiert“
+(`_anonymized`) stehen darf. Die Migration `v0109_privacy_tombstone_copies` räumt das auf:
+
+1. **Pflegeprotokoll:** Ausführende Person und erfassende Person eines Eintrags werden zur
+   Markierung, wenn dort ein Pseudonym steht.
+2. **Änderungsprotokoll des Gartenplans:** Die Person, die eine Änderung gemacht hat, wird zur
+   Markierung. Ab dieser Version macht das auch jede neue Kontolöschung so — das Protokoll
+   verknüpft gelöschte Personen nicht mehr über ein Pseudonym.
+3. **Anhänge:** Der ursprüngliche Dateiname eines Anhangs, dessen Hochladende Person gelöscht
+   wurde, wird geleert. Ein Kamera- oder Handydateiname enthält oft einen Namen. Auch das gilt
+   ab jetzt für jede neue Kontolöschung.
+4. **Alle übrigen Felder** mit einem Pseudonym werden nur **gezählt**, nicht geändert. Eine Zahl
+   größer als 0 ist ein Befund für den Betrieb.
+
+Die Migration bearbeitet jeden Garten außer bereits gelöschten — auch gesperrte oder zur Löschung
+vorgemerkte. Jeder Garten läuft in einer eigenen Transaktion. Scheitert einer, wird nur er
+zurückgerollt, die anderen laufen weiter, und die Migration gilt als nicht angewendet: Der nächste
+Start versucht sie erneut. Danach zählt sie nach. Bleibt etwas übrig, gilt sie ebenfalls als nicht
+angewendet.
+
+### Bericht vorab erzeugen
+
+Lass vor dem Upgrade einen Trockenlauf laufen und schreib den Bericht in eine Datei:
+
+```bash
+python -m app.migrations upgrade --dry-run --report-out /tmp/v0109-dry-run.json
+```
+
+Die Datei enthält für jede Datenschutz-Migration die Zähler je Schritt und je Garten, die Phasen
+(`precheck`, `dry_run`, `apply`, `verify`) und bis zu 25 Beispiel-Zeilenschlüssel je Schritt.
+Sie enthält keine Personenschlüssel, keine Namen, keine Texte und keine Pseudonyme. Denselben
+Bericht legt die Anwendung bei jedem Lauf — Trockenlauf und echter Lauf — in der Collection
+`migration_reports` ab.
+
+!!! danger "Nicht reversibel"
+    Die ersetzten Pseudonyme und die geleerten Dateinamen lassen sich nicht wiederherstellen.
+    Der Trockenlauf-Bericht ist der Nachweis, was geändert wurde.
+
+### Tägliche Prüfung
+
+Der Celery-Task `privacy.consistency` (täglich 05:20 UTC) zählt Pseudonyme in Feldern, in denen
+keine stehen dürfen. Er ändert nichts. Ergebnis: die Log-Zeile
+`privacy_consistency.completed`, bei einem Befund zusätzlich die Warnung
+`privacy_consistency.undeclared_tombstones`, und die Metrik
+`privacy_undeclared_tombstones{cell="<collection>.<feld>"}`.
+
+---
+
 ## Altbestand: Home-Assistant-Messwerte vor der Korrektur bereinigen
 
 Bis zur Korrektur der Home-Assistant-Abfrage legte Kamerplanter jede abgefragte Messung mit

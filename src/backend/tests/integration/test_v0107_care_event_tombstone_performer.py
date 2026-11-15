@@ -13,7 +13,7 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.collections import ensure_collections
-from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, TOMBSTONE_FULLMATCH_REGEX
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, TOMBSTONE_FULLMATCH_REGEX, ErasureEngine
 from app.migrations.versions import v0107_care_event_tombstone_performer as v0107
 from app.migrations.versions.v0107_care_event_tombstone_performer import migration
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
@@ -54,7 +54,10 @@ def _performers(db) -> dict[str, object]:  # type: ignore[no-untyped-def]
 
 
 def test_the_frozen_shape_and_marker_match_the_erasure_engine_at_the_time_of_writing() -> None:
-    assert v0107._TOMBSTONE_REGEX == TOMBSTONE_FULLMATCH_REGEX
+    # v0107 froze the first generation only; the live pattern has since learned ``anon2_`` (PRIV-238) and
+    # keeps the frozen one as its first alternative. v0109 corrects the second generation.
+    assert TOMBSTONE_FULLMATCH_REGEX.split("|")[0] == v0107._TOMBSTONE_REGEX
+    assert ErasureEngine.is_tombstone(TOMBSTONE)
     assert v0107._MARKER == ANONYMIZED_MARKER
 
 

@@ -25,9 +25,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.common.enums import CareEventAllocation, EcMethod, PhMethod, PlanRole, TaskCategory
-
-#: The erasure marker of an account key (mirrors ``ErasureEngine``; the model layer may not import an engine).
-ANONYMIZED_MARKER = "_anonymized"
+from app.domain.models.privacy import ANONYMIZED_MARKER as ANONYMIZED_MARKER  # the one definition (PRIV-201)
 
 #: The categories a care event has that a task does not (§20.10).
 PROTOCOL_ONLY_CATEGORIES: frozenset[str] = frozenset(

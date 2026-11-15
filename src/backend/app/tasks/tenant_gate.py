@@ -117,6 +117,10 @@ TENANT_AGNOSTIC_BEATS: dict[str, str] = {
     "mcp.cleanup_expired_audit_log": _RETENTION,
     "mcp.cleanup_expired_idempotency": _RETENTION,
     "pest_image.sweep_orphaned_prototypes": _STORAGE + " (contributed pest prototypes)",
+    "privacy.consistency": (
+        "read-only privacy check (spec/privacy PRIV-206): counts erasure tombstones outside the allowlist "
+        "installation-wide, writes nothing, so there is nothing a suspension could hold back"
+    ),
     "retention.anonymize_consent_ips": _RETENTION + " (R-04a)",
     "retention.anonymize_expired_care_events": _RETENTION + " (R-25, REQ-053 care log)",
     "retention.execute_scheduled_erasures": _RETENTION,

@@ -16,14 +16,21 @@ Tombstone-Spiegel umgestellt (§6, DEC-26), Flags für datenvernichtende Schritt
   -> MigrationReport` idempotent (M-3), `dry_run` wird beachtet (M-5); Standard-`down` wirft
   `IrreversibleMigrationError` (M-6); angewendete Quellen sind durch `test_applied_migration_sources_are_frozen`
   eingefroren.
-- `MigrationReport {version, name, scanned, changed, dry_run, duration_ms, precondition_unmet, details}`; CLI gibt nur
-  Zähler aus; `details` nur über die structlog-Zeile der Migration; **kein Dry-Run-Bericht wird persistiert**.
+- `MigrationReport {version, name, scanned, changed, dry_run, duration_ms, precondition_unmet, incomplete, details}`;
+  CLI gibt Zähler aus und markiert eine ausstehend gelassene Migration; `details` über die structlog-Zeile der
+  Migration. **Seit v0109 (2026-11-15, VERIFIED_CODE):** eine Migration mit `kind` (`privacy_correction` |
+  `data_backfill`, `framework/base.py`) wird nach dem Redaktionsfilter in `migration_reports` persistiert (Dry-Run und
+  echter Lauf, `framework/report_store.py`, §2); `incomplete = true` (Status `partial`/`verify_failed`) behandelt der
+  Runner wie `precondition_unmet` (nicht aufgezeichnet, Schleife stoppt, nächster Start wiederholt).
 - Kein Mandanten-Scoping auf Framework-Ebene; Unique-Indizes beginnen mit `tenant_key`. Start-Migration mit Sperre
   `schema_migrations/__lock__` (TTL 300 s); Fehler ist startfatal (M-4). `precondition_unmet` hält die Migration
   ausstehend und stoppt die Schleife.
-- Konsistenz-Job `care_events.consistency` existiert (05:10 UTC, `ActiveTenants`-Gate, Fenster 7 d); ein
-  allgemeiner Datenschutz-Konsistenz-Beat existiert **nicht**.
-- Neueste Version: `v0107_care_event_tombstone_performer` (#2839, gemergt 2026-11-09, VERIFIED_CODE): ersetzt
+- Konsistenz-Job `care_events.consistency` existiert (05:10 UTC, `ActiveTenants`-Gate, Fenster 7 d). Seit v0109
+  existiert der Datenschutz-Konsistenz-Beat `privacy.consistency` in **Minimalform** (05:20 UTC, nur lesend, zählt
+  Tombstones außerhalb der Allowlist je Zelle, Gauge `privacy_undeclared_tombstones{cell}`, kein Endpunkt; DEC-28).
+- Neueste Datenschutz-Version: `v0109_privacy_tombstone_copies` (2026-11-15, VERIFIED_CODE; §3). Davor
+  `v0108_location_tent_fields` (REQ-053, keine Datenschutzmigration) und
+  `v0107_care_event_tombstone_performer` (#2839, gemergt 2026-11-09, VERIFIED_CODE): ersetzt
   Tombstones in `care_events.performed_by_user_key` durch `_anonymized` (eingefrorene Regex `^anon_[0-9a-f]{16}$`,
   nur dieses Feld, nur diese Generation), Dry-Run zählt, irreversibel, kein persistierter Bericht. Seit #2839 bildet
   `care_event_backfill_mapper.account_of` einen Tombstone auf den Marker ab, und der Mapper überspringt Beete
@@ -64,10 +71,24 @@ Rollback-Grenzen stehen je Migration in §11.
 
 ## 3. M-P1 — Kopierte Tombstones korrigieren; Plan-Audit-Akteur auf Marker (E04)
 
-**Stand (#2839, VERIFIED_CODE):** `v0107_care_event_tombstone_performer` hat Schritt 1 für `performed_by_user_key`
-(Generation `anon_`) bereits ausgeführt. Offen bleiben `created_by`-Tombstones, die zweite Generation `anon2_`
-(E03), Schritte 2–4, `verify` und der persistierte Bericht. Die Nummer dieser Migration ist von v0107 auf v0108
-(W-26) und danach auf v0109 verschoben (W-27).
+**Stand (2026-11-15, VERIFIED_CODE): umgesetzt.** `v0107_care_event_tombstone_performer` (#2839) hatte Schritt 1
+für `performed_by_user_key` (Generation `anon_`) ausgeführt; `v0109_privacy_tombstone_copies` erledigt den Rest:
+`created_by`, beide Generationen, Schritte 2–4, alle Phasen und den persistierten Bericht. Die Nummer war von v0107
+auf v0108 (W-26) und danach auf v0109 verschoben worden (W-27). Umsetzungsdetails:
+
+- Marker und Tombstone-Regex beider Generationen haben genau eine Definition (`domain/models/privacy.py`:
+  `ANONYMIZED_MARKER`, `TOMBSTONE_REGEX`, `is_tombstone`; PRIV-201, Guard
+  `test_privacy_marker_and_tombstone_have_one_definition`). Die `anon2_`-Ableitung (PRIV-238) ist nicht Teil davon.
+- Inventar: `garden_plan_audit.user_key` ist eine Marker-Regel in `ANONYMIZE_COLLECTIONS` (DEC-16);
+  `attachments` leert `original_filename` sowohl in der Regel als auch in der Speicherphase
+  (`anonymize_user_metadata`), weil die Speicherphase die Zeile vorher markiert und die Regel sie sonst nie erreicht.
+- Die Allowlist wird aus dem Inventar abgeleitet (`ErasureEngine.tombstone_allowlist()`), die beobachteten Zellen
+  ebenso (`tombstone_watch_fields()` = kontoförmige Inventarfelder ohne Allowlist). Die Migration friert die Zellen
+  von Schritt 3 als Literal ein (NFR-016 M-7); Migration und Beat teilen nur die Zählabfrage
+  (`data_access/arango/tombstone_census.py`), nicht die Politik.
+- Schritt 3 zählt je Zelle für die gesamte Installation, nicht je Mandant: mehrere beobachtete Collections sind
+  konto- oder plattformbezogen und tragen kein `tenant_key`; der Schritt schreibt nichts. Schritte 1, 2 und 4 filtern
+  `doc.tenant_key == @tenant_key` in der Transaktion des Mandanten.
 
 **Migration `v0109_privacy_tombstone_copies`** (`kind = privacy_correction`; umkehrbar: nein).
 

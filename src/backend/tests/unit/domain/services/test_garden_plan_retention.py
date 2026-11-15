@@ -119,10 +119,13 @@ class TestThePatch:
         assert {name for name in patch if name in FREE_TEXT_FIELDS} == set(FREE_TEXT_FIELDS)
 
     def test_the_marker_is_the_one_the_erasure_writes(self) -> None:
+        """Not three equal copies but one object (PRIV-201); the guard that there is no second definition
+        is ``tests/unit/guards/test_privacy_marker_and_tombstone_have_one_definition.py``."""
         from app.data_access.arango.attachment_repository import ANONYMIZED_MARKER as ATTACHMENT_MARKER
         from app.domain.engines.erasure_engine import ANONYMIZED_MARKER as ERASURE_MARKER
+        from app.domain.models import privacy
 
-        assert ANONYMIZED_MARKER == ERASURE_MARKER == ATTACHMENT_MARKER
+        assert ANONYMIZED_MARKER is ERASURE_MARKER is ATTACHMENT_MARKER is privacy.ANONYMIZED_MARKER
 
 
 class _CareRepo:

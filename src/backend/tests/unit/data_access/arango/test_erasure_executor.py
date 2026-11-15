@@ -439,11 +439,18 @@ class TestAFieldOneObjectDown:
             with pytest.raises(ErasurePlanError):
                 _field_path(bad)
 
-    def test_the_plan_audit_is_pseudonymised_not_deleted(self):
-        from app.domain.engines.erasure_engine import ErasureEngine
+    def test_the_plan_audit_keeps_the_row_and_takes_the_marker(self):
+        """DEC-16 (spec/privacy PRIV-216): the plan audit is anonymised with the marker, no longer pseudonymised."""
+        from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 
-        rule = next(r for r in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS if r.collection == "garden_plan_audit")
-        assert (rule.user_field, rule.replacement_strategy) == ("user_key", "tombstone_hash")
+        rule = next(r for r in ErasureEngine.ANONYMIZE_COLLECTIONS if r.collection == "garden_plan_audit")
+        assert (rule.user_field, rule.replacement_strategy, rule.anonymized_value) == (
+            "user_key",
+            "marker",
+            ANONYMIZED_MARKER,
+        )
+        assert not any(r.collection == "garden_plan_audit" for r in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS)
+        assert ("garden_plan_audit", "user_key") not in ErasureEngine.tombstone_allowlist()
 
     def test_a_malformed_rule_path_stops_the_plan_before_the_transaction_opens(self):
         """Review F-13 — refused up front, not half way through an account erasure."""

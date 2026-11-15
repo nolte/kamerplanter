@@ -18,11 +18,12 @@ from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
 from app.domain.models.attachment import Attachment, QualityAssessment
+from app.domain.models.privacy import ANONYMIZED_MARKER as ANONYMIZED_MARKER
 
-# REQ-025 §3.1 — value written to ``created_by`` when a user is erased but the
-# attachment must stay attached to the tenant record (Scope
-# ``user_diary_attachments``). Must match the spec marker exactly (AK-OS-02).
-ANONYMIZED_MARKER = "_anonymized"
+# REQ-025 §3.1 — ``ANONYMIZED_MARKER`` (imported above, defined once in
+# ``app.domain.models.privacy``, PRIV-201) is written to ``created_by`` when a user
+# is erased but the attachment must stay attached to the tenant record (Scope
+# ``user_diary_attachments``, AK-OS-02).
 
 #: Every collection whose documents can reference an attachment through
 #: ``photo_refs``.
@@ -411,13 +412,19 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         Only touches documents that still carry the user's ``created_by`` (so a
         re-run after a partial failure is idempotent and stays a no-op once
         everything is anonymised). Returns the number of documents updated.
+
+        ``original_filename`` is emptied in the same write (spec/privacy PRIV-211):
+        a camera or phone file name often carries its owner's name. This phase runs
+        before the ``attachments`` anonymisation rule, whose ``clear_fields`` say the
+        same — a row this phase marked is no longer matched by that rule, so the rule
+        alone would never reach it.
         """
         category_values = [c.value for c in categories] if categories else None
         query = """
         FOR att IN @@collection
           FILTER att.tenant_key == @tenant_key AND att.created_by == @user_key
           FILTER @categories == null OR att.category IN @categories
-          UPDATE att WITH { created_by: @marker } IN @@collection
+          UPDATE att WITH { created_by: @marker, original_filename: "" } IN @@collection
           COLLECT WITH COUNT INTO updated
           RETURN updated
         """

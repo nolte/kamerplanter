@@ -2,10 +2,11 @@
 
 import hashlib
 import hmac
-import re
 
 from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH
+from app.domain.models.privacy import ANONYMIZED_MARKER as ANONYMIZED_MARKER  # re-exported, see below
 from app.domain.models.privacy import (
+    TOMBSTONE_REGEX,
     AnonymizationRule,
     ErasureExclusion,
     ErasureExecutor,
@@ -15,13 +16,11 @@ from app.domain.models.privacy import (
     ReferenceIndexCleanupRule,
     StorageCleanupRule,
 )
+from app.domain.models.privacy import is_tombstone as _is_tombstone  # one definition (PRIV-201)
 
-#: Marker written into a user reference that outlives the erased user. Mirrors
-#: ``attachment_repository.ANONYMIZED_MARKER`` — the *same* value is required by
-#: REQ-025 AK-OS-02 (attachments) and AK-DA-01 (diary entries), and the two must
-#: not drift apart. Declared here rather than imported so the domain layer stays
-#: free of a data-access import (NFR-001).
-ANONYMIZED_MARKER = "_anonymized"
+# ``ANONYMIZED_MARKER`` (imported above) is the marker written into a user reference that
+# outlives the erased user. It is defined once in :mod:`app.domain.models.privacy` (PRIV-201)
+# and stays importable from here for the readers that already take it from this module.
 
 #: Prefix of the value an :class:`AnonymizationRule` writes into its
 #: ``rename_fields`` (#1700): ``<prefix>`` + :meth:`ErasureEngine.anonymized_rename_value`.
@@ -29,12 +28,10 @@ ANONYMIZED_MARKER = "_anonymized"
 #: slug inside it — so a registration cannot occupy the value first.
 ANONYMIZED_KEY_PREFIX = "anonymized-"
 
-#: The exact shape :meth:`ErasureEngine.compute_tombstone_hash` produces.
-_TOMBSTONE_PATTERN = re.compile(r"anon_[0-9a-f]{16}")
-
-#: :data:`_TOMBSTONE_PATTERN` anchored for an AQL ``REGEX_TEST`` (which searches,
-#: not full-matches). Derived, so the repository cannot spell the shape differently.
-TOMBSTONE_FULLMATCH_REGEX = f"^{_TOMBSTONE_PATTERN.pattern}$"
+#: Both tombstone generations, anchored for an AQL ``REGEX_TEST`` (which searches,
+#: not full-matches). The one definition is :data:`app.domain.models.privacy.TOMBSTONE_REGEX`
+#: (PRIV-201); this name stays for the repositories that already read it from here.
+TOMBSTONE_FULLMATCH_REGEX = TOMBSTONE_REGEX
 
 #: Prefix of :meth:`ErasureEngine.log_subject` — deliberately not ``anon_``, so a
 #: log reference can never be mistaken for (or tested as) a tombstone.
@@ -257,6 +254,21 @@ class ErasureEngine:
                 "only the author reference is removed."
             ),
         ),
+        AnonymizationRule(
+            # REQ-053 SR-011 — the plan change log names the account that deleted or reshaped the plan. It is the
+            # proof that a deletion happened, so the row stays. Until DEC-16 (spec/privacy PRIV-216, accepted
+            # 2026-11-15) the key became the tombstone hash so the rows of one erased account stayed linkable; neither
+            # argument for a linkable pseudonym holds here (no statutory record, and the Art. 15 export finds the
+            # person's own rows by the live key while the account exists). The rows go after 365 days (R-26) and
+            # with the tenant. Migration v0109 corrects the tombstones written before.
+            collection="garden_plan_audit",
+            user_field="user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 SR-011 / NFR-011 R-26: the plan audit is retained with the plan; the editing account's "
+                "reference is removed at erasure (marker, DEC-16) so the entry names nobody and links nothing."
+            ),
+        ),
         # REQ-050 §7.4 / REQ-025 AK-DA-01 — the diary entry document itself.
         # Until now only the *attachments* of a diary entry were anonymised
         # (storage scope ``user_diary_attachments`` below); the
@@ -342,9 +354,14 @@ class ErasureEngine:
             collection="attachments",
             user_field="created_by",
             anonymized_value=ANONYMIZED_MARKER,
+            # spec/privacy PRIV-211: a camera or phone file name often carries its owner's name; it is
+            # identifying by construction, not content. The storage phase empties it on the rows it marks
+            # (``anonymize_user_metadata``); this covers the categories no storage scope names.
+            clear_fields=["original_filename"],
             reason=(
                 "NFR-013 section 6.2 / REQ-025 AK-OS-02: attachments of a tenant record are "
-                "retained with the uploader reference replaced; bytes follow their own storage rule."
+                "retained with the uploader reference replaced and the original file name cleared "
+                "(spec/privacy PRIV-211); bytes follow their own storage rule."
             ),
         ),
         AnonymizationRule(
@@ -830,19 +847,6 @@ class ErasureEngine:
     # one-way hash before the user document itself is deleted.
     PSEUDONYMIZE_AUDIT_COLLECTIONS: list[PseudonymizationRule] = [
         PseudonymizationRule(
-            # REQ-053 SR-011 — the plan change log names the account that deleted or reshaped the plan.
-            # It is the proof that a deletion happened, so the row stays; the key becomes the tombstone
-            # hash and the rows of one erased account stay linkable to each other. Tenant erasure deletes
-            # the rows with the tenant.
-            collection="garden_plan_audit",
-            user_field="user_key",
-            replacement_strategy="tombstone_hash",
-            reason=(
-                "REQ-053 SR-011 / NFR-011: the plan audit is retained with the plan; the editing account's "
-                "key is pseudonymised at erasure so the entry stays linkable without naming anybody."
-            ),
-        ),
-        PseudonymizationRule(
             collection="erasure_requests",
             user_field="user_key",
             replacement_strategy="tombstone_hash",
@@ -1058,9 +1062,56 @@ class ErasureEngine:
                 names.append(rule.collection)
         return names
 
+    @classmethod
+    def tombstone_allowlist(cls) -> frozenset[tuple[str, str]]:
+        """The ``(collection, field)`` cells where a tombstone may exist (spec/privacy PRIV-204).
+
+        Derived from the inventory, never listed beside it: every ``tombstone_hash``
+        rule of :attr:`ANONYMIZE_COLLECTIONS` and every entry of
+        :attr:`PSEUDONYMIZE_AUDIT_COLLECTIONS`.
+        """
+        cells = {
+            (rule.collection, rule.user_field)
+            for rule in cls.ANONYMIZE_COLLECTIONS
+            if rule.replacement_strategy == "tombstone_hash"
+        }
+        cells |= {(rule.collection, rule.user_field) for rule in cls.PSEUDONYMIZE_AUDIT_COLLECTIONS}
+        return frozenset(cells)
+
+    @classmethod
+    def account_reference_fields(cls) -> frozenset[tuple[str, str]]:
+        """Every ``(collection, field)`` the inventory treats as carrying an account key.
+
+        The anonymisation and pseudonymisation rules plus the ``document`` steps of
+        :attr:`DELETE_STEPS` that match the subject directly. A ``document`` step with
+        ``via`` matches a *parent row's* key, an ``edge`` step an endpoint — neither
+        holds an account key, so neither is listed.
+        """
+        cells = {(rule.collection, rule.user_field) for rule in cls.ANONYMIZE_COLLECTIONS}
+        cells |= {(rule.collection, rule.user_field) for rule in cls.PSEUDONYMIZE_AUDIT_COLLECTIONS}
+        cells |= {
+            (step.collection, step.user_field)
+            for step in cls.DELETE_STEPS
+            if step.kind == "document" and step.via is None and step.user_field is not None
+        }
+        return frozenset(cells)
+
+    @classmethod
+    def tombstone_watch_fields(cls) -> tuple[tuple[str, str], ...]:
+        """Account-reference cells outside the allowlist, sorted: a tombstone there is a defect (PRIV-206).
+
+        What the ``privacy.consistency`` beat counts. Sorted so the metric series and
+        the log line come out in a stable order.
+        """
+        return tuple(sorted(cls.account_reference_fields() - cls.tombstone_allowlist()))
+
     @staticmethod
     def is_tombstone(value: str) -> bool:
-        """True when *value* has the exact shape of a :meth:`compute_tombstone_hash` result.
+        """True when *value* has the exact shape of a tombstone of either generation (PRIV-201, PRIV-238).
+
+        ``anon_`` is :meth:`compute_tombstone_hash`; ``anon2_`` the tenant-bound pseudonym
+        of PRIV-238, which never lands in ``erasure_requests.user_key`` (that stays the
+        instance-wide one), so the argument below holds for both.
 
         The audit pseudonymisation writes this hash into ``erasure_requests.user_key``
         inside the same ArangoDB transaction that removes the user document, so an
@@ -1069,7 +1120,7 @@ class ErasureEngine:
         audit rows themselves and rewrite them to a hash of the hash, breaking the
         linkability NFR-011 R-06 keeps the hash for.
         """
-        return _TOMBSTONE_PATTERN.fullmatch(value) is not None
+        return _is_tombstone(value)
 
     @staticmethod
     def anonymized_rename_value(tombstone: str, row_key: str) -> str:

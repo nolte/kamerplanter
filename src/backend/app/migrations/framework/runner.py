@@ -22,6 +22,7 @@ from app.migrations.framework.report import (
     MigrationReport,
     NonLinearHistoryError,
 )
+from app.migrations.framework.report_store import persist_report
 from app.migrations.support.retired_indexes import RETIRED_INDEXES, RetiredIndex, enforce_retired_indexes
 
 logger = structlog.get_logger()
@@ -152,6 +153,21 @@ class MigrationRunner:
                 report = migration.up(db, dry_run=dry_run)
                 duration_ms = (time.perf_counter() - start) * 1000.0
                 report.duration_ms = round(duration_ms, 3)
+                if migration.kind is not None:
+                    # spec/privacy PRIV-701: the operator's proof of a privacy migration, dry run included.
+                    persist_report(db, migration, report)
+                if report.incomplete and not dry_run:
+                    # Part of the work is done, part is not (a tenant failed, or the after-check found
+                    # rows left): leave it AND every later migration pending, like an unmet precondition,
+                    # so the next boot runs it again — idempotently (spec/privacy PRIV-718).
+                    logger.warning(
+                        "migration_incomplete_left_pending",
+                        version=migration.version,
+                        name=migration.name,
+                        status=report.details.get("status"),
+                    )
+                    reports.append(report)
+                    break
                 if report.precondition_unmet and not dry_run:
                     # The migration did no work because a precondition was absent
                     # (M-1: leave it AND every later migration pending so a later
