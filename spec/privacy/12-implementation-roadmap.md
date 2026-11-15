@@ -98,6 +98,10 @@ Offline · **P3** Governance, Monitoring, Compliance.
   Hilfsdokumentations-Text (PRIV-413), Reklassifizierungs-Job und PRIV-411 **hinter Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY`**.
 - **Abhängigkeiten**: E05. **Akzeptanz**: TA-122, TA-409, TA-410, TA-412, TA-413, TA-703, TA-404, TA-630. **Gate**:
   Klassifizierung, Fristbeginn, Hilfsdokumentation: ja; Reklassifizierung/PRIV-411: **nein (bis LEG-03, LEG-17)**.
+- **Teilstand (2026-11-15)**: v0110 und die Modellfelder `TenantSettings.record_keeping` / `organization_kind`
+  (ohne Default) umgesetzt (Betreiberfreigabe 2026-11-15, DEC-30 `accepted`; `09` §4). Offen: Pflichtangabe bei
+  Anlage (PRIV-409, 422), `undeclared`-Verhalten und Betreiberzähler, Felder in `GET`/`PATCH /tenants/{slug}`,
+  PRIV-410/412/413, Reklassifizierung/PRIV-411 (Flag).
 
 #### PRIV-E10 · feat(offline): dead-session quarantine, stable revocation codes, awaited logout wipe, storage-key hygiene
 - PRIV-510…523, PRIV-131. Akzeptanz: TA-131, TA-502, TA-512, TA-514, TA-516, TA-519…TA-521, TA-523, TA-528, TA-803.
@@ -191,7 +195,7 @@ E16/E17 (Doku parallel).
 | neuer persönlicher Mandant | `none` (L-07) | `all_members` | aus (Opt-in) | aus | Verzeichnisdaten, keine Fachdaten |
 | neuer Verein / Gemeinschaftsgarten (`association`/`community`) | Pflichtangabe (`none` oder `kcang_association`) | `all_members` | aus | aus (Kiosk ⇒ an) | dito |
 | neuer gewerblicher Mandant (`commercial`) | Pflichtangabe (`pflschg_professional` oder `none`) | `leads_and_self` | aus | aus | dito |
-| Bestandsmandant | `legacy` (v0110) | `all_members` | aus (Übergang) | aus | dito |
+| Bestandsmandant | `legacy` (v0110; persönliche `none`, kein `organization_kind`) | `all_members` | aus (Übergang) | aus | dito |
 | migrierter Legacy-Mandant nach Klassifizierung | gewählter Wert; Reklassifizierung nur mit Flag | nach Klasse, nur auf Antrag der Leitung geändert | — | — | — |
 
 Jeder Default hat einen Test (TA-630); ein Legacy-Default wird **nie** zum Default neuer Mandanten (W-03).
@@ -216,7 +220,7 @@ Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rech
 | E07 Warteschlange/Entdeckung/Schwärzung | READY | — | DA-05 | Lane |
 | E07 Auto-Schwärzung nach SLA (PRIV-239) | BLOCKED_LEGAL | LEG-08 | DA-05 | Flag bleibt aus |
 | E08 (PRIV-300…310, 414) | READY | — (Breaking Change dokumentiert) | L-09, L-10 (Hinweistext) | Lane nach E09 |
-| E09 Klassifizierung, Fristbeginn, Hilfsdokumentation (PRIV-409, 410, 412, 413) | READY | — | L-01, L-02, L-05, L-07 | Lane |
+| E09 Klassifizierung, Fristbeginn, Hilfsdokumentation (PRIV-409, 410, 412, 413) | IN_PROGRESS (v0110 + Modellfelder DONE 2026-11-15) | — (DEC-30 freigegeben 2026-11-15) | L-01, L-02, L-05, L-07; VERIFIED_CODE `09` §4 | Lane: Anlagepfad PRIV-409, `undeclared`, PRIV-410/412/413 |
 | E09 Reklassifizierung / PRIV-411 (Marker für Erntende) | BLOCKED_LEGAL | LEG-03, LEG-17 | L-05 (keine Pflichtangabe), aber Bestandsänderung | Flag aus; DSB-Entscheidung |
 | E10 (PRIV-510…523) | READY | — | VERIFIED_CODE (`07` §1, §7) | Lane |
 | E11 (PRIV-505…533) | READY | — (LEG-09/10 als Prüfdatum) | L-11 | Lane |

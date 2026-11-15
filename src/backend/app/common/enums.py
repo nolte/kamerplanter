@@ -1184,6 +1184,43 @@ class TenantStatus(StrEnum):
     IMPORTING = "importing"
 
 
+class RecordKeeping(StrEnum):
+    """Which statutory record-keeping duty a tenant declares (spec/privacy/06 PRIV-401, PRIV-409; ``08`` §3.2).
+
+    Stored as ``Tenant.settings.record_keeping``; ``None`` there is the state ``undeclared``
+    (DEC-30: no model default — a new tenant stays undeclared until its creation path asks).
+
+    * ``LEGACY`` — only for tenants that existed before the classification (stamped by v0110);
+      retention behaves as it did before (every legal rule for every tenant).
+    * ``NONE`` — no statutory record keeping; the value of a personal tenant (L-07: private
+      home growing carries no documentation duty).
+    * ``PFLSCHG_PROFESSIONAL`` — professional user under PflSchG § 11 (L-01, L-02).
+    * ``KCANG_ASSOCIATION`` — cultivation association under KCanG § 26 (L-05).
+    * ``BOTH`` — both duties.
+    """
+
+    LEGACY = "legacy"
+    NONE = "none"
+    PFLSCHG_PROFESSIONAL = "pflschg_professional"
+    KCANG_ASSOCIATION = "kcang_association"
+    BOTH = "both"
+
+
+class OrganizationKind(StrEnum):
+    """What kind of organisation an ``organization`` tenant is (spec/privacy/06 PRIV-409; ``08`` §3.2).
+
+    Stored as ``Tenant.settings.organization_kind``; it classifies organisation tenants only — a
+    personal tenant carries none. ``UNKNOWN_LEGACY`` marks an organisation tenant that existed
+    before the classification (stamped by v0110); it is never a choice at creation.
+    """
+
+    ASSOCIATION = "association"
+    COMMERCIAL = "commercial"
+    COMMUNITY = "community"
+    OTHER = "other"
+    UNKNOWN_LEGACY = "unknown_legacy"
+
+
 class EntitlementDimension(StrEnum):
     """A quota a plan can set for a tenant (REQ-056 §7.2, #2142).
 
