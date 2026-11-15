@@ -931,6 +931,23 @@ def test_without_a_confirmed_lead_the_admin_owns_the_import_with_both_scopes(sou
     )
 
 
+def test_an_import_never_inherits_the_record_keeping_declaration(source, target, tmp_path) -> None:
+    """PRIV-409 / DEC-30 — the imported tenant starts undeclared; an archive's ``none`` or ``legacy`` is dropped."""
+    _seed_tenant(source, A)
+    source.collection("tenants").update(
+        {"_key": A, "settings": {"record_keeping": "none", "organization_kind": "unknown_legacy", "keep": 1}}
+    )
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    dst = _service(target, tmp_path / "dst")
+
+    finished = _request_and_run(dst, archive, {})
+
+    assert finished.status == "completed", finished
+    settings = target.collection("tenants").get(finished.target_tenant_key).get("settings") or {}
+    assert "record_keeping" not in settings or settings["record_keeping"] is None
+    assert "organization_kind" not in settings or settings["organization_kind"] is None
+
+
 def test_the_request_names_the_tenant_before_it_exists(source, target, tmp_path) -> None:
     """I3 — no moment in which a founded tenant is named by no request the sweep reads."""
     _seed_tenant(source, A)
