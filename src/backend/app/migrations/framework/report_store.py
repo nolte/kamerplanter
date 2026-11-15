@@ -59,7 +59,7 @@ MAX_SAMPLES_PER_BUCKET: Final = 25
 #: An identifier the report may carry: a collection or field name (``garden_plan_audit.user_key``),
 #: a bucket name, a tenant key, a row key. ArangoDB keys are at most 254 bytes; a space, ``@`` or
 #: any other character a display name or an e-mail address needs is outside the set.
-_IDENTIFIER: Final = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.:\-]{0,253}$")
+_IDENTIFIER: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.:\-]{0,253}$")
 
 # ── the closed shape ────────────────────────────────────────────────
 # Each token says what a value at that place may be; a dict says which keys may appear.
@@ -96,6 +96,11 @@ def _is_identifier(value: object) -> bool:
         and not is_tombstone(value)
         and value != ANONYMIZED_MARKER
     )
+
+
+def _as_mapping(value: object) -> Mapping[str, Any] | None:
+    """*value* as a mapping, or ``None`` when it is not one."""
+    return value if isinstance(value, Mapping) else None
 
 
 def _is_count(value: object) -> bool:
@@ -135,11 +140,12 @@ class _Redactor:
         return ok, value if ok else None
 
     def _mapping(self, value: object, shape: Mapping[str, Any]) -> tuple[bool, Any]:
-        if not isinstance(value, Mapping):
+        mapping = _as_mapping(value)
+        if mapping is None:
             self.dropped += 1
             return False, None
         out: dict[str, Any] = {}
-        for key, item in value.items():
+        for key, item in mapping.items():
             if key not in shape:
                 self.dropped += 1
                 continue
@@ -160,30 +166,33 @@ class _Redactor:
         return True, kept
 
     def _count_map(self, value: object) -> tuple[bool, Any]:
-        if not isinstance(value, Mapping):
+        mapping = _as_mapping(value)
+        if mapping is None:
             self.dropped += 1
             return False, None
         out: dict[str, Any] = {}
-        for key, item in value.items():
+        for key, item in mapping.items():
             if not _is_identifier(key):
                 self.dropped += 1
                 continue
             if _is_count(item):
                 out[key] = item
-            elif isinstance(item, Mapping):
-                inner = {k: v for k, v in item.items() if _is_identifier(k) and _is_count(v)}
-                self.dropped += len(item) - len(inner)
+            elif _as_mapping(item) is not None:
+                nested: Mapping[str, Any] = item  # a Mapping, checked on the line above
+                inner = {k: v for k, v in nested.items() if _is_identifier(k) and _is_count(v)}
+                self.dropped += len(nested) - len(inner)
                 out[key] = inner
             else:
                 self.dropped += 1
         return True, out
 
     def _sample_map(self, value: object) -> tuple[bool, Any]:
-        if not isinstance(value, Mapping):
+        mapping = _as_mapping(value)
+        if mapping is None:
             self.dropped += 1
             return False, None
         out: dict[str, Any] = {}
-        for key, item in value.items():
+        for key, item in mapping.items():
             if not _is_identifier(key):
                 self.dropped += 1
                 continue
@@ -204,7 +213,9 @@ def report_document(
     migration: Migration, report: MigrationReport, *, recorded_at: datetime | None = None
 ) -> dict[str, Any]:
     """The redacted, JSON-ready form of *report* — what ``migration_reports`` stores and ``--report-out`` writes."""
-    details, dropped = redact_details(report.details)
+    redacted: tuple[dict[str, Any], int] = redact_details(report.details)
+    details: dict[str, Any] = redacted[0]
+    dropped: int = redacted[1]
     return {
         "version": report.version,
         "name": report.name,

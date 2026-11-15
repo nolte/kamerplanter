@@ -156,24 +156,15 @@ class MigrationRunner:
                 if migration.kind is not None:
                     # spec/privacy PRIV-701: the operator's proof of a privacy migration, dry run included.
                     persist_report(db, migration, report)
-                if report.incomplete and not dry_run:
-                    # Part of the work is done, part is not (a tenant failed, or the after-check found
-                    # rows left): leave it AND every later migration pending, like an unmet precondition,
-                    # so the next boot runs it again — idempotently (spec/privacy PRIV-718).
+                if (report.precondition_unmet or report.incomplete) and not dry_run:
+                    # Either no work was done because a precondition was absent, or part of it was done and
+                    # part not (a tenant failed, or the after-check found rows left, spec/privacy PRIV-718).
+                    # M-1: leave it AND every later migration pending so a later boot retries it in order —
+                    # idempotently; do NOT record it applied.
                     logger.warning(
-                        "migration_incomplete_left_pending",
-                        version=migration.version,
-                        name=migration.name,
-                        status=report.details.get("status"),
-                    )
-                    reports.append(report)
-                    break
-                if report.precondition_unmet and not dry_run:
-                    # The migration did no work because a precondition was absent
-                    # (M-1: leave it AND every later migration pending so a later
-                    # boot retries it in order; do NOT record it applied).
-                    logger.warning(
-                        "migration_precondition_unmet_left_pending",
+                        "migration_incomplete_left_pending"
+                        if report.incomplete
+                        else "migration_precondition_unmet_left_pending",
                         version=migration.version,
                         name=migration.name,
                         # PRIV-701: a privacy migration's details reach the log only through the redaction filter.

@@ -49,14 +49,23 @@ def cell_name(collection: str, field: str) -> str:
     return f"{collection}.{field}"
 
 
-def _query_for(field: str) -> tuple[str, dict[str, Any]]:
+def _segments(field: str) -> list[str]:
+    """The one or two attribute names of *field*; anything else is refused."""
     segments = field.split(".")
-    if len(segments) == 1 and segments[0]:
-        return _COUNT_ONE_SEGMENT, {"a": segments[0]}
-    if len(segments) == 2 and all(segments):
-        return _COUNT_TWO_SEGMENTS, {"a": segments[0], "b": segments[1]}
+    if len(segments) in (1, 2) and all(segments):
+        return segments
     msg = f"a census field is one or two attribute names, got {field!r}"
     raise ValueError(msg)
+
+
+def _count_cell(db: StandardDatabase, collection: str, segments: list[str], pattern: str) -> int:
+    # Each query constant is passed to ``execute`` by name, so the AQL guards can read it.
+    binds: dict[str, Any] = {"@collection": collection, "pattern": pattern, "a": segments[0]}
+    if len(segments) == 1:
+        cursor = cast(Cursor, db.aql.execute(_COUNT_ONE_SEGMENT, bind_vars=binds))
+    else:
+        cursor = cast(Cursor, db.aql.execute(_COUNT_TWO_SEGMENTS, bind_vars=binds | {"b": segments[1]}))
+    return int(sum(cursor))
 
 
 def count_tombstones_by_field(db: StandardDatabase, fields: Sequence[tuple[str, str]], pattern: str) -> dict[str, int]:
@@ -71,15 +80,11 @@ def count_tombstones_by_field(db: StandardDatabase, fields: Sequence[tuple[str, 
     """
     counts: dict[str, int] = {}
     for collection, field in fields:
-        query, attribute_binds = _query_for(field)
+        segments = _segments(field)
         if not db.has_collection(collection):
             counts[cell_name(collection, field)] = 0
             continue
-        cursor = cast(
-            Cursor,
-            db.aql.execute(query, bind_vars={"@collection": collection, "pattern": pattern, **attribute_binds}),
-        )
-        counts[cell_name(collection, field)] = int(sum(cursor))
+        counts[cell_name(collection, field)] = _count_cell(db, collection, segments, pattern)
     return counts
 
 

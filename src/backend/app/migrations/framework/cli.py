@@ -142,7 +142,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.migrations", description="Kamerplanter migration framework")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    upgrade = sub.add_parser("upgrade", help="apply pending migrations")
+    upgrade: argparse.ArgumentParser = sub.add_parser("upgrade", help="apply pending migrations")
     upgrade.add_argument("--to", dest="target", default=None, help="apply up to this version (inclusive)")
     upgrade.add_argument("--dry-run", action="store_true", help="compute reports without writing")
     upgrade.add_argument(
@@ -153,14 +153,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="write the redacted reports of the privacy migrations as JSON to this path",
     )
 
-    downgrade = sub.add_parser("downgrade", help="roll back migrations above --to")
+    downgrade: argparse.ArgumentParser = sub.add_parser("downgrade", help="roll back migrations above --to")
     downgrade.add_argument("--to", dest="target", required=True, help="target version to roll back to (inclusive)")
     downgrade.add_argument("--dry-run", action="store_true", help="compute reports without writing")
 
     sub.add_parser("current", help="print the highest applied version")
     sub.add_parser("history", help="print the applied-migration history")
 
-    create = sub.add_parser("create", help="scaffold the next migration module")
+    create: argparse.ArgumentParser = sub.add_parser("create", help="scaffold the next migration module")
     create.add_argument("slug", help="lower_snake_case slug for the new migration")
 
     return parser

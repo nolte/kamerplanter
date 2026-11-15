@@ -52,6 +52,7 @@ import structlog
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
+from app.common.log_privacy import log_tenant
 from app.data_access.arango import collections as col
 from app.data_access.arango.tombstone_census import count_tombstones_by_field
 from app.data_access.arango.transactions import stream_transaction
@@ -186,6 +187,9 @@ _STEPS: dict[str, tuple[str, str, str]] = {
     BUCKET_FILENAMES: (col.ATTACHMENTS, _FILENAME_MATCH, _FILENAME_UPDATE),
 }
 
+#: The collections steps 1, 2 and 4 write, declared for the tenant's transaction.
+_WRITTEN_COLLECTIONS: tuple[str, ...] = (col.CARE_EVENTS, col.GARDEN_PLAN_AUDIT, col.ATTACHMENTS)
+
 _REQUIRED_COLLECTIONS = (col.TENANTS, col.CARE_EVENTS, col.GARDEN_PLAN_AUDIT, col.ATTACHMENTS)
 
 
@@ -224,11 +228,12 @@ class TombstoneCopyStore:
         changed: dict[str, int] = {}
         with stream_transaction(
             self._db,
-            write=tuple(collection for collection, _match, _update in _STEPS.values()),
+            write=_WRITTEN_COLLECTIONS,
             entity="privacy_tombstone_copies",
             time_budget_seconds=_TENANT_TIME_BUDGET_SECONDS,
         ) as txn:
-            for bucket, (collection, _match, update) in _STEPS.items():
+            for bucket in CORRECTED_BUCKETS:
+                collection, _match, update = _STEPS[bucket]
                 binds = _used_binds(update, _binds(collection, tenant_key))
                 changed[bucket] = sum(1 for _ in txn.aql.execute(update, bind_vars=binds))
         return changed
@@ -281,7 +286,8 @@ class PrivacyTombstoneCopiesMigration(Migration):
     store_factory: Callable[[StandardDatabase], TombstoneCopyStore] = TombstoneCopyStore
 
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
-        store = type(self).store_factory(db)
+        open_store: Callable[[StandardDatabase], TombstoneCopyStore] = type(self).store_factory
+        store: TombstoneCopyStore = open_store(db)
         phases: dict[str, Any] = {}
 
         unmet = store.missing_collections() + _unmet_inventory()
@@ -301,7 +307,7 @@ class PrivacyTombstoneCopiesMigration(Migration):
                     candidates[tenant_key] = candidates.get(tenant_key, 0) + count
                     room = MAX_SAMPLES_PER_BUCKET - len(samples[bucket])
                     samples[bucket].extend(sample[: max(room, 0)])
-        undeclared = store.count_undeclared()
+        undeclared: dict[str, int] = store.count_undeclared()
         buckets[BUCKET_UNDECLARED] = {cell: count for cell, count in undeclared.items() if count}
         scanned = sum(candidates.values())
         phases["precheck"] = {"ok": True, "unmet": [], "candidates": candidates}
@@ -313,24 +319,28 @@ class PrivacyTombstoneCopiesMigration(Migration):
 
         done: list[str] = []
         failed: list[str] = []
-        applied: dict[str, Any] = {bucket: {} for bucket in CORRECTED_BUCKETS}
+        changed = 0
+        applied: dict[str, dict[str, int]] = {bucket: {} for bucket in CORRECTED_BUCKETS}
         for tenant_key in tenants:
             if tenant_key not in candidates:
                 done.append(tenant_key)
                 continue
             try:
-                changed_by_bucket = store.apply(tenant_key)
+                changed_by_bucket: dict[str, int] = store.apply(tenant_key)
             except Exception as exc:  # noqa: BLE001 — one tenant's failure must not stop the others (PRIV-718)
                 failed.append(tenant_key)
                 logger.warning(
-                    "privacy_tombstone_copies.tenant_failed", tenant_key=tenant_key, error_type=type(exc).__name__
+                    "privacy_tombstone_copies.tenant_failed",
+                    tenant=log_tenant(tenant_key),
+                    error_type=type(exc).__name__,
                 )
                 continue
             done.append(tenant_key)
-            for bucket, count in changed_by_bucket.items():
+            for bucket in CORRECTED_BUCKETS:
+                count = changed_by_bucket.get(bucket, 0)
                 if count:
                     applied[bucket][tenant_key] = count
-        changed = sum(sum(per_tenant.values()) for per_tenant in applied.values())
+                    changed += count
         phases["apply"] = {
             "tenants_done": done,
             "tenants_failed": failed,
