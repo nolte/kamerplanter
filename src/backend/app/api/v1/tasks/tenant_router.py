@@ -780,27 +780,9 @@ def complete_task(
         details=body.details(),
         actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
     )
+    # The care-state mirror of a care-reminder task (confirmation, care event, next occurrence) runs in the service,
+    # on this route and on the batch alike (#2960).
     completed = outcome.task
-    # A replay runs the follow-up too - a first attempt may have died between its commit and here - unless the task
-    # was reopened since. The confirmation of a buffered completion is idempotent (one per id, REQ-053 WP 9.3).
-    if outcome.replayed and completed.status != "completed":
-        return _task_response(completed)
-    # The care-state consequences of a completed care-reminder task are domain
-    # logic and live in the service (NFR-001): confirmation + edges, the
-    # watering/fertilizing log and the next watering occurrence. The guard here is
-    # only a presentation-layer short-circuit so no care service is built for a
-    # plain task; the service re-checks it authoritatively.
-    if completed.category == "care_reminder" and completed.entity_type == "plant_instance" and completed.entity_key:
-        from app.common.dependencies import get_care_reminder_service
-
-        # The dedup key is THIS request's id (outcome), never the task's stored one: a completion without an id
-        # after a reopen leaves an earlier completion's id on the task.
-        get_care_reminder_service().record_care_task_completion(
-            completed,
-            tenant_key=ctx.tenant_key,
-            user_key=ctx.user_key,
-            completion_client_event_id=outcome.client_event_id,
-        )
     return _task_response(completed)
 
 
@@ -812,15 +794,7 @@ def skip_task(
 ):
     """Skip a task, propagating care-reminder confirmations where applicable."""
     skipped = service.skip_task(key, tenant_key=ctx.tenant_key)
-    # Mirrors the completion path above: the care-state consequences of a skipped
-    # care-reminder task are domain logic and live in the service (NFR-001), which
-    # also owns the tenant guard on the *plant* the task points at (SEC-001). The
-    # guard here is only a presentation-layer short-circuit so no care service is
-    # built for a plain task; the service re-checks it authoritatively.
-    if skipped.category == "care_reminder" and skipped.entity_type == "plant_instance" and skipped.entity_key:
-        from app.common.dependencies import get_care_reminder_service
-
-        get_care_reminder_service().record_care_task_skip(skipped, tenant_key=ctx.tenant_key)
+    # The care-reminder skip mirror runs in the service, on this route and on the batch alike (#2960).
     return _task_response(skipped)
 
 

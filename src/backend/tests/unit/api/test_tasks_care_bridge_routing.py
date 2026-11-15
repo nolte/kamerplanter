@@ -8,7 +8,9 @@ plant the task points at (SEC-001): a guard added to the service alone would
 simply not have been reached.
 
 These tests pin the routing itself: the router delegates to the service with the
-request's ``tenant_key`` and touches no private service internals. The care-state
+request's ``tenant_key`` and caller and never reaches the care service itself - since
+#2960 the care mirror runs inside ``TaskService`` (``tests/unit/domain/services/
+test_task_care_mirror.py``), so the batch route cannot skip it. The care-state
 behaviour behind those calls is covered in
 ``tests/unit/domain/services/test_care_task_queue_bridge.py``.
 """
@@ -24,7 +26,7 @@ from app.api.v1.tasks.schemas import TaskCompleteRequest
 from app.api.v1.tasks.tenant_router import complete_task, skip_task
 from app.common.enums import TaskCategory, TaskStatus, TenantRole
 from app.domain.models.task import Task
-from app.domain.models.task_completion import TaskCompletionOutcome
+from app.domain.models.task_completion import CompletionActor, TaskCompletionOutcome
 from app.domain.models.tenant_context import TenantContext
 
 TENANT = "tenant-A"
@@ -66,6 +68,7 @@ class _TaskServiceStub:
         self.get_task_calls: list[tuple[str, str]] = []
         self.skip_calls: list[tuple[str, str]] = []
         self.complete_calls: list[tuple[str, str]] = []
+        self.actors: list[CompletionActor | None] = []
 
     def get_task(self, key: str, *, tenant_key: str) -> Task:
         self.get_task_calls.append((key, tenant_key))
@@ -73,6 +76,7 @@ class _TaskServiceStub:
 
     def complete_task(self, key, *args, tenant_key: str, **kwargs) -> Task:  # noqa: ANN002, ANN003 — router passes positionals
         self.complete_calls.append((key, tenant_key))
+        self.actors.append(kwargs.get("actor"))
         return self._task
 
     def complete_task_once(self, key, *args, tenant_key: str, **kwargs) -> TaskCompletionOutcome:  # noqa: ANN002, ANN003
@@ -127,11 +131,12 @@ def test_skip_delegates_to_the_service_with_the_request_tenant(care_stub: _CareS
 
     skip_task("task-1", ctx=_ctx(), service=service)  # type: ignore[arg-type]
 
-    assert [(t.key, tenant) for t, tenant in care_stub.skips] == [("task-1", TENANT)]
     # The request tenant is threaded into the mutating service call itself, which
     # now owns the ownership check (GHSA-h5wp-r68x-97g8) instead of a separate
     # router pre-check.
     assert service.skip_calls == [("task-1", TENANT)]
+    # The care mirror is the service's (#2960): the route never reaches the care service itself.
+    assert care_stub.skips == []
 
 
 def test_complete_delegates_to_the_service_with_the_request_tenant_and_caller(care_stub: _CareServiceStub) -> None:
@@ -140,18 +145,7 @@ def test_complete_delegates_to_the_service_with_the_request_tenant_and_caller(ca
 
     complete_task(_request(), "task-1", TaskCompleteRequest(), ctx=_ctx(), service=service)  # type: ignore[arg-type]
 
-    # The completing caller is the performer of the confirmation (REQ-053 §32.8 Pkt. 2, #2517).
-    assert [(t.key, tenant, user) for t, tenant, user in care_stub.completions] == [("task-1", TENANT, "user-a")]
-
-
-def test_plain_task_never_builds_a_care_service(care_stub: _CareServiceStub) -> None:
-    """A non-care task short-circuits in the presentation layer (no care service)."""
-    task = _care_task(TaskStatus.SKIPPED)
-    task.category = TaskCategory.MAINTENANCE
-    service = _TaskServiceStub(task)
-
-    skip_task("task-1", ctx=_ctx(), service=service)  # type: ignore[arg-type]
-    complete_task(_request(), "task-1", TaskCompleteRequest(), ctx=_ctx(), service=service)  # type: ignore[arg-type]
-
-    assert care_stub.skips == []
+    assert service.complete_calls == [("task-1", TENANT)]
+    # The completing caller travels as the actor; the service mirrors with it (REQ-053 §32.8 Pkt. 2, #2960).
+    assert service.actors == [CompletionActor(user_key="user-a", role=TenantRole.LEAD)]
     assert care_stub.completions == []

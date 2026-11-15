@@ -1,7 +1,8 @@
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from functools import partial
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
 import structlog
@@ -265,6 +266,21 @@ def _as_aware_utc(value: datetime | None) -> datetime | None:
     return value
 
 
+class CareTaskMirror(Protocol):
+    """The care-state bridge of a care-reminder task (REQ-022, ``CareReminderService``): confirmation, care event and
+    the next occurrence. Every path that completes or skips a task reaches it through :class:`TaskService` (#2960)."""
+
+    def record_care_task_completion(
+        self, task: Task, *, tenant_key: str, user_key: str, completion_client_event_id: str | None = None
+    ) -> object: ...
+
+    def record_care_task_skip(self, task: Task, *, tenant_key: str) -> object: ...
+
+
+def _is_plant_care_reminder(task: Task) -> bool:
+    return task.category == "care_reminder" and task.entity_type == "plant_instance" and bool(task.entity_key)
+
+
 class TaskService:
     def __init__(
         self,
@@ -279,8 +295,13 @@ class TaskService:
         care_events: CareEventService | None = None,
         harvests: HarvestService | None = None,
         fertilizers: IFertilizerRepository | None = None,
+        care_mirror: Callable[[], CareTaskMirror] | None = None,
     ) -> None:
         self._repo = repo
+        #: Built only when a care-reminder task is completed or skipped (#2960): the one place every completing path -
+        #: the single route, the batch, a replay - mirrors such a task into the plant's care state. Without it (unit
+        #: tests, the Celery beat) a completion closes the task alone.
+        self._care_mirror = care_mirror
         # The atomic completion transition (REQ-053 WP 4.3, ADR-008 phase 3 for tasks). All three are supplied by
         # the DI factory; a service built without them (unit tests, the Celery beat) keeps the plain
         # single-document completion and writes no care-log line.
@@ -1817,8 +1838,33 @@ class TaskService:
             return [self._repo.get_task_or_raise(write.task_key) for write in writes]
         return [self._repo.update_task(task.key or "", task) for task in tasks]
 
-    def _after_completion(self, completed: Task, as_stored: Task) -> None:
-        """What follows the committed completion: dependents, the next occurrence, the notification (not atomic)."""
+    def _mirror_care_completion(
+        self, task: Task, *, tenant_key: str, actor: CompletionActor | None, client_event_id: str | None
+    ) -> None:
+        """Mirror a completed care-reminder task of a plant into its care state; the performer is the caller (§32.8).
+
+        The dedup key is THIS request's id, never the task's stored one: a completion without an id after a reopen
+        leaves an earlier completion's id on the task. A completion without a verified caller mirrors nothing.
+        """
+        build = self._care_mirror
+        if build is None or actor is None or not _is_plant_care_reminder(task):
+            return
+        mirror: CareTaskMirror = build()
+        mirror.record_care_task_completion(
+            task, tenant_key=tenant_key, user_key=actor.user_key, completion_client_event_id=client_event_id
+        )
+
+    def _after_completion(
+        self,
+        completed: Task,
+        as_stored: Task,
+        *,
+        tenant_key: str,
+        actor: CompletionActor | None,
+        client_event_id: str | None = None,
+    ) -> None:
+        """What follows the committed completion: dependents, the next occurrence, the notification and, last, the
+        care-state mirror of a care reminder (not atomic)."""
         # Reschedule dependents if late. Coerce both operands to timezone-aware UTC first: a date-only due_date is
         # stored naive and would otherwise crash the comparison (and abort the recurrence spawn below).
         due_aware = _as_aware_utc(as_stored.due_date)
@@ -1832,6 +1878,7 @@ class TaskService:
 
         # Mark the task's open due notification done (badge drops, #742).
         self._propagate(lambda p: p.on_task_completed(completed))
+        self._mirror_care_completion(completed, tenant_key=tenant_key, actor=actor, client_event_id=client_event_id)
 
     def complete_task(
         self,
@@ -1867,7 +1914,13 @@ class TaskService:
             actor=actor,
             stamp=stamp,
         )
-        self._after_completion(updated, as_stored)
+        self._after_completion(
+            updated,
+            as_stored,
+            tenant_key=tenant_key,
+            actor=actor,
+            client_event_id=stamp.client_event_id if stamp is not None else None,
+        )
         return updated
 
     def _commit_completion(
@@ -1953,7 +2006,7 @@ class TaskService:
         stamps = {key: stamp}
         replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
         if replayed is not None:
-            return TaskCompletionOutcome(replayed, replayed=True, client_event_id=stamp.client_event_id)
+            return self._replayed_completion(replayed, stamp, tenant_key=tenant_key, actor=actor)
         if self._tombstoned(stamps, tenant_key=tenant_key):
             raise ClientEventDeletedError()
         committed: tuple[Task, Task] | None = None
@@ -1979,7 +2032,7 @@ class TaskService:
                 replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
                 if replayed is not None:
                     logger.info("task_completion.replayed", task_key=key, raced=True)
-                    return TaskCompletionOutcome(replayed, replayed=True, client_event_id=stamp.client_event_id)
+                    return self._replayed_completion(replayed, stamp, tenant_key=tenant_key, actor=actor)
                 if not isinstance(exc, WriteConflictError) or attempt == _CLIENT_WRITE_ATTEMPTS - 1:
                     raise
                 continue
@@ -1987,8 +2040,21 @@ class TaskService:
         if committed is None:  # pragma: no cover - the loop breaks with a commit or raises
             raise AssertionError("unreachable")
         updated, as_stored = committed
-        self._after_completion(updated, as_stored)
+        self._after_completion(
+            updated, as_stored, tenant_key=tenant_key, actor=actor, client_event_id=stamp.client_event_id
+        )
         return TaskCompletionOutcome(updated, client_event_id=stamp.client_event_id)
+
+    def _replayed_completion(
+        self, replayed: Task, stamp: ClientEventStamp, *, tenant_key: str, actor: CompletionActor | None
+    ) -> TaskCompletionOutcome:
+        """A replay runs the care mirror again - a first attempt may have died between its commit and the mirror -
+        unless the task was reopened since; the mirror is idempotent per id (REQ-053 WP 9.3)."""
+        if replayed.status == TaskStatus.COMPLETED.value:
+            self._mirror_care_completion(
+                replayed, tenant_key=tenant_key, actor=actor, client_event_id=stamp.client_event_id
+            )
+        return TaskCompletionOutcome(replayed, replayed=True, client_event_id=stamp.client_event_id)
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
         # ``tenant_key`` is part of the guard, not an optional extra: the
@@ -2086,6 +2152,11 @@ class TaskService:
         task.completed_at = datetime.now(UTC)
         updated = self._repo.update_task(key, task)
         self._propagate(lambda p: p.on_task_completed(updated))
+        # The skip sibling of the completion mirror (#2960): the single route and the batch both skip through here.
+        build = self._care_mirror
+        if build is not None and _is_plant_care_reminder(updated):
+            mirror: CareTaskMirror = build()
+            mirror.record_care_task_skip(updated, tenant_key=tenant_key)
         return updated
 
     # ── Suggestions (REQ-053 GP-FR-086, GP-API-040) ──
@@ -2534,7 +2605,8 @@ class TaskService:
     ) -> tuple[list[str], list[dict[str, str]]]:
         """One attempt at a batch completion; ``stamps`` (per task) is empty without a ``client_event_id``."""
         # Per task (WP 9.3): a task its id closed before is a replay - succeeded, nothing written for it.
-        replayed = set(self._completion_replays(stamps, tenant_key=tenant_key))
+        replayed_tasks = self._completion_replays(stamps, tenant_key=tenant_key)
+        replayed = set(replayed_tasks)
         # A task this batch closed that was deleted since is reported per task, never a 404 for the whole batch.
         deleted = self._tombstoned({k: v for k, v in stamps.items() if k not in replayed}, tenant_key=tenant_key)
         failed: list[dict[str, str]] = [
@@ -2575,18 +2647,46 @@ class TaskService:
                 # interval: this task is reported with its code and left out. A refused reference of the care fields
                 # (a plant outside the bed) is the request's error and fails the whole batch with its own code.
                 failed.append({"key": task.key or "", "error": str(e), "code": e.error_code})
+        # A replayed task gets its care mirror again, like a replay of the single route (idempotent per id).
+        for key, task in replayed_tasks.items():
+            if task.status == TaskStatus.COMPLETED.value:
+                self._guarded_follow_up(
+                    task,
+                    partial(
+                        self._mirror_care_completion,
+                        task,
+                        tenant_key=tenant_key,
+                        actor=actor,
+                        client_event_id=stamps[key].client_event_id,
+                    ),
+                )
         if not ready:
             return [key for key in keys if key in replayed], failed
         stored = self._commit_completions(prepared, ready, tenant_key=tenant_key)
         for completed, as_stored in zip(stored, ready, strict=True):
-            # The batch is committed: one task's follow-up (next occurrence, notification) failing must not turn the
-            # answer into a 500 for tasks that are completed, nor starve the follow-up of the rest.
-            try:
-                self._after_completion(completed, as_stored)
-            except Exception as exc:  # noqa: BLE001 — see above; the failure is logged by type, never by text
-                logger.error("task_completion.follow_up_failed", task_key=completed.key, error_type=type(exc).__name__)
+            stamp = stamps.get(as_stored.key or "")
+            self._guarded_follow_up(
+                completed,
+                partial(
+                    self._after_completion,
+                    completed,
+                    as_stored,
+                    tenant_key=tenant_key,
+                    actor=actor,
+                    client_event_id=stamp.client_event_id if stamp is not None else None,
+                ),
+            )
         done = replayed | {task.key or "" for task in stored}
         return [key for key in keys if key in done], failed
+
+    @staticmethod
+    def _guarded_follow_up(task: Task, follow_up: Callable[[], None]) -> None:
+        """The batch is committed: one task's follow-up (care mirror, next occurrence, notification) failing must not
+        turn the answer into a 500 for tasks that are completed, nor starve the follow-up of the rest."""
+        try:
+            follow_up()
+        except Exception as exc:  # noqa: BLE001 — see above; the failure is logged by type, never by text
+            logger.error("task_completion.follow_up_failed", task_key=task.key, error_type=type(exc).__name__)
 
     def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
