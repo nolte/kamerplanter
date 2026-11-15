@@ -47,8 +47,15 @@ import { visuallyHidden } from '@mui/utils';
 import { useNotification } from '@/hooks/useNotification';
 import type { PestCoverageEntry, PestCurationImage, PestRecognitionStatus } from '@/api/types';
 import LoadingStatus from '@/components/common/LoadingStatus';
+import { getLocalizedCatalogName } from '@/utils/plantDisplay';
 
-const PEST_EXCLUSION_REASONS = ['blurry', 'wrong_species', 'duplicate', 'irrelevant', 'manual'] as const;
+const PEST_EXCLUSION_REASONS = [
+  'blurry',
+  'wrong_species',
+  'duplicate',
+  'irrelevant',
+  'manual',
+] as const;
 type PestExclusionReason = (typeof PEST_EXCLUSION_REASONS)[number];
 
 /** Minimum active references for a class to be reliably usable (mirrors backend threshold). */
@@ -179,20 +186,12 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
         </Typography>
 
         {/* ARIA live region — announces job-state transitions to screen readers (UI-NFR-002 R-011). */}
-        <Box
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          sx={visuallyHidden}
-        >
+        <Box role="status" aria-live="polite" aria-atomic="true" sx={visuallyHidden}>
           {liveMessage}
         </Box>
 
         {loading && (
-          <Box
-            sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-            aria-busy="true"
-          >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }} aria-busy="true">
             <LoadingStatus label={t('pages.admin.pestRecognition.loading')} />
             <Skeleton variant="rounded" height={28} width={180} />
             <Skeleton variant="text" />
@@ -213,7 +212,10 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
         )}
 
         {!loading && !failed && status?.feature_enabled && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }} data-testid="pest-recognition-details">
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+            data-testid="pest-recognition-details"
+          >
             {/* Status chips — color + icon + explicit aria-label; info is never conveyed
                 through colour alone (UI-NFR-002 R-018). */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -247,8 +249,12 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                 size="small"
                 variant="outlined"
                 icon={<BugReportIcon aria-hidden="true" />}
-                label={t('pages.admin.pestRecognition.chipIndexCount', { count: status.index_count })}
-                aria-label={t('pages.admin.pestRecognition.chipIndexCountAriaLabel', { count: status.index_count })}
+                label={t('pages.admin.pestRecognition.chipIndexCount', {
+                  count: status.index_count,
+                })}
+                aria-label={t('pages.admin.pestRecognition.chipIndexCountAriaLabel', {
+                  count: status.index_count,
+                })}
                 data-testid="pest-recognition-chip-count"
               />
             </Box>
@@ -265,7 +271,11 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
                 size="small"
                 startIcon={
                   starting || polling ? (
-                    <CircularProgress size={16} color="inherit" aria-label={t('pages.admin.pestRecognition.acquireRunning')} />
+                    <CircularProgress
+                      size={16}
+                      color="inherit"
+                      aria-label={t('pages.admin.pestRecognition.acquireRunning')}
+                    />
                   ) : (
                     <PlayArrowIcon aria-hidden="true" />
                   )
@@ -316,7 +326,8 @@ export function PestRecognitionAdminCard({ gridColumn }: PestRecognitionAdminCar
 }
 
 function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const name = getLocalizedCatalogName(entry, i18n.language);
   const notify = useNotification();
   const [images, setImages] = useState<PestCurationImage[] | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
@@ -359,7 +370,11 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
         setImages((prev) =>
           (prev ?? []).map((img) =>
             img.id === image.id
-              ? { ...img, is_active: isActive, exclusion_reason: isActive ? null : (why ?? 'manual') }
+              ? {
+                  ...img,
+                  is_active: isActive,
+                  exclusion_reason: isActive ? null : (why ?? 'manual'),
+                }
               : img,
           ),
         );
@@ -404,12 +419,12 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
   // Explicit usable status text for screen readers — never conveyed by colour alone (UI-NFR-002 R-018).
   const usableAriaLabel = entry.usable
     ? t('pages.admin.pestRecognition.classUsableAriaLabel', {
-        name: entry.common_name,
+        name,
         active: entry.active,
         target: entry.target,
       })
     : t('pages.admin.pestRecognition.classNotUsableAriaLabel', {
-        name: entry.common_name,
+        name,
         active: entry.active,
         target: entry.target,
       });
@@ -427,12 +442,21 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
           expand button instead of the raw button-role with no label (UI-NFR-002 R-007). */}
       <AccordionSummary
         expandIcon={<ExpandMoreIcon />}
-        aria-label={t('pages.admin.pestRecognition.classExpandAriaLabel', { name: entry.common_name })}
+        aria-label={t('pages.admin.pestRecognition.classExpandAriaLabel', { name })}
         sx={{ px: 0 }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: '100%', pr: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 1,
+            width: '100%',
+            pr: 1,
+          }}
+        >
           <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1, minWidth: 120 }}>
-            {entry.common_name}
+            {name}
           </Typography>
           <Chip
             size="small"
@@ -472,7 +496,11 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
           />
         )}
         {!loadingImages && images != null && images.length === 0 && (
-          <Typography variant="body2" color="text.secondary" data-testid={`pest-class-empty-${entry.label}`}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            data-testid={`pest-class-empty-${entry.label}`}
+          >
             {t('pages.admin.pestRecognition.galleryEmpty')}
           </Typography>
         )}
@@ -519,10 +547,14 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
               {visibleImages.map((img) => {
                 const inactive = !img.is_active;
                 return (
-                  <ImageListItem key={img.id} data-testid="pest-reference-image" data-active={img.is_active}>
+                  <ImageListItem
+                    key={img.id}
+                    data-testid="pest-reference-image"
+                    data-active={img.is_active}
+                  >
                     <img
                       src={img.source_url}
-                      alt={t('pages.admin.pestRecognition.imageAlt', { name: entry.common_name })}
+                      alt={t('pages.admin.pestRecognition.imageAlt', { name })}
                       loading="lazy"
                       referrerPolicy="no-referrer"
                       style={{
@@ -539,7 +571,13 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
                       <Chip
                         size="small"
                         label={t('pages.admin.pestRecognition.excludedBadge')}
-                        sx={{ position: 'absolute', top: 6, left: 6, bgcolor: 'rgba(0,0,0,0.7)', color: '#fff' }}
+                        sx={{
+                          position: 'absolute',
+                          top: 6,
+                          left: 6,
+                          bgcolor: 'rgba(0,0,0,0.7)',
+                          color: '#fff',
+                        }}
                       />
                     )}
                     <ImageListItemBar
@@ -553,7 +591,9 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
                                 size="small"
                                 disabled={busyId === img.id}
                                 onClick={() => void applyActive(img, true)}
-                                aria-label={t('pages.admin.pestRecognition.reincludeAria', { name: entry.common_name })}
+                                aria-label={t('pages.admin.pestRecognition.reincludeAria', {
+                                  name,
+                                })}
                                 data-testid="pest-reinclude-button"
                                 sx={{ color: 'rgba(255,255,255,0.9)', p: { xs: 1.5, sm: 1 } }}
                               >
@@ -574,7 +614,7 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
                                   setReason('blurry');
                                   setDeselectTarget(img);
                                 }}
-                                aria-label={t('pages.admin.pestRecognition.deselectAria', { name: entry.common_name })}
+                                aria-label={t('pages.admin.pestRecognition.deselectAria', { name })}
                                 data-testid="pest-deselect-button"
                                 sx={{ color: 'rgba(255,255,255,0.9)', p: { xs: 1.5, sm: 1 } }}
                               >
@@ -630,7 +670,12 @@ function PestClassRow({ entry }: { entry: PestCoverageEntry }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDeselect}>{t('common.cancel')}</Button>
-          <Button onClick={() => void confirmDeselect()} color="error" variant="contained" data-testid="pest-deselect-confirm">
+          <Button
+            onClick={() => void confirmDeselect()}
+            color="error"
+            variant="contained"
+            data-testid="pest-deselect-confirm"
+          >
             {t('pages.admin.pestRecognition.deselect')}
           </Button>
         </DialogActions>

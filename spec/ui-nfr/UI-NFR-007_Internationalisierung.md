@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Internationalisierung, Lokalisierung
 Technologie: React, TypeScript, Flutter
 Status: Entwurf
 Priorität: Mittel
-Version: 1.5
+Version: 1.6
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [i18n, internationalisierung, lokalisierung, sprache, datumsformat, zahlenformat, pluralisierung]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.6 | 2026-11-15 | **#2955:** R-009a gilt auch für Befunde der Schädlingserkennung (REQ-044 v1.5, `PestFinding.common_names_i18n`) und für die über Pflanzen-Seeds angelegten Schädlinge und Krankheiten (REQ-010 v1.10). |
 | 1.5 | 2026-11-15 | **#2955:** R-009a gilt auch für die Namen von Schädlingen (REQ-010 v1.9, `common_names_i18n` statt `common_name_de`): dieselbe Sprachwahl wie bei Krankheiten. |
 | 1.4 | 2026-11-13 | **#2936:** R-009a gilt auch für die Namen von Krankheiten und Nützlingen (REQ-010 v1.8, `common_names_i18n`): Name der UI-Sprache → `de` → gespeicherter `common_name`. |
 | 1.3 | 2026-11-13 | **#2902:** R-009a: Rückfall auf den ersten Listeneintrag für Arten ohne Sprachzuordnung; serverseitig gebildete Namen folgen der Sprache der Anfrage (`Accept-Language`, REQ-001 v4.15). |

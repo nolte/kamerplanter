@@ -2650,6 +2650,9 @@ new_pests:
 
   - scientific_name: "Bemisia tabaci"
     common_name: Silverleaf Whitefly
+    common_names_i18n:
+      en: ["Silverleaf Whitefly"]  # the stored common_name (English)
+      de: ["Tabakmottenschildlaus"]  # Source: https://de.wikipedia.org/wiki/Tabakmottenschildlaus
     pest_type: insect
     lifecycle_days: 28
     optimal_temp_min: 20.0
@@ -2674,6 +2677,9 @@ new_pests:
 
   - scientific_name: "Tarsonemus pallidus"  # syn. Phytonemus pallidus (EPPO preferred name)
     common_name: Cyclamen Mite
+    common_names_i18n:
+      en: ["Cyclamen Mite"]  # the stored common_name (English)
+      de: ["Erdbeermilbe"]  # Source: https://gd.eppo.int/taxon/TARSPA
     pest_type: arachnid
     lifecycle_days: 14
     optimal_temp_min: 15.0
@@ -2686,6 +2692,9 @@ new_pests:
 
   - scientific_name: "Planococcus citri"
     common_name: Citrus Mealybug
+    common_names_i18n:
+      en: ["Citrus Mealybug"]  # the stored common_name (English)
+      de: ["Zitrusschmierlaus"]  # Source: https://de.wikipedia.org/wiki/Zitrusschmierlaus
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 20.0
@@ -2698,6 +2707,9 @@ new_pests:
 
   - scientific_name: "Coccus hesperidum"
     common_name: Brown Soft Scale
+    common_names_i18n:
+      en: ["Brown Soft Scale"]  # the stored common_name (English)
+      de: ["Weiche Schildlaus"]  # Source: https://gd.eppo.int/taxon/COCCHE
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 18.0
@@ -2709,6 +2721,9 @@ new_pests:
 
   - scientific_name: "Chaetosiphon fragaefolii"
     common_name: Strawberry Aphid
+    common_names_i18n:
+      en: ["Strawberry Aphid"]  # the stored common_name (English)
+      de: ["Erdbeerknotenhaarlaus"]  # Source: https://gd.eppo.int/taxon/CHTSFR
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 10.0
@@ -2743,6 +2758,8 @@ new_diseases:
 
   - scientific_name: "Dahlia mosaic virus"
     common_name: Dahlia Mosaic Virus
+    common_names_i18n:
+      en: ["Dahlia Mosaic Virus"]  # the stored common_name (English)
     pathogen_type: viral
     incubation_period_days: 21
     environmental_triggers: [aphid_transmission]
@@ -2763,6 +2780,9 @@ new_diseases:
 
   - scientific_name: "Phytophthora fragariae"
     common_name: Red Stele Root Rot
+    common_names_i18n:
+      en: ["Red Stele Root Rot"]  # the stored common_name (English)
+      de: ["Rote Wurzelfäule der Erdbeere"]  # Source: https://www.ages.at/pflanze/pflanzengesundheit/schaderreger-von-a-bis-z/rote-wurzelfaeule-der-erdbeere
     pathogen_type: oomycete
     incubation_period_days: 14
     environmental_triggers: [waterlogged_soil, cool_wet_conditions]
@@ -2773,6 +2793,9 @@ new_diseases:
 
   - scientific_name: "Septoria apiicola"
     common_name: Septoria Leaf Spot of Celery
+    common_names_i18n:
+      en: ["Septoria Leaf Spot of Celery"]  # the stored common_name (English)
+      de: ["Blattfleckenkrankheit: Sellerie"]  # Source: https://gd.eppo.int/taxon/SEPTAP
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [warm_humid_conditions, rain_splash]

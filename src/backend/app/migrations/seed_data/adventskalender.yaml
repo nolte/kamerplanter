@@ -1150,6 +1150,9 @@ new_pests:
 
   - scientific_name: "Phytomyza gymnostoma"
     common_name: "Allium Leafminer"
+    common_names_i18n:
+      en: ["Allium Leafminer"]  # the stored common_name (English)
+      de: ["Lauchminierfliege"]  # Source: https://de.wikipedia.org/wiki/Schnittlauch
     pest_type: insect
     lifecycle_days: 42
     optimal_temp_min: 10.0
@@ -1159,6 +1162,9 @@ new_pests:
 
   - scientific_name: "Thrips tabaci"
     common_name: "Onion Thrips"
+    common_names_i18n:
+      en: ["Onion Thrips"]  # the stored common_name (English)
+      de: ["Tabakblasenfuß"]  # Source: https://de.wikipedia.org/wiki/Tabakblasenfuß
     pest_type: insect
     lifecycle_days: 21
     optimal_temp_min: 18.0
@@ -1196,6 +1202,9 @@ new_pests:
 new_diseases:
   - scientific_name: "Puccinia porri"  # Taxonomie-Fix: aktueller Name nach Index Fungorum
     name: "Leek Rust"
+    common_names_i18n:
+      en: ["Leek Rust"]  # the stored common_name (English)
+      de: ["Rost: Porree"]  # Source: https://gd.eppo.int/taxon/PUCCPO
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [warm_humid_conditions, poor_airflow]
@@ -1204,6 +1213,9 @@ new_diseases:
 
   - scientific_name: "Alternaria dauci"
     name: "Alternaria Leaf Blight"
+    common_names_i18n:
+      en: ["Alternaria Leaf Blight"]  # the stored common_name (English)
+      de: ["Schwärze: Möhre"]  # Source: https://gd.eppo.int/taxon/ALTEDA
     pathogen_type: fungal
     incubation_period_days: 8
     environmental_triggers: [warm_humid_conditions, rain_splash]
@@ -1212,6 +1224,9 @@ new_diseases:
 
   - scientific_name: "Sclerotium cepivorum"
     name: "White Rot"
+    common_names_i18n:
+      en: ["White Rot"]  # the stored common_name (English)
+      de: ["Weißfäule: Zwiebel"]  # Source: https://gd.eppo.int/taxon/SCLOCE
     pathogen_type: fungal
     incubation_period_days: 21
     environmental_triggers: [cool_wet_soil, soil_contamination]
@@ -1220,6 +1235,9 @@ new_diseases:
 
   - scientific_name: "Cercospora beticola"
     name: "Cercospora Leaf Spot"
+    common_names_i18n:
+      en: ["Cercospora Leaf Spot"]  # the stored common_name (English)
+      de: ["Blattfleckenkrankheit: Rübe"]  # Source: https://gd.eppo.int/taxon/CERCBE
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [warm_humid_conditions, rain_splash]

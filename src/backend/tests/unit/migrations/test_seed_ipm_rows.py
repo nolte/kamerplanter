@@ -23,6 +23,7 @@ from typing import Any
 
 import pytest
 
+from app.common.enums import DataOrigin
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.migrations import seed_ipm_rows as module
 from app.migrations.seed_ipm_rows import (
@@ -167,6 +168,20 @@ class _FakeIpmRepo:
     def create_treatment(self, treatment: Treatment) -> Treatment:
         return self._stored(self.treatments, treatment, "t")
 
+    @staticmethod
+    def _replaced(rows: list[Any], key: str, row: Any) -> Any:
+        index = next(i for i, stored in enumerate(rows) if stored.key == key)
+        rows[index] = row.model_copy(update={"key": key})
+        return rows[index]
+
+    def update_pest(self, key: str, pest: Pest) -> Pest:
+        replaced: Pest = self._replaced(self.pests, key, pest)
+        return replaced
+
+    def update_disease(self, key: str, disease: Disease) -> Disease:
+        replaced: Disease = self._replaced(self.diseases, key, disease)
+        return replaced
+
     def create_targets_pest_edge(self, treatment_key: str, pest_key: str) -> None:
         self.pest_edges.add((treatment_key, pest_key))
 
@@ -200,6 +215,99 @@ class TestSeeding:
 
         assert (again.pests_created, again.diseases_created, again.treatments_created) == (0, 0, 0)
         assert (len(repo.pests), len(repo.treatments)) == (1, 1)
+
+
+_NAMED = {
+    "new_pests": [
+        {
+            "scientific_name": "Thrips tabaci",
+            "common_name": "Onion Thrips",
+            "common_names_i18n": {"en": ["Onion Thrips"], "de": ["Zwiebelthrips"]},
+        }
+    ],
+    "new_diseases": [
+        {
+            "scientific_name": "Puccinia porri",
+            "name": "Leek Rust",
+            "pathogen_type": "fungal",
+            "common_names_i18n": {"en": ["Leek Rust"], "de": ["Porree-Rost"]},
+        }
+    ],
+}
+
+
+class TestNamesReachAnExistingInstallation:
+    """#2955 — a row seeded before its map existed gets the map on the next run; nothing else changes."""
+
+    @staticmethod
+    def _seeded_without_maps() -> _FakeIpmRepo:
+        repo = _FakeIpmRepo()
+        repo.create_pest(Pest(scientific_name="Thrips tabaci", common_name="Onion Thrips", lifecycle_days=20))
+        repo.create_disease(Disease(scientific_name="Puccinia porri", common_name="Leek Rust", pathogen_type="fungal"))
+        return repo
+
+    def test_an_existing_pest_and_disease_get_the_files_map(self) -> None:
+        repo = self._seeded_without_maps()
+
+        counts = seed_ipm_rows(repo, _NAMED, source="t")  # type: ignore[arg-type]
+
+        assert counts.names_synced == 2
+        assert repo.pests[0].common_names_i18n == {"en": ["Onion Thrips"], "de": ["Zwiebelthrips"]}
+        assert repo.pests[0].common_name_de == "Zwiebelthrips"
+        assert repo.diseases[0].common_names_i18n == {"en": ["Leek Rust"], "de": ["Porree-Rost"]}
+
+    def test_the_sync_rewrites_only_the_names(self) -> None:
+        repo = self._seeded_without_maps()
+
+        seed_ipm_rows(repo, _NAMED, source="t")  # type: ignore[arg-type]
+
+        assert (repo.pests[0].key, repo.pests[0].lifecycle_days) == ("p0", 20)
+        assert (repo.diseases[0].key, repo.diseases[0].common_name) == ("d0", "Leek Rust")
+
+    def test_a_second_run_syncs_nothing(self) -> None:
+        repo = self._seeded_without_maps()
+        seed_ipm_rows(repo, _NAMED, source="t")  # type: ignore[arg-type]
+
+        again = seed_ipm_rows(repo, _NAMED, source="t")  # type: ignore[arg-type]
+
+        assert again.names_synced == 0
+
+    def test_a_row_the_file_names_without_a_map_keeps_its_stored_map(self) -> None:
+        repo = _FakeIpmRepo()
+        stored = {"en": ["Clubroot"], "de": ["Kohlhernie"]}
+        repo.create_disease(
+            Disease(
+                scientific_name="Plasmodiophora brassicae",
+                common_name="Clubroot",
+                common_names_i18n=stored,
+                pathogen_type="protist",
+            )
+        )
+        file = {
+            "new_diseases": [
+                {"scientific_name": "Plasmodiophora brassicae", "name": "Kohlhernie", "pathogen_type": "protist"}
+            ]
+        }
+
+        counts = seed_ipm_rows(repo, file, source="t")  # type: ignore[arg-type]
+
+        assert (counts.names_synced, repo.diseases[0].common_names_i18n) == (0, stored)
+
+    def test_a_tenants_disease_keeps_the_names_its_owner_gave_it(self) -> None:
+        repo = _FakeIpmRepo()
+        repo.create_disease(
+            Disease(
+                scientific_name="Puccinia porri",
+                common_name="Lauchrost (unser Name)",
+                pathogen_type="fungal",
+                origin=DataOrigin.TENANT,
+            )
+        )
+
+        counts = seed_ipm_rows(repo, _NAMED, source="t")  # type: ignore[arg-type]
+
+        assert counts.names_synced == 0  # the pest is created, the disease left alone
+        assert repo.diseases[0].common_names_i18n == {}
 
 
 def _sources_handed_to_seed_ipm_rows() -> set[str]:

@@ -24,6 +24,22 @@ from app.domain.models.pest_taxonomy import get_taxon
 from app.domain.services.pest_detection_registry import PestDetectionAdapterRegistry
 
 
+def _placeholder(slug: str, confidence: float, mode: PestFindingMode, box: BoundingBox | None = None) -> PestFinding:
+    """A placeholder finding named and categorised by the taxonomy, like a real one."""
+    taxon = get_taxon(slug)
+    if taxon is None:  # a slug the taxonomy dropped: fail loudly, not with a nameless finding
+        raise LookupError(f"demo pest adapter: unknown taxon {slug!r}")
+    return PestFinding(
+        label=slug,
+        category=taxon.category,
+        common_name=taxon.common_name_de,
+        common_names_i18n=taxon.names_i18n(),
+        confidence=confidence,
+        mode=mode,
+        bounding_box=box,
+    )
+
+
 @PestDetectionAdapterRegistry.register
 class DemoPestAdapter(PestDetectionAdapter):
     """Placeholder adapter for previewing the UI without a real model."""
@@ -41,24 +57,11 @@ class DemoPestAdapter(PestDetectionAdapter):
         # overlay) and one symptom (box-less), both above the abstention floor so
         # the inspection CTA appears. Categories/common names come from the
         # verified taxonomy so the mapping path is exercised too.
-        spider = get_taxon("spider_mite")
-        aphid = get_taxon("aphid")
         findings = [
-            PestFinding(
-                label="spider_mite",
-                category=spider.category,
-                common_name=spider.common_name_de,
-                confidence=0.62,
-                mode=PestFindingMode.DIRECT,
-                bounding_box=BoundingBox(x=0.30, y=0.28, width=0.22, height=0.20),
+            _placeholder(
+                "spider_mite", 0.62, PestFindingMode.DIRECT, BoundingBox(x=0.30, y=0.28, width=0.22, height=0.20)
             ),
-            PestFinding(
-                label="aphid",
-                category=aphid.category,
-                common_name=aphid.common_name_de,
-                confidence=0.48,
-                mode=PestFindingMode.SYMPTOM,
-            ),
+            _placeholder("aphid", 0.48, PestFindingMode.SYMPTOM),
         ]
         return PestDetectionResult(
             findings=findings,

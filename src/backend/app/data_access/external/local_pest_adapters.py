@@ -32,9 +32,11 @@ def _finding_from_raw(raw: dict[str, Any], *, default_mode: PestFindingMode) -> 
     """
     label = raw["label"]
     taxon = get_taxon(label)
+    names_i18n: dict[str, list[str]] = {}
     if taxon is not None:
         category = taxon.category
         common_name = taxon.common_name_de
+        names_i18n = taxon.names_i18n()
     else:
         category = PestFindingCategory(raw.get("category", PestFindingCategory.UNKNOWN.value))
         common_name = raw.get("common_name", label)
@@ -48,6 +50,7 @@ def _finding_from_raw(raw: dict[str, Any], *, default_mode: PestFindingMode) -> 
         label=label,
         category=category,
         common_name=common_name,
+        common_names_i18n=names_i18n,
         confidence=float(raw["confidence"]),
         mode=PestFindingMode(raw.get("mode", default_mode.value)),
         bounding_box=bbox,

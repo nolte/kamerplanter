@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, ONNX Runtime (quantisierte Detektoren + Tiling), optional Kindwise-Cloud-API (crop.health/insect.id), optional lokales VLM (LLaVA/Qwen2.5-VL/Agri-LLaVA) + RAG (REQ-031), React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.4 (eigener Consent-Zweck `pest_reference_contribution` für den Few-Shot-Index statt `reference_contribution`; Betreiberentscheidung 2026-10-09); 1.3 (Few-Shot-Index nur mit Einwilligung der beitragenden Person; Betreiberentscheidung 2026-10-09); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
+Version: 1.5 (Befunde tragen die Namen ihres Taxons je Sprache, `common_names_i18n`); 1.4 (eigener Consent-Zweck `pest_reference_contribution` für den Few-Shot-Index statt `reference_contribution`; Betreiberentscheidung 2026-10-09); 1.3 (Few-Shot-Index nur mit Einwilligung der beitragenden Person; Betreiberentscheidung 2026-10-09); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `recognition`), REQ-010 v1.1 (IPM — Pests/Inspections/Treatments, Karenz-Gate, Ziel der Befund-Brücke), REQ-043 v1.0 (Health-Fusion — konsumiert das Schädlings-Bild-Signal), REQ-038 v1.1 (CV-Pflanzendiagnose — geteilte Vision-/Tiling-Infrastruktur), REQ-029 v1.0 (Adapter-Interface, EXIF/Consent), REQ-029-A v1.2 (Self-Hosted-Inferenz-Infrastruktur, ONNX), REQ-031 v2.0 (Knowledge-Service / RAG für Erklärungs-Layer), REQ-025 v1.36 (DSGVO/Consent, Zweck `pest_reference_contribution`), REQ-013 v2.0 (PlantInstance/Run), REQ-021 v1.0 (Erfahrungsstufen)
 Wird benoetigt von: —
 ```
@@ -20,6 +20,7 @@ Wird benoetigt von: —
 | 1.1 | 2026-06-20 | Offene Punkte (§10) durch fokussierte Recherche geklärt (`spec/analysis/pest-detection-implementation-prep.md`): **Modellwahl korrigiert — YOLO entfällt (AGPL-3.0), RF-DETR-S/D-FINE (Apache-2.0)**; **Cloud-Produkt korrigiert — `plant.health` statt `crop.health` für Indoor**; Architektur-Präzisierung **zwei Domänen** (on-leaf Few-Shot-Klassifikation via DINOv2 / Gelbtafel RF-DETR+SAHI); Abstention-Schwelle als Tag-1-Default + Risk-Coverage-Verfahren. <!-- Quelle: spec/analysis/pest-detection-implementation-prep.md --> |
 | 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen (Erkennen, Feedback, Inspektion ab Gärtner; Lesen für jedes Mitglied; Einwilligung im Dienst). |
 | 1.3 | 2026-10-09 | **Consent-Gates (PR #2208), Betreiberentscheidung 2026-10-09:** „aus Nutzerbildern (mit Consent)“ (§3.2) konkretisiert — ein von einer Plattform-Admin freigegebenes Schädlingsbild gelangt nur dann in den Few-Shot-Index, wenn die **beitragende Person** die Einwilligung `reference_contribution` (REQ-025) erteilt hat. Ohne sie bleibt das Bild freigegeben (Galerie), wird aber nicht indexiert; im Light-Modus wird nie indexiert. Consent-Zeile in §8 ergänzt. |
+| 1.5 | 2026-11-15 | **#2955 — Befundnamen je Sprache:** Ein Befund nannte sich nur mit dem deutschen Namen des Taxons (`common_name`), eine englische Oberfläche zeigte „Gemeine Spinnmilbe“. `PestFinding` trägt jetzt zusätzlich `common_names_i18n` aus `PestTaxon.names_i18n()`. Jeder Schädling der Taxonomie hat dafür einen englischen Namen mit Quelle (E-10, Quelle im Code neben dem Wert). Ein Label außerhalb der Taxonomie und ein vor der Änderung gespeicherter Befund haben keine Karte; die Oberfläche zeigt dann `common_name`. Die Admin-Übersicht der Erkennungsklassen (`PestCoverageEntry`) trägt dieselbe Karte. Die Anzeige folgt UI-NFR-007 R-009a. |
 | 1.4 | 2026-10-09 | **Eigener Consent-Zweck für den Few-Shot-Index (PR #2208, Betreiberentscheidung 2026-10-09, später am selben Tag):** Der Index verlangt `pest_reference_contribution` (REQ-025 v1.36) statt `reference_contribution` — dessen Text nennt nur Galerie-Fotos von Pflanzen und deckt den Schädlingsindex nicht ab. Bestehende `reference_contribution`-Einwilligungen gelten hier **nicht**; Beitragende müssen neu einwilligen. §3.2 und §8 angepasst. |
 
 ## 0. Verhältnis zu benachbarten REQs (verbindliche Abgrenzung)
@@ -172,7 +173,8 @@ class PestFinding(BaseModel):
     """Ein erkannter Schädlings- oder Schadbild-Befund."""
     label: str
     category: str            # 'pest' | 'beneficial' | 'symptom' | 'unknown'
-    common_name: str
+    common_name: str         # deutscher Name des Taxons bzw. Label des Adapters
+    common_names_i18n: dict[str, list[str]] = {}   # v1.5: Namen je Sprache (PestTaxon.names_i18n)
     confidence: float = Field(ge=0.0, le=1.0)
     mode: str                # 'direct' | 'symptom'
     bounding_box: BoundingBox | None = None

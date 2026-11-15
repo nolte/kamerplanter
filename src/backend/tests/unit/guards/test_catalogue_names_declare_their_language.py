@@ -35,12 +35,7 @@ import app.domain.interfaces as interfaces_pkg
 import app.domain.models as models_pkg
 
 #: ``module.Class`` -> why a single-language name is accepted there. Keep it short.
-_ALLOWED: dict[str, str] = {
-    "app.domain.interfaces.pest_detection_adapter.PestFinding": (
-        "a detection finding carries the taxon's German name (PestTaxon.common_name_de); the "
-        "detection taxonomy has sourced English names only for four beneficials so far (#2936)"
-    ),
-}
+_ALLOWED: dict[str, str] = {}
 
 
 def _models() -> dict[str, type[BaseModel]]:
@@ -74,6 +69,7 @@ def test_the_scan_sees_the_known_name_carriers() -> None:
         "app.domain.models.beneficial.Beneficial",
         "app.domain.models.botanical_family.BotanicalFamily",
         "app.domain.models.pest_taxonomy.PestTaxon",
+        "app.domain.interfaces.pest_detection_adapter.PestFinding",
     } <= names
 
 
