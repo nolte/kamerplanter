@@ -158,6 +158,11 @@ SYSTEM_SETTINGS = "system_settings"
 # NFR-016 Schema-migration tracking (versioned migration framework)
 SCHEMA_MIGRATIONS = "schema_migrations"
 
+# spec/privacy/09 §2 (PRIV-701) — the redacted report of every privacy migration run, dry run and real
+# run: the operator's proof of a migration run. Counts, collection/field names, tenant and row keys only;
+# no personal data (``app.migrations.framework.report_store``).
+MIGRATION_REPORTS = "migration_reports"
+
 # REQ-027 §7a (#1855) — installation-wide bookkeeping of the deployment mode: the mode the last
 # start ran in (``deployment_mode``) and an open light-to-full take-over (``pending_takeover``).
 SYSTEM_META = "system_meta"
@@ -359,6 +364,7 @@ DOCUMENT_COLLECTIONS = [
     SENSORS,
     SYSTEM_SETTINGS,
     SCHEMA_MIGRATIONS,
+    MIGRATION_REPORTS,
     SYSTEM_META,
     HA_PUBLISH_SETTINGS,
     LOCATION_TYPES,

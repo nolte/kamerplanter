@@ -73,6 +73,24 @@ def test_accounts_are_mapped_or_pseudonymised() -> None:
     assert [row["created_by"] for row in rows] == ["acc-lead", "_anonymized"]
 
 
+def test_a_first_generation_tombstone_is_kept_but_a_tenant_bound_pseudonym_becomes_the_marker() -> None:
+    """PRIV-238: an ``anon2_`` value is bound to its source tenant; in the target it would link tenants."""
+    archive = _archive(
+        plant_instances=[{"_key": "p1", "tenant_key": SOURCE}],
+        plant_diary_entries=[
+            {"_key": "d1", "tenant_key": SOURCE, "plant_key": "p1", "created_by": "anon_0123456789abcdef"},
+            {"_key": "d2", "tenant_key": SOURCE, "plant_key": "p1", "created_by": "anon2_0123456789abcdef"},
+        ],
+    )
+    engine = _engine(archive)
+    rows = [
+        engine.remap_document("plant_diary_entries", d, existing_global=set())
+        for d in archive.collections["plant_diary_entries"]
+    ]
+
+    assert [row["created_by"] for row in rows] == ["anon_0123456789abcdef", "_anonymized"]
+
+
 def test_a_dangling_internal_pointer_is_cleared_never_kept() -> None:
     archive = _archive(plant_instances=[{"_key": "p1", "tenant_key": SOURCE, "mother_key": "gone", "slot_keys": []}])
     engine = _engine(archive)

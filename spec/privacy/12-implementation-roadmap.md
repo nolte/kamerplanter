@@ -60,6 +60,10 @@ Offline · **P3** Governance, Monitoring, Compliance.
   **`privacy.consistency` Minimalform** (nur Zähler Bucket 3 + Metrik; DEC-28).
 - **Abhängigkeiten**: E01, E03. **Akzeptanz**: TA-700, TA-701, TA-701a, TA-207, TA-209, TA-202. **Gate**: ja;
   DEC-16 braucht Betreiberfreigabe (Produktentscheidung, keine Rechtsfrage).
+- **Stand (2026-11-15)**: umgesetzt (Betreiberfreigabe 2026-11-15, DEC-16/DEC-28 `accepted`). Aus E03 vorgezogen:
+  die eine Definition von Marker und Tombstone-Regex beider Generationen (PRIV-201, TA-200); die `anon2_`-Ableitung
+  (PRIV-238) und der Residue-Scan bleiben E03. Offen: PRIV-704 (Trockenlauf gegen einen Produktions-Snapshot,
+  `python -m app.migrations upgrade --dry-run --report-out <pfad>`, Bericht ins Release-Dokument).
 
 ### P1
 
@@ -206,7 +210,7 @@ Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rech
 | E01 Rest (PRIV-003/119 Principal Queue/MCP, PRIV-207 Filter, Schalter `PRIVACY_BACKFILL_COPIES_PERFORMER`) | READY | PRIV-003 in #2517 geparkt — Betreiber entscheidet, ob vor LEG-05 | DA-02; `03` §4 | kleine Lane oder mit E04 |
 | E02 (PRIV-104) | READY | — | VERIFIED_CODE (Join ohne `is_active`) | Lane |
 | E03 (PRIV-201, 234, 238) | READY | DEC-25 Betreiberfreigabe (Format) | L-14, L-15; VERIFIED_CODE | Lane |
-| E04 (PRIV-701…704, 718; DEC-16) | READY | DEC-16 Betreiberfreigabe | VERIFIED_CODE (Framework), `09` §2a | Dry-Run auf Prod-Snapshot |
+| E04 (PRIV-701…704, 718; DEC-16) | DONE (2026-11-15) | — (DEC-16 freigegeben 2026-11-15) | VERIFIED_CODE, `09` §2a/§3 | Dry-Run auf Prod-Snapshot (PRIV-704) offen |
 | E05 (PRIV-001…008, 609, 610) | READY | — | VERIFIED_CODE (Inventarmodelle) | Lane |
 | E06 (PRIV-111…118) | READY | — (LEG-06 Default 90 d, einschränkend) | VERIFIED_CODE (Austritt), DA-02 | Lane |
 | E07 Warteschlange/Entdeckung/Schwärzung | READY | — | DA-05 | Lane |

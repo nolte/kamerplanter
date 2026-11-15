@@ -18,6 +18,7 @@ from arango.database import StandardDatabase, TransactionDatabase
 from app.common.log_privacy import log_tenant
 from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, ErasureEngine
 from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
+from app.domain.models.privacy import TOMBSTONE_REGEX
 from app.domain.models.tenant_erasure import (
     TenantErasureEntry,
     TenantErasureOutcome,
@@ -32,8 +33,8 @@ logger = structlog.get_logger()
 #: empty or malformed key must never reach a filter.
 _TENANT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:@()=;$!*',+%-]+$")
 
-#: The shape :meth:`ErasureEngine.compute_tombstone_hash` produces, for AQL.
-_TOMBSTONE_REGEX = "^anon_[0-9a-f]{16}$"
+#: Both tombstone generations, for AQL (the one definition, PRIV-201).
+_TOMBSTONE_REGEX = TOMBSTONE_REGEX
 
 _SELECT_KEYS = "FOR doc IN @@collection FILTER {match} RETURN doc._key"
 

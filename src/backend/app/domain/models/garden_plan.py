@@ -17,7 +17,16 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    TypeAdapter,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SiteType, SlotRole, SunExposure, SunWindow
 from app.domain.calculators.sun_calculator import SunDirections
@@ -735,3 +744,8 @@ class GardenPlanView(BaseModel):
     #: Today's sunrise and sunset directions at the site (GP-FR-016); ``None`` without ``gps_coordinates`` and on a
     #: day without sunrise or sunset.
     sun_directions: SunDirections | None = None
+
+    @field_serializer("area_type_keys", "bed_type_keys")
+    def _sorted_keys(self, keys: frozenset[str]) -> list[str]:
+        # A frozenset iterates in an order that depends on how it was built; the dump must not (#2526 equality).
+        return sorted(keys)

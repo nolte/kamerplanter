@@ -6,17 +6,26 @@
 idempotent up/down stubs, a :class:`MigrationReport` return and a docstring for
 free.  Everything else operates against the live database resolved via the
 dependency layer.
+
+``upgrade --report-out <path>`` (spec/privacy PRIV-702) also writes the redacted
+reports of the privacy migrations of the run as JSON — typically with
+``--dry-run``, as the release evidence (``.audits/prod-release``).  The same
+redacted form is what ``migration_reports`` stores.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
 
+from app.migrations.framework.base import Migration
 from app.migrations.framework.report import MigrationReport
+from app.migrations.framework.report_store import report_document
 from app.migrations.framework.runner import MigrationRunner
 
 logger = structlog.get_logger()
@@ -97,28 +106,61 @@ def scaffold_migration(slug: str) -> Path:
 
 
 def _format_report(report: MigrationReport) -> str:
-    return (
+    line = (
         f"  {report.version} {report.name}: scanned={report.scanned} "
         f"changed={report.changed} dry_run={report.dry_run} duration_ms={report.duration_ms}"
     )
+    if report.precondition_unmet or report.incomplete:
+        # Left pending by the runner; the next boot runs it again.
+        line += f" LEFT PENDING ({'precondition_unmet' if report.precondition_unmet else 'incomplete'})"
+    return line
+
+
+def write_report_file(path: Path, migrations: list[Migration], reports: list[MigrationReport], *, dry_run: bool) -> int:
+    """Write the redacted reports of the privacy migrations among *reports* to *path*; return how many.
+
+    Only migrations that declare a ``kind`` are written — the others carry free-form ``details``
+    no redaction shape covers, and their counters are on stdout already.
+    """
+    by_version = {migration.version: migration for migration in migrations}
+    documents = [
+        report_document(by_version[report.version], report)
+        for report in reports
+        if report.version in by_version and by_version[report.version].kind is not None
+    ]
+    payload = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "dry_run": dry_run,
+        "reports": documents,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return len(documents)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app.migrations", description="Kamerplanter migration framework")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    upgrade = sub.add_parser("upgrade", help="apply pending migrations")
+    upgrade: argparse.ArgumentParser = sub.add_parser("upgrade", help="apply pending migrations")
     upgrade.add_argument("--to", dest="target", default=None, help="apply up to this version (inclusive)")
     upgrade.add_argument("--dry-run", action="store_true", help="compute reports without writing")
+    upgrade.add_argument(
+        "--report-out",
+        dest="report_out",
+        type=Path,
+        default=None,
+        help="write the redacted reports of the privacy migrations as JSON to this path",
+    )
 
-    downgrade = sub.add_parser("downgrade", help="roll back migrations above --to")
+    downgrade: argparse.ArgumentParser = sub.add_parser("downgrade", help="roll back migrations above --to")
     downgrade.add_argument("--to", dest="target", required=True, help="target version to roll back to (inclusive)")
     downgrade.add_argument("--dry-run", action="store_true", help="compute reports without writing")
 
     sub.add_parser("current", help="print the highest applied version")
     sub.add_parser("history", help="print the applied-migration history")
 
-    create = sub.add_parser("create", help="scaffold the next migration module")
+    create: argparse.ArgumentParser = sub.add_parser("create", help="scaffold the next migration module")
     create.add_argument("slug", help="lower_snake_case slug for the new migration")
 
     return parser
@@ -149,6 +191,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{'Planned' if args.dry_run else 'Applied'} {len(reports)} migration(s):")  # noqa: T201
             for report in reports:
                 print(_format_report(report))  # noqa: T201
+        if args.report_out is not None:
+            written = write_report_file(args.report_out, runner.migrations, reports, dry_run=args.dry_run)
+            print(f"Wrote {written} privacy migration report(s) to {args.report_out}")  # noqa: T201
         return 0
 
     if args.command == "downgrade":

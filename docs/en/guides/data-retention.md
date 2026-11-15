@@ -992,6 +992,56 @@ first with `python -m app.migrations upgrade --dry-run`.
 
 ---
 
+## Migration v0109: Correcting Copied Pseudonyms
+
+After an account is erased, the person's pseudonym (`anon_…`) stays only where it is meant to —
+in harvest, treatment and inspection records and in the audit logs. Older code paths copied it
+into places where only the "anonymised" marker (`_anonymized`) belongs. The migration
+`v0109_privacy_tombstone_copies` cleans this up:
+
+1. **Care log:** the performer and the author of an entry become the marker where they hold a
+   pseudonym.
+2. **Garden plan change log:** the person who made a change becomes the marker. From this
+   version on, every new account erasure does the same — the log no longer links erased people
+   through a pseudonym.
+3. **Attachments:** the original file name of an attachment whose uploader was erased is
+   cleared. A camera or phone file name often carries a name. This also applies to every new
+   account erasure from now on.
+4. **Every other field** holding a pseudonym is only **counted**, never changed. A count above 0
+   is a finding for operations.
+
+The migration processes every garden except those already deleted — suspended gardens and
+gardens pending deletion included. Each garden runs in its own transaction. If one fails, only
+that garden is rolled back, the others carry on, and the migration counts as not applied: the
+next start runs it again. Afterwards it counts again. If anything is left, it also counts as not
+applied.
+
+### Producing the report beforehand
+
+Run a dry run before the upgrade and write the report to a file:
+
+```bash
+python -m app.migrations upgrade --dry-run --report-out /tmp/v0109-dry-run.json
+```
+
+For every privacy migration the file holds the counts per step and per garden, the phases
+(`precheck`, `dry_run`, `apply`, `verify`) and up to 25 sample row keys per step. It holds no
+person keys, no names, no text and no pseudonyms. The application stores the same report for
+every run — dry run and real run — in the `migration_reports` collection.
+
+!!! danger "Not reversible"
+    The replaced pseudonyms and the cleared file names cannot be restored. The dry-run report is
+    the record of what was changed.
+
+### Daily check
+
+The Celery task `privacy.consistency` (daily at 05:20 UTC) counts pseudonyms in fields that must
+not hold one. It changes nothing. Output: the log line `privacy_consistency.completed`, on a
+finding also the warning `privacy_consistency.undeclared_tombstones`, and the metric
+`privacy_undeclared_tombstones{cell="<collection>.<field>"}`.
+
+---
+
 ## Legacy data: cleaning up Home Assistant readings from before the fix
 
 Until the Home Assistant poll was fixed, Kamerplanter stored every polled reading with an

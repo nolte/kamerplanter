@@ -398,6 +398,10 @@ class TenantImportEngine:
         if kind == "tenant":
             return self._rewrite_tenant(value)
         if kind == "account":
+            if value.startswith("anon2_"):
+                # PRIV-238: a second-generation pseudonym is bound to the tenant that wrote it; carried
+                # into another tenant it would link rows across tenants, so it becomes the marker.
+                return ANONYMIZED_ACCOUNT
             if is_tombstone_or_pseudonym(value):
                 return value
             return self._members.get(value, ANONYMIZED_ACCOUNT)

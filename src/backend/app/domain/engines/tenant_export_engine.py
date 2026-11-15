@@ -62,6 +62,7 @@ from app.common.csv_export import csv_number, csv_text
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.observation import ArchivedReading
+from app.domain.models.privacy import ANONYMIZED_MARKER, is_tombstone
 from app.domain.models.tenant_erasure import TenantErasureEntry
 from app.domain.models.tenant_export import TenantArchive, TenantArchiveMember
 
@@ -112,11 +113,9 @@ _COLLECTION_NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 #: An object path inside ``objects/`` — the tail of a ``t/<tenant>/…`` key, never climbing out.
 _OBJECT_PATH = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]{0,511}$")
 
-#: An account value that is no account: the pseudonym, the account-erasure tombstone, or nothing.
-_TOMBSTONE = re.compile(r"^anon_[0-9a-f]{16}$")
-
-#: The pseudonym an unmapped member's account references become (REQ-056 §8.4 step 4).
-ANONYMIZED_ACCOUNT = "_anonymized"
+#: The pseudonym an unmapped member's account references become (REQ-056 §8.4 step 4): the erasure
+#: marker, defined once in ``app.domain.models.privacy`` (PRIV-201).
+ANONYMIZED_ACCOUNT = ANONYMIZED_MARKER
 
 type ReferenceKind = Literal[
     "internal",  # a row of the archive (mapped), else a global catalogue row when a target is a catalogue
@@ -1307,4 +1306,4 @@ def _require_name(collection: str, part: str) -> None:
 
 def is_tombstone_or_pseudonym(value: str) -> bool:
     """Whether an account value is no live account key (the pseudonym or an erasure tombstone)."""
-    return value == ANONYMIZED_ACCOUNT or bool(_TOMBSTONE.match(value))
+    return value == ANONYMIZED_ACCOUNT or is_tombstone(value)

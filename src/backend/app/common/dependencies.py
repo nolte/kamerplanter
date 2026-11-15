@@ -54,6 +54,7 @@ from app.data_access.arango.tank_repository import ArangoTankRepository
 from app.data_access.arango.task_completion_repository import ArangoTaskCompletionRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
+from app.data_access.arango.tombstone_census import ArangoTombstoneCensus
 from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
@@ -661,6 +662,11 @@ def get_care_event_repo() -> ArangoCareEventRepository:
 def get_care_event_gap_reader() -> ArangoCareEventGapReader:
     """REQ-053 WP 8.2 — the domain events that lack a care event (the daily consistency job)."""
     return ArangoCareEventGapReader(get_db())
+
+
+def get_tombstone_census() -> ArangoTombstoneCensus:
+    """spec/privacy PRIV-206 / DEC-28 — the tombstone count of the daily ``privacy.consistency`` beat."""
+    return ArangoTombstoneCensus(get_db())
 
 
 def get_care_event_service() -> CareEventService:
