@@ -964,6 +964,58 @@ class ErasureEngine:
                 "never stamped from the caller's account."
             ),
         ),
+        # spec/privacy 08 §3.4 / 09 §5 (v0111): the keyed successors of the free-text fields above. Every
+        # stored value is null — v0111 writes an explicit null and no path stamps an account yet (no request
+        # schema carries the field, PRIV-705). PRIV-E13 stamps them server-side and, in the same change,
+        # replaces each of these exclusions by a marker rule (02: "nach Migration: Marker").
+        ErasureExclusion(
+            collection="watering_events",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="watering_logs",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="maintenance_logs",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="tank_fill_events",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="nutrient_plans",
+            user_field="author_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="workflow_templates",
+            user_field="created_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
         ErasureExclusion(
             collection="task_audit_entries",
             user_field="changed_by",

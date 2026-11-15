@@ -1098,6 +1098,50 @@ keine stehen dürfen. Er ändert nichts. Ergebnis: die Log-Zeile
 
 ---
 
+## Migration v0110: Aufbewahrungspflicht bestehender Gärten einordnen
+
+Ein Garten kann gesetzlich verpflichtet sein, Nachweise aufzubewahren, etwa eine Anbauvereinigung
+nach KCanG oder ein Betrieb mit Pflanzenschutz-Aufzeichnungen. Neue Felder in den
+Garten-Einstellungen halten fest, ob das so ist (`record_keeping`) und welche Art von Organisation
+der Garten ist (`organization_kind`). Die Migration `v0110_tenant_record_keeping_default` setzt für
+bestehende Gärten einen Startwert:
+
+- **Persönlicher Garten:** `record_keeping = none`. `organization_kind` bleibt leer.
+- **Organisationsgarten:** `record_keeping = legacy` und `organization_kind = unknown_legacy`. Das
+  heißt: „noch nicht eingeordnet“. Wer den Garten verwaltet, sollte die richtige Einordnung
+  nachtragen.
+
+Ein Wert, der schon gesetzt ist, bleibt unverändert. Die Migration ist **reversibel**: Der
+Rückweg entfernt nur die beiden Startwerte `legacy` und `unknown_legacy`, also nichts, was danach
+jemand bewusst eingetragen hat.
+
+## Migration v0111: Ausführende Person neben dem Freitext
+
+Wer gegossen, einen Tank befüllt oder gewartet, einen Düngeplan geschrieben oder eine
+Workflow-Vorlage angelegt hat, steht bisher als frei eingetippter Text in der Zeile
+(`performed_by`, `author`, `created_by`). Ein Name ist aber kein Konto: Auskunft und Löschung
+erreichen ihn nicht, und aus einem Namen lässt sich kein Konto sicher ableiten. Die Migration
+`v0111_keyed_performers` legt deshalb neben jedem dieser Felder zwei neue an:
+
+- `…_user_key` — das Konto der ausführenden Person. Die Migration setzt es **nie**; es bleibt
+  leer, bis die Anwendung es bei neuen Einträgen selbst stempelt.
+- `…_label` — eine Bezeichnung für eine Person ohne Konto, höchstens 80 Zeichen. Die Migration
+  übernimmt den bisherigen Freitext dorthin, gekürzt auf 80 Zeichen.
+
+Betroffen sind Gieß-Ereignisse, Gießprotokolle, Tankbefüllungen, Tankwartungen, Düngepläne und
+Workflow-Vorlagen. Einen Sonderfall gibt es bei Kontrollen, die über die MCP-Schnittstelle erfasst
+wurden (`inspector = "mcp:<schlüssel>"`): Gehört der Schlüssel zu einem bestehenden
+**Dienstkonto**, das Mitglied dieses Gartens ist, wird er als Konto der Kontrolle eingetragen und
+der Text geleert. Sonst bleibt alles, wie es war.
+
+Die Migration bearbeitet nur **aktive** Gärten, jeden in einer eigenen Transaktion. Globale
+Katalogeinträge (System-Düngepläne und -Vorlagen) bleiben unberührt. Die alten Felder bleiben
+erhalten. Die Migration ist **reversibel**: Der Rückweg entfernt leere Kontofelder und Bezeichnungen,
+die noch die unveränderte Kopie des Freitexts sind. Die Zuordnung der MCP-Kontrollen nimmt er nicht
+zurück.
+
+---
+
 ## Altbestand: Home-Assistant-Messwerte vor der Korrektur bereinigen
 
 Bis zur Korrektur der Home-Assistant-Abfrage legte Kamerplanter jede abgefragte Messung mit

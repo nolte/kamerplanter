@@ -33,6 +33,12 @@ def is_tombstone(value: object) -> bool:
     return isinstance(value, str) and TOMBSTONE_PATTERN.fullmatch(value) is not None
 
 
+#: The longest display label of a person without an account who did the work or wrote the
+#: document (``performed_by_label``, ``author_label``; spec/privacy ``08`` §3.4, SR-006). A
+#: label is free text for a third party; it is never read as an account key (PRIV-705).
+PERSON_LABEL_MAX_LENGTH = 80
+
+
 # ── Type aliases ───────────────────────────────────────────────────
 
 type DataExportRequestKey = str

@@ -553,7 +553,10 @@ class TenantExportEngine:
 
     #: Per-collection overrides and additions (paths are dot-separated; lists are walked transparently).
     COLLECTION_REFERENCES: dict[str, dict[str, TenantReference]] = {
-        "nutrient_plans": {"cloned_from_key": _internal("nutrient_plans")},
+        # spec/privacy 08 §3.4 / 09 §5 (v0111): the keyed performer/author fields are account keys. Declared by
+        # hand while ErasureEngine.EXCLUDED_USER_REFERENCES (not a rule) holds them: account_fields() reads the
+        # rules only. A null — every stored value until PRIV-E13 — passes the import unchanged.
+        "nutrient_plans": {"cloned_from_key": _internal("nutrient_plans"), "author_user_key": _ACCOUNT_REF},
         "nutrient_plan_phase_entries": {
             "plan_key": _internal("nutrient_plans"),
             "delivery_channels.fertilizer_dosages.fertilizer_key": _internal("fertilizers"),
@@ -598,10 +601,21 @@ class TenantExportEngine:
         "mold_alerts": {"batch_key": _internal("post_harvest_batches")},
         "burping_events": {"batch_key": _internal("post_harvest_batches")},
         "propagation_events": {"batch_key": _internal("propagation_batches")},
-        "tank_fill_events": {"fertilizers_used.product_key": _internal("fertilizers")},
-        "watering_events": {"fertilizers_used.product_key": _internal("fertilizers")},
+        "tank_fill_events": {
+            "fertilizers_used.product_key": _internal("fertilizers"),
+            "performed_by_user_key": _ACCOUNT_REF,
+        },
+        "watering_events": {
+            "fertilizers_used.product_key": _internal("fertilizers"),
+            "performed_by_user_key": _ACCOUNT_REF,
+        },
+        "maintenance_logs": {"performed_by_user_key": _ACCOUNT_REF},
         "feeding_events": {"fertilizers_used.fertilizer_key": _internal("fertilizers")},
-        "watering_logs": {"fertilizers_used.fertilizer_key": _internal("fertilizers")},
+        "watering_logs": {
+            "fertilizers_used.fertilizer_key": _internal("fertilizers"),
+            "performed_by_user_key": _ACCOUNT_REF,
+        },
+        "workflow_templates": {"created_by_user_key": _ACCOUNT_REF},
         "plant_diary_entries": {"environment.sensor_key": _internal("sensors")},
         "inspections": {"findings.disease_key": _global("diseases"), "findings.pest_key": _global("pests")},
         "pest_detections": {

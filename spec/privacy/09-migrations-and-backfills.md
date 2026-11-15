@@ -28,7 +28,9 @@ Tombstone-Spiegel umgestellt (§6, DEC-26), Flags für datenvernichtende Schritt
 - Konsistenz-Job `care_events.consistency` existiert (05:10 UTC, `ActiveTenants`-Gate, Fenster 7 d). Seit v0109
   existiert der Datenschutz-Konsistenz-Beat `privacy.consistency` in **Minimalform** (05:20 UTC, nur lesend, zählt
   Tombstones außerhalb der Allowlist je Zelle, Gauge `privacy_undeclared_tombstones{cell}`, kein Endpunkt; DEC-28).
-- Neueste Datenschutz-Version: `v0109_privacy_tombstone_copies` (2026-11-15, VERIFIED_CODE; §3). Davor
+- Neueste Datenschutz-Version: `v0111_keyed_performers` (2026-11-15, VERIFIED_CODE; §5, erster
+  `data_backfill`), davor `v0110_tenant_record_keeping_default` (§4) und `v0109_privacy_tombstone_copies`
+  (2026-11-15, VERIFIED_CODE; §3). Davor
   `v0108_location_tent_fields` (REQ-053, keine Datenschutzmigration) und
   `v0107_care_event_tombstone_performer` (#2839, gemergt 2026-11-09, VERIFIED_CODE): ersetzt
   Tombstones in `care_events.performed_by_user_key` durch `_anonymized` (eingefrorene Regex `^anon_[0-9a-f]{16}$`,
@@ -157,14 +159,49 @@ Bericht: Zähler je Collection; Audit `TENANT_RECORD_KEEPING_CHANGED`. Rollback:
 
 ## 5. M-P3 — Freitext-Ausführendenfelder → Schlüsselfelder (E13)
 
-**Migration `v0111_keyed_performers`** (`kind = data_backfill` für die Feldanlage; additiv):
+**Stand (2026-11-15, VERIFIED_CODE): Migration und Modellfelder umgesetzt**; Request-Schemas („Ich war es /
+jemand anderes“), serverseitiges Stempeln, Marker-Regeln der Löschung, Beats und `data_controller` sind offen
+(Rest von E13). Discovery-Ergebnis gegen den Code (Abweichungen von der Tabelle v1.1, Code maßgeblich):
 
-| Collection | Schritt |
-|------------|---------|
-| `watering_events`, `watering_logs`, `tank_fill_events`, `maintenance_logs` | `performed_by_user_key = null`, `performed_by_label = performed_by[:80]`; `performed_by` ein Release deprecated |
-| `nutrient_plans`, `propagation`-Chargen | `author_user_key = null`, `author_label = author[:80]` |
-| `inspections` mit `inspector LIKE "mcp:%"` | `inspected_by_key = <key>` **nur wenn** aktuelles Service-Konto; sonst `null`; `inspector = ""` |
-| `workflow_templates` | `created_by_user_key = null`; `created_by` als Label |
+- **`propagation`-Chargen haben kein `author`.** Das einzige `author` der Vermehrung trägt
+  `rooting_protocols` (Bewurzelungsprotokolle), und es ist **kein Freitext**: beide Schreibwege
+  (`propagation/tenant_router.py`, Anlegen und Ändern) setzen `author = ctx.user_key`, also den rohen
+  Kontoschlüssel der zuletzt ändernden Person; `RootingProtocolResponse.author` gibt ihn aus, und das
+  Löschinventar erreicht ihn nicht (R6 sieht den Feldnamen `author` nicht). Eine Label-Kopie würde einen
+  Kontoschlüssel in ein Feld für Dritte schreiben; `rooting_protocols` ist deshalb **nicht** Teil von v0111.
+  Der Befund ist eine eigene Datenschutzkorrektur (Schlüssel in `author_user_key` überführen bzw. Marker bei
+  Löschung, Antwortfeld) und braucht ein eigenes Issue.
+- **`maintenance_logs` und `tank_fill_events` tragen kein `tenant_key`** (Modell ohne Feld; nur Altbestand aus
+  v0004 hat eines). Das Mandantenprädikat sitzt am Anker, dem Tank (`tank.tenant_key == @tenant_key`, dann
+  `doc.tank_key == tank._key`; #706).
+- **`inspections.inspected_by_key` existiert seit #1669** (serverseitig gestempelt; v0056 schrieb `null` auf
+  ältere Zeilen) und ist bereits im Löschinventar (`tombstone_hash`, `clear_fields = [inspector]`). Der MCP-Weg
+  schreibt heute beides: `inspector = "mcp:<key>"` **und** `inspected_by_key = <key>`. Schritt 4 füllt daher nur
+  Zeilen mit `inspected_by_key = null`; die Prüfung „aktuelles Service-Konto“ verlangt zusätzlich eine
+  Mitgliedschaft (`is_active != false`) im Mandanten der Inspektion — ein Service-Konto eines fremden Mandanten
+  wird nie zugeordnet.
+- **Längen:** `nutrient_plans.author` unbegrenzt, `workflow_templates.created_by` ≤ 200, `performed_by`
+  unbegrenzt; Labels werden auf 80 Zeichen gekürzt (`PERSON_LABEL_MAX_LENGTH`, `domain/models/privacy.py`),
+  das alte Feld bleibt vollständig.
+- **Globale Katalogzeilen** (`tenant_key = ""`: System-Nährstoffpläne, System-Workflowvorlagen) gehören keinem
+  Mandanten und bleiben unberührt.
+
+**Migration `v0111_keyed_performers`** (`kind = data_backfill`; nur aktive Mandanten, §9; additiv; umkehrbar §11):
+
+| Collection | Schritt | Berichts-Bucket |
+|------------|---------|-----------------|
+| `watering_events`, `watering_logs` (Prädikat am Dokument), `maintenance_logs`, `tank_fill_events` (Prädikat am Tank) | `performed_by_user_key = null`, falls das Attribut fehlt; `performed_by_label = performed_by[:80]`, falls das Label `null` und `performed_by` ein nicht-leerer Text ist; `performed_by` ein Release deprecated | `<collection>.performer_keyed` |
+| `nutrient_plans` | `author_user_key = null`, `author_label = author[:80]` (dieselbe Regel) | `nutrient_plans.author_keyed` |
+| `inspections` mit `inspector` beginnend mit `mcp:` | `inspected_by_key = <key>` **nur wenn** das Feld `null` ist und `<key>` ein bestehendes Konto mit `account_type = service` und Mitgliedschaft im Mandanten ist; sonst bleibt es `null`; danach `inspector = ""` | `inspections.mcp_inspector_cleared`, Teilmenge `inspections.service_account_keyed` |
+| `workflow_templates` | `created_by_user_key = null`; `created_by` bleibt das Label (kein eigenes Label-Feld) | `workflow_templates.creator_keyed` |
+
+Phasen wie §2a: `precheck` prüft zusätzlich, dass die Modelle dieses Builds die neuen Felder mit Default `None`
+(Label: Grenze 80) tragen und dass jedes neue Schlüsselfeld im Löschinventar
+(`ErasureEngine.EXCLUDED_USER_REFERENCES` — die Felder sind bis E13 immer `null`; E13 ersetzt die Ausnahme durch
+eine Marker-Regel, sobald es stempelt) und im Mandantenexport (`TenantExportEngine.COLLECTION_REFERENCES`, Art
+`account`) deklariert ist. `apply` ist je Mandant eine Stream-Transaktion über alle Schritte; `verify` zählt alle
+Schritte erneut. Kein Request-Schema trägt ein `*_user_key` (PRIV-705, Unit-Test), die Response-Schemas sind
+unverändert.
 
 **PRIV-705** Kein Konto aus einem getippten Namen ableiten (REQ-025 Regel 4; #1662/#1663); Ausnahme nur das
 deterministische Präfix `mcp:` [VERIFIED_CODE]. **PRIV-706** Labels, die einem aktuellen Mitgliedsnamen entsprechen,
@@ -286,7 +323,7 @@ Betriebsendpunkt (E15).
 |-----------------|----------|-------------|
 | v0109 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
 | v0110 | entfernt explizites `legacy`/`unknown_legacy`; `none` persönlicher Mandanten bleibt (§4) | je Mandant ein Dokument-`UPDATE`; Wiederholung beim nächsten Start; idempotent |
-| v0111 | entfernt neue Felder, wenn alle `null`/Kopien | je Collection transaktional |
+| v0111 | entfernt je Zeile ein Schlüsselfeld, das `null` ist, und ein Label, das noch die Kopie seiner Quelle ist; ein später gestempelter Schlüssel oder ein geändertes Label bleibt. Schritt 4 (`inspector = ""`, zugeordneter Service-Schlüssel) wird nicht zurückgenommen: der Text war ein Pseudo-Schlüssel, kein Name | je Mandant transaktional (PRIV-718, statt „je Collection“ in v1.1); Wiederholung beim nächsten Start; idempotent |
 | Reklassifizierung | keiner | je Mandant; Zustand `reclassification_pending` bis Erfolg |
 | Restore-Replay | keiner (wendet Löschungen erneut an) | Residue > 0 ⇒ Wartungsmodus bleibt |
 

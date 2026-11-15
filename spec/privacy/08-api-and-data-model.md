@@ -238,12 +238,22 @@ Der geschlossene Zustand wird abgeleitet (`is_active=false` ∧ Löschanfrage ex
 | Modell | Heute [v] | Ziel |
 |--------|-----------|------|
 | `watering_events.performed_by`, `watering_logs.performed_by`, `tank_fill_events.performed_by`, `maintenance_logs.performed_by` | Freitext, von der Löschung ausgenommen | `performed_by_user_key: str \| None` (serverseitig gestempelt, nicht im Request-Schema) + `performed_by_label: str \| None` (≤ 80, nur Dritte); das alte Feld wird bei der Migration zum Label; UI-Dialog ersetzt durch „Ich war es / jemand anderes (Label)" |
-| `nutrient_plans.author`, `propagation.*.author` | Freitext, unbegrenzt | `author_user_key` + `author_label` (≤ 80); Druckvorlage rendert über `PersonRef` |
-| `inspections.inspector` über MCP `"mcp:<key>"` | Pseudo-Schlüssel im Freitext | `inspected_by_key = service account key`; `inspector = ""` |
-| `workflow_templates.created_by` | Freitext | `created_by_user_key` + Prüffeld |
+| `nutrient_plans.author` | Freitext, unbegrenzt | `author_user_key` + `author_label` (≤ 80); Druckvorlage rendert über `PersonRef` |
+| `rooting_protocols.author` (v1.1: „`propagation.*.author`“) | **kein Freitext [v]**: roher Kontoschlüssel der zuletzt ändernden Person (`author = ctx.user_key`), in der Antwort ausgegeben, von keiner Löschregel erreicht | eigene Datenschutzkorrektur (nicht v0111, `09` §5 Stand): Schlüssel nach `author_user_key`, Marker bei Löschung, Antwort über `PersonRef` |
+| `inspections.inspector` über MCP `"mcp:<key>"` | Pseudo-Schlüssel im Freitext; `inspected_by_key` existiert seit #1669 | `inspected_by_key = service account key` (nur wenn `null` und Service-Konto mit Mitgliedschaft im Mandanten); `inspector = ""` |
+| `workflow_templates.created_by` | Freitext (≤ 200) | `created_by_user_key` + Prüffeld |
 
-Alle neuen `*_user_key`-Felder kommen im selben PR in `ANONYMIZE_COLLECTIONS` (Marker, `attribution=performed_by`
-/ `created_by`) und `USER_DATA_MANIFEST` (R2-Reziprozität).
+**Stand (2026-11-15, VERIFIED_CODE):** Die Felder `performed_by_user_key`/`performed_by_label` (vier Collections),
+`author_user_key`/`author_label` (`nutrient_plans`) und `created_by_user_key` (`workflow_templates`) existieren
+in den Modellen (Default `None`, Label ≤ 80 = `PERSON_LABEL_MAX_LENGTH`) und wurden von v0111 angelegt (`09` §5).
+Kein Request-Schema trägt sie (PRIV-705), kein Antwort-Schema gibt sie aus, kein Pfad stempelt sie — jeder Wert
+ist `null`.
+
+Alle neuen `*_user_key`-Felder kommen in `ANONYMIZE_COLLECTIONS` (Marker, `attribution=performed_by`
+/ `created_by`) und `USER_DATA_MANIFEST` (R2-Reziprozität) **im selben PR, der sie stempelt** (Rest von E13).
+Bis dahin stehen sie mit Begründung „immer `null`“ in `ErasureEngine.EXCLUDED_USER_REFERENCES` (R6) und als
+Kontoreferenz in `TenantExportEngine.COLLECTION_REFERENCES`: eine Marker-Regel über ein stets leeres Feld wäre
+wirkungslos und hätte die eingefrorene Zellliste von v0109 (`tombstone_watch_fields`) verschoben.
 
 ### 3.5 Anhänge
 
