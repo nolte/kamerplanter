@@ -11,6 +11,9 @@ What no double decides, measured here:
   a shelf level counts only with its own lamp;
 * the read carries each profile's ``photoperiod_source`` (#2857), and hours that are not ``sourced`` make the hint
   ``unknown``, never a conflict;
+* the read carries the species' ``photoperiod_type`` and critical day length (#2857 part B); a day-neutral species
+  takes no part in the conflict, and a short-day plant whose flowering profile states 18 h yields
+  ``tent.photoperiod_data_error`` instead of a conflict;
 * ``layout_type_flags`` reads ``supports_layout`` and lets ``is_bed`` imply it;
 * a location's own ``adjacency_factor`` decides the derived neighbourhood of its slots;
 * ``lighting`` is stored replaced whole, without the ``null`` keys of the PATCH, and ``null`` removes it.
@@ -21,14 +24,19 @@ from __future__ import annotations
 import pytest
 from arango import ArangoClient
 
-from app.common.enums import PhotoperiodSource, TenantRole
+from app.common.enums import PhotoperiodSource, PhotoperiodType, TenantRole
 from app.data_access.arango import collections as col
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import LocationPatch
-from app.domain.models.tent_hint import HINT_PHOTOPERIOD_CONFLICT, HINT_PHOTOPERIOD_UNKNOWN, PhaseLabel
+from app.domain.models.tent_hint import (
+    HINT_PHOTOPERIOD_CONFLICT,
+    HINT_PHOTOPERIOD_DATA_ERROR,
+    HINT_PHOTOPERIOD_UNKNOWN,
+    PhaseLabel,
+)
 from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -305,6 +313,23 @@ class TestPhotoperiodRead:
         }
         assert rows["p_gp_gen"].photoperiod_hours == 12.0
 
+    def test_each_plant_carries_its_species_photoperiod_type(self, db, repo) -> None:
+        """#2857: the type and critical day length of the species' lifecycle; none stored or unknown reads ``None``."""
+        _plant(db, "p_cannabis", phase="gp_veg")
+
+        (row,) = repo.load_location_photoperiods("tent", tenant_key=A)
+        assert (row.photoperiod_type, row.critical_day_length_hours) == (None, None)
+
+        db.collection(col.LIFECYCLE_CONFIGS).update(
+            {"_key": "lc_cannabis", "photoperiod_type": "short_day", "critical_day_length_hours": 12.0}
+        )
+        (row,) = repo.load_location_photoperiods("tent", tenant_key=A)
+        assert (row.photoperiod_type, row.critical_day_length_hours) == (PhotoperiodType.SHORT_DAY, 12.0)
+
+        db.collection(col.LIFECYCLE_CONFIGS).update({"_key": "lc_cannabis", "photoperiod_type": "facultative"})
+        (row,) = repo.load_location_photoperiods("tent", tenant_key=A)
+        assert row.photoperiod_type is None
+
     def test_an_empty_tenant_is_refused(self, repo) -> None:
         with pytest.raises(ValueError):
             repo.load_location_photoperiods("tent", tenant_key="")
@@ -342,6 +367,41 @@ class TestSummaryHint:
         db.collection(col.REQUIREMENT_PROFILES).update({"_key": "rp_gp_flower", "photoperiod_source": "sourced"})
 
         assert [h.code for h in service.get_summary("tent", tenant_key=A).tent_hints] == [HINT_PHOTOPERIOD_CONFLICT]
+
+    def test_a_day_neutral_species_takes_no_part(self, db, service) -> None:
+        """#2857: a stated ``day_neutral`` leaves the conflict; ``unspecified`` does not."""
+        db.collection(col.SPECIES).insert({"_key": "sp_strawberry", "scientific_name": "Fragaria x ananassa"})
+        db.collection(col.LIFECYCLE_CONFIGS).insert(
+            {"_key": "lc_strawberry", "species_key": "sp_strawberry", "photoperiod_type": "unspecified"}
+        )
+        db.collection(col.HAS_LIFECYCLE).insert(
+            {"_from": f"{col.SPECIES}/sp_strawberry", "_to": f"{col.LIFECYCLE_CONFIGS}/lc_strawberry"}
+        )
+        _phase(db, "gp_strawberry_flower", "flowering", "lc_strawberry", hours=16.0)
+        db.collection(col.LIFECYCLE_CONFIGS).update(
+            {"_key": "lc_cannabis", "photoperiod_type": "short_day", "critical_day_length_hours": 12.0}
+        )
+        _plant(db, "p_hemp", phase="gp_flower")
+        _plant(db, "p_strawberry", phase="gp_strawberry_flower", species_key="sp_strawberry")
+
+        assert [h.code for h in service.get_summary("tent", tenant_key=A).tent_hints] == [HINT_PHOTOPERIOD_CONFLICT]
+
+        db.collection(col.LIFECYCLE_CONFIGS).update({"_key": "lc_strawberry", "photoperiod_type": "day_neutral"})
+
+        assert service.get_summary("tent", tenant_key=A).tent_hints == []
+
+    def test_a_short_day_plant_at_18_hours_in_flowering_is_a_data_error(self, db, service) -> None:
+        db.collection(col.LIFECYCLE_CONFIGS).update(
+            {"_key": "lc_cannabis", "photoperiod_type": "short_day", "critical_day_length_hours": 12.0}
+        )
+        db.collection(col.REQUIREMENT_PROFILES).update({"_key": "rp_gp_flower", "photoperiod_hours": 18.0})
+        _plant(db, "p_veg", phase="gp_veg", plant_name="Lemon")
+        _plant(db, "p_flower", phase="gp_flower", plant_name="Gelato")
+
+        (hint,) = service.get_summary("tent", tenant_key=A).tent_hints
+
+        assert (hint.code, hint.severity) == (HINT_PHOTOPERIOD_DATA_ERROR, "info")
+        assert (hint.data_error_plant_count, hint.data_error_plant_names) == (1, ("Gelato",))
 
     def test_a_young_plant_takes_no_part(self, db, service) -> None:
         _plant(db, "p1", phase="gp_flower")

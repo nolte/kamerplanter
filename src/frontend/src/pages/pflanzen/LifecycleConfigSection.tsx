@@ -26,7 +26,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
-import type { LifecycleConfig, PhaseSequence } from '@/api/types';
+import type { LifecycleConfig, PhaseSequence, PhotoperiodType } from '@/api/types';
 
 /** Cycle-type enum values — mirrors CycleType in api/types.ts. */
 const CYCLE_TYPES = ['annual', 'biennial', 'perennial'] as const;
@@ -36,6 +36,14 @@ const FLOWERING_STRATEGIES = ['monocarpic', 'polycarpic'] as const;
 
 /** Growth-determinacy enum values — mirrors GrowthDeterminacy in api/types.ts (REQ-003 E4). */
 const GROWTH_DETERMINACIES = ['determinate', 'indeterminate', 'semi_determinate'] as const;
+
+/** #2857: `unspecified` (nobody classified the species) is the default, not `day_neutral` - that is a statement. */
+const PHOTOPERIOD_TYPES = [
+  'unspecified',
+  'short_day',
+  'long_day',
+  'day_neutral',
+] as const satisfies readonly PhotoperiodType[];
 
 const schema = z.object({
   cycle_type: z.enum(CYCLE_TYPES),
@@ -47,7 +55,7 @@ const schema = z.object({
   dormancy_required: z.boolean(),
   vernalization_required: z.boolean(),
   vernalization_min_days: z.number().nullable(),
-  photoperiod_type: z.enum(['short_day', 'long_day', 'day_neutral']),
+  photoperiod_type: z.enum(PHOTOPERIOD_TYPES),
   critical_day_length_hours: z.number().nullable(),
 });
 
@@ -93,7 +101,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
       dormancy_required: false,
       vernalization_required: false,
       vernalization_min_days: null,
-      photoperiod_type: 'day_neutral',
+      photoperiod_type: 'unspecified',
       critical_day_length_hours: null,
     },
   });
@@ -303,7 +311,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
                 name="photoperiod_type"
                 control={control}
                 label={t('pages.lifecycle.photoperiodType')}
-                options={['short_day', 'long_day', 'day_neutral'].map((v) => ({
+                options={PHOTOPERIOD_TYPES.map((v) => ({
                   value: v,
                   label: t(`enums.photoperiodType.${v}`),
                 }))}

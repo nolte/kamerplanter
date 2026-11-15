@@ -2459,7 +2459,7 @@
       "vernalizationDays": "Vernalization Days",
       "vernalizationDaysHelper": "Minimum cold treatment duration in days",
       "photoperiodType": "Photoperiod Type",
-      "photoperiodTypeHelper": "Short-day: <12 h, Long-day: >12 h",
+      "photoperiodTypeHelper": "Day-neutral means: flowers regardless of day length (e.g. autoflowering). \"Not specified\" while no source classifies the species. Short-day: <12 h, long-day: >12 h",
       "criticalDayLength": "Critical Day Length (h)",
       "criticalDayLengthHelper": "Day length that triggers flowering (0–24 h)",
       "installationWideReadOnly": "The lifecycle applies installation-wide for this species and is maintained by the platform administration. You can see the values but cannot change them here."
@@ -8488,7 +8488,7 @@
         },
         "hints": {
           "conflictTitle": "Different light needs under one lamp",
-          "conflict": "According to the species profile or the entered phase profile, the plants here need light days of different length in their current phase: {{groups}}. A lamp has only one schedule. Check the values for your varieties. If they are right, group plants with the same light needs, or give each group its own level with its own lamp. Seedlings and cuttings are not counted here.",
+          "conflict": "According to the species profile or the entered phase profile, the plants here need light days of different length in their current phase: {{groups}}. A lamp has only one schedule. Check the values for your varieties. If they are right, group plants with the same light needs, or give each group its own level with its own lamp. Seedlings, cuttings and day-neutral plants are not counted here.",
           "group_one": "{{hours}} hours of light for {{count}} plant ({{phases}})",
           "group_other": "{{hours}} hours of light for {{count}} plants ({{phases}})",
           "groupNoPhase_one": "{{hours}} hours of light for {{count}} plant",
@@ -8500,7 +8500,10 @@
           "alsoUnknown_other": "For {{count}} more plants no light duration from the species profile or entered by you exists; they are not counted. Enter the light duration in the phase profile of the species, then they count.",
           "unknownPlants": "Affected: {{names}}.",
           "unknownPlantsMore_one": "Affected: {{names}} and {{count}} more.",
-          "unknownPlantsMore_other": "Affected: {{names}} and {{count}} more."
+          "unknownPlantsMore_other": "Affected: {{names}} and {{count}} more.",
+          "dataErrorTitle": "Light duration does not fit a short-day plant",
+          "dataError_one": "{{count}} short-day plant is flowering, but its phase profile states {{groups}}. That is above its critical day length, and short-day plants only flower when days are short. Most likely the light duration in the phase profile or the photoperiod type of the species is entered wrongly. Check both. For a day-neutral variety (e.g. autoflowering) the value can be right. The plant is not counted when the light durations are compared.",
+          "dataError_other": "{{count}} short-day plants are flowering, but their phase profiles state {{groups}}. That is above their critical day length, and short-day plants only flower when days are short. Most likely the light duration in the phase profile or the photoperiod type of the species is entered wrongly. Check both. For a day-neutral variety (e.g. autoflowering) the value can be right. The plants are not counted when the light durations are compared."
         }
       }
     },

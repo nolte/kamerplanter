@@ -58,7 +58,7 @@ from app.domain.models.species import (
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
 from app.migrations.seed_ipm_rows import seed_ipm_rows
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
-from app.migrations.seed_photoperiod_source import stamp_steckbrief_photoperiod
+from app.migrations.seed_photoperiod_source import resolve_lifecycle_config_species, stamp_steckbrief_photoperiod
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -473,6 +473,8 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
             existing = species_repo.get_by_scientific_name(sci_name)
             if existing:
                 species_key_map[sci_name] = existing.key or ""
+    # A species the file lists only under lifecycle_configs (hemp in plant_info.yaml, #2857).
+    lifecycle_only = resolve_lifecycle_config_species(species_repo, lifecycle_configs, species_key_map)
 
     # ── S4: Lifecycle configs + art-specific phases ──────────────────────
     for sci_name, lc_cfg in lifecycle_configs.items():
@@ -528,6 +530,12 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 )
                 lifecycle_repo.update_lifecycle(lc_key, updated_lc)
                 logger.info("lifecycle_updated", species=sci_name, cycle=cycle.value)
+
+            if sci_name in lifecycle_only:
+                # Listed here only under lifecycle_configs (#2857): the file states the lifecycle, not the phases.
+                # The species' phases are no file's to replace from here - the generic-phase deletion below would
+                # leave it with none (and its plants on deleted phases).
+                continue
 
             # Check if phases are already art-specific
             existing_phases = lifecycle_repo.get_phases_by_lifecycle(lc_key)

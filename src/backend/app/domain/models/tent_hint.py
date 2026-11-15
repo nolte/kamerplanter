@@ -10,9 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from app.common.enums import PhotoperiodSource
+from app.common.enums import PhotoperiodSource, PhotoperiodType
 
-TentHintCode = Literal["tent.photoperiod_conflict", "tent.photoperiod_unknown"]
+TentHintCode = Literal["tent.photoperiod_conflict", "tent.photoperiod_unknown", "tent.photoperiod_data_error"]
 TentHintSeverity = Literal["info", "warning"]
 
 #: Different photoperiods among the plants of one light schedule.
@@ -20,6 +20,9 @@ HINT_PHOTOPERIOD_CONFLICT: TentHintCode = "tent.photoperiod_conflict"
 #: Plants of one light schedule whose phase names no sourced photoperiod - the check could not judge them (E-10,
 #: #2857): no profile, or hours nobody chose for the species (``generated``, ``default``, origin unknown).
 HINT_PHOTOPERIOD_UNKNOWN: TentHintCode = "tent.photoperiod_unknown"
+#: A short-day plant whose flowering profile states a long day (#2857): a data error in the profile or in the species'
+#: photoperiod type, not a conflict between plants - the plant takes no part in the conflict.
+HINT_PHOTOPERIOD_DATA_ERROR: TentHintCode = "tent.photoperiod_data_error"
 
 
 #: Unknown plants a ``tent.photoperiod_unknown`` hint names; the rest is only counted (``unknown_plant_count``).
@@ -60,6 +63,11 @@ class PlantPhotoperiod:
     phase_label: PhaseLabel | None = None
     #: Where the profile's hours came from; ``None`` without a profile or for one stored before the provenance.
     photoperiod_source: PhotoperiodSource | None = None
+    #: The species' ``LifecycleConfig.photoperiod_type``; ``None`` without a lifecycle or for a value this code does
+    #: not know. ``unspecified`` means nobody classified the species (#2857) - only ``day_neutral`` leaves the conflict.
+    photoperiod_type: PhotoperiodType | None = None
+    #: The species' critical day length (``LifecycleConfig.critical_day_length_hours``), if stated.
+    critical_day_length_hours: float | None = None
 
 
 @dataclass(frozen=True)
@@ -84,3 +92,7 @@ class TentHint:
     unknown_plant_count: int
     #: The first :data:`MAX_NAMED_UNKNOWN_PLANTS` of them by name, so the hint can say which plants it could not judge.
     unknown_plant_names: tuple[str, ...] = ()
+    #: ``tent.photoperiod_data_error`` only: the short-day plants whose flowering profile states a long day.
+    data_error_plant_count: int = 0
+    #: The first :data:`MAX_NAMED_UNKNOWN_PLANTS` of them by name.
+    data_error_plant_names: tuple[str, ...] = ()

@@ -343,7 +343,8 @@
     "photoperiodType": {
       "short_day": "Kurztagpflanze",
       "long_day": "Langtagpflanze",
-      "day_neutral": "Tagneutral"
+      "day_neutral": "Tagneutral",
+      "unspecified": "Nicht angegeben"
     },
     "cycleType": {
       "annual": "Einjährig",

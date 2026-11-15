@@ -432,7 +432,11 @@ class TentHintResponse(BaseModel):
     (germination, seedling, rooting, establishment) take no part. `tent.photoperiod_unknown` (`info`): at least one
     plant's phase names no sourced photoperiod - no profile, or hours that are generated, a default or of unknown
     origin - so the check could not judge it; nothing is assumed (E-10). `unknown_plant_names` names the first five
-    of them; a conflict hint counts and names them too.
+    of them; a conflict hint counts and names them too. Day-neutral plants (species `photoperiod_type = day_neutral`)
+    take no part either (#2857). `tent.photoperiod_data_error` (`info`, #2857): a short-day plant in a flowering phase
+    whose sourced profile states at least one hour more than its critical day length (12 h when none is stated) - the
+    profile or the species' type is wrong, it is no conflict; `groups` shows those plants' hours and
+    `data_error_plant_names` names the first five.
     """
 
     model_config = ConfigDict(
@@ -455,6 +459,10 @@ class TentHintResponse(BaseModel):
     unknown_plant_count: int = Field(default=0, ge=0)
     #: The first five plants (by name) whose photoperiod is unknown (none sourced); `unknown_plant_count` counts all.
     unknown_plant_names: list[str] = Field(default_factory=list, max_length=MAX_NAMED_UNKNOWN_PLANTS)
+    #: `tent.photoperiod_data_error` only: how many short-day plants in flowering have a long-day profile.
+    data_error_plant_count: int = Field(default=0, ge=0)
+    #: The first five of them by name; `data_error_plant_count` counts all.
+    data_error_plant_names: list[str] = Field(default_factory=list, max_length=MAX_NAMED_UNKNOWN_PLANTS)
 
     @classmethod
     def from_hint(cls, hint: TentHint) -> TentHintResponse:
@@ -477,6 +485,8 @@ class TentHintResponse(BaseModel):
             ],
             unknown_plant_count=hint.unknown_plant_count,
             unknown_plant_names=list(hint.unknown_plant_names),
+            data_error_plant_count=hint.data_error_plant_count,
+            data_error_plant_names=list(hint.data_error_plant_names),
         )
 
 

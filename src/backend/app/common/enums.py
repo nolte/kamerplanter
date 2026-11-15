@@ -135,9 +135,19 @@ class PropagationDifficulty(StrEnum):
 
 
 class PhotoperiodType(StrEnum):
+    """How day length triggers a species' flowering (REQ-001 ``LifecycleConfig.photoperiod_type``, REQ-003).
+
+    ``unspecified`` (#2857, additive, M-9) is the default: nobody classified the species from a source (E-10). It is
+    not ``day_neutral`` - that is a statement about the plant ("flowers regardless of day length") which the tent rule
+    acts on (REQ-053 §9.2a: a day-neutral plant takes no part in the photoperiod conflict). Before #2857
+    ``day_neutral`` was the default, so a stored ``day_neutral`` could not be told from "never classified"; v0113
+    converted the stored defaults.
+    """
+
     SHORT_DAY = "short_day"
     LONG_DAY = "long_day"
     DAY_NEUTRAL = "day_neutral"
+    UNSPECIFIED = "unspecified"
 
 
 class CycleType(StrEnum):

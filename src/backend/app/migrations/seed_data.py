@@ -769,7 +769,8 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             cultivation_cycle_type=CycleType(cult_cycle) if cult_cycle else None,
             flowering_strategy=FloweringStrategy(flower_strat) if flower_strat else None,
             growth_determinacy=GrowthDeterminacy(determinacy) if determinacy else None,
-            photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
+            # #2857: no source here - a plant_info lifecycle_config or lifecycles_outdoor entry states it later (E-10).
+            photoperiod_type=PhotoperiodType.UNSPECIFIED,
         )
         created_lc = lifecycle_repo.create_lifecycle(lc)
         lc_key = created_lc.key or ""

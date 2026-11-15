@@ -59,6 +59,9 @@ function TentHintAlert({ hint }: { hint: TentHint }) {
       phases: phases.join(', '),
     });
   };
+  if (hint.code === 'tent.photoperiod_data_error') {
+    return <TentDataErrorAlert hint={hint} group={group} />;
+  }
   const conflict = hint.code === 'tent.photoperiod_conflict';
   const unknown =
     hint.unknown_plant_count > 0
@@ -91,6 +94,42 @@ function TentHintAlert({ hint }: { hint: TentHint }) {
       {unknown && <Typography variant="body2">{unknown}</Typography>}
       {affected && (
         <Typography variant="body2" data-testid="tent-hint-unknown-plants">
+          {affected}
+        </Typography>
+      )}
+    </Alert>
+  );
+}
+
+/** A short-day plant in flowering whose profile states a long day (#2857): a data error, not a conflict. */
+function TentDataErrorAlert({
+  hint,
+  group,
+}: {
+  hint: TentHint;
+  group: (item: PhotoperiodGroup) => string;
+}) {
+  const { t } = useTranslation();
+  const count = hint.data_error_plant_count ?? 0;
+  const names = hint.data_error_plant_names ?? [];
+  const more = count - names.length;
+  const affected =
+    names.length === 0
+      ? ''
+      : more > 0
+        ? t('pages.bed.tentRules.hints.unknownPlantsMore', { names: names.join(', '), count: more })
+        : t('pages.bed.tentRules.hints.unknownPlants', { names: names.join(', ') });
+  return (
+    <Alert severity={hint.severity} role="status" data-testid="tent-hint-photoperiod-data-error">
+      <AlertTitle>{t('pages.bed.tentRules.hints.dataErrorTitle')}</AlertTitle>
+      <Typography variant="body2">
+        {t('pages.bed.tentRules.hints.dataError', {
+          count,
+          groups: hint.groups.map(group).join('; '),
+        })}
+      </Typography>
+      {affected && (
+        <Typography variant="body2" data-testid="tent-hint-data-error-plants">
           {affected}
         </Typography>
       )}

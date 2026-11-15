@@ -68,7 +68,8 @@ export type PropagationMethod =
   | 'self_seeding';
 export type WoodStage = 'softwood' | 'semi_hardwood' | 'hardwood' | 'herbaceous';
 export type PropagationDifficulty = 'easy' | 'moderate' | 'difficult';
-export type PhotoperiodType = 'short_day' | 'long_day' | 'day_neutral';
+/** #2857: `unspecified` = nobody classified the species (the default); `day_neutral` is a statement. */
+export type PhotoperiodType = 'short_day' | 'long_day' | 'day_neutral' | 'unspecified';
 export type CycleType = 'annual' | 'biennial' | 'perennial';
 export type StressTolerance = 'low' | 'medium' | 'high';
 export type TransitionTriggerType = 'time_based' | 'manual' | 'event_based' | 'conditional';

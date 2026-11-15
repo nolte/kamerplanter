@@ -12,6 +12,7 @@ from app.domain.engines.resource_profile_generator import ResourceProfileGenerat
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import PhaseTransitionRule
+from app.migrations.seed_photoperiod_source import fill_unspecified_photoperiod
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -244,6 +245,13 @@ def run_seed_lifecycles_outdoor() -> None:
         # Skip lifecycle creation if already exists, but still ensure edge
         existing = repo.get_lifecycle_by_species(species_key)
         if existing:
+            if fill_unspecified_photoperiod(existing, entry):
+                repo.update_lifecycle(existing.key or "", existing)
+                logger.info(
+                    "lifecycle_photoperiod_stated",
+                    scientific_name=scientific_name,
+                    photoperiod_type=existing.photoperiod_type.value,
+                )
             ps_name = entry.get("phase_sequence")
             if ps_name:
                 ps_key = seq_map.get(ps_name, "")
@@ -264,7 +272,7 @@ def run_seed_lifecycles_outdoor() -> None:
             dormancy_required=entry.get("dormancy_required", False),
             vernalization_required=entry.get("vernalization_required", False),
             vernalization_min_days=entry.get("vernalization_min_days"),
-            photoperiod_type=PhotoperiodType(entry.get("photoperiod_type", "day_neutral")),
+            photoperiod_type=PhotoperiodType(entry.get("photoperiod_type", PhotoperiodType.UNSPECIFIED)),
             cycle_restart_phase_order=entry.get("cycle_restart_phase_order"),
         )
         created_lc = repo.create_lifecycle(lc)

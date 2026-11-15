@@ -14,20 +14,28 @@ conflict; when unknown plants share the location with others, the hint ``tent.ph
 (``PhotoperiodSource``). Only ``sourced`` hours - from a Steckbrief or entered by a person in the profile editor - say
 something about the plant; the 18/12 of the generator's phase-name table (``generated``), the fallback 18.0
 (``default``) and a profile stored before the provenance existed (``None``) do not. Such a plant counts as unknown,
-exactly like one without a profile (:func:`judged_photoperiod`). Day-neutral plants still take part, because a stored
-``day_neutral`` type is not yet a classified one (see below) - so the conflict stays a ``warning`` and the text names
+exactly like one without a profile (:func:`judged_photoperiod`). The conflict stays a ``warning`` and the text names
 the light hours of the phase profiles, never that the plants *need* different light.
 
 **Who takes part.** Only plants in a light-triggered phase: a young, establishing plant (``YOUNG_PHASE_NAMES`` -
-germination, seedling, rooting and the establishment phases of cuttings and offsets) is left out entirely.
+germination, seedling, rooting and the establishment phases of cuttings and offsets) is left out entirely, and so is
+a day-neutral plant (``photoperiod_type == day_neutral``, :func:`is_day_neutral`): it flowers whatever the schedule.
+Since #2857 ``day_neutral`` is a statement - the never-classified default is ``unspecified`` (v0113 converted the
+stored defaults), and an ``unspecified`` or missing type takes part like any other plant.
+
+**Data error, not a conflict (#2857).** A short-day plant in a flowering phase whose sourced profile asks for a long
+day - at least :data:`PHOTOPERIOD_EQUAL_TOLERANCE_HOURS` above its critical day length - cannot be right: the phase
+profile or the species' type is wrong (:func:`is_photoperiod_data_error`). Such a plant leaves the conflict (its hours
+say nothing reliable) and the hint ``tent.photoperiod_data_error`` names it.
 """
 
 from __future__ import annotations
 
-from app.common.enums import PhotoperiodSource
-from app.domain.engines.phase_role_map import is_young_phase
+from app.common.enums import PhotoperiodSource, PhotoperiodType
+from app.domain.engines.phase_role_map import is_flowering_phase, is_young_phase
 from app.domain.models.tent_hint import (
     HINT_PHOTOPERIOD_CONFLICT,
+    HINT_PHOTOPERIOD_DATA_ERROR,
     HINT_PHOTOPERIOD_UNKNOWN,
     MAX_NAMED_UNKNOWN_PLANTS,
     PhaseLabel,
@@ -49,10 +57,9 @@ _ALWAYS_LIT_TYPES: frozenset[str] = frozenset({"tent"})
 #: a difference below one hour is timer granularity, not a second schedule.
 PHOTOPERIOD_EQUAL_TOLERANCE_HOURS = 1.0
 
-# Follow-up to #2832: ``LifecycleConfig.photoperiod_type`` / ``PhaseSequence.photoperiod_type`` default to
-# ``day_neutral``, so a stored ``day_neutral`` does not say the species was classified. Day-neutral plants are therefore
-# NOT left out here - doing so would drop nearly every plant. Once the type has an ``unspecified`` value, a sourced
-# ``day_neutral`` can leave the conflict like a young plant does.
+#: The critical day length of a short-day plant whose lifecycle states none: the common 12 h of the short-day class
+#: (flower induction once the day is shorter than about 12 h, e.g. hemp). Only the data-error check reads it.
+SHORT_DAY_FALLBACK_CRITICAL_HOURS = 12.0
 
 
 def has_own_light_schedule(location_type_key: str, lamp_height_cm: float | None) -> bool:
@@ -73,9 +80,34 @@ def judged_photoperiod(plant: PlantPhotoperiod) -> float | None:
     return plant.photoperiod_hours
 
 
+def is_day_neutral(plant: PlantPhotoperiod) -> bool:
+    """Whether the species is classified day-neutral (#2857); ``unspecified`` or no lifecycle is not."""
+    return plant.photoperiod_type == PhotoperiodType.DAY_NEUTRAL
+
+
 def light_triggered(plants: list[PlantPhotoperiod]) -> list[PlantPhotoperiod]:
-    """The plants that take part in the photoperiod check: every plant that is not in a young phase."""
-    return [plant for plant in plants if not is_young_phase(plant.phase_code)]
+    """The plants that take part in the photoperiod check: every plant neither in a young phase nor day-neutral."""
+    return [plant for plant in plants if not is_young_phase(plant.phase_code) and not is_day_neutral(plant)]
+
+
+def is_photoperiod_data_error(plant: PlantPhotoperiod) -> bool:
+    """A short-day plant in flowering whose sourced hours lie at least the tolerance above its critical day length.
+
+    The critical day length is the lifecycle's ``critical_day_length_hours``, else
+    :data:`SHORT_DAY_FALLBACK_CRITICAL_HOURS`. Only a sourced value is judged (:func:`judged_photoperiod`); a generated
+    or default value is already unknown.
+    """
+    if plant.photoperiod_type != PhotoperiodType.SHORT_DAY or not is_flowering_phase(plant.phase_code):
+        return False
+    hours = judged_photoperiod(plant)
+    if hours is None:
+        return False
+    critical = (
+        plant.critical_day_length_hours
+        if plant.critical_day_length_hours is not None
+        else SHORT_DAY_FALLBACK_CRITICAL_HOURS
+    )
+    return hours >= critical + PHOTOPERIOD_EQUAL_TOLERANCE_HOURS
 
 
 def photoperiod_groups(plants: list[PlantPhotoperiod]) -> tuple[PhotoperiodGroup, ...]:
@@ -133,11 +165,13 @@ def _phase_labels(plants: list[PlantPhotoperiod]) -> tuple[PhaseLabel, ...]:
     return tuple(merged[code] for code in sorted(merged))
 
 
-def _unknown_names(plants: list[PlantPhotoperiod]) -> tuple[str, ...]:
-    names: list[str] = sorted(
-        plant.display_name or plant.plant_key for plant in plants if judged_photoperiod(plant) is None
-    )
+def _names(plants: list[PlantPhotoperiod]) -> tuple[str, ...]:
+    names: list[str] = sorted(plant.display_name or plant.plant_key for plant in plants)
     return tuple(names[:MAX_NAMED_UNKNOWN_PLANTS])
+
+
+def _unknown_names(plants: list[PlantPhotoperiod]) -> tuple[str, ...]:
+    return _names([plant for plant in plants if judged_photoperiod(plant) is None])
 
 
 def photoperiod_hints(
@@ -150,15 +184,33 @@ def photoperiod_hints(
     * ``tent.photoperiod_unknown`` (``info``): no conflict among the known ones, but at least two light-triggered
       plants stand here and at least one of them has no sourced photoperiod - the check could not judge it (E-10,
       #2857). With a conflict the unknown plants are still counted and named on the conflict hint.
+    * ``tent.photoperiod_data_error`` (``info``, #2857): beside the above, when at least one light-triggered plant is a
+      short-day plant whose flowering profile states a long day (:func:`is_photoperiod_data_error`). Those plants take
+      no part in the conflict; the hint names them and shows their hours.
     """
     if not has_own_light_schedule(location_type_key, lamp_height_cm):
         return []
     considered = light_triggered(plants)
-    groups = photoperiod_groups(considered)
-    unknown = sum(1 for plant in considered if judged_photoperiod(plant) is None)
-    names = _unknown_names(considered)
+    data_errors = [plant for plant in considered if is_photoperiod_data_error(plant)]
+    judged = [plant for plant in considered if not is_photoperiod_data_error(plant)]
+    groups = photoperiod_groups(judged)
+    unknown = sum(1 for plant in judged if judged_photoperiod(plant) is None)
+    names = _unknown_names(judged)
+    hints: list[TentHint] = []
     if len(groups) >= 2:
-        return [TentHint(HINT_PHOTOPERIOD_CONFLICT, "warning", groups, unknown, names)]
-    if unknown and len(considered) >= 2:
-        return [TentHint(HINT_PHOTOPERIOD_UNKNOWN, "info", groups, unknown, names)]
-    return []
+        hints += [TentHint(HINT_PHOTOPERIOD_CONFLICT, "warning", groups, unknown, names)]
+    elif unknown and len(considered) >= 2:
+        hints += [TentHint(HINT_PHOTOPERIOD_UNKNOWN, "info", groups, unknown, names)]
+    if data_errors:
+        hints += [
+            TentHint(
+                HINT_PHOTOPERIOD_DATA_ERROR,
+                "info",
+                photoperiod_groups(data_errors),
+                0,
+                (),
+                data_error_plant_count=len(data_errors),
+                data_error_plant_names=_names(data_errors),
+            )
+        ]
+    return hints

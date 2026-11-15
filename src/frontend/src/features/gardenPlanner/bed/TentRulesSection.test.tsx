@@ -220,6 +220,29 @@ describe('TentRulesSection', () => {
     );
   });
 
+  /** #2857: a short-day plant whose flowering profile states a long day is a data error, not a conflict. */
+  it('words the data error of a short-day plant in flowering and names it', () => {
+    renderSection({
+      hints: [
+        {
+          code: 'tent.photoperiod_data_error',
+          severity: 'info',
+          groups: [{ photoperiod_hours: 18, plant_count: 1, phase_names: ['Flowering'] }],
+          unknown_plant_count: 0,
+          data_error_plant_count: 1,
+          data_error_plant_names: ['Hemp'],
+        },
+      ],
+    });
+
+    const alert = screen.getByTestId('tent-hint-photoperiod-data-error');
+    expect(alert).toHaveTextContent('Light duration does not fit a short-day plant');
+    expect(alert).toHaveTextContent('1 short-day plant is flowering, but its phase profile states 18 hours of light');
+    expect(alert).toHaveTextContent('The plant is not counted when the light durations are compared.');
+    expect(screen.getByTestId('tent-hint-data-error-plants')).toHaveTextContent('Affected: Hemp.');
+    expect(screen.queryByTestId('tent-hint-photoperiod-unknown')).not.toBeInTheDocument();
+  });
+
   it('names all unknown plants when they fit', () => {
     renderSection({
       hints: [
