@@ -116,9 +116,31 @@ damit Bucket 3 ab dem Folgetag überwacht ist; Metriken-Endpunkt und Operations-
 
 ## 4. M-P2 — Aufzeichnungsprofil und Klassifizierung (E09)
 
+**Stand (2026-11-15, VERIFIED_CODE): Migration und Modellfelder umgesetzt** (Betreiberfreigabe 2026-11-15, DEC-30
+`accepted`); der Anlagepfad (PRIV-409, 422 `tenant.classification_required`), das `undeclared`-Verhalten und der
+Reklassifizierungs-Job sind offen (E09). Umsetzungsdetails:
+
+- `TenantSettings.record_keeping: RecordKeeping | None` und `organization_kind: OrganizationKind | None`
+  (`domain/models/tenant.py`, Enums in `common/enums.py`, Werte wie `08` §3.2), **ohne** Default. Kein Request-
+  oder Response-Schema trägt die Felder bisher (Lesen in `GET /tenants/{slug}` ist Teil von E09, `08` §5).
+- **Persönliche Mandanten erhalten kein `organization_kind`.** PRIV-409 klassifiziert nur Organisationsmandanten
+  (`organization_kind ∈ {association, commercial, community, other}`); `unknown_legacy` würde eine Organisation
+  behaupten, die es nicht gibt. Ein Mandant ohne `tenant_type` gilt wie im Modell als persönlich.
+- Jedes Feld wird für sich geprüft: Ein Organisationsmandant mit erklärtem `record_keeping`, aber ohne Art erhält
+  nur `organization_kind = unknown_legacy`; ein vorhandener Wert wird nie überschrieben. Ein `settings`, das weder
+  fehlt noch ein Objekt ist, bleibt unberührt (das Modell kann einen solchen Mandanten ohnehin nicht lesen).
+- Phasen wie v0109 (§2a); `precheck` prüft zusätzlich, dass das Modell dieses Builds die geschriebenen Werte liest
+  und für beide Felder keinen Default hat. `apply` ist je Mandant ein einzelnes Dokument-`UPDATE` (in ArangoDB
+  atomar). Buckets `tenants.record_keeping_legacy`, `tenants.record_keeping_none`,
+  `tenants.organization_kind_unknown_legacy`.
+- `down` entfernt `record_keeping = legacy` und `organization_kind = unknown_legacy` (Werte, die nur v0110 setzt)
+  und lässt `record_keeping = none` stehen: Der Wert stammt nicht eindeutig von v0110 (der Anlagepfad setzt ihn
+  für neue persönliche Mandanten ebenso, die Herkunft ist nicht gespeichert) und ist für jeden persönlichen
+  Mandanten richtig (L-07); ihn zu entfernen machte einen korrekt klassifizierten Mandanten `undeclared`.
+
 **Migration `v0110_tenant_record_keeping_default`** (`kind = privacy_correction`; umkehrbar: entfernt `legacy`):
 setzt bei jedem bestehenden Mandanten ohne Wert `settings.record_keeping = "legacy"` und `settings.organization_kind =
-"unknown_legacy"`; persönliche Mandanten erhalten `record_keeping = "none"` (L-07). Neue Mandanten erhalten
+"unknown_legacy"`; persönliche Mandanten erhalten `record_keeping = "none"` (L-07) und kein `organization_kind`. Neue Mandanten erhalten
 **keinen** Default (`undeclared`, PRIV-409) — der Anlagepfad verlangt die Angabe.
 
 **Job `privacy.reclassify_statutory_rows`** (läuft bei Wechsel auf `none` oder bei PRIV-411-Anwendung; mandanten-
@@ -263,7 +285,7 @@ Betriebsendpunkt (E15).
 | Migration / Job | Rollback | Teilausfall |
 |-----------------|----------|-------------|
 | v0109 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
-| v0110 | entfernt explizites `legacy`/`unknown_legacy` | idempotent |
+| v0110 | entfernt explizites `legacy`/`unknown_legacy`; `none` persönlicher Mandanten bleibt (§4) | je Mandant ein Dokument-`UPDATE`; Wiederholung beim nächsten Start; idempotent |
 | v0111 | entfernt neue Felder, wenn alle `null`/Kopien | je Collection transaktional |
 | Reklassifizierung | keiner | je Mandant; Zustand `reclassification_pending` bis Erfolg |
 | Restore-Replay | keiner (wendet Löschungen erneut an) | Residue > 0 ⇒ Wartungsmodus bleibt |

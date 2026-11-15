@@ -141,6 +141,9 @@ from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
 
+#: Settings an import never carries over: the new tenant starts ``undeclared`` (spec/privacy/09 §4, DEC-30).
+_UNDECLARED_ON_IMPORT = frozenset({"record_keeping", "organization_kind"})
+
 _PLATFORM_TENANT_KEY = "platform"
 
 #: One answer for an unknown slug and a tenant the requester may not export (REQ-056 §12.2).
@@ -1160,6 +1163,9 @@ class TenantExportService:
         raw_settings = source.get("settings")
         description: str | None = raw_description if isinstance(raw_description, str) else None
         tenant_settings: dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
+        # PRIV-409 / DEC-30: the record-keeping duty is declared for this tenant, never inherited from an archive —
+        # a personal source's ``none`` or a migration default would silently shorten a legal retention here.
+        tenant_settings = {k: v for k, v in tenant_settings.items() if k not in _UNDECLARED_ON_IMPORT}
         tenant_key = new_document_key()
         if before_founding is not None:
             before_founding(tenant_key)
