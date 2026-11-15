@@ -124,6 +124,9 @@ def test_no_series_is_labelled_by_tenant_person_or_request(api: TestClient, scra
         # REQ-053 client_event_index_blocked{collection}: one of the four collection names of migration v0106
         # (a closed, code-defined set) - never a person, a tenant or a request.
         "collection",
+        # Privacy W-28 privacy_undeclared_tombstones{cell}: one "collection.field" cell of the tombstone watch list
+        # (a closed, code-defined set derived from the inventory) - never a person, a tenant or a request.
+        "cell",
     }
     for forbidden in ("tenant", "user", "subject", "actor", "request_id", "ip"):
         assert forbidden not in label_names
