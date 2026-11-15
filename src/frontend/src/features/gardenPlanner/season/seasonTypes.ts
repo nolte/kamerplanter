@@ -21,6 +21,8 @@ export interface SeasonBedOutcome {
   status: SeasonBedStatus;
   slots: number;
   slots_outside_bed: number;
+  /** Zones left out because they overlap a standing zone or one copied before them (V-06, #2953). */
+  slots_overlapping: number;
 }
 
 export interface SeasonReport {

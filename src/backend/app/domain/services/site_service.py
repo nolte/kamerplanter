@@ -5,7 +5,7 @@ from typing import Protocol
 import structlog
 
 from app.common.enums import FrostRisk
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import NotFoundError, PlanError, ValidationError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, SiteKey, SlotKey
@@ -438,6 +438,15 @@ class SiteService:
         """
         existing = self.get_slot(key, tenant_key=tenant_key)
         self.get_location(slot.location_key, tenant_key=tenant_key)
+        if slot.location_key != existing.location_key and existing.geometry is not None:
+            # A placed slot's geometry lies in its bed's frame: carried into another bed it would stand at
+            # meaningless coordinates with no V-04/V-06 check (#2953). The plan editor moves a placed slot.
+            raise PlanError(
+                "slot.placed_slot_move",
+                "A slot placed in its bed cannot be moved to another location here; remove it from the plan first.",
+                status_code=422,
+                field="location_key",
+            )
         slot.currently_occupied = existing.currently_occupied
         keep_stored_fields(slot, existing, SLOT_FIELDS_KEPT_ON_EDIT)
         return self._repo.update_slot(key, slot, untouched=SLOT_COLUMNS_A_PUT_LEAVES)

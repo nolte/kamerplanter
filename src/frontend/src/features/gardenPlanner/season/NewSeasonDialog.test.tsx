@@ -26,8 +26,8 @@ function report(overrides: Partial<SeasonReport> = {}): SeasonReport {
     beds_skipped: 1,
     slots_to_create: 12,
     beds: [
-      { location_key: 'b1', status: 'copied', slots: 12, slots_outside_bed: 0 },
-      { location_key: 'b2', status: 'skipped_active_plants', slots: 0, slots_outside_bed: 0 },
+      { location_key: 'b1', status: 'copied', slots: 12, slots_outside_bed: 0, slots_overlapping: 0 },
+      { location_key: 'b2', status: 'skipped_active_plants', slots: 0, slots_outside_bed: 0, slots_overlapping: 0 },
     ],
     ...overrides,
   };
@@ -81,6 +81,29 @@ describe('NewSeasonDialog', () => {
     ).toBeInTheDocument();
     expect(bodies).toEqual([{ year: YEAR, dry_run: true, expected_revision: null }]);
     expect(screen.getByTestId('plan-season-confirm')).toBeEnabled();
+  });
+
+  it('names the places outside the bed and the overlapping zones it leaves out (#2953)', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    useBackend(bodies, () =>
+      report({
+        beds: [
+          { location_key: 'b1', status: 'nothing_to_copy', slots: 0, slots_outside_bed: 2, slots_overlapping: 3 },
+          { location_key: 'b2', status: 'nothing_to_copy', slots: 0, slots_outside_bed: 0, slots_overlapping: 0 },
+        ],
+        beds_copied: 0,
+        slots_to_create: 0,
+      }),
+    );
+    const user = renderDialog();
+
+    await user.click(screen.getByTestId('plan-season-check'));
+
+    const view = await screen.findByTestId('plan-season-report');
+    expect(within(view).getByText(/2 places no longer lie inside the bed/)).toBeInTheDocument();
+    expect(within(view).getByText(/3 zones overlap a standing zone and are not copied/)).toBeInTheDocument();
+    // the control: a bed with nothing left out carries no such line
+    expect(within(view).getAllByText(/overlap a standing zone/)).toHaveLength(1);
   });
 
   it('writes only after the confirmation, with the revision the check saw', async () => {
