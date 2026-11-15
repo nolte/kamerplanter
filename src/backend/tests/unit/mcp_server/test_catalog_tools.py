@@ -171,6 +171,33 @@ async def test_species_info_summary_names_the_species_by_the_display_rule(names,
     assert resp.summary.startswith(f"Species {label}")
 
 
+@pytest.mark.parametrize(
+    ("language", "label"),
+    [
+        ("en", "Solanum lycopersicum (Tomato)"),
+        ("de", "Solanum lycopersicum (Tomate)"),
+        ("fr", "Solanum lycopersicum (Tomate)"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_species_info_summary_names_the_species_in_the_request_language(language, label):
+    # #2955 — the summary words the name in ``ToolContext.language`` (the request's
+    # ``Accept-Language``) like the IPM tools, not always in the canonical language.
+    class _Named(_SpeciesService):
+        def get_species(self, key, *, tenant_key=None):
+            species = _Species()
+            species.common_names = ["Tomato", "Tomate"]
+            species.common_names_i18n = {"en": ["Tomato"], "de": ["Tomate"]}
+            return species
+
+    principal = McpPrincipal(account_key="u-1", display_name="Gardener", memberships=(_membership(),))
+    ctx = ToolContext(principal, _membership(), services={"species_service": _Named()}, language=language)
+
+    resp = await GetSpeciesInfo().run(ctx, GetSpeciesInfo.Input(species_key="sp-tomato"))
+
+    assert resp.summary.startswith(f"Species {label}")
+
+
 @pytest.mark.asyncio
 async def test_species_info_embeds_cultivars_and_can_omit_them():
     svc = _SpeciesService(cultivars=[_Cultivar()])

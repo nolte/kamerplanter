@@ -10,6 +10,9 @@ from app.domain.models.species_names import normalize_names_i18n
 class PestCreate(BaseModel):
     scientific_name: str = Field(min_length=1, max_length=200)
     common_name: str = Field(min_length=1, max_length=200)
+    #: Language code -> names (REQ-010 v1.9, #2955), the shape diseases use.
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
+    #: Compatibility: becomes the map's ``de`` entry when the map names no German one.
     common_name_de: str | None = None
     pest_type: str = "insect"
     lifecycle_days: int | None = None
@@ -33,10 +36,20 @@ class PestCreate(BaseModel):
     detection_slug: str | None = None
     reference_image_refs: list[str] = Field(default_factory=list)
 
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        """An invalid language key or an empty name is a 422 here, not a 500 in the model."""
+        return normalize_names_i18n(value)
+
 
 class PestUpdate(BaseModel):
     scientific_name: str | None = None
     common_name: str | None = None
+    #: ``None`` (absent) keeps the stored map; ``{}`` clears it. Sent, it wins over
+    #: ``common_name_de`` (which is then derived from its ``de`` entry, #2955).
+    common_names_i18n: dict[str, list[str]] | None = None
+    #: Compatibility: sent without the map, it replaces the map's ``de`` entry.
     common_name_de: str | None = None
     pest_type: str | None = None
     lifecycle_days: int | None = None
@@ -60,11 +73,19 @@ class PestUpdate(BaseModel):
     detection_slug: str | None = None
     reference_image_refs: list[str] | None = None
 
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]] | None) -> dict[str, list[str]] | None:
+        """An invalid language key or an empty name is a 422 here, not a 500 in the model."""
+        return None if value is None else normalize_names_i18n(value)
+
 
 class PestResponse(BaseModel):
     key: str
     scientific_name: str
     common_name: str
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
+    #: Compatibility read: the first name of ``common_names_i18n["de"]`` (#2955).
     common_name_de: str | None = None
     pest_type: str
     lifecycle_days: int | None = None
@@ -370,8 +391,9 @@ class TreatmentTargetRef(BaseModel):
 
     key: str
     common_name: str
+    #: Compatibility read for pests (the first German name, #2955); ``None`` for diseases.
     common_name_de: str | None = None
-    #: Diseases name their languages here (REQ-010 v1.8, #2936); pests use ``common_name_de``.
+    #: Pests and diseases name their languages here (REQ-010 v1.8 #2936, v1.9 #2955).
     common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     scientific_name: str
 

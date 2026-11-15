@@ -78,7 +78,7 @@ die klassischen Fehlerquellen, auf die du gezielt achtest.
 ### A — Taxonomie & Klassifikation
 - `scientific_name` ist ein gültiger Taxon-Name (Binomen oder bewusst Familien-/
   Überfamilien-Rang wie `Aphididae`, `Sciaridae`, `Coccoidea`). Rang konsistent
-  zu `common_name`/`common_name_de`.
+  zu `common_name`/`common_names_i18n` (seit #2955 statt `common_name_de`).
 - `pest_type` **passt zum Taxon**: Milben/Spinnentiere → `arachnid`,
   Insekten → `insect`, Schnecken → `gastropod`, Fadenwürmer → `nematode`,
   Wirbeltiere → `mammal`. (Häufiger Fehler: Spinnmilbe als `insect`.)
@@ -186,7 +186,7 @@ Abschluss-Struktur:
 - 🔴 Kritisch: x   🟠 Wichtig: y   🟡 Hinweis: z
 
 ## Befunde
-### <scientific_name> (<common_name_de>)
+### <scientific_name> (<common_names_i18n.de>)
 - 🔴 [Dimension C] ipm.yaml:LINE — <Beobachtung>
   Begründung: <Biologie>
   Vorschlag: <korrigierter Text/Wert>
@@ -206,7 +206,7 @@ am Ende an, kritische/wichtige Befunde auf Wunsch in `ipm.yaml` /
 ## Gotchas
 
 - **Angereicherte Steckbrief-Felder hängen vom Branch ab.** Die Felder
-  `common_name_de`, `damage_symptoms`/`_de`, `affected_plant_parts`,
+  `common_names_i18n`, `damage_symptoms`/`_de`, `affected_plant_parts`,
   `host_plants`/`_de`, `prevention_tips`/`_de`, `monitoring_hints`/`_de`,
   `severity`, `optimal_humidity_min/max`, `detection_slug`,
   `reference_image_refs` stammen aus der REQ-010-Detailseiten-Erweiterung

@@ -4,7 +4,9 @@
 pests:
   - scientific_name: Trialeurodes vaporariorum
     common_name: Greenhouse Whitefly
-    common_name_de: Weiße Fliege
+    common_names_i18n:
+      en: [Greenhouse Whitefly]
+      de: [Weiße Fliege]
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 22.0

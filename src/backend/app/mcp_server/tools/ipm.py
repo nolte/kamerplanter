@@ -50,11 +50,17 @@ def _matches(*fields: Any, needle: str) -> bool:
     return needle in " ".join(str(f) for f in fields if f).lower()
 
 
-def _pest_summary(pest: Any) -> dict[str, Any]:
+def _pest_summary(pest: Any, language: str) -> dict[str, Any]:
     return {
         "pest_key": pest.key,
         "scientific_name": pest.scientific_name,
+        # The name in the request's language: UI language -> de -> stored name (#2955),
+        # the rule diseases follow (#2936).
+        "name": localized_catalog_name(pest.common_name, pest.common_names_i18n, language),
         "common_name": pest.common_name,
+        # Names per language (#2955): the stored common_name is English for the seeded rows.
+        "common_names_i18n": pest.common_names_i18n,
+        # Compatibility read: the first German name of the map.
         "common_name_de": pest.common_name_de,
         "pest_type": pest.pest_type,
         "damage_symptoms": pest.damage_symptoms_de or pest.damage_symptoms,
@@ -120,7 +126,7 @@ class ListPests(ToolBase):
     class Input(ToolInput):
         query: str | None = Field(
             default=None,
-            description="Case-insensitive filter over scientific, common and German names plus damage symptoms.",
+            description="Case-insensitive filter over the scientific name, every common name and damage symptoms.",
         )
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
@@ -139,7 +145,7 @@ class ListPests(ToolBase):
                 if _matches(
                     p.scientific_name,
                     p.common_name,
-                    p.common_name_de,
+                    *(name for language in p.common_names_i18n for name in p.common_names_i18n[language]),
                     p.damage_symptoms,
                     p.damage_symptoms_de,
                     needle=needle,
@@ -150,7 +156,11 @@ class ListPests(ToolBase):
             summary=f"{len(page)} pests"
             + (f" match '{args.query}'" if args.query else f" of {total} in the catalogue")
             + ".",
-            data={"count": len(page), "matched": len(selected), "items": [_pest_summary(p) for p in page]},
+            data={
+                "count": len(page),
+                "matched": len(selected),
+                "items": [_pest_summary(p, ctx.language) for p in page],
+            },
             links=[ctx.global_link("/ipm/pests")],
         )
 
@@ -169,7 +179,7 @@ class GetPest(ToolBase):
         detail = ctx.ipm_service.get_pest_detail(args.pest_key)
         pest = detail["pest"]
 
-        data = _pest_summary(pest)
+        data = _pest_summary(pest, ctx.language)
         data.update(
             {
                 "lifecycle_days": pest.lifecycle_days,
@@ -193,10 +203,9 @@ class GetPest(ToolBase):
                 ],
             }
         )
-        name = pest.common_name_de or pest.common_name
         n_ben = len(data["beneficials"])
         return self._response(
-            summary=f"{name} ({pest.scientific_name}): {len(data['treatments'])} counter-measures, "
+            summary=f"{data['name']} ({pest.scientific_name}): {len(data['treatments'])} counter-measures, "
             f"{n_ben} natural enemies.",
             data=data,
             links=[ctx.global_link(f"/ipm/pests/{pest.key}")],

@@ -32,7 +32,7 @@ import structlog
 from app.common.enums import BedStatus, GeometrySource, TenantRole
 from app.common.exceptions import PlanError, PlanRevisionConflictError
 from app.common.types import SiteKey
-from app.domain.engines.garden_plan_engine import slots_outside_bed
+from app.domain.engines.garden_plan_engine import overlapping_zones, slots_outside_bed
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -43,6 +43,7 @@ from app.domain.models.garden_plan_season import (
     PlanSeasonReport,
     SeasonBedOutcome,
 )
+from app.domain.models.geometry import Geometry
 from app.domain.models.site import Location, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.location_ownership import require_owned_site
@@ -195,9 +196,17 @@ class GardenPlanSeasonService:
                     slots_outside_bed(bed.geometry, [(slot.slot_id, slot.geometry) for slot in fresh if slot.geometry])
                 )
             fresh = [slot for slot in fresh if slot.slot_id not in outside]
+            # V-06 (#2953): a zone of the previous year that overlaps a standing zone, or one copied before it, is
+            # left out like a place outside the bed - the copy never stores two overlapping zones.
+            fresh, overlapping = _clear_of_standing_zones(fresh, standing)
             if not fresh:
                 outcomes += [
-                    SeasonBedOutcome(location_key=bed_key, status="nothing_to_copy", slots_outside_bed=len(outside))
+                    SeasonBedOutcome(
+                        location_key=bed_key,
+                        status="nothing_to_copy",
+                        slots_outside_bed=len(outside),
+                        slots_overlapping=overlapping,
+                    )
                 ]
                 continue
             if len(standing) + len(fresh) > MAX_SLOTS_PER_BATCH:
@@ -207,6 +216,7 @@ class GardenPlanSeasonService:
                         status="skipped_slot_quota",
                         slots=len(fresh),
                         slots_outside_bed=len(outside),
+                        slots_overlapping=overlapping,
                     )
                 ]
                 continue
@@ -217,13 +227,36 @@ class GardenPlanSeasonService:
             ]
             outcomes += [
                 SeasonBedOutcome(
-                    location_key=bed_key, status="copied", slots=len(fresh), slots_outside_bed=len(outside)
+                    location_key=bed_key,
+                    status="copied",
+                    slots=len(fresh),
+                    slots_outside_bed=len(outside),
+                    slots_overlapping=overlapping,
                 )
             ]
         report.beds = outcomes
         report.beds_copied = sum(1 for item in outcomes if item.status == "copied")
         report.beds_skipped = sum(1 for item in outcomes if item.status.startswith("skipped"))
         return basis.revisions
+
+
+def _clear_of_standing_zones(fresh: list[Slot], standing: list[Slot]) -> tuple[list[Slot], int]:
+    """``fresh`` without the zones that overlap a standing zone or a fresh one kept before them; and how many left.
+
+    In the old order, so the earlier zone of two that overlap is the one copied. Positions and rows have no overlap
+    notion (:func:`overlapping_zones`) and always stay.
+    """
+    kept_geometries: list[tuple[str, Geometry]] = [
+        (f"standing:{slot.key}", slot.geometry) for slot in standing if slot.geometry is not None
+    ]
+    for slot in fresh:
+        if slot.geometry is not None:
+            subject = f"fresh:{slot.slot_id}"
+            if not any(subject in pair for pair in overlapping_zones([*kept_geometries, (subject, slot.geometry)])):
+                kept_geometries.append((subject, slot.geometry))
+    copied = {key for key, _ in kept_geometries}
+    kept = [slot for slot in fresh if slot.geometry is None or f"fresh:{slot.slot_id}" in copied]
+    return kept, len(fresh) - len(kept)
 
 
 def _distinct_places(old_slots: list[Slot], taken: set[str]) -> list[Slot]:

@@ -301,6 +301,7 @@ def get_treatment_detail(
                 key=p.key or "",
                 common_name=p.common_name,
                 common_name_de=p.common_name_de,
+                common_names_i18n=p.common_names_i18n,
                 scientific_name=p.scientific_name,
             )
             for p in detail["targeted_pests"]

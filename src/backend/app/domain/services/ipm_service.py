@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from app.common.datetimes import now_utc
 from app.common.enums import TreatmentType
@@ -14,6 +15,7 @@ from app.domain.models.ipm import (
     Pest,
     Treatment,
     TreatmentApplication,
+    sync_german_name,
 )
 from app.domain.models.pest_taxonomy import get_taxon
 from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
@@ -129,6 +131,7 @@ class IpmService:
         allowed = {
             "scientific_name",
             "common_name",
+            "common_names_i18n",
             "common_name_de",
             "pest_type",
             "lifecycle_days",
@@ -152,10 +155,38 @@ class IpmService:
             "detection_slug",
             "reference_image_refs",
         }
+        old_name = existing.common_name
         for field, value in data.items():
             if field in allowed:
                 setattr(existing, field, value)
+        self._sync_pest_names(existing, data, old_name)
         return self._repo.update_pest(key, existing)
+
+    @staticmethod
+    def _sync_pest_names(pest: Pest, data: dict[str, Any], old_name: str) -> None:
+        """Keep the pest's names ONE truth after an update (REQ-010 v1.9, #2955).
+
+        * ``common_names_i18n`` sent: the map replaces the stored one whole and
+          ``common_name_de`` is derived from it (a map without ``de`` clears it).
+        * only ``common_name_de`` sent (a client from before the map): it becomes the
+          map's ``de`` entry, so the display - which reads the map - shows the edit.
+        * ``common_name`` renamed while the map's ``en`` entry is exactly the old name
+          (the seed writes it so): ``en`` follows, as for diseases (#2936).
+        """
+        names_sent = "common_names_i18n" in data
+        names = pest.common_names_i18n
+        if names_sent:
+            pest.common_name_de = None
+        elif "common_name_de" in data:
+            kept = {language: names[language] for language in names if language != "de"}
+            pest.common_names_i18n = kept
+        renamed = pest.common_name != old_name
+        names = pest.common_names_i18n
+        # Membership + subscript rather than ``.get``: no call the write-route guard cannot type.
+        english_was_the_stored_name = "en" in names and names["en"] == [old_name]
+        if renamed and not names_sent and english_was_the_stored_name:
+            pest.common_names_i18n = {**names, "en": [pest.common_name]}
+        pest.common_name_de, pest.common_names_i18n = sync_german_name(pest.common_name_de, pest.common_names_i18n)
 
     def delete_pest(self, key: str, *, is_platform_admin: bool) -> bool:
         self._require_catalogue_admin(is_platform_admin, self._PEST)

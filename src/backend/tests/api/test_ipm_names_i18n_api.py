@@ -1,4 +1,4 @@
-"""#2936 — the IPM API serves and accepts the names of a disease per language.
+"""#2936 / #2955 — the IPM API serves and accepts the names of a disease and a pest per language.
 
 ``common_names_i18n`` travels through ``GET``/``POST``/``PUT /ipm/diseases``, the
 treatment detail's disease refs and the pest detail's beneficials; an invalid language
@@ -115,3 +115,72 @@ def test_treatment_detail_and_pest_detail_carry_the_names_per_language() -> None
 
     assert treatment["targeted_diseases"][0]["common_names_i18n"] == _MILDEW
     assert pest["beneficials"][0]["common_names_i18n"] == mites
+
+
+# ── Pests (#2955): the same language map as diseases ───────────────────────────
+
+_MITES = {"en": ["Spider Mites"], "de": ["Spinnmilben"]}
+
+
+def _mites() -> Pest:
+    return Pest(_key="p1", scientific_name="Tetranychus urticae", common_name="Spider Mites", common_names_i18n=_MITES)
+
+
+def test_a_pest_is_served_with_its_names_per_language_and_the_derived_german_name() -> None:
+    service = MagicMock()
+    service.get_pest.return_value = _mites()
+
+    body = _client(service).get("/api/v1/ipm/pests/p1").json()
+
+    assert body["common_name"] == "Spider Mites"
+    assert body["common_names_i18n"] == _MITES
+    assert body["common_name_de"] == "Spinnmilben"
+
+
+def test_a_created_pest_keeps_its_names_and_an_invalid_key_is_a_422() -> None:
+    service = MagicMock()
+    service.create_pest.side_effect = lambda p, *, is_platform_admin: p
+    client = _client(service)
+    payload = {"scientific_name": "Tetranychus urticae", "common_name": "Spider Mites"}
+
+    created = client.post("/api/v1/ipm/pests", json={**payload, "common_names_i18n": {"de": [" Spinnmilben "]}})
+    legacy = client.post("/api/v1/ipm/pests", json={**payload, "common_name_de": "Spinnmilben"})
+    refused = client.post("/api/v1/ipm/pests", json={**payload, "common_names_i18n": {"DE": ["Spinnmilben"]}})
+
+    assert created.status_code == 201
+    assert created.json()["common_names_i18n"] == {"de": ["Spinnmilben"]}
+    assert created.json()["common_name_de"] == "Spinnmilben"
+    # A client that still sends only the German field lands in the same map.
+    assert legacy.json()["common_names_i18n"] == {"de": ["Spinnmilben"]}
+    assert refused.status_code == 422
+
+
+def test_a_pest_update_without_the_field_keeps_the_map_and_an_empty_map_clears_it() -> None:
+    repo = MagicMock()
+    repo.get_pest_or_raise.side_effect = lambda key: _mites()
+    repo.update_pest.side_effect = lambda key, pest: pest
+    client = _client(IpmService(repo, MagicMock(), MagicMock(), MagicMock()))
+
+    kept = client.put("/api/v1/ipm/pests/p1", json={"description": "webbing"})
+    cleared = client.put("/api/v1/ipm/pests/p1", json={"common_names_i18n": {}})
+    refused = client.put("/api/v1/ipm/pests/p1", json={"common_names_i18n": {"de": ["  "]}})
+
+    assert kept.json()["common_names_i18n"] == _MITES
+    assert cleared.json()["common_names_i18n"] == {}
+    assert cleared.json()["common_name_de"] is None
+    assert refused.status_code == 422
+
+
+def test_treatment_detail_names_pests_and_diseases_in_one_shape() -> None:
+    service = MagicMock()
+    service.get_treatment_detail.return_value = {
+        "treatment": Treatment(_key="t1", name="Predatory mites", treatment_type="biological", safety_interval_days=0),
+        "targeted_pests": [_mites()],
+        "targeted_diseases": [_mildew()],
+    }
+
+    body = _client(service).get("/api/v1/ipm/treatments/t1/detail").json()
+
+    assert body["targeted_pests"][0]["common_names_i18n"] == _MITES
+    assert body["targeted_pests"][0]["common_name_de"] == "Spinnmilben"
+    assert body["targeted_diseases"][0]["common_names_i18n"] == _MILDEW

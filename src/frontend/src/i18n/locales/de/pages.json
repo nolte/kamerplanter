@@ -7111,6 +7111,7 @@
             "nothing_to_copy": "nichts zu übernehmen, die Plätze sind schon da"
           },
           "outsideBed": "{{count}} Plätze liegen nicht mehr im Beet und werden nicht übernommen.",
+          "overlapping": "{{count}} Zonen überschneiden sich mit einer stehenden Zone und werden nicht übernommen.",
           "showHints": "„Hier stand …“ anzeigen",
           "hereStood": "Hier stand: {{what}}",
           "hereStoodUnknown": "Hier stand: nicht erfasst",

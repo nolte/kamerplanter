@@ -1,4 +1,4 @@
-"""The seed sync carries the names per language onto existing diseases and beneficials (#2936).
+"""The seed sync carries the names per language onto existing diseases, beneficials (#2936) and pests (#2955).
 
 ``common_names_i18n`` is new on ``Disease`` and ``Beneficial`` and no migration may add
 it (the privacy reservations hold the next migration numbers), so an existing
@@ -107,3 +107,25 @@ def test_a_language_the_taxonomy_no_longer_names_leaves_a_stored_beneficial(db: 
 
     row = db.collection(col.BENEFICIALS).get(planted["_key"])
     assert row["common_names_i18n"] == {"de": ["Schlupfwespe (Encarsia formosa)"]}
+
+
+def test_a_pest_from_before_the_field_gains_its_names_per_language(db: StandardDatabase) -> None:
+    # #2955 — a row stored with only ``common_name_de`` (and a language the seed does
+    # not name) leaves the seed run with exactly the seed's map, its key unchanged.
+    planted = db.collection(col.PESTS).insert(
+        {
+            "scientific_name": "Tetranychus urticae",
+            "common_name": "Spider Mites",
+            "common_name_de": "Spinnmilbe (alt)",
+            "common_names_i18n": {"fr": ["Tétranyque"]},
+        }
+    )
+
+    run_seed()
+
+    rows = _rows(db, col.PESTS, "scientific_name", "Tetranychus urticae")
+    seed = next(p for p in load_yaml("ipm.yaml")["pests"] if p["scientific_name"] == "Tetranychus urticae")
+    assert [r["_key"] for r in rows] == [planted["_key"]]
+    assert rows[0]["common_names_i18n"] == seed["common_names_i18n"]
+    assert rows[0]["common_names_i18n"] == {"en": ["Spider Mites"], "de": ["Spinnmilben"]}
+    assert rows[0]["common_name_de"] == "Spinnmilben"

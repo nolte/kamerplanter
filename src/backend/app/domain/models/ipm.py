@@ -20,7 +20,21 @@ from app.domain.models.species_names import normalize_names_i18n
 class Pest(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     scientific_name: str = Field(min_length=1, max_length=200)
+    #: The stored name: the seed's English name and the key the seed's
+    #: ``pest_treatments`` edges name the pest by. Shown where the language map has
+    #: no name for the UI language nor for ``de`` (REQ-010 v1.9, #2955).
     common_name: str = Field(min_length=1, max_length=200)
+    #: Language code -> names in preference order (REQ-010 v1.9, #2955), the same
+    #: shape as ``Disease.common_names_i18n``; resolved by
+    #: ``species_names.localized_catalog_name``. A language without a stored name is
+    #: absent and the display falls back (E-10).
+    common_names_i18n: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Language code (de, en, ...) -> pest names in preference order.",
+    )
+    #: Compatibility read of the German name (stored rows, API consumers). Not a second
+    #: truth: :meth:`_sync_german_name` derives it from ``common_names_i18n["de"]``; a
+    #: row or request that only carries this field seeds the map's ``de`` entry.
     common_name_de: str | None = Field(default=None, max_length=200)
     pest_type: str = Field(default="insect", max_length=50)
     lifecycle_days: int | None = Field(default=None, ge=1)
@@ -53,6 +67,41 @@ class Pest(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        return normalize_names_i18n(value)
+
+    @model_validator(mode="after")
+    def _sync_german_name(self) -> Pest:
+        """Hold ``common_name_de`` and ``common_names_i18n["de"]`` as ONE German name (#2955).
+
+        The map wins: with a ``de`` entry, ``common_name_de`` is its first name. Without
+        one, a ``common_name_de`` (a row stored before the map existed, a client that
+        still sends only that field) becomes the map's ``de`` entry, so every reader of
+        the map sees it too.
+        """
+        self.common_name_de, self.common_names_i18n = sync_german_name(self.common_name_de, self.common_names_i18n)
+        return self
+
+
+def sync_german_name(
+    common_name_de: str | None, common_names_i18n: dict[str, list[str]]
+) -> tuple[str | None, dict[str, list[str]]]:
+    """The pair (``common_name_de``, ``common_names_i18n``) with ONE German name (#2955).
+
+    The map's ``de`` entry wins; without one a non-blank ``common_name_de`` becomes it;
+    with neither, ``common_name_de`` is ``None``.
+    """
+    if "de" in common_names_i18n:
+        return common_names_i18n["de"][0], common_names_i18n
+    # Typed locals, one call each: the write-route guard resolves a typed receiver, not a chain.
+    raw: str = common_name_de or ""
+    german: str = raw.strip()
+    if not german:
+        return None, common_names_i18n
+    return german, {**common_names_i18n, "de": [german]}
 
 
 class Disease(BaseModel):

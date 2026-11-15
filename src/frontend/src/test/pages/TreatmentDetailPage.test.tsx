@@ -129,6 +129,34 @@ describe('TreatmentDetailPage', () => {
     expect(diseases).toHaveTextContent(expected);
   });
 
+  // #2955 — a targeted pest reads the same language map as a disease.
+  it.each([
+    ['de', 'Spinnmilben'],
+    ['en', 'Spider Mites'],
+  ])('names a targeted pest in the UI language (%s)', async (language, expected) => {
+    await i18n.changeLanguage(language);
+    vi.mocked(getTreatmentDetail).mockResolvedValue(
+      makeDetail({
+        targeted_pests: [
+          {
+            key: 'p1',
+            common_name: 'Spider Mites',
+            common_name_de: 'Spinnmilben',
+            common_names_i18n: { en: ['Spider Mites'], de: ['Spinnmilben'] },
+            scientific_name: 'Tetranychus urticae',
+          },
+        ],
+      }),
+    );
+    renderWithProviders(<TreatmentDetailPage />, { route: '/pflanzenschutz/treatments/t1' });
+
+    const pests = await screen.findByTestId('treatment-targeted-pests');
+    expect(pests).toHaveTextContent(expected);
+    expect(screen.getByTestId('treatment-target-pest')).toHaveAccessibleName(
+      `${expected} — ${i18n.t('pages.treatmentDetail.viewPestDetail')}`,
+    );
+  });
+
   it('renders an error state when loading fails', async () => {
     vi.mocked(getTreatmentDetail).mockRejectedValue(new Error('boom'));
     renderWithProviders(<TreatmentDetailPage />, { route: '/pflanzenschutz/treatments/t1' });

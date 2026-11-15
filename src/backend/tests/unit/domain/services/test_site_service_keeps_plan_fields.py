@@ -12,7 +12,10 @@ copy may be stale, so the location write leaves those columns as stored and the
 
 from __future__ import annotations
 
+import pytest
+
 from app.common.enums import BedStatus, FrostRisk, SlotRole, SunExposure, SunWindow
+from app.common.exceptions import PlanError
 from app.domain.models.site import Location, Site, Slot
 from app.domain.services.site_service import (
     LOCATION_FIELDS_KEPT_ON_EDIT,
@@ -320,3 +323,42 @@ class TestTheDerivedAreaSurvivesAnOrdinaryEdit:
 
 
 _RECT_BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 10, "rotation_deg": 0}
+
+
+class TestMovingASlotToAnotherBed:
+    """#2953: a placed slot's geometry lies in its bed's frame; ``PUT /slots`` does not carry it into another bed."""
+
+    @staticmethod
+    def _repo_with_a_second_bed() -> _Repo:
+        repo = _Repo()
+        second = repo.location.model_copy(update={"key": "loc_2", "name": "Hochbeet 4"})
+        first_lookup = repo.get_location_by_key
+        repo.get_location_by_key = lambda key: second if key == "loc_2" else first_lookup(key)  # type: ignore[method-assign]
+        return repo
+
+    def test_a_placed_slot_is_not_moved_and_nothing_is_written(self) -> None:
+        repo = self._repo_with_a_second_bed()
+        body = Slot(slot_id="BEET_R1", location_key="loc_2", capacity_plants=1)
+
+        with pytest.raises(PlanError) as exc:
+            _service(repo).update_slot("slot_1", body, tenant_key=TENANT)
+
+        assert (exc.value.status_code, exc.value.details[0]["code"]) == (422, "slot.placed_slot_move")
+        assert repo.written == []
+
+    def test_an_unplaced_slot_still_moves(self) -> None:
+        """The control: without a geometry there is no frame to be wrong in, the move goes through as before."""
+        repo = self._repo_with_a_second_bed()
+        repo.slot = repo.slot.model_copy(update={"geometry": None, "slot_role": SlotRole.POSITION})
+        body = Slot(slot_id="BEET_R1", location_key="loc_2", capacity_plants=1)
+
+        written = _service(repo).update_slot("slot_1", body, tenant_key=TENANT)
+
+        assert written.location_key == "loc_2"
+
+    def test_a_placed_slot_saved_in_its_own_bed_is_written(self) -> None:
+        """The control: the form sends the unchanged location back; that is no move."""
+        repo = self._repo_with_a_second_bed()
+        body = Slot(slot_id="BEET_R1", location_key="loc_1", capacity_plants=2)
+
+        assert _service(repo).update_slot("slot_1", body, tenant_key=TENANT).capacity_plants == 2

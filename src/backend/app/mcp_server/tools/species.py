@@ -15,7 +15,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
-from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
+from app.domain.models.species_names import localized_vernacular_name
 from app.mcp_server.base import CatalogueToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
 
@@ -218,8 +218,9 @@ class GetSpeciesInfo(ToolBase):
             if cultivars:
                 data["cultivars"] = [_cultivar_summary(c) for c in cultivars]
 
-        # The summary's vernacular name in the canonical language; the payload carries every name (#2902).
-        common = localized_vernacular_name(species.common_names, species.common_names_i18n, CANONICAL_NAME_LANGUAGE)
+        # The summary's vernacular name in the request's language (canonical when the call
+        # carries none, ``ToolContext.language``); the payload carries every name (#2902, #2955).
+        common = localized_vernacular_name(species.common_names, species.common_names_i18n, ctx.language)
         label = f"{species.scientific_name}" + (f" ({common})" if common else "")
         # Count the values that actually carry something. ``len(data)`` used to be
         # the same number, but the safety carve-out puts unpopulated fields into

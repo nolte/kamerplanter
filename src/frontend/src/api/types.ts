@@ -3066,7 +3066,10 @@ export type PlantPart = 'leaf' | 'stem' | 'root' | 'flower' | 'fruit';
 export interface Pest {
   key: string;
   scientific_name: string;
+  /** The stored (English) name; display via `getLocalizedCatalogName` (#2955). */
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
+  /** Compatibility read: the first name of `common_names_i18n.de` (#2955). */
   common_name_de: string | null;
   pest_type: string;
   lifecycle_days: number | null;
@@ -3103,6 +3106,7 @@ export interface Pest {
 export interface PestCreate {
   scientific_name: string;
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   pest_type?: string;
   lifecycle_days?: number | null;
   optimal_temp_min?: number | null;
@@ -3124,6 +3128,7 @@ export interface PestCreate {
 export interface PestUpdate {
   scientific_name?: string;
   common_name?: string;
+  common_names_i18n?: CommonNamesI18n;
   pest_type?: string;
   lifecycle_days?: number | null;
   optimal_temp_min?: number | null;
@@ -3303,8 +3308,9 @@ export interface TreatmentUpdate {
 export interface TreatmentTargetRef {
   key: string;
   common_name: string;
+  /** Compatibility read for pests (the first German name, #2955); `null` for diseases. */
   common_name_de: string | null;
-  /** Diseases name their languages here (#2936); pests use `common_name_de`. */
+  /** Pests and diseases name their languages here (#2936, #2955); display via `getLocalizedCatalogName`. */
   common_names_i18n?: CommonNamesI18n;
   scientific_name: string;
 }

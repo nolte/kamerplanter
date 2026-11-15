@@ -110,18 +110,19 @@ export function getLocalizedCommonName(
   return firstNonEmpty(species.common_names) ?? scientific;
 }
 
-/** A catalogue entity with ONE stored name plus its names per language (IPM disease, beneficial). */
+/** A catalogue entity with ONE stored name plus its names per language (IPM pest, disease, beneficial). */
 type CatalogNameSource = {
   common_name?: string | null;
   common_names_i18n?: Readonly<Partial<Record<string, readonly string[]>>> | null;
 };
 
 /**
- * The display name of an IPM disease or beneficial (REQ-010 v1.8, UI-NFR-007 R-009a,
- * #2936): the first name of the UI language -> the first name of `de` -> the stored
- * `common_name`. A disease's stored name is English and a beneficial's German; a
- * language without a sourced name (E-10) shows that stored name instead of a guess.
- * Mirrors `localized_catalog_name` in `app/domain/models/species_names.py`.
+ * The display name of an IPM pest, disease or beneficial (REQ-010 v1.8/v1.9,
+ * UI-NFR-007 R-009a, #2936, #2955): the first name of the UI language -> the first
+ * name of `de` -> the stored `common_name`. A pest's and a disease's stored name is
+ * English and a beneficial's German; a language without a stored name (E-10) shows
+ * that stored name instead of a guess. Mirrors `localized_catalog_name` in
+ * `app/domain/models/species_names.py`.
  */
 export function getLocalizedCatalogName(
   entity: CatalogNameSource | null | undefined,
@@ -135,6 +136,16 @@ export function getLocalizedCatalogName(
     nonEmpty(entity?.common_name) ??
     ''
   );
+}
+
+/**
+ * Every name a catalogue entity is known by, de-duplicated: the stored one and each
+ * language's (#2936, #2955). For a search that must find a pest or disease by any of
+ * its names, whatever the UI language.
+ */
+export function getCatalogNames(entity: CatalogNameSource | null | undefined): string[] {
+  const names = [entity?.common_name, ...Object.values(entity?.common_names_i18n ?? {}).flat()];
+  return [...new Set(names.map((name) => nonEmpty(name)).filter((name): name is string => Boolean(name)))];
 }
 
 /**
