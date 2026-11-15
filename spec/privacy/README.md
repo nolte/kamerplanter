@@ -36,7 +36,8 @@ Es baut auf REQ-025, NFR-011, REQ-023/024/049, REQ-053 und UI-NFR-012 auf und ä
 | 13 | [`13-legal-evidence-register.md`](13-legal-evidence-register.md) | **Rechtsevidenzregister** L-nn mit Wortlaut, URL, Fassung, Prüfdatum; Verifikationsaufträge V-nn | L-01…L-22, V-01…V-11 |
 | 14 | [`14-contradiction-register.md`](14-contradiction-register.md) | **Widerspruchsregister** W-01…W-26 mit Auflösung und Test | — |
 | 15 | [`15-decision-analyses.md`](15-decision-analyses.md) | **Entscheidungsanalysen** DA-01…DA-08 (Rollen, Rechtsgrundlagen, KCanG/PflSchG, Beschäftigte, Freitext, Pseudonymisierung, Offline/TDDDG, DSFA) | — |
-| — | [`decision-log.md`](decision-log.md) | **Entscheidungsregistry**: DEC-01…34, LEG-01…19 mit Scope, PA, Owner, Gate, Durchsetzungspunkt, Prüfdatum | — |
+| 16 | [`16-dpo-briefing-2517.md`](16-dpo-briefing-2517.md) | **Briefing für DSB/Rechtsberatung** (#2517): Fragen je Komplex mit Ist-Stand, Default und LEG-Zuordnung | LEG-20…22 neu |
+| — | [`decision-log.md`](decision-log.md) | **Entscheidungsregistry**: DEC-01…34, LEG-01…22 mit Scope, PA, Owner, Gate, Durchsetzungspunkt, Prüfdatum | — |
 
 Lesereihenfolge: `01` → `15` (Analysen) → `06` (Recht) → `03`/`04`/`05` (Verhalten) → `07` → `08`/`09` → `10` → `12`.
 `02`, `13`, `14` sind Nachschlagewerke; `11` und das Decision-Log sind die Übergabe an DSB und Betreiber.

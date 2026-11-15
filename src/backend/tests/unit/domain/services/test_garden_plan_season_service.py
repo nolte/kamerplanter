@@ -179,3 +179,42 @@ class TestTheGates:
 
     def test_the_revision_it_saw_goes_through(self, service: GardenPlanSeasonService) -> None:
         assert _run(service, expected_revision=3).applied is True
+
+
+def _zone(key: str, slot_id: str, x0: float, x1: float, *, archived: datetime | None = LAST_YEAR) -> Slot:
+    return Slot(
+        _key=key,
+        slot_id=slot_id,
+        location_key="b1",
+        slot_role="zone",
+        geometry={"kind": "polygon", "points": [[x0, 0.1], [x1, 0.1], [x1, 0.9], [x0, 0.9]]},
+        archived_at=archived,
+    )
+
+
+class TestZonesDoNotOverlap:
+    """#2953: the copy checks V-06 too - a zone of last year that overlaps a standing zone, or one copied before it,
+    is left out and counted, like a place outside the bed (V-04)."""
+
+    def test_an_overlapping_zone_is_left_out_and_counted(self, service: GardenPlanSeasonService, repo: FakePlanRepo):
+        repo.slots += [
+            _zone("st", "B1_Z", 0.0, 1.0, archived=None),  # stands this year
+            _zone("z1", "B1_Z1", 0.5, 1.5),  # overlaps the standing zone
+            _zone("z2", "B1_Z2", 2.0, 2.9),  # free
+            _zone("z3", "B1_Z3", 2.2, 2.8),  # overlaps z2, which is copied before it
+        ]
+
+        report = _run(service)
+
+        b1 = next(item for item in report.beds if item.location_key == "b1")
+        assert (b1.status, b1.slots, b1.slots_overlapping) == ("copied", 3, 2)  # two points and z2
+        copied = [s for s in repo.slots if s.geometry_source is GeometrySource.SEASON_COPY and s.slot_role == "zone"]
+        assert [s.geometry.points[0][0] for s in copied] == [2.0]  # type: ignore[union-attr]
+
+    def test_zones_that_touch_nothing_are_all_copied(self, service: GardenPlanSeasonService, repo: FakePlanRepo):
+        """The control: without an overlap every zone of last year comes back and nothing is counted."""
+        repo.slots += [_zone("z1", "B1_Z1", 0.0, 0.9), _zone("z2", "B1_Z2", 2.0, 2.9)]
+
+        b1 = next(item for item in _run(service).beds if item.location_key == "b1")
+
+        assert (b1.slots, b1.slots_overlapping) == (4, 0)

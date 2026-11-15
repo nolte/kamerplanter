@@ -943,6 +943,9 @@ class PlanSeasonBedResponse(BaseModel):
     status: Literal["copied", "skipped_active_plants", "skipped_retired", "skipped_slot_quota", "nothing_to_copy"]
     slots: int = 0
     slots_outside_bed: int = 0
+    slots_overlapping: int = Field(
+        default=0, description="Zones left out because they overlap a standing zone or one copied before them (V-06)."
+    )
 
 
 class PlanSeasonResponse(BaseModel):

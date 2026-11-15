@@ -7110,6 +7110,7 @@
             "nothing_to_copy": "nothing to copy, the places are already there"
           },
           "outsideBed": "{{count}} places no longer lie inside the bed and are not copied.",
+          "overlapping": "{{count}} zones overlap a standing zone and are not copied.",
           "showHints": "Show \"Here stood …\"",
           "hereStood": "Here stood: {{what}}",
           "hereStoodUnknown": "Here stood: not recorded",

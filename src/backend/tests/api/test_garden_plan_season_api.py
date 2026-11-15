@@ -117,7 +117,9 @@ class TestTheReport:
         assert response.status_code == 200
         report = response.json()
         assert (report["slots_to_create"], report["beds_copied"], report["applied"]) == (1, 1, False)
-        assert report["beds"] == [{"location_key": "bed", "status": "copied", "slots": 1, "slots_outside_bed": 0}]
+        assert report["beds"] == [
+            {"location_key": "bed", "status": "copied", "slots": 1, "slots_outside_bed": 0, "slots_overlapping": 0}
+        ]
         assert repo.applied == []
 
     def test_the_request_defaults_to_a_dry_run(self, client, repo) -> None:
