@@ -22,7 +22,7 @@ from app.migrations.framework.report import (
     MigrationReport,
     NonLinearHistoryError,
 )
-from app.migrations.framework.report_store import persist_report
+from app.migrations.framework.report_store import persist_report, redact_details
 from app.migrations.support.retired_indexes import RETIRED_INDEXES, RetiredIndex, enforce_retired_indexes
 
 logger = structlog.get_logger()
@@ -176,7 +176,8 @@ class MigrationRunner:
                         "migration_precondition_unmet_left_pending",
                         version=migration.version,
                         name=migration.name,
-                        details=report.details,
+                        # PRIV-701: a privacy migration's details reach the log only through the redaction filter.
+                        details=redact_details(report.details)[0] if migration.kind is not None else report.details,
                     )
                     reports.append(report)
                     break
