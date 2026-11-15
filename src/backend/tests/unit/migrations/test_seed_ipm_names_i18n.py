@@ -12,7 +12,13 @@ Pinned here, over the committed seed data:
     every gap-list entry is a real disease that still has none;
 (c) every seeded German disease name carries its source on the same line;
 (d) every beneficial taxon has its German name, and an English one or a gap-list entry;
-    every English name sits under a ``# Source:`` comment in ``pest_taxonomy.py``.
+    every English name sits under a ``# Source:`` comment in ``pest_taxonomy.py``;
+(e) every pest taxon of the detection taxonomy has a sourced English name (#2955), so a
+    finding (``PestFinding.common_names_i18n``) follows the UI language;
+(f) the pests and diseases ``seed_ipm_rows`` creates from ``plant_info.yaml`` and
+    ``adventskalender.yaml`` carry the same map (#2955): ``en`` is the stored name, ``de``
+    is sourced on its line or the row is a listed gap; a row ``ipm.yaml`` owns carries no
+    map there, so the two seeds never overwrite each other's names.
 """
 
 from __future__ import annotations
@@ -26,7 +32,8 @@ import yaml
 
 from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import Disease, Pest
-from app.domain.models.pest_taxonomy import beneficial_taxa
+from app.domain.models.pest_taxonomy import PEST_TAXONOMY, beneficial_taxa, pest_taxa
+from app.migrations.seed_ipm_rows import DISEASES_KEY, PESTS_KEY, build_diseases, build_pests
 
 _APP = Path(__file__).resolve().parents[3] / "app"
 _IPM_SEED = _APP / "migrations" / "seed_data" / "ipm.yaml"
@@ -51,6 +58,12 @@ DISEASES_WITHOUT_A_SOURCED_GERMAN_NAME: frozenset[str] = frozenset(
 
 #: Beneficial taxa (slug) without a sourced English name: the English UI shows the German one.
 BENEFICIALS_WITHOUT_A_SOURCED_ENGLISH_NAME: frozenset[str] = frozenset({"parasitoid_wasp"})
+
+#: Pests and diseases ``seed_ipm_rows`` creates without a sourced German name (checked 2026-11-15).
+SEED_IPM_ROWS_WITHOUT_A_SOURCED_GERMAN_NAME: frozenset[str] = frozenset({"Dahlia mosaic virus"})
+
+#: The files ``seed_ipm_rows`` reads (``test_seed_ipm_rows.py`` pins that list against the loaders).
+_IPM_ROW_FILES = ("plant_info.yaml", "adventskalender.yaml")
 
 _SOURCE_COMMENT = re.compile(r"#\s*Source:\s*https://\S+")
 
@@ -111,12 +124,85 @@ def test_a_beneficial_carries_its_german_name_and_a_sourced_english_one_or_a_lis
         assert names.get("en"), f"{taxon.slug} has no English name and is not in the gap list"
 
 
-def test_every_english_beneficial_name_sits_under_its_source() -> None:
+def test_every_english_taxon_name_sits_under_its_source() -> None:
     lines = _TAXONOMY.read_text(encoding="utf-8").splitlines()
     english = [i for i, line in enumerate(lines) if line.strip().startswith("common_name_en=")]
 
-    assert len(english) == len(beneficial_taxa()) - len(BENEFICIALS_WITHOUT_A_SOURCED_ENGLISH_NAME)
+    assert len(english) == len(PEST_TAXONOMY) - len(BENEFICIALS_WITHOUT_A_SOURCED_ENGLISH_NAME)
     assert [lines[i] for i in english if not _SOURCE_COMMENT.search(lines[i - 1])] == []
+
+
+@pytest.mark.parametrize("taxon", pest_taxa(), ids=[t.slug for t in pest_taxa()])
+def test_a_pest_taxon_names_itself_in_german_and_english(taxon: Any) -> None:
+    names = taxon.names_i18n()
+
+    assert names["de"] == [taxon.common_name_de]
+    assert names.get("en"), f"{taxon.slug} has no sourced English name"
+
+
+def _ipm_yaml_names() -> set[str]:
+    data = yaml.safe_load(_IPM_SEED.read_text(encoding="utf-8"))
+    return {row["scientific_name"] for row in [*data["pests"], *data["diseases"]]}
+
+
+def _ipm_rows() -> list[tuple[str, Any]]:
+    """``(file, model)`` of every valid pest and disease the two files hand to ``seed_ipm_rows``."""
+    rows: list[tuple[str, Any]] = []
+    for name in _IPM_ROW_FILES:
+        data = yaml.safe_load((_APP / "migrations" / "seed_data" / name).read_text(encoding="utf-8"))
+        rows += [(name, row) for row in [*build_pests(data, source=name), *build_diseases(data, source=name)]]
+    return rows
+
+
+def _row_id(entry: tuple[str, Any]) -> str:
+    return f"{entry[0]}:{entry[1].scientific_name}"
+
+
+def _rows_the_seed_creates() -> list[tuple[str, Any]]:
+    owned = _ipm_yaml_names()
+    return [entry for entry in _ipm_rows() if entry[1].scientific_name not in owned]
+
+
+def test_the_two_files_create_the_measured_rows() -> None:
+    """Seven pests and seven diseases on 2026-11-15 — a scan that finds none is broken, not clean."""
+    assert len(_rows_the_seed_creates()) == 14
+
+
+@pytest.mark.parametrize("entry", _rows_the_seed_creates(), ids=_row_id)
+def test_a_row_the_seed_creates_names_its_stored_name_as_english(entry: tuple[str, Any]) -> None:
+    _, row = entry
+
+    assert row.common_names_i18n.get("en") == [row.common_name]
+
+
+@pytest.mark.parametrize("entry", _rows_the_seed_creates(), ids=_row_id)
+def test_a_row_the_seed_creates_has_a_german_name_or_is_a_listed_gap(entry: tuple[str, Any]) -> None:
+    _, row = entry
+    has_german = bool(row.common_names_i18n.get("de"))
+
+    if row.scientific_name in SEED_IPM_ROWS_WITHOUT_A_SOURCED_GERMAN_NAME:
+        assert not has_german, f"{row.scientific_name} has a German name now: drop it from the gap list"
+    else:
+        assert has_german, f"{row.scientific_name} has no German name and is not in the gap list"
+
+
+@pytest.mark.parametrize("entry", [e for e in _ipm_rows() if e[1].scientific_name in _ipm_yaml_names()], ids=_row_id)
+def test_a_row_ipm_yaml_owns_carries_no_map_in_the_other_files(entry: tuple[str, Any]) -> None:
+    # seed_ipm_rows syncs a declared map onto the existing row; ipm.yaml's map would lose.
+    assert entry[1].common_names_i18n == {}
+
+
+def test_every_german_name_in_the_two_files_carries_its_source() -> None:
+    offenders: list[str] = []
+    for name in _IPM_ROW_FILES:
+        lines = (_APP / "migrations" / "seed_data" / name).read_text(encoding="utf-8").splitlines()
+        sections = [i for i, line in enumerate(lines) if line.split(":")[0] in (PESTS_KEY, DISEASES_KEY)]
+        for start in sections:
+            end = next((i for i in range(start + 1, len(lines)) if lines[i][:1].strip()), len(lines))
+            german = [line for line in lines[start:end] if line.strip().startswith("de: [")]
+            offenders += [f"{name}: {line.strip()}" for line in german if not _SOURCE_COMMENT.search(line)]
+
+    assert offenders == []
 
 
 # ── Pests (#2955): the same language map, filled from the seed's former ``common_name_de`` ──

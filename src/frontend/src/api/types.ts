@@ -100,14 +100,7 @@ export type WaterRetention = 'low' | 'medium' | 'high';
 export type BufferCapacity = 'low' | 'medium' | 'high';
 /** Compass orientation of a location; the intercardinal values are additive (REQ-053 GP-FR-168). */
 export type Orientation =
-  | 'north'
-  | 'south'
-  | 'east'
-  | 'west'
-  | 'northeast'
-  | 'southeast'
-  | 'southwest'
-  | 'northwest';
+  'north' | 'south' | 'east' | 'west' | 'northeast' | 'southeast' | 'southwest' | 'northwest';
 export type PlantTrait =
   | 'disease_resistant'
   | 'pest_resistant'
@@ -5264,7 +5257,8 @@ export interface TaskTemplateUpdateRequest {
  * account deletion left without anybody who can administer it (#2134); `importing` is a tenant a
  * platform admin's import is still writing (#2138).
  */
-export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted' | 'importing';
+export type TenantStatus =
+  'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted' | 'importing';
 
 /**
  * Response of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`.
@@ -5578,10 +5572,7 @@ export type TenantExportOrigin = 'tenant_management' | 'platform_admin';
 
 /** The only failure reasons the backend puts on the record — never an exception text. */
 export type TenantExportFailureReason =
-  | 'too_large'
-  | 'tenant_not_exportable'
-  | 'storage_unavailable'
-  | 'internal_error';
+  'too_large' | 'tenant_not_exportable' | 'storage_unavailable' | 'internal_error';
 
 /**
  * One tenant export request — `TenantExportResponse` of `POST/GET /tenants/{slug}/exports`.
@@ -5607,12 +5598,7 @@ export interface TenantExport {
  * `cleanup_pending` when a failed run left rows the hourly sweep still has to remove.
  */
 export type TenantImportStatus =
-  | 'pending'
-  | 'validating'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cleanup_pending';
+  'pending' | 'validating' | 'running' | 'completed' | 'failed' | 'cleanup_pending';
 
 /**
  * One tenant import — `TenantImportResponse` of `POST /admin/platform/tenant-imports` and
@@ -6048,7 +6034,10 @@ export interface PestBoundingBox {
 export interface PestFinding {
   label: string;
   category: PestFindingCategory;
+  /** The taxon's German name, or the adapter's own label outside the taxonomy. */
   common_name: string;
+  /** Language code -> names (REQ-010 v1.9, #2955); absent on findings stored before it. */
+  common_names_i18n?: Partial<Record<string, string[]>>;
   confidence: number;
   mode: PestFindingMode;
   bounding_box: PestBoundingBox | null;
@@ -6095,7 +6084,10 @@ export interface PestCreateInspectionResult {
 
 export interface PestCoverageEntry {
   label: string;
+  /** The taxon's German name. */
   common_name: string;
+  /** Language code -> names (REQ-010 v1.9, #2955). */
+  common_names_i18n?: Partial<Record<string, string[]>>;
   category: string;
   scientific_name: string;
   gbif_taxon_key: string | null;

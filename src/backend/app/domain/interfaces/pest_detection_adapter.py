@@ -34,7 +34,14 @@ class PestFinding(BaseModel):
 
     label: str
     category: PestFindingCategory
+    #: The taxon's German name (``PestTaxon.common_name_de``), or the adapter's own
+    #: label for a class outside the taxonomy. Shown where the map below names no
+    #: name for the UI language (REQ-010 v1.9, #2955).
     common_name: str
+    #: Language code -> names, from the taxonomy (``PestTaxon.names_i18n``): only the
+    #: languages a source names (E-10). Empty for a label outside the taxonomy and for
+    #: a finding stored before the map existed — both show ``common_name``.
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
     mode: PestFindingMode
     bounding_box: BoundingBox | None = None

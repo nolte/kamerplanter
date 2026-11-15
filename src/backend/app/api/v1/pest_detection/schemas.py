@@ -14,6 +14,8 @@ class FindingSchema(BaseModel):
     label: str
     category: str
     common_name: str
+    #: Language code -> names (REQ-010 v1.9, #2955); the client shows the UI language's.
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     confidence: float
     mode: str
     bounding_box: BoundingBoxSchema | None = None
