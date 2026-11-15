@@ -109,16 +109,37 @@ function TentDataErrorAlert({
   hint: TentHint;
   group: (item: PhotoperiodGroup) => string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const hoursFormat = useMemo(
+    () => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }),
+    [i18n.language],
+  );
   const count = hint.data_error_plant_count ?? 0;
-  const names = hint.data_error_plant_names ?? [];
+  const described = hint.data_error_plants ?? [];
+  // Each plant with the critical day length it was judged against, and whether that is the species' or the 12 h
+  // standard assumption (agrobiology sign-off #2857). An older backend sends only the names.
+  const names =
+    described.length > 0
+      ? described.map((plant) =>
+          t(
+            plant.critical_day_length_assumed
+              ? 'pages.bed.tentRules.hints.dataErrorPlantAssumed'
+              : 'pages.bed.tentRules.hints.dataErrorPlantStated',
+            {
+              name: plant.name,
+              hours: hoursFormat.format(plant.photoperiod_hours),
+              critical: hoursFormat.format(plant.critical_day_length_hours),
+            },
+          ),
+        )
+      : (hint.data_error_plant_names ?? []);
   const more = count - names.length;
   const affected =
     names.length === 0
       ? ''
       : more > 0
-        ? t('pages.bed.tentRules.hints.unknownPlantsMore', { names: names.join(', '), count: more })
-        : t('pages.bed.tentRules.hints.unknownPlants', { names: names.join(', ') });
+        ? t('pages.bed.tentRules.hints.unknownPlantsMore', { names: names.join('; '), count: more })
+        : t('pages.bed.tentRules.hints.unknownPlants', { names: names.join('; ') });
   return (
     <Alert severity={hint.severity} role="status" data-testid="tent-hint-photoperiod-data-error">
       <AlertTitle>{t('pages.bed.tentRules.hints.dataErrorTitle')}</AlertTitle>

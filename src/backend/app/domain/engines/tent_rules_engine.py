@@ -38,6 +38,7 @@ from app.domain.models.tent_hint import (
     HINT_PHOTOPERIOD_DATA_ERROR,
     HINT_PHOTOPERIOD_UNKNOWN,
     MAX_NAMED_UNKNOWN_PLANTS,
+    DataErrorPlant,
     PhaseLabel,
     PhotoperiodGroup,
     PlantPhotoperiod,
@@ -102,12 +103,35 @@ def is_photoperiod_data_error(plant: PlantPhotoperiod) -> bool:
     hours = judged_photoperiod(plant)
     if hours is None:
         return False
-    critical = (
-        plant.critical_day_length_hours
-        if plant.critical_day_length_hours is not None
-        else SHORT_DAY_FALLBACK_CRITICAL_HOURS
-    )
+    critical, _ = critical_day_length(plant)
     return hours >= critical + PHOTOPERIOD_EQUAL_TOLERANCE_HOURS
+
+
+def critical_day_length(plant: PlantPhotoperiod) -> tuple[float, bool]:
+    """The critical day length the data-error check uses, and whether it is the 12 h standard assumption.
+
+    ``(stated, False)`` when the species' lifecycle states ``critical_day_length_hours``, else
+    ``(SHORT_DAY_FALLBACK_CRITICAL_HOURS, True)`` - an assumption the hint names as such (agrobiology sign-off #2857).
+    """
+    if plant.critical_day_length_hours is not None:
+        return plant.critical_day_length_hours, False
+    return SHORT_DAY_FALLBACK_CRITICAL_HOURS, True
+
+
+def _data_error_plants(plants: list[PlantPhotoperiod]) -> tuple[DataErrorPlant, ...]:
+    described: list[DataErrorPlant] = sorted(
+        (
+            DataErrorPlant(
+                name=plant.display_name or plant.plant_key,
+                photoperiod_hours=plant.photoperiod_hours or 0.0,
+                critical_day_length_hours=critical_day_length(plant)[0],
+                critical_day_length_assumed=critical_day_length(plant)[1],
+            )
+            for plant in plants
+        ),
+        key=lambda described_plant: described_plant.name,
+    )
+    return tuple(described[:MAX_NAMED_UNKNOWN_PLANTS])
 
 
 def photoperiod_groups(plants: list[PlantPhotoperiod]) -> tuple[PhotoperiodGroup, ...]:
@@ -186,7 +210,8 @@ def photoperiod_hints(
       #2857). With a conflict the unknown plants are still counted and named on the conflict hint.
     * ``tent.photoperiod_data_error`` (``info``, #2857): beside the above, when at least one light-triggered plant is a
       short-day plant whose flowering profile states a long day (:func:`is_photoperiod_data_error`). Those plants take
-      no part in the conflict; the hint names them and shows their hours.
+      no part in the conflict; the hint names them, shows their hours and says per plant whether the critical day
+      length is the species' or the 12 h standard assumption (``data_error_plants``). Always ``info``, never raised.
     """
     if not has_own_light_schedule(location_type_key, lamp_height_cm):
         return []
@@ -211,6 +236,7 @@ def photoperiod_hints(
                 (),
                 data_error_plant_count=len(data_errors),
                 data_error_plant_names=_names(data_errors),
+                data_error_plants=_data_error_plants(data_errors),
             )
         ]
     return hints

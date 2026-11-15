@@ -8501,9 +8501,11 @@
           "unknownPlants": "Affected: {{names}}.",
           "unknownPlantsMore_one": "Affected: {{names}} and {{count}} more.",
           "unknownPlantsMore_other": "Affected: {{names}} and {{count}} more.",
+          "dataErrorPlantStated": "{{name}} ({{hours}} h of light, critical day length {{critical}} h from the species)",
+          "dataErrorPlantAssumed": "{{name}} ({{hours}} h of light, critical day length {{critical}} h as standard assumption, the species states none)",
           "dataErrorTitle": "Light duration does not fit a short-day plant",
-          "dataError_one": "{{count}} short-day plant is flowering, but its phase profile states {{groups}}. That is above its critical day length, and short-day plants only flower when days are short. Most likely the light duration in the phase profile or the photoperiod type of the species is entered wrongly. Check both. For a day-neutral variety (e.g. autoflowering) the value can be right. The plant is not counted when the light durations are compared.",
-          "dataError_other": "{{count}} short-day plants are flowering, but their phase profiles state {{groups}}. That is above their critical day length, and short-day plants only flower when days are short. Most likely the light duration in the phase profile or the photoperiod type of the species is entered wrongly. Check both. For a day-neutral variety (e.g. autoflowering) the value can be right. The plants are not counted when the light durations are compared."
+          "dataError_one": "{{count}} short-day plant is flowering, but its phase profile states {{groups}}. That is above its critical day length, and short-day plants only flower when days are short. Most likely the light duration in the phase profile or the photoperiod type of the species is entered wrongly. Check both. For an autoflower variety (day-neutral) the value can be right. The plant is not counted when the light durations are compared.",
+          "dataError_other": "{{count}} short-day plants are flowering, but their phase profiles state {{groups}}. That is above their critical day length, and short-day plants only flower when days are short. Most likely the light duration in the phase profile or the photoperiod type of the species is entered wrongly. Check both. For an autoflower variety (day-neutral) the value can be right. The plants are not counted when the light durations are compared."
         }
       }
     },

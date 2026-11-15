@@ -71,6 +71,20 @@ class PlantPhotoperiod:
 
 
 @dataclass(frozen=True)
+class DataErrorPlant:
+    """A plant of a ``tent.photoperiod_data_error`` hint with the threshold it was judged against (#2857).
+
+    ``critical_day_length_assumed`` says the species states no ``critical_day_length_hours`` and the check used the
+    12 h standard assumption of the short-day class instead - the hint must say so, never present it as the species'.
+    """
+
+    name: str
+    photoperiod_hours: float
+    critical_day_length_hours: float
+    critical_day_length_assumed: bool
+
+
+@dataclass(frozen=True)
 class PhotoperiodGroup:
     """The plants that ask for one photoperiod, with the names of the phases they are in."""
 
@@ -96,3 +110,5 @@ class TentHint:
     data_error_plant_count: int = 0
     #: The first :data:`MAX_NAMED_UNKNOWN_PLANTS` of them by name.
     data_error_plant_names: tuple[str, ...] = ()
+    #: The same plants with their hours and the critical day length they were judged against (stated or assumed).
+    data_error_plants: tuple[DataErrorPlant, ...] = ()

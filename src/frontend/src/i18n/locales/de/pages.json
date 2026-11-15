@@ -8502,9 +8502,11 @@
           "unknownPlants": "Betroffen: {{names}}.",
           "unknownPlantsMore_one": "Betroffen: {{names}} und {{count}} weitere.",
           "unknownPlantsMore_other": "Betroffen: {{names}} und {{count}} weitere.",
+          "dataErrorPlantStated": "{{name}} ({{hours}} h Licht, kritische Tageslänge {{critical}} h laut Art)",
+          "dataErrorPlantAssumed": "{{name}} ({{hours}} h Licht, kritische Tageslänge {{critical}} h als Standardannahme, die Art nennt keine)",
           "dataErrorTitle": "Lichtdauer passt nicht zur Kurztagpflanze",
-          "dataError_one": "{{count}} Kurztagpflanze steht in der Blüte, ihr Phasenprofil nennt aber {{groups}}. Das liegt über ihrer kritischen Tageslänge, und Kurztagpflanzen blühen nur bei kurzen Tagen. Wahrscheinlich ist die Lichtdauer im Phasenprofil oder der Photoperioden-Typ der Art falsch eingetragen. Prüfe beides. Bei einer tagneutralen Sorte (z. B. Autoflower) kann der Wert stimmen. Beim Vergleich der Lichtdauern zählt die Pflanze nicht mit.",
-          "dataError_other": "{{count}} Kurztagpflanzen stehen in der Blüte, ihre Phasenprofile nennen aber {{groups}}. Das liegt über ihrer kritischen Tageslänge, und Kurztagpflanzen blühen nur bei kurzen Tagen. Wahrscheinlich ist die Lichtdauer im Phasenprofil oder der Photoperioden-Typ der Art falsch eingetragen. Prüfe beides. Bei einer tagneutralen Sorte (z. B. Autoflower) kann der Wert stimmen. Beim Vergleich der Lichtdauern zählen die Pflanzen nicht mit."
+          "dataError_one": "{{count}} Kurztagpflanze steht in der Blüte, ihr Phasenprofil nennt aber {{groups}}. Das liegt über ihrer kritischen Tageslänge, und Kurztagpflanzen blühen nur bei kurzen Tagen. Wahrscheinlich ist die Lichtdauer im Phasenprofil oder der Photoperioden-Typ der Art falsch eingetragen. Prüfe beides. Bei einer Autoflower-Sorte (tagneutral) kann der Wert stimmen. Beim Vergleich der Lichtdauern zählt die Pflanze nicht mit.",
+          "dataError_other": "{{count}} Kurztagpflanzen stehen in der Blüte, ihre Phasenprofile nennen aber {{groups}}. Das liegt über ihrer kritischen Tageslänge, und Kurztagpflanzen blühen nur bei kurzen Tagen. Wahrscheinlich ist die Lichtdauer im Phasenprofil oder der Photoperioden-Typ der Art falsch eingetragen. Prüfe beides. Bei einer Autoflower-Sorte (tagneutral) kann der Wert stimmen. Beim Vergleich der Lichtdauern zählen die Pflanzen nicht mit."
         }
       }
     },

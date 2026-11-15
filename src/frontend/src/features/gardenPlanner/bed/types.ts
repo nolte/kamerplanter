@@ -282,6 +282,16 @@ export interface TentHint {
   data_error_plant_count?: number;
   /** The first five of them by name. */
   data_error_plant_names?: string[];
+  /** The same plants with hours and the critical day length they were judged against; absent from an older backend. */
+  data_error_plants?: DataErrorPlant[];
+}
+
+/** A plant of `tent.photoperiod_data_error`: `critical_day_length_assumed` = the 12 h standard assumption was used. */
+export interface DataErrorPlant {
+  name: string;
+  photoperiod_hours: number;
+  critical_day_length_hours: number;
+  critical_day_length_assumed: boolean;
 }
 
 /** Body of `PATCH /locations/{key}` for the tent rules; a key absent stays as stored, `null` clears it. */

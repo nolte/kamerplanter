@@ -423,6 +423,29 @@ class PhotoperiodGroupResponse(BaseModel):
     phases: list[PhaseLabelResponse] = Field(default_factory=list)
 
 
+class DataErrorPlantResponse(BaseModel):
+    """A plant of `tent.photoperiod_data_error` (#2857): its light hours and the critical day length it was judged
+    against. `critical_day_length_assumed = true`: the species states none, the 12 h standard assumption was used."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "Gelato #3",
+                    "photoperiod_hours": 18.0,
+                    "critical_day_length_hours": 12.0,
+                    "critical_day_length_assumed": True,
+                }
+            ]
+        }
+    )
+
+    name: str
+    photoperiod_hours: float = Field(ge=0, le=24)
+    critical_day_length_hours: float = Field(ge=0, le=24)
+    critical_day_length_assumed: bool
+
+
 class TentHintResponse(BaseModel):
     """A light-schedule hint of a tent or shelf level (REQ-053 §9.2a, W-016.6, V-23): a hint, never an error.
 
@@ -435,8 +458,9 @@ class TentHintResponse(BaseModel):
     of them; a conflict hint counts and names them too. Day-neutral plants (species `photoperiod_type = day_neutral`)
     take no part either (#2857). `tent.photoperiod_data_error` (`info`, #2857): a short-day plant in a flowering phase
     whose sourced profile states at least one hour more than its critical day length (12 h when none is stated) - the
-    profile or the species' type is wrong, it is no conflict; `groups` shows those plants' hours and
-    `data_error_plant_names` names the first five.
+    profile or the species' type is wrong, it is no conflict; `groups` shows those plants' hours,
+    `data_error_plant_names` names the first five and `data_error_plants` says per plant whether the critical day length
+    is the species' or the 12 h standard assumption.
     """
 
     model_config = ConfigDict(
@@ -463,6 +487,8 @@ class TentHintResponse(BaseModel):
     data_error_plant_count: int = Field(default=0, ge=0)
     #: The first five of them by name; `data_error_plant_count` counts all.
     data_error_plant_names: list[str] = Field(default_factory=list, max_length=MAX_NAMED_UNKNOWN_PLANTS)
+    #: The same plants with hours and critical day length (stated by the species or the 12 h standard assumption).
+    data_error_plants: list[DataErrorPlantResponse] = Field(default_factory=list, max_length=MAX_NAMED_UNKNOWN_PLANTS)
 
     @classmethod
     def from_hint(cls, hint: TentHint) -> TentHintResponse:
@@ -487,6 +513,15 @@ class TentHintResponse(BaseModel):
             unknown_plant_names=list(hint.unknown_plant_names),
             data_error_plant_count=hint.data_error_plant_count,
             data_error_plant_names=list(hint.data_error_plant_names),
+            data_error_plants=[
+                DataErrorPlantResponse(
+                    name=plant.name,
+                    photoperiod_hours=plant.photoperiod_hours,
+                    critical_day_length_hours=plant.critical_day_length_hours,
+                    critical_day_length_assumed=plant.critical_day_length_assumed,
+                )
+                for plant in hint.data_error_plants
+            ],
         )
 
 

@@ -19,6 +19,7 @@ from app.domain.engines.phase_role_map import is_flowering_phase
 from app.domain.engines.tent_rules_engine import (
     PHOTOPERIOD_EQUAL_TOLERANCE_HOURS,
     SHORT_DAY_FALLBACK_CRITICAL_HOURS,
+    critical_day_length,
     is_day_neutral,
     is_photoperiod_data_error,
     light_triggered,
@@ -28,6 +29,7 @@ from app.domain.models.tent_hint import (
     HINT_PHOTOPERIOD_CONFLICT,
     HINT_PHOTOPERIOD_DATA_ERROR,
     HINT_PHOTOPERIOD_UNKNOWN,
+    DataErrorPlant,
     PlantPhotoperiod,
 )
 
@@ -173,3 +175,27 @@ class TestDataError:
 
     def test_a_location_without_a_schedule_gives_no_data_error(self) -> None:
         assert photoperiod_hints("bed", [plant("wrong", 18.0, "flowering", kind=SHORT)]) == []
+
+
+class TestCriticalDayLengthProvenance:
+    """Agrobiology sign-off (#2857): the hint says whether the threshold is the species' or the 12 h assumption."""
+
+    def test_a_stated_critical_day_length_is_the_species(self) -> None:
+        assert critical_day_length(plant("a", 18.0, "flowering", kind=SHORT, critical=14.5)) == (14.5, False)
+
+    def test_without_one_the_12_hour_standard_assumption_is_named_as_such(self) -> None:
+        assert critical_day_length(plant("a", 18.0, "flowering", kind=SHORT)) == (12.0, True)
+
+    def test_the_hint_carries_each_plants_threshold_and_its_origin(self) -> None:
+        plants = [
+            plant("stated", 18.0, "flowering", kind=SHORT, critical=14.5),
+            plant("assumed", 18.0, "flowering", kind=SHORT),
+        ]
+
+        (hint,) = photoperiod_hints("tent", plants)
+
+        assert (hint.code, hint.severity) == (HINT_PHOTOPERIOD_DATA_ERROR, "info")
+        assert hint.data_error_plants == (
+            DataErrorPlant("Assumed", 18.0, 12.0, True),
+            DataErrorPlant("Stated", 18.0, 14.5, False),
+        )

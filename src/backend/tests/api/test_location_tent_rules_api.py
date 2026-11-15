@@ -172,6 +172,7 @@ class TestSummary:
                 "unknown_plant_names": [],
                 "data_error_plant_count": 0,
                 "data_error_plant_names": [],
+                "data_error_plants": [],
             }
         ]
 
@@ -205,6 +206,7 @@ class TestSummary:
                 "unknown_plant_names": ["Gelato", "Lemon"],
                 "data_error_plant_count": 0,
                 "data_error_plant_names": [],
+                "data_error_plants": [],
             }
         ]
 
@@ -237,6 +239,14 @@ class TestSummary:
 
         assert [(h["code"], h["severity"]) for h in hints] == [("tent.photoperiod_data_error", "info")]
         assert (hints[0]["data_error_plant_count"], hints[0]["data_error_plant_names"]) == (1, ["Gelato"])
+        assert hints[0]["data_error_plants"] == [
+            {
+                "name": "Gelato",
+                "photoperiod_hours": 18.0,
+                "critical_day_length_hours": 12.0,
+                "critical_day_length_assumed": False,
+            }
+        ]
         assert [g["photoperiod_hours"] for g in hints[0]["groups"]] == [18.0]
 
     def test_each_group_names_its_phases_by_code_with_both_display_names(self, client, repo) -> None:

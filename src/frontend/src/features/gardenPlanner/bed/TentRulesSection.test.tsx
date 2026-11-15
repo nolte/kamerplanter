@@ -241,6 +241,32 @@ describe('TentRulesSection', () => {
     expect(alert).toHaveTextContent('The plant is not counted when the light durations are compared.');
     expect(screen.getByTestId('tent-hint-data-error-plants')).toHaveTextContent('Affected: Hemp.');
     expect(screen.queryByTestId('tent-hint-photoperiod-unknown')).not.toBeInTheDocument();
+    expect(alert).toHaveTextContent('For an autoflower variety (day-neutral) the value can be right.');
+  });
+
+  /** Agrobiology sign-off (#2857): the threshold is named with its origin - the species' or the 12 h assumption. */
+  it('says per plant whether the critical day length is the species or the standard assumption', () => {
+    renderSection({
+      hints: [
+        {
+          code: 'tent.photoperiod_data_error',
+          severity: 'info',
+          groups: [{ photoperiod_hours: 18, plant_count: 2, phase_names: ['Flowering'] }],
+          unknown_plant_count: 0,
+          data_error_plant_count: 2,
+          data_error_plant_names: ['Gelato', 'Mum'],
+          data_error_plants: [
+            { name: 'Gelato', photoperiod_hours: 18, critical_day_length_hours: 12, critical_day_length_assumed: true },
+            { name: 'Mum', photoperiod_hours: 18, critical_day_length_hours: 14.5, critical_day_length_assumed: false },
+          ],
+        },
+      ],
+    });
+
+    expect(screen.getByTestId('tent-hint-data-error-plants')).toHaveTextContent(
+      'Affected: Gelato (18 h of light, critical day length 12 h as standard assumption, the species states none); ' +
+        'Mum (18 h of light, critical day length 14.5 h from the species).',
+    );
   });
 
   it('names all unknown plants when they fit', () => {
