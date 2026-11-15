@@ -36,6 +36,7 @@ from fastapi.testclient import TestClient
 from app.common import dependencies
 from app.common.dependencies import get_auth_service
 from app.config.settings import settings
+from app.data_access.external import latched_redis
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.token_engine import TokenEngine
@@ -284,14 +285,23 @@ _NO_WAIT_S = 0.25
     "connects to a loopback socket this test opens itself, which accepts and never answers — "
     "the hanging-Valkey case needs redis-py's real socket timeouts"
 )
-def test_after_one_request_noticed_the_hang_the_next_ones_do_not_wait(blackhole_url: str) -> None:
+def test_after_one_request_noticed_the_hang_the_next_ones_do_not_wait(
+    blackhole_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The throttle client latches like the IP limiter (#2062).
 
     Measured before: every reset request waited one timeout per store call —
     1.0 s each with the two reservations of #2059 — for as long as Valkey hung.
     Now the first call that meets the hang marks Valkey down for this process,
-    and every call until the next probe (1 s later) falls back at once.
+    and every call until the next probe falls back at once.
+
+    The next probe is pushed out of the test's reach: with the shipped 1 s a slow
+    runner reached it between the following requests, that request probed the hung
+    socket again and waited one timeout (0.74 s seen on CI) - the test measured the
+    runner, not the latch. The probe plan itself is pinned in
+    ``tests/unit/data_access/external/test_latched_redis.py``.
     """
+    monkeypatch.setattr(latched_redis, "PROBE_INITIAL_DELAY_S", 60.0)
     dependencies._throttle_redis_client_for.cache_clear()
     try:
         for client in _client(wired=True):
