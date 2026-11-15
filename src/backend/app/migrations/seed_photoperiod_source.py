@@ -62,8 +62,8 @@ def resolve_lifecycle_config_species(
     for name in names:
         if name in species_key_map:
             continue
-        species = species_repo.get_by_scientific_name(name)
-        if species is None or species.tenant_key or not species.key:
+        species = species_repo.get_global_by_scientific_name(name)
+        if species is None or not species.key:
             continue
         species_key_map[name] = species.key
         added.add(name)

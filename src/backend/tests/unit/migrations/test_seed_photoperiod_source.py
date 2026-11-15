@@ -146,6 +146,10 @@ class _SpeciesRepo:
     def get_by_scientific_name(self, name: str) -> Species | None:
         return self.rows.get(name)
 
+    def get_global_by_scientific_name(self, name: str) -> Species | None:
+        species = self.rows.get(name)
+        return species if species is not None and not species.tenant_key else None
+
 
 class TestResolveLifecycleConfigSpecies:
     def test_a_catalogue_species_listed_only_under_lifecycle_configs_is_resolved(self) -> None:

@@ -119,18 +119,18 @@ def upsert_fertilizers(
 
 
 def load_species_key_map(db: StandardDatabase) -> dict[str, str]:
-    """``scientific_name → _key`` over the species catalogue (#1618).
+    """``scientific_name → _key`` over the global species catalogue (#1618, #2857 SEC-001).
 
-    No tenant filter, deliberately: ``species.scientific_name`` carries a
-    collection-wide unique index (``ensure_collections``), so a seeded name
-    resolves to exactly one row, and that row is the global seed species — the
-    species seeds run before the plan seeds in the registry.
+    ``species.scientific_name`` carries a collection-wide unique index, so a name resolves to at most one row - but
+    that row is a tenant's own species when the tenant created the name before the catalogue seeded it. A global seed
+    row must never point at it, so only global rows (``tenant_key`` empty or absent) are read.
     """
     if not db.has_collection(col.SPECIES):
         return {}
     cursor = db.aql.execute(
         """
         FOR s IN @@species
+            FILTER s.tenant_key == null OR s.tenant_key == ""
             RETURN { name: s.scientific_name, key: s._key }
         """,
         bind_vars={"@species": col.SPECIES},

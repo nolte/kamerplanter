@@ -57,6 +57,7 @@ from app.domain.models.species import (
     WateringGuide,
 )
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_catalogue_species import catalogue_species, name_held_by_tenant
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
 from app.migrations.seed_photoperiod_source import resolve_lifecycle_config_species, stamp_steckbrief_photoperiod
 from app.migrations.yaml_loader import load_yaml
@@ -457,7 +458,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
         family_name = new_species_family_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
 
-        existing = species_repo.get_by_scientific_name(sp.scientific_name)
+        existing = catalogue_species(species_repo, sp.scientific_name)
         if existing:
             species_key_map[sp.scientific_name] = existing.key or ""
             # Update phase-relevant fields from YAML (idempotent)
@@ -466,6 +467,11 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
             logger.info("species_updated", name=sp.scientific_name, source=yaml_filename)
             continue
 
+        if name_held_by_tenant(species_repo, sp.scientific_name):
+            # A tenant's own species holds the name and there is no catalogue row of it: the seed neither writes onto
+            # the tenant's row nor can it create one (unique name, #2857 SEC-001).
+            logger.warning("seed_species_name_held_by_tenant", name=sp.scientific_name)
+            continue
         # REQ-048 Stufe 1 / SEC-003: the exact-name lookup above misses a stored
         # normalized-duplicate that differs only by the hybrid marker (× vs x),
         # casing or whitespace. Route the insert through the atomic dedup UPSERT
@@ -477,7 +483,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── S3: Enrich existing species ──────────────────────────────────────
     for sci_name, updates in species_enrichment.items():
-        existing = species_repo.get_by_scientific_name(sci_name)
+        existing = catalogue_species(species_repo, sci_name)
         if not existing:
             logger.info("enrichment_species_not_found", name=sci_name)
             continue
@@ -518,7 +524,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
 
     for sci_name in all_referenced_species:
         if sci_name not in species_key_map:
-            existing = species_repo.get_by_scientific_name(sci_name)
+            existing = catalogue_species(species_repo, sci_name)
             if existing:
                 species_key_map[sci_name] = existing.key or ""
     # A species the file lists only under lifecycle_configs (hemp in plant_info.yaml, #2857).

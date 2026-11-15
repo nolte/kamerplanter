@@ -30,6 +30,15 @@ class ISpeciesRepository(ABC):
     def get_by_scientific_name(self, name: str) -> Species | None: ...
 
     @abstractmethod
+    def get_global_by_scientific_name(self, name: str) -> Species | None:
+        """The global catalogue species of exactly this name (``tenant_key`` empty or absent), else ``None``.
+
+        What every seed loader resolves a YAML name against (#2857 SEC-001): a tenant's own species of the same name
+        is the tenant's, and catalogue data is never written onto it.
+        """
+        ...
+
+    @abstractmethod
     def get_by_normalized_scientific_name(self, name: str) -> Species | None: ...
 
     @abstractmethod

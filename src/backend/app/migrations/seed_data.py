@@ -37,6 +37,7 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.species import Species
 from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_catalogue_species import catalogue_species, name_held_by_tenant
 from app.migrations.seed_photoperiod_source import (
     StatedPhotoperiod,
     apply_steckbrief_phase_photoperiods,
@@ -727,7 +728,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
     species_key_map: dict[str, str] = {}
 
     for sp in species_list:
-        existing_species: Species | None = species_repo.get_by_scientific_name(sp.scientific_name)
+        existing_species: Species | None = catalogue_species(species_repo, sp.scientific_name)
         if existing_species:
             species_key_map[sp.scientific_name] = existing_species.key or ""
             synced_fields = seed_update_fields + (seed_name_fields if not existing_species.tenant_key else ())
@@ -746,6 +747,11 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
                 logger.info("species_exists", name=sp.scientific_name)
             continue
 
+        if name_held_by_tenant(species_repo, sp.scientific_name):
+            # A tenant's own species holds the name and there is no catalogue row of it: the seed neither writes onto
+            # the tenant's row nor can it create one (unique name, #2857 SEC-001).
+            logger.warning("seed_species_name_held_by_tenant", name=sp.scientific_name)
+            continue
         family_name = family_species_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
         # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
