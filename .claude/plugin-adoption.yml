@@ -79,6 +79,13 @@ inventory:
     - unit-test-generator
     - unit-test-reviewer
     - webview-ui-expert
+  nolte-linux:
+    skills:
+    - image-boot-verify
+    - linux-image-audit
+    agents:
+    - linux-image-developer
+    - linux-image-scanner
   nolte-media:
     skills:
     - gemini-image-handoff
