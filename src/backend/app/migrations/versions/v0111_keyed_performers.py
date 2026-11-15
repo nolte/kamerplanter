@@ -221,7 +221,7 @@ RETURN { n: LENGTH(hits), sample: SLICE(hits, 0, @limit) }
 """
 
 #: Step 4. The key is filled only when the field is null and the account behind the prefix is a service
-#: account that is a member of the inspection's tenant; any other text leaves it null (PRIV-705).
+#: account that is active and a member of the inspection's tenant; any other text leaves it null (PRIV-705).
 _INSPECTION_MATCH = """
 FOR doc IN @@collection
   FILTER doc.tenant_key == @tenant_key
@@ -229,7 +229,7 @@ FOR doc IN @@collection
   LET account_key = SUBSTRING(doc.inspector, LENGTH(@mcp_prefix))
   LET service_key = doc.inspected_by_key != null ? null : FIRST(
     FOR u IN @@users
-      FILTER u._key == account_key AND u.account_type == @service
+      FILTER u._key == account_key AND u.account_type == @service AND u.is_active != false
       FOR m IN @@memberships
         FILTER m.user_key == u._key AND m.tenant_key == @tenant_key AND m.is_active != false
         LIMIT 1

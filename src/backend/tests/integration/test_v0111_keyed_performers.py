@@ -70,6 +70,13 @@ def db():  # type: ignore[no-untyped-def]
             {"_key": "svc", "email": "svc@example.com", "display_name": "HA", "account_type": "service"},
             {"_key": "human", "email": "h@example.com", "display_name": "Lisa", "account_type": "human"},
             {"_key": "svc_b", "email": "b@example.com", "display_name": "B", "account_type": "service"},
+            {
+                "_key": "svc_off",
+                "email": "off@example.com",
+                "display_name": "Off",
+                "account_type": "service",
+                "is_active": False,
+            },
         ],
     )
     _insert(
@@ -79,6 +86,7 @@ def db():  # type: ignore[no-untyped-def]
             {"user_key": "svc", "tenant_key": "t_a", "role": "grower", "is_active": True},
             {"user_key": "human", "tenant_key": "t_a", "role": "lead", "is_active": True},
             {"user_key": "svc_b", "tenant_key": "t_s", "role": "grower", "is_active": True},
+            {"user_key": "svc_off", "tenant_key": "t_a", "role": "grower", "is_active": True},
         ],
     )
     _insert(
@@ -138,6 +146,7 @@ def db():  # type: ignore[no-untyped-def]
         col.INSPECTIONS,
         [
             {"_key": "in_svc", "tenant_key": "t_a", "inspector": "mcp:svc", "inspected_by_key": None},
+            {"_key": "in_off", "tenant_key": "t_a", "inspector": "mcp:svc_off", "inspected_by_key": None},
             {"_key": "in_human", "tenant_key": "t_a", "inspector": "mcp:human", "inspected_by_key": None},
             {"_key": "in_foreign", "tenant_key": "t_a", "inspector": "mcp:svc_b", "inspected_by_key": None},
             {"_key": "in_gone", "tenant_key": "t_a", "inspector": "mcp:gone", "inspected_by_key": None},
@@ -160,7 +169,7 @@ def test_the_dry_run_counts_and_writes_nothing(db) -> None:  # type: ignore[no-u
     assert report.details["status"] == "dry_run"
     assert report.details["buckets"][BUCKET_WATERING_EVENTS] == {"t_a": 3, "t_n": 1}
     assert report.details["buckets"][BUCKET_MAINTENANCE_LOGS] == {"t_a": 1}
-    assert report.details["buckets"][BUCKET_INSPECTOR_CLEARED] == {"t_a": 5}
+    assert report.details["buckets"][BUCKET_INSPECTOR_CLEARED] == {"t_a": 6}
     assert report.details["buckets"][BUCKET_SERVICE_ACCOUNT_KEYED] == {"t_a": 1}
     assert "performed_by_user_key" not in _doc(db, col.WATERING_EVENTS, "we_a")
 
@@ -200,7 +209,7 @@ def test_no_key_comes_from_a_name_and_mcp_only_from_a_live_service_member(db) ->
 
     assert _doc(db, col.WATERING_EVENTS, "we_a_name_is_key")["performed_by_user_key"] is None
     assert _doc(db, col.INSPECTIONS, "in_svc") == {"tenant_key": "t_a", "inspector": "", "inspected_by_key": "svc"}
-    for key in ("in_human", "in_foreign", "in_gone"):
+    for key in ("in_human", "in_foreign", "in_gone", "in_off"):
         assert _doc(db, col.INSPECTIONS, key)["inspected_by_key"] is None, key
         assert _doc(db, col.INSPECTIONS, key)["inspector"] == "", key
     assert _doc(db, col.INSPECTIONS, "in_keyed") == {"tenant_key": "t_a", "inspector": "", "inspected_by_key": "svc"}
