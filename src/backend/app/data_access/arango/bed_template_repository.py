@@ -24,6 +24,7 @@ from app.common.exceptions import NotFoundError
 from app.common.types import BedTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.site_repository import owning_site_keys
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.models.bed_template import BedTemplate
@@ -226,31 +227,39 @@ class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplat
 
     @staticmethod
     def _unset_template_key(txn: StreamTransaction, key: BedTemplateKey, *, owner_tenant_key: str | None) -> int:
-        """Unset ``template_key == key`` on the owner's beds (every tenant's for a system template); the count."""
-        bind_vars: dict[str, Any] = {"@locations": col.LOCATIONS, "key": key}
-        site_clause = ""
-        if owner_tenant_key is not None:
-            # A nested legacy bed may carry no ``site_key`` (#2513): its site is then the first site above it on the
-            # ``contains`` graph (site -> location, parent location -> child, so the walk goes INBOUND).
-            site_clause = """
-                LET site = DOCUMENT(@@sites, l.site_key) || FIRST(
-                    FOR v IN 1..20 INBOUND l @@contains
-                        FILTER IS_SAME_COLLECTION(@@sites, v)
-                        LIMIT 1
-                        RETURN v
+        """Unset ``template_key == key`` on the owner's beds (every tenant's for a system template); the count.
+
+        A bed's site is its ``site_key``, else its nearest ancestor's (:func:`owning_site_keys`, D1 of #2561) — the
+        definition the site's tree and delete read, without the ``1..20`` depth bound this walk used to have (#2560):
+        a deeper unsited bed was not released and kept a dangling ``template_key``.
+        """
+        beds = [
+            str(doc_id)
+            for doc_id in txn.aql.execute(
+                "FOR l IN @@locations FILTER l.template_key == @key RETURN l._id",
+                bind_vars={"@locations": col.LOCATIONS, "key": key},
+            )
+        ]
+        if owner_tenant_key is not None and beds:
+            owners = owning_site_keys(txn, beds)
+            tenant_of = {
+                str(row["key"]): str(row["tenant_key"] or "")
+                for row in txn.aql.execute(
+                    "FOR s IN @@sites FILTER s._key IN @keys RETURN {key: s._key, tenant_key: s.tenant_key}",
+                    bind_vars={"@sites": col.SITES, "keys": sorted(set(owners.values()))},
                 )
-                FILTER site.tenant_key == @owner"""
-            bind_vars["@sites"] = col.SITES
-            bind_vars["@contains"] = col.CONTAINS
-            bind_vars["owner"] = owner_tenant_key
+            }
+            beds = [bed for bed in beds if bed in owners and tenant_of.get(owners[bed]) == owner_tenant_key]
+        if not beds:
+            return 0
         cursor = txn.aql.execute(
-            f"""
+            """
             FOR l IN @@locations
-                FILTER l.template_key == @key {site_clause}
-                UPDATE l WITH {{ template_key: null }} IN @@locations OPTIONS {{ keepNull: false }}
+                FILTER l._id IN @ids AND l.template_key == @key
+                UPDATE l WITH { template_key: null } IN @@locations OPTIONS { keepNull: false }
                 RETURN OLD._key
             """,
-            bind_vars=bind_vars,
+            bind_vars={"@locations": col.LOCATIONS, "ids": beds, "key": key},
         )
         return len(list(cursor))
 

@@ -31,7 +31,7 @@ from pydantic import BaseModel
 from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
-from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.slot_rules_fence import lock_bed, require_fence
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.engines.slot_reservation_engine import (
@@ -67,19 +67,7 @@ _ENDED_STATUSES = ("completed", "cancelled")
 _LIVE_STATUSES = sorted(LIVE_RUN_STATUSES)
 
 
-def _edges_touching(vertex_collection: str) -> tuple[tuple[str, str], ...]:
-    """``(edge collection, "_from" | "_to")`` for every named-graph edge that can end at *vertex_collection*."""
-    found: list[tuple[str, str]] = []
-    for definition in col.GRAPH_EDGE_DEFINITIONS:
-        edge = str(definition["edge_collection"])
-        if vertex_collection in definition["from_vertex_collections"]:
-            found.append((edge, "_from"))
-        if vertex_collection in definition["to_vertex_collections"]:
-            found.append((edge, "_to"))
-    return tuple(found)
-
-
-_SLOT_EDGES = _edges_touching(col.SLOTS)
+_SLOT_EDGES = edges_touching(col.SLOTS)
 
 #: Collections the layout / reservation writes touch.
 _RESERVATION_WRITE = (col.LOCATIONS, col.SLOTS, col.HAS_SLOT, col.RUN_PLANNED_AT)
@@ -777,10 +765,7 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
         if not free:
             return
         for edge, field_name in _SLOT_EDGES:
-            txn.aql.execute(
-                f"FOR e IN @@edge FILTER e.{aql_field(field_name)} IN @ids REMOVE e IN @@edge",
-                bind_vars={"@edge": edge, "ids": free},
-            )
+            remove_edges(txn, edge, field_name, free)
         txn.aql.execute(
             "FOR s IN @@slots FILTER s._id IN @ids REMOVE s IN @@slots",
             bind_vars={"@slots": col.SLOTS, "ids": free},

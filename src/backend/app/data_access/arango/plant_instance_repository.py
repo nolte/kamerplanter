@@ -8,13 +8,20 @@ from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.document_reads import get_document
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.tenant_scope import readable_or_null
+from app.data_access.arango.transactions import stream_transaction
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 
 #: The stored species a plant names, when its tenant may read it (own, global or granted), else ``null``.
 _READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_species")
+
+
+#: Every named-graph edge that can end at a plant — derived, so a relation registered later goes with the plant (#2560).
+_PLANT_EDGES = edges_touching(col.PLANT_INSTANCES)
+_PLANT_DELETE_WRITE: tuple[str, ...] = tuple(dict.fromkeys((col.PLANT_INSTANCES, *(e for e, _ in _PLANT_EDGES))))
 
 
 class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantInstanceRepository):
@@ -118,17 +125,25 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         return next(iter(cursor), None)
 
     def delete(self, key: PlantID) -> bool:
+        """Remove the plant and every graph edge on it, in one stream transaction (#2560).
+
+        The edge set is derived (:data:`_PLANT_EDGES`, :func:`edges_touching`). The hand list it replaces cut
+        ``placed_in``, ``phase_history_edge``, ``current_phase`` and ``descended_from`` and left the other relations
+        of the graph (``run_contains``, ``care_event_for``, ``watered_plant``, ``has_task`` …) on a plant that was
+        gone. ``descended_from`` (REQ-017 / D10 lineage) is in the set on both ends: a plant can be the child or the
+        mother, and an orphaned inbound edge would keep ``has_descendants(mother)`` true and block a re-spawn.
+
+        Returns:
+            ``True`` when the plant was removed, ``False`` when it did not exist (nothing is written then).
+        """
         plant_id = f"{col.PLANT_INSTANCES}/{key}"
-        self.delete_edges(col.PLACED_IN, from_id=plant_id)
-        self.delete_edges(col.PHASE_HISTORY_EDGE, from_id=plant_id)
-        self.delete_edges(col.CURRENT_PHASE, from_id=plant_id)
-        # REQ-017 / D10 lineage: a descended_from edge points child → mother, so a
-        # plant can be either endpoint. Remove edges in BOTH directions so deleting
-        # a pup (outbound) or a mother (inbound) never leaves a dangling edge — an
-        # orphaned inbound edge would otherwise keep ``has_descendants(mother)`` true
-        # and permanently block a re-spawn.
-        self.delete_edges(col.DESCENDED_FROM, vertex_id=plant_id, direction="any")
-        return super().delete(key)
+        with stream_transaction(self._db, write=_PLANT_DELETE_WRITE, entity="plant_instance") as txn:
+            if not list(txn.aql.execute("LET p = DOCUMENT(@id) FILTER p != null RETURN 1", bind_vars={"id": plant_id})):
+                return False
+            for edge, field_name in _PLANT_EDGES:
+                remove_edges(txn, edge, field_name, [plant_id])
+            txn.collection(col.PLANT_INSTANCES).delete(key)
+        return True
 
     # ── Slot-based queries ────────────────────────────────────────────
 

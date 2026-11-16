@@ -65,7 +65,10 @@ from app.domain.models.tenant import Tenant
 
 @pytest.fixture
 def mock_db():
-    return MagicMock()
+    db = MagicMock()
+    # ``update_location`` writes inside a stream transaction since #2561; its collection handle is the database's.
+    db.begin_transaction.return_value.collection = db.collection
+    return db
 
 
 def _doc_of(model, key: str) -> dict:

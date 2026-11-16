@@ -7,7 +7,7 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.2 (Enum-Werte `Substrate.type` an das Modell angeglichen — `peat` und `hydro_solution` im Datenmodell ergänzt, #2183); 4.1
+Version: 4.3 (Löschen eines Substrats: 422 solange Pflanzen oder Anbauläufe es nutzen, `uses_type`-Kanten werden mit entfernt, #2560); 4.2 (Enum-Werte `Substrate.type` an das Modell angeglichen — `peat` und `hydro_solution` im Datenmodell ergänzt, #2183); 4.1
 ```
 
 ## 1. Business Case
@@ -354,6 +354,7 @@ Resolver gebaut wurde.
 ### Definition of Done (DoD):
 
 - [ ] **Substrat-CRUD:** Substrat-Definitionen anlegen, lesen, aktualisieren, löschen
+- [ ] **Löschschutz (v4.3, #2560, Betreiberentscheidung D2):** `DELETE /substrates/{key}` antwortet mit `422` (`SUBSTRATE_IN_USE`), solange eine Pflanze (`plant_instances.substrate_key`) oder ein Anbaulauf über eine Charge des Substrats (`substrate_batch_key` oder `run_uses_substrate`) es nutzt — Referenzen werden nicht stillschweigend geleert; Prüfung und Löschung laufen in einer Transaktion. Ein gelöschtes Substrat nimmt alle Kanten mit, die der Graph an `substrates` enden lässt (`uses_type`). Offen bleiben bewusst: `substrate_key` einer Charge ohne Anbaulauf und `mix_components.substrate_key` einer Mischung (Guard `tests/unit/guards/test_deletes_reach_their_derived_edges.py`, `REFERENCE_DECISIONS`)
 - [ ] **Batch-Tracking:** Chargen mit pH/EC-Verlauf über Zyklen verfolgen
 - [ ] **Wiederverwendbarkeits-Check:** Automatische Prüfung auf pH-Stabilität (Standardabweichung), Salzakkumulation und Zyklen
 - [ ] **Aufbereitungs-Anleitung:** Substrattyp-spezifische Aufbereitungsschritte (inkl. Blähton, Perlite, Steinwolle-Slabs)

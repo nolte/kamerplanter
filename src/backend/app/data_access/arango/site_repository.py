@@ -1,7 +1,7 @@
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import structlog
 from arango.cursor import Cursor
@@ -48,6 +48,12 @@ _DEPENDENT_EDGES = tuple(pair for pairs in _DEPENDENT_EDGE_PAIRS.values() for pa
 _LOCATION_REMOVAL_WRITE: tuple[str, ...] = tuple(
     dict.fromkeys((col.LOCATIONS, col.SLOTS, *(edge for edge, _ in (*_LOCATION_EDGES, *_SLOT_EDGES))))
 )
+
+#: What :meth:`ArangoSiteRepository.delete_slot` writes: the slot and every edge on it (#2560).
+_SLOT_REMOVAL_WRITE: tuple[str, ...] = tuple(dict.fromkeys((col.SLOTS, *(edge for edge, _ in _SLOT_EDGES))))
+
+#: What :meth:`ArangoSiteRepository.update_location` writes: the location and its ``contains`` edge (#2561).
+_LOCATION_MOVE_WRITE: tuple[str, ...] = (col.LOCATIONS, col.CONTAINS)
 
 #: What the site delete writes, deduplicated: the structure rows, the dependents, the audit row and every edge a
 #: removed vertex may carry — derived, so a relation registered later is cut without touching this module.
@@ -110,6 +116,79 @@ class _SiteDeleteScope:
     underlay_attachment_key: str | None = None
     #: The photos of the locations (REQ-053 GP-FR-051, WP 8.18): not removed here, reported to the caller.
     location_photo_refs: tuple[str, ...] = ()
+
+
+def _contains_parent_id(site_key: str, parent_location_key: str) -> str | None:
+    """Where a location's ``contains`` edge starts: its parent location, else its site, else nowhere."""
+    if parent_location_key:
+        return f"{col.LOCATIONS}/{parent_location_key}"
+    if site_key:
+        return f"{col.SITES}/{site_key}"
+    return None
+
+
+class _AqlRunner(Protocol):
+    """Anything that runs AQL: the database for a plain read, a stream transaction inside a write."""
+
+    @property
+    def aql(self) -> Any: ...
+
+
+def owning_site_keys(runner: _AqlRunner, location_ids: Sequence[str]) -> dict[str, str]:
+    """The site each of *location_ids* belongs to — its own ``site_key``, else the nearest ancestor's (#2561, D1).
+
+    The field decides (operator decision D1): a location naming a site belongs to it. A nested location written
+    before the field was copied down names none; its site is the first one met walking ``contains`` upward — the
+    first ancestor naming a site, or a site vertex itself. The walk has no depth limit (a seen set ends it on a
+    cycle), so it agrees with :meth:`ArangoSiteRepository._location_ids_of_site` at every depth. A location that
+    reaches no site is left out.
+
+    Args:
+        runner: The database, or a stream transaction that declares ``locations`` and ``contains`` for reading.
+        location_ids: Full document ids (``"locations/<key>"``).
+
+    Returns:
+        ``{location id: site key}`` for every location whose site was found.
+    """
+    owners: dict[str, str] = {}
+    #: location id -> the vertex the walk has reached for it
+    pending: dict[str, str] = {doc_id: doc_id for doc_id in location_ids}
+    seen: dict[str, set[str]] = {doc_id: set() for doc_id in location_ids}
+    while pending:
+        rows = list(
+            runner.aql.execute(
+                """
+                FOR v IN @vertices
+                    LET d = DOCUMENT(v)
+                    LET own = IS_SAME_COLLECTION(@sites_name, v) ? PARSE_IDENTIFIER(v).key : (d.site_key || "")
+                    RETURN {
+                        vertex: v,
+                        site_key: own,
+                        parents: own != "" ? [] : (FOR e IN @@contains FILTER e._to == v RETURN e._from)
+                    }
+                """,
+                bind_vars={
+                    "vertices": sorted(set(pending.values())),
+                    "@contains": col.CONTAINS,
+                    "sites_name": col.SITES,
+                },
+            )
+        )
+        by_vertex = {row["vertex"]: row for row in rows}
+        advanced: dict[str, str] = {}
+        for location_id, vertex in pending.items():
+            row = by_vertex.get(vertex)
+            if row is None:
+                continue
+            if row["site_key"]:
+                owners[location_id] = str(row["site_key"])
+                continue
+            seen[location_id].add(vertex)
+            parent = next((str(p) for p in sorted(row["parents"]) if str(p) not in seen[location_id]), None)
+            if parent is not None:
+                advanced[location_id] = parent
+        pending = advanced
+    return owners
 
 
 def _key_of(doc_id: str) -> str:
@@ -386,11 +465,14 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             )
 
     @staticmethod
-    def _location_ids_of_site(txn: StreamTransaction, key: SiteKey) -> list[str]:
-        """The site's locations at every depth: the ``contains`` tree below the site ∪ every location naming it.
+    def _location_ids_of_site(txn: _AqlRunner, key: SiteKey) -> list[str]:
+        """The site's locations at every depth — **the** definition, read by the tree view and the delete (#2561).
 
-        A nested location hangs from its parent location (:meth:`create_location`) and is not guaranteed to carry
-        ``site_key``, so neither source alone is complete; the walk is :meth:`_contains_closure`.
+        The location's ``site_key`` decides which site it belongs to (operator decision D1, #2561): every location
+        naming the site is taken, at any depth, with or without a ``contains`` edge; a location naming another site
+        never is, whatever edge still points at it. A nested location written before the field was copied down
+        carries no ``site_key``; it is taken when the ``contains`` tree below the site or below one of its
+        locations reaches it — the walk is :meth:`_contains_closure`, without a depth limit.
         """
         named = [
             str(doc_id)
@@ -402,19 +484,17 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         return ArangoSiteRepository._contains_closure(txn, f"{col.SITES}/{key}", named, site_key=key)
 
     @staticmethod
-    def _contains_closure(
-        txn: StreamTransaction, root_id: str, location_ids: Sequence[str], *, site_key: str
-    ) -> list[str]:
+    def _contains_closure(txn: _AqlRunner, root_id: str, location_ids: Sequence[str], *, site_key: str) -> list[str]:
         """*location_ids* plus every location the ``contains`` tree reaches below *root_id* or any of them.
 
         Walked level by level until no new location appears — no depth limit, and the seen set ends the walk on a
         cyclic edge too. *root_id* itself is returned only when it is one of *location_ids*.
 
         A location the walk reaches is taken only when its ``site_key`` is unset (``null``/``""``, a nested location
-        written before the field was copied down) or *site_key*; the walk does not descend through any other. A bed
-        re-homed to another site keeps the ``contains`` edge from its old parent (``update_location`` rewrites the
-        field, not the edge), but it is that other site's structure now — the stale edge itself is still cut with
-        the removed parent (:func:`remove_edges`).
+        written before the field was copied down) or *site_key*; the walk does not descend through any other — the
+        field decides (D1, #2561). A bed re-homed before #2561 may still carry the ``contains`` edge from its old
+        parent (``update_location`` moves the edge since); it is that other site's structure, and only the stale
+        edge itself is cut with the removed parent (:func:`remove_edges`).
         """
         seen: dict[str, None] = {doc_id: None for doc_id in location_ids}
         frontier = [root_id, *seen]
@@ -535,6 +615,34 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         for edge, field_name in _LOCATION_EDGES:
             remove_edges(txn, edge, field_name, location_ids)
         self._remove_rows(txn, col.LOCATIONS, location_ids)
+        self._detach_orphaned_children(txn, location_ids)
+
+    @staticmethod
+    def _detach_orphaned_children(txn: StreamTransaction, removed_ids: Sequence[str]) -> None:
+        """A surviving location whose parent was just removed becomes a root of its own site (#2561).
+
+        Only a location naming another site than the removed parent survives the removal (D1: its ``site_key``
+        decides). Its ``contains`` edge from the parent went with the parent; its ``parent_location_key`` would
+        dangle. It is unset, and the location hangs from its site as :meth:`create_location` writes a root.
+        """
+        txn.aql.execute(
+            """
+            FOR l IN @@locations
+                FILTER l.parent_location_key IN @keys
+                UPDATE l WITH {
+                    parent_location_key: null, depth: 0, path: SUBSTITUTE(LOWER(l.name), " ", "_")
+                } IN @@locations OPTIONS {keepNull: false}
+                FILTER IS_STRING(l.site_key) AND l.site_key != ""
+                INSERT {_from: CONCAT(@sites, l.site_key), _to: l._id, created_at: DATE_ISO8601(DATE_NOW())}
+                    INTO @@contains
+            """,
+            bind_vars={
+                "@locations": col.LOCATIONS,
+                "@contains": col.CONTAINS,
+                "keys": _keys(removed_ids),
+                "sites": f"{col.SITES}/",
+            },
+        )
 
     @staticmethod
     def _remove_rows(txn: StreamTransaction, collection: str, ids: Sequence[str]) -> None:
@@ -564,9 +672,39 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     # ── Location CRUD ─────────────────────────────────────────────────
 
     def get_locations_by_site(self, site_key: SiteKey) -> list[Location]:
-        site_id = f"{col.SITES}/{site_key}"
-        results = self.get_edges(col.CONTAINS, site_id, direction="outbound")
-        return [Location(**self._from_doc(r["vertex"])) for r in results]
+        """The site's top-level locations: no parent location, and the site's own by their ``site_key`` (D1, #2561).
+
+        A root naming the site counts without a ``contains`` edge; a ``contains`` child of the site that names
+        another site (a bed re-homed before ``update_location`` moved the edge) does not. An unsited legacy root
+        counts when the site's ``contains`` edge reaches it.
+        """
+        cursor = self._db.aql.execute(
+            """
+            LET by_field = (
+                FOR l IN @@locations
+                    FILTER l.site_key == @site_key AND (l.parent_location_key == null OR l.parent_location_key == "")
+                    RETURN l
+            )
+            LET by_edge = (
+                FOR e IN @@contains
+                    FILTER e._from == @site_id AND IS_SAME_COLLECTION(@locations_name, e._to)
+                    LET l = DOCUMENT(e._to)
+                    FILTER l != null AND (l.site_key == null OR l.site_key == "")
+                    RETURN l
+            )
+            FOR l IN UNION_DISTINCT(by_field, by_edge)
+                SORT l.name, l._key
+                RETURN l
+            """,
+            bind_vars={
+                "@locations": col.LOCATIONS,
+                "@contains": col.CONTAINS,
+                "locations_name": col.LOCATIONS,
+                "site_key": site_key,
+                "site_id": f"{col.SITES}/{site_key}",
+            },
+        )
+        return [Location(**self._from_doc(doc)) for doc in cast("Cursor", cursor)]
 
     def get_location_by_key(self, key: LocationKey) -> Location | None:
         return self._locations.get_by_key(key)
@@ -585,13 +723,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     def create_location(self, location: Location) -> Location:
         created = self._locations.create(location)
-        location_id = f"{col.LOCATIONS}/{created.key}"
-        if location.parent_location_key:
-            parent_id = f"{col.LOCATIONS}/{location.parent_location_key}"
-            self.create_edge(col.CONTAINS, parent_id, location_id)
-        elif location.site_key:
-            site_id = f"{col.SITES}/{location.site_key}"
-            self.create_edge(col.CONTAINS, site_id, location_id)
+        parent_id = _contains_parent_id(location.site_key or "", location.parent_location_key or "")
+        if parent_id is not None:
+            self.create_edge(col.CONTAINS, parent_id, f"{col.LOCATIONS}/{created.key}")
         return created
 
     def update_location(
@@ -610,13 +744,37 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         part stays; a location without ``site_conditions`` gets a value holding only that part). Every other
         column follows the full-replace mode of the location view (#714): a ``None`` removes the attribute.
 
+        The location's ``contains`` edge moves with it (#2561, D1): when ``site_key`` or ``parent_location_key``
+        changes, every ``contains`` edge into the location is replaced by the one :meth:`create_location` writes —
+        from the new parent, or from the site for a root — in the same stream transaction as the document write.
+        A re-homed bed used to keep the edge from its old site or parent, so the edge-based reads still showed it
+        there while its ``site_key`` named the new site.
+
         Returns:
             The location as stored after the write — the untouched columns at their current values.
         """
         merged = (
             {"site_conditions": {"microclimate": {"frost_risk": frost_risk.value}}} if frost_risk is not None else None
         )
-        return self._locations.update_leaving(key, location, untouched=untouched, merged=merged)
+        location_id = f"{col.LOCATIONS}/{key}"
+        with stream_transaction(self._db, write=_LOCATION_MOVE_WRITE, entity="location") as txn:
+            stored = list(
+                txn.aql.execute(
+                    "LET l = DOCUMENT(@id) FILTER l != null RETURN [l.site_key || '', l.parent_location_key || '']",
+                    bind_vars={"id": location_id},
+                )
+            )
+            view = _LocationRepository(cast("StandardDatabase", txn), col.LOCATIONS)
+            updated = view.update_leaving(key, location, untouched=untouched, merged=merged)
+            moved_to = (location.site_key or "", location.parent_location_key or "")
+            if stored and tuple(stored[0]) != moved_to:
+                remove_edges(txn, col.CONTAINS, "_to", [location_id])
+                parent_id = _contains_parent_id(*moved_to)
+                if parent_id is not None:
+                    txn.collection(col.CONTAINS).insert(
+                        {"_from": parent_id, "_to": location_id, "created_at": datetime.now(UTC).isoformat()}
+                    )
+        return updated
 
     def delete_location(self, key: LocationKey) -> bool:
         """Remove the location, every location below it, their slots and every graph edge on any of them (#2513).
@@ -676,37 +834,41 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         tenant_key and are tenant-verified through their parent site"), and Issue
         #706 already lost a guard to the same assumption.
 
-        Anchoring on the traversal's start vertex instead is correct *and*
+        Anchoring on the site instead is correct *and*
         cheaper: sites are stamped on every write path (both site routers, the
         onboarding service, the MCP ``CreateSite`` tool), and a location belongs
         to whatever tenant owns the site it hangs under — which is exactly how
         ``_verify_location_tenant`` in the locations router decides ownership.
         Same shape as ``ArangoTaskRepository.get_comments_for_task``, which takes
         a comment's tenant from its parent task.
+
+        **Which locations (#2561).** The set is :meth:`_location_ids_of_site` — the
+        one the site delete removes. The tree used to be a ``1..10 OUTBOUND contains``
+        traversal of its own: a bed below depth 10 or one hanging only on its
+        ``site_key`` was deleted with the site but never shown, and a bed re-homed to
+        another site was shown under the old one through its stale edge. Ordered by
+        ``depth``, ``name``, key.
         """
         self._require_tenant_key(tenant_key, "get_location_tree")
-        # The ``LET`` is loop-invariant, so the optimiser hoists it out
-        # (``move-calculations-up``) and the site document is read once; the
-        # ``FILTER`` has to sit inside the ``FOR`` because AQL has no top-level one.
-        aql = """
-        FOR v IN 1..10 OUTBOUND @start_id GRAPH @graph
-            OPTIONS {edgeCollections: [@contains_col]}
-            FILTER IS_SAME_COLLECTION(@locations_col, v)
-            LET site = DOCUMENT(@start_id)
-            FILTER site != null AND site.tenant_key == @tenant_key
-            RETURN v
-        """
-        cursor = self._db.aql.execute(
-            aql,
-            bind_vars={
-                "start_id": f"{col.SITES}/{site_key}",
-                "graph": col.GRAPH_NAME,
-                "contains_col": col.CONTAINS,
-                "locations_col": col.LOCATIONS,
-                "tenant_key": tenant_key,
-            },
+        owned = list(
+            cast(
+                "Cursor",
+                self._db.aql.execute(
+                    "FOR s IN @@sites FILTER s._key == @site_key AND s.tenant_key == @tenant_key RETURN 1",
+                    bind_vars={"@sites": col.SITES, "site_key": site_key, "tenant_key": tenant_key},
+                ),
+            )
         )
-        return [Location(**self._from_doc(doc)) for doc in cursor]
+        if not owned:
+            return []
+        location_ids = self._location_ids_of_site(self._db, site_key)
+        if not location_ids:
+            return []
+        cursor = self._db.aql.execute(
+            "FOR l IN DOCUMENT(@ids) FILTER l != null SORT l.depth, l.name, l._key RETURN l",
+            bind_vars={"ids": location_ids},
+        )
+        return [Location(**self._from_doc(doc)) for doc in cast("Cursor", cursor)]
 
     # ── Slot CRUD ─────────────────────────────────────────────────────
 
@@ -802,28 +964,24 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         return self._delete_slot_internal(key)
 
     def _delete_slot_internal(self, key: SlotKey) -> bool:
+        """Remove the slot and every graph edge on it, in one stream transaction (#2560).
+
+        The edge set is derived (:data:`_SLOT_EDGES`, :func:`edges_touching`), as on the location delete: the old
+        hand list cut ``has_slot``, ``adjacent_to`` and ``filled_with`` and left ``placed_in``, ``log_slot``,
+        ``run_planned_at`` and ``system_has_growbed`` dangling on a slot that was gone. Both ends of a
+        self-referencing edge (``adjacent_to``, written in both directions) are in the derived set.
+
+        Returns:
+            ``True`` when the slot was removed, ``False`` when it did not exist (nothing is written then).
+        """
         slot_id = f"{col.SLOTS}/{key}"
-        # Each edge is cut on the end it is actually written on — the three differ,
-        # and getting one wrong leaves a dangling edge that nothing reports.
-        #
-        # `has_slot` points *at* the slot (location → slot), so the end to detach is
-        # the inbound one — the repair #1525 made for `phase_history_edge`. It used to
-        # be spelled `from_id=f"{col.LOCATIONS}/%", to_id=slot_id` (#1535):
-        # `delete_edges` binds the vertex and compares it with `==`, never `LIKE`, so
-        # the `%` was a literal character and `locations/%` is not an id any edge
-        # carries. The call matched nothing, every time, so a slot deleted through
-        # THIS path left its incoming edge behind. (`delete_location` does not come
-        # through here: it cuts the derived slot edge set, see `_remove_locations`.)
-        self.delete_edges(col.HAS_SLOT, vertex_id=slot_id, direction="inbound")
-        # `adjacent_to` is written in BOTH directions for one adjacency
-        # (`GraphRepository.set_adjacent_slots`: "Adjacency is bidirectional — create
-        # edges in both directions"), so cutting only the outbound half left
-        # `neighbour → deleted slot` behind (#1573 review SCR-001).
-        self.delete_edges(col.ADJACENT_TO, vertex_id=slot_id, direction="any")
-        # `filled_with` is slot → batch, written by
-        # `SubstrateRepository.assign_batch_to_slot`; outbound is the right end here.
-        self.delete_edges(col.FILLED_WITH, vertex_id=slot_id, direction="outbound")
-        return self._slots.delete(key)
+        with stream_transaction(self._db, write=_SLOT_REMOVAL_WRITE, entity="slot") as txn:
+            if not list(txn.aql.execute("LET s = DOCUMENT(@id) FILTER s != null RETURN 1", bind_vars={"id": slot_id})):
+                return False
+            for edge, field_name in _SLOT_EDGES:
+                remove_edges(txn, edge, field_name, [slot_id])
+            self._remove_rows(txn, col.SLOTS, [slot_id])
+        return True
 
     def get_slot_for_plant(self, plant_key: PlantInstanceKey, *, tenant_key: str) -> Slot | None:
         """The slot a plant is placed in, **inside one tenant** (#927).

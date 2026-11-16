@@ -22,16 +22,18 @@ import pytest
 from arango import ArangoClient
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.graph_edges import edges_touching
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 TEST_DATABASE = run_database_name("slot_edge_cleanup")
 pytestmark = pytest.mark.usefixtures("arango_db")
 
-#: Document collections the repository touches, and the edge collections a slot
-#: can carry. ``has_slot`` points *at* the slot; the other two start at it.
+#: Document collections the repository touches, and the edge collections a slot can carry — derived from the graph
+#: definitions since #2560, independently of the repository's own write set.
 _DOCUMENT_COLLECTIONS = [col.SITES, col.LOCATIONS, col.SLOTS, col.SUBSTRATE_BATCHES]
-_EDGE_COLLECTIONS = [col.HAS_SLOT, col.ADJACENT_TO, col.FILLED_WITH]
+_SLOT_EDGE_PAIRS = edges_touching(col.SLOTS)
+_EDGE_COLLECTIONS = list(dict.fromkeys(edge for edge, _ in _SLOT_EDGE_PAIRS))
 
 
 @pytest.fixture(scope="module")
@@ -49,10 +51,7 @@ def _database():
             system.delete_database(TEST_DATABASE)
         system.create_database(TEST_DATABASE)
         database = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
-        for name in _DOCUMENT_COLLECTIONS:
-            database.create_collection(name)
-        for name in _EDGE_COLLECTIONS:
-            database.create_collection(name, edge=True)
+        col.ensure_collections(database)
         yield database
         system.delete_database(TEST_DATABASE)
     finally:
@@ -73,7 +72,7 @@ def repo(db):
 
 def _seed_location_with_slot(db) -> None:
     db.collection(col.LOCATIONS).insert({"_key": "loc-1", "name": "Tent A", "site_key": "site-1"})
-    db.collection(col.SLOTS).insert({"_key": "slot-1", "name": "Slot 1", "location_key": "loc-1"})
+    db.collection(col.SLOTS).insert({"_key": "slot-1", "slot_id": "A1", "name": "Slot 1", "location_key": "loc-1"})
     db.collection(col.HAS_SLOT).insert(
         {"_from": f"{col.LOCATIONS}/loc-1", "_to": f"{col.SLOTS}/slot-1"},
     )
@@ -97,7 +96,7 @@ def test_no_has_slot_edge_survives_its_target(db, repo) -> None:
     document that no longer exists.
     """
     _seed_location_with_slot(db)
-    db.collection(col.SLOTS).insert({"_key": "slot-2", "name": "Slot 2", "location_key": "loc-1"})
+    db.collection(col.SLOTS).insert({"_key": "slot-2", "slot_id": "A2", "name": "Slot 2", "location_key": "loc-1"})
     db.collection(col.HAS_SLOT).insert({"_from": f"{col.LOCATIONS}/loc-1", "_to": f"{col.SLOTS}/slot-2"})
 
     repo.delete_slot("slot-1")
@@ -123,7 +122,7 @@ def test_delete_slot_detaches_adjacency_in_both_directions(db, repo) -> None:
     exists to forbid, two lines below the line #1535 repaired.
     """
     _seed_location_with_slot(db)
-    db.collection(col.SLOTS).insert({"_key": "slot-2", "name": "Slot 2", "location_key": "loc-1"})
+    db.collection(col.SLOTS).insert({"_key": "slot-2", "slot_id": "A2", "name": "Slot 2", "location_key": "loc-1"})
     db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-1", "_to": f"{col.SLOTS}/slot-2"})
     db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-2", "_to": f"{col.SLOTS}/slot-1"})
 
@@ -139,7 +138,7 @@ def test_no_edge_of_any_collection_survives_its_endpoint(db, repo) -> None:
     suite was green.
     """
     _seed_location_with_slot(db)
-    db.collection(col.SLOTS).insert({"_key": "slot-2", "name": "Slot 2", "location_key": "loc-1"})
+    db.collection(col.SLOTS).insert({"_key": "slot-2", "slot_id": "A2", "name": "Slot 2", "location_key": "loc-1"})
     db.collection(col.SUBSTRATE_BATCHES).insert({"_key": "batch-1", "name": "Coco A"})
     db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-1", "_to": f"{col.SLOTS}/slot-2"})
     db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/slot-2", "_to": f"{col.SLOTS}/slot-1"})
@@ -156,3 +155,44 @@ def test_no_edge_of_any_collection_survives_its_endpoint(db, repo) -> None:
             )
         )
         assert dangling == [], edge
+
+
+def test_every_derived_edge_collection_is_cut_with_the_slot(db, repo) -> None:
+    """#2560 — one edge per collection the graph lets end at a slot, on the end it names; none survives.
+
+    The hand list cut ``has_slot``, ``adjacent_to`` and ``filled_with`` and left ``placed_in``, ``log_slot``,
+    ``run_planned_at`` and ``system_has_growbed`` on a slot that was gone. The neighbour's edges stay.
+    """
+    _seed_location_with_slot(db)
+    db.collection(col.SLOTS).insert({"_key": "slot-2", "slot_id": "A2", "name": "Slot 2", "location_key": "loc-1"})
+    slot_id, other = f"{col.SLOTS}/slot-1", f"{col.SLOTS}/slot-2"
+    seeded = 0
+    for edge, end in _SLOT_EDGE_PAIRS:
+        if edge == col.HAS_SLOT:
+            continue  # seeded above
+        far = f"{col.PLANT_INSTANCES}/far-{edge}"
+        doc = {"_from": slot_id, "_to": far} if end == "_from" else {"_from": far, "_to": slot_id}
+        db.collection(edge).insert(doc)
+        seeded += 1
+    db.collection(col.HAS_SLOT).insert({"_from": f"{col.LOCATIONS}/loc-1", "_to": other})
+    assert seeded >= 7
+
+    assert repo.delete_slot("slot-1") is True
+
+    for edge in _EDGE_COLLECTIONS:
+        left = list(
+            db.aql.execute(
+                "FOR e IN @@edge FILTER e._from == @id OR e._to == @id RETURN e._id",
+                bind_vars={"@edge": edge, "id": slot_id},
+            )
+        )
+        assert left == [], edge
+    assert [e["_to"] for e in db.collection(col.HAS_SLOT).all()] == [other]
+
+
+def test_a_missing_slot_writes_nothing(db, repo) -> None:
+    _seed_location_with_slot(db)
+
+    assert repo.delete_slot("no-such-slot") is False
+
+    assert db.collection(col.HAS_SLOT).count() == 1

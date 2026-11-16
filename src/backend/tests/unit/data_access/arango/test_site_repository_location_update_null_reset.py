@@ -20,8 +20,14 @@ from app.domain.models.site import Location
 
 @pytest.fixture
 def mock_db():
-    """Mock ArangoDB database connection."""
-    return MagicMock()
+    """Mock ArangoDB database connection.
+
+    ``update_location`` writes inside a stream transaction since #2561 (the ``contains`` edge moves with the
+    document), so the transaction's collection handle is the same mock as the database's.
+    """
+    db = MagicMock()
+    db.begin_transaction.return_value.collection = db.collection
+    return db
 
 
 @pytest.fixture

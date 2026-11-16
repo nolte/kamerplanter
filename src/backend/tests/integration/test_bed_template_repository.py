@@ -295,6 +295,22 @@ class TestDeleteReleasesThePlacedBeds:
         assert locations.get("nested_b")["_rev"] == rev_b
         assert locations.get("nested_b")["template_key"] == own.key
 
+    def test_an_unsited_bed_deeper_than_twenty_levels_is_released(self, repo, db) -> None:
+        """#2560: the site walk had a ``1..20`` bound the site's own location set does not have (#2561 D1)."""
+        own = repo.create_template(_template("Own", A))
+        _seed_beds(db, own.key or "")
+        parent = f"{col.LOCATIONS}/bed_a"
+        for depth in range(1, 25):
+            key = f"deep_{depth}"
+            db.collection(col.LOCATIONS).insert({"_key": key, "name": key, "site_key": ""})
+            db.collection(col.CONTAINS).insert({"_from": parent, "_to": f"{col.LOCATIONS}/{key}"})
+            parent = f"{col.LOCATIONS}/{key}"
+        db.collection(col.LOCATIONS).update({"_key": "deep_24", "template_key": own.key})
+
+        assert repo.delete_template(own.key or "", owner_tenant_key=A) is True
+
+        assert "template_key" not in db.collection(col.LOCATIONS).get("deep_24")
+
     def test_a_refused_delete_touches_no_bed(self, repo, db) -> None:
         sys_row = repo.create_template(_template("System", None))
         own = repo.create_template(_template("Own", A))

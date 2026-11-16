@@ -7,13 +7,14 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.7 (`orientation` mit 8 Himmelsrichtungen, abgeleitet aus `aspect_deg`; vorher 4.6: REQ-053 v1.4 Welle 0: `bed_*`-Felder superseded, Geometrie statt `dimensions`/`position`, `is_bed`/`supports_layout`, NutrientDemand/PlanRole, kein `tenant_key` auf Location/Slot)
+Version: 4.8 (`site_key` entscheidet die Site-Zugehörigkeit einer Location — Baum, Löschen und Umhängen lesen eine Definition, #2561; vorher 4.7: `orientation` mit 8 Himmelsrichtungen, abgeleitet aus `aspect_deg`; vorher 4.6: REQ-053 v1.4 Welle 0: `bed_*`-Felder superseded, Geometrie statt `dimensions`/`position`, `is_bed`/`supports_layout`, NutrientDemand/PlanRole, kein `tenant_key` auf Location/Slot)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.8 | 2026-11-16 | **Eine Definition für „die Locations einer Site" (#2561, Betreiberentscheidung D1; #2560):** Das Feld `site_key` einer Location entscheidet, zu welcher Site sie gehört — nicht die `contains`-Kante. Standort-Baum (`GET /sites/{key}/location-tree`), Top-Level-Liste, Site-Löschung und das Freigeben von Beeten beim Löschen einer Beet-Vorlage lesen dieselbe Definition: jede Location, die die Site nennt (beliebige Tiefe, auch ohne Kante), plus Altbestands-Locations ohne `site_key`, die der `contains`-Baum unter der Site erreicht — ohne Tiefenlimit (der Baum war `1..10`, die Vorlagen-Freigabe `1..20`). Wechselt eine Location per `PUT /locations/{key}` Site oder Eltern-Location, wird ihre `contains`-Kante in derselben Transaktion umgehängt. Überlebt eine Kind-Location das Löschen ihrer Eltern-Location (weil sie eine andere Site nennt), wird sie Wurzel ihrer Site (`parent_location_key` entfernt, `contains` von der Site). Migration `v0102` liest bereits das Feld (Zeilen, die eine lebende Site nennen, fasst sie nie an) und bleibt unverändert. Ein Slot wird mit allen aus dem Graphen abgeleiteten Kanten gelöscht (`placed_in`, `log_slot`, `run_planned_at`, `system_has_growbed` blieben vorher stehen). |
 | 4.7 | 2026-11-04 | **`Location.orientation` mit 8 Werten (#2667, REQ-053 WP 8.24):** additiv um `northeast`, `southeast`, `southwest`, `northwest` erweitert; bei gesetztem `site_conditions.aspect_deg` wird der Wert abgeleitet (8 Sektoren à 45°, eine Grenze gehört zum Sektor, der dort beginnt), sonst bleibt die manuelle Pflege. |
 | 4.6 | 2026-10-15 | **Angleichung an REQ-053 v1.4 (Grafische Garten-/Beetplanung, Welle 0 — Anhang A Issues 4/55):** (a) Die im Business Case (G-003) vorgesehenen Location-Felder `bed_width_cm`, `bed_length_cm`, `bed_orientation`, `bed_type`, `bed_rows`, `row_spacing_cm` sowie `Slot.dimensions_cm` sind **superseded durch REQ-053 §20.8** — sie werden **nicht eingeführt**: Maße liegen in `Location.geometry`/`Slot.geometry`, der Beettyp in `LocationType.is_bed`, Reihen und Reihenabstand am `PlantingRunEntry` (REQ-013). (b) `Location.dimensions` (3-Tupel) und `Slot.position` (row, col) werden in REQ-053 **Welle 1** per Migration M1 in `geometry` + `height_m` bzw. `geometry` + `row_index`/`sequence` überführt und danach **entfernt** (O-01/O-02, D-16). (c) `LocationType` erhält `is_bed` und `supports_layout`; neue System-Seeds `raised_bed`, `planter`, `greenhouse_bed`, `cold_frame` (GP-FR-040, W-016.1) — 14 statt 10 Seeds. (d) `CropRotationPlan.demand_level` wird durch `nutrient_demand` (`NutrientDemand`, 3 Werte) + `plan_role` (`PlanRole`) ersetzt (GP-FR-138/139, Migration M6); `CropRotationValidator.rotation_window_years` Obergrenze 8 (K-004). (e) Explizit festgehalten: `Location` und `Slot` tragen **kein `tenant_key`** — Eigentümer ist die Site, Prädikat `domain/services/location_ownership.py` (E-01, #2107/MT-010). (f) Neuer Abschnitt „Erweitert durch REQ-053" in §5. |
 | 4.5 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `Site.type` nennt alle Werte von `SiteType` (+`windowsill`, `balcony`, `grow_tent`). `Location.irrigation_system` nennt an allen drei Stellen (§Datenmodell, `LocationDefinition`, `IrrigationSystem`-Alias) die Werte von `IrrigationSystem` (`manual`, `drip`, `hydro`, `mist`, `nft`, `ebb_flow`); `sprinkler`, `sub_irrigation` und `aeroponics` entfallen. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
@@ -954,6 +955,15 @@ def resolve_inherited_property(location: LocationDefinition, prop: str, reposito
 **6. Kaskadierendes Löschen:**
 Beim Löschen einer Location werden alle Kind-Locations und deren Slots rekursiv gelöscht. Vor dem Löschen wird geprüft, ob belegte Slots im Teilbaum existieren:
 
+> **Site-Zugehörigkeit (v4.8, #2561, D1).** Welche Locations zu einer Site gehören, entscheidet ihr `site_key` —
+> eine Definition für Baum, Top-Level-Liste, Site-Löschung und Vorlagen-Freigabe: jede Location, die die Site
+> nennt, plus Altbestands-Locations ohne `site_key`, die der `contains`-Baum unter der Site erreicht (ohne
+> Tiefenlimit). Eine Kind-Location, die eine *andere* Site nennt, gehört nicht zum gelöschten Teilbaum: sie bleibt,
+> verliert `parent_location_key` und hängt danach als Wurzel an ihrer Site. Ein `PUT /locations/{key}`, das Site
+> oder Eltern-Location ändert, hängt die `contains`-Kante in derselben Transaktion um. Jede Location- und
+> Slot-Löschung entfernt alle Kanten, die der Graph an diesen Collections enden lässt (abgeleitet aus
+> `GRAPH_EDGE_DEFINITIONS`, nicht von Hand gelistet; Guard `tests/unit/guards/test_deletes_reach_their_derived_edges.py`).
+
 ```python
 def validate_cascading_delete(location_key: str, repository) -> list[str]:
     """
@@ -1115,6 +1125,8 @@ REQ-002 **bleibt Quelle der Hierarchie** (Site → Location → Slot, LocationTy
 - [ ] **LocationType-Dropdown:** LocationType-Dropdown im Create/Edit-Dialog zeigt alle verfügbaren Typen (sortiert nach `sort_order`)
 - [ ] **LocationType-Indoor/Outdoor:** Typ-Eigenschaft `is_indoor` steuert kontextabhängige UI-Logik (z.B. Lichtsteuerung)
 - [ ] **Kaskadierendes Löschen:** Funktioniert über beliebige Verschachtelungstiefe mit Prüfung auf belegte Slots
+- [ ] **Eine Site-Zugehörigkeit (v4.8, #2561):** Standort-Baum und Site-Löschung umfassen dieselben Locations (`site_key` entscheidet; Tiefe > 10 und Locations ohne `contains`-Kante eingeschlossen); eine per `PUT` umgehängte Location zieht ihre `contains`-Kante mit und erscheint weder im Baum der alten Site noch wird sie mit ihr gelöscht (`tests/integration/test_site_location_ownership.py`)
+- [ ] **Slot-Löschung mit abgeleiteten Kanten (v4.8, #2560):** Kein Kantentyp, den der Graph an `slots` enden lässt, überlebt den gelöschten Slot (`tests/integration/test_slot_edge_cleanup.py`)
 - [ ] **Properties-Vererbung:** `light_type`, `irrigation_system`, `orientation` werden bei Bedarf vom Eltern-Standort geerbt
 - [ ] **Slot-ID-Generierung:** Automatische Generierung eindeutiger IDs nach Schema
 - [ ] **Fruchtfolge-Validierung:** 3-Jahres-Historie wird bei Anpflanzung geprüft

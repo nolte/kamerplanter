@@ -91,7 +91,6 @@ _SITES: dict[str, tuple[str, str]] = {
     # -- writers --------------------------------------------------------------------------------------------------
     f"{_PI}:ArangoPlantInstanceRepository.create": (_WRITER, "create_edge to the new plant's slot"),
     f"{_PI}:ArangoPlantInstanceRepository.update": (_WRITER, "create_edge_if_absent to the plant's new slot"),
-    f"{_PI}:ArangoPlantInstanceRepository.delete": (_WRITER, "delete_edges of the deleted plant"),
     f"{_PR}:ArangoPlantingReservationRepository._insert_plants": (_WRITER, "inserts the edge of a new plant"),
     "app/migrations/versions/v0112_placed_in_backfill.py:PlacedInBackfillMigration": (
         _WRITER,
