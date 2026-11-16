@@ -945,9 +945,10 @@ to_bytes() {
   esac
 }
 expect_valkey_memory_headroom() {
+  # valkey-helm 1.0 names the server container `valkey` (0.x: the fullname).
   local name="$1" maxmemory limit
   maxmemory="$(yq e '.[] | select(.kind == "ConfigMap" and .metadata.name == "kamerplanter-valkey-config") | .data["valkey.conf"] | split("\n") | .[] | select(test("^maxmemory ")) | sub("^maxmemory +"; "")' "${work}/${name}.yaml")"
-  limit="$(yq e '.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-valkey") | .spec.template.spec.containers[] | select(.name == "kamerplanter-valkey") | .resources.limits.memory // ""' "${work}/${name}.yaml")"
+  limit="$(yq e '.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-valkey") | .spec.template.spec.containers[] | select(.name == "valkey") | .resources.limits.memory // ""' "${work}/${name}.yaml")"
   if [[ -z "${maxmemory}" || -z "${limit}" ]]; then
     fail "${name}: Valkey needs both maxmemory and a memory limit — rendered maxmemory='${maxmemory}', limit='${limit}'"
   elif (($(to_bytes "${maxmemory}") <= 0 || $(to_bytes "${limit}") < 2 * $(to_bytes "${maxmemory}"))); then
