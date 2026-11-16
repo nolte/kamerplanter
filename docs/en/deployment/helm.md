@@ -300,11 +300,11 @@ Valkey is both cache and Celery broker: the tasks wait in it for the worker. The
 ```yaml title="values.yaml (default)"
 valkey:
   deploymentStrategy: Recreate
-  dataStorage:
+  persistence:
     enabled: true
-    requestedSize: 1Gi
-    keepPvc: true
-  valkeyConfig: |
+    size: 1Gi
+    keepOnUninstall: true
+  extraConfig: |
     maxmemory 256mb
     maxmemory-policy noeviction
     appendonly yes
@@ -317,7 +317,7 @@ valkey:
       memory: 640Mi    # at least twice maxmemory
 ```
 
-- **Own volume:** Valkey keeps its data on a `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). It survives `helm uninstall`. The Valkey chart calls the size `requestedSize` — it does not read a `size` key.
+- **Own volume:** Valkey keeps its data on a `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). It survives `helm uninstall`. The keys follow the Valkey chart from version 1.0 on (`persistence`, `extraConfig`); it refuses the older names `dataStorage` and `valkeyConfig`.
 - **`Recreate`:** the old Valkey pod ends before the new one starts. A `ReadWriteOnce` volume attaches to one node; a new pod next to the old one could not reach the volume from another node.
 - **`noeviction` rather than an eviction policy:** when memory is full, Valkey refuses new writes instead of silently dropping waiting tasks. A full memory thus shows up as an error.
 - **`appendonly yes`** records every change (written to disk once per second); after a restart the tasks of the last seconds are back too.
@@ -325,10 +325,10 @@ valkey:
 - **Watch the memory:** with `noeviction` a full Valkey reports errors (`OOM command not allowed`) instead of losing tasks — backend and worker can then no longer queue tasks. Set up an alert on `used_memory` relative to `maxmemory` (for example from 80 %) so you can step in first.
 
 !!! info "On upgrade"
-    Up to this version Valkey's `/data` sat on an ephemeral `emptyDir`: the chart set `valkey.dataStorage.size`, a key the Valkey chart does not know, so no volume was created. Every Valkey restart lost the waiting tasks. The upgrade creates the volume and restarts Valkey once (`Recreate`).
+    Up to this version Valkey's `/data` sat on an ephemeral `emptyDir`: the chart set `valkey.dataStorage.size`, a key the Valkey chart of that time did not know, so no volume was created. Every Valkey restart lost the waiting tasks. The upgrade creates the volume and restarts Valkey once (`Recreate`).
 
     - **One-time loss of waiting tasks:** whatever is queued at the restart is lost. Let the queue drain first — for example scale Celery Beat to 0 (`kubectl scale deployment kamerplanter-celery-beat --replicas=0`), wait until the worker has processed everything, then upgrade; Beat starts again with the upgrade. Beat queues scheduled tasks again at their next run anyway.
-    - **A StorageClass is a prerequisite:** the volume names no StorageClass. If your cluster has no default StorageClass, the volume — and with it Valkey — stays `Pending`; without the broker no component can queue tasks. Check with `kubectl get storageclass` (marked `(default)`), or name a StorageClass explicitly in `valkey.dataStorage.className`.
+    - **A StorageClass is a prerequisite:** the volume names no StorageClass. If your cluster has no default StorageClass, the volume — and with it Valkey — stays `Pending`; without the broker no component can queue tasks. Check with `kubectl get storageclass` (marked `(default)`), or name a StorageClass explicitly in `valkey.persistence.storageClass`.
     - **Reinstallation:** the volume survives `helm uninstall`. On start Valkey replays its append-only file — including the tasks of an old installation. Delete the PVC `kamerplanter-valkey` before reinstalling if those should not run.
 
 !!! warning "Valkey without password and without TLS"

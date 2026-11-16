@@ -852,7 +852,8 @@ expect autoscaler-external-complete "a complete hand-written External metric ren
 # kamerplanter-secrets by secretKeyRef, never as a literal.
 #
 # Valkey is the Celery broker: the queued tasks live in it. The chart used to
-# set `valkey.dataStorage.size`, which the subchart does not read — no claim
+# set `valkey.dataStorage.size`, which the 0.x subchart did not read (1.0 names
+# it `valkey.persistence.size`) — no claim
 # was rendered and /data was an emptyDir, so every restart lost the queue.
 # ---------------------------------------------------------------------------
 ts_kinds='select(.metadata.name == "kamerplanter-timescaledb") | .kind'
@@ -944,9 +945,10 @@ to_bytes() {
   esac
 }
 expect_valkey_memory_headroom() {
+  # valkey-helm 1.0 names the server container `valkey` (0.x: the fullname).
   local name="$1" maxmemory limit
   maxmemory="$(yq e '.[] | select(.kind == "ConfigMap" and .metadata.name == "kamerplanter-valkey-config") | .data["valkey.conf"] | split("\n") | .[] | select(test("^maxmemory ")) | sub("^maxmemory +"; "")' "${work}/${name}.yaml")"
-  limit="$(yq e '.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-valkey") | .spec.template.spec.containers[] | select(.name == "kamerplanter-valkey") | .resources.limits.memory // ""' "${work}/${name}.yaml")"
+  limit="$(yq e '.[] | select(.kind == "Deployment" and .metadata.name == "kamerplanter-valkey") | .spec.template.spec.containers[] | select(.name == "valkey") | .resources.limits.memory // ""' "${work}/${name}.yaml")"
   if [[ -z "${maxmemory}" || -z "${limit}" ]]; then
     fail "${name}: Valkey needs both maxmemory and a memory limit — rendered maxmemory='${maxmemory}', limit='${limit}'"
   elif (($(to_bytes "${maxmemory}") <= 0 || $(to_bytes "${limit}") < 2 * $(to_bytes "${maxmemory}"))); then

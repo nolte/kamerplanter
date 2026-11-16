@@ -3196,12 +3196,14 @@ networkpolicies:
 
 # -- Valkey (subchart): Celery broker AND cache — the queued tasks live here.
 #
-# #2127 (MT-031) hardening, measured against valkey-helm 0.12.0:
-#  * Persistence. The chart set `dataStorage.size`, a key the subchart does not
-#    know; its PVC template needs `requestedSize`, so NO claim was rendered and
-#    /data was an emptyDir — every Valkey restart lost the queued tasks, and
-#    the snapshots the docs promised went nowhere. `requestedSize` renders the
-#    claim; `keepPvc` keeps it through `helm uninstall`.
+# #2127 (MT-031) hardening, measured against valkey-helm 0.12.0 and carried
+# over to the 1.0 key names (`dataStorage` -> `persistence`, `valkeyConfig` ->
+# `extraConfig`; 1.0 refuses to render while the old keys are set):
+#  * Persistence. The chart once set `dataStorage.size`, a key the 0.x subchart
+#    did not know, so NO claim was rendered and /data was an emptyDir — every
+#    Valkey restart lost the queued tasks. `persistence.size` renders the claim
+#    (`kamerplanter-valkey`, name unchanged from 0.x); `keepOnUninstall` keeps
+#    it through `helm uninstall`.
 #  * `deploymentStrategy: Recreate`: the claim is ReadWriteOnce and the
 #    subchart runs a Deployment — a RollingUpdate would start the new pod while
 #    the old one still holds the volume (Multi-Attach on another node).
@@ -3218,17 +3220,17 @@ networkpolicies:
 #    kills Valkey before Valkey can refuse a write. Raise both together —
 #    scripts/ci/assert_chart_contracts.sh checks limit >= 2 x maxmemory.
 #  * No storageClass: the claim needs a default StorageClass, else Valkey stays
-#    Pending and the broker is gone. Name one in `dataStorage.className`.
+#    Pending and the broker is gone. Name one in `persistence.storageClass`.
 # The subchart already runs non-root (uid 1000), read-only root filesystem, all
 # capabilities dropped, RuntimeDefault seccomp.
 valkey:
   enabled: true
   deploymentStrategy: Recreate
-  dataStorage:
+  persistence:
     enabled: true
-    requestedSize: 1Gi
-    keepPvc: true
-  valkeyConfig: |
+    size: 1Gi
+    keepOnUninstall: true
+  extraConfig: |
     maxmemory 256mb
     maxmemory-policy noeviction
     appendonly yes
