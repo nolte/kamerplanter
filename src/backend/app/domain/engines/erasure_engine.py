@@ -148,6 +148,18 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
+            # #2976 — the account that last saved a rooting protocol, stamped by the server. Stored as the bare
+            # ``author`` until v0114, a name R6 does not see, so the erasure never reached it and every member read
+            # the raw key. The protocol is a tenant's working template and stays; only the reference goes.
+            collection="rooting_protocols",
+            user_field="author_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-017: a rooting protocol is a working template of a possibly shared tenant and is retained; "
+                "only the reference to the account that last saved it is removed and the API shows 'anonymisiert'."
+            ),
+        ),
+        AnonymizationRule(
             collection="care_events",
             user_field="performed_by_user_key",
             anonymized_value=ANONYMIZED_MARKER,

@@ -143,7 +143,9 @@ class TestTheFrozenValues:
         """Holds on the day of writing; when the inventory moves, this test is where the freeze shows (M-7)."""
         corrected = {("care_events", "performed_by_user_key"), ("care_events", "created_by")}
         corrected.add(("garden_plan_audit", "user_key"))
-        assert set(v0109.UNDECLARED_CELLS) == set(ErasureEngine.tombstone_watch_fields()) - corrected
+        #: Cells the inventory gained after the freeze: each came with its own correction (#2976 → v0114).
+        added_later = {("rooting_protocols", "author_user_key")}
+        assert set(v0109.UNDECLARED_CELLS) == set(ErasureEngine.tombstone_watch_fields()) - corrected - added_later
         assert not set(v0109.UNDECLARED_CELLS) & ErasureEngine.tombstone_allowlist()
 
     def test_it_is_a_privacy_correction_and_irreversible(self) -> None:

@@ -1,7 +1,8 @@
 # SPEC-09 — Migrations- und Backfill-Strategie
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97);
+Nachtrag #2976 (2026-11-16, develop 9809d3952): §5a Migration v0114 `rooting_protocols.author` → `author_user_key`
 Anforderungs-IDs: PRIV-700 … PRIV-739
 Hängt ab von: NFR-016 / ADR-009 (Migrationsframework), 04 §7 (Altbefunde), 08 (Modell), 06 §3 (Pflichtfelder)
 Änderung v1.1: E04/E15-Konflikt aufgelöst (§3), Vor-/Nachprüfungen je Migration (§2a), Backup-Konzept auf
@@ -169,8 +170,7 @@ jemand anderes“), serverseitiges Stempeln, Marker-Regeln der Löschung, Beats 
   Kontoschlüssel der zuletzt ändernden Person; `RootingProtocolResponse.author` gibt ihn aus, und das
   Löschinventar erreicht ihn nicht (R6 sieht den Feldnamen `author` nicht). Eine Label-Kopie würde einen
   Kontoschlüssel in ein Feld für Dritte schreiben; `rooting_protocols` ist deshalb **nicht** Teil von v0111.
-  Der Befund ist eine eigene Datenschutzkorrektur (Schlüssel in `author_user_key` überführen bzw. Marker bei
-  Löschung, Antwortfeld) und braucht ein eigenes Issue.
+  Der Befund ist eine eigene Datenschutzkorrektur: #2976, §5a (v0114).
 - **`maintenance_logs` und `tank_fill_events` tragen kein `tenant_key`** (Modell ohne Feld; nur Altbestand aus
   v0004 hat eines). Das Mandantenprädikat sitzt am Anker, dem Tank (`tank.tenant_key == @tenant_key`, dann
   `doc.tank_key == tank._key`; #706).
@@ -206,6 +206,48 @@ unverändert.
 **PRIV-705** Kein Konto aus einem getippten Namen ableiten (REQ-025 Regel 4; #1662/#1663); Ausnahme nur das
 deterministische Präfix `mcp:` [VERIFIED_CODE]. **PRIV-706** Labels, die einem aktuellen Mitgliedsnamen entsprechen,
 KÖNNEN als Prüfeinträge `legacy_unkeyed_name` gelistet werden; die Migration ändert sie nie.
+
+### 5a. `rooting_protocols.author` → `author_user_key` (#2976)
+
+**Stand (2026-11-16, VERIFIED_CODE): umgesetzt** (Betreiberentscheidung D3 vom 2026-11-16 in #2976).
+
+- **Befund [VERIFIED_CODE, develop 9809d3952].** Beide Schreibwege (`propagation/tenant_router.py`, Anlegen und
+  Ändern) stempelten `author = ctx.user_key`; `RootingProtocolResponse.author` gab den rohen Kontoschlüssel an jedes
+  Mitglied aus; das Löschinventar erreichte ihn nicht, weil R6 (`scripts/check_privacy_inventory.py`) einen
+  Kontoverweis an der Form seines Namens erkennt und `author` keine dieser Formen hat.
+- **Modell.** `RootingProtocol.author_user_key: str | None = None` ersetzt `author` (R6-Form `*_user_key`, wie
+  `performed_by_user_key`); nur der Server stempelt es (PRIV-705: `RootingProtocolCreate` trägt das Feld nicht).
+- **Antwort.** `RootingProtocolResponse.author` bleibt als Feldname, trägt aber den Anzeigenamen des Kontos oder
+  `anonymisiert` (Konto gelöscht oder Marker) — nie den Schlüssel; dieselbe Regel wie `performed_by` der
+  Pflegeeinträge (GP-API-034, `display_performer`). Globale Vorlagen haben keinen Autor (`null`).
+- **Löschung.** `AnonymizationRule(rooting_protocols, author_user_key, Marker)`; das Protokoll bleibt als
+  Arbeitsvorlage des Mandanten erhalten. Der Mandantenexport leitet den Kontoverweis aus der Regel ab
+  (`TenantExportEngine.account_fields`); Art. 15 legt die Protokolle als Quelle „Rooting protocols you saved“ offen
+  (R2), ohne den Schlüssel selbst.
+- **Klassen-Guard.** `tests/unit/guards/test_caller_account_stamps_use_a_reference_shaped_name.py`: jedes
+  Domänenmodell, dem der Kontoschlüssel des Aufrufers (`*.user_key`) übergeben wird, speichert ihn unter einem
+  Namen in R6-Form; abweichende, entschiedene Fälle stehen mit Begründung in der Liste des Guards.
+
+**Migration `v0114_rooting_protocol_author_key`** (`kind = privacy_correction`; jeder Mandantenstatus außer
+`deleted`, §9; umkehrbar: nein, §11):
+
+| Fall (Zeile des Mandanten mit Attribut `author`) | `author_user_key` | Berichts-Bucket |
+|-----------------------------------------------|-------------------|-----------------|
+| `author_user_key` schon gesetzt | bleibt | `rooting_protocols.author_dropped` |
+| `author` nennt ein bestehendes Konto (`users/<author>` existiert) | `author` | `rooting_protocols.author_keyed` |
+| `author` nicht-leerer Text, Konto gelöscht/fehlt (oder schon der Marker) | `_anonymized` | `rooting_protocols.author_to_marker` |
+| sonst (`null`, leer, kein Text) | `null` | `rooting_protocols.author_dropped` |
+
+In jedem Fall wird `author` entfernt (`UNSET`). Globale Vorlagen (`tenant_key = ""`) gehören keinem Mandanten;
+kein Pfad schreibt dort einen Autor, sie bleiben unberührt. Phasen wie §2a: `precheck` prüft zusätzlich, dass das
+Modell dieses Builds `author_user_key` (Default `None`) und kein `author` mehr trägt, die Löschregel den Marker
+schreibt und der Mandantenexport das Feld als Kontoverweis kennt; `apply` je Mandant eine Stream-Transaktion;
+`verify` zählt Zeilen mit `author` erneut (muss 0 sein); `monitor` entfällt (das Feld existiert nicht mehr, R6 und
+der Klassen-Guard verhindern seine Rückkehr). Der Schlüssel stammt nie aus einem getippten Namen (`author` trug
+keinen, PRIV-705 berührt das nicht). Tests: `tests/unit/migrations/versions/test_v0114_*.py`,
+`tests/integration/test_v0114_*.py`.
+
+**Erwartung Produktion:** klein (Bewurzelungsprotokolle werden selten angelegt); der Dry-Run-Bericht beziffert es.
 
 ---
 
@@ -324,6 +366,7 @@ Betriebsendpunkt (E15).
 | v0109 | keiner (Information absichtlich zerstört); Dry-Run-Bericht ist der Nachweis | je Mandant transaktional; Wiederholung beim nächsten Start |
 | v0110 | entfernt explizites `legacy`/`unknown_legacy`; `none` persönlicher Mandanten bleibt (§4) | je Mandant ein Dokument-`UPDATE`; Wiederholung beim nächsten Start; idempotent |
 | v0111 | entfernt je Zeile ein Schlüsselfeld, das `null` ist, und ein Label, das noch die Kopie seiner Quelle ist; ein später gestempelter Schlüssel oder ein geändertes Label bleibt. Schritt 4 (`inspector = ""`, zugeordneter Service-Schlüssel) wird nicht zurückgenommen: der Text war ein Pseudo-Schlüssel, kein Name | je Mandant transaktional (PRIV-718, statt „je Collection“ in v1.1); Wiederholung beim nächsten Start; idempotent |
+| v0114 | keiner: den Schlüssel nach `author` zurückzuschreiben stellte den Befund wieder her; ein älterer Build liest ein Protokoll ohne `author` als eines ohne Autor | je Mandant transaktional; Wiederholung beim nächsten Start; idempotent |
 | Reklassifizierung | keiner | je Mandant; Zustand `reclassification_pending` bis Erfolg |
 | Restore-Replay | keiner (wendet Löschungen erneut an) | Residue > 0 ⇒ Wartungsmodus bleibt |
 
@@ -343,5 +386,6 @@ Betriebsendpunkt (E15).
 | TA-710 | Restore-Drill: Dump vor Löschung → Löschung → Restore → Replay erkennt das Konto über den Tombstone-Abgleich → Rohschlüssel in keiner Collection; Residue 0. |
 | TA-711 | Restore-Doku enthält Replay; `mkdocs build --strict`. |
 | TA-716 | Korrektur verarbeitet `suspended`; Backfill überspringt. |
+| TA-719 | v0114: nach dem Lauf trägt keine Mandantenzeile `rooting_protocols.author`; ein lebendes Konto wird zum Schlüssel, ein gelöschtes zum Marker; ein schon gesetztes `author_user_key` bleibt. |
 | TA-717 | Resume-Job listet und plant erneut. |
 | TA-718 | Helm: `backup.enabled=true` ohne `privacy.mirror.enabled` schlägt im Template-Precheck fehl. |

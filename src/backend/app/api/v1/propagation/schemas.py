@@ -128,6 +128,7 @@ class RootingProtocolResponse(BaseModel):
     hormone_concentration_ppm: float | None = None
     expected_root_days: int | None = None
     instructions: str | None = None
+    #: Display name of the account that last saved the protocol, or `anonymisiert`; never an account key (#2976).
     author: str | None = None
 
     model_config = {"populate_by_name": True}
