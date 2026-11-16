@@ -6,14 +6,14 @@ babel==2.18.0 \
     # via
     #   mkdocs-git-revision-date-localized-plugin
     #   mkdocs-material
-backrefs==8.2 \
-    --hash=sha256:3d464a90603d682006ad6fc4694bee8eeeea1506805e3783b3e6f4462cfe9d84 \
-    --hash=sha256:4374f7a590d0cadf646a5bbdd71c2eebc1a093564d3c0b105aa8958fc1a46413 \
-    --hash=sha256:50362d9133634aff2c5225f43e6786ad056d47259cdb2d625126cb7c73ef7a45 \
-    --hash=sha256:51d925937bfd5a019312dc6d242a8f3f6abdf2cd7aab53eb6304d5490ca13022 \
-    --hash=sha256:a49a2b014bb24aa256e9486b0b2e59909452bd1106ee1343032349f3fb847385 \
-    --hash=sha256:c229c7dbf5140f369afd87a61549122c0be631df34171920006f289dcd082715 \
-    --hash=sha256:e64a50f31e8eee2837009ca7744999ba59125acfd50996ba2349d8f18061e608
+backrefs==8.3 \
+    --hash=sha256:2722cbb6884ecadce4cab992113fa50fc2c28733949104132fcf89dba0ac3290 \
+    --hash=sha256:3930982530dc3e6c3b45094fdaa246edd59e4e91fd6b2dba61ee821efe1e3101 \
+    --hash=sha256:3f4b574b32f08b0c0dedc6ad15c3865ce93f1dca4fb31760e061bc4bac41ff2b \
+    --hash=sha256:bc7ab9f1f5444d23ce15795700f6a3e621f13d521e0cb87e21204ff1e12b8c5f \
+    --hash=sha256:bc87b4350f11cc6bf31a2f793dd2f9df577f5c91efaa943627bd261df26506aa \
+    --hash=sha256:be0de6f9ead4d44839169774643f25e36f4f2b05f7f1850368f5b5147e279e82 \
+    --hash=sha256:f9e7cc5934a9dd89bf1d86a91853120fca7cd32d7861c829c7a449f30100ba99
     # via mkdocs-material
 bracex==3.2.2 \
     --hash=sha256:284d59c4656e5a0421ff691402074bd5847049d50410535764a2c522a47095bc \
@@ -461,9 +461,9 @@ mkdocs-get-deps==0.2.2 \
     --hash=sha256:8ee8d5f316cdbbb2834bc1df6e69c08fe769a83e040060de26d3c19fad3599a1 \
     --hash=sha256:e7878cbeac04860b8b5e0ca31d3abad3df9411a75a32cde82f8e44b6c16ff650
     # via mkdocs
-mkdocs-git-revision-date-localized-plugin==1.6.3 \
-    --hash=sha256:3e37bc5bd047063ab062c9328e10d00670d69a99dc002c3cb5823582ce6d8e60 \
-    --hash=sha256:72b7f27d780af4d9efc2eb70197404e4510ce5664de6a96e092a6050e35eab46
+mkdocs-git-revision-date-localized-plugin==1.7.0 \
+    --hash=sha256:5ab222ea025342c797d9323c13ab1d65c80e20f7e9fcaaff156356e520879ff0 \
+    --hash=sha256:b6ac037275056dec3ab4227c51e6fde443299defebf13da852c877206f4f8625
     # via -r docs/requirements.in
 mkdocs-literate-nav==0.6.3 \
     --hash=sha256:2c421561280fa9184f88cbf399bebbd4cc17ee507e978a31ce11fd6f3aabf233 \
@@ -495,9 +495,9 @@ mkdocstrings==1.0.8 \
     # via
     #   -r docs/requirements.in
     #   mkdocstrings-python
-mkdocstrings-python==2.0.10 \
-    --hash=sha256:4a3aaeebb25ba5ae57a8f9e75432fe4571984889602f2b2f7d672faa760e9062 \
-    --hash=sha256:5e34ae56b2f20a57807ee479d603ddc5ec7cc6d2252c4c177754627ef2d3b833
+mkdocstrings-python==2.0.11 \
+    --hash=sha256:12d9b8bb1ccdb160a220a771a169300b788e8af5ad6456a0b8aeabbb103d42b2 \
+    --hash=sha256:86ba14ea584a838e144b40d131b0780452e8abee57d90db6c84c9a9ac114c527
     # via mkdocstrings
 natsort==8.4.0 \
     --hash=sha256:45312c4a0e5507593da193dedd04abb1469253b601ecaf63445ad80f0a1ea581 \
