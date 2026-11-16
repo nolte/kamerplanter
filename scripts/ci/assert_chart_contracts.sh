@@ -852,7 +852,8 @@ expect autoscaler-external-complete "a complete hand-written External metric ren
 # kamerplanter-secrets by secretKeyRef, never as a literal.
 #
 # Valkey is the Celery broker: the queued tasks live in it. The chart used to
-# set `valkey.dataStorage.size`, which the subchart does not read — no claim
+# set `valkey.dataStorage.size`, which the 0.x subchart did not read (1.0 names
+# it `valkey.persistence.size`) — no claim
 # was rendered and /data was an emptyDir, so every restart lost the queue.
 # ---------------------------------------------------------------------------
 ts_kinds='select(.metadata.name == "kamerplanter-timescaledb") | .kind'

@@ -73,11 +73,11 @@ deploy:
           controllers.celery-worker.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
           controllers.celery-beat.containers.main.image.repository: "{{.IMAGE_REPO_kamerplanter_backend}}"
           controllers.celery-beat.containers.main.image.tag: "{{.IMAGE_TAG_kamerplanter_backend}}"
-          valkey.dataStorage.enabled: true
-          # `requestedSize`, not `size`: the valkey subchart renders its claim
-          # only from requestedSize, so `size` left /data on an emptyDir (#2127).
-          valkey.dataStorage.requestedSize: 1Gi
-          valkey.dataStorage.keepPvc: true
+          # valkey-helm 1.0 key names; the 0.x `dataStorage.*` keys make the
+          # subchart refuse to render.
+          valkey.persistence.enabled: true
+          valkey.persistence.size: 1Gi
+          valkey.persistence.keepOnUninstall: true
 
 portForward:
   - resourceType: service

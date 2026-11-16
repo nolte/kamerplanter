@@ -301,11 +301,11 @@ Valkey ist zugleich Cache und Celery-Broker: In ihm warten die Aufgaben auf den 
 ```yaml title="values.yaml (Standard)"
 valkey:
   deploymentStrategy: Recreate
-  dataStorage:
+  persistence:
     enabled: true
-    requestedSize: 1Gi
-    keepPvc: true
-  valkeyConfig: |
+    size: 1Gi
+    keepOnUninstall: true
+  extraConfig: |
     maxmemory 256mb
     maxmemory-policy noeviction
     appendonly yes
@@ -318,7 +318,7 @@ valkey:
       memory: 640Mi    # mindestens das Doppelte von maxmemory
 ```
 
-- **Eigenes Volume:** Valkey legt seine Daten auf ein `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). Es bleibt bei `helm uninstall` erhalten. Die Größe heißt im Valkey-Chart `requestedSize` — einen Schlüssel `size` liest es nicht.
+- **Eigenes Volume:** Valkey legt seine Daten auf ein `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). Es bleibt bei `helm uninstall` erhalten. Die Schlüssel folgen dem Valkey-Chart ab Version 1.0 (`persistence`, `extraConfig`); die älteren Namen `dataStorage` und `valkeyConfig` lehnt es ab.
 - **`Recreate`:** Der alte Valkey-Pod endet, bevor der neue startet. Ein `ReadWriteOnce`-Volume hängt an einem Node; ein neuer Pod daneben käme auf einem anderen Node nicht an das Volume.
 - **`noeviction` statt einer Verdrängungsstrategie:** Ist der Speicher voll, lehnt Valkey neue Schreibzugriffe ab, statt still wartende Aufgaben zu löschen. Ein voller Speicher fällt so als Fehler auf.
 - **`appendonly yes`** schreibt jede Änderung mit (einmal pro Sekunde auf die Platte); nach einem Neustart sind auch die Aufgaben der letzten Sekunden wieder da.
@@ -326,10 +326,10 @@ valkey:
 - **Überwache den Speicher:** Mit `noeviction` meldet ein voller Valkey Fehler (`OOM command not allowed`), statt Aufgaben zu verlieren — Backend und Worker können dann keine Aufgaben mehr einreihen. Richte einen Alarm auf `used_memory` im Verhältnis zu `maxmemory` ein (zum Beispiel ab 80 %), damit du vorher eingreifst.
 
 !!! info "Beim Upgrade"
-    Bis zu dieser Version lag `/data` von Valkey auf einem flüchtigen `emptyDir`: Das Chart setzte `valkey.dataStorage.size`, einen Schlüssel, den das Valkey-Chart nicht kennt, und legte deshalb kein Volume an. Jeder Neustart von Valkey verlor die wartenden Aufgaben. Das Upgrade legt das Volume neu an und startet Valkey einmal neu (`Recreate`).
+    Bis zu dieser Version lag `/data` von Valkey auf einem flüchtigen `emptyDir`: Das Chart setzte `valkey.dataStorage.size`, einen Schlüssel, den das damalige Valkey-Chart nicht kannte, und legte deshalb kein Volume an. Jeder Neustart von Valkey verlor die wartenden Aufgaben. Das Upgrade legt das Volume neu an und startet Valkey einmal neu (`Recreate`).
 
     - **Einmaliger Verlust wartender Aufgaben:** Was beim Neustart in der Warteschlange steht, geht verloren. Lass die Warteschlange vorher leerlaufen — etwa Celery Beat auf 0 skalieren (`kubectl scale deployment kamerplanter-celery-beat --replicas=0`), warten, bis der Worker alles abgearbeitet hat, dann upgraden; Beat startet mit dem Upgrade wieder. Geplante Aufgaben stellt Beat ohnehin beim nächsten Termin wieder ein.
-    - **StorageClass ist Voraussetzung:** Das Volume nennt keine StorageClass. Hat dein Cluster keine Standard-StorageClass, bleibt das Volume und damit Valkey `Pending` — ohne Broker reiht keine Komponente mehr Aufgaben ein. Prüfe das mit `kubectl get storageclass` (Markierung `(default)`), oder nenne eine StorageClass ausdrücklich in `valkey.dataStorage.className`.
+    - **StorageClass ist Voraussetzung:** Das Volume nennt keine StorageClass. Hat dein Cluster keine Standard-StorageClass, bleibt das Volume und damit Valkey `Pending` — ohne Broker reiht keine Komponente mehr Aufgaben ein. Prüfe das mit `kubectl get storageclass` (Markierung `(default)`), oder nenne eine StorageClass ausdrücklich in `valkey.persistence.storageClass`.
     - **Neuinstallation:** Das Volume bleibt bei `helm uninstall` erhalten. Valkey spielt beim Start sein Append-Only-Log ab — auch die Aufgaben einer alten Installation. Lösche das PVC `kamerplanter-valkey` vor einer Neuinstallation, wenn diese nicht weiterlaufen sollen.
 
 !!! warning "Valkey ohne Passwort und ohne TLS"
