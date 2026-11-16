@@ -111,6 +111,12 @@
   // `minimumReleaseAge: null` and moves immediately and whole; the rule below
   // says why. hadolint, zaproxy and valkey-helm are in no such group.
   //
+  // THE RENOVATE TOOL PIN DOES NOT WAIT (operator decision 2026-10-30, #2581).
+  // `renovate/renovate` (.pins/images.yaml) only drives `task renovate:dry-run`;
+  // the latest upstream release may always be used, so its rule at the end of
+  // `packageRules` carries `minimumReleaseAge: null`. That is the second and
+  // last named exception; every other rule inherits the three days.
+  //
   // SECURITY UPDATES DO NOT WAIT. `vulnerabilityAlerts` is a mergeable object
   // whose Renovate default already carries `minimumReleaseAge: null`; it is
   // restated so the exemption does not rest on a default, and so the guard can
@@ -868,6 +874,26 @@
       ],
       separateMajorMinor: false,
     },
+    // NO RELEASE-AGE WAIT FOR THE RENOVATE TOOL PIN (operator decision
+    // 2026-10-30, #2581). `renovate/renovate` in .pins/images.yaml only drives
+    // `task renovate:dry-run` — the local proof of an edit to THIS file; it is
+    // not part of any shipped image, workflow or required check. The latest
+    // upstream release may always be used, and a manual bump straight to the
+    // newest tag is legitimate, so the three days at the top of this file buy
+    // nothing here. The rule carries no `groupName` and sits after every
+    // grouping rule, so it changes only the wait — the pin stays in no group
+    // (see the third-party images rule above for why tool pins are kept out).
+    // The second of exactly two named exceptions to the wait;
+    // tests/unit/guards/test_renovate_automerge_policy.py holds both.
+    {
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'renovate/renovate',
+      ],
+      minimumReleaseAge: null,
+    },
   ],
   customManagers: [
     {
@@ -971,15 +997,23 @@
       //
       // Captures tag AND digest, so Renovate bumps them together. A tag bumped
       // without its digest would leave the workflow silently on the old image.
-      description: 'Update container images pinned in workflow env: values and in Taskfile vars.',
+      description: 'Update container images pinned in workflow env: values and in the .pins/ pin files.',
       managerFilePatterns: [
         '/^\\.github/workflows/[^/]+\\.ya?ml$/',
-        // `.taskfiles/checks.yaml` pins the renovate/renovate CLI that
-        // `task renovate:dry-run` runs (#1383). Without this the pin would be
-        // immutable and unmaintained — the same half of the reproducibility
-        // problem the workflow env: pins were added for, and the shape #1177
-        // records: a floating tool silently changes what a check MEANS.
-        '/^\\.taskfiles/[^/]+\\.ya?ml$/',
+        // `.pins/images.yaml` pins the images `task` targets run: the
+        // renovate/renovate CLI of `task renovate:dry-run` (#1383) and hadolint
+        // of `task lint:docker`. Without this those pins would be immutable and
+        // unmaintained — the same half of the reproducibility problem the
+        // workflow env: pins were added for, and the shape #1177 records: a
+        // floating tool silently changes what a check MEANS.
+        //
+        // The pins moved there out of `.taskfiles/` with #2581: every
+        // task-driven lane selects `.taskfiles/**`, so a pin bump in a Taskfile
+        // ran the frontend and integration lanes for nothing; no lane reads
+        // `.pins/`. `.taskfiles/` no longer carries Renovate-aged pins and is
+        // deliberately not listed here — tests/unit/guards/
+        // test_no_renovate_pin_in_taskfiles.py holds both halves.
+        '/^\\.pins/[^/]+\\.ya?ml$/',
       ],
       matchStrings: [
         'renovate: datasource=docker depName=(?<depName>\\S+)\\s*\\n\\s*[A-Z_]+:\\s*\\S+:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',

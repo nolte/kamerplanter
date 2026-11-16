@@ -881,7 +881,7 @@ class TestEveryImagePinIsReadBySomeManager:
         for expected in (
             ".github/workflows/security-zap-postmerge.yml",
             ".github/workflows/security-zap-nightly.yml",
-            ".taskfiles/checks.yaml",
+            ".pins/images.yaml",
         ):
             assert expected in pinning_files, f"{expected} is no longer in the swept corpus"
 
@@ -992,10 +992,14 @@ class TestEveryImagePinIsReadBySomeManager:
         assert check.unmanaged_image_pins(root) == [".github/workflows/scan.yml:6"]
 
     def test_the_taskfiles_are_in_the_corpus_too(self, tmp_path: Path) -> None:
-        """S3 of the review: the manager reads `.taskfiles/`, so the sweep does.
+        """S3 of the review: an unmarked pin added back to `.taskfiles/` is found.
 
-        The real `.taskfiles/checks.yaml` pin is covered, which is what makes
-        this case a measurement rather than a claim about globs.
+        The Taskfile pins moved to `.pins/images.yaml` with #2581 and the
+        manager no longer reads `.taskfiles/`, but the sweep keeps it in its
+        corpus: a pin someone writes there again, without the marker, is still
+        a pin nothing ages. (A MARKED one there is refused by
+        `test_no_renovate_pin_in_taskfiles.py`, because this sweep judges the
+        marker shape, not the manager's file patterns.)
         """
         taskfiles = tmp_path / ".taskfiles"
         taskfiles.mkdir()
@@ -1003,6 +1007,23 @@ class TestEveryImagePinIsReadBySomeManager:
         (tmp_path / "renovate.json5").write_text((_REPO_ROOT / "renovate.json5").read_text())
 
         assert check.unmanaged_image_pins(tmp_path) == [".taskfiles/checks.yaml:2"]
+
+    def test_the_pin_files_are_in_the_corpus_too(self, tmp_path: Path) -> None:
+        """`.pins/` is where the Taskfile targets' pins live since #2581.
+
+        A marked pin there is read; an unmarked one beside it is a finding —
+        the pair proves the directory is swept rather than skipped.
+        """
+        pins = tmp_path / ".pins"
+        pins.mkdir()
+        (pins / "images.yaml").write_text(
+            "# renovate: datasource=docker depName=renovate/renovate\n"
+            "RENOVATE_IMAGE: renovate/renovate:44.103.2@sha256:" + "e" * 64 + "\n"
+            "OTHER_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:" + "f" * 64 + "\n"
+        )
+        (tmp_path / "renovate.json5").write_text((_REPO_ROOT / "renovate.json5").read_text())
+
+        assert check.unmanaged_image_pins(tmp_path) == [".pins/images.yaml:3"]
 
     def test_a_composite_action_is_in_the_corpus_too(self, tmp_path: Path) -> None:
         """No manager reads `.github/actions/**` at all, so a pin there is worse."""

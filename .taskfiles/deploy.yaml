@@ -16,10 +16,19 @@ tasks:
       exact set (all eight images, including inference-service, which is built
       elsewhere but linted here). Uses the same pinned image as CI; when
       bumping, keep HADOLINT_IMAGE in .github/workflows/docker-lint-build.yml
-      and here in sync.
+      and in .pins/images.yaml in sync.
     vars:
-      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
-      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+      # Pinned in .pins/images.yaml (moved out of this Taskfile by #2581 — see
+      # that file for why). Read lazily as a TASK-LEVEL dynamic var so only
+      # this task touches .pins/.
+      HADOLINT_IMAGE:
+        sh: |
+          v=$(sed -n 's/^HADOLINT_IMAGE:[[:space:]]*//p' "{{.ROOT_DIR}}/.pins/images.yaml")
+          if [ -z "$v" ] || [ "$(printf '%s\n' "$v" | wc -l)" -ne 1 ]; then
+            echo "HADOLINT_IMAGE: expected exactly one non-empty pin in .pins/images.yaml" >&2
+            exit 1
+          fi
+          printf '%s\n' "$v"
     cmds:
       - for:
           - src/backend/Dockerfile

@@ -1,0 +1,38 @@
+# ── Renovate-aged image pins for Taskfile targets ─────────────────────────────
+# Container images a `task` target runs, pinned by tag AND digest and aged by
+# the docker regex custom manager in renovate.json5 (managerFilePatterns
+# `.pins/*.y?ml`).
+#
+# WHY THESE PINS LIVE HERE AND NOT IN .taskfiles/ (#2581). Every task-driven
+# lane runs through `task`, which parses every included Taskfile, so the
+# frontend and integration paths-filters select `.taskfiles/**` — and a path
+# filter cannot tell a pin line from a real Taskfile change. A Renovate bump of
+# a pin kept in a Taskfile therefore ran those lanes for nothing. No lane reads
+# this file, so a pin-only pull request takes their skip path.
+#
+# WHO READS IT. Only the two tasks below, lazily, through a TASK-LEVEL dynamic
+# var (never a global var: globals are evaluated on every `task` invocation and
+# would make every lane read this file):
+#   RENOVATE_IMAGE — `task renovate:dry-run` (.taskfiles/checks.yaml)
+#   HADOLINT_IMAGE — `task lint:docker`      (.taskfiles/deploy.yaml)
+# Both tasks extract the value with sed and fail loudly when the key is missing
+# or empty. tests/unit/guards/test_no_renovate_pin_in_taskfiles.py keeps
+# Renovate-aged pins out of the Taskfiles.
+#
+# FORMAT. Keep the `# renovate:` marker line DIRECTLY above its key and the key
+# at column 0 as `KEY: image:tag@sha256:digest` — the regex manager and the
+# task-side sed both depend on that shape.
+
+# The Renovate CLI used by `renovate:dry-run`. A floating `:latest` would make
+# the dry-run's verdict a function of whatever Renovate shipped that morning —
+# the same reproducibility defect the nuclei binary pin records (#1177), where
+# the meaning of "validated" changed under an unchanged repository. No waiting
+# period for this pin (operator decision 2026-10-30, #2581; see renovate.json5).
+# renovate: datasource=docker depName=renovate/renovate
+RENOVATE_IMAGE: renovate/renovate:44.239.1@sha256:7dba1a3b916a2cf302ba0df458ddcc8fcbac3c92d0fe9882ac13ba0363de656b
+
+# hadolint for `lint:docker`. Keep in sync with HADOLINT_IMAGE in
+# .github/workflows/docker-lint-build.yml and .github/workflows/lane-inputs.yml
+# (the same Renovate dependency, so one update moves all three).
+# renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
