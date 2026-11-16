@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-09'
-measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
-replay_seconds: 1602
+measured_on: '2026-11-16'
+measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
+replay_seconds: 1360
 job_spec_sha256: dea3dab0150382768ac981b6323314c4afa6539cccfc3e9de83790f6f8695587
 invocations:
 - command: task typecheck
@@ -20,25 +20,25 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2486
+  untracked_reads_dropped: 2535
 - command: task lint:frontend
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1335
+  untracked_reads_dropped: 1337
 - command: task test:frontend
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 14042
+  untracked_reads_dropped: 14592
 - command: task build:frontend
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 6403
+  untracked_reads_dropped: 7394
 subprocesses:
 - eslint
 - node
@@ -65,6 +65,7 @@ reads:
 - Taskfile.yaml
 - helm/kamerplanter/values.yaml
 - spec/e2e-testcases/fixtures/garden-plan-vectors.json
+- src/backend/app/common/cache_control.py
 - src/frontend/
 - src/frontend/docker-entrypoint.d/
 - src/frontend/docker-entrypoint.d/10-runtime-config.sh
@@ -157,6 +158,7 @@ reads:
 - src/frontend/src/api/endpoints/weatherSources.ts
 - src/frontend/src/api/errors.ts
 - src/frontend/src/api/index.ts
+- src/frontend/src/api/offlineReadRequest.ts
 - src/frontend/src/api/paginate.ts
 - src/frontend/src/api/types.ts
 - src/frontend/src/assets/
@@ -357,6 +359,8 @@ reads:
 - src/frontend/src/components/photos/
 - src/frontend/src/components/photos/PlantPhotoUploadDialog.tsx
 - src/frontend/src/components/print/
+- src/frontend/src/components/print/LocationLabelDialog.test.tsx
+- src/frontend/src/components/print/LocationLabelDialog.tsx
 - src/frontend/src/components/print/PlantLabelDialog.tsx
 - src/frontend/src/components/privacy/
 - src/frontend/src/components/privacy/AppConsentBanner.tsx
@@ -395,8 +399,11 @@ reads:
 - src/frontend/src/features/gardenPlanner/a11y/editorA11y.test.tsx
 - src/frontend/src/features/gardenPlanner/api/
 - src/frontend/src/features/gardenPlanner/api/companionEdges.ts
+- src/frontend/src/features/gardenPlanner/api/gardenPlan.test.ts
 - src/frontend/src/features/gardenPlanner/api/gardenPlan.ts
 - src/frontend/src/features/gardenPlanner/bed/
+- src/frontend/src/features/gardenPlanner/bed/BedClearDialog.test.tsx
+- src/frontend/src/features/gardenPlanner/bed/BedClearDialog.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedCoverPhoto.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedHeader.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/BedHeader.tsx
@@ -428,9 +435,13 @@ reads:
 - src/frontend/src/features/gardenPlanner/bed/SunTileSelector.tsx
 - src/frontend/src/features/gardenPlanner/bed/SunWindowFields.test.tsx
 - src/frontend/src/features/gardenPlanner/bed/SunWindowFields.tsx
+- src/frontend/src/features/gardenPlanner/bed/TentRulesSection.test.tsx
+- src/frontend/src/features/gardenPlanner/bed/TentRulesSection.tsx
 - src/frontend/src/features/gardenPlanner/bed/bedApi.ts
 - src/frontend/src/features/gardenPlanner/bed/bedFormat.test.ts
 - src/frontend/src/features/gardenPlanner/bed/bedFormat.ts
+- src/frontend/src/features/gardenPlanner/bed/bedListReload.test.ts
+- src/frontend/src/features/gardenPlanner/bed/bedListReload.ts
 - src/frontend/src/features/gardenPlanner/bed/bedPhotoApi.ts
 - src/frontend/src/features/gardenPlanner/bed/bedPhotoMessages.ts
 - src/frontend/src/features/gardenPlanner/bed/bedStatus.test.ts
@@ -445,6 +456,9 @@ reads:
 - src/frontend/src/features/gardenPlanner/bed/soilAnalysisTypes.ts
 - src/frontend/src/features/gardenPlanner/bed/soilForm.test.ts
 - src/frontend/src/features/gardenPlanner/bed/soilForm.ts
+- src/frontend/src/features/gardenPlanner/bed/tentPhaseLabel.ts
+- src/frontend/src/features/gardenPlanner/bed/tentRulesForm.test.ts
+- src/frontend/src/features/gardenPlanner/bed/tentRulesForm.ts
 - src/frontend/src/features/gardenPlanner/bed/types.ts
 - src/frontend/src/features/gardenPlanner/bed/useBedAssignments.ts
 - src/frontend/src/features/gardenPlanner/bed/useLocationTypeNames.ts
@@ -476,14 +490,19 @@ reads:
 - src/frontend/src/features/gardenPlanner/care/submitGuard.test.ts
 - src/frontend/src/features/gardenPlanner/care/submitGuard.ts
 - src/frontend/src/features/gardenPlanner/care/useBedCare.ts
+- src/frontend/src/features/gardenPlanner/care/useObjectTasks.ts
 - src/frontend/src/features/gardenPlanner/care/useUndoSnackbar.test.tsx
 - src/frontend/src/features/gardenPlanner/care/useUndoSnackbar.tsx
 - src/frontend/src/features/gardenPlanner/editor/
 - src/frontend/src/features/gardenPlanner/editor/AddWithDimensionsDialog.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/AddWithDimensionsDialog.tsx
 - src/frontend/src/features/gardenPlanner/editor/AlignMenu.tsx
+- src/frontend/src/features/gardenPlanner/editor/AreaActions.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/AreaTool.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/BoundaryTool.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/CareBadge.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/CompanionEdgeInfo.tsx
+- src/frontend/src/features/gardenPlanner/editor/Compass.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/Compass.tsx
 - src/frontend/src/features/gardenPlanner/editor/ConflictDialog.tsx
 - src/frontend/src/features/gardenPlanner/editor/ContextMenu.test.tsx
@@ -492,38 +511,63 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/DuplicateShortcut.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/EditorComfort.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/EditorHeaderActions.tsx
+- src/frontend/src/features/gardenPlanner/editor/EditorHeaderBar.tsx
 - src/frontend/src/features/gardenPlanner/editor/EditorOverlay.tsx
+- src/frontend/src/features/gardenPlanner/editor/EditorToolbar.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/EditorToolbar.tsx
+- src/frontend/src/features/gardenPlanner/editor/EditorWorkspace.tsx
+- src/frontend/src/features/gardenPlanner/editor/FocusRetention.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/GardenPlanEditor.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/GardenPlanEditor.tsx
 - src/frontend/src/features/gardenPlanner/editor/Grid.tsx
 - src/frontend/src/features/gardenPlanner/editor/GridSnapZoom.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/Handles.tsx
+- src/frontend/src/features/gardenPlanner/editor/IndoorPlanEditor.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/KeyboardHelp.tsx
 - src/frontend/src/features/gardenPlanner/editor/LabelInName.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/LabelPlacement.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/LayersTab.tsx
 - src/frontend/src/features/gardenPlanner/editor/LiveMoveLayer.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/LiveMoveLayer.tsx
 - src/frontend/src/features/gardenPlanner/editor/LiveRegion.tsx
+- src/frontend/src/features/gardenPlanner/editor/MeasureOverlay.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/MeasureOverlay.tsx
+- src/frontend/src/features/gardenPlanner/editor/MeasureTool.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/MenuTriggerTooltip.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/MenuTriggerTooltip.tsx
 - src/frontend/src/features/gardenPlanner/editor/MiniMap.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/MiniMap.tsx
 - src/frontend/src/features/gardenPlanner/editor/MultiDuplicateDialog.tsx
 - src/frontend/src/features/gardenPlanner/editor/NewTypeSelect.tsx
+- src/frontend/src/features/gardenPlanner/editor/NumberField.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/NumberField.tsx
+- src/frontend/src/features/gardenPlanner/editor/ObjectTasksSection.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/ObjectTasksSection.tsx
+- src/frontend/src/features/gardenPlanner/editor/ParcelLabelField.tsx
 - src/frontend/src/features/gardenPlanner/editor/PlanListView.tsx
+- src/frontend/src/features/gardenPlanner/editor/PlantTool.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/PropertiesPanel.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/PropertiesPanel.tsx
 - src/frontend/src/features/gardenPlanner/editor/SaveBar.tsx
 - src/frontend/src/features/gardenPlanner/editor/SaveUndo.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/ScaleBar.tsx
+- src/frontend/src/features/gardenPlanner/editor/SidePanel.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/SidePanel.tsx
+- src/frontend/src/features/gardenPlanner/editor/SidePanelStableContent.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/SkipLinks.tsx
 - src/frontend/src/features/gardenPlanner/editor/SnapMarker.tsx
+- src/frontend/src/features/gardenPlanner/editor/SpacePan.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/TextLabelDialog.tsx
+- src/frontend/src/features/gardenPlanner/editor/TextTool.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/TouchBar.tsx
 - src/frontend/src/features/gardenPlanner/editor/TouchInput.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/TouchOverlay.tsx
 - src/frontend/src/features/gardenPlanner/editor/ViewBar.tsx
 - src/frontend/src/features/gardenPlanner/editor/WaterSourceFields.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/WaterSourceFields.tsx
+- src/frontend/src/features/gardenPlanner/editor/WindowSunSuggestion.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/WindowSunSuggestion.tsx
+- src/frontend/src/features/gardenPlanner/editor/ZoomOverlay.tsx
 - src/frontend/src/features/gardenPlanner/editor/anchors.ts
 - src/frontend/src/features/gardenPlanner/editor/announce.ts
 - src/frontend/src/features/gardenPlanner/editor/dimensions.test.ts
@@ -531,18 +575,39 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/downloadChanges.ts
 - src/frontend/src/features/gardenPlanner/editor/editorI18n.test.ts
 - src/frontend/src/features/gardenPlanner/editor/editorTestKit.tsx
+- src/frontend/src/features/gardenPlanner/editor/keyTargets.ts
 - src/frontend/src/features/gardenPlanner/editor/layers.ts
 - src/frontend/src/features/gardenPlanner/editor/layout.ts
 - src/frontend/src/features/gardenPlanner/editor/miniMap.test.ts
 - src/frontend/src/features/gardenPlanner/editor/miniMap.ts
+- src/frontend/src/features/gardenPlanner/editor/objectProps/
+- src/frontend/src/features/gardenPlanner/editor/objectProps/DoorFields.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/LampFields.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/ObjectPropsFields.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/ObjectPropsFields.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/OffSiteSwitch.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/PropNumberField.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/PropNumberField.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/TrellisFields.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/WindowFields.tsx
+- src/frontend/src/features/gardenPlanner/editor/objectProps/limits.ts
+- src/frontend/src/features/gardenPlanner/editor/objectProps/propsOperation.ts
+- src/frontend/src/features/gardenPlanner/editor/objectProps/shared.ts
+- src/frontend/src/features/gardenPlanner/editor/objectProps/useCommitProps.ts
 - src/frontend/src/features/gardenPlanner/editor/planTree.test.ts
 - src/frontend/src/features/gardenPlanner/editor/planTree.ts
 - src/frontend/src/features/gardenPlanner/editor/saveMessages.ts
+- src/frontend/src/features/gardenPlanner/editor/sidePanelState.test.ts
+- src/frontend/src/features/gardenPlanner/editor/sidePanelState.ts
+- src/frontend/src/features/gardenPlanner/editor/toolRegistry.test.tsx
+- src/frontend/src/features/gardenPlanner/editor/toolRegistry.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/
 - src/frontend/src/features/gardenPlanner/editor/tools/addDimensions.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/addDimensions.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/align.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/align.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/boundaryMachine.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/drawMachine.area.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/drawMachine.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/drawMachine.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/duplicate.test.ts
@@ -556,10 +621,15 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/tools/keyboardMove.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/keyboardMove.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/machineTypes.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/measureMachine.test.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/measureMachine.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/objectTypes.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/panMachine.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/panelFields.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/panelFields.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/plantMachine.test.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/plantMachine.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/plantTarget.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/selectMachine.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/selectMachine.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/selection.test.ts
@@ -567,9 +637,12 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/tools/snap.benchmark.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/snap.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/snap.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/textMachine.test.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/textMachine.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/toolTestKit.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/touchGestures.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/touchGestures.ts
+- src/frontend/src/features/gardenPlanner/editor/tools/useEditorTools.spacePan.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/tools/useEditorTools.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/useTouchInput.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/useVisibleHeight.ts
@@ -577,23 +650,30 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/tools/validation.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/zOrder.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/zOrder.ts
+- src/frontend/src/features/gardenPlanner/editor/unavailable.ts
 - src/frontend/src/features/gardenPlanner/editor/useAnnouncement.ts
+- src/frontend/src/features/gardenPlanner/editor/useAreaTypes.ts
 - src/frontend/src/features/gardenPlanner/editor/useAttentionFilter.test.ts
 - src/frontend/src/features/gardenPlanner/editor/useAttentionFilter.ts
 - src/frontend/src/features/gardenPlanner/editor/useAutoSave.ts
 - src/frontend/src/features/gardenPlanner/editor/useBedTypes.ts
+- src/frontend/src/features/gardenPlanner/editor/useCanvasArea.ts
 - src/frontend/src/features/gardenPlanner/editor/useCompanionEdges.test.ts
 - src/frontend/src/features/gardenPlanner/editor/useCompanionEdges.ts
+- src/frontend/src/features/gardenPlanner/editor/useEditorKeyboard.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/useEditorKeyboard.ts
 - src/frontend/src/features/gardenPlanner/editor/useEditorShortcuts.ts
+- src/frontend/src/features/gardenPlanner/editor/useHeaderOverflow.ts
 - src/frontend/src/features/gardenPlanner/editor/useLayerPrefs.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/useLayerPrefs.ts
 - src/frontend/src/features/gardenPlanner/editor/useLengthUnit.ts
 - src/frontend/src/features/gardenPlanner/editor/usePendingZoom.test.tsx
 - src/frontend/src/features/gardenPlanner/editor/usePendingZoom.ts
+- src/frontend/src/features/gardenPlanner/editor/useRovingToolbar.ts
 - src/frontend/src/features/gardenPlanner/editor/useSingleKeyShortcuts.ts
 - src/frontend/src/features/gardenPlanner/editor/wheelZoom.test.ts
 - src/frontend/src/features/gardenPlanner/editor/wheelZoom.ts
+- src/frontend/src/features/gardenPlanner/editor/windowSuggestion.ts
 - src/frontend/src/features/gardenPlanner/field/
 - src/frontend/src/features/gardenPlanner/field/FieldBedList.tsx
 - src/frontend/src/features/gardenPlanner/field/FieldBedSheet.buffer.test.tsx
@@ -605,6 +685,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/field/FieldSiteSection.tsx
 - src/frontend/src/features/gardenPlanner/field/FieldSunSection.tsx
 - src/frontend/src/features/gardenPlanner/field/FieldTaskSection.tsx
+- src/frontend/src/features/gardenPlanner/field/OwnPosition.test.tsx
+- src/frontend/src/features/gardenPlanner/field/OwnPosition.tsx
 - src/frontend/src/features/gardenPlanner/field/QuickProtocolChips.tsx
 - src/frontend/src/features/gardenPlanner/field/fieldDue.ts
 - src/frontend/src/features/gardenPlanner/field/fieldIcons.tsx
@@ -612,9 +694,13 @@ reads:
 - src/frontend/src/features/gardenPlanner/field/fieldMapLogic.ts
 - src/frontend/src/features/gardenPlanner/field/fieldPlants.ts
 - src/frontend/src/features/gardenPlanner/field/fieldPrefs.ts
+- src/frontend/src/features/gardenPlanner/field/ownPositionView.test.ts
+- src/frontend/src/features/gardenPlanner/field/ownPositionView.ts
 - src/frontend/src/features/gardenPlanner/field/quickChips.ts
 - src/frontend/src/features/gardenPlanner/field/useBedSheet.ts
 - src/frontend/src/features/gardenPlanner/field/useFieldBeds.ts
+- src/frontend/src/features/gardenPlanner/field/useOwnPosition.ts
+- src/frontend/src/features/gardenPlanner/field/useSiteCoordinates.ts
 - src/frontend/src/features/gardenPlanner/glossary/
 - src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.test.tsx
 - src/frontend/src/features/gardenPlanner/glossary/PlannerGlossary.tsx
@@ -648,6 +734,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/history/rotationMatrix.ts
 - src/frontend/src/features/gardenPlanner/history/useHistoryPages.ts
 - src/frontend/src/features/gardenPlanner/history/usePersonOptions.ts
+- src/frontend/src/features/gardenPlanner/history/usePreviousYear.ts
 - src/frontend/src/features/gardenPlanner/history/useRotationMatrix.ts
 - src/frontend/src/features/gardenPlanner/history/useRotationTimeline.ts
 - src/frontend/src/features/gardenPlanner/history/useSuccessionRecommendation.ts
@@ -657,6 +744,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/io/ExportDialog.png.test.tsx
 - src/frontend/src/features/gardenPlanner/io/ExportDialog.test.tsx
 - src/frontend/src/features/gardenPlanner/io/ExportDialog.tsx
+- src/frontend/src/features/gardenPlanner/io/ExportDialog.underlay.test.tsx
 - src/frontend/src/features/gardenPlanner/io/ImportReportView.tsx
 - src/frontend/src/features/gardenPlanner/io/ImportWizard.test.tsx
 - src/frontend/src/features/gardenPlanner/io/ImportWizard.tsx
@@ -667,6 +755,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/io/SnapshotPanel.tsx
 - src/frontend/src/features/gardenPlanner/io/bedListCsv.test.ts
 - src/frontend/src/features/gardenPlanner/io/bedListCsv.ts
+- src/frontend/src/features/gardenPlanner/io/exportParams.test.ts
 - src/frontend/src/features/gardenPlanner/io/ioApi.ts
 - src/frontend/src/features/gardenPlanner/io/pngExport.test.ts
 - src/frontend/src/features/gardenPlanner/io/pngExport.ts
@@ -678,6 +767,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/model/applyOperation.ts
 - src/frontend/src/features/gardenPlanner/model/areaDose.ts
 - src/frontend/src/features/gardenPlanner/model/areaDose.vectors.test.ts
+- src/frontend/src/features/gardenPlanner/model/bedOrientation.ts
+- src/frontend/src/features/gardenPlanner/model/bedOrientation.vectors.test.ts
 - src/frontend/src/features/gardenPlanner/model/compass.test.ts
 - src/frontend/src/features/gardenPlanner/model/compass.ts
 - src/frontend/src/features/gardenPlanner/model/geometry.test.ts
@@ -693,6 +784,11 @@ reads:
 - src/frontend/src/features/gardenPlanner/model/layout.vectors.test.ts
 - src/frontend/src/features/gardenPlanner/model/overdue.ts
 - src/frontend/src/features/gardenPlanner/model/overdue.vectors.test.ts
+- src/frontend/src/features/gardenPlanner/model/ownPosition.test.ts
+- src/frontend/src/features/gardenPlanner/model/ownPosition.ts
+- src/frontend/src/features/gardenPlanner/model/parcelLabel.test.ts
+- src/frontend/src/features/gardenPlanner/model/parcelLabel.ts
+- src/frontend/src/features/gardenPlanner/model/planModel.siteType.test.ts
 - src/frontend/src/features/gardenPlanner/model/planModel.tempKey.test.ts
 - src/frontend/src/features/gardenPlanner/model/planModel.ts
 - src/frontend/src/features/gardenPlanner/model/plantState.benchmark.test.ts
@@ -702,11 +798,17 @@ reads:
 - src/frontend/src/features/gardenPlanner/model/reach.vectors.test.ts
 - src/frontend/src/features/gardenPlanner/model/siteFit.ts
 - src/frontend/src/features/gardenPlanner/model/siteFit.vectors.test.ts
+- src/frontend/src/features/gardenPlanner/model/siteKind.test.ts
+- src/frontend/src/features/gardenPlanner/model/siteKind.ts
 - src/frontend/src/features/gardenPlanner/model/siteThresholds.ts
+- src/frontend/src/features/gardenPlanner/model/textLabel.test.ts
+- src/frontend/src/features/gardenPlanner/model/textLabel.ts
 - src/frontend/src/features/gardenPlanner/model/types.ts
 - src/frontend/src/features/gardenPlanner/model/undoPatch.ts
 - src/frontend/src/features/gardenPlanner/model/units.test.ts
 - src/frontend/src/features/gardenPlanner/model/units.ts
+- src/frontend/src/features/gardenPlanner/model/windowOrientation.ts
+- src/frontend/src/features/gardenPlanner/model/windowOrientation.vectors.test.ts
 - src/frontend/src/features/gardenPlanner/offline/
 - src/frontend/src/features/gardenPlanner/offline/CachedDataBanner.tsx
 - src/frontend/src/features/gardenPlanner/offline/ConflictDialog.tsx
@@ -734,8 +836,12 @@ reads:
 - src/frontend/src/features/gardenPlanner/offline/sync.test.ts
 - src/frontend/src/features/gardenPlanner/offline/sync.ts
 - src/frontend/src/features/gardenPlanner/offline/useCacheScope.ts
+- src/frontend/src/features/gardenPlanner/offline/useQueuedUndo.test.tsx
+- src/frontend/src/features/gardenPlanner/offline/useQueuedUndo.ts
 - src/frontend/src/features/gardenPlanner/offline/useReloadOnReconnect.ts
 - src/frontend/src/features/gardenPlanner/offline/useWriteQueue.ts
+- src/frontend/src/features/gardenPlanner/offline/watchSettled.test.ts
+- src/frontend/src/features/gardenPlanner/offline/watchSettled.ts
 - src/frontend/src/features/gardenPlanner/planting/
 - src/frontend/src/features/gardenPlanner/planting/BedPlantingTab.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/BedPlantingTab.tsx
@@ -743,21 +849,32 @@ reads:
 - src/frontend/src/features/gardenPlanner/planting/HintsPanel.tsx
 - src/frontend/src/features/gardenPlanner/planting/LayoutCanvas.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/LayoutCanvas.tsx
+- src/frontend/src/features/gardenPlanner/planting/ObjectLegend.test.tsx
+- src/frontend/src/features/gardenPlanner/planting/ObjectLegend.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantActionHost.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantInfoPopover.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantInfoSheet.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantInfoSheet.tsx
+- src/frontend/src/features/gardenPlanner/planting/PlantSlotDialog.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantStateLegend.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantStateLegendItems.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantingDialog.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/PlantingDialog.tsx
+- src/frontend/src/features/gardenPlanner/planting/PositionCorrectionDialog.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/PositionCorrectionDialog.tsx
 - src/frontend/src/features/gardenPlanner/planting/SiteAxisHints.tsx
 - src/frontend/src/features/gardenPlanner/planting/SiteFitHint.tsx
+- src/frontend/src/features/gardenPlanner/planting/SowingDialog.tsx
 - src/frontend/src/features/gardenPlanner/planting/SpeciesPicker.tsx
+- src/frontend/src/features/gardenPlanner/planting/SupportHint.tsx
+- src/frontend/src/features/gardenPlanner/planting/ThinningDialog.test.tsx
+- src/frontend/src/features/gardenPlanner/planting/ThinningDialog.tsx
 - src/frontend/src/features/gardenPlanner/planting/TransplantDialog.tsx
+- src/frontend/src/features/gardenPlanner/planting/containerCheck.vectors.test.ts
 - src/frontend/src/features/gardenPlanner/planting/phaseColors.ts
 - src/frontend/src/features/gardenPlanner/planting/phaseColors.vectors.test.ts
+- src/frontend/src/features/gardenPlanner/planting/phaseLabel.test.ts
+- src/frontend/src/features/gardenPlanner/planting/phaseLabel.ts
 - src/frontend/src/features/gardenPlanner/planting/plantStateApi.ts
 - src/frontend/src/features/gardenPlanner/planting/plantStateClock.ts
 - src/frontend/src/features/gardenPlanner/planting/plantingApi.ts
@@ -768,9 +885,12 @@ reads:
 - src/frontend/src/features/gardenPlanner/planting/plantingTypes.ts
 - src/frontend/src/features/gardenPlanner/planting/siteFitOf.test.ts
 - src/frontend/src/features/gardenPlanner/planting/siteFitOf.ts
+- src/frontend/src/features/gardenPlanner/planting/thinningLogic.test.ts
+- src/frontend/src/features/gardenPlanner/planting/thinningLogic.ts
 - src/frontend/src/features/gardenPlanner/planting/useBedHints.ts
 - src/frontend/src/features/gardenPlanner/planting/useBedSiteFeatures.test.ts
 - src/frontend/src/features/gardenPlanner/planting/useBedSiteFeatures.ts
+- src/frontend/src/features/gardenPlanner/planting/useBedTrellises.ts
 - src/frontend/src/features/gardenPlanner/planting/useCultivars.ts
 - src/frontend/src/features/gardenPlanner/planting/useEntryPreviews.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/useEntryPreviews.ts
@@ -781,6 +901,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/planting/usePlantStateLayer.ts
 - src/frontend/src/features/gardenPlanner/planting/usePlantStateText.test.tsx
 - src/frontend/src/features/gardenPlanner/planting/usePlantStateText.ts
+- src/frontend/src/features/gardenPlanner/planting/usePlantStates.test.ts
 - src/frontend/src/features/gardenPlanner/planting/usePlantStates.ts
 - src/frontend/src/features/gardenPlanner/planting/useRotationBadge.ts
 - src/frontend/src/features/gardenPlanner/renderer/
@@ -804,6 +925,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/renderer/ZoneOverlays.tsx
 - src/frontend/src/features/gardenPlanner/renderer/__snapshots__/
 - src/frontend/src/features/gardenPlanner/renderer/__snapshots__/SvgPlanRenderer.test.tsx.snap
+- src/frontend/src/features/gardenPlanner/renderer/areaLocation.test.ts
+- src/frontend/src/features/gardenPlanner/renderer/caption.test.tsx
 - src/frontend/src/features/gardenPlanner/renderer/companionLines.ts
 - src/frontend/src/features/gardenPlanner/renderer/createRenderer.test.tsx
 - src/frontend/src/features/gardenPlanner/renderer/createRenderer.ts
@@ -821,6 +944,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/renderer/planIndex.slotFollow.test.ts
 - src/frontend/src/features/gardenPlanner/renderer/planIndex.snap.test.ts
 - src/frontend/src/features/gardenPlanner/renderer/planIndex.ts
+- src/frontend/src/features/gardenPlanner/renderer/plannedSlots.test.tsx
 - src/frontend/src/features/gardenPlanner/renderer/plantMarkerStyle.test.ts
 - src/frontend/src/features/gardenPlanner/renderer/plantMarkerStyle.ts
 - src/frontend/src/features/gardenPlanner/renderer/renderer.benchmark.test.ts
@@ -837,6 +961,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/routes/fitViewport.test.ts
 - src/frontend/src/features/gardenPlanner/routes/fitViewport.ts
 - src/frontend/src/features/gardenPlanner/routes/planMode.ts
+- src/frontend/src/features/gardenPlanner/routes/planTab.test.ts
+- src/frontend/src/features/gardenPlanner/routes/planTab.ts
 - src/frontend/src/features/gardenPlanner/routes/useElementWidth.ts
 - src/frontend/src/features/gardenPlanner/season/
 - src/frontend/src/features/gardenPlanner/season/NewSeasonDialog.test.tsx
@@ -847,6 +973,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/state/gardenPlanSlice.test.ts
 - src/frontend/src/features/gardenPlanner/state/gardenPlanSlice.ts
 - src/frontend/src/features/gardenPlanner/state/placeTemplate.test.ts
+- src/frontend/src/features/gardenPlanner/state/plantIntoSlot.test.ts
+- src/frontend/src/features/gardenPlanner/state/plantIntoSlot.ts
 - src/frontend/src/features/gardenPlanner/templates/
 - src/frontend/src/features/gardenPlanner/templates/SaveAsTemplateDialog.tsx
 - src/frontend/src/features/gardenPlanner/templates/StandardSizes.tsx
@@ -862,6 +990,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/templates/templateExchange.ts
 - src/frontend/src/features/gardenPlanner/templates/templateName.ts
 - src/frontend/src/features/gardenPlanner/templates/useBedTemplates.ts
+- src/frontend/src/features/gardenPlanner/templates/useTemplateTaskNames.ts
 - src/frontend/src/features/gardenPlanner/underlay/
 - src/frontend/src/features/gardenPlanner/underlay/UnderlayDialog.test.tsx
 - src/frontend/src/features/gardenPlanner/underlay/UnderlayDialog.tsx
@@ -927,10 +1056,12 @@ reads:
 - src/frontend/src/hooks/usePagination.ts
 - src/frontend/src/hooks/usePlanCatalogue.ts
 - src/frontend/src/hooks/usePlantInstanceOptions.ts
+- src/frontend/src/hooks/usePlantLabels.ts
 - src/frontend/src/hooks/usePlatformAdmin.ts
 - src/frontend/src/hooks/usePropagationEvents.ts
 - src/frontend/src/hooks/usePwaPush.ts
 - src/frontend/src/hooks/useRegistrationMode.ts
+- src/frontend/src/hooks/useRequestLanguage.ts
 - src/frontend/src/hooks/useResetShowAllFieldsOnClose.ts
 - src/frontend/src/hooks/useRetryFocus.ts
 - src/frontend/src/hooks/useRunNutrientData.ts
@@ -968,6 +1099,7 @@ reads:
 - src/frontend/src/i18n/locales/en/enums.json
 - src/frontend/src/i18n/locales/en/glossary.json
 - src/frontend/src/i18n/locales/en/pages.json
+- src/frontend/src/i18n/translate.ts
 - src/frontend/src/kiosk/
 - src/frontend/src/kiosk/KioskProvider.tsx
 - src/frontend/src/kiosk/kioskTheme.ts
@@ -1061,6 +1193,7 @@ reads:
 - src/frontend/src/pages/duengung/PhaseEntryDialog.tsx
 - src/frontend/src/pages/duengung/PhaseGanttChart.tsx
 - src/frontend/src/pages/duengung/WaterMixRecommendationBox.tsx
+- src/frontend/src/pages/duengung/feedingEventDose.ts
 - src/frontend/src/pages/duengung/nutrient-plan-detail/
 - src/frontend/src/pages/duengung/nutrient-plan-detail/PhaseTimelineTab.tsx
 - src/frontend/src/pages/duengung/nutrient-plan-detail/PlanEditTab.tsx
@@ -1356,6 +1489,7 @@ reads:
 - src/frontend/src/test/a11y/topPages.a11y.test.tsx
 - src/frontend/src/test/api/
 - src/frontend/src/test/api/aquaponik.test.ts
+- src/frontend/src/test/api/client.acceptLanguage.test.ts
 - src/frontend/src/test/api/client.activeTenantHeader.lightMode.test.ts
 - src/frontend/src/test/api/client.activeTenantHeader.test.ts
 - src/frontend/src/test/api/client.interceptor.test.ts
@@ -1421,6 +1555,7 @@ reads:
 - src/frontend/src/test/api/paginate.test.ts
 - src/frontend/src/test/api/propagation.test.ts
 - src/frontend/src/test/auth/
+- src/frontend/src/test/auth/loginReturn.test.tsx
 - src/frontend/src/test/auth/pendingInvitation.test.tsx
 - src/frontend/src/test/checkBundleBudget.test.ts
 - src/frontend/src/test/components/
@@ -1526,6 +1661,7 @@ reads:
 - src/frontend/src/test/components/layout/ThemeToggle.test.tsx
 - src/frontend/src/test/components/pests/
 - src/frontend/src/test/components/pests/PestDetectionDialog.test.tsx
+- src/frontend/src/test/components/pests/PestFindingsResult.names.test.tsx
 - src/frontend/src/test/components/pests/PestImageGallery.test.tsx
 - src/frontend/src/test/components/pests/PestScanButton.test.tsx
 - src/frontend/src/test/components/privacy/
@@ -1546,11 +1682,13 @@ reads:
 - src/frontend/src/test/gardenPlanFixtures.ts
 - src/frontend/src/test/gardenPlanVectors.ts
 - src/frontend/src/test/guards/
+- src/frontend/src/test/guards/commonNamesDisplayedInUiLanguage.test.ts
 - src/frontend/src/test/guards/deleteControlsRoleGated.test.ts
 - src/frontend/src/test/guards/effectDepsAreStablePerRender.test.ts
 - src/frontend/src/test/guards/featuresNotFromPages.test.ts
 - src/frontend/src/test/guards/gardenPlannerRendererBoundary.test.ts
 - src/frontend/src/test/guards/offlineDataClearedOnSessionChange.test.ts
+- src/frontend/src/test/guards/offlineReadsBypassHttpCache.test.ts
 - src/frontend/src/test/guards/queueScopeIsAskedOfTheServer.test.ts
 - src/frontend/src/test/guards/stepUpActionsHaveASurface.test.ts
 - src/frontend/src/test/guards/swApiCachePerClient.test.ts
@@ -1578,6 +1716,7 @@ reads:
 - src/frontend/src/test/hooks/useOriginProtection.test.tsx
 - src/frontend/src/test/hooks/usePagination.test.ts
 - src/frontend/src/test/hooks/usePlanCatalogue.test.tsx
+- src/frontend/src/test/hooks/useRequestLanguage.test.tsx
 - src/frontend/src/test/hooks/useServerFavorites.test.ts
 - src/frontend/src/test/hooks/useSowingFavorites.test.tsx
 - src/frontend/src/test/hooks/useTableState.test.ts
@@ -1675,6 +1814,8 @@ reads:
 - src/frontend/src/test/pages/DiagnosePage.test.tsx
 - src/frontend/src/test/pages/DiaryEntryDialogEnvironment.test.tsx
 - src/frontend/src/test/pages/DiaryOverviewPage.test.tsx
+- src/frontend/src/test/pages/DiseaseCreateDialog.test.tsx
+- src/frontend/src/test/pages/DiseaseListPage.test.tsx
 - src/frontend/src/test/pages/DosageCalculatorTab.test.tsx
 - src/frontend/src/test/pages/EmailChangeLinkPages.test.tsx
 - src/frontend/src/test/pages/EnvironmentControlPage.test.tsx
@@ -1688,7 +1829,9 @@ reads:
 - src/frontend/src/test/pages/GardenPlanConditionLayers.test.tsx
 - src/frontend/src/test/pages/GardenPlanPlantStateLayer.test.tsx
 - src/frontend/src/test/pages/GardenPlanRoute.test.tsx
+- src/frontend/src/test/pages/GardenPlanTabs.test.tsx
 - src/frontend/src/test/pages/GardenPlanUnderlayFailure.test.tsx
+- src/frontend/src/test/pages/GardenPlanWorkspace.test.tsx
 - src/frontend/src/test/pages/GardenPlanZones.test.tsx
 - src/frontend/src/test/pages/GardenPlanZonesLifecycle.test.tsx
 - src/frontend/src/test/pages/GlossaryPage.test.tsx
@@ -1725,6 +1868,7 @@ reads:
 - src/frontend/src/test/pages/OverwinteringOverrideDialog.test.tsx
 - src/frontend/src/test/pages/OverwinteringProfileDialog.test.tsx
 - src/frontend/src/test/pages/OverwinteringSection.test.tsx
+- src/frontend/src/test/pages/PestCreateDialog.test.tsx
 - src/frontend/src/test/pages/PestDetailPage.test.tsx
 - src/frontend/src/test/pages/PestIdentificationPage.test.tsx
 - src/frontend/src/test/pages/PestListPage.test.tsx
@@ -1830,6 +1974,7 @@ reads:
 - src/frontend/src/test/pages/WorkflowPhaseDialog.test.tsx
 - src/frontend/src/test/pages/WorkflowTemplateListPage.test.tsx
 - src/frontend/src/test/pages/calculationsPresets.test.ts
+- src/frontend/src/test/pages/feedingEventDose.test.ts
 - src/frontend/src/test/pages/harvestability.test.ts
 - src/frontend/src/test/pages/onboarding/
 - src/frontend/src/test/pages/onboarding/NutrientPlanStep.test.tsx
@@ -1926,6 +2071,7 @@ reads:
 - src/frontend/src/utils/formatting.ts
 - src/frontend/src/utils/idGenerator.ts
 - src/frontend/src/utils/imageNormalization.ts
+- src/frontend/src/utils/loginReturn.ts
 - src/frontend/src/utils/oidcProviders.ts
 - src/frontend/src/utils/pendingInvitation.ts
 - src/frontend/src/utils/phaseSequenceMapper.ts
@@ -1945,4 +2091,4 @@ reads:
 - src/frontend/vitest.config.ts
 test_modules: []
 readers: {}
-readers_scope_sha256: a58b27dfa67218470b875897ca04ed1ae9a590c3e3b3c0007e30de718addad19
+readers_scope_sha256: 6bb2b558c16d87f9591cbbe7fe47466cc08f044de65c1961729761734e304624

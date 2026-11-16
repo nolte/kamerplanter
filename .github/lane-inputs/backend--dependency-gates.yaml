@@ -9,9 +9,9 @@ job: dependency-gates
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-09'
-measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
-replay_seconds: 12
+measured_on: '2026-11-16'
+measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
+replay_seconds: 13
 job_spec_sha256: 9393fcfe1bdaf68c440cd3975158ec35d7b4a5f7d584aa885c7d9d7599cb77fe
 invocations:
 - command: task deps:check
@@ -20,7 +20,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 1
+  untracked_reads_dropped: 5
 - command: uv sync --locked --no-install-project
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -34,7 +34,7 @@ invocations:
   exit_code: 0
   env:
   - UV_PROJECT_ENVIRONMENT=/tmp/lane-inputs-scratch/depsenv
-  untracked_reads_dropped: 146
+  untracked_reads_dropped: 159
 - command: uv export --locked --no-emit-project --format requirements.txt -o /tmp/lane-inputs-scratch/requirements.txt
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -128,12 +128,15 @@ reads:
 - src/backend/app/domain/calculators/__init__.py
 - src/backend/app/domain/calculators/area_dose_calculator.py
 - src/backend/app/domain/calculators/geometry_calculator.py
+- src/backend/app/domain/calculators/geometry_distance.py
 - src/backend/app/domain/calculators/image_tiler.py
 - src/backend/app/domain/calculators/irrigation_zone_consumption_calculator.py
 - src/backend/app/domain/calculators/irrigation_zone_demand_calculator.py
 - src/backend/app/domain/calculators/orientation_calculator.py
 - src/backend/app/domain/calculators/overdue_calculator.py
 - src/backend/app/domain/calculators/reach_calculator.py
+- src/backend/app/domain/calculators/sun_calculator.py
+- src/backend/app/domain/calculators/window_orientation.py
 - src/backend/app/domain/calculators/zone_allocation_calculator.py
 - src/backend/app/domain/engines/
 - src/backend/app/domain/engines/__init__.py
@@ -148,6 +151,7 @@ reads:
 - src/backend/app/domain/engines/storage/magic_byte_validator.py
 - src/backend/app/domain/engines/storage/storage_key_builder.py
 - src/backend/app/domain/engines/storage/thumbnail_generator.py
+- src/backend/app/domain/engines/task_completion_engine.py
 - src/backend/app/domain/engines/tenant_erasure_engine.py
 - src/backend/app/domain/interfaces/
 - src/backend/app/domain/interfaces/__init__.py
@@ -169,6 +173,7 @@ reads:
 - src/backend/app/domain/interfaces/site_repository.py
 - src/backend/app/domain/interfaces/step_up_code.py
 - src/backend/app/domain/interfaces/step_up_throttle.py
+- src/backend/app/domain/interfaces/storage_release_retry_repository.py
 - src/backend/app/domain/interfaces/tenant_repository.py
 - src/backend/app/domain/interfaces/weather_adapter.py
 - src/backend/app/domain/models/
@@ -177,23 +182,30 @@ reads:
 - src/backend/app/domain/models/care_event.py
 - src/backend/app/domain/models/client_event.py
 - src/backend/app/domain/models/enrichment.py
+- src/backend/app/domain/models/feeding_event.py
 - src/backend/app/domain/models/fertilizer.py
 - src/backend/app/domain/models/garden_object.py
 - src/backend/app/domain/models/garden_plan.py
 - src/backend/app/domain/models/geometry.py
 - src/backend/app/domain/models/ha_entity_grant.py
+- src/backend/app/domain/models/harvest.py
 - src/backend/app/domain/models/irrigation_zone.py
 - src/backend/app/domain/models/legal_retention.py
 - src/backend/app/domain/models/membership.py
 - src/backend/app/domain/models/nutrient_hint.py
+- src/backend/app/domain/models/parcel_label.py
 - src/backend/app/domain/models/pest_taxonomy.py
 - src/backend/app/domain/models/plan.py
 - src/backend/app/domain/models/privacy.py
 - src/backend/app/domain/models/security_audit.py
 - src/backend/app/domain/models/site.py
 - src/backend/app/domain/models/storage.py
+- src/backend/app/domain/models/task.py
+- src/backend/app/domain/models/task_completion.py
 - src/backend/app/domain/models/tenant.py
 - src/backend/app/domain/models/tenant_erasure.py
+- src/backend/app/domain/models/tent_hint.py
+- src/backend/app/domain/models/watering_event.py
 - src/backend/app/domain/models/weather.py
 - src/backend/app/domain/services/
 - src/backend/app/domain/services/__init__.py
@@ -203,6 +215,7 @@ reads:
 - src/backend/app/domain/services/care_event_service.py
 - src/backend/app/domain/services/client_event_writes.py
 - src/backend/app/domain/services/entitlement_service.py
+- src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/ha_entity_grant_service.py
 - src/backend/app/domain/services/identification_registry.py
 - src/backend/app/domain/services/irrigation_zone_service.py
