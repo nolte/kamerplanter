@@ -67,6 +67,9 @@ class _FakeSpeciesRepo:
             return None
         return Species(_key=_SPECIES_KEY, scientific_name=_SPECIES_NAME)
 
+    def get_global_by_scientific_name(self, scientific_name: str) -> Species | None:
+        return self.get_by_scientific_name(scientific_name)
+
     def get_cultivars(self, species_key: str) -> list[Cultivar]:
         return [c for c in self._cultivars if c.species_key == species_key]
 

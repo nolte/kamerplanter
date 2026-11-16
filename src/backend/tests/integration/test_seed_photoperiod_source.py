@@ -234,3 +234,49 @@ def test_a_reseed_stamps_stated_hours_and_relabels_nothing_else(seeded: Standard
     # Other generic phases stay of unknown origin: nothing in a seed states their hours for that species.
     assert {p.get("photoperiod_source") for p in _profiles(seeded, _generic_species()).values()} == {None}
     assert _hemp_tent_hints(seeded) == [HINT_PHOTOPERIOD_CONFLICT]
+
+
+def _stated_photoperiod_types() -> dict[str, str]:
+    """Scientific name -> the ``photoperiod_type`` a ``lifecycle_configs`` block of the loaders run here states."""
+    from app.migrations.seed_plant_info_extended import YAML_FILES
+
+    stated: dict[str, str] = {}
+    for filename in ("adventskalender.yaml", "plant_info.yaml", *YAML_FILES):
+        for name, config in (load_yaml(filename).get("lifecycle_configs") or {}).items():
+            if config.get("photoperiod_type"):
+                stated[name] = config["photoperiod_type"]
+    return stated
+
+
+def _global_lifecycle_types(db: StandardDatabase) -> dict[str, dict[str, Any]]:
+    rows = db.aql.execute(
+        """
+        FOR sp IN @@species
+            FILTER sp.tenant_key == null OR sp.tenant_key == ""
+            FOR lc IN 1..1 OUTBOUND sp @@has_lifecycle
+                RETURN {name: sp.scientific_name, type: lc.photoperiod_type, critical: lc.critical_day_length_hours}
+        """,
+        bind_vars={"@species": col.SPECIES, "@has_lifecycle": col.HAS_LIFECYCLE},
+    )
+    return {row["name"]: row for row in rows}
+
+
+def test_a_lifecycle_holds_a_photoperiod_type_only_from_a_source(seeded: StandardDatabase) -> None:
+    """#2857 part B: the seed states a type only where a lifecycle_config does; every other lifecycle is unspecified.
+
+    Hemp is listed in ``plant_info.yaml`` only under ``lifecycle_configs``: the loader skipped it before, and its
+    lifecycle kept the core seed's ``day_neutral`` although the file states ``short_day``.
+    """
+    lifecycles = _global_lifecycle_types(seeded)
+    stated = _stated_photoperiod_types()
+
+    assert (lifecycles["Cannabis sativa"]["type"], lifecycles["Cannabis sativa"]["critical"]) == ("short_day", 12.0)
+    assert lifecycles[_generic_species()]["type"] == "unspecified"
+    unsourced = {name: row["type"] for name, row in lifecycles.items() if name not in stated}
+    assert unsourced and set(unsourced.values()) == {"unspecified"}
+    drift = {
+        name: (row["type"], stated[name])
+        for name, row in lifecycles.items()
+        if name in stated and row["type"] != stated[name]
+    }
+    assert drift == {}

@@ -15,14 +15,60 @@ states for those phases as ``sourced`` (:func:`apply_steckbrief_phase_photoperio
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from app.common.enums import PhotoperiodSource
+from app.common.enums import PhotoperiodSource, PhotoperiodType
 from app.domain.interfaces.phase_repository import IPhaseRepository
-from app.domain.models.lifecycle import GrowthPhase
+from app.domain.interfaces.species_repository import ISpeciesRepository
+from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import RequirementProfile
+
+
+def fill_unspecified_photoperiod(lifecycle: LifecycleConfig, entry: Mapping[str, Any]) -> bool:
+    """Give ``lifecycle`` the type a seed ``entry`` states, only while it holds none (#2857); ``True`` if set.
+
+    A lifecycle the core seed created for a ``species.yaml`` species carries ``unspecified``: the core seed has no
+    source for it (E-10). A ``lifecycles_outdoor`` entry that states a type is such a source, so it fills the gap. A
+    stated type already on the lifecycle - from a ``plant_info`` lifecycle_config or a person - is never overwritten,
+    and an entry without a type changes nothing.
+    """
+    stated = entry.get("photoperiod_type")
+    if not stated or lifecycle.photoperiod_type != PhotoperiodType.UNSPECIFIED:
+        return False
+    value = PhotoperiodType(stated)
+    if value == PhotoperiodType.UNSPECIFIED:
+        return False
+    lifecycle.photoperiod_type = value
+    return True
+
+
+def resolve_lifecycle_config_species(
+    species_repo: ISpeciesRepository, names: Iterable[str], species_key_map: dict[str, str]
+) -> set[str]:
+    """Add the catalogue species a ``lifecycle_configs`` block names to ``species_key_map``; return their names.
+
+    The plant-info loaders resolved a species only when the same file also created, enriched or referenced it. A
+    species listed in ``lifecycle_configs`` alone was skipped (``lifecycle_species_not_found``), and its stated
+    ``photoperiod_type`` never reached the lifecycle - hemp kept ``day_neutral`` although ``plant_info.yaml`` states
+    ``short_day`` (#2857). Only a global catalogue row is taken: a tenant's own species of the same name is the
+    tenant's, and a seed never writes to it.
+
+    The caller updates only the lifecycle of the returned species: the file states no phases for them, and the
+    loader's generic-phase replacement would delete the phases they have.
+    """
+    added: set[str] = set()
+    for name in names:
+        if name in species_key_map:
+            continue
+        species = species_repo.get_global_by_scientific_name(name)
+        if species is None or not species.key:
+            continue
+        species_key_map[name] = species.key
+        added.add(name)
+    return added
+
 
 #: The YAML key of a Steckbrief phase's light hours (``requirement_profile`` of a ``growth_phases`` entry).
 PHOTOPERIOD_KEY = "photoperiod_hours"

@@ -86,7 +86,8 @@ def run_seed_phase_sequences() -> None:
             dormancy_required=s.get("dormancy_required", False),
             vernalization_required=s.get("vernalization_required", False),
             vernalization_min_days=s.get("vernalization_min_days"),
-            photoperiod_type=PhotoperiodType(s.get("photoperiod_type", "day_neutral")),
+            # #2857: a sequence without a stated type is unspecified, never day-neutral by default (E-10).
+            photoperiod_type=PhotoperiodType(s.get("photoperiod_type", PhotoperiodType.UNSPECIFIED)),
             critical_day_length_hours=s.get("critical_day_length_hours"),
             tags=s.get("tags", []),
             is_system=s.get("is_system", True),

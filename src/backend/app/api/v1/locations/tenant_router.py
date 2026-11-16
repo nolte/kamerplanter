@@ -354,7 +354,7 @@ def get_location_summary(
     `supports_layout` (W-016.1) says whether the location's type carries a slot layout (beds, tents, shelves).
     `tent_hints` (W-016.6, V-23) are hints of a tent or shelf level with two or more plants - never an error:
     `tent.photoperiod_conflict` when their current phases ask for different photoperiods, `tent.photoperiod_unknown`
-    when a phase names none.
+    when a phase names none, `tent.photoperiod_data_error` when a short-day plant's flowering profile states a long day.
     Answers `Cache-Control: private, no-cache` (REQ-053 §32.6 Pkt. 13): the service worker keeps it offline.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)

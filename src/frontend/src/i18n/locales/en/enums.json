@@ -343,7 +343,8 @@
     "photoperiodType": {
       "short_day": "Short Day",
       "long_day": "Long Day",
-      "day_neutral": "Day Neutral"
+      "day_neutral": "Day Neutral",
+      "unspecified": "Not specified"
     },
     "cycleType": {
       "annual": "Annual",

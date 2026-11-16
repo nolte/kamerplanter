@@ -1,5 +1,6 @@
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
@@ -68,6 +69,24 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
 
     def get_by_scientific_name(self, name: str) -> Species | None:
         return self.find_one_by_field("scientific_name", name)
+
+    def get_global_by_scientific_name(self, name: str) -> Species | None:
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR s IN @@species
+                    FILTER s.scientific_name == @name AND (s.tenant_key == null OR s.tenant_key == "")
+                    SORT s._key ASC
+                    LIMIT 1
+                    RETURN s
+                """,
+                bind_vars={"@species": col.SPECIES, "name": name},
+            ),
+        )
+        for doc in cursor:
+            return Species(**self._from_doc(doc))
+        return None
 
     def get_by_normalized_scientific_name(self, name: str) -> Species | None:
         """Look up a species by the canonical dedup key (REQ-048 Stufe 1).

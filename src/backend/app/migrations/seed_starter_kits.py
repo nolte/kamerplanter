@@ -9,6 +9,7 @@ from app.common.dependencies import get_db
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.models.starter_kit import StarterKit
+from app.migrations.seed_upsert_helpers import load_species_key_map
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -22,11 +23,9 @@ def run_seed_starter_kits() -> None:
     repo = BaseArangoRepository(db, col.STARTER_KITS, raw=True)
     data = load_yaml("starter_kits.yaml")
 
-    # Build species scientific_name → _key map from DB
-    species_col = db.collection(col.SPECIES)
-    species_key_map: dict[str, str] = {}
-    for doc in species_col.all():
-        species_key_map[doc["scientific_name"]] = doc["_key"]
+    # scientific_name → _key over the global catalogue: a global kit never points at a tenant's own species
+    # (#2857 SEC-001).
+    species_key_map = load_species_key_map(db)
 
     kits = data.get("starter_kits", [])
     created = 0

@@ -22,6 +22,7 @@ from __future__ import annotations
 import structlog
 
 from app.common.dependencies import get_species_repo
+from app.migrations.seed_catalogue_species import catalogue_species
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -50,7 +51,7 @@ def run_seed_cultivation_flexible() -> None:
     updated = 0
     missing = 0
     for scientific_name in sorted(flexible_names):
-        species = species_repo.get_by_scientific_name(scientific_name)
+        species = catalogue_species(species_repo, scientific_name)
         if species is None:
             missing += 1
             logger.info("cultivation_flexible_species_not_found", species=scientific_name)

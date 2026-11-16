@@ -31,6 +31,7 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import Species
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_catalogue_species import catalogue_species, name_held_by_tenant
 from app.migrations.seed_ipm_rows import seed_ipm_rows
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
 from app.migrations.seed_photoperiod_source import stamp_unchanged_photoperiods
@@ -297,7 +298,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
     species_key_map: dict[str, str] = {}
 
     for sp in new_species:
-        existing_species: Species | None = species_repo.get_by_scientific_name(sp.scientific_name)
+        existing_species: Species | None = catalogue_species(species_repo, sp.scientific_name)
         if existing_species:
             species_key_map[sp.scientific_name] = existing_species.key or ""
             changed = False
@@ -328,6 +329,11 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
                 logger.info("species_exists", name=sp.scientific_name)
             continue
 
+        if name_held_by_tenant(species_repo, sp.scientific_name):
+            # A tenant's own species holds the name and there is no catalogue row of it: the seed neither writes onto
+            # the tenant's row nor can it create one (unique name, #2857 SEC-001).
+            logger.warning("seed_species_name_held_by_tenant", name=sp.scientific_name)
+            continue
         family_name = new_species_family_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
         # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
@@ -340,7 +346,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── §3: Enrich existing species ──────────────────────────────────────
     for sci_name, updates in species_enrichment.items():
-        existing = species_repo.get_by_scientific_name(sci_name)
+        existing = catalogue_species(species_repo, sci_name)
         if not existing:
             logger.info("enrichment_species_not_found", name=sci_name)
             continue

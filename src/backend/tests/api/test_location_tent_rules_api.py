@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_garden_resource_service, get_tenant_service
-from app.common.enums import PhotoperiodSource, TenantRole
+from app.common.enums import PhotoperiodSource, PhotoperiodType, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.garden_plan import BedCounters
 from app.domain.models.tent_hint import PhaseLabel, PlantPhotoperiod
@@ -170,6 +170,9 @@ class TestSummary:
                 ],
                 "unknown_plant_count": 0,
                 "unknown_plant_names": [],
+                "data_error_plant_count": 0,
+                "data_error_plant_names": [],
+                "data_error_plants": [],
             }
         ]
 
@@ -201,8 +204,50 @@ class TestSummary:
                 "groups": [],
                 "unknown_plant_count": 2,
                 "unknown_plant_names": ["Gelato", "Lemon"],
+                "data_error_plant_count": 0,
+                "data_error_plant_names": [],
+                "data_error_plants": [],
             }
         ]
+
+    def test_a_short_day_plant_at_18_hours_in_flowering_answers_a_data_error(self, client, repo) -> None:
+        """#2857 part B: `info`, not a conflict - the plant named, its hours shown; day-neutral takes no part."""
+        repo.counters["tent"] = BedCounters(active_plant_count=2)
+        repo.photoperiods["tent"] = [
+            PlantPhotoperiod(
+                "p1",
+                "Flowering",
+                18.0,
+                phase_code="flowering",
+                display_name="Gelato",
+                photoperiod_source=SOURCED,
+                photoperiod_type=PhotoperiodType.SHORT_DAY,
+                critical_day_length_hours=12.0,
+            ),
+            PlantPhotoperiod(
+                "p2",
+                "Flowering",
+                18.0,
+                phase_code="flowering",
+                display_name="Albion",
+                photoperiod_source=SOURCED,
+                photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
+            ),
+        ]
+
+        hints = client().get(f"{_BASE}/locations/tent/summary").json()["tent_hints"]
+
+        assert [(h["code"], h["severity"]) for h in hints] == [("tent.photoperiod_data_error", "info")]
+        assert (hints[0]["data_error_plant_count"], hints[0]["data_error_plant_names"]) == (1, ["Gelato"])
+        assert hints[0]["data_error_plants"] == [
+            {
+                "name": "Gelato",
+                "photoperiod_hours": 18.0,
+                "critical_day_length_hours": 12.0,
+                "critical_day_length_assumed": False,
+            }
+        ]
+        assert [g["photoperiod_hours"] for g in hints[0]["groups"]] == [18.0]
 
     def test_each_group_names_its_phases_by_code_with_both_display_names(self, client, repo) -> None:
         """#2889: the wire carries the phase code and both catalogue names; the client words it in its language.

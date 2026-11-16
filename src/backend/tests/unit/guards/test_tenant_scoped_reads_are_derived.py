@@ -840,6 +840,12 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "filter is the scope, measured in tests/integration/test_ai_provider_system_default_reach.py; no "
         "route writes ai_provider_configs at all, so no tenant can place a row there (#2110)",
     ),
+    ("ArangoSpeciesRepository", "get_global_by_scientific_name"): Exclusion(
+        "catalogue",
+        "admits only GLOBAL species rows (FILTER tenant_key == null OR ''), never a tenant's - the filter is the "
+        "scope, measured in tests/integration/test_seed_catalogue_species.py; the seed loaders resolve their YAML "
+        "names through it so catalogue writes never land on a tenant's species (#2857 SEC-001)",
+    ),
     ("ArangoBedTemplateRepository", "global_task_template_keys"): Exclusion(
         "catalogue",
         "admits only the GLOBAL task templates (FILTER tenant_key == '' OR null), never a tenant's - the filter "

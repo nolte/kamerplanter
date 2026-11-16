@@ -171,6 +171,14 @@ def is_young_phase(name: str | None) -> bool:
     return name is not None and core_phase(name) in _YOUNG_CORE
 
 
+def is_flowering_phase(name: str | None) -> bool:
+    """True for a phase whose core role is ``flowering`` (``flowering``, ``pre_bloom``, ``bud_formation``, ``budding``,
+    ``growth_bloom``, ``flowering_fruit``, ``autumn_growth_bloom``, ``bract_coloring``, ``short_day_induction``);
+    ``None`` is not. Ripening and fruit development are not flowering.
+    """
+    return name is not None and core_phase(name) == "flowering"
+
+
 def thinned_start_index(names: list[str]) -> int | None:
     """The phase a thinned seedling starts in (REQ-053 §11.3, W-015), as an index into ``names`` (sequence order).
 

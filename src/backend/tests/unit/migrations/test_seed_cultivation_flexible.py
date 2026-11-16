@@ -26,6 +26,10 @@ class _FakeSpeciesRepo:
     def get_by_scientific_name(self, name: str) -> Species | None:
         return self._by_name.get(name)
 
+    def get_global_by_scientific_name(self, name: str) -> Species | None:
+        species = self._by_name.get(name)
+        return species if species is not None and not species.tenant_key else None
+
     def update_field(self, key: str, field: str, value: object) -> None:
         self.updates.append((key, field, value))
         # Reflect the write so a re-run sees the updated state (idempotency).

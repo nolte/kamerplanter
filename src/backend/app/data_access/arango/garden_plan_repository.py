@@ -25,7 +25,7 @@ from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
 from pydantic import BaseModel
 
 from app.common.datetimes import today_utc
-from app.common.enums import AttachmentCategory, PhotoperiodSource
+from app.common.enums import AttachmentCategory, PhotoperiodSource, PhotoperiodType
 from app.common.exceptions import (
     NotFoundError,
     PlanError,
@@ -285,6 +285,16 @@ def _photoperiod_source_or_none(value: object) -> PhotoperiodSource | None:
         return None
     try:
         return PhotoperiodSource(value)
+    except ValueError:
+        return None
+
+
+def _photoperiod_type_or_none(value: object) -> PhotoperiodType | None:
+    """A stored ``photoperiod_type``; missing or a value this code does not know is ``None`` (not classified)."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return PhotoperiodType(value)
     except ValueError:
         return None
 
@@ -846,6 +856,14 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                                 RETURN candidate
                     )
                     LET growth_phase = legacy != null ? legacy : (LENGTH(candidates) == 1 ? candidates[0] : null)
+                    // The species' photoperiod type (#2857): day-neutral plants leave the conflict, short-day ones
+                    // in flowering are checked for a long-day profile.
+                    LET species_lifecycle = (p.species_key == null OR p.species_key == "") ? null : FIRST(
+                        FOR lc IN 1..1 OUTBOUND CONCAT(@species, "/", p.species_key) @@has_lifecycle
+                            SORT lc._key ASC
+                            LIMIT 1
+                            RETURN lc
+                    )
                     LET profile = growth_phase == null ? null : FIRST(
                         FOR requirement IN 1..1 OUTBOUND growth_phase @@requires_profile
                             SORT requirement._key ASC
@@ -868,7 +886,11 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                             : (legacy == null ? null : legacy.display_name_de),
                         photoperiod_hours: profile == null ? null : profile.photoperiod_hours,
                         // Where the hours came from (#2857); null without a profile or for one stored before.
-                        photoperiod_source: profile == null ? null : profile.photoperiod_source
+                        photoperiod_source: profile == null ? null : profile.photoperiod_source,
+                        photoperiod_type: species_lifecycle == null ? null : species_lifecycle.photoperiod_type,
+                        critical_day_length_hours: species_lifecycle == null
+                            ? null
+                            : species_lifecycle.critical_day_length_hours
                     }
                 """,
                 bind_vars=bind_vars,
@@ -883,6 +905,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 display_name=_text_or_none(row["display_name"]) or str(row["plant_key"]),
                 phase_label=_phase_label_or_none(row),
                 photoperiod_source=_photoperiod_source_or_none(row["photoperiod_source"]),
+                photoperiod_type=_photoperiod_type_or_none(row["photoperiod_type"]),
+                critical_day_length_hours=_photoperiod_or_none(row["critical_day_length_hours"]),
             )
             for row in cursor
         ]
