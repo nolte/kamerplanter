@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-09'
-measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
+measured_on: '2026-11-16'
+measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
 replay_seconds: 9
 job_spec_sha256: 3652e4110049a9c58bad376d157de885a9fa45f3eac23fc4ba13cf570734b9cf
 invocations:
@@ -20,7 +20,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2861
+  untracked_reads_dropped: 2865
 subprocesses:
 - node
 - npx
@@ -53,6 +53,7 @@ reads:
 - src/frontend/src/api/client.ts
 - src/frontend/src/api/endpoints/
 - src/frontend/src/api/errors.ts
+- src/frontend/src/api/offlineReadRequest.ts
 - src/frontend/src/assets/
 - src/frontend/src/assets/brand/
 - src/frontend/src/assets/brand/illustrations/
@@ -97,6 +98,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/bed/
 - src/frontend/src/features/gardenPlanner/care/
 - src/frontend/src/features/gardenPlanner/editor/
+- src/frontend/src/features/gardenPlanner/editor/objectProps/
 - src/frontend/src/features/gardenPlanner/editor/tools/
 - src/frontend/src/features/gardenPlanner/editor/tools/snap.benchmark.test.ts
 - src/frontend/src/features/gardenPlanner/editor/tools/snap.ts
@@ -113,6 +115,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/model/layout.ts
 - src/frontend/src/features/gardenPlanner/model/planModel.ts
 - src/frontend/src/features/gardenPlanner/model/plantState.ts
+- src/frontend/src/features/gardenPlanner/model/textLabel.ts
 - src/frontend/src/features/gardenPlanner/model/types.ts
 - src/frontend/src/features/gardenPlanner/model/undoPatch.ts
 - src/frontend/src/features/gardenPlanner/model/units.ts
@@ -197,6 +200,7 @@ reads:
 - src/frontend/src/pages/tenants/
 - src/frontend/src/pages/ueberwinterung/
 - src/frontend/src/pwa/
+- src/frontend/src/pwa/cachePolicy.ts
 - src/frontend/src/routes/
 - src/frontend/src/store/
 - src/frontend/src/store/slices/

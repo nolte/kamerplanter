@@ -9,9 +9,9 @@ job: inference-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-09'
-measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
-replay_seconds: 17
+measured_on: '2026-11-16'
+measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
+replay_seconds: 13
 job_spec_sha256: 389cb2b83565365d6d683550d65978eff6b112470a929266e47fad572c3ad28b
 invocations:
 - command: task deps:sync:inference-service
@@ -19,13 +19,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 236
+  untracked_reads_dropped: 237
 - command: task test:inference-service
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2250
+  untracked_reads_dropped: 2252
 subprocesses:
 - ld-linux-x86-64.so.2
 - python

@@ -10,10 +10,10 @@ gate:
   kind: paths-filter
   filter: integration
 status: measured
-measured_on: '2026-11-09'
-measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
-replay_seconds: 3034
-job_spec_sha256: 0b7dd2934afebf3f8c9da6278e79bbe3c14670e5eded212041a51d85744ba113
+measured_on: '2026-11-16'
+measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
+replay_seconds: 3072
+job_spec_sha256: d927c43675bbd773245a7712674e3b86ac7659d74f39bafbfb5dfa5d7662ef0a
 invocations:
 - command: task test:backend:integration
   cwd: src/backend
@@ -28,7 +28,7 @@ invocations:
   - TIMESCALEDB_PASSWORD=changeme
   - TIMESCALEDB_PORT=5432
   - TIMESCALEDB_USERNAME=postgres
-  untracked_reads_dropped: 5174
+  untracked_reads_dropped: 5474
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -42,7 +42,7 @@ invocations:
   - TIMESCALEDB_PASSWORD=changeme
   - TIMESCALEDB_PORT=5432
   - TIMESCALEDB_USERNAME=postgres
-  untracked_reads_dropped: 144
+  untracked_reads_dropped: 143
 subprocesses:
 - collect2
 - gcc
@@ -461,6 +461,7 @@ reads:
 - src/backend/app/common/async_bridge.py
 - src/backend/app/common/auth.py
 - src/backend/app/common/body_limit.py
+- src/backend/app/common/cache_control.py
 - src/backend/app/common/csv_download.py
 - src/backend/app/common/csv_export.py
 - src/backend/app/common/csv_import.py
@@ -476,6 +477,7 @@ reads:
 - src/backend/app/common/held_count.py
 - src/backend/app/common/image_bounds.py
 - src/backend/app/common/keyed_lock.py
+- src/backend/app/common/locale.py
 - src/backend/app/common/log_privacy.py
 - src/backend/app/common/mdns.py
 - src/backend/app/common/middleware.py
@@ -591,8 +593,10 @@ reads:
 - src/backend/app/data_access/arango/security_audit_repository.py
 - src/backend/app/data_access/arango/sensor_repository.py
 - src/backend/app/data_access/arango/site_repository.py
+- src/backend/app/data_access/arango/slot_rules_fence.py
 - src/backend/app/data_access/arango/species_repository.py
 - src/backend/app/data_access/arango/starter_kit_repository.py
+- src/backend/app/data_access/arango/storage_release_retry_repository.py
 - src/backend/app/data_access/arango/substrate_repository.py
 - src/backend/app/data_access/arango/succession_plan_repository.py
 - src/backend/app/data_access/arango/system_settings_repository.py
@@ -605,6 +609,7 @@ reads:
 - src/backend/app/data_access/arango/tenant_ownership.py
 - src/backend/app/data_access/arango/tenant_repository.py
 - src/backend/app/data_access/arango/tenant_scope.py
+- src/backend/app/data_access/arango/tombstone_census.py
 - src/backend/app/data_access/arango/transactions.py
 - src/backend/app/data_access/arango/user_repository.py
 - src/backend/app/data_access/arango/watering_log_repository.py
@@ -691,6 +696,7 @@ reads:
 - src/backend/app/domain/calculators/__init__.py
 - src/backend/app/domain/calculators/area_dose_calculator.py
 - src/backend/app/domain/calculators/bed_row_placement_calculator.py
+- src/backend/app/domain/calculators/container_volume_calculator.py
 - src/backend/app/domain/calculators/crop_coefficient.py
 - src/backend/app/domain/calculators/drying_calculator.py
 - src/backend/app/domain/calculators/evapotranspiration_calculator.py
@@ -715,7 +721,9 @@ reads:
 - src/backend/app/domain/calculators/slot_capacity_calculator.py
 - src/backend/app/domain/calculators/sun_calculator.py
 - src/backend/app/domain/calculators/template_placement_calculator.py
+- src/backend/app/domain/calculators/thinning_calculator.py
 - src/backend/app/domain/calculators/vpd_calculator.py
+- src/backend/app/domain/calculators/window_orientation.py
 - src/backend/app/domain/calculators/zone_allocation_calculator.py
 - src/backend/app/domain/engines/
 - src/backend/app/domain/engines/__init__.py
@@ -830,6 +838,7 @@ reads:
 - src/backend/app/domain/engines/tenant_erasure_engine.py
 - src/backend/app/domain/engines/tenant_export_engine.py
 - src/backend/app/domain/engines/tenant_import_engine.py
+- src/backend/app/domain/engines/tent_rules_engine.py
 - src/backend/app/domain/engines/token_engine.py
 - src/backend/app/domain/engines/transition_trigger_evaluator.py
 - src/backend/app/domain/engines/vernalization_tracker.py
@@ -938,6 +947,7 @@ reads:
 - src/backend/app/domain/interfaces/species_repository.py
 - src/backend/app/domain/interfaces/step_up_code.py
 - src/backend/app/domain/interfaces/step_up_throttle.py
+- src/backend/app/domain/interfaces/storage_release_retry_repository.py
 - src/backend/app/domain/interfaces/substrate_repository.py
 - src/backend/app/domain/interfaces/succession_plan_repository.py
 - src/backend/app/domain/interfaces/tank_repository.py
@@ -947,6 +957,7 @@ reads:
 - src/backend/app/domain/interfaces/tenant_erasure_repository.py
 - src/backend/app/domain/interfaces/tenant_export_store.py
 - src/backend/app/domain/interfaces/tenant_repository.py
+- src/backend/app/domain/interfaces/tombstone_census.py
 - src/backend/app/domain/interfaces/unknown_account_store.py
 - src/backend/app/domain/interfaces/user_repository.py
 - src/backend/app/domain/interfaces/watering_log_repository.py
@@ -1010,6 +1021,7 @@ reads:
 - src/backend/app/domain/models/onboarding.py
 - src/backend/app/domain/models/overwintering_profile.py
 - src/backend/app/domain/models/overwintering_profile_template.py
+- src/backend/app/domain/models/parcel_label.py
 - src/backend/app/domain/models/pest_detection.py
 - src/backend/app/domain/models/pest_image.py
 - src/backend/app/domain/models/pest_taxonomy.py
@@ -1032,6 +1044,7 @@ reads:
 - src/backend/app/domain/models/service_account.py
 - src/backend/app/domain/models/site.py
 - src/backend/app/domain/models/species.py
+- src/backend/app/domain/models/species_names.py
 - src/backend/app/domain/models/starter_kit.py
 - src/backend/app/domain/models/storage.py
 - src/backend/app/domain/models/substrate.py
@@ -1045,6 +1058,7 @@ reads:
 - src/backend/app/domain/models/tenant_context.py
 - src/backend/app/domain/models/tenant_erasure.py
 - src/backend/app/domain/models/tenant_export.py
+- src/backend/app/domain/models/tent_hint.py
 - src/backend/app/domain/models/user.py
 - src/backend/app/domain/models/user_preference.py
 - src/backend/app/domain/models/watering_event.py
@@ -1150,6 +1164,7 @@ reads:
 - src/backend/app/domain/services/planting_run_service.py
 - src/backend/app/domain/services/post_harvest_service.py
 - src/backend/app/domain/services/print_service.py
+- src/backend/app/domain/services/privacy_consistency_service.py
 - src/backend/app/domain/services/privacy_service.py
 - src/backend/app/domain/services/propagation_service.py
 - src/backend/app/domain/services/quarter_climate_service.py
@@ -1165,6 +1180,7 @@ reads:
 - src/backend/app/domain/services/singleton_document.py
 - src/backend/app/domain/services/site_service.py
 - src/backend/app/domain/services/slot_occupancy.py
+- src/backend/app/domain/services/slot_thinning_service.py
 - src/backend/app/domain/services/soil_analysis_service.py
 - src/backend/app/domain/services/species_service.py
 - src/backend/app/domain/services/species_visibility.py
@@ -1224,6 +1240,7 @@ reads:
 - src/backend/app/mcp_server/tools/sites.py
 - src/backend/app/mcp_server/tools/species.py
 - src/backend/app/mcp_server/tools/substrates.py
+- src/backend/app/mcp_server/tools/succession.py
 - src/backend/app/mcp_server/tools/tasks.py
 - src/backend/app/mcp_server/tools/tenants.py
 - src/backend/app/migrations/
@@ -1241,6 +1258,7 @@ reads:
 - src/backend/app/migrations/framework/cli.py
 - src/backend/app/migrations/framework/discovery.py
 - src/backend/app/migrations/framework/report.py
+- src/backend/app/migrations/framework/report_store.py
 - src/backend/app/migrations/framework/runner.py
 - src/backend/app/migrations/framework/tracking.py
 - src/backend/app/migrations/migrate_fertilizer_calmag_type.py
@@ -1253,6 +1271,7 @@ reads:
 - src/backend/app/migrations/seed_activities.py
 - src/backend/app/migrations/seed_adventskalender.py
 - src/backend/app/migrations/seed_auth.py
+- src/backend/app/migrations/seed_catalogue_species.py
 - src/backend/app/migrations/seed_cultivation_flexible.py
 - src/backend/app/migrations/seed_data.py
 - src/backend/app/migrations/seed_data/
@@ -1330,6 +1349,7 @@ reads:
 - src/backend/app/migrations/seed_overwintering_profiles.py
 - src/backend/app/migrations/seed_phase_ownership.py
 - src/backend/app/migrations/seed_phase_sequences.py
+- src/backend/app/migrations/seed_photoperiod_source.py
 - src/backend/app/migrations/seed_plagron.py
 - src/backend/app/migrations/seed_plans.py
 - src/backend/app/migrations/seed_plant_info.py
@@ -1459,6 +1479,13 @@ reads:
 - src/backend/app/migrations/versions/v0104_care_events_backfill.py
 - src/backend/app/migrations/versions/v0105_soil_profile_ec_method_unknown.py
 - src/backend/app/migrations/versions/v0106_client_event_id_index.py
+- src/backend/app/migrations/versions/v0107_care_event_tombstone_performer.py
+- src/backend/app/migrations/versions/v0108_location_tent_fields.py
+- src/backend/app/migrations/versions/v0109_privacy_tombstone_copies.py
+- src/backend/app/migrations/versions/v0110_tenant_record_keeping_default.py
+- src/backend/app/migrations/versions/v0111_keyed_performers.py
+- src/backend/app/migrations/versions/v0112_placed_in_backfill.py
+- src/backend/app/migrations/versions/v0113_photoperiod_unspecified.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -1466,6 +1493,7 @@ reads:
 - src/backend/app/observability/event_user.py
 - src/backend/app/observability/garden_plan_metrics.py
 - src/backend/app/observability/metrics.py
+- src/backend/app/observability/privacy_metrics.py
 - src/backend/app/observability/queue_metrics.py
 - src/backend/app/tasks/
 - src/backend/app/tasks/__init__.py
@@ -1488,6 +1516,7 @@ reads:
 - src/backend/app/tasks/pest_dataset_tasks.py
 - src/backend/app/tasks/pest_image_tasks.py
 - src/backend/app/tasks/phase_transitions.py
+- src/backend/app/tasks/privacy_consistency.py
 - src/backend/app/tasks/reference_contribution_tasks.py
 - src/backend/app/tasks/reference_image_tasks.py
 - src/backend/app/tasks/retention_tasks.py
@@ -1508,6 +1537,7 @@ reads:
 - src/backend/app/templates/print/
 - src/backend/app/templates/print/base.html
 - src/backend/app/templates/print/garden_plan.html
+- src/backend/app/templates/print/location_label.html
 - src/backend/app/templates/print/nutrient_plan.html
 - src/backend/pyproject.toml
 - src/backend/scripts/
@@ -1528,6 +1558,7 @@ reads:
 - src/backend/tests/integration/test_arango_integration.py
 - src/backend/tests/integration/test_arango_transactions.py
 - src/backend/tests/integration/test_attachment_dedup_ownership.py
+- src/backend/tests/integration/test_attachment_get_many.py
 - src/backend/tests/integration/test_attachment_renditions_failed_marker.py
 - src/backend/tests/integration/test_bed_csv_import.py
 - src/backend/tests/integration/test_bed_history.py
@@ -1539,6 +1570,7 @@ reads:
 - src/backend/tests/integration/test_care_event_repository.py
 - src/backend/tests/integration/test_care_events_consistency.py
 - src/backend/tests/integration/test_care_events_csv_export.py
+- src/backend/tests/integration/test_care_log_amendment_feeding.py
 - src/backend/tests/integration/test_care_profile_edge_concurrency.py
 - src/backend/tests/integration/test_care_profile_null_clearing.py
 - src/backend/tests/integration/test_care_reminder_species_tenant_scope.py
@@ -1577,6 +1609,8 @@ reads:
 - src/backend/tests/integration/test_inactive_tenant_resolution_reach.py
 - src/backend/tests/integration/test_integration_secrets_at_rest.py
 - src/backend/tests/integration/test_invitation_link_max_uses_reach.py
+- src/backend/tests/integration/test_ipm_disease_names_update.py
+- src/backend/tests/integration/test_ipm_pest_names_update.py
 - src/backend/tests/integration/test_irrigation_zone_repository.py
 - src/backend/tests/integration/test_irrigation_zone_wave7.py
 - src/backend/tests/integration/test_legacy_foreign_field_readers.py
@@ -1592,16 +1626,19 @@ reads:
 - src/backend/tests/integration/test_location_delete_cascade.py
 - src/backend/tests/integration/test_location_label_projection.py
 - src/backend/tests/integration/test_location_photo_repository.py
+- src/backend/tests/integration/test_location_tent_rules.py
 - src/backend/tests/integration/test_mcp_audit_correlation_reach.py
 - src/backend/tests/integration/test_mcp_global_write_tool_admission.py
 - src/backend/tests/integration/test_mcp_idempotency_get_skips_expired.py
 - src/backend/tests/integration/test_mcp_nutrient_plan_phase_targets_tenant_scope.py
+- src/backend/tests/integration/test_mcp_setup_tools.py
 - src/backend/tests/integration/test_member_limit_reach.py
 - src/backend/tests/integration/test_member_list_admin_scopes.py
 - src/backend/tests/integration/test_member_role_escalation_reach.py
 - src/backend/tests/integration/test_membership_end_task_assignments_reach.py
 - src/backend/tests/integration/test_membership_joined_at.py
 - src/backend/tests/integration/test_merge_mode_null_clearing.py
+- src/backend/tests/integration/test_moved_plant_slot_readers.py
 - src/backend/tests/integration/test_notification_subscription_prune.py
 - src/backend/tests/integration/test_nutrient_plan_species_matching.py
 - src/backend/tests/integration/test_oidc_auto_link_needs_proof.py
@@ -1611,6 +1648,7 @@ reads:
 - src/backend/tests/integration/test_open_task_by_name_lookup.py
 - src/backend/tests/integration/test_orphaned_location_photo_query.py
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
+- src/backend/tests/integration/test_orphaned_underlay_query.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_personal_tenant_erasure_reach.py
 - src/backend/tests/integration/test_pest_prototype_orphan_sweep_arango.py
@@ -1636,11 +1674,15 @@ reads:
 - src/backend/tests/integration/test_runs_at_site_tenant_scope.py
 - src/backend/tests/integration/test_security_audit_log_reach.py
 - src/backend/tests/integration/test_seed_catalogue_loaders_ownership.py
+- src/backend/tests/integration/test_seed_catalogue_species.py
+- src/backend/tests/integration/test_seed_common_names_sync.py
 - src/backend/tests/integration/test_seed_fertilizer_loaders_ownership.py
 - src/backend/tests/integration/test_seed_fertilizer_loaders_paging.py
 - src/backend/tests/integration/test_seed_identity_concurrency.py
+- src/backend/tests/integration/test_seed_ipm_names_sync.py
 - src/backend/tests/integration/test_seed_ipm_rows_reach.py
 - src/backend/tests/integration/test_seed_loader_idempotency.py
+- src/backend/tests/integration/test_seed_photoperiod_source.py
 - src/backend/tests/integration/test_seed_plan_loaders_ownership.py
 - src/backend/tests/integration/test_seed_registry_lock.py
 - src/backend/tests/integration/test_seeded_plan_species_relation.py
@@ -1649,12 +1691,17 @@ reads:
 - src/backend/tests/integration/test_service_accounts_reach.py
 - src/backend/tests/integration/test_session_family_and_access_cutoff.py
 - src/backend/tests/integration/test_shared_workflow_template_write_gate.py
+- src/backend/tests/integration/test_single_plant_on_a_taken_position.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_site_delete_cascade.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
+- src/backend/tests/integration/test_slot_thinning_flow.py
 - src/backend/tests/integration/test_slot_update_moves_has_slot_edge.py
 - src/backend/tests/integration/test_soil_analysis.py
+- src/backend/tests/integration/test_species_display_names_aql.py
 - src/backend/tests/integration/test_storage_reconciliation.py
+- src/backend/tests/integration/test_storage_release_retry_repository.py
+- src/backend/tests/integration/test_succession_slot_reservation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
 - src/backend/tests/integration/test_task_completion_repository.py
@@ -1716,6 +1763,13 @@ reads:
 - src/backend/tests/integration/test_v0100_backfill_plant_location_site.py
 - src/backend/tests/integration/test_v0102_purge_site_orphans.py
 - src/backend/tests/integration/test_v0104_care_events_backfill.py
+- src/backend/tests/integration/test_v0107_care_event_tombstone_performer.py
+- src/backend/tests/integration/test_v0108_location_tent_fields.py
+- src/backend/tests/integration/test_v0109_privacy_tombstone_copies.py
+- src/backend/tests/integration/test_v0110_tenant_record_keeping_default.py
+- src/backend/tests/integration/test_v0111_keyed_performers.py
+- src/backend/tests/integration/test_v0112_placed_in_backfill.py
+- src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/
@@ -1750,6 +1804,7 @@ test_modules:
 - src/backend/tests/integration/test_arango_integration.py
 - src/backend/tests/integration/test_arango_transactions.py
 - src/backend/tests/integration/test_attachment_dedup_ownership.py
+- src/backend/tests/integration/test_attachment_get_many.py
 - src/backend/tests/integration/test_attachment_renditions_failed_marker.py
 - src/backend/tests/integration/test_bed_csv_import.py
 - src/backend/tests/integration/test_bed_history.py
@@ -1761,6 +1816,7 @@ test_modules:
 - src/backend/tests/integration/test_care_event_repository.py
 - src/backend/tests/integration/test_care_events_consistency.py
 - src/backend/tests/integration/test_care_events_csv_export.py
+- src/backend/tests/integration/test_care_log_amendment_feeding.py
 - src/backend/tests/integration/test_care_profile_edge_concurrency.py
 - src/backend/tests/integration/test_care_profile_null_clearing.py
 - src/backend/tests/integration/test_care_reminder_species_tenant_scope.py
@@ -1799,6 +1855,8 @@ test_modules:
 - src/backend/tests/integration/test_inactive_tenant_resolution_reach.py
 - src/backend/tests/integration/test_integration_secrets_at_rest.py
 - src/backend/tests/integration/test_invitation_link_max_uses_reach.py
+- src/backend/tests/integration/test_ipm_disease_names_update.py
+- src/backend/tests/integration/test_ipm_pest_names_update.py
 - src/backend/tests/integration/test_irrigation_zone_repository.py
 - src/backend/tests/integration/test_irrigation_zone_wave7.py
 - src/backend/tests/integration/test_legacy_foreign_field_readers.py
@@ -1814,16 +1872,19 @@ test_modules:
 - src/backend/tests/integration/test_location_delete_cascade.py
 - src/backend/tests/integration/test_location_label_projection.py
 - src/backend/tests/integration/test_location_photo_repository.py
+- src/backend/tests/integration/test_location_tent_rules.py
 - src/backend/tests/integration/test_mcp_audit_correlation_reach.py
 - src/backend/tests/integration/test_mcp_global_write_tool_admission.py
 - src/backend/tests/integration/test_mcp_idempotency_get_skips_expired.py
 - src/backend/tests/integration/test_mcp_nutrient_plan_phase_targets_tenant_scope.py
+- src/backend/tests/integration/test_mcp_setup_tools.py
 - src/backend/tests/integration/test_member_limit_reach.py
 - src/backend/tests/integration/test_member_list_admin_scopes.py
 - src/backend/tests/integration/test_member_role_escalation_reach.py
 - src/backend/tests/integration/test_membership_end_task_assignments_reach.py
 - src/backend/tests/integration/test_membership_joined_at.py
 - src/backend/tests/integration/test_merge_mode_null_clearing.py
+- src/backend/tests/integration/test_moved_plant_slot_readers.py
 - src/backend/tests/integration/test_notification_subscription_prune.py
 - src/backend/tests/integration/test_nutrient_plan_species_matching.py
 - src/backend/tests/integration/test_oidc_auto_link_needs_proof.py
@@ -1833,6 +1894,7 @@ test_modules:
 - src/backend/tests/integration/test_open_task_by_name_lookup.py
 - src/backend/tests/integration/test_orphaned_location_photo_query.py
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
+- src/backend/tests/integration/test_orphaned_underlay_query.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_personal_tenant_erasure_reach.py
 - src/backend/tests/integration/test_pest_prototype_orphan_sweep_arango.py
@@ -1858,11 +1920,15 @@ test_modules:
 - src/backend/tests/integration/test_runs_at_site_tenant_scope.py
 - src/backend/tests/integration/test_security_audit_log_reach.py
 - src/backend/tests/integration/test_seed_catalogue_loaders_ownership.py
+- src/backend/tests/integration/test_seed_catalogue_species.py
+- src/backend/tests/integration/test_seed_common_names_sync.py
 - src/backend/tests/integration/test_seed_fertilizer_loaders_ownership.py
 - src/backend/tests/integration/test_seed_fertilizer_loaders_paging.py
 - src/backend/tests/integration/test_seed_identity_concurrency.py
+- src/backend/tests/integration/test_seed_ipm_names_sync.py
 - src/backend/tests/integration/test_seed_ipm_rows_reach.py
 - src/backend/tests/integration/test_seed_loader_idempotency.py
+- src/backend/tests/integration/test_seed_photoperiod_source.py
 - src/backend/tests/integration/test_seed_plan_loaders_ownership.py
 - src/backend/tests/integration/test_seed_registry_lock.py
 - src/backend/tests/integration/test_seeded_plan_species_relation.py
@@ -1871,12 +1937,17 @@ test_modules:
 - src/backend/tests/integration/test_service_accounts_reach.py
 - src/backend/tests/integration/test_session_family_and_access_cutoff.py
 - src/backend/tests/integration/test_shared_workflow_template_write_gate.py
+- src/backend/tests/integration/test_single_plant_on_a_taken_position.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_site_delete_cascade.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
+- src/backend/tests/integration/test_slot_thinning_flow.py
 - src/backend/tests/integration/test_slot_update_moves_has_slot_edge.py
 - src/backend/tests/integration/test_soil_analysis.py
+- src/backend/tests/integration/test_species_display_names_aql.py
 - src/backend/tests/integration/test_storage_reconciliation.py
+- src/backend/tests/integration/test_storage_release_retry_repository.py
+- src/backend/tests/integration/test_succession_slot_reservation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
 - src/backend/tests/integration/test_task_completion_repository.py
@@ -1938,6 +2009,13 @@ test_modules:
 - src/backend/tests/integration/test_v0100_backfill_plant_location_site.py
 - src/backend/tests/integration/test_v0102_purge_site_orphans.py
 - src/backend/tests/integration/test_v0104_care_events_backfill.py
+- src/backend/tests/integration/test_v0107_care_event_tombstone_performer.py
+- src/backend/tests/integration/test_v0108_location_tent_fields.py
+- src/backend/tests/integration/test_v0109_privacy_tombstone_copies.py
+- src/backend/tests/integration/test_v0110_tenant_record_keeping_default.py
+- src/backend/tests/integration/test_v0111_keyed_performers.py
+- src/backend/tests/integration/test_v0112_placed_in_backfill.py
+- src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 readers: {}

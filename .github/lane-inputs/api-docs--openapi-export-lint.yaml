@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-09'
-measured_at_commit: aa520b228e2de44a686e1fe3bb9fec58d8602776
-replay_seconds: 37
+measured_on: '2026-11-16'
+measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
+replay_seconds: 54
 job_spec_sha256: f1e131a7c1a3d703664ca95c9a95e050c3732097fcae30f507e17a48dc432095
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 3245
+  untracked_reads_dropped: 3268
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -434,6 +434,7 @@ reads:
 - src/backend/app/common/async_bridge.py
 - src/backend/app/common/auth.py
 - src/backend/app/common/body_limit.py
+- src/backend/app/common/cache_control.py
 - src/backend/app/common/csv_download.py
 - src/backend/app/common/csv_export.py
 - src/backend/app/common/csv_import.py
@@ -448,6 +449,7 @@ reads:
 - src/backend/app/common/held_count.py
 - src/backend/app/common/image_bounds.py
 - src/backend/app/common/keyed_lock.py
+- src/backend/app/common/locale.py
 - src/backend/app/common/log_privacy.py
 - src/backend/app/common/middleware.py
 - src/backend/app/common/notification_targets.py
@@ -528,6 +530,7 @@ reads:
 - src/backend/app/data_access/arango/refresh_token_repository.py
 - src/backend/app/data_access/arango/rotation_history_repository.py
 - src/backend/app/data_access/arango/site_repository.py
+- src/backend/app/data_access/arango/slot_rules_fence.py
 - src/backend/app/data_access/arango/species_repository.py
 - src/backend/app/data_access/arango/starter_kit_repository.py
 - src/backend/app/data_access/arango/substrate_repository.py
@@ -539,6 +542,7 @@ reads:
 - src/backend/app/data_access/arango/tenant_ownership.py
 - src/backend/app/data_access/arango/tenant_repository.py
 - src/backend/app/data_access/arango/tenant_scope.py
+- src/backend/app/data_access/arango/tombstone_census.py
 - src/backend/app/data_access/arango/transactions.py
 - src/backend/app/data_access/arango/user_repository.py
 - src/backend/app/data_access/arango/watering_log_repository.py
@@ -587,6 +591,7 @@ reads:
 - src/backend/app/domain/calculators/__init__.py
 - src/backend/app/domain/calculators/area_dose_calculator.py
 - src/backend/app/domain/calculators/bed_row_placement_calculator.py
+- src/backend/app/domain/calculators/container_volume_calculator.py
 - src/backend/app/domain/calculators/drying_calculator.py
 - src/backend/app/domain/calculators/gdd_calculator.py
 - src/backend/app/domain/calculators/geometry_calculator.py
@@ -602,12 +607,15 @@ reads:
 - src/backend/app/domain/calculators/plant_state_calculator.py
 - src/backend/app/domain/calculators/plant_state_inputs.py
 - src/backend/app/domain/calculators/planting_layout_calculator.py
+- src/backend/app/domain/calculators/range_parser.py
 - src/backend/app/domain/calculators/reach_calculator.py
 - src/backend/app/domain/calculators/scientific_name.py
 - src/backend/app/domain/calculators/slot_capacity_calculator.py
 - src/backend/app/domain/calculators/sun_calculator.py
 - src/backend/app/domain/calculators/template_placement_calculator.py
+- src/backend/app/domain/calculators/thinning_calculator.py
 - src/backend/app/domain/calculators/vpd_calculator.py
+- src/backend/app/domain/calculators/window_orientation.py
 - src/backend/app/domain/calculators/zone_allocation_calculator.py
 - src/backend/app/domain/engines/
 - src/backend/app/domain/engines/__init__.py
@@ -715,6 +723,7 @@ reads:
 - src/backend/app/domain/engines/tenant_erasure_engine.py
 - src/backend/app/domain/engines/tenant_export_engine.py
 - src/backend/app/domain/engines/tenant_import_engine.py
+- src/backend/app/domain/engines/tent_rules_engine.py
 - src/backend/app/domain/engines/token_engine.py
 - src/backend/app/domain/engines/water_mix_engine.py
 - src/backend/app/domain/engines/watering_engine.py
@@ -814,6 +823,7 @@ reads:
 - src/backend/app/domain/interfaces/species_repository.py
 - src/backend/app/domain/interfaces/step_up_code.py
 - src/backend/app/domain/interfaces/step_up_throttle.py
+- src/backend/app/domain/interfaces/storage_release_retry_repository.py
 - src/backend/app/domain/interfaces/substrate_repository.py
 - src/backend/app/domain/interfaces/succession_plan_repository.py
 - src/backend/app/domain/interfaces/tank_repository.py
@@ -823,6 +833,7 @@ reads:
 - src/backend/app/domain/interfaces/tenant_erasure_repository.py
 - src/backend/app/domain/interfaces/tenant_export_store.py
 - src/backend/app/domain/interfaces/tenant_repository.py
+- src/backend/app/domain/interfaces/tombstone_census.py
 - src/backend/app/domain/interfaces/unknown_account_store.py
 - src/backend/app/domain/interfaces/user_repository.py
 - src/backend/app/domain/interfaces/watering_log_repository.py
@@ -884,6 +895,7 @@ reads:
 - src/backend/app/domain/models/onboarding.py
 - src/backend/app/domain/models/overwintering_profile.py
 - src/backend/app/domain/models/overwintering_profile_template.py
+- src/backend/app/domain/models/parcel_label.py
 - src/backend/app/domain/models/pest_detection.py
 - src/backend/app/domain/models/pest_image.py
 - src/backend/app/domain/models/pest_taxonomy.py
@@ -905,6 +917,7 @@ reads:
 - src/backend/app/domain/models/service_account.py
 - src/backend/app/domain/models/site.py
 - src/backend/app/domain/models/species.py
+- src/backend/app/domain/models/species_names.py
 - src/backend/app/domain/models/starter_kit.py
 - src/backend/app/domain/models/storage.py
 - src/backend/app/domain/models/substrate.py
@@ -918,6 +931,7 @@ reads:
 - src/backend/app/domain/models/tenant_context.py
 - src/backend/app/domain/models/tenant_erasure.py
 - src/backend/app/domain/models/tenant_export.py
+- src/backend/app/domain/models/tent_hint.py
 - src/backend/app/domain/models/user.py
 - src/backend/app/domain/models/user_preference.py
 - src/backend/app/domain/models/watering_event.py
@@ -1027,6 +1041,7 @@ reads:
 - src/backend/app/domain/services/singleton_document.py
 - src/backend/app/domain/services/site_service.py
 - src/backend/app/domain/services/slot_occupancy.py
+- src/backend/app/domain/services/slot_thinning_service.py
 - src/backend/app/domain/services/soil_analysis_service.py
 - src/backend/app/domain/services/species_service.py
 - src/backend/app/domain/services/species_visibility.py
