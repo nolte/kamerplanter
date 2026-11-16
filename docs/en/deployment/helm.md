@@ -190,6 +190,8 @@ controllers:
 
 The frontend is served behind nginx. The nginx configuration is automatically mounted as a ConfigMap and proxies `/api/` requests to the backend.
 
+The same nginx sends the container image's security headers on every path: Content-Security-Policy (including `worker-src` and `manifest-src`), `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy`. Only HSTS is deliberately missing; the ingress sets it (see [Ingress](#ingress)). <!-- #2816 -->
+
 #### ArangoDB
 
 ```yaml
@@ -282,6 +284,21 @@ Do not route `/api` straight to the backend Service: the backend NetworkPolicy a
             hosts:
               - plants.example.com
     ```
+
+#### Checking HSTS and security headers
+
+HSTS (HTTP Strict Transport Security: the browser uses only HTTPS for the host) belongs to the ingress, not the pod: TLS ends at the ingress, and browsers ignore HSTS over unencrypted HTTP. So the frontend nginx deliberately sends no `Strict-Transport-Security` header, and `kubectl port-forward` keeps working.
+
+- **ingress-nginx:** Sends HSTS by default (one year) for every host listed under `ingress.main.tls`. So list every public host there. You can control it with the `hsts` key in the controller ConfigMap.
+- **Traefik:** Set `stsSeconds` in a Headers middleware and attach it to the ingress.
+
+```sh
+kubectl port-forward svc/kamerplanter-frontend 8080:80
+curl -sI http://localhost:8080/ | grep -i content-security-policy   # contains worker-src 'self'
+curl -sI https://<your-host>/ | grep -i strict-transport-security   # comes from the ingress
+```
+
+The port-forward proves the CSP comes from the pod. The HSTS line appears only over HTTPS through the ingress, not through the port-forward.
 
 #### Upload limit (request body)
 
