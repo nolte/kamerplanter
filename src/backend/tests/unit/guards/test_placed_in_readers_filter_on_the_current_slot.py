@@ -47,6 +47,7 @@ _PS = "app/data_access/arango/plant_state_repository.py"
 _CO = "app/data_access/arango/collections.py"
 
 _SS = "app/data_access/arango/site_repository.py"
+_WR = "app/data_access/arango/watering_repository.py"
 
 #: ``"path:unit"`` of every reader of the current occupancy → what it answers. None of them may name ``placed_in``.
 _CURRENT_READERS: dict[str, str] = {
@@ -65,6 +66,10 @@ _CURRENT_READERS: dict[str, str] = {
     "app/data_access/arango/watering_log_repository.py:ArangoWateringLogRepository.get_last_watering_date_for_run": (
         "the slots a run's plants stand in now"
     ),
+    # #2952: a watering event names no slot; it belongs to the bed its plant stands in now, once per bed
+    f"{_WR}:_EVENTS_AT_LOCATION": "the watering events of the plants standing in the location's slots",
+    f"{_WR}:ArangoWateringRepository.get_by_location": "executes _EVENTS_AT_LOCATION",
+    f"{_WR}:ArangoWateringRepository.get_stats_by_location": "executes _EVENTS_AT_LOCATION",
 }
 
 #: ``"path:unit"`` → ``(verdict, reason)`` for every unit naming ``placed_in``.
@@ -83,19 +88,15 @@ _SITES: dict[str, tuple[str, str]] = {
         _EVER_OR_NOW,
         "instance ids ever used or in use at the location must not be reissued",
     ),
-    "app/data_access/arango/watering_repository.py:ArangoWateringRepository.get_by_location": (
-        _HISTORY,
-        "watering events join the plant, not where it stands today",
-    ),
-    "app/data_access/arango/watering_repository.py:ArangoWateringRepository.get_stats_by_location": (
-        _HISTORY,
-        "watering events join the plant, not where it stands today",
-    ),
     # -- writers --------------------------------------------------------------------------------------------------
     f"{_PI}:ArangoPlantInstanceRepository.create": (_WRITER, "create_edge to the new plant's slot"),
     f"{_PI}:ArangoPlantInstanceRepository.update": (_WRITER, "create_edge_if_absent to the plant's new slot"),
     f"{_PI}:ArangoPlantInstanceRepository.delete": (_WRITER, "delete_edges of the deleted plant"),
     f"{_PR}:ArangoPlantingReservationRepository._insert_plants": (_WRITER, "inserts the edge of a new plant"),
+    "app/migrations/versions/v0112_placed_in_backfill.py:PlacedInBackfillMigration": (
+        _WRITER,
+        "one-off insert of the edge a plant moved before #2948 lacks to its slot (#2952), and its down",
+    ),
     # -- declarations: transaction collection sets, schema, graph, export, migrations -----------------------------
     f"{_CO}:PLACED_IN": (_DECLARATION, "the collection name constant"),
     f"{_CO}:EDGE_COLLECTIONS": (_DECLARATION, "the edge collections created at startup"),

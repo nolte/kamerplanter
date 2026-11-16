@@ -31,11 +31,13 @@ from app.data_access.arango.planting_reservation_repository import ArangoPlantin
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
+from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.models.care_event import CareEvent
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import ClearBedWrite, SlotThinningWrite
 from app.domain.models.planting_run import PlantingRun
+from app.domain.models.watering_event import WateringEvent
 from app.domain.services.planting_run_service import PlantingRunService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -574,3 +576,93 @@ class TestLegacyMoveEverOrNowReaders:
         last = ArangoWateringLogRepository(db).get_last_watering_date_for_run("run_a", tenant_key=A)
 
         assert last == date(2026, 9, 1)
+
+
+def water(db, *plant_keys: str, at: str, liters: float = 1.0, tenant: str = A) -> str:
+    """A watering event as ``POST /watering-events`` writes it: the row plus one ``watered_plant`` edge per plant."""
+    event = ArangoWateringRepository(db).create(
+        WateringEvent(
+            tenant_key=tenant,
+            watered_at=datetime.fromisoformat(at),
+            volume_liters=liters,
+            plant_keys=list(plant_keys),
+        )
+    )
+    assert event.key is not None
+    return event.key
+
+
+class TestWateringEventsByLocation:
+    """#2952: a watering event is listed and counted under the bed its plant stands in now, once.
+
+    The event records no slot, so where the plant stood when it was watered is not known; the ``placed_in`` edges
+    carry no time window (a move back to a slot writes no new edge). Read through the edges, a moved plant's events
+    appeared under the old and the new bed, and a plant moved before #2948 only under the old one.
+    """
+
+    def _keys(self, db, location: str) -> list[str]:
+        return [e.key for e in ArangoWateringRepository(db).get_by_location(location, tenant_key=A)]
+
+    def _stats(self, db, location: str) -> tuple[int, float]:
+        stats = ArangoWateringRepository(db).get_stats_by_location(location, tenant_key=A)
+        return stats["total_events"], stats["total_volume"] or 0.0
+
+    def test_a_moved_plants_events_are_under_its_new_bed_only(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+        before = water(db, pi, at="2026-06-01T08:00:00+00:00", liters=2.0)
+        move(plants, pi, "t1", "bed2")
+        after = water(db, pi, at="2026-07-01T08:00:00+00:00", liters=3.0)
+
+        assert self._keys(db, "bed2") == [after, before]
+        assert self._stats(db, "bed2") == (2, 5.0)
+        assert self._keys(db, "bed") == []
+        assert self._stats(db, "bed") == (0, 0.0)
+
+    def test_a_plant_moved_before_2948_is_attributed_to_its_new_bed(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "t1", location="bed2")
+        pi = place(plants, "pi", "s1")
+        legacy_move(db, pi, "t1", "bed2")
+        event = water(db, pi, at="2026-07-01T08:00:00+00:00")
+
+        assert self._keys(db, "bed2") == [event]
+        assert self._keys(db, "bed") == []
+
+    def test_one_event_watering_two_plants_of_the_bed_counts_once(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "s2")
+        make_slot(db, "t1", location="bed2")
+        a = place(plants, "a", "s1")
+        b = place(plants, "b", "s2")
+        c = place(plants, "c", "t1", location="bed2")
+        both = water(db, a, b, c, at="2026-07-01T08:00:00+00:00", liters=4.0)
+
+        assert self._keys(db, "bed") == [both]
+        assert self._stats(db, "bed") == (1, 4.0)
+        assert self._keys(db, "bed2") == [both]  # it watered a plant of that bed, too
+
+    def test_another_tenants_event_on_the_same_plant_is_not_listed(self, db, plants) -> None:
+        make_slot(db, "s1")
+        pi = place(plants, "pi", "s1")
+        own = water(db, pi, at="2026-07-01T08:00:00+00:00")
+        db.collection(col.WATERING_EVENTS).update(
+            {"_key": water(db, pi, at="2026-07-02T08:00:00+00:00"), "tenant_key": "other"}
+        )
+
+        assert self._keys(db, "bed") == [own]
+        assert self._stats(db, "bed") == (1, 1.0)
+
+    def test_the_page_window_applies_after_the_deduplication(self, db, plants) -> None:
+        make_slot(db, "s1")
+        make_slot(db, "s2")
+        a = place(plants, "a", "s1")
+        b = place(plants, "b", "s2")
+        newest = water(db, a, b, at="2026-07-03T08:00:00+00:00")
+        middle = water(db, a, b, at="2026-07-02T08:00:00+00:00")
+        water(db, a, at="2026-07-01T08:00:00+00:00")
+
+        page = ArangoWateringRepository(db).get_by_location("bed", 0, 2, tenant_key=A)
+
+        assert [e.key for e in page] == [newest, middle]
