@@ -12,10 +12,10 @@ Both places that configure the frontend's nginx are scanned by ONE detector,
 :func:`_findings`: the image's ``src/frontend/nginx.conf`` and the
 ``frontend-nginx`` ConfigMap in ``helm/kamerplanter/values*.yaml``, which
 *replaces* the image's ``conf.d`` in a Helm install. A location with its own
-``add_header`` drops the server-level headers: in the image it re-includes the
-security-header snippet, in the chart it repeats ``X-Content-Type-Options``,
-``X-Frame-Options`` and ``Referrer-Policy`` and carries the image snippet's CSP
-verbatim (#2786 review). The snippet's CSP must name ``worker-src 'self'`` and
+``add_header`` drops the server-level headers, so in both it re-includes the
+security-header snippet (the chart carries its own copy as a second ConfigMap key, held
+equal to the image's by ``test_nginx_security_headers_parity.py``, #2816). The snippet's CSP
+must name ``worker-src 'self'`` and
 ``manifest-src 'self'`` and nothing broader (UI-NFR-012 R-059; the ``manifest-src`` half was added by the wave-9
 acceptance, #2757, which UI-NFR-012 section 5.5 named as missing). ``/manifest.json`` is served as
 ``application/manifest+json`` through a ``types`` block — ``default_type`` is ineffective there, because the
@@ -48,7 +48,6 @@ def _strip_comments(conf: str) -> str:
 
 
 _MANIFEST_TYPES = re.compile(r"\btypes\s*\{\s*application/manifest\+json\s+json\s*;\s*\}")
-_REPEATED_HEADERS = ("X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy")
 
 
 def _exact_location(conf: str, path: str) -> str | None:
@@ -58,29 +57,14 @@ def _exact_location(conf: str, path: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _image_csp() -> str:
-    policies = _CSP.findall(_strip_comments(SECURITY_HEADERS.read_text(encoding="utf-8")))
-    return policies[0] if policies else ""
-
-
-def _header_findings(body: str, where: str, path: str, *, needs_header_include: bool) -> list[str]:
+def _header_findings(body: str, where: str, path: str) -> list[str]:
     """The location must not lose the server-level security headers to its own ``add_header``."""
-    body = _strip_comments(body)
-    if needs_header_include:
-        if "nginx-security-headers.inc" not in body:
-            return [f"{where}: `location = {path}` drops the security headers (own add_header)"]
-        return []
-    findings = [
-        f"{where}: `location = {path}` drops {header} (own add_header)"
-        for header in _REPEATED_HEADERS
-        if not re.search(r"add_header\s+" + re.escape(header) + r"\s", body)
-    ]
-    if _CSP.findall(body) != [_image_csp()]:
-        findings.append(f"{where}: `location = {path}` does not carry the image's CSP verbatim")
-    return findings
+    if "nginx-security-headers.inc" not in _strip_comments(body):
+        return [f"{where}: `location = {path}` drops the security headers (own add_header)"]
+    return []
 
 
-def _findings(conf: str, where: str, *, needs_header_include: bool) -> list[str]:
+def _findings(conf: str, where: str) -> list[str]:
     """THE detector: every way *conf* could let a browser or proxy keep the worker or the manifest."""
     conf = _strip_comments(conf)
     findings: list[str] = []
@@ -96,7 +80,7 @@ def _findings(conf: str, where: str, *, needs_header_include: bool) -> list[str]
             findings.append(f"{where}: `location = {path}` still allows caching")
         if re.search(r"^\s*expires\s+(?!off|epoch|-1)", body, re.MULTILINE):
             findings.append(f"{where}: `location = {path}` sets an expiry")
-        findings += _header_findings(body, where, path, needs_header_include=needs_header_include)
+        findings += _header_findings(body, where, path)
         if path == "/manifest.json":
             if not _MANIFEST_TYPES.search(body):
                 findings.append(f"{where}: `location = {path}` is not typed application/manifest+json")
@@ -137,12 +121,12 @@ def test_the_selector_finds_both_copies() -> None:
 
 def test_the_image_never_caches_the_worker_or_the_manifest() -> None:
     conf = IMAGE_CONF.read_text(encoding="utf-8")
-    assert _findings(conf, "src/frontend/nginx.conf", needs_header_include=True) == []
+    assert _findings(conf, "src/frontend/nginx.conf") == []
 
 
 @pytest.mark.parametrize("name", sorted(_helm_configs()))
 def test_the_chart_never_caches_the_worker_or_the_manifest(name: str) -> None:
-    assert _findings(_helm_configs()[name], f"helm:{name}", needs_header_include=False) == []
+    assert _findings(_helm_configs()[name], f"helm:{name}") == []
 
 
 def test_the_csp_names_the_worker_source() -> None:
@@ -170,7 +154,7 @@ def test_the_detector_sees_each_regression(mutation: str, old: str, new: str) ->
     # prose-permeable: mutation precondition: the literal it replaces must be present verbatim, else the mutation
     # is a no-op and the red case proves nothing
     assert old in conf, f"mutation {mutation} no longer applies — update it"
-    assert _findings(conf.replace(old, new, 1), "mutated", needs_header_include=True) != []
+    assert _findings(conf.replace(old, new, 1), "mutated") != []
 
 
 _MANIFEST_TYPES_LINE = "types { application/manifest+json json; }"
@@ -186,34 +170,7 @@ def test_the_detector_sees_an_untyped_manifest(mutation: str, old: str, new: str
     conf = IMAGE_CONF.read_text(encoding="utf-8")
     # prose-permeable: mutation precondition: the literal it replaces must be present verbatim
     assert old in conf, f"mutation {mutation} no longer applies — update it"
-    assert _findings(conf.replace(old, new, 1), "mutated", needs_header_include=True) != []
-
-
-_HELM_MUTATIONS = [
-    ("helm-no-nosniff", 'add_header X-Content-Type-Options "nosniff" always;'),
-    ("helm-no-frame-options", 'add_header X-Frame-Options "SAMEORIGIN" always;'),
-    ("helm-no-referrer-policy", 'add_header Referrer-Policy "strict-origin-when-cross-origin" always;'),
-    ("helm-no-csp", "add_header Content-Security-Policy "),
-]
-
-
-@pytest.mark.parametrize(("mutation", "dropped"), _HELM_MUTATIONS, ids=[m[0] for m in _HELM_MUTATIONS])
-def test_the_detector_sees_a_dropped_chart_header(mutation: str, dropped: str) -> None:
-    """Drop the header inside the chart's `location = /sw.js` only — the server-level copy stays."""
-    conf = _helm_configs()["values.yaml"]
-    body = _exact_location(conf, "/sw.js")
-    assert body is not None
-    assert dropped in body, f"mutation {mutation} no longer applies — update it"
-    lines = [line for line in body.splitlines() if dropped not in line]
-    mutated = conf.replace(body, "\n".join(lines), 1)
-    assert _findings(mutated, "mutated", needs_header_include=False) != []
-
-
-def test_the_chart_csp_drift_is_seen() -> None:
-    conf = _helm_configs()["values.yaml"]
-    assert "worker-src 'self';" in conf
-    drifted = conf.replace("worker-src 'self';", "worker-src 'self' blob:;", 1)
-    assert _findings(drifted, "mutated", needs_header_include=False) != []
+    assert _findings(conf.replace(old, new, 1), "mutated") != []
 
 
 @pytest.mark.parametrize(
