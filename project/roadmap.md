@@ -189,6 +189,40 @@ project/requirements/tenant-export-import-remainder.md (U_gate 0.8 = τ_high, S�
 Outcomes: O-5 (Backups/Wiederherstellung), O-4 (Umzug eines Gemeinschaftsgartens).
 Archiv bleibt ohne E-Mail (REQ-056 E-09). -->
 
+### R-20 — Bodengefahren und bodenbürtige Ausfälle beim Nachpflanzen
+
+```yaml
+id: R-20
+title: Bodengefahren und bodenbürtige Ausfälle beim Nachpflanzen
+detail: fine
+outcomes: [O-2, O-1]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Fällt eine Pflanze aus, unterscheidet der Nachpflanz-Hinweis heute nur grob
+nach Krankheit, Schädling oder unbekannt. Künftig hält der Gärtner fest, ob
+der Ausfall bodenbürtig war; ein bestätigter Befall mit einem dauerhaften
+Bodenerreger (z. B. Kohlhernie, Weißfäule) wird als Bodengefahr des Beets
+gespeichert. Nachpflanz-Hinweis und Fruchtfolgeprüfung warnen dann gezielt
+für die betroffenen Wirtspflanzen und so lange, wie die belegte Anbaupause
+reicht — nie als harte Sperre. Frisches Substrat im Kübel hebt die Warnung
+auf; „dieselbe Saison" richtet sich nach dem Anbaufenster der ersetzten
+Pflanze.
+
+- [ ] F-18 — Wissenstabelle Bodengefahren mit Belegstatus (`soil-hazard-knowledge`) — zuerst, Spec vor Code
+- [ ] F-19 — Ursachenklasse am Ausfall (`failure-cause-class`)
+- [ ] F-20 — Bodengefahren am Beet (`bed-soil-hazards`)
+- [ ] F-21 — Bodengefahren im Nachpflanz-Hinweis (`soil-aware-replant-hint`)
+
+<!-- Herkunft: Issue #2888 (REQ-053 §11.3 W-015 → REQ-054 H-10; issue-backlog-partition
+2026-11-16 → requirements-elicit → roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:
+project/requirements/soil-hazards-replant.md (U_gate 0.8 = τ_high, Sättigung). Fachgrundlage:
+spec/analysis/agrobiology-soil-hazards-research-2888.md. Unabhängig vom REQ-054-Planer
+gebaut, der die Daten später liest. E-10: nur 3/3-belegte Werte steuern die Warndauer;
+Nachrecherche als eigenes Issue. -->
+
 ## Phase 3 — Erweiterung & Intelligenz
 
 ### R-1 — Pflanzenfoto-Galerie
