@@ -143,8 +143,21 @@ services:
 
   # ── Celery Worker ────────────────────────────────────────
   celery-worker:
-    build:
-      context: ./src/backend
+    # One image with `backend` (#2998): the worker runs the identical build
+    # (same context, Dockerfile, no args, no target) and differs only in
+    # `command:` and the disabled healthcheck. Building it as its own service
+    # cost a second image export and a second gha cache export per run — the
+    # Compose/Bake path makes one bake target per service with a `build:`, each
+    # with its own outputs and cache-to, so only the solve was shared.
+    #  * `image:` is Compose's default tag for `backend`
+    #    (`<project>-<service>`); `backend` itself keeps no `image:`, so
+    #    Compose never tries a registry pull for it.
+    #  * `pull_policy: never`: this tag only ever comes from the local build —
+    #    a missing image fails loudly instead of resolving from a registry.
+    #  * `depends_on: backend` puts the builder into every service set that
+    #    starts this worker, so `up --build` rebuilds the tag in the same call.
+    image: ${COMPOSE_PROJECT_NAME}-backend
+    pull_policy: never
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"
@@ -166,6 +179,9 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      # Builds this service's image, see `image:` above.
+      backend:
+        condition: service_started
     command: celery -A app.tasks worker --loglevel=info
     # The worker runs no HTTP server, so the backend image's inherited
     # HTTP healthcheck (curl :8000) can never pass. Disable it — nothing
@@ -443,8 +459,10 @@ services:
 
   # ── Celery Worker (full mode) ────────────────────────────────
   celery-worker-full:
-    build:
-      context: ./src/backend
+    # Same construction as `celery-worker` (#2998): runs the image built by
+    # `backend-full`, never pulled, with the builder in `depends_on`.
+    image: ${COMPOSE_PROJECT_NAME}-backend-full
+    pull_policy: never
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"
@@ -473,6 +491,9 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      # Builds this service's image, see `image:` above.
+      backend-full:
+        condition: service_started
     command: celery -A app.tasks worker --loglevel=info
     # The worker runs no HTTP server, so the backend image's inherited
     # HTTP healthcheck (curl :8000) can never pass. Disable it — nothing

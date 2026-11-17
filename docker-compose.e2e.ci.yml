@@ -7,8 +7,11 @@
 ## Actions runtime env (crazy-max/ghaction-github-runtime) and a buildx
 ## container builder with COMPOSE_BAKE=true.
 ##
-## Cache scopes are shared per build context: backend & celery-worker (and
-## their -full twins) reuse one scope, as do all e2e test-runner variants.
+## Cache scopes are shared per build context: backend and backend-full reuse
+## one scope, as do all e2e test-runner variants. celery-worker and
+## celery-worker-full carry no entry: they build nothing and run the image of
+## backend / backend-full (#2998). An entry here would give them a `build:`
+## section again (context `.`), so none may be added.
 ##
 
 services:
@@ -16,15 +19,7 @@ services:
     build:
       cache_from: ["type=gha,scope=e2e-backend"]
       cache_to: ["type=gha,scope=e2e-backend,mode=max"]
-  celery-worker:
-    build:
-      cache_from: ["type=gha,scope=e2e-backend"]
-      cache_to: ["type=gha,scope=e2e-backend,mode=max"]
   backend-full:
-    build:
-      cache_from: ["type=gha,scope=e2e-backend"]
-      cache_to: ["type=gha,scope=e2e-backend,mode=max"]
-  celery-worker-full:
     build:
       cache_from: ["type=gha,scope=e2e-backend"]
       cache_to: ["type=gha,scope=e2e-backend,mode=max"]
