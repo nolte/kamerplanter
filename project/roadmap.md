@@ -130,6 +130,35 @@ trifft (O-1: Nutzer ohne Vorwissen finden ihre Einstellungen; O-5: Betreiber-
 Einstellungen getrennt von persönlichen). #2934 (Wetter-Abrufintervall) baut auf
 der Gruppe „Installation“ auf. -->
 
+### R-18 — Konfigurierbarer Wetterabruf mit manuellem Start
+
+```yaml
+id: R-18
+title: Konfigurierbarer Wetterabruf mit manuellem Start
+detail: fine
+outcomes: [O-5, O-2]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Der Wetterabruf läuft heute fest einmal täglich um 06:00. Künftig stellt der
+Plattform-Admin das Abrufintervall in Stunden ein (mindestens und
+standardmäßig 6 h, also höchstens viermal täglich), startet bei Bedarf einen
+Abruf von Hand und sieht, wann der letzte erfolgreiche Abruf war und wann der
+nächste ansteht. Nach jedem erfolgreichen Abruf werden Frost-Frühwarnung und
+Bewässerungsbedarf neu berechnet, statt nur einmal am Tag.
+
+- [ ] F-13 — Intervallgesteuerter Wetterabruf mit manuellem Start (`weather-fetch-scheduling`)
+- [ ] F-14 — Wetterabruf-Einstellungen in der Installations-Gruppe (`weather-fetch-settings-ui`) — nach F-11
+
+<!-- Herkunft: Issue #2934 (issue-backlog-partition 2026-11-16 → requirements-elicit →
+roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:
+project/requirements/weather-fetch-interval.md (U_gate 0.8 = τ_high, Sättigung).
+Outcomes: O-5 (Betreiber steuert den Betrieb), O-2 (frischere Frost- und
+Bewässerungsempfehlungen). Sensor-Niederschlag im Bewässerungsbedarf
+ausgegliedert nach #3002. -->
+
 ## Phase 3 — Erweiterung & Intelligenz
 
 ### R-1 — Pflanzenfoto-Galerie
