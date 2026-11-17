@@ -125,8 +125,9 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
             control={control}
             render={({ field }) => (
               <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>{t('pages.tasks.targetEntityTypes')}</InputLabel>
+                <InputLabel id="workflow-create-target-entity-types-label">{t('pages.tasks.targetEntityTypes')}</InputLabel>
                 <Select
+                  labelId="workflow-create-target-entity-types-label"
                   {...field}
                   multiple
                   label={t('pages.tasks.targetEntityTypes')}

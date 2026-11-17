@@ -240,7 +240,7 @@ export default function CropRotationPage() {
   };
 
   return (
-    <>
+    <Box data-testid="crop-rotation-page">
       <PageTitle title={t('pages.cropRotation.title')} />
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -643,8 +643,9 @@ export default function CropRotationPage() {
         maxWidth="sm"
         fullWidth
         data-testid="crop-rotation-dialog"
+        aria-labelledby="crop-rotation-dialog-title"
       >
-        <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
+        <DialogTitle id="crop-rotation-dialog-title">{t('pages.cropRotation.addSuccessor')}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
             {t('pages.cropRotation.addSuccessorHint')}
@@ -681,6 +682,6 @@ export default function CropRotationPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 }

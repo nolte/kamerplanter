@@ -125,7 +125,7 @@ export default function ActivityListPage() {
   ];
 
   return (
-    <>
+    <Box data-testid="activity-list-page">
       <PageTitle
         title={t('pages.activities.title')}
         action={
@@ -224,6 +224,6 @@ export default function ActivityListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => { setCreateOpen(false); dispatch(fetchActivities()); }}
       />
-    </>
+    </Box>
   );
 }

@@ -377,7 +377,17 @@
         "species": "The species list",
         "substrates": "The substrate list"
       }
-    }
+    },
+    "confirmDelete": "Confirm deletion",
+    "created": "Created",
+    "deleted": "Deleted",
+    "error": "An error occurred.",
+    "noSearchResults": "No results found for your search",
+    "notes": "Notes",
+    "switchToDarkTheme": "Switch to dark theme",
+    "switchToLightTheme": "Switch to light theme",
+    "changeLanguage": "Change language",
+    "breadcrumb": "Breadcrumb"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -487,7 +497,8 @@
       "photoQuotaExceeded": "This plant has reached its photo limit. Delete older photos before you upload new ones."
     },
     "slotOccupied": "A plant stands on this planting spot already. Choose another spot or remove that plant first.",
-    "slotAlreadyPlanned": "This planting spot is reserved for a planned planting. Choose another spot."
+    "slotAlreadyPlanned": "This planting spot is reserved for a planned planting. Choose another spot.",
+    "generic": "Something went wrong. Please try again."
   },
   "validation": {
     "required": "This field is required.",
@@ -505,7 +516,8 @@
     "url": "Please enter a valid URL.",
     "invalidFormat": "Invalid format.",
     "invalidOption": "Please choose a valid option.",
-    "invalid": "Invalid input."
+    "invalid": "Invalid input.",
+    "botanicalFamilySuffix": "Must end with “-aceae”."
   },
   "entities": {
     "botanicalFamily": "Botanical Family",

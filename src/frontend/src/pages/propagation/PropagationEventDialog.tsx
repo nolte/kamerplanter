@@ -122,8 +122,8 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle>{t('pages.propagation.createEvent')}</DialogTitle>
+    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="propagation-event-dialog" aria-labelledby="propagation-event-dialog-title">
+      <DialogTitle id="propagation-event-dialog-title">{t('pages.propagation.createEvent')}</DialogTitle>
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>

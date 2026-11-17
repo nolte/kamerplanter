@@ -339,6 +339,7 @@ export default function DataTable<T>({
                   </InputAdornment>
                 ),
               },
+              htmlInput: { 'aria-label': t('table.searchPlaceholder') },
             }}
             sx={{ minWidth: 200, maxWidth: 300 }}
             data-testid="table-search-input"
@@ -404,6 +405,7 @@ export default function DataTable<T>({
                 }),
               }}
               data-testid="data-table-row"
+              data-row-key={getRowKey(row)}
             >
               {mobileCardRenderer(row)}
             </Box>
@@ -497,6 +499,7 @@ export default function DataTable<T>({
                       }),
                     }}
                     data-testid="data-table-row"
+                    data-row-key={getRowKey(row)}
                   >
                     {columns.map((col) => {
                       const responsiveSx = col.hideBelowBreakpoint

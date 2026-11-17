@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 /**
  * Browser landing for the light-mode instance-discovery deep link (#1118 P13).
@@ -27,6 +28,7 @@ import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
  */
 export default function ConnectLandingPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.connectLanding.title'));
   const navigate = useNavigate();
 
   const handleContinue = useCallback(() => {

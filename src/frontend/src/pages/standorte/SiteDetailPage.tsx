@@ -267,7 +267,7 @@ export default function SiteDetailPage() {
                 </Button>
               )}
               {canDelete && (
-                <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="site-delete-button">
+                <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="site-delete-button">
                   {t('common.delete')}
                 </Button>
               )}

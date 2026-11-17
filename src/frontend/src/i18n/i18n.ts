@@ -123,8 +123,23 @@ export function markFeatureLocaleLoaded(locale: SupportedLocale): void {
 // switches locale, load that locale's bundles on demand. Fire-and-forget — the
 // LanguageSelector preloads on menu open, so the switch itself stays instant.
 i18n.on('languageChanged', (lng) => {
+  syncDocumentLang(lng);
   void loadFeatureNamespaces(toSupportedLocale(lng)).catch(() => undefined);
 });
+
+/**
+ * Mirror the active language onto `<html lang>` (language part only, e.g. `de`)
+ * so screen readers pick the right pronunciation and the browser offers the
+ * right hyphenation / translation behaviour (WCAG 3.1.1).
+ */
+function syncDocumentLang(lng: string | undefined): void {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = toSupportedLocale(lng);
+}
+
+// The instance initialises synchronously (`initAsync: false`), so the resolved
+// language is already known here — set the initial `<html lang>` once.
+syncDocumentLang(i18n.resolvedLanguage ?? i18n.language);
 
 /**
  * Load every feature namespace required for the first paint: the active locale

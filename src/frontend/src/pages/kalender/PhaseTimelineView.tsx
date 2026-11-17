@@ -506,7 +506,7 @@ function PlantPhaseRow({
                     {'\n'}
                     {bar.phaseName}: {formatDate(bar.startDay)} – {formatDate(bar.endDay)}
                     {bar.status === 'projected' ? ` (${t('pages.calendar.phaseTimeline.projected')})` : ''}
-                    {bar.isOngoing && bar.status !== 'projected' ? ` (\u2026)` : ''}
+                    {bar.isOngoing && bar.status !== 'projected' ? ` (…)` : ''}
                   </Box>
                 }
                 arrow

@@ -45,7 +45,7 @@ export default function TenantCreatePage() {
   };
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
+    <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }} data-testid="tenant-create-page">
       <PageTitle title={t('pages.tenants.createOrganization')} />
       <Card>
         <CardContent>

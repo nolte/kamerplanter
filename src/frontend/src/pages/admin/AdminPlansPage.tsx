@@ -174,7 +174,7 @@ export default function AdminPlansPage() {
   );
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: 2 }} data-testid="admin-plans-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <IconButton onClick={() => navigate('/settings#platform')} sx={TOUCH_SX} aria-label={t('pages.plans.back')} data-testid="plans-back">
           <ArrowBackIcon />

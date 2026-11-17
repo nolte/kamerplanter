@@ -22,7 +22,7 @@ describe('LanguageSelector', () => {
     await i18n.changeLanguage('de');
     renderWithProviders(<LanguageSelector />);
 
-    await user.click(screen.getByRole('button', { name: 'change language' }));
+    await user.click(screen.getByRole('button', { name: i18n.t('common.changeLanguage') }));
 
     const german = screen.getByRole('menuitem', { name: 'Deutsch' });
     const english = screen.getByRole('menuitem', { name: 'English' });
@@ -38,7 +38,7 @@ describe('LanguageSelector', () => {
     await i18n.changeLanguage('de');
     renderWithProviders(<LanguageSelector />);
 
-    await user.click(screen.getByRole('button', { name: 'change language' }));
+    await user.click(screen.getByRole('button', { name: i18n.t('common.changeLanguage') }));
     await user.click(screen.getByRole('menuitem', { name: 'English' }));
 
     expect(i18n.language).toBe('en');
@@ -51,7 +51,7 @@ describe('LanguageSelector', () => {
     await i18n.changeLanguage('de');
     renderWithProviders(<LanguageSelector />);
 
-    await user.click(screen.getByRole('button', { name: 'change language' }));
+    await user.click(screen.getByRole('button', { name: i18n.t('common.changeLanguage') }));
     expect(screen.getByRole('menuitem', { name: 'Deutsch' })).toBeInTheDocument();
 
     // Escape triggers the Menu onClose handler.

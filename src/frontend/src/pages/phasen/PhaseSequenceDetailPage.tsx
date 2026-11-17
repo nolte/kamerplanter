@@ -138,6 +138,7 @@ function EditSequenceDialog({
       maxWidth="sm"
       fullWidth
       aria-labelledby="edit-sequence-dialog-title"
+      data-testid="edit-sequence-dialog"
     >
       <DialogTitle id="edit-sequence-dialog-title">
         {t('pages.phaseSequences.editSequence')}
@@ -247,6 +248,7 @@ function CloneSequenceDialog({
       maxWidth="sm"
       fullWidth
       aria-labelledby="clone-sequence-dialog-title"
+      data-testid="clone-sequence-dialog"
     >
       <DialogTitle id="clone-sequence-dialog-title">
         {t('pages.phaseSequences.duplicateSequence')}

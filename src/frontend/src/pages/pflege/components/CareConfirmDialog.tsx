@@ -215,7 +215,15 @@ export default function CareConfirmDialog({
               <Typography variant="subtitle2" color="text.secondary">
                 {t('pages.pflege.feedingDetails')}
               </Typography>
-              <IconButton size="small">
+              <IconButton
+                size="small"
+                aria-label={
+                  feedingExpanded
+                    ? t('pages.pflege.collapseFeedingDetails')
+                    : t('pages.pflege.expandFeedingDetails')
+                }
+                aria-expanded={feedingExpanded}
+              >
                 {feedingExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
             </Box>

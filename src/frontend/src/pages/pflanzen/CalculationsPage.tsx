@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import PageTitle from '@/components/layout/PageTitle';
@@ -18,7 +19,7 @@ export default function CalculationsPage() {
   const { t } = useTranslation();
 
   return (
-    <>
+    <Box data-testid="calculations-page">
       <PageTitle title={t('pages.calculations.title')} />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         {t('pages.calculations.intro')}
@@ -41,6 +42,6 @@ export default function CalculationsPage() {
           <SunTimesCalculatorCard />
         </Grid>
       </Grid>
-    </>
+    </Box>
   );
 }

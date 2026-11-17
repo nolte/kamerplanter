@@ -1551,8 +1551,9 @@ export default function TaskQueuePage() {
 
           {sourceFilter !== 'care' && (
             <FormControl size="small" sx={{ minWidth: 160, flex: '1 1 160px', maxWidth: 240 }}>
-              <InputLabel>{t('pages.tasks.filterByCategory')}</InputLabel>
+              <InputLabel id="task-queue-category-filter-label">{t('pages.tasks.filterByCategory')}</InputLabel>
               <Select
+                labelId="task-queue-category-filter-label"
                 value={filterCategory ?? ''}
                 label={t('pages.tasks.filterByCategory')}
                 onChange={(e) => setFilterCategory(e.target.value)}

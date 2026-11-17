@@ -360,7 +360,7 @@ export default function TenantSettingsPage() {
   }
 
   return (
-    <Box>
+    <Box data-testid="tenant-settings-page">
       <PageTitle title={`${activeTenant.name} — ${t('pages.tenants.settings')}`} />
       <ScheduledTenantDeletionsCard />
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>

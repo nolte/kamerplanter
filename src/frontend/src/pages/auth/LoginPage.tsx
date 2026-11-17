@@ -23,9 +23,11 @@ import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
 import { forgetPendingInvitation, pendingInvitationToken, postLoginPath } from '@/utils/pendingInvitation';
 import { forgetLoginReturn, rememberLoginReturn, returnToFromSearch } from '@/utils/loginReturn';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function LoginPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.login'));
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, error, isAuthenticated } = useAppSelector((s) => s.auth);
@@ -84,7 +86,7 @@ export default function LoginPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }} data-testid="login-page">
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h5" gutterBottom align="center">

@@ -184,7 +184,7 @@ export default function CompanionPlantingPage() {
   };
 
   return (
-    <>
+    <Box data-testid="companion-planting-page">
       <PageTitle title={t('pages.companionPlanting.title')} />
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -524,8 +524,9 @@ export default function CompanionPlantingPage() {
         maxWidth="sm"
         fullWidth
         data-testid="companion-planting-dialog"
+        aria-labelledby="companion-planting-dialog-title"
       >
-        <DialogTitle>
+        <DialogTitle id="companion-planting-dialog-title">
           {dialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')
             : t('pages.companionPlanting.addIncompatible')}
@@ -582,6 +583,6 @@ export default function CompanionPlantingPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 }

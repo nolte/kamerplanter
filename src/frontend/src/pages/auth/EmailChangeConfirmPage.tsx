@@ -14,6 +14,7 @@ import { confirmEmailChange } from '@/api/endpoints/privacy';
 import { isApiError } from '@/api/errors';
 import { useAppDispatch } from '@/store/hooks';
 import { clearAuth } from '@/store/slices/authSlice';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 type ConfirmStatus = 'idle' | 'pending' | 'success' | 'invalid' | 'error';
 
@@ -41,6 +42,7 @@ const CONFIRM_STEPS = [
  */
 export default function EmailChangeConfirmPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.emailChange.confirmTitle'));
   const dispatch = useAppDispatch();
   const { token } = useParams<{ token: string }>();
   const [status, setStatus] = useState<ConfirmStatus>(() => (token ? 'idle' : 'invalid'));

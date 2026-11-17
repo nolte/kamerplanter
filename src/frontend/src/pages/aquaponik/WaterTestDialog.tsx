@@ -95,8 +95,8 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle>{t('pages.aquaponik.recordWaterTest')}</DialogTitle>
+    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="water-test-dialog" aria-labelledby="water-test-dialog-title">
+      <DialogTitle id="water-test-dialog-title">{t('pages.aquaponik.recordWaterTest')}</DialogTitle>
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>

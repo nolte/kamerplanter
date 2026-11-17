@@ -116,13 +116,13 @@ export default function BatchDetailPage() {
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
   return (
-    <>
+    <Box data-testid="substrate-batch-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
         title={batch?.batch_id ?? t('entities.batch')}
         action={
           canDeleteBatch ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-batch-delete-button">
+            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-batch-delete-button">
               {t('common.delete')}
             </Button>
           ) : undefined
@@ -170,6 +170,6 @@ export default function BatchDetailPage() {
         destructive
         loading={deleting}
       />
-    </>
+    </Box>
   );
 }

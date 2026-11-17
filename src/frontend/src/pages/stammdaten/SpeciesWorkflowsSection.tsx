@@ -253,8 +253,8 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
       )}
 
       {/* Create empty workflow dialog */}
-      <Dialog fullScreen={fullScreen} open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('pages.species.createWorkflow')}</DialogTitle>
+      <Dialog fullScreen={fullScreen} open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth data-testid="species-create-workflow-dialog" aria-labelledby="species-create-workflow-dialog-title">
+        <DialogTitle id="species-create-workflow-dialog-title">{t('pages.species.createWorkflow')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -282,8 +282,10 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
         onClose={() => setDuplicateSource(null)}
         maxWidth="sm"
         fullWidth
+        data-testid="species-duplicate-workflow-dialog"
+        aria-labelledby="species-duplicate-workflow-dialog-title"
       >
-        <DialogTitle>{t('pages.species.duplicateWorkflow')}</DialogTitle>
+        <DialogTitle id="species-duplicate-workflow-dialog-title">{t('pages.species.duplicateWorkflow')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.species.duplicateWorkflowDescription', { name: duplicateSource?.name ?? '' })}

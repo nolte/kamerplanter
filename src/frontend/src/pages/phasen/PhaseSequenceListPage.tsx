@@ -112,6 +112,7 @@ function CreateSequenceDialog({
       maxWidth="sm"
       fullWidth
       aria-labelledby="create-sequence-dialog-title"
+      data-testid="create-sequence-dialog"
     >
       <DialogTitle id="create-sequence-dialog-title">
         {t('pages.phaseSequences.createSequence')}

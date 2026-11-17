@@ -1929,7 +1929,7 @@ export default function AccountSettingsPage() {
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   <Typography variant="body2" sx={{ fontWeight: 500 }}>{tenant.name}</Typography>
                                   {tenant.is_platform && (
-                                    <Chip label="Platform" size="small" color="warning" variant="outlined" />
+                                    <Chip label={t('pages.auth.platformChip')} size="small" color="warning" variant="outlined" />
                                   )}
                                 </Box>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
@@ -2162,8 +2162,9 @@ export default function AccountSettingsPage() {
         maxWidth="sm"
         fullWidth
         data-testid="api-key-label-dialog"
+        aria-labelledby="api-key-label-dialog-title"
       >
-        <DialogTitle>{t('pages.auth.createApiKey')}</DialogTitle>
+        <DialogTitle id="api-key-label-dialog-title">{t('pages.auth.createApiKey')}</DialogTitle>
         <DialogContent>
           <TextField
             label={t('pages.auth.apiKeyLabel')}
@@ -2189,8 +2190,8 @@ export default function AccountSettingsPage() {
       </Dialog>
 
       {/* HA Reset Dialog */}
-      <Dialog fullScreen={fullScreen} open={haResetOpen} onClose={() => setHaResetOpen(false)}>
-        <DialogTitle>{t('pages.admin.resetToDefaults')}</DialogTitle>
+      <Dialog fullScreen={fullScreen} open={haResetOpen} onClose={() => setHaResetOpen(false)} data-testid="ha-reset-dialog" aria-labelledby="ha-reset-dialog-title">
+        <DialogTitle id="ha-reset-dialog-title">{t('pages.admin.resetToDefaults')}</DialogTitle>
         <DialogContent>
           <DialogContentText>{t('pages.admin.resetConfirm')}</DialogContentText>
         </DialogContent>
@@ -2209,6 +2210,7 @@ export default function AccountSettingsPage() {
         onClose={() => setPlantnetResetOpen(false)}
         aria-labelledby="plantnet-reset-dialog-title"
         aria-describedby="plantnet-reset-dialog-desc"
+        data-testid="plantnet-reset-dialog"
       >
         <DialogTitle id="plantnet-reset-dialog-title">
           {t('pages.admin.plantnetResetDialogTitle')}

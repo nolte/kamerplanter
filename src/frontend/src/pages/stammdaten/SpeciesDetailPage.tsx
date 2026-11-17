@@ -4,6 +4,7 @@ import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -186,7 +187,7 @@ export default function SpeciesDetailPage() {
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
   return (
-    <>
+    <Box data-testid="species-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
         title={current?.scientific_name ?? t('entities.species')}
@@ -360,6 +361,6 @@ export default function SpeciesDetailPage() {
           initialSpeciesKey={key}
         />
       )}
-    </>
+    </Box>
   );
 }

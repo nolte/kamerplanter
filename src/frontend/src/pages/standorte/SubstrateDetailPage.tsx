@@ -257,7 +257,7 @@ export default function SubstrateDetailPage() {
           )}
         </Box>
         {canDeleteSubstrate && (
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-delete-button">
+          <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-delete-button">
             {t('common.delete')}
           </Button>
         )}

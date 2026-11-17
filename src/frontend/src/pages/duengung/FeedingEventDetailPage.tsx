@@ -229,6 +229,7 @@ export default function FeedingEventDetailPage() {
         action={
           canDelete ? (
             <Button
+              variant="outlined"
               color="error"
               startIcon={<DeleteIcon />}
               onClick={() => setDeleteOpen(true)}

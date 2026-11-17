@@ -584,6 +584,7 @@ export default function PlantingRunDetailPage() {
               </Button>
               {canDelete && (
                 <Button
+                  variant="outlined"
                   color="error"
                   startIcon={<DeleteIcon />}
                   onClick={() => setDeleteOpen(true)}
@@ -874,8 +875,10 @@ export default function PlantingRunDetailPage() {
         onClose={() => setEndRunOpen(false)}
         maxWidth="xs"
         fullWidth
+        data-testid="end-run-dialog"
+        aria-labelledby="end-run-dialog-title"
       >
-        <DialogTitle>{t('pages.plantingRuns.endRun')}</DialogTitle>
+        <DialogTitle id="end-run-dialog-title">{t('pages.plantingRuns.endRun')}</DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 2 }}>
             {t('pages.plantingRuns.endRunConfirm', {

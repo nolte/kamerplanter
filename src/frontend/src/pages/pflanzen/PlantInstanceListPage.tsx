@@ -203,7 +203,7 @@ export default function PlantInstanceListPage() {
             const site = siteMap.get(location.site_key);
             const parts = [site?.name, location.name, slot.slot_id].filter(Boolean);
             return (
-              <Tooltip arrow title={parts.join(' \u203A ')}>
+              <Tooltip arrow title={parts.join(' › ')}>
                 <span>{location.name}</span>
               </Tooltip>
             );
@@ -216,7 +216,7 @@ export default function PlantInstanceListPage() {
             const site = siteMap.get(location.site_key);
             const parts = [site?.name, location.name].filter(Boolean);
             return (
-              <Tooltip arrow title={parts.join(' \u203A ')}>
+              <Tooltip arrow title={parts.join(' › ')}>
                 <span>{location.name}</span>
               </Tooltip>
             );

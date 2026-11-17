@@ -130,6 +130,7 @@ export default function PhaseDefinitionDialog({
       maxWidth="sm"
       fullWidth
       aria-labelledby="phase-definition-dialog-title"
+      data-testid="phase-definition-dialog"
     >
       <DialogTitle id="phase-definition-dialog-title">
         {isEdit

@@ -12,13 +12,13 @@ describe('Breadcrumbs', () => {
 
   it('renders nothing on an unmapped route with no dynamic crumbs', () => {
     const { container } = renderWithProviders(<Breadcrumbs />, { route: '/unknown-path' });
-    expect(container.querySelector('nav[aria-label="breadcrumb"]')).toBeNull();
+    expect(container.querySelector('nav')).toBeNull();
   });
 
   it('renders static path-based crumbs with a linked parent and a plain current page', () => {
     renderWithProviders(<Breadcrumbs />, { route: '/pflanzen/plant-instances' });
 
-    const nav = screen.getByLabelText('breadcrumb');
+    const nav = screen.getByLabelText(i18n.t('common.breadcrumb'));
     expect(nav).toBeInTheDocument();
 
     // Parent (Dashboard) is a router link; the current page is plain text.

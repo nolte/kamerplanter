@@ -267,8 +267,8 @@ export function WateringRoundDialog({ open, zone, plan, onClose, onLogged }: Pro
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm" data-testid="garden-plan-round-dialog">
-      <DialogTitle>{t(`${PREFIX}.round.title`, { name: zone.name })}</DialogTitle>
+    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm" data-testid="garden-plan-round-dialog" aria-labelledby="garden-plan-round-dialog-title">
+      <DialogTitle id="garden-plan-round-dialog-title">{t(`${PREFIX}.round.title`, { name: zone.name })}</DialogTitle>
       {body()}
     </Dialog>
   );

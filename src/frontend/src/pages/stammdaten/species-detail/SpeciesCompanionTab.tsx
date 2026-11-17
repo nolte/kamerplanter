@@ -309,8 +309,10 @@ export default function SpeciesCompanionTab({
         onClose={() => setCompanionDialogType(null)}
         maxWidth="sm"
         fullWidth
+        data-testid="species-companion-dialog"
+        aria-labelledby="species-companion-dialog-title"
       >
-        <DialogTitle>
+        <DialogTitle id="species-companion-dialog-title">
           {companionDialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')
             : t('pages.companionPlanting.addIncompatible')}
