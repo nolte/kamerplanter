@@ -105,10 +105,12 @@ id: R-17
 title: Einstellungsseite in Gruppen mit Seitennavigation umbauen
 detail: fine
 outcomes: [O-1, O-5]
-target_sprint: null
-mvp: false
+target_sprint: 3
+mvp: true
 status: proposed
 ```
+
+**MVP-Flip (Operator-Entscheid 2026-11-17):** `mvp: false → true`, damit Sprint 0003 starten kann. Erlaubt, weil `mvp_status` (mission.md) noch `in_progress` ist; gleiches Vorgehen wie bei R-14 (2026-08-09).
 
 Die Einstellungsseite verliert ihre horizontal scrollende Leiste mit bis zu 14
 Tabs. Stattdessen gliedert eine Seitennavigation (Desktop) bzw. eine
@@ -137,10 +139,12 @@ id: R-18
 title: Konfigurierbarer Wetterabruf mit manuellem Start
 detail: fine
 outcomes: [O-5, O-2]
-target_sprint: null
-mvp: false
+target_sprint: 3
+mvp: true
 status: proposed
 ```
+
+**MVP-Flip (Operator-Entscheid 2026-11-17):** `mvp: false → true`, damit Sprint 0003 starten kann. Erlaubt, weil `mvp_status` (mission.md) noch `in_progress` ist; gleiches Vorgehen wie bei R-14 (2026-08-09).
 
 Der Wetterabruf läuft heute fest einmal täglich um 06:00. Künftig stellt der
 Plattform-Admin das Abrufintervall in Stunden ein (mindestens und

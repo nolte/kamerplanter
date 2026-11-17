@@ -1,12 +1,12 @@
 ---
 id: F-14
 title: Wetterabruf-Einstellungen in der Installations-Gruppe
-status: draft
+status: ready
 roadmap_item: R-18
-sprint: null
+sprint: 3
 created: 2026-11-17
 ended: null
-verifies_sprint_value: null
+verifies_sprint_value: acceptance-2
 consistency_check:
   performed_at: 2026-11-17
   agent_version: feature-consistency-reviewer@6b9b769c6
