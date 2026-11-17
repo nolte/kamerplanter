@@ -73,7 +73,6 @@ export default function RouterErrorPage() {
 
       <Typography
         variant="h1"
-        component="p"
         sx={{
           fontSize: { xs: '3.5rem', md: '5rem' },
           fontWeight: 700,
