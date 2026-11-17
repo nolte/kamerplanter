@@ -159,6 +159,36 @@ Outcomes: O-5 (Betreiber steuert den Betrieb), O-2 (frischere Frost- und
 Bewässerungsempfehlungen). Sensor-Niederschlag im Bewässerungsbedarf
 ausgegliedert nach #3002. -->
 
+### R-19 — Mandanten-Export/-Import vollständig und in realistischer Größe
+
+```yaml
+id: R-19
+title: Mandanten-Export/-Import vollständig und in realistischer Größe
+detail: fine
+outcomes: [O-5, O-4]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Export und Import eines Mandanten sind geliefert (#2267 ff.), stellen einen
+Garten aber noch nicht vollständig und nur bis rund 50 MiB wieder her.
+Künftig kommen Archive bis etwa 500 MiB durch (größere werden verständlich
+abgelehnt), die Sensor-Historie (Rohdaten, Stunden- und Tageswerte) wird beim
+Import mit wiederhergestellt, und der Plattform-Admin prüft ein Archiv vorab,
+ordnet die Mitglieder per E-Mail des Zielkontos zu und sieht frühere Importe
+in einer Liste.
+
+- [ ] F-15 — Archivgrößen bis ~500 MiB mit klarer Grenze (`tenant-archive-size-limits`)
+- [ ] F-16 — Sensor-Historie beim Import wiederherstellen (`tenant-readings-import`)
+- [ ] F-17 — Import-Vorprüfung mit E-Mail-Zuordnung und Importliste (`tenant-import-preflight`) — nach F-15
+
+<!-- Herkunft: Issue #2138 (MT-042; issue-backlog-partition 2026-11-16 → requirements-elicit →
+roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:
+project/requirements/tenant-export-import-remainder.md (U_gate 0.8 = τ_high, Sättigung).
+Outcomes: O-5 (Backups/Wiederherstellung), O-4 (Umzug eines Gemeinschaftsgartens).
+Archiv bleibt ohne E-Mail (REQ-056 E-09). -->
+
 ## Phase 3 — Erweiterung & Intelligenz
 
 ### R-1 — Pflanzenfoto-Galerie
