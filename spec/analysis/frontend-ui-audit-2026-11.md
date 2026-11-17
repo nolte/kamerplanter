@@ -227,7 +227,7 @@ Pfade sind relativ zu `src/frontend/src/`, sofern nicht anders angegeben. Mini-F
 | N-31 | low | 008 R-025 | Legende in 18 von ~61 Formularen | — |
 | N-32 | low | 008 R-049 | = F-006 | — |
 | N-33 | medium | 017 R-009, 021 R-010 | 11 Seitenkopf-Buttons, z. B. `pages/standorte/BatchDetailPage.tsx:125`, `pages/stammdaten/ActivityDetailPage.tsx:229` | Destruktive Aktion als roter Text-Button statt `outlined`. |
-| N-34 | medium | 017 R-001/R-002 | `pages/ErrorPage.tsx:79`, `pages/RouterErrorPage.tsx:75` (zweites h1); `pages/stammdaten/ImportPage.tsx:95`, `features/gardenPlanner/field/FieldModeView.tsx:223`, `pages/kiosk/KioskStartPage.tsx:74` | — |
+| N-34 | medium | 017 R-001/R-002 | `pages/ErrorPage.tsx:79` (zweites h1; `RouterErrorPage` ist bei der Gegenprüfung ausgeschieden); `pages/stammdaten/ImportPage.tsx:95`, `features/gardenPlanner/field/FieldModeView.tsx:223`, `pages/kiosk/KioskStartPage.tsx:74` | — |
 | N-35 | low | 017 R-035 | 5× `Tabs mb:3` vs. 13× `mb:2` | — |
 | N-36 | medium | 021 R-016/R-022/R-024 | `components/layout/PageHeaderActions.tsx:136-147`; 10 Nutzer vs. 73 `PageTitle action=` | Kein Overflow, keine 48-px-Mindestgröße für die meisten Seiten. |
 | N-37 | medium | 019 R-017/R-021/R-033 | `pages/kiosk/KioskStartPage.tsx:43-64`; `useKioskTimeout` nur in `layouts/KioskLayout.tsx:23` | Die Kacheln führen in die normale Oberfläche, dort greift der Timeout nicht mehr. |
@@ -428,7 +428,7 @@ Grundlage sind die 29 Befunde aus beiden April-Reports. Die zitierten UI-NFR-Reg
 
 ## Im Branch behobene Mini-Fixes
 
-Umgesetzt in PR #3026 (81 Dateien). Alle Fixes sind verhaltensneutral. Bestehende `data-testid` sind unverändert, neue sind nur hinzugekommen (UI-NFR-022 R-021). Geprüft wurde mit `tsc` (0 Fehler), ESLint auf allen geänderten Dateien (0 Fehler) und 41 betroffenen Vitest-Dateien (alle grün). Vier Test-Assertions wurden minimal angepasst, weil sie die alte, falsche Ausgabe geprüft hatten: Breadcrumbs, LanguageSelector, ThemeToggle und BotanicalFamilyCreateDialog.
+Umgesetzt in PR #3026 (82 Dateien unter `src/frontend/`). Die Fixes sind verhaltensneutral, mit drei bewussten Ausnahmen: Die DataTable reagiert jetzt auf Space und löst bei Tasten auf Zeilenaktionen nicht mehr zusätzlich die Zeile aus, Name und Ziel des Manifest-Shortcuts haben sich geändert, und die Kopie-Bezeichnung ist jetzt übersetzt. Bestehende `data-testid` sind unverändert, neue sind nur hinzugekommen (UI-NFR-022 R-021). Geprüft wurde mit `tsc` (0 Fehler), ESLint auf allen geänderten Dateien (0 Fehler) und 41 betroffenen Vitest-Dateien (alle grün). Vier Test-Assertions wurden minimal angepasst, weil sie die alte, falsche Ausgabe geprüft hatten: Breadcrumbs, LanguageSelector, ThemeToggle und BotanicalFamilyCreateDialog.
 
 | Befund | Fix |
 |---|---|
@@ -438,7 +438,7 @@ Umgesetzt in PR #3026 (81 Dateien). Alle Fixes sind verhaltensneutral. Bestehend
 | W-05, L-05 | Das DataTable-Suchfeld hat einen zugänglichen Namen. |
 | I-03, F-011, A-19 | „Platform"-Chip, „Key"-Label, die Zod-Meldung „-aceae" (`validation.botanicalFamilySuffix`, wird beim Validieren aufgelöst) und „(Kopie)" laufen über i18n. |
 | A-20 | Eigene Keys für die Buttons „Vorheriger Monat" und „Nächster Monat". |
-| N-34 (Fehlerseiten) | Das dekorative h1 auf ErrorPage und RouterErrorPage ist jetzt ein `<p>`. |
+| N-34 (ErrorPage) | Die dekorative Statuszahl auf ErrorPage ist jetzt ein `<p>` mit `aria-hidden`, das einzige h1 ist PageTitle. RouterErrorPage bleibt unverändert, weil sie kein PageTitle hat und die Statuszahl dort das einzige h1 ist. Der Befund war für diese Seite falsch. |
 | F-006, N-32 | Sichtbare Unicode-Escapes (–, °, ›, ·, …) sind durch die echten Zeichen ersetzt. |
 | L-04 | Filter-Selects sind per `labelId` und `id` benannt: TaskQueuePage, AdminEditUser, AdminEditTenant, WorkflowCreateDialog, WorkflowDetailPage. |
 | T-01 (Teil) | `data-row-key` an DataTable-Zeilen und Mobile-Karten. Die Page Objects stellen noch nicht darauf um (#3024). |
@@ -448,7 +448,7 @@ Umgesetzt in PR #3026 (81 Dateien). Alle Fixes sind verhaltensneutral. Bestehend
 | N-33 | 10 Lösch-Buttons im Seitenkopf haben jetzt `variant="outlined"`. |
 | N-15, W-06 (Teil) | 10 Auth-Seiten setzen `document.title` über `useDocumentTitle`. |
 | W-01/L-06 (Teil) | DataTable-Zeilen und -Karten reagieren auf Enter und Space, aber nur, wenn die Zeile selbst das Ziel ist, und ohne Key-Repeat. Enter auf einer Zeilenaktion löst die Zeile nicht mehr zusätzlich aus. Abgesichert durch zwei neue Tests und eine Gegenprobe. Rolle und Name der Zeile bleiben offen (#3017). |
-| L-15, W-33 (Teil) | Der Manifest-Shortcut „Aussaatkalender" zeigt auf `/kalender` statt auf die nicht existierende Route `/kalender/aussaat`. |
+| L-15, W-33 (Teil) | Der Manifest-Shortcut zeigte auf die nicht existierende Route `/kalender/aussaat`. Er heißt jetzt „Kalender" und zeigt auf `/kalender`. Ein Deep-Link in die Aussaatansicht kommt mit #3018, sobald der viewMode über die URL steuerbar ist (N-19). |
 
 **Nicht als Mini-Fix umgesetzt:**
 

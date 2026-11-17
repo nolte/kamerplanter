@@ -85,7 +85,8 @@ export default function ErrorPage({ statusCode = 500, onRetry, landmark = true }
           color: 'text.secondary',
           mb: 1,
         }}
-        aria-label={title}
+        // Decorative: the PageTitle h1 above already names the error.
+        aria-hidden="true"
       >
         {statusCode}
       </Typography>

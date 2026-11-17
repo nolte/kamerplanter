@@ -31,9 +31,9 @@
       "description": "Heute fällige Pflegeaufgaben"
     },
     {
-      "name": "Aussaatkalender",
+      "name": "Kalender",
       "url": "/kalender",
-      "description": "Saisonale Aussaatplanung"
+      "description": "Termine und Saisonplanung"
     }
   ],
   "screenshots": [],
