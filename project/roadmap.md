@@ -105,7 +105,7 @@ id: R-17
 title: Einstellungsseite in Gruppen mit Seitennavigation umbauen
 detail: fine
 outcomes: [O-1, O-5]
-target_sprint: null
+target_sprint: 3
 mvp: false
 status: proposed
 ```
@@ -137,7 +137,7 @@ id: R-18
 title: Konfigurierbarer Wetterabruf mit manuellem Start
 detail: fine
 outcomes: [O-5, O-2]
-target_sprint: null
+target_sprint: 3
 mvp: false
 status: proposed
 ```
