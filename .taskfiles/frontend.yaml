@@ -79,11 +79,11 @@ tasks:
 
   bundle:check:
     desc: |
-      Bundle-budget gate — the CI job's exact sequence (frontend.yml
-      bundle-budget): production build, then check the initial payload against
-      the recorded budget (UI-NFR-003). This job is a hard gate in CI and
-      blocks automerge on breach, so run it locally before touching heavy
-      imports or route-level code splitting.
+      Bundle-budget gate — the first half of the CI job (frontend.yml
+      lighthouse, check `Bundle budget and Lighthouse CI`): production build,
+      then check the initial payload against the recorded budget (UI-NFR-003).
+      A breach turns that advisory job red, so run it locally before touching
+      heavy imports or route-level code splitting.
     deps: [build:frontend]
     dir: src/frontend
     cmds:
@@ -91,9 +91,9 @@ tasks:
 
   lighthouse:
     desc: |
-      Lighthouse CI run — the advisory CI job's exact sequence (frontend.yml
-      lighthouse): production build, then `lhci autorun` against the built
-      bundle.
+      Lighthouse CI run — the second half of the advisory CI job (frontend.yml
+      lighthouse, check `Bundle budget and Lighthouse CI`): production build,
+      then `lhci autorun` against the built bundle.
     deps: [build:frontend]
     dir: src/frontend
     cmds:

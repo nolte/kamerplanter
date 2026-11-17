@@ -215,19 +215,43 @@ jobs:
           path: src/frontend/dist/
           retention-days: 7
 
-  # UI-NFR-003 R-013/R-014/R-015/R-028 — hard gate on the initial payload size.
-  # Standalone job (does not touch the required `static` check) so a budget
-  # breach fails visibly without deadlocking automerge.
+  # UI-NFR-003 — the two performance gates over ONE production build (#2997, audit
+  # .audits/cicd-audit/2026-10-31-pr-redundancy-audit.md §7.3). They used to be two jobs,
+  # `bundle-budget` and `lighthouse`, with byte-identical `if:` and the same `npm ci` plus
+  # `npm run build`; merging them saves one install, one build and one job slot per frontend
+  # pull request. The job id stays `lighthouse` so its lane-input manifest keeps describing a
+  # live job; the check name changes from `Lighthouse CI` / `Bundle budget` to the one below.
   #
-  # Gated on the `frontend` change detection like `lighthouse`
-  # (#1741). Until then it was the one job here without it, so every pull
-  # request — backend-only ones included — paid `npm ci` plus a production
-  # build for a budget no change of theirs could move: 1m0s on #1726, 1m5s on
-  # #1736, 1m1s on #1739. It is advisory, so a skipped job reporting success is
-  # the whole cost of the gate; the `needs.changes.result` clause keeps a failed
-  # detector from turning into that silent pass.
-  bundle-budget:
-    name: Bundle budget
+  # Bundle budget (UI-NFR-003 R-013/R-014/R-015/R-028) — hard gate on the initial payload size.
+  # A breach turns this job red.
+  #
+  # Lighthouse (UI-NFR-003 R-001..005) — Core Web Vitals measurement (mobile, 4G emulation).
+  # The `categories:accessibility` assertion in lighthouserc.json is ERROR-level at a measured,
+  # computed baseline-and-ratchet floor (0.98, measured 2026-08-09 over the static dist;
+  # NFR-018 §2.1). `lhci assert` returns nonzero and this job goes RED on an accessibility
+  # regression below the floor — it is no longer a gate that cannot fail (#1060). There is
+  # deliberately NO job-level `continue-on-error`, so the red is real. The performance
+  # assertions remain warn-level (report-only) until their own baseline is stable.
+  #
+  # One job, two verdicts: `Run Lighthouse CI` runs `if: !cancelled()` and only on a
+  # successful build, so a budget breach does not skip the Lighthouse measurement — both
+  # results land in the same run, and the job is red if either one is.
+  #
+  # ADVISORY regardless: branch protection requires `static / Static CI Tests`,
+  # `lint-test-build (22)`, `Write-route and tree guards` and `Integration tests (ArangoDB)`
+  # (measured 2026-11-17), and this job is deliberately not among them, so a budget breach
+  # fails visibly without deadlocking automerge. It is promoted to a required check on
+  # measured history per NFR-018 §4, never by editing this comment.
+  #
+  # Gated on the `frontend` change detection (#1741): a backend-only pull request does not
+  # pay `npm ci` plus a production build for budgets no change of theirs could move.
+  # `needs.changes.result` is load-bearing for the same reason it is in `lint-test-build`
+  # above: with `always()` the job runs even when `changes` failed, `outputs.frontend` is
+  # then the empty string, both remaining clauses are false on a pull request, every step is
+  # skipped — and a job whose steps are all skipped reports Success. Advisory or not, a green
+  # check that measured nothing is the shape NFR-018 §1 catalogues.
+  lighthouse:
+    name: Bundle budget and Lighthouse CI
     needs: changes
     if: >-
       always()
@@ -249,6 +273,7 @@ jobs:
         run: npm ci
 
       - name: Build
+        id: build
         run: npm run build
 
       - name: Check bundle budget
@@ -262,53 +287,11 @@ jobs:
           path: src/frontend/bundle-stats/stats.html
           retention-days: 7
 
-  # UI-NFR-003 R-001..005 — Core Web Vitals measurement (mobile, 4G emulation).
-  #
-  # The `categories:accessibility` assertion in lighthouserc.json is ERROR-level
-  # at a measured, computed baseline-and-ratchet floor (0.98, measured 2026-08-09
-  # over the static dist; NFR-018 §2.1). `lhci assert` returns nonzero and this
-  # job goes RED on an accessibility regression below the floor — it is no longer
-  # a gate that cannot fail (#1060). There is deliberately NO job-level
-  # `continue-on-error`, so the red is real. The performance assertions remain
-  # warn-level (report-only) until their own baseline is stable.
-  #
-  # ADVISORY regardless: branch protection requires only `static / Static CI
-  # Tests` and `lint-test-build (22)` (`.github/settings.yml`), and this job is
-  # deliberately not among them. It is promoted to a required check on measured
-  # history per NFR-018 §4, never by editing this comment.
-  lighthouse:
-    name: Lighthouse CI
-    needs: changes
-    # `needs.changes.result` is load-bearing here for the same reason it is in
-    # `lint-test-build` above, and it was missing: with
-    # `always()` the job runs even when `changes` failed, `outputs.frontend` is
-    # then the empty string, both remaining clauses are false on a pull
-    # request, every step is skipped — and a job whose steps are all skipped
-    # reports Success. Advisory or not, a green check that measured nothing is
-    # the shape NFR-018 §1 catalogues, two dozen lines from the comment saying so.
-    if: >-
-      always()
-      && (github.event_name != 'pull_request'
-          || needs.changes.result != 'success'
-          || needs.changes.outputs.frontend == 'true')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: src/frontend/.tool-versions
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
       - name: Run Lighthouse CI
+        # `!cancelled()`, not the default `success()`: a red budget check above must not
+        # skip the measurement. The build clause keeps a failed build from producing a
+        # second, misleading red here — there is no dist to measure.
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: npm run lhci
 
       - name: Upload Lighthouse report

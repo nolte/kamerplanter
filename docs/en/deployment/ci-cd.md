@@ -69,7 +69,7 @@ gh api repos/nolte/kamerplanter/branches/develop/protection \
   --jq '.required_status_checks.contexts'
 ```
 
-Other workflows (for example `backend.yml` with lint and unit tests, coverage, `bundle-budget`, `lighthouse`, or the security scans) are path-filtered and advisory; they do not block the merge.
+Other workflows (for example `backend.yml` with lint and unit tests, coverage, the `lighthouse` job (bundle budget and Lighthouse CI), or the security scans) are path-filtered and advisory; they do not block the merge.
 
 ---
 
@@ -80,7 +80,7 @@ Some checks run in more than one place. That is intentional, not an oversight; t
 | Duplication | Why it stays |
 |-------------|--------------|
 | `static` runs ruff and the plant-profile consistency check although `backend.yml` also checks them | `static` is the unfiltered required run. `backend.yml` is path-filtered and advisory; without the copy, ruff would go unchecked for every change outside its paths. The copy costs seconds. Expensive checks (frontend ESLint/tsc, mypy ratchet) are skipped by `static` with an announcement that points to the owning run. |
-| `bundle-budget` and `lighthouse` build the frontend separately from `lint-test-build (22)` | A broken budget should turn visibly red without changing the required check and thereby blocking automerge. If they reused its build, they would also have to wait behind the long required job. |
+| The `lighthouse` job (bundle budget and Lighthouse CI) builds the frontend separately from `lint-test-build (22)` | A broken budget should turn visibly red without changing the required check and thereby blocking automerge. If it reused that build, it would also have to wait behind the long required job. The two performance gates share one build inside that job. |
 | The guard tests run in `backend-guards.yml` and in `backend.yml` | `backend-guards.yml` delivers two required checks and therefore runs on every push. `backend.yml` is path-filtered, but it measures coverage over the code these tests exercise and is the only place where the tests marked `advisory` in those folders run. Merging coverage across two workflows with different events is not trivial. |
 | `deadcode` (knip) is a separate job next to the CVE and licence gates | A permanently red advisory run would otherwise carry its red into the CVE and licence gates. |
 | `npm ci` and `uv sync` run in several jobs | Each installation sits in a job that stays separate for one of the reasons above. All use the package cache; merging the installs would mean merging the jobs. |
@@ -239,11 +239,11 @@ jobs:
 
 On a push to `develop` (not on PRs), the finished `dist/` directory is uploaded as a GitHub Actions artifact and retained for 7 days. This allows quick inspection of the build output without local compilation.
 
-### Performance budgets & CI gates (`bundle-budget`, `lighthouse`)
+### Performance budgets & CI gates (`lighthouse`)
 
-Besides `lint-test-build`, the same workflow runs two standalone jobs that watch frontend load performance (internal reference: UI-NFR-003). Neither touches the required `static` check — a violation surfaces visibly without blocking automerge.
+Besides `lint-test-build`, the same workflow runs one standalone job, `lighthouse` (check name `Bundle budget and Lighthouse CI`), that watches frontend load performance (internal reference: UI-NFR-003). It builds the frontend once and runs two gates over that build. The job is not a required check — a violation surfaces visibly without blocking automerge. The Lighthouse run also happens when the bundle budget is broken, so both results land in the same run.
 
-**`bundle-budget` — hard gate.** The job builds the frontend, then runs `npm run bundle:check` (script `scripts/check-bundle-budget.mjs`) to check the initial JavaScript and CSS bundle plus the dedicated `/dashboard` route chunk against the budgets in `bundle-budget.json`:
+**Bundle budget — hard gate.** After the build, the job runs `npm run bundle:check` (script `scripts/check-bundle-budget.mjs`) to check the initial JavaScript and CSS bundle plus the dedicated `/dashboard` route chunk against the budgets in `bundle-budget.json`:
 
 | Check | Budget (gzip) | Measured actual |
 |---|---|---|
@@ -263,7 +263,7 @@ The job runs only on pull requests that change the frontend (the same detection 
     npm run bundle:check
     ```
 
-**`lighthouse` — report-only.** The job runs `npm run lhci` (Lighthouse CI, mobile emulation with throttled 4G network) against the built `dist/` folder and checks the Core Web Vitals thresholds from UI-NFR-003 (First Contentful Paint < 1.5 s, Largest Contentful Paint < 2.5 s, Time to Interactive < 3.5 s, Cumulative Layout Shift < 0.1, Total Blocking Time < 200 ms) plus the performance and accessibility scores (≥ 0.9). All assertions in `lighthouserc.json` are configured at `warn` level — the job does not block the build but surfaces regressions in the report. The full report is uploaded as the `lighthouse-report` artifact.
+**Lighthouse — mostly report-only.** The job then runs `npm run lhci` (Lighthouse CI, mobile emulation with throttled 4G network) against the built `dist/` folder and checks the Core Web Vitals thresholds from UI-NFR-003 (First Contentful Paint < 1.5 s, Largest Contentful Paint < 2.5 s, Time to Interactive < 3.5 s, Cumulative Layout Shift < 0.1, Total Blocking Time < 200 ms) plus the performance score (≥ 0.9) and the accessibility score. The performance assertions in `lighthouserc.json` are at `warn` level and only surface regressions in the report. The accessibility score is at `error` level with a floor of 0.98: a drop below it turns the job red. The full report is uploaded as the `lighthouse-report` artifact.
 
 ---
 
