@@ -125,7 +125,10 @@ def delete_substrate(
     ctx: TenantContext = Depends(get_active_tenant_context),
     is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Delete a substrate master record — lead only for an own mix, platform admin for a global one."""
+    """Delete a substrate master record — lead only for an own mix, platform admin for a global one.
+
+    Refused with 422 ``SUBSTRATE_IN_USE`` while a plant or a planting run still uses the substrate (#2560).
+    """
     service.delete_substrate(key, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin)
 
 

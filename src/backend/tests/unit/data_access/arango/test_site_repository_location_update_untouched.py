@@ -31,6 +31,8 @@ _STORED = {
 def db() -> MagicMock:
     database = MagicMock()
     database.collection.return_value.update.return_value = {"new": dict(_STORED)}
+    # ``update_location`` writes inside a stream transaction since #2561; its collection handle is the database's.
+    database.begin_transaction.return_value.collection = database.collection
     return database
 
 

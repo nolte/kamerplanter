@@ -34,7 +34,7 @@ from app.common.exceptions import NotFoundError, PlanValidationError, WriteConfl
 from app.common.types import IrrigationZoneKey, LocationKey, SiteKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.data_access.arango.watering_queries import zone_watering_facts
 from app.domain.calculators.irrigation_zone_consumption_calculator import StateChange
@@ -47,24 +47,8 @@ from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange
 logger = structlog.get_logger()
 
 
-def _edges_touching_zones() -> tuple[tuple[str, str], ...]:
-    """``(edge collection, "_from" | "_to")`` of every named-graph edge that can end at a zone.
-
-    Derived from ``GRAPH_EDGE_DEFINITIONS`` (the ``garden_plan_repository`` rule): a hand-written list misses
-    the next relation added to the graph, which then dangles on a zone that is gone.
-    """
-    found: list[tuple[str, str]] = []
-    for definition in col.GRAPH_EDGE_DEFINITIONS:
-        edge = str(definition["edge_collection"])
-        if col.IRRIGATION_ZONES in definition["from_vertex_collections"]:
-            found.append((edge, "_from"))
-        if col.IRRIGATION_ZONES in definition["to_vertex_collections"]:
-            found.append((edge, "_to"))
-    return tuple(found)
-
-
 #: Every named-graph edge that can end at a zone; ``site_repository.delete_site`` cascades over the same set.
-ZONE_EDGES = _edges_touching_zones()
+ZONE_EDGES = edges_touching(col.IRRIGATION_ZONES)
 
 #: What creating or editing a zone writes: the zone, its site edge, its water-source edge — and the water source
 #: itself, which is taken inside the transaction so a plan batch deleting it concurrently conflicts.
@@ -274,12 +258,12 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
             )["new"]
             if "water_source_key" in fields:
                 zone_id = _zone_id(key)
-                self._remove_edges(txn, col.ZONE_SUPPLIED_BY, "_from", [zone_id])
+                remove_edges(txn, col.ZONE_SUPPLIED_BY, "_from", [zone_id])
                 if fields["water_source_key"]:
                     self._link_water_source(txn, zone_id, str(fields["water_source_key"]), now)
             if "actuator_key" in fields:
                 zone_id = _zone_id(key)
-                self._remove_edges(txn, col.ZONE_ACTUATED_BY, "_from", [zone_id])
+                remove_edges(txn, col.ZONE_ACTUATED_BY, "_from", [zone_id])
                 if fields["actuator_key"]:
                     self._link_actuator(txn, zone_id, str(fields["actuator_key"]), now)
         return self._wrapped(updated)
@@ -294,7 +278,7 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
             covered = self._covered_in(txn, zone_id)
             released = self._release_locations(txn, key, site_key, covered, keep=[], now=now)
             for edge, field_name in ZONE_EDGES:
-                self._remove_edges(txn, edge, field_name, [zone_id])
+                remove_edges(txn, edge, field_name, [zone_id])
             txn.collection(col.IRRIGATION_ZONES).delete(key)
             revision = next(
                 iter(
@@ -602,12 +586,4 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
     def _link_water_source(txn: StreamTransaction, zone_id: str, object_key: str, now: str) -> None:
         txn.collection(col.ZONE_SUPPLIED_BY).insert(
             {"_from": zone_id, "_to": f"{col.GARDEN_OBJECTS}/{object_key}", "created_at": now}
-        )
-
-    @staticmethod
-    def _remove_edges(txn: StreamTransaction, edge_collection: str, field: str, ids: list[str]) -> None:
-        # ``field`` is ``_from`` or ``_to`` from the edge derivation above — never a request value.
-        txn.aql.execute(
-            f"FOR e IN @@edges FILTER e.{aql_field(field)} IN @ids REMOVE e IN @@edges",
-            bind_vars={"@edges": edge_collection, "ids": ids},
         )

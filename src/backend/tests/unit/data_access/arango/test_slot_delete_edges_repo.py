@@ -1,115 +1,102 @@
-"""#1535 — ``delete_slot`` must detach the ``has_slot`` edge that points at the slot.
+"""#1535 / #1573 / #2560 — ``delete_slot`` cuts every edge the graph lets end at a slot, on the end it names.
 
-``_delete_slot_internal`` asked for the edge with a wildcard on the *other* end::
+History of this file: #1535 found the ``has_slot`` removal anchored on a ``locations/%`` wildcard that ``==`` never
+matched; #1573 found ``adjacent_to`` cut on the outbound half only. Both were hand-listed edges. Since #2560 the
+delete cuts the derived set (``graph_edges.edges_touching(SLOTS)``) — the same derivation the location delete uses —
+so ``placed_in``, ``log_slot``, ``run_planned_at`` and ``system_has_growbed`` go too, and a relation registered later
+is cut without touching the repository.
 
-    self.delete_edges(col.HAS_SLOT, from_id=f"{col.LOCATIONS}/%", to_id=slot_id)
-
-``delete_edges`` binds the vertex as a parameter and compares it with ``==``
-(``base_repository.py``: ``clause = "e._from == @vertex"``). There is no ``LIKE``,
-so ``%`` is a literal character and ``locations/%`` is not a document id any edge
-carries: the call matched nothing, every time. The slot document was deleted and
-its incoming edge stayed behind, so a traversal from the location still walked it.
-
-The edge points *at* the slot, so the end to detach is the inbound one — the same
-repair #1525 made for ``phase_history_edge``.
-
-The assertion below is on the *same expression* the rule is about: the AQL clause
-and the bound vertex of the ``has_slot`` removal. Asserting only "one has_slot call
-was issued" would have been green against the broken code too.
+The assertion is on the *same expression* the rule is about: every ``(edge collection, endpoint)`` pair of the
+derivation is removed with the slot's id bound, and every one of those collections is declared to the transaction.
+The real-server counterpart is ``tests/integration/test_slot_edge_cleanup.py``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from typing import Any
 
+import pytest
+
 from app.data_access.arango import collections as col
+from app.data_access.arango import site_repository
+from app.data_access.arango.graph_edges import edges_touching
 from app.data_access.arango.site_repository import ArangoSiteRepository
 
+SLOT_ID = f"{col.SLOTS}/slot-1"
 
-class _CapturingAql:
-    def __init__(self) -> None:
-        self.calls: list[dict[str, Any]] = []
 
-    def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
-        self.calls.append({"query": query, "bind_vars": bind_vars or {}})
+class _Aql:
+    def __init__(self, *, exists: bool) -> None:
+        self.exists = exists
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def execute(self, query: str, bind_vars: dict[str, Any] | None = None, **_: Any) -> Iterator[Any]:
+        self.calls.append((query, dict(bind_vars or {})))
+        if "DOCUMENT(@id)" in query:
+            return iter([1] if self.exists else [])
         return iter([])
 
 
-class _FakeCollection:
-    def __init__(self) -> None:
-        self.deleted: list[str] = []
-
-    def delete(self, key: str) -> None:
-        self.deleted.append(key)
-
-    def get(self, key: str) -> None:  # pragma: no cover - not reached by this test
-        return None
+class _Txn:
+    def __init__(self, *, exists: bool) -> None:
+        self.aql = _Aql(exists=exists)
 
 
-class _CapturingDb:
-    def __init__(self) -> None:
-        self.aql = _CapturingAql()
-        self._collection = _FakeCollection()
+def _open(monkeypatch: pytest.MonkeyPatch, *, exists: bool) -> dict[str, Any]:
+    seen: dict[str, Any] = {}
 
-    def collection(self, _name: str) -> _FakeCollection:
-        return self._collection
+    @contextmanager
+    def fake(_db: Any, *, write: Sequence[str], entity: str, **_: Any) -> Iterator[_Txn]:
+        txn = _Txn(exists=exists)
+        seen.update(write=tuple(write), entity=entity, txn=txn)
+        yield txn
 
-
-def _edge_calls(db: _CapturingDb, edge_collection: str) -> list[dict[str, Any]]:
-    return [c for c in db.aql.calls if c["bind_vars"].get("@edge") == edge_collection]
-
-
-def test_delete_slot_removes_the_incoming_has_slot_edge() -> None:
-    db = _CapturingDb()
-    repo = ArangoSiteRepository(db)  # type: ignore[arg-type]
-
-    assert repo.delete_slot("slot-1") is True
-
-    slot_id = f"{col.SLOTS}/slot-1"
-    has_slot = _edge_calls(db, col.HAS_SLOT)
-    assert len(has_slot) == 1
-    call = has_slot[0]
-
-    # Anchored on the slot, on the end the edge actually points at …
-    assert call["bind_vars"]["vertex"] == slot_id
-    assert "e._to == @vertex" in call["query"]
-
-    # … and with no pattern character anywhere in the bound values: the query
-    # compares with `==`, so a `%` is a literal that matches nothing.
-    assert not any("%" in v for v in call["bind_vars"].values() if isinstance(v, str))
+    monkeypatch.setattr(site_repository, "stream_transaction", fake)
+    return seen
 
 
-def test_delete_slot_detaches_adjacency_on_both_ends() -> None:
-    """Adjacency is written both ways, so one anchor is not enough (SCR-001).
-
-    ``GraphRepository.set_adjacent_slots`` creates ``a → b`` *and* ``b → a``. An
-    outbound-only delete left ``neighbour → deleted slot`` behind — the same dangling
-    state the ``has_slot`` repair above removes, two lines further down.
-    """
-    db = _CapturingDb()
-    repo = ArangoSiteRepository(db)  # type: ignore[arg-type]
-
-    repo.delete_slot("slot-1")
-
-    calls = _edge_calls(db, col.ADJACENT_TO)
-    assert len(calls) == 1
-    assert calls[0]["bind_vars"]["vertex"] == f"{col.SLOTS}/slot-1"
-    assert "(e._from == @vertex OR e._to == @vertex)" in calls[0]["query"]
+def _removed_pairs(txn: _Txn) -> set[tuple[str, str]]:
+    pairs = set()
+    for query, bind_vars in txn.aql.calls:
+        if "REMOVE e IN @@edges" in query:
+            assert bind_vars["ids"] == [SLOT_ID]
+            pairs.add((bind_vars["@edges"], "_from" if "e._from IN @ids" in query else "_to"))
+    return pairs
 
 
-def test_delete_slot_detaches_its_substrate_edge_outbound() -> None:
-    """``filled_with`` really is slot → batch (``assign_batch_to_slot``).
+def test_delete_slot_cuts_every_derived_edge_pair(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _open(monkeypatch, exists=True)
 
-    Asserted separately from adjacency rather than in one loop over both: the two
-    edges have different shapes, and a shared assertion is what made the wrong one
-    look deliberate.
-    """
-    db = _CapturingDb()
-    repo = ArangoSiteRepository(db)  # type: ignore[arg-type]
+    assert ArangoSiteRepository(object()).delete_slot("slot-1") is True  # type: ignore[arg-type]
 
-    repo.delete_slot("slot-1")
+    derived = set(edges_touching(col.SLOTS))
+    assert _removed_pairs(seen["txn"]) == derived
+    # The self-referencing adjacency on both ends (#1573 SCR-001), ``has_slot`` on the end it points at (#1535), and
+    # the edges the hand list never had (#2560).
+    assert {
+        (col.ADJACENT_TO, "_from"),
+        (col.ADJACENT_TO, "_to"),
+        (col.HAS_SLOT, "_to"),
+        (col.PLACED_IN, "_to"),
+        (col.RUN_PLANNED_AT, "_to"),
+    } <= derived
+    assert {edge for edge, _ in derived} | {col.SLOTS} == set(seen["write"])
 
-    calls = _edge_calls(db, col.FILLED_WITH)
-    assert len(calls) == 1
-    assert calls[0]["bind_vars"]["vertex"] == f"{col.SLOTS}/slot-1"
-    assert "e._from == @vertex" in calls[0]["query"]
+
+def test_delete_slot_removes_the_slot_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _open(monkeypatch, exists=True)
+
+    ArangoSiteRepository(object()).delete_slot("slot-1")  # type: ignore[arg-type]
+
+    removals = [bind_vars for query, bind_vars in seen["txn"].aql.calls if "REMOVE d IN @@col" in query]
+    assert removals == [{"@col": col.SLOTS, "ids": [SLOT_ID]}]
+
+
+def test_a_missing_slot_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _open(monkeypatch, exists=False)
+
+    assert ArangoSiteRepository(object()).delete_slot("slot-1") is False  # type: ignore[arg-type]
+
+    assert [query for query, _ in seen["txn"].aql.calls if "REMOVE" in query] == []
