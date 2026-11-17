@@ -233,8 +233,19 @@ jobs:
           # and the endpoint falls back to "unknown" — never to a wrong SHA.
           build-args: |
             BUILD_REVISION=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # ONE CACHE SCOPE PER IMAGE, THE SAME ONE THE PRE-MERGE BUILD USES (#2999).
+          # Without `scope=` all eight builds here wrote the gha default scope
+          # `buildkit` on `develop`, each export replacing the previous image's
+          # index, so a pull request (which may read `develop`'s cache) found at
+          # most one image's layers there. Every build below now writes the scope
+          # its docker-lint-build.yml twin reads (backend/frontend: the e2e scope;
+          # embedding/reranker: the leg of the stage built here). BUILD_REVISION
+          # only feeds the final ARG/ENV of src/backend/Dockerfile, a
+          # metadata-only step, so every file layer is shared with the e2e build.
+          # src/backend/tests/unit/guards/test_docker_build_cache_scopes.py holds
+          # the pairing.
+          cache-from: type=gha,scope=e2e-backend
+          cache-to: type=gha,mode=max,scope=e2e-backend
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
@@ -318,8 +329,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=e2e-frontend
+          cache-to: type=gha,mode=max,scope=e2e-frontend
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
@@ -403,8 +414,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=vectordb
+          cache-to: type=gha,mode=max,scope=vectordb
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
@@ -488,8 +499,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=knowledge
+          cache-to: type=gha,mode=max,scope=knowledge
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
@@ -573,8 +584,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=embedding-service-minilm
+          cache-to: type=gha,mode=max,scope=embedding-service-minilm
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
@@ -658,8 +669,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=inference-service
+          cache-to: type=gha,mode=max,scope=inference-service
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
@@ -744,8 +755,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=reranker-service-bge-reranker-v2-m3
+          cache-to: type=gha,mode=max,scope=reranker-service-bge-reranker-v2-m3
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
@@ -829,8 +840,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=knowledge-service
+          cache-to: type=gha,mode=max,scope=knowledge-service
 
       # Build provenance, generated and signed by the platform rather than by
       # the build it attests — a build that attests to itself cannot detect its
