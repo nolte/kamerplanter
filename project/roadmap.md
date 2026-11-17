@@ -98,6 +98,38 @@ und in F-6..F-10 dekomponiert (feature-decompose, consistency-checked).
 Phase-0-Baseline ist computed (NFR-018 §2.1). ADR-008-Acceptance ist die
 Go/No-Go-Entscheidung dieses Outcomes. -->
 
+### R-17 — Einstellungsseite in Gruppen mit Seitennavigation umbauen
+
+```yaml
+id: R-17
+title: Einstellungsseite in Gruppen mit Seitennavigation umbauen
+detail: fine
+outcomes: [O-1, O-5]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Die Einstellungsseite verliert ihre horizontal scrollende Leiste mit bis zu 14
+Tabs. Stattdessen gliedert eine Seitennavigation (Desktop) bzw. eine
+Gruppenliste mit Detailansicht (mobil) die Einstellungen in sechs Gruppen:
+Profil & Konto, Anzeige & Verhalten, Benachrichtigungen, Sicherheit & Zugang,
+Integrationen und — sichtbar abgesetzt, nur für Betreiber — Installation.
+Alle bestehenden Einstellungen bleiben genau einmal erreichbar, die
+Sichtbarkeits-Gates bleiben unverändert; die Plattform-Einstellungen ziehen in
+den Admin-Bereich.
+
+- [ ] F-12 — Plattform-Einstellungen im Admin-Bereich (`platform-settings-in-admin`) — zuerst
+- [ ] F-11 — Gruppierte Einstellungsnavigation (`settings-grouped-navigation`)
+
+<!-- Herkunft: Issue #2935 (issue-backlog-partition 2026-11-16 → requirements-elicit →
+roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:
+project/requirements/settings-page-grouping.md (U_gate 0.8 = τ_high, Sättigung).
+Outcomes O-1/O-5 gewählt, weil keines der Outcomes die Einstellungsseite exakt
+trifft (O-1: Nutzer ohne Vorwissen finden ihre Einstellungen; O-5: Betreiber-
+Einstellungen getrennt von persönlichen). #2934 (Wetter-Abrufintervall) baut auf
+der Gruppe „Installation“ auf. -->
+
 ## Phase 3 — Erweiterung & Intelligenz
 
 ### R-1 — Pflanzenfoto-Galerie
