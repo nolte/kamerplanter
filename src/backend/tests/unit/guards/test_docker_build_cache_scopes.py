@@ -49,6 +49,7 @@ if _REPO_ROOT is None:  # pragma: no cover — only outside a full checkout
     pytest.skip("checkout root not found", allow_module_level=True)
 
 _WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "docker-lint-build.yml"
+_PUBLISH = _REPO_ROOT / ".github" / "workflows" / "docker-publish.yml"
 _COMPOSE = _REPO_ROOT / "docker-compose.e2e.yml"
 _COMPOSE_CI = _REPO_ROOT / "docker-compose.e2e.ci.yml"
 
@@ -57,6 +58,12 @@ _BUILD_ACTION = "docker/build-push-action@"
 
 #: ``scope=<value>`` inside a cache spec such as ``type=gha,mode=max,scope=x``.
 _SCOPE = re.compile(r"(?:^|,)\s*scope=(?P<scope>[^,\s]+)")
+
+#: The matrix placeholder a pre-merge leg puts into its scope (#1764).
+_MATRIX_TARGET = "${{ matrix.target }}"
+
+#: ``FROM <image> AS <stage>`` — the last one is what a build without ``target:`` produces.
+_STAGE = re.compile(r"^\s*FROM\s+\S+\s+AS\s+(?P<stage>\S+)", re.IGNORECASE | re.MULTILINE)
 
 #: The builds that MUST be found on both sides. Without this the alignment rule
 #: would pass vacuously the day a context is respelled on one side and the
@@ -327,8 +334,10 @@ def test_a_scope_that_drifts_from_the_e2e_twin_is_a_finding() -> None:
 
 
 def test_a_build_with_other_args_is_not_the_e2e_twin() -> None:
-    # docker-publish.yml passes BUILD_REVISION; such a build is another build and
-    # must not be paired (nor be required to share) the e2e scope.
+    # A build with other build args is another build for THIS rule and is never
+    # required to share the e2e scope. docker-publish.yml's backend build does
+    # share it by choice (#2999): its BUILD_REVISION feeds only a metadata-only
+    # ARG/ENV, and the publish rule below pairs it with its pre-merge twin by job.
     builds = workflow_builds(
         _planted_workflow(
             (
@@ -347,3 +356,139 @@ def test_a_build_with_other_args_is_not_the_e2e_twin() -> None:
         {"services": {"backend": {"build": {"cache_to": ["type=gha,scope=e2e-backend,mode=max"]}}}},
     )
     assert alignment_findings(builds, compose) == ({}, set())
+
+
+# ------------------------------------------------- docker-publish.yml (#2999)
+#
+# The delivery workflow runs on ``develop``, the one ref every pull request may
+# read the cache of. Unscoped, its eight builds took turns over the default index
+# ``buildkit`` there, so a pull request found at most one image's layers. Each
+# publish build therefore owns a scope, and it is the scope its pre-merge twin
+# (the ``docker-lint-build.yml`` job of the same id) reads — otherwise the
+# ``develop`` export is written where no pull request looks.
+
+
+def default_stage(dockerfile: Path) -> str | None:
+    """The stage a build without ``target:`` produces: the Dockerfile's last named stage."""
+    stages = _STAGE.findall(dockerfile.read_text()) if dockerfile.is_file() else []
+    return stages[-1] if stages else None
+
+
+def publish_alignment_findings(
+    publish: list[dict[str, Any]], pre_merge: list[dict[str, Any]], root: Path
+) -> tuple[dict[str, str], set[str]]:
+    """``(publish job -> why it writes another scope than its pre-merge twin reads, jobs paired)``.
+
+    A pre-merge leg's ``${{ matrix.target }}`` resolves to the stage the publish
+    build produces: its ``target:``, or the Dockerfile's last stage without one.
+    """
+    twins = {build["job"]: build for build in pre_merge}
+    findings: dict[str, str] = {}
+    paired: set[str] = set()
+    for build in publish:
+        twin = twins.get(build["job"])
+        if twin is None:
+            findings[build["job"]] = "has no pre-merge twin of the same job id in docker-lint-build.yml"
+            continue
+        paired.add(build["job"])
+        if (twin["context"], twin["file"]) != (build["context"], build["file"]):
+            findings[build["job"]] = (
+                f"builds {build['context']}:{build['file']} but its twin builds {twin['context']}:{twin['file']}"
+            )
+            continue
+        stage = build["target"] or default_stage(root / build["file"])
+        twin_spec = twin["cache_from"]
+        if isinstance(twin_spec, str):
+            twin_spec = twin_spec.replace(_MATRIX_TARGET, str(stage))
+        expected = _scope_of(twin_spec)
+        actual = _scope_of(build["cache_to"])
+        if actual != expected:
+            findings[build["job"]] = (
+                f"writes scope {actual!r} on develop, but the pre-merge build reads {expected!r} — "
+                "no pull request ever reads what this export stores"
+            )
+    return findings, paired
+
+
+@pytest.fixture(scope="module")
+def live_publish_builds() -> list[dict[str, Any]]:
+    return workflow_builds(_load(_PUBLISH))
+
+
+def test_the_sweep_finds_every_build_of_the_publish_workflow(live_publish_builds: list[dict[str, Any]]) -> None:
+    assert len({build["job"] for build in live_publish_builds}) == 8, sorted(b["job"] for b in live_publish_builds)
+
+
+def test_every_publish_build_owns_a_cache_scope(live_publish_builds: list[dict[str, Any]]) -> None:
+    assert unscoped_cache_findings(live_publish_builds) == {}
+
+
+def test_no_publish_scope_is_shared_by_two_publish_builds(live_publish_builds: list[dict[str, Any]]) -> None:
+    assert shared_scope_findings(live_publish_builds) == {}
+
+
+def test_every_publish_build_writes_the_scope_its_pre_merge_twin_reads(
+    live_publish_builds: list[dict[str, Any]], live_builds: list[dict[str, Any]]
+) -> None:
+    findings, paired = publish_alignment_findings(live_publish_builds, live_builds, _REPO_ROOT)
+    assert findings == {}
+    assert paired == {build["job"] for build in live_publish_builds}
+
+
+def test_a_publish_scope_other_than_the_twins_is_a_finding(tmp_path: Path) -> None:
+    publish = workflow_builds(
+        _planted_workflow(
+            ("build-a", {"context": "a", "cache-from": "type=gha,scope=a", "cache-to": "type=gha,mode=max,scope=a"}),
+        )
+    )
+    pre_merge = workflow_builds(
+        _planted_workflow(
+            (
+                "build-a",
+                {"context": "a", "cache-from": "type=gha,scope=e2e-a", "cache-to": "type=gha,mode=max,scope=e2e-a"},
+            ),
+        )
+    )
+    findings, paired = publish_alignment_findings(publish, pre_merge, tmp_path)
+    assert set(findings) == {"build-a"}
+    assert paired == {"build-a"}
+
+
+def test_a_matrix_leg_resolves_to_the_default_stage_of_the_publish_build(tmp_path: Path) -> None:
+    (tmp_path / "m").mkdir()
+    (tmp_path / "m" / "Dockerfile").write_text("FROM x AS base\nFROM base AS big\nFROM base AS small\n")
+    pre_merge = workflow_builds(
+        _planted_workflow(
+            (
+                "build-m",
+                {
+                    "context": "m",
+                    "target": _MATRIX_TARGET,
+                    "cache-from": f"type=gha,scope=m-{_MATRIX_TARGET}",
+                    "cache-to": f"type=gha,mode=max,scope=m-{_MATRIX_TARGET}",
+                },
+            ),
+        )
+    )
+
+    def publish(scope: str) -> list[dict[str, Any]]:
+        return workflow_builds(
+            _planted_workflow(
+                (
+                    "build-m",
+                    {"context": "m", "cache-from": f"type=gha,scope={scope}", "cache-to": f"type=gha,scope={scope}"},
+                ),
+            )
+        )
+
+    assert publish_alignment_findings(publish("m-small"), pre_merge, tmp_path) == ({}, {"build-m"})
+    assert set(publish_alignment_findings(publish("m-big"), pre_merge, tmp_path)[0]) == {"build-m"}
+
+
+def test_a_publish_build_without_a_twin_is_a_finding(tmp_path: Path) -> None:
+    publish = workflow_builds(
+        _planted_workflow(
+            ("build-z", {"context": "z", "cache-from": "type=gha,scope=z", "cache-to": "type=gha,mode=max,scope=z"}),
+        )
+    )
+    assert set(publish_alignment_findings(publish, [], tmp_path)[0]) == {"build-z"}
