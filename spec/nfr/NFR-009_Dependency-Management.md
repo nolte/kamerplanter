@@ -115,8 +115,9 @@ Bis 2026-09-24 stand in der rechten Spalte für Patch, Minor, Major, Container-I
 
 „Laufend" heißt seit derselben Entscheidung: **frühestens drei Tage nach dem Release**
 der jeweiligen Version (`minimumReleaseAge: '3 days'`, §3.4). Ausgenommen sind nur
-Security-Fixes aus Vulnerability-Alerts und die Gruppe `uv toolchain`, die sonst
-zerfiele (§3.4, #1762).
+Security-Fixes aus Vulnerability-Alerts, die Gruppe `uv toolchain`, die sonst
+zerfiele (§3.4, #1762), und der Werkzeug-Pin `renovate/renovate`
+(Betreiberentscheidung 2026-10-30, §3.4, #2581).
 
 **MUSS**: Renovate eröffnet neue Branches und PRs **nur montags** (Zeitzone
 `Europe/Berlin`): `schedule: ['* * * * 1']`, `timezone: 'Europe/Berlin'` in
@@ -278,7 +279,7 @@ Bots. Alles andere in der Datei ist Ausformulierung dieser sechs Punkte.
 | **Eine Gruppe für alle Applikations-Abhängigkeiten** | `packageRules` → `groupName: 'application dependencies'`, gematcht über `matchManagers: ['pep621','npm','pip_requirements']` | Betreiberauftrag #1550, ausgeschrieben in §3.3. Über den Manager gematcht, nicht über Pfade — ein neuer Baum wird ohne Aufzählung erreicht. | `grep -n "application dependencies" renovate.json5` |
 | **Reichweite gegen zwei geerbte Ausschlüsse geweitet** | `'helm-values'.managerFilePatterns` (#1027) und `ignorePaths` **ohne** `**/tests/**` (#1464) | Beides sind Dateien, die unbeobachtet alterten: die Dev-Values mit ihrem TimescaleDB-Pin und der gesamte `tests/e2e`-Baum. `ignorePaths` wird ersetzt, nicht gemerged — die geerbte Liste steht deshalb vollständig minus einem Muster in der Datei. | `grep -n "ignorePaths" -A 10 renovate.json5`; Gegenprobe über die Inventur in `task renovate:dry-run` |
 | **Renovate mergt jeden eigenen Pull Request selbst, sobald alle Checks grün sind** | Top-Level `automerge: true`, `platformAutomerge: false`, `automergeType: 'pr'`, `automergeStrategy: 'squash'`, `rebaseWhen: 'behind-base-branch'`; keine `packageRules`-Zeile setzt `automerge` | Betreiberentscheidung 2026-09-24, ausgeführt in §3.4. Ohne `platformAutomerge: false` würde GitHub schon bei grünen **Pflicht**-Checks mergen. | `src/backend/tests/unit/guards/test_renovate_automerge_policy.py` |
-| **Vier `customManagers` für Pins, die kein Manager kennt** | `uv`-`required-version` und Build-Backend, `.github/renovate-pins.yaml`, Werkzeugversionen in `run:`-Schritten, Container-Images in `env:`-Werten und Taskfile-Variablen | Diese Pins sind echte Abhängigkeiten in Dateien ohne Manifest-Format. Ohne die Regex-Manager altern sie unbemerkt — das ist derselbe Defekt, den #1303 sechs Wochen lang trug. | `grep -n "customType: 'regex'" renovate.json5` (vier Treffer) |
+| **Vier `customManagers` für Pins, die kein Manager kennt** | `uv`-`required-version` und Build-Backend, `.github/renovate-pins.yaml`, Werkzeugversionen in `run:`-Schritten, Container-Images in `env:`-Werten und in `.pins/images.yaml` (bis #2581 Taskfile-Variablen) | Diese Pins sind echte Abhängigkeiten in Dateien ohne Manifest-Format. Ohne die Regex-Manager altern sie unbemerkt — das ist derselbe Defekt, den #1303 sechs Wochen lang trug. | `grep -n "customType: 'regex'" renovate.json5` (vier Treffer) |
 
 `mode: 'full'` steht ebenfalls im Top-Level, ist aber **nicht** tragend: es wiederholt
 Renovates eigenen Default und wurde von Renovates Config-Migration geschrieben, nicht
@@ -396,9 +397,18 @@ zweiter Merger, der nur auf Pflicht-Checks wartet, würde die Entscheidung unter
 
 **MUSS — Mindestalter eines Releases (Betreiberentscheidung 2026-09-24):** Jedes Update
 wartet, bis die vorgeschlagene Version **drei Tage** alt ist (`minimumReleaseAge: '3 days'`
-auf oberster Ebene). Eine `packageRules`-Regel setzt den Schlüssel nur in einem Fall:
-eine Gruppe, die Mitglieder mit und ohne Release-Zeitstempel mischt, setzt ihn auf
-`null` (unten, „Eine Gruppe wartet nicht als Ganzes"); heute ist das allein `uv toolchain`. Der Grund: Wenn
+auf oberster Ebene). Eine `packageRules`-Regel setzt den Schlüssel nur in zwei Fällen:
+(1) eine Gruppe, die Mitglieder mit und ohne Release-Zeitstempel mischt, setzt ihn auf
+`null` (unten, „Eine Gruppe wartet nicht als Ganzes"); heute ist das allein `uv toolchain`.
+(2) Der Werkzeug-Pin `renovate/renovate` wartet nicht (Betreiberentscheidung 2026-10-30,
+#2581): eine Regel ohne `groupName`, die genau dieses eine Paket nennt, setzt
+`minimumReleaseAge: null`. Der Pin in `.pins/images.yaml` treibt nur
+`task renovate:dry-run` (den lokalen Nachweis einer Änderung an `renovate.json5`), steckt
+in keinem ausgelieferten Artefakt und keinem Pflicht-Check; das jeweils neueste
+Upstream-Release darf immer verwendet werden, auch ein manueller Bump direkt auf den
+neuesten Tag ist zulässig. Die Ausnahme ist namentlich und nicht erweiterbar: der Guard
+`test_renovate_automerge_policy.py` lehnt jede weitere Regel ab, die die Wartezeit
+aufhebt. Der Grund für die Wartezeit selbst: Wenn
 niemand einen Bump vor dem Merge liest, ist Zeit die Verteidigung gegen ein
 kompromittiertes oder zurückgezogenes Release — für Sicherheitsforscher, Registries und
 Unpublish-Fenster (npm erlaubt ein Unpublish 72 Stunden lang).

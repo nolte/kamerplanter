@@ -96,6 +96,31 @@ def _mixes_dated_and_undated(rule: dict[str, Any]) -> bool:
     return bool(undated) and len(undated) < len(names)
 
 
+# Single packages that wait for no release age, by name, with the decision that
+# granted it. A rule qualifies only when it names EXACTLY that one package, sets
+# `minimumReleaseAge: null` and carries no `groupName` — so the allowance cannot
+# widen to a pattern, a second name or a whole group without failing here.
+_NO_WAIT_PACKAGES: dict[str, str] = {
+    "renovate/renovate": (
+        "operator decision 2026-10-30 (#2581): the tool pin only drives `task renovate:dry-run`; "
+        "the latest upstream release may always be used"
+    ),
+}
+
+
+def _is_named_no_wait_exception(rule: dict[str, Any]) -> bool:
+    """Whether a rule is one of the named single-package exceptions to the wait."""
+    names = rule.get("matchPackageNames")
+    return (
+        "groupName" not in rule
+        and "minimumReleaseAge" in rule
+        and rule["minimumReleaseAge"] is None
+        and isinstance(names, list)
+        and len(names) == 1
+        and names[0] in _NO_WAIT_PACKAGES
+    )
+
+
 def _workflow() -> dict[str, Any]:
     loaded = yaml.safe_load(_AUTOMERGE_WORKFLOW.read_text(encoding="utf-8"))
     assert isinstance(loaded, dict), f"{_AUTOMERGE_WORKFLOW} did not parse to a mapping"
@@ -161,6 +186,8 @@ class TestReleasesAgeBeforeTheyMerge:
     before it lands, time is the defence against a compromised or retracted
     release. Renovate applies ``vulnerabilityAlerts`` to both alert sources as a
     ``force`` override, so the exemption set there beats the top-level value.
+    Two packageRules exceptions exist: a group mixing dated and undated members
+    (#1762) and the single packages named in ``_NO_WAIT_PACKAGES`` (#2581).
     """
 
     def test_every_update_waits_three_days(self) -> None:
@@ -172,11 +199,50 @@ class TestReleasesAgeBeforeTheyMerge:
             for rule in _rules()
             if "minimumReleaseAge" in rule
             and not (rule.get("groupName") and rule["minimumReleaseAge"] is None and _mixes_dated_and_undated(rule))
+            and not _is_named_no_wait_exception(rule)
         ]
         assert not offenders, (
             "a packageRules entry overrides minimumReleaseAge without being a group that mixes dated "
-            f"and undated members (NFR-009 §3.4): {offenders}"
+            "and undated members or a named single-package exception "
+            f"({sorted(_NO_WAIT_PACKAGES)}) (NFR-009 §3.4): {offenders}"
         )
+
+    def test_the_named_no_wait_exceptions_exist_exactly_as_granted(self) -> None:
+        """Each named exception is one rule, for that one package, with no wait and no group.
+
+        Operator decision 2026-10-30 (#2581): ``renovate/renovate`` only drives
+        ``task renovate:dry-run``, so it may always move to the newest upstream
+        release. Pinned in both directions: the granted rule must exist (an
+        allowance nothing uses is a stale pardon), and no rule may set
+        ``minimumReleaseAge: null`` on a package outside the named set or next
+        to a second name — the allowance cannot silently widen.
+        """
+        granted = [rule for rule in _rules() if _is_named_no_wait_exception(rule)]
+        named = sorted(rule["matchPackageNames"][0] for rule in granted)
+        assert named == sorted(_NO_WAIT_PACKAGES), (
+            f"expected exactly one no-wait rule per named exception {sorted(_NO_WAIT_PACKAGES)}, found {named}"
+        )
+        for rule in granted:
+            assert rule["minimumReleaseAge"] is None
+            assert rule["matchPackageNames"] == ["renovate/renovate"]
+            assert "groupName" not in rule
+        widened = [
+            rule
+            for rule in _rules()
+            if rule.get("minimumReleaseAge", "unset") is None
+            and not rule.get("groupName")
+            and not _is_named_no_wait_exception(rule)
+        ]
+        assert not widened, f"a group-less rule lifts the wait outside the named exceptions: {widened}"
+
+    def test_the_exception_predicate_refuses_a_widened_rule(self) -> None:
+        exact = {"matchDatasources": ["docker"], "matchPackageNames": ["renovate/renovate"], "minimumReleaseAge": None}
+        assert _is_named_no_wait_exception(exact)
+        assert not _is_named_no_wait_exception({**exact, "matchPackageNames": ["renovate/renovate", "node"]})
+        assert not _is_named_no_wait_exception({**exact, "matchPackageNames": ["/^renovate//"]})
+        assert not _is_named_no_wait_exception({**exact, "groupName": "tools"})
+        assert not _is_named_no_wait_exception({**exact, "minimumReleaseAge": "1 day"})
+        assert not _is_named_no_wait_exception({**exact, "matchPackageNames": ["node"]})
 
     def test_a_group_mixing_dated_and_undated_members_moves_as_one(self) -> None:
         """A coupled group may not be split by the release-age wait (#1762).

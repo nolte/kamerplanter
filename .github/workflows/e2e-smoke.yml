@@ -109,6 +109,9 @@ jobs:
               - '!CODEOWNERS'
               - '!Taskfile.yaml'
               - '!.taskfiles/**'
+              # Image pins read only by `task renovate:dry-run` and
+              # `task lint:docker`, never by the compose stack (#2581).
+              - '!.pins/**'
               - '!.pre-commit-config.yaml'
               # The Kubernetes deployment surface, excluded for a STRUCTURAL
               # reason rather than a judgement call (#1577): this suite brings up

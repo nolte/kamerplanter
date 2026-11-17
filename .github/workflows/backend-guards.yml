@@ -106,8 +106,9 @@ jobs:
   # WRONG for this job, and the difference is the input set.
   #
   # MEASURED 2026-09-20 on this tree (a `sys.addaudithook` over `open`, around
-  # `pytest tests/unit/api tests/unit/guards`). The read set of THIS job is not
-  # yet recorded under `.github/lane-inputs/` (#1683): the `strace` recorder
+  # `pytest tests/unit/api tests/unit/guards`). At that date the read set of
+  # THIS job was not yet recorded under `.github/lane-inputs/` (#1683; it is
+  # now, see "RE-MEASURED" below): the `strace` recorder
   # (`scripts/ci/lane_inputs.py`, #1596) refuses a red run, and on a workstation
   # this job's `--max-skipped 0` trips on the hash-verification falsifiers that
   # skip without the pinned uv or without `CI` set. The manifest is recorded in
@@ -147,6 +148,30 @@ jobs:
   #
   # "No" is the finding, not a deferral. Re-open it only with a new measurement
   # of the input set, not with a new opinion about it.
+  #
+  # RE-MEASURED 2026-11-17 FOR #2581, this time against the CI-recorded
+  # manifest (.github/lane-inputs/backend-guards--guards.yaml, recorded
+  # 2026-11-16 at a5203ae05). Its `reads` cover 6879 of the 6881 files tracked
+  # at c3535bd1f, the base of #2581 (unread: the recorder's own marker plugin
+  # `scripts/ci/lane_inputs_pytest/lane_inputs_markers.py`, and
+  # `test_nginx_security_headers_parity.py`, added after the recording) and
+  # list 520 of the 521 tracked directories (missing: only
+  # `scripts/ci/lane_inputs_pytest/`). Reproduce from the checkout root:
+  #
+  #   git ls-files | python3 -c "import sys, yaml; t = set(sys.stdin.read().split()); \
+  #     r = set(yaml.safe_load(open('.github/lane-inputs/backend-guards--guards.yaml'))['reads']); \
+  #     d = {'/'.join(p.split('/')[:i]) + '/' for p in t for i in range(1, p.count('/') + 1)}; \
+  #     print(len(t & r), len(t), len(d & r), len(d), sorted(t - r), sorted(d - r))"
+  #
+  # Under the coverage rule of `test_lane_filters_cover_measured_inputs.py` (a
+  # listed directory counts as covered only if the filter selects a file ADDED
+  # there), the filter derived from this manifest selects every path a pull
+  # request can touch — it is `'**'`, i.e. no gate. And the job could not take
+  # one anyway: `backend--lint-test.yaml` delegates 34 `accepted_gaps` here
+  # (`covered_by: backend-guards.yml/guards`), and that guard's
+  # `_delegation_findings` refuses a delegate whose job has a paths-filter
+  # step. The job stays ungated; re-open only if a guard narrows its
+  # whole-tree reads.
   #
   # BECAUSE THIS LANE IS UNFILTERED, OTHER LANES DELEGATE TO IT (#1596).
   # `backend.yml`'s `lint-test` job runs the whole unit tier, which contains the

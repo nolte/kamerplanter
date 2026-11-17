@@ -141,8 +141,10 @@ WHAT IT CHECKS
 
    The corpus is every file a pin can hide in, not only the ones the issue
    named: ``.github/workflows/``, ``.github/actions/**/action.yml`` (which no
-   manager reads at all) and ``.taskfiles/`` plus ``Taskfile.yaml``, which the
-   custom manager's ``managerFilePatterns`` explicitly cover.
+   manager reads at all), ``.pins/``, which the custom manager's
+   ``managerFilePatterns`` explicitly cover, and ``.taskfiles/`` plus
+   ``Taskfile.yaml``, which they no longer cover since the Taskfile pins moved
+   to ``.pins/images.yaml`` (#2581) — a pin added back there is still found.
 
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
@@ -779,14 +781,19 @@ _JSON5_LITERAL = re.compile(r"'(?P<body>(?:[^'\\]|\\.)*)'")
 
 #: Where the files this sweep reads live. Wider than the issue, and measured
 #: against renovate.json5's own ``managerFilePatterns`` (#1563 review, S3): the
-#: custom manager reads ``.taskfiles/*.yaml`` too, and a composite action is a
-#: ``run:`` block like any other. A pin outside a path the manager reads is a
-#: finding wherever it sits — that is the whole point of the check.
+#: custom manager reads ``.pins/*.yaml`` too, and a composite action is a
+#: ``run:`` block like any other. ``.taskfiles/`` and ``Taskfile.yaml`` stay in
+#: the corpus although the manager no longer reads them (#2581 moved their pins
+#: to ``.pins/images.yaml``): an unmarked pin added back there must still be
+#: found. A pin outside a path the manager reads is a finding wherever it sits —
+#: that is the whole point of the check.
 _PIN_FILE_GLOBS = (
     ".github/workflows/*.yml",
     ".github/workflows/*.yaml",
     ".github/actions/*/action.yml",
     ".github/actions/*/action.yaml",
+    ".pins/*.yml",
+    ".pins/*.yaml",
     ".taskfiles/*.yml",
     ".taskfiles/*.yaml",
     "Taskfile.yml",
