@@ -170,7 +170,7 @@ schließen die Lücke generisch für alle solchen Oberflächen.
 > | Pruefung | Wo | Blockierend? | Was sie wirklich misst |
 > |---|---|---|---|
 > | **vitest-axe** (`expectNoA11yViolations`, #1094) | `lint-test-build (22)` | **ja** — required Check auf `develop` | axe gegen einzelne Seiten/Komponenten in jsdom, Schwelle `critical`. Seiten brauchen `minElements`, sonst zertifiziert der Test ein Ladeskelett. |
-> | **Lighthouse CI** (`categories:accessibility >= 0.98`, error) | Job `Lighthouse CI` | **nein** — advisory, absichtlich nicht in `.github/settings.yml` | Der statisch gebaute SPA-Shell (`./dist`), also die **unauthentifizierte** Huelle. Seiten hinter dem Login erreicht er nicht. |
+> | **Lighthouse CI** (`categories:accessibility >= 0.98`, error) | Job `lighthouse` (Check `Bundle budget and Lighthouse CI`, seit #2997 mit dem Bundle-Budget zusammengelegt) | **nein** — advisory, absichtlich nicht in `.github/settings.yml` | Der statisch gebaute SPA-Shell (`./dist`), also die **unauthentifizierte** Huelle. Seiten hinter dem Login erreicht er nicht. |
 > | **Kiosk-Theme-Test** (`kioskTheme.test.tsx`) | `lint-test-build (22)` | **ja** | Die MUI-Theme-Overrides (`KIOSK_TOUCH_TARGET = 64`), nicht die gerenderte Groesse eines Elements. Siehe UI-NFR-019. |
 >
 > Eine E2E-axe-Journey gegen die komponierte Anwendung existiert **nicht** (#1095, offen). Damit ist keine Seite hinter dem Login jemals im Browser auf Barrierefreiheit geprueft worden.

@@ -69,7 +69,7 @@ gh api repos/nolte/kamerplanter/branches/develop/protection \
   --jq '.required_status_checks.contexts'
 ```
 
-Weitere Workflows (zum Beispiel `backend.yml` mit Lint und Unit-Tests, Coverage, `bundle-budget`, `lighthouse` oder die Security-Scans) laufen pfadgefiltert und sind beratend; sie blockieren den Merge nicht.
+Weitere Workflows (zum Beispiel `backend.yml` mit Lint und Unit-Tests, Coverage, der Job `lighthouse` (Bundle-Budget und Lighthouse CI) oder die Security-Scans) laufen pfadgefiltert und sind beratend; sie blockieren den Merge nicht.
 
 ---
 
@@ -80,7 +80,7 @@ Manche Prüfungen laufen an mehr als einer Stelle. Das ist Absicht und kein Vers
 | Duplikation | Warum sie bleibt |
 |-------------|------------------|
 | `static` führt ruff und die Steckbrief-Konsistenz aus, obwohl `backend.yml` sie ebenfalls prüft | `static` ist der ungefilterte Pflicht-Lauf. `backend.yml` ist pfadgefiltert und beratend; ohne die Kopie wäre ruff für jede Änderung außerhalb seiner Pfade ungeprüft. Die Kopie kostet Sekunden. Teure Prüfungen (Frontend-ESLint/tsc, mypy-Ratchet) überspringt `static` angekündigt und verweist auf den zuständigen Lauf. |
-| `bundle-budget` und `lighthouse` bauen das Frontend getrennt von `lint-test-build (22)` | Ein gebrochenes Budget soll sichtbar rot werden, ohne den Pflicht-Check zu verändern und damit Automerge zu blockieren. Würden sie den Build übernehmen, müssten sie zudem hinter dem langen Pflicht-Job warten. |
+| Der Job `lighthouse` (Bundle-Budget und Lighthouse CI) baut das Frontend getrennt von `lint-test-build (22)` | Ein gebrochenes Budget soll sichtbar rot werden, ohne den Pflicht-Check zu verändern und damit Automerge zu blockieren. Würde er dessen Build übernehmen, müsste er zudem hinter dem langen Pflicht-Job warten. Innerhalb des Jobs teilen sich die beiden Performance-Gates einen Build. |
 | Die Guard-Tests laufen in `backend-guards.yml` und in `backend.yml` | `backend-guards.yml` liefert zwei Pflicht-Checks und läuft deshalb auf jedem Push. `backend.yml` ist pfadgefiltert, misst aber die Coverage über den Code, den diese Tests abdecken, und ist der einzige Ort, an dem die als `advisory` markierten Tests dieser Ordner laufen. Eine Coverage-Zusammenführung über zwei Workflows mit verschiedenen Ereignissen ist nicht trivial. |
 | `deadcode` (knip) ist ein eigener Job neben den CVE- und Lizenz-Gates | Ein dauerhaft roter beratender Lauf würde sein Rot sonst in die CVE- und Lizenz-Gates tragen. |
 | `npm ci` und `uv sync` laufen in mehreren Jobs | Jede Installation sitzt in einem Job, der aus einem der obigen Gründe getrennt bleibt. Alle nutzen den Paket-Cache; Zusammenlegen hieße Jobs zusammenlegen. |
@@ -239,11 +239,11 @@ jobs:
 
 Bei einem Push auf `develop` (nicht bei PRs) wird das fertige `dist/`-Verzeichnis als GitHub Actions Artefakt hochgeladen und für 7 Tage aufbewahrt. Das ermöglicht eine schnelle Inspektion des Build-Ergebnisses ohne lokales Kompilieren.
 
-### Performance-Budgets & CI-Gates (`bundle-budget`, `lighthouse`)
+### Performance-Budgets & CI-Gates (`lighthouse`)
 
-Zusätzlich zu `lint-test-build` laufen im selben Workflow zwei eigenständige Jobs, die die Frontend-Ladeperformance überwachen (interne Referenz: UI-NFR-003). Beide berühren nicht den required Check `static` — ein Verstoß fällt sichtbar auf, blockiert aber nicht den Automerge.
+Zusätzlich zu `lint-test-build` läuft im selben Workflow ein eigenständiger Job, `lighthouse` (Check-Name `Bundle budget and Lighthouse CI`), der die Frontend-Ladeperformance überwacht (interne Referenz: UI-NFR-003). Er baut das Frontend einmal und führt über diesem Build zwei Gates aus. Der Job ist kein Pflicht-Check — ein Verstoß fällt sichtbar auf, blockiert aber nicht den Automerge. Lighthouse läuft auch dann, wenn das Bundle-Budget gebrochen ist, sodass beide Ergebnisse im selben Lauf vorliegen.
 
-**`bundle-budget` — hartes Gate.** Der Job baut das Frontend und prüft danach mit `npm run bundle:check` (Skript `scripts/check-bundle-budget.mjs`) das initiale JavaScript- und CSS-Bundle sowie den dedizierten `/dashboard`-Route-Chunk gegen die Budgets in `bundle-budget.json`:
+**Bundle-Budget — hartes Gate.** Nach dem Build prüft der Job mit `npm run bundle:check` (Skript `scripts/check-bundle-budget.mjs`) das initiale JavaScript- und CSS-Bundle sowie den dedizierten `/dashboard`-Route-Chunk gegen die Budgets in `bundle-budget.json`:
 
 | Prüfung | Budget (gzip) | Gemessener IST-Wert |
 |---|---|---|
@@ -263,7 +263,7 @@ Der Job läuft nur bei Pull Requests, die das Frontend ändern (dieselbe Erkennu
     npm run bundle:check
     ```
 
-**`lighthouse` — Report-only.** Der Job führt `npm run lhci` (Lighthouse CI, mobile Emulation mit gedrosseltem 4G-Netzwerk) gegen den gebauten `dist/`-Ordner aus und prüft die Core-Web-Vitals-Schwellenwerte aus UI-NFR-003 (First Contentful Paint < 1,5 s, Largest Contentful Paint < 2,5 s, Time to Interactive < 3,5 s, Cumulative Layout Shift < 0,1, Total Blocking Time < 200 ms) sowie den Performance- und Accessibility-Score (≥ 0,9). Alle Assertions in `lighthouserc.json` sind auf `warn`-Stufe konfiguriert — der Job blockiert den Build also nicht, macht Regressionen aber im Report sichtbar. Der vollständige Bericht wird als Artefakt `lighthouse-report` hochgeladen.
+**Lighthouse — überwiegend Report-only.** Danach führt der Job `npm run lhci` (Lighthouse CI, mobile Emulation mit gedrosseltem 4G-Netzwerk) gegen den gebauten `dist/`-Ordner aus und prüft die Core-Web-Vitals-Schwellenwerte aus UI-NFR-003 (First Contentful Paint < 1,5 s, Largest Contentful Paint < 2,5 s, Time to Interactive < 3,5 s, Cumulative Layout Shift < 0,1, Total Blocking Time < 200 ms) sowie den Performance-Score (≥ 0,9) und den Accessibility-Score. Die Performance-Assertions in `lighthouserc.json` stehen auf `warn`-Stufe und machen Regressionen nur im Report sichtbar. Der Accessibility-Score steht auf `error`-Stufe mit einer Untergrenze von 0,98: Fällt er darunter, wird der Job rot. Der vollständige Bericht wird als Artefakt `lighthouse-report` hochgeladen.
 
 ---
 
