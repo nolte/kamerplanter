@@ -1,7 +1,7 @@
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 import structlog
 from arango.cursor import Cursor
@@ -127,14 +127,7 @@ def _contains_parent_id(site_key: str, parent_location_key: str) -> str | None:
     return None
 
 
-class _AqlRunner(Protocol):
-    """Anything that runs AQL: the database for a plain read, a stream transaction inside a write."""
-
-    @property
-    def aql(self) -> Any: ...
-
-
-def owning_site_keys(runner: _AqlRunner, location_ids: Sequence[str]) -> dict[str, str]:
+def owning_site_keys(runner: StandardDatabase | StreamTransaction, location_ids: Sequence[str]) -> dict[str, str]:
     """The site each of *location_ids* belongs to — its own ``site_key``, else the nearest ancestor's (#2561, D1).
 
     The field decides (operator decision D1): a location naming a site belongs to it. A nested location written
@@ -156,8 +149,10 @@ def owning_site_keys(runner: _AqlRunner, location_ids: Sequence[str]) -> dict[st
     seen: dict[str, set[str]] = {doc_id: set() for doc_id in location_ids}
     while pending:
         rows = list(
-            runner.aql.execute(
-                """
+            cast(
+                "Cursor",
+                runner.aql.execute(
+                    """
                 FOR v IN @vertices
                     LET d = DOCUMENT(v)
                     LET own = IS_SAME_COLLECTION(@sites_name, v) ? PARSE_IDENTIFIER(v).key : (d.site_key || "")
@@ -167,11 +162,12 @@ def owning_site_keys(runner: _AqlRunner, location_ids: Sequence[str]) -> dict[st
                         parents: own != "" ? [] : (FOR e IN @@contains FILTER e._to == v RETURN e._from)
                     }
                 """,
-                bind_vars={
-                    "vertices": sorted(set(pending.values())),
-                    "@contains": col.CONTAINS,
-                    "sites_name": col.SITES,
-                },
+                    bind_vars={
+                        "vertices": sorted(set(pending.values())),
+                        "@contains": col.CONTAINS,
+                        "sites_name": col.SITES,
+                    },
+                ),
             )
         )
         by_vertex = {row["vertex"]: row for row in rows}
@@ -465,7 +461,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             )
 
     @staticmethod
-    def _location_ids_of_site(txn: _AqlRunner, key: SiteKey) -> list[str]:
+    def _location_ids_of_site(txn: StandardDatabase | StreamTransaction, key: SiteKey) -> list[str]:
         """The site's locations at every depth — **the** definition, read by the tree view and the delete (#2561).
 
         The location's ``site_key`` decides which site it belongs to (operator decision D1, #2561): every location
@@ -476,15 +472,20 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         """
         named = [
             str(doc_id)
-            for doc_id in txn.aql.execute(
-                "FOR l IN @@locations FILTER l.site_key == @site_key RETURN l._id",
-                bind_vars={"@locations": col.LOCATIONS, "site_key": key},
+            for doc_id in cast(
+                "Cursor",
+                txn.aql.execute(
+                    "FOR l IN @@locations FILTER l.site_key == @site_key RETURN l._id",
+                    bind_vars={"@locations": col.LOCATIONS, "site_key": key},
+                ),
             )
         ]
         return ArangoSiteRepository._contains_closure(txn, f"{col.SITES}/{key}", named, site_key=key)
 
     @staticmethod
-    def _contains_closure(txn: _AqlRunner, root_id: str, location_ids: Sequence[str], *, site_key: str) -> list[str]:
+    def _contains_closure(
+        txn: StandardDatabase | StreamTransaction, root_id: str, location_ids: Sequence[str], *, site_key: str
+    ) -> list[str]:
         """*location_ids* plus every location the ``contains`` tree reaches below *root_id* or any of them.
 
         Walked level by level until no new location appears — no depth limit, and the seen set ends the walk on a
@@ -501,20 +502,23 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         while frontier:
             children = [
                 str(doc_id)
-                for doc_id in txn.aql.execute(
-                    """
+                for doc_id in cast(
+                    "Cursor",
+                    txn.aql.execute(
+                        """
                     FOR e IN @@contains
                         FILTER e._from IN @parents AND IS_SAME_COLLECTION(@locations, e._to)
                         LET l = DOCUMENT(e._to)
                         FILTER l != null AND (l.site_key == null OR l.site_key == "" OR l.site_key == @site_key)
                         RETURN DISTINCT e._to
                     """,
-                    bind_vars={
-                        "@contains": col.CONTAINS,
-                        "parents": frontier,
-                        "locations": col.LOCATIONS,
-                        "site_key": site_key,
-                    },
+                        bind_vars={
+                            "@contains": col.CONTAINS,
+                            "parents": frontier,
+                            "locations": col.LOCATIONS,
+                            "site_key": site_key,
+                        },
+                    ),
                 )
             ]
             frontier = [doc_id for doc_id in children if doc_id not in seen]

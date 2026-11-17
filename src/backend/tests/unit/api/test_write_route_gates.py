@@ -408,6 +408,13 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
                 # tombstone above.
                 "module-level query write _RECORD in app.data_access.arango.storage_release_retry_repository"
                 "::ArangoStorageReleaseRetryRepository.owe_release",
+                # #2560/#2561 — ``ArangoPlantInstanceRepository.delete`` removes the instance and cuts every
+                # derived edge in one stream transaction (``graph_edges.remove_edges``) instead of going through
+                # the base primitives. Reached only through the detector's ``.delete`` name fallback on the
+                # untyped redis pipeline in ``RedisOAuthStateStore.get_and_delete``, like the deletes above.
+                "txn.collection(col.PLANT_INSTANCES).delete() in app.data_access.arango.plant_instance_repository"
+                "::ArangoPlantInstanceRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.graph_edges::remove_edges",
                 "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
                 "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
                 "self.collection.update() in app.data_access.arango.base_repository"
