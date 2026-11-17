@@ -2,9 +2,13 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # Vendored third-party skills (.agents/, pinned by hash in
+      # skills-lock.json) stay byte-identical to upstream.
       - id: end-of-file-fixer
+        exclude: ^\.agents/
       - id: trailing-whitespace
         args: ['--markdown-linebreak-ext=md']
+        exclude: ^\.agents/
       - id: check-yaml
         args: ['--allow-multiple-documents', '--unsafe']
         exclude: ^helm/
