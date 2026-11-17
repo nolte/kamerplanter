@@ -323,3 +323,86 @@ status: proposed
 Editierbare Startvorlagen für Zimmerpflanzen, Balkon, Gemüsegarten, Gewächshaus und Hydrokultur auf Basis von R-21, nur mit funktionierenden Widgets und echten Daten.
 
 <!-- Herkunft: Epic #2502 Workstream 6, aus dem ersten Release ausgegliedert (Betreiberentscheid 2026-11-17). -->
+
+### R-23 — Plant Social Welle 1: Ereignisindex und Pflanzen-Timeline
+
+```yaml
+id: R-23
+title: Plant Social Welle 1 — Ereignisindex und Pflanzen-Timeline
+detail: fine
+outcomes: [O-1, O-2]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Jede Pflanze bekommt eine Timeline: eine chronologische Sicht auf alles, was
+mit ihr passiert ist — Tagebuch, Gießen, Düngen, Phasenwechsel, Fotos,
+Ernte — mit Herkunftskennzeichen (Mensch, Kamerplanter, Sensor, Import …).
+Ein Ereignisindex sammelt die Ereignisse aus ihren Quellen, ohne einen
+zweiten Erfassungsweg; der Bestand wird nachgetragen. Die Timeline ist ohne
+jede Social-Funktion nützlich und die Grundlage für Profil (R-24) und
+Mastodon (R-25). Grundlage: REQ-055 v1.5 §10, §11, §37 Welle 1.
+
+- [ ] F-25 — Ereignis-Recorder und Anbindungs-Inventar (`plant-event-recorder`)
+- [ ] F-26 — Nachtragen und Abgleich des Ereignisindex (`plant-event-backfill`)
+- [ ] F-27 — Timeline-Tab an der Pflanze (`plant-timeline-tab`)
+
+<!-- Herkunft: #2140/#2141 (MT-047/MT-048) → Betreiberentscheid 2026-11-16 „mit REQ-055
+umsetzen"; roadmap-plan 2026-11-17. Anforderungs-Gate: Operator-Override 2026-11-17 —
+Grundlage ist REQ-055 v1.5 (alle offenen Punkte O-01…O-20 entschieden, Security- und
+Casual-User-Review eingearbeitet); kein project/requirements-Artefakt. -->
+
+### R-24 — Plant Social Welle 2: öffentliches Pflanzenprofil und Link
+
+```yaml
+id: R-24
+title: Plant Social Welle 2 — öffentliches Pflanzenprofil und Link
+detail: coarse
+outcomes: [O-1, O-7]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Pflanzen erhalten eine optionale Identität mit öffentlichem Profil unter
+`/p/{slug}` bzw. einem teilbaren Link — ohne Provider; enthält die
+Allowlist-Projektion aus #2141 (MT-048), opake Medien-URLs mit EXIF-Invariante
+und die Änderung der Sichtbarkeit je Ereignis (PS-EVT-005, aus R-23 verschoben) (REQ-055 §37 Welle 2; die feldgenaue DSGVO-Einbindung der Ereignisse ist nach R-23 vorgezogen).
+
+<!-- Herkunft: REQ-055 §37 Welle 2; #2141 Teil Projektion. Promotion auf fine via roadmap-refine. -->
+
+### R-25 — Plant Social Welle 3: Mastodon (MVP komplett)
+
+```yaml
+id: R-25
+title: Plant Social Welle 3 — Mastodon-Anbindung (MVP komplett)
+detail: coarse
+outcomes: [O-1, O-7]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Verknüpfung mit Mastodon (OAuth mit Sitzungsbindung), manuelle und
+automatische Posts aus Ereignissen mit Freigabe, Limits und Kill-Switch;
+enthält den mandanteneigenen Credential-Store aus #2140 (MT-047) sowie
+Outbound-Budget und Guard aus #2141 (MT-048) (REQ-055 §37 Welle 3).
+
+<!-- Herkunft: REQ-055 §37 Welle 3; #2140, #2141 Teil Budget/Guard. Promotion auf fine via roadmap-refine. -->
+
+### R-26 — Plant Social Wellen 3b–6: Komfort, Sensoren, KI, Ausbau
+
+```yaml
+id: R-26
+title: Plant Social Wellen 3b–6 — Komfort, Sensor-Ereignisse, KI, Ausbau
+detail: backlog
+outcomes: [O-1]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Profil-Sync, Statistiken, Atom-Feed, weitere Fediverse-Server, Sensor-Ereignisse, KI-Texte und Ausbau gemäß REQ-055 §37 Wellen 3b–6.
+
+<!-- Herkunft: REQ-055 §37 Wellen 3b–6. -->
